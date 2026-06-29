@@ -1,6 +1,6 @@
 {
   "agenticSwarmMonitor": {
-    "dependencies": "dependencies",
-    "priority": "优先级"
+    "dependencies": "Dependencies",
+    "priority": "Priority"
   }
 }

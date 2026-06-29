@@ -1,17 +1,41 @@
 {
   "distributionTeam": {
-    "commission": "佣金",
-    "inviteTime": "inviteTime",
-    "noMembers": "noMembers",
-    "orderCount": "orderCount",
-    "searchPlaceholder": "请输入搜索内容",
-    "subtitle": "副标题",
-    "tabActive": "tabActive",
-    "tabAll": "tabAll",
-    "tabInactive": "tabInactive",
-    "title": "标题",
-    "totalCommission": "totalCommission",
-    "totalMembers": "totalMembers",
-    "transactionVolume": "transactionVolume"
+    "핵심 장점": "분할판매팀",
+    "sub핵심 장점": "관리귀하의팀멤버",
+    "searchPlaceholder": "검색팀멤버",
+    "totalMembers": "합계Members",
+    "totalCommission": "합계커미션",
+    "noMembers": "없음Members",
+    "transactionVolume": "거래량",
+    "commission": "커미션",
+    "orderCount": "순서카운트",
+    "inviteTime": "무효viteTime",
+    "tabAll": "Tab모든",
+    "tabActive": "Tab활동",
+    "tabInactive": "Tab비활동",
+    "title": "분할판매팀",
+    "subtitle": "관리귀하의팀멤버",
+    "tabs": {
+      "all": "모든멤버",
+      "direct": "직접 멤버",
+      "indirect": "할멤버"
+    },
+    "stats": {
+      "totalMembers": "총멤버역량：{count}",
+      "totalCommission": "총 커미션"
+    },
+    "member": {
+      "nickname": "닉네임",
+      "userId": "생각사용게ID",
+      "level": "등",
+      "orders": "주의문역량",
+      "commission": "커미션",
+      "joinTime": "참여시간",
+      "status": "상태"
+    },
+    "status": {
+      "active": "활성",
+      "inactive": "비활성"
+    }
   }
 }

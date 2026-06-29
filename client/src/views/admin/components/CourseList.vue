@@ -32,7 +32,7 @@
     </template>
 
     <template #col-cover="{ row }">
-      <el-image :src="row.cover" class="course-cover" fit="cover" />
+      <el-image :src="row.cover" style="width: 80px; height: 45px" fit="cover" />
     </template>
 
     <template #col-category="{ row }">
@@ -144,11 +144,6 @@ onMounted(() => fetchCourses())
 </script>
 
 <style scoped>
-.course-cover {
-  width: 80px;
-  height: 45px;
-}
-
 .price { font-weight: 600; color: var(--el-color-danger); }
 .free { color: var(--el-color-success); }
 </style>

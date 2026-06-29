@@ -1,9 +1,9 @@
 {
   "p19AgentsList": {
-    "answerTitle": "答案 标题",
-    "call": "电话",
-    "calls": "调用次数",
+    "title": "P19 智能体",
+    "calls": "调用",
     "rating": "评分",
-    "title": "标题"
+    "call": "调用",
+    "answerTitle": "智能体回答"
   }
 }

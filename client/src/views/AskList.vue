@@ -9,7 +9,7 @@
     </div>
 
     <div class="filter-bar">
-      <input v-model="keyword" class="search-input" :placeholder="t('askList.searchPlaceholder')" @keydown.enter="handleSearch" />
+      <input v-model="keyword" class="search-input" placeholder="搜索问题..." @keydown.enter="handleSearch" />
       <select v-model="cid" class="filter-select" @change="loadList">
         <option value="">{{ t('askList.allCategories') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
@@ -53,23 +53,12 @@
       </ul>
     </div>
 
-    <el-dialog v-model="askDialog" :title="t('askList.askQuestion')" width="520px">
-      <div class="ask-form">
-        <label class="form-label">{{ t('askList.title') }}</label>
-        <input v-model="newQ.title" class="form-input" :placeholder="t('askList.titlePlaceholder')" />
-        <label class="form-label">{{ t('askList.content') }}</label>
-        <textarea v-model="newQ.content" class="form-textarea" rows="5" :placeholder="t('askList.contentPlaceholder')" />
-        <label class="form-label">{{ t('askList.category') }}</label>
-        <select v-model="newQ.cid" class="form-input">
-          <option value="">{{ t('askList.selectCategory') }}</option>
-          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-      </div>
-      <template #footer>
-        <el-button @click="askDialog = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleAsk">{{ t('common.submit') }}</el-button>
-      </template>
-    </el-dialog>
+    <Edit
+      v-model:visible="askDialog"
+      :categories="categories"
+      :loading="submitting"
+      @submit="handleAsk"
+    />
   </div>
 </template>
 
@@ -80,19 +69,28 @@ const { t } = useI18n()
 import { useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { askApi } from '@/api/ask'
+import type { AskCategory } from '@/api/ask'
+import Edit from './ask/Edit.vue'
+
+interface AskSubmitPayload {
+  title: string
+  content: string
+  cid_list: number[]
+  tags: string[]
+  id?: number
+}
 
 const router = useRouter()
 const toast = useToast()
 const loading = ref(false)
 const loadError = ref('')
-const questions = ref<any[]>([])
-const categories = ref<any[]>([])
+const questions = ref<unknown[]>([])
+const categories = ref<AskCategory[]>([])
 const keyword = ref('')
 const cid = ref<number | ''>('')
 const orderBy = ref('create_time')
 const askDialog = ref(false)
 const submitting = ref(false)
-const newQ = ref({ title: '', content: '', cid: '' as number | '' })
 
 function formatTime(time: string) {
   if (!time) return ''
@@ -103,7 +101,7 @@ async function loadList() {
   loading.value = true
   loadError.value = ''
   try {
-    const params: any = { page: 1, limit: 30 }
+    const params: { page: number; limit: number; keyword?: string; cid?: number; order_column?: string } = { page: 1, limit: 30 }
     if (keyword.value) params.keyword = keyword.value
     if (cid.value) params.cid = Number(cid.value)
     if (orderBy.value) params.order_column = orderBy.value
@@ -135,25 +133,22 @@ function goDetail(id: number) {
   router.push(`/ask/${id}`)
 }
 
-async function handleAsk() {
-  if (!newQ.value.title.trim() || !newQ.value.content.trim()) {
-    toast.error(t('common.messages.titleContentRequired'))
-    return
-  }
+async function handleAsk(payload: AskSubmitPayload) {
   submitting.value = true
   try {
-    const data: any = {
-      title: newQ.value.title,
-      content: newQ.value.content,
+    const data: { title: string; content: string; cid_list?: number[]; tags?: string[] } = {
+      title: payload.title,
+      content: payload.content,
     }
-    if (newQ.value.cid) data.cid_list = [Number(newQ.value.cid)]
+    if (payload.cid_list.length) data.cid_list = payload.cid_list
+    if (payload.tags.length) data.tags = payload.tags
     await askApi.create(data)
-    toast.success(t('common.messages.askSuccess'))
+    toast.success('提问成功')
     askDialog.value = false
-    newQ.value = { title: '', content: '', cid: '' }
     loadList()
-  } catch (e: any) {
-    toast.error(e?.response?.data?.message || '提交失败')
+  } catch (e) {
+    const err = e as { response?: { data?: { message?: string } } }
+    toast.error(err?.response?.data?.message || '提交失败')
   } finally {
     submitting.value = false
   }
@@ -331,35 +326,5 @@ onMounted(() => {
 .empty-icon {
   font-size: 40px;
   margin-bottom: 12px;
-}
-
-.ask-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 0;
-}
-
-.form-label {
-  font-size: 13px;
-  color: $text-main;
-}
-
-.form-input,
-.form-textarea {
-  padding: 8px 12px;
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  font-size: 14px;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  outline: none;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-  border-color: $brand-primary;
 }
 </style>

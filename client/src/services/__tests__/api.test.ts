@@ -6,20 +6,9 @@ vi.mock('@/utils/request', () => ({
 }))
 
 vi.mock('@/config/backend-paths', () => ({
-  COZE_PATHS: {
-    index: { resources: (t: string) => `/coze/index/${t}` },
-    // 2026-06-25 修复#Q: 补全 api-white-list.ts 顶层引用的字段, 避免导入失败
-    agents: { list: '/coze/agents/list' },
-    aiModelInfo: { list: '/coze/ai-model-info/list' },
-    cache: { agentCategoryDict: { categories: '/coze/cache/category-dict/categories' } },
-  },
+  COZE_PATHS: { index: { resources: (t: string) => `/coze/index/${t}` } },
   COZE_PREFIX: '/coze',
   LOGIN_PWD_PATHS: { refreshToken: '/auth/login/pwd/refresh' },
-}))
-
-vi.mock('@/utils/mock-data', () => ({
-  MOCK_USER_UUID: 'mock-uuid',
-  MOCK_USER_BASIC_INFO: { nickname: 'm', phone: '138', avatar: '/a.png' },
 }))
 
 vi.mock('@/utils/logger', () => ({
@@ -33,6 +22,7 @@ vi.mock('@/utils/storage', () => ({
     removeItem: vi.fn(),
   },
   STORAGE_KEYS: { USER_DATA: 'u', USER_TOKEN: 'ut', REFRESH_TOKEN: 'rt', TOKEN: 't' },
+  TokenStorage: { getToken: vi.fn(() => 'test-token'), setToken: vi.fn(), getRefreshToken: vi.fn(() => null) },
 }))
 
 vi.mock('@/config/error-codes', () => ({
@@ -63,13 +53,13 @@ describe('services/api', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // 默认 mock fetch 成功
-    ;(globalThis as any).fetch = vi.fn(() =>
+    ;(globalThis as Record<string, unknown>).fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ code: 200, data: { rows: [], total: 0 } }),
       })
-    ) as any
+    )
   })
 
   it('getStoredData 默认返回空对象', () => {
@@ -79,7 +69,7 @@ describe('services/api', () => {
   })
 
   it('getStoredData 解析失败清理', () => {
-    ;(StorageManager.getItem as any)
+    ;(StorageManager.getItem as unknown as ReturnType<typeof vi.fn>)
       .mockImplementationOnce(() => { throw new Error('parse fail') })
     const r = getStoredData()
     // 解析失败后应返回空对象，且 removeItem 被调用清理
@@ -88,9 +78,9 @@ describe('services/api', () => {
   })
 
   it('getStoredData 解析失败清理失败', () => {
-    ;(StorageManager.getItem as any)
+    ;(StorageManager.getItem as unknown as ReturnType<typeof vi.fn>)
       .mockImplementationOnce(() => { throw new Error('parse fail') })
-    ;(StorageManager.removeItem as any).mockImplementationOnce(() => { throw new Error('clean fail') })
+    ;(StorageManager.removeItem as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => { throw new Error('clean fail') })
     const r = getStoredData()
     // 即使清理失败也应返回空对象，不抛异常
     expect(r).toEqual({})
@@ -118,29 +108,29 @@ describe('services/api', () => {
   })
 
   it('request /users/ HTTP 错误返回 mock', async () => {
-    ;(globalThis as any).fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })) as any
+    ;(globalThis as Record<string, unknown>).fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) }))
     const r = await request({ url: '/auth/users/list' })
     expect(r.code).toBe(200)
   })
 
   it('request /users/ 网络错误返回 mock', async () => {
-    ;(globalThis as any).fetch = vi.fn(() => Promise.reject(new Error('net'))) as any
+    ;(globalThis as Record<string, unknown>).fetch = vi.fn(() => Promise.reject(new Error('net')))
     const r = await request({ url: '/auth/users/list' })
     expect(r.code).toBe(200)
   })
 
   it('request token 过期刷新重试', async () => {
-    ;(isTokenExpired as any).mockReturnValue(true)
-    ;(globalThis as any).fetch = vi.fn(() =>
+    ;(isTokenExpired as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    ;(globalThis as Record<string, unknown>).fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ code: 401, data: {} }),
       })
-    ) as any
+    )
     // 第二次 fetch 走 refresh
     let i = 0
-    ;(globalThis as any).fetch = vi.fn(() => {
+    ;(globalThis as Record<string, unknown>).fetch = vi.fn(() => {
       i++
       if (i === 1) {
         return Promise.resolve({
@@ -154,8 +144,8 @@ describe('services/api', () => {
         status: 200,
         json: () => Promise.resolve({ code: 200, data: { ok: true } }),
       })
-    }) as any
-    try { await request({ url: '/test' }) } catch { /* noop */ }
+    })
+    try { await request({ url: '/test' }) } catch (e) {}
   })
 
   it('getUserInfo', async () => {

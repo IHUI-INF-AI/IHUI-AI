@@ -7,19 +7,31 @@
     "tabs": {
       "all": "すべての注文",
       "pending": "支払い待ち",
+      "processing": "処理中",
       "completed": "完了",
       "cancelled": "キャンセル済み",
       "shipping": "配送中",
       "refunded": "返金済み"
     },
+    "order": {
+      "orderId": "注文ID",
+      "productName": "商品名",
+      "amount": "金額",
+      "status": "ステータス",
+      "createTime": "作成時間",
+      "payTime": "支払い時間",
+      "actions": "操作"
+    },
     "status": {
       "pending": "支払い待ち",
+      "processing": "処理中",
       "completed": "完了",
       "cancelled": "キャンセル済み",
       "refunded": "返金済み",
       "paid": "支払済み"
     },
     "actions": {
+      "viewDetails": "詳細を表示",
       "cancel": "注文をキャンセル",
       "pay": "今すぐ支払う",
       "refund": "返金",
@@ -34,9 +46,11 @@
     },
     "labels": {
       "orderId": "注文ID",
+      "orderType": "注文タイプ",
       "amount": "金額",
       "status": "ステータス",
       "createTime": "作成時間",
+      "actions": "操作",
       "payTime": "支払い時間",
       "productName": "商品名",
       "productType": "商品タイプ",
@@ -53,7 +67,8 @@
       "title": "注文詳細",
       "orderInfo": "注文情報",
       "productInfo": "商品情報",
-      "paymentInfo": "支払い情報"
+      "paymentInfo": "支払い情報",
+      "shippingInfo": "配送情報"
     },
     "productType": {
       "vip": "VIP",

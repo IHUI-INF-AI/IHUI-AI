@@ -2,6 +2,12 @@
   "message": {
     "searchPlaceholder": {
       "announcement": "Search announcements"
+    },
+    "label": {
+      "title": "Title",
+      "category": "Category",
+      "time": "Time",
+      "actions": "Actions"
     }
   }
 }

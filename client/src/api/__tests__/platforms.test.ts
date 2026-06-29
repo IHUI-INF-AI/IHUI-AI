@@ -13,7 +13,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../platform/platforms'
+import * as api from '../platforms'
 
 describe('platforms', () => {
   beforeEach(() => {

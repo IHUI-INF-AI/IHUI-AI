@@ -1,17 +1,39 @@
 {
   "distributionTeam": {
-    "commission": "佣金",
-    "inviteTime": "inviteTime",
-    "noMembers": "noMembers",
-    "orderCount": "orderCount",
-    "searchPlaceholder": "请输入搜索内容",
-    "subtitle": "副标题",
-    "tabActive": "tabActive",
-    "tabAll": "tabAll",
-    "tabInactive": "tabInactive",
-    "title": "标题",
-    "totalCommission": "totalCommission",
-    "totalMembers": "totalMembers",
-    "transactionVolume": "transactionVolume"
+    "title": "Distribution Team",
+    "subtitle": "Manage your team members",
+    "searchPlaceholder": "Search team members",
+    "member": {
+      "Status": "Status",
+      "nickname": "Nickname",
+      "userId": "User ID",
+      "level": "Level",
+      "orders": "Orders",
+      "commission": "Commission",
+      "joinTime": "Join Time"
+    },
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "totalMembers": "Total Members",
+    "totalCommission": "Total Commission",
+    "noMembers": "No Members",
+    "transactionVolume": "Transaction Volume",
+    "commission": "Commission",
+    "orderCount": "Order Count",
+    "inviteTime": "Invite Time",
+    "tabAll": "Tab All",
+    "tabActive": "Tab Active",
+    "tabInactive": "Tab Inactive",
+    "tabs": {
+      "all": "All Members",
+      "direct": "Direct Members",
+      "indirect": "Indirect Members"
+    },
+    "stats": {
+      "totalMembers": "Total Members: {count}",
+      "totalCommission": "Total Commission"
+    }
   }
 }

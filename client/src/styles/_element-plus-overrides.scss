@@ -13,20 +13,27 @@
 :where(.el-select__wrapper) {
   border-radius: var(--global-border-radius);
   min-height: 44px;
-  background: var(--el-bg-color);
+  // 关键:带 var() 的简写不展开为长写子属性,必须用长写才能参与 cascade 竞争
+  background-color: var(--el-bg-color);
 }
 
 :where(.el-textarea .el-textarea__wrapper),
 :where(.el-textarea__wrapper) {
   border-radius: var(--global-border-radius);
   min-height: 44px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--border-unified-color);
+  background-color: var(--el-bg-color);
+  // 关键:带 var() 的简写不展开,必须用长写才能覆盖 base 层 * { border: 0 } 的 border-width
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border-unified-color);
 }
 
 :where(.el-textarea__inner) {
   border-radius: var(--global-border-radius);
-  border: 1px solid var(--border-unified-color);
+  // 关键:带 var() 的简写不展开,必须用长写
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border-unified-color);
   box-shadow: none;
 }
 
@@ -58,24 +65,25 @@
   border-radius: var(--global-border-radius);
   border-color: var(--dropdown-border-color);
   color: var(--el-text-color-regular);
-  background: var(--el-bg-color);
+  // 关键:带 var() 的简写不展开,用长写
+  background-color: var(--el-bg-color);
 
   &.el-tag--success {
-    color: var(--el-color-success-dark-2);
-    border-color: rgba(var(--el-color-success-rgb), 0.16);
-    background: rgba(var(--el-color-success-rgb), 0.08);
+    color: var(--color-green-15803d);
+    border-color: var(--color-green-15803d-16);
+    background-color: var(--color-green-15803d-08);
   }
 
   &.el-tag--warning {
-    color: var(--el-color-warning-dark-2);
-    border-color: rgba(var(--el-color-warning-rgb), 0.16);
-    background: rgba(var(--el-color-warning-rgb), 0.08);
+    color: var(--color-amber-b45309);
+    border-color: var(--color-amber-b45309-16);
+    background-color: var(--color-amber-b45309-08);
   }
 
   &.el-tag--danger {
-    color: var(--el-color-danger-dark-2);
-    border-color: rgba(var(--el-color-danger-rgb), 0.16);
-    background: rgba(var(--el-color-danger-rgb), 0.08);
+    color: var(--color-red-b91c1c);
+    border-color: var(--color-red-b91c1c-16);
+    background-color: var(--color-red-b91c1c-08);
   }
 }
 
@@ -85,7 +93,10 @@
 
 :where(.el-card) {
   background-color: var(--el-bg-color);
-  border: 1px solid var(--border-unified-color);
+  // 关键:带 var() 的简写不展开,用长写
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border-unified-color);
   border-radius: var(--global-border-radius);
   transition: background-color 0.3s ease;
 
@@ -175,25 +186,34 @@
 // ============================================
 
 :where(.el-pagination .el-pager li) {
-  border: var(--el-border-width-primary) solid var(--border-unified-color);
+  // 关键:带 var() 的简写不展开,用长写
+  border-width: var(--el-border-width-primary);
+  border-style: solid;
+  border-color: var(--border-unified-color);
   border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
+  background-color: var(--el-bg-color);
   color: var(--el-text-color-regular);
   min-width: 32px;
   height: 32px;
 }
 
 :where(.el-pagination .el-pager li.is-active) {
-  background: var(--el-color-primary);
-  color: var(--el-button-text-color);
-  border: var(--el-border-width-primary) solid var(--el-color-primary);
+  background-color: var(--el-color-primary);
+  color: var(--el-color-white);
+  // 关键:带 var() 的简写不展开,用长写
+  border-width: var(--el-border-width-primary);
+  border-style: solid;
+  border-color: var(--el-color-primary);
 }
 
 :where(.el-pagination .btn-prev),
 :where(.el-pagination .btn-next) {
-  border: var(--el-border-width-primary) solid var(--border-unified-color);
+  // 关键:带 var() 的简写不展开,用长写
+  border-width: var(--el-border-width-primary);
+  border-style: solid;
+  border-color: var(--border-unified-color);
   border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
+  background-color: var(--el-bg-color);
   color: var(--el-text-color-regular);
   height: 32px;
 }
@@ -216,24 +236,8 @@
 }
 
 // ============================================
-// 消息提示组件
+// 消息提示组件 —— 已迁移到 _el-message-global.scss 统一管理
 // ============================================
-
-:where(.el-message) {
-  min-width: 300px;
-  border-radius: var(--global-border-radius);
-  padding: 14px 18px;
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  background: var(--color-white-98);
-  border: 1px solid var(--border-unified-color);
-}
-
-:where(.el-message__content) {
-  color: var(--el-text-color-primary);
-  font-size: 14px;
-  font-weight: 500;
-}
 
 // ============================================
 // 表格组件
@@ -271,7 +275,10 @@
 
 :where(.el-dropdown-menu) {
   background-color: var(--el-bg-color);
-  border: 1px solid var(--dropdown-border-color);
+  // 关键:带 var() 的简写不展开,必须用长写才能覆盖 base 层 * { border: 0 } 的 border-width
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--dropdown-border-color);
   border-radius: var(--global-border-radius);
   box-shadow: none;
 }
@@ -313,7 +320,10 @@
 :where(.el-notification) {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  border: 1px solid var(--dropdown-border-color);
+  // 关键:带 var() 的简写不展开,用长写
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--dropdown-border-color);
 }
 
 :where(.el-notification__title) {
@@ -325,14 +335,17 @@
 // ============================================
 
 :where(.el-popper.is-dark) {
-  background: var(--el-bg-color);
-  border: 1px solid var(--border-unified-color);
+  // 关键:带 var() 的简写不展开,用长写
+  background-color: var(--el-bg-color);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border-unified-color);
   border-radius: var(--global-border-radius);
   color: var(--el-text-color-primary);
 }
 
 :where(.el-popper.is-dark .el-popper__arrow::before) {
-  background: var(--el-bg-color);
+  background-color: var(--el-bg-color);
   border-color: var(--border-unified-color);
 }
 
@@ -355,7 +368,7 @@
 // 暗色模式覆盖
 // ============================================
 
-:where(html.dark) {
+html.dark {
   :where(.el-input__wrapper),
   :where(.el-input__wrapper.is-focus),
   :where(.el-select .el-select__wrapper),
@@ -380,27 +393,24 @@
     }
   }
 
-  :where(.el-message) {
-    background: var(--color-dark-202228);
-    border-color: var(--border-unified-color);
-  }
-
-  :where(.el-message__content) {
-    color: var(--color-text-light);
-  }
+  // .el-message 暗色模式 —— 已迁移到 _el-message-global.scss 统一管理
 
   :where(.el-popper.is-dark) {
-    background: var(--el-text-color-primary);
-    color: var(--el-text-color-secondary);
+    // 关键:带 var() 的简写不展开,用长写
+    background-color: var(--el-text-color-primary);
+    color: var(--color-gray-ededed);
   }
 
   :where(.el-popper.is-dark .el-popper__arrow::before) {
-    background: var(--el-text-color-primary);
+    background-color: var(--el-text-color-primary);
   }
 
   :where(.el-button--primary) {
     background-color: var(--el-color-primary);
-    border: var(--el-border-width-primary) solid var(--el-color-primary);
+    // 关键:带 var() 的简写不展开,用长写
+    border-width: var(--el-border-width-primary);
+    border-style: solid;
+    border-color: var(--el-color-primary);
     color: var(--el-bg-color-page);
 
     span, .el-button__text {

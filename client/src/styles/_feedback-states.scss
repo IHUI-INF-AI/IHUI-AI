@@ -30,7 +30,7 @@
     background-color: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     padding: var(--spacing-xl);
-    gap: var(--spacing-md);
+    gap: 16px;
     border: none;
 
     .loading-text {
@@ -65,7 +65,7 @@
     background-color: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: none;
-    gap: var(--spacing-md);
+    gap: 16px;
 
     .empty-icon {
       font-size: 80px;
@@ -82,7 +82,24 @@
   // 智能圆角容器
   .radius-auto {
     border-radius: var(--global-border-radius);
+    container-type: inline-size;
   }
 
+  @container (min-width: 360px) {
+    .radius-auto {
+      border-radius: var(--global-border-radius);
+    }
+  }
 
+  @container (min-width: 640px) {
+    .radius-auto {
+      border-radius: var(--global-border-radius);
+    }
+  }
+
+  @container (min-width: 960px) {
+    .radius-auto {
+      border-radius: var(--global-border-radius);
+    }
+  }
 }

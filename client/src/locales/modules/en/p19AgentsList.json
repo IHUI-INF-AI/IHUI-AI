@@ -1,9 +1,9 @@
 {
   "p19AgentsList": {
-    "answerTitle": "answerTitle",
-    "call": "call",
-    "calls": "calls",
-    "rating": "rating",
-    "title": "标题"
+    "title": "P19 Agents",
+    "calls": "Calls",
+    "rating": "Rating",
+    "call": "Call",
+    "answerTitle": "Agent Answer"
   }
 }

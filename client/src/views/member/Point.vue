@@ -34,7 +34,7 @@
       </div>
 
       <h3 class="block-title">{{ t('memberPoint.pointDetails') }}</h3>
-      <el-empty v-if="!list.length" :description="t('common.noData')" />
+      <el-empty v-if="!list.length" description="暂无明细" />
       <div v-else class="log-list">
         <div v-for="log in list" :key="log.id" class="log-item">
           <div class="log-info">
@@ -55,8 +55,8 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
-import type { PointLog } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
+import type { PointLog } from '@/api/member'
 
 const { t } = useI18n()
 const account = ref<Record<string, unknown>>({})
@@ -87,7 +87,7 @@ async function handleSign() {
     load()
   } catch (e) {
     console.error(e)
-    ElMessage.error(t('common.errors.signFailed'))
+    ElMessage.error(t('common.errors.checkInFailed'))
   }
 }
 

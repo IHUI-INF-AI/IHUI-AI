@@ -1,8 +1,8 @@
 {
   "learnPaymentConfirm": {
-    "desc": "描述",
-    "startLearn": "startLearn",
-    "title": "标题",
-    "viewMore": "viewMore"
+    "title": "支払い成功",
+    "desc": "コースが有効になりました。今すぐ学習を始めましょう",
+    "startLearn": "学習を始める",
+    "viewMore": "他のコースを見る"
   }
 }

@@ -1,5 +1,5 @@
 {
   "mcpMCPPromptManager": {
-    "invalidServerOrPrompt": "invalidServerOrPrompt"
+    "invalidServerOrPrompt": "サーバーIDまたはプロンプト名が無効"
   }
 }

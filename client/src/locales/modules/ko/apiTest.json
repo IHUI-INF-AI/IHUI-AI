@@ -18,11 +18,11 @@
     "status": "상태",
     "errorInfo": "오류 정보",
     "title": "AI인마음페이스테스트",
-    "chatTest": "chatTest",
-    "compTest": "compTest",
-    "genTest": "genTest",
-    "serviceTest": "serviceTest",
-    "testComplete": "testComplete",
-    "typeTest": "typeTest"
+    "chatTest": "--- 채팅 API 테스트 ---",
+    "genTest": "\n--- 생성 API 테스트 ---",
+    "compTest": "\n--- Composable 테스트 ---",
+    "typeTest": "\n--- 타입 정의 테스트 ---",
+    "serviceTest": "\n--- 서비스 내보내기 테스트 ---",
+    "testComplete": "테스트 완료"
   }
 }

@@ -200,8 +200,8 @@ import {
   updateConversationTitle,
   type Conversation,
   type ChatMessage,
-} from '@/api/chat/chat-history'
-import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
+} from '@/api/chat-history'
+import { getAvailableModels, type AIModelInfo } from '@/api/models'
 import { formatTime } from '@/utils/format'
 import DOMPurify from 'dompurify'
 import { logger } from '@/utils/logger'
@@ -328,7 +328,7 @@ const confirmCreateSession = async () => {
         },
       }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to create conversation:', error)
     const message = error instanceof Error ? error.message : String(error)
     showErrorMsg(message || t('chatHistory.createFailed'))
@@ -383,7 +383,7 @@ const confirmRenameSession = async () => {
         await loadSessions()
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
     showErrorMsg(message || t('chatHistory.renameFailed'))
   }
@@ -427,7 +427,7 @@ const handleExportSession = async () => {
     a.click()
     URL.revokeObjectURL(url)
     showSuccess(t('chatHistory.exportSuccess'))
-  } catch (_error: any) {
+  } catch (_error: unknown) {
     showErrorMsg(t('chatHistory.exportFailed'))
   }
 }
@@ -496,7 +496,7 @@ const loadAvailableModels = async () => {
         model => model.category === 'talk' && model.isAvailable
       )
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const _errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('Failed to load available models:', error)
     showErrorMsg(t('chatHistory.loadModelsFailed'))
@@ -553,7 +553,7 @@ onMounted(async () => {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: all 0.2s;
   position: relative;
 
   &:hover {
@@ -696,7 +696,8 @@ onMounted(async () => {
 .ai-message {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .message-usage {
   margin-top: 8px;

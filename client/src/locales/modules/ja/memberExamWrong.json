@@ -1,14 +1,12 @@
 {
   "memberExamWrong": {
-    "analysis": "analysis",
-    "correctAnswer": "correctAnswer",
-    "empty": "empty",
-    "enterExam": "enterExam",
-    "master": "master",
-    "masteredFailed": "masteredFailed",
-    "masteredSuccess": "masteredSuccess",
-    "myAnswer": "myAnswer",
-    "notAnswered": "notAnswered",
-    "title": "标题"
+    "title": "間違いノート",
+    "empty": "間違いなし",
+    "remove": "削除",
+    "myAnswer": "私の回答: ",
+    "notAnswered": "未回答",
+    "correctAnswer": "正解: ",
+    "analysis": "解説: ",
+    "removed": "削除済み"
   }
 }

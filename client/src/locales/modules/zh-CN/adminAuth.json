@@ -3,6 +3,14 @@
     "searchPlaceholder": {
       "authority": "搜索权限",
       "role": "搜索角色"
+    },
+    "label": {
+      "permissionName": "权限名称",
+      "permissionCode": "权限代码",
+      "roleName": "角色名称",
+      "roleCode": "角色代码",
+      "memberCount": "成员数",
+      "actions": "操作"
     }
   }
 }

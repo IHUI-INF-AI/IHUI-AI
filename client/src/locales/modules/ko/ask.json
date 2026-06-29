@@ -3,6 +3,10 @@
     "searchPlaceholder": {
       "category": "카테고리 검색",
       "question": "질문 검색"
+    },
+    "label": {
+      "categoryName": "카테고리명",
+      "actions": "작업"
     }
   }
 }

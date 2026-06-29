@@ -1,5 +1,5 @@
 {
   "mcpMCPQuickCall": {
-    "invalidServerOrTool": "格式不正确 服务器 或 工具"
+    "invalidServerOrTool": "服务器ID或工具名称无效"
   }
 }

@@ -10,7 +10,8 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useCleanup } from '@/composables/useCleanup'
-import { clearAllData, deleteAccount } from '@/api/system/settings'
+import { useLoginDialog } from '@/composables/useLoginDialog'
+import { clearAllData, deleteAccount } from '@/api/settings'
 
 /**
  * useSettingsDanger 配置选项
@@ -33,6 +34,7 @@ export function useSettingsDanger(options: UseSettingsDangerOptions = {}) {
   const { t } = useI18n()
   const { handleResult } = useOperationFeedback()
   const cleanup = useCleanup()
+  const loginDialog = useLoginDialog()
 
   // 对话框状态
   const showClearDataDialog = ref(false)
@@ -59,7 +61,7 @@ export function useSettingsDanger(options: UseSettingsDangerOptions = {}) {
           onClearSuccess()
         }
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         // 类型断言处理错误对象
         const errorObj = error as { response?: { status?: number } }
         if (errorObj.response?.status === 403) {
@@ -92,16 +94,20 @@ export function useSettingsDanger(options: UseSettingsDangerOptions = {}) {
       successMessage: t('user.messages.settings.accountDeletionSuccess'),
       errorMessage: t('user.messages.settings.accountDeletionFailed'),
       onSuccess: () => {
-        // 延迟跳转，让用户看到成功消息
+        // 延迟弹窗，让用户看到成功消息
+        // 改用登录弹窗代替硬跳转 /login, 避免整页刷新 (与 request.ts 统一策略)
+        // 注: 账户已删除, 弹窗让用户重新注册或登录
         cleanup.addTimer(() => {
-          window.location.href = '/login'
+          if (!loginDialog.visible.value) {
+            loginDialog.open('login')
+          }
         }, 2000)
 
         if (onDeleteSuccess) {
           onDeleteSuccess()
         }
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         // 类型断言处理错误对象
         const errorObj = error as { response?: { status?: number } }
         if (errorObj.response?.status === 400) {

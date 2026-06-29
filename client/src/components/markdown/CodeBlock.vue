@@ -200,7 +200,7 @@ const toggleLineNumbers = () => {
 }
 
 // 暗色模式支持
-:where(html.dark) {
+html.dark {
   .code-block-content {
     background-color: var(--el-fill-color-darker);
 

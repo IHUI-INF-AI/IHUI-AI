@@ -48,18 +48,18 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('settlement.settlementList') }}</span>
-          <div class="card-header-actions">
+          <div style="display: flex; gap: 10px">
             <el-input
               v-model="searchKeyword"
               :placeholder="t('settlement.searchPlaceholder')"
-              class="search-input"
+              style="width: 240px"
               clearable
               @input="debouncedLoadSettlements"
             />
             <el-select
               v-model="filterSettlement"
               @change="loadSettlements"
-              class="filter-select"
+              style="width: 120px"
               clearable
             >
               <el-option :label="t('settlement.allStatus')" value="" />
@@ -83,7 +83,7 @@
         <el-table-column prop="order_no" :label="t('settlement.orderNo')" min-width="150" />
         <el-table-column :label="t('settlement.amount')" width="120">
           <template #default="{ row }">
-            <span class="amount-text">
+            <span style="color: var(--el-color-primary); font-weight: bold">
               ¥{{ ((row.amount || 0) / 100).toFixed(2) }}
             </span>
           </template>
@@ -123,7 +123,9 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-wrapper">
+      <div
+        style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center"
+      >
         <el-button :disabled="selectedRows.length === 0" @click="handleBatchDelete">
           {{ t('settlement.batchDelete') }} ({{ selectedRows.length }})
         </el-button>
@@ -194,7 +196,7 @@
             :placeholder="t('settlement.selectStartDate')"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
-            class="full-width"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item :label="t('settlement.endDate')">
@@ -204,7 +206,7 @@
             :placeholder="t('settlement.selectEndDate')"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
-            class="full-width"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item :label="t('settlement.developerUuid')">
@@ -243,7 +245,7 @@ import {
   syncExistingToSettlement,
   type AgentSettlement,
   type SettlementOverview,
-} from '@/api/agent/agent-settlement'
+} from '@/api/agent-settlement'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime as _formatTime } from '@/utils/format'
 
@@ -281,12 +283,12 @@ const syncForm = reactive({
 })
 
 // 防抖函数
-const debounce = <T extends (...args: any[]) => unknown>(
+const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
   let timeout: ReturnType<typeof setTimeout> | null = null
-  return function (this: any, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const context = this
     if (timeout) clearTimeout(timeout)
@@ -318,7 +320,7 @@ const loadSettlements = async () => {
       }
       showErrorMsg(errorMsg)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('settlement.loadFailed')
     pageError.value = {
@@ -357,7 +359,7 @@ const handleViewDetail = async (settlement: AgentSettlement) => {
       currentSettlement.value = response.data as AgentSettlement
       showDetailDialog.value = true
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     showErrorMsg(
       (error instanceof Error ? error.message : String(error)) || t('settlement.loadDetailFailed')
     )
@@ -429,7 +431,7 @@ const handleSync = async () => {
         },
       }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     showErrorMsg(
       (error instanceof Error ? error.message : String(error)) || t('settlement.syncFailed')
     )
@@ -468,7 +470,7 @@ onMounted(() => {
 
       .stat-value {
         font-size: 24px;
-        font-weight: 700;
+        font-weight: bold;
         margin-bottom: 8px;
 
         &.primary {
@@ -501,35 +503,6 @@ onMounted(() => {
 
   .settlement-detail {
     // 样式
-  }
-
-  .card-header-actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .search-input {
-    width: 240px;
-  }
-
-  .filter-select {
-    width: 120px;
-  }
-
-  .amount-text {
-    color: var(--el-color-primary);
-    font-weight: 700;
-  }
-
-  .pagination-wrapper {
-    margin-top: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .full-width {
-    width: 100%;
   }
 }
 </style>

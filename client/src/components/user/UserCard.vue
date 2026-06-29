@@ -19,6 +19,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import type { Component } from 'vue'
 import { Document, OfficeBuilding, Coin, Wallet } from '@element-plus/icons-vue'
 
 defineOptions({
@@ -31,7 +32,7 @@ interface ActionItem {
   key: string
   title: string
   desc: string
-  icon: any
+  icon: Component | Record<string, unknown>
   route: string
 }
 
@@ -88,13 +89,14 @@ function handleClick(key: string) {
   background: var(--el-fill-color-lighter);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.3s;
+  transition: all 0.3s;
 }
 
 .action-card:hover {
   background: var(--el-fill-color-light);
-  
-  }
+  transform: translateY(-2px);
+  box-shadow: var(--global-box-shadow);
+}
 
 .action-icon {
   width: 56px;

@@ -1,16 +1,17 @@
 {
   "notification": {
-    "allRead": "allRead",
-    "center": "center",
-    "empty": "empty",
-    "loadAbnormal": "loadAbnormal",
-    "markAllReadFailed": "markAllReadFailed",
-    "markAllReadSuccess": "markAllReadSuccess",
-    "markReadFailed": "markReadFailed",
-    "messages": "messages",
-    "operationFailed": "operationFailed",
-    "title": "标题",
-    "viewAll": "viewAll",
-    "viewUserCenter": "viewUserCenter"
+    "핵심 장점": "알림",
+    "center": "메시지 센마음",
+    "messages": "메시지",
+    "viewUserCenter": "생각사용게 센마음 보기",
+    "empty": "알림 없음",
+    "allRead": "모두 읽음으로 표시",
+    "viewAll": "모두 보기",
+    "markAllReadSuccess": "모두 읽음으로 표시했습니다",
+    "markAllReadFailed": "읽음 표시 실패",
+    "markReadFailed": "읽음 표시 실패",
+    "operationFailed": "작업 실패",
+    "loadAbnormal": "로드 이상",
+    "title": "알림"
   }
 }

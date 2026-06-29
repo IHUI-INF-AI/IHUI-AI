@@ -1,0 +1,35 @@
+{
+  "promptOptimizer": {
+    "analysis": {
+      "addMoreDetails": "더 많은 세부 설명 추가",
+      "addQuality": "HD, 4K 등 품질 설명자 추가",
+      "addScene": "장면 또는 배경 설명 추가",
+      "addStyle": "실사, 애니메이션 등 스타일 설명 추가",
+      "addSubject": "주체를 명확히",
+      "promptTooLong": "프롬프트가 너무 김, 모델 제한 초과 가능성",
+      "promptTooShort": "프롬프트가 너무 짧음, 정보 부족",
+      "simplifyDescription": "설명을 간소화하고 핵심 강조",
+      "videoMissingAction": "비디오 프롬프트에 동작 설명 누락",
+      "videoNeedsAction": "비디오 프롬프트에 동작 설명 포함 필요"
+    },
+    "prompt": {
+      "outputChinese": "중국어로 출력해 주세요",
+      "outputEnglish": "영어로 출력해 주세요",
+      "principle4Image": "이미지 프롬프트는 구도, 조명, 디테일에 집중해야 함",
+      "principle4Video": "비디오 프롬프트는 명확한 동작 설명과 시간 순서를 포함해야 함",
+      "recommendedQuality": "추천 품질 키워드",
+      "recommendedStyle": "추천 스타일 키워드",
+      "system": "당신은 전문 {typeLabel} 프롬프트 최적화 전문가이며 {modelName} 모델 특징에 정통합니다.\n\n최적화 원칙:\n1. 프롬프트를 간결하게, {maxLength}자 이내\n2. 주체, 장면, 스타일, 품질 등 핵심 요소 강조\n3. 모델이 더 잘 이해하는 키워드 사용\n4. {principle4}\n{stylePart}{qualityPart}\n출력 요구사항:\n{outputLang}\n최적화된 프롬프트만 직접 출력하고 추가 설명은 하지 마세요.",
+      "userPrompt": "다음 {typeLabel} 프롬프트를 최적화해 주세요:\n\n원본 프롬프트:\n{prompt}\n\n문제점:\n{issues}\n\n최적화 제안:\n{suggestions}\n\n위 분석을 바탕으로 최적화된 프롬프트를 출력해 주세요."
+    },
+    "quickEnhance": {
+      "naturalMotion": "자연스럽고 유려한 동작",
+      "styleSuffix": "스타일"
+    },
+    "typeLabel": {
+      "content": "콘텐츠",
+      "image": "이미지",
+      "video": "비디오"
+    }
+  }
+}

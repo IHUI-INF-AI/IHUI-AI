@@ -1,17 +1,17 @@
 {
   "learnPayment": {
-    "alipay": "支付宝",
-    "amountDue": "金额 due",
-    "balance": "余额",
     "breadcrumbCourse": "课程",
-    "breadcrumbPay": "breadcrumb 支付",
-    "notExist": "不存在",
+    "breadcrumbPay": "支付",
+    "notExist": "订单不存在",
+    "scanTip": "请使用{type}扫码支付",
     "orderDetail": "订单详情",
-    "orderId": "订单 ID",
-    "payMethod": "支付方式",
-    "paySuccess": "支付成功",
-    "scanTip": "scan Tip",
-    "simulatePay": "simulate 支付",
-    "wechat": "微信"
+    "orderId": "订单号：",
+    "payMethod": "支付方式：",
+    "amountDue": "应付金额：",
+    "simulatePay": "模拟支付完成",
+    "wechat": "微信",
+    "balance": "余额",
+    "alipay": "支付宝",
+    "paySuccess": "支付成功"
   }
 }

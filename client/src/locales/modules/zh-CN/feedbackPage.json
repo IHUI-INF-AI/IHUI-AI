@@ -1,7 +1,7 @@
 {
   "feedbackPage": {
-    "backToSubmit": "返回 到 提交",
-    "contact": "联系我们",
-    "noRecords": "暂无记录"
+    "noRecords": "暂无反馈记录",
+    "contact": "联系人",
+    "backToSubmit": "返回提交"
   }
 }

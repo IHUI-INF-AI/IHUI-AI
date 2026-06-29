@@ -20,43 +20,27 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed } from 'vue'
 import { formatMoney } from '@/utils/format'
-import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
-const darkModeStore = useDarkModeStore()
 
-// 读取 CSS 变量值,data URL 中的 SVG 无法直接使用 CSS 变量,需通过 JS 注入
-const getCssVar = (name: string): string => {
-  if (typeof document === 'undefined') return ''
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
-
-// 占位图根据暗色模式动态生成,适配暗色模式
-const defaultCover = computed(() => {
-  const isDark = darkModeStore.isDarkMode
-  const bgColor = getCssVar('--el-bg-color') || (isDark ? '#1a1a1a' : '#f0f2f5')
-  const textColor = getCssVar('--el-text-color-secondary') || (isDark ? '#e5eaf3' : '#909399')
-  return (
-    'data:image/svg+xml;utf8,' +
-    encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">' +
-        `<rect width="320" height="180" fill="${bgColor}"/>` +
-        `<text x="160" y="95" text-anchor="middle" fill="${textColor}" font-size="14" font-family="sans-serif">${t('module.courseCover')}</text>` +
-        '</svg>'
-    )
+const defaultCover =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">' +
+      '<rect width="320" height="180" fill="#f0f2f5"/>' +
+      '<text x="160" y="95" text-anchor="middle" fill="#909399" font-size="14" font-family="sans-serif">课程封面</text>' +
+      '</svg>'
   )
-})
 
 withDefaults(
-  defineProps<{ item: any; link?: string }>(),
+  defineProps<{ item: Record<string, unknown>; link?: string }>(),
   { link: '/learn/detail' }
 )
 
 function formatPrice(p: number | undefined): string {
   const v = p || 0
-  return v === 0 ? t('module.free') : `¥${formatMoney(v)}`
+  return v === 0 ? '免费' : `¥${formatMoney(v)}`
 }
 </script>
 
@@ -70,6 +54,10 @@ function formatPrice(p: number | undefined): string {
   border-radius: var(--global-border-radius);
   overflow: hidden;
   height: 100%;
+
+  &:hover {
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 :where(.card-image) {

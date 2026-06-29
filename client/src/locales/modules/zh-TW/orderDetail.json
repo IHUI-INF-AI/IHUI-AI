@@ -28,6 +28,7 @@
     "cancelOrderConfirm": "確定要取消此訂單嗎？",
     "cancelOrderTitle": "取消訂單",
     "orderCancelled": "訂單已取消",
+    "invoiceDownloadInDevelopment": "發票下載功能開發中",
     "applyRefund": "申請退款",
     "refundReasonPlaceholder": "請輸入退款原因（必填，至少5個字符）",
     "refundReasonRequired": "退款原因不能為空",
@@ -38,5 +39,6 @@
     "invoiceOnlyForCompletedOrders": "發票僅適用於已完成的訂單",
     "invoiceDownloadSuccess": "發票下載成功",
     "invoiceDownloadFailed": "發票下載失敗"
-  }
+  },
+  "OrderDetail": {}
 }

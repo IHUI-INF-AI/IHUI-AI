@@ -7,18 +7,18 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getI18nGlobal } from '@/locales'
 import { useMCP, type MCPCallResult } from './useMCP'
-import type { MCPTool } from '@/api/tools/mcp'
+import type { MCPTool } from '@/api/mcp'
 
 // 工具调用上下文
 interface ToolCallContext {
   userMessage: string
   conversationHistory?: Array<{ role: string; content: string }>
-  currentData?: any
+  currentData?: unknown
 }
 
 // 智能工具匹配结果
 interface ToolMatch {
-  tool: { server: { id: string; name: string; [key: string]: any }; tool: MCPTool }
+  tool: { server: { id: string; name: string; [key: string]: unknown }; tool: MCPTool }
   confidence: number
   extractedParams?: Record<string, unknown>
   reason: string
@@ -77,7 +77,7 @@ export function useMCPIntegration() {
             paramSchema as {
               type?: string
               description?: string
-              enum?: any[]
+              enum?: unknown[]
               format?: string
             }
           )
@@ -99,7 +99,7 @@ export function useMCPIntegration() {
             server: toolItem.server as unknown as {
               id: string
               name: string
-              [key: string]: any
+              [key: string]: unknown
             },
             tool: toolItem.tool,
           },
@@ -298,8 +298,8 @@ function extractKeywords(text: string): string[] {
 function extractParameter(
   message: string,
   paramName: string,
-  paramSchema: { type?: string; description?: string; enum?: any[]; format?: string }
-): any {
+  paramSchema: { type?: string; description?: string; enum?: unknown[]; format?: string }
+): unknown {
   const lowerMessage = message.toLowerCase()
   const lowerParamName = paramName.toLowerCase()
 
@@ -356,7 +356,7 @@ function extractParameter(
 /**
  * 解析值
  */
-function parseValue(value: string, schema: { type?: string; enum?: any[] }): any {
+function parseValue(value: string, schema: { type?: string; enum?: unknown[] }): unknown {
   if (schema.type === 'number' || schema.type === 'integer') {
     const num = parseFloat(value)
     return isNaN(num) ? undefined : num

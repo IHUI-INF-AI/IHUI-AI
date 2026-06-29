@@ -1,12 +1,12 @@
 {
   "adminExamAnswerDetail": {
-    "correctAnswer": "correctAnswer",
-    "markComment": "markComment",
-    "markScore": "markScore",
-    "notAnswered": "notAnswered",
-    "notExist": "notExist",
-    "points": "积分",
-    "title": "标题",
-    "userAnswer": "userAnswer"
+    "title": "Answer Detail",
+    "minutes": "minutes",
+    "answerDetail": "Answer Detail",
+    "points": "points",
+    "userAnswer": "User Answer: ",
+    "notAnswered": "Not Answered",
+    "correctAnswer": "Correct Answer: ",
+    "notExist": "Answer not exist"
   }
 }

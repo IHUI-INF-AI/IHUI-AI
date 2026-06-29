@@ -73,9 +73,9 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDebounceFn } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
-import { searchMemory, getMemoryContext, saveMemory as apiSaveMemory, clearMemory } from '@/api/tools/openclaw'
+import { searchMemory, getMemoryContext, saveMemory as apiSaveMemory, clearMemory } from '@/api/openclaw'
 import { getApiErrorMessage } from './utils'
-import type { Memory, MemoryContext } from '@/api/tools/openclaw'
+import type { Memory, MemoryContext } from '@/api/openclaw'
 
 const { t } = useI18n()
 

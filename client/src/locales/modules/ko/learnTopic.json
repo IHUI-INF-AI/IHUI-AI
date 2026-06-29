@@ -1,8 +1,8 @@
 {
   "learnTopic": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbTopic": "breadcrumbTopic",
-    "learnCount": "learnCount",
-    "noTopics": "noTopics"
+    "noTopics": "토픽 없음",
+    "learnCount": "명 학습 중",
+    "breadcrumbCourse": "과정",
+    "breadcrumbTopic": "토픽 과정"
   }
 }

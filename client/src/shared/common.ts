@@ -38,7 +38,7 @@ export interface ErrorResponse {
 export interface OperationResult {
   success: boolean
   message?: string
-  data?: any
+  data?: unknown
 }
 
 export interface CreateParams<T = unknown> {

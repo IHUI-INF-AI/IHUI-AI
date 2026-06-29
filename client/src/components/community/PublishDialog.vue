@@ -51,7 +51,6 @@
               v-if="form.type === 'image'"
               :src="form.contentUrl"
               class="preview-image"
-              alt="预览图片"
               @error="handlePreviewError"
               loading="lazy"
             />
@@ -212,7 +211,7 @@ import {
   Image, VideoPlay, Headphones, Music, Document, Code,
   Upload, Close, Link
 } from '@/lib/lucide-fallback'
-import { publishCreation, getHotTags, type ContentType, type AISource, type PublishCreationParams } from '@/api/ai/ai-community'
+import { publishCreation, getHotTags, type ContentType, type AISource, type PublishCreationParams } from '@/api/ai-community'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 
 interface Props {
@@ -522,7 +521,7 @@ onMounted(() => {
       border-radius: var(--global-border-radius);
       background: var(--el-bg-color);
       cursor: pointer;
-      transition: border-color 0.2s, background-color 0.2s;
+      transition: all 0.2s;
 
       .el-icon {
         font-size: 24px;
@@ -657,7 +656,7 @@ onMounted(() => {
 
     .hot-tag {
       cursor: pointer;
-      transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+      transition: all 0.2s;
 
       &:hover {
         background: var(--el-color-primary-light-8);

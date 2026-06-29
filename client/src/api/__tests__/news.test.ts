@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../content/news'
+import * as api from '../news'
 
 describe('news', () => {
   beforeEach(() => {

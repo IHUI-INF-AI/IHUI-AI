@@ -4,6 +4,7 @@ import { t } from '@/utils/i18n'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import { logger } from '@/utils/logger'
 import { StorageManager } from '@/utils/storage'
 
@@ -161,7 +162,9 @@ export function useUserAuth() {
     StorageManager.removeItem('auth_token')
     StorageManager.removeItem('user_info')
     showSuccess(t('auth.logoutSuccess'))
-    void router.push('/login')
+    // 弹窗形式：跳首页 + 弹出登录弹窗，不再跳 /login 路由
+    useLoginDialog().open('login')
+    void router.push('/').catch(() => {})
   }
 
   return {

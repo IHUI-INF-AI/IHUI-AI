@@ -1,0 +1,40 @@
+{
+  "adminFeedbackManagement": {
+    "actions": {
+      "export": "导出记录"
+    },
+    "search": {
+      "status": "反馈状态",
+      "statusPlaceholder": "请选择反馈状态",
+      "statusPending": "待处理",
+      "statusProcessing": "处理中",
+      "statusResolved": "已解决",
+      "statusClosed": "已关闭"
+    },
+    "table": {
+      "status": "状态"
+    },
+    "dialog": {},
+    "form": {},
+    "messages": {
+      "exportNoData": "没有可导出的数据",
+      "exportSuccess": "反馈列表导出成功",
+      "exportFailed": "导出失败"
+    },
+    "feedbackList": {
+      "status": "状态"
+    },
+    "type": {},
+    "status": {
+      "pending": "待处理",
+      "processing": "处理中",
+      "resolved": "已解决",
+      "closed": "已关闭"
+    },
+    "exportFormatPrompt": "请选择导出格式",
+    "export": "导出",
+    "exportCSV": "导出CSV",
+    "exportExcel": "导出Excel",
+    "exportPDF": "导出PDF"
+  }
+}

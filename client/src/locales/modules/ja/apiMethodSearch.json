@@ -1,14 +1,14 @@
 {
   "apiMethodSearch": {
-    "actions": "actions",
-    "apiPath": "apiPath",
-    "copied": "copied",
-    "copyFailed": "copyFailed",
-    "copyMethodName": "copyMethodName",
-    "description": "描述",
-    "loadFailed": "loadFailed",
-    "methodName": "methodName",
-    "noMatch": "noMatch",
-    "searchPlaceholder": "请输入搜索内容"
+    "searchPlaceholder": "検索ご入力",
+    "methodName": "メソッド名前",
+    "apiPath": "ApiPath",
+    "description": "説明",
+    "actions": "操作",
+    "copyMethodName": "コピー方法名前",
+    "noMatch": "なしMatch",
+    "copied": "Copied",
+    "copyFailed": "copy失敗",
+    "loadFailed": "読み込み失敗"
   }
 }

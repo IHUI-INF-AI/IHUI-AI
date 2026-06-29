@@ -1,22 +1,44 @@
 {
   "commonText": {
-    "add": "添加",
-    "delete": "删除",
-    "failed": "失败",
-    "fileTypes": {
-      "audio": "音频",
-      "image": "图片",
-      "video": "视频"
-    },
-    "noData": "暂无数据",
+    "view": "보기",
+    "delete": "삭제",
+    "add": "추가",
+    "noData": "데이마음 없음",
+    "success": "성공",
+    "failed": "실패",
     "status": {
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "pending": "待处理",
-      "processing": "处理中",
-      "refunded": "refunded"
+      "completed": "완료",
+      "pending": "대기 중",
+      "processing": "처리 중",
+      "cancelled": "취소됨",
+      "refunded": "환불됨",
+      "failed": "실패"
     },
-    "success": "成功",
-    "view": "查看"
+    "fileTypes": {
+      "audio": "Audio",
+      "image": "Image",
+      "video": "Video"
+    },
+    "edit": "편집",
+    "cancel": "취소",
+    "confirm": "확인",
+    "save": "저장",
+    "search": "검색",
+    "reset": "초기화",
+    "remove": "제거",
+    "download": "다운로드",
+    "upload": "업로드",
+    "copy": "복생각",
+    "print": "인쇄",
+    "share": "공유",
+    "back": "백엔드로",
+    "next": "다음",
+    "previous": "이전",
+    "submit": "제출",
+    "close": "닫기",
+    "loading": "로딩 중...",
+    "noRecords": "기이것은 없음",
+    "enabled": "활성화",
+    "disabled": "비활성화"
   }
 }

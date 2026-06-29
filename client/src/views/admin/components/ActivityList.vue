@@ -76,7 +76,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import AdminListPage from '@/components/admin/AdminListPage.vue'
 import type { TableColumn } from '@/components/admin/AdminListPage.vue'
-import { getAdminActivities, type AdminActivity } from '@/api/admin/admin-activities'
+import { getAdminActivities, type AdminActivity } from '@/api/admin-activities'
 
 const { t } = useI18n()
 
@@ -145,7 +145,7 @@ const handleSizeChange = (size: number) => {
   fetchActivities()
 }
 
-const handleSelectionChange = (_rows: any[]) => {
+const handleSelectionChange = (_rows: unknown[]) => {
   // 选中处理
 }
 
@@ -161,7 +161,7 @@ onMounted(() => {
 
 <style scoped>
 .ip-text {
-  font-family: var(--font-family-mono);
+  font-family: monospace;
   font-size: 12px;
 }
 </style>

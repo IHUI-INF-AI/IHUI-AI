@@ -129,7 +129,7 @@ const handleAdd = () => { /* 新增Webhook */ }
 const handleSearch = (_keyword: string) => { fetchWebhooks() }
 const handlePageChange = (page: number) => { currentPage.value = page; fetchWebhooks() }
 const handleSizeChange = (size: number) => { pageSize.value = size; fetchWebhooks() }
-const toggleStatus = (_webhook: Webhook, _val: boolean) => { /* 切换状态 */ }
+const toggleStatus = (_webhook: Webhook, _val: boolean) => { /* 切换状�?*/ }
 const testWebhook = (_webhook: Webhook) => { /* 测试Webhook */ }
 const editWebhook = (_webhook: Webhook) => { /* 编辑Webhook */ }
 const viewLogs = (_webhook: Webhook) => { /* 查看日志 */ }
@@ -145,7 +145,7 @@ onMounted(() => fetchWebhooks())
   white-space: nowrap;
   display: block;
   max-width: 250px;
-  font-family: var(--font-family-mono);
+  font-family: monospace;
   font-size: 12px;
 }
 .text-muted { color: var(--el-text-color-placeholder); }

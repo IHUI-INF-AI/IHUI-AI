@@ -58,7 +58,7 @@ export function saveSession(session: SessionData): void {
 /**
  * 更新会话数据
  */
-export function updateSessionData(key: string, value: any): void {
+export function updateSessionData(key: string, value: unknown): void {
   const session = getSession()
   if (session) {
     session.data[key] = value

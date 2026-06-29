@@ -1,6 +1,6 @@
 {
   "confirmPurchasePopUp": {
-    "payNow": "payNow",
-    "userAgreement": "用户协议"
+    "payNow": "立即支付 {amount} 元",
+    "userAgreement": "使用者協議"
   }
 }

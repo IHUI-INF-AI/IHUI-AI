@@ -173,7 +173,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getRefundList, cancelRefund, type RefundRecord } from '@/api/payment/refund'
+import { getRefundList, cancelRefund, type RefundRecord } from '@/api/refund'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
@@ -218,7 +218,7 @@ const loadRefunds = async (_showLoading = false) => {
   }))
 
   if (data !== null && typeof data === 'object') {
-    const listData = data as { list?: any[]; pagination?: { total?: number } }
+    const listData = data as { list?: unknown[]; pagination?: { total?: number } }
     refunds.value = (listData.list || []) as RefundRecord[]
     pagination.value.total = listData.pagination?.total || 0
   }
@@ -389,7 +389,7 @@ onMounted(() => {
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover {
       background: var(--el-fill-color-light);

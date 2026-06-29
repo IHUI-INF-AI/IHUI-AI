@@ -51,7 +51,7 @@ export function useFileUpload() {
       } else {
         throw new Error(response.message || '上传失败')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : t('api.use_file_upload.上传失败')
       ElMessage.error(errorMessage)
       throw error
@@ -80,7 +80,7 @@ export function useFileUpload() {
       } else {
         throw new Error(response.message || '上传失败')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : t('api.use_file_upload.上传失败1')
       ElMessage.error(errorMessage)
       throw error
@@ -131,7 +131,7 @@ export function useFileUpload() {
         return response.data
       }
       throw new Error(response.message || '上传失败')
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : t('api.use_file_upload.上传失败2')
       ElMessage.error(errorMessage)
       throw error

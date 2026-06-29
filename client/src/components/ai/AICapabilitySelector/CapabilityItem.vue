@@ -145,14 +145,15 @@ const resolvedIconUrl = computed(() => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   &:hover {
     background: hsl(var(--muted) / 0.5);
     border-color: hsl(var(--border));
-    
-    }
+    transform: translateY(-1px);
+    box-shadow: var(--global-box-shadow);
+  }
 
   &--selected {
     background: hsl(var(--primary) / 0.06);
@@ -306,7 +307,8 @@ const resolvedIconUrl = computed(() => {
 
     &:focus-visible {
       outline: 2px solid hsl(var(--primary) / 0.2);
-      outline-offset: 1px;
+      outline-offset: 2px;
+      box-shadow: none;
     }
   }
 
@@ -321,7 +323,7 @@ const resolvedIconUrl = computed(() => {
     padding: 2px 8px;
     font-size: 12px;
     font-weight: 500;
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
     background: hsl(var(--muted));
     color: hsl(var(--muted-foreground));
     letter-spacing: 0.01em;

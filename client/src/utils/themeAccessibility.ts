@@ -7,8 +7,8 @@ type SpeechRecognitionLike = {
   continuous: boolean
   interimResults: boolean
   lang: string
-  onresult: ((event: any) => void) | null
-  onerror: ((event: any) => void) | null
+  onresult: ((event: unknown) => void) | null
+  onerror: ((event: unknown) => void) | null
   onend: (() => void) | null
 }
 
@@ -180,7 +180,7 @@ class ThemeAccessibilityService {
     this.recognition.interimResults = false
     this.recognition.lang = 'zh-CN'
 
-    this.recognition.onresult = (event: any) => {
+    this.recognition.onresult = (event: unknown) => {
       const results = (event as { results: { length: number; [key: number]: { [key: number]: { transcript: string } } } }).results
       const last = results.length - 1
       const transcript = results[last][0].transcript.trim().toLowerCase()
@@ -195,7 +195,7 @@ class ThemeAccessibilityService {
       }
     }
 
-    this.recognition.onerror = (event: any) => {
+    this.recognition.onerror = (event: unknown) => {
       logger.error('Speech recognition error:', (event as { error: string }).error)
       this.isListening = false
     }

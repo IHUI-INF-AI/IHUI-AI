@@ -1,0 +1,8 @@
+{
+  "adminCoursePay": {
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    }
+  }
+}

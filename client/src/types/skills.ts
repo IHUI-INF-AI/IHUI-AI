@@ -13,7 +13,7 @@ export interface SkillMetadata {
   version?: string
   author?: string
   tags?: string[]
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**

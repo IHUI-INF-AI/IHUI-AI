@@ -63,8 +63,7 @@
   background: var(--el-bg-color);
 }
 
-// 暗色模式卡片：使用 :where() 包裹降低特异性
-:where(html.dark) :where(.card-grid) :where(.card-item) {
+html.dark .card-grid .card-item {
   background: var(--el-bg-color);
 }
 
@@ -110,7 +109,7 @@
   }
 }
 
-:where(html.dark) .card-neutral {
+html.dark .card-neutral {
   background-color: var(--el-bg-color);
 
   &:hover {
@@ -172,7 +171,7 @@
   letter-spacing: 0.05em;
   z-index: var(--z-base);
 
-  :where(html.dark) & {
+  html.dark & {
     background: var(--el-bg-color-page);
     color: var(--el-color-primary);
   }

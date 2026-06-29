@@ -18,7 +18,7 @@
 
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import type { InternalAxiosRequestConfig } from 'axios'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { StorageManager, STORAGE_KEYS, TokenStorage } from '@/utils/storage'
 
 /**
  * API 响应基础结构
@@ -105,18 +105,16 @@ export class APIClient {
   }
 
   private getToken(): string | null {
-    // 从 StorageManager 获取 token
+    // 从 TokenStorage 获取 token
     if (typeof window !== 'undefined') {
-      const accessToken = String(StorageManager.getItem(STORAGE_KEYS.ACCESS_TOKEN) || '')
-      const token = String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')
-      return accessToken || token || null
+      return TokenStorage.getToken() || null
     }
     return null
   }
 
   setToken(token: string): void {
     if (typeof window !== 'undefined') {
-      StorageManager.setItem(STORAGE_KEYS.ACCESS_TOKEN, token)
+      TokenStorage.setToken(token)
     }
   }
 
@@ -2497,50 +2495,50 @@ export class APIClient {
   
   /**
    * 修改
-   * @path PUT /api/v1/agents/category-link
+   * @path PUT /category_link
    */
   async edit43(data?: any): Promise<ApiResponse> {
-    return this.client.put(`/api/v1/agents/category-link`, data)
+    return this.client.put(`/category_link`, data)
   }
 
   /**
    * 新增
-   * @path POST /api/v1/agents/category-link
+   * @path POST /category_link
    */
   async add43(data?: any): Promise<ApiResponse> {
-    return this.client.post(`/api/v1/agents/category-link`, data)
+    return this.client.post(`/category_link`, data)
   }
 
   /**
    * 导出
-   * @path POST /api/v1/agents/category-link/export
+   * @path POST /category_link/export
    */
   async export43(params?: {agentCategoryLink: any}, data?: any): Promise<ApiResponse> {
-    return this.client.post(`/api/v1/agents/category-link/export`, data)
+    return this.client.post(`/category_link/export`, data)
   }
 
   /**
    * 详情
-   * @path GET /api/v1/agents/category-link/{id}
+   * @path GET /category_link/{id}
    */
   async getInfo45(id: string | number, _data?: any): Promise<ApiResponse> {
-    return this.client.get(`/api/v1/agents/category-link/${id}`)
+    return this.client.get(`/category_link/${id}`)
   }
 
   /**
    * 列表
-   * @path GET /api/v1/agents/category-link/list
+   * @path GET /category_link/list
    */
   async list43(params?: {agentCategoryLink: any}, _data?: any): Promise<ApiResponse> {
-    return this.client.get(`/api/v1/agents/category-link/list`, { params })
+    return this.client.get(`/category_link/list`, { params })
   }
 
   /**
    * 删除
-   * @path DELETE /api/v1/agents/category-link/{ids}
+   * @path DELETE /category_link/{ids}
    */
   async remove44(ids: string | number, _data?: any): Promise<ApiResponse> {
-    return this.client.delete(`/api/v1/agents/category-link/${ids}`)
+    return this.client.delete(`/category_link/${ids}`)
   }
 
   // ========================================
@@ -3245,15 +3243,6 @@ export class APIClient {
 
   // ========================================
   // 提现明细管理
-  //
-  // 2026-06-25 修复#H: 以下 9 个方法为死代码, 已废弃.
-  //   - 路径 /agentWithdrawalDetail/* (驼峰) 是外部 Java 后端 (若依) 的路由,
-  //     已迁移到 Python 后端 /api/v1/agents/withdrawal/* (修复#A 新前缀).
-  //   - baseURL /ai-program 现代理到 Python 后端, 无 /agentWithdrawalDetail 路由,
-  //     调用会 404.
-  //   - 无业务代码调用 (api/index.ts 导出但无调用方, 业务代码用 core/client.ts).
-  //   - 此文件由脚本自动生成 (无 generate:api-client 脚本), 不手动修改路径.
-  //   - 新代码请用 agent-withdrawal.ts 的 getWithdrawalList/createWithdrawal 等.
   // ========================================
   
   /**

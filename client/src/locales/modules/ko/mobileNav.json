@@ -1,5 +1,9 @@
 {
   "mobileNav": {
-    "bottomNavAriaLabel": "bottomNavAriaLabel"
+    "핵심 장점": "탐색",
+    "close": "닫기",
+    "ariaLabel": "제거동탐색",
+    "bottomNavAriaLabel": "제거동바닥배포탐색",
+    "title": "탐색"
   }
 }

@@ -1,7 +1,7 @@
 {
   "cmpPromptTemplates": {
-    "fillAllFields": "fillAllFields",
-    "templateAdded": "templateAdded",
-    "templateDeleted": "templateDeleted"
+    "fillAllFields": "모든 필드를 작성하세요",
+    "templateAdded": "템플릿 추가됨",
+    "templateDeleted": "템플릿 삭제됨"
   }
 }

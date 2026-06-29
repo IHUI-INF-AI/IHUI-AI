@@ -21,6 +21,7 @@ vi.mock('@/utils/logger', () => ({
 vi.mock('@/utils/storage', () => ({
   StorageManager: { getItem: vi.fn(() => 'token') },
   STORAGE_KEYS: { TOKEN: 't' },
+  TokenStorage: { getToken: vi.fn(() => 'test-token') },
 }))
 
 vi.mock('@/config/backend-paths', () => ({
@@ -28,7 +29,7 @@ vi.mock('@/config/backend-paths', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai/ai-proxy'
+import * as api from '../ai-proxy'
 
 describe('ai-proxy API', () => {
   beforeEach(() => {
@@ -44,7 +45,7 @@ describe('ai-proxy API', () => {
 
   it('getSupportedModels 错误', async () => {
     ;(request.get as any).mockRejectedValue(new Error('fail'))
-    try { await api.getSupportedModels() } catch { /* noop */ }
+    try { await api.getSupportedModels() } catch (e) {}
   })
 
   it('chatCompletions 正常', async () => {
@@ -54,7 +55,7 @@ describe('ai-proxy API', () => {
 
   it('chatCompletions 错误', async () => {
     ;(request.post as any).mockRejectedValue(new Error('fail'))
-    try { await api.chatCompletions({ model: 'm', messages: [] }) } catch { /* noop */ }
+    try { await api.chatCompletions({ model: 'm', messages: [] }) } catch (e) {}
   })
 
   it('chatCompletionsStream 正常', async () => {
@@ -79,7 +80,7 @@ describe('ai-proxy API', () => {
   it('chatCompletionsStream HTTP 错误', async () => {
     ;(globalThis as any).fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500 })) as any
     const onEvent = vi.fn()
-    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch { /* noop */ }
+    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch (e) {}
     expect(onEvent).toHaveBeenCalled()
   })
 
@@ -103,7 +104,7 @@ describe('ai-proxy API', () => {
   it('chatCompletionsStream fetch 失败', async () => {
     ;(globalThis as any).fetch = vi.fn(() => Promise.reject(new Error('fail'))) as any
     const onEvent = vi.fn()
-    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch { /* noop */ }
+    try { await api.chatCompletionsStream({ model: 'm', messages: [] }, onEvent) } catch (e) {}
     expect(onEvent).toHaveBeenCalled()
   })
 })

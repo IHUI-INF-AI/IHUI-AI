@@ -8,7 +8,6 @@
       }
     },
     "login": {
-      "alipayAuth": {},
       "wechatAuth": {}
     },
     "userProfile": {

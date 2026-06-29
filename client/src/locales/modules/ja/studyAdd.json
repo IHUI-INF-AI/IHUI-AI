@@ -1,13 +1,13 @@
 {
   "studyAdd": {
-    "cover": "封面",
-    "desc": "描述",
-    "enterDesc": "enterDesc",
-    "enterTitle": "enterTitle",
-    "publishFirst": "publishFirst",
-    "title": "标题",
-    "uploadCover": "uploadCover",
-    "uploadVideo": "uploadVideo",
-    "videoSynth": "videoSynth"
+    "cover": "カバー",
+    "title": "コースタイトル",
+    "desc": "コース説明",
+    "publishFirst": "先にコレクションを公開",
+    "videoSynth": "ビデオ合成中、後で公開",
+    "uploadCover": "カバーをアップロード",
+    "uploadVideo": "ビデオをアップロード",
+    "enterTitle": "コースタイトルを入力",
+    "enterDesc": "コース説明を入力"
   }
 }

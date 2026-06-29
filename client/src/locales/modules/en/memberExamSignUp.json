@@ -1,17 +1,16 @@
 {
   "memberExamSignUp": {
-    "actions": "actions",
-    "cancelled": "已取消",
-    "completed": "已完成",
-    "duration": "时长",
-    "enterExam": "enterExam",
-    "exam": "考试",
-    "inProgress": "inProgress",
-    "loadFailed": "loadFailed",
-    "noSignUp": "noSignUp",
-    "score": "分数",
-    "startTime": "开始时间",
-    "status": "状态",
-    "title": "标题"
+    "title": "Exam Sign Up",
+    "noSignUp": "No sign ups",
+    "exam": "Exam",
+    "status": "Status",
+    "score": "Score",
+    "duration": "Duration (min)",
+    "startTime": "Start Time",
+    "actions": "Actions",
+    "enterExam": "Enter Exam",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "inProgress": "In Progress"
   }
 }

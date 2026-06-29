@@ -2,37 +2,5 @@
   "Vip": {
     "permanentVip": "/永久會員",
     "oneClickVip": "一鍵開通會員"
-  },
-  "userMembershipBenefits": {
-    "vipPrice": "限時588元/1288元開通VIP/年",
-    "traderPrice": "限時3888元/18888元開通操盤手/年",
-    "benefitName": "權益名稱",
-    "normalUser": "普通用戶",
-    "vip": "VIP",
-    "trader": "操盤手",
-    "upgrade": "立即開通",
-    "benefit1Title": "終身二級分銷收益",
-    "benefit1One": "分享送智匯值",
-    "benefit1Two": "一級分銷10%",
-    "benefit1Three": "一級分銷40%二級分銷10%",
-    "benefit2Title": "獲取上千+智能體源碼",
-    "benefit3Title": "AI應用Coze官方渠道發布",
-    "benefit4Title": "AI應用限免開放",
-    "benefit5Title": "Coze/N8N無縫接入",
-    "benefit6Title": "多對一答疑陪跑",
-    "benefit7Title": "算力值贈送",
-    "benefit7One": "8萬",
-    "benefit7Two": "888萬",
-    "benefit7Three": "1888萬",
-    "benefit8Title": "總部入駐及線下學習實操機會",
-    "benefit9Title": "成立一人公司",
-    "benefit10Title": "定制Agent",
-    "benefit10One": "原價",
-    "benefit10Two": "9.5折",
-    "benefit10Three": "8折",
-    "benefit11Title": "入駐社區服務商名列"
-  },
-  "vipIntroducePopup": {
-    "loading": "載入中"
   }
 }

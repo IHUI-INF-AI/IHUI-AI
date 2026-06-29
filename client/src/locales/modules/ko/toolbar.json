@@ -1,58 +1,66 @@
 {
   "toolbar": {
     "agents": {
-      "title": "标题"
+      "핵심 장점": "독자 개발 AI Agent 앱",
+      "title": "독자 개발 AI Agent 앱"
     },
     "marketing": {
-      "desc": "描述",
-      "title": "标题"
+      "핵심 장점": "운영마케팅콘텐츠생성",
+      "desc": "스마트생성각수마케팅판매콘텐츠，향상운영마케팅효율률",
+      "title": "운영마케팅콘텐츠생성"
     },
     "menu": {
-      "aiTechnicalServices": "aiTechnicalServices",
-      "oneStopEquipment": "oneStopEquipment",
-      "trafficOperation": "trafficOperation"
+      "trafficOperation": "트래픽 운영 마케팅 동행",
+      "oneStopEquipment": "목이것은원스톱방식기기애플사용",
+      "aiTechnicalServices": "AI기타기술서비스"
     },
     "tools": {
       "categories": {
-        "creativeDesign": "creativeDesign"
+        "creativeDesign": "창의디게인"
       },
       "items": {
-        "copy": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "creator": "创建者",
-        "digital": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "edit": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
+        "creator": "시스템관리자",
         "image": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "live": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+          "핵심 장점": "수익생성",
+          "desc": "AI생성고급품질수익",
+          "tag1": "수익",
+          "tag2": "디게인",
+          "title": "수익생성"
         },
         "video": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+          "핵심 장점": "동영상생성",
+          "desc": "AI생성전문동영상",
+          "tag1": "동영상",
+          "tag2": "동그림",
+          "title": "동영상생성"
+        },
+        "copy": {
+          "핵심 장점": "텍사례생성",
+          "desc": "AI스마트텍사례혁신동작",
+          "tag1": "텍사례",
+          "tag2": "작성",
+          "title": "텍사례생성"
+        },
+        "edit": {
+          "핵심 장점": "동영상편집",
+          "desc": "스마트동영상클립보드논리도구",
+          "tag1": "클립보드논리",
+          "tag2": "편집",
+          "title": "동영상편집"
+        },
+        "live": {
+          "핵심 장점": "라이브어시스턴트",
+          "desc": "AI라이브보조지원도구",
+          "tag1": "라이브",
+          "tag2": "상호작사용",
+          "title": "라이브어시스턴트"
+        },
+        "digital": {
+          "핵심 장점": "역량글게게",
+          "desc": "AI역량글게게생성",
+          "tag1": "역량글게게",
+          "tag2": "가상 이미지",
+          "title": "숫게게"
         }
       }
     }

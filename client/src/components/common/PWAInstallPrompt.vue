@@ -56,6 +56,8 @@ const handleDismiss = () => {
   z-index: var(--z-modal);
   max-width: 400px;
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
+
   .prompt-content {
     display: flex;
     align-items: center;

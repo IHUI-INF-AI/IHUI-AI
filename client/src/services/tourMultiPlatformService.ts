@@ -63,7 +63,7 @@ export interface AdaptationCondition {
 export interface TourAdjustment {
   type: 'position' | 'size' | 'animation' | 'content' | 'timing'
   property: string
-  value: any
+  value: unknown
 }
 
 export interface SyncData {

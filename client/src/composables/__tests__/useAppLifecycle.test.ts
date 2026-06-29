@@ -269,7 +269,7 @@ describe('useAppLifecycle', () => {
       expect(mockRouterPush).toHaveBeenCalledWith('/login')
     })
 
-    it('应在 window.showGlobalNotification 存在时调用', () => {
+    it('应用 window.showGlobalNotification 存在时调用', () => {
       const notify = vi.fn()
       ;(window as any).showGlobalNotification = notify
       const lifecycle = useAppLifecycle()
@@ -289,7 +289,7 @@ describe('useAppLifecycle', () => {
   })
 
   describe('open-ai-chat 事件', () => {
-    it('应在 window.openGlobalChat 存在时调用并传 mode', () => {
+    it('应用 window.openGlobalChat 存在时调用并传 mode', () => {
       const open = vi.fn()
       ;(window as any).openGlobalChat = open
       const lifecycle = useAppLifecycle()
@@ -317,7 +317,7 @@ describe('useAppLifecycle', () => {
   })
 
   describe('select-agent 事件', () => {
-    it('应在 window.selectAgent 存在且提供 agent 时调用', () => {
+    it('应用 window.selectAgent 存在且提供 agent 时调用', () => {
       const sel = vi.fn()
       ;(window as any).selectAgent = sel
       const lifecycle = useAppLifecycle()
@@ -346,7 +346,7 @@ describe('useAppLifecycle', () => {
   })
 
   describe('scroll 渐变节流', () => {
-    it('滚动时应在 rAF 中调用 onScrollFade 回调', () => {
+    it('滚动时应用 rAF 中调用 onScrollFade 回调', () => {
       // jsdom 不会自动触发 rAF，改为同步执行
       vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
         cb(0)
@@ -365,7 +365,7 @@ describe('useAppLifecycle', () => {
       vi.unstubAllGlobals()
     })
 
-    it('连续触发滚动时应在 rAF 中合并（不会多次回调）', () => {
+    it('连续触发滚动时应用 rAF 中合并（不会多次回调）', () => {
       // 通过 spy 验证 rAF 只调度一次
       const rafSpy = vi.fn(() => 1)
       vi.stubGlobal('requestAnimationFrame', rafSpy)

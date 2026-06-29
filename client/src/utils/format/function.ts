@@ -1,7 +1,7 @@
 /**
  * 防抖函数
  */
-export function debounce<T extends (...args: any[]) => unknown>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number = 500
 ): (...args: Parameters<T>) => void {
@@ -17,7 +17,7 @@ export function debounce<T extends (...args: any[]) => unknown>(
 /**
  * 节流函数
  */
-export function throttle<T extends (...args: any[]) => unknown>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number = 500
 ): (...args: Parameters<T>) => void {

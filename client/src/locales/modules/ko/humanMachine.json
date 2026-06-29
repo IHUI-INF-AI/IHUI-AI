@@ -1,180 +1,203 @@
 {
   "humanMachine": {
+    "heroTitle": "인간-기계 협업 조직",
+    "heroSub핵심 장점": "부마음물리적이성월드도달정보월드，구축인간-기계협업함께의초기업。도움기업이성이해AI실시간시대의조직아키텍처、프로세스최적화및게스트가치값。",
     "architecture": {
-      "infoWorld": {
-        "description": "描述",
-        "title": "标题"
-      },
       "physicalWorld": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "물리적이성월드",
+        "description": "조직아키텍처、프로세스、텍변환",
+        "title": "물리적 세계"
+      },
+      "infoWorld": {
+        "핵심 장점": "정보월드",
+        "description": "역량글게변환、AI변환、스마트변환",
+        "title": "정보 세계"
       },
       "superEnterprise": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "초기업",
+        "description": "인간-기계협업함께의평생극도형태모달",
+        "title": "초기업"
       }
     },
-    "cta": {
-      "contact": "联系我们",
-      "description": "描述",
-      "learnMore": "learnMore",
-      "title": "标题"
-    },
-    "footer": {
-      "agentScenario": "智能体场景",
-      "contact": "联系我们",
-      "enterprise": "企业"
-    },
-    "heroSubtitle": "heroSubtitle",
-    "heroTitle": "heroTitle",
-    "implementation": {
-      "intro": "intro",
-      "steps": {
-        "assessment": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "optimize": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "pilot": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "planning": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "scale": {
-          "desc": "描述",
-          "title": "标题"
-        }
-      },
-      "title": "标题"
-    },
-    "infoWorld": {
-      "advanced": {
-        "description": "描述",
-        "items": {
-          "agent": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "generative": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "perception": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "physical": {
-            "desc": "描述",
-            "name": "名称"
-          }
-        },
-        "title": "标题"
-      },
-      "basic": {
-        "description": "描述",
-        "items": {
-          "automation": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "informatization": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "iot": {
-            "desc": "描述",
-            "name": "名称"
-          }
-        },
-        "title": "标题"
-      },
-      "evolution": "evolution",
-      "intro": "intro",
-      "title": "标题"
-    },
     "physicalWorld": {
-      "humanValue": {
-        "description": "描述",
-        "title": "标题",
-        "values": {
-          "critical": "critical",
-          "culture": "culture",
-          "humility": "humility",
-          "mission": "mission"
-        }
+      "핵심 장점": "기업물리적이성월드",
+      "intro": "도움기업정리이성조직구조및비즈니스프로세스，위한역량글게직원가격의미선명석의직무및직무책임，함께실시간보호유지통합게스트가치값의팔로우。",
+      "structure": {
+        "핵심 장점": "조직아키텍처",
+        "description": "정리이성기업조직구조，가격의미게수AI와의협업닫기시리즈",
+        "features": {
+          "mapping": "직무기능동영상매핑",
+          "digital": "역량글게직원가격 위치",
+          "hybrid": "하이브리드합팀디게인"
+        },
+        "title": "조직아키텍처"
       },
-      "intro": "intro",
       "process": {
-        "description": "描述",
+        "핵심 장점": "프로세스 정리",
+        "description": "공식방향및되돌림방향프로세스분석，검색도달AIAI를하여부여쉽의키노드",
         "forward": {
-          "goal": "goal",
-          "label": "label",
-          "process": "process",
-          "role": "角色"
+          "label": "공식방향분석",
+          "goal": "목표:",
+          "process": "프로세스",
+          "role": "캐릭마음"
         },
         "reverse": {
-          "label": "label",
-          "process": "process",
-          "role": "角色"
+          "label": "되돌림방향분석",
+          "role": "캐릭마음",
+          "process": "프로세스"
         },
-        "title": "标题"
+        "title": "프로세스 정리"
       },
-      "structure": {
-        "description": "描述",
-        "features": {
-          "digital": "digital",
-          "hybrid": "hybrid",
-          "mapping": "mapping"
+      "humanValue": {
+        "핵심 장점": "게스트가치값",
+        "description": "사이AI실시간시대보호유지통합게의프리미엄대규모및가치값의팔로우",
+        "values": {
+          "culture": "기업텍변환",
+          "mission": "미션과 비전",
+          "critical": "비판판단성생각차원",
+          "humility": "겸손 모드"
         },
-        "title": "标题"
+        "title": "게스트가치값"
       },
-      "title": "标题"
+      "title": "기업물리적 세계"
+    },
+    "infoWorld": {
+      "핵심 장점": "기업정보월드",
+      "intro": "끌어당김내보내기기업부마음처음정보변환점차적으로데모에서도달고급AI변환，구축완료의역량글게변환기능시스템시리즈。",
+      "evolution": "기능데모에서",
+      "basic": {
+        "핵심 장점": "처음정보월드",
+        "description": "구축역량글게변환기본인프라，실현비즈니스프로세스의정보변환및게동화",
+        "items": {
+          "informatization": {
+            "name": "정보변환",
+            "desc": "비즈니스데이마음의역량글게변환저장및관리"
+          },
+          "iot": {
+            "name": "물리적연결네트워크",
+            "desc": "물리적이성월드및역량글게월드의연결"
+          },
+          "automation": {
+            "name": "게동화",
+            "desc": "규모또는기반동의프로세스게동화"
+          }
+        },
+        "title": "처음정보 세계"
+      },
+      "advanced": {
+        "핵심 장점": "고급정보월드",
+        "description": "끌어당김모든AI기능，실현부마음느낌앎도달의사결정정책도달행동동의스마트변환업그레이드",
+        "items": {
+          "perception": {
+            "name": "느낌앎AI",
+            "desc": "시각、음성、텍스트의스마트인식"
+          },
+          "generative": {
+            "name": "생성방식AI",
+            "desc": "콘텐츠 창작、코드생성、디게인보조지원"
+          },
+          "agent": {
+            "name": "에이전트AI",
+            "desc": "자유관리자의사결정정책、작업실행、다중에이전트협업"
+          },
+          "physical": {
+            "name": "물리적이성AI",
+            "desc": "기계게동화게、게동운항운행、스마트 제조"
+          }
+        },
+        "title": "고급정보 세계"
+      },
+      "title": "기업정보 세계"
     },
     "superEnterprise": {
-      "intro": "intro",
-      "metrics": {
-        "cost": "cost",
-        "costDesc": "costDesc",
-        "efficiency": "efficiency",
-        "efficiencyDesc": "efficiencyDesc",
-        "experience": "experience",
-        "experienceDesc": "experienceDesc",
-        "title": "标题"
-      },
+      "핵심 장점": "인간-기계협업함께의초기업",
+      "intro": "통해게AI와의깊은도협업，만들기초직원、초팀및초제품/서비스。",
       "superEmployee": {
-        "description": "描述",
+        "핵심 장점": "초직원/초개시스템",
+        "description": "AI부여쉽오프라인의개게생산성혁명석혁명석，모개직원람이쉽발전발휘초뛰어남보통규모의기능",
         "features": {
-          "creativity": "creativity",
-          "decision": "decision",
-          "productivity": "productivity"
+          "productivity": "10배생산성",
+          "decision": "스마트의사결정정책",
+          "creativity": "창의증가강력한"
         },
-        "title": "标题"
-      },
-      "superProduct": {
-        "description": "描述",
-        "features": {
-          "intelligent": "intelligent",
-          "iterative": "iterative",
-          "personalized": "personalized"
-        },
-        "title": "标题"
+        "title": "초직원/초개시스템"
       },
       "superTeam": {
-        "description": "描述",
+        "핵심 장점": "초팀/초조직",
+        "description": "인간-기계하이브리드합팀실현더고급효율의협업및더강력한대사용량의모음시스템스마트스마트",
         "features": {
-          "agility": "agility",
-          "collaboration": "协作",
-          "intelligence": "intelligence"
+          "collaboration": "없음완벽협업",
+          "intelligence": "모음시스템스마트스마트",
+          "agility": "조직민감신속한"
         },
-        "title": "标题"
+        "title": "초팀/초조직"
       },
-      "title": "标题"
-    }
+      "superProduct": {
+        "핵심 장점": "초제품/서비스",
+        "description": "AI기반동의제품및서비스장비준비앞소요아직유의스마트변환및개성변환기능",
+        "features": {
+          "personalized": "최고의개성변환",
+          "intelligent": "스마트자유적합해야",
+          "iterative": "빠른반복"
+        },
+        "title": "초제품/서비스"
+      },
+      "metrics": {
+        "핵심 장점": "효과균형수량차원도",
+        "cost": "비사용최적화",
+        "costDesc": "낮추기운영마케팅비사용，출금고급리소스이익사용률",
+        "efficiency": "효율률향상",
+        "efficiencyDesc": "축소문자프로세스주의기간，출금고급프로덕션나감품질",
+        "experience": "체험업그레이드",
+        "experienceDesc": "향상고객사용자및직원체험만족도",
+        "title": "효율결과균형수량차원도"
+      },
+      "title": "게기계협업함께의초기업"
+    },
+    "implementation": {
+      "핵심 장점": "실시간경로",
+      "intro": "부마음현재상태평가평가도달지속최적화，도움기업안정적생각회실현AI전환형",
+      "steps": {
+        "assessment": {
+          "핵심 장점": "현재상태평가평가",
+          "desc": "평가평가기업현재의역량글게변환수준플랫폼、AI애플사용현재상태및조직준비준비도",
+          "title": "현재상태평가평가"
+        },
+        "planning": {
+          "핵심 장점": "전투전략규모계획",
+          "desc": "제어가격AI전환형로선수익，명확목표:、내부신평판및리소스요구",
+          "title": "전투전략규모계획"
+        },
+        "pilot": {
+          "핵심 장점": "테스트여기검증",
+          "desc": "선택대규모여기장면진행테스트여기，인증증명솔루션AI를행동성동시축적누적체험",
+          "title": "테스트여기검증"
+        },
+        "scale": {
+          "핵심 장점": "규모템플릿프로모션",
+          "desc": "인하여테스트여기체험，점차적으로확장확장도달더 많은비즈니스 라인및장면",
+          "title": "규모템플릿할광"
+        },
+        "optimize": {
+          "핵심 장점": "지속최적화",
+          "desc": "제안설정지속변경이것은기계제어，끊임없는최적화AI애플사용효과및조직기능",
+          "title": "지속적인최적화"
+        }
+      },
+      "title": "실시간경로"
+    },
+    "cta": {
+      "핵심 장점": "구축귀하의초기업",
+      "description": "참여스마트 AI생각，및전문컨설턴트목이것은시작규모계획기업의AI전환형의로",
+      "learnMore": "알아보기기업 서비스",
+      "contact": "연락컨설턴트",
+      "title": "구축귀하의초기업"
+    },
+    "footer": {
+      "enterprise": "기업 서비스",
+      "agentScenario": "에이전트장면",
+      "contact": "문의하기"
+    },
+    "heroSubtitle": "부마음물리적 세계도달정보 세계，구축게기계협업함께의초기업。돕는기업이해AI실시간시대의조직아키텍처、프로세스최적화및게스트가치값。"
   }
 }

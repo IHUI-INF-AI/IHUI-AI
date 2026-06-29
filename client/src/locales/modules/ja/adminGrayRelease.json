@@ -1,7 +1,7 @@
 {
   "adminGrayRelease": {
-    "confirmRollback": "confirmRollback",
-    "createRelease": "createRelease",
-    "enterRollbackReason": "enterRollbackReason"
+    "confirmRollback": "ロールバック確認",
+    "enterRollbackReason": "ロールバック理由を入力してください",
+    "createRelease": "リリース作成"
   }
 }

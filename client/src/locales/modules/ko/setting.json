@@ -24,6 +24,12 @@
       "paySettings": "결제 설정",
       "wechatPay": "위챗페이",
       "alipay": "알리페이",
+      "title": "제목",
+      "image": "이미지",
+      "link": "링크",
+      "sort": "정렬",
+      "status": "상태",
+      "actions": "작업",
       "userAgreement": "이용약관",
       "privacyPolicy": "개인정보처리방침",
       "serviceTerms": "서비스 약관"

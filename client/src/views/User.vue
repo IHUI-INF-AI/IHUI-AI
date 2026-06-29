@@ -142,7 +142,7 @@
                         <el-icon class="text-item-arrow"><ArrowRight /></el-icon>
                       </div>
                     </div>
-                    <el-empty v-else :description="t('userPage.noTextContent')" />
+                    <el-empty v-else description="暂无文本内容" />
                   </div>
 
                   <!-- 图片内容 -->
@@ -153,7 +153,7 @@
                         <span class="study-image-title">{{ item.title }}</span>
                       </div>
                     </div>
-                    <el-empty v-else :description="t('userPage.noImageContent')" />
+                    <el-empty v-else description="暂无图片内容" />
                   </div>
 
                   <!-- 视频内容 -->
@@ -173,7 +173,7 @@
                         </div>
                       </div>
                     </div>
-                    <el-empty v-else :description="t('userPage.noVideoContent')" />
+                    <el-empty v-else description="暂无视频内容" />
                   </div>
 
                   <!-- 全部/默认 -->
@@ -220,7 +220,11 @@ import { useI18n } from 'vue-i18n'
 import { useUserMenu } from '@/composables/user/useUserMenu'
 import { useUserAuth } from '@/composables/user/useUserAuth'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import UserInfoCard from '@/components/user/UserInfoCard.vue'
+// 同步导入 LoadingState 作为异步组件的占位符，避免 tab 切换时出现「白卡」
+// (loadingComponent 在异步加载期间渲染，配合 suspense 行为一致)
+import LoadingState from '@/components/common/LoadingState.vue'
 import { useMouseGlow } from '@/composables/useMouseGlow'
 import { useCleanup } from '@/composables/useCleanup'
 import { ChatDotRound, ArrowRight, VideoPlay } from '@element-plus/icons-vue'
@@ -291,9 +295,9 @@ const currentUser = computed<UserInfoForCard>(() => {
   }
 })
 
-/** 未登录时点击「登录/注册」：跳转登录页并带回当前页 */
+/** 未登录时点击「登录/注册」：直接弹出登录弹窗，登录成功后跳 /user */
 function handleLoginOut() {
-  router.push({ path: '/login', query: { returnUrl: '/user' } }).catch(() => {})
+  useLoginDialog().open('login', '/user')
 }
 
 // ============ 高级动效系统 ============
@@ -306,7 +310,7 @@ const { isMouseInViewport } = useMouseGlow()
 // 导航项引用
 const navItemRefs = ref<(HTMLElement | null)[]>([])
 
-const setNavItemRef = (el: any, index: number) => {
+const setNavItemRef = (el: unknown, index: number) => {
   if (el) {
     navItemRefs.value[index] = el as HTMLElement
   }
@@ -421,7 +425,7 @@ const scrollToNicknameInput = () => {
   nextTick(() => {
     setTimeout(() => {
       // 查找昵称输入框
-      const nicknameInput = document.querySelector('input[placeholder*=t("User.nickname")], input[aria-label*=t("User.nickname2")], .el-input input') as HTMLInputElement
+      const nicknameInput = document.querySelector('input[placeholder*=t("user.nickname")], input[aria-label*=t("user.nickname2")], .el-input input') as HTMLInputElement
       if (nicknameInput) {
         // 滚动到输入框位置
         nicknameInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -436,25 +440,34 @@ const scrollToNicknameInput = () => {
 }
 
 // 懒加载子组件以优化性能
-const UserProfile = defineAsyncComponent(() => import('@/components/user/UserProfile.vue'))
-const UserSecurity = defineAsyncComponent(() => import('@/components/user/UserSecurity.vue'))
-const UserMessages = defineAsyncComponent(() => import('@/components/user/UserMessages.vue'))
-const UserPrivacy = defineAsyncComponent(() => import('@/components/user/UserPrivacy.vue'))
-const UserSettings = defineAsyncComponent(() => import('@/components/user/UserSettings.vue'))
-const UserFavorites = defineAsyncComponent(() => import('@/components/user/UserFavorites.vue'))
-const UserPurchases = defineAsyncComponent(() => import('@/components/user/UserPurchases.vue'))
-const UserUpload = defineAsyncComponent(() => import('@/components/user/UserUpload.vue'))
-const UserExamine = defineAsyncComponent(() => import('@/components/user/UserExamine.vue'))
-const UserOrders = defineAsyncComponent(() => import('@/components/user/UserOrders.vue'))
-const UserDeveloper = defineAsyncComponent(() => import('@/components/user/UserDeveloper.vue'))
-const UserPurchaseRecords = defineAsyncComponent(
-  () => import('@/components/user/UserPurchaseRecords.vue')
-)
-const UserStatistics = defineAsyncComponent(() => import('@/components/user/UserStatistics.vue'))
-const UserApiService = defineAsyncComponent(() => import('@/components/user/UserApiService.vue'))
-const UserMembershipBenefits = defineAsyncComponent(() => import('@/components/user/UserMembershipBenefits.vue'))
-const UserStudyBar = defineAsyncComponent(() => import('@/components/user/UserStudyBar.vue'))
-const UserCard = defineAsyncComponent(() => import('@/components/user/UserCard.vue'))
+// 所有异步组件均配置 loadingComponent=LoadingState，避免首次切 tab 时出现「白卡」
+// 辅助函数：因 vue@3.5 的 defineAsyncComponent 联合类型重载在传入对象字面量时
+// 会被优先匹配到函数签名，固使用 unknown 中转确保走 options 分支。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function asyncComponent(loader: () => Promise<unknown>): any {
+  return defineAsyncComponent({
+    loader,
+    loadingComponent: LoadingState,
+    delay: 100,
+  } as unknown as Parameters<typeof defineAsyncComponent>[0])
+}
+const UserProfile = asyncComponent(() => import('@/components/user/UserProfile.vue'))
+const UserSecurity = asyncComponent(() => import('@/components/user/UserSecurity.vue'))
+const UserMessages = asyncComponent(() => import('@/components/user/UserMessages.vue'))
+const UserPrivacy = asyncComponent(() => import('@/components/user/UserPrivacy.vue'))
+const UserSettings = asyncComponent(() => import('@/components/user/UserSettings.vue'))
+const UserFavorites = asyncComponent(() => import('@/components/user/UserFavorites.vue'))
+const UserPurchases = asyncComponent(() => import('@/components/user/UserPurchases.vue'))
+const UserUpload = asyncComponent(() => import('@/components/user/UserUpload.vue'))
+const UserExamine = asyncComponent(() => import('@/components/user/UserExamine.vue'))
+const UserOrders = asyncComponent(() => import('@/components/user/UserOrders.vue'))
+const UserDeveloper = asyncComponent(() => import('@/components/user/UserDeveloper.vue'))
+const UserPurchaseRecords = asyncComponent(() => import('@/components/user/UserPurchaseRecords.vue'))
+const UserStatistics = asyncComponent(() => import('@/components/user/UserStatistics.vue'))
+const UserApiService = asyncComponent(() => import('@/components/user/UserApiService.vue'))
+const UserMembershipBenefits = asyncComponent(() => import('@/components/user/UserMembershipBenefits.vue'))
+const UserStudyBar = asyncComponent(() => import('@/components/user/UserStudyBar.vue'))
+const UserCard = asyncComponent(() => import('@/components/user/UserCard.vue'))
 
 // 使用菜单管理 Composable
 const { activeMenu, menuItems, pageTitle, pageDescription, handleMenuSelect, handleNavKeydown } =
@@ -477,9 +490,6 @@ const handleStudyTabChange = (item: { name: string; id?: string | number }) => {
 
 // 学习中心 - 当前激活的Tab
 const activeStudyTab = ref('all')
-
-// 登录弹窗
-const _showLoginPopup = ref(false)
 
 // 文本内容列表
 const studyTextList = ref([
@@ -506,9 +516,10 @@ const studyVideoList = ref([
   { id: 3, title: '工作流搭建实战', cover: '/images/study/video3-cover.png', duration: '28:42', views: 650, time: '2025-06-03', type: 'video' },
 ])
 
-function handleStudyItemClick(item: any) {
-  if (item && item.id) {
-    router.push(`/study/${item.type || 'text'}/${item.id}`).catch(() => {})
+function handleStudyItemClick(item: unknown) {
+  const it = item as { id?: string | number; type?: string } | null
+  if (it && it.id) {
+    router.push(`/study/${it.type || 'text'}/${it.id}`).catch(() => {})
   }
 }
 
@@ -578,7 +589,7 @@ $bg-page: var(--el-bg-color-page);
       height: 350px;
       bottom: 20%;
       left: 5%;
-      background: rgb(var(--el-text-color-placeholder-rgb), 0.15);
+      background: rgb(var(--el-text-color-placeholder-rgb, 148, 158, 210), 0.15);
       animation-delay: -7s;
     }
   }
@@ -628,7 +639,7 @@ $bg-page: var(--el-bg-color-page);
   transition: opacity 0.6s ease, transform 0.6s ease;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -677,7 +688,7 @@ $bg-page: var(--el-bg-color-page);
       border-bottom: var(--unified-border-bottom);
 
       .nav-badge-text {
-        font-family: var(--font-family-edix);
+        font-family: EDIX, sans-serif;
         font-size: 16px;
         font-weight: 600;
         color: var(--el-text-color-secondary);
@@ -700,7 +711,7 @@ $bg-page: var(--el-bg-color-page);
       margin-bottom: 4px;
       position: relative;
       overflow: hidden;
-      transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       border: none;
       background: transparent;
 
@@ -712,7 +723,7 @@ $bg-page: var(--el-bg-color-page);
         justify-content: center;
         background: var(--el-fill-color-light);
         border-radius: var(--global-border-radius);
-        transition: background-color 0.3s, transform 0.3s;
+        transition: all 0.3s;
         flex-shrink: 0;
       }
 
@@ -799,10 +810,10 @@ $bg-page: var(--el-bg-color-page);
     padding: 6px 14px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 900;
     margin-bottom: 8px;
-    background: rgb(var(--el-fill-color-light-rgb), 0.5);
+    background: rgb(var(--el-fill-color-light-rgb, 250, 250, 252), 0.5);
     width: fit-content;
 
     .status-dot {
@@ -814,7 +825,7 @@ $bg-page: var(--el-bg-color-page);
     }
 
     .badge-text {
-      font-family: var(--font-family-edix);
+      font-family: EDIX, sans-serif;
       font-size: 14px;
       font-weight: 600;
       letter-spacing: 0.05em;
@@ -825,7 +836,7 @@ $bg-page: var(--el-bg-color-page);
 
   .page-title {
     font-size: clamp(28px, 4vw, 40px);
-    font-weight: 700;
+    font-weight: 900;
     letter-spacing: -0.03em;
     line-height: 1.1;
   }
@@ -857,7 +868,7 @@ $bg-page: var(--el-bg-color-page);
 // ============ 内容切换动画 ============
 .content-fade-enter-active,
 .content-fade-leave-active {
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .content-fade-enter-from {
@@ -980,7 +991,7 @@ $bg-page: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
   background: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: background-color 0.25s, transform 0.25s;
+  transition: all 0.25s;
 
   &:hover {
     background: var(--el-fill-color);
@@ -1034,15 +1045,14 @@ $bg-page: var(--el-bg-color-page);
   display: flex;
   flex-direction: column;
   border-radius: var(--global-border-radius);
-  border: 1px solid transparent;
   overflow: hidden;
   background: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: border-color 0.25s, transform 0.25s;
+  transition: all 0.25s;
 
   &:hover {
-    
-    border-color: var(--el-border-color);
+    transform: translateY(-4px);
+    box-shadow: var(--global-box-shadow);
   }
 
   .study-image-thumb {
@@ -1074,15 +1084,14 @@ $bg-page: var(--el-bg-color-page);
   gap: 14px;
   padding: 12px;
   border-radius: var(--global-border-radius);
-  border: 1px solid transparent;
   background: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: background-color 0.25s, border-color 0.25s, transform 0.25s;
+  transition: all 0.25s;
 
   &:hover {
     background: var(--el-fill-color);
-    
-    border-color: var(--el-border-color);
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
   }
 
   .video-cover {
@@ -1119,7 +1128,7 @@ $bg-page: var(--el-bg-color-page);
       border-radius: var(--global-border-radius);
       background: var(--color-black-70);
       color: var(--color-white);
-      font-size: 12px;
+      font-size: 11px;
     }
   }
 
@@ -1203,7 +1212,7 @@ $bg-page: var(--el-bg-color-page);
 }
 
 // ============ 暗色模式适配 ============
-:where(html.dark) {
+html.dark {
   .glass-card {
     --glass-card-bg: var(--el-bg-color);
     --glass-card-border: var(--unified-border);

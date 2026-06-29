@@ -1,14 +1,14 @@
 {
   "askDetail": {
-    "adopt": "adopt",
-    "adopted": "adopted",
+    "backToList": "Back to List",
+    "questionNotFound": "Question does not exist or has been deleted",
+    "top": "Top",
+    "essence": "Essence",
     "answers": "answers",
-    "backToList": "backToList",
-    "essence": "essence",
-    "favorite": "收藏",
-    "questionNotFound": "questionNotFound",
-    "submitAnswer": "submitAnswer",
-    "top": "置顶",
-    "writeAnswerPlaceholder": "writeAnswerPlaceholder"
+    "submitAnswer": "Submit Answer",
+    "adopted": "Adopted",
+    "adopt": "Adopt",
+    "favorite": "Favorite",
+    "writeAnswerPlaceholder": "Write your answer..."
   }
 }

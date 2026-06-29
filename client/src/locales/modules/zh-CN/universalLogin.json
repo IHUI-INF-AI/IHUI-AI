@@ -1,20 +1,20 @@
 {
   "universalLogin": {
-    "codeSendFailed": "验证码发送失败",
-    "codeSendSuccess": "代码 发送 成功",
-    "codeSentSms": "代码 sent sms",
-    "defaultUser": "默认 用户",
-    "hoursMinutes": "时分",
-    "minutesOnly": "仅分钟",
+    "wechatCallbackFailed": "微信登录回调处理失败，请重试",
+    "wechatLoadFailed": "微信登录组件加载失败，请刷新页面重试",
+    "wechatInitFailed": "微信登录初始化失败",
+    "wechatQrFailed": "微信二维码生成失败",
+    "noStack": "无堆栈信息",
+    "codeSentSms": "验证码已发送，请查收短信",
+    "codeSendSuccess": "验证码发送成功",
+    "sendFailed": "发送失败，请重试",
+    "codeSendFailed": "验证码发送失败，请重试",
+    "sendTooFrequent": "发送过于频繁，请稍后再试",
+    "phoneFormatError": "手机号格式不正确，请检查",
     "network": "网络",
-    "noStack": "无 stack",
-    "phoneFormatError": "手机 format 错误",
-    "sendFailed": "发送失败",
-    "sendTooFrequent": "发送 too frequent",
-    "timeout": "请求超时",
-    "wechatCallbackFailed": "wechat 回调 失败",
-    "wechatInitFailed": "wechat init 失败",
-    "wechatLoadFailed": "wechat 加载 失败",
-    "wechatQrFailed": "wechat qr 失败"
+    "timeout": "超时",
+    "defaultUser": "用户",
+    "hoursMinutes": "{hours}小时{minutes}分钟",
+    "minutesOnly": "{minutes}分钟"
   }
 }

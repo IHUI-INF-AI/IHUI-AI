@@ -1,1 +1,11 @@
-{}
+{
+  "wxUserCenter": {
+    "title": "个人中心",
+    "description": "微信小程序个人中心",
+    "userNickname": "用户昵称",
+    "userId": "用户ID",
+    "settings": "设置",
+    "orders": "订单",
+    "favorites": "收藏"
+  }
+}

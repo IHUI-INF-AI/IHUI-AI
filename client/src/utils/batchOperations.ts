@@ -1,16 +1,3 @@
-import { getUserToken } from '@/utils/request'
-
-async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
-  const token = getUserToken()
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...((options.headers as Record<string, string>) || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-}
-
 interface BatchOperation<T> {
   id: string
   items: T[]
@@ -179,7 +166,7 @@ export function useBatchUpload() {
         const formData = new FormData()
         formData.append('file', file)
 
-        const response = await authFetch(uploadUrl, {
+        const response = await fetch(uploadUrl, {
           method: 'POST',
           body: formData
         })
@@ -224,7 +211,7 @@ export function useBatchDownload() {
     return batchDownload.execute(
       files,
       async ({ url, fileName }) => {
-        const response = await authFetch(url)
+        const response = await fetch(url)
         if (!response.ok) {
           throw new Error(`Failed to download ${fileName}`)
         }

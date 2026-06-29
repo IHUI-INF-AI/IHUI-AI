@@ -1,0 +1,34 @@
+{
+  "adminWebhookManagement": {
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス"
+    },
+    "table": {
+      "status": "ステータス"
+    },
+    "status": {
+      "enabled": "あり効",
+      "disabled": "無効"
+    },
+    "form": {},
+    "signatureAlgorithm": {},
+    "detail": {
+      "status": "ステータス"
+    },
+    "eventLog": {
+      "status": "ステータス"
+    },
+    "eventStatus": {
+      "failed": "失敗"
+    },
+    "eventDetail": {
+      "status": "ステータス"
+    },
+    "dialogs": {},
+    "messages": {
+      "addSuccess": "追加成功"
+    },
+    "rules": {}
+  }
+}

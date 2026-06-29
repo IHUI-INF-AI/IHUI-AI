@@ -1,10 +1,10 @@
 {
   "memberLearnRecord": {
-    "continuousDays": "continuousDays",
-    "empty": "empty",
-    "learnDays": "learnDays",
-    "learnMinutes": "learnMinutes",
-    "title": "标题",
-    "today": "今天"
+    "title": "Learning Records",
+    "learnDays": "Study Days",
+    "learnMinutes": "Study Minutes",
+    "continuousDays": "Consecutive Days",
+    "today": "Today",
+    "empty": "No learning records"
   }
 }

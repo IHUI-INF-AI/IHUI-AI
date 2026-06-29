@@ -1,0 +1,21 @@
+{
+  "adminAgentBuyManagement": {
+    "actions": {},
+    "buyList": {
+      "status": "订单状态"
+    },
+    "search": {
+      "status": "订单状态",
+      "statusPlaceholder": "请选择订单状态"
+    },
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "settlementStatus": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

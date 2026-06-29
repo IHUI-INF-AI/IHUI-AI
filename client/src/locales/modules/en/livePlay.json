@@ -1,15 +1,7 @@
 {
   "livePlay": {
-    "danmuPlaceholder": "danmuPlaceholder",
-    "likes": "likes",
-    "liveIntro": "liveIntro",
-    "liveNotFound": "liveNotFound",
-    "noIntro": "noIntro",
-    "notLive": "notLive",
-    "points": "积分",
-    "send": "发送",
-    "sentGift": "sentGift",
-    "statistics": "统计",
-    "views": "views"
+    "liveNotFound": "Live does not exist",
+    "notLive": "Streamer is not live",
+    "send": "Send"
   }
 }

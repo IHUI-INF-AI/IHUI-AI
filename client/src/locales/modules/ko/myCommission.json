@@ -1,23 +1,29 @@
 {
   "myCommission": {
-    "available": "available",
-    "buyer": "buyer",
-    "commission": "佣金",
-    "copy": "复制",
-    "copyFailed": "copyFailed",
-    "copySuccess": "copySuccess",
-    "noCommission": "noCommission",
-    "orderTime": "orderTime",
-    "pending": "待处理",
-    "relatedOrder": "relatedOrder",
-    "title": "标题",
-    "todayCommission": "todayCommission",
-    "totalCommission": "totalCommission",
-    "withdraw": "提现",
-    "withdrawDetail": "withdrawDetail",
-    "withdrawDetailInfo": "withdrawDetailInfo",
-    "withdrawSuccess": "withdrawSuccess",
-    "withdrawn": "withdrawn",
-    "yuan": "yuan"
+    "title": "내 커미션",
+    "totalCommission": "총 커미션",
+    "yuan": "위안",
+    "available": "사용 가능",
+    "withdrawn": "출금 완료",
+    "pending": "대기 중",
+    "todayCommission": "오늘의 커미션",
+    "withdraw": "출금",
+    "withdrawDetail": "출금 상세",
+    "commission": "커미션",
+    "buyer": "구매자",
+    "orderTime": "주문 시간",
+    "relatedOrder": "관련 주문",
+    "copy": "복사",
+    "noCommission": "커미션 기록 없음",
+    "withdrawSuccess": "출금 성공",
+    "withdrawDetailInfo": "출금 상세 정보",
+    "copySuccess": "복사 성공",
+    "copyFailed": "복사 실패",
+    "tabs": {
+      "all": "전체",
+      "pending": "대기 중",
+      "settled": "정산 완료",
+      "cancelled": "취소됨"
+    }
   }
 }

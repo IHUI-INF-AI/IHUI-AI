@@ -1,5 +1,8 @@
 {
+  "designSystemDemo": {
+    "designSystemMeta": "デザインシステム、UIコンポーネント、Vueコンポーネント、フロントエンド開発"
+  },
   "DesignSystemDemo": {
-    "designSystemMeta": "designSystemMeta"
+    "designSystemMeta": "デザインシステム、UIコンポーネント、Vueコンポーネント、フロントエンド開発"
   }
 }

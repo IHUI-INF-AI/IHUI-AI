@@ -1,13 +1,13 @@
 {
   "learnCertificateDownload": {
-    "banner": "banner",
-    "breadcrumbCert": "breadcrumbCert",
-    "breadcrumbCourse": "breadcrumbCourse",
-    "certText": "certText",
-    "download": "下载",
-    "downloadStart": "downloadStart",
-    "issueTime": "issueTime",
-    "notExist": "notExist",
-    "print": "打印"
+    "notExist": "Certificate not exist",
+    "banner": "Learning Certificate",
+    "certText": "This is to certify that the course has been completed",
+    "issueTime": "Issue Time: ",
+    "download": "Download",
+    "print": "Print",
+    "breadcrumbCourse": "Course",
+    "breadcrumbCert": "My Certificate",
+    "downloadStart": "Certificate download started, connecting to backend PDF API"
   }
 }

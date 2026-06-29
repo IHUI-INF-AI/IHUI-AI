@@ -24,7 +24,7 @@
 import { ref, onMounted, markRaw } from 'vue'
 import { User, Reading, ShoppingCart, Money, Promotion, VideoCamera, ChatDotRound, EditPen } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 
 const { t } = useI18n()
 const loading = ref(false)
@@ -48,7 +48,7 @@ async function load() {
   loading.value = true
   try {
     const r = await adminApi.dashboardStats()
-    const d: any = (r as any).data || {}
+    const d = r.data ?? ({} as { userCount?: number; courseCount?: number; orderCount?: number; revenue?: number })
     if (d.userCount !== undefined) stats.value[0].value = String(d.userCount)
     if (d.courseCount !== undefined) stats.value[1].value = String(d.courseCount)
     if (d.orderCount !== undefined) stats.value[2].value = String(d.orderCount)
@@ -68,7 +68,8 @@ onMounted(load)
     padding: 20px; background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border-left: 4px solid var(--el-color-primary);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   .stat-value { font-size: 24px; font-weight: 700; color: var(--el-text-color-primary); }
   .stat-label { font-size: 13px; color: var(--el-text-color-secondary); margin-top: 4px; }
   .quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
@@ -78,9 +79,9 @@ onMounted(load)
     padding: 16px; background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     text-decoration: none;
-    transition: transform 0.2s, border-color 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
     border: var(--unified-border);
-    &:hover {  border-color: var(--el-color-primary); }
+    &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); }
     .quick-label { font-size: 14px; font-weight: 500; color: var(--el-text-color-primary); }
     .quick-sub { font-size: 12px; color: var(--el-text-color-secondary); }
   }

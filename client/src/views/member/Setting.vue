@@ -27,7 +27,7 @@
               <el-input v-model="phoneForm.phone" />
             </el-form-item>
             <el-form-item :label="t('memberSetting.verifyCode')">
-              <el-input v-model="phoneForm.code" class="code-input" />
+              <el-input v-model="phoneForm.code" style="max-width: 200px" />
               <el-button @click="sendPhoneCode">{{ t('memberSetting.getCode') }}</el-button>
             </el-form-item>
             <el-form-item>
@@ -42,7 +42,7 @@
               <el-input v-model="emailForm.email" />
             </el-form-item>
             <el-form-item :label="t('memberSetting.verifyCode')">
-              <el-input v-model="emailForm.code" class="code-input" />
+              <el-input v-model="emailForm.code" style="max-width: 200px" />
               <el-button @click="sendEmailCode">{{ t('memberSetting.getCode') }}</el-button>
             </el-form-item>
             <el-form-item>
@@ -78,7 +78,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
 
 const loading = ref(false)
 const activeTab = ref('password')
@@ -90,7 +90,7 @@ const notice = ref({ emailNotice: true, smsNotice: false, msgNotice: true })
 async function load() {
   loading.value = true
   try {
-    const res: any = await memberApi.setting()
+    const res = await memberApi.setting() as unknown as { data?: Record<string, unknown> }
     notice.value = { ...notice.value, ...(res.data || {}) }
   } finally {
     loading.value = false
@@ -165,9 +165,5 @@ onMounted(load)
 :where(.form-block) {
   max-width: 640px;
   padding: 16px 0;
-}
-
-.code-input {
-  max-width: 200px;
 }
 </style>

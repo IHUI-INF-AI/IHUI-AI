@@ -11,11 +11,12 @@ import { useAuthStore } from '@/stores/auth'
 import { useUserAuth } from '@/composables/useUserAuth'
 import { AuthFlowService } from '@/services/auth-flow.service'
 import { RememberMeService } from '@/utils/rememberMeService'
-import { unifiedLogin } from '@/api/unified/unified-auth'
-import { verifyPhoneCode, completePhoneLogin } from '@/api/user/user'
+import { unifiedLogin } from '@/api/unified-auth'
+import { verifyPhoneCode, completePhoneLogin } from '@/api/user'
 import { useLoginProject } from '@/composables/login/useLoginProject'
 import { logger } from '@/utils/logger'
 import request from '@/utils/request'
+import { getSafeRedirectPath } from '@/utils/auth'
 import { LOGIN_PWD_PATHS } from '@/config/backend-paths'
 import { useCleanup } from '@/composables/useCleanup'
 
@@ -221,11 +222,13 @@ export function useLoginLogic(options: LoginLogicOptions) {
 
       logger.info('[handleAccountLogin] Login response', response.data)
 
-      const resData = (response.data as unknown as Record<string, unknown>) || {}
+      const resData = (response.data as Record<string, unknown>) || {}
       const resCode = (resData?.code as number | string) ?? 0
       const msg = (resData?.msg || resData?.message || '') as string
 
-      if (resCode === 200 || resCode === '200') {
+      // 2026-06-28 联调: 后端统一响应码 SUCCESS="0" (error_codes.py),
+      // 同时兼容旧 Java 后端的 code=200. 接受 0/"0"/200/"200" 均视为成功.
+      if (resCode === 200 || resCode === '200' || resCode === 0 || resCode === '0') {
         const rawData = resData?.data as Record<string, unknown> | undefined
         const userData = (rawData?.user as Record<string, unknown>) || rawData
         const thirdPartyAccounts = userData?.thirdPartyAccounts as Record<string, unknown> | undefined
@@ -293,8 +296,13 @@ export function useLoginLogic(options: LoginLogicOptions) {
             return { success: true }
           }
 
+          // 2026-06-27 修复: 同项目内登录成功后, 优先跳转到 redirect 参数指定的页面.
+          // 路由守卫拦截 requiresAuth 页面时会 next({ name: 'login', query: { redirect: to.fullPath } }),
+          // 之前直接 router.push('/') 导致 redirect 被忽略, 用户登录后无法回到原页面.
+          // 安全: 只允许以单个 / 开头的相对路径, 拒绝 // (协议相对 URL) 和 http(s):// 等绝对 URL,
+          // 防止开放重定向漏洞. 逻辑抽到 utils/auth.ts 的 getSafeRedirectPath, 与 UniversalLogin.vue 共用.
           if (!isCrossProject) {
-            void router.push('/')
+            void router.push(getSafeRedirectPath(redirectUrl))
           }
           return { success: true }
         } else {
@@ -403,7 +411,7 @@ export function useLoginLogic(options: LoginLogicOptions) {
  | undefined
 
         if (loginData && typeof loginData === 'object') {
-          const loginDataObj = loginData as unknown as Record<string, unknown>
+          const loginDataObj = loginData as unknown as Record<string, unknown> // 双重断言必要: loginData 为 UserToken|LoginResponseData 具体接口，需动态访问多字段
           logger.debug('[handlePhoneLogin] loginData keys:', Object.keys(loginDataObj))
 
           if ('thirdPartyAccounts' in loginDataObj && loginDataObj.thirdPartyAccounts) {
@@ -481,12 +489,13 @@ export function useLoginLogic(options: LoginLogicOptions) {
           }
         }
 
+        // 2026-06-26: 教育平台源码已迁移到项目内, 登录后跳项目内路由
         if ((source === 'edu-web' || source === 'edu-admin') && !redirectUrl) {
-          const remoteUrls: Record<string, string> = {
-            'edu-web': 'https://user-edu.aizhs.top',
-            'edu-admin': 'https://admin-edu.aizhs.top',
+          const eduRoutes: Record<string, string> = {
+            'edu-web': '/edu',
+            'edu-admin': '/admin/edu',
           }
-          redirectUrl = `${remoteUrls[source]}/index`
+          redirectUrl = eduRoutes[source]
         }
 
         const isCrossProjectSource = source && ['admin', 'edu-web', 'edu-admin'].includes(source)

@@ -67,18 +67,6 @@
 --el-text-color-placeholder: （--color-neutral-500）;  /* 占位符文字色 */
 ```
 
-### 对比色 token（明暗模式自动适配）⚠️
-**用途**：在 `var(--el-color-primary)` 背景上放置文字/图标时使用，自动切换明暗模式下的对比色。
-- 亮色模式：primary=#000 → 对比色=#fff（黑底白字）
-- 暗色模式：primary=#fff → 对比色=#000（白底黑字）
-
-```css
---color-on-primary: #ffffff;              /* 亮色模式：白字 */
---color-on-primary: #000000;              /* 暗色模式：黑字 */
-```
-
-**铁律**：primary 背景上的文字/图标禁止用 `var(--el-color-white)`、`var(--el-text-color-primary)`、`#fff`、`#000`，必须用 `var(--color-on-primary)`。
-
 ### 透明度色板（亮色/暗色通用）
 全站唯一写死处，所有 `rgba(255,255,255,x)` / `rgba(0,0,0,x)` 必须使用以下变量。
 ```css
@@ -116,6 +104,7 @@
 --color-black-2: rgba(0, 0, 0, 0.02);
 --color-black-3: rgba(0, 0, 0, 0.03);
 --color-black-04: rgba(0, 0, 0, 0.04);
+--color-black-4: rgba(0, 0, 0, 0.04);
 --color-black-5: rgba(0, 0, 0, 0.05);
 --color-black-6: rgba(0, 0, 0, 0.06);
 --color-black-8: rgba(0, 0, 0, 0.08);
@@ -184,14 +173,12 @@
 
 ## 阴影变量
 
-> **扁平化设计**（2026-06-24 封版统一）：所有 `--global-box-shadow` 已改为 `none`。如需为单元素恢复阴影，请使用 `border` 或 `outline` 替代。
-
 ```css
-/* 扁平化：投影统一移除 */
---global-box-shadow: none;
---el-box-shadow: var(--global-box-shadow);
---el-box-shadow-light: var(--global-box-shadow);
---el-box-shadow-dark: var(--global-box-shadow);
+/* 亮色模式 */
+--global-box-shadow: 0 2px 8px （--color-black-6）;
+
+/* 暗色模式 */
+--global-box-shadow: 0 2px 8px （--color-black-30）;
 ```
 
 ## 间距变量

@@ -41,11 +41,11 @@
           </div>
 
           <div v-else-if="q.type === 'fill'" class="options">
-            <input v-model="answers[q.id]" class="fill-input" :placeholder="t('examDo.inputAnswer')" />
+            <input v-model="answers[q.id]" class="fill-input" placeholder="请输入答案" />
           </div>
 
           <div v-else-if="q.type === 'essay'" class="options">
-            <textarea v-model="answers[q.id]" class="essay-input" rows="4" :placeholder="t('examDo.inputEssay')" />
+            <textarea v-model="answers[q.id]" class="essay-input" rows="4" placeholder="请作答..." />
           </div>
         </div>
       </div>
@@ -55,18 +55,18 @@
       </div>
     </template>
 
-    <el-dialog v-model="resultVisible" :title="t('examDo.examResult')" width="420px">
+    <el-dialog v-model="resultVisible" title="考试结果" width="420px">
       <div v-if="result" class="result-body">
         <div class="r-score">
           <span class="r-score-num">{{ result.score }}</span>
           <span class="r-score-total">/ {{ result.total_score }}</span>
         </div>
         <div :class="['r-passed', { passed: result.passed }]">
-          {{ result.passed ? t('examDo.passed') : t('examDo.failed') }}
+          {{ result.passed ? '🎉 恭喜通过' : '😢 未及格' }}
         </div>
       </div>
       <template #footer>
-        <el-button @click="goBack">{{ t('examDo.backToList') }}</el-button>
+        <el-button @click="goBack">返回列表</el-button>
       </template>
     </el-dialog>
   </div>
@@ -78,7 +78,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import { useCleanup } from '@/composables/useCleanup'
-import { examApi } from '@/api/learn/exam'
+import { examApi, type ExamPaper, type ExamQuestion, type ExamRecord } from '@/api/exam'
+
+// 扩展 options 类型以兼容后端返回的 JSON 字符串
+interface ExamQuestionRaw extends Omit<ExamQuestion, 'options'> {
+  options?: string[] | string
+}
 
 const { t } = useI18n()
 const route = useRoute()
@@ -86,35 +91,27 @@ const router = useRouter()
 const toast = useToast()
 const cleanup = useCleanup()
 const loading = ref(false)
-const paper = ref<any>(null)
-const questions = ref<any[]>([])
+const paper = ref<ExamPaper | null>(null)
+const questions = ref<ExamQuestionRaw[]>([])
 const started = ref(false)
-const answers = ref<Record<string, any>>({})
+const answers = ref<Record<string, string>>({})
 const multipleAnswers = ref<Record<string, string[]>>({})
 const startTime = ref(0)
 const remaining = ref(0)
-const timerId = ref<any>(null)
+const timerId = ref<ReturnType<typeof setInterval> | null>(null)
 const submitting = ref(false)
 const resultVisible = ref(false)
-const result = ref<any>(null)
-const recordId = ref<number>(0)
+const result = ref<ExamRecord | null>(null)
 
 function getTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    single: t('examDo.typeSingle'),
-    multiple: t('examDo.typeMultiple'),
-    judge: t('examDo.typeJudge'),
-    fill: t('examDo.typeFill'),
-    essay: t('examDo.typeEssay')
-  }
-  return labels[type] || type
+  return { single: '单选', multiple: '多选', judge: '判断', fill: '填空', essay: '简答' }[type] || type
 }
 
-function getOptions(q: any) {
+function getOptions(q: ExamQuestionRaw) {
   if (Array.isArray(q.options)) return q.options
   if (typeof q.options === 'string') {
     try {
-      return JSON.parse(q.options)
+      return JSON.parse(q.options) as string[]
     } catch {
       return []
     }
@@ -151,23 +148,14 @@ async function loadDetail() {
   }
 }
 
-async function handleStart() {
-  const id = Number(route.params.id)
-  if (!id) return
-  try {
-    const res = await examApi.startExam(id)
-    const data = res?.data
-    recordId.value = data?.data?.record_id || data?.record_id || 0
-  } catch {
-    /* startExam 失败时继续，submitExam 会返回错误 */
-  }
+function handleStart() {
   started.value = true
   startTime.value = Date.now()
   remaining.value = paper.value?.duration || 60
   timerId.value = cleanup.addInterval(() => {
     remaining.value = Math.max(0, remaining.value - 1)
     if (remaining.value === 0) {
-      clearInterval(timerId.value)
+      if (timerId.value) clearInterval(timerId.value)
       handleSubmit()
     }
   }, 60000)
@@ -175,7 +163,8 @@ async function handleStart() {
 
 async function handleSubmit() {
   if (submitting.value) return
-  const allAnswers: Record<string, any> = {}
+  const id = Number(route.params.id)
+  const allAnswers: Record<string, unknown> = {}
   for (const q of questions.value) {
     if (q.type === 'multiple') {
       allAnswers[q.id] = (multipleAnswers.value[q.id] || []).join(',')
@@ -186,13 +175,13 @@ async function handleSubmit() {
   const duration = Math.max(1, Math.round((Date.now() - startTime.value) / 60000))
   submitting.value = true
   try {
-    const res = await examApi.submitExam(recordId.value, allAnswers, duration)
+    const res = await examApi.submit({ paper_id: id, answers: allAnswers, duration })
     const data = res?.data
     result.value = data?.data || data || null
     resultVisible.value = true
     if (timerId.value) clearInterval(timerId.value)
   } catch {
-    toast.error(t('common.errors.submitFailed'))
+    toast.error('提交失败')
   } finally {
     submitting.value = false
   }

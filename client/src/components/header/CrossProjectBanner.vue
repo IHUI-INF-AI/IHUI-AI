@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ArrowLeftRight } from '@/lib/lucide-fallback'
 import { logger } from '@/utils/logger'
@@ -148,7 +148,7 @@ const switchProject = (targetSource: 'admin' | 'user') => {
 
     // 跳转到新的URL
      
-    router.push({ path: route.path, query: newQuery } as any)
+    router.push({ path: route.path, query: newQuery } as RouteLocationRaw)
   } catch (error) {
     logger.error('Failed to switch project:', error)
   }
@@ -234,7 +234,7 @@ const switchProject = (targetSource: 'admin' | 'user') => {
         color: var(--el-text-color-primary);
         width: auto;
         min-width: auto;
-        transition: background-color 0.2s ease, color 0.2s ease;
+        transition: all 0.2s ease;
 
         &:hover {
           background-color: var(--el-fill-color-light);

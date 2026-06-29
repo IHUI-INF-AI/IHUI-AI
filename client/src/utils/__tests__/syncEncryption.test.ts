@@ -177,7 +177,7 @@ describe('syncEncryptionService', () => {
       // mock decrypt 返回有效的 JSON 字符串字节
       const data = { msg: 'hello' }
       const encoded = new TextEncoder().encode(JSON.stringify(data)).buffer
-      ;(global.crypto.subtle.decrypt as any).mockResolvedValue(encoded)
+      ;(global.crypto.subtle.decrypt as ReturnType<typeof vi.fn>).mockResolvedValue(encoded)
 
       const encrypted = await syncEncryptionService.encrypt({ msg: 'hello' })
       const decrypted = await syncEncryptionService.decrypt(encrypted)
@@ -207,7 +207,7 @@ describe('syncEncryptionService', () => {
 
       // mock decrypt 返回带引号的字符串
       const encoded = new TextEncoder().encode('"hello"').buffer
-      ;(global.crypto.subtle.decrypt as any).mockResolvedValue(encoded)
+      ;(global.crypto.subtle.decrypt as ReturnType<typeof vi.fn>).mockResolvedValue(encoded)
 
       const encrypted = await syncEncryptionService.encryptString('hello')
       const decrypted = await syncEncryptionService.decryptString(encrypted)
@@ -243,7 +243,7 @@ describe('syncEncryptionService', () => {
 
       // 根据调用次数返回不同的哈希值，模拟不同密码
       let count = 0
-      ;(global.crypto.subtle.digest as any).mockImplementation(async () => {
+      ;(global.crypto.subtle.digest as ReturnType<typeof vi.fn>).mockImplementation(async () => {
         count++
         const hex = count === 1 ? 'aa'.repeat(32) : 'bb'.repeat(32)
         const bytes = new Uint8Array(32)

@@ -164,7 +164,7 @@ export function useVipPricing() {
     error.value = null
     
     try {
-      const response = await getVipPackages() as { success?: boolean; data?: any }
+      const response = await getVipPackages() as { success?: boolean; data?: unknown }
       
       if (response.success && response.data && Array.isArray(response.data)) {
         const responseData = response.data as Array<Record<string, unknown>>
@@ -195,7 +195,7 @@ export function useVipPricing() {
           }
         })
       }
-    } catch (_err: any) {
+    } catch (_err: unknown) {
       pricingPlans.value = defaultPricingPlans
       error.value = null
     } finally {

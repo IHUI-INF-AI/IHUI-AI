@@ -1,8 +1,8 @@
 {
   "codeBlock": {
-    "copied": "已复制",
+    "copied": "Copied",
     "copy": "复制",
-    "copySuccess": "复制成功",
-    "toggleLineNumbers": "切换 行 numbers"
+    "toggleLineNumbers": "ToggleLineNumbers",
+    "copySuccess": "copy成功"
   }
 }

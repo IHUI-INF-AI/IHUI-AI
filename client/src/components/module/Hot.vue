@@ -33,7 +33,7 @@ withDefaults(
   defineProps<{
     title?: string
     type?: string
-    list: any[]
+    list: Record<string, unknown>[]
     loading?: boolean
   }>(),
   { title: '热门推荐', type: 'learn', loading: false }

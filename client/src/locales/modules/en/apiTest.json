@@ -19,11 +19,11 @@
     "errorInfo": "Error Info",
     "failed": "Failed",
     "status": "Status",
-    "chatTest": "chatTest",
-    "compTest": "compTest",
-    "genTest": "genTest",
-    "serviceTest": "serviceTest",
-    "testComplete": "testComplete",
-    "typeTest": "typeTest"
+    "chatTest": "--- Chat API Test ---",
+    "genTest": "\n--- Generation API Test ---",
+    "compTest": "\n--- Composable Test ---",
+    "typeTest": "\n--- Type Definition Test ---",
+    "serviceTest": "\n--- Service Export Test ---",
+    "testComplete": "Test complete"
   }
 }

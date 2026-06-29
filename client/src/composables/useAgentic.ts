@@ -15,22 +15,22 @@ import { AgentStatus, AgentType } from '@/services/agentic-ai'
 export interface AgentSwarmConfig {
   swarmId?: string
   task?: string
-  agents?: any[]
+  agents?: unknown[]
   coordination?: string
   status?: string
   currentIteration?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface TaskPlan {
-  strategic?: any
-  tactical?: any
-  operational?: any
-  [key: string]: any
+  strategic?: unknown
+  tactical?: unknown
+  operational?: unknown
+  [key: string]: unknown
 }
 
 export interface ReflectionResult {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 // 重新导出 AgentStatus 和 AgentType，避免重复定义

@@ -1,256 +1,262 @@
 {
   "businessDocs": {
     "changelog": {
+      "title": "Version Changelog",
       "items": {
-        "v090[0]": "v090[0]",
-        "v090[1]": "v090[1]",
-        "v090[2]": "v090[2]",
-        "v090[3]": "v090[3]",
-        "v100[0]": "v100[0]",
-        "v100[1]": "v100[1]",
-        "v100[2]": "v100[2]",
-        "v100[3]": "v100[3]",
-        "v100[4]": "v100[4]",
-        "v100[5]": "v100[5]",
-        "v110[0]": "v110[0]",
-        "v110[1]": "v110[1]",
-        "v110[2]": "v110[2]",
-        "v110[3]": "v110[3]",
-        "v110[4]": "v110[4]"
-      },
-      "title": "标题"
+        "v110": [
+          "PWA 강화: Background Sync + Push 알림 + Web Share Target",
+          "성능 최적화: vue-office 청크를 5개 하위 모듈로 분할",
+          "i18n 보완: 모든 언어 커버리지 100% 달성",
+          "API Mock 서비스 통합: e2e/helpers/api-mock.ts",
+          "문서 강화: FAQ + CHANGELOG + CONTRIBUTING Tab"
+        ],
+        "v100": [
+          "초기 버전 릴리스",
+          "5개 언어 i18n 지원 (zh-CN/en/zh-TW/ja/ko)",
+          "PWA 기본 기능 (오프라인 캐시 + 데스크톱에 설치)",
+          "컴포넌트 쇼케이스 페이지 (/storybook) + 비즈니스 문서 페이지 (/business-docs)",
+          "완전한 e2e 테스트 스위트 (851개 테스트)",
+          "성능 예산 체크 + i18n 커버리지 체크"
+        ],
+        "v090": [
+          "Beta 버전",
+          "핵심 페이지 개발 완료 (홈/로그인/등록/AI 채팅/에이전트)",
+          "Element Plus 컴포넌트 라이브러리 통합",
+          "모니터링 알림 시스템 (Sentry 스타일)"
+        ]
+      }
     },
     "contributing": {
-      "note": "note",
+      "note": "Contributions are welcome! Please follow the steps above to submit a PR. Code must pass typecheck + lint + tests.",
+      "title": "Contributing Guide",
       "steps": {
-        "branch": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "check": {
-          "desc": "描述",
-          "title": "标题"
+        "fork": {
+          "title": "저장소 Fork",
+          "desc": "GitHub에서 프로젝트를 귀하의 계정으로 Fork"
         },
         "clone": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "로컬로 복제",
+          "desc": "git clone <your-fork-url> && cd officialsite"
         },
-        "commit": {
-          "desc": "描述",
-          "title": "标题"
+        "install": {
+          "title": "의존성 설치",
+          "desc": "npm install (shared 하위 패키지 자동 빌드)"
+        },
+        "branch": {
+          "title": "브랜치 생성",
+          "desc": "git checkout -b feature/your-feature-name"
         },
         "dev": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "개발 + 테스트",
+          "desc": "npm run dev로 개발 서버 시작; npm run test:unit으로 유닛 테스트 실행"
         },
-        "fork": {
-          "desc": "描述",
-          "title": "标题"
+        "check": {
+          "title": "코드 체크",
+          "desc": "npm run typecheck + npm run lint으로 코드 품질 보장"
         },
-        "install": {
-          "desc": "描述",
-          "title": "标题"
+        "commit": {
+          "title": "코드 커밋",
+          "desc": "git commit -m \"feat: 변경 사항 설명\" (Conventional Commits 준수)"
         },
         "push": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "푸시 + PR",
+          "desc": "git push origin feature/your-feature-name → GitHub에서 Pull Request 생성"
         }
-      },
-      "title": "标题"
+      }
     },
     "deploy": {
+      "title": "Deployment Steps",
       "steps": {
-        "build": {
-          "desc": "描述",
-          "title": "标题"
-        },
         "clone": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "env": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "저장소 복제",
+          "desc": "git clone <repo-url> && cd officialsite"
         },
         "install": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "의존성 설치",
+          "desc": "npm install (shared 하위 패키지 자동 빌드)"
+        },
+        "env": {
+          "title": "환경 변수",
+          "desc": ".env.example을 .env.production으로 복사하고 실제 값 입력"
+        },
+        "build": {
+          "title": "타입 체크 + 빌드",
+          "desc": "npm run build:typecheck (vue-tsc + vite build 포함)"
         },
         "preview": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "로컬 미리보기",
+          "desc": "npm run build && vite preview --port 8888"
         },
         "production": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "프로덕션에 배포",
+          "desc": "nginx에 dist/ 디렉토리 복사 + CSP 설정 + HTTPS 활성화 + 백엔드 시작"
         }
-      },
-      "title": "标题"
+      }
     },
     "environment": {
-      "desc": "描述",
-      "key": "键",
-      "no": "否",
-      "note": "note",
-      "required": "必填",
-      "title": "标题",
+      "desc": "Description",
+      "key": "Key",
+      "no": "No",
+      "note": "These variables must be written to .env.production and injected by Vite at build time; access at runtime via import.meta.env",
+      "required": "Required",
+      "title": "Environment Variables",
+      "yes": "Yes",
       "vars": {
-        "buildPlatform": "buildPlatform",
-        "viteApiBaseUrl": "viteApiBaseUrl",
-        "viteAppTitle": "viteAppTitle",
-        "viteCspReportUri": "viteCspReportUri",
-        "viteEnableMonitor": "viteEnableMonitor",
-        "viteSentryDsn": "viteSentryDsn",
-        "viteUseVize": "viteUseVize"
-      },
-      "yes": "是"
+        "viteApiBaseUrl": "백엔드 API 기본 URL (예: https://api.example.com)",
+        "viteAppTitle": "사이트 제목",
+        "viteEnableMonitor": "프론트엔드 모니터링 보고 활성화 여부 (true/false)",
+        "viteUseVize": "Vize 컴파일 최적화 활성화 여부",
+        "buildPlatform": "빌드 대상 플랫폼 (web/h5/alipay/electron)",
+        "viteCspReportUri": "CSP 위반 보고 URL",
+        "viteSentryDsn": "Sentry 오류 모니터링 DSN"
+      }
     },
     "faq": {
+      "title": "Frequently Asked Questions",
       "items": {
         "browser": {
-          "a": "a",
-          "q": "q"
-        },
-        "bug": {
-          "a": "a",
-          "q": "q"
-        },
-        "contribute": {
-          "a": "a",
-          "q": "q"
-        },
-        "demo": {
-          "a": "a",
-          "q": "q"
-        },
-        "deploy": {
-          "a": "a",
-          "q": "q"
+          "q": "프로젝트는 어떤 브라우저를 지원하나요?",
+          "a": "Chrome 90+, Firefox 88+, Safari 14+, Edge 90+를 지원합니다. IE는 지원되지 않습니다. PWA 기능은 Service Worker를 지원하는 브라우저가 필요합니다."
         },
         "language": {
-          "a": "a",
-          "q": "q"
+          "q": "언어를 어떻게 전환하나요?",
+          "a": "상단 네비게이션 바의 언어 전환기를 클릭하세요. 간체 중국어, 번체 중국어, 영어, 일본어, 한국어 5개 언어를 지원합니다."
         },
-        "pwa": {
-          "a": "a",
-          "q": "q"
+        "demo": {
+          "q": "데모 모드를 어떻게 활성화하나요?",
+          "a": "URL에 ?demo=true 매개변수를 추가하거나, .env에서 VITE_DEMO_MODE=true를 설정하세요. 데모 모드에서는 네트워크 오류 시 자동으로 mock 데이터로 폴백합니다."
+        },
+        "deploy": {
+          "q": "프로덕션 환경에 어떻게 배포하나요?",
+          "a": "\"배포\" Tab을 참조하세요: 1) npm run build:typecheck 2) dist/를 nginx에 복사 3) HTTPS + CSP 설정 4) 백엔드 서비스 시작."
+        },
+        "contribute": {
+          "q": "코드를 어떻게 기여하나요?",
+          "a": "\"기여\" Tab을 참조하세요: 저장소 Fork → 브랜치 생성 → PR 제출. 코드는 typecheck + lint + 테스트를 통과해야 합니다."
         },
         "techStack": {
-          "a": "a",
-          "q": "q"
+          "q": "프로젝트는 어떤 기술 스택을 사용하나요?",
+          "a": "Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router + vue-i18n + Playwright + Vitest."
+        },
+        "bug": {
+          "q": "버그를 어떻게 보고하나요?",
+          "a": "GitHub Issues에서 버그 보고서를 제출하세요. 재현 단계, 브라우저 버전, 콘솔 오류 로그, 스크린샷을 포함해주세요."
+        },
+        "pwa": {
+          "q": "PWA는 어떤 기능을 지원하나요?",
+          "a": "오프라인 접근, 백그라운드 동기화 (Background Sync), 푸시 알림 (Push), 공유 대상 (Share Target), 데스크톱에 설치."
         }
-      },
-      "title": "标题"
+      }
     },
     "modules": {
-      "desc": "描述",
+      "desc": "Description",
+      "method": "Method",
+      "path": "Path",
+      "title": "API Module Catalog",
       "list": {
-        "admin": {
-          "desc": "描述",
-          "endpoints": {
-            "login": "登录",
-            "menus": "menus",
-            "roles": "角色",
-            "users": "用户"
-          },
-          "title": "标题"
-        },
-        "ai": {
-          "desc": "描述",
-          "endpoints": {
-            "agentsCreate": "agentsCreate",
-            "chat": "对话",
-            "generate": "generate",
-            "models": "模型"
-          },
-          "title": "标题"
-        },
         "auth": {
-          "desc": "描述",
+          "title": "인증 모듈",
+          "desc": "계정 등록, 로그인, 서드파티 로그인, JWT 토큰, 기기 바인딩, MFA",
           "endpoints": {
-            "login": "登录",
-            "logout": "退出登录",
-            "refresh": "刷新",
-            "register": "注册",
-            "userInfo": "用户信息"
-          },
-          "title": "标题"
+            "login": "계정 비밀번호 로그인",
+            "register": "사용자 등록",
+            "refresh": "토큰 새로고침",
+            "logout": "로그아웃",
+            "userInfo": "현재 사용자 정보 가져오기"
+          }
         },
         "payment": {
-          "desc": "描述",
+          "title": "결제 모듈",
+          "desc": "WeChat / Alipay / 은련 다채널 결제 + 주문 생성 + 비동기 알림 + 동기 콜백",
           "endpoints": {
-            "aliPay": "aliPay",
-            "aliPayNotify": "aliPayNotify",
-            "aliPaySuccess": "aliPaySuccess",
-            "orderCreate": "orderCreate",
-            "wxPay": "wxPay"
-          },
-          "title": "标题"
+            "aliPay": "Alipay 결제 주문 생성",
+            "aliPayNotify": "Alipay 비동기 알림",
+            "aliPaySuccess": "결제 결과 조회",
+            "wxPay": "WeChat 결제 주문 생성",
+            "orderCreate": "통합 주문 생성"
+          }
+        },
+        "ai": {
+          "title": "AI 모듈",
+          "desc": "AI 채팅, 이미지 생성, 비디오 생성, 모델 관리, 에이전트 오케스트레이션",
+          "endpoints": {
+            "chat": "AI 채팅",
+            "generate": "AI 콘텐츠 생성",
+            "models": "사용 가능한 모델 목록",
+            "agentsCreate": "에이전트 생성"
+          }
         },
         "user": {
-          "desc": "描述",
+          "title": "사용자 모듈",
+          "desc": "사용자 프로필, 설정, VIP 레벨, 지갑, 주문, 메시지",
           "endpoints": {
-            "orders": "订单",
-            "profileGet": "profileGet",
-            "profileUpdate": "profileUpdate",
-            "vipLevels": "vipLevels"
-          },
-          "title": "标题"
+            "profileGet": "개인 프로필 가져오기",
+            "profileUpdate": "개인 프로필 업데이트",
+            "vipLevels": "VIP 레벨 목록",
+            "orders": "내 주문"
+          }
+        },
+        "admin": {
+          "title": "관리 콘솔",
+          "desc": "관리 콘솔 (사용자, 역할, 메뉴, 사전, 모니터링)",
+          "endpoints": {
+            "login": "관리자 로그인",
+            "users": "사용자 목록",
+            "roles": "역할 목록",
+            "menus": "메뉴 트리"
+          }
         }
-      },
-      "method": "method",
-      "path": "path",
-      "title": "标题"
+      }
     },
     "overview": {
-      "description": "描述",
-      "descriptionValue": "descriptionValue",
-      "license": "license",
-      "node": "node",
-      "projectName": "projectName",
-      "title": "标题",
-      "version": "version"
+      "description": "Description",
+      "license": "License",
+      "node": "Node Version",
+      "projectName": "Project Name",
+      "title": "Project Info",
+      "version": "Version",
+      "descriptionValue": "iHui AI 커뮤니티 - 전문 AI 도구 통합 플랫폼 (Monorepo: 공식 사이트 + WeChat 미니 프로그램)"
     },
     "security": {
+      "title": "Security Policies",
       "items": {
         "csp": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "CSP",
+          "desc": "meta로 통합 소스 선언 주입 + nginx에 동기화. 위반을 /api/csp-report에 보고"
         },
         "hmac": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "rbac": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "session": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "HMAC 서명",
+          "desc": "모든 쓰기 API는 DeviceService를 사용하여 device_id + requestSignature 생성 (HMAC-SHA256)"
         },
         "webhook": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "Webhook 서명",
+          "desc": "결제 콜백 + Webhook은 webhookSignature 모듈로 검증 + 리플레이 방지 + 멱등 ID"
+        },
+        "session": {
+          "title": "세션 관리",
+          "desc": "StorageManager로 토큰 암호화 저장 + LoginDuration으로 만료 감지"
+        },
+        "rbac": {
+          "title": "RBAC 권한",
+          "desc": "프론트엔드 useAuthStore + 백엔드 RBAC. 민감한 페이지는 requiresAuth + requiresAdmin으로 가드"
         },
         "xss": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "XSS 보호",
+          "desc": "vue-i18n 기본 이스케이프 + safeHtml 디렉티브 화이트리스트 + DOMPurify 2차 필터링"
         }
-      },
-      "title": "标题"
+      }
     },
-    "subtitle": "副标题",
+    "subtitle": "Project overview, API modules, deployment flow, environment variables, security, FAQ, changelog and contributing guide",
     "tab": {
-      "changelog": "changelog",
-      "contributing": "contributing",
-      "deploy": "deploy",
-      "environment": "environment",
-      "faq": "常见问题",
-      "modules": "modules",
-      "overview": "overview",
-      "security": "安全"
+      "changelog": "Changelog",
+      "contributing": "Contributing",
+      "deploy": "Deployment",
+      "environment": "Environment",
+      "faq": "FAQ",
+      "modules": "API Modules",
+      "overview": "Overview",
+      "security": "Security"
     },
-    "title": "标题"
+    "title": "Business Docs"
   }
 }

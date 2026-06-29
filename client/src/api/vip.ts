@@ -20,7 +20,7 @@ interface VipPurchaseResult {
   orderId?: string
   paymentUrl?: string
   qrCode?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 type ApiResponseWithData<T> = Omit<ApiResponse<T>, 'data'> & { data: T }

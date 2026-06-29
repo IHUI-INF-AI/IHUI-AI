@@ -1,10 +1,7 @@
 {
   "userPage": {
-    "feedback": "反馈",
-    "noImageContent": "noImageContent",
-    "noStudyContent": "noStudyContent",
-    "noTextContent": "noTextContent",
-    "noVideoContent": "noVideoContent",
-    "views": "views"
+    "feedback": "意見反饋",
+    "noStudyContent": "暫無學習內容",
+    "views": "次觀看"
   }
 }

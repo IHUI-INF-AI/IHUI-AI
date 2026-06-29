@@ -12,7 +12,7 @@ export function sleep(ms: number): Promise<void> {
 }
 
 export interface WithRetryOptions {
-  retryCondition?: (e: any) => boolean
+  retryCondition?: (e: unknown) => boolean
   maxRetries?: number
   baseDelay: number
   maxDelay: number
@@ -20,7 +20,7 @@ export interface WithRetryOptions {
 
 export async function withRetry<T>(fn: () => Promise<T>, opts: WithRetryOptions): Promise<T> {
   const max = opts.maxRetries ?? 3
-  let lastErr: any
+  let lastErr: unknown
   for (let i = 0; i <= max; i++) {
     try { return await fn() } catch (e) {
       lastErr = e

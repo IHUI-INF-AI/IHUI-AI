@@ -1,10 +1,10 @@
 {
   "memberLearnRecord": {
-    "continuousDays": "continuousDays",
-    "empty": "empty",
-    "learnDays": "learnDays",
-    "learnMinutes": "learnMinutes",
-    "title": "标题",
-    "today": "今天"
+    "title": "学習記録",
+    "learnDays": "学習日数",
+    "learnMinutes": "学習分数",
+    "continuousDays": "連続日数",
+    "today": "今日",
+    "empty": "学習記録がありません"
   }
 }

@@ -44,7 +44,7 @@
  */
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElSwitch, ElButton, type FormInstance, type FormRules } from 'element-plus'
+import { ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElSwitch, ElButton, type FormInstance, type FormRules, type FormItemRule } from 'element-plus'
 import Editor from '@/components/Editor/index.vue'
 
 const { t } = useI18n()
@@ -100,7 +100,7 @@ const props = withDefaults(
     visible: boolean
     mode: 'add' | 'edit'
     fields: FormField[]
-    formData: Record<string, any>
+    formData: Record<string, unknown>
     submitting?: boolean
     width?: string
     labelWidth?: string
@@ -114,8 +114,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void
-  (e: 'submit', data: Record<string, any>): void
-  (e: 'submit-continue', data: Record<string, any>): void
+  (e: 'submit', data: Record<string, unknown>): void
+  (e: 'submit-continue', data: Record<string, unknown>): void
 }>()
 
 const formRef = ref<FormInstance>()
@@ -129,7 +129,7 @@ const dialogTitle = computed(() => props.mode === 'add' ? t('common.add') : t('c
 const rules = computed<FormRules>(() => {
   const r: FormRules = {}
   for (const f of props.fields) {
-    const rulesArr: any[] = []
+    const rulesArr: FormItemRule[] = []
     // 必填校验
     if (f.required) {
       rulesArr.push({

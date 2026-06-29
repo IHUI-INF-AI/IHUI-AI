@@ -238,7 +238,7 @@ onUnmounted(() => {
   background: var(--el-fill-color-light);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s, border-left-color 0.2s;
+  transition: all 0.2s;
   border-left: 3px solid transparent;
 
   &:hover {
@@ -338,7 +338,7 @@ onUnmounted(() => {
 
 .notification-list-enter-active,
 .notification-list-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .notification-list-enter-from {

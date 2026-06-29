@@ -24,7 +24,7 @@
 /* 滑动动画 - 从左到右 */
 .slide-left-enter-active,
 .slide-left-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-left-enter-from {
@@ -40,7 +40,7 @@
 /* 滑动动画 - 从右到左 */
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-right-enter-from {
@@ -56,7 +56,7 @@
 /* 滑动动画 - 从上到下 */
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-down-enter-from {
@@ -72,7 +72,7 @@
 /* 滑动动画 - 从下到上 */
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-up-enter-from {
@@ -88,7 +88,7 @@
 /* 缩放动画 */
 .scale-enter-active,
 .scale-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .scale-enter-from {
@@ -104,7 +104,7 @@
 /* 组合动画 - 淡入淡出 + 缩放 */
 .fade-scale-enter-active,
 .fade-scale-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .fade-scale-enter-from {
@@ -121,7 +121,7 @@
 
 /* 列表项进入动画 */
 .list-item-enter-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .list-item-enter-from {
@@ -131,7 +131,7 @@
 
 /* 卡片进入动画 */
 .card-enter-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .card-enter-from {
@@ -142,7 +142,7 @@
 /* 模态框进入动画 */
 .modal-enter-active,
 .modal-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .modal-enter-from,
@@ -177,7 +177,7 @@
 
 /* ==================== 暗色模式支持 ==================== */
 
-:where(html.dark) {
+html.dark {
   /* 暗色模式下过渡动画保持不变 */
   /* 可以根据需要调整暗色模式下的动画效果 */
 }

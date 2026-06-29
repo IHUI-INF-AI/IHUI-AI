@@ -21,7 +21,7 @@ describe('htmlSanitizer', () => {
 
     it('应该返回空字符串当输入为空', () => {
       expect(escapeHtml('')).toBe('')
-      expect(escapeHtml(null as any)).toBe('')
+      expect(escapeHtml(null as unknown as string)).toBe('')
     })
 
     it('应该保留普通文本', () => {
@@ -44,7 +44,7 @@ describe('htmlSanitizer', () => {
 
     it('应该返回空字符串当输入为空', () => {
       expect(unescapeHtml('')).toBe('')
-      expect(unescapeHtml(null as any)).toBe('')
+      expect(unescapeHtml(null as unknown as string)).toBe('')
     })
 
     it('应该保留普通文本', () => {
@@ -101,7 +101,7 @@ describe('htmlSanitizer', () => {
 
     it('应该返回空字符串当输入为空', () => {
       expect(sanitizeHtml('')).toBe('')
-      expect(sanitizeHtml(null as any)).toBe('')
+      expect(sanitizeHtml(null as unknown as string)).toBe('')
     })
 
     it('应该处理复杂的HTML', () => {

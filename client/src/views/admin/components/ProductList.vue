@@ -31,7 +31,7 @@
     </template>
 
     <template #col-image="{ row }">
-      <el-image :src="row.image" class="product-image" fit="cover" />
+      <el-image :src="row.image" style="width: 60px; height: 60px" fit="cover" />
     </template>
 
     <template #col-type="{ row }">
@@ -84,7 +84,7 @@ import {
   deleteAdminProduct,
   toggleAdminProductStatus,
   type AdminProduct,
-} from '@/api/admin/admin-products'
+} from '@/api/admin-products'
 
 const { t } = useI18n()
 
@@ -187,11 +187,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.product-image {
-  width: 60px;
-  height: 60px;
-}
-
 .price {
   font-weight: 600;
   color: var(--el-color-danger);

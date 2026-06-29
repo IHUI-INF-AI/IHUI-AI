@@ -28,25 +28,25 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const { t } = useI18n()
 const route = useRoute()
 const id = String(route.params.id || '')
 
-const cert = ref<any>({})
+const cert = ref<Record<string, unknown>>({})
 const loading = ref(false)
 
 const breadcrumbItems = computed(() => [
   { title: t('learnCertificateDownload.breadcrumbCourse'), path: '/learn' },
   { title: t('learnCertificateDownload.breadcrumbCert'), path: '/learn/certificate' },
-  { title: cert.value.name || t('learnCertificateDownload.download') },
+  { title: (cert.value.name as string) || t('learnCertificateDownload.download') },
 ])
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.certificateDetail(id)
+    const res = await learnApi.certificateDetail(id) as unknown as { data?: Record<string, unknown> }
     cert.value = res.data || {}
   } finally {
     loading.value = false

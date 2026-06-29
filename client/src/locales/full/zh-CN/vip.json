@@ -2,40 +2,5 @@
   "Vip": {
     "permanentVip": "/永久会员",
     "oneClickVip": "一键开通会员"
-  },
-  "userMembershipBenefits": {
-    "vipPrice": "限时588元/1288元开通VIP/年",
-    "traderPrice": "限时3888元/18888元开通操盘手/年",
-    "benefitName": "权益名称",
-    "normalUser": "普通用户",
-    "vip": "VIP",
-    "trader": "操盘手",
-    "upgrade": "立即开通",
-    "benefit1Title": "终身二级分销收益",
-    "benefit1One": "分享送智汇值",
-    "benefit1Two": "一级分销10%",
-    "benefit1Three": "一级分销40%二级分销10%",
-    "benefit2Title": "获取上千+智能体源码",
-    "benefit3Title": "AI应用Coze官方渠道发布",
-    "benefit4Title": "AI应用限免开放",
-    "benefit5Title": "Coze/N8N无缝接入",
-    "benefit6Title": "多对一答疑陪跑",
-    "benefit7Title": "算力值赠送",
-    "benefit7One": "8万",
-    "benefit7Two": "888万",
-    "benefit7Three": "1888万",
-    "benefit8Title": "总部入驻及线下学习实操机会",
-    "benefit9Title": "成立一人公司",
-    "benefit10Title": "定制Agent",
-    "benefit10One": "原价",
-    "benefit10Two": "9.5折",
-    "benefit10Three": "8折",
-    "benefit11Title": "入驻社区服务商名列"
-  },
-  "vipIntroducePopup": {
-    "loading": "加载中",
-    "noContinuousOptions": "暂无可用的连续购买选项",
-    "trial": "试用",
-    "noMonthlyOptions": "暂无可用的按月购买选项"
   }
 }

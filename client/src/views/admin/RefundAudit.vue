@@ -26,7 +26,7 @@
       </div>
     </div>
 
-    <!-- 过滤栏 + 批量操作 -->
+    <!-- 过滤�?+ 批量操作 -->
     <div class="filter-bar">
       <div class="filter-fields">
         <input
@@ -196,6 +196,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useToast } from '@/composables/useToast'
 import http from '@/utils/request'
+import type { ApiResponse } from '@/types'
 
 interface Refund {
   id: string
@@ -207,7 +208,7 @@ interface Refund {
   sla_level: string
   elapsed_hours: number
   created_at: string
-  evidence?: any[]
+  evidence?: unknown[]
 }
 
 const toast = useToast()
@@ -219,7 +220,7 @@ const filterStatus = ref('')
 const filterSla = ref('')
 const detail = ref<Refund | null>(null)
 const detailVisible = ref(false)
-const slaData = ref<any>({ sla_buckets: { green: 0, yellow: 0, red: 0, critical: 0 } })
+const slaData = ref<unknown>({ sla_buckets: { green: 0, yellow: 0, red: 0, critical: 0 } })
 
 const allSelected = computed(() => {
   const selectable = list.value.filter((i) => ['pending', 'reviewing'].includes(i.status))
@@ -255,8 +256,8 @@ function slaLabel(l: string): string {
 
 async function loadSla() {
   try {
-    const res: any = await http.get('/api/v1/refunds/sla/monitor')
-    if (res?.code === 0) slaData.value = res.data
+    const res = await http.get<ApiResponse<unknown>>('/api/v1/refunds/sla/monitor')
+    if (res.data?.code === 0) slaData.value = res.data.data
   } catch (_e) {
     // 静默
   }
@@ -266,13 +267,13 @@ async function loadList(reset = false) {
   if (reset) selectedIds.value = []
   loading.value = true
   try {
-    const params: Record<string, any> = { page: 1, page_size: 50 }
+    const params: Record<string, unknown> = { page: 1, page_size: 50 }
     if (filterStatus.value) params.status = filterStatus.value
     if (filterSla.value) params.sla_level = filterSla.value
     if (filterKeyword.value.trim()) params.keyword = filterKeyword.value.trim()
-    const res: any = await http.get('/api/v1/refunds/admin/list', { params })
-    if (res?.code === 0) {
-      list.value = res.data.list
+    const res = await http.get<ApiResponse<{ list: Refund[] }>>('/api/v1/refunds/admin/list', { params })
+    if (res.data?.code === 0) {
+      list.value = res.data.data?.list || []
     }
   } catch (_e) {
     toast.error(t('refundAudit.loadFailed'))
@@ -306,8 +307,8 @@ async function singleReview(id: string, approved: boolean) {
     )
   } catch (_e) { return }
   try {
-    const res: any = await http.post(`/api/v1/refunds/${id}/review`, { approved, note: '' })
-    if (res?.code === 0) {
+    const res = await http.post<ApiResponse<unknown>>(`/api/v1/refunds/${id}/review`, { approved, note: '' })
+    if (res.data?.code === 0) {
       toast.success(approved ? t('refundAudit.approvedToast') : t('refundAudit.rejectedToast'))
       loadList()
       loadSla()
@@ -329,13 +330,13 @@ async function batchReview(approved: boolean) {
     )
   } catch (_e) { return }
   try {
-    const res: any = await http.post('/api/v1/refunds/batch/review', {
+    const res = await http.post<ApiResponse<{ success: number; failed: number }>>('/api/v1/refunds/batch/review', {
       items: selectedIds.value.map((id) => ({ refund_id: id, approved, note: '' })),
       operator: 'admin',
     })
-    if (res?.code === 0) {
-      const d = res.data
-      toast.success(t('refundAudit.batchResult', { success: d.success, failed: d.failed }))
+    if (res.data?.code === 0) {
+      const d = res.data.data
+      toast.success(t('refundAudit.batchResult', { success: d?.success ?? 0, failed: d?.failed ?? 0 }))
       selectedIds.value = []
       loadList()
       loadSla()
@@ -419,10 +420,10 @@ $brand-primary: v.$primary-color;
   &.sla-red { background: var(--el-color-danger-light-9); border-color: var(--el-color-danger-light-7); .sla-value { color: var(--el-color-danger); } }
 
   &.sla-critical {
-    background: var(--el-color-danger);
-    color: var(--el-color-white);
-    border-color: var(--el-color-danger);
-    .sla-value { color: var(--el-color-white); }
+    background: var(--el-text-color-primary);
+    color: var(--el-bg-color);
+    border-color: var(--el-text-color-primary);
+    .sla-value { color: var(--el-bg-color); }
   }
 }
 
@@ -543,7 +544,7 @@ $brand-primary: v.$primary-color;
 }
 
 .table-head {
-  background: var(--el-fill-color-blank);
+  background: var(--color-black-2);
   font-size: 12px;
   font-weight: 700;
   color: $text-sec;
@@ -555,7 +556,7 @@ $brand-primary: v.$primary-color;
   border-bottom: var(--unified-border-bottom);
 
   &:last-child { border-bottom: none; }
-  &:hover { background: var(--el-fill-color-light); }
+  &:hover { background: var(--color-black-2); }
 
   &.row-sla-critical {
     background: var(--el-color-danger-light-9);
@@ -579,17 +580,17 @@ $brand-primary: v.$primary-color;
   white-space: nowrap;
 }
 
-.id-col { font-family: var(--font-family-mono); font-size: 12px; }
+.id-col { font-family: monospace; font-size: 12px; }
 .amount-col { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .status-pill {
   display: inline-block;
   padding: 2px 8px;
   border-radius: var(--global-border-radius);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 
-  &.status-pending, &.status-reviewing { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
+  &.status-pending, &.status-reviewing { background: var(--el-color-primary-light-9); color: var(--color-blue-1890ff); }
   &.status-approved, &.status-completed, &.status-processing { background: var(--el-color-success-light-9); color: var(--el-color-success); }
   &.status-rejected, &.status-failed { background: var(--el-color-danger-light-9); color: var(--el-color-danger); }
   &.status-cancelled { background: var(--color-black-6); color: $text-sec; }
@@ -599,18 +600,18 @@ $brand-primary: v.$primary-color;
   display: inline-block;
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   margin-right: 4px;
 
   &.sla-green { background: var(--el-color-success-light-7); color: var(--el-color-success); }
   &.sla-yellow { background: var(--el-color-warning-light-7); color: var(--el-color-warning); }
   &.sla-red { background: var(--el-color-danger-light-7); color: var(--el-color-danger); }
-  &.sla-critical { background: var(--el-color-danger); color: var(--el-color-white); }
+  &.sla-critical { background: var(--el-text-color-primary); color: var(--el-bg-color); }
 }
 
 .sla-hours {
-  font-size: 12px;
+  font-size: 11px;
   color: $text-sec;
   font-variant-numeric: tabular-nums;
 }

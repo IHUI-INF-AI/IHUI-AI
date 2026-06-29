@@ -1,0 +1,105 @@
+/* ============================================
+   协议确认弹窗全局样式 - append-to-body 需要 global 覆盖
+   重新设计：精简 CSS，使用 html.dark 确保暗色模式特异性
+   ============================================ */
+
+/* 弹窗遮罩 */
+.el-overlay:has(.agreement-confirm-dialog-wrapper .el-dialog) {
+  background-color: var(--color-black-50);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html.dark .el-overlay:has(.agreement-confirm-dialog-wrapper .el-dialog) {
+  background-color: var(--color-black-70);
+}
+
+/* overlay-dialog 容器居中 */
+.el-overlay-dialog:has(.agreement-confirm-dialog-wrapper) {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 弹窗容器 */
+.agreement-confirm-dialog-wrapper.el-dialog {
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-bg-color);
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  z-index: var(--z-modal);
+  overflow: hidden;
+}
+
+/* 标题栏 */
+.agreement-confirm-dialog-wrapper .el-dialog__header {
+  padding: 20px 24px 4px;
+  border: none;
+  margin-bottom: 0;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.agreement-confirm-dialog-wrapper .el-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+  text-align: center;
+  width: 100%;
+  display: block;
+}
+
+/* 正文区 */
+.agreement-confirm-dialog-wrapper .el-dialog__body {
+  padding: 12px 24px 16px;
+  color: var(--el-text-color-regular);
+}
+
+/* 底部按钮区 */
+.agreement-confirm-dialog-wrapper .el-dialog__footer {
+  padding: 0 24px 20px;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 12px;
+}
+
+/* 暗色模式 - 弹窗容器 */
+html.dark .agreement-confirm-dialog-wrapper.el-dialog {
+  background-color: var(--el-bg-color);
+  border: none;
+  box-shadow: none;
+}
+
+html.dark .agreement-confirm-dialog-wrapper .el-dialog__header {
+  border: none;
+}
+
+html.dark .agreement-confirm-dialog-wrapper .el-dialog__title {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-dialog-wrapper .el-dialog__body {
+  background-color: var(--el-bg-color);
+  color: var(--el-text-color-regular);
+}

@@ -6,18 +6,14 @@
     <div class="ai-world-page__wrap" :class="{ 'ai-world-page__wrap--nav-fixed': !isTabletDown }">
       <!-- 左侧菜单栏：Teleport 到 body 避免被 #main-content 内 transform/滚动容器影响，真正固定于视口 -->
       <Teleport to="body" :disabled="isTabletDown">
-        <aside v-if="!loading && sectionNavTreeWithIndex.length" class="ai-world-page__nav" :aria-label="t('common.categoryNav')">
+        <aside v-if="!loading && sectionNavTreeWithIndex.length" class="ai-world-page__nav" aria-label="分类导航">
           <nav class="ai-world-page__nav-inner">
           <template v-for="(navSection, si) in sectionNavTreeWithIndex" :key="navSection.sectionTitle">
-            <!-- 仅一个子项且无/重复子标题：单一级菜单，不展开 -->
-            <button v-if="
-              navSection.children.length === 1 &&
-              (!navSection.children[0].subTitle ||
-                isSubTitleRedundant(navSection.sectionTitle, navSection.children[0].subTitle))
-            " type="button" class="ai-world-page__nav-item"
-              :class="{ 'ai-world-page__nav-item--active': activeSectionIndex === navSection.children[0].flatIndex }"
+            <!-- 所有子项标题均为空或与主分类重复：单一级菜单，不展开 -->
+            <button v-if="isSingleLevelSection(navSection)" type="button" class="ai-world-page__nav-item"
+              :class="{ 'ai-world-page__nav-item--active': isNavSectionActive(navSection) }"
               @click="scrollToSection(navSection.children[0].flatIndex)">
-              {{ navSection.sectionTitle }}
+              <span class="ai-world-page__nav-item-text">{{ navSection.sectionTitle }}</span>
             </button>
             <!-- 多个子项或子标题有意义：父级可折叠 + 子菜单（顺序与页面内容一致） -->
             <template v-else>
@@ -26,6 +22,9 @@
                 :aria-expanded="isSectionExpanded(navSection.sectionTitle)"
                 @click="toggleSection(navSection.sectionTitle)">
                 <span class="ai-world-page__nav-parent-text">{{ navSection.sectionTitle }}</span>
+                <span class="ai-world-page__nav-parent-arrow" :class="{ 'is-expanded': isSectionExpanded(navSection.sectionTitle) }">
+                  <el-icon :size="12"><ArrowDown /></el-icon>
+                </span>
               </button>
               <div v-show="isSectionExpanded(navSection.sectionTitle)" class="ai-world-page__nav-children">
                 <button v-for="(child, childIdx) in navSection.children" :key="child.flatIndex" type="button"
@@ -43,7 +42,7 @@
 
       <div class="ai-world-page__container">
         <!-- 标题区：Hero 轮播图 - 重构为带叠层内容与高级样式的卡片式轮播 -->
-        <section class="ai-world-page__hero" :aria-label="t('common.aiWorldCarousel')">
+        <section class="ai-world-page__hero" aria-label="AI 世界轮播">
           <div class="ai-world-page__hero-carousel-wrap">
             <el-carousel :interval="4500" height="440px" indicator-position="none" arrow="hover"
               class="ai-world-page__hero-carousel">
@@ -100,12 +99,13 @@
           <section class="ai-world-page__section">
             <div class="ai-world-page__grid">
               <RouterLink v-for="item in detailItems" :key="item.id"
-                :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card ai-world-card--fill">
+                :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card"
+                :style="{ backgroundColor: 'var(--color-gray-light)' }">
                 <div class="ai-world-card__icon-wrap">
                   <img :src="item.coverUrl" :alt="item.title" class="ai-world-card__icon" loading="lazy"
                     @error="handleImageError" />
                 </div>
-                <div class="ai-world-card__content ai-world-card__content--transparent">
+                <div class="ai-world-card__content" :style="{ backgroundColor: 'transparent' }">
                   <h3 class="ai-world-card__title">{{ item.title }}</h3>
                   <p v-if="item.description" class="ai-world-card__desc">{{ item.description }}</p>
                 </div>
@@ -140,12 +140,13 @@
               :data-section-index="selectedChild(navSection).flatIndex">
               <div class="ai-world-page__grid">
                 <RouterLink v-for="item in selectedChild(navSection).items" :key="item.id"
-                  :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card ai-world-card--fill">
+                  :to="{ name: 'aiWorldDetail', params: { id: item.id } }" class="ai-world-card"
+                  :style="{ backgroundColor: 'var(--color-gray-light)' }">
                   <div class="ai-world-card__icon-wrap">
                     <img :src="item.coverUrl" :alt="item.title" class="ai-world-card__icon" loading="lazy"
                       @error="handleImageError" />
                   </div>
-                  <div class="ai-world-card__content ai-world-card__content--transparent">
+                  <div class="ai-world-card__content" :style="{ backgroundColor: 'transparent' }">
                     <h3 class="ai-world-card__title">{{ item.title }}</h3>
                     <p v-if="item.description" class="ai-world-card__desc">{{ item.description }}</p>
                   </div>
@@ -170,14 +171,15 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { loadModule, getCurrentLocale } from '@/locales'
 import { logger } from '@/utils/logger'
+import { ArrowDown } from '@element-plus/icons-vue'
 import {
   getAiWorldList,
   siteToItem,
   buildSectionWithSubs,
   isSubTitleRedundant,
   formatSubTitleForDisplay,
-} from '@/api/ai/ai-world'
-import type { AiWorldSection, AiWorldSectionWithSubs, AiWorldItem } from '@/api/ai/ai-world'
+} from '@/api/ai-world'
+import type { AiWorldSection, AiWorldSectionWithSubs, AiWorldItem } from '@/api/ai-world'
 import aiWorldLb1 from '@/assets/images/aiWorldLb1.jpg?url'
 import aiWorldLb2 from '@/assets/images/aiWorldLb2.jpg?url'
 import aiWorldLb3 from '@/assets/images/aiWorldLb3.jpg?url'
@@ -281,6 +283,14 @@ function getNavChildLabel(sectionTitle: string, subTitle: string): string {
   return formatSubTitleForDisplay(subTitle)
 }
 
+/** 判断是否为单一级菜单：所有子项标题均为空或与主分类重复时，不展开，合并为一个入口 */
+function isSingleLevelSection(navSection: NavSection): boolean {
+  if (navSection.children.length === 0) return true
+  return navSection.children.every(
+    (ch) => !ch.subTitle?.trim() || isSubTitleRedundant(navSection.sectionTitle, ch.subTitle)
+  )
+}
+
 function handleImageError(e: Event) {
   const el = e.target as HTMLImageElement
   if (el) el.src = '/images/common/empty.svg'
@@ -293,7 +303,7 @@ function sectionId(index: number): string {
   return `${SECTION_ID_PREFIX}${index}`
 }
 
-/** 顶部全局导航高度偏移（选中菜单时内容贴在导航下方显示；移动端需兼容 sticky 菜单栏高度） */
+/** 顶部全局导航高度偏移（选中菜单时内容贴边导航下方显示；移动端需兼容 sticky 菜单栏高度） */
 const SCROLL_OFFSET = 160
 
 function scrollToSection(flatIndex: number) {
@@ -599,8 +609,10 @@ async function fetchList() {
       sections.value = res.data
     } else {
       sections.value = []
+      console.warn('[AiWorld] sections.value set to empty: success=', res.success, 'isArray=', Array.isArray(res.data))
     }
-  } catch {
+  } catch (e) {
+    console.error('[AiWorld] fetchList() error:', e)
     sections.value = []
     hasError.value = true
   } finally {
@@ -666,13 +678,13 @@ $aw-gray-page: var(--color-neutral-100);
 $aw-panel-bg: var(--el-bg-color);
 
 /* 菜单栏、内容区白色背景 */
-$aw-gray-card: var(--el-fill-color-lighter);
+$aw-gray-card: var(--color-gray-fafafa);
 
 /* 卡片背景（略亮于页面，与背景区分） */
 $aw-gray-elevated: var(--color-gray-e8e8e8);
 
 /* 悬停、选中、图标容器略深 */
-$aw-gray-border: var(--el-text-color-placeholder);
+$aw-gray-border: var(--color-text-muted);
 
 /* 描边 */
 
@@ -716,7 +728,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  font-family: var(--el-font-family, var(--font-family-chinese));
+  font-family: var(--el-font-family, var(--font-family-chinese, 'PingFang SC', 'Microsoft YaHei', sans-serif));
   font-weight: 500;
 
   @include bp.tablet-down {
@@ -774,19 +786,19 @@ $aw-gray-border: var(--el-text-color-placeholder);
 .ai-world-page__nav-parent {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 6px;
   width: 100%;
-  padding: 10px 14px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--el-text-color-secondary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   background: transparent;
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  text-align: center;
+  text-align: left;
   transition: color 0.2s ease, background 0.2s ease;
   box-sizing: border-box;
   min-width: 0;
@@ -799,7 +811,6 @@ $aw-gray-border: var(--el-text-color-placeholder);
   &--active {
     color: var(--el-text-color-primary);
     background: $aw-gray-elevated;
-    font-weight: 500;
   }
 }
 
@@ -807,29 +818,47 @@ $aw-gray-border: var(--el-text-color-placeholder);
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
+  padding-left: 8px;
 }
 
 .ai-world-page__nav-parent-text {
   white-space: normal;
   word-break: break-word;
-  text-align: center;
-  font-weight: 500;
+  text-align: left;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 折叠/展开箭头 */
+.ai-world-page__nav-parent-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--el-text-color-placeholder);
+  transition: transform 0.2s ease, color 0.2s ease;
+
+  &.is-expanded {
+    transform: rotate(180deg);
+  }
 }
 
 .ai-world-page__nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 10px 14px;
-  min-height: 40px;
-  font-size: 14px;
+  padding: 8px 12px;
+  min-height: 36px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-regular);
   background: transparent;
   border: none;
   border-radius: var(--global-border-radius);
-  text-align: center;
+  text-align: left;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease;
   white-space: normal;
@@ -844,14 +873,28 @@ $aw-gray-border: var(--el-text-color-placeholder);
   }
 
   &--active {
-    color: var(--el-text-color-primary);
-    background: $aw-gray-elevated;
-    font-weight: 500;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    font-weight: 600;
   }
 
-  /* 二级子项：较一级菜单小一号 */
+  /* 二级子项：较小字号 + 缩进 */
   &--sub {
     font-size: 12px;
+    font-weight: 400;
+    color: var(--el-text-color-secondary);
+    padding-left: 20px;
+    min-height: 32px;
+  }
+
+  &--sub:hover {
+    color: var(--el-text-color-primary);
+  }
+
+  &--sub#{&}--active {
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    font-weight: 500;
   }
 
   @include bp.tablet-down {
@@ -860,6 +903,11 @@ $aw-gray-border: var(--el-text-color-placeholder);
     font-size: 13px;
     border-radius: var(--global-border-radius);
   }
+}
+
+.ai-world-page__nav-item-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* 内容区：白色背景，上右下外边距 10px，8px 圆角，描边 */
@@ -968,11 +1016,12 @@ $aw-gray-border: var(--el-text-color-placeholder);
   overflow: hidden;
   border: var(--unified-border);
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     transform: scale(1.01);
-    }
+    border-color: var(--el-color-primary);
+  }
 
   &:focus-visible {
     outline: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -1040,7 +1089,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
   font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem);
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-ededed);
   line-height: 1.25;
 }
 
@@ -1074,7 +1123,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
 }
 
 .ai-world-page__hero-slide:hover .ai-world-page__hero-slide__cta {
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-fafafa);
   border-color: var(--el-bg-color);
   color: var(--color-dark-bg-1);
 }
@@ -1220,7 +1269,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
 
   &:hover {
     color: var(--el-text-color-primary);
-    background: var(--el-text-color-placeholder);
+    background: var(--color-text-muted);
     border-color: $aw-gray-border;
   }
 }
@@ -1336,14 +1385,6 @@ $aw-gray-border: var(--el-text-color-placeholder);
   box-shadow: none;
 }
 
-.ai-world-card--fill {
-  background-color: var(--el-fill-color-light);
-}
-
-.ai-world-card__content--transparent {
-  background-color: transparent;
-}
-
 .ai-world-card__desc {
   font-size: 13px;
   font-weight: 400;
@@ -1375,7 +1416,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
 }
 
 .ai-world-page .ai-world-card {
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-fafafa);
 }
 
 .ai-world-page .ai-world-card:hover {

@@ -1,8 +1,8 @@
 {
   "plazaCategoryTab": {
-    "all": "全部",
-    "custom": "custom",
-    "enterCategory": "enterCategory",
-    "setCustomCategory": "setCustomCategory"
+    "all": "All",
+    "setCustomCategory": "Please set custom category",
+    "custom": "Custom",
+    "enterCategory": "Enter category name"
   }
 }

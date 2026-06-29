@@ -1,25 +1,33 @@
 {
   "feedback": {
+    "핵심 장점": "피드백 보내기",
     "content": {
-      "tip": "tip"
+      "tip": "귀하의피드백통합우리비교적대규모필요，요청상세세부설명석귀하의문제또는제안"
+    },
+    "type": {
+      "feature": "기능제안",
+      "bug": "문제피드백",
+      "experience": "체험문제",
+      "other": "기타"
+    },
+    "attachments": {
+      "핵심 장점": "첨부파일"
     },
     "rules": {
-      "contentMin": "contentMin",
-      "contentRequired": "contentRequired"
+      "contentRequired": "요청입력피드백콘텐츠",
+      "contentMin": "콘텐츠 길이는 최소 10자 이상이어야 합니다"
     },
-    "submitSuccess": "submitSuccess",
-    "title": "标题",
-    "type": {
-      "bug": "bug",
-      "experience": "experience",
-      "feature": "功能",
-      "other": "other"
-    }
+    "submitSuccess": "피드백제출성공，감생각귀하의피드백！",
+    "title": "의견피드백",
+    "feedbackRecords": "피드백 기록",
+    "submitFeedback": "피드백 제출",
+    "loading": "로딩...",
+    "submitFailed": "제출 실패, 재시도하세요"
   },
   "Feedback": {
-    "feedbackRecords": "feedbackRecords",
-    "loading": "加载中",
-    "submitFailed": "submitFailed",
-    "submitFeedback": "submitFeedback"
+    "feedbackRecords": "피드백 기록",
+    "submitFeedback": "피드백 제출",
+    "loading": "로딩...",
+    "submitFailed": "제출 실패, 재시도하세요"
   }
 }

@@ -40,22 +40,22 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
 
 const { t } = useI18n()
-const list = ref<any[]>([])
-const stat = ref<any>({})
+const list = ref<unknown[]>([])
+const stat = ref<unknown>({})
 const loading = ref(false)
 
 async function load() {
   loading.value = true
   try {
     const [records, s] = await Promise.all([
-      memberApi.learnRecord(),
-      memberApi.learnStat(),
+      memberApi.learnRecord() as unknown as { data?: { items?: unknown[]; list?: unknown[] } },
+      memberApi.learnStat() as unknown as { data?: Record<string, unknown> },
     ])
-    list.value = (records as any).data?.items || (records as any).data?.list || []
-    stat.value = (s as any).data || {}
+    list.value = records.data?.items || records.data?.list || []
+    stat.value = s.data || {}
   } catch (e) { console.error(e) } finally {
     loading.value = false
   }

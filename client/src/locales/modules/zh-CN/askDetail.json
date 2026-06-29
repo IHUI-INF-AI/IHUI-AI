@@ -1,14 +1,14 @@
 {
   "askDetail": {
-    "adopt": "adopt",
-    "adopted": "已采纳",
-    "answers": "答案",
     "backToList": "返回列表",
-    "essence": "精华",
-    "favorite": "收藏",
-    "questionNotFound": "问题 非 found",
-    "submitAnswer": "提交 答案",
+    "questionNotFound": "问题不存在或已删除",
     "top": "置顶",
-    "writeAnswerPlaceholder": "write 答案 placeholder"
+    "essence": "精华",
+    "answers": "个回答",
+    "submitAnswer": "提交回答",
+    "adopted": "已采纳",
+    "adopt": "采纳",
+    "favorite": "收藏",
+    "writeAnswerPlaceholder": "写下你的回答..."
   }
 }

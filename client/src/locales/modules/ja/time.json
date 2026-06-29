@@ -1,9 +1,13 @@
 {
   "time": {
-    "daysAgo": "daysAgo",
-    "hoursAgo": "hoursAgo",
-    "justNow": "justNow",
-    "minutesAgo": "minutesAgo",
-    "never": "never"
+    "daysAgo": "{days}日前",
+    "justNow": "たった今",
+    "minutesAgo": "{minutes}分前",
+    "hoursAgo": "{hours}時間前",
+    "never": "从未",
+    "today": "今日",
+    "yesterday": "昨日",
+    "dayBeforeYesterday": "前日",
+    "weeksAgo": "{weeks}週前"
   }
 }

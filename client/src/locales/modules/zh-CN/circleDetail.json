@@ -1,17 +1,16 @@
 {
   "circleDetail": {
-    "back": "返回",
-    "essence": "精华",
-    "join": "加入",
-    "joined": "joined",
-    "members": "会员",
-    "noDesc": "无描述",
-    "noPosts": "无 posts",
-    "owner": "所有者",
-    "postPlaceholder": "帖子 placeholder",
-    "posts": "帖子",
-    "postsTitle": "posts 标题",
+    "back": "返回圈子",
+    "noDesc": "暂无简介",
+    "members": "成员",
+    "posts": "动态",
+    "owner": "主理人",
+    "joined": "已加入",
+    "join": "加入圈子",
+    "postsTitle": "动态",
     "publish": "发布",
-    "top": "置顶"
+    "noPosts": "暂无动态",
+    "top": "置顶",
+    "essence": "精华"
   }
 }

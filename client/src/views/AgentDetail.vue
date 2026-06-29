@@ -2,7 +2,7 @@
   <div class="agent-detail-container page-container radius-auto">
     <el-dialog v-model="buyDialogVisible" :title="t('agentDetail.buyAgent')" width="480px">
       <div>
-        <div class="payment-method-title">
+        <div style="margin-bottom: 12px; color: var(--el-text-color-primary)">
           {{ t('agentDetail.selectPaymentMethod') }}
         </div>
         <el-radio-group v-model="paymentMethod">
@@ -442,8 +442,8 @@ import {
   fetchAgentDetails,
   updateAgent as _updateAgent,
   deleteAgent as _deleteAgent,
-} from '@/api/agent/agents'
-import { buyAgent } from '@/api/agent/agent-buy'
+} from '@/api/agents'
+import { buyAgent } from '@/api/agent-buy'
 import { logger } from '@/utils/logger'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 
@@ -500,7 +500,7 @@ const loadAgentDetail = async () => {
       showError(errorMsg)
       agent.value = null
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('agents.loadFailed')
     pageError.value = {
@@ -571,7 +571,7 @@ const loadRelatedWrench = async () => {
 
   try {
     // 根据智能体标签加载相关工具
-    const { getToolsList } = await import('@/api/tools/tools')
+    const { getToolsList } = await import('@/api/tools')
     const tags = agent.value.tags.slice(0, 3) // 使用前3个标签
 
     // 尝试根据标签搜索工具
@@ -599,7 +599,7 @@ const loadRelatedWrench = async () => {
 
 // 返回
 const goBack = () => {
-  ;(router as any).back()
+  router.back()
 }
 
 // 开始对话
@@ -609,7 +609,7 @@ const handleStartChat = () => {
     router.push({
       name: 'agents',
       query: { id: String(agent.value.id) },
-    } as any)
+    })
   }
 }
 
@@ -724,7 +724,7 @@ const handleBuyConfirm = async () => {
         error: response.message,
       })
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     showError(errorMsg || t('agentDetail.purchaseFailed') || '购买失败')
     logger.error('Agent purchase exception:', error)
@@ -757,7 +757,7 @@ const handleFavorite = async () => {
     } else {
       showError(response.message || t('agents.favoriteFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     showError(errorMsg || t('agents.favoriteFailed'))
   }
@@ -789,7 +789,7 @@ const handleThumbs = async () => {
         agentTyped.likeCount += action === 'add' ? 1 : -1
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     showError(errorMsg || t('agentDetail.operationFailed'))
   }
@@ -809,7 +809,7 @@ const handleRefreshCwDetails = async () => {
     } else {
       showError(response.message || t('agentDetail.refreshFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     showError(errorMsg || t('agentDetail.refreshFailed'))
   } finally {

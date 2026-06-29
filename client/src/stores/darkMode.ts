@@ -113,24 +113,24 @@ export const useDarkModeStore = defineStore('darkMode', () => {
   const debouncedApplyTheme = debounce(applyTheme, THEME_SWITCH_DEBOUNCE_MS)
 
   const DARK_BG_CSS = `
-    html.dark, html.dark html, html.dark body, html.dark #app, html.dark .app-container,
-    html.dark .main-content, html.dark .page-container, html.dark .agents-container,
-    html.dark .home-container, html.dark [class*="container"]:not(.brand-text-container),
-    html.dark [id*="app"], html.dark [id*="page"], html.dark header, html.dark .glass-header,
-    html.dark main, html.dark .page-section, html.dark #first-page, html.dark #second-page,
-    html.dark #third-page, html.dark #fourth-page, html.dark #fifth-page, html.dark footer,
-    html.dark .footer-container, html.dark .footer-main, html.dark .footer-section,
-    html.dark .footer-container::before, html.dark .footer-main::before, html.dark .footer-section::before,
-    html.dark footer::before {
+    :where(html.dark), :where(html.dark) html, :where(html.dark) body, :where(html.dark) #app, :where(html.dark) .app-container,
+    :where(html.dark) .main-content, :where(html.dark) .page-container, :where(html.dark) .agents-container,
+    :where(html.dark) .home-container, :where(html.dark) [class*="container"]:not(.brand-text-container),
+    :where(html.dark) [id*="app"], :where(html.dark) [id*="page"], :where(html.dark) header, :where(html.dark) .glass-header,
+    :where(html.dark) main, :where(html.dark) .page-section, :where(html.dark) #first-page, :where(html.dark) #second-page,
+    :where(html.dark) #third-page, :where(html.dark) #fourth-page, :where(html.dark) #fifth-page, :where(html.dark) footer,
+    :where(html.dark) .footer-container, :where(html.dark) .footer-main, :where(html.dark) .footer-section,
+    :where(html.dark) .footer-container::before, :where(html.dark) .footer-main::before, :where(html.dark) .footer-section::before,
+    :where(html.dark) footer::before {
       background-color: var(--page-bg-color, var(--el-bg-color));
       background: var(--page-bg-color, var(--el-bg-color));
     }
-    html.dark .floating-chat-dialog-wrapper, html.dark .floating-chat-dialog-wrapper .el-dialog,
-    html.dark .floating-chat-dialog-wrapper .el-dialog__body {
+    :where(html.dark) .floating-chat-dialog-wrapper, :where(html.dark) .floating-chat-dialog-wrapper .el-dialog,
+    :where(html.dark) .floating-chat-dialog-wrapper .el-dialog__body {
       background-color: var(--page-bg-color, var(--el-bg-color));
       background: var(--page-bg-color, var(--el-bg-color));
     }
-    html.dark {
+    :where(html.dark) {
       --el-bg-color-page: var(--page-bg-color, var(--el-bg-color));
       --el-bg-color-overlay: var(--page-bg-color, var(--el-bg-color));
       --footer-background: var(--page-bg-color, var(--el-bg-color));
@@ -212,17 +212,19 @@ export const useDarkModeStore = defineStore('darkMode', () => {
 
   // 从存储同步主题模式（纯读，供初始化/导航复用）；即时应用避免首屏延迟
   function syncFromStorage() {
-    const saved = StorageManager.getItem<string>(STORAGE_KEYS.DARK_MODE)
-    if (saved === 'light' || saved === 'dark' || saved === 'auto' ||
-        saved === 'high-contrast-light' || saved === 'high-contrast-dark') {
-      setThemeMode(saved, 'storage', true)
+    const saved = StorageManager.getItem(STORAGE_KEYS.DARK_MODE)
+    const savedStr = saved == null ? '' : String(saved)
+    const normalized = savedStr === 'true' ? 'true' : savedStr === 'false' ? 'false' : savedStr
+    if (normalized === 'light' || normalized === 'dark' || normalized === 'auto' ||
+        normalized === 'high-contrast-light' || normalized === 'high-contrast-dark') {
+      setThemeMode(normalized, 'storage', true)
       return
     }
-    if (saved === 'true') {
+    if (normalized === 'true') {
       setThemeMode('dark', 'storage', true)
       return
     }
-    if (saved === 'false') {
+    if (normalized === 'false') {
       setThemeMode('light', 'storage', true)
       return
     }

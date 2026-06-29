@@ -1,110 +1,148 @@
 {
   "login": {
-    "agreement": {
-      "and": "and",
-      "prefix": "prefix",
-      "privacyPolicy": "隐私政策",
-      "userAgreement": "用户协议"
-    },
-    "aiModels": "aiModels",
-    "apple": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "securityTip"
-    },
-    "availability": "availability",
-    "buttons": {
-      "login": "登录",
-      "register": "注册",
-      "submitLogin": "submitLogin",
-      "submitRegister": "submitRegister"
+    "selectProject": "プロジェクトを選択",
+    "subtitle": "おかえりなさい",
+    "forgotPassword": "パスワードを忘れた",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "project": {
+      "main": "Zhihui AIメインプラットフォーム",
+      "open": "オープンプラットフォーム",
+      "admin": "管理ポータル",
+      "eduWeb": "Zhihui AI教育プラットフォーム",
+      "eduAdmin": "教育管理ポータル",
+      "user": "ユーザーポータル"
     },
     "crossProject": {
-      "admin": "管理员",
-      "loggingIn": "登录中",
-      "switchTo": "switchTo",
-      "user": "用户"
+      "loggingIn": "{project}にログイン中...",
+      "user": "ユーザーポータル",
+      "admin": "管理ポータル",
+      "switchTo": "切り替え"
     },
-    "error": {
-      "insecureConnection": "insecureConnection"
-    },
-    "forgotPassword": "忘记密码",
-    "goLogin": "goLogin",
-    "goRegister": "goRegister",
-    "google": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "securityTip"
-    },
-    "hasAccount": "hasAccount",
-    "hidePassword": "hidePassword",
-    "ihuiLogo": "ihuiLogo",
-    "mode": {
-      "hasAccount": "hasAccount",
-      "noAccount": "noAccount",
-      "userLogin": "userLogin",
-      "userRegister": "userRegister"
-    },
-    "noAccount": "noAccount",
-    "oneStopAI": "oneStopAI",
-    "password": {
-      "hide": "隐藏",
-      "show": "显示"
+    "ihuiLogo": "智匯AIロゴ",
+    "worldFirst": "ワールド初",
+    "oneStopAI": "誰もが使えるオールインワンAIプラットフォーム",
+    "aiModels": "AIモデル",
+    "users500k": "50万+",
+    "users": "ユーザー",
+    "availability": "利用可できるできる性性",
+    "tabs": {
+      "account": "アカウントログイン",
+      "phone": "電話番号ログイン",
+      "accountRegister": "アカウント登録",
+      "phoneRegister": "電話番号登録"
     },
     "placeholders": {
-      "confirmLoginPassword": "confirmLoginPassword",
-      "confirmPassword": "confirmPassword",
-      "email": "邮箱",
-      "password": "密码",
-      "phone": "手机号",
-      "phoneRegister": "phoneRegister",
-      "setLoginPassword": "setLoginPassword",
-      "setPassword": "setPassword",
-      "smsCode": "smsCode",
-      "username": "用户名",
-      "usernameOrEmail": "usernameOrEmail"
+      "username": "ユーザー名を入力してください",
+      "usernameOrEmail": "ユーザー名またはメールアドレスを入力してください",
+      "email": "メールアドレスを入力してください",
+      "password": "パスワードを入力してください",
+      "setPassword": "パスワードを設定してください",
+      "confirmPassword": "パスワードを確認してください",
+      "phone": "電話番号を入力してログイン",
+      "phoneRegister": "電話番号を入力して登録",
+      "smsCode": "SMS認証コードを入力してください",
+      "setLoginPassword": "ログインパスワードを設定してください",
+      "confirmLoginPassword": "ログインパスワードを確認してください"
     },
-    "project": {
-      "admin": "管理员",
-      "eduAdmin": "eduAdmin",
-      "eduWeb": "eduWeb",
-      "main": "main",
-      "open": "打开",
-      "user": "用户"
+    "buttons": {
+      "login": "今すぐログイン",
+      "register": "今すぐ登録",
+      "submitLogin": "ログイン",
+      "submitRegister": "登録",
+      "sendCode": "認証コードを送信",
+      "resend": "再送信",
+      "resendIn": "{seconds}秒後に再送信"
     },
-    "selectProject": "selectProject",
-    "showPassword": "showPassword",
-    "subtitle": "副标题",
-    "switchPlatform": "switchPlatform",
-    "tabs": {
-      "account": "账号",
-      "accountRegister": "accountRegister",
-      "phone": "手机号",
-      "phoneRegister": "phoneRegister"
+    "mode": {
+      "userLogin": "ユーザーログイン",
+      "userRegister": "ユーザー登録",
+      "hasAccount": "アカウントをお持ちですか？ログイン",
+      "noAccount": "アカウントをお持ちでないですか？登録"
+    },
+    "password": {
+      "show": "パスワードをテーブル示",
+      "hide": "パスワードを非テーブル示"
+    },
+    "agreement": {
+      "prefix": "以下に同意します",
+      "userAgreement": "《ユーザー利用規約》",
+      "privacyPolicy": "《プライバシーポリシー》",
+      "and": "と"
+    },
+    "error": {
+      "insecureConnection": "現在の接続はセキュリティではありません。HTTPSでのアクセスをお勧めします",
+      "unknownError": "不明なエラー"
     },
     "thirdParty": {
-      "accountLogin": "账号密码登录",
-      "alipay": "alipay",
-      "alipayLogin": "alipayLogin",
+      "or": "または",
+      "notice": "サードパーティログインを使用することで、以下に同意したものとみなされます",
+      "privacyPolicy": "プライバシーポリシー",
+      "termsOfService": "利用規約",
+      "tooltip": {
+        "wechat": "WeChatログイン",
+        "google": "Googleログイン",
+        "apple": "Appleログイン",
+        "feishu": "Feishuログイン"
+      },
+      "feishuLogin": "Feishuログイン",
+      "accountLogin": "accountLogin",
       "comingSoon": "comingSoon",
-      "emailLogin": "邮箱登录",
+      "emailLogin": "emailLogin",
       "feishu": "feishu",
-      "feishuLogin": "feishuLogin",
-      "notice": "notice",
-      "or": "or",
       "otherMethods": "otherMethods",
-      "phoneLogin": "手机号登录",
-      "privacyPolicy": "隐私政策",
-      "quickLogin": "快捷登录",
+      "phoneLogin": "phoneLogin",
+      "quickLogin": "quickLogin",
       "securityNotice1": "securityNotice1",
       "securityNotice2": "securityNotice2",
       "securityNotice3": "securityNotice3",
       "selectPreferred": "selectPreferred",
-      "termsOfService": "termsOfService"
+      "wechatLogin": "WeChatログイン",
+      "googleLogin": "Googleログイン",
+      "appleLogin": "Appleログイン",
+      "wechatLoginFailed": "WeChatログインに失敗しました。もう一度お試しください",
+      "googleLoginFailed": "Googleログインに失敗しました。もう一度お試しください",
+      "appleLoginFailed": "Appleログインに失敗しました。もう一度お試しください"
     },
-    "users": "用户",
-    "users500k": "users500k",
-    "welcomeTitle": "welcomeTitle",
-    "worldFirst": "worldFirst"
+    "hidePassword": "非テーブル示Password",
+    "showPassword": "テーブル示Password",
+    "welcomeTitle": "welcomeタイトル",
+    "apple": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "google": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "switchPlatform": "switchPlatform",
+    "goLogin": "Go Login",
+    "goRegister": "Go Register",
+    "hasAccount": "Has Account",
+    "switchProject": "プロジェクトを切り替え",
+    "title": "ログイン",
+    "rememberMe": "ログイン状態を保持",
+    "registerNow": "今すぐ登録",
+    "loginSuccess": "ログイン成功",
+    "loginFailed": "ログイン失敗",
+    "brand": {
+      "title": "グローバル初のエージェントプラットフォーム",
+      "subtitle": "人人的一站式AI整合適用プラットフォーム"
+    },
+    "form": {
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "login": "ログイン",
+      "forgotPassword": "忘记パスワード？",
+      "rememberMe": "记住我"
+    },
+    "social": {
+      "wechat": "WeChatログイン",
+      "qq": "QQログイン",
+      "phone": "携帯ログイン"
+    },
+    "register": "登録",
+    "login": "ログイン"
   }
 }

@@ -4,6 +4,10 @@
       "index": "계정 검색"
     },
     "label": {
+      "account": "계정",
+      "role": "역할",
+      "lastLogin": "최종 로그인",
+      "actions": "작업",
       "loginPassword": "로그인 비밀번호",
       "twoFactor": "2단계 인증",
       "securityEmail": "보안 이메일",

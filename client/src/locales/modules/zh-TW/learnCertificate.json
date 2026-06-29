@@ -1,8 +1,8 @@
 {
   "learnCertificate": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbMyCertificate": "breadcrumbMyCertificate",
-    "issueTime": "issueTime",
-    "noCertificate": "noCertificate"
+    "noCertificate": "暫無證書",
+    "issueTime": "頒發時間",
+    "breadcrumbCourse": "課程",
+    "breadcrumbMyCertificate": "我的證書"
   }
 }

@@ -1,14 +1,38 @@
 {
   "aiChatInput": {
-    "enterToSend": "enterToSend",
-    "inputPlaceholder": "请输入",
-    "messageStatsTotal": "messageStatsTotal",
-    "openChat": "openChat",
-    "pleaseEnterContentOrUploadFile": "pleaseEnterContentOrUploadFile",
-    "selectModel": "selectModel",
-    "send": "发送",
-    "uploadFile": "上传文件",
-    "voiceInput": "voiceInput",
-    "voiceStarted": "voiceStarted"
+    "openChat": "AI 채팅 열기",
+    "selectModel": "모델 선택",
+    "voiceInput": "음성 입력",
+    "messageStatsTotal": "메시지 통계: 총 {count}개의 메시지",
+    "pleaseEnterContentOrUploadFile": "내사용을 입력하거나 파일을 업로드하세요",
+    "uploadFile": "파일 업로드",
+    "inputPlaceholder": "메시지 입력...",
+    "send": "전송",
+    "enterToSend": "Enter 키로 전송, Shift+Enter로 줄바꿈",
+    "voiceStarted": "Voice완료시작",
+    "messagesAria": "채팅 메시지 목이것은",
+    "searchModels": "모델 검색...",
+    "filterByProvider": "공급게별 필마음",
+    "modelCount": "{total}개 모델 중 {count}개 표시",
+    "noMatchingModels": "일치하는 모델을 찾을 수 없습니다",
+    "noModels": "생각사용 가능한 모델이 없습니다",
+    "searchMessages": "메시지 검색",
+    "searchMessagesPlaceholder": "메시지 내사용 검색...",
+    "search": "검색",
+    "foundMessages": "{count}개의 일치하는 메시지를 찾았습니다",
+    "noMatchingMessages": "일치하는 메시지를 찾을 수 없습니다",
+    "enterSearchKeyword": "검색 키워드를 입력하세요",
+    "searchFailed": "검색 실패",
+    "messageStats": "메시지 통계",
+    "exportFailed": "내보내기 실패",
+    "exportDeveloping": "내보내기 기능 개발 중",
+    "modelDescriptions": {
+      "nanoBanana": "Google의 가장 강력한 수익 편집 모델",
+      "nanoBananaPro": "가장 고급 수익 생성 및 편집 모델",
+      "stableDiffusion": "클래식 오픈소스 수익 생성 모델, 안정적인 효과",
+      "videoModel01": "전문 비디오 생성/편집 모델",
+      "textModel01": "경량 텍스트 생성/대화 모델",
+      "textModel02": "효율적인 텍스트 이해/창작 모델"
+    }
   }
 }

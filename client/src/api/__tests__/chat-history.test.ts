@@ -4,7 +4,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../chat/chat-history'
+import * as api from '../chat-history'
 
 describe('chat-history', () => {
   beforeEach(() => {

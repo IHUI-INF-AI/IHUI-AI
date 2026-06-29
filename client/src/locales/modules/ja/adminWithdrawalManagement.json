@@ -1,0 +1,19 @@
+{
+  "adminWithdrawalManagement": {
+    "actions": {
+      "approve": "承認",
+      "reject": "拒いいえ",
+      "export": "エクスポート"
+    },
+    "withdrawalList": {
+      "status": "ステータス"
+    },
+    "status": {
+      "pending": "待審査",
+      "approved": "済み通過ぎ",
+      "rejected": "済み拒绝",
+      "processing": "処理中",
+      "completed": "完了"
+    }
+  }
+}

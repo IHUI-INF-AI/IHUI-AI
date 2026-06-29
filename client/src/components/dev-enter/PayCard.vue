@@ -81,7 +81,8 @@ const discountDesc = computed(() => {
   border-radius: var(--global-border-radius);
   position: relative;
   margin-bottom: 10px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .font-title {
   font-size: 13px;
@@ -134,10 +135,10 @@ const discountDesc = computed(() => {
 }
 
 .model-icon-body {
-  background-color: var(--el-fill-color-light);
+  background-color: var(--color-gray-light);
   width: 60px;
   height: 25px;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius-sm, 4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,7 +146,7 @@ const discountDesc = computed(() => {
 }
 
 .pay_end {
-  color: var(--el-color-warning);
+  color: var(--color-orange-ff6b00);
 }
 
 .has_num {
@@ -166,6 +167,6 @@ const discountDesc = computed(() => {
   right: 12px;
   font-size: 15px;
   font-weight: normal;
-  color: var(--el-color-warning);
+  color: var(--color-orange-ff6b00);
 }
 </style>

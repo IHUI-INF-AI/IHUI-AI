@@ -198,7 +198,7 @@ describe('utils/index.ts 聚合导出测试', () => {
         href: '',
         download: '',
         click: clickSpy,
-      } as any)
+      } as unknown as HTMLAnchorElement)
 
       const messages = [{ id: 1, content: 'hi' }]
       exportMessagesToFile(messages, 'test.json')

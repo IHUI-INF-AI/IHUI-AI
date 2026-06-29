@@ -1,6 +1,6 @@
 {
   "error404": {
-    "backHome": "返回 home",
-    "notFound": "未找到"
+    "notFound": "抱歉，您访问的页面不存在",
+    "backHome": "返回首页"
   }
 }

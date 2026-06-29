@@ -3,6 +3,28 @@
     "searchPlaceholder": {
       "list": "Search comments",
       "sensitive": "Search sensitive words"
+    },
+    "sensitive": {
+      "createTitle": "Add Sensitive Word",
+      "word": "Word",
+      "wordPlaceholder": "Enter sensitive word",
+      "wordRequired": "Please enter a sensitive word",
+      "category": "Category",
+      "categoryPlaceholder": "Enter category",
+      "level": "Level",
+      "levelLow": "Low",
+      "levelMedium": "Medium",
+      "levelHigh": "High",
+      "action": "Action",
+      "actionReplace": "Replace",
+      "actionBlock": "Block",
+      "replacement": "Replacement",
+      "replacementPlaceholder": "Enter replacement",
+      "createSuccess": "Added successfully",
+      "createFailed": "Failed to add",
+      "deleteConfirm": "Are you sure to delete the sensitive word \"{word}\"?",
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Failed to delete"
     }
   }
 }

@@ -18,7 +18,7 @@
         </div>
         <div class="section">
           <h3 class="section-title">{{ t('learnTopicDetail.topicCourses') }}</h3>
-          <el-empty v-if="!lessons.length" :description="t('common.noData')" />
+          <el-empty v-if="!lessons.length" description="暂无课程" />
           <div v-else class="lesson-grid">
             <Rectangle
               v-for="l in lessons"
@@ -40,26 +40,26 @@ import { useRoute } from 'vue-router'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import Rectangle from '@/components/module/Rectangle.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const { t } = useI18n()
 const route = useRoute()
 const id = String(route.params.id || '')
 
-const topic = ref<any>({})
-const lessons = ref<any[]>([])
+const topic = ref<Record<string, unknown>>({})
+const lessons = ref<unknown[]>([])
 const loading = ref(false)
 
 const breadcrumbItems = computed(() => [
   { title: '课程', path: '/learn' },
   { title: '专题', path: '/learn/topic' },
-  { title: topic.value.name || '详情' },
+  { title: (topic.value.name as string) || '详情' },
 ])
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.topicDetail(id)
+    const res = await learnApi.topicDetail(id) as unknown as { data?: Record<string, unknown> }
     topic.value = res.data || {}
   } finally {
     loading.value = false
@@ -67,14 +67,15 @@ async function load() {
 }
 
 async function loadLessons() {
-  const res: any = await learnApi.list({ categoryId: id, pageSize: 20 } as any)
+  const res = await learnApi.list({ categoryId: id, pageSize: 20 }) as unknown as { data?: { items?: unknown[]; list?: unknown[] } }
   lessons.value = res.data?.items || res.data?.list || []
 }
 
 function handleEnroll() {
   // 简化:直接报名第一课
   if (lessons.value[0]) {
-    learnApi.signUp(String(lessons.value[0].id))
+    const first = lessons.value[0] as Record<string, unknown>
+    learnApi.signUp(String(first.id))
   }
 }
 

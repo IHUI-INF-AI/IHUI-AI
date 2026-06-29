@@ -70,6 +70,7 @@
     "shareSources": "Share Sources",
     "wechatConfigFailed": "WeChat share config Failed, please use QR code to share",
     "qrCodeGenerateFailed": "Failed to generate QR code",
-    "qrCodeNotGenerated": "QR code not generated"
+    "qrCodeNotGenerated": "QR code not generated",
+    "contentDetails": "Content Details"
   }
 }

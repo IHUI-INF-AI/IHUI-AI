@@ -1,15 +1,15 @@
 {
   "learnDetail": {
-    "buyNow": "buyNow",
-    "chapters": "chapters",
-    "continueLearn": "continueLearn",
-    "favorite": "收藏",
-    "favorited": "favorited",
-    "learnCount": "learnCount",
-    "learnNow": "learnNow",
-    "noChapters": "noChapters",
-    "notExist": "notExist",
-    "reviews": "reviews",
-    "teacher": "teacher"
+    "notExist": "Course does not exist",
+    "teacher": "Teacher",
+    "learnCount": "learners",
+    "buyNow": "Buy Now",
+    "learnNow": "Learn Now",
+    "continueLearn": "Continue",
+    "favorited": "Favorited",
+    "favorite": "Favorite",
+    "chapters": "Chapters",
+    "noChapters": "No chapters",
+    "reviews": "Reviews"
   }
 }

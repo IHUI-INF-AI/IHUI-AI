@@ -1,16 +1,16 @@
 {
   "errorDashboard": {
-    "d30": "d30",
-    "d7": "d7",
-    "errorRate": "errorRate",
-    "h24": "h24",
-    "other": "other",
-    "recentErrors": "recentErrors",
-    "resolved": "resolved",
-    "stackInfo": "stackInfo",
-    "todayErrors": "todayErrors",
-    "totalErrors": "totalErrors",
-    "trend": "trend",
-    "typeDistribution": "typeDistribution"
+    "totalErrors": "總錯誤數",
+    "todayErrors": "今日錯誤",
+    "resolved": "已解決",
+    "errorRate": "錯誤率",
+    "trend": "錯誤趨勢",
+    "h24": "24小時",
+    "d7": "7天",
+    "d30": "30天",
+    "typeDistribution": "錯誤類型分佈",
+    "recentErrors": "最近錯誤",
+    "stackInfo": "堆疊資訊",
+    "other": "其他"
   }
 }

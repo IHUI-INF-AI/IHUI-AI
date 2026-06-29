@@ -1,30 +1,34 @@
 {
   "vipDetails": {
+    "핵심 장점": "회원 상세",
+    "sub핵심 장점": "당신에게 맞는 회원 플랜 선택",
     "monthly": {
-      "benefits": {
-        "0": "0",
-        "1": "1",
-        "2": "2",
-        "3": "3"
-      },
-      "days": "days",
-      "select": "选择",
-      "title": "标题"
+      "핵심 장점": "월간 회원",
+      "days": "30일",
+      "select": "선택",
+      "title": "월도회원",
+      "benefits": [
+        "모든 강의 무료 학습",
+        "전용 학습 커뮤니티",
+        "월 3회 AI 질의응답",
+        "학습 진행 추적"
+      ]
     },
-    "monthlyMember": "monthlyMember",
-    "subtitle": "副标题",
-    "title": "标题",
     "yearly": {
-      "benefits": {
-        "0": "0",
-        "1": "1",
-        "2": "2",
-        "3": "3"
-      },
-      "days": "days",
-      "select": "选择",
-      "title": "标题"
+      "핵심 장점": "연간 회원",
+      "days": "365일",
+      "select": "선택",
+      "title": "년도회원",
+      "benefits": [
+        "모든 강의 무료 학습",
+        "전용 학습 커뮤니티",
+        "무제한 AI 질의응답",
+        "진행 추적 + 증명서"
+      ]
     },
-    "yearlyMember": "yearlyMember"
+    "monthlyMember": "월간 회원",
+    "yearlyMember": "연간 회원",
+    "title": "회원상세",
+    "subtitle": "선택적합귀하의회원패키지"
   }
 }

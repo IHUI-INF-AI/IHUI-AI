@@ -1,16 +1,16 @@
 {
   "notification": {
-    "allRead": "allRead",
-    "center": "center",
-    "empty": "empty",
-    "loadAbnormal": "loadAbnormal",
-    "markAllReadFailed": "markAllReadFailed",
-    "markAllReadSuccess": "markAllReadSuccess",
-    "markReadFailed": "markReadFailed",
-    "messages": "messages",
-    "operationFailed": "operationFailed",
-    "title": "标题",
-    "viewAll": "viewAll",
-    "viewUserCenter": "viewUserCenter"
+    "title": "通知",
+    "center": "消息中心",
+    "messages": "消息",
+    "viewUserCenter": "查看用戶中心",
+    "empty": "暫無通知",
+    "allRead": "全部已讀",
+    "viewAll": "查看全部",
+    "markAllReadSuccess": "全部標記為已讀",
+    "markAllReadFailed": "標記失敗",
+    "markReadFailed": "標記已讀失敗",
+    "operationFailed": "操作失敗",
+    "loadAbnormal": "加載異常"
   }
 }

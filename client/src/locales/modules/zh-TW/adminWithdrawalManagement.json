@@ -1,0 +1,19 @@
+{
+  "adminWithdrawalManagement": {
+    "actions": {
+      "approve": "通過",
+      "reject": "拒絕",
+      "export": "導出"
+    },
+    "withdrawalList": {
+      "status": "狀態"
+    },
+    "status": {
+      "pending": "待審核",
+      "approved": "已通過",
+      "rejected": "已拒絕",
+      "processing": "處理中",
+      "completed": "已完成"
+    }
+  }
+}

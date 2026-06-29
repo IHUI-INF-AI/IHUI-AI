@@ -27,11 +27,11 @@ import { useRouter } from 'vue-router'
 import { ArrowRight } from '@element-plus/icons-vue'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 import { businessIcons } from '@/assets/business-icons'
 
 const router = useRouter()
-const maps = ref<any[]>([])
+const maps = ref<unknown[]>([])
 const loading = ref(false)
 
 function iconFor(_name: string) {
@@ -41,15 +41,16 @@ function iconFor(_name: string) {
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.mapList()
+    const res = await learnApi.mapList() as unknown as { data?: unknown[] }
     maps.value = res.data || []
   } finally {
     loading.value = false
   }
 }
 
-function goDetail(m: any) {
-  router.push({ path: '/learn/list', query: { cid: m.id } })
+function goDetail(m: unknown) {
+  const item = m as Record<string, unknown>
+  router.push({ path: '/learn/list', query: { cid: String(item.id) } })
 }
 
 onMounted(load)
@@ -85,7 +86,7 @@ onMounted(load)
   transition: transform 0.2s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
   }
 }
 

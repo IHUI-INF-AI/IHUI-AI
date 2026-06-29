@@ -1,7 +1,6 @@
 {
   "supportTickets": {
-    "merged": "티켓 기능이 피드백 페이지에 통합되었습니다",
     "title": "지원 티켓",
-    "goToFeedback": "피드백 페이지로 이동"
+    "merged": "이 페이지는 간소화되어 병합되었습니다"
   }
 }

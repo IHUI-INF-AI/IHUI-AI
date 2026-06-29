@@ -1,15 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 type RedirectTo = { path: string; query: Record<string, string | string[]> }
 
@@ -27,7 +17,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.openPlatform.keywords',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/dashboard',
@@ -45,7 +34,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '开放平台,仪表板,统计',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/sdks',
@@ -63,7 +51,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: 'SDK,开发工具包,下载',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/models',
@@ -81,7 +68,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: 'AI模型,模型列表,模型管理',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/agents',
@@ -99,7 +85,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '智能体,AI Agent,智能体市场',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/apis',
@@ -117,7 +102,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: 'API,接口文档,API文档',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/documents',
@@ -135,7 +119,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '文档,开发文档,技术文档',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/open/document/center',
@@ -154,7 +137,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.openPlatform.keywords',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
   {
     path: '/docs',
@@ -170,7 +152,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       requiresAuth: false,
       showFooter: false,
     },
-    beforeEnter: preloadI18n(['eduDocumentation']),
   },
   {
     path: '/edu-docs',
@@ -189,7 +170,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '文件管理,上传,下载,分享',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['fileManager']),
   },
   {
     path: '/permissions',
@@ -204,7 +184,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '权限管理,角色,权限',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['permissionManager']),
   },
   {
     path: '/audit',
@@ -219,7 +198,6 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '审计日志,操作记录',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['auditLog']),
   },
   {
     path: '/document-center',
@@ -234,6 +212,5 @@ export const apiRoutes: Array<RouteRecordRaw> = [
       keywords: '文档中心,文件上传,文件管理',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['openPlatform']),
   },
 ]

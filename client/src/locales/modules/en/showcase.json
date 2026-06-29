@@ -1,76 +1,76 @@
 {
   "showcase": {
+    "title": "Component Showcase",
+    "subtitle": "Element Plus global components live preview and interaction demo",
+    "tab": {
+      "buttons": "Buttons",
+      "forms": "Forms",
+      "feedback": "Feedback",
+      "data": "Data",
+      "navigation": "Navigation"
+    },
     "buttons": {
-      "danger": "危险",
-      "disabled": "已禁用",
-      "info": "信息",
-      "loading": "加载中",
-      "primary": "主要",
-      "round": "round",
-      "success": "成功",
-      "title": "标题",
-      "warning": "警告"
-    },
-    "data": {
-      "columnCategory": "columnCategory",
-      "columnName": "columnName",
-      "columnStatus": "columnStatus",
-      "title": "标题"
-    },
-    "feedback": {
-      "errorAlert": "errorAlert",
-      "successAlert": "successAlert",
-      "tagDanger": "tagDanger",
-      "tagInfo": "tagInfo",
-      "tagSuccess": "tagSuccess",
-      "tagWarning": "tagWarning",
-      "title": "标题",
-      "warningAlert": "warningAlert"
+      "title": "Button Component",
+      "primary": "Primary",
+      "success": "Success",
+      "warning": "Warning",
+      "danger": "Danger",
+      "info": "Info",
+      "loading": "Loading",
+      "disabled": "Disabled",
+      "round": "Round"
     },
     "forms": {
+      "title": "Form Components",
+      "input": "Input",
+      "inputPlaceholder": "Please enter content",
+      "textarea": "Textarea",
+      "select": "Select",
+      "selectPlaceholder": "Please select",
+      "switch": "Switch",
+      "checkbox": "Checkbox",
+      "radio": "Radio",
+      "date": "Date",
+      "datePlaceholder": "Pick a date",
+      "optionA": "Option A",
+      "optionB": "Option B",
+      "optionC": "Option C",
+      "vue": "Vue.js",
+      "react": "React",
       "ai": "AI",
-      "checkbox": "checkbox",
-      "date": "日期",
-      "datePlaceholder": "datePlaceholder",
-      "female": "female",
-      "input": "输入",
-      "inputPlaceholder": "请输入",
-      "male": "male",
-      "optionA": "optionA",
-      "optionB": "optionB",
-      "optionC": "optionC",
-      "radio": "radio",
-      "react": "react",
-      "select": "选择",
-      "selectPlaceholder": "请选择",
-      "switch": "switch",
-      "textarea": "textarea",
-      "title": "标题",
-      "vue": "vue"
+      "male": "Male",
+      "female": "Female"
+    },
+    "feedback": {
+      "title": "Feedback Components",
+      "successAlert": "Operation success alert",
+      "warningAlert": "Warning alert message",
+      "errorAlert": "Error alert message",
+      "tagSuccess": "Success",
+      "tagInfo": "Info",
+      "tagWarning": "Warning",
+      "tagDanger": "Danger"
+    },
+    "data": {
+      "title": "Data Display",
+      "columnName": "Name",
+      "columnCategory": "Category",
+      "columnStatus": "Status"
     },
     "navigation": {
-      "breadcrumbCurrent": "breadcrumbCurrent",
-      "breadcrumbDocs": "breadcrumbDocs",
-      "breadcrumbHome": "breadcrumbHome",
-      "menuAbout": "menuAbout",
-      "menuAgents": "menuAgents",
-      "menuDocs": "menuDocs",
-      "menuHome": "menuHome",
-      "next": "下一步",
-      "prev": "上一步",
-      "step1": "step1",
-      "step2": "step2",
-      "step3": "step3",
-      "title": "标题"
-    },
-    "subtitle": "副标题",
-    "tab": {
-      "buttons": "buttons",
-      "data": "数据",
-      "feedback": "反馈",
-      "forms": "forms",
-      "navigation": "导航"
-    },
-    "title": "标题"
+      "title": "Navigation Components",
+      "menuHome": "Home",
+      "menuAgents": "Agents",
+      "menuDocs": "Docs",
+      "menuAbout": "About",
+      "breadcrumbHome": "Home",
+      "breadcrumbDocs": "Docs Center",
+      "breadcrumbCurrent": "Component Showcase",
+      "step1": "Pick Agent",
+      "step2": "Configure",
+      "step3": "Publish",
+      "prev": "Previous",
+      "next": "Next"
+    }
   }
 }

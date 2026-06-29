@@ -5,9 +5,55 @@
       "group": "그룹 검색",
       "level": "등급 검색",
       "list": "회원 검색",
-      "post": "직무 검색",
+      "post": "직책 검색",
       "tag": "태그 검색",
-      "unaudited": "심사 중 회원 검색"
+      "unaudited": "미승인 회원 검색"
+    },
+    "label": {
+      "companyName": "기업명",
+      "type": "유형",
+      "scale": "규모",
+      "groupName": "그룹명",
+      "memberCount": "회원 수",
+      "createTime": "생성 시간",
+      "actions": "작업"
+    },
+    "audit": {
+      "username": "사용자명",
+      "mobile": "휴대전화",
+      "submitTime": "제출 시간",
+      "approve": "승인",
+      "reject": "반려",
+      "approveConfirm": "\"{name}\"의 심사를 승인하시겠습니까?",
+      "approveSuccess": "승인되었습니다",
+      "approveFailed": "작업 실패",
+      "rejectConfirm": "\"{name}\"의 심사를 반려하시겠습니까?",
+      "rejectSuccess": "반려되었습니다",
+      "rejectFailed": "작업 실패"
     }
+  },
+  "memberMenu": {
+    "account": "계정",
+    "personal": "개인 정보",
+    "setting": "계정 설정",
+    "point": "내 포인트",
+    "certificate": "내 증명서",
+    "learn": "학습",
+    "learnRecord": "학습 기록",
+    "homework": "내 숙제",
+    "exam": "시험",
+    "examSignUp": "시험 신청",
+    "examRecord": "답안 기록",
+    "examWrong": "오답 노트",
+    "sns": "소셜",
+    "follow": "내 팔로잉",
+    "fans": "내 팬",
+    "favorites": "내 즐겨찾기",
+    "comment": "내 댓글",
+    "content": "콘텐츠",
+    "circle": "내 서클",
+    "ask": "내 Q&A",
+    "article": "내 게시글",
+    "resource": "내 자원"
   }
 }

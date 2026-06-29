@@ -117,11 +117,8 @@
       "priorityResponse": "優先レスポンス",
       "advancedModelAccess": "高度なモデルアクセス"
     },
-    "third_party_login_universal": {
-      "alipay": "Alipay"
-    },
     "mobile_bottom_nav": {
-      "aiAppStore": "AIアプリストア",
+      "aiAppStore": "エージェント",
       "plaza": "広場",
       "smartAI": "スマートAI",
       "updates": "アップデート",

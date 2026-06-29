@@ -18,7 +18,7 @@ import DOMPurify from 'dompurify'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 import { useLegalDocContent } from '@/composables/useLegalDocContent'
 import { useAuthStore } from '@/stores/auth'
-import { uploadDocument, uploadOriginalDocument, getDocList, deleteDocument, updateDocument, type DocListItem } from '@/api/learn/docs'
+import { uploadDocument, uploadOriginalDocument, getDocList, deleteDocument, updateDocument, type DocListItem } from '@/api/docs'
 import { convertToMarkdown } from '@/utils/fileConverter'
 import { formatTimeDistance } from '@/utils/time-utils'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -1432,7 +1432,7 @@ watch(
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>{{ t('hardcoded.edu_documentation.返回') }}</RouterLink>
-          <RouterLink to="/support/document-center" class="back-link cyber-btn back-link--offset" @click="createRipple">
+          <RouterLink to="/support/document-center" class="back-link cyber-btn" @click="createRipple" style="margin-left: 12px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
             </svg>{{ t('hardcoded.edu_documentation.documentCenter') }}</RouterLink>
@@ -1865,7 +1865,7 @@ watch(
         <div class="upload-dialog-content">
           <div class="upload-dialog-header">
             <h3>{{ t('hardcoded.edu_documentation.uploadDialogTitle') }}</h3>
-            <button class="close-btn" @click="showUploadDialog = false" aria-label="关闭">&times;</button>
+            <button class="close-btn" @click="showUploadDialog = false">&times;</button>
           </div>
           <div class="upload-form">
             <div class="form-item">
@@ -1940,7 +1940,7 @@ watch(
         <div class="upload-dialog-content edit-dialog">
           <div class="upload-dialog-header">
             <h3>{{ t('hardcoded.edu_documentation.editDialogTitle') }}</h3>
-            <button class="close-btn" @click="showEditDialog = false" aria-label="关闭">&times;</button>
+            <button class="close-btn" @click="showEditDialog = false">&times;</button>
           </div>
           <div class="upload-form">
             <div class="form-item">
@@ -1982,8 +1982,8 @@ watch(
 // 核心色彩 - 黑灰主题
 // 现代浅色文档风格 - 蓝灰主题
 $brand-primary: var(--color-brand-blue-2);
-$brand-primary-light: rgba(var(--el-color-primary-rgb), 0.08);
-$brand-primary-hover: var(--el-color-primary);
+$brand-primary-light: var(--color-blue-e8f0ff);
+$brand-primary-hover: var(--color-blue-245bdb);
 $cyber-accent: var(--color-brand-blue-2);
 $cyber-accent-dim: color-mix(in srgb, var(--el-color-primary) 60%, transparent);
 $cyber-accent-glow: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
@@ -2040,6 +2040,7 @@ $sidebar-width: 200px;
 .glass-panel {
   background: var(--el-bg-color);
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   border-radius: var(--global-border-radius);
 }
 
@@ -2057,7 +2058,7 @@ $sidebar-width: 200px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2083,8 +2084,9 @@ $sidebar-width: 200px;
     &:hover {
       background: var(--el-color-primary-light-3);
       color: var(--el-bg-color-page);
-      
-      }
+      transform: translateY(-1px);
+      box-shadow: var(--global-box-shadow);
+    }
   }
 
   &--float {
@@ -2098,6 +2100,11 @@ $sidebar-width: 200px;
     gap: 0;
     background: var(--el-bg-color);
     border: var(--unified-border);
+    box-shadow: var(--global-box-shadow);
+
+    &:hover {
+      box-shadow: var(--global-box-shadow);
+    }
 
     /* primary 浮动按钮保持主色，不被 --float 的默认背景覆盖 */
     &.cyber-btn--primary {
@@ -2215,10 +2222,6 @@ $sidebar-width: 200px;
     align-items: center;
     gap: 6px;
     text-decoration: none;
-
-    &--offset {
-      margin-left: 12px;
-    }
   }
 
   .header-title {
@@ -2273,6 +2276,8 @@ $sidebar-width: 200px;
   transition: transform 0.3s ease, width 0.15s ease;
   background: var(--el-bg-color);
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
+
   &::-webkit-scrollbar {
     width: 4px;
     background: transparent;
@@ -2357,7 +2362,7 @@ $sidebar-width: 200px;
       font-size: 13px;
       cursor: pointer;
       border-radius: var(--global-border-radius);
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: all 0.2s ease;
       flex: 1;
     }
 
@@ -2407,7 +2412,7 @@ $sidebar-width: 200px;
       border-radius: var(--global-border-radius);
       color: $text-muted;
       cursor: pointer;
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: all 0.2s ease;
 
       &:hover {
         background: var(--color-gray-f2f3f5);
@@ -2425,7 +2430,7 @@ $sidebar-width: 200px;
 
     &.active .toc-link {
       color: $brand-primary;
-      background: rgba(var(--el-color-primary-rgb), 0.08);
+      background: var(--color-blue-e8f0ff);
       font-weight: 500;
     }
 
@@ -2484,7 +2489,7 @@ $sidebar-width: 200px;
       height: 3px;
       background: var(--color-white-10);
       border-radius: var(--global-border-radius);
-      transition: background-color 0.25s, opacity 0.25s;
+      transition: all 0.25s;
       opacity: 0;
     }
 
@@ -2808,7 +2813,7 @@ $sidebar-width: 200px;
   :deep(a) {
     color: $brand-primary;
     text-decoration: none;
-    transition: color 0.2s;
+    transition: all 0.2s;
 
     &:hover {
       color: $brand-primary-hover;
@@ -3088,7 +3093,9 @@ $sidebar-width: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: var(--global-box-shadow);
+
   &:hover {
     border-color: $brand-primary;
     color: $brand-primary;
@@ -3114,7 +3121,9 @@ $sidebar-width: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: var(--global-box-shadow);
+
   &:hover {
     border-color: var(--color-danger-variant);
     color: var(--color-danger-variant);
@@ -3189,6 +3198,8 @@ $sidebar-width: 200px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   color: var(--el-color-primary);
+  box-shadow: var(--global-box-shadow);
+
   /* 与浮动聊天触发按钮统一样式（46×46px 含边框） */
   &.cyber-btn--float {
     width: 46px;
@@ -3214,7 +3225,8 @@ $sidebar-width: 200px;
     background: var(--el-bg-color-page);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   :deep(.el-dialog__title) {
     color: var(--el-text-color-primary);
@@ -3429,7 +3441,7 @@ $sidebar-width: 200px;
     color: var(--el-text-color-primary);
     font-size: 14px;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: all 0.2s;
 
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -3449,7 +3461,7 @@ $sidebar-width: 200px;
     border-radius: var(--global-border-radius);
     color: var(--el-text-color-primary);
     font-size: 14px;
-    transition: background-color 0.2s, border-color 0.2s;
+    transition: all 0.2s;
 
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -3483,7 +3495,7 @@ $sidebar-width: 200px;
       border: var(--el-border-width-primary) solid var(--el-border-color);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: background-color 0.2s, border-color 0.2s;
+      transition: all 0.2s;
 
       input[type="radio"] {
         display: none;
@@ -3542,7 +3554,6 @@ $sidebar-width: 200px;
   justify-content: center;
   background: var(--color-dark-111111-90);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   border-radius: var(--global-border-radius);
 }
 
@@ -3632,16 +3643,16 @@ $sidebar-width: 200px;
 // ============================================
 // 亮色模式适配
 // ============================================
-:where(html:not(.dark) body) .edu-docs-root {
+html:not(.dark) body .edu-docs-root {
   background: var(--el-fill-color-lighter);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .glass-panel {
+html:not(.dark) body .edu-docs-root .glass-panel {
   background: var(--color-white-85);
   border-color: var(--border-unified-color);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .cyber-btn {
+html:not(.dark) body .edu-docs-root .cyber-btn {
   border-color: var(--border-unified-color);
   color: var(--el-text-color-primary);
 
@@ -3737,20 +3748,20 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .doc-group {
+html:not(.dark) body .edu-docs-root .doc-group {
   border-bottom-color: var(--color-black-5);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .doc-group-title {
+html:not(.dark) body .edu-docs-root .doc-group-title {
   color: var(--el-text-color-secondary);
   background: var(--color-green-glow);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .search-hint {
+html:not(.dark) body .edu-docs-root .search-hint {
   color: var(--el-text-color-placeholder);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .empty-hint {
+html:not(.dark) body .edu-docs-root .empty-hint {
   color: var(--el-text-color-placeholder);
 }
 
@@ -3760,7 +3771,7 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .doc-list-resize-handle {
+html:not(.dark) body .edu-docs-root .doc-list-resize-handle {
   &::before {
     background: var(--color-black-10);
   }
@@ -3774,7 +3785,7 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .cyber-loader {
+html:not(.dark) body .edu-docs-root .cyber-loader {
   &__ring:nth-child(1) {
     border-top-color: var(--el-color-success);
   }
@@ -3788,7 +3799,7 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .loading-text {
+html:not(.dark) body .edu-docs-root .loading-text {
   color: var(--el-text-color-secondary);
 }
 
@@ -3796,7 +3807,7 @@ $sidebar-width: 200px;
   color: var(--el-text-color-secondary);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .docs-content {
+html:not(.dark) body .edu-docs-root .docs-content {
   &::before {
     background: var(--color-green-glow-3);
   }
@@ -3892,7 +3903,7 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .back-to-top.cyber-btn {
+html:not(.dark) body .edu-docs-root .back-to-top.cyber-btn {
   border-color: var(--border-unified-color);
   background: var(--color-white-80);
   color: var(--el-text-color-primary);
@@ -3906,7 +3917,7 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .fullscreen-btn {
+html:not(.dark) body .edu-docs-root .fullscreen-btn {
   background: var(--color-white-80);
   border-color: var(--border-unified-color);
   color: var(--el-text-color-secondary);
@@ -3918,7 +3929,7 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .exit-fullscreen-btn {
+html:not(.dark) body .edu-docs-root .exit-fullscreen-btn {
   background: var(--color-white-90);
   border-color: var(--color-green-50);
   color: var(--el-color-success);
@@ -3928,12 +3939,12 @@ $sidebar-width: 200px;
   }
 }
 
-:where(html:not(.dark) body) .edu-docs-root .docs-content.is-fullscreen {
+html:not(.dark) body .edu-docs-root .docs-content.is-fullscreen {
   background: var(--color-white-98);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .iframe-loading-overlay,
-:where(html:not(.dark) body) .edu-docs-root .iframe-error-overlay {
+html:not(.dark) body .edu-docs-root .iframe-loading-overlay,
+html:not(.dark) body .edu-docs-root .iframe-error-overlay {
   background: var(--color-white-90);
 }
 
@@ -3941,7 +3952,7 @@ $sidebar-width: 200px;
   color: var(--el-text-color-secondary);
 }
 
-:where(html:not(.dark) body) .edu-docs-root .mobile-menu-btn {
+html:not(.dark) body .edu-docs-root .mobile-menu-btn {
   background: var(--color-white-90);
   border-color: var(--border-unified-color);
   color: var(--el-text-color-primary);
@@ -3949,7 +3960,7 @@ $sidebar-width: 200px;
 
 
 
-:where(html:not(.dark) body) .edu-docs-root .pulse-glow {
+html:not(.dark) body .edu-docs-root .pulse-glow {
   animation: pulse-glow-light 2s ease-in-out infinite;
 }
 
@@ -3973,7 +3984,8 @@ $sidebar-width: 200px;
 :where(html.dark) body .edu-docs-root .glass-panel {
   background: var(--el-bg-color);
   border-color: var(--el-border-color);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 :where(html.dark) body .edu-docs-root .cyber-btn {
   background: var(--el-bg-color);
@@ -3983,24 +3995,27 @@ $sidebar-width: 200px;
   &:hover {
     border-color: var(--el-color-success);
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb), 0.12);
+    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.12);
   }
 
   &.active {
     border-color: var(--el-color-success);
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb), 0.18);
+    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.18);
   }
 
   &--float {
     background: var(--el-bg-color);
     border-color: var(--el-border-color);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 :where(html.dark) body .edu-docs-root .docs-sidebar {
   background: var(--el-bg-color);
   border-color: var(--el-border-color);
+  box-shadow: var(--global-box-shadow);
+
   .toc-title,
   .doc-list-title {
     color: var(--el-text-color-primary);
@@ -4013,7 +4028,7 @@ $sidebar-width: 200px;
 
   .doc-group-title {
     color: var(--el-text-color-secondary);
-    background: rgb(var(--el-color-success-rgb), 0.12);
+    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.12);
     border-bottom-color: var(--color-white-6);
   }
 
@@ -4027,7 +4042,7 @@ $sidebar-width: 200px;
 
   .doc-list-item.active .toc-link {
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb), 0.15);
+    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.15);
   }
 
   .doc-list-item:hover .toc-link {
@@ -4041,7 +4056,7 @@ $sidebar-width: 200px;
 
   .toc-item.active .toc-link {
     color: var(--el-color-success);
-    background: rgb(var(--el-color-success-rgb), 0.15);
+    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.15);
   }
 
   .toc-item .toc-link:hover {
@@ -4060,7 +4075,7 @@ $sidebar-width: 200px;
   }
 
   .doc-list-resize-handle:hover {
-    background: rgb(var(--el-color-success-rgb), 0.1);
+    background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.1);
   }
 
   .doc-list-resize-handle:hover::before {
@@ -4074,44 +4089,44 @@ $sidebar-width: 200px;
 
 /* 暗色下文档内容区：强制高对比度文字（覆盖 scoped 内的亮色变量） */
 :where(html.dark) body .edu-docs-root .docs-content {
-  background: var(--el-bg-color);
+  background: var(--el-bg-color) ;
   border-color: var(--el-border-color);
 }
 
 :where(html.dark) body .edu-docs-root .docs-content::before {
-  background: rgb(var(--el-color-success-rgb), 0.25);
+  background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.25);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content p,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content li,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content td {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h1,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h2,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h3 {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
   border-color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h4 {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content table th {
   background: var(--color-white-6);
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content table td {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
   border-bottom-color: var(--el-text-color-primary);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content code {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content pre {
@@ -4120,12 +4135,12 @@ $sidebar-width: 200px;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content pre code {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content blockquote,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content blockquote p {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content a {
@@ -4142,11 +4157,11 @@ $sidebar-width: 200px;
 }
 
 :where(html.dark) :where(body) :where(.edu-docs-root) .docs-content .markdown-content .legal-update {
-  color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary) ;
 }
 
 :where(html.dark) body .edu-docs-root .docs-content.is-fullscreen {
-  background: var(--el-bg-color);
+  background: var(--el-bg-color) ;
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content blockquote {
@@ -4184,7 +4199,7 @@ $sidebar-width: 200px;
 :where(html.dark) body .edu-docs-root .exit-fullscreen-btn:hover {
   border-color: var(--el-color-success);
   color: var(--el-color-success);
-  background: rgb(var(--el-color-success-rgb), 0.12);
+  background: rgb(var(--el-color-success-rgb, 103, 194, 58), 0.12);
 }
 
 :where(html.dark) body .edu-docs-root .mobile-menu-btn {
@@ -4228,7 +4243,6 @@ body.route-edu-docs .el-overlay:has(.upload-dialog) {
   inset: 0;
   background: var(--color-black-60);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4244,7 +4258,8 @@ body.route-edu-docs .el-overlay:has(.upload-dialog) {
   max-width: 92vw;
   max-height: 90vh;
   overflow: auto;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 /* 亮色模式下上传表单区域使用中性灰，避免偏蓝/过暗 */
 html:not(.dark) .upload-dialog-content {
@@ -4254,10 +4269,10 @@ html:not(.dark) .upload-dialog-content {
   --upload-file-btn-color: var(--color-gray-111);
 }
 
-:where(html.dark) .upload-dialog-content {
+html.dark .upload-dialog-content {
   --upload-option-active-bg: var(--el-text-color-primary);
   --upload-file-btn-bg: var(--el-text-color-primary);
-  --upload-file-btn-color: var(--el-text-color-secondary);
+  --upload-file-btn-color: var(--color-gray-ededed);
 }
 
 @media (width <= 768px) {

@@ -39,7 +39,7 @@
       <el-col :span="12">
         <el-card>
           <h3 class="p20-chart-title">{{ t('p20Dashboard.courseCategory') }}</h3>
-          <div class="p20-chart"></div>
+          <div ref="coursePieEl" class="p20-chart"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -47,19 +47,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
-import { adminApi } from '@/api/admin/admin'
-import { getAdminOrders } from '@/api/admin/admin-orders'
+import * as echarts from '@/utils/echarts'
+import { adminApi } from '@/api/admin'
+import { getAdminOrders } from '@/api/admin-orders'
 import { v2Agents } from '@/api/v2-business'
-import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
-const darkModeStore = useDarkModeStore()
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
@@ -69,14 +66,12 @@ const cards = ref<Array<{ label: string; value: string }>>([])
 const revenueChartEl = ref<HTMLDivElement>()
 const orderPieEl = ref<HTMLDivElement>()
 const agentBarEl = ref<HTMLDivElement>()
+const coursePieEl = ref<HTMLDivElement>()
 
-let revenueChart: ECharts | null = null
-let orderPie: ECharts | null = null
-let agentBar: ECharts | null = null
-
-// 缓存最近一次加载的数据，供暗色模式切换时重新渲染
-let lastOrderRecords: OrderRecord[] = []
-let lastAgentRecords: AgentRecord[] = []
+let revenueChart: echarts.ECharts | null = null
+let orderPie: echarts.ECharts | null = null
+let agentBar: echarts.ECharts | null = null
+const _coursePie: echarts.ECharts | null = null
 
 // 订单记录类型（兼容多种字段命名）
 interface OrderRecord {
@@ -125,11 +120,8 @@ function genMockRevenueTrend(): { dates: string[]; values: number[] } {
   return { dates, values }
 }
 
-async function renderRevenueChart() {
+function renderRevenueChart() {
   if (!revenueChartEl.value) return
-  const echarts = await loadEcharts()
-  // 先释放旧实例，避免暗色模式切换等重复调用导致 ECharts 实例泄漏
-  revenueChart?.dispose()
   revenueChart = echarts.init(revenueChartEl.value)
   const { dates, values } = genMockRevenueTrend()
   revenueChart.setOption({
@@ -149,11 +141,8 @@ async function renderRevenueChart() {
   })
 }
 
-async function renderOrderPie(records: OrderRecord[]) {
+function renderOrderPie(records: OrderRecord[]) {
   if (!orderPieEl.value) return
-  const echarts = await loadEcharts()
-  // 先释放旧实例，避免重复 init 泄漏
-  orderPie?.dispose()
   orderPie = echarts.init(orderPieEl.value)
   // 按状态分组
   const buckets: Record<string, number> = {}
@@ -175,11 +164,8 @@ async function renderOrderPie(records: OrderRecord[]) {
   })
 }
 
-async function renderAgentBar(records: AgentRecord[]) {
+function renderAgentBar(records: AgentRecord[]) {
   if (!agentBarEl.value) return
-  const echarts = await loadEcharts()
-  // 先释放旧实例，避免重复 init 泄漏
-  agentBar?.dispose()
   agentBar = echarts.init(agentBarEl.value)
   const top = records.slice(0, 8).map(a => ({
     name: a.name || a.code || 'unnamed',
@@ -233,8 +219,6 @@ async function loadAll() {
     }
 
     await nextTick()
-    lastOrderRecords = orderRecords
-    lastAgentRecords = agentRecords
     renderRevenueChart()
     renderOrderPie(orderRecords)
     renderAgentBar(agentRecords)
@@ -264,9 +248,7 @@ function onResize() {
   })
 }
 
-onMounted(async () => {
-  // 异步加载 echarts 库（节省首屏 ~739KB），首次加载完成后会缓存供后续页面使用
-  await loadEcharts()
+onMounted(() => {
   loadAll()
   cleanup.addEventListener(window, 'resize', onResize as EventListener)
   cleanup.add(() => {
@@ -277,18 +259,6 @@ onMounted(async () => {
   })
   cleanup.add(disposeAll)
 })
-
-// 监听暗色模式变化，重新渲染图表以更新颜色
-watch(
-  () => darkModeStore.isDarkMode,
-  () => {
-    if (revenueChart || orderPie || agentBar) {
-      renderRevenueChart()
-      renderOrderPie(lastOrderRecords)
-      renderAgentBar(lastAgentRecords)
-    }
-  }
-)
 </script>
 
 <style scoped>

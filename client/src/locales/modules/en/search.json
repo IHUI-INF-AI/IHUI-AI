@@ -4,33 +4,38 @@
       "hot": "Search hot keywords",
       "searchPage": "Enter keywords to search agents / courses / content"
     },
-    "add": "添加",
-    "addedConditions": "addedConditions",
-    "advanced": "高级",
-    "conditions": "conditions",
+    "label": {
+      "keyword": "Keyword",
+      "searchCount": "Search Count",
+      "actions": "Actions"
+    },
+    "advanced": "Advanced",
+    "reset": "Reset",
+    "keyword": "Keyword",
+    "keywordPlaceholder": "Keyword Placeholder",
+    "conditions": "Conditions",
+    "selectField": "Select Field",
+    "selectOperator": "Select Operator",
+    "valuePlaceholder": "Value Placeholder",
+    "add": "Add",
+    "addedConditions": "Added Conditions",
+    "presets": "Presets",
+    "selectPreset": "Select Preset",
+    "search": "Search",
+    "savePreset": "Save Preset",
     "field": {
-      "category": "分类",
-      "description": "描述",
-      "name": "名称",
-      "tag": "标签"
+      "name": "Name",
+      "description": "Description",
+      "category": "Category",
+      "tag": "Tag"
     },
-    "keyword": "keyword",
-    "keywordPlaceholder": "keywordPlaceholder",
     "operator": {
-      "contains": "contains",
-      "endsWith": "endsWith",
-      "equals": "equals",
-      "startsWith": "startsWith"
+      "contains": "Contains",
+      "equals": "Equals",
+      "startsWith": "Starts With",
+      "endsWith": "Ends With"
     },
-    "presetName": "presetName",
-    "presets": "presets",
-    "reset": "重置",
-    "savePreset": "savePreset",
-    "search": "搜索",
-    "selectField": "selectField",
-    "selectOperator": "selectOperator",
-    "selectPreset": "selectPreset",
-    "valuePlaceholder": "valuePlaceholder"
+    "presetName": "Preset Name"
   },
   "searchPage": {
     "hotSearch": "Hot Searches",

@@ -143,10 +143,7 @@
       "method": "方式",
       "realName": "真实姓名",
       "realNamePlaceholder": "请输入真实姓名",
-      "title": "标题",
-      "alipay": "支付宝",
-      "wechat": "微信",
-      "bankCard": "银行卡"
+      "title": "标题"
     }
   },
   "distributionCompany": {

@@ -1,8 +1,8 @@
 {
   "officeViewer": {
     "download": "下载",
-    "downloadDoc": "下载 doc",
-    "openOnline": "打开 在线",
+    "openOnline": "在线打开",
+    "downloadDoc": "下载文档",
     "zoomIn": "放大"
   }
 }

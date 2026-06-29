@@ -1,30 +1,30 @@
 {
   "vipDetails": {
+    "title": "Membership Details",
+    "subtitle": "Choose the membership plan that suits you",
     "monthly": {
-      "benefits": {
-        "0": "Unlimited 100+ AI tools",
-        "1": "Access to advanced models",
-        "2": "Priority customer support",
-        "3": "Exclusive member features"
-      },
+      "title": "Monthly Membership",
       "days": "30 days",
-      "select": "Choose Monthly",
-      "title": "Monthly Member"
+      "select": "Select",
+      "benefits": [
+        "Free access to all courses",
+        "Exclusive learning community",
+        "3 AI Q&A per month",
+        "Learning progress tracking"
+      ]
+    },
+    "yearly": {
+      "title": "Annual Membership",
+      "days": "365 days",
+      "select": "Select",
+      "benefits": [
+        "Free access to all courses",
+        "Exclusive learning community",
+        "Unlimited AI Q&A",
+        "Progress tracking + certificate"
+      ]
     },
     "monthlyMember": "Monthly Member",
-    "subtitle": "Unlock all AI capabilities",
-    "title": "Membership Plans",
-    "yearly": {
-      "benefits": {
-        "0": "Unlimited 100+ AI tools",
-        "1": "Access to advanced models",
-        "2": "Priority customer support",
-        "3": "2 extra months free"
-      },
-      "days": "365 days",
-      "select": "Choose Yearly",
-      "title": "Yearly Member"
-    },
-    "yearlyMember": "Yearly Member"
+    "yearlyMember": "Annual Member"
   }
 }

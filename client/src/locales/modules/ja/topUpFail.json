@@ -1,8 +1,9 @@
 {
   "topUpFail": {
-    "backToHome": "backToHome",
-    "defaultMessage": "defaultMessage",
-    "retry": "重试",
-    "title": "标题"
+    "title": "チャージ失敗",
+    "defaultMessage": "チャージ過ぎ程中出现エラー，ご稍後再試行",
+    "retry": "再チャージ",
+    "backToホーム": "ホームに戻る",
+    "backToHome": "戻るホーム"
   }
 }

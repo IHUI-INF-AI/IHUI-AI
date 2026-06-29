@@ -70,7 +70,7 @@ import {
   deleteAdminFAQ,
   toggleAdminFAQTop,
   type AdminFAQ,
-} from '@/api/admin/admin-faq'
+} from '@/api/admin-faq'
 
 const { t } = useI18n()
 
@@ -144,7 +144,7 @@ const toggleTop = async (faq: AdminFAQ, val: boolean) => {
     ElMessage.success(val ? t('adminFAQList.pinned') : t('adminFAQList.unpinned'))
     fetchFAQs()
   } else {
-    ElMessage.error(res.message || '操作失败')
+    ElMessage.error(res.message || t('common.errors.operationFailed'))
   }
 }
 

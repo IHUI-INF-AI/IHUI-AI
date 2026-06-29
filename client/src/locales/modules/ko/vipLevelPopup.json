@@ -1,6 +1,16 @@
 {
   "vipLevelPopup": {
-    "goActivate": "goActivate",
-    "level0Desc": "level0Desc"
+    "level0Desc": "레벨 0:지위 방문자...",
+    "goActivate": "개통하기",
+    "benefitLevel1": "전담 1:1 고객 서비스",
+    "benefitLevel2": "월 100회 AI 질의응답",
+    "benefitLevel3": "모든 강의 무료 학습",
+    "benefitLevel4": "전용 학습 커뮤니티 접근",
+    "benefitLevel5": "매월 500 포인트 지급",
+    "benefitLevel6": "고급 AI 도구 우선 체험",
+    "benefitLevel7": "전용 이벤트 초대",
+    "benefitLevel8": "학습 인증서 발급",
+    "benefitLevel9": "맞춤형 학습 경로",
+    "benefitLevel10": "스토어 상품 전용 할인"
   }
 }

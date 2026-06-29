@@ -1,1 +1,12 @@
-{}
+{
+  "wxMiniprogram": {
+    "title": "ミニプログラムホーム",
+    "description": "WeChatミニプログラムホーム",
+    "hotFeatures": "人気機能",
+    "hotFeaturesDesc": "最も歓迎される機能",
+    "latestActivities": "最新アクティビティ",
+    "latestActivitiesDesc": "最新アクティビティとお得な情報",
+    "customerService": "カスタマーサービス",
+    "customerServiceDesc": "オンラインカスタマーサービスサポート"
+  }
+}

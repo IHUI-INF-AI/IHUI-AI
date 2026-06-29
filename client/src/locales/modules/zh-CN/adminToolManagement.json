@@ -1,0 +1,13 @@
+{
+  "adminToolManagement": {
+    "search": {},
+    "table": {},
+    "category": {},
+    "type": {},
+    "form": {},
+    "formRules": {},
+    "detail": {},
+    "messages": {},
+    "dialog": {}
+  }
+}

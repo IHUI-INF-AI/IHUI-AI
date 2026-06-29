@@ -121,7 +121,6 @@ declare module 'vue-i18n' {
   }): I18n
   export function useI18n(): {
     t: (key: string, ...args: unknown[]) => string
-    te: (key: string) => boolean
     locale: { value: string }
     [key: string]: unknown
   }
@@ -143,11 +142,6 @@ declare module '@/components/ai/AIChatInputBox.vue' {
 }
 
 declare module '@/components/Footer.vue' {
-  const component: { __name?: string; __props?: Record<string, unknown> }
-  export default component
-}
-
-declare module '@/components/AnimatedBlobText.vue' {
   const component: { __name?: string; __props?: Record<string, unknown> }
   export default component
 }

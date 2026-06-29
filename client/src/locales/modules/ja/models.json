@@ -39,6 +39,7 @@
     "enableSuccess": "有効化成功",
     "disableSuccess": "無効化成功",
     "testSuccess": "テスト成功",
-    "testFailed": "テスト失敗"
+    "testFailed": "テスト失敗",
+    "apiAccessDoc": "接続ドキュメント"
   }
 }

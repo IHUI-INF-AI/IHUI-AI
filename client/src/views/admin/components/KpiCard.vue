@@ -1,6 +1,6 @@
 <!--
-  KPI 指标卡(子组件)
-  在 admin/index.vue 中使用,展示数字 + 趋势 + 图标。
+  KPI 指标�?子组�?
+  �?admin/index.vue 中使�?展示数字 + 趋势 + 图标�?
 -->
 <template>
   <article class="kpi-card" :class="`tone-${tone}`">
@@ -64,11 +64,13 @@ const TrendDown = Warning
   border-radius: var(--global-border-radius);
   transition:
     transform 0.2s ease,
+    box-shadow 0.2s ease,
     border-color 0.2s ease;
 }
 
 .kpi-card:hover {
-  
+  transform: translateY(-2px);
+  box-shadow: var(--global-box-shadow);
   border-color: var(--el-border-color);
 }
 
@@ -88,7 +90,7 @@ const TrendDown = Warning
 .kpi-card.tone-success { color: var(--el-color-success); }
 .kpi-card.tone-warning { color: var(--el-color-warning); }
 .kpi-card.tone-danger { color: var(--el-color-danger); }
-.kpi-card.tone-info { color: var(--el-color-primary); }
+.kpi-card.tone-info { color: var(--color-blue-1890ff); }
 
 .kpi-body {
   flex: 1;

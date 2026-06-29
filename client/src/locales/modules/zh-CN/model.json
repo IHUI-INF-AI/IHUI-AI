@@ -1,10 +1,10 @@
 {
   "model": {
     "capabilities": {
-      "audio": "音频",
+      "streaming": "流式传输",
+      "streamingShort": "流式传输Short",
       "image": "图片",
-      "streaming": "streaming",
-      "streamingShort": "streaming Short",
+      "audio": "音频",
       "video": "视频"
     }
   }

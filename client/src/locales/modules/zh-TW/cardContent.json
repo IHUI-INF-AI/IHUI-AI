@@ -1,8 +1,8 @@
 {
   "cardContent": {
-    "chat": "对话",
-    "cycleTime": "cycleTime",
-    "developing": "developing",
-    "projectCompleted": "projectCompleted"
+    "cycleTime": "週期時間",
+    "chat": "聊一聊",
+    "projectCompleted": "項目已完成",
+    "developing": "開發中..."
   }
 }

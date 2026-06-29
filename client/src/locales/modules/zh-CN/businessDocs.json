@@ -1,256 +1,262 @@
 {
   "businessDocs": {
-    "changelog": {
-      "items": {
-        "v090[0]": "v090[0]",
-        "v090[1]": "v090[1]",
-        "v090[2]": "v090[2]",
-        "v090[3]": "v090[3]",
-        "v100[0]": "v100[0]",
-        "v100[1]": "v100[1]",
-        "v100[2]": "v100[2]",
-        "v100[3]": "v100[3]",
-        "v100[4]": "v100[4]",
-        "v100[5]": "v100[5]",
-        "v110[0]": "v110[0]",
-        "v110[1]": "v110[1]",
-        "v110[2]": "v110[2]",
-        "v110[3]": "v110[3]",
-        "v110[4]": "v110[4]"
-      },
-      "title": "更新日志"
-    },
-    "contributing": {
-      "note": "备注",
-      "steps": {
-        "branch": {
-          "desc": "从 main 分支创建一个新的功能分支",
-          "title": "创建分支"
-        },
-        "check": {
-          "desc": "运行代码检查和测试，确保代码质量",
-          "title": "代码检查"
-        },
-        "clone": {
-          "desc": "将项目代码克隆到本地开发环境",
-          "title": "克隆仓库"
-        },
-        "commit": {
-          "desc": "提交代码变更，附带清晰的提交信息",
-          "title": "提交代码"
-        },
-        "dev": {
-          "desc": "启动本地开发服务器，进行功能开发",
-          "title": "本地开发"
-        },
-        "fork": {
-          "desc": "将项目 Fork 到自己的 GitHub 账号下",
-          "title": "Fork 项目"
-        },
-        "install": {
-          "desc": "安装项目所需的依赖包",
-          "title": "安装依赖"
-        },
-        "push": {
-          "desc": "将本地代码推送到远程仓库",
-          "title": "推送代码"
-        }
-      },
-      "title": "贡献指南"
-    },
-    "deploy": {
-      "steps": {
-        "build": {
-          "desc": "执行构建命令，生成生产环境的静态文件",
-          "title": "构建项目"
-        },
-        "clone": {
-          "desc": "从代码仓库拉取最新代码到服务器",
-          "title": "拉取代码"
-        },
-        "env": {
-          "desc": "配置生产环境的环境变量",
-          "title": "环境配置"
-        },
-        "install": {
-          "desc": "安装项目运行所需的依赖",
-          "title": "安装依赖"
-        },
-        "preview": {
-          "desc": "在预览环境中验证部署效果",
-          "title": "预览验证"
-        },
-        "production": {
-          "desc": "将应用部署到生产环境并上线",
-          "title": "正式部署"
-        }
-      },
-      "title": "部署指南"
-    },
-    "environment": {
-      "desc": "环境变量配置说明",
-      "key": "变量名",
-      "no": "否",
-      "note": "备注",
-      "required": "必填",
-      "title": "环境配置",
-      "vars": {
-        "buildPlatform": "构建平台",
-        "viteApiBaseUrl": "API基础地址",
-        "viteAppTitle": "应用标题",
-        "viteCspReportUri": "CSP上报地址",
-        "viteEnableMonitor": "启用监控",
-        "viteSentryDsn": "vite Sentry Dsn",
-        "viteUseVize": "vite Use Vize"
-      },
-      "yes": "是"
-    },
-    "faq": {
-      "items": {
-        "browser": {
-          "a": "本应用支持所有现代浏览器，推荐使用 Chrome、Firefox、Edge 最新版本",
-          "q": "支持哪些浏览器？"
-        },
-        "bug": {
-          "a": "请在 GitHub Issues 中提交 Bug，附上复现步骤和截图",
-          "q": "如何报告 Bug？"
-        },
-        "contribute": {
-          "a": "欢迎参与贡献，请阅读贡献指南，Fork 项目后提交 PR",
-          "q": "如何参与贡献？"
-        },
-        "demo": {
-          "a": "可以访问在线演示站点体验所有功能",
-          "q": "有在线演示吗？"
-        },
-        "deploy": {
-          "a": "请参考部署指南，支持 Docker、Nginx 等多种部署方式",
-          "q": "如何部署项目？"
-        },
-        "language": {
-          "a": "目前支持中文和英文，可在设置中切换语言",
-          "q": "支持哪些语言？"
-        },
-        "pwa": {
-          "a": "本应用支持 PWA，可添加到桌面获得原生应用体验",
-          "q": "支持 PWA 吗？"
-        },
-        "techStack": {
-          "a": "前端使用 Vue 3 + TypeScript + Vite，后端使用 Node.js",
-          "q": "技术栈是什么？"
-        }
-      },
-      "title": "常见问题"
-    },
-    "modules": {
-      "desc": "API 模块说明",
-      "list": {
-        "admin": {
-          "desc": "后台管理模块，负责用户管理和系统配置",
-          "endpoints": {
-            "login": "登录",
-            "menus": "菜单管理",
-            "roles": "角色",
-            "users": "用户"
-          },
-          "title": "管理后台"
-        },
-        "ai": {
-          "desc": "AI 功能模块，提供对话、生成等智能服务",
-          "endpoints": {
-            "agentsCreate": "创建智能体",
-            "chat": "对话",
-            "generate": "生成",
-            "models": "模型"
-          },
-          "title": "AI 服务"
-        },
-        "auth": {
-          "desc": "认证鉴权模块，处理用户登录、注册和权限验证",
-          "endpoints": {
-            "login": "登录",
-            "logout": "退出登录",
-            "refresh": "刷新",
-            "register": "注册",
-            "userInfo": "用户信息"
-          },
-          "title": "认证鉴权"
-        },
-        "payment": {
-          "desc": "支付模块，集成支付宝和微信支付",
-          "endpoints": {
-            "aliPay": "支付宝",
-            "aliPayNotify": "支付宝回调通知",
-            "aliPaySuccess": "支付宝支付成功",
-            "orderCreate": "创建订单",
-            "wxPay": "微信支付"
-          },
-          "title": "支付服务"
-        },
-        "user": {
-          "desc": "用户模块，管理用户信息、订单和会员",
-          "endpoints": {
-            "orders": "订单",
-            "profileGet": "获取资料",
-            "profileUpdate": "更新资料",
-            "vipLevels": "VIP等级"
-          },
-          "title": "用户中心"
-        }
-      },
-      "method": "方法",
-      "path": "路径",
-      "title": "功能模块"
+    "title": "业务文档",
+    "subtitle": "项目概览、API 模块、部署流程、环境变量、安全策略、FAQ、更新日志与贡献指南",
+    "tab": {
+      "overview": "项目概览",
+      "modules": "API 模块",
+      "deploy": "部署流程",
+      "environment": "环境变量",
+      "security": "安全策略",
+      "faq": "FAQ",
+      "changelog": "更新日志",
+      "contributing": "贡献指南"
     },
     "overview": {
-      "description": "项目简介",
-      "descriptionValue": "项目描述",
-      "license": "许可证",
-      "node": "运行环境",
+      "title": "项目信息",
       "projectName": "项目名称",
-      "title": "项目概览",
-      "version": "版本"
+      "version": "版本",
+      "license": "许可证",
+      "node": "Node 版本",
+      "description": "项目描述",
+      "descriptionValue": "智汇AI社区 (iHui AI) - 专业的AI工具集成平台（Monorepo：官网 + 微信小程序）"
+    },
+    "modules": {
+      "title": "API 模块清单",
+      "method": "方法",
+      "path": "路径",
+      "desc": "说明",
+      "list": {
+        "auth": {
+          "title": "认证模块",
+          "desc": "账号注册、登录、第三方登录、JWT 令牌、设备绑定与多因子认证",
+          "endpoints": {
+            "login": "账号密码登录",
+            "register": "用户注册",
+            "refresh": "刷新令牌",
+            "logout": "退出登录",
+            "userInfo": "获取当前用户信息"
+          }
+        },
+        "payment": {
+          "title": "支付模块",
+          "desc": "微信 / 支付宝 / 银联多渠道支付 + 订单创建 + 异步通知 + 同步回调",
+          "endpoints": {
+            "aliPay": "创建支付宝支付订单",
+            "aliPayNotify": "支付宝异步通知",
+            "aliPaySuccess": "查询支付结果",
+            "wxPay": "创建微信支付订单",
+            "orderCreate": "创建统一订单"
+          }
+        },
+        "ai": {
+          "title": "AI 模块",
+          "desc": "AI 对话、图像生成、视频生成、模型管理、智能体编排",
+          "endpoints": {
+            "chat": "AI 对话",
+            "generate": "AI 内容生成",
+            "models": "可用模型列表",
+            "agentsCreate": "创建智能体"
+          }
+        },
+        "user": {
+          "title": "用户模块",
+          "desc": "用户资料、设置、VIP 等级、钱包、订单、消息",
+          "endpoints": {
+            "profileGet": "获取个人资料",
+            "profileUpdate": "更新个人资料",
+            "vipLevels": "VIP 等级列表",
+            "orders": "我的订单"
+          }
+        },
+        "admin": {
+          "title": "管理后台",
+          "desc": "管理后台（用户、角色、菜单、字典、监控）",
+          "endpoints": {
+            "login": "管理员登录",
+            "users": "用户列表",
+            "roles": "角色列表",
+            "menus": "菜单树"
+          }
+        }
+      }
+    },
+    "deploy": {
+      "title": "部署步骤",
+      "steps": {
+        "clone": {
+          "title": "克隆仓库",
+          "desc": "git clone <repo-url> && cd officialsite"
+        },
+        "install": {
+          "title": "安装依赖",
+          "desc": "npm install（会自动构建 shared 子包）"
+        },
+        "env": {
+          "title": "环境变量",
+          "desc": "复制 .env.example 为 .env.production 并填写实际值"
+        },
+        "build": {
+          "title": "类型检查 + 构建",
+          "desc": "npm run build:typecheck（含 vue-tsc + vite build）"
+        },
+        "preview": {
+          "title": "本地预览",
+          "desc": "npm run build && vite preview --port 8888"
+        },
+        "production": {
+          "title": "部署到生产",
+          "desc": "nginx 复制 dist/ 目录 + 配置 CSP + 启用 HTTPS + 启动后端"
+        }
+      }
+    },
+    "environment": {
+      "title": "环境变量",
+      "key": "变量名",
+      "required": "必填",
+      "desc": "说明",
+      "yes": "是",
+      "no": "否",
+      "note": "以下变量需要写入 .env.production，构建时由 Vite 注入；运行时可通过 import.meta.env 访问",
+      "vars": {
+        "viteApiBaseUrl": "后端 API 基础 URL（如 https://api.example.com）",
+        "viteAppTitle": "站点标题",
+        "viteEnableMonitor": "是否启用前端监控上报（true/false）",
+        "viteUseVize": "是否启用 Vize 编译优化",
+        "buildPlatform": "构建目标平台（web/h5/alipay/electron）",
+        "viteCspReportUri": "CSP 违规上报地址",
+        "viteSentryDsn": "Sentry 错误监控 DSN"
+      }
     },
     "security": {
+      "title": "安全策略清单",
       "items": {
         "csp": {
-          "desc": "内容安全策略，防止 XSS 和数据注入攻击",
-          "title": "CSP 安全策略"
+          "title": "CSP",
+          "desc": "通过 meta 注入统一源声明 + 同步到 nginx；违规上报至 /api/csp-report"
         },
         "hmac": {
-          "desc": "HMAC 签名验证，确保 API 请求的完整性和真实性",
-          "title": "HMAC 签名"
-        },
-        "rbac": {
-          "desc": "基于角色的访问控制，精细化管理用户权限",
-          "title": "RBAC 权限控制"
-        },
-        "session": {
-          "desc": "会话管理和安全策略，防止会话劫持",
-          "title": "会话安全"
+          "title": "HMAC 签名",
+          "desc": "所有写接口使用 DeviceService 生成 device_id + requestSignature（HMAC-SHA256）"
         },
         "webhook": {
-          "desc": "Webhook 签名验证，确保回调请求的来源可信",
-          "title": "Webhook 安全"
+          "title": "Webhook 签名",
+          "desc": "支付回调 + Webhook 使用 webhookSignature 模块校验 + 防重放 + 幂等 ID"
+        },
+        "session": {
+          "title": "会话管理",
+          "desc": "Token 通过 StorageManager 加密存储 + LoginDuration 检测过期"
+        },
+        "rbac": {
+          "title": "RBAC 权限",
+          "desc": "前端 useAuthStore + 后端 RBAC；敏感页面 requiresAuth + requiresAdmin 守卫"
         },
         "xss": {
-          "desc": "XSS 防护策略，对用户输入进行严格的转义和过滤",
-          "title": "XSS 防护"
+          "title": "XSS 防护",
+          "desc": "vue-i18n 默认 escape + safeHtml 指令白名单 + DOMPurify 二次过滤"
         }
-      },
-      "title": "安全设计"
+      }
     },
-    "subtitle": "业务文档",
-    "tab": {
-      "changelog": "更新日志",
-      "contributing": "贡献指南",
-      "deploy": "部署指南",
-      "environment": "环境配置",
-      "faq": "常见问题",
-      "modules": "功能模块",
-      "overview": "概览",
-      "security": "安全"
+    "faq": {
+      "title": "常见问题解答",
+      "items": {
+        "browser": {
+          "q": "项目支持哪些浏览器？",
+          "a": "支持 Chrome 90+、Firefox 88+、Safari 14+、Edge 90+。IE 不支持。PWA 功能需要支持 Service Worker 的浏览器。"
+        },
+        "language": {
+          "q": "如何切换语言？",
+          "a": "点击顶部导航栏的语言切换器，支持简体中文、繁体中文、英文、日文、韩文 5 种语言。"
+        },
+        "demo": {
+          "q": "如何启用演示模式？",
+          "a": "在 URL 后添加 ?demo=true 参数，或在 .env 中设置 VITE_DEMO_MODE=true。演示模式下网络错误会自动使用 mock 数据兜底。"
+        },
+        "deploy": {
+          "q": "如何部署到生产环境？",
+          "a": "请参考\"部署流程\"Tab：1) npm run build:typecheck 2) 复制 dist/ 到 nginx 3) 配置 HTTPS + CSP 4) 启动后端服务。"
+        },
+        "contribute": {
+          "q": "如何贡献代码？",
+          "a": "请参考\"贡献指南\"Tab：Fork 仓库 → 创建分支 → 提交 PR。代码需通过 typecheck + lint + 测试。"
+        },
+        "techStack": {
+          "q": "项目使用什么技术栈？",
+          "a": "Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router + vue-i18n + Playwright + Vitest。"
+        },
+        "bug": {
+          "q": "如何报告 Bug？",
+          "a": "在 GitHub Issues 中提交 Bug 报告，请包含：复现步骤、浏览器版本、控制台错误日志、截图。"
+        },
+        "pwa": {
+          "q": "PWA 支持哪些功能？",
+          "a": "离线访问、后台同步（Background Sync）、推送通知（Push）、分享目标（Share Target）、安装到桌面。"
+        }
+      }
     },
-    "title": "开发文档"
+    "changelog": {
+      "title": "版本更新日志",
+      "items": {
+        "v110": [
+          "PWA 增强：Background Sync + Push 通知 + Web Share Target",
+          "性能优化：vue-office chunk 拆分为 5 个子模块",
+          "i18n 补全：所有语言覆盖率达到 100%",
+          "API Mock 服务统一化：e2e/helpers/api-mock.ts",
+          "文档增强：FAQ + CHANGELOG + CONTRIBUTING Tab"
+        ],
+        "v100": [
+          "初始版本发布",
+          "5 语言 i18n 支持（zh-CN/en/zh-TW/ja/ko）",
+          "PWA 基础功能（离线缓存 + 安装到桌面）",
+          "组件展示页（/storybook）+ 业务文档页（/business-docs）",
+          "完整 e2e 测试套件（851 个测试）",
+          "性能预算检查 + i18n 覆盖率检查"
+        ],
+        "v090": [
+          "Beta 版本",
+          "核心页面开发完成（首页/登录/注册/AI 对话/智能体）",
+          "Element Plus 组件库集成",
+          "监控告警系统（Sentry 风格）"
+        ]
+      }
+    },
+    "contributing": {
+      "title": "贡献指南",
+      "note": "欢迎贡献代码！请遵循以上步骤提交 PR，代码需通过 typecheck + lint + 测试。",
+      "steps": {
+        "fork": {
+          "title": "Fork 仓库",
+          "desc": "在 GitHub 上 Fork 项目到你的账号"
+        },
+        "clone": {
+          "title": "克隆到本地",
+          "desc": "git clone <your-fork-url> && cd officialsite"
+        },
+        "install": {
+          "title": "安装依赖",
+          "desc": "npm install（会自动构建 shared 子包）"
+        },
+        "branch": {
+          "title": "创建分支",
+          "desc": "git checkout -b feature/your-feature-name"
+        },
+        "dev": {
+          "title": "开发 + 测试",
+          "desc": "npm run dev 启动开发服务器；npm run test:unit 运行单元测试"
+        },
+        "check": {
+          "title": "代码检查",
+          "desc": "npm run typecheck + npm run lint 确保代码质量"
+        },
+        "commit": {
+          "title": "提交代码",
+          "desc": "git commit -m \"feat: 描述你的改动\"（遵循 Conventional Commits）"
+        },
+        "push": {
+          "title": "推送 + PR",
+          "desc": "git push origin feature/your-feature-name → 在 GitHub 创建 Pull Request"
+        }
+      }
+    }
   }
 }

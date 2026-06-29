@@ -1,7 +1,7 @@
 {
   "learnTopicDetail": {
-    "joinTopic": "joinTopic",
-    "topicCourses": "topicCourses",
-    "topicNotFound": "topicNotFound"
+    "topicNotFound": "토픽이 존재하지 않습니다",
+    "joinTopic": "토픽 참여",
+    "topicCourses": "토픽 강좌"
   }
 }

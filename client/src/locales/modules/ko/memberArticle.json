@@ -1,7 +1,7 @@
 {
   "memberArticle": {
-    "myArticles": "myArticles",
-    "noArticle": "noArticle",
-    "read": "read"
+    "myArticles": "내 기사",
+    "noArticle": "기사가 없습니다",
+    "read": "조회"
   }
 }

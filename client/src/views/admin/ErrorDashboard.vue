@@ -72,7 +72,7 @@
           <el-button type="primary" size="small" @click="refreshErrors">{{ t('common.refresh') }}</el-button>
         </div>
       </template>
-      <el-table :data="recentErrors" stripe class="full-width">
+      <el-table :data="recentErrors" stripe style="width: 100%">
         <el-table-column prop="name" :label="t('adminCommon.label.errorType')" width="150" />
         <el-table-column prop="message" :label="t('adminCommon.label.errorMessage')" show-overflow-tooltip />
         <el-table-column prop="url" :label="t('adminCommon.label.page')" width="200" show-overflow-tooltip />
@@ -117,12 +117,9 @@ const { t } = useI18n()
 import { ref, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { WarningFilled, CircleCloseFilled, CircleCheckFilled, DataAnalysis } from '@element-plus/icons-vue'
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
+import echarts from '@/utils/echarts'
+import type { ECharts } from 'echarts'
 import { formatDateTime as _formatTime } from '@/utils/format'
-import { useDarkModeStore } from '@/stores/darkMode'
-
-const darkModeStore = useDarkModeStore()
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
@@ -184,9 +181,8 @@ const refreshErrors = (): void => {
   // 刷新错误列表
 }
 
-const initTrendChart = async (): Promise<void> => {
+const initTrendChart = (): void => {
   if (!trendChartRef.value) return
-  const echarts = await loadEcharts()
 
   trendChart = echarts.init(trendChartRef.value)
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
@@ -206,9 +202,8 @@ const initTrendChart = async (): Promise<void> => {
   })
 }
 
-const initTypeChart = async (): Promise<void> => {
+const initTypeChart = (): void => {
   if (!typeChartRef.value) return
-  const echarts = await loadEcharts()
 
   typeChart = echarts.init(typeChartRef.value)
   typeChart.setOption({
@@ -240,17 +235,6 @@ const handleResize = (): void => {
 watch(chartRange, () => {
   initTrendChart()
 })
-
-// 监听暗色模式变化，重新渲染所有图表以更新颜色
-watch(
-  () => darkModeStore.isDarkMode,
-  () => {
-    if (trendChart || typeChart) {
-      initTrendChart()
-      initTypeChart()
-    }
-  }
-)
 
 onMounted(() => {
   initTrendChart()
@@ -287,7 +271,7 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 
 .stat-value {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: bold;
   color: var(--el-text-color-primary);
 }
 
@@ -341,9 +325,5 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-}
-
-.full-width {
-  width: 100%;
 }
 </style>

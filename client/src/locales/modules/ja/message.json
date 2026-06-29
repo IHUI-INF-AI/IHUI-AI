@@ -2,6 +2,12 @@
   "message": {
     "searchPlaceholder": {
       "announcement": "お知らせを検索"
+    },
+    "label": {
+      "title": "タイトル",
+      "category": "カテゴリ",
+      "time": "時間",
+      "actions": "操作"
     }
   }
 }

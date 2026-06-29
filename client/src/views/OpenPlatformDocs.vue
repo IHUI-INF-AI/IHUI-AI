@@ -94,7 +94,7 @@
                 </template>
               </el-tree>
             </el-tab-pane>
-            <el-tab-pane :label="t('openPlatformDocs.enterpriseService')" name="enterpriseService">
+            <el-tab-pane label="企业服务" name="enterpriseService">
               <el-tree
                 ref="enterpriseServiceTreeRef"
                 :data="filteredEnterpriseServiceDocTree"
@@ -191,7 +191,7 @@
         <div v-else class="empty-container">
           <el-empty :description="t('openPlatformDocs.selectDoc')">
             <template #image>
-              <el-icon :size="64" class="placeholder-icon">
+              <el-icon :size="64" style="color: var(--el-text-color-placeholder)">
                 <Document />
               </el-icon>
             </template>
@@ -347,7 +347,7 @@ const handleNodeClick = async (data: DocNode) => {
     doc: data.id,
   }
    
-  router.replace({ path: route.path!, query } as any)
+  router.replace({ path: route.path, query })
 
   // 加载文档内容
   currentDocId.value = data.id
@@ -651,6 +651,8 @@ const startResize = (e: MouseEvent) => {
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   z-index: var(--z-header); // 低于顶部菜单栏（z-index: 2000）
+  box-shadow: var(--global-box-shadow);
+
   &.collapsed {
     // 使用选择器特异性替代 
     &.docs-sidebar {
@@ -675,9 +677,11 @@ const startResize = (e: MouseEvent) => {
     transition: none; // 拖拽时禁用过渡动画
   }
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     position: fixed;
     z-index: var(--z-dropdown);
+    box-shadow: var(--global-box-shadow);
+
     // 使用选择器特异性替代 
     &.docs-sidebar {
       width: 300px;
@@ -726,9 +730,9 @@ const startResize = (e: MouseEvent) => {
     flex-shrink: 0;
     margin-left: 12px;
     border-radius: var(--global-border-radius);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: all 0.2s ease;
     color: var(--el-text-color-regular);
-
+    
     &:hover {
       background-color: var(--el-fill-color-light);
       color: var(--el-color-primary);
@@ -818,12 +822,12 @@ const startResize = (e: MouseEvent) => {
     font-size: 14px;
     font-weight: 500;
     color: var(--el-text-color-regular);
-    transition: color 0.2s ease;
-
+    transition: all 0.2s ease;
+    
     &:hover {
       color: var(--el-color-primary);
     }
-
+    
     &.is-active {
       color: var(--el-color-primary);
       font-weight: 600;
@@ -875,7 +879,7 @@ const startResize = (e: MouseEvent) => {
       padding: 0 12px;
       border-radius: var(--global-border-radius);
       margin-bottom: 2px;
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: all 0.2s ease;
       cursor: pointer;
 
       &:hover {
@@ -947,7 +951,7 @@ const startResize = (e: MouseEvent) => {
   min-width: 0;
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     padding: 16px;
 
     // 使用 CSS 变量和选择器特异性替代 
@@ -985,7 +989,7 @@ const startResize = (e: MouseEvent) => {
     font-weight: 700;
     color: var(--el-text-color-primary);
 
-    @media (width <= $desktop-breakpoint-sm) {
+    @media (max-width: $desktop-breakpoint-sm) {
       font-size: 24px;
     }
   }
@@ -1021,7 +1025,7 @@ const startResize = (e: MouseEvent) => {
 
   // 扁平化设计：无阴影
   
-  @media (width <= $desktop-breakpoint-md) {
+  @media (max-width: $desktop-breakpoint-md) {
     display: none;
   }
 }
@@ -1057,10 +1061,10 @@ const startResize = (e: MouseEvent) => {
       display: block;
       padding: 4px 8px;
       border-radius: var(--global-border-radius); // 使用项目标准圆角
-      transition: color 0.2s ease, background-color 0.2s ease;
+      transition: all 0.2s ease;
 
       // 扁平化设计：无阴影
-
+      
       &:hover {
         color: var(--el-color-primary);
         background-color: var(--el-fill-color-light);
@@ -1247,10 +1251,6 @@ const startResize = (e: MouseEvent) => {
   
   .docs-content {
     padding: 0;
-  }
-
-  .placeholder-icon {
-    color: var(--el-text-color-placeholder);
   }
 }
 </style>

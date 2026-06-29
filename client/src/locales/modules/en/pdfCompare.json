@@ -1,7 +1,7 @@
 {
   "pdfCompare": {
-    "fileA": "fileA",
-    "fileB": "fileB",
-    "selectFile": "selectFile"
+    "fileA": "File A",
+    "fileB": "File B",
+    "selectFile": "Select File"
   }
 }

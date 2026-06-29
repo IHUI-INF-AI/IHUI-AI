@@ -1,10 +1,10 @@
 {
   "learnList": {
-    "all": "全部",
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbList": "breadcrumbList",
-    "category": "分类",
-    "noCourses": "noCourses",
-    "searchPlaceholder": "请输入搜索内容"
+    "category": "카테고리",
+    "all": "전체",
+    "searchPlaceholder": "강의 검색...",
+    "noCourses": "강의 없음",
+    "breadcrumbCourse": "과정",
+    "breadcrumbList": "과정 목록"
   }
 }

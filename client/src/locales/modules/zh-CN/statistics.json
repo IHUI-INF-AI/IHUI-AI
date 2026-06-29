@@ -1,72 +1,74 @@
 {
   "statistics": {
-    "behavior": {
-      "activeHours": "活跃时段",
-      "activity": "活跃度",
-      "botId": "bot 编号",
-      "favoriteAgents": "收藏的智能体",
-      "hour": "时",
-      "lastLoginTime": "最后登录时间",
-      "loginDays": "登录天数",
-      "messageCount": "消息数",
-      "notLoggedIn": "未登录",
-      "overview": "概览",
-      "totalLoginCount": "总登录次数",
-      "totalTokens": "总 Tokens",
-      "usageCount": "使用次数"
-    },
-    "days": "天",
-    "detailTitle": "详情",
-    "endDate": "结束日期",
-    "labels": {
-      "conversations": "对话",
-      "duration": "时长",
-      "loginDays": "登录天数",
-      "registerTime": "注册时间",
-      "shares": "分享",
-      "totalDuration": "总时长",
-      "visits": "访问量"
-    },
-    "loadFailed": "加载失败",
-    "orders": {
-      "amountInYuan": "金额（元）",
-      "completedOrders": "已完成订单",
-      "orderAmount": "订单金额",
-      "orderCount": "订单数",
-      "overview": "概览",
-      "paidOrders": "付费订单",
-      "totalAmount": "总金额",
-      "totalOrders": "订单总数",
-      "trends": "趋势"
-    },
     "selectTimeRange": "选择时间范围",
     "startDate": "开始日期",
-    "tabs": {
-      "agents": "智能体",
-      "behavior": "行为",
-      "orders": "订单",
-      "usage": "使用"
-    },
+    "endDate": "结束日期",
     "timeRanges": {
-      "all": "全部",
-      "month": "月",
       "today": "今天",
-      "week": "周"
+      "week": "最近一周",
+      "month": "最近一月",
+      "all": "全部"
     },
+    "labels": {
+      "conversations": "Conversations",
+      "duration": "Duration",
+      "loginDays": "Login Days",
+      "registerTime": "Register Time",
+      "shares": "Shares",
+      "totalDuration": "Total Duration",
+      "visits": "Visits"
+    },
+    "tabs": {
+      "usage": "使用统计",
+      "behavior": "行为分析",
+      "orders": "订单统计",
+      "agents": "智能体统计"
+    },
+    "loadFailed": "加载统计数据失败，请刷新页面重试",
     "usage": {
-      "chatSessions": "对话会话",
+      "overview": "使用概览",
+      "chatSessions": "聊天会话",
+      "messageCount": "消息数量",
+      "tokenUsage": "Token使用",
+      "uploadedFiles": "上传文件",
+      "trends": "使用趋势",
+      "sessions": "会话数",
+      "messages": "消息数",
+      "tokens": "Token数"
+    },
+    "behavior": {
+      "overview": "行为概览",
+      "loginDays": "登录天数",
+      "totalLoginCount": "总登录次数",
+      "lastLoginTime": "最后登录",
+      "activeHours": "活跃时段分布",
+      "favoriteAgents": "最常用智能体",
+      "botId": "智能体ID",
+      "usageCount": "使用次数",
+      "totalTokens": "Token消耗",
+      "hour": "小时",
       "messageCount": "消息数",
-      "messages": "消息",
-      "overview": "概览",
-      "sessions": "会话",
-      "tokenUsage": "Token 用量",
-      "tokens": "令牌",
-      "trends": "趋势",
-      "uploadedFiles": "已上传文件"
-    }
+      "activity": "活跃度",
+      "notLoggedIn": "未登录"
+    },
+    "orders": {
+      "overview": "订单概览",
+      "totalOrders": "总订单数",
+      "totalAmount": "总金额",
+      "paidOrders": "已付订单",
+      "completedOrders": "已完成订单",
+      "trends": "订单趋势",
+      "orderCount": "订单数",
+      "orderAmount": "订单金额",
+      "amountInYuan": "金额（元）"
+    },
+    "days": "Days",
+    "detailTitle": "Detail Title",
+    "zeroHour": "0小时",
+    "zeroHour2": "0小时"
   },
   "Statistics": {
-    "zeroHour": "零点",
-    "zeroHour2": "零点2"
+    "zeroHour": "0小时",
+    "zeroHour2": "0小时"
   }
 }

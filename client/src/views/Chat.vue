@@ -21,7 +21,7 @@
 
       <!-- 消息列表 -->
       <div class="chat-messages" ref="messagesRef">
-        <div v-for="msg in messages" :key="msg.id" class="message-item" :class="msg.role">
+        <div v-for="(msg, idx) in messages" :key="idx" class="message-item" :class="msg.role">
           <div class="message-avatar">
             <span>{{ msg.role === 'user' ? t('chat.me') : t('chat.ai') }}</span>
           </div>
@@ -51,7 +51,7 @@
           <button class="send-btn" :disabled="!canSend" @click="sendMessage">
             {{ streaming ? t('chat.generating') : t('chat.send') }}
           </button>
-          <button class="clear-btn" @click="clearMessages">{{ t('common.clear') }}</button>
+          <button class="clear-btn" @click="messages = []">{{ t('common.clear') }}</button>
         </div>
       </div>
     </div>
@@ -72,7 +72,7 @@ const userStore = useUserStore()
 const roomName = ref('default-room')
 const inputText = ref('')
 const aiModel = ref('mock')
-const messages = ref<Array<{ id: number; role: 'user' | 'ai'; text: string; time: number; streaming?: boolean }>>([])
+const messages = ref<Array<{ role: 'user' | 'ai'; text: string; time: number; streaming?: boolean }>>([])
 const wsStatus = ref<WebSocketStatus>('disconnected')
 const streaming = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
@@ -80,9 +80,6 @@ let currentEventSource: EventSource | null = null
 let mockInterval: ReturnType<typeof setInterval> | null = null
 // 流式状态关闭定时器
 let streamingTimer: ReturnType<typeof setTimeout> | null = null
-// 消息唯一 id 生成器
-let msgIdSeq = 0
-const nextMsgId = () => ++msgIdSeq
 
 const wsStatusClass = computed(() => {
   return {
@@ -135,19 +132,11 @@ async function streamFromSSE(text: string) {
       currentEventSource = null
     }
 
-    const aiMsgId = nextMsgId()
-    messages.value.push({ id: aiMsgId, role: 'ai', text: '', time: Date.now(), streaming: true })
+    const aiMsgIdx = messages.value.length
+    messages.value.push({ role: 'ai', text: '', time: Date.now(), streaming: true })
 
-    const apiBase = (import.meta as any).env?.VITE_API_BASE || ''
-    // 2026-06-24 修复: 后端 qwen SSE 端点注册在 prefix=/chat 下, 路由 /chat/stream, 完整路径 /api/v1/chat/chat/stream
-    const url = `${apiBase}/api/v1/chat/chat/stream?message=${encodeURIComponent(text)}&model=${encodeURIComponent(aiModel.value)}`
-
-    // 通过 id 定位消息，避免清空后索引错乱
-    const getAiMsg = () => messages.value.find(m => m.id === aiMsgId)
-    const updateAiMsg = (patch: (msg: { text: string; streaming?: boolean }) => void) => {
-      const msg = getAiMsg()
-      if (msg) patch(msg)
-    }
+    const apiBase = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE || ''
+    const url = `${apiBase}/api/v1/chat/qwen/chat/stream?message=${encodeURIComponent(text)}&model=${encodeURIComponent(aiModel.value)}`
 
     // EventSource 不支持 POST, 改用 fetch + ReadableStream
     streamAbortController = new AbortController()
@@ -181,13 +170,13 @@ async function streamFromSSE(text: string) {
               const parsed = JSON.parse(data)
               const delta = extractText(parsed)
               if (delta) {
-                updateAiMsg(m => { m.text += delta })
+                messages.value[aiMsgIdx].text += delta
                 scrollToBottom()
               }
             } catch (_e) {
               // 非 JSON 数据, 当作文本追加
               if (data) {
-                updateAiMsg(m => { m.text += data })
+                messages.value[aiMsgIdx].text += data
                 scrollToBottom()
               }
             }
@@ -197,13 +186,10 @@ async function streamFromSSE(text: string) {
     }).catch((err) => {
       if (err instanceof Error && err.name === 'AbortError') return
       logger.error('[Chat] SSE streaming error:', err)
-      // 失败时使用模拟数据（仅当消息仍存在时）
-      if (getAiMsg()) {
-        streamMockResponse(text, aiMsgId)
-      }
+      // 失败时使用模拟数据
+      streamMockResponse(text, aiMsgIdx)
     }).finally(() => {
-      // 消息可能已被清空，需做存在性判断
-      updateAiMsg(m => { m.streaming = false })
+      messages.value[aiMsgIdx].streaming = false
       streaming.value = false
       scrollToBottom()
       resolve()
@@ -211,23 +197,36 @@ async function streamFromSSE(text: string) {
   })
 }
 
-function extractText(parsed: any): string {
+function extractText(parsed: unknown): string {
   if (typeof parsed === 'string') return parsed
-  if (parsed.output?.text) return parsed.output.text
-  if (parsed.output?.choices?.[0]?.message?.content) {
-    const c = parsed.output.choices[0].message.content
-    if (Array.isArray(c)) return c.map((x: any) => x.text || '').join('')
-    return c
+  const obj = parsed as Record<string, unknown>
+  const output = obj.output as Record<string, unknown> | undefined
+  if (output?.text) return String(output.text)
+  if (output?.choices) {
+    const choices = output.choices as unknown[]
+    const first = choices[0] as Record<string, unknown> | undefined
+    const message = first?.message as Record<string, unknown> | undefined
+    if (message?.content) {
+      const c = message.content
+      if (Array.isArray(c)) return c.map((x: Record<string, unknown>) => String(x.text || '')).join('')
+      return String(c)
+    }
   }
-  if (parsed.choices?.[0]?.delta?.content) return parsed.choices[0].delta.content
-  if (parsed.text) return parsed.text
-  if (parsed.content) return parsed.content
-  if (parsed.delta?.content) return parsed.delta.content
+  if (obj.choices) {
+    const choices = obj.choices as unknown[]
+    const first = choices[0] as Record<string, unknown> | undefined
+    const delta = first?.delta as Record<string, unknown> | undefined
+    if (delta?.content) return String(delta.content)
+  }
+  if (obj.text) return String(obj.text)
+  if (obj.content) return String(obj.content)
+  const delta = obj.delta as Record<string, unknown> | undefined
+  if (delta?.content) return String(delta.content)
   return ''
 }
 
 // 模拟数据流式输出 (后端不可用时)
-function streamMockResponse(userText: string, msgId: number) {
+function streamMockResponse(userText: string, msgIdx: number) {
   const responses = [
     `收到你的消息: "${userText}"\n\n这是一个模拟回复, 因为后端 LLM 服务暂未配置。`,
     `你好! 我是 AI 助手。当前选择模型: ${aiModel.value}。\n\n你可以问我任何问题。`,
@@ -237,16 +236,6 @@ function streamMockResponse(userText: string, msgId: number) {
   let idx = 0
   if (mockInterval) clearInterval(mockInterval)
   mockInterval = setInterval(() => {
-    // 通过 id 定位消息，避免清空后索引错乱
-    const msg = messages.value.find(m => m.id === msgId)
-    if (!msg) {
-      // 消息已被清空，停止定时器
-      if (mockInterval) {
-        clearInterval(mockInterval)
-        mockInterval = null
-      }
-      return
-    }
     if (idx >= fullText.length) {
       if (mockInterval) {
         clearInterval(mockInterval)
@@ -254,7 +243,7 @@ function streamMockResponse(userText: string, msgId: number) {
       }
       return
     }
-    msg.text += fullText[idx]
+    messages.value[msgIdx].text += fullText[idx]
     idx++
     scrollToBottom()
   }, 30)
@@ -263,20 +252,19 @@ function streamMockResponse(userText: string, msgId: number) {
 async function sendMessage() {
   if (!canSend.value) return
   const text = inputText.value.trim()
-  messages.value.push({ id: nextMsgId(), role: 'user', text, time: Date.now() })
+  messages.value.push({ role: 'user', text, time: Date.now() })
   inputText.value = ''
   streaming.value = true
   scrollToBottom()
 
   if (aiModel.value === 'mock') {
     // 模拟流式输出
-    const aiMsgId = nextMsgId()
-    messages.value.push({ id: aiMsgId, role: 'ai', text: '', time: Date.now(), streaming: true })
-    streamMockResponse(text, aiMsgId)
+    const aiMsgIdx = messages.value.length
+    messages.value.push({ role: 'ai', text: '', time: Date.now(), streaming: true })
+    streamMockResponse(text, aiMsgIdx)
     if (streamingTimer !== null) clearTimeout(streamingTimer)
     streamingTimer = setTimeout(() => {
-      const msg = messages.value.find(m => m.id === aiMsgId)
-      if (msg) msg.streaming = false
+      messages.value[aiMsgIdx].streaming = false
       streaming.value = false
     }, 3000)
   } else {
@@ -284,34 +272,10 @@ async function sendMessage() {
     try {
       await streamFromSSE(text)
     } catch (e) {
-      logger.error('[Chat] 消息发送失败', e)
-      ElMessage.error(t('common.errors.messageSendFailed'))
+      console.error('[Chat] 消息发送失败', e)
+      ElMessage.error(t('common.errors.messageSendFailedRetry'))
     }
   }
-}
-
-// 清空消息：同时中止进行中的流式请求与定时器，避免回调访问已清空的数组
-function clearMessages() {
-  // 中止 SSE 流式请求
-  streamAbortController?.abort()
-  streamAbortController = null
-  // 关闭 EventSource
-  if (currentEventSource) {
-    currentEventSource.close()
-    currentEventSource = null
-  }
-  // 清理模拟流式定时器
-  if (mockInterval) {
-    clearInterval(mockInterval)
-    mockInterval = null
-  }
-  // 清理流式状态关闭定时器
-  if (streamingTimer !== null) {
-    clearTimeout(streamingTimer)
-    streamingTimer = null
-  }
-  messages.value = []
-  streaming.value = false
 }
 
 function scrollToBottom() {
@@ -384,14 +348,14 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   width: 10px; height: 10px; border-radius: 50%;
   display: inline-block;
 }
-.status-connected { background: var(--el-color-success); box-shadow: none; }
-.status-connecting { background: var(--el-color-warning); box-shadow: none; }
+.status-connected { background: var(--el-color-success); box-shadow: 0 0 8px var(--el-color-success); }
+.status-connecting { background: var(--el-color-warning); box-shadow: 0 0 8px var(--el-color-warning); }
 .status-disconnected { background: var(--el-text-color-secondary); }
-.status-error { background: var(--el-color-danger); box-shadow: none; }
+.status-error { background: var(--el-color-danger); box-shadow: 0 0 8px var(--el-color-danger); }
 .status-text { font-size: 14px; color: var(--el-text-color-secondary); }
 
 .model-tag {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--el-color-primary-light-5);
   background: var(--el-color-primary-light-9);
   padding: 2px 8px;
@@ -429,17 +393,13 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   width: 36px; height: 36px;
   border-radius: 50%;
   background: var(--el-color-primary);
-  color: var(--color-on-primary);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
-}
-
-:where(html.dark) .message-avatar {
-  color: var(--color-dark-bg-1);
 }
 .message-item.ai .message-avatar { background: var(--el-color-success); }
 .message-body { display: flex; flex-direction: column; gap: 4px; }
@@ -465,7 +425,7 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
-.message-time { font-size: 12px; color: var(--el-text-color-secondary); padding: 0 4px; }
+.message-time { font-size: 11px; color: var(--el-text-color-secondary); padding: 0 4px; }
 
 .empty-messages {
   margin: auto;
@@ -510,34 +470,9 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   cursor: pointer;
   font-size: 13px;
 }
-.send-btn { background: var(--el-color-primary); color: var(--color-on-primary); }
-:where(html.dark) .send-btn { color: var(--color-dark-bg-1); }
+.send-btn { background: var(--el-color-primary); color: white; }
 .send-btn:disabled { background: var(--el-fill-color-dark); cursor: not-allowed; }
 .send-btn:hover:not(:disabled) { background: var(--el-color-primary); }
 .clear-btn { background: var(--el-fill-color-dark); color: var(--el-text-color-primary); }
 .clear-btn:hover { background: var(--el-fill-color-darker); }
-
-/* ==================== Dark Mode ==================== */
-:where(html.dark) .message-content { background: var(--el-fill-color-darker); }
-:where(html.dark) .message-item.user .message-content { background: var(--el-color-primary); }
-
-/* ==================== Responsive ==================== */
-@media (max-width: 768px) {
-  .chat-page { padding: 12px; }
-  .chat-container { height: calc(100vh - 24px); }
-  .chat-status-bar { padding: 10px 12px; gap: 8px; }
-  .chat-messages { padding: 12px; gap: 8px; }
-  .message-item { max-width: 85%; }
-  .chat-input-area { padding: 10px; }
-  .chat-textarea { padding: 8px; }
-  .send-btn, .clear-btn { padding: 8px 14px; }
-}
-@media (max-width: 480px) {
-  .chat-page { padding: 8px; }
-  .chat-container { height: calc(100vh - 16px); border-radius: 0; border: none; }
-  .status-info { gap: 6px; }
-  .model-select { font-size: 12px; padding: 3px 6px; }
-  .message-item { max-width: 90%; gap: 8px; }
-  .message-avatar { width: 30px; height: 30px; font-size: 11px; }
-  .message-content { padding: 8px 10px; font-size: 13px; }
-}</style>
+</style>

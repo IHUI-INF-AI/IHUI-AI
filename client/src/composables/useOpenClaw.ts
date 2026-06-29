@@ -511,7 +511,7 @@ export function useOpenClaw() {
   /**
    * 发送远程命令
    */
-  async function sendRemoteCommand(deviceId: string, type: RemoteCommandType, payload: any) {
+  async function sendRemoteCommand(deviceId: string, type: RemoteCommandType, payload: unknown) {
     return pairingManager.sendRemoteCommand(deviceId, type, payload)
   }
 

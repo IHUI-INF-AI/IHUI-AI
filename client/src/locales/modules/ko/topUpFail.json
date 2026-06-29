@@ -1,8 +1,10 @@
 {
   "topUpFail": {
-    "backToHome": "backToHome",
-    "defaultMessage": "defaultMessage",
-    "retry": "重试",
-    "title": "标题"
+    "핵심 장점": "충전실패",
+    "defaultMessage": "충전동시에중간나감현재오류，요청잠시백엔드재시도",
+    "retry": "다시충전",
+    "backTo홈": "홈으로",
+    "title": "충전실패",
+    "backToHome": "백엔드로홈"
   }
 }

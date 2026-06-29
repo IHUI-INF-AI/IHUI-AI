@@ -87,15 +87,14 @@ export function useVipPayment(options: UseVipPaymentOptions = {}) {
     paymentPollingTimer = setInterval(async () => {
       try {
         // 刷新用户信息以检查VIP状态
-         
-        if ((authStore as any).fetchUserInfo) {
-           
-          await (authStore as any).fetchUserInfo()
+
+        if (authStore.fetchUserInfo) {
+          await authStore.fetchUserInfo()
         }
 
         // 如果用户已成为VIP，停止轮询并关闭对话框
-         
-        if ((authStore.user as any)?.isVip) {
+
+        if (authStore.user?.isVip) {
           stopPaymentStatusPolling()
           qrCodeDialogVisible.value = false
           showSuccess(t('vip.paymentSuccess'))
@@ -155,20 +154,20 @@ export function useVipPayment(options: UseVipPaymentOptions = {}) {
         }
 
         // 刷新用户信息
-         
-        if ((authStore as any).fetchUserInfo) {
-           
-          await (authStore as any).fetchUserInfo()
+
+        if (authStore.fetchUserInfo) {
+          await authStore.fetchUserInfo()
         }
 
         // 跳转到用户中心
         try {
           // 如果已经在用户中心，不执行跳转
-           
-          if ((router as any).currentRoute.value.path !== '/profile') {
-            await router.push('/profile').catch(error => {
+
+          if (router.currentRoute.value.path !== '/profile') {
+            await router.push('/profile').catch((error: unknown) => {
               // 忽略导航重复错误
-              if (error.name !== 'NavigationDuplicated' && error.name !== 'NavigationRedirected') {
+              const err = error as { name?: string }
+              if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationRedirected') {
                 logger.error('[VipPayment] Failed to navigate to user center:', error)
               }
             })
@@ -187,7 +186,7 @@ export function useVipPayment(options: UseVipPaymentOptions = {}) {
           onPaymentFailed(errorMessage)
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : t('vip.paymentFailed')
       showErrorMsg(errorMessage)
       if (onPaymentFailed) {

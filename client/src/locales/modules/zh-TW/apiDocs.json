@@ -1,15 +1,98 @@
 {
   "apiDocs": {
     "nav": {
-      "authentication": "authentication",
-      "chatCompletions": "chatCompletions",
-      "endpoints": "endpoints",
-      "errorHandling": "errorHandling",
-      "imageGeneration": "imageGeneration",
-      "models": "模型",
-      "overview": "overview",
-      "pricing": "pricing",
-      "sdks": "sdks"
+      "overview": "概述",
+      "authentication": "身份驗證",
+      "endpoints": "API端點",
+      "models": "可用模型",
+      "chatCompletions": "聊天補全",
+      "imageGeneration": "圖像生成",
+      "errorHandling": "錯誤處理",
+      "pricing": "計費說明",
+      "sdks": "SDK整合"
+    },
+    "title": "API開發文件",
+    "subtitle": "完整的API對接指南，支援OpenAI和Anthropic協定",
+    "getApiKey": "取得API金鑰",
+    "overview": {
+      "title": "概述",
+      "description": "我們的API服務完全相容OpenAI和Anthropic協定，您可以使用現有的SDK和程式碼無縫對接200+種AI模型。",
+      "features": "主要特性",
+      "feature1": "完全相容OpenAI API格式，一鍵切換",
+      "feature2": "支援200+種主流AI模型",
+      "feature3": "高性價比，按需計費",
+      "feature4": "穩定可靠，全球加速",
+      "baseUrl": "基礎URL"
+    },
+    "params": {
+      "name": "參數名",
+      "type": "類型",
+      "required": "必填",
+      "description": "描述"
+    },
+    "auth": {
+      "title": "身份認證",
+      "description": "所有API請求都需要在Header中携帶有效的API密钥進行身份驗證。",
+      "headerFormat": "請求頭格式",
+      "example": "示例請求",
+      "securityTip": "安全提示",
+      "securityDescription": "請妥善保管您的API密钥，不要在客户端代码或公開仓庫中暴露密钥。建議為不同用途創建不同的密钥，并設置适当的權限和额度限制。"
+    },
+    "endpoints": {
+      "title": "API端点",
+      "description": "描述",
+      "method": "方法",
+      "path": "路径"
+    },
+    "models": {
+      "title": "可用模型",
+      "description": "我們支持多種主流AI模型，包括OpenAI、Anthropic、Google等厂商的模型。",
+      "availableModels": "模型列表",
+      "modelName": "模型名稱",
+      "provider": "提供商",
+      "capabilities": "能力",
+      "pricing": "價格",
+      "currentSelected": "當前選中模型",
+      "selectedTip": "以下示例代码将使用此模型作為演示",
+      "selected": "已選擇",
+      "useThis": "使用此模型"
+    },
+    "chat": {
+      "title": "聊天补全",
+      "description": "創建聊天补全請求，支持多轮對話和流式输出。",
+      "endpoint": "端点",
+      "requestBody": "請求參數",
+      "requestExample": "請求示例",
+      "responseExample": "响應示例",
+      "streaming": "流式输出",
+      "streamingDescription": "設置 stream: true 可以啟用流式输出，实时獲取生成的內容。"
+    },
+    "images": {
+      "title": "图像生成",
+      "description": "使用AI模型生成图像。",
+      "endpoint": "端点",
+      "requestExample": "請求示例"
+    },
+    "errors": {
+      "title": "錯誤處理",
+      "description": "描述",
+      "code": "狀態码",
+      "type": "錯誤類型",
+      "responseFormat": "錯誤响應格式"
+    },
+    "pricing": {
+      "title": "計费說明",
+      "description": "我們按Token使用量計费，不同模型的價格有所不同。",
+      "billingNote": "計费按实际使用的Token数量計算，輸入和输出Token分開計價。",
+      "tokenExplanation": "什么是Token？",
+      "tokenDescription": "Token是文本處理的最小单位。一般来說，1個中文字符约等於1-2個Token，1個英文单词约等於1-4個Token。",
+      "example1": "1個中文字符",
+      "example2": "100個英文单词",
+      "example3": "一頁A4文檔"
+    },
+    "sdks": {
+      "title": "SDK集成",
+      "description": "您可以使用官方的OpenAI SDK来调用我們的API，只需修改base_url即可。"
     }
   }
 }

@@ -173,21 +173,21 @@ const forceLogoSize = (img: HTMLImageElement | null) => {
 
   // 设置内联样式使用计算后的尺寸（保持宽高比）
   img.style.cssText =
-    'display: block; ' +
-    'visibility: visible; ' +
-    'opacity: 1; ' +
-    `width: ${displayWidth}px; ` +
-    `height: ${displayHeight}px; ` +
-    `max-height: ${maxHeight}px; ` +
-    'flex-shrink: 0; ' +
-    'flex-grow: 0; ' +
-    'object-fit: contain; ' +
-    'position: relative; ' +
-    'z-index: var(--z-base); ' +
-    'box-sizing: border-box;'
+    'display: block ; ' +
+    'visibility: visible ; ' +
+    'opacity: 1 ; ' +
+    `width: ${displayWidth}px ; ` +
+    `height: ${displayHeight}px ; ` +
+    `max-height: ${maxHeight}px ; ` +
+    'flex-shrink: 0 ; ' +
+    'flex-grow: 0 ; ' +
+    'object-fit: contain ; ' +
+    'position: relative ; ' +
+    'z-index: var(--z-base) ; ' +
+    'box-sizing: border-box ;'
 
   // 直接操作style对象（绕过Vue的响应式系统）
-  const style = img.style as CSSStyleDeclaration & { [key: string]: any }
+  const style = img.style as CSSStyleDeclaration & { [key: string]: string }
   style.display = 'block'
   style.visibility = 'visible'
   style.opacity = '1'
@@ -208,15 +208,15 @@ const forceLogoSize = (img: HTMLImageElement | null) => {
     const imgHeight = parseFloat(img.style.height) || img.clientHeight || 0
 
     parent.style.cssText =
-      'display: flex; ' +
-      `width: ${imgWidth}px; ` +
-      `height: ${imgHeight}px; ` +
-      'margin: 0; ' +
-      'padding: 0; ' +
-      'flex-shrink: 0; ' +
-      'flex-grow: 0; ' +
-      'overflow: visible; ' +
-      'position: relative;'
+      'display: flex ; ' +
+      `width: ${imgWidth}px ; ` +
+      `height: ${imgHeight}px ; ` +
+      'margin: 0 ; ' +
+      'padding: 0 ; ' +
+      'flex-shrink: 0 ; ' +
+      'flex-grow: 0 ; ' +
+      'overflow: visible ; ' +
+      'position: relative ;'
   }
 }
 

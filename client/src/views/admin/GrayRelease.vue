@@ -118,7 +118,7 @@
           <ElSlider v-model="createForm.rolloutPercentage" :min="1" :max="100" show-input />
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.releaseStrategy')">
-          <ElSelect v-model="createForm.strategyType" class="full-width">
+          <ElSelect v-model="createForm.strategyType" style="width: 100%">
             <ElOption :label="t('adminCommon.label.byPercentage')" value="percentage" />
             <ElOption :label="t('adminCommon.label.byUserGroup')" value="user_group" />
             <ElOption :label="t('adminCommon.label.byRegion')" value="region" />
@@ -416,7 +416,7 @@ onMounted(() => {
 
 .metric-value {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: bold;
   color: var(--el-color-primary);
 }
 
@@ -438,10 +438,6 @@ onMounted(() => {
 
 .error-high {
   color: var(--el-color-danger);
-  font-weight: 700;
-}
-
-.full-width {
-  width: 100%;
+  font-weight: bold;
 }
 </style>

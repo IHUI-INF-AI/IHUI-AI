@@ -57,7 +57,7 @@ interface Props {
 
 interface Emits {
   (e: 'login-success', data: { token: string; user: Record<string, unknown> }): void
-  (e: 'login-error', error: any): void
+  (e: 'login-error', error: unknown): void
   (e: 'switch-method', method: string): void
 }
 
@@ -151,7 +151,7 @@ const handleAppleLogin = async () => {
           // 检查结果是否为API响应对象
           const resultObj = result as unknown as {
             code?: number
-            data?: { code?: number; token?: string; user?: any; message?: string } & Record<
+            data?: { code?: number; token?: string; user?: unknown; message?: string } & Record<
               string,
               unknown
             >
@@ -162,7 +162,7 @@ const handleAppleLogin = async () => {
           const resultData = resultObj.data || result
 
           if (resultCode === 200 && resultData) {
-            const loginData = resultData as { token?: string; user?: any; message?: string }
+            const loginData = resultData as { token?: string; user?: unknown; message?: string }
             if (!loginData.token || !loginData.user) {
               throw new Error(t('error.apple_login.登录响应数据不完1'))
             }
@@ -175,13 +175,13 @@ const handleAppleLogin = async () => {
 
             emit('login-success', {
               token: loginData.token,
-              user: loginData.user,
+              user: loginData.user as Record<string, unknown>,
             })
           } else {
             const errorData = resultData as { message?: string }
             throw new Error(errorData?.message || t('featureAppleLogin.appleLoginFailed'))
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error)
           loginStatus.value = {
             title: t('title.apple_login.登录失败2'),
@@ -215,7 +215,7 @@ const handleAppleLogin = async () => {
     }
 
     window.addEventListener('message', messageHandler)
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('Apple login failed:', error)
     ElMessage.error(errorMessage || t('featureAppleLogin.appleLoginRetry'))
@@ -252,7 +252,7 @@ const handleAppleLogin = async () => {
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      transition: border-color 0.2s ease, border-width 0.2s ease, opacity 0.2s ease;
+      transition: all 0.2s ease;
       min-width: 200px;
       height: 48px;
 

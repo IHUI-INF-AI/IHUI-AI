@@ -1,8 +1,3 @@
-// css-variables.scss - shadcn/ui + Tailwind CSS v4 design tokens
-// Format: HSL components (hue saturation lightness), consumed via hsl(var(--xxx))
-// Consumers: 9+ Vue components + @/components/ui/*
-// DO NOT merge with _global-tokens.scss (HEX format, different purpose)
-
 :root {
   /* 基础黑白主题 */
   --background: 0 0% 100%;
@@ -60,7 +55,7 @@
 }
 
 .dark,
-:where(html.dark) {
+html.dark {
   --background: 0 0% 0%; /* 纯黑色 */
   --foreground: 0 0% 96%;
   --card: 0 0% 8%; /* 深灰色，与纯黑背景区分 */

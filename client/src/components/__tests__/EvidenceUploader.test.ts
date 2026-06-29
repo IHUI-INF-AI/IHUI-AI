@@ -696,7 +696,7 @@ describe('EvidenceUploader.vue', () => {
         // 此时 xhr.send 已调用，currentXhr 已设置
         expect(xhrMock.send).toHaveBeenCalled()
         wrapper.unmount()
-        // cleanup 应在 unmount 时调用 abort
+        // cleanup 应用 unmount 时调用 abort
         expect(xhrMock.abort).toHaveBeenCalled()
       } finally {
         ;(global as any).XMLHttpRequest = originalXHR

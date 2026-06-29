@@ -266,26 +266,35 @@ onMounted(() => {
     border-radius: 50%;
     border: 2px solid var(--el-bg-color);
     outline: 2px solid var(--el-border-color-light);
-    outline-offset: 0;
+    outline-offset: 2px;
+    box-shadow: none;
 
     &.marker-success {
       background: var(--el-color-success);
-      outline-color: var(--el-color-success-light-5);
+      outline: 2px solid var(--el-color-success-light-5);
+      outline-offset: 2px;
+      box-shadow: none;
     }
 
     &.marker-danger {
       background: var(--el-color-danger);
-      outline-color: var(--el-color-danger-light-5);
+      outline: 2px solid var(--el-color-danger-light-5);
+      outline-offset: 2px;
+      box-shadow: none;
     }
 
     &.marker-warning {
       background: var(--el-color-warning);
-      outline-color: var(--el-color-warning-light-5);
+      outline: 2px solid var(--el-color-warning-light-5);
+      outline-offset: 2px;
+      box-shadow: none;
     }
 
     &.marker-default {
       background: var(--el-color-primary);
-      outline-color: var(--el-color-primary-light-5);
+      outline: 2px solid var(--el-color-primary-light-5);
+      outline-offset: 2px;
+      box-shadow: none;
     }
   }
 }

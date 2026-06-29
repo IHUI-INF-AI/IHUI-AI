@@ -1,7 +1,6 @@
 // 统一导出所有类型定义
 export * from './api'
 export * from './user'
-export * from './common'
 export * from './api-service'
 
 // 重新导出常用类型以保持兼容性

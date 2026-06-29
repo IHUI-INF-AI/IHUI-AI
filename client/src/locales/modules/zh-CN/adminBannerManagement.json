@@ -1,0 +1,39 @@
+{
+  "adminBannerManagement": {
+    "tabs": {},
+    "actions": {},
+    "bannerList": {
+      "status": "状态"
+    },
+    "search": {
+      "statusPlaceholder": "请选择状态",
+      "statusAll": "全部",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用"
+    },
+    "dialogs": {},
+    "messages": {},
+    "carouselForm": {
+      "status": "状态",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "请选择状态"
+      },
+      "upload": {
+        "failed": "上传失败"
+      },
+      "messages": {}
+    }
+  }
+}

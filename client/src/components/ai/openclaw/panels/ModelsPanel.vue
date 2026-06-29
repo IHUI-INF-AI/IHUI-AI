@@ -28,8 +28,8 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { getModelsList } from '@/api/models/models'
-import type { AIModel } from '@/api/models/models'
+import { getModelsList } from '@/api/models'
+import type { AIModel } from '@/api/models'
 
 const { t } = useI18n()
 const router = useRouter()

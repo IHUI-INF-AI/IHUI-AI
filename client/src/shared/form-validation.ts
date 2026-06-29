@@ -78,7 +78,7 @@ export const commonRules = {
     trigger: 'blur',
   }),
   positiveNumber: () => ({
-    validator: (_rule: any, value: any, callback: (error?: Error) => void) => {
+    validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
       if (value === undefined || value === null || value === '') {
         callback()
         return
@@ -134,7 +134,7 @@ export const modelRules = {
   temperature: (): FormRules => ({
     temperature: [
       {
-        validator: (_rule: any, value: any, callback: (error?: Error) => void) => {
+        validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
           if (value === undefined || value === null || value === '') {
             callback()
             return

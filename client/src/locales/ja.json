@@ -1,4 +1,4 @@
-{
+﻿﻿{
   "apiTest": {
     "title": "APIテスト",
     "allTestsPassed": "全て",
@@ -125,18 +125,6 @@
     "adminFeedbackManagement": "フィードバック管理",
     "adminFaqManagement": "FAQ管理",
     "dataDashboard": "データダッシュボード",
-    "adminDict": "辞書管理",
-    "adminDictData": "辞書データ",
-    "adminDeveloper": "開発者管理",
-    "adminDeveloperLink": "開発者連携",
-    "adminDemandSquare": "需要広場",
-    "adminDemandSquareReview": "需要審査",
-    "adminLogOperlog": "操作ログ",
-    "adminLogLogininfor": "ログインログ",
-    "adminJob": "スケジュールタスク",
-    "adminJobLog": "タスクログ",
-    "adminOnline": "オンラインユーザー",
-    "adminZone": "ゾーン管理",
     "aiAgenticDashboard": "エージェントダッシュボード",
     "aiApiTest": "APIテスト",
     "aiAgentManagement": "AIエージェント管理",
@@ -208,6 +196,7 @@
     "adminLearnOrderInvoiceTitle": "請求書抬头",
     "adminLearnReport": "学習レポート",
     "adminLearnSignup": "报名管理",
+    "adminLearnHomework": "課題審査",
     "adminLearnTopic": "特集管理",
     "adminLearnTopicCategory": "特集カテゴリ",
     "adminLiveCategory": "ライブカテゴリ",
@@ -558,17 +547,13 @@
       "高级数据导出": "高度なデータエクスポート",
       "高级模型访问": "高度なモデルアクセス"
     },
-    "third_party_login_universal": {
-      "alipay": "Alipay",
-      "支付宝": "Alipay"
-    },
     "mobile_bottom_nav": {
-      "aiAppStore": "AIアプリストア",
+      "aiAppStore": "エージェント",
       "plaza": "広場",
       "smartAI": "スマートAI",
       "updates": "アップデート",
       "mine": "マイページ",
-      "AI应用商店": "AIアプリストア",
+      "AI应用商店": "エージェント",
       "动态3": "フィード",
       "广场1": "プラザ",
       "我的4": "マイ",
@@ -593,14 +578,10 @@
       "globalLogin": "グローバルログイン",
       "appleLogin": "Appleログイン",
       "appleIdLogin": "Apple IDでログイン",
-      "feishuLogin": "Feishuログイン",
-      "feishuAccountLogin": "Feishuアカウントでログイン",
       "Apple登录2": "Appleログイン",
       "Google登录": "Googleログイン",
       "使用AppleI3": "Apple IDでログイン",
-      "使用飞书账号登录5": "Feishuアカウントでログイン",
-      "全球通用登录1": "グローバル汎用ログイン",
-      "飞书登录4": "Feishuログイン"
+      "全球通用登录1": "グローバル汎用ログイン"
     },
     "agents_create": {
       "AI助手": "AI助手"
@@ -895,6 +876,7 @@
     "errorTitle": "エラーが発生しました",
     "showErrorDetails": "エラー詳細をテーブル示",
     "reload": "再読み込み",
+    "goホーム": "ホームに戻る",
     "unknownError": "不明なエラー",
     "skipToMain": "ジャンプ到主要コンテンツ",
     "offlineWarning": "ネットワーク接続済み切断，请チェック您的ネットワーク設定",
@@ -967,7 +949,6 @@
     "marquee": {
       "kouzi": "扣子アイコン",
       "bbxLogo": "百宝箱logo",
-      "brand4": "品牌アイコン",
       "zhipu": "智谱清言",
       "brand8": "品牌8",
       "ali": "アリババクラウド",
@@ -1073,19 +1054,7 @@
       "hot": "人気",
       "news": "ニュース"
     },
-    "miniappBtn": "WeChatミニプログラム",
-    "wheelSensitivityLabel": "ホイール感度",
-    "marqueeSpeedLabel": "スクロール速度",
-    "clickToResume": "クリックしてスクロールを再開",
-    "clickToPause": "クリックしてスクロールを一時停止",
-    "resumeScroll": "再開",
-    "pauseScroll": "一時停止",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "遅",
-    "speedMid": "中",
-    "speedFast": "速"
+    "miniappBtn": "WeChatミニプログラム"
   },
   "auth": {
     "processing": "ログインリクエストを処理中...",
@@ -1177,10 +1146,8 @@
     "registerFailedRetry": "登録失敗，ご再試行",
     "accountPasswordLogin": "アカウントパスワードログイン",
     "saveHistoryPhoneFailed": "保存履歴電話番号失敗",
-    "alipayLogin": "支払い宝ログイン",
     "googleLogin": "Googleログイン",
     "appleLogin": "Appleログイン",
-    "feishuLogin": "飞书ログイン",
     "missingAccount": "アカウント",
     "missingPassword": "パスワード",
     "missingServiceAgreement": "サービス合意",
@@ -1327,6 +1294,7 @@
   "errorBoundary": {
     "reload": "再読み込み",
     "currentPath": "現在のパス",
+    "goホーム": "ホームに戻る",
     "unknownError": "不明なエラー",
     "retry": "再試行",
     "errorDetails": "エラー詳細",
@@ -1391,12 +1359,6 @@
       "invalidFile": "無効validFile",
       "invalidFileType": "無効validFileType",
       "fileTooLarge": "ファイルToo大",
-      "approveFailed": "承認失敗",
-      "rejectFailed": "拒否失敗",
-      "importRefreshFailed": "インポート後の更新失敗",
-      "deleteRefreshFailed": "削除後の更新失敗",
-      "pushRefreshFailed": "プッシュ後の更新失敗",
-      "dataLoadFailed": "データ読み込み失敗",
       "aiCapabilityInvokeFailed": "AI capability invocation failed",
       "capabilityDiscoveryFailed": "Capability discovery failed",
       "chatFailed": "Chat failed",
@@ -1431,7 +1393,39 @@
       "websocketError": "WebSocket error",
       "websocketParseFailed": "WebSocket message parsing failed",
       "workflowExecutionFailed": "Workflow execution failed",
-      "actionFailed": "操作に失敗しました"
+      "actionFailed": "操作に失敗しました",
+      "updateFailed": "更新に失敗しました",
+      "removeFailed": "削除に失敗しました",
+      "submitFailed": "送信に失敗しました",
+      "orderCreateFailed": "注文の作成に失敗しました",
+      "checkInFailed": "チェックインに失敗しました、後でもう一度お試しください",
+      "paymentInitFailed": "支払いの開始に失敗しました、再試行してください",
+      "loadScheduleFailed": "スケジュールの読み込みに失敗しました",
+      "loadBalanceFailed": "残高の読み込みに失敗しました",
+      "loadCourseFailed": "コースの読み込みに失敗しました",
+      "loadAgentFailed": "エージェントの読み込みに失敗しました",
+      "callFailed": "呼び出しに失敗しました",
+      "simulateFailed": "シミュレーションに失敗しました",
+      "getVideoUrlFailed": "動画URLの取得に失敗しました",
+      "giftListLoadFailed": "ギフトリストの読み込みに失敗しました",
+      "commentSendFailed": "コメントの送信に失敗しました",
+      "giftSendFailed": "ギフトの送信に失敗しました",
+      "incomeLoadFailed": "収益データの読み込みに失敗しました、更新して再試行してください",
+      "tokenLoadFailed": "データの読み込みに失敗しました、更新して再試行してください",
+      "priceLoading": "価格を読み込み中です、後でもう一度お試しください",
+      "priceLoadFailed": "価格の読み込みに失敗しました、ページを更新してください",
+      "approveFailed": "承認に失敗しました",
+      "rejectFailed": "拒否に失敗しました",
+      "refreshAfterImportFailed": "インポート後の更新に失敗しました",
+      "refreshAfterDeleteFailed": "削除後の更新に失敗しました",
+      "refreshAfterPushFailed": "プッシュ後の更新に失敗しました",
+      "dashboardEmpty": "ダッシュボードデータが空です、バックエンドAPIが接続されていない可能性があります",
+      "operationFailedRetry": "操作に失敗しました、再試行してください",
+      "likeFailed": "いいねに失敗しました",
+      "signUpFailed": "申し込みに失敗しました",
+      "selectAtLeastOneField": "変更するフィールドを少なくとも1つ選択してください",
+      "inputRateContent": "評価内容を入力してください",
+      "messageSendFailedRetry": "メッセージの送信に失敗しました、再試行してください"
     },
     "selected": "選択済み",
     "clear": "クリア",
@@ -1469,12 +1463,18 @@
       "createSuccess": "作成成功",
       "operationSuccess": "操作成功",
       "saving": "保存中",
-      "loginSuccess": "ログイン成功"
+      "loginSuccess": "ログイン成功",
+      "saved": "保存しました",
+      "likeSuccess": "いいねしました",
+      "signUpSuccess": "申し込みました",
+      "rateSuccess": "評価を送信しました",
+      "viewLoginLog": "ログイン履歴を表示"
     },
     "create": "作成",
     "image": "画像",
     "video": "動画",
     "audio": "音声",
+    "action": "操作",
     "actions": "操作",
     "rangeSeparator": "至",
     "loginFailed": "ログイン失敗",
@@ -1513,8 +1513,8 @@
     "minutes": "Minutes",
     "minutesAgo": "Minutes Ago",
     "requestFailed": "Request Failed",
-    "saveFailed": "Save Failed",
-    "saveSuccess": "Save Success",
+    "saveFailed": "保存失敗",
+    "saveSuccess": "保存成功",
     "previewBtn": "プレビュー",
     "validate": {
       "required": "{label}は必須です",
@@ -1539,7 +1539,14 @@
     "becomeSupplier": "サプライヤーになる",
     "aiStore": "AIストア",
     "moreFeatures": "その他の機できる",
-    "noMoreItems": "項目はありません"
+    "noMoreItems": "項目はありません",
+    "serviceSupport": "サービスサポート",
+    "learnCourses": "コースセンター",
+    "learnMap": "学習マップ",
+    "liveClass": "ライブ授業",
+    "myLearning": "マイラーニング",
+    "openAiPanel": "AIアシスタントを開く",
+    "closeAiPanel": "AIアシスタントを閉じる"
   },
   "voiceInput": {
     "listening": "聞いています...",
@@ -2624,6 +2631,7 @@
     }
   },
   "aboutUs": {
+    "sixKPlus": "6万+",
     "backホーム": "ホームに戻る",
     "heroTitle": "私たちについて",
     "heroSubtitle": "大規模言語モデルとマルチモーダルAIを、安定した製品・サービスに落とし込み、企業と開発者に使いやすいAI機できるとツールを提供しています。",
@@ -2679,8 +2687,8 @@
       },
       "aiAppStore": {
         "date": "2025年1月",
-        "title": "ワールド初のAIアプリストア",
-        "description": "ワールド初のAIアプリストア概念を先駆けて提案・創設し、AIアプリ生態系の発展をリード"
+        "title": "ワールド初のエージェントプラットフォーム",
+        "description": "ワールド初のエージェントプラットフォーム概念を先駆けて提案・創設し、AIアプリ生態系の発展をリード"
       },
       "platformLaunched": {
         "date": "2025年1月",
@@ -2873,23 +2881,17 @@
     },
     "thirdParty": {
       "or": "または",
-      "alipayLogin": "Alipayログイン",
       "notice": "サードパーティログインを使用することで、以下に同意したものとみなされます",
       "privacyPolicy": "プライバシーポリシー",
       "termsOfService": "利用規約",
       "tooltip": {
         "wechat": "WeChatログイン",
-        "alipay": "Alipayログイン",
         "google": "Googleログイン",
-        "apple": "Appleログイン",
-        "feishu": "Feishuログイン"
+        "apple": "Appleログイン"
       },
-      "feishuLogin": "Feishuログイン",
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "emailLogin": "emailLogin",
-      "feishu": "feishu",
       "otherMethods": "otherMethods",
       "phoneLogin": "phoneLogin",
       "quickLogin": "quickLogin",
@@ -3288,6 +3290,7 @@
     "cleared": "キューをクリアしました"
   },
   "enterpriseService": {
+    "enterpriseDesc": "AI時代の企業サービスとコミュニティ",
     "badge": "エンタープライズサービス",
     "heroTitle": "スマートAIコミュニティ",
     "heroSubtitle": "AI時代の企業向け合理的効率サービスと相互扶助コミュニティ。意思決定者がAIと企業の関係を深く理解し、人機協調のスーパー組織を構築することを支援します。",
@@ -3553,6 +3556,8 @@
     "adoptionRate": "の企業が採用"
   },
   "user": {
+    "nickname": "ニックネーム",
+    "nickname2": "昵称",
     "quickActions": "クイック操作",
     "purchases": {
       "title": "購入履歴"
@@ -3790,6 +3795,7 @@
     }
   },
   "openPlatform": {
+    "openPlatformTitle": "智匯オープンプラットフォーム",
     "title": "開放プラットフォーム",
     "searchPlaceholder": "検索機できる、ドキュメント、API...",
     "backホーム": "ホームに戻る",
@@ -4353,7 +4359,6 @@
     "autoRefreshing": "二维码済み過ぎ期，処理中自動更新しい ({current}/{max})",
     "manualRefresh": "二维码済み過ぎ期，请手動更新しい",
     "wechat": "WeChat",
-    "alipay": "支払い宝",
     "logger": {
       "generateWechatQrCodeFailed": "生成WeChat二维码画像失敗",
       "generateProviderQrCodeFailed": "生成{provider}二维码失敗",
@@ -4413,8 +4418,7 @@
     "registerFailed": "登録失敗",
     "thirdParty": {
       "or": "または者",
-      "wechat": "WeChat",
-      "alipay": "支払い宝"
+      "wechat": "WeChat"
     },
     "messages": {
       "phoneInvalid": "ご入力有効的電話番号",
@@ -4481,7 +4485,7 @@
     "systemInternal": "システム内部",
     "commands": {
       "home": "ホームに戻る",
-      "store": "AIアプリストア",
+      "store": "エージェント",
       "plaza": "必要求广场",
       "learnAI": "学習AI",
       "community": "AI创作コミュニティ",
@@ -5718,6 +5722,8 @@
     "settlementTitle": "Settlement Title"
   },
   "vip": {
+    "permanentVip": "/永久VIP",
+    "oneClickVip": "ワンクリックVIP",
     "title": "アップグレードVIPメンバー",
     "subtitle": "解锁全てAIツール，享受专属特权サービス，仅需 ¥{amount}",
     "featuresTitle": "VIP专属特权",
@@ -6012,6 +6018,10 @@
     }
   },
   "feedback": {
+    "feedbackRecords": "フィードバック記録",
+    "submitFeedback": "フィードバック送信",
+    "loading": "読み込み中...",
+    "submitFailed": "送信失敗、再試行してください",
     "title": "意见フィードバック",
     "content": {
       "tip": "您的フィードバック対私たち非常重要，请详细説明您的問題或提案"
@@ -6029,6 +6039,8 @@
     "submitSuccess": "フィードバック送信成功，ありがとう您的フィードバック！"
   },
   "statistics": {
+    "zeroHour": "0時間",
+    "zeroHour2": "0小时",
     "selectTimeRange": "選択時間範囲",
     "startDate": "開始日付",
     "endDate": "終了日付",
@@ -6240,6 +6252,9 @@
     "documentCount": "件ドキュメント"
   },
   "agents": {
+    "exploreAgents": "AIエージェント探索",
+    "createCustomAgent": "カスタムエージェント作成",
+    "oneClickDeploy": "ワンクリック展開",
     "title": "エージェントセンター",
     "subtitle": "探索豊富的AIエージェント，向上您的工作効率",
     "metaTotal": "共 {count} 件エージェント",
@@ -6332,16 +6347,7 @@
     "statusReviewFailed": "審査失敗",
     "statusOffline": "公開終了",
     "statusUnknown": "不明",
-    "seoKeywords": "AIエージェント,スマートアシスタント,AIツール",
-    "hotSearch": "人気の検索",
-    "searchHistory": "検索履歴",
-    "clearHistory": "履歴をクリア",
-    "recommendTitle": "おすすめ",
-    "voiceSearch": "音声検索",
-    "voiceInputNotSupported": "このブラウザは音声入力に対応していません",
-    "voiceInputListening": "聞いています...",
-    "voiceInputError": "音声認識に失敗しました。もう一度お試しください",
-    "retryLoad": "再読み込み"
+    "seoKeywords": "AIエージェント,スマートアシスタント,AIツール"
   },
   "aiManagement": {
     "title": "AI管理",
@@ -7712,6 +7718,8 @@
     }
   },
   "mcpUseProject": {
+    "listDirFiles": "現在のディレクトリのすべてのファイル",
+    "listDirFiles2": "列出当前目录的所有文件",
     "title": "mcp-use プロジェクト",
     "subtitle": "全栈MCP框架 - 6行コード接入任意MCPサービス器",
     "managementInterface": "管理界面",
@@ -8511,6 +8519,7 @@
   "simpleFallback": {
     "loading": "页面読み込み中...",
     "reload": "再読み込み",
+    "goホーム": "ホームに戻る",
     "defaultMessage": "如果页面長時間未読み込み，请尝试更新しい",
     "goHome": "戻るホーム"
   },
@@ -9607,6 +9616,11 @@
     "copyFailed": "copy失敗"
   },
   "payment": {
+    "alreadyVip": "あなたは既にVIPです",
+    "notLogged": "ユーザーはログインしていません",
+    "incompleteProduct": "商品情報が不完全",
+    "selectPayMethod": "支払い方法を選択してください",
+    "notLoggedOrNoOpenId": "未ログインまたはopenidなし",
     "channelBusyHint": "現在優先チャネル「{method}」が混雑しており、別の支払い方法に切り替えました",
     "memberServiceAgreement": "会員サービス規約",
     "paySuccess": "支払い成功",
@@ -10020,7 +10034,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AIアプリストア",
+        "AI应用商店": "エージェント",
         "服务与支持": "サービスとサポート",
         "关于我们": "会社概要"
       }
@@ -11377,15 +11391,6 @@
       "获取成功6": "获取成功",
       "执行成功2": "実行成功",
       "执行成功3": "実行成功"
-    },
-    "unified_alipay": {
-      "会话ID必須": "会话 ID 必須",
-      "会话ID必須1": "会话 ID 必須",
-      "認可できる码必須2": "認可できる码必須",
-      "会话ID不能为空": "会话 ID 不できる为空",
-      "会话ID不能为空1": "会话 ID 不できる为空",
-      "認可できる码不できる为空2": "認可できる码不できる为空",
-      "授权码不能为空2": "認証コードは空にできません"
     },
     "unified_auth": {
       "ログインインターフェース不存在请": "ログインインターフェース不存在，请チェックバックエンドサービス設定。エラー情報：",
@@ -13799,15 +13804,6 @@
     "selectTrack": "トラックを選択してください",
     "uploadCover": "カバー画像をアップロードしてください"
   },
-  "userLoginPopup": {
-    "welcomeBack": "おかえりなさい、ログインしてください",
-    "enterPhone": "電話番号を入力してください",
-    "invalidPhone": "電話番号の形式が正しくありません",
-    "codeSent": "認証コードを送信しました",
-    "codeSendFailed": "コード送信に失敗しました、再試行してください",
-    "loginSuccess": "ログイン成功",
-    "wechatLoginNotConfigured": "WeChatログインが設定されていません"
-  },
   "devCSSVariablesCheatsheet": {
     "textColor": "テキスト色",
     "bgColor": "背景色",
@@ -13859,26 +13855,12 @@
     "appleLoginRetry": "Appleログイン失敗、再試行してください",
     "appleLoginFailed3": "Apple登录失败"
   },
-  "cmpConfirmPurchasePopUp": {
-    "vipPurchase": "VIP購入",
-    "agreementDeveloping": "契約ページ開発中",
-    "productNotExist": "商品が存在しません",
-    "paySuccess": "支払い成功",
-    "paySuccess2": "支付成功"
-  },
   "cmpFileDownload": {
     "downloading": "ダウンロード中...",
     "invalidDownloadLink": "無効なダウンロードリンク",
     "downloadFailed": "ダウンロード失敗",
     "downloadComplete": "ダウンロード完了",
     "downloadFailed2": "下载失败"
-  },
-  "Payment": {
-    "alreadyVip": "あなたは既にVIPです",
-    "notLogged": "ユーザーはログインしていません",
-    "incompleteProduct": "商品情報が不完全",
-    "selectPayMethod": "支払い方法を選択してください",
-    "notLoggedOrNoOpenId": "未ログインまたはopenidなし"
   },
   "cmpindex": {
     "timeExpr": "時間式",
@@ -13893,12 +13875,6 @@
     "second": "Second",
     "week": "Week",
     "year": "Year"
-  },
-  "cmpPdfCompare": {
-    "syncScroll": "同期スクロール",
-    "syncZoom": "同期ズーム",
-    "selectPdfA": "PDFファイルAを選択",
-    "selectPdfB": "PDFファイルBを選択"
   },
   "studyIndexModelList": {
     "loading": "読み込み中...",
@@ -13936,18 +13912,6 @@
     "missing": "欠落",
     "attack": "攻撃"
   },
-  "DistributionCenter": {
-    "copyImage": "画像コピー",
-    "distributionTitle": "AI智匯社 - 流通センター",
-    "imageCopied": "画像がクリップボードにコピーされました",
-    "longPressToSave": "長押しで画像を保存"
-  },
-  "Feedback": {
-    "feedbackRecords": "フィードバック記録",
-    "submitFeedback": "フィードバック送信",
-    "loading": "読み込み中...",
-    "submitFailed": "送信失敗、再試行してください"
-  },
   "cmpPromptTemplates": {
     "fillAllFields": "全項目を入力してください",
     "templateAdded": "テンプレート追加完了",
@@ -13968,24 +13932,6 @@
     "codeLoadFailed": "コード読み込み失敗",
     "loadFailed": "読み込み失敗"
   },
-  "viewerMonacoViewer": {
-    "loading": "読み込み中...",
-    "codeLoadFailed": "コード読み込み失敗",
-    "loadFailed": "読み込み失敗",
-    "codeFile": "コードファイル",
-    "copy": "コピー",
-    "copied": "コピー済み",
-    "wordWrap": "折り返し",
-    "download": "ダウンロード",
-    "downloadView": "ダウンロードして表示",
-    "lines": "行",
-    "chars": "文字"
-  },
-  "cmpVipIntroducePopupAlt": {
-    "benefitsCount": "約 <b>20</b> の特典、増加中",
-    "paySuccess": "支払い成功",
-    "payFailed": "支払い失敗またはキャンセル"
-  },
   "adminFAQList": {
     "pinned": "ピン留め",
     "unpinned": "ピン留め解除",
@@ -13995,20 +13941,6 @@
     "setProcessing": "処理中に設定",
     "resolved": "解決済み",
     "closed": "クローズ"
-  },
-  "AgenticAIPage": {
-    "swarmCreated": "Swarm作成成功",
-    "createSwarmFailed": "Swarm作成失敗",
-    "createSwarmFailed2": "创建Swarm失败"
-  },
-  "Agents": {
-    "exploreAgents": "AIエージェント探索",
-    "createCustomAgent": "カスタムエージェント作成",
-    "oneClickDeploy": "ワンクリック展開"
-  },
-  "User": {
-    "nickname": "ニックネーム",
-    "nickname2": "昵称"
   },
   "aiGenImageGenQwen": {
     "qwenRemarkMissing": "Qwen画像モデルが設定されていません",
@@ -14057,21 +13989,9 @@
     "enterComment": "コメントを入力",
     "send": "送信"
   },
-  "cmpToolbar": {
-    "imagessvgxxxsvg": "/images/svg/大模型.svg",
-    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "PDF読み込み中...",
-    "pdfLoadFailed": "PDF読み込み失敗"
-  },
   "viewerImageViewer": {
     "loading": "読み込み中...",
     "imageLoadFailed": "画像読み込み失敗"
-  },
-  "cmpVipLevelPopup": {
-    "vipLevelMechanism": "VIPレベル昇格メカニズム",
-    "yuanToPoint": "1¥=1ポイント"
   },
   "adminOrderList": {
     "completed": "完了",
@@ -14086,18 +14006,6 @@
     "confirmRollback": "ロールバック確認",
     "enterRollbackReason": "ロールバック理由を入力してください",
     "createRelease": "リリース作成"
-  },
-  "MCPUseProject": {
-    "listDirFiles": "現在のディレクトリのすべてのファイル",
-    "listDirFiles2": "列出当前目录的所有文件"
-  },
-  "Statistics": {
-    "zeroHour": "0時間",
-    "zeroHour2": "0小时"
-  },
-  "Vip": {
-    "permanentVip": "/永久VIP",
-    "oneClickVip": "ワンクリックVIP"
   },
   "cmpAuditLog": {
     "loadLogFailed": "ログ読み込み失敗"
@@ -14146,24 +14054,6 @@
   },
   "featureGoogleLogin": {
     "googleLoginFailed": "Googleログイン失敗"
-  },
-  "ListTemplate": {
-    "loading": "読み込み中..."
-  },
-  "AboutUs": {
-    "sixKPlus": "6万+"
-  },
-  "ApiTestPage": {
-    "startAITest": "AI APIテスト開始"
-  },
-  "DesignSystemDemo": {
-    "designSystemMeta": "デザインシステム、UIコンポーネント、Vueコンポーネント、フロントエンド開発"
-  },
-  "EnterpriseService": {
-    "enterpriseDesc": "AI時代の企業サービスとコミュニティ"
-  },
-  "OpenPlatform": {
-    "openPlatformTitle": "智匯オープンプラットフォーム"
   },
   "admin": {
     "eventBus": {
@@ -14997,6 +14887,14 @@
     }
   },
   "adminCommon": {
+    "filter": {
+      "searchNews": "ニュースを検索"
+    },
+    "stat": {
+      "tableCount": "総テーブル数",
+      "recordCount": "総レコード数",
+      "dbSize": "データベースサイズ"
+    },
     "label": {
       "activityId": "アクティビティID",
       "ai": "AI",
@@ -15135,7 +15033,80 @@
       "unfreeze": "凍結解除",
       "updatedAt": "更新日時",
       "userAgent": "ユーザーエージェント",
-      "userId": "ユーザーID"
+      "userId": "ユーザーID",
+      "amount": "金額",
+      "appliedAt": "申請時間",
+      "avatar": "アバター",
+      "bankAccount": "口座番号",
+      "bankName": "銀行",
+      "config": "設定",
+      "model": "モデル",
+      "roleName": "ロール名",
+      "roleCode": "ロールコード",
+      "authorityName": "権限名",
+      "authorityCode": "権限コード",
+      "templateName": "テンプレート名",
+      "issuer": "発行機関",
+      "categoryName": "分類名",
+      "account": "アカウント",
+      "role": "ロール",
+      "parentId": "親ID",
+      "pathName": "パス名",
+      "lessonCount": "コース数",
+      "tagName": "タグ名",
+      "tagFullName": "タグ名称",
+      "postName": "役職名",
+      "levelName": "レベル名",
+      "levelRank": "レベル",
+      "requiredPoints": "必要ポイント",
+      "groupName": "グループ名",
+      "companyName": "企業名",
+      "scale": "規模",
+      "topicName": "テーマ名",
+      "code": "コード",
+      "introduction": "紹介",
+      "originalPrice": "定価",
+      "member": "メンバー",
+      "lesson": "コース",
+      "submitTime": "提出時間",
+      "signupTime": "申込時間",
+      "review": "審査",
+      "reviewOpinion": "審査意見",
+      "pass": "承認",
+      "complete": "完了",
+      "cancel": "キャンセル",
+      "fullName": "氏名",
+      "jobTitle": "役職",
+      "departmentName": "部門名",
+      "manager": "責任者",
+      "hotKeyword": "人気キーワード",
+      "channelName": "チャネル名",
+      "trigger": "トリガー",
+      "pointsCount": "ポイント数",
+      "codePatternMsg": "コードは英字、数字、アンダースコアのみ使用でき、先頭は英字である必要があります",
+      "usernamePatternMsg": "ユーザー名は英字、数字、アンダースコアのみ使用できます",
+      "author": "作者",
+      "readCount": "閲覧数",
+      "content": "内容",
+      "paper": "試験問題",
+      "score": "得点",
+      "examName": "試験名",
+      "durationMinutes": "時間(分)",
+      "circleName": "サークル名",
+      "post": "投稿",
+      "paperName": "試験問題名",
+      "totalScore": "総得点",
+      "lastLogin": "最終ログイン",
+      "question": "質問",
+      "asker": "質問者",
+      "answerCount": "回答数",
+      "questionStem": "問題文",
+      "questionScore": "配点",
+      "questionTitle": "問題タイトル",
+      "difficulty": "難易度",
+      "answer": "答え",
+      "memberCountInRole": "メンバー数",
+      "sensitiveWord": "機密語"
     },
     "placeholder": {
       "allCategories": "全カテゴリー",
@@ -15215,7 +15186,6 @@
         "memberTag": "会員タグ",
         "memberUnaudited": "未審査会員",
         "messageAnnouncement": "お知らせ管理",
-        "notification": "通知センター",
         "newsContent": "ニュース内容",
         "orgDepartment": "部門管理",
         "orgUser": "ユーザー管理",
@@ -15358,6 +15328,28 @@
     "searchPlaceholder": {
       "list": "リストを検索",
       "sensitive": "センシティブワードを検索"
+    },
+    "sensitive": {
+      "createTitle": "センシティブワードを追加",
+      "word": "ワード",
+      "wordPlaceholder": "センシティブワードを入力",
+      "wordRequired": "センシティブワードを入力してください",
+      "category": "カテゴリー",
+      "categoryPlaceholder": "カテゴリーを入力",
+      "level": "レベル",
+      "levelLow": "低",
+      "levelMedium": "中",
+      "levelHigh": "高",
+      "action": "処理方式",
+      "actionReplace": "置換",
+      "actionBlock": "ブロック",
+      "replacement": "置換詞",
+      "replacementPlaceholder": "置換詞を入力",
+      "createSuccess": "追加成功",
+      "createFailed": "追加失敗",
+      "deleteConfirm": "センシティブワード「{word}」を削除しますか？",
+      "deleteSuccess": "削除成功",
+      "deleteFailed": "削除失敗"
     }
   },
   "exam": {
@@ -15396,6 +15388,7 @@
       "orderInvoiceTitle": "請求書名義を検索",
       "report": "レポートを検索",
       "signup": "申込を検索",
+      "homework": "課題を検索",
       "topic": "トピックを検索",
       "topicCategory": "トピックカテゴリーを検索"
     }
@@ -15416,6 +15409,19 @@
       "post": "投稿を検索",
       "tag": "タグを検索",
       "unaudited": "未審査を検索"
+    },
+    "audit": {
+      "username": "ユーザー名",
+      "mobile": "携帯番号",
+      "submitTime": "提出時間",
+      "approve": "承認",
+      "reject": "却下",
+      "approveConfirm": "「{name}」の審査を承認しますか？",
+      "approveSuccess": "承認しました",
+      "approveFailed": "操作失敗",
+      "rejectConfirm": "「{name}」の審査を却下しますか？",
+      "rejectSuccess": "却下しました",
+      "rejectFailed": "操作失敗"
     }
   },
   "message": {
@@ -15620,6 +15626,23 @@
     "category": "カテゴリー",
     "selectCategory": "カテゴリーを選択 (任意)"
   },
+  "askEdit": {
+    "createTitle": "新規質問",
+    "editTitle": "質問を編集",
+    "questionTitle": "質問タイトル",
+    "titlePlaceholder": "質問タイトルを入力（5-100文字）",
+    "titleRequired": "質問タイトルを入力してください",
+    "titleLength": "タイトルは5〜100文字の範囲で入力してください",
+    "content": "質問内容",
+    "contentPlaceholder": "質問内容を詳細に記述（10-2000文字）",
+    "contentRequired": "質問内容を入力してください",
+    "contentLength": "内容は10〜2000文字の範囲で入力してください",
+    "category": "カテゴリー",
+    "selectCategory": "カテゴリーを選択（任意）",
+    "tags": "タグ",
+    "tagsPlaceholder": "タグを入力してEnter",
+    "tagMax": "最大 {max} 個のタグ"
+  },
   "adminClassicHome": {
     "vsYesterday": "前日比",
     "quickActions": "クイックアクション",
@@ -15745,11 +15768,6 @@
     "markAllRead": "すべて既読にする",
     "allTypes": "すべてのタイプ",
     "noNotifications": "通知はありません",
-    "level": {
-      "info": "情報",
-      "warn": "警告",
-      "error": "重大"
-    },
     "typeOrder": "注文",
     "typeWallet": "ウォレット",
     "typeSystem": "システム",
@@ -16128,6 +16146,112 @@
     "riskCritical": "重大",
     "refreshed": "セキュリティ監査データを更新しました",
     "simulatedFailures": "10回のログイン失敗をシミュレートしました。異常発見をご確認ください"
+  },
+  "i18nDashboard": {
+    "title": "国際化開発者パネル",
+    "subtitle": "多言語管理、翻訳メモリ、機械翻訳と品質監視",
+    "statLabel": "全 {langs} 言語",
+    "languageSwitcher": "言語切り替え",
+    "metaTitle": "言語メタデータ",
+    "metaTableAria": "9 言語のメタデータ",
+    "colCode": "コード",
+    "colLocalName": "ローカル名",
+    "colEnglishName": "英語名",
+    "colDirection": "方向",
+    "colPluralRule": "複数ルール",
+    "colSeparator": "区切り文字",
+    "colCurrency": "通貨位置",
+    "prefix": "接頭辞",
+    "suffix": "接尾辞",
+    "pluralPreview": "複数例 (CLDR)",
+    "pluralHint": "現在の key: {key}",
+    "formatPreview": "フォーマットプレビュー",
+    "formatNumber": "数字",
+    "formatCurrency": "通貨",
+    "formatDate": "日付",
+    "formatRelative": "相対時間",
+    "diffTitle": "差分比較",
+    "diffLangA": "言語 A",
+    "diffLangB": "言語 B",
+    "diffBtn": "比較",
+    "diffAMissing": "A 欠落",
+    "diffBMissing": "B 欠落",
+    "diffIdentical": "完全一致",
+    "syncLog": "同期ログ",
+    "syncLogListAria": "同期ログリスト",
+    "noSyncEvents": "同期イベントなし",
+    "tmTitle": "翻訳メモリ (TM)",
+    "tmSearchPlaceholder": "ソーステキストを入力、類似翻訳を検索...",
+    "tmSearchAria": "TM 検索",
+    "tmNoMatch": "類似翻訳が見つかりません",
+    "tmInputHint": "ソーステキストを入力して翻訳メモリを検索",
+    "mtTitle": "機械翻訳 (MT) + 人的レビュー",
+    "mtSourcePlaceholder": "中国語ソーステキストを入力...",
+    "mtSourceAria": "MT ソーステキスト",
+    "mtTranslate": "翻訳",
+    "mtSource": "ソーステキスト",
+    "mtTranslated": "訳文",
+    "mtConfidence": "信頼度",
+    "mtApprove": "承認",
+    "mtReject": "拒否",
+    "mtInputHint": "ソーステキストを入力して機械翻訳",
+    "targetLangAria": "対象言語",
+    "healthTitle": "ヘルスダッシュボード",
+    "healthScore": "ヘルススコア",
+    "healthTotalKeys": "総 key 数",
+    "healthLanguages": "言語数",
+    "healthCoverage": "カバレッジ",
+    "healthPendingMt": "保留中 MT",
+    "healthStaleKeys": "期限切れ key",
+    "loading": "読み込み中...",
+    "ioTitle": "エクスポート / インポート",
+    "export": "エクスポート",
+    "allLanguages": "すべての言語",
+    "exportBtn": "エクスポート",
+    "exportLangAria": "エクスポート言語",
+    "exportFmtAria": "エクスポート形式",
+    "exportResultAria": "エクスポート結果",
+    "import": "インポート",
+    "importFmtAria": "インポート形式",
+    "conflictStrategyAria": "競合戦略",
+    "conflictOverwrite": "上書き",
+    "conflictSkip": "スキップ",
+    "importBtn": "インポート",
+    "importContentPlaceholder": "CSV または XLIFF の内容を貼り付け...",
+    "importContentAria": "インポート内容",
+    "importResult": "インポート {imported} 件、スキップ {skipped} 件",
+    "historyTitle": "バージョン履歴",
+    "historyKeyPlaceholder": "key を入力、例: common.items",
+    "historyKeyAria": "履歴 key",
+    "historyLangAria": "履歴言語",
+    "historyListAria": "バージョン履歴リスト",
+    "viewHistory": "履歴を表示",
+    "rollback": "ロールバック",
+    "noHistory": "履歴記録なし",
+    "batchTitle": "一括操作",
+    "batchDeleteStatus": "一括削除 / ステータス",
+    "batchKeysPlaceholder": "1 行に 1 つの key...",
+    "batchKeysAria": "一括 key リスト",
+    "batchLangAria": "一括言語",
+    "batchStatusAria": "対象ステータス",
+    "batchDeleteBtn": "一括削除",
+    "batchStatusBtn": "一括ステータス変更",
+    "batchPush": "一括プッシュ",
+    "batchPushPlaceholder": "common.items\tzh-CN\t項目",
+    "batchPushAria": "一括プッシュ内容",
+    "batchPushBtn": "プッシュ",
+    "monitorTitle": "MT Provider + V1 廃止監視",
+    "mtProvider": "MT Provider",
+    "mtProviderListAria": "MT provider リスト",
+    "current": "現在",
+    "available": "利用可能",
+    "unavailable": "利用不可",
+    "currentTag": "現在",
+    "v1Monitor": "V1 廃止監視",
+    "v1TotalHits": "総ヒット数",
+    "v1UniquePaths": "固有パス",
+    "v1TopPathsAria": "V1 廃止人気パス",
+    "noV1Hits": "V1 廃止トラフィックなし"
   },
   "indexHome": {
     "platformTitle": "知学雲プラットフォーム",
@@ -16996,7 +17120,17 @@
     "joinUs": "参加する"
   },
   "adminBatchEditDialog": {
-    "selectedTip": "{count}件のデータが選択されました。変更するフィールドにチェックを入れて新しい値を入力してください。"
+    "selectedTip": "{count}件のデータが選択されました。変更するフィールドにチェックを入れて新しい値を入力してください。",
+    "title": "一括編集",
+    "updating": "更新中 {current} / {total} 件",
+    "failedTip": "失敗 {count} 件、「失敗項目を再試行」をクリックして再更新",
+    "cancel": "キャンセル",
+    "retryFailed": "失敗項目を再試行",
+    "save": "一括保存"
+  },
+  "adminTableV2": {
+    "searchPlaceholder": "検索",
+    "emptyText": "データなし"
   },
   "adminEditDialog": {
     "saveAndContinue": "保存して編集を続ける"
@@ -17033,5 +17167,25 @@
       "image": "画像",
       "video": "動画"
     }
+  },
+  "agenticAIPage": {
+    "swarmCreated": "Swarm作成成功",
+    "createSwarmFailed": "Swarm作成失敗",
+    "createSwarmFailed2": "创建Swarm失败"
+  },
+  "apiTestPage": {
+    "startAITest": "AI APIテスト開始"
+  },
+  "designSystemDemo": {
+    "designSystemMeta": "デザインシステム、UIコンポーネント、Vueコンポーネント、フロントエンド開発"
+  },
+  "distributionCenter": {
+    "copyImage": "画像コピー",
+    "distributionTitle": "AI智匯社 - 流通センター",
+    "imageCopied": "画像がクリップボードにコピーされました",
+    "longPressToSave": "長押しで画像を保存"
+  },
+  "listTemplate": {
+    "loading": "読み込み中..."
   }
 }

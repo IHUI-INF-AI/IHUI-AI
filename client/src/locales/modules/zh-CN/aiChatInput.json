@@ -1,14 +1,38 @@
 {
   "aiChatInput": {
-    "enterToSend": "按回车发送",
-    "inputPlaceholder": "请输入",
-    "messageStatsTotal": "消息统计总数",
-    "openChat": "打开对话",
-    "pleaseEnterContentOrUploadFile": "请输入内容或上传文件",
+    "openChat": "展开 AI 对话",
     "selectModel": "选择模型",
-    "send": "发送",
-    "uploadFile": "上传文件",
     "voiceInput": "语音输入",
-    "voiceStarted": "语音已开启"
+    "messageStatsTotal": "消息统计: 共 {count} 条消息",
+    "pleaseEnterContentOrUploadFile": "请输入内容或上传文件",
+    "inputPlaceholder": "输入消息...",
+    "send": "发送",
+    "enterToSend": "按 Enter 发送，Shift+Enter 换行",
+    "uploadFile": "上传文件",
+    "voiceStarted": "Voice已开始",
+    "messagesAria": "对话消息列表",
+    "searchModels": "搜索模型...",
+    "filterByProvider": "按提供商筛选",
+    "modelCount": "共 {total} 个模型，显示 {count} 个",
+    "noMatchingModels": "未找到匹配的模型",
+    "noModels": "暂无可用模型",
+    "searchMessages": "搜索消息",
+    "searchMessagesPlaceholder": "搜索消息内容...",
+    "search": "搜索",
+    "foundMessages": "找到 {count} 条匹配的消息",
+    "noMatchingMessages": "未找到匹配的消息",
+    "enterSearchKeyword": "请输入搜索关键词",
+    "searchFailed": "搜索失败",
+    "messageStats": "消息统计",
+    "exportFailed": "导出失败",
+    "exportDeveloping": "导出功能开发中",
+    "modelDescriptions": {
+      "nanoBanana": "Google 最强大的图片编辑模型",
+      "nanoBananaPro": "最先进的图像生成与编辑模型",
+      "stableDiffusion": "经典开源图像生成模型，效果稳定",
+      "videoModel01": "专业视频生成/剪辑模型",
+      "textModel01": "轻量级文本生成/对话模型",
+      "textModel02": "高效文本理解/创作模型"
+    }
   }
 }

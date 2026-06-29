@@ -1,15 +1,15 @@
 {
   "adminAiworldSite": {
-    "mobileDevice": "mobileDevice",
-    "noDesc": "noDesc",
-    "noDetailContent": "noDetailContent",
-    "noSiteName": "noSiteName",
-    "pcDevice": "pcDevice",
-    "preview": "预览",
-    "previewTitle": "previewTitle",
-    "searchPlaceholder": "请输入搜索内容",
-    "sectionPlaceholder": "sectionPlaceholder",
-    "viewDetailPage": "viewDetailPage",
-    "visitOfficial": "visitOfficial"
+    "preview": "Preview",
+    "mobileDevice": "Mobile",
+    "noDesc": "No description",
+    "noDetailContent": "No detail content",
+    "noSiteName": "No site name",
+    "pcDevice": "Desktop",
+    "previewTitle": "Detail Page Preview",
+    "searchPlaceholder": "Search site name or description",
+    "sectionPlaceholder": "e.g. AI Chat, AI Drawing, AI Programming",
+    "viewDetailPage": "View Detail Page",
+    "visitOfficial": "Visit Official Site"
   }
 }

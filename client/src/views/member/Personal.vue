@@ -7,11 +7,11 @@
           <el-avatar :src="form.avatar" :size="80" />
           <el-upload
             class="upload-avatar"
-            action="/api/v1/auth/profile/avatar"
+            action="/api/user/upload/avatar"
             :show-file-list="false"
             :before-upload="handleBeforeUpload"
           >
-            <el-button size="small" class="change-avatar-btn">{{ t('memberPersonal.changeAvatar') }}</el-button>
+            <el-button size="small" style="margin-left: 16px">{{ t('memberPersonal.changeAvatar') }}</el-button>
           </el-upload>
         </el-form-item>
         <el-form-item :label="t('memberPersonal.nickName')">
@@ -53,15 +53,15 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
 
 const loading = ref(false)
 const saving = ref(false)
-const form = ref<any>({
+const form = ref({
   avatar: '',
   nickName: '',
   realName: '',
-  gender: 'unknown',
+  gender: 'unknown' as 'male' | 'female' | 'unknown',
   birthday: '',
   school: '',
   profession: '',
@@ -71,8 +71,8 @@ const form = ref<any>({
 async function load() {
   loading.value = true
   try {
-    const res: any = await memberApi.profile()
-    form.value = { ...form.value, ...(res.data || {}) }
+    const res = await memberApi.profile()
+    Object.assign(form.value, res.data?.data || {})
   } finally {
     loading.value = false
   }
@@ -82,10 +82,7 @@ async function handleSave() {
   saving.value = true
   try {
     await memberApi.updateProfile(form.value)
-    ElMessage.success(t('common.messages.saveSuccess'))
-  } catch (_e) {
-    // 保存失败时给用户明确反馈，避免「点保存没反应」
-    ElMessage.error(t('common.errors.saveFailed'))
+    ElMessage.success(t('common.saveSuccess'))
   } finally {
     saving.value = false
   }
@@ -94,8 +91,8 @@ async function handleSave() {
 function handleBeforeUpload(file: File) {
   const fd = new FormData()
   fd.append('file', file)
-  memberApi.uploadAvatar(fd).then((res: any) => {
-    form.value.avatar = res.data?.url
+  memberApi.uploadAvatar(fd).then((res) => {
+    form.value.avatar = res.data?.data?.url || ''
   }).catch(() => { ElMessage.error(t('common.errors.uploadFailed')) })
   return false
 }
@@ -120,9 +117,5 @@ onMounted(load)
 
 :where(.upload-avatar) {
   display: inline-block;
-}
-
-.change-avatar-btn {
-  margin-left: 16px;
 }
 </style>

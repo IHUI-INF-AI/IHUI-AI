@@ -11,7 +11,7 @@ export interface MonitoringWebSocketMessage {
   /** 消息类型 */
   type: 'metric' | 'anomaly' | 'alert' | 'snapshot' | 'config_update'
   /** 消息负载 */
-  payload: any
+  payload: unknown
   /** 时间戳 */
   timestamp: number
 }
@@ -30,7 +30,7 @@ export interface MonitoringEventHandlers {
   /** 性能快照回调 */
   onSnapshot?: (snapshot: PerformanceSnapshot) => void
   /** 配置更新回调 */
-  onConfigUpdate?: (config: any) => void
+  onConfigUpdate?: (config: unknown) => void
   /** 连接状态变化回调 */
   onStatusChange?: (status: WebSocketStatus) => void
   /** 错误回调 */
@@ -176,7 +176,7 @@ class MonitoringWebSocketService {
    * @param handler - 事件处理函数
    * @returns 取消订阅函数
    */
-  subscribe(event: keyof MonitoringEventHandlers, handler: (data: any) => void): () => void {
+  subscribe(event: keyof MonitoringEventHandlers, handler: (data: unknown) => void): () => void {
     const eventMap: Record<string, string> = {
       onMetric: 'monitoring:metric',
       onAnomaly: 'monitoring:anomaly',
@@ -223,7 +223,7 @@ class MonitoringWebSocketService {
    * 更新配置
    * @param config - 配置对象
    */
-  updateConfig(config: any): void {
+  updateConfig(config: unknown): void {
     if (!this.connected) return
     websocketService.send('monitoring:update_config', { config, timestamp: Date.now() })
   }

@@ -1,14 +1,12 @@
 {
   "memberExamRecord": {
-    "correct": "correct",
-    "detailTip": "detailTip",
-    "duration": "时长",
-    "examPaper": "examPaper",
-    "noRecords": "noRecords",
-    "score": "分数",
-    "submitTime": "submitTime",
-    "title": "标题",
-    "totalScore": "totalScore",
-    "wrong": "wrong"
+    "title": "解答記録",
+    "noRecords": "記録なし",
+    "examPaper": "試験",
+    "score": "得点",
+    "correct": "正解",
+    "wrong": "誤答",
+    "duration": "時間(分)",
+    "submitTime": "提出時間"
   }
 }

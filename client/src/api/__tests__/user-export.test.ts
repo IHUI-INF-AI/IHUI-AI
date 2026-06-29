@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../user/user-export'
+import * as api from '../user-export'
 
 describe('user-export', () => {
   beforeEach(() => {

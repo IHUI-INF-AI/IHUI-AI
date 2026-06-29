@@ -1,58 +1,132 @@
 {
   "themeSettings": {
-    "advanced": {
-      "accessibility": "无障碍",
-      "announceChanges": "播报更改",
-      "debug": "调试",
-      "export": "导出",
-      "exportReport": "导出报表",
-      "exportSuccess": "导出成功",
-      "focusDefault": "默认焦点",
-      "focusHighContrast": "高对比度焦点",
-      "focusIndicator": "焦点指示器",
-      "focusLarge": "大焦点区域",
-      "hideDebug": "隐藏调试",
-      "import": "导入",
-      "importExport": "导入导出",
-      "importSuccess": "导入成功",
-      "keyboardNav": "键盘导航",
-      "showDebug": "显示调试",
-      "voiceControl": "语音控制"
+    "title": "主题设置",
+    "search": "搜索设置...",
+    "tabs": {
+      "basic": "基础设置",
+      "presets": "预设管理",
+      "schedule": "定时切换",
+      "sync": "云同步",
+      "advanced": "高级选项"
     },
     "basic": {
       "currentTheme": "当前主题",
-      "preview": "预览",
       "quickActions": "快捷操作",
-      "reset": "重置",
-      "resetSuccess": "重置成功",
-      "toggleDark": "切换深色模式"
+      "toggleDark": "切换暗色模式",
+      "reset": "重置默认",
+      "preview": "预览主题",
+      "resetSuccess": "已重置为默认设置"
     },
     "schedule": {
-      "add": "添加",
-      "days": "天",
+      "title": "定时切换",
+      "add": "添加计划",
       "label": "标签",
-      "mode": "模式",
-      "nextSwitch": "下次切换",
       "time": "时间",
-      "title": "标题"
+      "mode": "模式",
+      "days": "重复日期",
+      "nextSwitch": "下次切换"
     },
-    "search": "搜索",
     "sync": {
-      "download": "下载",
+      "title": "云端同步",
+      "syncing": "正在同步...",
       "lastSynced": "上次同步",
-      "notSynced": "未同步",
-      "syncSuccess": "同步成功",
-      "syncing": "同步中",
-      "title": "同步",
-      "upload": "上传"
+      "notSynced": "尚未同步",
+      "upload": "上传到云端",
+      "download": "从云端下载",
+      "syncSuccess": "同步成功"
     },
-    "tabs": {
-      "advanced": "高级",
-      "basic": "基础",
-      "presets": "预设",
-      "schedule": "计划",
-      "sync": "同步"
+    "advanced": {
+      "importExport": "导入导出",
+      "export": "导出",
+      "import": "导入",
+      "debug": "调试工具",
+      "showDebug": "显示调试信息",
+      "hideDebug": "隐藏调试信息",
+      "exportReport": "导出调试报告",
+      "accessibility": "无障碍设置",
+      "announceChanges": "播报主题变化",
+      "keyboardNav": "键盘导航",
+      "voiceControl": "语音控制",
+      "focusIndicator": "焦点指示器",
+      "focusDefault": "默认",
+      "focusHighContrast": "高对比度",
+      "focusLarge": "大尺寸",
+      "exportSuccess": "导出成功",
+      "importSuccess": "导入成功：{presets} 个预设，{schedules} 个计划"
     },
-    "title": "主题设置"
+    "transition": {
+      "title": "过渡动画",
+      "previewTitle": "动画预览",
+      "playDemo": "播放演示",
+      "playing": "播放中...",
+      "type": "动画类型",
+      "direction": "方向",
+      "speed": "速度",
+      "easing": "缓动函数",
+      "enableOverlay": "启用遮罩",
+      "types": {
+        "fade": "淡入淡出",
+        "slide": "滑动",
+        "zoom": "缩放",
+        "flip": "翻转",
+        "ripple": "波纹",
+        "none": "无动画"
+      },
+      "directions": {
+        "left": "向左",
+        "right": "向右",
+        "up": "向上",
+        "down": "向下"
+      },
+      "speeds": {
+        "slow": "慢速",
+        "normal": "正常",
+        "fast": "快速",
+        "instant": "即时"
+      }
+    },
+    "backup": {
+      "title": "主题备份",
+      "createBackup": "创建备份",
+      "import": "导入",
+      "export": "导出",
+      "autoBackup": "自动备份",
+      "interval": "备份间隔",
+      "maxBackups": "最大备份数",
+      "totalBackups": "备份数量",
+      "storageSize": "存储大小",
+      "auto": "自动",
+      "manualBackup": "手动备份",
+      "restore": "恢复",
+      "delete": "删除",
+      "noBackups": "暂无备份",
+      "importPlaceholder": "粘贴备份JSON数据",
+      "confirmDelete": "确认删除",
+      "deleteWarning": "确定要删除此备份吗？此操作不可撤销。",
+      "backupCreated": "备份创建成功",
+      "backupRestored": "备份已恢复，页面将刷新",
+      "restoreFailed": "恢复失败",
+      "exportSuccess": "导出成功",
+      "importSuccess": "导入成功",
+      "importFailed": "导入失败",
+      "backupDeleted": "备份已删除",
+      "intervals": {
+        "hourly": "每小时",
+        "daily": "每天",
+        "weekly": "每周"
+      }
+    },
+    "shortcut": {
+      "title": "快捷键设置",
+      "resetDefaults": "恢复默认",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "shortcutUpdated": "快捷键已更新",
+      "shortcutsReset": "快捷键已重置",
+      "tips": "使用提示",
+      "tip1": "快捷键在非输入框状态下生效",
+      "tip2": "按 Ctrl+Shift+D 快速切换暗色模式",
+      "tip3": "按 Ctrl+Shift+T 循环切换主题"
+    }
   }
 }

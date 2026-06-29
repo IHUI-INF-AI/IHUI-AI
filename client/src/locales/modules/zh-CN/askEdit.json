@@ -1,0 +1,19 @@
+{
+  "askEdit": {
+    "createTitle": "新建问题",
+    "editTitle": "编辑问题",
+    "questionTitle": "问题标题",
+    "titlePlaceholder": "请输入问题标题（5-100 字）",
+    "titleRequired": "请输入问题标题",
+    "titleLength": "标题长度需在 5-100 字之间",
+    "content": "问题内容",
+    "contentPlaceholder": "请详细描述你的问题（10-2000 字）",
+    "contentRequired": "请输入问题内容",
+    "contentLength": "内容长度需在 10-2000 字之间",
+    "category": "分类",
+    "selectCategory": "选择分类（可选）",
+    "tags": "标签",
+    "tagsPlaceholder": "输入标签后按回车",
+    "tagMax": "最多 {max} 个标签"
+  }
+}

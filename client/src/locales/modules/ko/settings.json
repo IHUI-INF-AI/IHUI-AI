@@ -1,445 +1,488 @@
 {
   "settings": {
-    "actions": {
-      "changeAvatar": "changeAvatar",
-      "changePassword": "修改密码",
-      "checkUpdate": "checkUpdate",
-      "checking": "checking",
-      "clearData": "clearData",
-      "contact": "联系我们",
-      "deleteAccount": "deleteAccount",
-      "go": "go",
-      "logout": "退出登录",
-      "viewMiniapp": "viewMiniapp"
+    "back": "백엔드로",
+    "userCenter": "개게센마음",
+    "page": {
+      "핵심 장점": "설정",
+      "sub핵심 장점": "관리귀하의계정및애플사용설정",
+      "title": "설정",
+      "subtitle": "관리귀하의계정및애플사용설정"
     },
-    "auditExport": {
-      "dateRange": "dateRange",
-      "description": "描述",
-      "endDate": "endDate",
-      "eventTypes": "eventTypes",
-      "exportBtn": "exportBtn",
-      "exportFormat": "exportFormat",
-      "exportSuccess": "exportSuccess",
-      "failedLogins": "failedLogins",
-      "logins": "logins",
-      "preview": "预览",
-      "previewBtn": "previewBtn",
-      "startDate": "startDate",
-      "suspicious": "suspicious",
-      "title": "标题",
-      "totalEvents": "totalEvents",
-      "typeDevice": "typeDevice",
-      "typeLogin": "typeLogin",
-      "typeLogout": "typeLogout",
-      "typePassword": "typePassword",
-      "typeSuspicious": "typeSuspicious"
+    "sections": {
+      "personal": {
+        "핵심 장점": "개게정보",
+        "desc": "관리귀하의개게정보자료정보",
+        "title": "개게정보"
+      },
+      "security": {
+        "핵심 장점": "계정보안",
+        "desc": "보호보호귀하의계정보안",
+        "title": "계정보안"
+      },
+      "notifications": {
+        "핵심 장점": "알림설정",
+        "desc": "관리귀하의장벽수입의알림유형",
+        "title": "알림설정"
+      },
+      "privacy": {
+        "핵심 장점": "개인정보이기설정",
+        "desc": "제어귀하의개인정보이기및데이마음생각사용",
+        "title": "개인정보이기설정"
+      },
+      "app": {
+        "핵심 장점": "애플사용설정",
+        "desc": "생각사용게 정의귀하의애플사용체험",
+        "title": "애플사용설정"
+      },
+      "danger": {
+        "핵심 장점": "위험작업",
+        "desc": "주의해서 작업하세요, 이 작업은 되돌릴 수 없습니다",
+        "title": "위험작업"
+      },
+      "navigation": {
+        "desc": "Desc",
+        "title": "Title"
+      },
+      "other": {
+        "desc": "Desc",
+        "title": "Title"
+      },
+      "services": {
+        "desc": "Desc",
+        "title": "Title"
+      },
+      "themeBackup": {
+        "desc": "Backup and restore your theme configuration"
+      },
+      "themePresets": {
+        "desc": "Create and manage your theme presets"
+      },
+      "themeShortcut": {
+        "desc": "Set keyboard shortcuts for theme switching"
+      },
+      "themeSync": {
+        "desc": "View theme sync status and configure auto sync"
+      },
+      "themeTransition": {
+        "desc": "Configure animation effects for theme switching"
+      }
     },
-    "back": "返回",
-    "confirmLogout": "confirmLogout",
-    "data": {
-      "clearCache": "clearCache"
-    },
-    "dataClearSuccess": "dataClearSuccess",
-    "desc": {
-      "about": "关于",
-      "activityTracking": "activityTracking",
-      "appPermission": "应用权限",
-      "autoSave": "autoSave",
-      "avatar": "头像",
-      "businessLicense": "营业执照",
-      "changePassword": "修改密码",
-      "chatHistory": "chatHistory",
-      "checkUpdate": "checkUpdate",
-      "clearAllData": "clearAllData",
-      "commissionPlan": "commissionPlan",
-      "contactSupport": "contactSupport",
-      "deleteAccount": "deleteAccount",
-      "editProfile": "editProfile",
-      "email": "邮箱",
-      "emailNotification": "emailNotification",
-      "feedback": "反馈",
-      "icpRecord": "ICP 备案",
-      "language": "语言",
-      "loginDuration": "loginDuration",
-      "loginNotification": "loginNotification",
-      "logout": "退出登录",
-      "messageNotification": "messageNotification",
-      "modelRecord": "模型备案",
-      "mouseFollower": "mouseFollower",
-      "myAIModel": "myAIModel",
-      "nickname": "昵称",
-      "notificationEnabled": "notificationEnabled",
-      "notificationSound": "notificationSound",
-      "phone": "手机号",
-      "privacySettings": "privacySettings",
-      "profileVisibility": "profileVisibility",
-      "pushNotification": "pushNotification",
-      "showEmail": "showEmail",
-      "showPhone": "showPhone",
-      "statistics": "统计",
-      "themeMode": "themeMode",
-      "usageRules": "使用规范",
-      "viewMiniapp": "viewMiniapp",
-      "webVersion": "webVersion",
-      "withdrawRecords": "withdrawRecords"
+    "securityScore": {
+      "title": "보안 점수",
+      "description": "계정 보안 상태를 평가합니다",
+      "recommendations": "보안 권장 사항",
+      "viewDetails": "자세히 보기"
     },
     "deviceManagement": {
-      "currentDevice": "currentDevice",
-      "description": "描述",
-      "deviceCount": "deviceCount",
-      "lastActive": "lastActive",
-      "loginTime": "loginTime",
-      "noDevices": "noDevices",
-      "removeAllConfirm": "removeAllConfirm",
-      "removeAllDevices": "removeAllDevices",
-      "removeAllSuccess": "removeAllSuccess",
-      "removeAllTitle": "removeAllTitle",
-      "removeConfirm": "removeConfirm",
-      "removeDevice": "removeDevice",
-      "removeSuccess": "removeSuccess",
-      "removeTitle": "removeTitle",
-      "title": "标题"
+      "title": "기기 관리",
+      "description": "로그인된 기기 보기 및 관리",
+      "noDevices": "로그인된 기기가 없습니다",
+      "currentDevice": "현재 기기",
+      "loginTime": "로그인 시간",
+      "lastActive": "마지막 활동",
+      "removeDevice": "제거",
+      "removeConfirm": "기기 \"{deviceName}\"을(를) 제거하시겠습니까? 제거 후 해당 기기에서 다시 로그인해야 합니다.",
+      "removeTitle": "기기 제거",
+      "removeSuccess": "기기가 제거되었습니다",
+      "removeAllDevices": "다른 모든 기기 제거",
+      "removeAllConfirm": "다른 모든 기기를 제거하시겠습니까? 제거 후 해당 기기에서 다시 로그인해야 합니다.",
+      "removeAllTitle": "모든 기기 제거",
+      "removeAllSuccess": "모든 기기가 제거되었습니다",
+      "deviceCount": "로그인된 기기 {count}/{max}대"
+    },
+    "securityLog": {
+      "title": "보안 로그",
+      "description": "계정 보안 관련 작업 기록 보기",
+      "noLogs": "보안 로그가 없습니다",
+      "login": "로그인",
+      "logout": "로그아웃",
+      "passwordChange": "비밀번호 변경",
+      "deviceRemove": "기기 제거됨",
+      "suspiciousLogin": "의심스러운 로그인",
+      "tokenRefresh": "토큰 새로고침",
+      "accountUpdate": "계정 업데이트"
+    },
+    "twoFactor": {
+      "title": "2단계 인증",
+      "description": "계정에 추가 보안 설정",
+      "enabled": "사용 중",
+      "disabled": "사용 안 함",
+      "enable": "사용",
+      "disable": "사용 안 함",
+      "enableSuccess": "2단계 인증이 활성화되었습니다",
+      "disableSuccess": "2단계 인증이 비활성화되었습니다",
+      "disableTitle": "2단계 인증 비활성화",
+      "disableConfirm": "2단계 인증을 비활성화하시겠습니까? 계정 보안이 약해집니다.",
+      "step1": "QR 코드 스캔",
+      "step2": "코드 확인",
+      "step3": "백업 코드",
+      "scanQR": "인증 앱으로 QR 코드를 스캔하세요",
+      "secretKey": "시크릿 키",
+      "enterCode": "인증 앱의 6자리 코드 입력",
+      "backupCodesDesc": "인증 앱을 사용할 수 없을 때를 대비해 이 백업 코드를 저장하세요",
+      "downloadBackupCodes": "백업 코드 다운로드",
+      "complete": "설정 완료"
+    },
+    "loginHistory": {
+      "title": "로그인 기록",
+      "description": "로그인 활동 기록 보기",
+      "noHistory": "로그인 기록이 없습니다",
+      "allTypes": "모든 유형",
+      "login": "로그인",
+      "logout": "로그아웃",
+      "suspicious": "의심스러운 로그인",
+      "passwordChange": "비밀번호 변경",
+      "deviceRemove": "기기 제거됨",
+      "suspiciousLogin": "의심스러운 로그인",
+      "suspiciousWarning": "비정상적인 로그인이 감지되었습니다. 본인 확인을 해주세요",
+      "clearHistory": "기록 지우기",
+      "clearTitle": "로그인 기록 지우기",
+      "clearConfirm": "모든 로그인 기록을 지우시겠습니까?",
+      "clearSuccess": "로그인 기록이 지워졌습니다",
+      "recordCount": "총 {count}건"
+    },
+    "sessionManagement": {
+      "title": "세션 관리",
+      "description": "로그인 세션 관리",
+      "noSessions": "활성 세션이 없습니다",
+      "currentSession": "현재 세션",
+      "expired": "만료됨",
+      "startTime": "시작 시간",
+      "duration": "지속 시간",
+      "endSession": "종료",
+      "endConfirm": "세션 \"{deviceName}\"을(를) 종료하시겠습니까?",
+      "endTitle": "세션 종료",
+      "endSuccess": "세션이 종료되었습니다",
+      "cannotEndCurrent": "현재 세션은 종료할 수 없습니다",
+      "endAllOtherSessions": "다른 모든 세션 종료",
+      "endAllConfirm": "다른 모든 세션을 종료하시겠습니까?",
+      "endAllTitle": "모든 세션 종료",
+      "endAllSuccess": "{count}개 세션 종료됨",
+      "sessionCount": "총 {count}개 세션"
+    },
+    "auditExport": {
+      "title": "감사 로그 내보내기",
+      "description": "보안 감사 보고서 내보내기",
+      "dateRange": "날짜 범위",
+      "startDate": "시작일",
+      "endDate": "종료일",
+      "exportFormat": "내보내기 형식",
+      "eventTypes": "이벤트 유형",
+      "typeLogin": "로그인",
+      "typeLogout": "로그아웃",
+      "typePassword": "비밀번호 변경",
+      "typeDevice": "기기 작업",
+      "typeSuspicious": "의심스러운 활동",
+      "preview": "미리 보기",
+      "totalEvents": "총 이벤트",
+      "logins": "성공한 로그인",
+      "failedLogins": "실패한 로그인",
+      "suspicious": "의심스러운 활동",
+      "previewBtn": "보고서 미리 보기",
+      "exportBtn": "보고서 내보내기",
+      "exportSuccess": "보고서가 내보내졌습니다"
+    },
+    "ipWhitelist": {
+      "title": "IP 화이트리스트",
+      "description": "로그인 IP 주소 제한",
+      "enableWhitelist": "화이트리스트 사용",
+      "strictMode": "엄격 모드",
+      "strictModeHint": "화이트리스트가 비어 있으면 모든 액세스 거부",
+      "ipPlaceholder": "IP 주소 입력 (예: 192.168.1.1)",
+      "labelPlaceholder": "라벨 이름",
+      "noEntries": "화이트리스트 규칙 없음",
+      "export": "내보내기",
+      "import": "가져오기",
+      "clear": "지우기",
+      "addSuccess": "IP가 추가되었습니다",
+      "addFailed": "추가 실패. IP가 잘못되었거나 이미 존재합니다",
+      "removeConfirm": "이 IP를 제거하시겠습니까?",
+      "removeSuccess": "IP가 제거되었습니다",
+      "importSuccess": "가져오기 성공",
+      "importFailed": "가져오기 실패. 파일 형식이 잘못되었습니다",
+      "clearConfirm": "화이트리스트를 지우시겠습니까?",
+      "clearSuccess": "화이트리스트가 지워졌습니다"
+    },
+    "notificationCenter": {
+      "title": "보안 알림",
+      "description": "보안 관련 알림 보기",
+      "markAllRead": "모두 읽음으로 표시",
+      "all": "전체",
+      "unread": "읽지 않음",
+      "critical": "중요",
+      "high": "높은 우선순위",
+      "noNotifications": "알림 없음",
+      "settings": "알림 설정",
+      "enableNotifications": "알림 사용",
+      "desktopNotifications": "데스크톱 알림",
+      "soundNotifications": "소리 알림",
+      "justNow": "방금",
+      "minutesAgo": "{count}분 전",
+      "hoursAgo": "{count}시간 전"
+    },
+    "loginBehavior": {
+      "title": "로그인 행동 분석",
+      "description": "로그인 패턴 분석",
+      "noData": "아직 로그인 데이터가 없습니다. 사용을 계속하여 패턴을 만드세요",
+      "totalLogins": "총 로그인 수",
+      "avgInterval": "평균 간격",
+      "devices": "기기",
+      "locations": "위치",
+      "loginTime": "로그인 시간 분포",
+      "peakHours": "피크 시간",
+      "commonDevices": "자주 사용하는 기기",
+      "noDevices": "기기 기록 없음",
+      "commonLocations": "자주 사용하는 위치",
+      "noLocations": "위치 기록 없음",
+      "loginCount": "{count}회 로그인",
+      "trusted": "신뢰함",
+      "trust": "신뢰",
+      "unknown": "알 수 없음",
+      "riskAnalysis": "위험 분석",
+      "riskLevel": {
+        "low": "낮은 위험",
+        "medium": "중간 위험",
+        "high": "높은 위험",
+        "critical": "심각한 위험"
+      },
+      "anomalies": "이상 감지됨",
+      "recommendations": "보안 권장 사항",
+      "days": "{count}일",
+      "hours": "{count}시간"
+    },
+    "data": {
+      "clearCache": "캐시 지우기"
+    },
+    "dataClearSuccess": "데이터가 지워졌습니다",
+    "labels": {
+      "avatar": "아바타",
+      "nickname": "닉네임",
+      "이메일": "이메일",
+      "전화": "전화번호",
+      "changePassword": "수정변경비밀번호",
+      "loginNotification": "로그인알림",
+      "loginDuration": "로그인상태지속시간",
+      "notificationEnabled": "활성화알림",
+      "이메일Notification": "이메일알림",
+      "pushNotification": "푸시알림",
+      "notificationSound": "알림음성",
+      "profileVisibility": "개게정보자료AI를보기성",
+      "showEmail": "표시이메일",
+      "showPhone": "표시전화",
+      "activityTracking": "활동추적",
+      "themeMode": "테마템플릿방식",
+      "language": "언어",
+      "autoSave": "게동저장",
+      "mouseFollower": "마우스 따라가기 효과",
+      "clearAllData": "지우기소요유데이마음",
+      "deleteAccount": "가입판매계정",
+      "email": "이메일",
+      "phone": "휴대전화번호",
+      "emailNotification": "이메일알림",
+      "about": "About",
+      "appPermission": "App Permission",
+      "businessLicense": "Business License",
+      "chatHistory": "Chat History",
+      "checkUpdate": "Check Update",
+      "commissionPlan": "Commission Plan",
+      "contactSupport": "Contact Support",
+      "editProfile": "Edit Profile",
+      "feedback": "Feedback",
+      "icpRecord": "Icp Record",
+      "logout": "Logout",
+      "messageNotification": "Message Notification",
+      "modelRecord": "Model Record",
+      "myAIModel": "My AI Model",
+      "myCompany": "My Company",
+      "privacySettings": "Privacy Settings",
+      "recruitment": "Recruitment",
+      "statistics": "Statistics",
+      "usageRules": "Usage Rules",
+      "viewMiniapp": "View Miniapp",
+      "webVersion": "Web Version",
+      "withdrawRecords": "Withdraw Records"
+    },
+    "desc": {
+      "avatar": "설정귀하의개게아바타",
+      "nickname": "설정귀하의닉네임",
+      "이메일": "설정귀하의이메일주의소",
+      "전화": "설정귀하의전화번호코드",
+      "changePassword": "정기수정변경비밀번호하여보호보호계정보안",
+      "loginNotification": "신규기기로그인실시간전송알림",
+      "loginDuration": "설정로그인후보호유지로그인상태의시간，오프라인회로그인실시간생태효율",
+      "notificationEnabled": "활성화또는비활성화모든알림",
+      "이메일Notification": "장벽수입대규모필요업데이트및활동알림",
+      "pushNotification": "장벽수입시스템업데이트및차원보호알림",
+      "notificationSound": "장벽수입알림실시간재생음성",
+      "profileVisibility": "제어기타생각사용게이것은여부AI를하여보기귀하의정보자료",
+      "showEmail": "제어기타생각사용게이것은여부AI를하여보기귀하의이메일",
+      "showPhone": "제어기타생각사용게이것은여부AI를하여보기귀하의전화",
+      "activityTracking": "익명 사용 데이터 수집을 허용하여 서비스 개선",
+      "themeMode": "좋아하는 인터페이스 테마 선택",
+      "language": "선택애플사용표시언어",
+      "autoSave": "게동저장귀하의업무콘텐츠",
+      "mouseFollower": "멋진 마우스 따라가기 애니메이션 효과 활성화",
+      "clearAllData": "삭제소요유심심일기이것은、설정및개게데이마음",
+      "deleteAccount": "영구삭제귀하의계정및소요유관련닫기데이마음",
+      "email": "설정귀하의이메일주의소",
+      "phone": "설정귀하의휴대전화번호코드",
+      "emailNotification": "장벽수입대규모필요업데이트및활동알림",
+      "about": "About",
+      "appPermission": "App Permission",
+      "businessLicense": "Business License",
+      "chatHistory": "Chat History",
+      "checkUpdate": "Check Update",
+      "commissionPlan": "Commission Plan",
+      "contactSupport": "Contact Support",
+      "editProfile": "Edit Profile",
+      "feedback": "Feedback",
+      "icpRecord": "Icp Record",
+      "logout": "Logout",
+      "messageNotification": "Message Notification",
+      "modelRecord": "Model Record",
+      "myAIModel": "My AI Model",
+      "myCompany": "My Company",
+      "privacySettings": "Privacy Settings",
+      "recruitment": "Recruitment",
+      "statistics": "Statistics",
+      "usageRules": "Usage Rules",
+      "viewMiniapp": "View Miniapp",
+      "webVersion": "Web Version",
+      "withdrawRecords": "Withdraw Records"
+    },
+    "placeholders": {
+      "nickname": "요청입력닉네임",
+      "이메일": "요청입력이메일",
+      "전화": "요청입력전화번호",
+      "email": "요청입력이메일",
+      "phone": "요청입력휴대전화번호"
+    },
+    "actions": {
+      "changeAvatar": "변경아바타",
+      "changePassword": "수정변경비밀번호",
+      "clearData": "지우기데이마음",
+      "deleteAccount": "가입판매계정",
+      "checkUpdate": "Check Update",
+      "checking": "Checking",
+      "contact": "Contact",
+      "go": "Go",
+      "logout": "Logout",
+      "viewMiniapp": "View Miniapp"
+    },
+    "options": {
+      "loginDuration": {
+        "7d": "7일",
+        "30d": "30일",
+        "90d": "목이것은분기도",
+        "365d": "목이것은년",
+        "permanent": "영구"
+      },
+      "profileVisibility": {
+        "public": "공개",
+        "private": "이기밀도"
+      },
+      "themeMode": {
+        "light": "라이트템플릿방식",
+        "dark": "깊은색템플릿방식",
+        "auto": "시스템 따르기"
+      },
+      "language": {
+        "zh-CN": "간체 중국어",
+        "zh-TW": "번체 중국어",
+        "en": "영어",
+        "ja": "일본어",
+        "ko": "한국어",
+        "en-US": "English"
+      }
     },
     "dialogs": {
       "changePassword": {
-        "confirm": "确认",
-        "confirmAction": "confirmAction",
-        "confirmPlaceholder": "confirmPlaceholder",
-        "new": "最新",
-        "newPlaceholder": "newPlaceholder",
-        "old": "旧",
-        "oldPlaceholder": "oldPlaceholder",
-        "title": "标题"
+        "핵심 장점": "수정변경비밀번호",
+        "old": "이전비밀번호",
+        "oldPlaceholder": "요청입력이전비밀번호",
+        "new": "신규비밀번호",
+        "newPlaceholder": "요청입력신규비밀번호",
+        "confirm": "확인비밀번호",
+        "confirmPlaceholder": "새 비밀번호를 다시 입력하세요",
+        "confirmAction": "확인수정변경",
+        "title": "수정변경비밀번호"
       },
       "clearData": {
-        "confirmAction": "confirmAction",
+        "핵심 장점": "지우기소요유데이마음",
+        "tip": "귀하의확인필요지우기소요유데이마음까？이작업연결삭제하여아래콘텐츠：",
         "items": {
-          "chat": "对话",
-          "favorites": "收藏",
-          "history": "历史",
-          "settings": "设置"
+          "chat": "소요유심심일기이것은",
+          "settings": "소요유설정",
+          "favorites": "모든즐겨찾기",
+          "history": "소요유기이것은기이것은"
         },
-        "tip": "tip",
-        "title": "标题",
-        "warn": "warn"
-      },
-      "contact": {
-        "email": "邮箱",
-        "hours": "hours",
-        "hoursValue": "hoursValue",
-        "phone": "手机号",
-        "title": "标题"
+        "warn": "이 작업은 되돌릴 수 없습니다, 주의해서 작업하세요!",
+        "confirmAction": "확인지우기",
+        "title": "삭제모든데이마음"
       },
       "deleteAccount": {
-        "confirmAction": "confirmAction",
-        "placeholder": "请输入",
-        "tip": "tip",
-        "title": "标题",
-        "warn": "warn"
+        "핵심 장점": "가입판매계정",
+        "tip": "귀하의확인필요가입판매계정까？이작업연결영구삭제귀하의계정및소요유관련닫기데이마음。",
+        "warn": "이 작업은 되돌릴 수 없습니다, 주의해서 작업하세요!",
+        "placeholder": "요청입력비밀번호확인",
+        "confirmAction": "확인가입판매",
+        "title": "가입판매계정"
+      },
+      "contact": {
+        "email": "Email",
+        "hours": "Hours",
+        "hoursValue": "Hours Value",
+        "phone": "Phone",
+        "title": "Title"
       },
       "miniapp": {
-        "alt": "alt",
-        "tip": "tip",
-        "title": "标题"
+        "alt": "Alt",
+        "tip": "Tip",
+        "title": "Title"
       }
     },
-    "ipWhitelist": {
-      "addFailed": "addFailed",
-      "addSuccess": "addSuccess",
-      "clear": "清空",
-      "clearConfirm": "clearConfirm",
-      "clearSuccess": "clearSuccess",
-      "description": "描述",
-      "enableWhitelist": "enableWhitelist",
-      "export": "导出",
-      "import": "导入",
-      "importFailed": "importFailed",
-      "importSuccess": "importSuccess",
-      "ipPlaceholder": "ipPlaceholder",
-      "labelPlaceholder": "labelPlaceholder",
-      "noEntries": "noEntries",
-      "removeConfirm": "removeConfirm",
-      "removeSuccess": "removeSuccess",
-      "strictMode": "strictMode",
-      "strictModeHint": "strictModeHint",
-      "title": "标题"
-    },
-    "labels": {
-      "about": "关于",
-      "activityTracking": "activityTracking",
-      "appPermission": "应用权限",
-      "autoSave": "autoSave",
-      "avatar": "头像",
-      "businessLicense": "营业执照",
-      "changePassword": "修改密码",
-      "chatHistory": "chatHistory",
-      "checkUpdate": "checkUpdate",
-      "clearAllData": "clearAllData",
-      "commissionPlan": "commissionPlan",
-      "contactSupport": "contactSupport",
-      "deleteAccount": "deleteAccount",
-      "editProfile": "editProfile",
-      "email": "邮箱",
-      "emailNotification": "emailNotification",
-      "feedback": "反馈",
-      "icpRecord": "ICP 备案",
-      "language": "语言",
-      "loginDuration": "loginDuration",
-      "loginNotification": "loginNotification",
-      "logout": "退出登录",
-      "messageNotification": "messageNotification",
-      "modelRecord": "模型备案",
-      "mouseFollower": "mouseFollower",
-      "myAIModel": "myAIModel",
-      "nickname": "昵称",
-      "notificationEnabled": "notificationEnabled",
-      "notificationSound": "notificationSound",
-      "phone": "手机号",
-      "privacySettings": "privacySettings",
-      "profileVisibility": "profileVisibility",
-      "pushNotification": "pushNotification",
-      "showEmail": "showEmail",
-      "showPhone": "showPhone",
-      "statistics": "统计",
-      "themeMode": "themeMode",
-      "usageRules": "使用规范",
-      "viewMiniapp": "viewMiniapp",
-      "webVersion": "webVersion",
-      "withdrawRecords": "withdrawRecords"
-    },
-    "loginBehavior": {
-      "anomalies": "anomalies",
-      "avgInterval": "avgInterval",
-      "commonDevices": "commonDevices",
-      "commonLocations": "commonLocations",
-      "days": "days",
-      "description": "描述",
-      "devices": "devices",
-      "hours": "hours",
-      "locations": "locations",
-      "loginCount": "loginCount",
-      "loginTime": "loginTime",
-      "noData": "暂无数据",
-      "noDevices": "noDevices",
-      "noLocations": "noLocations",
-      "peakHours": "peakHours",
-      "recommendations": "recommendations",
-      "riskAnalysis": "riskAnalysis",
-      "title": "标题",
-      "totalLogins": "totalLogins",
-      "trust": "trust",
-      "trusted": "trusted",
-      "unknown": "unknown"
-    },
-    "loginHistory": {
-      "allTypes": "allTypes",
-      "clearConfirm": "clearConfirm",
-      "clearHistory": "clearHistory",
-      "clearSuccess": "clearSuccess",
-      "clearTitle": "clearTitle",
-      "description": "描述",
-      "deviceRemove": "deviceRemove",
-      "login": "登录",
-      "logout": "退出登录",
-      "noHistory": "noHistory",
-      "passwordChange": "passwordChange",
-      "recordCount": "recordCount",
-      "suspicious": "suspicious",
-      "suspiciousLogin": "suspiciousLogin",
-      "suspiciousWarning": "suspiciousWarning",
-      "title": "标题"
-    },
+    "confirmLogout": "Confirm Logout",
     "messages": {
-      "latestVersion": "latestVersion"
-    },
-    "notificationCenter": {
-      "all": "全部",
-      "critical": "critical",
-      "description": "描述",
-      "desktopNotifications": "desktopNotifications",
-      "enableNotifications": "enableNotifications",
-      "high": "高",
-      "hoursAgo": "hoursAgo",
-      "justNow": "justNow",
-      "markAllRead": "markAllRead",
-      "minutesAgo": "minutesAgo",
-      "noNotifications": "noNotifications",
-      "settings": "设置",
-      "soundNotifications": "soundNotifications",
-      "title": "标题",
-      "unread": "unread"
-    },
-    "options": {
-      "language": {
-        "en": "en",
-        "ja": "ja",
-        "ko": "ko",
-        "zh-CN": "zh-CN",
-        "zh-TW": "zh-TW"
-      },
-      "loginDuration": {
-        "30d": "30d",
-        "365d": "365d",
-        "7d": "7d",
-        "90d": "90d",
-        "permanent": "permanent"
-      },
-      "profileVisibility": {
-        "private": "私有",
-        "public": "公开"
-      },
-      "themeMode": {
-        "auto": "auto",
-        "dark": "dark",
-        "light": "light"
-      }
-    },
-    "page": {
-      "subtitle": "副标题",
-      "title": "标题"
+      "latestVersion": "Latest Version"
     },
     "passwordStrength": {
-      "medium": "medium",
-      "strong": "strong",
-      "veryStrong": "veryStrong",
-      "weak": "weak"
-    },
-    "placeholders": {
-      "email": "邮箱",
-      "nickname": "昵称",
-      "phone": "手机号"
-    },
-    "sections": {
-      "app": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "danger": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "navigation": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "notifications": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "other": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "personal": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "privacy": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "security": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "services": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "themeBackup": {
-        "desc": "描述"
-      },
-      "themePresets": {
-        "desc": "描述"
-      },
-      "themeShortcut": {
-        "desc": "描述"
-      },
-      "themeSync": {
-        "desc": "描述"
-      },
-      "themeTransition": {
-        "desc": "描述"
-      }
+      "medium": "Medium",
+      "strong": "Strong",
+      "veryStrong": "Very Strong",
+      "weak": "Weak"
     },
     "securityCharts": {
-      "days30": "days30",
-      "days7": "days7",
-      "days90": "days90",
-      "deviceUsage": "deviceUsage",
-      "eventDistribution": "eventDistribution",
-      "failed": "失败",
-      "failedLogin": "failedLogin",
-      "loginTrend": "loginTrend",
-      "riskTimeline": "riskTimeline",
-      "successful": "successful",
-      "suspiciousLogin": "suspiciousLogin",
-      "title": "标题",
-      "totalEvents": "totalEvents",
-      "typeDevice": "typeDevice",
-      "typeLogin": "typeLogin",
-      "typeLogout": "typeLogout",
-      "typePassword": "typePassword",
-      "typeSuspicious": "typeSuspicious"
+      "days30": "Days30",
+      "days7": "Days7",
+      "days90": "Days90",
+      "deviceUsage": "Device Usage",
+      "eventDistribution": "Event Distribution",
+      "failed": "Failed",
+      "failedLogin": "Failed Login",
+      "loginTrend": "Login Trend",
+      "riskTimeline": "Risk Timeline",
+      "successful": "Successful",
+      "suspiciousLogin": "Suspicious Login",
+      "title": "Title",
+      "totalEvents": "Total Events",
+      "typeDevice": "Type Device",
+      "typeLogin": "Type Login",
+      "typeLogout": "Type Logout",
+      "typePassword": "Type Password",
+      "typeSuspicious": "Type Suspicious"
     },
-    "securityLog": {
-      "accountUpdate": "accountUpdate",
-      "description": "描述",
-      "deviceRemove": "deviceRemove",
-      "login": "登录",
-      "logout": "退出登录",
-      "noLogs": "noLogs",
-      "passwordChange": "passwordChange",
-      "suspiciousLogin": "suspiciousLogin",
-      "title": "标题",
-      "tokenRefresh": "tokenRefresh"
-    },
-    "securityScore": {
-      "description": "描述",
-      "recommendations": "recommendations",
-      "title": "标题",
-      "viewDetails": "viewDetails"
-    },
-    "sessionManagement": {
-      "cannotEndCurrent": "cannotEndCurrent",
-      "currentSession": "currentSession",
-      "description": "描述",
-      "duration": "时长",
-      "endAllConfirm": "endAllConfirm",
-      "endAllOtherSessions": "endAllOtherSessions",
-      "endAllSuccess": "endAllSuccess",
-      "endAllTitle": "endAllTitle",
-      "endConfirm": "endConfirm",
-      "endSession": "endSession",
-      "endSuccess": "endSuccess",
-      "endTitle": "endTitle",
-      "expired": "已过期",
-      "noSessions": "noSessions",
-      "sessionCount": "sessionCount",
-      "startTime": "开始时间",
-      "title": "标题"
-    },
-    "twoFactor": {
-      "backupCodesDesc": "backupCodesDesc",
-      "complete": "完成",
-      "description": "描述",
-      "disable": "禁用",
-      "disableConfirm": "disableConfirm",
-      "disableSuccess": "disableSuccess",
-      "disableTitle": "disableTitle",
-      "disabled": "已禁用",
-      "downloadBackupCodes": "downloadBackupCodes",
-      "enable": "启用",
-      "enableSuccess": "enableSuccess",
-      "enabled": "已启用",
-      "enterCode": "enterCode",
-      "scanQR": "scanQR",
-      "secretKey": "secretKey",
-      "step1": "step1",
-      "step2": "step2",
-      "step3": "step3",
-      "title": "标题"
-    },
-    "userCenter": "个人中心"
+    "comments": {
+      "pageTitle": "페이지면제목",
+      "settingsContent": "설정콘텐츠",
+      "personalInfo": "개게정보설정",
+      "accountSecurity": "계정보안설정",
+      "notifications": "알림설정",
+      "privacy": "개인정보이기설정",
+      "appSettings": "애플사용설정",
+      "dangerZone": "위험작업",
+      "changePasswordDialog": "수정변경비밀번호대화박스",
+      "clearDataDialog": "지우기데이마음확인대화박스",
+      "deleteAccountDialog": "가입판매계정확인대화박스"
+    }
   }
 }

@@ -6,7 +6,7 @@
  */
 import { ref, computed, type ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
-import type { PublishCreationParams, ContentType, AISource } from '@/api/ai/ai-community'
+import type { PublishCreationParams, ContentType, AISource } from '@/api/ai-community'
 
 /** 发布预填数据 */
 interface PublishPrefillData extends Partial<PublishCreationParams> {
@@ -113,7 +113,7 @@ export function useCommunityPublish() {
       type: 'article',
       title: options.title || 'AI生成文章',
       description: options.content,
-      contentUrl: '', // 文章内容在 description 中
+      contentUrl: '', // 文章内容器 description 中
       prompt: options.prompt,
       aiSource: options.aiSource || 'ihui-ai',
       aiModelName: options.aiModelName,
@@ -135,7 +135,7 @@ export function useCommunityPublish() {
       type: 'code',
       title: options.title || `AI生成代码${options.language ? ` (${options.language})` : ''}`,
       description: options.code,
-      contentUrl: '', // 代码内容在 description 中
+      contentUrl: '', // 代码内容器 description 中
       prompt: options.prompt,
       aiSource: options.aiSource || 'ihui-ai',
       aiModelName: options.aiModelName,

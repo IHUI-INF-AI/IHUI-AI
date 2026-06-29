@@ -1,56 +1,85 @@
 {
   "withdrawal": {
-    "availableAmount": "availableAmount",
+    "title": "Withdrawal",
+    "subtitle": "Apply for withdrawal to your account",
+    "availableAmount": "Available Amount (CNY)",
     "form": {
-      "alipayAccount": "alipayAccount",
-      "alipayPlaceholder": "alipayPlaceholder",
-      "amount": "金额",
-      "amountPlaceholder": "amountPlaceholder",
-      "amountTip": "amountTip",
-      "bankAccount": "bankAccount",
-      "bankName": "bankName",
-      "bankNamePlaceholder": "bankNamePlaceholder",
-      "bankPlaceholder": "bankPlaceholder",
-      "method": "method",
-      "realName": "realName",
-      "realNamePlaceholder": "realNamePlaceholder",
-      "remark": "remark",
-      "remarkPlaceholder": "remarkPlaceholder",
-      "wechatAccount": "wechatAccount",
-      "wechatPlaceholder": "wechatPlaceholder",
-      "withdrawAll": "withdrawAll"
-    },
-    "inputValidAmount": "inputValidAmount",
-    "insufficientBalance": "insufficientBalance",
-    "messages": {
-      "fetchInfoFailed": "fetchInfoFailed",
-      "pleaseLogin": "请先登录"
+      "amount": "Withdrawal Amount",
+      "amountPlaceholder": "Enter withdrawal amount",
+      "withdrawAll": "Withdraw All",
+      "amountTip": "Available: ¥{available}, Minimum withdrawal: ¥100",
+      "method": "Withdrawal Method",
+      "account": "Withdrawal Account",
+      "accountPlaceholder": "Please enter withdrawal account",
+      "wechatAccount": "WeChat ID",
+      "wechatPlaceholder": "Please enter WeChat ID",
+      "alipayAccount": "Alipay Account",
+      "alipayPlaceholder": "Please enter Alipay account",
+      "bankAccount": "Bank Card Number",
+      "bankPlaceholder": "Please enter bank card number",
+      "bankName": "Bank Name",
+      "bankNamePlaceholder": "Please enter bank name",
+      "realName": "Real Name",
+      "realNamePlaceholder": "Please enter real name",
+      "remark": "Remark",
+      "remarkPlaceholder": "Optional, remark information",
+      "submit": "SubmitWithdrawal"
     },
     "methods": {
-      "alipay": "alipay",
-      "bank": "bank",
-      "wechat": "wechat"
+      "wechat": "WeChat",
+      "alipay": "Alipay",
+      "bank": "Bank Card",
+      "title": "WithdrawalWay"
     },
-    "rules": {
-      "minAmount": "minAmount",
-      "processingTime": "processingTime"
-    },
-    "selectMethod": "selectMethod",
     "submit": {
-      "button": "button",
-      "submitting": "提交中"
+      "submitting": "Submitting",
+      "button": "Button"
     },
-    "submitPending": "submitPending",
-    "submitSuccess": "submitSuccess",
-    "title": "标题",
     "validation": {
-      "accountRequired": "accountRequired",
-      "amountExceed": "amountExceed",
-      "amountMin": "amountMin",
-      "amountRequired": "amountRequired",
-      "bankAccountInvalid": "bankAccountInvalid",
-      "bankNameRequired": "bankNameRequired",
-      "realNameRequired": "realNameRequired"
+      "amountRequired": "Please enter withdrawal amount",
+      "amountMin": "Minimum withdrawal amount is 100 CNY",
+      "amountExceed": "Withdrawal amount cannot exceed available amount",
+      "methodRequired": "Please select withdrawal method",
+      "accountRequired": "Please enter withdrawal account",
+      "bankAccountInvalid": "Please enter valid bank card number",
+      "realNameRequired": "Please enter real name",
+      "bankNameRequired": "Please enter bank name"
+    },
+    "messages": {
+      "cannotWithdraw": "Cannot initiate withdrawal at this time, please try again later",
+      "submitSuccess": "Withdrawal request submitted, please wait for review",
+      "submitFailed": "Withdrawal request Failed",
+      "submitFailedRetry": "Withdrawal request Failed, please try again later",
+      "fetchInfoFailed": "Failed to fetch withdrawal information",
+      "withdrawalOperationFailed": "Withdrawal Failed",
+      "pleaseLogin": "Please Login",
+      "Failed": "Withdrawal application Failed",
+      "success": "Withdrawal application submitted successfully",
+      "insufficientBalance": "BalanceInsufficient",
+      "processing": "Processing withdrawal application..."
+    },
+    "withdrawAmount": "Withdrawal Amount",
+    "inputAmount": "Please enter withdrawal amount",
+    "withdrawMethod": "Withdrawal Method",
+    "inputValidAmount": "Please enter valid withdrawal amount",
+    "insufficientBalance": "Withdrawal amount cannot exceed available amount",
+    "selectMethod": "Please select withdrawal method",
+    "rules": {
+      "minAmount": "Min Amount",
+      "processingTime": "Processing Time"
+    },
+    "submitSuccess": "Submit Success",
+    "submitPending": "Submit Pending",
+    "account": {
+      "title": "WithdrawalAccount",
+      "name": "AccountName",
+      "accountNumber": "Account Number",
+      "bankName": "Bank Name",
+      "branch": "Bank Branch"
+    },
+    "certification": {
+      "required": "Real-name verification required",
+      "goToCertify": "Verify Now"
     }
   }
 }

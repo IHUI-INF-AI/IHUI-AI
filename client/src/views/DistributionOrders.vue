@@ -126,7 +126,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { FileText } from '@/lib/lucide-fallback'
-import { getUserAndChildrenOrders, type DistributionOrder } from '@/api/distribution/distribution'
+import { getUserAndChildrenOrders, type DistributionOrder } from '@/api/distribution'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
 import { useApiError } from '@/composables/useApiError'
 
@@ -267,7 +267,7 @@ watch([currentPage, pageSize], () => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -303,7 +303,7 @@ watch([currentPage, pageSize], () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -320,7 +320,7 @@ watch([currentPage, pageSize], () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }

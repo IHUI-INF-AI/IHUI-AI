@@ -364,13 +364,13 @@ export interface SmartDeviceState {
   battery?: number
   motion?: boolean
   contact?: boolean
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface SmartDeviceCapability {
   name: string
   type: 'read' | 'write' | 'both'
-  values?: any[]
+  values?: unknown[]
   range?: { min: number; max: number; step?: number }
 }
 

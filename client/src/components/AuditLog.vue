@@ -303,7 +303,7 @@ onMounted(() => {
 }
 
 .resource-id {
-  font-family: var(--font-family-mono);
+  font-family: monospace;
   font-size: 12px;
 }
 

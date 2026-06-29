@@ -1,8 +1,8 @@
 {
   "learnCertificate": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbMyCertificate": "breadcrumbMyCertificate",
-    "issueTime": "issueTime",
-    "noCertificate": "noCertificate"
+    "noCertificate": "証明書なし",
+    "issueTime": "発行時間",
+    "breadcrumbCourse": "コース",
+    "breadcrumbMyCertificate": "私の証明書"
   }
 }

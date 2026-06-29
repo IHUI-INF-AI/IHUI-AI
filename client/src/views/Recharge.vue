@@ -471,10 +471,9 @@ $glow-white: var(--color-white-15);
   margin-bottom: 24px;
 
   :deep(.user-info-card) {
-    background: $surface-glass;
+    background: $surface-glass ;
     border: var(--unified-border);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
   }
 }
 
@@ -488,8 +487,7 @@ $glow-white: var(--color-white-15);
   border-radius: var(--global-border-radius);
   padding: 28px;
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: $surface-glass-hover;
@@ -610,8 +608,8 @@ $glow-white: var(--color-white-15);
 }
 
 @keyframes statusPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%, 100% { opacity: 1; box-shadow: var(--global-box-shadow); }
+  50% { opacity: 0.6; box-shadow: var(--global-box-shadow); }
 }
 
 .status-text {
@@ -694,14 +692,14 @@ $glow-white: var(--color-white-15);
   color: $text-muted;
 
   &--vip {
-    background: rgb(var(--el-color-warning-rgb), 0.15);
-    border-color: rgb(var(--el-color-warning-rgb), 0.3);
+    background: rgb(var(--el-color-warning-rgb, 230, 162, 60), 0.15);
+    border-color: rgb(var(--el-color-warning-rgb, 230, 162, 60), 0.3);
     color: var(--el-color-warning);
   }
 
   &--op {
-    background: rgb(var(--el-color-primary-rgb), 0.15);
-    border-color: rgb(var(--el-color-primary-rgb), 0.3);
+    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.15);
+    border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3);
     color: var(--el-color-primary);
   }
 }
@@ -764,7 +762,7 @@ $glow-white: var(--color-white-15);
   inset: 0;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
 
   .amount-item:hover & {
     border-color: var(--color-white-15);
@@ -772,6 +770,7 @@ $glow-white: var(--color-white-15);
 
   .amount-item.active & {
     border-color: $brand-accent;
+    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -782,7 +781,7 @@ $glow-white: var(--color-white-15);
   transition: filter 0.3s ease;
 
   .amount-item.active & {
-    filter: grayscale(0);
+    filter: grayscale(0) drop-shadow(0 0 8px var(--color-yellow-ffd700-50));
   }
 }
 
@@ -867,7 +866,7 @@ $glow-white: var(--color-white-15);
   inset: 0;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
 
   .pay-item:hover & {
     border-color: var(--color-white-15);
@@ -875,6 +874,7 @@ $glow-white: var(--color-white-15);
 
   .pay-item.active & {
     border-color: $brand-accent;
+    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -907,7 +907,7 @@ $glow-white: var(--color-white-15);
   height: 20px;
   border: 2px solid $border-subtle;
   border-radius: var(--global-border-radius);
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
 
   .pay-item.active & {
     border-color: $brand-accent;
@@ -1008,7 +1008,11 @@ $glow-white: var(--color-white-15);
   inset: 0;
   border: 2px solid $brand-accent;
   border-radius: var(--global-border-radius);
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
+
+  .recharge-btn:hover:not(:disabled) & {
+    box-shadow: var(--global-box-shadow);
+  }
 
   .recharge-btn:active:not(:disabled) & {
     transform: scale(0.98);
@@ -1190,7 +1194,7 @@ $glow-white: var(--color-white-15);
   }
 
   .status-text {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .amount-list {

@@ -37,7 +37,7 @@ class Logger {
   /**
    * 格式化日志消息
    */
-  private formatMessage(level: string, message: string, ...args: any[]): string {
+  private formatMessage(level: string, message: string, ...args: unknown[]): string {
     const timestamp = new Date().toISOString()
     const argsStr = args.length > 0 ? ` ${JSON.stringify(args)}` : ''
     return `[${timestamp}] [${level}] ${message}${argsStr}`
@@ -46,7 +46,7 @@ class Logger {
   /**
    * 调试日志（仅在开发环境显示）
    */
-  debug(message: string, ...args: any[]): void {
+  debug(message: string, ...args: unknown[]): void {
     if (this.level <= LogLevel.DEBUG && this.isDevelopment) {
       const msg = this.formatMessage('DEBUG', message, ...args)
       console.debug(msg)
@@ -63,7 +63,7 @@ class Logger {
   /**
    * 信息日志
    */
-  info(message: string, ...args: any[]): void {
+  info(message: string, ...args: unknown[]): void {
     if (this.level <= LogLevel.INFO) {
       const msg = this.formatMessage('INFO', message, ...args)
       console.log(msg)
@@ -80,7 +80,7 @@ class Logger {
   /**
    * 警告日志
    */
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     if (this.level <= LogLevel.WARN) {
       const msg = this.formatMessage('WARN', message, ...args)
       console.warn(msg)
@@ -97,7 +97,7 @@ class Logger {
   /**
    * 错误日志
    */
-  error(message: string, error?: Error | unknown, ...args: any[]): void {
+  error(message: string, error?: Error | unknown, ...args: unknown[]): void {
     if (this.level <= LogLevel.ERROR) {
       // 所有错误都记录到控制台，方便调试
       const errorData =

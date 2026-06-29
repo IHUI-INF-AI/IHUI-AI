@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Distribution 邀请管理Composable
  *
  * 负责邀请列表的加载、搜索、筛选和分页
@@ -10,7 +10,7 @@ import { ref, computed } from 'vue'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getSubordinates, type SubordinateUser } from '@/api/distribution/distribution'
+import { getSubordinates, type SubordinateUser } from '@/api/distribution'
 import { usePagination } from '@/composables/user/usePagination'
 
 /**
@@ -118,11 +118,6 @@ export function useDistributionInvites(options: UseDistributionInvitesOptions = 
           invite.nickname?.includes(inviteSearch.value)
       )
     }
-
-    // 注意：SubordinateUser 接口中没status 字段，如果需要过滤状态，需要从其他地方获取
-    // if (inviteStatusFilter.value) {
-    //   result = result.filter((invite) => invite.status === inviteStatusFilter.value)
-    // }
 
     return result
   })

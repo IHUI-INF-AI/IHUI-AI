@@ -109,8 +109,8 @@ describe('download.ts', () => {
     }
   }
 
-  function mockFetchOnce(response: any) {
-    return vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(response as any)
+  function mockFetchOnce(response: unknown) {
+    return vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(response as unknown as Response)
   }
 
   describe('downloadFile', () => {
@@ -212,7 +212,7 @@ describe('download.ts', () => {
     })
 
     it('应该处理null数据', () => {
-      downloadCsv(null as any, 'test.csv')
+      downloadCsv(null as unknown as Parameters<typeof downloadCsv>[0], 'test.csv')
       expect(createElementSpy).toHaveBeenCalledWith('a')
     })
 
@@ -316,9 +316,9 @@ describe('download.ts', () => {
   const originalFileReader = globalThis.FileReader
   function mockFileReaderError() {
     class FakeReader {
-      result: any = null
-      onload: ((e: any) => void) | null = null
-      onerror: ((e: any) => void) | null = null
+      result: unknown = null
+      onload: ((e: unknown) => void) | null = null
+      onerror: ((e: unknown) => void) | null = null
       readAsDataURL(_blob: Blob) { setTimeout(() => this.onerror && this.onerror({}), 0) }
       readAsText(_blob: Blob) { setTimeout(() => this.onerror && this.onerror({}), 0) }
       readAsArrayBuffer(_blob: Blob) { setTimeout(() => this.onerror && this.onerror({}), 0) }

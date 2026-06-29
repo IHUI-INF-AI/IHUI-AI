@@ -1,9 +1,9 @@
 {
   "memberCircle": {
-    "emptyCircle": "emptyCircle",
-    "emptyPost": "emptyPost",
-    "joinedCircles": "joinedCircles",
-    "publishedPosts": "publishedPosts",
-    "title": "标题"
+    "title": "내 서클",
+    "joinedCircles": "가입한 서클",
+    "emptyCircle": "가입한 서클 없음",
+    "publishedPosts": "게시한 게시물",
+    "emptyPost": "게시물 없음"
   }
 }

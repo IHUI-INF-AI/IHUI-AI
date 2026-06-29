@@ -13,7 +13,7 @@
 
 import { ref, type Ref } from 'vue'
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai/ai'
+import { streamGenerateContent } from '@/api/ai'
 import i18n from '@/locales'
 import type {
   PromptScore,

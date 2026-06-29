@@ -1,8 +1,8 @@
 {
   "unifiedQr": {
-    "auth": "auth",
-    "loginRequired": "loginRequired",
-    "needLoginFirst": "needLoginFirst",
-    "qrFailed": "qrFailed"
+    "loginRequired": "로그인 필요",
+    "auth": "인증",
+    "qrFailed": "QR 코드 생성 실패: 백엔드 서비스 설정을 확인하세요. 이 API는 로그인이 필요하지 않아야 합니다",
+    "needLoginFirst": "Need Login First"
   }
 }

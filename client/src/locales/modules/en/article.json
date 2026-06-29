@@ -3,6 +3,10 @@
     "searchPlaceholder": {
       "category": "Search categories",
       "content": "Search articles"
+    },
+    "label": {
+      "categoryName": "Category Name",
+      "actions": "Actions"
     }
   }
 }

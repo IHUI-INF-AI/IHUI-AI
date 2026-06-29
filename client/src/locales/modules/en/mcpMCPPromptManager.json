@@ -1,5 +1,5 @@
 {
   "mcpMCPPromptManager": {
-    "invalidServerOrPrompt": "invalidServerOrPrompt"
+    "invalidServerOrPrompt": "Invalid server ID or prompt name"
   }
 }

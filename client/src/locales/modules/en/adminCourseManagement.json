@@ -1,0 +1,40 @@
+{
+  "adminCourseManagement": {
+    "tabs": {},
+    "actions": {
+      "Export": "Export"
+    },
+    "courseList": {
+      "Status": "Status"
+    },
+    "search": {},
+    "categoryList": {},
+    "dialogs": {},
+    "messages": {
+      "fetchFailed": "Failed to fetch course list",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    },
+    "coursePayLogForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "coursePayForm": {
+      "Status": "Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled",
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "messages": {}
+    },
+    "courseForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "courseAuditForm": {
+      "validation": {},
+      "messages": {}
+    }
+  }
+}

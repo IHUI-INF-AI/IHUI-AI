@@ -1,15 +1,15 @@
 {
   "learnDetail": {
-    "buyNow": "buyNow",
-    "chapters": "chapters",
-    "continueLearn": "continueLearn",
-    "favorite": "收藏",
-    "favorited": "favorited",
-    "learnCount": "learnCount",
-    "learnNow": "learnNow",
-    "noChapters": "noChapters",
-    "notExist": "notExist",
-    "reviews": "reviews",
-    "teacher": "teacher"
+    "notExist": "コースが存在しません",
+    "teacher": "講師",
+    "learnCount": "人が学習",
+    "buyNow": "今すぐ購入",
+    "learnNow": "今すぐ学習",
+    "continueLearn": "学習を続ける",
+    "favorited": "お気に入り済み",
+    "favorite": "お気に入り",
+    "chapters": "章",
+    "noChapters": "章がありません",
+    "reviews": "レビュー"
   }
 }

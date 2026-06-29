@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="t('withdrawDialog.title')"
+    title="钱包提现"
     width="480"
     :align-center="true"
     :show-close="true"
@@ -114,7 +114,7 @@ async function onSubmit() {
   if (!canSubmit.value) return
   submitting.value = true
   try {
-    const res: any = await fetch('/api/v1/wallet/transactions', {
+    const res: { code?: number; data?: { transaction?: { id?: string } } } = await fetch('/api/v1/wallet/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -124,8 +124,7 @@ async function onSubmit() {
         description: `提现 ¥${amountYuan.value.toFixed(2)} 到 ${props.bankAccount?.bankName || '银行卡'}`,
       }),
     }).then(r => r.json())
-    const codeNum = typeof res?.code === 'string' ? parseInt(res.code, 10) : res?.code
-    if (codeNum === 0) {
+    if (res?.code === 0) {
       emit('success', { amount: amountYuan.value, txId: res.data?.transaction?.id || '' })
       onClose()
     }
@@ -270,7 +269,7 @@ function onClose() {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: var(--el-fill-color-light);
+      background: var(--color-gray-light);
       font-size: 14px;
       font-weight: 700;
     }
@@ -288,7 +287,7 @@ function onClose() {
     .bank-tail {
       font-size: 12px;
       color: v.$text-secondary;
-      font-family: var(--font-family-mono);
+      font-family: 'JetBrains Mono', Consolas, monospace;
     }
 
     .change-btn {
@@ -348,7 +347,7 @@ function onClose() {
   border: var(--unified-border);
   background: transparent;
   color: v.$text-primary;
-  transition: opacity 0.2s, border-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 
   &.primary {
     background: var(--el-text-color-primary);

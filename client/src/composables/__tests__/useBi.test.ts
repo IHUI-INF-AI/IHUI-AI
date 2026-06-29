@@ -224,7 +224,7 @@ describe('useBi.ts', () => {
   })
 
   describe('共享状态', () => {
-    it('共享的 loading 应在请求结束后回到 false', async () => {
+    it('共享的 loading 应用请求结束后回到 false', async () => {
       ;(http.get as any).mockResolvedValue({ code: 0, data: [] })
 
       const bi = useBi()
@@ -234,7 +234,7 @@ describe('useBi.ts', () => {
       expect(bi.loading.value).toBe(false)
     })
 
-    it('共享的 error 应在错误请求后写入', async () => {
+    it('共享的 error 应用错误请求后写入', async () => {
       ;(http.get as any).mockRejectedValue(new Error('连接失败'))
 
       const bi = useBi()

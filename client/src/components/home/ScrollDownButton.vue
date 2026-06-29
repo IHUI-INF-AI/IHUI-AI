@@ -68,7 +68,7 @@ const handleClick = () => {
 <style scoped lang="scss">
 .scroll-down-button {
   position: fixed;
-  bottom: 32px; /* 上移避开 .hero-cta 按钮区，避免重叠 */
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
   width: 44px;
@@ -79,7 +79,7 @@ const handleClick = () => {
   z-index: var(--z-dropdown);
   padding: 0;
   outline: none;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &:hover {
     transform: translateX(-50%) translateY(-2px);
@@ -88,7 +88,8 @@ const handleClick = () => {
       background: var(--color-white-95);
       border-color: var(--border-unified-color);
       border: var(--unified-border);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     .arrow-icon {
       transform: translateY(2px);
@@ -108,7 +109,8 @@ const handleClick = () => {
       background: color-mix(in srgb, var(--el-color-primary) 100%, transparent);
       border-color: var(--border-unified-color);
       border: var(--unified-border);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
   }
 }
 
@@ -121,10 +123,11 @@ const handleClick = () => {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
@@ -133,7 +136,7 @@ const handleClick = () => {
   width: 24px;
   height: 24px;
   color: var(--color-black-75);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: calc(var(--z-base) + 1);
   animation: subtle-bounce 2s ease-in-out infinite;
 }
@@ -168,18 +171,21 @@ const handleClick = () => {
   .button-inner {
     background: var(--color-white-10);
     border: var(--unified-border);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   .scroll-down-button:hover .button-inner {
     background: var(--color-white-15);
     border-color: var(--border-unified-color-hover);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   .scroll-down-button:active .button-inner,
   .scroll-down-button.is-clicking .button-inner {
     background: var(--color-white-20);
     border-color: var(--border-unified-color-hover);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   .arrow-icon {
     color: var(--color-white-90);
@@ -193,7 +199,7 @@ const handleClick = () => {
 // 淡入淡出过渡
 .scroll-button-fade-enter-active,
 .scroll-button-fade-leave-active {
-  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .scroll-button-fade-enter-from {
@@ -211,7 +217,7 @@ const handleClick = () => {
   .scroll-down-button {
     width: 40px;
     height: 40px;
-    bottom: 96px; /* 移动端上移更多，避开 .hero-cta */
+    bottom: 64px;
   }
   
   .arrow-icon {
@@ -228,7 +234,7 @@ const handleClick = () => {
   .scroll-down-button {
     width: 40px;
     height: 40px;
-    bottom: 96px; /* 窄屏同样上移 */
+    bottom: 64px;
   }
 
   .arrow-icon {

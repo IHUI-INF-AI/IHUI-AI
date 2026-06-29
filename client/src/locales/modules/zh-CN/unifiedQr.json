@@ -1,8 +1,8 @@
 {
   "unifiedQr": {
+    "loginRequired": "需要登录",
     "auth": "认证",
-    "loginRequired": "请先登录",
-    "needLoginFirst": "need 登录 首",
-    "qrFailed": "qr 失败"
+    "qrFailed": "生成二维码失败：请检查后端服务配置，该接口应该不需要登录",
+    "needLoginFirst": "Need Login First"
   }
 }

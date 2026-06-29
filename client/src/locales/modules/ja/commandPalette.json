@@ -10,27 +10,18 @@
     "noResults": "一致するコマンドが見つかりません",
     "systemInternal": "システム内部",
     "commands": {
-      "home": "ホームへ戻る",
-      "store": "AI アプリストア",
-      "plaza": "ニーズ広場",
-      "learnAI": "AI を学ぶ",
-      "ask": "AI 问答",
-      "circle": "AI コミュニティ",
-      "docs": "ドキュメントセンター",
-      "about": "私たちについて",
-      "darkMode": "ダークモード切替",
-      "aiAssistant": "AI アシスタントを開く",
+      "home": "ホームに戻る",
+      "store": "エージェント",
+      "plaza": "プラザ",
+      "learnAI": "学習AI",
+      "community": "AIクリエイティブコミュニティ",
+      "download": "ダウンロードセンター",
+      "docs": "技術ドキュメント",
+      "about": "会社概要",
+      "contact": "お問い合わせ",
+      "darkMode": "ダークモード切り替え",
+      "aiAssistant": "AIアシスタントを開く",
       "backToTop": "トップへ戻る"
-    },
-    "paths": {
-      "home": "ホームへ戻る",
-      "store": "AI アプリストア",
-      "plaza": "ニーズ広場",
-      "learnAI": "AI を学ぶ",
-      "ask": "AI 问答",
-      "circle": "AI コミュニティ",
-      "docs": "ドキュメントセンター",
-      "about": "私たちについて"
     }
   }
 }

@@ -1,15 +1,13 @@
 {
   "circleList": {
-    "allCategories": "allCategories",
-    "members": "会员",
-    "noCircles": "noCircles",
-    "noDesc": "noDesc",
-    "official": "official",
-    "onlyOfficial": "onlyOfficial",
-    "posts": "posts",
-    "searchPlaceholder": "请输入搜索内容",
-    "subtitle": "副标题",
-    "title": "标题",
-    "top": "置顶"
+    "title": "관심 서클",
+    "subtitle": "발견 / 가입 / 교류",
+    "allCategories": "전체 카테고리",
+    "noCircles": "서클 없음",
+    "official": "공식",
+    "top": "고정",
+    "noDesc": "소개 없음",
+    "members": "멤버",
+    "posts": "게시물"
   }
 }

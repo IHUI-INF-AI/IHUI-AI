@@ -1,12 +1,12 @@
 {
   "memberPoint": {
+    "myPoints": "我的积分",
+    "totalPoints": "总积分",
     "available": "可用",
-    "continuousSign": "continuous Sign",
-    "days": "天",
+    "used": "已用",
     "level": "等级",
-    "myPoints": "my 积分",
-    "pointDetails": "积分 details",
-    "totalPoints": "总计 积分",
-    "used": "已用"
+    "continuousSign": "连续签到",
+    "days": "天",
+    "pointDetails": "积分明细"
   }
 }

@@ -1,10 +1,10 @@
 {
   "memberFollow": {
-    "empty": "empty",
-    "followed": "followed",
-    "followers": "followers",
-    "following": "following",
-    "mutualFollow": "mutualFollow",
-    "title": "标题"
+    "title": "マイフォロー",
+    "empty": "フォローなし",
+    "followers": "フォロワー",
+    "following": "フォロー中",
+    "mutualFollow": "相互フォロー",
+    "followed": "フォロー済み"
   }
 }

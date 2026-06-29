@@ -1,13 +1,31 @@
 {
   "distributionOrder": {
-    "buyer": "买家",
-    "commission": "佣金",
-    "noOrders": "暂无订单",
+    "title": "分销订单",
+    "searchPlaceholder": "搜索订单号或商品名称",
+    "totalOrders": "共 {count} 个订单",
+    "totalCommission": "总佣金 ¥{amount}",
     "orderNo": "订单号",
+    "buyer": "下单人",
     "orderTime": "下单时间",
-    "searchPlaceholder": "请输入搜索内容",
-    "title": "标题",
-    "totalCommission": "佣金总额",
-    "totalOrders": "订单总数"
+    "commission": "获得佣金",
+    "noOrders": "暂无订单",
+    "tabs": {
+      "all": "全部",
+      "pending": "待结算",
+      "refund": "已退单",
+      "completed": "已完成"
+    },
+    "status": {
+      "unsettled": "未结算",
+      "refund": "退单",
+      "completed": "已完成",
+      "unknown": "未知"
+    },
+    "withdrawStatus": {
+      "unwithdrawn": "未提现",
+      "withdrawn": "已提现",
+      "approving": "审核中",
+      "unknown": "未知"
+    }
   }
 }

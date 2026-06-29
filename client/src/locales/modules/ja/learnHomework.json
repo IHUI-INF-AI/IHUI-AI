@@ -1,12 +1,12 @@
 {
   "learnHomework": {
-    "course": "课程",
-    "deadline": "截止日期",
-    "empty": "empty",
-    "homework": "homework",
-    "score": "分数",
-    "status": "状态",
-    "submit": "提交",
-    "submitted": "submitted"
+    "course": "コース",
+    "homework": "宿題",
+    "empty": "宿題なし",
+    "deadline": "期限:",
+    "status": "ステータス:",
+    "score": "スコア:",
+    "submitted": "提出済み",
+    "submit": "宿題を提出"
   }
 }

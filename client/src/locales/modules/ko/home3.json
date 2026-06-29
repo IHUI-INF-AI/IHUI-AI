@@ -1,5 +1,5 @@
 {
   "home3": {
-    "viewNews": "viewNews"
+    "viewNews": "뉴스 보기: {title}"
   }
 }

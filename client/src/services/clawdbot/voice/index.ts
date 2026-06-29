@@ -15,16 +15,25 @@ import { t } from '@/utils/i18n'
  
 
 // Web Speech API 类型声明
- 
-type SpeechRecognitionType = any
- 
-type SpeechRecognitionConstructor = any
 
-declare global {
-  interface Window {
-    SpeechRecognition: SpeechRecognitionConstructor
-    webkitSpeechRecognition: SpeechRecognitionConstructor
-  }
+interface SpeechRecognitionLike {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onresult: (event: unknown) => void
+  onerror: (event: unknown) => void
+  onend: (() => void) | null
+  start(): void
+  stop(): void
+}
+
+type SpeechRecognitionType = SpeechRecognitionLike
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+
+type WindowWithSpeechRecognition = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor
+  webkitSpeechRecognition?: SpeechRecognitionConstructor
 }
 
 import { ref, reactive } from 'vue'
@@ -204,21 +213,27 @@ export class VoiceManager extends EventEmitter {
    */
   private async initializeSpeechRecognition(): Promise<void> {
      
-    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    
+    const win = window as WindowWithSpeechRecognition
+    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition
+    if (!SpeechRecognitionClass) {
+      logger.warn('[Voice] SpeechRecognition is not supported in this browser')
+      return
+    }
+
     this.recognition = new SpeechRecognitionClass()
     this.recognition.continuous = true
     this.recognition.interimResults = true
     this.recognition.lang = this.config.language
 
      
-    this.recognition.onresult = (event: any) => {
+    this.recognition.onresult = (event: unknown) => {
+      const evt = event as { resultIndex: number; results: Array<{ isFinal: boolean; [index: number]: { transcript: string } }> }
       let transcript = ''
       let isFinal = false
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript
-        if (event.results[i].isFinal) {
+      for (let i = evt.resultIndex; i < evt.results.length; i++) {
+        transcript += evt.results[i][0].transcript
+        if (evt.results[i].isFinal) {
           isFinal = true
         }
       }
@@ -242,10 +257,11 @@ export class VoiceManager extends EventEmitter {
     }
 
      
-    this.recognition.onerror = (event: any) => {
-      logger.error('[Voice] Speech recognition error:', event.error)
-      this.status.error = event.error
-      this.emit('error', { error: new Error(event.error), context: 'recognition' })
+    this.recognition.onerror = (event: unknown) => {
+      const evt = event as { error: string }
+      logger.error('[Voice] Speech recognition error:', evt.error)
+      this.status.error = evt.error
+      this.emit('error', { error: new Error(evt.error), context: 'recognition' })
     }
 
     this.recognition.onend = () => {

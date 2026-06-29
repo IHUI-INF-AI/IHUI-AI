@@ -48,7 +48,7 @@ export const InputValidator = {
   /**
    * 验证是否为必填
    */
-  isRequired: (value: any): boolean => {
+  isRequired: (value: unknown): boolean => {
     if (typeof value === 'string') return value.trim().length > 0
     return value !== null && value !== undefined
   },

@@ -963,7 +963,7 @@ onMounted(() => {
   color: var(--footer-text-color);
   min-width: 0;
   position: relative;
-  z-index: var(--z-base); /* 默认层级，确保在背景框下方 */
+  z-index: var(--z-base); /* 默认层级，确保存背景框下方 */
 }
 
 /* 当二维码 hover 时，降低文字的层级 */
@@ -1028,7 +1028,7 @@ onMounted(() => {
 .qrcode-image-wrapper:hover .qrcode-image {
   transform: scale(1.2) translateY(-30px); /* 放大1.2倍并向上移动30px */
   border-radius: var(--global-border-radius); /* 放大后添加圆角 */
-  /* 使用全局投影 */
+  box-shadow: var(--global-box-shadow); /* 使用全局投影 */
 }
 
 .qrcode-image-wrapper:hover {
@@ -1296,7 +1296,7 @@ onMounted(() => {
   height: 180px;
   background-color: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
-  z-index: var(--z-notification); /* 最高层级，确保在 footer 外显示 */
+  z-index: var(--z-notification); /* 最高层级，确保存 footer 外显示 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1373,7 +1373,7 @@ onMounted(() => {
   line-height: 1;
   font-weight: 700;
   text-decoration: none;
-  transition: color 0.3s ease, background-color 0.3s ease;
+  transition: all 0.3s ease;
   white-space: nowrap;
   position: relative;
   padding: 0;

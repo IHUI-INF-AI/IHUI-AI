@@ -17,11 +17,11 @@
     "testItem": "テスト項目",
     "status": "ステータス",
     "errorInfo": "エラー情報",
-    "chatTest": "chatTest",
-    "compTest": "compTest",
-    "genTest": "genTest",
-    "serviceTest": "serviceTest",
-    "testComplete": "testComplete",
-    "typeTest": "typeTest"
+    "chatTest": "--- チャットAPIテスト ---",
+    "genTest": "\n--- 生成APIテスト ---",
+    "compTest": "\n--- Composableテスト ---",
+    "typeTest": "\n--- 型定義テスト ---",
+    "serviceTest": "\n--- サービスエクスポートテスト ---",
+    "testComplete": "テスト完了"
   }
 }

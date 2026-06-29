@@ -11,8 +11,8 @@
       "lessonTrash": "휴지통 강의 검색",
       "signup": "신청 검색",
       "order": "주문 검색",
-      "lesson": "강의 검색"
-    },
-    "hotRecommend": "hotRecommend"
+      "lesson": "강의 검색",
+      "homework": "과제 검색"
+    }
   }
 }

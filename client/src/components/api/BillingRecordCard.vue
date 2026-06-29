@@ -48,7 +48,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Connection, Key, Document, Timer, Clock } from '@element-plus/icons-vue'
-import type { BillingRecord } from '@/api/payment/billing'
+import type { BillingRecord } from '@/api/billing'
 import { formatTime, formatNumber } from '@/utils/format'
 
 defineOptions({
@@ -81,12 +81,13 @@ const statusText = computed(() => {
 <style scoped lang="scss">
 .billing-record-card {
   margin-bottom: 16px;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--global-border-radius);
 
   &:hover {
-    
-    }
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
+  }
 
   .record-header {
     display: flex;

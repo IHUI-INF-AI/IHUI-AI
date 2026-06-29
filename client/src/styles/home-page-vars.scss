@@ -47,12 +47,12 @@
   
   // 颜色
   --home-title-color: var(--el-text-color-primary);
-  --home-subtitle-color: var(--el-text-color-placeholder);
+  --home-subtitle-color: var(--color-gray-999);
   --home-description-color: var(--el-text-color-regular);
 }
 
 // 暗色模式变量覆盖
-:where(html.dark) {
+html.dark {
   --home-card-bg: var(--color-white-5);
   --home-card-border: 1px solid var(--border-unified-color);
   --home-title-color: var(--el-bg-color);
@@ -61,7 +61,7 @@
 }
 
 // 响应式变量覆盖
-@media (width <= 768px) {
+@media (max-width: 768px) {
   :root {
     --home-marquee-img-width: 140px;
     --home-marquee-img-height: 70px;
@@ -69,7 +69,7 @@
   }
 }
 
-@media (width <= 480px) {
+@media (max-width: 480px) {
   :root {
     --home-marquee-img-width: 120px;
     --home-marquee-img-height: 60px;

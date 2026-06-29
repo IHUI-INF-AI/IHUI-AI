@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { onMounted, h } from 'vue'
@@ -43,12 +44,12 @@ import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 
 const formFields: FormField[] = [
-  { prop: 'keyword', label: '热词', required: true, minLength: 1, maxLength: 100 },
+  { prop: 'keyword', label: t('adminCommon.label.hotKeyword'), required: true, minLength: 1, maxLength: 100 },
 ]
 
 const { keyword, page, size, total, loading, list, reload, onSearch, onPageChange } = useAdminTable({
@@ -64,15 +65,15 @@ const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete
   onSuccess: reload,
 })
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'keyword', dataKey: 'keyword', title: '热词', width: 220 },
+  { key: 'keyword', dataKey: 'keyword', title: t('adminCommon.label.hotKeyword'), width: 220 },
   { key: 'searchCount', dataKey: 'searchCount', title: '搜索数', width: 120 },
   {
     key: 'actions',
-    title: '操作',
+    title: t('adminCommon.label.operation'),
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: ({ rowData: row }) => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('common.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('common.delete')),

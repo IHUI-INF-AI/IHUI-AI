@@ -1,7 +1,7 @@
 {
   "adminDependencyManager": {
-    "confirmDeleteConfig": "confirmDeleteConfig",
-    "enterTourId": "enterTourId",
-    "newConfig": "newConfig"
+    "enterTourId": "請輸入引導ID",
+    "confirmDeleteConfig": "確定要刪除此配置嗎？",
+    "newConfig": "新建設定"
   }
 }

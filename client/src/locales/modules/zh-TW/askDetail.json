@@ -1,14 +1,14 @@
 {
   "askDetail": {
-    "adopt": "adopt",
-    "adopted": "adopted",
-    "answers": "answers",
-    "backToList": "backToList",
-    "essence": "essence",
+    "backToList": "返回列表",
+    "questionNotFound": "問題不存在或已刪除",
+    "top": "置頂",
+    "essence": "精華",
+    "answers": "個回答",
+    "submitAnswer": "提交回答",
+    "adopted": "已採納",
+    "adopt": "採納",
     "favorite": "收藏",
-    "questionNotFound": "questionNotFound",
-    "submitAnswer": "submitAnswer",
-    "top": "置顶",
-    "writeAnswerPlaceholder": "writeAnswerPlaceholder"
+    "writeAnswerPlaceholder": "寫下你的回答..."
   }
 }

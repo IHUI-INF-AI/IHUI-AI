@@ -1,8 +1,8 @@
 {
   "unifiedQr": {
-    "auth": "auth",
-    "loginRequired": "loginRequired",
-    "needLoginFirst": "needLoginFirst",
-    "qrFailed": "qrFailed"
+    "loginRequired": "Login required",
+    "auth": "Auth",
+    "qrFailed": "QR code generation failed: please check backend service config, this API should not require login",
+    "needLoginFirst": "Need Login First"
   }
 }

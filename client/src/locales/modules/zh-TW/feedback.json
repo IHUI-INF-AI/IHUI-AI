@@ -1,25 +1,29 @@
 {
   "feedback": {
+    "title": "意见反饋",
     "content": {
-      "tip": "tip"
+      "tip": "您的反饋對我們非常重要，請詳細描述您的問題或建議"
+    },
+    "type": {
+      "feature": "功能建議",
+      "bug": "問題反饋",
+      "experience": "體验問題",
+      "other": "其他"
     },
     "rules": {
-      "contentMin": "contentMin",
-      "contentRequired": "contentRequired"
+      "contentRequired": "請輸入反饋內容",
+      "contentMin": "內容長度至少10個字符"
     },
-    "submitSuccess": "submitSuccess",
-    "title": "标题",
-    "type": {
-      "bug": "bug",
-      "experience": "experience",
-      "feature": "功能",
-      "other": "other"
-    }
+    "submitSuccess": "反饋提交成功，感謝您的反饋！",
+    "feedbackRecords": "反饋記錄",
+    "submitFeedback": "提交反饋",
+    "loading": "載入中...",
+    "submitFailed": "提交失敗，請重試"
   },
   "Feedback": {
-    "feedbackRecords": "feedbackRecords",
-    "loading": "加载中",
-    "submitFailed": "submitFailed",
-    "submitFeedback": "submitFeedback"
+    "feedbackRecords": "反饋記錄",
+    "submitFeedback": "提交反饋",
+    "loading": "載入中...",
+    "submitFailed": "提交失敗，請重試"
   }
 }

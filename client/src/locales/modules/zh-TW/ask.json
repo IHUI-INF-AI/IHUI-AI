@@ -3,6 +3,10 @@
     "searchPlaceholder": {
       "category": "搜尋分類",
       "question": "搜尋問題"
+    },
+    "label": {
+      "categoryName": "分類名稱",
+      "actions": "操作"
     }
   }
 }

@@ -172,7 +172,7 @@ describe('clipboard', () => {
 
   describe('不支持的平台', () => {
     it('应该返回失败结果', async () => {
-      currentPlatform = 'unknown' as any
+      currentPlatform = 'unknown' as unknown as string
 
       const { ClipboardManager } = await import('../clipboard')
       const result = await ClipboardManager.copy('test text')

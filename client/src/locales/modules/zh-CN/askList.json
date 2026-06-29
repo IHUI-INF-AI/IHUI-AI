@@ -1,21 +1,18 @@
 {
   "askList": {
+    "community": "问答社区",
+    "subtitle": "提问 / 解答 / 分享 你的 AI 知识",
+    "askQuestion": "我要提问",
     "allCategories": "全部分类",
-    "askQuestion": "提问 问题",
-    "category": "分类",
-    "community": "社区",
-    "content": "内容",
-    "contentPlaceholder": "请输入内容",
-    "essence": "精华",
-    "hottest": "最热",
     "latest": "最新",
-    "mostAnswered": "most Answered",
-    "noQuestions": "无 questions",
-    "pinned": "已置顶",
-    "searchPlaceholder": "请输入搜索内容",
-    "selectCategory": "选择分类",
-    "subtitle": "副标题",
+    "hottest": "最热",
+    "mostAnswered": "最多回答",
+    "noQuestions": "暂无问题",
+    "pinned": "置顶",
+    "essence": "精华",
     "title": "标题",
-    "titlePlaceholder": "请输入标题"
+    "content": "正文",
+    "category": "分类",
+    "selectCategory": "选择分类 (可选)"
   }
 }

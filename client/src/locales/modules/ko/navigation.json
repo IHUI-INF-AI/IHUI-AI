@@ -1,0 +1,24 @@
+{
+  "navigation": {
+    "aiStore": "에이전트",
+    "moreFeatures": "더 많은 기능",
+    "customerService": "고객 서비스",
+    "documentCenter": "문서 센터",
+    "newsCenter": "AI 뉴스",
+    "aboutUs": "회사 소개",
+    "becomeSupplier": "공급업체 되기",
+    "noMoreItems": "더 이상 항목 없음",
+    "sidebar": "사이드바",
+    "collapseSidebar": "사이드바 접기",
+    "expandSidebar": "사이드바 펼치기",
+    "coreFeatures": "핵심 기능",
+    "serviceSupport": "서비스 지원",
+    "문의하기": "문의하기",
+    "learnCourses": "강의 센터",
+    "learnMap": "학습 지도",
+    "liveClass": "라이브 강의",
+    "myLearning": "내 학습",
+    "openAiPanel": "AI 어시스턴트 열기",
+    "closeAiPanel": "AI 어시스턴트 닫기"
+  }
+}

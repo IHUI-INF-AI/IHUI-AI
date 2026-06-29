@@ -346,7 +346,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AI App Store",
+        "AI应用商店": "Agents",
         "服务与支持": "Services & Support",
         "关于我们": "About Us"
       }
@@ -695,7 +695,6 @@
       "向下滚动": "向下滚动"
     },
     "third_party_login": {
-      "Alipay": "Alipay",
       "Feishu1": "Feishu"
     },
     "project_selector_banner": {

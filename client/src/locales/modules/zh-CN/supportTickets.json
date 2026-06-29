@@ -1,7 +1,6 @@
 {
   "supportTickets": {
-    "merged": "工单功能已合并到反馈页",
-    "title": "支持工单",
-    "goToFeedback": "前往反馈页"
+    "title": "工单支持",
+    "merged": "该页面已被精简合并"
   }
 }

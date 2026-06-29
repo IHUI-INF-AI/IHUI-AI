@@ -1,30 +1,30 @@
 {
   "vipDetails": {
+    "title": "会員詳細",
+    "subtitle": "あなたに合った会員プランを選択",
     "monthly": {
-      "benefits": {
-        "0": "0",
-        "1": "1",
-        "2": "2",
-        "3": "3"
-      },
-      "days": "days",
-      "select": "选择",
-      "title": "标题"
+      "title": "月間会員",
+      "days": "30日",
+      "select": "選択",
+      "benefits": [
+        "全コース無料学習",
+        "専用学習コミュニティ",
+        "月3回AI質疑応答",
+        "学習進捗トラッキング"
+      ]
     },
-    "monthlyMember": "monthlyMember",
-    "subtitle": "副标题",
-    "title": "标题",
     "yearly": {
-      "benefits": {
-        "0": "0",
-        "1": "1",
-        "2": "2",
-        "3": "3"
-      },
-      "days": "days",
-      "select": "选择",
-      "title": "标题"
+      "title": "年間会員",
+      "days": "365日",
+      "select": "選択",
+      "benefits": [
+        "全コース無料学習",
+        "専用学習コミュニティ",
+        "無制限AI質疑応答",
+        "進捗トラッキング+証明書"
+      ]
     },
-    "yearlyMember": "yearlyMember"
+    "monthlyMember": "月間会員",
+    "yearlyMember": "年間会員"
   }
 }

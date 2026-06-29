@@ -1,0 +1,21 @@
+{
+  "adminCoursePayLogManagement": {
+    "actions": {
+      "Export": "Export"
+    },
+    "search": {},
+    "table": {},
+    "payMethod": {},
+    "payStatus": {
+      "Failed": "Failed"
+    },
+    "refundStatus": {
+      "Failed": "Refund Failed"
+    },
+    "dialog": {},
+    "messages": {
+      "ExportSuccess": "Exported successfully",
+      "ExportFailed": "Export Failed"
+    }
+  }
+}

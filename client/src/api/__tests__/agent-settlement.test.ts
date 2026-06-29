@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../agent/agent-settlement'
+import * as api from '../agent-settlement'
 
 describe('agent-settlement', () => {
   beforeEach(() => {

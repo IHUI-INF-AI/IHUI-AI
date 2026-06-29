@@ -71,6 +71,8 @@
         "originalPrice": "原價 ¥{price}"
       },
       "plans": {
+        "vip": "會員",
+        "trader": "操盤手",
         "upgrade": "升級套餐",
         "subscribe": "立即開通",
         "recommended": "推薦"
@@ -94,13 +96,54 @@
       "guarantee": "7天無理由退款保障"
     },
     "payment": {
+      "title": "支付",
+      "subtitle": "請選擇支付方式完成訂單",
+      "orderInfo": "訂單資訊",
+      "productName": "商品名稱",
+      "orderNo": "訂單號",
+      "amount": "金額",
       "paymentMethods": "支付方式",
+      "platformCoins": {
+        "name": "平台幣支付",
+        "desc": "使用賬戶餘額支付"
+      },
       "alipay": "alipay",
+      "wechat": {
+        "name": "微信支付",
+        "desc": "使用微信掃碼支付"
+      },
+      "card": {
+        "name": "銀行卡",
+        "desc": "使用銀行卡支付"
+      },
       "confirmPay": "確認支付 ¥{price}",
       "cancel": "取消",
+      "underDevelopment": "功能開發中",
+      "confirmPayment": "確認支付",
+      "processing": "處理中...",
+      "invalidOrderInfo": "訂單資訊無效",
+      "cardNotSupported": "銀行卡支付暫不支持，請選擇其他支付方式",
+      "createOrderFailed": "創建支付訂單失敗",
+      "paymentDataError": "支付數據錯誤",
+      "paymentSuccess": "支付成功",
+      "paymentFailed": "支付失敗",
+      "insufficientBalance": "平台幣餘額不足，請選擇其他支付方式或先充值",
+      "orderAlreadyPaid": "訂單已支付",
       "qrCodeTitle": "掃碼支付",
+      "generatingQRCode": "正在生成支付二維碼...",
       "qrCodeTip": "請使用手機掃描下方二維碼完成支付",
+      "qrCodeFailed": "二維碼生成失敗",
+      "openPaymentPage": "打開支付頁面",
+      "checkStatus": "檢查支付狀態",
+      "cancelPayment": "取消支付",
+      "paymentNotAvailable": "支付功能暫未開放",
+      "paymentRedirecting": "正在跳轉到支付頁面...",
+      "wechatPaymentRequiresJSAPI": "微信支付需要在微信環境中使用",
+      "pageTitleKeyword": "支付",
+      "pageTitle": "支付頁面",
+      "defaultProductName": "未命名商品",
       "qrCodeAlt": "支付二維碼",
+      "unsupportedMethod": "不支持的支付方式",
       "close": "關閉",
       "confirmOrder": "確認訂單",
       "orderDetails": "訂單詳情",
@@ -126,34 +169,36 @@
       }
     },
     "paymentFailed": "支付失敗",
+    "permanentVip": "/永久會員",
+    "oneClickVip": "一鍵開通會員",
     "userMembershipBenefits": {
-      "benefit10One": "benefit10One",
-      "benefit10Three": "benefit10Three",
-      "benefit10Title": "benefit10Title",
-      "benefit10Two": "benefit10Two",
-      "benefit11Title": "benefit11Title",
-      "benefit1One": "benefit1One",
-      "benefit1Three": "benefit1Three",
-      "benefit1Title": "benefit1Title",
-      "benefit1Two": "benefit1Two",
-      "benefit2Title": "benefit2Title",
-      "benefit3Title": "benefit3Title",
-      "benefit4Title": "benefit4Title",
-      "benefit5Title": "benefit5Title",
-      "benefit6Title": "benefit6Title",
-      "benefit7One": "benefit7One",
-      "benefit7Three": "benefit7Three",
-      "benefit7Title": "benefit7Title",
-      "benefit7Two": "benefit7Two",
-      "benefit8Title": "benefit8Title",
-      "benefit9Title": "benefit9Title",
-      "benefitName": "benefitName",
-      "normalUser": "normalUser",
-      "trader": "trader",
-      "traderPrice": "traderPrice",
-      "upgrade": "upgrade",
+      "vipPrice": "限時588元/1288元開通VIP/年",
+      "traderPrice": "限時3888元/18888元開通操盤手/年",
+      "benefitName": "權益名稱",
+      "normalUser": "普通用戶",
       "vip": "VIP",
-      "vipPrice": "vipPrice"
+      "trader": "操盤手",
+      "upgrade": "立即開通",
+      "benefit1Title": "終身二級分銷收益",
+      "benefit1One": "分享送智匯值",
+      "benefit1Two": "一級分銷10%",
+      "benefit1Three": "一級分銷40%二級分銷10%",
+      "benefit2Title": "獲取上千+智能體源碼",
+      "benefit3Title": "AI應用Coze官方渠道發布",
+      "benefit4Title": "AI應用限免開放",
+      "benefit5Title": "Coze/N8N無縫接入",
+      "benefit6Title": "多對一答疑陪跑",
+      "benefit7Title": "算力值贈送",
+      "benefit7One": "8萬",
+      "benefit7Two": "888萬",
+      "benefit7Three": "1888萬",
+      "benefit8Title": "總部入駐及線下學習實操機會",
+      "benefit9Title": "成立一人公司",
+      "benefit10Title": "定制Agent",
+      "benefit10One": "原價",
+      "benefit10Two": "9.5折",
+      "benefit10Three": "8折",
+      "benefit11Title": "入駐社區服務商名列"
     }
   },
   "vipLevelPopup": {
@@ -166,12 +211,10 @@
     "benefitLevel7": "達到<b style=\"color: var(--color-red)\">9000</b>智匯力達到<b style=\"color: var(--color-red)\">7級:智壘中樞</b>，享受<b style=\"color: var(--color-red)\">8.3</b>折",
     "benefitLevel8": "達到<b style=\"color: var(--color-red)\">10500</b>智匯力達到<b style=\"color: var(--color-red)\">8級:智能領航</b>，享受<b style=\"color: var(--color-red)\">8</b>折",
     "benefitLevel9": "達到<b style=\"color: var(--color-red)\">12000</b>智匯力達到<b style=\"color: var(--color-red)\">9級:量子智腦</b>，享受<b style=\"color: var(--color-red)\">7.7</b>折",
-    "benefitLevel10": "達到<b style=\"color: var(--color-red)\">18888</b>智匯力達到<b style=\"color: var(--color-red)\">10級:超維先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折",
-    "goActivate": "goActivate",
-    "level0Desc": "level0Desc"
+    "benefitLevel10": "達到<b style=\"color: var(--color-red)\">18888</b>智匯力達到<b style=\"color: var(--color-red)\">10級:超維先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折"
   },
   "Vip": {
-    "oneClickVip": "oneClickVip",
-    "permanentVip": "permanentVip"
+    "permanentVip": "/永久會員",
+    "oneClickVip": "一鍵開通會員"
   }
 }

@@ -1,7 +1,7 @@
 <template>
   <div class="live-detail-page page-container" v-loading="loading">
     <div v-if="!channel.id" class="empty">
-      <el-empty :description="t('livePlay.liveNotFound')" />
+      <el-empty description="直播不存在" />
     </div>
     <template v-else>
       <div class="hero">
@@ -49,21 +49,22 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { liveApi } from '@/api/learn/live'
+import { liveApi } from '@/api/live'
+import type { LiveChannel } from '@/api/live'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const id = String(route.params.id || '')
 
-const channel = ref<any>({})
+const channel = ref<Partial<LiveChannel>>({})
 const loading = ref(false)
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await liveApi.detail(id)
-    channel.value = res.data || {}
+    const res = await liveApi.detail(id)
+    channel.value = res.data?.data || {}
   } finally {
     loading.value = false
   }
@@ -84,7 +85,7 @@ async function toggleSubscribe() {
 }
 
 async function handleLike() {
-  const prev = channel.value.likeNum || 0
+  const prev = Number(channel.value.likeNum) || 0
   channel.value.likeNum = prev + 1
   try {
     await liveApi.like(id)

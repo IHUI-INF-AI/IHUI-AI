@@ -203,7 +203,7 @@ export class ClipboardManager {
    */
   private static async copyToAlipay(text: string): Promise<ClipboardResult> {
     const platform = 'alipay'
-    type AlipayMy = { setClipboard?: (opts: { text: string; success: () => void; fail: (error: any) => void }) => void; getClipboard?: (opts: { success: (res: { text: string }) => void; fail: (error: any) => void }) => void }
+    type AlipayMy = { setClipboard?: (opts: { text: string; success: () => void; fail: (error: unknown) => void }) => void; getClipboard?: (opts: { success: (res: { text: string }) => void; fail: (error: unknown) => void }) => void }
     const my = (window as Window & { my?: AlipayMy }).my
 
     if (!my) {
@@ -235,7 +235,7 @@ export class ClipboardManager {
             message: t('api.clipboard.复制成功11'),
           })
         },
-        fail: (error: any) => {
+        fail: (error: unknown) => {
           logger.error('Alipay clipboard copy failed:', error)
           resolve({
             success: false,
@@ -253,7 +253,7 @@ export class ClipboardManager {
    */
   private static async pasteFromAlipay(): Promise<{ text: string | null } & ClipboardResult> {
     const platform = 'alipay'
-    type AlipayMy = { setClipboard?: (opts: { text: string; success: () => void; fail: (error: any) => void }) => void; getClipboard?: (opts: { success: (res: { text: string }) => void; fail: (error: any) => void }) => void }
+    type AlipayMy = { setClipboard?: (opts: { text: string; success: () => void; fail: (error: unknown) => void }) => void; getClipboard?: (opts: { success: (res: { text: string }) => void; fail: (error: unknown) => void }) => void }
     const my = (window as Window & { my?: AlipayMy }).my
 
     if (!my) {
@@ -286,7 +286,7 @@ export class ClipboardManager {
             message: t('api.clipboard.读取成功15'),
           })
         },
-        fail: (error: any) => {
+        fail: (error: unknown) => {
           logger.error('Alipay clipboard read failed:', error)
           resolve({
             text: null,

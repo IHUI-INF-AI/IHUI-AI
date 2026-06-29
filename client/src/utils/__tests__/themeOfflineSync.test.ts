@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const mockOfflineSyncService = () => {
-  let tasks: any[] = []
+  let tasks: Array<{ id: string; userId: string; themeMode: string; createdAt: number; retryCount: number; status: string }> = []
   
   return {
     addTask: (userId: string, themeMode: string) => {

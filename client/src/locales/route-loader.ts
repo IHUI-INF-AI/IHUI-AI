@@ -10,8 +10,17 @@ const adminModules = [
   'exam', 'learn', 'circle', 'comment', 'org', 'member', 'article',
   'setting', 'adminAuth', 'resource', 'point', 'live', 'message',
   'certificate', 'ask', 'search', 'account', 'adminCommon',
-  'migrationAdmin', 'notificationCenter', 'answerDetail',
-  'settlement', 'agentExamine',
+  // 2026-06-28 修复: 补充 admin 后台缺失的 i18n 模块注册（扫描 admin 目录得出）
+  // 同步 modules json 后，若不注册到 adminModules，路由进入 /admin 时不会加载，键名裸露
+  'admin', 'adminAiworldSite', 'adminBatchEditDialog', 'adminClassicHome',
+  'adminComponents', 'adminDependencyManager', 'adminEditDialog',
+  'adminExamAnswerDetail', 'adminFAQList', 'adminFeedbackList',
+  'adminGrayRelease', 'adminHome', 'adminHomeIndex', 'adminKpiCard',
+  'adminLayout', 'adminOrderList', 'adminSecurity', 'adminSettingCarousel',
+  'adminSettingIndex', 'adminTableV2', 'cacheDashboard', 'commonText',
+  'dependency', 'errorDashboard', 'eventBus', 'grayRelease',
+  'mobileAdapter', 'monitoring', 'performance', 'recommendation',
+  'refundAudit',
 ]
 
 // 路由路径前缀到 i18n 模块的映射
@@ -20,8 +29,8 @@ const pathModuleMap: Array<{ prefix: string; module: string }> = [
   { prefix: '/ai-community', module: 'aiCommunity' },
   { prefix: '/community', module: 'community' },
   { prefix: '/ai-generation', module: 'aiGeneration' },
-  { prefix: '/open-platform-docs', module: 'openPlatformDocs' },
   { prefix: '/open', module: 'openPlatform' },
+  { prefix: '/open-platform-docs', module: 'openPlatformDocs' },
   { prefix: '/agents', module: 'agentCategory' },
   { prefix: '/agent-detail', module: 'agentDetail' },
   { prefix: '/agent-income', module: 'agentIncome' },
@@ -35,11 +44,11 @@ const pathModuleMap: Array<{ prefix: string; module: string }> = [
   { prefix: '/wx-miniprogram', module: 'wxMiniprogram' },
   { prefix: '/wx-login', module: 'wxLogin' },
   { prefix: '/web-only', module: 'webOnlyFeature' },
-  { prefix: '/desktop-settings', module: 'desktopSettings' },
+  { prefix: '/desktop', module: 'desktopExperience' },
   { prefix: '/qr-scanner', module: 'qrScanner' },
   { prefix: '/mobile-optimized', module: 'mobileOptimized' },
   { prefix: '/system-tray', module: 'systemTray' },
-  { prefix: '/desktop', module: 'desktopExperience' },
+  { prefix: '/desktop-settings', module: 'desktopSettings' },
   { prefix: '/qr-code', module: 'qrCode' },
   { prefix: '/unified-qr-login', module: 'unifiedQRLogin' },
   { prefix: '/register', module: 'register' },
@@ -55,14 +64,11 @@ const pathModuleMap: Array<{ prefix: string; module: string }> = [
   { prefix: '/purchase', module: 'purchase' },
   { prefix: '/api-test', module: 'apiTest' },
   { prefix: '/settlement-stats', module: 'cmpindex' },
-  { prefix: '/edu', module: 'edu' },
   { prefix: '/dashboard', module: 'dashboard' },
   { prefix: '/learn-ai', module: 'learn' },
-  { prefix: '/learn', module: 'learn' },
   { prefix: '/live', module: 'live' },
   { prefix: '/vip', module: 'vip' },
   { prefix: '/footer', module: 'footer' },
-  { prefix: '/support/document-center', module: 'help' },
   { prefix: '/app', module: 'app' },
 ]
 
@@ -83,14 +89,6 @@ export function setupRouteLanguageLoader(router: Router) {
     if (to.path.startsWith('/open')) {
       try {
         await loadModule(getCurrentLocale(), 'openPlatform')
-      } catch {
-        // 加载失败也放行
-      }
-    }
-    // /ai-generation 路径额外加载 dramaScript 模块（DramaScriptExcel.vue 大量使用 t('dramaScript.*')）
-    if (to.path.startsWith('/ai-generation')) {
-      try {
-        await loadModule(getCurrentLocale(), 'dramaScript')
       } catch {
         // 加载失败也放行
       }

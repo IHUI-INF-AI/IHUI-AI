@@ -47,13 +47,13 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Document, VideoCamera, Headset, Picture, Folder, Files } from '@element-plus/icons-vue'
-import { resourceApi } from '@/api/resource'
+import { resourceApi, type ResourceItem } from '@/api/resource'
 import Pagination from '@/components/learn/Page.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const loading = ref(false)
-const list = ref<any[]>([])
+const list = ref<ResourceItem[]>([])
 const keyword = ref('')
 const type = ref('')
 const sort = ref<'new' | 'hot' | 'download'>('new')
@@ -62,7 +62,7 @@ const size = ref(12)
 const total = ref(0)
 let reqSeq = 0
 
-const ICONS: Record<string, any> = { doc: Document, video: VideoCamera, audio: Headset, image: Picture, archive: Folder, other: Files }
+const ICONS: Record<string, unknown> = { doc: Document, video: VideoCamera, audio: Headset, image: Picture, archive: Folder, other: Files }
 function iconForType(t?: string) { return ICONS[t || 'other'] || Files }
 function formatSize(b: number) {
   if (b < 1024) return b + ' B'
@@ -77,12 +77,12 @@ async function reload() {
   try {
     const res = await resourceApi.list({ current: current.value, size: size.value, keyword: keyword.value || undefined, type: type.value || undefined, sort: sort.value })
     if (seq !== reqSeq) return
-    list.value = (res.data as any)?.list || (res.data as any)?.data?.list || []
-    total.value = (res.data as any)?.total || (res.data as any)?.data?.total || 0
+    list.value = res.data?.data?.list || []
+    total.value = res.data?.data?.total || 0
   } finally { if (seq === reqSeq) loading.value = false }
 }
 function onPage(p: { current: number; size: number }) { current.value = p.current; size.value = p.size; reload() }
-function goDetail(r: any) { router.push(`/resource/${r.id}`) }
+function goDetail(r: ResourceItem) { router.push(`/resource/${r.id}`) }
 watch([keyword, type, sort], () => { current.value = 1; reload() })
 onMounted(reload)
 </script>
@@ -98,7 +98,7 @@ onMounted(reload)
   .type-select { width: 130px; }
   .sort-select { width: 130px; }
   .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .resource-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s; border: var(--unified-border); &:hover {  border-color: var(--el-color-primary); } }
+  .resource-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); border-color: var(--el-color-primary); } }
   .card-cover { position: relative; aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; background: var(--el-fill-color-light); color: var(--el-color-primary); &.type-doc { background: var(--el-color-primary-light-9); } &.type-video { background: var(--el-color-success-light-9); color: var(--el-color-success); } &.type-audio { background: var(--el-color-warning-light-9); color: var(--el-color-warning); } &.type-image { background: var(--el-color-info-light-9); color: var(--el-color-info); } &.type-archive { background: var(--el-color-danger-light-9); color: var(--el-color-danger); } }
   .badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; color: var(--el-bg-color); &.top { background: var(--el-color-danger); } }
   .card-info { padding: 12px; }

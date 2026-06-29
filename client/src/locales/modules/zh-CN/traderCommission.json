@@ -1,39 +1,51 @@
 {
   "traderCommission": {
-    "errors": {
-      "copyFailed": "复制失败",
-      "copySuccess": "复制成功"
-    },
-    "noRecords": "暂无记录",
-    "pendingCommission": "待处理 佣金",
-    "status": {
-      "cancelled": "已取消",
-      "pending": "待处理",
-      "settled": "已结算",
-      "unknown": "未知"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "actions": "操作",
-      "buyer": "买家",
-      "commissionAmount": "佣金 金额",
-      "copyOrderId": "复制 订单 编号",
-      "orderTime": "下单时间",
-      "relatedOrder": "相关订单",
-      "status": "状态"
-    },
+    "title": "我的佣金",
+    "subtitle": "查看您的操盘手佣金详情",
+    "totalCommission": "累计佣金",
+    "pendingCommission": "待结算佣金",
+    "todayCommission": "今日佣金",
+    "withdraw": "提现",
     "tabs": {
       "all": "全部",
-      "cancelled": "已取消",
-      "pending": "待处理",
-      "settled": "已结算"
+      "pending": "待结算",
+      "settled": "已结算",
+      "cancelled": "取消结算"
     },
-    "title": "标题",
-    "todayCommission": "今日佣金",
-    "totalCommission": "佣金总额",
-    "withdraw": "提现",
-    "withdrawDetails": "提现 details",
-    "withdrawableCommission": "withdrawable 佣金",
-    "withdrawnCommission": "withdrawn 佣金"
+    "table": {
+      "buyer": "下单人",
+      "relatedOrder": "关联订单",
+      "commissionAmount": "佣金金额",
+      "status": "状态",
+      "orderTime": "下单时间",
+      "actions": "操作",
+      "copyOrderId": "复制订单号"
+    },
+    "status": {
+      "settled": "已结算",
+      "pending": "待结算",
+      "cancelled": "取消结算",
+      "unknown": "未知"
+    },
+    "noRecords": "暂无佣金记录",
+    "errors": {
+      "copySuccess": "订单号已复制到剪贴板",
+      "copyFailed": "复制失败，请手动复制",
+      "loadFailed": "获取佣金数据失败",
+      "loadRetry": "获取佣金数据失败，请稍后重试"
+    },
+    "withdrawableCommission": "Withdrawable佣金",
+    "withdrawnCommission": "Withdrawn佣金",
+    "withdrawDetails": "Withdraw详情",
+    "available": "可提现",
+    "withdrawn": "已提现",
+    "yuan": "元",
+    "withdrawDetail": "提现明细",
+    "commission": "佣金",
+    "buyer": "下单人",
+    "copy": "复制",
+    "noCommission": "暂无佣金记录",
+    "withdrawSuccess": "提现成功",
+    "withdrawDetailInfo": "查看提现明细"
   }
 }

@@ -4,16 +4,16 @@ import { t } from '@/utils/i18n'
 import { getI18nGlobal } from '@/locales'
 import {
   login as apiLogin,
+  adminLogin as apiAdminLogin,
   register as apiRegister,
   phoneLogin,
   completePhoneLogin,
-  logout as apiLogout,
-} from '@/api/user/user'
+} from '@/api/user'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
 import type { LoginDuration } from '@/utils/login-duration'
 import type { LoginParams, RegisterParams } from '@/types'
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
 import type { LoginResponseData } from './types'
 import { buildUserFromLoginResponse } from './utils'
 import { useTokenStore } from './token'
@@ -24,156 +24,43 @@ import { usePermissionsStore } from './permissions'
 import { useThirdPartyStore } from './thirdParty'
 
 export const useAuthStore = defineStore('auth', () => {
-  // 2026-06-25 修复: 顶层 6 个子 store 调用全部包 try/catch, 失败时为 null,
-  // 通过 getter 在需要时(在 computed/methods 被访问时)重新尝试.
-  // 解决 Vite HMR 抖动 / 动态 import 完成前 setup 阶段偶发的
-  //   'getActivePinia() was called but there was no active Pinia' 错误.
-  // 注意: Pinia 同 ID 的 store 第二次调用会返回缓存实例, 不会重复初始化,
-  //   所以即使 getter 多次被调用也是安全的.
-  let tokenStore: ReturnType<typeof useTokenStore> | null = null
-  let userStore: ReturnType<typeof useUserStore> | null = null
-  let walletStore: ReturnType<typeof useWalletStore> | null = null
-  let vipStore: ReturnType<typeof useVipStore> | null = null
-  let permissionsStore: ReturnType<typeof usePermissionsStore> | null = null
-  let thirdPartyStore: ReturnType<typeof useThirdPartyStore> | null = null
+  const tokenStore = useTokenStore()
+  const userStore = useUserStore()
+  const walletStore = useWalletStore()
+  const vipStore = useVipStore()
+  const permissionsStore = usePermissionsStore()
+  const thirdPartyStore = useThirdPartyStore()
 
-  try {
-    tokenStore = useTokenStore()
-  } catch (e) {
-    logger.debug('[AuthStore] tokenStore unavailable on init, will lazy load:', e)
-  }
-  try {
-    userStore = useUserStore()
-  } catch (e) {
-    logger.debug('[AuthStore] userStore unavailable on init, will lazy load:', e)
-  }
-  try {
-    walletStore = useWalletStore()
-  } catch (e) {
-    logger.debug('[AuthStore] walletStore unavailable on init, will lazy load:', e)
-  }
-  try {
-    vipStore = useVipStore()
-  } catch (e) {
-    logger.debug('[AuthStore] vipStore unavailable on init, will lazy load:', e)
-  }
-  try {
-    permissionsStore = usePermissionsStore()
-  } catch (e) {
-    logger.debug('[AuthStore] permissionsStore unavailable on init, will lazy load:', e)
-  }
-  try {
-    thirdPartyStore = useThirdPartyStore()
-  } catch (e) {
-    logger.debug('[AuthStore] thirdPartyStore unavailable on init, will lazy load:', e)
-  }
-
-  const getTokenStore = (): ReturnType<typeof useTokenStore> | null => {
-    if (tokenStore) return tokenStore
-    try {
-      tokenStore = useTokenStore()
-      return tokenStore
-    } catch (e) {
-      logger.debug('[AuthStore] tokenStore lazy load failed:', e)
-      return null
-    }
-  }
-
-  const getUserStore = (): ReturnType<typeof useUserStore> | null => {
-    if (userStore) return userStore
-    try {
-      userStore = useUserStore()
-      return userStore
-    } catch (e) {
-      logger.debug('[AuthStore] userStore lazy load failed:', e)
-      return null
-    }
-  }
-
-  const getWalletStore = (): ReturnType<typeof useWalletStore> | null => {
-    if (walletStore) return walletStore
-    try {
-      walletStore = useWalletStore()
-      return walletStore
-    } catch (e) {
-      logger.debug('[AuthStore] walletStore lazy load failed:', e)
-      return null
-    }
-  }
-
-  const getVipStore = (): ReturnType<typeof useVipStore> | null => {
-    if (vipStore) return vipStore
-    try {
-      vipStore = useVipStore()
-      return vipStore
-    } catch (e) {
-      logger.debug('[AuthStore] vipStore lazy load failed:', e)
-      return null
-    }
-  }
-
-  const getPermissionsStore = (): ReturnType<typeof usePermissionsStore> | null => {
-    if (permissionsStore) return permissionsStore
-    try {
-      permissionsStore = usePermissionsStore()
-      return permissionsStore
-    } catch (e) {
-      logger.debug('[AuthStore] permissionsStore lazy load failed:', e)
-      return null
-    }
-  }
-
-  const getThirdPartyStore = (): ReturnType<typeof useThirdPartyStore> | null => {
-    if (thirdPartyStore) return thirdPartyStore
-    try {
-      thirdPartyStore = useThirdPartyStore()
-      return thirdPartyStore
-    } catch (e) {
-      logger.debug('[AuthStore] thirdPartyStore lazy load failed:', e)
-      return null
-    }
-  }
-
-  const isLoggedIn = computed(() => getPermissionsStore()?.isLoggedIn ?? false)
-  const isVip = computed(() => getUserStore()?.isVip ?? false)
-  const userUuid = computed(() => getUserStore()?.userUuid ?? '')
-  const nickname = computed(() => getUserStore()?.nickname ?? '')
-  const avatar = computed(() => getUserStore()?.avatar ?? '')
-  const userStatus = computed(() => getUserStore()?.userStatus ?? 0)
-  const inviteCode = computed(() => getUserStore()?.inviteCode ?? '')
-  const balance = computed(() => getWalletStore()?.balance ?? 0)
-  const frozenAmount = computed(() => getWalletStore()?.frozenAmount ?? 0)
-  const totalRecharge = computed(() => getWalletStore()?.totalRecharge ?? 0)
-  const totalConsumption = computed(() => getWalletStore()?.totalConsumption ?? 0)
-  const vipLevel = computed(() => getVipStore()?.vipLevel ?? '')
-  const isVipActive = computed(() => getVipStore()?.isVipActive ?? false)
-  const vipEndTime = computed(() => getVipStore()?.vipEndTime ?? '')
-  const isInitialized = computed(() => getTokenStore()?.isInitialized ?? false)
-  const isTokenExpired = computed(() => getTokenStore()?.isTokenExpired ?? true)
-  // 下面 4 个 computed 是函数型权限检查, store 不可用时返回始终拒绝的占位函数
-  const hasPermission = computed(() => (permission: string) => getPermissionsStore()?.hasPermission(permission) ?? false)
-  const hasRole = computed(() => (role: string) => getPermissionsStore()?.hasRole(role) ?? false)
-  const canUseFeature = computed(() => (feature: string) => getPermissionsStore()?.canUseFeature(feature) ?? false)
-  const isLoading = computed(() => getUserStore()?.isLoading || getThirdPartyStore()?.isLoading || false)
-  const initCompleted = computed(() => getTokenStore()?.initCompleted ?? false)
+  const isLoggedIn = computed(() => permissionsStore.isLoggedIn)
+  const isVip = computed(() => userStore.isVip)
+  const userUuid = computed(() => userStore.userUuid)
+  const nickname = computed(() => userStore.nickname)
+  const avatar = computed(() => userStore.avatar)
+  const userStatus = computed(() => userStore.userStatus)
+  const inviteCode = computed(() => userStore.inviteCode)
+  const balance = computed(() => walletStore.balance)
+  const frozenAmount = computed(() => walletStore.frozenAmount)
+  const totalRecharge = computed(() => walletStore.totalRecharge)
+  const totalConsumption = computed(() => walletStore.totalConsumption)
+  const vipLevel = computed(() => vipStore.vipLevel)
+  const isVipActive = computed(() => vipStore.isVipActive)
+  const vipEndTime = computed(() => vipStore.vipEndTime)
+  const isInitialized = computed(() => tokenStore.isInitialized)
+  const isTokenExpired = computed(() => tokenStore.isTokenExpired)
+  const hasPermission = computed(() => permissionsStore.hasPermission)
+  const hasRole = computed(() => permissionsStore.hasRole)
+  const canUseFeature = computed(() => permissionsStore.canUseFeature)
+  const isLoading = computed(() => userStore.isLoading || thirdPartyStore.isLoading)
+  const initCompleted = computed(() => tokenStore.initCompleted)
 
   const initAuth = async () => {
     logger.debug('[AuthStore] Initializing auth state...')
 
-    const ts = getTokenStore()
-    const us = getUserStore()
-    const ws = getWalletStore()
-    const vs = getVipStore()
-    if (!ts || !us || !ws || !vs) {
-      logger.warn('[AuthStore] Required sub-stores unavailable, skip initAuth')
+    if (tokenStore.checkExpiryAndClear()) {
       return
     }
 
-    if (ts.checkExpiryAndClear()) {
-      return
-    }
-
-    if (!ts.restoreToken()) {
+    if (!tokenStore.restoreToken()) {
       logger.debug('[AuthStore] No stored token found, remaining logged out')
       return
     }
@@ -181,28 +68,37 @@ export const useAuthStore = defineStore('auth', () => {
     const storedUserData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
 
     if (storedUserData) {
-      us.restoreUserFromStorage()
-      ws.restoreFundInfo()
-      vs.restoreVipInfo()
+      userStore.restoreUserFromStorage()
+      walletStore.restoreFundInfo()
+      vipStore.restoreVipInfo()
 
       if (storedUserData.loginTime) {
-        ts.loginTime = storedUserData.loginTime as string
+        tokenStore.loginTime = storedUserData.loginTime as string
       }
       if (storedUserData.lastActiveTime) {
-        ts.lastActiveTime = storedUserData.lastActiveTime as string
+        tokenStore.lastActiveTime = storedUserData.lastActiveTime as string
       }
 
-      logger.info('[AuthStore] Restored user state from storage:', us.user?.username || us.user?.nickname)
+      logger.info('[AuthStore] Restored user state from storage:', userStore.user?.username || userStore.user?.nickname)
 
-      us.fetchUserInfo().catch((error: any) => {
-        logger.warn('[AuthStore] Background refresh user info failed (using cached data):', error)
-      })
+      // 后台管理员账号 (admin_user 表) 不在 /user/info 链路, 跳过避免 401 触发清 token
+      // 判断依据: storedUserData.username === 'admin' 或 roles 含 'admin'
+      const restoredUsername = (storedUserData.username as string) || ''
+      const restoredRoles = (storedUserData.roles as string[]) || []
+      const isAdminRestored = restoredUsername.trim().toLowerCase() === 'admin' || restoredRoles.includes('admin')
+      if (isAdminRestored) {
+        logger.info('[AuthStore] Admin account restored, skip fetchUserInfo (admin_user not in /user/info)')
+      } else {
+        userStore.fetchUserInfo().catch((error: unknown) => {
+          logger.warn('[AuthStore] Background refresh user info failed (using cached data):', error)
+        })
+      }
     } else {
       logger.debug('[AuthStore] Has token but no user data, attempting to fetch user info')
       try {
-        await us.fetchUserInfo()
+        await userStore.fetchUserInfo()
         logger.info('[AuthStore] Successfully fetched user info')
-      } catch (error: any) {
+      } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         const status = error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { status?: number } }).response?.status
@@ -222,29 +118,19 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
-    ts.setInitCompleted(true)
+    tokenStore.setInitCompleted(true)
     logger.debug('[AuthStore] Initialization complete')
   }
 
   const clearAuthState = () => {
-    const ts = getTokenStore()
-    const us = getUserStore()
-    const ws = getWalletStore()
-    const vs = getVipStore()
-    if (ts) ts.clearTokens()
-    if (us) us.clearUser()
-    if (ws) ws.clearFundInfo()
-    if (vs) vs.clearVipInfo()
+    tokenStore.clearTokens()
+    userStore.clearUser()
+    walletStore.clearFundInfo()
+    vipStore.clearVipInfo()
   }
 
   const register = async (registerData: RegisterParams) => {
-    const us = getUserStore()
-    const ts = getTokenStore()
-    if (!us || !ts) {
-      logger.warn('[AuthStore] userStore/tokenStore unavailable, cannot register')
-      throw new Error(t('error.auth.服务尚未就绪'))
-    }
-    us.isLoading = true
+    userStore.isLoading = true
     try {
       if (registerData.type === 'phone') {
         if (!registerData.phone || !registerData.code || !registerData.password) {
@@ -308,14 +194,9 @@ export const useAuthStore = defineStore('auth', () => {
           tokenValue = responseData.token || ''
           refreshTokenValue = responseData.refreshToken || ''
           userInfo = (responseData as { user?: UserInfoData }).user || null
-        } else if ('tokenType' in responseData || 'accessToken' in responseData || 'access_token' in responseData) {
-          // 2026-06-24 修复: 后端 _build_token_data 返回 accessToken/access_token 双写, 非 token 字段
-          tokenValue = (responseData as { accessToken?: string; access_token?: string }).accessToken
-            || (responseData as { access_token?: string }).access_token
-            || (responseData as { token?: string }).token || ''
-          refreshTokenValue = (responseData as { refreshToken?: string }).refreshToken
-            || (responseData as { refresh_token?: string }).refresh_token || ''
-          userInfo = (responseData as { user?: UserInfoData }).user || null
+        } else if ('tokenType' in responseData) {
+          tokenValue = (responseData as { token?: string }).token || ''
+          refreshTokenValue = (responseData as { refreshToken?: string }).refreshToken || ''
         } else {
           throw new Error(t('error.auth.无效的响应数据格2'))
         }
@@ -323,10 +204,10 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error(t('error.auth.无效的响应数据格3'))
       }
 
-      ts.setToken(tokenValue, refreshTokenValue)
+      tokenStore.setToken(tokenValue, refreshTokenValue)
 
       if (userInfo) {
-        us.user = {
+        userStore.user = {
           id: userInfo.id || userInfo.uuid || '',
           uuid: userInfo.uuid || userInfo.id || '',
           username: userInfo.username || registerData.username || registerData.phone || '',
@@ -350,43 +231,46 @@ export const useAuthStore = defineStore('auth', () => {
         username: registerData.username || registerData.phone || '',
         email: registerData.email || '',
         phone: registerData.phone || '',
-        loginTime: ts.loginTime,
-        lastActiveTime: ts.lastActiveTime,
-        ...(us.user || {}),
+        loginTime: tokenStore.loginTime,
+        lastActiveTime: tokenStore.lastActiveTime,
+        ...(userStore.user || {}),
       }
 
       StorageManager.setItem(STORAGE_KEYS.USER_DATA, userData)
 
-      await us.fetchUserInfo()
+      await userStore.fetchUserInfo()
 
       return response
     } catch (error) {
       logger.error('Registration failed:', error)
       throw error
     } finally {
-      us.isLoading = false
+      userStore.isLoading = false
     }
   }
 
   const login = async (loginData: LoginParams) => {
-    const us = getUserStore()
-    const ts = getTokenStore()
-    const ws = getWalletStore()
-    const vs = getVipStore()
-    if (!us || !ts || !ws || !vs) {
-      logger.warn('[AuthStore] Required sub-stores unavailable, cannot login')
-      throw new Error(t('error.auth.服务尚未就绪'))
-    }
-    us.isLoading = true
+    userStore.isLoading = true
     try {
       let response
+      // 后台管理员账号标识: username === 'admin' 走 /api/v1/login/username (admin_user 表)
+      // 提升到外层, 后续 fetchUserInfo 跳过逻辑需复用
+      const isAdminAccount = !!loginData.username && loginData.username.trim().toLowerCase() === 'admin'
 
       if (loginData.type === 'phone' && loginData.phone && loginData.code) {
         const verifyResponse = await phoneLogin({ phone: loginData.phone, code: loginData.code })
         const tempKey = verifyResponse.data
         response = await completePhoneLogin({ phone: loginData.phone, tempKey: tempKey || '' })
       } else if (loginData.username && loginData.password) {
-        response = await apiLogin({ username: loginData.username, password: loginData.password })
+        if (isAdminAccount) {
+          logger.info('[AuthStore] Admin account detected, using /api/v1/login/username')
+          response = await apiAdminLogin({
+            username: loginData.username,
+            password: loginData.password,
+          })
+        } else {
+          response = await apiLogin({ username: loginData.username, password: loginData.password })
+        }
       } else {
         throw new Error(t('error.auth.登录信息不完整4'))
       }
@@ -401,17 +285,17 @@ export const useAuthStore = defineStore('auth', () => {
         ''
       const refreshTokenValue = tokenData?.refreshToken || tokenData?.thirdPartyAccounts?.refreshToken || ''
 
-      ts.setToken(tokenValue, refreshTokenValue)
-      ts.setLoginExpiry()
+      tokenStore.setToken(tokenValue, refreshTokenValue)
+      tokenStore.setLoginExpiry()
 
       const { user, fundInfo, vipInfo } = buildUserFromLoginResponse(tokenData, loginData)
-      us.user = user
+      userStore.user = user
 
       if (fundInfo) {
-        ws.setFundInfo(fundInfo)
+        walletStore.setFundInfo(fundInfo)
       }
       if (vipInfo) {
-        vs.setVipInfo(vipInfo)
+        vipStore.setVipInfo(vipInfo)
       }
 
       const completeUserData = {
@@ -426,8 +310,8 @@ export const useAuthStore = defineStore('auth', () => {
         fundInfo,
         vipInfo,
         developerLink: tokenData?.developerLinks,
-        loginTime: ts.loginTime,
-        lastActiveTime: ts.lastActiveTime,
+        loginTime: tokenStore.loginTime,
+        lastActiveTime: tokenStore.lastActiveTime,
         id: user?.id || user?.uuid || '',
         uuid: user?.uuid || '',
         phone: user?.phone || '',
@@ -504,9 +388,14 @@ export const useAuthStore = defineStore('auth', () => {
         logger.warn('[AuthStore] Failed to send security notification', e)
       }
 
-      us.fetchUserInfo().catch((error: any) => {
-        logger.warn('[AuthStore] Background refresh user info failed (using data from login response):', error)
-      })
+      // 后台管理员账号 (admin_user 表) 不在 /user/info 链路, 跳过后台刷新避免 401 触发清 token
+      if (!isAdminAccount) {
+        userStore.fetchUserInfo().catch((error: unknown) => {
+          logger.warn('[AuthStore] Background refresh user info failed (using data from login response):', error)
+        })
+      } else {
+        logger.info('[AuthStore] Admin login: skip fetchUserInfo (admin_user not in /user/info)')
+      }
 
       try {
         const { websocketService } = await import('@/utils/websocket')
@@ -520,7 +409,7 @@ export const useAuthStore = defineStore('auth', () => {
       logger.error(getI18nGlobal().t('logs.loginFailed'), error)
       throw error
     } finally {
-      us.isLoading = false
+      userStore.isLoading = false
     }
   }
 
@@ -531,11 +420,9 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (_error) {
       // 静默失败
     }
-    // 2026-06-24 修复: 恢复调用后端 /api/v1/auth/logout 使 token 加入黑名单
+    // 已移除 auth/logout 接口，不再调用后端，仅做本地登出
     try {
-      await apiLogout()
-    } catch {
-      // 后端登出失败不阻塞本地清理
+      // 原：await apiLogout() 已移除
     } finally {
       sessionStorage.setItem('__logout_flag__', Date.now().toString())
       try {
@@ -555,25 +442,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const thirdPartyLogin = async (loginData: { token: string; refreshToken?: string; user: UserInfoData | Record<string, unknown>; loginType: string }) => {
-    const tps = getThirdPartyStore()
-    if (!tps) {
-      logger.warn('[AuthStore] thirdPartyStore unavailable, cannot thirdPartyLogin')
-      return false
-    }
-    return tps.thirdPartyLogin(loginData)
+    return thirdPartyStore.thirdPartyLogin(loginData)
   }
 
   const refreshTokens = async () => {
     try {
-      const ts = getTokenStore()
-      const us = getUserStore()
-      if (!ts || !us) {
-        logger.warn('[AuthStore] tokenStore/userStore unavailable, cannot refreshTokens')
-        return { success: false }
-      }
-      const savedRefreshToken = ts.refreshToken
+      const savedRefreshToken = tokenStore.refreshToken
       if (!savedRefreshToken) {
-        await us.fetchUserInfo()
+        await userStore.fetchUserInfo()
         return { success: true }
       }
       const success = await refreshTokenAction(savedRefreshToken)
@@ -583,29 +459,17 @@ export const useAuthStore = defineStore('auth', () => {
       return { success }
     } catch (error) {
       logger.error(getI18nGlobal().t('logs.refreshTokenFailed'), error)
-      // 2026-06-25 加固: logout 单独 try/catch, 防止其失败绕过本 catch,
-      // 进而绕过 throw error 导致 refreshTokens 出现"半崩溃"状态.
-      try {
-        await logout()
-      } catch (logoutErr) {
-        logger.warn('[AuthStore] logout during refreshTokens error recovery also failed:', logoutErr)
-      }
+      await logout()
       throw error
     }
   }
 
   const refreshTokenAction = async (savedRefreshToken: string): Promise<boolean> => {
     try {
-      const us = getUserStore()
-      const ts = getTokenStore()
-      if (!us || !ts) {
-        logger.warn('[AuthStore] userStore/tokenStore unavailable, cannot refreshTokenAction')
-        return false
-      }
-      us.isLoading = true
+      userStore.isLoading = true
       logger.info('[AuthStore] Attempting to auto-login with refreshToken')
 
-      const { refreshToken: refreshTokenApi } = await import('@/api/user/user')
+      const { refreshToken: refreshTokenApi } = await import('@/api/user')
       const response = await refreshTokenApi(savedRefreshToken)
 
       if (response.success && response.data) {
@@ -620,8 +484,8 @@ export const useAuthStore = defineStore('auth', () => {
           return false
         }
 
-        ts.setToken(newToken, newRefreshToken)
-        await us.fetchUserInfo()
+        tokenStore.setToken(newToken, newRefreshToken)
+        await userStore.fetchUserInfo()
 
         const { RememberMeService } = await import('@/utils/rememberMeService')
         RememberMeService.updateRefreshToken(newRefreshToken)
@@ -641,66 +505,23 @@ export const useAuthStore = defineStore('auth', () => {
       RememberMeService.recordAutoLoginFailure(error instanceof Error ? error.message : '未知错误')
       return false
     } finally {
-      const us = getUserStore()
-      if (us) us.isLoading = false
+      userStore.isLoading = false
     }
   }
 
   /** 拉取用户信息并同步余额、VIP 到各 store，确保页面显示与后端一致 */
   const fetchUserInfo = async () => {
-    const us = getUserStore()
-    const ws = getWalletStore()
-    const vs = getVipStore()
-    if (!us) {
-      logger.warn('[AuthStore] userStore unavailable, cannot fetchUserInfo')
-      return
-    }
-    const result = await us.fetchUserInfo()
+    const result = await userStore.fetchUserInfo()
     if (result && typeof result === 'object') {
-      if (result.fundInfo && ws) ws.setFundInfo(result.fundInfo)
-      if (result.vipInfo && vs) vs.setVipInfo(result.vipInfo)
+      if (result.fundInfo) walletStore.setFundInfo(result.fundInfo)
+      if (result.vipInfo) vipStore.setVipInfo(result.vipInfo)
     }
   }
-  const updateUserInfo = (userInfo: Partial<UserInfoData>) => {
-    const us = getUserStore()
-    if (!us) {
-      logger.warn('[AuthStore] userStore unavailable, cannot updateUserInfo')
-      return
-    }
-    return us.updateUserInfo(userInfo)
-  }
-  const setAuthInfo = (info: UserInfoData) => {
-    const us = getUserStore()
-    if (!us) {
-      logger.warn('[AuthStore] userStore unavailable, cannot setAuthInfo')
-      return
-    }
-    return us.setAuthInfo(info)
-  }
-  const setFundInfo = (info: UserFundInfo) => {
-    const ws = getWalletStore()
-    if (!ws) {
-      logger.warn('[AuthStore] walletStore unavailable, cannot setFundInfo')
-      return
-    }
-    return ws.setFundInfo(info)
-  }
-  const setVipInfo = (info: UserVipInfo) => {
-    const vs = getVipStore()
-    if (!vs) {
-      logger.warn('[AuthStore] vipStore unavailable, cannot setVipInfo')
-      return
-    }
-    return vs.setVipInfo(info)
-  }
-  const setUser = (userData: { uuid?: string; nickname?: string; avatar?: string; isVip?: boolean; phone?: string }) => {
-    const us = getUserStore()
-    if (!us) {
-      logger.warn('[AuthStore] userStore unavailable, cannot setUser')
-      return
-    }
-    return us.setUser(userData)
-  }
+  const updateUserInfo = (userInfo: Partial<UserInfoData>) => userStore.updateUserInfo(userInfo)
+  const setAuthInfo = (info: UserInfoData) => userStore.setAuthInfo(info)
+  const setFundInfo = (info: UserFundInfo) => walletStore.setFundInfo(info)
+  const setVipInfo = (info: UserVipInfo) => vipStore.setVipInfo(info)
+  const setUser = (userData: { uuid?: string; nickname?: string; avatar?: string; isVip?: boolean; phone?: string }) => userStore.setUser(userData)
 
   const setAuthState = (
     newToken: string,
@@ -708,26 +529,20 @@ export const useAuthStore = defineStore('auth', () => {
     userData: UserInfoData | null,
     options?: { loginDuration?: LoginDuration; skipStorage?: boolean }
   ) => {
-    const ts = getTokenStore()
-    const us = getUserStore()
-    if (!ts || !us) {
-      logger.warn('[AuthStore] tokenStore/userStore unavailable, cannot setAuthState')
-      return
-    }
     const currentTime = new Date().toISOString()
 
-    ts.setToken(newToken, newRefreshToken)
-    us.user = userData
+    tokenStore.setToken(newToken, newRefreshToken)
+    userStore.user = userData
 
     if (userData?.id) {
-      us.authInfo = userData
+      userStore.authInfo = userData
     }
 
     if (options?.skipStorage) {
       return
     }
 
-    ts.setLoginExpiry(options?.loginDuration)
+    tokenStore.setLoginExpiry(options?.loginDuration)
 
     if (userData) {
       const existingData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA) || {}
@@ -743,82 +558,26 @@ export const useAuthStore = defineStore('auth', () => {
     logger.debug('[AuthStore] setAuthState: Auth state updated atomically')
   }
 
-  const updateLastActiveTime = () => {
-    const ts = getTokenStore()
-    if (!ts) {
-      logger.warn('[AuthStore] tokenStore unavailable, cannot updateLastActiveTime')
-      return
-    }
-    return ts.updateLastActiveTime()
-  }
-  const checkTokenExpiry = () => {
-    const ts = getTokenStore()
-    if (!ts) {
-      logger.warn('[AuthStore] tokenStore unavailable, cannot checkTokenExpiry')
-      return
-    }
-    return ts.checkTokenExpiry(() => refreshTokens().catch(error => logger.error('Token refresh failed:', error)))
-  }
-  const checkPermission = (permission: string): boolean => {
-    const ps = getPermissionsStore()
-    if (!ps) {
-      logger.warn('[AuthStore] permissionsStore unavailable, cannot checkPermission')
-      return false
-    }
-    return ps.checkPermission(permission)
-  }
-  const checkFeatureAccess = (feature: string): boolean => {
-    const ps = getPermissionsStore()
-    if (!ps) {
-      logger.warn('[AuthStore] permissionsStore unavailable, cannot checkFeatureAccess')
-      return false
-    }
-    return ps.checkFeatureAccess(feature)
-  }
-  const updateBalance = (newBalance: number) => {
-    const ws = getWalletStore()
-    if (!ws) {
-      logger.warn('[AuthStore] walletStore unavailable, cannot updateBalance')
-      return
-    }
-    return ws.updateBalance(newBalance)
-  }
-  const consumeBalance = (amount: number): boolean => {
-    const ws = getWalletStore()
-    if (!ws) {
-      logger.warn('[AuthStore] walletStore unavailable, cannot consumeBalance')
-      return false
-    }
-    try {
-      return ws.consumeBalance(amount)
-    } catch (e) {
-      // 2026-06-25 加固: 子 store 内部抛错 (Pinia 未激活 / ref 抛错) 不应外溢
-      // 业务上 consume 失败等价于余额不足, 返回 false
-      logger.warn('[AuthStore] walletStore.consumeBalance threw, treat as failed:', e)
-      return false
-    }
-  }
-  const rechargeBalance = (amount: number) => {
-    const ws = getWalletStore()
-    if (!ws) {
-      logger.warn('[AuthStore] walletStore unavailable, cannot rechargeBalance')
-      return
-    }
-    return ws.rechargeBalance(amount)
-  }
+  const updateLastActiveTime = () => tokenStore.updateLastActiveTime()
+  const checkTokenExpiry = () => tokenStore.checkTokenExpiry(() => refreshTokens().catch(error => logger.error('Token refresh failed:', error)))
+  const checkPermission = (permission: string): boolean => permissionsStore.checkPermission(permission)
+  const checkFeatureAccess = (feature: string): boolean => permissionsStore.checkFeatureAccess(feature)
+  const updateBalance = (newBalance: number) => walletStore.updateBalance(newBalance)
+  const consumeBalance = (amount: number): boolean => walletStore.consumeBalance(amount)
+  const rechargeBalance = (amount: number) => walletStore.rechargeBalance(amount)
 
   return {
-    token: computed(() => getTokenStore()?.token ?? ''),
-    refreshToken: computed(() => getTokenStore()?.refreshToken ?? ''),
-    user: computed(() => getUserStore()?.user ?? null),
-    authInfo: computed(() => getUserStore()?.authInfo ?? null),
-    fundInfo: computed(() => getWalletStore()?.fundInfo ?? null),
-    vipInfo: computed(() => getVipStore()?.vipInfo ?? null),
+    token: computed(() => tokenStore.token),
+    refreshToken: computed(() => tokenStore.refreshToken),
+    user: computed(() => userStore.user),
+    authInfo: computed(() => userStore.authInfo),
+    fundInfo: computed(() => walletStore.fundInfo),
+    vipInfo: computed(() => vipStore.vipInfo),
     isLoading,
-    loginTime: computed(() => getTokenStore()?.loginTime ?? ''),
-    lastActiveTime: computed(() => getTokenStore()?.lastActiveTime ?? ''),
-    isDemoMode: computed(() => getUserStore()?.isDemoMode ?? false),
-    isFetchingUserInfo: computed(() => getUserStore()?.isFetchingUserInfo ?? false),
+    loginTime: computed(() => tokenStore.loginTime),
+    lastActiveTime: computed(() => tokenStore.lastActiveTime),
+    isDemoMode: computed(() => userStore.isDemoMode),
+    isFetchingUserInfo: computed(() => userStore.isFetchingUserInfo),
 
     isLoggedIn,
     isVip,

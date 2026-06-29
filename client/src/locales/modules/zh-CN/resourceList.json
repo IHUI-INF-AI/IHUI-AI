@@ -1,20 +1,20 @@
 {
   "resourceList": {
-    "desc": "描述",
-    "empty": "空",
+    "title": "资源中心",
+    "desc": "课件、工具、文档、视频等海量学习资源",
+    "searchPlaceholder": "搜索资源",
+    "typePlaceholder": "类型",
+    "typeDoc": "文档",
+    "typeVideo": "视频",
+    "typeAudio": "音频",
+    "typeImage": "图片",
+    "typeArchive": "压缩包",
+    "sortNew": "最新",
+    "sortHot": "最热",
+    "sortDownload": "下载",
+    "top": "置顶",
     "free": "免费",
     "points": "积分",
-    "searchPlaceholder": "请输入搜索内容",
-    "sortDownload": "排序 下载",
-    "sortHot": "排序 热门",
-    "sortNew": "排序 新",
-    "title": "标题",
-    "top": "置顶",
-    "typeArchive": "类型 archive",
-    "typeAudio": "类型 音频",
-    "typeDoc": "类型 doc",
-    "typeImage": "类型 图片",
-    "typePlaceholder": "类型 placeholder",
-    "typeVideo": "类型 视频"
+    "empty": "暂无资源"
   }
 }

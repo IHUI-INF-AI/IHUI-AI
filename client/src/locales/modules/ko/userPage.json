@@ -1,10 +1,7 @@
 {
   "userPage": {
-    "feedback": "反馈",
-    "noImageContent": "noImageContent",
-    "noStudyContent": "noStudyContent",
-    "noTextContent": "noTextContent",
-    "noVideoContent": "noVideoContent",
-    "views": "views"
+    "feedback": "피드백",
+    "noStudyContent": "학습 콘텐츠가 없습니다",
+    "views": "회 시청"
   }
 }

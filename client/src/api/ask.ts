@@ -77,7 +77,7 @@ export const askApi = {
     ),
 
   // 提问
-  create: (data: { title: string; content: string; image?: string; cid_list?: number[] }) =>
+  create: (data: { title: string; content: string; image?: string; cid_list?: number[]; tags?: string[] }) =>
     http.post('/ask', data),
 
   // 回答

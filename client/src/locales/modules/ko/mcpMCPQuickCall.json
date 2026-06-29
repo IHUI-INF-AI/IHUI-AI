@@ -1,5 +1,5 @@
 {
   "mcpMCPQuickCall": {
-    "invalidServerOrTool": "invalidServerOrTool"
+    "invalidServerOrTool": "잘못된 서버 ID 또는 도구 이름"
   }
 }

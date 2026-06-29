@@ -1,17 +1,39 @@
 {
   "distributionTeam": {
+    "title": "分销团队",
+    "subtitle": "管理您的团队成员",
+    "searchPlaceholder": "搜索团队成员",
+    "totalMembers": "总计Members",
+    "totalCommission": "总计佣金",
+    "noMembers": "无Members",
+    "transactionVolume": "交易体积",
     "commission": "佣金",
-    "inviteTime": "邀请 时间",
-    "noMembers": "无 会员",
-    "orderCount": "订单数",
-    "searchPlaceholder": "请输入搜索内容",
-    "subtitle": "副标题",
-    "tabActive": "tab 已激活",
-    "tabAll": "全部",
-    "tabInactive": "tab 未激活",
-    "title": "标题",
-    "totalCommission": "佣金总额",
-    "totalMembers": "总计 会员",
-    "transactionVolume": "transaction Volume"
+    "orderCount": "顺序计数",
+    "inviteTime": "无效viteTime",
+    "tabAll": "Tab全部",
+    "tabActive": "Tab活动",
+    "tabInactive": "Tab非活动",
+    "tabs": {
+      "all": "全部成员",
+      "direct": "直推成员",
+      "indirect": "间推成员"
+    },
+    "stats": {
+      "totalMembers": "总成员数：{count}",
+      "totalCommission": "总佣金"
+    },
+    "member": {
+      "nickname": "昵称",
+      "userId": "用户ID",
+      "level": "等级",
+      "orders": "订单数",
+      "commission": "佣金",
+      "joinTime": "加入时间",
+      "status": "状态"
+    },
+    "status": {
+      "active": "活跃",
+      "inactive": "非活跃"
+    }
   }
 }

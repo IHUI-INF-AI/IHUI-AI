@@ -345,7 +345,7 @@ describe('storage', () => {
 
     describe('sessionStorage 不可用时回退到 localStorage', () => {
       // 模拟 sessionStorage 不可用 - 让其 setItem 抛出错误
-      let setItemSpy: any
+      let setItemSpy: ReturnType<typeof vi.spyOn>
       beforeEach(() => {
         const originalSetItem = Storage.prototype.setItem
         setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key: string, value: string) {

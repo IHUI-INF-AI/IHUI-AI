@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="t('transactionDetail.title')"
+    title="交易详情"
     width="520"
     :align-center="true"
     :show-close="true"
@@ -149,7 +149,7 @@ function onViewOrder() {
   align-items: center;
   padding: 28px 20px;
   border-radius: var(--global-border-radius);
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-fafafa);
 
   &.incoming {
     background: linear-gradient(135deg, var(--el-text-color-primary) 0%, var(--el-text-color-regular) 100%);
@@ -212,7 +212,7 @@ function onViewOrder() {
     max-width: 60%;
 
     &.mono {
-      font-family: var(--font-family-mono);
+      font-family: 'JetBrains Mono', Consolas, monospace;
       font-size: 12px;
     }
   }
@@ -232,7 +232,7 @@ function onViewOrder() {
 
   &.status-pending {
     background: var(--el-color-primary-light-9);
-    color: var(--el-color-primary);
+    color: var(--color-blue-1890ff);
   }
 
   &.status-failed {
@@ -264,7 +264,7 @@ function onViewOrder() {
   border: var(--unified-border);
   background: transparent;
   color: v.$text-primary;
-  transition: opacity 0.2s, border-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 
   &.primary {
     background: var(--el-text-color-primary);

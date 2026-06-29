@@ -1,0 +1,30 @@
+{
+  "adminProductManagement": {
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス",
+      "export": "エクスポート"
+    },
+    "table": {
+      "status": "ステータス"
+    },
+    "status": {
+      "enabled": "あり効",
+      "disabled": "無効"
+    },
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    },
+    "dialog": {},
+    "productForm": {
+      "status": "ステータス",
+      "statusEnabled": "ステータス済み有効",
+      "statusDisabled": "ステータス済み無効",
+      "validation": {
+        "statusRequired": "ステータス必須"
+      },
+      "messages": {}
+    }
+  }
+}

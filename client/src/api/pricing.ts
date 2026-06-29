@@ -3,7 +3,7 @@ import { t } from '@/utils/i18n'
 
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types'
-import type { PricingConfig, ProxyConfig } from '@/api/models/models'
+import type { PricingConfig, ProxyConfig } from '@/api/models'
 
 // 定价相关API
 
@@ -18,7 +18,7 @@ export async function getModelPricing(modelId: string): Promise<ApiResponse<Pric
       data: response.data || ({} as PricingConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -43,7 +43,7 @@ export async function updateModelPricing(
       data: response.data || ({} as PricingConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -85,7 +85,7 @@ export async function calculateCost(params: {
       },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -115,7 +115,7 @@ export async function getModelProxy(modelId: string): Promise<ApiResponse<ProxyC
       data: response.data || ({} as ProxyConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -140,7 +140,7 @@ export async function updateModelProxy(
       data: response.data || ({} as ProxyConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -168,7 +168,7 @@ export async function testProxy(modelId: string): Promise<
       data: response.data || { success: false, message: t('api.pricing.未知错误6') },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -202,7 +202,7 @@ export async function getProxyHealth(modelId: string): Promise<
       },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,

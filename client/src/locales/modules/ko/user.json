@@ -1,243 +1,371 @@
 {
   "user": {
-    "apiService": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "benefits": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "common": {
-      "prompt": "提示词"
-    },
-    "dialogs": {
-      "removeDevice": {
-        "confirm": "确认"
-      }
+    "quickActions": "빠른 작업",
+    "purchases": {
+      "핵심 장점": "내 구매",
+      "title": "내구매"
     },
     "examine": {
-      "title": "标题"
-    },
-    "favorites": {
-      "title": "标题"
+      "핵심 장점": "내 심생각",
+      "dialog": {
+        "핵심 장점": "심생각 상세"
+      },
+      "title": "내심사이메일"
     },
     "menu": {
-      "apiService": "API 服务",
-      "benefits": "benefits",
-      "developer": "developer",
-      "examine": "examine",
-      "favorites": "收藏",
-      "messages": "messages",
-      "orders": "订单",
-      "privacy": "隐私",
-      "profile": "资料",
-      "purchaseRecords": "purchaseRecords",
-      "purchases": "purchases",
-      "security": "安全",
-      "settings": "设置",
-      "statistics": "统计",
-      "study": "study",
-      "uploadAgent": "uploadAgent"
+      "profile": "개인정보",
+      "security": "계정 보안",
+      "messages": "메시지 센마음",
+      "privacy": "개인정보 설정",
+      "settings": "시스템 설정",
+      "orders": "주의문 관리",
+      "uploadAgent": "에이전트 업로드",
+      "favorites": "즐겨찾기",
+      "purchases": "구매 내역",
+      "examine": "심생각 내역",
+      "statistics": "데이마음 통계",
+      "developer": "개발게 관리",
+      "purchaseRecords": "구매 기이것은",
+      "apiService": "API 서비스",
+      "benefits": "Benefits",
+      "study": "Study"
     },
-    "messages": {
-      "allRead": "allRead",
-      "clearCacheCancelButton": "clearCacheCancelButton",
-      "clearCacheConfirm": "clearCacheConfirm",
-      "clearCacheConfirmButton": "clearCacheConfirmButton",
-      "clearCacheFailed": "clearCacheFailed",
-      "clearCacheSuccess": "clearCacheSuccess",
-      "clearCacheTitle": "clearCacheTitle",
-      "deleteSuccess": "deleteSuccess",
-      "deviceRemoved": "deviceRemoved",
-      "emailRequired": "emailRequired",
-      "emailVerificationSent": "emailVerificationSent",
-      "examineApproveSuccess": "examineApproveSuccess",
-      "examineRejectSuccess": "examineRejectSuccess",
-      "exportDataCancelButton": "exportDataCancelButton",
-      "exportDataConfirm": "exportDataConfirm",
-      "exportDataConfirmButton": "exportDataConfirmButton",
-      "exportDataFailed": "exportDataFailed",
-      "exportDataSuccess": "exportDataSuccess",
-      "exportDataTitle": "exportDataTitle",
-      "languageSaveFailed": "languageSaveFailed",
-      "languageSaveSuccess": "languageSaveSuccess",
-      "loadMessageSquaresFailed": "loadMessageSquaresFailed",
-      "loadMessageSquaresFailedRetry": "loadMessageSquaresFailedRetry",
-      "markedRead": "markedRead",
-      "messages": "messages",
-      "notificationSaveFailed": "notificationSaveFailed",
-      "notificationSaveSuccess": "notificationSaveSuccess",
-      "orderStatus": {
-        "cancelled": "已取消",
-        "completed": "已完成",
-        "failed": "失败",
-        "pending": "待处理",
-        "processing": "处理中"
-      },
-      "orderType": {
-        "consumption": "consumption",
-        "recharge": "充值",
-        "refund": "退款",
-        "withdraw": "提现"
-      },
-      "passwordChangeFailedRetry": "passwordChangeFailedRetry",
-      "passwordChanged": "passwordChanged",
-      "phoneRequired": "phoneRequired",
-      "phoneVerificationSent": "phoneVerificationSent",
-      "privacySaveFailed": "privacySaveFailed",
-      "privacySaveSuccess": "privacySaveSuccess",
-      "saveFailedRetry": "saveFailedRetry",
-      "saveSuccess": "saveSuccess",
-      "settings": {
-        "accountDeletionFailed": "accountDeletionFailed",
-        "accountDeletionSuccess": "accountDeletionSuccess",
-        "appSettingsUpdateFailed": "appSettingsUpdateFailed",
-        "appSettingsUpdateSuccess": "appSettingsUpdateSuccess",
-        "avatarUploadFailed": "avatarUploadFailed",
-        "avatarUploadSuccess": "avatarUploadSuccess",
-        "dataClearFailed": "dataClearFailed",
-        "dataClearSuccess": "dataClearSuccess",
-        "imageFormatError": "imageFormatError",
-        "imageSizeError": "imageSizeError",
-        "imageTooLarge": "imageTooLarge",
-        "insufficientPermissionClearData": "insufficientPermissionClearData",
-        "insufficientPermissionDeleteAccount": "insufficientPermissionDeleteAccount",
-        "notificationUpdateFailed": "notificationUpdateFailed",
-        "notificationUpdateSuccess": "notificationUpdateSuccess",
-        "passwordChangeFailed": "passwordChangeFailed",
-        "passwordChangeSuccess": "passwordChangeSuccess",
-        "passwordConfirmRequired": "passwordConfirmRequired",
-        "passwordError": "passwordError",
-        "passwordMismatch": "两次密码不一致",
-        "passwordRequired": "passwordRequired",
-        "passwordTooShort": "密码至少 8 位",
-        "privacyUpdateFailed": "privacyUpdateFailed",
-        "privacyUpdateSuccess": "privacyUpdateSuccess",
-        "profileUpdateFailed": "profileUpdateFailed",
-        "profileUpdateSuccess": "profileUpdateSuccess",
-        "unsupportedImageFormat": "unsupportedImageFormat"
-      },
-      "themeSaveFailed": "themeSaveFailed",
-      "themeSaveSuccess": "themeSaveSuccess",
-      "title": "标题",
-      "uploadIncomplete": "uploadIncomplete",
-      "uploadSuccess": "uploadSuccess",
-      "userInfoNotFound": "userInfoNotFound"
-    },
-    "priority": {
-      "high": "高",
-      "low": "低",
-      "medium": "medium",
-      "urgent": "urgent"
-    },
-    "privacy": {
-      "title": "标题"
-    },
-    "purchases": {
-      "title": "标题"
-    },
-    "quickActions": "quickActions",
     "sections": {
-      "developer": {
-        "description": "描述"
-      },
-      "examine": {
-        "description": "描述"
-      },
-      "favorites": {
-        "description": "描述"
-      },
-      "messages": {
-        "description": "描述"
-      },
-      "orders": {
-        "description": "描述"
-      },
-      "privacy": {
-        "description": "描述"
-      },
       "profile": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "purchaseRecords": {
-        "description": "描述"
-      },
-      "purchases": {
-        "description": "描述"
+        "핵심 장점": "개인정보",
+        "description": "프로필 및 계정 정보 관리",
+        "title": "개게정보"
       },
       "security": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "계정 보안",
+        "description": "계정 보호 및 비밀번호와 로그인 방법 관리",
+        "title": "계정보안"
+      },
+      "messages": {
+        "핵심 장점": "메시지 센마음",
+        "description": "시스템 알림 및 메시지 보기"
+      },
+      "privacy": {
+        "핵심 장점": "개인정보 설정",
+        "description": "개인정보 설정 관리"
       },
       "settings": {
-        "description": "描述"
+        "핵심 장점": "시스템 설정",
+        "description": "시스템 환경설정 및 표시 옵션 설정"
       },
-      "statistics": {
-        "description": "描述"
+      "orders": {
+        "핵심 장점": "주의문 관리",
+        "description": "주의문 보기 및 관리"
       },
       "upload": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "에이전트 업로드",
+        "description": "AI 에이전트 생성 및 업로드",
+        "title": "업로드에이전트"
+      },
+      "favorites": {
+        "핵심 장점": "즐겨찾기",
+        "description": "즐겨찾기한 에이전트와 콘텐츠 보기"
+      },
+      "purchases": {
+        "핵심 장점": "구매 내역",
+        "description": "구매 기이것은 보기"
+      },
+      "examine": {
+        "핵심 장점": "심생각 내역",
+        "description": "심생각 상태 및 기이것은 보기"
+      },
+      "statistics": {
+        "핵심 장점": "데이마음 통계",
+        "description": "생각사용 데이마음 및 통계 정보 보기"
+      },
+      "developer": {
+        "핵심 장점": "개발게 관리",
+        "description": "개발게 갱신 기이것은 관리"
+      },
+      "purchaseRecords": {
+        "핵심 장점": "구매 기이것은",
+        "description": "에이전트 구매 기이것은 보기 및 관리"
+      },
+      "apiService": {
+        "핵심 장점": "API 서비스"
       }
-    },
-    "settings": {
-      "title": "标题"
     },
     "sidebar": {
-      "ariaLabel": "ariaLabel",
-      "menuAriaLabel": "menuAriaLabel",
-      "unreadMessages": "unreadMessages"
+      "ariaLabel": "생각사용게 센마음 내비게이션",
+      "menuAriaLabel": "생각사용게 센마음 메뉴",
+      "unreadMessages": "{label}에 {count}개의 읽지 않은 메시지"
     },
-    "statistics": {
-      "description": "描述",
-      "title": "标题",
-      "withdrawal": {
-        "errors": {
-          "amountExceedsBalance": "amountExceedsBalance",
-          "invalidAccount": "invalidAccount",
-          "invalidAmount": "invalidAmount"
-        },
-        "status": {
-          "approved": "已通过",
-          "inReview": "inReview",
-          "pendingReview": "pendingReview",
-          "rejected": "已拒绝",
-          "unknown": "unknown",
-          "withdrawn": "withdrawn"
-        },
-        "success": {
-          "submitSuccess": "submitSuccess"
-        }
+    "settings": {
+      "핵심 장점": "시스템 설정",
+      "notifications": {
+        "핵심 장점": "알림 설정",
+        "이메일": "이메일 알림",
+        "이메일Tip": "중요한 계정 및 시스템 이메일 알림 수신"
+      },
+      "theme": {
+        "핵심 장점": "테마 설정"
+      },
+      "language": {
+        "핵심 장점": "언어 설정"
+      },
+      "data": {
+        "핵심 장점": "데이마음 관리"
+      },
+      "title": "시스템설정"
+    },
+    "apiService": {
+      "핵심 장점": "API서비스",
+      "description": "관리귀하의API토큰및보기생각사용통계",
+      "title": "API서비스"
+    },
+    "privacy": {
+      "핵심 장점": "개인정보이기설정",
+      "visibility": {
+        "핵심 장점": "AI를보기성설정",
+        "이메일": "이메일AI를보기성",
+        "전화": "전화번호AI를보기성"
+      },
+      "title": "개인정보이기설정"
+    },
+    "security": {
+      "changePassword": {
+        "핵심 장점": "비밀번호수정변경"
+      },
+      "loginDevices": {
+        "핵심 장점": "로그인기기"
+      },
+      "loginHistory": {
+        "핵심 장점": "로그인기이것은"
       }
     },
-    "strength": {
-      "medium": "medium",
-      "strong": "strong",
-      "weak": "weak"
+    "favorites": {
+      "핵심 장점": "내즐겨찾기",
+      "title": "내즐겨찾기"
     },
-    "study": {
-      "description": "描述",
-      "title": "标题"
+    "statistics": {
+      "핵심 장점": "데이마음통계",
+      "time": {
+        "핵심 장점": "시간차원도통계"
+      },
+      "consumption": {
+        "핵심 장점": "생각사용통계"
+      },
+      "tokenBalance": {
+        "핵심 장점": "Token잔액"
+      },
+      "billing": {
+        "핵심 장점": "청구서기이것은"
+      },
+      "income": {
+        "핵심 장점": "수입이익통계"
+      },
+      "settlement": {
+        "핵심 장점": "정산기이것은"
+      },
+      "withdrawal": {
+        "핵심 장점": "출금기이것은",
+        "status": {
+          "approved": "approved",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "rejected": "rejected",
+          "unknown": "unknown",
+          "withdrawn": "withdrawn",
+          "핵심 장점": "상태"
+        },
+        "errors": {
+          "invalidAmount": "요청입력출금금액",
+          "invalidAccount": "요청입력수입금액계정",
+          "amountExceedsBalance": "출금금액미쉽초과AI를출금금액"
+        },
+        "success": {
+          "submitSuccess": "출금신청요청제출성공"
+        },
+        "dialog": {
+          "핵심 장점": "신청요청출금"
+        }
+      },
+      "description": "설명석",
+      "title": "데이마음통계"
+    },
+    "form": {
+      "이메일": "이메일",
+      "전화": "전화번호",
+      "이메일Verified": "완료인증증명",
+      "전화Verified": "완료인증증명",
+      "placeholders": {
+        "이메일": "요청입력이메일주의소",
+        "전화": "요청입력전화번호"
+      }
     },
     "validation": {
-      "confirmPassword": "confirmPassword",
-      "email": "邮箱",
-      "emailRequired": "emailRequired",
-      "newPassword": "newPassword",
-      "nickname": "昵称",
-      "nicknameLength": "nicknameLength",
-      "oldPassword": "oldPassword",
-      "passwordMatch": "passwordMatch",
-      "passwordStrength": "passwordStrength",
-      "phone": "手机号",
-      "phoneRequired": "phoneRequired",
-      "signatureLength": "signatureLength"
-    }
+      "nickname": "요청입력닉네임",
+      "nicknameLength": "닉네임길이애플사이2-20개글게일치의",
+      "이메일": "요청입력유효의이메일주의소",
+      "이메일Required": "요청입력이메일",
+      "전화": "요청입력유효의전화번호",
+      "전화Required": "요청입력전화번호",
+      "signatureLength": "개성계약이름미쉽초과100개글게일치",
+      "oldPassword": "요청입력원래비밀번호",
+      "newPassword": "요청입력신규비밀번호",
+      "confirmPassword": "요청확인비밀번호",
+      "passwordStrength": "비밀번호는 최소 8자 이상, 문자와 숫자 포함",
+      "passwordMatch": "두 번 입력한 비밀번호가 일치하지 않습니다",
+      "email": "요청입력유효의이메일주의소",
+      "emailRequired": "요청입력이메일",
+      "phone": "요청입력유효의휴대전화번호",
+      "phoneRequired": "요청입력휴대전화번호"
+    },
+    "strength": {
+      "weak": "약함",
+      "medium": "중간",
+      "strong": "강력한"
+    },
+    "messages": {
+      "핵심 장점": "메시지센마음",
+      "allRead": "모두 읽음",
+      "saveSuccess": "저장 성공",
+      "saveFailedRetry": "저장 실패，요청재시도",
+      "이메일Required": "요청진입력이메일",
+      "이메일VerificationSent": "인증 코드가 전송되었습니다, 이메일을 확인하세요",
+      "전화Required": "요청진입력전화번호",
+      "전화VerificationSent": "인증 코드가 전송되었습니다, 문자를 확인하세요",
+      "passwordChanged": "비밀번호수정변경성공",
+      "passwordChangeFailedRetry": "비밀번호수정변경실패，요청재시도",
+      "deviceRemoved": "기기완료제거",
+      "settings": {
+        "appSettingsUpdateSuccess": "appSettingsUpdate성공",
+        "appSettingsUpdateFailed": "appSettingsUpdate실패",
+        "dataClearSuccess": "dataClear성공",
+        "dataClearFailed": "dataClear실패",
+        "insufficientPermissionClearData": "무효sufficientPermissionClearData",
+        "passwordConfirmRequired": "비밀번호확인필수",
+        "accountDeletionSuccess": "accountDeletion성공",
+        "accountDeletionFailed": "accountDeletion실패",
+        "passwordError": "비밀번호오류",
+        "insufficientPermissionDeleteAccount": "무효sufficientPermissionDeleteAccount",
+        "notificationUpdateSuccess": "없음tificationUpdate성공",
+        "notificationUpdateFailed": "없음tificationUpdate실패",
+        "privacyUpdateSuccess": "privacyUpdate성공",
+        "privacyUpdateFailed": "privacyUpdate실패",
+        "passwordRequired": "비밀번호필수",
+        "passwordMismatch": "PasswordMismatch",
+        "passwordTooShort": "PasswordTooShort",
+        "passwordChangeSuccess": "passwordChange성공",
+        "passwordChangeFailed": "passwordChange실패",
+        "profileUpdateSuccess": "profileUpdate성공",
+        "profileUpdateFailed": "profileUpdate실패",
+        "imageFormatError": "imageFormat오류",
+        "imageSizeError": "imageSize오류",
+        "avatarUploadSuccess": "avatarUpload성공",
+        "avatarUploadFailed": "avatarUpload실패",
+        "imageTooLarge": "수익Too대사용량",
+        "unsupportedImageFormat": "미supportedImageFormat"
+      },
+      "examineApproveSuccess": "examineApprove성공",
+      "examineRejectSuccess": "examineReject성공",
+      "loadMessageSquaresFailed": "loadMessageSquares실패",
+      "loadMessageSquaresFailedRetry": "로드MessageSquaresFailed재시도",
+      "markedRead": "MarkedRead",
+      "messages": "메시지",
+      "deleteSuccess": "삭제성공",
+      "orderType": {
+        "recharge": "충전",
+        "consumption": "Consumption",
+        "refund": "환불",
+        "withdraw": "출금"
+      },
+      "orderStatus": {
+        "pending": "처리 대기 중",
+        "processing": "처리중간...",
+        "completed": "완료",
+        "failed": "실패",
+        "cancelled": "완료취소"
+      },
+      "privacySaveSuccess": "privacySave성공",
+      "privacySaveFailed": "privacySave실패",
+      "notificationSaveSuccess": "없음tificationSave성공",
+      "notificationSaveFailed": "없음tificationSave실패",
+      "themeSaveSuccess": "themeSave성공",
+      "themeSaveFailed": "themeSave실패",
+      "languageSaveSuccess": "languageSave성공",
+      "languageSaveFailed": "languageSave실패",
+      "exportDataConfirm": "exportData확인",
+      "exportDataTitle": "exportData제목",
+      "exportDataConfirmButton": "Export데이마음확인Button",
+      "exportDataCancelButton": "Export데이마음취소Button",
+      "userInfoNotFound": "User정보NotFound",
+      "exportDataSuccess": "exportData성공",
+      "exportDataFailed": "exportData실패",
+      "clearCacheConfirm": "clearCache확인",
+      "clearCacheTitle": "clearCache제목",
+      "clearCacheConfirmButton": "지우기캐시확인Button",
+      "clearCacheCancelButton": "지우기캐시취소Button",
+      "clearCacheSuccess": "clearCache성공",
+      "clearCacheFailed": "clearCache실패",
+      "uploadIncomplete": "UploadIncomplete",
+      "uploadSuccess": "업로드성공",
+      "title": "메시지중간마음",
+      "emailRequired": "요청진입력이메일",
+      "emailVerificationSent": "인증 코드가 발송되었습니다, 이메일을 확인하세요",
+      "phoneRequired": "요청진입력휴대전화번호",
+      "phoneVerificationSent": "인증 코드가 발송되었습니다, 문자를 확인하세요"
+    },
+    "common": {
+      "prompt": "팁"
+    },
+    "dialogs": {
+      "changePassword": {
+        "핵심 장점": "수정변경비밀번호"
+      },
+      "removeDevice": {
+        "confirm": "이 기기를 제거하시겠습니까? 제거 후 기기를 다시 로그인해야 합니다。"
+      }
+    },
+    "wallet": {
+      "핵심 장점": "내 지갑",
+      "sub핵심 장점": "잔액, 충전, 출금 및 거래 기이것은 보기"
+    },
+    "customerService": {
+      "핵심 장점": "고객 서비스센마음",
+      "sub핵심 장점": "획득전문의기술지원및도움",
+      "chat": {
+        "핵심 장점": "온라인고객 서비스",
+        "sub핵심 장점": "고객 서비스와 실시간 소통"
+      },
+      "ticket": {
+        "핵심 장점": "티켓시스템",
+        "sub핵심 장점": "제출티켓획득기술지원"
+      },
+      "faq": {
+        "핵심 장점": "게주의 묻는 질문",
+        "sub핵심 장점": "보기게주의 묻는 질문이해답변"
+      }
+    },
+    "이메일Required": "요청진입력이메일",
+    "이메일VerificationSent": "인증 코드가 전송되었습니다, 이메일을 확인하세요",
+    "전화Required": "요청진입력전화번호",
+    "전화VerificationSent": "인증 코드가 전송되었습니다, 문자를 확인하세요",
+    "priority": {
+      "low": "낮음",
+      "medium": "중간",
+      "high": "고급",
+      "urgent": "Urgent"
+    },
+    "benefits": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "study": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "nickname": "닉네임",
+    "nickname2": "昵称"
   },
   "User": {
-    "nickname": "昵称",
-    "nickname2": "nickname2"
+    "inputplaceholder": "input[placeholder*=",
+    "nickname": "닉네임",
+    "nickname2": "昵称"
   }
 }

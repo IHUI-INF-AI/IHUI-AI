@@ -21,7 +21,7 @@ export const AUTH_PATHS = {
   register: '/api/v1/auth/register',
   logout: '/api/v1/auth/logout',
   profile: '/api/v1/auth/profile',
-  health: '/api/v1/auth/health',
+  health: '/api/auth/health',
   // 验证码：走 /api/code，由 Vite 代理转发到 Python 后端 /prod-api/code，避免跨域
   code: '/api/code',
   user: '/api/v1/auth/user',
@@ -39,6 +39,16 @@ export const LOGIN_PWD_PATHS = {
   setEmail: '/api/v1/auth/profile/email',
   modifyPassword: '/api/v1/auth/profile/password',
   sendBatchSms: '/api/v1/auth/sms/code',
+} as const
+
+/**
+ * 后台管理员账号登录路径 (admin_user 表, 非 /auth/login 链路)
+ * 对应后端: app/api/v1/auth/username_login.py -> POST /api/v1/login/username
+ * 参数: username, password (Query)
+ * 返回: access_token / refresh_token / user_id / user_name / nick_name / roles / permissions
+ */
+export const ADMIN_LOGIN_PATHS = {
+  login: '/api/v1/login/username',
 } as const
 
 // ==================== 开发者 API（8080 /api/developer） ====================
@@ -171,9 +181,7 @@ export const COZE_PATHS = {
     byId: (id: string) => `${COZE}/ai/models/${id}`,
   },
   chat: `${COZE}/chat`,
-  // 2026-06-24 修复: 后端 coze SSE 端点在 /api/v1/chat/message/stream (coze.py prefix=/chat, 路由 /message/stream)
-  // 不走 /cozeZhsApi 代理, 直接用 /api/v1 前缀
-  chatStream: '/api/v1/chat/message/stream',
+  chatStream: `${COZE}/chat/stream`,
   n8n: {
     workflows: `${COZE}/n8n/workflows`,
   },
@@ -185,14 +193,11 @@ export const COZE_PATHS = {
     reviews: (id: string) => `${COZE}/agent/${id}/reviews`,
   },
   file: {
-    // 2026-06-24 修复: 使用 /cozeZhsApi/file/upload/form (content/file_upload.py)
-    // 该端点返回 {code, message, url} 格式, 与前端 adaptUploadResponse 适配函数匹配
-    // /api/upload/single 返回 {success, fileId, fileName} 格式不匹配
-    uploadForm: '/cozeZhsApi/file/upload/form',
-    uploadBase64: '/api/upload/base64',
+    uploadForm: `${COZE}/file/upload/form`,
+    uploadBase64: `${COZE}/file/upload/base64`,
     uploadOctet: (fileName: string) =>
-      `/api/upload/octet?file_name=${encodeURIComponent(fileName)}`,
-    uploadAgentExamine: '/api/upload/agent-examine',
+      `${COZE}/file/upload/octet?file_name=${encodeURIComponent(fileName)}`,
+    uploadAgentExamine: `${COZE}/file/agent-examine`,
     list: `${COZE}/file/list`,
     download: (filename: string) => `${COZE}/file/download/${encodeURIComponent(filename)}`,
     byId: (fileId: string) => `${COZE}/file/${fileId}`,
@@ -220,13 +225,13 @@ export const COZE_PATHS = {
     wechatCreate: `${COZE}/payment/wechat/create`,
     cardCreate: `${COZE}/payment/card/create`,
     refund: {
-      apply: `/api/v1/refunds`,
-      list: `/api/v1/refunds`,
-      byRefundNo: (refundNo: string) => `/api/v1/refunds/${refundNo}`,
-      cancel: (refundNo: string) => `/api/v1/refunds/${refundNo}/cancel`,
-      status: (refundNo: string) => `/api/v1/refunds/${refundNo}`,
-      audit: (refundNo: string) => `/api/v1/refunds/${refundNo}/review`,
-      process: (refundNo: string) => `/api/v1/refunds/${refundNo}/review`,
+      apply: `${COZE}/payment/refund/apply`,
+      list: `${COZE}/payment/refund/list`,
+      byRefundNo: (refundNo: string) => `${COZE}/payment/refund/${refundNo}`,
+      cancel: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/cancel`,
+      status: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/status`,
+      audit: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/audit`,
+      process: (refundNo: string) => `${COZE}/payment/refund/${refundNo}/process`,
     },
   },
   userAgentContext: {
@@ -243,7 +248,9 @@ export const COZE_PATHS = {
     zhipu: `${COZE}/ws/zhipu/stream`,
     chatdeepseek: `${COZE}/ws/chatdeepseek/stream`,
     doubao: `${COZE}/ws/doubao/streamDou`,
-    chat: (clientId: string) => `${COZE}/ws/chat/${clientId}`,
+    // 2026-06-29 联调: 对齐后端 /ws/chat/{room} (app/api/ws/public_socket.py)
+    // 走 vite /ws 代理转发; 不再走不存在的 /cozeZhsApi/ws/chat/{clientId}
+    chat: (clientId: string) => `/ws/chat/${clientId}`,
   },
   index: {
     resources: (type: string) => `${COZE}/index/resources/${type}`,
@@ -293,11 +300,6 @@ export const COZE_PATHS = {
   aiCareer: {
     submit: `${COZE}/ai-career/submit`,
   },
-  oauthAlipay: {
-    qrCode: `${COZE}/oauth/alipay/qr-code`,
-    checkStatus: `${COZE}/oauth/alipay/check-status`,
-    callback: `${COZE}/oauth/alipay/callback`,
-  },
   tokenValue: {
     records: `${COZE}/token-value/records`,
     balance: `${COZE}/token-value/balance`,
@@ -320,33 +322,20 @@ export const COZE_PATHS = {
     status: (orderId: string) => `${COZE}/top-up/status/${orderId}`,
   },
   agentCategory: {
-    // 2026-06-25 修复#O: 对齐到 Python 后端真实端点.
-    //   原路径 /cozeZhsApi/agent-category/* 是外部 Java 后端路由,
-    //   已迁移到 Python 后端 /api/v1/agents/categories/* (修复#A 新前缀).
-    // 注意: agentById 按 agent_id 查询, 后端 categories.py 只有 /{category_id},
-    //   语义不同, 保留旧路径走外部 Java 后端避免破坏现有逻辑.
     agentById: (id: string) => `${COZE}/agent-category/agent/${id}`,
-    create: `/api/v1/agents/categories/create`,
-    byId: (id: string) => `/api/v1/agents/categories/${id}`,
+    create: `${COZE}/agent-category/create`,
+    byId: (id: string) => `${COZE}/agent-category/${id}`,
   },
   agentBuy: {
-    // 2026-06-25 修复#O: 对齐到 Python 后端真实端点.
-    create: `/api/v1/agents/buy/create`,
+    create: `${COZE}/agent-buy/create`,
   },
   agentWithdrawalDetail: {
-    // 2026-06-25 修复#L: 对齐到 Python 后端真实端点.
-    //   原路径 /cozeZhsApi/agent-withdrawal-detail/list 是外部 Java 后端路由,
-    //   已迁移到 Python 后端 /api/v1/agents/withdrawal/list (修复#A 新前缀).
-    list: `/api/v1/agents/withdrawal/list`,
+    list: `${COZE}/agent-withdrawal-detail/list`,
   },
   agentSettlement: {
-    // 2026-06-25 修复#M/#N: 对齐到 Python 后端真实端点.
-    //   原路径 /cozeZhsApi/agent-settlement/* 是外部 Java 后端路由,
-    //   已迁移到 Python 后端 /api/v1/agents/settlement/* (修复#A 新前缀).
-    //   后端无 stats/income-overview 和 stats/overview, 用 /summary 等价.
-    incomeOverview: `/api/v1/agents/settlement/summary`,
-    list: `/api/v1/agents/settlement/list`,
-    statsOverview: `/api/v1/agents/settlement/summary`,
+    incomeOverview: `${COZE}/agent-settlement/stats/income-overview`,
+    list: `${COZE}/agent-settlement/list`,
+    statsOverview: `${COZE}/agent-settlement/stats/overview`,
   },
   search: {
     modelWorkflowRun: `${COZE}/search/model/workflow/run`,
@@ -391,17 +380,12 @@ export const COZE_PATHS = {
     },
   },
   agentExamine: {
-    // 2026-06-25 修复#O: 对齐到 Python 后端真实端点.
-    //   原路径 /cozeZhsApi/agent-examine/* 是外部 Java 后端路由,
-    //   已迁移到 Python 后端 /api/v1/agents/examine/* (修复#A 新前缀).
-    // 注意: create 后端是 POST /submit (Query agent_id), 语义不同, 保留旧路径.
-    //   syncAvatar/batchSyncAvatar 后端无对应, 保留旧路径走外部 Java.
-    list: `/api/v1/agents/examine/list`,
+    list: `${COZE}/agent-examine/list`,
     create: `${COZE}/agent-examine/create`,
-    byId: (id: string) => `/api/v1/agents/examine/${id}`,
-    statsSummary: `/api/v1/agents/examine/stats/summary`,
-    approve: (id: string) => `/api/v1/agents/examine/${id}/approve`,
-    reject: (id: string) => `/api/v1/agents/examine/${id}/reject`,
+    byId: (id: string) => `${COZE}/agent-examine/${id}`,
+    statsSummary: `${COZE}/agent-examine/stats/summary`,
+    approve: (id: string) => `${COZE}/agent-examine/${id}/approve`,
+    reject: (id: string) => `${COZE}/agent-examine/${id}/reject`,
     syncAvatar: (agentId: string) => `${COZE}/agent-examine/sync-avatar/${agentId}`,
     batchSyncAvatar: `${COZE}/agent-examine/batch-sync-avatar`,
   },
@@ -453,61 +437,57 @@ export const CUSTOMER_SERVICE_PATHS = {
 } as const
 
 // ==================== 钱包（8080） ====================
-// 2026-06-24 联调: 对齐后端 compat_routes.py /api/v1/wallet/* 真实路由
-// - info → balance (后端提供 balance 端点, 返回余额信息)
-// - transactions → transactions (后端已提供)
-// - withdraw → withdraw (后端补齐, 见 compat_routes.py)
 export const WALLET_PATHS = {
-  info: '/api/v1/wallet/balance',
-  transactions: '/api/v1/wallet/transactions',
-  withdraw: '/api/v1/wallet/withdraw',
+  info: '/api/wallet/info',
+  transactions: '/api/wallet/transactions',
+  withdraw: '/api/wallet/withdraw',
 } as const
 
 // ==================== 社区 / 工具 / 内容（8080） ====================
-// 2026-06-21 联调: 子路径对齐后端 v2_community.py 真实路由
+// 2026-06-29 修正: v2_community.py 不存在, 走 v1 circle 模块
 export const COMMUNITY_PATHS = {
   posts: {
-    list: '/api/v2/community/posts',
-    create: '/api/v2/community/post',
-    batch: '/api/v2/community/posts',
-    byId: (id: string) => `/api/v2/community/post?id=${id}`,
-    like: (_postId: string) => `/api/v2/community/like`,
-    comments: (postId: string) => `/api/v2/community/comments?postId=${postId}`,
+    list: '/api/v1/circle/post/list',
+    create: '/api/v1/circle/post',
+    batch: '/api/v1/circle/post/list',
+    byId: (id: string) => `/api/v1/circle/post/${id}`,
+    like: (postId: string) => `/api/v1/circle/post/${postId}/like`,
+    comments: (postId: string) => `/api/v1/circle/post/${postId}/comments`,
   },
   topics: {
-    list: '/api/v2/community/groups',
+    list: '/api/v1/circle/list',
   },
 } as const
 
 export const API_V1_PATHS = {
-  chat: { process: '/api/v1/chat/message' },
+  chat: { process: '/api/v1/chat/process' },
   model: { switch: '/api/v1/model/switch' },
   tools: { navigation: '/api/v1/tools/navigation' },
   agent: { upload: '/api/v1/agent/upload' },
-  news: { list: '/api/v1/content/news', detail: (id: string | number) => `/api/v1/content/news/${id}` },
+  news: { list: '/api/v1/news/list', detail: (id: string | number) => `/api/v1/news/${id}` },
 } as const
 
-// 2026-06-21 联调: 子路径对齐后端 v1/tools (list/categories/upload) + v2/tools (detail/hot/favorite)
+// 2026-06-29 修正: v2/tools 不存在, 走 v1/tools (list/categories/upload)
 export const TOOLS_PATHS = {
   list: '/api/v1/tools/list',
   all: '/api/v1/tools/list',
-  popular: '/api/v2/tools/hot',
+  popular: '/api/v1/tools/list',
   categories: { list: '/api/v1/tools/categories' },
-  byId: (id: string) => `/api/v2/tools/detail?id=${id}`,
-  use: (_id: string) => `/api/v2/tools/invoke`,
-  batchUse: '/api/v2/tools/invoke',
-  favorite: (_toolId: string) => `/api/v2/tools/favorite`,
-  unfavorite: (_toolId: string) => `/api/v2/tools/favorite`,
+  byId: (id: string) => `/api/v1/tools/list?id=${id}`,
+  use: (_id: string) => `/api/v1/tools/upload`,
+  batchUse: '/api/v1/tools/upload',
+  favorite: (_toolId: string) => `/api/v1/tools/list`,
+  unfavorite: (_toolId: string) => `/api/v1/tools/list`,
 } as const
 
-// 2026-06-21 联调: 子路径对齐后端 v2_content.py 真实路由
+// 2026-06-29 修正: v2_content.py 不存在, 走 v1/content 模块
 export const CONTENT_PATHS = {
   generation: {
-    text: '/api/v2/content/create',
-    textBatch: '/api/v2/content/create',
-    image: '/api/v2/content/create',
-    video: '/api/v2/content/create',
-    history: '/api/v2/content/list',
+    text: '/api/v1/content/create',
+    textBatch: '/api/v1/content/create',
+    image: '/api/v1/content/create',
+    video: '/api/v1/content/create',
+    history: '/api/v1/content/list',
   },
 } as const
 
@@ -596,11 +576,10 @@ export const AGENT_CATEGORY_PATHS = {
   create: '/agentCategory',
 } as const
 
-// 2026-06-24 修复: 路径前缀对齐后端 /api/v1/*
 export const COURSES_API_PATHS = {
-  list: '/api/v1/courses/list',
-  byId: (id: string) => `/api/v1/courses/${id}`,
-  categories: '/api/v1/courses/categories',
+  list: '/api/courses',
+  byId: (id: string) => `/api/courses/${id}`,
+  categories: '/api/courses/categories',
   my: '/api/courses/my',
   enroll: (courseId: string) => `/api/courses/${courseId}/enroll`,
   progress: (courseId: string) => `/api/courses/${courseId}/progress`,
@@ -611,7 +590,7 @@ export const COURSES_API_PATHS = {
 export const COURSE_PATHS = {
   update: '/course',
   export: '/course/export',
-  delete: (ids: string) => `/api/v1/courses/${ids}`,
+  delete: (ids: string) => `/course/${ids}`,
 } as const
 
 export const MOBILE_ORDERS_PATHS = {
@@ -740,6 +719,4 @@ export const USER_SETTINGS_PATHS = {
   themeSync: '/user/settings/theme/sync',
   themePresets: '/user/settings/theme/presets',
   themePresetById: (id: string) => `/user/settings/theme/presets/${id}`,
-  // 2026-06-24 联调: 协议详情页 (agreement/Index.vue) 调用, 后端待实现, 页面有 404 容错
-  agreement: (type: string) => `/api/v1/settings/agreement/${type}`,
 } as const

@@ -6,17 +6,6 @@
 import { onMounted, watch, type Ref } from 'vue'
 import { useRoute } from 'vue-router'
 
-let _routeFallback: ReturnType<typeof useRoute> | null = null
-function getSafeRoute() {
-  try {
-    const r = useRoute()
-    _routeFallback = r
-    return r
-  } catch {
-    return _routeFallback
-  }
-}
-
 /**
  * SEO 元数据配置
  */
@@ -37,7 +26,7 @@ export interface SEOMetadata {
  * 自动管理页面的 SEO 元数据
  */
 export function useSEO(metadata?: Ref<SEOMetadata> | SEOMetadata) {
-  const route = getSafeRoute()
+  const route = useRoute()
 
   // 更新页面标题
   const updateTitle = (title: string) => {
@@ -140,7 +129,6 @@ export function useSEO(metadata?: Ref<SEOMetadata> | SEOMetadata) {
 
   // 从路由元数据获取 SEO 配置
   const getSEOFromRoute = (): SEOMetadata | null => {
-    if (!route) return null
     const meta = route.meta
     if (meta && (meta.title || meta.description)) {
       return {
@@ -176,14 +164,12 @@ export function useSEO(metadata?: Ref<SEOMetadata> | SEOMetadata) {
   }
 
   // 监听路由变化
-  if (route) {
-    watch(
-      () => route.path,
-      () => {
-        initSEO()
-      }
-    )
-  }
+  watch(
+    () => route.path,
+    () => {
+      initSEO()
+    }
+  )
 
   // 如果 metadata 是响应式的，监听其变化
   if (metadata && 'value' in metadata) {

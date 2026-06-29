@@ -1,5 +1,41 @@
 {
   "open": {
+    "featureCenter": {
+      "title": "Feature Center",
+      "subtitle": "Explore the powerful features of the intelligent AI platform",
+      "cards": {
+        "dashboard": {
+          "title": "Dashboard",
+          "desc": "View platform statistics and quick access",
+          "action": "Go to Dashboard"
+        },
+        "sdks": {
+          "title": "SDK Center",
+          "desc": "Download and manage SDKs for various languages",
+          "action": "View SDKs"
+        },
+        "models": {
+          "title": "Model Center",
+          "desc": "Browse and manage available AI models",
+          "action": "View Models"
+        },
+        "agents": {
+          "title": "Agent Center",
+          "desc": "Discover and use various agents",
+          "action": "View Agents"
+        },
+        "apis": {
+          "title": "API Center",
+          "desc": "View API documentation and interfaces",
+          "action": "View APIs"
+        },
+        "document": {
+          "title": "Document Center",
+          "desc": "View detailed API documentation and development guides",
+          "action": "View Documents"
+        }
+      }
+    },
     "documentCenter": {
       "title": "Document Center",
       "subtitle": "Comprehensive development documentation and API references"

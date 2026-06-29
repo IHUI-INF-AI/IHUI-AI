@@ -1,14 +1,14 @@
 {
   "themeShortcut": {
-    "disabled": "已禁用",
-    "enabled": "已启用",
-    "resetDefaults": "resetDefaults",
-    "shortcutUpdated": "shortcutUpdated",
-    "shortcutsReset": "shortcutsReset",
-    "tip1": "tip1",
-    "tip2": "tip2",
-    "tip3": "tip3",
-    "tips": "tips",
-    "title": "标题"
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "resetDefaults": "Reset to Defaults",
+    "shortcutUpdated": "Shortcut updated",
+    "shortcutsReset": "Shortcuts reset",
+    "tip1": "Shortcuts are activated automatically after page load",
+    "tip2": "Some shortcuts may conflict with other applications",
+    "tip3": "Disabled shortcuts need to be manually enabled to take effect",
+    "tips": "Tips",
+    "title": "Theme Shortcuts"
   }
 }

@@ -1,0 +1,8 @@
+{
+  "adminCoursePayLog": {
+    "messages": {
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
+    }
+  }
+}

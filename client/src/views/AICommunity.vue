@@ -378,7 +378,7 @@
           <div class="sidebar-section ai-tools-section glass-card scroll-reveal" style="--delay: 0.4s">
             <h3 class="section-title">
               <span class="title-indicator"></span>
-              {{ t('aiCommunity.tools.hotTools') }}
+              热门AI工具
             </h3>
             <div class="ai-tools-list">
               <div class="ai-tool-item ripple-btn" @click="openTool('https://midjourney.com')">
@@ -583,12 +583,12 @@ import {
   getCreations, getHotCreators, getHotTags as getAIHotTags,
   likeCreation, unlikeCreation, favoriteCreation, unfavoriteCreation,
   type AICreation, type ContentType, type Creator,
-} from '@/api/ai/ai-community'
+} from '@/api/ai-community'
 import {
   getPostsList, createPost, likePost, unlikePost, favoritePost, unfavoritePost, createComment, getHotTopics,
   type CommunityPost, type Topic,
-} from '@/api/content/community'
-import { followDemandUser, unfollowDemandUser } from '@/api/content/xuqiu'
+} from '@/api/community'
+import { followDemandUser, unfollowDemandUser } from '@/api/xuqiu'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -818,9 +818,8 @@ const handleComment = (creation: AICreation) => {
   showDetailDialog.value = true
 }
 
-// 2026-06-25 修复 ESLint: creatorId 参数未使用, 按规则改为 _creatorId
-const handleCreatorClick = (_creatorId: string) => {
-  router.push(`/user`).catch(() => {})
+const handleCreatorClick = (creatorId: string) => {
+  router.push(`/user/${creatorId}`).catch(() => {})
 }
 
 const handleFollow = async (creator: Creator) => {
@@ -933,7 +932,7 @@ const handlePublishPost = async () => {
     } else {
       showError(result.message || t('community.publishFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== false) {
       showError((error instanceof Error ? error.message : String(error)) || t('community.publishFailed'))
     }
@@ -1204,7 +1203,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 :root.dark,
-:where(html.dark) {
+html.dark {
   --ai-community-bg-void: var(--el-bg-color);
   --ai-community-bg-primary: var(--el-fill-color-darker);
   --ai-community-bg-secondary: var(--el-fill-color-dark);
@@ -1226,7 +1225,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ai-community-card-hover-shadow: none;
   --ai-community-btn-primary-bg: var(--el-bg-color);
   --ai-community-btn-primary-color: var(--el-text-color-primary);
-  --ai-community-btn-primary-hover-bg: var(--el-fill-color-light);
+  --ai-community-btn-primary-hover-bg: var(--color-gray-light);
 }
 
 .ai-community-page {
@@ -1450,7 +1449,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       align-items: center;
       gap: 10px;
       padding: 8px 18px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.18em;
       color: var(--accent);
@@ -1533,7 +1532,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
         -webkit-backdrop-filter: blur(20px) saturate(160%);
         border: var(--unified-border);
         border-radius: var(--global-border-radius);
-        transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo;
+        transition: all $transition-base $ease-out-expo;
 
         &:hover {
           background: var(--glass-bg-hover);
@@ -1563,7 +1562,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
           font-weight: 700;
           letter-spacing: -0.02em;
           color: var(--text-primary);
-          font-family: var(--font-family-edix);
+          font-family: var(--font-family-edix), 'EDIX', sans-serif;
         }
 
         .stat-label {
@@ -1638,17 +1637,11 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     display: inline-flex;
     gap: 4px;
     padding: 4px;
-    background: hsl(var(--muted));
+    background: hsl(var(--muted, 0 0% 96%));
     border-radius: var(--global-border-radius);
-    --tab-item-hover-bg: hsl(var(--background));
-    --tab-item-active-bg: hsl(var(--background));
-    --tab-item-active-border: var(--border-unified-color);
 
-    :where(html.dark) & {
+    html.dark & {
       background: hsl(0 0% 12%);
-      --tab-item-hover-bg: hsl(0 0% 18%);
-      --tab-item-active-bg: hsl(0 0% 18%);
-      --tab-item-active-border: hsl(0 0% 25%);
     }
 
     &__item {
@@ -1660,30 +1653,32 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       border: none;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+      transition: all 0.2s ease;
       white-space: nowrap;
 
-      :where(html.dark) & {
-        color: hsl(var(--muted-foreground));
+      html.dark & {
+        color: hsl(var(--muted-foreground, 0 0% 64%));
       }
 
       &:hover:not(:where(&--active)) {
         color: var(--el-text-color-primary);
-        background: var(--tab-item-hover-bg);
+        background: hsl(var(--background, 0 0% 100%));
 
-        :where(html.dark) & {
-          color: hsl(var(--foreground));
+        html.dark & {
+          color: hsl(var(--foreground, 0 0% 98%));
+          background: hsl(0 0% 18%);
         }
       }
 
       &--active {
         color: var(--el-text-color-primary);
-        background: var(--tab-item-active-bg);
+        background: hsl(var(--background, 0 0% 100%));
         border: var(--unified-border);
 
-        :where(html.dark) & {
-          color: hsl(var(--foreground));
-          border-color: var(--tab-item-active-border);
+        html.dark & {
+          color: hsl(var(--foreground, 0 0% 98%));
+          background: hsl(0 0% 18%);
+          border-color: hsl(0 0% 25%);
         }
       }
     }
@@ -1733,7 +1728,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        transition: background-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo;
+        transition: all $transition-base $ease-out-expo;
 
         .el-icon {
           font-size: 16px;
@@ -1779,7 +1774,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       font-weight: 500;
       color: var(--text-secondary);
       line-height: 1;
-      transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
+      transition: all $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--glass-bg-hover);
@@ -1798,7 +1793,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       background: var(--btn-primary-bg);
       border: none;
       color: var(--btn-primary-color);
-      transition: background-color $transition-base $ease-out-expo;
+      transition: all $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--btn-primary-hover-bg);
@@ -1832,7 +1827,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       overflow: visible;
-      transition: border-color $transition-base $ease-out-expo;
+      transition: all $transition-base $ease-out-expo;
 
       &:hover {
         border-color: var(--border-medium);
@@ -1907,7 +1902,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     background: var(--glass-bg);
     border-color: var(--border-subtle);
     color: var(--text-secondary);
-    transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
+    transition: all $transition-base $ease-out-expo;
 
     &:hover {
       background: var(--glass-bg-hover);
@@ -2090,7 +2085,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       color: var(--text-primary);
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: background-color 0.3s, color 0.3s;
+      transition: all 0.3s;
 
       &:hover {
         background: var(--btn-primary-bg);
@@ -2117,7 +2112,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       font-weight: 700;
       color: var(--text-secondary);
       cursor: pointer;
-      transition: background-color 0.3s, color 0.3s;
+      transition: all 0.3s;
 
       &:hover {
         background: var(--color-black-12);
@@ -2153,7 +2148,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     padding: 14px 16px;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       background: var(--color-black-8);
@@ -2164,7 +2159,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     .topic-rank {
-      font-family: var(--font-family-mono);
+      font-family: monospace;
       font-size: 12px;
       font-weight: 900;
       color: var(--btn-primary-bg);
@@ -2242,7 +2237,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       padding: 12px;
       margin: 0 -12px;
       border-radius: var(--global-border-radius);
-      transition: background-color $transition-base $ease-out-expo;
+      transition: all $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--glass-bg-hover);
@@ -2255,7 +2250,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 
       .creator-avatar {
         border: 2px solid var(--border-subtle);
-        transition: transform $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo;
+        transition: all $transition-base $ease-out-expo;
       }
 
       :where(.creator-info) {
@@ -2284,13 +2279,13 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       }
 
       .follow-btn {
-        font-size: 12px;
+        font-size: 11px;
         padding: 6px 14px;
         border-radius: var(--global-border-radius);
         background: transparent;
         border: var(--unified-border);
         color: var(--text-secondary);
-        transition: background-color $transition-fast, border-color $transition-fast, color $transition-fast;
+        transition: all $transition-fast;
 
         &:hover {
           background: var(--btn-primary-bg);
@@ -2327,7 +2322,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       background: var(--glass-bg);
       border: var(--unified-border);
       color: var(--text-secondary);
-      transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
+      transition: all $transition-base $ease-out-expo;
       box-shadow: none;
 
       :deep(.el-tag__content) {
@@ -2402,7 +2397,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
         cursor: pointer;
         background: var(--glass-bg);
         border: var(--unified-border);
-        transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, transform $transition-base $ease-out-expo;
+        transition: all $transition-base $ease-out-expo;
 
         &:hover {
           background: var(--glass-bg-hover);
@@ -2423,7 +2418,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
           justify-content: center;
           background: var(--border-subtle);
           border-radius: var(--global-border-radius);
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 700;
           color: var(--text-secondary);
           font-family: var(--font-family-mono);
@@ -2482,7 +2477,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
           font-size: 14px;
           color: var(--text-muted);
           opacity: 0;
-          transition: opacity $transition-base $ease-out-expo, transform $transition-base $ease-out-expo;
+          transition: all $transition-base $ease-out-expo;
         }
       }
     }
@@ -2534,7 +2529,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   white-space: nowrap;
 
@@ -2565,7 +2560,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
-:where(html.dark) .btn-luxe {
+html.dark .btn-luxe {
   &.primary {
     background: var(--el-color-white);
     color: var(--btn-primary-bg);
@@ -2768,7 +2763,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
       background: var(--glass-bg);
       border-color: var(--border-subtle);
       color: var(--text-secondary);
-      transition: background-color $transition-base $ease-out-expo, border-color $transition-base $ease-out-expo, color $transition-base $ease-out-expo;
+      transition: all $transition-base $ease-out-expo;
 
       &:hover {
         background: var(--glass-bg-hover);
@@ -2789,7 +2784,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 // 响应式设计
 // ============================================
 
-@media (width <= 1200px) {
+@media (max-width: 1200px) {
   .main-section .main-container {
     flex-direction: column;
   }
@@ -2806,13 +2801,13 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .hero-section {
     padding: 40px 20px 28px;
 
     .hero-content {
       .hero-badge {
-        font-size: 12px;
+        font-size: 10px;
         padding: 6px 14px;
         gap: 8px;
       }
@@ -2922,21 +2917,21 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 // ============================================
 
 :deep(.el-dropdown-menu) {
-  background: var(--bg-elevated);
+  background: var(--bg-elevated) ;
   border: var(--unified-border);
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius) ;
 
   .el-dropdown-menu__item {
-    color: var(--text-secondary);
-    transition: background-color $transition-fast, color $transition-fast;
+    color: var(--text-secondary) ;
+    transition: all $transition-fast ;
 
     &:hover {
-      background: var(--glass-bg-hover);
-      color: var(--text-primary);
+      background: var(--glass-bg-hover) ;
+      color: var(--text-primary) ;
     }
 
     &.is-selected {
-      color: var(--text-primary);
+      color: var(--text-primary) ;
       font-weight: 500;
     }
   }

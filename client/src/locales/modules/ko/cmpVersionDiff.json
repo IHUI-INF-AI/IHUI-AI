@@ -1,8 +1,8 @@
 {
   "cmpVersionDiff": {
-    "compareFailed": "compareFailed",
-    "getVersionFailed": "getVersionFailed",
-    "selectDiffVersion": "selectDiffVersion",
-    "selectVersionToCompare": "selectVersionToCompare"
+    "selectVersionToCompare": "비교할 버전 선택",
+    "selectDiffVersion": "다른 버전 선택",
+    "getVersionFailed": "버전 정보 가져오기 실패",
+    "compareFailed": "버전 비교 실패"
   }
 }

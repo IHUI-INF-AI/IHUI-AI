@@ -1,10 +1,10 @@
 {
   "memberHomework": {
-    "deadline": "截止日期",
-    "empty": "空",
-    "status": "状态",
-    "submit": "提交",
+    "title": "我的作业",
+    "empty": "暂无作业",
+    "deadline": "截止:",
+    "status": "状态:",
     "submitted": "已提交",
-    "title": "标题"
+    "submit": "提交"
   }
 }

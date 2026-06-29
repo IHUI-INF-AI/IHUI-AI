@@ -1,8 +1,8 @@
 {
   "learnPaymentConfirm": {
-    "desc": "描述",
-    "startLearn": "startLearn",
-    "title": "标题",
-    "viewMore": "viewMore"
+    "title": "Payment Successful",
+    "desc": "Your course is activated, start learning now",
+    "startLearn": "Start Learning",
+    "viewMore": "View More Courses"
   }
 }

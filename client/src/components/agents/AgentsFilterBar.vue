@@ -110,7 +110,7 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import type { AgentCategory, AgentPlatform } from '@/api/agent/agents'
+import type { AgentCategory, AgentPlatform } from '@/api/agents'
 
 const { t } = useI18n()
 
@@ -388,7 +388,7 @@ const getPlatformName = (platform: AgentPlatform | undefined): string => {
 
 // 暗色模式 - 使用变量覆盖
 :global(html.dark) .agents-filter-bar,
-:where(html.dark) .agents-filter-bar {
+html.dark .agents-filter-bar {
   --afb-row-bg: transparent;
   --afb-row-border: none;
   --afb-row-shadow: none;

@@ -24,7 +24,7 @@ export function useApiError(config: ErrorHandlerConfig = {}) {
   /**
    * 处理API错误
    */
-  const handleError = (err: any, customConfig?: ErrorHandlerConfig) => {
+  const handleError = (err: unknown, customConfig?: ErrorHandlerConfig) => {
     const apiError = handleApiError(err, { ...config, ...customConfig })
     error.value = apiError
     return apiError

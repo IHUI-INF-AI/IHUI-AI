@@ -1,14 +1,17 @@
 {
   "imageShare": {
-    "copyFailed": "copyFailed",
-    "copyLink": "copyLink",
-    "copySuccess": "copySuccess",
-    "download": "下载",
-    "noImage": "noImage",
-    "noImageToDownload": "noImageToDownload",
-    "noLinkToCopy": "noLinkToCopy",
-    "shareImage": "shareImage",
-    "shareMethod": "shareMethod",
-    "title": "标题"
+    "title": "画像を共有",
+    "shareImage": "画像を共有",
+    "shareMethod": "共ありメソッド",
+    "noImage": "画像なし",
+    "download": "画像をダウンロード",
+    "copyLink": "リンクをコピー",
+    "copySuccess": "リンクがクリップボードにコピーされました",
+    "copyFailed": "コピーに失敗しました。もう一度お試しください",
+    "noImageToDownload": "ダウンロード可能性な画像がありません",
+    "noLinkToCopy": "コピー可能性なリンクがありません",
+    "close": "閉じる",
+    "downloadSuccess": "画像のダウンロードに成功しました",
+    "downloadFailed": "ダウンロードに失敗しました。もう一度お試しください"
   }
 }

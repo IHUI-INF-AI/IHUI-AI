@@ -77,8 +77,8 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { UserCircle, Share, CopyDocument, Upload, Refresh, Promotion, Loading } from '@/lib/lucide-fallback'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getBusinessCard, uploadBusinessCard } from '@/api/content/business-card'
-import { getInviteCode } from '@/api/distribution/distribution'
+import { getBusinessCard, uploadBusinessCard } from '@/api/business-card'
+import { getInviteCode } from '@/api/distribution'
 import type { ApiResponse } from '@/types'
 import UserInfoCard from '@/components/user/UserInfoCard.vue'
 import { logger } from '@/utils/logger'
@@ -214,7 +214,7 @@ const shareToWechat = async () => {
         await copyCardLink()
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Share failed:', error)
     showError(t('businessCard.shareFailed'))
   }
@@ -242,7 +242,7 @@ const shareToMoments = async () => {
     } else {
       await copyCardLink()
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Moments share failed:', error)
     showError(t('businessCard.shareFailed'))
   }
@@ -277,7 +277,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -298,11 +298,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -317,7 +317,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -331,7 +331,7 @@ onMounted(() => {
   background-color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -355,7 +355,7 @@ onMounted(() => {
   padding: 48px 24px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.3s, background-color 0.3s;
+  transition: all 0.3s;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -396,7 +396,8 @@ onMounted(() => {
     max-height: 400px;
     border-radius: var(--global-border-radius);
     object-fit: contain;
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .share-options {

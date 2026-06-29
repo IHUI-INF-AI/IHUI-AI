@@ -20,7 +20,7 @@ export interface ThirdPartyPlatformConfig {
   scope?: string
 
   // 平台特定配置
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**

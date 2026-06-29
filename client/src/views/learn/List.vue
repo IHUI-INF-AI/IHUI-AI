@@ -63,11 +63,11 @@ import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnPage from '@/components/learn/Page.vue'
 import Rectangle from '@/components/module/Rectangle.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const route = useRoute()
-const categories = ref<any[]>([])
-const list = ref<any[]>([])
+const categories = ref<unknown[]>([])
+const list = ref<unknown[]>([])
 const total = ref(0)
 const loading = ref(false)
 const keyword = ref('')
@@ -76,18 +76,18 @@ const page = ref(1)
 const size = ref(12)
 
 async function loadCategories() {
-  try { const res: any = await learnApi.categoryTree(); categories.value = res.data || [] } catch (e) { console.error(e) }
+  try { const res = await learnApi.categoryTree() as unknown as { data?: unknown[] }; categories.value = res.data || [] } catch (e) { console.error(e) }
 }
 
 async function loadList() {
   loading.value = true
   try {
-    const res: any = await learnApi.list({
+    const res = await learnApi.list({
       title: keyword.value || undefined,
       categoryId: cid.value ? String(cid.value) : undefined,
       page: page.value,
       pageSize: size.value,
-    } as any)
+    }) as unknown as { data?: { items?: unknown[]; list?: unknown[]; total?: number } }
     list.value = res.data?.items || res.data?.list || []
     total.value = res.data?.total || 0
   } finally {
@@ -144,7 +144,7 @@ onMounted(() => {
     }
 
     &.active {
-      color: var(--color-on-primary);
+      color: var(--el-color-white);
       background: var(--el-color-primary);
     }
   }

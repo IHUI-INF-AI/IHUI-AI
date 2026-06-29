@@ -36,6 +36,8 @@ const handleDismiss = () => { updateAvailable.value = false }
   z-index: var(--z-modal);
   max-width: 360px;
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
+
   .prompt-content {
     display: flex;
     align-items: center;

@@ -1,48 +1,49 @@
 {
   "variables": {
+    "title": "變量管理",
+    "subtitle": "管理机器人的變量配置",
+    "createVariable": "新建變量",
+    "selectBot": "選擇机器人",
+    "selectBotPlaceholder": "選擇机器人",
+    "pleaseSelectBot": "請先選擇机器人",
+    "noVariables": "暫無變量",
+    "createFirstVariable": "創建第一個變量",
+    "testBot1": "測試机器人1",
+    "testBot2": "測試机器人2",
+    "testBot3": "測試机器人3",
+    "table": {
+      "name": "變量名",
+      "type": "類型",
+      "value": "值",
+      "description": "描述",
+      "actions": "操作"
+    },
+    "dialog": {
+      "editTitle": "編輯變量",
+      "createTitle": "新建變量",
+      "name": "變量名",
+      "value": "變量值",
+      "description": "描述"
+    },
     "buttons": {
+      "edit": "編輯",
+      "delete": "刪除",
       "cancel": "取消",
-      "delete": "删除",
-      "edit": "编辑",
       "save": "保存"
     },
-    "createFirstVariable": "createFirstVariable",
-    "createVariable": "createVariable",
-    "dialog": {
-      "createTitle": "createTitle",
-      "description": "描述",
-      "editTitle": "editTitle",
-      "name": "名称",
-      "value": "值"
+    "validation": {
+      "nameRequired": "請輸入變量名",
+      "valueRequired": "請輸入變量值"
     },
     "messages": {
-      "deleteConfirm": "确认删除?",
-      "deleteConfirmTitle": "deleteConfirmTitle",
-      "deleteFailed": "deleteFailed",
-      "deleteSuccess": "deleteSuccess",
-      "loadBotsFailed": "loadBotsFailed",
-      "saveFailed": "saveFailed",
-      "saveSuccess": "saveSuccess"
-    },
-    "noVariables": "noVariables",
-    "pleaseSelectBot": "pleaseSelectBot",
-    "selectBot": "selectBot",
-    "selectBotPlaceholder": "selectBotPlaceholder",
-    "subtitle": "副标题",
-    "table": {
-      "actions": "actions",
-      "description": "描述",
-      "name": "名称",
-      "type": "类型",
-      "value": "值"
-    },
-    "testBot1": "testBot1",
-    "testBot2": "testBot2",
-    "testBot3": "testBot3",
-    "title": "标题",
-    "validation": {
-      "nameRequired": "nameRequired",
-      "valueRequired": "valueRequired"
+      "deleteConfirm": "確定要刪除這個變量吗？",
+      "deleteConfirmTitle": "確認刪除",
+      "deleteSuccess": "刪除成功",
+      "deleteFailed": "刪除失敗",
+      "saveSuccess": "保存成功",
+      "saveFailed": "保存失敗",
+      "loadBotsFailed": "加載机器人列表失敗",
+      "loadFailed": "加載變量失敗"
     }
   }
 }

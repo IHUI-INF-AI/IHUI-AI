@@ -1,10 +1,302 @@
-// =============================================================================
-// AgentDetail.vue 样式文件
-// 说明：当前组件样式以 AgentDetail.vue 内 scoped style 为准
-// 本文件为占位文件，避免 @use 引用编译错误
-// =============================================================================
+.agent-detail-container {
+  width: 100%;
+  padding: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 
-.payment-method-title {
-  margin-bottom: 12px;
-  color: var(--el-text-color-primary);
+  .loading-container,
+  .empty-state {
+    padding: 80px 0;
+    text-align: center;
+
+    .back-btn {
+      margin-top: 16px;
+    }
+  }
+
+  .back-nav {
+    margin-bottom: 20px;
+  }
+
+  .agent-header-card {
+    margin-bottom: 24px;
+
+    .agent-header {
+      display: flex;
+      gap: 24px;
+
+      .agent-avatar-large {
+        flex-shrink: 0;
+      }
+
+      .agent-header-info {
+        flex: 1;
+
+        .agent-title-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+
+          h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--el-text-color-primary);
+            margin: 0;
+          }
+
+          .agent-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+        }
+
+        .agent-description-large {
+          font-size: 18px;
+          color: var(--el-text-color-regular);
+          margin: 0 0 20px 0;
+          line-height: 1.6;
+        }
+
+        .agent-meta-large {
+          display: flex;
+          gap: 24px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+
+          .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: var(--el-text-color-secondary);
+
+            .el-icon {
+              color: var(--el-text-color-placeholder);
+            }
+          }
+        }
+
+        .agent-actions-header {
+          display: flex;
+          gap: 15px;
+          flex-wrap: wrap;
+        }
+      }
+    }
+  }
+
+  .detail-section {
+    margin-bottom: 24px;
+
+    .detail-content {
+      padding: 20px 0;
+
+      .tags-section {
+        margin-top: 24px;
+
+        h4 {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--el-text-color-primary);
+          margin: 0 0 12px 0;
+        }
+
+        .tags-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+
+          .tag-item {
+            font-size: 14px;
+          }
+        }
+      }
+    }
+
+    .platform-info-content {
+      padding: 20px 0;
+
+      .platform-info-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .platform-icon {
+          font-size: 24px;
+        }
+      }
+    }
+
+    .stats-content {
+      padding: 20px 0;
+
+      .stats-grid {
+        .stat-box {
+          text-align: center;
+          padding: 24px;
+          background: var(--el-bg-color);
+          border-radius: var(--global-border-radius);
+
+          .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--el-text-color-primary);
+            margin-bottom: 8px;
+          }
+
+          .stat-label {
+            font-size: 14px;
+            color: var(--el-text-color-placeholder);
+          }
+        }
+      }
+    }
+
+    .reviews-list {
+      .review-item {
+        display: flex;
+        gap: 16px;
+        padding: 20px 0;
+        border-bottom: none;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .review-content {
+          flex: 1;
+
+          .review-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+
+            .review-user {
+              font-weight: 600;
+              color: var(--el-text-color-primary);
+            }
+
+            .review-time {
+              font-size: 12px;
+              color: var(--el-text-color-placeholder);
+              margin-left: auto;
+            }
+          }
+
+          .review-text {
+            font-size: 14px;
+            color: var(--el-text-color-regular);
+            line-height: 1.6;
+            margin: 0;
+          }
+        }
+      }
+    }
+  }
+
+  .sidebar-card {
+    margin-bottom: 20px;
+
+    .quick-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .similar-agents-list {
+      .similar-agent-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        border-radius: var(--global-border-radius);
+        cursor: pointer;
+        transition: background 0.3s ease;
+
+        &:hover {
+          background: var(--el-bg-color);
+        }
+
+        .similar-agent-info {
+          flex: 1;
+          min-width: 0;
+
+          .similar-agent-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--el-text-color-primary);
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .similar-agent-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--el-text-color-placeholder);
+
+            .el-icon {
+              font-size: 12px;
+            }
+          }
+        }
+      }
+    }
+
+    .related-tools-list {
+      .related-tool-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: var(--global-border-radius);
+        cursor: pointer;
+        transition: background 0.3s ease;
+
+        &:hover {
+          background: var(--el-bg-color);
+        }
+
+        .tool-name {
+          font-size: 14px;
+          color: var(--el-text-color-primary);
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .agent-detail-container {
+    padding: 12px;
+
+    .agent-header-card {
+      .agent-header {
+        flex-direction: column;
+        text-align: center;
+
+        .agent-header-info {
+          .agent-title-row {
+            justify-content: center;
+          }
+
+          .agent-meta-large {
+            justify-content: center;
+          }
+
+          .agent-actions-header {
+            justify-content: center;
+          }
+        }
+      }
+    }
+  }
 }

@@ -251,7 +251,7 @@ export class ClawdbotService extends EventEmitter {
   /**
    * 处理网关消息
    */
-  private async handleGatewayMessage(message: any): Promise<void> {
+  private async handleGatewayMessage(message: unknown): Promise<void> {
     logger.debug('[Clawdbot] Received gateway message:', message)
     this.emit('gateway:message', message)
   }
@@ -270,7 +270,7 @@ export class ClawdbotService extends EventEmitter {
       const route = await this.messageProcessor.routeMessage(processed)
       
       // 执行处理
-      let result: any
+      let result: unknown
       
       switch (route.handler) {
         case 'tool':

@@ -1,0 +1,8 @@
+{
+  "userUserMembershipBenefits": {
+    "benefitName": "혜택 이름",
+    "normalUser": "일반 사용자",
+    "vip": "VIP",
+    "trader": "트레이더"
+  }
+}

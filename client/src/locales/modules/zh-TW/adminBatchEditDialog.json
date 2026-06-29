@@ -1,5 +1,11 @@
 {
   "adminBatchEditDialog": {
-    "selectedTip": "selectedTip"
+    "selectedTip": "已選中 {count} 條數據，勾選要修改的字段並填入新值。",
+    "title": "批量編輯",
+    "updating": "正在更新 {current} / {total} 條",
+    "failedTip": "失敗 {count} 條，可點擊\"重試失敗項\"重新更新",
+    "cancel": "取消",
+    "retryFailed": "重試失敗項",
+    "save": "批量保存"
   }
 }

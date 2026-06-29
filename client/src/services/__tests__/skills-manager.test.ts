@@ -1,7 +1,7 @@
 // skills-manager.ts 单元测试
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@/api/skills/skills-backend', () => ({
+vi.mock('@/api/skills-backend', () => ({
   getSkillsListFromBackend: vi.fn(() =>
     Promise.resolve({
       success: true,
@@ -204,7 +204,7 @@ describe('skills-manager', () => {
     const m = getSkillsManager()
     m.clearAllState()
     const apiMod = await import('@/services/api')
-    ;(apiMod.request as any).mockRejectedValueOnce(new Error('fail'))
+    ;(apiMod.request as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('fail'))
     const r = await m.loadSkillResource('docx', 'script', 'p')
     expect(r).toBeNull()
   })
@@ -213,7 +213,7 @@ describe('skills-manager', () => {
     const m = getSkillsManager()
     m.clearAllState()
     const apiMod = await import('@/services/api')
-    ;(apiMod.request as any).mockResolvedValueOnce({ success: false })
+    ;(apiMod.request as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ success: false })
     const r = await m.loadSkillResource('docx', 'script', 'p')
     expect(r).toBeNull()
   })
@@ -236,7 +236,7 @@ describe('skills-manager', () => {
     const m = getSkillsManager()
     m.clearAllState()
     const apiMod = await import('@/services/api')
-    ;(apiMod.request as any).mockRejectedValueOnce(new Error('fail'))
+    ;(apiMod.request as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('fail'))
     const r = await m.checkSkillResource('docx', 'script')
     expect(r).toEqual([])
   })

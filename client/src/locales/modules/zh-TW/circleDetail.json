@@ -1,17 +1,16 @@
 {
   "circleDetail": {
-    "back": "返回",
-    "essence": "essence",
-    "join": "加入",
-    "joined": "joined",
-    "members": "会员",
-    "noDesc": "noDesc",
-    "noPosts": "noPosts",
-    "owner": "所有者",
-    "postPlaceholder": "postPlaceholder",
-    "posts": "posts",
-    "postsTitle": "postsTitle",
-    "publish": "发布",
-    "top": "置顶"
+    "back": "返回圈子",
+    "noDesc": "暫無簡介",
+    "members": "成員",
+    "posts": "動態",
+    "owner": "主理人",
+    "joined": "已加入",
+    "join": "加入圈子",
+    "postsTitle": "動態",
+    "publish": "發布",
+    "noPosts": "暫無動態",
+    "top": "置頂",
+    "essence": "精華"
   }
 }

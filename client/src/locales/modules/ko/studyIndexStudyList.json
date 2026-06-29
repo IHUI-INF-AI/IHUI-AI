@@ -1,8 +1,8 @@
 {
   "studyIndexStudyList": {
-    "latestCourses": "latestCourses",
-    "loading": "加载中",
-    "noMore": "没有更多了",
-    "viewMore": "viewMore"
+    "loading": "로딩...",
+    "latestCourses": "최신 강좌",
+    "viewMore": "더 보기",
+    "noMore": "더 이상 없음"
   }
 }

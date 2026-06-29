@@ -362,10 +362,11 @@ import VoiceInput from '@/components/ai/VoiceInput.vue'
 import type { FileInfo } from '@/api/services/file.service'
 import { logger } from '@/utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { sendMessage as sendCozeMessage } from '@/api/chat/chat'
-import { getAgentsList, type Agent } from '@/api/agent/agents'
+import { sendMessage as sendCozeMessage } from '@/api/chat'
+import { getAgentsList, type Agent } from '@/api/agents'
 import { useApiError } from '@/composables/useApiError'
-import { getRoomHistory, markRoomAsRead } from '@/api/chat/chatRoom'
+import { getRoomHistory, markRoomAsRead, type ChatRoomMessage, type ChatRoomHistoryData } from '@/api/chatRoom'
+import type { ApiResponse } from '@/types'
 import { websocketService, type WebSocketStatus } from '@/utils/websocket'
 
 // =============================================
@@ -482,12 +483,12 @@ const chatContainer = ref<HTMLElement | null>(null)
 // API 入口方法
 // =============================================
 const handleModelApiClick = (modelName: string) => {
-  router.push('/open/docs?model=' + encodeURIComponent(modelName))
+  router.push('/api-docs?model=' + encodeURIComponent(modelName))
 }
 
 const handleCurrentModelApiClick = () => {
   if (selectedModel.value) {
-    router.push('/open/docs?model=' + encodeURIComponent(selectedModel.value))
+    router.push('/api-docs?model=' + encodeURIComponent(selectedModel.value))
   }
 }
 
@@ -700,9 +701,7 @@ function connectWebSocket() {
 
   const wsBaseUrl = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
   const wsHost = window.location.host
-  // 2026-06-24 修复: 后端 chat_room.py WS 路由为 /ws/room/{room_id}, 非 /cozeZhsApi/chat-room/ws
-  // 修复: 之前用未定义的 roomName, 改为已定义的 roomId (route.query.roomId)
-  const wsUrl = `${wsBaseUrl}${wsHost}/ws/room/${roomId.value || 'default'}`
+  const wsUrl = `${wsBaseUrl}${wsHost}/cozeZhsApi/chat-room/ws`
 
   logger.info('[ChatRoom] Connecting WebSocket:', wsUrl)
 
@@ -715,11 +714,11 @@ function connectWebSocket() {
     }
   })
 
-  unsubRoomMessage = websocketService.on('room_message', (data: any) => {
+  unsubRoomMessage = websocketService.on('room_message', (data: unknown) => {
     handleWebSocketMessage(data as Record<string, unknown>)
   })
 
-  unsubMessage = websocketService.on('message', (data: any) => {
+  unsubMessage = websocketService.on('message', (data: unknown) => {
     handleWebSocketMessage(data as Record<string, unknown>)
   })
 
@@ -799,17 +798,25 @@ async function loadChatHistory() {
 
   try {
     const res = await getRoomHistory(userUuid.value, roomId.value)
-    let messages: any[] = []
+    let messages: ChatRoomMessage[] = []
 
     if (res) {
-      if (res.code === 200 || res.code === '200') {
-        messages = res.data?.messages || (Array.isArray(res.data) ? res.data : [])
-      } else if (Array.isArray(res)) {
+      if (Array.isArray(res)) {
         messages = res
-      } else if (res.messages) {
-        messages = res.messages
-      } else if (res.data && Array.isArray(res.data)) {
-        messages = res.data
+      } else {
+        const historyRes = res as ApiResponse<ChatRoomHistoryData> & { messages?: ChatRoomMessage[] }
+        if (historyRes.code === 200) {
+          const data = historyRes.data as ChatRoomHistoryData | ChatRoomMessage[] | undefined
+          if (Array.isArray(data)) {
+            messages = data
+          } else {
+            messages = data?.messages || []
+          }
+        } else if (historyRes.messages) {
+          messages = historyRes.messages
+        } else if (historyRes.data && Array.isArray(historyRes.data)) {
+          messages = historyRes.data as ChatRoomMessage[]
+        }
       }
     }
 
@@ -823,7 +830,7 @@ async function loadChatHistory() {
   }
 }
 
-function processMessages(messages: any[]) {
+function processMessages(messages: ChatRoomMessage[]) {
   if (!messages || messages.length === 0) {
     chatList.value = []
     return
@@ -831,8 +838,8 @@ function processMessages(messages: any[]) {
 
   const currentUserUuid = userUuid.value
   let processedMessages = messages
-    .filter((msg: any) => msg.is_del === 0)
-    .map((msg: any) => {
+    .filter((msg) => msg.is_del === 0)
+    .map((msg) => {
       const isUserMessage = msg.user_uuid === currentUserUuid
       let mediaType: ChatMessage['mediaType'] = null
       let messageType = msg.type || 1
@@ -1100,7 +1107,11 @@ const handleSendMessage = async () => {
     const question = prompt.value.trim()
     questionList.value.push({
       question,
-      imgsList: uploadedFiles.value.map(f => ({ imgUrl: f.url })),
+      // 关键修复: FileInfo.url 类型为 string | undefined, 而 imgsList 期望 string.
+      // 过滤掉无 url 的项避免 TS 错误, 避免空 url 进入消息载荷.
+      imgsList: uploadedFiles.value
+        .filter((f): f is { url: string } & typeof f => Boolean(f.url))
+        .map(f => ({ imgUrl: f.url })),
     })
 
     prompt.value = ''
@@ -1357,11 +1368,11 @@ cleanup.add(() => {
   --bg-input: var(--el-bg-color);
   --bg-code: var(--color-neutral-100);
   --bg-tip: var(--el-text-color-primary);
-  --bg-avatar: var(--el-fill-color-light);
+  --bg-avatar: var(--color-gray-light);
   --bg-quick-action: var(--el-text-color-primary);
-  --text-primary: var(--el-text-color-primary);
-  --text-secondary: var(--el-text-color-secondary);
-  --text-muted: var(--el-text-color-placeholder);
+  --text-primary: var(--color-gray-333);
+  --text-secondary: var(--color-gray-666);
+  --text-muted: var(--color-gray-999);
   --border-color: var(--border-unified-color);
   --accent-color: var(--color-primary);
   --accent-hover: var(--color-primary);
@@ -1376,7 +1387,7 @@ cleanup.add(() => {
 }
 
 // 暗色模式变量
-:where(html.dark) .ai-assistant-page {
+html.dark .ai-assistant-page {
   --bg-page: var(--color-dark-bg-1);
   --bg-card: var(--color-dark-bg-2);
   --bg-input: var(--el-text-color-primary);
@@ -1384,9 +1395,9 @@ cleanup.add(() => {
   --bg-tip: var(--color-primary-10);
   --bg-avatar: var(--color-dark-bg-3);
   --bg-quick-action: var(--color-primary-10);
-  --text-primary: var(--el-fill-color-light);
+  --text-primary: var(--color-gray-light);
   --text-secondary: var(--el-text-color-primary);
-  --text-muted: var(--el-text-color-secondary);
+  --text-muted: var(--color-gray-666);
   --border-color: var(--border-unified-color);
   --accent-color: var(--color-primary);
   --accent-hover: var(--el-text-color-primary);
@@ -1600,7 +1611,7 @@ cleanup.add(() => {
   padding: 2px 6px;
   background: var(--bg-code);
   border-radius: var(--global-border-radius);
-  font-family: var(--font-family-mono);
+  font-family: monospace;
 }
 
 .answer-content :deep(.content-link) {
@@ -1687,7 +1698,7 @@ cleanup.add(() => {
   color: var(--accent-color);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 0.3s, color 0.3s;
+  transition: all 0.3s;
 }
 
 .quick-action-btn:hover {
@@ -1730,9 +1741,9 @@ cleanup.add(() => {
     padding: 0 8px;
     border: var(--unified-border);
     background: transparent;
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
     color: var(--el-text-color-secondary);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
     cursor: pointer;
@@ -1878,7 +1889,7 @@ cleanup.add(() => {
     padding: 2px 6px;
     background: var(--bg-code);
     border-radius: var(--global-border-radius);
-    font-family: var(--font-family-mono);
+    font-family: monospace;
   }
 
   :deep(.content-link) {
@@ -1892,7 +1903,7 @@ cleanup.add(() => {
 }
 
 .read-status {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
   text-align: right;
@@ -1963,7 +1974,7 @@ cleanup.add(() => {
   }
 }
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .page-header {
     padding: 12px 16px;
   }

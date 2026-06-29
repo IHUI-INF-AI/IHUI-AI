@@ -1,15 +1,15 @@
 {
   "liveList": {
-    "all": "全部",
-    "badgeLiving": "badgeLiving",
-    "badgePreview": "badgePreview",
-    "badgeReplay": "badgeReplay",
-    "empty": "empty",
-    "host": "host",
-    "living": "living",
-    "preview": "预览",
-    "replay": "回放",
-    "subtitle": "副标题",
-    "title": "标题"
+    "title": "ライブリスト",
+    "subtitle": "ライブ視聴",
+    "all": "すべて",
+    "living": "配信中",
+    "preview": "開始予定",
+    "replay": "リプレイ",
+    "empty": "ライブなし",
+    "badgeLiving": "配信中",
+    "badgePreview": "開始予定",
+    "badgeReplay": "リプレイ",
+    "host": "ホスト: "
   }
 }

@@ -4,6 +4,12 @@ import { useCleanup } from '@/composables/useCleanup'
 import { logger } from '@/utils/logger'
 import { getUserToken } from '@/utils/request'
 
+/** beforeinstallprompt 事件类型（非标准 API，TypeScript 未内置） */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => void
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
 async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
   const token = getUserToken()
   return fetch(url, {
@@ -23,7 +29,7 @@ const updateAvailable = ref(false)
 const pushSupported = ref(false)
 const pushSubscribed = ref(false)
 const isInstallable = ref(false)
-const deferredPrompt = ref<any>(null)
+const deferredPrompt = ref<BeforeInstallPromptEvent | null>(null)
 
 export function usePwa() {
   const cleanup = useCleanup()
@@ -33,6 +39,26 @@ export function usePwa() {
       console.warn('[PWA] Service Worker 不支持')
       return null
     }
+
+    // 2026-06-27 修复白屏:
+    // 开发环境下 Service Worker 会用 SWR/cacheFirst 策略缓存旧 HTML + 旧 JS,
+    // 导致 Vite HMR 修改后用户浏览器仍然加载旧 JS (含 useEduPlatformNav 修改前
+    // 无 try/catch 兜底的版本), 抛 'injection Symbol(router) not found' 白屏.
+    // Puppeteer (无 SW) 测试正常, 但用户浏览器 (有 SW 缓存) 白屏.
+    // 修复: dev 模式注销所有 SW + 清除所有缓存, 仅生产构建注册 SW.
+    if (import.meta.env.DEV) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map((r) => r.unregister()))
+        const keys = await caches.keys()
+        await Promise.all(keys.map((k) => caches.delete(k)))
+        logger.info(`[PWA] DEV mode: unregistered ${regs.length} SW(s), cleared ${keys.length} cache(s)`)
+      } catch (e) {
+        logger.warn('[PWA] DEV mode SW cleanup failed:', e)
+      }
+      return null
+    }
+
     try {
       const reg = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
@@ -83,7 +109,7 @@ export function usePwa() {
       const sub = await swRegistration.value.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
-          (window as any).__VAPID_KEY__ || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+          (window as Window & { __VAPID_KEY__?: string }).__VAPID_KEY__ || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
         ),
       })
       pushSubscribed.value = true
@@ -118,7 +144,7 @@ export function usePwa() {
 
   const onBeforeInstallPrompt = (e: Event) => {
     e.preventDefault()
-    deferredPrompt.value = e
+    deferredPrompt.value = e as BeforeInstallPromptEvent
     isInstallable.value = true
   }
 

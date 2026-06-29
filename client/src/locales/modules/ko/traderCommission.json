@@ -1,39 +1,53 @@
 {
   "traderCommission": {
-    "errors": {
-      "copyFailed": "copyFailed",
-      "copySuccess": "copySuccess"
-    },
-    "noRecords": "noRecords",
-    "pendingCommission": "pendingCommission",
-    "status": {
-      "cancelled": "已取消",
-      "pending": "待处理",
-      "settled": "settled",
-      "unknown": "unknown"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "actions": "actions",
-      "buyer": "buyer",
-      "commissionAmount": "commissionAmount",
-      "copyOrderId": "copyOrderId",
-      "orderTime": "orderTime",
-      "relatedOrder": "relatedOrder",
-      "status": "状态"
-    },
+    "핵심 장점": "내커미션",
+    "sub핵심 장점": "보기귀하의작업보드근커미션상세",
+    "totalCommission": "누적계커미션",
+    "pendingCommission": "기다림정산커미션",
+    "todayCommission": "오늘일커미션",
+    "withdraw": "출금",
     "tabs": {
-      "all": "全部",
-      "cancelled": "已取消",
-      "pending": "待处理",
-      "settled": "settled"
+      "all": "모든",
+      "pending": "기다림정산",
+      "settled": "완료정산",
+      "cancelled": "취소정산"
     },
-    "title": "标题",
-    "todayCommission": "todayCommission",
-    "totalCommission": "totalCommission",
-    "withdraw": "提现",
-    "withdrawDetails": "withdrawDetails",
-    "withdrawableCommission": "withdrawableCommission",
-    "withdrawnCommission": "withdrawnCommission"
+    "table": {
+      "buyer": "아래단순게",
+      "relatedOrder": "닫기연결주의문",
+      "commissionAmount": "커미션금액",
+      "status": "상태",
+      "orderTime": "오프라인단순시간",
+      "actions": "작업",
+      "copyOrderId": "복생각주의문번호"
+    },
+    "status": {
+      "settled": "완료정산",
+      "pending": "기다림정산",
+      "cancelled": "취소정산",
+      "unknown": "알 수 없음"
+    },
+    "noRecords": "없음커미션기이것은",
+    "errors": {
+      "copySuccess": "주의문번호완료복생각도달클립보드",
+      "copyFailed": "복생각실패，요청수동복생각",
+      "loadFailed": "획득커미션데이마음실패",
+      "loadRetry": "획득커미션데이마음실패，요청잠시백엔드재시도"
+    },
+    "withdrawableCommission": "Withdrawable커미션",
+    "withdrawnCommission": "Withdrawn커미션",
+    "withdrawDetails": "Withdraw상세",
+    "title": "내커미션",
+    "subtitle": "보기귀하의작업보드근커미션상세",
+    "available": "AI를출금",
+    "withdrawn": "완료출금",
+    "yuan": "튜플",
+    "withdrawDetail": "출금명석세부",
+    "commission": "커미션",
+    "buyer": "아래단순게",
+    "copy": "복생각",
+    "noCommission": "없음커미션기이것은",
+    "withdrawSuccess": "출금성공",
+    "withdrawDetailInfo": "보기출금명석세부"
   }
 }

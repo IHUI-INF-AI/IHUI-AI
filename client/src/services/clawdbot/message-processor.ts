@@ -547,7 +547,7 @@ export class MessageProcessor extends EventEmitter {
    */
   async generateResponse(
     processed: ProcessedMessage,
-    result: any,
+    result: unknown,
     config: Partial<ResponseConfig> = {}
   ): Promise<string> {
     const { style = 'friendly', includeSuggestions = true } = config

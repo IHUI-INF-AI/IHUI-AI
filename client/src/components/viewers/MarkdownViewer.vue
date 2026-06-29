@@ -255,7 +255,7 @@ watch(() => props.src, loadContent, { immediate: true })
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: var(--el-bg-color);
+  background: var(--color-gray-f8f9fa);
   border-bottom: var(--unified-border-bottom);
 }
 
@@ -288,7 +288,7 @@ watch(() => props.src, loadContent, { immediate: true })
   cursor: pointer;
   color: var(--el-text-color-secondary);
   font-size: 13px;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
 .action-btn:hover {
@@ -313,7 +313,7 @@ watch(() => props.src, loadContent, { immediate: true })
 .md-toc {
   width: 240px;
   padding: 16px;
-  background: var(--el-bg-color);
+  background: var(--color-gray-f8f9fa);
   border-right: var(--unified-border);
   overflow-y: auto;
   flex-shrink: 0;
@@ -371,7 +371,7 @@ watch(() => props.src, loadContent, { immediate: true })
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--el-border-color);
+  border: 3px solid var(--color-border-light);
   border-top-color: var(--color-brand-blue-2);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -448,13 +448,13 @@ watch(() => props.src, loadContent, { immediate: true })
   margin: 1em 0;
   padding: 0.5em 1em;
   border-left: 4px solid var(--color-brand-blue-2);
-  background: var(--el-fill-color-light);
+  background: var(--color-gray-f8f9fa);
   color: var(--el-text-color-placeholder);
 }
 
 .md-preview :deep(code) {
   padding: 2px 6px;
-  background: var(--el-fill-color-light);
+  background: var(--color-gray-f8f9fa);
   border-radius: var(--global-border-radius);
   font-family: var(--font-family-mono);
   font-size: 0.9em;
@@ -463,7 +463,7 @@ watch(() => props.src, loadContent, { immediate: true })
 .md-preview :deep(pre) {
   margin: 1em 0;
   padding: 16px;
-  background: var(--color-dark-bg-3);
+  background: var(--color-gray-1e1e1e);
   border-radius: var(--global-border-radius);
   overflow-x: auto;
 }
@@ -504,7 +504,7 @@ watch(() => props.src, loadContent, { immediate: true })
 }
 
 .md-preview :deep(th) {
-  background: var(--el-fill-color-light);
+  background: var(--color-gray-f8f9fa);
   font-weight: 600;
 }
 
@@ -525,7 +525,7 @@ watch(() => props.src, loadContent, { immediate: true })
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  background: var(--el-bg-color);
+  background: var(--color-gray-f8f9fa);
   border-top: var(--unified-border);
   font-size: 12px;
   color: var(--el-text-color-placeholder);

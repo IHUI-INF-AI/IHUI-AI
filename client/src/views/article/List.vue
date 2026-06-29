@@ -7,9 +7,9 @@
     <div class="filter-bar">
       <el-input v-model="keyword" :placeholder="t('articleList.searchArticle')" clearable class="search-input" @keyup.enter="reload" />
       <el-select v-model="sortBy" class="sort-select" @change="reload">
-        <el-option :label="t('articleList.latest')" value="new" />
-        <el-option :label="t('articleList.hottest')" value="hot" />
-        <el-option :label="t('articleList.essenceLabel')" value="essence" />
+        <el-option label="最新" value="new" />
+        <el-option label="最热" value="hot" />
+        <el-option label="精华" value="essence" />
       </el-select>
     </div>
     <div class="article-list" v-if="list.length">
@@ -44,12 +44,12 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRouter } from 'vue-router'
-import { articleApi } from '@/api/content/article'
+import { articleApi, type ArticleItem, type ArticleListParams } from '@/api/article'
 import Pagination from '@/components/learn/Page.vue'
 
 const router = useRouter()
 const loading = ref(false)
-const list = ref<any[]>([])
+const list = ref<ArticleItem[]>([])
 const keyword = ref('')
 const sortBy = ref<'new' | 'hot' | 'essence'>('new')
 const current = ref(1)
@@ -61,16 +61,16 @@ async function reload() {
   loading.value = true
   const seq = ++reqSeq
   try {
-    const params: any = { current: current.value, size: size.value, keyword: keyword.value || undefined }
+    const params: ArticleListParams = { current: current.value, size: size.value, keyword: keyword.value || undefined }
     if (sortBy.value === 'essence') params.essence = true
     const res = await articleApi.list(params)
     if (seq !== reqSeq) return
-    list.value = (res.data as any)?.list || (res.data as any)?.data?.list || []
-    total.value = (res.data as any)?.total || (res.data as any)?.data?.total || 0
+    list.value = res.data?.data?.list || []
+    total.value = res.data?.data?.total || 0
   } catch (e) { console.error(e) } finally { if (seq === reqSeq) loading.value = false }
 }
 function onPage(p: { current: number; size: number }) { current.value = p.current; size.value = p.size; reload() }
-function goDetail(a: any) { router.push(`/article/${a.id}`) }
+function goDetail(a: ArticleItem) { router.push(`/article/${a.id}`) }
 watch([keyword, sortBy], () => { current.value = 1; reload() })
 onMounted(reload)
 </script>
@@ -84,7 +84,7 @@ onMounted(reload)
   .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; }
   .search-input { flex: 1; }
   .sort-select { width: 140px; }
-  .article-item { display: flex; gap: 16px; background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s, transform 0.2s; border: var(--unified-border); &:hover { border-color: var(--el-color-primary); transform: translateX(4px); } }
+  .article-item { display: flex; gap: 16px; background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { border-color: var(--el-color-primary); transform: translateX(4px); } }
   .item-cover { width: 180px; height: 120px; flex-shrink: 0; border-radius: var(--global-border-radius); overflow: hidden; background: var(--el-fill-color-light); img { width: 100%; height: 100%; object-fit: cover; display: block; } }
   .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .item-title { margin: 0 0 8px; font-size: 16px; color: var(--el-text-color-primary); display: flex; align-items: center; gap: 6px; }

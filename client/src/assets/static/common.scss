@@ -33,7 +33,7 @@ main.container {
 }
 
 /* 响应式适配 */
-@media (width >= 751px) {
+@media (min-width: 751px) {
   #app {
     max-width: 100%;
     box-shadow: none;

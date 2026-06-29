@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../auth/auth-accounts'
+import * as api from '../auth-accounts'
 
 describe('auth-accounts', () => {
   beforeEach(() => {

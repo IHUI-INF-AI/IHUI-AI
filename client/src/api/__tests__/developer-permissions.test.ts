@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../developer/developer-permissions'
+import * as api from '../developer-permissions'
 
 describe('developer-permissions', () => {
   beforeEach(() => {

@@ -1,23 +1,23 @@
 {
   "model3dGen": {
-    "buttons": {
-      "generate": "generate"
+    "title": "Tencent Hunyuan 3D Generation",
+    "tag": "Text to 3D / Image to 3D",
+    "tabs": {
+      "text": "Text to 3D",
+      "image": "Image to 3D"
     },
     "form": {
-      "format": "format",
-      "prompt": "提示词",
-      "promptPlaceholder": "promptPlaceholder",
-      "uploadImage": "uploadImage"
+      "prompt": "3D Description",
+      "promptPlaceholder": "Describe the 3D model you want...",
+      "format": "Output Format",
+      "uploadImage": "Upload Image"
+    },
+    "buttons": {
+      "generate": "Generate"
     },
     "messages": {
-      "generateFailed": "generateFailed",
-      "promptRequired": "promptRequired"
-    },
-    "tabs": {
-      "image": "图片",
-      "text": "文本"
-    },
-    "tag": "标签",
-    "title": "标题"
+      "promptRequired": "Please enter a 3D description",
+      "generateFailed": "Generation Failed"
+    }
   }
 }

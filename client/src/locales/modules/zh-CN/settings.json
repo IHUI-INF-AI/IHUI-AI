@@ -1,445 +1,474 @@
 {
   "settings": {
+    "back": "返回",
+    "userCenter": "个人中心",
+    "page": {
+      "title": "设置",
+      "subtitle": "管理您的账户和应用设置"
+    },
+    "sections": {
+      "personal": {
+        "title": "个人信息",
+        "desc": "管理您的个人资料信息"
+      },
+      "security": {
+        "title": "账户安全",
+        "desc": "保护您的账户安全"
+      },
+      "notifications": {
+        "title": "通知设置",
+        "desc": "管理您接收的通知类型"
+      },
+      "privacy": {
+        "title": "隐私设置",
+        "desc": "控制您的隐私和数据使用"
+      },
+      "app": {
+        "title": "应用设置",
+        "desc": "自定义您的应用体验"
+      },
+      "themePresets": {
+        "desc": "创建和管理您的主题预设",
+        "title": "主题预设"
+      },
+      "themeBackup": {
+        "desc": "备份和恢复您的主题配置",
+        "title": "主题备份"
+      },
+      "themeShortcut": {
+        "desc": "设置主题切换的键盘快捷键",
+        "title": "主题快捷键"
+      },
+      "themeTransition": {
+        "desc": "配置主题切换时的动画效果",
+        "title": "主题过渡动画"
+      },
+      "themeSync": {
+        "desc": "查看主题同步状态和配置自动同步",
+        "title": "主题同步状态"
+      },
+      "danger": {
+        "title": "危险操作",
+        "desc": "请谨慎操作，这些操作不可逆"
+      },
+      "navigation": {
+        "desc": "Desc",
+        "title": "Title"
+      },
+      "other": {
+        "desc": "Desc",
+        "title": "Title"
+      },
+      "services": {
+        "desc": "Desc",
+        "title": "Title"
+      }
+    },
+    "securityScore": {
+      "title": "安全评分",
+      "description": "评估您的账户安全状况",
+      "recommendations": "安全建议",
+      "viewDetails": "查看详情"
+    },
+    "deviceManagement": {
+      "title": "设备管理",
+      "description": "查看和管理已登录的设备",
+      "noDevices": "暂无已登录设备",
+      "currentDevice": "当前设备",
+      "loginTime": "登录时间",
+      "lastActive": "最后活跃",
+      "removeDevice": "移除",
+      "removeConfirm": "确定要移除设备「{deviceName}」吗？移除后该设备需要重新登录。",
+      "removeTitle": "移除设备",
+      "removeSuccess": "设备已移除",
+      "removeAllDevices": "移除所有其他设备",
+      "removeAllConfirm": "确定要移除所有其他设备吗？移除后这些设备需要重新登录。",
+      "removeAllTitle": "移除所有设备",
+      "removeAllSuccess": "所有设备已移除",
+      "deviceCount": "已登录 {count}/{max} 台设备"
+    },
+    "securityLog": {
+      "title": "安全日志",
+      "description": "查看账户安全相关操作记录",
+      "noLogs": "暂无安全日志",
+      "login": "登录",
+      "logout": "退出登录",
+      "passwordChange": "密码修改",
+      "deviceRemove": "设备移除",
+      "suspiciousLogin": "可疑登录",
+      "tokenRefresh": "Token 刷新",
+      "accountUpdate": "账户更新"
+    },
+    "twoFactor": {
+      "title": "双因素认证",
+      "description": "为您的账户添加额外的安全保护",
+      "enabled": "已启用",
+      "disabled": "未启用",
+      "enable": "启用",
+      "disable": "禁用",
+      "enableSuccess": "双因素认证已启用",
+      "disableSuccess": "双因素认证已禁用",
+      "disableTitle": "禁用双因素认证",
+      "disableConfirm": "确定要禁用双因素认证吗？这将降低账户的安全性。",
+      "step1": "扫描二维码",
+      "step2": "验证码验证",
+      "step3": "备用码",
+      "scanQR": "使用身份验证器应用扫描二维码",
+      "secretKey": "密钥",
+      "enterCode": "输入身份验证器显示的6位验证码",
+      "backupCodesDesc": "请保存以下备用验证码，用于无法使用身份验证器时验证身份",
+      "downloadBackupCodes": "下载备用验证码",
+      "complete": "完成设置"
+    },
+    "loginHistory": {
+      "title": "登录历史",
+      "description": "查看您的登录活动记录",
+      "noHistory": "暂无登录记录",
+      "allTypes": "全部类型",
+      "login": "登录",
+      "logout": "退出登录",
+      "suspicious": "可疑登录",
+      "passwordChange": "密码修改",
+      "deviceRemove": "设备移除",
+      "suspiciousLogin": "可疑登录",
+      "suspiciousWarning": "检测到异常登录，请确认是否为本人操作",
+      "clearHistory": "清除历史",
+      "clearTitle": "清除登录历史",
+      "clearConfirm": "确定要清除所有登录历史记录吗？",
+      "clearSuccess": "登录历史已清除",
+      "recordCount": "共 {count} 条记录"
+    },
+    "sessionManagement": {
+      "title": "会话管理",
+      "description": "管理您的登录会话",
+      "noSessions": "暂无活动会话",
+      "currentSession": "当前会话",
+      "expired": "已过期",
+      "startTime": "开始时间",
+      "duration": "持续时间",
+      "endSession": "终止",
+      "endConfirm": "确定要终止会话「{deviceName}」吗？",
+      "endTitle": "终止会话",
+      "endSuccess": "会话已终止",
+      "cannotEndCurrent": "无法终止当前会话",
+      "endAllOtherSessions": "终止所有其他会话",
+      "endAllConfirm": "确定要终止所有其他会话吗？",
+      "endAllTitle": "终止所有会话",
+      "endAllSuccess": "已终止 {count} 个会话",
+      "sessionCount": "共 {count} 个会话"
+    },
+    "auditExport": {
+      "title": "审计日志导出",
+      "description": "导出安全审计报告",
+      "dateRange": "日期范围",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "exportFormat": "导出格式",
+      "eventTypes": "事件类型",
+      "typeLogin": "登录",
+      "typeLogout": "退出",
+      "typePassword": "密码修改",
+      "typeDevice": "设备操作",
+      "typeSuspicious": "可疑活动",
+      "preview": "预览",
+      "totalEvents": "事件总数",
+      "logins": "成功登录",
+      "failedLogins": "失败登录",
+      "suspicious": "可疑活动",
+      "previewBtn": "预览报告",
+      "exportBtn": "导出报告",
+      "exportSuccess": "报告已导出"
+    },
+    "ipWhitelist": {
+      "title": "IP白名单",
+      "description": "限制登录IP地址",
+      "enableWhitelist": "启用白名单",
+      "strictMode": "严格模式",
+      "strictModeHint": "白名单为空时拒绝所有访问",
+      "ipPlaceholder": "输入IP地址 (如: 192.168.1.1)",
+      "labelPlaceholder": "备注名称",
+      "noEntries": "暂无白名单规则",
+      "export": "导出",
+      "import": "导入",
+      "clear": "清空",
+      "addSuccess": "IP已添加",
+      "addFailed": "添加失败，IP无效或已存在",
+      "removeConfirm": "确定要移除此IP吗？",
+      "removeSuccess": "IP已移除",
+      "importSuccess": "导入成功",
+      "importFailed": "导入失败，文件格式错误",
+      "clearConfirm": "确定要清空白名单吗？",
+      "clearSuccess": "白名单已清空"
+    },
+    "notificationCenter": {
+      "title": "安全通知",
+      "description": "查看安全相关通知",
+      "markAllRead": "全部已读",
+      "all": "全部",
+      "unread": "未读",
+      "critical": "重要",
+      "high": "高优先级",
+      "noNotifications": "暂无通知",
+      "settings": "通知设置",
+      "enableNotifications": "启用通知",
+      "desktopNotifications": "桌面通知",
+      "soundNotifications": "声音提醒",
+      "justNow": "刚刚",
+      "minutesAgo": "{count}分钟前",
+      "hoursAgo": "{count}小时前"
+    },
+    "loginBehavior": {
+      "title": "登录行为分析",
+      "description": "分析您的登录习惯",
+      "noData": "暂无登录数据，继续使用以建立登录模式",
+      "totalLogins": "总登录次数",
+      "avgInterval": "平均间隔",
+      "devices": "设备数量",
+      "locations": "地点数量",
+      "loginTime": "登录时间分布",
+      "peakHours": "高峰时段",
+      "commonDevices": "常用设备",
+      "noDevices": "暂无设备记录",
+      "commonLocations": "常用地点",
+      "noLocations": "暂无地点记录",
+      "loginCount": "{count}次登录",
+      "trusted": "已信任",
+      "trust": "信任",
+      "unknown": "未知",
+      "riskAnalysis": "风险分析",
+      "riskLevel": {
+        "low": "低风险",
+        "medium": "中等风险",
+        "high": "高风险",
+        "critical": "极高风险"
+      },
+      "anomalies": "异常检测",
+      "recommendations": "安全建议",
+      "days": "{count}天",
+      "hours": "{count}小时"
+    },
+    "data": {
+      "clearCache": "清除缓存"
+    },
+    "dataClearSuccess": "数据清除成功",
+    "labels": {
+      "avatar": "头像",
+      "nickname": "昵称",
+      "email": "邮箱",
+      "phone": "手机号",
+      "changePassword": "修改密码",
+      "loginNotification": "登录通知",
+      "loginDuration": "登录状态持续时间",
+      "notificationEnabled": "启用通知",
+      "emailNotification": "邮件通知",
+      "pushNotification": "推送通知",
+      "notificationSound": "通知声音",
+      "profileVisibility": "个人资料可见性",
+      "showEmail": "显示邮箱",
+      "showPhone": "显示电话",
+      "activityTracking": "活动追踪",
+      "themeMode": "主题模式",
+      "language": "语言",
+      "autoSave": "自动保存",
+      "mouseFollower": "鼠标跟随效果",
+      "clearAllData": "清除所有数据",
+      "deleteAccount": "注销账户",
+      "about": "About",
+      "appPermission": "App Permission",
+      "businessLicense": "Business License",
+      "chatHistory": "Chat History",
+      "checkUpdate": "Check Update",
+      "commissionPlan": "Commission Plan",
+      "contactSupport": "Contact Support",
+      "editProfile": "Edit Profile",
+      "feedback": "Feedback",
+      "icpRecord": "Icp Record",
+      "logout": "Logout",
+      "messageNotification": "Message Notification",
+      "modelRecord": "Model Record",
+      "myAIModel": "My AI Model",
+      "myCompany": "My Company",
+      "privacySettings": "Privacy Settings",
+      "recruitment": "Recruitment",
+      "statistics": "Statistics",
+      "usageRules": "Usage Rules",
+      "viewMiniapp": "View Miniapp",
+      "webVersion": "Web Version",
+      "withdrawRecords": "Withdraw Records"
+    },
+    "desc": {
+      "avatar": "设置您的个人头像",
+      "nickname": "设置您的昵称",
+      "email": "设置您的邮箱地址",
+      "phone": "设置您的手机号码",
+      "changePassword": "定期修改密码以保护账户安全",
+      "loginNotification": "新设备登录时发送通知",
+      "loginDuration": "设置登录后保持登录状态的时间，下次登录时生效",
+      "notificationEnabled": "启用或禁用所有通知",
+      "emailNotification": "接收重要更新和活动通知",
+      "pushNotification": "接收系统更新和维护通知",
+      "notificationSound": "接收通知时播放声音",
+      "profileVisibility": "控制其他用户是否可以查看您的资料",
+      "showEmail": "控制其他用户是否可以查看您的邮箱",
+      "showPhone": "控制其他用户是否可以查看您的电话",
+      "activityTracking": "允许我们收集匿名使用数据以改进服务",
+      "themeMode": "选择您喜欢的界面主题",
+      "language": "选择应用显示语言",
+      "autoSave": "自动保存您的工作内容",
+      "mouseFollower": "启用炫酷的鼠标跟随动画效果",
+      "clearAllData": "删除所有聊天记录、设置和个人数据",
+      "deleteAccount": "永久删除您的账户和所有相关数据",
+      "about": "About",
+      "appPermission": "App Permission",
+      "businessLicense": "Business License",
+      "chatHistory": "Chat History",
+      "checkUpdate": "Check Update",
+      "commissionPlan": "Commission Plan",
+      "contactSupport": "Contact Support",
+      "editProfile": "Edit Profile",
+      "feedback": "Feedback",
+      "icpRecord": "Icp Record",
+      "logout": "Logout",
+      "messageNotification": "Message Notification",
+      "modelRecord": "Model Record",
+      "myAIModel": "My AI Model",
+      "myCompany": "My Company",
+      "privacySettings": "Privacy Settings",
+      "recruitment": "Recruitment",
+      "statistics": "Statistics",
+      "usageRules": "Usage Rules",
+      "viewMiniapp": "View Miniapp",
+      "webVersion": "Web Version",
+      "withdrawRecords": "Withdraw Records"
+    },
+    "placeholders": {
+      "nickname": "请输入昵称",
+      "email": "请输入邮箱",
+      "phone": "请输入手机号"
+    },
     "actions": {
       "changeAvatar": "更换头像",
       "changePassword": "修改密码",
-      "checkUpdate": "检查更新",
-      "checking": "检查中",
-      "clearData": "清空数据",
-      "contact": "联系我们",
-      "deleteAccount": "注销账号",
-      "go": "前往",
-      "logout": "退出登录",
-      "viewMiniapp": "查看小程序"
-    },
-    "auditExport": {
-      "dateRange": "日期范围",
-      "description": "描述",
-      "endDate": "结束日期",
-      "eventTypes": "事件类型",
-      "exportBtn": "导出",
-      "exportFormat": "导出格式",
-      "exportSuccess": "导出成功",
-      "failedLogins": "失败登录",
-      "logins": "登录",
-      "preview": "预览",
-      "previewBtn": "预览",
-      "startDate": "开始日期",
-      "suspicious": "可疑",
-      "title": "标题",
-      "totalEvents": "事件总数",
-      "typeDevice": "设备类型",
-      "typeLogin": "登录类型",
-      "typeLogout": "退出类型",
-      "typePassword": "密码类型",
-      "typeSuspicious": "可疑类型"
-    },
-    "back": "返回",
-    "confirmLogout": "确认退出登录?",
-    "data": {
-      "clearCache": "清空缓存"
-    },
-    "dataClearSuccess": "数据清空成功",
-    "desc": {
-      "about": "关于",
-      "activityTracking": "活动追踪",
-      "appPermission": "应用权限",
-      "autoSave": "自动保存",
-      "avatar": "头像",
-      "businessLicense": "营业执照",
-      "changePassword": "修改密码",
-      "chatHistory": "聊天历史",
-      "checkUpdate": "检查更新",
-      "clearAllData": "清空全部数据",
-      "commissionPlan": "佣金计划",
-      "contactSupport": "联系客服",
-      "deleteAccount": "注销账号",
-      "editProfile": "编辑资料",
-      "email": "邮箱",
-      "emailNotification": "邮件通知",
-      "feedback": "反馈",
-      "icpRecord": "ICP 备案",
-      "language": "语言",
-      "loginDuration": "登录时长",
-      "loginNotification": "登录通知",
-      "logout": "退出登录",
-      "messageNotification": "消息通知",
-      "modelRecord": "模型备案",
-      "mouseFollower": "鼠标跟随",
-      "myAIModel": "我的 AI 模型",
-      "nickname": "昵称",
-      "notificationEnabled": "通知已启用",
-      "notificationSound": "通知声音",
-      "phone": "手机号",
-      "privacySettings": "隐私设置",
-      "profileVisibility": "资料可见性",
-      "pushNotification": "推送通知",
-      "showEmail": "显示邮箱",
-      "showPhone": "显示手机",
-      "statistics": "统计",
-      "themeMode": "主题模式",
-      "usageRules": "使用规范",
-      "viewMiniapp": "查看小程序",
-      "webVersion": "网页版",
-      "withdrawRecords": "提现记录"
-    },
-    "deviceManagement": {
-      "currentDevice": "当前设备",
-      "description": "描述",
-      "deviceCount": "设备数",
-      "lastActive": "最后活跃",
-      "loginTime": "登录时间",
-      "noDevices": "暂无设备",
-      "removeAllConfirm": "确认移除所有设备?",
-      "removeAllDevices": "移除所有设备",
-      "removeAllSuccess": "已移除所有设备",
-      "removeAllTitle": "移除所有设备",
-      "removeConfirm": "确认移除?",
-      "removeDevice": "移除设备",
-      "removeSuccess": "移除成功",
-      "removeTitle": "移除设备",
-      "title": "标题"
-    },
-    "dialogs": {
-      "changePassword": {
-        "confirm": "确认",
-        "confirmAction": "确认操作?",
-        "confirmPlaceholder": "请确认",
-        "new": "新密码",
-        "newPlaceholder": "请输入新密码",
-        "old": "旧密码",
-        "oldPlaceholder": "请输入旧密码",
-        "title": "标题"
-      },
-      "clearData": {
-        "confirmAction": "确认操作?",
-        "items": {
-          "chat": "对话",
-          "favorites": "收藏",
-          "history": "历史",
-          "settings": "设置"
-        },
-        "tip": "提示",
-        "title": "标题",
-        "warn": "警告"
-      },
-      "contact": {
-        "email": "邮箱",
-        "hours": "小时",
-        "hoursValue": "小时",
-        "phone": "手机号",
-        "title": "标题"
-      },
-      "deleteAccount": {
-        "confirmAction": "确认操作?",
-        "placeholder": "请输入",
-        "tip": "提示",
-        "title": "标题",
-        "warn": "警告"
-      },
-      "miniapp": {
-        "alt": "备用",
-        "tip": "提示",
-        "title": "标题"
-      }
-    },
-    "ipWhitelist": {
-      "addFailed": "添加失败",
-      "addSuccess": "添加成功",
-      "clear": "清空",
-      "clearConfirm": "确认清空?",
-      "clearSuccess": "清空成功",
-      "description": "描述",
-      "enableWhitelist": "启用白名单",
-      "export": "导出",
-      "import": "导入",
-      "importFailed": "导入失败",
-      "importSuccess": "导入成功",
-      "ipPlaceholder": "请输入 IP",
-      "labelPlaceholder": "请输入标签",
-      "noEntries": "暂无条目",
-      "removeConfirm": "确认移除?",
-      "removeSuccess": "移除成功",
-      "strictMode": "严格模式",
-      "strictModeHint": "严格模式仅允许白名单 IP",
-      "title": "标题"
-    },
-    "labels": {
-      "about": "关于",
-      "activityTracking": "活动追踪",
-      "appPermission": "应用权限",
-      "autoSave": "自动保存",
-      "avatar": "头像",
-      "businessLicense": "营业执照",
-      "changePassword": "修改密码",
-      "chatHistory": "聊天历史",
-      "checkUpdate": "检查更新",
-      "clearAllData": "清空全部数据",
-      "commissionPlan": "佣金计划",
-      "contactSupport": "联系客服",
-      "deleteAccount": "注销账号",
-      "editProfile": "编辑资料",
-      "email": "邮箱",
-      "emailNotification": "邮件通知",
-      "feedback": "反馈",
-      "icpRecord": "ICP 备案",
-      "language": "语言",
-      "loginDuration": "登录时长",
-      "loginNotification": "登录通知",
-      "logout": "退出登录",
-      "messageNotification": "消息通知",
-      "modelRecord": "模型备案",
-      "mouseFollower": "鼠标跟随",
-      "myAIModel": "我的 AI 模型",
-      "nickname": "昵称",
-      "notificationEnabled": "通知已启用",
-      "notificationSound": "通知声音",
-      "phone": "手机号",
-      "privacySettings": "隐私设置",
-      "profileVisibility": "资料可见性",
-      "pushNotification": "推送通知",
-      "showEmail": "显示邮箱",
-      "showPhone": "显示手机",
-      "statistics": "统计",
-      "themeMode": "主题模式",
-      "usageRules": "使用规范",
-      "viewMiniapp": "查看小程序",
-      "webVersion": "网页版",
-      "withdrawRecords": "提现记录"
-    },
-    "loginBehavior": {
-      "anomalies": "异常",
-      "avgInterval": "平均间隔",
-      "commonDevices": "常用设备",
-      "commonLocations": "常用位置",
-      "days": "天",
-      "description": "描述",
-      "devices": "设备",
-      "hours": "小时",
-      "locations": "位置",
-      "loginCount": "登录次数",
-      "loginTime": "登录时间",
-      "noData": "暂无数据",
-      "noDevices": "暂无设备",
-      "noLocations": "暂无位置",
-      "peakHours": "高峰时段",
-      "recommendations": "推荐",
-      "riskAnalysis": "风险分析",
-      "title": "标题",
-      "totalLogins": "总登录次数",
-      "trust": "信任",
-      "trusted": "已信任",
-      "unknown": "未知"
-    },
-    "loginHistory": {
-      "allTypes": "全部类型",
-      "clearConfirm": "确认清空?",
-      "clearHistory": "清空历史",
-      "clearSuccess": "清空成功",
-      "clearTitle": "清空",
-      "description": "描述",
-      "deviceRemove": "移除设备",
-      "login": "登录",
-      "logout": "退出登录",
-      "noHistory": "暂无历史",
-      "passwordChange": "修改密码",
-      "recordCount": "记录数",
-      "suspicious": "可疑",
-      "suspiciousLogin": "异常登录",
-      "suspiciousWarning": "异常登录警告",
-      "title": "标题"
-    },
-    "messages": {
-      "latestVersion": "最新版本"
-    },
-    "notificationCenter": {
-      "all": "全部",
-      "critical": "严重",
-      "description": "描述",
-      "desktopNotifications": "桌面通知",
-      "enableNotifications": "启用通知",
-      "high": "高",
-      "hoursAgo": "小时前",
-      "justNow": "刚刚",
-      "markAllRead": "全部标记已读",
-      "minutesAgo": "分钟前",
-      "noNotifications": "暂无通知",
-      "settings": "设置",
-      "soundNotifications": "声音通知",
-      "title": "标题",
-      "unread": "未读"
+      "clearData": "清除数据",
+      "deleteAccount": "注销账户",
+      "checkUpdate": "Check Update",
+      "checking": "Checking",
+      "contact": "Contact",
+      "go": "Go",
+      "logout": "Logout",
+      "viewMiniapp": "View Miniapp"
     },
     "options": {
-      "language": {
-        "en": "en",
-        "ja": "ja",
-        "ko": "ko",
-        "zh-CN": "zh-CN",
-        "zh-TW": "zh-TW"
-      },
       "loginDuration": {
-        "30d": "30d",
-        "365d": "365d",
-        "7d": "7 天",
-        "90d": "90d",
+        "7d": "7天",
+        "30d": "30天",
+        "90d": "一季度",
+        "365d": "一年",
         "permanent": "永久"
       },
       "profileVisibility": {
-        "private": "私有",
-        "public": "公开"
+        "public": "公开",
+        "private": "私密"
       },
       "themeMode": {
-        "auto": "自动",
-        "dark": "深色",
-        "light": "浅色"
+        "light": "浅色模式",
+        "dark": "深色模式",
+        "auto": "跟随系统"
+      },
+      "language": {
+        "zh-CN": "简体中文",
+        "zh-TW": "繁体中文",
+        "en": "English",
+        "ja": "日本語",
+        "ko": "한국어",
+        "en-US": "English"
       }
     },
-    "page": {
-      "subtitle": "副标题",
-      "title": "标题"
+    "dialogs": {
+      "changePassword": {
+        "title": "修改密码",
+        "old": "旧密码",
+        "oldPlaceholder": "请输入旧密码",
+        "new": "新密码",
+        "newPlaceholder": "请输入新密码",
+        "confirm": "确认密码",
+        "confirmPlaceholder": "请再次输入新密码",
+        "confirmAction": "确认修改"
+      },
+      "clearData": {
+        "title": "清除所有数据",
+        "tip": "您确定要清除所有数据吗？此操作将删除以下内容：",
+        "items": {
+          "chat": "所有聊天记录",
+          "settings": "所有设置",
+          "favorites": "所有收藏",
+          "history": "所有历史记录"
+        },
+        "warn": "此操作不可逆，请谨慎操作！",
+        "confirmAction": "确认清除"
+      },
+      "deleteAccount": {
+        "title": "注销账户",
+        "tip": "您确定要注销账户吗？此操作将永久删除您的账户和所有相关数据。",
+        "warn": "此操作不可逆，请谨慎操作！",
+        "placeholder": "请输入密码确认",
+        "confirmAction": "确认注销"
+      },
+      "contact": {
+        "email": "Email",
+        "hours": "Hours",
+        "hoursValue": "Hours Value",
+        "phone": "Phone",
+        "title": "Title"
+      },
+      "miniapp": {
+        "alt": "Alt",
+        "tip": "Tip",
+        "title": "Title"
+      }
+    },
+    "confirmLogout": "Confirm Logout",
+    "messages": {
+      "latestVersion": "Latest Version"
     },
     "passwordStrength": {
-      "medium": "中",
-      "strong": "强",
-      "veryStrong": "非常强",
-      "weak": "弱"
-    },
-    "placeholders": {
-      "email": "邮箱",
-      "nickname": "昵称",
-      "phone": "手机号"
-    },
-    "sections": {
-      "app": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "danger": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "navigation": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "notifications": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "other": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "personal": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "privacy": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "security": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "services": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "themeBackup": {
-        "desc": "描述"
-      },
-      "themePresets": {
-        "desc": "描述"
-      },
-      "themeShortcut": {
-        "desc": "描述"
-      },
-      "themeSync": {
-        "desc": "描述"
-      },
-      "themeTransition": {
-        "desc": "描述"
-      }
+      "medium": "Medium",
+      "strong": "Strong",
+      "veryStrong": "Very Strong",
+      "weak": "Weak"
     },
     "securityCharts": {
-      "days30": "近30天",
-      "days7": "近7天",
-      "days90": "近90天",
-      "deviceUsage": "设备使用",
-      "eventDistribution": "事件分布",
-      "failed": "失败",
-      "failedLogin": "失败登录",
-      "loginTrend": "登录趋势",
-      "riskTimeline": "风险时间线",
-      "successful": "成功",
-      "suspiciousLogin": "异常登录",
-      "title": "标题",
-      "totalEvents": "事件总数",
-      "typeDevice": "设备类型",
-      "typeLogin": "登录类型",
-      "typeLogout": "退出类型",
-      "typePassword": "密码类型",
-      "typeSuspicious": "可疑类型"
+      "days30": "Days30",
+      "days7": "Days7",
+      "days90": "Days90",
+      "deviceUsage": "Device Usage",
+      "eventDistribution": "Event Distribution",
+      "failed": "Failed",
+      "failedLogin": "Failed Login",
+      "loginTrend": "Login Trend",
+      "riskTimeline": "Risk Timeline",
+      "successful": "Successful",
+      "suspiciousLogin": "Suspicious Login",
+      "title": "Title",
+      "totalEvents": "Total Events",
+      "typeDevice": "Type Device",
+      "typeLogin": "Type Login",
+      "typeLogout": "Type Logout",
+      "typePassword": "Type Password",
+      "typeSuspicious": "Type Suspicious"
     },
-    "securityLog": {
-      "accountUpdate": "账号更新",
-      "description": "描述",
-      "deviceRemove": "移除设备",
-      "login": "登录",
-      "logout": "退出登录",
-      "noLogs": "暂无日志",
-      "passwordChange": "修改密码",
-      "suspiciousLogin": "异常登录",
-      "title": "标题",
-      "tokenRefresh": "刷新Token"
-    },
-    "securityScore": {
-      "description": "描述",
-      "recommendations": "推荐",
-      "title": "标题",
-      "viewDetails": "查看详情"
-    },
-    "sessionManagement": {
-      "cannotEndCurrent": "无法结束当前会话",
-      "currentSession": "当前会话",
-      "description": "描述",
-      "duration": "时长",
-      "endAllConfirm": "确认结束所有会话?",
-      "endAllOtherSessions": "结束所有其他会话",
-      "endAllSuccess": "已结束所有会话",
-      "endAllTitle": "结束所有会话",
-      "endConfirm": "确认结束会话?",
-      "endSession": "结束会话",
-      "endSuccess": "已结束会话",
-      "endTitle": "结束会话",
-      "expired": "已过期",
-      "noSessions": "暂无会话",
-      "sessionCount": "会话数",
-      "startTime": "开始时间",
-      "title": "标题"
-    },
-    "twoFactor": {
-      "backupCodesDesc": "备份码说明",
-      "complete": "完成",
-      "description": "描述",
-      "disable": "禁用",
-      "disableConfirm": "确认禁用?",
-      "disableSuccess": "已禁用",
-      "disableTitle": "禁用双重认证",
-      "disabled": "已禁用",
-      "downloadBackupCodes": "下载备份码",
-      "enable": "启用",
-      "enableSuccess": "已启用",
-      "enabled": "已启用",
-      "enterCode": "请输入验证码",
-      "scanQR": "扫描二维码",
-      "secretKey": "密钥",
-      "step1": "第 1 步",
-      "step2": "第 2 步",
-      "step3": "第 3 步",
-      "title": "标题"
-    },
-    "userCenter": "个人中心"
+    "comments": {
+      "pageTitle": "页面标题",
+      "settingsContent": "设置内容",
+      "personalInfo": "个人信息设置",
+      "accountSecurity": "账户安全设置",
+      "notifications": "通知设置",
+      "privacy": "隐私设置",
+      "appSettings": "应用设置",
+      "dangerZone": "危险操作",
+      "changePasswordDialog": "修改密码对话框",
+      "clearDataDialog": "清除数据确认对话框",
+      "deleteAccountDialog": "注销账户确认对话框"
+    }
   }
 }

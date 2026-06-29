@@ -1,21 +1,21 @@
 {
   "resourceDetail": {
-    "anonymous": "anonymous",
-    "breadcrumbResource": "breadcrumbResource",
-    "current": "current",
-    "downloadResource": "downloadResource",
-    "downloadTimes": "downloadTimes",
-    "favorite": "收藏",
-    "freeDownload": "freeDownload",
-    "like": "点赞",
-    "notExist": "notExist",
-    "operateFailed": "operateFailed",
-    "pointsDownload": "pointsDownload",
-    "rateResource": "rateResource",
-    "rating": "rating",
-    "scoreUnit": "scoreUnit",
-    "size": "大小",
-    "uploader": "uploader",
-    "views": "views"
+    "breadcrumbResource": "リソース",
+    "downloadTimes": "ダウンロード",
+    "views": "閲覧",
+    "rating": "評価",
+    "size": "サイズ: ",
+    "uploader": "アップロード者: ",
+    "anonymous": "匿名",
+    "freeDownload": "無料ダウンロード",
+    "pointsDownload": "ポイントダウンロード",
+    "downloadResource": "リソースをダウンロード",
+    "like": "いいね",
+    "favorite": "お気に入り",
+    "rateResource": "評価",
+    "current": "現在: ",
+    "scoreUnit": "点",
+    "notExist": "リソースが存在しません",
+    "operateFailed": "操作失敗"
   }
 }

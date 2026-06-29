@@ -39,7 +39,7 @@
 }
 
 /* 暗色模式下的波纹效果 */
-:where(html.dark) .ripple-effect::after {
+html.dark .ripple-effect::after {
   background: var(--color-white-20);
 }
 
@@ -55,11 +55,11 @@
   }
 
   40% {
-    
+    transform: translateY(-10px);
   }
 
   60% {
-    
+    transform: translateY(-5px);
   }
 }
 
@@ -199,20 +199,24 @@
 /* ==================== 卡片悬停效果 ==================== */
 
 .card-hover {
-  transition: border-color 0.2s ease;
+  transition: transform 0.2s ease;
 
   &:hover {
-    border-color: var(--el-color-primary);
+    transform: translateY(-2px);
   }
 }
 
 /* ==================== 按钮悬停效果 ==================== */
 
 .button-hover {
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
 
   &:active {
-    opacity: 0.85;
+    transform: translateY(0);
   }
 }
 
@@ -246,6 +250,16 @@
   .button-hover,
   .input-focus {
     transition: none;
+  }
+}
+
+@keyframes slow-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }
 

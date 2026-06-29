@@ -52,7 +52,7 @@ const { t } = useI18n()
 interface Advantage {
   title: string
   description: string
-  icon: string | (() => Promise<{ default: any }>)
+  icon: string | (() => Promise<{ default: unknown }>)
   key: string
 }
 
@@ -127,12 +127,13 @@ const handleCardClick = (advantage: Advantage) => {
   .advantage-card {
     height: 100%;
     cursor: pointer;
-    transition: transform 0.3s ease;
+    transition: all 0.3s ease;
     border-radius: var(--global-border-radius);
     
     &:hover {
-      
-      }
+      transform: translateY(-4px);
+      box-shadow: var(--global-box-shadow);
+    }
     
     .advantage-content {
       text-align: center;

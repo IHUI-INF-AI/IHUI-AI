@@ -6,7 +6,8 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { t } from '@/utils/i18n'
-import { logger, TokenManager, ConfigManager, ErrorHandler } from '@/utils/core'
+import { logger, ConfigManager, ErrorHandler } from '@/utils/core'
+import { TokenStorage } from '@/utils/storage'
 import { retryPromise, withTimeout } from '@/utils/promise-utils'
 import { getCurrentPlatform } from '@/router/utils/routeMerger'
 import { COZE_PREFIX, LOGIN_PWD_PATHS } from '@/config/backend-paths'
@@ -59,6 +60,14 @@ function getBaseUrl(url: string): string {
 export class ApiClient {
   private instance: AxiosInstance
   private config: ApiClientConfig
+  // 2026-06-28 联调修复: 并发 401 刷新去重, 避免多次 refresh 触发后端重放检测
+  // (后端 rotate_refresh 对同 jti 二次使用判定为重放攻击, 会拉黑整个 family)
+  private static isRefreshing = false
+  private static failedQueue: Array<{
+    resolve: (value: AxiosResponse) => void
+    reject: (reason: unknown) => void
+    config: AxiosRequestConfig
+  }> = []
 
   constructor(config?: Partial<ApiClientConfig>) {
     this.config = {
@@ -99,7 +108,7 @@ export class ApiClient {
         
         // 如果不在白名单中，添加认证token
         if (!isWhitelisted) {
-          const token = TokenManager.getToken()
+          const token = TokenStorage.getToken()
           if (token) {
             config.headers.Authorization = `Bearer ${token}`
           }
@@ -175,46 +184,71 @@ export class ApiClient {
 
   /**
    * 统一处理token过期：刷新token并重试原始请求
-   * 注意：若当前请求本身就是刷新 token 接口返回 401，说明 refreshToken 也已失效，
-   * 直接清理并拒绝，避免再次调用 handleTokenExpired 形成递归死循环。
+   *
+   * 2026-06-28 联调修复: 加入 isRefreshing 锁 + failedQueue 等待队列,
+   * 并发 401 时只发一次 refresh 请求, 避免后端 rotate_refresh 把同 jti
+   * 二次使用判定为重放攻击而拉黑整个 family.
    */
   private async handleTokenExpired(response: AxiosResponse): Promise<AxiosResponse> {
-    // 防止刷新接口自身 401 导致递归死循环
-    if (response.config.url && response.config.url.includes(LOGIN_PWD_PATHS.refreshToken)) {
-      TokenManager.clearTokens()
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:expired'))
-      }
-      return Promise.reject(new Error('登录已过期，请重新登录'))
+    const originalConfig = response.config
+
+    // 已有刷新在进行: 挂起当前请求, 等待刷新结果
+    if (ApiClient.isRefreshing) {
+      return new Promise<AxiosResponse>((resolve, reject) => {
+        ApiClient.failedQueue.push({ resolve, reject, config: originalConfig })
+      })
     }
 
+    ApiClient.isRefreshing = true
+    let refreshSucceeded = false
     try {
-      const refreshToken = TokenManager.getRefreshToken()
+      const refreshToken = TokenStorage.getRefreshToken()
       if (refreshToken) {
         const refreshResponse = await this.post<{ accessToken: string; refreshToken: string }>(LOGIN_PWD_PATHS.refreshToken, {
           refreshToken,
-          uuid: TokenManager.getUuid(),
+          uuid: TokenStorage.getItem<string>('uuid') || '',
         }, { silent: true })
 
         if (refreshResponse.success && refreshResponse.data) {
-          TokenManager.setToken(refreshResponse.data.accessToken, refreshResponse.data.refreshToken)
-          const originalConfig = response.config
+          const newAccessToken = refreshResponse.data.accessToken
+          TokenStorage.setToken(newAccessToken)
+          if (refreshResponse.data.refreshToken) {
+            TokenStorage.setRefreshToken(refreshResponse.data.refreshToken)
+          }
+          // 重试原请求
           originalConfig.headers = originalConfig.headers || {}
-            ; (originalConfig.headers as Record<string, string>).Authorization = `Bearer ${refreshResponse.data.accessToken}`
+            ; (originalConfig.headers as Record<string, string>).Authorization = `Bearer ${newAccessToken}`
           if (originalConfig.url && !originalConfig.baseURL) {
             originalConfig.baseURL = getBaseUrl(originalConfig.url)
           }
-          return this.instance.request(originalConfig)
+          const retried = await this.instance.request(originalConfig)
+          // 刷新成功: 释放等待队列, 用新 token 重试
+          refreshSucceeded = true
+          ApiClient.failedQueue.forEach(item => {
+            const cfg = item.config
+            cfg.headers = cfg.headers || {}
+            ; (cfg.headers as Record<string, string>).Authorization = `Bearer ${newAccessToken}`
+            this.instance.request(cfg).then(item.resolve).catch(item.reject)
+          })
+          ApiClient.failedQueue = []
+          return retried
         }
       }
     } catch (error) {
       logger.error('Token refresh failed:', error)
+    } finally {
+      ApiClient.isRefreshing = false
     }
 
-    TokenManager.clearTokens()
+    // 刷新失败: 清 auth + 释放等待队列(reject) + 派发 auth:expired
+    if (!refreshSucceeded) {
+      TokenStorage.clearAuth()
+      ApiClient.failedQueue.forEach(item => item.reject(new Error('登录已过期，请重新登录')))
+      ApiClient.failedQueue = []
 
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('auth:expired'))
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:expired'))
+      }
     }
 
     return Promise.reject(new Error('登录已过期，请重新登录'))
@@ -231,8 +265,6 @@ export class ApiClient {
       data: config.data,
       headers: config.headers,
       timeout: config.timeout || this.config.timeout,
-      // 透传 AbortSignal，支持请求取消
-      signal: config.signal,
     }
 
     try {
@@ -330,66 +362,61 @@ export class ApiClient {
   /**
    * GET请求
    */
-  async get<T>(url: string, params?: Record<string, unknown>, options?: { silent?: boolean; signal?: AbortSignal }): Promise<ApiResponse<T>> {
+  async get<T>(url: string, params?: Record<string, unknown>, options?: { silent?: boolean }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'GET',
       params,
       silent: options?.silent,
-      signal: options?.signal,
     })
   }
 
   /**
    * POST请求
    */
-  async post<T>(url: string, data?: unknown, options?: { silent?: boolean; headers?: Record<string, string>; signal?: AbortSignal }): Promise<ApiResponse<T>> {
+  async post<T>(url: string, data?: unknown, options?: { silent?: boolean; headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'POST',
       data,
       silent: options?.silent,
       headers: options?.headers,
-      signal: options?.signal,
     })
   }
 
   /**
    * PUT请求
    */
-  async put<T>(url: string, data?: unknown, options?: { silent?: boolean; signal?: AbortSignal }): Promise<ApiResponse<T>> {
+  async put<T>(url: string, data?: unknown, options?: { silent?: boolean }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'PUT',
       data,
       silent: options?.silent,
-      signal: options?.signal,
     })
   }
 
   /**
    * DELETE请求
    */
-  async delete<T>(url: string, options?: { silent?: boolean; params?: Record<string, unknown>; signal?: AbortSignal }): Promise<ApiResponse<T>> {
+  async delete<T>(url: string, options?: { silent?: boolean; params?: Record<string, unknown> }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'DELETE',
       silent: options?.silent,
       params: options?.params,
-      signal: options?.signal,
     })
   }
 
   /**
    * PATCH请求
    */
-  async patch<T>(url: string, data?: unknown, options?: { silent?: boolean; signal?: AbortSignal }): Promise<ApiResponse<T>> {
+  async patch<T>(url: string, data?: unknown, options?: { silent?: boolean }): Promise<ApiResponse<T>> {
     return this.request<T>({
       url,
       method: 'PATCH',
       data,
       silent: options?.silent,
-      signal: options?.signal,
     })
   }
 
@@ -425,21 +452,21 @@ export class ApiClient {
    * 设置Token
    */
   setToken(token: string, _remember?: boolean): void {
-    TokenManager.setToken(token)
+    TokenStorage.setToken(token)
   }
 
   /**
    * 获取Token
    */
   getToken(): string | null {
-    return TokenManager.getToken()
+    return TokenStorage.getToken()
   }
 
   /**
    * 清除Token
    */
   clearToken(): void {
-    TokenManager.clearTokens()
+    TokenStorage.clearAuth()
   }
 }
 

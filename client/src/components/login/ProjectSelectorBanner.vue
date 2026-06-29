@@ -106,7 +106,7 @@ const handleProjectSelect = (projectKey: string) => {
   &:hover {
     background: var(--el-color-primary-light-9);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
-    
+    transform: translateY(-1px);
   }
 
   &.active {

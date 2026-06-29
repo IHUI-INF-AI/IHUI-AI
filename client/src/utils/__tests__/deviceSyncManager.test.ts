@@ -12,7 +12,7 @@ const setUserAgent = (ua: string) => {
 const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
 // 工具:向 localStorage 直接写入若干设备
-const seedDevices = (devices: any[]) => {
+const seedDevices = (devices: unknown[]) => {
   localStorage.setItem('sync-devices', JSON.stringify(devices))
 }
 

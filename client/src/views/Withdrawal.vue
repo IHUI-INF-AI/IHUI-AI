@@ -19,7 +19,9 @@
       </header>
 
       <!-- 余额卡片 -->
-      <section class="wd-balance-card wd-glass-card wd-scroll-reveal wd-delay-1">
+      <section class="wd-balance-card wd-glass-card wd-scroll-reveal" style="
+
+--delay: 0.1s">
         <div class="wd-balance-glow"></div>
         <div class="wd-balance-header">
           <span class="wd-balance-icon">◇</span>
@@ -36,7 +38,9 @@
       </section>
 
       <!-- 规则面板 -->
-      <section class="wd-rules-panel wd-glass-card wd-scroll-reveal wd-delay-2" v-if="withdrawConfig">
+      <section class="wd-rules-panel wd-glass-card wd-scroll-reveal" v-if="withdrawConfig" style="
+
+--delay: 0.2s">
         <div class="wd-rules-grid">
           <div class="wd-rule-item">
             <div class="wd-rule-icon">▣</div>
@@ -57,7 +61,9 @@
       </section>
 
       <!-- 表单卡片 -->
-      <section class="wd-form-card wd-glass-card wd-scroll-reveal wd-delay-3">
+      <section class="wd-form-card wd-glass-card wd-scroll-reveal" style="
+
+--delay: 0.3s">
         <el-form ref="withdrawFormRef" :model="withdrawForm" :rules="formRules" class="wd-form">
           
           <!-- 金额输入 -->
@@ -234,9 +240,10 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
-import { zhsWithdrawal, getWithdrawalRecords } from '@/api/payment/withdrawal'
-import { getWithdrawConfig } from '@/api/payment/commission'
-import type { WithdrawalRecord } from '@/api/payment/withdrawal'
+import { useRoute } from 'vue-router'
+import { zhsWithdrawal, getWithdrawalRecords } from '@/api/withdrawal'
+import { getWithdrawConfig } from '@/api/commission'
+import type { WithdrawalRecord } from '@/api/withdrawal'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useApiError } from '@/composables/useApiError'
 import type { ApiResponse } from '@/types'
@@ -246,6 +253,8 @@ const { t } = useI18n()
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> & {
   fetchUserInfo: () => Promise<unknown>
 }
+const _route = useRoute()
+
 const availableAmount = computed(() => authStore.balance || 0)
 const withdrawFormRef = ref<FormInstance>()
 const { loading, execute: executeApi } = useApiError({ showMessage: true })
@@ -293,7 +302,7 @@ const formRules = computed<FormRules>(() => {
     amount: [
       { required: true, message: t('withdrawal.validation.amountRequired'), trigger: 'blur' },
       { 
-        validator: (rule: any, value: string, callback: (err?: Error) => void) => {
+        validator: (rule: unknown, value: string, callback: (err?: Error) => void) => {
           const amount = Number(value)
           const minAmount = withdrawConfig.value?.minAmount || 100
           if (amount < minAmount) {
@@ -327,7 +336,7 @@ const formRules = computed<FormRules>(() => {
     rules.bankAccount = [
       { required: true, message: t('withdrawal.validation.accountRequired'), trigger: 'blur' },
       { 
-        validator: (rule: any, value: string, callback: (err?: Error) => void) => {
+        validator: (rule: unknown, value: string, callback: (err?: Error) => void) => {
           if (!/^\d{16,19}$/.test(value)) {
             callback(new Error(t('withdrawal.validation.bankAccountInvalid')))
           } else {
@@ -354,7 +363,7 @@ onMounted(async () => {
 
 const fetchWithdrawConfig = async () => {
   try {
-    const response = await getWithdrawConfig() as { code?: number; data?: any }
+    const response = await getWithdrawConfig() as { code?: number; data?: unknown }
     if (response.code === 200 && response.data) {
       withdrawConfig.value = response.data as typeof withdrawConfig.value
     }
@@ -498,9 +507,9 @@ $surface-mid: var(--color-dark-bg-2);
 $surface-light: var(--color-gray-1f1f1f);
 $border-subtle: var(--border-unified-color);
 $border-active: var(--border-unified-color-hover);
-$text-primary: var(--el-text-color-secondary);
-$text-secondary: var(--el-text-color-placeholder);
-$text-muted: var(--el-text-color-placeholder);
+$text-primary: var(--color-gray-ededed);
+$text-secondary: var(--color-gray-a1a1a1);
+$text-muted: var(--color-gray-666);
 $glow-color: var(--color-white-15);
 $accent-green: var(--el-text-color-primary);
 
@@ -591,18 +600,6 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   animation-delay: var(--delay);
 }
 
-.wd-delay-1 {
-  --delay: 0.1s;
-}
-
-.wd-delay-2 {
-  --delay: 0.2s;
-}
-
-.wd-delay-3 {
-  --delay: 0.3s;
-}
-
 @keyframes wd-reveal {
   to {
     opacity: 1;
@@ -664,7 +661,6 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   position: relative;
   overflow: hidden;
 
@@ -846,7 +842,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 @keyframes wd-slide-in {
   from {
     opacity: 0;
-    
+    transform: translateY(-10px);
   }
 
   to {
@@ -866,7 +862,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .wd-label-icon {
-  font-size: 12px;
+  font-size: 10px;
   color: $text-muted;
 }
 
@@ -896,7 +892,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     border-radius: var(--global-border-radius);
     box-shadow: none;
     padding: 12px 16px;
-    transition: border-color 0.3s $ease-out-expo;
+    transition: all 0.3s $ease-out-expo;
 
     &:hover {
       border-color: $border-active;
@@ -904,6 +900,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 
     &.is-focus {
       border-color: $text-secondary;
+      box-shadow: var(--global-box-shadow);
     }
   }
 
@@ -934,7 +931,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     color: $text-primary;
     font-size: 14px;
     resize: none;
-    transition: border-color 0.3s $ease-out-expo;
+    transition: all 0.3s $ease-out-expo;
 
     &::placeholder {
       color: $text-muted;
@@ -946,6 +943,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 
     &:focus {
       border-color: $text-secondary;
+      box-shadow: var(--global-box-shadow);
     }
   }
 }
@@ -963,7 +961,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s $ease-out-expo, color 0.3s $ease-out-expo, border-color 0.3s $ease-out-expo;
+  transition: all 0.3s $ease-out-expo;
 
   &:hover {
     background: var(--color-white-5);
@@ -991,11 +989,11 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: border-color 0.3s $ease-out-expo, transform 0.3s $ease-out-expo, background-color 0.3s $ease-out-expo;
+  transition: all 0.3s $ease-out-expo;
 
   &:hover {
     border-color: $border-active;
-    
+    transform: translateY(-2px);
   }
 
   &.wd-method-active {
@@ -1056,7 +1054,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 10px;
   color: $brand-primary;
   font-weight: 700;
   animation: wd-pop 0.3s $ease-out-back;
@@ -1090,11 +1088,11 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   border-radius: var(--global-border-radius);
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.3s $ease-out-expo, transform 0.3s $ease-out-expo, opacity 0.3s $ease-out-expo;
+  transition: all 0.3s $ease-out-expo;
 
   &:hover:not(:disabled) {
     border-color: $text-secondary;
-    
+    transform: translateY(-2px);
 
     .wd-btn-bg {
       opacity: 1;

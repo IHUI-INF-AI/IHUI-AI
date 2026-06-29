@@ -1,7 +1,7 @@
 {
   "adminGrayRelease": {
-    "confirmRollback": "confirmRollback",
-    "createRelease": "createRelease",
-    "enterRollbackReason": "enterRollbackReason"
+    "confirmRollback": "確認回滾",
+    "enterRollbackReason": "請輸入回滾原因",
+    "createRelease": "建立發布"
   }
 }

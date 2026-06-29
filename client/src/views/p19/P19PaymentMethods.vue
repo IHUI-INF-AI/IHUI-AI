@@ -23,7 +23,7 @@
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getWalletInfo } from '@/api/payment/wallet'
+import { getWalletInfo } from '@/api/wallet'
 
 const { t } = useI18n()
 const loading = ref(false)
@@ -38,10 +38,11 @@ const balance = ref(0)
 async function load() {
   loading.value = true
   try {
-    const r = await getWalletInfo()
-    balance.value = (r as any).data?.balance || 0
-  } catch (e: any) {
-    ElMessage.error(t('common.errors.loadBalanceFailed') + ': ' + (e?.message || e))
+    const r = await getWalletInfo() as unknown as { data?: { balance?: number } }
+    balance.value = r.data?.balance || 0
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(t('common.errors.loadBalanceFailed') + ': ' + (err?.message || e))
   } finally {
     loading.value = false
   }

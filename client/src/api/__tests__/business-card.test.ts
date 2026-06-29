@@ -13,7 +13,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../content/business-card'
+import * as api from '../business-card'
 
 describe('business-card', () => {
   beforeEach(() => {

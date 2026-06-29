@@ -1,12 +1,12 @@
 {
   "memberPoint": {
-    "available": "available",
-    "continuousSign": "continuousSign",
-    "days": "days",
-    "level": "等级",
-    "myPoints": "myPoints",
-    "pointDetails": "pointDetails",
-    "totalPoints": "totalPoints",
-    "used": "used"
+    "myPoints": "マイポイント",
+    "totalPoints": "総ポイント",
+    "available": "利用可能",
+    "used": "使用済み",
+    "level": "レベル",
+    "continuousSign": "連続チェックイン",
+    "days": "日",
+    "pointDetails": "ポイント明細"
   }
 }

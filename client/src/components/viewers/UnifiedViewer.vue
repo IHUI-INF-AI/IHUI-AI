@@ -316,7 +316,7 @@ watch(() => props.src, loadTextContent, { immediate: true })
   color: var(--el-text-color-secondary);
   font-size: 14px;
   text-decoration: none;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .action-btn:hover {
@@ -337,7 +337,7 @@ watch(() => props.src, loadTextContent, { immediate: true })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-fafafa);
 }
 
 .archive-content,
@@ -394,7 +394,7 @@ watch(() => props.src, loadTextContent, { immediate: true })
 .info-value {
   font-size: 14px;
   color: var(--el-text-color-secondary);
-  font-family: var(--font-family-mono);
+  font-family: monospace;
 }
 
 .download-btn {
@@ -453,7 +453,7 @@ watch(() => props.src, loadTextContent, { immediate: true })
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--el-text-color-placeholder);
+  border: 3px solid var(--color-text-muted);
   border-top-color: var(--el-color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;

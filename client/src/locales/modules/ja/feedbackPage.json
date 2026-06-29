@@ -1,7 +1,7 @@
 {
   "feedbackPage": {
-    "backToSubmit": "backToSubmit",
-    "contact": "联系我们",
-    "noRecords": "noRecords"
+    "noRecords": "フィードバック記録なし",
+    "contact": "連絡先",
+    "backToSubmit": "戻って送信"
   }
 }

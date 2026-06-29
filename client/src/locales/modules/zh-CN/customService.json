@@ -1,6 +1,36 @@
 {
   "customService": {
-    "subtitle": "副标题",
-    "title": "标题"
+    "title": "标题",
+    "subtitle": "Subtitle",
+    "introTitle": "定制服务",
+    "introDescription": "我们提供专业的AI定制服务，根据您的需求量身定制解决方案",
+    "serviceTypes": "服务类型",
+    "learnMore": "了解更多",
+    "applyForm": "申请表单",
+    "name": "姓名",
+    "namePlaceholder": "请输入您的姓名",
+    "contact": "联系方式",
+    "contactPlaceholder": "请输入您的联系方式",
+    "serviceType": "服务类型",
+    "serviceTypePlaceholder": "请选择服务类型",
+    "requirements": "需求描述",
+    "requirementsPlaceholder": "请详细描述您的需求（至少10个字符）",
+    "submit": "提交申请",
+    "typeAITool": "AI工具定制",
+    "typeAIToolDesc": "根据您的需求定制专属的AI工具",
+    "typeSystem": "系统集成",
+    "typeSystemDesc": "将AI能力集成到现有系统中",
+    "typeData": "数据分析",
+    "typeDataDesc": "利用AI技术进行深度数据分析",
+    "typeAPI": "API集成",
+    "typeAPIDesc": "提供API接口对接服务",
+    "nameRequired": "请输入姓名",
+    "contactRequired": "请输入联系方式",
+    "serviceTypeRequired": "请选择服务类型",
+    "requirementsRequired": "请输入需求描述",
+    "requirementsMinLength": "需求描述至少需要10个字符",
+    "submitSuccess": "提交成功，我们会尽快联系您",
+    "submitError": "提交失败，请稍后重试",
+    "onlineChat": "在线Chat"
   }
 }

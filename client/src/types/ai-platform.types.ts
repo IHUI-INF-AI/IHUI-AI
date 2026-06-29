@@ -88,7 +88,7 @@ export interface MessageMetadata {
   thinkingContent?: string
   /** 消耗智汇值/Token 数（兼容后端 total_tokens） */
   total_tokens?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /** 聊天消息 */
@@ -384,7 +384,7 @@ export interface QueueTask<T = unknown> {
   completedAt?: Timestamp
   
   // 结果
-  result?: any
+  result?: unknown
   error?: string
 }
 

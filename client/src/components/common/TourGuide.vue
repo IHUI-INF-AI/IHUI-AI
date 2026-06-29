@@ -78,13 +78,13 @@ const skip = () => {
   z-index: var(--z-loading);
   background-color: var(--color-black-50);
   backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .tour-tooltip {
   position: absolute;
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   min-width: 300px;
   max-width: 400px;
   z-index: var(--z-max);
@@ -163,13 +163,14 @@ const skip = () => {
 }
 
 // 暗色模式支持
-:where(html.dark) {
+html.dark {
   .tour-overlay {
     background-color: var(--color-black-70);
   }
 
   .tour-tooltip {
     background-color: var(--el-bg-color);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 </style>

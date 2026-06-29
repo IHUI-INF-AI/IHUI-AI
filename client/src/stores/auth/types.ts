@@ -1,4 +1,4 @@
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
 
 export interface RawUserInfo {
   id?: string
@@ -64,7 +64,7 @@ export interface LoginResponseData extends RawUserInfo {
       progress?: number
       isValid?: number
     }
-    [key: string]: any
+    [key: string]: unknown
   }
   userMargin?: {
     id?: string
@@ -73,7 +73,7 @@ export interface LoginResponseData extends RawUserInfo {
   }
   identityType?: number
   identityTypy?: number
-  developerLinks?: any
+  developerLinks?: unknown
 }
 
 export interface AuthState {

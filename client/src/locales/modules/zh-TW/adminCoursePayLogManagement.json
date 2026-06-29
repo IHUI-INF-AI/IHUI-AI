@@ -1,0 +1,21 @@
+{
+  "adminCoursePayLogManagement": {
+    "actions": {
+      "export": "導出"
+    },
+    "search": {},
+    "table": {},
+    "payMethod": {},
+    "payStatus": {
+      "failed": "支付失敗"
+    },
+    "refundStatus": {
+      "failed": "退款失敗"
+    },
+    "dialog": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  }
+}

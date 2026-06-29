@@ -1,52 +1,52 @@
 {
   "vipTrader": {
+    "title": "Title",
+    "subtitle": "Subtitle",
     "features": {
-      "agentBeta": {
-        "desc": "描述",
-        "title": "标题"
+      "title": "Title",
+      "distributionQualification": {
+        "title": "Title",
+        "desc": "Desc"
       },
       "aiCourses": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "allVipRights": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "customAgentDiscount": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "distributionQualification": {
-        "desc": "描述",
-        "title": "标题"
+        "title": "Title",
+        "desc": "Desc"
       },
       "founderQa": {
-        "desc": "描述",
-        "title": "标题"
+        "title": "Title",
+        "desc": "Desc"
       },
-      "offlineLearning": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "secondaryDistribution": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "title": "标题",
-      "verticalAccountIncubation": {
-        "desc": "描述",
-        "title": "标题"
+      "agentBeta": {
+        "title": "Title",
+        "desc": "Desc"
       },
       "vipMaxDiscount": {
-        "desc": "描述",
-        "title": "标题"
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "customAgentDiscount": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "allVipRights": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "verticalAccountIncubation": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "secondaryDistribution": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "offlineLearning": {
+        "title": "Title",
+        "desc": "Desc"
       }
     },
     "purchase": {
-      "button": "button"
-    },
-    "subtitle": "副标题",
-    "title": "标题"
+      "button": "Button"
+    }
   }
 }

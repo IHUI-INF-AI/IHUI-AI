@@ -1,13 +1,13 @@
 {
   "learnCertificateDownload": {
-    "banner": "banner",
-    "breadcrumbCert": "breadcrumbCert",
-    "breadcrumbCourse": "breadcrumbCourse",
-    "certText": "certText",
-    "download": "下载",
-    "downloadStart": "downloadStart",
-    "issueTime": "issueTime",
-    "notExist": "notExist",
-    "print": "打印"
+    "notExist": "자격증이 존재하지 않습니다",
+    "banner": "학습 자격증",
+    "certText": "본 코스의 학습을 완료했음을 증명합니다",
+    "issueTime": "발급 시간: ",
+    "download": "다운로드",
+    "print": "인쇄",
+    "breadcrumbCourse": "코스",
+    "breadcrumbCert": "내 자격증",
+    "downloadStart": "자격증 다운로드 시작, 백엔드 PDF API 연결 중"
   }
 }

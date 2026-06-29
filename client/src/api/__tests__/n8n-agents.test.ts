@@ -15,7 +15,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../n8n/n8n-agents'
+import * as api from '../n8n-agents'
 
 describe('n8n-agents', () => {
   beforeEach(() => {
@@ -53,8 +53,8 @@ describe('n8n-agents', () => {
   it('所有错误路径', async () => {
     ;(request.get as any).mockRejectedValue(new Error('fail'))
     ;(request.post as any).mockRejectedValue(new Error('fail'))
-    try { await api.getN8NAgents() } catch { /* noop */ }
-    try { await api.createN8NAgent({ name: 'a', description: 'd', n8nUrl: 'u' }) } catch { /* noop */ }
-    try { await api.processN8NAgent({ agentId: 'a', params: {} }) } catch { /* noop */ }
+    try { await api.getN8NAgents() } catch (e) {}
+    try { await api.createN8NAgent({ name: 'a', description: 'd', n8nUrl: 'u' }) } catch (e) {}
+    try { await api.processN8NAgent({ agentId: 'a', params: {} }) } catch (e) {}
   })
 })

@@ -1,10 +1,8 @@
 {
   "newsDetail": {
-    "favorite": "收藏",
-    "like": "点赞",
-    "news": "新闻",
-    "newsNotFound": "newsNotFound",
-    "officialNews": "officialNews",
-    "read": "read"
+    "news": "뉴스",
+    "newsNotFound": "뉴스가 존재하지 않거나 삭제되었습니다",
+    "officialNews": "공식 정보",
+    "read": "조회"
   }
 }

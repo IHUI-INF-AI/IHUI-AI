@@ -52,7 +52,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChatDotRound } from '@element-plus/icons-vue'
-import type { Ticket } from '@/api/system/tickets'
+import type { Ticket } from '@/api/tickets'
 import { formatTime } from '@/utils/format'
 
 defineOptions({
@@ -136,13 +136,14 @@ const handleReopen = () => {
 <style scoped lang="scss">
 .ticket-card {
   cursor: pointer;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--global-border-radius);
   margin-bottom: 16px;
 
   &:hover {
-    
-    }
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
+  }
 
   .ticket-header {
     display: flex;

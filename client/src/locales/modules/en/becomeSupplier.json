@@ -1,66 +1,71 @@
 {
   "becomeSupplier": {
-    "benefits": {
-      "market": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "security": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "settlement": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "support": {
-        "description": "描述",
-        "title": "标题"
-      }
-    },
+    "title": "Become a Supplier",
+    "subtitle": "Join our supplier network and grow together",
     "form": {
-      "address": "地址",
-      "addressPlaceholder": "addressPlaceholder",
-      "business": "business",
-      "businessPlaceholder": "businessPlaceholder",
-      "companyName": "companyName",
-      "companyNamePlaceholder": "companyNamePlaceholder",
-      "contactName": "contactName",
-      "contactNamePlaceholder": "contactNamePlaceholder",
-      "email": "邮箱",
-      "emailPlaceholder": "emailPlaceholder",
-      "intention": "intention",
-      "intentionPlaceholder": "intentionPlaceholder",
-      "phone": "手机号",
-      "phonePlaceholder": "phonePlaceholder",
-      "processing": "处理中",
-      "reset": "重置",
-      "submit": "提交",
-      "submitProposal": "submitProposal"
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Please enter company name",
+      "contactName": "Contact Person",
+      "contactNamePlaceholder": "Please enter contact person name",
+      "phone": "Contact Phone",
+      "phonePlaceholder": "Please enter contact phone",
+      "email": "Email",
+      "emailPlaceholder": "Please enter email",
+      "address": "Company Address",
+      "addressPlaceholder": "Please enter company address",
+      "business": "Main Business",
+      "businessPlaceholder": "Please describe the company's main business",
+      "intention": "Cooperation Intention",
+      "intentionPlaceholder": "Please describe your cooperation intention and expectations",
+      "submit": "Submit Application",
+      "reset": "Reset",
+      "processing": "Submitting...",
+      "submitProposal": "Submit"
     },
     "processSteps": {
-      "businessNegotiation": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "onlineDocking": {
-        "description": "描述",
-        "title": "标题"
+      "submitApplication": {
+        "title": "Submit Application",
+        "description": "Fill in the supplier application form and submit basic company information"
       },
       "qualificationReview": {
-        "description": "描述",
-        "title": "标题"
+        "title": "Qualification Review",
+        "description": "We will review your application within 3-5 business days"
+      },
+      "businessNegotiation": {
+        "title": "Business Negotiation",
+        "description": "After approval, our business team will contact you"
       },
       "signAgreement": {
-        "description": "描述",
-        "title": "标题"
+        "title": "Sign Agreement",
+        "description": "Both parties confirm cooperation details and sign a formal cooperation agreement"
       },
-      "submitApplication": {
-        "description": "描述",
-        "title": "标题"
+      "onlineDocking": {
+        "title": "Online Docking",
+        "description": "The technical team assists in completing product docking and going live"
       }
     },
-    "subtitle": "副标题",
-    "title": "标题"
+    "benefits": {
+      "market": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "support": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "settlement": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "security": {
+        "title": "Title",
+        "description": "Description"
+      },
+      "title": "Partnership Benefits"
+    },
+    "success": "Application submitted successfully! We will contact you within 3-5 business days!",
+    "process": {
+      "title": "Partnership Process"
+    }
   }
 }

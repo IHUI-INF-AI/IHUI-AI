@@ -1,16 +1,36 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26 修复: 路由进入前预加载 i18n 模块，避免键名裸露
-function preloadI18n(modules: string[]) {
-  return async () => {
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map(m => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 export const userRoutes: Array<RouteRecordRaw> = [
+  {
+    path: '/oauth/authorize',
+    name: 'oauthAuthorize',
+    component: safeImport(
+      () => import(/* webpackChunkName: "oauth-authorize" */ '@/views/OAuthAuthorize.vue'),
+      'OAuthAuthorize'
+    ),
+    meta: {
+      title: 'OAuth 授权确认',
+      description: '第三方应用授权确认页面',
+      keywords: 'OAuth,授权,确认',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/oauth/my-authorized',
+    name: 'oauthMyAuthorized',
+    component: safeImport(
+      () =>
+        import(/* webpackChunkName: "oauth-my-authorized" */ '@/views/OAuthMyAuthorized.vue'),
+      'OAuthMyAuthorized'
+    ),
+    meta: {
+      title: '已授权应用管理',
+      description: '管理您已授权的第三方 OAuth 应用',
+      keywords: 'OAuth,已授权,应用管理',
+      requiresAuth: true,
+    },
+  },
   {
     path: '/forgot-password',
     name: 'forgotPassword',
@@ -24,7 +44,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '忘记密码,重置密码',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['forgotPassword']),
   },
   {
     path: '/phone-binding',
@@ -39,7 +58,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '手机号绑定,验证码',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['phoneBinding']),
   },
   {
     path: '/user',
@@ -51,7 +69,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.user.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['user']),
   },
   {
     path: '/user-center',
@@ -66,7 +83,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '用户中心,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['userCenter']),
   },
   {
     path: '/vip-membership',
@@ -81,7 +97,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'VIP,会员,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['vipMembership']),
   },
   {
     path: '/distribution-center',
@@ -96,7 +111,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '分销,中心,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['distributionCenter']),
   },
   {
     path: '/recharge',
@@ -111,7 +125,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '充值,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['recharge']),
   },
   {
     path: '/withdrawal',
@@ -126,7 +139,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '提现,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['withdrawal']),
   },
   {
     path: '/wallet',
@@ -141,7 +153,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '钱包,余额,智汇AI',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['wallet']),
   },
   {
     path: '/customer-service',
@@ -156,7 +167,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '客服,在线客服,工单,技术支持',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['customerService']),
   },
   {
     path: '/order-list',
@@ -171,7 +181,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '订单,列表,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['orderList']),
   },
   {
     path: '/distribution-order-list',
@@ -189,7 +198,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '分销,订单,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['distributionOrderList']),
   },
   {
     path: '/my-commission',
@@ -204,7 +212,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '佣金,智汇AI',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['myCommission']),
   },
   {
     path: '/profile',
@@ -216,10 +223,8 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.profile.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['user']),
   },
   {
-    // 2026-06-24: 后端 /user/settings/* 已可用, 7 个设置合规子页面 (业务执照/ICP备案/模型备案/使用规范/应用权限/账号注销/更换手机号) 全部就绪, 恢复入口
     path: '/settings',
     name: 'settings',
     component: safeImport(
@@ -232,119 +237,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.settings.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  // ============ 设置与合规子页面（多端互通，对齐 miniapp pagesA/settings）============
-  {
-    path: '/settings/business-license',
-    name: 'settingsBusinessLicense',
-    component: safeImport(
-      () =>
-        import(/* webpackChunkName: "settings-business-license" */ '@/views/settings/BusinessLicense.vue'),
-      'BusinessLicense'
-    ),
-    meta: {
-      title: '营业执照',
-      description: '查看平台营业执照信息',
-      keywords: '营业执照,合规,智汇AI',
-      requiresAuth: false,
-    },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  {
-    path: '/settings/icp-record',
-    name: 'settingsIcpRecord',
-    component: safeImport(
-      () => import(/* webpackChunkName: "settings-icp-record" */ '@/views/settings/IcpRecord.vue'),
-      'IcpRecord'
-    ),
-    meta: {
-      title: 'ICP备案',
-      description: '查看平台ICP备案信息',
-      keywords: 'ICP备案,合规,智汇AI',
-      requiresAuth: false,
-    },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  {
-    path: '/settings/model-record',
-    name: 'settingsModelRecord',
-    component: safeImport(
-      () =>
-        import(/* webpackChunkName: "settings-model-record" */ '@/views/settings/ModelRecord.vue'),
-      'ModelRecord'
-    ),
-    meta: {
-      title: '模型备案',
-      description: '查看生成式人工智能服务模型备案信息',
-      keywords: '模型备案,合规,智汇AI',
-      requiresAuth: false,
-    },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  {
-    path: '/settings/usage-rules',
-    name: 'settingsUsageRules',
-    component: safeImport(
-      () =>
-        import(/* webpackChunkName: "settings-usage-rules" */ '@/views/settings/UsageRules.vue'),
-      'UsageRules'
-    ),
-    meta: {
-      title: '使用规范',
-      description: '查看平台使用规范与条款',
-      keywords: '使用规范,服务条款,智汇AI',
-      requiresAuth: false,
-    },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  {
-    path: '/settings/app-permission',
-    name: 'settingsAppPermission',
-    component: safeImport(
-      () =>
-        import(/* webpackChunkName: "settings-app-permission" */ '@/views/settings/AppPermission.vue'),
-      'AppPermission'
-    ),
-    meta: {
-      title: '应用权限说明',
-      description: '查看应用所需权限说明',
-      keywords: '应用权限,隐私,智汇AI',
-      requiresAuth: false,
-    },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  {
-    path: '/settings/account-cancel',
-    name: 'settingsAccountCancel',
-    component: safeImport(
-      () =>
-        import(/* webpackChunkName: "settings-account-cancel" */ '@/views/settings/AccountCancel.vue'),
-      'AccountCancel'
-    ),
-    meta: {
-      title: '账号注销',
-      description: '申请注销账号',
-      keywords: '账号注销,注销,智汇AI',
-      requiresAuth: true,
-    },
-    beforeEnter: preloadI18n(['settings']),
-  },
-  {
-    path: '/settings/change-phone',
-    name: 'settingsChangePhone',
-    component: safeImport(
-      () =>
-        import(/* webpackChunkName: "settings-change-phone" */ '@/views/settings/ChangePhone.vue'),
-      'ChangePhone'
-    ),
-    meta: {
-      title: '更换手机号',
-      description: '更换绑定的手机号',
-      keywords: '更换手机号,手机号,智汇AI',
-      requiresAuth: true,
-    },
-    beforeEnter: preloadI18n(['settings']),
   },
   {
     path: '/key-management',
@@ -359,7 +251,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '密钥管理,API Key',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['keyManagement']),
   },
   {
     path: '/vip',
@@ -370,7 +261,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: 'seo.vip.desc',
       keywords: 'seo.vip.keywords',
     },
-    beforeEnter: preloadI18n(['vip']),
   },
   {
     path: '/vip/trader',
@@ -385,7 +275,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '申请成为操盘手，享受更多权益',
       keywords: '操盘手,申请,VIP',
     },
-    beforeEnter: preloadI18n(['vipTrader']),
   },
   {
     path: '/business-card',
@@ -400,7 +289,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '展示您的个人信息和联系方式',
       keywords: '个人名片,分享',
     },
-    beforeEnter: preloadI18n(['businessCard']),
   },
   {
     path: '/orders',
@@ -415,7 +303,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.orders.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['orders']),
   },
   {
     path: '/orders/:id',
@@ -430,7 +317,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.orderDetail.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['orders', 'orderDetail']),
   },
   {
     path: '/refunds',
@@ -445,7 +331,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.refundManagement.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['refundManagement']),
   },
   {
     path: '/refunds/:refundNo',
@@ -458,7 +343,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       title: 'routes.refundDetail',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['refundDetail']),
   },
   {
     path: '/refund',
@@ -473,7 +357,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.refund.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['refund']),
   },
   {
     path: '/distribution',
@@ -487,7 +370,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: 'seo.distribution.desc',
       keywords: 'seo.distribution.keywords',
     },
-    beforeEnter: preloadI18n(['distribution']),
   },
   {
     path: '/distribution/company',
@@ -503,7 +385,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '管理您的分销公司和团队',
       keywords: '分销,公司,团队管理',
     },
-    beforeEnter: preloadI18n(['distribution']),
   },
   {
     path: '/distribution/team',
@@ -518,7 +399,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '查看和管理我邀请的团队成员',
       keywords: '分销,团队,邀请',
     },
-    beforeEnter: preloadI18n(['distribution']),
   },
   {
     path: '/distribution/team/:id',
@@ -536,7 +416,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '查看下级成员的详细信息',
       keywords: '分销,团队成员,详情',
     },
-    beforeEnter: preloadI18n(['distribution']),
   },
   {
     path: '/distribution/orders',
@@ -551,7 +430,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '查看我的分销订单',
       keywords: '分销,订单,列表',
     },
-    beforeEnter: preloadI18n(['distribution']),
   },
   {
     path: '/commission/plan',
@@ -566,7 +444,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '邀请好友，赚取佣金',
       keywords: '分佣,佣金,邀请',
     },
-    beforeEnter: preloadI18n(['commissionPlan']),
   },
   {
     path: '/token-value',
@@ -581,7 +458,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '查看智汇值使用记录和余额',
       keywords: '智汇值,积分,代币',
     },
-    beforeEnter: preloadI18n(['tokenValue']),
   },
   {
     path: '/payment',
@@ -596,7 +472,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.payment.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['payment']),
   },
   {
     path: '/top-up',
@@ -611,7 +486,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '为您的账户充值智汇值',
       keywords: '充值,账户充值,智汇值',
     },
-    beforeEnter: preloadI18n(['topUp']),
   },
   {
     path: '/top-up/success',
@@ -626,7 +500,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '账户充值成功',
       keywords: '充值成功',
     },
-    beforeEnter: preloadI18n(['topUp']),
   },
   {
     path: '/top-up/fail',
@@ -641,7 +514,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '账户充值失败',
       keywords: '充值失败',
     },
-    beforeEnter: preloadI18n(['topUp']),
   },
   {
     path: '/income/commission',
@@ -656,7 +528,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '查看您的操盘手佣金详情',
       keywords: '佣金,操盘手,收益',
     },
-    beforeEnter: preloadI18n(['traderCommission']),
   },
   {
     path: '/withdraw',
@@ -671,7 +542,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '申请提现到您的账户',
       keywords: '提现,提款',
     },
-    beforeEnter: preloadI18n(['withdrawal']),
   },
   {
     path: '/withdraw/records',
@@ -686,7 +556,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '查看您的提现记录',
       keywords: '提现记录,提现明细',
     },
-    beforeEnter: preloadI18n(['withdrawal']),
   },
   {
     path: '/vip/details',
@@ -701,7 +570,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       description: '选择适合您的会员套餐',
       keywords: 'VIP,会员,套餐',
     },
-    beforeEnter: preloadI18n(['vip']),
   },
   {
     path: '/statistics',
@@ -716,7 +584,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.statistics.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['statistics']),
   },
   {
     path: '/bi',
@@ -731,7 +598,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: 'BI,自助报表,下钻,异常归因',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['biDashboard']),
   },
   {
     path: '/security-audit',
@@ -746,7 +612,6 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '安全,审计,越权,二次验证,行为分析',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['securityAudit']),
   },
   {
     path: '/i18n',
@@ -759,9 +624,7 @@ export const userRoutes: Array<RouteRecordRaw> = [
       title: '国际化开发者面板',
       description: '9 种语言元数据、CLDR 复数规则、翻译同步与差异对比',
       keywords: '国际化,i18n,多语言,RTL,阿拉伯语,希伯来语,复数',
-      // 2026-06-26: 国际化开发者面板改公开 (无需登录即可访问)
-      requiresAuth: false,
+      requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['i18nDashboard']),
   },
 ]

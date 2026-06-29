@@ -1,20 +1,20 @@
 {
   "resourceList": {
-    "desc": "描述",
-    "empty": "empty",
-    "free": "免费",
-    "points": "积分",
-    "searchPlaceholder": "请输入搜索内容",
-    "sortDownload": "sortDownload",
-    "sortHot": "sortHot",
-    "sortNew": "sortNew",
-    "title": "标题",
-    "top": "置顶",
-    "typeArchive": "typeArchive",
-    "typeAudio": "typeAudio",
-    "typeDoc": "typeDoc",
-    "typeImage": "typeImage",
-    "typePlaceholder": "typePlaceholder",
-    "typeVideo": "typeVideo"
+    "title": "자료 센터",
+    "desc": "课件、도구、문서、비디오 등 대량의 학습 자료",
+    "searchPlaceholder": "자료 검색",
+    "typePlaceholder": "유형",
+    "typeDoc": "문서",
+    "typeVideo": "비디오",
+    "typeAudio": "오디오",
+    "typeImage": "이미지",
+    "typeArchive": "압축 파일",
+    "sortNew": "최신",
+    "sortHot": "인기",
+    "sortDownload": "다운로드",
+    "top": "상단",
+    "free": "무료",
+    "points": "포인트",
+    "empty": "자료가 없습니다"
   }
 }

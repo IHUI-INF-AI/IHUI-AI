@@ -45,8 +45,10 @@
     "statusCompleted": "Completed",
     "statusFailed": "Failed",
     "statusCancelled": "Cancelled",
+    "invoiceDownloadInDevelopment": "Invoice download feature under development",
     "invoiceOnlyForCompletedOrders": "Invoice only for completed orders",
     "invoiceDownloadSuccess": "Invoice download success",
     "invoiceDownloadFailed": "Invoice download failed"
-  }
+  },
+  "OrderDetail": {}
 }

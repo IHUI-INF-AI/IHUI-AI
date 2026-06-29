@@ -97,6 +97,7 @@ const handleSecureAccount = () => {
   padding: 16px 20px;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   border: var(--unified-border);
   max-width: 400px;
 
@@ -173,8 +174,8 @@ const handleSecureAccount = () => {
   border: none;
   cursor: pointer;
   color: var(--el-text-color-secondary);
-  border-radius: var(--global-border-radius);
-  transition: background-color 0.2s, color 0.2s;
+  border-radius: var(--global-border-radius-sm, 4px);
+  transition: all 0.2s;
 
   &:hover {
     background: var(--el-fill-color);
@@ -184,7 +185,7 @@ const handleSecureAccount = () => {
 
 .notification-slide-enter-active,
 .notification-slide-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .notification-slide-enter-from {

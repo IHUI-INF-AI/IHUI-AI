@@ -19,7 +19,7 @@ const i18nT: TranslateFn = (key: string) => {
 import { COZE_PATHS, COZE_PREFIX, LOGIN_PWD_PATHS } from '@/config/backend-paths'
 import { isTokenExpired } from '@/config/error-codes'
 import { NETWORK_CONFIG } from '@/config/auth.config'
-import { StorageManager, STORAGE_KEYS } from './storage'
+import { StorageManager, STORAGE_KEYS, TokenStorage } from './storage'
 import { logger } from './logger'
 import { ErrorHandler, ErrorType } from './errorHandler'
 
@@ -45,6 +45,44 @@ import { getCurrentPlatform } from '../router/utils/routeMerger'
 const isDemo = isDemoMode()
 // 获取当前平台类型
 const _currentPlatform = getCurrentPlatform()
+
+// ========================================
+// 统一登录引导 - 替代硬跳转 window.location.href = '/login'
+// ========================================
+// 历史问题: 多处硬跳转 /login → 路由守卫拦截重定向回 / → 组件重新挂载 →
+//          再次触发需 token 的 API → 再次硬跳转, 形成 1.5s 一次的无限刷新循环
+// 修复策略: 改用全局登录弹窗 (useLoginDialog), 与路由守卫策略一致, 不刷新页面
+// 保存当前路径到 auth-return-path, 登录成功后可返回原页面
+let _loginDialogRedirectOpen = false
+function redirectToLoginDialog(redirectPath?: string): void {
+  if (typeof window === 'undefined') return
+  const currentPath = redirectPath ?? (window.location.pathname + window.location.search)
+  // 已在 /login 路由时无需再弹窗 (用户已在此页)
+  if (currentPath === '/login') return
+  try {
+    localStorage.setItem('auth-return-path', currentPath)
+  } catch {
+    // localStorage 不可用 (隐私模式等), 忽略
+  }
+  // 去重: 弹窗已打开时不重复 open, 避免覆盖 redirectPath
+  if (_loginDialogRedirectOpen) return
+  _loginDialogRedirectOpen = true
+  // 动态 import 避免循环依赖 (request.ts 是底层工具模块)
+  void import('@/composables/useLoginDialog')
+    .then(({ useLoginDialog }) => {
+      const loginDialog = useLoginDialog()
+      if (!loginDialog.visible.value) {
+        loginDialog.open('login', currentPath)
+      }
+    })
+    .catch((e) => {
+      logger.warn('[request] Failed to open login dialog:', e)
+    })
+    .finally(() => {
+      // 重置标志, 允许下次弹窗 (用户关闭后再次触发 401 时可重新弹)
+      setTimeout(() => { _loginDialogRedirectOpen = false }, 1000)
+    })
+}
 
 // ========================================
 // Mock API 数据 - 用于演示模式
@@ -166,7 +204,6 @@ const mockData: Record<string, unknown> = {
     })),
   },
   // 代理结算相关
-  // incomeOverview 和 statsOverview 共用 /api/v1/agents/settlement/summary 端点
   [COZE_PATHS.agentSettlement.incomeOverview]: {
     uuid: 'e774c6ea-09cc-4895-b49f-557556064052',
     todayAccount: 125.50,
@@ -175,11 +212,6 @@ const mockData: Record<string, unknown> = {
     WithdrawnAmount: 2450.00,
     AccumulatedIncome: 3130.20,
     statistics_time: new Date().toISOString(),
-    // statsOverview 字段合并
-    total_settlements: 156,
-    total_amount: 15600.00,
-    settled_count: 98,
-    unsettled_count: 58,
   },
   [COZE_PATHS.agentSettlement.list]: {
     list: Array.from({ length: 20 }, (_, i) => ({
@@ -207,6 +239,12 @@ const mockData: Record<string, unknown> = {
       total: 156,
       totalPages: 8,
     },
+  },
+  [COZE_PATHS.agentSettlement.statsOverview]: {
+    total_settlements: 156,
+    total_amount: 15600.00,
+    settled_count: 98,
+    unsettled_count: 58,
   },
   // 新闻列表相关
   '/news/list': {
@@ -322,11 +360,9 @@ const service: AxiosInstance = axios.create({
 
 // Token刷新锁，防止并发刷新
 let isRefreshing = false
-// 刷新失败已处理标志：防止刷新接口 401 弹窗与外层 catch 弹窗重复
-let refreshFailedHandled = false
 const failedQueue: Array<{
-  resolve: (value: any) => void
-  reject: (reason: any) => void
+  resolve: (value: unknown) => void
+  reject: (reason: unknown) => void
 }> = []
 
 // 白名单接口列表 - 从移动端项目平移
@@ -341,6 +377,7 @@ const whiteList = [
   // 大模型统一列表接口（生产环境）
   COZE_PATHS.aiModelInfo.list,
   '/api/code',              // 验证码接口 - 不需要登录
+  '/bot/sites/kind',        // AI 世界站点列表 - 公开接口 (Java @SkipLogin)
 ]
 
 // 白名单路径前缀 - 所有登录相关接口都不需要token
@@ -357,7 +394,25 @@ const whiteListPrefixes = [
   // 绝对地址形式的登录接口（原直连 https://bsm.aizhs.top/prod-api/，已迁移到 Python 后端）
   '/prod-api/login/',
   '/prod-api/login/pwd/',
+  // 后台管理员登录链路 (admin_user 表) - 无需 token 即可访问
+  '/api/v1/login/',
 ]
+
+// 公开页面路径 - 未登录访问这些页面时，API 请求静默失败，不弹出登录框
+// 原因：首页等公开页面加载时，子组件可能发起需 token 的 API 请求（如 AIChat 预加载），
+//       若弹窗会强迫用户登录，体验不佳。用户主动触发需登录的功能时，由组件自身检查并弹窗。
+const PUBLIC_PAGE_PATHS = ['/', '/home', '/login', '/register', '/forgot-password']
+// 公开页面路径前缀 - 以这些前缀开头的页面也视为公开（如 /ai-world, /ai-world/detail/123）
+const PUBLIC_PAGE_PREFIXES = ['/ai-world']
+
+function isPublicPage(): boolean {
+  if (typeof window === 'undefined') return false
+  const path = window.location.pathname
+  return (
+    PUBLIC_PAGE_PATHS.some(p => path === p) ||
+    PUBLIC_PAGE_PREFIXES.some(p => path === p || path.startsWith(p + '/'))
+  )
+}
 
 // 登录类路径：请求时不要携带 Authorization，避免后端因旧 token 返回「令牌不能为空」
 const loginPathPrefixes = [
@@ -365,7 +420,10 @@ const loginPathPrefixes = [
   '/api/v1/auth/login',
   '/api/v1/auth/register',
   '/api/v1/auth/sms',
+  '/api/v1/auth/email',
   '/api/v1/auth/refresh',
+  '/api/v1/auth/email/inbox',
+  '/api/v1/login/',      // 后台管理员登录 (admin_user 表)
   '/api/code',           // 总管理端验证码 GET /code
   '/api/login/pwd/',     // 兼容旧路径
   '/login/pwd/',         // 兼容旧路径
@@ -376,7 +434,7 @@ const loginPathPrefixes = [
 ]
 
 // 获取存储的数据 - 使用统一的存储工具
-export const getStoredData = (): any => {
+export const getStoredData = (): unknown => {
   const userData = StorageManager.getItem<unknown>(STORAGE_KEYS.USER_DATA)
   // 在非浏览器环境或没有数据时返回mock数据
   if (!userData && typeof window === 'undefined') {
@@ -388,13 +446,13 @@ export const getStoredData = (): any => {
   return userData
 }
 
-// 获取用户token的辅助函数 - 使用统一的存储工具
+// 获取用户token的辅助函数 - 使用统一的 TokenStorage
 export const getUserToken = (): string | null => {
-  // 1. 首先从user_token直接获取
-  const directToken = StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
+  // 1. 首先从统一 TokenStorage 获取
+  const directToken = TokenStorage.getToken()
   if (directToken) return directToken
 
-  // 2. 从user_data中获取
+  // 2. 从 user_data 中获取（兼容第三方账号 access_token）
   const userData = getStoredData()
   return (
     (userData as { thirdPartyAccounts?: { accessToken?: string } } | undefined)?.thirdPartyAccounts
@@ -414,21 +472,6 @@ function setupRequestInterceptor() {
       // 从配置中获取base参数，决定使用哪个基础URL
       // 注意：base 可能为 0（历史兼容：表示空/特殊 base），不能用 || 否则会被当成 1
       const base = config.base ?? 1
-
-      // 分页参数向后兼容: 后端 v1 (PageRequest schema) 端点统一使用 `limit` 字段,
-      // 前端历史接口普遍使用 `pageSize` (camelCase), 此处自动补一份 `limit` 别名,
-      // 避免每次调用方都手工改一遍. 已显式传 `limit` 的请求不会被覆盖.
-      try {
-        const p = config.params
-        if (p && typeof p === 'object' && !Array.isArray(p)) {
-          const obj = p as Record<string, unknown>
-          if (obj.pageSize !== undefined && obj.limit === undefined) {
-            obj.limit = obj.pageSize
-          }
-        }
-      } catch {
-        // params 不是普通对象时跳过(例如 URLSearchParams),不影响主流程
-      }
 
       // 增加请求日志
       logger.debug(`API request`, { url: config.url, method: config.method, base })
@@ -457,7 +500,12 @@ function setupRequestInterceptor() {
           logger.debug('Production environment /api using direct connection', { url: config.url })
         } else {
           // 定义需要代理的路径前缀（开发环境或相对 base 时保持相对路径由代理/网关处理）
-          const proxyPaths = ['/api', '/api-kou', '/auth', '/message', '/prod-api', COZE_PREFIX, '/login', '/admin', '/remote', '/ihui-ai-api']
+          // 2026-06-29: 新增 /admin, /learn, /behavior, /community, /tools, /content, /statistics
+          // 这些路径有独立 vite proxy 规则, 不应被 /api-kou 前缀包裹
+          const proxyPaths = ['/api', '/api-kou', '/ihui-ai-api', '/auth', '/message', '/prod-api', COZE_PREFIX, '/login',
+            '/admin', '/learn', '/behavior', '/community', '/tools', '/content', '/statistics',
+            '/ranking', '/circle', '/exam', '/visit-tracking', '/commission', '/home',
+          ]
           const isProxyPath = proxyPaths.some(path => config.url?.startsWith(path))
           if (isProxyPath) {
             logger.debug('Detected proxy path, using relative path', { url: config.url })
@@ -482,33 +530,20 @@ function setupRequestInterceptor() {
 
       // 如果不在白名单中，才检查用户是否已登录
       if (!isWhitelisted && !token && !isDemo) {
-        // 公开页面（requiresAuth: false）不触发登录重定向，仅静默拒绝请求
-        try {
-          const routerMod = await import('@/router')
-          const currentRoute = routerMod.default?.currentRoute?.value
-          if (currentRoute?.meta?.requiresAuth === false) {
-            return Promise.reject(new Error(i18nT('errors.notLoggedIn')))
-          }
-        } catch {
-          // router 未就绪，继续正常登录重定向流程
+        // 公开页面（首页/登录/注册等）未登录时静默拒绝，不弹窗不警告
+        // 原因：首页子组件加载时可能发起需 token 的 API 请求，弹窗会强迫用户登录
+        // 用户主动触发需登录功能时，由组件自身检查登录状态并弹窗（见 useLoginDialog 各调用点）
+        if (isPublicPage()) {
+          return Promise.reject(new Error(i18nT('errors.notLoggedIn')))
         }
 
-        // 显示登录提示
+        // 非公开页面：显示登录提示并弹出登录框
+        // 修复无限刷新循环: 改用登录弹窗代替硬跳转 /login
+        // 原因: 硬跳转 /login → 路由守卫拦截重定向回 / → App.vue 重新挂载 →
+        //       AIChat 等组件再次调用需 token 的 API → 再次硬跳转 → 死循环 (每 1.5s 一次)
+        // 弹窗方式与路由守卫策略一致 (router/index.ts 中也是跳首页 + 弹窗)
         ElMessage.warning(i18nT('errors.pleaseLogin'))
-
-        // 延迟跳转到登录页，让用户看到提示信息
-        if (typeof window !== 'undefined') {
-          // 保存当前页面路径，登录后可以返回
-          const currentPath = window.location.pathname + window.location.search
-          if (currentPath !== '/login') {
-            // 使用 localStorage 和 auth-return-path key，与 AuthFlowService.redirectAfterLogin 保持一致
-            localStorage.setItem('auth-return-path', currentPath)
-            // 延迟跳转，让用户看到提示
-            setTimeout(() => {
-              window.location.href = '/login'
-            }, 1500)
-          }
-        }
+        redirectToLoginDialog()
 
         return Promise.reject(new Error(i18nT('errors.notLoggedIn')))
       }
@@ -707,17 +742,17 @@ function setupResponseInterceptor() {
 
       // 处理401错误 - 未授权或Token过期
       if (status === 401) {
-        // 公开页面（requiresAuth: false）不触发登录重定向，仅静默拒绝请求
-        try {
-          const routerMod = await import('@/router')
-          const currentRoute = routerMod.default?.currentRoute?.value
-          if (currentRoute?.meta?.requiresAuth === false) {
-            return Promise.reject(error)
-          }
-        } catch {
-          // router 未就绪，继续正常 401 处理流程
+        // 公开页面且无 refreshToken：用户从未登录或已完全登出，
+        // 静默拒绝，不弹"会话已过期" ElMessageBox，也不自动弹登录窗
+        // （避免遮挡登录按钮；用户主动点击登录按钮时由组件自行弹窗）
+        const _hasRefreshToken = !!(
+          TokenStorage.getRefreshToken() ||
+          (getStoredData() as { refreshToken?: string; thirdPartyAccounts?: { refreshToken?: string } } | null)
+            ?.thirdPartyAccounts?.refreshToken
+        )
+        if (isPublicPage() && !_hasRefreshToken) {
+          return Promise.reject(error)
         }
-
         // 如果是刷新Token的请求出错，直接跳转到登录页（避免刷新接口死循环）
         const refreshEndpointHints = [
           '/refresh-token',
@@ -727,15 +762,12 @@ function setupResponseInterceptor() {
           LOGIN_PWD_PATHS.refreshToken,
         ].filter(Boolean) as string[]
         if (refreshEndpointHints.some(p => config.url?.includes(p))) {
-          // 标记刷新失败已处理，避免外层 catch 再次弹出重复的会话过期对话框
-          refreshFailedHandled = true
           const clearAndRedirect = () => {
             StorageManager.removeItem(STORAGE_KEYS.USER_DATA)
             StorageManager.removeItem(STORAGE_KEYS.TOKEN)
             StorageManager.removeItem(STORAGE_KEYS.USER_TOKEN)
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login'
-            }
+            // 改用登录弹窗代替硬跳转, 避免整页刷新循环 (与无 token 拦截器一致)
+            redirectToLoginDialog()
           }
           ElMessageBox.confirm(
             i18nT('auth.sessionExpiredMessage'),
@@ -767,36 +799,24 @@ function setupResponseInterceptor() {
               uuid?: string
             } | null
             const uuid =
-              userData?.uuid ||
-              (StorageManager.getItem<{ uuid?: string }>('userData')?.uuid as string | undefined) ||
-              (StorageManager.getItem<{ uuid?: string }>(STORAGE_KEYS.USER_DATA)?.uuid as string | undefined) ||
-              (StorageManager.getItem<string>('uuid') as string | null) ||
-              undefined
+              userData?.uuid || undefined
 
             let refreshToken: string | null | undefined =
               // 1) userData 内（历史/兼容）
               userData?.refreshToken ||
               userData?.thirdPartyAccounts?.refreshToken ||
-              // 2) 当前 request.ts 的统一存储键（refresh_token）
-              StorageManager.getItem<string>(STORAGE_KEYS.REFRESH_TOKEN) ||
-              // 3) 另一套 TokenManager 使用的键（refreshToken）
-              (StorageManager.getItem<string>('refreshToken') as string | null) ||
+              // 2) 统一 TokenStorage
+              TokenStorage.getRefreshToken() ||
               null
 
-            // 4) cookie/localStorage 里可能存在（ai_zhihui_refresh_token）
+            // 如果没有 refreshToken，无法刷新
             if (!refreshToken) {
-              try {
-                const mod = await import('@/utils/auth')
-                refreshToken = mod.getRefreshToken()
-              } catch {
-                logger.debug('[request] Failed to get refreshToken, continuing with other methods')
-              }
+              logger.warn('[request] Cannot refresh token: no refreshToken available')
+              throw new Error(i18nT('auth.refreshFailed'))
             }
 
             let refreshResult: AxiosResponse<unknown> | null = null
-            if (refreshToken) {
-              // 如果有refreshToken，尝试调用刷新API
-              try {
+            try {
                 logger.info('[request] Starting token refresh', {
                   url: LOGIN_PWD_PATHS.refreshToken,
                   hasUuid: Boolean(uuid),
@@ -813,7 +833,7 @@ function setupResponseInterceptor() {
                 logger.info('[request] Token refresh successful', {
                   url: LOGIN_PWD_PATHS.refreshToken,
                 })
-              } catch (refreshApiError: any) {
+              } catch (refreshApiError: unknown) {
                 logger.warn('Refresh token API call failed', {
                   error: refreshApiError,
                 })
@@ -828,7 +848,6 @@ function setupResponseInterceptor() {
                   refreshResult = null
                 }
               }
-            }
 
             // 如果刷新失败或没有refreshToken，跳转到登录页
             if (!refreshResult) {
@@ -844,9 +863,10 @@ function setupResponseInterceptor() {
             // 1) { code: 200, data: "accessToken字符串" }
             // 2) { code: 200, data: { accessToken/token, refreshToken } }
             // 3) { token, refreshToken } / { accessToken, refreshToken }
+            // 2026-06-28 联调: 后端统一响应码 SUCCESS="0", 兼容 0/"0"/200/"200"
             const responseData = refreshResult.data as {
-              code?: number
-              data?: any
+              code?: number | string
+              data?: unknown
               token?: string
               accessToken?: string
               refreshToken?: string
@@ -855,15 +875,23 @@ function setupResponseInterceptor() {
             let newToken: string | null = null
             let newRefreshToken: string | null = null
 
-            // 先解析 data 字段 (兼容后端 code="0"/"200" 字符串)
-            const refreshCodeNum = typeof responseData?.code === 'string' ? parseInt(responseData.code, 10) : responseData?.code
-            if ((refreshCodeNum === 200 || refreshCodeNum === 0) && responseData?.data) {
+            // 先解析 data 字段 (兼容 code=0/"0"/200/"200")
+            const rc = responseData?.code
+            const isRefreshSuccess = rc === 200 || rc === '200' || rc === 0 || rc === '0'
+            if (isRefreshSuccess && responseData?.data) {
               if (typeof responseData.data === 'string') {
                 newToken = responseData.data
               } else if (typeof responseData.data === 'object' && responseData.data !== null) {
-                const d = responseData.data as { accessToken?: string; token?: string; refreshToken?: string }
-                newToken = d.accessToken || d.token || null
-                newRefreshToken = d.refreshToken || null
+                // 同时兼容 camelCase 和 snake_case 字段名
+                const d = responseData.data as {
+                  accessToken?: string
+                  access_token?: string
+                  token?: string
+                  refreshToken?: string
+                  refresh_token?: string
+                }
+                newToken = d.accessToken || d.access_token || d.token || null
+                newRefreshToken = d.refreshToken || d.refresh_token || null
               }
             }
             // 再兼容顶层字段
@@ -888,7 +916,7 @@ function setupResponseInterceptor() {
               const userDataObj = userData as {
                 thirdPartyAccounts?: { accessToken?: string; refreshToken?: string }
                 refreshToken?: string
-                [key: string]: any
+                [key: string]: unknown
               }
               if (!userDataObj.thirdPartyAccounts) {
                 userDataObj.thirdPartyAccounts = {}
@@ -900,20 +928,15 @@ function setupResponseInterceptor() {
               }
               // 使用统一的存储工具更新token
               StorageManager.setItem(STORAGE_KEYS.USER_DATA, userDataObj)
-              StorageManager.setItem(STORAGE_KEYS.USER_TOKEN, newToken)
-              StorageManager.setItem(STORAGE_KEYS.TOKEN, newToken)
+              TokenStorage.setToken(newToken)
               if (newRefreshToken) {
-                StorageManager.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
-                // 兼容另一套 TokenManager（utils/core/storage.ts）使用的键名
-                StorageManager.setItem('refreshToken', newRefreshToken)
+                TokenStorage.setRefreshToken(newRefreshToken)
               }
             } else {
               // 如果没有userData，创建新的数据结构
-              StorageManager.setItem(STORAGE_KEYS.USER_TOKEN, newToken)
-              StorageManager.setItem(STORAGE_KEYS.TOKEN, newToken)
+              TokenStorage.setToken(newToken)
               if (newRefreshToken) {
-                StorageManager.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
-                StorageManager.setItem('refreshToken', newRefreshToken)
+                TokenStorage.setRefreshToken(newRefreshToken)
               }
             }
 
@@ -984,34 +1007,28 @@ function setupResponseInterceptor() {
               logger.debug('[request] auth store not initialized')
             }
 
-            // 仅当刷新接口 401 分支未处理过弹窗时，才显示重新登录提示，避免重复弹窗
-            if (!refreshFailedHandled) {
-              refreshFailedHandled = true
-              ElMessageBox.confirm(
+            // 显示重新登录提示
+            ElMessageBox.confirm(
 
-                i18nT('auth.sessionExpiredMessage'),
+              i18nT('auth.sessionExpiredMessage'),
 
-                i18nT('auth.sessionExpiredTitle'),
-                {
+              i18nT('auth.sessionExpiredTitle'),
+              {
 
-                  confirmButtonText: i18nT('auth.relogin'),
+                confirmButtonText: i18nT('auth.relogin'),
 
-                  cancelButtonText: i18nT('common.cancel'),
-                  type: 'warning',
-                }
-              )
-                .then(() => {
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/login'
-                  }
-                })
-                .catch(() => {
-                  // 用户取消，仍然跳转到登录页
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/login'
-                  }
-                })
-            }
+                cancelButtonText: i18nT('common.cancel'),
+                type: 'warning',
+              }
+            )
+              .then(() => {
+                // 改用登录弹窗, 避免整页刷新
+                redirectToLoginDialog()
+              })
+              .catch(() => {
+                // 用户取消，仍然弹出登录页 (避免停留在无效 token 导致循环弹窗)
+                redirectToLoginDialog()
+              })
 
             // 清空失败队列
             failedQueue.forEach(prom => {
@@ -1022,8 +1039,6 @@ function setupResponseInterceptor() {
             return Promise.reject(refreshError)
           } finally {
             isRefreshing = false
-            // 重置标志，供下次刷新流程使用
-            refreshFailedHandled = false
           }
         } else {
           // 正在刷新Token，将请求加入队列等待
@@ -1151,7 +1166,7 @@ function setupResponseInterceptor() {
       // 2) { code, message, ... }
       // 3) { data: { code, msg, ... } }（部分网关/二次封装）
       const raw = response.data as
-        | { code?: number | string; msg?: string; message?: string; data?: any }
+        | { code?: number | string; msg?: string; message?: string; data?: unknown }
         | undefined
       const nested = (raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object'
         ? raw.data as { code?: number | string; msg?: string; message?: string }
@@ -1188,7 +1203,7 @@ function setupResponseInterceptor() {
       }
       return response
     },
-    (error: any) => Promise.reject(error)
+    (error: unknown) => Promise.reject(error)
   )
 }
 

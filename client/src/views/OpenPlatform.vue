@@ -1157,7 +1157,7 @@ onMounted(async () => {
   // SEO：开放平台页标题与描述
   const title = t('openPlatform.hero.titleBrand') && t('openPlatform.hero.title')
     ? `${t('openPlatform.hero.titleBrand')} - ${t('openPlatform.hero.title')}`
-    : t('OpenPlatform.openPlatformTitle')
+    : t('openPlatform.openPlatformTitle')
   document.title = title
   let metaDesc = document.querySelector('meta[name="description"]')
   if (!metaDesc) {

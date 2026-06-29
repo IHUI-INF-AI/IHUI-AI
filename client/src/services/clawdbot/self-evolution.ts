@@ -385,7 +385,7 @@ export const ${name} = {
     required: ['input'],
   },
   
-  async execute(params: Record<string, unknown>, context: { startTime: number }): Promise<{ success: boolean; data?: { message: string; result?: any }; error?: string; executionTime: number }> {
+  async execute(params: Record<string, unknown>, context: { startTime: number }): Promise<{ success: boolean; data?: { message: string; result?: unknown }; error?: string; executionTime: number }> {
     const { input } = params as { input: string };
 
     try {
@@ -588,7 +588,7 @@ export default ${name};
 // Requirement: {{REQUIREMENT}}
 // Context: {{CONTEXT}}
 
-export async function execute(input: any): Promise<unknown> {
+export async function execute(input: unknown): Promise<unknown> {
   // 占位：根据上方 Requirement 实现具体逻辑
   return { success: true, result: input };
 }

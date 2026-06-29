@@ -286,7 +286,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AI应用商店",
+        "AI应用商店": "智能体",
         "服务与支持": "服务与支持",
         "goToPathsu": "goToPath('/support/terms-and-policies', 'termsAndPolicies')\"\n        >\n          条款与政策",
         "goToPathcu": "goToPath('/custom-service', 'customService')\"\n        >\n          客户服务",
@@ -580,8 +580,7 @@
       "向下滚动": "向下滚动"
     },
     "third_party_login": {
-      "支付宝": "支付宝",
-      "飞书1": "飞书"
+      "支付宝": "支付宝"
     },
     "project_selector_banner": {
       "切换平台": "切换平台"

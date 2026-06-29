@@ -9,7 +9,7 @@
 
     <!-- Page Header -->
     <div class="page-header glass-card">
-      <button class="back-btn ripple-btn" :aria-label="t('common.back')" @click="handleBack">
+      <button class="back-btn ripple-btn" aria-label="返回" @click="handleBack">
         <el-icon><ArrowLeft /></el-icon>
       </button>
       <h1 class="page-title">
@@ -95,7 +95,7 @@
 
         <div class="question-container">
           <div class="question-actions">
-            <button class="action-btn ripple-btn" :aria-label="t('common.copy')" @click="copyToInput(item.question)">
+            <button class="action-btn ripple-btn" aria-label="复制到输入框" @click="copyToInput(item.question)">
               <el-icon><CopyDocument /></el-icon>
             </button>
           </div>
@@ -156,7 +156,7 @@
           </div>
 
           <div class="answer-actions">
-            <button class="action-btn ripple-btn" :aria-label="t('common.toggleAnswer')" @click="toggleAnswerVisibility(index)">
+            <button class="action-btn ripple-btn" aria-label="切换答案显示" @click="toggleAnswerVisibility(index)">
               <el-icon>
                 <View v-if="!answerVisibilityStates[index]" />
                 <Hide v-else />
@@ -164,7 +164,7 @@
             </button>
             <button
               class="action-btn ripple-btn"
-              :aria-label="t('common.toggleThinking')"
+              aria-label="切换思考过程"
               @click="toggleThinking(index)"
               v-if="agentContentList[index] && agentContentList[index].isHaveSikao"
             >
@@ -172,7 +172,7 @@
             </button>
             <button
               class="action-btn ripple-btn"
-              :aria-label="t('common.copy')"
+              aria-label="复制内容"
               @click="
                 copyContent(agentContentList[index].copyContent || agentContentList[index].content)
               "
@@ -181,7 +181,7 @@
             </button>
             <button
               class="action-btn ripple-btn"
-              :aria-label="t('common.download')"
+              aria-label="下载图片"
               @click="downloadImages(index)"
               v-if="
                 agentContentList[index] &&
@@ -191,7 +191,7 @@
             >
               <el-icon><Download /></el-icon>
             </button>
-            <button class="action-btn ripple-btn" :aria-label="t('common.share')" @click="shareMessage(index)">
+            <button class="action-btn ripple-btn" aria-label="分享" @click="shareMessage(index)">
               <el-icon><Share /></el-icon>
             </button>
           </div>
@@ -287,10 +287,10 @@
         </div>
 
         <div class="input-actions">
-          <button class="action-btn ripple-btn" :aria-label="t('common.upload')" @click="handleImageUpload">
+          <button class="action-btn ripple-btn" aria-label="上传图片" @click="handleImageUpload">
             <el-icon><Picture /></el-icon>
           </button>
-          <button class="action-btn ripple-btn" :aria-label="t('common.voiceInput')" @click="handleVoiceInput">
+          <button class="action-btn ripple-btn" aria-label="语音输入" @click="handleVoiceInput">
             <el-icon><Microphone /></el-icon>
           </button>
           <button
@@ -612,7 +612,8 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
 // Glow Effect Mixin
 @mixin glow-effect($color: $accent-cyan, $intensity: 0.3) {
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 // ============================================
 // MAIN CONTAINER
@@ -688,7 +689,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   position: relative;
   z-index: var(--z-base);
-  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &::before {
     content: '';
@@ -706,7 +707,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
   &:hover {
     border-color: $border-accent;
-    
+    transform: translateY(-2px);
   }
 }
 
@@ -816,7 +817,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border-radius: var(--global-border-radius);
     background: transparent;
     color: $text-primary;
-    transition: border-color 0.3s, color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       border-color: $accent-cyan;
@@ -847,6 +848,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     height: 8px;
     border-radius: var(--global-border-radius);
     background: $accent-cyan;
+    box-shadow: var(--global-box-shadow);
     animation: pulse 2s ease-in-out infinite;
   }
 }
@@ -905,11 +907,12 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     height: 6px;
     border-radius: var(--global-border-radius);
     background: $text-muted;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
 
     &.active {
       background: $accent-cyan;
-      }
+      box-shadow: var(--global-box-shadow);
+    }
   }
 }
 
@@ -952,7 +955,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       border-radius: var(--global-border-radius);
       background: var(--color-white-2);
       border: var(--unified-border);
-      transition: background-color 0.3s, border-color 0.3s;
+      transition: all 0.3s;
 
       &:last-child {
         margin-bottom: 0;
@@ -971,7 +974,8 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         margin-right: 12px;
         margin-top: 6px;
         flex-shrink: 0;
-        }
+        box-shadow: var(--global-box-shadow);
+      }
 
       .item-text {
         font-size: 14px;
@@ -1164,7 +1168,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     cursor: pointer;
-    transition: transform 0.3s, border-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       transform: scale(1.05);
@@ -1231,7 +1235,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
       cursor: pointer;
-      transition: border-color 0.3s;
+      transition: all 0.3s;
 
       &:hover {
         border-color: $accent-cyan;
@@ -1273,7 +1277,8 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         border-radius: var(--global-border-radius);
         background: $accent-cyan;
         margin-right: 8px;
-        }
+        box-shadow: var(--global-box-shadow);
+      }
 
       .token-value {
         margin-left: 4px;
@@ -1303,7 +1308,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   background: transparent;
   color: $text-muted;
-  transition: border-color 0.3s, color 0.3s, background-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     border-color: $accent-cyan;
@@ -1357,6 +1362,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       height: 12px;
       border-radius: var(--global-border-radius);
       background: $accent-cyan;
+      box-shadow: var(--global-box-shadow);
       animation: loaderPulse 1s ease-in-out infinite;
     }
   }
@@ -1411,12 +1417,12 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     color: $text-primary;
     white-space: nowrap;
     position: relative;
-    transition: transform 0.3s, border-color 0.3s;
+    transition: all 0.3s;
 
     // 扫光效果已移至全局样式 (styles/index.scss)
 
     &:hover {
-      
+      transform: translateY(-3px);
       border-color: $accent-cyan;
 
       @include glow-effect($accent-cyan, 0.25);
@@ -1483,6 +1489,8 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         background: $accent-cyan;
         border-radius: var(--global-border-radius);
         animation: bounce 1.4s infinite ease-in-out both;
+        box-shadow: var(--global-box-shadow);
+
         &:nth-child(1) { animation-delay: -0.32s; }
         &:nth-child(2) { animation-delay: -0.16s; }
         &:nth-child(3) { animation-delay: -0.08s; }
@@ -1588,12 +1596,13 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
         border: var(--unified-border);
         border-radius: var(--global-border-radius);
         box-shadow: none;
-        transition: border-color 0.3s;
+        transition: all 0.3s;
 
         &:hover,
         &.is-focus {
           border-color: $accent-cyan;
-          }
+          box-shadow: var(--global-box-shadow);
+        }
 
         .el-input__inner {
           color: $text-primary;
@@ -1629,7 +1638,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
           font-size: 14px;
           padding: 14px 16px;
           resize: none;
-          transition: border-color 0.3s;
+          transition: all 0.3s;
 
           &::placeholder {
             color: $text-muted;
@@ -1637,7 +1646,8 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
           &:focus {
             border-color: $accent-cyan;
-            }
+            box-shadow: var(--global-box-shadow);
+          }
         }
       }
 
@@ -1677,12 +1687,12 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     font-size: 14px;
     font-weight: 600;
     position: relative;
-    transition: transform 0.3s, opacity 0.3s;
+    transition: all 0.3s;
 
     // 扫光效果已移至全局样式 (styles/index.scss)
 
     &:hover:not(:disabled) {
-      
+      transform: translateY(-2px);
 
       @include glow-effect($accent-cyan, 0.4);
     }
@@ -1703,7 +1713,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 // ============================================
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .slide-fade-enter-from,
@@ -1714,7 +1724,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
 .scale-fade-enter-active,
 .scale-fade-leave-active {
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .scale-fade-enter-from,
@@ -1763,9 +1773,9 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 // ELEMENT PLUS OVERRIDES
 // ============================================
 :deep(.el-select-dropdown) {
-  background: $surface-medium;
+  background: $surface-medium ;
   border: var(--unified-border);
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius) ;
 
   .el-select-dropdown__item {
     color: $text-secondary;

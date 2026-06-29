@@ -1,6 +1,6 @@
 {
   "error404": {
-    "backHome": "backHome",
-    "notFound": "未找到"
+    "notFound": "죄송합니다, 방문하신 페이지가 존재하지 않습니다",
+    "backHome": "홈으로"
   }
 }

@@ -51,7 +51,7 @@ const { t } = useI18n()
 const route = useRoute()
 const loading = ref(false)
 const downloading = ref(false)
-const data = ref<any>({})
+const data = ref<Record<string, unknown>>({})
 const liked = ref(false)
 const favorited = ref(false)
 const rate = ref(0)
@@ -66,18 +66,18 @@ function formatSize(b: number) {
 
 async function load() {
   loading.value = true
-  try { data.value = (await resourceApi.detail(route.params.id as string))?.data || {} } finally { loading.value = false }
+  try { data.value = (((await resourceApi.detail(route.params.id as string))?.data as unknown) as Record<string, unknown>) || {} } finally { loading.value = false }
 }
 async function onDownload() {
   downloading.value = true
   try {
-    const res = await resourceApi.download(data.value.id)
-    if ((res as any)?.url) window.open((res as any).url, '_blank')
+    const res = await resourceApi.download(data.value.id as string | number) as unknown as { url?: string }
+    if (res?.url) window.open(res.url, '_blank')
   } finally { downloading.value = false }
 }
-async function onLike() { try { await resourceApi.like(data.value.id); liked.value = !liked.value } catch { ElMessage.error(t('resourceDetail.operateFailed')) } }
-async function onFavorite() { try { await resourceApi.favorite(data.value.id); favorited.value = !favorited.value } catch { ElMessage.error(t('resourceDetail.operateFailed')) } }
-async function onRate(v: number) { try { await resourceApi.rate(data.value.id, v); data.value.score = v } catch { ElMessage.error(t('resourceDetail.operateFailed')) } }
+async function onLike() { try { await resourceApi.like(data.value.id as string | number); liked.value = !liked.value } catch { ElMessage.error(t('resourceDetail.operateFailed')) } }
+async function onFavorite() { try { await resourceApi.favorite(data.value.id as string | number); favorited.value = !favorited.value } catch { ElMessage.error(t('resourceDetail.operateFailed')) } }
+async function onRate(v: number) { try { await resourceApi.rate(data.value.id as string | number, v); data.value.score = v } catch { ElMessage.error(t('resourceDetail.operateFailed')) } }
 onMounted(load)
 </script>
 

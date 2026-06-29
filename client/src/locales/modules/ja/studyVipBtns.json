@@ -1,8 +1,8 @@
 {
   "studyVipBtns": {
-    "freeUse": "freeUse",
-    "limitedFree": "limitedFree",
-    "purchased": "purchased",
-    "vipFree": "vipFree"
+    "vipFree": "VIP無料",
+    "freeUse": "無料使用",
+    "limitedFree": "期間限定無料",
+    "purchased": "購入済み"
   }
 }

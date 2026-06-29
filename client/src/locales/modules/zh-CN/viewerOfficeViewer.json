@@ -1,13 +1,10 @@
 {
   "viewerOfficeViewer": {
-    "docLoadFailed": "doc 加载 失败",
-    "download": "下载",
-    "largeDocHint": "大文档提示",
-    "loadingDoc": "加载文档",
+    "loadingDoc": "正在加载文档...",
+    "largeDocHint": "大型文档可能需要较长时间",
+    "docLoadFailed": "文档加载失败",
+    "tryDownload": "请尝试下载后使用本地软件打开",
     "officeDoc": "Office 文档",
-    "openInOfficeOnline": "打开 在 office 在线",
-    "reset": "重置",
-    "tryDownload": "try 下载",
-    "zoomOut": "缩小"
+    "title_Office_xx": "title || 'Office 文档'"
   }
 }

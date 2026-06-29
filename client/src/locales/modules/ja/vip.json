@@ -71,6 +71,8 @@
         "originalPrice": "通常価格 ¥{price}"
       },
       "plans": {
+        "vip": "会員",
+        "trader": "トレーダー",
         "upgrade": "プランアップグレード",
         "subscribe": "今すぐ開通",
         "recommended": "おすすめ"
@@ -94,13 +96,54 @@
       "guarantee": "7日間無条件返金保証"
     },
     "payment": {
+      "title": "支払い",
+      "subtitle": "支払い方法を選択して注文を完了してください",
+      "orderInfo": "注文情報",
+      "productName": "商品名",
+      "orderNo": "注文番号",
+      "amount": "金額",
       "paymentMethods": "支払い方法",
+      "platformCoins": {
+        "name": "プラットフォームコイン支払い",
+        "desc": "アカウント残高で支払う"
+      },
       "alipay": "alipay",
+      "wechat": {
+        "name": "WeChat Pay",
+        "desc": "WeChatスキャンコードで支払う"
+      },
+      "card": {
+        "name": "銀行カード",
+        "desc": "銀行カードで支払う"
+      },
       "confirmPay": "支払い確認 ¥{price}",
       "cancel": "キャンセル",
+      "underDevelopment": "開発中",
+      "confirmPayment": "支払い確認",
+      "processing": "処理中...",
+      "invalidOrderInfo": "注文情報が無効",
+      "cardNotSupported": "銀行カード支払いは一時的にサポートされていません。他の支払い方法を選択してください",
+      "createOrderFailed": "支払い注文の作成に失敗",
+      "paymentDataError": "支払いデータエラー",
+      "paymentSuccess": "支払い成功",
+      "paymentFailed": "支払い失敗",
+      "insufficientBalance": "プラットフォームコイン残高不足。他の支払い方法を選択するか、先にチャージしてください",
+      "orderAlreadyPaid": "注文は支払い済み",
       "qrCodeTitle": "スキャンコード支払い",
+      "generatingQRCode": "支払いQRコードを生成中...",
       "qrCodeTip": "携帯で下のQRコードをスキャンして支払いを完了してください",
+      "qrCodeFailed": "QRコード生成失敗",
+      "openPaymentPage": "支払いページを開く",
+      "checkStatus": "支払い状態を確認",
+      "cancelPayment": "支払いをキャンセル",
+      "paymentNotAvailable": "支払い機能はまだ利用できません",
+      "paymentRedirecting": "支払いページにジャンプ中...",
+      "wechatPaymentRequiresJSAPI": "WeChat PayはWeChat環境で使用する必要があります",
+      "pageTitleKeyword": "支払い",
+      "pageTitle": "支払いページ",
+      "defaultProductName": "無名商品",
       "qrCodeAlt": "支払いQRコード",
+      "unsupportedMethod": "サポートされていない支払い方法",
       "close": "閉じる",
       "confirmOrder": "注文確認",
       "orderDetails": "注文詳細",
@@ -126,34 +169,36 @@
       }
     },
     "paymentFailed": "支払い失敗",
+    "permanentVip": "/永久VIP",
+    "oneClickVip": "ワンクリックVIP",
     "userMembershipBenefits": {
-      "benefit10One": "benefit10One",
-      "benefit10Three": "benefit10Three",
-      "benefit10Title": "benefit10Title",
-      "benefit10Two": "benefit10Two",
-      "benefit11Title": "benefit11Title",
-      "benefit1One": "benefit1One",
-      "benefit1Three": "benefit1Three",
-      "benefit1Title": "benefit1Title",
-      "benefit1Two": "benefit1Two",
-      "benefit2Title": "benefit2Title",
-      "benefit3Title": "benefit3Title",
-      "benefit4Title": "benefit4Title",
-      "benefit5Title": "benefit5Title",
-      "benefit6Title": "benefit6Title",
-      "benefit7One": "benefit7One",
-      "benefit7Three": "benefit7Three",
-      "benefit7Title": "benefit7Title",
-      "benefit7Two": "benefit7Two",
-      "benefit8Title": "benefit8Title",
-      "benefit9Title": "benefit9Title",
-      "benefitName": "benefitName",
-      "normalUser": "normalUser",
-      "trader": "trader",
-      "traderPrice": "traderPrice",
-      "upgrade": "upgrade",
+      "vipPrice": "限定588元/1288元VIP/年",
+      "traderPrice": "限定3888元/18888元トレーダー/年",
+      "benefitName": "権益名",
+      "normalUser": "一般ユーザー",
       "vip": "VIP",
-      "vipPrice": "vipPrice"
+      "trader": "トレーダー",
+      "upgrade": "今すぐ開通",
+      "benefit1Title": "終身二次流通収益",
+      "benefit1One": "共有で智匯ポイント",
+      "benefit1Two": "一次流通10%",
+      "benefit1Three": "一次流通40%二次流通10%",
+      "benefit2Title": "1000以上のエージェントソースコード取得",
+      "benefit3Title": "AIアプリCoze公式チャネル公開",
+      "benefit4Title": "AIアプリ期間限定無料公開",
+      "benefit5Title": "Coze/N8Nシームレス接続",
+      "benefit6Title": "多対一Q&Aコーチング",
+      "benefit7Title": "計算能力プレゼント",
+      "benefit7One": "8万",
+      "benefit7Two": "888万",
+      "benefit7Three": "1888万",
+      "benefit8Title": "本部入居およびオフライン学習実践の機会",
+      "benefit9Title": "一人会社設立",
+      "benefit10Title": "カスタムAgent",
+      "benefit10One": "定価",
+      "benefit10Two": "5%引き",
+      "benefit10Three": "20%引き",
+      "benefit11Title": "コミュニティサービスプロバイダー登録"
     }
   },
   "vipLevelPopup": {
@@ -166,12 +211,10 @@
     "benefitLevel7": "<b style=\"color: var(--color-red)\">9000</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル7:智壘中樞</b>に到達、<b style=\"color: var(--color-red)\">8.3</b>割引を享受",
     "benefitLevel8": "<b style=\"color: var(--color-red)\">10500</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル8:スマートナビ</b>に到達、<b style=\"color: var(--color-red)\">8</b>割引を享受",
     "benefitLevel9": "<b style=\"color: var(--color-red)\">12000</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル9:量子智脳</b>に到達、<b style=\"color: var(--color-red)\">7.7</b>割引を享受",
-    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル10:超次元予言者</b>に到達、<b style=\"color: var(--color-red)\">7</b>割引を享受",
-    "goActivate": "goActivate",
-    "level0Desc": "level0Desc"
+    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b>ジフイ力に到達で<b style=\"color: var(--color-red)\">レベル10:超次元予言者</b>に到達、<b style=\"color: var(--color-red)\">7</b>割引を享受"
   },
   "Vip": {
-    "oneClickVip": "oneClickVip",
-    "permanentVip": "permanentVip"
+    "permanentVip": "/永久VIP",
+    "oneClickVip": "ワンクリックVIP"
   }
 }

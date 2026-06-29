@@ -1,1 +1,10 @@
-{}
+{
+  "wxLogin": {
+    "title": "WeChatログイン",
+    "description": "WeChatミニプログラムログインページ",
+    "authorizationTitle": "WeChat認可ログイン",
+    "authorizationDesc": "WeChatアカウントでクイックログイン",
+    "loginButton": "WeChatログイン",
+    "developmentInProgress": "WeChatログイン機能は開発中"
+  }
+}

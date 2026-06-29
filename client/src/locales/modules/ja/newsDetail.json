@@ -1,10 +1,8 @@
 {
   "newsDetail": {
-    "favorite": "收藏",
-    "like": "点赞",
-    "news": "新闻",
-    "newsNotFound": "newsNotFound",
-    "officialNews": "officialNews",
-    "read": "read"
+    "news": "ニュース",
+    "newsNotFound": "ニュースは存在しないか削除されました",
+    "officialNews": "公式情報",
+    "read": "閲覧"
   }
 }

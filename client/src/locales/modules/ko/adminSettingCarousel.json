@@ -1,9 +1,9 @@
 {
   "adminSettingCarousel": {
-    "noImage": "noImage",
-    "noTitle": "noTitle",
-    "preview": "预览",
-    "previewTitle": "previewTitle",
-    "viewJumpPage": "viewJumpPage"
+    "preview": "미리보기",
+    "noImage": "이미지 없음",
+    "noTitle": "제목 미입력",
+    "previewTitle": "캐러셀 미리보기",
+    "viewJumpPage": "이동 페이지 보기"
   }
 }

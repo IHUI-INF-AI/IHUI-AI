@@ -145,7 +145,7 @@
     font-size: inherit;
   }
 
-  html:not(.dark) &:active {
+  &:active {
     background-color: var(--el-color-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
 
@@ -245,7 +245,7 @@
 :root .el-button:not(.hero-cta-btn).el-button--info {
   background-color: var(--el-color-primary-light-3);
   border-color: var(--el-color-primary-light-3);
-  color: var(--color-on-primary);
+  color: var(--el-color-white);
 
   &:hover {
     background-color: var(--el-color-primary-light-5);
@@ -320,33 +320,35 @@
 }
 
 // 移动端按钮样式
+// 设计原则：仅设置 min-height，不强制 height，避免破坏
+// .el-button.is-circle / .el-button--icon 等方形图标按钮
 @media (width <= 480px) {
   :root .el-button {
     border: none;
-    height: 40px;
+    min-height: 40px;
     padding: 0 16px;
     font-size: 16px;
   }
 
   :root .el-button--default {
-    height: 32px;
+    min-height: 32px;
     padding: 0 12px;
     font-size: 15px;
   }
 
   :root .el-button--small {
-    height: 28px;
+    min-height: 28px;
     padding: 0 10px;
     font-size: 12px;
   }
 
   :root .el-button--primary {
-    height: 32px;
+    min-height: 32px;
   }
 }
 
 // 暗色模式按钮样式
-:where(html.dark) {
+html.dark {
   :where(:root) .el-button.switch-project-btn,
   :where(:root) .el-button.switch-project-btn.el-button--primary,
   :where(:root) .el-button.switch-project-btn.el-button--primary:where(.is-plain),
@@ -436,7 +438,7 @@
   border: none;
   border-radius: var(--global-border-radius);
   font-weight: 500;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
   cursor: pointer;
 
   span,
@@ -544,7 +546,7 @@
   border: none;
   border-radius: var(--global-border-radius);
   font-weight: 500;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
   padding: 8px 16px;
   cursor: pointer;
 
@@ -577,7 +579,7 @@
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   white-space: nowrap;
 
@@ -610,7 +612,7 @@
   }
 }
 
-:where(html.dark) .btn-luxe {
+html.dark .btn-luxe {
   &.primary {
     background: var(--el-color-primary);
     color: var(--el-bg-color-page);
@@ -657,7 +659,7 @@
   }
 }
 
-:where(html.dark) .agreement-agree-button {
+html.dark .agreement-agree-button {
   background-color: var(--el-color-primary);
   border-color: var(--border-unified-color);
   color: var(--el-bg-color-page);

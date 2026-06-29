@@ -109,7 +109,7 @@
         <span
           class="stat-item stat-item--like"
           :class="{ 'is-active': creation.isLiked }"
-          :title="t('community.like')"
+          title="点赞"
           @click.stop="handleLike"
         >
           <el-icon>
@@ -120,7 +120,7 @@
         <span
           class="stat-item stat-item--favorite"
           :class="{ 'is-active': creation.isFavorited }"
-          :title="t('community.favorite')"
+          title="收藏"
           @click.stop="handleFavorite"
         >
           <el-icon><Star /></el-icon>
@@ -128,7 +128,7 @@
         </span>
         <span
           class="stat-item stat-item--view"
-          :title="t('community.views')"
+          title="浏览"
         >
           <el-icon><Eye /></el-icon>
           <span>{{ formatNumber(creation.viewsCount || 0) }}</span>
@@ -140,15 +140,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 import {
   VideoPlay, Headphones, Document, Star,
   CircleCheck, Link, Image, FileText, Code, Music, Box, Eye
 } from '@/lib/lucide-fallback'
-import type { AICreation, ContentType, AISource } from '@/api/ai/ai-community'
+import type { AICreation, ContentType, AISource } from '@/api/ai-community'
 import { formatNumber } from '@/utils/format'
-
-const { t } = useI18n()
 
 interface Props {
   creation: AICreation
@@ -291,7 +288,7 @@ $text-muted: var(--el-text-color-placeholder);
   border-radius: var(--global-border-radius);
   overflow: clip;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: all 0.15s ease;
   border: var(--unified-border);
 
   :global(html.dark) & {
@@ -497,7 +494,7 @@ $text-muted: var(--el-text-color-placeholder);
       background: var(--color-black-40);
       backdrop-filter: blur(12px) saturate(160%);
       -webkit-backdrop-filter: blur(12px) saturate(160%);
-      border-radius: var(--global-border-radius);
+      border-radius: var(--global-border-radius-sm, 4px);
       color: $text-primary;
       font-size: 12px;
       font-weight: 500;
@@ -563,7 +560,7 @@ $text-muted: var(--el-text-color-placeholder);
       }
 
       .el-icon {
-        font-size: 9px;
+        font-size: 12px;
         color: var(--el-text-color-secondary);
 
         :global(html.dark) & {
@@ -623,7 +620,7 @@ $text-muted: var(--el-text-color-placeholder);
         padding: 2px 8px;
         background: var(--el-fill-color);
         color: var(--el-text-color-secondary);
-        border-radius: var(--global-border-radius);
+        border-radius: var(--global-border-radius-sm, 4px);
         font-size: 12px;
         line-height: 1;
 

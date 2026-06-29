@@ -1,117 +1,140 @@
 {
   "userComponents": {
-    "developer": {
-      "copy": "复制",
-      "regenerate": "重新生成",
-      "remainingQuota": "remainingQuota",
-      "successRate": "successRate",
-      "title": "标题",
-      "totalCalls": "totalCalls",
-      "viewDocs": "viewDocs"
-    },
-    "examine": {
-      "empty": "empty",
-      "rejectReason": "rejectReason",
-      "resubmit": "resubmit",
-      "title": "标题",
-      "view": "查看"
-    },
-    "favorites": {
-      "empty": "empty",
-      "remove": "移除",
-      "title": "标题",
-      "view": "查看"
-    },
-    "infoCard": {
-      "edit": "编辑"
-    },
-    "loginPopup": {
-      "code": "代码",
-      "login": "登录",
-      "phone": "手机号",
-      "sendCode": "发送验证码",
-      "wechatLogin": "微信登录"
-    },
-    "messages": {
-      "empty": "empty",
-      "title": "标题"
-    },
-    "orders": {
-      "empty": "empty",
-      "orderNo": "orderNo",
-      "payNow": "payNow",
-      "title": "标题",
-      "viewDetails": "viewDetails"
-    },
-    "privacy": {
-      "allowSearch": "allowSearch",
-      "allowSearchDesc": "allowSearchDesc",
-      "publicProfile": "publicProfile",
-      "publicProfileDesc": "publicProfileDesc",
-      "receiveMessages": "receiveMessages",
-      "receiveMessagesDesc": "receiveMessagesDesc",
-      "showOnlineStatus": "showOnlineStatus",
-      "showOnlineStatusDesc": "showOnlineStatusDesc",
-      "title": "标题"
-    },
-    "profile": {
-      "admin": "管理员",
-      "editProfile": "editProfile",
-      "email": "邮箱",
-      "phone": "手机号",
-      "registerTime": "registerTime"
-    },
     "purchaseRecords": {
-      "applyInvoice": "applyInvoice",
-      "empty": "empty",
-      "orderNo": "orderNo",
+      "핵심 장점": "구매 기이것은",
+      "orderNo": "주의문 번호",
+      "viewDetails": "상세 보기",
+      "applyInvoice": "청구서 신청",
+      "empty": "구매 기이것은 없음",
       "status": {
-        "completed": "已完成",
-        "pending": "待处理",
-        "refunded": "refunded"
+        "completed": "완료",
+        "pending": "처리 중",
+        "refunded": "환불됨"
       },
-      "title": "标题",
-      "viewDetails": "viewDetails"
+      "title": "구매기이것은"
     },
-    "purchases": {
-      "download": "下载",
-      "empty": "empty",
-      "title": "标题",
-      "view": "查看"
-    },
-    "security": {
-      "emailBinding": "emailBinding",
-      "loginPassword": "loginPassword",
-      "loginPasswordDesc": "loginPasswordDesc",
-      "modify": "modify",
-      "phoneBinding": "phoneBinding",
-      "title": "标题"
-    },
-    "settings": {
-      "language": "语言",
-      "languageDesc": "languageDesc",
-      "notifications": "notifications",
-      "notificationsDesc": "notificationsDesc",
-      "soundEffects": "soundEffects",
-      "soundEffectsDesc": "soundEffectsDesc",
-      "theme": "主题",
-      "themeDesc": "themeDesc",
-      "title": "标题"
+    "developer": {
+      "핵심 장점": "개발게 센마음",
+      "copy": "복생각",
+      "regenerate": "재생성",
+      "totalCalls": "총 호출 수",
+      "remainingQuota": "남은 할당량",
+      "successRate": "성공률",
+      "viewDocs": "문서 보기",
+      "title": "개발게중간마음"
     },
     "statistics": {
-      "chartDeveloping": "chartDeveloping",
-      "favorites": "收藏",
-      "orders": "订单",
-      "title": "标题",
-      "totalSpent": "totalSpent",
-      "totalViews": "totalViews",
-      "usageTrend": "usageTrend"
+      "핵심 장점": "생각사용 통계",
+      "totalViews": "총 조회수",
+      "favorites": "즐겨찾기 수",
+      "orders": "주의문 수",
+      "totalSpent": "총 지출",
+      "usageTrend": "생각사용 추세",
+      "chartDeveloping": "차트 기능 개발 중...",
+      "title": "생각사용통계"
+    },
+    "orders": {
+      "핵심 장점": "내 주의문",
+      "orderNo": "주의문 번호",
+      "viewDetails": "상세 보기",
+      "payNow": "지금 결제",
+      "empty": "주의문 없음",
+      "title": "내주의문"
+    },
+    "examine": {
+      "핵심 장점": "내 심생각",
+      "rejectReason": "거부 생각유",
+      "view": "보기",
+      "resubmit": "다시 제출",
+      "empty": "심생각 기이것은 없음",
+      "title": "내심사이메일"
     },
     "upload": {
-      "delete": "删除",
-      "empty": "empty",
-      "title": "标题",
-      "view": "查看"
+      "핵심 장점": "내 업로드",
+      "view": "보기",
+      "delete": "삭제",
+      "empty": "업로드 기이것은 없음",
+      "title": "내업로드"
+    },
+    "purchases": {
+      "핵심 장점": "내 구매",
+      "view": "보기",
+      "download": "다운로드",
+      "empty": "구매 기이것은 없음",
+      "title": "내구매"
+    },
+    "favorites": {
+      "핵심 장점": "내 즐겨찾기",
+      "view": "보기",
+      "remove": "제거",
+      "empty": "즐겨찾기 없음",
+      "title": "내즐겨찾기"
+    },
+    "settings": {
+      "핵심 장점": "일반 설정",
+      "language": "언어",
+      "languageDesc": "선호하는 표시 언어를 선택하세요",
+      "theme": "테마",
+      "themeDesc": "선호하는 인마음페이스 테마를 선택하세요",
+      "notifications": "알림",
+      "notificationsDesc": "시스템 및 활동 알림 받기",
+      "soundEffects": "효과음",
+      "soundEffectsDesc": "인마음페이스 효과음 활성화/비활성화",
+      "title": "일반설정"
+    },
+    "privacy": {
+      "핵심 장점": "개인정보 설정",
+      "publicProfile": "프로필 공개",
+      "publicProfileDesc": "다른 생각사용게가 프로필을 볼 수 있도이것은 허사용",
+      "showOnlineStatus": "온라인 상태 표시",
+      "showOnlineStatusDesc": "다른 생각사용게가 온라인 상태를 볼 수 있도이것은 허사용",
+      "allowSearch": "검색 허사용",
+      "allowSearchDesc": "다른 생각사용게가 검색으로 찾을 수 있도이것은 허사용",
+      "receiveMessages": "메시지 수신",
+      "receiveMessagesDesc": "다른 생각사용게로부마음 메시지 수신 허사용",
+      "title": "개인정보이기설정"
+    },
+    "messages": {
+      "핵심 장점": "메시지 알림",
+      "empty": "메시지 없음",
+      "title": "메시지알림"
+    },
+    "security": {
+      "핵심 장점": "보안 설정",
+      "loginPassword": "로그인 비밀번호",
+      "loginPasswordDesc": "계정 보호를 위해 정기적으로 비밀번호를 변경하세요",
+      "modify": "수정",
+      "전화Binding": "전화번호 연동",
+      "이메일Binding": "이메일 연동",
+      "title": "보안설정",
+      "phoneBinding": "휴대전화바인딩",
+      "emailBinding": "이메일바인딩"
+    },
+    "membershipBenefits": {
+      "핵심 장점": "회원 혜택"
+    },
+    "profile": {
+      "admin": "관리게",
+      "이메일": "이메일",
+      "전화": "전화",
+      "registerTime": "가입 시간",
+      "editProfile": "프로필 편집",
+      "email": "이메일",
+      "phone": "휴대전화"
+    },
+    "card": {
+      "이메일": "이메일",
+      "전화": "전화"
+    },
+    "loginPopup": {
+      "login": "로그인",
+      "code": "Code",
+      "phone": "Phone",
+      "sendCode": "Send Code",
+      "wechatLogin": "Wechat Login"
+    },
+    "infoCard": {
+      "edit": "편집"
     }
   }
 }

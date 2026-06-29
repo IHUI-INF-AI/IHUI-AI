@@ -81,8 +81,8 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Document, Cpu, UserFilled, Connection, Key } from '@element-plus/icons-vue'
 import { getSdks } from '@/api/sdks'
-import { getAvailableModels } from '@/api/models/models'
-import { getAgentsList } from '@/api/agent/agents'
+import { getAvailableModels } from '@/api/models'
+import { getAgentsList } from '@/api/agents'
 import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
@@ -138,7 +138,7 @@ const quickAccessItems = ref([
     title: t('openPlatform.dashboard.quickAccess.apiKey'),
     description: t('openPlatform.dashboard.quickAccess.apiKeyDesc'),
     icon: markRaw(Key),
-    path: '/key-management',
+    path: '/api-tokens',
   },
 ])
 
@@ -247,7 +247,7 @@ onMounted(() => {
   color: var(--el-text-color-primary);
 }
 
-:where(html.dark) :where(.stat-card) :where(.stat-icon:hover) {
+html.dark .stat-card .stat-icon:hover {
   background-color: var(--el-fill-color-dark);
 }
 
@@ -266,12 +266,13 @@ onMounted(() => {
 
     .access-card {
       cursor: pointer;
-      transition: transform 0.3s ease;
+      transition: all 0.3s ease;
       text-align: center;
 
       &:hover {
-        
-        }
+        transform: translateY(-4px);
+        box-shadow: var(--global-box-shadow);
+      }
 
       .access-icon {
         margin-bottom: 16px;

@@ -38,7 +38,7 @@ export enum MemoryLevel {
 export interface UserData {
   userId: string
   type: UserDataType
-  data: any
+  data: unknown
   timestamp: number
   importance?: number // 重要性评分 0-1
   memoryLevel?: MemoryLevel
@@ -124,7 +124,7 @@ export class UserMemoryService {
   /**
    * 采集用户数据（全量采集，实时采集，永久存储）
    */
-  async collectUserData(type: UserDataType, data: any, importance?: number): Promise<void> {
+  async collectUserData(type: UserDataType, data: unknown, importance?: number): Promise<void> {
     if (!this.userId) {
       return
     }

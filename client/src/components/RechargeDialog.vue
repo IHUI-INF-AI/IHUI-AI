@@ -145,7 +145,7 @@ async function onSubmit() {
   if (!isValid.value) return
   submitting.value = true
   try {
-    const res: any = await fetch('/api/v1/wallet/transactions', {
+    const res: { code?: number; data?: { transaction?: { id?: string } } } = await fetch('/api/v1/wallet/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -268,7 +268,7 @@ function onClose() {
     color: v.$text-primary;
     background: transparent;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    transition: all 0.2s;
 
     &.active {
       background: var(--el-text-color-primary);
@@ -307,7 +307,7 @@ function onClose() {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: border-color 0.2s, background-color 0.2s;
+    transition: all 0.2s;
 
     &.active {
       border-color: var(--el-text-color-primary);
@@ -325,7 +325,7 @@ function onClose() {
       width: 24px;
       height: 24px;
       border-radius: 50%;
-      background: var(--el-fill-color-light);
+      background: var(--color-gray-light);
       font-size: 12px;
       font-weight: 700;
     }
@@ -355,7 +355,7 @@ function onClose() {
   border: var(--unified-border);
   background: transparent;
   color: v.$text-primary;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+  transition: all 0.2s;
 
   &.primary {
     background: var(--el-text-color-primary);

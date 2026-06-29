@@ -1,110 +1,148 @@
 {
   "login": {
-    "agreement": {
-      "and": "和",
-      "prefix": "前缀",
-      "privacyPolicy": "隐私政策",
-      "userAgreement": "用户协议"
-    },
-    "aiModels": "AI 模型",
-    "apple": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "安全提示"
-    },
-    "availability": "可用性",
-    "buttons": {
-      "login": "登录",
-      "register": "注册",
-      "submitLogin": "提交登录",
-      "submitRegister": "提交注册"
+    "selectProject": "选择项目",
+    "subtitle": "欢迎回来",
+    "forgotPassword": "忘记密码",
+    "noAccount": "还没有账号？",
+    "project": {
+      "main": "智汇AI主平台",
+      "open": "开放平台",
+      "admin": "总管理端",
+      "eduWeb": "AI教育平台",
+      "eduAdmin": "教育管理后台",
+      "user": "用户端"
     },
     "crossProject": {
-      "admin": "管理员",
-      "loggingIn": "登录中",
-      "switchTo": "切换到",
-      "user": "用户"
+      "loggingIn": "正在登录 {project}...",
+      "user": "切换到用户端",
+      "admin": "切换到管理端",
+      "switchTo": "切换到"
     },
-    "error": {
-      "insecureConnection": "连接不安全"
-    },
-    "forgotPassword": "忘记密码",
-    "goLogin": "去登录",
-    "goRegister": "去注册",
-    "google": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "安全提示"
-    },
-    "hasAccount": "已有账号",
-    "hidePassword": "隐藏密码",
-    "ihuiLogo": "IHUI Logo",
-    "mode": {
-      "hasAccount": "已有账号",
-      "noAccount": "无账号",
-      "userLogin": "用户登录",
-      "userRegister": "用户注册"
-    },
-    "noAccount": "无账号",
-    "oneStopAI": "一站式 AI",
-    "password": {
-      "hide": "隐藏",
-      "show": "显示"
-    },
-    "placeholders": {
-      "confirmLoginPassword": "请确认登录密码",
-      "confirmPassword": "确认密码",
-      "email": "邮箱",
-      "password": "密码",
-      "phone": "手机号",
-      "phoneRegister": "手机注册",
-      "setLoginPassword": "请设置登录密码",
-      "setPassword": "设置密码",
-      "smsCode": "短信验证码",
-      "username": "用户名",
-      "usernameOrEmail": "用户名或邮箱"
-    },
-    "project": {
-      "admin": "管理员",
-      "eduAdmin": "教育管理端",
-      "eduWeb": "教育 Web 端",
-      "main": "主",
-      "open": "打开",
-      "user": "用户"
-    },
-    "selectProject": "请选择项目",
-    "showPassword": "显示密码",
-    "subtitle": "副标题",
-    "switchPlatform": "切换平台",
+    "ihuiLogo": "智汇AI Logo",
+    "worldFirst": "全球首创",
+    "oneStopAI": "人人的一站式AI整合应用平台",
+    "aiModels": "AI模型",
+    "users500k": "50万+",
+    "users": "用户",
+    "availability": "可用性",
     "tabs": {
-      "account": "账号",
+      "account": "账号登录",
+      "phone": "手机登录",
       "accountRegister": "账号注册",
-      "phone": "手机号",
       "phoneRegister": "手机注册"
     },
-    "thirdParty": {
-      "accountLogin": "账号密码登录",
-      "alipay": "支付宝",
-      "alipayLogin": "支付宝登录",
-      "comingSoon": "敬请期待",
-      "emailLogin": "邮箱登录",
-      "feishu": "飞书",
-      "feishuLogin": "飞书登录",
-      "notice": "通知",
-      "or": "或",
-      "otherMethods": "其他方式",
-      "phoneLogin": "手机号登录",
-      "privacyPolicy": "隐私政策",
-      "quickLogin": "快捷登录",
-      "securityNotice1": "安全提醒 1",
-      "securityNotice2": "安全提醒 2",
-      "securityNotice3": "安全提醒 3",
-      "selectPreferred": "请选择偏好",
-      "termsOfService": "服务条款"
+    "placeholders": {
+      "username": "请输入用户名",
+      "usernameOrEmail": "请输入用户名或邮箱",
+      "email": "请输入邮箱地址",
+      "password": "请输入密码",
+      "setPassword": "请设置密码",
+      "confirmPassword": "请确认密码",
+      "phone": "请输入手机号登录",
+      "phoneRegister": "请输入手机号注册",
+      "smsCode": "请输入短信验证码",
+      "setLoginPassword": "请设置登录密码",
+      "confirmLoginPassword": "请确认登录密码"
     },
-    "users": "用户",
-    "users500k": "50万+用户",
-    "welcomeTitle": "欢迎",
-    "worldFirst": "全球领先"
+    "buttons": {
+      "login": "立即登录",
+      "register": "立即注册",
+      "submitLogin": "登录",
+      "submitRegister": "注册",
+      "sendCode": "发送验证码",
+      "resend": "重新发送",
+      "resendIn": "{seconds}秒后重新发送"
+    },
+    "mode": {
+      "userLogin": "用户登录",
+      "userRegister": "用户注册",
+      "hasAccount": "已有账号？去登录",
+      "noAccount": "没有账号？去注册"
+    },
+    "password": {
+      "show": "显示密码",
+      "hide": "隐藏密码"
+    },
+    "agreement": {
+      "prefix": "我已阅读并同意",
+      "userAgreement": "《用户协议》",
+      "privacyPolicy": "《隐私政策》",
+      "and": "和"
+    },
+    "error": {
+      "insecureConnection": "当前连接不安全，建议使用HTTPS访问",
+      "unknownError": "未知错误"
+    },
+    "thirdParty": {
+      "or": "或",
+      "notice": "使用第三方登录即表示您同意我们的",
+      "privacyPolicy": "隐私政策",
+      "termsOfService": "服务条款",
+      "tooltip": {
+        "wechat": "微信登录",
+        "google": "Google登录",
+        "apple": "Apple登录",
+        "feishu": "飞书登录"
+      },
+      "feishuLogin": "Feishu登录",
+      "accountLogin": "accountLogin",
+      "comingSoon": "comingSoon",
+      "emailLogin": "emailLogin",
+      "feishu": "feishu",
+      "otherMethods": "otherMethods",
+      "phoneLogin": "phoneLogin",
+      "quickLogin": "quickLogin",
+      "securityNotice1": "securityNotice1",
+      "securityNotice2": "securityNotice2",
+      "securityNotice3": "securityNotice3",
+      "selectPreferred": "selectPreferred",
+      "wechatLogin": "微信登录",
+      "googleLogin": "Google登录",
+      "appleLogin": "Apple登录",
+      "wechatLoginFailed": "微信登录失败，请重试",
+      "googleLoginFailed": "Google登录失败，请重试",
+      "appleLoginFailed": "Apple登录失败，请重试"
+    },
+    "hidePassword": "隐藏Password",
+    "showPassword": "显示Password",
+    "welcomeTitle": "welcome标题",
+    "apple": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "google": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "switchPlatform": "switchPlatform",
+    "goLogin": "Go Login",
+    "goRegister": "Go Register",
+    "hasAccount": "Has Account",
+    "switchProject": "切换项目",
+    "title": "登录",
+    "rememberMe": "记住我",
+    "registerNow": "立即注册",
+    "loginSuccess": "登录成功",
+    "loginFailed": "登录失败",
+    "brand": {
+      "title": "全球首创智能体平台",
+      "subtitle": "人人的一站式AI整合应用平台"
+    },
+    "form": {
+      "username": "用户名",
+      "password": "密码",
+      "login": "登录",
+      "forgotPassword": "忘记密码？",
+      "rememberMe": "记住我"
+    },
+    "social": {
+      "wechat": "微信登录",
+      "qq": "QQ登录",
+      "phone": "手机登录"
+    },
+    "register": "注册",
+    "login": "登录"
   }
 }

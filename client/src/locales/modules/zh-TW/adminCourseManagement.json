@@ -1,0 +1,39 @@
+{
+  "adminCourseManagement": {
+    "tabs": {},
+    "actions": {
+      "export": "導出"
+    },
+    "courseList": {
+      "status": "狀態"
+    },
+    "search": {},
+    "categoryList": {},
+    "coursePayLogForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "coursePayForm": {
+      "status": "狀態",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用",
+      "validation": {
+        "statusRequired": "請選擇狀態"
+      },
+      "messages": {}
+    },
+    "courseForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "courseAuditForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  }
+}

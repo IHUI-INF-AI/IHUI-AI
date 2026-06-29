@@ -1,0 +1,8 @@
+{
+  "nav": {
+    "home": "Home",
+    "agents": "Agents",
+    "user": "User",
+    "settings": "Settings"
+  }
+}

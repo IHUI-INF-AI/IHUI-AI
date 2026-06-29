@@ -1,9 +1,6 @@
 {
   "p19AdminDashboard": {
-    "action": "action",
-    "recentActivity": "recentActivity",
-    "target": "target",
-    "time": "时间",
-    "title": "标题"
+    "title": "P19 Admin 儀表盤",
+    "recentActivity": "最近活動"
   }
 }

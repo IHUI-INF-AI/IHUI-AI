@@ -107,6 +107,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSecurityAudit } from '@/composables/useSecurityAudit'
+import type { ChallengeInfo } from '@/composables/useSecurityAudit'
 import { useA11y } from '@/composables/useA11y'
 
 const { t } = useI18n()
@@ -129,7 +130,7 @@ const { requestVerification, confirmVerification } = useSecurityAudit()
 const { announce, focusFirst } = useA11y()
 
 const step = ref<'request' | 'verify' | 'success'>('request')
-const challenge = ref<any>(null)
+const challenge = ref<ChallengeInfo | null>(null)
 const code = ref('')
 const error = ref<string | null>(null)
 const loading = ref(false)
@@ -178,9 +179,11 @@ const startResendCooldown = (sec = 60) => {
 }
 
 const startTtlCountdown = () => {
-  ttlSeconds.value = Math.max(0, Math.floor((challenge.value.expires_at - Date.now() / 1000)))
+  if (!challenge.value) return
+  const expiresAt = challenge.value.expires_at
+  ttlSeconds.value = Math.max(0, Math.floor((expiresAt - Date.now() / 1000)))
   ttlTimer = window.setInterval(() => {
-    const left = Math.max(0, Math.floor(challenge.value.expires_at - Date.now() / 1000))
+    const left = Math.max(0, Math.floor(expiresAt - Date.now() / 1000))
     ttlSeconds.value = left
     if (left <= 0 && ttlTimer) {
       window.clearInterval(ttlTimer)
@@ -243,8 +246,8 @@ const onRequest = async () => {
     startTtlCountdown()
     announce(t('sensitiveAction.codeSentWithTtl', { ttl: ch.ttl_seconds }), { politeness: 'polite' })
     focusCodeInput()
-  } catch (e: any) {
-    error.value = e?.message || t('sensitiveAction.applyFailed')
+  } catch (e: unknown) {
+    error.value = (e instanceof Error ? e.message : '') || t('sensitiveAction.applyFailed')
   } finally {
     loading.value = false
   }
@@ -257,10 +260,12 @@ const onCodeInput = () => {
 
 const onVerify = async () => {
   if (loading.value || code.value.length < 4) return
+  if (!challenge.value) return
   error.value = null
   loading.value = true
   try {
-    const res = await confirmVerification(props.userId, challenge.value.challenge_id, code.value)
+    const challengeId = challenge.value.challenge_id
+    const res = await confirmVerification(props.userId, challengeId, code.value)
     if (!res) {
       error.value = t('sensitiveAction.verifyFailedRetry')
       return
@@ -271,8 +276,8 @@ const onVerify = async () => {
     }
     step.value = 'success'
     announce(t('sensitiveAction.verifySuccessAnnounce'), { politeness: 'assertive' })
-  } catch (e: any) {
-    error.value = e?.message || t('sensitiveAction.verifyFailed')
+  } catch (e: unknown) {
+    error.value = (e instanceof Error ? e.message : '') || t('sensitiveAction.verifyFailed')
   } finally {
     loading.value = false
   }
@@ -311,6 +316,7 @@ const onCancel = () => {
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
+    box-shadow: var(--global-box-shadow);
     width: 100%;
     max-width: 420px;
     display: flex;

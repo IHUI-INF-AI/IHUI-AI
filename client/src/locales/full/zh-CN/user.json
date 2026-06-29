@@ -3,13 +3,5 @@
     "inputplaceholder": "input[placeholder*=",
     "nickname": "昵称",
     "nickname2": "昵称"
-  },
-  "userPage": {
-    "feedback": "意见反馈",
-    "noStudyContent": "暂无学习内容",
-    "views": "次观看",
-    "noTextContent": "暂无文本内容",
-    "noImageContent": "暂无图片内容",
-    "noVideoContent": "暂无视频内容"
   }
 }

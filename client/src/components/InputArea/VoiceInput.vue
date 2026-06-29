@@ -40,7 +40,7 @@ const { isVoiceAnimationActive, isVoiceAnimationActiveStart } = defineProps<{
   width: 3px;
   background-color: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
-  transition: background-color 0.3s;
+  transition: all 1s;
 }
 
 @keyframes move {

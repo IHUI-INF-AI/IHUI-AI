@@ -339,7 +339,6 @@ const { t } = useI18n()
 import { useUserStore } from '@/stores/user'
 import { useToast } from '@/composables/useToast'
 import { useA11y } from '@/composables/useA11y'
-import { useDarkModeStore } from '@/stores/darkMode'
 import http from '@/utils/request'
 import BalanceAlert from '@/components/BalanceAlert.vue'
 import TransactionDetail from '@/components/TransactionDetail.vue'
@@ -381,7 +380,6 @@ interface TrendPoint {
 }
 
 const userStore = useUserStore()
-const darkModeStore = useDarkModeStore()
 const toast = useToast()
 const { announce, focusFirst: _focusFirst, trapFocus: _trapFocus } = useA11y()
 
@@ -425,11 +423,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.v
 
 const trendPath = computed(() => buildPath(trendPoints.value, true))
 const trendLine = computed(() => buildPath(trendPoints.value, false))
-const trendStrokeColor = computed(() => {
-  // 依赖 isDarkMode 以便暗色模式切换时重新读取 CSS 变量
-  const _isDark = darkModeStore.isDarkMode
-  return getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || 'var(--el-text-color-primary)'
-})
+const trendStrokeColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || '#000')
 
 // 趋势图极值（供 aria-label 朗读使用）
 const minTrendBalance = computed(() => {
@@ -509,47 +503,42 @@ function getAmountClass(type: string): string {
 
 async function loadBalance() {
   try {
-    const res: any = await http.get('/api/v1/wallet/balance', { params: { user_id: userStore.userId || 'user_001' } })
+    const res = await http.get('/api/v1/wallet/balance', { params: { user_id: userStore.userId || 'user_001' } }) as { code?: number; data?: Balance }
     if (res?.code === 0) {
-      balance.value = res.data
+      balance.value = res.data as Balance
     }
   } catch (_e) {
-    // 余额加载失败时提示用户，避免显示 0 余额造成误解
-    toast.error(t('common.errors.loadFailed'))
+    // 静默失败
   }
 }
 
 async function loadSummary() {
   try {
-    const res: any = await http.get('/api/v1/wallet/summary', { params: { user_id: userStore.userId || 'user_001', days: filterDays.value } })
+    const res = await http.get('/api/v1/wallet/summary', { params: { user_id: userStore.userId || 'user_001', days: filterDays.value } }) as { code?: number; data?: Summary }
     if (res?.code === 0) {
-      summary.value = res.data
+      summary.value = res.data as Summary
     }
   } catch (_e) {
-    toast.error(t('common.errors.loadFailed'))
+    // 静默失败
   }
 }
 
 async function loadTrend() {
   try {
-    const res: any = await http.get('/api/v1/wallet/trend', { params: { user_id: userStore.userId || 'user_001', days: 30 } })
+    const res = await http.get('/api/v1/wallet/trend', { params: { user_id: userStore.userId || 'user_001', days: 30 } }) as { code?: number; data?: { trend?: TrendPoint[] } }
     if (res?.code === 0) {
-      trendPoints.value = res.data.trend
+      trendPoints.value = (res.data?.trend as TrendPoint[]) || []
     }
   } catch (_e) {
-    toast.error(t('common.errors.loadFailed'))
+    // 静默失败
   }
 }
 
-// 请求序号：用于 loadTransactions 竞态保护，仅最新请求的响应才会写入数据
-let txRequestSeq = 0
-
 async function loadTransactions() {
-  const currentSeq = ++txRequestSeq
   loading.value = true
   loadError.value = null
   try {
-    const params: Record<string, any> = {
+    const params: Record<string, unknown> = {
       user_id: userStore.userId || 'user_001',
       page: currentPage.value,
       page_size: pageSize.value,
@@ -566,26 +555,21 @@ async function loadTransactions() {
     if (filterMaxAmount.value !== null && filterMaxAmount.value >= 0) {
       params.max_amount = Math.round(filterMaxAmount.value * 100)
     }
-    const res: any = await http.get('/api/v1/wallet/transactions', { params })
-    // 竞态保护：若期间发起了新请求，丢弃本次过期响应
-    if (currentSeq !== txRequestSeq) return
+    const res = await http.get('/api/v1/wallet/transactions', { params }) as { code?: number; data?: { list?: Transaction[]; total?: number }; message?: string }
     if (res?.code === 0) {
-      transactions.value = res.data.list
-      total.value = res.data.total
+      transactions.value = (res.data?.list as Transaction[]) || []
+      total.value = (res.data?.total as number) || 0
       announce(`已加载第 ${currentPage.value} 页，共 ${total.value} 条交易记录`, { politeness: 'polite' })
     } else {
       loadError.value = '加载失败'
       announce('交易记录加载失败', { politeness: 'assertive' })
     }
-  } catch (e: any) {
-    if (currentSeq !== txRequestSeq) return
-    loadError.value = e?.message || '加载失败'
-    announce(`交易记录加载失败：${e?.message || '未知错误'}`, { politeness: 'assertive' })
+  } catch (e: unknown) {
+    const errMsg = (e as { message?: string })?.message || '加载失败'
+    loadError.value = errMsg
+    announce(`交易记录加载失败：${errMsg}`, { politeness: 'assertive' })
   } finally {
-    // 仅当本次是最新请求时才重置 loading，避免被过期请求提前重置
-    if (currentSeq === txRequestSeq) {
-      loading.value = false
-    }
+    loading.value = false
   }
 }
 
@@ -602,30 +586,30 @@ function resetFilters() {
   filterMaxAmount.value = null
   currentPage.value = 1
   loadTransactions()
-  toast.info(t('common.messages.resetFilter'))
+  toast.info('已重置筛选')
 }
 
 async function exportTx() {
   try {
-    const res: any = await http.get('/api/v1/wallet/export', {
+    const res = await http.get('/api/v1/wallet/export', {
       params: { user_id: userStore.userId || 'user_001', format: 'csv' },
       responseType: 'blob',
-    })
+    }) as BlobPart
     const url = URL.createObjectURL(new Blob([res]))
     const a = document.createElement('a')
     a.href = url
     a.download = `wallet_${userStore.userId || 'user_001'}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success(t('common.exportSuccess'))
+    toast.success('导出成功')
   } catch (_e) {
-    toast.error(t('common.errors.exportFailed'))
+    toast.error('导出失败')
   }
 }
 
 function handleRechargeSuccess() {
   showRecharge.value = false
-  toast.success(t('common.messages.rechargeSubmitted'))
+  toast.success('充值申请已提交')
   loadBalance()
   loadTransactions()
   loadSummary()
@@ -633,7 +617,7 @@ function handleRechargeSuccess() {
 
 function handleWithdrawSuccess() {
   showWithdraw.value = false
-  toast.success(t('common.messages.withdrawSubmitted'))
+  toast.success('提现申请已提交')
   loadBalance()
   loadTransactions()
   loadSummary()
@@ -684,6 +668,7 @@ $brand-primary: v.$primary-color;
 .glass {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
 }
 
 .balance-card {
@@ -694,6 +679,7 @@ $brand-primary: v.$primary-color;
   background: linear-gradient(135deg, var(--el-text-color-primary), var(--el-text-color-regular));
   color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
 
   .balance-info {
     display: flex;
@@ -744,7 +730,7 @@ $brand-primary: v.$primary-color;
     font-weight: 700;
     cursor: pointer;
     border: none;
-    transition: background-color 0.3s, color 0.3s, border-color 0.3s, transform 0.3s;
+    transition: all 0.3s;
 
     .btn-text {
       position: relative;
@@ -756,7 +742,7 @@ $brand-primary: v.$primary-color;
       color: var(--el-text-color-primary);
 
       &:hover {
-        
+        transform: translateY(-2px);
       }
     }
 
@@ -797,7 +783,7 @@ $brand-primary: v.$primary-color;
 
     &.income { background: var(--el-color-success-light-9); color: var(--el-color-success); }
     &.expense { background: var(--el-color-danger-light-9); color: var(--el-color-danger); }
-    &.net { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
+    &.net { background: var(--el-color-primary-light-9); color: var(--color-blue-1890ff); }
     &.count { background: var(--el-color-warning-light-9); color: var(--el-color-warning); }
   }
 
@@ -842,7 +828,7 @@ $brand-primary: v.$primary-color;
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-    font-size: 12px;
+    font-size: 11px;
     color: $text-sec;
   }
 
@@ -935,7 +921,7 @@ $brand-primary: v.$primary-color;
     border: var(--unified-border);
     background: transparent;
     color: $text-main;
-    transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+    transition: all 0.2s;
 
     .btn-text {
       position: relative;
@@ -974,7 +960,7 @@ $brand-primary: v.$primary-color;
   background: transparent;
   font-size: 13px;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  transition: all 0.2s;
 
   &.active {
     background: var(--el-text-color-primary);
@@ -1013,7 +999,7 @@ $brand-primary: v.$primary-color;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 
   &:hover {
     background: $brand-primary;
@@ -1081,7 +1067,6 @@ $brand-primary: v.$primary-color;
   padding: 16px 24px;
   border-bottom: var(--unified-border-bottom);
   transition: background 0.2s;
-  cursor: pointer;
 
   &:hover {
     background: var(--color-black-2);
@@ -1193,78 +1178,6 @@ $brand-primary: v.$primary-color;
 
   .summary-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* ==================== 移动端响应式补强 ==================== */
-@media (max-width: 768px) {
-  .balance-card { padding: 24px; }
-  .balance-card .balance-amount .value { font-size: 40px; }
-  .summary-grid { grid-template-columns: repeat(2, 1fr); }
-  .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  .filter-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-
-@media (max-width: 480px) {
-  .wallet-page { padding: 12px 0 40px; }
-  .container { padding: 0 12px; gap: 14px; }
-  .balance-card {
-    padding: 20px 16px;
-    gap: 16px;
-  }
-  .balance-card .balance-amount .value { font-size: 32px; }
-  .balance-card .balance-actions {
-    width: 100%;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .balance-card .action-btn {
-    width: 100%;
-    min-height: 44px;
-  }
-  .summary-card { padding: 14px; }
-  .summary-card .summary-value { font-size: 16px; }
-  .filter-tab {
-    padding: 10px 14px;
-    font-size: 13px;
-    min-height: 44px;
-  }
-  .filter-select {
-    height: 44px;
-    width: 100%;
-  }
-  .export-btn {
-    padding: 10px 16px;
-    min-height: 44px;
-    width: 100%;
-  }
-  .filter-advanced {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  .filter-advanced .adv-field {
-    min-width: 0;
-    width: 100%;
-  }
-  .filter-advanced .adv-input {
-    height: 44px;
-    font-size: 14px;
-  }
-  .tx-item {
-    padding: 14px 16px;
-    gap: 12px;
-  }
-  .page-btn {
-    padding: 10px 16px;
-    min-height: 44px;
   }
 }
 </style>

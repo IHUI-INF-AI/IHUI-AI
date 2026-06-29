@@ -1,8 +1,8 @@
 {
   "viewerModel3DViewer": {
+    "model3dFile": "3D模型文件",
     "format": "格式",
-    "model3dFile": "model3d 文件",
-    "supportedFormat": "支持的格式",
-    "useBlenderHint": "使用 Blender 提示"
+    "supportedFormat": "支持格式",
+    "useBlenderHint": "推荐使用 Blender 或在线查看器打开"
   }
 }

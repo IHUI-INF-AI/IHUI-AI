@@ -115,7 +115,7 @@ export interface TaskResult {
   /** 是否成功 */
   success: boolean
   /** 结果数据 */
-  data?: any
+  data?: unknown
   /** 错误信息 */
   error?: string
   /** 执行时间 */
@@ -679,7 +679,7 @@ export class TaskExecutor extends EventEmitter {
   /**
    * 提供人工输入
    */
-  async provideHumanInput(taskId: string, stepId: string, input: any): Promise<void> {
+  async provideHumanInput(taskId: string, stepId: string, input: unknown): Promise<void> {
     const task = this.tasks.get(taskId)
     if (!task) {
       throw new Error(`任务 ${taskId} 不存在`)

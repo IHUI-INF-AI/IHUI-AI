@@ -1,6 +1,6 @@
 {
   "cmpresult": {
-    "cronResultBottom": "cron 结果 底部",
-    "cronResultTop": "cron 结果 置顶"
+    "cronResultTop": "最近100年内只有上面",
+    "cronResultBottom": "条结果！"
   }
 }

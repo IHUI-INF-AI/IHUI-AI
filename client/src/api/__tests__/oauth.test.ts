@@ -14,44 +14,11 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../oauth/oauth'
+import * as api from '../oauth'
 
 describe('oauth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('getAlipayQRCode 应能正常调用', async () => {
-    const fn = (api as any).getAlipayQRCode
-    expect(typeof fn).toBe('function')
-    try {
-      const result = await fn()
-      expect(result).toBeDefined()
-    } catch (e) {
-      expect(e).toBeDefined()
-    }
-  })
-
-  it('checkAlipayStatus 应能正常调用', async () => {
-    const fn = (api as any).checkAlipayStatus
-    expect(typeof fn).toBe('function')
-    try {
-      const result = await fn()
-      expect(result).toBeDefined()
-    } catch (e) {
-      expect(e).toBeDefined()
-    }
-  })
-
-  it('handleAlipayCallback 应能正常调用', async () => {
-    const fn = (api as any).handleAlipayCallback
-    expect(typeof fn).toBe('function')
-    try {
-      const result = await fn()
-      expect(result).toBeDefined()
-    } catch (e) {
-      expect(e).toBeDefined()
-    }
   })
 
   it('createAlipayOrder 应能正常调用', async () => {

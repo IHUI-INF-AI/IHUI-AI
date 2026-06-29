@@ -9,7 +9,7 @@ import { t } from '@/utils/i18n'
  * @packageDocumentation
  */
 
-import { ref, markRaw } from 'vue'
+import { ref, markRaw, type Component } from 'vue'
 import {
   Gift as Promotion,
   Zap as Lightning,
@@ -26,7 +26,7 @@ export interface VipBenefit {
   /** 权益 ID */
   id: number
   /** 权益图标 */
-  icon: any
+  icon: Component
   /** 权益标题 */
   title: string
   /** 权益描述 */

@@ -158,7 +158,7 @@ import {
   USER_SK_TYPE_OPTIONS,
   type UserSkItem,
   type UserSkCreateRes,
-} from '@/api/user/userSk'
+} from '@/api/userSk'
 
 const typeOptions = USER_SK_TYPE_OPTIONS
 const maxKeys = 20
@@ -290,7 +290,7 @@ function confirmDelete(row: UserSkItem) {
       ElMessage.success(t('keyManagement.deleted'))
       loadList()
     })
-    .catch((e: any) => {
+    .catch((e: unknown) => {
       if (e !== 'cancel') ElMessage.error(t('keyManagement.deleteFailed'))
     })
 }

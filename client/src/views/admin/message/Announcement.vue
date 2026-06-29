@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { onMounted, h } from 'vue'
@@ -43,13 +44,13 @@ import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 
 const formFields: FormField[] = [
-  { prop: 'title', label: '标题', required: true, minLength: 1, maxLength: 100 },
-  { prop: 'category', label: '分类', maxLength: 200 },
+  { prop: 'title', label: t('adminCommon.label.title'), required: true, minLength: 1, maxLength: 100 },
+  { prop: 'category', label: t('adminCommon.label.category'), maxLength: 200 },
 ]
 
 const { keyword, page, size, total, loading, list, reload, onSearch, onPageChange } = useAdminTable({
@@ -65,16 +66,16 @@ const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete
   onSuccess: reload,
 })
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'title', dataKey: 'title', title: '标题', width: 300 },
-  { key: 'category', dataKey: 'category', title: '分类', width: 120 },
-  { key: 'createdAt', dataKey: 'createdAt', title: '时间', width: 180 },
+  { key: 'title', dataKey: 'title', title: t('adminCommon.label.title'), width: 300 },
+  { key: 'category', dataKey: 'category', title: t('adminCommon.label.category'), width: 120 },
+  { key: 'createdAt', dataKey: 'createdAt', title: t('adminCommon.label.time'), width: 180 },
   {
     key: 'actions',
-    title: '操作',
+    title: t('adminCommon.label.operation'),
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: ({ rowData: row }) => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('common.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('common.delete')),

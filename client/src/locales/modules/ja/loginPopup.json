@@ -1,7 +1,7 @@
 {
   "loginPopup": {
-    "noAccount": "noAccount",
-    "or": "or",
-    "registerNow": "registerNow"
+    "or": "または",
+    "noAccount": "まだアカウントをお持ちでないですか？",
+    "registerNow": "今すぐ登録"
   }
 }

@@ -1,9 +1,26 @@
 {
   "orderList": {
-    "noOrders": "noOrders",
-    "orderNo": "orderNo",
-    "orderTime": "orderTime",
-    "searchPlaceholder": "请输入搜索内容",
-    "title": "标题"
+    "title": "訂單列表",
+    "searchPlaceholder": "按訂單號搜尋...",
+    "orderNo": "訂單號",
+    "orderTime": "下單時間",
+    "noOrders": "暫無訂單",
+    "tabs": {
+      "all": "全部",
+      "pending": "待付款",
+      "shipping": "待出貨",
+      "completed": "已完成",
+      "refunded": "已退款"
+    },
+    "status": {
+      "pending": "待付款",
+      "paid": "已付款",
+      "shipped": "已出貨",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "ended": "已結束",
+      "unknown": "未知"
+    }
   }
 }

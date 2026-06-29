@@ -6,13 +6,13 @@ const QUEUE_STORE = 'offline-queue'
 export interface IDBStorage {
   isSupported: () => boolean
   init: () => Promise<void>
-  addRecord: (storeName: string, record: any) => Promise<string>
+  addRecord: (storeName: string, record: unknown) => Promise<string>
   getRecords: (storeName: string, limit?: number) => Promise<unknown[]>
   getRecordById: (storeName: string, id: string) => Promise<unknown | undefined>
   deleteRecord: (storeName: string, id: string) => Promise<boolean>
   clearStore: (storeName: string) => Promise<void>
   getRecordCount: (storeName: string) => Promise<number>
-  updateRecord: (storeName: string, id: string, data: any) => Promise<boolean>
+  updateRecord: (storeName: string, id: string, data: unknown) => Promise<boolean>
 }
 
 class IndexedDBStorage implements IDBStorage {
@@ -71,7 +71,7 @@ class IndexedDBStorage implements IDBStorage {
     return this.db!
   }
 
-  async addRecord(storeName: string, record: any): Promise<string> {
+  async addRecord(storeName: string, record: unknown): Promise<string> {
     const db = await this.getDB()
     
     return new Promise((resolve, reject) => {
@@ -98,7 +98,7 @@ class IndexedDBStorage implements IDBStorage {
       const index = store.index('timestamp')
       const request = index.openCursor(null, 'prev')
       
-      const records: any[] = []
+      const records: unknown[] = []
 
       request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
@@ -189,7 +189,7 @@ class IndexedDBStorage implements IDBStorage {
     })
   }
 
-  async updateRecord(storeName: string, id: string, data: any): Promise<boolean> {
+  async updateRecord(storeName: string, id: string, data: unknown): Promise<boolean> {
     const db = await this.getDB()
     
     return new Promise((resolve, reject) => {

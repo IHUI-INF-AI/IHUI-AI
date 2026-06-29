@@ -30,7 +30,7 @@ export interface SSOLoginResponse {
   /** 令牌过期时间（秒） */
   expiresIn?: number
   /** 其他用户信息 */
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**
@@ -126,7 +126,7 @@ export const ssoLoginByUuid = withApiResponseHandler(
     } catch (error) {
       // HTTP 4xx/5xx 时 axios 会抛错，但响应体可能包含业务码（如 555 未找到平台关联用户），转为统一响应让调用方展示提示
       if (axios.isAxiosError(error) && error.response?.data) {
-        const body = error.response.data as { code?: number; msg?: string; message?: string; data?: any }
+        const body = error.response.data as { code?: number; msg?: string; message?: string; data?: unknown }
         if (typeof body === 'object' && (body.code !== undefined || body.msg != null)) {
           const code = typeof body.code === 'number' ? body.code : error.response.status || 500
           const message = body.msg ?? body.message ?? 'SSO登录失败'

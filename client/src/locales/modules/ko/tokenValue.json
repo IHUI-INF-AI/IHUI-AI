@@ -1,28 +1,31 @@
 {
   "tokenValue": {
-    "balanceTitle": "balanceTitle",
-    "noRecords": "noRecords",
-    "stats": {
-      "currentBalance": "currentBalance",
-      "totalEarned": "totalEarned",
-      "totalUsed": "totalUsed"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "consumption": "consumption",
-      "name": "名称",
-      "time": "时间"
+    "핵심 장점": "내스마트값",
+    "sub핵심 장점": "보기스마트값생각사용기이것은및잔액",
+    "balanceTitle": "스마트값잔액",
+    "typeTabs": {
+      "agent": "에이전트사용소모",
+      "model": "대형 모델사용소모"
     },
     "timeRange": {
-      "all": "全部",
-      "month": "月",
-      "week": "week",
-      "year": "年"
+      "week": "7일",
+      "month": "목이것은개월",
+      "year": "근목이것은년",
+      "all": "모든"
     },
-    "title": "标题",
-    "typeTabs": {
-      "agent": "智能体",
-      "model": "模型"
-    }
+    "table": {
+      "name": "이름",
+      "time": "소요 시간",
+      "consumption": "사용소모스마트값"
+    },
+    "stats": {
+      "currentBalance": "현재잔액",
+      "totalEarned": "누적계획득받음",
+      "totalUsed": "누적 사용"
+    },
+    "noRecords": "없음스마트값사용소모기이것은",
+    "title": "내스마트값",
+    "subtitle": "보기스마트값생각사용기억기이것은및잔액",
+    "loadRecordsFailed": "불러오기사용소모기이것은실패，요청잠시백엔드재시도"
   }
 }

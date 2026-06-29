@@ -1,7 +1,7 @@
 {
   "feedbackPage": {
-    "backToSubmit": "backToSubmit",
-    "contact": "联系我们",
-    "noRecords": "noRecords"
+    "noRecords": "No feedback records",
+    "contact": "Contact",
+    "backToSubmit": "Back to submit"
   }
 }

@@ -63,14 +63,31 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getOrderStatistics, type OrderStatistics } from '@/api/statistics/statistics'
+import { getOrderStatistics, type OrderStatistics } from '@/api/statistics'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useApiError } from '@/composables/useApiError'
 import { useChartConfig } from '@/composables/useChartConfig'
-import { useCleanup } from '@/composables/useCleanup'
-// 2026-06-24 优化：echarts 改为按需动态加载，首屏不再打包 echarts 库
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
+// 按需加载echarts，减少初始包体积
+import * as echarts from 'echarts/core'
+import { LineChart, BarChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+
+// 注册所需组件
+echarts.use([
+  LineChart,
+  BarChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+  CanvasRenderer,
+])
 
 const { t } = useI18n()
 
@@ -83,7 +100,7 @@ const { loading, execute: executeApi } = useApiError({ showMessage: false })
 const { getChartColors, getBaseChartOption, getXAxisConfig, getYAxisConfig } = useChartConfig()
 const data = ref<OrderStatistics | null>(null)
 const chartRef = ref<HTMLDivElement | null>(null)
-let chartInstance: ECharts | null = null
+let chartInstance: echarts.ECharts | null = null
 
 const loadData = async () => {
   const res = await executeApi(() => getOrderStatistics({ type: props.timeRange }))
@@ -94,13 +111,12 @@ const loadData = async () => {
   }
 }
 
-const renderChart = async () => {
+const renderChart = () => {
   if (!chartRef.value || !data.value?.trends || data.value.trends.length === 0) {
     return
   }
 
   if (!chartInstance) {
-    const echarts = await loadEcharts()
     chartInstance = echarts.init(chartRef.value)
   }
 
@@ -165,22 +181,6 @@ watch(
 
 onMounted(() => {
   loadData()
-})
-
-// 窗口尺寸变化时自适应图表
-const handleResize = () => {
-  chartInstance?.resize()
-}
-
-// 2026-06-25 修复 ESLint ihui/no-manual-cleanup: 改用 useCleanup.addEventListener + add
-// 统一管理清理逻辑, 避免 onBeforeUnmount 中手写 removeEventListener/dispose
-const cleanup = useCleanup()
-onMounted(() => {
-  cleanup.addEventListener(window, 'resize', handleResize)
-  cleanup.add(() => {
-    chartInstance?.dispose()
-    chartInstance = null
-  })
 })
 </script>
 

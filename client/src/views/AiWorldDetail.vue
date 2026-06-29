@@ -70,8 +70,8 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/utils/logger'
-import { getAiWorldSiteById } from '@/api/ai/ai-world'
-import type { AiBotSite } from '@/api/ai/ai-world'
+import { getAiWorldSiteById } from '@/api/ai-world'
+import type { AiBotSite } from '@/api/ai-world'
 import { updateMetaTags, setStructuredData, generatePageStructuredData, truncateDescription } from '@/utils/seo'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 
@@ -156,9 +156,9 @@ onUnmounted(() => {
 /* 颜色变量：与 AiWorld.vue 保持一致 */
 $aw-gray-page: var(--color-neutral-100);
 $aw-panel-bg: var(--el-bg-color);
-$aw-gray-card: var(--el-fill-color-lighter);
+$aw-gray-card: var(--color-gray-fafafa);
 $aw-gray-elevated: var(--color-gray-e8e8e8);
-$aw-gray-border: var(--el-text-color-placeholder);
+$aw-gray-border: var(--color-text-muted);
 
 .ai-world-page {
   --ai-world-page-bg: #{$aw-gray-page};
@@ -189,6 +189,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
 .ai-world-page__container {
   position: relative;
   width: 100%;
+
   /* 顶部留白避开固定 glass-header（60px）+ 10px 间距 */
   padding: calc(var(--global-header-height) + 10px) 24px 48px;
   box-sizing: border-box;
@@ -228,7 +229,7 @@ $aw-gray-border: var(--el-text-color-placeholder);
 
   &:hover {
     color: var(--el-text-color-primary);
-    background: var(--el-text-color-placeholder);
+    background: var(--color-text-muted);
     border-color: $aw-gray-border;
   }
 }

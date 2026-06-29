@@ -1,11 +1,11 @@
 {
   "ranking": {
-    "title": "Ranking",
-    "subtitle": "Discover the most popular AI agents and creators",
+    "title": "Leaderboard",
+    "subtitle": "Points · Learning · Agents",
     "dayRank": "Daily",
     "weekRank": "Weekly",
     "monthRank": "Monthly",
-    "totalRank": "All Time",
-    "noData": "No data available"
+    "totalRank": "All-time",
+    "noData": "No ranking data"
   }
 }

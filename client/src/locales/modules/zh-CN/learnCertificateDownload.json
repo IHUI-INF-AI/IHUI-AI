@@ -1,13 +1,13 @@
 {
   "learnCertificateDownload": {
-    "banner": "横幅",
-    "breadcrumbCert": "breadcrumb Cert",
-    "breadcrumbCourse": "课程",
-    "certText": "cert 文本",
+    "notExist": "证书不存在",
+    "banner": "学习证书",
+    "certText": "兹证明已完成本课程学习，特发此证",
+    "issueTime": "发证时间：",
     "download": "下载",
-    "downloadStart": "下载 开始",
-    "issueTime": "发布时间",
-    "notExist": "不存在",
-    "print": "打印"
+    "print": "打印",
+    "breadcrumbCourse": "课程",
+    "breadcrumbCert": "我的证书",
+    "downloadStart": "证书下载开始，正在对接后端 PDF 接口"
   }
 }

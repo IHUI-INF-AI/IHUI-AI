@@ -111,7 +111,7 @@ export function destroyMonitoring(): void {
 /**
  * Sentry 风格 API
  */
-export function captureException(error: any, context?: Record<string, unknown>): void {
+export function captureException(error: unknown, context?: Record<string, unknown>): void {
   if (!config.enabled || !shouldSample()) return
   const e = error instanceof Error ? error : new Error(String(error))
   pushEvent({
@@ -274,7 +274,7 @@ function getCurrentRoute(): string {
  * 内部：Vue 全局异常捕获
  */
 function setupVueErrorCapture(): void {
-  const app = (typeof window !== 'undefined' ? (window as { __VUE_APP__?: { config?: { errorHandler?: (e: any, instance: any, info: string) => void } } }).__VUE_APP__ : null)
+  const app = (typeof window !== 'undefined' ? (window as { __VUE_APP__?: { config?: { errorHandler?: (e: unknown, instance: unknown, info: string) => void } } }).__VUE_APP__ : null)
   if (app && app.config) {
     app.config.errorHandler = (err, _instance, info) => {
       captureException(err, { vueInfo: info })

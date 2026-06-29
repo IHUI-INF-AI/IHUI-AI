@@ -16,6 +16,10 @@
     "paidCount": "Paid",
     "quickActions": "Quick Actions",
     "Model Management": "Model Management",
+    "feeConfig": "Fee Configuration",
+    "examineManagement": "Review Management",
+    "userCenter": "User Center",
+    "settlementManagement": "Settlement Management",
     "noData": "No data",
     "loadStatsFailed": "Failed to load statistics, please Refresh and try again",
     "navigationFailed": "Navigation Failed, please try again later",
@@ -27,6 +31,7 @@
     "subtitle": "subtitle",
     "approvedExamine": "Approved",
     "rejectedExamine": "Rejected",
+    "modelManagement": "Model Management",
     "refresh": "refresh"
   }
 }

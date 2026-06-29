@@ -25,7 +25,7 @@ export interface ExtendedFormItemRule {
   required?: boolean
   message?: string
   trigger?: string | string[]
-  validator?: (rule: any, value: any, callback: (error?: Error) => void) => void
+  validator?: (rule: unknown, value: unknown, callback: (error?: Error) => void) => void
   pattern?: RegExp
   min?: number
   max?: number

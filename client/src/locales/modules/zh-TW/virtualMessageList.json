@@ -1,0 +1,10 @@
+{
+  "virtualMessageList": {
+    "loadingMore": "加載更多消息...",
+    "aiThinking": "AI正在思考...",
+    "user": "用戶",
+    "ai": "AI",
+    "scrollToBottom": "滚動到底部",
+    "newMessages": "{count}條新消息"
+  }
+}

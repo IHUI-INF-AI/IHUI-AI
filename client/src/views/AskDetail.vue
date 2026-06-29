@@ -71,15 +71,15 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
-import { askApi } from '@/api/ask'
+import { askApi, type AskQuestion, type AskAnswer } from '@/api/ask'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const loading = ref(false)
 const loadError = ref('')
-const question = ref<any>(null)
-const answers = ref<any[]>([])
+const question = ref<AskQuestion | null>(null)
+const answers = ref<AskAnswer[]>([])
 const newAnswer = ref('')
 const submitting = ref(false)
 
@@ -129,35 +129,35 @@ async function handleLike(targetType: 'question' | 'answer', targetId: number) {
       }
     }
   } catch {
-    toast.error(t('common.errors.operationFailed'))
+    toast.error('操作失败')
   }
 }
 
 async function handleFavorite(targetType: 'question' | 'answer', targetId: number) {
   try {
     await askApi.toggleFavorite(targetType, targetId)
-    toast.success(t('common.messages.favoriteToggled'))
+    toast.success('已切换收藏')
   } catch {
-    toast.error(t('common.errors.operationFailed'))
+    toast.error('操作失败')
   }
 }
 
 async function handleAnswer() {
   const id = Number(route.params.id)
   if (!newAnswer.value.trim()) {
-    toast.error(t('common.messages.inputAnswer'))
+    toast.error('请输入回答内容')
     return
   }
   submitting.value = true
   try {
     await askApi.answer(id, newAnswer.value)
-    toast.success(t('common.messages.answerSuccess'))
+    toast.success('回答成功')
     newAnswer.value = ''
     const aRes = await askApi.answerList(id, { page: 1, limit: 50 })
     const aData = aRes?.data
     answers.value = aData?.data || aData || []
   } catch {
-    toast.error(t('common.errors.submitFailed'))
+    toast.error('提交失败')
   } finally {
     submitting.value = false
   }
@@ -166,10 +166,10 @@ async function handleAnswer() {
 async function handleAdopt(answerId: number) {
   try {
     await askApi.adopt(answerId)
-    toast.success(t('common.messages.adopted'))
+    toast.success('已采纳')
     answers.value.forEach((a) => (a.is_adopted = a.id === answerId))
   } catch {
-    toast.error(t('common.errors.operationFailed'))
+    toast.error('操作失败')
   }
 }
 

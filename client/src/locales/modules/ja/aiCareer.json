@@ -1,24 +1,67 @@
 {
   "aiCareer": {
-    "messages": {
-      "submitFailed": "submitFailed",
-      "submitSuccess": "submitSuccess"
+    "title": "AI生涯指导",
+    "subtitle": "为您的孩子提供専門的AI学習指导",
+    "submit": "送信",
+    "questions": {
+      "school": "1. 孩子目前就读的学校",
+      "classLevel": "2. 孩子班级整体水平",
+      "scoreRange": "3. 最近几回语文和英语試験スコア範囲",
+      "languageDifficulty": "4. 在语文和英语学習上、您觉得孩子目前最大的困难はい什么",
+      "scienceCharacteristics": "5. について理科方面，您是否观察到孩子在思考与解決問題的テーブル现上有什么特点？",
+      "learningObstacle": "6. 対于孩子在日常学習的過ぎ程中、您觉得最影响他学習的因素はい什么？",
+      "hobbies": "7. 平时在なし学習タスク的时候，孩子最喜欢做的事是什么？有なし長期坚持的兴趣或特長？",
+      "personality": "8. 孩子在人际关系和性格方面大致是什么样的？遇到挫割引时通常会怎么反べき？",
+      "extraTime": "9. 每周除了学校タスク之外，您觉得孩子まだできる有多い少ない余力来用于课外学習またはトレーニング班？",
+      "pressureTolerance": "10. 在安排学習和トレーニング时，您觉得孩子対压力的承受度如何？",
+      "learningGoal": "11. 如果用 1-5 分来打分，您対孩子未来三到五年在学習上的ターゲット:期待大概是几分？"
+    },
+    "personalityTests": {
+      "test1": "【性格テスト】您的孩子在学校または同龄人聚会中通常：",
+      "test2": "【性格テスト】您的孩子在学習或思考时更常テーブル现为：",
+      "test3": "【性格テスト】您的孩子遇到矛盾または選択时通常：",
+      "test4": "【性格テスト】在学習安排または日常作息方面，孩子更像：",
+      "test5": "【性格テスト】当孩子累了または压力大时，他/她更倾向于："
     },
     "options": {
+      "school": {
+        "public": "普通公办学校",
+        "private": "普通民办学校",
+        "key": "市重点学校"
+      },
       "classLevel": {
-        "advanced": "高级",
-        "normal": "正常"
+        "normal": "普通班",
+        "advanced": "尖子班"
+      },
+      "scoreRangePlaceholder": "ご入力分数範囲，比如：80-90",
+      "languageDifficulty": {
+        "readingSpeed": "阅读速度",
+        "comprehension": "理解機できる",
+        "vocabulary": "词汇量",
+        "writing": "作文テーブル达"
+      },
+      "scienceCharacteristicsPlaceholder": "ご入力您的观察...",
+      "learningObstacle": {
+        "gameAddiction": "孩子痴迷游戏",
+        "daydreaming": "学習时溜号发呆",
+        "procrastination": "拖延症",
+        "lowEfficiency": "学習効率低"
+      },
+      "hobbiesPlaceholder": "比如：音楽、绘画",
+      "personality": {
+        "introverted": "性格内向",
+        "extroverted": "性格外向",
+        "problemSolver": "擅長解決問題",
+        "cannotHandleFailure": "不擅長面対挫割引"
       },
       "extraTime": {
-        "heavy": "heavy",
-        "plenty": "plenty"
+        "heavy": "孩子学校学習タスク很重",
+        "plenty": "孩子あり充足的空余時間"
       },
-      "hobbiesPlaceholder": "hobbiesPlaceholder",
-      "languageDifficulty": {
-        "comprehension": "comprehension",
-        "readingSpeed": "readingSpeed",
-        "vocabulary": "vocabulary",
-        "writing": "writing"
+      "pressureTolerance": {
+        "light": "适合簡単的トレーニング",
+        "challenging": "适合有挑战性的トレーニング",
+        "moderate": "适中的トレーニング"
       },
       "learningGoal": {
         "1": "1",
@@ -27,90 +70,47 @@
         "4": "4",
         "5": "5"
       },
-      "learningObstacle": {
-        "daydreaming": "daydreaming",
-        "gameAddiction": "gameAddiction",
-        "lowEfficiency": "lowEfficiency",
-        "procrastination": "procrastination"
-      },
-      "personality": {
-        "cannotHandleFailure": "cannotHandleFailure",
-        "extroverted": "extroverted",
-        "introverted": "introverted",
-        "problemSolver": "problemSolver"
-      },
       "personalityTest1": {
-        "quiet": "quiet",
-        "social": "social"
+        "social": "容易主动融入群体，与多件同龄人相互作用，经常成为话题センター",
+        "quiet": "倾向于和一两件熟悉的朋友一起，または更喜欢自己安静アクティビティ"
       },
       "personalityTest2": {
-        "abstract": "abstract",
-        "concrete": "concrete"
+        "concrete": "注重事实、ステップ、老师的明确要求；喜欢\"具体的东西\"",
+        "abstract": "会提出超出课本的問題、跳跃联想、喜欢探索\"概念\"和可能性性"
       },
       "personalityTest3": {
-        "emotional": "emotional",
-        "logical": "logical"
+        "logical": "注重逻辑、公平原则，会テーブル达\"理由\"和\"根据\"",
+        "emotional": "更看重自己または别人的感受，容易因为情绪影响决定"
       },
       "personalityTest4": {
-        "planned": "planned",
-        "spontaneous": "spontaneous"
+        "planned": "喜欢提前规划（如整理书桌、写学習計画），按順序完了タスク",
+        "spontaneous": "常常挺随性，必要リマインダー才開始行动，対突发变化不太抗拒"
       },
       "personalityTest5": {
-        "quietRelax": "quietRelax",
-        "socialRelax": "socialRelax"
-      },
-      "pressureTolerance": {
-        "challenging": "challenging",
-        "light": "light",
-        "moderate": "moderate"
-      },
-      "school": {
-        "key": "键",
-        "private": "私有",
-        "public": "公开"
-      },
-      "scienceCharacteristicsPlaceholder": "scienceCharacteristicsPlaceholder",
-      "scoreRangePlaceholder": "scoreRangePlaceholder"
+        "socialRelax": "找朋友聊日、出去アクティビティ、参と社交来放松",
+        "quietRelax": "想把自己安静下来、例听音楽、独处、做件人兴趣爱好"
+      }
     },
-    "personalityTests": {
-      "test1": "test1",
-      "test2": "test2",
-      "test3": "test3",
-      "test4": "test4",
-      "test5": "test5"
-    },
-    "questions": {
-      "classLevel": "classLevel",
-      "extraTime": "extraTime",
-      "hobbies": "hobbies",
-      "languageDifficulty": "languageDifficulty",
-      "learningGoal": "learningGoal",
-      "learningObstacle": "learningObstacle",
-      "personality": "personality",
-      "pressureTolerance": "pressureTolerance",
-      "school": "school",
-      "scienceCharacteristics": "scienceCharacteristics",
-      "scoreRange": "scoreRange"
-    },
-    "submit": "提交",
-    "subtitle": "副标题",
-    "title": "标题",
     "validation": {
-      "classLevel": "classLevel",
-      "extraTime": "extraTime",
-      "languageDifficulty": "languageDifficulty",
-      "learningGoal": "learningGoal",
-      "learningObstacle": "learningObstacle",
-      "personality": "personality",
-      "personalityTest1": "personalityTest1",
-      "personalityTest2": "personalityTest2",
-      "personalityTest3": "personalityTest3",
-      "personalityTest4": "personalityTest4",
-      "personalityTest5": "personalityTest5",
-      "pressureTolerance": "pressureTolerance",
-      "required": "必填",
-      "school": "school",
-      "scoreRange": "scoreRange"
+      "required": "ご入力：{field}",
+      "school": "孩子目前就读的学校",
+      "classLevel": "孩子班级整体水平",
+      "scoreRange": "语文和英语試験スコア範囲",
+      "languageDifficulty": "语文和英语学習困难",
+      "learningObstacle": "影响学習的因素",
+      "personality": "人际关系和性格",
+      "extraTime": "课外学習余力",
+      "pressureTolerance": "压力承受度",
+      "learningGoal": "学習ターゲット:期待",
+      "personalityTest1": "性格テスト1",
+      "personalityTest2": "性格テスト2",
+      "personalityTest3": "性格テスト3",
+      "personalityTest4": "性格テスト4",
+      "personalityTest5": "性格テスト5"
+    },
+    "messages": {
+      "submitSuccess": "送信成功，我们将尽速い为您提供指导提案",
+      "submitFailed": "送信失敗，ご稍後再試行"
     }
   }
 }

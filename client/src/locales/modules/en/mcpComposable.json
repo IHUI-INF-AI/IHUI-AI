@@ -1,10 +1,10 @@
 {
   "mcpComposable": {
-    "batchDone": "batchDone",
-    "calling": "calling",
-    "error": "错误",
-    "failed": "失败",
-    "success": "成功",
-    "toolNotFound": "toolNotFound"
+    "calling": "Calling MCP tool: {tool}...",
+    "success": "MCP tool call succeeded: {tool}",
+    "failed": "MCP tool call failed: {error}",
+    "error": "MCP tool call error: {error}",
+    "toolNotFound": "No MCP tool available: {tool}",
+    "batchDone": "Batch done: {success}/{total} succeeded"
   }
 }

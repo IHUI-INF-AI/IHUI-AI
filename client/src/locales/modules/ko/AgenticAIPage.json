@@ -1,7 +1,12 @@
 {
+  "agenticAIPage": {
+    "swarmCreated": "Swarm 생성 성공",
+    "createSwarmFailed": "Swarm 생성 실패",
+    "createSwarmFailed2": "创建Swarm失败"
+  },
   "AgenticAIPage": {
-    "createSwarmFailed": "createSwarmFailed",
-    "createSwarmFailed2": "createSwarmFailed2",
-    "swarmCreated": "swarmCreated"
+    "swarmCreated": "Swarm 생성 성공",
+    "createSwarmFailed": "Swarm 생성 실패",
+    "createSwarmFailed2": "创建Swarm失败"
   }
 }

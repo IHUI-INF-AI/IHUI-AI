@@ -47,7 +47,7 @@
               <el-divider />
               <h3>{{ t('mcpUseProject.coreFeatures') }}</h3>
               <el-row :gutter="16">
-                <el-col :span="12" :xs="24">
+                <el-col :span="12">
                   <el-card shadow="hover" class="feature-card">
                     <div class="feature-icon">🤖</div>
                     <h4>{{ t('mcpUseProject.mcpAgents') }}</h4>
@@ -149,7 +149,7 @@
                     </el-button>
                   </el-card>
                 </el-col>
-                <el-col :span="12" :xs="24">
+                <el-col :span="12">
                   <el-card shadow="hover" class="doc-link-card" @click="openLocalDoc('python')">
                     <div class="doc-icon">🐍</div>
                     <h4>{{ t('mcpUseProject.pythonDocs') }}</h4>
@@ -195,20 +195,20 @@
               <template #header>
                 <span>{{ t('mcpUseProject.quickLinks') }}</span>
               </template>
-              <el-space direction="vertical" class="links-card__space">
-                <el-button type="primary" class="full-width" @click="goToManager">
+              <el-space direction="vertical" style="width: 100%">
+                <el-button type="primary" style="width: 100%" @click="goToManager">
                   <el-icon><Setting /></el-icon>
                   {{ t('mcpUseProject.mcpUseManagement') }}
                 </el-button>
-                <el-button class="full-width" @click="openLocalDoc('readme')">
+                <el-button style="width: 100%" @click="openLocalDoc('readme')">
                   <el-icon><Document /></el-icon>
                   {{ t('mcpUseProject.viewReadme') }}
                 </el-button>
-                <el-button class="full-width" @click="openLocalDoc('typescript')">
+                <el-button style="width: 100%" @click="openLocalDoc('typescript')">
                   <el-icon><Document /></el-icon>
                   {{ t('mcpUseProject.typescriptDoc') }}
                 </el-button>
-                <el-button class="full-width" @click="openLocalDoc('python')">
+                <el-button style="width: 100%" @click="openLocalDoc('python')">
                   <el-icon><Document /></el-icon>
                   {{ t('mcpUseProject.pythonDoc') }}
                 </el-button>
@@ -268,8 +268,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useRouter } from 'vue-router'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getMCPServersList, getMCPResource } from '@/api/tools/mcp'
-import type { MCPServer } from '@/api/tools/mcp'
+import { getMCPServersList, getMCPResource } from '@/api/mcp'
+import type { MCPServer } from '@/api/mcp'
 import { useApiError } from '@/composables/useApiError'
 
 import {
@@ -360,7 +360,7 @@ const agent = new MCPAgent({
 });
 
 // 使用Agent
-const response = await agent.run(t('MCPUseProject.listDirFiles'));
+const response = await agent.run(t('mcpUseProject.listDirFiles'));
 logger.info(response);`
 
 const pythonExample = `import asyncio
@@ -385,7 +385,7 @@ async def main():
     )
     
     # 使用Agent
-    response = await agent.run(t('MCPUseProject.listDirFiles2'))
+    response = await agent.run(t('mcpUseProject.listDirFiles2'))
     print(response)
 
 asyncio.run(main())`
@@ -407,7 +407,7 @@ const loadMCPServers = async () => {
   }))
   
   if (data !== null && typeof data === 'object') {
-    const serversData = data as { list?: any[] }
+    const serversData = data as { list?: unknown[] }
     mcpServers.value = (serversData.list || []) as MCPServer[]
   }
 }
@@ -540,10 +540,10 @@ onMounted(() => {
       text-align: center;
       margin-bottom: 16px;
       cursor: pointer;
-      transition: transform 0.3s;
+      transition: all 0.3s;
 
       &:hover {
-        
+        transform: translateY(-4px);
       }
 
       .feature-icon {
@@ -586,10 +586,10 @@ onMounted(() => {
 
     .doc-link-card {
       cursor: pointer;
-      transition: transform 0.3s;
+      transition: all 0.3s;
 
       &:hover {
-        
+        transform: translateY(-4px);
       }
 
       .doc-icon {
@@ -613,20 +613,9 @@ onMounted(() => {
   }
 
   .stats-card,
+  .links-card,
   .structure-card {
     margin-bottom: 20px;
-  }
-
-  .links-card {
-    margin-bottom: 20px;
-
-    &__space {
-      width: 100%;
-    }
-
-    &__btn {
-      width: 100%;
-    }
   }
 
   .readme-content {
@@ -660,10 +649,6 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-
-  .full-width {
-    width: 100%;
   }
 }
 </style>

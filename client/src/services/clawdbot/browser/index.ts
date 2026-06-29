@@ -240,7 +240,7 @@ export interface ActionRecord {
   id: string
   type: ActionType
   target?: string
-  value?: any
+  value?: unknown
   timestamp: number
   duration?: number
   screenshot?: string
@@ -905,7 +905,7 @@ export class BrowserAutomation extends EventEmitter {
    * 注意：此方法用于浏览器自动化，仅在受控的 iframe 环境中执行
    * 调用者应确保 script 参数来自可信来源
    */
-  async evaluate<T>(script: string | ((arg: any) => T), arg?: any): Promise<T> {
+  async evaluate<T>(script: string | ((arg: unknown) => T), arg?: unknown): Promise<T> {
     if (!this.browserFrame?.contentWindow) {
       throw new Error('Browser not initialized')
     }
@@ -1036,10 +1036,10 @@ export class BrowserAutomation extends EventEmitter {
             script += `  await page.click('${action.target}');\n`
             break
           case 'type':
-            script += `  await page.type('${action.target}', '${action.value}');\n`
+            script += `  await page.type('${action.target}', '${String(action.value)}');\n`
             break
           case 'fill':
-            script += `  await page.fill('${action.target}', '${action.value}');\n`
+            script += `  await page.fill('${action.target}', '${String(action.value)}');\n`
             break
         }
       }

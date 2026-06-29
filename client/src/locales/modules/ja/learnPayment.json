@@ -1,17 +1,17 @@
 {
   "learnPayment": {
-    "alipay": "alipay",
-    "amountDue": "amountDue",
-    "balance": "余额",
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbPay": "breadcrumbPay",
-    "notExist": "notExist",
-    "orderDetail": "orderDetail",
-    "orderId": "orderId",
-    "payMethod": "payMethod",
-    "paySuccess": "paySuccess",
-    "scanTip": "scanTip",
-    "simulatePay": "simulatePay",
-    "wechat": "wechat"
+    "breadcrumbCourse": "コース",
+    "breadcrumbPay": "支払い",
+    "notExist": "注文が存在しません",
+    "scanTip": "{type}でスキャンして支払ってください",
+    "orderDetail": "注文詳細",
+    "orderId": "注文番号: ",
+    "payMethod": "支払い方法: ",
+    "amountDue": "お支払い金額: ",
+    "simulatePay": "支払いをシミュレート",
+    "wechat": "WeChat",
+    "balance": "残高",
+    "alipay": "Alipay",
+    "paySuccess": "支払い成功"
   }
 }

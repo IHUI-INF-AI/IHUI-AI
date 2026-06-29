@@ -126,9 +126,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, defineAsyncComponent, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Picture, PictureFilled, VideoCamera, Box, View } from '@element-plus/icons-vue'
+// 同步导入 LoadingState 作为异步组件的占位符，避免打开生成器弹窗时出现「白条」
+import LoadingState from '@/components/common/LoadingState.vue'
 
 const { t } = useI18n()
 
@@ -136,17 +138,28 @@ const activeTab = ref('image')
 const showGenerator = ref(false)
 const currentGenerator = ref('')
 
-const generatorComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
-  'qwen-image': defineAsyncComponent(() => import('@/components/ai-generation/ImageGenQwen.vue')),
-  'qwen-image-i2i': defineAsyncComponent(() => import('@/components/ai-generation/ImageGenQwenI2I.vue')),
-  'qwen-image-edit': defineAsyncComponent(() => import('@/components/ai-generation/ImageEditQwen.vue')),
-  'doubao-image': defineAsyncComponent(() => import('@/components/ai-generation/ImageGenDoubao.vue')),
-  'jimeng-image': defineAsyncComponent(() => import('@/components/ai-generation/ImageGenJimeng.vue')),
-  'qwen-video': defineAsyncComponent(() => import('@/components/ai-generation/VideoGenQwen.vue')),
-  'kling-video': defineAsyncComponent(() => import('@/components/ai-generation/VideoGenKling.vue')),
-  'oneclick-video': defineAsyncComponent(() => import('@/components/ai-generation/VideoGenOneClick.vue')),
-  'hunyuan-3d': defineAsyncComponent(() => import('@/components/ai-generation/Model3DGenHunyuan.vue')),
-  'vision-analysis': defineAsyncComponent(() => import('@/components/ai-generation/VisionAnalysis.vue')),
+// 所有生成器组件均配置 loadingComponent=LoadingState，避免首次打开弹窗时出现「白条」
+// 辅助函数：因 vue@3.5 的 defineAsyncComponent 联合类型重载在传入对象字面量时
+// 会被优先匹配到函数签名，固使用 unknown 中转确保走 options 分支。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function asyncComponent(loader: () => Promise<unknown>): any {
+  return defineAsyncComponent({
+    loader,
+    loadingComponent: LoadingState,
+    delay: 100,
+  } as unknown as Parameters<typeof defineAsyncComponent>[0])
+}
+const generatorComponents: Record<string, Component> = {
+  'qwen-image': asyncComponent(() => import('@/components/ai-generation/ImageGenQwen.vue')),
+  'qwen-image-i2i': asyncComponent(() => import('@/components/ai-generation/ImageGenQwenI2I.vue')),
+  'qwen-image-edit': asyncComponent(() => import('@/components/ai-generation/ImageEditQwen.vue')),
+  'doubao-image': asyncComponent(() => import('@/components/ai-generation/ImageGenDoubao.vue')),
+  'jimeng-image': asyncComponent(() => import('@/components/ai-generation/ImageGenJimeng.vue')),
+  'qwen-video': asyncComponent(() => import('@/components/ai-generation/VideoGenQwen.vue')),
+  'kling-video': asyncComponent(() => import('@/components/ai-generation/VideoGenKling.vue')),
+  'oneclick-video': asyncComponent(() => import('@/components/ai-generation/VideoGenOneClick.vue')),
+  'hunyuan-3d': asyncComponent(() => import('@/components/ai-generation/Model3DGenHunyuan.vue')),
+  'vision-analysis': asyncComponent(() => import('@/components/ai-generation/VisionAnalysis.vue')),
 }
 
 const generatorTitles: Record<string, string> = {
@@ -176,67 +189,32 @@ function selectGenerator(type: string) {
 }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .ai-generation-page {
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
-  padding-bottom: 48px;
 }
 
 .page-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
+}
 
-  h1 {
-    font-size: 28px;
-    font-weight: 700;
-    font-family: var(--font-family-chinese);
-    margin-bottom: 12px;
-    color: var(--el-text-color-primary);
-  }
+.page-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--el-text-color-primary);
+}
 
-  p {
-    font-size: 16px;
-    color: var(--el-text-color-secondary);
-    margin: 0;
-  }
+.page-header p {
+  font-size: 16px;
+  color: var(--el-text-color-secondary);
 }
 
 .generation-tabs {
   margin-bottom: 24px;
-
-  :deep(.el-tabs__header) {
-    background-color: var(--el-bg-color);
-    border-bottom: 1px solid var(--el-border-color-light);
-    border-radius: var(--global-border-radius) var(--global-border-radius) 0 0;
-  }
-
-  :deep(.el-tabs__nav-wrap::after) {
-    display: none;
-  }
-
-  :deep(.el-tabs__item) {
-    font-family: var(--font-family-chinese);
-    font-weight: 500;
-    color: var(--el-text-color-regular);
-    padding: 0 24px;
-    height: 48px;
-    line-height: 48px;
-
-    &.is-active {
-      color: var(--el-color-primary);
-      font-weight: 700;
-    }
-
-    &:hover {
-      color: var(--el-color-primary);
-    }
-  }
-
-  :deep(.el-tabs__active-bar) {
-    background-color: var(--el-color-primary);
-  }
 }
 
 .generation-grid {
@@ -248,88 +226,36 @@ function selectGenerator(type: string) {
 
 .generation-card {
   cursor: pointer;
-  transition: transform 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
-  border: 1px solid var(--el-border-color-light);
-  background-color: var(--el-bg-color);
-  border-radius: var(--global-border-radius);
+  transition: all 0.3s ease;
+  border: var(--unified-border);
+}
 
-  &:hover {
-    
-    border-color: var(--el-color-primary-light-5);
-    background-color: var(--el-bg-color-overlay);
-  }
+.generation-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--global-box-shadow);
+  border-color: var(--el-color-primary-light-5);
 }
 
 .card-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
+  font-weight: 500;
+}
 
-  .el-icon {
-    font-size: 20px;
-    color: var(--el-text-color-primary);
-  }
+.card-header .el-icon {
+  font-size: 20px;
+  color: var(--el-color-primary);
 }
 
 .generation-card p {
   color: var(--el-text-color-secondary);
   font-size: 14px;
   margin: 0;
-  line-height: 1.6;
 }
 
-:deep(.el-dialog) {
-  border-radius: var(--global-border-radius);
-  overflow: hidden;
-
-  .el-dialog__body {
-    max-height: 82vh;
-    overflow-y: auto;
-  }
-}
-
-@media (max-width: 768px) {
-  .ai-generation-page {
-    padding: 16px;
-    padding-bottom: 32px;
-  }
-
-  .page-header {
-    margin-bottom: 24px;
-
-    h1 {
-      font-size: 22px;
-    }
-
-    p {
-      font-size: 14px;
-    }
-  }
-
-  .generation-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 12px;
-  }
-
-  .generation-tabs {
-    :deep(.el-tabs__item) {
-      padding: 0 14px;
-      font-size: 14px;
-    }
-  }
-}
-
-@media (max-width: 480px) {
-  .generation-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .generation-tabs {
-    :deep(.el-tabs__item) {
-      padding: 0 10px;
-      font-size: 13px;
-    }
-  }
+:deep(.el-dialog__body) {
+  max-height: 80vh;
+  overflow-y: auto;
 }
 </style>

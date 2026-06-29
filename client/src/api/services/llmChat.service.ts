@@ -8,7 +8,7 @@ import { createAuthWebSocket } from '@/utils/websocket'
 import type { ApiResponse } from '@/types'
 import { normalizeApiResponse } from '@/utils/api-response'
 import { logger } from '@/utils/logger'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { TokenStorage } from '@/utils/storage'
 import { t } from '@/utils/i18n'
 
 // ========== 通用类型定义 ==========
@@ -38,7 +38,7 @@ export interface LLMChatRequest {
   temperature?: number
   max_tokens?: number
   top_p?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface LLMChatResponse {
@@ -80,7 +80,7 @@ export async function chatStream(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
       body: JSON.stringify({
         ...data,
@@ -173,7 +173,7 @@ export interface QwenWebSocketRequest {
   user_uuid: string
   query: string
   chat_id?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface CozeWebSocketRequest {
@@ -182,7 +182,7 @@ export interface CozeWebSocketRequest {
   user_id?: string
   query: string
   stream?: boolean
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface CozeSSERequest {
@@ -376,7 +376,7 @@ export async function chatCozeSSE(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
       body: JSON.stringify({ ...data, stream: true }),
     })
@@ -436,7 +436,7 @@ export async function chatLuyala(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
       body: JSON.stringify(request),
     })
@@ -464,7 +464,7 @@ export async function chatOpenRouter(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
       body: JSON.stringify(request),
     })
@@ -472,7 +472,6 @@ export async function chatOpenRouter(
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-
     const data = await response.json()
     return { code: 200, success: true, message: 'success', data: data as OpenRouterChatResponse, timestamp: Date.now() }
   } catch (error) {

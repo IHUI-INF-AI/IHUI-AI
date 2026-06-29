@@ -73,7 +73,7 @@ const mockStorage: Record<string, unknown> = {}
 vi.mock('@/utils/storage', () => ({
   StorageManager: {
     getItem: vi.fn((key: string) => mockStorage[key]),
-    setItem: vi.fn((key: string, value: any) => {
+    setItem: vi.fn((key: string, value: unknown) => {
       mockStorage[key] = value
     }),
     removeItem: vi.fn((key: string) => {
@@ -85,6 +85,15 @@ vi.mock('@/utils/storage', () => ({
     USER_TOKEN: 'user_token',
     TOKEN: 'token',
     REFRESH_TOKEN: 'refresh_token',
+  },
+  TokenStorage: {
+    getToken: vi.fn(() => mockStorage['user_token'] || mockStorage['token'] || null),
+    setToken: vi.fn((token: string) => {
+      mockStorage['token'] = token
+      mockStorage['user_token'] = token
+    }),
+    getRefreshToken: vi.fn(() => mockStorage['refresh_token'] || null),
+    setRefreshToken: vi.fn((token: string) => { mockStorage['refresh_token'] = token }),
   },
 }))
 
@@ -292,17 +301,19 @@ describe('request.ts', () => {
   // ========== 新增测试用例：覆盖拦截器、mock、错误处理、token刷新 ==========
 
   // 获取拦截器回调的辅助函数
+  type MockReqResult = { headers: Record<string, unknown>; url?: string; method?: string; [key: string]: unknown }
+  type MockResResult = { data: Record<string, unknown>; status: number; statusText?: string; headers?: Record<string, unknown>; config?: Record<string, unknown>; [key: string]: unknown }
   const getInterceptors = async () => {
     const mockAxiosCreate = vi.mocked(axios.create)
     await import('../request')
     const mockInstance = mockAxiosCreate.mock.results[0]?.value
     return {
       mockInstance,
-      reqOnFulfilled: mockInstance.interceptors.request.use.mock.calls[0][0] as (config: any) => Promise<any>,
-      reqOnRejected: mockInstance.interceptors.request.use.mock.calls[0][1] as (error: any) => Promise<any>,
-      resOnFulfilled: mockInstance.interceptors.response.use.mock.calls[0][0] as (response: any) => any,
-      resOnRejected: mockInstance.interceptors.response.use.mock.calls[0][1] as (error: any) => Promise<any>,
-      bizOnFulfilled: mockInstance.interceptors.response.use.mock.calls[1][0] as (response: any) => any,
+      reqOnFulfilled: mockInstance.interceptors.request.use.mock.calls[0][0] as (config: Record<string, unknown>) => Promise<MockReqResult>,
+      reqOnRejected: mockInstance.interceptors.request.use.mock.calls[0][1] as (error: Record<string, unknown>) => Promise<MockResResult>,
+      resOnFulfilled: mockInstance.interceptors.response.use.mock.calls[0][0] as (response: Record<string, unknown>) => Promise<MockResResult>,
+      resOnRejected: mockInstance.interceptors.response.use.mock.calls[0][1] as (error: Record<string, unknown>) => Promise<MockResResult>,
+      bizOnFulfilled: mockInstance.interceptors.response.use.mock.calls[1][0] as (response: Record<string, unknown>) => Promise<MockResResult>,
     }
   }
 
@@ -994,7 +1005,7 @@ describe('request.ts', () => {
       mockStorage['user_token'] = 'test-token'
       mockStorage['user_data'] = { uuid: 'test-uuid' }
       const { reqOnFulfilled } = await getInterceptors()
-      const result = await reqOnFulfilled({ url: '/api/test', method: 'get' } as any)
+      const result = await reqOnFulfilled({ url: '/api/test', method: 'get' } as Record<string, unknown>)
       expect(result.headers).toBeDefined()
       expect(result.headers['uuid']).toBe('test-uuid')
       expect(result.headers['Authorization']).toBe('Bearer test-token')
@@ -1051,7 +1062,7 @@ describe('request.ts', () => {
     it('应原样 reject 错误', async () => {
       const { mockInstance, resOnRejected } = await getInterceptors()
       // 第二个 response.use 的 onRejected 索引是 1
-      const secondOnRejected = mockInstance.interceptors.response.use.mock.calls[1][1] as (err: any) => Promise<any>
+      const secondOnRejected = mockInstance.interceptors.response.use.mock.calls[1][1] as (err: unknown) => Promise<unknown>
       const err = new Error('test error')
       await expect(secondOnRejected(err)).rejects.toBe(err)
     })
@@ -1068,7 +1079,7 @@ describe('request.ts', () => {
         const axiosModule = await import('axios')
         await import('../request')
         const mockInstance = vi.mocked(axiosModule.default.create).mock.results[0]?.value
-        const resOnRejected = mockInstance.interceptors.response.use.mock.calls[0][1] as (err: any) => Promise<any>
+        const resOnRejected = mockInstance.interceptors.response.use.mock.calls[0][1] as (err: unknown) => Promise<unknown>
         // 触发需要 i18nT 的 401 refresh endpoint 路径
         await expect(resOnRejected({
           response: { status: 401, data: {}, headers: {}, config: { url: '/login/pwd/refreshToken', method: 'post', headers: {} } },
@@ -1088,7 +1099,7 @@ describe('request.ts', () => {
       const originalWindow = globalThis.window
       // 模拟非浏览器环境
       // @ts-ignore
-      delete (globalThis as any).window
+      delete (globalThis as unknown as Record<string, unknown>).window
       try {
         const { getStoredData } = await import('../request')
         const result = getStoredData()
@@ -1240,7 +1251,7 @@ describe('request.ts', () => {
         token: '',
         refreshToken: '',
         logout: vi.fn().mockRejectedValue(new Error('logout fail')),
-      } as any)
+      } as unknown as ReturnType<typeof authStore.useAuthStore>)
       mockStorage['refresh_token'] = 'old-rtk'
       mockStorage['user_data'] = { uuid: 'u1', refreshToken: 'old-rtk' }
       const { mockInstance, resOnRejected } = await getInterceptors()
@@ -1272,7 +1283,7 @@ describe('request.ts', () => {
       mockStorage['user_data'] = { uuid: 'u1', refreshToken: 'old-rtk' }
       const { mockInstance, resOnRejected } = await getInterceptors()
       // 让 refresh API 一直 pending
-      let rejectRefresh: (v: any) => void = () => {}
+      let rejectRefresh: (v: unknown) => void = () => {}
       mockInstance.mockReturnValueOnce(new Promise((_, r) => { rejectRefresh = r }))
 
       const err401 = (url: string) => ({
@@ -1302,7 +1313,7 @@ describe('request.ts', () => {
   describe('syntheticError toJSON', () => {
     it('业务码 401 触发时 syntheticError 的 toJSON 应可调用', async () => {
       const { bizOnFulfilled } = await getInterceptors()
-      let caught: any
+      let caught: { toJSON: () => unknown } | undefined
       try {
         await bizOnFulfilled({
           data: { code: 401, msg: 'fail' },
@@ -1426,10 +1437,10 @@ describe('request.ts', () => {
     it('window 不存在时 scheduleV1DeprecationFlush 应早返回', async () => {
       const { resOnFulfilled } = await getInterceptors()
       // 临时把 window 设为 undefined 来模拟非浏览器环境
-      const originalWindow = (globalThis as any).window
+      const originalWindow = (globalThis as unknown as Record<string, unknown>).window
       // 通过删除 globalThis.window 让 typeof window === 'undefined'
       // @ts-ignore
-      delete (globalThis as any).window
+      delete (globalThis as unknown as Record<string, unknown>).window
       try {
         await resOnFulfilled({
           data: { code: 200, msg: 'ok' },
@@ -1441,7 +1452,7 @@ describe('request.ts', () => {
         // 走到这里说明 scheduleV1DeprecationFlush 走早返回分支（无报错）
         expect(true).toBe(true)
       } finally {
-        ;(globalThis as any).window = originalWindow
+        ;(globalThis as unknown as Record<string, unknown>).window = originalWindow
       }
     })
   })
@@ -1457,7 +1468,7 @@ describe('request.ts', () => {
         const axiosModule = await import('axios')
         await import('../request')
         const mockInstance = vi.mocked(axiosModule.default.create).mock.results[0]?.value
-        const reqOnFulfilled = mockInstance.interceptors.request.use.mock.calls[0][0] as (c: any) => Promise<any>
+        const reqOnFulfilled = mockInstance.interceptors.request.use.mock.calls[0][0] as (c: Record<string, unknown>) => Promise<unknown>
         mockStorage['user_token'] = 'tok'
         // 用 base=3 (空 base) 避免 dev 逻辑干扰
         // 注意：lines 435-437 实际在 PROD 模式下才会执行

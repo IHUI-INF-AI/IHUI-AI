@@ -113,8 +113,8 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { Plus } from '@/lib/lucide-fallback'
 const AIChat = defineAsyncComponent(() => import('./AIChat.vue'))
 import { useI18n } from 'vue-i18n'
-import { getAgentsList, createAgent, deleteAgent as deleteAgentApi, updateAgent as updateAgentApi } from '@/api/agent/agents'
-import type { Agent as ApiAgent } from '@/api/agent/agents'
+import { getAgentsList, createAgent, deleteAgent as deleteAgentApi, updateAgent as updateAgentApi } from '@/api/agents'
+import type { Agent as ApiAgent } from '@/api/agents'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
 
@@ -213,7 +213,7 @@ const deleteAgent = async (agent: Agent) => {
     await deleteAgentApi(agent.agentId)
     showSuccess(t('aiList.deleteSuccess'))
     loadAgents()
-  } catch (error: any) {
+  } catch (error: unknown) {
       logger.error(t('common.errors.deleteFailed'), error)
     showError(error instanceof Error ? error.message : t('aiList.deleteFailed'))
   }

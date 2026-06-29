@@ -25,7 +25,7 @@
       <Download />
     </el-icon>
     <span class="download-text">{{ t('common.downloadApp') }}</span>
-    <i class="el-icon-arrow-down el-icon--right" :class="{ 'arrow-rotate': visible }" />
+    <i class="el-icon-arrow-down el-icon--right" :class="{ 'arrow-rotate': visible && !menuAbove }" />
   </div>
 
   <Teleport to="body">
@@ -33,6 +33,7 @@
       v-if="visible"
       ref="menuEl"
       class="app-download-dropdown-menu"
+      :class="{ 'menu-above': menuAbove }"
       role="menu"
       :aria-label="t('common.downloadApp')"
       @mouseenter="open"
@@ -97,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch, markRaw } from 'vue'
+import { ref, computed, onMounted, watch, markRaw, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -112,6 +113,7 @@ import {
 } from '@element-plus/icons-vue'
 import { usePwa } from '@/composables/usePWA'
 import { useCleanup } from '@/composables/useCleanup'
+import { useDropdownPosition } from '@/composables/useDropdownPosition'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -121,7 +123,7 @@ const cleanup = useCleanup()
 interface AppItem {
   key: string
   name: string
-  icon: ReturnType<typeof markRaw> | any
+  icon: Component
   url: string
   target: string
   installable?: boolean
@@ -132,6 +134,10 @@ const wechatQrVisible = ref(false)
 const current = ref<string>('')
 const menuEl = ref<HTMLElement | null>(null)
 const selectorEl = ref<HTMLElement | null>(null)
+
+// 智能定位:下方放不下时向上弹出,menuAbove 用于同步箭头/动画方向
+// AppDownload 最多 6 项(5 内置 + PWA),fallbackHeight 用 235 更准
+const { menuAbove, updatePosition: updateMenuPosition } = useDropdownPosition({ fallbackHeight: 235 })
 
 const BASE_APPS: AppItem[] = [
   { key: 'ios', name: 'iOS 应用', icon: markRaw(Iphone), url: '#', target: '_self' },
@@ -208,21 +214,7 @@ const handleClick = async (app: AppItem, e?: Event) => {
   }
 }
 
-const updatePosition = async () => {
-  await nextTick()
-  if (!selectorEl.value || !menuEl.value) return
-  const rect = selectorEl.value.getBoundingClientRect()
-  const menu = menuEl.value
-  const menuWidth = menu.offsetWidth || 160
-  const top = rect.bottom + 2
-  const maxLeft = window.innerWidth - menuWidth - 8
-  const left = Math.max(8, Math.min(rect.left, maxLeft))
-  menu.style.left = `${Math.round(left)}px`
-  menu.style.top = `${Math.round(top)}px`
-  menu.style.right = 'auto'
-}
-
-watch(visible, v => v && updatePosition())
+watch(visible, v => v && updateMenuPosition(selectorEl.value, menuEl.value))
 
 const onClickOutside = (e: MouseEvent) => {
   const t = e.target

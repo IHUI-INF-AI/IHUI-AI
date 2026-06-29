@@ -1,8 +1,9 @@
 {
   "simpleFallback": {
-    "defaultMessage": "defaultMessage",
-    "goHome": "goHome",
-    "loading": "加载中",
-    "reload": "重新加载"
+    "loading": "页面読み込み中...",
+    "reload": "再読み込み",
+    "goホーム": "ホームに戻る",
+    "defaultMessage": "如果页面長時間未読み込み，请尝试更新しい",
+    "goHome": "戻るホーム"
   }
 }

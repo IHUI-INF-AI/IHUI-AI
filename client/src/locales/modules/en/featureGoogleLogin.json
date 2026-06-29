@@ -1,5 +1,5 @@
 {
   "featureGoogleLogin": {
-    "googleLoginFailed": "googleLoginFailed"
+    "googleLoginFailed": "Google login failed"
   }
 }

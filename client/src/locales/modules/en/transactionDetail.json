@@ -1,11 +1,10 @@
 {
   "transactionDetail": {
-    "createTime": "创建时间",
-    "desc": "描述",
-    "relatedOrder": "relatedOrder",
-    "status": "状态",
-    "title": "标题",
-    "txId": "txId",
-    "user": "用户"
+    "txId": "Transaction ID",
+    "status": "Status",
+    "user": "User",
+    "relatedOrder": "Related Order",
+    "desc": "Description",
+    "createTime": "Created At"
   }
 }

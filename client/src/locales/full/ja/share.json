@@ -71,6 +71,7 @@
     "currentShares": "現在の共有回数",
     "shareSources": "共あり元",
     "wechatConfigFailed": "WeChat共有の設定に失敗しました。QRコードで共有してください",
-    "backToHome": "戻るホーム"
+    "backToHome": "戻るホーム",
+    "contentDetails": "コンテンツ詳細"
   }
 }

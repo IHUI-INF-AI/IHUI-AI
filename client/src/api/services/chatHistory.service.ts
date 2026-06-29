@@ -74,7 +74,7 @@ export async function createChatRecord(
       data: response.data || response,
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -98,7 +98,7 @@ export async function queryChatRecords(
       data,
       base: 3,
     })
-    const raw = (response as { data?: any }).data ?? response
+    const raw = (response as { data?: unknown }).data ?? response
     const list: ChatRecord[] = Array.isArray(raw)
       ? (raw as ChatRecord[])
       : Array.isArray((raw as { list?: ChatRecord[] }).list)
@@ -135,7 +135,7 @@ export async function queryChatRecords(
       data: finalList,
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -170,7 +170,7 @@ export async function updateChatMark(
       data: response.data || response,
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -199,7 +199,7 @@ export async function deleteChatRecord(chatId: number | string): Promise<ApiResp
       data: { success: true },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -284,7 +284,7 @@ export async function getChatHistoryMessages(
       data: responseData?.data || responseData || { messages: [], count: 0 },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,

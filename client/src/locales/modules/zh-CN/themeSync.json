@@ -1,102 +1,102 @@
 {
   "themeSync": {
+    "title": "主题同步",
+    "syncNow": "立即同步",
+    "status": {
+      "syncing": "同步中...",
+      "synced": "已同步",
+      "error": "同步失败",
+      "idle": "等待同步"
+    },
     "autoSync": "自动同步",
-    "cancel": "取消",
-    "cancelled": "已取消",
-    "conflict": {
-      "cloudBackup": "使用云端备份版本",
-      "confirm": "确认",
-      "description": "检测到本地和云端主题数据存在冲突，请选择处理方式",
-      "keepLocal": "保留本地版本",
-      "merge": "合并两端更改",
-      "mergeDesc": "将本地和云端的更改合并在一起",
-      "rememberChoice": "记住我的选择",
-      "thisDevice": "此设备上的版本",
-      "title": "同步冲突",
-      "useCloud": "使用云端版本"
-    },
-    "history": {
-      "actionConflict": "冲突解决",
-      "actionDownload": "下载",
-      "actionUpload": "上传",
-      "avgDuration": "平均耗时",
-      "clear": "清空",
-      "clearConfirm": "确认清空？",
-      "empty": "暂无记录",
-      "export": "导出",
-      "exportFailed": "导出失败",
-      "exportSuccess": "导出成功",
-      "failed": "失败",
-      "showAll": "展开全部",
-      "showLess": "收起",
-      "success": "成功",
-      "title": "同步历史"
-    },
+    "syncInterval": "同步间隔",
     "intervals": {
-      "daily": "每天",
       "hourly": "每小时",
+      "daily": "每天",
       "weekly": "每周"
     },
     "lastSync": "上次同步",
-    "loginRequired": "请先登录",
-    "notifications": "通知",
-    "offlineCannotProcess": "离线状态下无法处理",
-    "offlineMode": "离线模式",
-    "offlineQueue": "离线队列",
-    "processQueue": "处理离线队列",
+    "syncSuccess": "主题同步成功",
+    "syncFailed": "主题同步失败",
+    "loginRequired": "请先登录后再同步",
+    "cancel": "取消",
+    "cancelled": "同步已取消",
     "progress": {
-      "completing": "正在完成",
-      "finalizing": "正在收尾",
-      "preparing": "准备中",
-      "uploading": "上传中"
+      "preparing": "正在准备同步...",
+      "uploading": "正在上传数据...",
+      "finalizing": "正在完成同步...",
+      "completing": "同步即将完成..."
     },
+    "conflict": {
+      "title": "同步冲突",
+      "description": "检测到本地和云端数据存在冲突，请选择如何处理。",
+      "keepLocal": "保留本地版本",
+      "useCloud": "使用云端版本",
+      "merge": "智能合并",
+      "mergeDesc": "自动选择最新的更改",
+      "thisDevice": "此设备",
+      "cloudBackup": "云端备份",
+      "rememberChoice": "记住我的选择",
+      "confirm": "确认"
+    },
+    "history": {
+      "title": "同步历史",
+      "clear": "清空",
+      "clearConfirm": "确定要清空所有同步历史记录吗？",
+      "success": "成功",
+      "failed": "失败",
+      "avgDuration": "平均耗时",
+      "actionUpload": "上传",
+      "actionDownload": "下载",
+      "actionConflict": "冲突解决",
+      "empty": "暂无同步记录",
+      "showAll": "显示全部 {count} 条记录",
+      "showLess": "收起",
+      "export": "导出",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
+    },
+    "offlineQueue": "{count} 个同步任务等待处理",
+    "processQueue": "立即处理",
+    "offlineMode": "当前处于离线模式，同步将在网络恢复后自动进行",
+    "offlineCannotProcess": "网络不可用，无法处理同步队列",
+    "notifications": "桌面通知",
     "settings": {
+      "encryption": {
+        "title": "数据加密",
+        "enabled": "已启用",
+        "disabled": "未启用",
+        "setPassword": "设置加密密码",
+        "enable": "启用加密",
+        "disable": "禁用加密",
+        "setupSuccess": "加密设置成功",
+        "setupFailed": "加密设置失败",
+        "disableConfirm": "禁用加密后，同步数据将不再加密。确定要继续吗？",
+        "disabledSuccess": "加密已禁用"
+      },
       "devices": {
-        "active": "已激活",
+        "title": "已同步设备",
+        "total": "总设备",
+        "active": "活跃设备",
         "current": "当前设备",
         "remove": "移除",
-        "removeConfirm": "确认移除？",
-        "removeSuccess": "移除成功",
-        "title": "已同步设备",
-        "total": "总计"
-      },
-      "encryption": {
-        "disable": "禁用",
-        "disableConfirm": "确认禁用？",
-        "disabled": "已禁用",
-        "disabledSuccess": "已成功禁用",
-        "enable": "启用",
-        "enabled": "已启用",
-        "setPassword": "设置密码",
-        "setupFailed": "设置失败",
-        "setupSuccess": "设置成功",
-        "title": "加密设置"
+        "removeConfirm": "确定要移除此设备吗？移除后该设备需要重新登录。",
+        "removeSuccess": "设备已移除"
       },
       "performance": {
-        "avgDuration": "平均耗时",
-        "export": "导出",
-        "exportSuccess": "导出成功",
-        "operations": "操作记录",
-        "reportTitle": "性能报表",
+        "title": "同步性能",
+        "operations": "操作次数",
         "successRate": "成功率",
-        "title": "性能统计",
-        "viewReport": "查看报表"
+        "avgDuration": "平均耗时",
+        "viewReport": "查看报告",
+        "export": "导出数据",
+        "reportTitle": "同步性能报告",
+        "exportSuccess": "导出成功"
       }
     },
-    "status": {
-      "error": "错误",
-      "idle": "空闲",
-      "synced": "已同步",
-      "syncing": "同步中"
-    },
-    "syncFailed": "同步失败",
-    "syncInterval": "同步间隔",
-    "syncNow": "立即同步",
-    "syncSuccess": "同步成功",
-    "timeDaysAgo": "{n}天前",
-    "timeHoursAgo": "{n}小时前",
     "timeJustNow": "刚刚",
-    "timeMinutesAgo": "{n}分钟前",
-    "title": "主题同步"
+    "timeMinutesAgo": "{count} 分钟前",
+    "timeHoursAgo": "{count} 小时前",
+    "timeDaysAgo": "{count} 天前"
   }
 }

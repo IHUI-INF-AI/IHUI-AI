@@ -57,7 +57,7 @@ describe('backend-paths.ts', () => {
       expect(AUTH_PATHS.register).toBe('/api/v1/auth/register')
       expect(AUTH_PATHS.logout).toBe('/api/v1/auth/logout')
       expect(AUTH_PATHS.profile).toBe('/api/v1/auth/profile')
-      expect(AUTH_PATHS.health).toBe('/api/v1/auth/health')
+      expect(AUTH_PATHS.health).toBe('/api/auth/health')
       expect(AUTH_PATHS.code).toBe('/api/code')
       expect(AUTH_PATHS.user).toBe('/api/v1/auth/user')
     })
@@ -224,8 +224,7 @@ describe('backend-paths.ts', () => {
 
     it('chat 路径应该正确', () => {
       expect(COZE_PATHS.chat).toBe('/cozeZhsApi/chat')
-      // 2026-06-24 联调: chatStream 对齐后端 /api/v1/chat/message/stream
-      expect(COZE_PATHS.chatStream).toBe('/api/v1/chat/message/stream')
+      expect(COZE_PATHS.chatStream).toBe('/cozeZhsApi/chat/stream')
     })
 
     it('n8n 路径应该正确', () => {
@@ -243,11 +242,10 @@ describe('backend-paths.ts', () => {
 
     it('file 路径应该正确', () => {
       const f = COZE_PATHS.file
-      // 2026-06-24 修复: uploadForm 对齐后端 /cozeZhsApi/file/upload/form (content/file_upload.py)
       expect(f.uploadForm).toBe('/cozeZhsApi/file/upload/form')
-      expect(f.uploadBase64).toBe('/api/upload/base64')
-      expect(f.uploadOctet('文件.txt')).toBe('/api/upload/octet?file_name=%E6%96%87%E4%BB%B6.txt')
-      expect(f.uploadAgentExamine).toBe('/api/upload/agent-examine')
+      expect(f.uploadBase64).toBe('/cozeZhsApi/file/upload/base64')
+      expect(f.uploadOctet('文件.txt')).toBe('/cozeZhsApi/file/upload/octet?file_name=%E6%96%87%E4%BB%B6.txt')
+      expect(f.uploadAgentExamine).toBe('/cozeZhsApi/file/agent-examine')
       expect(f.list).toBe('/cozeZhsApi/file/list')
       expect(f.download('a b.txt')).toBe('/cozeZhsApi/file/download/a%20b.txt')
       expect(f.byId('f1')).toBe('/cozeZhsApi/file/f1')
@@ -278,15 +276,14 @@ describe('backend-paths.ts', () => {
       expect(p.alipayCreate).toBe('/cozeZhsApi/payment/alipay/create')
       expect(p.wechatCreate).toBe('/cozeZhsApi/payment/wechat/create')
       expect(p.cardCreate).toBe('/cozeZhsApi/payment/card/create')
-      // 2026-06-24 联调: refund 路径对齐后端 /api/v1/refunds 真实路由
       const r = p.refund
-      expect(r.apply).toBe('/api/v1/refunds')
-      expect(r.list).toBe('/api/v1/refunds')
-      expect(r.byRefundNo('r1')).toBe('/api/v1/refunds/r1')
-      expect(r.cancel('r1')).toBe('/api/v1/refunds/r1/cancel')
-      expect(r.status('r1')).toBe('/api/v1/refunds/r1')
-      expect(r.audit('r1')).toBe('/api/v1/refunds/r1/review')
-      expect(r.process('r1')).toBe('/api/v1/refunds/r1/review')
+      expect(r.apply).toBe('/cozeZhsApi/payment/refund/apply')
+      expect(r.list).toBe('/cozeZhsApi/payment/refund/list')
+      expect(r.byRefundNo('r1')).toBe('/cozeZhsApi/payment/refund/r1')
+      expect(r.cancel('r1')).toBe('/cozeZhsApi/payment/refund/r1/cancel')
+      expect(r.status('r1')).toBe('/cozeZhsApi/payment/refund/r1/status')
+      expect(r.audit('r1')).toBe('/cozeZhsApi/payment/refund/r1/audit')
+      expect(r.process('r1')).toBe('/cozeZhsApi/payment/refund/r1/process')
     })
 
     it('userAgentContext 路径应该正确', () => {
@@ -307,7 +304,8 @@ describe('backend-paths.ts', () => {
       expect(w.zhipu).toBe('/cozeZhsApi/ws/zhipu/stream')
       expect(w.chatdeepseek).toBe('/cozeZhsApi/ws/chatdeepseek/stream')
       expect(w.doubao).toBe('/cozeZhsApi/ws/doubao/streamDou')
-      expect(w.chat('c1')).toBe('/cozeZhsApi/ws/chat/c1')
+      // 2026-06-29 联调: ws.chat 走 vite /ws 代理对齐后端 /ws/chat/{room}
+      expect(w.chat('c1')).toBe('/ws/chat/c1')
     })
 
     it('index 路径应该正确', () => {
@@ -374,13 +372,6 @@ describe('backend-paths.ts', () => {
       expect(COZE_PATHS.aiCareer.submit).toBe('/cozeZhsApi/ai-career/submit')
     })
 
-    it('oauthAlipay 路径应该正确', () => {
-      const o = COZE_PATHS.oauthAlipay
-      expect(o.qrCode).toBe('/cozeZhsApi/oauth/alipay/qr-code')
-      expect(o.checkStatus).toBe('/cozeZhsApi/oauth/alipay/check-status')
-      expect(o.callback).toBe('/cozeZhsApi/oauth/alipay/callback')
-    })
-
     it('tokenValue 路径应该正确', () => {
       const t = COZE_PATHS.tokenValue
       expect(t.records).toBe('/cozeZhsApi/token-value/records')
@@ -408,30 +399,25 @@ describe('backend-paths.ts', () => {
     })
 
     it('agentCategory 路径应该正确', () => {
-      // 2026-06-25 修复#O: create/byId 对齐到 Python 后端, agentById 保留旧路径 (语义不同)
       const a = COZE_PATHS.agentCategory
       expect(a.agentById('a1')).toBe('/cozeZhsApi/agent-category/agent/a1')
-      expect(a.create).toBe('/api/v1/agents/categories/create')
-      expect(a.byId('c1')).toBe('/api/v1/agents/categories/c1')
+      expect(a.create).toBe('/cozeZhsApi/agent-category/create')
+      expect(a.byId('c1')).toBe('/cozeZhsApi/agent-category/c1')
     })
 
     it('agentBuy 路径应该正确', () => {
-      // 2026-06-25 修复#O: 对齐到 Python 后端真实端点
-      expect(COZE_PATHS.agentBuy.create).toBe('/api/v1/agents/buy/create')
+      expect(COZE_PATHS.agentBuy.create).toBe('/cozeZhsApi/agent-buy/create')
     })
 
     it('agentWithdrawalDetail 路径应该正确', () => {
-      // 2026-06-25 修复#L: 对齐到 Python 后端真实端点
-      expect(COZE_PATHS.agentWithdrawalDetail.list).toBe('/api/v1/agents/withdrawal/list')
+      expect(COZE_PATHS.agentWithdrawalDetail.list).toBe('/cozeZhsApi/agent-withdrawal-detail/list')
     })
 
     it('agentSettlement 路径应该正确', () => {
-      // 2026-06-25 修复#M/#N: 对齐到 Python 后端真实端点.
-      //   后端无 stats/income-overview 和 stats/overview, 用 /summary 等价.
       const a = COZE_PATHS.agentSettlement
-      expect(a.incomeOverview).toBe('/api/v1/agents/settlement/summary')
-      expect(a.list).toBe('/api/v1/agents/settlement/list')
-      expect(a.statsOverview).toBe('/api/v1/agents/settlement/summary')
+      expect(a.incomeOverview).toBe('/cozeZhsApi/agent-settlement/stats/income-overview')
+      expect(a.list).toBe('/cozeZhsApi/agent-settlement/list')
+      expect(a.statsOverview).toBe('/cozeZhsApi/agent-settlement/stats/overview')
     })
 
     it('search 路径应该正确', () => {
@@ -482,15 +468,13 @@ describe('backend-paths.ts', () => {
     })
 
     it('agentExamine 路径应该正确', () => {
-      // 2026-06-25 修复#O: list/byId/statsSummary/approve/reject 对齐到 Python 后端
-      //   create/syncAvatar/batchSyncAvatar 保留旧路径 (后端语义不同或无对应)
       const a = COZE_PATHS.agentExamine
-      expect(a.list).toBe('/api/v1/agents/examine/list')
+      expect(a.list).toBe('/cozeZhsApi/agent-examine/list')
       expect(a.create).toBe('/cozeZhsApi/agent-examine/create')
-      expect(a.byId('a1')).toBe('/api/v1/agents/examine/a1')
-      expect(a.statsSummary).toBe('/api/v1/agents/examine/stats/summary')
-      expect(a.approve('a1')).toBe('/api/v1/agents/examine/a1/approve')
-      expect(a.reject('a1')).toBe('/api/v1/agents/examine/a1/reject')
+      expect(a.byId('a1')).toBe('/cozeZhsApi/agent-examine/a1')
+      expect(a.statsSummary).toBe('/cozeZhsApi/agent-examine/stats/summary')
+      expect(a.approve('a1')).toBe('/cozeZhsApi/agent-examine/a1/approve')
+      expect(a.reject('a1')).toBe('/cozeZhsApi/agent-examine/a1/reject')
       expect(a.syncAvatar('a1')).toBe('/cozeZhsApi/agent-examine/sync-avatar/a1')
       expect(a.batchSyncAvatar).toBe('/cozeZhsApi/agent-examine/batch-sync-avatar')
     })
@@ -555,24 +539,23 @@ describe('backend-paths.ts', () => {
   // 钱包路径
   describe('WALLET_PATHS', () => {
     it('应该包含正确的钱包路径', () => {
-      // 2026-06-24 联调: 对齐后端 compat_routes.py /api/v1/wallet/* 真实路由
-      expect(WALLET_PATHS.info).toBe('/api/v1/wallet/balance')
-      expect(WALLET_PATHS.transactions).toBe('/api/v1/wallet/transactions')
-      expect(WALLET_PATHS.withdraw).toBe('/api/v1/wallet/withdraw')
+      expect(WALLET_PATHS.info).toBe('/api/wallet/info')
+      expect(WALLET_PATHS.transactions).toBe('/api/wallet/transactions')
+      expect(WALLET_PATHS.withdraw).toBe('/api/wallet/withdraw')
     })
   })
 
-  // 社区路径 (2026-06-21 联调: 对齐后端 v2_community.py 真实路由)
+  // 社区路径 (2026-06-29 修正: 对齐后端 v1 circle 模块真实路由)
   describe('COMMUNITY_PATHS', () => {
     it('应该包含正确的社区路径', () => {
       const p = COMMUNITY_PATHS.posts
-      expect(p.list).toBe('/api/v2/community/posts')
-      expect(p.create).toBe('/api/v2/community/post')
-      expect(p.batch).toBe('/api/v2/community/posts')
-      expect(p.byId('p1')).toBe('/api/v2/community/post?id=p1')
-      expect(p.like('p1')).toBe('/api/v2/community/like')
-      expect(p.comments('p1')).toBe('/api/v2/community/comments?postId=p1')
-      expect(COMMUNITY_PATHS.topics.list).toBe('/api/v2/community/groups')
+      expect(p.list).toBe('/api/v1/circle/post/list')
+      expect(p.create).toBe('/api/v1/circle/post')
+      expect(p.batch).toBe('/api/v1/circle/post/list')
+      expect(p.byId('p1')).toBe('/api/v1/circle/post/p1')
+      expect(p.like('p1')).toBe('/api/v1/circle/post/p1/like')
+      expect(p.comments('p1')).toBe('/api/v1/circle/post/p1/comments')
+      expect(COMMUNITY_PATHS.topics.list).toBe('/api/v1/circle/list')
     })
   })
 
@@ -580,41 +563,41 @@ describe('backend-paths.ts', () => {
   describe('API_V1_PATHS', () => {
     it('应该包含正确的 API v1 路径', () => {
       const a = API_V1_PATHS
-      expect(a.chat.process).toBe('/api/v1/chat/message')
+      expect(a.chat.process).toBe('/api/v1/chat/process')
       expect(a.model.switch).toBe('/api/v1/model/switch')
       expect(a.tools.navigation).toBe('/api/v1/tools/navigation')
       expect(a.agent.upload).toBe('/api/v1/agent/upload')
-      expect(a.news.list).toBe('/api/v1/content/news')
-      expect(a.news.detail('n1')).toBe('/api/v1/content/news/n1')
-      expect(a.news.detail(123)).toBe('/api/v1/content/news/123')
+      expect(a.news.list).toBe('/api/v1/news/list')
+      expect(a.news.detail('n1')).toBe('/api/v1/news/n1')
+      expect(a.news.detail(123)).toBe('/api/v1/news/123')
     })
   })
 
-  // 工具路径 (2026-06-21 联调: 对齐后端 v1/v2 真实路由)
+  // 工具路径 (2026-06-29 修正: 对齐后端 v1/tools 真实路由)
   describe('TOOLS_PATHS', () => {
     it('应该包含正确的工具路径', () => {
       const t = TOOLS_PATHS
       expect(t.list).toBe('/api/v1/tools/list')
       expect(t.all).toBe('/api/v1/tools/list')
-      expect(t.popular).toBe('/api/v2/tools/hot')
+      expect(t.popular).toBe('/api/v1/tools/list')
       expect(t.categories.list).toBe('/api/v1/tools/categories')
-      expect(t.byId('t1')).toBe('/api/v2/tools/detail?id=t1')
-      expect(t.use('t1')).toBe('/api/v2/tools/invoke')
-      expect(t.batchUse).toBe('/api/v2/tools/invoke')
-      expect(t.favorite('t1')).toBe('/api/v2/tools/favorite')
-      expect(t.unfavorite('t1')).toBe('/api/v2/tools/favorite')
+      expect(t.byId('t1')).toBe('/api/v1/tools/list?id=t1')
+      expect(t.use('t1')).toBe('/api/v1/tools/upload')
+      expect(t.batchUse).toBe('/api/v1/tools/upload')
+      expect(t.favorite('t1')).toBe('/api/v1/tools/list')
+      expect(t.unfavorite('t1')).toBe('/api/v1/tools/list')
     })
   })
 
-  // 内容路径 (2026-06-21 联调: 对齐后端 v2_content.py 真实路由)
+  // 内容路径 (2026-06-29 修正: 对齐后端 v1/content 真实路由)
   describe('CONTENT_PATHS', () => {
     it('应该包含正确的内容路径', () => {
       const g = CONTENT_PATHS.generation
-      expect(g.text).toBe('/api/v2/content/create')
-      expect(g.textBatch).toBe('/api/v2/content/create')
-      expect(g.image).toBe('/api/v2/content/create')
-      expect(g.video).toBe('/api/v2/content/create')
-      expect(g.history).toBe('/api/v2/content/list')
+      expect(g.text).toBe('/api/v1/content/create')
+      expect(g.textBatch).toBe('/api/v1/content/create')
+      expect(g.image).toBe('/api/v1/content/create')
+      expect(g.video).toBe('/api/v1/content/create')
+      expect(g.history).toBe('/api/v1/content/list')
     })
   })
 
@@ -747,10 +730,9 @@ describe('backend-paths.ts', () => {
   describe('COURSES_API_PATHS', () => {
     it('应该包含正确的课程 API 路径', () => {
       const c = COURSES_API_PATHS
-      // 2026-06-24 修复: list/byId/categories 路径前缀对齐后端 /api/v1/courses/*
-      expect(c.list).toBe('/api/v1/courses/list')
-      expect(c.byId('c1')).toBe('/api/v1/courses/c1')
-      expect(c.categories).toBe('/api/v1/courses/categories')
+      expect(c.list).toBe('/api/courses')
+      expect(c.byId('c1')).toBe('/api/courses/c1')
+      expect(c.categories).toBe('/api/courses/categories')
       expect(c.my).toBe('/api/courses/my')
       expect(c.enroll('c1')).toBe('/api/courses/c1/enroll')
       expect(c.progress('c1')).toBe('/api/courses/c1/progress')
@@ -764,8 +746,7 @@ describe('backend-paths.ts', () => {
       const c = COURSE_PATHS
       expect(c.update).toBe('/course')
       expect(c.export).toBe('/course/export')
-      // 2026-06-24 修复: delete 路径对齐后端 /api/v1/courses/{ids}
-      expect(c.delete('1,2')).toBe('/api/v1/courses/1,2')
+      expect(c.delete('1,2')).toBe('/course/1,2')
     })
   })
 

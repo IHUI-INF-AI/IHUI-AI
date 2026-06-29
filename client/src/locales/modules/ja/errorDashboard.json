@@ -1,16 +1,16 @@
 {
   "errorDashboard": {
-    "d30": "d30",
-    "d7": "d7",
-    "errorRate": "errorRate",
-    "h24": "h24",
-    "other": "other",
-    "recentErrors": "recentErrors",
-    "resolved": "resolved",
-    "stackInfo": "stackInfo",
-    "todayErrors": "todayErrors",
-    "totalErrors": "totalErrors",
-    "trend": "trend",
-    "typeDistribution": "typeDistribution"
+    "totalErrors": "総エラー数",
+    "todayErrors": "本日のエラー",
+    "resolved": "解決済み",
+    "errorRate": "エラー率",
+    "trend": "エラー趨勢",
+    "h24": "24時間",
+    "d7": "7日",
+    "d30": "30日",
+    "typeDistribution": "エラータイプ分布",
+    "recentErrors": "最近のエラー",
+    "stackInfo": "スタック情報",
+    "other": "その他"
   }
 }

@@ -1,10 +1,10 @@
 {
   "memberHomework": {
-    "deadline": "截止日期",
-    "empty": "empty",
-    "status": "状态",
-    "submit": "提交",
-    "submitted": "submitted",
-    "title": "标题"
+    "title": "내 과제",
+    "empty": "과제 없음",
+    "deadline": "마감:",
+    "status": "상태:",
+    "submitted": "제출됨",
+    "submit": "제출"
   }
 }

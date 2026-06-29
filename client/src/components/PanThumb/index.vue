@@ -44,7 +44,8 @@ export default {
   display: inline-block;
   position: relative;
   cursor: default;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .pan-info-roles-container {
   padding: 20px;
@@ -60,7 +61,7 @@ export default {
   overflow: hidden;
   position: absolute;
   transform-origin: 95% 40%;
-  transition: transform 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out;
 }
 
 /* .pan-thumb:after {
@@ -73,6 +74,8 @@ export default {
   left: 95%;
   margin: -4px 0 0 -4px;
   background: radial-gradient(ellipse at center, rgba(14, 14, 14, 1) 0%, rgba(125, 126, 125, 1) 100%);
+  outline: 1px solid var(--color-white-90);
+  outline-offset: 0;
   box-shadow: none;
 } */
 
@@ -82,7 +85,7 @@ export default {
   height: inherit;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 5px var(--color-black-5);
 }
 
 .pan-info h3 {
@@ -117,7 +120,7 @@ export default {
   font-style: normal;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1px;
   padding-top: 24px;
   margin: 7px auto 0;

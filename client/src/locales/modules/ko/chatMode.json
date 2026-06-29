@@ -1,8 +1,23 @@
 {
   "chatMode": {
-    "agentMode": "agentMode",
-    "enterAgentMode": "enterAgentMode",
-    "exitAgentMode": "exitAgentMode",
-    "normalMode": "normalMode"
+    "agentMode": "에이전트 모드",
+    "normalMode": "일반 모드",
+    "enterAgentMode": "에이전트 모드 진입",
+    "exitAgentMode": "에이전트 모드 종료",
+    "minimal": "미니멀",
+    "global": "글로벌벌",
+    "dialog": "대화상게",
+    "agent": "에이전트",
+    "switchToMinimal": "미니멀 모드로 전환",
+    "switchToGlobal": "글로벌벌 모드로 전환",
+    "switchToDialog": "대화상게 모드로 전환",
+    "switchToAgent": "에이전트 모드로 전환",
+    "switchedTo": "{mode}로 전환되었습니다",
+    "minimalMode": "미니멀 모드",
+    "globalMode": "글로벌벌 모드",
+    "dialogMode": "대화상게 모드",
+    "switchMode": "모드 전환",
+    "agentModeLabel": "에이전트",
+    "switchModeLabel": "모드 전환"
   }
 }

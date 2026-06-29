@@ -1,20 +1,21 @@
 {
   "queue": {
-    "clearConfirm": "clearConfirm",
-    "clearTitle": "clearTitle",
-    "cleared": "cleared",
-    "completedLabel": "completedLabel",
-    "empty": "empty",
-    "failed": "失败",
-    "failedLabel": "failedLabel",
-    "idle": "idle",
-    "moreTasks": "moreTasks",
-    "pending": "待处理",
-    "pendingLabel": "pendingLabel",
-    "pendingTasks": "pendingTasks",
-    "processing": "处理中",
-    "processingLabel": "processingLabel",
-    "processingTasks": "processingTasks",
-    "title": "标题"
+    "핵심 장점": "생성 큐",
+    "processing": "처리 중",
+    "pending": "대기 중",
+    "failed": "실패",
+    "idle": "유휴",
+    "processingLabel": "처리 중",
+    "pendingLabel": "대기 중",
+    "completedLabel": "완료",
+    "failedLabel": "실패",
+    "processingTasks": "처리 중",
+    "pendingTasks": "대기 중",
+    "empty": "큐가 비어 있습니다",
+    "moreTasks": "작업 {count}개 더",
+    "clearTitle": "큐 지우기",
+    "clearConfirm": "모든 대기 중인 작업을 지우시겠습니까?",
+    "cleared": "큐를 지웠습니다",
+    "title": "큐 생성"
   }
 }

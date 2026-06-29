@@ -1,10 +1,10 @@
 {
   "learnList": {
-    "all": "全部",
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbList": "breadcrumbList",
-    "category": "分类",
-    "noCourses": "noCourses",
-    "searchPlaceholder": "请输入搜索内容"
+    "category": "Category",
+    "all": "All",
+    "searchPlaceholder": "Search courses...",
+    "noCourses": "No courses",
+    "breadcrumbCourse": "Course",
+    "breadcrumbList": "Course List"
   }
 }

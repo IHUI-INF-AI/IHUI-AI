@@ -148,7 +148,7 @@ export interface NotificationOptions {
   image?: string
   badge?: string
   tag?: string
-  data?: any
+  data?: unknown
   requireInteraction?: boolean
   silent?: boolean
   actions?: NotificationAction[]

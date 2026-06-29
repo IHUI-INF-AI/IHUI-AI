@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { getI18nGlobal } from '@/locales'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { logger } from '@/utils/logger'
-import type { UserInfoData } from '@/api/user/user'
+import type { UserInfoData } from '@/api/user'
 import type { ThirdPartyLoginData } from './types'
 import { extractUuid, extractIsVip } from './utils'
 import { useTokenStore } from './token'
@@ -18,35 +18,10 @@ export const useThirdPartyStore = defineStore('thirdParty', () => {
     try {
       isLoading.value = true
 
-      // 2026-06-25 修复: 4 个子 store 单独 try/catch, 任一不可用时给出明确错误而不是连带失败
-      let tokenStore: ReturnType<typeof useTokenStore> | null = null
-      let userStore: ReturnType<typeof useUserStore> | null = null
-      let walletStore: ReturnType<typeof useWalletStore> | null = null
-      let vipStore: ReturnType<typeof useVipStore> | null = null
-      try {
-        tokenStore = useTokenStore()
-      } catch (e) {
-        logger.debug('[ThirdPartyStore] tokenStore unavailable:', e)
-      }
-      try {
-        userStore = useUserStore()
-      } catch (e) {
-        logger.debug('[ThirdPartyStore] userStore unavailable:', e)
-      }
-      try {
-        walletStore = useWalletStore()
-      } catch (e) {
-        logger.debug('[ThirdPartyStore] walletStore unavailable:', e)
-      }
-      try {
-        vipStore = useVipStore()
-      } catch (e) {
-        logger.debug('[ThirdPartyStore] vipStore unavailable:', e)
-      }
-      if (!tokenStore || !userStore || !walletStore || !vipStore) {
-        logger.warn('[ThirdPartyStore] Required sub-stores unavailable, cannot thirdPartyLogin')
-        return false
-      }
+      const tokenStore = useTokenStore()
+      const userStore = useUserStore()
+      const walletStore = useWalletStore()
+      const vipStore = useVipStore()
 
       tokenStore.setToken(loginData.token, loginData.refreshToken)
 
@@ -73,14 +48,14 @@ export const useThirdPartyStore = defineStore('thirdParty', () => {
         levelName?: string
         level?: number
         userVip?: { isValid?: number }
-        [key: string]: any
+        [key: string]: unknown
       } | undefined
 
       const userMarginData = rawUser.userMargin as {
         id?: string
         userUuid?: string
         tokenQuantity?: string | number
-        [key: string]: any
+        [key: string]: unknown
       } | undefined
 
       const identityType = (rawUser.identityType as number) ?? (rawUser.identityTypy as number) ?? 0

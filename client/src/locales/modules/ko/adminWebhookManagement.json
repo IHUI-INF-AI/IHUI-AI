@@ -1,0 +1,38 @@
+{
+  "adminWebhookManagement": {
+    "핵심 장점": "Webhook관리",
+    "search": {
+      "status": "상태",
+      "statusPlaceholder": "요청선택상태"
+    },
+    "table": {
+      "status": "상태"
+    },
+    "status": {
+      "enabled": "활성화",
+      "disabled": "비활성화"
+    },
+    "form": {},
+    "signatureAlgorithm": {},
+    "detail": {
+      "핵심 장점": "Webhook상세",
+      "status": "상태"
+    },
+    "eventLog": {
+      "핵심 장점": "이벤트로그",
+      "status": "상태"
+    },
+    "eventStatus": {
+      "failed": "실패"
+    },
+    "eventDetail": {
+      "핵심 장점": "이벤트상세",
+      "status": "상태"
+    },
+    "dialogs": {},
+    "messages": {
+      "addSuccess": "추가성공"
+    },
+    "rules": {}
+  }
+}

@@ -62,7 +62,7 @@
           <button
             v-show="canScrollLeft"
             class="timeline-nav-btn timeline-nav-prev"
-            :aria-label="t('common.previousItem')"
+            aria-label="上一个"
             @click="scrollTimeline('left')"
           >
             <el-icon><ChevronLeft /></el-icon>
@@ -181,7 +181,7 @@ onMounted(() => {
 })
 
 const stats = computed(() => [
-  { key: 'users', value: t('AboutUs.sixKPlus'), labelKey: 'aboutUs.stats.users' },
+  { key: 'users', value: t('aboutUs.sixKPlus'), labelKey: 'aboutUs.stats.users' },
   { key: 'developers', value: '8000+', labelKey: 'aboutUs.stats.developers' },
   { key: 'models', value: '50+', labelKey: 'aboutUs.stats.models' },
 ])
@@ -232,7 +232,7 @@ const teamMembers = computed(() => [
     right: -10%;
     width: 80%;
     height: 80%;
-    background: rgb(var(--el-color-primary-rgb), 0.02);
+    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.02);
     filter: blur(80px);
   }
 
@@ -362,7 +362,7 @@ const teamMembers = computed(() => [
     }
 
     .badge-text {
-      font-family: var(--font-family-edix);
+      font-family: EDIX, sans-serif;
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.05em;
@@ -599,7 +599,7 @@ const teamMembers = computed(() => [
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
   z-index: calc(var(--z-base) + 9);
 
   &:hover {
@@ -734,7 +734,8 @@ const teamMembers = computed(() => [
   border-radius: var(--global-border-radius);
   background: hsl(var(--primary));
   flex-shrink: 0;
-  }
+  border: 2px solid var(--el-border-color-lighter);
+}
 
 .timeline-row-track .timeline-line {
   flex: 0 0 40px;

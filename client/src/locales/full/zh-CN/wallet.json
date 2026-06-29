@@ -63,27 +63,5 @@
     "viewStatistics": "查看统计",
     "income": "收入",
     "expense": "支出"
-  },
-  "transactionDetail": {
-    "title": "交易详情",
-    "txId": "交易ID",
-    "status": "状态",
-    "user": "用户",
-    "relatedOrder": "关联订单",
-    "desc": "描述",
-    "createTime": "创建时间"
-  },
-  "withdrawDialog": {
-    "title": "钱包提现",
-    "availableBalance": "可提现余额",
-    "amount": "提现金额",
-    "bankCard": "到账银行卡",
-    "noBankCard": "暂未绑定银行卡",
-    "bindNow": "立即绑定",
-    "change": "更换",
-    "agreePrefix": "我已阅读并同意",
-    "termsTitle": "《提现服务协议》",
-    "submit": "申请提现",
-    "submitting": "提交中..."
   }
 }

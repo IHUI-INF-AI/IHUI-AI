@@ -1,19 +1,17 @@
 {
   "studyGroup": {
-    "cover": "封面",
-    "delist": "delist",
-    "descPlaceholder": "descPlaceholder",
-    "edit": "编辑",
-    "enterGroupDesc": "enterGroupDesc",
-    "enterGroupTitle": "enterGroupTitle",
-    "groupDesc": "groupDesc",
-    "groupTitle": "groupTitle",
-    "pleaseSelect": "pleaseSelect",
-    "publish": "发布",
-    "selectTrack": "selectTrack",
-    "subTrack": "subTrack",
-    "titlePlaceholder": "titlePlaceholder",
-    "uploadCover": "uploadCover",
-    "uploadVideo": "uploadVideo"
+    "subTrack": "Sub Track",
+    "pleaseSelect": "Please Select",
+    "uploadVideo": "Upload Video",
+    "publish": "Publish",
+    "edit": "Edit",
+    "delist": "Delist",
+    "cover": "Cover",
+    "enterGroupDesc": "Please enter group description",
+    "enterGroupTitle": "Please enter group title",
+    "groupDesc": "Group Description",
+    "groupTitle": "Group Title",
+    "selectTrack": "Please select track",
+    "uploadCover": "Please upload a cover image"
   }
 }

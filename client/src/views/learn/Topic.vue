@@ -38,10 +38,10 @@ import { useRouter } from 'vue-router'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnPage from '@/components/learn/Page.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const router = useRouter()
-const list = ref<any[]>([])
+const list = ref<unknown[]>([])
 const total = ref(0)
 const loading = ref(false)
 const page = ref(1)
@@ -50,15 +50,16 @@ const size = ref(12)
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.topicList({ page: page.value, pageSize: size.value } as any)
-    list.value = res.data?.items || res.data?.list || []
-    total.value = res.data?.total || 0
+    const res = await learnApi.topicList({ page: page.value, pageSize: size.value })
+    const rData = res.data?.data
+    list.value = rData?.items || rData?.list || []
+    total.value = rData?.total || 0
   } finally {
     loading.value = false
   }
 }
 
-function goDetail(t: any) {
+function goDetail(t: Record<string, unknown>) {
   router.push({ path: `/learn/topic/${t.id}` })
 }
 
@@ -92,7 +93,7 @@ onMounted(load)
   transition: transform 0.2s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
   }
 }
 

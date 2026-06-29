@@ -1,10 +1,28 @@
 {
   "errors": {
-    "aiCallFailed": "AI call 失败",
-    "cannotLoadSwaggerDocs": "cannot 加载 swagger docs",
-    "loadDataFailed": "加载数据失败",
-    "navigateFail": "navigate 不通过",
-    "routeNotFound": "路由 非 found",
-    "userInfoEmpty": "用户 信息 empty"
+    "pleaseLogin": "请先登录",
+    "notLoggedIn": "未登录",
+    "aiCallFailed": "aiCall失败",
+    "cannotLoadSwaggerDocs": "是否可以无tLoadSwaggerDocs",
+    "navigateFail": "NavigateFail",
+    "loadDataFailed": "loadData失败",
+    "routeNotFound": "RouteNotFound",
+    "userInfoEmpty": "User信息清空",
+    "forbidden": "Forbidden",
+    "notFound": "未找到",
+    "accountLocked": "账号已被锁定，请联系客服",
+    "accountDisabled": "账号已被禁用，请联系客服",
+    "accountDeleted": "账号已被删除",
+    "passwordExpired": "密码已过期，请修改密码",
+    "passwordWrong": "密码错误",
+    "captchaExpired": "验证码已过期，请重新获取",
+    "captchaWrong": "验证码错误",
+    "phoneNotVerified": "手机号未验证",
+    "tooManyRequests": "请求过于频繁，请稍后再试",
+    "tokenExpired": "登录已过期，请重新登录",
+    "serverError": "服务器错误，请稍后再试",
+    "serviceUnavailable": "服务暂时不可用",
+    "unknown": "未知错误",
+    "xssDetected": "检测到XSS"
   }
 }

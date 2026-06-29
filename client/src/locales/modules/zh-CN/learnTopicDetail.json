@@ -1,7 +1,7 @@
 {
   "learnTopicDetail": {
-    "joinTopic": "加入 话题",
-    "topicCourses": "话题 课程",
-    "topicNotFound": "话题 非 found"
+    "topicNotFound": "专题不存在",
+    "joinTopic": "加入专题",
+    "topicCourses": "专题课程"
   }
 }

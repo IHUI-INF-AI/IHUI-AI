@@ -1,0 +1,43 @@
+{
+  "adminTopUpManagement": {
+    "actions": {
+      "export": "エクスポート記録"
+    },
+    "search": {
+      "status": "チャージステータス",
+      "statusPlaceholder": "请選択チャージステータス",
+      "statusPending": "待支払い",
+      "statusPaid": "済み支払い",
+      "statusFailed": "支払い失敗",
+      "statusCancelled": "済みキャンセル"
+    },
+    "table": {
+      "status": "チャージステータス"
+    },
+    "paymentMethod": {},
+    "status": {
+      "pending": "待支払い",
+      "paid": "済み支払い",
+      "failed": "支払い失敗",
+      "cancelled": "済みキャンセル",
+      "unknown": "不明"
+    },
+    "detail": {
+      "status": "チャージステータス"
+    },
+    "dialog": {},
+    "messages": {
+      "noExportData": "なし可エクスポート的データ",
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    },
+    "export": {
+      "filename": "filename",
+      "title": "エクスポート"
+    },
+    "exportFormatPrompt": "请選択エクスポート形式",
+    "exportCSV": "エクスポートCSV",
+    "exportExcel": "エクスポートExcel",
+    "exportPDF": "エクスポートPDF"
+  }
+}

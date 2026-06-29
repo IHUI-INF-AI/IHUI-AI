@@ -1,23 +1,12 @@
 {
   "examDo": {
-    "backToList": "返回列表",
+    "questionCount": "题目数",
     "duration": "时长",
-    "examResult": "考试结果",
-    "failed": "失败",
-    "inputAnswer": "输入答案",
-    "inputEssay": "输入 essay",
     "minutes": "分钟",
-    "passScore": "通过 分数",
-    "passed": "已通过",
-    "questionCount": "问题 数量",
-    "remaining": "剩余",
-    "score": "分数",
+    "passScore": "及格",
     "startExam": "开始考试",
-    "submit": "提交",
-    "typeEssay": "类型 essay",
-    "typeFill": "类型 fill",
-    "typeJudge": "类型 judge",
-    "typeMultiple": "类型 multiple",
-    "typeSingle": "类型 single"
+    "remaining": "剩余",
+    "score": "分",
+    "submit": "交卷"
   }
 }

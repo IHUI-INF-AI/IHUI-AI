@@ -1,8 +1,8 @@
 {
   "studyComment": {
-    "enterComment": "请输入评论",
-    "enterReply": "enter 回复",
-    "hotComments": "热门 comments",
+    "hotComments": "热门评论",
+    "enterReply": "请输入回复内容...",
+    "enterComment": "输入评论",
     "send": "发送"
   }
 }

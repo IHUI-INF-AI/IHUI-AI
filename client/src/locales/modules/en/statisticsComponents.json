@@ -1,19 +1,20 @@
 {
   "statisticsComponents": {
-    "passed": "passed",
-    "pending": "待处理",
-    "purchaseStats": "purchaseStats",
-    "rejected": "已拒绝",
-    "reviewStats": "reviewStats",
-    "settled": "settled",
-    "settlementStats": "settlementStats",
-    "totalPurchases": "totalPurchases",
-    "totalRevenue": "totalRevenue",
-    "totalReviews": "totalReviews",
-    "totalSettlements": "totalSettlements",
-    "totalWithdrawn": "totalWithdrawn",
-    "uniqueAgents": "uniqueAgents",
-    "uniqueBuyers": "uniqueBuyers",
-    "unsettled": "unsettled"
+    "reviewStats": "Review Statistics",
+    "totalReviews": "Total Reviews",
+    "passed": "Passed",
+    "pending": "Pending",
+    "Rejected": "Rejected",
+    "purchaseStats": "Purchase Statistics",
+    "totalPurchases": "Total Purchases",
+    "totalRevenue": "Total Revenue",
+    "uniqueBuyers": "Unique Buyers",
+    "uniqueAgents": "Unique Agents",
+    "settlementStats": "Settlement Statistics",
+    "totalSettlements": "Total Settlements",
+    "totalWithdrawn": "Total Withdrawn",
+    "settled": "Settled",
+    "unsettled": "Unsettled",
+    "rejected": "Reject"
   }
 }

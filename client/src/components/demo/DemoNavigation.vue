@@ -2,6 +2,11 @@
   <div class="demo-navigation">
     <h3>{{ t('hardcoded.demo.navigation.组件演示导航') }}</h3>
     <div class="demo-links">
+      <router-link to="/demo/project-selector" class="demo-link" active-class="active">
+        <el-icon><Grid /></el-icon>
+        <span>{{ t('hardcoded.demo.navigation.项目选择器') }}</span>
+      </router-link>
+
       <router-link to="/" class="demo-link" active-class="active">
         <el-icon><HomeFilled /></el-icon>
         <span>{{ t('hardcoded.demo.navigation.返回首页') }}</span>
@@ -15,7 +20,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-import { HomeFilled } from '@element-plus/icons-vue'
+import { Grid, HomeFilled } from '@element-plus/icons-vue'
 </script>
 
 <style scoped lang="scss">
@@ -50,7 +55,7 @@ import { HomeFilled } from '@element-plus/icons-vue'
   border-radius: var(--global-border-radius);
   color: var(--el-text-color-regular);
   text-decoration: none;
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  transition: all 0.3s ease;
   font-size: 14px;
 
   &:hover {

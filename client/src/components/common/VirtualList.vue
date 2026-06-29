@@ -31,16 +31,16 @@
 import { ref, computed } from 'vue'
 
 interface Props {
-  items: any[]
+  items: unknown[]
   itemHeight: number
   height: number
   overscan?: number
-  getItemKey?: (item: any, index: number) => string | number
+  getItemKey?: (item: unknown, index: number) => string | number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   overscan: 3,
-  getItemKey: (_: any, index: number) => index,
+  getItemKey: (_: unknown, index: number) => index,
 })
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -59,7 +59,7 @@ const visibleRange = computed(() => {
 // 可见项
 const visibleItems = computed(() => {
   const { start, end } = visibleRange.value
-  return props.items.slice(start, end + 1).map((item: any, index: number) => ({
+  return props.items.slice(start, end + 1).map((item: unknown, index: number) => ({
     data: item,
     index: start + index,
   }))

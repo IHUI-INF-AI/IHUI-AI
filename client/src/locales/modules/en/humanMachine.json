@@ -1,180 +1,181 @@
 {
   "humanMachine": {
+    "heroTitle": "Human-Machine Collaboration Organization",
+    "heroSubtitle": "From physical world to information world, building human-machine collaborative super Enterprises. Helping Enterprises understand organizational architecture, process optimization, and human values in the AI era.",
     "architecture": {
-      "infoWorld": {
-        "description": "描述",
-        "title": "标题"
-      },
       "physicalWorld": {
-        "description": "描述",
-        "title": "标题"
+        "title": "Physical World",
+        "description": "Organization, Process, Culture"
+      },
+      "infoWorld": {
+        "title": "Information World",
+        "description": "Digitization, AI, Intelligence"
       },
       "superEnterprise": {
-        "description": "描述",
-        "title": "标题"
+        "title": "Super Enterprise",
+        "description": "Ultimate form of human-machine collaboration"
+      }
+    },
+    "physicalWorld": {
+      "title": "Enterprise Physical World",
+      "intro": "Help Enterprises organize structure and business processes, define clear positions and responsibilities for digital employees, while maintaining focus on human values.",
+      "structure": {
+        "title": "Organization Structure",
+        "description": "Organize Enterprise structure, define human-AI collaboration relationships",
+        "features": {
+          "mapping": "Position Capability Mapping",
+          "digital": "Digital Employee Positioning",
+          "hybrid": "Hybrid Team Design"
+        }
+      },
+      "process": {
+        "title": "Process Analysis",
+        "description": "Forward and reverse process analysis to find key nodes where AI can empower",
+        "forward": {
+          "label": "Forward Analysis",
+          "goal": "Goal",
+          "process": "Process",
+          "role": "Role"
+        },
+        "reverse": {
+          "label": "Reverse Analysis",
+          "role": "Role",
+          "process": "Process"
+        }
+      },
+      "humanValue": {
+        "title": "Human Values",
+        "description": "Maintaining respect and focus on human values in the AI era",
+        "values": {
+          "culture": "Corporate Culture",
+          "mission": "Mission & Vision",
+          "critical": "Critical Thinking",
+          "humility": "Humility"
+        }
+      }
+    },
+    "infoWorld": {
+      "title": "Enterprise Information World",
+      "intro": "Guide Enterprises from basic informatization to advanced AI, building a complete digital capability system.",
+      "evolution": "Capability Evolution",
+      "basic": {
+        "title": "Basic Information World",
+        "description": "Build digital infrastructure, achieve informatization and automation of business processes",
+        "items": {
+          "informatization": {
+            "name": "Informatization",
+            "desc": "Digital Storage and management of business data"
+          },
+          "iot": {
+            "name": "IoT",
+            "desc": "Connection between physical and digital worlds"
+          },
+          "automation": {
+            "name": "Automation",
+            "desc": "Rule-driven process automation"
+          }
+        }
+      },
+      "advanced": {
+        "title": "Advanced Information World",
+        "description": "Introduce AI capabilities, achieve intelligent upgrade from perception to decision to action",
+        "items": {
+          "perception": {
+            "name": "Perceptual AI",
+            "desc": "Intelligent recognition of vision, Voice, and text"
+          },
+          "generative": {
+            "name": "Generative AI",
+            "desc": "Content creation, code generation, design assistance"
+          },
+          "agent": {
+            "name": "Agent AI",
+            "desc": "Autonomous decision, task execution, multi-agent collaboration"
+          },
+          "physical": {
+            "name": "Physical AI",
+            "desc": "Robotics, autonomous driving, smart manufacturing"
+          }
+        }
+      }
+    },
+    "superEnterprise": {
+      "title": "Human-Machine Collaborative Super Enterprise",
+      "intro": "Through deep collaboration between humans and AI, create super employees, super teams, and super products/services.",
+      "superEmployee": {
+        "title": "Super Employee/Super Individual",
+        "description": "Personal productivity revolution empowered by AI, every employee can perform beyond normal capabilities",
+        "features": {
+          "productivity": "10x Productivity",
+          "decision": "Intelligent Decision",
+          "creativity": "Enhanced Creativity"
+        }
+      },
+      "superTeam": {
+        "title": "Super Team/Super Organization",
+        "description": "Human-machine hybrid teams achieve more efficient collaboration and stronger collective intelligence",
+        "features": {
+          "collaboration": "Seamless Collaboration",
+          "intelligence": "Collective Intelligence",
+          "agility": "Organizational Agility"
+        }
+      },
+      "superProduct": {
+        "title": "Super Product/Service",
+        "description": "AI-driven products and services with unprecedented intelligence and personalization capabilities",
+        "features": {
+          "personalized": "Ultimate Personalization",
+          "intelligent": "Intelligent Adaptation",
+          "iterative": "Rapid Iteration"
+        }
+      },
+      "metrics": {
+        "title": "Effect Measurement Dimensions",
+        "cost": "Cost Optimization",
+        "costDesc": "Reduce operational costs, improve resource utilization",
+        "efficiency": "Efficiency Boost",
+        "efficiencyDesc": "Shorten process cycles, improve output quality",
+        "experience": "Experience Upgrade",
+        "experienceDesc": "Enhance customer and employee experience satisfaction"
+      }
+    },
+    "implementation": {
+      "title": "Implementation Path",
+      "intro": "From current assessment to continuous optimization, helping Enterprises steadily achieve AI transformation",
+      "steps": {
+        "assessment": {
+          "title": "Current Assessment",
+          "desc": "Assess Enterprise's current digitization level, AI application Status, and organizational readiness"
+        },
+        "planning": {
+          "title": "Strategic Planning",
+          "desc": "Develop AI transformation roadmap, clarify goals, milestones, and resource requirements"
+        },
+        "pilot": {
+          "title": "Pilot Validation",
+          "desc": "Select key scenarios for pilot, validate feasibility and accumulate experience"
+        },
+        "scale": {
+          "title": "Scale Rollout",
+          "desc": "Based on pilot experience, gradually expand to more business areas and scenarios"
+        },
+        "optimize": {
+          "title": "Continuous Optimization",
+          "desc": "Establish continuous improvement mechanism, constantly optimize AI application effects and organizational capabilities"
+        }
       }
     },
     "cta": {
-      "contact": "联系我们",
-      "description": "描述",
-      "learnMore": "learnMore",
-      "title": "标题"
+      "title": "Build Your Super Enterprise",
+      "description": "Join ZHIHUI AI Community and work with professional consultants to plan your Enterprise's AI transformation journey",
+      "learnMore": "Learn About Enterprise Service",
+      "contact": "Contact Consultant"
     },
     "footer": {
-      "agentScenario": "智能体场景",
-      "contact": "联系我们",
-      "enterprise": "企业"
-    },
-    "heroSubtitle": "heroSubtitle",
-    "heroTitle": "heroTitle",
-    "implementation": {
-      "intro": "intro",
-      "steps": {
-        "assessment": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "optimize": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "pilot": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "planning": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "scale": {
-          "desc": "描述",
-          "title": "标题"
-        }
-      },
-      "title": "标题"
-    },
-    "infoWorld": {
-      "advanced": {
-        "description": "描述",
-        "items": {
-          "agent": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "generative": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "perception": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "physical": {
-            "desc": "描述",
-            "name": "名称"
-          }
-        },
-        "title": "标题"
-      },
-      "basic": {
-        "description": "描述",
-        "items": {
-          "automation": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "informatization": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "iot": {
-            "desc": "描述",
-            "name": "名称"
-          }
-        },
-        "title": "标题"
-      },
-      "evolution": "evolution",
-      "intro": "intro",
-      "title": "标题"
-    },
-    "physicalWorld": {
-      "humanValue": {
-        "description": "描述",
-        "title": "标题",
-        "values": {
-          "critical": "critical",
-          "culture": "culture",
-          "humility": "humility",
-          "mission": "mission"
-        }
-      },
-      "intro": "intro",
-      "process": {
-        "description": "描述",
-        "forward": {
-          "goal": "goal",
-          "label": "label",
-          "process": "process",
-          "role": "角色"
-        },
-        "reverse": {
-          "label": "label",
-          "process": "process",
-          "role": "角色"
-        },
-        "title": "标题"
-      },
-      "structure": {
-        "description": "描述",
-        "features": {
-          "digital": "digital",
-          "hybrid": "hybrid",
-          "mapping": "mapping"
-        },
-        "title": "标题"
-      },
-      "title": "标题"
-    },
-    "superEnterprise": {
-      "intro": "intro",
-      "metrics": {
-        "cost": "cost",
-        "costDesc": "costDesc",
-        "efficiency": "efficiency",
-        "efficiencyDesc": "efficiencyDesc",
-        "experience": "experience",
-        "experienceDesc": "experienceDesc",
-        "title": "标题"
-      },
-      "superEmployee": {
-        "description": "描述",
-        "features": {
-          "creativity": "creativity",
-          "decision": "decision",
-          "productivity": "productivity"
-        },
-        "title": "标题"
-      },
-      "superProduct": {
-        "description": "描述",
-        "features": {
-          "intelligent": "intelligent",
-          "iterative": "iterative",
-          "personalized": "personalized"
-        },
-        "title": "标题"
-      },
-      "superTeam": {
-        "description": "描述",
-        "features": {
-          "agility": "agility",
-          "collaboration": "协作",
-          "intelligence": "intelligence"
-        },
-        "title": "标题"
-      },
-      "title": "标题"
+      "Enterprise": "Enterprise Service",
+      "agentScenario": "Agent Scenario",
+      "contact": "Contact Us",
+      "enterprise": "企业服务"
     }
   }
 }

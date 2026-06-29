@@ -36,7 +36,7 @@ vi.mock('@/config/backend-paths', () => ({
   },
 }))
 
-import * as api from '../file/files'
+import * as api from '../files'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

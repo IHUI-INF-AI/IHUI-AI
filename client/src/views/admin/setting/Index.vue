@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="admin-setting-page" v-loading="loading">
     <el-tabs v-model="active" class="setting-tabs">
       <el-tab-pane :label="t('setting.label.baseSettings')" name="base">
@@ -67,7 +67,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 
 const active = ref('base')
 const loading = ref(false)
@@ -98,7 +98,7 @@ const reload = async () => {
 
 const onSave = async () => {
   await adminApi.settingBaseSave(form)
-  ElMessage.success(t('common.messages.saveSuccess'))
+  ElMessage.success(t('common.saveSuccess'))
 }
 
 onMounted(reload)

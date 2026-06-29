@@ -1,7 +1,7 @@
 {
   "devCashDetail": {
-    "arrivalTime": "arrivalTime",
-    "processTime": "processTime",
-    "withdrawTime": "withdrawTime"
+    "withdrawTime": "Withdraw Time",
+    "processTime": "Process Time",
+    "arrivalTime": "Arrival Time"
   }
 }

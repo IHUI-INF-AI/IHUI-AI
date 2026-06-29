@@ -1,0 +1,14 @@
+{
+  "adminAppointmentManagement": {
+    "stats": {},
+    "filter": {
+      "status": "ステータス"
+    },
+    "table": {
+      "status": "ステータス"
+    },
+    "detail": {
+      "status": "ステータス"
+    }
+  }
+}

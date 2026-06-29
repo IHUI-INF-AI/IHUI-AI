@@ -545,12 +545,9 @@ export function handleApiResponse<T>(
   // 兼容多种后端成功约定：
   // 1) code === 200 && success === true（Java 风格）
   // 2) code === 0 且 message/msg 为 success/ok/空（Python FastAPI 风格）
-  // 3) code 为字符串 "0"/"200" (后端返回字符串 code, 需转换为数字)
-  const codeNum =
-    typeof response.code === 'string' ? parseInt(response.code, 10) : response.code
   const isSuccess =
-    (codeNum === 200 && response.success) ||
-    (codeNum === 0 &&
+    (response.code === 200 && response.success) ||
+    (response.code === 0 &&
       /^(success|ok)?$/i.test((response.message || response.msg || '').trim()))
 
   if (isSuccess) {

@@ -379,6 +379,7 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useApiError } from '@/composables/useApiError'
 import { useMouseGlow } from '@/composables/useMouseGlow'
 import { useDebounceSearch } from '@/composables/useDebounceSearch'
+import type { ApiResponse, PaginationResponse } from '@/types'
 import {
   User,
   VideoPlay,
@@ -396,7 +397,7 @@ import {
   type Course,
   type CourseLesson,
   type CourseCategory,
-} from '@/api/course/courses'
+} from '@/api/courses'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
@@ -542,27 +543,27 @@ const loadCourses = async () => {
   // 优化: v2 失败后 60s 冷却期内直接走 v1,避免重复无效请求
   const now = Date.now()
   const skipV2 = v2CoursesAvailable === false && (now - v2CoursesFailTime) < V2_FAIL_COOLDOWN
-  let v2Result: { code?: string | number; data?: { records?: unknown[]; total?: number } } | null = null
+  let v2Result: ApiResponse<PaginationResponse<Course>> | null = null
   if (!skipV2) {
     try {
-      v2Result = (await v2Courses.list({
+      v2Result = await v2Courses.list({
         page: pagination.page,
         size: pagination.pageSize,
         keyword: searchKeyword.value || undefined,
-      })) as unknown as typeof v2Result
+      })
       v2CoursesAvailable = true
     } catch (e) {
       v2CoursesAvailable = false
       v2CoursesFailTime = Date.now()
-      ;(window as any)?.console?.warn?.('[P13] v2 courses.list failed, fallback to v1:', e)
+      console?.warn?.('[P13] v2 courses.list failed, fallback to v1:', e)
     }
   }
-  const v2Records = ((v2Result as any)?.data?.records as Array<Record<string, unknown>>) || []
-  if (v2Result && ((v2Result as any).code === 200 || (v2Result as any).code === '200') && v2Records.length > 0) {
-    const list = v2Records as unknown as Course[]
+  const v2Records = v2Result?.data?.records ?? v2Result?.data?.list ?? []
+  if (v2Result && (String(v2Result.code) === '200') && v2Records.length > 0) {
+    const list = v2Records
     mergeLocalProgress(list)
     courses.value = list
-    pagination.total = (v2Result as any)?.data?.total || list.length
+    pagination.total = v2Result?.data?.total ?? list.length
     saveCoursesToCache(list)
     nextTick(() => {
       document.querySelectorAll('.course-card.scroll-reveal').forEach((el) => {
@@ -591,13 +592,11 @@ const loadCourses = async () => {
   )
 
   if (result) {
-    const resultAny = result as any
-    const list = resultAny.list ?? resultAny.rows ?? []
-    const paginationInfo = resultAny.pagination ?? resultAny.page ?? {}
+    const list = result.list ?? result.items ?? result.records ?? []
     const fetched = Array.isArray(list) ? list : []
     mergeLocalProgress(fetched)
     courses.value = fetched
-    pagination.total = paginationInfo?.total ?? pagination.total ?? 0
+    pagination.total = result.pagination?.total ?? result.total ?? pagination.total ?? 0
     saveCoursesToCache(fetched)
 
     // 重新初始化滚动动画
@@ -868,7 +867,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--el-text-color-primary);
+$brand-secondary: var(--color-gray-333);
 
 .courses-container {
   width: 100%;
@@ -935,7 +934,7 @@ $brand-secondary: var(--el-text-color-primary);
   transition: none;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -954,7 +953,6 @@ $brand-secondary: var(--el-text-color-primary);
 .glass {
   background: rgb(var(--el-fill-color-light-rgb), 0.4);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -1002,12 +1000,11 @@ $brand-secondary: var(--el-text-color-primary);
       padding: 8px 20px;
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 900;
       margin-bottom: 16px;
       background: rgb(var(--el-fill-color-light-rgb), 0.3);
       backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
 
       .status-dot {
         width: 6px;
@@ -1020,7 +1017,7 @@ $brand-secondary: var(--el-text-color-primary);
 
     .page-title {
       font-size: clamp(32px, 5vw, 48px);
-      font-weight: 800;
+      font-weight: 950;
       font-family: var(--font-family-chinese);
       color: $text-main;
       margin: 0 0 12px;
@@ -1056,11 +1053,12 @@ $brand-secondary: var(--el-text-color-primary);
       background: rgb(var(--el-fill-color-rgb), 0.5);
       box-shadow: none;
       border: var(--unified-border);
-      transition: border-color 0.3s;
+      transition: all 0.3s;
 
       &:hover, &.is-focus {
         border-color: $brand-primary;
-        }
+        box-shadow: var(--global-box-shadow);
+      }
     }
 
     :deep(.el-input__append) {
@@ -1079,7 +1077,7 @@ $brand-secondary: var(--el-text-color-primary);
       background: rgb(var(--el-fill-color-rgb), 0.5);
       box-shadow: none;
       border: var(--unified-border);
-      transition: border-color 0.3s;
+      transition: all 0.3s;
 
       &:hover, &.is-focus {
         border-color: $brand-primary;
@@ -1168,11 +1166,11 @@ $brand-secondary: var(--el-text-color-primary);
       font-size: 14px;
       border: none;
       cursor: pointer;
-      transition: background-color 0.3s, transform 0.3s;
+      transition: all 0.3s;
 
       &:hover {
         background: $brand-secondary;
-        
+        transform: translateY(-2px);
       }
     }
   }
@@ -1219,7 +1217,7 @@ $brand-secondary: var(--el-text-color-primary);
       z-index: calc(var(--z-base) + 1);
 
       .free-tag {
-        background: var(--el-color-success);
+        background: var(--color-emerald-500);
         border: none;
         color: var(--el-bg-color);
         font-weight: 800;
@@ -1327,7 +1325,7 @@ $brand-secondary: var(--el-text-color-primary);
           gap: 6px;
 
           .el-icon {
-            color: var(--el-color-warning);
+            color: var(--color-amber-fbbf24);
           }
         }
       }
@@ -1340,7 +1338,7 @@ $brand-secondary: var(--el-text-color-primary);
         font-size: 13px;
         border: none;
         cursor: pointer;
-        transition: background-color 0.3s, color 0.3s, transform 0.3s;
+        transition: all 0.3s;
       }
 
       .enroll-btn {
@@ -1349,12 +1347,12 @@ $brand-secondary: var(--el-text-color-primary);
 
         &:hover {
           background: $brand-secondary;
-          
+          transform: translateY(-2px);
         }
       }
 
       .continue-btn {
-        background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
+        background: rgba($brand-primary, 0.1);
         color: $brand-primary;
 
         &:hover {
@@ -1435,13 +1433,14 @@ $brand-secondary: var(--el-text-color-primary);
         font-size: 14px;
         border: none;
         cursor: pointer;
-        transition: background-color 0.3s, transform 0.3s;
+        transition: all 0.3s;
         flex-shrink: 0;
 
         &:hover {
           background: $brand-secondary;
-          
-          }
+          transform: translateY(-2px);
+          box-shadow: var(--global-box-shadow);
+        }
       }
     }
   }
@@ -1551,7 +1550,7 @@ $brand-secondary: var(--el-text-color-primary);
       margin-bottom: 12px;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: transform 0.3s ease;
+      transition: all 0.3s ease;
 
       &:hover {
         transform: translateX(4px);
@@ -1559,7 +1558,7 @@ $brand-secondary: var(--el-text-color-primary);
 
       &.completed {
         .el-icon {
-          color: var(--el-color-success);
+          color: var(--color-emerald-500);
         }
       }
 
@@ -1604,7 +1603,7 @@ $brand-secondary: var(--el-text-color-primary);
       font-size: 16px;
       border: none;
       cursor: pointer;
-      transition: background-color 0.3s, color 0.3s, transform 0.3s;
+      transition: all 0.3s;
 
       &.primary {
         background: $brand-primary;
@@ -1612,8 +1611,9 @@ $brand-secondary: var(--el-text-color-primary);
 
         &:hover {
           background: $brand-secondary;
-          
-          }
+          transform: translateY(-3px);
+          box-shadow: var(--global-box-shadow);
+        }
       }
     }
   }

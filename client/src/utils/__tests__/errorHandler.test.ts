@@ -89,7 +89,7 @@ describe('errorHandler', () => {
       const error = {
         response: null,
         message: 'Network Error',
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.NETWORK)
@@ -100,7 +100,7 @@ describe('errorHandler', () => {
         response: null,
         code: 'ECONNABORTED',
         message: 'timeout',
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.TIMEOUT)
@@ -109,7 +109,7 @@ describe('errorHandler', () => {
     it('应该处理401错误', () => {
       const error = {
         response: { status: 401, data: {} },
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.UNAUTHORIZED)
@@ -118,7 +118,7 @@ describe('errorHandler', () => {
     it('应该处理403错误', () => {
       const error = {
         response: { status: 403, data: {} },
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.FORBIDDEN)
@@ -127,7 +127,7 @@ describe('errorHandler', () => {
     it('应该处理404错误', () => {
       const error = {
         response: { status: 404, data: {} },
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.NOT_FOUND)
@@ -136,7 +136,7 @@ describe('errorHandler', () => {
     it('应该处理500错误', () => {
       const error = {
         response: { status: 500, data: {} },
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.SERVER_ERROR)
@@ -145,7 +145,7 @@ describe('errorHandler', () => {
     it('应该处理422验证错误', () => {
       const error = {
         response: { status: 422, data: { msg: 'Validation failed' } },
-      } as any
+      } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
 
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.VALIDATION)
@@ -412,75 +412,75 @@ describe('errorHandler', () => {
 
   describe('补充 - handleAxiosError 扩展', () => {
     it('应该处理message包含timeout的超时错误', () => {
-      const error = { response: null, message: 'Request timeout' } as any
+      const error = { response: null, message: 'Request timeout' } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.TIMEOUT)
     })
 
     it('应该处理502网关错误', () => {
-      const error = { response: { status: 502, data: {} } } as any
+      const error = { response: { status: 502, data: {} } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.SERVER_ERROR)
     })
 
     it('应该处理503服务不可用', () => {
-      const error = { response: { status: 503, data: {} } } as any
+      const error = { response: { status: 503, data: {} } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.SERVER_ERROR)
     })
 
     it('应该处理504网关超时', () => {
-      const error = { response: { status: 504, data: {} } } as any
+      const error = { response: { status: 504, data: {} } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.SERVER_ERROR)
     })
 
     it('应该处理422错误使用message字段', () => {
-      const error = { response: { status: 422, data: { message: 'Field error' } } } as any
+      const error = { response: { status: 422, data: { message: 'Field error' } } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.VALIDATION)
       expect(result.message).toBe('Field error')
     })
 
     it('应该处理422错误带details', () => {
-      const error = { response: { status: 422, data: { errors: { name: 'required' } } } } as any
+      const error = { response: { status: 422, data: { errors: { name: 'required' } } } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.details).toEqual({ name: 'required' })
     })
 
     it('应该处理422错误使用data字段', () => {
-      const error = { response: { status: 422, data: { data: { field: 'invalid' } } } } as any
+      const error = { response: { status: 422, data: { data: { field: 'invalid' } } } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.details).toEqual({ field: 'invalid' })
     })
 
     it('应该处理422错误没有msg或message', () => {
-      const error = { response: { status: 422, data: {} } } as any
+      const error = { response: { status: 422, data: {} } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.message).toBe('text.error_handler.validationFailed')
     })
 
     it('应该处理500错误使用msg', () => {
-      const error = { response: { status: 500, data: { msg: 'Server crashed' } } } as any
+      const error = { response: { status: 500, data: { msg: 'Server crashed' } } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.message).toBe('Server crashed')
     })
 
     it('应该处理500错误没有msg使用默认', () => {
-      const error = { response: { status: 500, data: {} } } as any
+      const error = { response: { status: 500, data: {} } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.message).toBe('text.error_handler.serverError')
     })
 
     it('应该处理默认业务错误(状态码非标准)', () => {
-      const error = { response: { status: 418, data: { msg: 'I am a teapot' } } } as any
+      const error = { response: { status: 418, data: { msg: 'I am a teapot' } } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.BUSINESS)
       expect(result.message).toBe('I am a teapot')
     })
 
     it('应该处理默认业务错误无msg', () => {
-      const error = { response: { status: 418, data: {} } } as any
+      const error = { response: { status: 418, data: {} } } as unknown as Parameters<typeof ErrorHandler.handleAxiosError>[0]
       const result = ErrorHandler.handleAxiosError(error)
       expect(result.type).toBe(ErrorType.BUSINESS)
       expect(result.message).toBe('text.error_handler.requestFailedWithStatus')

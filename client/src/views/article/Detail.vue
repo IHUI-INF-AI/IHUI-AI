@@ -22,15 +22,15 @@
       </div>
       <div class="article-foot">
         <el-button @click="onLike" :type="liked ? 'primary' : 'default'">
-          <el-icon><Star /></el-icon> {{ t('articleDetail.like') }} ({{ data.likeNum || 0 }})
+          <el-icon><Star /></el-icon> 点赞 ({{ data.likeNum || 0 }})
         </el-button>
         <el-button @click="onFavorite" :type="favorited ? 'primary' : 'default'">
-          <el-icon><Collection /></el-icon> {{ t('articleDetail.favorite') }} ({{ data.favoriteNum || 0 }})
+          <el-icon><Collection /></el-icon> 收藏 ({{ data.favoriteNum || 0 }})
         </el-button>
         <el-button @click="$router.back()">{{ t('articleDetail.backToList') }}</el-button>
       </div>
     </article>
-    <el-empty v-else :description="t('common.noData')" />
+    <el-empty v-else description="文章不存在" />
   </div>
 </template>
 
@@ -39,23 +39,23 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { Star, Collection } from '@element-plus/icons-vue'
-import { articleApi } from '@/api/content/article'
+import { articleApi } from '@/api/article'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 import Breadcrumb from '@/components/learn/Breadcrumb.vue'
 
 const { t } = useI18n()
 const route = useRoute()
 const loading = ref(false)
-const data = ref<any>({})
+const data = ref<Record<string, unknown>>({})
 const liked = ref(false)
 const favorited = ref(false)
 
 async function load() {
   loading.value = true
-  try { data.value = (await articleApi.detail(route.params.id as string))?.data || {} } finally { loading.value = false }
+  try { data.value = (((await articleApi.detail(route.params.id as string))?.data as unknown) as Record<string, unknown>) || {} } finally { loading.value = false }
 }
-async function onLike() { try { await articleApi.like(data.value.id); liked.value = !liked.value; data.value.likeNum = (data.value.likeNum || 0) + (liked.value ? 1 : -1) } catch { ElMessage.error(t('common.errors.operationFailed')) } }
-async function onFavorite() { try { await articleApi.favorite(data.value.id); favorited.value = !favorited.value } catch { ElMessage.error(t('common.errors.operationFailed')) } }
+async function onLike() { try { await articleApi.like(data.value.id as string | number); liked.value = !liked.value; data.value.likeNum = ((data.value.likeNum as number) || 0) + (liked.value ? 1 : -1) } catch { ElMessage.error(t('common.errors.operationFailed')) } }
+async function onFavorite() { try { await articleApi.favorite(data.value.id as string | number); favorited.value = !favorited.value } catch { ElMessage.error(t('common.errors.operationFailed')) } }
 onMounted(load)
 </script>
 

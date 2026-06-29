@@ -1,6 +1,6 @@
 import { getStoredData } from '@/utils/request'
-import { StorageManager, SecureStorageManager, STORAGE_KEYS } from '@/utils/storage'
-import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user/user'
+import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import type { UserInfoData, UserFundInfo, UserVipInfo } from '@/api/user'
 import type { LoginResponseData, RawUserInfo } from './types'
 
 export const saveUserDataToStorage = (userData: UserInfoData) => {
@@ -84,7 +84,7 @@ export const extractIsVip = (isVipRaw: boolean | number | undefined): boolean =>
   return typeof isVipRaw === 'number' ? isVipRaw > 0 : Boolean(isVipRaw)
 }
 
-export const extractNeedPwd = (raw: any): number => {
+export const extractNeedPwd = (raw: unknown): number => {
   if (typeof raw === 'number') return raw
   if (raw != null) return Number(raw)
   return 0
@@ -134,6 +134,9 @@ export const buildUserFromLoginResponse = (
         }
       : undefined,
     identityType,
+    // 后台管理员账号登录 (admin_user 表) 时由 adminLogin 注入, 普通登录无此字段
+    // permissionsStore.hasRole('admin') 依赖此字段放权
+    roles: (tokenData as { roles?: string[] })?.roles ?? [],
   }
 
   let fundInfo: UserFundInfo | null = null
@@ -174,14 +177,9 @@ export const buildUserFromLoginResponse = (
 }
 
 export const clearAuthStorage = () => {
-  // 清理 localStorage
   StorageManager.removeItem(STORAGE_KEYS.USER_TOKEN)
   StorageManager.removeItem(STORAGE_KEYS.TOKEN)
   StorageManager.removeItem(STORAGE_KEYS.USER_DATA)
   StorageManager.removeItem(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
   StorageManager.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
-  // 同步清理 sessionStorage(SecureStorageManager)，否则登出后刷新页面会从 sessionStorage 恢复 token 导致静默重新登录
-  SecureStorageManager.removeItem(STORAGE_KEYS.USER_TOKEN)
-  SecureStorageManager.removeItem(STORAGE_KEYS.TOKEN)
-  SecureStorageManager.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
 }

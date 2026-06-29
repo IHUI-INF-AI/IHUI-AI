@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <AdminListPage
     :title="t('adminComponents.agent.title')"
     :description="t('adminComponents.agent.desc')"
@@ -42,10 +42,10 @@
 
     <template #actions="{ row }">
       <el-button type="primary" link size="small" @click="editAgent(row)">
-        编辑
+        {{ t('adminCommon.label.edit') }}
       </el-button>
       <el-button type="primary" link size="small" @click="configAgent(row)">
-        配置
+        {{ t('adminCommon.label.config') }}
       </el-button>
       <el-popconfirm :title="t('adminCommon.title.confirmDelete')" @confirm="deleteAgent(row)">
         <template #reference>
@@ -57,23 +57,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import AdminListPage from '@/components/admin/AdminListPage.vue'
 import type { TableColumn } from '@/components/admin/AdminListPage.vue'
-import { getAdminAgents, type AdminAgent } from '@/api/admin/admin-agents'
+import { getAdminAgents, type AdminAgent } from '@/api/admin-agents'
 
 const { t } = useI18n()
 
-const columns: TableColumn[] = [
-  { prop: 'avatar', label: '头像', width: 70, slot: true },
-  { prop: 'name', label: '名称', width: 150 },
-  { prop: 'model', label: '模型', width: 120, slot: true },
-  { prop: 'description', label: '描述', minWidth: 200, showOverflowTooltip: true },
-  { prop: 'status', label: '状态', width: 80, slot: true },
-  { prop: 'createdAt', label: '创建时间', width: 180, type: 'date' },
-]
+const columns = computed<TableColumn[]>(() => [
+  { prop: 'avatar', label: t('adminCommon.label.avatar'), width: 70, slot: true },
+  { prop: 'name', label: t('adminCommon.label.name'), width: 150 },
+  { prop: 'model', label: t('adminCommon.label.model'), width: 120, slot: true },
+  { prop: 'description', label: t('adminCommon.label.description'), minWidth: 200, showOverflowTooltip: true },
+  { prop: 'status', label: t('adminCommon.label.status'), width: 80, slot: true },
+  { prop: 'createdAt', label: t('adminCommon.label.createdAt'), width: 180, type: 'date' },
+])
 
 const agents = ref<AdminAgent[]>([])
 const total = ref(0)

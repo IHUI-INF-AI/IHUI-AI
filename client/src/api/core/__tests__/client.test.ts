@@ -174,7 +174,7 @@ describe('core/client', () => {
     ;(ecMod.isSuccess as any).mockReturnValue(false)
     const mockInstance: any = (axios.create as any)()
     mockInstance.request.mockResolvedValueOnce({ status: 200, data: { code: 500, message: 'fail' } })
-    try { await apiClient.get('/test', undefined, { silent: true }) } catch { /* noop */ }
+    try { await apiClient.get('/test', undefined, { silent: true }) } catch (e) {}
   })
 
   it('网络错误', async () => {

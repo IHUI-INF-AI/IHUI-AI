@@ -67,22 +67,12 @@
 }
 
 // ============================================
-// Message 消息提示
+// Message 消息提示 —— 已迁移到 _el-message-global.scss 统一管理
 // ============================================
-.el-message {
-  border-radius: var(--global-border-radius);
-  background-color: var(--el-bg-color);
-  border: 1px solid var(--border-unified-color);
-}
 
 // ============================================
-// Notification 通知
+// Notification 通知 —— 已迁移到 _el-message-global.scss 统一管理
 // ============================================
-.el-notification {
-  border-radius: var(--global-border-radius);
-  background-color: var(--el-bg-color);
-  border: 1px solid var(--border-unified-color);
-}
 
 // ============================================
 // Popover 气泡卡片
@@ -226,10 +216,15 @@
 
 // ============================================
 // Button 按钮
+// 设计原则：
+// 1. 不再强制 height —— 会破坏 .el-button.is-circle / .el-button--icon
+//    等方形/圆形图标按钮的尺寸约束（height + width 共同决定方形）
+// 2. 仅设置 min-height 作为默认下限，让组件可自由放大
+// 3. .is-circle / .el-button--icon 显式重置 min-height 为 0，
+//    完全由组件自身 width/height 控制方形尺寸
 // ============================================
 .el-button {
   min-height: 32px;
-  height: 32px;
   font-size: 14px;
   border-radius: var(--global-border-radius);
   box-sizing: border-box;
@@ -237,7 +232,6 @@
 
 .el-button--small {
   min-height: 28px;
-  height: 28px;
   font-size: 12px;
   padding: 5px 11px;
   box-sizing: border-box;
@@ -245,30 +239,33 @@
 
 .el-button--large {
   min-height: 40px;
-  height: 40px;
   font-size: 16px;
   box-sizing: border-box;
 }
 
 .el-button.el-button--small {
   min-height: 28px;
-  height: 28px;
 }
 
 :where(.el-button.el-button--primary) {
   min-height: 32px;
-  height: 32px;
 }
 
 :where(.el-button.el-button--small.el-button--primary) {
   min-height: 28px;
-  height: 28px;
 }
 
 // 社区页面按钮
 .action-btn.el-button {
   min-height: 32px;
-  height: 32px;
+}
+
+// 方形/圆形图标按钮 - 重置 min-height，由组件 width/height 自由控制
+.el-button.is-circle,
+.el-button.el-button--icon {
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
 }
 
 // ============================================
@@ -337,7 +334,7 @@
   background-color: var(--color-white-90);
 }
 
-:where(html.dark) .el-loading-mask {
+html.dark .el-loading-mask {
   background-color: var(--color-black-90);
 }
 

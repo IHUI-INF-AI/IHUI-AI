@@ -229,7 +229,7 @@ v.$text-primary: var(--el-text-color-primary);
     background: var(--el-color-primary-light-9);
     border: var(--unified-border);
 
-    .status-icon { background: var(--el-color-primary); }
+    .status-icon { background: var(--color-blue-1890ff); }
   }
 
   &.status-approved, &.status-completed, &.status-processing {
@@ -247,7 +247,7 @@ v.$text-primary: var(--el-text-color-primary);
   }
 
   &.status-cancelled {
-    background: var(--color-black-04);
+    background: var(--color-black-4);
     border: var(--unified-border);
 
     .status-icon { background: var(--el-text-color-placeholder); }
@@ -339,7 +339,7 @@ v.$text-primary: var(--el-text-color-primary);
     }
 
     &.active .timeline-dot {
-      background: var(--el-color-primary);
+      background: var(--color-blue-1890ff);
       animation: pulse 1.5s ease-in-out infinite;
     }
 
@@ -435,7 +435,7 @@ v.$text-primary: var(--el-text-color-primary);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
+    transition: all 0.2s;
 
     .btn-text {
       position: relative;

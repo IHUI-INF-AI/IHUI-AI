@@ -1,9 +1,9 @@
 {
   "promptTemplates": {
-    "addCustom": "添加 自定义",
+    "title": "提示词模板库",
+    "addCustom": "添加自定义",
     "cancel": "取消",
-    "confirm": "确认",
-    "other": "其他",
-    "title": "标题"
+    "confirm": "确定",
+    "other": "其他"
   }
 }

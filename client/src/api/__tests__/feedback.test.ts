@@ -15,7 +15,7 @@ vi.mock('@/utils/api-response', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../content/feedback'
+import * as api from '../feedback'
 
 describe('feedback API', () => {
   beforeEach(() => {
@@ -69,10 +69,10 @@ describe('feedback API', () => {
     ;(request.get as any).mockRejectedValue(new Error('fail'))
     ;(request.post as any).mockRejectedValue(new Error('fail'))
     ;(request.put as any).mockRejectedValue(new Error('fail'))
-    try { await api.submitFeedback({ type: 'feature', content: 'c' }) } catch { /* noop */ }
-    try { await api.getFeedbacks() } catch { /* noop */ }
-    try { await api.getFeedbackDetail('1') } catch { /* noop */ }
-    try { await api.replyFeedback('1', 'r') } catch { /* noop */ }
-    try { await api.updateFeedbackStatus('1', 'resolved') } catch { /* noop */ }
+    try { await api.submitFeedback({ type: 'feature', content: 'c' }) } catch (e) {}
+    try { await api.getFeedbacks() } catch (e) {}
+    try { await api.getFeedbackDetail('1') } catch (e) {}
+    try { await api.replyFeedback('1', 'r') } catch (e) {}
+    try { await api.updateFeedbackStatus('1', 'resolved') } catch (e) {}
   })
 })

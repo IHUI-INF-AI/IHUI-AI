@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../system/security'
+import * as api from '../security'
 
 describe('security', () => {
   beforeEach(() => {

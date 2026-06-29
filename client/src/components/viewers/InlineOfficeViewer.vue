@@ -160,7 +160,7 @@ function onRendered() {
   loading.value = false
 }
 
-function onVueOfficeError(e: any) {
+function onVueOfficeError(e: unknown) {
   error.value = (e as Error)?.message || t('hardcoded.edu_documentation.iframeLoadFailed')
   loading.value = false
 }
@@ -241,12 +241,13 @@ watch(
     border-radius: var(--global-border-radius);
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 
     &:hover {
       background: var(--el-color-primary-light-3);
       color: var(--el-bg-color-page);
-      }
+      box-shadow: var(--global-box-shadow, 0 1px 2px var(--color-black-5));
+    }
 
     &:focus-visible {
       outline: 2px solid var(--el-color-primary);

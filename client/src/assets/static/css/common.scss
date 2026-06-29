@@ -86,7 +86,7 @@ $top-bar-height: $status-bar-height + $nav-bar-height;
 }
 
 // 响应式设计
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .container {
     padding: 0 $spacing-base;
   }

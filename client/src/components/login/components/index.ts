@@ -6,5 +6,4 @@ export { default as PasswordStrengthIndicator } from './PasswordStrengthIndicato
 export { default as PasswordToggleIcon } from '../PasswordToggleIcon.vue'
 export { default as SecurityAlert } from './SecurityAlert.vue'
 export { default as TabSwitcher } from './TabSwitcher.vue'
-export { default as ThirdPartyLogin } from './ThirdPartyLogin.vue'
 

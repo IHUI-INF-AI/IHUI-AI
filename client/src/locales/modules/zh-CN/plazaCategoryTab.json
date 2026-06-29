@@ -1,8 +1,8 @@
 {
   "plazaCategoryTab": {
     "all": "全部",
+    "setCustomCategory": "请设置自定义种类",
     "custom": "自定义",
-    "enterCategory": "enter 分类",
-    "setCustomCategory": "设置 自定义 分类"
+    "enterCategory": "输入分类名"
   }
 }

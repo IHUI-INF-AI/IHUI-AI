@@ -8,14 +8,14 @@
     </div>
 
     <div class="filter-bar">
-      <input v-model="keyword" class="search-input" :placeholder="t('circleList.searchPlaceholder')" @keydown.enter="loadList" />
+      <input v-model="keyword" class="search-input" placeholder="搜索圈子..." @keydown.enter="loadList" />
       <select v-model="cid" class="filter-select" @change="loadList">
         <option value="">{{ t('circleList.allCategories') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
       <label class="checkbox-wrap">
         <input v-model="onlyOfficial" type="checkbox" @change="loadList" />
-        {{ t('circleList.onlyOfficial') }}
+        只看官方
       </label>
     </div>
 
@@ -56,13 +56,13 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRouter } from 'vue-router'
-import { circleApi } from '@/api/content/circle'
+import { circleApi } from '@/api/circle'
 
 const router = useRouter()
 const loading = ref(false)
 const loadError = ref('')
-const circles = ref<any[]>([])
-const categories = ref<any[]>([])
+const circles = ref<unknown[]>([])
+const categories = ref<unknown[]>([])
 const keyword = ref('')
 const cid = ref<number | ''>('')
 const onlyOfficial = ref(false)
@@ -71,15 +71,15 @@ async function loadList() {
   loading.value = true
   loadError.value = ''
   try {
-    const params: any = { page: 1, limit: 30 }
+    const params: { page: number; limit: number; keyword?: string; category_id?: number; is_official?: boolean } = { page: 1, limit: 30 }
     if (keyword.value) params.keyword = keyword.value
     if (cid.value) params.category_id = Number(cid.value)
     if (onlyOfficial.value) params.is_official = true
     const res = await circleApi.list(params)
-    const data = res?.data
-    circles.value = data?.data || data?.list || data || []
+    const data = (res as { data?: { data?: unknown[]; list?: unknown[] } })?.data
+    circles.value = (data?.data || data?.list || data || []) as unknown[]
   } catch {
-    loadError.value = t('common.loadFailed')
+    loadError.value = '加载失败'
   } finally {
     loading.value = false
   }
@@ -200,7 +200,7 @@ onMounted(() => {
 .flag {
   position: absolute;
   top: 8px;
-  font-size: 12px;
+  font-size: 11px;
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
   color: var(--el-bg-color);

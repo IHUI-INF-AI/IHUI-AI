@@ -1,8 +1,8 @@
 {
   "mediaViewer": {
-    "audioNotSupported": "audioNotSupported",
-    "downloadView": "downloadView",
-    "mediaFile": "mediaFile",
-    "videoNotSupported": "videoNotSupported"
+    "videoNotSupported": "お使いのブラウザは動画再生に対応していません",
+    "audioNotSupported": "お使いのブラウザは音声再生に対応していません",
+    "mediaFile": "メディアファイル",
+    "downloadView": "ダウンロードして表示"
   }
 }

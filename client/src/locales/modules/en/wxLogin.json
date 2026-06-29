@@ -1,6 +1,12 @@
 {
   "wxLogin": {
+    "title": "WeChat Login",
+    "description": "WeChatMini ProgramLoginPage",
     "AuthorizationTitle": "WeChat Authorization Login",
-    "AuthorizationDesc": "Use WeChat account for quick login"
+    "AuthorizationDesc": "Use WeChat account for quick login",
+    "loginButton": "WeChat Login",
+    "developmentInProgress": "WeChat LoginFeatureDevelopmentMedium",
+    "authorizationTitle": "WeChat Authorization Login",
+    "authorizationDesc": "Use WeChat account for quick login"
   }
 }

@@ -80,8 +80,8 @@ import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
-import { bindPhone } from '@/api/system/security'
-import { sendPhoneLoginCode, verifyPhoneCode, completePhoneLogin } from '@/api/user/user'
+import { bindPhone } from '@/api/security'
+import { sendPhoneLoginCode, verifyPhoneCode, completePhoneLogin } from '@/api/user'
 import { countryCodes, type CountryCode } from '@/utils/countryCodes'
 import logger from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
@@ -212,7 +212,7 @@ const sendVerificationCode = async () => {
     } else {
       errorMessage.value = response.message || t('auth.codeSendFailed')
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     logger.error('Failed to send verification code', error)
     errorMessage.value = errorMsg || t('auth.codeSendFailed')
@@ -388,7 +388,7 @@ const handleSubmit = async () => {
         errorMessage.value = response.message || t('auth.bindPhoneFailed')
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     logger.error('Failed to bind phone number', error)
     errorMessage.value = errorMsg || t('auth.bindPhoneFailed')
@@ -424,6 +424,17 @@ watch(visible, (newVal) => {
 
 <style scoped lang="scss">
 .phone-binding-dialog {
+  // 统一输入框变量定义（与 UniversalLogin.vue 亮色模式一致）
+  // 本组件不在 .login-content.login-page 上下文内，需自行定义变量，否则 hover/focus 状态失效
+  // 对齐 .checkmark：hover/focus 边框使用 --el-text-color-regular（黑色），1.3s 慢速过渡
+  --unified-input-border-color: var(--border-unified-color);
+  --unified-input-bg-color: var(--el-fill-color-light);
+  --unified-input-transition: border-color 1.3s, background-color 1.3s;
+  --unified-input-hover-border-color: var(--el-text-color-regular);
+  --unified-input-hover-bg-color: var(--el-fill-color-light);
+  --unified-input-focus-border-color: var(--el-text-color-regular);
+  --unified-input-focus-bg-color: var(--el-fill-color-light);
+
   :deep(.el-dialog__body) {
     padding: 24px;
   }
@@ -474,8 +485,6 @@ watch(visible, (newVal) => {
       border-color: var(--unified-input-focus-border-color);
       background-color: var(--unified-input-focus-bg-color);
       background: var(--unified-input-focus-bg-color);
-      outline: 2px solid var(--el-color-primary-light-9);
-      outline-offset: 2px;
     }
   }
 
@@ -521,7 +530,7 @@ watch(visible, (newVal) => {
     background: transparent;
     color: var(--el-color-primary);
     cursor: pointer;
-    transition: color 0.2s;
+    transition: all 0.2s;
     white-space: nowrap;
 
     &:hover:not(:disabled) {
@@ -579,15 +588,13 @@ watch(visible, (newVal) => {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     background: var(--unified-input-bg-color);
-    transition: border-color 0.2s ease, background-color 0.2s ease, outline 0.2s ease, outline-offset 0.2s ease;
+    transition: var(--unified-input-transition);
     color: var(--el-text-color-primary);
     padding: 0;
 
     &:focus {
       border-color: var(--unified-input-focus-border-color);
       background-color: var(--unified-input-focus-bg-color);
-      outline: 2px solid var(--el-color-primary-light-9);
-      outline-offset: 2px;
     }
 
     &:hover {
@@ -612,6 +619,15 @@ watch(visible, (newVal) => {
 
   // 暗色模式支持
   :global(.dark) & {
+    // 统一输入框变量定义（与 UniversalLogin.vue 暗色模式一致）
+    // 对齐 .checkmark：暗色模式下 --el-text-color-regular 自动为浅色
+    --unified-input-border-color: var(--border-unified-color);
+    --unified-input-bg-color: var(--color-white-5);
+    --unified-input-hover-border-color: var(--el-text-color-regular);
+    --unified-input-hover-bg-color: var(--el-fill-color-dark);
+    --unified-input-focus-border-color: var(--el-text-color-regular);
+    --unified-input-focus-bg-color: var(--el-fill-color-darker);
+
     .phone-background-bar {
       background-color: var(--el-fill-color-dark);
       border-color: var(--el-border-color-darker);

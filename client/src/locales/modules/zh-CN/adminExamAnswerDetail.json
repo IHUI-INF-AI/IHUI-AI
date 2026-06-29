@@ -1,12 +1,12 @@
 {
   "adminExamAnswerDetail": {
-    "correctAnswer": "正确答案",
-    "markComment": "标记 评论",
-    "markScore": "标记 分数",
-    "notAnswered": "未回答",
-    "notExist": "不存在",
-    "points": "积分",
-    "title": "标题",
-    "userAnswer": "用户 答案"
+    "title": "答卷详情",
+    "minutes": "分钟",
+    "answerDetail": "答题详情",
+    "points": "分",
+    "userAnswer": "用户答案：",
+    "notAnswered": "未作答",
+    "correctAnswer": "正确答案：",
+    "notExist": "答卷不存在"
   }
 }

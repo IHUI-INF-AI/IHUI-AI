@@ -72,10 +72,10 @@ export interface PollConfig {
   interval: number // 毫秒
   method: 'GET' | 'POST'
   headers?: Record<string, string>
-  body?: any
+  body?: unknown
   enabled: boolean
   lastPoll?: number
-  lastResult?: any
+  lastResult?: unknown
 }
 
 /**
@@ -258,7 +258,7 @@ export class AutomationManager extends EventEmitter {
   /**
    * 处理 Webhook 请求
    */
-  async handleWebhook(webhookId: string, payload: any, headers?: Record<string, string>): Promise<{
+  async handleWebhook(webhookId: string, payload: unknown, headers?: Record<string, string>): Promise<{
     success: boolean
     error?: string
   }> {
@@ -293,7 +293,7 @@ export class AutomationManager extends EventEmitter {
   /**
    * 验证 Webhook 签名
    */
-  private verifyWebhookSignature(payload: any, secret: string, signature?: string): boolean {
+  private verifyWebhookSignature(payload: unknown, secret: string, signature?: string): boolean {
     if (!signature) return false
     // 实际应该使用 crypto 库验证 HMAC
     return true
@@ -337,7 +337,7 @@ export class AutomationManager extends EventEmitter {
   /**
    * 处理 Gmail 消息
    */
-  async handleGmailMessage(configId: string, message: any): Promise<void> {
+  async handleGmailMessage(configId: string, message: unknown): Promise<void> {
     const config = this.gmailConfigs.get(configId)
     if (!config || !config.enabled) {
       return
@@ -462,7 +462,7 @@ export class AutomationManager extends EventEmitter {
   /**
    * 触发 Hooks
    */
-  async triggerHooks(type: HookType, data: any): Promise<void> {
+  async triggerHooks(type: HookType, data: unknown): Promise<void> {
     const matchingHooks = Array.from(this.hooks.values())
       .filter(h => h.type === type && h.enabled)
       .sort((a, b) => a.priority - b.priority)

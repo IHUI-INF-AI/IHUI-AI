@@ -307,7 +307,7 @@ defineExpose({
 
 /* 隐藏三角形箭头 */
 :global(.country-code-popper .el-popper__arrow) {
-  display: none;
+  display: none ;
 }
 
 :global(.country-code-popper .el-select-group__title) {
@@ -335,7 +335,7 @@ defineExpose({
 }
 
 /* 暗色模式适配 */
-:where(html.dark) .country-code {
+html.dark .country-code {
   color: var(--el-text-color-primary);
 }
 

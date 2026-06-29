@@ -12,7 +12,7 @@
           <p class="subtitle">{{ t('plaza.subtitle') }}</p>
         </div>
         <div class="header-actions">
-          <button v-if="!showSetPath" class="btn-primary-tech" @click="toSet">
+          <button v-if="!showSetPath" class="btn-primary-tech" style="color: var(--el-bg-color);" @click="toSet">
             <el-icon>
               <Plus />
             </el-icon>
@@ -199,7 +199,7 @@ import {
   getDemandsList,
   createDemand,
   type PlazaDemand,
-} from '@/api/content/xuqiu'
+} from '@/api/xuqiu'
 import { useApiError } from '@/composables/useApiError'
 import { useSEO } from '@/composables/useSEO'
 
@@ -433,8 +433,8 @@ onMounted(() => getData())
 
   .btn-primary-tech {
     /* 浅色模式：深色底 + 白字（ 覆盖全局 button 文字色） */
-    background: var(--color-dark-bg-4);
-    color: var(--el-bg-color);
+    background: var(--color-dark-bg-4) ;
+    color: var(--el-bg-color) ;
     border: none;
     padding: 16px 32px;
     border-radius: var(--global-border-radius);
@@ -445,16 +445,16 @@ onMounted(() => getData())
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s, transform 0.3s;
+    transition: all 0.3s;
 
     .el-icon {
       color: inherit;
     }
 
     &:hover {
-      background: var(--el-color-primary);
-      color: var(--el-bg-color);
-      
+      background: var(--el-color-primary) ;
+      color: var(--el-bg-color) ;
+      transform: translateY(-2px);
     }
   }
 
@@ -471,7 +471,7 @@ onMounted(() => getData())
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: border-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       border-color: var(--el-text-color-primary);
@@ -481,12 +481,12 @@ onMounted(() => getData())
 
 /* 深色模式：发布按钮保持深色底 + 白字（ 覆盖全局） */
 :where(html.dark) .plaza-page .page-header .btn-primary-tech {
-  background: var(--color-dark-bg-4);
-  color: var(--el-bg-color);
+  background: var(--color-dark-bg-4) ;
+  color: var(--el-bg-color) ;
 }
 :where(html.dark) .plaza-page .page-header .btn-primary-tech:hover {
-  background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  background: var(--el-color-primary) ;
+  color: var(--el-bg-color) ;
 }
 
 .console-section {
@@ -521,7 +521,7 @@ onMounted(() => getData())
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      transition: background-color 0.3s, color 0.3s;
+      transition: all 0.3s;
 
       &.active {
         background: var(--el-text-color-primary);
@@ -535,7 +535,7 @@ onMounted(() => getData())
   }
 }
 
-:where(html.dark) .pill-selector button.active {
+html.dark .pill-selector button.active {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
 }
@@ -564,17 +564,17 @@ onMounted(() => getData())
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s, transform 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       background: var(--el-color-primary);
       color: var(--el-bg-color-page);
-      
+      transform: translateY(-2px);
     }
   }
 }
 
-:where(html.dark) .empty-action-btn {
+html.dark .empty-action-btn {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
 
@@ -611,12 +611,12 @@ onMounted(() => getData())
   border-radius: var(--global-border-radius);
   position: relative;
   overflow: hidden;
-  transition: background-color 0.4s, border-color 0.4s, transform 0.4s;
+  transition: all 0.4s;
 
   &:hover {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
     background: var(--el-fill-color-extra-light);
-    
+    transform: translateY(-4px);
   }
 
   .node-header {
@@ -755,22 +755,22 @@ onMounted(() => getData())
     font-family: var(--font-family-mono);
     font-size: 12px;
     font-weight: 800;
-    color: var(--el-text-color-placeholder);
+    color: var(--el-text-color-placeholder) ;
     letter-spacing: 1px;
   }
 
   .el-input__wrapper,
   .el-textarea__inner,
   .el-select__wrapper {
-    background: var(--el-fill-color-extra-light);
+    background: var(--el-fill-color-extra-light) ;
     border: var(--unified-border);
-    border-radius: var(--global-border-radius);
-    box-shadow: none;
+    border-radius: var(--global-border-radius) ;
+    box-shadow: none ;
   }
 
   .el-input__inner,
   .el-textarea__inner {
-    color: var(--el-text-color-primary);
+    color: var(--el-text-color-primary) ;
     font-family: var(--font-family-mono);
   }
 
@@ -797,12 +797,12 @@ onMounted(() => getData())
     font-size: 13px;
     font-weight: 900;
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s, transform 0.3s, opacity 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       background: var(--el-color-primary);
       color: var(--el-bg-color-page);
-      
+      transform: translateY(-2px);
     }
 
     &:disabled {
@@ -949,11 +949,11 @@ onMounted(() => getData())
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech span,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech .el-icon {
-  color: var(--el-bg-color);
+  color: var(--el-bg-color) ;
 }
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover span,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover .el-icon {
-  color: var(--el-bg-color);
+  color: var(--el-bg-color) ;
 }
 </style>

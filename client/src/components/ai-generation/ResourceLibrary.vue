@@ -496,11 +496,12 @@ watch(visible, (val) => {
       border-radius: var(--global-border-radius);
       overflow: hidden;
       background: var(--el-fill-color-light);
-      transition: transform 0.2s, outline-color 0.2s, outline-width 0.2s;
+      transition: all 0.2s;
       cursor: pointer;
       
       &:hover {
-        
+        box-shadow: var(--global-box-shadow);
+        transform: translateY(-2px);
       }
       
       &.is-selected {
@@ -645,7 +646,7 @@ watch(visible, (val) => {
     justify-content: center;
     background: var(--el-color-primary);
     color: var(--el-bg-color-page);
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
   }
   
   .favorite-btn {
@@ -659,7 +660,7 @@ watch(visible, (val) => {
     justify-content: center;
     background: var(--color-black-50);
     border: none;
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
     color: var(--el-bg-color-page);
     cursor: pointer;
     opacity: 0;

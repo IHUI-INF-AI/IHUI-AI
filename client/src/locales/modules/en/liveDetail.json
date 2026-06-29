@@ -1,12 +1,12 @@
 {
   "liveDetail": {
-    "beginTime": "beginTime",
-    "enterLive": "enterLive",
-    "enterLiveRoom": "enterLiveRoom",
-    "host": "host",
-    "liveNow": "liveNow",
-    "peopleOnline": "peopleOnline",
-    "playback": "playback",
-    "startTime": "开始时间"
+    "liveNow": "LIVE",
+    "peopleOnline": "online",
+    "enterLive": "Enter Live",
+    "host": "Host",
+    "enterLiveRoom": "Enter Live Room",
+    "startTime": "Start Time",
+    "beginTime": "Began At",
+    "playback": "Playback"
   }
 }

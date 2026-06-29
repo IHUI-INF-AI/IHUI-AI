@@ -71,6 +71,8 @@
         "originalPrice": "原价 ¥{price}"
       },
       "plans": {
+        "vip": "会员",
+        "trader": "操盘手",
         "upgrade": "升级套餐",
         "subscribe": "立即开通",
         "recommended": "推荐"
@@ -94,13 +96,54 @@
       "guarantee": "7天无理由退款保障"
     },
     "payment": {
+      "title": "支付",
+      "subtitle": "请选择支付方式完成订单",
+      "orderInfo": "订单信息",
+      "productName": "商品名称",
+      "orderNo": "订单号",
+      "amount": "金额",
       "paymentMethods": "支付方式",
-      "alipay": "支付宝",
+      "platformCoins": {
+        "name": "平台币支付",
+        "desc": "使用账户余额支付"
+      },
+      "alipay": "alipay",
+      "wechat": {
+        "name": "微信支付",
+        "desc": "使用微信扫码支付"
+      },
+      "card": {
+        "name": "银行卡",
+        "desc": "使用银行卡支付"
+      },
       "confirmPay": "确认支付 ¥{price}",
       "cancel": "取消",
+      "underDevelopment": "功能开发中",
+      "confirmPayment": "确认支付",
+      "processing": "处理中...",
+      "invalidOrderInfo": "订单信息无效",
+      "cardNotSupported": "银行卡支付暂不支持，请选择其他支付方式",
+      "createOrderFailed": "创建支付订单失败",
+      "paymentDataError": "支付数据错误",
+      "paymentSuccess": "支付成功",
+      "paymentFailed": "支付失败",
+      "insufficientBalance": "平台币余额不足，请选择其他支付方式或先充值",
+      "orderAlreadyPaid": "订单已支付",
       "qrCodeTitle": "扫码支付",
+      "generatingQRCode": "正在生成支付二维码...",
       "qrCodeTip": "请使用手机扫描下方二维码完成支付",
+      "qrCodeFailed": "二维码生成失败",
+      "openPaymentPage": "打开支付页面",
+      "checkStatus": "检查支付状态",
+      "cancelPayment": "取消支付",
+      "paymentNotAvailable": "支付功能暂未开放",
+      "paymentRedirecting": "正在跳转到支付页面...",
+      "wechatPaymentRequiresJSAPI": "微信支付需要在微信环境中使用",
+      "pageTitleKeyword": "支付",
+      "pageTitle": "支付页面",
+      "defaultProductName": "未命名商品",
       "qrCodeAlt": "支付二维码",
+      "unsupportedMethod": "不支持的支付方式",
       "close": "关闭",
       "confirmOrder": "确认订单",
       "orderDetails": "订单详情",
@@ -126,34 +169,36 @@
       }
     },
     "paymentFailed": "支付失败",
+    "permanentVip": "/永久会员",
+    "oneClickVip": "一键开通会员",
     "userMembershipBenefits": {
-      "benefit10One": "一对一专属顾问",
-      "benefit10Three": "专属技术对接",
-      "benefit10Title": "定制化服务",
-      "benefit10Two": "定制化模型训练",
-      "benefit11Title": "全平台通用",
-      "benefit1One": "无限制 AI 对话次数",
-      "benefit1Three": "享受优先响应速度",
-      "benefit1Title": "基础AI对话特权",
-      "benefit1Two": "解锁所有基础模型",
-      "benefit2Title": "高级模型使用",
-      "benefit3Title": "无限消息发送",
-      "benefit4Title": "专属客服支持",
-      "benefit5Title": "优先体验新功能",
-      "benefit6Title": "云端存储扩容",
-      "benefit7One": "每日 1000 次 API 调用",
-      "benefit7Three": "详细的调用统计",
-      "benefit7Title": "API 调用额度",
-      "benefit7Two": "支持自定义接口",
-      "benefit8Title": "团队协作权限",
-      "benefit9Title": "数据分析报表",
-      "benefitName": "特权名称",
+      "vipPrice": "限时588元/1288元开通VIP/年",
+      "traderPrice": "限时3888元/18888元开通操盘手/年",
+      "benefitName": "权益名称",
       "normalUser": "普通用户",
-      "trader": "推广者",
-      "traderPrice": "推广者价格",
-      "upgrade": "升级",
       "vip": "VIP",
-      "vipPrice": "VIP 价格"
+      "trader": "操盘手",
+      "upgrade": "立即开通",
+      "benefit1Title": "终身二级分销收益",
+      "benefit1One": "分享送智汇值",
+      "benefit1Two": "一级分销10%",
+      "benefit1Three": "一级分销40%二级分销10%",
+      "benefit2Title": "获取上千+智能体源码",
+      "benefit3Title": "AI应用Coze官方渠道发布",
+      "benefit4Title": "AI应用限免开放",
+      "benefit5Title": "Coze/N8N无缝接入",
+      "benefit6Title": "多对一答疑陪跑",
+      "benefit7Title": "算力值赠送",
+      "benefit7One": "8万",
+      "benefit7Two": "888万",
+      "benefit7Three": "1888万",
+      "benefit8Title": "总部入驻及线下学习实操机会",
+      "benefit9Title": "成立一人公司",
+      "benefit10Title": "定制Agent",
+      "benefit10One": "原价",
+      "benefit10Two": "9.5折",
+      "benefit10Three": "8折",
+      "benefit11Title": "入驻社区服务商名列"
     }
   },
   "vipLevelPopup": {
@@ -166,12 +211,10 @@
     "benefitLevel7": "达到<b style=\"color: var(--color-red)\">9000</b>智汇力达到<b style=\"color: var(--color-red)\">7级:智垒中枢</b>，享受<b style=\"color: var(--color-red)\">8.3</b>折",
     "benefitLevel8": "达到<b style=\"color: var(--color-red)\">10500</b>智汇力达到<b style=\"color: var(--color-red)\">8级:智能领航</b>，享受<b style=\"color: var(--color-red)\">8</b>折",
     "benefitLevel9": "达到<b style=\"color: var(--color-red)\">12000</b>智汇力达到<b style=\"color: var(--color-red)\">9级:量子智脑</b>，享受<b style=\"color: var(--color-red)\">7.7</b>折",
-    "benefitLevel10": "达到<b style=\"color: var(--color-red)\">18888</b>智汇力达到<b style=\"color: var(--color-red)\">10级:超维先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折",
-    "goActivate": "去激活",
-    "level0Desc": "注册即可成为普通用户"
+    "benefitLevel10": "达到<b style=\"color: var(--color-red)\">18888</b>智汇力达到<b style=\"color: var(--color-red)\">10级:超维先知</b>，享受<b style=\"color: var(--color-red)\">7</b>折"
   },
   "Vip": {
-    "oneClickVip": "一键开通 VIP",
-    "permanentVip": "永久 VIP"
+    "permanentVip": "/永久会员",
+    "oneClickVip": "一键开通会员"
   }
 }

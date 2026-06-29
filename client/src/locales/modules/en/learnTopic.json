@@ -1,8 +1,8 @@
 {
   "learnTopic": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbTopic": "breadcrumbTopic",
-    "learnCount": "learnCount",
-    "noTopics": "noTopics"
+    "noTopics": "No topics",
+    "learnCount": "learning",
+    "breadcrumbCourse": "Course",
+    "breadcrumbTopic": "Topic Courses"
   }
 }

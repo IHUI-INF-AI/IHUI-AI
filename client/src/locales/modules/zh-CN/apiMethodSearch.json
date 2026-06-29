@@ -1,14 +1,14 @@
 {
   "apiMethodSearch": {
-    "actions": "操作",
-    "apiPath": "API 路径",
-    "copied": "已复制",
-    "copyFailed": "复制失败",
-    "copyMethodName": "复制 方法 名称",
+    "searchPlaceholder": "搜索请输入",
+    "methodName": "方法名称",
+    "apiPath": "ApiPath",
     "description": "描述",
-    "loadFailed": "加载失败",
-    "methodName": "方法 名称",
-    "noMatch": "无匹配",
-    "searchPlaceholder": "请输入搜索内容"
+    "actions": "操作",
+    "copyMethodName": "复制方法名称",
+    "noMatch": "无Match",
+    "copied": "Copied",
+    "copyFailed": "copy失败",
+    "loadFailed": "加载失败"
   }
 }

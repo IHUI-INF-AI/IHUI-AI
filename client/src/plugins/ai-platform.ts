@@ -66,7 +66,7 @@ const DEFAULT_OPTIONS: AIPlatformPluginOptions = {
  * AI平台插件
  */
 export const AIPlatformPlugin: Plugin = {
-  install(app: App, ...args: any[]) {
+  install(app: App, ...args: unknown[]) {
     const options = args[0] as AIPlatformPluginOptions | undefined
     const config = { ...DEFAULT_OPTIONS, ...options }
 

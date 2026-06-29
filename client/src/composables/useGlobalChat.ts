@@ -7,9 +7,15 @@
  *  - close(): 关闭
  *  - isOpen: 当前打开状态 ref
  *  - install(): 挂到 window.openGlobalChat / window.closeGlobalChat
+ *
+ * 与 useAiPanel 的协作（2026-06-28 重构）:
+ *  - open() 会同时调用 useAiPanel.open() 打开右侧面板容器
+ *  - 面板可见性由 useAiPanel 管理（持久化、移动端检测）
+ *  - 本 composable 仅负责"对话内容初始化"（initialText/mode/agent 等）
  */
 
 import { ref, nextTick, onUnmounted } from 'vue'
+import { useAiPanel } from '@/composables/useAiPanel'
 
 export interface OpenChatOptions {
   sessionId?: string
@@ -38,33 +44,29 @@ export interface GlobalChat {
   dispose: () => void
 }
 
-/**
- * @param onMount 组件挂载触发回调(由 App.vue 注入,用于将 showAIChat 置 true 以渲染 AIChat 组件)
- *   首次 open() 时 AIChat 尚未挂载(v-if=false),需通过此回调触发挂载;
- *   组件挂载后若 isOpen 仍为 true,setFloatingChatRef 会自动调用 openDialog 展开对话框。
- */
-export function useGlobalChat(onMount?: () => void): GlobalChat {
+export function useGlobalChat(): GlobalChat {
   const isOpen = ref(false)
   let chatRef: FloatingChatRef | null = null
 
+  // 复用单例面板状态：open() 时同步打开右侧面板
+  const aiPanel = useAiPanel()
+
   const setFloatingChatRef = (r: FloatingChatRef | null) => {
     chatRef = r
-    // 组件挂载后,若处于打开状态(open() 先于挂载完成),自动展开对话框
-    if (r && isOpen.value) {
-      r.openDialog?.()
-      r.focusInput?.()
-    }
   }
 
   const open = async (options?: OpenChatOptions) => {
     if (typeof window === 'undefined') return
     isOpen.value = true
-    // 触发外部挂载 AIChat 组件(首次打开时 v-if 由 false→true)
-    onMount?.()
     ;(window as Window & { isGlobalChatOpen?: boolean }).isGlobalChatOpen = true
 
+    // 同步打开左侧 AI 面板（桌面端生效，移动端由 AIChatLegacy 浮窗接管）
+    aiPanel.open()
+    // 外部调用 open() 即视为用户要进入对话，跳过空文件夹占位态
+    aiPanel.enterWorkspace()
+
     await nextTick()
-    if (!chatRef) return // 组件尚未挂载,挂载后由 setFloatingChatRef 自动展开
+    if (!chatRef) return
 
     if (options?.initialText && chatRef.setInitialText) {
       chatRef.setInitialText(options.initialText)
@@ -73,7 +75,7 @@ export function useGlobalChat(onMount?: () => void): GlobalChat {
     chatRef.openDialog?.()
 
     if (options?.mode) {
-      const openFn = (window as Window & { openFloatingChat?: (o: any) => void }).openFloatingChat
+      const openFn = (window as Window & { openFloatingChat?: (o: unknown) => void }).openFloatingChat
       if (openFn) openFn({ initialText: options.initialText, mode: options.mode })
     }
   }
@@ -93,8 +95,8 @@ export function useGlobalChat(onMount?: () => void): GlobalChat {
 
   const dispose = () => {
     if (typeof window === 'undefined') return
-    delete (window as Window & { openGlobalChat?: any }).openGlobalChat
-    delete (window as Window & { closeGlobalChat?: any }).closeGlobalChat
+    delete (window as Window & { openGlobalChat?: typeof open }).openGlobalChat
+    delete (window as Window & { closeGlobalChat?: typeof close }).closeGlobalChat
   }
 
   onUnmounted(() => dispose())

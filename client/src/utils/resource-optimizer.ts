@@ -7,7 +7,7 @@
 const abortControllers = new Map<string, AbortController>()
 
 // 缓存存储
-const cacheStore = new Map<string, { data: any; timestamp: number; ttl: number }>()
+const cacheStore = new Map<string, { data: unknown; timestamp: number; ttl: number }>()
 
 /**
  * 创建AbortController

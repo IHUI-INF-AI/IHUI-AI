@@ -102,8 +102,8 @@ import {
   getHooks,
   registerHook,
   deleteHook as apiDeleteHook,
-} from '@/api/tools/openclaw'
-import type { CronJob, WebhookConfig, HookConfig } from '@/api/tools/openclaw'
+} from '@/api/openclaw'
+import type { CronJob, WebhookConfig, HookConfig } from '@/api/openclaw'
 
 const { t } = useI18n()
 

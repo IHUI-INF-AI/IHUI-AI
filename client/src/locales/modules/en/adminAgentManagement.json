@@ -1,0 +1,98 @@
+{
+  "adminAgentManagement": {
+    "tabs": {},
+    "actions": {},
+    "search": {
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "StatusActive": "Active",
+      "StatusInactive": "Inactive",
+      "StatusDeprecated": "Deprecated"
+    },
+    "table": {
+      "Status": "Status"
+    },
+    "platform": {},
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "deprecated": "Deprecated",
+      "unknown": "Unknown"
+    },
+    "isPublic": {},
+    "agentList": {
+      "Status": "Status"
+    },
+    "categoryList": {},
+    "dialog": {},
+    "test": {
+      "Failed": "Test Failed"
+    },
+    "messages": {},
+    "settlementForm": {
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusPending": "Pending Settlement",
+      "StatusSettled": "Settled",
+      "StatusWithdrawn": "Withdrawn",
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "messages": {}
+    },
+    "agentForm": {
+      "tabs": {},
+      "basic": {
+        "Status": "Status",
+        "StatusPlaceholder": "Please select Status",
+        "StatusActive": "Active",
+        "StatusInactive": "Inactive",
+        "StatusDeprecated": "Deprecated"
+      },
+      "platform": {},
+      "advanced": {
+        "availableTags": {},
+        "availableQuestions": {}
+      },
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "messages": {
+        "avatarUpload Successful": "Avatar uploaded successfully"
+      }
+    },
+    "agentCategoryForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "agentBuyForm": {
+      "validation": {},
+      "messages": {}
+    },
+    "advertiseForm": {
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled",
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "upload": {
+        "Failed": "Upload Failed"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "Status": "Status",
+      "StatusEnabled": "Status Enabled",
+      "StatusDisabled": "Status Disabled",
+      "validation": {
+        "StatusRequired": "Status Required"
+      },
+      "upload": {
+        "Failed": "Failed"
+      },
+      "messages": {}
+    }
+  }
+}

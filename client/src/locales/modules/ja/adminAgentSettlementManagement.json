@@ -1,0 +1,23 @@
+{
+  "adminAgentSettlementManagement": {
+    "actions": {},
+    "settlementList": {
+      "status": "ステータス"
+    },
+    "overview": {},
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス"
+    },
+    "status": {
+      "pending": "待決済",
+      "settled": "済み決済",
+      "withdrawn": "出金済み",
+      "unknown": "不明"
+    },
+    "settlementStatus": {},
+    "withdrawalStatus": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

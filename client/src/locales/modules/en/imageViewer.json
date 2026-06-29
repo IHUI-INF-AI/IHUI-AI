@@ -1,7 +1,7 @@
 {
   "imageViewer": {
-    "downloadToView": "downloadToView",
-    "image": "图片",
-    "zoomIn": "zoomIn"
+    "image": "Image",
+    "downloadToView": "Download to view",
+    "zoomIn": "Zoom In"
   }
 }

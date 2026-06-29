@@ -1,12 +1,11 @@
 {
   "newsList": {
-    "all": "全部",
-    "desc": "描述",
-    "hot": "热门",
-    "official": "official",
-    "read": "read",
-    "title": "标题",
-    "top": "置顶",
-    "viewHot": "viewHot"
+    "title": "情報センター",
+    "desc": "最新の教育動向、政策解読、業界情報を取得",
+    "viewHot": "人気を見る",
+    "top": "トップ",
+    "hot": "人気",
+    "official": "公式",
+    "read": "閲覧"
   }
 }

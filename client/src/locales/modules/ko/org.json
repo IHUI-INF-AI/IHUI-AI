@@ -3,6 +3,12 @@
     "searchPlaceholder": {
       "department": "부서 검색",
       "user": "사용자 검색"
+    },
+    "label": {
+      "departmentName": "부서명",
+      "manager": "담당자",
+      "count": "인원",
+      "actions": "작업"
     }
   }
 }

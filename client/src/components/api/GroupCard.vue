@@ -117,12 +117,13 @@ const handleCommand = (command: string) => {
 <style scoped lang="scss">
 .group-card {
   height: 100%;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--global-border-radius);
   
   &:hover {
-    
-    }
+    transform: translateY(-4px);
+    box-shadow: var(--global-box-shadow);
+  }
   
   .group-header {
     display: flex;

@@ -24,11 +24,11 @@ export interface AppConfig {
 }
 
 export interface AppConfigExtended extends AppConfig {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface Logger {
-  debug: (message: string, ...args: any[]) => void
+  debug: (message: string, ...args: unknown[]) => void
 }
 
 class ConfigManagerClass {

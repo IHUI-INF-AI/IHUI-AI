@@ -4,7 +4,7 @@
     <LearnBreadcrumb :items="breadcrumbItems" />
 
     <div v-loading="loading" class="content">
-      <el-empty v-if="!lesson.id" :description="t('common.noData')" />
+      <el-empty v-if="!lesson.id" description="课程不存在" />
       <div v-else class="confirm-wrap">
         <div class="lesson-card">
           <div class="cover">
@@ -59,13 +59,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const route = useRoute()
 const router = useRouter()
 const id = String(route.query.id || route.params.id || '')
 
-const lesson = ref<any>({})
+const lesson = ref<unknown>({})
 const loading = ref(false)
 const submitting = ref(false)
 const payType = ref('alipay')
@@ -78,8 +78,8 @@ const breadcrumbItems = computed(() => [
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.detail(id)
-    lesson.value = res.data || {}
+    const res = await learnApi.detail(id)
+    lesson.value = res.data?.data || {}
   } finally {
     loading.value = false
   }
@@ -88,8 +88,8 @@ async function load() {
 async function handlePay() {
   submitting.value = true
   try {
-    const orderRes: any = await learnApi.createOrder({ lessonId: id, payType: payType.value })
-    const orderId = orderRes.data?.id
+    const orderRes = await learnApi.createOrder({ lessonId: id, payType: payType.value })
+    const orderId = orderRes.data?.data?.id
     if (orderId) {
       router.push({ path: '/learn/payment', query: { orderId } })
     } else {

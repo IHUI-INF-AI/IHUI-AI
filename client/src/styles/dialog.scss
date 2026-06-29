@@ -40,7 +40,7 @@
   background-color: var(--color-black-45);
 }
 
-@media (width <= $breakpoint-md) {
+@media (max-width: $breakpoint-md) {
   .el-dialog {
     width: 90%;
     max-width: 90%;

@@ -1,15 +1,98 @@
 {
   "apiDocs": {
     "nav": {
-      "authentication": "认证",
-      "chatCompletions": "对话补全",
-      "endpoints": "接口端点",
+      "overview": "概述",
+      "authentication": "身份认证",
+      "endpoints": "API端点",
+      "models": "可用模型",
+      "chatCompletions": "聊天补全",
+      "imageGeneration": "图像生成",
       "errorHandling": "错误处理",
-      "imageGeneration": "图片生成",
-      "models": "模型",
-      "overview": "概览",
-      "pricing": "定价",
-      "sdks": "SDK 列表"
+      "pricing": "计费说明",
+      "sdks": "SDK集成"
+    },
+    "title": "API开发文档",
+    "subtitle": "完整的API对接指南，支持OpenAI和Anthropic协议",
+    "getApiKey": "获取API密钥",
+    "overview": {
+      "title": "概述",
+      "description": "我们的API服务完全兼容OpenAI和Anthropic协议，您可以使用现有的SDK和代码无缝对接200+种AI模型。",
+      "features": "主要特性",
+      "feature1": "完全兼容OpenAI API格式，一键切换",
+      "feature2": "支持200+种主流AI模型",
+      "feature3": "高性价比，按需计费",
+      "feature4": "稳定可靠，全球加速",
+      "baseUrl": "基础URL"
+    },
+    "auth": {
+      "title": "身份认证",
+      "description": "所有API请求都需要在Header中携带有效的API密钥进行身份验证。",
+      "headerFormat": "请求头格式",
+      "example": "示例请求",
+      "securityTip": "安全提示",
+      "securityDescription": "请妥善保管您的API密钥，不要在客户端代码或公开仓库中暴露密钥。建议为不同用途创建不同的密钥，并设置适当的权限和额度限制。"
+    },
+    "endpoints": {
+      "title": "API端点",
+      "description": "描述",
+      "method": "方法",
+      "path": "路径"
+    },
+    "models": {
+      "title": "可用模型",
+      "description": "我们支持多种主流AI模型，包括OpenAI、Anthropic、Google等厂商的模型。",
+      "availableModels": "模型列表",
+      "modelName": "模型名称",
+      "provider": "提供商",
+      "capabilities": "能力",
+      "pricing": "价格",
+      "currentSelected": "当前选中模型",
+      "selectedTip": "以下示例代码将使用此模型作为演示",
+      "selected": "已选择",
+      "useThis": "使用此模型"
+    },
+    "chat": {
+      "title": "聊天补全",
+      "description": "创建聊天补全请求，支持多轮对话和流式输出。",
+      "endpoint": "端点",
+      "requestBody": "请求参数",
+      "requestExample": "请求示例",
+      "responseExample": "响应示例",
+      "streaming": "流式输出",
+      "streamingDescription": "设置 stream: true 可以启用流式输出，实时获取生成的内容。"
+    },
+    "images": {
+      "title": "图像生成",
+      "description": "使用AI模型生成图像。",
+      "endpoint": "端点",
+      "requestExample": "请求示例"
+    },
+    "errors": {
+      "title": "错误处理",
+      "description": "描述",
+      "code": "状态码",
+      "type": "错误类型",
+      "responseFormat": "错误响应格式"
+    },
+    "pricing": {
+      "title": "计费说明",
+      "description": "我们按Token使用量计费，不同模型的价格有所不同。",
+      "billingNote": "计费按实际使用的Token数量计算，输入和输出Token分开计价。",
+      "tokenExplanation": "什么是Token？",
+      "tokenDescription": "Token是文本处理的最小单位。一般来说，1个中文字符约等于1-2个Token，1个英文单词约等于1-4个Token。",
+      "example1": "1个中文字符",
+      "example2": "100个英文单词",
+      "example3": "一页A4文档"
+    },
+    "sdks": {
+      "title": "SDK集成",
+      "description": "您可以使用官方的OpenAI SDK来调用我们的API，只需修改base_url即可。"
+    },
+    "params": {
+      "name": "参数名",
+      "type": "类型",
+      "required": "必填",
+      "description": "描述"
     }
   }
 }

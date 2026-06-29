@@ -1,23 +1,29 @@
 {
   "myCommission": {
-    "available": "available",
-    "buyer": "buyer",
-    "commission": "佣金",
-    "copy": "复制",
-    "copyFailed": "copyFailed",
-    "copySuccess": "copySuccess",
-    "noCommission": "noCommission",
-    "orderTime": "orderTime",
-    "pending": "待处理",
-    "relatedOrder": "relatedOrder",
-    "title": "标题",
-    "todayCommission": "todayCommission",
-    "totalCommission": "totalCommission",
-    "withdraw": "提现",
-    "withdrawDetail": "withdrawDetail",
-    "withdrawDetailInfo": "withdrawDetailInfo",
-    "withdrawSuccess": "withdrawSuccess",
-    "withdrawn": "withdrawn",
-    "yuan": "yuan"
+    "title": "マイコミッション",
+    "totalCommission": "合計コミッション",
+    "yuan": "元",
+    "available": "利用可能",
+    "withdrawn": "出金済み",
+    "pending": "保留中",
+    "todayCommission": "本日のコミッション",
+    "withdraw": "出金",
+    "withdrawDetail": "出金詳細",
+    "commission": "コミッション",
+    "buyer": "購入者",
+    "orderTime": "注文時間",
+    "relatedOrder": "関連注文",
+    "copy": "コピー",
+    "noCommission": "コミッション記録なし",
+    "withdrawSuccess": "出金成功",
+    "withdrawDetailInfo": "出金詳細情報",
+    "copySuccess": "コピー成功",
+    "copyFailed": "コピー失敗",
+    "tabs": {
+      "all": "すべて",
+      "pending": "保留中",
+      "settled": "精算済み",
+      "cancelled": "キャンセル"
+    }
   }
 }

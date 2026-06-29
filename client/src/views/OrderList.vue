@@ -27,7 +27,7 @@
           :class="{ active: activeTab === index }"
           @click="handleTabChange(index)"
         >
-          {{ tab.name }}
+          {{ t(tab.name) }}
         </div>
       </div>
 
@@ -89,7 +89,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Loading } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getUserAndChildrenOrders } from '@/api/distribution/distribution'
+import { getUserAndChildrenOrders } from '@/api/distribution'
 import { useApiError } from '@/composables/useApiError'
 import { useCleanup } from '@/composables/useCleanup'
 import { fenToYuan } from '@/utils/format'
@@ -200,7 +200,7 @@ const getOrderList = async () => {
     quantity: pageSize
   }))
   if (data !== null && typeof data === 'object') {
-    const ordersData = data as { list?: any[] }
+    const ordersData = data as { list?: unknown[] }
     if (ordersData.list && ordersData.list.length > 0) {
       if (pageNum.value === 1) {
         orderList.value = ordersData.list as Order[]
@@ -249,7 +249,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .order-list-page {
   min-height: 100vh;
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-f5f7fa);
   padding: 20px;
 }
 
@@ -293,7 +293,7 @@ onMounted(() => {
   font-size: 16px;
   color: var(--color-gray-3d3d3d);
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--global-border-radius);
   position: relative;
 
@@ -338,12 +338,12 @@ onMounted(() => {
   background: var(--color-white-90);
   border: var(--unified-border);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
 
   &:hover {
-    
-    }
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .card-header {
@@ -374,50 +374,58 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   font-size: 13px;
   font-weight: 500;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .status-pending {
   background: var(--el-color-warning);
   color: var(--el-color-white);
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   animation: pulse-pending 2s ease-in-out infinite alternate;
 }
 
 @keyframes pulse-pending {
   0% {
+    box-shadow: var(--global-box-shadow);
     transform: scale(1);
   }
 
   100% {
+    box-shadow: var(--global-box-shadow);
     transform: scale(1.02);
   }
 }
 
 .status-shipping {
   background: var(--el-color-primary);
-  color: var(--color-on-primary);
-  }
+  color: var(--el-color-white);
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-refund {
   background: var(--el-color-danger);
   color: var(--el-color-white);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-finished {
   background: var(--el-color-success);
   color: var(--el-color-white);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-cancelled {
   background: var(--el-text-color-placeholder);
   color: var(--el-color-white);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-ended {
   background: var(--el-text-color-secondary);
   color: var(--el-color-white);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .card-body {
   display: flex;

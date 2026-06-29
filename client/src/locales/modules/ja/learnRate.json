@@ -1,8 +1,6 @@
 {
   "learnRate": {
-    "content": "内容",
-    "rating": "rating",
-    "reviews": "reviews",
-    "writeReview": "writeReview"
+    "reviews": "件の評価",
+    "writeReview": "評価を書く"
   }
 }

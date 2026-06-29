@@ -1,19 +1,20 @@
 {
   "courseDetail": {
-    "addToCart": "addToCart",
-    "addedToCart": "addedToCart",
-    "back": "返回",
-    "beginner": "beginner",
-    "buyNow": "buyNow",
-    "courseIntro": "courseIntro",
-    "courseOutline": "courseOutline",
-    "fortyFiveMin": "fortyFiveMin",
-    "goCheckout": "goCheckout",
-    "learnShortVideoFromZero": "learnShortVideoFromZero",
-    "ninetyMin": "ninetyMin",
-    "sixtyMin": "sixtyMin",
-    "teacherZhang": "teacherZhang",
-    "title": "标题",
-    "twelveLessons": "twelveLessons"
-  }
+    "addToCart": "Add To Cart",
+    "addedToCart": "Added To Cart",
+    "back": "Back",
+    "beginner": "Beginner",
+    "buyNow": "Buy Now",
+    "courseIntro": "Course Intro",
+    "courseOutline": "Course Outline",
+    "fortyFiveMin": "Forty Five Min",
+    "goCheckout": "Go Checkout",
+    "learnShortVideoFromZero": "Learn Short Video From Zero",
+    "ninetyMin": "Ninety Min",
+    "sixtyMin": "Sixty Min",
+    "teacherZhang": "Teacher Zhang",
+    "title": "Title",
+    "twelveLessons": "Twelve Lessons"
+  },
+  "CourseDetail": {}
 }

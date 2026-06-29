@@ -12,7 +12,7 @@
       "content": "Explore our comprehensive AI services, from model integration to app store, meeting your various needs",
       "features": {
         "modelIntegration": "Multi-Model Integration",
-        "appStore": "AI App Store",
+        "appStore": "Agents",
         "contentCreation": "Content Creation",
         "edu": "AI Education",
         "navigation": "Smart Navigation",
@@ -68,7 +68,6 @@
     "marquee": {
       "kouzi": "ihui Icon",
       "bbxLogo": "Baibaoxiang Logo",
-      "brand4": "Brand Icon",
       "zhipu": "Zhipu Qingyan",
       "brand8": "Brand 8",
       "openai": "OpenAI",
@@ -80,7 +79,8 @@
       "yuanbaoxiang": "Yuanbaoxiang",
       "yushu": "Yushu Robotics",
       "dbsfdx": "Northeast Normal University",
-      "jldx": "Jilin University"
+      "jldx": "Jilin University",
+      "n8n": "n8n"
     },
     "promotionModal": {
       "title": "New Member Special!",

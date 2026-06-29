@@ -1,18 +1,42 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+type MockIDBRequest = {
+  onsuccess: ((...args: unknown[]) => void) | null
+  onerror: ((...args: unknown[]) => void) | null
+  onupgradeneeded?: ((...args: unknown[]) => void) | null
+  result: unknown
+  error: unknown
+}
+
+type MockIndexedDB = {
+  open: ReturnType<typeof vi.fn>
+}
+
+type MockDB = {
+  createObjectStore: ReturnType<typeof vi.fn>
+  objectStoreNames: { contains: ReturnType<typeof vi.fn> }
+  transaction: ReturnType<typeof vi.fn>
+}
+
+type MockTransaction = {
+  objectStore: ReturnType<typeof vi.fn>
+}
+
+type MockObjectStore = Record<string, ReturnType<typeof vi.fn>>
+
 // 创建初始化的 mock request
-function createInitRequest(db: any) {
+function createInitRequest(db: unknown) {
   return {
     onsuccess: null as (() => void) | null,
     onerror: null as (() => void) | null,
-    onupgradeneeded: null as ((event: any) => void) | null,
+    onupgradeneeded: null as ((event: unknown) => void) | null,
     result: db,
     error: null,
   }
 }
 
 // 让 init 通过 open 回调完成初始化
-function setupInitMock(indexedDBMock: any, db: any) {
+function setupInitMock(indexedDBMock: MockIndexedDB, db: unknown) {
   const req = createInitRequest(db)
   indexedDBMock.open.mockImplementation(() => {
     setTimeout(() => {
@@ -27,9 +51,9 @@ function setupInitMock(indexedDBMock: any, db: any) {
 }
 
 describe('idbStorage', () => {
-  let mockIndexedDB: any
-  let mockDB: any
-  let mockTransaction: any
+  let mockIndexedDB: MockIndexedDB
+  let mockDB: MockDB
+  let mockTransaction: MockTransaction
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -93,7 +117,7 @@ describe('idbStorage', () => {
       const mockRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -158,7 +182,7 @@ describe('idbStorage', () => {
       const initRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -218,7 +242,7 @@ describe('idbStorage', () => {
       const initRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -277,7 +301,7 @@ describe('idbStorage', () => {
       const initRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -336,7 +360,7 @@ describe('idbStorage', () => {
       const initRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -394,7 +418,7 @@ describe('idbStorage', () => {
       const initRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -453,7 +477,7 @@ describe('idbStorage', () => {
       const initRequest = {
         onsuccess: null as (() => void) | null,
         onerror: null as (() => void) | null,
-        onupgradeneeded: null as ((event: any) => void) | null,
+        onupgradeneeded: null as ((event: unknown) => void) | null,
         result: mockDB,
         error: null,
       }
@@ -508,7 +532,7 @@ describe('idbStorage', () => {
     it('indexedDB.open失败时拒绝Promise', async () => {
       const error = new Error('open failed')
       mockIndexedDB.open.mockImplementation(() => {
-        const req: any = {
+        const req: MockIDBRequest = {
           onsuccess: null,
           onerror: null,
           onupgradeneeded: null,
@@ -543,9 +567,9 @@ describe('idbStorage', () => {
   // getRecords 测试
   describe('getRecords', () => {
     // 构造一个完整的游标对象用于测试
-    function setupCursorMock(records: any[], limit?: number) {
-      const cursorRequest: any = {
-        onsuccess: null as ((e: any) => void) | null,
+    function setupCursorMock(records: unknown[], limit?: number) {
+      const cursorRequest: MockIDBRequest = {
+        onsuccess: null as ((e: unknown) => void) | null,
         onerror: null as (() => void) | null,
         result: null,
         error: null,
@@ -563,7 +587,7 @@ describe('idbStorage', () => {
         }),
       }
 
-      const indexRequest: any = {
+      const indexRequest: { openCursor: ReturnType<typeof vi.fn> } = {
         openCursor: vi.fn(() => {
           setTimeout(() => {
             const e = { target: { result: index < records.length ? cursor : null } }
@@ -621,7 +645,7 @@ describe('idbStorage', () => {
 
     it('游标错误时拒绝Promise', async () => {
       const error = new Error('cursor error')
-      const cursorRequest: any = {
+      const cursorRequest: MockIDBRequest = {
         onsuccess: null,
         onerror: null,
         result: null,
@@ -658,13 +682,13 @@ describe('idbStorage', () => {
   describe('错误处理', () => {
     // 辅助：让所有 store 方法返回指定错误的 request
     function setupErrorStore(method: string, error: Error) {
-      const req: any = {
+      const req: MockIDBRequest = {
         onsuccess: null,
         onerror: null,
         result: null,
         error,
       }
-      const store: any = {
+      const store: MockObjectStore = {
         add: vi.fn(),
         get: vi.fn(),
         delete: vi.fn(),
@@ -747,7 +771,7 @@ describe('idbStorage', () => {
 
       // 直接调用 getRecordCount，触发 getDB -> init
       // getRecordCount 使用 readonly 事务 + count
-      const countReq: any = {
+      const countReq: MockIDBRequest = {
         onsuccess: null,
         onerror: null,
         result: 0,

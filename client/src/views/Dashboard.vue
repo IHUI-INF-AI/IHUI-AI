@@ -12,9 +12,9 @@ import { logger } from '../utils/logger'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { User, Cpu, FileText, DollarSign, Eye, Settings, Activity, TrendingUp, BarChart3, ArrowUpRight, ArrowRight, Zap, Clock } from '@/lib/lucide-fallback'
-import { getAgentExamineStats, type AgentExamineStats } from '@/api/agent/agent-examine'
-import { getAgentCategoryStats } from '@/api/agent/agent-category'
-import { getSystemStatistics } from '@/api/statistics/statistics'
+import { getAgentExamineStats, type AgentExamineStats } from '@/api/agent-examine'
+import { getAgentCategoryStats } from '@/api/agent-category'
+import { getSystemStatistics } from '@/api/statistics'
 import { useApiError } from '@/composables/useApiError'
 import { usePageState } from '@/composables/usePageState'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
@@ -166,7 +166,7 @@ const loadStats = async (): Promise<void> => {
 
 // 导航
 const safeNavigate = (path: string): void => {
-  router.push(path).catch((error: any) => {
+  router.push(path).catch((error: unknown) => {
     if (error && typeof error === 'object' && 'name' in error) return
     logger.error('[Dashboard] Navigation failed:', error)
     showErrorMsg(t('dashboard.navigationFailed'))
@@ -480,15 +480,14 @@ $accent-red: var(--el-color-danger);
 .glass-card {
   background: var(--color-white-70);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-
+  
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
+    border-color: rgba($brand-primary, 0.15);
   }
 }
 
@@ -511,7 +510,7 @@ $accent-red: var(--el-color-danger);
     padding: 6px 14px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.1em;
     color: $text-sec;
@@ -546,10 +545,10 @@ $accent-red: var(--el-color-danger);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: transform 0.3s;
-
+    transition: all 0.3s;
+    
     &:hover {
-      
+      transform: translateY(-2px);
     }
   }
 }
@@ -579,7 +578,7 @@ $accent-red: var(--el-color-danger);
   .stat-icon-wrap {
     width: 52px;
     height: 52px;
-    background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
+    background: rgba($brand-primary, 0.08);
     border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
@@ -636,7 +635,7 @@ $accent-red: var(--el-color-danger);
   .stat-glow {
     position: absolute;
     inset: 0;
-    background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
+    background: rgba($brand-primary, 0.02);
     pointer-events: none;
   }
 }
@@ -673,7 +672,7 @@ $accent-red: var(--el-color-danger);
     }
     
     .card-tag {
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.1em;
       color: $accent-green;
@@ -722,7 +721,7 @@ $accent-red: var(--el-color-danger);
   
   .examine-bar {
     height: 4px;
-    background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
+    background: rgba($brand-primary, 0.08);
     border-radius: var(--global-border-radius);
     overflow: hidden;
     
@@ -750,12 +749,12 @@ $accent-red: var(--el-color-danger);
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
+  background: rgba($brand-primary, 0.02);
   border-radius: var(--global-border-radius);
-  transition: background-color 0.3s;
-
+  transition: all 0.3s;
+  
   &:hover {
-    background: color-mix(in srgb, var(--el-text-color-primary) 4%, transparent);
+    background: rgba($brand-primary, 0.04);
   }
   
   .category-icon {
@@ -768,7 +767,7 @@ $accent-red: var(--el-color-danger);
     
     &.free { background: rgba($accent-green, 0.1); color: $accent-green; }
     &.limit { background: rgba($accent-yellow, 0.1); color: $accent-yellow; }
-    &.paid { background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent); color: var(--el-text-color-primary); }
+    &.paid { background: rgba($brand-primary, 0.08); color: $brand-primary; }
   }
   
   .category-info {
@@ -803,7 +802,7 @@ $accent-red: var(--el-color-danger);
     }
     
     .section-tag {
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.1em;
       color: $text-sec;
@@ -846,9 +845,9 @@ $accent-red: var(--el-color-danger);
     color: $text-sec;
     opacity: 0;
     transform: translateX(-8px);
-    transition: opacity 0.3s, transform 0.3s;
+    transition: all 0.3s;
   }
-
+  
   &:hover .action-arrow {
     opacity: 1;
     transform: translateX(0);
@@ -859,7 +858,7 @@ $accent-red: var(--el-color-danger);
 .scroll-reveal {
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   
   &.scroll-animated {
     opacity: 1;

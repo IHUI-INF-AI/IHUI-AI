@@ -1,12 +1,12 @@
 {
   "memberAsk": {
-    "answerPrefix": "answerPrefix",
+    "title": "My Q&A",
+    "myQuestions": "My Questions",
+    "emptyQuestion": "No questions",
+    "askPrefix": "Q: ",
     "answers": "answers",
-    "askPrefix": "askPrefix",
-    "emptyAnswer": "emptyAnswer",
-    "emptyQuestion": "emptyQuestion",
-    "myAnswers": "myAnswers",
-    "myQuestions": "myQuestions",
-    "title": "标题"
+    "myAnswers": "My Answers",
+    "emptyAnswer": "No answers",
+    "answerPrefix": "A: "
   }
 }

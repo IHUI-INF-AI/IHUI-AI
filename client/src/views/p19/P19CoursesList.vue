@@ -25,15 +25,16 @@ import { ElMessage } from 'element-plus'
 import { v2Courses } from '@/api/v2-business'
 
 const loading = ref(false)
-const courses_ = ref<any[]>([])
+const courses_ = ref<unknown[]>([])
 
 async function load() {
   loading.value = true
   try {
-    const r = await v2Courses.list({ page: 1, size: 20 })
-    courses_.value = (r as any)?.data?.items || (r as any)?.data?.records || []
-  } catch (e: any) {
-    ElMessage.error(t('common.errors.loadCoursesFailed') + ': ' + (e?.message || e))
+    const r = await v2Courses.list({ page: 1, size: 20 }) as unknown as { data?: { items?: unknown[]; records?: unknown[] } }
+    courses_.value = r?.data?.items || r?.data?.records || []
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(t('common.errors.loadCourseFailed') + ': ' + (err?.message || e))
   } finally {
     loading.value = false
   }
@@ -42,9 +43,10 @@ async function load() {
 async function enroll(courseId: string) {
   try {
     await v2Courses.enroll(courseId)
-    ElMessage.success(t('common.messages.enrollSuccess'))
-  } catch (e: any) {
-    ElMessage.error(t('common.errors.enrollError') + ': ' + (e?.message || e))
+    ElMessage.success(t('common.messages.signUpSuccess'))
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(t('common.errors.signUpFailed') + ': ' + (err?.message || e))
   }
 }
 

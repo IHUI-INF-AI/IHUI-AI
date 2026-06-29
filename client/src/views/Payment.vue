@@ -157,10 +157,10 @@
 import { useI18n } from 'vue-i18n'
 import { ref, computed } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { getUserToken } from '@/utils/request'
 
 const { t } = useI18n()
 
@@ -193,13 +193,20 @@ const paymentRetryCount = ref(0)
 const MAX_PAYMENT_RETRY = 2
 // 防重复点击锁：支付进行中禁止再次点击
 const isPaying = ref(false)
-// 组件挂载状态标志：await 后判断，避免操作已卸载组件状态
-let isMounted = true
-// 轮询进行中标志：防止 setInterval 触发的 async 重叠执行
-let isChecking = false
 
 // 统一清理：组件卸载时自动执行所有注册的清理函数
 const cleanup = useCleanup()
+
+// 全局登录弹窗 (替代硬跳转 /login, 避免整页刷新)
+const loginDialog = useLoginDialog()
+// 未登录时弹出登录弹窗 (登录后可返回支付页继续)
+const navigateToLogin = (): void => {
+  const currentPath = window.location.pathname + window.location.search
+  if (currentPath === '/login') return
+  if (!loginDialog.visible.value) {
+    loginDialog.open('login', currentPath)
+  }
+}
 
 const payMethodLabel = computed(() => {
   return payMethod.value === 'alipay' ? '支付宝' : '微信'
@@ -219,7 +226,8 @@ function getUserInfo() {
     ElMessage.warning(t('payment.pleaseLoginFirst'))
     if (navTimer !== null) clearTimeout(navTimer)
     navTimer = setTimeout(() => {
-      window.location.href = '/login'
+      // 改用登录弹窗, 避免整页刷新 (登录后可返回支付页继续)
+      navigateToLogin()
     }, 1500)
     return
   }
@@ -228,7 +236,8 @@ function getUserInfo() {
     ElMessage.warning(t('payment.userInfoIncomplete'))
     if (navTimer !== null) clearTimeout(navTimer)
     navTimer = setTimeout(() => {
-      window.location.href = '/login'
+      // 改用登录弹窗, 避免整页刷新
+      navigateToLogin()
     }, 1500)
     return
   }
@@ -239,7 +248,7 @@ function selectPayMethod(method: string) {
 }
 
 function openAgreement() {
-  window.open('/terms-of-service', '_blank')
+  window.open('/agreement/service', '_blank')
 }
 
 async function doPayment() {
@@ -254,14 +263,15 @@ async function doPayment() {
     ElMessage.warning(t('payment.pleaseLoginFirst'))
     if (navTimer !== null) clearTimeout(navTimer)
     navTimer = setTimeout(() => {
-      window.location.href = '/login'
+      // 改用登录弹窗, 避免整页刷新 (登录后可返回支付页继续)
+      navigateToLogin()
     }, 1500)
     return
   }
 
   if (userInfo.is_permanent_VIP) {
     isPaying.value = false
-    ElMessage.info(t('Payment.alreadyVip'))
+    ElMessage.info(t('payment.alreadyVip'))
     return
   }
 
@@ -309,10 +319,9 @@ async function refreshQrCode() {
   // 先关闭旧订单，避免产生多个未支付订单
   if (orderNo.value) {
     try {
-      const token = getUserToken()
       await fetch('/api/payment/closeOrder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_no: orderNo.value }),
       })
     } catch (err) {
@@ -381,7 +390,7 @@ function formatCountdown(seconds: number): string {
 async function createOrder() {
   const userInfo = StorageManager.getItem(STORAGE_KEYS.USER_INFO) as Record<string, unknown> | null
   if (!userInfo) {
-    throw new Error(t('Payment.notLogged'))
+    throw new Error(t('payment.notLogged'))
   }
 
   if (!userInfo.openid) {
@@ -389,11 +398,11 @@ async function createOrder() {
   }
 
   if (!product.value.id) {
-    throw new Error(t('Payment.incompleteProduct'))
+    throw new Error(t('payment.incompleteProduct'))
   }
 
   if (!payMethod.value) {
-    throw new Error(t('Payment.selectPayMethod'))
+    throw new Error(t('payment.selectPayMethod'))
   }
 
   const params = {
@@ -402,10 +411,9 @@ async function createOrder() {
     openid: userInfo.openid,
   }
 
-  const token = getUserToken()
   const response = await fetch('/api/payment/createOrder', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   })
 
@@ -445,14 +453,8 @@ function stopOrderPolling() {
 }
 
 async function checkOrderStatus() {
-  // 防止 setInterval 触发的 async 重叠执行：上一次请求未完成则跳过本次
-  if (isChecking) return
-  isChecking = true
   try {
     const result = await getOrderStatus()
-
-    // 组件已卸载则不再操作状态
-    if (!isMounted) return
 
     if (result.code === 0) {
       const orderData = result.data
@@ -470,23 +472,19 @@ async function checkOrderStatus() {
       }
     }
   } catch (error) {
-    if (!isMounted) return
     logger.error('Failed to check order status:', error)
-  } finally {
-    isChecking = false
   }
 }
 
 async function getOrderStatus() {
   const userInfo = StorageManager.getItem(STORAGE_KEYS.USER_INFO) as Record<string, unknown> | null
   if (!userInfo || !userInfo.openid) {
-    throw new Error(t('Payment.notLoggedOrNoOpenId'))
+    throw new Error(t('payment.notLoggedOrNoOpenId'))
   }
 
-  const token = getUserToken()
   const response = await fetch('/api/payment/checkOrderStatus', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ openid: userInfo.openid }),
   })
 
@@ -507,7 +505,7 @@ function closeResultPopup() {
   showResultDialog.value = false
 
   if (paymentSuccess.value) {
-    window.location.href = '/member/personal'
+    window.location.href = '/member'
   }
 }
 
@@ -518,11 +516,10 @@ function refreshUserInfo() {
     return
   }
 
-  const token = getUserToken()
-  // 2026-06-24 修复: 对齐后端 /api/v1/user/info
-  fetch('/api/v1/user/info', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+  fetch('/api/user/getUserInfo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ openid: userInfo.openid }),
   })
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -539,7 +536,6 @@ function refreshUserInfo() {
 }
 
 cleanup.add(() => {
-  isMounted = false
   stopOrderPolling()
   stopQrCountdown()
   if (navTimer !== null) {
@@ -555,7 +551,7 @@ getUserInfo()
 <style scoped lang="scss">
 .payment-page {
   min-height: 100vh;
-  background: var(--el-bg-color-page);
+  background: linear-gradient(135deg, var(--color-payment-purple-start) 0%, var(--color-payment-purple-end) 100%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -568,6 +564,7 @@ getUserInfo()
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   padding: 32px;
+  box-shadow: var(--global-box-shadow);
 }
 
 .header {
@@ -576,14 +573,14 @@ getUserInfo()
 
   .title {
     font-size: 28px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
+    font-weight: bold;
+    color: var(--color-gray-333);
     margin: 0 0 8px;
   }
 
   .subtitle {
     font-size: 14px;
-    color: var(--el-text-color-secondary);
+    color: var(--color-gray-666);
     margin: 0;
   }
 }
@@ -594,14 +591,14 @@ getUserInfo()
   .package {
     padding: 24px;
     border-radius: var(--global-border-radius);
-    background: var(--el-fill-color-lighter);
+    background: var(--color-gray-f8f8f8);
     position: relative;
-    border: 1px solid var(--el-border-color);
-    transition: border-color 0.3s, background-color 0.3s;
+    border: 2px solid transparent;
+    transition: all 0.3s;
 
     &.active {
-      border-color: var(--el-color-primary);
-      background: rgba(var(--el-color-primary-rgb), 0.05);
+      border-color: var(--color-blue-0056d6);
+      background: var(--color-blue-0056d6-5);
     }
 
     .package-header {
@@ -612,14 +609,14 @@ getUserInfo()
 
       .package-title {
         font-size: 18px;
-        font-weight: 600;
-        color: var(--el-text-color-primary);
+        font-weight: bold;
+        color: var(--color-gray-333);
       }
 
       .package-tag {
         font-size: 12px;
-        color: var(--color-on-primary);
-        background: var(--el-color-warning);
+        color: var(--color-white);
+        background: var(--color-orange-ff6b00);
         padding: 4px 12px;
         border-radius: var(--global-border-radius);
       }
@@ -630,14 +627,14 @@ getUserInfo()
 
       .price {
         font-size: 32px;
-        font-weight: 600;
-        color: var(--el-color-primary);
+        font-weight: bold;
+        color: var(--color-blue-0056d6);
         margin-right: 12px;
       }
 
       .original-price {
         font-size: 14px;
-        color: var(--el-text-color-placeholder);
+        color: var(--color-gray-999);
         text-decoration: line-through;
       }
     }
@@ -649,12 +646,12 @@ getUserInfo()
 
       p {
         font-size: 14px;
-        color: var(--el-text-color-secondary);
+        color: var(--color-gray-666);
         margin: 0;
 
         &::before {
           content: '• ';
-          color: var(--el-color-primary);
+          color: var(--color-blue-0056d6);
         }
       }
     }
@@ -665,8 +662,8 @@ getUserInfo()
       bottom: 24px;
       width: 32px;
       height: 32px;
-      background: var(--el-color-primary);
-      color: var(--color-on-primary);
+      background: var(--color-blue-0056d6);
+      color: var(--color-white);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -681,8 +678,8 @@ getUserInfo()
 
   .section-title {
     font-size: 16px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
+    font-weight: bold;
+    color: var(--color-gray-333);
     margin: 0 0 16px;
   }
 
@@ -691,18 +688,18 @@ getUserInfo()
     align-items: center;
     padding: 16px;
     border-radius: var(--global-border-radius);
-    background: var(--el-fill-color-lighter);
-    border: 1px solid var(--el-border-color);
+    background: var(--color-gray-f8f8f8);
+    border: 2px solid transparent;
     cursor: pointer;
-    transition: background-color 0.3s, border-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
-      background: var(--el-fill-color-light);
+      background: var(--color-gray-light);
     }
 
     &.active {
-      border-color: var(--el-color-primary);
-      background: rgba(var(--el-color-primary-rgb), 0.05);
+      border-color: var(--color-blue-0056d6);
+      background: var(--color-blue-0056d6-5);
     }
 
     .method-icon {
@@ -713,15 +710,15 @@ getUserInfo()
 
     .method-name {
       font-size: 16px;
-      color: var(--el-text-color-primary);
+      color: var(--color-gray-333);
       flex: 1;
     }
 
     .select-icon {
       width: 28px;
       height: 28px;
-      background: var(--el-color-primary);
-      color: var(--color-on-primary);
+      background: var(--color-blue-0056d6);
+      color: var(--color-white);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -738,12 +735,12 @@ getUserInfo()
 
   .agreement-text {
     font-size: 13px;
-    color: var(--el-text-color-secondary);
+    color: var(--color-gray-666);
     margin-left: 8px;
   }
 
   .link {
-    color: var(--el-color-primary);
+    color: var(--color-blue-0056d6);
     cursor: pointer;
 
     &:hover {
@@ -756,12 +753,12 @@ getUserInfo()
   width: 100%;
   height: 56px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: bold;
   border-radius: var(--global-border-radius);
 
   &:disabled {
-    background: var(--el-disabled-bg-color);
-    border-color: var(--el-disabled-bg-color);
+    background: var(--color-gray-ccc);
+    border-color: var(--color-gray-ccc);
   }
 }
 
@@ -773,8 +770,8 @@ getUserInfo()
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: var(--el-color-danger);
-    color: var(--color-on-primary);
+    background: var(--color--ff5252);
+    color: var(--color-white);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -782,20 +779,20 @@ getUserInfo()
     margin: 0 auto 24px;
 
     &.success {
-      background: var(--el-color-success);
+      background: var(--color-green-4caf50);
     }
   }
 
   .result-title {
     font-size: 20px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
+    font-weight: bold;
+    color: var(--color-gray-333);
     margin: 0 0 16px;
   }
 
   .result-message {
     font-size: 14px;
-    color: var(--el-text-color-secondary);
+    color: var(--color-gray-666);
     margin: 0 0 24px;
   }
 
@@ -814,7 +811,7 @@ getUserInfo()
   .qrcode-title {
     font-size: 16px;
     font-weight: 700;
-    color: var(--el-text-color-primary);
+    color: var(--color-gray-333);
     margin: 0 0 24px;
   }
 
@@ -829,8 +826,8 @@ getUserInfo()
     width: 200px;
     height: 200px;
     border-radius: var(--global-border-radius);
-    background: var(--el-fill-color-lighter);
-    border: 1px solid var(--el-border-color);
+    background: var(--color-gray-f8f8f8);
+    border: 2px solid var(--color-gray-e5e5e5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -853,7 +850,7 @@ getUserInfo()
       .qr-hint {
         font-size: 16px;
         font-weight: 700;
-        color: var(--el-text-color-primary);
+        color: var(--color-gray-333);
       }
     }
 
@@ -862,14 +859,14 @@ getUserInfo()
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      color: var(--el-text-color-secondary);
+      color: var(--color-gray-666);
       font-size: 13px;
 
       .qr-spinner {
         width: 32px;
         height: 32px;
-        border: 3px solid var(--el-border-color);
-        border-top-color: var(--el-color-primary);
+        border: 3px solid var(--color-gray-e5e5e5);
+        border-top-color: var(--color-blue-0056d6);
         border-radius: 50%;
         animation: qr-spin 0.8s linear infinite;
       }
@@ -884,17 +881,17 @@ getUserInfo()
 
     .countdown-label {
       font-size: 12px;
-      color: var(--el-text-color-secondary);
+      color: var(--color-gray-666);
     }
 
     .countdown-value {
       font-size: 24px;
-      font-weight: 700;
-      color: var(--el-color-primary);
+      font-weight: 800;
+      color: var(--color-blue-0056d6);
       font-variant-numeric: tabular-nums;
 
       &.urgent {
-        color: var(--el-color-danger);
+        color: var(--color--ff5252);
         animation: qr-pulse 1s ease-in-out infinite;
       }
     }
@@ -922,13 +919,13 @@ getUserInfo()
     h4 {
       font-size: 18px;
       font-weight: 700;
-      color: var(--el-text-color-primary);
+      color: var(--color-gray-333);
       margin: 0;
     }
 
     p {
       font-size: 14px;
-      color: var(--el-text-color-secondary);
+      color: var(--color-gray-666);
       margin: 0 0 12px;
     }
   }
@@ -938,10 +935,10 @@ getUserInfo()
   margin-top: 12px;
   padding: 10px 14px;
   border-radius: var(--global-border-radius);
-  background: var(--el-color-warning-light-9);
+  background: var(--color-amber-fff7e6);
   border: var(--unified-border);
   font-size: 12px;
-  color: var(--el-color-warning-dark-2);
+  color: var(--color-amber-874d00);
   text-align: left;
 }
 
@@ -953,66 +950,4 @@ getUserInfo()
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-
-/* ==================== 移动端响应式 ==================== */
-@media (max-width: 768px) {
-  .payment-page { padding: 16px; }
-  .payment-container { padding: 24px; }
-  .header .title { font-size: 24px; }
-  .package-container .package { padding: 20px; }
-  :where(.package-container) .package .package-price .price { font-size: 28px; }
-}
-
-@media (max-width: 480px) {
-  .payment-page { padding: 12px; }
-  .payment-container { padding: 16px; }
-  .header {
-    margin-bottom: 24px;
-    .title { font-size: 22px; }
-    .subtitle { font-size: 13px; }
-  }
-  .package-container {
-    margin-bottom: 24px;
-    .package {
-      padding: 16px;
-      .package-header { margin-bottom: 12px; }
-      .package-title { font-size: 16px; }
-      .package-price .price { font-size: 24px; }
-    }
-  }
-  .payment-methods {
-    margin-bottom: 24px;
-    .method {
-      padding: 14px 12px;
-      min-height: 44px;
-    }
-  }
-  .pay-button { height: 52px; font-size: 16px; min-height: 44px; }
-}
-
-/* ==================== Dark Mode ==================== */
-:where(html.dark) .payment-page { background: var(--el-bg-color-page); }
-:where(html.dark) .payment-container { background: var(--el-bg-color); }
-:where(html.dark) .header .title,
-:where(html.dark) .payment-methods .section-title,
-:where(html.dark) .payment-methods .method .method-name,
-:where(html.dark) .qrcode-popup .qrcode-title,
-:where(html.dark) .qrcode-popup .qrcode-expired h4,
-:where(html.dark) .result-popup .result-title { color: var(--el-text-color-primary); }
-:where(html.dark) .header .subtitle,
-:where(html.dark) .agreement .agreement-text,
-:where(html.dark) .qrcode-popup .qrcode-countdown .countdown-label,
-:where(html.dark) .qrcode-popup .qrcode-img .qr-loading,
-:where(html.dark) .qrcode-popup .qrcode-expired p,
-:where(html.dark) .result-popup .result-message { color: var(--el-text-color-secondary); }
-:where(html.dark) .package-container .package { background: var(--el-fill-color-darker); }
-:where(html.dark) .package-container .package.active { border-color: var(--el-color-primary); background: rgba(var(--el-color-primary-rgb), 0.08); }
-:where(html.dark) .package-container .package .package-price .original-price { color: var(--el-text-color-placeholder); }
-:where(html.dark) .payment-methods .method { background: var(--el-fill-color-darker); }
-:where(html.dark) .payment-methods .method.active { border-color: var(--el-color-primary); background: rgba(var(--el-color-primary-rgb), 0.08); }
-:where(html.dark) .payment-methods .method:hover { background: var(--el-fill-color); }
-:where(html.dark) .pay-button:disabled { background: var(--el-disabled-bg-color); color: var(--el-text-color-placeholder); }
-:where(html.dark) .qrcode-popup .qrcode-img { background: var(--el-fill-color-darker); }
-:where(html.dark) .qrcode-popup .qrcode-img .qr-loading .qr-spinner { border-color: var(--el-border-color); border-top-color: var(--el-color-primary); }
-:where(html.dark) .method-downgrade-hint { background: var(--el-color-warning-dark-2); border-color: var(--el-color-warning); color: var(--el-color-warning-light-9); }
 </style>

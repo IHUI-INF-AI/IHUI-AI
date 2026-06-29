@@ -1,20 +1,20 @@
 {
   "rechargeDialog": {
-    "actions": "actions",
-    "alipay": "alipay",
-    "amountAriaLabel": "amountAriaLabel",
-    "amountLabel": "amountLabel",
-    "amountRange": "amountRange",
-    "bankCard": "bankCard",
-    "openedA11y": "openedA11y",
-    "payNow": "payNow",
-    "paymentMethod": "paymentMethod",
-    "presetsLabel": "presetsLabel",
-    "processing": "处理中",
-    "selectAmount": "selectAmount",
-    "selectTip": "selectTip",
-    "txDescription": "txDescription",
-    "walletRecharge": "walletRecharge",
-    "wechat": "wechat"
+    "walletRecharge": "Wallet Recharge",
+    "selectTip": "Please select amount and payment method",
+    "amountLabel": "Amount",
+    "amountAriaLabel": "Recharge amount in CNY",
+    "amountRange": "Amount range 1-50000 CNY",
+    "presetsLabel": "Quick amount selection",
+    "selectAmount": "Select {n} CNY",
+    "paymentMethod": "Payment Method",
+    "actions": "Recharge Actions",
+    "payNow": "Pay Now",
+    "processing": "Processing...",
+    "alipay": "Alipay",
+    "wechat": "WeChat Pay",
+    "bankCard": "Bank Card",
+    "openedA11y": "Recharge dialog opened, please select amount and payment method",
+    "txDescription": "Recharge ¥{amount} ({channel})"
   }
 }

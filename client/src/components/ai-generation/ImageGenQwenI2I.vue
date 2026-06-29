@@ -72,7 +72,7 @@ import { Mic } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { generateDashScopeImageToImage } from '@/api/services/aiGeneration.service'
-import { uploadFormFile } from '@/api/file/file-upload'
+import { uploadFormFile } from '@/api/file-upload'
 import type { FormInstance } from 'element-plus'
 import { useApiError } from '@/composables/useApiError'
 
@@ -83,7 +83,7 @@ const props = defineProps<{
   /** 会话 ID，可选，用于与聊天记录串联 */
   chatId?: string | number
   /** 自定义参数（如 negative_prompt 等），从大模型配置 variables 透传 */
-  zidingyican?: Array<{ name: string; desc?: string; value: any }>
+  zidingyican?: Array<{ name: string; desc?: string; value: unknown }>
 }>()
 
 const formRef = ref<FormInstance | null>(null)

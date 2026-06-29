@@ -18,7 +18,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../agent/agent-category'
+import * as api from '../agent-category'
 
 describe('agent-category', () => {
   beforeEach(() => {

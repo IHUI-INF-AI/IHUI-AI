@@ -18,16 +18,16 @@
 import { useI18n } from 'vue-i18n'
 import { onMounted, ref } from 'vue'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
 
 const { t } = useI18n()
-const list = ref<any[]>([])
+const list = ref<unknown[]>([])
 const loading = ref(false)
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await memberApi.myCertificates()
+    const res = await memberApi.myCertificates() as unknown as { data?: { items?: unknown[]; list?: unknown[] } }
     list.value = (res.data?.items || res.data?.list) || []
   } finally {
     loading.value = false

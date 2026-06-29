@@ -75,7 +75,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getToolsList, getToolCategoriesList } from '@/api/tools/tools'
+import { getToolsList, getToolCategoriesList } from '@/api/tools'
 import { logger } from '@/utils/logger'
 import { useSEO } from '@/composables/useSEO'
 
@@ -168,12 +168,15 @@ async function loadCategories() {
   try {
     const res = await getToolCategoriesList()
     if (res.success && res.data && Array.isArray(res.data) && res.data.length > 0) {
-      const cats: Category[] = (res.data as any[]).map((c) => ({
-        key: c.key || c.id,
-        name: c.name,
-        icon: c.icon || '◆',
-        count: c.count || 0,
-      }))
+      const cats: Category[] = (res.data as unknown[]).map((c) => {
+        const item = c as Record<string, unknown>
+        return {
+          key: String(item.key || item.id),
+          name: String(item.name),
+          icon: String(item.icon || '◆'),
+          count: Number(item.count || 0),
+        }
+      })
       // 确保 "all" 在最前
       if (!cats.find((c) => c.key === 'all')) {
         cats.unshift({ key: 'all', name: t('toolsPage.categoryAll'), icon: '✦', count: cats.reduce((s, c) => s + c.count, 0) })
@@ -197,30 +200,39 @@ async function loadTools() {
       category: activeCategory.value === 'all' ? undefined : activeCategory.value,
       keyword: searchKeyword.value || undefined,
       sortBy: sortBy.value,
-    } as any)
+    })
     if (res.success && res.data) {
       // 后端返回格式: { items: [...], total }
-      const payload: any = res.data
-      let list: any[] = []
+      const payload = res.data as unknown as Record<string, unknown> | unknown[]
+      let list: Record<string, unknown>[] = []
       if (Array.isArray(payload)) {
-        list = payload
-      } else if (payload.items) {
-        list = payload.items
-      } else if (payload.list) {
-        list = payload.list
-      } else if (payload.data) {
-        list = Array.isArray(payload.data) ? payload.data : (payload.data.items || payload.data.list || [])
+        list = payload as Record<string, unknown>[]
+      } else {
+        const obj = payload as Record<string, unknown>
+        if (obj.items) {
+          list = obj.items as Record<string, unknown>[]
+        } else if (obj.list) {
+          list = obj.list as Record<string, unknown>[]
+        } else if (obj.data) {
+          const inner = obj.data
+          if (Array.isArray(inner)) {
+            list = inner as Record<string, unknown>[]
+          } else {
+            const innerObj = inner as Record<string, unknown>
+            list = (innerObj.items || innerObj.list || []) as Record<string, unknown>[]
+          }
+        }
       }
       if (list.length > 0) {
         tools.value = list.map((tool) => ({
-          id: tool.id,
-          name: tool.name,
-          description: tool.description,
-          category: tool.category,
-          icon: tool.icon || '◆',
-          hot: tool.hot || false,
-          usage: tool.usage || tool.usageCount || 0,
-          url: tool.url,
+          id: String(tool.id),
+          name: String(tool.name),
+          description: String(tool.description),
+          category: String(tool.category),
+          icon: String(tool.icon || '◆'),
+          hot: Boolean(tool.hot) || false,
+          usage: Number(tool.usage || tool.usageCount || 0),
+          url: tool.url as string | undefined,
         }))
         dataSource.value = 'api'
         return
@@ -321,7 +333,7 @@ onMounted(async () => {
 
 .category-item.active {
   background: var(--el-color-primary);
-  color: var(--color-on-primary);
+  color: var(--el-color-white);
 }
 .category-icon { font-size: 16px; }
 .category-name { flex: 1; }
@@ -333,7 +345,7 @@ onMounted(async () => {
   padding: 1px 6px;
   border-radius: var(--global-border-radius);
 }
-.category-item.active .category-count { background: var(--color-white-20); color: var(--color-on-primary); }
+.category-item.active .category-count { background: var(--color-white-20); color: var(--el-color-white); }
 .tools-main { display: flex; flex-direction: column; gap: 16px; }
 
 .tools-toolbar {
@@ -389,7 +401,7 @@ onMounted(async () => {
   border-radius: var(--global-border-radius);
   padding: 16px;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -397,8 +409,9 @@ onMounted(async () => {
 
 .tool-card:hover {
   border-color: var(--el-color-primary);
-  
-  }
+  transform: translateY(-2px);
+  box-shadow: var(--global-box-shadow);
+}
 
 .tool-card-header {
   display: flex;
@@ -410,7 +423,7 @@ onMounted(async () => {
 .tool-badge-hot {
   background: var(--color-rank-gold);
   color: var(--el-color-white);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
@@ -441,70 +454,9 @@ onMounted(async () => {
   border-radius: var(--global-border-radius);
 }
 
-:where(html.dark) .tool-tag {
+html.dark .tool-tag {
   color: var(--el-color-primary);
   background: var(--el-bg-color);
 }
 .tool-usage { font-size: 12px; color: var(--el-text-color-placeholder); }
-
-/* ==================== 移动端响应式 ==================== */
-@media (max-width: 1024px) {
-  .tools-layout {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  .tools-sidebar {
-    position: static;
-    height: auto;
-  }
-  .sidebar-categories {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 8px;
-    gap: 8px;
-  }
-  .category-item {
-    flex-shrink: 0;
-    padding: 10px 14px;
-    min-height: 44px;
-  }
-}
-
-@media (max-width: 768px) {
-  .tools-page { padding: 12px; }
-  .tools-layout { gap: 12px; }
-  .tools-sidebar { padding: 12px; }
-  .sidebar-search {
-    padding: 10px 12px;
-    font-size: 14px;
-    min-height: 44px;
-  }
-  .category-item {
-    padding: 10px 12px;
-    font-size: 13px;
-    min-height: 44px;
-  }
-  .tools-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .toolbar-sort {
-    padding: 10px 12px;
-    font-size: 14px;
-    min-height: 44px;
-    width: 100%;
-  }
-  .tools-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
-  }
-  .tool-card { padding: 12px; }
-  .tool-name { font-size: 14px; }
-  .tool-desc { font-size: 12px; line-height: 1.45; }
-}
-
-@media (max-width: 375px) {
-  .tools-grid { grid-template-columns: 1fr; }
-}
 </style>

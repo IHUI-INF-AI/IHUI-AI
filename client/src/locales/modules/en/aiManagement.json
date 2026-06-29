@@ -1,10 +1,10 @@
 {
   "aiManagement": {
-    "agentList": "智能体列表",
-    "aiChat": "AI 对话",
-    "clearSelection": "clearSelection",
-    "selectAgentHint": "selectAgentHint",
-    "subtitle": "副标题",
-    "title": "标题"
+    "title": "AI Management",
+    "subtitle": "Manage and configure your AI assistants",
+    "agentList": "Agent List",
+    "aiChat": "AI Chat",
+    "clearSelection": "Clear Selection",
+    "selectAgentHint": "Please select an agent from the left to start chatting"
   }
 }

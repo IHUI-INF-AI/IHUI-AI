@@ -103,7 +103,7 @@ import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Phone, KeyRound } from '@/lib/lucide-fallback'
-import { sendVerificationCode } from '@/api/user/user'
+import { sendVerificationCode } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
@@ -171,7 +171,7 @@ const formRules = computed((): FormRules => ({
   phoneNumber: [
     { required: true, message: t('auth.phonePlaceholder'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -196,7 +196,7 @@ const formRules = computed((): FormRules => ({
   verificationCode: [
     { required: true, message: t('auth.codePlaceholder'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -240,7 +240,7 @@ const handleSendCode = async (): Promise<void> => {
 
     ElMessage.success(t('auth.codeSentSuccess'))
     startCountdown()
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[PhoneLoginForm] Failed to send verification code', error)
     ElMessage.error(error instanceof Error ? error.message : t('auth.codeSendFailed'))
   } finally {
@@ -373,7 +373,7 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
+    transition: all 0.2s;
   }
 
   input:checked + .checkmark {
@@ -383,7 +383,7 @@ defineExpose({
 
   input:checked + .checkmark::after {
     content: "\2713";
-    color: var(--el-bg-color);
+    color: var(--el-color-white);
     font-size: 12px;
   }
 }

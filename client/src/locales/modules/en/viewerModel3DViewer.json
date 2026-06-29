@@ -1,8 +1,8 @@
 {
   "viewerModel3DViewer": {
-    "format": "format",
-    "model3dFile": "model3dFile",
-    "supportedFormat": "supportedFormat",
-    "useBlenderHint": "useBlenderHint"
+    "model3dFile": "3D Model File",
+    "format": "Format",
+    "supportedFormat": "Supported Format",
+    "useBlenderHint": "Use Blender or online viewer"
   }
 }

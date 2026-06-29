@@ -39,43 +39,43 @@
 
     <el-card v-if="refund" class="info-card" :shadow="false">
       <template #header>
-        <span>{{ t('refundDetail.refundInfo') }}</span>
+        <span>退款信息</span>
       </template>
       <div class="info-grid">
         <div class="info-item">
-          <span class="info-label">{{ t('refundDetail.refundNo') }}</span>
+          <span class="info-label">退款单号</span>
           <span class="info-value">{{ refund.id }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">{{ t('refundDetail.originalOrderNo') }}</span>
+          <span class="info-label">原订单号</span>
           <span class="info-value">{{ refund.order_no }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">{{ t('refundDetail.refundAmount') }}</span>
+          <span class="info-label">退款金额</span>
           <span class="info-value amount">¥{{ formatAmount(refund.amount) }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">{{ t('refundDetail.refundReason') }}</span>
+          <span class="info-label">退款原因</span>
           <span class="info-value">{{ refund.reason }}</span>
         </div>
         <div v-if="refund.description" class="info-item full">
-          <span class="info-label">{{ t('refundDetail.refundDescription') }}</span>
+          <span class="info-label">退款说明</span>
           <span class="info-value">{{ refund.description }}</span>
         </div>
         <div v-if="refund.reject_reason" class="info-item full">
-          <span class="info-label">{{ t('refundDetail.rejectReason') }}</span>
+          <span class="info-label">拒绝原因</span>
           <span class="info-value reject">{{ refund.reject_reason }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">{{ t('refundDetail.applyTime') }}</span>
+          <span class="info-label">申请时间</span>
           <span class="info-value">{{ formatTime(refund.created_at) }}</span>
         </div>
         <div v-if="refund.approved_at" class="info-item">
-          <span class="info-label">{{ t('refundDetail.approveTime') }}</span>
+          <span class="info-label">批准时间</span>
           <span class="info-value">{{ formatTime(refund.approved_at) }}</span>
         </div>
         <div v-if="refund.completed_at" class="info-item">
-          <span class="info-label">{{ t('refundDetail.completeTime') }}</span>
+          <span class="info-label">完成时间</span>
           <span class="info-value">{{ formatTime(refund.completed_at) }}</span>
         </div>
       </div>
@@ -149,15 +149,17 @@ async function loadDetail() {
   loading.value = true
   loadError.value = null
   try {
-    const res: any = await http.get(`/api/v1/refunds/${refundNo}`)
-    if (res?.code === 0) {
-      refund.value = res.data
-      evidenceList.value = res.data.evidence || []
+    const res = await http.get<{ code?: number; message?: string; data?: Refund }>(`/api/v1/refunds/${refundNo}`)
+    const body = res.data
+    if (body?.code === 0) {
+      refund.value = body.data ?? null
+      evidenceList.value = (body.data?.evidence as Evidence[]) || []
     } else {
       loadError.value = '加载失败'
     }
-  } catch (e: any) {
-    loadError.value = e?.response?.data?.detail || e?.message || '加载失败'
+  } catch (e) {
+    const err = e as { response?: { data?: { detail?: string } }; message?: string }
+    loadError.value = err?.response?.data?.detail || err?.message || '加载失败'
   } finally {
     loading.value = false
   }
@@ -188,22 +190,24 @@ async function handleCancel() {
         type: 'warning',
       }
     )
-    const res: any = await http.post(`/api/v1/refunds/${refund.value.id}/cancel`, { user_id: 'self' })
-    if (res?.code === 0) {
-      toast.success(t('common.messages.revokeSuccess'))
+    const res = await http.post<{ code?: number; message?: string }>(`/api/v1/refunds/${refund.value.id}/cancel`, { user_id: 'self' })
+    const body = res.data
+    if (body?.code === 0) {
+      toast.success('撤销成功')
       loadDetail()
     } else {
-      toast.error(t('common.messages.revokeFailed'))
+      toast.error('撤销失败')
     }
-  } catch (e: any) {
-    if (e !== 'cancel' && e?.message) {
-      toast.error(t('common.messages.revokeFailed'))
+  } catch (e) {
+    const err = e as { message?: string }
+    if (e !== 'cancel' && err?.message) {
+      toast.error('撤销失败')
     }
   }
 }
 
 function onEvidenceUploaded() {
-  toast.success(t('common.messages.voucherUploadSuccess'))
+  toast.success('凭证上传成功')
   loadDetail()
 }
 

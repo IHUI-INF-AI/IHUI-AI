@@ -22,7 +22,7 @@
       <h2 class="section-title">{{ t('circleDetail.postsTitle') }}</h2>
 
       <div class="post-form">
-        <textarea v-model="newPost" class="post-textarea" rows="3" :placeholder="t('circleDetail.postPlaceholder')"></textarea>
+        <textarea v-model="newPost" class="post-textarea" rows="3" placeholder="说点什么..."></textarea>
         <el-button type="primary" :loading="submitting" @click="handlePublish">{{ t('circleDetail.publish') }}</el-button>
       </div>
 
@@ -60,15 +60,19 @@ import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
-import { circleApi } from '@/api/content/circle'
+import { circleApi, type Circle, type CirclePost } from '@/api/circle'
+
+interface CirclePostWithLike extends CirclePost {
+  is_liked?: boolean
+}
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { t } = useI18n()
 const loading = ref(false)
-const circle = ref<any>(null)
-const posts = ref<any[]>([])
+const circle = ref<Circle | null>(null)
+const posts = ref<CirclePostWithLike[]>([])
 const newPost = ref('')
 const submitting = ref(false)
 const joined = ref(false)
@@ -108,33 +112,33 @@ async function handleJoin() {
     if (joined.value) {
       await circleApi.quit(id)
       joined.value = false
-      toast.success(t('common.messages.leftCircle'))
+      toast.success('已退出')
     } else {
       await circleApi.join(id)
       joined.value = true
-      toast.success(t('common.messages.joinedCircle'))
+      toast.success('已加入')
     }
   } catch {
-    toast.error(t('common.errors.operationFailed'))
+    toast.error('操作失败')
   }
 }
 
 async function handlePublish() {
   const id = Number(route.params.id)
   if (!newPost.value.trim()) {
-    toast.error(t('common.messages.inputContent'))
+    toast.error('请输入内容')
     return
   }
   submitting.value = true
   try {
     await circleApi.publish({ circle_id: id, content: newPost.value })
-    toast.success(t('common.messages.publishSuccess'))
+    toast.success('发布成功')
     newPost.value = ''
     const pRes = await circleApi.posts(id, { page: 1, limit: 30 })
     const pData = pRes?.data
     posts.value = pData?.data || pData?.list || pData || []
   } catch {
-    toast.error(t('common.messages.publishFailed'))
+    toast.error('发布失败')
   } finally {
     submitting.value = false
   }
@@ -149,7 +153,7 @@ async function handleLike(postId: number) {
       p.like_num = Math.max(0, (p.like_num || 0) + (p.is_liked ? 1 : -1))
     }
   } catch {
-    toast.error(t('common.errors.operationFailed'))
+    toast.error('操作失败')
   }
 }
 
@@ -301,7 +305,7 @@ onMounted(loadDetail)
 }
 
 .flag {
-  font-size: 12px;
+  font-size: 11px;
   padding: 1px 6px;
   background: var(--el-color-warning-light-9);
   color: var(--el-color-warning-dark-2);

@@ -1,25 +1,29 @@
 {
   "feedback": {
+    "title": "意见フィードバック",
     "content": {
-      "tip": "tip"
+      "tip": "您的フィードバック対私たち非常重要，请详细説明您的問題或提案"
+    },
+    "type": {
+      "feature": "機できる提案",
+      "bug": "問題フィードバック",
+      "experience": "体验問題",
+      "other": "その他"
     },
     "rules": {
-      "contentMin": "contentMin",
-      "contentRequired": "contentRequired"
+      "contentRequired": "ご入力フィードバックコンテンツ",
+      "contentMin": "コンテンツ長さ至少10件文字符"
     },
-    "submitSuccess": "submitSuccess",
-    "title": "标题",
-    "type": {
-      "bug": "bug",
-      "experience": "experience",
-      "feature": "功能",
-      "other": "other"
-    }
+    "submitSuccess": "フィードバック送信成功，ありがとう您的フィードバック！",
+    "feedbackRecords": "フィードバック記録",
+    "submitFeedback": "フィードバック送信",
+    "loading": "読み込み中...",
+    "submitFailed": "送信失敗、再試行してください"
   },
   "Feedback": {
-    "feedbackRecords": "feedbackRecords",
-    "loading": "加载中",
-    "submitFailed": "submitFailed",
-    "submitFeedback": "submitFeedback"
+    "feedbackRecords": "フィードバック記録",
+    "submitFeedback": "フィードバック送信",
+    "loading": "読み込み中...",
+    "submitFailed": "送信失敗、再試行してください"
   }
 }

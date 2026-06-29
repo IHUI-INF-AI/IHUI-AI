@@ -2,18 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCleanup } from '@/composables/useCleanup'
-import { getUserToken } from '@/utils/request'
-
-async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
-  const token = getUserToken()
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...((options.headers as Record<string, string>) || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-}
 
 const { t } = useI18n()
 
@@ -73,7 +61,7 @@ onMounted(async () => {
   try {
     const userId = (props.userInfo as Record<string, unknown>)?.uuid
     abortController = new AbortController()
-    const response = await authFetch(`/api/mxList?type=1&user_id=${userId}&page=1&page_size=10`, { signal: abortController.signal })
+    const response = await fetch(`/api/mxList?type=1&user_id=${userId}&page=1&page_size=10`, { signal: abortController.signal })
     const res = await response.json()
     if (res.data) {
       dataList.value = res.data
@@ -103,7 +91,7 @@ onMounted(async () => {
         <div class="content">
           <img class="cash-image" src="https://file.aizhs.top/sys-mini/xtk/cash.png" alt="cash" />
           <div class="center">
-            <div class="title">{{ t('devEnterCashDetail.withdraw') }}</div>
+            <div class="title">{ t('devEnterCashDetail.withdraw') }</div>
             <div v-if="item.query_time" class="time">{{ t('devCashDetail.withdrawTime') }}{{ formatFullTimeFn(item.query_time) }}</div>
             <div v-if="item.reviewer_time" class="time">{{ t('devCashDetail.processTime') }}{{ formatFullTimeFn(item.reviewer_time) }}</div>
             <div v-if="item.payment_time" class="time">{{ t('devCashDetail.arrivalTime') }}{{ formatFullTimeFn(item.payment_time) }}</div>

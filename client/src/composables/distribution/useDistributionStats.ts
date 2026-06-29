@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Distribution 统计数据管理 Composable
  *
  * 负责分销统计数据的加载和管理
@@ -10,7 +10,7 @@ import { ref } from 'vue'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getInviteCode, getDistributionStatistics } from '@/api/distribution/distribution'
+import { getInviteCode, getDistributionStatistics } from '@/api/distribution'
 
 /**
  * 分销统计数据接口

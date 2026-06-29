@@ -1,0 +1,23 @@
+{
+  "navigation": {
+    "customerService": "Customer Service",
+    "documentCenter": "Document Center",
+    "newsCenter": "AI News",
+    "aboutUs": "About Us",
+    "becomeSupplier": "Become a Supplier",
+    "noMoreItems": "No More Items",
+    "aiStore": "Agents",
+    "moreFeatures": "More Features",
+    "sidebar": "Sidebar",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar",
+    "coreFeatures": "Core Features",
+    "serviceSupport": "Service & Support",
+    "learnCourses": "Course Center",
+    "learnMap": "Learning Map",
+    "liveClass": "Live Class",
+    "myLearning": "My Learning",
+    "openAiPanel": "Open AI Assistant",
+    "closeAiPanel": "Close AI Assistant"
+  }
+}

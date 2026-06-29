@@ -35,7 +35,6 @@
     >
       <img
         :src="dialogImageUrl"
-        alt="图片预览"
         style="display: block; max-width: 100%; margin: 0 auto"
       />
     </el-dialog>
@@ -260,7 +259,7 @@ export default {
 // Remove animation effect
   :deep(.el-list-enter-active),
   :deep(.el-list-leave-active) {
-  transition: opacity 0s, transform 0s;
+  transition: all 0s;
 }
 
   :deep(.el-list-enter),

@@ -1,180 +1,180 @@
 {
   "humanMachine": {
+    "heroTitle": "人間とAIの協力組織",
+    "heroSubtitle": "从物理ワールド到情報ワールド，構築人間と機械协同的超级企業。支援企業理解AI时代的組織アーキテクチャ、プロセス最適化与人本价値。",
     "architecture": {
-      "infoWorld": {
-        "description": "描述",
-        "title": "标题"
-      },
       "physicalWorld": {
-        "description": "描述",
-        "title": "标题"
+        "title": "物理ワールド",
+        "description": "組織アーキテクチャ、プロセス、文化"
+      },
+      "infoWorld": {
+        "title": "情報ワールド",
+        "description": "数字化、AI化、智できる化"
       },
       "superEnterprise": {
-        "description": "描述",
-        "title": "标题"
+        "title": "超级企業",
+        "description": "人間と機械协同的终极形态"
+      }
+    },
+    "physicalWorld": {
+      "title": "企業物理ワールド",
+      "intro": "支援企業梳理組織構造和业务プロセス，为数字员工定义鮮明的岗位和职责，同时保持対人本价値的フォロー。",
+      "structure": {
+        "title": "組織アーキテクチャ",
+        "description": "梳理企業組織構造，定义人类とAI的協力关系",
+        "features": {
+          "mapping": "岗位機できる映射",
+          "digital": "数字员工定位",
+          "hybrid": "混合チームデザイン"
+        }
+      },
+      "process": {
+        "title": "プロセス梳理",
+        "description": "正向与逆向プロセス分析，找到AI可以赋能的キー节点",
+        "forward": {
+          "label": "正向分析",
+          "goal": "ターゲット:",
+          "process": "プロセス",
+          "role": "キャラクター"
+        },
+        "reverse": {
+          "label": "逆向分析",
+          "role": "キャラクター",
+          "process": "プロセス"
+        }
+      },
+      "humanValue": {
+        "title": "人本价値",
+        "description": "在AI时代保持対人的尊重和价値的フォロー",
+        "values": {
+          "culture": "企業文化",
+          "mission": "ミッションとビジョン",
+          "critical": "批判性思维",
+          "humility": "谦卑态度"
+        }
+      }
+    },
+    "infoWorld": {
+      "title": "企業情報ワールド",
+      "intro": "引导企業从初级情報化逐步演進到高级AI化，構築完整的数字化機できる体系。",
+      "evolution": "機できる演進",
+      "basic": {
+        "title": "初级情報ワールド",
+        "description": "構築数字化基本インフラ，実現业务プロセス的情報化和自動化",
+        "items": {
+          "informatization": {
+            "name": "情報化",
+            "desc": "业务データ的数字化ストレージ和管理"
+          },
+          "iot": {
+            "name": "物联网",
+            "desc": "物理ワールド与数字ワールド的接続"
+          },
+          "automation": {
+            "name": "自動化",
+            "desc": "规则驱动的プロセス自動化"
+          }
+        }
+      },
+      "advanced": {
+        "title": "高级情報ワールド",
+        "description": "引入AI機できる，実現从感知到决策到行动的智できる化アップグレード",
+        "items": {
+          "perception": {
+            "name": "感知AI",
+            "desc": "视觉、音声、テキスト的智できる認識"
+          },
+          "generative": {
+            "name": "生成式AI",
+            "desc": "コンテンツ创作、コード生成、デザイン辅助"
+          },
+          "agent": {
+            "name": "エージェントAI",
+            "desc": "自主决策、タスク実行、多エージェント協力"
+          },
+          "physical": {
+            "name": "物理AI",
+            "desc": "机器人、自動驾驶、智できる制造"
+          }
+        }
+      }
+    },
+    "superEnterprise": {
+      "title": "人間と機械协同的超级企業",
+      "intro": "通過ぎ人与AI的深度協力，作る超级员工、超级チーム和超级製品/サービス。",
+      "superEmployee": {
+        "title": "超级员工/超级件体",
+        "description": "AI赋できる下的件人生产力革命，每件员工都できる发挥超越常规的機できる",
+        "features": {
+          "productivity": "10倍生产力",
+          "decision": "智できる决策",
+          "creativity": "创意增强"
+        }
+      },
+      "superTeam": {
+        "title": "超级チーム/超级組織",
+        "description": "人間と機械混合チーム実現更効率的的協力和更强大的集体智慧",
+        "features": {
+          "collaboration": "なし缝協力",
+          "intelligence": "集体智慧",
+          "agility": "組織敏捷"
+        }
+      },
+      "superProduct": {
+        "title": "超级製品/サービス",
+        "description": "AI驱动的製品和サービス具备前所未有的智能化和件性化機できる",
+        "features": {
+          "personalized": "极致件性化",
+          "intelligent": "智できる自适べき",
+          "iterative": "クイック迭代"
+        }
+      },
+      "metrics": {
+        "title": "効果衡量维度",
+        "cost": "コスト最適化",
+        "costDesc": "下げる运营コスト，提高资源利用率",
+        "efficiency": "効率向上",
+        "efficiencyDesc": "缩短プロセス週期，提高产出品質",
+        "experience": "体验アップグレード",
+        "experienceDesc": "向上客户和员工体验満足度"
+      }
+    },
+    "implementation": {
+      "title": "实施パス",
+      "intro": "从现状評価到継続最適化、支援企業稳步実現AI化转型",
+      "steps": {
+        "assessment": {
+          "title": "现状評価",
+          "desc": "评估企業現在的数字化水平、AI適用现状和組織准备度"
+        },
+        "planning": {
+          "title": "战略规划",
+          "desc": "制定AI化转型路线图，明确ターゲット:、里程碑和资源需求"
+        },
+        "pilot": {
+          "title": "试点検証",
+          "desc": "選択重点シーン進行试点，验证ソリューション可行性并积累経験"
+        },
+        "scale": {
+          "title": "规模プロモーション",
+          "desc": "基于试点経験，逐步扩展到もっと业务领域和シーン"
+        },
+        "optimize": {
+          "title": "継続最適化",
+          "desc": "建立継続改進机制，不断最適化AI適用効果和組織機できる"
+        }
       }
     },
     "cta": {
-      "contact": "联系我们",
-      "description": "描述",
-      "learnMore": "learnMore",
-      "title": "标题"
+      "title": "構築您的超级企業",
+      "description": "参加スマートAI社，与専門顧问一起规划企業的AI化转型之路",
+      "learnMore": "詳しく企業サービス",
+      "contact": "連絡顧问"
     },
     "footer": {
-      "agentScenario": "智能体场景",
-      "contact": "联系我们",
-      "enterprise": "企业"
-    },
-    "heroSubtitle": "heroSubtitle",
-    "heroTitle": "heroTitle",
-    "implementation": {
-      "intro": "intro",
-      "steps": {
-        "assessment": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "optimize": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "pilot": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "planning": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "scale": {
-          "desc": "描述",
-          "title": "标题"
-        }
-      },
-      "title": "标题"
-    },
-    "infoWorld": {
-      "advanced": {
-        "description": "描述",
-        "items": {
-          "agent": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "generative": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "perception": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "physical": {
-            "desc": "描述",
-            "name": "名称"
-          }
-        },
-        "title": "标题"
-      },
-      "basic": {
-        "description": "描述",
-        "items": {
-          "automation": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "informatization": {
-            "desc": "描述",
-            "name": "名称"
-          },
-          "iot": {
-            "desc": "描述",
-            "name": "名称"
-          }
-        },
-        "title": "标题"
-      },
-      "evolution": "evolution",
-      "intro": "intro",
-      "title": "标题"
-    },
-    "physicalWorld": {
-      "humanValue": {
-        "description": "描述",
-        "title": "标题",
-        "values": {
-          "critical": "critical",
-          "culture": "culture",
-          "humility": "humility",
-          "mission": "mission"
-        }
-      },
-      "intro": "intro",
-      "process": {
-        "description": "描述",
-        "forward": {
-          "goal": "goal",
-          "label": "label",
-          "process": "process",
-          "role": "角色"
-        },
-        "reverse": {
-          "label": "label",
-          "process": "process",
-          "role": "角色"
-        },
-        "title": "标题"
-      },
-      "structure": {
-        "description": "描述",
-        "features": {
-          "digital": "digital",
-          "hybrid": "hybrid",
-          "mapping": "mapping"
-        },
-        "title": "标题"
-      },
-      "title": "标题"
-    },
-    "superEnterprise": {
-      "intro": "intro",
-      "metrics": {
-        "cost": "cost",
-        "costDesc": "costDesc",
-        "efficiency": "efficiency",
-        "efficiencyDesc": "efficiencyDesc",
-        "experience": "experience",
-        "experienceDesc": "experienceDesc",
-        "title": "标题"
-      },
-      "superEmployee": {
-        "description": "描述",
-        "features": {
-          "creativity": "creativity",
-          "decision": "decision",
-          "productivity": "productivity"
-        },
-        "title": "标题"
-      },
-      "superProduct": {
-        "description": "描述",
-        "features": {
-          "intelligent": "intelligent",
-          "iterative": "iterative",
-          "personalized": "personalized"
-        },
-        "title": "标题"
-      },
-      "superTeam": {
-        "description": "描述",
-        "features": {
-          "agility": "agility",
-          "collaboration": "协作",
-          "intelligence": "intelligence"
-        },
-        "title": "标题"
-      },
-      "title": "标题"
+      "enterprise": "企業サービス",
+      "agentScenario": "エージェントシーン",
+      "contact": "お問い合わせ"
     }
   }
 }

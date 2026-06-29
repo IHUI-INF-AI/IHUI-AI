@@ -1,45 +1,45 @@
 {
   "themeTransition": {
-    "customConfig": "customConfig",
-    "direction": "direction",
+    "customConfig": "Custom Configuration",
+    "direction": "Direction",
     "directions": {
-      "down": "down",
-      "left": "left",
-      "right": "right",
-      "up": "up"
+      "down": "From Bottom",
+      "left": "From Left",
+      "right": "From Right",
+      "up": "From Top"
     },
-    "duration": "时长",
-    "easing": "easing",
+    "duration": "Duration",
+    "easing": "Easing",
     "easings": {
-      "bounce": "bounce",
-      "smooth": "smooth",
-      "swift": "swift"
+      "bounce": "Bounce",
+      "smooth": "Smooth",
+      "swift": "Swift"
     },
-    "enableOverlay": "enableOverlay",
-    "overlayColor": "overlayColor",
-    "playDemo": "playDemo",
-    "playing": "playing",
-    "presetApplied": "presetApplied",
-    "presets": "presets",
-    "preview": "预览",
-    "previewComplete": "previewComplete",
-    "previewTitle": "previewTitle",
-    "speed": "speed",
+    "enableOverlay": "Enable Overlay",
+    "overlayColor": "Overlay Color",
+    "playDemo": "Play Demo",
+    "playing": "Playing",
+    "presetApplied": "Preset applied",
+    "presets": "Presets",
+    "preview": "Preview",
+    "previewComplete": "Preview complete",
+    "previewTitle": "Preview Title",
+    "speed": "Speed",
     "speeds": {
-      "fast": "快",
-      "instant": "instant",
-      "normal": "正常",
-      "slow": "慢"
+      "fast": "Fast",
+      "instant": "Instant",
+      "normal": "Normal",
+      "slow": "Slow"
     },
-    "title": "标题",
-    "type": "类型",
+    "title": "Theme Transition",
+    "type": "Animation Type",
     "types": {
-      "fade": "fade",
-      "flip": "flip",
-      "none": "无",
-      "ripple": "ripple",
-      "slide": "slide",
-      "zoom": "zoom"
+      "fade": "Fade",
+      "flip": "Flip",
+      "none": "None",
+      "ripple": "Ripple",
+      "slide": "Slide",
+      "zoom": "Zoom"
     }
   }
 }

@@ -1,47 +1,67 @@
 {
   "agentChat": {
-    "agentReply": "agentReply",
-    "audioRecording": "audioRecording",
-    "errors": {
-      "loadModelsFailed": "loadModelsFailed",
-      "sendMessageFailed": "sendMessageFailed",
-      "startVoiceRecognitionFailed": "startVoiceRecognitionFailed",
-      "switchModeFailed": "switchModeFailed"
-    },
-    "hideReasoning": "hideReasoning",
-    "inputMessagePlaceholder": "inputMessagePlaceholder",
-    "messageSent": "messageSent",
-    "pleaseEnterContent": "pleaseEnterContent",
-    "reasoningChain": {
-      "step1": "step1",
-      "step2": "step2",
-      "step3": "step3"
-    },
+    "showReasoning": "思考プロセスをテーブル示",
+    "hideReasoning": "思考プロセスを非テーブル示",
+    "inputMessagePlaceholder": "エージェントにメッセージを入力...",
+    "pleaseEnterContent": "メッセージコンテンツを入力してください",
+    "messageSent": "メッセージを送信しました",
     "roles": {
-      "assistant": "assistant",
-      "user": "用户"
+      "user": "ユーザー",
+      "assistant": "AIアシスタント"
     },
-    "showReasoning": "showReasoning",
     "stages": {
-      "acting": "acting",
-      "reasoning": "reasoning",
-      "result": "result"
+      "reasoning": "思考中",
+      "acting": "実行中",
+      "result": "完了"
+    },
+    "reasoningChain": {
+      "step1": "ユーザー要求を分析中...",
+      "step2": "タスク目標を理解中...",
+      "step3": "実行計画を作成中..."
+    },
+    "agentReply": "エージェント返信：ご要件「{message}」を理解しました。処理中...",
+    "errors": {
+      "switchModeFailed": "モードの切り替えに失敗しました",
+      "sendMessageFailed": "メッセージの送信に失敗しました",
+      "startVoiceRecognitionFailed": "音声認識の開始に失敗しました",
+      "loadModelsFailed": "モデルリストの読み込みに失敗しました",
+      "stopVoiceRecognitionFailed": "音声認識の停止に失敗しました",
+      "voiceRecognitionAlreadyStarted": "音声認識済み启动，请先停止現在認識",
+      "copyFailed": "コピー失敗",
+      "readFileFailed": "读取ファイル失敗"
     },
     "success": {
-      "copyToClipboard": "copyToClipboard",
-      "messageDeleted": "messageDeleted",
-      "messageUpdated": "messageUpdated"
-    },
-    "timeLabels": {
-      "justNow": "justNow",
-      "minutesAgo": "minutesAgo"
-    },
-    "voiceRecognition": {
-      "stopped": "stopped"
+      "copyToClipboard": "クリップボードにコピーしました",
+      "messageUpdated": "メッセージを更新しいしました",
+      "messageDeleted": "メッセージを削除しました",
+      "fileUploaded": "ファイルをアップロードしました"
     },
     "warnings": {
-      "confirmDelete": "确认删除",
-      "maxFileUpload": "maxFileUpload"
+      "maxFileUpload": "最大10個のファイルをアップロードできます",
+      "confirmDelete": "このメッセージを削除してもよろしいですか？",
+      "fileSizeExceeded": "ファイルサイズが制限を超えています"
+    },
+    "voiceRecognition": {
+      "stopped": "音声認識が停止しました"
+    },
+    "timeLabels": {
+      "justNow": "たった今",
+      "minutesAgo": "{minutes}分前",
+      "hoursAgo": "{hours}時間前",
+      "daysAgo": "{days}日前"
+    },
+    "audioRecording": "🎤 録音 {duration}秒",
+    "send": "送信",
+    "reject": "拒いいえ",
+    "approve": "承認",
+    "needManualReview": "手動レビューが必要",
+    "startChat": "エージェントとのチャットを開始",
+    "startChatHint": "エージェントは複雑なタスクや推論の実行をサポートします",
+    "step": "ステップ",
+    "features": {
+      "regenerateDeveloping": "再生成機できるは開発中です",
+      "retryDeveloping": "再試行機できるは開発中です",
+      "exportDeveloping": "エクスポート機できるは開発中です"
     }
   }
 }

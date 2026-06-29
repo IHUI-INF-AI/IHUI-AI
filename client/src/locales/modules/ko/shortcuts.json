@@ -1,14 +1,15 @@
 {
   "shortcuts": {
-    "noResults": "noResults",
+    "핵심 장점": "제목",
+    "search": "검색",
+    "noResults": "없음Results",
+    "toggleTip": "toggle팁",
     "scopes": {
-      "chat": "对话",
-      "drama": "drama",
-      "editor": "编辑",
-      "input": "输入"
+      "chat": "대화",
+      "drama": "Drama",
+      "editor": "Editor",
+      "input": "입력"
     },
-    "search": "搜索",
-    "title": "标题",
-    "toggleTip": "toggleTip"
+    "title": "제목"
   }
 }

@@ -1,15 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 export const adminRoutes: Array<RouteRecordRaw> = [
   {
@@ -26,7 +16,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/dependency-manager',
@@ -42,7 +31,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/event-bus-monitor',
@@ -58,7 +46,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/monitoring-dashboard',
@@ -74,7 +61,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/backend-health',
@@ -90,7 +76,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/mobile-dashboard',
@@ -104,9 +89,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       description: 'seo.adminMobileDashboard.desc',
       keywords: 'seo.adminMobileDashboard.keywords',
       requiresAuth: true,
-      requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/errors',
@@ -122,7 +105,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/performance',
@@ -138,7 +120,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/mobile-adapter',
@@ -154,7 +135,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/recommendation-config',
@@ -170,7 +150,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/database-optimization',
@@ -189,7 +168,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/user-management',
@@ -205,7 +183,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/refund-audit',
@@ -221,7 +198,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/product-management',
@@ -240,7 +216,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/activity-management',
@@ -259,7 +234,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/course-management',
@@ -278,7 +252,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/agent-management',
@@ -295,7 +268,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/payment-management',
@@ -312,7 +284,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/withdrawal-management',
@@ -331,7 +302,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/fund-management',
@@ -350,7 +320,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/feedback-management',
@@ -369,7 +338,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/faq-management',
@@ -386,7 +354,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/admin/webhook-management',
@@ -405,7 +372,78 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiresAdmin: true,
     },
-    beforeEnter: preloadI18n(['admin']),
+  },
+  {
+    path: '/admin/oauth-apps',
+    name: 'oauthAppManagement',
+    component: safeImport(
+      () =>
+        import(
+          /* webpackChunkName: "oauth-app-management" */ '@/views/admin/components/OAuthAppList.vue'
+        ),
+      'OAuthAppList'
+    ),
+    meta: {
+      title: 'routes.adminOAuthAppManagement',
+      description: 'seo.adminOAuthAppManagement.desc',
+      keywords: 'seo.adminOAuthAppManagement.keywords',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/oauth-audit-logs',
+    name: 'oauthAuditLogs',
+    component: safeImport(
+      () =>
+        import(
+          /* webpackChunkName: "oauth-audit-logs" */ '@/views/admin/components/OAuthAuditLogList.vue'
+        ),
+      'OAuthAuditLogList'
+    ),
+    meta: {
+      title: 'OAuth 审计日志',
+      description: '审计追溯所有 OAuth 敏感操作',
+      keywords: 'OAuth,审计,日志',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/oauth-scope-meta',
+    name: 'oauthScopeMeta',
+    component: safeImport(
+      () =>
+        import(
+          /* webpackChunkName: "oauth-scope-meta" */ '@/views/admin/components/OAuthScopeMetaList.vue'
+        ),
+      'OAuthScopeMetaList'
+    ),
+    meta: {
+      title: 'OAuth Scope 元数据',
+      description: '维护 OAuth scope 元数据 (取代前端硬编码描述表)',
+      keywords: 'OAuth,scope,元数据',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/oauth-audit-dashboard',
+    name: 'oauthAuditDashboard',
+    component: safeImport(
+      () =>
+        import(
+          /* webpackChunkName: "oauth-audit-dashboard" */ '@/views/admin/OAuthAuditDashboard.vue'
+        ),
+      'OAuthAuditDashboard'
+    ),
+    meta: {
+      title: 'OAuth 审计仪表盘',
+      description: 'OAuth 审计日志可视化趋势 (按事件/按日/按应用)',
+      keywords: 'OAuth,审计,仪表盘,可视化',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
   },
   {
     path: '/dashboard',
@@ -420,7 +458,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.dataDashboard.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/settlement-management',
@@ -436,7 +473,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminSettlementManagement.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/agent-category-management',
@@ -454,7 +490,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminAgentPricingConfig.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   {
     path: '/agent-examine-management',
@@ -472,7 +507,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.adminAgentAudit.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['admin']),
   },
   // P12 admin 后台迁移
   {
@@ -482,8 +516,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
     children: [
       { path: '', redirect: '/admin/home' },
       { path: 'home', name: 'adminHome', component: safeImport(() => import('@/views/admin/home/Index.vue'), 'adminHome'), meta: { title: 'routes.adminHome' } },
-      { path: 'migration', name: 'adminMigration', component: safeImport(() => import('@/views/admin/MigrationAdmin.vue'), 'adminMigration'), meta: { title: 'routes.adminMigration' } },
-      { path: 'notification', name: 'adminNotification', component: safeImport(() => import('@/views/admin/NotificationCenter.vue'), 'adminNotification'), meta: { title: 'routes.adminNotification' } },
       { path: 'member/list', name: 'adminMemberList', component: safeImport(() => import('@/views/admin/member/List.vue'), 'adminMemberList'), meta: { title: 'routes.adminMemberList' } },
       { path: 'member/unaudited', name: 'adminMemberUnaudited', component: safeImport(() => import('@/views/admin/member/Unaudited.vue'), 'adminMemberUnaudited'), meta: { title: 'routes.adminMemberUnaudited' } },
       { path: 'member/group', name: 'adminMemberGroup', component: safeImport(() => import('@/views/admin/member/Group.vue'), 'adminMemberGroup'), meta: { title: 'routes.adminMemberGroup' } },
@@ -505,6 +537,7 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       { path: 'learn/order-invoice-title', name: 'adminLearnOrderInvoiceTitle', component: safeImport(() => import('@/views/admin/learn/OrderInvoiceTitle.vue'), 'adminLearnOrderInvoiceTitle'), meta: { title: 'routes.adminLearnOrderInvoiceTitle' } },
       { path: 'learn/order-invoice-application', name: 'adminLearnOrderInvoiceApplication', component: safeImport(() => import('@/views/admin/learn/OrderInvoiceApplication.vue'), 'adminLearnOrderInvoiceApplication'), meta: { title: 'routes.adminLearnOrderInvoiceApplication' } },
       { path: 'learn/signup', name: 'adminLearnSignup', component: safeImport(() => import('@/views/admin/learn/Signup.vue'), 'adminLearnSignup'), meta: { title: 'routes.adminLearnSignup' } },
+      { path: 'learn/homework', name: 'adminLearnHomework', component: safeImport(() => import('@/views/admin/learn/Homework.vue'), 'adminLearnHomework'), meta: { title: 'routes.adminLearnHomework' } },
       { path: 'learn/report', name: 'adminLearnReport', component: safeImport(() => import('@/views/admin/learn/Report.vue'), 'adminLearnReport'), meta: { title: 'routes.adminLearnReport' } },
       { path: 'exam/list', name: 'adminExamList', component: safeImport(() => import('@/views/admin/exam/List.vue'), 'adminExamList'), meta: { title: 'routes.adminExamList' } },
       { path: 'exam/paper', name: 'adminExamPaper', component: safeImport(() => import('@/views/admin/exam/Paper.vue'), 'adminExamPaper'), meta: { title: 'routes.adminExamPaper' } },
@@ -549,26 +582,6 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       { path: 'setting/agreement', name: 'adminSettingAgreement', component: safeImport(() => import('@/views/admin/setting/Agreement.vue'), 'adminSettingAgreement'), meta: { title: 'routes.adminSettingAgreement' } },
       { path: 'search/hot', name: 'adminSearchHot', component: safeImport(() => import('@/views/admin/search/Hot.vue'), 'adminSearchHot'), meta: { title: 'routes.adminSearchHot' } },
       { path: 'aiworld/site', name: 'adminAiworldSite', component: safeImport(() => import('@/views/admin/aiworld/Site.vue'), 'adminAiworldSite'), meta: { title: 'routes.adminAiworldSite' } },
-      { path: 'sms/template', name: 'adminSmsTemplate', component: safeImport(() => import('@/views/admin/sms/Template.vue'), 'adminSmsTemplate'), meta: { title: 'routes.adminSmsTemplate' } },
-      // 字典管理
-      { path: 'dict', name: 'adminDict', component: safeImport(() => import('@/views/admin/dict/index.vue'), 'adminDict'), meta: { title: 'routes.adminDict' } },
-      { path: 'dict/data', name: 'adminDictData', component: safeImport(() => import('@/views/admin/dict/data.vue'), 'adminDictData'), meta: { title: 'routes.adminDictData' } },
-      // 开发者管理
-      { path: 'developer', name: 'adminDeveloper', component: safeImport(() => import('@/views/admin/developer/index.vue'), 'adminDeveloper'), meta: { title: 'routes.adminDeveloper' } },
-      { path: 'developer/link', name: 'adminDeveloperLink', component: safeImport(() => import('@/views/admin/developer/link.vue'), 'adminDeveloperLink'), meta: { title: 'routes.adminDeveloperLink' } },
-      // 需求广场
-      { path: 'demandSquare', name: 'adminDemandSquare', component: safeImport(() => import('@/views/admin/demandSquare/index.vue'), 'adminDemandSquare'), meta: { title: 'routes.adminDemandSquare' } },
-      { path: 'demandSquare/review', name: 'adminDemandSquareReview', component: safeImport(() => import('@/views/admin/demandSquare/review.vue'), 'adminDemandSquareReview'), meta: { title: 'routes.adminDemandSquareReview' } },
-      // 日志管理
-      { path: 'log/operlog', name: 'adminLogOperlog', component: safeImport(() => import('@/views/admin/log/operlog.vue'), 'adminLogOperlog'), meta: { title: 'routes.adminLogOperlog' } },
-      { path: 'log/logininfor', name: 'adminLogLogininfor', component: safeImport(() => import('@/views/admin/log/logininfor.vue'), 'adminLogLogininfor'), meta: { title: 'routes.adminLogLogininfor' } },
-      // 定时任务
-      { path: 'job', name: 'adminJob', component: safeImport(() => import('@/views/admin/job/index.vue'), 'adminJob'), meta: { title: 'routes.adminJob' } },
-      { path: 'job/log', name: 'adminJobLog', component: safeImport(() => import('@/views/admin/job/log.vue'), 'adminJobLog'), meta: { title: 'routes.adminJobLog' } },
-      // 在线用户
-      { path: 'online', name: 'adminOnline', component: safeImport(() => import('@/views/admin/online/index.vue'), 'adminOnline'), meta: { title: 'routes.adminOnline' } },
-      // 专区管理
-      { path: 'zone', name: 'adminZone', component: safeImport(() => import('@/views/admin/zone/index.vue'), 'adminZone'), meta: { title: 'routes.adminZone' } },
     ],
   },
 ]

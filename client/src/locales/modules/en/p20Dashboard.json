@@ -1,19 +1,19 @@
 {
   "p20Dashboard": {
-    "agentActivity": "agentActivity",
-    "callCount": "callCount",
-    "cardAgents": "cardAgents",
-    "cardOrders": "cardOrders",
-    "cardRevenue": "cardRevenue",
-    "cardUsers": "cardUsers",
-    "courseCategory": "courseCategory",
-    "loadFailed": "loadFailed",
-    "orderStatus": "orderStatus",
-    "revenue": "revenue",
-    "revenueAxis": "revenueAxis",
-    "revenueTrend": "revenueTrend",
-    "subtitle": "副标题",
-    "title": "标题",
-    "unknown": "unknown"
+    "title": "P20 Agent Operations Dashboard",
+    "subtitle": "Real-time Monitoring",
+    "revenueTrend": "Revenue Trend (Last 7 Days)",
+    "orderStatus": "Order Status Distribution",
+    "agentActivity": "Agent Activity",
+    "courseCategory": "Course Category Distribution",
+    "revenueAxis": "Revenue (¥)",
+    "revenue": "Revenue",
+    "unknown": "Unknown",
+    "callCount": "Call Count",
+    "cardUsers": "Users",
+    "cardOrders": "Orders",
+    "cardAgents": "Agents",
+    "cardRevenue": "Revenue",
+    "loadFailed": "Load failed: "
   }
 }

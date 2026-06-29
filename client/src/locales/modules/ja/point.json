@@ -4,6 +4,12 @@
       "channel": "チャネルを検索",
       "list": "商品を検索",
       "record": "記録を検索"
+    },
+    "label": {
+      "channelName": "チャネル名",
+      "trigger": "トリガー",
+      "points": "ポイント数",
+      "actions": "操作"
     }
   }
 }

@@ -1,28 +1,29 @@
 {
   "tokenValue": {
-    "balanceTitle": "余额 标题",
-    "noRecords": "暂无记录",
-    "stats": {
-      "currentBalance": "当前 余额",
-      "totalEarned": "总计 earned",
-      "totalUsed": "总计 used"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "consumption": "消耗",
-      "name": "名称",
-      "time": "时间"
+    "title": "我的智汇值",
+    "subtitle": "查看智汇值使用记录和余额",
+    "balanceTitle": "智汇值余额",
+    "typeTabs": {
+      "agent": "智能体消耗",
+      "model": "大模型消耗"
     },
     "timeRange": {
-      "all": "全部",
-      "month": "月",
-      "week": "周",
-      "year": "年"
+      "week": "7天",
+      "month": "一个月",
+      "year": "近一年",
+      "all": "全部"
     },
-    "title": "标题",
-    "typeTabs": {
-      "agent": "智能体",
-      "model": "模型"
-    }
+    "table": {
+      "name": "名称",
+      "time": "花费时间",
+      "consumption": "消耗智汇值"
+    },
+    "stats": {
+      "currentBalance": "当前余额",
+      "totalEarned": "累计获得",
+      "totalUsed": "累计使用"
+    },
+    "noRecords": "暂无智汇值消耗记录",
+    "loadRecordsFailed": "加载消耗记录失败，请稍后重试"
   }
 }

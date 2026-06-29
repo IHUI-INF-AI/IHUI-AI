@@ -1,13 +1,6 @@
 {
   "viewerImageViewer": {
-    "download": "下载",
-    "fitScreen": "fitScreen",
-    "fullscreen": "fullscreen",
-    "imageLoadFailed": "imageLoadFailed",
-    "loading": "加载中",
-    "reset": "重置",
-    "rotateLeft": "rotateLeft",
-    "rotateRight": "rotateRight",
-    "zoomOut": "zoomOut"
+    "loading": "読み込み中...",
+    "imageLoadFailed": "画像読み込み失敗"
   }
 }

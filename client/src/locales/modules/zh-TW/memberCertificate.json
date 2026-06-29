@@ -1,7 +1,7 @@
 {
   "memberCertificate": {
-    "issueTime": "issueTime",
-    "myCertificates": "myCertificates",
-    "noCertificate": "noCertificate"
+    "myCertificates": "我的證書",
+    "noCertificate": "暫無證書",
+    "issueTime": "頒發時間"
   }
 }

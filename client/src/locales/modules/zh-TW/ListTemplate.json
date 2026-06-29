@@ -1,5 +1,8 @@
 {
+  "listTemplate": {
+    "loading": "載入中..."
+  },
   "ListTemplate": {
-    "loading": "加载中"
+    "loading": "載入中..."
   }
 }

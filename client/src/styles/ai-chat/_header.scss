@@ -1,0 +1,209 @@
+// ========== 对话框标题栏样式 ==========
+// 从 AIChat.vue 块1（scoped style）迁移
+// 包含 .dialog-header 及其子元素（.header-left/.header-center/.header-right/.mode-tag/.typing-indicator/.minimized-model-info）
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  border-radius: var(--global-border-radius);
+  cursor: move;
+  user-select: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  min-height: 32px;
+  box-shadow: none;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .header-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    width: calc(100% - 220px);
+    max-width: 160px; // 缩短标签宽度，与右侧按钮留出明显空隙，避免重叠
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-0);
+    pointer-events: none;
+
+    .mode-tag {
+      pointer-events: auto;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden; /* 仅水平裁切以配合 ellipsis，避免垂直裁切导致汉字顶部笔画被裁浅 */
+      overflow-y: visible;
+      box-sizing: border-box;
+
+      :deep(.el-tag__content) {
+        min-width: 0;
+        flex: 1 1 0;
+        overflow-x: hidden;
+        overflow-y: visible;
+        max-width: 100%;
+      }
+
+      span {
+        display: block;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: visible;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.2; /* 略放宽，避免「豆」等字顶部一横被 line-height:1 裁切后看起来变浅 */
+      }
+    }
+  }
+
+  .header-left .model-tag,
+  .header-left .mode-tag,
+  .header-center .model-tag,
+  .header-center .mode-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px; // 进一步放大字体
+    height: 32px; // 大幅增大高度
+    flex-shrink: 0;
+    font-weight: 500;
+    padding: 0 14px; // 增加左右内边距
+    line-height: 1; // 强制 line-height 为 1，完全靠 flex 居中
+    vertical-align: middle;
+    // 该容器仅作文字/图标展示，无背景、描边、圆角
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+
+    .mode-tag-icon {
+      width: 20px; // 大幅放大图标
+      height: 20px;
+      margin-right: 6px;
+      flex-shrink: 0;
+      object-fit: contain;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &.el-icon {
+        font-size: 18px; // 放大 el-icon
+        margin-right: 6px; // 确保 el-icon 也有间距
+      }
+
+      &.mode-tag-avatar {
+        border-radius: var(--global-border-radius);
+        object-fit: cover;
+      }
+    }
+
+    // 穿透覆盖 Element Plus 默认样式，确保内容区也是 flex 居中
+    :deep(.el-tag__content) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      line-height: 1.2;
+    }
+
+    span {
+      line-height: 1.2; /* 避免汉字顶部笔画被裁切/反锯齿导致看起来变浅 */
+      display: inline-block;
+    }
+  }
+
+  .header-left .mode-tag {
+    margin-left: 4px;
+  }
+
+  .header-center .mode-tag {
+    margin-left: 0;
+    min-width: 0;
+    flex-shrink: 1; // 允许收缩，与上面公共 flex-shrink: 0 覆盖，避免压住右侧按钮
+
+    span {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    margin-left: 8px;
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--global-border-radius);
+      background: var(--el-color-primary);
+      animation: typing 1.4s infinite;
+
+      &:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      &:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+    }
+  }
+
+  // 最小化状态的模型信息
+  .minimized-model-info {
+    display: flex;
+    align-items: center;
+    gap: 12px; // 进一步增大间距
+
+    .minimized-model-icon {
+      width: 32px; // 大幅放大图标
+      height: 32px;
+      border-radius: var(--global-border-radius);
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .minimized-model-icon-fallback {
+      width: 32px; // 大幅放大图标
+      height: 32px;
+      color: var(--el-color-primary);
+      flex-shrink: 0;
+    }
+
+    .minimized-model-name {
+      font-size: 16px; // 进一步放大文字
+      font-weight: 500;
+      color: var(--el-text-color-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px; // 增加最大宽度
+    }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: var(--z-base); // 始终在 header-center 之上，保证搜索等按钮可点
+    // 按钮样式已在统一按钮系统中定义
+  }
+}

@@ -2,6 +2,11 @@
   "certificate": {
     "searchPlaceholder": {
       "template": "搜尋模板"
+    },
+    "label": {
+      "templateName": "模板名稱",
+      "issuer": "頒發機構",
+      "actions": "操作"
     }
   }
 }

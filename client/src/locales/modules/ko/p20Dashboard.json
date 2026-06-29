@@ -1,19 +1,19 @@
 {
   "p20Dashboard": {
-    "agentActivity": "agentActivity",
-    "callCount": "callCount",
-    "cardAgents": "cardAgents",
-    "cardOrders": "cardOrders",
-    "cardRevenue": "cardRevenue",
-    "cardUsers": "cardUsers",
-    "courseCategory": "courseCategory",
-    "loadFailed": "loadFailed",
-    "orderStatus": "orderStatus",
-    "revenue": "revenue",
-    "revenueAxis": "revenueAxis",
-    "revenueTrend": "revenueTrend",
-    "subtitle": "副标题",
-    "title": "标题",
-    "unknown": "unknown"
+    "title": "P20 에이전트 운영 대시보드",
+    "subtitle": "실시간 모니터링",
+    "revenueTrend": "최근 7일 매출 추세",
+    "orderStatus": "주문 상태 분포",
+    "agentActivity": "에이전트 활동도",
+    "courseCategory": "코스 카테고리 비율",
+    "revenueAxis": "매출(¥)",
+    "revenue": "매출",
+    "unknown": "알 수 없음",
+    "callCount": "호출 횟수",
+    "cardUsers": "사용자",
+    "cardOrders": "주문",
+    "cardAgents": "에이전트",
+    "cardRevenue": "매출",
+    "loadFailed": "로드 실패: "
   }
 }

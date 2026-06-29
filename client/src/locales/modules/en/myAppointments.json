@@ -1,41 +1,50 @@
 {
   "myAppointments": {
-    "cancel": "取消",
-    "cancelFailed": "cancelFailed",
-    "cancelSuccess": "cancelSuccess",
-    "confirmCancel": "确认取消",
-    "confirmCancelTitle": "confirmCancelTitle",
-    "detail": {
-      "adminNotes": "adminNotes",
-      "cancelledAt": "cancelledAt",
-      "completedAt": "completedAt",
-      "confirmedAt": "confirmedAt",
-      "createdAt": "createdAt",
-      "description": "描述",
-      "email": "邮箱",
-      "name": "名称",
-      "phone": "手机号",
-      "preferredDate": "preferredDate",
-      "preferredTime": "preferredTime",
-      "serviceType": "serviceType",
-      "status": "状态"
-    },
-    "detailTitle": "detailTitle",
+    "title": "My Appointments",
+    "subtitle": "View and manage your service appointments",
+    "noAppointments": "No appointments",
     "filter": {
-      "allServices": "allServices",
-      "allStatus": "allStatus",
-      "serviceType": "serviceType",
-      "status": "状态"
+      "serviceType": "Service Type",
+      "allServices": "All Services",
+      "Status": "Status",
+      "allStatus": "All Status",
+      "status": "Status"
     },
-    "noAppointments": "noAppointments",
+    "Status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "viewDetail": "View Detail",
+    "cancel": "Cancel Appointment",
+    "confirmCancel": "Are you sure you want to cancel this appointment?",
+    "confirmCancelTitle": "Confirm Cancel",
+    "cancelSuccess": "Appointment cancelled",
+    "cancelFailed": "Failed to cancel, please try again later",
+    "detailTitle": "Appointment Detail",
+    "detail": {
+      "serviceType": "Service Type",
+      "Status": "Status",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "preferredDate": "Preferred Date",
+      "preferredTime": "Preferred Time",
+      "description": "Description",
+      "createdAt": "Created At",
+      "confirmedAt": "Confirmed At",
+      "completedAt": "Completed At",
+      "cancelledAt": "Cancelled At",
+      "adminNotes": "Admin Notes",
+      "status": "Status"
+    },
     "status": {
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "confirmed": "confirmed",
-      "pending": "待处理"
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "confirmed": "已确认",
+      "pending": "待确认"
     },
-    "subtitle": "副标题",
-    "title": "标题",
-    "viewDetail": "viewDetail"
+    "loadFailed": "Failed to load, please try again later"
   }
 }

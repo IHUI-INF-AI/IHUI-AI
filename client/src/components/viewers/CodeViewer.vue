@@ -7,10 +7,10 @@
         <span class="language-badge">{{ language }}</span>
       </div>
       <div class="code-actions">
-        <button class="action-btn" @click="copyCode" :title="t('common.copy')">
+        <button class="action-btn" @click="copyCode" title="复制代码">
           {{ copied ? t('codeViewer.copied') : t('codeViewer.copy') }}
         </button>
-        <button class="action-btn" @click="toggleWrap" :class="{ active: wrapLines }" :title="t('common.lineWrap')">
+        <button class="action-btn" @click="toggleWrap" :class="{ active: wrapLines }" title="换行">
           {{ t('codeViewer.wrap') }}
         </button>
         <button class="action-btn" @click="downloadCode" :title="t('codeViewer.download')">⬇ {{ t('codeViewer.download') }}</button>
@@ -218,7 +218,7 @@ watch(() => props.src, loadCode, { immediate: true })
   cursor: pointer;
   color: var(--el-color-primary-light-3);
   font-size: 13px;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
 .action-btn:hover {

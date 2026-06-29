@@ -293,7 +293,7 @@ export const usePdfPrint = () => {
               height: ${paperDimensions.value.height}mm;
               background: white;
               margin: 10mm auto;
-              border: 1px solid var(--border-unified-color);
+              box-shadow: 0 2px 10px color-mix(in srgb, var(--el-color-primary) 10%, transparent);
               page-break-after: always;
               position: relative;
               overflow: hidden;

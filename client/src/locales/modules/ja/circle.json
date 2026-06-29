@@ -3,7 +3,13 @@
     "searchPlaceholder": {
       "category": "カテゴリを検索",
       "dynamic": "投稿を検索",
-      "list": "サークルを検索"
+      "list": "サークルを検索",
+      "frontList": "サークルを検索...",
+      "post": "何か書いてください..."
+    },
+    "label": {
+      "categoryName": "カテゴリ名",
+      "actions": "操作"
     }
   }
 }

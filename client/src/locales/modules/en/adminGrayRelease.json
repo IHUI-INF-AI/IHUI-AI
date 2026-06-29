@@ -1,7 +1,7 @@
 {
   "adminGrayRelease": {
-    "confirmRollback": "confirmRollback",
-    "createRelease": "createRelease",
-    "enterRollbackReason": "enterRollbackReason"
+    "confirmRollback": "Confirm Rollback",
+    "enterRollbackReason": "Please enter rollback reason",
+    "createRelease": "Create Release"
   }
 }

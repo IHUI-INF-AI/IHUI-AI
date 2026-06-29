@@ -278,7 +278,7 @@ const executeSelectedTemplate = async () => {
     if (results.length > 0) {
       lastResponse.value = results[results.length - 1]
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const err = error as { message?: string }
     showError(err?.message || t('unifiedAI.templateExecuteFailed'))
   } finally {

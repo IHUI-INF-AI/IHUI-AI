@@ -1,28 +1,29 @@
 {
   "tokenValue": {
-    "balanceTitle": "balanceTitle",
-    "noRecords": "noRecords",
-    "stats": {
-      "currentBalance": "currentBalance",
-      "totalEarned": "totalEarned",
-      "totalUsed": "totalUsed"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "consumption": "consumption",
-      "name": "名称",
-      "time": "时间"
+    "title": "My Zhihui Value",
+    "subtitle": "View Zhihui value usage records and balance",
+    "balanceTitle": "Zhihui Value Balance",
+    "typeTabs": {
+      "agent": "Agent Consumption",
+      "model": "Model Consumption"
     },
     "timeRange": {
-      "all": "全部",
-      "month": "月",
-      "week": "week",
-      "year": "年"
+      "week": "7 Days",
+      "month": "One Month",
+      "year": "One Year",
+      "all": "All"
     },
-    "title": "标题",
-    "typeTabs": {
-      "agent": "智能体",
-      "model": "模型"
-    }
+    "table": {
+      "name": "Name",
+      "time": "Time Spent",
+      "consumption": "Zhihui Value Consumed"
+    },
+    "stats": {
+      "currentBalance": "Current Balance",
+      "totalEarned": "Total Earned",
+      "totalUsed": "Total Used"
+    },
+    "noRecords": "No Zhihui value consumption records",
+    "loadRecordsFailed": "Failed to load consumption records, please try again later"
   }
 }

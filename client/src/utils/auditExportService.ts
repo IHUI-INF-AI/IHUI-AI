@@ -61,7 +61,7 @@ function generateRecommendations(summary: AuditReport['summary']): string[] {
   return recommendations
 }
 
-function escapeCSV(value: any): string {
+function escapeCSV(value: unknown): string {
   if (value === null || value === undefined) return ''
   const str = String(value)
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {

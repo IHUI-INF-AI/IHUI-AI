@@ -1,11 +1,11 @@
 {
   "ranking": {
     "title": "ランキング",
-    "subtitle": "人気のAIエージェントとクリエイターを見る",
-    "dayRank": "デイリー",
-    "weekRank": "ウィークリー",
-    "monthRank": "マンスリー",
-    "totalRank": "トータル",
-    "noData": "データがありません"
+    "subtitle": "ポイント · 学習 · エージェント",
+    "dayRank": "日間",
+    "weekRank": "週間",
+    "monthRank": "月間",
+    "totalRank": "総合",
+    "noData": "ランキングデータがありません"
   }
 }

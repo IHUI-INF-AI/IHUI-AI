@@ -1,10 +1,10 @@
 {
   "biDrilldown": {
-    "dailyDetail": "daily 详情",
+    "detail": "明细",
+    "recent": "近",
     "days": "天",
-    "detail": "详情",
-    "recent": "最近",
-    "subDimensionTop": "sub dimension 置顶",
-    "total": "总计"
+    "total": "总计",
+    "dailyDetail": "每日明细",
+    "subDimensionTop": "子维度 Top 3"
   }
 }

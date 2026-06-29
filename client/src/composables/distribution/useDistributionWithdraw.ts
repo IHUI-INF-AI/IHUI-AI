@@ -10,7 +10,7 @@ import { ref, computed } from 'vue'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getWithdrawList, applyWithdraw } from '@/api/payment/commission'
+import { getWithdrawList, applyWithdraw } from '@/api/commission'
 import type { FormInstance } from 'element-plus'
 import type { WithdrawRecord } from '@/types/user'
 import { usePagination } from '@/composables/user/usePagination'
@@ -93,7 +93,7 @@ export function useDistributionWithdraw(options: UseDistributionWithdrawOptions 
         trigger: 'blur',
       },
       {
-        validator: (_rule: any, value: number, callback: (error?: Error) => void) => {
+        validator: (_rule: unknown, value: number, callback: (error?: Error) => void) => {
           if (value < 100) {
             callback(new Error(t('distribution.minWithdrawAmountError')))
           } else if (availableBalance > 0 && value > availableBalance) {

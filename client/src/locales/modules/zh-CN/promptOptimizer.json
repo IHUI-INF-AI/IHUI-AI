@@ -1,0 +1,35 @@
+{
+  "promptOptimizer": {
+    "analysis": {
+      "addMoreDetails": "添加更多细节描述",
+      "addQuality": "添加质量描述词，如高清、4K等",
+      "addScene": "添加场景或背景描述",
+      "addStyle": "添加风格描述，如写实、动漫等",
+      "addSubject": "明确主体对象",
+      "promptTooLong": "提示词过长，可能超出模型限制",
+      "promptTooShort": "提示词过短，信息不够丰富",
+      "simplifyDescription": "简化描述，突出重点",
+      "videoMissingAction": "视频提示词缺少动作描述",
+      "videoNeedsAction": "视频提示词需要包含动作描述"
+    },
+    "prompt": {
+      "outputChinese": "请使用中文输出",
+      "outputEnglish": "请使用英文输出",
+      "principle4Image": "图片提示词应注重画面构图、光影效果和细节描述",
+      "principle4Video": "视频提示词应包含明确的动作描述和时间序列",
+      "recommendedQuality": "推荐质量关键词",
+      "recommendedStyle": "推荐风格关键词",
+      "system": "你是一位专业的{typeLabel}提示词优化专家，精通{modelName}模型的特点。\n\n优化原则：\n1. 保持提示词简洁明了，不超过{maxLength}字符\n2. 突出主体、场景、风格、质量等关键要素\n3. 使用模型能更好理解的关键词\n4. {principle4}\n{stylePart}{qualityPart}\n输出要求：\n{outputLang}\n请直接输出优化后的提示词，不要附加解释。",
+      "userPrompt": "请优化以下{typeLabel}提示词：\n\n原始提示词：\n{prompt}\n\n存在的问题：\n{issues}\n\n优化建议：\n{suggestions}\n\n请根据以上分析，输出优化后的提示词。"
+    },
+    "quickEnhance": {
+      "naturalMotion": "自然流畅的动作",
+      "styleSuffix": "风格"
+    },
+    "typeLabel": {
+      "content": "内容",
+      "image": "图片",
+      "video": "视频"
+    }
+  }
+}

@@ -146,7 +146,7 @@ const getSuccessParticleStyle = (index: number) => {
 // 设计变量 - 高科技工业风格
 // ============================================
 $brand-primary: var(--el-text-color-primary);
-$brand-accent: var(--el-color-success);
+$brand-accent: var(--color-emerald-500);
 $brand-glow: color-mix(in srgb, var(--el-color-primary) 60%, transparent);
 $glass-bg-light: var(--color-white-8);
 $glass-bg-dark: var(--color-black-40);
@@ -285,7 +285,7 @@ $ts-text-muted: var(--color-white-50);
   // 入场动画
   opacity: 0;
   transform: translateY(40px) scale(0.95);
-  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.card-visible {
     opacity: 1;
@@ -376,6 +376,7 @@ $ts-text-muted: var(--color-white-50);
   justify-content: center;
   background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
 }
 
 // SVG 勾选动画
@@ -516,7 +517,7 @@ $ts-text-muted: var(--color-white-50);
   border-radius: var(--global-border-radius);
   cursor: pointer;
   overflow: hidden;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-content {
     position: relative;
@@ -527,11 +528,13 @@ $ts-text-muted: var(--color-white-50);
   &--primary {
     background: $brand-accent;
     color: var(--el-bg-color);
+    box-shadow: var(--global-box-shadow);
 
     // 扫光效果已移至全局样式 (styles/index.scss)
 
     &:hover {
-      
+      transform: translateY(-2px);
+      box-shadow: var(--global-box-shadow);
     }
 
     &:active {
@@ -549,12 +552,13 @@ $ts-text-muted: var(--color-white-50);
       inset: 0;
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
-      transition: border-color 0.3s ease, background-color 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     &:hover {
       .btn-border {
         border-color: var(--border-unified-color-hover);
+        box-shadow: var(--global-box-shadow);
       }
     }
 
@@ -614,12 +618,13 @@ $ts-text-muted: var(--color-white-50);
 
   .particle {
     /* 使用 color-mix 实现略深色，避免对 CSS 变量使用 SASS color.adjust 报错 */
-    background: color-mix(in srgb, var(--el-color-success) 90%, black);
+    background: color-mix(in srgb, var(--color-emerald-500) 90%, black);
   }
 
   .glass-card {
     background: var(--color-white-70);
     border-color: var(--border-unified-color);
+    box-shadow: var(--global-box-shadow);
 
     &:hover {
       border-color: var(--border-unified-color-hover);
@@ -631,7 +636,7 @@ $ts-text-muted: var(--color-white-50);
   }
 
   .success-message {
-    color: var(--el-text-color-secondary);
+    color: var(--color-gray-666);
   }
 
   .action-btn--secondary {
@@ -643,6 +648,7 @@ $ts-text-muted: var(--color-white-50);
 
     &:hover .btn-border {
       border-color: var(--border-unified-color-hover);
+      box-shadow: var(--global-box-shadow);
     }
   }
 

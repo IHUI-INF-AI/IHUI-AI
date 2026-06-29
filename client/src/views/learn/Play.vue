@@ -49,53 +49,57 @@ import { VideoPlay } from '@element-plus/icons-vue'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnVideo from '@/components/learn/Video.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const route = useRoute()
 const lessonId = String(route.params.id || route.query.lessonId || '')
 const videoId = String(route.query.videoId || '')
 
-const chapters = ref<any[]>([])
-const currentVideo = ref<any>({})
+const chapters = ref<unknown[]>([])
+const currentVideo = ref<Record<string, unknown>>({})
 
 const breadcrumbItems = computed(() => [
   { title: '课程', path: '/learn' },
   { title: '学习', path: `/learn/detail/${lessonId}` },
-  { title: currentVideo.value.name || '播放' },
+  { title: (currentVideo.value.name as string) || '播放' },
 ])
 
 async function loadChapters() {
   try {
-    const res: any = await learnApi.chapterList(lessonId)
+    const res = await learnApi.chapterList(lessonId) as unknown as { data?: unknown[] }
     chapters.value = res.data || []
     if (videoId) {
       for (const ch of chapters.value) {
-        const v = (ch.videoList || []).find((x: any) => String(x.id) === videoId)
+        const chapter = ch as Record<string, unknown>
+        const videoList = (chapter.videoList as unknown[]) || []
+        const v = videoList.find((x: unknown) => String((x as Record<string, unknown>).id) === videoId)
         if (v) {
-          currentVideo.value = v
+          currentVideo.value = v as Record<string, unknown>
           return
         }
       }
     }
-    const first = chapters.value[0]?.videoList?.[0]
-    if (first) currentVideo.value = first
+    const firstChapter = chapters.value[0] as Record<string, unknown> | undefined
+    const firstVideoList = (firstChapter?.videoList as unknown[]) || []
+    const first = firstVideoList[0]
+    if (first) currentVideo.value = first as Record<string, unknown>
   } catch (e) { console.error(e) }
 }
 
-function selectVideo(v: any) {
-  currentVideo.value = v
+function selectVideo(v: unknown) {
+  currentVideo.value = v as Record<string, unknown>
 }
 
 let lastSaved = 0
 function handleTimeUpdate(t: number) {
   if (t - lastSaved > 30) {
-    learnApi.recordUpdate({ lessonId, progress: Math.min(100, t), lastTime: new Date().toISOString() })
+    learnApi.recordUpdate(lessonId, { progress: Math.min(100, t), lastTime: new Date().toISOString() })
     lastSaved = t
   }
 }
 
 function handleEnded() {
-  learnApi.recordUpdate({ lessonId, progress: 100, lastTime: new Date().toISOString() })
+  learnApi.recordUpdate(lessonId, { progress: 100, lastTime: new Date().toISOString() })
 }
 
 onMounted(loadChapters)

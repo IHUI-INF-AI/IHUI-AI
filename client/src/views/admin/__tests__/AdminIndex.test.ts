@@ -1,5 +1,5 @@
 // admin/index.vue smoke test
-// 验证:@/api/admin/admin-dashboard 的返回值正确流入 4 个数据区(KPI / 模块 / 监控 / 时间线)
+// 验证:@/api/admin-dashboard 的返回值正确流入 4 个数据区(KPI / 模块 / 监控 / 时间线)
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
@@ -22,7 +22,7 @@ vi.mock('element-plus', () => ({
 }))
 
 const mockGetDashboardAll = vi.fn()
-vi.mock('@/api/admin/admin-dashboard', () => ({
+vi.mock('@/api/admin-dashboard', () => ({
   getDashboardAll: () => mockGetDashboardAll(),
 }))
 
@@ -57,11 +57,12 @@ vi.mock('@element-plus/icons-vue', () => {
 })
 
 // element-plus 组件全局 stub
+// 注意:不要在 template 内 @click="$emit('click')",否则 Vue 3 fallthrough 机制会把
+// @click 同时作为 native listener 加到根 button 上,导致 refresh 等回调被触发 2 次
 const ElButtonStub = {
   name: 'ElButton',
-  template: '<button class="el-button" :data-icon="iconName" @click="$emit(\'click\')"><slot /></button>',
+  template: '<button class="el-button" :data-icon="iconName"><slot /></button>',
   props: ['icon', 'type', 'loading', 'round'],
-  emits: ['click'],
   computed: {
     iconName() {
       // icon 是 { name: 'Refresh', ... } 之类的对象,取 name 作 data 属性
@@ -266,7 +267,6 @@ describe('views/admin/index.vue', () => {
     await flushPromises()
     const firstModule = wrapper.findAll('.module-item')[0]
     await firstModule.trigger('click')
-    // 源码中第一个模块 orders 的 path 为 /admin/refund-audit
-    expect(pushMock).toHaveBeenCalledWith('/admin/refund-audit')
+    expect(pushMock).toHaveBeenCalledWith('/admin/orders')
   })
 })

@@ -1,8 +1,8 @@
 {
   "learnCertificate": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbMyCertificate": "breadcrumbMyCertificate",
-    "issueTime": "issueTime",
-    "noCertificate": "noCertificate"
+    "noCertificate": "No certificates",
+    "issueTime": "Issue Time",
+    "breadcrumbCourse": "Course",
+    "breadcrumbMyCertificate": "My Certificates"
   }
 }

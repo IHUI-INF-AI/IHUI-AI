@@ -1,0 +1,21 @@
+{
+  "adminAdvertiseManagement": {
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス",
+      "export": "エクスポート"
+    },
+    "table": {
+      "status": "ステータス"
+    },
+    "status": {
+      "enabled": "あり効",
+      "disabled": "無効"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    }
+  }
+}

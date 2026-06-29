@@ -1,15 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 /**
  * 公共资源路由(从 G:\code\edu 整合) — 6 个公共资源页
@@ -27,7 +17,6 @@ export const publicResourceRoutes: Array<RouteRecordRaw> = [
       keywords: '资讯,新闻,教育动态',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['newsList']),
   },
   {
     path: '/news/:id',
@@ -39,7 +28,6 @@ export const publicResourceRoutes: Array<RouteRecordRaw> = [
       keywords: '资讯详情',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['newsList']),
   },
   // 文章
   {
@@ -52,7 +40,6 @@ export const publicResourceRoutes: Array<RouteRecordRaw> = [
       keywords: '文章,精选,深度',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['articleList']),
   },
   {
     path: '/article/:id',
@@ -64,7 +51,6 @@ export const publicResourceRoutes: Array<RouteRecordRaw> = [
       keywords: '文章详情',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['articleList']),
   },
   // 资源
   {
@@ -77,7 +63,6 @@ export const publicResourceRoutes: Array<RouteRecordRaw> = [
       keywords: '资源,下载,课件',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['resourceList']),
   },
   {
     path: '/resource/:id',
@@ -89,7 +74,6 @@ export const publicResourceRoutes: Array<RouteRecordRaw> = [
       keywords: '资源详情,下载',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['resourceList']),
   },
 ]
 
@@ -108,6 +92,5 @@ export const indexRoutes: Array<RouteRecordRaw> = [
       keywords: '学习平台,课程,直播,考试',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['homeIndex']),
   },
 ]

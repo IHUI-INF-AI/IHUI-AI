@@ -47,7 +47,7 @@ export interface MCPRequest {
 export interface MCPResponse {
   jsonrpc: '2.0'
   id: string | number
-  result?: any
+  result?: unknown
   error?: MCPError
 }
 
@@ -57,7 +57,7 @@ export interface MCPResponse {
 export interface MCPError {
   code: number
   message: string
-  data?: any
+  data?: unknown
 }
 
 /**
@@ -79,8 +79,8 @@ export interface MCPTool {
 export interface MCPToolProperty {
   type: string
   description?: string
-  enum?: any[]
-  default?: any
+  enum?: unknown[]
+  default?: unknown
   items?: MCPToolProperty
 }
 
@@ -501,7 +501,7 @@ export class MCPClient extends EventEmitter {
   private serverInfo: MCPServerInfo | null = null
   private state = ref<MCPConnectionState>('disconnected')
   private requestId = 0
-  private pendingRequests = new Map<string | number, { resolve: (value: any) => void; reject: (reason: any) => void }>()
+  private pendingRequests = new Map<string | number, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>()
   private ws: WebSocket | null = null
 
   constructor(config: MCPClientConfig) {

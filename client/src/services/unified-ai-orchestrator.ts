@@ -10,8 +10,8 @@ import { ElMessage } from 'element-plus'
 import { useMCP } from '@/composables/useMCP'
 import { useMCPIntegration } from '@/composables/useMCPIntegration'
 import { getMCPUseAdapter } from '@/services/mcp-use-adapter'
-import { getAvailableModels, callModel } from '@/api/models/models'
-import { getAgentsList, callAgent } from '@/api/agent/agents'
+import { getAvailableModels, callModel } from '@/api/models'
+import { getAgentsList, callAgent } from '@/api/agents'
 import { createAgenticSwarm, getSwarmStatus } from '@/api/services/agentic.service'
 
 // AI 能力类型

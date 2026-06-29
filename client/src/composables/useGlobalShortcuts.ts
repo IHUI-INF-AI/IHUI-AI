@@ -188,9 +188,9 @@ const formatShortcut = (key: string, modifiers?: KeyModifiers): string => {
 const registerShortcut = (shortcut: ShortcutDefinition): () => void => {
   const keyName = generateKeyName(shortcut.key, shortcut.modifiers)
   
-  // 检查是否已存在
+  // 检查是否已存在（覆盖是设计行为：后注册的组件覆盖先注册的，降级为 debug 避免控制台噪声）
   if (registeredShortcuts.value.has(keyName)) {
-    logger.warn(`Shortcut already exists, will be overwritten: ${keyName}`)
+    logger.debug(`Shortcut already exists, will be overwritten: ${keyName}`)
   }
   
   registeredShortcuts.value.set(keyName, {

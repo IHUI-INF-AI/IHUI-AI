@@ -1,0 +1,23 @@
+{
+  "adminAgentSettlementManagement": {
+    "actions": {},
+    "settlementList": {
+      "status": "状态"
+    },
+    "overview": {},
+    "search": {
+      "status": "状态",
+      "statusPlaceholder": "请选择状态"
+    },
+    "status": {
+      "pending": "待结算",
+      "settled": "已结算",
+      "withdrawn": "已提现",
+      "unknown": "未知"
+    },
+    "settlementStatus": {},
+    "withdrawalStatus": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "adminWithdrawalManagement": {
+    "actions": {
+      "approve": "通过",
+      "reject": "拒绝",
+      "export": "导出"
+    },
+    "withdrawalList": {
+      "status": "状态"
+    },
+    "status": {
+      "pending": "待审核",
+      "approved": "已通过",
+      "rejected": "已拒绝",
+      "processing": "处理中",
+      "completed": "已完成"
+    }
+  }
+}

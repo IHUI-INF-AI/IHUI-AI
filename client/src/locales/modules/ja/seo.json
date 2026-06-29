@@ -1,0 +1,248 @@
+{
+  "seo": {
+    "home": {
+      "desc": "智汇AIホーム - AIエージェント、チャット、画像・動画生成とオープンプラットフォームのワンストップサービス",
+      "keywords": "智汇AI,AIプラットフォーム,エージェント,AIチャット,AI生成"
+    },
+    "openPlatform": {
+      "desc": "智汇AIオープンプラットフォーム - API、SDK、モデルとエージェント能力を開放、ihui APIでアプリを構築",
+      "keywords": "オープンプラットフォーム,ihui API,APIインターフェース,SDK,AIモデル,エージェント"
+    },
+    "designSystem": {
+      "desc": "智汇AIデザインシステム - コンポーネント仕様、デザイントークンとビジュアル標準",
+      "keywords": "デザインシステム,コンポーネント仕様,デザイントークン,ビジュアル標準"
+    },
+    "componentShowcase": {
+      "desc": "Element Plus コンポーネントのリアルタイムプレビューとインタラクションデモ",
+      "keywords": "コンポーネント展示,Storybook,Element Plus"
+    },
+    "businessDocs": {
+      "desc": "プロジェクト概要、APIモジュール、デプロイとセキュリティ",
+      "keywords": "ビジネスドキュメント,API,デプロイ,セキュリティ"
+    },
+    "aizhsDemo": {
+      "desc": "智汇AI機能デモ - 製品能力体験とサンプル展示",
+      "keywords": "智汇AI,機能デモ,製品体験,サンプル展示"
+    },
+    "notFound": {
+      "desc": "智汇AI 404 - アクセスしたページが見つかりません",
+      "keywords": "404,ページが見つかりません"
+    },
+    "forbidden": {
+      "desc": "アクセス権限がありません",
+      "keywords": "403,権限なし"
+    },
+    "aiWorld": {
+      "desc": "智汇AIワールド - AIアプリ、モデルとエージェントエコシステムを探索",
+      "keywords": "AIワールド,AIアプリ,AIモデル,エージェントエコシステム"
+    },
+    "agents": {
+      "desc": "智汇AIエージェント - AIエージェントの作成、管理と使用",
+      "keywords": "エージェント,AI Agent,エージェントマーケット,エージェント作成"
+    },
+    "designerAgent": {
+      "desc": "智汇AIデザイナーエージェント - AI支援デザインとクリエイティブ生成",
+      "keywords": "デザイナーエージェント,AIデザイン,クリエイティブ生成,デザインアシスタント"
+    },
+    "agentsCreate": {
+      "desc": "智汇AIエージェント作成 - AIエージェントをカスタマイズ",
+      "keywords": "エージェント作成,カスタムエージェント,AI Agent,エージェント設定"
+    },
+    "agentDetail": {
+      "desc": "智汇AIエージェント詳細 - エージェント能力と使用を表示",
+      "keywords": "エージェント詳細,AI Agent,エージェント能力"
+    },
+    "conversation": {
+      "desc": "智汇AI対話 - AIエージェントとマルチターン対話",
+      "keywords": "AI対話,エージェント対話,マルチターン対話"
+    },
+    "chatHistory": {
+      "desc": "智汇AIチャット履歴 - 対話記録の表示と管理",
+      "keywords": "チャット履歴,対話記録,チャット記録"
+    },
+    "plaza": {
+      "desc": "智汇AIプラザ - コミュニティ動向、コンテンツ共有と交流",
+      "keywords": "プラザ,コミュニティ動向,コンテンツ共有,交流"
+    },
+    "xuqiu": {
+      "desc": "智汇AIニーズ - AIニーズの投稿と閲覧",
+      "keywords": "ニーズ,AIニーズ,ニーズ投稿,ニーズホール"
+    },
+    "courses": {
+      "desc": "智汇AIコース - AI学習コースとチュートリアル",
+      "keywords": "コース,AIコース,学習チュートリアル,オンラインコース"
+    },
+    "courseDetail": {
+      "desc": "智汇AIコース詳細 - コース内容の表示と学習",
+      "keywords": "コース詳細,コース内容,AI学習"
+    },
+    "about": {
+      "desc": "智汇AIについて - 智汇AIチームとミッションを理解",
+      "keywords": "について,智汇AI,チーム紹介,会社紹介"
+    },
+    "feedback": {
+      "desc": "智汇AIフィードバック - 提案と問題フィードバックの送信",
+      "keywords": "フィードバック,意見フィードバック,提案,問題フィードバック"
+    },
+    "share": {
+      "desc": "智汇AI共有 - コンテンツをソーシャルプラットフォームに共有",
+      "keywords": "共有,コンテンツ共有,ソーシャル共有"
+    },
+    "customService": {
+      "desc": "智汇AIカスタマーサービス - オンラインサポートとアフターサービス",
+      "keywords": "カスタマーサービス,オンラインサポート,アフターサービス"
+    },
+    "learnAI": {
+      "desc": "智汇AI AI学習 - 体系的なAI学習パスとリソース",
+      "keywords": "AI学習,学習パス,AIチュートリアル"
+    },
+    "user": {
+      "desc": "智汇AIユーザーセンター - 個人ホームとアカウント管理",
+      "keywords": "ユーザーセンター,個人ホーム,アカウント管理"
+    },
+    "profile": {
+      "desc": "智汇AIプロフィール - 個人情報とアバターの編集",
+      "keywords": "プロフィール,個人情報,アバター,プロフィール編集"
+    },
+    "settings": {
+      "desc": "智汇AI設定 - アカウントセキュリティとプリファレンス設定",
+      "keywords": "設定,アカウント設定,セキュリティ設定,プリファレンス"
+    },
+    "vip": {
+      "desc": "智汇AI VIP会員 - 専属特典と会員サービス",
+      "keywords": "VIP,会員,VIP会員,会員特典"
+    },
+    "orders": {
+      "desc": "智汇AI注文 - 注文の表示と管理",
+      "keywords": "注文,注文管理,注文リスト"
+    },
+    "orderDetail": {
+      "desc": "智汇AI注文詳細 - 注文情報とステータスの表示",
+      "keywords": "注文詳細,注文情報,注文ステータス"
+    },
+    "refundManagement": {
+      "desc": "智汇AI返金管理 - 返金申請の表示と処理",
+      "keywords": "返金管理,返金申請,返金処理"
+    },
+    "refund": {
+      "desc": "智汇AI返金 - 返金申請と返金進捗",
+      "keywords": "返金,返金申請,返金進捗"
+    },
+    "distribution": {
+      "desc": "智汇AIディストリビューション - ディストリビューション推広とコミッション収益",
+      "keywords": "ディストリビューション,ディストリビューション推広,コミッション,ディストリビューション収益"
+    },
+    "payment": {
+      "desc": "智汇AI支払い - 注文支払いとチャージ",
+      "keywords": "支払い,注文支払い,オンライン支払い"
+    },
+    "statistics": {
+      "desc": "智汇AIデータ統計 - 収益と使用データ分析",
+      "keywords": "統計,データ統計,収益分析,使用データ"
+    },
+    "adminGrayRelease": {
+      "desc": "ガイド付きグレイリリースと漸進的ロールアウトの管理",
+      "keywords": "グレイリリース,漸進的リリース,トラフィック制御"
+    },
+    "adminDependencyManager": {
+      "desc": "ガイドステップの依存関係と実行フローの設定",
+      "keywords": "依存管理,ステップ依存,フロー制御"
+    },
+    "adminEventBusMonitor": {
+      "desc": "システムイベントの公開・購読の監視と管理",
+      "keywords": "イベントバス,イベント監視,購読管理"
+    },
+    "adminMonitoringDashboard": {
+      "desc": "リアルタイムパフォーマンス監視とアラート管理",
+      "keywords": "監視,ダッシュボード,パフォーマンス,アラート"
+    },
+    "adminMobileDashboard": {
+      "desc": "ビジネスダッシュボードモバイル + 予測 + 購読",
+      "keywords": "ダッシュボード,モバイル,予測,購読"
+    },
+    "adminErrorDashboard": {
+      "desc": "フロントエンドエラー監視と統計分析",
+      "keywords": "エラー,監視,統計,分析"
+    },
+    "adminPerformanceDashboard": {
+      "desc": "Web Vitalsパフォーマンス指標の監視と分析",
+      "keywords": "パフォーマンス,Web Vitals,LCP,FID,CLS"
+    },
+    "adminMobileAdapter": {
+      "desc": "マルチプラットフォーム適応設定とテーマの管理",
+      "keywords": "マルチデバイス適応,モバイル,プラットフォーム設定"
+    },
+    "adminRecommendationConfig": {
+      "desc": "ガイド付きレコメンドルールとA/Bテストの設定",
+      "keywords": "レコメンド,インテリジェント,A/Bテスト,ユーザーセグメンテーション"
+    },
+    "adminDatabaseOptimization": {
+      "desc": "データベースパフォーマンスの監視とクエリ効率の最適化",
+      "keywords": "データベース,最適化,監視"
+    },
+    "adminUserManagement": {
+      "desc": "システムユーザー、資金アカウント、プラットフォーム関係の管理",
+      "keywords": "ユーザー管理,アカウント管理,プラットフォーム関係"
+    },
+    "adminRefundAudit": {
+      "desc": "運営監査 · 一括承認 · SLA監視",
+      "keywords": "返金,監査,一括,SLA"
+    },
+    "adminProductManagement": {
+      "desc": "製品と製品カテゴリの管理",
+      "keywords": "製品管理,製品カテゴリ"
+    },
+    "adminActivityManagement": {
+      "desc": "アクティビティとアクティビティカテゴリの管理",
+      "keywords": "アクティビティ管理,アクティビティカテゴリ"
+    },
+    "adminCourseManagement": {
+      "desc": "コースとコースカテゴリの管理",
+      "keywords": "コース管理,コースカテゴリ"
+    },
+    "adminAgentManagement": {
+      "desc": "エージェントとエージェントカテゴリの管理",
+      "keywords": "エージェント管理,エージェントカテゴリ"
+    },
+    "adminPaymentManagement": {
+      "desc": "支払い記録と取引の管理",
+      "keywords": "支払い管理,取引管理"
+    },
+    "adminWithdrawalManagement": {
+      "desc": "出金申請と審査の管理",
+      "keywords": "出金管理,審査管理"
+    },
+    "adminFundManagement": {
+      "desc": "ユーザー資金アカウントと残高の管理",
+      "keywords": "資金アカウント,残高管理"
+    },
+    "adminFeedbackManagement": {
+      "desc": "ユーザーフィードバックと問題の管理",
+      "keywords": "フィードバック管理,問題管理"
+    },
+    "adminFaqManagement": {
+      "desc": "FAQとヘルプドキュメントの管理",
+      "keywords": "FAQ管理,ヘルプドキュメント"
+    },
+    "adminWebhookManagement": {
+      "desc": "Webhook設定とイベントの管理",
+      "keywords": "Webhook管理,イベント管理"
+    },
+    "dataDashboard": {
+      "desc": "システムデータ統計とクイック操作",
+      "keywords": "データダッシュボード,統計,管理"
+    },
+    "adminSettlementManagement": {
+      "desc": "決済記録の管理と表示",
+      "keywords": "決済,管理,記録"
+    },
+    "adminAgentPricingConfig": {
+      "desc": "エージェントの料金プランの管理と設定",
+      "keywords": "エージェント,料金,設定,管理"
+    },
+    "adminAgentAudit": {
+      "desc": "エージェント申請の監査と管理",
+      "keywords": "エージェント,監査,管理"
+    }
+  }
+}

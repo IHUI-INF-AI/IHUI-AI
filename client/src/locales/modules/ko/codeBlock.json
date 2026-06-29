@@ -1,8 +1,8 @@
 {
   "codeBlock": {
-    "copied": "copied",
-    "copy": "复制",
-    "copySuccess": "copySuccess",
-    "toggleLineNumbers": "toggleLineNumbers"
+    "copied": "Copied",
+    "copy": "복생각",
+    "toggleLineNumbers": "ToggleLineNumbers",
+    "copySuccess": "copy성공"
   }
 }

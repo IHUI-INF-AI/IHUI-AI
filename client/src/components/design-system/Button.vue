@@ -91,7 +91,7 @@ const handleClick = (event: MouseEvent) => {
 
     &:hover:not(.btn-disabled, .btn-loading) {
       background-color: $primary-light;
-      
+      transform: translateY(-2px);
     }
 
     &:active:not(.btn-disabled, .btn-loading) {
@@ -163,7 +163,7 @@ const handleClick = (event: MouseEvent) => {
 }
 
 // 暗色主题适配
-:where(html.dark) {
+html.dark {
   .design-system-button {
     &.btn-primary {
       background-color: var(--app-surface-1);

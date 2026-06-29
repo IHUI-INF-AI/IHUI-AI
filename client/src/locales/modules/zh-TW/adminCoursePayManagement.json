@@ -1,0 +1,22 @@
+{
+  "adminCoursePayManagement": {
+    "export": "導出",
+    "search": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態"
+    },
+    "table": {
+      "status": "狀態"
+    },
+    "discountType": {},
+    "status": {
+      "enabled": "啟用",
+      "disabled": "禁用"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  }
+}

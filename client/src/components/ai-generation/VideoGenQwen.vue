@@ -91,7 +91,7 @@ const handleGenerate = () => {
       images: form.images || undefined,
       user_uuid: props.userUuid,
     },
-    (message: any) => {
+    (message: unknown) => {
       const msg = message as WebSocketMessage
       if (msg.event === 'video.progress') {
         progress.value = msg.data?.progress || 0

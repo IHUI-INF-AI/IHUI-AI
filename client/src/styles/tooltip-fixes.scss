@@ -1,14 +1,68 @@
 /**
  * Element Plus Tooltip 样式修复
- * 专门修复用户信息按钮和其他组件中tooltip的样式冲突问题
+ *
+ * 1. 暗色模式下的 tooltip 触发器 hover 修复
+ * 2. 【关键】Sidebar 导航项 "图标 + 文字 窜行" 根因修复
+ *
+ * 根因说明（已于下方修正）
+ * ─────────────────────────────────────────────────────────
+ * 早期假设：el-tooltip 的 OnlyChild 会包裹一层 <span class=
+ * "el-tooltip__trigger"> wrapper，inline-block 渲染会夹断 flex
+ * 链，故用 display:contents 让 wrapper 消失。
+ *
+ * 实测证伪（Element Plus 2.14）：OnlyChild 对单个元素子项
+ * （如 <button class="nav-item">）不包 span，而是把
+ * el-tooltip__trigger 类直接合并到该元素上。于是 display:contents
+ * 作用到 button 自身，.nav-item 的 display:flex 被覆盖，button
+ * 盒子消失，图标与文字垂直堆叠错位。
+ *
+ * 正确修复：display:contents 只限 span.el-tooltip__trigger（真正的
+ * wrapper，仅在多节点/文本子项时生成）。单元素子项不生成 wrapper，
+ * button 保持 display:flex。详见下方选择器注释。
+ * ─────────────────────────────────────────────────────────
  */
 
-// 暗色模式下的tooltip修复
-:where(html.dark) {
+html.dark {
   body .button-message.el-tooltip__trigger,
   body .user-info-button.el-tooltip__trigger {
     &:hover {
       background-color: var(--color-white-8);
     }
   }
+}
+
+/* ── Sidebar 导航项 tooltip wrapper 修复 ──
+ * 只针对 sidebar 范围内的 trigger，避免影响全局其它 tooltip
+ * （如带图标+文字的菜单项不需要被改 display）
+ *
+ * 使用 body 前缀以压过 el-tooltip 默认样式与 scoped 样式。
+ * .app-sidebar > .sidebar-nav > .nav-item-wrapper > .el-tooltip__trigger
+ * 选择器特异性 0,3,0，足以压过 :where() 包裹的 0 特异性规则 */
+/* 【关键修正】原选择器 .el-tooltip__trigger 会误匹配 nav-item button 本身。
+ *
+ * 实测（Element Plus 2.14）：el-tooltip 的 OnlyChild 对单个元素子项（如
+ * <button class="nav-item">）不会包裹 <span> wrapper，而是把 el-tooltip__trigger
+ * 类直接合并到该元素上。因此原先的 `display: contents` 会作用到 button 自身，
+ * 导致 .nav-item 的 display:flex 被覆盖为 contents，button 盒子消失，图标与
+ * 文字直接成为 .nav-item-wrapper（flex column）的子项而垂直堆叠错位。
+ *
+ * 修正：display: contents 只作用于真正的 span wrapper（OnlyChild 在多节点/
+ * 文本子项时才会生成的 <span class="el-tooltip__trigger">）。单元素子项不
+ * 生成 wrapper，无需也不应被 contents 化，button 保持 display:flex 即可。 */
+body .app-sidebar span.el-tooltip__trigger {
+  display: contents;
+}
+
+/* popover 同理：仅对 span wrapper 生效，避免误伤 button 触发器 */
+body .app-sidebar span.el-popover__trigger {
+  display: contents;
+}
+
+/* 焦点可见描边：直接作用于触发器元素本身（button）。
+ * 原先依赖 wrapper > * 的写法在 OnlyChild 不包 wrapper 时失效，
+ * 现改为触发器自身 :focus-visible，保证可访问性。 */
+body .app-sidebar .el-tooltip__trigger:focus-visible,
+body .app-sidebar .el-popover__trigger:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: -2px;
 }

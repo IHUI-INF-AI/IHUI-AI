@@ -1,0 +1,23 @@
+{
+  "adminAgentSettlementManagement": {
+    "actions": {},
+    "settlementList": {
+      "Status": "Status"
+    },
+    "overview": {},
+    "search": {
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
+    },
+    "Status": {
+      "pending": "Pending",
+      "settled": "Settled",
+      "withdrawn": "Withdrawn",
+      "unknown": "Unknown"
+    },
+    "settlementStatus": {},
+    "withdrawalStatus": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

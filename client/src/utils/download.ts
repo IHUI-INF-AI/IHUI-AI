@@ -38,7 +38,7 @@ export function downloadText(text: string, filename: string, mimeType: string = 
   downloadBlob(blob, filename)
 }
 
-export function downloadJson(data: any, filename: string): void {
+export function downloadJson(data: unknown, filename: string): void {
   const json = JSON.stringify(data, null, 2)
   downloadText(json, filename, 'application/json')
 }

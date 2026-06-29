@@ -1,110 +1,148 @@
 {
   "login": {
-    "agreement": {
-      "and": "and",
-      "prefix": "prefix",
-      "privacyPolicy": "隐私政策",
-      "userAgreement": "用户协议"
-    },
-    "aiModels": "aiModels",
-    "apple": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "securityTip"
-    },
-    "availability": "availability",
-    "buttons": {
-      "login": "登录",
-      "register": "注册",
-      "submitLogin": "submitLogin",
-      "submitRegister": "submitRegister"
+    "selectProject": "Select Project",
+    "subtitle": "Welcome back",
+    "project": {
+      "main": "Zhihui AI Main Platform",
+      "open": "Open Platform",
+      "admin": "Admin Portal",
+      "eduWeb": "Zhihui AI Education Platform",
+      "eduAdmin": "Education Admin Portal",
+      "user": "User Portal"
     },
     "crossProject": {
-      "admin": "管理员",
-      "loggingIn": "登录中",
-      "switchTo": "switchTo",
-      "user": "用户"
+      "loggingIn": "Logging in to {name}",
+      "user": "Switch to User Portal",
+      "admin": "Switch to Admin Portal",
+      "switchTo": "Switch To"
     },
-    "error": {
-      "insecureConnection": "insecureConnection"
-    },
-    "forgotPassword": "忘记密码",
-    "goLogin": "goLogin",
-    "goRegister": "goRegister",
-    "google": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "securityTip"
-    },
-    "hasAccount": "hasAccount",
-    "hidePassword": "hidePassword",
-    "ihuiLogo": "ihuiLogo",
+    "ihuiLogo": "Zhihui AI Logo",
+    "worldFirst": "World's First",
+    "oneStopAI": "Everyone's One-Stop AI Integration Platform",
+    "aiModels": "AI Models",
+    "users500k": "500K+",
+    "users": "Users",
+    "availability": "Availability",
+    "hidePassword": "Hide Password",
+    "showPassword": "Show Password",
     "mode": {
-      "hasAccount": "hasAccount",
-      "noAccount": "noAccount",
-      "userLogin": "userLogin",
-      "userRegister": "userRegister"
+      "userRegister": "User Register",
+      "userLogin": "User Login",
+      "hasAccount": "Has Account",
+      "noAccount": "No Account"
     },
-    "noAccount": "noAccount",
-    "oneStopAI": "oneStopAI",
-    "password": {
-      "hide": "隐藏",
-      "show": "显示"
-    },
-    "placeholders": {
-      "confirmLoginPassword": "confirmLoginPassword",
-      "confirmPassword": "confirmPassword",
-      "email": "邮箱",
-      "password": "密码",
-      "phone": "手机号",
-      "phoneRegister": "phoneRegister",
-      "setLoginPassword": "setLoginPassword",
-      "setPassword": "setPassword",
-      "smsCode": "smsCode",
-      "username": "用户名",
-      "usernameOrEmail": "usernameOrEmail"
-    },
-    "project": {
-      "admin": "管理员",
-      "eduAdmin": "eduAdmin",
-      "eduWeb": "eduWeb",
-      "main": "main",
-      "open": "打开",
-      "user": "用户"
-    },
-    "selectProject": "selectProject",
-    "showPassword": "showPassword",
-    "subtitle": "副标题",
-    "switchPlatform": "switchPlatform",
     "tabs": {
-      "account": "账号",
-      "accountRegister": "accountRegister",
-      "phone": "手机号",
-      "phoneRegister": "phoneRegister"
+      "account": "Account",
+      "accountRegister": "Account Register",
+      "phone": "Phone",
+      "phoneRegister": "Phone Register"
     },
     "thirdParty": {
-      "accountLogin": "账号密码登录",
-      "alipay": "alipay",
-      "alipayLogin": "alipayLogin",
+      "or": "Or",
+      "feishuLogin": "Feishu Login",
+      "notice": "Notice",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms Of Service",
+      "wechatLogin Failed": "WeChat login Failed, please retry",
+      "googleLogin Failed": "GoogleLogin Failed, please retry",
+      "appleLogin Failed": "AppleLogin Failed, please retry",
+      "tooltip": {
+        "wechat": "WeChat Login",
+        "google": "GoogleLogin",
+        "apple": "AppleLogin",
+        "feishu": "Feishu Login"
+      },
+      "accountLogin": "accountLogin",
       "comingSoon": "comingSoon",
-      "emailLogin": "邮箱登录",
+      "emailLogin": "emailLogin",
       "feishu": "feishu",
-      "feishuLogin": "feishuLogin",
-      "notice": "notice",
-      "or": "or",
       "otherMethods": "otherMethods",
-      "phoneLogin": "手机号登录",
-      "privacyPolicy": "隐私政策",
-      "quickLogin": "快捷登录",
+      "phoneLogin": "phoneLogin",
+      "quickLogin": "quickLogin",
       "securityNotice1": "securityNotice1",
       "securityNotice2": "securityNotice2",
       "securityNotice3": "securityNotice3",
       "selectPreferred": "selectPreferred",
-      "termsOfService": "termsOfService"
+      "wechatLogin": "WeChat Login",
+      "googleLogin": "GoogleLogin",
+      "appleLogin": "AppleLogin"
     },
-    "users": "用户",
-    "users500k": "users500k",
-    "welcomeTitle": "welcomeTitle",
-    "worldFirst": "worldFirst"
+    "agreement": {
+      "and": "And",
+      "prefix": "Prefix",
+      "userAgreement": "User Agreement",
+      "privacyPolicy": "Privacy Policy"
+    },
+    "placeholders": {
+      "username": "Username",
+      "usernameOrEmail": "Username Or Email",
+      "email": "Email",
+      "setPassword": "Set Password",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "phoneRegister": "Phone Register",
+      "phone": "Phone",
+      "smsCode": "Sms Code",
+      "setLoginPassword": "Set Login Password",
+      "confirmLoginPassword": "Confirm Login Password"
+    },
+    "password": {
+      "hide": "Hide",
+      "show": "Show"
+    },
+    "buttons": {
+      "register": "Register",
+      "login": "Login",
+      "submitRegister": "Submit Register",
+      "submitLogin": "Submit Login",
+      "sendCode": "Send Code",
+      "resend": "ReSend",
+      "resendIn": "Resend in {seconds}s"
+    },
+    "forgotPassword": "Forgot Password",
+    "error": {
+      "insecureConnection": "Insecure Connection",
+      "unknownError": "Unknown Error"
+    },
+    "welcomeTitle": "Welcome Title",
+    "noAccount": "No account yet?？",
+    "Login Successful": "Login Successful",
+    "apple": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "google": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "switchPlatform": "switchPlatform",
+    "goLogin": "Go Login",
+    "goRegister": "Go Register",
+    "hasAccount": "Has Account",
+    "switchProject": "Switch Project",
+    "title": "Login",
+    "brand": {
+      "title": "World's First Agent Platform",
+      "subtitle": "Everyone's AI Integration Platform"
+    },
+    "form": {
+      "username": "Username",
+      "password": "Password",
+      "login": "Login",
+      "forgotPassword": "Forgot Password?",
+      "rememberMe": "Remember me"
+    },
+    "social": {
+      "wechat": "WeChat Login",
+      "qq": "QQ Login",
+      "phone": "Phone Login"
+    },
+    "register": "Register",
+    "rememberMe": "Remember Me",
+    "registerNow": "Register Now",
+    "loginFailed": "Login Failed",
+    "login": "Login"
   }
 }

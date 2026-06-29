@@ -19,19 +19,13 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 vi.mock('@/config/backend-paths', () => ({
-  COZE_PATHS: {
-    skills: { chat: '/skills/chat', match: '/skills/match' },
-    // 2026-06-25 修复#Q: 补全 api-white-list.ts 顶层引用的字段, 避免导入失败
-    agents: { list: '/coze/agents/list' },
-    aiModelInfo: { list: '/coze/ai-model-info/list' },
-    cache: { agentCategoryDict: { categories: '/coze/cache/category-dict/categories' } },
-  },
+  COZE_PATHS: { skills: { chat: '/skills/chat', match: '/skills/match' } },
   COZE_PREFIX: '/coze',
   LOGIN_PWD_PATHS: { refreshToken: '/auth/login/pwd/refresh' },
 }))
 
 import request from '@/utils/request'
-import * as api from '../skills/skills-enhanced-ai'
+import * as api from '../skills-enhanced-ai'
 
 describe('skills-enhanced-ai', () => {
   beforeEach(() => {
@@ -44,12 +38,12 @@ describe('skills-enhanced-ai', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch { /* noop */ }
-      try { await f() } catch { /* noop */ }
-      try { await f('1') } catch { /* noop */ }
-      try { await f({ content: 'c' }) } catch { /* noop */ }
-      try { await f({ message: 'm' }) } catch { /* noop */ }
-      try { await f({ query: 'q' }) } catch { /* noop */ }
+      try { await f({}) } catch (e) {}
+      try { await f() } catch (e) {}
+      try { await f('1') } catch (e) {}
+      try { await f({ content: 'c' }) } catch (e) {}
+      try { await f({ message: 'm' }) } catch (e) {}
+      try { await f({ query: 'q' }) } catch (e) {}
     }
   })
 
@@ -59,8 +53,8 @@ describe('skills-enhanced-ai', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch { /* noop */ }
-      try { await f() } catch { /* noop */ }
+      try { await f({}) } catch (e) {}
+      try { await f() } catch (e) {}
     }
   })
 
@@ -70,7 +64,7 @@ describe('skills-enhanced-ai', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch { /* noop */ }
+      try { await f({}) } catch (e) {}
     }
   })
 })

@@ -1,1 +1,9 @@
-{}
+{
+  "qrScanner": {
+    "title": "QR Code Scanner",
+    "description": "Mobile QR code scanning feature",
+    "scanQrCode": "Scan QR Code",
+    "useCamera": "Use camera to scan",
+    "orFromAlbum": "Or select from album"
+  }
+}

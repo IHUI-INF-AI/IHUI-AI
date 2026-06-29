@@ -3,7 +3,7 @@
  * 只注册项目中实际使用的图标, 避免全量导入增加入口 chunk 体积
  */
 
-import type { App } from 'vue'
+import type { App, Component } from 'vue'
 import {
   Aim, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Avatar, Bell, Box, Brush,
   Calendar, Cellphone, ChatDotRound, ChatLineRound, ChatLineSquare, Check,
@@ -51,7 +51,7 @@ const usedIcons = {
  */
 export function registerIcons(app: App): void {
   for (const [name, component] of Object.entries(usedIcons)) {
-    app.component(name, component as any)
+    app.component(name, component as Component)
   }
 
   logger.info(`[Icons] Element Plus icons registered (${Object.keys(usedIcons).length} icons)`)
@@ -62,7 +62,7 @@ export function registerIcons(app: App): void {
  * @param name 图标名称
  */
 export function getIcon(name: string) {
-  return (usedIcons as Record<string, any>)[name]
+  return (usedIcons as Record<string, unknown>)[name]
 }
 
 /**

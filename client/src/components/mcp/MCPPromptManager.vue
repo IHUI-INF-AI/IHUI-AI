@@ -136,8 +136,8 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { RefreshCw, Copy, Download } from '@/lib/lucide-fallback'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useMCP } from '@/composables/useMCP'
-import { callMCPPrompt } from '@/api/tools/mcp'
-import type { MCPPrompt } from '@/api/tools/mcp'
+import { callMCPPrompt } from '@/api/mcp'
+import type { MCPPrompt } from '@/api/mcp'
 
 const { t } = useI18n()
 const { showSuccess, showError, showWarning } = useOperationFeedback()
@@ -212,7 +212,7 @@ const executePrompt = async () => {
     } else {
       showError(response.message || t('mcp.prompts.executeFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : t('mcp.prompts.executeFailed')
     showError(errorMessage)
   } finally {
@@ -252,10 +252,10 @@ onMounted(async () => {
   .prompt-card {
     margin-bottom: 16px;
     cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: all 0.3s;
 
     &:hover {
-      
+      transform: translateY(-2px);
       box-shadow: none;
     }
 

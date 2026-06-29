@@ -1,30 +1,30 @@
 {
   "vipDetails": {
+    "title": "會員詳情",
+    "subtitle": "選擇適合您的會員套餐",
     "monthly": {
-      "benefits": {
-        "0": "0",
-        "1": "1",
-        "2": "2",
-        "3": "3"
-      },
-      "days": "days",
-      "select": "选择",
-      "title": "标题"
+      "title": "月度會員",
+      "days": "30天",
+      "select": "選擇",
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社群",
+        "每月3次AI答疑",
+        "學習進度追蹤"
+      ]
     },
-    "monthlyMember": "monthlyMember",
-    "subtitle": "副标题",
-    "title": "标题",
     "yearly": {
-      "benefits": {
-        "0": "0",
-        "1": "1",
-        "2": "2",
-        "3": "3"
-      },
-      "days": "days",
-      "select": "选择",
-      "title": "标题"
+      "title": "年度會員",
+      "days": "365天",
+      "select": "選擇",
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社群",
+        "無限AI答疑",
+        "學習進度追蹤+證書"
+      ]
     },
-    "yearlyMember": "yearlyMember"
+    "monthlyMember": "月度會員",
+    "yearlyMember": "年度會員"
   }
 }

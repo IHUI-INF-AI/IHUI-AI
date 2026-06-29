@@ -1,8 +1,5 @@
-// Tailwind CSS 4 入口 (新语法: @use "tailwindcss" 替代 v3 的 @tailwind base/components/utilities)
-// Tailwind v4 配置迁移：v3 tailwind.config.js 已废弃 (2026-06-24 封版删除)，
-// 主题配置改为 Tailwind v4 推荐的 CSS-first 方式，在 .css 文件中通过 @theme 块声明。
+// Tailwind CSS 4 入口 (新语法: @import "tailwindcss" 替代 v3 的 @tailwind base/components/utilities)
 @use "tailwindcss";
-
 @use './variables.scss' as *;
 @use './_global-tokens.scss' as *;
 @use './_global-ui.scss' as *;
@@ -14,8 +11,7 @@
 @use './_table-responsive.scss' as *;
 @use './_touch-optimization.scss' as *;
 @use './desktop-layout.scss' as *;
-// 字体定义已统一到 public/fonts-optimized/fonts.css（index.html 同步加载），
-// 本入口不再 @use 任何 fonts SCSS，避免重复定义。
+@use './fonts.scss' as *;
 @use './dialog.scss' as *;
 @use './utilities.scss' as *;
 @use './brand-marquee.scss' as *;
@@ -40,20 +36,24 @@
 @use './_header-actions';
 @use './_a11y';
 @use './_theme-presets';
+@use './_sidebar-layout';
 
 // 全局样式入口 / CSS Layers 架构
 // CSS Layers 声明（优先级从低到高）
+// `components` 放在 `base` 之后，让组件的 margin/padding 覆盖稳定胜过 Tailwind preflight 的 `* { margin: 0 }`
 @layer reset, base, vendor, components, utilities;
 
-// 全局样式重置
-html {
-  box-sizing: border-box;
-}
+// 全局样式重置 —— 放入 @layer reset,确保 @layer components 中的样式可覆盖
+@layer reset {
+  html {
+    box-sizing: border-box;
+  }
 
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: inherit;
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: inherit;
+  }
 }
 
 @layer utilities {
@@ -105,7 +105,7 @@ html {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-  /* 字体由 public/fonts-optimized/fonts.css 统一应用（index.html <link> 同步加载） */
+  font-family: var(--font-family-chinese);
   opacity: 1;
   visibility: visible;
   display: block;
@@ -152,7 +152,7 @@ html {
     opacity: 1;
     visibility: visible;
     background-color: var(--el-bg-color);
-    /* 字体由 public/fonts-optimized/fonts.css 统一应用 */
+    font-family: var(--font-family-chinese);
   }
 
   :where(html.dark) #app {
@@ -163,9 +163,8 @@ html {
     overflow: visible;
   }
 
-  // 统一容器类（class 名以 container 结尾）的满宽与动态内边距
-  // 收窄到 [class$="container"]（结尾匹配）避免误伤 container-v2 / icon-container-bordered 等内部类
-  [class$="container"]:not(.app-container, .home-container, .ai-world-page__container, .logo-container, .form-container, .account-form-container, .phone-form-container, .icon-container, .chat-input-container, .prompt-templates-container) {
+  // 统一容器类（包含 container 关键字）的满宽与动态内边距
+  [class*="container"]:not(.app-container, .home-container, .ai-world-page__container, .logo-container, .form-container, .account-form-container, .phone-form-container, .icon-container, .chat-input-container, .prompt-templates-container) {
     width: 100%;
     max-width: 100%;
     margin-left: 0;
@@ -227,7 +226,7 @@ html {
   }
 
   // 高亮透明
-  :root, :where(html.dark) {
+  :root, html.dark {
     --highlight-background: transparent;
     --highlight-border: transparent;
     --inspector-highlight-background: transparent;
@@ -244,16 +243,16 @@ html {
 }
 
 @layer base {
-  // 文本选中颜色 - 使用主色浅色背景确保选中状态可见
+  // 文本选中颜色
   ::selection,
   ::-webkit-selection {
-    background-color: var(--el-color-primary-light-9);
+    background-color: var(--el-bg-color);
     color: inherit;
   }
 
-  :where(html.dark) ::selection,
-  :where(html.dark) ::-webkit-selection {
-    background-color: var(--el-color-primary-light-8);
+  html.dark ::selection,
+  html.dark ::-webkit-selection {
+    background-color: var(--el-bg-color);
     color: inherit;
   }
 
@@ -312,10 +311,10 @@ html {
 }
 
 @layer components {
-  // 输入区域特殊圆角：确保 input-area 容器的底部圆角不被全局样式覆盖
+  // 输入区域特殊圆角：确?input-area 容器的底部圆角不被全局样式覆盖
   :where(.floating-chat-dialog-wrapper) :where(.input-area),
   .input-area[data-v-c9cec757],
-  div[class$="input-area"] {
+  div[class*="input-area"] {
     border-bottom-left-radius: var(--global-border-radius);
     border-bottom-right-radius: var(--global-border-radius);
     -webkit-border-bottom-left-radius: var(--global-border-radius);
@@ -325,7 +324,7 @@ html {
   // 输入包装容器圆角
   :where(.floating-chat-dialog-wrapper) :where(.input-wrapper),
   .input-wrapper[data-v-c9cec757],
-  :where(div[class$="input-wrapper"]):not(.username-input-wrapper, .phone-input-wrapper, [class*="login"]) {
+  :where(div[class*="input-wrapper"]):not(.username-input-wrapper, .phone-input-wrapper, [class*="login"]) {
     border-radius: var(--global-border-radius);
     -webkit-border-radius: var(--global-border-radius);
     -moz-border-radius: var(--global-border-radius);
@@ -335,7 +334,7 @@ html {
   // chat-input 圆角
   :where(.floating-chat-dialog-wrapper) :where(.chat-input),
   .chat-input[data-v-c9cec757],
-  div[class$="chat-input"] {
+  div[class*="chat-input"] {
     border-radius: var(--global-border-radius);
     -webkit-border-radius: var(--global-border-radius);
     -moz-border-radius: var(--global-border-radius);
@@ -355,9 +354,32 @@ html {
 
 @layer components {
   // 全局 mixin，供组件使用
-  // Pricing card border states (flat design: same for light/dark)
-  .pricing-card-border-hover,
+  @mixin pricing-card-border-hover {
+    html:not(.dark) & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+
+    html.dark & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+  }
+
+  @mixin pricing-card-border-active {
+    html:not(.dark) & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+
+    html.dark & {
+      border: 2.5px solid var(--border-unified-color);
+    }
+  }
+
+  // 全局类
+  .pricing-card-border-hover {
+    @include pricing-card-border-hover;
+  }
+
   .pricing-card-border-active {
-    border: 2.5px solid var(--border-unified-color);
+    @include pricing-card-border-active;
   }
 }

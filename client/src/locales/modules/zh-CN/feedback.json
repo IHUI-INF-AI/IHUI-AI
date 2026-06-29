@@ -1,25 +1,29 @@
 {
   "feedback": {
+    "title": "意见反馈",
     "content": {
-      "tip": "提示"
+      "tip": "您的反馈对我们非常重要，请详细描述您的问题或建议"
+    },
+    "type": {
+      "feature": "功能建议",
+      "bug": "问题反馈",
+      "experience": "体验问题",
+      "other": "其他"
     },
     "rules": {
-      "contentMin": "内容至少 5 个字",
-      "contentRequired": "请输入内容"
+      "contentRequired": "请输入反馈内容",
+      "contentMin": "内容长度至少10个字符"
     },
-    "submitSuccess": "提交成功",
-    "title": "意见反馈",
-    "type": {
-      "bug": "Bug 报告",
-      "experience": "体验问题",
-      "feature": "功能建议",
-      "other": "其他"
-    }
+    "submitSuccess": "反馈提交成功，感谢您的反馈！",
+    "feedbackRecords": "反馈记录",
+    "submitFeedback": "提交反馈",
+    "loading": "加载中...",
+    "submitFailed": "提交失败，请重试"
   },
   "Feedback": {
     "feedbackRecords": "反馈记录",
-    "loading": "加载中",
-    "submitFailed": "提交失败",
-    "submitFeedback": "提交反馈"
+    "submitFeedback": "提交反馈",
+    "loading": "加载中...",
+    "submitFailed": "提交失败，请重试"
   }
 }

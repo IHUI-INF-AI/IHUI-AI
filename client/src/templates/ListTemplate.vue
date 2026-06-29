@@ -32,7 +32,7 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="list-loading">
         <el-icon class="is-loading"><Loading /></el-icon>
-        <span>{{ t('ListTemplate.loading') }}</span>
+        <span>{{ t('listTemplate.loading') }}</span>
       </div>
       
       <!-- 空状态 -->

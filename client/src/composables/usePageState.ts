@@ -45,7 +45,7 @@ export function usePageState<T = unknown>(options: UsePageStateOptions = {}) {
       showSuccess?: boolean
       successMessage?: string
       onSuccess?: (data: R) => void
-      onError?: (error: any) => void
+      onError?: (error: unknown) => void
       transform?: (data: R) => T
     }
   ): Promise<R | null> => {

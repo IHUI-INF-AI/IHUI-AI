@@ -1,6 +1,6 @@
 {
   "aiGenImageGenQwen": {
-    "qwenRemarkMissing": "qwenRemarkMissing",
-    "websocketNotSupport": "websocketNotSupport"
+    "qwenRemarkMissing": "當前通義圖片模型未在大模型列表中配置 remark（介面地址），請先在「大模型管理」中配置後再重試",
+    "websocketNotSupport": "當前暫不支援通過 WebSocket 生圖，請將圖片模型的 quest_type 配置為 HTTP 再試"
   }
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { tourDependencyService } from '../tourDependencyService'
+import type { StepDependency, SkipCondition, Tour } from '../tourDependencyService'
 
 describe('tourDependencyService', () => {
   beforeEach(() => {
@@ -435,7 +436,7 @@ describe('tourDependencyService', () => {
   })
 
   // 工厂函数：快速构造一个基础配置
-  const buildConfig = (tourId: string, dependencies: any[] = [], skipConditions: any[] = [], maxRetries = 3) => ({
+  const buildConfig = (tourId: string, dependencies: StepDependency[] = [], skipConditions: SkipCondition[] = [], maxRetries = 3) => ({
     tourId,
     dependencies,
     executionMode: 'sequential' as const,
@@ -525,7 +526,7 @@ describe('tourDependencyService', () => {
 
     it('没有配置且没有步骤时应该返回空计划', () => {
       const tour = { id: 'empty-tour', steps: [] }
-      const plan = tourDependencyService.createExecutionPlan('empty-tour', tour as any)
+      const plan = tourDependencyService.createExecutionPlan('empty-tour', tour as unknown as Tour)
       expect(plan.steps.length).toBe(0)
       expect(plan.estimatedTime).toBe(0)
     })
@@ -563,7 +564,7 @@ describe('tourDependencyService', () => {
           { id: 's1', target: '#a', title: 'A', content: 'A', estimatedTime: 60 }
         ]
       }
-      const plan = tourDependencyService.createExecutionPlan('time-plan', tour as any)
+      const plan = tourDependencyService.createExecutionPlan('time-plan', tour as unknown as Tour)
       expect(plan.estimatedTime).toBe(60)
     })
 
@@ -870,7 +871,7 @@ describe('tourDependencyService', () => {
         {
           stepId: 's1', dependsOn: [], priority: 0, required: true,
           // 强制走 default 分支
-          condition: { type: 'custom', field: 'x', operator: 'unknown_op' as any, value: 1 }
+          condition: { type: 'custom', field: 'x', operator: 'unknown_op' as never, value: 1 }
         }
       ])
       tourDependencyService.configureDependency(config)

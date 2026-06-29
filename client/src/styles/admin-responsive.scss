@@ -18,7 +18,7 @@
 }
 
 /* ===== Mobile Overrides ===== */
-@media (width <= 767px) {
+@media (max-width: 767px) {
   .admin-layout {
     --admin-navbar-height: var(--admin-mobile-navbar-height);
     --admin-content-padding: var(--admin-mobile-content-padding);
@@ -208,7 +208,7 @@
 }
 
 /* ===== Tablet Overrides ===== */
-@media (width >= 768px) and (max-width: 1023px) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .admin-layout {
     --admin-sidebar-width: 180px;
   }
@@ -257,7 +257,7 @@
 }
 
 /* ===== Landscape Phone ===== */
-@media (width <= 767px) and (orientation: landscape) {
+@media (max-width: 767px) and (orientation: landscape) {
   .admin-layout .admin-app-main {
     padding: 8px;
   }

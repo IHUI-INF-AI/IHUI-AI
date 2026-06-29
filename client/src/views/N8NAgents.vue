@@ -39,7 +39,7 @@ import { useRouter } from 'vue-router'
 import { Workflow, Plus } from '@/lib/lucide-fallback'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
 import AgentCard from '@/components/agents/AgentCard.vue'
-import { getN8NAgents } from '@/api/n8n/n8n-agents'
+import { getN8NAgents } from '@/api/n8n-agents'
 import { useI18n } from 'vue-i18n'
 import { useApiError } from '@/composables/useApiError'
 
@@ -53,7 +53,7 @@ const agentsList = ref<unknown[]>([])
 const loadN8NAgents = async () => {
   const data = await executeApi(() => getN8NAgents())
   if (data !== null && typeof data === 'object') {
-    const listData = data as { list?: any[] }
+    const listData = data as { list?: unknown[] }
     agentsList.value = listData.list || []
   }
 }
@@ -83,7 +83,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -102,11 +102,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -121,7 +121,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -133,7 +133,7 @@ onMounted(() => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }

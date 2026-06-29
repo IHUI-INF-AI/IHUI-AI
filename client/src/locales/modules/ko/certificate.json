@@ -2,6 +2,11 @@
   "certificate": {
     "searchPlaceholder": {
       "template": "템플릿 검색"
+    },
+    "label": {
+      "templateName": "템플릿명",
+      "issuer": "발급 기관",
+      "actions": "작업"
     }
   }
 }

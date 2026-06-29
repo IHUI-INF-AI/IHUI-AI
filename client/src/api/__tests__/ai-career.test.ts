@@ -23,7 +23,7 @@ vi.mock('@/config/backend-paths', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai/ai-career'
+import * as api from '../ai-career'
 
 describe('ai-career', () => {
   beforeEach(() => {
@@ -48,6 +48,6 @@ describe('ai-career', () => {
 
   it('submitAICareerForm 错误抛出', async () => {
     ;(request.post as any).mockRejectedValueOnce(new Error('fail'))
-    try { await api.submitAICareerForm({ school: 's', classLevel: 'c', scoreRange: '80', languageDifficulty: 'd' }) } catch { /* noop */ }
+    try { await api.submitAICareerForm({ school: 's', classLevel: 'c', scoreRange: '80', languageDifficulty: 'd' }) } catch (e) {}
   })
 })

@@ -74,20 +74,20 @@ describe('apiResponseFormatter', () => {
 
   describe('isApiSuccess', () => {
     it('应该返回true当code=200', () => {
-      expect(isApiSuccess({ code: 200, data: null, success: true } as any)).toBe(true)
+      expect(isApiSuccess({ code: 200, data: null, success: true } as Record<string, unknown>)).toBe(true)
     })
 
     it('应该返回true当code=0', () => {
-      expect(isApiSuccess({ code: 0, data: null, success: true } as any)).toBe(true)
+      expect(isApiSuccess({ code: 0, data: null, success: true } as Record<string, unknown>)).toBe(true)
     })
 
     it('应该返回true当success=true', () => {
-      expect(isApiSuccess({ code: 500, data: null, success: true } as any)).toBe(true)
+      expect(isApiSuccess({ code: 500, data: null, success: true } as Record<string, unknown>)).toBe(true)
     })
 
     it('应该返回false当失败', () => {
-      expect(isApiSuccess({ code: 500, data: null, success: false } as any)).toBe(false)
-      expect(isApiSuccess({ code: 404, data: null, success: false } as any)).toBe(false)
+      expect(isApiSuccess({ code: 500, data: null, success: false } as Record<string, unknown>)).toBe(false)
+      expect(isApiSuccess({ code: 404, data: null, success: false } as Record<string, unknown>)).toBe(false)
     })
   })
 })

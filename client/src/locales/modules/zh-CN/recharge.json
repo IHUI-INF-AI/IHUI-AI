@@ -1,21 +1,22 @@
 {
   "recharge": {
+    "title": "充值",
+    "selectAmount": "选择充值金额",
+    "officialRecharge": "官方充值",
+    "rate": "汇率说明",
+    "normalUser": "普通用户：",
+    "vipUser": "VIP用户：",
+    "operator": "操盘手：",
+    "tokens": "智汇值",
+    "selectPayment": "选择支付方式",
+    "moreMethods": "更多方式",
+    "recharge": "立即充值",
+    "selectAmountAndPayment": "请选择充值金额和支付方式",
+    "rechargeSuccess": "充值成功",
+    "rechargeFailed": "充值失败",
+    "wechatPay": "微信支付",
     "alipay": "支付宝",
-    "fetchConfigFailed": "获取 配置 失败",
-    "moreMethods": "more Methods",
-    "normalUser": "普通用户",
-    "officialRecharge": "官方 充值",
-    "operator": "操作员",
-    "rate": "比率",
-    "recharge": "充值",
-    "rechargeFailed": "充值 失败",
-    "rechargeSuccess": "充值 成功",
-    "selectAmount": "选择金额",
-    "selectAmountAndPayment": "选择 金额 与 支付",
-    "selectPayment": "选择 支付",
-    "title": "标题",
-    "tokens": "令牌",
-    "vipUser": "VIP 用户",
-    "wechatPay": "微信支付"
+    "fetchConfigFailed": "获取充值配置失败",
+    "rechargeOperationFailed": "充值失败"
   }
 }

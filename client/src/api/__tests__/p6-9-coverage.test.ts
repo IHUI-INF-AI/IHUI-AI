@@ -118,7 +118,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: { shortUrl: 'https://s/x' } })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { generateShareLink } = await import('../content/share')
+      const { generateShareLink } = await import('../share')
       const res = await generateShareLink({
         url: 'https://example.com/a',
         title: 'A',
@@ -143,7 +143,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockRejectedValue(new Error('network error'))
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { recordShare } = await import('../content/share')
+      const { recordShare } = await import('../share')
       const res = await recordShare({ shareType: 'wechat', shareUrl: 'https://x' })
       expect(res.success, '记录失败时仍返回 success=true').toBe(true)
       expect(res.data.recorded, 'recorded=false').toBe(false)
@@ -153,7 +153,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockRejectedValue(new Error('timeout'))
       vi.doMock('@/utils/request', () => ({ default: { get: requestMock } }))
-      const { getShareStats } = await import('../content/share')
+      const { getShareStats } = await import('../share')
       const res = await getShareStats('content-1', 'agent')
       expect(res.success, '获取统计失败时 success=true').toBe(true)
       expect(res.data.totalShares).toBe(0)
@@ -166,7 +166,7 @@ describe('P6-9 后端 API 单测', () => {
         data: { appId: 'wxabc', timestamp: 1700000000, nonceStr: 'n', signature: 'sig' },
       })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { getWechatShareConfig } = await import('../content/share')
+      const { getWechatShareConfig } = await import('../share')
       const res = await getWechatShareConfig('https://example.com/page')
       expect(res.success).toBe(true)
       expect(res.data.appId).toBe('wxabc')
@@ -179,7 +179,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: [] })
       vi.doMock('@/utils/request', () => ({ default: { get: requestMock } }))
-      const { getLoginDevices } = await import('../system/security')
+      const { getLoginDevices } = await import('../security')
       const res = await getLoginDevices()
       expect(requestMock).toHaveBeenCalledWith('/security/devices')
       expect(res.data).toEqual([])
@@ -189,7 +189,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: true })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { removeLoginDevice } = await import('../system/security')
+      const { removeLoginDevice } = await import('../security')
       await removeLoginDevice('dev-1')
       expect(requestMock).toHaveBeenCalledWith('/security/devices/dev-1/remove')
     })
@@ -198,7 +198,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: true })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { trustDevice } = await import('../system/security')
+      const { trustDevice } = await import('../security')
       await trustDevice('dev-2')
       expect(requestMock).toHaveBeenCalledWith('/security/devices/dev-2/trust')
     })
@@ -207,7 +207,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: true })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { terminateSession } = await import('../system/security')
+      const { terminateSession } = await import('../security')
       await terminateSession('sess-1')
       expect(requestMock).toHaveBeenCalledWith('/security/sessions/sess-1/terminate')
     })
@@ -216,7 +216,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: true })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { terminateAllOtherSessions } = await import('../system/security')
+      const { terminateAllOtherSessions } = await import('../security')
       await terminateAllOtherSessions()
       expect(requestMock).toHaveBeenCalledWith('/security/sessions/terminate-all')
     })
@@ -225,7 +225,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: true })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { bindEmail, unbindEmail } = await import('../system/security')
+      const { bindEmail, unbindEmail } = await import('../security')
       await bindEmail({ email: 'a@b.com', code: '1234' })
       expect(requestMock).toHaveBeenCalledWith('/security/bind-email', { email: 'a@b.com', code: '1234' })
       await unbindEmail({ password: 'p', code: '5678' })
@@ -288,7 +288,7 @@ describe('P6-9 后端 API 单测', () => {
       const blob = new Blob(['pdf data'], { type: 'application/pdf' })
       const requestMock = vi.fn().mockResolvedValue({ data: blob })
       vi.doMock('@/utils/request', () => ({ default: { get: requestMock } }))
-      const { downloadInvoice } = await import('../payment/invoice')
+      const { downloadInvoice } = await import('../invoice')
       const res = await downloadInvoice('order-1')
       expect(res).toBeInstanceOf(Blob)
     })
@@ -297,7 +297,7 @@ describe('P6-9 后端 API 单测', () => {
       vi.resetModules()
       const requestMock = vi.fn().mockResolvedValue({ data: { not: 'a blob' } })
       vi.doMock('@/utils/request', () => ({ default: { get: requestMock } }))
-      const { downloadInvoice } = await import('../payment/invoice')
+      const { downloadInvoice } = await import('../invoice')
       await expect(downloadInvoice('order-2')).rejects.toThrow()
     })
 
@@ -307,7 +307,7 @@ describe('P6-9 后端 API 单测', () => {
         data: { success: true, code: 200, data: { invoiceId: 'inv-1', downloadUrl: 'https://x/i.pdf' } },
       })
       vi.doMock('@/utils/request', () => ({ default: { post: requestMock } }))
-      const { generateInvoice } = await import('../payment/invoice')
+      const { generateInvoice } = await import('../invoice')
       const res = await generateInvoice('order-1', {
         type: 'company',
         title: 'Tech Co.',
@@ -319,7 +319,7 @@ describe('P6-9 后端 API 单测', () => {
 
   describe('后端 API 导出完整性', () => {
     it('security.ts 至少 12 个 API 函数', async () => {
-      const mod = await import('../system/security')
+      const mod = await import('../security')
       const keys = Object.keys(mod)
       const apiKeys = keys.filter((k) => k.startsWith('get') || k.startsWith('remove') || k.startsWith('trust') || k.startsWith('terminate') || k.startsWith('bind') || k.startsWith('unbind') || k.startsWith('verify'))
       expect(apiKeys.length, `security API 数: ${apiKeys.join(', ')}`).toBeGreaterThanOrEqual(12)
@@ -332,7 +332,7 @@ describe('P6-9 后端 API 单测', () => {
     })
 
     it('share.ts 至少 4 个 API 函数', async () => {
-      const mod = await import('../content/share')
+      const mod = await import('../share')
       const keys = Object.keys(mod)
       const apiKeys = keys.filter((k) => k.startsWith('generate') || k.startsWith('record') || k.startsWith('get') || k.startsWith('default'))
       expect(apiKeys.length, `share API 数: ${apiKeys.join(', ')}`).toBeGreaterThanOrEqual(4)

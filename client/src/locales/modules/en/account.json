@@ -4,6 +4,10 @@
       "index": "Search accounts"
     },
     "label": {
+      "account": "Account",
+      "role": "Role",
+      "lastLogin": "Last Login",
+      "actions": "Actions",
       "loginPassword": "Login Password",
       "twoFactor": "Two-Factor Auth",
       "securityEmail": "Security Email",

@@ -5,9 +5,11 @@
 
 /* ==================== 全局修复 ==================== */
 
-/* 隐藏所有 Element Plus 弹出框的三角箭头（不依赖 @layer，SCSS 解析更稳） */
-.el-popper__arrow {
-  display: none;
+/* 隐藏所有 Element Plus 弹出框的三角箭头 - 使用 utilities 层 */
+@layer utilities {
+  .el-popper__arrow {
+    display: none;
+  }
 }
 
 /* 防止页面水平滚动 */
@@ -23,38 +25,20 @@ body,
   box-sizing: border-box;
 }
 
-/* ==================== 按钮尺寸修复 ==================== */
-
-/* 确保所有按钮在移动端至少有44x44px（Apple HIG推荐） */
-
-/* 排除：header-btn, action-btn、方形图标按钮、session-list-close/icon-link-btn-square-sm、chat-input-agent-tag__close 使用自定义正方形尺寸 */
-:where(button):not(.hero-cta-btn, .glass-header button, .glass-header .el-button, .glass-header [role='button']
-  , .switch-btn, .project-btn, .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm, .chat-input-agent-tag__close),
-:where(.el-button):not(.hero-cta-btn, .glass-header .el-button, .switch-btn, .project-btn, .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm),
-:where([role='button']):not(.hero-cta-btn, .glass-header [role='button'], .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm),
-:where(.btn):not(.hero-cta-btn, .glass-header .btn, .switch-btn, .project-btn, .mode-tab, .icon-btn, .send-icon-btn, .header-btn, .action-btn, .send-btn, .quick-tool-item, .btn-tab, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square, .session-list-close, .icon-link-btn-square-sm) {
-  min-width: 44px;
+/* ==================== 按钮尺寸修复 ====================
+ * 设计原则：
+ * 1. 全局不再强制 min-width: 44px —— 它会破坏所有方形图标按钮的尺寸约束
+ *    （例如 .login-dialog__close 设置 32x32，但 min-width: 44px 强制宽度变成 44px，
+ *     导致按钮变成 44x32 的非正方形）
+ * 2. 触摸目标可访问性由组件自身或 .tap-target 工具类负责，避免全局污染
+ * 3. 默认重置 button 的 min-width/min-height 为 auto，让组件样式自由生效
+ */
+:where(button),
+:where(.el-button),
+:where([role='button']),
+:where(.btn) {
+  min-width: auto;
   min-height: auto;
-
-  /* 移动端特殊处理 */
-  @media (width <= 768px) {
-    min-width: 44px;
-    min-height: auto;
-    padding: 8px 12px;
-  }
-}
-
-/* 小按钮（如图标按钮）在移动端也要保证可点击性 */
-
-/* 排除：header-btn, action-btn、session-list-close、icon-link-btn-square-sm、chat-input-agent-tag__close 使用自定义尺寸 */
-:where(.el-button--small):not(.hero-cta-btn, .glass-header .el-button--small, .switch-btn, .project-btn, .header-btn, .action-btn, .send-btn, .session-list-close, .icon-link-btn-square-sm, .chat-input-agent-tag__close),
-:where(button[class*='small']):not(.glass-header button[class*='small'], .switch-btn, .project-btn, .header-btn, .action-btn, .send-btn, .session-list-close, .icon-link-btn-square-sm, .chat-input-agent-tag__close),
-:where(.btn-small):not(.glass-header .btn-small, .switch-btn, .project-btn, .header-btn, .action-btn, .send-btn, .session-list-close, .icon-link-btn-square-sm) {
-  @media (width <= 768px) {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 10px;
-  }
 }
 
 /* ==================== 文本溢出修复 ==================== */
@@ -218,7 +202,7 @@ img {
 
 /* ==================== admin 移动端适配 ==================== */
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   :where(.el-dialog) {
     margin-top: 5vh;
     margin-bottom: 5vh;
@@ -244,21 +228,15 @@ img {
 
 /* 不占位、悬浮样式由 styles/_scrollbar-overlay.scss 统一管理 */
 
-/* ==================== 触摸优化 ==================== */
-
-/* 移动端触摸优化 */
+/* ==================== 触摸优化 ====================
+ * 设计原则：
+ * 1. 不再全局强制 min-height: 44px / min-width: 44px / padding: 12px
+ *    这些规则会破坏所有方形按钮（.login-dialog__close 等）和带自定义 padding 的按钮
+ * 2. 触摸目标扩大由组件自身或 .tap-target 工具类负责
+ * 3. 仅保留真正全局有益的 touch-action 与滚动优化
+ */
 @media (width <= 768px) {
-  /* 提高触摸目标大小（排除方形图标按钮，保持其自定义尺寸） */
-  :where(button):not(.switch-btn, .project-btn, .fullscreen-btn, .exit-fullscreen-btn, .btn-icon-square),
-  :where(a),
-  :where([role='button']),
-  :where(.clickable):not(.switch-btn, .project-btn) {
-    min-height: 44px;
-    min-width: 44px;
-    padding: 12px;
-  }
-
-  /* 防止双击缩放 */
+  /* 防止双击缩放（移动端全局有益，不影响布局尺寸） */
   * {
     touch-action: manipulation;
   }
@@ -267,6 +245,17 @@ img {
   .scrollable {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+  }
+
+  /* .tap-target 工具类：需要扩大触摸区域的元素显式启用
+   * 不影响元素自身可见尺寸，仅扩展可点击区域到 44x44（Apple HIG 推荐）
+   */
+  .tap-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

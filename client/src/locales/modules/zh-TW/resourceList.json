@@ -1,20 +1,20 @@
 {
   "resourceList": {
-    "desc": "描述",
-    "empty": "empty",
-    "free": "免费",
-    "points": "积分",
-    "searchPlaceholder": "请输入搜索内容",
-    "sortDownload": "sortDownload",
-    "sortHot": "sortHot",
-    "sortNew": "sortNew",
-    "title": "标题",
-    "top": "置顶",
-    "typeArchive": "typeArchive",
-    "typeAudio": "typeAudio",
-    "typeDoc": "typeDoc",
-    "typeImage": "typeImage",
-    "typePlaceholder": "typePlaceholder",
-    "typeVideo": "typeVideo"
+    "title": "資源中心",
+    "desc": "課件、工具、文檔、視頻等海量學習資源",
+    "searchPlaceholder": "搜尋資源",
+    "typePlaceholder": "類型",
+    "typeDoc": "文檔",
+    "typeVideo": "視頻",
+    "typeAudio": "音頻",
+    "typeImage": "圖片",
+    "typeArchive": "壓縮包",
+    "sortNew": "最新",
+    "sortHot": "最熱",
+    "sortDownload": "下載",
+    "top": "置頂",
+    "free": "免費",
+    "points": "積分",
+    "empty": "暫無資源"
   }
 }

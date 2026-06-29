@@ -44,7 +44,8 @@
             :precision="2"
             :step="0.01"
             :placeholder="t('refund.refundAmountPlaceholder')"
-            class="amount-input full-width"
+            class="amount-input"
+            style="width: 100%"
           >
             <template #prefix>¥</template>
           </el-input-number>
@@ -59,10 +60,11 @@
           <el-select
             v-model="refundForm.reason"
             :placeholder="t('refund.reasonPlaceholder')"
-            class="reason-select full-width"
+            class="reason-select"
             filterable
             allow-create
             default-first-option
+            style="width: 100%"
           >
             <el-option
               v-for="reason in refundReasons"
@@ -92,11 +94,11 @@
             size="large"
             :loading="submitting"
             @click="handleSubmit"
-            class="submit-btn"
+            style="width: 200px"
           >
             {{ submitting ? (t('refund.submitting')) : (t('refund.submit')) }}
           </el-button>
-          <el-button size="large" @click="handleCancel" class="cancel-btn">
+          <el-button size="large" @click="handleCancel" style="margin-left: 12px">
             {{ t('common.cancel') }}
           </el-button>
         </el-form-item>
@@ -123,8 +125,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules } from 'element-plus'
-import { applyRefund, type RefundRequest } from '@/api/payment/refund'
-import { getOrderDetail, type Order } from '@/api/payment/orders'
+import { applyRefund, type RefundRequest } from '@/api/refund'
+import { getOrderDetail, type Order } from '@/api/orders'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
 import { yuanToFen } from '@/utils/format'
@@ -263,7 +265,7 @@ const handleSubmit = async () => {
 
       if (response.success || response.code === 200) {
         showSuccess(t('refund.applySuccess'))
-        const refundNo = (response.data as any)?.refundNo || refundForm.orderNo
+        const refundNo = (response.data as { refundNo?: string } | null)?.refundNo || refundForm.orderNo
         router.push(`/refunds/${refundNo}`)
       } else {
         showError(response.message || t('refund.applyFailed'))
@@ -343,18 +345,6 @@ onMounted(() => {
         font-size: 16px;
       }
     }
-  }
-
-  .full-width {
-    width: 100%;
-  }
-
-  .submit-btn {
-    width: 200px;
-  }
-
-  .cancel-btn {
-    margin-left: 12px;
   }
 }
 

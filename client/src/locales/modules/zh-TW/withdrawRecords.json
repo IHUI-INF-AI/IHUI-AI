@@ -1,41 +1,45 @@
 {
   "withdrawRecords": {
-    "empty": {
-      "noRecords": "noRecords"
-    },
+    "title": "提現明細",
+    "subtitle": "查看您的提現記錄",
     "filter": {
+      "status": "狀態",
       "all": "全部",
-      "approved": "已通过",
+      "pending": "待審核",
+      "approved": "已通過",
+      "rejected": "已拒絕",
       "completed": "已完成",
-      "pending": "待处理",
-      "rejected": "已拒绝",
-      "reset": "重置",
       "search": "搜索",
-      "status": "状态"
+      "reset": "重置"
+    },
+    "table": {
+      "withdrawalNo": "提現單號",
+      "amount": "提現金額",
+      "method": "提現方式",
+      "account": "提現賬號",
+      "status": "狀態",
+      "createTime": "申請時間",
+      "actions": "操作",
+      "viewDetail": "查看詳情"
     },
     "methods": {
-      "alipay": "alipay",
-      "bank": "bank",
-      "wechat": "wechat"
+      "wechat": "微信",
+      "alipay": "支付寶",
+      "bank": "銀行卡"
     },
     "status": {
-      "approved": "已通过",
+      "pending": "待審核",
+      "approved": "已通過",
+      "rejected": "已拒絕",
       "completed": "已完成",
-      "pending": "待处理",
-      "rejected": "已拒绝",
-      "unknown": "unknown"
+      "unknown": "未知"
     },
-    "subtitle": "副标题",
-    "table": {
-      "account": "账号",
-      "actions": "actions",
-      "amount": "金额",
-      "createTime": "创建时间",
-      "method": "method",
-      "status": "状态",
-      "viewDetail": "viewDetail",
-      "withdrawalNo": "withdrawalNo"
+    "empty": {
+      "noRecords": "暫無提現記錄"
     },
-    "title": "标题"
+    "error": {
+      "loadFailed": "獲取提現記錄失敗",
+      "loadFailedRetry": "獲取提現記錄失敗，請稍後重試"
+    }
   }
 }

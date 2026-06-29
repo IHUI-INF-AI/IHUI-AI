@@ -1,7 +1,16 @@
 /* ============================================
    触摸目标优化
-   确保所有可点击元素最小尺寸为 44px (WCAG AA 标准)
-   原则：0 高特异性，使用 @layer utilities 天然覆盖 vendor 层
+   ============================================
+   设计原则（2026-06 修订）：
+   1. 不再全局强制 button / .el-button / .btn / [role="button"] / 关闭类按钮的
+      width / height / min-width / min-height / padding —— 这些规则会破坏所有
+      方形图标按钮（.login-dialog__close、.session-list-close、.btn-icon-square、
+      .el-button.is-circle 等）的尺寸约束。
+   2. 触摸目标扩大由组件自身或工具类（.touch-target / .tap-target）按需启用，
+      避免全局污染。
+   3. 保留输入框、复选框、单选框、开关、下拉、菜单、列表项、表格行、分页等
+      非方形元素的触摸优化（这些元素通常不是方形，min-height 不破坏视觉）。
+   4. 保留工具类、mixin、focus-visible、prefers-reduced-motion。
    ============================================ */
 
 @use './breakpoints' as *;
@@ -16,182 +25,12 @@
 }
 
 /* ============================================
-   移动端触摸目标优化（< 768px）
-   所有覆盖 Element Plus 默认样式的规则统一放入 @layer utilities
-   ============================================ */
-@layer utilities {
-  @media (width <= 767px) {
-    // 按钮（弹窗关闭钮由组件自控，排除以免与组件样式冲突）
-    .el-button,
-    .btn,
-    button:not(.promotion-close-btn),
-    [role="button"] {
-      min-height: var(--touch-target-min);
-      min-width: var(--touch-target-min);
-      padding: 12px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-
-      // 对于有文本的按钮，使用等宽内边距
-      &:not(.is-circle, .el-button--icon) {
-        padding-left: 16px;
-        padding-right: 16px;
-        height: auto;
-        min-height: 48px;
-      }
-
-      &.el-button--small {
-        min-height: 40px;
-        min-width: 40px;
-        padding: 8px 12px;
-      }
-
-      &.el-button--large {
-        min-height: var(--touch-target-comfortable);
-        min-width: var(--touch-target-comfortable);
-        padding: 14px 20px;
-      }
-
-      // 图标按钮 - 强制正方形（含仅子元素为 svg 的原生 button、弹窗关闭钮等）
-      &.is-circle,
-      &.el-button--icon,
-      &.promotion-close-btn,
-      &:has(> .el-icon:only-child),
-      &:has(> svg:only-child) {
-        min-height: var(--touch-target-min);
-        min-width: var(--touch-target-min);
-        width: var(--touch-target-min);
-        height: var(--touch-target-min);
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-    }
-
-    // 关闭按钮
-    .el-dialog__headerbtn,
-    .close-btn,
-    .notification-close,
-    [aria-label*="close"],
-    [title*="关闭"] {
-      min-height: var(--touch-target-min);
-      min-width: var(--touch-target-min);
-      width: auto;
-      height: auto;
-      padding: 10px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    // 错误操作按钮 - 正方形设计
-    .error-actions .el-button {
-      min-height: 48px;
-      min-width: 48px;
-      padding: 12px 20px;
-      height: auto;
-    }
-
-    // 通知组件按钮 - 正方形设计
-    .details-toggle-btn {
-      min-height: 48px;
-      min-width: 48px;
-      padding: 12px 16px;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    // 登录按钮 - 正方形设计
-    .login-button {
-      min-height: 48px;
-      padding: 12px 24px;
-      width: auto;
-    }
-
-    // 语言选择器 - 强制正方形
-    .language-selector {
-      min-width: 48px;
-      min-height: 48px;
-      width: 48px;
-      height: 48px;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    // 操作按钮 - 正方形设计
-    .action-btn {
-      min-height: 48px;
-      padding: 12px 20px;
-      height: auto;
-    }
-
-    // 关闭按钮 - 强制正方形
-    .notification-close,
-    .close-btn {
-      min-width: 48px;
-      min-height: 48px;
-      width: 48px;
-      height: 48px;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    // 长文本按钮 - 保持合适比例
-    .el-collapse-item__header,
-    [class*="collapse"] {
-      min-height: 48px;
-      height: auto;
-      padding: 12px 16px;
-    }
-
-    // 全宽按钮 - 保持合适高度
-    [style*="width: 100%"],
-    .full-width-button {
-      min-height: 48px;
-      height: auto;
-      padding: 12px 20px;
-    }
-
-    // 链接按钮 - 正方形设计
-    .el-link {
-      min-height: 48px;
-      min-width: 48px;
-      padding: 12px 16px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-  }
-}
-
-/* ============================================
-   移动端触摸目标优化（< 768px）- 非覆盖性规则
-   这些规则不与 Element Plus 默认样式冲突，放在默认层
+   移动端触摸目标优化（< 768px）- 非按钮元素
+   仅作用于输入框、表单控件、列表、菜单、卡片、表格、分页等
+   非方形元素，避免破坏方形按钮的尺寸约束
    ============================================ */
 @media (width <= 767px) {
-  // 链接
-  a,
-  .el-link {
-    min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
-    padding: 8px 12px;
-    display: inline-flex;
-    align-items: center;
-
-    &.is-icon {
-      padding: 10px;
-    }
-  }
-
-  // 输入框
+  // 输入框 - 防止 iOS 缩放，保证最小触摸高度
   .el-input__inner,
   .el-textarea__inner,
   input[type="text"],
@@ -219,34 +58,20 @@
     }
   }
 
-  // 复选框和单选框
+  // 复选框和单选框 - 标签区域保证可点击
   .el-checkbox,
   .el-radio {
     min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
 
     .el-checkbox__label,
     .el-radio__label {
       padding-left: 12px;
     }
-
-    .el-checkbox__input,
-    .el-radio__input {
-      min-height: var(--touch-target-min);
-      min-width: var(--touch-target-min);
-    }
   }
 
-  // 开关
+  // 开关 - 矩形元素，保证触摸高度
   .el-switch {
     min-height: var(--touch-target-min);
-    min-width: calc(var(--touch-target-min) * 1.5);
-  }
-
-  // 下拉菜单
-  .el-dropdown {
-    min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
   }
 
   // 标签页
@@ -269,7 +94,7 @@
     padding: clamp(12px, 2.5vw, 16px);
   }
 
-  // 卡片
+  // 卡片头部
   .el-card,
   .card {
     .el-card__header,
@@ -278,13 +103,7 @@
     }
   }
 
-  // 表格操作按钮
-  .el-table .el-button {
-    min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
-    padding: 8px 12px;
-  }
-
+  // 表格行
   .el-table__row {
     min-height: var(--touch-target-min);
   }
@@ -295,33 +114,28 @@
     .el-pagination__jump,
     .el-select {
       min-height: var(--touch-target-min);
-      min-width: var(--touch-target-min);
     }
 
     .btn-prev,
     .btn-next {
       min-height: var(--touch-target-min);
-      min-width: var(--touch-target-min);
     }
   }
 
-  // 表单操作区
+  // 表单内容区 - 仅对输入类控件保证最小高度
   .el-form-item {
     .el-form-item__content {
-      > * {
+      > .el-input,
+      > .el-select,
+      > .el-cascader,
+      > .el-date-picker,
+      > .el-time-picker,
+      > .el-switch,
+      > .el-checkbox,
+      > .el-radio {
         min-height: var(--touch-target-min);
       }
     }
-  }
-
-  // 搜索框
-  .el-input__suffix,
-  .el-input__prefix {
-    min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   // 底部导航
@@ -330,7 +144,6 @@
     .nav-item,
     .tab-item {
       min-height: var(--touch-target-min);
-      min-width: var(--touch-target-min);
       padding: 12px 16px;
     }
   }
@@ -347,18 +160,12 @@
 }
 
 /* ============================================
-   超小屏幕优化（< 480px）
+   超小屏幕优化（< 480px）- 仅输入框
+   不再强制 button 尺寸
    ============================================ */
 @media (width <= 480px) {
   :root {
     --touch-target-min: 48px; // 更大的触摸目标
-  }
-
-  .el-button,
-  .btn,
-  button {
-    min-height: 48px;
-    min-width: 48px;
   }
 
   .el-input__inner,
@@ -371,11 +178,12 @@
 }
 
 /* ============================================
-   触摸友好工具类
+   触摸友好工具类 - 组件按需启用
    ============================================ */
 
-// 基础触摸目标
-.touch-target {
+// 基础触摸目标（与 fixes.scss 中的 .tap-target 等价，保留两者兼容历史调用）
+.touch-target,
+.tap-target {
   min-height: var(--touch-target-min);
   min-width: var(--touch-target-min);
   display: inline-flex;
@@ -404,7 +212,7 @@
   justify-content: center;
 }
 
-// 图标触摸按钮
+// 图标触摸按钮 - 仅扩大触摸区域，不强制可见尺寸
 .touch-icon-button {
   min-height: var(--touch-target-min);
   min-width: var(--touch-target-min);
@@ -428,8 +236,7 @@
 .touch-form {
   .el-input__inner,
   .el-textarea__inner,
-  .el-select,
-  .el-button {
+  .el-select {
     min-height: var(--touch-target-min);
   }
 
@@ -443,11 +250,6 @@
 .touch-table {
   .el-table__row {
     min-height: var(--touch-target-min);
-  }
-
-  .el-button {
-    min-height: var(--touch-target-min);
-    min-width: var(--touch-target-min);
   }
 }
 

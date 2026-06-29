@@ -10,7 +10,7 @@ import { withApiResponseHandler, normalizeApiResponse } from '@/utils/api-respon
 
 export interface Variable {
   name: string
-  value: any
+  value: unknown
   type?: string
   description?: string
 }
@@ -31,7 +31,7 @@ export interface VariableListRequest {
 export interface VariableUpdateRequest {
   bot_id: string
   name: string
-  value: any
+  value: unknown
   token?: string
   base_url?: string
 }
@@ -39,7 +39,7 @@ export interface VariableUpdateRequest {
 export interface VariableCreateRequest {
   bot_id: string
   name: string
-  value: any
+  value: unknown
   token?: string
   base_url?: string
 }

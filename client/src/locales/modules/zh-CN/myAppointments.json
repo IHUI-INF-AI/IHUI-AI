@@ -1,41 +1,42 @@
 {
   "myAppointments": {
-    "cancel": "取消",
-    "cancelFailed": "取消失败",
-    "cancelSuccess": "取消成功",
-    "confirmCancel": "确认取消",
-    "confirmCancelTitle": "确认 取消 标题",
-    "detail": {
-      "adminNotes": "管理员 notes",
-      "cancelledAt": "取消时间",
-      "completedAt": "完成时间",
-      "confirmedAt": "confirmed 在",
-      "createdAt": "创建时间",
-      "description": "描述",
-      "email": "邮箱",
-      "name": "名称",
-      "phone": "手机号",
-      "preferredDate": "期望日期",
-      "preferredTime": "期望时间",
-      "serviceType": "服务类型",
-      "status": "状态"
-    },
-    "detailTitle": "详情",
+    "title": "我的预约",
+    "subtitle": "查看和管理您的服务预约",
+    "noAppointments": "暂无预约记录",
     "filter": {
-      "allServices": "全部 services",
-      "allStatus": "全部状态",
       "serviceType": "服务类型",
-      "status": "状态"
+      "allServices": "全部服务",
+      "status": "状态",
+      "allStatus": "全部状态"
     },
-    "noAppointments": "无 appointments",
     "status": {
-      "cancelled": "已取消",
+      "pending": "待确认",
+      "confirmed": "已确认",
       "completed": "已完成",
-      "confirmed": "confirmed",
-      "pending": "待处理"
+      "cancelled": "已取消"
     },
-    "subtitle": "副标题",
-    "title": "标题",
-    "viewDetail": "查看详情"
+    "viewDetail": "查看详情",
+    "cancel": "取消预约",
+    "confirmCancel": "确定要取消这个预约吗？",
+    "confirmCancelTitle": "确认取消",
+    "cancelSuccess": "预约已取消",
+    "cancelFailed": "取消失败，请稍后重试",
+    "detailTitle": "预约详情",
+    "detail": {
+      "serviceType": "服务类型",
+      "status": "状态",
+      "name": "姓名",
+      "email": "邮箱",
+      "phone": "电话",
+      "preferredDate": "偏好日期",
+      "preferredTime": "偏好时间",
+      "description": "需求描述",
+      "createdAt": "创建时间",
+      "confirmedAt": "确认时间",
+      "completedAt": "完成时间",
+      "cancelledAt": "取消时间",
+      "adminNotes": "管理员备注"
+    },
+    "loadFailed": "加载失败，请稍后重试"
   }
 }

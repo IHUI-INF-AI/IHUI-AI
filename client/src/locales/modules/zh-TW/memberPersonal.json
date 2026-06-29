@@ -1,17 +1,17 @@
 {
   "memberPersonal": {
-    "avatar": "头像",
-    "bio": "bio",
-    "birthday": "birthday",
-    "changeAvatar": "changeAvatar",
-    "female": "female",
-    "gender": "gender",
-    "male": "male",
-    "nickName": "nickName",
-    "profession": "profession",
-    "realName": "realName",
-    "school": "school",
-    "secret": "secret",
-    "title": "标题"
+    "title": "個人資料",
+    "avatar": "頭像",
+    "changeAvatar": "更換頭像",
+    "nickName": "暱稱",
+    "realName": "真實姓名",
+    "gender": "性別",
+    "male": "男",
+    "female": "女",
+    "secret": "保密",
+    "birthday": "生日",
+    "school": "學校",
+    "profession": "職業",
+    "bio": "個人簡介"
   }
 }

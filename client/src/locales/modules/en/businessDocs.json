@@ -1,256 +1,262 @@
 {
   "businessDocs": {
-    "changelog": {
-      "items": {
-        "v090[0]": "v090[0]",
-        "v090[1]": "v090[1]",
-        "v090[2]": "v090[2]",
-        "v090[3]": "v090[3]",
-        "v100[0]": "v100[0]",
-        "v100[1]": "v100[1]",
-        "v100[2]": "v100[2]",
-        "v100[3]": "v100[3]",
-        "v100[4]": "v100[4]",
-        "v100[5]": "v100[5]",
-        "v110[0]": "v110[0]",
-        "v110[1]": "v110[1]",
-        "v110[2]": "v110[2]",
-        "v110[3]": "v110[3]",
-        "v110[4]": "v110[4]"
-      },
-      "title": "标题"
-    },
-    "contributing": {
-      "note": "note",
-      "steps": {
-        "branch": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "check": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "clone": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "commit": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "dev": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "fork": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "install": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "push": {
-          "desc": "描述",
-          "title": "标题"
-        }
-      },
-      "title": "标题"
-    },
-    "deploy": {
-      "steps": {
-        "build": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "clone": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "env": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "install": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "preview": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "production": {
-          "desc": "描述",
-          "title": "标题"
-        }
-      },
-      "title": "标题"
-    },
-    "environment": {
-      "desc": "描述",
-      "key": "键",
-      "no": "否",
-      "note": "note",
-      "required": "必填",
-      "title": "标题",
-      "vars": {
-        "buildPlatform": "buildPlatform",
-        "viteApiBaseUrl": "viteApiBaseUrl",
-        "viteAppTitle": "viteAppTitle",
-        "viteCspReportUri": "viteCspReportUri",
-        "viteEnableMonitor": "viteEnableMonitor",
-        "viteSentryDsn": "viteSentryDsn",
-        "viteUseVize": "viteUseVize"
-      },
-      "yes": "是"
-    },
-    "faq": {
-      "items": {
-        "browser": {
-          "a": "a",
-          "q": "q"
-        },
-        "bug": {
-          "a": "a",
-          "q": "q"
-        },
-        "contribute": {
-          "a": "a",
-          "q": "q"
-        },
-        "demo": {
-          "a": "a",
-          "q": "q"
-        },
-        "deploy": {
-          "a": "a",
-          "q": "q"
-        },
-        "language": {
-          "a": "a",
-          "q": "q"
-        },
-        "pwa": {
-          "a": "a",
-          "q": "q"
-        },
-        "techStack": {
-          "a": "a",
-          "q": "q"
-        }
-      },
-      "title": "标题"
-    },
-    "modules": {
-      "desc": "描述",
-      "list": {
-        "admin": {
-          "desc": "描述",
-          "endpoints": {
-            "login": "登录",
-            "menus": "menus",
-            "roles": "角色",
-            "users": "用户"
-          },
-          "title": "标题"
-        },
-        "ai": {
-          "desc": "描述",
-          "endpoints": {
-            "agentsCreate": "agentsCreate",
-            "chat": "对话",
-            "generate": "generate",
-            "models": "模型"
-          },
-          "title": "标题"
-        },
-        "auth": {
-          "desc": "描述",
-          "endpoints": {
-            "login": "登录",
-            "logout": "退出登录",
-            "refresh": "刷新",
-            "register": "注册",
-            "userInfo": "用户信息"
-          },
-          "title": "标题"
-        },
-        "payment": {
-          "desc": "描述",
-          "endpoints": {
-            "aliPay": "aliPay",
-            "aliPayNotify": "aliPayNotify",
-            "aliPaySuccess": "aliPaySuccess",
-            "orderCreate": "orderCreate",
-            "wxPay": "wxPay"
-          },
-          "title": "标题"
-        },
-        "user": {
-          "desc": "描述",
-          "endpoints": {
-            "orders": "订单",
-            "profileGet": "profileGet",
-            "profileUpdate": "profileUpdate",
-            "vipLevels": "vipLevels"
-          },
-          "title": "标题"
-        }
-      },
-      "method": "method",
-      "path": "path",
-      "title": "标题"
+    "title": "Business Docs",
+    "subtitle": "Project overview, API modules, deployment flow, environment variables, security, FAQ, changelog and contributing guide",
+    "tab": {
+      "overview": "Overview",
+      "modules": "API Modules",
+      "deploy": "Deployment",
+      "environment": "Environment",
+      "security": "Security",
+      "faq": "FAQ",
+      "changelog": "Changelog",
+      "contributing": "Contributing"
     },
     "overview": {
-      "description": "描述",
-      "descriptionValue": "descriptionValue",
-      "license": "license",
-      "node": "node",
-      "projectName": "projectName",
-      "title": "标题",
-      "version": "version"
+      "title": "Project Info",
+      "projectName": "Project Name",
+      "version": "Version",
+      "license": "License",
+      "node": "Node Version",
+      "description": "Description",
+      "descriptionValue": "iHui AI Community - Professional AI tool integration platform (Monorepo: website + WeChat mini program)"
+    },
+    "modules": {
+      "title": "API Module Catalog",
+      "method": "Method",
+      "path": "Path",
+      "desc": "Description",
+      "list": {
+        "auth": {
+          "title": "Auth Module",
+          "desc": "Account registration, login, third-party login, JWT tokens, device binding and MFA",
+          "endpoints": {
+            "login": "Login with account and password",
+            "register": "User registration",
+            "refresh": "Refresh token",
+            "logout": "Logout",
+            "userInfo": "Get current user info"
+          }
+        },
+        "payment": {
+          "title": "Payment Module",
+          "desc": "WeChat / Alipay / UnionPay multi-channel payment + order creation + async notification + sync callback",
+          "endpoints": {
+            "aliPay": "Create Alipay payment order",
+            "aliPayNotify": "Alipay async notification",
+            "aliPaySuccess": "Query payment result",
+            "wxPay": "Create WeChat payment order",
+            "orderCreate": "Create unified order"
+          }
+        },
+        "ai": {
+          "title": "AI Module",
+          "desc": "AI chat, image generation, video generation, model management, agent orchestration",
+          "endpoints": {
+            "chat": "AI chat",
+            "generate": "AI content generation",
+            "models": "Available model list",
+            "agentsCreate": "Create agent"
+          }
+        },
+        "user": {
+          "title": "User Module",
+          "desc": "User profile, settings, VIP levels, wallet, orders, messages",
+          "endpoints": {
+            "profileGet": "Get personal profile",
+            "profileUpdate": "Update personal profile",
+            "vipLevels": "VIP level list",
+            "orders": "My orders"
+          }
+        },
+        "admin": {
+          "title": "Admin Console",
+          "desc": "Admin console (users, roles, menus, dictionaries, monitoring)",
+          "endpoints": {
+            "login": "Admin login",
+            "users": "User list",
+            "roles": "Role list",
+            "menus": "Menu tree"
+          }
+        }
+      }
+    },
+    "deploy": {
+      "title": "Deployment Steps",
+      "steps": {
+        "clone": {
+          "title": "Clone Repository",
+          "desc": "git clone <repo-url> && cd officialsite"
+        },
+        "install": {
+          "title": "Install Dependencies",
+          "desc": "npm install (will auto-build shared sub-packages)"
+        },
+        "env": {
+          "title": "Environment Variables",
+          "desc": "Copy .env.example to .env.production and fill in actual values"
+        },
+        "build": {
+          "title": "Type Check + Build",
+          "desc": "npm run build:typecheck (includes vue-tsc + vite build)"
+        },
+        "preview": {
+          "title": "Local Preview",
+          "desc": "npm run build && vite preview --port 8888"
+        },
+        "production": {
+          "title": "Deploy to Production",
+          "desc": "nginx copy dist/ directory + configure CSP + enable HTTPS + start backend"
+        }
+      }
+    },
+    "environment": {
+      "title": "Environment Variables",
+      "key": "Key",
+      "required": "Required",
+      "desc": "Description",
+      "yes": "Yes",
+      "no": "No",
+      "note": "These variables must be written to .env.production and injected by Vite at build time; access at runtime via import.meta.env",
+      "vars": {
+        "viteApiBaseUrl": "Backend API base URL (e.g. https://api.example.com)",
+        "viteAppTitle": "Site title",
+        "viteEnableMonitor": "Whether to enable frontend monitoring reporting (true/false)",
+        "viteUseVize": "Whether to enable Vize compilation optimization",
+        "buildPlatform": "Build target platform (web/h5/alipay/electron)",
+        "viteCspReportUri": "CSP violation report URL",
+        "viteSentryDsn": "Sentry error monitoring DSN"
+      }
     },
     "security": {
+      "title": "Security Policies",
       "items": {
         "csp": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "CSP",
+          "desc": "Inject unified source declaration via meta + sync to nginx; report violations to /api/csp-report"
         },
         "hmac": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "rbac": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "session": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "HMAC Signature",
+          "desc": "All write APIs use DeviceService to generate device_id + requestSignature (HMAC-SHA256)"
         },
         "webhook": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "Webhook Signature",
+          "desc": "Payment callbacks + Webhooks use webhookSignature module for verification + anti-replay + idempotent ID"
+        },
+        "session": {
+          "title": "Session Management",
+          "desc": "Token encrypted storage via StorageManager + LoginDuration expiry detection"
+        },
+        "rbac": {
+          "title": "RBAC Permissions",
+          "desc": "Frontend useAuthStore + backend RBAC; sensitive pages guarded by requiresAuth + requiresAdmin"
         },
         "xss": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "XSS Protection",
+          "desc": "vue-i18n default escape + safeHtml directive whitelist + DOMPurify secondary filtering"
         }
-      },
-      "title": "标题"
+      }
     },
-    "subtitle": "副标题",
-    "tab": {
-      "changelog": "changelog",
-      "contributing": "contributing",
-      "deploy": "deploy",
-      "environment": "environment",
-      "faq": "常见问题",
-      "modules": "modules",
-      "overview": "overview",
-      "security": "安全"
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "items": {
+        "browser": {
+          "q": "Which browsers does the project support?",
+          "a": "Supports Chrome 90+, Firefox 88+, Safari 14+, Edge 90+. IE is not supported. PWA features require a browser that supports Service Worker."
+        },
+        "language": {
+          "q": "How to switch language?",
+          "a": "Click the language switcher in the top navigation bar. Supports 5 languages: Simplified Chinese, Traditional Chinese, English, Japanese, Korean."
+        },
+        "demo": {
+          "q": "How to enable demo mode?",
+          "a": "Add ?demo=true parameter to the URL, or set VITE_DEMO_MODE=true in .env. In demo mode, network errors will automatically fall back to mock data."
+        },
+        "deploy": {
+          "q": "How to deploy to production?",
+          "a": "Please refer to the \"Deployment\" Tab: 1) npm run build:typecheck 2) Copy dist/ to nginx 3) Configure HTTPS + CSP 4) Start backend service."
+        },
+        "contribute": {
+          "q": "How to contribute code?",
+          "a": "Please refer to the \"Contributing\" Tab: Fork repository → Create branch → Submit PR. Code must pass typecheck + lint + tests."
+        },
+        "techStack": {
+          "q": "What tech stack does the project use?",
+          "a": "Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router + vue-i18n + Playwright + Vitest."
+        },
+        "bug": {
+          "q": "How to report a bug?",
+          "a": "Submit a bug report in GitHub Issues. Please include: reproduction steps, browser version, console error logs, screenshots."
+        },
+        "pwa": {
+          "q": "What features does PWA support?",
+          "a": "Offline access, Background Sync, Push notifications, Share Target, install to desktop."
+        }
+      }
     },
-    "title": "标题"
+    "changelog": {
+      "title": "Version Changelog",
+      "items": {
+        "v110": [
+          "PWA enhancement: Background Sync + Push notifications + Web Share Target",
+          "Performance optimization: vue-office chunk split into 5 sub-modules",
+          "i18n completion: all language coverage reached 100%",
+          "API Mock service unification: e2e/helpers/api-mock.ts",
+          "Documentation enhancement: FAQ + CHANGELOG + CONTRIBUTING Tab"
+        ],
+        "v100": [
+          "Initial version release",
+          "5-language i18n support (zh-CN/en/zh-TW/ja/ko)",
+          "PWA basic features (offline cache + install to desktop)",
+          "Component showcase page (/storybook) + business docs page (/business-docs)",
+          "Complete e2e test suite (851 tests)",
+          "Performance budget check + i18n coverage check"
+        ],
+        "v090": [
+          "Beta version",
+          "Core pages development completed (home/login/register/AI chat/agent)",
+          "Element Plus component library integration",
+          "Monitoring and alerting system (Sentry style)"
+        ]
+      }
+    },
+    "contributing": {
+      "title": "Contributing Guide",
+      "note": "Contributions are welcome! Please follow the steps above to submit a PR. Code must pass typecheck + lint + tests.",
+      "steps": {
+        "fork": {
+          "title": "Fork Repository",
+          "desc": "Fork the project to your account on GitHub"
+        },
+        "clone": {
+          "title": "Clone to Local",
+          "desc": "git clone <your-fork-url> && cd officialsite"
+        },
+        "install": {
+          "title": "Install Dependencies",
+          "desc": "npm install (will auto-build shared sub-packages)"
+        },
+        "branch": {
+          "title": "Create Branch",
+          "desc": "git checkout -b feature/your-feature-name"
+        },
+        "dev": {
+          "title": "Develop + Test",
+          "desc": "npm run dev to start dev server; npm run test:unit to run unit tests"
+        },
+        "check": {
+          "title": "Code Check",
+          "desc": "npm run typecheck + npm run lint to ensure code quality"
+        },
+        "commit": {
+          "title": "Commit Code",
+          "desc": "git commit -m \"feat: describe your changes\" (follow Conventional Commits)"
+        },
+        "push": {
+          "title": "Push + PR",
+          "desc": "git push origin feature/your-feature-name → Create Pull Request on GitHub"
+        }
+      }
+    }
   }
 }

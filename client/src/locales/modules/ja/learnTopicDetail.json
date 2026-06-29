@@ -1,7 +1,7 @@
 {
   "learnTopicDetail": {
-    "joinTopic": "joinTopic",
-    "topicCourses": "topicCourses",
-    "topicNotFound": "topicNotFound"
+    "topicNotFound": "特集は存在しません",
+    "joinTopic": "特集に参加",
+    "topicCourses": "トピックコース"
   }
 }

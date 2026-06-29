@@ -33,7 +33,7 @@
     "users": "用户",
     "availability": "可用性",
     "brand": {
-      "title": "全球首创AI App Store",
+      "title": "全球首创智能体平台",
       "subtitle": "人人的一站式AI整合应用平台"
     },
     "form": {
@@ -110,26 +110,22 @@
     "thirdParty": {
       "or": "或",
       "wechatLogin": "微信登录",
-      "alipayLogin": "支付宝登录",
       "googleLogin": "Google登录",
       "appleLogin": "Apple登录",
       "notice": "使用第三方登录即表示您同意我们的",
       "privacyPolicy": "隐私政策",
       "termsOfService": "服务条款",
       "wechatLoginFailed": "微信登录失败，请重试",
-      "alipayLoginFailed": "支付宝登录失败，请重试",
       "googleLoginFailed": "Google登录失败，请重试",
       "appleLoginFailed": "Apple登录失败，请重试",
       "tooltip": {
         "wechat": "微信登录",
-        "alipay": "支付宝登录",
         "google": "Google登录",
         "apple": "Apple登录",
         "feishu": "飞书登录"
       },
       "feishuLogin": "飞书登录",
       "accountLogin": "账号登录",
-      "alipay": "支付宝",
       "comingSoon": "即将推出",
       "emailLogin": "邮箱登录",
       "feishu": "飞书",
@@ -158,16 +154,5 @@
     "goLogin": "前往登录",
     "goRegister": "前往注册",
     "hasAccount": "已有账号"
-  },
-  "userLoginPopup": {
-    "welcomeBack": "欢迎回来，请登录您的账户",
-    "phonePlaceholder": "请输入手机号",
-    "codePlaceholder": "请输入验证码",
-    "enterPhone": "请先输入手机号",
-    "invalidPhone": "手机号格式不正确",
-    "codeSent": "验证码已发送",
-    "codeSendFailed": "验证码发送失败，请重试",
-    "loginSuccess": "登录成功",
-    "wechatLoginNotConfigured": "微信登录功能暂未配置"
   }
 }

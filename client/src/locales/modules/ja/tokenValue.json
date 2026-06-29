@@ -1,28 +1,29 @@
 {
   "tokenValue": {
-    "balanceTitle": "balanceTitle",
-    "noRecords": "noRecords",
-    "stats": {
-      "currentBalance": "currentBalance",
-      "totalEarned": "totalEarned",
-      "totalUsed": "totalUsed"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "consumption": "consumption",
-      "name": "名称",
-      "time": "时间"
+    "title": "我的智汇値",
+    "subtitle": "テーブル示智汇値使用記録和残高",
+    "balanceTitle": "智汇値残高",
+    "typeTabs": {
+      "agent": "エージェント消耗",
+      "model": "大モデル消耗"
     },
     "timeRange": {
-      "all": "全部",
-      "month": "月",
-      "week": "week",
-      "year": "年"
+      "week": "7日",
+      "month": "一件月",
+      "year": "近一年",
+      "all": "全て"
     },
-    "title": "标题",
-    "typeTabs": {
-      "agent": "智能体",
-      "model": "模型"
-    }
+    "table": {
+      "name": "名前",
+      "time": "花费時間",
+      "consumption": "消耗智汇値"
+    },
+    "stats": {
+      "currentBalance": "現在残高",
+      "totalEarned": "累计获得",
+      "totalUsed": "累计使用"
+    },
+    "noRecords": "なし智汇値消耗記録",
+    "loadRecordsFailed": "読み込み消耗記録失敗，请稍後再試行"
   }
 }

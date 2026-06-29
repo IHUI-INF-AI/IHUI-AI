@@ -4,6 +4,12 @@
       "channel": "Search channels",
       "list": "Search products",
       "record": "Search records"
+    },
+    "label": {
+      "channelName": "Channel Name",
+      "trigger": "Trigger",
+      "points": "Points",
+      "actions": "Actions"
     }
   }
 }

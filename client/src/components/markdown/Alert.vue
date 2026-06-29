@@ -113,7 +113,7 @@ const iconComponent = computed(() => {
 }
 
 // 暗色模式支持
-:where(html.dark) {
+html.dark {
   .markdown-alert {
     &.alert-info {
       background-color: var(--el-color-info-dark-2);

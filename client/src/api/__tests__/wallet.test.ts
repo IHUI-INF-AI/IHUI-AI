@@ -22,7 +22,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../payment/wallet'
+import * as api from '../wallet'
 
 describe('wallet API', () => {
   beforeEach(() => {
@@ -35,9 +35,9 @@ describe('wallet API', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch { /* noop */ }
-      try { await f() } catch { /* noop */ }
-      try { await f('1') } catch { /* noop */ }
+      try { await f({}) } catch (e) {}
+      try { await f() } catch (e) {}
+      try { await f('1') } catch (e) {}
     }
   })
 
@@ -47,8 +47,8 @@ describe('wallet API', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch { /* noop */ }
-      try { await f() } catch { /* noop */ }
+      try { await f({}) } catch (e) {}
+      try { await f() } catch (e) {}
     }
   })
 
@@ -58,7 +58,7 @@ describe('wallet API', () => {
     for (const k of Object.keys(api)) {
       const f = (api as any)[k]
       if (typeof f !== 'function') continue
-      try { await f({}) } catch { /* noop */ }
+      try { await f({}) } catch (e) {}
     }
   })
 })

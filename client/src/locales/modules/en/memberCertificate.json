@@ -1,7 +1,7 @@
 {
   "memberCertificate": {
-    "issueTime": "issueTime",
-    "myCertificates": "myCertificates",
-    "noCertificate": "noCertificate"
+    "myCertificates": "My certificates",
+    "noCertificate": "No certificates",
+    "issueTime": "Issue Time"
   }
 }

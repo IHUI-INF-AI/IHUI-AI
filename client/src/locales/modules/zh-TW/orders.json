@@ -7,19 +7,31 @@
     "tabs": {
       "all": "全部訂單",
       "pending": "待付款",
+      "processing": "處理中",
       "completed": "已完成",
       "cancelled": "已取消",
       "shipping": "配送中",
       "refunded": "已退款"
     },
+    "order": {
+      "orderId": "訂單ID",
+      "productName": "商品名稱",
+      "amount": "金額",
+      "status": "狀態",
+      "createTime": "創建時間",
+      "payTime": "支付時間",
+      "actions": "操作"
+    },
     "status": {
       "pending": "待付款",
+      "processing": "處理中",
       "completed": "已完成",
       "cancelled": "已取消",
       "refunded": "已退款",
       "paid": "已付款"
     },
     "actions": {
+      "viewDetails": "查看詳情",
       "cancel": "取消訂單",
       "pay": "立即支付",
       "refund": "退款",
@@ -34,9 +46,11 @@
     },
     "labels": {
       "orderId": "訂單ID",
+      "orderType": "訂單類型",
       "amount": "金額",
       "status": "狀態",
       "createTime": "創建時間",
+      "actions": "操作",
       "payTime": "支付時間",
       "productName": "商品名稱",
       "productType": "產品類型",
@@ -53,7 +67,8 @@
       "title": "訂單詳情",
       "orderInfo": "訂單資訊",
       "productInfo": "商品資訊",
-      "paymentInfo": "支付資訊"
+      "paymentInfo": "支付資訊",
+      "shippingInfo": "配送資訊"
     },
     "productType": {
       "vip": "VIP",

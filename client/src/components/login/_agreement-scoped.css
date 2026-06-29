@@ -1,0 +1,262 @@
+/* 协议确认弹窗样式 - 重新设计美化（scoped） */
+
+/* 弹窗内容容器 */
+.agreement-confirm-dialog-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+/* 图标徽章 - 顶部圆形图标 */
+.agreement-confirm-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+  margin-bottom: 16px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.agreement-confirm-icon-badge .el-icon {
+  font-size: 24px;
+}
+
+/* 提示文字 */
+.agreement-confirm-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+  padding: 0 8px;
+  word-break: break-word;
+  transition: color 0.2s ease;
+}
+
+/* 链接容器 */
+.agreement-confirm-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+}
+
+/* 链接 - 药丸样式 */
+.agreement-confirm-links .agreement-link-item {
+  color: var(--el-text-color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 3px 10px;
+  border-radius: var(--global-border-radius);
+  background-color: var(--el-fill-color-light);
+}
+
+.agreement-confirm-links .agreement-link-item:hover {
+  color: var(--el-bg-color);
+  background-color: var(--el-text-color-primary);
+  text-decoration: none;
+}
+
+.agreement-confirm-links .agreement-link-item:active {
+  background-color: var(--el-color-primary-dark-2);
+}
+
+/* 分隔符 */
+.agreement-confirm-separator {
+  color: var(--el-text-color-placeholder);
+  margin: 0 2px;
+  font-size: 13px;
+}
+
+/* 底部按钮容器 */
+.agreement-confirm-footer {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 按钮通用 */
+.agreement-confirm-footer .el-button {
+  flex: 1;
+  min-width: 120px;
+  height: 44px;
+  border-radius: var(--global-border-radius);
+  font-size: 14px;
+  margin: 0;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+/* 取消按钮 */
+.agreement-confirm-footer .agreement-cancel-button {
+  background-color: var(--el-bg-color);
+  border: var(--unified-border);
+  color: var(--el-text-color-regular);
+  font-weight: 400;
+}
+
+.agreement-confirm-footer .agreement-cancel-button :deep(.el-button__inner) {
+  background-color: var(--el-bg-color);
+  border: none;
+  color: var(--el-text-color-regular);
+  border-radius: var(--global-border-radius);
+  transition: all 0.2s ease;
+}
+
+.agreement-confirm-footer .agreement-cancel-button:hover {
+  background-color: var(--el-fill-color-light);
+  border-color: var(--border-unified-color-hover);
+}
+
+.agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__inner) {
+  background-color: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
+}
+
+.agreement-confirm-footer .agreement-cancel-button:active {
+  background-color: var(--el-fill-color);
+}
+
+.agreement-confirm-footer .agreement-cancel-button:active :deep(.el-button__inner) {
+  background-color: var(--el-fill-color);
+}
+
+/* 同意按钮 - 主操作 */
+.agreement-confirm-footer .agreement-agree-button {
+  background-color: var(--el-color-primary);
+  border: var(--unified-border);
+  color: var(--el-bg-color);
+  font-weight: 600;
+}
+
+.agreement-confirm-footer .agreement-agree-button :deep(.el-button__inner) {
+  background-color: var(--el-color-primary);
+  border: none;
+  color: var(--el-bg-color);
+  font-weight: 600;
+  border-radius: var(--global-border-radius);
+  transition: all 0.2s ease;
+}
+
+.agreement-confirm-footer .agreement-agree-button :deep(.el-button__text),
+.agreement-confirm-footer .agreement-agree-button :deep(span) {
+  color: var(--el-bg-color);
+}
+
+.agreement-confirm-footer .agreement-agree-button:hover {
+  background-color: var(--el-color-primary-dark-2);
+  border-color: var(--el-color-primary-dark-2);
+}
+
+.agreement-confirm-footer .agreement-agree-button:hover :deep(.el-button__inner) {
+  background-color: var(--el-color-primary-dark-2);
+  color: var(--el-bg-color);
+}
+
+.agreement-confirm-footer .agreement-agree-button:active {
+  background-color: var(--el-color-primary-dark-2);
+}
+
+/* 暗色模式 - 使用 html.dark 确保特异性（项目规范） */
+html.dark .agreement-confirm-icon-badge {
+  background-color: var(--color-dark-bg-5);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-text {
+  color: var(--el-text-color-regular);
+}
+
+html.dark .agreement-confirm-links .agreement-link-item {
+  color: var(--el-text-color-primary);
+  background-color: var(--color-dark-bg-5);
+}
+
+html.dark .agreement-confirm-links .agreement-link-item:hover {
+  color: var(--color-dark-bg-3);
+  background-color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-links .agreement-link-item:active {
+  background-color: var(--color-dark-bg-6);
+}
+
+html.dark .agreement-confirm-separator {
+  color: var(--el-text-color-placeholder);
+}
+
+html.dark .agreement-confirm-footer .agreement-cancel-button {
+  background-color: transparent;
+  border: var(--unified-border);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-cancel-button :deep(.el-button__inner) {
+  background-color: transparent;
+  border: none;
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-cancel-button:hover {
+  background-color: var(--color-dark-bg-5);
+  border-color: var(--border-unified-color-hover);
+}
+
+html.dark .agreement-confirm-footer .agreement-cancel-button:hover :deep(.el-button__inner) {
+  background-color: var(--color-dark-bg-5);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-cancel-button:active {
+  background-color: var(--color-dark-bg-6);
+}
+
+html.dark .agreement-confirm-footer .agreement-cancel-button:active :deep(.el-button__inner) {
+  background-color: var(--color-dark-bg-6);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button {
+  background-color: var(--el-bg-color);
+  border-color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button :deep(.el-button__inner) {
+  background-color: var(--el-bg-color);
+  border: none;
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button :deep(.el-button__text),
+html.dark .agreement-confirm-footer .agreement-agree-button :deep(span) {
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button:hover {
+  background-color: var(--color-gray-light);
+  border-color: var(--color-gray-light);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button:hover :deep(.el-button__inner) {
+  background-color: var(--color-gray-light);
+  color: var(--el-text-color-primary);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button:active {
+  background-color: var(--el-fill-color);
+}
+
+html.dark .agreement-confirm-footer .agreement-agree-button:active :deep(.el-button__inner) {
+  background-color: var(--el-fill-color);
+  color: var(--el-text-color-primary);
+}

@@ -156,7 +156,7 @@ function setupFetchInterceptor() {
         }
         return resp
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         push({
           type: 'api_fail',
           payload: { url, method, error: String(err), duration: Math.round(performance.now() - start) },
@@ -191,9 +191,9 @@ export function setupMonitor(app: App) {
   setupFetchInterceptor()
   startReporter()
   // Vue 错误处理（用类型断言避免 vue 内部 errorHandler 类型变化影响）
-  ;(app as unknown as { config: { errorHandler: (err: any, instance: any, info: string) => void } }).config.errorHandler = (
-    err: any,
-    _instance: any,
+  ;(app as unknown as { config: { errorHandler: (err: unknown, instance: unknown, info: string) => void } }).config.errorHandler = (
+    err: unknown,
+    _instance: unknown,
     info: string
   ) => {
     push({

@@ -1,14 +1,17 @@
 {
   "imageShare": {
-    "copyFailed": "copyFailed",
-    "copyLink": "copyLink",
-    "copySuccess": "copySuccess",
-    "download": "下载",
-    "noImage": "noImage",
-    "noImageToDownload": "noImageToDownload",
-    "noLinkToCopy": "noLinkToCopy",
-    "shareImage": "shareImage",
-    "shareMethod": "shareMethod",
-    "title": "标题"
+    "title": "Share Image",
+    "shareImage": "Share Image",
+    "shareMethod": "Share Method",
+    "noImage": "No Image",
+    "download": "Download",
+    "copyLink": "Copy Link",
+    "copySuccess": "Link copied to clipboard",
+    "copyFailed": "Copy Failed",
+    "noImageToDownload": "No image to download",
+    "noLinkToCopy": "No link to copy",
+    "close": "Close",
+    "downloadFailed": "Download Failed",
+    "downloadSuccess": "Image downloaded successfully"
   }
 }

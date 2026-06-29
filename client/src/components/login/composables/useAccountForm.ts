@@ -3,7 +3,7 @@
  */
 
 import { ref, reactive, computed } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, FormItemRule } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/utils/logger'
 
@@ -49,7 +49,7 @@ export function useAccountForm(isRegisterMode: boolean) {
       rules.confirmPassword = [
         { required: true, message: t('auth.pleaseConfirmPassword'), trigger: 'blur' },
         {
-          validator: (rule: any, value: string, callback: (err?: Error) => void) => {
+          validator: (rule: FormItemRule, value: string, callback: (err?: Error) => void) => {
             if (value !== formData.password) {
               callback(new Error(t('auth.passwordsDoNotMatch')))
             } else {

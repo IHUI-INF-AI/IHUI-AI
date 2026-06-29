@@ -1,5 +1,5 @@
 {
   "mcpMCPQuickCall": {
-    "invalidServerOrTool": "invalidServerOrTool"
+    "invalidServerOrTool": "Invalid server ID or tool name"
   }
 }

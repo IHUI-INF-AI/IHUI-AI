@@ -64,20 +64,5 @@
     "cancelConfirm": "取消确认",
     "cancelSuccess": "取消成功",
     "cancelFailed": "取消失败"
-  },
-  "refundDetail": {
-    "backToList": "返回退款列表",
-    "title": "退款详情",
-    "refundNo": "退款单号",
-    "supplementEvidence": "补充凭证 (支持多文件)",
-    "refundInfo": "退款信息",
-    "originalOrderNo": "原订单号",
-    "refundAmount": "退款金额",
-    "refundReason": "退款原因",
-    "refundDescription": "退款说明",
-    "rejectReason": "拒绝原因",
-    "applyTime": "申请时间",
-    "approveTime": "批准时间",
-    "completeTime": "完成时间"
   }
 }

@@ -1,72 +1,74 @@
 {
   "statistics": {
-    "behavior": {
-      "activeHours": "activeHours",
-      "activity": "activity",
-      "botId": "botId",
-      "favoriteAgents": "favoriteAgents",
-      "hour": "时",
-      "lastLoginTime": "lastLoginTime",
-      "loginDays": "loginDays",
-      "messageCount": "messageCount",
-      "notLoggedIn": "未登录",
-      "overview": "overview",
-      "totalLoginCount": "totalLoginCount",
-      "totalTokens": "totalTokens",
-      "usageCount": "usageCount"
-    },
-    "days": "days",
-    "detailTitle": "detailTitle",
-    "endDate": "endDate",
-    "labels": {
-      "conversations": "对话",
-      "duration": "时长",
-      "loginDays": "loginDays",
-      "registerTime": "registerTime",
-      "shares": "shares",
-      "totalDuration": "totalDuration",
-      "visits": "visits"
-    },
-    "loadFailed": "loadFailed",
-    "orders": {
-      "amountInYuan": "amountInYuan",
-      "completedOrders": "completedOrders",
-      "orderAmount": "orderAmount",
-      "orderCount": "orderCount",
-      "overview": "overview",
-      "paidOrders": "paidOrders",
-      "totalAmount": "totalAmount",
-      "totalOrders": "totalOrders",
-      "trends": "trends"
-    },
-    "selectTimeRange": "selectTimeRange",
-    "startDate": "startDate",
-    "tabs": {
-      "agents": "智能体",
-      "behavior": "behavior",
-      "orders": "订单",
-      "usage": "使用方法"
-    },
+    "selectTimeRange": "選択時間範囲",
+    "startDate": "開始日付",
+    "endDate": "終了日付",
     "timeRanges": {
-      "all": "全部",
-      "month": "月",
-      "today": "今天",
-      "week": "week"
+      "today": "今日",
+      "week": "最近一週",
+      "month": "最近一月",
+      "all": "全て"
     },
+    "labels": {
+      "conversations": "Conversations",
+      "duration": "Duration",
+      "loginDays": "Login Days",
+      "registerTime": "Register Time",
+      "shares": "Shares",
+      "totalDuration": "Total Duration",
+      "visits": "Visits"
+    },
+    "tabs": {
+      "usage": "使用統計",
+      "behavior": "行为分析",
+      "orders": "注文統計",
+      "agents": "エージェント統計"
+    },
+    "loadFailed": "読み込み统カウント据失敗，请更新しい页面再試行",
     "usage": {
-      "chatSessions": "chatSessions",
-      "messageCount": "messageCount",
-      "messages": "messages",
-      "overview": "overview",
-      "sessions": "sessions",
-      "tokenUsage": "tokenUsage",
-      "tokens": "tokens",
-      "trends": "trends",
-      "uploadedFiles": "uploadedFiles"
-    }
+      "overview": "使用概要",
+      "chatSessions": "聊日会话",
+      "messageCount": "メッセージ数",
+      "tokenUsage": "Token使用",
+      "uploadedFiles": "アップロードファイル",
+      "trends": "使用傾向",
+      "sessions": "会话数",
+      "messages": "メッセージ数",
+      "tokens": "Token数"
+    },
+    "behavior": {
+      "overview": "行为概要",
+      "loginDays": "ログイン天数",
+      "totalLoginCount": "合計ログイン回数",
+      "lastLoginTime": "最後ログイン",
+      "activeHours": "アクティブ时段分布",
+      "favoriteAgents": "最常用エージェント",
+      "botId": "エージェントID",
+      "usageCount": "使用回数",
+      "totalTokens": "Token消耗",
+      "hour": "時間",
+      "messageCount": "メッセージ数",
+      "activity": "アクティブ度",
+      "notLoggedIn": "未ログイン"
+    },
+    "orders": {
+      "overview": "注文概要",
+      "totalOrders": "合計注文数",
+      "totalAmount": "合計金額",
+      "paidOrders": "済み付注文",
+      "completedOrders": "完了注文",
+      "trends": "注文傾向",
+      "orderCount": "注文数",
+      "orderAmount": "注文金額",
+      "amountInYuan": "金額（元）"
+    },
+    "days": "Days",
+    "detailTitle": "Detail Title",
+    "zeroHour": "0時間",
+    "zeroHour2": "0小时"
   },
   "Statistics": {
-    "zeroHour": "zeroHour",
-    "zeroHour2": "zeroHour2"
+    "zeroHour": "0時間",
+    "zeroHour2": "0小时"
   }
 }

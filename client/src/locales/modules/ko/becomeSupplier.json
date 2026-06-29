@@ -1,66 +1,90 @@
 {
   "becomeSupplier": {
-    "benefits": {
-      "market": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "security": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "settlement": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "support": {
-        "description": "描述",
-        "title": "标题"
-      }
-    },
+    "핵심 장점": "공급업체가 되기",
+    "sub핵심 장점": "공급업체 네트워크에 참여하여 함께 성장",
     "form": {
-      "address": "地址",
-      "addressPlaceholder": "addressPlaceholder",
-      "business": "business",
-      "businessPlaceholder": "businessPlaceholder",
-      "companyName": "companyName",
-      "companyNamePlaceholder": "companyNamePlaceholder",
-      "contactName": "contactName",
-      "contactNamePlaceholder": "contactNamePlaceholder",
-      "email": "邮箱",
-      "emailPlaceholder": "emailPlaceholder",
-      "intention": "intention",
-      "intentionPlaceholder": "intentionPlaceholder",
-      "phone": "手机号",
-      "phonePlaceholder": "phonePlaceholder",
-      "processing": "处理中",
-      "reset": "重置",
-      "submit": "提交",
-      "submitProposal": "submitProposal"
+      "companyName": "회생각명석",
+      "companyNamePlaceholder": "회생각명석을 입력하세요",
+      "contactName": "연락처",
+      "contactNamePlaceholder": "연락처 이름을 입력하세요",
+      "전화": "연락처 전화",
+      "전화Placeholder": "연락처 전화를 입력하세요",
+      "이메일": "이메일",
+      "이메일Placeholder": "이메일을 입력하세요",
+      "주의소": "회생각 주의소",
+      "주의소Placeholder": "회생각 주의소를 입력하세요",
+      "business": "주의요 생각업",
+      "businessPlaceholder": "회생각의 주의요 생각업을 설명석하세요",
+      "intention": "협력 의향",
+      "intentionPlaceholder": "협력 의향과 기대를 설명석하세요",
+      "submit": "신청서 제출",
+      "reset": "재설정",
+      "processing": "제출 중...",
+      "submitProposal": "제출",
+      "phone": "연락전화",
+      "phonePlaceholder": "요청입력연락전화",
+      "email": "이메일",
+      "emailPlaceholder": "요청입력이메일",
+      "address": "회생각주의소",
+      "addressPlaceholder": "요청입력회생각주의소"
     },
     "processSteps": {
-      "businessNegotiation": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "onlineDocking": {
-        "description": "描述",
-        "title": "标题"
+      "submitApplication": {
+        "핵심 장점": "신청서 제출",
+        "description": "공급업체 신청 양식을 작성하고 회생각 기본 정보를 제출",
+        "title": "신청 제출"
       },
       "qualificationReview": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "게격 심생각",
+        "description": "3-5 영업일 이내에 신청서를 검토하겠습니다",
+        "title": "정보 품질 심사"
+      },
+      "businessNegotiation": {
+        "핵심 장점": "비즈니스 협상",
+        "description": "승인 후 영업 팀이 연락드리겠습니다",
+        "title": "비즈니스 협의"
       },
       "signAgreement": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "협약 체결",
+        "description": "양측이 협력 세부 생각항을 확인하고 공식 협력 협약에 서명석",
+        "title": "계약 체결"
       },
-      "submitApplication": {
-        "description": "描述",
-        "title": "标题"
+      "onlineDocking": {
+        "핵심 장점": "온라인 연결",
+        "description": "기술 팀이 제품 연결 및 온라인화를 지원",
+        "title": "위선통합장벽"
       }
     },
-    "subtitle": "副标题",
-    "title": "标题"
+    "benefits": {
+      "핵심 장점": "합동작우아동향",
+      "market": {
+        "핵심 장점": "광활한 시장",
+        "description": "플랫폼에 접속하여 수만 기업 사용자에게 도달",
+        "title": "광활한 시장"
+      },
+      "support": {
+        "핵심 장점": "전문지원",
+        "description": "제공전문의기술지원및시장면프로모션",
+        "title": "전문지원"
+      },
+      "settlement": {
+        "핵심 장점": "유연한활동정산",
+        "description": "유연한활동의정산방법및투명명석의분할성숙기계제어",
+        "title": "유연한활동결산알고리즘"
+      },
+      "security": {
+        "핵심 장점": "보안 보호",
+        "description": "완벽한자선의보안 보호및위험제어시스템시리즈",
+        "title": "보안 보호"
+      },
+      "title": "합동작우아동향"
+    },
+    "process": {
+      "핵심 장점": "합동작프로세스",
+      "title": "합동작프로세스"
+    },
+    "title": "성숙위한공급해야상업",
+    "subtitle": "공급망 네트워크에 참여하여 함께 성장하세요",
+    "success": "신청서가 성공적으로 제출되었습니다! 3-5 영업일 이내에 연락드리겠습니다!"
   }
 }

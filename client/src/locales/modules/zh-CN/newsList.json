@@ -1,12 +1,11 @@
 {
   "newsList": {
-    "all": "全部",
-    "desc": "描述",
-    "hot": "热门",
-    "official": "官方",
-    "read": "已读",
-    "title": "标题",
+    "title": "资讯中心",
+    "desc": "获取最新教育动态、政策解读与行业资讯",
+    "viewHot": "查看热门",
     "top": "置顶",
-    "viewHot": "查看 热门"
+    "hot": "热",
+    "official": "官方",
+    "read": "阅读"
   }
 }

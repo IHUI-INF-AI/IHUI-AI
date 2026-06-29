@@ -1,19 +1,19 @@
 {
   "p20Dashboard": {
-    "agentActivity": "智能体 activity",
+    "title": "P20 智能体运营看板",
+    "subtitle": "实时监控",
+    "revenueTrend": "近 7 日营收趋势",
+    "orderStatus": "订单状态分布",
+    "agentActivity": "智能体调用活跃度",
+    "courseCategory": "课程分类占比",
+    "revenueAxis": "营收(¥)",
+    "revenue": "营收",
+    "unknown": "未知",
     "callCount": "调用次数",
-    "cardAgents": "卡片 智能体",
-    "cardOrders": "卡片 订单",
-    "cardRevenue": "卡片 revenue",
-    "cardUsers": "卡片 用户",
-    "courseCategory": "课程 分类",
-    "loadFailed": "加载失败",
-    "orderStatus": "订单状态",
-    "revenue": "revenue",
-    "revenueAxis": "revenue Axis",
-    "revenueTrend": "revenue Trend",
-    "subtitle": "副标题",
-    "title": "标题",
-    "unknown": "未知"
+    "cardUsers": "用户",
+    "cardOrders": "订单",
+    "cardAgents": "智能体",
+    "cardRevenue": "营收",
+    "loadFailed": "加载失败："
   }
 }

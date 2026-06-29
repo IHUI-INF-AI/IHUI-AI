@@ -1,11 +1,17 @@
 {
   "aiWorld": {
+    "subtitle": "Explore AI creation, agents, knowledge base and open platform",
     "empty": "No content yet, stay tuned",
+    "loadMore": "Load more",
     "loading": "Loading...",
     "back": "Back",
     "goToOfficial": "Visit official site",
+    "tagLabel": "Tag",
     "detailEmpty": "No detail content",
+    "visit": "Visit",
     "viewMore": "View more >>",
+    "latestSection": "Latest",
+    "navAll": "All",
     "heroCarousel": "Carousel",
     "heroOverlayTitle": "Explore AI World",
     "heroOverlaySubtitle": "Agents · Knowledge Base · Open Platform",
@@ -14,6 +20,8 @@
       "badge": "AIGC TO AGI Intelligent Era Leader",
       "heroTitle": "One-stop AI Innovation Ecosystem Hub",
       "heroDesc": "AI Empowerment, Traffic Fission, Global Restructuring, Dawn Era! An AI innovation platform integrating agent development, super-individual incubation, enterprise transformation, and learning.",
+      "joinUs": "Join Us",
+      "learnSolution": "Learn Solutions",
       "heroStats": "Gathering global AI professionals",
       "overviewTag": "PLATFORM OVERVIEW",
       "overviewTitle": "AI IHUI Platform Overview",
@@ -50,6 +58,18 @@
       "valueTag": "CORE VALUE",
       "valueTitle": "Platform Core Value & Advantages",
       "valueDesc": "Four core values building AI competitiveness for sustainable empowerment of individuals and enterprises",
+      "contactTitle": "Join IHUI, Co-create AI Future",
+      "contactDesc": "Submit the form for customized AI solutions, we will contact you within 1 business day",
+      "contactNameLabel": "Company/Individual Name",
+      "contactNamePlaceholder": "Enter name",
+      "contactPhonePlaceholder": "Enter phone number",
+      "contactIndustry": "Industry",
+      "contactIndustryPlaceholder": "Select industry",
+      "contactDemand": "Requirements",
+      "contactDemandPlaceholder": "Briefly describe your AI needs",
+      "contactSubmit": "Submit",
+      "contactRequired": "Please fill in required fields",
+      "contactSuccess": "Submitted successfully, we will contact you soon!",
       "fn1Title": "10K AI Community Building",
       "fn1Desc": "Precise recruitment + refined operations, dividing interest and skill sub-communities to build high-quality AI exchange communities.",
       "fn2Title": "AI Learning Platform",
@@ -124,8 +144,8 @@
       "val3Desc": "Deeply mining industry needs and pain points, providing customized AI solutions, helping enterprises improve production efficiency, reduce costs, and promoting collaborative development of industry chains.",
       "val4Title": "Resource Sharing and Collaborative Development",
       "val4Desc": "Integrating learning, technology, projects, capital and other resources, achieving optimal allocation, members collaborating to overcome technical difficulties, accelerating AI popularization.",
-      "tenThousandPlus": "tenThousandPlus"
+      "tenThousandPlus": "0k+"
     },
-    "title": "标题"
+    "title": "AI World"
   }
 }

@@ -1,12 +1,12 @@
 {
   "imageUpload": {
-    "countLimit": "countLimit",
-    "filenameComma": "filenameComma",
-    "formatError": "formatError",
-    "preview": "预览",
-    "sizeLimit": "sizeLimit",
-    "tip": "tip",
-    "uploadFail": "uploadFail",
-    "uploading": "上传中"
+    "countLimit": "Count Limit",
+    "filenameComma": "Filename Comma",
+    "formatError": "Format Error",
+    "preview": "Preview",
+    "sizeLimit": "Size Limit",
+    "tip": "Tip",
+    "uploadFail": "Upload Fail",
+    "uploading": "Uploading"
   }
 }

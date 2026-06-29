@@ -1,14 +1,14 @@
 {
   "pdfToolsPanel": {
     "addSignature": "添加签名",
+    "verifyAll": "验证全部",
     "applyWatermark": "应用水印",
-    "clearAll": "全部清空",
-    "landscape": "横向",
-    "page": "页面",
+    "clearAll": "清除全部",
+    "page": "页",
     "portrait": "纵向",
+    "landscape": "横向",
     "print": "打印",
     "quickPrint": "快速打印",
-    "resetSettings": "重置设置",
-    "verifyAll": "全部验证"
+    "resetSettings": "重置设置"
   }
 }

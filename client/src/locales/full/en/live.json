@@ -1,16 +1,3 @@
 {
-  "liveStreaming": {},
-  "livePlay": {
-    "liveNotFound": "Live does not exist",
-    "notLive": "Streamer is not live",
-    "send": "Send",
-    "danmuPlaceholder": "Send a message...",
-    "points": "points",
-    "liveIntro": "Live Introduction",
-    "noIntro": "No introduction",
-    "statistics": "Statistics",
-    "views": "Views",
-    "likes": "Likes",
-    "sentGift": "Sent {name} x1"
-  }
+  "liveStreaming": {}
 }

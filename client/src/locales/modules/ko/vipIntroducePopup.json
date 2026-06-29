@@ -1,9 +1,5 @@
 {
   "vipIntroducePopup": {
-    "loading": "加载中",
-    "noContinuousOptions": "noContinuousOptions",
-    "noMonthlyOptions": "noMonthlyOptions",
-    "pointsPerMonth": "pointsPerMonth",
-    "trial": "trial"
+    "loading": "로딩 중"
   }
 }

@@ -166,7 +166,7 @@ import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules } from 'element-plus'
 import { User, Phone, Lock, KeyRound } from '@/lib/lucide-fallback'
 import { InputValidator } from '@/utils/security'
-import { sendVerificationCode } from '@/api/user/user'
+import { sendVerificationCode } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
@@ -232,7 +232,7 @@ const formRules = computed((): FormRules => ({
   phone: [
     { required: true, message: t('auth.phonePlaceholder'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -256,7 +256,7 @@ const formRules = computed((): FormRules => ({
   confirmPassword: [
     { required: true, message: t('auth.confirmPasswordPlaceholder'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: unknown, value: string, callback: (error?: Error) => void): void => {
         if (value && value !== formData.password) {
           callback(new Error(t('auth.passwordMismatch')))
           return
@@ -268,7 +268,7 @@ const formRules = computed((): FormRules => ({
   ],
   agreement: [
     {
-      validator: (_rule: any, value: boolean, callback: (error?: Error) => void): void => {
+      validator: (_rule: unknown, value: boolean, callback: (error?: Error) => void): void => {
         if (!value) {
           callback(new Error(t('auth.confirmAgreement')))
           return
@@ -345,7 +345,7 @@ const handleSendCode = async (): Promise<void> => {
 
     ElMessage.success(t('auth.codeSentSuccess'))
     startCountdown()
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[RegisterForm] Failed to send verification code', error)
     ElMessage.error(error instanceof Error ? error.message : t('auth.codeSendFailed'))
   } finally {
@@ -518,7 +518,7 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
+    transition: all 0.2s;
     flex-shrink: 0;
   }
 
@@ -529,7 +529,7 @@ defineExpose({
 
   input:checked + .checkmark::after {
     content: "\2713";
-    color: var(--el-bg-color);
+    color: var(--el-color-white);
     font-size: 12px;
   }
 }

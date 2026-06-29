@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <DesignSystemCard :title="t('aiChat.agenticMonitor.title')" radius="15" padding="lg">
     <div class="agentic-swarm-monitor">
       <!-- Swarm 状态概览 -->
@@ -268,7 +268,7 @@ const getStatusText = (status: string): string => {
 
       &:hover {
         background-color: $bg-hover;
-        
+        transform: translateY(-2px);
       }
 
       .agent-header {

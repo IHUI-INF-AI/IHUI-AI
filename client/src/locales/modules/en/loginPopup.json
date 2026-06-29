@@ -1,7 +1,7 @@
 {
   "loginPopup": {
-    "noAccount": "noAccount",
     "or": "or",
-    "registerNow": "registerNow"
+    "noAccount": "Don't have an account?",
+    "registerNow": "Register now"
   }
 }

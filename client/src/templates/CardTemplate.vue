@@ -106,7 +106,7 @@ function handleClick(event: MouseEvent) {
     cursor: pointer;
     
     &:hover {
-      
+      transform: translateY(-2px);
       box-shadow: var(--global-box-shadow-lg);
     }
     
@@ -119,7 +119,8 @@ function handleClick(event: MouseEvent) {
   &.is-selected {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
     outline: 2px solid var(--el-color-primary-light-7);
-    outline-offset: -1px;
+    outline-offset: 2px;
+    box-shadow: none;
   }
   
   // 加载状态
@@ -203,7 +204,7 @@ function handleClick(event: MouseEvent) {
 }
 
 // 暗色模式
-:global(html.dark) {
+:global(:where(html.dark)) {
   .card-template {
     &.is-clickable:hover {
       box-shadow: var(--global-box-shadow-lg);
@@ -216,7 +217,7 @@ function handleClick(event: MouseEvent) {
 }
 
 // 响应式
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .card-template {
     --card-padding: 12px;
   }

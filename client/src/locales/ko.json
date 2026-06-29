@@ -1,4 +1,4 @@
-{
+﻿﻿{
   "apiTest": {
     "핵심 장점": "API 테스트",
     "allTestsPassed": "모든",
@@ -153,18 +153,6 @@
     "adminFeedbackManagement": "피드백 관리",
     "adminFaqManagement": "FAQ 관리",
     "dataDashboard": "데이터 대시보드",
-    "adminDict": "사전 관리",
-    "adminDictData": "사전 데이터",
-    "adminDeveloper": "개발자 관리",
-    "adminDeveloperLink": "개발자 연동",
-    "adminDemandSquare": "수요 광장",
-    "adminDemandSquareReview": "수요 심사",
-    "adminLogOperlog": "작업 로그",
-    "adminLogLogininfor": "로그인 로그",
-    "adminJob": "스케줄 작업",
-    "adminJobLog": "작업 로그",
-    "adminOnline": "온라인 사용자",
-    "adminZone": "존 관리",
     "aiAgenticDashboard": "에이전트 대시보드",
     "aiApiTest": "API 테스트",
     "aiAgentManagement": "AI 에이전트 관리",
@@ -236,6 +224,7 @@
     "adminLearnOrderInvoiceTitle": "청구서抬头",
     "adminLearnReport": "학습보고서",
     "adminLearnSignup": "报名관리",
+    "adminLearnHomework": "과제 심사",
     "adminLearnTopic": "특집관리",
     "adminLearnTopicCategory": "특집카테고리",
     "adminLiveCategory": "라이브카테고리",
@@ -586,19 +575,15 @@
       "优先响应": "우선 응답",
       "高级模型访问": "고급 모델 액세스"
     },
-    "third_party_login_universal": {
-      "알리페이": "알리페이",
-      "支付宝": "Alipay"
-    },
     "mobile_bottom_nav": {
-      "AI 앱 스토어": "AI 앱 스토어",
+      "AI 앱 스토어": "에이전트",
       "광장1": "광장",
       "스마트 AI2": "스마트 AI",
       "업데이트3": "업데이트",
       "내4": "내",
       "AI 애플사용 스토어": "AI 애플사용 스토어",
       "스마트AI2": "스마트AI",
-      "AI应用商店": "AI 앱 스토어",
+      "AI应用商店": "에이전트",
       "动态3": "피드",
       "广场1": "광장",
       "我的4": "마이페이지",
@@ -623,15 +608,10 @@
       "글로벌벌일반로그인1": "글로벌벌일반로그인",
       "Apple로그인2": "Apple로그인",
       "생각사용AppleI3": "생각사용Apple ID로그인",
-      "페이슈 로그인4": "페이슈 로그인",
-      "페이슈 계정으로 로그인5": "페이슈 계정으로 로그인",
-      "생각사용페이슈계정로그인5": "생각사용페이슈계정로그인",
       "Apple登录2": "Apple 로그인",
       "Google登录": "Google 로그인",
       "使用AppleI3": "Apple ID로 로그인",
-      "使用飞书账号登录5": "Feishu 계정으로 로그인",
-      "全球通用登录1": "글로벌 공통 로그인",
-      "飞书登录4": "Feishu 로그인"
+      "全球通用登录1": "글로벌 공통 로그인"
     },
     "agents_create": {
       "AI어시스턴트": "AI어시스턴트",
@@ -962,6 +942,7 @@
     "errorTitle": "오류가 발생했습니다",
     "showErrorDetails": "오류 세부정보 표시",
     "reload": "다시 로드",
+    "go홈": "홈으로",
     "unknownError": "알 수 없는 오류",
     "skipToMain": "주의요 콘텐츠로 이동",
     "offlineWarning": "네트워크연결완료연결 끊김，요청확인귀하의네트워크설정",
@@ -1025,12 +1006,6 @@
       "invalidFile": "무효validFile",
       "invalidFileType": "무효validFileType",
       "fileTooLarge": "파일Too대사용량",
-      "approveFailed": "승인 실패",
-      "rejectFailed": "거부 실패",
-      "importRefreshFailed": "가져오기 후 새로 고침 실패",
-      "deleteRefreshFailed": "삭제 후 새로 고침 실패",
-      "pushRefreshFailed": "푸시 후 새로 고침 실패",
-      "dataLoadFailed": "데이터 로드 실패",
       "aiCapabilityInvokeFailed": "AI capability invocation failed",
       "capabilityDiscoveryFailed": "Capability discovery failed",
       "chatFailed": "Chat failed",
@@ -1065,7 +1040,39 @@
       "websocketError": "WebSocket error",
       "websocketParseFailed": "WebSocket message parsing failed",
       "workflowExecutionFailed": "Workflow execution failed",
-      "actionFailed": "작업 실패"
+      "actionFailed": "작업 실패",
+      "updateFailed": "업데이트 실패",
+      "removeFailed": "제거 실패",
+      "submitFailed": "제출 실패",
+      "orderCreateFailed": "주문 생성 실패",
+      "checkInFailed": "체크인 실패, 잠시 후 다시 시도해 주세요",
+      "paymentInitFailed": "결제 시작 실패, 다시 시도해 주세요",
+      "loadScheduleFailed": "일정 로드 실패",
+      "loadBalanceFailed": "잔액 로드 실패",
+      "loadCourseFailed": "코스 로드 실패",
+      "loadAgentFailed": "에이전트 로드 실패",
+      "callFailed": "호출 실패",
+      "simulateFailed": "시뮬레이션 실패",
+      "getVideoUrlFailed": "비디오 URL 가져오기 실패",
+      "giftListLoadFailed": "선물 목록 로드 실패",
+      "commentSendFailed": "댓글 전송 실패",
+      "giftSendFailed": "선물 전송 실패",
+      "incomeLoadFailed": "수익 데이터 로드 실패, 새로고침 후 다시 시도해 주세요",
+      "tokenLoadFailed": "데이터 로드 실패, 새로고침 후 다시 시도해 주세요",
+      "priceLoading": "가격 로딩 중, 잠시 후 다시 시도해 주세요",
+      "priceLoadFailed": "가격 로드 실패, 페이지를 새로고침 해주세요",
+      "approveFailed": "승인 실패",
+      "rejectFailed": "거절 실패",
+      "refreshAfterImportFailed": "가져오기 후 새로고침 실패",
+      "refreshAfterDeleteFailed": "삭제 후 새로고침 실패",
+      "refreshAfterPushFailed": "푸시 후 새로고침 실패",
+      "dashboardEmpty": "대시보드 데이터가 비어 있습니다, 백엔드 API가 연결되지 않았을 수 있습니다",
+      "operationFailedRetry": "작업 실패, 다시 시도해 주세요",
+      "likeFailed": "좋아요 실패",
+      "signUpFailed": "신청 실패",
+      "selectAtLeastOneField": "수정할 필드를 최소 하나 이상 선택해 주세요",
+      "inputRateContent": "평가 내용을 입력해 주세요",
+      "messageSendFailedRetry": "메시지 전송 실패, 다시 시도해 주세요"
     },
     "selected": "선택됨",
     "clear": "지우기",
@@ -1107,12 +1114,18 @@
       "createSuccess": "생성성공",
       "operationSuccess": "작업성공",
       "saving": "저장중간",
-      "loginSuccess": "로그인성공"
+      "loginSuccess": "로그인성공",
+      "saved": "저장됨",
+      "likeSuccess": "좋아요 완료",
+      "signUpSuccess": "신청 완료",
+      "rateSuccess": "평가 완료",
+      "viewLoginLog": "로그인 기록 보기"
     },
     "create": "생성",
     "image": "수익",
     "video": "동영상",
     "audio": "오디오",
+    "action": "작업",
     "actions": "작업",
     "rangeSeparator": "까지",
     "loginFailed": "로그인실패",
@@ -1151,8 +1164,8 @@
     "minutes": "Minutes",
     "minutesAgo": "Minutes Ago",
     "requestFailed": "Request Failed",
-    "saveFailed": "Save Failed",
-    "saveSuccess": "Save Success",
+    "saveFailed": "저장 실패",
+    "saveSuccess": "저장 성공",
     "previewBtn": "미리보기",
     "validate": {
       "required": "{label}은(는) 필수입니다",
@@ -1178,7 +1191,14 @@
     "becomeSupplier": "공급업체가 되기",
     "aiStore": "AI 스토어",
     "moreFeatures": "더 많은 기능",
-    "noMoreItems": "더 이상 항목 없음"
+    "noMoreItems": "더 이상 항목 없음",
+    "serviceSupport": "서비스 지원",
+    "learnCourses": "강의 센터",
+    "learnMap": "학습 지도",
+    "liveClass": "라이브 강의",
+    "myLearning": "내 학습",
+    "openAiPanel": "AI 어시스턴트 열기",
+    "closeAiPanel": "AI 어시스턴트 닫기"
   },
   "voiceInput": {
     "listening": "듣고 있습니다...",
@@ -1242,7 +1262,6 @@
     "marquee": {
       "kouzi": "쿠자 아이콘",
       "bbxLogo": "바이샹 로고",
-      "brand4": "브랜드아이콘",
       "zhipu": "즈푸 청옌",
       "brand8": "브랜드8",
       "ali": "알리바바 클라우드",
@@ -1350,19 +1369,7 @@
       "hot": "인기",
       "news": "뉴스"
     },
-    "miniappBtn": "WeChat 미니프로그램",
-    "wheelSensitivityLabel": "휠 감도",
-    "marqueeSpeedLabel": "스크롤 속도",
-    "clickToResume": "클릭하여 스크롤 재개",
-    "clickToPause": "클릭하여 스크롤 일시정지",
-    "resumeScroll": "재개",
-    "pauseScroll": "일시정지",
-    "sensitivityLow": "낮음",
-    "sensitivityMid": "중간",
-    "sensitivityHigh": "높음",
-    "speedSlow": "느림",
-    "speedMid": "중간",
-    "speedFast": "빠름"
+    "miniappBtn": "WeChat 미니프로그램"
   },
   "auth": {
     "processing": "로그인 요청 처리 중...",
@@ -1459,10 +1466,8 @@
     "registerFailedRetry": "가입실패，요청재시도",
     "accountPasswordLogin": "계정비밀번호로그인",
     "saveHistoryPhoneFailed": "저장기이것은전화번호실패",
-    "alipayLogin": "알리페이로그인",
     "googleLogin": "Google로그인",
     "appleLogin": "Apple로그인",
-    "feishuLogin": "페이슈 로그인",
     "missingAccount": "계정",
     "missingPassword": "비밀번호",
     "missingServiceAgreement": "서비스동의",
@@ -1622,9 +1627,11 @@
   },
   "errorBoundary": {
     "reload": "다시 로드",
+    "go홈": "홈으로",
     "unknownError": "알 수 없는 오류",
     "retry": "재시도",
     "errorDetails": "오류상세",
+    "핵심 장점": "제목",
     "componentError": "컴포넌트오류",
     "goHome": "홈으로",
     "currentPath": "현재 경로"
@@ -2794,6 +2801,7 @@
     }
   },
   "aboutUs": {
+    "sixKPlus": "6만+",
     "핵심 장점": "핵심 장점",
     "sub핵심 장점": "ZhiHui AI의 개발 역생각와 팀에 대해 알아보기",
     "홈으로": "홈으로 돌아가기",
@@ -2873,9 +2881,9 @@
       },
       "aiAppStore": {
         "date": "2025년 1월",
-        "핵심 장점": "세계 최초 AI 앱 스토어",
-        "description": "세계 최초의 AI 앱 스토어 개념을 선제적으로 제안하고 창설하여 AI 앱 생태계 발전을 주의도",
-        "title": "세계 최초 AI 앱 스토어"
+        "핵심 장점": "세계 최초 에이전트 플랫폼",
+        "description": "세계 최초의 에이전트 플랫폼 개념을 선제적으로 제안하고 창설하여 AI 앱 생태계 발전을 주의도",
+        "title": "세계 최초 에이전트 플랫폼"
       },
       "platformLaunched": {
         "date": "2025년 1월",
@@ -3084,23 +3092,17 @@
     },
     "thirdParty": {
       "or": "또는",
-      "alipayLogin": "Alipay 로그인",
       "notice": "서드파티 로그인을 생각사용하면 다음에 동의하는 것으로 간주의됩니다",
       "privacyPolicy": "개인정보 보호정책",
       "termsOfService": "서비스 약관",
       "tooltip": {
         "wechat": "WeChat 로그인",
-        "alipay": "Alipay 로그인",
         "google": "Google 로그인",
-        "apple": "Apple 로그인",
-        "feishu": "Feishu 로그인"
+        "apple": "Apple 로그인"
       },
-      "feishuLogin": "Feishu로그인",
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "이메일Login": "이메일Login",
-      "feishu": "feishu",
       "otherMethods": "otherMethods",
       "전화Login": "전화Login",
       "quickLogin": "quickLogin",
@@ -3112,7 +3114,7 @@
       "phoneLogin": "phoneLogin"
     },
     "brand": {
-      "핵심 장점": "세계 최초 혁신 AI App Store",
+      "핵심 장점": "세계 최초 혁신 에이전트 플랫폼",
       "sub핵심 장점": "모두를 위한 원스톱 AI 통합 앱 플랫폼"
     },
     "social": {
@@ -3626,6 +3628,7 @@
     "title": "큐 생성"
   },
   "enterpriseService": {
+    "enterpriseDesc": "AI 시대 기업 서비스 및 커뮤니티",
     "badge": "기업 서비스",
     "heroTitle": "스마트 AI 커뮤니티",
     "heroSub핵심 장점": "AI 시대 기업 합리적 효율 서비스 및 상호부조 커뮤니티. 의생각결정게가 AI와 기업의 관계를 깊이 이해하고, 인간-기계 협업 슈퍼 조직을 구축하도이것은 지원합니다.",
@@ -3921,6 +3924,8 @@
     "adoptionRate": "기업이 채택"
   },
   "user": {
+    "nickname": "닉네임",
+    "nickname2": "昵称",
     "quickActions": "빠른 작업",
     "purchases": {
       "핵심 장점": "내 구매",
@@ -4283,6 +4288,7 @@
     }
   },
   "openPlatform": {
+    "openPlatformTitle": "즈후이 오픈 플랫폼",
     "핵심 장점": "오픈플랫폼",
     "searchPlaceholder": "검색기능、문서、API...",
     "홈으로": "홈으로",
@@ -4884,7 +4890,6 @@
     "autoRefreshing": "QR 코드가 만료되었습니다，처리 중게동새로고침 ({current}/{max})",
     "manualRefresh": "QR 코드가 만료되었습니다，요청수동새로고침",
     "wechat": "위챗",
-    "alipay": "알리페이",
     "logger": {
       "generateWechatQrCodeFailed": "생성위챗 QR 코드수익실패",
       "generateProviderQrCodeFailed": "생성{provider}이차원코드실패",
@@ -4950,8 +4955,7 @@
     "registerFailed": "가입실패",
     "thirdParty": {
       "or": "또는게",
-      "wechat": "위챗",
-      "alipay": "알리페이"
+      "wechat": "위챗"
     },
     "messages": {
       "전화Invalid": "요청입력유효의전화번호",
@@ -5019,7 +5023,7 @@
     "systemInternal": "시스템내부배포",
     "commands": {
       "home": "홈으로",
-      "store": "AI 앱 스토어",
+      "store": "에이전트",
       "plaza": "요구광장",
       "learnAI": "학습AI",
       "community": "AI혁신동작커뮤니티",
@@ -6322,6 +6326,8 @@
     "settlementTitle": "Settlement Title"
   },
   "vip": {
+    "permanentVip": "/영구 VIP",
+    "oneClickVip": "원클릭 VIP",
     "핵심 장점": "업그레이드VIP회원",
     "sub핵심 장점": "잠금 해제모든AI도구，누리기수사용전담특권서비스，만요청 ¥{amount}",
     "featuresTitle": "VIP전담특권",
@@ -6644,6 +6650,10 @@
     }
   },
   "feedback": {
+    "feedbackRecords": "피드백 기록",
+    "submitFeedback": "피드백 제출",
+    "loading": "로딩...",
+    "submitFailed": "제출 실패, 재시도하세요",
     "핵심 장점": "피드백 보내기",
     "content": {
       "tip": "귀하의피드백통합우리비교적대규모필요，요청상세세부설명석귀하의문제또는제안"
@@ -6665,6 +6675,8 @@
     "title": "의견피드백"
   },
   "statistics": {
+    "zeroHour": "0시간",
+    "zeroHour2": "0小时",
     "selectTimeRange": "선택시간범위",
     "startDate": "시작날짜",
     "endDate": "종료 날짜",
@@ -6888,6 +6900,9 @@
     "subtitle": "관리및조직구성귀하의지식라이브러리，지원문서업로드및스마트검색"
   },
   "agents": {
+    "exploreAgents": "AI 에이전트 탐색",
+    "createCustomAgent": "맞춤 에이전트 생성",
+    "oneClickDeploy": "원클릭 배포",
     "핵심 장점": "에이전트 센마음",
     "sub핵심 장점": "탐색풍부한의AI에이전트，향상귀하의업무 효율",
     "metaTotal": "공감 {count} 개에이전트",
@@ -6982,16 +6997,7 @@
     "statusReviewFailed": "심사 실패",
     "statusOffline": "게시 중단",
     "statusUnknown": "알 수 없음",
-    "seoKeywords": "AI에이전트,스마트 어시스턴트,AI도구",
-    "hotSearch": "인기 검색",
-    "searchHistory": "검색 기록",
-    "clearHistory": "기록 지우기",
-    "recommendTitle": "추천",
-    "voiceSearch": "음성 검색",
-    "voiceInputNotSupported": "이 브라우저는 음성 입력을 지원하지 않습니다",
-    "voiceInputListening": "듣는 중...",
-    "voiceInputError": "음성 인식에 실패했습니다. 다시 시도해 주세요",
-    "retryLoad": "다시 불러오기"
+    "seoKeywords": "AI에이전트,스마트 어시스턴트,AI도구"
   },
   "aiManagement": {
     "핵심 장점": "AI관리",
@@ -8422,6 +8428,8 @@
     }
   },
   "mcpUseProject": {
+    "listDirFiles": "현재 디렉토리의 모든 파일 나열",
+    "listDirFiles2": "列出当前目录的所有文件",
     "핵심 장점": "mcp-use 프로젝트",
     "sub핵심 장점": "풀스택 MCP 프레임워크 - 6줄 코드로 MCP 서비스 자동화",
     "managementInterface": "관리세계면",
@@ -9295,6 +9303,7 @@
   "simpleFallback": {
     "loading": "페이지면불러오기중간...",
     "reload": "다시불러오기",
+    "go홈": "홈으로",
     "defaultMessage": "방법결과페이지면길이시간아직불러오기，요청시도테스트새로고침",
     "goHome": "백엔드로홈"
   },
@@ -9609,9 +9618,6 @@
     },
     "login": {
       "핵심 장점": "로그인",
-      "alipayAuth": {
-        "핵심 장점": "알리페이승인로그인"
-      },
       "wechatAuth": {
         "핵심 장점": "위챗승인로그인"
       }
@@ -10541,6 +10547,11 @@
     "title": "제목"
   },
   "payment": {
+    "alreadyVip": "이미 VIP입니다",
+    "notLogged": "로그인하지 않음",
+    "incompleteProduct": "불완전한 상품 정보",
+    "selectPayMethod": "결제 방법을 선택하세요",
+    "notLoggedOrNoOpenId": "로그인하지 않았거나 openid 없음",
     "channelBusyHint": "현재 선호 결제수단 {method} 채널이 혼잡하여 다른 결제수단으로 전환되었습니다",
     "memberServiceAgreement": "회원 서비스 약관",
     "paySuccess": "결제 성공",
@@ -11011,7 +11022,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AI 앱 스토어",
+        "AI应用商店": "에이전트",
         "服务与支持": "서비스 및 지원",
         "关于我们": "회사 소개"
       }
@@ -11414,8 +11425,7 @@
       "向下滚动": "아래로 스크롤"
     },
     "third_party_login": {
-      "알리페이": "알리페이",
-      "페이슈1": "페이슈"
+      "알리페이": "알리페이"
     },
     "project_selector_banner": {
       "전환플랫폼": "전환플랫폼"
@@ -12456,17 +12466,6 @@
       "获取成功6": "가져오기 성공",
       "调用成功": "호출 성공",
       "调用成功1": "호출 성공"
-    },
-    "unified_alipay": {
-      "있도대화ID필수": "있도대화 ID 필수",
-      "있도대화ID필수1": "있도대화 ID 필수",
-      "승인코드필수2": "승인코드필수",
-      "있도대화ID미쉽위한공간": "있도대화 ID 미가능위한공간",
-      "있도대화ID미쉽위한공간1": "있도대화 ID 미가능위한공간",
-      "승인코드미가능위한공간2": "승인코드미가능위한공간",
-      "会话ID不能为空": "세션 ID는 비워둘 수 없습니다",
-      "会话ID不能为空1": "세션 ID는 비워둘 수 없습니다",
-      "授权码不能为空2": "인증 코드는 비워둘 수 없습니다"
     },
     "unified_auth": {
       "로그인인마음페이스미존재하는요청": "로그인인마음페이스미존재하는，요청확인백엔드서비스설정。오류정보：",
@@ -15339,15 +15338,6 @@
     "selectTrack": "트랙을 선택해 주세요",
     "uploadCover": "표지 이미지를 업로드해 주세요"
   },
-  "userLoginPopup": {
-    "welcomeBack": "돌아오신 것을 환영합니다, 로그인하세요",
-    "enterPhone": "전화번호를 입력하세요",
-    "invalidPhone": "전화번호 형식이 잘못되었습니다",
-    "codeSent": "인증번호 발송됨",
-    "codeSendFailed": "인증번호 발송 실패, 재시도하세요",
-    "loginSuccess": "로그인 성공",
-    "wechatLoginNotConfigured": "WeChat 로그인이 설정되지 않음"
-  },
   "devCSSVariablesCheatsheet": {
     "textColor": "텍스트 색상",
     "bgColor": "배경 색상",
@@ -15399,26 +15389,12 @@
     "appleLoginRetry": "Apple 로그인 실패, 재시도하세요",
     "appleLoginFailed3": "Apple登录失败"
   },
-  "cmpConfirmPurchasePopUp": {
-    "vipPurchase": "VIP 구매",
-    "agreementDeveloping": "계약 페이지 개발 중",
-    "productNotExist": "상품이 존재하지 않음",
-    "paySuccess": "결제 성공",
-    "paySuccess2": "支付成功"
-  },
   "cmpFileDownload": {
     "downloading": "다운로드 중...",
     "invalidDownloadLink": "잘못된 다운로드 링크",
     "downloadFailed": "다운로드 실패",
     "downloadComplete": "다운로드 완료",
     "downloadFailed2": "下载失败"
-  },
-  "Payment": {
-    "alreadyVip": "이미 VIP입니다",
-    "notLogged": "로그인하지 않음",
-    "incompleteProduct": "불완전한 상품 정보",
-    "selectPayMethod": "결제 방법을 선택하세요",
-    "notLoggedOrNoOpenId": "로그인하지 않았거나 openid 없음"
   },
   "cmpindex": {
     "timeExpr": "시간 표현식",
@@ -15433,12 +15409,6 @@
     "second": "Second",
     "week": "Week",
     "year": "Year"
-  },
-  "cmpPdfCompare": {
-    "syncScroll": "동기 스크롤",
-    "syncZoom": "동기 줌",
-    "selectPdfA": "PDF 파일 A 선택",
-    "selectPdfB": "PDF 파일 B 선택"
   },
   "studyIndexModelList": {
     "loading": "로딩...",
@@ -15476,18 +15446,6 @@
     "missing": "누락",
     "attack": "공격"
   },
-  "DistributionCenter": {
-    "copyImage": "이미지 복사",
-    "distributionTitle": "AI즈후이셰 - 유통 센터",
-    "imageCopied": "이미지가 클립보드에 복사됨",
-    "longPressToSave": "길게 눌러 이미지 저장"
-  },
-  "Feedback": {
-    "feedbackRecords": "피드백 기록",
-    "submitFeedback": "피드백 제출",
-    "loading": "로딩...",
-    "submitFailed": "제출 실패, 재시도하세요"
-  },
   "cmpPromptTemplates": {
     "fillAllFields": "모든 필드를 작성하세요",
     "templateAdded": "템플릿 추가됨",
@@ -15508,24 +15466,6 @@
     "codeLoadFailed": "코드 로드 실패",
     "loadFailed": "로드 실패"
   },
-  "viewerMonacoViewer": {
-    "loading": "로딩...",
-    "codeLoadFailed": "코드 로드 실패",
-    "loadFailed": "로드 실패",
-    "codeFile": "코드 파일",
-    "copy": "복사",
-    "copied": "복사됨",
-    "wordWrap": "자동 줄바꿈",
-    "download": "다운로드",
-    "downloadView": "다운로드하여 보기",
-    "lines": "줄",
-    "chars": "문자"
-  },
-  "cmpVipIntroducePopupAlt": {
-    "benefitsCount": "약 <b>20</b> 가지 혜택, 계속 증가",
-    "paySuccess": "결제 성공",
-    "payFailed": "결제 실패 또는 취소"
-  },
   "adminFAQList": {
     "pinned": "고정됨",
     "unpinned": "고정 해제됨",
@@ -15535,20 +15475,6 @@
     "setProcessing": "처리 중으로 설정",
     "resolved": "해결됨",
     "closed": "닫힘"
-  },
-  "AgenticAIPage": {
-    "swarmCreated": "Swarm 생성 성공",
-    "createSwarmFailed": "Swarm 생성 실패",
-    "createSwarmFailed2": "创建Swarm失败"
-  },
-  "Agents": {
-    "exploreAgents": "AI 에이전트 탐색",
-    "createCustomAgent": "맞춤 에이전트 생성",
-    "oneClickDeploy": "원클릭 배포"
-  },
-  "User": {
-    "nickname": "닉네임",
-    "nickname2": "昵称"
   },
   "aiGenImageGenQwen": {
     "qwenRemarkMissing": "Qwen 이미지 모델이 설정되지 않음",
@@ -15597,21 +15523,9 @@
     "enterComment": "댓글 입력",
     "send": "전송"
   },
-  "cmpToolbar": {
-    "imagessvgxxxsvg": "/images/svg/大模型.svg",
-    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "PDF 로딩...",
-    "pdfLoadFailed": "PDF 로드 실패"
-  },
   "viewerImageViewer": {
     "loading": "로딩...",
     "imageLoadFailed": "이미지 로드 실패"
-  },
-  "cmpVipLevelPopup": {
-    "vipLevelMechanism": "VIP 레벨 승급 메커니즘",
-    "yuanToPoint": "1¥=1 포인트"
   },
   "adminOrderList": {
     "completed": "완료",
@@ -15626,18 +15540,6 @@
     "confirmRollback": "롤백 확인",
     "enterRollbackReason": "롤백 사유를 입력하세요",
     "createRelease": "릴리스 생성"
-  },
-  "MCPUseProject": {
-    "listDirFiles": "현재 디렉토리의 모든 파일 나열",
-    "listDirFiles2": "列出当前目录的所有文件"
-  },
-  "Statistics": {
-    "zeroHour": "0시간",
-    "zeroHour2": "0小时"
-  },
-  "Vip": {
-    "permanentVip": "/영구 VIP",
-    "oneClickVip": "원클릭 VIP"
   },
   "cmpAuditLog": {
     "loadLogFailed": "로그 로드 실패"
@@ -15686,24 +15588,6 @@
   },
   "featureGoogleLogin": {
     "googleLoginFailed": "Google 로그인 실패"
-  },
-  "ListTemplate": {
-    "loading": "로딩..."
-  },
-  "AboutUs": {
-    "sixKPlus": "6만+"
-  },
-  "ApiTestPage": {
-    "startAITest": "AI API 테스트 시작"
-  },
-  "DesignSystemDemo": {
-    "designSystemMeta": "디자인 시스템, UI 컴포넌트, Vue 컴포넌트, 프론트엔드 개발"
-  },
-  "EnterpriseService": {
-    "enterpriseDesc": "AI 시대 기업 서비스 및 커뮤니티"
-  },
-  "OpenPlatform": {
-    "openPlatformTitle": "즈후이 오픈 플랫폼"
   },
   "admin": {
     "eventBus": {
@@ -16537,6 +16421,14 @@
     }
   },
   "adminCommon": {
+    "filter": {
+      "searchNews": "뉴스 검색"
+    },
+    "stat": {
+      "tableCount": "총 테이블 수",
+      "recordCount": "총 레코드 수",
+      "dbSize": "데이터베이스 크기"
+    },
     "label": {
       "activityId": "활동 ID",
       "ai": "AI",
@@ -16675,7 +16567,80 @@
       "unfreeze": "동결 해제",
       "updatedAt": "업데이트 시간",
       "userAgent": "사용자 에이전트",
-      "userId": "사용자 ID"
+      "userId": "사용자 ID",
+      "amount": "금액",
+      "appliedAt": "신청 시간",
+      "avatar": "아바타",
+      "bankAccount": "계좌번호",
+      "bankName": "은행",
+      "config": "구성",
+      "model": "모델",
+      "roleName": "역할 이름",
+      "roleCode": "역할 코드",
+      "authorityName": "권한 이름",
+      "authorityCode": "권한 코드",
+      "templateName": "템플릿 이름",
+      "issuer": "발급 기관",
+      "categoryName": "분류 이름",
+      "account": "계정",
+      "role": "역할",
+      "parentId": "상위 ID",
+      "pathName": "경로 이름",
+      "lessonCount": "강의 수",
+      "tagName": "태그명",
+      "tagFullName": "태그 이름",
+      "postName": "직위 이름",
+      "levelName": "등급 이름",
+      "levelRank": "등급",
+      "requiredPoints": "필요 포인트",
+      "groupName": "그룹 이름",
+      "companyName": "기업 이름",
+      "scale": "규모",
+      "topicName": "주제 이름",
+      "code": "코드",
+      "introduction": "소개",
+      "originalPrice": "원가",
+      "member": "멤버",
+      "lesson": "강의",
+      "submitTime": "제출 시간",
+      "signupTime": "신청 시간",
+      "review": "심사",
+      "reviewOpinion": "심사 의견",
+      "pass": "합격",
+      "complete": "완료",
+      "cancel": "취소",
+      "fullName": "성명",
+      "jobTitle": "직함",
+      "departmentName": "부서 이름",
+      "manager": "담당자",
+      "hotKeyword": "인기 검색어",
+      "channelName": "채널 이름",
+      "trigger": "트리거",
+      "pointsCount": "포인트 수",
+      "codePatternMsg": "코드는 영문자, 숫자, 밑줄만 포함할 수 있으며 영문자로 시작해야 합니다",
+      "usernamePatternMsg": "사용자명은 영문자, 숫자, 밑줄만 포함할 수 있습니다",
+      "author": "작성자",
+      "readCount": "조회수",
+      "content": "내용",
+      "paper": "시험지",
+      "score": "점수",
+      "examName": "시험 이름",
+      "durationMinutes": "소요 시간(분)",
+      "circleName": "서클 이름",
+      "post": "게시물",
+      "paperName": "시험지 이름",
+      "totalScore": "총점",
+      "lastLogin": "최근 로그인",
+      "question": "질문",
+      "asker": "질문자",
+      "answerCount": "답변 수",
+      "questionStem": "문제 본문",
+      "questionScore": "배점",
+      "questionTitle": "문제 제목",
+      "difficulty": "난이도",
+      "answer": "정답",
+      "memberCountInRole": "멤버 수",
+      "sensitiveWord": "민감어"
     },
     "placeholder": {
       "allCategories": "전체 분류",
@@ -16755,7 +16720,6 @@
         "memberTag": "회원 태그",
         "memberUnaudited": "심사 대기 회원",
         "messageAnnouncement": "공지 관리",
-        "notification": "알림 센터",
         "newsContent": "뉴스 내용",
         "orgDepartment": "부서 관리",
         "orgUser": "사용자 관리",
@@ -16898,6 +16862,28 @@
     "searchPlaceholder": {
       "list": "목록 검색",
       "sensitive": "민감어 검색"
+    },
+    "sensitive": {
+      "createTitle": "민감어 추가",
+      "word": "단어",
+      "wordPlaceholder": "민감어를 입력하세요",
+      "wordRequired": "민감어를 입력해 주세요",
+      "category": "분류",
+      "categoryPlaceholder": "분류를 입력하세요",
+      "level": "등급",
+      "levelLow": "낮음",
+      "levelMedium": "중간",
+      "levelHigh": "높음",
+      "action": "처리 방식",
+      "actionReplace": "치환",
+      "actionBlock": "차단",
+      "replacement": "치환어",
+      "replacementPlaceholder": "치환어를 입력하세요",
+      "createSuccess": "추가 성공",
+      "createFailed": "추가 실패",
+      "deleteConfirm": "민감어 \"{word}\"를 삭제하시겠습니까?",
+      "deleteSuccess": "삭제 성공",
+      "deleteFailed": "삭제 실패"
     }
   },
   "exam": {
@@ -16936,6 +16922,7 @@
       "orderInvoiceTitle": "인보이스 명의 검색",
       "report": "보고서 검색",
       "signup": "신청 검색",
+      "homework": "과제 검색",
       "topic": "토픽 검색",
       "topicCategory": "토픽 분류 검색"
     }
@@ -16956,6 +16943,19 @@
       "post": "게시물 검색",
       "tag": "태그 검색",
       "unaudited": "심사 대기 검색"
+    },
+    "audit": {
+      "username": "사용자명",
+      "mobile": "휴대전화",
+      "submitTime": "제출 시간",
+      "approve": "승인",
+      "reject": "반려",
+      "approveConfirm": "\"{name}\"의 심사를 승인하시겠습니까?",
+      "approveSuccess": "승인되었습니다",
+      "approveFailed": "작업 실패",
+      "rejectConfirm": "\"{name}\"의 심사를 반려하시겠습니까?",
+      "rejectSuccess": "반려되었습니다",
+      "rejectFailed": "작업 실패"
     }
   },
   "message": {
@@ -17160,6 +17160,23 @@
     "category": "카테고리",
     "selectCategory": "카테고리 선택 (선택 사항)"
   },
+  "askEdit": {
+    "createTitle": "새 질문",
+    "editTitle": "질문 편집",
+    "questionTitle": "질문 제목",
+    "titlePlaceholder": "질문 제목을 입력하세요 (5-100자)",
+    "titleRequired": "질문 제목을 입력해 주세요",
+    "titleLength": "제목은 5-100자 사이여야 합니다",
+    "content": "질문 내용",
+    "contentPlaceholder": "질문 내용을 상세히 작성하세요 (10-2000자)",
+    "contentRequired": "질문 내용을 입력해 주세요",
+    "contentLength": "내용은 10-2000자 사이여야 합니다",
+    "category": "카테고리",
+    "selectCategory": "카테고리 선택 (선택 사항)",
+    "tags": "태그",
+    "tagsPlaceholder": "태그를 입력하고 Enter",
+    "tagMax": "최대 {max}개 태그"
+  },
   "adminClassicHome": {
     "vsYesterday": "전일 대비",
     "quickActions": "빠른 작업",
@@ -17285,11 +17302,6 @@
     "markAllRead": "모두 읽음으로 표시",
     "allTypes": "전체 유형",
     "noNotifications": "알림이 없습니다",
-    "level": {
-      "info": "정보",
-      "warn": "경고",
-      "error": "심각"
-    },
     "typeOrder": "주문",
     "typeWallet": "지갑",
     "typeSystem": "시스템",
@@ -17668,6 +17680,112 @@
     "riskCritical": "심각",
     "refreshed": "보안 감사 데이터가 새로고침되었습니다",
     "simulatedFailures": "10회의 로그인 실패를 시뮬레이션했습니다. 이상 발견을 확인하세요"
+  },
+  "i18nDashboard": {
+    "title": "국제화 개발자 패널",
+    "subtitle": "다국어 관리, 번역 메모리, 기계 번역 및 품질 모니터링",
+    "statLabel": "총 {langs}개 언어",
+    "languageSwitcher": "언어 전환",
+    "metaTitle": "언어 메타데이터",
+    "metaTableAria": "9개 언어 메타데이터",
+    "colCode": "코드",
+    "colLocalName": "로컬 이름",
+    "colEnglishName": "영어 이름",
+    "colDirection": "방향",
+    "colPluralRule": "복수 규칙",
+    "colSeparator": "구분자",
+    "colCurrency": "통화 위치",
+    "prefix": "접두사",
+    "suffix": "접미사",
+    "pluralPreview": "복수 예시 (CLDR)",
+    "pluralHint": "현재 key: {key}",
+    "formatPreview": "포맷 미리보기",
+    "formatNumber": "숫자",
+    "formatCurrency": "통화",
+    "formatDate": "날짜",
+    "formatRelative": "상대 시간",
+    "diffTitle": "차이 비교",
+    "diffLangA": "언어 A",
+    "diffLangB": "언어 B",
+    "diffBtn": "비교",
+    "diffAMissing": "A 누락",
+    "diffBMissing": "B 누락",
+    "diffIdentical": "완전 동일",
+    "syncLog": "동기화 로그",
+    "syncLogListAria": "동기화 로그 목록",
+    "noSyncEvents": "동기화 이벤트 없음",
+    "tmTitle": "번역 메모리 (TM)",
+    "tmSearchPlaceholder": "소스 텍스트 입력, 유사 번역 검색...",
+    "tmSearchAria": "TM 검색",
+    "tmNoMatch": "유사 번역을 찾을 수 없습니다",
+    "tmInputHint": "소스 텍스트를 입력하여 번역 메모리 검색",
+    "mtTitle": "기계 번역 (MT) + 인간 검토",
+    "mtSourcePlaceholder": "중국어 소스 텍스트 입력...",
+    "mtSourceAria": "MT 소스 텍스트",
+    "mtTranslate": "번역",
+    "mtSource": "소스 텍스트",
+    "mtTranslated": "번역문",
+    "mtConfidence": "신뢰도",
+    "mtApprove": "승인",
+    "mtReject": "거부",
+    "mtInputHint": "소스 텍스트를 입력하여 기계 번역",
+    "targetLangAria": "대상 언어",
+    "healthTitle": "건강도 대시보드",
+    "healthScore": "건강도 점수",
+    "healthTotalKeys": "총 key 수",
+    "healthLanguages": "언어 수",
+    "healthCoverage": "커버리지",
+    "healthPendingMt": "대기 중 MT",
+    "healthStaleKeys": "만료 key",
+    "loading": "로딩 중...",
+    "ioTitle": "내보내기 / 가져오기",
+    "export": "내보내기",
+    "allLanguages": "모든 언어",
+    "exportBtn": "내보내기",
+    "exportLangAria": "내보내기 언어",
+    "exportFmtAria": "내보내기 형식",
+    "exportResultAria": "내보내기 결과",
+    "import": "가져오기",
+    "importFmtAria": "가져오기 형식",
+    "conflictStrategyAria": "충돌 전략",
+    "conflictOverwrite": "덮어쓰기",
+    "conflictSkip": "건너뛰기",
+    "importBtn": "가져오기",
+    "importContentPlaceholder": "CSV 또는 XLIFF 내용 붙여넣기...",
+    "importContentAria": "가져오기 내용",
+    "importResult": "가져옴 {imported}개, 건너뜀 {skipped}개",
+    "historyTitle": "버전 기록",
+    "historyKeyPlaceholder": "key 입력, 예: common.items",
+    "historyKeyAria": "기록 key",
+    "historyLangAria": "기록 언어",
+    "historyListAria": "버전 기록 목록",
+    "viewHistory": "기록 보기",
+    "rollback": "롤백",
+    "noHistory": "기록 없음",
+    "batchTitle": "일괄 작업",
+    "batchDeleteStatus": "일괄 삭제 / 상태",
+    "batchKeysPlaceholder": "한 줄에 하나의 key...",
+    "batchKeysAria": "일괄 key 목록",
+    "batchLangAria": "일괄 언어",
+    "batchStatusAria": "대상 상태",
+    "batchDeleteBtn": "일괄 삭제",
+    "batchStatusBtn": "일괄 상태 변경",
+    "batchPush": "일괄 푸시",
+    "batchPushPlaceholder": "common.items\tzh-CN\t항목",
+    "batchPushAria": "일괄 푸시 내용",
+    "batchPushBtn": "푸시",
+    "monitorTitle": "MT Provider + V1 폐지 모니터링",
+    "mtProvider": "MT Provider",
+    "mtProviderListAria": "MT provider 목록",
+    "current": "현재",
+    "available": "사용 가능",
+    "unavailable": "사용 불가",
+    "currentTag": "현재",
+    "v1Monitor": "V1 폐지 모니터링",
+    "v1TotalHits": "총 히트",
+    "v1UniquePaths": "고유 경로",
+    "v1TopPathsAria": "V1 폐지 인기 경로",
+    "noV1Hits": "V1 폐지 트래픽 없음"
   },
   "indexHome": {
     "platformTitle": "지쉐운 플랫폼",
@@ -18531,7 +18649,17 @@
     "joinUs": "참여하기"
   },
   "adminBatchEditDialog": {
-    "selectedTip": "{count}개 데이터가 선택되었습니다. 수정할 필드를 체크하고 새 값을 입력하세요."
+    "selectedTip": "{count}개 데이터가 선택되었습니다. 수정할 필드를 체크하고 새 값을 입력하세요.",
+    "title": "일괄 편집",
+    "updating": "업데이트 중 {current} / {total}건",
+    "failedTip": "실패 {count}건, \"실패 항목 재시도\"를 클릭하여 재업데이트",
+    "cancel": "취소",
+    "retryFailed": "실패 항목 재시도",
+    "save": "일괄 저장"
+  },
+  "adminTableV2": {
+    "searchPlaceholder": "검색",
+    "emptyText": "데이터 없음"
   },
   "adminEditDialog": {
     "saveAndContinue": "저장하고 계속 편집"
@@ -18568,5 +18696,25 @@
       "image": "이미지",
       "video": "비디오"
     }
+  },
+  "agenticAIPage": {
+    "swarmCreated": "Swarm 생성 성공",
+    "createSwarmFailed": "Swarm 생성 실패",
+    "createSwarmFailed2": "创建Swarm失败"
+  },
+  "apiTestPage": {
+    "startAITest": "AI API 테스트 시작"
+  },
+  "designSystemDemo": {
+    "designSystemMeta": "디자인 시스템, UI 컴포넌트, Vue 컴포넌트, 프론트엔드 개발"
+  },
+  "distributionCenter": {
+    "copyImage": "이미지 복사",
+    "distributionTitle": "AI즈후이셰 - 유통 센터",
+    "imageCopied": "이미지가 클립보드에 복사됨",
+    "longPressToSave": "길게 눌러 이미지 저장"
+  },
+  "listTemplate": {
+    "loading": "로딩..."
   }
 }

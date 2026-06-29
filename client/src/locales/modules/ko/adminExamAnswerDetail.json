@@ -1,12 +1,12 @@
 {
   "adminExamAnswerDetail": {
-    "correctAnswer": "correctAnswer",
-    "markComment": "markComment",
-    "markScore": "markScore",
-    "notAnswered": "notAnswered",
-    "notExist": "notExist",
-    "points": "积分",
-    "title": "标题",
-    "userAnswer": "userAnswer"
+    "title": "답안 상세",
+    "minutes": "분",
+    "answerDetail": "답안 상세",
+    "points": "점",
+    "userAnswer": "사용자 답변: ",
+    "notAnswered": "미응답",
+    "correctAnswer": "정답: ",
+    "notExist": "답안이 존재하지 않습니다"
   }
 }

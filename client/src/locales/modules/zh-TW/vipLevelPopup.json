@@ -1,6 +1,16 @@
 {
   "vipLevelPopup": {
-    "goActivate": "goActivate",
-    "level0Desc": "level0Desc"
+    "level0Desc": "0級:智域訪客...",
+    "goActivate": "去開通",
+    "benefitLevel1": "專屬客服一對一服務",
+    "benefitLevel2": "每月100次AI智能問答",
+    "benefitLevel3": "全部課程免費學習",
+    "benefitLevel4": "專屬學習社群權限",
+    "benefitLevel5": "每月500積分贈送",
+    "benefitLevel6": "高級AI工具優先體驗",
+    "benefitLevel7": "專屬活動邀請資格",
+    "benefitLevel8": "學習證書認證",
+    "benefitLevel9": "個性化學習路徑定制",
+    "benefitLevel10": "商城商品專屬折扣"
   }
 }

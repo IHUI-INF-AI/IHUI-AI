@@ -4,6 +4,10 @@
       "index": "アカウントを検索"
     },
     "label": {
+      "account": "アカウント",
+      "role": "ロール",
+      "lastLogin": "最終ログイン",
+      "actions": "操作",
       "loginPassword": "ログインパスワード",
       "twoFactor": "二要素認証",
       "securityEmail": "セキュリティメール",

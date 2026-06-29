@@ -106,9 +106,9 @@ import { Menu, Loading, Star, Collection } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { logger } from '@/utils/logger'
-import { toggleAgentThumbs, toggleAgentCollect, getUserFavorites } from '@/api/agent/agents'
+import { toggleAgentThumbs, toggleAgentCollect, getUserFavorites } from '@/api/agents'
 import { category } from '@/services/api'
-import type { UserInfoData } from '@/api/user/user'
+import type { UserInfoData } from '@/api/user'
 import { useApiError } from '@/composables/useApiError'
 
 interface Agent {
@@ -226,8 +226,8 @@ const handleCollect = async (agent: Agent) => {
 }
 
 const handleAgentClick = (agent: Agent) => {
-   
-  router.push({ path: '/ai-assistant', query: { agentId: agent.botId } } as any)
+
+  router.push({ path: '/ai-assistant', query: { agentId: agent.botId } })
 }
 
 const getData = async () => {
@@ -280,7 +280,8 @@ onMounted(async () => {
 .page-header {
   background: var(--el-bg-color);
   padding: 20px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .page-title {
   margin: 0;
@@ -317,7 +318,7 @@ onMounted(async () => {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
 }
 
 .drawer-toggle:hover {
@@ -334,7 +335,7 @@ onMounted(async () => {
 .drawer-item {
   padding: 12px 16px;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
+  transition: all 0.3s;
   border-bottom: var(--unified-border-bottom);
 }
 
@@ -382,11 +383,13 @@ onMounted(async () => {
   padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .agent-card:hover {
-  transform: none;
-  }
+  transform: translateY(-4px);
+  box-shadow: var(--global-box-shadow);
+}
 
 .agent-avatar {
   width: 64px;

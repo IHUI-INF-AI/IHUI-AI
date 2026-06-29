@@ -1,104 +1,108 @@
 {
   "imageGen": {
-    "doubao": {
-      "buttons": {
-        "generate": "generate"
-      },
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
-      },
-      "messages": {
-        "promptRequired": "promptRequired"
-      },
-      "tag": "标签",
-      "title": "标题"
-    },
-    "edit": {
-      "alertDesc": "alertDesc",
-      "alertTitle": "alertTitle",
-      "buttons": {
-        "edit": "编辑",
-        "reset": "重置"
-      },
-      "form": {
-        "image": "图片",
-        "selectImage": "selectImage",
-        "text": "文本",
-        "textPlaceholder": "textPlaceholder"
-      },
-      "messages": {
-        "editSuccess": "editSuccess",
-        "imageRequired": "imageRequired",
-        "textRequired": "textRequired",
-        "uploadFailed": "uploadFailed",
-        "uploadFirst": "uploadFirst"
-      },
-      "result": "result",
-      "tag": "标签",
-      "title": "标题"
-    },
-    "i2i": {
-      "buttons": {
-        "generate": "generate",
-        "reset": "重置"
-      },
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder",
-        "referenceImage": "referenceImage",
-        "selectImage": "selectImage",
-        "uploadTip": "uploadTip"
-      },
-      "messages": {
-        "imageRequired": "imageRequired",
-        "uploadFailed": "uploadFailed",
-        "uploadFirst": "uploadFirst"
-      },
-      "result": "result",
-      "tag": "标签",
-      "title": "标题"
-    },
-    "jimeng": {
-      "buttons": {
-        "generate": "generate"
-      },
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
-      },
-      "messages": {
-        "generating": "generating",
-        "promptRequired": "promptRequired"
-      },
-      "tag": "标签",
-      "title": "标题"
-    },
     "qwen": {
-      "buttons": {
-        "copyUrl": "copyUrl",
-        "download": "下载",
-        "generate": "generate",
-        "reset": "重置"
-      },
+      "title": "通義千問 - 文生圖",
+      "tag": "DashScope",
       "form": {
         "model": "模型",
-        "modelPlaceholder": "modelPlaceholder",
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
+        "modelPlaceholder": "選擇模型",
+        "prompt": "提示詞",
+        "promptPlaceholder": "描述您想要生成的圖像..."
+      },
+      "buttons": {
+        "generate": "生成圖像",
+        "reset": "重置",
+        "download": "下載",
+        "copyUrl": "複製連結"
+      },
+      "result": "生成結果",
+      "messages": {
+        "modelRequired": "請選擇模型",
+        "promptRequired": "請輸入提示詞",
+        "generateSuccess": "圖像生成成功！",
+        "copySuccess": "連結已複製",
+        "generating": "正在生成圖像...",
+        "modelRemarkMissing": "模型未配置接口",
+        "wsNotSupported": "暫不支持WebSocket生成",
+        "generateFailed": "生成失敗"
+      }
+    },
+    "doubao": {
+      "title": "豆包圖像生成",
+      "tag": "字節跳動",
+      "form": {
+        "prompt": "提示詞",
+        "promptPlaceholder": "描述您想要生成的圖像..."
+      },
+      "buttons": {
+        "generate": "生成"
       },
       "messages": {
-        "copySuccess": "copySuccess",
-        "generateSuccess": "generateSuccess",
-        "generating": "generating",
-        "modelRemarkMissing": "modelRemarkMissing",
-        "modelRequired": "modelRequired",
-        "promptRequired": "promptRequired",
-        "wsNotSupported": "wsNotSupported"
+        "promptRequired": "請輸入提示詞",
+        "generateFailed": "生成失敗"
+      }
+    },
+    "i2i": {
+      "title": "通義萬相 - 圖生圖",
+      "tag": "DashScope",
+      "form": {
+        "referenceImage": "參考圖片",
+        "selectImage": "選擇圖片",
+        "uploadTip": "支援JPG、PNG等格式，最大10MB",
+        "prompt": "提示詞",
+        "promptPlaceholder": "描述您想要的圖像風格和內容..."
       },
-      "result": "result",
-      "tag": "标签",
-      "title": "标题"
+      "buttons": {
+        "generate": "生成圖像",
+        "reset": "重置"
+      },
+      "result": "生成結果",
+      "messages": {
+        "imageRequired": "請上傳參考圖片",
+        "uploadFailed": "圖片上傳失敗",
+        "uploadFirst": "請先上傳參考圖片"
+      }
+    },
+    "jimeng": {
+      "title": "即夢圖像生成",
+      "tag": "即夢AI",
+      "form": {
+        "prompt": "提示詞",
+        "promptPlaceholder": "描述您想要生成的圖像..."
+      },
+      "buttons": {
+        "generate": "生成"
+      },
+      "messages": {
+        "promptRequired": "請輸入提示詞",
+        "generating": "正在生成圖像...",
+        "generateFailed": "生成失敗"
+      }
+    },
+    "edit": {
+      "title": "通義千問 - 圖像編輯",
+      "tag": "DashScope",
+      "alertTitle": "圖像編輯功能",
+      "alertDesc": "上傳圖片並輸入編輯指令，AI將根據您的指令編輯圖片",
+      "form": {
+        "image": "原始圖片",
+        "selectImage": "選擇圖片",
+        "text": "編輯指令",
+        "textPlaceholder": "描述您想要的編輯效果，例如：把背景換成海灘..."
+      },
+      "buttons": {
+        "edit": "開始編輯",
+        "reset": "重置"
+      },
+      "result": "編輯結果",
+      "messages": {
+        "imageRequired": "請上傳圖片",
+        "textRequired": "請輸入編輯指令",
+        "uploadFailed": "圖片上傳失敗",
+        "uploadFirst": "請先上傳圖片",
+        "editSuccess": "圖像編輯成功！",
+        "editFailed": "編輯失敗"
+      }
     }
   }
 }

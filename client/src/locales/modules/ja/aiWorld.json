@@ -1,11 +1,17 @@
 {
   "aiWorld": {
+    "subtitle": "AI創作、エージェント、ナレッジベース、オープンプラットフォームを探求",
     "empty": "コンテンツはまだありません。お楽しみに",
+    "loadMore": "もっと読み込む",
     "loading": "読み込み中...",
     "back": "戻る",
     "goToOfficial": "公式サイトを訪問",
+    "tagLabel": "タグ",
     "detailEmpty": "詳細コンテンツはありません",
+    "visit": "訪問",
     "viewMore": "もっと見る >>",
+    "latestSection": "最新",
+    "navAll": "すべて",
     "heroCarousel": "カルーセル",
     "heroOverlayTitle": "AIの世界を探求",
     "heroOverlaySubtitle": "エージェント · ナレッジベース · オープン機能、ワンストップイノベーションエコシステム",
@@ -14,6 +20,8 @@
       "badge": "AIGCからAGIへ、スマート時代のリーダー",
       "heroTitle": "ワンストップAIイノベーションエコシステムハブ統合プラットフォーム",
       "heroDesc": "AIエンパワーメント、トラフィック倍増、全域再構築、夜明けの時代！エージェント開発、スーパー個体インキュベーション、企業変革エンパワーメント、情報学習を統合したAI全領域イノベーションプラットフォーム",
+      "joinUs": "新規登録",
+      "learnSolution": "ソリューションを詳しく見る",
       "heroStats": "世界中のAI分野の専門人材を集結",
       "overviewTag": "PLATFORM OVERVIEW",
       "overviewTitle": "AIスマートコミュニティ プラットフォーム概要",
@@ -50,6 +58,18 @@
       "valueTag": "CORE VALUE",
       "valueTitle": "プラットフォーム核心価値と競争優位性",
       "valueDesc": "4大核心価値に基づき、AI領域の核心競争力を構築し、個人と企業に持続可能なAI発展エンパワーを提供",
+      "contactTitle": "スマートコミュニティと手を携え、AI新時代を共創",
+      "contactDesc": "フォームに記入し、専用AIソリューションを取得してください。1営業日以内にご連絡します",
+      "contactNameLabel": "企業/個人名称",
+      "contactNamePlaceholder": "名称を入力してください",
+      "contactPhonePlaceholder": "電話番号を入力してください",
+      "contactIndustry": "所属業界",
+      "contactIndustryPlaceholder": "業界を選択してください",
+      "contactDemand": "要件記述",
+      "contactDemandPlaceholder": "AI要件を簡潔に記述してください。企業変革、エージェント開発、人材育成など",
+      "contactSubmit": "申請を提出",
+      "contactRequired": "必須項目を記入してください！",
+      "contactSuccess": "提出成功、できるだけ早くご連絡します！",
       "fn1Title": "万人AIコミュニティ構築",
       "fn1Desc": "精密募集+精細化運営、興味スキルサブコミュニティを分割し、高品質AI交流コミュニティを構築。",
       "fn2Title": "AI交流学習プラットフォーム",
@@ -124,8 +144,8 @@
       "val3Desc": "業界ニーズとペインポイントを深度挖掘し、カスタムAIソリューションを提供し、企業の生産効率向上、コスト削減を支援し、産業チェーン協同発展を推進。",
       "val4Title": "リソース共有と協同発展",
       "val4Desc": "学習、技術、プロジェクト、資金など多類リソースを統合し、最適配置を実現し、メンバー間で協同合作して技術難題を攻克し、AI普及を加速。",
-      "tenThousandPlus": "tenThousandPlus"
+      "tenThousandPlus": "万+"
     },
-    "title": "标题"
+    "title": "AIワールド"
   }
 }

@@ -15,19 +15,15 @@
       </el-carousel-item>
     </el-carousel>
     <div v-else class="banner-empty">
-      <el-empty :description="t('common.noData')" />
+      <el-empty description="暂无轮播" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-
-const { t } = useI18n()
-
 withDefaults(
   defineProps<{
-    carousel?: any[]
+    carousel?: Record<string, unknown>[]
     loading?: boolean
   }>(),
   { carousel: () => [], loading: false }

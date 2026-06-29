@@ -81,7 +81,7 @@ interface ShareLink {
   currentDownloads: number
 }
 
-function onUploadSuccess(_files: any[]): void {
+function onUploadSuccess(_files: unknown[]): void {
   ElMessage.success(t('documentCenter.uploadSuccess') || '上传成功')
 }
 

@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../admin/admin-orders'
+import * as api from '../admin-orders'
 
 describe('admin-orders', () => {
   beforeEach(() => {

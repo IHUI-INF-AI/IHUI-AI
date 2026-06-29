@@ -26,7 +26,7 @@ import ChatContent from '@/components/chat/components/Content.vue';
 import ChatInput from '@/components/chat/components/Input1.vue';
 
 // 对话列表数据
-const conversationList = ref<Array<{ id: string; title: string; messages: any[]; createTime: string }>>([])
+const conversationList = ref<Array<{ id: string; title: string; messages: unknown[]; createTime: string }>>([])
 </script>
 
 <style scoped>

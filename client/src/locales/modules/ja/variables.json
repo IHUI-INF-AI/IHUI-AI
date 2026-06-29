@@ -1,48 +1,49 @@
 {
   "variables": {
+    "title": "変数管理",
+    "subtitle": "管理机器人的変数設定",
+    "createVariable": "新しい規变量",
+    "selectBot": "選択机器人",
+    "selectBotPlaceholder": "選択机器人",
+    "pleaseSelectBot": "ご先選択机器人",
+    "noVariables": "なし变量",
+    "createFirstVariable": "作成最初件変数",
+    "testBot1": "テスト机器人1",
+    "testBot2": "テスト机器人2",
+    "testBot3": "テスト机器人3",
+    "table": {
+      "name": "変数名",
+      "type": "タイプ",
+      "value": "値",
+      "description": "説明",
+      "actions": "操作"
+    },
+    "dialog": {
+      "editTitle": "編集変数",
+      "createTitle": "新しい規变量",
+      "name": "変数名",
+      "value": "変数値",
+      "description": "説明"
+    },
     "buttons": {
-      "cancel": "取消",
-      "delete": "删除",
-      "edit": "编辑",
+      "edit": "編集",
+      "delete": "削除",
+      "cancel": "キャンセル",
       "save": "保存"
     },
-    "createFirstVariable": "createFirstVariable",
-    "createVariable": "createVariable",
-    "dialog": {
-      "createTitle": "createTitle",
-      "description": "描述",
-      "editTitle": "editTitle",
-      "name": "名称",
-      "value": "值"
+    "validation": {
+      "nameRequired": "ご入力变量名",
+      "valueRequired": "ご入力变量値"
     },
     "messages": {
-      "deleteConfirm": "确认删除?",
-      "deleteConfirmTitle": "deleteConfirmTitle",
-      "deleteFailed": "deleteFailed",
-      "deleteSuccess": "deleteSuccess",
-      "loadBotsFailed": "loadBotsFailed",
-      "saveFailed": "saveFailed",
-      "saveSuccess": "saveSuccess"
-    },
-    "noVariables": "noVariables",
-    "pleaseSelectBot": "pleaseSelectBot",
-    "selectBot": "selectBot",
-    "selectBotPlaceholder": "selectBotPlaceholder",
-    "subtitle": "副标题",
-    "table": {
-      "actions": "actions",
-      "description": "描述",
-      "name": "名称",
-      "type": "类型",
-      "value": "值"
-    },
-    "testBot1": "testBot1",
-    "testBot2": "testBot2",
-    "testBot3": "testBot3",
-    "title": "标题",
-    "validation": {
-      "nameRequired": "nameRequired",
-      "valueRequired": "valueRequired"
+      "deleteConfirm": "確定要削除これ件変数吗？",
+      "deleteConfirmTitle": "削除の確認",
+      "deleteSuccess": "削除成功",
+      "deleteFailed": "削除失敗",
+      "saveSuccess": "保存成功",
+      "saveFailed": "保存に失敗",
+      "loadBotsFailed": "読み込み机器人リスト失敗",
+      "loadFailed": "読み込み变量失敗"
     }
   }
 }

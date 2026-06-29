@@ -1,0 +1,35 @@
+{
+  "adminTicketManagement": {
+    "export": "導出工單",
+    "search": {
+      "status": "狀態",
+      "statusPlaceholder": "請選擇狀態"
+    },
+    "table": {
+      "status": "狀態",
+      "approve": "通過",
+      "reject": "拒絕"
+    },
+    "status": {
+      "pending": "待處理",
+      "processing": "處理中",
+      "resolved": "已解決",
+      "closed": "已關閉"
+    },
+    "category": {},
+    "priority": {},
+    "detail": {
+      "status": "狀態"
+    },
+    "audit": {
+      "approveTitle": "審核通過",
+      "rejectTitle": "審核拒絕"
+    },
+    "assign": {},
+    "messages": {
+      "approveSuccess": "工單審核通過",
+      "rejectSuccess": "工單已拒絕",
+      "exportInDevelopment": "導出功能開發中"
+    }
+  }
+}

@@ -32,10 +32,10 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
 
-const circleList = ref<any[]>([])
-const postList = ref<any[]>([])
+const circleList = ref<unknown[]>([])
+const postList = ref<unknown[]>([])
 const loading = ref(false)
 
 async function load() {
@@ -45,8 +45,8 @@ async function load() {
       memberApi.myCircleList(),
       memberApi.myCirclePost(),
     ])
-    circleList.value = (c as any).data?.items || (c as any).data?.list || []
-    postList.value = (p as any).data?.items || (p as any).data?.list || []
+    circleList.value = c.data?.data?.items || c.data?.data?.list || []
+    postList.value = p.data?.data?.items || p.data?.data?.list || []
   } catch (e) { console.error(e) } finally {
     loading.value = false
   }

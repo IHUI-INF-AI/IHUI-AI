@@ -46,7 +46,7 @@ class MockWebSocket {
     this.onerror?.(error)
   }
 
-  simulateMessage(data: any) {
+  simulateMessage(data: unknown) {
     this.onmessage?.({ data: JSON.stringify(data) })
   }
 }
@@ -354,10 +354,10 @@ describe('websocket', () => {
         }
         // 模拟浏览器环境：把 WebSocket 静态属性加到 FailingWS 上，
         // 避免源文件里 WebSocket.OPEN 等引用拿到 undefined
-        ;(FailingWS as any).CONNECTING = 0
-        ;(FailingWS as any).OPEN = 1
-        ;(FailingWS as any).CLOSING = 2
-        ;(FailingWS as any).CLOSED = 3
+        ;(FailingWS as unknown as Record<string, unknown>).CONNECTING = 0
+        ;(FailingWS as unknown as Record<string, unknown>).OPEN = 1
+        ;(FailingWS as unknown as Record<string, unknown>).CLOSING = 2
+        ;(FailingWS as unknown as Record<string, unknown>).CLOSED = 3
         const original = global.WebSocket
         global.WebSocket = FailingWS as unknown as typeof WebSocket
 

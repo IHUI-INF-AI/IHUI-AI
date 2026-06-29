@@ -72,6 +72,7 @@
     "shareSources": "공유 출처",
     "wechatConfigFailed": "WeChat 공유 설정에 실패했습니다. QR 코드로 공유해 주의세요",
     "title": "공유",
-    "backToHome": "백엔드로홈"
+    "backToHome": "백엔드로홈",
+    "contentDetails": "콘텐츠 세부 정보"
   }
 }

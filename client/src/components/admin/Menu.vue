@@ -8,51 +8,27 @@
         :to="m.path"
         class="menu-item"
         :class="{ active: $route.path === m.path || $route.path.startsWith(m.path + '/') }"
-        @click="onMenuClick(m)"
       >
         <el-icon v-if="m.icon" :size="16"><component :is="m.icon" /></el-icon>
         <span>{{ m.title }}</span>
-        <!-- 站内信未读红点 (P1 封版 + 增强) -->
-        <span
-          v-if="m.badgeKey === 'notify' && unreadCount > 0"
-          class="menu-badge"
-          :class="{
-            // > 100 降级为纯红点 (无数字), 避免菜单拥挤
-            'menu-badge-dot': unreadCount > 100,
-            'menu-badge-num': unreadCount <= 100,
-          }"
-          :title="`${unreadCount} 条未读`"
-        >{{ unreadCount > 999 ? '999+' : unreadCount > 100 ? '' : unreadCount }}</span>
       </router-link>
     </div>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   User, Reading, EditPen, VideoCamera, ChatDotRound, Connection, Document,
   Collection, ShoppingCart, Trophy, Medal, Histogram, Lock, Setting, Search,
   OfficeBuilding, Promotion, ChatLineSquare, Bell, Picture, Key, Monitor,
-  DataAnalysis,
 } from '@element-plus/icons-vue'
-import { useNotifyBadge } from '@/composables/useNotifyBadge'
 
-interface MenuItem { path: string; title: string; icon?: unknown; badgeKey?: 'notify' }
+interface MenuItem { path: string; title: string; icon?: Component }
 interface MenuGroup { key: string; title: string; children: MenuItem[] }
 
 const { t } = useI18n()
-
-// 站内信红点 (P1 封版: 每 30s 轮询一次)
-const { unreadCount, refresh } = useNotifyBadge()
-
-/** 菜单点击钩子: 点击通知中心菜单时立即拉取一次 (不必等 30s 轮询). */
-function onMenuClick(m: MenuItem) {
-  if (m.badgeKey === 'notify') {
-    void refresh()
-  }
-}
 
 const groups = computed<MenuGroup[]>(() => [
   {
@@ -90,7 +66,7 @@ const groups = computed<MenuGroup[]>(() => [
   {
     key: 'exam', title: t('adminCommon.menu.group.exam'), children: [
       { path: '/admin/exam/list', title: t('adminCommon.menu.item.examList'), icon: EditPen },
-      { path: '/admin/exam/paper-category', title: t('adminCommon.menu.item.examCategory'), icon: Connection },
+      { path: '/admin/exam/category', title: t('adminCommon.menu.item.examCategory'), icon: Connection },
       { path: '/admin/exam/paper', title: t('adminCommon.menu.item.examPaper'), icon: Document },
       { path: '/admin/exam/question', title: t('adminCommon.menu.item.examQuestion'), icon: Collection },
       { path: '/admin/exam/answer', title: t('adminCommon.menu.item.examAnswer'), icon: EditPen },
@@ -133,7 +109,6 @@ const groups = computed<MenuGroup[]>(() => [
   },
   {
     key: 'message', title: t('adminCommon.menu.group.message'), children: [
-      { path: '/admin/notification', title: t('adminCommon.menu.item.notification'), icon: Bell, badgeKey: 'notify' },
       { path: '/admin/message/announcement', title: t('adminCommon.menu.item.messageAnnouncement'), icon: Bell },
     ],
   },
@@ -151,7 +126,6 @@ const groups = computed<MenuGroup[]>(() => [
       { path: '/admin/search/hot', title: t('adminCommon.menu.item.searchHot'), icon: Search },
       { path: '/admin/aiworld/site', title: t('adminCommon.menu.item.aiworldSite'), icon: Connection },
       { path: '/admin/backend-health', title: t('adminCommon.menu.item.backendHealth'), icon: Monitor },
-      { path: '/admin/migration', title: t('adminCommon.menu.item.migration'), icon: DataAnalysis },
     ],
   },
 ])
@@ -174,31 +148,9 @@ const groups = computed<MenuGroup[]>(() => [
     color: var(--color-white-70);
     text-decoration: none; font-size: 13px;
     border-radius: var(--global-border-radius);
-    transition: color 0.2s, background-color 0.2s;
-    &:hover { color: var(--color-on-primary); background: var(--color-white-8); }
-    &.active { color: var(--color-on-primary); background: var(--el-color-primary); }
-  }
-
-  /* 站内信未读红点 (P1 封版) -- 扁平化, 纯背景色 + 边框 */
-  .menu-badge {
-    margin-left: auto;
-    min-width: 18px; height: 18px;
-    padding: 0 5px;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 9px;
-    font-size: 12px; font-weight: 600;
-    line-height: 1;
-    background: var(--el-color-danger);
-    /* 暗色模式可读性 (2026-06-24 封版): 始终白字, 避免 el-bg-color 暗色模式变深字 */
-    color: var(--el-color-white);
-    border: 1px solid var(--el-color-danger);
-  }
-  .menu-badge-dot {
-    min-width: 8px; width: 8px; height: 8px;
-    padding: 0; border-radius: 50%;
-  }
-  .menu-badge-num {
-    /* 数字徽章, 维持长方形药丸 */
+    transition: all 0.2s;
+    &:hover { color: var(--el-bg-color); background: var(--color-white-8); }
+    &.active { color: var(--el-bg-color); background: var(--el-color-primary); }
   }
 }
 </style>

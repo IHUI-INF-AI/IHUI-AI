@@ -1,10 +1,10 @@
 {
   "codeViewer": {
-    "codeFile": "codeFile",
-    "copied": "copied",
-    "copy": "复制",
-    "download": "下载",
-    "downloadView": "downloadView",
-    "wrap": "wrap"
+    "codeFile": "코드 파일",
+    "copy": "복사",
+    "copied": "복사됨",
+    "wrap": "줄바꿈",
+    "download": "다운로드",
+    "downloadView": "다운로드하여 보기"
   }
 }

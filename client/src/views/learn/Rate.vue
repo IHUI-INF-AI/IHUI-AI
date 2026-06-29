@@ -12,7 +12,7 @@
     </div>
 
     <div class="rate-list">
-      <el-empty v-if="!list.length" :description="t('common.noData')" />
+      <el-empty v-if="!list.length" description="暂无评价" />
       <div v-for="c in list" :key="c.id" class="rate-item">
         <div class="rate-head">
           <span class="rate-user">{{ c.userName }}</span>
@@ -23,12 +23,12 @@
       </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="t('learnRate.writeReview')" width="500px">
+    <el-dialog v-model="dialogVisible" title="写评价" width="500px">
       <el-form>
-        <el-form-item :label="t('learnRate.rating')">
+        <el-form-item label="评分">
           <el-rate v-model="form.rating" />
         </el-form-item>
-        <el-form-item :label="t('learnRate.content')">
+        <el-form-item label="内容">
           <el-input v-model="form.content" type="textarea" :rows="4" />
         </el-form-item>
       </el-form>
@@ -45,11 +45,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ElMessage } from 'element-plus'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const props = defineProps<{ lessonId: string }>()
 
-const list = ref<any[]>([])
+const list = ref<Record<string, unknown>[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
@@ -58,15 +58,16 @@ const form = ref({ rating: 5, content: '' })
 const total = computed(() => list.value.length)
 const avgRating = computed(() => {
   if (!list.value.length) return 0
-  const sum = list.value.reduce((s, c) => s + (c.rating || 0), 0)
+  const sum = list.value.reduce((s: number, c) => s + (Number(c.rating) || 0), 0)
   return sum / list.value.length
 })
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.commentList(props.lessonId)
-    list.value = res.data?.items || res.data?.list || []
+    const res = await learnApi.commentList(props.lessonId)
+    const rData = res.data?.data
+    list.value = (rData?.items || rData?.list || []) as unknown as Record<string, unknown>[]
   } finally {
     loading.value = false
   }
@@ -74,7 +75,7 @@ async function load() {
 
 async function handleSubmit() {
   if (!form.value.content.trim()) {
-    ElMessage.warning(t('common.messages.rateWarning'))
+    ElMessage.warning(t('common.errors.inputRateContent'))
     return
   }
   submitting.value = true

@@ -1,8 +1,8 @@
 {
   "studyComment": {
-    "enterComment": "enterComment",
-    "enterReply": "enterReply",
-    "hotComments": "hotComments",
-    "send": "发送"
+    "hotComments": "Hot Comments",
+    "enterReply": "Please enter reply...",
+    "enterComment": "Enter comment",
+    "send": "Send"
   }
 }

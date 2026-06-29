@@ -398,7 +398,7 @@ describe('themeBackupManager', () => {
         timestamp: Date.now(),
         name: '完整恢复',
         data: {
-          themeMode: 'dark' as any,
+          themeMode: 'dark' as unknown as string,
           presets: [{ id: 'p1', name: '恢复预设' }],
           schedules: [{ id: 's1' }],
           shortcuts: { key: 'ctrl+k' },

@@ -131,8 +131,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Server, Star, Eye } from '@/lib/lucide-fallback'
-import type { Agent, AgentPlatform } from '@/api/agent/agents'
-import { getAgentDisplayName, getAgentDisplayDescription } from '@/api/agent/agents'
+import type { Agent, AgentPlatform } from '@/api/agents'
+import { getAgentDisplayName, getAgentDisplayDescription } from '@/api/agents'
 import { formatNumber } from '@/utils/format'
 
 interface Props {
@@ -237,7 +237,7 @@ const hasPlatformCapabilities = computed(() => {
 <style scoped lang="scss">
 .agent-card {
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: var(--global-border-radius);
   background: var(--el-fill-color-light);
   border: none;
@@ -344,7 +344,7 @@ const hasPlatformCapabilities = computed(() => {
 
     .favorite-btn {
       flex-shrink: 0;
-      transition: transform 0.2s ease;
+      transition: all 0.2s ease;
 
       &:hover {
         transform: scale(1.1);
@@ -480,13 +480,15 @@ const hasPlatformCapabilities = computed(() => {
 .login-content.login-page.dark-mode .agent-card {
   background: var(--el-fill-color);
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   transition: border-color 0.2s ease;
 
   &:hover,
   &:focus {
     background: var(--el-fill-color-light);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   &:focus-visible {
     outline: var(--el-border-width-primary) solid var(--el-color-primary);

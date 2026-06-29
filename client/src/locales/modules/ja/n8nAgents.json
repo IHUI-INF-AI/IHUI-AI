@@ -1,8 +1,9 @@
 {
   "n8nAgents": {
-    "createN8NAgent": "createN8NAgent",
-    "noAgents": "noAgents",
-    "subtitle": "副标题",
-    "title": "标题"
+    "title": "N8Nエージェント",
+    "subtitle": "作成和管理基于N8N的エージェント",
+    "createN8NAgent": "作成N8Nエージェント",
+    "noAgents": "なしN8Nエージェント",
+    "loadFailed": "読み込みN8Nエージェントリスト失敗，请稍後再試行"
   }
 }

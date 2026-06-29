@@ -1,13 +1,10 @@
 {
   "viewerOfficeViewer": {
-    "docLoadFailed": "docLoadFailed",
-    "download": "下载",
-    "largeDocHint": "largeDocHint",
-    "loadingDoc": "loadingDoc",
-    "officeDoc": "officeDoc",
-    "openInOfficeOnline": "openInOfficeOnline",
-    "reset": "重置",
-    "tryDownload": "tryDownload",
-    "zoomOut": "zoomOut"
+    "loadingDoc": "Loading document...",
+    "largeDocHint": "Large documents may take a while",
+    "docLoadFailed": "Document load failed",
+    "tryDownload": "Please try downloading and opening with local software",
+    "officeDoc": "Office Document",
+    "title_Office_xx": "title || 'Office 文档'"
   }
 }

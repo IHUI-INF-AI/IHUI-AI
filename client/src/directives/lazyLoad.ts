@@ -43,7 +43,7 @@ function createObserver(options: LazyLoadOptions): IntersectionObserver {
   )
 }
 
-function getOptions(value: any): LazyLoadOptions {
+function getOptions(value: unknown): LazyLoadOptions {
   if (typeof value === 'string') {
     return { ...defaultOptions, placeholder: value }
   }

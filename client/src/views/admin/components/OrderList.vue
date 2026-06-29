@@ -1,4 +1,4 @@
-<template>
+﻿﻿<template>
   <AdminListPage
     :title="t('adminComponents.order.title')"
     :description="t('adminComponents.order.desc')"
@@ -61,7 +61,7 @@ import {
   completeAdminOrder,
   cancelAdminOrder,
   type AdminOrder,
-} from '@/api/admin/admin-orders'
+} from '@/api/admin-orders'
 
 const { t } = useI18n()
 
@@ -126,7 +126,7 @@ const handleSizeChange = (size: number) => {
   fetchOrders()
 }
 
-const handleSelectionChange = (_rows: any[]) => {
+const handleSelectionChange = (_rows: unknown[]) => {
   // 选择变更
 }
 

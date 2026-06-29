@@ -1,30 +1,31 @@
 {
   "apiTestPage": {
+    "startAITest": "开始AI接口测试",
+    "testName": {
+      "unifiedChatImport": "统一聊天服务导入",
+      "fastapiImport": "FastAPI服务导入",
+      "agentImport": "Agent服务导入",
+      "mcpImport": "MCP服务导入",
+      "ihuiStreamImport": "ihui API 流式服务导入",
+      "llmChatImport": "LLM聊天服务导入",
+      "unifiedGenImport": "统一生成服务导入",
+      "aiGenImport": "AI生成服务导入",
+      "aiModelImport": "AI模型服务导入",
+      "aiGenAdapterImport": "AI生成适配器导入",
+      "aiChatTypeImport": "AI聊天类型定义",
+      "serviceUnifiedExport": "服务层统一导出"
+    },
     "category": {
       "chat": "对话",
-      "export": "导出",
       "generation": "生成",
-      "type": "类型"
+      "type": "类型",
+      "export": "导出"
     },
-    "duration": "时长",
-    "logFail": "日志 不通过",
-    "logPass": "日志 通过",
-    "testName": {
-      "agentImport": "智能体 导入",
-      "aiChatTypeImport": "AI 对话 类型 导入",
-      "aiGenAdapterImport": "AI gen adapter 导入",
-      "aiGenImport": "AI gen 导入",
-      "aiModelImport": "AI 模型 导入",
-      "fastapiImport": "fastapi 导入",
-      "ihuiStreamImport": "ihui 流 导入",
-      "llmChatImport": "llm 对话 导入",
-      "mcpImport": "mcp 导入",
-      "serviceUnifiedExport": "服务 unified 导出",
-      "unifiedChatImport": "unified 对话 导入",
-      "unifiedGenImport": "unified gen 导入"
-    }
+    "logPass": "通过",
+    "logFail": "失败",
+    "duration": "耗时: {duration}ms"
   },
   "ApiTestPage": {
-    "startAITest": "开始 AI test"
+    "startAITest": "开始AI接口测试"
   }
 }

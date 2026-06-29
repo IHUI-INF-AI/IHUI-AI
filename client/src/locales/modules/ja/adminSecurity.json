@@ -1,6 +1,6 @@
 {
   "adminSecurity": {
-    "accountSecurity": "accountSecurity",
-    "viewLog": "viewLog"
+    "accountSecurity": "アカウントセキュリティ",
+    "viewLog": "ログを表示"
   }
 }

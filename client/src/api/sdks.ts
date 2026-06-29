@@ -77,7 +77,7 @@ export async function getSdks(
       },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -107,7 +107,7 @@ export async function getSdkDetail(id: string): Promise<ApiResponse<SdkConfig>> 
       data: response.data || ({} as SdkConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -129,7 +129,7 @@ export async function createSdk(sdk: Partial<SdkConfig>): Promise<ApiResponse<Sd
       data: response.data || ({} as SdkConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -154,7 +154,7 @@ export async function updateSdk(
       data: response.data || ({} as SdkConfig),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -176,7 +176,7 @@ export async function deleteSdk(id: string): Promise<ApiResponse<boolean>> {
       data: true,
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -208,7 +208,7 @@ export async function generateSdk(
       },
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,
@@ -230,7 +230,7 @@ export async function downloadSdk(id: string, version?: string): Promise<Blob> {
       responseType: 'blob',
     })
     return response.data
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw new Error((error instanceof Error ? error.message : String(error)) || '下载SDK失败')
   }
 }

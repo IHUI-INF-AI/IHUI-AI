@@ -1,15 +1,28 @@
 {
   "distributionOrders": {
-    "statusCancelled": "已取消",
+    "title": "分销订单列表",
+    "subtitle": "查看我的分销订单和下级订单",
+    "statusPending": "待支付",
     "statusPaid": "已支付",
-    "statusPending": "待处理",
+    "statusCancelled": "已取消",
     "statusUnknown": "未知",
-    "subtitle": "副标题",
-    "tabAll": "全部",
-    "tabCancelled": "tab 已取消",
-    "tabPaid": "tab 付费",
-    "tabPending": "tab 待处理",
-    "title": "标题",
-    "unknownProduct": "未知 产品"
+    "tabAll": "Tab全部",
+    "tabPending": "Tab待处理",
+    "tabPaid": "Tab付费",
+    "tabCancelled": "Tab已取消",
+    "unknownProduct": "未知商品",
+    "searchOrderNo": "搜索订单号",
+    "orderStatus": "订单状态",
+    "all": "全部",
+    "noOrders": "暂无订单",
+    "orderNo": "订单号",
+    "userId": "用户ID",
+    "amount": "金额",
+    "status": "状态",
+    "createTime": "创建时间",
+    "actions": "操作",
+    "viewDetail": "查看详情",
+    "loadOrdersFailed": "获取订单列表失败",
+    "loadOrdersRetry": "获取订单列表失败，请稍后重试"
   }
 }

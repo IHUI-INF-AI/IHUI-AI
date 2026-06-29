@@ -1,23 +1,29 @@
 {
   "myCommission": {
-    "available": "available",
-    "buyer": "buyer",
-    "commission": "佣金",
-    "copy": "复制",
-    "copyFailed": "copyFailed",
-    "copySuccess": "copySuccess",
-    "noCommission": "noCommission",
-    "orderTime": "orderTime",
-    "pending": "待处理",
-    "relatedOrder": "relatedOrder",
-    "title": "标题",
-    "todayCommission": "todayCommission",
-    "totalCommission": "totalCommission",
-    "withdraw": "提现",
-    "withdrawDetail": "withdrawDetail",
-    "withdrawDetailInfo": "withdrawDetailInfo",
-    "withdrawSuccess": "withdrawSuccess",
-    "withdrawn": "withdrawn",
-    "yuan": "yuan"
+    "title": "My Commission",
+    "totalCommission": "Total Commission",
+    "yuan": "Yuan",
+    "available": "Available",
+    "withdrawn": "Withdrawn",
+    "pending": "Pending",
+    "todayCommission": "Today's Commission",
+    "withdraw": "Withdraw",
+    "withdrawDetail": "Withdrawal Details",
+    "commission": "Commission",
+    "buyer": "Buyer",
+    "orderTime": "Order Time",
+    "relatedOrder": "Related Order",
+    "copy": "Copy",
+    "noCommission": "No commission records",
+    "withdrawSuccess": "Withdrawal successful",
+    "withdrawDetailInfo": "Withdrawal details",
+    "copySuccess": "Copy successful",
+    "copyFailed": "Copy failed",
+    "tabs": {
+      "all": "All",
+      "pending": "Pending",
+      "settled": "Settled",
+      "cancelled": "Cancelled"
+    }
   }
 }

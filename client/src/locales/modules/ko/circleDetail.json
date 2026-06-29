@@ -1,17 +1,16 @@
 {
   "circleDetail": {
-    "back": "返回",
-    "essence": "essence",
-    "join": "加入",
-    "joined": "joined",
-    "members": "会员",
-    "noDesc": "noDesc",
-    "noPosts": "noPosts",
-    "owner": "所有者",
-    "postPlaceholder": "postPlaceholder",
-    "posts": "posts",
-    "postsTitle": "postsTitle",
-    "publish": "发布",
-    "top": "置顶"
+    "back": "서클로 돌아가기",
+    "noDesc": "소개 없음",
+    "members": "멤버",
+    "posts": "게시물",
+    "owner": "운영자",
+    "joined": "가입됨",
+    "join": "서클 가입",
+    "postsTitle": "게시물",
+    "publish": "게시",
+    "noPosts": "게시물 없음",
+    "top": "고정",
+    "essence": "추천"
   }
 }

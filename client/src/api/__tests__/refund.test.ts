@@ -14,7 +14,7 @@ vi.mock('@/utils/api-response', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../payment/refund'
+import * as api from '../refund'
 
 describe('refund', () => {
   beforeEach(() => {

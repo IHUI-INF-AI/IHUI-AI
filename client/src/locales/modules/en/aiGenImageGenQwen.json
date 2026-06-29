@@ -1,6 +1,6 @@
 {
   "aiGenImageGenQwen": {
-    "qwenRemarkMissing": "qwenRemarkMissing",
-    "websocketNotSupport": "websocketNotSupport"
+    "qwenRemarkMissing": "Qwen image model not configured in LLM list (remark/endpoint). Please configure in LLM Management first.",
+    "websocketNotSupport": "Image generation via WebSocket not supported. Please set quest_type to HTTP."
   }
 }

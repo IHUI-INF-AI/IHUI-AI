@@ -1,0 +1,5 @@
+{
+  "adminhtml": {
+    "xxxxxxx_conffileSizeconfsizeUn": "只能上传不超过 ${conf.fileSize}${conf.sizeUnit} 的${conf.accept}文件"
+  }
+}

@@ -66,8 +66,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 
-import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
-import { chatCompletionsStream, type ChatMessage } from '@/api/ai/ai-proxy'
+import { getAvailableModels, type AIModelInfo } from '@/api/models'
+import { chatCompletionsStream, type ChatMessage } from '@/api/ai-proxy'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 
 const { t } = useI18n()
@@ -155,7 +155,7 @@ const run = async () => {
         }
       }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
     showErrorMsg(message || t('designer.errors.generateFailed'))
   } finally {

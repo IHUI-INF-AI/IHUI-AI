@@ -85,7 +85,7 @@ export function useUnifiedAI() {
       }
 
       return response
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       ElMessage.error(err?.message || t('common.errors.aiCapabilityInvokeFailed'))
       return null

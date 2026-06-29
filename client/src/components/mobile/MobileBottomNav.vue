@@ -36,15 +36,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useWindowSize } from '@vueuse/core'
 import { defaultResponsiveConfig } from '@/utils/responsiveEnhancement'
 import { getProxiedImageUrl } from '@/utils/imageProxy'
 
 const { t } = useI18n()
-const router = useRouter()
-const route = computed(() => router.currentRoute.value)
+const route = useRoute()
 const { width } = useWindowSize()
 
 const mobileBreakpoint = defaultResponsiveConfig.breakpoints.md
@@ -57,48 +56,42 @@ const openAIChat = () => {
 
 // 导航项 - 整合Ai-WXMiniVue的导航结构；图标经代理加载避免 CORB
 const tabbarBase = 'https://file.aizhs.top/sys-mini/tabbar'
-const navItems = computed(() => {
-  const items = [
-    {
-      path: '/tools',
-      label: t('data.mobile_bottom_nav.AI应用商店'),
-      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_1.png`, true),
-      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_1_act.png`, true)
-    },
-    {
-      path: '/plaza',
-      label: t('data.mobile_bottom_nav.广场1'),
-      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_2.png`, true),
-      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_2_act.png`, true)
-    },
-    {
-      path: '/chat',
-      label: t('data.mobile_bottom_nav.智汇AI2'),
-      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_3.png`, true),
-      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_3_act.png`, true)
-    },
-    {
-      path: '/share',
-      label: t('data.mobile_bottom_nav.动态3'),
-      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_4.png`, true),
-      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_4_act.png`, true)
-    },
-    {
-      path: '/user',
-      label: t('data.mobile_bottom_nav.我的4'),
-      icon: getProxiedImageUrl(`${tabbarBase}/tabbar_5.png`, true),
-      activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_5_act.png`, true)
-    }
-  ]
-  // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
-  // 隐藏工具 v2 (后端工具在 /api/v1/tools/* 且仅3个端点, 非 /api/v2/tools/*)
-  const HIDDEN_PATHS = ['/tools']
-  return items.filter(item => !HIDDEN_PATHS.includes(item.path))
-})
+const navItems = computed(() => [
+  {
+    path: '/tools',
+    label: t('data.mobile_bottom_nav.AI应用商店'),
+    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_1.png`, true),
+    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_1_act.png`, true)
+  },
+  {
+    path: '/plaza',
+    label: t('data.mobile_bottom_nav.广场1'),
+    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_2.png`, true),
+    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_2_act.png`, true)
+  },
+  {
+    path: '/chat',
+    label: t('data.mobile_bottom_nav.智汇AI2'),
+    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_3.png`, true),
+    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_3_act.png`, true)
+  },
+  {
+    path: '/share',
+    label: t('data.mobile_bottom_nav.动态3'),
+    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_4.png`, true),
+    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_4_act.png`, true)
+  },
+  {
+    path: '/user',
+    label: t('data.mobile_bottom_nav.我的4'),
+    icon: getProxiedImageUrl(`${tabbarBase}/tabbar_5.png`, true),
+    activeIcon: getProxiedImageUrl(`${tabbarBase}/tabbar_5_act.png`, true)
+  }
+])
 
 // 判断路由是否激活
 const isActive = (path: string): boolean => {
-  return route.value.path === path || route.value.path.startsWith(path + '/')
+  return route.path === path || route.path.startsWith(path + '/')
 }
 </script>
 
@@ -112,6 +105,7 @@ const isActive = (path: string): boolean => {
   display: none;
   background-color: var(--el-bg-color);
   border-top: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   height: 56px;
   padding-bottom: env(safe-area-inset-bottom);
 
@@ -130,7 +124,7 @@ const isActive = (path: string): boolean => {
     padding: 8px 0;
     color: var(--el-text-color-regular);
     text-decoration: none;
-    transition: opacity 0.3s ease;
+    transition: all 0.3s ease;
     position: relative;
     cursor: pointer;
     user-select: none;
@@ -145,7 +139,7 @@ const isActive = (path: string): boolean => {
     &.active {
       .nav-label {
         color: var(--el-text-color-primary);
-        font-weight: 700;
+        font-weight: bold;
       }
     }
 
@@ -178,6 +172,7 @@ const isActive = (path: string): boolean => {
   .mobile-bottom-nav {
     background-color: var(--el-bg-color);
     border-top-color: var(--el-border-color-lighter);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 </style>

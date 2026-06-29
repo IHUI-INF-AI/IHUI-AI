@@ -1,12 +1,12 @@
 {
   "liveDetail": {
-    "beginTime": "beginTime",
-    "enterLive": "enterLive",
-    "enterLiveRoom": "enterLiveRoom",
-    "host": "host",
-    "liveNow": "liveNow",
-    "peopleOnline": "peopleOnline",
-    "playback": "playback",
-    "startTime": "开始时间"
+    "liveNow": "配信中",
+    "peopleOnline": "人オンライン",
+    "enterLive": "ライブ視聴",
+    "host": "配信者",
+    "enterLiveRoom": "配信ルームへ",
+    "startTime": "開始予定時刻",
+    "beginTime": "開始時刻",
+    "playback": "録画"
   }
 }

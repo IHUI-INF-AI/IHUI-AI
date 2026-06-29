@@ -1,17 +1,17 @@
 {
   "markdown": {
     "renderFailed": "Markdown rendering Failed",
-    "copied": "copied",
-    "copy": "复制",
-    "defaultTitle": "defaultTitle",
-    "download": "下载",
-    "downloadToView": "downloadToView",
-    "edit": "编辑",
-    "loadError": "loadError",
-    "loadFailed": "loadFailed",
-    "loading": "加载中",
-    "preview": "预览",
-    "switchView": "switchView",
-    "toc": "toc"
+    "defaultTitle": "Markdown Document",
+    "toc": "Table of Contents",
+    "loading": "Loading...",
+    "loadFailed": "Document load failed",
+    "loadError": "Load failed",
+    "switchView": "Switch View",
+    "edit": "Edit",
+    "preview": "Preview",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "downloadToView": "Download to View"
   }
 }

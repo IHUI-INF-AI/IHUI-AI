@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { onMounted, h } from 'vue'
@@ -43,13 +44,13 @@ import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 
 const formFields: FormField[] = [
-  { prop: 'name', label: '分类名称', required: true, minLength: 1, maxLength: 50 },
-  { prop: 'sort', label: '排序', type: 'number', min: 0, max: 9999 },
+  { prop: 'name', label: t('adminCommon.label.categoryName'), required: true, minLength: 1, maxLength: 50 },
+  { prop: 'sort', label: t('adminCommon.label.sort'), type: 'number', min: 0, max: 9999 },
 ]
 
 const { keyword, page, size, total, loading, list, reload, onSearch, onPageChange } = useAdminTable({
@@ -65,15 +66,15 @@ const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete
   onSuccess: reload,
 })
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'name', dataKey: 'name', title: '分类名称', width: 180 },
-  { key: 'sort', dataKey: 'sort', title: '排序', width: 100 },
+  { key: 'name', dataKey: 'name', title: t('adminCommon.label.categoryName'), width: 180 },
+  { key: 'sort', dataKey: 'sort', title: t('adminCommon.label.sort'), width: 100 },
   {
     key: 'actions',
-    title: '操作',
+    title: t('adminCommon.label.operation'),
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: ({ rowData: row }) => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('common.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('common.delete')),

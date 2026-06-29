@@ -1,25 +1,26 @@
 {
   "visionAnalysis": {
-    "buttons": {
-      "analyze": "analyze"
-    },
+    "title": "通義千問 - 視覺分析",
+    "tag": "視覺理解",
     "form": {
-      "prompt": "提示词",
-      "promptPlaceholder": "promptPlaceholder",
-      "selectImage": "selectImage",
-      "upload": "上传"
+      "upload": "上傳圖片",
+      "selectImage": "選擇圖片",
+      "prompt": "分析問題",
+      "promptPlaceholder": "例如：這張圖片裡有什麼？請詳細描述..."
     },
-    "messages": {
-      "analyzeSuccess": "analyzeSuccess",
-      "uploadAndPromptRequired": "uploadAndPromptRequired",
-      "uploadFailed": "uploadFailed"
+    "buttons": {
+      "analyze": "開始分析"
     },
     "result": {
-      "answer": "答案",
-      "reasoning": "reasoning",
-      "title": "标题"
+      "title": "分析結果",
+      "reasoning": "推理過程：",
+      "answer": "回答："
     },
-    "tag": "标签",
-    "title": "标题"
+    "messages": {
+      "uploadFailed": "圖片上傳失敗",
+      "uploadAndPromptRequired": "請上傳圖片並輸入問題",
+      "analyzeSuccess": "分析完成",
+      "analyzeFailed": "分析失敗"
+    }
   }
 }

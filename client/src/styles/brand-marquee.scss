@@ -14,7 +14,7 @@
 }
 
 // 暗色模式变量（扁平化：不使用 box-shadow）
-:where(html.dark) {
+html.dark {
   --marquee-bg: var(--color-white-90);
   --marquee-border: 1px solid var(--border-unified-color);
   --marquee-hover-border-color: var(--border-unified-color-hover);
@@ -49,16 +49,16 @@
     -webkit-backdrop-filter: var(--marquee-blur);
     border: var(--marquee-border);
     
-    transition: transform 0.3s ease, border-color 0.3s ease, border-width 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover {
-      
+      transform: translateY(-2px);
       border: 2px solid var(--marquee-hover-border-color);
     }
   }
 
   // 暗色模式特殊边框处理
-  :where(html.dark) .marquee-item {
+  html.dark .marquee-item {
     border-top: 1px solid var(--border-unified-color);
     border-bottom: 1px solid var(--border-unified-color);
 

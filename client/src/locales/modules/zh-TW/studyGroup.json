@@ -1,19 +1,17 @@
 {
   "studyGroup": {
+    "subTrack": "細分賽道",
+    "pleaseSelect": "請選擇",
+    "uploadVideo": "上傳影片",
+    "publish": "發布",
+    "edit": "修改",
+    "delist": "下架",
     "cover": "封面",
-    "delist": "delist",
-    "descPlaceholder": "descPlaceholder",
-    "edit": "编辑",
-    "enterGroupDesc": "enterGroupDesc",
-    "enterGroupTitle": "enterGroupTitle",
-    "groupDesc": "groupDesc",
-    "groupTitle": "groupTitle",
-    "pleaseSelect": "pleaseSelect",
-    "publish": "发布",
-    "selectTrack": "selectTrack",
-    "subTrack": "subTrack",
-    "titlePlaceholder": "titlePlaceholder",
-    "uploadCover": "uploadCover",
-    "uploadVideo": "uploadVideo"
+    "enterGroupDesc": "請輸入小組描述",
+    "enterGroupTitle": "請輸入小組標題",
+    "groupDesc": "小組描述",
+    "groupTitle": "小組標題",
+    "selectTrack": "請選擇賽道",
+    "uploadCover": "請上傳封面圖片"
   }
 }

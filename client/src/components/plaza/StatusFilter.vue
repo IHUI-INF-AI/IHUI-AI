@@ -2,7 +2,7 @@
   <div class="status-filter">
     <div v-for="tab in tabs" :key="tab.value" class="tab-item" @click="change(tab.value)">
       <img class="tab-icon"
-        :src="value === tab.value ? tab.activeIcon : tab.inactiveIcon" alt="" />
+        :src="value === tab.value ? tab.activeIcon : tab.inactiveIcon" />
       <span :class="value === tab.value ? 'tab-text-active' : 'tab-text'">{{ tab.label }}</span>
     </div>
   </div>
@@ -44,5 +44,5 @@ function change(val: number) {
 }
 .tab-icon { width: 34px; height: 30px; margin-bottom: 3px; }
 .tab-text { font-size: 13px; color: var(--color--bbb); }
-.tab-text-active { font-size: 13px; font-weight: 700; color: var(--color--787aff); }
+.tab-text-active { font-size: 13px; font-weight: bold; color: var(--color--787aff); }
 </style>

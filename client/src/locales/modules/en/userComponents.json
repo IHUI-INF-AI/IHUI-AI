@@ -1,117 +1,124 @@
 {
   "userComponents": {
-    "developer": {
-      "copy": "复制",
-      "regenerate": "重新生成",
-      "remainingQuota": "remainingQuota",
-      "successRate": "successRate",
-      "title": "标题",
-      "totalCalls": "totalCalls",
-      "viewDocs": "viewDocs"
-    },
-    "examine": {
-      "empty": "empty",
-      "rejectReason": "rejectReason",
-      "resubmit": "resubmit",
-      "title": "标题",
-      "view": "查看"
-    },
-    "favorites": {
-      "empty": "empty",
-      "remove": "移除",
-      "title": "标题",
-      "view": "查看"
-    },
-    "infoCard": {
-      "edit": "编辑"
-    },
-    "loginPopup": {
-      "code": "代码",
-      "login": "登录",
-      "phone": "手机号",
-      "sendCode": "发送验证码",
-      "wechatLogin": "微信登录"
-    },
-    "messages": {
-      "empty": "empty",
-      "title": "标题"
-    },
-    "orders": {
-      "empty": "empty",
-      "orderNo": "orderNo",
-      "payNow": "payNow",
-      "title": "标题",
-      "viewDetails": "viewDetails"
-    },
-    "privacy": {
-      "allowSearch": "allowSearch",
-      "allowSearchDesc": "allowSearchDesc",
-      "publicProfile": "publicProfile",
-      "publicProfileDesc": "publicProfileDesc",
-      "receiveMessages": "receiveMessages",
-      "receiveMessagesDesc": "receiveMessagesDesc",
-      "showOnlineStatus": "showOnlineStatus",
-      "showOnlineStatusDesc": "showOnlineStatusDesc",
-      "title": "标题"
-    },
-    "profile": {
-      "admin": "管理员",
-      "editProfile": "editProfile",
-      "email": "邮箱",
-      "phone": "手机号",
-      "registerTime": "registerTime"
-    },
     "purchaseRecords": {
-      "applyInvoice": "applyInvoice",
-      "empty": "empty",
-      "orderNo": "orderNo",
-      "status": {
-        "completed": "已完成",
-        "pending": "待处理",
-        "refunded": "refunded"
+      "title": "Purchase Records",
+      "orderNo": "Order No",
+      "viewDetails": "View Details",
+      "applyInVoice": "Apply InVoice",
+      "empty": "No purchase records",
+      "Status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "refunded": "Refunded"
       },
-      "title": "标题",
-      "viewDetails": "viewDetails"
+      "applyInvoice": "申请发票",
+      "status": {
+        "completed": "Completed",
+        "pending": "Processing",
+        "refunded": "已退款"
+      }
     },
-    "purchases": {
-      "download": "下载",
-      "empty": "empty",
-      "title": "标题",
-      "view": "查看"
-    },
-    "security": {
-      "emailBinding": "emailBinding",
-      "loginPassword": "loginPassword",
-      "loginPasswordDesc": "loginPasswordDesc",
-      "modify": "modify",
-      "phoneBinding": "phoneBinding",
-      "title": "标题"
-    },
-    "settings": {
-      "language": "语言",
-      "languageDesc": "languageDesc",
-      "notifications": "notifications",
-      "notificationsDesc": "notificationsDesc",
-      "soundEffects": "soundEffects",
-      "soundEffectsDesc": "soundEffectsDesc",
-      "theme": "主题",
-      "themeDesc": "themeDesc",
-      "title": "标题"
+    "developer": {
+      "title": "Developer Center",
+      "copy": "Copy",
+      "regenerate": "Regenerate",
+      "totalCalls": "Total Calls",
+      "remainingQuota": "Remaining Quota",
+      "successRate": "Success Rate",
+      "viewDocs": "View Docs"
     },
     "statistics": {
-      "chartDeveloping": "chartDeveloping",
-      "favorites": "收藏",
-      "orders": "订单",
-      "title": "标题",
-      "totalSpent": "totalSpent",
-      "totalViews": "totalViews",
-      "usageTrend": "usageTrend"
+      "title": "Usage Statistics",
+      "totalViews": "Total Views",
+      "favorites": "Favorites",
+      "orders": "Orders",
+      "totalSpent": "Total Spent",
+      "usageTrend": "Usage Trend",
+      "chartDeveloping": "Chart feature developing..."
+    },
+    "orders": {
+      "title": "My Orders",
+      "orderNo": "Order No",
+      "viewDetails": "View Details",
+      "payNow": "Pay Now",
+      "empty": "No orders"
+    },
+    "examine": {
+      "title": "My Reviews",
+      "RejectReason": "Reject Reason",
+      "view": "View",
+      "resubmit": "Resubmit",
+      "empty": "No review records",
+      "rejectReason": "拒绝原因"
     },
     "upload": {
-      "delete": "删除",
-      "empty": "empty",
-      "title": "标题",
-      "view": "查看"
+      "title": "My Uploads",
+      "view": "View",
+      "delete": "Delete",
+      "empty": "No upload records"
+    },
+    "purchases": {
+      "title": "My Purchases",
+      "view": "View",
+      "download": "Download",
+      "empty": "No purchase records"
+    },
+    "favorites": {
+      "title": "My Favorites",
+      "view": "View",
+      "remove": "Remove",
+      "empty": "No favorites"
+    },
+    "settings": {
+      "title": "General Settings",
+      "language": "Language",
+      "languageDesc": "Select your preferred display language",
+      "theme": "Theme",
+      "themeDesc": "Select your preferred interface theme",
+      "notifications": "Notifications",
+      "notificationsDesc": "Receive system and activity notifications",
+      "soundEffects": "Sound Effects",
+      "soundEffectsDesc": "Enable or disable interface sound effects"
+    },
+    "privacy": {
+      "title": "Privacy Settings",
+      "publicProfile": "Public Profile",
+      "publicProfileDesc": "Allow other users to view your profile",
+      "showOnlineStatus": "Show Online Status",
+      "showOnlineStatusDesc": "Allow other users to see your online Status",
+      "allowSearch": "Allow Search",
+      "allowSearchDesc": "Allow other users to find you via search",
+      "receiveMessages": "Receive Messages",
+      "receiveMessagesDesc": "Allow other users to send you messages"
+    },
+    "messages": {
+      "title": "Message Notifications",
+      "empty": "No messages"
+    },
+    "security": {
+      "title": "Security Settings",
+      "loginPassword": "Login Password",
+      "loginPasswordDesc": "Recommend changing password regularly to protect your account",
+      "modify": "Modify",
+      "phoneBinding": "Phone Binding",
+      "emailBinding": "Email Binding"
+    },
+    "profile": {
+      "admin": "Admin",
+      "email": "Email",
+      "phone": "Phone",
+      "registerTime": "Register Time",
+      "editProfile": "Edit Profile"
+    },
+    "loginPopup": {
+      "login": "Login",
+      "code": "Code",
+      "phone": "Phone",
+      "sendCode": "Send Code",
+      "wechatLogin": "Wechat Login"
+    },
+    "infoCard": {
+      "edit": "Edit"
     }
   }
 }

@@ -56,49 +56,49 @@
 
 // 仅小手机 (<576px)
 @mixin small-mobile-only {
-  @media (width <= #{tokens.$breakpoint-lg - 1px}) {
+  @media (max-width: #{tokens.$breakpoint-lg - 1px}) {
     @content;
   }
 }
 
 // 超小手机 (<375px)
 @mixin tiny-mobile-only {
-  @media (width <= #{tokens.$breakpoint-sm - 1px}) {
+  @media (max-width: #{tokens.$breakpoint-sm - 1px}) {
     @content;
   }
 }
 
 // 平板及以下 (<1280px)
 @mixin tablet-down {
-  @media (width <= #{tokens.$breakpoint-laptop - 1px}) {
+  @media (max-width: #{tokens.$breakpoint-laptop - 1px}) {
     @content;
   }
 }
 
 // 仅大平板/小笔记本 (1024px - 1279px)
 @mixin tablet-lg-only {
-  @media (width >= tokens.$breakpoint-tablet-lg) and (max-width: #{tokens.$breakpoint-laptop - 1px}) {
+  @media (min-width: tokens.$breakpoint-tablet-lg) and (max-width: #{tokens.$breakpoint-laptop - 1px}) {
     @content;
   }
 }
 
 // 仅桌面 (1440px - 1919px)
 @mixin desktop-only {
-  @media (width >= tokens.$breakpoint-desktop) and (max-width: #{tokens.$breakpoint-xl - 1px}) {
+  @media (min-width: tokens.$breakpoint-desktop) and (max-width: #{tokens.$breakpoint-xl - 1px}) {
     @content;
   }
 }
 
 // 大屏及以上 (>=1920px)
 @mixin xl-up {
-  @media (width >= tokens.$breakpoint-xl) {
+  @media (min-width: tokens.$breakpoint-xl) {
     @content;
   }
 }
 
 // 超大屏 (>=2560px)
 @mixin xxl-up {
-  @media (width >= tokens.$breakpoint-2xl) {
+  @media (min-width: tokens.$breakpoint-2xl) {
     @content;
   }
 }
@@ -109,49 +109,49 @@
 
 // iPhone SE 专用 (320px)
 @mixin iphone-se {
-  @media (width <= 320px) {
+  @media (max-width: 320px) {
     @content;
   }
 }
 
 // iPhone 标准尺寸 (375px - 389px)
 @mixin iphone-standard {
-  @media (width >= 375px) and (max-width: 389px) {
+  @media (min-width: 375px) and (max-width: 389px) {
     @content;
   }
 }
 
 // iPhone Plus/Max 尺寸 (390px - 430px)
 @mixin iphone-plus {
-  @media (width >= 390px) and (max-width: 430px) {
+  @media (min-width: 390px) and (max-width: 430px) {
     @content;
   }
 }
 
 // iPad Mini/标准 (768px - 833px)
 @mixin ipad {
-  @media (width >= 768px) and (max-width: 833px) {
+  @media (min-width: 768px) and (max-width: 833px) {
     @content;
   }
 }
 
 // iPad Pro 11" (834px - 1023px)
 @mixin ipad-pro-11 {
-  @media (width >= 834px) and (max-width: 1023px) {
+  @media (min-width: 834px) and (max-width: 1023px) {
     @content;
   }
 }
 
 // iPad Pro 12.9" (1024px - 1279px)
 @mixin ipad-pro-12 {
-  @media (width >= 1024px) and (max-width: 1279px) {
+  @media (min-width: 1024px) and (max-width: 1279px) {
     @content;
   }
 }
 
 // 折叠屏展开状态 (约 717px - 884px)
 @mixin foldable-open {
-  @media (width >= 717px) and (max-width: 884px) {
+  @media (min-width: 717px) and (max-width: 884px) {
     @content;
   }
 }
@@ -176,14 +176,14 @@
 
 // 平板竖屏
 @mixin tablet-portrait {
-  @media (width >= tokens.$breakpoint-tablet) and (max-width: #{tokens.$breakpoint-tablet-lg - 1px}) and (orientation: portrait) {
+  @media (min-width: tokens.$breakpoint-tablet) and (max-width: #{tokens.$breakpoint-tablet-lg - 1px}) and (orientation: portrait) {
     @content;
   }
 }
 
 // 平板横屏
 @mixin tablet-landscape {
-  @media (width >= tokens.$breakpoint-tablet) and (orientation: landscape) {
+  @media (min-width: tokens.$breakpoint-tablet) and (orientation: landscape) {
     @content;
   }
 }
@@ -309,11 +309,11 @@
 @mixin responsive-font($min-size, $max-size, $min-vw: 320px, $max-vw: 1920px) {
   font-size: $min-size;
   
-  @media (width >= $min-vw) {
+  @media (min-width: $min-vw) {
     font-size: calc(#{$min-size} + #{tokens.strip-unit($max-size - $min-size)} * ((100vw - #{$min-vw}) / #{tokens.strip-unit($max-vw - $min-vw)}));
   }
   
-  @media (width >= $max-vw) {
+  @media (min-width: $max-vw) {
     font-size: $max-size;
   }
 }
@@ -436,7 +436,7 @@
     $max-val: map.get(tokens.$breakpoints, $max);
   }
   
-  @media (width >= $min-val) and (max-width: $max-val - 1px) {
+  @media (min-width: $min-val) and (max-width: $max-val - 1px) {
     @content;
   }
 }

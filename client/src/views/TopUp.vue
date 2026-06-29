@@ -113,7 +113,7 @@ import { useRouter } from 'vue-router'
 import { Wallet, CreditCard, Smartphone } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { createTopUpOrder } from '@/api/payment/top-up'
+import { createTopUpOrder } from '@/api/top-up'
 import UserInfoCard from '@/components/user/UserInfoCard.vue'
 import { logger } from '@/utils/logger'
 
@@ -228,7 +228,7 @@ const handleTopUp = async () => {
   margin: 0 auto;
   position: relative;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -283,9 +283,9 @@ const handleTopUp = async () => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) { font-size: 20px; }
+  @media (max-width: $desktop-breakpoint-sm) { font-size: 20px; }
 
-  @media (width <= $desktop-breakpoint-xs) { font-size: 18px; }
+  @media (max-width: $desktop-breakpoint-xs) { font-size: 18px; }
 }
 
 .title-icon {
@@ -298,7 +298,7 @@ const handleTopUp = async () => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) { font-size: 12px; }
+  @media (max-width: $desktop-breakpoint-xs) { font-size: 12px; }
 }
 
 .user-info-section,
@@ -311,7 +311,7 @@ const handleTopUp = async () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) { padding: 16px; }
+  @media (max-width: $desktop-breakpoint-xs) { padding: 16px; }
 }
 
 .section-title {
@@ -326,7 +326,7 @@ const handleTopUp = async () => {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -338,7 +338,7 @@ const handleTopUp = async () => {
   padding: 20px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: all 0.2s ease;
 
   &:hover {
     border-color: var(--el-color-primary);
@@ -418,7 +418,7 @@ const handleTopUp = async () => {
   background-color: var(--el-fill-color-light);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 
   &:hover {
     background-color: var(--el-bg-color);

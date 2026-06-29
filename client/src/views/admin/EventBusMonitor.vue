@@ -89,7 +89,7 @@
         <div class="card-header">
           <span>t('eventBus.history')</span>
           <div>
-            <ElSelect v-model="filterType" :placeholder="t('adminCommon.placeholder.filterType')" clearable class="filter-select">
+            <ElSelect v-model="filterType" :placeholder="t('adminCommon.placeholder.filterType')" clearable style="width: 150px; margin-right: 10px">
               <ElOption :label="t('adminCommon.label.all')" value="" />
               <ElOption v-for="type in eventTypes" :key="type" :label="type" :value="type" />
             </ElSelect>
@@ -157,15 +157,15 @@
       </template>
       <ElForm :model="testForm" inline>
         <ElFormItem :label="t('adminCommon.label.eventType')">
-          <ElSelect v-model="testForm.type" class="test-type-select">
+          <ElSelect v-model="testForm.type" style="width: 180px">
             <ElOption v-for="type in eventTypes" :key="type" :label="type" :value="type" />
           </ElSelect>
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.tourId')">
-          <ElInput v-model="testForm.tourId" :placeholder="t('adminCommon.placeholder.optional')" class="test-input" />
+          <ElInput v-model="testForm.tourId" :placeholder="t('adminCommon.placeholder.optional')" style="width: 150px" />
         </ElFormItem>
         <ElFormItem :label="t('adminCommon.label.stepId')">
-          <ElInput v-model="testForm.stepId" :placeholder="t('adminCommon.placeholder.optional')" class="test-input" />
+          <ElInput v-model="testForm.stepId" :placeholder="t('adminCommon.placeholder.optional')" style="width: 150px" />
         </ElFormItem>
         <ElFormItem>
           <ElButton type="primary" @click="sendTestEvent">{{ t('eventBus.sendEvent') }}</ElButton>
@@ -215,21 +215,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
+import { echarts } from '@/plugins/echarts'
 import { tourEventBus, type TourEventType, type EventHistoryEntry, type EventBusStats } from '@/services/tourEventBus'
 import { formatDateTime as formatTime } from '@/utils/format'
-import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
-const darkModeStore = useDarkModeStore()
 
 const chartRef = ref<HTMLElement>()
-let chart: ECharts | null = null
+let chart: echarts.ECharts | null = null
 const cleanup = useCleanup()
 cleanup.add(() => chart?.dispose())
 
@@ -290,7 +287,7 @@ const loadHistory = () => {
   updateChart()
 }
 
-const updateChart = async () => {
+const updateChart = () => {
   if (!chart) return
 
   const data = Object.entries(stats.value.eventsByType).map(([name, value]) => ({
@@ -377,21 +374,9 @@ const formatEventType = (type: TourEventType | TourEventType[] | '*') => {
   return type
 }
 
-// 监听暗色模式变化，重新渲染图表以更新颜色
-watch(
-  () => darkModeStore.isDarkMode,
-  () => {
-    if (chart) {
-      updateChart()
-    }
-  }
-)
-
-onMounted(async () => {
+onMounted(() => {
   if (chartRef.value) {
-    const echarts = await loadEcharts()
     chart = echarts.init(chartRef.value)
-    await updateChart()
   }
   loadStats()
   loadSubscriptions()
@@ -415,7 +400,7 @@ onMounted(async () => {
 
 .metric-value {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: bold;
   color: var(--el-color-primary);
 }
 
@@ -444,7 +429,7 @@ onMounted(async () => {
 }
 
 .code-block {
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-f5f7fa);
   padding: var(--grid-gap);
   border-radius: var(--global-border-radius);
   font-size: 12px;
@@ -459,18 +444,5 @@ onMounted(async () => {
 
 .error-item {
   margin-bottom: 10px;
-}
-
-.filter-select {
-  width: 150px;
-  margin-right: 10px;
-}
-
-.test-type-select {
-  width: 180px;
-}
-
-.test-input {
-  width: 150px;
 }
 </style>

@@ -1,13 +1,13 @@
 {
   "studyAdd": {
-    "cover": "封面",
-    "desc": "描述",
-    "enterDesc": "enterDesc",
-    "enterTitle": "enterTitle",
-    "publishFirst": "publishFirst",
-    "title": "标题",
-    "uploadCover": "uploadCover",
-    "uploadVideo": "uploadVideo",
-    "videoSynth": "videoSynth"
+    "cover": "Cover",
+    "title": "Course Title",
+    "desc": "Course Description",
+    "publishFirst": "Please publish collection first",
+    "videoSynth": "Video is being synthesized, please publish later",
+    "uploadCover": "Please upload cover",
+    "uploadVideo": "Please upload video",
+    "enterTitle": "Please enter course title",
+    "enterDesc": "Please enter course description"
   }
 }

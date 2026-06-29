@@ -5,11 +5,7 @@
     "largeDocHint": "대용량 문서는 시간이 걸릴 수 있습니다",
     "docLoadFailed": "문서 로드 실패",
     "tryDownload": "다운로드 후 로컬 앱으로 열어보세요",
-    "officeDoc": "Office 문서",
-    "zoomOut": "축소",
-    "reset": "재설정",
-    "download": "다운로드",
-    "openInOfficeOnline": "Office Online에서 열기"
+    "officeDoc": "Office 문서"
   },
   "viewerModel3DViewer": {
     "model3dFile": "3D 모델 파일",
@@ -22,36 +18,11 @@
     "codeLoadFailed": "코드 로드 실패",
     "loadFailed": "로드 실패"
   },
-  "viewerMonacoViewer": {
-    "loading": "로딩...",
-    "codeLoadFailed": "코드 로드 실패",
-    "loadFailed": "로드 실패"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "PDF 로딩...",
-    "pdfLoadFailed": "PDF 로드 실패",
-    "prevPage": "이전 페이지",
-    "zoomOut": "축소",
-    "search": "검색",
-    "download": "다운로드",
-    "fullscreen": "전체 화면"
-  },
   "viewerImageViewer": {
     "loading": "로딩...",
-    "imageLoadFailed": "이미지 로드 실패",
-    "zoomOut": "축소",
-    "reset": "재설정",
-    "rotateLeft": "왼쪽 회전",
-    "rotateRight": "오른쪽 회전",
-    "fitScreen": "화면에 맞춤",
-    "fullscreen": "전체 화면",
-    "download": "다운로드"
+    "imageLoadFailed": "이미지 로드 실패"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "미디어 로드 실패",
-    "playSpeed": "재생 속도",
-    "loop": "반복",
-    "mute": "음소거",
-    "download": "다운로드"
+    "mediaLoadFailed": "미디어 로드 실패"
   }
 }

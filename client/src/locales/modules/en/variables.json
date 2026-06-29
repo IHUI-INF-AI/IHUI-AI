@@ -1,48 +1,49 @@
 {
   "variables": {
-    "buttons": {
-      "cancel": "取消",
-      "delete": "删除",
-      "edit": "编辑",
-      "save": "保存"
+    "title": "Variable Management",
+    "subtitle": "Manage bot variable configurations",
+    "createVariable": "Create Variable",
+    "selectBot": "Select Bot",
+    "selectBotPlaceholder": "Select Bot",
+    "pleaseSelectBot": "Please select a bot first",
+    "noVariables": "No variables",
+    "createFirstVariable": "Create your first variable",
+    "testBot1": "Test Bot 1",
+    "testBot2": "Test Bot 2",
+    "testBot3": "Test Bot 3",
+    "table": {
+      "name": "Variable Name",
+      "type": "Type",
+      "value": "Value",
+      "description": "Description",
+      "actions": "Actions"
     },
-    "createFirstVariable": "createFirstVariable",
-    "createVariable": "createVariable",
     "dialog": {
-      "createTitle": "createTitle",
-      "description": "描述",
-      "editTitle": "editTitle",
-      "name": "名称",
-      "value": "值"
+      "editTitle": "Edit Variable",
+      "createTitle": "Create Variable",
+      "name": "Variable Name",
+      "value": "Variable Value",
+      "description": "Description"
+    },
+    "buttons": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "validation": {
+      "nameRequired": "Please enter variable name",
+      "valueRequired": "Please enter variable value"
     },
     "messages": {
-      "deleteConfirm": "确认删除?",
-      "deleteConfirmTitle": "deleteConfirmTitle",
-      "deleteFailed": "deleteFailed",
-      "deleteSuccess": "deleteSuccess",
-      "loadBotsFailed": "loadBotsFailed",
-      "saveFailed": "saveFailed",
-      "saveSuccess": "saveSuccess"
-    },
-    "noVariables": "noVariables",
-    "pleaseSelectBot": "pleaseSelectBot",
-    "selectBot": "selectBot",
-    "selectBotPlaceholder": "selectBotPlaceholder",
-    "subtitle": "副标题",
-    "table": {
-      "actions": "actions",
-      "description": "描述",
-      "name": "名称",
-      "type": "类型",
-      "value": "值"
-    },
-    "testBot1": "testBot1",
-    "testBot2": "testBot2",
-    "testBot3": "testBot3",
-    "title": "标题",
-    "validation": {
-      "nameRequired": "nameRequired",
-      "valueRequired": "valueRequired"
+      "deleteConfirm": "Are you sure you want to delete this variable?",
+      "deleteConfirmTitle": "Confirm Delete",
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Delete Failed",
+      "saveSuccess": "Saved Successfully",
+      "saveFailed": "Save Failed",
+      "loadBotsFailed": "Failed to load bot list",
+      "loadFailed": "Failed to load variables"
     }
   }
 }

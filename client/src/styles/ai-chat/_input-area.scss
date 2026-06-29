@@ -1,0 +1,418 @@
+// ========== 输入区域样式 ==========
+// 从 AIChat.vue 块1（scoped style）迁移
+// 包含 .input-area/.input-wrapper/.chat-input/.voice-waveform/.voice-recording-info/
+//      .chat-input-container/.input-actions/.send-btn 及相关 @keyframes
+
+// 输入区域 - 复用项目输入框样式规范
+// 宽度与父容器相同，底部贴合父容器底部
+.input-area {
+  background: var(--el-bg-color); // 亮色模式：使用纯白色背景
+  padding: 12px; // 缩短左右下间距（原 16px 20px）
+  flex-shrink: 0;
+  // 抵消父容器 .floating-chat-dialog 的 padding: 8px，使宽度与父容器相同
+  width: calc(100% + 16px); // 100% + 左右各 8px
+  margin-left: -8px; // 抵消父容器左 padding
+  margin-right: -8px; // 抵消父容器右 padding
+  margin-bottom: -8px; // 抵消父容器底 padding，使底部贴合
+  // 设置底部圆角，与父容器一致（15px）
+  border-bottom-left-radius: var(--fcd-radius-lg);
+  border-bottom-right-radius: var(--fcd-radius-lg);
+  -webkit-border-bottom-left-radius: var(--fcd-radius-lg);
+  -webkit-border-bottom-right-radius: var(--fcd-radius-lg);
+  -moz-border-radius-bottomleft: var(--fcd-radius-lg);
+  -moz-border-radius-bottomright: var(--fcd-radius-lg);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible; // 改为 visible，确保下拉菜单可以显示
+  position: relative; // 添加相对定位，确保 z-index 生效
+  z-index: var(--z-base); // 确保输入区域在正确的层级
+}
+
+// 输入框包装器 - 设置圆角，与内部输入框一致；背景随主题：亮色纯白、暗色纯黑
+.input-wrapper {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  // 亮色模式纯白、暗色模式纯黑，使用全局页面背景变量（不硬编码）
+  background-color: var(--el-bg-color-page);
+  // 圆角：与内部输入框一致（15px）
+  border-radius: var(--fcd-radius-lg);
+  -webkit-border-radius: var(--fcd-radius-lg);
+  -moz-border-radius: var(--fcd-radius-lg);
+  border-top-left-radius: var(--fcd-radius-lg);
+  border-top-right-radius: var(--fcd-radius-lg);
+  border-bottom-left-radius: var(--fcd-radius-lg);
+  border-bottom-right-radius: var(--fcd-radius-lg);
+  overflow: hidden; // 确保内容不会超出圆角边界
+  // 使用全站统一描边，禁止 box-shadow 避免与 header 底部描边视觉叠加
+  border: var(--unified-border);
+  transition: border-color 0.3s ease;
+  box-shadow: none;
+
+  :where(html.dark) & {
+    border-color: var(--ai-purple-light-2);
+    box-shadow: none;
+
+    &:hover {
+      border-color: var(--ai-purple-light-35);
+      box-shadow: none;
+    }
+
+    &:focus-within {
+      border-color: var(--ai-purple-light-5);
+      box-shadow: none;
+    }
+  }
+}
+
+// 聊天输入框 - 使用 contenteditable div 替代 textarea，确保圆角生效
+// 使用 :where() 包裹祖先层级，特异性恒为 0
+:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input,
+:where(.floating-chat-dialog .input-wrapper) .chat-input,
+:where(.input-wrapper) .chat-input,
+.chat-input {
+  position: relative;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  min-height: 40px;
+  max-height: 200px;
+  padding: 10px 12px;
+  border: var(--fcd-border); // 移除描边
+  // 圆角：使用 CSS 变量
+  border-radius: var(--fcd-radius-lg);
+  -webkit-border-radius: var(--fcd-radius-lg);
+  -moz-border-radius: var(--fcd-radius-lg);
+  border-top-left-radius: var(--fcd-radius-lg);
+  border-top-right-radius: var(--fcd-radius-lg);
+  border-bottom-left-radius: var(--fcd-radius-lg);
+  border-bottom-right-radius: var(--fcd-radius-lg);
+  background: var(--fcd-input-bg); // 移除默认背景色，使用透明
+  outline: var(--fcd-outline);
+  outline-width: 0;
+  outline-style: none;
+  outline-color: transparent;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+  box-sizing: border-box;
+  box-shadow: var(--fcd-box-shadow);
+  overflow-y: auto; // 允许垂直滚动
+  overflow-x: hidden;
+  white-space: pre-wrap; // 保留换行和空格
+  word-wrap: break-word; // 自动换行
+
+  // Placeholder 样式
+  &:empty:before {
+    content: attr(data-placeholder);
+    color: var(--el-text-color-placeholder);
+    pointer-events: none;
+  }
+
+  // 所有状态下圆角
+  &,
+  &:focus,
+  &:hover,
+  &:active,
+  &:focus-visible,
+  &:focus-within {
+    border-radius: var(--fcd-radius-lg);
+    -webkit-border-radius: var(--fcd-radius-lg);
+    -moz-border-radius: var(--fcd-radius-lg);
+    border-top-left-radius: var(--fcd-radius-lg);
+    border-top-right-radius: var(--fcd-radius-lg);
+    border-bottom-left-radius: var(--fcd-radius-lg);
+    border-bottom-right-radius: var(--fcd-radius-lg);
+  }
+
+  &:focus {
+    border: var(--fcd-border); // 移除 focus 状态下的描边
+    outline: var(--fcd-outline);
+    outline-width: 0;
+    outline-style: none;
+    outline-color: transparent;
+    box-shadow: var(--fcd-box-shadow);
+  }
+
+  &:focus-visible {
+    outline: var(--fcd-outline);
+    outline-width: 0;
+    outline-style: none;
+    outline-color: transparent;
+    box-shadow: var(--fcd-box-shadow);
+  }
+}
+
+// 语音波形动画容器
+.voice-waveform-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 40px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
+  border-radius: var(--global-border-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
+  }
+
+  :where(html.dark) & {
+    background: color-mix(in srgb, var(--el-color-primary) 20%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--el-color-primary) 25%, transparent);
+    }
+  }
+}
+
+// 语音波形动画
+.voice-waveform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 32px;
+
+  .waveform-bar {
+    width: 4px;
+    height: 8px;
+    background: var(--el-text-color-primary);
+    border-radius: var(--global-border-radius);
+    animation: waveform-bounce 0.8s ease-in-out infinite;
+
+    :where(html.dark) & {
+      background: var(--el-text-color-regular);
+    }
+  }
+}
+
+@keyframes waveform-bounce {
+
+  0%,
+  100% {
+    height: 8px;
+    opacity: 0.6;
+  }
+
+  50% {
+    height: 28px;
+    opacity: 1;
+  }
+}
+
+// 录音信息显示
+.voice-recording-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .recording-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--el-color-danger);
+    border-radius: var(--global-border-radius);
+    animation: recording-pulse 1s ease-in-out infinite;
+  }
+
+  .recording-duration {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--el-text-color-primary);
+    font-family: var(--font-family-mono);
+  }
+
+  .recording-hint {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+  }
+}
+
+@keyframes recording-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+// 输入框容器 - 使用 :where() 包裹祖先层级，特异性恒为 0
+:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container,
+:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container,
+:where(.input-area .input-wrapper) .chat-input-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0;
+}
+
+// 有语音小卡片时：同一行显示、垂直居中、左侧留白，避免卡片贴边（用 class 兼容无 :has 的浏览器）
+:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container.has-voice-mini,
+:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container.has-voice-mini,
+:where(.input-area .input-wrapper) .chat-input-container.has-voice-mini,
+:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container:has(.voice-mini-card),
+:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container:has(.voice-mini-card),
+:where(.input-area .input-wrapper) .chat-input-container:has(.voice-mini-card) {
+  flex-wrap: nowrap;
+  align-items: center;
+  padding: 12px 0 0 12px; // 上、左留白 12px，语音卡片不贴边
+}
+
+// 有语音卡片时输入框与卡片同一行，用单类覆盖 base min-width
+:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container .chat-input.has-voice-card,
+:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container .chat-input.has-voice-card,
+:where(.input-area .input-wrapper) .chat-input-container .chat-input.has-voice-card,
+:where(.input-area .input-wrapper) .chat-input-container.has-voice-mini .chat-input,
+.chat-input.has-voice-card {
+  flex: 1;
+  min-width: 0; // 允许在 flex 中收缩，与语音卡片同一行
+  width: auto;
+  min-height: 40px;
+  line-height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+// 输入操作按钮 - 正常流布局（基础样式已在统一按钮系统中定义）
+.input-actions {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  padding-right: 6px;
+  padding-bottom: 6px;
+  background: transparent;
+
+  // 发送按钮 - 在 flex 容器中不压缩，自适应内容宽度
+  :deep(.el-button.send-btn) {
+    flex-shrink: 0;
+    width: auto;
+    min-width: fit-content;
+  }
+
+  // 录音状态按钮（特殊状态覆盖）
+  :deep(.el-button.is-recording) {
+    color: var(--el-bg-color-page);
+    background: var(--el-color-danger);
+    border-color: var(--el-color-danger);
+    animation: recording-pulse 1s ease-in-out infinite;
+    box-shadow: var(--global-box-shadow);
+
+    .el-icon {
+      color: var(--el-bg-color-page);
+    }
+  }
+}
+
+// 发送按钮样式 - 图标 + 文字同一行（左右内边距与悬浮窗块一致）
+.send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--global-border-radius);
+  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  // Element 默认在按钮内包一层 span，需强制为行内 flex，保证图标与文字同一行
+  :deep(> span) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  background: var(--fcd-send-btn-bg);
+  border-color: var(--fcd-send-btn-bg);
+  color: var(--fcd-send-btn-color);
+
+  :deep(.el-icon) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: inherit;
+    transition: color 0.2s ease;
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
+
+  .send-btn-text {
+    display: inline;
+    align-items: center;
+    color: inherit;
+    font-size: 13px;
+    line-height: 1;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  // 明色主题 hover 样式：使用深灰色背景
+  &:hover:not(:disabled) {
+    background: var(--fcd-send-btn-hover-bg);
+    border-color: var(--fcd-send-btn-hover-bg);
+    opacity: 1;
+
+    :deep(.el-icon),
+    .send-btn-text {
+      color: var(--fcd-send-btn-color);
+    }
+  }
+
+  // 明色主题 active/focus 样式
+  &:active:not(:disabled),
+  &:focus:not(:disabled) {
+    background: var(--el-fill-color-darker);
+    border-color: var(--el-fill-color-darker);
+
+    :deep(.el-icon),
+    .send-btn-text {
+      color: var(--fcd-send-btn-color);
+    }
+  }
+
+  // 禁用状态
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--fcd-send-btn-bg);
+    border-color: var(--fcd-send-btn-bg);
+
+    :deep(.el-icon),
+    .send-btn-text {
+      color: var(--fcd-send-btn-color);
+    }
+  }
+}

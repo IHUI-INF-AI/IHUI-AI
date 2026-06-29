@@ -1,59 +1,59 @@
 {
   "toolbar": {
     "agents": {
-      "title": "标题"
+      "title": "Title"
     },
     "marketing": {
-      "desc": "描述",
-      "title": "标题"
+      "title": "Title",
+      "desc": "Desc"
     },
     "menu": {
-      "aiTechnicalServices": "aiTechnicalServices",
-      "oneStopEquipment": "oneStopEquipment",
-      "trafficOperation": "trafficOperation"
+      "trafficOperation": "Traffic Operation",
+      "oneStopEquipment": "One Stop Equipment",
+      "aiTechnicalServices": "Ai Technical Services"
     },
     "tools": {
-      "categories": {
-        "creativeDesign": "creativeDesign"
-      },
       "items": {
-        "copy": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+        "image": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
         },
-        "creator": "创建者",
-        "digital": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+        "creator": "Creator",
+        "video": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        },
+        "copy": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
         },
         "edit": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "image": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
         },
         "live": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
         },
-        "video": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+        "digital": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
         }
+      },
+      "categories": {
+        "creativeDesign": "Creative Design"
       }
     }
   }

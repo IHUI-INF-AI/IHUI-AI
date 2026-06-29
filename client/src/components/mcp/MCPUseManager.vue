@@ -635,7 +635,7 @@ const executeTask = async () => {
 
     const result = await runAgent(taskForm.value.agentId, taskForm.value.task, context)
     taskResult.value = result
-  } catch (error: any) {
+  } catch (error: unknown) {
     const err = error as { message?: string }
     showError(err?.message || t('mcpUse.manager.executionFailed'))
   } finally {

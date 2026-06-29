@@ -133,7 +133,7 @@
                           >{{ JSON.stringify(tool.result, null, 2) }}</pre
                         >
                         <p v-if="tool.error" class="error-text" style="margin-top: 5px">
-                          {{ t('agentSwarmMonitor.errorLabel') }} {{ tool.error }}
+                          错误: {{ tool.error }}
                         </p>
                       </div>
                     </el-collapse-item>
@@ -178,7 +178,7 @@
                             result.reflection.improvements.length > 0
                           "
                         >
-                          <strong>{{ t('agentSwarmMonitor.suggestions') }}</strong>
+                          <strong>改进建议:</strong>
                           <ul>
                             <li v-for="(imp, idx) in result.reflection.improvements" :key="idx">
                               {{ imp }}
@@ -229,7 +229,7 @@
                     {{ result.status }}
                   </el-tag>
                   <span v-if="result.execution_time" style="margin-left: 10px">
-                    {{ t('agentSwarmMonitor.executionTime') }} {{ result.execution_time }}ms
+                    执行时间: {{ result.execution_time }}ms
                   </span>
                   <span v-if="result.tokens_used" style="margin-left: 10px">
                     Tokens: {{ result.tokens_used }}
@@ -287,7 +287,7 @@ const swarmData = ref<{
     currentStep?: string
     agentId?: string
   }>
-  results?: any[]
+  results?: unknown[]
 } | null>(null)
 const performanceMetrics = ref<{
   successRate?: number

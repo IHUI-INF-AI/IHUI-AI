@@ -1,24 +1,28 @@
 /**
  * 教育平台跳转 Composable
  *
- * @description 统一处理「用户端」「总管理端」跳转：登录校验、SSO、新窗口打开。供 HeaderNavigation、LearnAI 等复用。
+ * @description 统一处理「用户端」「总管理端」跳转。
+ * 2026-06-26 重构: 教育平台源码已迁移到项目内, 不再走外部域名 + SSO,
+ * 改为项目内路由跳转 (/edu 用户端, /admin/edu 管理端)。
+ * 登录态由路由守卫 (requiresAuth / requiresAdmin) 统一处理;
+ * 此处仅在未登录时给出友好提示并跳 /login?redirect=...。
  */
 
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
-import { getStoredData } from '@/utils/request'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import { logger } from '@/utils/logger'
-import { ssoLoginByUuid, buildEduPlatformUrl, EduPlatformType } from '@/api/sso'
+import { getI18nGlobal } from '@/locales'
 
-/** 教育平台跳转地址：用户端 / 总管理端 */
-export const EDU_PLATFORM_URLS = {
-  eduWeb: 'https://user-edu.aizhs.top',
-  eduAdmin: 'https://admin-edu.aizhs.top',
+/** 教育平台项目内路由路径 */
+export const EDU_PLATFORM_ROUTES = {
+  eduWeb: '/edu',
+  eduAdmin: '/admin/edu',
 } as const
 
-export type EduPlatformKey = keyof typeof EDU_PLATFORM_URLS
+export type EduPlatformKey = keyof typeof EDU_PLATFORM_ROUTES
 
 export interface UseEduPlatformNavOptions {
   /** 跳转完成或需要关闭 UI 时调用（如 Header 的 closeMenus） */
@@ -28,21 +32,40 @@ export interface UseEduPlatformNavOptions {
 /**
  * 教育平台跳转逻辑，与头部导航「用户端」「总管理端」行为一致。
  *
- * 2026-06-25 修复（与 src/composables/useAppLifecycle.ts 同形）:
- * 顶层 useAuthStore 改为 try/catch + 懒加载, 解决 Pinia 尚未激活时
- * （Vite HMR / 早期 setup 竞态）抛
- *   '[🍍]: "getActivePinia()" was called but there was no active Pinia'
- * 导致 HeaderNavigation.vue setup 整体失败、render 时访问
- *   'Cannot read properties of undefined (reading "length")'
- * 崩溃的连锁问题（见控制台 20 条日志根因 #1）。
+ * 2026-06-27 修复白屏（与 HeaderNavigation.vue 同形）:
+ * 顶层 useRouter / useI18n / useAuthStore 全部改为 try/catch + 懒加载,
+ * 解决 App.vue 中 `<Teleport to="body">` 渲染 Header 时,
+ * HeaderNavigation.vue 脱离 RouterView 的 provide/inject 上下文,
+ * useRouter() 抛 'injection "Symbol(router)" not found'
+ * 导致整个 HeaderNavigation.vue setup 失败 -> 整页白屏的连锁问题.
+ *
+ * App.vue 注释明确指出:
+ *   "<Teleport to="body"> 的 Header 及其子组件无法使用 useRoute/useRouter
+ *    (脱离了 RouterView 的 provide/inject 上下文), 这是已知限制."
+ *
+ * 修复策略: 顶层只做 try/catch 容错, 真正的 router/t/store 在事件触发时
+ * 通过 getRouter / getT / getAuthStore 懒加载获取, 此时 main.ts 已执行
+ * app.use(router) + app.use(i18n), 全局实例一定就绪.
  */
 export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
-  const router = useRouter()
-  const { t } = useI18n()
   const { onDone } = options
 
-  // 顶层懒加载 + 兜底：避免 Pinia 未就绪时整个 composable 抛错，
-  // 连带导致调用方（HeaderNavigation.vue）setup 整体失败。
+  // 顶层懒加载 + 兜底：Teleport 上下文 / HMR 抖动 / Pinia 未激活时
+  // 任何一个 composable 抛错都会让调用方 setup 整体失败，必须全部 try/catch.
+  let router: ReturnType<typeof useRouter> | null = null
+  try {
+    router = useRouter()
+  } catch (e) {
+    logger.debug('[useEduPlatformNav] router unavailable on init, will lazy load:', e)
+  }
+
+  let tFn: ((key: string) => string) | null = null
+  try {
+    tFn = useI18n().t as (key: string) => string
+  } catch (e) {
+    logger.debug('[useEduPlatformNav] i18n unavailable on init, will lazy load:', e)
+  }
+
   let authStore: ReturnType<typeof useAuthStore> | null = null
   try {
     authStore = useAuthStore()
@@ -51,9 +74,46 @@ export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
   }
 
   /**
+   * 在事件真正触发时（用户点击「用户端 / 总管理端」菜单）再次尝试获取 router。
+   * 由于 main.ts 顺序保证了 app.use(router) 先于 app.mount，理论上此时
+   * router 一定已就绪；这里的多重兜底只是为了对抗 Teleport / HMR 边界情况。
+   */
+  const getRouter = (): ReturnType<typeof useRouter> | null => {
+    if (router) return router
+    try {
+      router = useRouter()
+      return router
+    } catch (e) {
+      logger.debug('[useEduPlatformNav] router lazy load failed:', e)
+      return null
+    }
+  }
+
+  /**
+   * 懒加载 i18n t 函数。优先用 useI18n() 注入的 t；
+   * 失败时回退到全局 i18n.global.t（i18n 已在 main.ts 中 app.use(i18n)）。
+   */
+  const getT = (): ((key: string) => string) => {
+    if (tFn) return tFn
+    try {
+      tFn = useI18n().t as (key: string) => string
+      return tFn
+    } catch (e) {
+      logger.debug('[useEduPlatformNav] i18n lazy load failed, fallback to global:', e)
+    }
+    try {
+      const global = getI18nGlobal()
+      const gt = (global as unknown as { t: (key: string) => string }).t
+      if (typeof gt === 'function') return gt
+    } catch (e) {
+      logger.debug('[useEduPlatformNav] global i18n fallback failed:', e)
+    }
+    // 终极兜底：返回 key 本身，避免 t(...) 抛错连锁
+    return (key: string) => key
+  }
+
+  /**
    * 在事件真正触发时（用户点击「用户端 / 总管理端」菜单）再次尝试获取 store。
-   * 由于 main.ts 顺序保证了 setActivePinia(pinia) 先于 app.mount，理论上此时
-   * Pinia 一定已就绪；这里的多重兜底只是为了对抗 HMR 边界情况。
    */
   const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
     if (authStore) return authStore
@@ -66,122 +126,72 @@ export function useEduPlatformNav(options: UseEduPlatformNavOptions = {}) {
     }
   }
 
-  async function goToEduPlatform(platform: EduPlatformKey): Promise<void> {
+  /**
+   * 跳转到教育平台（项目内路由）。
+   * - 未登录: 提示并跳 /login?redirect=<目标路径>, 登录后回到目标页
+   * - 已登录: 直接 router.push 到目标路由, 由路由守卫校验权限 (管理端需 requiresAdmin)
+   *
+   * 2026-06-27: 全部通过 getRouter / getT 懒加载获取, 任何一项失败都降级为
+   * window.location.href 整页跳转, 绝不让调用方因 composable 抛错而白屏.
+   */
+  function goToEduPlatform(platform: EduPlatformKey): void {
+    const targetPath = EDU_PLATFORM_ROUTES[platform]
+    const r = getRouter()
+    const t = getT()
+
+    // router 不可用: 降级为整页跳转, 保证用户能到达目标页
+    // 弹窗模式: 跳首页 + 写入回跳路径, Login.vue 占位组件会自动弹窗
+    if (!r) {
+      logger.warn('[useEduPlatformNav] router unavailable, fallback to window.location', {
+        platform,
+        targetPath,
+      })
+      ElMessage.warning(t('auth.pleaseLoginFirst'))
+      onDone?.()
+      try {
+        localStorage.setItem('auth-return-path', targetPath)
+      } catch {
+        // ignore storage error
+      }
+      window.location.href = '/'
+      return
+    }
+
     const auth = getAuthStore()
 
-    // Pinia 仍未就绪：保守退化为「请先登录」流程，避免在用户态未知时继续走 SSO。
+    // Pinia 仍未就绪: 退化为「请先登录」流程，直接弹窗（useLoginDialog 不依赖 Pinia）
     if (!auth) {
       logger.warn('[useEduPlatformNav] authStore unavailable when navigating, fallback to login', {
         platform,
       })
-      try {
-        sessionStorage.setItem('edu_redirect_platform', platform)
-      } catch {
-        // sessionStorage 不可用时静默
-      }
       ElMessage.warning(t('auth.pleaseLoginFirst'))
       onDone?.()
-      void router.push('/login')
+      useLoginDialog().open('login', targetPath)
       return
     }
 
-    try {
-      const baseUrl = EDU_PLATFORM_URLS[platform]
-
-      let userUuid = ''
-      const storeWithUuid = auth as unknown as { userUuid?: string }
-      userUuid = storeWithUuid.userUuid || ''
-
-      if (!userUuid) {
-        const user = auth.user as {
-          uuid?: string
-          id?: string
-          userId?: string
-          userUuid?: string
-        } | null
-        userUuid = user?.uuid || user?.id || user?.userId || user?.userUuid || ''
-      }
-
-      if (!userUuid && auth.isLoggedIn && auth.token) {
-        try {
-          const fetchUserInfo = (auth as { fetchUserInfo?: () => Promise<void> }).fetchUserInfo
-          if (fetchUserInfo) {
-            await fetchUserInfo()
-            userUuid = storeWithUuid.userUuid || ''
-            if (!userUuid) {
-              const user = auth.user as {
-                uuid?: string
-                id?: string
-                userId?: string
-                userUuid?: string
-              } | null
-              userUuid = user?.uuid || user?.id || user?.userId || user?.userUuid || ''
-            }
-          }
-        } catch (e) {
-          logger.warn('[useEduPlatformNav] Failed to refresh user info', e)
-        }
-      }
-
-      if (!userUuid) {
-        const stored = getStoredData() as Record<string, unknown> | null
-        userUuid = (stored?.uuid ?? stored?.id ?? stored?.userId ?? stored?.userUuid ?? '') as string
-      }
-
-      if (!auth.isLoggedIn) {
-        sessionStorage.setItem('edu_redirect_platform', platform)
-        ElMessage.warning(t('auth.pleaseLoginFirst'))
-        onDone?.()
-        void router.push('/login')
-        return
-      }
-
-      if (!userUuid) {
-        logger.warn('[useEduPlatformNav] User logged in but uuid is empty', {
-          isLoggedIn: auth.isLoggedIn,
-          hasToken: !!auth.token,
-          hasUser: !!auth.user,
-        })
-        ElMessage.warning(t('header.userInfoIncomplete'))
-        onDone?.()
-        auth.logout()
-        void router.push('/login')
-        return
-      }
-
-      const platformType = platform === 'eduAdmin' ? EduPlatformType.ADMIN : EduPlatformType.USER
-      logger.info('[useEduPlatformNav] Initiating education platform SSO login', {
-        platform,
-        platformType: platformType === 1 ? '管理员端' : '会员端',
-      })
-
-      const ssoResponse = await ssoLoginByUuid({
-        uuid: userUuid,
-        platform: platformType,
-      })
-      const ssoCode = (ssoResponse as { code?: number }).code
-      const ssoMsg = (ssoResponse as { msg?: string }).msg ?? (ssoResponse as { message?: string }).message
-
-      if (!ssoResponse.success || ssoCode === 555 || !ssoResponse.data) {
-        ElMessage.warning(ssoMsg || '单点登录失败，请重试')
-        logger.warn('[useEduPlatformNav] SSO login failed', { code: ssoCode, message: ssoMsg })
-        return
-      }
-
-      const redirectUrl = buildEduPlatformUrl(baseUrl, ssoResponse.data)
-      window.open(redirectUrl, '_blank')
+    if (!auth.isLoggedIn) {
+      ElMessage.warning(t('auth.pleaseLoginFirst'))
       onDone?.()
-    } catch (_error) {
-      ElMessage.error(t('msg.header_navigation.跳转失败请重试') || '跳转失败，请重试')
+      // 弹窗形式：直接打开登录弹窗并携带回跳路径，不跳转路由
+      useLoginDialog().open('login', targetPath)
+      return
     }
+
+    logger.info('[useEduPlatformNav] Navigating to edu platform (in-app route)', {
+      platform,
+      targetPath,
+    })
+    void r.push(targetPath)
+    onDone?.()
   }
 
   function goToEduWeb() {
-    return goToEduPlatform('eduWeb')
+    goToEduPlatform('eduWeb')
   }
 
   function goToEduAdmin() {
-    return goToEduPlatform('eduAdmin')
+    goToEduPlatform('eduAdmin')
   }
 
   return {

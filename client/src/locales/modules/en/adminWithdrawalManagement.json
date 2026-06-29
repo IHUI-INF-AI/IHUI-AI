@@ -1,0 +1,19 @@
+{
+  "adminWithdrawalManagement": {
+    "actions": {
+      "Approve": "Approve",
+      "Reject": "Reject",
+      "Export": "Export"
+    },
+    "withdrawalList": {
+      "Status": "Status"
+    },
+    "Status": {
+      "pending": "Pending",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "processing": "Processing",
+      "completed": "Completed"
+    }
+  }
+}

@@ -11,15 +11,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed } from 'vue'
 import { useDarkModeStore } from '@/stores/darkMode'
+import SearchTrigger from '@/components/login/SearchTrigger.vue'
+import Search from '@/components/login/Search.vue'
+
+// 同步导入避免搜索按钮区域出现「白条」——SearchTrigger 是 header 中固定可见的图标，
+// 异步加载会在容器已显示但内容未就绪时产生空白/抖动。
 
 const darkStore = useDarkModeStore()
 const isDark = computed(() => darkStore.isDarkMode ?? darkStore.themeMode === 'dark')
 
 const useFallback = false
-const SearchTrigger = defineAsyncComponent(() => import('@/components/login/SearchTrigger.vue'))
-const Search = defineAsyncComponent(() => import('@/components/login/Search.vue'))
 
 const toggle = () => {
   if (typeof window === 'undefined') return

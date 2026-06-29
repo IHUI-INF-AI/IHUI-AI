@@ -4,6 +4,14 @@
       "category": "카테고리 검색",
       "channel": "채널 검색",
       "lecturer": "강사 검색"
+    },
+    "label": {
+      "categoryName": "카테고리명",
+      "sort": "정렬",
+      "name": "이름",
+      "title": "직함",
+      "liveCount": "라이브 수",
+      "actions": "작업"
     }
   }
 }

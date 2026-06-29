@@ -1,0 +1,15 @@
+{
+  "searchPage": {
+    "hotSearch": "熱門搜尋",
+    "loading": "載入中...",
+    "emptyHot": "暫無熱門搜尋",
+    "resultSummary": "找到 {total} 個結果",
+    "noResult": "未找到相關結果",
+    "typeAgent": "智能體",
+    "typeCourse": "課程",
+    "typeContent": "內容",
+    "typeAsk": "問答",
+    "typeCircle": "圈子",
+    "xxx": "搜尋"
+  }
+}

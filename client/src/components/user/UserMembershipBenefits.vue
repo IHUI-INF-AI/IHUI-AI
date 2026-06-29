@@ -171,7 +171,8 @@ function handleUpgrade() {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   padding: 24px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .benefits-header {
   margin-bottom: 24px;

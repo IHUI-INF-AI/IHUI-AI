@@ -5,19 +5,6 @@
     </div>
 
     <div class="third-party-buttons">
-
-
-      <!-- 支付宝登录 -->
-      <el-button
-        class="third-party-btn alipay-btn"
-        @click="handleAlipayLogin"
-      >
-        <div class="btn-content">
-          <img src="/images/loginSANFANG/支付宝支付.svg" :alt="t('login.thirdParty.alipay')" class="btn-icon" loading="lazy" />
-          <span>{{ t('login.thirdParty.alipayLogin') }}</span>
-        </div>
-      </el-button>
-
       <!-- 飞书登录 -->
       <el-button
         class="third-party-btn feishu-btn"
@@ -48,15 +35,9 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ALIPAY_AUTH_URL } from '@/constants/alipay'
 import { FEISHU_AUTH_URL } from '@/constants/feishu'
 
 const { t } = useI18n()
-
-/** 支付宝登录：直接跳转官方授权页 */
-const handleAlipayLogin = () => {
-  window.location.href = ALIPAY_AUTH_URL
-}
 
 /** 飞书登录：固定跳转官方授权页 */
 const handleFeishuLogin = () => {
@@ -141,13 +122,6 @@ const showTermsOfService = () => {
   span {
     font-size: 14px;
     font-weight: 500;
-  }
-}
-
-.alipay-btn {
-  &:hover {
-    border-color: var(--color-brand-blue);
-    color: var(--color-brand-blue);
   }
 }
 

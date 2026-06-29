@@ -2,8 +2,7 @@
  * 在线用户管理 API
  * 后端模型已存在: SysUser, SysLoginInfo(AdminLogininfor) (server/app/models/sys_models.py)
  *
- * 注意: 后端 audit 模块暂未提供在线用户接口, 本文件使用占位端点
- * /api/v1/system/audit/online/*, 待后端补充真实接口后替换。
+ * 对接后端 admin_panel.py 注册的路由: /api/v1/online/*
  *
  * 后端列表返回 {code, msg, data:[...], total};
  * 本文件统一转换为 {records, total} 以适配 useAdminTable 默认提取器。
@@ -58,7 +57,7 @@ function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {
 }
 
 export async function onlineList(params: OnlineListParams = {}): Promise<ApiResponse<{ records: OnlineItem[]; total: number }>> {
-  const res = await http.get('/api/v1/system/audit/online/list', {
+  const res = await http.get('/api/v1/online/list', {
     params: {
       page: params.current ?? 1,
       limit: params.size ?? 20,
@@ -71,14 +70,14 @@ export async function onlineList(params: OnlineListParams = {}): Promise<ApiResp
 
 /** 强制下线 */
 export async function onlineForceLogout(tokenId: string): Promise<ApiResponse<unknown>> {
-  const res = await http.delete(`/api/v1/system/audit/online/${tokenId}`)
+  const res = await http.delete(`/api/v1/online/${tokenId}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }
 
 /** 批量强制下线 */
 export async function onlineBatchForceLogout(tokenIds: string[]): Promise<ApiResponse<unknown>> {
-  const res = await http.delete('/api/v1/system/audit/online/batch', { params: { tokens: tokenIds.join(',') } })
+  const res = await http.delete('/api/v1/online/batch', { params: { tokens: tokenIds.join(',') } })
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }

@@ -1,17 +1,8 @@
 {
   "refundDetail": {
-    "applyTime": "应用 时间",
-    "approveTime": "通过 时间",
-    "backToList": "返回列表",
-    "completeTime": "完成 时间",
-    "originalOrderNo": "original 订单 无",
-    "refundAmount": "退款金额",
-    "refundDescription": "退款 描述",
-    "refundInfo": "退款 信息",
+    "backToList": "返回退款列表",
+    "title": "退款详情",
     "refundNo": "退款单号",
-    "refundReason": "退款原因",
-    "rejectReason": "拒绝原因",
-    "supplementEvidence": "supplement Evidence",
-    "title": "标题"
+    "supplementEvidence": "补充凭证 (支持多文件)"
   }
 }

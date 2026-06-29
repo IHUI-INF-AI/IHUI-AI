@@ -1,1 +1,19 @@
-{}
+{
+  "purchase": {
+    "title": "Purchase Records",
+    "myRecords": "My Purchase Records",
+    "searchPlaceholder": "Search agent name or order number",
+    "agentName": "Agent Name",
+    "orderNo": "Order No.",
+    "purchasePrice": "Purchase Price",
+    "discountUnit": "off",
+    "purchaseDuration": "Purchase Duration",
+    "months": "months",
+    "purchaseTime": "Purchase Time",
+    "expiryTime": "Expiry Time",
+    "orderStatus": "Order Status",
+    "settlementStatus": "Settlement Status",
+    "settled": "Settled",
+    "unsettled": "Unsettled"
+  }
+}

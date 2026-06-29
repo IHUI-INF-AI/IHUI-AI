@@ -466,7 +466,7 @@ section {
 
 .section-title {
   font-size: clamp(26px, 3.8vw, 40px);
-  font-weight: 700;
+  font-weight: 900;
   color: $text-main;
   letter-spacing: -0.03em;
   margin: 0;
@@ -488,12 +488,12 @@ section {
   -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   border-radius: v.$border-radius;
-  transition: border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 
   &:hover {
-    border-color: var(--el-color-primary);
+    border-color: rgba($brand-primary, 0.18);
   }
 }
 
@@ -527,7 +527,7 @@ section {
 
   .hero-title {
     font-size: clamp(32px, 5.5vw, 56px);
-    font-weight: 700;
+    font-weight: 900;
     line-height: 1.12;
     color: $text-main;
     letter-spacing: -0.04em;
@@ -566,16 +566,17 @@ section {
   font-size: v.$font-size-sm;
   font-weight: v.$font-weight-bold;
   cursor: pointer;
-  transition: transform 0.25s ease;
+  transition: all 0.25s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
+    border-color: var(--el-color-primary);
   }
 }
 
-:where(html.dark) .btn-primary {
-  background: var(--el-color-primary);
-  color: var(--color-on-primary);
+html.dark .btn-primary {
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
 }
 
 .btn-ghost {
@@ -590,7 +591,7 @@ section {
   font-size: v.$font-size-sm;
   font-weight: v.$font-weight-bold;
   cursor: pointer;
-  transition: background-color 0.25s ease, border-color 0.25s ease;
+  transition: all 0.25s ease;
 
   &:hover {
     background: $bg-card;
@@ -601,7 +602,7 @@ section {
 // Stats Section - 卡片式分隔
 .stats-section {
   padding: clamp(56px, 8vw, 88px) 0;
-  background: var(--el-fill-color-light);
+  background: rgba($brand-primary, 0.02);
 
   .stats-grid {
     display: grid;
@@ -630,7 +631,7 @@ section {
 
   .stat-value {
     font-size: clamp(28px, 4vw, 44px);
-    font-weight: 700;
+    font-weight: 900;
     color: $text-main;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
@@ -696,7 +697,7 @@ section {
 
     .feature-tag {
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 900;
       letter-spacing: 0.1em;
       color: $accent-color;
       margin-bottom: v.$spacing-md;
@@ -786,6 +787,7 @@ section {
     background: $brand-primary;
     border-radius: var(--global-border-radius);
     flex-shrink: 0;
+    border: 2px solid var(--el-border-color-lighter);
   }
 
   .timeline-row-track .marker-line {
@@ -804,7 +806,7 @@ section {
 
     .timeline-year {
       font-size: v.$font-size-xs;
-      font-weight: 700;
+      font-weight: 900;
       color: $accent-color;
       letter-spacing: 0.1em;
       margin-bottom: v.$spacing-sm;
@@ -886,7 +888,7 @@ section {
         align-items: center;
         justify-content: center;
         font-size: v.$font-size-3xl;
-        font-weight: 700;
+        font-weight: 900;
         color: var(--el-bg-color-page);
       }
 
@@ -982,13 +984,13 @@ section {
 }
 
 // 暗色模式
-:where(html.dark) {
+:global(html.dark) {
   .about-root {
     background: var(--el-bg-color);
   }
 
   .glass-card {
-    background: var(--color-dark-bg-2);
+    background: var(--color-dark-141414-85);
     border-color: var(--color-white-8);
 
     &:hover {
@@ -1012,7 +1014,7 @@ section {
   }
 
   .team-card .avatar-placeholder {
-    background: var(--el-text-color-primary);
+    background: var(--color-gray-222);
   }
 }
 </style>

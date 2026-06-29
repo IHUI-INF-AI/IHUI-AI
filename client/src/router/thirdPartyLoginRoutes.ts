@@ -1,6 +1,6 @@
 import type { RouteRecordRaw, RouteComponent } from 'vue-router'
 
-const asyncComponent = <T extends Promise<{ default: any }>>(
+const asyncComponent = <T extends Promise<{ default: unknown }>>(
   loader: () => T
 ): RouteComponent => loader as unknown as RouteComponent
 

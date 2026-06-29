@@ -264,8 +264,8 @@ export interface ApiParameter {
   type: string
   required: boolean
   description: string
-  default?: any
-  example?: any
+  default?: unknown
+  example?: unknown
 }
 
 /**

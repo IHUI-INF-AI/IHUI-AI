@@ -191,7 +191,7 @@ export const usePdfSignature = () => {
     return { valid, invalid }
   }
 
-  const extractSignatureFields = async (pdfDoc: any): Promise<SignatureField[]> => {
+  const extractSignatureFields = async (pdfDoc: unknown): Promise<SignatureField[]> => {
     const fields: SignatureField[] = []
     
     try {

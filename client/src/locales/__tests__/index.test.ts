@@ -68,7 +68,6 @@ import {
   asyncModules,
   getI18nGlobal,
   getElementPlusLocale,
-  loadElementPlusLocale,
   initI18n,
   default as i18nDefault,
 } from '../index'
@@ -168,49 +167,40 @@ describe('locales/index.ts', () => {
 
   describe('getElementPlusLocale', () => {
     // 测试 Element Plus 语言包映射
-    // 2026-06-24: getElementPlusLocale 改为同步缓存查找，需先 await loadElementPlusLocale 预加载
-    it('zh-CN 与 zh 应返回中文简体', async () => {
-      await loadElementPlusLocale('zh-CN')
+    it('zh-CN 与 zh 应返回中文简体', () => {
       expect(getElementPlusLocale('zh-CN')).toEqual({ name: 'zh-cn' })
       expect(getElementPlusLocale('zh')).toEqual({ name: 'zh-cn' })
     })
 
-    it('zh-TW 与 zh-tw 应返回繁体', async () => {
-      await loadElementPlusLocale('zh-TW')
+    it('zh-TW 与 zh-tw 应返回繁体', () => {
       expect(getElementPlusLocale('zh-TW')).toEqual({ name: 'zh-tw' })
       expect(getElementPlusLocale('zh-tw')).toEqual({ name: 'zh-tw' })
     })
 
-    it('en 与 EN 应返回英文', async () => {
-      await loadElementPlusLocale('en')
+    it('en 与 EN 应返回英文', () => {
       expect(getElementPlusLocale('en')).toEqual({ name: 'en' })
       expect(getElementPlusLocale('EN')).toEqual({ name: 'en' })
     })
 
-    it('ja 应返回日文', async () => {
-      await loadElementPlusLocale('ja')
+    it('ja 应返回日文', () => {
       expect(getElementPlusLocale('ja')).toEqual({ name: 'ja' })
     })
 
-    it('ko 应返回韩文', async () => {
-      await loadElementPlusLocale('ko')
+    it('ko 应返回韩文', () => {
       expect(getElementPlusLocale('ko')).toEqual({ name: 'ko' })
     })
 
-    it('空字符串应回退为 zh-CN', async () => {
+    it('空字符串应回退为 zh-CN', () => {
       // 源码实现：lang || 'zh-CN'
-      await loadElementPlusLocale('zh-CN')
       expect(getElementPlusLocale('')).toEqual({ name: 'zh-cn' })
     })
 
-    it('未传入参数应回退为 zh-CN', async () => {
-      await loadElementPlusLocale('zh-CN')
+    it('未传入参数应回退为 zh-CN', () => {
       // @ts-expect-error 故意不传参测试默认行为
       expect(getElementPlusLocale()).toEqual({ name: 'zh-cn' })
     })
 
-    it('不识别的语言应返回英文', async () => {
-      await loadElementPlusLocale('en')
+    it('不识别的语言应返回英文', () => {
       expect(getElementPlusLocale('xx-XX')).toEqual({ name: 'en' })
     })
   })

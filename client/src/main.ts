@@ -4,13 +4,12 @@ import App from './App.vue'
 import router from './router'
 import i18n, { setLanguage, initI18n } from './locales'
 import { useLanguageStore } from './stores/language'
-import { useDarkModeStore } from './stores/darkMode'
+import { useDarkModeStore } from '@/stores/darkMode'
 import { logger } from '@/utils/logger'
 import { registerIcons } from '@/utils/element-plus-icons'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { createPersistedState } from '@/plugins/pinia-persist'
-// SVG 雪碧图注册 (vite-plugin-svg-icons) - 让 SvgIcon 组件的 <use xlink:href> 生效
-import 'virtual:svg-icons-register'
+
 // E2E/演示模式下过滤噪声日志，避免无关错误充斥控制台
 // 直接导入 fixLogger，文件内部会根据环境变量决定是否启用
 
@@ -22,6 +21,8 @@ import './styles/css-variables.scss'
 import './components/global.scss'
 import './styles/index.scss'
 import './styles/_scrollbar-overlay.scss'
+// ElMessageBox 全局样式覆盖（修复会话过期弹窗按钮挤在一起的问题）
+import './styles/_el-message-box.scss'
 import './styles/header.scss' // 顶部菜单栏 .glass-header 样式（必须加载，否则顶部栏不显示）
 import './styles/brand-marquee.scss' // 引入品牌跑马灯卡片样式
 import './styles/ihui-ai-effects.scss'
@@ -65,40 +66,6 @@ const patchAppImageSources = () => {
 
 logger.info('[Main] Starting app initialization...')
 
-// 2026-06-26 一次性迁移清理: 删除 i18n 翻译记忆库 (TM) + 同步日志 残留的 localStorage 数据
-// 背景: 之前为"翻译工作流"开发了 TM (翻译记忆库) + 同步日志 功能, 现用户决定不接入第三方翻译 API
-//       所有"花钱翻译"相关功能已从代码中移除, 但用户浏览器里可能残留旧的 localStorage 数据
-//       一次性清理: 只在客户端执行一次, 删除后立即 setItem 一个 sentinel, 防止误删新数据
-try {
-  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-    const TM_LEGACY_KEY = 'i18n_tm'
-    const SYNC_LOG_LEGACY_KEY = 'i18n_sync_log'
-    const MIGRATION_SENTINEL = 'i18n_legacy_translation_cleanup_v1'
-    const existing = localStorage.getItem(MIGRATION_SENTINEL)
-    if (existing !== 'done') {
-      let removedCount = 0
-      if (localStorage.getItem(TM_LEGACY_KEY) !== null) {
-        localStorage.removeItem(TM_LEGACY_KEY)
-        removedCount++
-      }
-      if (localStorage.getItem(SYNC_LOG_LEGACY_KEY) !== null) {
-        localStorage.removeItem(SYNC_LOG_LEGACY_KEY)
-        removedCount++
-      }
-      try {
-        localStorage.setItem(MIGRATION_SENTINEL, 'done')
-      } catch (_e) {
-        // 写入 sentinel 失败不影响清理结果
-      }
-      if (removedCount > 0) {
-        logger.info(`[Main] Cleaned up ${removedCount} legacy i18n translation localStorage key(s)`)
-      }
-    }
-  }
-} catch (e) {
-  logger.warn('[Main] Legacy i18n translation localStorage cleanup failed:', e)
-}
-
 // Theme initialization
 try {
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -108,7 +75,8 @@ try {
     if (!document.getElementById('global-box-sizing')) {
       const styleEl = document.createElement('style')
       styleEl.id = 'global-box-sizing'
-      styleEl.textContent = '*,*::before,*::after{box-sizing:inherit;margin:0;padding:0;}'
+      // 放入 @layer reset,确保不覆盖 @layer components 中的组件样式(如 ElMessage padding)
+      styleEl.textContent = '@layer reset, base, vendor, components, utilities; @layer reset { *,*::before,*::after{box-sizing:inherit;margin:0;padding:0;} }'
       document.head.appendChild(styleEl)
     }
     
@@ -185,6 +153,38 @@ try {
       document.documentElement.setAttribute('data-theme', 'light')
     }
     
+    // 强制设置 CSS 变量，确保主题颜色正确应用
+    // 使用 utilities 层确保优先级
+    const forceThemeVariables = () => {
+      const style = document.createElement('style')
+      style.id = 'force-theme-variables'
+      if (preferDark) {
+        style.textContent = `
+          @layer utilities {
+            :root {
+              --el-bg-color: #1a1a1a;
+              --el-bg-color-page: #0f0f0f;
+              --el-bg-color-overlay: #1a1a1a;
+            }
+          }
+        `
+      } else {
+        style.textContent = `
+          @layer utilities {
+            :root {
+              --el-bg-color: #ffffff;
+              --el-bg-color-page: #f5f7fa;
+              --el-bg-color-overlay: #ffffff;
+            }
+          }
+        `
+      }
+      const oldStyle = document.getElementById('force-theme-variables')
+      if (oldStyle) oldStyle.remove()
+      document.head.appendChild(style)
+    }
+    forceThemeVariables()
+
     // 兜底修正可能遗留的绝对路径 APP.jpg，防止 file:// 访问报错
     patchAppImageSources()
   }
@@ -200,35 +200,12 @@ const pinia = createPinia()
 pinia.use(createPersistedState({
   defaultDebounce: 300,
 }))
-// 确保在使用任何 store 之前激活 Pinia（解决 HMR 或初始化竞态导致的 getActivePinia 警告）
+// 确保存使用任何 store 之前激活 Pinia（解决 HMR 或初始化竞态导致的 getActivePinia 警告）
 setActivePinia(pinia)
 app.use(pinia)
 
 // Vue 全局错误处理器 - 捕获组件内部未处理的错误
-// 2026-06-26 增强: 对 Element Plus 2.14.x + Vue 3.5.x 在暗色模式切换瞬间
-// 偶发的 'Cannot read properties of null (reading "ce")' 错误 (即
-// el-empty / el-table 等组件 renderSlot 时 currentRenderingInstance 为 null)
-// 做静默处理, 避免级联到 ErrorBoundary 兜底白屏. 该错误本质是组件卸载瞬间
-// 异步 locale 切换 + 渲染管线竞态, 不影响最终渲染结果, 静默吞掉即可.
-const _isRenderSlotNullError = (err: unknown): boolean => {
-  if (!err || typeof err !== 'object') return false
-  const msg = (err as { message?: string }).message
-  if (typeof msg !== 'string') return false
-  // 兼容 'ce' (currentRenderingInstance.ce) 与 'currentRenderingInstance' 两种报错形式
-  return (
-    msg.includes("Cannot read properties of null (reading 'ce')") ||
-    msg.includes('Cannot read properties of null (reading "ce")') ||
-    (msg.includes('currentRenderingInstance') && msg.includes('null'))
-  )
-}
 ;(app.config as unknown as { errorHandler: (err: unknown, instance: unknown, info: string) => void }).errorHandler = (err, _instance, info) => {
-  if (_isRenderSlotNullError(err)) {
-    // 仅在 dev 模式记录, 生产环境静默
-    if (import.meta.env.DEV) {
-      logger.debug('[Vue Error] renderSlot null caught (non-fatal):', { err, info })
-    }
-    return
-  }
   logger.error('[Vue Error]', err, { info })
 }
 
@@ -307,24 +284,6 @@ try {
 await initI18n()
 app.use(i18n)
 
-// 2026-06-24 修复: 在 router 挂载前预加载 en 兜底 EP 语言包 + 当前语言 EP 语言包,
-// 确保 App.vue setup 同步访问 getElementPlusLocale 时至少能拿到 en 兜底, 避免空 {} locale
-// 触发 Element Plus 内部 renderSlot(null children) -> 'Cannot read properties of null (reading "ce")' 错误
-try {
-  const { loadElementPlusLocale, getCurrentLocale } = await import('./locales')
-  void loadElementPlusLocale('en').catch((e) => {
-    logger.warn('[Main] Preload EP en locale failed:', e)
-  })
-  const currentLocale = getCurrentLocale()
-  if (currentLocale && currentLocale !== 'en') {
-    void loadElementPlusLocale(currentLocale).catch((e) => {
-      logger.warn('[Main] Preload EP current locale failed:', e)
-    })
-  }
-} catch (e) {
-  logger.warn('[Main] Preload EP locale failed:', e)
-}
-
 // Router
 app.use(router)
 
@@ -373,20 +332,29 @@ if (import.meta.env.DEV) {
 // Icons
 try {
   registerIcons(app)
-} catch (error: any) {
+} catch (error: unknown) {
   logger.error('Failed to register icons', error)
 }
 
 
 // Language Class
-function applyLanguageClass(lang: string) {
+// 注: lang 参数防御性接受 unknown。Pinia setup store 在 HMR/SSR/persist 恢复等场景下
+// currentLanguage 可能未 unwrap, 传入的是 { value: string } 而非 string。
+// 简单 fallback 到 'zh-CN' 会丢失用户真实语言选择, 此处做完整类型守卫提取 .value。
+function applyLanguageClass(lang: unknown) {
   try {
     const rootEl = document.documentElement
-    // 防御性: 即使上层已做类型守卫, 这里仍再做一次 string 校验,
-    // 避免 pinia 持久化/订阅回调中传入非 string (Ref/对象) 触发 toLowerCase 报错.
-    const safeLang = typeof lang === 'string' && lang.length > 0 ? lang : 'zh-CN'
-    const isZh = safeLang.toLowerCase().startsWith('zh')
-    rootEl.classList.toggle('lang-zh', !!isZh)
+    let langStr: string
+    if (typeof lang === 'string') {
+      langStr = lang
+    } else if (lang && typeof lang === 'object' && 'value' in lang) {
+      // 处理未 unwrap 的 ref 对象
+      langStr = String((lang as { value: unknown }).value ?? '') || 'zh-CN'
+    } else {
+      langStr = String(lang ?? '') || 'zh-CN'
+    }
+    const isZh = langStr.toLowerCase().startsWith('zh')
+    rootEl.classList.toggle('lang-zh', isZh)
     rootEl.classList.toggle('lang-en', !isZh)
   } catch (e) {
     logger.error('Failed to apply language class', e)
@@ -396,20 +364,9 @@ function applyLanguageClass(lang: string) {
 try {
   const languageStore = useLanguageStore(pinia)
   languageStore.initLanguage()
-  // 2026-06-26 修复: pinia setup-style store 在 store 外部访问 ref 字段会**自动 unwrap**,
-  // 不需要再取 .value (取 .value 反而会拿到 undefined -> toLowerCase 报错).
-  // $subscribe 的 state 同样拿到 unwrap 后的 string, 直接传即可.
-  const resolveLang = (raw: unknown): string => {
-    if (typeof raw === 'string') return raw
-    if (raw && typeof raw === 'object' && 'value' in (raw as Record<string, unknown>)) {
-      const v = (raw as { value: unknown }).value
-      if (typeof v === 'string') return v
-    }
-    return 'zh-CN'
-  }
-  applyLanguageClass(resolveLang(languageStore.currentLanguage))
-  languageStore.$subscribe((_mutation: any, state: { currentLanguage?: string }) => {
-    applyLanguageClass(resolveLang(state.currentLanguage) || 'zh-CN')
+  applyLanguageClass(languageStore.currentLanguage)
+  languageStore.$subscribe((_mutation: unknown, state: { currentLanguage?: string }) => {
+    applyLanguageClass(state.currentLanguage || 'zh-CN')
   })
 } catch (error) {
   logger.error('[Main] Failed to initialize language store:', error)
@@ -462,6 +419,15 @@ if (typeof window !== 'undefined') {
       }
     }
   })
+}
+
+// ElMessage 进度条增强(patch 静态方法 + MutationObserver 兜底)
+// 必须在 app.mount 之前启用,确保 mount 后的 ElMessage 调用都带进度条
+try {
+  const { setupMessageProgress } = await import('./utils/messageProgress')
+  setupMessageProgress()
+} catch (error) {
+  logger.warn('[Main] Failed to setup message progress:', error)
 }
 
 // Mount

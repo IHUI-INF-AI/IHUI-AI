@@ -159,10 +159,12 @@ export default {
     }
     
     #navbar-theme-input:checked + .slider {
-      background-color: var(--el-text-color-primary);
+      background-color: var(--el-bg-color);
     }
     
     #navbar-theme-input:focus + .slider {
+      outline: 1px solid var(--color-blue-2196f3);
+      outline-offset: 0;
       box-shadow: none;
     }
     
@@ -183,7 +185,7 @@ export default {
       -webkit-transform: translateX(16px);
       -ms-transform: translateX(16px);
       transform: translateX(16px);
-      background-color: var(--el-bg-color);
+      background-color: var(--el-color-white);
       -webkit-animation: rotate-center 0.6s ease-in-out both;
       animation: rotate-center 0.6s ease-in-out both;
     }
@@ -268,7 +270,7 @@ export default {
     
     .cloud-dark {
       position: absolute;
-      fill: var(--el-disabled-bg-color);
+      fill: var(--color-gray-ccc);
       animation-name: cloud-move;
       animation-duration: 6s;
       animation-iteration-count: infinite;

@@ -1,17 +1,17 @@
 {
   "markdown": {
     "renderFailed": "Markdown 렌더링 실패",
-    "copied": "copied",
-    "copy": "复制",
-    "defaultTitle": "defaultTitle",
-    "download": "下载",
-    "downloadToView": "downloadToView",
-    "edit": "编辑",
-    "loadError": "loadError",
-    "loadFailed": "loadFailed",
-    "loading": "加载中",
-    "preview": "预览",
-    "switchView": "switchView",
-    "toc": "toc"
+    "defaultTitle": "Markdown 문서",
+    "toc": "목차",
+    "loading": "로딩 중...",
+    "loadFailed": "문서 로드 실패",
+    "loadError": "로드 실패",
+    "switchView": "뷰 전환",
+    "edit": "편집",
+    "preview": "미리보기",
+    "copy": "복사",
+    "copied": "복사됨",
+    "download": "다운로드",
+    "downloadToView": "다운로드하여 보기"
   }
 }

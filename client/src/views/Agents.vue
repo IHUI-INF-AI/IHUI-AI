@@ -159,7 +159,9 @@ import {
   unfavoriteAgent,
   type Agent,
   type AgentCategory,
-} from '@/api/agent/agents'
+  type AgentPlatform,
+} from '@/api/agents'
+import type { ApiResponse, PaginationResponse } from '@/types'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import AgentsSquareList from '@/components/agents/AgentsSquareList.vue'
 
@@ -174,7 +176,7 @@ const devStatus = ref(0)
 const devSearch = ref('')
 const devPage = ref({ page: 1, pageSize: 10 })
 const devTotal = ref(0)
-const devDataList = ref<any[]>([])
+const devDataList = ref<unknown[]>([])
 const devLoading = ref(false)
 const devHeadTypes = computed(() => [
   { id: 0, name: t('agents.statusPending') },
@@ -228,9 +230,9 @@ const initScrollAnimations = () => {
 // ===== 打字机效果（与 OpenPlatform/LearnAI 一致循环） =====
 const typewriterPhrases = computed(() => [
   t('agents.title'),
-  t('Agents.exploreAgents'),
-  t('Agents.createCustomAgent'),
-  t('Agents.oneClickDeploy')
+  t('agents.exploreAgents'),
+  t('agents.createCustomAgent'),
+  t('agents.oneClickDeploy')
 ])
 const currentTypingText = ref('')
 let typewriterPhraseIdx = 0
@@ -321,7 +323,7 @@ const loading = computed(() => apiLoading.value)
 const error = computed(() => apiError.value?.message || null)
 const searchKeyword = ref('')
 const selectedCategory = ref<string>('all')
-const selectedPlatform = ref<string | undefined>(undefined)
+const selectedPlatform = ref<AgentPlatform | undefined>(undefined)
 const sortBy = ref<string>('usageCount')
 const retryCount = ref(0)
 const maxRetries = 3
@@ -358,7 +360,7 @@ const loadAgents = async (isRetry = false) => {
     retryCount.value = 0
   }
 
-  const params = {
+  const params: Parameters<typeof getAgentsList>[0] = {
     page: pagination.page,
     pageSize: pagination.pageSize,
     category: selectedCategory.value === 'all' ? undefined : selectedCategory.value,
@@ -368,7 +370,7 @@ const loadAgents = async (isRetry = false) => {
     platform: selectedPlatform.value,
   }
 
-  const result = await execute(() => cachedGetAgentsList.execute(params as any), {
+  const result = await execute(() => cachedGetAgentsList.execute(params), {
     showMessage: !isRetry,
   })
 
@@ -546,21 +548,22 @@ const fetchDevAgents = async () => {
       agent_name: devSearch.value,
     }
     // P13: v2Agents.list 已简化为纯 v1 调用 (2026-06-21 v2 空壳清理后)
-    let v2Result: { code?: string | number; data?: { records?: unknown[]; total?: number } } | null = null
+    let v2Result: ApiResponse<PaginationResponse<Agent>> | null = null
     try {
-      v2Result = (await v2Agents.list({
+      v2Result = await v2Agents.list({
         page: devPage.value.page,
         size: devPage.value.pageSize,
         keyword: devSearch.value,
-      })) as unknown as typeof v2Result
+      })
     } catch (e) {
       logger.warn('[P13] v2 agents.list failed, fallback to v1:', e)
     }
-    const records = ((v2Result as any)?.data?.records as Array<Record<string, unknown>>) || []
-    if (v2Result && ((v2Result as any).code === 200 || (v2Result as any).code === '200') && records.length > 0) {
+    const v2Res = v2Result as ApiResponse<PaginationResponse<Agent>> | null
+    const records = v2Res?.data?.records ?? v2Res?.data?.list ?? []
+    if (v2Res && Number(v2Res?.code) === 200 && records.length > 0) {
       // v2 路径 (v2 first / v2 优先)
       devDataList.value = devPage.value.page === 1 ? records : [...devDataList.value, ...records]
-      devTotal.value = (v2Result as any)?.data?.total || 0
+      devTotal.value = v2Res?.data?.total ?? 0
       return
     }
     // Fallback: v1 (含多平台聚合)
@@ -702,7 +705,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--el-text-color-primary);
+$brand-secondary: var(--color-gray-333);
 
 // ============ 主容器 ============
 .agents-container {
@@ -727,7 +730,7 @@ $brand-secondary: var(--el-text-color-primary);
     border-radius: 0;
 
     /* 暗色模式：提升特异性至 (0,3,2) 高于亮色基础 (0,3,1)，用层顺序控制 即可覆盖 */
-    :where(html.dark) & {
+    html.dark & {
       background-color: var(--page-bg-color);
       background: var(--page-bg-color);
     }
@@ -769,7 +772,7 @@ $brand-secondary: var(--el-text-color-primary);
       height: 400px;
       top: 10%;
       right: 10%;
-      background: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
+      background: rgba($brand-primary, 0.3);
     }
 
     &.orb-2 {
@@ -791,7 +794,7 @@ $brand-secondary: var(--el-text-color-primary);
   transition: none;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -804,7 +807,6 @@ $brand-secondary: var(--el-text-color-primary);
 .glass-card {
   background: rgb(var(--el-fill-color-light-rgb), 0.4);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
 }
@@ -853,12 +855,11 @@ $brand-secondary: var(--el-text-color-primary);
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 900;
       letter-spacing: 0.05em;
       width: fit-content;
       background: rgb(var(--el-fill-color-light-rgb), 0.3);
       backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
 
       .status-dot {
         width: 6px;
@@ -871,7 +872,7 @@ $brand-secondary: var(--el-text-color-primary);
 
     .page-title {
       font-size: clamp(32px, 5vw, 48px);
-      font-weight: 800;
+      font-weight: 950;
       font-family: var(--font-family-chinese);
       color: $text-main;
       margin: 0;
@@ -921,7 +922,7 @@ $brand-secondary: var(--el-text-color-primary);
 
     .meta-badge {
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 900;
       padding: 3px 8px;
       background: $brand-primary;
       color: var(--el-bg-color);
@@ -999,12 +1000,11 @@ $brand-secondary: var(--el-text-color-primary);
       border-radius: var(--global-border-radius);
       background: rgb(var(--el-fill-color-light-rgb), 0.4);
       backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
       border: var(--unified-border);
-      transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
       &:hover {
-        border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
+        border-color: rgba($brand-primary, 0.3);
       }
     }
   }
@@ -1032,10 +1032,10 @@ $brand-secondary: var(--el-text-color-primary);
     .el-pager li {
       border-radius: var(--global-border-radius);
       margin: 0 2px;
-      transition: background-color 0.3s, color 0.3s;
+      transition: all 0.3s;
 
       &:hover {
-        background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
+        background: rgba($brand-primary, 0.1);
       }
 
       &.is-active {
@@ -1048,10 +1048,10 @@ $brand-secondary: var(--el-text-color-primary);
     .btn-prev,
     .btn-next {
       border-radius: var(--global-border-radius);
-      transition: background-color 0.3s;
+      transition: all 0.3s;
 
       &:hover {
-        background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
+        background: rgba($brand-primary, 0.1);
       }
     }
   }
@@ -1160,7 +1160,7 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+  transition: all 0.3s;
 
   &.active {
     background: $brand-primary;
@@ -1186,7 +1186,7 @@ $brand-secondary: var(--el-text-color-primary);
   font-weight: 600;
   color: $text-sec;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
+  transition: all 0.3s;
 
   &.active {
     background: $brand-primary;
@@ -1206,7 +1206,7 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 14px;
   color: $text-sec;
   cursor: pointer;
-  transition: color 0.3s;
+  transition: all 0.3s;
 
   &.active {
     color: $brand-primary;
@@ -1227,10 +1227,10 @@ $brand-secondary: var(--el-text-color-primary);
 
 .dev-agent-card {
   padding: 20px;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
+    border-color: rgba($brand-primary, 0.3);
   }
 }
 
@@ -1362,12 +1362,12 @@ $brand-secondary: var(--el-text-color-primary);
 /* 暗色模式：智能体页面整体与容器使用深色背景
    原使用高优先级覆盖 Vue scoped [data-v-xxx] 属性选择器，
    已通过 html.dark & 嵌套将特异性提升至 (0,3,2)，用层顺序控制 */
-:where(html.dark) .agents-bg-system {
+html.dark .agents-bg-system {
   background-color: var(--page-bg-color);
   background: var(--page-bg-color);
 }
 
-:where(html.dark) .agents-content {
+html.dark .agents-content {
   background-color: transparent;
   background: transparent;
 }
@@ -1377,9 +1377,9 @@ $brand-secondary: var(--el-text-color-primary);
   color: var(--el-text-color-primary);
 }
 
-:where(html.dark) :where(.agents-header) :where(.page-subtitle),
-:where(html.dark) :where(.agents-header) :where(.page-meta),
-:where(html.dark) :where(.agents-header) :where(.meta-text) {
+html.dark .agents-header .page-subtitle,
+html.dark .agents-header .page-meta,
+:where(html.dark) .agents-header .meta-text {
   color: var(--el-text-color-secondary);
 }
 
@@ -1388,7 +1388,7 @@ $brand-secondary: var(--el-text-color-primary);
   border-color: var(--border-unified-color);
 }
 
-:where(html.dark) .glass-card {
+html.dark .glass-card {
   background: var(--el-fill-color-darker);
   border-color: var(--border-unified-color);
 }

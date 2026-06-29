@@ -93,7 +93,8 @@ const handleChangeAvatar = () => {
   background: var(--bg-card);
   border-radius: var(--global-border-radius);
   padding: 24px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .profile-header {
   display: flex;
@@ -125,7 +126,7 @@ const handleChangeAvatar = () => {
   background: var(--primary-color);
   color: var(--el-bg-color-page);
   font-size: 32px;
-  font-weight: 700;
+  font-weight: bold;
 }
 
 .btn-change-avatar {
@@ -136,7 +137,7 @@ const handleChangeAvatar = () => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
 .btn-change-avatar:hover {

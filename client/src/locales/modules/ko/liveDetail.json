@@ -1,12 +1,12 @@
 {
   "liveDetail": {
-    "beginTime": "beginTime",
-    "enterLive": "enterLive",
-    "enterLiveRoom": "enterLiveRoom",
-    "host": "host",
-    "liveNow": "liveNow",
-    "peopleOnline": "peopleOnline",
-    "playback": "playback",
-    "startTime": "开始时间"
+    "liveNow": "라이브 중",
+    "peopleOnline": "명 접속중",
+    "enterLive": "라이브 입장",
+    "host": "호스트",
+    "enterLiveRoom": "라이브 룸 입장",
+    "startTime": "시작 예정 시간",
+    "beginTime": "시작 시간",
+    "playback": "다시보기"
   }
 }

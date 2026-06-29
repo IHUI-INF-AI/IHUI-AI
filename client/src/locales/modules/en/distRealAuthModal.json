@@ -1,7 +1,7 @@
 {
   "distRealAuthModal": {
-    "incompleteUserInfo": "incompleteUserInfo",
-    "realAuthFailed": "realAuthFailed",
-    "realAuthSuccess": "realAuthSuccess"
+    "incompleteUserInfo": "Incomplete user info, please re-login",
+    "realAuthSuccess": "Real-name auth successful",
+    "realAuthFailed": "Real-name auth failed, please retry"
   }
 }

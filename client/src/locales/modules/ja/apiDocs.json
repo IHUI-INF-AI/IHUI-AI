@@ -1,15 +1,98 @@
 {
   "apiDocs": {
     "nav": {
-      "authentication": "authentication",
-      "chatCompletions": "chatCompletions",
-      "endpoints": "endpoints",
-      "errorHandling": "errorHandling",
-      "imageGeneration": "imageGeneration",
-      "models": "模型",
-      "overview": "overview",
-      "pricing": "pricing",
-      "sdks": "sdks"
+      "overview": "概要",
+      "authentication": "認証",
+      "endpoints": "APIエンドポイント",
+      "models": "利用可できるできる性なモデル",
+      "chatCompletions": "チャット補完",
+      "imageGeneration": "画像生成",
+      "errorHandling": "エラー処理",
+      "pricing": "料金",
+      "sdks": "SDK統合"
+    },
+    "title": "APIドキュメント",
+    "subtitle": "OpenAIとAnthropicプロトコル対応の完全なAPI統合ガイド",
+    "getApiKey": "APIキーを取得",
+    "overview": {
+      "title": "概要",
+      "description": "当社のAPIサービスはOpenAIとAnthropicプロトコルと完全に互換性があり、既存のSDKとコードを使用して200以上のAIモデルにシームレスに統合できます。",
+      "features": "主な機できる",
+      "feature1": "OpenAI APIフォーマットと完全互換、簡単切り替え",
+      "feature2": "200以上の主流AIモデルをサポート",
+      "feature3": "コスト効率の高い従量課金制",
+      "feature4": "安定・信頼性・グローバル高速化",
+      "baseUrl": "ベースURL"
+    },
+    "auth": {
+      "title": "認証",
+      "description": "すべてのAPIリクエストには、Authorizationヘッダーに有効なAPIキーが必要です。",
+      "headerFormat": "ヘッダーフォーマット",
+      "example": "リクエスト例",
+      "securityTip": "セキュリティのヒント",
+      "securityDescription": "APIキーをセキュリティに保管してください。クライアントサイドのコードや公開リポジトリに公開しないでください。"
+    },
+    "params": {
+      "name": "パラメータ",
+      "type": "型",
+      "required": "必須",
+      "description": "説明"
+    },
+    "endpoints": {
+      "title": "API端点",
+      "description": "説明",
+      "method": "メソッド",
+      "path": "パス"
+    },
+    "models": {
+      "title": "利用可できるできる性モデル",
+      "description": "我们サポート複数主流AIモデル，包括OpenAI、Anthropic、Google等厂商的モデル。",
+      "availableModels": "モデルリスト",
+      "modelName": "モデル名前",
+      "provider": "提供商",
+      "capabilities": "機できる",
+      "pricing": "価格",
+      "currentSelected": "現在選択モデル",
+      "selectedTip": "以下例コード将使用此モデル作为デモ",
+      "selected": "済み選択",
+      "useThis": "使用此モデル"
+    },
+    "chat": {
+      "title": "聊日补全",
+      "description": "作成聊日补全リクエスト，サポート多い轮会話和流式输出。",
+      "endpoint": "端点",
+      "requestBody": "リクエストパラメータ",
+      "requestExample": "リクエスト例",
+      "responseExample": "レスポンス例",
+      "streaming": "流式出力",
+      "streamingDescription": "設定 stream: true 可以有効流式输出，实时取得生成的コンテンツ。"
+    },
+    "images": {
+      "title": "画像生成",
+      "description": "使用AIモデル生成画像。",
+      "endpoint": "端点",
+      "requestExample": "リクエスト例"
+    },
+    "errors": {
+      "title": "エラー処理",
+      "description": "説明",
+      "code": "ステータス码",
+      "type": "エラータイプ",
+      "responseFormat": "エラーレスポンス形式"
+    },
+    "pricing": {
+      "title": "计费説明",
+      "description": "我们按Token使用量计费，様々なモデル的価格有所様々な。",
+      "billingNote": "计费按实际使用的Token数計算、入力和出力Token分開计价。",
+      "tokenExplanation": "什么はいToken？",
+      "tokenDescription": "Token是テキスト処理的最小单位。普通来言う，1件中文文字符约など于1-2件Token，1件英文单词约など于1-4件Token。",
+      "example1": "1件中文文字符",
+      "example2": "100件英語单词",
+      "example3": "一页A4ドキュメント"
+    },
+    "sdks": {
+      "title": "SDK統合",
+      "description": "您可できる以使用官方的OpenAI SDK来调用私たち的API，只必要修改base_url即可できる。"
     }
   }
 }

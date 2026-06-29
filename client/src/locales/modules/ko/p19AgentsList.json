@@ -1,9 +1,9 @@
 {
   "p19AgentsList": {
-    "answerTitle": "answerTitle",
-    "call": "call",
-    "calls": "calls",
-    "rating": "rating",
-    "title": "标题"
+    "title": "P19 에이전트",
+    "calls": "호출",
+    "rating": "평점",
+    "call": "호출",
+    "answerTitle": "에이전트 답변"
   }
 }

@@ -1,5 +1,20 @@
 {
   "desktopSettings": {
-    "핵심 장점": "데스크톱설정"
+    "핵심 장점": "데스크톱설정",
+    "description": "데스크톱애플사용설정페이지면",
+    "generalSettings": "일반설정",
+    "language": "언어",
+    "languageDesc": "선택애플사용표시언어",
+    "theme": "테마",
+    "themeDesc": "선택애플사용테마",
+    "light": "라이트",
+    "dark": "깊은색",
+    "auto": "시스템 따르기",
+    "performanceSettings": "성쉽설정",
+    "hardwareAcceleration": "하드웨어 가속",
+    "hardwareAccelerationDesc": "활성화GPU하드웨어 가속",
+    "animations": "동그림효과",
+    "animationsDesc": "활성화세계면동그림효과",
+    "title": "데스크톱설정"
   }
 }

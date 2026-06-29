@@ -1,17 +1,17 @@
 {
   "eventBus": {
-    "activeSubs": "activeSubs",
-    "clearAll": "全部清空",
-    "errorInfo": "errorInfo",
-    "errors": "errors",
-    "eventData": "eventData",
-    "history": "历史",
-    "metadata": "metadata",
-    "processed": "processed",
-    "sendEvent": "sendEvent",
-    "subManage": "subManage",
-    "testSend": "testSend",
-    "totalEvents": "totalEvents",
-    "typeDist": "typeDist"
+    "totalEvents": "Total Events",
+    "activeSubs": "Active Subscriptions",
+    "processed": "Processed Events",
+    "errors": "Errors",
+    "typeDist": "Event Type Distribution",
+    "subManage": "Subscription Management",
+    "history": "Event History",
+    "testSend": "Test Event Send",
+    "eventData": "Event Data",
+    "metadata": "Metadata",
+    "errorInfo": "Error Info",
+    "clearAll": "Clear All",
+    "sendEvent": "Send Event"
   }
 }

@@ -1,7 +1,7 @@
 {
   "p19PaymentMethods": {
+    "title": "P19 支付方式",
     "accountBalance": "账户余额",
-    "fee": "手续费",
-    "title": "标题"
+    "fee": "手续费"
   }
 }

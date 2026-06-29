@@ -99,7 +99,7 @@ interface AgentData {
   group: string
   start_time: string
   category_info?: CategoryInfo
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface ModelType {
@@ -158,7 +158,7 @@ const getTypes = computed(() => {
   return props.datas.category_info.agent_category
     .split(',')
     .map((item: string) => {
-      const found = (props.modelTypes || []).find((val: any) => val.code === item)
+      const found = (props.modelTypes || []).find((val: ModelType) => val.code === item)
       return found ? found.showName : ''
     })
     .join()

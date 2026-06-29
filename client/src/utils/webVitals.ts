@@ -202,7 +202,7 @@ function addToBuffer(metric: WebVitalsMetric): void {
 
 function reportToAnalytics(metric: WebVitalsMetric): void {
   if (typeof window !== 'undefined' && 'gtag' in window) {
-    const gtag = (window as unknown as { gtag: (...args: any[]) => void }).gtag
+    const gtag = (window as unknown as { gtag: (...args: unknown[]) => void }).gtag
     gtag('event', metric.name, {
       value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
       event_category: 'Web Vitals',

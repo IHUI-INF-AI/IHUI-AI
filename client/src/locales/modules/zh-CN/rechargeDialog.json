@@ -1,20 +1,20 @@
 {
   "rechargeDialog": {
-    "actions": "操作",
-    "alipay": "支付宝",
-    "amountAriaLabel": "金额 aria 标签",
-    "amountLabel": "金额 标签",
-    "amountRange": "金额范围",
-    "bankCard": "银行卡",
-    "openedA11y": "opened A11y",
-    "payNow": "立即支付",
+    "walletRecharge": "钱包充值",
+    "selectTip": "请选择充值金额与支付方式",
+    "amountLabel": "充值金额",
+    "amountAriaLabel": "充值金额，单位元",
+    "amountRange": "金额范围 1-50000 元",
+    "presetsLabel": "快捷金额选择",
+    "selectAmount": "选择 {n} 元",
     "paymentMethod": "支付方式",
-    "presetsLabel": "presets 标签",
-    "processing": "处理中",
-    "selectAmount": "选择金额",
-    "selectTip": "选择 tip",
-    "txDescription": "tx 描述",
-    "walletRecharge": "钱包 充值",
-    "wechat": "微信"
+    "actions": "充值操作",
+    "payNow": "立即支付",
+    "processing": "处理中...",
+    "alipay": "支付宝",
+    "wechat": "微信支付",
+    "bankCard": "银行卡",
+    "openedA11y": "已打开充值对话框，请选择充值金额与支付方式",
+    "txDescription": "充值 ¥{amount} ({channel})"
   }
 }

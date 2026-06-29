@@ -51,7 +51,7 @@
           :class="{ active: activeTab === idx }"
           @click="activeTab = idx"
         >
-          {{ tab.name }}
+          {{ t(tab.name) }}
         </div>
       </div>
 
@@ -61,8 +61,8 @@
             <div class="item-left">
               <div class="status pending">
                 <span>{{ t('myCommission.commission') }}</span>
-                <span class="status__label">{{ t('myCommission.pending') }}</span>
-                <span class="status__amount">¥{{ item.amount }}</span>
+                <span style="margin-left: 20px">{{ t('myCommission.pending') }}</span>
+                <span style="margin-left: 370px">¥{{ item.amount }}</span>
               </div>
               <div class="order-user">{{ t('myCommission.buyer') }}：{{ item.buyer_nickname }}</div>
               <div class="order-id">
@@ -91,7 +91,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { getUserCommissionDetail } from '@/api/distribution/distribution'
+import { getUserCommissionDetail } from '@/api/distribution'
 import { logger } from '@/utils/logger'
 
 interface CommissionItem {
@@ -198,7 +198,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .commission-page {
   min-height: 100vh;
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-f5f7fa);
   padding: 20px;
 }
 
@@ -222,6 +222,7 @@ onMounted(() => {
   margin: 0 auto 24px;
   background: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   display: flex;
   align-items: flex-start;
   padding: 24px;
@@ -246,17 +247,17 @@ onMounted(() => {
 
 .main-amount {
   font-size: 28px;
-  font-weight: 700;
-  color: var(--el-color-warning);
+  font-weight: bold;
+  color: var(--color-orange-ff9800);
   margin-bottom: 8px;
   display: flex;
   align-items: baseline;
 }
 
 .amount-highlight {
-  color: var(--el-color-warning);
+  color: var(--color-orange-ff9800);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: bold;
   margin: 0 4px;
 }
 
@@ -298,6 +299,7 @@ onMounted(() => {
   font-size: 14px;
   padding: 0 30px;
   height: 40px;
+  box-shadow: var(--global-box-shadow);
   background: var(--color-purple-8278f0);
   border: var(--unified-border);
   font-weight: 500;
@@ -333,7 +335,7 @@ onMounted(() => {
   font-size: 15px;
   color: var(--el-text-color-placeholder);
   cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--global-border-radius);
   font-weight: 500;
 
@@ -377,31 +379,20 @@ onMounted(() => {
 .status {
   font-size: 15px;
   margin-bottom: 8px;
-  display: flex;
-  align-items: center;
+  display: block;
   font-weight: 500;
 }
 
-.status__label {
-  margin-left: 20px;
-}
-
-.status__amount {
-  margin-left: auto;
-  font-weight: 700;
-  color: var(--el-color-warning);
-}
-
 .status.pending {
-  color: var(--el-color-warning);
+  color: var(--color-orange-ff9900);
 }
 
 .status.completed {
-  color: var(--el-color-success);
+  color: var(--color-green-19be6b);
 }
 
 .status.canceled {
-  color: var(--el-color-danger);
+  color: var(--color-red-ed3f14);
 }
 
 .order-user,
@@ -424,7 +415,7 @@ onMounted(() => {
   right: 20px;
   top: 60%;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
 
   &:hover {
     background-color: var(--el-fill-color);

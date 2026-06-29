@@ -1,5 +1,11 @@
 {
   "adminBatchEditDialog": {
-    "selectedTip": "selectedTip"
+    "selectedTip": "{count}件のデータが選択されました。変更するフィールドにチェックを入れて新しい値を入力してください。",
+    "title": "一括編集",
+    "updating": "更新中 {current} / {total} 件",
+    "failedTip": "失敗 {count} 件、「失敗項目を再試行」をクリックして再更新",
+    "cancel": "キャンセル",
+    "retryFailed": "失敗項目を再試行",
+    "save": "一括保存"
   }
 }

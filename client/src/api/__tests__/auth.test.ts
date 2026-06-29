@@ -78,7 +78,7 @@ vi.mock('@/config/backend-paths', () => ({
   },
 }))
 
-import * as api from '../auth/auth'
+import * as api from '../auth'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {
@@ -101,8 +101,8 @@ describe('auth', () => {
   })
 
   it('login 登录', async () => {
-    await callFn((api as any).login, { username: 'u', password: 'p' })
-    await callFn((api as any).login, { username: 'u', password: 'p', captcha: 'c', uuid: 'u-1' })
+    await callFn((api as any).login, { identifier: 'u', password: 'p' })
+    await callFn((api as any).login, { identifier: 'u', password: 'p', captcha: 'c', uuid: 'u-1' })
   })
 
   it('refreshToken 刷新', async () => {
@@ -170,7 +170,7 @@ describe('auth', () => {
     const axiosMod = await import('axios')
     const origImpl = (axiosMod.default as any).request.getMockImplementation()
     ;(axiosMod.default as any).request.mockImplementation(() => Promise.reject(new Error('boom')))
-    try { await (api as any).fetchAudioText(file) } catch { /* noop */ }
+    try { await (api as any).fetchAudioText(file) } catch (_e) {}
     ;(axiosMod.default as any).request.mockImplementation(origImpl)
   })
 
@@ -181,7 +181,7 @@ describe('auth', () => {
       if (config && config.url && config.url.includes('login')) return Promise.reject(new Error('boom'))
       return Promise.resolve({ success: true })
     })
-    try { await (api as any).userLogin('138', 'p') } catch { /* noop */ }
+    try { await (api as any).userLogin('138', 'p') } catch (_e) {}
     ;(req.default as any).mockImplementation(origImpl)
   })
 })

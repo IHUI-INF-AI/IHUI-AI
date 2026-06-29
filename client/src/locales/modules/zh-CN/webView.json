@@ -1,6 +1,6 @@
 {
   "webView": {
-    "back": "返回",
-    "noUrlProvided": "无 链接 provided"
+    "noUrlProvided": "未提供URL参数",
+    "back": "返回"
   }
 }

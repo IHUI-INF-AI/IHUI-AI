@@ -271,8 +271,8 @@ export interface ApiParameter {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array'
   required: boolean
   description?: string
-  defaultValue?: any
-  enum?: any[]
+  defaultValue?: unknown
+  enum?: unknown[]
   min?: number
   max?: number
   pattern?: string
@@ -306,7 +306,7 @@ export interface DeveloperAPI {
     type: string
     required: boolean
     description?: string
-    example?: any
+    example?: unknown
   }>
   responseSchema?: Record<string, unknown>
   authRequired: boolean

@@ -1,17 +1,17 @@
 {
   "memberPersonal": {
+    "title": "个人资料",
     "avatar": "头像",
-    "bio": "简介",
-    "birthday": "生日",
     "changeAvatar": "更换头像",
-    "female": "女",
+    "nickName": "昵称",
+    "realName": "真实姓名",
     "gender": "性别",
     "male": "男",
-    "nickName": "昵称",
-    "profession": "职业",
-    "realName": "真实姓名",
-    "school": "学校",
+    "female": "女",
     "secret": "保密",
-    "title": "标题"
+    "birthday": "生日",
+    "school": "学校",
+    "profession": "职业",
+    "bio": "个人简介"
   }
 }

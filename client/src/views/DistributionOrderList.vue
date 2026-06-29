@@ -27,7 +27,7 @@
           :class="{ active: currentTab === tab.value }"
           @click="switchTab(tab.value)"
         >
-          {{ tab.name }}
+          {{ t(tab.name) }}
         </div>
       </div>
 
@@ -108,7 +108,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { useI18n } from 'vue-i18n'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getCommissionFlow } from '@/api/distribution/distribution'
+import { getCommissionFlow } from '@/api/distribution'
 import { logger } from '@/utils/logger'
 import { formatMoney } from '@/utils/format'
 
@@ -273,7 +273,7 @@ cleanup.add(() => {
 <style scoped lang="scss">
 .distribution-order-page {
   min-height: 100vh;
-  background: var(--el-fill-color-lighter);
+  background: var(--color-gray-f5f7fa);
   padding: 20px;
 }
 
@@ -317,7 +317,7 @@ cleanup.add(() => {
   font-size: 16px;
   color: var(--el-text-color-primary);
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
   border-radius: var(--global-border-radius);
   position: relative;
   font-weight: 500;
@@ -370,14 +370,15 @@ cleanup.add(() => {
   background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
   border: var(--unified-border);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--global-box-shadow);
   border-radius: var(--global-border-radius);
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
 
   &:hover {
-    
-    }
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .order-card-header {
@@ -485,7 +486,7 @@ cleanup.add(() => {
 .order-product-price {
   font-size: 18px;
   color: var(--el-text-color-primary);
-  font-weight: 700;
+  font-weight: bold;
   position: absolute;
   right: 20px;
   top: 60%;
@@ -517,7 +518,7 @@ cleanup.add(() => {
 .order-commission-amount {
   color: var(--el-color-danger);
   font-size: 18px;
-  font-weight: 700;
+  font-weight: bold;
 }
 
 .empty-state {

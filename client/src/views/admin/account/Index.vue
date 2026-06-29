@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { onMounted, h } from 'vue'
@@ -43,13 +44,13 @@ import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 
 const formFields: FormField[] = [
-  { prop: 'username', label: '账号', required: true, minLength: 3, maxLength: 30, pattern: '^[a-zA-Z0-9_]+$', patternMessage: '用户名只能包含字母、数字和下划线' },
-  { prop: 'role', label: '角色', maxLength: 200 },
+  { prop: 'username', label: t('adminCommon.label.account'), required: true, minLength: 3, maxLength: 30, pattern: '^[a-zA-Z0-9_]+$', patternMessage: t('adminCommon.label.usernamePatternMsg') },
+  { prop: 'role', label: t('adminCommon.label.role'), maxLength: 200 },
 ]
 
 const { keyword, page, size, total, loading, list, reload, onSearch, onPageChange } = useAdminTable({
@@ -65,16 +66,16 @@ const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete
   onSuccess: reload,
 })
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'username', dataKey: 'username', title: '账号', width: 160 },
-  { key: 'role', dataKey: 'role', title: '角色', width: 120 },
-  { key: 'lastLogin', dataKey: 'lastLogin', title: '最后登录', width: 180 },
+  { key: 'username', dataKey: 'username', title: t('adminCommon.label.account'), width: 160 },
+  { key: 'role', dataKey: 'role', title: t('adminCommon.label.role'), width: 120 },
+  { key: 'lastLogin', dataKey: 'lastLogin', title: t('adminCommon.label.lastLogin'), width: 180 },
   {
     key: 'actions',
-    title: '操作',
+    title: t('adminCommon.label.operation'),
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: ({ rowData: row }) => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('common.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('common.delete')),

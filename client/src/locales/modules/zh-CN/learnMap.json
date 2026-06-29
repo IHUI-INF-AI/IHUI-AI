@@ -1,8 +1,8 @@
 {
   "learnMap": {
+    "noMaps": "暂无学习地图",
+    "clickToLearn": "点击进入学习路径",
     "breadcrumbCourse": "课程",
-    "breadcrumbMap": "breadcrumb Map",
-    "clickToLearn": "点击 到 学习",
-    "noMaps": "无 maps"
+    "breadcrumbMap": "学习地图"
   }
 }

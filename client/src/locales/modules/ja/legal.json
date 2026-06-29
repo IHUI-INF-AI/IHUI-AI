@@ -1,0 +1,58 @@
+{
+  "legal": {
+    "userAgreement": {
+      "sections": {
+        "registration": {},
+        "accountSecurity": {},
+        "userContent": {},
+        "aiGeneratedContent": {},
+        "serviceAvailability": {},
+        "disclaimer": {},
+        "jurisdiction": {}
+      }
+    },
+    "termsOfService": {
+      "sections": {
+        "acceptance": {},
+        "serviceDescription": {},
+        "userObligations": {},
+        "prohibitedUse": {},
+        "intellectualProperty": {},
+        "limitationOfLiability": {},
+        "termination": {},
+        "changes": {}
+      }
+    },
+    "privacyPolicy": {
+      "sections": {
+        "introduction": {},
+        "dataCollection": {},
+        "dataUsage": {},
+        "dataSecurity": {},
+        "userRights": {},
+        "thirdParty": {},
+        "changes": {},
+        "contact": {}
+      }
+    },
+    "paymentTerms": {
+      "sections": {
+        "paymentMethods": {},
+        "pricing": {},
+        "billing": {},
+        "refundPolicy": {},
+        "subscription": {},
+        "responsibility": {}
+      }
+    },
+    "document": {},
+    "adminPanel": {},
+    "databaseOptimization": {
+      "refresh": "更新しい",
+      "connectionPool": {},
+      "indexUsage": {},
+      "queryAnalysis": {},
+      "errors": {}
+    }
+  }
+}

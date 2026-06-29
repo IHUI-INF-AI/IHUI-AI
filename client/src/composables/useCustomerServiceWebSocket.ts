@@ -182,7 +182,7 @@ export function useCustomerServiceWebSocket(config: CustomerServiceWebSocketConf
       }
       config.onSendError?.(response.message || '发送失败')
       return false
-    } catch (err: any) {
+    } catch (err: unknown) {
       const ax = err as { response?: { status?: number; data?: { detail?: string; message?: string } } }
       if (ax?.response?.status === 400) {
         config.onSendError?.(ax.response?.data?.detail || ax.response?.data?.message || '发送失败')
@@ -210,7 +210,7 @@ export function useCustomerServiceWebSocket(config: CustomerServiceWebSocketConf
     ws.sendMessage('customer_service_read', { messageIds })
     // 同时调用API
     import('@/api/customer-service').then(({ markMessagesAsRead }) => {
-      markMessagesAsRead(messageIds).catch((err: any) => {
+      markMessagesAsRead(messageIds).catch((err: unknown) => {
         logger.error('Failed to mark message as read:', err)
       })
     }).catch((e) => { console.warn('[useCustomerServiceWebSocket] 模块加载失败', e) })

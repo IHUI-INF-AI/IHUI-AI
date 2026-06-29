@@ -350,7 +350,7 @@ cleanup.add(() => {
   margin: 0 2px;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   flex-shrink: 0;
   min-height: 40px;
@@ -379,9 +379,9 @@ cleanup.add(() => {
     justify-content: center;
     width: 24px;
     height: 24px;
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
     background: var(--el-bg-color);
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
     flex-shrink: 0;
 
     .icon {
@@ -399,7 +399,7 @@ cleanup.add(() => {
     font-size: 14px;
     font-weight: 500;
     color: var(--el-text-color-secondary);
-    transition: color 0.2s ease;
+    transition: all 0.2s ease;
     line-height: 1.4;
   }
 
@@ -470,7 +470,7 @@ cleanup.add(() => {
   .title {
     font-family: var(--xuqiu-tab-font-family);
     font-size: 24rpx;
-    font-weight: 700;
+    font-weight: bold;
     color: var(--el-text-color-primary);
     margin-bottom: 50rpx;
   }
@@ -497,7 +497,7 @@ cleanup.add(() => {
     justify-content: center;
     font-family: var(--xuqiu-tab-font-family);
     font-size: 24rpx;
-    font-weight: 700;
+    font-weight: bold;
     color: var(--el-text-color-primary);
     cursor: pointer;
   }

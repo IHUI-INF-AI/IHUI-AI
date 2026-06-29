@@ -17,6 +17,7 @@ vi.mock('@/utils/logger', () => ({
 vi.mock('@/utils/storage', () => ({
   StorageManager: { getItem: vi.fn(() => 'token') },
   STORAGE_KEYS: { USER_UUID: 'u', TOKEN: 't' },
+  TokenStorage: { getToken: vi.fn(() => 'test-token') },
 }))
 
 vi.mock('@/config/backend-paths', () => ({
@@ -25,12 +26,12 @@ vi.mock('@/config/backend-paths', () => ({
   COZE_PATHS: { chatStream: '/chat/stream', userModelChat: { byId: (id: string) => `/userchat/${id}` } },
 }))
 
-vi.mock('../system/fastapi', () => ({
+vi.mock('../fastapi', () => ({
   createTask: vi.fn(() => Promise.resolve({ code: 200, data: { id: 't1' } })),
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai/aiChat'
+import * as api from '../aiChat'
 
 describe('aiChat API', () => {
   beforeEach(() => {
@@ -57,7 +58,7 @@ describe('aiChat API', () => {
   })
 
   it('sendAIChatMessage agentic 失败回退', async () => {
-    const fastapiMod = await import('../system/fastapi')
+    const fastapiMod = await import('../fastapi')
     ;(fastapiMod.createTask as any).mockResolvedValueOnce({ code: 500 })
     const r = await api.sendAIChatMessage({ content: 'c', modelId: 'm', useAgentic: true })
     expect(r).toBeDefined()

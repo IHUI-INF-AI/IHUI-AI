@@ -1,8 +1,9 @@
 {
   "headerNav": {
-    "moreFeaturesClearFlag": "moreFeaturesClearFlag",
-    "moreFeaturesMouseDown": "moreFeaturesMouseDown",
-    "moreFeaturesToggle": "moreFeaturesToggle",
-    "moreMenuSwitch": "moreMenuSwitch"
+    "moreFeaturesMouseDown": "[MoreFeatures] mousedown event, set flag",
+    "moreFeaturesClearFlag": "[MoreFeatures] clear flag",
+    "moreFeaturesToggle": "[MoreFeatures] toggleMoreMenu called",
+    "moreMenuSwitch": "[MoreFeatures] showMoreMenu switched to",
+    "moreFeatures": "More Features"
   }
 }

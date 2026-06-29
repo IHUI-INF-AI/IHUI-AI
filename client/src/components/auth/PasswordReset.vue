@@ -170,7 +170,7 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useCleanup } from '@/composables/useCleanup'
 import { MessageSquare, Phone, CircleCheck } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
-import { resetPassword, sendVerificationCode, verifyCode } from '@/api/user/user'
+import { resetPassword, sendVerificationCode, verifyCode } from '@/api/user'
 import { InputValidator } from '@/utils/security'
 import { FormValidator } from '@/utils/formValidation'
 
@@ -572,7 +572,7 @@ watch(
 
     :where(.strength-fill) {
       height: 100%;
-      transition: background-color 0.3s, width 0.3s;
+      transition: all 0.3s;
 
       &.weak {
         background: var(--el-color-danger);

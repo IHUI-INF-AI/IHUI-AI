@@ -14,7 +14,7 @@ export function isMpWeixin(): boolean {
   return false
 }
 
-export function getStorage(key: string): any {
+export function getStorage(key: string): unknown {
   try {
     if (isUniApp()) {
       return uni.getStorageSync(key)
@@ -28,10 +28,10 @@ export function getStorage(key: string): any {
   return null
 }
 
-export function setStorage(key: string, value: any): void {
+export function setStorage(key: string, value: unknown): void {
   try {
     if (isUniApp()) {
-      uni.setStorageSync(key, value)
+      uni.setStorageSync(key, value as string)
     } else if (typeof localStorage !== 'undefined') {
       localStorage.setItem(key, String(value))
     }
@@ -83,17 +83,17 @@ export function formatNumber(num: number): string {
   return String(num)
 }
 
-export function debounce<T extends (...args: any[]) => any>(fn: T, delay: number = 300): T {
+export function debounce<T extends (...args: unknown[]) => unknown>(fn: T, delay: number = 300): T {
   let timer: ReturnType<typeof setTimeout> | null = null
-  return ((...args: any[]) => {
+  return ((...args: unknown[]) => {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => fn(...args), delay)
   }) as T
 }
 
-export function throttle<T extends (...args: any[]) => any>(fn: T, interval: number = 300): T {
+export function throttle<T extends (...args: unknown[]) => unknown>(fn: T, interval: number = 300): T {
   let lastTime = 0
-  return ((...args: any[]) => {
+  return ((...args: unknown[]) => {
     const now = Date.now()
     if (now - lastTime >= interval) {
       lastTime = now

@@ -7,7 +7,7 @@ const mockStore: Record<string, unknown[]> = {
 vi.mock('../idbStorage', () => ({
   idbStorage: {
     init: vi.fn().mockResolvedValue(undefined),
-    addRecord: vi.fn().mockImplementation((store: string, record: any) => {
+    addRecord: vi.fn().mockImplementation((store: string, record: unknown) => {
       mockStore[store] = mockStore[store] || []
       ;(mockStore[store] as unknown[]).push(record)
       return Promise.resolve()

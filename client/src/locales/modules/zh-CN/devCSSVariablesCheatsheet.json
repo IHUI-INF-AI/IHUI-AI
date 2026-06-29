@@ -1,0 +1,11 @@
+{
+  "devCSSVariablesCheatsheet": {
+    "textColor": "文字颜色",
+    "bgColor": "背景颜色",
+    "borderColor": "边框颜色",
+    "globalSpacing": "全局间距",
+    "globalRadius": "全局圆角",
+    "globalShadow": "全局阴影",
+    "hardcodedColorMigration": "硬编码颜色迁"
+  }
+}

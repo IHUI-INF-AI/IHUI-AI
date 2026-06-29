@@ -53,8 +53,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { logger } from '@/utils/logger'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { useVipPricing, type PricingPlan } from '@/composables/vip/useVipPricing'
 
 defineOptions({
@@ -70,24 +69,7 @@ interface Props {
 
 const _props = defineProps<Props>()
 const pageSlideRef = ref<HTMLElement | null>(null)
-// 2026-06-25 修复: 顶层 useRouter 改为 try/catch + 懒加载,
-// 避免 Vite HMR 抖动或 router 注入尚未就绪时, 抛 'injection "Symbol(router)" not found' 警告.
-let router: ReturnType<typeof useRouter> | null = null
-try {
-  router = useRouter()
-} catch (e) {
-  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  logger.debug('[HomePage4] useRouter unavailable on init:', e)
-}
-const getRouter = (): ReturnType<typeof useRouter> | null => {
-  if (router) return router
-  try {
-    router = useRouter()
-    return router
-  } catch {
-    return null
-  }
-}
+const router = useRouter()
 
 // 使用VIP定价数据
 const { pricingPlans: basePricingPlans, getCurrentPrice } = useVipPricing()
@@ -165,8 +147,7 @@ const pricingPlans = computed(() => {
 // 处理卡片点击
 const handleCardClick = (_plan: PricingPlan) => {
   // 点击卡片时跳转到VIP页面
-  const r = getRouter()
-  if (r) r.push('/vip')
+  router.push('/vip')
 }
 
 // 处理开通按钮点击
@@ -176,8 +157,8 @@ const handleSubscribe = (plan: PricingPlan, event?: MouseEvent) => {
     event.stopPropagation()
   }
   // 跳转到VIP购买页面，并传递选中的套餐信息
-  const r = getRouter()
-  if (r) r.push({ path: '/vip', query: { planId: plan.id.toString() } } as any)
+   
+  router.push({ path: '/vip', query: { planId: plan.id.toString() } } as RouteLocationRaw)
 }
 
 defineExpose({
@@ -194,7 +175,7 @@ defineExpose({
     border: 2.5px solid var(--border-unified-color);
   }
   
-  :where(html.dark) & {
+  html.dark & {
     border: 2.5px solid var(--border-unified-color);
   }
 }
@@ -204,7 +185,7 @@ defineExpose({
     border: 2.5px solid var(--border-unified-color);
   }
   
-  :where(html.dark) & {
+  html.dark & {
     border: 2.5px solid var(--border-unified-color);
   }
 }
@@ -261,7 +242,7 @@ defineExpose({
   }
 
   h2.pricing-title-english.font-edix {
-    font-family: var(--font-family-edix);
+    font-family: EDIX, sans-serif;
   }
 
   html:not(.dark) .pricing-title-english,
@@ -270,7 +251,7 @@ defineExpose({
     color: var(--el-text-color-placeholder);
   }
 
-  :where(html.dark) .pricing-title-english,
+  html.dark .pricing-title-english,
   html.dark #fourth-page .pricing-title-english,
   html.dark h2.pricing-title-english {
     color: var(--color-white-50);
@@ -350,12 +331,12 @@ defineExpose({
   border-radius: var(--global-border-radius);
   text-align: center;
   cursor: pointer;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: stretch;
   justify-content: center;
   user-select: none;
-  font-weight: 700;
+  font-weight: bolder;
   color: var(--el-text-color-primary);
   position: relative;
   margin: 0;
@@ -374,7 +355,7 @@ defineExpose({
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     transform: translateZ(0);
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-dark-1e283c-60);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -409,7 +390,7 @@ defineExpose({
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     transform: translateZ(0);
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-dark-231e32-65);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -453,7 +434,7 @@ defineExpose({
       }
     }
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-dark-23232d-75);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -487,7 +468,7 @@ defineExpose({
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-dark-28231e-70);
       border: 2.5px solid var(--border-unified-color);
       box-shadow: none;
@@ -587,7 +568,7 @@ defineExpose({
     height: 1px;
     background: var(--color-black-8);
     
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-white-8);
     }
   }
@@ -659,7 +640,7 @@ defineExpose({
   }
 
   .price-symbol {
-    color: rgb(var(--el-color-primary-rgb), 0.8);
+    color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.8);
 
     :where(html.dark) & {
       color: var(--color-gray-dcdce6-90);
@@ -702,7 +683,7 @@ defineExpose({
   letter-spacing: 0.3px;
 
   /* 暗色主题适配 */
-  :where(html.dark) & {
+  html.dark & {
     background: var(--color-black-95);
     color: var(--el-text-color-primary);
     box-shadow: none;
@@ -769,7 +750,7 @@ defineExpose({
         left: 0;
         top: 1px;
         color: var(--el-text-color-primary);
-        font-weight: 700;
+        font-weight: bold;
         font-size: clamp(12px, 1.3vw, 15px);
         line-height: 1;
         flex-shrink: 0;
@@ -801,10 +782,10 @@ defineExpose({
   margin-top: auto;
   letter-spacing: 0.3px;
   flex-shrink: 0;
-  background: var(--el-bg-color-page);
+  background: var(--el-text-color-primary);
   color: var(--el-bg-color);
 
-  :where(html.dark) & {
+  html.dark & {
     background: var(--el-bg-color);
     color: var(--el-text-color-primary);
   }

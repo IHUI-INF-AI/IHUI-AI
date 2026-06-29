@@ -82,26 +82,22 @@
     "thirdParty": {
       "or": "または",
       "wechatLogin": "WeChatログイン",
-      "alipayLogin": "Alipayログイン",
       "googleLogin": "Googleログイン",
       "appleLogin": "Appleログイン",
       "notice": "サードパーティログインを使用することで、以下に同意したものとみなされます",
       "privacyPolicy": "プライバシーポリシー",
       "termsOfService": "利用規約",
       "wechatLoginFailed": "WeChatログインに失敗しました。もう一度お試しください",
-      "alipayLoginFailed": "Alipayログインに失敗しました。もう一度お試しください",
       "googleLoginFailed": "Googleログインに失敗しました。もう一度お試しください",
       "appleLoginFailed": "Appleログインに失敗しました。もう一度お試しください",
       "tooltip": {
         "wechat": "WeChatログイン",
-        "alipay": "Alipayログイン",
         "google": "Googleログイン",
         "apple": "Appleログイン",
         "feishu": "Feishuログイン"
       },
       "feishuLogin": "Feishuログイン",
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "emailLogin": "emailLogin",
       "feishu": "feishu",
@@ -114,7 +110,7 @@
       "selectPreferred": "selectPreferred"
     },
     "brand": {
-      "title": "グローバル首创AI App Store",
+      "title": "グローバル初のエージェントプラットフォーム",
       "subtitle": "人人的一站式AI整合適用プラットフォーム"
     },
     "form": {
@@ -158,14 +154,5 @@
     "goRegister": "Go Register",
     "hasAccount": "Has Account"
   },
-  "loginPopup": {},
-  "userLoginPopup": {
-    "welcomeBack": "おかえりなさい、ログインしてください",
-    "enterPhone": "電話番号を入力してください",
-    "invalidPhone": "電話番号の形式が正しくありません",
-    "codeSent": "認証コードを送信しました",
-    "codeSendFailed": "コード送信に失敗しました、再試行してください",
-    "loginSuccess": "ログイン成功",
-    "wechatLoginNotConfigured": "WeChatログインが設定されていません"
-  }
+  "loginPopup": {}
 }

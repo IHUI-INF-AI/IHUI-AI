@@ -205,9 +205,9 @@ interface UploadResponse {
   message?: string
   data?: {
     url?: string
-    [key: string]: any
+    [key: string]: unknown
   }
-  [key: string]: any
+  [key: string]: unknown
 }
 
 const { t } = useI18n()
@@ -440,12 +440,13 @@ const handleFormAppearanceUpload = (response: UploadResponse) => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   background: var(--el-bg-color);
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: all 0.2s;
   cursor: pointer;
 
   &:hover {
     border-color: var(--el-color-primary-light-5);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   &.is-selected {
     border: var(--el-border-width-primary) solid var(--el-color-primary);

@@ -1,117 +1,117 @@
 {
   "userComponents": {
-    "developer": {
-      "copy": "复制",
-      "regenerate": "重新生成",
-      "remainingQuota": "remainingQuota",
-      "successRate": "successRate",
-      "title": "标题",
-      "totalCalls": "totalCalls",
-      "viewDocs": "viewDocs"
-    },
-    "examine": {
-      "empty": "empty",
-      "rejectReason": "rejectReason",
-      "resubmit": "resubmit",
-      "title": "标题",
-      "view": "查看"
-    },
-    "favorites": {
-      "empty": "empty",
-      "remove": "移除",
-      "title": "标题",
-      "view": "查看"
-    },
-    "infoCard": {
-      "edit": "编辑"
-    },
-    "loginPopup": {
-      "code": "代码",
-      "login": "登录",
-      "phone": "手机号",
-      "sendCode": "发送验证码",
-      "wechatLogin": "微信登录"
-    },
-    "messages": {
-      "empty": "empty",
-      "title": "标题"
-    },
-    "orders": {
-      "empty": "empty",
-      "orderNo": "orderNo",
-      "payNow": "payNow",
-      "title": "标题",
-      "viewDetails": "viewDetails"
-    },
-    "privacy": {
-      "allowSearch": "allowSearch",
-      "allowSearchDesc": "allowSearchDesc",
-      "publicProfile": "publicProfile",
-      "publicProfileDesc": "publicProfileDesc",
-      "receiveMessages": "receiveMessages",
-      "receiveMessagesDesc": "receiveMessagesDesc",
-      "showOnlineStatus": "showOnlineStatus",
-      "showOnlineStatusDesc": "showOnlineStatusDesc",
-      "title": "标题"
-    },
-    "profile": {
-      "admin": "管理员",
-      "editProfile": "editProfile",
-      "email": "邮箱",
-      "phone": "手机号",
-      "registerTime": "registerTime"
-    },
     "purchaseRecords": {
-      "applyInvoice": "applyInvoice",
-      "empty": "empty",
-      "orderNo": "orderNo",
+      "title": "購入履歴",
+      "orderNo": "注文番号",
+      "viewDetails": "詳細を見る",
+      "applyInvoice": "請求書申請",
+      "empty": "購入履歴なし",
       "status": {
-        "completed": "已完成",
-        "pending": "待处理",
-        "refunded": "refunded"
-      },
-      "title": "标题",
-      "viewDetails": "viewDetails"
+        "completed": "完了",
+        "pending": "処理中",
+        "refunded": "返金済み"
+      }
     },
-    "purchases": {
-      "download": "下载",
-      "empty": "empty",
-      "title": "标题",
-      "view": "查看"
-    },
-    "security": {
-      "emailBinding": "emailBinding",
-      "loginPassword": "loginPassword",
-      "loginPasswordDesc": "loginPasswordDesc",
-      "modify": "modify",
-      "phoneBinding": "phoneBinding",
-      "title": "标题"
-    },
-    "settings": {
-      "language": "语言",
-      "languageDesc": "languageDesc",
-      "notifications": "notifications",
-      "notificationsDesc": "notificationsDesc",
-      "soundEffects": "soundEffects",
-      "soundEffectsDesc": "soundEffectsDesc",
-      "theme": "主题",
-      "themeDesc": "themeDesc",
-      "title": "标题"
+    "developer": {
+      "title": "開発者センター",
+      "copy": "コピー",
+      "regenerate": "再生成",
+      "totalCalls": "総呼び出し回数",
+      "remainingQuota": "残りクォータ",
+      "successRate": "成功率",
+      "viewDocs": "ドキュメントを見る"
     },
     "statistics": {
-      "chartDeveloping": "chartDeveloping",
-      "favorites": "收藏",
-      "orders": "订单",
-      "title": "标题",
-      "totalSpent": "totalSpent",
-      "totalViews": "totalViews",
-      "usageTrend": "usageTrend"
+      "title": "使用統計",
+      "totalViews": "総閲覧数",
+      "favorites": "お気に入り数",
+      "orders": "注文数",
+      "totalSpent": "総消費額",
+      "usageTrend": "使用傾向",
+      "chartDeveloping": "グラフ機できる開発中..."
+    },
+    "orders": {
+      "title": "注文一覧",
+      "orderNo": "注文番号",
+      "viewDetails": "詳細を見る",
+      "payNow": "今すぐ支払う",
+      "empty": "注文なし"
+    },
+    "examine": {
+      "title": "審査一覧",
+      "rejectReason": "却下理由",
+      "view": "テーブル示",
+      "resubmit": "再提出",
+      "empty": "審査記録なし"
     },
     "upload": {
-      "delete": "删除",
-      "empty": "empty",
-      "title": "标题",
-      "view": "查看"
+      "title": "アップロード一覧",
+      "view": "テーブル示",
+      "delete": "削除",
+      "empty": "アップロード記録なし"
+    },
+    "purchases": {
+      "title": "購入一覧",
+      "view": "テーブル示",
+      "download": "ダウンロード",
+      "empty": "購入記録なし"
+    },
+    "favorites": {
+      "title": "お気に入り",
+      "view": "テーブル示",
+      "remove": "削除",
+      "empty": "お気に入りなし"
+    },
+    "settings": {
+      "title": "普通設定",
+      "language": "言語",
+      "languageDesc": "テーブル示言語を選択してください",
+      "theme": "テーマ",
+      "themeDesc": "インターフェースのテーマを選択してください",
+      "notifications": "通知",
+      "notificationsDesc": "システムとアクティビティの通知を受け取る",
+      "soundEffects": "効果音",
+      "soundEffectsDesc": "インターフェースの効果音を有効/無効にする"
+    },
+    "privacy": {
+      "title": "プライバシー設定",
+      "publicProfile": "プロフィールを公開",
+      "publicProfileDesc": "他のユーザーがプロフィールを閲覧できるようにする",
+      "showOnlineStatus": "オンライン状態をテーブル示",
+      "showOnlineStatusDesc": "他のユーザーがオンライン状態を確認できるようにする",
+      "allowSearch": "検索を許可",
+      "allowSearchDesc": "他のユーザーが検索で見つけられるようにする",
+      "receiveMessages": "メッセージ受信",
+      "receiveMessagesDesc": "他のユーザーからのメッセージを受信する"
+    },
+    "messages": {
+      "title": "メッセージ通知",
+      "empty": "メッセージなし"
+    },
+    "security": {
+      "title": "セキュリティ設定",
+      "loginPassword": "ログインパスワード",
+      "loginPasswordDesc": "アカウント保護のため定期的にパスワードを変更することをお勧めします",
+      "modify": "変更",
+      "phoneBinding": "電話番号連携",
+      "emailBinding": "メール連携"
+    },
+    "profile": {
+      "admin": "管理者",
+      "email": "メール",
+      "phone": "電話",
+      "registerTime": "登録日時",
+      "editProfile": "プロフィール編集"
+    },
+    "loginPopup": {
+      "login": "ログイン",
+      "code": "Code",
+      "phone": "Phone",
+      "sendCode": "Send Code",
+      "wechatLogin": "Wechat Login"
+    },
+    "infoCard": {
+      "edit": "編集"
     }
   }
 }

@@ -38,17 +38,18 @@ import { ElMessage } from 'element-plus'
 import { v2Agents } from '@/api/v2-business'
 
 const loading = ref(false)
-const agents_ = ref<any[]>([])
+const agents_ = ref<unknown[]>([])
 const answerVisible = ref(false)
 const answer = ref('')
 
 async function load() {
   loading.value = true
   try {
-    const r = await v2Agents.list({ page: 1, size: 20 })
-    agents_.value = (r as any)?.data?.items || (r as any)?.data?.records || []
-  } catch (e: any) {
-    ElMessage.error(t('common.errors.loadAgentsFailed') + ': ' + (e?.message || e))
+    const r = await v2Agents.list({ page: 1, size: 20 }) as unknown as { data?: { items?: unknown[]; records?: unknown[] } }
+    agents_.value = r?.data?.items || r?.data?.records || []
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(t('common.errors.loadAgentFailed') + ': ' + (err?.message || e))
   } finally {
     loading.value = false
   }
@@ -56,11 +57,12 @@ async function load() {
 
 async function hit(agentId: number, _name: string) {
   try {
-    const r = await v2Agents.info(String(agentId))
-    answer.value = (r as any)?.data?.description || '[无回答]'
+    const r = await v2Agents.info(String(agentId)) as unknown as { data?: { description?: string } }
+    answer.value = r?.data?.description || '[无回答]'
     answerVisible.value = true
-  } catch (e: any) {
-    ElMessage.error(t('common.errors.invokeFailed') + ': ' + (e?.message || e))
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(t('common.errors.callFailed') + ': ' + (err?.message || e))
   }
 }
 

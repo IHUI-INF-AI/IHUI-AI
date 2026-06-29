@@ -1,23 +1,23 @@
 {
   "model3dGen": {
-    "buttons": {
-      "generate": "generate"
+    "title": "Tencent混元3D生成",
+    "tag": "テキストから3D / 画像から3D",
+    "tabs": {
+      "text": "テキストから3D",
+      "image": "画像から3D"
     },
     "form": {
-      "format": "format",
-      "prompt": "提示词",
-      "promptPlaceholder": "promptPlaceholder",
-      "uploadImage": "uploadImage"
+      "prompt": "3D説明",
+      "promptPlaceholder": "希望する3Dモデルを説明...",
+      "format": "出力形式",
+      "uploadImage": "画像をアップロード"
+    },
+    "buttons": {
+      "generate": "生成"
     },
     "messages": {
-      "generateFailed": "generateFailed",
-      "promptRequired": "promptRequired"
-    },
-    "tabs": {
-      "image": "图片",
-      "text": "文本"
-    },
-    "tag": "标签",
-    "title": "标题"
+      "promptRequired": "3D説明を入力してください",
+      "generateFailed": "生成失敗"
+    }
   }
 }

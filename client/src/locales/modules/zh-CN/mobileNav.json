@@ -1,5 +1,8 @@
 {
   "mobileNav": {
-    "bottomNavAriaLabel": "底部 导航 aria 标签"
+    "title": "导航",
+    "close": "关闭",
+    "ariaLabel": "移动端导航",
+    "bottomNavAriaLabel": "移动端底部导航"
   }
 }

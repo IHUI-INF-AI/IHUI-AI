@@ -7,7 +7,7 @@
   transition: transform $transition-base;
   
   &:hover {
-    
+    transform: translateY(-4px);
   }
 }
 

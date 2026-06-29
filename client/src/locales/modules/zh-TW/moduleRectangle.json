@@ -1,6 +1,6 @@
 {
   "moduleRectangle": {
-    "liveNow": "liveNow",
-    "signedUp": "signedUp"
+    "liveNow": "直播中",
+    "signedUp": "人報名"
   }
 }

@@ -32,7 +32,7 @@ vi.mock('@aizhs/shared-services', () => ({
 
 import request from '@/utils/request'
 import { refreshAuthToken } from '@aizhs/shared-services'
-import * as userApi from '../user/user'
+import * as userApi from '../user'
 
 // 构造 axios 风格的成功响应
 const ok = (data: any = {}) => ({ data: { code: 200, data, message: 'success' } })
@@ -166,11 +166,10 @@ describe('user API 函数', () => {
 
   // ============ 密码 / 验证码相关 ============
 
-  it('changePassword 调用 PUT /api/v1/auth/profile/password', async () => {
-    // 2026-06-24 源码对齐后端: PUT /api/v1/auth/profile/password (Body: old_password, new_password)
-    vi.mocked(request.put).mockResolvedValueOnce(ok(true))
+  it('changePassword 调用 POST /user/change-password', async () => {
+    vi.mocked(request.post).mockResolvedValueOnce(ok(true))
     const res = await userApi.changePassword({ oldPassword: 'old', newPassword: 'new' })
-    expect(request.put).toHaveBeenCalledWith('/api/v1/auth/profile/password', { old_password: 'old', new_password: 'new' })
+    expect(request.post).toHaveBeenCalledWith('/user/change-password', { oldPassword: 'old', newPassword: 'new' })
     expect(res.success).toBe(true)
   })
 
@@ -195,11 +194,10 @@ describe('user API 函数', () => {
     expect(res.success).toBe(true)
   })
 
-  it('updatePassword 调用 PUT /api/v1/auth/profile/password', async () => {
-    // 2026-06-24 源码对齐后端: PUT /api/v1/auth/profile/password (Body: old_password, new_password)
-    vi.mocked(request.put).mockResolvedValueOnce(ok(true))
+  it('updatePassword 调用 POST /user/update-password', async () => {
+    vi.mocked(request.post).mockResolvedValueOnce(ok(true))
     const res = await userApi.updatePassword({ oldPassword: 'old', newPassword: 'new' })
-    expect(request.put).toHaveBeenCalledWith('/api/v1/auth/profile/password', { old_password: 'old', new_password: 'new' })
+    expect(request.post).toHaveBeenCalledWith('/user/update-password', { oldPassword: 'old', newPassword: 'new' })
     expect(res.success).toBe(true)
   })
 
@@ -228,21 +226,18 @@ describe('user API 函数', () => {
 
   // ============ 登录 / 注册相关 ============
 
-  it('login 调用 POST /auth/login-by-password 并传递登录数据', async () => {
-    // 2026-06-25 修复#Q: user.ts login 委托到 auth.service.loginByPassword, 路径变为 /auth/login-by-password
+  it('login 调用 POST /auth/login 并传递登录数据', async () => {
     vi.mocked(request.post).mockResolvedValueOnce(ok({ token: 't1', refreshToken: 'r1', expiresIn: 3600, tokenType: 'Bearer' }))
     const res = await userApi.login({ username: 'user1', password: 'pwd' })
-    expect(request.post).toHaveBeenCalledWith('/auth/login-by-password', { username: 'user1', password: 'pwd' })
+    expect(request.post).toHaveBeenCalledWith('/auth/login', { username: 'user1', password: 'pwd' })
     expect(res.success).toBe(true)
   })
 
-  it('logout 调用 POST /api/v1/auth/logout', async () => {
-    // 2026-06-24 源码恢复调用后端 /api/v1/auth/logout 使 token 加入黑名单
-    vi.mocked(request.post).mockResolvedValueOnce(ok(true))
+  it('logout 直接返回成功不调用 request', async () => {
     const res = await userApi.logout()
-    expect(request.post).toHaveBeenCalledWith('/api/v1/auth/logout', {})
     expect(res.success).toBe(true)
     expect(res.code).toBe(200)
+    expect(request.post).not.toHaveBeenCalled()
   })
 
   it('register 调用 POST /auth/register 并传递必填字段', async () => {

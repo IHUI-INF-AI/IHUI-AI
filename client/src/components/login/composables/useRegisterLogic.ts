@@ -7,12 +7,13 @@ import { ref, reactive, type Ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { register } from '@/api/auth/auth'
-import { unifiedRegister, isValidSource, type LoginSource } from '@/api/unified/unified-auth'
+import { register } from '@/api/auth'
+import { unifiedRegister, isValidSource, type LoginSource } from '@/api/unified-auth'
 import { FormValidator } from '@/utils/formValidation'
 import { InputValidator } from '@/utils/security'
 import { logger } from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
 export interface RegisterFormData {
   username: string
@@ -96,7 +97,7 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
     }
 
     try {
-      const { sendVerificationCode } = await import('@/api/user/user')
+      const { sendVerificationCode } = await import('@/api/user')
       await sendVerificationCode({
         type: 'phone',
         target: formData.phone,
@@ -117,7 +118,7 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
         }
       }, 1000)
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       ElMessage.error((error instanceof Error ? error.message : String(error)) || t('auth.codeSendFailed'))
       return false
     }
@@ -180,7 +181,7 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
 
         let token: string = ''
         let refreshTokenValue: string = ''
-        let userInfo: any = null
+        let userInfo: Record<string, unknown> | null | undefined = null
 
         if (registerData && typeof registerData === 'object') {
           const registerDataObj = registerData as {
@@ -189,8 +190,8 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
             access_token?: string
             refreshToken?: string
             refresh_token?: string
-            user?: any
-            userInfo?: any
+            user?: Record<string, unknown>
+            userInfo?: Record<string, unknown>
           }
           token = registerDataObj.token || registerDataObj.accessToken || registerDataObj.access_token || ''
           refreshTokenValue = registerDataObj.refreshToken || registerDataObj.refresh_token || ''
@@ -198,16 +199,17 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
         }
 
         if (token) {
-          return { success: true, token, refreshToken: refreshTokenValue, userInfo: userInfo as Record<string, unknown> }
+          return { success: true, token, refreshToken: refreshTokenValue, userInfo: userInfo ?? undefined }
         }
 
         ElMessage.success(t('auth.registerSuccess'))
-        void router.push('/login')
+        // 注册成功但无 token：切换到登录模式（弹窗内切换，不跳路由）
+        useLoginDialog().switchToLogin()
         return { success: true }
       }
 
       return { success: false }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(
         t('auth.registerFailed'),
         error instanceof Error ? error : new Error(String(error))
@@ -238,7 +240,7 @@ export function useRegisterLogic(options: RegisterLogicOptions) {
         password,
         confirmPassword,
       })
-      const raw = registerResponse as unknown as Record<string, unknown>
+      const raw = registerResponse as unknown as Record<string, unknown> // 双重断言必要: AuthResponse 类型声明缺少 code/data/msg/token 等运行时字段
       const code = (raw?.code as number | string) ?? 0
       const data = raw?.data as Record<string, unknown> | undefined
       const isSuccess = (code === 200 || code === '200' || raw?.success === true) && (data || raw?.token)

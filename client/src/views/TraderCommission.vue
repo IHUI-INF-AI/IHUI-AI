@@ -57,7 +57,7 @@
 
     <!-- 佣金明细列表 -->
     <div v-if="!loading" class="commission-list radius-auto">
-      <el-table :data="filteredCommissionList" v-loading="loading" class="full-width">
+      <el-table :data="filteredCommissionList" v-loading="loading" style="width: 100%">
         <el-table-column
           prop="buyer_nickname"
           :label="t('traderCommission.table.buyer')"
@@ -113,7 +113,7 @@ import { DollarSign } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
-import { getUserCommissionDetail } from '@/api/distribution/distribution'
+import { getUserCommissionDetail } from '@/api/distribution'
 import { logger } from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { useApiError } from '@/composables/useApiError'
@@ -256,7 +256,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -268,10 +268,6 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
 }
 
-.full-width {
-  width: 100%;
-}
-
 .page-title {
   display: flex;
   align-items: center;
@@ -281,11 +277,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -300,7 +296,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -315,7 +311,7 @@ onMounted(() => {
   align-items: flex-start;
   gap: 24px;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     flex-direction: column;
     padding: 24px;
   }
@@ -337,14 +333,14 @@ onMounted(() => {
 .main-amount {
   font-size: 36px;
   font-weight: 700;
-  color: var(--el-color-warning);
+  color: var(--color-orange-ff9800);
   margin-bottom: 8px;
   display: flex;
   align-items: baseline;
 }
 
 .amount-highlight {
-  color: var(--el-color-warning);
+  color: var(--color-orange-ff9800);
   font-size: 32px;
   font-weight: 700;
   margin: 0 4px;
@@ -366,7 +362,7 @@ onMounted(() => {
   gap: 16px;
   margin-left: 24px;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     align-items: stretch;
     margin-left: 0;
     margin-top: 16px;

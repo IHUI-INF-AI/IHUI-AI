@@ -1,25 +1,48 @@
 {
   "termsAndPolicies": {
+    "title": "條款與政策",
+    "subtitle": "了解我們的服務條款、隱私政策及其他重要政策",
+    "readFullText": "閱讀全文",
     "policies": {
-      "paymentTerms": {
-        "description": "描述",
-        "title": "标题"
+      "termsOfService": {
+        "title": "服務條款",
+        "description": "了解使用我們服務的條款與條件",
+        "viewDetails": "查看詳情"
       },
       "privacyPolicy": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "termsOfService": {
-        "description": "描述",
-        "title": "标题"
+        "title": "隱私政策",
+        "description": "了解我們如何收集、使用及保護您的個人資訊",
+        "viewDetails": "查看詳情"
       },
       "userAgreement": {
-        "description": "描述",
-        "title": "标题"
+        "title": "用戶協議",
+        "description": "用戶使用平台的基本協議與規範",
+        "viewDetails": "查看詳情"
+      },
+      "paymentTerms": {
+        "title": "支付條款",
+        "description": "了解我們的支付政策與退款規則",
+        "viewDetails": "查看詳情"
       }
     },
-    "readFullText": "readFullText",
-    "subtitle": "副标题",
-    "title": "标题"
+    "nodeIds": {
+      "1": "POL-001",
+      "2": "POL-002",
+      "3": "POL-003",
+      "4": "POL-004"
+    },
+    "backTo首頁": "返回首頁",
+    "legalBadge": "法律",
+    "protocolExit": "協議 / 返回",
+    "encryptedConnection": "加密連接",
+    "navDocs": "文檔",
+    "navSupport": "支持",
+    "quickNav": {
+      "title": "快速導航",
+      "downloadCenter": "下載中心",
+      "documentCenter": "文檔中心",
+      "customerService": "客户服務"
+    },
+    "backToHome": "返回首頁"
   }
 }

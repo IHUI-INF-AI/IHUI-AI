@@ -1,15 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 /**
  * 直播路由(从 G:\code\edu 整合) — 3 个页面
@@ -25,7 +15,6 @@ export const liveRoutes: Array<RouteRecordRaw> = [
       keywords: '直播,在直播间',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['live']),
   },
   {
     path: '/live/:id',
@@ -37,7 +26,6 @@ export const liveRoutes: Array<RouteRecordRaw> = [
       keywords: '直播详情',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['live']),
   },
   {
     path: '/live/:id/play',
@@ -49,7 +37,6 @@ export const liveRoutes: Array<RouteRecordRaw> = [
       keywords: '直播播放',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['live']),
   },
 ]
 
@@ -67,7 +54,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '个人资料',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberPersonal']),
   },
   {
     path: '/member/setting',
@@ -79,7 +65,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '账号设置',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberSetting']),
   },
   {
     path: '/member/point',
@@ -91,7 +76,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的积分',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberPoint']),
   },
   {
     path: '/member/certificate',
@@ -103,7 +87,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的证书',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberCertificate']),
   },
   {
     path: '/member/learn-record',
@@ -115,7 +98,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '学习记录',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberLearnRecord']),
   },
   {
     path: '/member/homework',
@@ -127,7 +109,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的作业',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberHomework']),
   },
   {
     path: '/member/exam-sign-up',
@@ -139,7 +120,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '考试报名',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberExamSignUp']),
   },
   {
     path: '/member/exam-record',
@@ -151,7 +131,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '答题记录',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberExamRecord']),
   },
   {
     path: '/member/exam-wrong',
@@ -163,7 +142,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '错题本',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberExamWrong']),
   },
   {
     path: '/member/follow',
@@ -175,7 +153,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的关注',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberFollow']),
   },
   {
     path: '/member/fans',
@@ -187,7 +164,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的粉丝',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberFans']),
   },
   {
     path: '/member/favorites',
@@ -199,7 +175,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的收藏',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberFavorites']),
   },
   {
     path: '/member/comment',
@@ -211,7 +186,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的评论',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberComment']),
   },
   {
     path: '/member/circle',
@@ -223,7 +197,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的圈子',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberCircle']),
   },
   {
     path: '/member/ask',
@@ -235,7 +208,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的问答',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberAsk']),
   },
   {
     path: '/member/article',
@@ -247,7 +219,6 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的文章',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberArticle']),
   },
   {
     path: '/member/resource',
@@ -259,6 +230,5 @@ export const memberRoutes: Array<RouteRecordRaw> = [
       keywords: '我的资源',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['memberResource']),
   },
 ]

@@ -436,7 +436,7 @@ onMounted(() => {
 .font-popup-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgb(var(--el-color-black-rgb), 0.5);
+  background-color: rgb(var(--el-color-black-rgb, 0, 0, 0), 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -509,7 +509,7 @@ onMounted(() => {
 .font-check {
   font-size: 18px;
   color: var(--el-color-primary);
-  font-weight: 700;
+  font-weight: bold;
 }
 
 @media (width <= 767px) {

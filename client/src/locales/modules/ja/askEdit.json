@@ -1,0 +1,19 @@
+{
+  "askEdit": {
+    "createTitle": "新規質問",
+    "editTitle": "質問を編集",
+    "questionTitle": "質問タイトル",
+    "titlePlaceholder": "質問タイトルを入力（5-100文字）",
+    "titleRequired": "質問タイトルを入力してください",
+    "titleLength": "タイトルは5〜100文字の範囲で入力してください",
+    "content": "質問内容",
+    "contentPlaceholder": "質問内容を詳細に記述（10-2000文字）",
+    "contentRequired": "質問内容を入力してください",
+    "contentLength": "内容は10〜2000文字の範囲で入力してください",
+    "category": "カテゴリー",
+    "selectCategory": "カテゴリーを選択（任意）",
+    "tags": "タグ",
+    "tagsPlaceholder": "タグを入力してEnter",
+    "tagMax": "最大 {max} 個のタグ"
+  }
+}

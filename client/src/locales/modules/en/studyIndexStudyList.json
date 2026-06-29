@@ -1,8 +1,8 @@
 {
   "studyIndexStudyList": {
-    "latestCourses": "latestCourses",
-    "loading": "加载中",
-    "noMore": "没有更多了",
-    "viewMore": "viewMore"
+    "loading": "Loading...",
+    "latestCourses": "Latest Courses",
+    "viewMore": "View More",
+    "noMore": "No more"
   }
 }

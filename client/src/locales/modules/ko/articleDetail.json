@@ -1,10 +1,8 @@
 {
   "articleDetail": {
-    "anonymousAuthor": "anonymousAuthor",
-    "article": "文章",
-    "backToList": "backToList",
-    "favorite": "收藏",
-    "like": "点赞",
-    "read": "read"
+    "article": "글",
+    "anonymousAuthor": "익명 작성자",
+    "backToList": "목록으로",
+    "read": "조회"
   }
 }

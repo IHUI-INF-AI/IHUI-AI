@@ -241,7 +241,7 @@ defineExpose({
   width: 48px;
   height: 48px;
   font-size: 20px;
-  transition: transform 0.3s;
+  transition: all 0.3s;
 }
 
 .voice-button:hover {
@@ -255,11 +255,11 @@ defineExpose({
 @keyframes pulse {
   0%,
   100% {
-    opacity: 1;
+    box-shadow: var(--global-box-shadow);
   }
 
   50% {
-    opacity: 0.6;
+    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -269,9 +269,9 @@ defineExpose({
   left: 50%;
   transform: translateX(-50%);
   background: var(--el-bg-color);
-  border: var(--unified-border);
   padding: 16px 24px;
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   text-align: center;
   min-width: 200px;
   z-index: var(--z-header);

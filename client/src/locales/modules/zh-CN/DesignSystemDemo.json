@@ -1,5 +1,8 @@
 {
+  "designSystemDemo": {
+    "designSystemMeta": "设计系统, UI组件, Vue组件, 前端开发"
+  },
   "DesignSystemDemo": {
-    "designSystemMeta": "design System Meta"
+    "designSystemMeta": "设计系统, UI组件, Vue组件, 前端开发"
   }
 }

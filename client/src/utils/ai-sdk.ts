@@ -16,7 +16,7 @@ const AISDK = {
   async chat(params: {
     message: string
     agentId?: string
-    [key: string]: any
+    [key: string]: unknown
   }): Promise<ApiResponse<unknown>> {
     // 这里应该调用实际的AI API
     logger.info('[AISDK] chat:', params)
@@ -36,7 +36,7 @@ const AISDK = {
     request: {
       agentId?: string
       message: string
-      [key: string]: any
+      [key: string]: unknown
     },
     onChunk: (content: string) => void
   ): void {

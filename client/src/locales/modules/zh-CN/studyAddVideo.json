@@ -1,18 +1,18 @@
 {
   "studyAddVideo": {
-    "addLink": "添加 链接",
-    "addResourceLink": "添加 资源 链接",
-    "collectionTitle": "collection 标题",
-    "descPlaceholder": "请输入描述",
-    "done": "已完成",
-    "edit": "编辑",
-    "linkPlaceholder": "链接 placeholder",
-    "publish": "发布",
-    "remarkPlaceholder": "请输入备注",
-    "searchAgent": "搜索 智能体",
-    "shelf": "shelf",
+    "video": "视频",
+    "collectionTitle": "合集标题",
     "titlePlaceholder": "请输入标题",
-    "uploadNext": "上传 下一步",
-    "video": "视频"
+    "descPlaceholder": "请输入描述",
+    "searchAgent": "搜索智能体",
+    "remarkPlaceholder": "请输入备注",
+    "addLink": "添加链接",
+    "addResourceLink": "添加资源链接",
+    "linkPlaceholder": "请输入链接",
+    "publish": "发布",
+    "edit": "编辑",
+    "shelf": "上架",
+    "uploadNext": "上传下一个",
+    "done": "完成"
   }
 }

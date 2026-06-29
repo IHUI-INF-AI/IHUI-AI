@@ -189,7 +189,7 @@ export class AICapabilityTesting {
         latency,
         timestamp: Date.now(),
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       const latency = performance.now() - startTime
 
@@ -309,7 +309,7 @@ export class AICapabilityTesting {
   /**
    * 深度比较
    */
-  private deepEqual(a: any, b: any): boolean {
+  private deepEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true
     if (a == null || b == null) return false
     if (typeof a !== typeof b) return false
@@ -346,13 +346,13 @@ export class AICapabilityTesting {
             id: 'basic-chat',
             name: '基础对话测试',
             input: '你好' as unknown as Record<string, unknown>,
-            validation: (output: any) => typeof output === 'string' && output.length > 0,
+            validation: (output: unknown) => typeof output === 'string' && output.length > 0,
           },
           {
             id: 'long-text',
             name: '长文本生成测试',
             input: '请写一篇关于人工智能的文章，至少500字' as unknown as Record<string, unknown>,
-            validation: (output: any) => typeof output === 'string' && output.length > 500,
+            validation: (output: unknown) => typeof output === 'string' && output.length > 500,
             timeout: 60000,
           }
         )
@@ -363,7 +363,7 @@ export class AICapabilityTesting {
           id: 'agent-response',
           name: 'Agent 响应测试',
           input: '测试消息' as unknown as Record<string, unknown>,
-          validation: (output: any) => output !== null && output !== undefined,
+          validation: (output: unknown) => output !== null && output !== undefined,
         })
         break
 
@@ -372,7 +372,7 @@ export class AICapabilityTesting {
           id: 'tool-execution',
           name: '工具执行测试',
           input: {},
-          validation: (output: any) => output !== null && output !== undefined,
+          validation: (output: unknown) => output !== null && output !== undefined,
         })
         break
     }

@@ -48,7 +48,7 @@
         :description="t('models.noModelData')"
         :image-size="120"
       />
-      <el-table v-else :data="models" v-loading="loading" border class="full-width">
+      <el-table v-else :data="models" v-loading="loading" border style="width: 100%">
         <el-table-column prop="name" :label="t('models.modelName')" min-width="160">
           <template #default="{ row }">
             <div class="model-name-cell">
@@ -309,7 +309,7 @@ import {
   testModel,
   type AIModel,
   type ModelType,
-} from '@/api/models/models'
+} from '@/api/models'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -408,7 +408,7 @@ const loadModels = async () => {
         showWarning(res.message)
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     models.value = []
     pagination.total = 0
     const errorMsg =
@@ -503,7 +503,7 @@ const handleSave = () => {
           },
         }
       )
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorMsg((error instanceof Error ? error.message : String(error)) || t('common.failed'))
     } finally {
       saving.value = false
@@ -537,11 +537,11 @@ const handleToggle = async (row: AIModel) => {
 
 const handleTest = async (row: AIModel) => {
   await handleResult(testModel(row.id), {
-    successMessage: (data?: any) => {
+    successMessage: (data?: unknown) => {
       const message = (data as Record<string, unknown>)?.message as string
       return message || t('models.testSuccess')
     },
-    errorMessage: (data?: any) => {
+    errorMessage: (data?: unknown) => {
       const message = (data as Record<string, unknown>)?.message as string
       return message || t('models.testFailed')
     },
@@ -625,17 +625,17 @@ main();`
 
 const goToApiTokens = () => {
   apiInfoDialogVisible.value = false
-  router.push('/key-management')
+  router.push('/api-tokens')
 }
 
 const goToApiDocs = () => {
   apiInfoDialogVisible.value = false
-  router.push('/open/docs')
+  router.push('/api-docs')
 }
 
 const goToApiStats = () => {
   apiInfoDialogVisible.value = false
-  router.push('/open/dashboard')
+  router.push('/api-usage')
 }
 
 onMounted(() => {
@@ -730,10 +730,6 @@ onMounted(() => {
         width: 100%;
       }
     }
-  }
-
-  .full-width {
-    width: 100%;
   }
 }
 

@@ -32,7 +32,7 @@ export interface ThemeIssue {
   type: 'error' | 'warning' | 'info'
   message: string
   suggestion: string
-  details?: any
+  details?: unknown
 }
 
 type DebugListener = (info: ThemeDebugInfo) => void

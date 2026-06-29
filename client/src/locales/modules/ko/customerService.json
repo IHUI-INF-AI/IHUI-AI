@@ -1,26 +1,31 @@
 {
   "customerService": {
     "chat": {
-      "connected": "已连接",
-      "connecting": "connecting",
-      "disconnected": "已断开",
-      "faqs": "faqs",
-      "fileSizeExceeded": "fileSizeExceeded",
-      "placeholder": "请输入",
-      "reconnecting": "reconnecting",
-      "sendFailed": "sendFailed",
-      "startChat": "startChat",
-      "title": "标题",
-      "typing": "typing"
+      "핵심 장점": "제목",
+      "faqs": "Faqs",
+      "startChat": "시작Chat",
+      "typing": "Typing",
+      "placeholder": "요청입력",
+      "connected": "완료연결",
+      "connecting": "Connecting",
+      "reconnecting": "Reconnecting",
+      "disconnected": "완료연결 끊김",
+      "fileSizeExceeded": "파일SizeExceeded",
+      "sendFailed": "send실패",
+      "title": "제목"
     },
     "faq": {
-      "noFAQs": "noFAQs",
-      "title": "标题"
+      "핵심 장점": "제목",
+      "noFAQs": "없음FAQs",
+      "title": "제목"
     },
-    "subtitle": "副标题",
+    "핵심 장점": "제목",
+    "sub핵심 장점": "Sub핵심 장점",
     "ticket": {
-      "title": "标题"
+      "핵심 장점": "제목",
+      "title": "제목"
     },
-    "title": "标题"
+    "title": "제목",
+    "subtitle": "Subtitle"
   }
 }

@@ -1,6 +1,7 @@
 {
   "aiCommunity": {
     "title": "AI创作社区",
+    "subtitle": "发现全球最优秀的AI创作作品",
     "heroTitle": "探索AI创意无限可能",
     "heroSubtitle": "汇聚Midjourney、DALL-E、Sora、Suno等顶级AI作品",
     "searchPlaceholder": "搜索AI创作...",
@@ -29,10 +30,16 @@
     },
     "actions": {
       "publish": "发布创作",
-      "share": "分享"
+      "like": "点赞",
+      "favorite": "收藏",
+      "comment": "评论",
+      "share": "分享",
+      "download": "下载",
+      "viewPrompt": "查看提示词"
     },
     "empty": {
-      "title": "暂无内容"
+      "title": "暂无内容",
+      "description": "成为第一个发布AI创作的人吧！"
     },
     "loading": "加载中...",
     "loadMore": "加载更多",
@@ -49,14 +56,17 @@
     "detail": {
       "prompt": "提示词",
       "model": "AI模型",
-      "createdAt": "创建时间"
+      "createdAt": "创建时间",
+      "comments": "评论",
+      "noComments": "暂无评论",
+      "addComment": "发表评论...",
+      "sendComment": "发送"
     },
     "tools": {
       "imageGeneration": "AI图片生成",
       "musicCreation": "AI音乐创作",
       "videoGeneration": "AI视频生成",
-      "writingAssistant": "AI写作助手",
-      "hotTools": "热门 工具"
+      "writingAssistant": "AI写作助手"
     }
   }
 }

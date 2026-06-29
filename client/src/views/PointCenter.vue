@@ -229,8 +229,9 @@ async function handleExchange(g: Goods) {
     loadAccount()
     loadExchanges()
     loadGoods()
-  } catch (e: any) {
-    toast.error(e?.response?.data?.message || t('pointCenter.exchangeFailed'))
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { message?: string } } }
+    toast.error(err?.response?.data?.message || t('pointCenter.exchangeFailed'))
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "viewerCodeViewer": {
-    "codeLoadFailed": "codeLoadFailed",
-    "loadFailed": "loadFailed",
-    "loading": "加载中"
+    "loading": "Loading...",
+    "codeLoadFailed": "Code load failed",
+    "loadFailed": "Load failed"
   }
 }

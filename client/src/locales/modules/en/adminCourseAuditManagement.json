@@ -1,0 +1,18 @@
+{
+  "adminCourseAuditManagement": {
+    "search": {
+      "Export": "Export"
+    },
+    "table": {},
+    "auditType": {},
+    "auditStatus": {
+      "Approved": "Approved",
+      "Rejected": "Rejected"
+    },
+    "dialogs": {},
+    "messages": {
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    }
+  }
+}

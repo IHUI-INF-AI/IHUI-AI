@@ -90,7 +90,7 @@ interface Props {
 
 interface Emits {
   (e: 'login-success', data: { token: string; user: Record<string, unknown> }): void
-  (e: 'login-error', error: any): void
+  (e: 'login-error', error: unknown): void
   (e: 'switch-method', method: string): void
 }
 
@@ -230,7 +230,7 @@ const initializeGoogleOneTap = async () => {
     }
 
      
-    const initOptions = { client_id: String(googleConfig.value.clientId || ''), callback: handleOneTapCallback } as any
+    const initOptions = { client_id: String(googleConfig.value.clientId || ''), callback: handleOneTapCallback }
     window.google.accounts.id.initialize(initOptions)
 
     // 渲染One Tap提示
@@ -283,7 +283,7 @@ const handleOneTapCallback = async (response: { credential: string }) => {
     } else {
       throw new Error(result.message || t('googleLogin.failed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('Google One Tap login failed:', error)
 
@@ -367,7 +367,7 @@ const handleGoogleLogin = async () => {
           } else {
             throw new Error(result.message || t('featureGoogleLogin.googleLoginFailed'))
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error)
           loginStatus.value = {
             title: t('title.google_login.登录失败5'),
@@ -411,7 +411,7 @@ const handleGoogleLogin = async () => {
         }
       }
     }, 300000) // 5分钟超时
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('Google login failed:', error)
     ElMessage.error(errorMessage || t('googleLogin.retry'))
@@ -433,7 +433,7 @@ const initializeComponent = async () => {
     const configResult = await getGoogleOAuthConfig()
     if (configResult.code === 200 && configResult.data) {
        
-      googleConfig.value = configResult.data as any
+      googleConfig.value = configResult.data as unknown as Record<string, unknown>
 
       // 自动加载时初始化One Tap
       if (props.autoLoad) {
@@ -478,7 +478,7 @@ defineExpose({
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      transition: border-color 0.2s ease, border-width 0.2s ease, opacity 0.2s ease;
+      transition: all 0.2s ease;
       min-width: 200px;
       height: 48px;
 

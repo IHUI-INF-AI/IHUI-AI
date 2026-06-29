@@ -353,7 +353,7 @@ describe('themeShare', () => {
       const result = await themeShare.shareToSocial({
         platform: 'wechat',
         themeMode: 'dark' as ThemeMode,
-        preset: { id: 'preset-1', name: 'Custom' } as any
+        preset: { id: 'preset-1', name: 'Custom' } as Record<string, unknown>
       })
       expect(result.success).toBe(true)
     })

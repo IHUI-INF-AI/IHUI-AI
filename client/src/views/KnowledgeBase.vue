@@ -159,7 +159,7 @@ import {
   deleteKnowledgeBase,
   searchKnowledge,
   type KnowledgeBase,
-} from '@/api/knowledge/knowledge'
+} from '@/api/knowledge'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const { t } = useI18n()
@@ -467,10 +467,10 @@ onMounted(() => {
 
   .knowledge-base-card {
     cursor: pointer;
-    transition: transform 0.3s;
+    transition: all 0.3s;
 
     &:hover {
-      
+      transform: translateY(-4px);
     }
 
     .card-header {

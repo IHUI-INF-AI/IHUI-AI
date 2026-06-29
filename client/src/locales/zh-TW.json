@@ -1,4 +1,4 @@
-{
+﻿﻿{
   "apiTest": {
     "title": "AI接口測試",
     "allTestsPassed": "全部",
@@ -85,12 +85,6 @@
       "invalidFile": "無效文件",
       "invalidFileType": "無效文件類型",
       "fileTooLarge": "文件過大",
-      "approveFailed": "審批失敗",
-      "rejectFailed": "拒絕失敗",
-      "importRefreshFailed": "導入後刷新失敗",
-      "deleteRefreshFailed": "刪除後刷新失敗",
-      "pushRefreshFailed": "推送後刷新失敗",
-      "dataLoadFailed": "數據加載失敗",
       "aiCapabilityInvokeFailed": "AI capability invocation failed",
       "capabilityDiscoveryFailed": "Capability discovery failed",
       "chatFailed": "Chat failed",
@@ -125,7 +119,39 @@
       "websocketError": "WebSocket error",
       "websocketParseFailed": "WebSocket message parsing failed",
       "workflowExecutionFailed": "Workflow execution failed",
-      "actionFailed": "操作失敗"
+      "actionFailed": "操作失敗",
+      "updateFailed": "更新失敗",
+      "removeFailed": "移除失敗",
+      "submitFailed": "提交失敗",
+      "orderCreateFailed": "訂單建立失敗",
+      "checkInFailed": "簽到失敗，請稍後重試",
+      "paymentInitFailed": "支付發起失敗，請重試",
+      "loadScheduleFailed": "載入行程失敗",
+      "loadBalanceFailed": "載入餘額失敗",
+      "loadCourseFailed": "載入課程失敗",
+      "loadAgentFailed": "載入智能體失敗",
+      "callFailed": "呼叫失敗",
+      "simulateFailed": "模擬失敗",
+      "getVideoUrlFailed": "取得影片網址失敗",
+      "giftListLoadFailed": "禮物清單載入失敗",
+      "commentSendFailed": "評論傳送失敗",
+      "giftSendFailed": "禮物傳送失敗",
+      "incomeLoadFailed": "收益資料載入失敗，請重新整理後重試",
+      "tokenLoadFailed": "資料載入失敗，請重新整理後重試",
+      "priceLoading": "價格載入中，請稍後再試",
+      "priceLoadFailed": "價格載入失敗，請重新整理頁面",
+      "approveFailed": "審批失敗",
+      "rejectFailed": "拒絕失敗",
+      "refreshAfterImportFailed": "匯入後重新整理失敗",
+      "refreshAfterDeleteFailed": "刪除後重新整理失敗",
+      "refreshAfterPushFailed": "推送後重新整理失敗",
+      "dashboardEmpty": "Dashboard 資料全空，後端介面可能未對接，已顯示佔位。",
+      "operationFailedRetry": "操作失敗，請重試",
+      "likeFailed": "點讚失敗",
+      "signUpFailed": "報名失敗",
+      "selectAtLeastOneField": "請至少選擇一個要修改的欄位",
+      "inputRateContent": "請輸入評價內容",
+      "messageSendFailedRetry": "訊息傳送失敗，請重試"
     },
     "selected": "已選擇",
     "clear": "清空",
@@ -164,12 +190,18 @@
       "createSuccess": "創建成功",
       "operationSuccess": "操作成功",
       "saving": "保存中",
-      "loginSuccess": "登錄成功"
+      "loginSuccess": "登錄成功",
+      "saved": "已儲存",
+      "likeSuccess": "點讚成功",
+      "signUpSuccess": "報名成功",
+      "rateSuccess": "評價成功",
+      "viewLoginLog": "查看登入日誌"
     },
     "create": "創建",
     "image": "圖片",
     "video": "視頻",
     "audio": "音頻",
+    "action": "操作",
     "actions": "操作",
     "rangeSeparator": "至",
     "loginFailed": "登錄失敗",
@@ -207,8 +239,8 @@
     "minutes": "Minutes",
     "minutesAgo": "Minutes Ago",
     "requestFailed": "Request Failed",
-    "saveFailed": "Save Failed",
-    "saveSuccess": "Save Success",
+    "saveFailed": "儲存失敗",
+    "saveSuccess": "儲存成功",
     "previewBtn": "預覽報告",
     "validate": {
       "required": "{label}不能為空",
@@ -231,9 +263,16 @@
     "newsCenter": "AI動態",
     "aboutUs": "關於我們",
     "becomeSupplier": "成為供應商",
-    "aiStore": "AI應用商店",
+    "aiStore": "智能體",
     "moreFeatures": "更多功能",
-    "noMoreItems": "暫無更多功能"
+    "noMoreItems": "暫無更多功能",
+    "serviceSupport": "服務支援",
+    "learnCourses": "課程中心",
+    "learnMap": "學習地圖",
+    "liveClass": "直播課堂",
+    "myLearning": "我的學習",
+    "openAiPanel": "打開 AI 助手",
+    "closeAiPanel": "關閉 AI 助手"
   },
   "voiceInput": {
     "listening": "正在聆聽...",
@@ -335,10 +374,8 @@
     "registerFailedRetry": "註冊失敗，請重試",
     "accountPasswordLogin": "賬號密碼登錄",
     "saveHistoryPhoneFailed": "保存歷史手機號失敗",
-    "alipayLogin": "支付宝登錄",
     "googleLogin": "Google登錄",
     "appleLogin": "Apple登錄",
-    "feishuLogin": "飞書登錄",
     "missingAccount": "賬號",
     "missingPassword": "密碼",
     "missingServiceAgreement": "服務協議",
@@ -484,6 +521,7 @@
   },
   "errorBoundary": {
     "reload": "重新載入",
+    "go首頁": "返回首頁",
     "unknownError": "未知錯誤",
     "retry": "重試",
     "errorDetails": "錯誤詳情",
@@ -583,18 +621,6 @@
     "adminFeedbackManagement": "反饋管理",
     "adminFaqManagement": "FAQ管理",
     "dataDashboard": "數據看板",
-    "adminDict": "字典管理",
-    "adminDictData": "字典數據",
-    "adminDeveloper": "開發者管理",
-    "adminDeveloperLink": "開發者綁定",
-    "adminDemandSquare": "需求廣場",
-    "adminDemandSquareReview": "需求審核",
-    "adminLogOperlog": "操作日誌",
-    "adminLogLogininfor": "登入日誌",
-    "adminJob": "定時任務",
-    "adminJobLog": "任務日誌",
-    "adminOnline": "在線用戶",
-    "adminZone": "專區管理",
     "aiAgenticDashboard": "智能體儀表板",
     "aiApiTest": "AI接口測試",
     "aiAgentManagement": "AI智能體管理",
@@ -666,6 +692,7 @@
     "adminLearnOrderInvoiceTitle": "發票抬头",
     "adminLearnReport": "學習報告",
     "adminLearnSignup": "报名管理",
+    "adminLearnHomework": "作業審核",
     "adminLearnTopic": "專題管理",
     "adminLearnTopicCategory": "專題分類",
     "adminLiveCategory": "直播分類",
@@ -945,17 +972,14 @@
       "优先响应": "優先響應",
       "高级模型访问": "高級模型訪問"
     },
-    "third_party_login_universal": {
-      "支付宝": "支付宝"
-    },
     "mobile_bottom_nav": {
-      "AI應用商店": "AI應用商店",
+      "AI應用商店": "智能體",
       "廣場1": "廣場",
       "智匯AI2": "智匯AI",
       "動態3": "動態",
       "我的4": "我的",
-      "動态3": "動态",
-      "AI应用商店": "AI應用商店",
+      "動态3": "動动",
+      "AI应用商店": "智能體",
       "动态3": "動態",
       "广场1": "廣場",
       "智汇AI2": "智匯AI"
@@ -978,14 +1002,9 @@
       "全球通用登錄1": "全球通用登錄",
       "Apple登錄2": "Apple登錄",
       "使用AppleI3": "使用Apple ID登錄",
-      "飞書登錄4": "飞書登錄",
-      "使用飞書賬號登錄5": "使用飞書賬號登錄",
-      "使用飞書账號登錄5": "使用飞書账號登錄",
       "Apple登录2": "Apple登入",
       "Google登录": "Google登入",
-      "使用飞书账号登录5": "使用飛書賬號登入",
-      "全球通用登录1": "全球通用登入",
-      "飞书登录4": "飛書登入"
+      "全球通用登录1": "全球通用登入"
     },
     "agents_create": {
       "AI助手": "AI助手"
@@ -1283,6 +1302,7 @@
     "errorTitle": "發生錯誤",
     "showErrorDetails": "顯示錯誤詳情",
     "reload": "重新載入",
+    "go首頁": "返回首頁",
     "unknownError": "未知錯誤",
     "skipToMain": "跳轉到主要內容",
     "offlineWarning": "網絡連接已斷開，請檢查您的網絡設置",
@@ -1333,7 +1353,6 @@
     "marquee": {
       "kouzi": "扣子圖標",
       "bbxLogo": "百宝箱logo",
-      "brand4": "品牌圖標",
       "zhipu": "智谱清言",
       "brand8": "品牌8",
       "ali": "阿里雲",
@@ -1425,19 +1444,7 @@
       "hot": "熱門",
       "news": "資訊"
     },
-    "miniappBtn": "微信小程序",
-    "wheelSensitivityLabel": "滾輪靈敏度",
-    "marqueeSpeedLabel": "滾動速度",
-    "clickToResume": "點擊繼續滾動",
-    "clickToPause": "點擊暫停滾動",
-    "resumeScroll": "繼續滾動",
-    "pauseScroll": "暫停滾動",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "慢",
-    "speedMid": "中",
-    "speedFast": "快"
+    "miniappBtn": "微信小程序"
   },
   "chat": {
     "model": "模型",
@@ -2516,6 +2523,7 @@
     }
   },
   "aboutUs": {
+    "sixKPlus": "6萬+",
     "back首頁": "返回首頁",
     "heroTitle": "關於我們",
     "heroSubtitle": "我們專注把大模型與多模態能力變成可落地的產品與服務，為企業和開發者提供穩定、易用的AI能力與工具。",
@@ -2571,8 +2579,8 @@
       },
       "aiAppStore": {
         "date": "2025年1月",
-        "title": "全球首家AI應用商店",
-        "description": "率先提出並創建全球首家AI應用商店概念，引領AI應用生態發展"
+        "title": "全球首家智能體平台",
+        "description": "率先提出並創建全球首家智能體平台概念，引領AI應用生態發展"
       },
       "platformLaunched": {
         "date": "2025年1月",
@@ -2765,23 +2773,17 @@
     },
     "thirdParty": {
       "or": "或",
-      "alipayLogin": "支付寶登錄",
       "notice": "使用第三方登錄即表示您同意我們的",
       "privacyPolicy": "隱私政策",
       "termsOfService": "服務條款",
       "tooltip": {
         "wechat": "微信登錄",
-        "alipay": "支付寶登錄",
         "google": "Google登錄",
-        "apple": "Apple登錄",
-        "feishu": "飛書登錄"
+        "apple": "Apple登錄"
       },
-      "feishuLogin": "Feishu登錄",
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "emailLogin": "emailLogin",
-      "feishu": "feishu",
       "otherMethods": "otherMethods",
       "phoneLogin": "phoneLogin",
       "quickLogin": "quickLogin",
@@ -3180,6 +3182,8 @@
     "cleared": "佇列已清空"
   },
   "user": {
+    "nickname": "暱稱",
+    "nickname2": "暱稱",
     "quickActions": "快捷操作",
     "purchases": {
       "title": "我的購買"
@@ -3417,6 +3421,7 @@
     }
   },
   "openPlatform": {
+    "openPlatformTitle": "智匯開放平台 | iHui Open Platform",
     "title": "開放平台",
     "searchPlaceholder": "搜索功能、文檔、API...",
     "back首頁": "返回首頁",
@@ -3980,7 +3985,6 @@
     "autoRefreshing": "二維碼已過期，正在自動刷新 ({current}/{max})",
     "manualRefresh": "二維碼已過期，請手動刷新",
     "wechat": "微信",
-    "alipay": "支付宝",
     "logger": {
       "generateWechatQrCodeFailed": "生成微信二維碼圖片失敗",
       "generateProviderQrCodeFailed": "生成{provider}二維碼失敗",
@@ -4040,8 +4044,7 @@
     "registerFailed": "註冊失敗",
     "thirdParty": {
       "or": "或者",
-      "wechat": "微信",
-      "alipay": "支付宝"
+      "wechat": "微信"
     },
     "messages": {
       "phoneInvalid": "請輸入有效的手機號",
@@ -4108,7 +4111,7 @@
     "systemInternal": "系統內部",
     "commands": {
       "home": "返回首頁",
-      "store": "AI應用商店",
+      "store": "智能體",
       "plaza": "需求廣場",
       "learnAI": "學習AI",
       "community": "AI創作社區",
@@ -5345,6 +5348,8 @@
     "settlementTitle": "Settlement Title"
   },
   "vip": {
+    "permanentVip": "/永久會員",
+    "oneClickVip": "一鍵開通會員",
     "title": "升級VIP會員",
     "subtitle": "解鎖全部AI工具，享受专属特權服務，仅需 ¥{amount}",
     "featuresTitle": "VIP专属特權",
@@ -5639,6 +5644,10 @@
     }
   },
   "feedback": {
+    "feedbackRecords": "反饋記錄",
+    "submitFeedback": "提交反饋",
+    "loading": "載入中...",
+    "submitFailed": "提交失敗，請重試",
     "title": "意见反饋",
     "content": {
       "tip": "您的反饋對我們非常重要，請詳細描述您的問題或建議"
@@ -5656,6 +5665,8 @@
     "submitSuccess": "反饋提交成功，感謝您的反饋！"
   },
   "statistics": {
+    "zeroHour": "0小時",
+    "zeroHour2": "0小時",
     "selectTimeRange": "選擇時間範圍",
     "startDate": "開始日期",
     "endDate": "結束日期",
@@ -5888,6 +5899,9 @@
     "documentCount": "個文檔"
   },
   "agents": {
+    "exploreAgents": "探索 AI 智能體",
+    "createCustomAgent": "建立專屬智能體",
+    "oneClickDeploy": "一鍵部署與調用",
     "title": "智能體中心",
     "subtitle": "探索豐富的AI智能體，提升您的工作效率",
     "metaTotal": "共 {count} 個智能體",
@@ -7351,6 +7365,8 @@
     }
   },
   "mcpUseProject": {
+    "listDirFiles": "列出當前目錄的所有檔案",
+    "listDirFiles2": "列出當前目錄的所有檔案",
     "title": "mcp-use 項目",
     "subtitle": "全栈MCP框架 - 6行代码接入任意MCP服務器",
     "managementInterface": "管理界面",
@@ -8150,6 +8166,7 @@
   "simpleFallback": {
     "loading": "頁面加載中...",
     "reload": "重新加載",
+    "go首頁": "返回首頁",
     "defaultMessage": "如果頁面長時間未加載，請尝试刷新",
     "goHome": "返回首頁"
   },
@@ -8511,6 +8528,7 @@
     "viewProfile": "個人中心"
   },
   "enterpriseService": {
+    "enterpriseDesc": "AI時代企業理性效率服務與互助社群，幫助決策者構建人機協同的超級組織",
     "badge": "ENTERPRISESERVICE",
     "heroTitle": "智匯AI企業服務",
     "heroSubtitle": "AI时代企業理性效率服務與互助社群。幫助決策者深度理解AI與企業的关系，構建人機协同的超级組織。",
@@ -9526,6 +9544,11 @@
     "copyFailed": "copy失敗"
   },
   "payment": {
+    "alreadyVip": "您已是VIP會員",
+    "notLogged": "用戶未登錄",
+    "incompleteProduct": "商品信息不完整",
+    "selectPayMethod": "請選擇支付方式",
+    "notLoggedOrNoOpenId": "用戶未登錄或openid不存在",
     "channelBusyHint": "目前首選 {method} 通道繁忙，已為您降級到其他支付方式",
     "memberServiceAgreement": "會員服務協議",
     "paySuccess": "支付成功",
@@ -9917,7 +9940,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AI應用商店",
+        "AI应用商店": "智能體",
         "服务与支持": "服務與支持",
         "关于我们": "關於我們"
       }
@@ -10262,9 +10285,7 @@
       "向下滚動": "向下滚動",
       "向下滚动": "向下滾動"
     },
-    "third_party_login": {
-      "飞書1": "飞書"
-    },
+    "third_party_login": {},
     "project_selector_banner": {
       "切換平台": "切換平台"
     },
@@ -11174,15 +11195,6 @@
       "获取成功4": "獲取成功",
       "获取成功5": "獲取成功",
       "获取成功6": "獲取成功"
-    },
-    "unified_alipay": {
-      "會话ID不能為空": "會话 ID 不能為空",
-      "會话ID不能為空1": "會话 ID 不能為空",
-      "授權码不能為空2": "授權码不能為空",
-      "授权码不能為空2": "授权码不能為空",
-      "会话ID不能为空": "會話 ID 不能為空",
-      "会话ID不能为空1": "會話 ID 不能為空",
-      "授权码不能为空2": "授權碼不能為空"
     },
     "unified_auth": {
       "登錄接口不存在請": "登錄接口不存在，請检查后端服務配置。錯誤信息：",
@@ -13538,15 +13550,6 @@
     "selectTrack": "請選擇賽道",
     "uploadCover": "請上傳封面圖片"
   },
-  "userLoginPopup": {
-    "welcomeBack": "歡迎回來，請登錄您的帳戶",
-    "enterPhone": "請先輸入手機號",
-    "invalidPhone": "手機號格式不正確",
-    "codeSent": "驗證碼已發送",
-    "codeSendFailed": "驗證碼發送失敗，請重試",
-    "loginSuccess": "登錄成功",
-    "wechatLoginNotConfigured": "微信登錄功能暫未配置"
-  },
   "devCSSVariablesCheatsheet": {
     "textColor": "文字顏色",
     "bgColor": "背景顏色",
@@ -13598,26 +13601,12 @@
     "appleLoginRetry": "Apple登錄失敗，請重試",
     "appleLoginFailed3": "Apple登錄失敗"
   },
-  "cmpConfirmPurchasePopUp": {
-    "vipPurchase": "會員購買",
-    "agreementDeveloping": "協議頁面開發中",
-    "productNotExist": "商品信息不存在",
-    "paySuccess": "支付成功",
-    "paySuccess2": "支付成功"
-  },
   "cmpFileDownload": {
     "downloading": "下載中...",
     "invalidDownloadLink": "下載連結無效",
     "downloadFailed": "下載失敗",
     "downloadComplete": "下載完成",
     "downloadFailed2": "下載失敗"
-  },
-  "Payment": {
-    "alreadyVip": "您已是VIP會員",
-    "notLogged": "用戶未登錄",
-    "incompleteProduct": "商品信息不完整",
-    "selectPayMethod": "請選擇支付方式",
-    "notLoggedOrNoOpenId": "用戶未登錄或openid不存在"
   },
   "cmpindex": {
     "timeExpr": "時間表達式",
@@ -13632,12 +13621,6 @@
     "second": "Second",
     "week": "Week",
     "year": "Year"
-  },
-  "cmpPdfCompare": {
-    "syncScroll": "同步滾動",
-    "syncZoom": "同步縮放",
-    "selectPdfA": "請選擇PDF檔案A",
-    "selectPdfB": "請選擇PDF檔案B"
   },
   "studyIndexModelList": {
     "loading": "載入中...",
@@ -13675,18 +13658,6 @@
     "missing": "缺少",
     "attack": "攻擊"
   },
-  "DistributionCenter": {
-    "copyImage": "複製圖片",
-    "distributionTitle": "AI智匯社 - 分銷中心",
-    "imageCopied": "圖片已複製到剪貼板",
-    "longPressToSave": "請長按圖片保存"
-  },
-  "Feedback": {
-    "feedbackRecords": "反饋記錄",
-    "submitFeedback": "提交反饋",
-    "loading": "載入中...",
-    "submitFailed": "提交失敗，請重試"
-  },
   "cmpPromptTemplates": {
     "fillAllFields": "請填寫完整資訊",
     "templateAdded": "範本新增成功",
@@ -13707,24 +13678,6 @@
     "codeLoadFailed": "代碼載入失敗",
     "loadFailed": "載入失敗"
   },
-  "viewerMonacoViewer": {
-    "loading": "載入中...",
-    "codeLoadFailed": "代碼載入失敗",
-    "loadFailed": "載入失敗",
-    "codeFile": "程式碼檔案",
-    "copy": "複製",
-    "copied": "已複製",
-    "wordWrap": "自動換行",
-    "download": "下載",
-    "downloadView": "下載查看",
-    "lines": "行",
-    "chars": "字元"
-  },
-  "cmpVipIntroducePopupAlt": {
-    "benefitsCount": "............約 <b>20</b> 項權益, 且持續增加 ↑",
-    "paySuccess": "支付成功",
-    "payFailed": "支付失敗或已取消"
-  },
   "adminFAQList": {
     "pinned": "已置頂",
     "unpinned": "已取消置頂",
@@ -13734,20 +13687,6 @@
     "setProcessing": "已設為處理中",
     "resolved": "已解決",
     "closed": "已關閉"
-  },
-  "AgenticAIPage": {
-    "swarmCreated": "Swarm建立成功",
-    "createSwarmFailed": "建立Swarm失敗",
-    "createSwarmFailed2": "建立Swarm失敗"
-  },
-  "Agents": {
-    "exploreAgents": "探索 AI 智能體",
-    "createCustomAgent": "建立專屬智能體",
-    "oneClickDeploy": "一鍵部署與調用"
-  },
-  "User": {
-    "nickname": "暱稱",
-    "nickname2": "暱稱"
   },
   "aiGenImageGenQwen": {
     "qwenRemarkMissing": "當前通義圖片模型未在大模型列表中配置 remark（介面地址），請先在「大模型管理」中配置後再重試",
@@ -13796,21 +13735,9 @@
     "enterComment": "輸入評論",
     "send": "發送"
   },
-  "cmpToolbar": {
-    "imagessvgxxxsvg": "/images/svg/大模型.svg",
-    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "正在載入PDF...",
-    "pdfLoadFailed": "PDF載入失敗"
-  },
   "viewerImageViewer": {
     "loading": "載入中...",
     "imageLoadFailed": "圖片載入失敗"
-  },
-  "cmpVipLevelPopup": {
-    "vipLevelMechanism": "會員等級升級機制",
-    "yuanToPoint": "1¥=1點成長值"
   },
   "adminOrderList": {
     "completed": "已完成",
@@ -13825,18 +13752,6 @@
     "confirmRollback": "確認回滾",
     "enterRollbackReason": "請輸入回滾原因",
     "createRelease": "建立發布"
-  },
-  "MCPUseProject": {
-    "listDirFiles": "列出當前目錄的所有檔案",
-    "listDirFiles2": "列出當前目錄的所有檔案"
-  },
-  "Statistics": {
-    "zeroHour": "0小時",
-    "zeroHour2": "0小時"
-  },
-  "Vip": {
-    "permanentVip": "/永久會員",
-    "oneClickVip": "一鍵開通會員"
   },
   "cmpAuditLog": {
     "loadLogFailed": "載入日誌失敗"
@@ -13885,24 +13800,6 @@
   },
   "featureGoogleLogin": {
     "googleLoginFailed": "Google登錄失敗"
-  },
-  "ListTemplate": {
-    "loading": "載入中..."
-  },
-  "AboutUs": {
-    "sixKPlus": "6萬+"
-  },
-  "ApiTestPage": {
-    "startAITest": "開始AI介面測試"
-  },
-  "DesignSystemDemo": {
-    "designSystemMeta": "設計系統, UI元件, Vue元件, 前端開發"
-  },
-  "EnterpriseService": {
-    "enterpriseDesc": "AI時代企業理性效率服務與互助社群，幫助決策者構建人機協同的超級組織"
-  },
-  "OpenPlatform": {
-    "openPlatformTitle": "智匯開放平台 | iHui Open Platform"
   },
   "admin": {
     "eventBus": {
@@ -14736,6 +14633,14 @@
     }
   },
   "adminCommon": {
+    "filter": {
+      "searchNews": "搜尋新聞"
+    },
+    "stat": {
+      "tableCount": "總表數量",
+      "recordCount": "總記錄數",
+      "dbSize": "資料庫大小"
+    },
     "label": {
       "activityId": "活動ID",
       "ai": "AI",
@@ -14874,7 +14779,80 @@
       "unfreeze": "解凍",
       "updatedAt": "更新時間",
       "userAgent": "使用者代理",
-      "userId": "使用者ID"
+      "userId": "使用者ID",
+      "amount": "金額",
+      "appliedAt": "申請時間",
+      "avatar": "頭像",
+      "bankAccount": "賬號",
+      "bankName": "銀行",
+      "config": "配置",
+      "model": "模型",
+      "roleName": "角色名稱",
+      "roleCode": "角色代碼",
+      "authorityName": "權限名稱",
+      "authorityCode": "權限代碼",
+      "templateName": "模板名稱",
+      "issuer": "頒發機構",
+      "categoryName": "分類名稱",
+      "account": "帳號",
+      "role": "角色",
+      "parentId": "父級ID",
+      "pathName": "路徑名稱",
+      "lessonCount": "課程數",
+      "tagName": "標籤名",
+      "tagFullName": "標籤名稱",
+      "postName": "崗位名稱",
+      "levelName": "等級名稱",
+      "levelRank": "等級",
+      "requiredPoints": "所需積分",
+      "groupName": "分組名稱",
+      "companyName": "企業名稱",
+      "scale": "規模",
+      "topicName": "專題名稱",
+      "code": "編碼",
+      "introduction": "簡介",
+      "originalPrice": "原價",
+      "member": "成員",
+      "lesson": "課程",
+      "submitTime": "提交時間",
+      "signupTime": "報名時間",
+      "review": "審核",
+      "reviewOpinion": "審核意見",
+      "pass": "通過",
+      "complete": "完成",
+      "cancel": "取消",
+      "fullName": "姓名",
+      "jobTitle": "職稱",
+      "departmentName": "部門名稱",
+      "manager": "負責人",
+      "hotKeyword": "熱詞",
+      "channelName": "渠道名稱",
+      "trigger": "觸發",
+      "pointsCount": "積分數",
+      "codePatternMsg": "代碼只能包含字母、數字和下劃線，且以字母開頭",
+      "usernamePatternMsg": "用戶名只能包含字母、數字和下劃線",
+      "author": "作者",
+      "readCount": "閱讀",
+      "content": "內容",
+      "paper": "試卷",
+      "score": "得分",
+      "examName": "考試名稱",
+      "durationMinutes": "時長(分鐘)",
+      "circleName": "圈子名稱",
+      "post": "帖子",
+      "paperName": "試卷名稱",
+      "totalScore": "總分",
+      "lastLogin": "最後登錄",
+      "question": "問題",
+      "asker": "提問人",
+      "answerCount": "回答",
+      "questionStem": "題幹",
+      "questionScore": "分值",
+      "questionTitle": "題目標題",
+      "difficulty": "難度",
+      "answer": "答案",
+      "memberCountInRole": "成員數",
+      "sensitiveWord": "敏感詞"
     },
     "placeholder": {
       "allCategories": "全部分類",
@@ -14954,7 +14932,6 @@
         "memberTag": "會員標籤",
         "memberUnaudited": "待審核會員",
         "messageAnnouncement": "公告管理",
-        "notification": "通知中心",
         "newsContent": "資訊內容",
         "orgDepartment": "部門管理",
         "orgUser": "用戶管理",
@@ -15097,6 +15074,28 @@
     "searchPlaceholder": {
       "list": "搜尋列表",
       "sensitive": "搜尋敏感詞"
+    },
+    "sensitive": {
+      "createTitle": "新增敏感詞",
+      "word": "敏感詞",
+      "wordPlaceholder": "請輸入敏感詞",
+      "wordRequired": "請輸入敏感詞",
+      "category": "分類",
+      "categoryPlaceholder": "請輸入分類",
+      "level": "級別",
+      "levelLow": "低",
+      "levelMedium": "中",
+      "levelHigh": "高",
+      "action": "處理方式",
+      "actionReplace": "替換",
+      "actionBlock": "攔截",
+      "replacement": "替換詞",
+      "replacementPlaceholder": "請輸入替換詞",
+      "createSuccess": "新增成功",
+      "createFailed": "新增失敗",
+      "deleteConfirm": "確定刪除敏感詞「{word}」嗎？",
+      "deleteSuccess": "刪除成功",
+      "deleteFailed": "刪除失敗"
     }
   },
   "exam": {
@@ -15135,6 +15134,7 @@
       "orderInvoiceTitle": "搜尋發票抬頭",
       "report": "搜尋報告",
       "signup": "搜尋報名",
+      "homework": "搜尋作業",
       "topic": "搜尋專題",
       "topicCategory": "搜尋專題分類"
     }
@@ -15155,6 +15155,19 @@
       "post": "搜尋帖子",
       "tag": "搜尋標籤",
       "unaudited": "搜尋待審核"
+    },
+    "audit": {
+      "username": "使用者名稱",
+      "mobile": "手機號",
+      "submitTime": "提交時間",
+      "approve": "通過",
+      "reject": "駁回",
+      "approveConfirm": "確定通過「{name}」的審核嗎？",
+      "approveSuccess": "審核通過",
+      "approveFailed": "操作失敗",
+      "rejectConfirm": "確定駁回「{name}」的審核嗎？",
+      "rejectSuccess": "已駁回",
+      "rejectFailed": "操作失敗"
     }
   },
   "message": {
@@ -15359,6 +15372,23 @@
     "category": "分類",
     "selectCategory": "選擇分類 (可選)"
   },
+  "askEdit": {
+    "createTitle": "新建問題",
+    "editTitle": "編輯問題",
+    "questionTitle": "問題標題",
+    "titlePlaceholder": "請輸入問題標題（5-100 字）",
+    "titleRequired": "請輸入問題標題",
+    "titleLength": "標題長度需在 5-100 字之間",
+    "content": "問題內容",
+    "contentPlaceholder": "請詳細描述你的問題（10-2000 字）",
+    "contentRequired": "請輸入問題內容",
+    "contentLength": "內容長度需在 10-2000 字之間",
+    "category": "分類",
+    "selectCategory": "選擇分類（可選）",
+    "tags": "標籤",
+    "tagsPlaceholder": "輸入標籤後按 Enter",
+    "tagMax": "最多 {max} 個標籤"
+  },
   "adminClassicHome": {
     "vsYesterday": "較昨日",
     "quickActions": "快捷入口",
@@ -15484,11 +15514,6 @@
     "markAllRead": "全部已讀",
     "allTypes": "全部類型",
     "noNotifications": "暫無通知",
-    "level": {
-      "info": "提示",
-      "warn": "警告",
-      "error": "嚴重"
-    },
     "typeOrder": "訂單",
     "typeWallet": "錢包",
     "typeSystem": "系統",
@@ -15867,6 +15892,112 @@
     "riskCritical": "嚴重",
     "refreshed": "安全審計資料已重新整理",
     "simulatedFailures": "已模擬 10 次失敗登入, 請查看異常發現"
+  },
+  "i18nDashboard": {
+    "title": "國際化開發者面板",
+    "subtitle": "多語言管理、翻譯記憶、機器翻譯與品質監控",
+    "statLabel": "共 {langs} 種語言",
+    "languageSwitcher": "語言切換",
+    "metaTitle": "語言元資料",
+    "metaTableAria": "9 種語言元資料",
+    "colCode": "代碼",
+    "colLocalName": "本地名稱",
+    "colEnglishName": "英文名稱",
+    "colDirection": "方向",
+    "colPluralRule": "複數規則",
+    "colSeparator": "分隔符號",
+    "colCurrency": "貨幣位置",
+    "prefix": "前綴",
+    "suffix": "後綴",
+    "pluralPreview": "複數示例 (CLDR)",
+    "pluralHint": "目前 key: {key}",
+    "formatPreview": "格式化預覽",
+    "formatNumber": "數字",
+    "formatCurrency": "貨幣",
+    "formatDate": "日期",
+    "formatRelative": "相對時間",
+    "diffTitle": "差異對比",
+    "diffLangA": "語言 A",
+    "diffLangB": "語言 B",
+    "diffBtn": "對比",
+    "diffAMissing": "A 缺失",
+    "diffBMissing": "B 缺失",
+    "diffIdentical": "完全相同",
+    "syncLog": "同步日誌",
+    "syncLogListAria": "同步日誌列表",
+    "noSyncEvents": "暫無同步事件",
+    "tmTitle": "翻譯記憶庫 (TM)",
+    "tmSearchPlaceholder": "輸入源文本, 搜索相似翻譯...",
+    "tmSearchAria": "TM 搜索",
+    "tmNoMatch": "未找到相似翻譯",
+    "tmInputHint": "輸入源文本以搜索翻譯記憶庫",
+    "mtTitle": "機器翻譯 (MT) + 人工審核",
+    "mtSourcePlaceholder": "輸入中文源文本...",
+    "mtSourceAria": "MT 源文本",
+    "mtTranslate": "翻譯",
+    "mtSource": "源文本",
+    "mtTranslated": "譯文",
+    "mtConfidence": "置信度",
+    "mtApprove": "通過",
+    "mtReject": "拒絕",
+    "mtInputHint": "輸入源文本進行機器翻譯",
+    "targetLangAria": "目標語言",
+    "healthTitle": "健康度儀表盤",
+    "healthScore": "健康度",
+    "healthTotalKeys": "總 key 數",
+    "healthLanguages": "語言數",
+    "healthCoverage": "覆蓋率",
+    "healthPendingMt": "待審核 MT",
+    "healthStaleKeys": "過期 key",
+    "loading": "載入中...",
+    "ioTitle": "匯出 / 匯入",
+    "export": "匯出",
+    "allLanguages": "所有語言",
+    "exportBtn": "匯出",
+    "exportLangAria": "匯出語言",
+    "exportFmtAria": "匯出格式",
+    "exportResultAria": "匯出結果",
+    "import": "匯入",
+    "importFmtAria": "匯入格式",
+    "conflictStrategyAria": "衝突策略",
+    "conflictOverwrite": "覆蓋",
+    "conflictSkip": "跳過",
+    "importBtn": "匯入",
+    "importContentPlaceholder": "貼上 CSV 或 XLIFF 內容...",
+    "importContentAria": "匯入內容",
+    "importResult": "已匯入 {imported} 個, 跳過 {skipped} 個",
+    "historyTitle": "版本歷史",
+    "historyKeyPlaceholder": "輸入 key, 如 common.items",
+    "historyKeyAria": "歷史 key",
+    "historyLangAria": "歷史語言",
+    "historyListAria": "版本歷史列表",
+    "viewHistory": "查看歷史",
+    "rollback": "回滾",
+    "noHistory": "暫無歷史記錄",
+    "batchTitle": "批次操作",
+    "batchDeleteStatus": "批次刪除 / 狀態",
+    "batchKeysPlaceholder": "每行一個 key...",
+    "batchKeysAria": "批次 key 列表",
+    "batchLangAria": "批次語言",
+    "batchStatusAria": "目標狀態",
+    "batchDeleteBtn": "批次刪除",
+    "batchStatusBtn": "批次改狀態",
+    "batchPush": "批次推送",
+    "batchPushPlaceholder": "common.items\tzh-CN\t項目",
+    "batchPushAria": "批次推送內容",
+    "batchPushBtn": "推送",
+    "monitorTitle": "MT Provider + V1 退役監控",
+    "mtProvider": "MT Provider",
+    "mtProviderListAria": "MT provider 列表",
+    "current": "目前",
+    "available": "可用",
+    "unavailable": "不可用",
+    "currentTag": "目前",
+    "v1Monitor": "V1 退役監控",
+    "v1TotalHits": "總命中",
+    "v1UniquePaths": "唯一路徑",
+    "v1TopPathsAria": "V1 退役熱門路徑",
+    "noV1Hits": "暫無 V1 退役流量"
   },
   "indexHome": {
     "platformTitle": "知學雲平台",
@@ -16735,7 +16866,17 @@
     "joinUs": "加入我們"
   },
   "adminBatchEditDialog": {
-    "selectedTip": "已選中 {count} 條數據，勾選要修改的字段並填入新值。"
+    "selectedTip": "已選中 {count} 條數據，勾選要修改的字段並填入新值。",
+    "title": "批量編輯",
+    "updating": "正在更新 {current} / {total} 條",
+    "failedTip": "失敗 {count} 條，可點擊\"重試失敗項\"重新更新",
+    "cancel": "取消",
+    "retryFailed": "重試失敗項",
+    "save": "批量保存"
+  },
+  "adminTableV2": {
+    "searchPlaceholder": "搜索",
+    "emptyText": "暫無數據"
   },
   "adminEditDialog": {
     "saveAndContinue": "儲存並繼續編輯"
@@ -16772,5 +16913,25 @@
       "image": "圖片",
       "video": "影片"
     }
+  },
+  "agenticAIPage": {
+    "swarmCreated": "Swarm建立成功",
+    "createSwarmFailed": "建立Swarm失敗",
+    "createSwarmFailed2": "建立Swarm失敗"
+  },
+  "apiTestPage": {
+    "startAITest": "開始AI介面測試"
+  },
+  "designSystemDemo": {
+    "designSystemMeta": "設計系統, UI元件, Vue元件, 前端開發"
+  },
+  "distributionCenter": {
+    "copyImage": "複製圖片",
+    "distributionTitle": "AI智匯社 - 分銷中心",
+    "imageCopied": "圖片已複製到剪貼板",
+    "longPressToSave": "請長按圖片保存"
+  },
+  "listTemplate": {
+    "loading": "載入中..."
   }
 }

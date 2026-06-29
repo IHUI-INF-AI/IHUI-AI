@@ -1,1 +1,12 @@
-{}
+{
+  "webOnlyFeature": {
+    "title": "Title",
+    "description": "Description",
+    "desktopOptimization": "Desktop Optimization",
+    "desktopOptimizationDesc": "Desktop Optimization Desc",
+    "mouseInteraction": "Mouse Interaction",
+    "mouseInteractionDesc": "Mouse Interaction Desc",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "keyboardShortcutsDesc": "Keyboard Shortcuts Desc"
+  }
+}

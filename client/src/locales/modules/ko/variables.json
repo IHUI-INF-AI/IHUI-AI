@@ -1,48 +1,51 @@
 {
   "variables": {
-    "buttons": {
-      "cancel": "取消",
-      "delete": "删除",
-      "edit": "编辑",
-      "save": "保存"
+    "핵심 장점": "변화수량관리",
+    "sub핵심 장점": "관리기계게동화게의변화수량설정",
+    "createVariable": "새로 만들기변화수량",
+    "selectBot": "선택기계게동화게",
+    "selectBotPlaceholder": "선택기계게동화게",
+    "pleaseSelectBot": "요청진선택기계게동화게",
+    "noVariables": "없음변화수량",
+    "createFirstVariable": "생성첫목이것은개변화수량",
+    "testBot1": "테스트기계게동화게1",
+    "testBot2": "테스트기계게동화게2",
+    "testBot3": "테스트기계게동화게3",
+    "table": {
+      "name": "변화수량이름",
+      "type": "유형",
+      "value": "값",
+      "description": "설명석",
+      "actions": "작업"
     },
-    "createFirstVariable": "createFirstVariable",
-    "createVariable": "createVariable",
     "dialog": {
-      "createTitle": "createTitle",
-      "description": "描述",
-      "editTitle": "editTitle",
-      "name": "名称",
-      "value": "值"
+      "editTitle": "편집변화수량",
+      "createTitle": "새로 만들기변화수량",
+      "name": "변화수량이름",
+      "value": "변화수량값",
+      "description": "설명석"
+    },
+    "buttons": {
+      "edit": "편집",
+      "delete": "삭제",
+      "cancel": "취소",
+      "save": "저장"
+    },
+    "validation": {
+      "nameRequired": "요청입력변화수량이름",
+      "valueRequired": "요청입력변화수량값"
     },
     "messages": {
-      "deleteConfirm": "确认删除?",
-      "deleteConfirmTitle": "deleteConfirmTitle",
-      "deleteFailed": "deleteFailed",
-      "deleteSuccess": "deleteSuccess",
-      "loadBotsFailed": "loadBotsFailed",
-      "saveFailed": "saveFailed",
-      "saveSuccess": "saveSuccess"
+      "deleteConfirm": "확인필요삭제이개변화수량까？",
+      "deleteConfirmTitle": "삭제 확인",
+      "deleteSuccess": "삭제성공",
+      "deleteFailed": "삭제실패",
+      "saveSuccess": "저장 성공",
+      "saveFailed": "저장 실패",
+      "loadBotsFailed": "불러오기기계게동화게목이것은실패",
+      "loadFailed": "불러오기변화수량실패"
     },
-    "noVariables": "noVariables",
-    "pleaseSelectBot": "pleaseSelectBot",
-    "selectBot": "selectBot",
-    "selectBotPlaceholder": "selectBotPlaceholder",
-    "subtitle": "副标题",
-    "table": {
-      "actions": "actions",
-      "description": "描述",
-      "name": "名称",
-      "type": "类型",
-      "value": "值"
-    },
-    "testBot1": "testBot1",
-    "testBot2": "testBot2",
-    "testBot3": "testBot3",
-    "title": "标题",
-    "validation": {
-      "nameRequired": "nameRequired",
-      "valueRequired": "valueRequired"
-    }
+    "title": "변화수량관리",
+    "subtitle": "관리기계게동화게의변화수량설정"
   }
 }

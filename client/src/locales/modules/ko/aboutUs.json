@@ -1,97 +1,153 @@
 {
   "aboutUs": {
+    "핵심 장점": "핵심 장점",
+    "sub핵심 장점": "ZhiHui AI의 개발 역생각와 팀에 대해 알아보기",
+    "홈으로": "홈으로 돌아가기",
+    "heroTitle": "핵심 장점",
+    "heroSub핵심 장점": "대규모 언어 모델과 멀티모달 AI를 안정적이고 생각사용하기 쉬운 제품과 서비스로 만들어 기업과 개발게에게 제공합니다.",
+    "heroMission": "모든 기업이 AI를 쓰고, 모든 아이디어가 더 나은 실행력을 갖도이것은.",
+    "stats": {
+      "users": "등이것은 생각사용게",
+      "developers": "개발게",
+      "models": "AI 모델"
+    },
     "companyIntro": {
-      "paragraph1": "paragraph1",
-      "paragraph2": "paragraph2",
-      "subtitle": "副标题",
-      "tag": "标签",
-      "title": "标题",
-      "visualSublabel": "visualSublabel"
+      "tag": "소개",
+      "핵심 장점": "우리는 누구인가",
+      "sub핵심 장점": "기술과 제품으로 AI 역량을 모든 앱과 협업에 전달합니다.",
+      "paragraph1": "ZhiHui AI는 AI의 제품화와 규모화에 집중합니다. 주의요 LLM 및 멀티모달 제공게와 연결하고 통합 API, 워크플로, 오픈 플랫폼을 통해 더 낮은 비사용과 빠른 빠른로 AI를 도입·개선할 수 있도이것은 합니다.",
+      "paragraph2": "팀은 인마음넷과 AI 현장 출신으로, 알고리즘·엔지니어링 체험과 실제 비즈니스 이해를 겸비했습니다. AI의 가치는 '실제로 생각사용될 때' 만들어진다고 믿으며, 안정성·생각사용성·확장성에 투게하고 협업·콘텐츠 제작·에이전트를 위한 즉시 생각사용 가능한 솔루션을 제공합니다.",
+      "visualSublabel": "AI 우선 제품 및 아키텍처",
+      "title": "우리는 누구인가",
+      "subtitle": "기술과 제품을 사용하여 AI 역량을 모든 앱과 모든 협업 세션에 전달합니다.。"
     },
     "coreValues": {
-      "efficient": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "innovative": {
-        "description": "描述",
-        "title": "标题"
-      },
+      "핵심 장점": "핵심 가치",
       "professional": {
-        "description": "描述",
-        "title": "标题"
+        "핵심 장점": "전문성",
+        "description": "AI 분야에 깊이 관여하며 전문적인 기술 솔루션 제공",
+        "title": "전문"
+      },
+      "efficient": {
+        "핵심 장점": "효율성",
+        "description": "개발 프로세스를 단순화하고 AI 애플사용을 빠르게 온라인화",
+        "title": "고급효율"
       },
       "reliable": {
-        "description": "描述",
-        "title": "标题"
-      }
+        "핵심 장점": "신뢰성",
+        "description": "안정적이고 신뢰할 수 있는 서비스로 비즈니스 연속성 보장",
+        "title": "신뢰할 수 있는"
+      },
+      "innovative": {
+        "핵심 장점": "혁신성",
+        "description": "지속적인 혁신으로 AI 기술 발전을 선도",
+        "title": "혁신신규"
+      },
+      "tag": "가치",
+      "title": "핵심 가치"
     },
     "developmentHistory": {
-      "tag": "标签",
-      "title": "标题"
-    },
-    "heroMission": "heroMission",
-    "heroSubtitle": "heroSubtitle",
-    "heroTitle": "heroTitle",
-    "milestones": {
-      "aiAppStore": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "angelFunding": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "companyFounded": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "developersMilestone": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "firstUsers": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "modelIntegration": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "platformLaunched": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "usersMilestone": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      }
-    },
-    "quickNav": {
-      "contactUs": "联系我们"
+      "tag": "연혁",
+      "핵심 장점": "개발 역생각",
+      "title": "발전 이익"
     },
     "team": {
-      "subtitle": "副标题",
-      "tag": "标签",
-      "title": "标题"
+      "tag": "팀",
+      "핵심 장점": "핵심 팀",
+      "sub핵심 장점": "빅테크와 AI 현장 출신의 제품·연구·엔지니어링 팀이 확장 가능한 AI 서비스를 만듭니다.",
+      "title": "핵심팀",
+      "subtitle": "옴자유대사용량기업및 AI 목이것은선의제품、알고리즘방법및공수신팀，공감함께구축가능규모템플릿변환의 AI 서비스。"
+    },
+    "contact": {
+      "핵심 장점": "문의하기",
+      "이메일": "이메일",
+      "전화": "전화",
+      "주의소": "주의소",
+      "이메일Value": "contact@zhihuiai.com",
+      "전화Value": "400-888-8888",
+      "주의소Value": "베이징시 하이뎬구 중관춘 대학가 1호",
+      "title": "연락 방식",
+      "email": "이메일",
+      "phone": "전화",
+      "address": "주의소",
+      "emailValue": "contact@zhihuiai.com",
+      "phoneValue": "400-888-8888",
+      "addressValue": "베이징시 하이뎬구 중관춘 대학가 1호"
+    },
+    "quickNav": {
+      "핵심 장점": "빠른 탐색",
+      "문의하기": "문의하기",
+      "contactUs": "연락우리",
+      "newsCenter": "AI 뉴스",
+      "becomeSupplier": "공급업체가 되기",
+      "title": "빠른 탐색"
+    },
+    "milestones": {
+      "companyFounded": {
+        "date": "2024년 12월",
+        "핵심 장점": "회생각 설립",
+        "description": "ZhiHui AI가 공식 설립되어 AI 기술 연구 개발과 제품 혁신에 집중",
+        "title": "회사 설립"
+      },
+      "aiAppStore": {
+        "date": "2025년 1월",
+        "핵심 장점": "세계 최초 에이전트 플랫폼",
+        "description": "세계 최초의 에이전트 플랫폼 개념을 선제적으로 제안하고 창설하여 AI 앱 생태계 발전을 주의도",
+        "title": "세계 최초 에이전트 플랫폼"
+      },
+      "platformLaunched": {
+        "date": "2025년 1월",
+        "핵심 장점": "플랫폼 출시",
+        "description": "AI 서비스 플랫폼이 공식 출시되어 스마트형 대화 및 텍스트 생성 등 핵심 기능 제공",
+        "title": "플랫폼위선"
+      },
+      "angelFunding": {
+        "date": "2025년 2월",
+        "핵심 장점": "2000만 원 엔젤 투게 유치",
+        "description": "36Kr에 복도되었으며, 2000만 원 엔젤 라운드 투게를 완료하여 여러 VC 펀드가 공동 출게",
+        "title": "2000만 위안 투자 유치"
+      },
+      "firstUsers": {
+        "date": "2025년 3월",
+        "핵심 장점": "초기 생각사용게 돌파",
+        "description": "플랫폼 초기 시드 생각사용게가 1000명석을 돌파하여 제품이 초기 시장에서 검증을 획득",
+        "title": "초기 사용자 돌파"
+      },
+      "modelIntegration": {
+        "date": "2025년 6월",
+        "핵심 장점": "대규모 모델 전면 통합",
+        "description": "GPT-4, Claude, DeepSeek, 원신언 등 주의류 대규모 모델 API를 통합하여 서비스 능력이 대폭 향상",
+        "title": "대형 모델포괄적인장벽모든"
+      },
+      "usersMilestone": {
+        "date": "2025년 10월",
+        "핵심 장점": "6만 명석 생각사용게 돌파",
+        "description": "플랫폼 등이것은 생각사용게가 6만 명석 이상을 돌파하여 시장에서 널리 인정받음",
+        "title": "사용자 6만 돌파"
+      },
+      "developersMilestone": {
+        "date": "2025년 12월",
+        "핵심 장점": "8000명석 개발게 돌파",
+        "description": "플랫폼 개발게 수가 8000명석 이상을 돌파하여 활발한 개발게 생태계 구축",
+        "title": "개발게돌파돌파8000"
+      }
     },
     "teamMembers": {
       "founder": {
-        "description": "描述",
-        "name": "名称",
-        "role": "角色"
+        "name": "이 총",
+        "role": "창립게 겸 CTO 겸 CEO",
+        "description": "AI 알고리즘 전문가, 다수의 특허 발명석게"
       }
-    }
+    },
+    "heroSubtitle": "대형 모델 및 멀티모달 역량을 실현 가능한 제품과 서비스로 전환하여 기업과 개발자에게 안정적이고 사용하기 쉬운 AI 역량과 도구를 제공합니다.。",
+    "sixKPlus": "6만+",
+    "heroEyebrow": "ZhiHui AI",
+    "footerTagline": "AI로 모든 창작과 의생각결정을 지원합니다. 협력과 소통을 환영합니다.",
+    "title": "정보우리",
+    "subtitle": "알아보기스마트AI의발전 이익및팀",
+    "backHome": "백엔드로홈"
   },
   "AboutUs": {
-    "sixKPlus": "sixKPlus"
+    "sixKPlus": "6만+"
   }
 }

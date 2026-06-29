@@ -10,7 +10,7 @@
         v-for="tab in tabs"
         :key="tab.key"
         :class="['tab-btn', { active: activeTab === tab.key }]"
-        @click="handleTabChange(tab.key)"
+        @click="activeTab = tab.key"
       >
         {{ tab.label }}
         <span v-if="tab.count > 0" class="tab-badge">{{ tab.count }}</span>
@@ -89,8 +89,6 @@ const toast = useToast()
 const loading = ref(false)
 const loadError = ref('')
 const messages = ref<Message[]>([])
-const favoriteMessages = ref<Message[]>([])
-const likeMessages = ref<Message[]>([])
 const activeTab = ref('all')
 const detailVisible = ref(false)
 const currentMessage = ref<Message | null>(null)
@@ -99,14 +97,10 @@ const tabs = computed(() => [
   { key: 'all', label: t('messageCenter.tabAll'), count: messages.value.length },
   { key: 'system', label: t('messageCenter.tabSystem'), count: messages.value.filter((m) => m.type === 'system').length },
   { key: 'private', label: t('messageCenter.tabPrivate'), count: messages.value.filter((m) => m.type === 'private').length },
-  { key: 'favorite', label: t('messageCenter.tabFavorite'), count: favoriteMessages.value.length },
-  { key: 'like', label: t('messageCenter.tabLike'), count: likeMessages.value.length },
 ])
 
 const _filteredMessages = computed(() => {
   if (activeTab.value === 'all') return messages.value
-  if (activeTab.value === 'favorite') return favoriteMessages.value
-  if (activeTab.value === 'like') return likeMessages.value
   return messages.value.filter((m) => m.type === activeTab.value)
 })
 
@@ -138,33 +132,6 @@ async function _loadUnreadCount() {
     return res?.data?.count || 0
   } catch {
     return 0
-  }
-}
-
-async function loadFavoriteMessages() {
-  try {
-    const res = await http.get('/behavior/favorite', { params: { page: 1, limit: 50 } })
-    favoriteMessages.value = res?.data?.data || res?.data || []
-  } catch {
-    favoriteMessages.value = []
-  }
-}
-
-async function loadLikeMessages() {
-  try {
-    const res = await http.get('/behavior/like', { params: { page: 1, limit: 50 } })
-    likeMessages.value = res?.data?.data || res?.data || []
-  } catch {
-    likeMessages.value = []
-  }
-}
-
-function handleTabChange(tabKey: string) {
-  activeTab.value = tabKey
-  if (tabKey === 'favorite' && favoriteMessages.value.length === 0) {
-    loadFavoriteMessages()
-  } else if (tabKey === 'like' && likeMessages.value.length === 0) {
-    loadLikeMessages()
   }
 }
 

@@ -41,6 +41,7 @@
     "testSuccess": "test성공",
     "testFailed": "test실패",
     "title": "제목",
-    "subtitle": "Subtitle"
+    "subtitle": "Subtitle",
+    "apiAccessDoc": "연동 문서"
   }
 }

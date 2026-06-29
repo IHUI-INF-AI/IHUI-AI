@@ -1,10 +1,10 @@
 {
   "order": {
     "status": {
-      "completed": "已完成",
-      "pending": "待处理",
-      "refunded": "refunded",
-      "unsettled": "unsettled"
+      "unsettled": "未settled",
+      "pending": "待處理",
+      "refunded": "Refunded",
+      "completed": "已完成"
     }
   }
 }

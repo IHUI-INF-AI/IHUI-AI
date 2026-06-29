@@ -1,7 +1,7 @@
 {
   "adminFAQList": {
-    "deleted": "已删除",
-    "pinned": "pinned",
-    "unpinned": "unpinned"
+    "pinned": "已置頂",
+    "unpinned": "已取消置頂",
+    "deleted": "已刪除"
   }
 }

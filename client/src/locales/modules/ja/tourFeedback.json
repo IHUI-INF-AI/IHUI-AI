@@ -1,8 +1,8 @@
 {
   "tourFeedback": {
-    "commentLabel": "commentLabel",
-    "commentPlaceholder": "commentPlaceholder",
-    "pleaseRate": "pleaseRate",
+    "commentLabel": "Comment Label",
+    "commentPlaceholder": "Comment Placeholder",
+    "pleaseRate": "Please Rate",
     "rating": {
       "1": "1",
       "2": "2",
@@ -10,19 +10,19 @@
       "4": "4",
       "5": "5"
     },
-    "ratingLabel": "ratingLabel",
-    "skip": "skip",
-    "submit": "提交",
+    "ratingLabel": "Rating Label",
+    "skip": "Skip",
+    "submit": "Submit",
     "tags": {
-      "clear": "清空",
-      "confusing": "confusing",
-      "easy": "简单",
-      "fast": "快",
-      "helpful": "helpful",
-      "long": "long"
+      "clear": "Clear",
+      "confusing": "Confusing",
+      "easy": "Easy",
+      "fast": "Fast",
+      "helpful": "Helpful",
+      "long": "Long"
     },
-    "tagsLabel": "tagsLabel",
-    "thankYou": "thankYou",
-    "title": "标题"
+    "tagsLabel": "Tags Label",
+    "thankYou": "Thank You",
+    "title": "Title"
   }
 }

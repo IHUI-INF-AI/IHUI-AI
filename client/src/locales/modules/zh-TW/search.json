@@ -4,33 +4,38 @@
       "hot": "搜尋熱詞",
       "searchPage": "輸入關鍵詞搜尋智能體 / 課程 / 內容"
     },
+    "label": {
+      "keyword": "熱詞",
+      "searchCount": "搜尋數",
+      "actions": "操作"
+    },
+    "advanced": "高级搜索",
+    "keyword": "關鍵词",
+    "keywordPlaceholder": "請輸入關鍵词",
+    "conditions": "搜索條件",
+    "selectField": "選擇字段",
+    "selectOperator": "選擇操作符",
+    "valuePlaceholder": "輸入值",
     "add": "添加",
-    "addedConditions": "addedConditions",
-    "advanced": "高级",
-    "conditions": "conditions",
-    "field": {
-      "category": "分类",
-      "description": "描述",
-      "name": "名称",
-      "tag": "标签"
-    },
-    "keyword": "keyword",
-    "keywordPlaceholder": "keywordPlaceholder",
-    "operator": {
-      "contains": "contains",
-      "endsWith": "endsWith",
-      "equals": "equals",
-      "startsWith": "startsWith"
-    },
-    "presetName": "presetName",
-    "presets": "presets",
-    "reset": "重置",
-    "savePreset": "savePreset",
+    "addedConditions": "已添加條件",
+    "presets": "搜索预设",
+    "selectPreset": "選擇预设",
     "search": "搜索",
-    "selectField": "selectField",
-    "selectOperator": "selectOperator",
-    "selectPreset": "selectPreset",
-    "valuePlaceholder": "valuePlaceholder"
+    "reset": "重置",
+    "savePreset": "保存為预设",
+    "presetName": "請輸入预设名稱:",
+    "field": {
+      "name": "名稱",
+      "description": "描述",
+      "category": "分類",
+      "tag": "標籤"
+    },
+    "operator": {
+      "contains": "包含",
+      "equals": "等於",
+      "startsWith": "開頭",
+      "endsWith": "結尾"
+    }
   },
   "searchPage": {
     "hotSearch": "熱門搜尋",

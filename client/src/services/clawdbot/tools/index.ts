@@ -35,7 +35,7 @@ export interface ToolDefinition {
       type: string
       description: string
       enum?: string[]
-      default?: any
+      default?: unknown
       required?: boolean
     }>
     required?: string[]
@@ -79,7 +79,7 @@ export interface ToolExecutionResult {
   /** 是否成功 */
   success: boolean
   /** 结果数据 */
-  data?: any
+  data?: unknown
   /** 错误信息 */
   error?: string
   /** 执行时间 (ms) */

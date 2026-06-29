@@ -6,7 +6,7 @@
     </div>
     <div class="filter-bar">
       <el-tabs v-model="activeCid" @tab-change="reload">
-        <el-tab-pane :label="t('newsList.all')" name="" />
+        <el-tab-pane label="全部" name="" />
         <el-tab-pane v-for="c in categories" :key="c.id" :label="c.name" :name="String(c.id)" />
       </el-tabs>
       <div class="filter-right">
@@ -31,7 +31,7 @@
         </div>
       </article>
     </div>
-    <el-empty v-else :description="t('common.noData')" />
+    <el-empty v-else description="暂无资讯" />
     <Pagination v-if="total > size" :current="current" :size="size" :total="total" @change="onPage" />
   </div>
 </template>
@@ -40,14 +40,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { newsApi } from '@/api/content/news'
+import { newsApi, type NewsItem } from '@/api/news'
 import Pagination from '@/components/learn/Page.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const loading = ref(false)
-const list = ref<any[]>([])
-const categories = ref<any[]>([])
+const list = ref<NewsItem[]>([])
+const categories = ref<Array<{ id: string | number; name: string; count?: number }>>([])
 const activeCid = ref('')
 const current = ref(1)
 const size = ref(12)
@@ -57,15 +57,15 @@ async function reload() {
   loading.value = true
   try {
     const res = await newsApi.list({ current: current.value, size: size.value, categoryId: activeCid.value || undefined })
-    list.value = (res.data as any)?.list || (res.data as any)?.data?.list || []
-    total.value = (res.data as any)?.total || (res.data as any)?.data?.total || 0
+    list.value = res.data?.data?.list || []
+    total.value = res.data?.data?.total || 0
   } finally { loading.value = false }
 }
 async function loadCats() {
-  try { categories.value = ((await newsApi.categories())?.data as any) || [] } catch { categories.value = [] }
+  try { categories.value = (await newsApi.categories())?.data?.data || [] } catch { categories.value = [] }
 }
 function onPage(p: { current: number; size: number }) { current.value = p.current; size.value = p.size; reload() }
-function goDetail(n: any) { router.push(`/news/${n.id}`) }
+function goDetail(n: NewsItem) { router.push(`/news/${n.id}`) }
 function goHot() { router.push('/news?hot=1') }
 onMounted(() => { loadCats(); reload() })
 </script>
@@ -79,7 +79,7 @@ onMounted(() => { loadCats(); reload() })
   .filter-bar { display: flex; justify-content: space-between; align-items: center; background: var(--el-bg-color); padding: 8px 16px; border-radius: var(--global-border-radius); margin-bottom: 16px; }
   .filter-right { font-size: 13px; color: var(--el-color-primary); cursor: pointer; }
   .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-  .news-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s; border: var(--unified-border); &:hover {  border-color: var(--el-color-primary); } }
+  .news-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); border-color: var(--el-color-primary); } }
   .news-cover { position: relative; aspect-ratio: 16 / 9; background: var(--el-fill-color-light); overflow: hidden; img { width: 100%; height: 100%; object-fit: cover; display: block; } }
   .badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; color: var(--el-bg-color); &.top { background: var(--el-color-danger); } &.hot { background: var(--el-color-warning); } }
   .news-info { padding: 12px; }

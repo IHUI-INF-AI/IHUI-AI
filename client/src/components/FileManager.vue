@@ -223,17 +223,6 @@
 
 <script setup lang="ts">
 
-async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
-  const token = getUserToken()
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...((options.headers as Record<string, string>) || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-}
-
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -252,7 +241,6 @@ import { useBatchDownload } from '@/utils/batchOperations'
 import { formatFileSize } from '@/utils/fileValidation'
 import { useFileVersion, type VersionInfo } from '@/utils/fileVersion'
 import { formatTime } from '@/utils/format'
-import { getUserToken } from '@/utils/request'
 
 const formatDate = (date: string | number | Date) => formatTime(date, 'YYYY-MM-DD')
 
@@ -350,7 +338,7 @@ async function refreshFiles() {
   loading.value = true
   try {
     abortController = new AbortController()
-    const response = await authFetch('/api/upload/files', { signal: abortController.signal })
+    const response = await fetch('/api/upload/files', { signal: abortController.signal })
     const data = await response.json()
     type ApiFile = { id: string; name: string; size: number; mimeType?: string; createdAt: string }
     files.value = data.files.map((f: ApiFile) => ({
@@ -436,7 +424,7 @@ async function deleteFile(file: FileItem) {
       type: 'warning'
     })
     
-    await authFetch(`/api/upload/file/${file.id}`, { method: 'DELETE' })
+    await fetch(`/api/upload/file/${file.id}`, { method: 'DELETE' })
     await refreshFiles()
     ElMessage.success(t('fileManager.deleteSuccess'))
   } catch (error) {
@@ -526,7 +514,7 @@ async function batchDelete() {
     })
     
     for (const id of selectedFiles.value) {
-      await authFetch(`/api/upload/file/${id}`, { method: 'DELETE' })
+      await fetch(`/api/upload/file/${id}`, { method: 'DELETE' })
     }
     
     await refreshFiles()
@@ -546,7 +534,7 @@ async function copyShareUrl() {
   }
 }
 
-function onUploadSuccess(_uploadedFiles: any[]) {
+function onUploadSuccess(_uploadedFiles: unknown[]) {
   showUpload.value = false
   refreshFiles()
   ElMessage.success(t('fileManager.uploadSuccess'))
@@ -633,7 +621,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   background: var(--el-fill-color-light);
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: all 0.2s;
 }
 
 .file-item:hover {

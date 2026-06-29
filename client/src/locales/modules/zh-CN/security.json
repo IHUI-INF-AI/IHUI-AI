@@ -1,9 +1,9 @@
 {
   "security": {
-    "newDeviceLogin": "新 device 登录",
-    "newDeviceLoginMessage": "新 device 登录 消息",
-    "secureAccount": "secure 账号",
-    "suspiciousLogin": "异常登录",
-    "suspiciousLoginMessage": "suspicious 登录 消息"
+    "newDeviceLogin": "新设备登录",
+    "newDeviceLoginMessage": "检测到您的账号在新设备上登录",
+    "suspiciousLogin": "可疑登录警告",
+    "suspiciousLoginMessage": "检测到您的账号在异常位置登录，请确认是否为本人操作",
+    "secureAccount": "保护账户"
   }
 }

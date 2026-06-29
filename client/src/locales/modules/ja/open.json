@@ -1,5 +1,41 @@
 {
   "open": {
+    "featureCenter": {
+      "title": "機能センター",
+      "subtitle": "インテリジェントAIプラットフォームの強力な機能を探求します",
+      "cards": {
+        "document": {
+          "title": "ドキュメントセンター",
+          "desc": "詳細なAPIドキュメントと開発ガイドを参照してください",
+          "action": "ドキュメントを表示"
+        },
+        "dashboard": {
+          "title": "ダッシュボード",
+          "desc": "プラットフォーム統計とクイックアクセスを表示",
+          "action": "ダッシュボードへ"
+        },
+        "sdks": {
+          "title": "SDK センター",
+          "desc": "各言語のSDKをダウンロード・管理",
+          "action": "SDKを見る"
+        },
+        "models": {
+          "title": "モデルセンター",
+          "desc": "利用可能なAIモデルを閲覧・管理",
+          "action": "モデルを見る"
+        },
+        "agents": {
+          "title": "エージェントセンター",
+          "desc": "様々なエージェントを発見・利用",
+          "action": "エージェントを見る"
+        },
+        "apis": {
+          "title": "APIセンター",
+          "desc": "APIドキュメントとインターフェース説明を表示",
+          "action": "APIを見る"
+        }
+      }
+    },
     "documentCenter": {
       "title": "ドキュメントセンター",
       "subtitle": "包括的な開発ドキュメントとAPIリファレンス"

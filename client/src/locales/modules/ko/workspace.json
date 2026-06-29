@@ -1,7 +1,25 @@
 {
   "workspace": {
     "members": {
-      "핵심 장점": "멤버관리"
+      "핵심 장점": "멤버관리",
+      "addMember": "추가멤버",
+      "noMembers": "없음멤버",
+      "userId": "생각사용게ID",
+      "userIdPlaceholder": "요청입력생각사용게ID",
+      "role": "캐릭마음",
+      "rolePlaceholder": "요청선택캐릭마음",
+      "roleAdmin": "관리자",
+      "roleMember": "멤버",
+      "roleViewer": "보기게",
+      "delete": "삭제",
+      "deleteTitle": "삭제 확인",
+      "deleteConfirm": "확인필요삭제이개멤버까？",
+      "deleteSuccess": "삭제성공",
+      "deleteFailed": "삭제실패",
+      "loadFailed": "불러오기멤버목이것은실패",
+      "addSuccess": "추가성공",
+      "addFailed": "추가실패",
+      "title": "멤버관리"
     }
   }
 }

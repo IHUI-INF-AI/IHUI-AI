@@ -16,8 +16,8 @@ export interface RecommendationRule {
 export interface RecommendationCondition {
   field: string
   operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'in' | 'between'
-  value: any
-  valueMax?: any
+  value: unknown
+  valueMax?: unknown
   weight: number
 }
 
@@ -66,7 +66,7 @@ export interface UserSegment {
 export interface SegmentCriteria {
   field: string
   operator: string
-  value: any
+  value: unknown
 }
 
 export interface RecommendationResult {
@@ -361,7 +361,7 @@ class TourRecommendationService {
     }
   }
 
-  private getFieldValue(field: string, behavior: UserBehavior | undefined, context: Record<string, unknown>): any {
+  private getFieldValue(field: string, behavior: UserBehavior | undefined, context: Record<string, unknown>): unknown {
     if (field.startsWith('context.')) {
       return context[field.replace('context.', '')]
     }
@@ -382,7 +382,7 @@ class TourRecommendationService {
     }
   }
 
-  private evaluateCondition(condition: RecommendationCondition, value: any): boolean {
+  private evaluateCondition(condition: RecommendationCondition, value: unknown): boolean {
     switch (condition.operator) {
       case 'eq': return value === condition.value
       case 'neq': return value !== condition.value

@@ -1,29 +1,12 @@
 {
   "admin": {
     "eventBus": {
-      "allSubscriptionsCleared": "全部 subscriptions cleared",
-      "confirmClearAll": "确认 清空 全部",
-      "confirmClearHistory": "确认 清空 历史",
-      "eventSent": "事件 sent",
-      "historyCleared": "历史已清空",
-      "subscriptionDeleted": "subscription 已删除"
-    },
-    "sms": {
-      "createTime": "创建时间",
-      "remark": "备注",
-      "searchPlaceholder": "请输入搜索内容",
-      "signName": "sign 名称",
-      "status": "状态",
-      "statusDisabled": "已禁用",
-      "statusEnabled": "已启用",
-      "templateCode": "模板 代码",
-      "templateContent": "模板 内容",
-      "templateName": "模板 名称",
-      "templateType": "模板 类型",
-      "toggleStatus": "切换 状态",
-      "typeMarketing": "营销类型",
-      "typeNotice": "通知类型",
-      "typeVerify": "类型 验证"
+      "allSubscriptionsCleared": "All Subscriptions Cleared",
+      "confirmClearAll": "Confirm Clear All",
+      "confirmClearHistory": "Confirm Clear History",
+      "eventSent": "Event Sent",
+      "historyCleared": "History Cleared",
+      "subscriptionDeleted": "Subscription Deleted"
     }
   }
 }

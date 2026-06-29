@@ -53,7 +53,7 @@ import { useI18n } from 'vue-i18n'
 import { chatDashScopeVision } from '@/api/services/aiGeneration.service'
 import { ElMessage } from 'element-plus'
 import type { UploadFile, FormInstance } from 'element-plus'
-import { uploadFormFile } from '@/api/file/file-upload'
+import { uploadFormFile } from '@/api/file-upload'
 import { useApiError } from '@/composables/useApiError'
 
 const { t } = useI18n()

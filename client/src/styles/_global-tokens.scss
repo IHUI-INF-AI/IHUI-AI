@@ -17,14 +17,14 @@
 // 2026-06-19 删除 13 个冗余 shadow 别名:
 //   --shadow-xs/sm/md/lg/xl/2xl, --shadow-primary/primary-hover/success/warning/danger/inner
 //   (全部指向 --global-box-shadow,统一使用 --global-box-shadow)
-// 2026-06-19 新增 token 命名规范检查 (npm run tokens:naming)
-// 2026-06-19 新增 token 使用统计脚本 (npm run tokens:usage)
-// 2026-06-19 新增 CI 阈值检查 (npm run tokens:check, 阈值 20)
-// 2026-06-19 新增 CSS 变量自动补全 (npm run tokens:autocompletion)
-// 2026-06-19 新增 token 文档自动生成 (npm run tokens:docs)
-// 2026-06-19 新增暗色模式覆盖检查 (npm run tokens:dark-mode)
-// 2026-06-19 新增弃用 token 检查 (npm run tokens:deprecated)
-// 2026-06-19 新增 token 使用趋势监控 (npm run tokens:record / npm run tokens:trend)
+// 2026-06-19 新增 token 命名规范检查 (npm run tokens:naming, 脚本已移除, 改为手动审查)
+// 2026-06-19 新增 token 使用统计脚本 (npm run tokens:usage, 脚本已移除)
+// 2026-06-19 新增 CI 阈值检查 (npm run tokens:check, 阈值 20, 脚本已移除)
+// 2026-06-19 新增 CSS 变量自动补全 (npm run tokens:autocompletion, 脚本已移除)
+// 2026-06-19 新增 token 文档自动生成 (npm run tokens:docs, 脚本已移除, 改为手动维护)
+// 2026-06-19 新增暗色模式覆盖检查 (npm run tokens:dark-mode, 脚本已移除)
+// 2026-06-19 新增弃用 token 检查 (npm run tokens:deprecated, 脚本已移除, 改为手动检查)
+// 2026-06-19 新增 token 使用趋势监控 (npm run tokens:record / npm run tokens:trend, 脚本已移除)
 // 2026-06-19 推广 --app-* token 到 design-system 组件 (Badge/Button/Card/Input/Spinner)
 // 2026-06-19 删除 2 个未使用 --el-box-shadow 变体 (lighter/darker, Element Plus 组件未引用)
 // 2026-06-19 新增未使用 token 白名单机制 (8 个框架内部 + 2 个预留,不计入死代码)
@@ -63,41 +63,6 @@
 //   p18-visual-regression, p19/p20/p21/p22-regression, i18n-completion
 // 2026-06-20 生产性能阈值收紧 (LCP 2500→2000ms, FCP 1800→1500ms, CLS 0.1→0.08, TTFB 800→500ms)
 //   实际数据: LCP 980ms / FCP 904ms / CLS 0.072 / TTFB 1.8ms, 全部通过收紧阈值
-// 2026-06-24 新增 --color-on-primary 对比色 token (明暗模式自动适配)
-//   亮色=#ffffff (黑底白字), 暗色=#000000 (白底黑字)
-//   解决: 凡是 background: var(--el-color-primary) 上的文字/图标自动切换对比色
-//   配套修复 element-plus-vars.scss 中 --el-button-text-color / hover / active 在暗色下指向 #000000
-//   修复 8 处遗漏: AIDialog.vue (New 标签 + checkbox 暗色选中态), AIChatLegacy.vue (发送按钮 + 暗色 hover),
-//                   AIChat.vue (item-icon svg + OpenClaw 能力下拉图标)
-// 2026-06-24 新增规则文档: .cursorrules "明暗模式文字色自适应规则" + design.md "对比色 token" 章节
-//                            + CSS_VARIABLES.md "对比色 token" 小节
-// 2026-06-25 续修 --color-on-primary 遗漏: 全量排查 84 处 var(--el-color-white), 修复 12 处 primary 背景上的用法
-//   ThirdPartyLoginUniversal.vue (.icon-fallback)
-//   Input1.vue (.mode-tab.active + .primary-btn)
-//   SimpleFallback.vue (.btn-primary)
-//   Error.vue (.btn-primary)
-//   LoginContainer.vue (.loading-text, primary 遮罩)
-//   Login.vue.styles.scss (.project-selector-banner.active + hover, .project-option-btn.active + hover)
-//   Login.vue.styles.scss (--spb-active-color 亮色+暗色变量定义)
-//   保留 72 处非 primary 背景上的独立白色用法不变
-//   构建验证通过 (npm run build, 48.78s, exit 0)
-// 2026-06-25 深度前端 bug 修复 (构建验证通过, exit 0):
-//   [暗色对比度] Home.vue.styles.scss ghost 按钮 color: var(--el-bg-color)→var(--el-color-white) (暗色黑底黑字)
-//   [暗色对比度] Login.vue.styles.scss .login-button color: var(--el-text-color-primary)→var(--color-on-primary) (暗色白底浅灰字)
-//   [暗色变量] _global-tokens.scss 补充 --color-gray-f9fafb / --color-gray-e8e8e8 暗色覆盖
-//   [XSS] agreement/Index.vue v-html→v-safe-html (后端内容渲染防 XSS)
-//   [响应式] Input1.vue .dialogue-panel / .template-dialog-panel 添加 max-width 兜底
-//   [CSS兼容] Settings.vue 9 处 rgba($brand-primary,...)→color-mix() (CSS 变量无法被 rgba 解析)
-//   [CSS兼容] AIChat.vue 5 处 rgba($cs-accent-blue,...)→color-mix() (同上)
-// 2026-06-25 P0 硬编码颜色 token 化 + 暗色模式适配 (构建验证通过, exit 0):
-//   AccountCancel.vue: 31 处颜色 + 4 处 border-radius token 化, 新增暗色模式覆盖块
-//   ChangePhone.vue: 22 处颜色 + 3 处 border-radius token 化, 新增暗色模式覆盖块
-//   edu/admin/index.vue: 4 处颜色 token 化 (#fff→on-primary, #303133/#909399/#606266→el-text-color-*)
-//   edu/index.vue: 2 处颜色 token 化 (#001529→el-text-color-primary, #f5f7fa→el-bg-color-page)
-// 2026-06-25 P2 CSS 特异性优化 (构建验证通过, exit 0):
-//   AIChatLegacy.vue: 7 处 html.dark→:where(html.dark) 降特异性
-//   AIDialog.vue: 7 处 html.dark→:where(html.dark) 降特异性
-//   ThirdPartyLoginUniversal.vue: 7 处 html.dark→:where(html.dark) 降特异性
 // ════════════════════════════════════════════════════════════════════
 //
 // ════════════════════════════════════════════════════════════════════
@@ -136,12 +101,6 @@
 //     - --app-text-muted：弱化文字（映射 --el-text-color-secondary）
 //     - --app-divider：分割线（映射 --el-border-color）
 //     优势：更换 UI 框架时只需修改 --app-* 定义，无需改动组件代码
-// 13. 对比色 token（强制 - primary 背景上的文字/图标必须用）：
-//     - --color-on-primary：自动适配 primary 背景
-//       亮色模式: #ffffff (黑底白字)
-//       暗色模式: #000000 (白底黑字)
-//     使用规则: 凡是 background: var(--el-color-primary) 的元素，文字/图标必须用 var(--color-on-primary)
-//     禁止用: var(--el-color-white) / var(--el-text-color-primary) / #fff / #000 (这些在 primary 背景上会白底白字)
 //
 // 【新增 token 前检查清单】
 // □ 是否可复用现有 token？（优先复用，避免重复定义）
@@ -155,14 +114,14 @@
 // ✗ 禁止在组件样式中硬编码十六进制颜色（如 #409eff）
 // ✗ 禁止使用高优先级覆盖
 // ✗ 禁止使用高特异性选择器（仅用项目现有全局样式）
-// ✗ 禁止在 var() 中使用 fallback（如 var(--x, #fff)），token 应在全局定义
+// ✗ 禁止在 var() 中使用 fallback（如 var(--x, #fff)），token 应用全局定义
 // ✗ 禁止在新组件中直接引用 --el-* token（应优先使用 --app-* 语义化 token）
 //
 // 【Token 弃用流程】
 // 当需要弃用某个 token 时,按以下步骤执行:
 // 1. 在 token 定义行添加弃用标记,格式: /* @deprecated 原因 | 删除日期 YYYY-MM-DD */
 //    示例: --old-token: #fff; /* @deprecated 已被 --app-surface-1 替代 | 删除日期 2026-07-01 */
-// 2. 运行 npm run tokens:deprecated 检查弃用 token 的使用情况
+// 2. 手动检查弃用 token 的使用情况（npm run tokens:deprecated 脚本已移除）
 // 3. 迁移所有使用该 token 的组件代码
 // 4. 迁移完成后,等待删除日期到达后删除 token 定义
 // 5. 在本文件顶部的 Token 变更日志中登记删除记录
@@ -179,8 +138,8 @@ $border-unified-dark: #4c4d4f;
 $border-unified-dark-hover: #6c6e72;
 
 // 暗色模式专用 token
-$el-color-primary-dark: #ffffff;
-$el-button-text-on-primary-dark: #000000;
+$el-color-primary-dark: #409eff;
+$el-button-text-on-primary-dark: #ffffff;
 $fcd-send-btn-hover-light: #409eff;
 $fcd-send-btn-hover-dark: #66b1ff;
 $color-dark-text-primary: #e5eaf3;
@@ -188,9 +147,6 @@ $color-dark-text-primary: #e5eaf3;
 :root {
   /* 默认字体变量 - 使用 HarmonyOS Sans SC */
   --global-font-family: var(--font-family-chinese);
-
-  /* Edix 字体变量 - 用于特殊排版场景 */
-  --font-family-edix: 'Edix', 'Inter', system-ui, -apple-system, sans-serif;
 
   /* Element Plus 主色 - 亮色模式：纯黑 */
   --el-color-primary: var(--el-text-color-primary);
@@ -217,11 +173,15 @@ $color-dark-text-primary: #e5eaf3;
   /* Element Plus 输入框 focus/hover 边框颜色 - 与全局描边一致，略深于默认 */
   --el-input-focus-border-color: var(--border-unified-color-hover);
   --el-input-hover-border-color: var(--border-unified-color-hover);
+
+  /* Element Plus Tooltip 样式 - 亮色模式：纯白背景，描边用全局 */
+  --el-tooltip-bg-color: var(--el-bg-color);
+  --el-tooltip-border-color: var(--border-unified-color);
+  --el-tooltip-font-color: var(--el-text-color-primary);
 }
 
 /* 亮色主题变量（最新规则）- 主色/主文为纯黑，强调按钮背景即纯黑 */
 :root {
-  --color-neutral-f7f8fa: #f7f8fa; /* 容器浅灰背景 */
   --el-bg-color: var(--color-neutral-f7f8fa); /* 容器浅灰 */
   --el-bg-color-page: var(--el-bg-color); /* 页面主背景 */
   --el-bg-color-hover: var(--el-bg-color); /* hover背景 */
@@ -233,45 +193,6 @@ $color-dark-text-primary: #e5eaf3;
   --color-gray-fafafa: #fafafa;
   --el-fill-color-lighter: #f5f5f5;
   --el-fill-color-light: #f0f0f0;
-
-  /* 纯白色 token - 亮色模式为白色，暗色模式在 html.dark 中覆盖 */
-  --color-white: #ffffff;
-
-  /* 对比色 token - 自动适配 primary 背景上的文字/图标颜色
-   * 亮色：primary=#000 → 对比色=#fff（黑底白字）
-   * 暗色：primary=#fff → 对比色=#000（白底黑字）
-   * 凡在 primary 背景上放置文字/图标时，必须使用此变量 */
-  --color-on-primary: #ffffff;
-
-  /* 中性色阶 - 亮色模式（暗色模式在 html.dark 中覆盖） */
-  --color-neutral-100: #f5f7fa; /* 浅灰背景，组件常用 */
-  --color-neutral-300: #c0c4cc; /* 中灰文字/边框 */
-  --color-neutral-500: #909399; /* 常规灰文字 */
-  --color-neutral-600: #606266; /* 次要文字 */
-  --color-neutral-700: #303133; /* 主要文字 */
-  --color-neutral-800: #1a1a1a; /* 深色背景 */
-
-  /* 灰阶文字色 - 亮色模式（暗色模式在 html.dark 中覆盖） */
-  --color-gray-303133: #303133; /* Element Plus 主要文字色 */
-  --color-gray-606266: #606266; /* Element Plus 常规文字色 */
-  --color-gray-a8abb2: #a8abb2; /* Element Plus 占位文字色 */
-  --color-gray-c0c4cc: #c0c4cc; /* Element Plus 禁用文字色 */
-  --color-gray-f0f2f5: #f0f2f5; /* Element Plus 填充色 */
-  --color-gray-a1a1a1: #a1a1a1; /* 暗灰文字 */
-  --color-gray-f8f9fa: #f8f9fa; /* 极浅灰背景 */
-  --color-gray-1e1e1e: #1e1e1e; /* 代码块深色背景 */
-  --color-gray-909399: #909399; /* 中灰文字 */
-
-  /* 语义色 - 亮色模式（暗色模式在 html.dark 中覆盖） */
-  --color-success: #67c23a;
-  --color-danger-variant: #f56c6c;
-  --color-neutral-b3: #b3b3b3;
-  --ai-gray-1: #e5e7eb;
-  --color-border-light: #e4e7ed;
-
-  /* 品牌色透明度变体 - 补充组件引用 */
-  --color-blue-2196f3: #2196f3;
-  --color-cyan-b2d4fc-fade: rgba(178, 212, 252, 0.5);
 }
 
 /* ============================================================
@@ -289,7 +210,7 @@ $color-dark-text-primary: #e5eaf3;
   --app-text-muted: var(--el-text-color-secondary);
   --app-divider: var(--el-border-color);
 
-  /* 全局投影 - 扁平化设计：封版统一改为 none，原值 0 2px 8px var(--color-black-6) 已废弃 */
+  /* 全局投影 - 扁平化设计：禁止 box-shadow，使用 border 替代 */
   --global-box-shadow: none;
   --el-box-shadow: var(--global-box-shadow);
   --el-box-shadow-light: var(--global-box-shadow);
@@ -334,6 +255,7 @@ $color-dark-text-primary: #e5eaf3;
   --color-black-2: rgba(0, 0, 0, 0.02);
   --color-black-3: rgba(0, 0, 0, 0.03);
   --color-black-04: rgba(0, 0, 0, 0.04);
+  --color-black-4: rgba(0, 0, 0, 0.04);
   --color-black-5: rgba(0, 0, 0, 0.05);
   --color-black-6: rgba(0, 0, 0, 0.06);
   --color-black-8: rgba(0, 0, 0, 0.08);
@@ -373,11 +295,68 @@ $color-dark-text-primary: #e5eaf3;
   --color-gray-333: #333;
   --color-gray-555555: #555;
 
-  /* 其他颜色透明度变体 - 用于组件背景、文字叠加等场景 */
-  --color-blue-f0f5ff-90: rgba(240, 245, 255, 0.90);
-  --color-sky-87cefa-80: rgba(135, 206, 250, 0.80);
-  --color-gray-dcdce6-90: rgba(220, 220, 230, 0.90);
-  --color-gray-e5e7eb: #e5e7eb;
+  /* 补充组件引用的缺失 --color-gray-* token（变量名即色值） */
+  --color-gray-f8f8f8: #f8f8f8;
+  --color-gray-f5f7fa: #f5f7fa;
+  --color-gray-f5f6f7: #f5f6f7;
+  --color-gray-f2f3f5: #f2f3f5;
+  --color-gray-f8f9fa: #f8f9fa;
+  --color-gray-f0f2f5: #f0f2f5;
+  --color-gray-e8e8e8: #e8e8e8;
+  --color-gray-ebebeb: #ebebeb;
+  --color-gray-ccc: #ccc;
+  --color-gray-2d2d2d: #2d2d2d;
+  --color-gray-3a3a3a: #3a3a3a;
+  --color-gray-0d0d0d: #0d0d0d;
+  --color-gray-1e1e1e: #1e1e1e;
+  --color-gray-323232-50: rgba(50, 50, 50, 0.5);
+  --color-gray-3c3c3c-20: rgba(60, 60, 60, 0.2);
+  --color-gray-505050-15: rgba(80, 80, 80, 0.15);
+  --color-gray-transparent-4: rgba(128, 128, 128, 0.04);
+  --color-gray-transparent-5: rgba(128, 128, 128, 0.05);
+  --color-gray-transparent-6: rgba(128, 128, 128, 0.06);
+  --color-gray-150-50: rgba(150, 150, 150, 0.5);
+  --color-gray-180-40: rgba(180, 180, 180, 0.4);
+  --color-gray-100-20: rgba(100, 100, 100, 0.2);
+  --color-gray-glow: rgba(128, 128, 128, 0.15);
+
+  /* 补充缺失的中性色别名 */
+  --color-neutral-4d: #4d4d4d;
+  --color-neutral-e6: #e6e6e6;
+  --color-dark-202228: #202228;
+
+  /* 补充缺失的语义色别名 */
+  --color-success: var(--el-color-success, #67c23a);
+  --color-danger-variant: var(--el-color-danger, #f56c6c);
+  --color-warning-variant: var(--el-color-warning, #e6a23c);
+
+  /* 补充缺失的灰阶边框色 */
+  --color-gray-dde2e6: #dde2e6;
+  --color-gray-ccd2d8: #ccd2d8;
+  --color-gray-a1a1a1: #a1a1a1;
+
+  /* 补充组件引用的缺失 green/amber/red 系列 token */
+  --color-green-16a34a: #16a34a;
+  --color-green-16a34a-10: rgba(22, 163, 74, 0.1);
+  --color-green-4ade80: #4ade80;
+  --color-green-52c41a-10: rgba(82, 196, 26, 0.1);
+  --color-green-4caf50: #4caf50;
+  --color-green-00ff88-05: rgba(0, 255, 136, 0.05);
+  --color-green-00ff88-10: rgba(0, 255, 136, 0.1);
+  --color-green-glow: rgba(34, 197, 94, 0.08);
+  --color-green-glow-3: rgba(34, 197, 94, 0.12);
+  --color-green-009664-04: rgba(0, 150, 100, 0.04);
+  --color-green-009664-05: rgba(0, 150, 100, 0.05);
+  --color-green-009664-06: rgba(0, 150, 100, 0.06);
+  --color-green-009664-10: rgba(0, 150, 100, 0.1);
+  --color-green-009664-12: rgba(0, 150, 100, 0.12);
+  --color-green-009664-15: rgba(0, 150, 100, 0.15);
+  --color-green-50: #f0fdf4;
+  --color-green-22c55e-10: rgba(34, 197, 94, 0.1);
+  --color-green-28c840: #28c840;
+  --color-green-389e0d: #389e0d;
+  --color-amber-fbbf24: #fbbf24;
+  --color-success-10: rgba(103, 194, 58, 0.1);
 
   /* 业务别名色 - 补充组件引用的缺失 token */
   --color-indigo-600: #4f46e5;
@@ -385,6 +364,19 @@ $color-dark-text-primary: #e5eaf3;
   --color-emerald-500: #10b981;
   --color-amber-500: #f59e0b;
   --color-red-ef4444: #ef4444;
+
+  /* .el-tag 变体色 - 补充 _element-plus-overrides.scss 引用的缺失 token */
+  /* 基础色(Tailwind 700 色阶) */
+  --color-green-15803d: #15803d;
+  --color-amber-b45309: #b45309;
+  --color-red-b91c1c: #b91c1c;
+  /* 透明度变体(16% 用于 border,8% 用于 background) */
+  --color-green-15803d-16: rgba(21, 128, 61, 0.16);
+  --color-green-15803d-08: rgba(21, 128, 61, 0.08);
+  --color-amber-b45309-16: rgba(180, 83, 9, 0.16);
+  --color-amber-b45309-08: rgba(180, 83, 9, 0.08);
+  --color-red-b91c1c-16: rgba(185, 28, 28, 0.16);
+  --color-red-b91c1c-08: rgba(185, 28, 28, 0.08);
 
   /* VIP 私人顾问权益色 - rgba 透明度梯度 */
   --color-rgba-255--79--79-0-6-: rgba(255, 79, 79, 0.6);
@@ -458,79 +450,4 @@ $color-dark-text-primary: #e5eaf3;
   --z-notification: 9999;   /* 通知/提示 */
   --z-loading: 10000;       /* 全屏加载 */
   --z-max: 10003;           /* 最大层级（全屏覆盖） */
-}
-
-/* ============================================================
- * 暗色模式变量定义 - html.dark 下统一覆盖
- * 所有暗色变量在此统一定义，消除各处 fallback 写法
- * 背景层级：数字越大越浅（1 最深，7 最浅）
- * ============================================================ */
-html.dark {
-  /* 暗色背景层级 */
-  --color-dark-bg-1: #0d0d0d;
-  --color-dark-bg-3: #1a1a1a;
-  --color-dark-bg-4: #1f1f1f;
-  --color-dark-bg-5: #2d2d2d;
-  --color-dark-bg-6: #333333;
-  --color-dark-bg-7: #3d3d3d;
-
-  /* 暗色透明度变体 - 用于遮罩、背景叠加等场景 */
-  --color-dark-1e283c-60: rgba(30, 40, 60, 0.60);
-  --color-dark-231e32-65: rgba(35, 30, 50, 0.65);
-  --color-dark-23232d-75: rgba(35, 35, 45, 0.75);
-  --color-dark-28231e-70: rgba(40, 35, 30, 0.70);
-
-  /* 灰色文字色阶（从命名 hex 值） */
-  --color-gray-e5eaf3: #e5eaf3;
-  --color-gray-cfd3dc: #cfd3dc;
-  --color-gray-a3a6ad: #a3a6ad;
-  --color-gray-8d9095: #8d9095;
-
-  /* 中性色 */
-  --color-neutral-4d: #4d4d4f;
-  --color-neutral-e6: #e6e6e6;
-  --color-neutral-200: #e5e7eb;
-  --color-neutral-400: #9ca3af;
-
-  /* 业务别名 - 暗色模式覆盖 */
-  --color-text-muted: #a3a6ad;
-  --color-gray-light: #2d2d2d;
-
-  /* 纯白色 token - 暗色模式覆盖为浅色文字色（用于白底文字、白色背景场景） */
-  --color-white: var(--color-gray-e5eaf3);
-
-  /* 对比色 token - 暗色模式：primary=白色 → 对比色=黑色 */
-  --color-on-primary: #000000;
-
-  /* 中性色阶 - 暗色模式覆盖 */
-  --color-neutral-100: var(--color-dark-bg-5); /* 浅灰背景 → 深灰背景 */
-  --color-neutral-300: var(--color-gray-a3a6ad); /* 中灰文字 → 暗色中灰 */
-  --color-neutral-500: var(--el-text-color-placeholder); /* 常规灰文字 → 暗色灰 */
-  --color-neutral-600: var(--el-border-color-lighter); /* 次要文字 → 暗色浅灰 */
-  --color-neutral-700: var(--color-gray-e5eaf3); /* 主要文字 → 暗色亮灰 */
-  --color-neutral-800: #0d0d0d; /* 深色背景 → 更深 */
-
-  /* 灰阶文字色 - 暗色模式覆盖 */
-  --color-gray-303133: var(--color-gray-e5eaf3); /* 暗色主要文字 */
-  --color-gray-606266: var(--el-border-color-lighter); /* 暗色常规文字 */
-  --color-gray-a8abb2: var(--el-text-color-placeholder); /* 暗色占位文字 */
-  --color-gray-c0c4cc: var(--color-gray-a3a6ad); /* 暗色禁用文字 */
-  --color-gray-f0f2f5: var(--color-dark-bg-5); /* 暗色填充色 */
-  --color-gray-a1a1a1: var(--el-text-color-placeholder); /* 暗色暗灰 */
-  --color-gray-f8f9fa: var(--color-dark-bg-4); /* 暗色极浅灰背景 */
-  --color-gray-f9fafb: var(--color-dark-bg-4); /* 暗色极浅灰背景（同 f8f9fa） */
-  --color-gray-e8e8e8: var(--color-dark-bg-5); /* 暗色浅灰（按钮 active 态） */
-  --color-gray-1e1e1e: var(--color-dark-bg-3); /* 暗色代码块背景 */
-  --color-gray-909399: var(--color-gray-a3a6ad); /* 暗色中灰 */
-
-  /* 语义色 - 暗色模式覆盖（略调亮以保证对比度） */
-  --color-success: #85ce61;
-  --color-danger-variant: #f78989;
-  --color-neutral-b3: var(--color-gray-a3a6ad);
-  --ai-gray-1: var(--color-dark-bg-5);
-  --color-border-light: var(--color-dark-bg-6);
-
-  /* 品牌色透明度变体 - 暗色模式（提高透明度保证可见性） */
-  --color-blue-2196f3: #64b5f6;
-  --color-cyan-b2d4fc-fade: rgba(144, 202, 249, 0.5);
 }

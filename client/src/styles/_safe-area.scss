@@ -336,15 +336,12 @@
 
 /* ============================================
    按钮组件 Safe-Area 适配
+   注意：不再全局强制 .el-button / .btn 为 44x44，否则会破坏
+   .el-button.is-circle、.btn-icon-square 等方形/圆形图标按钮的尺寸。
+   需要扩大触摸区域时，使用 .tap-target 工具类（见 fixes.scss）。
    ============================================ */
 @media (width <= 767px) {
-  .el-button,
-  .btn {
-    min-height: 44px; // 触摸目标最小尺寸
-    min-width: 44px;
-    padding: 8px 16px;
-  }
-  
+  /* 仅对按钮组容器做 Safe-Area 内边距适配，不强制按钮自身尺寸 */
   .button-group {
     gap: 8px;
     padding-left: max(8px, var(--safe-area-inset-left));

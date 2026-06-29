@@ -1,13 +1,13 @@
 {
   "tools": {
+    "title": "AI 工具集",
+    "realtimeData": "实时数据",
+    "localData": "本地数据",
+    "sortDefault": "默认排序",
+    "sortByName": "按名称",
+    "sortByHot": "按热度",
     "loading": "加载中",
-    "localData": "本地 数据",
-    "noMatch": "无匹配",
-    "realtimeData": "realtime 数据",
-    "sortByHot": "排序 通过 热门",
-    "sortByName": "按名称排序",
-    "sortDefault": "排序 默认",
-    "title": "标题",
-    "usage": "使用方法"
+    "noMatch": "未找到匹配的工具",
+    "usage": "次使用"
   }
 }

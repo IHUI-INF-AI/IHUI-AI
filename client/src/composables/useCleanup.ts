@@ -23,7 +23,7 @@ export interface UseCleanupReturn {
   /** 注册可单独取消的 setInterval，返回控制对象（可主动 cancel） */
   addCancellableInterval: (fn: () => void, delay: number) => { cancel: () => void; id: ReturnType<typeof setInterval> }
   /** 注册事件监听器，自动在清理时 removeEventListener */
-  addEventListener: (target: EventTarget, event: string, handler: ((event: any) => void) | EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => void
+  addEventListener: <E extends Event = Event>(target: EventTarget, event: string, handler: (event: E) => void, options?: boolean | AddEventListenerOptions) => void
   /** 注册 AbortController，清理时自动 abort */
   addAbortController: () => AbortController
   /** 手动触发所有清理（一般不用，onUnmounted 会自动调用） */
@@ -92,10 +92,10 @@ export function useCleanup(autoDispose = true): UseCleanupReturn {
     return { cancel, id }
   }
 
-  const addEventListener = (
+  const addEventListener = <E extends Event = Event>(
     target: EventTarget,
     event: string,
-    handler: ((event: any) => void) | EventListenerOrEventListenerObject,
+    handler: (event: E) => void,
     options?: boolean | AddEventListenerOptions
   ) => {
     target.addEventListener(event, handler as EventListener, options)

@@ -143,7 +143,7 @@ export function useXuqiuForm(options: UseXuqiuFormOptions = {}) {
             code: (response as { code?: number }).code || 200,
             success: (response as { success?: boolean }).success !== false,
             message: (response as { message?: string }).message || '',
-            data: (response as { data?: any }).data,
+            data: (response as { data?: unknown }).data,
             timestamp: Date.now(),
           }
 
@@ -160,7 +160,7 @@ export function useXuqiuForm(options: UseXuqiuFormOptions = {}) {
               }
             },
           })
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error(
             t('xuqiu.publishFailed'),
             error instanceof Error ? error : new Error(String(error))

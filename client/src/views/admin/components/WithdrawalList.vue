@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminListPage from '@/components/admin/AdminListPage.vue'
 import type { TableColumn } from '@/components/admin/AdminListPage.vue'
@@ -71,14 +71,14 @@ interface Withdrawal {
 
 const { t } = useI18n()
 
-const columns: TableColumn[] = [
-  { prop: 'userName', label: '用户', width: 120 },
-  { prop: 'amount', label: '金额', width: 100, slot: true },
-  { prop: 'bankName', label: '银行', width: 120 },
-  { prop: 'bankAccount', label: '账号', width: 180 },
-  { prop: 'status', label: '状态', width: 100, slot: true },
-  { prop: 'appliedAt', label: '申请时间', width: 180, type: 'date' },
-]
+const columns = computed<TableColumn[]>(() => [
+  { prop: 'userName', label: t('adminCommon.label.user'), width: 120 },
+  { prop: 'amount', label: t('adminCommon.label.amount'), width: 100, slot: true },
+  { prop: 'bankName', label: t('adminCommon.label.bankName'), width: 120 },
+  { prop: 'bankAccount', label: t('adminCommon.label.bankAccount'), width: 180 },
+  { prop: 'status', label: t('adminCommon.label.status'), width: 100, slot: true },
+  { prop: 'appliedAt', label: t('adminCommon.label.appliedAt'), width: 180, type: 'date' },
+])
 
 const withdrawals = ref<Withdrawal[]>([])
 const total = ref(0)

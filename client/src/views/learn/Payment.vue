@@ -47,14 +47,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const orderId = String(route.query.orderId || '')
 
-const order = ref<any>({})
+const order = ref<unknown>({})
 const loading = ref(false)
 const paying = ref(false)
 const payType = ref('alipay')

@@ -1,8 +1,8 @@
 {
   "markdownViewer": {
-    "chars": "字符",
-    "editMode": "编辑 模式",
+    "chars": "字",
     "lines": "行",
-    "previewMode": "预览 模式"
+    "previewMode": "预览模式",
+    "editMode": "编辑模式"
   }
 }

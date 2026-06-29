@@ -9,34 +9,37 @@ import hljs from '@/utils/highlight'
 import DOMPurify from 'dompurify'
 
 // 导入本地 highlight.js 主题样式
-// github.css（亮色）和 github-dark.css（暗色）都作用于 .hljs 类名
-// 通过 CSS 层级控制：暗色模式下禁用亮色主题，亮色模式下禁用暗色主题
 import 'highlight.js/styles/github.css'
 import 'highlight.js/styles/github-dark.css'
 
-// 动态切换 highlight.js 主题（通过 CSS 层级控制，不修改代码块类名）
+// 动态切换 highlight.js 主题（根据暗色模式状态）
 if (typeof document !== 'undefined') {
-  // 注入 CSS 规则：亮色模式下禁用暗色主题，暗色模式下禁用亮色主题
-  // highlight.js 官方 CSS 使用 .hljs 类名，两个文件同时加载会冲突
-  // 使用 html.dark / html:not(.dark) 前缀提高选择器特异性，覆盖官方 .hljs 规则
-  const styleId = 'hljs-theme-switch'
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style')
-    style.id = styleId
-    style.textContent = `
-      /* 亮色模式：强制使用 github 主题色（覆盖 github-dark） */
-      html:not(.dark) .hljs {
-        background: var(--color-gray-f8f9fa, #f8f8fa);
-        color: #24292e;
+  const updateHighlightTheme = () => {
+    const isDark = document.documentElement.classList.contains('dark')
+    const codeBlocks = document.querySelectorAll('pre code')
+
+    codeBlocks.forEach(block => {
+      if (isDark) {
+        block.classList.remove('hljs-light')
+        block.classList.add('hljs-dark')
+      } else {
+        block.classList.remove('hljs-dark')
+        block.classList.add('hljs-light')
       }
-      /* 暗色模式：强制使用 github-dark 主题色（覆盖 github） */
-      html.dark .hljs {
-        background: var(--color-dark-bg-3, #1a1a1a);
-        color: #e1e4e8;
-      }
-    `
-    document.head.appendChild(style)
+    })
   }
+
+  // 初始更新
+  updateHighlightTheme()
+
+  // 监听主题变化
+  const observer = new MutationObserver(() => {
+    updateHighlightTheme()
+  })
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
 }
 
 // 转义HTML

@@ -13,7 +13,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-vi.mock('@/api/models/models', () => ({
+vi.mock('@/api/models', () => ({
   getAvailableModels: vi.fn(() =>
     Promise.resolve({
       success: true,
@@ -126,7 +126,7 @@ describe('unified-generation.service', () => {
   })
 
   it('generate qwen-image 缺少 remark', async () => {
-    const modelsMod = await import('@/api/models/models')
+    const modelsMod = await import('@/api/models')
     ;(modelsMod.getAvailableModels as any).mockResolvedValueOnce({
       success: true,
       data: [{ supportsImages: true, provider: 'qwen', name: 'q' }],
@@ -141,7 +141,7 @@ describe('unified-generation.service', () => {
   })
 
   it('generate qwen-image WebSocket quest_type', async () => {
-    const modelsMod = await import('@/api/models/models')
+    const modelsMod = await import('@/api/models')
     ;(modelsMod.getAvailableModels as any).mockResolvedValueOnce({
       success: true,
       data: [

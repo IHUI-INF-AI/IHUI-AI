@@ -1,9 +1,13 @@
 {
   "time": {
-    "daysAgo": "天前",
-    "hoursAgo": "小时前",
+    "daysAgo": "{days}天前",
     "justNow": "刚刚",
-    "minutesAgo": "分钟前",
-    "never": "从不"
+    "minutesAgo": "{minutes}分钟前",
+    "hoursAgo": "{hours}小时前",
+    "never": "从未",
+    "today": "今天",
+    "yesterday": "昨天",
+    "dayBeforeYesterday": "前天",
+    "weeksAgo": "{weeks}周前"
   }
 }

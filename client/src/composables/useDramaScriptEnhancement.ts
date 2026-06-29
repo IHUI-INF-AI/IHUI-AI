@@ -11,7 +11,7 @@
 
 import { ref, computed, watch, type Ref } from 'vue'
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai/ai'
+import { streamGenerateContent } from '@/api/ai'
 import type {
   SceneFragment,
   Character,

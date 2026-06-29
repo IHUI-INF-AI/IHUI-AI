@@ -130,7 +130,7 @@ const { showSuccess, showError } = useOperationFeedback()
 const activeTab = ref('preview')
 const loading = ref(false)
 
-const formatData = (data: any): string => {
+const formatData = (data: unknown): string => {
   if (typeof data === 'string') {
     try {
       const parsed = JSON.parse(data)
@@ -206,7 +206,7 @@ const handleShare2 = () => {
       color: var(--el-text-color-secondary);
 
       .server-name {
-        font-family: var(--font-family-mono);
+        font-family: monospace;
         background: var(--el-bg-color-page);
         padding: 2px 6px;
         border-radius: var(--global-border-radius);
@@ -239,7 +239,7 @@ const handleShare2 = () => {
     .result-error {
       .error-message {
         margin: 8px 0;
-        font-family: var(--font-family-mono);
+        font-family: monospace;
         font-size: 13px;
       }
 

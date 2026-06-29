@@ -1,13 +1,13 @@
 {
   "tools": {
-    "loading": "加载中",
-    "localData": "localData",
-    "noMatch": "noMatch",
-    "realtimeData": "realtimeData",
-    "sortByHot": "sortByHot",
-    "sortByName": "sortByName",
-    "sortDefault": "sortDefault",
-    "title": "标题",
-    "usage": "使用方法"
+    "title": "AI Tools",
+    "realtimeData": "Real-time",
+    "localData": "Local",
+    "sortDefault": "Default",
+    "sortByName": "By Name",
+    "sortByHot": "By Popularity",
+    "loading": "Loading",
+    "noMatch": "No matching tools found",
+    "usage": "uses"
   }
 }

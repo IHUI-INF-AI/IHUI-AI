@@ -34,12 +34,14 @@
     </div>
 
     <!-- 添加自定义模板对话框 -->
-    <el-dialog 
-      v-model="showAddDialog" 
-      :title="t('hardcoded.prompt_templates.添加自定义模板2')" 
-      width="460px" 
+    <el-dialog
+      v-if="shouldRenderAddDialog"
+      v-model="showAddDialog"
+      :title="t('hardcoded.prompt_templates.添加自定义模板2')"
+      width="460px"
       append-to-body
       class="custom-template-dialog"
+      @closed="shouldRenderAddDialog = false"
     >
       <el-form :model="customTemplateForm" label-position="top">
         <el-form-item :label="t('hardcoded.prompt_templates.模板名称3')">
@@ -70,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { logger } from '../../utils/logger'
 import { safeParseJson } from '@/utils/storage'
 import { useI18n } from 'vue-i18n'
@@ -93,6 +95,9 @@ const emit = defineEmits<{
 }>()
 
 const showAddDialog = ref(false)
+// v-if 控制：el-dialog 关闭后从 DOM 卸载（含 append-to-body 创建的 overlay），避免空 overlay 堆积
+const shouldRenderAddDialog = ref(false)
+watch(showAddDialog, (val) => { if (val) shouldRenderAddDialog.value = true })
 const customTemplateForm = ref({
   title: '',
   content: '',
@@ -324,7 +329,7 @@ const handleTrash2 = (template: PromptTemplate) => {
   &:hover {
     background-color: var(--el-fill-color);
     border-color: var(--el-border-color-hover);
-    
+    transform: translateY(-2px);
 
     .delete-btn {
       opacity: 1;
@@ -359,7 +364,7 @@ const handleTrash2 = (template: PromptTemplate) => {
     .card-tag {
       font-size: 12px;
       padding: 0 8px;
-      border-radius: var(--global-border-radius); // 遵循项目规范：标签/小按钮使用 6px 圆角
+      border-radius: var(--global-border-radius-sm, 4px); // 小标签/小按钮使用 sm 档圆角
       background: var(--el-fill-color-light);
       color: var(--el-text-color-secondary);
       font-weight: 500;
@@ -370,10 +375,10 @@ const handleTrash2 = (template: PromptTemplate) => {
       justify-content: center;
       height: 20px;
       
-      &.code { background: var(--color-blue-007bff-10); color: var(--el-color-primary); }
-      &.writing { background: var(--color-orange-ff9900-10); color: var(--el-color-warning); }
-      &.creative { background: var(--color-green-52c41a-10); color: var(--el-color-success); }
-      &.analysis { background: rgba(var(--el-color-danger-rgb), 0.1); color: var(--el-color-danger); }
+      &.code { background: var(--color-blue-007bff-10); color: var(--color-blue-007bff); }
+      &.writing { background: var(--color-orange-ff9900-10); color: var(--color-orange-ff9900); }
+      &.creative { background: var(--color-green-52c41a-10); color: var(--color-green-52c41a); }
+      &.analysis { background: var(--color-red-transparent-10-alt); color: var(--color-red-f5222d); }
       &.language { background: var(--ai-language-tag-bg); color: var(--ai-language-tag); }
     }
   }
@@ -400,7 +405,7 @@ const handleTrash2 = (template: PromptTemplate) => {
   top: 14px;
   right: 14px;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
   
   &:hover {
     transform: scale(1.1);

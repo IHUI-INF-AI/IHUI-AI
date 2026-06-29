@@ -1,39 +1,58 @@
 {
   "traderCommission": {
-    "errors": {
-      "copyFailed": "copyFailed",
-      "copySuccess": "copySuccess"
-    },
-    "noRecords": "noRecords",
-    "pendingCommission": "pendingCommission",
-    "status": {
-      "cancelled": "已取消",
-      "pending": "待处理",
-      "settled": "settled",
-      "unknown": "unknown"
-    },
-    "subtitle": "副标题",
-    "table": {
-      "actions": "actions",
-      "buyer": "buyer",
-      "commissionAmount": "commissionAmount",
-      "copyOrderId": "copyOrderId",
-      "orderTime": "orderTime",
-      "relatedOrder": "relatedOrder",
-      "status": "状态"
-    },
+    "title": "My Commission",
+    "subtitle": "View your trader commission details",
+    "totalCommission": "Total Commission",
+    "withdrawableCommission": "Withdrawable Commission",
+    "withdrawnCommission": "Withdrawn Commission",
+    "pendingCommission": "Pending Settlement Commission",
+    "todayCommission": "Today's Commission",
+    "withdraw": "Withdraw",
+    "withdrawDetails": "Withdrawal Details",
     "tabs": {
-      "all": "全部",
-      "cancelled": "已取消",
-      "pending": "待处理",
-      "settled": "settled"
+      "all": "All",
+      "pending": "Pending Settlement",
+      "settled": "Settled",
+      "cancelled": "Cancelled Settlement"
     },
-    "title": "标题",
-    "todayCommission": "todayCommission",
-    "totalCommission": "totalCommission",
-    "withdraw": "提现",
-    "withdrawDetails": "withdrawDetails",
-    "withdrawableCommission": "withdrawableCommission",
-    "withdrawnCommission": "withdrawnCommission"
+    "table": {
+      "buyer": "Buyer",
+      "relatedOrder": "Related Order",
+      "commissionAmount": "Commission Amount",
+      "Status": "Status",
+      "orderTime": "Order Time",
+      "actions": "Actions",
+      "copyOrderId": "Copy Order ID",
+      "status": "Status"
+    },
+    "Status": {
+      "settled": "Settled",
+      "pending": "Pending Settlement",
+      "cancelled": "Cancelled Settlement",
+      "unknown": "Unknown"
+    },
+    "noRecords": "No commission records",
+    "errors": {
+      "copySuccess": "Order ID copied to clipboard",
+      "copyFailed": "Copy Failed, please copy manually",
+      "loadFailed": "Failed to load commission data",
+      "loadRetry": "Failed to load commission data, please try again later"
+    },
+    "status": {
+      "cancelled": "取消结算",
+      "pending": "待结算",
+      "settled": "已结算",
+      "unknown": "未知"
+    },
+    "available": "Available for withdrawal",
+    "withdrawn": "AlReadyWithdrawal",
+    "yuan": "Yuan",
+    "withdrawDetail": "Withdrawal details",
+    "commission": "Commission",
+    "buyer": "Buyer",
+    "copy": "Copy",
+    "noCommission": "NoCommissionRecord",
+    "withdrawSuccess": "WithdrawalSuccess",
+    "withdrawDetailInfo": "ViewWithdrawal details"
   }
 }

@@ -1,8 +1,8 @@
 {
   "enhancedPdfViewer": {
-    "fullscreen": "fullscreen",
-    "nextPage": "nextPage",
-    "search": "搜索",
-    "zoomIn": "zoomIn"
+    "search": "Search...",
+    "fullscreen": "Fullscreen",
+    "nextPage": "Next Page",
+    "zoomIn": "Zoom In"
   }
 }

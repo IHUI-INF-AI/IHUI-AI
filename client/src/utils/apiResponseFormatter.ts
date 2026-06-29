@@ -8,18 +8,16 @@ import type { ApiResponse } from '@/types/api'
 /**
  * 规范化API响应
  */
-export function normalizeApiResponse<T>(response: any): ApiResponse<T> {
+export function normalizeApiResponse<T>(response: unknown): ApiResponse<T> {
   if (!response || typeof response !== 'object') {
     return { code: 500, msg: 'Invalid response format', data: undefined as T }
   }
 
-  const res = response as { code?: number | string; data?: T; message?: string; msg?: string; success?: boolean }
+  const res = response as { code?: number; data?: T; message?: string; msg?: string; success?: boolean }
 
-  // 转换 code 为数字 (后端可能返回字符串 "0"/"200")
-  const codeNum = typeof res.code === 'string' ? parseInt(res.code, 10) : res.code
-  if (res.success === true || codeNum === 200 || codeNum === 0) {
+  if (res.success === true || res.code === 200 || res.code === 0) {
     return {
-      code: codeNum || 200,
+      code: res.code || 200,
       data: res.data as T,
       msg: res.msg || res.message,
       success: true
@@ -27,7 +25,7 @@ export function normalizeApiResponse<T>(response: any): ApiResponse<T> {
   }
 
   return {
-    code: codeNum || 500,
+    code: res.code || 500,
     msg: res.msg || res.message || 'Unknown error',
     data: undefined as T,
     success: false
@@ -37,7 +35,7 @@ export function normalizeApiResponse<T>(response: any): ApiResponse<T> {
 /**
  * 格式化API错误
  */
-export function formatApiError(error: any): string {
+export function formatApiError(error: unknown): string {
   if (error instanceof Error) {
     return error.message
   }

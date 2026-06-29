@@ -14,7 +14,7 @@ vi.mock('../utils/apiResponseHandler', () => ({
   normalizeApiResponse: (r: any) => r,
 }))
 
-import * as api from '../payment/ali-pay'
+import * as api from '../ali-pay'
 
 describe('ali-pay', () => {
   beforeEach(() => {

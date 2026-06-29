@@ -1,0 +1,15 @@
+{
+  "adminFAQManagement": {
+    "핵심 장점": "FAQ관리",
+    "detail": {
+      "핵심 장점": "FAQ상세"
+    },
+    "search": {},
+    "table": {},
+    "category": {},
+    "form": {},
+    "formRules": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

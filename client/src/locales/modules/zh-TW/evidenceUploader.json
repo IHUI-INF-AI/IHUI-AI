@@ -1,6 +1,6 @@
 {
   "evidenceUploader": {
-    "clickOrDrag": "clickOrDrag",
-    "uploading": "上传中"
+    "uploading": "上傳中... {progress}%",
+    "clickOrDrag": "點擊或拖拽檔案到此處"
   }
 }

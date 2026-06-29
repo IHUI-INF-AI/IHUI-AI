@@ -3,7 +3,7 @@
  * 提供移动端友好的表单输入体验
  */
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   /* ==================== 输入框优化 ==================== */
   
   .el-input,
@@ -174,8 +174,8 @@
 }
 
 // 暗色模式支持
-:where(html.dark) {
-  @media (width <= 768px) {
+html.dark {
+  @media (max-width: 768px) {
     .el-button:not(.hero-cta-btn),
     .el-input,
     .el-select,

@@ -1,9 +1,13 @@
 {
   "time": {
-    "daysAgo": "daysAgo",
-    "hoursAgo": "hoursAgo",
-    "justNow": "justNow",
-    "minutesAgo": "minutesAgo",
-    "never": "never"
+    "daysAgo": "{days} days ago",
+    "justNow": "Just now",
+    "minutesAgo": "{minutes} minutes ago",
+    "hoursAgo": "{hours} hours ago",
+    "never": "Never",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "dayBeforeYesterday": "Day before yesterday",
+    "weeksAgo": "{weeks} weeks ago"
   }
 }

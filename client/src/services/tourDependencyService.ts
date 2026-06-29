@@ -38,7 +38,7 @@ export interface ExecutionCondition {
   type: 'user_action' | 'time_elapsed' | 'data_match' | 'custom'
   field: string
   operator: 'equals' | 'contains' | 'gt' | 'lt' | 'exists' | 'not_exists'
-  value: any
+  value: unknown
   contextPath?: string
 }
 
@@ -525,7 +525,7 @@ class TourDependencyService {
   }
 
   private evaluateCondition(condition: ExecutionCondition, context: ExecutionContext): boolean {
-    let value: any
+    let value: unknown
 
     if (condition.contextPath) {
       value = this.getNestedValue(context.data, condition.contextPath)
@@ -551,7 +551,7 @@ class TourDependencyService {
     }
   }
 
-  private getNestedValue(obj: Record<string, unknown>, path: string): any {
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce((current, key) => {
       return current && typeof current === 'object' ? (current as Record<string, unknown>)[key] : undefined
     }, obj as unknown)

@@ -1,8 +1,8 @@
 {
   "learnMap": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbMap": "breadcrumbMap",
-    "clickToLearn": "clickToLearn",
-    "noMaps": "noMaps"
+    "noMaps": "학습 지도 없음",
+    "clickToLearn": "클릭하여 학습 경로로",
+    "breadcrumbCourse": "과정",
+    "breadcrumbMap": "학습 지도"
   }
 }

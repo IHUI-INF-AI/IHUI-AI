@@ -1252,17 +1252,6 @@
       "调用成功": "Call successful",
       "调用成功1": "Call successful"
     },
-    "unified_alipay": {
-      "Session ID Required": "Session ID Required",
-      "Session ID Required1": "Session ID Required",
-      "Authorization Code Required2": "Authorization Code Required",
-      "Session ID Cannot Be Empty": "Session ID Cannot Be Empty",
-      "Session ID Cannot Be Empty1": "Session ID Cannot Be Empty",
-      "Authorization Code Cannot Be Empty2": "Authorization Code Cannot Be Empty",
-      "会话ID不能为空": "会话ID不能为空",
-      "会话ID不能为空1": "会话ID不能为空",
-      "授权码不能为空2": "授权码不能为空"
-    },
     "unified_auth": {
       "Login interface does not exist, please check backend service config. Error: ": "Login interface does not exist, please check backend service config. Error: ",
       "Register interface does not exist, please check backend service config. Error: ": "Register interface does not exist, please check backend service config. Error: ",

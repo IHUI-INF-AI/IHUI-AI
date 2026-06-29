@@ -5,7 +5,7 @@
     <main id="first-page" class="page-section" aria-labelledby="home-hero-title">
       <!-- i18n: home.comments.interactiveText -->
       <div class="page-content first-page-content-overlay">
-        <h1 id="home-hero-title" class="brand-welcome-text font-edix">{{ t('home.page1.brandWelcome') }}</h1>
+        <h1 id="home-hero-title" class="brand-welcome-text font-edix">WELCOME IHUI INF . AI</h1>
         <p class="hero-description">
           <span class="typing-text">{{ currentTypingText }}</span><span class="cursor-blink">_</span>
         </p>
@@ -54,6 +54,7 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-left-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
+            style="animation-delay: 0.1s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -101,6 +102,7 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-top-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
+            style="animation-delay: 0.2s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -137,6 +139,7 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-right-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
+            style="animation-delay: 0.3s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -167,6 +170,7 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-top-animation"
             @click="goToLearnAI"
             :class="{ 'is-navigating': isNavigating }"
+            style="animation-delay: 0.5s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -203,6 +207,7 @@
             class="feature-card ihui-ai-card-hover ihui-ai-fade-in-right-animation"
             @click="goToXuqiu"
             :class="{ 'is-navigating': isNavigating }"
+            style="animation-delay: 0.6s"
           >
             <el-icon class="feature-icon" aria-hidden="true">
               <svg
@@ -253,6 +258,7 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
+              style="animation-delay: 0.7s"
             >
               <div class="advantage-icon professional-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -282,6 +288,7 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
+              style="animation-delay: 0.8s"
             >
               <div class="advantage-icon efficient-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -313,6 +320,7 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
+              style="animation-delay: 0.9s"
             >
               <div class="advantage-icon reliable-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -342,6 +350,7 @@
                 'ihui-ai-fade-in-bottom-animation': true,
                 'is-navigating': isNavigating
               }"
+              style="animation-delay: 1.0s"
             >
               <div class="advantage-icon innovative-icon">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -385,15 +394,6 @@
         <h2 class="fifth-page-title">{{ t('home.page5.title') }}</h2>
         <h3 class="fifth-page-title-english font-edix">{{ t('home.page5.titleEn') }}</h3>
         <p class="fifth-page-description">{{ t('home.page5.content') }}</p>
-        <button class="wheel-sensitivity-btn" @click="cycleWheelSensitivity" :title="`${t('home.wheelSensitivityLabel')}：${wheelSensitivityLabel}`">
-          {{ t('home.wheelSensitivityLabel') }}：{{ wheelSensitivityLabel }}
-        </button>
-        <button class="wheel-sensitivity-btn" @click="toggleMarqueePause" :title="marqueePaused ? t('home.clickToResume') : t('home.clickToPause')">
-          {{ marqueePaused ? t('home.resumeScroll') : t('home.pauseScroll') }}
-        </button>
-        <button class="wheel-sensitivity-btn" @click="cycleMarqueeSpeed" :title="`${t('home.marqueeSpeedLabel')}：${marqueeSpeedLabel}`">
-          {{ t('home.marqueeSpeedLabel') }}：{{ marqueeSpeedLabel }}
-        </button>
         <div
           class="brand-marquee"
           @mousedown="handleMarqueeMouseDown"
@@ -452,7 +452,6 @@ import { useCleanup } from '@/composables/useCleanup'
 import { useIntersectionObserver } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/utils/logger'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { useAuthStore } from '@/stores/auth'
 import { loadModule, getCurrentLocale } from '@/locales'
 import _IhuiAiEffectsLayer from '@/components/IhuiAiEffectsLayer.vue'
@@ -501,6 +500,7 @@ import brand13Icon from '@/assets/images/ybx.png'
 import brand14Icon from '@/assets/images/Yushu.png'
 import brand15Icon from '@/assets/images/dbsfdx.png'
 import brand16Icon from '@/assets/images/jldx.png'
+import n8nIcon from '@/assets/images/n8n.svg'
 
 const { t } = useI18n()
 const reduceMotion =
@@ -588,51 +588,10 @@ const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragCurrentX = ref(0)
 const dragOffset = ref(0)
-const _animationPaused = ref(false)
 
-// 跑马灯滚轮灵敏度：低 0.3 / 中 0.5 / 高 1.0，点击按钮循环切换
-const wheelSensitivityLevels = [0.3, 0.5, 1.0] as const
-const wheelSensitivityLabels = computed(() => [
-  t('home.sensitivityLow'),
-  t('home.sensitivityMid'),
-  t('home.sensitivityHigh'),
-] as const)
-const wheelSensitivityIndex = ref(1)
-const wheelSensitivityLabel = computed(() => wheelSensitivityLabels.value[wheelSensitivityIndex.value])
-const cycleWheelSensitivity = () => {
-  wheelSensitivityIndex.value = (wheelSensitivityIndex.value + 1) % wheelSensitivityLevels.length
-  StorageManager.setItem(STORAGE_KEYS.MARQUEE_WHEEL_SENSITIVITY, wheelSensitivityLevels[wheelSensitivityIndex.value])
-}
-
-// 跑马灯暂停/继续：暂停时停止动画，继续时恢复
-const marqueePaused = ref(false)
-const toggleMarqueePause = () => {
-  marqueePaused.value = !marqueePaused.value
-  StorageManager.setItem(STORAGE_KEYS.MARQUEE_PAUSED, marqueePaused.value)
-  if (marqueePaused.value) {
-    // 暂停：取消所有动画
-    if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null }
-    if (inertiaId !== null) { cancelAnimationFrame(inertiaId); inertiaId = null }
-  } else {
-    // 继续：从当前位置恢复滚动
-    startMarqueeAnimation()
-  }
-}
-
-// 跑马灯滚动速度：慢 0.5 / 中 1 / 快 2，点击按钮循环切换
-const marqueeSpeedLevels = [0.5, 1, 2] as const
-const marqueeSpeedLabels = computed(() => [
-  t('home.speedSlow'),
-  t('home.speedMid'),
-  t('home.speedFast'),
-] as const)
-const marqueeSpeedIndex = ref(1)
-const marqueeSpeedLabel = computed(() => marqueeSpeedLabels.value[marqueeSpeedIndex.value])
-const marqueeSpeed = computed(() => marqueeSpeedLevels[marqueeSpeedIndex.value])
-const cycleMarqueeSpeed = () => {
-  marqueeSpeedIndex.value = (marqueeSpeedIndex.value + 1) % marqueeSpeedLevels.length
-  StorageManager.setItem(STORAGE_KEYS.MARQUEE_SPEED, marqueeSpeedLevels[marqueeSpeedIndex.value])
-}
+// 跑马灯固定参数（原按钮切换档位已移除）
+const WHEEL_SENSITIVITY = 0.5
+const MARQUEE_SPEED = 1
 let animationId: number | null = null
 let homeScrollRafId: number | null = null
 let _originalTransform = ''
@@ -668,26 +627,9 @@ useIntersectionObserver(
   },
   { threshold: 0.1 }
 )
+
 onMounted(async () => {
   trackHomePageView()
-
-  // 从 localStorage 读取跑马灯滚轮灵敏度档位
-  const storedSensitivity = StorageManager.getItem<number>(STORAGE_KEYS.MARQUEE_WHEEL_SENSITIVITY)
-  if (storedSensitivity !== null) {
-    const idx = wheelSensitivityLevels.indexOf(storedSensitivity as 0.3 | 0.5 | 1.0)
-    if (idx >= 0) wheelSensitivityIndex.value = idx
-  }
-
-  // 从 localStorage 读取跑马灯暂停状态
-  const storedPaused = StorageManager.getItem<boolean>(STORAGE_KEYS.MARQUEE_PAUSED)
-  if (storedPaused !== null) marqueePaused.value = storedPaused === true
-
-  // 从 localStorage 读取跑马灯速度档位
-  const storedSpeed = StorageManager.getItem<number>(STORAGE_KEYS.MARQUEE_SPEED)
-  if (storedSpeed !== null) {
-    const idx = marqueeSpeedLevels.indexOf(storedSpeed as 0.5 | 1 | 2)
-    if (idx >= 0) marqueeSpeedIndex.value = idx
-  }
 
   try {
     await loadModule(getCurrentLocale(), 'home')
@@ -749,8 +691,6 @@ const handleMarqueeMouseDown = (e: MouseEvent) => {
   // 触摸设备上浏览器会模拟 mouse 事件，触摸后 500ms 内忽略鼠标事件避免冲突
   if (lastTouchTime && Date.now() - lastTouchTime < 500) return
   if (!marqueeTrackRef.value) return
-  // 暂停状态下不响应拖拽，方便用户静止查看
-  if (marqueePaused.value) return
 
   isMouseDown = true
 
@@ -810,8 +750,6 @@ const handleMarqueeMouseDown = (e: MouseEvent) => {
 // 触摸开始（移动端）
 const handleMarqueeTouchStart = (e: globalThis.TouchEvent) => {
   if (!marqueeTrackRef.value) return
-  // 暂停状态下不响应触摸拖拽
-  if (marqueePaused.value) return
 
   isTouchStart = true
   lastTouchTime = Date.now()
@@ -1025,19 +963,16 @@ const handleDocumentTouchEnd = (e: globalThis.TouchEvent) => {
 }
 
 // 鼠标滚轮控制跑马灯：滚轮上下滚动时跑马灯左右移动，停下后顺势滑一段
-// 灵敏度可调：localStorage 存 marquee_wheel_sensitivity，范围 0.2-2.0，默认 0.5
+// 灵敏度固定为 WHEEL_SENSITIVITY
 let wheelRafId: number | null = null
 let wheelDelta = 0
 let wheelVelocity = 0
 let wheelStopTimer: ReturnType<typeof setTimeout> | null = null
-const getWheelSensitivity = (): number => wheelSensitivityLevels[wheelSensitivityIndex.value]
 const handleMarqueeWheel = (e: WheelEvent) => {
   if (!marqueeTrackRef.value) return
-  // 暂停状态下不响应滚轮，让页面正常滚动
-  if (marqueePaused.value) return
   // 阻止页面默认滚动
   e.preventDefault()
-  const sensitivity = getWheelSensitivity()
+  const sensitivity = WHEEL_SENSITIVITY
   // 累积滚轮增量和速度
   wheelDelta += e.deltaY
   wheelVelocity = -e.deltaY * sensitivity
@@ -1109,8 +1044,6 @@ const startInertia = () => {
 
   const step = () => {
     if (!marqueeTrackRef.value) { inertiaId = null; return }
-    // 暂停状态下停止惯性滑动
-    if (marqueePaused.value) { inertiaId = null; return }
     if (Math.abs(dragVelocity) < minVelocity) {
       inertiaId = null
       startMarqueeAnimation()
@@ -1130,8 +1063,6 @@ const startInertia = () => {
 // 启动跑马灯动画（JavaScript控制）
 const startMarqueeAnimation = () => {
   if (!marqueeTrackRef.value || isDragging.value) return
-  // 暂停状态下不启动动画（防止 pending 的 setTimeout 启动新动画）
-  if (marqueePaused.value) return
   // 取消可能正在进行的惯性滑动
   if (inertiaId !== null) {
     cancelAnimationFrame(inertiaId)
@@ -1197,15 +1128,10 @@ const startMarqueeAnimation = () => {
         currentPosition -= originalWidth
       }
 
-      const speed = marqueeSpeed.value
+      const speed = MARQUEE_SPEED
 
       const animate = () => {
         if (!marqueeTrackRef.value || isDragging.value) {
-          animationId = null
-          return
-        }
-        // 暂停状态下停止动画循环
-        if (marqueePaused.value) {
           animationId = null
           return
         }
@@ -1315,6 +1241,7 @@ const getMarqueeImageSrc = (index: number) => {
   if (index === 12) return brand14Icon
   if (index === 13) return brand15Icon
   if (index === 14) return brand16Icon
+  if (index === 15) return n8nIcon
   return '/images/logo.svg'
 }
 
@@ -1322,19 +1249,19 @@ const getMarqueeImageSrc = (index: number) => {
 const getMarqueeImageAlt = (index: number) => {
   if (index === 1) return t('home.marquee.kouzi')
   if (index === 2) return t('home.marquee.bbxLogo')
-  if (index === 3) return t('home.marquee.brand4')
-  if (index === 4) return t('home.marquee.openai')
-  if (index === 5) return t('home.marquee.zhipu')
-  if (index === 6) return t('home.marquee.gork')
-  if (index === 7) return t('home.marquee.brand8')
-  if (index === 8) return t('home.marquee.ali')
-  if (index === 9) return t('home.marquee.tencent')
-  if (index === 10) return t('home.marquee.huawei')
-  if (index === 11) return t('home.marquee.baidu')
-  if (index === 12) return t('home.marquee.yuanbaoxiang')
-  if (index === 13) return t('home.marquee.yushu')
-  if (index === 14) return t('home.marquee.dbsfdx')
-  if (index === 15) return t('home.marquee.jldx')
+  if (index === 3) return t('home.marquee.openai')
+  if (index === 4) return t('home.marquee.zhipu')
+  if (index === 5) return t('home.marquee.gork')
+  if (index === 6) return t('home.marquee.brand8')
+  if (index === 7) return t('home.marquee.ali')
+  if (index === 8) return t('home.marquee.tencent')
+  if (index === 9) return t('home.marquee.huawei')
+  if (index === 10) return t('home.marquee.baidu')
+  if (index === 11) return t('home.marquee.yuanbaoxiang')
+  if (index === 12) return t('home.marquee.yushu')
+  if (index === 13) return t('home.marquee.dbsfdx')
+  if (index === 14) return t('home.marquee.jldx')
+  if (index === 15) return t('home.marquee.n8n')
   return `Brand ${index}`
 }
 
@@ -1393,24 +1320,6 @@ const handleImageLoad = (event: Event, index: number) => {
 </script>
 
 <style scoped lang="scss">
-.wheel-sensitivity-btn {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  min-height: 36px;
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  background: var(--el-bg-color);
-  color: var(--el-text-color-regular);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.wheel-sensitivity-btn:hover {
-  background: var(--el-fill-color-light);
-}
-
 .miniapp-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1446,10 +1355,10 @@ const handleImageLoad = (event: Event, index: number) => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-gray-999);
   
   &:hover {
-    color: var(--el-text-color-primary);
+    color: var(--color-gray-333);
   }
 }
 
@@ -1466,7 +1375,7 @@ const handleImageLoad = (event: Event, index: number) => {
 
 .miniapp-scan-tip {
   font-size: 14px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
 }
 </style>
 

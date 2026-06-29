@@ -65,15 +65,15 @@ const loadCaptcha = async () => {
     loading.value = true
 
     // 调用后端API获取验证码
-    const response: any = await getCaptcha()
+    const response = await getCaptcha() as unknown as Record<string, unknown>
 
     // 支持多种后端响应格式:
     //   1) 标准风格: { code: 200, msg, img, uuid }
     //   2) 统一封装: { success: true, data: { img, uuid } }
     //   3) 直接返回: { img, uuid }
-    let captchaData: any = response
-    if (response && typeof response === 'object' && 'data' in response && response.data && typeof response.data === 'object' && ('img' in response.data || 'uuid' in response.data)) {
-      captchaData = response.data
+    let captchaData: Record<string, unknown> = response
+    if (response && typeof response === 'object' && 'data' in response && response.data && typeof response.data === 'object' && ('img' in (response.data as Record<string, unknown>) || 'uuid' in (response.data as Record<string, unknown>))) {
+      captchaData = response.data as Record<string, unknown>
     }
 
     const isSuccess =
@@ -86,9 +86,9 @@ const loadCaptcha = async () => {
 
     if (isSuccess) {
       // 获取验证码图片（base64格式）
-      const imgData: string | undefined = captchaData.img || captchaData.captchaImage || captchaData.image
+      const imgData: string | undefined = (captchaData.img || captchaData.captchaImage || captchaData.image) as string | undefined
       // 获取UUID（用于登录时提交）
-      const uuidRaw: string = captchaData.uuid || captchaData.captchaId || `captcha_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const uuidRaw: string = (captchaData.uuid || captchaData.captchaId || `captcha_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`) as string
       const uuid = typeof uuidRaw === 'string' ? uuidRaw : String(uuidRaw)
 
       if (imgData) {
@@ -105,7 +105,7 @@ const loadCaptcha = async () => {
         throw new Error(t('error.captcha_input.验证码图片数据为空'))
       }
     } else {
-      throw new Error(captchaData?.msg || '获取验证码失败')
+      throw new Error(String(captchaData?.msg || '获取验证码失败'))
     }
   } catch (error) {
     logger.error('[CaptchaInput] Failed to load captcha', error instanceof Error ? error : new Error(String(error)))

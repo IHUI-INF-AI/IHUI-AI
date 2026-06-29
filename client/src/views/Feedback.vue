@@ -11,8 +11,8 @@
         <!-- 视图切换 -->
         <div class="view-toggle">
           <el-radio-group v-model="pageView" @change="handleViewChange">
-            <el-radio-button value="list">{{ t('Feedback.feedbackRecords') }}</el-radio-button>
-            <el-radio-button value="form">{{ t('Feedback.submitFeedback') }}</el-radio-button>
+            <el-radio-button value="list">{ t('feedback.feedbackRecords') }</el-radio-button>
+            <el-radio-button value="form">{ t('feedback.submitFeedback') }</el-radio-button>
           </el-radio-group>
         </div>
 
@@ -49,7 +49,6 @@
                   :key="idx"
                   :src="img"
                   class="item-image-thumb"
-                  alt="缩略图"
                   loading="lazy"
                 />
                 <span v-if="item.images.length > 3" class="more-images">+{{ item.images.length - 3 }}</span>
@@ -59,7 +58,7 @@
 
           <div v-if="listLoading" class="list-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
-            <span>{{ t('Feedback.loading') }}</span>
+            <span>{ t('feedback.loading') }</span>
           </div>
         </section>
 
@@ -148,7 +147,7 @@
                 <div class="preview-grid" v-if="uploadedImages.length">
                   <div v-for="(img, i) in uploadedImages" :key="i" class="preview-item">
                     <img :src="img.preview" alt="反馈图片" loading="lazy" />
-                    <button :aria-label="t('common.deleteImage')" @click.stop="removeImage(i)">×</button>
+                    <button aria-label="删除图片" @click.stop="removeImage(i)">×</button>
                   </div>
                 </div>
               </div>
@@ -191,7 +190,7 @@ import { useI18n } from 'vue-i18n'
 import { UploadCloud, Loading } from '@/lib/lucide-fallback'
 import { ElMessage } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { submitFeedback as submitFeedbackApi, getFeedbacks, type Feedback } from '@/api/content/feedback'
+import { submitFeedback as submitFeedbackApi, getFeedbacks, type Feedback } from '@/api/feedback'
 import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
@@ -302,7 +301,7 @@ const submitFeedback = async () => {
         transId.value = Math.floor(Math.random() * 9000 + 1000)
         loadFeedbackList()
       } catch {
-        ElMessage.error(t('Feedback.submitFailed'))
+        ElMessage.error(t('feedback.submitFailed'))
       } finally {
         isSubmitting.value = false
       }
@@ -397,9 +396,9 @@ onMounted(() => {
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    transition: border-color 0.3s, color 0.3s, opacity 0.3s;
+    transition: all 0.3s;
     .ico { font-size: 20px; filter: grayscale(1); }
-    .label { font-family: var(--font-family-mono); font-size: 9px; font-weight: 800; }
+    .label { font-family: var(--font-family-mono); font-size: 12px; font-weight: 800; }
     &.active { border: 2px solid var(--border-unified-color-hover); color: var(--el-text-color-primary); .ico { filter: grayscale(0); } }
     &:hover:not(.active) { border: 2px solid var(--border-unified-color-hover); color: var(--el-text-color-regular); }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -412,7 +411,7 @@ onMounted(() => {
   padding: 20px;
   border-radius: var(--global-border-radius);
   :deep(.el-textarea__inner) { background: transparent; border: none; box-shadow: none; color: var(--el-text-color-primary); font-family: var(--font-family-mono); font-size: 14px; padding: 0; }
-  .console-footer { display: flex; justify-content: space-between; margin-top: 20px; font-family: var(--font-family-mono); font-size: 9px; font-weight: 800; color: var(--el-text-color-secondary); }
+  .console-footer { display: flex; justify-content: space-between; margin-top: 20px; font-family: var(--font-family-mono); font-size: 12px; font-weight: 800; color: var(--el-text-color-secondary); }
 }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
@@ -434,7 +433,7 @@ onMounted(() => {
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  transition: border-color 0.3s, background-color 0.3s;
+  transition: all 0.3s;
   .upload-ico { color: var(--el-text-color-secondary); font-size: 24px; }
   .upload-txt { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
   &:hover, &.active { border: 2px solid var(--border-unified-color-hover); background: var(--el-fill-color-light); .upload-ico, .upload-txt { color: var(--el-color-primary); } }
@@ -464,7 +463,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 40px;
-  .btn-transmit { background: var(--el-text-color-primary); color: var(--el-bg-color-page); border: none; padding: 16px 40px; border-radius: var(--global-border-radius); font-family: var(--font-family-mono); font-size: 13px; font-weight: 900; cursor: pointer; transition: background-color 0.3s, color 0.3s; &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); } }
+  .btn-transmit { background: var(--el-text-color-primary); color: var(--el-bg-color-page); border: none; padding: 16px 40px; border-radius: var(--global-border-radius); font-family: var(--font-family-mono); font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.3s; &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); } }
   .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
 
@@ -480,11 +479,11 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   padding: 20px;
   cursor: pointer;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     border-color: var(--el-color-primary);
-    
+    transform: translateY(-2px);
   }
 
   .item-header {
@@ -574,7 +573,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
 }
 
-:where(html.dark) .feedback-page {
+html.dark .feedback-page {
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
 }

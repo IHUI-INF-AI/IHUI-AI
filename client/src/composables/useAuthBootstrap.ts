@@ -15,7 +15,7 @@ import { logger } from '@/utils/logger'
 export interface SsoCallbackResult {
   success: boolean
   hadSsoParams: boolean
-  error?: any
+  error?: unknown
 }
 
 /**

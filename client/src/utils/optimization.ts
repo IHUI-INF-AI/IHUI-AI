@@ -163,7 +163,7 @@ export function initOptimization(): void {
  * 请求去重器
  * 防止相同的请求在短时间内重复发送
  */
-export function requestDeduplicator<T extends (...args: any[]) => Promise<unknown>>(
+export function requestDeduplicator<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
   keyGenerator?: (...args: Parameters<T>) => string
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {

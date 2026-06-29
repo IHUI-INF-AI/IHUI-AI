@@ -1,15 +1,15 @@
 {
   "liveList": {
+    "title": "直播列表",
+    "subtitle": "观看直播",
     "all": "全部",
-    "badgeLiving": "badge Living",
-    "badgePreview": "badge 预览",
-    "badgeReplay": "badge 回放",
-    "empty": "空",
-    "host": "主机",
-    "living": "living",
-    "preview": "预览",
+    "living": "直播中",
+    "preview": "即将开播",
     "replay": "回放",
-    "subtitle": "副标题",
-    "title": "标题"
+    "empty": "暂无直播",
+    "badgeLiving": "直播中",
+    "badgePreview": "即将开播",
+    "badgeReplay": "回放",
+    "host": "主播："
   }
 }

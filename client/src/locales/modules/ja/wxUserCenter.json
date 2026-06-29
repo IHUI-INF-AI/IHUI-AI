@@ -1,1 +1,11 @@
-{}
+{
+  "wxUserCenter": {
+    "title": "件人センター",
+    "description": "WeChatミニプログラム件人センター",
+    "userNickname": "ユーザーニックネーム",
+    "userId": "ユーザーID",
+    "settings": "設定",
+    "orders": "注文",
+    "favorites": "お気に入り"
+  }
+}

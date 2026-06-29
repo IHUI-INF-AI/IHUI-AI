@@ -13,7 +13,7 @@ import { t } from '@/utils/i18n'
 import { logger } from '@/utils/logger'
 import type { ApiResponse } from '@/types'
 import httpRequest from '@/utils/request'
-import { getAvailableModels } from '@/api/models/models'
+import { getAvailableModels } from '@/api/models'
 
 // ============================================================================
 // 类型定义
@@ -313,7 +313,7 @@ class UnifiedGenerationService {
             displayName.includes('通义') ||
             displayName.includes('万相')
           )
-        }) as (import('@/api/models/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
+        }) as (import('@/api/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
 
         if (!imageModel?.remark) {
           throw new Error(
@@ -507,11 +507,11 @@ class UnifiedGenerationService {
       }
       
       case 'sora-video': {
-        const { soraRequest } = await import('../ai/ai-models')
+        const { soraRequest } = await import('../ai-models')
         const response = await soraRequest({
           prompt: request.prompt,
           ...request.metadata,
-        }) as { data?: any }
+        }) as { data?: unknown }
         
         const data = response.data as { taskId?: string; task_id?: string } | undefined
         return {
@@ -565,7 +565,7 @@ class UnifiedGenerationService {
           user_uuid: request.userUuid,
           chat_id: request.chatId,
           model: request.metadata?.model as string,
-          zidingyican: request.metadata?.zidingyican as Array<{ name: string; value: any }>,
+          zidingyican: request.metadata?.zidingyican as Array<{ name: string; value: unknown }>,
         },
         (message) => {
           const msg = message as {
@@ -654,11 +654,11 @@ class UnifiedGenerationService {
   ): Promise<ApiResponse<UnifiedGenerationResponse>> {
     switch (provider) {
       case 'ali-timbre': {
-        const { aliGenerateTimbre } = await import('../ai/ai-models')
+        const { aliGenerateTimbre } = await import('../ai-models')
         const response = await aliGenerateTimbre({
           prompt: request.prompt,
           ...request.metadata,
-        }) as { data?: any }
+        }) as { data?: unknown }
         
         const data = response.data as { url?: string; audio_url?: string } | undefined
         return {
@@ -677,13 +677,13 @@ class UnifiedGenerationService {
       
       case 'cosyvoice': {
         // CosyVoice语音合成
-        const { audioStart, audioEnd } = await import('../ai/ai-models')
+        const { audioStart, audioEnd } = await import('../ai-models')
         const startResponse = await audioStart({
           prompt: request.prompt,
           voice: request.voice,
           speed: request.speed,
           ...request.metadata,
-        }) as { data?: any }
+        }) as { data?: unknown }
         
         const taskData = startResponse.data as { taskId?: string; id?: string } | undefined
         const taskId = taskData?.taskId || taskData?.id
@@ -693,7 +693,7 @@ class UnifiedGenerationService {
           let attempts = 0
           while (attempts < 30) {
             await new Promise(resolve => setTimeout(resolve, 1000))
-            const endResponse = await audioEnd(taskId) as { data?: any }
+            const endResponse = await audioEnd(taskId) as { data?: unknown }
             const endData = endResponse.data as { status?: string; url?: string; audio_url?: string } | undefined
             
             if (endData?.status === 'completed' || endData?.url) {
@@ -929,7 +929,7 @@ class UnifiedGenerationService {
   }
 
   private createErrorResponse(
-    error: any,
+    error: unknown,
     type: GenerationType,
     provider: GenerationProvider
   ): ApiResponse<UnifiedGenerationResponse> {

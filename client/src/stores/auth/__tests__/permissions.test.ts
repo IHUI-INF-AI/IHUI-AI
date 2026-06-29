@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { StorageManager } from '@/utils/storage'
-import { isLoginExpired, isExpiryTimePassed } from '@/utils/login-duration'
+import { isLoginExpired } from '@/utils/login-duration'
 import { usePermissionsStore } from '../permissions'
 import { useUserStore } from '../user'
 import { useTokenStore } from '../token'
@@ -36,7 +36,6 @@ vi.mock('@/utils/storage', () => ({
 
 vi.mock('@/utils/login-duration', () => ({
   isLoginExpired: vi.fn(() => false),
-  isExpiryTimePassed: vi.fn(() => false),
   calculateExpiryTime: () => Date.now() + 7 * 24 * 60 * 60 * 1000,
   DEFAULT_LOGIN_DURATION: 7 * 24 * 60 * 60 * 1000,
   LOGIN_DURATION_OPTIONS: {},
@@ -60,7 +59,7 @@ describe('permissions store', () => {
   it('有 token 和 user 但 token 过期则 isLoggedIn=false', () => {
     const user = useUserStore()
     const token = useTokenStore()
-    vi.mocked(isExpiryTimePassed).mockReturnValueOnce(true)
+    vi.mocked(isLoginExpired).mockReturnValueOnce(true)
     user.user = { uuid: 'u1', status: 1, isVip: false } as any
     token.token = 'tk'
     vi.mocked(StorageManager.getItem).mockImplementation((key: string) => {

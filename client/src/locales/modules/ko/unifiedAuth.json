@@ -1,7 +1,7 @@
 {
   "unifiedAuth": {
-    "loginInfoParseFailed": "loginInfoParseFailed",
-    "loginSuccess": "登录成功",
-    "logoutSuccess": "logoutSuccess"
+    "loginSuccess": "login성공",
+    "loginInfoParseFailed": "loginInfoParse실패",
+    "logoutSuccess": "logout성공"
   }
 }

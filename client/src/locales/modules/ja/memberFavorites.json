@@ -1,11 +1,11 @@
 {
   "memberFavorites": {
-    "article": "文章",
-    "ask": "提问",
-    "circle": "圈子",
-    "lesson": "课时",
-    "live": "直播",
-    "noFavorites": "noFavorites",
-    "title": "标题"
+    "title": "お気に入り",
+    "lesson": "コース",
+    "ask": "Q&A",
+    "circle": "サークル",
+    "article": "記事",
+    "live": "ライブ",
+    "noFavorites": "お気に入りなし"
   }
 }

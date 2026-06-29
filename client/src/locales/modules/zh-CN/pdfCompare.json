@@ -1,7 +1,7 @@
 {
   "pdfCompare": {
-    "fileA": "文件 a",
-    "fileB": "文件 b",
+    "fileA": "文件A",
+    "fileB": "文件B",
     "selectFile": "选择文件"
   }
 }

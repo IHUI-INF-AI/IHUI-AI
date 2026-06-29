@@ -67,7 +67,7 @@ export function useXuqiuGrid(options: UseXuqiuGridOptions) {
   const calculateGridRows = (
     pageSizeRef?: { value: number },
     loadingRef?: { value: boolean },
-    dataListRef?: { value: any[] },
+    dataListRef?: { value: unknown[] },
     getDataFn?: () => Promise<void>
   ): void => {
     if (!demandListRef.value) return
@@ -283,7 +283,7 @@ export function useXuqiuGrid(options: UseXuqiuGridOptions) {
   const calculateGridRowsWithData = (
     pageSizeRef: { value: number },
     loadingRef: { value: boolean },
-    dataListRef: { value: any[] },
+    dataListRef: { value: unknown[] },
     getDataFn: () => Promise<void>
   ): void => {
     calculateGridRows(pageSizeRef, loadingRef, dataListRef, getDataFn)

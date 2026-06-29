@@ -4,6 +4,11 @@
       "category": "카테고리 검색",
       "list": "리소스 검색",
       "tag": "태그 검색"
+    },
+    "label": {
+      "categoryName": "카테고리명",
+      "tagName": "태그명",
+      "actions": "작업"
     }
   }
 }

@@ -14,7 +14,7 @@ import {
   getSkillsListFromBackend,
   getSkillMetadataFromBackend,
   getSkillContentFromBackend,
-} from '@/api/skills/skills-backend'
+} from '@/api/skills-backend'
 import type {
   SkillMetadata,
   SkillContent,
@@ -619,7 +619,7 @@ ${skill.instructions}
         url: `/api/skills/${skillName}/resources/${resourceType}`,
         method: 'POST',
         data: { path: resourcePath },
-      }) as { success?: boolean; data?: any }
+      }) as { success?: boolean; data?: unknown }
 
       if (response && response.success && response.data) {
         const content = response.data as string

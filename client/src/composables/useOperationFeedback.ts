@@ -15,15 +15,15 @@ const MESSAGE_OFFSET = 70
 
 export interface OperationFeedbackOptions {
   /** 成功消息（可以是字符串或函数） */
-  successMessage?: string | ((data?: any) => string)
+  successMessage?: string | ((data?: unknown) => string)
   /** 失败消息（可以是字符串或函数） */
-  errorMessage?: string | ((data?: any) => string)
+  errorMessage?: string | ((data?: unknown) => string)
   /** 是否静默失败（不显示错误消息） */
   silent?: boolean
   /** 成功回调 */
-  onSuccess?: (data?: any) => void
+  onSuccess?: (data?: unknown) => void
   /** 失败回调 */
-  onError?: (error: any) => void
+  onError?: (error: unknown) => void
 }
 
 /**
@@ -66,7 +66,7 @@ export function useOperationFeedback() {
         options.onError?.(response)
         return null
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (!options.silent) {
         const errorMessage =
           options.errorMessage ||

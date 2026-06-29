@@ -18,7 +18,7 @@ export interface ApiResponse<T = unknown> {
 /**
  * API响应处理函数类型
  */
-export type ApiResponseHandler<T = unknown> = (...args: any[]) => Promise<ApiResponse<T>>
+export type ApiResponseHandler<T = unknown> = (...args: unknown[]) => Promise<ApiResponse<T>>
 
 /**
  * 网络错误类型
@@ -26,7 +26,7 @@ export type ApiResponseHandler<T = unknown> = (...args: any[]) => Promise<ApiRes
 export interface NetworkError extends Error {
   isNetworkError: boolean
   code?: string
-  response?: any
+  response?: unknown
 }
 
 /**
@@ -34,7 +34,7 @@ export interface NetworkError extends Error {
  * @param error 错误对象
  * @returns 是否为网络错误
  */
-export function isNetworkError(error: any): error is NetworkError {
+export function isNetworkError(error: unknown): error is NetworkError {
   const err = error as { code?: string; message?: string }
   return !!(
     error &&
@@ -53,10 +53,10 @@ export function isNetworkError(error: any): error is NetworkError {
  * @param response 原始响应
  * @returns 标准化的API响应
  */
-export function normalizeApiResponse<T = unknown>(response: any): ApiResponse<T> {
+export function normalizeApiResponse<T = unknown>(response: unknown): ApiResponse<T> {
   // 处理 axios 响应格式（response.data 包含实际数据）
   if (response && typeof response === 'object' && 'data' in response) {
-    const axiosResponse = response as { data: any; status?: number }
+    const axiosResponse = response as { data: unknown; status?: number }
     const responseData = axiosResponse.data
 
     // 如果 data 已经是标准格式
@@ -199,9 +199,7 @@ export function extractData<T = unknown>(response: ApiResponse<T>): T {
  * @returns 是否成功
  */
 export function isSuccessResponse<T = unknown>(response: ApiResponse<T>): boolean {
-  // 兼容后端 code="0" (成功) / code=200 / code=10000
-  // response.code 已在 normalizeApiResponse 中转换为数字
-  return response.success && (response.code === 0 || (response.code >= 200 && response.code < 300))
+  return response.success && response.code >= 200 && response.code < 300
 }
 
 /**

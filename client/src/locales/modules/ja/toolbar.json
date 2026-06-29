@@ -1,58 +1,58 @@
 {
   "toolbar": {
     "agents": {
-      "title": "标题"
+      "title": "独家開発 AI Agent適用"
     },
     "marketing": {
-      "desc": "描述",
-      "title": "标题"
+      "title": "运营コンテンツ生成",
+      "desc": "智能生成各类营销コンテンツ，向上运营効率"
     },
     "menu": {
-      "aiTechnicalServices": "aiTechnicalServices",
-      "oneStopEquipment": "oneStopEquipment",
-      "trafficOperation": "trafficOperation"
+      "trafficOperation": "流量运营陪跑",
+      "oneStopEquipment": "一站式デバイス適用",
+      "aiTechnicalServices": "AIその他技術サービス"
     },
     "tools": {
       "categories": {
-        "creativeDesign": "creativeDesign"
+        "creativeDesign": "创意デザイン"
       },
       "items": {
-        "copy": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "creator": "创建者",
-        "digital": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "edit": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
+        "creator": "システム管理员",
         "image": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
-        },
-        "live": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+          "title": "画像生成",
+          "desc": "AI生成高品質画像",
+          "tag1": "画像",
+          "tag2": "デザイン"
         },
         "video": {
-          "desc": "描述",
-          "tag1": "tag1",
-          "tag2": "tag2",
-          "title": "标题"
+          "title": "動画生成",
+          "desc": "AI生成専門動画",
+          "tag1": "動画",
+          "tag2": "动画"
+        },
+        "copy": {
+          "title": "文案生成",
+          "desc": "AI智できる文案创作",
+          "tag1": "文案",
+          "tag2": "写作"
+        },
+        "edit": {
+          "title": "動画編集",
+          "desc": "智能動画剪辑ツール",
+          "tag1": "剪辑",
+          "tag2": "編集"
+        },
+        "live": {
+          "title": "直播助手",
+          "desc": "AI直播辅助ツール",
+          "tag1": "直播",
+          "tag2": "相互作用"
+        },
+        "digital": {
+          "title": "数字人",
+          "desc": "AI数字人生成",
+          "tag1": "数字人",
+          "tag2": "虚拟イメージ"
         }
       }
     }

@@ -11,10 +11,10 @@ export interface ThemeBackup {
 
 export interface ThemeBackupData {
   themeMode: ThemeMode
-  presets: any[]
-  schedules: any[]
-  shortcuts: any[]
-  transition: any
+  presets: unknown[]
+  schedules: unknown[]
+  shortcuts: unknown[]
+  transition: unknown
   customVariables: Record<string, string>
 }
 

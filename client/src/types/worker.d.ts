@@ -15,7 +15,7 @@ interface WorkerResponse<T = unknown> {
 }
 
 interface WorkerTask {
-  resolve: (value: any) => void
+  resolve: (value: unknown) => void
   reject: (error: Error) => void
 }
 
@@ -115,7 +115,7 @@ interface PushEvent extends ExtendableEvent {
 }
 
 interface PushMessageData {
-  json(): any
+  json(): unknown
   text(): string
   arrayBuffer(): ArrayBuffer
   blob(): Blob
@@ -141,7 +141,7 @@ interface Client {
   id: string
   type: ClientTypes
   url: string
-  postMessage(message: any, transfer?: TransferableType[]): void
+  postMessage(message: unknown, transfer?: TransferableType[]): void
 }
 
 interface WindowClient extends Client {

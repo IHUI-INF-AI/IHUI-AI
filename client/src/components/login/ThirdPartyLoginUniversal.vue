@@ -55,7 +55,7 @@ interface ThirdPartyMethod {
   enabled: boolean
   iconUrl?: string
   darkIconUrl?: string
-  component?: any
+  component?: unknown
 }
 
 interface Props {
@@ -70,7 +70,7 @@ interface Props {
 
 interface Emits {
   (e: 'method-click', method: ThirdPartyMethod): void
-  (e: 'method-success', method: ThirdPartyMethod, result: any): void
+  (e: 'method-success', method: ThirdPartyMethod, result: unknown): void
   (e: 'method-error', method: ThirdPartyMethod, error: Error): void
 }
 
@@ -95,13 +95,6 @@ const errorMessage = ref('')
 
 // 默认第三方登录方法
 const defaultMethods: ThirdPartyMethod[] = [
-
-  {
-    key: 'alipay',
-    name: t('data.third_party_login_universal.支付宝'),
-    enabled: true,
-    iconUrl: '/images/loginSANFANG/支付宝支付.svg',
-  },
   {
     key: 'google',
     name: 'Google',
@@ -177,8 +170,6 @@ const handleThirdPartyLogin = async (method: ThirdPartyMethod) => {
   await new Promise(resolve => setTimeout(resolve, 1000))
 
   switch (method.key) {
-    case 'alipay':
-      break
     case 'google':
       break
     case 'apple':
@@ -235,7 +226,7 @@ defineExpose({
 </script>
 
 <style scoped>
-.third-party-login-universal {
+.third-party-login {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -287,7 +278,7 @@ defineExpose({
   cursor: pointer;
   padding: 8px;
   border-radius: var(--global-border-radius);
-  transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+  transition: all 0.2s ease;
   position: relative;
   max-width: 36px;
   min-width: 36px;
@@ -315,17 +306,18 @@ defineExpose({
   padding: 10px 16px;
   white-space: nowrap;
   
-  /* 视觉样式 - 明亮模式 */
-  background: var(--color-black-85);
-  color: var(--el-bg-color);
+  /* 视觉样式 - 明暗模式自动切换（语义变量随主题变化）*/
+  background: var(--el-bg-color-overlay);
+  color: var(--el-text-color-primary);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.5;
   text-align: center;
   letter-spacing: 0.2px;
-  
-  /* 圆角和阴影 */
+
+  /* 圆角和边框（扁平化：禁用 box-shadow）*/
   border-radius: var(--global-border-radius);
+  border: var(--unified-border);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   
@@ -335,7 +327,7 @@ defineExpose({
   pointer-events: none;
   
   /* 动画过渡 - HMR */
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Hover 状态 - 显示提示窗口 */
@@ -348,7 +340,7 @@ defineExpose({
 /* Hover 状态 - 按钮背景效果 */
 .third-party-icon:hover {
   background-color: var(--el-bg-color-hover);
-  
+  transform: translateY(-2px);
 }
 
 .third-party-icon.is-loading {
@@ -382,7 +374,7 @@ defineExpose({
   height: 32px;
   border-radius: var(--global-border-radius);
   background-color: var(--el-color-primary);
-  color: var(--color-on-primary);
+  color: var(--el-color-white);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -436,7 +428,7 @@ defineExpose({
   text-align: center;
   padding: 8px 12px;
   background-color: var(--el-color-danger-light-9);
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius-sm, 4px);
   width: 100%;
   box-sizing: border-box;
 }
@@ -475,39 +467,27 @@ defineExpose({
 }
 
 /* 暗色模式适配 */
-:where(html.dark) .divider-line {
+html.dark .divider-line {
   background-color: var(--el-border-color);
 }
 
-:where(html.dark) .divider-text {
+html.dark .divider-text {
   color: var(--el-text-color-secondary);
 }
 
-:where(html.dark) .third-party-icon:hover {
+html.dark .third-party-icon:hover {
   background-color: var(--el-bg-color-overlay);
 }
 
-/* 暗色模式 - 提示窗口 */
-:where(html.dark) .third-party-icon::after {
-  background: var(--color-white-92);
-  color: var(--el-text-color-primary);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
-  letter-spacing: 0.2px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-:where(html.dark) .loading-overlay {
+html.dark .loading-overlay {
   background-color: var(--color-black-80);
 }
 
-:where(html.dark) .platform-name {
+html.dark .platform-name {
   color: var(--el-text-color-secondary);
 }
 
-:where(html.dark) .error-message {
+html.dark .error-message {
   background-color: var(--el-color-danger-dark-2);
   color: var(--el-color-danger-light-3);
 }

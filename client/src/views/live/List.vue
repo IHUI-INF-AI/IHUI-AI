@@ -70,11 +70,11 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import LearnPage from '@/components/learn/Page.vue'
-import { liveApi } from '@/api/learn/live'
+import { liveApi } from '@/api/live'
 
 const { t } = useI18n()
 const router = useRouter()
-const list = ref<any[]>([])
+const list = ref<unknown[]>([])
 const total = ref(0)
 const loading = ref(false)
 const status = ref<number | ''>('')
@@ -84,11 +84,11 @@ const size = ref(12)
 async function load() {
   loading.value = true
   try {
-    const res: any = await liveApi.list({
+    const res = await liveApi.list({
       page: page.value,
       pageSize: size.value,
-      status: status.value === '' ? undefined : (status.value as any),
-    } as any)
+      status: status.value === '' ? undefined : status.value,
+    }) as unknown as { data?: { items?: unknown[]; list?: unknown[]; total?: number } }
     list.value = res.data?.items || res.data?.list || []
     total.value = res.data?.total || 0
   } finally {
@@ -102,8 +102,9 @@ function changeStatus(v: number | '') {
   load()
 }
 
-function goDetail(live: any) {
-  router.push({ path: `/live/${live.id}` })
+function goDetail(live: unknown) {
+  const item = live as Record<string, unknown>
+  router.push({ path: `/live/${item.id}` })
 }
 
 onMounted(load)
@@ -160,7 +161,7 @@ onMounted(load)
   }
 
   &.active {
-    color: var(--color-on-primary);
+    color: var(--el-color-white);
     background: var(--el-color-primary);
     border-color: var(--el-color-primary);
   }
@@ -184,7 +185,7 @@ onMounted(load)
   transition: transform 0.2s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
   }
 }
 

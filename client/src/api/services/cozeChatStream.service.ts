@@ -6,19 +6,6 @@
 import { COZE_PATHS } from '@/config/backend-paths'
 import type { ApiResponse } from '@/types'
 import { logger } from '@/utils/logger'
-import { getUserToken } from '@/utils/request'
-
-async function authFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {
-  const token = getUserToken()
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...((options.headers as Record<string, string>) || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-}
-
 
 /**
  * 流式消息回调
@@ -29,7 +16,7 @@ export type StreamChunkCallback = (chunk: {
   conversation_id?: string
   message_id?: string
   event?: string
-  data?: any
+  data?: unknown
 }) => void
 
 /**
@@ -78,7 +65,7 @@ export async function streamChat(
     if (typeof EventSource !== 'undefined' && !data.chat_history) {
       // EventSource仅支持GET请求，如果使用POST需要fallback到fetch
       // 这里使用fetch实现SSE
-      authFetch(sseUrl, {
+      fetch(sseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,7 +114,7 @@ export async function streamChat(
               .catch(reject)
           }
 
-          function handleEvent(eventData: any): void {
+          function handleEvent(eventData: unknown): void {
             const event = eventData as {
               event?: string
               data?: {
@@ -192,7 +179,7 @@ export async function streamChat(
         .catch(reject)
     } else {
       // 使用fetch实现SSE（POST请求）
-      authFetch(sseUrl, {
+      fetch(sseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,7 +228,7 @@ export async function streamChat(
               .catch(reject)
           }
 
-          function handleEvent(eventData: any): void {
+          function handleEvent(eventData: unknown): void {
             const event = eventData as {
               event?: string
               data?: {
@@ -310,7 +297,7 @@ export async function streamChat(
  */
 export async function chat(data: CozeStreamChatRequest): Promise<ApiResponse<unknown>> {
   try {
-    const response = await authFetch(COZE_PATHS.chat, {
+    const response = await fetch(COZE_PATHS.chat, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -334,7 +321,7 @@ export async function chat(data: CozeStreamChatRequest): Promise<ApiResponse<unk
       data: result,
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       code: 500,
       success: false,

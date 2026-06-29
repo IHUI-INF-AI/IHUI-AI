@@ -1,17 +1,39 @@
 {
   "distributionTeam": {
+    "title": "分销チーム",
+    "subtitle": "管理您的チームメンバー",
+    "searchPlaceholder": "検索チームメンバー",
+    "totalMembers": "合計Members",
+    "totalCommission": "合計佣金",
+    "noMembers": "なしMembers",
+    "transactionVolume": "交易体积",
     "commission": "佣金",
-    "inviteTime": "inviteTime",
-    "noMembers": "noMembers",
-    "orderCount": "orderCount",
-    "searchPlaceholder": "请输入搜索内容",
-    "subtitle": "副标题",
-    "tabActive": "tabActive",
-    "tabAll": "tabAll",
-    "tabInactive": "tabInactive",
-    "title": "标题",
-    "totalCommission": "totalCommission",
-    "totalMembers": "totalMembers",
-    "transactionVolume": "transactionVolume"
+    "orderCount": "順序カウント",
+    "inviteTime": "無効viteTime",
+    "tabAll": "Tab全て",
+    "tabActive": "Tabアクティビティ",
+    "tabInactive": "Tab非アクティビティ",
+    "tabs": {
+      "all": "全てメンバー",
+      "direct": "直推メンバー",
+      "indirect": "间推メンバー"
+    },
+    "stats": {
+      "totalMembers": "合計メンバー数：{count}",
+      "totalCommission": "合計佣金"
+    },
+    "member": {
+      "nickname": "ニックネーム",
+      "userId": "ユーザーID",
+      "level": "など级",
+      "orders": "注文数",
+      "commission": "佣金",
+      "joinTime": "参加時間",
+      "status": "ステータス"
+    },
+    "status": {
+      "active": "アクティブ",
+      "inactive": "非アクティブ"
+    }
   }
 }

@@ -62,7 +62,7 @@ export function useDebounceApi<T extends unknown[], R>(
 ) {
   // 使用 unknown 作为中间类型进行转换
   const debouncedFn = debounceApi(
-    apiFn as unknown as (...args: any[]) => Promise<ApiResponse<R>>,
+    apiFn as unknown as (...args: unknown[]) => Promise<ApiResponse<R>>,
     delay
   )
   return debouncedFn as unknown as (...args: T) => Promise<ApiResponse<R>>
@@ -77,7 +77,7 @@ export function useThrottleApi<T extends unknown[], R>(
 ) {
   // 使用 unknown 作为中间类型进行转换
   const throttledFn = throttleApi(
-    apiFn as unknown as (...args: any[]) => Promise<ApiResponse<R>>,
+    apiFn as unknown as (...args: unknown[]) => Promise<ApiResponse<R>>,
     interval
   )
   return throttledFn as unknown as (...args: T) => Promise<ApiResponse<R>>

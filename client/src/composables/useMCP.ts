@@ -15,13 +15,13 @@ import {
   type MCPTool,
   type MCPResource,
   type MCPPrompt,
-} from '@/api/tools/mcp'
+} from '@/api/mcp'
 import { useMCPPerformance } from './useMCPPerformance'
 
 // MCP 调用结果
 export interface MCPCallResult {
   success: boolean
-  data?: any
+  data?: unknown
   error?: string
   serverId: string
   toolName: string
@@ -54,7 +54,7 @@ export async function loadMCPServers(): Promise<void> {
         (s: { status: string }) => s.status === 'active'
       )
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const status = error && typeof error === 'object' && 'response' in error
       ? (error as { response?: { status?: number } }).response?.status
@@ -181,7 +181,7 @@ export async function invokeMCPTool(
     }
 
     return result
-  } catch (error: any) {
+  } catch (error: unknown) {
     const err = error as { message?: string }
     const result: MCPCallResult = {
       success: false,

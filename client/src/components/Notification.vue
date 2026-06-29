@@ -10,37 +10,17 @@
   >
     <div
       class="button-message user-info-button"
-      :class="{ 'dark-mode': isDarkMode }"
-      @click.stop="goToUserCenter"
-      :title="t('notification.viewUserCenter')"
+      :class="{ 'dark-mode': isDarkMode, 'has-unread': unreadCount > 0 }"
+      :title="t('notification.center')"
       style="cursor: pointer"
     >
-        <div class="content-avatar">
-          <div class="status-user"></div>
-          <div class="avatar">
-            <div v-if="currentUser?.avatar" class="user-avatar-img">
-              <img :src="currentUser.avatar" alt="user avatar" />
-            </div>
-            <svg v-else class="user-img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path
-                d="M12,12.5c-3.04,0-5.5,1.73-5.5,3.5s2.46,3.5,5.5,3.5,5.5-1.73,5.5-3.5-2.46-3.5-5.5-3.5Zm0-.5c1.66,0,3-1.34,3-3s-1.34-3-3-3-3,1.34-3,3,1.34,3,3,3Z"
-              ></path>
-            </svg>
-          </div>
-        </div>
-        <div class="notice-content">
-          <div class="username">{{ username }}</div>
-          <div class="lable-message">
-            <span>
-              {{ unreadCount > 0 ? t('notification.messages') : t('notification.center') }}
-            </span>
-            <span v-if="unreadCount > 0" class="number-message">
-              {{ unreadCount > 99 ? '99+' : unreadCount }}
-            </span>
-          </div>
-          <div class="user-id">℡{{ userId }}</div>
-        </div>
-      </div>
+      <el-icon class="notification-icon" aria-hidden="true">
+        <Bell />
+      </el-icon>
+      <span v-if="unreadCount > 0" class="notification-count">
+        {{ unreadCount > 99 ? '99+' : unreadCount }}
+      </span>
+    </div>
       <template #dropdown>
         <el-dropdown-menu class="notification-dropdown">
           <div class="notification-header">
@@ -126,11 +106,11 @@ import {
   type Message,
   MessageStatus,
   MessageType,
-} from '@/api/system/message'
+} from '@/api/message'
 import { useAuthStore } from '@/stores/auth'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { User, Loader2, LogOut } from '@/lib/lucide-fallback'
-import type { UserInfoData } from '@/api/user/user'
+import { Bell } from '@element-plus/icons-vue'
 
 interface Props {
   isDarkMode?: boolean
@@ -165,49 +145,6 @@ const loading = ref(false)
 
 const { t } = useI18n()
 const { showSuccess, showError } = useOperationFeedback()
-
-// 类型断言辅助函数
-const getUser = () => authStore.user as UserInfoData | null
-
-const username = computed(() => {
-  const user = getUser()
-  const nickname = user?.nickname
-  const usernameValue = user?.username || ''
-  
-  if (nickname === '最高管理员' || nickname === 'superAdmin') {
-    return t('common.superAdmin')
-  }
-  
-  return nickname || usernameValue || t('common.user')
-})
-
-const currentUser = computed(() => {
-  const user = getUser()
-
-  return {
-    avatar:
-      user?.avatar ||
-      localStorage.getItem('avatarPic') ||
-      '',
-    nickname: user?.nickname,
-    username: user?.username || ''
-  }
-})
-
-const userId = computed(() => {
-  // 优先显示手机号，如果没有则显示用户名
-  const user = getUser()
-  const phone = user?.phone
-  if (phone && phone !== '138****8888') {
-    // 如果手机号已经是脱敏格式（包含****），直接返回
-    if (phone.includes('****')) {
-      return phone
-    }
-    // 格式化手机号：显示前3位和后4位，中间用****隐藏
-    return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
-  }
-  return user?.username || user?.nickname || 'user'
-})
 
 // 未读数量
 const unreadCount = computed(() => messageStats.value.unread)
@@ -403,7 +340,7 @@ const handleLogout = async (event: Event) => {
       await router.replace('/login')
       // 成功跳转到登录页后，清除退出登录标志
       sessionStorage.removeItem('__logout_flag__')
-    } catch (routeError: any) {
+    } catch (routeError: unknown) {
       // 如果路由跳转失败（比如已经在登录页），使用 window.location 强制跳转
       const error = routeError as { name?: string }
       if (error.name !== 'NavigationDuplicated' && error.name !== 'NavigationRedirected') {
@@ -525,18 +462,10 @@ onMounted(() => {
 <style scoped lang="scss">
 // 组件级 CSS 变量定义 - 现在根元素是 el-dropdown
 .el-dropdown {
-  // --notif- 前缀的组件变量
-  --notif-text-color: var(--el-text-color-primary);
-  --notif-bg-color-sup: var(--el-border-color);
-  --notif-bg-color: transparent;
-  --notif-bg-hover-color: transparent;
-  --notif-online-status: var(--el-color-success);
-  --notif-font-size: 16px;
-  --notif-btn-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  // --notif- 前缀的组件变量（仅保留下拉菜单仍需要的）
   --notif-dropdown-bg: var(--el-bg-color-page);
   --notif-dropdown-border: var(--border-unified-color);
   --notif-btn-color: var(--el-text-color-regular);
-  --notif-btn-padding: 10px 15px;
   --notif-item-padding: 0;
 
   position: relative;
@@ -550,286 +479,77 @@ onMounted(() => {
   max-width: fit-content;
 }
 
-// 新的通知按钮样式
+// 通知图标按钮（28×28，与 sidebar-actions 内其他图标按钮风格统一）
 .button-message {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  font:
-    400 var(--notif-font-size) "Helvetica Neue",
-    sans-serif;
-  box-shadow: none;
-  background-color: var(--notif-bg-color);
-  border-radius: var(--global-border-radius);
+  background-color: transparent;
+  border-radius: var(--global-border-radius-sm, 4px);
   cursor: pointer;
-  padding: 6px 10px 6px 6px;
-  width: auto;
-  min-width: 0;
-  max-width: fit-content;
-  height: auto;
-  min-height: 36px;
+  padding: 0;
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
   border: none;
   position: relative;
-  transition: var(--notif-btn-transition);
+  transition: background-color 0.2s ease, transform 0.15s ease;
   box-sizing: border-box;
 
-  &.user-info-button:hover {
-    background-color: var(--notif-bg-hover-color);
-    border-radius: var(--global-border-radius);
-    transform: scale(1.02);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
   &:hover {
-    min-height: 36px;
-    max-height: 100px;
-    padding: 8px 20px 8px 8px;
-    background-color: var(--notif-bg-hover-color);
-    transition: var(--notif-btn-transition);
+    background-color: var(--el-fill-color-light);
   }
 
-  // 深色模式样式
+  // 深色模式样式（与浅色保持一致，依赖 el-fill-color-light 自动适配）
   &.dark-mode {
-    box-shadow: none;
-    background-color: var(--notif-bg-color);
+    background-color: transparent;
 
     &:hover {
-      background-color: var(--notif-bg-hover-color);
+      background-color: var(--el-fill-color-light);
     }
   }
 
   &:active {
-    transform: scale(0.99);
+    transform: scale(0.96);
   }
 }
 
-.content-avatar {
-  width: 30px;
-  height: 30px;
-  margin: 0;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  flex-shrink: 0;
+// 通知铃铛图标
+.notification-icon {
+  font-size: 16px;
+  color: var(--el-text-color-regular);
+  transition: color 0.2s ease;
 }
 
-.button-message:hover .content-avatar {
-  width: 36px;
-  height: 36px;
+// 有未读时图标高亮为主题色，引导用户点击
+.button-message.has-unread .notification-icon {
+  color: var(--el-color-primary);
 }
 
-.avatar {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--global-border-radius);
-  background-color: var(--el-bg-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+.button-message:hover .notification-icon {
+  color: var(--el-color-primary);
 }
 
-.user-avatar-img {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--global-border-radius);
-  position: relative;
-  
-  img {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    object-position: center;
-    border-radius: var(--global-border-radius);
-    display: block;
-    position: relative;
-    z-index: var(--z-base);
-  }
-}
-
-.user-img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  object-position: center;
-  border-radius: var(--global-border-radius);
-}
-
-.status-user {
+// 未读数角标（绝对定位右上角，扁平化红点）
+.notification-count {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  right: 1px;
-  bottom: 1px;
-  border-radius: var(--global-border-radius);
-  border: 2px solid var(--notif-bg-color);
-  outline: none;
-  background-color: var(--notif-online-status);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: active-status 2s ease-in-out infinite;
-}
-
-.button-message:hover .status-user {
-  width: 10px;
-  height: 10px;
-  right: 1px;
-  bottom: 1px;
-  border-width: 3px;
-  border-color: var(--notif-bg-hover-color);
-  outline: none;
-}
-
-.notice-content {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  padding-left: 8px;
-  text-align: initial;
-  color: var(--notif-text-color);
-  width: auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow: visible;
-  flex-shrink: 1;
-  flex-grow: 0;
-  box-sizing: border-box;
-}
-
-.username {
-  letter-spacing: -6px;
-  height: 0;
-  min-height: 0;
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), letter-spacing 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  width: auto;
-  margin: 0;
-  padding: 0;
-  line-height: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.user-id {
-  font-size: 12px;
-  letter-spacing: -6px;
-  height: 0;
-  min-height: 0;
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), letter-spacing 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  width: auto;
-  margin: 0;
-  padding: 0;
-  line-height: 0;
-}
-
-.lable-message {
-  display: flex;
-  align-items: center;
-  opacity: 1;
-  transform: scaleY(1);
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  overflow: hidden;
-  max-width: 100%;
-  width: auto;
-  flex-shrink: 1;
-  height: auto;
-  min-height: auto;
-  line-height: normal;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.button-message:hover .username {
-  height: auto;
-  min-height: auto;
-  max-height: 100px;
-  letter-spacing: normal;
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), letter-spacing 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  overflow: visible;
-  line-height: 1.2;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.button-message:hover .user-id {
-  height: auto;
-  min-height: auto;
-  max-height: 100px;
-  letter-spacing: normal;
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), letter-spacing 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-  overflow: visible;
-  line-height: 1.2;
-  display: block;
-  margin-top: 2px;
-}
-
-.button-message:hover .lable-message {
-  height: 0;
-  min-height: 0;
-  max-height: 0;
-  opacity: 0;
-  transform: scaleY(0);
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.number-message {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  box-sizing: border-box;
-  margin-left: 8px;
-  padding: 0 4px;
-  font-size: 12px;
+  top: -2px;
+  right: -2px;
   min-width: 16px;
   height: 16px;
-  background-color: var(--notif-bg-color-sup);
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  color: #fff;
+  background-color: var(--el-color-danger);
   border-radius: 8px;
-}
-
-@keyframes active-status {
-  0% {
-    background-color: var(--notif-online-status);
-  }
-
-  33.33% {
-    background-color: var(--el-bg-color);
-  }
-
-  66.33% {
-    background-color: var(--el-bg-color);
-  }
-
-  100% {
-    background-color: var(--notif-online-status);
-  }
+  box-sizing: border-box;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 // 注意：通知下拉菜单的样式已移至全局样式块（文件末尾）
@@ -872,7 +592,7 @@ body .notification-dropdown-popper.el-dropdown__popper {
     background: var(--el-bg-color-page);
 
     span {
-      font-weight: 700;
+      font-weight: bold;
       font-size: 16px;
       color: var(--el-text-color-primary);
     }

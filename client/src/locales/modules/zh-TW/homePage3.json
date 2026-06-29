@@ -1,12 +1,38 @@
 {
   "homePage3": {
-    "empty": {
-      "external": "external",
-      "platform": "platform"
-    },
     "tabs": {
-      "external": "external",
-      "platform": "platform"
+      "platform": "平台新聞",
+      "external": "AI資訊"
+    },
+    "empty": {
+      "platform": "暫無平台新聞",
+      "external": "暫無AI資訊"
+    },
+    "title": "最新資訊",
+    "titleEn": "LATEST NEWS",
+    "subtitle": "了解平台動態，掌握AI前沿",
+    "refresh": "刷新",
+    "refreshing": "刷新中...",
+    "summary": {
+      "default": "暫無摘要信息"
+    },
+    "date": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "daysAgo": "{days}天前",
+      "weeksAgo": "{weeks}週前",
+      "monthsAgo": "{months}個月前"
+    },
+    "messages": {
+      "fetching": "正在獲取最新新聞...",
+      "fetchSuccess": "成功獲取 {count} 條新聞，已保存 {saved} 條",
+      "fetchWarning": "未獲取到新新聞，請稍後再試",
+      "fetchError": "刷新失敗，請檢查網絡連接",
+      "viewNews": "查看新聞: {title}"
+    },
+    "errors": {
+      "loadFailed": "加載平台新聞失敗",
+      "apiLoadFailed": "API加載失敗，使用默認平台新聞"
     }
   }
 }

@@ -1,11 +1,11 @@
 {
   "ranking": {
     "title": "排行榜",
-    "subtitle": "查看最受欢迎的AI智能体和创作者",
-    "dayRank": "日排行",
-    "weekRank": "周排行",
-    "monthRank": "月排行",
-    "totalRank": "总排行",
-    "noData": "暂无数据"
+    "subtitle": "积分 · 学习 · 智能体",
+    "dayRank": "日榜",
+    "weekRank": "周榜",
+    "monthRank": "月榜",
+    "totalRank": "总榜",
+    "noData": "暂无排行数据"
   }
 }

@@ -1,0 +1,18 @@
+{
+  "pages": {
+    "index": {
+      "features": {
+        "hot": {},
+        "activity": {},
+        "service": {}
+      }
+    },
+    "login": {
+      "wechatAuth": {}
+    },
+    "userProfile": {
+      "userInfo": {},
+      "menu": {}
+    }
+  }
+}

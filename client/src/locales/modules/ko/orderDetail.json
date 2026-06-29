@@ -28,6 +28,7 @@
     "cancelOrderConfirm": "확인필요취소이주의문까？",
     "cancelOrderTitle": "취소주의문",
     "orderCancelled": "주의문완료취소",
+    "invoiceDownloadInDevelopment": "청구서 다운로드 기능 개발 중",
     "applyRefund": "신청요청환불",
     "refundReasonPlaceholder": "요청입력환불원래원인（필수，까지핵심5개글게일치）",
     "refundReasonRequired": "환불원래원인필수",
@@ -39,5 +40,6 @@
     "invoiceDownloadSuccess": "무효voiceDownload성공",
     "invoiceDownloadFailed": "무효voiceDownload실패",
     "title": "주의문상세"
-  }
+  },
+  "OrderDetail": {}
 }

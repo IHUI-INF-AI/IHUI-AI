@@ -48,7 +48,7 @@ const handleClick = () => {
 }
 
 /* 暗色模式下图标容器适配 */
-:where(html.dark) .feature-icon-box {
+html.dark .feature-icon-box {
   background-color: var(--el-fill-color-darker);
 }
 </style>

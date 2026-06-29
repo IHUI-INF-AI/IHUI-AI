@@ -1,19 +1,19 @@
 {
   "statisticsComponents": {
-    "passed": "passed",
-    "pending": "待处理",
-    "purchaseStats": "purchaseStats",
-    "rejected": "已拒绝",
-    "reviewStats": "reviewStats",
-    "settled": "settled",
-    "settlementStats": "settlementStats",
-    "totalPurchases": "totalPurchases",
-    "totalRevenue": "totalRevenue",
-    "totalReviews": "totalReviews",
-    "totalSettlements": "totalSettlements",
-    "totalWithdrawn": "totalWithdrawn",
-    "uniqueAgents": "uniqueAgents",
-    "uniqueBuyers": "uniqueBuyers",
-    "unsettled": "unsettled"
+    "reviewStats": "심생각 통계",
+    "totalReviews": "총 심생각 수",
+    "passed": "통과",
+    "pending": "대기 중",
+    "rejected": "거부",
+    "purchaseStats": "구매 통계",
+    "totalPurchases": "총 구매 수",
+    "totalRevenue": "총 수익",
+    "uniqueBuyers": "고유 구매게",
+    "uniqueAgents": "고유 에이전트",
+    "settlementStats": "정산 통계",
+    "totalSettlements": "총 정산 수",
+    "totalWithdrawn": "총 출금 금액",
+    "settled": "정산 완료",
+    "unsettled": "미정산"
   }
 }

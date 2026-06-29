@@ -110,7 +110,12 @@ onMounted(() => {
   min-width: 400px;
   max-width: 90vw;
   height: 60px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
+
+html.dark .search-popup-content {
+  box-shadow: var(--global-box-shadow);
+}
 
 .search-input-icon {
   flex-shrink: 0;
@@ -130,7 +135,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   cursor: pointer;
   outline: none;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   flex-shrink: 0;
 
   &:hover {
@@ -155,12 +160,12 @@ html:not(.dark) .search-close-button svg {
   stroke: var(--el-text-color-primary);
 }
 
-:where(html.dark) .search-input-icon {
-  color: var(--el-text-color-placeholder);
+html.dark .search-input-icon {
+  color: var(--color-gray-8d9095);
 }
 
-:where(html.dark) .search-close-button svg {
-  stroke: var(--el-border-color-lighter);
+html.dark .search-close-button svg {
+  stroke: var(--color-gray-cfd3dc);
 }
 
 @keyframes fadeIn {

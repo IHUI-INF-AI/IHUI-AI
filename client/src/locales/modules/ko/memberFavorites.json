@@ -1,11 +1,11 @@
 {
   "memberFavorites": {
-    "article": "文章",
-    "ask": "提问",
-    "circle": "圈子",
-    "lesson": "课时",
-    "live": "直播",
-    "noFavorites": "noFavorites",
-    "title": "标题"
+    "title": "내 즐겨찾기",
+    "lesson": "강의",
+    "ask": "Q&A",
+    "circle": "서클",
+    "article": "기사",
+    "live": "라이브",
+    "noFavorites": "즐겨찾기 없음"
   }
 }

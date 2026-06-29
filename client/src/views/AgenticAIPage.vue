@@ -15,7 +15,7 @@
 
     <el-row :gutter="20">
       <!-- 左侧：创建Swarm -->
-      <el-col :span="8" :xs="24">
+      <el-col :span="8">
         <el-card>
           <template #header>
             <span>{{ t('agenticAI.createSwarm') }}</span>
@@ -63,12 +63,12 @@
         </el-card>
 
         <!-- Swarm列表 -->
-        <el-card class="swarm-card">
+        <el-card style="margin-top: 20px">
           <template #header>
             <span>{{ t('agenticAI.mySwarm') }}</span>
           </template>
 
-          <el-table :data="swarmList" class="full-width">
+          <el-table :data="swarmList" style="width: 100%">
             <el-table-column
               prop="swarm_id"
               :label="t('agenticAI.id')"
@@ -186,17 +186,17 @@ const createSwarm = async () => {
     const response = await createAgenticSwarm(requestData)
 
     if (response.code === 200 && response.data) {
-      showSuccess(t('AgenticAIPage.swarmCreated'))
+      showSuccess(t('agenticAIPage.swarmCreated'))
       selectedSwarmId.value = response.data.swarmId || ''
       swarmForm.value.task = ''
       loadSwarmList()
     } else {
-      showErrorMsg(response.message || t('AgenticAIPage.createSwarmFailed'))
+      showErrorMsg(response.message || t('agenticAIPage.createSwarmFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const err = error as { message?: string }
     logger.error('Failed to create Swarm:', err)
-    showErrorMsg(err?.message || t('AgenticAIPage.createSwarmFailed2'))
+    showErrorMsg(err?.message || t('agenticAIPage.createSwarmFailed2'))
   } finally {
     creating.value = false
   }
@@ -221,7 +221,7 @@ const loadSwarmList = async () => {
         })
       ) as SwarmItem[]
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to load Swarm list', error)
   }
 }
@@ -236,181 +236,25 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-/* ======== 页面容器 ======== */
 .agentic-ai-page {
   padding: 20px;
   width: 100%;
   margin: 0 auto;
-  box-sizing: border-box;
 }
 
-/* ======== 页面头部 ======== */
 .page-header {
   margin-bottom: 24px;
-  text-align: left;
+  text-align: center;
 
   .page-title {
-    font-size: clamp(22px, 3vw, 32px);
-    font-weight: 700;
-    font-family: var(--font-family-chinese);
-    color: var(--el-text-color-primary);
+    font-size: 32px;
+    font-weight: 600;
     margin-bottom: 8px;
-    line-height: 1.3;
   }
 
   .page-subtitle {
-    font-size: clamp(14px, 1.6vw, 16px);
-    color: var(--el-text-color-regular);
-    font-family: var(--font-family-chinese);
-    line-height: 1.5;
-  }
-}
-
-/* ======== el-card 统一样式穿透 ======== */
-:where(.agentic-ai-page) {
-  :deep(.el-card) {
-    background-color: var(--el-bg-color);
-    border-radius: var(--global-border-radius);
-    box-shadow: none;
-    border: 1px solid var(--border-unified-color);
-  }
-
-  :deep(.el-card__header) {
-    font-family: var(--font-family-chinese);
-    font-weight: 600;
     font-size: 16px;
-    color: var(--el-text-color-primary);
-    border-bottom: 1px solid var(--border-unified-color);
-    padding: 14px 20px;
-  }
-
-  :deep(.el-card__body) {
-    padding: 20px;
-  }
-}
-
-/* ======== el-form 样式穿透 ======== */
-:where(.agentic-ai-page) {
-  :deep(.el-form) {
-    font-family: var(--font-family-chinese);
-
-    .el-form-item__label {
-      color: var(--el-text-color-primary);
-      font-family: var(--font-family-chinese);
-      font-size: 14px;
-    }
-
-    .el-input__wrapper {
-      border-radius: var(--global-border-radius);
-      box-shadow: none;
-      background-color: var(--el-bg-color);
-    }
-
-    .el-textarea__inner {
-      border-radius: var(--global-border-radius);
-      box-shadow: none;
-      font-family: var(--font-family-chinese);
-    }
-
-    .el-select {
-      width: 100%;
-    }
-
-    .el-input-number {
-      width: 100%;
-    }
-  }
-
-  .swarm-card {
-    margin-top: 20px;
-  }
-
-  .full-width {
-    width: 100%;
-  }
-}
-
-/* ======== el-table 样式穿透 ======== */
-:where(.agentic-ai-page) {
-  :deep(.el-table) {
-    border: 1px solid var(--border-unified-color);
-    border-radius: var(--global-border-radius);
-    font-family: var(--font-family-chinese);
-
-    --el-table-border-color: var(--border-unified-color);
-    --el-table-header-bg-color: var(--el-fill-color-light);
-    --el-table-header-text-color: var(--el-text-color-primary);
-    --el-table-text-color: var(--el-text-color-regular);
-    --el-table-row-hover-bg-color: var(--el-fill-color);
-
-    th.el-table__cell {
-      font-weight: 600;
-      font-size: 13px;
-      background-color: var(--el-fill-color-light);
-      color: var(--el-text-color-primary);
-    }
-
-    td.el-table__cell {
-      font-size: 13px;
-    }
-
-    .el-table__row {
-      td {
-        border-bottom: 1px solid var(--border-unified-color);
-      }
-    }
-  }
-}
-
-/* ======== 左右两栏布局 ======== */
-:where(.agentic-ai-page) {
-  :deep(.el-col:first-child) {
-    .el-card + .el-card {
-      margin-top: 16px;
-    }
-  }
-
-  :deep(.el-col:last-child) {
-    min-height: 400px;
-  }
-}
-
-/* ======== Swarm 监控面板空状态 ======== */
-:where(.agentic-ai-page) {
-  :deep(.el-empty) {
-    padding: 60px 20px;
-    font-family: var(--font-family-chinese);
-
-    .el-empty__description p {
-      font-size: 14px;
-      color: var(--el-text-color-secondary);
-      font-family: var(--font-family-chinese);
-    }
-  }
-}
-
-/* ======== 响应式：移动端单列 ======== */
-@media (width <= 991px) {
-  .agentic-ai-page {
-    padding: 16px;
-
-    .page-header {
-      margin-bottom: 16px;
-
-      .page-title {
-        font-size: 22px;
-      }
-    }
-
-    :deep(.el-col) {
-      max-width: 100%;
-      flex-basis: 100%;
-    }
-
-    :deep(.el-row .el-col:last-child) {
-      margin-top: 16px;
-      min-height: 300px;
-    }
+    color: var(--el-text-color-regular);
   }
 }
 </style>

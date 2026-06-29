@@ -1,9 +1,9 @@
 {
   "promptTemplates": {
-    "addCustom": "addCustom",
-    "cancel": "取消",
-    "confirm": "确认",
-    "other": "other",
-    "title": "标题"
+    "title": "プロンプトテンプレート库",
+    "addCustom": "追加カスタム",
+    "cancel": "キャンセル",
+    "confirm": "確定",
+    "other": "その他"
   }
 }

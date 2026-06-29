@@ -11,14 +11,14 @@ import {
   phoneLogin,
   completePhoneLogin,
   getUserInfo,
-} from '@/api/user/user'
-import { isLoginExpired, isExpiryTimePassed } from '@/utils/login-duration'
+} from '@/api/user'
+import { isLoginExpired } from '@/utils/login-duration'
 
 // 模拟存储数据（闭包方式，与 wallet.test.ts 一致）
 const mockStorageData: Record<string, unknown> = {}
 const mockSecureStorageData: Record<string, unknown> = {}
 
-vi.mock('@/api/user/user', () => ({
+vi.mock('@/api/user', () => ({
   login: vi.fn(),
   logout: vi.fn(),
   register: vi.fn(),
@@ -52,6 +52,22 @@ vi.mock('@/utils/storage', () => ({
     LOGIN_DURATION: 'login_duration',
     LOGIN_EXPIRY_TIME: 'login_expiry_time',
   },
+  // auth/token.ts 通过 TokenStorage 统一读写 token,需提供完整 mock
+  TokenStorage: {
+    getToken: vi.fn(() => mockSecureStorageData['user_token'] || mockSecureStorageData['token'] || null),
+    setToken: vi.fn((token: string) => {
+      mockSecureStorageData['token'] = token
+      mockSecureStorageData['user_token'] = token
+    }),
+    getRefreshToken: vi.fn(() => mockSecureStorageData['refresh_token'] || null),
+    setRefreshToken: vi.fn((token: string) => { mockSecureStorageData['refresh_token'] = token }),
+    clearAuth: vi.fn(() => {
+      delete mockSecureStorageData['token']
+      delete mockSecureStorageData['user_token']
+      delete mockSecureStorageData['refresh_token']
+      delete mockStorageData['user_data']
+    }),
+  },
 }))
 
 vi.mock('@/utils/logger', () => ({
@@ -81,7 +97,6 @@ vi.mock('@/utils/login-duration', () => ({
   DEFAULT_LOGIN_DURATION: 604800000,
   calculateExpiryTime: vi.fn(() => Date.now() + 604800000),
   isLoginExpired: vi.fn(() => false),
-  isExpiryTimePassed: vi.fn(() => false),
 }))
 
 // 模拟 login/logout 中动态导入的服务
@@ -149,9 +164,8 @@ describe('auth stores', () => {
     // 清理 mock 存储数据
     for (const k of Object.keys(mockStorageData)) delete mockStorageData[k]
     for (const k of Object.keys(mockSecureStorageData)) delete mockSecureStorageData[k]
-    // 重置 isLoginExpired / isExpiryTimePassed 默认返回 false
+    // 重置 isLoginExpired 默认返回 false
     vi.mocked(isLoginExpired).mockReturnValue(false)
-    vi.mocked(isExpiryTimePassed).mockReturnValue(false)
   })
 
   describe('useTokenStore', () => {
@@ -280,7 +294,7 @@ describe('auth stores', () => {
     describe('initAuth', () => {
       it('token过期时应该直接返回不初始化', async () => {
         // 模拟 token 过期
-        vi.mocked(isExpiryTimePassed).mockReturnValue(true)
+        vi.mocked(isLoginExpired).mockReturnValue(true)
         mockStorageData['login_expiry_time'] = Date.now() - 1000
 
         const auth = useAuthStore()

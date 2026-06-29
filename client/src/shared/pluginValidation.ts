@@ -63,7 +63,7 @@ export function validatePluginConfig(plugin: Partial<Plugin>): {
   }
 }
 
-export function validatePluginManifest(manifest: any): {
+export function validatePluginManifest(manifest: unknown): {
   valid: boolean
   errors: string[]
 } {

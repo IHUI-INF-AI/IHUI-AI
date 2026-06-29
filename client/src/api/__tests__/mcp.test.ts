@@ -40,7 +40,7 @@ vi.mock('@/data/mcp-curated', () => ({
 
 import request from '@/utils/request'
 import { isDemoMode } from '@/utils/envUtils'
-import * as api from '../tools/mcp'
+import * as api from '../mcp'
 
 describe('mcp API', () => {
   beforeEach(() => {

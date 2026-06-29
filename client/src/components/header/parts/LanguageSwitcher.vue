@@ -31,7 +31,7 @@
     />
     <span v-else class="flag-badge">{{ currentAbbr }}</span>
     <span class="language-text">{{ currentText }}</span>
-    <i class="el-icon-arrow-down el-icon--right" :class="{ 'arrow-rotate': visible }" />
+    <i class="el-icon-arrow-down el-icon--right" :class="{ 'arrow-rotate': visible && !menuAbove }" />
   </div>
 
   <Teleport to="body">
@@ -39,6 +39,7 @@
       v-if="visible"
       ref="menuEl"
       class="language-dropdown-menu"
+      :class="{ 'menu-above': menuAbove }"
       role="menu"
       :aria-label="t('common.selectLanguage')"
       @mouseenter="open"
@@ -70,8 +71,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
+import { useDropdownPosition } from '@/composables/useDropdownPosition'
 import { useI18n } from 'vue-i18n'
 import {
   switchLanguage,
@@ -109,6 +111,9 @@ const getAbbr = (code: string): string => ABBR_MAP[code] || 'LANG'
 const visible = ref(false)
 const menuEl = ref<HTMLElement | null>(null)
 const selectorEl = ref<HTMLElement | null>(null)
+
+// 智能定位:下方放不下时向上弹出,menuAbove 用于同步箭头/动画方向
+const { menuAbove, updatePosition: updateMenuPosition } = useDropdownPosition({ fallbackHeight: 196 })
 
 const currentCode = computed<Language>(() => {
   const global = getCurrentLanguage.value as string | undefined
@@ -165,21 +170,7 @@ const select = (code: string) => {
   emit('change', code as Language)
 }
 
-const updatePosition = async () => {
-  await nextTick()
-  if (!selectorEl.value || !menuEl.value) return
-  const rect = selectorEl.value.getBoundingClientRect()
-  const menu = menuEl.value
-  const menuWidth = menu.offsetWidth || 160
-  const top = rect.bottom + 2
-  const maxLeft = window.innerWidth - menuWidth - 8
-  const left = Math.max(8, Math.min(rect.left, maxLeft))
-  menu.style.left = `${Math.round(left)}px`
-  menu.style.top = `${Math.round(top)}px`
-  menu.style.right = 'auto'
-}
-
-watch(visible, v => v && updatePosition())
+watch(visible, v => v && updateMenuPosition(selectorEl.value, menuEl.value))
 
 const onClickOutside = (e: MouseEvent) => {
   const target = e.target
@@ -194,7 +185,7 @@ const onResize = () => {
   if (resizeRafId !== null) return
   resizeRafId = requestAnimationFrame(() => {
     resizeRafId = null
-    if (visible.value) updatePosition()
+    if (visible.value) updateMenuPosition(selectorEl.value, menuEl.value)
   })
 }
 
@@ -287,7 +278,7 @@ cleanup.add(() => { if (resizeRafId !== null) { cancelAnimationFrame(resizeRafId
   }
 }
 
-@media (width <= 767px) {
+@media (width <= 1024px) {
   .language-selector {
     padding: 6px 8px;
     min-width: 36px;

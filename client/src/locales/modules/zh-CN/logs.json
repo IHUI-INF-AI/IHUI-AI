@@ -1,8 +1,9 @@
 {
   "logs": {
-    "getUserInfoFailed": "获取用户信息失败",
-    "loginFailed": "登录失败",
-    "refreshTokenFailed": "刷新 Token 失败",
-    "thirdPartyLoginFailed": "third party 登录 失败"
+    "loginFailed": "login失败",
+    "thirdPartyLoginFailed": "thirdPartyLogin失败",
+    "refreshTokenFailed": "refreshToken失败",
+    "getUserInfoFailed": "getUserInfo失败",
+    "logoutApiFailed": "logoutApi失败"
   }
 }

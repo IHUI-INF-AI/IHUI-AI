@@ -1,9 +1,9 @@
 {
   "xuqiuTab": {
+    "categoryLabel": "分类标签",
     "all": "全部",
-    "categoryLabel": "分类 标签",
     "custom": "自定义",
-    "customPlaceholder": "自定义占位",
-    "customTitle": "自定义标题"
+    "customTitle": "custom标题",
+    "customPlaceholder": "custom请输入"
   }
 }

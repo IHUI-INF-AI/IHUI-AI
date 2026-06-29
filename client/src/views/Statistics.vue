@@ -141,7 +141,7 @@ import {
   View,
 } from '@/lib/lucide-fallback'
 import { useAuthStore } from '@/stores/auth'
-import { getUsageStatistics, getAgentStatistics } from '@/api/statistics/statistics'
+import { getUsageStatistics, getAgentStatistics } from '@/api/statistics'
 import UsageStatistics from '@/components/statistics/UsageStatistics.vue'
 import BehaviorStatistics from '@/components/statistics/BehaviorStatistics.vue'
 import OrderStatistics from '@/components/statistics/OrderStatistics.vue'
@@ -183,12 +183,12 @@ const loadingStats = computed(() => apiLoading.value || usageStatsPageState.load
 
 const defaultUsageStats: UsageStats = {
   visits: 0,
-  duration: t('Statistics.zeroHour'),
+  duration: t('statistics.zeroHour'),
   conversations: 0,
   shares: 0,
   registerTime: '--',
   loginDays: 0,
-  totalDuration: t('Statistics.zeroHour2'),
+  totalDuration: t('statistics.zeroHour2'),
 }
 
 const usageStats = computed<UsageStats>(() => usageStatsPageState.data.value || defaultUsageStats)

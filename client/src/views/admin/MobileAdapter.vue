@@ -196,7 +196,7 @@ import { tourMobileAdapterI18n } from '@/locales/tour-i18n'
 
 const t = (key: string) => {
   const keys = key.split('.')
-  let result: any = tourMobileAdapterI18n
+  let result: unknown = tourMobileAdapterI18n
   for (const k of keys) {
     result = (result as Record<string, unknown>)?.[k]
   }
@@ -212,7 +212,7 @@ const showRuleDialog = ref(false)
 const themeConfig = ref({
   primaryColor: 'var(--color-primary)',
   backgroundColor: 'var(--el-bg-color)',
-  textColor: 'var(--el-text-color-primary)',
+  textColor: 'var(--color-gray-303133)',
   borderRadius: 4,
   shadowEnabled: true,
   compactMode: false
@@ -344,7 +344,7 @@ onMounted(() => {
 
 .guide-preview p {
   margin-bottom: 15px;
-  color: var(--el-text-color-regular);
+  color: var(--color-gray-606266);
 }
 
 .mt-20 {

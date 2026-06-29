@@ -24,261 +24,52 @@
           'is-embedded': mode === 'embedded',
         }" :style="mode === 'floating' ? dialogStyle : undefined" @mousemove="handleDialogMouseMove"
           @mousedown="handleDialogMouseDown">
-          <!-- 标题栏（可拖拽区域），置于 dialog 内第一项，无需单独定位 -->
-          <div v-if="showHeader" ref="headerRef" class="dialog-header"
-            @mousedown="draggable && mode === 'floating' ? startDrag($event) : undefined"
-            @dblclick="showMinimize ? toggleMinimize : undefined">
-            <div class="header-left">
-              <!-- 展开会话列表按钮（仅非最小化时显示） -->
-              <el-button v-if="!isMinimized" link size="small" class="header-btn session-list-btn"
-                :title="t('floatingChat.history')" @click="showSessionList = !showSessionList" @mousedown.stop>
-                <SessionListIcon :size="16" />
-              </el-button>
-              <!-- 最小化状态：只显示模型图标和名称 -->
-              <div v-if="isMinimized" class="minimized-model-info">
-                <img v-if="selectedModel?.icon" :src="selectedModel.icon" alt="Model Icon"
-                  class="minimized-model-icon" loading="lazy" />
-                <AIStarIcon v-else class="minimized-model-icon-fallback" :size="14" />
-                <span class="minimized-model-name">{{ selectedModel ? getModelDisplayName(selectedModel) :
-                  t('floatingChat.selectModel') }}</span>
-              </div>
-              <!-- 正常状态：显示正在输入状态 -->
-              <span v-else-if="isTyping" class="typing-indicator">
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-              </span>
-            </div>
-
-            <!-- 标题栏中心：显示当前模型/模式标签 -->
-            <div v-if="!isMinimized" class="header-center">
-              <el-tag size="small" class="mode-tag"
-                :type="currentAIMode === 'model' && selectedModel ? getModelTagType(selectedModel) : getModeTagType(currentAIMode)">
-                <!-- 模型模式且有选中的模型 -->
-                <template v-if="currentAIMode === 'model' && selectedModel">
-                  <img v-if="selectedModel.icon" :src="selectedModel.icon" :alt="getModelDisplayName(selectedModel)"
-                    class="mode-tag-icon" loading="lazy" />
-                  <AIStarIcon v-else class="mode-tag-icon" :size="14" />
-                  <span>{{ getModelDisplayName(selectedModel) }}</span>
-                </template>
-                <!-- 模型模式但没有选中的模型（加载中或失败） -->
-                <template v-else-if="currentAIMode === 'model' && !selectedModel">
-                  <AIStarIcon class="mode-tag-icon" :size="14" />
-                  <span>{{ t('floatingChat.selectModel') }}</span>
-                </template>
-                <!-- Agent 模式：有选中智能体时显示其头像，否则显示图标 -->
-                <template v-else-if="currentAIMode === 'agent'">
-                  <img v-if="selectedAgent?.avatar" :src="selectedAgent.avatar" alt="" class="mode-tag-icon mode-tag-avatar" loading="lazy" />
-                  <el-icon v-else class="mode-tag-icon">
-                    <Bot />
-                  </el-icon>
-                  <span>{{ selectedAgent ? selectedAgent.name : getModeLabel(currentAIMode) }}</span>
-                </template>
-                <!-- Agentic 模式 -->
-                <template v-else-if="currentAIMode === 'agentic'">
-                  <el-icon class="mode-tag-icon">
-                    <Network />
-                  </el-icon>
-                  <span>{{ getModeLabel(currentAIMode) }}</span>
-                </template>
-                <!-- MCP 模式 -->
-                <template v-else-if="currentAIMode === 'mcp'">
-                  <el-icon class="mode-tag-icon">
-                    <Wrench />
-                  </el-icon>
-                  <span>{{ getModeLabel(currentAIMode) }}</span>
-                </template>
-                <!-- 智能模式（原 Hybrid，自动决策工具/智能体/模型） -->
-                <template v-else-if="currentAIMode === 'hybrid' || currentAIMode === 'auto'">
-                  <el-icon class="mode-tag-icon">
-                    <Zap />
-                  </el-icon>
-                  <span>{{ getModeLabel(currentAIMode) }}</span>
-                </template>
-                <!-- 已移除：AI生成模式 -->
-              </el-tag>
-            </div>
-            <div class="header-right">
-              <!-- 客服主题：连接状态指示 -->
-              <div v-if="isCustomServiceTheme && !isMinimized" class="cs-status-wrap">
-                <span class="cs-status-indicator" :class="csConnectionStatus">
-                  <span class="cs-status-ring"></span>
-                  <span class="cs-status-dot"></span>
-                </span>
-                <span class="cs-status-text">{{ csConnectionStatusText }}</span>
-              </div>
-              <!-- 搜索按钮（最小化时隐藏） -->
-              <el-button v-if="enableSearch && !isMinimized" link size="small" class="header-btn search-btn"
-                @click="toggleSearch" @mousedown.stop :title="t('floatingChat.search')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round" class="header-svg-icon">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="22" y1="22" x2="16.65" y2="16.65"></line>
-                </svg>
-              </el-button>
-              <!-- 更多操作（最小化时隐藏） -->
-              <el-dropdown v-if="!isMinimized" trigger="click" @command="handleMenuCommand" class="header-menu"
-                popper-class="ai-chat-popper">
-                <el-button link size="small" class="header-btn" @mousedown.stop :title="t('common.moreActions')">
-                  <el-icon>
-                    <MoreHorizontal />
-                  </el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="export">
-                      <el-icon>
-                        <Download />
-                      </el-icon>
-                      <span>{{ t('floatingChat.exportChat') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="export-markdown">
-                      <el-icon>
-                        <Download />
-                      </el-icon>
-                      <span>{{ t('floatingChat.exportMarkdown') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="export-json">
-                      <el-icon>
-                        <Download />
-                      </el-icon>
-                      <span>{{ t('floatingChat.exportJSON') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="history">
-                      <el-icon>
-                        <FileText />
-                      </el-icon>
-                      <span>{{ t('floatingChat.history') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="stats">
-                      <el-icon>
-                        <BarChart3 />
-                      </el-icon>
-                      <span>{{ t('floatingChat.stats') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item v-if="effectiveShowTickets" command="tickets">
-                      <el-icon>
-                        <Ticket />
-                      </el-icon>
-                      <span>MY TICKETS</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="customer-service">
-                      <el-icon>
-                        <Headset />
-                      </el-icon>
-                      <span>{{ t('navigation.customerService') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="clear" divided>
-                      <el-icon>
-                        <Trash2 />
-                      </el-icon>
-                      <span>{{ t('floatingChat.clearChat') }}</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="settings">
-                      <el-icon>
-                        <Settings />
-                      </el-icon>
-                      <span>{{ t('floatingChat.settings') }}</span>
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <!-- 最小化/最大化按钮 -->
-              <el-button v-if="showMinimize" link size="small" class="header-btn minimize-btn" @click="toggleMinimize"
-                @mousedown.stop :title="isMinimized ? t('floatingChat.maximize') : t('floatingChat.minimize')">
-                <!-- 最小化状态：使用展开图标（对角向外） -->
-                <svg v-if="isMinimized" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round" class="header-svg-icon">
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <polyline points="9 21 3 21 3 15"></polyline>
-                  <line x1="21" y1="3" x2="14" y2="10"></line>
-                  <line x1="3" y1="21" x2="10" y2="14"></line>
-                </svg>
-                <!-- 正常状态：使用收缩图标（对角向内） -->
-                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round" class="header-svg-icon">
-                  <polyline points="4 14 10 14 10 20"></polyline>
-                  <polyline points="20 10 14 10 14 4"></polyline>
-                  <line x1="14" y1="10" x2="21" y2="3"></line>
-                  <line x1="3" y1="21" x2="10" y2="14"></line>
-                </svg>
-              </el-button>
-              <!-- 关闭按钮 -->
-              <el-button v-if="showClose" link size="small" class="header-btn close-btn" @click="closeDialog"
-                @mousedown.stop :title="t('common.close')">
-                <!-- 使用细线条 × 图标 -->
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                  stroke-linejoin="round" class="header-svg-icon">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </el-button>
-            </div>
-          </div>
+          <!-- 标题栏（chat-parts 拆分）：见 ChatHeaderBar.vue -->
+          <ChatHeaderBar v-if="showHeader" ref="headerBarRef"
+            :is-minimized="isMinimized"
+            :is-typing="isTyping"
+            :is-custom-service-theme="isCustomServiceTheme"
+            :cs-connection-status="csConnectionStatus"
+            :cs-connection-status-text="csConnectionStatusText"
+            :enable-search="enableSearch"
+            :show-minimize="showMinimize"
+            :show-close="showClose"
+            :draggable="draggable"
+            :mode="mode"
+            :current-a-i-mode="currentAIMode"
+            :selected-model="selectedModel"
+            :selected-agent="selectedAgent"
+            :effective-show-tickets="effectiveShowTickets"
+            @toggle-session-list="showSessionList = !showSessionList"
+            @toggle-search="toggleSearch"
+            @menu-command="handleMenuCommand"
+            @toggle-minimize="toggleMinimize"
+            @close-dialog="closeDialog"
+            @start-drag="startDrag"
+            @dblclick="showMinimize ? toggleMinimize() : undefined"
+          />
           <!-- 浮窗主体区：左侧滑出会话列表 + 主内容 -->
           <div class="dialog-body-wrap">
-            <!-- 左侧滑出的会话列表面板 -->
-            <Transition name="session-list-slide">
-              <div v-show="showSessionList" class="session-list-panel" @click.stop>
-                <div class="session-list-header">
-                  <span class="session-list-title">{{ t('floatingChat.history') }}</span>
-                  <el-button link size="small" class="session-list-close" @click="showSessionList = false"
-                    :title="t('common.close')">
-                    <el-icon>
-                      <X />
-                    </el-icon>
-                  </el-button>
-                </div>
-                <div class="session-list-content history-content">
-                  <div v-if="displayedConversationHistory.length === 0 && !modelChatHistoryLoading"
-                    class="empty-history">
-                    <el-empty :description="t('floatingChat.noHistory')" />
-                  </div>
-                  <div v-else-if="modelChatHistoryLoading" class="history-loading">
-                    <el-icon class="is-loading">
-                      <Loader2 />
-                    </el-icon>
-                    <span>{{ t('floatingChat.loadingHistory') }}</span>
-                  </div>
-                  <div v-else class="history-list">
-                    <div v-for="conversation in displayedConversationHistory" :key="conversation.id"
-                      class="history-item" :class="{ 'is-active': currentConversationId === conversation.id }"
-                      @click="selectSessionAndClose(conversation.id)">
-                      <div class="history-title">{{ conversation.title }}</div>
-                      <div class="history-meta">
-                        <span class="history-time">{{ formatTime(conversation.createTime) }}</span>
-                      </div>
-                      <div class="history-actions" @click.stop>
-                        <el-button link size="small" @click.stop.prevent="deleteConversationHandler(conversation.id)"
-                          :title="t('common.delete')">
-                          <el-icon>
-                            <Trash2 />
-                          </el-icon>
-                        </el-button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Transition>
+            <!-- 左侧滑出的会话列表面板（chat-parts 拆分）：见 ChatSessionPanel.vue -->
+            <ChatSessionPanel
+              :show-session-list="showSessionList"
+              :conversations="displayedConversationHistory"
+              :loading="modelChatHistoryLoading"
+              :current-conversation-id="currentConversationId"
+              @close="showSessionList = false"
+              @select-session="selectSessionAndClose"
+              @delete-session="deleteConversationHandler"
+            />
 
             <!-- 主内容：搜索栏、消息区、输入区 -->
-            <!-- 搜索栏：无多余容器，直接为 el-input + 搜索结果 -->
-            <Transition name="slide-down">
-              <el-input v-if="showSearchBar" v-model="searchQuery" :placeholder="t('floatingChat.searchPlaceholder')"
-                class="floating-chat-search-input" clearable @input="handleSearch">
-                <template #prefix>
-                  <SearchIcon />
-                </template>
-              </el-input>
-            </Transition>
-            <div v-if="showSearchBar && searchResults.length > 0" class="search-results">
-              <div v-for="result in searchResults" :key="result.id" class="search-result-item"
-                @click="scrollToMessage(result.id)">
-                <div class="result-preview">{{ result.preview }}</div>
-                <div class="result-time">{{ formatTime(result.createTime) }}</div>
-              </div>
-            </div>
+            <!-- 搜索栏（chat-parts 拆分）：见 ChatSearchBar.vue -->
+            <ChatSearchBar
+              v-model="searchQuery"
+              :show-search-bar="showSearchBar"
+              :search-results="searchResults"
+              @search="handleSearch"
+              @scroll-to-message="scrollToMessage"
+            />
 
             <!-- OpenClaw 功能面板 -->
             <div v-if="showOpenClawPanel && !isMinimized" class="openclaw-panel-wrapper">
@@ -1192,15 +983,17 @@
                     </div>
                   </el-popover>
                   <!-- 发送按钮 -->
-                  <el-button type="primary" size="small" class="send-btn" @click="handleSend" :disabled="isSending"
+                  <el-button type="primary" size="small" class="send-btn"
+                    :class="{ 'is-empty': !canSend && !isSending, 'is-ready': canSend, 'is-sending': isSending }"
+                    :disabled="!canSend && !isSending" @click="handleSend"
                     :title="t('floatingChat.send')">
-                    <el-icon v-if="!isSending">
+                    <el-icon v-if="!isSending" class="send-btn-icon-send">
                       <Promotion />
                     </el-icon>
-                    <el-icon v-else class="is-loading">
+                    <el-icon v-else class="send-btn-icon-loading is-loading">
                       <Loader2 />
                     </el-icon>
-                    <span class="send-btn-text">{{ t('floatingChat.send') }}</span>
+                    <span class="send-btn-text">{{ isSending ? '发送中...' : t('floatingChat.send') }}</span>
                   </el-button>
                 </div>
               </div>
@@ -1222,7 +1015,7 @@
     </Transition>
 
     <!-- 统计对话框 -->
-    <el-dialog v-model="showStatsDialog" :title="t('floatingChat.stats')" width="500px" :close-on-click-modal="false">
+    <el-dialog v-if="shouldRenderStatsDialog" v-model="showStatsDialog" :title="t('floatingChat.stats')" width="500px" :close-on-click-modal="false" @closed="shouldRenderStatsDialog = false">
       <div class="stats-content">
         <div class="stat-item">
           <div class="stat-label">{{ t('floatingChat.totalMessages') }}</div>
@@ -1275,8 +1068,8 @@
     </el-dialog>
 
     <!-- API接入对话框：z-index 高于「选择AI能力」背板(10001)，避免从能力面板内点击时被遮罩盖住 -->
-    <el-dialog v-model="showApiAccessDialog" width="720px"
-      :close-on-click-modal="false" class="api-access-dialog" top="5vh" :z-index="10002">
+    <el-dialog v-if="shouldRenderApiAccessDialog" v-model="showApiAccessDialog" width="720px"
+      :close-on-click-modal="false" class="api-access-dialog" top="5vh" :z-index="10002" @closed="shouldRenderApiAccessDialog = false">
       <template #header="{ close, titleId, titleClass }">
         <div :id="titleId" :class="titleClass" class="api-access-dialog-header">
           <span class="el-dialog__title">{{ t('floatingChat.apiAccessTitle') }}</span>
@@ -1710,7 +1503,7 @@
     </el-dialog>
 
     <!-- 历史记录面板 -->
-    <el-drawer v-model="showHistoryPanel" :title="t('floatingChat.history')" direction="rtl" size="400px">
+    <el-drawer v-if="shouldRenderHistoryPanel" v-model="showHistoryPanel" :title="t('floatingChat.history')" direction="rtl" size="400px" @closed="shouldRenderHistoryPanel = false">
       <div class="history-content">
         <div v-if="displayedConversationHistory.length === 0 && !modelChatHistoryLoading" class="empty-history">
           <el-empty :description="t('floatingChat.noHistory')" />
@@ -1763,7 +1556,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCommunityPublish } from '@/composables/useCommunityPublish'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useAuthStore } from '@/stores/auth'
-import { streamGenerateContent } from '@/api/ai/ai'
+import { streamGenerateContent } from '@/api/ai'
 import {
   createQwenWebSocket,
   createQwenOmniWebSocket,
@@ -1774,8 +1567,8 @@ import {
 } from '@/api/services/llmChat.service'
 import request, { getUserToken } from '@/utils/request'
 import { createAuthWebSocket } from '@/utils/websocket'
-import { getAvailableModels } from '@/api/models/models'
-import { getAgentsList } from '@/api/agent/agents'
+import { getAvailableModels } from '@/api/models'
+import { getAgentsList } from '@/api/agents'
 import { createAgenticSwarm, getSwarmStatus } from '@/api/services/agentic.service'
 import {
   generateDashScopeImage,
@@ -1795,14 +1588,14 @@ import {
   startOneClickVideo,
   getOneClickVideoStatus,
 } from '@/api/services/aiGeneration.service'
-import { uploadFormFile } from '@/api/file/file-upload'
+import { uploadFormFile } from '@/api/file-upload'
 import {
   getConversations,
   createConversation,
   updateConversationTitle,
   deleteConversation,
   getConversationMessages,
-} from '@/api/chat/chat-history'
+} from '@/api/chat-history'
 import {
   queryChatRecords,
   getChatHistoryMessages,
@@ -1821,10 +1614,12 @@ import { useOpenClaw } from '@/composables/useOpenClaw'
 import { StorageManager } from '@/utils/storage'
 import MarkdownStream from './MarkdownStream.vue'
 import PromptTemplates from './PromptTemplates.vue'
-import SearchIcon from '@/components/common/SearchIcon.vue'
+// SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成
 import { OpenClawContainer } from './openclaw'
+// 子组件：标题栏、会话列表、搜索栏（chat-parts 拆分，降低 AIChat.vue 模板复杂度）
+import { ChatHeaderBar, ChatSessionPanel, ChatSearchBar } from './chat-parts'
 import {
   MemoryPanel,
   SkillsPanel,
@@ -1862,7 +1657,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { getUserUuid } from '@/utils/auth'
 import type { AICapabilityRequest } from '@/services/unified-ai-orchestrator'
-import type { Agent } from '@/api/agent/agents'
+import type { Agent } from '@/api/agents'
 import {
   MessageCircle,
   X,
@@ -1873,8 +1668,6 @@ import {
   Star,
   RefreshCw,
   Download,
-  Settings,
-  MoreHorizontal,
   Microphone,
   Picture,
   Document,
@@ -1906,12 +1699,11 @@ import {
   AlertCircle,
   Cpu,
   Brain,
-  Ticket,
-  Headset,
 } from '@/lib/lucide-fallback'
+// Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
 // 导入自定义图标（替代默认图标，更精致的设计）
-import { AIStarIcon, UploadPlusIcon, SessionListIcon } from '@/components/icons'
+import { AIStarIcon, UploadPlusIcon } from '@/components/icons'
 import type { Model } from '@/types/api'
 import type { ChatMessage, FileAttachment as PlatformFileAttachment, Timestamp } from '@/types/ai-platform.types'
 import { DEFAULT_CUSTOMER_SERVICE_FAQ } from '@/data/customer-service-faq'
@@ -2118,6 +1910,11 @@ const quotedMessage = ref<ChatMessage | null>(null)
 const showSettingsDialog = ref(false)
 const showStatsDialog = ref(false)
 const showApiAccessDialog = ref(false)
+// v-if 控制：el-dialog 关闭后从 DOM 卸载（含 overlay），避免空 overlay 堆积
+const shouldRenderStatsDialog = ref(false)
+watch(showStatsDialog, (val) => { if (val) shouldRenderStatsDialog.value = true })
+const shouldRenderApiAccessDialog = ref(false)
+watch(showApiAccessDialog, (val) => { if (val) shouldRenderApiAccessDialog.value = true })
 const showApiKey = ref(false)
 const isGeneratingApiKey = ref(false)
 const selectedProtocol = ref('openai')
@@ -2128,6 +1925,8 @@ const apiAccessInfo = ref({
   modelName: '',
 })
 const showHistoryPanel = ref(false)
+const shouldRenderHistoryPanel = ref(false)
+watch(showHistoryPanel, (val) => { if (val) shouldRenderHistoryPanel.value = true })
 const showSessionList = ref(false) // 浮窗左侧滑出的会话列表面板
 const showAICapabilityPanel = ref(false) // AI能力选择面板
 const showCapabilityDropdown = ref(false) // 输入区 AI 能力下拉（网格卡片）显隐
@@ -2310,7 +2109,13 @@ const selectedModel = ref<Model | null>(null)
 
 // Refs
 const dialogRef = ref<HTMLElement | null>(null)
-const headerRef = ref<HTMLElement | null>(null)
+// ChatHeaderBar 子组件实例引用（子组件内部持有根元素 headerRef 并通过 defineExpose 暴露）
+interface ChatHeaderBarInstance {
+  headerRef: { value: HTMLElement | null }
+}
+const headerBarRef = ref<ChatHeaderBarInstance | null>(null)
+// 通过子组件实例访问标题栏根元素，保持原 headerRef.value 的使用方式
+const headerRef = computed(() => headerBarRef.value?.headerRef?.value ?? null)
 /** 最小化时由标题栏内容撑开的宽度，供 dialogStyle 使用，避免被 width:auto 覆盖 */
 const minimizedDialogWidth = ref(0)
 const messagesContainerRef = ref<HTMLElement | null>(null)
@@ -2391,9 +2196,8 @@ const displayedConversationHistory = computed(() => {
   return conversationHistory.value
 })
 
-// 以下计算属性预留供将来使用
-const _canSend = computed(() => {
-  // 使用响应式的 inputText 而不是 getInputText()，确保输入变化时能触发重新计算
+// 发送按钮可发送状态：输入框有内容或已上传文件，且未在发送中
+const canSend = computed(() => {
   const text = inputText.value.trim()
   return (text.length > 0 || uploadedFiles.value.length > 0) && !isSending.value
 })
@@ -4112,7 +3916,7 @@ const handleModelStreamEvent = (event: ChatStreamEvent, assistantMessage: ChatMe
     isTyping.value = false
     userMessage.status = 'sent'
 
-    // 若后端在完成事件中返回 agent/agent_avatar 等，合并到消息 metadata
+    // 若后端的完成事件中返回 agent/agent_avatar 等，合并到消息 metadata
     const completionData = (event as { data?: Record<string, unknown> }).data
     if (completionData && typeof completionData === 'object' && Object.keys(completionData).length > 0) {
       mapResponseToAssistantMetadata(completionData, assistantMessage)
@@ -5862,10 +5666,7 @@ Authorization: Bearer ${apiKey}
   }
 }
 
-const getModelTagType = (_model: Model): string => {
-  // 根据模型类型返回不同的tag类型
-  return 'primary'
-}
+// getModelTagType 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
 const getModelDisplayName = (model: Model): string => {
   // 优先使用 modelName（用户友好的显示名称），如果没有则使用 name，最后使用 modelCode
@@ -6010,7 +5811,7 @@ const handleAICapabilityCommand = (command: string) => {
     // 禁止入口：AI生成模式已下线（部分旧页面/缓存可能仍会发出该命令）
     if (type === 'generation') return
 
-    // 使用 nextTick 确保在下拉菜单关闭后再显示弹窗
+    // 使用 nextTick 确保存下拉菜单关闭后再显示弹窗
     nextTick(() => {
       if (type === 'model') {
         showAICapabilityPanel.value = true
@@ -6273,6 +6074,14 @@ defineExpose({
   switchMode: switchAIMode,
   selectAgent: handleAgentSelect,
   selectModel: handleModelSelect,
+  // 打开 AI 能力选择器面板（model/agent/mcp），供外部 CTA 按钮调用
+  openCapabilityPanel: (mode?: 'model' | 'agent' | 'mcp') => {
+    if (mode) {
+      handleAICapabilityCommand(`select:${mode}`)
+    } else {
+      showAICapabilityPanel.value = true
+    }
+  },
 })
 
 // 对话框展示时，内容区域滚动到底部
@@ -7050,7 +6859,7 @@ const _handleImageGeneration = async (
               displayName.includes('通义') ||
               displayName.includes('万相')
             )
-          }) as (import('@/api/models/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
+          }) as (import('@/api/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
 
           if (!modelFromList?.remark) {
             // 最后兜底：不再报错中断体验，回退到原通义默认接口（仅当列表没配置时）
@@ -7797,7 +7606,7 @@ const handleAudioGeneration = async (
 
   try {
     // 导入音频生成API
-    const { aliGenerateTimbre } = await import('@/api/ai/ai-models')
+    const { aliGenerateTimbre } = await import('@/api/ai-models')
 
     // 调用阿里语音合成API
     const response = await aliGenerateTimbre({
@@ -7991,19 +7800,7 @@ const getGenerationTypeLabel = (type: string): string => {
   return labels[type] || type
 }
 
-// 获取模式标签类型
-const getModeTagType = (mode: 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'auto' | 'generation'): string => {
-  const types: Record<string, string> = {
-    model: 'primary',
-    agent: 'success',
-    agentic: 'warning',
-    mcp: 'info',
-    hybrid: 'danger',
-    auto: 'danger',
-    generation: 'warning',
-  }
-  return types[mode] || 'primary'
-}
+// getModeTagType 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
 // 获取模式标签文本
 const getModeLabel = (mode: 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'auto' | 'generation'): string => {
@@ -8324,7 +8121,7 @@ const loadModelChatHistory = async (options?: { autoSelectLatest?: boolean }) =>
           }
           modelChatHistory.value = [record]
           currentConversationId.value = record.id
-          // 注意：真正传给后端的 chat_id 使用 _chatId（数字），逻辑在上游 send 函数里
+          // 注意：真正传给后端的 chat_id 使用 _chatId（数字），逻辑上游 send 函数里
         }
       } catch (e) {
         logger.warn('Failed to create default model conversation record (loadModelChatHistory):', e)
@@ -8348,6 +8145,10 @@ const loadModelChatHistory = async (options?: { autoSelectLatest?: boolean }) =>
 // 加载后端对话历史（可选）
 const loadBackendConversations = async () => {
   if (!enableBackendSync.value) return
+  // 修复无限刷新循环: 未登录时不调用需要 token 的 API
+  // 原因: request.ts 拦截器检测到无 token 会 setTimeout 1.5s 后跳 /login,
+  // 路由守卫又把 /login 重定向回 /, App.vue 重新挂载, AIChat 再次调用本方法, 形成死循环
+  if (!getUserUuid()) return
 
   try {
     const response = await getConversations({ page: 1, pageSize: 50 })
@@ -8499,11 +8300,10 @@ watch(
 
 // 生命周期
 onMounted(async () => {
-  // 未登录时跳过所有后端 API 调用,避免触发 401 整页重定向销毁组件
-  // UI 骨架仍可正常渲染,用户登录后可手动刷新或重新打开浮窗加载数据
-  const isLoggedIn = authStore.isLoggedIn
-  if (isLoggedIn) {
-    loadModels()
+  loadModels()
+  // 修复无限刷新循环: 未登录时不调用 loadAgents (内部会调用 getAgentList 需要 token)
+  // 原因同 loadBackendConversations: request.ts 拦截器无 token 会 setTimeout 1.5s 跳 /login
+  if (getUserUuid()) {
     try { await loadAgents() } catch (e) { console.error(e) }
   }
 
@@ -8516,7 +8316,7 @@ onMounted(async () => {
   }
 
   // 大模型模式下加载所选模型的历史
-  if (isLoggedIn && currentAIMode.value === 'model' && selectedModel.value) {
+  if (currentAIMode.value === 'model' && selectedModel.value) {
     loadModelChatHistory()
   }
 
@@ -8524,8 +8324,8 @@ onMounted(async () => {
   const history = StorageManager.getItem<Array<{ id: string; title: string; messages: ChatMessage[]; createTime: string }>>('floating-chat-history') || []
   conversationHistory.value = history
 
-  // 异步加载后端对话历史（需登录）
-  if (isLoggedIn && enableBackendSync.value) {
+  // 异步加载后端对话历史
+  if (enableBackendSync.value) {
     loadBackendConversations()
   }
 
@@ -8651,6 +8451,11 @@ cleanup.add(() => {
 <style lang="scss" scoped>
 // 导入 AI 对话框设计令牌
 @use '@/styles/ai-chat-variables' as *;
+// SCSS 模块化迁移：标题栏 / 消息列表 / 输入区域 / 会话列表
+@use '@/styles/ai-chat/header' as *;
+@use '@/styles/ai-chat/message-list' as *;
+@use '@/styles/ai-chat/input-area' as *;
+@use '@/styles/ai-chat/session-list' as *;
 
 // ============================================
 // 组件级 CSS 变量定义
@@ -8825,7 +8630,7 @@ cleanup.add(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
+    font-weight: bold;
   }
 }
 
@@ -8853,7 +8658,6 @@ cleanup.add(() => {
       box-sizing: border-box;
       border-radius: var(--global-border-radius);
       backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       background: var(--el-bg-color-page);
       border: var(--unified-border);
       z-index: var(--z-0); /* 让标题栏叠在上层以显示图标/名称/按钮 */
@@ -9025,7 +8829,7 @@ cleanup.add(() => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    transition: all 0.2s ease;
 
     // 图标
     .el-icon {
@@ -9086,6 +8890,224 @@ cleanup.add(() => {
     }
   }
 
+  // 发送按钮特殊样式 - 覆盖上方通用 icon-button 样式
+  // 发送按钮需要更宽（图标+文字同行），并提供三状态颜色
+  // 使用更高特异性（带 el-button--primary）确保覆盖通用规则
+  :deep(.el-button.el-button--primary.el-button--small.send-btn) {
+    // 尺寸 - 自适应内容宽度，但有最小宽度确保文字完整显示
+    width: auto;
+    min-width: 92px;
+    height: 32px;
+    min-height: 32px;
+    max-width: none;
+    max-height: none;
+    padding: 0 16px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.25s ease;
+
+    // 内部内容容器
+    > span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    // 图标
+    .el-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // SVG 图标
+    svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    // 文字
+    .send-btn-text {
+      display: inline;
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    // ============================
+    // 状态 1: 空状态（无内容）— 浅灰禁用态
+    // 与 trae work 一致：禁用灰 + 弱对比
+    // ============================
+    &.is-empty,
+    &.is-empty.is-disabled,
+    &.is-empty:disabled {
+      // 显式提高特异性，覆盖 Element Plus disabled 默认样式
+      background: var(--el-fill-color-light);
+      border: 1px solid var(--el-border-color-lighter);
+      color: var(--el-text-color-placeholder);
+      box-shadow: none;
+      cursor: not-allowed;
+      opacity: 1;
+      // Element Plus disabled 会降低不透明度，强制还原
+      -webkit-opacity: 1;
+      --el-button-disabled-bg-color: var(--el-fill-color-light);
+      --el-button-disabled-border-color: var(--el-border-color-lighter);
+      --el-button-disabled-text-color: var(--el-text-color-placeholder);
+
+      // 暗色模式：使用深色背景 + 清晰可见的浅色文字，保证对比度
+      :where(html.dark) & {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.85);
+        --el-button-disabled-bg-color: rgba(255, 255, 255, 0.12);
+        --el-button-disabled-border-color: rgba(255, 255, 255, 0.18);
+        --el-button-disabled-text-color: rgba(255, 255, 255, 0.85);
+      }
+
+      .el-icon,
+      .send-btn-text {
+        color: inherit;
+      }
+
+      svg {
+        fill: currentColor;
+      }
+
+      &:hover,
+      &:hover.is-disabled,
+      &:hover:disabled {
+        background: var(--el-fill-color-light);
+        color: var(--el-text-color-placeholder);
+        transform: none;
+        box-shadow: none;
+
+        :where(html.dark) & {
+          background: rgba(255, 255, 255, 0.16);
+          border-color: rgba(255, 255, 255, 0.22);
+          color: rgba(255, 255, 255, 0.95);
+        }
+      }
+    }
+
+    // ============================
+    // 状态 2: 可发送（有内容）— 蓝色（trae work 主色）
+    // 不再跟随 --el-color-primary（被覆盖为黑色），改用固定品牌蓝
+    // ============================
+    &.is-ready {
+      background: #2563eb; // trae work 风格的蓝色
+      border: none;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+
+      :where(html.dark) & {
+        background: #3b82f6; // 暗色模式更亮一点的蓝
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+      }
+
+      .el-icon,
+      .send-btn-text {
+        color: #ffffff;
+      }
+
+      svg {
+        fill: currentColor;
+      }
+
+      &:hover:not(:disabled) {
+        background: #1d4ed8;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+        transform: translateY(-1px);
+
+        :where(html.dark) & {
+          background: #2563eb;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+      }
+
+      &:active:not(:disabled) {
+        background: #1e40af;
+        transform: translateY(0);
+        box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+
+        :where(html.dark) & {
+          background: #1d4ed8;
+        }
+      }
+    }
+
+    // ============================
+    // 状态 3: 发送中 — 橙色（trae work 的"工作中"警示色）
+    // 与可发送状态的蓝色形成明显对比
+    // ============================
+    &.is-sending {
+      background: #f59e0b; // trae work 风格的橙色
+      border: none;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+      cursor: wait;
+      animation: send-btn-pulse 1.4s ease-in-out infinite;
+
+      :where(html.dark) & {
+        background: #fbbf24; // 暗色模式更亮一点的橙
+        box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+      }
+
+      .el-icon,
+      .send-btn-text {
+        color: #ffffff;
+      }
+
+      svg {
+        fill: currentColor;
+        animation: send-btn-spin 1s linear infinite;
+      }
+
+      &:hover {
+        background: #f59e0b;
+        transform: none;
+        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+
+        :where(html.dark) & {
+          background: #fbbf24;
+        }
+      }
+    }
+  }
+
+  // 发送按钮 loading 旋转动画
+  @keyframes send-btn-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  // 发送按钮 pulse 动画（发送中状态）— 橙色光晕
+  @keyframes send-btn-pulse {
+    0%, 100% {
+      box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25), 0 0 0 0 rgba(245, 158, 11, 0.5);
+    }
+    50% {
+      box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25), 0 0 0 6px rgba(245, 158, 11, 0);
+    }
+  }
+
   // 点赞激活状态
   :deep(.is-liked.el-button) {
     color: var(--el-color-warning);
@@ -9107,211 +9129,7 @@ cleanup.add(() => {
 }
 
 // 标题栏 - 在 dialog 内第一项，参与拖拽
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  border-radius: var(--global-border-radius);
-  cursor: move;
-  user-select: none;
-  position: relative;
-  flex-shrink: 0;
-  width: 100%;
-  min-height: 32px;
-  box-shadow: none;
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .header-center {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    box-sizing: border-box;
-    width: calc(100% - 220px);
-    max-width: 160px; // 缩短标签宽度，与右侧按钮留出明显空隙，避免重叠
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: var(--z-0);
-    pointer-events: none;
-
-    .mode-tag {
-      pointer-events: auto;
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-      overflow-x: hidden; /* 仅水平裁切以配合 ellipsis，避免垂直裁切导致汉字顶部笔画被裁浅 */
-      overflow-y: visible;
-      box-sizing: border-box;
-
-      :deep(.el-tag__content) {
-        min-width: 0;
-        flex: 1 1 0;
-        overflow-x: hidden;
-        overflow-y: visible;
-        max-width: 100%;
-      }
-
-      span {
-        display: block;
-        min-width: 0;
-        overflow-x: hidden;
-        overflow-y: visible;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        line-height: 1.2; /* 略放宽，避免「豆」等字顶部一横被 line-height:1 裁切后看起来变浅 */
-      }
-    }
-  }
-
-  .header-left .model-tag,
-  .header-left .mode-tag,
-  .header-center .model-tag,
-  .header-center .mode-tag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 15px; // 进一步放大字体
-    height: 32px; // 大幅增大高度
-    flex-shrink: 0;
-    font-weight: 500;
-    padding: 0 14px; // 增加左右内边距
-    line-height: 1; // 强制 line-height 为 1，完全靠 flex 居中
-    vertical-align: middle;
-    // 该容器仅作文字/图标展示，无背景、描边、圆角
-    background-color: transparent;
-    border: none;
-    border-radius: 0;
-
-    .mode-tag-icon {
-      width: 20px; // 大幅放大图标
-      height: 20px;
-      margin-right: 6px;
-      flex-shrink: 0;
-      object-fit: contain;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      &.el-icon {
-        font-size: 18px; // 放大 el-icon
-        margin-right: 6px; // 确保 el-icon 也有间距
-      }
-
-      &.mode-tag-avatar {
-        border-radius: var(--global-border-radius);
-        object-fit: cover;
-      }
-    }
-
-    // 穿透覆盖 Element Plus 默认样式，确保内容区也是 flex 居中
-    :deep(.el-tag__content) {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      line-height: 1.2;
-    }
-
-    span {
-      line-height: 1.2; /* 避免汉字顶部笔画被裁切/反锯齿导致看起来变浅 */
-      display: inline-block;
-    }
-  }
-
-  .header-left .mode-tag {
-    margin-left: 4px;
-  }
-
-  .header-center .mode-tag {
-    margin-left: 0;
-    min-width: 0;
-    flex-shrink: 1; // 允许收缩，与上面公共 flex-shrink: 0 覆盖，避免压住右侧按钮
-
-    span {
-      display: block;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-
-  .typing-indicator {
-    display: flex;
-    gap: 4px;
-    margin-left: 8px;
-
-    .typing-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: var(--global-border-radius);
-      background: var(--el-color-primary);
-      animation: typing 1.4s infinite;
-
-      &:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-
-      &:nth-child(3) {
-        animation-delay: 0.4s;
-      }
-    }
-  }
-
-  // 最小化状态的模型信息
-  .minimized-model-info {
-    display: flex;
-    align-items: center;
-    gap: 12px; // 进一步增大间距
-
-    .minimized-model-icon {
-      width: 32px; // 大幅放大图标
-      height: 32px;
-      border-radius: var(--global-border-radius);
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-
-    .minimized-model-icon-fallback {
-      width: 32px; // 大幅放大图标
-      height: 32px;
-      color: var(--el-color-primary);
-      flex-shrink: 0;
-    }
-
-    .minimized-model-name {
-      font-size: 16px; // 进一步放大文字
-      font-weight: 500;
-      color: var(--el-text-color-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px; // 增加最大宽度
-    }
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    position: relative;
-    z-index: var(--z-base); // 始终在 header-center 之上，保证搜索等按钮可点
-    // 按钮样式已在统一按钮系统中定义
-  }
-}
+/* .dialog-header 样式：已迁移至 styles/ai-chat/_header.scss */
 
 
 // 搜索栏：无外层 search-bar 容器，输入框与搜索结果为 dialog-body-wrap 直接子级
@@ -9324,6 +9142,7 @@ cleanup.add(() => {
     background: var(--unified-search-bg);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
+    box-shadow: var(--unified-search-shadow, none);
     padding: 6px 16px;
     height: 44px;
 
@@ -9339,6 +9158,7 @@ cleanup.add(() => {
 
     &.is-focus {
       border-color: var(--unified-search-focus-color);
+      box-shadow: var(--unified-search-shadow, none);
     }
   }
 }
@@ -9605,7 +9425,7 @@ cleanup.add(() => {
   min-width: 140px;
   transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
   &:hover {
-    
+    transform: translateY(-1px);
   }
   &:active {
     transform: translateY(0);
@@ -9792,34 +9612,7 @@ cleanup.add(() => {
 }
 
 // 消息容器 - 复用项目消息容器样式；禁止投影，避免在标题栏底部形成叠加粗线
-.messages-container {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 20px;
-  background: var(--el-bg-color); // 亮色模式：使用纯白色背景，防止内容透出
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  box-shadow: none;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--el-fill-color-light);
-    border-radius: var(--global-border-radius);
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--el-border-color);
-    border-radius: var(--global-border-radius);
-  }
-}
+/* .messages-container 样式：已迁移至 styles/ai-chat/_message-list.scss */
 
 .empty-state {
   display: flex;
@@ -10032,857 +9825,19 @@ cleanup.add(() => {
   }
 }
 
-// 消息列表
-.messages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
+/* .messages-list / .date-separator / .message-item 样式：已迁移至 styles/ai-chat/_message-list.scss */
 
-  // TransitionGroup 根节点，使 message-item 之间保持 12px 间距
-  > div {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-}
+/* .user-message / .assistant-message 样式：已迁移至 styles/ai-chat/_message-list.scss */
 
-// 日期分隔符 - 复用项目样式规范
-.date-separator {
-  display: flex;
-  justify-content: center;
-  margin: 12px 0;
-  width: 100%;
-  flex-basis: 100%; // 占据整行
-  order: -1; // 优先显示在最前面
-  flex-shrink: 0; // 不允许收缩
+/* .assistant-message 样式：已迁移至 styles/ai-chat/_message-list.scss */
 
-  .date-label {
-    padding: 4px 12px;
-    background: var(--el-fill-color-light);
-    border-radius: var(--global-border-radius);
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-    white-space: nowrap; // 防止文字换行
-  }
-}
+/* .input-area / .input-wrapper / .chat-input 样式：已迁移至 styles/ai-chat/_input-area.scss */
 
-// 消息项 - 复用项目消息样式规范
-.message-item {
-  display: flex;
-  flex-wrap: wrap; // 允许换行，让日期分隔符可以占据整行
-  gap: 16px;
-  width: 100%;
-  position: relative;
-  flex-shrink: 0;
-  animation: messageFadeIn 0.3s ease;
+/* .voice-waveform-container / .voice-waveform / @keyframes waveform-bounce / .voice-recording-info / @keyframes recording-pulse 样式：已迁移至 styles/ai-chat/_input-area.scss */
 
-  &.is-selected {
-    animation: messageHighlight 0.5s ease;
-  }
+/* .chat-input-container / .has-voice-mini / .has-voice-card 样式：已迁移至 styles/ai-chat/_input-area.scss */
 
-  &.is-user {
-    flex-direction: row-reverse;
-
-    .message-content-wrapper {
-      align-items: flex-end;
-    }
-  }
-}
-
-// 用户消息 - 复用项目样式（右对齐，蓝色背景）
-.user-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  max-width: 75%;
-
-  .message-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--global-border-radius);
-    background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    font-size: 18px;
-    overflow: hidden;
-
-    .message-avatar-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: inherit;
-      display: block;
-    }
-  }
-
-  .message-content-wrapper {
-    flex: 1;
-    min-width: 0;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    .message-content {
-      background: var(--el-fill-color-light); // 用户发送的消息：保持原有填充色
-      color: var(--el-text-color-primary);
-      padding: 12px 16px;
-      border-radius: var(--global-border-radius);
-      word-wrap: break-word;
-      position: relative;
-      width: 100%;
-      box-sizing: border-box;
-      min-height: 36px;
-
-      .message-text {
-        font-size: 14px;
-        line-height: 1.6;
-      }
-
-      .message-files {
-        margin-top: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-
-        .file-item {
-          .file-image {
-            max-width: 200px;
-            max-height: 200px;
-            border-radius: var(--global-border-radius);
-          }
-
-          .file-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            background: var(--color-white-10);
-            border-radius: var(--global-border-radius);
-          }
-        }
-      }
-
-      .message-status {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        margin-top: 12px;
-        font-size: 12px;
-        color: var(--el-text-color-secondary);
-
-        .status-icon {
-          font-size: 12px;
-
-          &.sending {
-            animation: spin 1s linear infinite;
-          }
-
-          &.failed {
-            color: var(--el-color-danger);
-            cursor: pointer;
-          }
-        }
-
-        .message-time {
-          color: var(--el-text-color-secondary);
-        }
-      }
-    }
-
-    // 消息操作按钮样式（基础样式已在统一按钮系统中定义）- 始终显示，与上方间距由 wrapper gap 统一为 12px
-    .message-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 0;
-      opacity: 1;
-      transition: opacity 0.2s;
-    }
-  }
-}
-
-// AI消息 - 复用项目样式（左对齐，页面背景色）
-.assistant-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px; // 头像与气泡之间的间距，避免贴在一起
-  max-width: 100%;
-
-  .message-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--global-border-radius);
-    background: transparent; // 去掉绿色背景，保持透明
-    color: var(--el-text-color-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    font-size: 18px;
-    overflow: hidden;
-
-    .message-avatar-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: inherit;
-      display: block;
-    }
-
-    .assistant-avatar-fallback {
-      color: currentColor;
-    }
-  }
-
-  .message-content-wrapper {
-    flex: 1;
-    min-width: 0;
-    margin-left: 12px; // 保证气泡与头像之间必有间距，不贴在一起
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    .message-content {
-      background: var(--fcd-message-bubble-bg);
-      padding: 12px 16px;
-      border-radius: var(--global-border-radius);
-      word-wrap: break-word;
-      position: relative;
-      width: 100%;
-      box-sizing: border-box;
-      min-height: 36px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px; // 正文、思考、图片、流式指示器、状态行之间统一 12px
-
-      .message-text {
-        font-size: 14px;
-        line-height: 1.6;
-        color: var(--el-text-color-primary);
-        margin-bottom: 0; // 正文块与下方 .message-status 的间距仅由 .message-status margin-top 12px 控制
-
-        // 段落再细一点
-        p {
-          font-size: 14px;
-          line-height: 1.6;
-          margin: 0 0 8px 0;
-        }
-
-        // 最后一处段落/块不留底 margin，避免与 .message-status 之间多出间距
-        p:last-child {
-          margin-bottom: 0;
-        }
-
-        :deep(p:last-of-type),
-        :deep(p:last-child),
-        :deep(> *:last-child) {
-          margin-bottom: 0;
-        }
-
-        :deep(pre) {
-          background: var(--el-fill-color-light);
-          padding: 12px;
-          border-radius: var(--global-border-radius);
-          overflow-x: auto;
-        }
-
-        :deep(code) {
-          background: var(--el-fill-color-light);
-          padding: 2px 6px;
-          border-radius: var(--global-border-radius);
-          font-size: 13px;
-        }
-      }
-
-      .streaming-indicator {
-        margin-top: 0; // 与正文/状态行间距统一由 .message-status margin-top 12px 控制
-
-        .typing-dots {
-          display: inline-flex;
-          gap: 4px;
-
-          span {
-            width: 6px;
-            height: 6px;
-            border-radius: var(--global-border-radius);
-            background: var(--el-color-primary);
-            animation: typing 1.4s infinite;
-
-            &:nth-child(2) {
-              animation-delay: 0.2s;
-            }
-
-            &:nth-child(3) {
-              animation-delay: 0.4s;
-            }
-          }
-        }
-      }
-
-      .message-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 0; // 与正文间距由 .message-content gap: 12px 统一控制
-        font-size: 12px;
-        color: var(--el-text-color-secondary);
-        flex-wrap: wrap;
-
-        .message-model {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 2px 6px;
-          background: var(--el-fill-color-light);
-          border-radius: var(--global-border-radius);
-          font-size: 12px;
-
-          .message-model-icon {
-            width: 14px;
-            height: 14px;
-            object-fit: contain;
-            flex-shrink: 0;
-          }
-
-          .message-model-agent-avatar {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            object-fit: cover;
-            flex-shrink: 0;
-          }
-        }
-
-        .message-time {
-          color: var(--el-text-color-placeholder);
-        }
-
-        .message-error {
-          color: var(--el-color-danger);
-          cursor: help;
-          display: flex;
-          align-items: center;
-        }
-      }
-
-      .message-text {
-        .edited-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          margin-left: 8px;
-          font-size: 12px;
-          color: var(--el-text-color-placeholder);
-          font-style: italic;
-        }
-      }
-
-      // 大模型/智能体富内容（与 ai_index2/ai_assistant 一致）
-      .assistant-thinking {
-        margin-top: 12px;
-
-        .thinking-toggle {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          background: var(--el-fill-color-light);
-          border: var(--unified-border);
-          border-radius: var(--global-border-radius);
-          font-size: 14px;
-          color: var(--el-text-color-secondary);
-          cursor: pointer;
-          transition: background 0.2s;
-
-          &:hover {
-            background: var(--el-fill-color);
-          }
-        }
-
-        .thinking-content {
-          margin-top: 8px;
-          padding: 12px;
-          background: var(--el-fill-color-lighter);
-          border-radius: var(--global-border-radius);
-          font-size: 13px;
-          line-height: 1.6;
-          color: var(--el-text-color-secondary);
-        }
-      }
-
-      .assistant-images {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-
-        .assistant-image {
-          max-width: 100%;
-          max-height: 200px;
-          border-radius: var(--global-border-radius);
-          cursor: pointer;
-        }
-      }
-
-      .assistant-videos {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 12px;
-
-        .assistant-video {
-          max-width: 100%;
-          max-height: 300px;
-          border-radius: var(--global-border-radius);
-          background: var(--el-color-primary);
-        }
-      }
-
-      .assistant-audio {
-        margin-top: 12px;
-
-        .assistant-audio-player {
-          width: 100%;
-          max-width: 300px;
-          height: 40px;
-        }
-      }
-
-      .assistant-content-hidden {
-        padding: 12px;
-        font-size: 13px;
-        color: var(--el-text-color-placeholder);
-        font-style: italic;
-      }
-    }
-
-    // 消息操作按钮样式（基础样式已在统一按钮系统中定义）- 始终显示，与上方间距由 wrapper gap 统一为 12px
-    .message-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 0;
-      opacity: 1;
-      transition: opacity 0.2s;
-    }
-  }
-}
-
-// 输入区域 - 复用项目输入框样式规范
-// 宽度与父容器相同，底部贴合父容器底部
-.input-area {
-  background: var(--el-bg-color); // 亮色模式：使用纯白色背景
-  padding: 12px; // 缩短左右下间距（原 16px 20px）
-  flex-shrink: 0;
-  // 抵消父容器 .floating-chat-dialog 的 padding: 8px，使宽度与父容器相同
-  width: calc(100% + 16px); // 100% + 左右各 8px
-  margin-left: -8px; // 抵消父容器左 padding
-  margin-right: -8px; // 抵消父容器右 padding
-  margin-bottom: -8px; // 抵消父容器底 padding，使底部贴合
-  // 设置底部圆角，与父容器一致（15px）
-  border-bottom-left-radius: var(--fcd-radius-lg);
-  border-bottom-right-radius: var(--fcd-radius-lg);
-  -webkit-border-bottom-left-radius: var(--fcd-radius-lg);
-  -webkit-border-bottom-right-radius: var(--fcd-radius-lg);
-  -moz-border-radius-bottomleft: var(--fcd-radius-lg);
-  -moz-border-radius-bottomright: var(--fcd-radius-lg);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow: visible; // 改为 visible，确保下拉菜单可以显示
-  position: relative; // 添加相对定位，确保 z-index 生效
-  z-index: var(--z-base); // 确保输入区域在正确的层级
-}
-
-// 输入框包装器 - 设置圆角，与内部输入框一致；背景随主题：亮色纯白、暗色纯黑
-.input-wrapper {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  // 亮色模式纯白、暗色模式纯黑，使用全局页面背景变量（不硬编码）
-  background-color: var(--el-bg-color-page);
-  // 圆角：与内部输入框一致（15px）
-  border-radius: var(--fcd-radius-lg);
-  -webkit-border-radius: var(--fcd-radius-lg);
-  -moz-border-radius: var(--fcd-radius-lg);
-  border-top-left-radius: var(--fcd-radius-lg);
-  border-top-right-radius: var(--fcd-radius-lg);
-  border-bottom-left-radius: var(--fcd-radius-lg);
-  border-bottom-right-radius: var(--fcd-radius-lg);
-  overflow: hidden; // 确保内容不会超出圆角边界
-  // 使用全站统一描边，禁止 box-shadow 避免与 header 底部描边视觉叠加
-  border: var(--unified-border);
-  transition: border-color 0.3s ease;
-  box-shadow: none;
-
-  :where(html.dark) & {
-    border-color: var(--ai-purple-light-2);
-    box-shadow: none;
-
-    &:hover {
-      border-color: var(--ai-purple-light-35);
-      box-shadow: none;
-    }
-
-    &:focus-within {
-      border-color: var(--ai-purple-light-5);
-      box-shadow: none;
-    }
-  }
-}
-
-// 聊天输入框 - 使用 contenteditable div 替代 textarea，确保圆角生效
-// 使用 :where() 包裹祖先层级，特异性恒为 0
-:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input,
-:where(.floating-chat-dialog .input-wrapper) .chat-input,
-:where(.input-wrapper) .chat-input,
-.chat-input {
-  position: relative;
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  min-height: 40px;
-  max-height: 200px;
-  padding: 10px 12px;
-  border: var(--fcd-border); // 移除描边
-  // 圆角：使用 CSS 变量
-  border-radius: var(--fcd-radius-lg);
-  -webkit-border-radius: var(--fcd-radius-lg);
-  -moz-border-radius: var(--fcd-radius-lg);
-  border-top-left-radius: var(--fcd-radius-lg);
-  border-top-right-radius: var(--fcd-radius-lg);
-  border-bottom-left-radius: var(--fcd-radius-lg);
-  border-bottom-right-radius: var(--fcd-radius-lg);
-  background: var(--fcd-input-bg); // 移除默认背景色，使用透明
-  outline: var(--fcd-outline);
-  outline-width: 0;
-  outline-style: none;
-  outline-color: transparent;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--el-text-color-primary);
-  box-sizing: border-box;
-  box-shadow: var(--fcd-box-shadow);
-  overflow-y: auto; // 允许垂直滚动
-  overflow-x: hidden;
-  white-space: pre-wrap; // 保留换行和空格
-  word-wrap: break-word; // 自动换行
-
-  // Placeholder 样式
-  &:empty:before {
-    content: attr(data-placeholder);
-    color: var(--el-text-color-placeholder);
-    pointer-events: none;
-  }
-
-  // 所有状态下圆角
-  &,
-  &:focus,
-  &:hover,
-  &:active,
-  &:focus-visible,
-  &:focus-within {
-    border-radius: var(--fcd-radius-lg);
-    -webkit-border-radius: var(--fcd-radius-lg);
-    -moz-border-radius: var(--fcd-radius-lg);
-    border-top-left-radius: var(--fcd-radius-lg);
-    border-top-right-radius: var(--fcd-radius-lg);
-    border-bottom-left-radius: var(--fcd-radius-lg);
-    border-bottom-right-radius: var(--fcd-radius-lg);
-  }
-
-  &:focus {
-    border: var(--fcd-border); // 移除 focus 状态下的描边
-    outline: var(--fcd-outline);
-    outline-width: 0;
-    outline-style: none;
-    outline-color: transparent;
-    box-shadow: var(--fcd-box-shadow);
-  }
-
-  &:focus-visible {
-    outline: var(--fcd-outline);
-    outline-width: 0;
-    outline-style: none;
-    outline-color: transparent;
-    box-shadow: var(--fcd-box-shadow);
-  }
-}
-
-// 语音波形动画容器
-.voice-waveform-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  width: 100%;
-  min-height: 40px;
-  padding: 12px 16px;
-  background: color-mix(in srgb, var(--el-color-primary) 10%, transparent);
-  border-radius: var(--global-border-radius);
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--el-color-primary) 15%, transparent);
-  }
-
-  :where(html.dark) & {
-    background: color-mix(in srgb, var(--el-color-primary) 20%, transparent);
-
-    &:hover {
-      background: color-mix(in srgb, var(--el-color-primary) 25%, transparent);
-    }
-  }
-}
-
-// 语音波形动画
-.voice-waveform {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  height: 32px;
-
-  .waveform-bar {
-    width: 4px;
-    height: 8px;
-    background: var(--el-text-color-primary);
-    border-radius: var(--global-border-radius);
-    animation: waveform-bounce 0.8s ease-in-out infinite;
-
-    :where(html.dark) & {
-      background: var(--el-text-color-regular);
-    }
-  }
-}
-
-@keyframes waveform-bounce {
-
-  0%,
-  100% {
-    height: 8px;
-    opacity: 0.6;
-  }
-
-  50% {
-    height: 28px;
-    opacity: 1;
-  }
-}
-
-// 录音信息显示
-.voice-recording-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  .recording-dot {
-    width: 8px;
-    height: 8px;
-    background: var(--el-color-danger);
-    border-radius: var(--global-border-radius);
-    animation: recording-pulse 1s ease-in-out infinite;
-  }
-
-  .recording-duration {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--el-text-color-primary);
-    font-family: var(--font-family-mono);
-  }
-
-  .recording-hint {
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-  }
-}
-
-@keyframes recording-pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.5;
-    transform: scale(0.8);
-  }
-}
-
-// 输入框容器 - 使用 :where() 包裹祖先层级，特异性恒为 0
-:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container,
-:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container,
-:where(.input-area .input-wrapper) .chat-input-container {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 4px;
-  width: 100%;
-  min-height: 32px;
-  padding: 0;
-}
-
-// 有语音小卡片时：同一行显示、垂直居中、左侧留白，避免卡片贴边（用 class 兼容无 :has 的浏览器）
-:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container.has-voice-mini,
-:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container.has-voice-mini,
-:where(.input-area .input-wrapper) .chat-input-container.has-voice-mini,
-:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container:has(.voice-mini-card),
-:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container:has(.voice-mini-card),
-:where(.input-area .input-wrapper) .chat-input-container:has(.voice-mini-card) {
-  flex-wrap: nowrap;
-  align-items: center;
-  padding: 12px 0 0 12px; // 上、左留白 12px，语音卡片不贴边
-}
-
-// 有语音卡片时输入框与卡片同一行，用单类覆盖 base min-width
-:where(.floating-chat-dialog-wrapper .floating-chat-dialog .input-area .input-wrapper) .chat-input-container .chat-input.has-voice-card,
-:where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container .chat-input.has-voice-card,
-:where(.input-area .input-wrapper) .chat-input-container .chat-input.has-voice-card,
-:where(.input-area .input-wrapper) .chat-input-container.has-voice-mini .chat-input,
-.chat-input.has-voice-card {
-  flex: 1;
-  min-width: 0; // 允许在 flex 中收缩，与语音卡片同一行
-  width: auto;
-  min-height: 40px;
-  line-height: 40px;
-  padding-top: 0;
-  padding-bottom: 0;
-  display: flex;
-  align-items: center;
-}
-
-// 输入操作按钮 - 正常流布局（基础样式已在统一按钮系统中定义）
-.input-actions {
-  position: relative;
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  justify-content: flex-end;
-  width: 100%;
-  padding-right: 6px;
-  padding-bottom: 6px;
-  background: transparent;
-
-  // 发送按钮 - 在 flex 容器中不压缩，自适应内容宽度
-  :deep(.el-button.send-btn) {
-    flex-shrink: 0;
-    width: auto;
-    min-width: fit-content;
-  }
-
-  // 录音状态按钮（特殊状态覆盖）
-  :deep(.el-button.is-recording) {
-    color: var(--el-bg-color-page);
-    background: var(--el-color-danger);
-    border-color: var(--el-color-danger);
-    animation: recording-pulse 1s ease-in-out infinite;
-    .el-icon {
-      color: var(--el-bg-color-page);
-    }
-  }
-}
-
-// 发送按钮样式 - 图标 + 文字同一行（左右内边距与悬浮窗块一致）
-.send-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: var(--global-border-radius);
-  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-
-  // Element 默认在按钮内包一层 span，需强制为行内 flex，保证图标与文字同一行
-  :deep(> span) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    flex-wrap: nowrap;
-  }
-
-  background: var(--fcd-send-btn-bg);
-  border-color: var(--fcd-send-btn-bg);
-  color: var(--fcd-send-btn-color);
-
-  :deep(.el-icon) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    padding: 0;
-    font-size: 14px;
-    width: 14px;
-    height: 14px;
-    color: inherit;
-    transition: color 0.2s ease;
-    flex-shrink: 0;
-    vertical-align: middle;
-  }
-
-  .send-btn-text {
-    display: inline;
-    align-items: center;
-    color: inherit;
-    font-size: 13px;
-    line-height: 1;
-    vertical-align: middle;
-    flex-shrink: 0;
-  }
-
-  // 明色主题 hover 样式：使用深灰色背景
-  &:hover:not(:disabled) {
-    background: var(--fcd-send-btn-hover-bg);
-    border-color: var(--fcd-send-btn-hover-bg);
-    opacity: 1;
-
-    :deep(.el-icon),
-    .send-btn-text {
-      color: var(--fcd-send-btn-color);
-    }
-  }
-
-  // 明色主题 active/focus 样式
-  &:active:not(:disabled),
-  &:focus:not(:disabled) {
-    background: var(--el-fill-color-darker);
-    border-color: var(--el-fill-color-darker);
-
-    :deep(.el-icon),
-    .send-btn-text {
-      color: var(--fcd-send-btn-color);
-    }
-  }
-
-  // 禁用状态
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: var(--fcd-send-btn-bg);
-    border-color: var(--fcd-send-btn-bg);
-
-    :deep(.el-icon),
-    .send-btn-text {
-      color: var(--fcd-send-btn-color);
-    }
-  }
-}
+/* .input-actions / .send-btn 样式：已迁移至 styles/ai-chat/_input-area.scss */
 
 // 按钮图标居中样式已在统一按钮系统中定义
 
@@ -10959,7 +9914,7 @@ cleanup.add(() => {
   border-left: 3px solid var(--el-border-color);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s, border-left-color 0.2s;
+  transition: all 0.2s;
 
   &:hover {
     background: var(--el-fill-color-light);
@@ -11009,7 +9964,7 @@ cleanup.add(() => {
 // 边缘拖拽区域 - 四个边
 .resize-edge {
   position: absolute;
-  z-index: var(--z-dropdown); // 提高 z-index，确保在最上层
+  z-index: var(--z-dropdown); // 提高 z-index，确保存最上层
   background: transparent;
   pointer-events: auto; // 确保可以接收鼠标事件
   user-select: none; // 防止文本选择
@@ -11061,7 +10016,7 @@ cleanup.add(() => {
 // 边缘拖拽区域 - 四个角
 .resize-corner {
   position: absolute;
-  z-index: var(--z-dropdown); // 提高 z-index，确保在边上之上
+  z-index: var(--z-dropdown); // 提高 z-index，确保存边上之上
   width: 8px; // 更小巧的尺寸
   height: 8px; // 更小巧的尺寸
   background: transparent;
@@ -11136,7 +10091,7 @@ cleanup.add(() => {
   }
 
   30% {
-    
+    transform: translateY(-10px);
     opacity: 1;
   }
 }
@@ -11167,15 +10122,18 @@ cleanup.add(() => {
 @keyframes recording-pulse {
   0% {
     transform: scale(1);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   50% {
     transform: scale(1.1);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   100% {
     transform: scale(1);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 // 过渡动画
@@ -11191,7 +10149,7 @@ cleanup.add(() => {
 
 .dialog-slide-enter-active,
 .dialog-slide-leave-active {
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dialog-slide-enter-from {
@@ -11206,19 +10164,19 @@ cleanup.add(() => {
 
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: opacity 0.3s ease, max-height 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
   max-height: 0;
-  
+  transform: translateY(-10px);
 }
 
 .message-fade-enter-active,
 .message-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .message-fade-enter-from {
@@ -11228,7 +10186,7 @@ cleanup.add(() => {
 
 .message-fade-leave-to {
   opacity: 0;
-  
+  transform: translateY(-10px);
 }
 
 // 统计对话框样式
@@ -11287,141 +10245,7 @@ cleanup.add(() => {
 }
 
 // 浮窗左侧滑出的会话列表面板（扁平化：四边描边，内缩 1px 避免被容器裁切）
-.session-list-panel {
-  position: absolute;
-  left: 1px;
-  top: 1px;
-  bottom: 1px;
-  width: 258px;
-  z-index: calc(var(--z-base) + 9);
-  display: flex;
-  flex-direction: column;
-  background: var(--el-bg-color);
-  border: var(--unified-border);
-  border-radius: var(--fcd-radius-sm);
-  overflow: hidden;
-}
-
-.session-list-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: var(--unified-border-bottom);
-  background: var(--el-fill-color-lighter);
-}
-
-.session-list-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.session-list-close {
-  /* 尺寸与正方形由全局 _buttons-unified 的 .session-list-close 统一 */
-}
-
-.session-list-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px;
-  background: var(--el-bg-color);
-}
-
-// 会话列表滑入滑出动画
-.session-list-slide-enter-active,
-.session-list-slide-leave-active {
-  transition: transform 0.25s ease;
-}
-
-.session-list-slide-enter-from,
-.session-list-slide-leave-to {
-  transform: translateX(-100%);
-}
-
-// 历史记录面板样式
-.history-content {
-  padding: 16px 0;
-
-  .empty-history {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-  }
-
-  .history-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 120px;
-    font-size: 14px;
-    color: var(--el-text-color-secondary);
-  }
-
-  .history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    .history-item {
-      padding: 16px;
-      border: var(--unified-border);
-      border-radius: var(--global-border-radius);
-      cursor: pointer;
-      transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
-      position: relative;
-
-      &:hover {
-        border-color: var(--el-color-primary-light-5);
-        background: var(--el-fill-color-light);
-
-        .history-actions {
-          opacity: 1;
-        }
-      }
-
-      &.is-active {
-        border: var(--el-border-width-primary) solid var(--el-color-primary);
-        background: var(--el-color-primary-light-9);
-      }
-
-      .history-title {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--el-text-color-primary);
-        margin-bottom: 8px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .history-meta {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        font-size: 12px;
-        color: var(--el-text-color-secondary);
-
-        .history-time {
-          color: var(--el-text-color-placeholder);
-        }
-      }
-
-      .history-actions {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        opacity: 0;
-        transition: opacity 0.2s;
-        // 按钮样式已在统一按钮系统中定义
-      }
-    }
-  }
-}
+/* .session-list-panel / .session-list-header / .session-list-title / .session-list-close / .session-list-content / .session-list-slide / .history-content 样式：已迁移至 styles/ai-chat/_session-list.scss */
 
 // 文件预览样式增强
 .message-files {
@@ -11515,7 +10339,7 @@ cleanup.add(() => {
 // 快捷操作动画
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-up-enter-from,
@@ -11544,7 +10368,8 @@ cleanup.add(() => {
 
     &:hover {
       border-color: var(--el-border-color-lighter);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
   }
 
   .dialog-header {
@@ -11683,7 +10508,7 @@ cleanup.add(() => {
           color: var(--el-text-color-secondary);
           padding: 4px 8px;
           background: var(--el-fill-color-light);
-          border-radius: var(--global-border-radius);
+          border-radius: var(--global-border-radius-sm, 4px);
         }
 
         .metadata-json {
@@ -11776,6 +10601,10 @@ cleanup.add(() => {
     &:hover {
       background: var(--el-fill-color-light);
 
+      .item-icon {
+        box-shadow: var(--global-box-shadow);
+      }
+
       .item-desc {
         opacity: 1;
       }
@@ -11791,7 +10620,8 @@ cleanup.add(() => {
 
       .item-icon {
         transform: scale(1.05);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
 
       .item-label {
         color: var(--el-color-primary);
@@ -11806,23 +10636,18 @@ cleanup.add(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: var(--global-box-shadow);
+
       svg {
         width: 20px;
         height: 20px;
-        // 工具图标背景在明暗模式下会切换（亮色=黑 / 暗色=白）
-        // svg 颜色必须用 on-primary 自适应，避免暗色白底白字
-        color: var(--color-on-primary);
+        color: var(--el-color-white);
       }
 
       // 仪表板 - 主色（总览入口）
       &.dashboard {
         background: var(--el-color-primary);
-
-        svg {
-          // 仪表板背景=primary，明暗自动切换，文字/图标用 on-primary
-          color: var(--color-on-primary);
-        }
       }
 
       // 记忆系统 - 紫色（代表知识和智慧）
@@ -11916,7 +10741,7 @@ cleanup.add(() => {
       align-items: center;
       padding: 6px 12px;
       border-radius: var(--global-border-radius);
-      transition: color 0.2s, background-color 0.2s;
+      transition: all 0.2s;
 
       svg {
         flex-shrink: 0;
@@ -12007,6 +10832,10 @@ button.mini-delete-btn {
 
 <!-- 非 scoped 样式：仅保留必要的全局样式 -->
 <style lang="scss">
+// SCSS 模块化迁移：API 接入对话框 + 客服页主题
+@use '@/styles/ai-chat/api-access' as *;
+@use '@/styles/ai-chat/customer-service-theme' as *;
+
 /* 按钮样式已在 scoped 样式的统一按钮系统中定义 */
 /* 这里只保留必须的全局覆盖 */
 
@@ -12041,7 +10870,7 @@ button.mini-delete-btn {
 .el-popper.ai-chat-popper {
   --ai-popper-blur: 24px;
   --ai-popper-border: var(--el-border-color-lighter);
-  --ai-popper-shadow: 0 4px 20px var(--color-black-6);
+  --ai-popper-shadow: none;
   --ai-item-hover-bg: var(--color-black-5);
   --ai-item-gap: 12px;
   --ai-motion: cubic-bezier(0.4, 0, 0.2, 1);
@@ -12117,7 +10946,7 @@ button.mini-delete-btn {
       color: var(--color-gray-111);
 
       .el-icon {
-        color: var(--el-text-color-secondary);
+        color: var(--color-gray-666);
       }
     }
 
@@ -12140,17 +10969,17 @@ button.mini-delete-btn {
   :where(html.dark) & {
     --ai-popper-bg: color-mix(in srgb, var(--el-color-primary) 92%, transparent);
     --ai-popper-border: var(--color-gray-1f1f1f);
-    --ai-popper-shadow: 0 4px 20px var(--color-black-25);
+    --ai-popper-shadow: none;
     --ai-item-hover-bg: var(--color-white-6);
 
     .el-dropdown-menu__item {
-      color: var(--el-text-color-secondary);
+      color: var(--color-gray-ededed);
 
       &:hover:not(.is-disabled) {
-        color: var(--el-text-color-secondary);
+        color: var(--color-gray-ededed);
 
         .el-icon {
-          color: var(--el-text-color-placeholder);
+          color: var(--color-gray-a1a1a1);
         }
       }
     }
@@ -12261,334 +11090,14 @@ button.mini-delete-btn {
   }
 }
 
-/* ========== API 接入对话框样式 ========== */
-.api-access-dialog {
-  .api-access-dialog-header {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    gap: 8px;
-
-    .el-dialog__title {
-      flex: 1;
-      margin-right: 0;
-    }
-
-    .api-access-doc-btn {
-      margin-left: auto;
-      flex-shrink: 0;
-    }
-
-    .el-dialog__headerbtn {
-      flex-shrink: 0;
-      margin-left: 0;
-    }
-  }
-
-  :deep(.el-dialog__body) {
-    max-height: 70vh;
-    overflow-y: auto;
-    padding: 16px 20px;
-  }
-
-  .api-access-content {
-    .api-basic-info {
-      .info-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-        /* 三个区块各占一行：API Key 一行、Base URL 一行、模型 ID 一行 */
-      }
-    }
-
-    .api-info-section {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-
-      .api-info-label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 6px;
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--el-text-color-secondary);
-        flex-shrink: 0;
-
-        .el-icon {
-          color: var(--el-color-primary);
-          font-size: 14px;
-        }
-      }
-
-      .api-info-value {
-        min-width: 0;
-
-        .el-input {
-          font-family: var(--font-family-mono);
-
-          :deep(.el-input__inner) {
-            font-family: inherit;
-            font-size: 12px;
-          }
-
-          :deep(.el-input__suffix) {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-          }
-        }
-      }
-    }
-
-    .section-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--el-text-color-primary);
-
-      .el-icon {
-        color: var(--el-color-primary);
-      }
-    }
-
-    .protocol-section {
-      margin-bottom: 20px;
-
-      .protocol-tabs {
-        :deep(.el-tabs__header) {
-          margin-bottom: 0;
-          justify-content: flex-start; /* 左对齐，保证向左滚动时能看到首个 Tab（OpenAI） */
-        }
-
-        :deep(.el-tabs__nav-wrap) {
-          padding: 0 8px;
-          flex: 1 1 auto;
-          min-width: 0; /* 允许收缩，配合 overflow 出现左右箭头 */
-          display: flex;
-          justify-content: flex-start;
-          overflow: hidden;
-        }
-
-        :deep(.el-tabs__nav-scroll) {
-          display: flex;
-          justify-content: flex-start;
-          min-width: 0;
-        }
-
-        :deep(.el-tabs__nav) {
-          float: none;
-          display: inline-flex;
-          margin: 0; /* 不居中，首 Tab 贴左，左右滚动逻辑正确 */
-          flex-shrink: 0;
-        }
-
-        :deep(.el-tabs__item) {
-          padding: 0 12px;
-          height: 36px;
-          justify-content: center; /* 每个 tab 内文案与图标居中 */
-        }
-
-        .tab-label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-
-          .protocol-icon {
-            width: 16px;
-            height: 16px;
-          }
-
-          .emoji-icon {
-            font-size: 14px;
-          }
-        }
-
-        .code-example {
-          .example-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            background: var(--el-fill-color-light);
-            border-bottom: var(--unified-border-bottom);
-
-            .lang-badge {
-              font-size: 12px;
-              padding: 2px 8px;
-              border-radius: var(--global-border-radius);
-              font-weight: 500;
-
-              &.python {
-                background: var(--lang-python-bg);
-                color: var(--lang-python);
-              }
-
-              &.js {
-                background: var(--lang-javascript-bg);
-                color: var(--lang-javascript);
-              }
-
-              &.bash {
-                background: var(--lang-bash-bg);
-                color: var(--lang-bash);
-              }
-
-              &.json {
-                background: var(--el-fill-color-light);
-                color: var(--el-text-color-secondary);
-              }
-            }
-          }
-
-          pre {
-            margin: 0;
-            padding: 12px;
-            background: var(--el-fill-color-darker);
-            overflow-x: auto;
-            max-height: 200px;
-
-            code {
-              font-family: var(--font-family-mono);
-              font-size: 12px;
-              line-height: 1.5;
-              color: var(--el-text-color-primary);
-              white-space: pre;
-            }
-          }
-        }
-      }
-    }
-
-    .compatible-platforms {
-      margin-bottom: 16px;
-
-      .platform-grid {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 8px;
-
-        @media (width <= 768px) {
-          grid-template-columns: repeat(3, 1fr);
-        }
-
-        .platform-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          padding: 10px 8px;
-          border-radius: var(--global-border-radius);
-          background: var(--el-fill-color-light);
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-
-          &:hover {
-            background: var(--el-color-primary-light-9);
-          }
-
-          .platform-icon-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            flex-shrink: 0;
-          }
-
-          .platform-logo {
-            width: 24px;
-            height: 24px;
-            object-fit: contain;
-            display: block;
-          }
-
-          .platform-emoji {
-            font-size: 22px;
-            line-height: 1;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .platform-name {
-            font-size: 12px;
-            color: var(--el-text-color-secondary);
-            text-align: center;
-            line-height: 1.2;
-          }
-        }
-      }
-    }
-
-    .api-notes {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      background: var(--el-color-warning-light-9);
-      border-radius: var(--global-border-radius);
-      border-left: 3px solid var(--el-color-warning);
-      font-size: 12px;
-      color: var(--el-text-color-secondary);
-
-      .el-icon {
-        color: var(--el-color-warning);
-        flex-shrink: 0;
-      }
-    }
-  }
-
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-  }
-}
-
-:where(html.dark) .api-access-dialog {
-  :where(.api-access-content) {
-    :where(.protocol-section) .protocol-tabs .code-example pre {
-      background: var(--color-black-30);
-    }
-
-    .compatible-platforms .platform-item {
-      background: var(--el-fill-color);
-
-      &:hover {
-        background: var(--el-color-primary-light-9);
-      }
-    }
-
-    .api-notes {
-      background: rgba(var(--el-color-warning-rgb), 0.1);
-    }
-
-    .lang-badge {
-      &.python {
-        background: var(--lang-python-bg);
-      }
-
-      &.js {
-        background: var(--lang-javascript-bg);
-        color: var(--lang-javascript);
-      }
-    }
-  }
-}
+/* ========== API 接入对话框样式：已迁移至 styles/ai-chat/_api-access.scss ========== */
 
 // OpenClaw Popover 全局样式 - 1px 描边、12px 圆角，内容不溢出
 :where(:root, body) .el-popper.openclaw-popover {
   padding: 18px;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   background: var(--el-bg-color);
   min-width: 0;
   overflow: hidden;
@@ -12622,6 +11131,7 @@ button.mini-delete-btn {
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.2s ease;
 
@@ -12642,23 +11152,23 @@ button.mini-delete-btn {
   :where(html.dark) & {
     background: var(--el-bg-color);
     border-color: var(--el-border-color);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
-/* AI 能力下拉复用 .openclaw-quick-menu 网格卡片样式，图标颜色跟随主色背景自动切换 */
+/* AI 能力下拉复用 .openclaw-quick-menu 网格卡片样式，仅补丁图标为白色 */
 :where(body) :where(.el-popper.ai-chat-popper.ai-capability-popper) .openclaw-quick-menu {
   .item-icon .el-icon,
   .item-icon .ai-star-icon {
-    // 工具图标背景=primary（明暗自动切换），文字/图标用 on-primary 自适应
-    color: var(--color-on-primary);
+    color: var(--el-color-white);
   }
 
   .item-icon .ai-star-icon svg path {
-    fill: var(--color-on-primary);
+    fill: var(--el-color-white);
   }
 
   .item-icon .el-icon svg {
-    color: var(--color-on-primary);
+    color: var(--el-color-white);
   }
 }
 
@@ -12723,6 +11233,7 @@ button.mini-delete-btn {
   border: var(--unified-border);
   display: flex;
   flex-direction: column;
+  box-shadow: var(--global-box-shadow);
   position: relative;
   z-index: var(--z-max);
   pointer-events: auto;
@@ -12734,7 +11245,7 @@ button.mini-delete-btn {
   --el-bg-color: var(--color-dark-bg-2);
   --el-bg-color-page: var(--color-dark-bg-1);
   --el-text-color-primary: var(--color-gray-e5eaf3);
-  --el-text-color-regular: var(--el-border-color-lighter);
+  --el-text-color-regular: var(--color-gray-cfd3dc);
   --el-text-color-secondary: var(--color-gray-a3a6ad);
   --el-border-color: var(--border-unified-color);
   --el-border-color-light: var(--border-unified-color);
@@ -12804,7 +11315,7 @@ button.mini-delete-btn {
     border: var(--unified-border);
     background: var(--el-fill-color-light);
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
+    transition: all 0.2s ease;
 
     &:hover {
       background: var(--el-fill-color);
@@ -12963,7 +11474,7 @@ button.mini-delete-btn {
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       margin-right: 0;
-      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
+      transition: all 0.2s ease;
       cursor: pointer;
       height: 28px;
       line-height: 16px;
@@ -13009,6 +11520,7 @@ button.mini-delete-btn {
   background: var(--el-bg-color-page);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -13040,6 +11552,7 @@ button.mini-delete-btn {
   background: var(--el-bg-color-page);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -13053,7 +11566,7 @@ button.mini-delete-btn {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  transition: all 0.2s ease;
   z-index: var(--z-loading);
 }
 
@@ -13068,7 +11581,7 @@ button.mini-delete-btn {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  transition: all 0.2s ease;
   z-index: var(--z-loading);
 }
 
@@ -13104,292 +11617,7 @@ button.mini-delete-btn {
   }
 }
 
-// ============================================
-// 客服页主题 (theme-custom-service)
-// ============================================
-$cs-accent-blue: var(--el-text-color-primary);
-$cs-accent-cyan: var(--el-text-color-primary);
-
-.floating-chat-dialog-wrapper.theme-custom-service {
-
-  // 标题栏右侧：连接状态
-  .cs-status-wrap {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-right: 8px;
-    font-family: var(--font-family-mono);
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    color: var(--el-text-color-secondary);
-  }
-
-  .cs-status-indicator {
-    position: relative;
-    width: 10px;
-    height: 10px;
-
-    .cs-status-dot {
-      position: absolute;
-      inset: 2px;
-      background: var(--el-color-success);
-      border-radius: var(--global-border-radius);
-    }
-
-    .cs-status-ring {
-      position: absolute;
-      inset: 0;
-      border: var(--unified-border);
-      border-radius: var(--global-border-radius);
-      animation: cs-status-pulse 2s ease-in-out infinite;
-    }
-
-    &.connecting .cs-status-dot {
-      background: var(--el-color-warning);
-    }
-
-    &.connecting .cs-status-ring {
-      border-color: var(--el-color-warning);
-    }
-
-    &.danger .cs-status-dot {
-      background: var(--el-color-danger);
-    }
-
-    &.danger .cs-status-ring {
-      border-color: var(--el-color-danger);
-    }
-  }
-
-  @keyframes cs-status-pulse {
-
-    0%,
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-
-    50% {
-      transform: scale(1.8);
-      opacity: 0;
-    }
-  }
-
-  .cs-status-text {
-    font-size: 12px;
-  }
-
-  // 输入区上方：快捷 FAQ
-  .cs-quick-faq {
-    margin-bottom: 4px;
-  }
-
-  .cs-quick-faq-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--font-family-mono);
-    font-size: 12px;
-    color: var(--el-text-color-secondary);
-    font-weight: 800;
-    letter-spacing: 0.15em;
-    margin-bottom: 12px;
-  }
-
-  .cs-quick-faq-label-icon {
-    width: 4px;
-    height: 4px;
-    background: $cs-accent-blue;
-    border-radius: var(--global-border-radius);
-  }
-
-  .cs-quick-faq-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .cs-faq-pill {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    background: var(--el-fill-color-light);
-    border: var(--unified-border);
-    padding: 10px 14px;
-    border-radius: var(--global-border-radius);
-    color: var(--el-text-color-regular);
-    text-align: left;
-    font-size: 12px;
-    cursor: pointer;
-    transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .cs-faq-pill:hover {
-    border-color: color-mix(in srgb, $cs-accent-blue 40%, transparent);
-    background: color-mix(in srgb, $cs-accent-blue 8%, transparent);
-    color: var(--el-text-color-primary);
-    transform: translateX(4px);
-  }
-
-  .cs-pill-text {
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .cs-pill-arrow {
-    color: $cs-accent-blue;
-    opacity: 0;
-    transform: translateX(-6px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-
-  .cs-faq-pill:hover .cs-pill-arrow {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .btn-ripple-cs {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .btn-ripple-cs::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0);
-    background: color-mix(in srgb, var(--el-color-info) 12%, transparent);
-    border-radius: inherit;
-    pointer-events: none;
-    opacity: 0;
-    transition: none;
-  }
-
-  .btn-ripple-cs:active::after {
-    animation: cs-ripple 0.6s ease-out;
-  }
-
-  @keyframes cs-ripple {
-    to {
-      transform: translate(-50%, -50%) scale(4);
-      opacity: 0;
-    }
-  }
-
-  // 输入区：控制台标签
-  .cs-console-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .cs-console-label {
-    font-family: var(--font-family-mono);
-    font-size: 9px;
-    font-weight: 800;
-    color: var(--el-text-color-secondary);
-    letter-spacing: 0.15em;
-  }
-
-  .cs-console-indicator {
-    width: 8px;
-    height: 8px;
-    background: $cs-accent-blue;
-    border-radius: var(--global-border-radius);
-    border: var(--unified-border);
-    animation: cs-pulse-glow 2s ease-in-out infinite;
-  }
-
-  @keyframes cs-pulse-glow {
-
-    0%,
-    100% {
-      opacity: 0.5;
-      transform: scale(1);
-    }
-
-    50% {
-      opacity: 1;
-      transform: scale(1.05);
-    }
-  }
-
-  // 客服主题：输入框与发送按钮风格
-  .input-area {
-    border-top-color: var(--el-border-color-lighter);
-    background: var(--el-bg-color);
-  }
-
-  .input-wrapper {
-    border-color: color-mix(in srgb, $cs-accent-blue 20%, transparent);
-    }
-
-  .input-wrapper:hover {
-    border-color: color-mix(in srgb, $cs-accent-blue 35%, transparent);
-  }
-
-  .input-wrapper:focus-within {
-    border-color: color-mix(in srgb, $cs-accent-blue 50%, transparent);
-    }
-
-  // 发送按钮脉冲（客服风格）
-  .input-actions .action-btn.send-btn,
-  .input-actions .el-button.send-btn {
-    position: relative;
-  }
-
-  .input-actions .action-btn.send-btn::after,
-  .input-actions .el-button.send-btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: inherit;
-    border-radius: inherit;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .input-actions .action-btn.send-btn:not(:disabled):hover::after,
-  .input-actions .el-button.send-btn:not(:disabled):hover::after {
-    animation: cs-status-pulse 1s ease-out infinite;
-  }
-
-  // 消息气泡与头像环（客服风格）
-  .message-avatar.user-avatar,
-  .message-avatar.assistant-avatar {
-    position: relative;
-  }
-
-  .message-item.is-user .user-message .message-avatar.user-avatar::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border: var(--unified-border);
-    border-radius: var(--global-border-radius);
-  }
-
-  .message-item.is-assistant .assistant-message .message-avatar.assistant-avatar::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border: var(--unified-border);
-    border-radius: var(--global-border-radius);
-  }
-
-  .message-item.is-user .message-content {
-    background: var(--tool-color-blue);
-    color: var(--el-bg-color-page);
-    border: none;
-  }
-}
+/* ========== 客服页主题 (theme-custom-service)：已迁移至 styles/ai-chat/_customer-service-theme.scss ========== */
 </style>
 
 <style lang="scss" rel="stylesheet/scss">

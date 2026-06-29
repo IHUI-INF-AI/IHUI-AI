@@ -291,7 +291,6 @@ describe('api/index.ts 统一导出', () => {
       'productIdentityApi',
       'userAgentContextApi',
       'unifiedAiApi',
-      'unifiedAlipayApi',
       'unifiedAuthApi',
       'unifiedWechatApi',
       'studyApi',

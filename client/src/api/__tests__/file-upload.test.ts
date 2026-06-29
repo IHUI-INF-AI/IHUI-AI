@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../file/file-upload'
+import * as api from '../file-upload'
 
 describe('file-upload', () => {
   beforeEach(() => {

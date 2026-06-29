@@ -216,7 +216,7 @@ const apiCategories = computed(() => [
     description: t('openPlatform.apis.categories.chat'),
     icon: icons.ChatDotRound,
     section: 'chat',
-    color: 'var(--el-color-success)', // Emerald
+    color: 'var(--color-emerald-500)', // Emerald
   },
   {
     id: 'images',
@@ -232,7 +232,7 @@ const apiCategories = computed(() => [
     description: t('openPlatform.apis.categories.endpoints'),
     icon: icons.Connection,
     section: 'endpoints',
-    color: 'var(--el-color-danger)', // Red
+    color: 'var(--color-red-ef4444)', // Red
   },
 ])
 
@@ -252,7 +252,7 @@ const quickLinks = computed(() => [
     description: t('openPlatform.apis.quickLinks.pricing'),
     icon: icons.Wallet,
     section: 'pricing',
-    color: 'var(--el-color-success)',
+    color: 'var(--color-emerald-500)',
   },
   {
     id: 'sdks',
@@ -284,19 +284,19 @@ interface QuickLink {
 
 // 操作
 const handleCategoryClick = (category: Category) => {
-  router.push(`/open/documents?section=${category.section}`)
+  router.push(`/api-documentation?section=${category.section}`)
 }
 
 const handleQuickLink = (link: QuickLink) => {
-  router.push(`/open/documents?section=${link.section}`)
+  router.push(`/api-documentation?section=${link.section}`)
 }
 
 const goToApiDocumentation = () => {
-  router.push('/open/documents')
+  router.push('/api-documentation')
 }
 
 const goToApiTokens = () => {
-  router.push('/key-management')
+  router.push('/api-tokens')
 }
 </script>
 
@@ -388,11 +388,11 @@ const goToApiTokens = () => {
   padding: 0.75rem 1.5rem;
   font-weight: 500;
   border-radius: var(--global-border-radius);
-  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  transition: all 0.2s ease;
 
   &.primary-btn {
     &:hover {
-      
+      transform: translateY(-2px);
     }
   }
 
@@ -528,12 +528,12 @@ const goToApiTokens = () => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: border-color 0.25s ease, transform 0.25s ease;
+  transition: all 0.25s ease;
   overflow: hidden;
 
   &:hover {
     border-color: var(--el-border-color);
-    
+    transform: translateY(-4px);
 
     .card-hover-indicator {
       opacity: 1;
@@ -632,7 +632,7 @@ const goToApiTokens = () => {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: all 0.2s ease;
 
   &:hover {
     border-color: var(--el-border-color);
@@ -679,7 +679,7 @@ const goToApiTokens = () => {
 .link-arrow {
   flex-shrink: 0;
   color: var(--el-text-color-placeholder);
-  transition: transform 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 // ==================== 快速开始区域 ====================

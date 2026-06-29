@@ -73,11 +73,18 @@ export interface PaginationParams {
 
 /**
  * 分页响应接口
+ * 兼容两种后端格式:
+ * - 体系 A (Java/Node): { items?, list?, pagination }
+ * - ruoyi 格式: { records, total, current, size }
  */
 export interface PaginationResponse<T> {
   items?: T[]
   list?: T[]
-  pagination: {
+  records?: T[]
+  total?: number
+  current?: number
+  size?: number
+  pagination?: {
     total: number
     page: number
     pageSize: number
@@ -368,7 +375,7 @@ export interface ListResponse<T = Record<string, unknown>> {
   items?: T[]
   data?: T[]
   total?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /** 通用详情响应 */
@@ -377,7 +384,7 @@ export interface DetailResponse<T = Record<string, unknown>> {
   msg?: string
   message?: string
   data: T
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /** 通用基础响应（新增/修改/删除 等写操作） */
@@ -386,5 +393,5 @@ export interface BaseResponse<T = unknown> {
   msg?: string
   message?: string
   data?: T
-  [key: string]: any
+  [key: string]: unknown
 }

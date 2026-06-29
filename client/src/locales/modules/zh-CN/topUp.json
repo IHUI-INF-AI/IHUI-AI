@@ -1,41 +1,47 @@
 {
   "topUp": {
-    "amountLabels": {
-      "coins": "金币"
-    },
-    "cancel": "取消",
-    "customAmount": "自定义 金额",
-    "customPlaceholder": "自定义占位",
-    "errors": {
-      "amountDecimals": "金额 decimals",
-      "amountRange": "金额范围",
-      "createOrderFailed": "创建订单失败",
-      "createOrderRetry": "创建 订单 重试",
-      "invalidAmount": "金额无效",
-      "logger": {
-        "createOrderFailed": "创建订单失败"
-      },
-      "selectAmount": "选择金额"
-    },
-    "loading": "加载中",
-    "notice1": "通知 1",
-    "notice2": "通知",
-    "notice3": "通知 3",
-    "noticeTitle": "通知",
+    "title": "充值",
+    "subtitle": "为您的账户充值智汇值",
+    "selectAmount": "请选择充值金额",
+    "selectPaymentMethod": "请选择支付方式",
+    "customAmount": "自定义金额",
     "paymentMethods": {
-      "alipay": {
-        "desc": "描述",
-        "name": "名称"
-      },
       "wechat": {
-        "desc": "描述",
-        "name": "名称"
+        "name": "微信支付",
+        "desc": "使用微信扫码支付"
+      },
+      "alipay": {
+        "name": "支付宝",
+        "desc": "使用支付宝扫码支付"
       }
     },
-    "selectAmount": "选择金额",
-    "selectPaymentMethod": "选择 支付 方法",
-    "submit": "提交",
-    "subtitle": "副标题",
-    "title": "标题"
+    "cancel": "取消",
+    "submit": "立即充值",
+    "errors": {
+      "selectAmount": "请选择充值金额",
+      "createOrderFailed": "创建充值订单失败",
+      "createOrderRetry": "创建充值订单失败，请稍后重试",
+      "invalidAmount": "请输入有效的充值金额",
+      "amountDecimals": "金额最多两位小数",
+      "amountRange": "充值金额范围 1-50000 元",
+      "logger": {
+        "createOrderFailed": "[TopUp] 创建充值订单失败"
+      }
+    },
+    "loading": "加载中...",
+    "amountLabels": {
+      "coins": "Coins"
+    },
+    "customPlaceholder": "Custom Placeholder",
+    "notice1": "Notice1",
+    "notice2": "Notice2",
+    "notice3": "Notice3",
+    "noticeTitle": "Notice Title",
+    "clickToTopUp": "点击此处充值",
+    "ratio": "充值比例",
+    "selectMethod": "请选择充值方式",
+    "moreMethods": "更多充值方式可使用官方",
+    "invalidAmount": "请输入正确的充值金额",
+    "submitted": "充值请求已提交"
   }
 }

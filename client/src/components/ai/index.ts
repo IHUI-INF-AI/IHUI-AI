@@ -5,9 +5,6 @@
  * @version 1.0.0
  */
 
-// 平台入口
-export { default as AIPlatformProvider } from './AIPlatformProvider.vue'
-
 // AI 能力选择器
 export {
   AICapabilitySelector,
@@ -26,12 +23,6 @@ export type {
 
 // 虚拟滚动消息列表 - 文件不存在，已移除导出
 // export { default as VirtualMessageList } from './VirtualMessageList.vue'
-
-// 快捷键帮助面板
-export { default as ShortcutsHelpPanel } from './ShortcutsHelpPanel.vue'
-
-// 队列监控面板
-export { default as QueueMonitorPanel } from './QueueMonitorPanel.vue'
 
 // 核心AI对话组件
 export { default as AIChat } from './AIChat.vue'

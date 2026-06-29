@@ -1,10 +1,12 @@
 {
   "order": {
     "status": {
-      "completed": "已完成",
-      "pending": "待处理",
-      "refunded": "refunded",
-      "unsettled": "unsettled"
+      "unsettled": "미정산",
+      "pending": "대기 중",
+      "processing": "처리 중",
+      "completed": "완료",
+      "cancelled": "취소됨",
+      "refunded": "Refunded"
     }
   }
 }

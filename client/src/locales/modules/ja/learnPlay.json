@@ -1,6 +1,6 @@
 {
   "learnPlay": {
-    "chapters": "chapters",
-    "selectChapter": "selectChapter"
+    "selectChapter": "左側の章を選んで学習を開始",
+    "chapters": "章"
   }
 }

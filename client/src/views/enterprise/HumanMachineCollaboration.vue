@@ -752,7 +752,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   padding: 40px 0;
   opacity: 0;
   transform: translateY(-20px);
-  transition: opacity 0.5s $transition-smooth, transform 0.5s $transition-smooth;
+  transition: all 0.8s $transition-smooth;
   
   &.is-visible {
     opacity: 1;
@@ -765,8 +765,8 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 1px;
-    transition: color 0.3s ease, transform 0.3s ease;
-
+    transition: all 0.3s ease;
+    
     &:hover {
       color: var(--el-text-color-primary);
       transform: translateX(-4px);
@@ -924,7 +924,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 [v-scroll-reveal] {
   opacity: 0;
   transform: translateY(40px);
-  transition: opacity 0.5s $transition-smooth, transform 0.5s $transition-smooth;
+  transition: all 0.8s $transition-smooth;
   
   &.is-revealed {
     opacity: 1;
@@ -974,7 +974,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     border-radius: var(--global-border-radius);
     text-align: center;
     position: relative;
-    transition: transform 0.4s $transition-smooth, border-color 0.4s $transition-smooth;
+    transition: all 0.4s $transition-smooth;
     overflow: hidden;
     
     .world-glow {
@@ -987,7 +987,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     }
     
     &.is-hovered {
-      
+      transform: translateY(-8px);
       border-color: rgba($accent-pink, 0.3);
       
       .world-glow {
@@ -1018,19 +1018,19 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     &.physical-world {
       .world-icon { color: var(--el-color-primary); }
       .world-glow { background: color-mix(in srgb, var(--el-color-primary) 4%, transparent); }
-      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb), 0.3); }
+      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3); }
     }
     
     &.info-world {
       .world-icon { color: $accent-purple; }
       .world-glow { background: color-mix(in srgb, var(--el-color-primary) 4%, transparent); }
-      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb), 0.3); }
+      &.is-hovered { border-color: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.3); }
     }
     
     &.super-enterprise {
       .world-icon { color: $accent-pink; }
       .world-glow { background: color-mix(in srgb, var(--el-color-primary) 4%, transparent); }
-      &.is-hovered { border-color: rgb(var(--el-color-danger-rgb), 0.3); }
+      &.is-hovered { border-color: rgb(var(--el-color-danger-rgb, 245, 108, 108), 0.3); }
     }
     
     h3 {
@@ -1440,17 +1440,17 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       margin: 0 auto 24px;
       
       &.employee {
-        background: rgb(var(--el-color-primary-rgb), 0.1);
+        background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.1);
         color: var(--el-color-primary);
       }
       
       &.team {
-        background: rgb(var(--el-color-primary-rgb), 0.1);
+        background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.1);
         color: var(--el-color-primary-light-3);
       }
       
       &.product {
-        background: rgb(var(--el-color-danger-rgb), 0.1);
+        background: rgb(var(--el-color-danger-rgb, 245, 108, 108), 0.1);
         color: var(--el-color-danger-light-3);
       }
     }
@@ -1641,7 +1641,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   .cta-content {
     text-align: center;
     padding: 60px;
-    background: rgb(var(--el-color-primary-rgb), 0.05);
+    background: rgb(var(--el-color-primary-rgb, 64, 158, 255), 0.05);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     
@@ -1706,7 +1706,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 // 暗色模式适配
-:where(html.dark) {
+html.dark {
   .hm-bg {
     .gradient-layer {
       background: color-mix(in srgb, var(--el-color-primary) 4%, transparent);

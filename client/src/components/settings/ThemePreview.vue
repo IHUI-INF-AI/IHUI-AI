@@ -103,7 +103,8 @@ onUnmounted(() => {
   padding: 16px;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .preview-header {
   display: flex;
@@ -131,7 +132,7 @@ onUnmounted(() => {
   border: 2px solid transparent;
   border-radius: var(--global-border-radius);
   padding: 8px;
-  transition: border-color 0.2s ease, border-width 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .preview-mode-card:hover {

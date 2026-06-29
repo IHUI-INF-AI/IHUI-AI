@@ -1,0 +1,26 @@
+{
+  "memberMenu": {
+    "account": "계정",
+    "personal": "개인 정보",
+    "setting": "계정 설정",
+    "point": "내 포인트",
+    "certificate": "내 증명서",
+    "learn": "학습",
+    "learnRecord": "학습 기록",
+    "homework": "내 숙제",
+    "exam": "시험",
+    "examSignUp": "시험 신청",
+    "examRecord": "답안 기록",
+    "examWrong": "오답 노트",
+    "sns": "소셜",
+    "follow": "내 팔로잉",
+    "fans": "내 팬",
+    "favorites": "내 즐겨찾기",
+    "comment": "내 댓글",
+    "content": "콘텐츠",
+    "circle": "내 서클",
+    "ask": "내 Q&A",
+    "article": "내 게시글",
+    "resource": "내 자원"
+  }
+}

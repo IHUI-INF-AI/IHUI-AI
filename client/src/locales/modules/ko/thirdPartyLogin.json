@@ -1,5 +1,5 @@
 {
   "thirdPartyLogin": {
-    "retryTooMany": "retryTooMany"
+    "retryTooMany": "재시도TooMany"
   }
 }

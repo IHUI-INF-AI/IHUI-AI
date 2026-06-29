@@ -75,7 +75,7 @@ import PdfToolsPanel from './PdfToolsPanel.vue'
 
 const { t } = useI18n()
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
 const props = withDefaults(
   defineProps<{
@@ -234,19 +234,19 @@ const onDocumentError = (e: Error) => {
   emit('error', e.message)
 }
 
-const handleSignatureAdd = (_signature: any) => {
+const handleSignatureAdd = (_signature: unknown) => {
   // 签名添加处理
 }
 
-const handleWatermarkAdd = (_watermark: any) => {
+const handleWatermarkAdd = (_watermark: unknown) => {
   // 水印添加处理
 }
 
-const handleMerge = (_files: any) => {
+const handleMerge = (_files: unknown) => {
   // 文件合并处理
 }
 
-const handlePrint = (_settings: any) => {
+const handlePrint = (_settings: unknown) => {
   // 打印处理
 }
 
@@ -335,7 +335,7 @@ watch(zoom, () => {
   cursor: pointer;
   font-size: 14px;
   color: var(--el-text-color-secondary);
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 }
 
 .toolbar-btn:hover {
@@ -437,7 +437,7 @@ watch(zoom, () => {
   cursor: pointer;
   font-size: 16px;
   color: var(--el-text-color-secondary);
-  transition: background-color 0.2s, opacity 0.2s;
+  transition: all 0.2s;
 }
 
 .page-btn:hover:not(:disabled) {

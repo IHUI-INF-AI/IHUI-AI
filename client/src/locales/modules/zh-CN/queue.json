@@ -1,20 +1,20 @@
 {
   "queue": {
-    "clearConfirm": "确认清空?",
-    "clearTitle": "清空",
-    "cleared": "已清空",
-    "completedLabel": "已完成 标签",
-    "empty": "空",
-    "failed": "失败",
-    "failedLabel": "失败 标签",
-    "idle": "空闲",
-    "moreTasks": "more 任务",
-    "pending": "待处理",
-    "pendingLabel": "待处理 标签",
-    "pendingTasks": "待处理 任务",
+    "title": "生成队列",
     "processing": "处理中",
-    "processingLabel": "处理中 标签",
-    "processingTasks": "处理中 任务",
-    "title": "标题"
+    "pending": "待处理",
+    "failed": "失败",
+    "idle": "空闲",
+    "processingLabel": "处理中",
+    "pendingLabel": "等待中",
+    "completedLabel": "已完成",
+    "failedLabel": "失败",
+    "processingTasks": "处理中",
+    "pendingTasks": "等待中",
+    "empty": "队列为空",
+    "moreTasks": "还有 {count} 个任务",
+    "clearTitle": "清空队列",
+    "clearConfirm": "确定要清空所有待处理任务吗？",
+    "cleared": "队列已清空"
   }
 }

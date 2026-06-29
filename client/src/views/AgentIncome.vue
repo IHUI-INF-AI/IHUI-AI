@@ -30,7 +30,7 @@
 
     <!-- 结算记录列表（复用UserStatistics.vue的结算记录） -->
     <div class="settlement-section radius-auto">
-      <el-table :data="filteredSettlementList" v-loading="loading" class="full-width">
+      <el-table :data="filteredSettlementList" v-loading="loading" style="width: 100%">
         <el-table-column prop="agent_name" :label="t('agentIncome.agentName')" min-width="150" />
         <el-table-column prop="order_no" :label="t('agentIncome.orderNo')" min-width="120" />
         <el-table-column prop="accountType" :label="t('agentIncome.chargeType')" width="120" />
@@ -160,7 +160,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -181,11 +181,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -200,7 +200,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -213,12 +213,8 @@ onMounted(() => {
   background-color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
-  }
-
-  .full-width {
-    width: 100%;
   }
 }
 </style>

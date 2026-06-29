@@ -1,0 +1,21 @@
+{
+  "adminWithdrawalManagement": {
+    "핵심 장점": "출금관리",
+    "sub핵심 장점": "관리출금신청요청및심사이메일",
+    "actions": {
+      "approve": "통해",
+      "reject": "거부됨",
+      "export": "내보내기"
+    },
+    "withdrawalList": {
+      "status": "상태"
+    },
+    "status": {
+      "pending": "심사 대기 중",
+      "approved": "완료통해",
+      "rejected": "완료거부됨",
+      "processing": "처리중간",
+      "completed": "완료"
+    }
+  }
+}

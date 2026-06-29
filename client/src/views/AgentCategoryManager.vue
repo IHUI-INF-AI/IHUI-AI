@@ -10,15 +10,15 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('agentCategory.configList') }}</span>
-          <div class="card-header-actions">
+          <div style="display: flex; gap: 10px">
             <el-input
               v-model="searchKeyword"
               :placeholder="t('agentCategory.searchPlaceholder')"
-              class="search-input"
+              style="width: 240px"
               clearable
               @input="debouncedLoadCategories"
             />
-            <el-select v-model="filterType" @change="loadCategories" class="filter-select" clearable>
+            <el-select v-model="filterType" @change="loadCategories" style="width: 120px" clearable>
               <el-option :label="t('agentCategory.allTypes')" value="" />
               <el-option :label="t('agentCategory.free')" value="1" />
               <el-option :label="t('agentCategory.limitFree')" value="2" />
@@ -52,7 +52,7 @@
             <span v-if="row.account"
               >¥{{ (row.account / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
             >
-            <span v-else class="text-placeholder">-</span>
+            <span v-else style="color: var(--el-text-color-placeholder)">-</span>
           </template>
         </el-table-column>
         <el-table-column prop="create_name" :label="t('agentCategory.creator')" width="120" />
@@ -81,7 +81,7 @@
         layout="prev, pager, next, sizes, jumper, total"
         @size-change="loadCategories"
         @current-change="loadCategories"
-        class="pagination-top"
+        style="margin-top: 20px"
       />
     </el-card>
 
@@ -110,7 +110,7 @@
           />
         </el-form-item>
         <el-form-item :label="t('agentCategory.mainCategory')" prop="agent_main_category" required>
-          <el-select v-model="categoryForm.agent_main_category" class="full-width">
+          <el-select v-model="categoryForm.agent_main_category" style="width: 100%">
             <el-option :label="t('agentCategory.text')" value="1" />
             <el-option :label="t('agentCategory.image')" value="2" />
             <el-option :label="t('agentCategory.video')" value="3" />
@@ -133,7 +133,7 @@
             v-model="categoryForm.account"
             :min="0"
             :precision="0"
-            class="full-width"
+            style="width: 100%"
           />
         </el-form-item>
         <el-form-item
@@ -141,7 +141,7 @@
           :label="t('agentCategory.limitFreeDuration')"
           prop="limit_free"
         >
-          <el-select v-model="categoryForm.limit_free" class="full-width">
+          <el-select v-model="categoryForm.limit_free" style="width: 100%">
             <el-option :label="t('agentCategory.oneMonth')" value="1" />
             <el-option :label="t('agentCategory.threeMonths')" value="2" />
             <el-option :label="t('agentCategory.sixMonths')" value="3" />
@@ -185,7 +185,7 @@ import {
   updateAgentCategory,
   deleteAgentCategory,
   type AgentCategory,
-} from '@/api/agent/agent-category'
+} from '@/api/agent-category'
 import { useAuthStore } from '@/stores/auth'
 import { validateForm, commonRules } from '@/shared'
 import type { FormInstance } from 'element-plus'
@@ -200,12 +200,12 @@ const { t } = useI18n()
 const { showSuccess, showWarning, showError: showErrorMsg } = useOperationFeedback()
 
 // 防抖函数
-const debounce = <T extends (...args: any[]) => unknown>(
+const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
   let timeout: ReturnType<typeof setTimeout> | null = null
-  return function (this: any, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const context = this
     if (timeout) clearTimeout(timeout)
@@ -261,7 +261,7 @@ const categoryRules = {
   type: [commonRules.required(t('agentCategory.typeRequired'))],
   account: [
     {
-      validator: (_rule: any, value: any, callback: (error?: Error) => void) => {
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
         if (categoryForm.type === '3' && (value === undefined || value === null || value === '')) {
           callback(new Error(t('agentCategory.priceRequired')))
         } else if (value !== undefined && value !== null && value !== '') {
@@ -308,7 +308,7 @@ const loadCategories = async () => {
       }
       showErrorMsg(errorMsg)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('agentCategory.loadFailed')
     pageError.value = {
@@ -358,7 +358,7 @@ const handleDelete = async (category: AgentCategory) => {
         { defaultMessage: t('agentCategory.deleteFailed') }
       )
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error, { defaultMessage: t('agentCategory.deleteFailed') })
   }
 }
@@ -426,7 +426,7 @@ const handleSubmit = async () => {
         { defaultMessage: t('agentCategory.operationFailed') }
       )
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error, { defaultMessage: t('agentCategory.operationFailed') })
   } finally {
     submitting.value = false
@@ -507,31 +507,6 @@ onMounted(() => {
       justify-content: space-between;
       align-items: center;
     }
-  }
-
-  .card-header-actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .search-input {
-    width: 240px;
-  }
-
-  .filter-select {
-    width: 120px;
-  }
-
-  .text-placeholder {
-    color: var(--el-text-color-placeholder);
-  }
-
-  .pagination-top {
-    margin-top: 20px;
-  }
-
-  .full-width {
-    width: 100%;
   }
 }
 </style>

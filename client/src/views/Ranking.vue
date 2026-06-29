@@ -63,7 +63,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-import { rankApi } from '@/api/ranking/ranking'
+import { rankApi } from '@/api/ranking'
 import { useSEO } from '@/composables/useSEO'
 
 useSEO({
@@ -79,7 +79,7 @@ const activeTab = ref('user')
 const period = ref('week')
 const loading = ref(false)
 const loadError = ref('')
-const items = ref<any[]>([])
+const items = ref<unknown[]>([])
 
 const tabs = [
   { key: 'user', label: '用户积分榜' },
@@ -99,7 +99,7 @@ async function loadData() {
   loadError.value = ''
   try {
     let res
-    const params: any = { limit: 50 }
+    const params: { limit: number; period?: string } = { limit: 50 }
     if (activeTab.value === 'user') {
       params.period = period.value
       res = await rankApi.user(params)
@@ -107,10 +107,10 @@ async function loadData() {
       params.period = period.value
       res = await rankApi.agent(params)
     } else {
-      res = await rankApi.course(params)
+      res = await rankApi.course({ limit: params.limit })
     }
-    const data = res?.data
-    items.value = data?.data || data?.list || data || []
+    const data = (res as { data?: { data?: unknown[]; list?: unknown[] } })?.data
+    items.value = (data?.data || data?.list || data || []) as unknown[]
   } catch {
     loadError.value = '加载失败'
   } finally {

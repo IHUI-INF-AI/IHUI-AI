@@ -1,1 +1,9 @@
-{}
+{
+  "qrScanner": {
+    "title": "二維碼掃描",
+    "description": "移動端二維碼掃描功能",
+    "scanQrCode": "掃描二維碼",
+    "useCamera": "使用攝像頭掃描",
+    "orFromAlbum": "或從相冊選擇"
+  }
+}

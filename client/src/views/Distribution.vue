@@ -127,10 +127,10 @@
             <el-input v-model="withdrawForm.amount" type="number" :placeholder="t('distribution.withdrawDialog.amountPlaceholder')" />
           </el-form-item>
           <el-form-item :label="t('distribution.withdrawDialog.method')" prop="method">
-            <el-select v-model="withdrawForm.method" class="full-width">
-              <el-option :label="t('distribution.withdrawDialog.alipay')" value="alipay" />
-              <el-option :label="t('distribution.withdrawDialog.wechat')" value="wechat" />
-              <el-option :label="t('distribution.withdrawDialog.bankCard')" value="bank" />
+            <el-select v-model="withdrawForm.method" style="width: 100%">
+              <el-option label="支付宝" value="alipay" />
+              <el-option label="微信" value="wechat" />
+              <el-option label="银行卡" value="bank" />
             </el-select>
           </el-form-item>
           <el-form-item :label="t('distribution.withdrawDialog.account')" prop="account">
@@ -258,19 +258,19 @@ onMounted(() => { loadStats(); loadInvites(); })
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.4s, transform 0.4s, background-color 0.4s;
+  transition: all 0.4s;
   display: flex;
   align-items: center;
   gap: 32px;
 
   &:hover {
     border: 2px solid var(--border-unified-color-hover);
-    
+    transform: translateY(-4px);
     background: var(--el-bg-color-hover);
     .cmd-icon { color: var(--el-color-primary); transform: scale(1.1); }
   }
 
-  .cmd-icon { color: var(--el-color-primary); font-size: 32px; transition: color 0.4s, transform 0.4s; }
+  .cmd-icon { color: var(--el-color-primary); font-size: 32px; transition: all 0.4s; }
 
   .cmd-body {
     h3 { font-family: var(--font-family-mono); font-size: 14px; font-weight: 800; margin-bottom: 8px; color: var(--el-text-color-primary); }
@@ -371,13 +371,13 @@ onMounted(() => { loadStats(); loadInvites(); })
 
 .status-tag {
   font-family: var(--font-family-mono);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   padding: 2px 8px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   color: var(--el-text-color-secondary);
-  &.active { color: var(--el-color-success); border-color: var(--color-emerald-10b981-20); }
+  &.active { color: var(--color-emerald-500); border-color: var(--color-emerald-10b981-20); }
   &.paid { color: var(--el-color-primary); border-color: color-mix(in srgb, var(--el-color-primary) 20%, transparent); }
 }
 
@@ -386,7 +386,7 @@ onMounted(() => { loadStats(); loadInvites(); })
 @keyframes sweep { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
 
 /* ---------- 暗色模式覆盖 ---------- */
-:where(html.dark) .distribution-page {
+html.dark .distribution-page {
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
 }
@@ -417,7 +417,7 @@ onMounted(() => { loadStats(); loadInvites(); })
   border-color: var(--border-unified-color);
 }
 
-:where(html.dark) .distribution-page :deep(.tech-tabs) {
+html.dark .distribution-page :deep(.tech-tabs) {
   .el-tabs__header { border-bottom-color: var(--border-unified-color); }
   .el-tabs__item { color: var(--el-text-color-secondary); &.is-active { color: var(--el-color-primary); } }
 }
@@ -433,13 +433,13 @@ onMounted(() => { loadStats(); loadInvites(); })
   .name { color: var(--el-text-color-regular); }
 }
 
-:where(html.dark) .distribution-page :deep(.tech-table) {
+html.dark .distribution-page :deep(.tech-table) {
   --el-table-border-color: var(--border-unified-color);
   th.el-table__cell { color: var(--el-text-color-regular); border-bottom-color: var(--border-unified-color); }
   td.el-table__cell { border-bottom-color: var(--border-unified-color); color: var(--el-text-color-regular); }
 }
 
-:where(html.dark) :where(.distribution-page) :where(.entity-cell) :where(img) { border-color: var(--border-unified-color); }
+html.dark .distribution-page .entity-cell img { border-color: var(--border-unified-color); }
 
 :where(html.dark) .distribution-page .status-tag { border-color: var(--border-unified-color); color: var(--el-text-color-secondary); }
 
@@ -447,9 +447,5 @@ onMounted(() => { loadStats(); loadInvites(); })
   .invite-desc { color: var(--el-text-color-secondary); margin-bottom: 16px; }
   .invite-link-box { display: flex; gap: 12px; align-items: center; }
   .invite-link-input { flex: 1; }
-
-  .full-width {
-    width: 100%;
-  }
 }
 </style>

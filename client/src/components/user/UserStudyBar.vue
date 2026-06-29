@@ -70,7 +70,7 @@ function selectBar(item: { name: string; id?: string | number }, index: number) 
   font-size: 14px;
   font-weight: normal;
   cursor: pointer;
-  transition: color 0.3s, background-color 0.3s;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -79,8 +79,9 @@ function selectBar(item: { name: string; id?: string | number }, index: number) 
 .bar-item.active {
   color: var(--el-text-color-primary);
   background: var(--el-bg-color);
-  font-weight: 700;
-  }
+  font-weight: bold;
+  box-shadow: var(--global-box-shadow);
+}
 
 .bar-item:hover:not(.active) {
   color: var(--el-text-color-regular);

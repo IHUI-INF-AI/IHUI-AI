@@ -1,18 +1,21 @@
 <!--
-  用户区:未登录显示登录按钮;已登录显示通知 + 反馈按钮
+  用户区:未登录显示登录按钮;已登录显示反馈按钮(白名单)
+  通知中心已移至 Sidebar.vue sidebar-actions 直接渲染
   从原 HeaderActions.vue 抽出
 -->
 <template>
   <div class="user-menu">
-    <Notification v-if="isLoggedIn" :is-dark-mode="isDark" />
-
     <button
       v-if="!isLoggedIn"
       type="button"
       class="login-button"
+      :aria-label="t('auth.login_register')"
       @click.stop="handleLogin"
     >
-      {{ t('auth.login_register') }}
+      <el-icon class="login-icon" aria-hidden="true">
+        <User />
+      </el-icon>
+      <span class="login-text">{{ t('auth.login_register') }}</span>
     </button>
 
     <div
@@ -29,21 +32,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter, useRoute } from 'vue-router'
+import { User } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import { useDarkModeStore } from '@/stores/darkMode'
-import { ElMessage } from 'element-plus'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
 const { t } = useI18n()
-const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
-const darkStore = useDarkModeStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
-const isDark = computed(() => darkStore.isDarkMode ?? darkStore.themeMode === 'dark')
 
 // 反馈按钮白名单手机号(沿用原逻辑)
 const FEEDBACK_PHONES = new Set(['19944894487', '18643389808', '19944895160', '17549549976'])
@@ -70,23 +68,12 @@ const emit = defineEmits<{
   (e: 'feedback-click'): void
 }>()
 
-const handleLogin = async () => {
+const handleLogin = () => {
   if (isLoggedIn.value) return
-  if (route.path === '/login') {
-    emit('show-login-popup')
-    return
-  }
-  try {
-    await router.push('/login')
-    emit('show-login-popup')
-  } catch (err: any) {
-    if (err?.name !== 'NavigationDuplicated' && err?.name !== 'NavigationRedirected') {
-      ElMessage.error(t('common.errors.actionFailed'))
-    }
-  }
+  // 弹窗形式：直接打开登录弹窗，不再跳转 /login 路由
+  useLoginDialog().open('login')
+  emit('show-login-popup')
 }
-
-const Notification = defineAsyncComponent(() => import('@/components/Notification.vue'))
 </script>
 
 <style scoped lang="scss">
@@ -105,7 +92,7 @@ const Notification = defineAsyncComponent(() => import('@/components/Notificatio
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: all 0.3s ease;
   height: 40px;
   min-height: 40px;
   max-height: 40px;
@@ -113,6 +100,16 @@ const Notification = defineAsyncComponent(() => import('@/components/Notificatio
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+
+  .login-icon {
+    display: none;
+    font-size: 18px;
+  }
+
+  .login-text {
+    display: inline;
+  }
 
   &:hover {
     background-color: var(--el-bg-color-hover);
@@ -127,12 +124,24 @@ const Notification = defineAsyncComponent(() => import('@/components/Notificatio
 
 @media (width <= 767px) {
   .login-button {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
     padding: 0;
-    font-size: 13px;
+    font-size: 0;
     height: 40px;
     min-height: 40px;
     max-height: 40px;
     line-height: 40px;
+
+    .login-icon {
+      display: inline-flex;
+      font-size: 18px;
+    }
+
+    .login-text {
+      display: none;
+    }
   }
 }
 </style>

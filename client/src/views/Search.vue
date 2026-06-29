@@ -55,20 +55,32 @@ import { useRouter } from 'vue-router'
 import { loadModule, getCurrentLocale } from '@/locales'
 import http from '@/utils/request'
 
+interface SearchResult {
+  id?: number | string
+  url?: string
+  target_type?: string
+  target_id?: string | number
+  title?: string
+  content?: string
+  user_name?: string
+  view_num?: number
+  like_num?: number
+}
+
 const router = useRouter()
 const keyword = ref('')
 const hotKeywords = ref<Array<{ id: number; keyword: string }>>([])
 const hotLoading = ref(false)
 const searching = ref(false)
 const searched = ref(false)
-const results = ref<Array<any>>([])
+const results = ref<SearchResult[]>([])
 const total = ref(0)
 
 async function loadHotKeywords() {
   hotLoading.value = true
   try {
     const res = await http.get('/search/hot')
-    hotKeywords.value = (res?.data || []).filter((h: any) => h && h.keyword)
+    hotKeywords.value = (res?.data || []).filter((h: Record<string, unknown>) => !!h.keyword)
   } catch {
     /* silent */
   } finally {
@@ -106,7 +118,7 @@ function getTypeLabel(type: string) {
   }[type] || type
 }
 
-function openResult(r: any) {
+function openResult(r: SearchResult) {
   if (r.url) {
     router.push(r.url)
   } else if (r.target_type === 'agent') {
@@ -202,7 +214,7 @@ onMounted(() => {
   font-size: 14px;
   color: var(--el-text-color-primary);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: all 0.15s;
 }
 
 .hot-tag:hover {

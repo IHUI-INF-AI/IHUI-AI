@@ -1,6 +1,6 @@
 {
   "learnPlay": {
-    "chapters": "chapters",
-    "selectChapter": "selectChapter"
+    "selectChapter": "Select a chapter to start learning",
+    "chapters": "Chapters"
   }
 }

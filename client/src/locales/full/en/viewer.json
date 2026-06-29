@@ -5,11 +5,7 @@
     "largeDocHint": "Large documents may take a while",
     "docLoadFailed": "Document load failed",
     "tryDownload": "Please try downloading and opening with local software",
-    "officeDoc": "Office Document",
-    "zoomOut": "Zoom Out",
-    "reset": "Reset",
-    "download": "Download",
-    "openInOfficeOnline": "Open in Office Online"
+    "officeDoc": "Office Document"
   },
   "viewerModel3DViewer": {
     "model3dFile": "3D Model File",
@@ -22,36 +18,11 @@
     "codeLoadFailed": "Code load failed",
     "loadFailed": "Load failed"
   },
-  "viewerMonacoViewer": {
-    "loading": "Loading...",
-    "codeLoadFailed": "Code load failed",
-    "loadFailed": "Load failed"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "Loading PDF...",
-    "pdfLoadFailed": "PDF load failed",
-    "prevPage": "Previous Page",
-    "zoomOut": "Zoom Out",
-    "search": "Search",
-    "download": "Download",
-    "fullscreen": "Fullscreen"
-  },
   "viewerImageViewer": {
     "loading": "Loading...",
-    "imageLoadFailed": "Image load failed",
-    "zoomOut": "Zoom Out",
-    "reset": "Reset",
-    "rotateLeft": "Rotate Left",
-    "rotateRight": "Rotate Right",
-    "fitScreen": "Fit Screen",
-    "fullscreen": "Fullscreen",
-    "download": "Download"
+    "imageLoadFailed": "Image load failed"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "Media load failed",
-    "playSpeed": "Playback Speed",
-    "loop": "Loop",
-    "mute": "Mute",
-    "download": "Download"
+    "mediaLoadFailed": "Media load failed"
   }
 }

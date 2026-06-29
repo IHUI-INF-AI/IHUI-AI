@@ -1,0 +1,23 @@
+{
+  "navigation": {
+    "aiStore": "エージェント",
+    "moreFeatures": "その他の機能",
+    "customerService": "カスタマーサービス",
+    "documentCenter": "ドキュメントセンター",
+    "newsCenter": "AIニュース",
+    "aboutUs": "私たちについて",
+    "becomeSupplier": "サプライヤーになる",
+    "noMoreItems": "これ以上の機能はありません",
+    "sidebar": "サイドバー",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "expandSidebar": "サイドバーを展開",
+    "coreFeatures": "コア機能",
+    "serviceSupport": "サービスサポート",
+    "learnCourses": "コースセンター",
+    "learnMap": "学習マップ",
+    "liveClass": "ライブ授業",
+    "myLearning": "マイラーニング",
+    "openAiPanel": "AIアシスタントを開く",
+    "closeAiPanel": "AIアシスタントを閉じる"
+  }
+}

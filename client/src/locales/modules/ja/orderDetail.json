@@ -28,6 +28,7 @@
     "cancelOrderConfirm": "この注文をキャンセルしますか？",
     "cancelOrderTitle": "注文キャンセル",
     "orderCancelled": "注文キャンセル済み",
+    "invoiceDownloadInDevelopment": "請求書ダウンロード機能は開発中",
     "applyRefund": "返金申請",
     "refundReasonPlaceholder": "返金理由を入力（必須、5文字以上）",
     "refundReasonRequired": "返金理由は必須です",
@@ -38,5 +39,6 @@
     "invoiceOnlyForCompletedOrders": "請求書は完了した注文のみ利用可能",
     "invoiceDownloadSuccess": "請求書ダウンロード成功",
     "invoiceDownloadFailed": "請求書ダウンロード失敗"
-  }
+  },
+  "OrderDetail": {}
 }

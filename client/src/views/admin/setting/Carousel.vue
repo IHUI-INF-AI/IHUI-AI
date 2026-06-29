@@ -60,7 +60,8 @@ import { ElButton, ElDialog, ElImage, ElTag, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 import { useI18n } from 'vue-i18n'
@@ -93,7 +94,7 @@ const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete
   onSuccess: reload,
 })
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
   { key: 'title', dataKey: 'title', title: t('adminCommon.label.title'), width: 180 },
   {
@@ -116,7 +117,7 @@ const columns: Column<any>[] = [
     key: 'actions',
     title: t('adminCommon.label.actions'),
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: ({ rowData: row }) => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('common.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('common.delete')),

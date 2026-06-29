@@ -1,0 +1,11 @@
+{
+  "h5Settings": {
+    "order": "주문",
+    "expense": "지출",
+    "level": "레벨",
+    "systemSettings": "시스템 설정",
+    "adminFeature": "관리 기능",
+    "logout": "로그아웃",
+    "confirmLogout": "로그아웃 확인?"
+  }
+}

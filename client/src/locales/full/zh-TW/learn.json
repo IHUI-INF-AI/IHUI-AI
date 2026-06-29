@@ -601,24 +601,5 @@
       "items": {}
     },
     "cta_section": {}
-  },
-  "learnRate": {
-    "reviews": "條評價",
-    "writeReview": "寫評價"
-  },
-  "learn": {
-    "searchPlaceholder": {
-      "category": "搜尋分類",
-      "lesson": "搜尋課程",
-      "lessonTrash": "搜尋回收站課程",
-      "map": "搜尋學習地圖",
-      "order": "搜尋訂單",
-      "orderInvoiceApplication": "搜尋發票申請",
-      "orderInvoiceTitle": "搜尋發票抬頭",
-      "report": "搜尋報告",
-      "signup": "搜尋報名",
-      "topic": "搜尋專題",
-      "topicCategory": "搜尋專題分類"
-    }
   }
 }

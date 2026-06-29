@@ -5,7 +5,7 @@
  */
 
 import { logger } from './logger'
-import { aliPayNotify, type AlipayNotifyParams } from '@/api/payment/ali-pay'
+import { aliPayNotify, type AlipayNotifyParams } from '@/api/ali-pay'
 
 /**
  * 支付宝回调参数

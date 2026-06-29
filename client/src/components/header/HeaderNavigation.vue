@@ -120,63 +120,8 @@ import { getI18nGlobal } from '@/locales'
 // 使用动态导入优化组件体积
 const MobileMenu = defineAsyncComponent(() => import('./MobileMenu.vue'))
 
-// 2026-06-26 修复: 与 Header.vue / MobileMenu.vue 同形 - 顶层 useRouter/useRoute
-// 改为 try/catch + 懒加载, 防止 Vite HMR / Teleport 渲染时机异常时
-// 'injection "Symbol(router)" not found' / 'injection "Symbol(route location)" not found'
-// 警告级联到 ErrorBoundary 兜底白屏.
-let router: ReturnType<typeof useRouter> | null = null
-try {
-  router = useRouter()
-} catch (e) {
-  if (import.meta.env.DEV) {
-    safeLogger.debug('[HeaderNavigation] useRouter unavailable on init:', e)
-  }
-}
-
-let route: ReturnType<typeof useRoute> | null = null
-try {
-  route = useRoute()
-} catch (e) {
-  if (import.meta.env.DEV) {
-    safeLogger.debug('[HeaderNavigation] useRoute unavailable on init:', e)
-  }
-}
-
-const getRouter = (): ReturnType<typeof useRouter> | null => {
-  if (router) return router
-  try {
-    router = useRouter()
-    return router
-  } catch {
-    return null
-  }
-}
-
-const getRoute = (): ReturnType<typeof useRoute> | null => {
-  if (route) return route
-  try {
-    route = useRoute()
-    return route
-  } catch {
-    return null
-  }
-}
-
-// 2026-06-26 修复: 包装 route 访问, route 为 null 时回退到空路径
-// 解决 useRouter/useRoute 上下文注入失败时模板渲染报错的问题
-const safeRoute = computed(() => {
-  const r = getRoute()
-  if (r) return r
-  return {
-    path: '/',
-    name: undefined as string | undefined,
-    query: {} as Record<string, unknown>,
-    params: {} as Record<string, unknown>,
-    fullPath: '/',
-    meta: {} as Record<string, unknown>,
-  } as unknown as ReturnType<typeof useRoute>
-})
-
+const router = useRouter()
+const route = useRoute()
 // 使用全局作用域，因为组件在 Teleport 中会失去父级作用域
 interface UseI18nOptions {
   useScope?: 'global' | 'local'
@@ -190,10 +135,9 @@ const _authStore = useAuthStore()
 const emit = defineEmits(['select'])
 
 // 根据当前路由自动计算activeIndex
-// 注意：route 可能在组件刚挂载/HMR/路由切换瞬间短暂为 undefined，需要做空值保护
 const activeIndex = computed(() => {
-  const routeName = ((route as { name?: string | symbol } | undefined)?.name ?? '') as string
-  const routePath = route?.path ?? ''
+  const routeName = (route as { name?: string | symbol }).name as string
+  const routePath = route.path
 
   if (routeName === 'home' || routePath === '/' || routePath === '/home') {
     return 'home'
@@ -289,17 +233,6 @@ const internalVisibleMenuItems = ref<MenuItems[] | null>(null)
 const hiddenMenuItems = ref<MenuItems[]>([])
 let menuResizeObserver: ResizeObserver | null = null
 const bodyOverflowBackup = ref<string | null>(null)
-
-// 2026-06-26 修复: 监听 locale 变化, 重置 internalVisibleMenuItems 强制重新计算可见菜单
-// 背景: allMenuItems 已经是 computed (依赖 locale.value), 但 visibleMenuItems 优先使用
-//       internalVisibleMenuItems.value 的缓存快照 (用于响应窗口宽度), 而该缓存不依赖 locale,
-//       导致语言切换后 Header 核心菜单项 (首页/AI应用商店/学习AI) 仍显示切换前的语言
-// 修复: 切换语言时清空缓存, 触发 allMenuItems 重新求值, 内部 resize observer 在用户实际操作
-//       (鼠标悬停/键盘 focus 等) 时再填充 hiddenMenuItems 即可. 切换瞬间短暂回退到
-//       全部展示, 不影响用户.
-watch(locale, () => {
-  internalVisibleMenuItems.value = null
-})
 const teardownResizeObserver = () => {
   if (menuResizeObserver) {
     menuResizeObserver.disconnect()
@@ -344,18 +277,12 @@ function closeMenus() {
   }
   openDropdownKey.value = null
   showMoreMenu.value = false
-  // 确保在异常情况下恢复 body overflow（防止某些按键路径未触发 watcher）
+  // 确保存异常情况下恢复 body overflow（防止某些按键路径未触发 watcher）
   restoreBodyOverflow()
 }
 
 function goToPath(path: string, key: string) {
-  const r = getRouter()
-  if (r) {
-    r.push(path)
-  } else if (typeof window !== 'undefined') {
-    // 路由上下文不可用, 降级为整页跳转
-    window.location.href = path
-  }
+  router.push(path)
   emit('select', key)
   closeMenus()
 }
@@ -547,7 +474,7 @@ const allMenuItems = computed<MenuItems[]>(() => {
   }
   // 菜单项配置 - 所有项目都展开为独立按钮，根据可用宽度动态显示
   // 排序策略：核心功能优先，次要功能放后面（放不下时自动进入"更多功能"）
-  const items: MenuItems[] = [
+  return [
     // === 核心功能 ===
     {
       key: 'home',
@@ -639,11 +566,6 @@ const allMenuItems = computed<MenuItems[]>(() => {
       handler: goToBecomeSupplier,
     },
   ]
-
-  // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404
-  // 隐藏社区 v2 (后端社区在 /api/v1/circle/* 和 /api/v1/ask/*, 非 /api/v2/community/*)
-  const HIDDEN_MENU_KEYS = ['aiCommunity']
-  return items.filter(item => !HIDDEN_MENU_KEYS.includes(item.key))
 })
 
 // 设置菜单项引用
@@ -722,7 +644,7 @@ const onMorePanelEnter = () => {
   openMoreMenu()
 }
 
-// 处理更多按钮的 mouseleave（下拉在 body 时 relatedTarget 常为 null，用延迟+标志判断）
+// 处理更多按钮的 mouseleave（下拉伸 body 时 relatedTarget 常为 null，用延迟+标志判断）
 const handleMoreTriggerLeave = (event: MouseEvent) => {
   if (isTogglingMoreMenu) return
   const to = event.relatedTarget as Node | null
@@ -752,7 +674,7 @@ let isTogglingMoreMenu = false
 
 // 处理更多功能按钮的mousedown事件，提前设置标志
 const handleMoreButtonMouseDown = (e: MouseEvent) => {
-  // 在mousedown阶段就设置标志，确保在click事件触发前标志已设置
+  // 在mousedown阶段就设置标志，确保存click事件触发前标志已设置
   isTogglingMoreMenu = true
   e.stopPropagation()
   safeLogger.debug(t('headerNav.moreFeaturesMouseDown'), {
@@ -1108,7 +1030,7 @@ const calculateVisibleItems = () => {
 
   isCalculating = true
 
-  // 初始化变量，确保即使在错误情况下也能正确清理
+  // 初始化变量，确保即使用错误情况下也能正确清理
   let totalWidth = 0
   const visible: MenuItems[] = []
   const remainingItems: MenuItems[] = []
@@ -1177,7 +1099,7 @@ const calculateVisibleItems = () => {
   // 计算可用宽度（如果需要更多按钮，则预留空间）
   const availableWidth = needMoreButton ? containerWidth - moreButtonWidth - menuGap : containerWidth
 
-  // 测量每个菜单项的宽度，尝试尽可能多地显示；优先保留下拉项在顶部栏（避免下拉框都进「更多」）
+  // 测量每个菜单项的宽度，尝试尽可能多地显示；优先保留下拉项目顶部栏（避免下拉框都进「更多」）
   for (let i = 0; i < displayableItems.length; i++) {
     const item = displayableItems[i]
     // 跳过无效项
@@ -1367,7 +1289,7 @@ watch(
 )
 
 watch(
-  () => safeRoute.value.path,
+  () => route.path,
   () => {
     closeMenus()
     // 延迟计算，确保 DOM 已更新
@@ -1548,7 +1470,7 @@ cleanup.add(() => {
       opacity: 1;
     }
 
-    // 搜索图标按钮 - 绝对定位在左侧
+    // 搜索图标按钮 - 绝对定位置左侧
     #search-icon {
       position: absolute;
       left: 8px;
@@ -1625,7 +1547,7 @@ cleanup.add(() => {
   border: var(--menu-item-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: all 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
   height: var(--menu-item-height);
@@ -1744,7 +1666,7 @@ div.menu-item {
   border: var(--menu-item-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: all 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
   height: var(--menu-item-height);
@@ -1783,7 +1705,7 @@ div.menu-item {
   }
 }
 
-// 组件特有样式（全局样式在 index.scss 中定义）
+// 组件特有样式（全局样式 index.scss 中定义）
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 下拉菜单样式 - 大气简约未来科技风
@@ -1895,7 +1817,7 @@ div.menu-item {
 }
 
 // 暗色模式 - 深邃的科技感
-:where(html.dark) .dropdown-menu {
+html.dark .dropdown-menu {
   // 深色玻璃背景
   background: var(--color-dark-141419-95);
   backdrop-filter: blur(24px) saturate(150%);
@@ -1921,7 +1843,7 @@ div.menu-item {
   color: var(--color-white-95);
 }
 
-:where(html.dark) :where(.header-nav-dropdown) :where(.dropdown-item:hover) {
+html.dark .header-nav-dropdown .dropdown-item:hover {
   color: var(--el-color-primary-light-3);
 }
 
@@ -2014,7 +1936,7 @@ div.menu-item {
 }
 
 // 暗色模式下的菜单项
-:where(html.dark) .dropdown-item {
+html.dark .dropdown-item {
   color: var(--color-white-90);
 
   &:hover {
@@ -2034,7 +1956,7 @@ div.menu-item {
 }
 
 // 响应式布局优化 - 通过 CSS 变量覆盖
-@media (width <= 991px) {
+@media (max-width: 991px) {
   .main-menu-items {
     gap: 3px;
     // 覆盖 CSS 变量实现响应式
@@ -2045,13 +1967,13 @@ div.menu-item {
   }
 }
 
-@media (width <= 767px) {
+@media (max-width: 767px) {
   .main-menu-items {
     display: none;
   }
 }
 
-@media (width <= 480px) {
+@media (max-width: 480px) {
   .dropdown-item {
     padding: 8px 12px;
     font-size: 13px;
@@ -2059,7 +1981,7 @@ div.menu-item {
 }
 
 // 高分辨率屏幕优化 - 通过 CSS 变量覆盖
-@media (width >= 1920px) {
+@media (min-width: 1920px) {
   .main-menu-items {
     gap: 6px;
     // 覆盖 CSS 变量实现响应式
@@ -2078,45 +2000,39 @@ div.menu-item {
   }
 }
 
-/* 暗色模式下选中/展开/激活的按钮：白底黑字（与未选中浅色文字、悬停浅色文字形成清晰层次） */
+/* 暗色模式选中按钮文字为黑色（含 header 内选中项，与浅色背景对比） */
 @layer utilities {
 
   html.dark button.menu-item.active,
   html.dark a.menu-item.active {
-    background-color: var(--el-color-white);
-    color: var(--el-color-black);
-    border-color: var(--el-color-primary);
+    color: var(--el-text-color-primary);
   }
 
   body .glass-header.dark-mode button.menu-item.active,
   body .glass-header.dark-mode a.menu-item.active,
-  body :where(html.dark) .glass-header button.menu-item.active,
-  body :where(html.dark) .glass-header a.menu-item.active {
-    background-color: var(--el-color-white);
-    color: var(--el-color-black);
-    border-color: var(--el-color-primary);
+  body html.dark .glass-header button.menu-item.active,
+  body html.dark .glass-header a.menu-item.active {
+    color: var(--el-text-color-primary);
   }
 }
 
-/* 深色模式下顶部菜单项：未选中/悬停用 Element Plus 暗色文字 token；选中用白底黑字 */
+/* 深色模式下顶部菜单项：未选中为白色，选中/悬停为黑色（悬停与选中为浅色底） */
 :where(.glass-header.dark-mode) .main-menu-items,
 :where(html.dark) :where(.glass-header) .main-menu-items {
-  --menu-item-color: var(--el-text-color-regular);
+  --menu-item-color: var(--el-bg-color);
   --menu-item-hover-color: var(--el-text-color-primary);
-  --menu-item-active-bg: var(--el-color-white);
-  --menu-item-active-color: var(--el-color-black);
-  --menu-item-active-border: var(--el-border-width-primary) solid var(--el-color-primary);
+  --menu-item-active-color: var(--el-text-color-primary);
 }
 
-/* 默认态（未选中/未悬停/未展开）按钮文字：暗色主题下为浅色文字 */
-:where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item:not(.active):not(.open):not(:hover),
-:where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item:not(.active):not(.open):not(:hover),
-:where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) .menu-item:not(.active):not(.open):not(:hover),
-:where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item:not(.active):not(.open):not(:hover) {
-  color: var(--el-text-color-regular);
+/* 直接覆盖按钮文字颜色，确保深色模式下为白色 */
+:where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item,
+:where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item,
+:where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) .menu-item,
+:where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item {
+  color: var(--el-bg-color);
 }
 
-/* 悬停或展开时使用主文本色（dark 主题下也是浅色，对比 hover 时的深色底） */
+/* 悬停或展开时浅色底，文字改为黑色 */
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item:hover,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item:hover,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item.dropdown.open,
@@ -2133,7 +2049,6 @@ div.menu-item {
   color: var(--el-text-color-primary);
 }
 
-/* 选中/展开：白底黑字（暗色主题下与未选中态形成强对比） */
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item.active,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item.active,
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) .menu-item.open,
@@ -2142,8 +2057,6 @@ div.menu-item {
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item.active,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) .menu-item.open,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item.open {
-  background-color: var(--el-color-white);
-  color: var(--el-color-black);
-  border-color: var(--el-color-primary);
+  color: var(--el-text-color-primary);
 }
 </style>

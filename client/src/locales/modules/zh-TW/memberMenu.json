@@ -1,0 +1,26 @@
+{
+  "memberMenu": {
+    "account": "帳號",
+    "personal": "個人資料",
+    "setting": "帳號設定",
+    "point": "我的積分",
+    "certificate": "我的證書",
+    "learn": "學習",
+    "learnRecord": "學習記錄",
+    "homework": "我的作業",
+    "exam": "考試",
+    "examSignUp": "考試報名",
+    "examRecord": "答題記錄",
+    "examWrong": "錯題本",
+    "sns": "社交",
+    "follow": "我的關注",
+    "fans": "我的粉絲",
+    "favorites": "我的收藏",
+    "comment": "我的評論",
+    "content": "內容",
+    "circle": "我的圈子",
+    "ask": "我的問答",
+    "article": "我的文章",
+    "resource": "我的資源"
+  }
+}

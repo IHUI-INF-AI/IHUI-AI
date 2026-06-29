@@ -1,1 +1,12 @@
-{}
+{
+  "webOnlyFeature": {
+    "title": "Web 專屬功能",
+    "description": "僅 Web 平台可用",
+    "desktopOptimization": "桌面優化",
+    "desktopOptimizationDesc": "專為桌面瀏覽器優化的互動體驗",
+    "mouseInteraction": "滑鼠互動",
+    "mouseInteractionDesc": "完整的滑鼠懸停與點擊互動",
+    "keyboardShortcuts": "鍵盤快捷鍵",
+    "keyboardShortcutsDesc": "豐富的鍵盤快捷鍵支援"
+  }
+}

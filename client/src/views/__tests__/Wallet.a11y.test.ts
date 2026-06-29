@@ -13,9 +13,6 @@ const i18n = createI18n({
 vi.mock('@/stores/user', () => ({
   useUserStore: () => ({ userId: 'u1' }),
 }))
-vi.mock('@/stores/darkMode', () => ({
-  useDarkModeStore: () => ({ isDarkMode: false }),
-}))
 vi.mock('@/composables/useToast', () => ({
   useToast: () => ({ info: vi.fn(), success: vi.fn(), error: vi.fn() }),
 }))

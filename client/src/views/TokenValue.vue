@@ -39,7 +39,7 @@
 
     <!-- 消耗记录列表 -->
     <div class="records-section radius-auto">
-      <el-table :data="recordsList" v-loading="loading" class="full-width">
+      <el-table :data="recordsList" v-loading="loading" style="width: 100%">
         <el-table-column prop="agentName" :label="t('tokenValue.table.name')" min-width="150" />
         <el-table-column prop="create_at" :label="t('tokenValue.table.time')" width="180">
           <template #default="{ row }">
@@ -48,7 +48,7 @@
         </el-table-column>
         <el-table-column prop="token" :label="t('tokenValue.table.consumption')" width="120">
           <template #default="{ row }">
-            <span class="danger-text">-{{ row.token }}</span>
+            <span style="color: var(--el-color-danger); font-weight: bold">-{{ row.token }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -69,7 +69,7 @@ import { ElMessage } from 'element-plus'
 import StatsPanel from '@/components/common/StatsPanel.vue'
 import type { StatItem } from '@/components/common/StatsPanel.vue'
 import { useUserStatistics } from '@/composables/user/useUserStatistics'
-import { getTokenValueRecords } from '@/api/statistics/token-value'
+import { getTokenValueRecords } from '@/api/token-value'
 import { useApiError } from '@/composables/useApiError'
 import { formatDateTime } from '@/utils/format'
 
@@ -117,7 +117,7 @@ const loadTokenData = async () => {
     await loadTokenBalance()
     await loadRecords()
   } catch {
-    ElMessage.error(t('common.errors.dataLoadFailedRetry'))
+    ElMessage.error(t('common.errors.tokenLoadFailed'))
   }
 }
 
@@ -128,7 +128,7 @@ const loadRecords = async () => {
     timeRange: timeRange.value,
   }))
   if (data !== null && typeof data === 'object') {
-    const listData = data as { list?: any[] }
+    const listData = data as { list?: unknown[] }
     recordsList.value = (listData.list || []) as Array<{
       agentName: string
       create_at: string
@@ -168,7 +168,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -187,11 +187,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -206,7 +206,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -220,17 +220,8 @@ onMounted(() => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
-  }
-
-  .full-width {
-    width: 100%;
-  }
-
-  .danger-text {
-    color: var(--el-color-danger);
-    font-weight: 700;
   }
 }
 </style>

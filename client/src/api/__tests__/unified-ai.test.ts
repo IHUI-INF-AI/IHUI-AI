@@ -23,12 +23,12 @@ vi.mock('@/config/backend-paths', () => ({
   },
 }))
 
-vi.mock('../models/models', () => ({
+vi.mock('../models', () => ({
   callModel: vi.fn().mockResolvedValue({ code: 200, success: true, data: { text: 'ok' } }),
   getAvailableModels: vi.fn().mockResolvedValue({ code: 200, success: true, data: [] }),
 }))
 
-vi.mock('../agent/agents', () => ({
+vi.mock('../agents', () => ({
   getAgentsList: vi.fn().mockResolvedValue({ code: 200, success: true, data: { list: [] } }),
   callAgent: vi.fn().mockResolvedValue({ code: 200, success: true, data: { ok: true } }),
 }))
@@ -37,7 +37,7 @@ vi.mock('../services/agentic.service', () => ({
   createAgenticSwarm: vi.fn().mockResolvedValue({ code: 200, success: true, data: { swarmId: 's1' } }),
 }))
 
-vi.mock('../tools/mcp', () => ({
+vi.mock('../mcp', () => ({
   callMCPTool: vi.fn().mockResolvedValue({ code: 200, success: true, data: { ok: true } }),
   getMCPServersList: vi.fn().mockResolvedValue({
     code: 200,
@@ -46,7 +46,7 @@ vi.mock('../tools/mcp', () => ({
   }),
 }))
 
-import * as api from '../unified/unified-ai'
+import * as api from '../unified-ai'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

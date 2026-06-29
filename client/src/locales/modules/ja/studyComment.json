@@ -1,8 +1,8 @@
 {
   "studyComment": {
-    "enterComment": "enterComment",
-    "enterReply": "enterReply",
-    "hotComments": "hotComments",
-    "send": "发送"
+    "hotComments": "人気コメント",
+    "enterReply": "返信内容を入力してください...",
+    "enterComment": "コメントを入力",
+    "send": "送信"
   }
 }

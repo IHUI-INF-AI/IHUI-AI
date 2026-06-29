@@ -1,7 +1,7 @@
 {
   "memberFans": {
-    "lazyPerson": "lazyPerson",
-    "myFans": "myFans",
-    "noFans": "noFans"
+    "myFans": "My fans",
+    "noFans": "No fans",
+    "lazyPerson": "This person is lazy, nothing written"
   }
 }

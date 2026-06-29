@@ -50,7 +50,7 @@
       <div class="date-text">{{ formatDateRange(info.createdAt, info.closingTime) }}</div>
       <div class="cycle">{{ t('cardContent.cycleTime') }}：{{ info.cycle || '' }}{{ cycleUnits[info.cycleUnit] || '' }}</div>
       <div v-if="type === 'dialog'" class="related-images">
-        <span class="field-label">{{ t('plazaCardContent.relatedImages') }}</span>
+        <span class="field-label">{ t('plazaCardContent.relatedImages') }</span>
         <div class="image-list">
           <img v-for="item in imageList" :key="item" class="image-item" :src="item" alt="图片" loading="lazy" />
         </div>
@@ -80,10 +80,10 @@ defineOptions({ name: 'CardContent' })
 
 
 const props = withDefaults(defineProps<{
-  info?: any
+  info?: Record<string, unknown>
   type?: string
-  itemUserInfo?: any
-  categorys?: any[]
+  itemUserInfo?: Record<string, unknown>
+  categorys?: Record<string, unknown>[]
 }>(), {
   info: () => ({}),
   type: 'item',
@@ -91,34 +91,34 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'showDialog', info: any): void
+  (e: 'showDialog', info: Record<string, unknown>): void
   (e: 'close'): void
 }>()
 
 const cycleUnits: Record<string, string> = { '0': '日', '1': '周', '2': '月', '3': '年' }
 
 const imageList = computed(() => {
-  if (props.info.imgs) return props.info.imgs.split(',')
+  if (props.info.imgs) return String(props.info.imgs).split(',')
   return false
 })
 
 const rightTypes = computed(() => {
   if (props.type === 'dialog') {
-    let list: any[] = []
+    let list: Record<string, unknown>[] = []
     if (props.info.categoryList && props.info.typeList) {
-      list = [...props.info.typeList, ...props.info.categoryList]
+      list = [...(props.info.typeList as Record<string, unknown>[]), ...(props.info.categoryList as Record<string, unknown>[])]
     } else if (props.info.typeList) {
-      list = [...props.info.typeList]
+      list = [...(props.info.typeList as Record<string, unknown>[])]
     } else if (props.info.categoryList) {
-      list = [...props.info.categoryList]
+      list = [...(props.info.categoryList as Record<string, unknown>[])]
     }
     if (props.info.type) {
-      const typeList = props.info.type.split(',').map((typeStr: string) => ({ name: typeStr }))
+      const typeList = String(props.info.type).split(',').map((typeStr: string) => ({ name: typeStr }))
       return [...list, ...typeList]
     }
     return list
   } else {
-    return props.info.typeList || []
+    return (props.info.typeList as Record<string, unknown>[]) || []
   }
 })
 
@@ -165,7 +165,7 @@ function close() { emit('close') }
 .main-image {
   width: 100%;
   height: 180px;
-  border-radius: var(--global-border-radius) var(--global-border-radius) 0 0;
+  border-radius: var(--global-border-radius) 10px 0 0;
   margin-bottom: 4px;
   object-fit: cover;
 }
@@ -177,16 +177,16 @@ function close() { emit('close') }
   background-color: var(--color-black); object-fit: cover; flex-shrink: 0;
 }
 .user-info { margin-left: 6px; }
-.user-name { font-size: 16px; font-weight: 700; color: var(--color-black); }
+.user-name { font-size: 16px; font-weight: bold; color: var(--color-black); }
 .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 
 .tag {
   padding: 2px 6px; border: var(--unified-border);
-  border-radius: var(--global-border-radius); font-size: 12px; font-weight: 700; color: var(--color-black-60);
+  border-radius: var(--global-border-radius); font-size: 12px; font-weight: bold; color: var(--color-black-60);
 }
 
 .title {
-  font-size: 16px; font-weight: 700; color: var(--color-black);
+  font-size: 16px; font-weight: bold; color: var(--color-black);
   margin: 0 8px 6px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -195,7 +195,7 @@ function close() { emit('close') }
 .cycle { font-size: 12px; color: var(--color-gray-8d8d8d); }
 
 .money {
-  font-size: 18px; font-weight: 700; overflow: hidden;
+  font-size: 18px; font-weight: bold; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
 .no-image { padding: 8px; }
@@ -214,8 +214,9 @@ function close() { emit('close') }
 
 .status .fabu {
   padding: 3px 12px; border-radius: var(--global-border-radius); font-size: 12px;
-  font-weight: 700; color: var(--color-black); border: var(--unified-border);
-  background: var(--color-white); }
+  font-weight: bold; color: var(--color-black); border: var(--unified-border);
+  background: var(--color-white); box-shadow: var(--global-box-shadow);
+}
 .status .ywc { font-size: 12px; color: var(--color-gray-8d8d8d); }
 .status .kfz { font-size: 12px; color: var(--color--b0a0ff); }
 </style>

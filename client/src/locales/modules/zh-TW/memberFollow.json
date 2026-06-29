@@ -1,10 +1,10 @@
 {
   "memberFollow": {
-    "empty": "empty",
-    "followed": "followed",
-    "followers": "followers",
-    "following": "following",
-    "mutualFollow": "mutualFollow",
-    "title": "标题"
+    "title": "我的關注",
+    "empty": "暫無關注",
+    "followers": "粉絲",
+    "following": "關注",
+    "mutualFollow": "互相關注",
+    "followed": "已關注"
   }
 }

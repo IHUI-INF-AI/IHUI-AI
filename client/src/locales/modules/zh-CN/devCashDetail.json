@@ -1,7 +1,7 @@
 {
   "devCashDetail": {
-    "arrivalTime": "arrival 时间",
-    "processTime": "process 时间",
-    "withdrawTime": "提现时间"
+    "withdrawTime": "提现时间",
+    "processTime": "处理时间",
+    "arrivalTime": "到账时间"
   }
 }

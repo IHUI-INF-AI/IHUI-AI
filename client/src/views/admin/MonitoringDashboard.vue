@@ -139,12 +139,12 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('monitoring.condition')">
-          <el-select v-model="newRule.operator" class="operator-select">
+          <el-select v-model="newRule.operator" style="width: 100px">
             <el-option :label="t('monitoring.operators.gt')" value="gt" />
             <el-option :label="t('monitoring.operators.lt')" value="lt" />
             <el-option :label="t('monitoring.operators.eq')" value="eq" />
           </el-select>
-          <el-input-number v-model="newRule.threshold" class="threshold-input" />
+          <el-input-number v-model="newRule.threshold" style="width: 150px" />
         </el-form-item>
         <el-form-item :label="t('monitoring.severityLevel')">
           <el-select v-model="newRule.severity">
@@ -167,29 +167,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import { ElMessage } from 'element-plus'
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
+import echarts from '@/utils/echarts'
 import { tourMonitoringService, type AnomalyDetection } from '@/services/tourMonitoringService'
 import { tourAlertService, type AlertRule } from '@/services/tourAlertService'
 import { useTourPermissions } from '@/composables/useTourPermissions'
 import { monitoringWebSocket } from '@/utils/monitoring-websocket'
 import { getUserToken } from '@/utils/request'
 import { tourMonitoringI18n } from '@/locales/tour-i18n'
-import { useDarkModeStore } from '@/stores/darkMode'
 
 const t = (key: string) => {
   const keys = key.split('.')
-  let result: any = tourMonitoringI18n
+  let result: unknown = tourMonitoringI18n
   for (const k of keys) {
     result = (result as Record<string, unknown>)?.[k]
   }
   return typeof result === 'string' ? result : key
 }
 const { canManageAlerts, canViewMonitoring } = useTourPermissions()
-const darkModeStore = useDarkModeStore()
 
 const timeRange = ref('1h')
 const showRuleDialog = ref(false)
@@ -211,7 +208,7 @@ const newRule = ref({
 })
 
 const performanceChart = ref<HTMLElement>()
-let chart: ECharts | null = null
+let chart: echarts.ECharts | null = null
 let updateInterval: number | null = null
 
 const recentAnomalies = computed(() => anomalies.value.slice(0, 5))
@@ -227,9 +224,8 @@ const getSeverityTag = (severity: string) => {
   return map[severity] || ''
 }
 
-const initChart = async () => {
+const initChart = () => {
   if (!performanceChart.value) return
-  const echarts = await loadEcharts()
   chart = echarts.init(performanceChart.value)
   window.addEventListener('resize', handleResize)
   updateChart()
@@ -341,7 +337,7 @@ const initWebSocket = async () => {
       }
     })
 
-    // JWT 鉴权: 传递 token
+    // JWT 鉴权: 传�?token
     const _jwtToken = getUserToken() || ''
     await monitoringWebSocket.connect(wsUrl, _jwtToken)
     wsConnected.value = true
@@ -349,16 +345,6 @@ const initWebSocket = async () => {
     wsConnected.value = false
   }
 }
-
-// 监听暗色模式变化，重新渲染图表以更新颜色
-watch(
-  () => darkModeStore.isDarkMode,
-  () => {
-    if (chart) {
-      updateChart()
-    }
-  }
-)
 
 onMounted(() => {
   if (!canViewMonitoring.value) return
@@ -398,7 +384,7 @@ cleanup.add(() => chart?.dispose())
 
 .stat-value {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: bold;
   margin-top: 10px;
 }
 
@@ -427,7 +413,7 @@ cleanup.add(() => chart?.dispose())
 .resource-item span {
   display: block;
   margin-bottom: 8px;
-  color: var(--el-text-color-regular);
+  color: var(--color-gray-606266);
 }
 
 .mt-20 {
@@ -436,13 +422,5 @@ cleanup.add(() => chart?.dispose())
 
 .ml-10 {
   margin-left: 10px;
-}
-
-.operator-select {
-  width: 100px;
-}
-
-.threshold-input {
-  width: 150px;
 }
 </style>

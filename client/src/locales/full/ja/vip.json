@@ -2,37 +2,5 @@
   "Vip": {
     "permanentVip": "/永久VIP",
     "oneClickVip": "ワンクリックVIP"
-  },
-  "userMembershipBenefits": {
-    "vipPrice": "限定588元/1288元VIP/年",
-    "traderPrice": "限定3888元/18888元トレーダー/年",
-    "benefitName": "権益名",
-    "normalUser": "一般ユーザー",
-    "vip": "VIP",
-    "trader": "トレーダー",
-    "upgrade": "今すぐ開通",
-    "benefit1Title": "終身二次流通収益",
-    "benefit1One": "共有で智匯ポイント",
-    "benefit1Two": "一次流通10%",
-    "benefit1Three": "一次流通40%二次流通10%",
-    "benefit2Title": "1000以上のエージェントソースコード取得",
-    "benefit3Title": "AIアプリCoze公式チャネル公開",
-    "benefit4Title": "AIアプリ期間限定無料公開",
-    "benefit5Title": "Coze/N8Nシームレス接続",
-    "benefit6Title": "多対一Q&Aコーチング",
-    "benefit7Title": "計算能力プレゼント",
-    "benefit7One": "8万",
-    "benefit7Two": "888万",
-    "benefit7Three": "1888万",
-    "benefit8Title": "本部入居およびオフライン学習実践の機会",
-    "benefit9Title": "一人会社設立",
-    "benefit10Title": "カスタムAgent",
-    "benefit10One": "定価",
-    "benefit10Two": "5%引き",
-    "benefit10Three": "20%引き",
-    "benefit11Title": "コミュニティサービスプロバイダー登録"
-  },
-  "vipIntroducePopup": {
-    "loading": "読み込み中"
   }
 }

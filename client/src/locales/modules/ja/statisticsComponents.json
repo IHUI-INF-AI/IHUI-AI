@@ -1,19 +1,19 @@
 {
   "statisticsComponents": {
-    "passed": "passed",
-    "pending": "待处理",
-    "purchaseStats": "purchaseStats",
-    "rejected": "已拒绝",
-    "reviewStats": "reviewStats",
-    "settled": "settled",
-    "settlementStats": "settlementStats",
-    "totalPurchases": "totalPurchases",
-    "totalRevenue": "totalRevenue",
-    "totalReviews": "totalReviews",
-    "totalSettlements": "totalSettlements",
-    "totalWithdrawn": "totalWithdrawn",
-    "uniqueAgents": "uniqueAgents",
-    "uniqueBuyers": "uniqueBuyers",
-    "unsettled": "unsettled"
+    "reviewStats": "審査統計",
+    "totalReviews": "総審査数",
+    "passed": "合格",
+    "pending": "審査中",
+    "rejected": "却下",
+    "purchaseStats": "購入統計",
+    "totalPurchases": "総購入数",
+    "totalRevenue": "総収益",
+    "uniqueBuyers": "ユニーク購入者",
+    "uniqueAgents": "ユニークエージェント",
+    "settlementStats": "決済統計",
+    "totalSettlements": "総決済数",
+    "totalWithdrawn": "総出金額",
+    "settled": "決済済み",
+    "unsettled": "未決済"
   }
 }

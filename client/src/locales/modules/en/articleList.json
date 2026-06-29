@@ -1,17 +1,14 @@
 {
   "articleList": {
-    "anonymous": "anonymous",
-    "comment": "评论",
-    "essence": "essence",
-    "essenceLabel": "essenceLabel",
-    "featuredArticles": "featuredArticles",
-    "hottest": "hottest",
-    "latest": "最新",
-    "like": "点赞",
-    "noArticle": "noArticle",
-    "pageDesc": "pageDesc",
-    "read": "read",
-    "searchArticle": "searchArticle",
-    "top": "置顶"
+    "featuredArticles": "Featured Articles",
+    "pageDesc": "In-depth Articles · Practical Experience · Industry Insights",
+    "top": "Top",
+    "essence": "Featured",
+    "anonymous": "Anonymous",
+    "read": "Reads",
+    "like": "Likes",
+    "comment": "Comments",
+    "searchArticle": "Search articles",
+    "noArticle": "No articles"
   }
 }

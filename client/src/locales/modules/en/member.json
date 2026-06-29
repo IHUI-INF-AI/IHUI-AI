@@ -1,13 +1,59 @@
 {
   "member": {
     "searchPlaceholder": {
-      "company": "Search companies",
-      "group": "Search groups",
-      "level": "Search levels",
-      "list": "Search members",
-      "post": "Search posts",
-      "tag": "Search tags",
-      "unaudited": "Search pending members"
+      "company": "Search Company",
+      "group": "Search Group",
+      "level": "Search Level",
+      "list": "Search Members",
+      "post": "Search Position",
+      "tag": "Search Tag",
+      "unaudited": "Search Unaudited Members"
+    },
+    "label": {
+      "companyName": "Company Name",
+      "type": "Type",
+      "scale": "Scale",
+      "groupName": "Group Name",
+      "memberCount": "Member Count",
+      "createTime": "Create Time",
+      "actions": "Actions"
+    },
+    "audit": {
+      "username": "Username",
+      "mobile": "Mobile",
+      "submitTime": "Submit Time",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveConfirm": "Are you sure to approve \"{name}\"?",
+      "approveSuccess": "Approved",
+      "approveFailed": "Operation failed",
+      "rejectConfirm": "Are you sure to reject \"{name}\"?",
+      "rejectSuccess": "Rejected",
+      "rejectFailed": "Operation failed"
     }
+  },
+  "memberMenu": {
+    "account": "Account",
+    "personal": "Personal Info",
+    "setting": "Account Settings",
+    "point": "My Points",
+    "certificate": "My Certificates",
+    "learn": "Learning",
+    "learnRecord": "Learning Records",
+    "homework": "My Homework",
+    "exam": "Exams",
+    "examSignUp": "Exam Registration",
+    "examRecord": "Answer Records",
+    "examWrong": "Wrong Questions",
+    "sns": "Social",
+    "follow": "My Following",
+    "fans": "My Fans",
+    "favorites": "My Favorites",
+    "comment": "My Comments",
+    "content": "Content",
+    "circle": "My Circles",
+    "ask": "My Q&A",
+    "article": "My Articles",
+    "resource": "My Resources"
   }
 }

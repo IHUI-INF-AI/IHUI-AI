@@ -2,11 +2,17 @@
   "aiWorld": {
     "sub핵심 장점": "AI 창작, 에이전트, 지식 베이스 및 오픈 플랫폼 탐색",
     "empty": "콘텐츠가 없습니다. 기대해 주의세요",
+    "loadMore": "더 불러오기",
     "loading": "로딩 중...",
     "back": "백엔드로",
     "goToOfficial": "공식 생각이트 방문",
+    "tagLabel": "태그",
     "detailEmpty": "상세 콘텐츠 없음",
+    "visit": "방문",
     "viewMore": "더 보기 >>",
+    "latestSection": "최신",
+    "navAll": "모든",
+    "subtitle": "탐색 AI 혁신동작、에이전트、지식라이브러리및오픈역량",
     "heroCarousel": "캐러셀",
     "heroOverlayTitle": "AI 세계 탐색",
     "heroOverlaySubtitle": "에이전트 · 지식 베이스 · 오픈 역량, 원스톱 혁신 생태",
@@ -15,6 +21,8 @@
       "badge": "AIGC TO AGI 지능 시대 선도자",
       "heroTitle": "원스톱 AI 혁신 생태 허브 통합 플랫폼",
       "heroDesc": "AI 지능 부여, 트래픽 분열, 전역 재구축, 새벽 시대! 에이전트 개발, 슈퍼 개인 인큐베이팅, 기업 전환 역량 강화, 뉴스 학습을 하나로 모은 인공지능 전 영역 혁신 플랫폼",
+      "joinUs": "참여하기",
+      "learnSolution": "솔루션 알아보기",
       "heroStats": "글로벌 AI 분야 전문 인재 모집",
       "overviewTag": "PLATFORM OVERVIEW",
       "overviewTitle": "AI 지후이사 플랫폼 개요",
@@ -51,6 +59,18 @@
       "valueTag": "CORE VALUE",
       "valueTitle": "플랫폼 핵심 가치와 경쟁 우위",
       "valueDesc": "4대 핵심 가치를 바탕으로 합니다",
+      "contactTitle": "지후이사와 함께 AI 새 시대를 창조하세요",
+      "contactDesc": "양식을 작성하여 맞춤형 AI 솔루션을 받아보세요",
+      "contactNameLabel": "기업/개인 명칭",
+      "contactNamePlaceholder": "명칭을 입력해 주세요",
+      "contactPhonePlaceholder": "휴대전화 번호를 입력해 주세요",
+      "contactIndustry": "소속 산업",
+      "contactIndustryPlaceholder": "산업을 선택해 주세요",
+      "contactDemand": "요구사항 설명",
+      "contactDemandPlaceholder": "AI 요구사항을 간략히 설명해 주세요...",
+      "contactSubmit": "신청 제출",
+      "contactRequired": "필수 항목을 입력해 주세요!",
+      "contactSuccess": "제출 완료, 빠른 시일 내에 연락드리겠습니다!",
       "fn1Title": "만인 AI 커뮤니티 구축",
       "fn1Desc": "정밀 모집+정교화 운영, 흥미 기술 서브 커뮤니티 분할, 고품질 AI 교류 커뮤니티 구축.",
       "fn2Title": "AI 교류 학습 플랫폼",
@@ -125,8 +145,8 @@
       "val3Desc": "업계 수요와 페인포인트 깊이 발굴, 맞춤형 AI 솔루션 제공, 기업의 생산 효율 향상, 비용 절감 지원, 산업 체인 협동 발전 추진.",
       "val4Title": "자원 공유와 협동 발전",
       "val4Desc": "학습, 기술, 프로젝트, 자금 등 다류 자원 통합, 최적 배치 실현, 멤버 간 협동 협력으로 기술 난제 공략, AI 보급 가속.",
-      "tenThousandPlus": "tenThousandPlus"
+      "tenThousandPlus": "만+"
     },
-    "title": "标题"
+    "title": "AI 세계"
   }
 }

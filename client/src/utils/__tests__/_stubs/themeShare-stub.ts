@@ -67,7 +67,7 @@ export const themeShare = {
     const mostShared = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
     return { totalShares: all.length, totalClicks: all.reduce((sum, s) => sum + s.shareCount, 0), mostSharedMode: mostShared?.[0] || null }
   },
-  async shareToSocial(_opts: { platform: string; themeMode: string; customMessage?: string; preset?: any }) {
+  async shareToSocial(_opts: { platform: string; themeMode: string; customMessage?: string; preset?: unknown }) {
     return { success: true, qrCodeUrl: 'https://test.com/qr.png' }
   },
   clearAllShares(): void { Object.keys(store).forEach((k) => delete store[k]) },

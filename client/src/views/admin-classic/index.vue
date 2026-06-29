@@ -21,7 +21,7 @@
     </div>
 
     <!-- 核心数据卡片 -->
-    <section class="stats-grid" :aria-label="t('common.coreData')">
+    <section class="stats-grid" aria-label="核心数据">
       <article
         v-for="card in stats"
         :key="card.key"
@@ -168,13 +168,13 @@ interface StatCard {
   unit?: string
   trend: number
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'info'
-  icon: any
+  icon: unknown
 }
 
 interface QuickAction {
   key: string
   label: string
-  icon: any
+  icon: unknown
   path: string
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'
   badge?: string
@@ -196,7 +196,7 @@ interface ActivityItem {
   description: string
   time: string
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'info'
-  icon: any
+  icon: unknown
 }
 
 const version = '3.6.5'
@@ -266,14 +266,14 @@ const stats = ref<StatCard[]>([
 ])
 
 const quickActions = ref<QuickAction[]>([
-  { key: 'users', label: t('adminClassicHome.actionUsers'), icon: markIcon(User), path: '/admin/user-management', tone: 'primary' },
-  { key: 'orders', label: t('adminClassicHome.actionOrders'), icon: markIcon(ShoppingCart), path: '/admin/refund-audit', tone: 'success', badge: t('adminClassicHome.badgeNew') },
-  { key: 'agents', label: t('adminClassicHome.actionAgents'), icon: markIcon(ChatLineRound), path: '/admin/agent-management', tone: 'info' },
-  { key: 'data', label: t('adminClassicHome.actionData'), icon: markIcon(DataAnalysis), path: '/admin/monitoring-dashboard', tone: 'warning' },
-  { key: 'promotion', label: t('adminClassicHome.actionPromotion'), icon: markIcon(Promotion), path: '/admin/activity-management', tone: 'danger' },
-  { key: 'docs', label: t('adminClassicHome.actionDocs'), icon: markIcon(Document), path: '/admin/course-management', tone: 'neutral' },
-  { key: 'tools', label: t('adminClassicHome.actionTools'), icon: markIcon(Tools), path: '/admin/webhook-management', tone: 'neutral' },
-  { key: 'settings', label: t('adminClassicHome.actionSettings'), icon: markIcon(Setting), path: '/admin/home', tone: 'neutral' },
+  { key: 'users', label: t('adminClassicHome.actionUsers'), icon: markIcon(User), path: '/admin/user', tone: 'primary' },
+  { key: 'orders', label: t('adminClassicHome.actionOrders'), icon: markIcon(ShoppingCart), path: '/admin/order', tone: 'success', badge: t('adminClassicHome.badgeNew') },
+  { key: 'agents', label: t('adminClassicHome.actionAgents'), icon: markIcon(ChatLineRound), path: '/admin/agent', tone: 'info' },
+  { key: 'data', label: t('adminClassicHome.actionData'), icon: markIcon(DataAnalysis), path: '/admin/data', tone: 'warning' },
+  { key: 'promotion', label: t('adminClassicHome.actionPromotion'), icon: markIcon(Promotion), path: '/admin/promotion', tone: 'danger' },
+  { key: 'docs', label: t('adminClassicHome.actionDocs'), icon: markIcon(Document), path: '/admin/content', tone: 'neutral' },
+  { key: 'tools', label: t('adminClassicHome.actionTools'), icon: markIcon(Tools), path: '/admin/tool', tone: 'neutral' },
+  { key: 'settings', label: t('adminClassicHome.actionSettings'), icon: markIcon(Setting), path: '/admin/setting', tone: 'neutral' },
 ])
 
 const systemStatus = ref<StatusItem[]>([
@@ -363,14 +363,14 @@ onMounted(() => {
 .welcome-title {
   font-size: 20px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-222);
   line-height: 1.4;
   margin: 0;
 }
 
 .welcome-subtitle {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
   margin: 4px 0 0;
   line-height: 1.5;
 }
@@ -392,7 +392,7 @@ onMounted(() => {
   border-radius: var(--global-border-radius);
   background-color: var(--color-bg-page);
   border: var(--unified-border);
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
 }
 
 .env-production {
@@ -410,7 +410,7 @@ onMounted(() => {
 .env-development {
   background-color: var(--el-color-primary-light-9);
   border-color: var(--el-color-primary-light-7);
-  color: var(--el-color-primary);
+  color: var(--color-blue-1890ff);
 }
 
 /* ═══ 数据卡片网格 ═══ */
@@ -434,7 +434,7 @@ onMounted(() => {
 
   &:hover {
     border-color: var(--color-gray-d0);
-    
+    transform: translateY(-1px);
   }
 }
 
@@ -454,7 +454,7 @@ onMounted(() => {
 .stat-card-success .stat-icon { color: var(--el-color-success); background-color: var(--el-color-success-light-9); }
 .stat-card-warning .stat-icon { color: var(--el-color-warning); background-color: var(--el-color-warning-light-9); }
 .stat-card-danger .stat-icon { color: var(--el-color-danger); background-color: var(--el-color-danger-light-9); }
-.stat-card-info .stat-icon { color: var(--el-color-primary); background-color: var(--el-color-primary-light-9); }
+.stat-card-info .stat-icon { color: var(--color-blue-1890ff); background-color: var(--el-color-primary-light-9); }
 
 .stat-body {
   flex: 1;
@@ -463,7 +463,7 @@ onMounted(() => {
 
 .stat-label {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
   line-height: 1.4;
 }
 
@@ -477,7 +477,7 @@ onMounted(() => {
 .stat-number {
   font-size: 24px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-222);
   line-height: 1.2;
   letter-spacing: 0.5px;
   font-variant-numeric: tabular-nums;
@@ -485,7 +485,7 @@ onMounted(() => {
 
 .stat-unit {
   font-size: 12px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-gray-999);
 }
 
 .stat-trend {
@@ -504,7 +504,7 @@ onMounted(() => {
   }
 
   .trend-period {
-    color: var(--el-text-color-placeholder);
+    color: var(--color-gray-999);
     margin-left: 4px;
     font-weight: 400;
   }
@@ -545,7 +545,7 @@ onMounted(() => {
 .panel-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-222);
   margin: 0;
   line-height: 1.2;
 }
@@ -608,12 +608,12 @@ onMounted(() => {
 .quick-success .quick-icon { color: var(--el-color-success); }
 .quick-warning .quick-icon { color: var(--el-color-warning); }
 .quick-danger .quick-icon { color: var(--el-color-danger); }
-.quick-info .quick-icon { color: var(--el-color-primary); }
-.quick-neutral .quick-icon { color: var(--el-text-color-secondary); }
+.quick-info .quick-icon { color: var(--color-blue-1890ff); }
+.quick-neutral .quick-icon { color: var(--color-gray-666); }
 
 .quick-label {
   font-size: 13px;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-333);
   font-weight: 500;
 }
 
@@ -621,7 +621,7 @@ onMounted(() => {
   position: absolute;
   top: 8px;
   right: 12px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: var(--global-border-radius);
@@ -640,7 +640,7 @@ onMounted(() => {
   font-weight: 500;
   border-radius: var(--global-border-radius);
   background-color: var(--color-bg-page);
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
 }
 
 .status-dot {
@@ -689,7 +689,7 @@ onMounted(() => {
 .status-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-222);
 }
 
 .status-value {
@@ -708,7 +708,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-gray-999);
 }
 
 /* ═══ 活动列表 ═══ */
@@ -756,7 +756,7 @@ onMounted(() => {
 .avatar-success { background-color: var(--el-color-success); }
 .avatar-warning { background-color: var(--el-color-warning); }
 .avatar-danger { background-color: var(--el-color-danger); }
-.avatar-info { background-color: var(--el-color-primary); }
+.avatar-info { background-color: var(--color-blue-1890ff); }
 
 .activity-body {
   flex: 1;
@@ -766,14 +766,14 @@ onMounted(() => {
 .activity-title {
   font-size: 14px;
   font-weight: 500;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-222);
   line-height: 1.4;
   margin-bottom: 2px;
 }
 
 .activity-desc {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
   line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -782,7 +782,7 @@ onMounted(() => {
 
 .activity-time {
   font-size: 12px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-gray-999);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -791,7 +791,7 @@ onMounted(() => {
   padding: 40px 20px;
   text-align: center;
   font-size: 13px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-gray-999);
 }
 
 /* ═══ 暗色模式适配 ═══ */

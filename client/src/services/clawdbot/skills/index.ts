@@ -97,9 +97,9 @@ export interface SkillConfigSchema {
   properties: Record<string, {
     type: string
     description?: string
-    default?: any
+    default?: unknown
     required?: boolean
-    enum?: any[]
+    enum?: unknown[]
   }>
 }
 
@@ -643,12 +643,7 @@ export async function execute(params) {
   async publishSkill(skill: Skill): Promise<void> {
     logger.info(`[Skills] Publishing skill: ${skill.name}`)
     
-    // 实际应调用 ClawdHub API
-    // await fetch(`${this.CLAWDHUB_API}/skills`, {
-    //   method: 'POST',
-    //   body: JSON.stringify(skill),
-    // })
-
+    // TODO: 调用 ClawdHub API 发布技能
     this.emit('skillPublished', skill)
     logger.info(`[Skills] Skill published successfully: ${skill.name}`)
   }

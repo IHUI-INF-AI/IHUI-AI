@@ -1,8 +1,14 @@
 {
+  "distributionCenter": {
+    "copyImage": "复制图片",
+    "distributionTitle": "AI智汇社 - 分销中心",
+    "imageCopied": "图片已复制到剪贴板",
+    "longPressToSave": "请长按图片保存"
+  },
   "DistributionCenter": {
-    "copyImage": "复制 图片",
-    "distributionTitle": "distribution 标题",
-    "imageCopied": "图片 copied",
-    "longPressToSave": "long press 到 保存"
+    "copyImage": "复制图片",
+    "distributionTitle": "AI智汇社 - 分销中心",
+    "imageCopied": "图片已复制到剪贴板",
+    "longPressToSave": "请长按图片保存"
   }
 }

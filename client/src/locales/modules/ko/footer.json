@@ -2,10 +2,11 @@
   "footer": {
     "acknowledgments": "감생각의 말씀",
     "companyName": "길림성 아이즈후이 인공스마트 과학기술 유한공생각",
+    "companyAddress": "주의소|창춘시 고신구 웨다로 107호|AI 인공스마트 인재 육성 기지",
     "주의소Label": "주의소: ",
     "주의소Line1": "창춘시 고신구 웨다로 107호",
-    "addressLine2": "인공스마트 산업 인큐베이터",
-    "companyContact": "전화:18643389808",
+    "주의소Line2": "인공스마트 인재 육성 기지",
+    "companyContact": "연락처:18643389808",
     "companyEmail": "이메일:502319984{'@'}qq.com",
     "companyEmail2": "lizong{'@'}aizhs.top",
     "supportedPlatforms": "지원 플랫폼",
@@ -19,6 +20,7 @@
     "copyright": "Copyright © 2025 지후이 AI 그룹 저작권 소유",
     "addressLabel": "주의소:",
     "addressLine1": "장춘시 고신구 위안현로 107호",
+    "addressLine2": "인공스마트 산업 인큐베이터",
     "contactUs": "연락우리"
   }
 }

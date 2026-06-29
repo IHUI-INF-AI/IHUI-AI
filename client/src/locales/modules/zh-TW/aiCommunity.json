@@ -1,6 +1,7 @@
 {
   "aiCommunity": {
     "title": "AI創作社區",
+    "subtitle": "發現全球最優秀的AI創作作品",
     "heroTitle": "探索AI創意無限可能",
     "heroSubtitle": "匯聚Midjourney、DALL-E、Sora、Suno等頂級AI作品",
     "searchPlaceholder": "搜尋AI創作...",
@@ -29,10 +30,16 @@
     },
     "actions": {
       "publish": "發布創作",
-      "share": "分享"
+      "like": "點讚",
+      "favorite": "收藏",
+      "comment": "評論",
+      "share": "分享",
+      "download": "下載",
+      "viewPrompt": "查看提示詞"
     },
     "empty": {
-      "title": "暫無內容"
+      "title": "暫無內容",
+      "description": "成為第一個發布AI創作的人吧！"
     },
     "loading": "加載中...",
     "loadMore": "加載更多",
@@ -49,14 +56,17 @@
     "detail": {
       "prompt": "提示詞",
       "model": "AI模型",
-      "createdAt": "創建時間"
+      "createdAt": "創建時間",
+      "comments": "評論",
+      "noComments": "暫無評論",
+      "addComment": "發表評論...",
+      "sendComment": "發送"
     },
     "tools": {
       "imageGeneration": "AI圖片生成",
       "musicCreation": "AI音樂創作",
       "videoGeneration": "AI視頻生成",
-      "writingAssistant": "AI寫作助手",
-      "hotTools": "hotTools"
+      "writingAssistant": "AI寫作助手"
     }
   }
 }

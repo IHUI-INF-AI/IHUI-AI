@@ -65,7 +65,7 @@ export default {
 
   // 背景色和阴影由主题类控制
   :deep(.el-image__inner) {
-    transition: transform 0.3s;
+    transition: all 0.3s;
     cursor: pointer;
 
     &:hover {

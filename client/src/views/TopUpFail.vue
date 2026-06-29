@@ -166,13 +166,13 @@ const createRipple = (event: MouseEvent) => {
 // ============================================
 $tf-brand-primary: var(--el-bg-color-page);
 $tf-error-color: var(--el-color-danger);
-$tf-error-glow: rgb(var(--el-color-danger-rgb), 0.4);
+$tf-error-glow: rgb(var(--el-color-danger-rgb, 245, 108, 108), 0.4);
 $tf-glass-bg: var(--el-fill-color-lighter);
 $tf-glass-border: var(--border-unified-color);
 $local-text-primary: var(--el-text-color-primary);
 $local-text-secondary: var(--el-text-color-secondary);
 $local-text-muted: var(--el-text-color-placeholder);
-$font-family-mono: monospace;
+$font-family-mono: 'HarmonyOS Sans SC', monospace;
 
 // ============================================
 // 页面容器
@@ -265,7 +265,7 @@ $font-family-mono: monospace;
   // 入场动画
   opacity: 0;
   transform: translateY(30px) scale(0.95);
-  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   
   &--visible {
     opacity: 1;
@@ -386,7 +386,7 @@ $font-family-mono: monospace;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(var(--el-color-danger-rgb), 0.1);
+  background: var(--color-red-transparent-10);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   margin-bottom: 20px;
@@ -468,7 +468,7 @@ $font-family-mono: monospace;
   font-weight: 600;
   cursor: pointer;
   overflow: hidden;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &__icon {
     width: 18px;
@@ -485,10 +485,12 @@ $font-family-mono: monospace;
   &--primary {
     background: $tf-error-color;
     color: var(--el-bg-color-page);
-
+    box-shadow: var(--global-box-shadow);
+    
     &:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--global-box-shadow);
       
-
       .tf-btn__icon {
         transform: rotate(-45deg);
       }
@@ -507,7 +509,7 @@ $font-family-mono: monospace;
     &:hover {
       background: var(--color-white-10);
       border-color: var(--border-unified-color-hover);
-      
+      transform: translateY(-2px);
       
       .tf-btn__icon {
         transform: scale(1.1);
@@ -579,7 +581,7 @@ $font-family-mono: monospace;
     border-color: var(--border-unified-color);
     
     &__border {
-      background: rgba(var(--el-color-danger-rgb), 0.1);
+      background: var(--color-red-transparent-10);
     }
   }
   

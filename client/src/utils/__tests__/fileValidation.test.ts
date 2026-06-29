@@ -184,7 +184,7 @@ describe('fileValidation', () => {
       // 模拟FileReader触发onload但result为空
       const originalFileReader = globalThis.FileReader
       class MockFileReader {
-        onload: ((e: any) => void) | null = null
+        onload: ((e: unknown) => void) | null = null
         onerror: (() => void) | null = null
         readAsArrayBuffer(_file: Blob) {
           // 模拟onload触发，但result为空
@@ -193,7 +193,7 @@ describe('fileValidation', () => {
           }, 0)
         }
       }
-      globalThis.FileReader = MockFileReader as any
+      globalThis.FileReader = MockFileReader as unknown as typeof FileReader
       try {
         const file = createFile('test.jpg', 1024, 'image/jpeg')
         const type = await validateFileSignature(file)

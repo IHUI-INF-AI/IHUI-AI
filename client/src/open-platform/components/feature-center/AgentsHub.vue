@@ -124,7 +124,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { View, UserFilled, VideoPlay } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getAgentsList, getAgentCategories, type Agent, type AgentCategory } from '@/api/agent/agents'
+import { getAgentsList, getAgentCategories, type Agent, type AgentCategory, type AgentPlatform } from '@/api/agents'
 import { logger } from '@/utils/logger'
 import { usePagination } from '@/composables/user/usePagination'
 
@@ -173,7 +173,7 @@ const loadAgents = async () => {
       keyword: searchKeyword.value || undefined,
       category: selectedCategory.value || undefined,
        
-      platform: selectedPlatform.value as any,
+      platform: selectedPlatform.value as AgentPlatform,
       sortBy: 'usageCount',
       sortOrder: 'desc',
     })
@@ -274,11 +274,12 @@ onMounted(() => {
 
   .agent-card {
     cursor: pointer;
-    transition: transform 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover {
-      
-      }
+      transform: translateY(-4px);
+      box-shadow: var(--global-box-shadow);
+    }
 
     .agent-header {
       display: flex;

@@ -25,7 +25,7 @@ vi.mock('@/config/backend-paths', () => ({
 
 import request from '@/utils/request'
 import { isDemoMode } from '@/utils/envUtils'
-import * as api from '../models/models'
+import * as api from '../models'
 
 describe('models API', () => {
   beforeEach(() => {
@@ -192,14 +192,14 @@ describe('models API', () => {
     ;(request.get as any)
       .mockRejectedValueOnce({ response: { status: 500 } })
       .mockRejectedValueOnce({ response: { status: 500 } })
-    try { await api.getAvailableModels() } catch { /* noop */ }
+    try { await api.getAvailableModels() } catch (e) {}
   })
 
   it('getAvailableModels 401 错误', async () => {
     ;(request.get as any)
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce({ data: { code: 401 } })
-    try { await api.getAvailableModels() } catch { /* noop */ }
+    try { await api.getAvailableModels() } catch (e) {}
   })
 
   it('getAvailableModels 模型 type=0/1/3/4/5', async () => {

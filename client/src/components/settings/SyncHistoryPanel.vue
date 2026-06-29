@@ -382,7 +382,7 @@ function downloadFile(content: string, filename: string, mimeType: string): void
 
 .list-enter-active,
 .list-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .list-enter-from,

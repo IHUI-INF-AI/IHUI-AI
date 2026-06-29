@@ -1,0 +1,23 @@
+{
+  "navigation": {
+    "aiStore": "智能体",
+    "moreFeatures": "更多功能",
+    "customerService": "客户服务",
+    "documentCenter": "文档中心",
+    "newsCenter": "AI动态",
+    "aboutUs": "关于我们",
+    "becomeSupplier": "成为供应商",
+    "noMoreItems": "暂无更多功能",
+    "sidebar": "侧边栏",
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "coreFeatures": "核心功能",
+    "serviceSupport": "服务支持",
+    "learnCourses": "课程中心",
+    "learnMap": "学习地图",
+    "liveClass": "直播课堂",
+    "myLearning": "我的学习",
+    "openAiPanel": "打开 AI 助手",
+    "closeAiPanel": "关闭 AI 助手"
+  }
+}

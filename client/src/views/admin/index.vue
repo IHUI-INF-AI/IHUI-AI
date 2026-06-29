@@ -1,10 +1,7 @@
 <!--
   总管理端首页(目录此前缺失)
-  设计语言:现代简洁(柔和圆角 + 微阴影 + 清晰层级),与 admin-classic 的传统后台风格区分
-  数据接入:@/api/admin/admin-dashboard (getDashboardAll) → KPI / 监控 / 活动时间线
-          + getModuleStats() → 12 业务模块的总数
-  待办项暂用本地 mock,待后端 /admin/todos 接口上线后接入
--->
+  设计语言:现代简�?柔和圆角 + 微阴�?+ 清晰层级),�?admin-classic 的传统后台风格区�?  数据接入:@/api/admin-dashboard (getDashboardAll) �?KPI / 监控 / 活动时间�?          + getModuleStats() �?12 业务模块的总数
+  待办项暂用本�?mock,待后�?/admin/todos 接口上线后接�?-->
 <template>
   <div class="admin-overview" v-loading="loading" :element-loading-text="t('adminHome.loadingText')">
     <!-- 顶部欢迎 + 时间 -->
@@ -27,7 +24,7 @@
         <el-button :icon="Refresh" :loading="loading" @click="refresh" round>
           {{ t('adminHome.refreshData') }}
         </el-button>
-        <el-button :icon="Setting" @click="goTo('/admin/home')" round>
+        <el-button :icon="Setting" @click="goTo('/admin/setting')" round>
           {{ t('adminHome.systemSettings') }}
         </el-button>
       </div>
@@ -111,7 +108,7 @@
       </div>
     </section>
 
-    <!-- 实时监控 + 最近动态 -->
+    <!-- 实时监控 + 最近动�?-->
     <section class="bottom-grid">
       <div class="card monitor-card">
         <div class="card-head">
@@ -209,13 +206,13 @@ import {
   type DashboardOverview,
   type MonitorItem,
   type ModuleStatsResult,
-} from '@/api/admin/admin-dashboard'
+} from '@/api/admin-dashboard'
 
 const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 
-/* ═══ 顶部欢迎条数据 ═══ */
+/* ══�?顶部欢迎条数�?══�?*/
 const userName = computed(() => {
   const u = authStore.user as { nickname?: string; username?: string } | null
   return u?.nickname || u?.username || t('adminHome.admin')
@@ -248,7 +245,7 @@ const systemStatus = computed(() =>
   systemHealth.value === 'ok' ? t('adminHome.systemNormal') : t('adminHome.systemAbnormal'),
 )
 
-/* ═══ 真实数据加载 ═══ */
+/* ══�?真实数据加载 ══�?*/
 const loading = ref(false)
 const lastUpdated = ref<Date | null>(null)
 const overview = ref<DashboardOverview>({
@@ -305,7 +302,7 @@ onMounted(() => {
   loadDashboard(true)
 })
 
-/* ═══ KPI 数据(由 overview 派生) ═══ */
+/* ══�?KPI 数据(�?overview 派生) ══�?*/
 interface KpiItem {
   key: string
   label: string
@@ -368,7 +365,7 @@ const kpis = computed<KpiItem[]>(() => [
   },
 ])
 
-/* ═══ 业务模块(由 moduleStats 派生) ═══ */
+/* ══�?业务模块(�?moduleStats 派生) ══�?*/
 interface Module {
   key: string
   name: string
@@ -386,23 +383,22 @@ function statFor(key: string, formatter: (n: number) => string): string {
 }
 
 const modules = computed<Module[]>(() => [
-  { key: 'orders', name: t('adminCommon.admin.moduleNameOrders'), icon: markIcon(ShoppingCart), path: '/admin/refund-audit', stat: statFor('orders', formatCount), tone: 'primary' },
-  { key: 'products', name: t('adminCommon.admin.moduleNameProducts'), icon: markIcon(Box), path: '/admin/product-management', stat: statFor('products', formatCount), tone: 'info' },
-  { key: 'users', name: t('adminCommon.admin.moduleNameUsers'), icon: markIcon(User), path: '/admin/user-management', stat: statFor('users', formatCount), tone: 'success' },
-  { key: 'agents', name: t('adminCommon.admin.moduleNameAgents'), icon: markIcon(ChatLineRound), path: '/admin/agent-management', stat: statFor('agents', formatCount), tone: 'primary' },
-  { key: 'distribution', name: t('adminCommon.admin.moduleNameDistribution'), icon: markIcon(Promotion), path: '/admin/fund-management', stat: statFor('distribution', formatCount), tone: 'warning' },
-  { key: 'promotion', name: t('adminCommon.admin.moduleNamePromotion'), icon: markIcon(Promotion), path: '/admin/activity-management', stat: statFor('promotion', formatCount), tone: 'danger' },
-  { key: 'content', name: t('adminCommon.admin.moduleNameContent'), icon: markIcon(Document), path: '/admin/course-management', stat: statFor('content', formatCount), tone: 'neutral' },
-  { key: 'feedback', name: t('adminCommon.admin.moduleNameFeedback'), icon: markIcon(Bell), path: '/admin/feedback-management', stat: statFor('feedback', formatCount), tone: 'warning' },
-  { key: 'analytics', name: t('adminCommon.admin.moduleNameAnalytics'), icon: markIcon(DataAnalysis), path: '/admin/monitoring-dashboard', stat: statFor('analytics', formatCount), tone: 'info' },
-  { key: 'webhook', name: 'Webhook', icon: markIcon(Connection), path: '/admin/webhook-management', stat: statFor('webhook', formatCount), tone: 'success' },
-  { key: 'tool', name: t('adminCommon.admin.moduleNameTool'), icon: markIcon(Tools), path: '/admin/webhook-management', stat: statFor('tool', formatCount), tone: 'neutral' },
-  { key: 'settings', name: t('adminCommon.admin.moduleNameSettings'), icon: markIcon(Setting), path: '/admin/home', stat: statFor('settings', n => n > 0 ? t('adminHome.moduleStatReady') : t('adminHome.moduleStatEmpty')), tone: 'neutral' },
+  { key: 'orders', name: t('adminCommon.admin.moduleNameOrders'), icon: markIcon(ShoppingCart), path: '/admin/orders', stat: statFor('orders', formatCount), tone: 'primary' },
+  { key: 'products', name: t('adminCommon.admin.moduleNameProducts'), icon: markIcon(Box), path: '/admin/products', stat: statFor('products', formatCount), tone: 'info' },
+  { key: 'users', name: t('adminCommon.admin.moduleNameUsers'), icon: markIcon(User), path: '/admin/users', stat: statFor('users', formatCount), tone: 'success' },
+  { key: 'agents', name: t('adminCommon.admin.moduleNameAgents'), icon: markIcon(ChatLineRound), path: '/admin/agents', stat: statFor('agents', formatCount), tone: 'primary' },
+  { key: 'distribution', name: t('adminCommon.admin.moduleNameDistribution'), icon: markIcon(Promotion), path: '/admin/distribution', stat: statFor('distribution', formatCount), tone: 'warning' },
+  { key: 'promotion', name: t('adminCommon.admin.moduleNamePromotion'), icon: markIcon(Promotion), path: '/admin/promotion', stat: statFor('promotion', formatCount), tone: 'danger' },
+  { key: 'content', name: t('adminCommon.admin.moduleNameContent'), icon: markIcon(Document), path: '/admin/content', stat: statFor('content', formatCount), tone: 'neutral' },
+  { key: 'feedback', name: t('adminCommon.admin.moduleNameFeedback'), icon: markIcon(Bell), path: '/admin/feedback', stat: statFor('feedback', formatCount), tone: 'warning' },
+  { key: 'analytics', name: t('adminCommon.admin.moduleNameAnalytics'), icon: markIcon(DataAnalysis), path: '/admin/analytics', stat: statFor('analytics', formatCount), tone: 'info' },
+  { key: 'webhook', name: 'Webhook', icon: markIcon(Connection), path: '/admin/webhook', stat: statFor('webhook', formatCount), tone: 'success' },
+  { key: 'tool', name: t('adminCommon.admin.moduleNameTool'), icon: markIcon(Tools), path: '/admin/tool', stat: statFor('tool', formatCount), tone: 'neutral' },
+  { key: 'settings', name: t('adminCommon.admin.moduleNameSettings'), icon: markIcon(Setting), path: '/admin/setting', stat: statFor('settings', n => n > 0 ? t('adminHome.moduleStatReady') : t('adminHome.moduleStatEmpty')), tone: 'neutral' },
 ])
 
-/* ═══ 待办事项(本地,待对接 todo API) ═══
- * TODO: 接入后端 /admin/todos 接口后,改成 onMounted + loadTodos()
- *      暂保留 mock 以维持 UI/交互演示
+/* ══�?待办事项(本地,待对�?todo API) ══�? * TODO: 接入后端 /admin/todos 接口�?改成 onMounted + loadTodos()
+ *      暂保�?mock 以维�?UI/交互演示
  */
 interface TodoItem {
   id: number
@@ -418,12 +414,12 @@ const todoDoneState = ref<Record<number, boolean>>({
 })
 
 const todos = computed<TodoItem[]>(() => [
-  { id: 1, title: t('adminCommon.admin.todoTitle1', { count: 12 }), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '18:00' }), done: todoDoneState.value[1], link: '/admin/refund-audit' },
-  { id: 2, title: t('adminCommon.admin.todoTitle2'), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '20:00' }), done: todoDoneState.value[2], link: '/admin/feedback-management' },
-  { id: 3, title: t('adminCommon.admin.todoTitle3', { count: 5 }), priority: 'medium', due: t('adminCommon.admin.todoDueTomorrow', { time: '12:00' }), done: todoDoneState.value[3], link: '/admin/fund-management' },
-  { id: 4, title: t('adminCommon.admin.todoTitle4'), priority: 'medium', due: t('adminCommon.admin.todoDueThisWeek'), done: todoDoneState.value[4], link: '/admin/product-management' },
-  { id: 5, title: t('adminCommon.admin.todoTitle5', { count: 28 }), priority: 'low', due: t('adminCommon.admin.todoDueNextWeek'), done: todoDoneState.value[5], link: '/admin/user-management' },
-  { id: 6, title: t('adminCommon.admin.todoTitle6', { month: 5 }), priority: 'low', due: t('adminCommon.admin.todoDueNextMonth', { day: 5 }), done: todoDoneState.value[6], link: '/admin/fund-management' },
+  { id: 1, title: t('adminCommon.admin.todoTitle1', { count: 12 }), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '18:00' }), done: todoDoneState.value[1], link: '/admin/refund' },
+  { id: 2, title: t('adminCommon.admin.todoTitle2'), priority: 'high', due: t('adminCommon.admin.todoDueToday', { time: '20:00' }), done: todoDoneState.value[2], link: '/admin/feedback' },
+  { id: 3, title: t('adminCommon.admin.todoTitle3', { count: 5 }), priority: 'medium', due: t('adminCommon.admin.todoDueTomorrow', { time: '12:00' }), done: todoDoneState.value[3], link: '/admin/distribution' },
+  { id: 4, title: t('adminCommon.admin.todoTitle4'), priority: 'medium', due: t('adminCommon.admin.todoDueThisWeek'), done: todoDoneState.value[4], link: '/admin/products' },
+  { id: 5, title: t('adminCommon.admin.todoTitle5', { count: 28 }), priority: 'low', due: t('adminCommon.admin.todoDueNextWeek'), done: todoDoneState.value[5], link: '/admin/users' },
+  { id: 6, title: t('adminCommon.admin.todoTitle6', { month: 5 }), priority: 'low', due: t('adminCommon.admin.todoDueNextMonth', { day: 5 }), done: todoDoneState.value[6], link: '/admin/finance' },
 ])
 
 const pendingTodos = computed(() => todos.value.filter(td => !td.done).length)
@@ -438,7 +434,7 @@ const onTodoToggle = (todo: TodoItem, val: boolean) => {
   ElMessage.success(val ? t('adminHome.todoDone', { title: todo.title }) : t('adminHome.todoRestored', { title: todo.title }))
 }
 
-/* ═══ 实时监控(由 monitorItems 派生) ═══ */
+/* ══�?实时监控(�?monitorItems 派生) ══�?*/
 const monitor = computed<MonitorItem[]>(() => monitorItems.value)
 
 const barTone = (percent: number): string => {
@@ -447,7 +443,7 @@ const barTone = (percent: number): string => {
   return 'ok'
 }
 
-/* ═══ 时间线(由 timelineItems 派生) ═══ */
+/* ══�?时间�?�?timelineItems 派生) ══�?*/
 interface TimelineItem {
   id: number | string
   type: 'user' | 'order' | 'system'
@@ -466,7 +462,7 @@ const filteredTimeline = computed(() => {
   return timeline.value.filter(i => i.type === activityTab.value)
 })
 
-/* ═══ 操作 ═══ */
+/* ══�?操作 ══�?*/
 const goTo = (path: string) => {
   router.push(path).catch(() => {
     ElMessage.info(t('adminHome.moduleConnecting', { path }))
@@ -496,7 +492,7 @@ function formatTime(d: Date): string {
   min-height: 100%;
 }
 
-/* ═══ Hero 欢迎条 ═══ */
+/* ══�?Hero 欢迎�?══�?*/
 .hero-card {
   display: flex;
   align-items: center;
@@ -508,7 +504,11 @@ function formatTime(d: Date): string {
     var(--el-bg-color));
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: border-color 0.25s ease;
+  transition: box-shadow 0.25s ease;
+
+  &:hover {
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .hero-left {
@@ -529,7 +529,8 @@ function formatTime(d: Date): string {
   font-size: 24px;
   font-weight: 700;
   flex-shrink: 0;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .hero-title {
   font-size: 22px;
@@ -553,7 +554,7 @@ function formatTime(d: Date): string {
   flex-shrink: 0;
 }
 
-/* ═══ KPI 网格 ═══ */
+/* ══�?KPI 网格 ══�?*/
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -569,10 +570,12 @@ function formatTime(d: Date): string {
   border-radius: var(--global-border-radius);
   transition:
     transform 0.2s ease,
+    box-shadow 0.2s ease,
     border-color 0.2s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
     border-color: var(--el-border-color);
   }
 }
@@ -593,7 +596,7 @@ function formatTime(d: Date): string {
 .kpi-card.tone-success { color: var(--el-color-success); }
 .kpi-card.tone-warning { color: var(--el-color-warning); }
 .kpi-card.tone-danger { color: var(--el-color-danger); }
-.kpi-card.tone-info { color: var(--el-color-primary); }
+.kpi-card.tone-info { color: var(--color-blue-1890ff); }
 
 .kpi-body {
   flex: 1;
@@ -659,7 +662,7 @@ function formatTime(d: Date): string {
   line-height: 1.4;
 }
 
-/* ═══ 通用 Card ═══ */
+/* ══�?通用 Card ══�?*/
 .card {
   background-color: var(--el-bg-color);
   border: var(--unified-border);
@@ -667,7 +670,7 @@ function formatTime(d: Date): string {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .card-head {
@@ -689,7 +692,7 @@ function formatTime(d: Date): string {
   line-height: 1.2;
 }
 
-/* ═══ 中部双栏 ═══ */
+/* ══�?中部双栏 ══�?*/
 .middle-grid,
 .bottom-grid {
   display: grid;
@@ -704,7 +707,7 @@ function formatTime(d: Date): string {
   }
 }
 
-/* ═══ 业务模块网格 ═══ */
+/* ══�?业务模块网格 ══�?*/
 .module-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -766,7 +769,7 @@ function formatTime(d: Date): string {
 .tone-success .module-icon { color: var(--el-color-success); }
 .tone-warning .module-icon { color: var(--el-color-warning); }
 .tone-danger .module-icon { color: var(--el-color-danger); }
-.tone-info .module-icon { color: var(--el-color-primary); }
+.tone-info .module-icon { color: var(--color-blue-1890ff); }
 .tone-neutral .module-icon { color: var(--el-text-color-secondary); }
 
 .module-name {
@@ -781,7 +784,7 @@ function formatTime(d: Date): string {
   font-variant-numeric: tabular-nums;
 }
 
-/* ═══ 待办事项 ═══ */
+/* ══�?待办事项 ══�?*/
 .todo-list {
   list-style: none;
   margin: 0;
@@ -863,7 +866,7 @@ function formatTime(d: Date): string {
   color: var(--el-color-primary);
 }
 
-/* ═══ 实时监控 ═══ */
+/* ══�?实时监控 ══�?*/
 .live-pill {
   display: inline-flex;
   align-items: center;
@@ -962,7 +965,7 @@ function formatTime(d: Date): string {
   color: var(--el-text-color-secondary);
 }
 
-/* ═══ 时间线 ═══ */
+/* ══�?时间�?══�?*/
 .timeline {
   list-style: none;
   margin: 0;
@@ -997,7 +1000,8 @@ function formatTime(d: Date): string {
   flex-shrink: 0;
   margin-top: 4px;
   outline: 3px solid var(--el-bg-color);
-  outline-offset: 0;
+  outline-offset: 2px;
+  box-shadow: none;
   z-index: var(--z-base);
 }
 
@@ -1005,7 +1009,7 @@ function formatTime(d: Date): string {
 .dot-success { background-color: var(--el-color-success); }
 .dot-warning { background-color: var(--el-color-warning); }
 .dot-danger { background-color: var(--el-color-danger); }
-.dot-info { background-color: var(--el-color-primary); }
+.dot-info { background-color: var(--color-blue-1890ff); }
 
 .timeline-body {
   flex: 1;
@@ -1037,7 +1041,7 @@ function formatTime(d: Date): string {
   margin-top: 2px;
 }
 
-/* ═══ 空态 / 提示 ═══ */
+/* ══�?空�?/ 提示 ══�?*/
 .card-empty {
   display: flex;
   align-items: center;
@@ -1052,14 +1056,14 @@ function formatTime(d: Date): string {
 
 .hero-updated {
   margin-left: 4px;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-placeholder);
   font-variant-numeric: tabular-nums;
 }
 
 .todo-todo-banner {
   padding: 8px 20px;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: var(--el-text-color-placeholder);
   text-align: center;
   border-top: var(--unified-border-bottom);
   background-color: var(--el-fill-color-blank);
@@ -1098,7 +1102,7 @@ function formatTime(d: Date): string {
   }
 }
 
-/* ═══ 响应式 ═══ */
+/* ══�?响应�?══�?*/
 @media (width <= 1200px) {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);

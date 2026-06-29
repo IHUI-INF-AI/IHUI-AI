@@ -1,8 +1,8 @@
 {
   "memberResource": {
-    "download": "下载",
-    "downloads": "downloads",
-    "empty": "empty",
-    "title": "标题"
+    "title": "我的資源",
+    "empty": "暫無資源",
+    "downloads": "下載",
+    "download": "下載"
   }
 }

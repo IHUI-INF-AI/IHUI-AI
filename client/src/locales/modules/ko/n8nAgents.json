@@ -1,8 +1,11 @@
 {
   "n8nAgents": {
-    "createN8NAgent": "createN8NAgent",
-    "noAgents": "noAgents",
-    "subtitle": "副标题",
-    "title": "标题"
+    "핵심 장점": "N8N에이전트",
+    "sub핵심 장점": "생성및관리인하여N8N의에이전트",
+    "createN8NAgent": "생성N8N에이전트",
+    "noAgents": "없음N8N에이전트",
+    "title": "N8N에이전트",
+    "subtitle": "생성및관리인하여N8N의에이전트",
+    "loadFailed": "불러오기N8N에이전트 목이것은실패，요청잠시백엔드재시도"
   }
 }

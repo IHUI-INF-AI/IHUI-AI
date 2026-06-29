@@ -3,11 +3,57 @@
     "searchPlaceholder": {
       "company": "企業を検索",
       "group": "グループを検索",
-      "level": "レベルを検索",
+      "level": "ランクを検索",
       "list": "会員を検索",
       "post": "役職を検索",
       "tag": "タグを検索",
-      "unaudited": "審査中会員を検索"
+      "unaudited": "未審査会員を検索"
+    },
+    "label": {
+      "companyName": "企業名",
+      "type": "タイプ",
+      "scale": "規模",
+      "groupName": "グループ名",
+      "memberCount": "会員数",
+      "createTime": "作成日時",
+      "actions": "操作"
+    },
+    "audit": {
+      "username": "ユーザー名",
+      "mobile": "携帯番号",
+      "submitTime": "提出時間",
+      "approve": "承認",
+      "reject": "却下",
+      "approveConfirm": "「{name}」の審査を承認しますか？",
+      "approveSuccess": "承認しました",
+      "approveFailed": "操作失敗",
+      "rejectConfirm": "「{name}」の審査を却下しますか？",
+      "rejectSuccess": "却下しました",
+      "rejectFailed": "操作失敗"
     }
+  },
+  "memberMenu": {
+    "account": "アカウント",
+    "personal": "個人情報",
+    "setting": "アカウント設定",
+    "point": "マイポイント",
+    "certificate": "マイ証明書",
+    "learn": "学習",
+    "learnRecord": "学習記録",
+    "homework": "マイ宿題",
+    "exam": "試験",
+    "examSignUp": "試験申込",
+    "examRecord": "回答記録",
+    "examWrong": "間違いノート",
+    "sns": "ソーシャル",
+    "follow": "マイフォロー",
+    "fans": "マイファン",
+    "favorites": "マイお気に入り",
+    "comment": "マイコメント",
+    "content": "コンテンツ",
+    "circle": "マイサークル",
+    "ask": "マイQ&A",
+    "article": "マイ記事",
+    "resource": "マイリソース"
   }
 }

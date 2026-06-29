@@ -87,7 +87,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Mic } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
+import { getAvailableModels, type AIModelInfo } from '@/api/models'
 import type { FormInstance } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { useApiError } from '@/composables/useApiError'
@@ -165,7 +165,7 @@ const handleGenerate = async () => {
 
         const path = model.remark.startsWith('/') ? model.remark : `/${model.remark}`
         const resp = await executeApi(() =>
-          (request as { post: (url: string, data?: any) => Promise<ApiResponse<unknown>> }).post(path, {
+          (request as { post: (url: string, data?: unknown) => Promise<ApiResponse<unknown>> }).post(path, {
             prompt: form.prompt,
             user_uuid: props.userUuid,
           })

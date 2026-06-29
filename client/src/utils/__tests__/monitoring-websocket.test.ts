@@ -3,19 +3,19 @@ import { monitoringWebSocket } from '../monitoring-websocket'
 import { websocketService } from '../websocket'
 
 // 保存注册的回调函数，便于测试触发
-let statusHandler: ((status: any) => void) | null = null
-let eventHandlers: Record<string, (data: any) => void> = {}
+let statusHandler: ((status: unknown) => void) | null = null
+let eventHandlers: Record<string, (data: unknown) => void> = {}
 
 vi.mock('../websocket', () => ({
   websocketService: {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
     send: vi.fn(),
-    on: vi.fn((event: string, handler: (data: any) => void) => {
+    on: vi.fn((event: string, handler: (data: unknown) => void) => {
       eventHandlers[event] = handler
       return () => {}
     }),
-    onStatusChange: vi.fn((handler: (status: any) => void) => {
+    onStatusChange: vi.fn((handler: (status: unknown) => void) => {
       statusHandler = handler
       return () => {}
     }),
@@ -205,7 +205,7 @@ describe('monitoringWebSocket', () => {
   })
 
   it('subscribe未映射事件应返回空函数', () => {
-    const unsub = monitoringWebSocket.subscribe('onError' as any, () => {})
+    const unsub = monitoringWebSocket.subscribe('onError' as unknown as Parameters<typeof monitoringWebSocket.subscribe>[0], () => {})
     expect(typeof unsub).toBe('function')
     // 不应抛出错误
     expect(() => unsub()).not.toThrow()

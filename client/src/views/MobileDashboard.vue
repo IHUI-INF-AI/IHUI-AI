@@ -127,7 +127,7 @@
             class="sub-item"
           >
             <span>{{ s.email }} · {{ freqLabel(s.frequency) }}</span>
-            <button class="sub-remove" :aria-label="t('common.unsubscribe')" @click="unsubscribe(s.id)">×</button>
+            <button class="sub-remove" aria-label="取消订阅" @click="unsubscribe(s.id)">×</button>
           </div>
         </div>
       </div>
@@ -144,7 +144,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useToast } from '@/composables/useToast'
-import { useDarkModeStore } from '@/stores/darkMode'
 import http from '@/utils/request'
 
 interface Headline {
@@ -167,17 +166,16 @@ interface ForecastPoint {
 }
 
 const toast = useToast()
-const darkModeStore = useDarkModeStore()
 const lastUpdate = ref('--')
 const headline = ref<Headline[]>([])
 const trend = ref<TrendPoint[]>([])
 const forecastMetric = ref('orders')
-const forecast = ref<any>({ predictions: [] })
+const forecast = ref<{ predictions?: ForecastPoint[] }>({ predictions: [] })
 const showSub = ref(false)
 const subEmail = ref('')
 const subFreq = ref('daily')
 const subSections = ref(['orders', 'users', 'wallet', 'agents', 'alerts'])
-const subs = ref<any[]>([])
+const subs = ref<unknown[]>([])
 
 const sectionList = ['orders', 'users', 'wallet', 'agents', 'alerts']
 
@@ -193,11 +191,7 @@ const metricUnit = computed(() => {
 
 const trendPath = computed(() => buildPath(trend.value, true))
 const trendLine = computed(() => buildPath(trend.value, false))
-const trendStrokeColor = computed(() => {
-  // 依赖 isDarkMode 以便暗色模式切换时重新读取 CSS 变量
-  const _isDark = darkModeStore.isDarkMode
-  return getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || 'var(--el-text-color-primary)'
-})
+const trendStrokeColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--el-text-color-primary').trim() || '#000')
 
 function buildPath(points: TrendPoint[], fill: boolean): string {
   if (!points.length) return ''
@@ -242,11 +236,14 @@ function barWidth(value: number): number {
 
 async function loadMobile() {
   try {
-    const res: any = await http.get('/api/v1/dashboard/mobile')
+    const res = await http.get('/api/v1/dashboard/mobile') as {
+      code?: number
+      data?: { headline?: Headline[]; trend?: { orders_7d?: TrendPoint[] }; ts?: string }
+    }
     if (res?.code === 0) {
-      headline.value = res.data.headline || []
-      trend.value = res.data.trend?.orders_7d || []
-      lastUpdate.value = res.data.ts?.slice(11, 16) || '--'
+      headline.value = res.data?.headline || []
+      trend.value = res.data?.trend?.orders_7d || []
+      lastUpdate.value = (res.data?.ts || '').slice(11, 16) || '--'
     }
   } catch (_e) {
     toast.error(t('mobileDashboard.loadFailed'))
@@ -255,11 +252,11 @@ async function loadMobile() {
 
 async function loadForecast() {
   try {
-    const res: any = await http.get('/api/v1/dashboard/forecast', {
+    const res = await http.get('/api/v1/dashboard/forecast', {
       params: { metric: forecastMetric.value, horizon_days: 7 },
-    })
+    }) as { code?: number; data?: { predictions?: ForecastPoint[] } }
     if (res?.code === 0) {
-      forecast.value = res.data
+      forecast.value = res.data as { predictions?: ForecastPoint[] }
     }
   } catch (_e) {
     toast.error(t('mobileDashboard.forecastLoadFailed'))
@@ -268,8 +265,8 @@ async function loadForecast() {
 
 async function loadSubs() {
   try {
-    const res: any = await http.get('/api/v1/dashboard/subscriptions')
-    if (res?.code === 0) subs.value = res.data
+    const res = await http.get('/api/v1/dashboard/subscriptions') as { code?: number; data?: unknown[] }
+    if (res?.code === 0) subs.value = (res.data as unknown[]) || []
   } catch (_e) {
     // 静默
   }
@@ -281,11 +278,11 @@ async function subscribe() {
     return
   }
   try {
-    const res: any = await http.post('/api/v1/dashboard/subscriptions', {
+    const res = await http.post('/api/v1/dashboard/subscriptions', {
       email: subEmail.value,
       frequency: subFreq.value,
       sections: subSections.value,
-    })
+    }) as { code?: number }
     if (res?.code === 0) {
       toast.success(t('mobileDashboard.subscribeSuccess'))
       subEmail.value = ''
@@ -301,7 +298,7 @@ async function subscribe() {
 
 async function unsubscribe(id: string) {
   try {
-    const res: any = await http.delete(`/api/v1/dashboard/subscriptions/${id}`)
+    const res = await http.delete(`/api/v1/dashboard/subscriptions/${id}`) as { code?: number }
     if (res?.code === 0) {
       toast.success(t('mobileDashboard.unsubscribed'))
       loadSubs()
@@ -348,7 +345,7 @@ $brand-primary: v.$primary-color;
   }
 
   .dash-time {
-    font-size: 12px;
+    font-size: 11px;
     color: $text-sec;
   }
 }
@@ -369,7 +366,7 @@ $brand-primary: v.$primary-color;
   gap: 4px;
 
   .headline-label {
-    font-size: 12px;
+    font-size: 11px;
     color: $text-sec;
   }
 
@@ -381,7 +378,7 @@ $brand-primary: v.$primary-color;
   }
 
   .headline-delta {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
 
     &.up { color: var(--el-color-success); }
@@ -431,7 +428,7 @@ $brand-primary: v.$primary-color;
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-size: 12px;
+  font-size: 10px;
   color: $text-sec;
 }
 
@@ -476,7 +473,7 @@ $brand-primary: v.$primary-color;
 }
 
 .forecast-meta {
-  font-size: 12px;
+  font-size: 10px;
   color: $text-sec;
   margin-top: 8px;
   text-align: center;
@@ -520,7 +517,7 @@ $brand-primary: v.$primary-color;
   }
 
   .sub-desc {
-    font-size: 12px;
+    font-size: 11px;
     color: $text-sec;
   }
 }

@@ -1,8 +1,8 @@
 {
   "cmpVersionDiff": {
-    "compareFailed": "compareFailed",
-    "getVersionFailed": "getVersionFailed",
-    "selectDiffVersion": "selectDiffVersion",
-    "selectVersionToCompare": "selectVersionToCompare"
+    "selectVersionToCompare": "比較するバージョンを選択",
+    "selectDiffVersion": "異なるバージョンを選択",
+    "getVersionFailed": "バージョン情報取得失敗",
+    "compareFailed": "バージョン比較失敗"
   }
 }

@@ -1,243 +1,362 @@
 {
   "user": {
-    "apiService": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "benefits": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "common": {
-      "prompt": "提示词"
-    },
-    "dialogs": {
-      "removeDevice": {
-        "confirm": "确认"
-      }
-    },
-    "examine": {
-      "title": "标题"
-    },
-    "favorites": {
-      "title": "标题"
-    },
+    "quickActions": "Quick Actions",
     "menu": {
-      "apiService": "API 服务",
-      "benefits": "benefits",
-      "developer": "developer",
-      "examine": "examine",
-      "favorites": "收藏",
-      "messages": "messages",
-      "orders": "订单",
-      "privacy": "隐私",
-      "profile": "资料",
-      "purchaseRecords": "purchaseRecords",
-      "purchases": "purchases",
-      "security": "安全",
-      "settings": "设置",
-      "statistics": "统计",
-      "study": "study",
-      "uploadAgent": "uploadAgent"
+      "profile": "Profile",
+      "security": "Account Security",
+      "messages": "Message Center",
+      "privacy": "Privacy Settings",
+      "settings": "System Settings",
+      "orders": "Orders",
+      "uploadAgent": "Upload Agent",
+      "favorites": "Favorites",
+      "purchases": "My Purchases",
+      "examine": "My Reviews",
+      "statistics": "Statistics",
+      "developer": "Developer",
+      "purchaseRecords": "Purchase Records",
+      "apiService": "API Service",
+      "benefits": "Benefits",
+      "study": "Study"
+    },
+    "apiService": {
+      "title": "API Service",
+      "description": "Manage your API tokens and view usage statistics"
     },
     "messages": {
-      "allRead": "allRead",
-      "clearCacheCancelButton": "clearCacheCancelButton",
-      "clearCacheConfirm": "clearCacheConfirm",
-      "clearCacheConfirmButton": "clearCacheConfirmButton",
-      "clearCacheFailed": "clearCacheFailed",
-      "clearCacheSuccess": "clearCacheSuccess",
-      "clearCacheTitle": "clearCacheTitle",
-      "deleteSuccess": "deleteSuccess",
-      "deviceRemoved": "deviceRemoved",
-      "emailRequired": "emailRequired",
-      "emailVerificationSent": "emailVerificationSent",
-      "examineApproveSuccess": "examineApproveSuccess",
-      "examineRejectSuccess": "examineRejectSuccess",
-      "exportDataCancelButton": "exportDataCancelButton",
-      "exportDataConfirm": "exportDataConfirm",
-      "exportDataConfirmButton": "exportDataConfirmButton",
-      "exportDataFailed": "exportDataFailed",
-      "exportDataSuccess": "exportDataSuccess",
-      "exportDataTitle": "exportDataTitle",
-      "languageSaveFailed": "languageSaveFailed",
-      "languageSaveSuccess": "languageSaveSuccess",
-      "loadMessageSquaresFailed": "loadMessageSquaresFailed",
-      "loadMessageSquaresFailedRetry": "loadMessageSquaresFailedRetry",
-      "markedRead": "markedRead",
-      "messages": "messages",
-      "notificationSaveFailed": "notificationSaveFailed",
-      "notificationSaveSuccess": "notificationSaveSuccess",
-      "orderStatus": {
-        "cancelled": "已取消",
-        "completed": "已完成",
-        "failed": "失败",
-        "pending": "待处理",
-        "processing": "处理中"
-      },
-      "orderType": {
-        "consumption": "consumption",
-        "recharge": "充值",
-        "refund": "退款",
-        "withdraw": "提现"
-      },
-      "passwordChangeFailedRetry": "passwordChangeFailedRetry",
-      "passwordChanged": "passwordChanged",
-      "phoneRequired": "phoneRequired",
-      "phoneVerificationSent": "phoneVerificationSent",
-      "privacySaveFailed": "privacySaveFailed",
-      "privacySaveSuccess": "privacySaveSuccess",
-      "saveFailedRetry": "saveFailedRetry",
-      "saveSuccess": "saveSuccess",
+      "title": "Message Center",
+      "allRead": "Mark All as Read",
+      "saveSuccess": "Saved Successfully",
+      "saveFailedRetry": "Save Failed, please try again",
+      "emailRequired": "Please enter your email first",
+      "emailVerificationSent": "Verification code sent, please check your email",
+      "phoneRequired": "Please enter your phone number first",
+      "phoneVerificationSent": "Verification code sent, please check your SMS",
+      "passwordChanged": "Password changed successfully",
+      "passwordChangeFailedRetry": "Password change Failed, please try again",
+      "deviceRemoved": "Device removed",
       "settings": {
-        "accountDeletionFailed": "accountDeletionFailed",
-        "accountDeletionSuccess": "accountDeletionSuccess",
+        "appSettingsUpdate Successful": "App Settings Update Success",
+        "appSettingsUpdate Failed": "App Settings Update Failed",
+        "dataClearSuccess": "Data Clear Success",
+        "dataClearFailed": "Data Clear Failed",
+        "insufficientPermissionClearData": "Insufficient Permission Clear Data",
+        "passwordConfirmRequired": "Password Confirm Required",
+        "accountDeletionSuccess": "Account Deletion Success",
+        "accountDeletionFailed": "Account Deletion Failed",
+        "passwordError": "Password Error",
+        "insufficientPermissionDeleteAccount": "Insufficient Permission Delete Account",
+        "notificationUpdate Successful": "Notification Update Success",
+        "notificationUpdate Failed": "Notification Update Failed",
+        "privacyUpdate Successful": "Privacy Update Success",
+        "privacyUpdate Failed": "Privacy Update Failed",
+        "securityUpdate Successful": "Security Update Success",
+        "securityUpdate Failed": "Security Update Failed",
+        "passwordRequired": "Password Required",
+        "passwordMismatch": "Password Mismatch",
+        "passwordTooShort": "Password Too Short",
+        "passwordChangeSuccess": "Password Change Success",
+        "passwordChangeFailed": "Password Change Failed",
+        "profileUpdate Successful": "Profile Update Success",
+        "profileUpdate Failed": "Profile Update Failed",
+        "imageFormatError": "Image Format Error",
+        "imageSizeError": "Image Size Error",
+        "avatarUpload Successful": "Avatar Upload Success",
+        "avatarUpload Failed": "Avatar Upload Failed",
+        "imageTooLarge": "Image Too Large",
+        "unsupportedImage Format": "Unsupported Image Format",
         "appSettingsUpdateFailed": "appSettingsUpdateFailed",
         "appSettingsUpdateSuccess": "appSettingsUpdateSuccess",
         "avatarUploadFailed": "avatarUploadFailed",
         "avatarUploadSuccess": "avatarUploadSuccess",
-        "dataClearFailed": "dataClearFailed",
-        "dataClearSuccess": "dataClearSuccess",
-        "imageFormatError": "imageFormatError",
-        "imageSizeError": "imageSizeError",
-        "imageTooLarge": "imageTooLarge",
-        "insufficientPermissionClearData": "insufficientPermissionClearData",
-        "insufficientPermissionDeleteAccount": "insufficientPermissionDeleteAccount",
-        "notificationUpdateFailed": "notificationUpdateFailed",
-        "notificationUpdateSuccess": "notificationUpdateSuccess",
-        "passwordChangeFailed": "passwordChangeFailed",
-        "passwordChangeSuccess": "passwordChangeSuccess",
-        "passwordConfirmRequired": "passwordConfirmRequired",
-        "passwordError": "passwordError",
-        "passwordMismatch": "两次密码不一致",
-        "passwordRequired": "passwordRequired",
-        "passwordTooShort": "密码至少 8 位",
+        "notificationUpdateFailed": "NotificationUpdateFailed",
+        "notificationUpdateSuccess": "NotificationUpdateSuccess",
         "privacyUpdateFailed": "privacyUpdateFailed",
         "privacyUpdateSuccess": "privacyUpdateSuccess",
         "profileUpdateFailed": "profileUpdateFailed",
         "profileUpdateSuccess": "profileUpdateSuccess",
-        "unsupportedImageFormat": "unsupportedImageFormat"
+        "unsupportedImageFormat": "未supportedImageFormat"
       },
-      "themeSaveFailed": "themeSaveFailed",
-      "themeSaveSuccess": "themeSaveSuccess",
-      "title": "标题",
-      "uploadIncomplete": "uploadIncomplete",
-      "uploadSuccess": "uploadSuccess",
-      "userInfoNotFound": "userInfoNotFound"
-    },
-    "priority": {
-      "high": "高",
-      "low": "低",
-      "medium": "medium",
-      "urgent": "urgent"
+      "examineApproveSuccess": "Examine Approve Success",
+      "examineRejectSuccess": "Examine Reject Success",
+      "loadMessageSquaresFailed": "Load Message Squares Failed",
+      "loadMessageSquaresFailedRetry": "Load Message Squares Failed Retry",
+      "markedRead": "Marked Read",
+      "messages": "Messages",
+      "deleteSuccess": "Delete Success",
+      "orderType": {
+        "recharge": "Recharge",
+        "consumption": "Consumption",
+        "refund": "Refund",
+        "withdraw": "Withdraw"
+      },
+      "orderStatus": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "Failed": "Failed",
+        "cancelled": "Cancelled",
+        "failed": "Failed"
+      },
+      "privacySave Successful": "Privacy Save Success",
+      "privacySaveFailed": "Privacy Save Failed",
+      "notificationSave Successful": "Notification Save Success",
+      "notificationSaveFailed": "Notification Save Failed",
+      "themeSave Successful": "Theme Save Success",
+      "themeSaveFailed": "Theme Save Failed",
+      "languageSave Successful": "Language Save Success",
+      "languageSaveFailed": "Language Save Failed",
+      "Export DataConfirm": "Export Data Confirm",
+      "Export DataTitle": "Export Data Title",
+      "Export DataConfirmButton": "Export Data Confirm Button",
+      "Export DataCancelButton": "Export Data Cancel Button",
+      "userInfoNotFound": "User Info Not Found",
+      "Export DataSuccess": "Export Data Success",
+      "Export DataFailed": "Export Data Failed",
+      "clearCacheConfirm": "Clear Cache Confirm",
+      "clearCacheTitle": "Clear Cache Title",
+      "clearCacheConfirmButton": "Clear Cache Confirm Button",
+      "clearCacheCancelButton": "Clear Cache Cancel Button",
+      "clearCacheSuccess": "Clear Cache Success",
+      "clearCacheFailed": "Clear Cache Failed",
+      "uploadIncomplete": "Upload Incomplete",
+      "uploadSuccess": "Upload Success",
+      "exportDataCancelButton": "ExportDataCancelButton",
+      "exportDataConfirm": "exportDataConfirm",
+      "exportDataConfirmButton": "ExportDataConfirmButton",
+      "exportDataFailed": "exportDataFailed",
+      "exportDataSuccess": "exportDataSuccess",
+      "exportDataTitle": "exportDataTitle",
+      "languageSaveSuccess": "languageSaveSuccess",
+      "notificationSaveSuccess": "NotificationSaveSuccess",
+      "privacySaveSuccess": "privacySaveSuccess",
+      "themeSaveSuccess": "themeSaveSuccess"
     },
     "privacy": {
-      "title": "标题"
-    },
-    "purchases": {
-      "title": "标题"
-    },
-    "quickActions": "quickActions",
-    "sections": {
-      "developer": {
-        "description": "描述"
-      },
-      "examine": {
-        "description": "描述"
-      },
-      "favorites": {
-        "description": "描述"
-      },
-      "messages": {
-        "description": "描述"
-      },
-      "orders": {
-        "description": "描述"
-      },
-      "privacy": {
-        "description": "描述"
-      },
-      "profile": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "purchaseRecords": {
-        "description": "描述"
-      },
-      "purchases": {
-        "description": "描述"
-      },
-      "security": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "settings": {
-        "description": "描述"
-      },
-      "statistics": {
-        "description": "描述"
-      },
-      "upload": {
-        "description": "描述",
-        "title": "标题"
-      }
+      "title": "Privacy Settings"
     },
     "settings": {
-      "title": "标题"
+      "title": "System Settings",
+      "data": {
+        "Export Data": "Export Data"
+      },
+      "profileUpdate Successful": "Profile updated successfully",
+      "profileUpdate Failed": "Profile update Failed",
+      "avatarUpload Successful": "Avatar uploaded successfully",
+      "avatarUpload Failed": "Avatar upload Failed",
+      "unsupportedImage Format": "Unsupported image format",
+      "securityUpdate Successful": "Security settings updated successfully",
+      "securityUpdate Failed": "Security settings update Failed",
+      "privacyUpdate Successful": "Privacy settings updated successfully",
+      "privacyUpdate Failed": "Privacy settings update Failed",
+      "notificationUpdate Successful": "Notification settings updated successfully",
+      "notificationUpdate Failed": "Notification settings update Failed",
+      "appSettingsUpdate Successful": "ApplySettingsUpdate Successful",
+      "appSettingsUpdate Failed": "ApplySettingsUpdate Failed"
     },
-    "sidebar": {
-      "ariaLabel": "ariaLabel",
-      "menuAriaLabel": "menuAriaLabel",
-      "unreadMessages": "unreadMessages"
-    },
-    "statistics": {
-      "description": "描述",
-      "title": "标题",
-      "withdrawal": {
-        "errors": {
-          "amountExceedsBalance": "amountExceedsBalance",
-          "invalidAccount": "invalidAccount",
-          "invalidAmount": "invalidAmount"
-        },
-        "status": {
-          "approved": "已通过",
-          "inReview": "inReview",
-          "pendingReview": "pendingReview",
-          "rejected": "已拒绝",
-          "unknown": "unknown",
-          "withdrawn": "withdrawn"
-        },
-        "success": {
-          "submitSuccess": "submitSuccess"
-        }
+    "sections": {
+      "profile": {
+        "title": "Profile",
+        "description": "Manage your personal profile and account information"
+      },
+      "security": {
+        "title": "Account Security",
+        "description": "Protect your account and manage passwords"
+      },
+      "messages": {
+        "description": "View system notifications and messages"
+      },
+      "privacy": {
+        "description": "Manage your privacy preferences"
+      },
+      "settings": {
+        "description": "Configure your system preferences"
+      },
+      "orders": {
+        "description": "View and manage your orders"
+      },
+      "upload": {
+        "title": "Upload Agent",
+        "description": "Create and upload your AI agent"
+      },
+      "favorites": {
+        "description": "View your favorite agents and content"
+      },
+      "purchases": {
+        "description": "View your purchase history"
+      },
+      "examine": {
+        "description": "View your review Status and history"
+      },
+      "statistics": {
+        "description": "View your usage data and statistics"
+      },
+      "developer": {
+        "description": "Manage your developer renewal records"
+      },
+      "purchaseRecords": {
+        "description": "View and manage your agent purchase records"
       }
     },
-    "strength": {
-      "medium": "medium",
-      "strong": "strong",
-      "weak": "weak"
+    "sidebar": {
+      "ariaLabel": "User Center Navigation",
+      "menuAriaLabel": "User Center Menu",
+      "unreadMessages": "{count} unread messages in {label}"
     },
-    "study": {
-      "description": "描述",
-      "title": "标题"
+    "purchases": {
+      "title": "My Purchases"
+    },
+    "examine": {
+      "title": "My Reviews",
+      "Status": {
+        "pending": "Pending",
+        "Approved": "Approved",
+        "Rejected": "Rejected"
+      },
+      "descriptions": {
+        "Status": "Status"
+      },
+      "actions": {
+        "Reject": "Reject",
+        "Approve": "Approve"
+      }
+    },
+    "favorites": {
+      "title": "Title"
+    },
+    "security": {
+      "loginDevices": {
+        "Refresh": "Refresh"
+      },
+      "loginHistory": {
+        "StatusSuccess": "Status Success",
+        "StatusFailed": "Status Failed"
+      }
+    },
+    "dialogs": {
+      "removeDevice": {
+        "confirm": "Confirm"
+      }
+    },
+    "statistics": {
+      "title": "Title",
+      "overview": {
+        "Total Messages": "Total Messages"
+      },
+      "settlement": {
+        "Status": {
+          "settled": "Settled",
+          "unsettled": "Unsettled",
+          "withdrawn": "Withdrawn",
+          "notWithdrawn": "Not Withdrawn"
+        }
+      },
+      "withdrawal": {
+        "Status": {
+          "Approved": "Approved",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "Rejected": "Rejected",
+          "unknown": "unknown",
+          "withdrawn": "withdrawn",
+          "title": "Status"
+        },
+        "errors": {
+          "invalidAmount": "Invalid Amount",
+          "invalidAccount": "Invalid Account",
+          "amountExceedsBalance": "Amount Exceeds Balance"
+        },
+        "success": {
+          "submitSuccess": "Submit Success"
+        },
+        "StatusTypes": {
+          "pending": "Pending",
+          "processing": "Processing",
+          "success": "Success",
+          "Failed": "Failed",
+          "Rejected": "Rejected"
+        },
+        "status": {
+          "approved": "approved",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "rejected": "rejected",
+          "unknown": "unknown",
+          "withdrawn": "withdrawn"
+        }
+      },
+      "description": "Description"
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
     },
     "validation": {
-      "confirmPassword": "confirmPassword",
-      "email": "邮箱",
-      "emailRequired": "emailRequired",
-      "newPassword": "newPassword",
-      "nickname": "昵称",
-      "nicknameLength": "nicknameLength",
-      "oldPassword": "oldPassword",
-      "passwordMatch": "passwordMatch",
-      "passwordStrength": "passwordStrength",
-      "phone": "手机号",
-      "phoneRequired": "phoneRequired",
-      "signatureLength": "signatureLength"
-    }
+      "nickname": "Nickname",
+      "nicknameLength": "Nickname Length",
+      "email": "Email",
+      "phone": "Phone",
+      "signatureLength": "Signature Length",
+      "emailRequired": "Email Required",
+      "phoneRequired": "Phone Required",
+      "oldPassword": "Old Password",
+      "newPassword": "New Password",
+      "passwordStrength": "Password Strength",
+      "confirmPassword": "Confirm Password",
+      "passwordMatch": "Password Match"
+    },
+    "strength": {
+      "strong": "Strong",
+      "medium": "Medium",
+      "weak": "Weak"
+    },
+    "common": {
+      "prompt": "Prompt"
+    },
+    "wallet": {
+      "Refresh": "Refresh",
+      "filter": {
+        "Status": "Transaction Status",
+        "Failed": "Failed"
+      },
+      "table": {
+        "Status": "Status"
+      },
+      "Export": "ExportTransaction history",
+      "ExportCSV": "ExportCSV",
+      "ExportExcel": "ExportExcel",
+      "ExportFormatPrompt": "Please select Export format",
+      "ExportFailed": "Export Failed"
+    },
+    "orderStatus": {
+      "Failed": "Failed"
+    },
+    "privacySave Successful": "Privacy settings saved successfully",
+    "notificationSave Successful": "Notification settings saved successfully",
+    "themeSave Successful": "Theme settings saved successfully",
+    "languageSave Successful": "LanguageSettings Saved Successfully",
+    "Export DataConfirm": "Confirm to Export data?？",
+    "Export DataTitle": "Export Data",
+    "Export DataConfirmButton": "Confirm",
+    "Export DataCancelButton": "Cancel",
+    "Export DataInDevelopment": "Data Export feature is under development",
+    "Export DataFailed": "Data Export Failed",
+    "benefits": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "study": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "nickname": "Nickname",
+    "nickname2": "昵称"
   },
   "User": {
-    "nickname": "昵称",
-    "nickname2": "nickname2"
+    "inputplaceholder": "input[placeholder*=",
+    "nickname": "Nickname",
+    "nickname2": "昵称"
   }
 }

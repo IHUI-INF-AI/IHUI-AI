@@ -1,7 +1,7 @@
 {
   "memberArticle": {
-    "myArticles": "myArticles",
-    "noArticle": "noArticle",
-    "read": "read"
+    "myArticles": "My articles",
+    "noArticle": "No articles",
+    "read": "Read"
   }
 }

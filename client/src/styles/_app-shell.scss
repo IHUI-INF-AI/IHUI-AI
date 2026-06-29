@@ -78,6 +78,7 @@
 }
 
 /* ═══ 主内容区:可滚动,滚轮在此区域生效 ═══ */
+/* 侧边栏布局下 main-content 不需要 padding-top，由 app-layout 容器处理 */
 .main-content {
   flex: 1;
   min-height: 0;
@@ -97,6 +98,12 @@
   pointer-events: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+/* 侧边栏布局下的 main-content 不需要顶部 padding */
+:where(.app-layout) ~ :where(.main-content),
+:where(.app-layout) :where(.workspace-content) {
+  padding-top: 0;
 }
 
 .main-content::-webkit-scrollbar {
@@ -167,7 +174,7 @@
   color: var(--el-text-color-primary);
 }
 
-/* Header Teleport 到 body 后的强制可见与定位 */
+/* Header Teleport 到 body 后的强制可见与定位（仅裸页面需要，侧边栏布局下不显示） */
 :where(body) :where(.glass-header),
 :where(body) > :where(.glass-header) {
   position: fixed;
@@ -182,6 +189,12 @@
   display: flex;
   align-items: center;
   background-color: var(--el-bg-color);
+}
+
+/* 侧边栏布局下隐藏旧 header */
+:where(body):has(.app-layout) :where(.glass-header),
+:where(body):has(.app-layout) > :where(.glass-header) {
+  display: none;
 }
 
 :where(html.dark) :where(body) :where(.glass-header),
@@ -424,19 +437,6 @@
     padding-top: 0;
     min-height: 100vh;
   }
-}
-
-/* ═══ 2026-06-24: el-config-provider 等待 locale 解析时的兜底占位 ═══
-   仅在 hasValidEpLocale 为 false 的极短窗口 (EP 语言包首次加载) 出现,
-   使用背景色填充避免白屏闪烁, 元素本身 aria-hidden 不参与无障碍树. */
-:where(.app-locale-loading) {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: var(--el-bg-color-page, var(--el-bg-color));
-  z-index: var(--z-base);
-  pointer-events: none;
 }
 
 /* ═══ 无障碍适配 ═══ */

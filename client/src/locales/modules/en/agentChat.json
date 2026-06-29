@@ -1,47 +1,71 @@
 {
   "agentChat": {
-    "agentReply": "agentReply",
-    "audioRecording": "audioRecording",
-    "errors": {
-      "loadModelsFailed": "loadModelsFailed",
-      "sendMessageFailed": "sendMessageFailed",
-      "startVoiceRecognitionFailed": "startVoiceRecognitionFailed",
-      "switchModeFailed": "switchModeFailed"
-    },
-    "hideReasoning": "hideReasoning",
-    "inputMessagePlaceholder": "inputMessagePlaceholder",
-    "messageSent": "messageSent",
-    "pleaseEnterContent": "pleaseEnterContent",
-    "reasoningChain": {
-      "step1": "step1",
-      "step2": "step2",
-      "step3": "step3"
-    },
+    "showReasoning": "Show Reasoning Process",
+    "hideReasoning": "Hide Reasoning Process",
+    "Reject": "Reject",
+    "Approve": "Approve",
+    "inputMessagePlaceholder": "Enter a message for the agent...",
+    "pleaseEnterContent": "Please enter message content",
+    "messageSent": "Message sent",
     "roles": {
-      "assistant": "assistant",
-      "user": "用户"
+      "user": "User",
+      "assistant": "AI Assistant"
     },
-    "showReasoning": "showReasoning",
     "stages": {
-      "acting": "acting",
-      "reasoning": "reasoning",
-      "result": "result"
+      "reasoning": "Thinking",
+      "acting": "Executing",
+      "result": "Complete"
+    },
+    "reasoningChain": {
+      "step1": "Analyzing user request...",
+      "step2": "Understanding task objectives...",
+      "step3": "Creating execution plan..."
+    },
+    "agentReply": "Agent reply: I understand your requirement \"{message}\", processing...",
+    "errors": {
+      "switchModeFailed": "Failed to switch mode",
+      "sendMessageFailed": "Failed to send message",
+      "startVoiceRecognitionFailed": "Failed to start Voice recognition",
+      "VoiceRecognitionAlReadyStarted": "Voice recognition has alReady started, please stop the current recognition first",
+      "loadModelsFailed": "Failed to load model list",
+      "stopVoiceRecognitionFailed": "Failed to stop Voice recognition",
+      "copyFailed": "Copy Failed",
+      "readFileFailed": "Failed to read file"
     },
     "success": {
-      "copyToClipboard": "copyToClipboard",
-      "messageDeleted": "messageDeleted",
-      "messageUpdated": "messageUpdated"
-    },
-    "timeLabels": {
-      "justNow": "justNow",
-      "minutesAgo": "minutesAgo"
-    },
-    "voiceRecognition": {
-      "stopped": "stopped"
+      "copyToClipboard": "Copied to clipboard",
+      "messageUpdated": "Message updated",
+      "messageDeleted": "Message deleted",
+      "fileUploaded": "File uploaded successfully"
     },
     "warnings": {
-      "confirmDelete": "确认删除",
-      "maxFileUpload": "maxFileUpload"
-    }
+      "maxFile Upload": "Maximum 10 files can be uploaded",
+      "confirmDelete": "Are you sure you want to delete this message?",
+      "maxFileUpload": "最多上传10个文件",
+      "fileSizeExceeded": "File size exceeds limit"
+    },
+    "features": {
+      "ExportDeveloping": "Export feature is under development",
+      "regenerateDeveloping": "Regenerate feature is under development",
+      "retryDeveloping": "Retry feature is under development"
+    },
+    "VoiceRecognition": {
+      "stopped": "Voice recognition stopped"
+    },
+    "audioRecording": "🎤 Recording {duration}s",
+    "timeLabels": {
+      "justNow": "Just now",
+      "minutesAgo": "{minutes} minutes ago",
+      "hoursAgo": "{hours} hours ago",
+      "daysAgo": "{days} days ago"
+    },
+    "voiceRecognition": {
+      "stopped": "Voice RecognitionStopped"
+    },
+    "send": "Send",
+    "needManualReview": "Requires Manual Review",
+    "startChat": "Start chatting with the agent",
+    "startChatHint": "Agents can help you perform complex tasks and reasoning",
+    "step": "Step"
   }
 }

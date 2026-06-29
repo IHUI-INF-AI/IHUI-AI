@@ -1,0 +1,25 @@
+{
+  "adminActivityManagement": {
+    "actions": {
+      "export": "エクスポート"
+    },
+    "activityList": {
+      "status": "ステータス"
+    },
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス",
+      "statusEnabled": "あり効",
+      "statusDisabled": "無効"
+    },
+    "status": {
+      "enabled": "あり効",
+      "disabled": "無効"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    }
+  }
+}

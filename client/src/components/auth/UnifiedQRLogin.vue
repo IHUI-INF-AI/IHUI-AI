@@ -106,8 +106,8 @@ import {
   Clock,
   InfoFilled,
 } from '@/lib/lucide-fallback'
-import { generateWechatQrCode, checkWechatQrStatus } from '@/api/unified/unified-wechat'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { generateWechatQrCode, checkWechatQrStatus } from '@/api/unified-wechat'
+import { StorageManager, STORAGE_KEYS, TokenStorage } from '@/utils/storage'
 import { logger } from '@/utils/logger'
 
 interface Props {
@@ -124,7 +124,7 @@ interface Emits {
     e: 'login-success',
     data: { token: string; user: Record<string, unknown>; loginType: string }
   ): void
-  (e: 'login-error', error: any): void
+  (e: 'login-error', error: unknown): void
   (e: 'switch-method', method: string): void
 }
 
@@ -270,7 +270,7 @@ const generateQrCode = async () => {
         try {
           // 使用浏览器兼容的方式导入 qrcode
           interface QRCodeModule {
-            toDataURL: (text: string, options?: { width?: number; margin?: number }) => Promise<string>
+            toDataURL: (text: string, options?: { width?: number; margin?: number; color?: { dark?: string; light?: string } }) => Promise<string>
             default?: QRCodeModule
           }
           let QRCode: QRCodeModule | undefined
@@ -295,7 +295,7 @@ const generateQrCode = async () => {
           
           // 使用类型断言来处理 color 选项（qrcode 库支持但类型定义不完整）
            
-          const qrOptions = { width: 280, margin: 2, color: { dark: 'var(--el-text-color-primary)', light: 'var(--el-bg-color)' } } as any
+          const qrOptions = { width: 280, margin: 2, color: { dark: 'var(--el-text-color-primary)', light: 'var(--el-bg-color)' } }
           qrCodeUrl.value = await toDataURL(qrUrl, qrOptions)
         } catch (qrError) {
           logger.error('Failed to generate QR code image:', qrError)
@@ -349,7 +349,7 @@ const generateQrCode = async () => {
       expired.value = true
       status.value = 'failed'
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(
       t('unifiedQRLogin.logger.generateProviderQrCodeFailed', {
         provider: providerNameDisplay.value,
@@ -481,8 +481,7 @@ const startStatusPolling = () => {
         }
 
         // 保存token到多个存储位置，确保路由守卫能够检测到
-        StorageManager.setItem(STORAGE_KEYS.USER_TOKEN, finalToken)
-        StorageManager.setItem(STORAGE_KEYS.TOKEN, finalToken)
+        TokenStorage.setToken(finalToken)
         StorageManager.setItem(STORAGE_KEYS.USER_DATA, userData)
 
         logger.info('Token and user info saved, triggering login-success event', {
@@ -521,7 +520,7 @@ const startStatusPolling = () => {
       } else {
         status.value = 'pending'
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(
         t('unifiedQRLogin.logger.checkProviderLoginStatusFailed', {
           provider: providerNameDisplay.value,

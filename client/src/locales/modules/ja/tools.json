@@ -1,13 +1,13 @@
 {
   "tools": {
-    "loading": "加载中",
-    "localData": "localData",
-    "noMatch": "noMatch",
-    "realtimeData": "realtimeData",
-    "sortByHot": "sortByHot",
-    "sortByName": "sortByName",
-    "sortDefault": "sortDefault",
-    "title": "标题",
-    "usage": "使用方法"
+    "title": "AIツール集",
+    "realtimeData": "リアルタイムデータ",
+    "localData": "ローカルデータ",
+    "sortDefault": "デフォルト順",
+    "sortByName": "名前順",
+    "sortByHot": "人気順",
+    "loading": "読み込み中",
+    "noMatch": "一致するツールが見つかりません",
+    "usage": "回使用"
   }
 }

@@ -1,10 +1,8 @@
 {
   "newsDetail": {
-    "favorite": "收藏",
-    "like": "点赞",
-    "news": "新闻",
-    "newsNotFound": "newsNotFound",
-    "officialNews": "officialNews",
-    "read": "read"
+    "news": "News",
+    "newsNotFound": "News does not exist or has been deleted",
+    "officialNews": "Official News",
+    "read": "Read"
   }
 }

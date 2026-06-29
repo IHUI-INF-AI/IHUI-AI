@@ -1,14 +1,14 @@
 {
   "askDetail": {
-    "adopt": "adopt",
-    "adopted": "adopted",
-    "answers": "answers",
-    "backToList": "backToList",
-    "essence": "essence",
-    "favorite": "收藏",
-    "questionNotFound": "questionNotFound",
-    "submitAnswer": "submitAnswer",
-    "top": "置顶",
-    "writeAnswerPlaceholder": "writeAnswerPlaceholder"
+    "backToList": "목록으로",
+    "questionNotFound": "질문이 존재하지 않거나 삭제되었습니다",
+    "top": "상단",
+    "essence": "정수",
+    "answers": "개 답변",
+    "submitAnswer": "답변 제출",
+    "adopted": "채택됨",
+    "adopt": "채택",
+    "favorite": "즐겨찾기",
+    "writeAnswerPlaceholder": "답변을 작성..."
   }
 }

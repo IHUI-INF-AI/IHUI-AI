@@ -1091,7 +1091,7 @@ onMounted(() => {
   }
   
   // 添加外部点击监听器
-  // 使用捕获阶段，确保在事件冒泡前检查
+  // 使用捕获阶段，确保存事件冒泡前检查
   document.addEventListener('click', handleClickOutside, true)
   
   if (props.isRecording) {
@@ -1333,7 +1333,7 @@ const stopRecordingDirectly = (event: MouseEvent) => {
       isClosing.value
     )
 
-    // 使用 nextTick 确保在下一个渲染周期再次检查
+    // 使用 nextTick 确保存下一个渲染周期再次检查
     nextTick(() => {
       logger.info('[VoiceRecordingAnimation] NextTick check - shouldShow:', shouldShow.value)
       if (shouldShow.value) {
@@ -1430,7 +1430,7 @@ const stopRecordingDirectly = (event: MouseEvent) => {
 
 // ========== 处理 checkbox 的点击事件 ==========
 // 这是备用处理函数，主要用于处理 checkbox 的直接点击（虽然 checkbox 是隐藏的）
-// 主要逻辑在 handleLabelClick 中处理
+// 主要逻辑 handleLabelClick 中处理
 const handleClick = (event: MouseEvent) => {
   // 如果正在处理点击，忽略
   if (isHandlingClick) {
@@ -1651,7 +1651,7 @@ const handleChange = (event: Event) => {
   transform: translateZ(-120px) translateX(100px) translateY(100px);
 }
 
-:where(html.dark) .grid::after {
+html.dark .grid::after {
   background: radial-gradient(
     circle at center,
     var(--color-white-8) 0%,
@@ -1660,7 +1660,7 @@ const handleChange = (event: Event) => {
   );
 }
 
-:where(html.dark) .grid::before {
+html.dark .grid::before {
   background: radial-gradient(
     circle at center,
     var(--ai-gray-transparent-3) 0%,
@@ -1717,13 +1717,14 @@ const handleChange = (event: Event) => {
   transform-style: preserve-3d;
   padding: 7px;
   will-change: transform;
-  transition: transform 0.3s ease;
+  transition: all 0.6s ease;
   width: 100%;
   height: 100%;
   border-radius: var(--global-border-radius); /* 更圆润的边角，更现代 */
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--global-box-shadow);
   padding-bottom: 90px; /* 增加底部内边距，为文字留出更多空间，避免被圆形容器遮挡 */
   pointer-events: auto; /* 允许 card 接收点击事件 */
 
@@ -1784,7 +1785,7 @@ const handleChange = (event: Event) => {
   cursor: text;
 }
 
-:where(html.dark) .card {
+html.dark .card {
   /* 更优雅的暗色模式背景 - 使用渐变 */
   background: linear-gradient(
     135deg,
@@ -1792,6 +1793,7 @@ const handleChange = (event: Event) => {
     var(--color-dark-overlay-2) 50%,
     var(--color-dark-overlay-3) 100%
   );
+  box-shadow: var(--global-box-shadow);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
 
@@ -1822,7 +1824,7 @@ const handleChange = (event: Event) => {
   -webkit-backdrop-filter: blur(10px) saturate(150%);
 }
 
-:where(html.dark) .card::before {
+html.dark .card::before {
   /* 暗色模式下的内部光晕效果 */
   background: radial-gradient(
     ellipse at center,
@@ -1869,7 +1871,7 @@ const handleChange = (event: Event) => {
   opacity: 0.75; /* 提高不透明度，增强可见度 */
 }
 
-:where(html.dark) .outline::before {
+html.dark .outline::before {
   /* 更优雅的暗色模式渐变 */
   background: radial-gradient(
     ellipse at center,
@@ -1891,7 +1893,7 @@ const handleChange = (event: Event) => {
   bottom: 60px;
   margin: auto;
   opacity: 0;
-  transition: opacity 0.3s linear;
+  transition: all 0.3s linear;
 }
 
 .wave::before,
@@ -1904,16 +1906,18 @@ const handleChange = (event: Event) => {
 
   /* 更优雅的边框颜色 - 使用黑灰色 */
   border: 2px solid var(--border-unified-color);
+  box-shadow: var(--global-box-shadow);
   filter: blur(2px);
   inset: 0;
   animation: wave 1.5s linear infinite;
   opacity: 0.7;
 }
 
-:where(html.dark) .wave::before,
-:where(html.dark) .wave::after {
+html.dark .wave::before,
+html.dark .wave::after {
   /* 暗色模式下使用黑灰色边框 */
   border-color: var(--border-unified-color);
+  box-shadow: var(--global-box-shadow);
   opacity: 0.8; /* 提高不透明度，增强可见度 */
 }
 
@@ -1931,6 +1935,8 @@ const handleChange = (event: Event) => {
 
   /* transform 由动画控制，但初始状态需要保持定位 */
   transform: translate(-50%, calc(-50% - 20px)); /* 向上移动，避免遮挡底部文字 */
+  box-shadow: var(--global-box-shadow);
+
   /* 使用稍微带灰调的背景，增强对比度 */
   background: radial-gradient(
     circle at 30% 30%,
@@ -1963,7 +1969,7 @@ const handleChange = (event: Event) => {
   overflow: visible;
 }
 
-:where(html.dark) .circle-1 {
+html.dark .circle-1 {
   /* 更优雅的暗色模式渐变背景 */
   background: radial-gradient(
     circle at 30% 30%,
@@ -1971,6 +1977,7 @@ const handleChange = (event: Event) => {
     var(--color-dark-overlay-1) 40%,
     var(--gradient-dark-2) 100%
   );
+  box-shadow: var(--global-box-shadow);
   border: var(--unified-border);
   border-top: var(--unified-border);
   border-left: var(--unified-border);
@@ -1993,7 +2000,7 @@ const handleChange = (event: Event) => {
   right: 25%;
 }
 
-:where(html.dark) .circle-1::before {
+html.dark .circle-1::before {
   background: var(--color-gray-transparent-4);
   opacity: 0.5; /* 提高不透明度 */
 }
@@ -2004,7 +2011,7 @@ const handleChange = (event: Event) => {
   left: 25%;
 }
 
-:where(html.dark) .circle-1::after {
+html.dark .circle-1::after {
   background: var(--color-gray-transparent-6);
   opacity: 0.4; /* 提高不透明度 */
 }
@@ -2020,7 +2027,7 @@ const handleChange = (event: Event) => {
   opacity: 0.7;
 }
 
-:where(html.dark) :where(.circle-1) :where(.lines) :where(svg) {
+html.dark .circle-1 .lines svg {
   stroke: var(--el-text-color-primary);
   opacity: 0.6;
 }
@@ -2029,7 +2036,7 @@ const handleChange = (event: Event) => {
   animation: line 3s ease-in-out calc(var(--i) * -1s) infinite;
   stroke-dasharray: 100;
   stroke-dashoffset: 10;
-  transition: opacity 0.3s linear;
+  transition: all 0.3s linear;
 }
 
 .circle-2 {
@@ -2065,7 +2072,8 @@ const handleChange = (event: Event) => {
   border-bottom: 1.5px solid var(--border-unified-color);
 
   /* 增强的内外阴影 */
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .circle-2::before,
 .circle-2::after {
@@ -2099,9 +2107,10 @@ const handleChange = (event: Event) => {
   border: var(--unified-border);
   border-top: var(--unified-border);
   border-left: var(--unified-border);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
-:where(html.dark) .circle-2::before {
+html.dark .circle-2::before {
   background: var(--color-gray-transparent-5);
   opacity: 0.6; /* 提高不透明度 */
 }
@@ -2115,7 +2124,7 @@ const handleChange = (event: Event) => {
   opacity: 0.4;
 }
 
-:where(html.dark) .circle-2::after {
+html.dark .circle-2::after {
   background: var(--color-gray-glow);
   opacity: 0.5; /* 提高不透明度 */
 }
@@ -2124,6 +2133,7 @@ const handleChange = (event: Event) => {
   position: absolute;
   inset: 0;
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   background: linear-gradient(
     135deg,
     var(--color-white-90) 0%,
@@ -2144,7 +2154,8 @@ const handleChange = (event: Event) => {
     var(--gradient-dark-5) 60%,
     var(--gradient-dark-8) 100%
   );
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .circle-2 .bg::before {
   content: '';
@@ -2152,7 +2163,8 @@ const handleChange = (event: Event) => {
   inset: 0;
   animation: bg 4s linear infinite;
   border-radius: inherit;
-  transition: opacity 0.4s linear;
+  transition: all 0.4s linear;
+  box-shadow: var(--global-box-shadow);
   opacity: 0;
 }
 
@@ -2175,7 +2187,7 @@ const handleChange = (event: Event) => {
 .voice-recording-animation .icon svg {
   width: var(--vra-icon-size); /* 增大图标尺寸 */
   height: var(--vra-icon-size); /* 增大图标尺寸 */
-  transition: transform 0.4s cubic-bezier(0.7, -1, 0.3, 1.5);
+  transition: all 0.8s cubic-bezier(0.7, -1, 0.3, 1.5);
   position: absolute;
 }
 
@@ -2214,7 +2226,7 @@ const handleChange = (event: Event) => {
 }
 
 /* 暗色模式下的麦克风图标 - 使用纯白色 */
-:where(html.dark) :where(.voice-recording-animation) :where(.icon-1) :where(path) {
+html.dark .voice-recording-animation .icon-1 path {
   fill: var(--el-bg-color);
   filter: none;
 }
@@ -2288,8 +2300,8 @@ const handleChange = (event: Event) => {
   font-weight: 600; /* 稍微减轻字重，更现代 */
   font-family: var(--font-family-chinese);
   position: relative;
-  z-index: var(--vra-text-z-index); /* 确保文字在圆形容器之上 */
-  transform: translateZ(30px); /* 增加 3D 变换，确保在圆形容器之上 */
+  z-index: var(--vra-text-z-index); /* 确保文字符圆形容器之上 */
+  transform: translateZ(30px); /* 增加 3D 变换，确保存圆形容器之上 */
   line-height: 20px; /* 缩减行高，减少高度 */
   transition: all 0.3s ease;
 
@@ -2317,7 +2329,7 @@ const handleChange = (event: Event) => {
 }
 
 /* 暗色模式下的 footer 文本 - 高对比度浅色 */
-:where(html.dark) :where(.voice-recording-animation) :where(.card) :where(footer) :where(p) {
+html.dark .voice-recording-animation .card footer p {
   /* 使用高对比度的浅色渐变 */
   background: linear-gradient(135deg, var(--color-text-light) 0%, var(--el-text-color-primary) 50%, var(--color-text-light) 100%);
   -webkit-background-clip: text;
@@ -2343,7 +2355,7 @@ const handleChange = (event: Event) => {
 
 /* 暗色模式下的加粗文本 - 使用更亮的灰色 */
 :where(html.dark) :where(.voice-recording-animation) .card footer .bold {
-  background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--el-text-color-placeholder) 50%, var(--ai-gray-1) 100%);
+  background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--color-text-muted) 50%, var(--ai-gray-1) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2352,11 +2364,11 @@ const handleChange = (event: Event) => {
 
 /* 暗色模式下 hover 加粗文本 - 使用最亮的灰色 */
 :where(html.dark) :where(.voice-recording-animation) .wrap:hover footer .bold {
-  background: linear-gradient(135deg, var(--el-text-color-placeholder) 0%, var(--el-fill-color-light) 50%, var(--el-text-color-placeholder) 100%);
+  background: linear-gradient(135deg, var(--color-text-muted) 0%, var(--color-gray-light) 50%, var(--color-text-muted) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: var(--el-text-color-placeholder); /* 降级方案 - 最亮的灰色 */
+  color: var(--color-text-muted); /* 降级方案 - 最亮的灰色 */
 }
 
 .card footer span {
@@ -2489,7 +2501,6 @@ const handleChange = (event: Event) => {
 
 .wrap:hover .card::before {
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   background: transparent;
 }
 
@@ -2548,15 +2559,15 @@ const handleChange = (event: Event) => {
 }
 
 /* 暗色模式下 hover footer 文本 - 进一步增强对比度 */
-:where(html.dark) :where(.voice-recording-animation) :where(.wrap:hover) :where(footer) :where(p) {
+html.dark .voice-recording-animation .wrap:hover footer p {
   transform: translateY(-4px) translateZ(20px);
 
   /* 使用更亮的文本颜色 */
-  background: linear-gradient(135deg, var(--el-fill-color-lighter) 0%, var(--el-text-color-primary) 50%, var(--el-fill-color-lighter) 100%);
+  background: linear-gradient(135deg, var(--color-gray-f0f2f5) 0%, var(--el-text-color-primary) 50%, var(--color-gray-f0f2f5) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  color: var(--el-fill-color-lighter); /* 降级方案 - 更亮的浅灰色 */
+  color: var(--color-gray-f0f2f5); /* 降级方案 - 更亮的浅灰色 */
 
  /* 扁平化设计：移除文本投影 */
   opacity: 1;
@@ -2576,6 +2587,7 @@ const handleChange = (event: Event) => {
 
 .wrap:hover .card {
   transform: perspective(var(--perspective)) rotateX(0) rotateY(0) scale3d(1.03, 1.03, 1.03);
+  box-shadow: var(--global-box-shadow);
   border-color: var(--border-unified-color);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -2591,6 +2603,7 @@ const handleChange = (event: Event) => {
 /* 暗色模式下的 hover 效果 */
 :where(html.dark) :where(.voice-recording-animation) .wrap:hover .card {
   transform: perspective(var(--perspective)) rotateX(0) rotateY(0) scale3d(1.02, 1.02, 1.02);
+  box-shadow: var(--global-box-shadow);
   border-color: var(--border-unified-color);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -2908,7 +2921,7 @@ const handleChange = (event: Event) => {
 
 <!-- 全局样式：用于暗色主题 -->
 <style lang="scss">
-:where(html.dark) .voice-recording-animation {
+html.dark .voice-recording-animation {
   /* 暗色模式下使用更深的背景，但保持半透明 */
   --vra-bg-overlay: var(--color-black-40);
   --vra-blur: 8px;
@@ -2943,6 +2956,7 @@ const handleChange = (event: Event) => {
       var(--color-dark-overlay-2) 50%,
       var(--color-dark-overlay-3) 100%
     );
+    box-shadow: var(--global-box-shadow);
     backdrop-filter: blur(24px) saturate(200%);
     -webkit-backdrop-filter: blur(24px) saturate(200%);
 
@@ -2963,7 +2977,7 @@ const handleChange = (event: Event) => {
   
   .card footer .bold {
     /* 暗色模式下的加粗文本 - 更亮的灰色 */
-    background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--el-text-color-placeholder) 50%, var(--ai-gray-1) 100%);
+    background: linear-gradient(135deg, var(--ai-gray-1) 0%, var(--color-text-muted) 50%, var(--ai-gray-1) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -2986,6 +3000,7 @@ const handleChange = (event: Event) => {
     transform: perspective(var(--perspective)) rotateX(0) rotateY(0) scale3d(1.02, 1.02, 1.02);
 
     /* 暗色模式：hover 时的阴影增强效果 */
+    box-shadow: var(--global-box-shadow);
     border-color: var(--border-unified-color);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -3008,6 +3023,7 @@ const handleChange = (event: Event) => {
   .wave::after {
     /* 暗色模式下使用更亮的灰色边框 */
     border-color: var(--border-unified-color);
+    box-shadow: var(--global-box-shadow);
     opacity: 0.8;
   }
 
@@ -3019,6 +3035,7 @@ const handleChange = (event: Event) => {
       var(--color-dark-overlay-1) 40%,
       var(--gradient-dark-2) 100%
     );
+    box-shadow: var(--global-box-shadow);
     border: var(--unified-border);
     border-top: var(--unified-border);
     border-left: var(--unified-border);
@@ -3052,7 +3069,8 @@ const handleChange = (event: Event) => {
     border: var(--unified-border);
     border-top: var(--unified-border);
     border-left: var(--unified-border);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   .circle-2::before {
     background: var(--color-gray-transparent-5);
@@ -3075,9 +3093,11 @@ const handleChange = (event: Event) => {
     );
 
     /* 使用全局唯一投影 */
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   .circle-2 .bg::before {
+    box-shadow: var(--global-box-shadow);
     background: var(--color-gray-100-20);
   }
 
@@ -3087,7 +3107,7 @@ const handleChange = (event: Event) => {
   }
 
   .card footer p {
-    /* 暗色模式下使用白色文字阴影，确保在深色背景下可见 */
+    /* 暗色模式下使用白色文字阴影，确保存深色背景下可见 */
 
    /* 移除文本投影 */
   }

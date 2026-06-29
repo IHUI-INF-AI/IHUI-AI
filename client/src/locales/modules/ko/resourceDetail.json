@@ -1,21 +1,21 @@
 {
   "resourceDetail": {
-    "anonymous": "anonymous",
-    "breadcrumbResource": "breadcrumbResource",
-    "current": "current",
-    "downloadResource": "downloadResource",
-    "downloadTimes": "downloadTimes",
-    "favorite": "收藏",
-    "freeDownload": "freeDownload",
-    "like": "点赞",
-    "notExist": "notExist",
-    "operateFailed": "operateFailed",
-    "pointsDownload": "pointsDownload",
-    "rateResource": "rateResource",
-    "rating": "rating",
-    "scoreUnit": "scoreUnit",
-    "size": "大小",
-    "uploader": "uploader",
-    "views": "views"
+    "breadcrumbResource": "리소스",
+    "downloadTimes": "다운로드",
+    "views": "조회",
+    "rating": "평점",
+    "size": "크기: ",
+    "uploader": "업로더: ",
+    "anonymous": "익명",
+    "freeDownload": "무료 다운로드",
+    "pointsDownload": "포인트 다운로드",
+    "downloadResource": "리소스 다운로드",
+    "like": "좋아요",
+    "favorite": "즐겨찾기",
+    "rateResource": "평가",
+    "current": "현재: ",
+    "scoreUnit": "점",
+    "notExist": "리소스가 존재하지 않습니다",
+    "operateFailed": "작업 실패"
   }
 }

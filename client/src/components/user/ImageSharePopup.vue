@@ -114,7 +114,7 @@ const handleDownload = () => {
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--el-text-color-primary);
+  color: var(--color-gray-303133);
 }
 
 .share-buttons {

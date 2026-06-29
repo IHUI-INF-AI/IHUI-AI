@@ -1,19 +1,22 @@
 {
   "confirmPurchase": {
-    "agreeTerms": "agreeTerms",
-    "createOrderFailed": "createOrderFailed",
-    "payCancelled": "payCancelled",
-    "paySuccess": "paySuccess",
-    "paymentMethod": "paymentMethod",
-    "pleaseLogin": "请先登录",
-    "priv1": "priv1",
-    "priv2": "priv2",
-    "priv3": "priv3",
-    "priv4": "priv4",
-    "priv5": "priv5",
-    "redirectingPay": "redirectingPay",
-    "vipTitle": "vipTitle",
-    "wechat": "wechat",
-    "wechatPay": "wechatPay"
+    "vipTitle": "AI Zhihui Community VIP",
+    "priv1": "無制限のAIコピー作成",
+    "priv2": "プレミアムAIモデル",
+    "priv3": "アフィリエイトプログラム資格",
+    "priv4": "7*24テクニカルサポート",
+    "priv5": "一度の支払いで生涯使用",
+    "paymentMethod": "支払い方法",
+    "wechat": "WeChat",
+    "wechatPay": "WeChat Pay",
+    "agreeTerms": "今すぐ支払うをクリックして同意",
+    "pleaseLogin": "まずログインしてください",
+    "createOrderFailed": "注文作成失敗: HTTP {status}",
+    "paySuccess": "支払い成功",
+    "payCancelled": "支払いがキャンセルまたは失敗",
+    "redirectingPay": "支払いにリダイレクト中...",
+    "title": "メンバーシップ購入",
+    "agreementDev": "契約ページ開発中",
+    "productNotFound": "商品情報が見つかりません"
   }
 }

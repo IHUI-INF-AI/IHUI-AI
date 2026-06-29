@@ -56,7 +56,7 @@
             <div class="comment-input">
               <el-input
                 v-model="newComment"
-                :placeholder="t('livePlay.danmuPlaceholder')"
+                placeholder="发条弹幕..."
                 size="small"
                 @keyup.enter="sendComment"
               >
@@ -75,15 +75,15 @@
             >
               <div class="gift-icon">{{ g.icon || '🎁' }}</div>
               <div class="gift-name">{{ g.name }}</div>
-              <div class="gift-price">{{ g.price }} {{ t('livePlay.points') }}</div>
+              <div class="gift-price">{{ g.price }} 积分</div>
             </div>
           </div>
           <div v-else class="info-pane">
-            <h3>{{ t('livePlay.liveIntro') }}</h3>
-            <p>{{ channel.description || t('livePlay.noIntro') }}</p>
-            <h3>{{ t('livePlay.statistics') }}</h3>
-            <p>{{ t('livePlay.views') }}:{{ channel.viewNum || 0 }}</p>
-            <p>{{ t('livePlay.likes') }}:{{ channel.likeNum || 0 }}</p>
+            <h3>直播介绍</h3>
+            <p>{{ channel.description || '暂无介绍' }}</p>
+            <h3>统计数据</h3>
+            <p>观看:{{ channel.viewNum || 0 }}</p>
+            <p>点赞:{{ channel.likeNum || 0 }}</p>
           </div>
         </div>
       </div>
@@ -97,15 +97,16 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import LearnVideo from '@/components/learn/Video.vue'
-import { liveApi } from '@/api/learn/live'
+import { liveApi } from '@/api/live'
+import type { LiveChannel, LiveComment, LiveGift } from '@/api/live'
 
 const { t } = useI18n()
 const route = useRoute()
 const id = String(route.params.id || '')
 
-const channel = ref<any>({})
-const commentList = ref<any[]>([])
-const giftList = ref<any[]>([])
+const channel = ref<Partial<LiveChannel>>({})
+const commentList = ref<Partial<LiveComment>[]>([])
+const giftList = ref<LiveGift[]>([])
 const loading = ref(false)
 const tab = ref<'comment' | 'gift' | 'info'>('comment')
 const newComment = ref('')
@@ -117,22 +118,22 @@ const playUrl = computed(() => {
 async function loadChannel() {
   loading.value = true
   try {
-    const res: any = await liveApi.detail(id)
-    channel.value = res.data || {}
+    const res = await liveApi.detail(id)
+    channel.value = res.data?.data || {}
   } finally {
     loading.value = false
   }
 }
 
 async function loadComments() {
-  const res: any = await liveApi.commentList(id)
-  commentList.value = res.data?.items || res.data?.list || []
+  const res = await liveApi.commentList(id)
+  commentList.value = res.data?.data?.items || res.data?.data?.list || []
 }
 
 async function loadGifts() {
   try {
-    const res: any = await liveApi.giftList()
-    giftList.value = res.data || []
+    const res = await liveApi.giftList()
+    giftList.value = res.data?.data || []
   } catch {
     ElMessage.error(t('common.errors.giftListLoadFailed'))
   }
@@ -143,7 +144,7 @@ async function sendComment() {
   const content = newComment.value
   const item = {
     id: Date.now().toString(),
-    userName: t('common.me'),
+    userName: '我',
     content,
   }
   commentList.value.push(item)
@@ -156,10 +157,10 @@ async function sendComment() {
   }
 }
 
-async function sendGift(g: any) {
+async function sendGift(g: LiveGift) {
   try {
     await liveApi.giftSend({ channelId: id, giftId: g.id, count: 1 })
-    ElMessage.success(t('livePlay.sentGift', { name: g.name }))
+    ElMessage.success(`送出 ${g.name} x1`)
   } catch {
     ElMessage.error(t('common.errors.giftSendFailed'))
   }
@@ -337,7 +338,7 @@ onMounted(() => {
 }
 
 :where(.gift-price) {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--el-color-primary);
 }
 

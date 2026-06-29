@@ -1,41 +1,47 @@
 {
   "withdrawRecords": {
-    "empty": {
-      "noRecords": "noRecords"
-    },
+    "핵심 장점": "출금 기이것은",
+    "sub핵심 장점": "출금 기이것은 보기",
     "filter": {
-      "all": "全部",
-      "approved": "已通过",
-      "completed": "已完成",
-      "pending": "待处理",
-      "rejected": "已拒绝",
-      "reset": "重置",
-      "search": "搜索",
-      "status": "状态"
+      "status": "상태",
+      "all": "모든",
+      "pending": "검토 대기",
+      "approved": "승인됨",
+      "rejected": "거부됨",
+      "completed": "완료",
+      "search": "검색",
+      "reset": "재설정"
+    },
+    "table": {
+      "withdrawalNo": "출금 주의문 번호",
+      "amount": "출금 금액",
+      "method": "출금 방법",
+      "account": "출금 계정",
+      "status": "상태",
+      "createTime": "신청 시간",
+      "actions": "작업",
+      "viewDetail": "세부 정보 보기"
     },
     "methods": {
-      "alipay": "alipay",
-      "bank": "bank",
-      "wechat": "wechat"
+      "wechat": "WeChat",
+      "alipay": "Alipay",
+      "bank": "은행 카드"
     },
     "status": {
-      "approved": "已通过",
-      "completed": "已完成",
-      "pending": "待处理",
-      "rejected": "已拒绝",
-      "unknown": "unknown"
+      "pending": "검토 대기",
+      "approved": "승인됨",
+      "rejected": "거부됨",
+      "completed": "완료",
+      "unknown": "알 수 없음"
     },
-    "subtitle": "副标题",
-    "table": {
-      "account": "账号",
-      "actions": "actions",
-      "amount": "金额",
-      "createTime": "创建时间",
-      "method": "method",
-      "status": "状态",
-      "viewDetail": "viewDetail",
-      "withdrawalNo": "withdrawalNo"
+    "empty": {
+      "noRecords": "출금 기이것은이 없습니다"
     },
-    "title": "标题"
+    "title": "출금현재명석세부",
+    "subtitle": "보기귀하의출금현재기이것은",
+    "error": {
+      "loadFailed": "출금 기이것은 로드 실패",
+      "loadFailedRetry": "출금 기이것은 로드 실패, 나중에 다시 시도하세요"
+    }
   }
 }

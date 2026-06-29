@@ -1,66 +1,71 @@
 {
   "becomeSupplier": {
-    "benefits": {
-      "market": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "security": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "settlement": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "support": {
-        "description": "描述",
-        "title": "标题"
-      }
-    },
+    "title": "サプライヤーになる",
+    "subtitle": "サプライヤーネットワークに参加し、共に成長",
     "form": {
-      "address": "地址",
-      "addressPlaceholder": "addressPlaceholder",
-      "business": "business",
-      "businessPlaceholder": "businessPlaceholder",
-      "companyName": "companyName",
-      "companyNamePlaceholder": "companyNamePlaceholder",
-      "contactName": "contactName",
-      "contactNamePlaceholder": "contactNamePlaceholder",
-      "email": "邮箱",
-      "emailPlaceholder": "emailPlaceholder",
-      "intention": "intention",
-      "intentionPlaceholder": "intentionPlaceholder",
-      "phone": "手机号",
-      "phonePlaceholder": "phonePlaceholder",
-      "processing": "处理中",
-      "reset": "重置",
-      "submit": "提交",
-      "submitProposal": "submitProposal"
+      "companyName": "会社名",
+      "companyNamePlaceholder": "会社名を入力してください",
+      "contactName": "連絡先",
+      "contactNamePlaceholder": "連絡先名を入力してください",
+      "phone": "連絡先電話",
+      "phonePlaceholder": "連絡先電話を入力してください",
+      "email": "メール",
+      "emailPlaceholder": "メールを入力してください",
+      "address": "会社住所",
+      "addressPlaceholder": "会社住所を入力してください",
+      "business": "主な事業",
+      "businessPlaceholder": "会社の主な事業を説明してください",
+      "intention": "協力意向",
+      "intentionPlaceholder": "協力意向と期待を説明してください",
+      "submit": "申請を提出",
+      "reset": "リセット",
+      "processing": "送信中...",
+      "submitProposal": "提出"
     },
     "processSteps": {
-      "businessNegotiation": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "onlineDocking": {
-        "description": "描述",
-        "title": "标题"
+      "submitApplication": {
+        "title": "申請を提出",
+        "description": "サプライヤー申請フォームに記入し、会社の基本情報を提出"
       },
       "qualificationReview": {
-        "description": "描述",
-        "title": "标题"
+        "title": "資格審査",
+        "description": "3-5営業日以内に申請を審査いたします"
+      },
+      "businessNegotiation": {
+        "title": "ビジネス交渉",
+        "description": "承認後、営業チームがご連絡いたします"
       },
       "signAgreement": {
-        "description": "描述",
-        "title": "标题"
+        "title": "契約締結",
+        "description": "両者が協力の詳細を確認し、正式な協力契約に署名"
       },
-      "submitApplication": {
-        "description": "描述",
-        "title": "标题"
+      "onlineDocking": {
+        "title": "オンライン接続",
+        "description": "技術チームが製品の接続とオンライン化をサポート"
       }
     },
-    "subtitle": "副标题",
-    "title": "标题"
+    "benefits": {
+      "market": {
+        "title": "广阔市场",
+        "description": "接入私たち的プラットフォーム，触达数万企業ユーザー"
+      },
+      "support": {
+        "title": "専門サポート",
+        "description": "提供専門的技術サポート和市场プロモーション"
+      },
+      "settlement": {
+        "title": "灵活決済",
+        "description": "灵活的決済メソッド和透明的分成机制"
+      },
+      "security": {
+        "title": "セキュリティ保障",
+        "description": "完善的セキュリティ保障和风险控制体系"
+      },
+      "title": "合作优势"
+    },
+    "success": "申請が正常に提出されました！3-5営業日以内にご連絡いたします！",
+    "process": {
+      "title": "合作プロセス"
+    }
   }
 }

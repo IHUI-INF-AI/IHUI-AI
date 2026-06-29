@@ -1,1 +1,12 @@
-{}
+{
+  "desktopExperience": {
+    "title": "Title",
+    "description": "Description",
+    "fullScreenMode": "Full Screen Mode",
+    "fullScreenModeDesc": "Full Screen Mode Desc",
+    "multiWindowSupport": "Multi Window Support",
+    "multiWindowSupportDesc": "Multi Window Support Desc",
+    "dragUpload": "Drag Upload",
+    "dragUploadDesc": "Drag Upload Desc"
+  }
+}

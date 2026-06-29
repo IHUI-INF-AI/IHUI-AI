@@ -1,23 +1,12 @@
 {
   "examDo": {
-    "backToList": "backToList",
-    "duration": "时长",
-    "examResult": "examResult",
-    "failed": "失败",
-    "inputAnswer": "inputAnswer",
-    "inputEssay": "inputEssay",
-    "minutes": "minutes",
-    "passScore": "passScore",
-    "passed": "passed",
-    "questionCount": "questionCount",
-    "remaining": "remaining",
-    "score": "分数",
-    "startExam": "startExam",
-    "submit": "提交",
-    "typeEssay": "typeEssay",
-    "typeFill": "typeFill",
-    "typeJudge": "typeJudge",
-    "typeMultiple": "typeMultiple",
-    "typeSingle": "typeSingle"
+    "questionCount": "問題数",
+    "duration": "時間",
+    "minutes": "分",
+    "passScore": "合格",
+    "startExam": "試験開始",
+    "remaining": "残り",
+    "score": "点",
+    "submit": "提出"
   }
 }

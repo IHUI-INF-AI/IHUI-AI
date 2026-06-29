@@ -1,120 +1,145 @@
 {
   "videoGen": {
     "kling": {
-      "buttons": {
-        "checkStatus": "checkStatus",
-        "checking": "checking",
-        "generate": "generate",
-        "identify": "identify"
-      },
-      "downloadStarted": "downloadStarted",
-      "downloadVideo": "downloadVideo",
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder",
-        "selectFace": "selectFace",
-        "selectFaceId": "selectFaceId",
-        "selectVideo": "selectVideo",
-        "uploadVideo": "uploadVideo"
-      },
+      "title": "Kling AI Video Generation",
+      "tag": "Lip Sync",
       "instructions": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "message": "消息",
-      "messages": {
-        "checkStatusFailed": "checkStatusFailed",
-        "fillComplete": "fillComplete",
-        "generateFailed": "generateFailed",
-        "identifyFailed": "identifyFailed",
-        "identifySuccess": "identifySuccess",
-        "pollTimeout": "pollTimeout",
-        "statusCompleted": "statusCompleted",
-        "statusFailed": "statusFailed",
-        "taskId": "taskId",
-        "taskIdRequired": "taskIdRequired",
-        "taskSubmitted": "taskSubmitted",
-        "uploadFirst": "uploadFirst"
-      },
-      "previewVideo": "previewVideo",
-      "startPolling": "startPolling",
-      "status": {
-        "completed": "已完成",
-        "failed": "失败",
-        "pending": "待处理",
-        "processing": "处理中",
-        "title": "标题"
+        "title": "Usage Instructions",
+        "description": "First upload a video for face recognition, then select a face and enter a prompt to generate the video"
       },
       "steps": {
-        "generate": "generate",
-        "identify": "identify",
-        "upload": "上传"
+        "upload": "Upload Video",
+        "identify": "Identify Faces",
+        "generate": "Generate Video"
       },
-      "stopPolling": "stopPolling",
-      "tag": "标签",
-      "title": "标题",
-      "videoUrlEmpty": "videoUrlEmpty"
-    },
-    "oneClick": {
-      "buttons": {
-        "generate": "generate"
-      },
-      "downloadStarted": "downloadStarted",
-      "downloadVideo": "downloadVideo",
-      "durationUnit": "durationUnit",
       "form": {
-        "audioPlaceholder": "audioPlaceholder",
-        "audioStyle": "audioStyle",
-        "duration": "时长",
-        "ratio": "ratio",
-        "topic": "话题",
-        "topicPlaceholder": "topicPlaceholder"
+        "uploadVideo": "Upload Video",
+        "selectVideo": "Select Video",
+        "selectFace": "Select Face",
+        "selectFaceId": "Select Face ID",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe video content..."
+      },
+      "buttons": {
+        "identify": "Identify",
+        "generate": "Generate",
+        "checkStatus": "Check Status",
+        "checking": "Checking..."
+      },
+      "Status": {
+        "completed": "completed",
+        "Failed": "Failed",
+        "pending": "pending",
+        "processing": "processing",
+        "title": "Status"
       },
       "messages": {
-        "checkFailed": "checkFailed",
-        "pollTimeout": "pollTimeout",
-        "status": "状态",
-        "topicRequired": "topicRequired"
+        "uploadFirst": "Please upload a video first",
+        "identifySuccess": "Identification Successful",
+        "identifyFailed": "Identification Failed",
+        "fillComplete": "Please fill in complete information",
+        "taskSubmitted": "Task Submitted",
+        "generateFailed": "Generation Failed",
+        "taskId": "Task ID: {taskId}",
+        "taskIdRequired": "Please submit a generation task first",
+        "StatusCompleted": "Video generation completed",
+        "StatusProcessing": "Video generating...",
+        "StatusFailed": "Video generation Failed",
+        "StatusPending": "Task waiting for processing...",
+        "StatusUnknown": "Task Status unknown",
+        "checkStatusFailed": "Failed to check Status",
+        "pollTimeout": "Poll Timeout",
+        "statusCompleted": "Video GenerationDone",
+        "statusFailed": "Video GenerationFailed",
+        "checkStatusDev": "Status check feature under development"
       },
-      "previewVideo": "previewVideo",
-      "ratios": {
-        "r11": "r11",
-        "r169": "r169",
-        "r916": "r916"
-      },
-      "startPolling": "startPolling",
+      "startPolling": "Auto Polling",
+      "stopPolling": "Stop Polling",
+      "downloadVideo": "Download Video",
+      "previewVideo": "Preview Video",
+      "videoUrlEmpty": "Video URL is empty",
+      "downloadStarted": "Video download started",
+      "message": "Message",
       "status": {
-        "completed": "已完成",
-        "failed": "失败",
-        "pending": "待处理",
-        "processing": "处理中"
-      },
-      "stopPolling": "stopPolling",
-      "tag": "标签",
-      "title": "标题",
-      "videoUrlEmpty": "videoUrlEmpty"
+        "completed": "completed",
+        "failed": "failed",
+        "pending": "pending",
+        "processing": "processing",
+        "title": "Status"
+      }
     },
     "qwen": {
-      "buttons": {
-        "generate": "generate"
-      },
+      "title": "Tongyi Wanxiang - Video Synthesis",
+      "tag": "WebSocket Protocol, for real-time bidirectional communicationt Streaming",
       "form": {
-        "images": "images",
-        "imagesPlaceholder": "imagesPlaceholder",
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe the video you want to generate...",
+        "images": "Reference Images (Optional)",
+        "imagesPlaceholder": "Image URL"
       },
-      "messages": {
-        "generateFailed": "generateFailed",
-        "generateSuccess": "generateSuccess",
-        "promptRequired": "promptRequired"
+      "buttons": {
+        "generate": "Start Generation"
       },
       "progress": {
-        "connecting": "connecting",
-        "generating": "generating"
+        "connecting": "Connecting...",
+        "generating": "Generating..."
       },
-      "tag": "标签",
-      "title": "标题"
+      "messages": {
+        "promptRequired": "Please enter a prompt",
+        "Generate Successful": "Generation Complete",
+        "generateFailed": "Generation Failed",
+        "generateSuccess": "GenerateDone"
+      }
+    },
+    "oneClick": {
+      "title": "One-Click Video Generation",
+      "tag": "Auto Generation",
+      "form": {
+        "topic": "Video Topic",
+        "topicPlaceholder": "e.g., Introduce our products...",
+        "duration": "Video Duration",
+        "ratio": "Video Ratio",
+        "audioStyle": "Audio Style (Optional)",
+        "audioPlaceholder": "e.g., Light and pleasant background music"
+      },
+      "buttons": {
+        "generate": "Start Generation",
+        "checkStatus": "Check Status"
+      },
+      "messages": {
+        "topicRequired": "Please enter video topic",
+        "Status": "Status: {Status}",
+        "checkFailed": "Check Failed",
+        "pollTimeout": "Poll Timeout",
+        "status": "Status: {status}",
+        "taskSubmitted": "Task Submitted",
+        "generateFailed": "Generation Failed",
+        "taskId": "Task ID: {taskId}"
+      },
+      "Status": {
+        "completed": "Completed",
+        "processing": "Processing",
+        "Failed": "Failed",
+        "pending": "Pending"
+      },
+      "startPolling": "Auto Polling",
+      "stopPolling": "Stop Polling",
+      "downloadVideo": "Download Video",
+      "previewVideo": "Preview Video",
+      "videoUrlEmpty": "Video URL is empty",
+      "downloadStarted": "Video download started",
+      "ratios": {
+        "r169": "16:9",
+        "r916": "9:16",
+        "r11": "1:1"
+      },
+      "durationUnit": "seconds",
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "pending": "等待中",
+        "processing": "Processing"
+      }
     }
   }
 }

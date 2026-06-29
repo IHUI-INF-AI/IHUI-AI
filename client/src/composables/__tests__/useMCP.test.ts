@@ -31,7 +31,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 // Mock MCP API
-vi.mock('@/api/tools/mcp', () => ({
+vi.mock('@/api/mcp', () => ({
   getMCPServersList: vi.fn(),
   getMCPServerCapabilities: vi.fn(),
   callMCPTool: vi.fn(),
@@ -83,7 +83,7 @@ describe('useMCP', () => {
 
   describe('loadMCPServers - 加载服务器列表', () => {
     it('应该成功加载活跃的服务器列表', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -102,7 +102,7 @@ describe('useMCP', () => {
     })
 
     it('应该处理非200响应', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 500,
         success: false,
@@ -114,7 +114,7 @@ describe('useMCP', () => {
 
     it('应该处理未登录错误（不记录错误日志）', async () => {
       const { logger } = await import('@/utils/logger')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('未登录'))
       await loadMCPServers()
       expect(logger.debug).toHaveBeenCalled()
@@ -123,7 +123,7 @@ describe('useMCP', () => {
 
     it('应该处理"请先登录"错误', async () => {
       const { logger } = await import('@/utils/logger')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('请先登录'))
       await loadMCPServers()
       expect(logger.debug).toHaveBeenCalled()
@@ -131,7 +131,7 @@ describe('useMCP', () => {
 
     it('应该处理"not logged in"英文错误', async () => {
       const { logger } = await import('@/utils/logger')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('not logged in'))
       await loadMCPServers()
       expect(logger.debug).toHaveBeenCalled()
@@ -139,7 +139,7 @@ describe('useMCP', () => {
 
     it('应该处理带response对象的错误（记录错误日志）', async () => {
       const { logger } = await import('@/utils/logger')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       const error = new Error('Server error') as Error & { response?: { status?: number } }
       error.response = { status: 500 }
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockRejectedValue(error)
@@ -149,7 +149,7 @@ describe('useMCP', () => {
 
     it('应该处理普通错误（非未登录）', async () => {
       const { logger } = await import('@/utils/logger')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network down'))
       await loadMCPServers()
       expect(logger.error).toHaveBeenCalled()
@@ -158,7 +158,7 @@ describe('useMCP', () => {
 
   describe('getServerCapabilities - 获取服务器能力', () => {
     it('应该调用API并返回能力', async () => {
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServerCapabilities as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -173,7 +173,7 @@ describe('useMCP', () => {
     })
 
     it('应该使用缓存（第二次调用直接返回）', async () => {
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServerCapabilities as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -191,7 +191,7 @@ describe('useMCP', () => {
     })
 
     it('应该返回空数组当API失败', async () => {
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServerCapabilities as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('fail'))
       const caps = await getServerCapabilities('failedServer')
       expect(caps.tools).toEqual([])
@@ -200,7 +200,7 @@ describe('useMCP', () => {
     })
 
     it('应该返回空数组当响应不是成功', async () => {
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServerCapabilities as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: false,
@@ -213,7 +213,7 @@ describe('useMCP', () => {
 
   describe('invokeMCPTool - 调用MCP工具', () => {
     it('应该成功调用工具', async () => {
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -227,7 +227,7 @@ describe('useMCP', () => {
 
     it('应该支持静默模式（不显示info和success消息）', async () => {
       const { ElMessage } = await import('element-plus')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -239,8 +239,8 @@ describe('useMCP', () => {
     })
 
     it('应该通过服务器名称找到服务器ID', async () => {
-      const { callMCPTool } = await import('@/api/tools/mcp')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       // 先加载服务器
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
@@ -263,7 +263,7 @@ describe('useMCP', () => {
     })
 
     it('应该通过hex格式的ID直接使用', async () => {
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -276,7 +276,7 @@ describe('useMCP', () => {
 
     it('应该处理工具调用失败（显示错误）', async () => {
       const { ElMessage } = await import('element-plus')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 500,
         success: false,
@@ -290,7 +290,7 @@ describe('useMCP', () => {
 
     it('应该处理异常（showError=true）', async () => {
       const { ElMessage } = await import('element-plus')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network boom'))
       const result = await invokeMCPTool('server1', 'testTool', {}, { silent: true, showError: true })
       expect(result.success).toBe(false)
@@ -299,7 +299,7 @@ describe('useMCP', () => {
     })
 
     it('应该处理非Error异常（String(error)）', async () => {
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockRejectedValue('string-error')
       const result = await invokeMCPTool('server1', 'testTool', {}, { silent: true })
       expect(result.success).toBe(false)
@@ -307,7 +307,7 @@ describe('useMCP', () => {
     })
 
     it('应该限制历史记录最多100条', async () => {
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -323,7 +323,7 @@ describe('useMCP', () => {
 
     it('应该显示调用info消息（非静默时）', async () => {
       const { ElMessage } = await import('element-plus')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -336,7 +336,7 @@ describe('useMCP', () => {
 
     it('应该显示成功消息', async () => {
       const { ElMessage } = await import('element-plus')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -349,7 +349,7 @@ describe('useMCP', () => {
 
   describe('invokeMCPToolsBatch - 批量调用工具', () => {
     it('应该批量调用工具并返回结果', async () => {
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -365,7 +365,7 @@ describe('useMCP', () => {
 
     it('应该统计成功数量', async () => {
       const { ElMessage } = await import('element-plus')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       let count = 0
       ;(callMCPTool as ReturnType<typeof vi.fn>).mockImplementation(() => {
         count++
@@ -390,8 +390,8 @@ describe('useMCP', () => {
     })
 
     it('应该按serverId过滤查找', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -434,8 +434,8 @@ describe('useMCP', () => {
     })
 
     it('应该返回匹配的工具列表', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -469,9 +469,9 @@ describe('useMCP', () => {
 
   describe('useMCPTool - 智能调用工具', () => {
     it('应该使用首选服务器调用工具', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -501,7 +501,7 @@ describe('useMCP', () => {
 
     it('应该返回null并提示警告当工具未找到', async () => {
       const { ElMessage } = await import('element-plus')
-      const { getMCPServersList } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -514,9 +514,9 @@ describe('useMCP', () => {
     })
 
     it('应该在所有服务器中查找工具（无首选）', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
-      const { callMCPTool } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
+      const { callMCPTool } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,
@@ -576,8 +576,8 @@ describe('useMCP', () => {
     })
 
     it('allTools应该使用缓存（serverCapabilitiesCache）', async () => {
-      const { getMCPServersList } = await import('@/api/tools/mcp')
-      const { getMCPServerCapabilities } = await import('@/api/tools/mcp')
+      const { getMCPServersList } = await import('@/api/mcp')
+      const { getMCPServerCapabilities } = await import('@/api/mcp')
       ;(getMCPServersList as ReturnType<typeof vi.fn>).mockResolvedValue({
         code: 200,
         success: true,

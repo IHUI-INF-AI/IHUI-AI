@@ -1,7 +1,7 @@
 {
   "memberComment": {
-    "myComments": "myComments",
-    "noComment": "noComment",
-    "reply": "回复"
+    "myComments": "我的評論",
+    "noComment": "暫無評論",
+    "reply": "回覆"
   }
 }

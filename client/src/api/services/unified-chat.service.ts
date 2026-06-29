@@ -3,7 +3,7 @@
  * 整合所有AI聊天相关的后端接口，提供统一的调用方式
  */
 import { logger } from '@/utils/logger'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { StorageManager, STORAGE_KEYS, TokenStorage } from '@/utils/storage'
 import type { ApiResponse } from '@/types'
 import { t } from '@/utils/i18n'
 
@@ -81,7 +81,7 @@ class UnifiedChatServiceClass {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+          Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
         },
         body: JSON.stringify({
           model: request.model,
@@ -207,7 +207,7 @@ export async function unifiedChat(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
       body: JSON.stringify({
         model: request.model,
@@ -278,7 +278,7 @@ export async function unifiedGeneration(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
       body: JSON.stringify({ type, prompt, ...options }),
     })
@@ -315,7 +315,7 @@ export async function pollGenerationResult(taskId: string): Promise<ApiResponse<
     const response = await fetch(`/api/generation/status/${taskId}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${String(StorageManager.getItem(STORAGE_KEYS.TOKEN) || '')}`,
+        Authorization: `Bearer ${String(TokenStorage.getToken() || '')}`,
       },
     })
 

@@ -2,15 +2,6 @@ import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
 import { loadModule, getCurrentLocale } from '@/locales'
 
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
-
 export const baseRoutes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -24,7 +15,11 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       preload: true,
       showFooter: false,
     },
-    beforeEnter: preloadI18n(['home']),
+    beforeEnter: async () => {
+      // 预加载 home 模块，避免组件渲染时显示 i18n key
+      await loadModule(getCurrentLocale(), 'home')
+      return true
+    },
   },
   {
     path: '/home',
@@ -46,7 +41,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.designSystem.desc',
       keywords: 'seo.designSystem.keywords',
     },
-    beforeEnter: preloadI18n(['designSystem']),
   },
   {
     path: '/storybook',
@@ -61,7 +55,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.componentShowcase.desc',
       keywords: 'seo.componentShowcase.keywords',
     },
-    beforeEnter: preloadI18n(['componentShowcase']),
   },
   {
     path: '/business-docs',
@@ -76,7 +69,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.businessDocs.desc',
       keywords: 'seo.businessDocs.keywords',
     },
-    beforeEnter: preloadI18n(['businessDocs']),
   },
   {
     path: '/aizhs-demo',
@@ -90,7 +82,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       title: 'routes.aizhsDemo',
       description: 'seo.aizhsDemo.desc',
     },
-    beforeEnter: preloadI18n(['aizhsDemo']),
   },
   {
     path: '/login',
@@ -101,7 +92,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: '登录智汇AI社区 - 支持多种登录方式',
       keywords: '登录,用户登录,账号登录',
     },
-    beforeEnter: preloadI18n(['login']),
   },
   {
     path: '/register',
@@ -115,7 +105,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: '注册智汇AI社区账号 - 开始您的AI之旅',
       keywords: '注册,用户注册,账号注册',
     },
-    beforeEnter: preloadI18n(['register']),
   },
   {
     path: '/403',
@@ -127,7 +116,6 @@ export const baseRoutes: Array<RouteRecordRaw> = [
       description: 'seo.forbidden.desc',
       keywords: 'seo.forbidden.keywords',
     },
-    beforeEnter: preloadI18n(['forbidden']),
   },
   {
     path: '/:pathMatch(.*)*',
@@ -139,8 +127,8 @@ export const baseRoutes: Array<RouteRecordRaw> = [
           template: `
             <div class="not-found-container" style="padding:40px; text-align:center;">
               <h1 style="font-size:48px; margin:20px 0; color:var(--el-text-color-primary);">404</h1>
-              <p style="font-size:16px; color:var(--el-text-color-secondary); margin:20px 0;">页面未找到</p>
-              <button style="padding:10px 16px; background:var(--el-color-primary); color:var(--el-color-white); border:none; border-radius:var(--global-border-radius); cursor:pointer; font-size:14px;" onclick="location.href='/'">返回首页</button>
+              <p style="font-size:16px; color:var(--el-text-color-secondary); margin:20px 0;">{{ $t('routes.notFound') }}</p>
+              <button style="padding:10px 16px; background:var(--el-color-primary); color:var(--el-color-white); border:none; border-radius:var(--global-border-radius); cursor:pointer; font-size:14px;" onclick="location.href='/'">{{ $t('errorBoundary.goHome') }}</button>
             </div>
           `,
         } as unknown as import('vue').DefineComponent)

@@ -61,7 +61,7 @@
     auto-fill,
     minmax(380px, 1fr)
   ); // 响应式列数，最小宽度380px，左右间距12px
-  grid-auto-rows: minmax(280px, auto); // 最小行高280px，内容超出时自适应
+  grid-auto-rows: 280px; // 固定行高，与卡片高度一致（280px = el-card__body高度）
   gap: 15px; // 统一间距：行间距和列间距相同，15px
   padding: 0; // 移除所有padding，间距由分页器控制
   min-height: 0;
@@ -101,7 +101,9 @@
     padding: 20px;
     display: flex;
     flex-direction: column;
+    height: var(--xuqiu-card-height);
     min-height: var(--xuqiu-card-height);
+    max-height: var(--xuqiu-card-height);
     overflow: hidden;
     box-sizing: border-box;
     width: 100%;
@@ -109,8 +111,9 @@
 
   &:hover {
     box-shadow: none;
-    
+    transform: translateY(-2px);
     border-color: var(--el-border-color);
+    z-index: calc(var(--z-base) + 9);
   }
 
   :where(.demand-header) {
@@ -295,7 +298,7 @@
         border-radius: var(--global-border-radius);
         border: none;
         flex-shrink: 0;
-        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        transition: all 0.2s ease;
       }
 
       // 已完成状态 - 绿色
@@ -357,7 +360,7 @@
           border: none;
           background: var(--color-neutral-100);
           color: var(--el-text-color-primary);
-          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+          transition: all 0.2s ease;
 
           &:hover {
             background: var(--el-bg-color-page);
@@ -434,16 +437,16 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
       overflow: visible;
 
       // 完全隐藏所有图标内容（使用CSS绘制箭头）
-      // 使用单类 / :deep，禁止高特异性
-      :deep(.el-icon),
-      :deep(svg),
-      :deep(i),
-      :deep(span) {
+      // 使用单类 / :deep，禁止高特异性 
+      &:deep(.el-icon),
+      &:deep(svg),
+      &:deep(i),
+      &:deep(span) {
         display: none;
         visibility: hidden;
         opacity: 0;
@@ -524,7 +527,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         font-size: 13px;
         font-weight: 500;
 
@@ -532,7 +535,7 @@
           color: var(--el-text-color-primary);
           background-color: var(--el-bg-color-page);
           border-color: var(--el-border-color);
-          
+          transform: translateY(-1px);
         }
 
         &.is-active {
@@ -544,7 +547,7 @@
           &:hover {
             background-color: var(--el-text-color-primary);
             border-color: var(--el-border-color);
-            
+            transform: translateY(-1px);
           }
         }
       }
@@ -552,35 +555,33 @@
   }
 }
 
-// 对话框样式优化 - 限定作用域，避免全局污染
-:where(.xuqiu-container) :deep(.el-dialog) {
+// 对话框样式优化
+.el-dialog {
   border: none;
   border-radius: var(--global-border-radius);
   box-shadow: none;
-}
 
-:where(.xuqiu-container) :deep(.el-dialog__header) {
-  border-bottom: none;
-  padding: 16px 20px;
+  .el-dialog__header {
+    border-bottom: none;
+    padding: 16px 20px;
 
-  .el-dialog__title {
-    font-size: 18px;
-    color: var(--el-text-color-primary);
-    font-weight: 600;
+    .el-dialog__title {
+      font-size: 18px;
+      color: var(--el-text-color-primary);
+      font-weight: 600;
+    }
+  }
+
+  .el-dialog__body {
+    padding: 20px;
   }
 }
-
-:where(.xuqiu-container) :deep(.el-dialog__body) {
-  padding: 20px;
-}
-
-:where(.xuqiu-container) :deep(.el-dialog__footer) {
+.el-dialog__footer {
   border-top: none;
   padding: 16px 20px;
 }
-
-// 表单样式优化 - 限定作用域，使用 :where() 降低特异性
-:where(.xuqiu-container) :deep(.el-form-item) {
+// 表单样式优化 - 使用 :where() 降低特异性
+:where(.el-form-item) {
   margin-bottom: 20px;
 
   .el-input__wrapper,
@@ -594,7 +595,7 @@
   }
 }
 
-@media (width <= 768px) {
+@media (max-width: 768px) {
   .xuqiu-container {
     height: 100%;
     margin-top: 0;

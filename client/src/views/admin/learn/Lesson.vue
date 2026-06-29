@@ -8,66 +8,93 @@
     :loading="loading"
     :keyword="keyword"
     :search-placeholder="t('learn.searchPlaceholder.lesson')"
+    :selectable="true"
     @search="onSearch"
     @page-change="onPageChange"
-    :show-add="false"
+    @add="onAdd"
+    @batch-delete="onBatchDelete"
+    @batch-edit="onBatchEdit"
+  />
+  <AdminEditDialog
+    v-model:visible="dialogVisible"
+    :mode="dialogMode"
+    :fields="formFields"
+    :form-data="formData"
+    :submitting="submitting"
+    @submit="onSubmit"
+    @submit-continue="onSubmitContinue"
+  />
+  <AdminBatchEditDialog
+    v-model:visible="batchEditVisible"
+    :rows="batchEditRows"
+    :fields="formFields"
+    :submitting="submitting"
+    :progress="batchEditProgress"
+    @submit="onBatchEditSubmit"
+    @retry="onBatchEditRetry"
   />
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { FIXED_RIGHT } from '@/utils/tableConstants'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+import { onMounted, h } from 'vue'
 import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
-import { adminApi } from '@/api/admin/admin'
+import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
+import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
+import { adminApi } from '@/api/admin'
+import { useAdminTable } from '@/composables/useAdminTable'
+import { useAdminCrud } from '@/composables/useAdminCrud'
 
-const keyword = ref('')
-const page = ref(1)
-const size = ref(50)
-const total = ref(0)
-const loading = ref(false)
-const list = ref<any[]>([])
-
-const columns: Column<any>[] = [
-  { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'title', dataKey: 'title', title: '课程名称', width: 220 },
-  { key: 'category', dataKey: 'category', title: '分类', width: 120 },
-  { key: 'teacher', dataKey: 'teacher', title: '讲师', width: 120 },
-  { key: 'studentCount', dataKey: 'studentCount', title: '学员', width: 100 },
+const formFields: FormField[] = [
+  { prop: 'name', label: t('adminCommon.label.title'), required: true, minLength: 1, maxLength: 100 },
+  { prop: 'code', label: t('adminCommon.label.code'), required: true, minLength: 1, maxLength: 100 },
+  { prop: 'introduction', label: t('adminCommon.label.introduction'), type: 'textarea', rows: 3, maxLength: 500 },
+  { prop: 'price', label: t('adminCommon.label.price'), type: 'number', min: 0, max: 9999999, step: 0.01 },
+  { prop: 'original_price', label: t('adminCommon.label.originalPrice'), type: 'number', min: 0, max: 9999999, step: 0.01 },
   {
-    key: 'actions',
-    title: '操作',
-    width: 180,
-    fixed: 'right' as any,
-    cellRenderer: () => h('div', {}, [
-      h(ElButton, { size: 'small', link: true, type: 'primary' }, '编辑'),
-      h(ElButton, { size: 'small', link: true, type: 'danger' }, '删除'),
-    ]),
+    prop: 'status',
+    label: t('adminCommon.label.status'),
+    type: 'select',
+    options: [
+      { label: t('adminCommon.label.draft'), value: 'draft' },
+      { label: t('adminCommon.label.published'), value: 'published' },
+    ],
   },
 ]
 
-const reload = async () => {
-  loading.value = true
-  try {
-    const res = await adminApi.learnLessonList({ current: page.value, size: size.value, keyword: keyword.value })
-    list.value = (res.data as any)?.records || []
-    total.value = (res.data as any)?.total || 0
-  } catch (e) { console.error(e) } finally {
-    loading.value = false
-  }
-}
+const { keyword, page, size, total, loading, list, reload, onSearch, onPageChange } = useAdminTable({
+  fetchFn: (params) => adminApi.learnLessonList(params),
+})
 
-const onSearch = (k: string) => {
-  keyword.value = k
-  page.value = 1
-  reload()
-}
+const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete, onBatchDelete, onSubmit, onSubmitContinue, batchEditVisible, batchEditRows, batchEditProgress, onBatchEdit, onBatchEditSubmit, onBatchEditRetry } = useAdminCrud({
+  fields: formFields,
+  createFn: (data) => adminApi.learnLessonCreate(data),
+  updateFn: (id, data) => adminApi.learnLessonUpdate(id, data),
+  deleteFn: (id) => adminApi.learnLessonDelete(id),
+  batchDeleteFn: (ids) => adminApi.learnLessonBatchDelete(ids),
+  onSuccess: reload,
+})
 
-const onPageChange = (p: number, s: number) => {
-  page.value = p
-  size.value = s
-  reload()
-}
-
+const columns: Column<unknown>[] = [
+  { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
+  { key: 'name', dataKey: 'name', title: t('adminCommon.label.title'), width: 220 },
+  { key: 'status', dataKey: 'status', title: t('adminCommon.label.status'), width: 120 },
+  { key: 'price', dataKey: 'price', title: t('adminCommon.label.price'), width: 120 },
+  { key: 'created_at', dataKey: 'created_at', title: t('adminCommon.label.createdAt'), width: 180 },
+  {
+    key: 'actions',
+    title: t('adminCommon.label.operation'),
+    width: 180,
+    fixed: FIXED_RIGHT,
+    cellRenderer: ({ rowData: row }) => h('div', {}, [
+      h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('common.edit')),
+      h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('common.delete')),
+    ]),
+  },
+]
 
 onMounted(reload)
 </script>

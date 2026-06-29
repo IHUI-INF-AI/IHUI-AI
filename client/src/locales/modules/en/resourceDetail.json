@@ -1,21 +1,21 @@
 {
   "resourceDetail": {
-    "anonymous": "anonymous",
-    "breadcrumbResource": "breadcrumbResource",
-    "current": "current",
-    "downloadResource": "downloadResource",
-    "downloadTimes": "downloadTimes",
-    "favorite": "收藏",
-    "freeDownload": "freeDownload",
-    "like": "点赞",
-    "notExist": "notExist",
-    "operateFailed": "operateFailed",
-    "pointsDownload": "pointsDownload",
-    "rateResource": "rateResource",
-    "rating": "rating",
-    "scoreUnit": "scoreUnit",
-    "size": "大小",
-    "uploader": "uploader",
-    "views": "views"
+    "breadcrumbResource": "Resources",
+    "downloadTimes": "downloads",
+    "views": "views",
+    "rating": "Rating",
+    "size": "Size: ",
+    "uploader": "Uploader: ",
+    "anonymous": "Anonymous",
+    "freeDownload": "Free Download",
+    "pointsDownload": "Points Download",
+    "downloadResource": "Download Resource",
+    "like": "Like",
+    "favorite": "Favorite",
+    "rateResource": "Rate",
+    "current": "Current: ",
+    "scoreUnit": "points",
+    "notExist": "Resource not exist",
+    "operateFailed": "Operation failed"
   }
 }

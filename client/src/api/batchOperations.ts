@@ -21,8 +21,8 @@ export async function batchCreateModels(
     apiKey?: string
     baseUrl?: string
     description?: string
-    pricing?: any
-    proxy?: any
+    pricing?: unknown
+    proxy?: unknown
   }>
 ): Promise<
   ApiResponse<{
@@ -43,7 +43,7 @@ export async function batchCreateModels(
       message: t('api.batch_operations.批量创建成功'),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const axiosError = error as { response?: { status?: number } }
     return {
       code: axiosError.response?.status || 500,
@@ -77,7 +77,7 @@ export async function batchDeleteModels(
       message: t('api.batch_operations.批量删除成功1'),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const axiosError = error as { response?: { status?: number } }
     return {
       code: axiosError.response?.status || 500,
@@ -108,7 +108,7 @@ export async function batchUpdateModelStatus(
       message: t('api.batch_operations.批量更新成功2'),
       timestamp: Date.now(),
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const axiosError = error as { response?: { status?: number } }
     return {
       code: axiosError.response?.status || 500,

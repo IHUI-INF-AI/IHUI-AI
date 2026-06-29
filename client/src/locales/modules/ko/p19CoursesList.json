@@ -1,7 +1,7 @@
 {
   "p19CoursesList": {
-    "enroll": "enroll",
-    "minutes": "minutes",
-    "title": "标题"
+    "title": "P19 강의 목록",
+    "minutes": "분",
+    "enroll": "수강 신청"
   }
 }

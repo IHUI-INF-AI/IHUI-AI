@@ -1,0 +1,19 @@
+{
+  "askEdit": {
+    "createTitle": "新建問題",
+    "editTitle": "編輯問題",
+    "questionTitle": "問題標題",
+    "titlePlaceholder": "請輸入問題標題（5-100 字）",
+    "titleRequired": "請輸入問題標題",
+    "titleLength": "標題長度需在 5-100 字之間",
+    "content": "問題內容",
+    "contentPlaceholder": "請詳細描述你的問題（10-2000 字）",
+    "contentRequired": "請輸入問題內容",
+    "contentLength": "內容長度需在 10-2000 字之間",
+    "category": "分類",
+    "selectCategory": "選擇分類（可選）",
+    "tags": "標籤",
+    "tagsPlaceholder": "輸入標籤後按 Enter",
+    "tagMax": "最多 {max} 個標籤"
+  }
+}

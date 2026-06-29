@@ -1,7 +1,7 @@
 {
   "learnTopicDetail": {
-    "joinTopic": "joinTopic",
-    "topicCourses": "topicCourses",
-    "topicNotFound": "topicNotFound"
+    "topicNotFound": "專題不存在",
+    "joinTopic": "加入專題",
+    "topicCourses": "專題課程"
   }
 }

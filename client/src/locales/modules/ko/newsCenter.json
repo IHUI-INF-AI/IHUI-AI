@@ -1,14 +1,57 @@
 {
   "newsCenter": {
+    "핵심 장점": "AI 뉴스",
+    "sub핵심 장점": "최신 동향, 제품 업데이트 및 업계 뉴스 확인",
     "categories": {
-      "industry": "industry"
+      "industry": "업계 뉴스",
+      "all": "모든",
+      "company": "회생각 뉴스",
+      "product": "제품 업데이트",
+      "event": "이벤트 공지"
     },
-    "loadMore": "loadMore",
-    "loadingMore": "加载更多",
-    "minRead": "minRead",
-    "pageInfo": "pageInfo",
-    "readMore": "readMore",
-    "subtitle": "副标题",
-    "title": "标题"
+    "readMore": "모든 읽기 →",
+    "news": {
+      "platformMajorUpdate": {
+        "핵심 장점": "플랫폼 주의요 업데이트: 신규 AI 모델 출시",
+        "excerpt": "최신 GPT-4 및 Claude 3 모델을 통합하여 생각사용게에게 더 강력한 AI 기능을 제공한다고 발표합니다.",
+        "title": "플랫폼대규모대사용량업데이트：글로벌신규 AI 모델위선"
+      },
+      "award2024": {
+        "핵심 장점": "ZhiHui AI, 2024 올해의 최고 AI 플랫폼 상 수상",
+        "excerpt": "최근 종료된 AI 혁신 대회에서 ZhiHui AI 플랫폼이 뛰어난 기술력과 생각사용게 체험으로 올해의 최고 AI 플랫폼 상을 수상했습니다.",
+        "title": "스마트AI영광획득2024년도최최상AI플랫폼보상"
+      },
+      "industryTrends": {
+        "핵심 장점": "AI 업계 발전 트렌드 분석 보고",
+        "excerpt": "2024년 AI 업계 발전 트렌드에 대한 심층 분석, 대규모 모델, 멀티모달 AI, AI 에이전트 등 인기 기술 방향을 다룹니다.",
+        "title": "AI업계발전확장추세동향분석보고"
+      },
+      "devConference2025": {
+        "핵심 장점": "개발게 컨퍼런스 2025 곧 개최",
+        "excerpt": "3월에 연간 개발게 컨퍼런스를 개최하여 다수의 주의요 제품 및 기능 업데이트를 발표합니다. 개발게들의 참여를 환영합니다.",
+        "title": "개발게대사용량있도2025즉시를개최"
+      },
+      "workflowAutomation": {
+        "핵심 장점": "신기능 출시: AI 워크플로우 게동화",
+        "excerpt": "신규 AI 워크플로우 기능이 출시되어 시각적 인마음페이스를 통해 복잡한 AI 게동화 프로세스를 쉽게 생성할 수 있습니다.",
+        "title": "신규기능릴리스：AI업무스트림게동화"
+      },
+      "partnerProgram": {
+        "핵심 장점": "파트너 프로그램 공식 시작",
+        "excerpt": "파트너 프로그램을 공식적으로 시작하여 모든 유형의 기업 및 서비스 제공업체의 참여를 환영하며 AI 기술의 보급 및 응사용을 공동으로 추진합니다.",
+        "title": "파트너십 프로그램 공식 시작"
+      }
+    },
+    "loadMore": "더 불러오기",
+    "loadingMore": "로딩 중...",
+    "pageInfo": "{page}페이지, 총 {total}페이지",
+    "title": "AI업데이트",
+    "subtitle": "최신 업데이트, 제품 소식 및 업계 뉴스 알아보기",
+    "minRead": "分钟阅读",
+    "disconnect": "연결 끊기",
+    "liveFeedActive": "라이브 피드 활성",
+    "comingSoon": "뉴스 세부 정보는 곧 제공될 예정입니다. 기대해 주의세요",
+    "quickNav": "빠른 탐색",
+    "fetchFailed": "뉴스 가져오기 실패"
   }
 }

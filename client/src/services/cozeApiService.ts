@@ -20,7 +20,7 @@ export interface CozeResponse {
   msg: string
   data?: {
     result: string
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -37,7 +37,7 @@ export class CozeApiService {
   private apiKey: string = ''
   private timeout: number = 30000
   private maxCacheSize: number = 100
-  private cache: Map<string, { data: any; timestamp: number }> = new Map()
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map()
   private requestCounter: number = 0
   private apiStats: {
     successCount: number
@@ -193,7 +193,7 @@ export class CozeApiService {
   }
 
   // 将数据存入缓存
-  private cacheData(key: string, data: any): void {
+  private cacheData(key: string, data: unknown): void {
     // 限制缓存大小
     if (this.cache.size >= this.maxCacheSize) {
       // 删除最早的缓存项
@@ -232,7 +232,7 @@ export class CozeApiService {
   // 运行工作流
   async runWorkflow(params: CozeRequestParams): Promise<CozeResponse> {
     try {
-      const cacheKey = this.generateCacheKey('runWorkflow', params as any)
+      const cacheKey = this.generateCacheKey('runWorkflow', params as unknown as Record<string, unknown>)
       const cachedResult = this.getFromCache<CozeResponse>(cacheKey)
 
       if (cachedResult) {

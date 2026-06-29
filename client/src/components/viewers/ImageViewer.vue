@@ -18,25 +18,25 @@
     </div>
     
     <div class="image-toolbar">
-      <button class="tool-btn" @click="zoomOut" :disabled="scale <= 0.1" :title="t('viewerImageViewer.zoomOut')" :aria-label="t('viewerImageViewer.zoomOut')">−</button>
+      <button class="tool-btn" @click="zoomOut" :disabled="scale <= 0.1" title="缩小" aria-label="缩小">−</button>
       <span class="scale-display">{{ Math.round(scale * 100) }}%</span>
       <button class="tool-btn" @click="zoomIn" :disabled="scale >= 10" :title="t('imageViewer.zoomIn')" :aria-label="t('imageViewer.zoomIn')">+</button>
-      <button class="tool-btn" @click="resetZoom" :title="t('viewerImageViewer.reset')" :aria-label="t('viewerImageViewer.reset')">⟲</button>
-      <button class="tool-btn" @click="rotateLeft" :title="t('viewerImageViewer.rotateLeft')" :aria-label="t('viewerImageViewer.rotateLeft')">↺</button>
-      <button class="tool-btn" @click="rotateRight" :title="t('viewerImageViewer.rotateRight')" :aria-label="t('viewerImageViewer.rotateRight')">↻</button>
-      <button class="tool-btn" @click="fitToScreen" :title="t('viewerImageViewer.fitScreen')" :aria-label="t('viewerImageViewer.fitScreen')">⊡</button>
-      <button class="tool-btn" @click="toggleFullscreen" :title="t('viewerImageViewer.fullscreen')" :aria-label="t('viewerImageViewer.fullscreen')">⛶</button>
-      <a :href="src" download class="tool-btn download-btn" :title="t('viewerImageViewer.download')">⬇</a>
+      <button class="tool-btn" @click="resetZoom" title="重置" aria-label="重置">⟲</button>
+      <button class="tool-btn" @click="rotateLeft" title="左旋转" aria-label="左旋转">↺</button>
+      <button class="tool-btn" @click="rotateRight" title="右旋转" aria-label="右旋转">↻</button>
+      <button class="tool-btn" @click="fitToScreen" title="适应屏幕" aria-label="适应屏幕">⊡</button>
+      <button class="tool-btn" @click="toggleFullscreen" title="全屏" aria-label="全屏">⛶</button>
+      <a :href="src" download class="tool-btn download-btn" title="下载">⬇</a>
     </div>
     
     <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
-      <span>{{ t('viewerImageViewer.loading') }}</span>
+      <span>{ t('viewerImageViewer.loading') }</span>
     </div>
     
     <div v-if="error" class="error-overlay">
       <span class="error-icon">⚠️</span>
-      <span>{{ t('viewerImageViewer.imageLoadFailed') }}</span>
+      <span>{ t('viewerImageViewer.imageLoadFailed') }</span>
       <a :href="src" download class="download-link">{{ t('imageViewer.downloadToView') }}</a>
     </div>
   </div>
@@ -248,7 +248,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--el-bg-color);
   font-size: 16px;
-  transition: background-color 0.2s, opacity 0.2s;
+  transition: all 0.2s;
 }
 
 .tool-btn:hover:not(:disabled) {
@@ -312,6 +312,6 @@ onMounted(() => {
 }
 
 .download-link:hover {
-  background: var(--el-color-primary);
+  background: var(--color-blue-245bdb);
 }
 </style>

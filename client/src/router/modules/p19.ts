@@ -1,15 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 export const p19Routes: Array<RouteRecordRaw> = [
   {
@@ -24,7 +14,6 @@ export const p19Routes: Array<RouteRecordRaw> = [
       description: '管理员仪表盘 (P19 业务组件)',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['p19AdminDashboard']),
   },
   {
     path: '/p19/courses',
@@ -38,7 +27,6 @@ export const p19Routes: Array<RouteRecordRaw> = [
       description: '课程展示 + 报名 (P19 业务组件)',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['p19CoursesList']),
   },
   {
     path: '/p19/agents',
@@ -52,7 +40,6 @@ export const p19Routes: Array<RouteRecordRaw> = [
       description: '智能体展示 + 调用 (P19 业务组件)',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['p19AgentsList']),
   },
   {
     path: '/p19/payment',
@@ -66,6 +53,5 @@ export const p19Routes: Array<RouteRecordRaw> = [
       description: '支付方式 + 余额 (P19 业务组件)',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['p19PaymentMethods']),
   },
 ]

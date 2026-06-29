@@ -88,10 +88,10 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { getTools } from '@/api/tools/openclaw'
+import { getTools } from '@/api/openclaw'
 import { getBrowserAutomation } from '@/services/clawdbot/browser'
 import { useOpenClaw } from '@/composables/useOpenClaw'
-import type { ToolDefinition } from '@/api/tools/openclaw'
+import type { ToolDefinition } from '@/api/openclaw'
 
 const emit = defineEmits<{ (e: 'use-in-chat'): void }>()
 

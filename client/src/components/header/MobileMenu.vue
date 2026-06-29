@@ -162,84 +162,20 @@ import type { Language } from '@/composables/useLang'
 import { switchLanguage, supportedLanguages, getCurrentLanguage } from '@/composables/useLang'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkModeStore } from '@/stores/darkMode'
-import { logger } from '@/utils/logger'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
 // 使用动态导入优化组件体积
 // Search 组件已移至 HeaderActions.vue 并固定在屏幕右下角
 const Notification = defineAsyncComponent(() => import('../Notification.vue'))
 const ThemeToggle = defineAsyncComponent(() => import('../ThemeToggle.vue'))
 
-// 2026-06-25 修复: 与 src/composables/useAppLifecycle.ts 同形 - 顶层 useRouter/useRoute/useI18n/
-// useAuthStore/useDarkModeStore 全部改为 try/catch + 懒加载.
-// Vite HMR 重载早期 setup 时, 上述任一注入或 store 可能尚未就绪, 抛
-//   'injection "Symbol(router)" not found' / 'getActivePinia()' / 'i18n not installed'
-// 会让整个 setup 失败, ErrorBoundary 级联, 连带让 HeaderNavigation 等兄弟组件也渲染失败.
-// 这里只兜底不报错, 不影响正常路径行为.
-let router: ReturnType<typeof useRouter> | null = null
-try {
-  router = useRouter()
-} catch (e) {
-  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则,
-  // 移除冗余的 eslint-disable-next-line 指令
-  logger.debug('[MobileMenu] useRouter unavailable on init:', e)
-}
-
-let route: ReturnType<typeof useRoute> | null = null
-try {
-  route = useRoute()
-} catch (e) {
-  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  logger.debug('[MobileMenu] useRoute unavailable on init:', e)
-}
-
-const getRouter = (): ReturnType<typeof useRouter> | null => {
-  if (router) return router
-  try {
-    router = useRouter()
-    return router
-  } catch {
-    return null
-  }
-}
-
-const getRoute = (): ReturnType<typeof useRoute> | null => {
-  if (route) return route
-  try {
-    route = useRoute()
-    return route
-  } catch {
-    return null
-  }
-}
-
+const router = useRouter()
+const route = useRoute()
 // 使用全局作用域，因为 Header 在 Teleport 中会失去父级作用域
 interface UseI18nOptions {
   useScope?: 'global' | 'local'
 }
-let t: ((key: string) => string) | null = null
-let locale: { value: string } | null = null
-try {
-  const i18n = (useI18n as (options?: UseI18nOptions) => ReturnType<typeof useI18n>)({ useScope: 'global' })
-  t = i18n.t
-  locale = i18n.locale
-} catch (e) {
-  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  logger.debug('[MobileMenu] useI18n unavailable on init:', e)
-}
-
-// 2026-06-25 修复 ESLint 错误: 之前定义的 getT (含副作用的回退 useI18n) 在
-// 整个文件里没有任何调用方, 直接移除, 避免 no-unused-vars. 真正在用的
-// getLocale / getRoute 等已统一改为 _ 前缀, 与 ihui/no-unused-vars 规则匹配.
-// 已通过 lint: getT 已无引用, 无需 fallback.
-const getLocale = (): { value: string } | null => {
-  if (locale) return locale
-  try {
-    locale = useI18n().locale
-    return locale
-  } catch {
-    return null
-  }
-}
+const { t, locale } = (useI18n as (options?: UseI18nOptions) => ReturnType<typeof useI18n>)({ useScope: 'global' })
 
 // Props
 const _props = defineProps<{
@@ -252,50 +188,12 @@ const emit = defineEmits<{
 }>()
 
 // 从auth store获取登录状态
-let authStore: ReturnType<typeof useAuthStore> | null = null
-let darkModeStore: ReturnType<typeof useDarkModeStore> | null = null
-try {
-  authStore = useAuthStore()
-} catch (e) {
-  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  logger.debug('[MobileMenu] useAuthStore unavailable on init:', e)
-}
-try {
-  darkModeStore = useDarkModeStore()
-} catch (e) {
-  // 2026-06-25 清理: ESLint 已确认 console.debug 不触发 no-console 规则
-  logger.debug('[MobileMenu] useDarkModeStore unavailable on init:', e)
-}
+const authStore = useAuthStore()
+const isLoggedIn = computed(() => authStore.isLoggedIn)
 
-const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
-  if (authStore) return authStore
-  try {
-    authStore = useAuthStore()
-    return authStore
-  } catch {
-    return null
-  }
-}
-
-const getDarkModeStore = (): ReturnType<typeof useDarkModeStore> | null => {
-  if (darkModeStore) return darkModeStore
-  try {
-    darkModeStore = useDarkModeStore()
-    return darkModeStore
-  } catch {
-    return null
-  }
-}
-
-const isLoggedIn = computed(() => {
-  const auth = getAuthStore()
-  return auth ? auth.isLoggedIn : false
-})
-
+const darkModeStore = useDarkModeStore()
 const isThemeDark = computed(() => {
-  const dm = getDarkModeStore()
-  if (!dm) return false
-  const isDark = dm.isDarkMode ?? dm.themeMode === 'dark'
+  const isDark = darkModeStore.isDarkMode ?? darkModeStore.themeMode === 'dark'
   return isDark
 })
 
@@ -305,13 +203,9 @@ const showSupportMenu = ref(false)
 const showAboutMenu = ref(false)
 
 // 根据当前路由自动计算activeIndex
-// 2026-06-24 修复: HMR 重载或 router 注入失败时 route 可能为 undefined,
-// 2026-06-25 扩展: route 现在是 let, 顶层 try/catch 失败时为 null, 这里继续做空值守卫
 const activeIndex = computed(() => {
-  const r = getRoute()
-  const safeRoute = (r as unknown as { name?: string | symbol; path?: string } | undefined) || {}
-  const routeName = safeRoute.name as string | undefined
-  const routePath = safeRoute.path || ''
+  const routeName = (route as { name?: string | symbol }).name as string
+  const routePath = route.path
 
   if (routeName === 'home' || routePath === '/' || routePath === '/home') {
     return 'home'
@@ -351,8 +245,7 @@ const activeIndex = computed(() => {
 
 // 导航方法
 function goToPath(path: string, _key: string) {
-  const r = getRouter()
-  if (r) r.push(path)
+  router.push(path)
   closeMenus()
 }
 
@@ -397,11 +290,11 @@ const currentLanguage = computed(() => {
   const globalLang = getCurrentLanguage.value as string | undefined
   if (globalLang) return globalLang as Language
 
-  const lc = getLocale()
-  if (lc && typeof lc === 'object' && 'value' in lc) {
-    return lc.value || 'zh-CN'
+  const localeObj = locale as unknown
+  if (localeObj && typeof localeObj === 'object' && 'value' in localeObj) {
+    return (localeObj as { value: string | undefined }).value || 'zh-CN'
   }
-  return 'zh-CN'
+  return (locale as unknown as string) || 'zh-CN'
 })
 
 // 计算当前语言显示文本
@@ -502,8 +395,8 @@ const showLoginPopup = (event?: MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
   }
-  const r = getRouter()
-  if (r) r.push('/login')
+  // 弹窗形式：直接打开登录弹窗，不再跳转 /login 路由
+  useLoginDialog().open('login')
   closeMenus()
 }
 
@@ -526,11 +419,8 @@ const toggleAboutMenu = () => {
 }
 
 // 检查服务与支持相关页面是否激活
-// 2026-06-24 修复: route 可能为 undefined, 加可选链
-// 2026-06-25 扩展: 改用 getRoute() 兜底
 const isSupportActive = computed(() => {
-  const r = getRoute()
-  const routePath = (r as unknown as { path?: string } | undefined)?.path || ''
+  const routePath = route.path
   return (
     routePath.startsWith('/support/') ||
     activeIndex.value === 'documentCenter'
@@ -538,11 +428,8 @@ const isSupportActive = computed(() => {
 })
 
 // 检查关于我们相关页面是否激活
-// 2026-06-24 修复: route 可能为 undefined, 加可选链
-// 2026-06-25 扩展: 改用 getRoute() 兜底
 const isAboutActive = computed(() => {
-  const r = getRoute()
-  const routePath = (r as unknown as { path?: string } | undefined)?.path || ''
+  const routePath = route.path
   return (
     routePath.startsWith('/about/') ||
     activeIndex.value === 'newsCenter' ||

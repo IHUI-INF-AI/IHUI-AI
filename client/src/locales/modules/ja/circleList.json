@@ -1,15 +1,13 @@
 {
   "circleList": {
-    "allCategories": "allCategories",
-    "members": "会员",
-    "noCircles": "noCircles",
-    "noDesc": "noDesc",
-    "official": "official",
-    "onlyOfficial": "onlyOfficial",
-    "posts": "posts",
-    "searchPlaceholder": "请输入搜索内容",
-    "subtitle": "副标题",
-    "title": "标题",
-    "top": "置顶"
+    "title": "趣味サークル",
+    "subtitle": "見つける / 参加 / 交流",
+    "allCategories": "すべてのカテゴリー",
+    "noCircles": "サークルなし",
+    "official": "公式",
+    "top": "固定",
+    "noDesc": "説明なし",
+    "members": "メンバー",
+    "posts": "投稿"
   }
 }

@@ -1,9 +1,9 @@
 {
   "adminSettingCarousel": {
-    "noImage": "noImage",
-    "noTitle": "noTitle",
-    "preview": "预览",
-    "previewTitle": "previewTitle",
-    "viewJumpPage": "viewJumpPage"
+    "preview": "プレビュー",
+    "noImage": "画像なし",
+    "noTitle": "タイトル未入力",
+    "previewTitle": "カルーセルプレビュー",
+    "viewJumpPage": "ジャンプページを表示"
   }
 }

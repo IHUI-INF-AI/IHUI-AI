@@ -1,110 +1,148 @@
 {
   "login": {
-    "agreement": {
-      "and": "and",
-      "prefix": "prefix",
-      "privacyPolicy": "隐私政策",
-      "userAgreement": "用户协议"
-    },
-    "aiModels": "aiModels",
-    "apple": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "securityTip"
-    },
-    "availability": "availability",
-    "buttons": {
-      "login": "登录",
-      "register": "注册",
-      "submitLogin": "submitLogin",
-      "submitRegister": "submitRegister"
+    "selectProject": "選擇項目",
+    "subtitle": "歡迎回來",
+    "forgotPassword": "忘記密碼",
+    "noAccount": "還沒有賬號？",
+    "project": {
+      "main": "智匯AI主平台",
+      "open": "開放平台",
+      "admin": "總管理端",
+      "eduWeb": "智匯AI教育平台",
+      "eduAdmin": "教育管理後台",
+      "user": "用戶端"
     },
     "crossProject": {
-      "admin": "管理员",
-      "loggingIn": "登录中",
-      "switchTo": "switchTo",
-      "user": "用户"
+      "loggingIn": "正在登錄 {project}...",
+      "user": "用戶端",
+      "admin": "總管理端",
+      "switchTo": "切換到"
     },
-    "error": {
-      "insecureConnection": "insecureConnection"
-    },
-    "forgotPassword": "忘记密码",
-    "goLogin": "goLogin",
-    "goRegister": "goRegister",
-    "google": {
-      "loggingIn": "登录中",
-      "retry": "重试",
-      "securityTip": "securityTip"
-    },
-    "hasAccount": "hasAccount",
-    "hidePassword": "hidePassword",
-    "ihuiLogo": "ihuiLogo",
-    "mode": {
-      "hasAccount": "hasAccount",
-      "noAccount": "noAccount",
-      "userLogin": "userLogin",
-      "userRegister": "userRegister"
-    },
-    "noAccount": "noAccount",
-    "oneStopAI": "oneStopAI",
-    "password": {
-      "hide": "隐藏",
-      "show": "显示"
+    "ihuiLogo": "智匯AI Logo",
+    "worldFirst": "全球首創",
+    "oneStopAI": "人人的一站式AI整合應用平台",
+    "aiModels": "AI模型",
+    "users500k": "50萬+",
+    "users": "用戶",
+    "availability": "可用性",
+    "tabs": {
+      "account": "賬號登錄",
+      "phone": "手機登錄",
+      "accountRegister": "賬號註冊",
+      "phoneRegister": "手機註冊"
     },
     "placeholders": {
-      "confirmLoginPassword": "confirmLoginPassword",
-      "confirmPassword": "confirmPassword",
-      "email": "邮箱",
-      "password": "密码",
-      "phone": "手机号",
-      "phoneRegister": "phoneRegister",
-      "setLoginPassword": "setLoginPassword",
-      "setPassword": "setPassword",
-      "smsCode": "smsCode",
-      "username": "用户名",
-      "usernameOrEmail": "usernameOrEmail"
+      "username": "請輸入用戶名",
+      "usernameOrEmail": "請輸入用戶名或郵箱",
+      "email": "請輸入郵箱地址",
+      "password": "請輸入密碼",
+      "setPassword": "請設置密碼",
+      "confirmPassword": "請確認密碼",
+      "phone": "請輸入手機號登錄",
+      "phoneRegister": "請輸入手機號註冊",
+      "smsCode": "請輸入短信驗證碼",
+      "setLoginPassword": "請設置登錄密碼",
+      "confirmLoginPassword": "請確認登錄密碼"
     },
-    "project": {
-      "admin": "管理员",
-      "eduAdmin": "eduAdmin",
-      "eduWeb": "eduWeb",
-      "main": "main",
-      "open": "打开",
-      "user": "用户"
+    "buttons": {
+      "login": "立即登錄",
+      "register": "立即註冊",
+      "submitLogin": "登錄",
+      "submitRegister": "註冊",
+      "sendCode": "發送驗證碼",
+      "resend": "重新發送",
+      "resendIn": "{seconds}秒後重新發送"
     },
-    "selectProject": "selectProject",
-    "showPassword": "showPassword",
-    "subtitle": "副标题",
-    "switchPlatform": "switchPlatform",
-    "tabs": {
-      "account": "账号",
-      "accountRegister": "accountRegister",
-      "phone": "手机号",
-      "phoneRegister": "phoneRegister"
+    "mode": {
+      "userLogin": "用戶登錄",
+      "userRegister": "用戶註冊",
+      "hasAccount": "已有賬號？去登錄",
+      "noAccount": "沒有賬號？去註冊"
+    },
+    "password": {
+      "show": "顯示密碼",
+      "hide": "隱藏密碼"
+    },
+    "agreement": {
+      "prefix": "我已閱讀並同意",
+      "userAgreement": "《用戶協議》",
+      "privacyPolicy": "《隱私政策》",
+      "and": "和"
+    },
+    "error": {
+      "insecureConnection": "當前連接不安全，建議使用HTTPS訪問",
+      "unknownError": "未知錯誤"
     },
     "thirdParty": {
-      "accountLogin": "账号密码登录",
-      "alipay": "alipay",
-      "alipayLogin": "alipayLogin",
+      "or": "或",
+      "notice": "使用第三方登錄即表示您同意我們的",
+      "privacyPolicy": "隱私政策",
+      "termsOfService": "服務條款",
+      "tooltip": {
+        "wechat": "微信登錄",
+        "google": "Google登錄",
+        "apple": "Apple登錄",
+        "feishu": "飛書登錄"
+      },
+      "feishuLogin": "Feishu登錄",
+      "accountLogin": "accountLogin",
       "comingSoon": "comingSoon",
-      "emailLogin": "邮箱登录",
+      "emailLogin": "emailLogin",
       "feishu": "feishu",
-      "feishuLogin": "feishuLogin",
-      "notice": "notice",
-      "or": "or",
       "otherMethods": "otherMethods",
-      "phoneLogin": "手机号登录",
-      "privacyPolicy": "隐私政策",
-      "quickLogin": "快捷登录",
+      "phoneLogin": "phoneLogin",
+      "quickLogin": "quickLogin",
       "securityNotice1": "securityNotice1",
       "securityNotice2": "securityNotice2",
       "securityNotice3": "securityNotice3",
       "selectPreferred": "selectPreferred",
-      "termsOfService": "termsOfService"
+      "wechatLogin": "微信登錄",
+      "googleLogin": "Google登錄",
+      "appleLogin": "Apple登錄",
+      "wechatLoginFailed": "微信登錄失敗，請重試",
+      "googleLoginFailed": "Google登錄失敗，請重試",
+      "appleLoginFailed": "Apple登錄失敗，請重試"
     },
-    "users": "用户",
-    "users500k": "users500k",
-    "welcomeTitle": "welcomeTitle",
-    "worldFirst": "worldFirst"
+    "hidePassword": "隐藏Password",
+    "showPassword": "顯示Password",
+    "welcomeTitle": "welcome標題",
+    "apple": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "google": {
+      "loggingIn": "loggingIn",
+      "retry": "retry",
+      "securityTip": "securityTip"
+    },
+    "switchPlatform": "switchPlatform",
+    "goLogin": "Go Login",
+    "goRegister": "Go Register",
+    "hasAccount": "Has Account",
+    "switchProject": "切換項目",
+    "title": "登錄",
+    "rememberMe": "記住我",
+    "registerNow": "立即註冊",
+    "loginSuccess": "登錄成功",
+    "loginFailed": "登錄失敗",
+    "brand": {
+      "title": "全球首創智能體平台",
+      "subtitle": "人人的一站式AI整合應用平台"
+    },
+    "form": {
+      "username": "用戶名",
+      "password": "密碼",
+      "login": "登錄",
+      "forgotPassword": "忘记密碼？",
+      "rememberMe": "记住我"
+    },
+    "social": {
+      "wechat": "微信登錄",
+      "qq": "QQ登錄",
+      "phone": "手機登錄"
+    },
+    "register": "註冊",
+    "login": "登入"
   }
 }

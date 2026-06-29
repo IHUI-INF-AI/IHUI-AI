@@ -2,37 +2,5 @@
   "Vip": {
     "permanentVip": "/영구 VIP",
     "oneClickVip": "원클릭 VIP"
-  },
-  "userMembershipBenefits": {
-    "vipPrice": "한정 588위안/1288위안 VIP/년",
-    "traderPrice": "한정 3888위안/18888위안 트레이더/년",
-    "benefitName": "혜택명",
-    "normalUser": "일반 사용자",
-    "vip": "VIP",
-    "trader": "트레이더",
-    "upgrade": "지금 개통",
-    "benefit1Title": "평생 2차 배분 수익",
-    "benefit1One": "공유하고 지혜 포인트 받기",
-    "benefit1Two": "1차 배분 10%",
-    "benefit1Three": "1차 배분 40% 2차 배분 10%",
-    "benefit2Title": "1000개 이상 에이전트 소스코드 획득",
-    "benefit3Title": "AI 앱 Coze 공식 채널 게시",
-    "benefit4Title": "AI 앱 한정 무료 공개",
-    "benefit5Title": "Coze/N8N 원활한 연동",
-    "benefit6Title": "다대일 Q&A 코칭",
-    "benefit7Title": "연산력 포인트 증정",
-    "benefit7One": "8만",
-    "benefit7Two": "888만",
-    "benefit7Three": "1888만",
-    "benefit8Title": "본사 입주 및 오프라인 학습 실습 기회",
-    "benefit9Title": "1인 회사 설립",
-    "benefit10Title": "맞춤 Agent",
-    "benefit10One": "정가",
-    "benefit10Two": "5% 할인",
-    "benefit10Three": "20% 할인",
-    "benefit11Title": "커뮤니티 서비스 제공자 등록"
-  },
-  "vipIntroducePopup": {
-    "loading": "로딩 중"
   }
 }

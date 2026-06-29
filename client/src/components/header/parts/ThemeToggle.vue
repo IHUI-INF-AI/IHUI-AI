@@ -53,7 +53,6 @@ const SunnyIcon = Sunny
   min-width: var(--header-action-height);
   max-width: var(--header-action-height);
   padding: 0;
-  margin-right: var(--header-actions-gap);
   background-color: transparent;
   border-radius: var(--global-border-radius);
   flex-shrink: 0;

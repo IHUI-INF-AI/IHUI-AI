@@ -1,5 +1,5 @@
 <template>
-  <ElDialog v-model="visibleModel" :title="t('adminCommon.batchEdit')" width="500px" append-to-body :close-on-click-modal="!submitting">
+  <ElDialog v-model="visibleModel" :title="t('adminBatchEditDialog.title')" width="500px" append-to-body :close-on-click-modal="!submitting">
     <div class="batch-edit" v-if="visibleModel">
       <p class="batch-edit__tip">{{ t('adminBatchEditDialog.selectedTip', { count: rows.length }) }}</p>
       <ElForm label-width="120px">
@@ -16,14 +16,14 @@
       </ElForm>
       <div class="batch-edit__progress" v-if="progress.visible">
         <ElProgress :percentage="progress.total ? Math.round((progress.current / progress.total) * 100) : 0" :status="progressStatus" />
-        <p class="batch-edit__progress-text">{{ t('adminCommon.updating') }} {{ progress.current }} / {{ progress.total }} {{ t('adminCommon.items') }}</p>
-        <p class="batch-edit__failed-text" v-if="failedCount > 0">{{ t('adminCommon.failed') }} {{ failedCount }} {{ t('adminCommon.items') }}，{{ t('adminCommon.canRetryHint') }}</p>
+        <p class="batch-edit__progress-text">{{ t('adminBatchEditDialog.updating', { current: progress.current, total: progress.total }) }}</p>
+        <p class="batch-edit__failed-text" v-if="failedCount > 0">{{ t('adminBatchEditDialog.failedTip', { count: failedCount }) }}</p>
       </div>
     </div>
     <template #footer>
-      <ElButton @click="visibleModel = false" :disabled="submitting">{{ t('common.cancel') }}</ElButton>
-      <ElButton type="warning" v-if="failedCount > 0" :loading="submitting" @click="onRetry">{{ t('adminCommon.retryFailed') }}</ElButton>
-      <ElButton type="primary" :loading="submitting" @click="onSubmit">{{ t('adminCommon.batchSave') }}</ElButton>
+      <ElButton @click="visibleModel = false" :disabled="submitting">{{ t('adminBatchEditDialog.cancel') }}</ElButton>
+      <ElButton type="warning" v-if="failedCount > 0" :loading="submitting" @click="onRetry">{{ t('adminBatchEditDialog.retryFailed') }}</ElButton>
+      <ElButton type="primary" :loading="submitting" @click="onSubmit">{{ t('adminBatchEditDialog.save') }}</ElButton>
     </template>
   </ElDialog>
 </template>
@@ -38,7 +38,7 @@ const { t } = useI18n()
 
 const props = defineProps<{
   visible: boolean
-  rows: any[]
+  rows: Record<string, unknown>[]
   fields: FormField[]
   submitting: boolean
   progress: { current: number; total: number; visible: boolean; failedIds: (string | number)[] }
@@ -46,8 +46,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void
-  (e: 'submit', data: Record<string, any>): void
-  (e: 'retry', data: Record<string, any>): void
+  (e: 'submit', data: Record<string, unknown>): void
+  (e: 'retry', data: Record<string, unknown>): void
 }>()
 
 const visibleModel = computed({
@@ -62,7 +62,7 @@ const editableFields = computed(() => props.fields.filter((f: FormField) => f.ty
 const checked = reactive<Record<string, boolean>>({})
 
 // 编辑数据
-const data = reactive<Record<string, any>>({})
+const data = reactive<Record<string, unknown>>({})
 
 // 失败项数量
 const failedCount = computed(() => props.progress.failedIds?.length || 0)
@@ -85,7 +85,7 @@ watch(() => props.visible, (v) => {
 
 const onSubmit = () => {
   // 只提交勾选的字段
-  const updateData: Record<string, any> = {}
+  const updateData: Record<string, unknown> = {}
   for (const f of editableFields.value) {
     if (checked[f.prop]) {
       updateData[f.prop] = data[f.prop]
@@ -96,7 +96,7 @@ const onSubmit = () => {
 
 const onRetry = () => {
   // 重试时使用与提交时相同的字段数据
-  const updateData: Record<string, any> = {}
+  const updateData: Record<string, unknown> = {}
   for (const f of editableFields.value) {
     if (checked[f.prop]) {
       updateData[f.prop] = data[f.prop]

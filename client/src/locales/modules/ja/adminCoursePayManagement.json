@@ -1,0 +1,22 @@
+{
+  "adminCoursePayManagement": {
+    "export": "エクスポート",
+    "search": {
+      "status": "ステータス",
+      "statusPlaceholder": "请選択ステータス"
+    },
+    "table": {
+      "status": "ステータス"
+    },
+    "discountType": {},
+    "status": {
+      "enabled": "あり効",
+      "disabled": "無効"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    }
+  }
+}

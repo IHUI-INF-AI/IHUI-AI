@@ -1,12 +1,12 @@
 {
   "buyConfirm": {
-    "actualPay": "actualPay",
-    "alipay": "alipay",
-    "balancePay": "balancePay",
-    "courseAmount": "courseAmount",
-    "payMethod": "payMethod",
-    "peopleLearning": "peopleLearning",
-    "teacher": "teacher",
-    "wechatPay": "wechatPay"
+    "teacher": "講師",
+    "peopleLearning": "人學習",
+    "payMethod": "支付方式",
+    "alipay": "支付寶",
+    "wechatPay": "微信支付",
+    "balancePay": "餘額支付",
+    "courseAmount": "課程金額",
+    "actualPay": "實付"
   }
 }

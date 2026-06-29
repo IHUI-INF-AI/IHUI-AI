@@ -89,16 +89,22 @@ import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
-import { examApi } from '@/api/learn/exam'
+import { examApi } from '@/api/exam'
 
 const router = useRouter()
 const toast = useToast()
 const { t } = useI18n()
 const activeTab = ref<string>('papers')
 const loading = ref(false)
-const papers = ref<any[]>([])
-const records = ref<any[]>([])
-const wrongs = ref<any[]>([])
+interface ExamWrong {
+  id?: number
+  content?: string
+  answer?: string
+  question?: { content?: string; answer?: string }
+}
+const papers = ref<unknown[]>([])
+const records = ref<unknown[]>([])
+const wrongs = ref<ExamWrong[]>([])
 const keyword = ref('')
 const difficulty = ref('')
 
@@ -128,12 +134,12 @@ function goDo(id: number) {
 async function loadPapers() {
   loading.value = true
   try {
-    const params: any = { page: 1, limit: 30 }
+    const params: { page: number; limit: number; keyword?: string; difficulty?: string } = { page: 1, limit: 30 }
     if (keyword.value) params.keyword = keyword.value
     if (difficulty.value) params.difficulty = difficulty.value
     const res = await examApi.listPapers(params)
-    const data = res?.data
-    papers.value = data?.data || data?.list || data || []
+    const data = (res as { data?: { data?: unknown[]; list?: unknown[] } })?.data
+    papers.value = (data?.data || data?.list || data || []) as unknown[]
   } catch {
     /* 静默 */
   } finally {
@@ -145,8 +151,8 @@ async function loadRecords() {
   loading.value = true
   try {
     const res = await examApi.records({ page: 1, limit: 30 })
-    const data = res?.data
-    records.value = data?.data || data?.list || data || []
+    const data = (res as { data?: { data?: unknown[]; list?: unknown[] } })?.data
+    records.value = (data?.data || data?.list || data || []) as unknown[]
   } catch {
     /* 静默 */
   } finally {
@@ -158,8 +164,8 @@ async function loadWrongs() {
   loading.value = true
   try {
     const res = await examApi.wrongList({ page: 1, limit: 50 })
-    const data = res?.data
-    wrongs.value = data?.data || data?.list || data || []
+    const data = (res as { data?: { data?: unknown[]; list?: unknown[] } })?.data
+    wrongs.value = (data?.data || data?.list || data || []) as ExamWrong[]
   } catch {
     /* 静默 */
   } finally {
@@ -171,9 +177,9 @@ async function handleRemoveWrong(id: number) {
   try {
     await examApi.removeWrong(id)
     wrongs.value = wrongs.value.filter((w) => w.id !== id)
-    toast.success(t('common.messages.removed'))
+    toast.success('已移除')
   } catch {
-    toast.error(t('common.errors.removeFailed'))
+    toast.error('移除失败')
   }
 }
 

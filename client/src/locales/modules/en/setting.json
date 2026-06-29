@@ -24,6 +24,12 @@
       "paySettings": "Payment Settings",
       "wechatPay": "WeChat Pay",
       "alipay": "Alipay",
+      "title": "Title",
+      "image": "Image",
+      "link": "Link",
+      "sort": "Sort",
+      "status": "Status",
+      "actions": "Actions",
       "userAgreement": "User Agreement",
       "privacyPolicy": "Privacy Policy",
       "serviceTerms": "Service Terms"

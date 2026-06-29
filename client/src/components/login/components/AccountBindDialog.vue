@@ -49,11 +49,11 @@
 import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import type { FormInstance } from 'element-plus'
+import type { FormInstance, FormItemRule } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { FormValidator } from '@/utils/formValidation'
 import { InputValidator } from '@/utils/security'
-import { setEmail, setPwd } from '@/api/user/user'
+import { setEmail, setPwd } from '@/api/user'
 
 // needPwd 为 0 时使用的占位密码（仅展示，不可编辑）
 const DEFAULT_PASSWORD_PLACEHOLDER = '********'
@@ -143,7 +143,7 @@ const isPasswordDisabled = computed(() => needPwdValue.value === 0)
 const bindFormRules = reactive({
   email: [
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -166,7 +166,7 @@ const bindFormRules = reactive({
   username: [
     { required: true, message: t('auth.usernameOrPhoneOrEmail'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -197,7 +197,7 @@ const bindFormRules = reactive({
   password: [
     { required: true, message: t('auth.validation.passwordRequired'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -446,7 +446,6 @@ defineExpose({
   background-color: var(--abd-overlay-bg);
   z-index: var(--abd-overlay-z-index);
   backdrop-filter: blur(var(--abd-overlay-blur));
-  -webkit-backdrop-filter: blur(var(--abd-overlay-blur));
 }
 
 /* 账号绑定对话框 - 适配明暗模式 */

@@ -25,12 +25,12 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 const loading = ref(false)
 const form = ref({ password: '', twoFactor: false, securityEmail: '', securityMobile: '' })
 async function load() {
   loading.value = true
-  try { form.value = (await adminApi.accountSecurity() as any)?.data || form.value } finally { loading.value = false }
+  try { form.value = ((await adminApi.accountSecurity())?.data as typeof form.value | undefined) ?? form.value } finally { loading.value = false }
 }
 function onViewLog() { ElMessage.info(t('common.messages.viewLoginLog')) }
 function onSave() { ElMessage.success(t('common.messages.saved')) }

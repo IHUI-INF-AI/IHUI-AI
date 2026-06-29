@@ -3,7 +3,7 @@
     <div class="toolbar">
       <el-input
         v-model="keywordModel"
-        :placeholder="searchPlaceholder"
+        :placeholder="searchPlaceholder ?? t('adminTableV2.searchPlaceholder')"
         clearable
         class="search-input"
         @keyup.enter="onSearch"
@@ -52,7 +52,7 @@
       @size-change="(s: number) => $emit('page-change', page, s)"
       @current-change="(p: number) => $emit('page-change', p, size)"
     />
-    <el-empty v-if="!loading && !data.length" :description="emptyText" />
+    <el-empty v-if="!loading && !data.length" :description="emptyText ?? t('adminTableV2.emptyText')" />
   </div>
 </template>
 
@@ -91,8 +91,6 @@ const props = withDefaults(
     size: 50,
     loading: false,
     keyword: '',
-    searchPlaceholder: '搜索',
-    emptyText: '暂无数据',
     showAdd: true,
     showPagination: true,
     rowKey: 'id',

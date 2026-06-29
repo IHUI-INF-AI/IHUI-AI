@@ -1,13 +1,13 @@
 {
   "studyAdd": {
     "cover": "封面",
-    "desc": "描述",
-    "enterDesc": "enter 描述",
-    "enterTitle": "请输入标题",
-    "publishFirst": "publish 首",
-    "title": "标题",
-    "uploadCover": "上传封面",
-    "uploadVideo": "上传视频",
-    "videoSynth": "视频 synth"
+    "title": "课程标题",
+    "desc": "课程描述",
+    "publishFirst": "请先发布合集",
+    "videoSynth": "视频正在合成请稍后发布",
+    "uploadCover": "请上传封面",
+    "uploadVideo": "请上传视频",
+    "enterTitle": "请输入课程标题",
+    "enterDesc": "请输入课程描述"
   }
 }

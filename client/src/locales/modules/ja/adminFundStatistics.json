@@ -1,0 +1,9 @@
+{
+  "adminFundStatistics": {
+    "refresh": "データを更新しい",
+    "failedOrders": "失敗注文",
+    "period": {},
+    "messages": {},
+    "chart": {}
+  }
+}

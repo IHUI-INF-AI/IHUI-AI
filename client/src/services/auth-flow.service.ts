@@ -22,8 +22,8 @@ import {
   type LoginSource,
   type UnifiedLoginRequest,
   type UnifiedLoginResponse,
-} from '@/api/unified/unified-auth'
-import { completePhoneLogin, type UserInfoData } from '@/api/user/user'
+} from '@/api/unified-auth'
+import { completePhoneLogin, type UserInfoData } from '@/api/user'
 
 // 手机登录参数类型
 interface PhoneLoginParams {
@@ -337,7 +337,7 @@ export class AuthFlowService {
             id?: string
             userUuid?: string
             tokenQuantity?: string | number
-            [key: string]: any
+            [key: string]: unknown
           }
         | undefined
 
@@ -366,7 +366,7 @@ export class AuthFlowService {
             title?: string
             levelName?: string
             userVip?: { isValid?: number }
-            [key: string]: any
+            [key: string]: unknown
           }
         | undefined
 
@@ -523,7 +523,7 @@ export class AuthFlowService {
             progress?: number
             isValid?: number
           }
-          [key: string]: any
+          [key: string]: unknown
         }
       | undefined
 
@@ -534,7 +534,7 @@ export class AuthFlowService {
           userUuid?: string
           tokenQuantity?: string | number
           tokenFree?: string | number
-          [key: string]: any
+          [key: string]: unknown
         }
       | undefined
 

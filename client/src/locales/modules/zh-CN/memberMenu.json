@@ -1,0 +1,26 @@
+{
+  "memberMenu": {
+    "account": "账号",
+    "personal": "个人资料",
+    "setting": "账号设置",
+    "point": "我的积分",
+    "certificate": "我的证书",
+    "learn": "学习",
+    "learnRecord": "学习记录",
+    "homework": "我的作业",
+    "exam": "考试",
+    "examSignUp": "考试报名",
+    "examRecord": "答题记录",
+    "examWrong": "错题本",
+    "sns": "社交",
+    "follow": "我的关注",
+    "fans": "我的粉丝",
+    "favorites": "我的收藏",
+    "comment": "我的评论",
+    "content": "内容",
+    "circle": "我的圈子",
+    "ask": "我的问答",
+    "article": "我的文章",
+    "resource": "我的资源"
+  }
+}

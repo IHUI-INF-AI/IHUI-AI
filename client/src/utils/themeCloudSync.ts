@@ -1,6 +1,6 @@
 import type { ThemeMode } from '@/stores/darkMode'
 import type { ThemePreset } from './themePreset'
-import { syncThemeToCloud as apiSyncToCloud, syncThemeFromCloud as apiSyncFromCloud, type ThemeSyncData } from '@/api/system/settings'
+import { syncThemeToCloud as apiSyncToCloud, syncThemeFromCloud as apiSyncFromCloud, type ThemeSyncData } from '@/api/settings'
 
 export interface CloudSyncData {
   userId: string

@@ -1,8 +1,8 @@
 {
   "topUpSuccess": {
+    "title": "充值成功",
+    "message": "您的账户已成功充值",
     "backToHome": "返回首页",
-    "message": "消息",
-    "title": "标题",
-    "viewAccount": "查看 账号"
+    "viewAccount": "查看账户"
   }
 }

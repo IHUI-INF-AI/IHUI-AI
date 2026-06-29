@@ -58,7 +58,7 @@
     >
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="100px">
         <el-form-item :label="t('keyManagement.keyType')" prop="type">
-          <el-select v-model="createForm.type" :placeholder="t('keyManagement.pleaseSelect')" class="full-width">
+          <el-select v-model="createForm.type" :placeholder="t('keyManagement.pleaseSelect')" style="width: 100%">
             <el-option
               v-for="opt in typeOptions"
               :key="opt.value"
@@ -166,7 +166,7 @@ import {
   USER_SK_TYPE_OPTIONS,
   type UserSkItem,
   type UserSkCreateRes,
-} from '@/api/user/userSk'
+} from '@/api/userSk'
 
 const typeOptions = USER_SK_TYPE_OPTIONS
 const maxKeys = 20
@@ -295,7 +295,7 @@ function confirmDelete(row: UserSkItem) {
   }).then(() => {
     ElMessage.success(t('keyManagement.deleted'))
     loadList()
-  }).catch((e: any) => {
+  }).catch((e: unknown) => {
     if (e !== 'cancel') ElMessage.error(t('keyManagement.deleteFailed'))
   })
 }
@@ -401,11 +401,7 @@ onMounted(() => {
   }
 }
 
-:where(html.dark) .key-management-page {
+html.dark .key-management-page {
   background: var(--el-bg-color-page);
-}
-
-.full-width {
-  width: 100%;
 }
 </style>

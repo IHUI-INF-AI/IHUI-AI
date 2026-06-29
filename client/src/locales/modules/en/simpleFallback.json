@@ -1,8 +1,8 @@
 {
   "simpleFallback": {
-    "defaultMessage": "defaultMessage",
-    "goHome": "goHome",
-    "loading": "加载中",
-    "reload": "重新加载"
+    "loading": "Loading",
+    "reload": "Reload",
+    "goHome": "Go Home",
+    "defaultMessage": "Default Message"
   }
 }

@@ -16,7 +16,7 @@ export const category = withApiResponseHandler(
 
 // 获取模型列表
 export const getModelList = withApiResponseHandler(
-  async (params?: { category?: string; page?: number; pageSize?: number }): Promise<ApiResponse<{ list: any[]; total: number }>> => {
+  async (params?: { category?: string; page?: number; pageSize?: number }): Promise<ApiResponse<{ list: unknown[]; total: number }>> => {
     const response = await request.get('/ai-models', { params })
     return normalizeApiResponse(response)
   }

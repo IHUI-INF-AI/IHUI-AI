@@ -11,7 +11,7 @@
 }
 
 /* 暗色模式下的高亮样式 */
-:where(html.dark) .highlight {
+html.dark .highlight {
   background-color: var(--el-color-warning-dark-2);
   color: var(--el-color-warning-light-5);
 }
@@ -30,7 +30,7 @@
   }
 }
 
-:where(html.dark) .highlight {
+html.dark .highlight {
   @keyframes highlight-fade-in {
     0% {
       background-color: transparent;

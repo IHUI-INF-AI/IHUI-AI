@@ -7,12 +7,12 @@
         <span class="file-type">{{ fileTypeLabel }}</span>
       </div>
       <div class="office-actions">
-        <button class="action-btn" @click="zoomOut" :disabled="scale <= 50" :title="t('viewerOfficeViewer.zoomOut')" :aria-label="t('viewerOfficeViewer.zoomOut')">−</button>
+        <button class="action-btn" @click="zoomOut" :disabled="scale <= 50" title="缩小" aria-label="缩小">−</button>
         <span class="scale-display">{{ scale }}%</span>
         <button class="action-btn" @click="zoomIn" :disabled="scale >= 200" :title="t('officeViewer.zoomIn')" :aria-label="t('officeViewer.zoomIn')">+</button>
-        <button class="action-btn" @click="resetZoom" :title="t('viewerOfficeViewer.reset')" :aria-label="t('viewerOfficeViewer.reset')">⟲</button>
-        <a :href="src" download class="action-btn download-btn" :title="t('viewerOfficeViewer.download')">{{ t('officeViewer.download') }}</a>
-        <button class="action-btn" @click="openInOffice" :title="t('viewerOfficeViewer.openInOfficeOnline')">
+        <button class="action-btn" @click="resetZoom" title="重置" aria-label="重置">⟲</button>
+        <a :href="src" download class="action-btn download-btn" title="下载">{{ t('officeViewer.download') }}</a>
+        <button class="action-btn" @click="openInOffice" title="在Office Online中打开">
           {{ t('officeViewer.openOnline') }}
         </button>
       </div>
@@ -21,14 +21,14 @@
     <div class="office-container" ref="containerRef">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
-        <span>{{ t('viewerOfficeViewer.loadingDoc') }}</span>
-        <span class="loading-hint">{{ t('viewerOfficeViewer.largeDocHint') }}</span>
+        <span>{ t('viewerOfficeViewer.loadingDoc') }</span>
+        <span class="loading-hint">{ t('viewerOfficeViewer.largeDocHint') }</span>
       </div>
       
       <div v-else-if="error" class="error-state">
         <span class="error-icon">⚠️</span>
-        <span>{{ t('viewerOfficeViewer.docLoadFailed') }}</span>
-        <span class="error-hint">{{ t('viewerOfficeViewer.tryDownload') }}</span>
+        <span>{ t('viewerOfficeViewer.docLoadFailed') }</span>
+        <span class="error-hint">{ t('viewerOfficeViewer.tryDownload') }</span>
         <div class="error-actions">
           <a :href="src" download class="download-link">{{ t('officeViewer.downloadDoc') }}</a>
           <button class="retry-btn" @click="retryLoad">{{ t('common.retry') }}</button>
@@ -233,7 +233,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--el-text-color-secondary);
   font-size: 13px;
-  transition: background-color 0.2s, opacity 0.2s;
+  transition: all 0.2s;
 }
 
 .action-btn:hover:not(:disabled) {
@@ -278,7 +278,7 @@ onMounted(() => {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--el-text-color-placeholder);
+  border: 3px solid var(--color-text-muted);
   border-top-color: var(--el-color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -311,7 +311,7 @@ onMounted(() => {
   font-size: 14px;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .download-link {
@@ -330,7 +330,7 @@ onMounted(() => {
 }
 
 .retry-btn:hover {
-  background: var(--el-text-color-placeholder);
+  background: var(--color-text-muted);
 }
 
 .office-iframe {

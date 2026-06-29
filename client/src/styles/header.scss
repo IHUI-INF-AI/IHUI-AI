@@ -42,7 +42,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--global-border-radius);
-  transition: width 0.2s ease, padding 0.2s ease, background-color 0.2s ease;
+  transition: all 0.2s ease;
   font-size: var(--header-action-font-size, 14px);
   font-weight: 700;
 }
@@ -254,6 +254,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
+  width: auto;
   min-height: var(--header-action-height, 40px);
   height: var(--header-action-height, 40px);
   padding: 0;
@@ -262,13 +263,18 @@
   border-radius: var(--global-border-radius);
   cursor: pointer;
   transition: background-color 0.2s ease;
-  font-size: var(--header-action-font-size, 14px);
+  font-size: var(--header-action-text-size, 14px);
   font-weight: 700;
   line-height: 1;
+  color: var(--el-text-color-primary);
+  -webkit-text-fill-color: var(--el-text-color-primary);
+  background: transparent;
+  box-shadow: none;
 }
 
 .glass-header .login-button:hover {
   background-color: var(--el-fill-color-light);
+  box-shadow: none;
 }
 
 :where(.glass-header) .app-download-selector .el-icon-arrow-down.el-icon--right {
@@ -433,7 +439,7 @@ body .app-download-dropdown-menu {
 }
 
 @keyframes mobileMenuSlideIn {
-  from { opacity: 0;  }
+  from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -622,8 +628,8 @@ body .app-download-dropdown-menu {
 
 :where(#mobile-menu) .mobile-login-row .mobile-login-button:hover,
 :where(.mobile-menu) .mobile-login-row .mobile-login-button:hover {
-  background-color: var(--el-text-color-primary);
-  background: var(--el-text-color-primary);
+  background-color: var(--color-gray-333);
+  background: var(--color-gray-333);
   color: var(--color-white);
   -webkit-text-fill-color: var(--color-white);
 }
@@ -638,8 +644,8 @@ body .app-download-dropdown-menu {
 
 :where(html.dark) :where(#mobile-menu) .mobile-login-row .mobile-login-button:hover,
 :where(html.dark) :where(.mobile-menu) .mobile-login-row .mobile-login-button:hover {
-  background-color: var(--el-text-color-primary);
-  background: var(--el-text-color-primary);
+  background-color: var(--color-gray-333);
+  background: var(--color-gray-333);
   color: var(--color-white);
   -webkit-text-fill-color: var(--color-white);
 }
@@ -709,7 +715,7 @@ body .app-download-dropdown-menu {
       flex-shrink: 0;
       
       .switch-label {
-        font-size: 9px;
+        font-size: 12px;
         color: var(--el-text-color-regular);
       }
       
@@ -721,7 +727,7 @@ body .app-download-dropdown-menu {
         border: none;
         background-color: transparent;
         color: var(--el-text-color-primary);
-        transition: background-color 0.2s ease, color 0.2s ease;
+        transition: all 0.2s ease;
         
         &:hover { background-color: var(--el-fill-color-light); }
 

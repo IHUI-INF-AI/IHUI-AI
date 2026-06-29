@@ -145,7 +145,7 @@ onMounted(() => {
 }
 
 // 暗色主题适配
-:where(html.dark) {
+html.dark {
   .design-system-input {
     background-color: var(--app-surface-2);
     color: var(--app-text-primary);

@@ -107,7 +107,7 @@ import {
   getWxCode,
   getInviteCode,
   type OperatorDataCardData,
-} from '@/api/distribution/distribution'
+} from '@/api/distribution'
 import PersonalInformationCard from '@/components/distribution/PersonalInformationCard.vue'
 import EarningsStatisticsCard from '@/components/distribution/EarningsStatisticsCard.vue'
 import FunctionBlockColumn from '@/components/distribution/FunctionBlockColumn.vue'
@@ -248,7 +248,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -267,11 +267,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -286,7 +286,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -297,7 +297,7 @@ onMounted(() => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }

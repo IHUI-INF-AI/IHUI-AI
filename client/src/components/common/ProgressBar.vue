@@ -182,7 +182,7 @@ const percentage = computed(() => {
 }
 
 // 暗色模式支持
-:where(html.dark) {
+html.dark {
   .progress-bar-wrapper {
     background-color: var(--el-fill-color-darker);
   }

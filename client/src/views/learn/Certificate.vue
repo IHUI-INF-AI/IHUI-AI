@@ -23,24 +23,25 @@ const { t } = useI18n()
 import { useRouter } from 'vue-router'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
 const router = useRouter()
-const list = ref<any[]>([])
+const list = ref<unknown[]>([])
 const loading = ref(false)
 
 async function load() {
   loading.value = true
   try {
-    const res: any = await learnApi.certificateList()
+    const res = await learnApi.certificateList() as unknown as { data?: { items?: unknown[]; list?: unknown[] } }
     list.value = res.data?.items || res.data?.list || []
   } finally {
     loading.value = false
   }
 }
 
-function goDetail(c: any) {
-  router.push({ path: `/learn/certificate/download/${c.id}` })
+function goDetail(c: unknown) {
+  const item = c as Record<string, unknown>
+  router.push({ path: `/learn/certificate/download/${item.id}` })
 }
 
 onMounted(load)
@@ -74,7 +75,7 @@ onMounted(load)
   transition: transform 0.2s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
   }
 }
 

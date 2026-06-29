@@ -136,7 +136,7 @@ export interface PairingCode {
  */
 export interface SyncData {
   type: SyncDataType
-  data: any
+  data: unknown
   timestamp: number
   checksum: string
 }
@@ -178,12 +178,12 @@ export interface SyncError {
 export interface RemoteCommand {
   id: string
   type: RemoteCommandType
-  payload: any
+  payload: unknown
   fromDeviceId: string
   toDeviceId: string
   timestamp: number
   status: 'pending' | 'executing' | 'completed' | 'failed'
-  result?: any
+  result?: unknown
   error?: string
 }
 
@@ -647,7 +647,7 @@ export class PairingManager extends EventEmitter {
   async sendRemoteCommand(
     deviceId: string,
     type: RemoteCommandType,
-    payload: any
+    payload: unknown
   ): Promise<RemoteCommand> {
     const device = this.pairedDevices.get(deviceId)
     if (!device) {
@@ -679,7 +679,7 @@ export class PairingManager extends EventEmitter {
     command.status = 'executing'
     
     try {
-      let result: any
+      let result: unknown
 
       switch (command.type) {
         case 'message': {

@@ -1,11 +1,11 @@
 {
   "model": {
     "capabilities": {
-      "audio": "音频",
-      "image": "图片",
-      "streaming": "streaming",
-      "streamingShort": "streamingShort",
-      "video": "视频"
+      "streaming": "流式傳输",
+      "streamingShort": "流式傳输Short",
+      "image": "圖片",
+      "audio": "音頻",
+      "video": "視頻"
     }
   }
 }

@@ -1,8 +1,8 @@
 {
   "learnPaymentConfirm": {
-    "desc": "描述",
-    "startLearn": "开始 学习",
-    "title": "标题",
-    "viewMore": "查看更多"
+    "title": "支付成功",
+    "desc": "您的课程已开通，立即开始学习吧",
+    "startLearn": "开始学习",
+    "viewMore": "查看更多课程"
   }
 }

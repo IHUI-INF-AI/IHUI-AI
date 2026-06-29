@@ -3,6 +3,12 @@
     "searchPlaceholder": {
       "department": "部門を検索",
       "user": "ユーザーを検索"
+    },
+    "label": {
+      "departmentName": "部門名",
+      "manager": "責任者",
+      "count": "人数",
+      "actions": "操作"
     }
   }
 }

@@ -47,10 +47,10 @@ import type {
   CapabilityItemData,
   MCPTool,
 } from './types'
-import type { AIModelInfo } from '@/api/ai/aiModelInfo'
-import type { Agent } from '@/api/agent/agents'
-import { getAIModelList } from '@/api/ai/aiModelInfo'
-import { getAgentList, type AgentInfo } from '@/api/agent/agent-plaza'
+import type { AIModelInfo } from '@/api/aiModelInfo'
+import type { Agent } from '@/api/agents'
+import { getAIModelList } from '@/api/aiModelInfo'
+import { getAgentList, type AgentInfo } from '@/api/payment'
 
 // Props
 const props = withDefaults(
@@ -151,7 +151,7 @@ async function fetchModels() {
 }
 
 /** 从 bylink 接口响应中解析为扁平智能体列表（与 AI 应用商店 AgentsSquareList 同一接口 /agent/rule/search/bylink） */
-function parseAgentListFromBylink(res: any): AgentInfo[] {
+function parseAgentListFromBylink(res: unknown): AgentInfo[] {
   if (!res || typeof res !== 'object') return []
   const r = res as Record<string, unknown>
   const data = r.data
@@ -784,7 +784,7 @@ const updateVideoProvider = (provider: VideoProvider) => {
   --acs-panel-shadow: var(--el-box-shadow-light);
 }
 
-:where(html.dark) .ai-capability-selector__backdrop {
+html.dark .ai-capability-selector__backdrop {
   --acs-border: var(--unified-border);
   --acs-text-primary: var(--el-text-color-primary);
   --acs-text-secondary: var(--el-text-color-secondary);
@@ -812,7 +812,7 @@ const updateVideoProvider = (provider: VideoProvider) => {
   transition: opacity 0.25s var(--acs-ease);
 }
 
-:where(html.dark) .ai-capability-selector__backdrop {
+html.dark .ai-capability-selector__backdrop {
   background: var(--el-mask-color);
 }
 
@@ -863,7 +863,7 @@ const updateVideoProvider = (provider: VideoProvider) => {
   border-bottom-color: var(--el-border-color-lighter);
 }
 
-:where(html.dark) :where(.ai-capability-selector__backdrop) :where(.ai-capability-selector__header::before) {
+html.dark .ai-capability-selector__backdrop .ai-capability-selector__header::before {
   background: var(--el-text-color-primary);
 }
 
@@ -1161,7 +1161,7 @@ const updateVideoProvider = (provider: VideoProvider) => {
 .ai-capability-selector__backdrop .ai-capability-selector__agentic-card:hover {
   background: var(--acs-bg-hover);
   border-color: var(--acs-text-muted);
-  
+  transform: translateY(-1px);
 }
 
 .ai-capability-selector__backdrop .ai-capability-selector__agentic-icon {
@@ -1225,7 +1225,7 @@ const updateVideoProvider = (provider: VideoProvider) => {
   font-family: var(--font-family-mono, ui-monospace, monospace);
   background: var(--acs-bg-panel);
   border: var(--acs-border);
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius-sm, 4px);
   color: var(--acs-text-primary);
 }
 

@@ -1,6 +1,6 @@
 {
   "error404": {
-    "backHome": "backHome",
-    "notFound": "未找到"
+    "notFound": "申し訳ありません、アクセスしたページは存在しません",
+    "backHome": "ホームに戻る"
   }
 }

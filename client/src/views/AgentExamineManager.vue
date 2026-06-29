@@ -46,15 +46,15 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('agentExamine.examineList') }}</span>
-          <div class="card-header-actions">
+          <div style="display: flex; gap: 10px">
             <el-input
               v-model="searchKeyword"
               :placeholder="t('agentExamine.searchPlaceholder')"
-              class="search-input"
+              style="width: 240px"
               clearable
               @input="debouncedLoadExamines"
             />
-            <el-select v-model="filterStatus" @change="loadExamines" class="filter-select" clearable>
+            <el-select v-model="filterStatus" @change="loadExamines" style="width: 120px" clearable>
               <el-option :label="t('agentExamine.allStatus')" value="" />
               <el-option :label="t('agentExamine.examining')" :value="1" />
               <el-option :label="t('agentExamine.approved')" :value="2" />
@@ -84,7 +84,7 @@
         <el-table-column type="selection" width="55" />
         <el-table-column prop="agent_name" :label="t('agentCategory.agentName')" min-width="150">
           <template #default="{ row }">
-            <div class="user-cell">
+            <div style="display: flex; align-items: center; gap: 8px">
               <el-avatar
                 v-if="row.agent_avatar"
                 :src="row.agent_avatar"
@@ -181,7 +181,7 @@
             {{ currentExamine.desc || '-' }}
           </el-descriptions-item>
         </el-descriptions>
-        <div v-if="currentExamine.category_info" class="category-info-section">
+        <div v-if="currentExamine.category_info" style="margin-top: 20px">
           <h4>{{ t('agentExamine.categoryInfo') }}</h4>
           <el-descriptions :column="2" border>
             <el-descriptions-item :label="t('agentCategory.type')">
@@ -254,7 +254,7 @@ import {
   batchSyncAgentAvatar,
   type AgentExamine,
   type AgentExamineStats,
-} from '@/api/agent/agent-examine'
+} from '@/api/agent-examine'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime as _formatTime } from '@/utils/format'
 
@@ -294,12 +294,12 @@ const syncingAvatar = ref<string | null>(null)
 const selectedRows = ref<AgentExamine[]>([])
 
 // 防抖函数
-const debounce = <T extends (...args: any[]) => unknown>(
+const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
   let timeout: ReturnType<typeof setTimeout> | null = null
-  return function (this: any, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const context = this
     if (timeout) clearTimeout(timeout)
@@ -331,7 +331,7 @@ const loadExamines = async () => {
       }
       showErrorMsg(errorMsg)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('agentExamine.loadFailed')
     pageError.value = {
@@ -366,7 +366,7 @@ const handleViewDetail = async (examine: AgentExamine) => {
       currentExamine.value = response.data as AgentExamine
       showDetailDialog.value = true
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     showErrorMsg(
       (error instanceof Error ? error.message : String(error)) || t('agentExamine.loadDetailFailed')
     )
@@ -398,7 +398,7 @@ const handleSyncAvatar = async (examine: AgentExamine) => {
         loadExamines()
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     showErrorMsg(
       (error instanceof Error ? error.message : String(error)) || t('agentExamine.avatarSyncFailed')
     )
@@ -423,7 +423,7 @@ const _handleBatchSyncAvatar = async () => {
         loadExamines()
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     showErrorMsg(
       (error instanceof Error ? error.message : String(error)) || t('agentExamine.batchSyncFailed')
     )
@@ -462,7 +462,7 @@ const handleSubmitReview = async () => {
         Promise.all([loadExamines(), loadStats()])
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     showErrorMsg(
       (error instanceof Error ? error.message : String(error)) || t('agentExamine.operationFailed')
     )
@@ -507,7 +507,7 @@ const formatTime = (time?: string): string => {
 }
 
 const goBack = () => {
-  ;(router as any).back()
+  router.back()
 }
 
 onMounted(() => {
@@ -532,7 +532,7 @@ onMounted(() => {
 
       .stat-value {
         font-size: 24px;
-        font-weight: 700;
+        font-weight: bold;
         margin-bottom: 8px;
 
         &.warning {
@@ -567,29 +567,6 @@ onMounted(() => {
     h4 {
       margin-bottom: 10px;
     }
-  }
-
-  .card-header-actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .search-input {
-    width: 240px;
-  }
-
-  .filter-select {
-    width: 120px;
-  }
-
-  .user-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .category-info-section {
-    margin-top: 20px;
   }
 }
 </style>

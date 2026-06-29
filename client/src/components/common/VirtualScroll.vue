@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 interface VirtualScrollItem {
   id?: string | number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface Props<T extends VirtualScrollItem> {

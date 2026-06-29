@@ -1,45 +1,45 @@
 {
   "themeTransition": {
-    "customConfig": "自定义 配置",
-    "direction": "direction",
-    "directions": {
-      "down": "下",
-      "left": "左",
-      "right": "右",
-      "up": "上"
-    },
-    "duration": "时长",
-    "easing": "easing",
-    "easings": {
-      "bounce": "bounce",
-      "smooth": "平滑",
-      "swift": "Swift"
-    },
-    "enableOverlay": "启用 overlay",
-    "overlayColor": "overlay 颜色",
-    "playDemo": "播放 demo",
-    "playing": "playing",
-    "presetApplied": "preset Applied",
-    "presets": "预设",
-    "preview": "预览",
-    "previewComplete": "预览 完成",
-    "previewTitle": "预览",
-    "speed": "倍速",
-    "speeds": {
-      "fast": "快",
-      "instant": "instant",
-      "normal": "正常",
-      "slow": "慢"
-    },
-    "title": "标题",
-    "type": "类型",
+    "title": "主题过渡动画",
+    "preview": "预览效果",
+    "presets": "预设效果",
+    "customConfig": "自定义配置",
+    "type": "动画类型",
+    "direction": "方向",
+    "speed": "速度",
+    "easing": "缓动函数",
+    "duration": "持续时间",
+    "enableOverlay": "启用遮罩",
+    "overlayColor": "遮罩颜色",
+    "presetApplied": "预设已应用",
+    "previewComplete": "预览完成",
     "types": {
-      "fade": "fade",
+      "fade": "淡入淡出",
+      "slide": "滑动",
+      "zoom": "缩放",
       "flip": "翻转",
-      "none": "无",
-      "ripple": "ripple",
-      "slide": "幻灯",
-      "zoom": "Zoom"
-    }
+      "ripple": "波纹",
+      "none": "无动画"
+    },
+    "directions": {
+      "left": "从左",
+      "right": "从右",
+      "up": "从上",
+      "down": "从下"
+    },
+    "speeds": {
+      "slow": "慢速",
+      "normal": "正常",
+      "fast": "快速",
+      "instant": "即时"
+    },
+    "easings": {
+      "bounce": "弹跳",
+      "smooth": "平滑",
+      "swift": "快速"
+    },
+    "playDemo": "Play Demo",
+    "playing": "Playing",
+    "previewTitle": "Preview Title"
   }
 }

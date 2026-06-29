@@ -3,10 +3,5 @@
     "inputplaceholder": "input[placeholder*=",
     "nickname": "닉네임",
     "nickname2": "昵称"
-  },
-  "userPage": {
-    "feedback": "피드백",
-    "noStudyContent": "학습 콘텐츠가 없습니다",
-    "views": "회 시청"
   }
 }

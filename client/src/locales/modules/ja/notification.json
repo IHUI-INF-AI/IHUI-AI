@@ -1,16 +1,16 @@
 {
   "notification": {
-    "allRead": "allRead",
-    "center": "center",
-    "empty": "empty",
-    "loadAbnormal": "loadAbnormal",
-    "markAllReadFailed": "markAllReadFailed",
-    "markAllReadSuccess": "markAllReadSuccess",
-    "markReadFailed": "markReadFailed",
-    "messages": "messages",
-    "operationFailed": "operationFailed",
-    "title": "标题",
-    "viewAll": "viewAll",
-    "viewUserCenter": "viewUserCenter"
+    "title": "通知",
+    "center": "メッセージセンター",
+    "messages": "メッセージ",
+    "viewUserCenter": "ユーザーセンターをテーブル示",
+    "empty": "通知なし",
+    "allRead": "すべて既読にする",
+    "viewAll": "すべてテーブル示",
+    "markAllReadSuccess": "すべて既読にしました",
+    "markAllReadFailed": "既読に失敗しました",
+    "markReadFailed": "既読に失敗しました",
+    "operationFailed": "操作に失敗しました",
+    "loadAbnormal": "読み込みエラー"
   }
 }

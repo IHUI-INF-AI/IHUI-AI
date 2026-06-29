@@ -98,11 +98,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
-import { useDarkModeStore } from '@/stores/darkMode'
-
-const darkModeStore = useDarkModeStore()
+import echarts from '@/utils/echarts'
+import type { ECharts } from 'echarts'
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
@@ -143,10 +140,10 @@ const THRESHOLDS = {
 
 const getScoreColor = (value: number, metric: string): string => {
   const threshold = THRESHOLDS[metric as keyof typeof THRESHOLDS]
-  if (!threshold) return cssVar('--color-success')
-  if (value <= threshold.good) return cssVar('--color-success')
-  if (value <= threshold.poor) return cssVar('--color-warning-variant')
-  return cssVar('--color-danger-variant')
+  if (!threshold) return 'var(--color-success)'
+  if (value <= threshold.good) return 'var(--color-success)'
+  if (value <= threshold.poor) return 'var(--color-warning-variant)'
+  return 'var(--color-danger-variant)'
 }
 
 const getScoreClass = (_value: number): string => {
@@ -159,9 +156,8 @@ const getScorePercentage = (value: number, metric: string): number => {
   return Math.min(100, (value / threshold.poor) * 100)
 }
 
-const initTrendChart = async (): Promise<void> => {
+const initTrendChart = (): void => {
   if (!trendChartRef.value) return
-  const echarts = await loadEcharts()
 
   trendChart = echarts.init(trendChartRef.value)
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
@@ -183,9 +179,8 @@ const initTrendChart = async (): Promise<void> => {
   })
 }
 
-const initDistributionChart = async (): Promise<void> => {
+const initDistributionChart = (): void => {
   if (!distributionChartRef.value) return
-  const echarts = await loadEcharts()
 
   distributionChart = echarts.init(distributionChartRef.value)
   distributionChart.setOption({
@@ -197,13 +192,7 @@ const initDistributionChart = async (): Promise<void> => {
       data: [120, 350, 280, 95, 25],
       itemStyle: {
         color: (params: { dataIndex: number }) => {
-          const colors = [
-            cssVar('--color-success'),
-            cssVar('--color-success'),
-            cssVar('--color-warning-variant'),
-            cssVar('--color-warning-variant'),
-            cssVar('--color-danger-variant'),
-          ]
+          const colors = ['var(--color-success)', 'var(--color-success)', 'var(--color-warning-variant)', 'var(--color-warning-variant)', 'var(--color-danger-variant)']
           return colors[params.dataIndex]
         },
       },
@@ -211,9 +200,8 @@ const initDistributionChart = async (): Promise<void> => {
   })
 }
 
-const initScoreChart = async (): Promise<void> => {
+const initScoreChart = (): void => {
   if (!scoreChartRef.value) return
-  const echarts = await loadEcharts()
 
   scoreChart = echarts.init(scoreChartRef.value)
   scoreChart.setOption({
@@ -246,18 +234,6 @@ watch(timeRange, () => {
   initTrendChart()
 })
 
-// 监听暗色模式变化，重新渲染所有图表以更新颜色
-watch(
-  () => darkModeStore.isDarkMode,
-  () => {
-    if (trendChart || distributionChart || scoreChart) {
-      initTrendChart()
-      initDistributionChart()
-      initScoreChart()
-    }
-  }
-)
-
 onMounted(() => {
   initTrendChart()
   initDistributionChart()
@@ -289,7 +265,7 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 
 .stat-value {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: bold;
   margin-bottom: 4px;
 }
 

@@ -1,9 +1,9 @@
 {
   "drama": {
-    "addCharDesc": "addCharDesc",
-    "coherent": "coherent",
-    "confirmCharContinue": "confirmCharContinue",
-    "sceneTransition": "sceneTransition",
-    "transition": "transition"
+    "addCharDesc": "(Character description needed)",
+    "coherent": "Maintain visual and plot coherence with previous segment, natural transition, ensure consistent character image",
+    "transition": "Switch",
+    "sceneTransition": "Scene Transition",
+    "confirmCharContinue": "Confirm whether character needs to appear later"
   }
 }

@@ -1,9 +1,10 @@
 {
   "featureAppleLogin": {
-    "appleLoginFailed": "appleLoginFailed",
-    "appleLoginFailed2": "appleLoginFailed2",
-    "appleLoginFailed3": "appleLoginFailed3",
-    "appleLoginProcessFailed": "appleLoginProcessFailed",
-    "appleLoginRetry": "appleLoginRetry"
+    "appleLoginFailed": "Apple登錄失敗",
+    "appleLoginProcessFailed": "Apple登錄處理失敗",
+    "appleLoginFailed2": "Apple登錄失敗",
+    "appleLoginRetry": "Apple登錄失敗，請重試",
+    "appleLoginFailed3": "Apple登錄失敗",
+    "useAppleLogin": "使用Apple帳號登錄"
   }
 }

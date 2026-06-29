@@ -1,18 +1,18 @@
 {
   "fileUpload": {
-    "clearFiles": "clearFiles",
-    "imageSizeExceeded": "imageSizeExceeded",
-    "maxFilesReached": "maxFilesReached",
-    "networkError": "网络错误",
-    "selectImage": "selectImage",
-    "selectVideo": "selectVideo",
-    "sizeExceeded": "sizeExceeded",
-    "supportAllSize": "supportAllSize",
-    "supportFormat": "supportFormat",
-    "unsupportedType": "unsupportedType",
-    "uploadFailed": "uploadFailed",
-    "uploadSuccess": "uploadSuccess",
-    "uploading": "上传中",
-    "videoSizeExceeded": "videoSizeExceeded"
+    "uploading": "上傳中...",
+    "selectImage": "選擇圖片",
+    "selectVideo": "選擇視頻",
+    "clearFiles": "清空",
+    "imageSizeExceeded": "圖片大小不能超過 {size}MB",
+    "videoSizeExceeded": "視頻大小不能超過 {size}MB",
+    "maxFilesReached": "最多只能上傳 {count} 個文件",
+    "supportAllSize": "支援所有檔案類型，最大 {size}",
+    "sizeExceeded": "檔案大小超過限制 ({size})",
+    "unsupportedType": "不支援的檔案類型: {ext}",
+    "uploadSuccess": "上傳成功",
+    "uploadFailed": "上傳失敗",
+    "networkError": "網路錯誤",
+    "supportFormat": "支援 {formats} 格式，最大 {size}"
   }
 }

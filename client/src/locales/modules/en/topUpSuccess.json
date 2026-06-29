@@ -1,8 +1,8 @@
 {
   "topUpSuccess": {
-    "backToHome": "backToHome",
-    "message": "消息",
-    "title": "标题",
-    "viewAccount": "viewAccount"
+    "title": "Recharge Successful",
+    "message": "Your account has been successfully recharged",
+    "backToHome": "Back to Home",
+    "viewAccount": "View Account"
   }
 }

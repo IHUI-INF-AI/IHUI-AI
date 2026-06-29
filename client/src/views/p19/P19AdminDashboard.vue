@@ -16,9 +16,9 @@
       <el-table :data="logs" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="admin" label="Admin" width="120" />
-        <el-table-column prop="action" :label="t('p19AdminDashboard.action')" width="140" />
-        <el-table-column prop="target" :label="t('p19AdminDashboard.target')" />
-        <el-table-column prop="created_at" :label="t('p19AdminDashboard.time')" width="200" />
+        <el-table-column prop="action" label="操作" width="140" />
+        <el-table-column prop="target" label="目标" />
+        <el-table-column prop="created_at" label="时间" width="200" />
       </el-table>
     </el-card>
   </div>
@@ -28,35 +28,39 @@
 import { useI18n } from 'vue-i18n'
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { adminApi } from '@/api/admin/admin'
-import { getAdminActivities } from '@/api/admin/admin-activities'
+import { adminApi } from '@/api/admin'
+import { getAdminActivities } from '@/api/admin-activities'
 
 const { t } = useI18n()
 const loading = ref(false)
 const cards = ref<Array<{ label: string; value: string }>>([])
-const logs = ref<any[]>([])
+const logs = ref<unknown[]>([])
 
 onMounted(async () => {
   loading.value = true
   try {
-    const r = await adminApi.dashboardStats()
-    const d = (r as any).data || {}
+    const r = await adminApi.dashboardStats() as unknown as { data?: Record<string, unknown> }
+    const d = r.data || {}
     cards.value = [
       { label: '用户', value: String(d.userCount ?? 0) },
       { label: '订单', value: String(d.orderCount ?? 0) },
       { label: '课程', value: String(d.courseCount ?? 0) },
       { label: '营收', value: '¥' + Number(d.revenue || 0).toFixed(2) },
     ]
-    const lr = await getAdminActivities({ page: 1, pageSize: 20 })
-    logs.value = ((lr as any).data?.list || []).map((a: any) => ({
-      id: a.id,
-      admin: a.userName || a.userId,
-      action: a.type,
-      target: a.description || '',
-      created_at: a.createdAt,
-    }))
-  } catch (e: any) {
-    ElMessage.error(t('common.loadFailed') + ': ' + (e?.message || e))
+    const lr = await getAdminActivities({ page: 1, pageSize: 20 }) as unknown as { data?: { list?: unknown[] } }
+    logs.value = (lr.data?.list || []).map((a: unknown) => {
+      const item = a as Record<string, unknown>
+      return {
+        id: item.id,
+        admin: item.userName || item.userId,
+        action: item.type,
+        target: item.description || '',
+        created_at: item.createdAt,
+      }
+    })
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    ElMessage.error(t('common.errors.loadFailed') + ': ' + (err?.message || e))
   } finally {
     loading.value = false
   }

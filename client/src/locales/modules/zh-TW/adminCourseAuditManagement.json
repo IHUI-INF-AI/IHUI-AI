@@ -1,0 +1,18 @@
+{
+  "adminCourseAuditManagement": {
+    "search": {
+      "export": "導出"
+    },
+    "table": {},
+    "auditType": {},
+    "auditStatus": {
+      "approved": "通過",
+      "rejected": "拒絕"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "導出成功",
+      "exportFailed": "導出失敗"
+    }
+  }
+}

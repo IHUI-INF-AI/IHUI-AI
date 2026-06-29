@@ -1,19 +1,17 @@
 {
   "studyGroup": {
-    "cover": "封面",
-    "delist": "delist",
-    "descPlaceholder": "descPlaceholder",
-    "edit": "编辑",
-    "enterGroupDesc": "enterGroupDesc",
-    "enterGroupTitle": "enterGroupTitle",
-    "groupDesc": "groupDesc",
-    "groupTitle": "groupTitle",
-    "pleaseSelect": "pleaseSelect",
-    "publish": "发布",
-    "selectTrack": "selectTrack",
-    "subTrack": "subTrack",
-    "titlePlaceholder": "titlePlaceholder",
-    "uploadCover": "uploadCover",
-    "uploadVideo": "uploadVideo"
+    "subTrack": "세부 트랙",
+    "pleaseSelect": "선택해 주세요",
+    "uploadVideo": "동영상 업로드",
+    "publish": "게시",
+    "edit": "수정",
+    "delist": "게시 중단",
+    "cover": "표지",
+    "enterGroupDesc": "그룹 설명을 입력해 주세요",
+    "enterGroupTitle": "그룹 제목을 입력해 주세요",
+    "groupDesc": "그룹 설명",
+    "groupTitle": "그룹 제목",
+    "selectTrack": "트랙을 선택해 주세요",
+    "uploadCover": "표지 이미지를 업로드해 주세요"
   }
 }

@@ -1,14 +1,49 @@
 {
   "newsCenter": {
+    "title": "AI動態",
+    "subtitle": "了解我們的最新動態、產品更新和行業資訊",
     "categories": {
-      "industry": "industry"
+      "industry": "行業資訊",
+      "all": "全部",
+      "company": "公司動態",
+      "product": "產品更新",
+      "event": "活動公告"
     },
-    "loadMore": "loadMore",
-    "loadingMore": "加载更多",
-    "minRead": "minRead",
-    "pageInfo": "pageInfo",
-    "readMore": "readMore",
-    "subtitle": "副标题",
-    "title": "标题"
+    "readMore": "閱讀全文 →",
+    "loadMore": "載入更多",
+    "loadingMore": "載入中...",
+    "pageInfo": "第 {page} 頁，共 {total} 頁",
+    "minRead": "分钟阅读",
+    "disconnect": "斷開連接",
+    "liveFeedActive": "動態更新中",
+    "comingSoon": "新聞詳情即將開放，敬請期待",
+    "news": {
+      "platformMajorUpdate": {
+        "title": "平台重大更新：全新 AI 模型上線",
+        "excerpt": "我們很高興地宣布，平台已集成最新的 GPT-4 和 Claude 3 模型，為用戶提供更強大的 AI 能力。"
+      },
+      "award2024": {
+        "title": "智匯AI榮獲2024年度最佳AI平台獎",
+        "excerpt": "在剛剛結束的AI創新大會上，智匯AI平台憑藉卓越的技術實力和用戶體驗，榮獲年度最佳AI平台獎。"
+      },
+      "industryTrends": {
+        "title": "AI行業發展趨勢分析報告",
+        "excerpt": "深度解析2024年AI行業的發展趨勢，包括大模型、多模態AI、AI Agent等熱門技術方向。"
+      },
+      "devConference2025": {
+        "title": "開發者大會2025即將舉辦",
+        "excerpt": "我們將在3月舉辦年度開發者大會，屆時將發布多項重磅產品和功能更新，歡迎開發者報名參加。"
+      },
+      "workflowAutomation": {
+        "title": "新功能發布：AI工作流自動化",
+        "excerpt": "全新的AI工作流功能現已上線，讓您可以通過可視化界面輕鬆創建複雜的AI自動化流程。"
+      },
+      "partnerProgram": {
+        "title": "合作夥伴計劃正式啟動",
+        "excerpt": "我們正式啟動合作夥伴計劃，歡迎各類企業和服務商加入，共同推動AI技術的普及和應用。"
+      }
+    },
+    "quickNav": "快速導航",
+    "fetchFailed": "獲取新聞失敗"
   }
 }

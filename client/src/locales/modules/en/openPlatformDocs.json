@@ -6,7 +6,6 @@
     "selectDoc": "Please select a document from the left",
     "loadFailed": "Failed to load document",
     "searchPlaceholder": "Search documents...",
-    "toc": "Toc",
-    "enterpriseService": "enterpriseService"
+    "toc": "Toc"
   }
 }

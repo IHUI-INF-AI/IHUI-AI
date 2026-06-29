@@ -19,19 +19,23 @@
     "features": {
       "ai_copywriting": {
         "title": "AI 마케팅 카피",
-        "desc": "스마트하게 마케팅 카피를 생성하여 전환율 향상"
+        "desc": "스마트하게 마케팅 카피를 생성하여 전환율 향상",
+        "핵심 장점": "AI마케팅 텍스트"
       },
       "ai_chat": {
         "title": "AI 스마트 대화",
-        "desc": "AI와 자연스럽고 유창한 대화"
+        "desc": "AI와 자연스럽고 유창한 대화",
+        "핵심 장점": "AI스마트대화"
       },
       "ai_analysis": {
         "title": "AI 데이터 분석",
-        "desc": "스마트하게 데이터를 분석하여 인사이트 제공"
+        "desc": "스마트하게 데이터를 분석하여 인사이트 제공",
+        "핵심 장점": "AI데이마음 분석"
       },
       "ai_design": {
         "title": "AI 스마트 디자인",
-        "desc": "AI 지원 디자인, 창작 효율 향상"
+        "desc": "AI 지원 디자인, 창작 효율 향상",
+        "핵심 장점": "AI스마트디게인"
       }
     },
     "hero": {
@@ -41,7 +45,9 @@
         "aiTools": "AI 도구",
         "customerService": "전용 고객 서비스",
         "unlimited": "무제한 사용"
-      }
+      },
+      "핵심 장점": "업그레이드VIP회원",
+      "sub핵심 장점": "잠금 해제모든AI도구，누리기수사용전담특권서비스"
     },
     "card": {
       "vipMember": "VIP 회원",
@@ -55,7 +61,9 @@
     },
     "benefits": {
       "title": "VIP 전용 특권",
-      "subtitle": "귀하의 AI 사용 경험을 전방위로 향상"
+      "subtitle": "귀하의 AI 사용 경험을 전방위로 향상",
+      "핵심 장점": "VIP전담특권",
+      "sub핵심 장점": "글로벌파티위치향상귀하의AI생각사용체험"
     },
     "pricing": {
       "title": "적합한 플랜 선택",
@@ -71,36 +79,87 @@
         "originalPrice": "정가 ¥{price}"
       },
       "plans": {
+        "vip": "회원",
+        "trader": "트레이더",
         "upgrade": "플랜 업그레이드",
         "subscribe": "지금 개통",
         "recommended": "추천"
       },
       "loading": "플랜 정보 로딩 중...",
-      "retry": "다시 로딩"
+      "retry": "다시 로딩",
+      "핵심 장점": "귀하에게 맞는 패키지 선택",
+      "sub핵심 장점": "유연한활동의가격가치솔루션，충족다양한요구"
     },
     "testimonials": {
       "title": "사용자 실제 평가",
-      "subtitle": "다른 사용자의 이야기 들어보기"
+      "subtitle": "다른 사용자의 이야기 들어보기",
+      "핵심 장점": "생각사용게실시간평가가치",
+      "sub핵심 장점": "보기보기기타생각사용게어떻게인가요말하기"
     },
     "faq": {
       "title": "자주 묻는 질문",
-      "subtitle": "궁금한 점을 답해드립니다"
+      "subtitle": "궁금한 점을 답해드립니다",
+      "핵심 장점": "게주의 묻는 질문",
+      "sub핵심 장점": "이해답변귀하의닫기마음의문제"
     },
     "cta": {
       "title": "VIP 특권을 경험할 준비가 되셨나요?",
       "subtitle": "지금 업그레이드하여 모든 AI 도구와 전용 서비스를 잠금 해제",
       "upgrade": "지금 VIP로 업그레이드",
       "viewPlans": "플랜 상세 보기",
-      "guarantee": "7일 무조건 환불 보장"
+      "guarantee": "7일 무조건 환불 보장",
+      "핵심 장점": "준비준비좋다체험VIP특권됨까?",
+      "sub핵심 장점": "설정즉시업그레이드，잠금 해제모든AI도구및전사용 서비스"
     },
     "payment": {
+      "title": "결제",
+      "subtitle": "결제 방법을 선택하여 주문을 완료하세요",
+      "orderInfo": "주문 정보",
+      "productName": "상품명",
+      "orderNo": "주문번호",
+      "amount": "금액",
       "paymentMethods": "결제 방법",
+      "platformCoins": {
+        "name": "플랫폼 코인 결제",
+        "desc": "계정 잔액으로 결제"
+      },
       "alipay": "alipay",
+      "wechat": {
+        "name": "WeChat Pay",
+        "desc": "WeChat 스캔 코드로 결제"
+      },
+      "card": {
+        "name": "은행 카드",
+        "desc": "은행 카드로 결제"
+      },
       "confirmPay": "결제 확인 ¥{price}",
       "cancel": "취소",
+      "underDevelopment": "개발 중",
+      "confirmPayment": "결제 확인",
+      "processing": "처리 중...",
+      "invalidOrderInfo": "주문 정보가 무효",
+      "cardNotSupported": "은행 카드 결제는 일시적으로 지원되지 않습니다. 다른 결제 방법을 선택하세요",
+      "createOrderFailed": "결제 주문 생성 실패",
+      "paymentDataError": "결제 데이터 오류",
+      "paymentSuccess": "결제 성공",
+      "paymentFailed": "결제 실패",
+      "insufficientBalance": "플랫폼 코인 잔액 부족. 다른 결제 방법을 선택하거나 먼저 충전하세요",
+      "orderAlreadyPaid": "주문이 이미 결제됨",
       "qrCodeTitle": "스캔 코드 결제",
+      "generatingQRCode": "결제 QR 코드 생성 중...",
       "qrCodeTip": "휴대폰으로 아래 QR 코드를 스캔하여 결제를 완료하세요",
+      "qrCodeFailed": "QR 코드 생성 실패",
+      "openPaymentPage": "결제 페이지 열기",
+      "checkStatus": "결제 상태 확인",
+      "cancelPayment": "결제 취소",
+      "paymentNotAvailable": "결제 기능은 아직 이용 불가",
+      "paymentRedirecting": "결제 페이지로 이동 중...",
+      "wechatPaymentRequiresJSAPI": "WeChat Pay는 WeChat 환경에서 사용해야 합니다",
+      "pageTitleKeyword": "결제",
+      "pageTitle": "결제 페이지",
+      "defaultProductName": "이름 없는 상품",
       "qrCodeAlt": "결제 QR 코드",
+      "unsupportedMethod": "지원되지 않는 결제 방법",
       "close": "닫기",
       "confirmOrder": "주문 확인",
       "orderDetails": "주문 상세",
@@ -123,37 +182,43 @@
         "referral": "✓ 커미션 플랜 자격",
         "support": "✓ 7*24시간 기술 지원",
         "lifetime": "✓ 일회 결제, 평생 사용"
-      }
+      },
+      "핵심 장점": "결제",
+      "sub핵심 장점": "요청선택결제방법완료주의문"
     },
     "paymentFailed": "결제 실패",
+    "핵심 장점": "업그레이드VIP회원",
+    "sub핵심 장점": "잠금 해제모든AI도구，누리기수사용전담특권서비스，만요청 ¥{amount}",
+    "permanentVip": "/영구 VIP",
+    "oneClickVip": "원클릭 VIP",
     "userMembershipBenefits": {
-      "benefit10One": "benefit10One",
-      "benefit10Three": "benefit10Three",
-      "benefit10Title": "benefit10Title",
-      "benefit10Two": "benefit10Two",
-      "benefit11Title": "benefit11Title",
-      "benefit1One": "benefit1One",
-      "benefit1Three": "benefit1Three",
-      "benefit1Title": "benefit1Title",
-      "benefit1Two": "benefit1Two",
-      "benefit2Title": "benefit2Title",
-      "benefit3Title": "benefit3Title",
-      "benefit4Title": "benefit4Title",
-      "benefit5Title": "benefit5Title",
-      "benefit6Title": "benefit6Title",
-      "benefit7One": "benefit7One",
-      "benefit7Three": "benefit7Three",
-      "benefit7Title": "benefit7Title",
-      "benefit7Two": "benefit7Two",
-      "benefit8Title": "benefit8Title",
-      "benefit9Title": "benefit9Title",
-      "benefitName": "benefitName",
-      "normalUser": "normalUser",
-      "trader": "trader",
-      "traderPrice": "traderPrice",
-      "upgrade": "upgrade",
+      "vipPrice": "한정 588위안/1288위안 VIP/년",
+      "traderPrice": "한정 3888위안/18888위안 트레이더/년",
+      "benefitName": "혜택명",
+      "normalUser": "일반 사용자",
       "vip": "VIP",
-      "vipPrice": "vipPrice"
+      "trader": "트레이더",
+      "upgrade": "지금 개통",
+      "benefit1Title": "평생 2차 배분 수익",
+      "benefit1One": "공유하고 지혜 포인트 받기",
+      "benefit1Two": "1차 배분 10%",
+      "benefit1Three": "1차 배분 40% 2차 배분 10%",
+      "benefit2Title": "1000개 이상 에이전트 소스코드 획득",
+      "benefit3Title": "AI 앱 Coze 공식 채널 게시",
+      "benefit4Title": "AI 앱 한정 무료 공개",
+      "benefit5Title": "Coze/N8N 원활한 연동",
+      "benefit6Title": "다대일 Q&A 코칭",
+      "benefit7Title": "연산력 포인트 증정",
+      "benefit7One": "8만",
+      "benefit7Two": "888만",
+      "benefit7Three": "1888만",
+      "benefit8Title": "본사 입주 및 오프라인 학습 실습 기회",
+      "benefit9Title": "1인 회사 설립",
+      "benefit10Title": "맞춤 Agent",
+      "benefit10One": "정가",
+      "benefit10Two": "5% 할인",
+      "benefit10Three": "20% 할인",
+      "benefit11Title": "커뮤니티 서비스 제공자 등록"
     }
   },
   "vipLevelPopup": {
@@ -166,12 +231,10 @@
     "benefitLevel7": "<b style=\"color: var(--color-red)\">9000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 7:지루 중추</b> 도달, <b style=\"color: var(--color-red)\">8.3</b> 할인 혜택",
     "benefitLevel8": "<b style=\"color: var(--color-red)\">10500</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 8:스마트 내비게이션</b> 도달, <b style=\"color: var(--color-red)\">8</b> 할인 혜택",
     "benefitLevel9": "<b style=\"color: var(--color-red)\">12000</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 9:양자 지뇌</b> 도달, <b style=\"color: var(--color-red)\">7.7</b> 할인 혜택",
-    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 10:초차원 예언자</b> 도달, <b style=\"color: var(--color-red)\">7</b> 할인 혜택",
-    "goActivate": "goActivate",
-    "level0Desc": "level0Desc"
+    "benefitLevel10": "<b style=\"color: var(--color-red)\">18888</b> 지후이력 도달 시 <b style=\"color: var(--color-red)\">레벨 10:초차원 예언자</b> 도달, <b style=\"color: var(--color-red)\">7</b> 할인 혜택"
   },
   "Vip": {
-    "oneClickVip": "oneClickVip",
-    "permanentVip": "permanentVip"
+    "permanentVip": "/영구 VIP",
+    "oneClickVip": "원클릭 VIP"
   }
 }

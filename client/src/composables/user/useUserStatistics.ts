@@ -1,11 +1,11 @@
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import type { UserInfoData } from '@/api/user/user'
-import { getUserStatistics, type UserStatistics } from '@/api/statistics/statistics'
-import { getIncomeOverview, getSettlementList, type AgentSettlement } from '@/api/agent/agent-settlement'
-import { getWithdrawalList, createWithdrawal, type AgentWithdrawal } from '@/api/agent/agent-withdrawal'
-import { getUserTokenBalance, getUserBilling } from '@/api/agent/agents'
+import type { UserInfoData } from '@/api/user'
+import { getUserStatistics, type UserStatistics } from '@/api/statistics'
+import { getIncomeOverview, getSettlementList, type AgentSettlement } from '@/api/agent-settlement'
+import { getWithdrawalList, createWithdrawal, type AgentWithdrawal } from '@/api/agent-withdrawal'
+import { getUserTokenBalance, getUserBilling } from '@/api/agents'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
 import { formatTime } from '@/shared'
@@ -24,7 +24,7 @@ export interface BillingRecord {
   createdAt: string
   agentName?: string
   billingCount?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**

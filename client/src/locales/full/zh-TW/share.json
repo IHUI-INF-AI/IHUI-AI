@@ -71,6 +71,7 @@
     "currentShares": "當前分享次數",
     "shareSources": "分享來源",
     "wechatConfigFailed": "微信分享配置失敗，請使用二維碼分享",
-    "backToHome": "返回首頁"
+    "backToHome": "返回首頁",
+    "contentDetails": "內容詳情"
   }
 }

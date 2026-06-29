@@ -384,7 +384,7 @@ const handleVote = (faqId: string, isHelpful: boolean) => {
 
 // 联络矩阵方法（从 Help.vue 融合）
 const goToFeedback = () => router.push('/feedback')
-const goToApiDocs = () => router.push('/open/docs')
+const goToApiDocs = () => router.push('/api-docs')
 // 在线客服：跳转客服中心页（含在线对话、工单、FAQ）
 const openCustomService = () => router.push('/customer-service')
 
@@ -450,7 +450,7 @@ onMounted(() => {
     }
 
     .badge-text {
-      font-family: var(--font-family-edix);
+      font-family: EDIX, sans-serif;
       font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.05em;
@@ -526,7 +526,7 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     background: var(--el-fill-color-light);
@@ -538,7 +538,7 @@ onMounted(() => {
     background: transparent;
     color: var(--el-color-primary);
     font-size: 24px;
-    transition: color 0.3s, transform 0.3s;
+    transition: all 0.3s;
     flex-shrink: 0;
   }
 
@@ -565,7 +565,7 @@ onMounted(() => {
     background: transparent;
     color: var(--el-text-color-placeholder);
     font-size: 16px;
-    transition: color 0.3s, transform 0.3s;
+    transition: all 0.3s;
     flex-shrink: 0;
   }
 }
@@ -578,7 +578,7 @@ onMounted(() => {
   background: transparent;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   min-height: 36px;
 
   &:hover {
@@ -595,7 +595,7 @@ onMounted(() => {
     .id { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-border-color-darker); font-weight: 700; transition: color 0.3s; }
     .title { font-size: 12px; color: var(--el-text-color-regular); font-weight: 500; transition: color 0.3s; }
   }
-  .arrow { color: var(--el-border-color-extra-light); transition: color 0.3s, transform 0.3s; font-size: 13px; }
+  .arrow { color: var(--el-border-color-extra-light); transition: all 0.3s; font-size: 13px; }
 }
 
 // FAQ 中心样式（从 Help.vue 融合）
@@ -642,7 +642,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 6px;
-    transition: background-color 0.3s, color 0.3s;
+    transition: all 0.3s;
 
     &.active {
       background: var(--el-color-primary);
@@ -666,7 +666,7 @@ onMounted(() => {
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   overflow: hidden;
-  transition: background-color 0.3s, border-color 0.3s;
+  transition: all 0.3s;
 
   .entry-header {
     padding: 16px 20px;
@@ -694,7 +694,7 @@ onMounted(() => {
 
     .toggle-ico {
       color: var(--el-text-color-placeholder);
-      transition: color 0.3s, transform 0.3s;
+      transition: all 0.3s;
     }
   }
 
@@ -755,7 +755,7 @@ onMounted(() => {
           border-radius: var(--global-border-radius);
           cursor: pointer;
           font-size: 12px;
-          transition: color 0.3s;
+          transition: all 0.3s;
 
           &:hover {
             color: var(--el-color-primary);
@@ -767,7 +767,7 @@ onMounted(() => {
 }
 
 @keyframes slideDown {
-  from { opacity: 0;  }
+  from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -791,7 +791,7 @@ onMounted(() => {
   padding: 24px;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -804,7 +804,7 @@ onMounted(() => {
 
   .ch-icon {
     color: var(--el-color-primary);
-    transition: color 0.3s, transform 0.3s;
+    transition: all 0.3s;
     width: 32px;
     height: 32px;
     display: flex;
@@ -842,7 +842,7 @@ onMounted(() => {
       letter-spacing: 0.5px;
       white-space: nowrap;
     }
-    :where(.ch-status).online { color: var(--el-color-success); }
+    :where(.ch-status).online { color: var(--color-emerald-500); }
   }
 }
 
@@ -935,7 +935,7 @@ onMounted(() => {
 }
 
 // 暗色模式覆盖
-:where(html.dark) .document-center-page {
+html.dark .document-center-page {
   background-color: var(--el-bg-color-page);
 }
 </style>

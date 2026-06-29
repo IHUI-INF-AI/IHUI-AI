@@ -4,6 +4,12 @@
       "channel": "채널 검색",
       "list": "상품 검색",
       "record": "기록 검색"
+    },
+    "label": {
+      "channelName": "채널명",
+      "trigger": "트리거",
+      "points": "포인트 수",
+      "actions": "작업"
     }
   }
 }

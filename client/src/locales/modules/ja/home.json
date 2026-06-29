@@ -1,6 +1,7 @@
 {
   "home": {
     "input": {
+      "placeholder": "質問を入力してください。ctrl/cmd+Enterで送信",
       "modelButton": "モデル",
       "modelSwitch": "モデル",
       "auto": "自動",
@@ -25,10 +26,11 @@
         "videoa": "デジタルヒューマン",
         "other": "その他"
       },
+      "loadModelFailed": "モデルリストの読み込みに失敗しました。後でもう一度お試しください",
       "apiAccess": "API連携"
     },
+    "welcome": "スマートAIコミュニティへようこそ",
     "page1": {
-      "brandWelcome": "WELCOME 智匯 INF . AI",
       "content": "スマートAIコミュニティ、AIの無限の可能性を探索",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "詳細を見る"
@@ -39,13 +41,14 @@
       "content": "私たちが提供する全方位のAIサービスを探索してください。モデル統合からアプリストアまで、あなたの様々なニーズを満たします",
       "features": {
         "modelIntegration": "多モデル統合",
-        "appStore": "AIアプリストア",
+        "appStore": "エージェント",
         "contentCreation": "コンテンツ創作",
         "edu": "AI教育",
-        "navigation": "スマートナビゲーション"
+        "navigation": "スマートナビゲーション",
+        "mcpUse": "MCP使用"
       },
       "advantages": {
-        "title": "コアメリット",
+        "title": "コアアドバンテージ",
         "titleEn": "CoreAdvantages",
         "subtitle": "なぜスマートAIを選ぶのか",
         "professional": {
@@ -95,7 +98,6 @@
     "marquee": {
       "kouzi": "コウズアイコン",
       "bbxLogo": "BBXロゴ",
-      "brand4": "ブランドアイコン",
       "zhipu": "Zhipu Qingyan",
       "brand8": "ブランド8",
       "openai": "OpenAI",
@@ -107,7 +109,8 @@
       "yuanbaoxiang": "ユエンバオシャン",
       "yushu": "ユーシュテクノロジー",
       "dbsfdx": "東北師範大學",
-      "jldx": "吉林大學"
+      "jldx": "吉林大學",
+      "n8n": "n8n"
     },
     "miniappBtn": "WeChatミニプログラム",
     "miniappModal": {
@@ -124,26 +127,35 @@
       "title": "新メンバー特典！",
       "subtitle": "今すぐ購読、ダブルポイント獲得！",
       "doublePoints": "2倍ポイント",
+      "credits": {
+        "starter": "Starter {total}（追加 {extra}）ポイント獲得",
+        "basic": "Basic {total}（追加 {extra}）ポイント獲得",
+        "pro": "Pro {total}（追加 {extra}）ポイント獲得"
+      },
+      "hint": "今すぐ購読、初月に {highlight} を獲得できます",
       "primaryButton": "追加ポイント取得",
       "secondaryLink": "無料ポイントは不要です",
       "close": "閉じる"
+    },
+    "comments": {
+      "mainContent": "ホームコンテンツ：下方向に並べて表示",
+      "firstPage": "最初ページ",
+      "mainTitle": "中央メインタイトル",
+      "interactiveText": "既存のインタラクティブテキスト効果を維持（任意）",
+      "secondPage": "2番目ページ",
+      "featuresGrid": "機能モジュール表示"
+    },
+    "features": {
+      "modelIntegration": "モデル統合",
+      "appStore": "AppStore",
+      "contentCreation": "コンテンツ創作",
+      "edu": "Edu",
+      "navigation": "ナビゲーション"
     },
     "hardcoded": {
       "hot": "人気",
       "news": "ニュース",
       "aiNews": "AIニュース"
-    },
-    "wheelSensitivityLabel": "ホイール感度",
-    "marqueeSpeedLabel": "スクロール速度",
-    "clickToResume": "クリックしてスクロールを再開",
-    "clickToPause": "クリックしてスクロールを一時停止",
-    "resumeScroll": "再開",
-    "pauseScroll": "一時停止",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "遅",
-    "speedMid": "中",
-    "speedFast": "速"
+    }
   }
 }

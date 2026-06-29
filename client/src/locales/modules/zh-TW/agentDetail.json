@@ -3,8 +3,10 @@
     "buyAgent": "購買智能體",
     "selectPaymentMethod": "請選擇支付方式：",
     "close": "關閉",
+    "purchaseFeatureInDevelopment": "購買功能開發中",
     "backToList": "返回列表",
     "public": "公開",
+    "unknownCreator": "未知創建者",
     "timesUsed": "次使用",
     "viewAgentList": "查看智能體列表",
     "purchaseAgent": "購買智能體",
@@ -12,6 +14,7 @@
     "favorite": "收藏",
     "thumbsUp": "點讚",
     "share": "分享",
+    "print": "打印",
     "refreshDetails": "刷新詳情",
     "detailedInfo": "詳細資訊",
     "overview": "概述",
@@ -60,6 +63,8 @@
     "statusDeprecated": "已廢棄",
     "loadReviewsFailed": "加載評價失敗",
     "loadRelatedToolsFailed": "加載相關工具失敗",
+    "navigationFailed": "導航失敗",
+    "routeNavigationError": "路由跳轉異常",
     "processing": "處理中...",
     "confirmPurchase": "確認購買",
     "agentNotLoaded": "AgentNotLoaded",
@@ -71,6 +76,6 @@
     "purchaseFailed": "購買失敗",
     "linkCopied": "鏈接已複製",
     "copyFailed": "複製失敗",
-    "invalidPaymentForm": "invalidPaymentForm"
+    "invalidPaymentForm": "Invalid Payment Form"
   }
 }

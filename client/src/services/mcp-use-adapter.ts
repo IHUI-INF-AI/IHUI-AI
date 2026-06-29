@@ -78,7 +78,7 @@ export class MCPUseAdapter {
       }
 
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       logger.error(`[MCP-Use] Connection failed:`, err.message)
       return false
@@ -100,7 +100,7 @@ export class MCPUseAdapter {
       })
 
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       logger.error(`[MCP-Use] Failed to create Agent:`, err.message)
       return false
@@ -125,7 +125,7 @@ export class MCPUseAdapter {
       const toolsToUse = await this.selectTools(agent, task)
 
       // 2. 调用工具获取数据
-      const toolResults: Array<{ tool: string; result: any }> = []
+      const toolResults: Array<{ tool: string; result: unknown }> = []
       for (const toolName of toolsToUse) {
         const result = await this.invokeTool(toolName, task, context)
         toolResults.push({ tool: toolName, result })
@@ -137,17 +137,17 @@ export class MCPUseAdapter {
       return {
         success: true,
         data: finalResult,
-        serverId: (agent as any).agentId || 'unknown',
+        serverId: (agent as { agentId?: string }).agentId || 'unknown',
         toolName: 'runAgent',
         timestamp: Date.now(),
       } as MCPCallResult
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       return {
         success: false,
         error: err.message || 'Agent 执行失败',
         data: null,
-        serverId: (agent as any).agentId || 'unknown',
+        serverId: (agent as { agentId?: string }).agentId || 'unknown',
         toolName: 'runAgent',
         timestamp: Date.now(),
       } as MCPCallResult
@@ -248,7 +248,7 @@ export class MCPUseAdapter {
     task: string,
     key: string,
     schema: { type?: string; description?: string }
-  ): any {
+  ): unknown {
     // 简单的提取逻辑，实际应该使用更智能的方法
     const patterns = [
       new RegExp(`${key}[：:](\\S+)`, 'i'),
@@ -279,7 +279,7 @@ export class MCPUseAdapter {
   private async processWithLLM(
     agent: MCPUseAgentConfig,
     task: string,
-    toolResults: Array<{ tool: string; result: any }>,
+    toolResults: Array<{ tool: string; result: unknown }>,
     _context?: Record<string, unknown>
   ): Promise<unknown> {
     // 这里应该调用实际的 LLM API

@@ -47,22 +47,22 @@
         <span v-if="duration" class="media-duration">{{ formatTime(duration) }}</span>
       </div>
       <div class="media-actions">
-        <button class="action-btn" @click="togglePlaybackRate" :title="t('viewerMediaViewer.playSpeed')">
+        <button class="action-btn" @click="togglePlaybackRate" title="播放速度">
           {{ playbackRate }}x
         </button>
-        <button class="action-btn" @click="toggleLoop" :class="{ active: isLooping }" :title="t('viewerMediaViewer.loop')" :aria-label="t('viewerMediaViewer.loop')">
+        <button class="action-btn" @click="toggleLoop" :class="{ active: isLooping }" title="循环" aria-label="循环">
           🔁
         </button>
-        <button class="action-btn" @click="toggleMute" :title="t('viewerMediaViewer.mute')" :aria-label="t('viewerMediaViewer.mute')">
+        <button class="action-btn" @click="toggleMute" title="静音" aria-label="静音">
           {{ isMuted ? '🔇' : '🔊' }}
         </button>
-        <a :href="src" download class="action-btn download-btn" :title="t('viewerMediaViewer.download')">⬇</a>
+        <a :href="src" download class="action-btn download-btn" title="下载">⬇</a>
       </div>
     </div>
     
     <div v-if="error" class="error-overlay">
       <span class="error-icon">⚠️</span>
-      <span>{{ t('viewerMediaViewer.mediaLoadFailed') }}</span>
+      <span>{ t('viewerMediaViewer.mediaLoadFailed') }</span>
       <a :href="src" download class="download-link">{{ t('mediaViewer.downloadView') }}</a>
     </div>
   </div>
@@ -241,7 +241,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .audio-icon {
   font-size: 64px;
@@ -324,7 +325,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--el-bg-color);
   font-size: 14px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .action-btn:hover {
@@ -366,7 +367,7 @@ onMounted(() => {
 }
 
 .download-link:hover {
-  background: var(--el-color-primary);
+  background: var(--color-blue-245bdb);
 }
 
 .is-audio .media-container {

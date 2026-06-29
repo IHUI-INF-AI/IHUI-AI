@@ -1,15 +1,15 @@
 {
   "performance": {
-    "alerts": "alerts",
-    "cls": "cls",
-    "d7": "d7",
-    "fid": "fid",
-    "h1": "h1",
-    "h24": "h24",
-    "lcp": "lcp",
-    "loadDist": "loadDist",
-    "scoreDist": "scoreDist",
-    "trend": "trend",
-    "ttfb": "ttfb"
+    "lcp": "LCP (최대 콘텐츠 그리기)",
+    "fid": "FID (최초 입력 지연)",
+    "cls": "CLS (누적 레이아웃 이동)",
+    "ttfb": "TTFB (첫 바이트 시간)",
+    "trend": "성능 추세",
+    "h1": "1시간",
+    "h24": "24시간",
+    "d7": "7일",
+    "loadDist": "페이지 로드 시간 분포",
+    "scoreDist": "성능 점수 분포",
+    "alerts": "성능 알림"
   }
 }

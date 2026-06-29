@@ -1,8 +1,10 @@
-// Base - 基础设计令牌
-// 2026-06-25: 字体变量已统一由 public/fonts-optimized/fonts.css 唯一来源定义，
-// 本文件不再声明 --font-family-chinese / --font-family-english，
-// 避免与 fonts.css 的"零回退栈"定义冲突。
+// Base ?- 基础设计令牌
 @layer base {
+  :root {
+    --font-family-chinese: 'HarmonyOS Sans SC', -apple-system, blinkmacsystemfont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    --font-family-english: 'HarmonyOS Sans SC', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, sans-serif;
+  }
+
   html {
     font-family: var(--font-family-chinese);
     font-size: 16px;

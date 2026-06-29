@@ -31,7 +31,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import request from '@/utils/request'
-import * as api from '../ai/ai-world'
+import * as api from '../ai-world'
 
 describe('ai-world API', () => {
   beforeEach(() => {

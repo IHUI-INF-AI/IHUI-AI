@@ -1,7 +1,7 @@
 {
   "adminGrayRelease": {
-    "confirmRollback": "confirmRollback",
-    "createRelease": "createRelease",
-    "enterRollbackReason": "enterRollbackReason"
+    "confirmRollback": "롤백 확인",
+    "enterRollbackReason": "롤백 사유를 입력하세요",
+    "createRelease": "릴리스 생성"
   }
 }

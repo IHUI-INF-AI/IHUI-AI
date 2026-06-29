@@ -1,0 +1,49 @@
+{
+  "adminVipManagement": {
+    "export": "エクスポート記録",
+    "search": {
+      "status": "VIPステータス",
+      "statusPlaceholder": "请選択VIPステータス"
+    },
+    "table": {
+      "status": "VIPステータス"
+    },
+    "vipType": {},
+    "status": {
+      "active": "生效中",
+      "expired": "済み過ぎ期",
+      "cancelled": "済みキャンセル",
+      "unknown": "不明"
+    },
+    "detail": {
+      "status": "VIPステータス"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportDeveloping": "エクスポート機できる開発中",
+      "exportFailed": "エクスポートに失敗",
+      "exportSuccess": "エクスポート成功"
+    },
+    "exportData": {
+      "id": "VIPID",
+      "userId": "ユーザーID",
+      "vipType": "VIPタイプ",
+      "status": "ステータス",
+      "price": "価格",
+      "originalPrice": "原价",
+      "discount": "割引扣",
+      "orderId": "注文ID",
+      "startTime": "開始時間",
+      "endTime": "終了時間",
+      "createTime": "作成時間",
+      "updateTime": "更新しいしい時間",
+      "cancelTime": "キャンセル時間",
+      "remark": "備考",
+      "filename": "VIPリスト"
+    },
+    "exportFormatPrompt": "请選択エクスポート形式",
+    "exportCSV": "エクスポートCSV",
+    "exportExcel": "エクスポートExcel",
+    "exportPDF": "エクスポートPDF"
+  }
+}

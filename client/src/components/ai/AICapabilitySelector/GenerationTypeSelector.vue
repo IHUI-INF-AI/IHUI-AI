@@ -227,12 +227,12 @@ const currentIcon = computed(() => {
     border: 1.5px solid transparent;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
       background: hsl(var(--muted) / 0.5);
       border-color: hsl(var(--border) / 0.5);
-      
+      transform: translateY(-1px);
     }
 
     &--active {
@@ -301,7 +301,7 @@ const currentIcon = computed(() => {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: all 0.15s ease;
 
     &:hover {
       background: hsl(var(--muted) / 0.5);
@@ -355,12 +355,12 @@ const currentIcon = computed(() => {
 // 过渡动画
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
   opacity: 0;
-  
+  transform: translateY(-8px);
 }
 </style>

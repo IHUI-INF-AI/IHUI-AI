@@ -1,19 +1,17 @@
 {
   "studyGroup": {
-    "cover": "封面",
-    "delist": "delist",
-    "descPlaceholder": "请输入描述",
-    "edit": "编辑",
-    "enterGroupDesc": "enter 分组 描述",
-    "enterGroupTitle": "enter 分组 标题",
-    "groupDesc": "分组 描述",
-    "groupTitle": "分组 标题",
+    "subTrack": "细分赛道",
     "pleaseSelect": "请选择",
+    "uploadVideo": "上传视频",
     "publish": "发布",
-    "selectTrack": "选择音轨",
-    "subTrack": "sub Track",
-    "titlePlaceholder": "请输入标题",
-    "uploadCover": "上传封面",
-    "uploadVideo": "上传视频"
+    "edit": "修改",
+    "delist": "下架",
+    "cover": "封面",
+    "enterGroupDesc": "请输入小组描述",
+    "enterGroupTitle": "请输入小组标题",
+    "groupDesc": "小组描述",
+    "groupTitle": "小组标题",
+    "selectTrack": "请选择赛道",
+    "uploadCover": "请上传封面图片"
   }
 }

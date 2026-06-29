@@ -1,16 +1,16 @@
 {
   "errorDashboard": {
-    "d30": "d30",
-    "d7": "d7",
-    "errorRate": "errorRate",
-    "h24": "h24",
-    "other": "other",
-    "recentErrors": "recentErrors",
-    "resolved": "resolved",
-    "stackInfo": "stackInfo",
-    "todayErrors": "todayErrors",
-    "totalErrors": "totalErrors",
-    "trend": "trend",
-    "typeDistribution": "typeDistribution"
+    "totalErrors": "Total Errors",
+    "todayErrors": "Today Errors",
+    "resolved": "Resolved",
+    "errorRate": "Error Rate",
+    "trend": "Error Trend",
+    "h24": "24 hours",
+    "d7": "7 days",
+    "d30": "30 days",
+    "typeDistribution": "Error Type Distribution",
+    "recentErrors": "Recent Errors",
+    "stackInfo": "Stack Info",
+    "other": "Other"
   }
 }

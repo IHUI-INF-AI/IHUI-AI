@@ -1,7 +1,7 @@
 {
   "memberArticle": {
-    "myArticles": "myArticles",
-    "noArticle": "noArticle",
-    "read": "read"
+    "myArticles": "マイ記事",
+    "noArticle": "記事がありません",
+    "read": "閲覧"
   }
 }

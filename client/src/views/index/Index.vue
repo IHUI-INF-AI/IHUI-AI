@@ -83,7 +83,7 @@
             <div v-for="e in examData" :key="e.id" class="exam-item">
               <p class="exam-title">{{ e.title }}</p>
               <p class="exam-time">{{ e.startTime }} ~ {{ e.endTime }}</p>
-              <el-button size="small" type="primary" @click="$router.push(`/exam/${e.id}`)">{{ t('indexHome.signUp') }}</el-button>
+              <el-button size="small" type="primary" @click="$router.push(`/exam/detail/${e.id}`)">{{ t('indexHome.signUp') }}</el-button>
             </div>
           </div>
         </div>
@@ -125,11 +125,11 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { Picture, Reading, ChatDotRound, Connection, Collection, VideoCamera, Document, EditPen } from '@element-plus/icons-vue'
-import { newsApi } from '@/api/content/news'
-import { articleApi } from '@/api/content/article'
-import { liveApi } from '@/api/learn/live'
-import { examApi } from '@/api/learn/exam'
-import { learnApi } from '@/api/learn/learn'
+import { newsApi } from '@/api/news'
+import { articleApi } from '@/api/article'
+import { liveApi } from '@/api/live'
+import { examApi } from '@/api/exam'
+import { learnApi } from '@/api/learn'
 import SearchBar from '@/components/module/SearchBar.vue'
 
 const loading = ref(false)
@@ -215,7 +215,7 @@ onMounted(load)
   .quick-icon { width: 48px; height: 48px; border-radius: var(--global-border-radius); display: flex; align-items: center; justify-content: center; color: var(--el-bg-color); }
   .quick-label { font-size: 13px; color: var(--el-text-color-primary); }
   .lesson-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .lesson-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; border: var(--unified-border); cursor: pointer; transition: transform 0.2s; &:hover {  } }
+  .lesson-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; border: var(--unified-border); cursor: pointer; transition: all 0.2s; &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); } }
   .lesson-cover { aspect-ratio: 16 / 9; background: var(--el-fill-color-light); overflow: hidden; img { width: 100%; height: 100%; object-fit: cover; display: block; } }
   .lesson-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--el-text-color-placeholder); }
   .lesson-info { padding: 12px; }

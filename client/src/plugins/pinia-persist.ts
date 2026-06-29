@@ -187,19 +187,20 @@ export function createPersistedState(
     // ---- 持久化状态 ----
     const debouncedWrite = createDebouncedWriter(debounceMs)
 
-    context.store.$subscribe((_mutation: any, state: any) => {
+    context.store.$subscribe((_mutation: unknown, state: unknown) => {
       debouncedWrite(() => {
         try {
+          const stateObj = state as Record<string, unknown>
           let toSave: Record<string, unknown>
           if (paths && paths.length > 0) {
             toSave = {}
             for (const path of paths) {
-              if (path in state) {
-                toSave[path] = (state as Record<string, unknown>)[path]
+              if (path in stateObj) {
+                toSave[path] = stateObj[path]
               }
             }
           } else {
-            toSave = { ...state }
+            toSave = { ...stateObj }
           }
           storage.setItem(key, serializer.serialize(toSave))
         } catch (e) {

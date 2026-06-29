@@ -1,15 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 /**
  * 课程学习路由(从 G:\code\edu 整合)
@@ -26,7 +16,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '课程,学习,在线学习',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/list',
@@ -38,7 +27,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '课程列表',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/detail/:id',
@@ -50,7 +38,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '课程详情',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/detail/:id/play',
@@ -62,7 +49,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '课程播放',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/map',
@@ -74,7 +60,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '学习地图',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/topic',
@@ -86,7 +71,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '专题课程',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/topic/:id',
@@ -98,7 +82,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '专题详情',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/homework',
@@ -110,7 +93,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '作业',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/certificate',
@@ -122,7 +104,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '证书,学习证书',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/certificate/download/:id',
@@ -134,7 +115,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '证书下载',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/buyconfirm',
@@ -146,7 +126,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '购买课程',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/payment',
@@ -158,7 +137,6 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '课程支付',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
   },
   {
     path: '/learn/payment/confirm',
@@ -170,6 +148,16 @@ export const learnRoutes: Array<RouteRecordRaw> = [
       keywords: '支付成功',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['learn']),
+  },
+  {
+    path: '/learn/rate',
+    name: 'learnRate',
+    component: safeImport(() => import(/* webpackChunkName: "learn-rate" */ '@/views/learn/Rate.vue'), 'LearnRate'),
+    meta: {
+      title: '评价',
+      description: '课程评价',
+      keywords: '评价,评论,评分',
+      requiresAuth: true,
+    },
   },
 ]

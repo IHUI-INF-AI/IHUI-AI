@@ -1,12 +1,12 @@
 {
   "learnHomework": {
-    "course": "课程",
-    "deadline": "截止日期",
-    "empty": "empty",
-    "homework": "homework",
-    "score": "分数",
-    "status": "状态",
-    "submit": "提交",
-    "submitted": "submitted"
+    "course": "Course",
+    "homework": "Homework",
+    "empty": "No homework",
+    "deadline": "Deadline: ",
+    "status": "Status: ",
+    "score": "Score: ",
+    "submitted": "Submitted",
+    "submit": "Submit Homework"
   }
 }

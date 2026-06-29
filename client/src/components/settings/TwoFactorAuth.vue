@@ -317,7 +317,7 @@ onMounted(() => {
   .qr-container {
     display: inline-block;
     padding: 16px;
-    background: var(--el-bg-color);
+    background: white;
     border-radius: var(--global-border-radius);
     margin-bottom: 16px;
   }
@@ -342,7 +342,7 @@ onMounted(() => {
       padding: 4px 8px;
       background: var(--el-fill-color);
       border-radius: var(--global-border-radius);
-      font-family: var(--font-family-mono);
+      font-family: monospace;
     }
   }
 }
@@ -403,7 +403,7 @@ onMounted(() => {
     padding: 8px 12px;
     background: var(--el-fill-color-light);
     border-radius: var(--global-border-radius);
-    font-family: var(--font-family-mono);
+    font-family: monospace;
     font-size: 14px;
   }
 }

@@ -1,7 +1,7 @@
 {
   "p19CoursesList": {
-    "enroll": "enroll",
+    "title": "P19 Courses",
     "minutes": "minutes",
-    "title": "标题"
+    "enroll": "Enroll"
   }
 }

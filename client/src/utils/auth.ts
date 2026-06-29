@@ -3,111 +3,87 @@ import Cookies from 'js-cookie'
 import { COZE_PATHS } from '@/config/backend-paths'
 import { logger } from '@/utils/logger'
 import { StorageManager, STORAGE_KEYS } from '@/utils/core'
-const TOKEN_KEY = 'ai_zhihui_token'
-const REFRESH_TOKEN_KEY = 'ai_zhihui_refresh_token'
-const USER_KEY = 'ai_zhihui_user'
-const LOGIN_TIME_KEY = 'ai_zhihui_login_time'
-const LAST_ACTIVE_KEY = 'ai_zhihui_last_active'
+import { TokenStorage } from '@/utils/storage'
+// 旧版键名（仅用于清理历史残留数据，新代码不应使用）
+const _LEGACY_TOKEN_KEY = 'ai_zhihui_token'
+const _LEGACY_REFRESH_TOKEN_KEY = 'ai_zhihui_refresh_token'
+const _LEGACY_USER_KEY = 'ai_zhihui_user'
+const _LEGACY_LOGIN_TIME_KEY = 'ai_zhihui_login_time'
+const _LEGACY_LAST_ACTIVE_KEY = 'ai_zhihui_last_active'
 
-// Token管理
+// Token管理 - 统一通过 TokenStorage
 export function getToken(): string | undefined {
-  return Cookies.get(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || undefined
+  return TokenStorage.getToken() || undefined
 }
 
-export function setToken(token: string, remember: boolean = false): void {
-  if (remember) {
-    // 记住登录状态，使用localStorage
-    localStorage.setItem(TOKEN_KEY, token)
-    Cookies.set(TOKEN_KEY, token, { expires: 30 }) // 30天过期
-  } else {
-    // 会话登录，使用sessionStorage
-    sessionStorage.setItem(TOKEN_KEY, token)
-    Cookies.set(TOKEN_KEY, token) // 浏览器会话过期
-  }
+export function setToken(token: string, _remember: boolean = false): void {
+  TokenStorage.setToken(token)
 }
 
 export function removeToken(): void {
-  Cookies.remove(TOKEN_KEY)
-  localStorage.removeItem(TOKEN_KEY)
-  sessionStorage.removeItem(TOKEN_KEY)
-  Cookies.remove(USER_KEY)
-  localStorage.removeItem(USER_KEY)
-  sessionStorage.removeItem(USER_KEY)
+  TokenStorage.clearAuth()
+  Cookies.remove(_LEGACY_TOKEN_KEY)
+  localStorage.removeItem(_LEGACY_TOKEN_KEY)
+  sessionStorage.removeItem(_LEGACY_TOKEN_KEY)
+  Cookies.remove(_LEGACY_USER_KEY)
+  localStorage.removeItem(_LEGACY_USER_KEY)
+  sessionStorage.removeItem(_LEGACY_USER_KEY)
 }
 
-// RefreshToken管理
+// RefreshToken管理 - 统一通过 TokenStorage
 export function getRefreshToken(): string | undefined {
-  return Cookies.get(REFRESH_TOKEN_KEY) || localStorage.getItem(REFRESH_TOKEN_KEY) || undefined
+  return TokenStorage.getRefreshToken() || undefined
 }
 
-export function setRefreshToken(refreshToken: string, remember: boolean = false): void {
-  if (remember) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-    Cookies.set(REFRESH_TOKEN_KEY, refreshToken, { expires: 30 })
-  } else {
-    sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-    Cookies.set(REFRESH_TOKEN_KEY, refreshToken)
-  }
+export function setRefreshToken(refreshToken: string, _remember: boolean = false): void {
+  TokenStorage.setRefreshToken(refreshToken)
 }
 
 export function removeRefreshToken(): void {
-  Cookies.remove(REFRESH_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+  Cookies.remove(_LEGACY_REFRESH_TOKEN_KEY)
+  localStorage.removeItem(_LEGACY_REFRESH_TOKEN_KEY)
+  sessionStorage.removeItem(_LEGACY_REFRESH_TOKEN_KEY)
 }
 
-// 用户信息管理
+// 用户信息管理 - 统一从 STORAGE_KEYS.USER_DATA 获取
 export function getUserFromStorage(): Record<string, unknown> | null {
-  const userStr =
-    Cookies.get(USER_KEY) || localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY)
-  if (userStr) {
-    try {
-      return JSON.parse(userStr)
-    } catch (error) {
-      logger.error('Failed to parse user info:', error)
-      return null
-    }
+  try {
+    const userData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
+    if (userData) return userData
+    // 兼容 authStore 使用的 user_data（snake_case）
+    const userDataSnake = StorageManager.getItem<Record<string, unknown>>('user_data')
+    if (userDataSnake) return userDataSnake
+  } catch (error) {
+    logger.error('Failed to get user info:', error)
   }
   return null
 }
 
 export function getUserUuid(): string {
-  // 1. 优先从统一用户存储（core userStore 使用的 userInfo）中获取
   try {
-    const storedUser = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
+    // 1. 从统一用户存储中获取
+    let storedUser = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
+
+    // 1.5 兼容 authStore 使用的 user_data（snake_case）
+    if (!storedUser) {
+      storedUser = StorageManager.getItem<Record<string, unknown>>('user_data')
+    }
+
     if (storedUser) {
-      const uuid = (storedUser.uuid as string) || (storedUser.id as string)
-      if (uuid) return uuid
-    }
-  } catch (error) {
-    logger.error('Failed to get userInfo from StorageManager:', error)
-  }
-
-  // 1.5 兼容新版认证流程：从统一的 USER_DATA（authStore 使用的 userData）中获取
-  try {
-    // 新版核心存储：userData（camelCase）
-    let storedUserData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
-
-    // 兼容 authStore 使用的 user_data（snake_case）
-    if (!storedUserData) {
-      storedUserData = StorageManager.getItem<Record<string, unknown>>('user_data')
-    }
-
-    if (storedUserData) {
-      // 1.5.1 顶层 UUID / ID
+      // 顶层 UUID / ID
       const directUuid =
-        (storedUserData.uuid as string) ||
-        (storedUserData.id as string) ||
-        (storedUserData.userId as string) ||
-        (storedUserData.userUuid as string)
+        (storedUser.uuid as string) ||
+        (storedUser.id as string) ||
+        (storedUser.userId as string) ||
+        (storedUser.userUuid as string)
 
       if (directUuid) return directUuid
 
-      // 1.5.2 兼容嵌套在资金信息/保证金信息中的 userId/userUuid（如 userMargin.userUuid、fundInfo.userId）
-      const userMargin = storedUserData.userMargin as
+      // 兼容嵌套在资金信息/保证金信息中的 userId/userUuid
+      const userMargin = storedUser.userMargin as
         | { userUuid?: string; userId?: string }
         | undefined
-      const fundInfo = storedUserData.fundInfo as
+      const fundInfo = storedUser.fundInfo as
         | { userUuid?: string; userId?: string }
         | undefined
 
@@ -120,22 +96,10 @@ export function getUserUuid(): string {
       if (nestedUuid) return nestedUuid
     }
   } catch (error) {
-    logger.error('Failed to get userData from StorageManager:', error)
+    logger.error('Failed to get userUuid:', error)
   }
 
-  // 2. 兼容旧逻辑：从 Cookies/localStorage 中的 ai_zhihui_user 获取
-  const user = getUserFromStorage()
-  if (user) {
-    const legacyUuid =
-      (user.uuid as string) ||
-      (user.id as string) ||
-      (user.userId as string) ||
-      (user.userUuid as string)
-
-    if (legacyUuid) return legacyUuid
-  }
-
-  // 3. 兼容无登录场景下的 guest UUID（旧项目在 window/localStorage 中设置）
+  // 2. 兼容无登录场景下的 guest UUID（旧项目在 window/localStorage 中设置）
   try {
     if (typeof window !== 'undefined') {
       const win = window as unknown as { userUuid?: string }
@@ -154,19 +118,18 @@ export function getUserUuid(): string {
     logger.error('Failed to get userUuid from localStorage.userUuid:', error)
   }
 
-  // 4. 找不到任何有效的用户ID时，返回空字符串
-  //    由调用方自行决定是否发起需要 user_uuid 的请求
+  // 找不到任何有效的用户ID时，返回空字符串
   return ''
 }
 
+// 用户信息写入（已废弃，新代码应直接使用 StorageManager.setItem(STORAGE_KEYS.USER_DATA, user)）
+/** @deprecated 使用 StorageManager.setItem(STORAGE_KEYS.USER_DATA, user) 替代 */
 export function setUserToStorage(user: Record<string, unknown>, remember: boolean = false): void {
   const userStr = JSON.stringify(user)
   if (remember) {
-    localStorage.setItem(USER_KEY, userStr)
-    Cookies.set(USER_KEY, userStr, { expires: 30 })
+    localStorage.setItem(_LEGACY_USER_KEY, userStr)
   } else {
-    sessionStorage.setItem(USER_KEY, userStr)
-    Cookies.set(USER_KEY, userStr)
+    sessionStorage.setItem(_LEGACY_USER_KEY, userStr)
   }
 }
 
@@ -184,44 +147,38 @@ export function clearAuth(): void {
 
 // 登录时间管理
 export function getLoginTime(): string | undefined {
-  return Cookies.get(LOGIN_TIME_KEY) || localStorage.getItem(LOGIN_TIME_KEY) || undefined
+  return localStorage.getItem(_LEGACY_LOGIN_TIME_KEY) || sessionStorage.getItem(_LEGACY_LOGIN_TIME_KEY) || undefined
 }
 
 export function setLoginTime(time: string, remember: boolean = false): void {
   if (remember) {
-    localStorage.setItem(LOGIN_TIME_KEY, time)
-    Cookies.set(LOGIN_TIME_KEY, time, { expires: 30 })
+    localStorage.setItem(_LEGACY_LOGIN_TIME_KEY, time)
   } else {
-    sessionStorage.setItem(LOGIN_TIME_KEY, time)
-    Cookies.set(LOGIN_TIME_KEY, time)
+    sessionStorage.setItem(_LEGACY_LOGIN_TIME_KEY, time)
   }
 }
 
 export function removeLoginTime(): void {
-  Cookies.remove(LOGIN_TIME_KEY)
-  localStorage.removeItem(LOGIN_TIME_KEY)
-  sessionStorage.removeItem(LOGIN_TIME_KEY)
+  localStorage.removeItem(_LEGACY_LOGIN_TIME_KEY)
+  sessionStorage.removeItem(_LEGACY_LOGIN_TIME_KEY)
 }
 
 // 最后活跃时间管理
 export function getLastActiveTime(): string | undefined {
-  return Cookies.get(LAST_ACTIVE_KEY) || localStorage.getItem(LAST_ACTIVE_KEY) || undefined
+  return localStorage.getItem(_LEGACY_LAST_ACTIVE_KEY) || sessionStorage.getItem(_LEGACY_LAST_ACTIVE_KEY) || undefined
 }
 
 export function setLastActiveTime(time: string, remember: boolean = false): void {
   if (remember) {
-    localStorage.setItem(LAST_ACTIVE_KEY, time)
-    Cookies.set(LAST_ACTIVE_KEY, time, { expires: 30 })
+    localStorage.setItem(_LEGACY_LAST_ACTIVE_KEY, time)
   } else {
-    sessionStorage.setItem(LAST_ACTIVE_KEY, time)
-    Cookies.set(LAST_ACTIVE_KEY, time)
+    sessionStorage.setItem(_LEGACY_LAST_ACTIVE_KEY, time)
   }
 }
 
 export function removeLastActiveTime(): void {
-  Cookies.remove(LAST_ACTIVE_KEY)
-  localStorage.removeItem(LAST_ACTIVE_KEY)
-  sessionStorage.removeItem(LAST_ACTIVE_KEY)
+  localStorage.removeItem(_LEGACY_LAST_ACTIVE_KEY)
+  sessionStorage.removeItem(_LEGACY_LAST_ACTIVE_KEY)
 }
 
 // Token验证
@@ -317,7 +274,7 @@ export async function refreshTokenFromAPI(): Promise<{
   }
 }
 
-// 执行token刷新的核心逻辑
+// 执行token刷新的核心逻辑（使用 axios，统一响应解析）
 async function performTokenRefresh(
   refreshToken: string
 ): Promise<{ token: string; refreshToken: string } | null> {
@@ -339,13 +296,14 @@ async function performTokenRefresh(
     }
 
     const data = await response.json()
-    if (data.code === 200 || data.code === 0) {
-      return {
-        token: data.data.token,
-        refreshToken: data.data.refreshToken,
-      }
+    // 兼容多种响应格式
+    const token = data?.data?.token || data?.data?.accessToken || data?.token || data?.accessToken
+    const newRefresh = data?.data?.refreshToken || data?.refreshToken || refreshToken
+
+    if (token) {
+      return { token, refreshToken: newRefresh }
     } else {
-      logger.error('Refresh token API error:', data.message)
+      logger.error('Refresh token API error: no token in response', data.message)
       return null
     }
   } catch (error) {
@@ -419,9 +377,29 @@ export function isVipExpired(): boolean {
 // 更新最后活跃时间
 export function updateLastActiveTime(): void {
   const currentTime = new Date().toISOString()
-  const remember = !!localStorage.getItem(TOKEN_KEY) // 如果token在localStorage中，说明是记住登录
+  // 如果 token 在 localStorage 中（记住登录模式），则登录时间也持久化
+  const remember = !!TokenStorage.getItem<string>(STORAGE_KEYS.TOKEN) &&
+    !!TokenStorage.getToken()
   setLastActiveTime(currentTime, remember)
 }
 
 // 导出兼容函数
 export { clearLoginDataCompletely, clearAllAuthData } from './auth-compat'
+
+/**
+ * 获取安全的重定向路径
+ * 只允许以单个 / 开头的相对路径，拒绝 // (协议相对 URL) 和 http(s):// 等绝对 URL
+ * 防止开放重定向漏洞
+ */
+export function getSafeRedirectPath(redirect: string | undefined | null): string {
+  if (!redirect || typeof redirect !== 'string') return '/'
+  // 去除首尾空白
+  const path = redirect.trim()
+  // 拒绝空、协议相对 URL (//)、绝对 URL (http://, https://)、非 / 开头
+  if (!path || path.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(path) || !path.startsWith('/')) {
+    return '/'
+  }
+  // 防止回退攻击：不允许 \ (Windows 路径分隔符)
+  if (path.includes('\\')) return '/'
+  return path
+}

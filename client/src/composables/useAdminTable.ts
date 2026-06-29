@@ -9,18 +9,18 @@
  */
 import { ref, type Ref } from 'vue'
 import type { ApiResponse } from '@/types'
-import type { ListParams } from '@/api/admin/admin'
+import type { ListParams } from '@/api/admin'
 
-export interface UseAdminTableOptions<T = any> {
+export interface UseAdminTableOptions<T = unknown> {
   /** 列表查询函数，接收 { current, size, keyword } 返回分页数据 */
-  fetchFn: (params: ListParams) => Promise<ApiResponse<any>>
+  fetchFn: (params: ListParams) => Promise<ApiResponse<unknown>>
   /** 默认每页条数，默认 50 */
   defaultSize?: number
   /** 数据提取路径，默认从 res.data.records / res.data.total 提取 */
-  dataExtractor?: (res: ApiResponse<any>) => { records: T[]; total: number }
+  dataExtractor?: (res: ApiResponse<unknown>) => { records: T[]; total: number }
 }
 
-export function useAdminTable<T = any>(options: UseAdminTableOptions<T>) {
+export function useAdminTable<T = unknown>(options: UseAdminTableOptions<T>) {
   const { fetchFn, defaultSize = 50, dataExtractor } = options
 
   const keyword = ref('')
@@ -30,9 +30,9 @@ export function useAdminTable<T = any>(options: UseAdminTableOptions<T>) {
   const loading = ref(false)
   const list = ref<T[]>([]) as Ref<T[]>
 
-  const defaultExtractor = (res: ApiResponse<any>): { records: T[]; total: number } => ({
-    records: (res.data as any)?.records || [],
-    total: (res.data as any)?.total || 0,
+  const defaultExtractor = (res: ApiResponse<unknown>): { records: T[]; total: number } => ({
+    records: (res.data as { records?: T[] })?.records || [],
+    total: (res.data as { total?: number })?.total || 0,
   })
 
   const reload = async () => {

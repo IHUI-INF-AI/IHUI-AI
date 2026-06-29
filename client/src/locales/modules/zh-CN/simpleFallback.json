@@ -1,8 +1,8 @@
 {
   "simpleFallback": {
-    "defaultMessage": "默认消息",
-    "goHome": "回到首页",
-    "loading": "加载中",
-    "reload": "重新加载"
+    "loading": "页面加载中...",
+    "reload": "重新加载",
+    "goHome": "返回首页",
+    "defaultMessage": "如果页面长时间未加载，请尝试刷新"
   }
 }

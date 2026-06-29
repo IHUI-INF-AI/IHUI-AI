@@ -29,7 +29,7 @@ import { ref, computed } from 'vue'
 interface VirtualListItem {
   id?: string | number
   index?: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface Props {
@@ -59,7 +59,7 @@ const visibleEnd = computed(() => {
 const visibleItems = computed(() => {
   return props.items
     .slice(visibleStart.value, visibleEnd.value)
-    .map((item: any, idx: number) => ({
+    .map((item: VirtualListItem, idx: number) => ({
       ...(item as Record<string, unknown>),
       index: visibleStart.value + idx,
     }))

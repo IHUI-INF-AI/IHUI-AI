@@ -98,7 +98,8 @@ const handleViewDocs = () => {
   background: var(--bg-card);
   border-radius: var(--global-border-radius);
   padding: 24px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .section-title {
   margin: 0 0 20px;

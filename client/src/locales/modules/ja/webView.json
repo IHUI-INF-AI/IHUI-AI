@@ -1,6 +1,6 @@
 {
   "webView": {
-    "back": "返回",
-    "noUrlProvided": "noUrlProvided"
+    "noUrlProvided": "未提供URLパラメータ",
+    "back": "戻る"
   }
 }

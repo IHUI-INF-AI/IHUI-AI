@@ -29,10 +29,11 @@ import './platform/index'
 import { addThirdPartyLoginRoutes } from './thirdPartyLoginRoutes'
 
 import { logger } from '../utils/logger'
-import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { isExpiryTimePassed } from '@/utils/login-duration'
+import { StorageManager, STORAGE_KEYS, TokenStorage } from '@/utils/storage'
+import { isLoginExpired } from '@/utils/login-duration'
 import { useAuthStore } from '@/stores/auth'
-import type { UserInfoData } from '@/api/user/user'
+import { useLoginDialog } from '@/composables/useLoginDialog'
+import type { UserInfoData } from '@/api/user'
 import i18n from '@/locales'
 import { setupRouteLanguageLoader } from '@/locales/route-loader'
 import { handleAlipayBodyCallback } from '@/utils/alipay-callback'
@@ -56,7 +57,6 @@ import {
   indexRoutes,
   p19Routes,
   p20Routes,
-  eduRoutes,
 } from './modules'
 
 const routes: Array<RouteRecordRaw> = [
@@ -73,7 +73,6 @@ const routes: Array<RouteRecordRaw> = [
   ...indexRoutes,
   ...p19Routes,
   ...p20Routes,
-  ...eduRoutes,
 ]
 
 addThirdPartyLoginRoutes(routes)
@@ -170,19 +169,76 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
     }
 
     if (
-      to.path === '/login' ||
-      to.path === '/register' ||
-      to.name === 'login' ||
-      to.name === 'register'
-    ) {
-      const authStore = useAuthStore()
+    to.path === '/login' ||
+    to.path === '/register' ||
+    to.name === 'login' ||
+    to.name === 'register'
+  ) {
+    // 拦截直接访问 /login：
+    // - 无跨项目 ?source / 支付宝 ?body 参数时，URL 不再保留 /login
+    // - 已登录 → 跳 savedReturnPath 或首页（不弹窗）
+    // - 未登录 → 跳首页 + 弹出登录弹窗（携带 redirect/returnUrl 回跳路径）
+    // - 保留 ?source / ?body 场景走原逻辑（跨项目登录、支付回调需 /login 占位）
+    if (to.path === '/login' || to.name === 'login') {
+      const q = (to.query || {}) as Record<string, unknown>
+      const hasSourceParam = q.source !== undefined
+      const hasBodyParam = q.body !== undefined
 
-      const token =
-        StorageManager.getItem<string>(STORAGE_KEYS.TOKEN) ||
-        StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
+      if (!hasSourceParam && !hasBodyParam) {
+        // 清除登出标记（拦截后 Login.vue 中的清除逻辑不再触发，避免残留）
+        try {
+          sessionStorage.removeItem('__logout_flag__')
+        } catch {
+          // ignore
+        }
+
+        const token = TokenStorage.getToken()
+        const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
+        const isExpired = expiryTime !== null && isLoginExpired(expiryTime)
+        const userData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
+
+        // 已登录且未过期 → 跳 savedReturnPath 或首页（不弹窗）
+        if (token && userData && !isExpired) {
+          let savedReturnPath: string | null = null
+          try {
+            savedReturnPath = localStorage.getItem('auth-return-path')
+          } catch {
+            // ignore
+          }
+          if (savedReturnPath && savedReturnPath !== '/login' && savedReturnPath !== '/register') {
+            try {
+              localStorage.removeItem('auth-return-path')
+            } catch {
+              // ignore
+            }
+            next({ path: savedReturnPath, replace: true })
+          } else {
+            next({ path: '/', replace: true })
+          }
+          return
+        }
+
+        // 未登录 → 跳首页 + 弹窗（携带 redirect/returnUrl 回跳）
+        const returnPath =
+          typeof q.redirect === 'string' && q.redirect
+            ? q.redirect
+            : typeof q.returnUrl === 'string' && q.returnUrl
+            ? q.returnUrl
+            : null
+        next({ path: '/', replace: true })
+        setTimeout(() => {
+          useLoginDialog().open('login', returnPath)
+        }, 0)
+        return
+      }
+    }
+
+    const authStore = useAuthStore()
+
+      const token = TokenStorage.getToken()
 
       const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-      const isExpired = expiryTime !== null && isExpiryTimePassed(expiryTime)
+      const isExpired = expiryTime !== null && isLoginExpired(expiryTime)
 
       const userData = StorageManager.getItem<Record<string, unknown>>(STORAGE_KEYS.USER_DATA)
 
@@ -317,7 +373,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
 
       if (authStore.isLoggedIn && authStore.token) {
         const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-        if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
+        if (expiryTime === null || !isLoginExpired(expiryTime)) {
           isLoggedIn = true
         }
       }
@@ -328,7 +384,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
           StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
         if (token) {
           const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-          if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
+          if (expiryTime === null || !isLoginExpired(expiryTime)) {
             isLoggedIn = true
             if (!authStore.token) {
               authStore.token = token
@@ -379,7 +435,7 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
             | undefined
           if (thirdPartyAccounts?.accessToken) {
             const expiryTime = StorageManager.getItem<number | null>(STORAGE_KEYS.LOGIN_EXPIRY_TIME)
-            if (expiryTime === null || !isExpiryTimePassed(expiryTime)) {
+            if (expiryTime === null || !isLoginExpired(expiryTime)) {
               isLoggedIn = true
               if (!authStore.token) {
                 authStore.token = thirdPartyAccounts.accessToken
@@ -408,7 +464,11 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
           logger.debug('[Router] Failed to save return path:', e)
         }
       }
-      next({ name: 'login', query: { redirect: to.fullPath } })
+      // 优化：直接跳转首页 + 弹出登录弹窗，避免 /login 中间跳转
+      next({ path: '/' })
+      setTimeout(() => {
+        useLoginDialog().open('login', to.fullPath)
+      }, 0)
       return
     }
 
@@ -577,14 +637,14 @@ router.afterEach(async (to: RouteLocationNormalized, _from: RouteLocationNormali
             if (route.matched.length > 0) {
               const component = route.matched[route.matched.length - 1].components?.default
               if (typeof component === 'function') {
-                component().catch((_error: any) => {
+                component().catch((_error: unknown) => {
                   if (import.meta.env.DEV) {
                     logger.debug(`[Router] Preload route failed, ignored）`)
                   }
                 })
               }
             }
-          } catch (_error: any) {
+          } catch (_error: unknown) {
             if (import.meta.env.DEV) {
               logger.debug(`[Router] Parse Preload route failed, ignored)`)
             }
@@ -607,17 +667,33 @@ router.onError((err: Error) => {
         msg.includes('ChunkLoadError') ||
         msg.includes('Loading chunk')
       ) {
-        // 检测到代码块加载失败(通常是发版后旧缓存),自动刷新一次(带防死循环标记)
-        const reloadFlag = sessionStorage.getItem('__chunk_reload_flag')
-        if (!reloadFlag) {
-          sessionStorage.setItem('__chunk_reload_flag', '1')
-          logger.warn('[Router] Chunk load failed, auto-reloading page...')
-          window.location.reload()
-          return
+        // 开发环境: HMR 会自行重载模块, 禁用自动 reload 避免与 HMR 冲突导致循环刷新
+        const isDev = (import.meta as { env?: { DEV?: boolean } }).env?.DEV
+        if (isDev) {
+          logger.warn('[Router] Chunk load failed in dev, skipping auto-reload (HMR will handle it)', { msg })
         } else {
-          // 已经刷新过一次还是失败,清除标记,不再自动刷新(避免死循环)
-          sessionStorage.removeItem('__chunk_reload_flag')
-          logger.warn('[Router] Chunk load failed after reload, giving up auto-refresh')
+          // 生产环境: 用时间窗口防死循环 (5 分钟内只 reload 一次)
+          // 原实现缺陷: 失败一次后清除标记 → 后续任何路由错误又会重新触发 reload → 死循环
+          const RELOAD_COOLDOWN_MS = 5 * 60 * 1000
+          const RELOAD_FLAG = '__chunk_reload_flag'
+          const reloadFlag = sessionStorage.getItem(RELOAD_FLAG)
+          const now = Date.now()
+          const lastReload = reloadFlag ? parseInt(reloadFlag, 10) : NaN
+
+          if (!reloadFlag || isNaN(lastReload) || (now - lastReload) > RELOAD_COOLDOWN_MS) {
+            sessionStorage.setItem(RELOAD_FLAG, String(now))
+            logger.warn('[Router] Chunk load failed, auto-reloading page...', {
+              elapsedMs: isNaN(lastReload) ? null : now - lastReload,
+            })
+            window.location.reload()
+            return
+          }
+
+          // 冷却窗口内不再 reload, 避免反复刷新
+          logger.warn('[Router] Chunk load failed within cooldown, skipping auto-reload', {
+            elapsedMs: now - lastReload,
+            cooldownMs: RELOAD_COOLDOWN_MS,
+          })
         }
       }
     } catch (e) {

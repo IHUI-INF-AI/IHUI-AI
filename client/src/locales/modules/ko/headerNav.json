@@ -1,8 +1,9 @@
 {
   "headerNav": {
-    "moreFeaturesClearFlag": "moreFeaturesClearFlag",
-    "moreFeaturesMouseDown": "moreFeaturesMouseDown",
-    "moreFeaturesToggle": "moreFeaturesToggle",
-    "moreMenuSwitch": "moreMenuSwitch"
+    "moreFeaturesMouseDown": "[더 많은 기능] mousedown 이벤트, 플래그 설정",
+    "moreFeaturesClearFlag": "[더 많은 기능] 플래그 지우기",
+    "moreFeaturesToggle": "[더 많은 기능] toggleMoreMenu 호출",
+    "moreMenuSwitch": "[더 많은 기능] showMoreMenu 전환",
+    "moreFeatures": "더 많은 기능"
   }
 }

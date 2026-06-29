@@ -1,7 +1,7 @@
 {
   "distRealAuthModal": {
-    "incompleteUserInfo": "incompleteUserInfo",
-    "realAuthFailed": "realAuthFailed",
-    "realAuthSuccess": "realAuthSuccess"
+    "incompleteUserInfo": "ユーザー情報不完全、再ログインしてください",
+    "realAuthSuccess": "実名認証成功",
+    "realAuthFailed": "実名認証失敗、再試行してください"
   }
 }

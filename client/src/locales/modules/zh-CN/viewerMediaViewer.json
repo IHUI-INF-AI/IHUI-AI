@@ -1,9 +1,5 @@
 {
   "viewerMediaViewer": {
-    "download": "下载",
-    "loop": "循环",
-    "mediaLoadFailed": "media 加载 失败",
-    "mute": "静音",
-    "playSpeed": "播放 speed"
+    "mediaLoadFailed": "媒体加载失败"
   }
 }

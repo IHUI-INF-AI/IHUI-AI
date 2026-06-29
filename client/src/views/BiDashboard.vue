@@ -326,7 +326,7 @@ const formatValue = (v: number) => {
 }
 
 const onRunReport = async () => {
-  const result = await runReport({ ...form.value, order_by: sortKey.value as any, order_dir: sortDir.value })
+  const result = await runReport({ ...form.value, order_by: sortKey.value as 'value' | 'date', order_dir: sortDir.value })
   if (result) {
     announce(t('biDashboard.reportSuccess', { total: result.total }), { politeness: 'polite' })
   } else {
@@ -351,7 +351,7 @@ const onSort = (col: string) => {
     sortKey.value = col
     sortDir.value = 'desc'
   }
-  form.value.order_by = sortKey.value as any
+  form.value.order_by = sortKey.value as 'value' | 'date'
   form.value.order_dir = sortDir.value
   onRunReport()
 }
@@ -406,7 +406,8 @@ onMounted(async () => {
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     padding: clamp(16px, 2vw, 24px);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   // ---- 头部 ----
   .bi-header {
@@ -534,7 +535,7 @@ onMounted(async () => {
     font-size: 13px;
     color: var(--el-text-color-regular);
     cursor: pointer;
-    transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+    transition: all 0.2s;
     user-select: none;
   }
 
@@ -567,7 +568,7 @@ onMounted(async () => {
     color: var(--el-text-color-primary);
     background: var(--el-bg-color);
     cursor: pointer;
-    transition: border-color 0.2s, background-color 0.2s, color 0.2s, opacity 0.2s;
+    transition: all 0.2s;
     font-family: inherit;
   }
 
@@ -747,7 +748,7 @@ onMounted(async () => {
   }
 
   .bi-anomaly-sev {
-    font-size: 12px;
+    font-size: 11px;
     padding: 2px 6px;
     border-radius: var(--global-border-radius);
     border: var(--unified-border);

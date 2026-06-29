@@ -1,4 +1,4 @@
-{
+﻿﻿{
   "apiTest": {
     "title": "AI接口测试",
     "allTestsPassed": "全部",
@@ -34,6 +34,7 @@
     }
   },
   "openPlatform": {
+    "openPlatformTitle": "智汇开放平台 | iHui Open Platform",
     "title": "开放平台",
     "searchPlaceholder": "搜索功能、文档、API...",
     "backHome": "返回首页",
@@ -550,8 +551,7 @@
     "selectDoc": "请从左侧选择文档",
     "loadFailed": "加载文档失败",
     "searchPlaceholder": "搜索文档...",
-    "toc": "目录",
-    "enterpriseService": "企业服务"
+    "toc": "目录"
   },
   "common": {
     "siteName": "智汇AI社区",
@@ -566,7 +566,6 @@
     "share": "分享",
     "print": "Print",
     "noData": "暂无数据",
-    "me": "我",
     "unknown": "未知",
     "iteration": "迭代",
     "portalNav": {
@@ -588,12 +587,6 @@
       "invalidFile": "无效validFile",
       "invalidFileType": "无效validFileType",
       "fileTooLarge": "文件Too大",
-      "approveFailed": "审批失败",
-      "rejectFailed": "拒绝失败",
-      "importRefreshFailed": "导入后刷新失败",
-      "deleteRefreshFailed": "删除后刷新失败",
-      "pushRefreshFailed": "推送后刷新失败",
-      "dataLoadFailed": "数据加载失败",
       "websocketParseFailed": "WebSocket消息解析失败",
       "websocketConnectionOpened": "WebSocket连接已打开",
       "websocketError": "WebSocket错误",
@@ -629,8 +622,38 @@
       "requestCancelled": "请求已取消",
       "loginFailed": "Login Failed",
       "actionFailed": "操作失败",
+      "updateFailed": "更新失败",
       "removeFailed": "移除失败",
-      "jsonArrayError": "选项需为 JSON 数组，例如 [\"A\",\"B\",\"C\",\"D\"]"
+      "submitFailed": "提交失败",
+      "orderCreateFailed": "订单创建失败",
+      "checkInFailed": "签到失败，请稍后重试",
+      "paymentInitFailed": "支付发起失败，请重试",
+      "loadScheduleFailed": "加载日程失败",
+      "loadBalanceFailed": "加载余额失败",
+      "loadCourseFailed": "加载课程失败",
+      "loadAgentFailed": "加载智能体失败",
+      "callFailed": "调用失败",
+      "simulateFailed": "模拟失败",
+      "getVideoUrlFailed": "获取视频地址失败",
+      "giftListLoadFailed": "礼物列表加载失败",
+      "commentSendFailed": "评论发送失败",
+      "giftSendFailed": "礼物发送失败",
+      "incomeLoadFailed": "收益数据加载失败，请刷新重试",
+      "tokenLoadFailed": "数据加载失败，请刷新重试",
+      "priceLoading": "价格加载中，请稍后再试",
+      "priceLoadFailed": "价格加载失败，请刷新页面重试",
+      "approveFailed": "审批失败",
+      "rejectFailed": "拒绝失败",
+      "refreshAfterImportFailed": "导入后刷新失败",
+      "refreshAfterDeleteFailed": "删除后刷新失败",
+      "refreshAfterPushFailed": "推送后刷新失败",
+      "dashboardEmpty": "Dashboard 数据全空，后端接口可能未对接，已显示占位。",
+      "operationFailedRetry": "操作失败，请重试",
+      "likeFailed": "点赞失败",
+      "signUpFailed": "报名失败",
+      "selectAtLeastOneField": "请至少选择一个要修改的字段",
+      "inputRateContent": "请输入评价内容",
+      "messageSendFailedRetry": "消息发送失败，请重试"
     },
     "messages": {
       "loadSuccess": "加载成功",
@@ -640,7 +663,11 @@
       "operationSuccess": "操作成功",
       "saving": "保存中",
       "loginSuccess": "登录成功",
-      "removed": "已移除"
+      "saved": "已保存",
+      "likeSuccess": "点赞成功",
+      "signUpSuccess": "报名成功",
+      "rateSuccess": "评价成功",
+      "viewLoginLog": "查看登录日志"
     },
     "add": "添加",
     "addSuccess": "添加成功",
@@ -662,18 +689,6 @@
     "back": "返回",
     "next": "下一步",
     "previous": "上一步",
-    "previousItem": "上一个",
-    "toggleAnswer": "切换答案显示",
-    "toggleThinking": "切换思考过程",
-    "voiceInput": "语音输入",
-    "categoryNav": "分类导航",
-    "aiWorldCarousel": "AI 世界轮播",
-    "deleteImage": "删除图片",
-    "deleteNotification": "删除通知",
-    "unsubscribe": "取消订阅",
-    "coreData": "核心数据",
-    "hot": "热门",
-    "pleaseSelect": "请选择",
     "tip": "提示",
     "confirmDelete": "确认删除",
     "batchDelete": "批量删除",
@@ -691,6 +706,7 @@
     "no": "否",
     "selected": "已选择",
     "clear": "清空",
+    "action": "操作",
     "actions": "操作",
     "rangeSeparator": "至",
     "to": "到",
@@ -747,8 +763,8 @@
     "minutes": "Minutes",
     "minutesAgo": "Minutes Ago",
     "requestFailed": "Request Failed",
-    "saveFailed": "Save Failed",
-    "saveSuccess": "Save Success",
+    "saveFailed": "保存失败",
+    "saveSuccess": "保存成功",
     "previewBtn": "预览报告",
     "validate": {
       "required": "{label}不能为空",
@@ -768,7 +784,6 @@
     "marquee": {
       "kouzi": "扣子图标",
       "bbxLogo": "百宝箱logo",
-      "brand4": "品牌图标",
       "zhipu": "智谱清言",
       "brand8": "品牌8",
       "ali": "阿里云",
@@ -894,19 +909,7 @@
       "hot": "热门",
       "news": "资讯"
     },
-    "miniappBtn": "微信小程序",
-    "wheelSensitivityLabel": "滚轮灵敏度",
-    "marqueeSpeedLabel": "滚动速度",
-    "clickToResume": "点击继续滚动",
-    "clickToPause": "点击暂停滚动",
-    "resumeScroll": "继续滚动",
-    "pauseScroll": "暂停滚动",
-    "sensitivityLow": "低",
-    "sensitivityMid": "中",
-    "sensitivityHigh": "高",
-    "speedSlow": "慢",
-    "speedMid": "中",
-    "speedFast": "快"
+    "miniappBtn": "微信小程序"
   },
   "unifiedQRLogin": {
     "generatingQrCode": "正在生成二维码...",
@@ -929,7 +932,6 @@
     "autoRefreshing": "二维码已过期，正在自动刷新 ({current}/{max})",
     "manualRefresh": "二维码已过期，请手动刷新",
     "wechat": "微信",
-    "alipay": "支付宝",
     "logger": {
       "generateWechatQrCodeFailed": "生成微信二维码图片失败",
       "generateProviderQrCodeFailed": "生成{provider}二维码失败",
@@ -937,14 +939,25 @@
     }
   },
   "navigation": {
-    "aiStore": "AI应用商店",
+    "aiStore": "智能体",
     "moreFeatures": "更多功能",
     "customerService": "客户服务",
     "documentCenter": "文档中心",
     "newsCenter": "AI动态",
     "aboutUs": "关于我们",
     "becomeSupplier": "成为供应商",
-    "noMoreItems": "暂无更多功能"
+    "noMoreItems": "暂无更多功能",
+    "sidebar": "侧边栏",
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "coreFeatures": "核心功能",
+    "serviceSupport": "服务支持",
+    "learnCourses": "课程中心",
+    "learnMap": "学习地图",
+    "liveClass": "直播课堂",
+    "myLearning": "我的学习",
+    "openAiPanel": "打开 AI 助手",
+    "closeAiPanel": "关闭 AI 助手"
   },
   "register": {
     "brand": "智汇AI",
@@ -999,8 +1012,7 @@
     "registerFailed": "注册失败",
     "thirdParty": {
       "or": "或者",
-      "wechat": "微信",
-      "alipay": "支付宝"
+      "wechat": "微信"
     },
     "messages": {
       "phoneInvalid": "请输入有效的手机号",
@@ -1082,12 +1094,8 @@
     "registerFailedRetry": "注册失败，请重试",
     "accountPasswordLogin": "账号密码登录",
     "saveHistoryPhoneFailed": "保存历史手机号失败",
-    "alipayLogin": "支付宝登录",
     "googleLogin": "Google登录",
     "appleLogin": "Apple登录",
-    "feishuLogin": "飞书登录",
-    "dingtalkLogin": "钉钉登录",
-    "wecomLogin": "企业微信登录",
     "missingAccount": "账号",
     "missingPassword": "密码",
     "missingServiceAgreement": "服务协议",
@@ -1324,7 +1332,7 @@
     "systemInternal": "系统内部",
     "commands": {
       "home": "返回首页",
-      "store": "AI应用商店",
+      "store": "智能体",
       "plaza": "需求广场",
       "learnAI": "学习AI",
       "community": "AI创作社区",
@@ -1478,6 +1486,7 @@
     "adminLearnOrderInvoiceTitle": "发票抬头",
     "adminLearnOrderInvoiceApplication": "开票申请",
     "adminLearnSignup": "报名管理",
+    "adminLearnHomework": "作业审核",
     "adminLearnReport": "学习报告",
     "adminExamList": "考试管理",
     "adminExamPaper": "试卷管理",
@@ -1526,19 +1535,6 @@
     "adminRefundAudit": "退款审核后台",
     "adminProductManagement": "产品管理",
     "adminAiworldSite": "AI世界站点管理",
-    "adminSmsTemplate": "短信模板管理",
-    "adminDict": "字典管理",
-    "adminDictData": "字典数据",
-    "adminDeveloper": "开发者管理",
-    "adminDeveloperLink": "开发者绑定",
-    "adminDemandSquare": "需求广场",
-    "adminDemandSquareReview": "需求审核",
-    "adminLogOperlog": "操作日志",
-    "adminLogLogininfor": "登录日志",
-    "adminJob": "定时任务",
-    "adminJobLog": "任务日志",
-    "adminOnline": "在线用户",
-    "adminZone": "专区管理",
     "aiAgenticDashboard": "智能体仪表板",
     "aiApiTest": "AI接口测试",
     "aiAgentManagement": "AI智能体管理",
@@ -2309,8 +2305,7 @@
       "imageGeneration": "AI图片生成",
       "musicCreation": "AI音乐创作",
       "videoGeneration": "AI视频生成",
-      "writingAssistant": "AI写作助手",
-      "hotTools": "热门AI工具"
+      "writingAssistant": "AI写作助手"
     }
   },
   "community": {
@@ -2319,8 +2314,6 @@
     "allPosts": "全部动态",
     "noPosts": "暂无动态",
     "favorite": "收藏",
-    "like": "点赞",
-    "views": "浏览",
     "following": "关注",
     "noFollowingPosts": "暂无关注的动态",
     "recommended": "推荐",
@@ -2403,9 +2396,7 @@
       "codeGroup": "代码生成",
       "otherGroup": "其他",
       "other": "其他"
-    },
-    "searchPlaceholder": "输入关键词进行搜索",
-    "allTypes": "全部类型"
+    }
   },
   "voiceInput": {
     "listening": "正在聆听...",
@@ -3019,6 +3010,8 @@
     "settlementTitle": "Settlement Title"
   },
   "vip": {
+    "permanentVip": "/永久会员",
+    "oneClickVip": "一键开通会员",
     "title": "升级VIP会员",
     "subtitle": "解锁全部AI工具，享受专属特权服务，仅需 ¥{amount}",
     "featuresTitle": "VIP专属特权",
@@ -3351,6 +3344,10 @@
     }
   },
   "feedback": {
+    "feedbackRecords": "反馈记录",
+    "submitFeedback": "提交反馈",
+    "loading": "加载中...",
+    "submitFailed": "提交失败，请重试",
     "title": "意见反馈",
     "content": {
       "tip": "您的反馈对我们非常重要，请详细描述您的问题或建议"
@@ -3368,6 +3365,8 @@
     "submitSuccess": "反馈提交成功，感谢您的反馈！"
   },
   "statistics": {
+    "zeroHour": "0小时",
+    "zeroHour2": "0小时",
     "selectTimeRange": "选择时间范围",
     "startDate": "开始日期",
     "endDate": "结束日期",
@@ -3565,10 +3564,7 @@
       "method": "Method",
       "realName": "Real Name",
       "realNamePlaceholder": "Real Name Placeholder",
-      "title": "Title",
-      "alipay": "支付宝",
-      "wechat": "微信",
-      "bankCard": "银行卡"
+      "title": "Title"
     }
   },
   "distributionCompany": {
@@ -3705,6 +3701,9 @@
     "documentCount": "个文档"
   },
   "agents": {
+    "exploreAgents": "探索 AI 智能体",
+    "createCustomAgent": "创建专属智能体",
+    "oneClickDeploy": "一键部署与调用",
     "title": "智能体中心",
     "subtitle": "探索丰富的AI智能体，提升您的工作效率",
     "metaTotal": "共 {count} 个智能体",
@@ -3797,16 +3796,7 @@
     "statusReviewFailed": "审核失败",
     "statusOffline": "已下架",
     "statusUnknown": "未知",
-    "seoKeywords": "AI智能体,智能助手,AI工具",
-    "hotSearch": "热门搜索",
-    "searchHistory": "搜索历史",
-    "clearHistory": "清空历史",
-    "recommendTitle": "猜你想找",
-    "voiceSearch": "语音搜索",
-    "voiceInputNotSupported": "当前浏览器不支持语音输入",
-    "voiceInputListening": "正在聆听...",
-    "voiceInputError": "语音识别失败，请重试",
-    "retryLoad": "重新加载"
+    "seoKeywords": "AI智能体,智能助手,AI工具"
   },
   "aiManagement": {
     "title": "AI管理",
@@ -5532,6 +5522,8 @@
     }
   },
   "mcpUseProject": {
+    "listDirFiles": "列出当前目录的所有文件",
+    "listDirFiles2": "列出当前目录的所有文件",
     "title": "mcp-use 项目",
     "subtitle": "全栈MCP框架 - 6行代码接入任意MCP服务器",
     "managementInterface": "管理界面",
@@ -5961,6 +5953,8 @@
     }
   },
   "user": {
+    "nickname": "昵称",
+    "nickname2": "昵称",
     "quickActions": "快捷操作",
     "menu": {
       "profile": "个人信息",
@@ -7279,6 +7273,7 @@
     "minRead": "分钟阅读"
   },
   "aboutUs": {
+    "sixKPlus": "6万+",
     "heroTitle": "关于我们",
     "heroSubtitle": "我们专注把大模型与多模态能力变成可落地的产品与服务，为企业和开发者提供稳定、易用的AI能力与工具。",
     "heroMission": "让每一家企业都能用上AI，让每一个创意都能被更好地实现。",
@@ -7333,8 +7328,8 @@
       },
       "aiAppStore": {
         "date": "2025年1月",
-        "title": "全球首家AI应用商店",
-        "description": "率先提出并创建全球首家AI应用商店概念，引领AI应用生态发展"
+        "title": "全球首家智能体平台",
+        "description": "率先提出并创建全球首家智能体平台概念，引领AI应用生态发展"
       },
       "platformLaunched": {
         "date": "2025年1月",
@@ -7572,23 +7567,17 @@
     },
     "thirdParty": {
       "or": "或",
-      "alipayLogin": "支付宝登录",
       "notice": "使用第三方登录即表示您同意我们的",
       "privacyPolicy": "隐私政策",
       "termsOfService": "服务条款",
       "tooltip": {
         "wechat": "微信登录",
-        "alipay": "支付宝登录",
         "google": "Google登录",
-        "apple": "Apple登录",
-        "feishu": "飞书登录"
+        "apple": "Apple登录"
       },
-      "feishuLogin": "Feishu登录",
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "emailLogin": "emailLogin",
-      "feishu": "feishu",
       "otherMethods": "otherMethods",
       "phoneLogin": "phoneLogin",
       "quickLogin": "quickLogin",
@@ -7947,6 +7936,7 @@
     "cleared": "队列已清空"
   },
   "enterpriseService": {
+    "enterpriseDesc": "AI时代企业理性效率服务与互助社群，帮助决策者构建人机协同的超级组织",
     "badge": "ENTERPRISESERVICE",
     "adoptionRate": "企业已采用",
     "heroTitle": "智汇AI企业服务",
@@ -8596,13 +8586,7 @@
     "toolResults": "工具Results",
     "reflection": "Reflection",
     "corrected": "Corrected",
-    "correctedResult": "Corrected结果",
-    "quality": "质量:",
-    "efficiency": "效率:",
-    "errors": "错误:",
-    "suggestions": "改进建议:",
-    "executionTime": "执行时间:",
-    "errorLabel": "错误:"
+    "correctedResult": "Corrected结果"
   },
   "model": {
     "capabilities": {
@@ -8968,6 +8952,11 @@
     "copyFailed": "copy失败"
   },
   "payment": {
+    "alreadyVip": "您已是VIP会员",
+    "notLogged": "用户未登录",
+    "incompleteProduct": "商品信息不完整",
+    "selectPayMethod": "请选择支付方式",
+    "notLoggedOrNoOpenId": "用户未登录或openid不存在",
     "channelBusyHint": "当前首选 {method} 通道繁忙，已为您降级到其他支付方式",
     "memberServiceAgreement": "会员服务协议",
     "paySuccess": "支付成功",
@@ -9141,7 +9130,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AI应用商店",
+        "AI应用商店": "智能体",
         "服务与支持": "服务与支持",
         "关于我们": "关于我们"
       }
@@ -9437,11 +9426,8 @@
       "优先响应": "优先响应",
       "高级模型访问": "高级模型访问"
     },
-    "third_party_login_universal": {
-      "支付宝": "支付宝"
-    },
     "mobile_bottom_nav": {
-      "AI应用商店": "AI应用商店",
+      "AI应用商店": "智能体",
       "广场1": "广场",
       "智汇AI2": "智汇AI",
       "动态3": "动态",
@@ -9459,9 +9445,7 @@
       "Google登录": "Google登录",
       "全球通用登录1": "全球通用登录",
       "Apple登录2": "Apple登录",
-      "使用AppleI3": "使用Apple ID登录",
-      "飞书登录4": "飞书登录",
-      "使用飞书账号登录5": "使用飞书账号登录"
+      "使用AppleI3": "使用Apple ID登录"
     },
     "about": {
       "张明远": "张明远",
@@ -10115,11 +10099,6 @@
       "获取成功4": "获取成功",
       "获取成功5": "获取成功",
       "获取成功6": "获取成功"
-    },
-    "unified_alipay": {
-      "会话ID不能为空": "会话 ID 不能为空",
-      "会话ID不能为空1": "会话 ID 不能为空",
-      "授权码不能为空2": "授权码不能为空"
     },
     "unified_auth": {
       "登录接口不存在请": "登录接口不存在，请检查后端服务配置。错误信息：",
@@ -11651,8 +11630,6 @@
   },
   "studyGroup": {
     "subTrack": "细分赛道",
-    "titlePlaceholder": "请输入合集标题",
-    "descPlaceholder": "请输入合集描述",
     "pleaseSelect": "请选择",
     "uploadVideo": "上传视频",
     "publish": "发布",
@@ -11665,17 +11642,6 @@
     "groupTitle": "小组标题",
     "selectTrack": "请选择赛道",
     "uploadCover": "请上传封面图片"
-  },
-  "userLoginPopup": {
-    "welcomeBack": "欢迎回来，请登录您的账户",
-    "phonePlaceholder": "请输入手机号",
-    "codePlaceholder": "请输入验证码",
-    "enterPhone": "请先输入手机号",
-    "invalidPhone": "手机号格式不正确",
-    "codeSent": "验证码已发送",
-    "codeSendFailed": "验证码发送失败，请重试",
-    "loginSuccess": "登录成功",
-    "wechatLoginNotConfigured": "微信登录功能暂未配置"
   },
   "devCSSVariablesCheatsheet": {
     "textColor": "文字颜色",
@@ -11719,11 +11685,7 @@
     "largeDocHint": "大型文档可能需要较长时间",
     "docLoadFailed": "文档加载失败",
     "tryDownload": "请尝试下载后使用本地软件打开",
-    "officeDoc": "Office 文档",
-    "zoomOut": "缩小",
-    "reset": "重置",
-    "download": "下载",
-    "openInOfficeOnline": "在Office Online中打开"
+    "officeDoc": "Office 文档"
   },
   "featureAppleLogin": {
     "appleLoginFailed": "Apple登录失败",
@@ -11732,26 +11694,12 @@
     "appleLoginRetry": "Apple登录失败，请重试",
     "appleLoginFailed3": "Apple登录失败"
   },
-  "cmpConfirmPurchasePopUp": {
-    "vipPurchase": "会员购买",
-    "agreementDeveloping": "协议页面开发中",
-    "productNotExist": "商品信息不存在",
-    "paySuccess": "支付成功",
-    "paySuccess2": "支付成功"
-  },
   "cmpFileDownload": {
     "downloading": "下载中...",
     "invalidDownloadLink": "下载链接无效",
     "downloadFailed": "下载失败",
     "downloadComplete": "下载完成",
     "downloadFailed2": "下载失败"
-  },
-  "Payment": {
-    "alreadyVip": "您已是VIP会员",
-    "notLogged": "用户未登录",
-    "incompleteProduct": "商品信息不完整",
-    "selectPayMethod": "请选择支付方式",
-    "notLoggedOrNoOpenId": "用户未登录或openid不存在"
   },
   "cmpindex": {
     "timeExpr": "时间表达式",
@@ -11766,12 +11714,6 @@
     "second": "Second",
     "week": "Week",
     "year": "Year"
-  },
-  "cmpPdfCompare": {
-    "syncScroll": "同步滚动",
-    "syncZoom": "同步缩放",
-    "selectPdfA": "请选择PDF文件A",
-    "selectPdfB": "请选择PDF文件B"
   },
   "studyIndexModelList": {
     "loading": "加载中...",
@@ -11809,18 +11751,6 @@
     "missing": "缺少",
     "attack": "攻击"
   },
-  "DistributionCenter": {
-    "copyImage": "复制图片",
-    "distributionTitle": "AI智汇社 - 分销中心",
-    "imageCopied": "图片已复制到剪贴板",
-    "longPressToSave": "请长按图片保存"
-  },
-  "Feedback": {
-    "feedbackRecords": "反馈记录",
-    "submitFeedback": "提交反馈",
-    "loading": "加载中...",
-    "submitFailed": "提交失败，请重试"
-  },
   "cmpPromptTemplates": {
     "fillAllFields": "请填写完整信息",
     "templateAdded": "模版添加成功",
@@ -11841,34 +11771,6 @@
     "codeLoadFailed": "代码加载失败",
     "loadFailed": "加载失败"
   },
-  "viewerMonacoViewer": {
-    "loading": "加载中...",
-    "codeLoadFailed": "代码加载失败",
-    "loadFailed": "加载失败",
-    "codeFile": "代码文件",
-    "copy": "复制",
-    "copied": "已复制",
-    "wordWrap": "自动换行",
-    "download": "下载",
-    "downloadView": "下载查看",
-    "lines": "行",
-    "chars": "字符"
-  },
-  "cmpVipIntroducePopupAlt": {
-    "benefitsCount": "............约 <b>20</b> 项权益, 且持续增加 ↑",
-    "paySuccess": "支付成功",
-    "payFailed": "支付失败或已取消",
-    "feature1": "享受大额分销资格，<b>入驻</b>社区服务商名列",
-    "feature2": "会员等级拉满，享受<b>全部</b>满级折扣等权益",
-    "feature3": "二级分销权益，快速扩张<b>团队</b>及收益，创办一人公司",
-    "feature4": "最新研发前沿<b>agentic</b>内测免费使用资格<b>一年</b>",
-    "feature5": "插队定制独家定制<b>agent</b>功能<b>8</b>折优惠",
-    "feature6": "创始人<b>一对一</b>随时答疑陪跑",
-    "feature7": "<b>AI</b>深度认知课/<b>AI</b>专家一对一陪跑教学/升维课程/深度商业课/流量全链路打法课程/免费观看",
-    "feature8": "<b>AI</b>+垂类账号孵化优先陪跑机会/加入<b>MCN</b>机会",
-    "feature9": "公司总部入驻及线下学习实操机会",
-    "feature10": "插队<b>AI</b>分身/<b>AI</b>客服定制开通"
-  },
   "adminFAQList": {
     "pinned": "已置顶",
     "unpinned": "已取消置顶",
@@ -11878,20 +11780,6 @@
     "setProcessing": "已设为处理中",
     "resolved": "已解决",
     "closed": "已关闭"
-  },
-  "AgenticAIPage": {
-    "swarmCreated": "Swarm创建成功",
-    "createSwarmFailed": "创建Swarm失败",
-    "createSwarmFailed2": "创建Swarm失败"
-  },
-  "Agents": {
-    "exploreAgents": "探索 AI 智能体",
-    "createCustomAgent": "创建专属智能体",
-    "oneClickDeploy": "一键部署与调用"
-  },
-  "User": {
-    "nickname": "昵称",
-    "nickname2": "昵称"
   },
   "aiGenImageGenQwen": {
     "qwenRemarkMissing": "当前通义图片模型未在大模型列表中配置 remark（接口地址），请先在「大模型管理」中配置后再重试",
@@ -11940,33 +11828,9 @@
     "enterComment": "输入评论",
     "send": "发送"
   },
-  "cmpToolbar": {
-    "imagessvgxxxsvg": "/images/svg/大模型.svg",
-    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "正在加载PDF...",
-    "pdfLoadFailed": "PDF加载失败",
-    "prevPage": "上一页",
-    "zoomOut": "缩小",
-    "search": "搜索",
-    "download": "下载",
-    "fullscreen": "全屏"
-  },
   "viewerImageViewer": {
     "loading": "加载中...",
-    "imageLoadFailed": "图片加载失败",
-    "zoomOut": "缩小",
-    "reset": "重置",
-    "rotateLeft": "左旋转",
-    "rotateRight": "右旋转",
-    "fitScreen": "适应屏幕",
-    "fullscreen": "全屏",
-    "download": "下载"
-  },
-  "cmpVipLevelPopup": {
-    "vipLevelMechanism": "会员等级升级机制",
-    "yuanToPoint": "1¥=1点成长值"
+    "imageLoadFailed": "图片加载失败"
   },
   "adminOrderList": {
     "completed": "已完成",
@@ -11981,18 +11845,6 @@
     "confirmRollback": "确认回滚",
     "enterRollbackReason": "请输入回滚原因",
     "createRelease": "创建发布"
-  },
-  "MCPUseProject": {
-    "listDirFiles": "列出当前目录的所有文件",
-    "listDirFiles2": "列出当前目录的所有文件"
-  },
-  "Statistics": {
-    "zeroHour": "0小时",
-    "zeroHour2": "0小时"
-  },
-  "Vip": {
-    "permanentVip": "/永久会员",
-    "oneClickVip": "一键开通会员"
   },
   "cmpAuditLog": {
     "loadLogFailed": "加载日志失败"
@@ -12037,32 +11889,10 @@
     "purchased": "已购买"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "媒体加载失败",
-    "playSpeed": "播放速度",
-    "loop": "循环",
-    "mute": "静音",
-    "download": "下载"
+    "mediaLoadFailed": "媒体加载失败"
   },
   "featureGoogleLogin": {
     "googleLoginFailed": "Google登录失败"
-  },
-  "ListTemplate": {
-    "loading": "加载中..."
-  },
-  "AboutUs": {
-    "sixKPlus": "6万+"
-  },
-  "ApiTestPage": {
-    "startAITest": "开始AI接口测试"
-  },
-  "DesignSystemDemo": {
-    "designSystemMeta": "设计系统, UI组件, Vue组件, 前端开发"
-  },
-  "EnterpriseService": {
-    "enterpriseDesc": "AI时代企业理性效率服务与互助社群，帮助决策者构建人机协同的超级组织"
-  },
-  "OpenPlatform": {
-    "openPlatformTitle": "智汇开放平台 | iHui Open Platform"
   },
   "showcase": {
     "title": "组件展示",
@@ -12199,23 +12029,6 @@
       "eventSent": "Event Sent",
       "historyCleared": "History Cleared",
       "subscriptionDeleted": "Subscription Deleted"
-    },
-    "sms": {
-      "searchPlaceholder": "搜索模板名称或编码",
-      "templateName": "模板名称",
-      "templateCode": "模板编码",
-      "templateContent": "模板内容",
-      "templateType": "模板类型",
-      "typeVerify": "验证码",
-      "typeNotice": "通知",
-      "typeMarketing": "营销",
-      "signName": "签名名称",
-      "status": "状态",
-      "statusEnabled": "启用",
-      "statusDisabled": "禁用",
-      "remark": "备注",
-      "createTime": "创建时间",
-      "toggleStatus": "切换状态"
     }
   },
   "audit": {
@@ -12630,13 +12443,14 @@
     }
   },
   "adminCommon": {
-    "batchEdit": "批量编辑",
-    "batchSave": "批量保存",
-    "retryFailed": "重试失败项",
-    "updating": "正在更新",
-    "failed": "失败",
-    "items": "条",
-    "canRetryHint": "可点击\"重试失败项\"重新更新",
+    "filter": {
+      "searchNews": "搜索新闻"
+    },
+    "stat": {
+      "tableCount": "总表数量",
+      "recordCount": "总记录数",
+      "dbSize": "数据库大小"
+    },
     "label": {
       "activityId": "活动ID",
       "ai": "AI",
@@ -12775,7 +12589,80 @@
       "unfreeze": "解冻",
       "updatedAt": "更新时间",
       "userAgent": "用户代理",
-      "userId": "用户ID"
+      "userId": "用户ID",
+      "amount": "金额",
+      "appliedAt": "申请时间",
+      "avatar": "头像",
+      "bankAccount": "账号",
+      "bankName": "银行",
+      "config": "配置",
+      "model": "模型",
+      "roleName": "角色名称",
+      "roleCode": "角色代码",
+      "authorityName": "权限名称",
+      "authorityCode": "权限代码",
+      "templateName": "模板名称",
+      "issuer": "颁发机构",
+      "categoryName": "分类名称",
+      "account": "账号",
+      "role": "角色",
+      "parentId": "父级ID",
+      "pathName": "路径名称",
+      "lessonCount": "课程数",
+      "tagName": "标签名",
+      "tagFullName": "标签名称",
+      "postName": "岗位名称",
+      "levelName": "等级名称",
+      "levelRank": "等级",
+      "requiredPoints": "所需积分",
+      "groupName": "分组名称",
+      "companyName": "企业名称",
+      "scale": "规模",
+      "topicName": "专题名称",
+      "code": "编码",
+      "introduction": "简介",
+      "originalPrice": "原价",
+      "member": "成员",
+      "lesson": "课程",
+      "submitTime": "提交时间",
+      "signupTime": "报名时间",
+      "review": "审核",
+      "reviewOpinion": "审核意见",
+      "pass": "通过",
+      "complete": "完成",
+      "cancel": "取消",
+      "fullName": "姓名",
+      "jobTitle": "职称",
+      "departmentName": "部门名称",
+      "manager": "负责人",
+      "hotKeyword": "热词",
+      "channelName": "渠道名称",
+      "trigger": "触发",
+      "pointsCount": "积分数",
+      "codePatternMsg": "代码只能包含字母、数字和下划线，且以字母开头",
+      "usernamePatternMsg": "用户名只能包含字母、数字和下划线",
+      "author": "作者",
+      "readCount": "阅读",
+      "content": "内容",
+      "paper": "试卷",
+      "score": "得分",
+      "examName": "考试名称",
+      "durationMinutes": "时长(分钟)",
+      "circleName": "圈子名称",
+      "post": "帖子",
+      "paperName": "试卷名称",
+      "totalScore": "总分",
+      "lastLogin": "最后登录",
+      "question": "问题",
+      "asker": "提问人",
+      "answerCount": "回答",
+      "questionStem": "题干",
+      "questionScore": "分值",
+      "questionTitle": "题目标题",
+      "difficulty": "难度",
+      "answer": "答案",
+      "memberCountInRole": "成员数",
+      "sensitiveWord": "敏感词"
     },
     "placeholder": {
       "allCategories": "全部分类",
@@ -12855,7 +12742,6 @@
         "memberTag": "会员标签",
         "memberUnaudited": "待审核会员",
         "messageAnnouncement": "公告管理",
-        "notification": "通知中心",
         "newsContent": "资讯内容",
         "orgDepartment": "部门管理",
         "orgUser": "用户管理",
@@ -12998,6 +12884,28 @@
     "searchPlaceholder": {
       "list": "搜索列表",
       "sensitive": "搜索敏感词"
+    },
+    "sensitive": {
+      "createTitle": "新增敏感词",
+      "word": "敏感词",
+      "wordPlaceholder": "请输入敏感词",
+      "wordRequired": "请输入敏感词",
+      "category": "分类",
+      "categoryPlaceholder": "请输入分类",
+      "level": "级别",
+      "levelLow": "低",
+      "levelMedium": "中",
+      "levelHigh": "高",
+      "action": "处理方式",
+      "actionReplace": "替换",
+      "actionBlock": "拦截",
+      "replacement": "替换词",
+      "replacementPlaceholder": "请输入替换词",
+      "createSuccess": "新增成功",
+      "createFailed": "新增失败",
+      "deleteConfirm": "确定删除敏感词「{word}」吗？",
+      "deleteSuccess": "删除成功",
+      "deleteFailed": "删除失败"
     }
   },
   "exam": {
@@ -13026,7 +12934,6 @@
     }
   },
   "learn": {
-    "hotRecommend": "热门推荐",
     "searchPlaceholder": {
       "category": "搜索分类",
       "lesson": "搜索课程",
@@ -13037,6 +12944,7 @@
       "orderInvoiceTitle": "搜索发票抬头",
       "report": "搜索报告",
       "signup": "搜索报名",
+      "homework": "搜索作业",
       "topic": "搜索专题",
       "topicCategory": "搜索专题分类"
     }
@@ -13057,6 +12965,19 @@
       "post": "搜索帖子",
       "tag": "搜索标签",
       "unaudited": "搜索待审核"
+    },
+    "audit": {
+      "username": "用户名",
+      "mobile": "手机号",
+      "submitTime": "提交时间",
+      "approve": "通过",
+      "reject": "驳回",
+      "approveConfirm": "确定通过「{name}」的审核吗？",
+      "approveSuccess": "审核通过",
+      "approveFailed": "操作失败",
+      "rejectConfirm": "确定驳回「{name}」的审核吗？",
+      "rejectSuccess": "已驳回",
+      "rejectFailed": "操作失败"
     }
   },
   "message": {
@@ -13259,10 +13180,24 @@
     "title": "标题",
     "content": "正文",
     "category": "分类",
-    "selectCategory": "选择分类 (可选)",
-    "searchPlaceholder": "搜索问题...",
-    "titlePlaceholder": "一句话描述你的问题",
-    "contentPlaceholder": "详细说明..."
+    "selectCategory": "选择分类 (可选)"
+  },
+  "askEdit": {
+    "createTitle": "新建问题",
+    "editTitle": "编辑问题",
+    "questionTitle": "问题标题",
+    "titlePlaceholder": "请输入问题标题（5-100 字）",
+    "titleRequired": "请输入问题标题",
+    "titleLength": "标题长度需在 5-100 字之间",
+    "content": "问题内容",
+    "contentPlaceholder": "请详细描述你的问题（10-2000 字）",
+    "contentRequired": "请输入问题内容",
+    "contentLength": "内容长度需在 10-2000 字之间",
+    "category": "分类",
+    "selectCategory": "选择分类（可选）",
+    "tags": "标签",
+    "tagsPlaceholder": "输入标签后按回车",
+    "tagMax": "最多 {max} 个标签"
   },
   "adminClassicHome": {
     "vsYesterday": "较昨日",
@@ -13389,11 +13324,6 @@
     "markAllRead": "全部已读",
     "allTypes": "全部类型",
     "noNotifications": "暂无通知",
-    "level": {
-      "info": "提示",
-      "warn": "警告",
-      "error": "严重"
-    },
     "typeOrder": "订单",
     "typeWallet": "钱包",
     "typeSystem": "系统",
@@ -13450,11 +13380,9 @@
     "publish": "发布",
     "noPosts": "暂无动态",
     "top": "置顶",
-    "essence": "精华",
-    "postPlaceholder": "说点什么..."
+    "essence": "精华"
   },
   "withdrawDialog": {
-    "title": "钱包提现",
     "availableBalance": "可提现余额",
     "amount": "提现金额",
     "bankCard": "到账银行卡",
@@ -13504,10 +13432,7 @@
     "like": "点赞",
     "comment": "评论",
     "searchArticle": "搜索文章",
-    "noArticle": "暂无文章",
-    "latest": "最新",
-    "hottest": "最热",
-    "essenceLabel": "精华"
+    "noArticle": "暂无文章"
   },
   "askDetail": {
     "backToList": "返回列表",
@@ -13670,8 +13595,7 @@
     "top": "置顶",
     "hot": "热",
     "official": "官方",
-    "read": "阅读",
-    "all": "全部"
+    "read": "阅读"
   },
   "ranking": {
     "title": "排行榜",
@@ -13688,7 +13612,6 @@
     "selectFile": "选择文件"
   },
   "transactionDetail": {
-    "title": "交易详情",
     "txId": "交易ID",
     "status": "状态",
     "user": "用户",
@@ -13877,8 +13800,6 @@
     "tabAll": "全部",
     "tabSystem": "系统",
     "tabPrivate": "私信",
-    "tabFavorite": "收藏",
-    "tabLike": "点赞",
     "typeSystem": "系统消息",
     "typePrivate": "私信",
     "typeNotice": "通知",
@@ -13978,6 +13899,112 @@
     "balance": "余额",
     "alipay": "支付宝",
     "paySuccess": "支付成功"
+  },
+  "i18nDashboard": {
+    "title": "国际化开发者面板",
+    "subtitle": "多语言管理、翻译记忆、机器翻译与质量监控",
+    "statLabel": "共 {langs} 种语言",
+    "languageSwitcher": "语言切换",
+    "metaTitle": "语言元数据",
+    "metaTableAria": "9 种语言元数据",
+    "colCode": "代码",
+    "colLocalName": "本地名称",
+    "colEnglishName": "英文名称",
+    "colDirection": "方向",
+    "colPluralRule": "复数规则",
+    "colSeparator": "分隔符",
+    "colCurrency": "货币位置",
+    "prefix": "前缀",
+    "suffix": "后缀",
+    "pluralPreview": "复数示例 (CLDR)",
+    "pluralHint": "当前 key: {key}",
+    "formatPreview": "格式化预览",
+    "formatNumber": "数字",
+    "formatCurrency": "货币",
+    "formatDate": "日期",
+    "formatRelative": "相对时间",
+    "diffTitle": "差异对比",
+    "diffLangA": "语言 A",
+    "diffLangB": "语言 B",
+    "diffBtn": "对比",
+    "diffAMissing": "A 缺失",
+    "diffBMissing": "B 缺失",
+    "diffIdentical": "完全相同",
+    "syncLog": "同步日志",
+    "syncLogListAria": "同步日志列表",
+    "noSyncEvents": "暂无同步事件",
+    "tmTitle": "翻译记忆库 (TM)",
+    "tmSearchPlaceholder": "输入源文本, 搜索相似翻译...",
+    "tmSearchAria": "TM 搜索",
+    "tmNoMatch": "未找到相似翻译",
+    "tmInputHint": "输入源文本以搜索翻译记忆库",
+    "mtTitle": "机器翻译 (MT) + 人工审核",
+    "mtSourcePlaceholder": "输入中文源文本...",
+    "mtSourceAria": "MT 源文本",
+    "mtTranslate": "翻译",
+    "mtSource": "源文本",
+    "mtTranslated": "译文",
+    "mtConfidence": "置信度",
+    "mtApprove": "通过",
+    "mtReject": "拒绝",
+    "mtInputHint": "输入源文本进行机器翻译",
+    "targetLangAria": "目标语言",
+    "healthTitle": "健康度仪表盘",
+    "healthScore": "健康度",
+    "healthTotalKeys": "总 key 数",
+    "healthLanguages": "语言数",
+    "healthCoverage": "覆盖率",
+    "healthPendingMt": "待审核 MT",
+    "healthStaleKeys": "过期 key",
+    "loading": "加载中...",
+    "ioTitle": "导出 / 导入",
+    "export": "导出",
+    "allLanguages": "所有语言",
+    "exportBtn": "导出",
+    "exportLangAria": "导出语言",
+    "exportFmtAria": "导出格式",
+    "exportResultAria": "导出结果",
+    "import": "导入",
+    "importFmtAria": "导入格式",
+    "conflictStrategyAria": "冲突策略",
+    "conflictOverwrite": "覆盖",
+    "conflictSkip": "跳过",
+    "importBtn": "导入",
+    "importContentPlaceholder": "粘贴 CSV 或 XLIFF 内容...",
+    "importContentAria": "导入内容",
+    "importResult": "已导入 {imported} 个, 跳过 {skipped} 个",
+    "historyTitle": "版本历史",
+    "historyKeyPlaceholder": "输入 key, 如 common.items",
+    "historyKeyAria": "历史 key",
+    "historyLangAria": "历史语言",
+    "historyListAria": "版本历史列表",
+    "viewHistory": "查看历史",
+    "rollback": "回滚",
+    "noHistory": "暂无历史记录",
+    "batchTitle": "批量操作",
+    "batchDeleteStatus": "批量删除 / 状态",
+    "batchKeysPlaceholder": "每行一个 key...",
+    "batchKeysAria": "批量 key 列表",
+    "batchLangAria": "批量语言",
+    "batchStatusAria": "目标状态",
+    "batchDeleteBtn": "批量删除",
+    "batchStatusBtn": "批量改状态",
+    "batchPush": "批量推送",
+    "batchPushPlaceholder": "common.items\tzh-CN\t项目",
+    "batchPushAria": "批量推送内容",
+    "batchPushBtn": "推送",
+    "monitorTitle": "MT Provider + V1 退役监控",
+    "mtProvider": "MT Provider",
+    "mtProviderListAria": "MT provider 列表",
+    "current": "当前",
+    "available": "可用",
+    "unavailable": "不可用",
+    "currentTag": "当前",
+    "v1Monitor": "V1 退役监控",
+    "v1TotalHits": "总命中",
+    "v1UniquePaths": "唯一路径",
+    "v1TopPathsAria": "V1 退役热门路径",
+    "noV1Hits": "暂无 V1 退役流量"
   },
   "biDashboard": {
     "dimDate": "日期",
@@ -14187,9 +14214,7 @@
   },
   "learnRate": {
     "reviews": "条评价",
-    "writeReview": "写评价",
-    "rating": "评分",
-    "content": "内容"
+    "writeReview": "写评价"
   },
   "learnTopicDetail": {
     "topicNotFound": "专题不存在",
@@ -14199,15 +14224,7 @@
   "livePlay": {
     "liveNotFound": "直播不存在",
     "notLive": "主播未开播",
-    "send": "发送",
-    "danmuPlaceholder": "发条弹幕...",
-    "points": "积分",
-    "liveIntro": "直播介绍",
-    "noIntro": "暂无介绍",
-    "statistics": "统计数据",
-    "views": "观看",
-    "likes": "点赞",
-    "sentGift": "送出 {name} x1"
+    "send": "发送"
   },
   "memberArticle": {
     "myArticles": "我的文章",
@@ -14237,10 +14254,7 @@
   },
   "p19AdminDashboard": {
     "title": "P19 Admin 仪表盘",
-    "recentActivity": "最近活动",
-    "action": "操作",
-    "target": "目标",
-    "time": "时间"
+    "recentActivity": "最近活动"
   },
   "statisticsPage": {
     "zeroHour": "0小时"
@@ -14252,10 +14266,7 @@
   "userPage": {
     "feedback": "意见反馈",
     "noStudyContent": "暂无学习内容",
-    "views": "次观看",
-    "noTextContent": "暂无文本内容",
-    "noImageContent": "暂无图片内容",
-    "noVideoContent": "暂无视频内容"
+    "views": "次观看"
   },
   "p19PaymentMethods": {
     "title": "P19 支付方式",
@@ -14473,16 +14484,7 @@
     "backToList": "返回退款列表",
     "title": "退款详情",
     "refundNo": "退款单号",
-    "supplementEvidence": "补充凭证 (支持多文件)",
-    "refundInfo": "退款信息",
-    "originalOrderNo": "原订单号",
-    "refundAmount": "退款金额",
-    "refundReason": "退款原因",
-    "refundDescription": "退款说明",
-    "rejectReason": "拒绝原因",
-    "applyTime": "申请时间",
-    "approveTime": "批准时间",
-    "completeTime": "完成时间"
+    "supplementEvidence": "补充凭证 (支持多文件)"
   },
   "biDrilldown": {
     "detail": "明细",
@@ -14525,9 +14527,7 @@
     "article": "文章",
     "anonymousAuthor": "匿名作者",
     "backToList": "返回列表",
-    "read": "阅读",
-    "like": "点赞",
-    "favorite": "收藏"
+    "read": "阅读"
   },
   "learnHomework": {
     "course": "课程",
@@ -14670,17 +14670,23 @@
     "official": "智汇社区官方"
   },
   "vipIntroducePopup": {
-    "loading": "加载中",
-    "noContinuousOptions": "暂无可用的连续购买选项",
-    "trial": "试用",
-    "noMonthlyOptions": "暂无可用的按月购买选项",
-    "pointsPerMonth": "智汇值 / 月"
+    "loading": "加载中"
   },
   "vipPrivateAdvisory": {
     "joinUs": "加入我们"
   },
   "adminBatchEditDialog": {
-    "selectedTip": "已选中 {count} 条数据，勾选要修改的字段并填入新值。"
+    "selectedTip": "已选中 {count} 条数据，勾选要修改的字段并填入新值。",
+    "title": "批量编辑",
+    "updating": "正在更新 {current} / {total} 条",
+    "failedTip": "失败 {count} 条，可点击\"重试失败项\"重新更新",
+    "cancel": "取消",
+    "retryFailed": "重试失败项",
+    "save": "批量保存"
+  },
+  "adminTableV2": {
+    "searchPlaceholder": "搜索",
+    "emptyText": "暂无数据"
   },
   "adminEditDialog": {
     "saveAndContinue": "保存并继续编辑"
@@ -14718,12 +14724,24 @@
       "video": "视频"
     }
   },
-  "agreementPage": {
-    "loading": "加载中...",
-    "contentNotConfigured": "协议内容未配置"
+  "agenticAIPage": {
+    "swarmCreated": "Swarm创建成功",
+    "createSwarmFailed": "创建Swarm失败",
+    "createSwarmFailed2": "创建Swarm失败"
   },
-  "module": {
-    "courseCover": "课程封面",
-    "free": "免费"
+  "apiTestPage": {
+    "startAITest": "开始AI接口测试"
+  },
+  "designSystemDemo": {
+    "designSystemMeta": "设计系统, UI组件, Vue组件, 前端开发"
+  },
+  "distributionCenter": {
+    "copyImage": "复制图片",
+    "distributionTitle": "AI智汇社 - 分销中心",
+    "imageCopied": "图片已复制到剪贴板",
+    "longPressToSave": "请长按图片保存"
+  },
+  "listTemplate": {
+    "loading": "加载中..."
   }
 }

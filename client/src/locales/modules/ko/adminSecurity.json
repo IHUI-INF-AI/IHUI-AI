@@ -1,6 +1,6 @@
 {
   "adminSecurity": {
-    "accountSecurity": "accountSecurity",
-    "viewLog": "viewLog"
+    "accountSecurity": "계정 보안",
+    "viewLog": "로그 보기"
   }
 }

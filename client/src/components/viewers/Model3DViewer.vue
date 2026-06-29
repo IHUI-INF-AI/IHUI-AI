@@ -7,7 +7,7 @@
         <span class="file-type">{{ modelType }}</span>
       </div>
       <div class="toolbar-right">
-        <a :href="src" download class="tool-btn" :title="t('viewerImageViewer.download')">{{ t('model3DViewer.download') }}</a>
+        <a :href="src" download class="tool-btn" title="下载">{{ t('model3DViewer.download') }}</a>
       </div>
     </div>
     
@@ -16,19 +16,19 @@
         <div class="placeholder-content">
           <div class="model-icon">🎮</div>
           <div class="model-title">{{ title }}</div>
-          <div class="model-message">{{ t('viewerModel3DViewer.model3dFile') }}</div>
+          <div class="model-message">{ t('viewerModel3DViewer.model3dFile') }</div>
           <div class="model-info">
             <div class="info-item">
-              <span class="info-label">{{ t('viewerModel3DViewer.format') }}</span>
+              <span class="info-label">{ t('viewerModel3DViewer.format') }</span>
               <span class="info-value">{{ modelType }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">{{ t('viewerModel3DViewer.supportedFormat') }}</span>
+              <span class="info-label">{ t('viewerModel3DViewer.supportedFormat') }</span>
               <span class="info-value">GLTF, GLB, OBJ, STL, FBX</span>
             </div>
           </div>
           <a :href="src" download class="download-btn">{{ t('model3DViewer.downloadView') }}</a>
-          <div class="model-hint">{{ t('viewerModel3DViewer.useBlenderHint') }}</div>
+          <div class="model-hint">{ t('viewerModel3DViewer.useBlenderHint') }</div>
         </div>
       </div>
     </div>
@@ -95,7 +95,7 @@ const modelType = computed(() => {
 
 .file-name {
   font-size: 14px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-text-muted);
 }
 
 .file-type {
@@ -123,9 +123,9 @@ const modelType = computed(() => {
   background: transparent;
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-text-muted);
   font-size: 14px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   text-decoration: none;
 }
 
@@ -157,7 +157,7 @@ const modelType = computed(() => {
 .model-title {
   font-size: 18px;
   font-weight: 500;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-text-muted);
   margin-bottom: 8px;
 }
 
@@ -187,7 +187,7 @@ const modelType = computed(() => {
 
 .info-value {
   font-size: 14px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-text-muted);
 }
 
 .download-btn {
@@ -204,7 +204,7 @@ const modelType = computed(() => {
 }
 
 .download-btn:hover {
-  background: var(--el-color-primary);
+  background: var(--color-blue-245bdb);
 }
 
 .model-hint {

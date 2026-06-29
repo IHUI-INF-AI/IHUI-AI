@@ -1,24 +1,24 @@
 {
   "tasks": {
-    "cancel": "取消",
-    "cancelFailed": "cancelFailed",
-    "cancelSuccess": "cancelSuccess",
-    "cancelledAt": "cancelledAt",
-    "confirmCancel": "确认取消",
-    "createdAt": "createdAt",
-    "noTasks": "noTasks",
-    "retry": "重试",
+    "title": "タスク管理",
+    "subtitle": "表示和管理您的タスク実行ステータス",
+    "noTasks": "なしタスク",
+    "retry": "再試行",
+    "cancel": "キャンセル",
+    "viewResults": "テーブル示結果",
+    "createdAt": "作成時間",
+    "updatedAt": "更新しいしい時間",
+    "cancelledAt": "キャンセル時間",
     "status": {
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "failed": "失败",
-      "pending": "待处理",
-      "processing": "处理中",
-      "unknown": "unknown"
+      "pending": "など待中",
+      "processing": "処理中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "済みキャンセル",
+      "unknown": "不明"
     },
-    "subtitle": "副标题",
-    "title": "标题",
-    "updatedAt": "updatedAt",
-    "viewResults": "viewResults"
+    "confirmCancel": "此タスク",
+    "cancelSuccess": "タスク済みキャンセル",
+    "cancelFailed": "キャンセルタスク失敗"
   }
 }

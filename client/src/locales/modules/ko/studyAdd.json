@@ -1,13 +1,13 @@
 {
   "studyAdd": {
-    "cover": "封面",
-    "desc": "描述",
-    "enterDesc": "enterDesc",
-    "enterTitle": "enterTitle",
-    "publishFirst": "publishFirst",
-    "title": "标题",
-    "uploadCover": "uploadCover",
-    "uploadVideo": "uploadVideo",
-    "videoSynth": "videoSynth"
+    "cover": "커버",
+    "title": "강의 제목",
+    "desc": "강의 설명",
+    "publishFirst": "먼저 컬렉션 게시",
+    "videoSynth": "비디오 합성 중, 나중에 게시",
+    "uploadCover": "커버 업로드",
+    "uploadVideo": "비디오 업로드",
+    "enterTitle": "강의 제목 입력",
+    "enterDesc": "강의 설명 입력"
   }
 }

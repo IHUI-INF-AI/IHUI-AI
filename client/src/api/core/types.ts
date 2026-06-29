@@ -32,7 +32,7 @@ export interface ApiError {
   /** 错误消息 */
   message: string
   /** 错误详情 */
-  details?: any
+  details?: unknown
   /** 错误堆栈（仅开发环境） */
   stack?: string
   /** 错误类型 */
@@ -95,7 +95,7 @@ export interface ListParams extends PaginationParams {
   /** 结束时间 */
   endTime?: string
   /** 额外筛选条件 */
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**
@@ -133,7 +133,7 @@ export interface RequestConfig {
   /** URL 参数 */
   params?: Record<string, unknown>
   /** 请求体数据 */
-  data?: any
+  data?: unknown
   /** 基础 URL 索引 */
   base?: number
   /** 请求超时时间（毫秒） */
@@ -148,8 +148,6 @@ export interface RequestConfig {
   headers?: Record<string, string>
   /** 重试次数 */
   retryCount?: number
-  /** AbortController 信号，用于取消请求 */
-  signal?: AbortSignal
 }
 
 /**

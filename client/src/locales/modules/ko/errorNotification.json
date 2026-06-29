@@ -1,10 +1,10 @@
 {
   "errorNotification": {
-    "closeAria": "closeAria",
-    "details": "详情",
-    "errorCode": "errorCode",
-    "hideDetails": "hideDetails",
-    "recovery": "recovery",
-    "showDetails": "showDetails"
+    "errorCode": "오류코드: {code}",
+    "showDetails": "표시상세",
+    "hideDetails": "숨기기상세",
+    "details": "상세세부정보",
+    "recovery": "제안작업",
+    "closeAria": "닫기알림"
   }
 }

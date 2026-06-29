@@ -30,10 +30,16 @@
     },
     "actions": {
       "publish": "릴리스혁신동작",
-      "share": "공유"
+      "like": "좋아요",
+      "favorite": "즐겨찾기",
+      "comment": "댓글",
+      "share": "공유",
+      "download": "다운로드",
+      "viewPrompt": "보기프롬프트"
     },
     "empty": {
       "핵심 장점": "없음콘텐츠",
+      "description": "첫 번째 AI 혁신 작품을 출시하세요!",
       "title": "일시적없음콘텐츠"
     },
     "loading": "불러오기중간...",
@@ -51,16 +57,20 @@
     "detail": {
       "prompt": "프롬프트",
       "model": "AI모델",
-      "createdAt": "생성시간"
+      "createdAt": "생성시간",
+      "comments": "댓글",
+      "noComments": "없음댓글",
+      "addComment": "발전테이블댓글...",
+      "sendComment": "전송"
     },
     "tools": {
       "imageGeneration": "AI 수익 생성",
       "musicCreation": "AI 음악 창작",
       "videoGeneration": "AI 동영상 생성",
-      "writingAssistant": "AI 글쓰기 도우미",
-      "hotTools": "hotTools"
+      "writingAssistant": "AI 글쓰기 도우미"
     },
     "title": "AI혁신동작커뮤니티",
+    "subtitle": "전 세계 최고의 AI 혁신 작품 발견",
     "heroSubtitle": "Midjourney, DALL-E, Sora, Suno 등 최고 AI 작품 수집"
   }
 }

@@ -11,7 +11,7 @@ import type { AxiosRequestConfig } from 'axios'
 export interface RequestOptions {
   url: string
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'delete'
-  data?: any
+  data?: unknown
   header?: Record<string, string>
   headers?: Record<string, string>
   timeout?: number
@@ -57,7 +57,7 @@ export default function compatRequest<T = unknown>(options: RequestOptions): Pro
 
   // 调用 axios request（使用 request.ts 中已经配置好的 service）
   return requestService(config)
-    .then((response: any) => {
+    .then((response: unknown) => {
       // 兼容源项目的响应格式
       // 源项目期望返回 { code, data, message } 格式
       // axios 返回的是 AxiosResponse，提取 data
@@ -66,9 +66,9 @@ export default function compatRequest<T = unknown>(options: RequestOptions): Pro
       }
       return response as T
     })
-    .catch((error: any) => {
+    .catch((error: unknown) => {
       // 错误处理：如果响应中有 data，返回 data，否则抛出错误
-      const axiosError = error as { response?: { data?: any } }
+      const axiosError = error as { response?: { data?: unknown } }
       if (axiosError?.response?.data) {
         // 返回错误响应数据，让调用方可以处理
         return Promise.reject(axiosError.response.data)

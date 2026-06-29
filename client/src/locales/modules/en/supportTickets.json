@@ -1,7 +1,6 @@
 {
   "supportTickets": {
-    "merged": "Ticket feature has been merged into the feedback page",
-    "title": "Support Tickets",
-    "goToFeedback": "Go to Feedback"
+    "title": "Support tickets",
+    "merged": "This page has been simplified and merged"
   }
 }

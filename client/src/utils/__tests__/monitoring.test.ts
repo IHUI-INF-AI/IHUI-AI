@@ -139,10 +139,10 @@ describe('monitoring', () => {
   })
 
   it('PerformanceObserver API 不支持时静默', () => {
-    const original = (globalThis as { PerformanceObserver?: any }).PerformanceObserver
-    ;(globalThis as { PerformanceObserver?: any }).PerformanceObserver = undefined
+    const original = (globalThis as { PerformanceObserver?: unknown }).PerformanceObserver
+    ;(globalThis as { PerformanceObserver?: unknown }).PerformanceObserver = undefined
     initMonitoring({ enabled: true, enablePerformance: true })
-    ;(globalThis as { PerformanceObserver?: any }).PerformanceObserver = original
+    ;(globalThis as { PerformanceObserver?: unknown }).PerformanceObserver = original
     expect(true, '不抛错').toBe(true)
   })
 
@@ -184,17 +184,17 @@ describe('monitoring', () => {
   })
 
   it('Vue errorHandler 捕获异常', () => {
-    ;(window as any).__VUE_APP__ = { config: {} }
+    ;(window as unknown as { __VUE_APP__?: { config: { errorHandler?: (err: Error, vm: unknown, info: string) => void } } }).__VUE_APP__ = { config: {} }
     initMonitoring({ enabled: true, sampleRate: 1, enableBehavior: false, enablePerformance: false })
-    ;(window as any).__VUE_APP__.config.errorHandler(new Error('vue'), null, 'render')
-    delete (window as any).__VUE_APP__
+    ;(window as unknown as { __VUE_APP__: { config: { errorHandler: (err: Error, vm: unknown, info: string) => void } } }).__VUE_APP__.config.errorHandler(new Error('vue'), null, 'render')
+    delete (window as unknown as { __VUE_APP__?: unknown }).__VUE_APP__
     expect(true, '不抛错').toBe(true)
   })
 
   it('PerformanceObserver 捕获 LCP/CLS/FID', () => {
-    const cbs: any[] = []
-    ;(globalThis as any).PerformanceObserver = class {
-      constructor(cb: any) { cbs.push(cb) }
+    const cbs: Array<(entries: unknown) => void> = []
+    ;(globalThis as unknown as { PerformanceObserver: unknown }).PerformanceObserver = class {
+      constructor(cb: (entries: unknown) => void) { cbs.push(cb) }
       observe() {}
       disconnect() {}
     }
@@ -225,8 +225,8 @@ describe('monitoring', () => {
   })
 
   it('flush 使用 fetch 回退上报', async () => {
-    delete (navigator as any).sendBeacon
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any)
+    delete (navigator as unknown as Record<string, unknown>).sendBeacon
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as unknown as Response)
     initMonitoring({ enabled: true, sampleRate: 1, enableBehavior: false, enablePerformance: false })
     for (let i = 0; i < 20; i++) captureException(new Error(`e${i}`))
     await new Promise((r) => setTimeout(r, 10))
@@ -245,7 +245,7 @@ describe('monitoring', () => {
   })
 
   it('flush fetch 异常时回滚批次', async () => {
-    delete (navigator as any).sendBeacon
+    delete (navigator as unknown as Record<string, unknown>).sendBeacon
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('net'))
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     initMonitoring({ enabled: true, debug: true, sampleRate: 1, enableBehavior: false, enablePerformance: false })
@@ -288,7 +288,7 @@ describe('monitoring', () => {
 
   it('setUser 接受 null', () => {
     initMonitoring({ enabled: true })
-    setUser(null as any)
+    setUser(null as unknown as Parameters<typeof setUser>[0])
     setTag('k', 'v')
     expect(true, '不抛错').toBe(true)
   })

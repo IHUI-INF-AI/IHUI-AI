@@ -30,9 +30,8 @@ describe('navigation', () => {
       const { goBack } = useNavigation()
       const mockBack = vi.fn()
       const originalWindow = global.window
-      // 源码 goBack 检查 window.history.length > 1, mock 需提供 length
       Object.defineProperty(global, 'window', {
-        value: { history: { back: mockBack, length: 2 } },
+        value: { history: { back: mockBack } },
         writable: true,
       })
       goBack()

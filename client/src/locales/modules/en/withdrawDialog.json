@@ -1,15 +1,14 @@
 {
   "withdrawDialog": {
-    "agreePrefix": "agreePrefix",
-    "amount": "金额",
-    "availableBalance": "availableBalance",
-    "bankCard": "bankCard",
-    "bindNow": "bindNow",
-    "change": "change",
-    "noBankCard": "noBankCard",
-    "submit": "提交",
-    "submitting": "提交中",
-    "termsTitle": "termsTitle",
-    "title": "标题"
+    "availableBalance": "Available Balance",
+    "amount": "Withdrawal Amount",
+    "bankCard": "Bank Card",
+    "noBankCard": "No bank card linked",
+    "bindNow": "Link Now",
+    "change": "Change",
+    "agreePrefix": "I have read and agree to",
+    "termsTitle": "Withdrawal Service Agreement",
+    "submit": "Request Withdrawal",
+    "submitting": "Submitting..."
   }
 }

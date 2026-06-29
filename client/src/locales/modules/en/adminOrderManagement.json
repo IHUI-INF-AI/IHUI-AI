@@ -1,0 +1,36 @@
+{
+  "adminOrderManagement": {
+    "Export": "Export",
+    "search": {},
+    "orderType": {},
+    "orderStatus": {
+      "Failed": "Failed"
+    },
+    "paymentMethod": {},
+    "table": {},
+    "detail": {},
+    "messages": {
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportDeveloping": "ExportFeatureDevelopmentMedium"
+    },
+    "Export Data": {
+      "orderId": "Order Id",
+      "orderNo": "Order No",
+      "userId": "User Id",
+      "orderType": "Order Type",
+      "amount": "Amount",
+      "orderStatus": "Order Status",
+      "paymentMethod": "Payment Method",
+      "productName": "Product Name",
+      "description": "Description",
+      "createTime": "Create Time",
+      "completeTime": "Complete Time",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
+  }
+}

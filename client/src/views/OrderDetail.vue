@@ -2,7 +2,7 @@
   <div class="order-detail-page page-container radius-auto">
     <div class="order-detail-container radius-auto">
       <div class="order-header radius-auto">
-        <el-button link @click="router.back()" class="back-btn">
+        <el-button link @click="router.back()" style="margin-bottom: 20px">
           <el-icon><ArrowLeft /></el-icon>
           {{ t('orderDetail.back') }}
         </el-button>
@@ -86,9 +86,9 @@ import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { usePageState } from '@/composables/usePageState'
 import { ApiErrorType } from '@/utils/errorHandler'
 import { ArrowLeft } from '@/lib/lucide-fallback'
-import { getOrderDetail, type Order } from '@/api/payment/orders'
-import { downloadInvoice } from '@/api/payment/invoice'
-import { applyRefund } from '@/api/payment/refund'
+import { getOrderDetail, type Order } from '@/api/orders'
+import { downloadInvoice } from '@/api/invoice'
+import { applyRefund } from '@/api/refund'
 import { ElMessageBox } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { openCustomerServiceChat } from '@/composables/useOpenCustomerServiceChat'
@@ -136,7 +136,7 @@ const loadOrderDetail = async () => {
       showErrorMsg(errorMsg)
       router.back()
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) ||
       t('orderDetail.loadOrderDetailFailed')
@@ -282,7 +282,7 @@ const handleRefund = async () => {
     } else {
       showErrorMsg(response.message || t('orderDetail.refundApplyFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       logger.error('Refund application failed:', error)
       showErrorMsg(t('orderDetail.refundApplyFailed'))
@@ -366,10 +366,6 @@ onMounted(() => {
     gap: 15px;
     padding-top: 20px;
     border-top: none;
-  }
-
-  .back-btn {
-    margin-bottom: 20px;
   }
 }
 </style>

@@ -58,8 +58,8 @@
 :root {
   // 背景色
   --ai-chat-bg-primary: var(--el-bg-color);
-  --ai-chat-bg-secondary: var(--el-fill-color-lighter);
-  --ai-chat-bg-tertiary: var(--el-fill-color-lighter);
+  --ai-chat-bg-secondary: var(--color-gray-f5f7fa);
+  --ai-chat-bg-tertiary: var(--color-gray-fafafa);
   --ai-chat-bg-hover: var(--color-black-2);
   --ai-chat-bg-active: var(--color-black-04);
   
@@ -73,9 +73,9 @@
   
   // 文字颜色
   --ai-chat-text-primary: var(--color-gray-111);
-  --ai-chat-text-secondary: var(--el-text-color-secondary);
-  --ai-chat-text-tertiary: var(--el-text-color-placeholder);
-  --ai-chat-text-placeholder: var(--el-text-color-placeholder);
+  --ai-chat-text-secondary: var(--color-gray-666);
+  --ai-chat-text-tertiary: var(--color-gray-888888);
+  --ai-chat-text-placeholder: var(--color-gray-a1a1a1);
   
   // 边框颜色 - 使用全局描边
   --ai-chat-border-color: var(--border-unified-color);
@@ -146,7 +146,7 @@
   // 代码块
   --ai-chat-code-bg: var(--el-text-color-primary);
   --ai-chat-code-border: var(--ai-chat-border-color-light);
-  --ai-chat-code-header-bg: var(--el-fill-color-lighter);
+  --ai-chat-code-header-bg: var(--color-gray-f0f2f5);
   
   // 引用消息
   --ai-chat-quote-bg: var(--color-black-2);
@@ -160,7 +160,7 @@
 // ============================================
 // 3. 暗色主题变量
 // ============================================
-:where(html.dark) {
+html.dark {
   // 背景色
   --ai-chat-bg-primary: var(--color-dark-bg-3);
   --ai-chat-bg-secondary: var(--el-text-color-primary);
@@ -177,10 +177,10 @@
   --ai-chat-assistant-message-border: transparent;
   
   // 文字颜色
-  --ai-chat-text-primary: var(--el-text-color-secondary);
-  --ai-chat-text-secondary: var(--el-text-color-placeholder);
-  --ai-chat-text-tertiary: var(--el-text-color-secondary);
-  --ai-chat-text-placeholder: var(--el-text-color-secondary);
+  --ai-chat-text-primary: var(--color-gray-ededed);
+  --ai-chat-text-secondary: var(--color-gray-a1a1a1);
+  --ai-chat-text-tertiary: var(--color-gray-666);
+  --ai-chat-text-placeholder: var(--color-gray-666);
   
   // 边框颜色 - 使用全局描边
   --ai-chat-border-color: var(--border-unified-color);
@@ -216,7 +216,7 @@
   --ai-chat-scrollbar-thumb-hover: var(--color-white-25);
   
   // 代码块
-  --ai-chat-code-bg: var(--color-dark-bg-1);
+  --ai-chat-code-bg: var(--color-gray-2d2d2d);
   --ai-chat-code-border: var(--ai-chat-border-color);
   --ai-chat-code-header-bg: var(--el-text-color-primary);
   
@@ -227,7 +227,7 @@
 // ============================================
 // 4. 响应式尺寸调整
 // ============================================
-@media (width <= 768px) {
+@media (max-width: 768px) {
   :root {
     --ai-chat-dialog-width: 100%;
     --ai-chat-dialog-max-width: 100%;
@@ -248,7 +248,7 @@
   color: var(--ai-chat-btn-secondary-color);
   border: none;
   box-shadow: none;
-  transition: background-color var(--ai-chat-transition-fast), color var(--ai-chat-transition-fast), opacity var(--ai-chat-transition-fast);
+  transition: all var(--ai-chat-transition-fast);
   
   &:hover:not(:disabled) {
     background: var(--ai-chat-btn-secondary-hover-bg);
@@ -458,7 +458,7 @@
     border: 1px solid var(--ai-chat-input-border);
     border-radius: var(--ai-chat-border-radius-md);
     padding: var(--ai-chat-spacing-md);
-    transition: box-shadow var(--ai-chat-transition-normal);
+    transition: all var(--ai-chat-transition-normal);
     @include ai-chat-input-glow;
   }
   
@@ -508,7 +508,7 @@
     font-size: var(--ai-chat-font-size-sm);
     font-weight: 500;
     cursor: pointer;
-    transition: opacity var(--ai-chat-transition-fast), background-color var(--ai-chat-transition-fast), color var(--ai-chat-transition-fast);
+    transition: all var(--ai-chat-transition-fast);
     
     &:hover:not(:disabled) {
       opacity: 0.9;
@@ -538,7 +538,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--ai-chat-transition-normal), box-shadow var(--ai-chat-transition-normal);
+  transition: all var(--ai-chat-transition-normal);
   z-index: var(--z-dropdown);
   
   &:hover {

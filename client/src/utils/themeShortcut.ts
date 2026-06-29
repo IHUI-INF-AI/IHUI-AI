@@ -116,10 +116,7 @@ function addNotificationStyles(): void {
       border-radius: 8px;
       font-size: 14px;
       font-weight: 500;
-      /* 扁平化设计 (2026-06-24 封版): 用 border + outline 替代 box-shadow */
-      border: 1px solid var(--el-border-color);
-      outline: 1px solid var(--color-black-15);
-      outline-offset: -1px;
+      box-shadow: 0 4px 12px var(--color-black-15);
       opacity: 0;
       transition: opacity 0.3s ease, transform 0.3s ease;
       z-index: var(--z-notification);

@@ -1,7 +1,7 @@
 {
   "p19CoursesList": {
-    "enroll": "enroll",
-    "minutes": "minutes",
-    "title": "标题"
+    "title": "P19 課程列表",
+    "minutes": "分鐘",
+    "enroll": "報名"
   }
 }

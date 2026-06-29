@@ -65,7 +65,7 @@ export interface GatewayMessage {
  */
 export interface GatewayEvent {
   type: 'connected' | 'disconnected' | 'message' | 'error' | 'channel_joined' | 'channel_left' | 'typing' | 'presence'
-  data: any
+  data: unknown
   timestamp: number
 }
 

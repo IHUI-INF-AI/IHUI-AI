@@ -243,7 +243,7 @@ const viewDetail = async (item: DemandItem): Promise<void> => {
   try {
     // 跳转到需求详情页
     router.push(`/xuqiu/${item.id}`)
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to navigate to demand details:', error)
     showError(t('xuqiu.viewDetailFailed'))
   }

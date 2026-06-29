@@ -129,7 +129,7 @@ describe('themePerformance', () => {
       const metric = themePerformanceMonitor.endSwitch('dark')
 
       expect(metric.memoryUsage).toBe(12345678)
-      delete (performance as unknown as { memory?: any }).memory
+      delete (performance as unknown as { memory?: unknown }).memory
     })
   })
 

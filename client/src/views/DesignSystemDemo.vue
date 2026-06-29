@@ -176,7 +176,7 @@ const { t } = useI18n()
 useSEO({
   title: t('designSystem.title') + ' - AI智汇社',
   description: t('designSystem.subtitle'),
-  keywords: t('DesignSystemDemo.designSystemMeta'),
+  keywords: t('designSystemDemo.designSystemMeta'),
 })
 
 // 设计系统

@@ -3,8 +3,10 @@
     "buyAgent": "구매에이전트",
     "selectPaymentMethod": "요청선택결제방법：",
     "close": "닫기",
+    "purchaseFeatureInDevelopment": "구매기능개발중간",
     "backToList": "백엔드로목이것은",
     "public": "공개",
+    "unknownCreator": "알 수 없음생성게",
     "timesUsed": "회생각사용",
     "viewAgentList": "에이전트 보기목이것은",
     "purchaseAgent": "구매에이전트",
@@ -12,6 +14,7 @@
     "favorite": "즐겨찾기",
     "thumbsUp": "좋아요",
     "share": "공유",
+    "print": "인쇄",
     "refreshDetails": "새로고침상세",
     "detailedInfo": "상세세부정보",
     "overview": "개요",
@@ -60,6 +63,8 @@
     "statusDeprecated": "폐기됨",
     "loadReviewsFailed": "불러오기평가가치실패",
     "loadRelatedToolsFailed": "불러오기관련닫기도구실패",
+    "navigationFailed": "탐색실패",
+    "routeNavigationError": "로자유이동이상",
     "processing": "처리중간...",
     "confirmPurchase": "확인Purchase",
     "agentNotLoaded": "AgentNotLoaded",
@@ -71,6 +76,6 @@
     "purchaseFailed": "purchase실패",
     "linkCopied": "링크Copied",
     "copyFailed": "copy실패",
-    "invalidPaymentForm": "invalidPaymentForm"
+    "invalidPaymentForm": "Invalid Payment Form"
   }
 }

@@ -4,6 +4,11 @@
       "category": "カテゴリを検索",
       "list": "リソースを検索",
       "tag": "タグを検索"
+    },
+    "label": {
+      "categoryName": "カテゴリ名",
+      "tagName": "タグ名",
+      "actions": "操作"
     }
   }
 }

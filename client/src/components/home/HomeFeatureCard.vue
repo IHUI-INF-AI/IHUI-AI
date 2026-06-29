@@ -81,7 +81,7 @@ const iconComponents: Record<number, () => VNode> = {
         }),
       ]
     ),
-  // 1: AI应用商店 - 购物袋
+  // 1: 智能体 - 购物袋
   1: () =>
     h(
       'svg',
@@ -328,6 +328,10 @@ const handleClick = (event?: MouseEvent) => {
   box-shadow: none;
   text-align: center;
 
+  &:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+
   &.is-navigating {
     opacity: 0.6;
     pointer-events: none;
@@ -341,7 +345,8 @@ const handleClick = (event?: MouseEvent) => {
     border-radius: var(--global-border-radius);
     background: var(--el-fill-color-light);
     color: var(--el-color-primary);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 
   .feature-icon .linear-icon {
     width: 28px;
@@ -373,7 +378,8 @@ const handleClick = (event?: MouseEvent) => {
 
   .feature-icon {
     background: var(--color-white-5);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 /* 响应式调整 */

@@ -2,68 +2,18 @@
   <div class="agents-empty-state agents-square-list scroll-reveal scroll-animated animate-fadeInUp">
     <!-- 工具栏：使用 sticky 固定在内容区顶部，不随列表滚动，避免 Teleport 在异步更新时导致 DOM 错误 -->
     <div class="agents-square-list__toolbar">
-      <div class="agents-square-list__toolbar-row" ref="searchWrapRef">
-        <div class="agents-square-list__search-wrap">
-          <el-input v-model="searchKeyword" :placeholder="t('agents.searchPlaceholder')" clearable
-            class="agents-square-list__search" @keyup.enter="onSearch" @clear="onSearch"
-            @focus="searchFocused = true">
-            <template #prefix>
-              <SearchIcon />
-            </template>
-            <template #append>
-              <button type="button" class="search-bar-append-btn" @click="onSearch">
-                {{ t('common.search') }}
-              </button>
-            </template>
-          </el-input>
-          <button v-if="voiceSupported" type="button"
-            :class="['agents-square-list__voice', { listening: voiceListening, error: voiceError }]"
-            :title="voiceListening ? t('agents.voiceInputListening') : t('agents.voiceSearch')"
-            :aria-label="t('agents.voiceSearch')"
-            @click="startVoice">
-            <Microphone />
-          </button>
-          <!-- 搜索历史 / 热门词下拉 -->
-          <div v-if="showSearchSuggest" class="agents-square-list__suggest" role="listbox">
-            <div v-if="searchHistory.length" class="agents-square-list__suggest-group">
-              <div class="agents-square-list__suggest-head">
-                <span class="agents-square-list__suggest-title">
-                  <History :size="14" />
-                  {{ t('agents.searchHistory') }}
-                </span>
-                <button type="button" class="agents-square-list__suggest-clear"
-                  @click="clearSearchHistory">
-                  <Trash2 :size="14" />
-                  {{ t('agents.clearHistory') }}
-                </button>
-              </div>
-              <div class="agents-square-list__suggest-chips">
-                <button v-for="kw in searchHistory" :key="kw" type="button" class="agents-square-list__chip"
-                  @click="applyHotSearch(kw)">
-                  {{ kw }}
-                  <span class="agents-square-list__chip-remove" role="button" tabindex="0"
-                    :aria-label="`remove ${kw}`" @click.stop="removeSearchHistory(kw)"
-                    @keydown.enter.prevent="removeSearchHistory(kw)">
-                    <X :size="12" />
-                  </span>
-                </button>
-              </div>
-            </div>
-            <div v-if="hotSearches.length" class="agents-square-list__suggest-group">
-              <div class="agents-square-list__suggest-head">
-                <span class="agents-square-list__suggest-title">{{ t('agents.hotSearch') }}</span>
-              </div>
-              <div class="agents-square-list__suggest-chips">
-                <button v-for="(kw, idx) in hotSearches" :key="kw" type="button"
-                  class="agents-square-list__chip"
-                  @click="applyHotSearch(kw)">
-                  <span class="agents-square-list__chip-rank">{{ idx + 1 }}</span>
-                  {{ kw }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="agents-square-list__search-wrap">
+        <el-input v-model="searchKeyword" :placeholder="t('agents.searchPlaceholder')" clearable
+          class="agents-square-list__search" @keyup.enter="onSearch" @clear="onSearch">
+          <template #prefix>
+            <SearchIcon />
+          </template>
+          <template #append>
+            <button type="button" class="search-bar-append-btn" @click="onSearch">
+              {{ t('common.search') }}
+            </button>
+          </template>
+        </el-input>
       </div>
       <div v-if="displayMainCategories.length > 0" class="agents-square-list__tabs">
         <button v-for="(cat, idx) in displayMainCategories" :key="cat.id === 'all' ? 'main-all' : (cat.id ?? idx)"
@@ -88,16 +38,9 @@
       <span>{{ t('agents.loading') }}</span>
     </div>
 
-    <div v-else-if="hasError" class="agents-square-list__error">
-      <el-icon :size="48" class="agents-square-list__error-icon">
-        <AlertTriangle />
-      </el-icon>
-      <p class="agents-square-list__error-text">{{ t('common.errors.loadFailed') }}</p>
-      <button type="button" class="agents-square-list__retry-btn ripple-btn"
-        @click="(e: MouseEvent) => { createRipple(e, e.currentTarget as HTMLElement); loadList(true) }">
-        <Loading v-if="loading" class="agents-square-list__retry-spin" />
-        <span v-else>{{ t('common.retry') }}</span>
-      </button>
+    <div v-else-if="hasError" class="agents-square-list__loading">
+      <span>{{ t('common.errors.loadFailed') }}</span>
+      <button type="button" class="agents-square-list__section-more" @click="loadList(true)">{{ t('common.retry') }}</button>
     </div>
 
     <template v-else>
@@ -205,30 +148,7 @@
       </div>
 
       <div v-else class="agents-square-list__empty-inner">
-        <template v-if="isSearchResultEmpty && recommendAgents.length">
-          <p class="agents-square-list__empty-text">{{ t('agents.noSearchResult') }}</p>
-          <h4 class="agents-square-list__recommend-title">{{ t('agents.recommendTitle') }}</h4>
-          <div class="agents-square-list__recommend-grid">
-            <div v-for="item in recommendAgents" :key="String(item.botId ?? item.agentId ?? item.id)"
-              class="agents-square-list__recommend-card"
-              role="button" tabindex="0"
-              @click="handleAgentClick(item)"
-              @keydown.enter.prevent="handleAgentClick(item)">
-              <el-avatar :src="item.agentAvatar ?? item.avatar" :size="36" class="agents-square-list__recommend-avatar">
-                <el-icon><Server /></el-icon>
-              </el-avatar>
-              <div class="agents-square-list__recommend-info">
-                <span class="agents-square-list__recommend-name">
-                  {{ item.agentName ?? item.botName ?? item.name ?? '' }}
-                </span>
-                <span class="agents-square-list__recommend-desc">
-                  {{ item.agentDescription ?? item.description ?? '' }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </template>
-        <p v-else>{{ searchKeyword ? t('agents.noSearchResult') : t('agents.emptyDescription') }}</p>
+        <p>{{ searchKeyword ? t('agents.noSearchResult') : t('agents.emptyDescription') }}</p>
       </div>
 
       <div v-if="hasAnyList && hasMore && !loading" class="agents-square-list__more">
@@ -239,41 +159,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import {
-  Server,
-  Loading,
-  Star,
-  ChevronRight,
-  Users,
-  User,
-  Microphone,
-  X,
-  History,
-  Trash2,
-  AlertTriangle,
-} from '@/lib/lucide-fallback'
+import { Server, Loading, Star, ChevronRight, Users, User } from '@/lib/lucide-fallback'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { logger } from '@/utils/logger'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import {
   getAgentList,
   categories as fetchCategories,
   getAgentCollect,
   getAgentLike,
   type AgentInfo,
-} from '@/api/agent/agent-plaza'
-import type { Agent } from '@/api/agent/agents'
+} from '@/api/payment'
+import type { Agent } from '@/api/agents'
 import choucangActive from '@/assets/images/choucang_active.png'
 import likeActive from '@/assets/images/like_active.png'
 
 interface CategoryItem {
   id?: string
   name: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface CategoriesData {
@@ -301,43 +209,6 @@ const activeMainId = ref('')
 const activeSubId = ref('')
 const mainCategories = ref<CategoryItem[]>([])
 const subCategories = ref<CategoryItem[]>([])
-// ============ 搜索框交互状态 ============
-/** 搜索框是否聚焦（控制历史/热门下拉） */
-const searchFocused = ref(false)
-/** 搜索框 DOM 引用（用于下拉定位） */
-const searchWrapRef = ref<HTMLElement | null>(null)
-/** 搜索历史：localStorage 中持久化最多 5 条 */
-const SEARCH_HISTORY_KEY = 'agents:searchHistory'
-const MAX_SEARCH_HISTORY = 5
-const searchHistory = ref<string[]>([])
-
-/** 热门搜索词（静态种子；后续可由后端下发） */
-const hotSearches = computed<string[]>(() => [
-  'AI 写作', '图像生成', '代码助手', '翻译', 'PPT 制作', '数据分析', '智能客服', '语音合成',
-])
-/** 加载热门推荐智能体（用现有 squareList 中按收藏数取 top N） */
-const recommendAgents = computed<AgentInfo[]>(() => {
-  const all: AgentInfo[] = []
-  for (const arr of Object.values(squareList.value)) {
-    if (Array.isArray(arr)) all.push(...arr)
-  }
-  return [...all]
-    .sort((a, b) => (Number(b.collectCount ?? 0) - Number(a.collectCount ?? 0)))
-    .slice(0, 6)
-})
-/** 搜索结果是否为空（关键字存在但 categorizedList 没有任何内容） */
-const isSearchResultEmpty = computed(() => {
-  const kw = (searchKeyword.value || '').trim()
-  if (!kw) return false
-  if (loading.value || hasError.value) return false
-  return !hasAnyList.value
-})
-
-/** 搜索框聚焦且有内容/历史时显示下拉 */
-const showSearchSuggest = computed(() =>
-  searchFocused.value && !isSearchResultEmpty.value && (searchHistory.value.length > 0 || hotSearches.value.length > 0)
-)
-
 /** 主分类展示列表：前面加「全部」 */
 const displayMainCategories = computed<CategoryItem[]>(() => {
   const allItem: CategoryItem = { id: 'all', name: t('common.all') }
@@ -422,15 +293,6 @@ const categorizedList = computed(() => {
 onMounted(() => {
   loadCategories()
   loadList(true)
-  loadSearchHistory()
-  initVoice()
-  document.addEventListener('click', handleDocClick, true)
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocClick, true)
-  if (recognition && voiceListening.value) {
-    try { recognition.abort() } catch { /* noop */ }
-  }
 })
 
 watch(totalCount, (n) => {
@@ -566,150 +428,10 @@ function loadMore() {
 }
 
 function onSearch() {
-  const kw = (searchKeyword.value || '').trim()
-  if (kw) saveSearchHistory(kw)
   page.value = 1
   hasMore.value = true
   squareList.value = {}
   loadList(true)
-  searchFocused.value = false
-}
-
-// ============ 搜索历史持久化 ============
-function loadSearchHistory() {
-  try {
-    const raw = StorageManager.getItem<string[]>(SEARCH_HISTORY_KEY)
-    if (Array.isArray(raw)) {
-      searchHistory.value = raw
-        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-        .slice(0, MAX_SEARCH_HISTORY)
-    }
-  } catch (err) {
-    logger.debug('loadSearchHistory failed', err)
-  }
-}
-function saveSearchHistory(keyword: string) {
-  const kw = keyword.trim()
-  if (!kw) return
-  const list = searchHistory.value.filter((s) => s !== kw)
-  list.unshift(kw)
-  searchHistory.value = list.slice(0, MAX_SEARCH_HISTORY)
-  try {
-    StorageManager.setItem(SEARCH_HISTORY_KEY, searchHistory.value)
-  } catch (err) {
-    logger.debug('saveSearchHistory failed', err)
-  }
-}
-function removeSearchHistory(keyword: string) {
-  searchHistory.value = searchHistory.value.filter((s) => s !== keyword)
-  try {
-    StorageManager.setItem(SEARCH_HISTORY_KEY, searchHistory.value)
-  } catch (err) {
-    logger.debug('removeSearchHistory failed', err)
-  }
-}
-function clearSearchHistory() {
-  searchHistory.value = []
-  try {
-    StorageManager.setItem(SEARCH_HISTORY_KEY, [])
-  } catch (err) {
-    logger.debug('clearSearchHistory failed', err)
-  }
-}
-function applyHotSearch(keyword: string) {
-  searchKeyword.value = keyword
-  onSearch()
-}
-
-// ============ 语音输入 ============
-type SpeechRecognitionLike = {
-  start: () => void
-  stop: () => void
-  abort: () => void
-  onresult: ((ev: { results: { 0: { transcript: string } }[] }) => void) | null
-  onerror: ((ev: { error?: string }) => void) | null
-  onend: (() => void) | null
-  continuous: boolean
-  interimResults: boolean
-  lang: string
-}
-function getSpeechRecognition(): SpeechRecognitionLike | null {
-  if (typeof window === 'undefined') return null
-  const w = window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike
-  }
-  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
-  if (!Ctor) return null
-  return new Ctor()
-}
-const voiceSupported = ref(false)
-const voiceListening = ref(false)
-const voiceError = ref(false)
-let recognition: SpeechRecognitionLike | null = null
-function initVoice() {
-  recognition = getSpeechRecognition()
-  voiceSupported.value = !!recognition
-}
-function startVoice() {
-  if (!recognition) {
-    ElMessage.warning(t('agents.voiceInputNotSupported'))
-    return
-  }
-  if (voiceListening.value) {
-    recognition.stop()
-    return
-  }
-  try {
-    recognition.continuous = false
-    recognition.interimResults = false
-    recognition.lang = (typeof navigator !== 'undefined' && navigator.language) || 'zh-CN'
-    voiceError.value = false
-    recognition.onresult = (ev) => {
-      const text = ev?.results?.[0]?.[0]?.transcript ?? ''
-      if (text) {
-        searchKeyword.value = text.trim()
-        onSearch()
-      }
-    }
-    recognition.onerror = () => {
-      voiceError.value = true
-      ElMessage.error(t('agents.voiceInputError'))
-    }
-    recognition.onend = () => {
-      voiceListening.value = false
-    }
-    recognition.start()
-    voiceListening.value = true
-  } catch (err) {
-    voiceListening.value = false
-    logger.debug('startVoice failed', err)
-    ElMessage.error(t('agents.voiceInputError'))
-  }
-}
-
-// ============ 下拉框外部点击关闭 ============
-function handleDocClick(ev: MouseEvent) {
-  if (!searchWrapRef.value) return
-  const target = ev.target as Node | null
-  if (target && !searchWrapRef.value.contains(target)) {
-    searchFocused.value = false
-  }
-}
-
-// ============ 重试按钮涟漪效果 ============
-function createRipple(e: MouseEvent, el: HTMLElement) {
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const ripple = document.createElement('span')
-  const size = Math.max(rect.width, rect.height)
-  ripple.className = 'agents-square-list__ripple'
-  ripple.style.width = `${size}px`
-  ripple.style.height = `${size}px`
-  ripple.style.left = `${e.clientX - rect.left - size / 2}px`
-  ripple.style.top = `${e.clientY - rect.top - size / 2}px`
-  el.appendChild(ripple)
-  setTimeout(() => ripple.remove(), 600)
 }
 
 function selectMainCategory(cat: CategoryItem) {
@@ -720,7 +442,7 @@ function selectSubCategory(cat: CategoryItem) {
   activeSubId.value = cat.id ?? ''
 }
 
-function numFormat(n: any): string {
+function numFormat(n: unknown): string {
   if (n == null || n === '') return '0'
   const num = Number(n)
   if (Number.isNaN(num)) return '0'
@@ -796,7 +518,7 @@ function handleUseAgent(item: AgentInfo) {
 /** 收藏：与参考项目一致，根据接口返回 message 更新 isCollect / collectCount；未登录先跳转登录并带回当前页 */
 async function toggleCollect(item: AgentInfo) {
   if (!isLoggedIn()) {
-    router.push({ path: '/login', query: { redirect: ((route as unknown) as { fullPath: string }).fullPath } })
+    useLoginDialog().open('login', ((route as unknown) as { fullPath: string }).fullPath)
     return
   }
   const id = String(item.botId ?? item.agentId ?? item.id)
@@ -819,7 +541,7 @@ async function toggleCollect(item: AgentInfo) {
 /** 点赞：与参考项目一致，根据接口返回 message 更新 isThumbs / likeCount；未登录先跳转登录并带回当前页 */
 async function toggleLike(item: AgentInfo) {
   if (!isLoggedIn()) {
-    router.push({ path: '/login', query: { redirect: ((route as unknown) as { fullPath: string }).fullPath } })
+    useLoginDialog().open('login', ((route as unknown) as { fullPath: string }).fullPath)
     return
   }
   const id = String(item.botId ?? item.agentId ?? item.id)
@@ -876,30 +598,18 @@ async function toggleLike(item: AgentInfo) {
   top: 0;
   z-index: calc(var(--z-base) + 1);
   margin-bottom: 20px;
-  padding: 16px 18px 18px;
-  /* 与页面同色，避免滚动时下方卡片透出；用边框圈出工具栏 */
-  background: var(--el-bg-color);
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-}
-
-.agents-square-list__toolbar-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  width: 100%;
+  padding-bottom: 4px;
+  /* 与页面同色，避免滚动时下方卡片透出；无描边 */
+  background: var(--el-bg-color-page);
+  border: none;
 }
 
 .agents-square-list__search-wrap {
-  position: relative;
-  flex: 1 1 100%;
-  min-width: 0;
-  max-width: 100%;
+  margin-bottom: 12px;
 }
 
 .agents-square-list__search {
-  width: 100%;
+  max-width: 400px;
 
   :deep(.el-input__prefix),
   :deep(.el-input__prefix-inner) {
@@ -909,40 +619,12 @@ async function toggleLike(item: AgentInfo) {
   }
 
   :deep(.el-input__wrapper) {
-    /* 与 append 拼接：仅右侧置 0 */
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
-    background-color: var(--el-bg-color-page);
+    background-color: var(--el-fill-color-light);
     border: var(--unified-border);
     box-shadow: none;
     min-height: 44px;
-    padding-left: 14px;
-    padding-right: 14px;
-    transition: border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  :deep(.el-input__wrapper):hover {
-    border-color: var(--border-unified-color-hover);
-  }
-
-  :deep(.el-input__wrapper.is-focus) {
-    border-color: var(--el-text-color-primary);
-  }
-
-  :deep(.el-input__inner) {
-    font-size: 15px;
-    line-height: 1.5;
-    color: var(--el-text-color-primary);
-  }
-
-  :deep(.el-input__inner::placeholder) {
-    color: var(--el-text-color-placeholder);
-    font-size: 15px;
-    line-height: 1.5;
-  }
-
-  :deep(.el-input__clear) {
-    margin-right: 4px;
   }
 
   /* append 容器与按钮由 _search-bar-append.scss 统一提供 */
@@ -951,69 +633,33 @@ async function toggleLike(item: AgentInfo) {
 .agents-square-list__tabs,
 .agents-square-list__sub-tabs {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* 滚动时留出一点内边距，避免首个/末个 chip 被裁切 */
-  padding: 2px 2px 6px;
-  margin: 0 -2px;
-  /* 隐藏滚动条但保持滚动能力 */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-  scroll-snap-type: x proximity;
-
-  &::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-  }
-
-  /* 拖动时禁止选中文本，移动端可正常滚动 */
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 .agents-square-list__tabs {
-  margin-top: 16px;
-  margin-bottom: 8px;
-}
-
-.agents-square-list__sub-tabs {
-  margin-top: 0;
-  margin-bottom: 4px;
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 .btn-tab {
-  flex: 0 0 auto;
-  padding: 7px 14px;
-  min-height: 34px;
-  border-radius: 999px;
-  background: var(--el-bg-color-page);
+  padding: 6px 12px;
+  min-height: 32px;
+  border-radius: var(--global-border-radius);
+  background: var(--el-bg-color);
   color: var(--el-text-color-primary);
-  font-size: 14px;
-  line-height: 1.4;
-  white-space: nowrap;
+  font-size: 13px;
   cursor: pointer;
-  border: 1px solid transparent;
-  scroll-snap-align: start;
-  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
     background: var(--el-fill-color-light);
-    border-color: var(--border-unified-color);
   }
 }
 
 .btn-tab--active {
   background: var(--el-color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--el-color-primary);
+  color: var(--el-bg-color-page);
 }
 
 .btn-tab--sub {
@@ -1021,9 +667,13 @@ async function toggleLike(item: AgentInfo) {
   font-size: 12px;
 }
 
-/* 深色模式：非激活 tab 文字需要更深色保证在浅色背景下可读 */
+/* 深色模式下 tab 按钮背景为白/灰时文字改为黑色，保证可读 */
 :where(html.dark) :where(.agents-square-list) .btn-tab:not(.btn-tab--active),
 :where(html.dark) :where(.agents-square-list) .btn-tab:not(.btn-tab--active):hover {
+  color: var(--color-dark-bg-4);
+}
+/* 深色模式下选中态 tab 文字改为黑色，保证可读 */
+:where(html.dark) :where(.agents-square-list) .btn-tab--active {
   color: var(--color-dark-bg-4);
 }
 
@@ -1097,6 +747,7 @@ async function toggleLike(item: AgentInfo) {
   padding: 8px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
+  background-color: var(--el-bg-color);
   background: var(--el-bg-color);
   transition: border-color 0.2s ease, background-color 0.2s ease;
   box-sizing: border-box;
@@ -1104,16 +755,19 @@ async function toggleLike(item: AgentInfo) {
 
   &:hover {
     border: var(--unified-border);
+    background-color: var(--el-fill-color-light);
     background: var(--el-fill-color-light);
   }
 }
 
-:where(html.dark) .agents-square-list__card {
+html.dark .agents-square-list__card {
+  background-color: var(--color-white-4);
   background: var(--color-white-4);
   border-color: var(--border-unified-color);
 }
 
-:where(html.dark) .agents-square-list__card:hover {
+html.dark .agents-square-list__card:hover {
+  background-color: var(--color-white-8);
   background: var(--color-white-8);
   border-color: var(--border-unified-color-hover);
 }
@@ -1239,9 +893,10 @@ async function toggleLike(item: AgentInfo) {
   font-size: 12px;
   line-height: 1;
   padding: 4px 8px;
-  border-radius: var(--global-border-radius);
-  /* 扁平化设计：使用 border 代替内阴影描边 */
-  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius-sm, 4px);
+  border: none;
+  /* 用内阴影代替描边，圆角更顺滑、避免锯齿 */
+  box-shadow: inset 0 0 0 1px var(--border-unified-color);
   background: var(--el-bg-color);
   color: var(--el-text-color-secondary);
   overflow: hidden;
@@ -1344,364 +999,8 @@ async function toggleLike(item: AgentInfo) {
   color: var(--el-text-color-secondary);
 }
 
-.agents-square-list__empty-text {
-  margin: 0 0 8px;
-  font-size: 15px;
-  color: var(--el-text-color-secondary);
-}
-
-.agents-square-list__recommend-title {
-  margin: 24px 0 14px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  text-align: left;
-}
-
-.agents-square-list__recommend-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  text-align: left;
-}
-
-.agents-square-list__recommend-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  background: var(--el-bg-color-page);
-  cursor: pointer;
-  box-sizing: border-box;
-  outline: none;
-  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover,
-  &:focus-visible {
-    background: var(--el-fill-color-light);
-    border-color: var(--border-unified-color-hover);
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
-}
-
-.agents-square-list__recommend-avatar {
-  flex-shrink: 0;
-}
-
-.agents-square-list__recommend-info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.agents-square-list__recommend-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agents-square-list__recommend-desc {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .agents-square-list__more {
   text-align: center;
   padding: 24px 0;
-}
-
-// ============ 语音输入按钮 ============
-.agents-square-list__voice {
-  position: absolute;
-  right: 116px; /* 与 append 按钮的 100px 宽度 + 16px 间距对齐 */
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-unified-color);
-  border-radius: 999px;
-  background: var(--el-bg-color-page);
-  color: var(--el-text-color-primary);
-  cursor: pointer;
-  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-
-  svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-
-  &:hover {
-    background: var(--el-fill-color-light);
-    border-color: var(--border-unified-color-hover);
-  }
-
-  &.listening {
-    background: var(--el-color-primary);
-    color: var(--color-on-primary);
-    border-color: var(--el-color-primary);
-    animation: agents-voice-pulse 1.4s ease-in-out infinite;
-  }
-
-  &.error {
-    border-color: var(--el-color-danger);
-    color: var(--el-color-danger);
-  }
-}
-
-@keyframes agents-voice-pulse {
-  0%, 100% {
-    transform: translateY(-50%) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(-50%) scale(1.08);
-    opacity: 0.85;
-  }
-}
-
-// ============ 搜索建议下拉 ============
-.agents-square-list__suggest {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: calc(var(--z-dropdown) + 1);
-  padding: 8px 4px 4px;
-  background: var(--el-bg-color-page);
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  max-height: 360px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  animation: agents-suggest-fade-in 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes agents-suggest-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.agents-square-list__suggest-group {
-  padding: 8px 12px;
-
-  & + .agents-square-list__suggest-group {
-    border-top: var(--unified-border-bottom);
-  }
-}
-
-.agents-square-list__suggest-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.agents-square-list__suggest-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--el-text-color-secondary);
-  letter-spacing: 0.02em;
-
-  svg {
-    flex-shrink: 0;
-  }
-}
-
-.agents-square-list__suggest-clear {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border: none;
-  background: transparent;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  border-radius: var(--global-border-radius);
-  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    background: var(--el-fill-color-light);
-    color: var(--el-color-danger);
-  }
-}
-
-.agents-square-list__suggest-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.agents-square-list__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  min-height: 28px;
-  border-radius: 999px;
-  border: 1px solid var(--border-unified-color);
-  background: var(--el-bg-color-page);
-  color: var(--el-text-color-primary);
-  font-size: 13px;
-  line-height: 1.2;
-  cursor: pointer;
-  outline: none;
-  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover,
-  &:focus-visible {
-    background: var(--el-fill-color-light);
-    border-color: var(--border-unified-color-hover);
-  }
-}
-
-.agents-square-list__chip-rank {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.agents-square-list__chip-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  margin-left: 2px;
-  border-radius: 999px;
-  color: var(--el-text-color-secondary);
-  cursor: pointer;
-  outline: none;
-  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover,
-  &:focus-visible {
-    background: var(--el-color-danger);
-    color: var(--color-on-primary);
-  }
-}
-
-// ============ 错误态 ============
-.agents-square-list__error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 64px 24px;
-  text-align: center;
-}
-
-.agents-square-list__error-icon {
-  color: var(--el-color-warning);
-}
-
-.agents-square-list__error-text {
-  margin: 0;
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-}
-
-.agents-square-list__retry-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-  padding: 0 18px;
-  border: 1px solid var(--el-color-primary);
-  border-radius: var(--global-border-radius);
-  background: var(--el-color-primary);
-  color: var(--color-on-primary);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  overflow: hidden;
-  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    background: var(--el-text-color-primary);
-    border-color: var(--el-text-color-primary);
-  }
-
-  &:active {
-    transform: scale(0.97);
-  }
-}
-
-.agents-square-list__retry-spin {
-  width: 16px;
-  height: 16px;
-  animation: agents-retry-spin 0.9s linear infinite;
-}
-
-@keyframes agents-retry-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.agents-square-list__ripple {
-  position: absolute;
-  border-radius: 999px;
-  background: var(--color-white-30);
-  transform: scale(0);
-  animation: agents-ripple 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-
-@keyframes agents-ripple {
-  to {
-    transform: scale(2.4);
-    opacity: 0;
-  }
 }
 </style>

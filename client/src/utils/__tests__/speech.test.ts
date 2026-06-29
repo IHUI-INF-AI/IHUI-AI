@@ -29,8 +29,8 @@ describe('speech', () => {
     start: ReturnType<typeof vi.fn>
     stop: ReturnType<typeof vi.fn>
     abort: ReturnType<typeof vi.fn>
-    onresult: ((event: any) => void) | null
-    onerror: ((event: any) => void) | null
+    onresult: ((event: unknown) => void) | null
+    onerror: ((event: unknown) => void) | null
     onstart: (() => void) | null
     onend: (() => void) | null
   }

@@ -1,7 +1,7 @@
 /**
  * 数据字典管理 API
  * 对接后端: app/api/v1/system/dictionary.py
- * 路由前缀: /api/v1/system/dict
+ * 路由前缀: /api/v1/dict
  *
  * 后端列表响应为 RuoYi TableDataInfo 格式 ({code, rows, total, msg}),
  * 本文件统一转换为 {records, total} 以适配 useAdminTable 默认提取器。
@@ -64,7 +64,7 @@ function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {
 // ===========================================================================
 
 export async function dictTypeList(params: DictListParams = {}): Promise<ApiResponse<{ records: DictTypeItem[]; total: number }>> {
-  const res = await http.get('/api/v1/system/dict/type/list', {
+  const res = await http.get('/api/v1/dict/type/list', {
     params: {
       page: params.current ?? 1,
       size: params.size ?? 20,
@@ -78,31 +78,31 @@ export async function dictTypeList(params: DictListParams = {}): Promise<ApiResp
 }
 
 export async function dictTypeDetail(dictId: number): Promise<ApiResponse<DictTypeItem | null>> {
-  const res = await http.get(`/api/v1/system/dict/type/${dictId}`)
+  const res = await http.get(`/api/v1/dict/type/${dictId}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictTypeItem | null>
 }
 
 export async function dictTypeCreate(payload: { dictName: string; dictType: string; status?: string }): Promise<ApiResponse<DictTypeItem>> {
-  const res = await http.post('/api/v1/system/dict/type', payload)
+  const res = await http.post('/api/v1/dict/type', payload)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictTypeItem>
 }
 
 export async function dictTypeUpdate(payload: { dictId: number; dictName?: string; dictType?: string; status?: string }): Promise<ApiResponse<DictTypeItem>> {
-  const res = await http.put('/api/v1/system/dict/type', payload)
+  const res = await http.put('/api/v1/dict/type', payload)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictTypeItem>
 }
 
 export async function dictTypeDelete(ids: (string | number)[]): Promise<ApiResponse<unknown>> {
-  const res = await http.delete(`/api/v1/system/dict/type/${ids.join(',')}`)
+  const res = await http.delete(`/api/v1/dict/type/${ids.join(',')}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }
 
 export async function dictTypeOptionselect(): Promise<ApiResponse<DictTypeItem[]>> {
-  const res = await http.get('/api/v1/system/dict/type/optionselect')
+  const res = await http.get('/api/v1/dict/type/optionselect')
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictTypeItem[]>
 }
@@ -112,7 +112,7 @@ export async function dictTypeOptionselect(): Promise<ApiResponse<DictTypeItem[]
 // ===========================================================================
 
 export async function dictDataList(params: DictListParams = {}): Promise<ApiResponse<{ records: DictDataItem[]; total: number }>> {
-  const res = await http.get('/api/v1/system/dict/data/list', {
+  const res = await http.get('/api/v1/dict/data/list', {
     params: {
       page: params.current ?? 1,
       size: params.size ?? 20,
@@ -126,13 +126,13 @@ export async function dictDataList(params: DictListParams = {}): Promise<ApiResp
 }
 
 export async function dictDataByType(dictType: string): Promise<ApiResponse<DictDataItem[]>> {
-  const res = await http.get(`/api/v1/system/dict/data/type/${dictType}`)
+  const res = await http.get(`/api/v1/dict/data/type/${dictType}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictDataItem[]>
 }
 
 export async function dictDataDetail(dictCode: number): Promise<ApiResponse<DictDataItem | null>> {
-  const res = await http.get(`/api/v1/system/dict/data/${dictCode}`)
+  const res = await http.get(`/api/v1/dict/data/${dictCode}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictDataItem | null>
 }
@@ -147,7 +147,7 @@ export async function dictDataCreate(payload: {
   cssClass?: string | null
   listClass?: string | null
 }): Promise<ApiResponse<DictDataItem>> {
-  const res = await http.post('/api/v1/system/dict/data', payload)
+  const res = await http.post('/api/v1/dict/data', payload)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictDataItem>
 }
@@ -163,13 +163,13 @@ export async function dictDataUpdate(payload: {
   cssClass?: string | null
   listClass?: string | null
 }): Promise<ApiResponse<DictDataItem>> {
-  const res = await http.put('/api/v1/system/dict/data', payload)
+  const res = await http.put('/api/v1/dict/data', payload)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<DictDataItem>
 }
 
 export async function dictDataDelete(ids: (string | number)[]): Promise<ApiResponse<unknown>> {
-  const res = await http.delete(`/api/v1/system/dict/data/${ids.join(',')}`)
+  const res = await http.delete(`/api/v1/dict/data/${ids.join(',')}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }

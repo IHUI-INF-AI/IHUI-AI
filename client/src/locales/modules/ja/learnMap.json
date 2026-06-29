@@ -1,8 +1,8 @@
 {
   "learnMap": {
-    "breadcrumbCourse": "breadcrumbCourse",
-    "breadcrumbMap": "breadcrumbMap",
-    "clickToLearn": "clickToLearn",
-    "noMaps": "noMaps"
+    "noMaps": "学習マップなし",
+    "clickToLearn": "クリックして学習パスへ",
+    "breadcrumbCourse": "コース",
+    "breadcrumbMap": "学習マップ"
   }
 }

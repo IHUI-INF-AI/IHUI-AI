@@ -68,7 +68,7 @@ class SyncEncryptionService {
     return this.keyHash
   }
 
-  async encrypt(data: any): Promise<EncryptedData> {
+  async encrypt(data: unknown): Promise<EncryptedData> {
     if (!this.key) {
       throw new Error('Encryption key not set')
     }

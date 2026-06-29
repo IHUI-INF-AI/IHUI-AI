@@ -8,7 +8,7 @@
  */
 
 import { ref, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 
@@ -41,21 +41,20 @@ export interface ProjectInfo {
  * - user: 账号密码登录，普通用户
  * - sms: 手机号短信登录，验证码
  */
-const PROJECT_INFO_MAP: Record<string, { name: string; url: string; remoteUrl?: string }> = {
+const PROJECT_INFO_MAP: Record<string, { name: string; url: string }> = {
   main: { name: 'Main project', url: currentOrigin },
   open: { name: 'Open project', url: `${currentOrigin}/open` },
   admin: { name: 'Ruoyi admin', url: buildProjectUrl(8888) },
   user: { name: 'Website user', url: currentOrigin },
   sms: { name: 'SMS login', url: currentOrigin },
+  // 2026-06-26: 教育平台源码已迁移到项目内, 直接使用项目内路由
   'edu-web': {
     name: 'Education user',
-    url: buildProjectUrl(8888),
-    remoteUrl: 'https://user-edu.aizhs.top'
+    url: '/edu',
   },
   'edu-admin': {
-    name: 'Education user',
-    url: buildProjectUrl(8888),
-    remoteUrl: 'https://admin-edu.aizhs.top'
+    name: 'Education admin',
+    url: '/admin/edu',
   },
 }
 
@@ -125,17 +124,16 @@ export function useLoginProject(_options: UseLoginProjectOptions = {}) {
         name: getText('login.project.admin') || 'Ruoyi admin',
         url: buildProjectUrl(8888),
       },
+      // 2026-06-26: 教育平台源码已迁移到项目内, url 直接用项目内路由
       {
         key: 'edu-web',
         name: getText('login.project.eduWeb') || '智慧AI教育平台',
-        url: buildProjectUrl(8888),
-        remoteUrl: 'https://user-edu.aizhs.top',
+        url: '/edu',
       },
       {
         key: 'edu-admin',
         name: getText('login.project.eduAdmin') || '教育管理后台',
-        url: buildProjectUrl(8888),
-        remoteUrl: 'https://admin-edu.aizhs.top',
+        url: '/admin/edu',
       },
     ]
   })
@@ -167,13 +165,10 @@ export function useLoginProject(_options: UseLoginProjectOptions = {}) {
       })
 
       // 判断是否是教育系统（根据 source 判断）
-      // 统一使用 8888 端口
+      // 2026-06-26: 教育平台已迁移到项目内, 不再检查外部域名
       const isEduSystem =
         currentSource === 'edu-web' ||
-        currentSource === 'edu-admin' ||
-        (currentRedirect &&
-          (currentRedirect.includes('user-edu.aizhs.top') ||
-            currentRedirect.includes('admin-edu.aizhs.top')))
+        currentSource === 'edu-admin'
 
       logger.info('[LoginProject] isEduSystem judgment', {
         isEduSystem,
@@ -240,16 +235,16 @@ export function useLoginProject(_options: UseLoginProjectOptions = {}) {
         .replace({
           path: '/login',
           query: currentQuery,
-        } as any)
+        } as RouteLocationRaw)
         .then(() => {
           logger.info('[LoginProject] Route switch successful', { query: currentQuery })
         })
-        .catch((error: any) => {
+        .catch((error: unknown) => {
           if (
             error &&
             typeof error === 'object' &&
             'name' in error &&
-            (error.name === 'NavigationDuplicated' || error.name === 'NavigationRedirected')
+            ((error as { name: string }).name === 'NavigationDuplicated' || (error as { name: string }).name === 'NavigationRedirected')
           ) {
             logger.info('[LoginProject] Route switch: NavigationDuplicated/Redirected (normal)')
             return
@@ -276,13 +271,13 @@ export function useLoginProject(_options: UseLoginProjectOptions = {}) {
         .replace({
           path: '/login',
           query: currentQuery,
-        } as any)
-        .catch((error: any) => {
+        } as RouteLocationRaw)
+        .catch((error: unknown) => {
           if (
             error &&
             typeof error === 'object' &&
             'name' in error &&
-            (error.name === 'NavigationDuplicated' || error.name === 'NavigationRedirected')
+            ((error as { name: string }).name === 'NavigationDuplicated' || (error as { name: string }).name === 'NavigationRedirected')
           ) {
             return
           }
@@ -295,10 +290,10 @@ export function useLoginProject(_options: UseLoginProjectOptions = {}) {
     selectedProject.value = projectKey
     const project = availableProjects.value.find(p => p.key === projectKey)
     if (project) {
-      // 对于教育系统项目，使用远程生产服务器地址，其他项目使用本地地址
-      const redirectUrl = (project as { remoteUrl?: string }).remoteUrl
-        ? `${(project as { remoteUrl: string }).remoteUrl}/index`
-        : `${project.url}/index`
+      // 2026-06-26: 教育平台已迁移到项目内, edu-web/edu-admin 直接用项目内路由作为 redirect;
+      // 其他项目保持 ${project.url}/index
+      const isEduProject = projectKey === 'edu-web' || projectKey === 'edu-admin'
+      const redirectUrl = isEduProject ? project.url : `${project.url}/index`
 
       router
         .replace({
@@ -307,13 +302,13 @@ export function useLoginProject(_options: UseLoginProjectOptions = {}) {
             source: projectKey,
             redirect: encodeURIComponent(redirectUrl),
           },
-        } as any)
-        .catch((error: any) => {
+        } as RouteLocationRaw)
+        .catch((error: unknown) => {
           if (
             error &&
             typeof error === 'object' &&
             'name' in error &&
-            (error.name === 'NavigationDuplicated' || error.name === 'NavigationRedirected')
+            ((error as { name: string }).name === 'NavigationDuplicated' || (error as { name: string }).name === 'NavigationRedirected')
           ) {
             return
           }

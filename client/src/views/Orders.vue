@@ -223,7 +223,7 @@
                 {{ t('orders.actions.detail') }}
               </button>
               <el-dropdown trigger="click" @command="(cmd: string) => handleOrderCommand(cmd, order)">
-                <button class="action-btn more-btn ripple-btn" :aria-label="t('common.moreActions')" @click.stop>
+                <button class="action-btn more-btn ripple-btn" aria-label="更多操作" @click.stop>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                     <circle cx="12" cy="5" r="2"></circle>
                     <circle cx="12" cy="12" r="2"></circle>
@@ -268,7 +268,7 @@
             <div class="modal-content glass" @click.stop>
               <div class="modal-header">
                 <h3>{{ t('orders.detail.title') }}</h3>
-                <button @click="closeOrderDetail" class="close-btn ripple-btn" :aria-label="t('common.close')">
+                <button @click="closeOrderDetail" class="close-btn ripple-btn" aria-label="关闭">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -355,8 +355,9 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { type Order } from '@/api/payment/orders'
+import { type Order } from '@/api/orders'
 import { v2Orders } from '@/api/v2-business'
+import type { ApiResponse } from '@/types'
 import { ElMessageBox } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
@@ -567,15 +568,15 @@ const loadOrders = async (reset = false) => {
           page: currentPage.value,
           pageSize: pageSize.value,
           status: apiStatus,
-        }) as any,
+        }) as Promise<ApiResponse<unknown>>,
       {
         showMessage: false,
       }
     )
 
     if (result && typeof result === 'object' && 'list' in (result as object)) {
-      const list = ((result as { list?: any[] }).list) || []
-      const fetched = list.map((item: any) => transformApiOrder(item as Order | Record<string, unknown>))
+      const list = ((result as { list?: unknown[] }).list) || []
+      const fetched = list.map((item: unknown) => transformApiOrder(item as Order | Record<string, unknown>))
       if (reset) {
         orders.value = fetched
       } else {
@@ -590,8 +591,9 @@ const loadOrders = async (reset = false) => {
       hasMore.value = false
       updateStatusCounts()
     }
-  } catch (err: any) {
-    loadError.value = err?.message || t('orders.messages.loadFailed')
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    loadError.value = e?.message || t('orders.messages.loadFailed')
     logger.error('Failed to load order list', err)
   } finally {
     loadingGuard = false
@@ -625,8 +627,8 @@ const mapTabToApiStatus = (tabStatus: string): string | undefined => {
   }
 }
 
-// transformApiOrder 函数：将 @/api/payment/orders 返回的 Order 转换为视图需要的 Order 格式
-// 注意：@/api/payment/orders 返回的 Order 已经包含了视图需要的字段，这里只需要类型转换
+// transformApiOrder 函数：将 @/api/orders 返回的 Order 转换为视图需要的 Order 格式
+// 注意：@/api/orders 返回的 Order 已经包含了视图需要的字段，这里只需要类型转换
 const transformApiOrder = (o: Order | Record<string, unknown>): Order => {
   const order = o as Record<string, unknown>
   return {
@@ -823,7 +825,7 @@ const cancelOrder = async (order: Order) => {
 
   // P14-1: 调 v2Orders.cancel 替换临时 fake Promise
   await handleResult(
-    v2Orders.cancel(order.id) as any,
+    v2Orders.cancel(order.id),
     {
       successMessage: t('orders.messages.cancelled'),
       errorMessage: t('orders.messages.cancelFailed'),
@@ -852,7 +854,7 @@ const confirmReceived = async (order: Order) => {
 
   // 调用真实确认收货接口，禁止使用假 Promise
   await handleResult(
-    v2Orders.confirm(order.id) as any,
+    v2Orders.confirm(order.id),
     {
       successMessage: t('orders.messages.received'),
       errorMessage: t('orders.messages.receiveFailed'),
@@ -894,7 +896,7 @@ const requestRefund = async (order: Order) => {
 
     if (!form || !form.trim()) return
 
-    const { applyRefund } = await import('@/api/payment/refund')
+    const { applyRefund } = await import('@/api/refund')
     const response = await applyRefund({
       orderNo: order.orderNo || order.id,
       reason: form.trim(),
@@ -907,7 +909,7 @@ const requestRefund = async (order: Order) => {
     } else {
       showError(response.message || t('orders.messages.refundApplyFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       logger.error('Refund application failed:', error)
       showError(t('orders.messages.refundApplyFailed'))
@@ -1016,7 +1018,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--el-text-color-primary);
+$brand-secondary: var(--color-gray-333);
 
 // ============ 根容器 ============
 .orders-root {
@@ -1100,13 +1102,12 @@ $brand-secondary: var(--el-text-color-primary);
     padding: 8px 20px;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 900;
     letter-spacing: 0.05em;
     margin-bottom: 16px;
     background: var(--color-white-50);
     backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 
     .status-dot {
       width: 6px;
@@ -1119,7 +1120,7 @@ $brand-secondary: var(--el-text-color-primary);
 
   .page-title {
     font-size: clamp(32px, 4vw, 48px);
-    font-weight: 800;
+    font-weight: 950;
     letter-spacing: -0.03em;
     margin: 0 0 12px;
   }
@@ -1145,11 +1146,12 @@ $brand-secondary: var(--el-text-color-primary);
   padding: 16px 24px;
   background: var(--color-white-60);
   border-radius: var(--global-border-radius);
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
 
   &:focus-within {
     background: var(--color-white-90);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .search-icon {
@@ -1179,15 +1181,15 @@ $brand-secondary: var(--el-text-color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+  background: rgba($brand-primary, 0.05);
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
   color: $text-sec;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 
   &:hover {
-    background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
+    background: rgba($brand-primary, 0.1);
     color: $text-main;
   }
 
@@ -1217,20 +1219,22 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  Backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
 
   &:hover {
     background: var(--color-white-90);
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
-    
-    }
+    border-color: rgba($brand-primary, 0.2);
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
+  }
 
   &.active {
     background: $brand-primary;
     color: var(--el-bg-color);
     border-color: $brand-primary;
+    box-shadow: var(--global-box-shadow);
+
     .tab-count {
       background: var(--color-white-20);
       color: var(--el-bg-color);
@@ -1244,7 +1248,7 @@ $brand-secondary: var(--el-text-color-primary);
   padding: 2px 8px;
   font-size: 12px;
   font-weight: 800;
-  background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
+  background: rgba($brand-primary, 0.1);
   color: $brand-primary;
   border-radius: var(--global-border-radius);
   min-width: 24px;
@@ -1286,7 +1290,7 @@ $brand-secondary: var(--el-text-color-primary);
     &:nth-child(3) {
       inset: 12px;
       animation-duration: 2s;
-      border-top-color: var(--el-text-color-secondary);
+      border-top-color: var(--color-gray-666);
     }
   }
 }
@@ -1307,7 +1311,7 @@ $brand-secondary: var(--el-text-color-primary);
     width: 100px;
     height: 100px;
     margin: 0 auto 24px;
-    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+    background: rgba($brand-primary, 0.05);
     border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
@@ -1348,7 +1352,7 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-text {
     position: relative;
@@ -1358,8 +1362,9 @@ $brand-secondary: var(--el-text-color-primary);
   // 扫光效果已移至全局样式 (styles/index.scss)
 
   &:hover {
-    
-    }
+    transform: translateY(-4px);
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .retry-btn {
@@ -1377,7 +1382,7 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-text {
     position: relative;
@@ -1387,7 +1392,7 @@ $brand-secondary: var(--el-text-color-primary);
   &:hover {
     background: $brand-primary;
     color: var(--el-bg-color);
-    
+    transform: translateY(-2px);
   }
 }
 
@@ -1400,7 +1405,7 @@ $brand-secondary: var(--el-text-color-primary);
     width: 80px;
     height: 80px;
     margin: 0 auto 20px;
-    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+    background: rgba($brand-primary, 0.05);
     border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
@@ -1443,7 +1448,6 @@ $brand-secondary: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
   background: var(--color-white-70);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
   transition: border-color 0.2s ease;
 
@@ -1491,7 +1495,7 @@ $brand-secondary: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
   font-size: 13px;
   font-weight: 800;
-  transition: background-color 0.3s, color 0.3s;
+  transition: all 0.3s;
 
   .status-dot-sm {
     width: 6px;
@@ -1503,29 +1507,34 @@ $brand-secondary: var(--el-text-color-primary);
 }
 
 .status-pending {
-  background: var(--el-color-warning);
+  background: var(--color-orange-ff9800);
   color: var(--el-bg-color);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-shipping {
   background: $brand-primary;
   color: var(--el-bg-color);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-finished {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-cancelled {
   background: var(--el-text-color-placeholder);
   color: var(--el-bg-color);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .status-refund {
   background: var(--el-text-color-primary);
   color: var(--el-bg-color);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .card-body {
   display: flex;
@@ -1539,7 +1548,7 @@ $brand-secondary: var(--el-text-color-primary);
   width: 80px;
   height: 80px;
   border-radius: var(--global-border-radius);
-  background: color-mix(in srgb, var(--el-text-color-primary) 3%, transparent);
+  background: rgba($brand-primary, 0.03);
   border: var(--unified-border);
   flex-shrink: 0;
   overflow: hidden;
@@ -1631,7 +1640,7 @@ $brand-secondary: var(--el-text-color-primary);
 
   .price {
     font-size: 24px;
-    font-weight: 800;
+    font-weight: 950;
     color: $brand-primary;
     letter-spacing: -0.02em;
   }
@@ -1660,17 +1669,17 @@ $brand-secondary: var(--el-text-color-primary);
   background: var(--color-white-80);
   color: $text-sec;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
 
   &:hover {
-    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
+    background: rgba($brand-primary, 0.05);
+    border-color: rgba($brand-primary, 0.2);
     color: $brand-primary;
-    
+    transform: translateY(-2px);
   }
 
   &.primary {
@@ -1681,13 +1690,18 @@ $brand-secondary: var(--el-text-color-primary);
     &:hover {
       background: $brand-secondary;
       border-color: $brand-secondary;
-      }
+      box-shadow: var(--global-box-shadow);
+    }
   }
 
   &.warning {
-    background: var(--el-color-warning);
+    background: var(--color-orange-ff9800);
     color: var(--el-bg-color);
     border-color: transparent;
+
+    &:hover {
+      box-shadow: var(--global-box-shadow);
+    }
   }
 
   &.more-btn {
@@ -1710,21 +1724,22 @@ $brand-secondary: var(--el-text-color-primary);
   justify-content: center;
   height: 52px;
   padding: 0 40px;
-  background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+  background: rgba($brand-primary, 0.05);
   color: $brand-primary;
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background: $brand-primary;
     color: var(--el-bg-color);
     border-color: $brand-primary;
-    
-    }
+    transform: translateY(-3px);
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .no-more {
@@ -1754,7 +1769,6 @@ $brand-secondary: var(--el-text-color-primary);
   inset: 0;
   background: var(--color-black-60);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1770,9 +1784,9 @@ $brand-secondary: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
   background: var(--color-white-95);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .modal-header {
   display: flex;
@@ -1794,15 +1808,15 @@ $brand-secondary: var(--el-text-color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+  background: rgba($brand-primary, 0.05);
   border: none;
   border-radius: var(--global-border-radius);
   cursor: pointer;
   color: $text-sec;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s;
 
   &:hover {
-    background: color-mix(in srgb, var(--el-text-color-primary) 10%, transparent);
+    background: rgba($brand-primary, 0.1);
     color: $text-main;
   }
 
@@ -1868,7 +1882,7 @@ $brand-secondary: var(--el-text-color-primary);
 
     &.amount {
       font-size: 20px;
-      font-weight: 800;
+      font-weight: 950;
       color: $brand-primary;
     }
 
@@ -1884,14 +1898,12 @@ $brand-secondary: var(--el-text-color-primary);
 .glass {
   background: var(--color-white-60);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
 .glass-card {
   background: var(--color-white-70);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -1902,7 +1914,7 @@ $brand-secondary: var(--el-text-color-primary);
   transition: none;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -1973,10 +1985,10 @@ $brand-secondary: var(--el-text-color-primary);
 // ============ 弹窗过渡动画 ============
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 
   .modal-content {
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
@@ -2002,7 +2014,7 @@ $brand-secondary: var(--el-text-color-primary);
 
     .header-badge {
       padding: 6px 14px;
-      font-size: 12px;
+      font-size: 10px;
     }
   }
 

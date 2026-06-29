@@ -2,28 +2,28 @@
 
 @use '../variables.scss' as *;
 
-@media (width <= $breakpoint-sm) {
+@media (max-width: $breakpoint-sm) {
   .d-sm-none { display: none; }
   .d-sm-block { display: block; }
 }
 
-@media (width >= $breakpoint-md) {
+@media (min-width: $breakpoint-md) {
   .d-md-block { display: block; }
   .d-md-flex { display: flex; }
 }
 
-@media (width >= $breakpoint-lg) {
+@media (min-width: $breakpoint-lg) {
   .d-lg-block { display: block; }
   .d-lg-flex { display: flex; }
 }
 
-@media (width >= $breakpoint-xl) {
+@media (min-width: $breakpoint-xl) {
   .d-xl-block { display: block; }
   .d-xl-flex { display: flex; }
 }
 
 // 额外的响应式工具类（兼容 Tailwind）
-@media (width >= 640px) {
+@media (min-width: 640px) {
   .sm\:block { display: block; }
   .sm\:inline-block { display: inline-block; }
   .sm\:hidden { display: none; }

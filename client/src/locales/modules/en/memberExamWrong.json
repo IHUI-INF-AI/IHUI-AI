@@ -1,14 +1,12 @@
 {
   "memberExamWrong": {
-    "analysis": "analysis",
-    "correctAnswer": "correctAnswer",
-    "empty": "empty",
-    "enterExam": "enterExam",
-    "master": "master",
-    "masteredFailed": "masteredFailed",
-    "masteredSuccess": "masteredSuccess",
-    "myAnswer": "myAnswer",
-    "notAnswered": "notAnswered",
-    "title": "标题"
+    "title": "Wrong Questions",
+    "empty": "No wrong questions",
+    "remove": "Remove",
+    "myAnswer": "My Answer: ",
+    "notAnswered": "Not Answered",
+    "correctAnswer": "Correct Answer: ",
+    "analysis": "Analysis: ",
+    "removed": "Removed"
   }
 }

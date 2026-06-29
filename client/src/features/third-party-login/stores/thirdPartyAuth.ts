@@ -8,10 +8,10 @@ import {
   bindThirdPartyAccount as bindThirdPartyAccountApi,
   unbindThirdPartyAccount as unbindThirdPartyAccountApi,
   getUserThirdPartyAccounts,
-} from '@/api/user/user'
+} from '@/api/user'
 
 // 第三方平台类型
-export type ThirdPartyPlatform = 'alipay' | 'google'
+export type ThirdPartyPlatform = 'google'
 
 // 第三方登录状态
 export interface ThirdPartyLoginState {
@@ -37,13 +37,6 @@ export interface ThirdPartyAccount {
 
 // 第三方登录配置
 export interface ThirdPartyConfig {
-  alipay: {
-    enabled: boolean
-    appId: string
-    qrLoginEnabled: boolean
-    webAuthEnabled: boolean
-    sandboxMode: boolean
-  }
   google: {
     enabled: boolean
     clientId: string
@@ -55,13 +48,6 @@ export interface ThirdPartyConfig {
 export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
   // 状态
   const config = ref<ThirdPartyConfig>({
-    alipay: {
-      enabled: false,
-      appId: '',
-      qrLoginEnabled: false,
-      webAuthEnabled: false,
-      sandboxMode: false,
-    },
     google: { enabled: false, clientId: '', redirectUri: '', scope: '' },
   })
 
@@ -86,7 +72,6 @@ export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
 
   const getPlatformDisplayName = (platform: ThirdPartyPlatform): string => {
     const names: Record<ThirdPartyPlatform, string> = {
-      alipay: '支付宝',
       google: 'Google',
     }
     return names[platform] ?? platform
@@ -158,7 +143,7 @@ export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
       initLoginState(platform)
 
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(`Starting ${getPlatformDisplayName(platform)} login failed:`, error)
       ElMessage.error(errorMessage || `Starting ${getPlatformDisplayName(platform)} login failed`)
@@ -203,7 +188,7 @@ export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
       } else {
         throw new Error('登录处理失败')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`${getPlatformDisplayName(platform)} login processing failed:`, error)
       const errorMsg = error instanceof Error ? error.message : String(error)
       updateLoginState(platform, {
@@ -216,7 +201,7 @@ export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
   }
 
   // 处理登录失败
-  const handleLoginError = (platform: ThirdPartyPlatform, error: any) => {
+  const handleLoginError = (platform: ThirdPartyPlatform, error: unknown) => {
     logger.error(`${getPlatformDisplayName(platform)} login failed:`, error)
 
     const currentState = loginStates.value.get(platform)
@@ -277,7 +262,7 @@ export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
       await refreshBoundAccounts()
 
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(`Binding ${getPlatformDisplayName(platform)} account failed:`, error)
       ElMessage.error(errorMessage || `Binding ${getPlatformDisplayName(platform)} account failed`)
@@ -307,7 +292,7 @@ export const useThirdPartyAuthStore = defineStore('thirdPartyAuth', () => {
       await refreshBoundAccounts()
 
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error(`Unbinding ${getPlatformDisplayName(platform)} account failed:`, error)
       ElMessage.error(errorMessage || `Unbinding ${getPlatformDisplayName(platform)} account failed`)

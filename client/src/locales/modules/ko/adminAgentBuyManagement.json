@@ -1,0 +1,23 @@
+{
+  "adminAgentBuyManagement": {
+    "핵심 장점": "에이전트구매기이것은관리",
+    "sub핵심 장점": "관리에이전트구매기이것은및주의문",
+    "actions": {},
+    "buyList": {
+      "status": "주의문상태"
+    },
+    "search": {
+      "status": "주의문상태",
+      "statusPlaceholder": "요청선택주의문상태"
+    },
+    "status": {
+      "pending": "결제 대기 중",
+      "paid": "완료결제",
+      "cancelled": "완료취소",
+      "unknown": "알 수 없음"
+    },
+    "settlementStatus": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

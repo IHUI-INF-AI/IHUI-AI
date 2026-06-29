@@ -7,19 +7,32 @@
     "tabs": {
       "all": "All Orders",
       "pending": "Pending",
+      "processing": "Processing",
       "completed": "Completed",
       "cancelled": "Cancelled",
       "shipping": "Shipping",
       "refunded": "Refunded"
     },
+    "order": {
+      "orderId": "Order ID",
+      "productName": "Product Name",
+      "amount": "Amount",
+      "status": "Status",
+      "createTime": "Create Time",
+      "payTime": "Pay Time",
+      "actions": "Actions",
+      "Status": "Status"
+    },
     "status": {
       "pending": "Pending Payment",
+      "processing": "Processing",
       "completed": "Completed",
       "cancelled": "Cancelled",
       "refunded": "Refunded",
       "paid": "Paid"
     },
     "actions": {
+      "viewDetails": "View Details",
       "cancel": "Cancel Order",
       "pay": "Pay Now",
       "refund": "Refund",
@@ -30,18 +43,25 @@
       "copyOrderId": "Copy Order ID",
       "copyProductId": "Copy Product ID",
       "copyOrderInfo": "Copy Order Info",
-      "retry": "Retry"
+      "retry": "Retry",
+      "payNow": "Pay Now",
+      "cancelOrder": "Cancel Order",
+      "requestRefund": "Request Refund",
+      "viewDetail": "View Details"
     },
     "labels": {
       "orderId": "Order ID",
+      "orderType": "Order Type",
       "amount": "Amount",
       "status": "Status",
       "createTime": "Create Time",
+      "actions": "Actions",
       "payTime": "Pay Time",
       "productName": "Product Name",
       "productType": "Product Type",
       "paymentMethod": "Payment Method",
-      "expireTime": "Expire Time"
+      "expireTime": "Expire Time",
+      "Status": "Status"
     },
     "empty": {
       "title": "No Orders",
@@ -53,7 +73,8 @@
       "title": "Order Details",
       "orderInfo": "Order Information",
       "productInfo": "Product Information",
-      "paymentInfo": "Payment Information"
+      "paymentInfo": "Payment Information",
+      "shippingInfo": "Shipping Information"
     },
     "productType": {
       "vip": "VIP Membership",
@@ -90,7 +111,8 @@
       "copyOrderIdSuccess": "Order ID copied successfully",
       "copyProductIdSuccess": "Product ID copied successfully",
       "copyOrderInfoSuccess": "Order info copied successfully",
-      "loadFailed": "Failed to load orders, please try again later"
+      "loadFailed": "Failed to load orders, please try again later",
+      "payNotAvailable": "Payment is not available at this time"
     },
     "error": {
       "title": "Load Failed"
@@ -98,6 +120,16 @@
     "refundReasonPlaceholder": "Please enter refund reason",
     "applyRefund": "Apply Refund",
     "refundReasonRequired": "Refund reason is required",
-    "refundReasonMinLength": "Refund reason is too short"
+    "refundReasonMinLength": "Refund reason is too short",
+    "Status": {
+      "pending": "Pending Payment",
+      "shipping": "Shipping",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded",
+      "unknown": "Unknown",
+      "paid": "Paid",
+      "processing": "Processing"
+    }
   }
 }

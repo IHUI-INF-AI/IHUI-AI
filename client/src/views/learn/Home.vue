@@ -2,7 +2,7 @@
   <div class="learn-home-page page-container">
     <LearnNavMenu />
     <Banner :carousel="carousel" :loading="bannerLoading" />
-    <Hot :list="hotList" :loading="hotLoading" :title="t('learn.hotRecommend')" type="learn" @refresh="loadHot" />
+    <Hot :list="hotList" :loading="hotLoading" title="热门推荐" type="learn" @refresh="loadHot" />
     <RowTabs
       v-for="cat in categoryLessons"
       :key="cat.id"
@@ -11,20 +11,17 @@
       :sub-categories="cat.subCategories"
       :loading="false"
     />
-    <el-empty v-if="!categoryLessons.length && !hotLoading" :description="t('common.noData')" />
+    <el-empty v-if="!categoryLessons.length && !hotLoading" description="暂无课程" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import Banner from '@/components/module/Banner.vue'
 import Hot from '@/components/module/Hot.vue'
 import RowTabs from '@/components/module/RowTabs.vue'
-import { learnApi } from '@/api/learn/learn'
-
-const { t } = useI18n()
+import { learnApi } from '@/api/learn'
 
 // 轮播图项
 interface CarouselItem {
@@ -42,11 +39,6 @@ interface CategoryLessonItem {
   [key: string]: unknown
 }
 
-// 简化的响应类型
-interface ApiResponseData {
-  data: unknown
-}
-
 const carousel = ref<CarouselItem[]>([])
 const hotList = ref<unknown[]>([])
 const categoryLessons = ref<CategoryLessonItem[]>([])
@@ -56,9 +48,9 @@ const hotLoading = ref(false)
 async function loadBanner() {
   bannerLoading.value = true
   try {
-    const res = await learnApi.recommend({ limit: 5 }) as ApiResponseData
-    const items = (res.data || []) as Array<{ id: string; name: string; image?: string; cover?: string }>
-    carousel.value = items.map(it => ({
+    const res = await learnApi.recommend({ limit: 5 })
+    const items = res.data?.data || []
+    carousel.value = (items as Array<{ id: string; name: string; image?: string; cover?: string }>).map(it => ({
       title: it.name,
       image: it.image || it.cover || '',
       link: `/learn/detail/${it.id}`,
@@ -71,20 +63,20 @@ async function loadBanner() {
 async function loadHot() {
   hotLoading.value = true
   try {
-    const res = await learnApi.recommend({ limit: 10 }) as ApiResponseData
-    hotList.value = (res.data || []) as unknown[]
+    const res = await learnApi.recommend({ limit: 10 })
+    hotList.value = res.data?.data || []
   } finally {
     hotLoading.value = false
   }
 }
 
 async function loadCategoryLessons() {
-  const catRes = await learnApi.categoryTree() as ApiResponseData
-  const cats = ((catRes.data || []) as Array<{ id: string | number; name: string; children?: unknown[]; [key: string]: unknown }>).slice(0, 4)
+  const catRes = await learnApi.categoryTree()
+  const cats = (catRes.data?.data || []).slice(0, 4) as Array<{ id: string | number; name: string; children?: unknown[]; [key: string]: unknown }>
   const results: CategoryLessonItem[] = []
   for (const c of cats) {
-    const r = await learnApi.list({ categoryId: c.id as string, pageSize: 6 }) as ApiResponseData
-    const rData = (r.data || {}) as { items?: unknown[]; list?: unknown[] }
+    const r = await learnApi.list({ categoryId: c.id as string, pageSize: 6 })
+    const rData = (r.data?.data || {}) as { items?: unknown[]; list?: unknown[] }
     results.push({
       ...c,
       list: rData.items || rData.list || [],

@@ -1,6 +1,6 @@
 {
   "webView": {
-    "back": "返回",
-    "noUrlProvided": "noUrlProvided"
+    "noUrlProvided": "아직제공URL매개변수",
+    "back": "백엔드로"
   }
 }

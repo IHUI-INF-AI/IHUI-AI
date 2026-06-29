@@ -193,7 +193,7 @@ export class AICapabilityDiscovery {
       name: string
       description?: string
       available: boolean
-      metadata?: { id?: string; [key: string]: any }
+      metadata?: { id?: string; [key: string]: unknown }
     }
 
     return {

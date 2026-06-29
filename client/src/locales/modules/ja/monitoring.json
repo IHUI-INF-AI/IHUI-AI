@@ -1,53 +1,59 @@
 {
   "monitoring": {
-    "acknowledge": "acknowledge",
-    "activeAlerts": "activeAlerts",
-    "activeTours": "activeTours",
-    "alertRules": "alertRules",
-    "anomalyDetection": "anomalyDetection",
-    "cancel": "取消",
-    "completionRate": "completionRate",
-    "condition": "condition",
-    "cooldownTime": "cooldownTime",
-    "cpuUsage": "cpuUsage",
-    "create": "创建",
-    "currentValue": "currentValue",
-    "errorRate": "errorRate",
-    "expectedValue": "expectedValue",
-    "memoryUsage": "memoryUsage",
+    "acknowledge": "Acknowledge",
+    "activeAlerts": "Active Alerts",
+    "activeTours": "Active Tours",
+    "alertRules": "Alert Rules",
+    "anomalyDetection": "Anomaly Detection",
+    "cancel": "Cancel",
+    "completionRate": "Completion Rate",
+    "condition": "Condition",
+    "cooldownTime": "Cooldown Time",
+    "cpuUsage": "Cpu Usage",
+    "create": "Create",
+    "currentValue": "Current Value",
+    "errorRate": "Error Rate",
+    "expectedValue": "Expected Value",
+    "memoryUsage": "Memory Usage",
     "metrics": {
-      "cpuUsage": "cpuUsage",
-      "memoryUsage": "memoryUsage",
-      "tourComplete": "tourComplete",
-      "tourError": "tourError",
-      "tourStart": "tourStart"
+      "cpuUsage": "Cpu Usage",
+      "memoryUsage": "Memory Usage",
+      "tourComplete": "Tour Complete",
+      "tourError": "Tour Error",
+      "tourStart": "Tour Start"
     },
-    "monitorMetric": "monitorMetric",
-    "newRule": "newRule",
+    "monitorMetric": "Monitor Metric",
+    "newRule": "New Rule",
     "operators": {
-      "eq": "eq",
-      "gt": "gt",
-      "lt": "lt"
+      "eq": "Eq",
+      "gt": "Gt",
+      "lt": "Lt"
     },
-    "performanceMonitor": "performanceMonitor",
-    "renderFps": "renderFps",
-    "ruleName": "ruleName",
-    "seconds": "seconds",
-    "severity": "severity",
-    "severityLevel": "severityLevel",
+    "performanceMonitor": "Performance Monitor",
+    "renderFps": "Render Fps",
+    "ruleName": "Rule Name",
+    "seconds": "Seconds",
+    "severity": "Severity",
+    "severityLevel": "Severity Level",
     "severityLevels": {
-      "critical": "critical",
-      "info": "信息",
-      "warning": "警告"
+      "critical": "Critical",
+      "info": "Info",
+      "warning": "Warning"
     },
-    "status": "状态",
-    "systemResources": "systemResources",
+    "anomalyTypes": {
+      "spike": "急増",
+      "drop": "急減",
+      "trend_change": "トレンド変化",
+      "outlier": "外れ値"
+    },
+    "status": "Status",
+    "systemResources": "System Resources",
     "timeRange": {
       "1h": "1h",
       "24h": "24h",
       "7d": "7d"
     },
-    "type": "类型",
-    "viewAll": "viewAll"
+    "type": "Type",
+    "viewAll": "View All"
   }
 }

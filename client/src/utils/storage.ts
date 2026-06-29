@@ -35,11 +35,6 @@ export const STORAGE_KEYS = {
   PASSWORD_EXPIRED: 'password_expired',
   UPLOADED_DOCS: 'uploadedDocs',
   DOC_LIST_HEIGHT: 'doc_list_height',
-  MARQUEE_WHEEL_SENSITIVITY: 'marquee_wheel_sensitivity',
-  MARQUEE_PAUSED: 'marquee_paused',
-  MARQUEE_SPEED: 'marquee_speed',
-  // (2026-06-26 删除: i18n 翻译记忆库 (TM) localStorage 键 — 取消翻译工作流, 不再需要)
-  // (2026-06-26 删除: i18n 同步日志 — 取消翻译工作流, 不再需要)
 } as const
 
 /**
@@ -320,4 +315,87 @@ export class SecureStorageManager {
       return false
     }
   }
+}
+
+/**
+ * 统一的 Token 存储工具
+ * 解决 StorageManager（localStorage）与 SecureStorageManager（sessionStorage）双写/双读不一致问题
+ *
+ * 原则：写入时同时写入两处，读取时优先 sessionStorage（安全），清除时同时清除两处
+ */
+export const TokenStorage = {
+  /**
+   * 获取 token（优先 sessionStorage，降级 localStorage）
+   */
+  getItem<T = string>(key: string): T | null {
+    const secure = SecureStorageManager.getItem<T>(key)
+    if (secure !== null) return secure
+    return StorageManager.getItem<T>(key)
+  },
+
+  /**
+   * 同时写入 sessionStorage 和 localStorage
+   */
+  setItem<T>(key: string, value: T): void {
+    StorageManager.setItem(key, value)
+    SecureStorageManager.setItem(key, value)
+  },
+
+  /**
+   * 同时从两处移除
+   */
+  removeItem(key: string): void {
+    StorageManager.removeItem(key)
+    SecureStorageManager.removeItem(key)
+  },
+
+  /**
+   * 获取 access token（按优先级尝试多个键名）
+   */
+  getToken(): string | null {
+    return (
+      this.getItem<string>(STORAGE_KEYS.USER_TOKEN) ||
+      this.getItem<string>(STORAGE_KEYS.TOKEN) ||
+      this.getItem<string>(STORAGE_KEYS.ACCESS_TOKEN) ||
+      null
+    )
+  },
+
+  /**
+   * 写入 access token（统一写入两个键名）
+   */
+  setToken(token: string): void {
+    this.setItem(STORAGE_KEYS.TOKEN, token)
+    this.setItem(STORAGE_KEYS.USER_TOKEN, token)
+  },
+
+  /**
+   * 获取 refresh token
+   */
+  getRefreshToken(): string | null {
+    return this.getItem<string>(STORAGE_KEYS.REFRESH_TOKEN)
+  },
+
+  /**
+   * 写入 refresh token
+   */
+  setRefreshToken(refreshToken: string): void {
+    this.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+  },
+
+  /**
+   * 清除所有认证相关的存储（localStorage + sessionStorage）
+   */
+  clearAuth(): void {
+    const authKeys = [
+      STORAGE_KEYS.TOKEN,
+      STORAGE_KEYS.ACCESS_TOKEN,
+      STORAGE_KEYS.USER_TOKEN,
+      STORAGE_KEYS.REFRESH_TOKEN,
+      STORAGE_KEYS.USER_DATA,
+      STORAGE_KEYS.LOGIN_EXPIRY_TIME,
+      'refreshToken',
+    ]
+    authKeys.forEach(key => this.removeItem(key))
+  },
 }

@@ -3,7 +3,7 @@
     <div class="tab-list">
       <div v-if="showAll" :class="['tab-item', { active: all }]" @click="selectAllTab">
         <img class="tab-icon" :src="all ? 'https://file.aizhs.top/sys-backs/2025/08/16/sqb_20250816161049A277.png' : 'https://file.aizhs.top/sys-backs/2025/08/16/qqb_20250816161046A276.png'" alt="" loading="lazy" />
-        <span>{{ t('plazaCategoryTab.all') }}</span>
+        <span>{ t('plazaCategoryTab.all') }</span>
       </div>
       <div v-for="item in tabList" :key="item.id" :class="['tab-item', { active: tabValue.includes(item) }]"
         @click="select(item)">
@@ -17,7 +17,7 @@
     </div>
     <div v-if="addType" class="mask" @click="addType = false"></div>
     <div v-if="addType" class="add-dialog">
-      <div class="dialog-title">{{ t('plazaCategoryTab.setCustomCategory') }}</div>
+      <div class="dialog-title">{ t('plazaCategoryTab.setCustomCategory') }</div>
       <el-input v-model="value" maxlength="4" :placeholder="t('plazaCategoryTab.enterCategory')" class="dialog-input" />
       <el-button type="primary" class="dialog-btn" @click="add">{{ t('common.ok') }}</el-button>
     </div>
@@ -45,11 +45,11 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  (e: 'change', value: any[]): void
+  (e: 'change', value: Record<string, unknown>[]): void
 }>()
 
-const tabList = ref<any[]>([])
-const tabValue = ref<any[]>([])
+const tabList = ref<Record<string, unknown>[]>([])
+const tabValue = ref<Record<string, unknown>[]>([])
 const all = ref(true)
 const addType = ref(false)
 const value = ref('')
@@ -61,7 +61,7 @@ watch(() => tabValue.value.length, (n) => {
 })
 
 onMounted(() => {
-  category('0').then((res: any) => { tabList.value = res.data || [] }).catch((e) => { console.error(e) })
+  category('0').then((res) => { tabList.value = (res?.data as Record<string, unknown>[]) || [] }).catch((e) => { console.error(e) })
 })
 
 function add() {
@@ -79,7 +79,7 @@ function add() {
   addType.value = false
 }
 
-function select(item: any) {
+function select(item: Record<string, unknown>) {
   const idx = tabValue.value.indexOf(item)
   if (idx >= 0) tabValue.value.splice(idx, 1)
   else tabValue.value.push(item)
@@ -102,13 +102,14 @@ function selectAllTab() {
 
 .tab-item {
   flex: none; display: flex; align-items: center;
-  padding: 6px 4px; border-radius: var(--global-border-radius); font-weight: 700;
+  padding: 6px 4px; border-radius: var(--global-border-radius-sm, 4px); font-weight: bold;
   color: var(--color-black-60); border: var(--unified-border);
-  cursor: pointer; height: auto;
+  cursor: pointer; height: 24px;
 }
 
 .tab-item.active {
   color: var(--color-black); border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   background: var(--color-rgba-248-249-252-0-65-);
 }
 .tab-icon { width: 24px; height: 24px; margin-right: 4px; flex-shrink: 0; }
@@ -119,12 +120,12 @@ function selectAllTab() {
 }
 
 .add-dialog {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  z-index: var(--z-sticky); width: 200px; height: 150px;
+  position: fixed; inset: 0;
+  margin: auto; z-index: var(--z-sticky); width: 200px; height: 150px;
   border-radius: var(--global-border-radius); background: var(--color-white); border: var(--unified-border);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.dialog-title { font-size: 12px; font-weight: 700; color: var(--color-gray-3d); margin-bottom: 20px; }
+.dialog-title { font-size: 12px; font-weight: bold; color: var(--color-gray-3d); margin-bottom: 20px; }
 .dialog-input { width: 160px; margin-bottom: 20px; }
 .dialog-btn { width: 50px; }
 </style>

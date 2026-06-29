@@ -1,8 +1,8 @@
 {
   "learnCertificate": {
+    "noCertificate": "暂无证书",
+    "issueTime": "颁发时间",
     "breadcrumbCourse": "课程",
-    "breadcrumbMyCertificate": "breadcrumb My Certificate",
-    "issueTime": "发布时间",
-    "noCertificate": "暂无证书"
+    "breadcrumbMyCertificate": "我的证书"
   }
 }

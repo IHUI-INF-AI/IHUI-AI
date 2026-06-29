@@ -267,7 +267,7 @@ class SpeechRecognitionService {
       // 开始识别
       this.recognition.start()
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (callbacks.onError) {
         let errorMessage = error instanceof Error ? error.message : t('api.speech_recognition.启动语音识别失败')
         

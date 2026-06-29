@@ -5,7 +5,7 @@
 
 import { EventEmitter } from './event-emitter'
 import { logger } from './logger'
-import { StorageManager, STORAGE_KEYS } from './storage'
+import { StorageManager, STORAGE_KEYS, TokenStorage } from './storage'
 
 // 从logger导出
 export { logger } from './logger'
@@ -19,24 +19,22 @@ export const EventBus = new EventEmitter()
 // 重新导出EventEmitter类
 export { EventEmitter }
 
-// Token管理 (统一使用 STORAGE_KEYS, 避免历史键分散)
+// Token管理 (委托给统一 TokenStorage)
 export const TokenManager = {
   getToken: (): string | null => {
-    return localStorage.getItem(STORAGE_KEYS.USER_TOKEN) || sessionStorage.getItem(STORAGE_KEYS.USER_TOKEN)
+    return TokenStorage.getToken()
   },
   setToken: (token: string, refreshToken?: string): void => {
-    localStorage.setItem(STORAGE_KEYS.USER_TOKEN, token)
+    TokenStorage.setToken(token)
     if (refreshToken) {
-      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+      TokenStorage.setRefreshToken(refreshToken)
     }
   },
   getRefreshToken: (): string | null => {
-    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN)
+    return TokenStorage.getRefreshToken()
   },
   clearTokens: (): void => {
-    localStorage.removeItem(STORAGE_KEYS.USER_TOKEN)
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
-    sessionStorage.removeItem(STORAGE_KEYS.USER_TOKEN)
+    TokenStorage.clearAuth()
   },
   getUuid: (): string => {
     return localStorage.getItem('uuid') || ''
@@ -60,23 +58,23 @@ export const ConfigManager = {
     retryCount: 3,
     timeout: 30000,
   }),
-  setLogger: (_logger: any): void => {
+  setLogger: (_logger: unknown): void => {
     // 设置日志记录器
   },
   getAll: (): Record<string, unknown> => {
     return { ...configStore }
   },
-  set: (key: string, value: any): void => {
+  set: (key: string, value: unknown): void => {
     configStore[key] = value
   },
-  get: (key: string): any => {
+  get: (key: string): unknown => {
     return configStore[key]
   },
 }
 
 // 错误处理
 export const ErrorHandler = {
-  handleAndShow: (error: any): void => {
+  handleAndShow: (error: unknown): void => {
     logger.error('Error:', error)
   },
 }
@@ -87,27 +85,23 @@ export const isDemoMode = (): boolean => {
 }
 
 // API响应规范化
-export function normalizeApiResponse<T>(response: any): { data: T | null; error: string | null } {
+export function normalizeApiResponse<T>(response: unknown): { data: T | null; error: string | null } {
   if (!response || typeof response !== 'object') {
     return { data: null, error: 'Invalid response format' }
   }
 
-  const res = response as { code?: number | string; data?: T; message?: string; success?: boolean }
+  const res = response as { code?: number; data?: T; message?: string; success?: boolean }
 
-  // 转换 code 为数字 (后端可能返回字符串 "0"/"200")
-  const codeNum = typeof res.code === 'string' ? parseInt(res.code, 10) : res.code
-  if (res.success === true || codeNum === 200 || codeNum === 0) {
+  if (res.success === true || res.code === 200) {
     return { data: res.data as T, error: null }
   }
 
   return { data: null, error: res.message || 'Unknown error' }
 }
 
-// 清除所有认证数据
+// 清除所有认证数据（委托给统一 TokenStorage）
 export function clearAllAuthData(): void {
-  localStorage.removeItem('token')
-  localStorage.removeItem('refreshToken')
+  TokenStorage.clearAuth()
   localStorage.removeItem('user')
-  sessionStorage.removeItem('token')
   sessionStorage.removeItem('user')
 }

@@ -19,7 +19,7 @@
         <div class="fp-card-border"></div>
         
         <div class="card-header">
-          <button class="fp-back-btn fp-ripple" :aria-label="t('common.back')" @click="handleBack">
+          <button class="fp-back-btn fp-ripple" aria-label="返回" @click="handleBack">
             <el-icon><ArrowLeft /></el-icon>
             <span class="btn-glow"></span>
           </button>
@@ -72,7 +72,9 @@
               label-position="top"
               class="forgot-form fp-form"
             >
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--1">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 1">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -94,7 +96,9 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--2">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 2">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -128,7 +132,9 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--3">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 3">
                 <button type="button" @click="handleStep1Next" class="fp-submit-btn fp-ripple">
                   <span class="fp-btn-content">
                     <span>{{ t('forgotPassword.next') }}</span>
@@ -154,7 +160,9 @@
               label-position="top"
               class="forgot-form fp-form"
             >
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--1">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 1">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -178,7 +186,9 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--2">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 2">
                 <label class="fp-label">
                   <span class="fp-label-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -202,7 +212,9 @@
                 </el-form-item>
               </div>
 
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--3">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 3">
                 <div class="fp-password-tips">
                   <div class="fp-tips-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -221,7 +233,9 @@
                 </div>
               </div>
 
-              <div class="fp-form-group fp-stagger-item fp-stagger-item--4">
+              <div class="fp-form-group fp-stagger-item" style="
+
+--stagger: 4">
                 <button type="button" @click="handleStep2Next" class="fp-submit-btn fp-ripple">
                   <span class="fp-btn-content">
                     <span>{{ t('forgotPassword.next') }}</span>
@@ -286,8 +300,9 @@ import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { sendVerificationCode, verifyCode, resetPassword } from '@/api/user/user'
+import { sendVerificationCode, verifyCode, resetPassword } from '@/api/user'
 import { useCleanup } from '@/composables/useCleanup'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -312,7 +327,7 @@ const step2Form = reactive({
 })
 
 const validateConfirmPassword = (
-  _rule: any,
+  _rule: unknown,
   value: string,
   callback: (error?: Error) => void
 ) => {
@@ -431,7 +446,10 @@ const handleStep2Next = async () => {
 }
 
 const goToLogin = () => {
-  router.push('/login')
+  // 弹窗形式：跳首页 + 弹出登录弹窗，不再跳 /login 路由
+  router.push('/').then(() => {
+    useLoginDialog().open('login')
+  }).catch(() => {})
 }
 </script>
 
@@ -646,7 +664,7 @@ $transition-slow: 0.5s;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color $transition-normal ease, border-color $transition-normal ease;
+  transition: all $transition-normal ease;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -654,6 +672,8 @@ $transition-slow: 0.5s;
   &:hover {
     background: var(--color-white-10);
     border-color: $accent-cyan;
+    box-shadow: var(--global-box-shadow);
+    
     .el-icon {
       transform: translateX(-2px);
     }
@@ -695,7 +715,7 @@ $transition-slow: 0.5s;
 }
 
 .fp-subtitle {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.15em;
   color: $text-muted;
@@ -725,7 +745,8 @@ $transition-slow: 0.5s;
     background: $accent-cyan;
     border-radius: var(--global-border-radius);
     transition: width $transition-slow ease;
-    }
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 .fp-steps-container {
@@ -753,7 +774,7 @@ $transition-slow: 0.5s;
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: background-color $transition-normal ease, border-color $transition-normal ease;
+  transition: all $transition-normal ease;
   
   .fp-step-number {
     font-size: 12px;
@@ -769,7 +790,7 @@ $transition-slow: 0.5s;
     color: $accent-cyan;
     opacity: 0;
     transform: scale(0);
-    transition: opacity $transition-normal ease, transform $transition-normal ease, color $transition-normal ease;
+    transition: all $transition-normal ease;
   }
 }
 
@@ -785,6 +806,8 @@ $transition-slow: 0.5s;
   .fp-step-indicator {
     background: var(--color-cyan-00f0ff-10);
     border-color: $accent-cyan;
+    box-shadow: var(--global-box-shadow);
+    
     .fp-step-number {
       color: $accent-cyan;
     }
@@ -842,12 +865,7 @@ $transition-slow: 0.5s;
 // 交错动画
 .fp-stagger-item {
   animation: fp-stagger-in 0.5s ease-out backwards;
-  animation-delay: calc(var(--stagger, 0) * 0.1s);
-
-  &--1 { --stagger: 1; }
-  &--2 { --stagger: 2; }
-  &--3 { --stagger: 3; }
-  &--4 { --stagger: 4; }
+  animation-delay: calc(var(--stagger) * 0.1s);
 }
 
 @keyframes fp-stagger-in {
@@ -906,13 +924,14 @@ $transition-slow: 0.5s;
     border-radius: var(--global-border-radius);
     pointer-events: none;
     border: var(--unified-border);
-    transition: border-color $transition-normal ease;
+    transition: all $transition-normal ease;
   }
   
   &:focus-within {
     .fp-input-border {
       border-color: $accent-cyan;
-      }
+      box-shadow: var(--global-box-shadow);
+    }
   }
 }
 
@@ -922,8 +941,8 @@ $transition-slow: 0.5s;
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     padding: 12px 16px;
-    box-shadow: none;
-    transition: background-color $transition-normal ease, border-color $transition-normal ease;
+    box-shadow: none ;
+    transition: all $transition-normal ease;
     
     &:hover {
       background: var(--color-white-5);
@@ -979,12 +998,13 @@ $transition-slow: 0.5s;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: background-color $transition-normal ease, border-color $transition-normal ease, opacity $transition-normal ease;
+  transition: all $transition-normal ease;
   
   &:hover:not(:disabled) {
     background: var(--color-cyan-00f0ff-20);
     border-color: $accent-cyan;
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   &:disabled {
     opacity: 0.5;
@@ -1013,9 +1033,11 @@ $transition-slow: 0.5s;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: transform $transition-normal ease;
+  transition: all $transition-normal ease;
   
   &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
     
     .fp-btn-arrow {
       transform: translateX(4px);
@@ -1250,7 +1272,7 @@ $transition-slow: 0.5s;
 }
 
 .fp-footer-text {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.2em;
   color: $text-muted;
@@ -1262,7 +1284,7 @@ $transition-slow: 0.5s;
 // ==========================================
 .fp-slide-enter-active,
 .fp-slide-leave-active {
-  transition: opacity $transition-normal ease, transform $transition-normal ease;
+  transition: all $transition-normal ease;
 }
 
 .fp-slide-enter-from {
@@ -1324,7 +1346,7 @@ $transition-slow: 0.5s;
   }
   
   .fp-step-label {
-    font-size: 12px;
+    font-size: 11px;
   }
   
   .form-container {
@@ -1370,7 +1392,7 @@ $transition-slow: 0.5s;
 // ==========================================
 // 暗色模式适配
 // ==========================================
-:where(html.dark) {
+html.dark {
   .forgot-password-page {
     background: $brand-primary;
   }

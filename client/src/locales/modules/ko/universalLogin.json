@@ -1,20 +1,20 @@
 {
   "universalLogin": {
-    "codeSendFailed": "codeSendFailed",
-    "codeSendSuccess": "codeSendSuccess",
-    "codeSentSms": "codeSentSms",
-    "defaultUser": "defaultUser",
-    "hoursMinutes": "hoursMinutes",
-    "minutesOnly": "minutesOnly",
-    "network": "network",
-    "noStack": "noStack",
-    "phoneFormatError": "phoneFormatError",
-    "sendFailed": "sendFailed",
-    "sendTooFrequent": "sendTooFrequent",
-    "timeout": "请求超时",
-    "wechatCallbackFailed": "wechatCallbackFailed",
-    "wechatInitFailed": "wechatInitFailed",
-    "wechatLoadFailed": "wechatLoadFailed",
-    "wechatQrFailed": "wechatQrFailed"
+    "wechatCallbackFailed": "WeChat 로그인 콜백 실패, 재시도",
+    "wechatLoadFailed": "WeChat 로그인 컴포넌트 로드 실패, 새로고침 후 재시도",
+    "wechatInitFailed": "WeChat 로그인 초기화 실패",
+    "wechatQrFailed": "WeChat QR 코드 생성 실패",
+    "noStack": "스택 정보 없음",
+    "codeSentSms": "인증 코드 발송됨, SMS 확인",
+    "codeSendSuccess": "인증 코드 발송 성공",
+    "sendFailed": "발송 실패, 재시도",
+    "codeSendFailed": "인증 코드 발송 실패, 재시도",
+    "sendTooFrequent": "발송 너무 빈번, 나중에 재시도",
+    "phoneFormatError": "휴대폰 번호 형식 오류, 확인",
+    "network": "네트워크",
+    "timeout": "시간 초과",
+    "defaultUser": "사용자",
+    "hoursMinutes": "{hours}시간 {minutes}분",
+    "minutesOnly": "{minutes}분"
   }
 }

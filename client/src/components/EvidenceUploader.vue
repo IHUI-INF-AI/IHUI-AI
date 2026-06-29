@@ -178,7 +178,7 @@ async function uploadFiles(list: File[]) {
         progress.value = Math.round((e.loaded / e.total) * 100)
       }
     }
-    const result: any = await new Promise((resolve, reject) => {
+    const result = await new Promise<{ code?: number; data?: { uploaded?: unknown[] }; message?: string }>((resolve, reject) => {
       xhr.onload = () => {
         try { resolve(JSON.parse(xhr.responseText)) } catch (e) { reject(e) }
       }
@@ -192,9 +192,9 @@ async function uploadFiles(list: File[]) {
     } else {
       error.value = result?.message || '上传失败'
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (e instanceof Error && e.name === 'AbortError') return
-    error.value = e?.message || '上传失败'
+    error.value = e instanceof Error ? (e.message || '上传失败') : '上传失败'
   } finally {
     currentXhr = null
     uploading.value = false
@@ -330,13 +330,13 @@ v.$text-primary: var(--el-text-color-primary);
   padding: 24px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition: all 0.2s;
   background: var(--el-bg-color);
 
   &:hover,
   &.dragging {
     border-color: v.$primary-color;
-    background: rgba(var(--el-color-primary-rgb), 0.04);
+    background: var(--color-blue-1890ff-04);
   }
 }
 
@@ -381,7 +381,7 @@ v.$text-primary: var(--el-text-color-primary);
   color: var(--el-color-danger);
   padding: 6px 10px;
   background: var(--el-color-danger-light-9);
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius-sm, 4px);
 }
 
 @keyframes spin {

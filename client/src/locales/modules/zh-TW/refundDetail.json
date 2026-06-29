@@ -1,17 +1,8 @@
 {
   "refundDetail": {
-    "applyTime": "applyTime",
-    "approveTime": "approveTime",
-    "backToList": "backToList",
-    "completeTime": "completeTime",
-    "originalOrderNo": "originalOrderNo",
-    "refundAmount": "refundAmount",
-    "refundDescription": "refundDescription",
-    "refundInfo": "refundInfo",
-    "refundNo": "refundNo",
-    "refundReason": "退款原因",
-    "rejectReason": "rejectReason",
-    "supplementEvidence": "supplementEvidence",
-    "title": "标题"
+    "backToList": "返回退款列表",
+    "title": "退款詳情",
+    "refundNo": "退款單號",
+    "supplementEvidence": "補充憑證 (支持多文件)"
   }
 }

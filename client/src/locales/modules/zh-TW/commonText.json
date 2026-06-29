@@ -1,22 +1,44 @@
 {
   "commonText": {
+    "view": "查看",
+    "delete": "刪除",
     "add": "添加",
-    "delete": "删除",
-    "failed": "失败",
-    "fileTypes": {
-      "audio": "音频",
-      "image": "图片",
-      "video": "视频"
-    },
-    "noData": "暂无数据",
+    "noData": "暫無數據",
+    "success": "操作成功",
+    "failed": "操作失敗",
     "status": {
-      "cancelled": "已取消",
       "completed": "已完成",
-      "pending": "待处理",
-      "processing": "处理中",
-      "refunded": "refunded"
+      "pending": "處理中",
+      "processing": "處理中",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "failed": "失敗"
     },
-    "success": "成功",
-    "view": "查看"
+    "fileTypes": {
+      "audio": "Audio",
+      "image": "Image",
+      "video": "Video"
+    },
+    "edit": "編輯",
+    "cancel": "取消",
+    "confirm": "確定",
+    "save": "保存",
+    "search": "搜索",
+    "reset": "重置",
+    "remove": "移除",
+    "download": "下載",
+    "upload": "上傳",
+    "copy": "複製",
+    "print": "打印",
+    "share": "分享",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "submit": "提交",
+    "close": "關閉",
+    "loading": "加載中...",
+    "noRecords": "暫無記錄",
+    "enabled": "啟用",
+    "disabled": "禁用"
   }
 }

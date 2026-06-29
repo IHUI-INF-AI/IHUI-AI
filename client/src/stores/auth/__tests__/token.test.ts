@@ -29,6 +29,14 @@ vi.mock('@/utils/storage', () => ({
     LOGIN_DURATION: 'login_duration',
     LOGIN_EXPIRY_TIME: 'login_expiry_time',
   },
+  // token.ts 通过 TokenStorage 统一读写 token,需提供完整 mock
+  TokenStorage: {
+    getToken: vi.fn(() => 'test-token'),
+    setToken: vi.fn(),
+    getRefreshToken: vi.fn(() => null),
+    setRefreshToken: vi.fn(),
+    clearAuth: vi.fn(),
+  },
 }))
 
 vi.mock('@/utils/logger', () => ({

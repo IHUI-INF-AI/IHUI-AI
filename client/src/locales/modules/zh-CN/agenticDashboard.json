@@ -1,13 +1,19 @@
 {
   "agenticDashboard": {
-    "activeSwarms": "活跃集群",
-    "coordination": "协作",
+    "title": "Agentic AI 控制台",
+    "subtitle": "与 Agentic Orchestrator 深度集成的智能开发平台",
+    "activeSwarms": "活跃 Swarm",
+    "noActiveSwarms": "暂无活跃的 Swarm",
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "coordination": "协调",
     "iteration": "迭代",
-    "noActiveSwarms": "无活跃集群",
-    "seoDescription": "SEO描述",
-    "seoKeywords": "SEO关键词",
-    "seoTitle": "SEO标题",
-    "subtitle": "副标题",
-    "title": "标题"
+    "seoTitle": "Agentic AI 控制台 - AI智汇社",
+    "seoDescription": "Agentic AI 智能开发平台，与 Agentic Orchestrator 深度集成",
+    "seoKeywords": "Agentic AI, 智能开发, AI 调度, Swarm"
   }
 }

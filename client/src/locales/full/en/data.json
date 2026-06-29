@@ -169,18 +169,14 @@
       "优先响应": "Priority Response",
       "高级模型访问": "Advanced Model Access"
     },
-    "third_party_login_universal": {
-      "Alipay": "Alipay",
-      "支付宝": "支付宝"
-    },
     "mobile_bottom_nav": {
-      "AI App Store": "AI App Store",
+      "AI App Store": "Agents",
       "Plaza1": "Plaza",
       "Smart AI2": "Smart AI",
       "Dynamic3": "Dynamic",
       "My4": "My",
       "Updates3": "Updates",
-      "AI应用商店": "AI应用商店",
+      "AI应用商店": "Agents",
       "动态3": "动态",
       "广场1": "广场",
       "我的4": "我的",

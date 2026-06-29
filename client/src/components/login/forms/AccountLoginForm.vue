@@ -110,7 +110,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, FormItemRule } from 'element-plus'
 import { User, Lock, Clock } from '@/lib/lucide-fallback'
 import CaptchaInput from '../components/CaptchaInput.vue'
 import { FormValidator } from '@/utils/formValidation'
@@ -237,7 +237,7 @@ const formRules = computed((): FormRules => ({
   username: [
     { required: true, message: t('auth.usernameOrPhoneOrEmail'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -265,7 +265,7 @@ const formRules = computed((): FormRules => ({
   password: [
     { required: true, message: t('auth.validation.passwordRequired'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -289,7 +289,7 @@ const formRules = computed((): FormRules => ({
   ],
   captcha: [
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!props.showCaptcha) {
           callback()
           return
@@ -397,6 +397,7 @@ defineExpose({
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   z-index: var(--z-header);
   max-height: 200px;
   overflow-y: auto;
@@ -526,7 +527,7 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
+    transition: all 0.2s;
   }
 
   input:checked + .checkmark {
@@ -536,7 +537,7 @@ defineExpose({
 
   input:checked + .checkmark::after {
     content: "\2713";
-    color: var(--el-bg-color);
+    color: var(--el-color-white);
     font-size: 12px;
   }
 }

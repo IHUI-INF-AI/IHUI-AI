@@ -249,7 +249,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { GraduationCap } from '@/lib/lucide-fallback'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { submitAICareerForm, type AICareerFormData } from '@/api/ai/ai-career'
+import { submitAICareerForm, type AICareerFormData } from '@/api/ai-career'
 import { logger } from '@/utils/logger'
 
 const { t } = useI18n()
@@ -331,7 +331,7 @@ const submitForm = async () => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -352,11 +352,11 @@ const submitForm = async () => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -371,7 +371,7 @@ const submitForm = async () => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -382,7 +382,7 @@ const submitForm = async () => {
   background-color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }

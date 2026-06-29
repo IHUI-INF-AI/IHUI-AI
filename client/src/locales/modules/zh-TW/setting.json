@@ -24,6 +24,12 @@
       "paySettings": "支付設定",
       "wechatPay": "微信支付",
       "alipay": "支付寶",
+      "title": "標題",
+      "image": "圖片",
+      "link": "跳轉鏈接",
+      "sort": "排序",
+      "status": "狀態",
+      "actions": "操作",
       "userAgreement": "用戶協議",
       "privacyPolicy": "隱私政策",
       "serviceTerms": "服務條款"

@@ -323,7 +323,7 @@
         <div class="vip-bottom-price-info">
           <span class="vip-bottom-currency">¥</span>
           <span class="vip-bottom-amount">{{ vipPriceData?.amount || '---' }}</span>
-          <span class="vip-bottom-period">{{ t('Vip.permanentVip') }}</span>
+          <span class="vip-bottom-period">{{ t('vip.permanentVip') }}</span>
         </div>
         <button
           class="vip-bottom-buy-btn magnetic-btn ripple-btn"
@@ -331,7 +331,7 @@
           @mousemove="(e) => handleMagneticMove(e, e.currentTarget as HTMLElement)"
           @mouseleave="(e) => resetMagnetic(e.currentTarget as HTMLElement)"
         >
-          <span class="btn-text">{{ t('Vip.oneClickVip') }}</span>
+          <span class="btn-text">{{ t('vip.oneClickVip') }}</span>
           <span class="btn-glow"></span>
         </button>
       </div>
@@ -515,12 +515,12 @@ const vipBgImage = ref('/images/vip-bg.png')
 const { t } = useI18n()
 const authStore = useAuthStore()
 const userInfo = computed(() => authStore.user)
-const vipInfo = ref<any>(null)
+const vipInfo = ref<Record<string, unknown> | null>(null)
 const { loading: _loadingVipInfo, execute: executeVipApi } = useApiError({ showMessage: false })
 const { trackVipPageView, trackVipPlanClick, trackVipPurchaseClick, trackVipPurchaseSuccess } = useVipAnalytics()
 
 // 动态价格获取（getvipPrice API）
-const vipPriceData = ref<any>(null)
+const vipPriceData = ref<Record<string, unknown> | null>(null)
 const showPurchasePopup = ref(false)
 
 // ============ 高级动效系统 ============
@@ -645,14 +645,12 @@ const createRipple = (e: MouseEvent, el: HTMLElement) => {
 }
 
 const fetchUserVipInfo = async () => {
-  // 未登录时不发起需认证请求，避免全局拦截器强制跳转 /login
-  if (!authStore.token) return
   const data = await executeVipApi(async () => {
-    const { getUserVipInfo: getUserVipInfoFromUser } = await import('@/api/user/user')
+    const { getUserVipInfo: getUserVipInfoFromUser } = await import('@/api/user')
     return await getUserVipInfoFromUser()
   })
   if (data !== null && typeof data === 'object') {
-    vipInfo.value = data
+    vipInfo.value = data as unknown as Record<string, unknown>
     logger.info('[Vip] Successfully got user VIP info', vipInfo.value)
   }
 }
@@ -663,8 +661,8 @@ const fetchVipPrice = async () => {
     const token = authStore.token
     if (!token) return
     const res = await getvipPrice(token)
-    if (res && (res as any).code === '200' && (res as any).data) {
-      vipPriceData.value = (res as any).data
+    if (res && (res as unknown as Record<string, unknown>).code === '200' && (res as unknown as Record<string, unknown>).data) {
+      vipPriceData.value = (res as unknown as Record<string, unknown>).data as Record<string, unknown>
       logger.info('[Vip] Successfully got VIP price', vipPriceData.value)
     }
   } catch (err) {
@@ -768,7 +766,7 @@ onMounted(async () => {
   })
 
   // 如果用户已经是VIP，默认选择更高级的套餐
-  if ((userInfo.value as any)?.isVip || vipInfo.value?.isVip) {
+  if ((userInfo.value as Record<string, unknown> | null)?.isVip || vipInfo.value?.isVip) {
     const currentPlanIndex = pricingPlans.value.findIndex(plan => plan.recommended)
     if (currentPlanIndex < pricingPlans.value.length - 1) {
       selectedPlan.value = pricingPlans.value[currentPlanIndex + 1]
@@ -834,7 +832,6 @@ $accent-highlight: var(--el-text-color-secondary);
   z-index: var(--z-header);
   background: var(--color-rgba-15--23--42--0-95-);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border-top: var(--unified-border);
 
   // Web端safe-area适配（同步UniApp env(safe-area-inset-bottom)）
@@ -864,7 +861,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
     .vip-bottom-amount {
       font-size: 32px;
-      font-weight: 800;
+      font-weight: 950;
       color: var(--color-white);
     }
 
@@ -880,11 +877,11 @@ $accent-highlight: var(--el-text-color-secondary);
     background: linear-gradient(135deg, var(--color-vip-gold-start), var(--color-vip-gold-end));
     border-radius: var(--global-border-radius);
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 900;
     color: var(--color-gray-1f2937);
     border: none;
     cursor: pointer;
-    transition: transform 0.3s;
+    transition: all 0.3s;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -892,7 +889,8 @@ $accent-highlight: var(--el-text-color-secondary);
     overflow: hidden;
 
     &:hover {
-      
+      box-shadow: var(--global-box-shadow);
+      transform: translateY(-1px);
     }
 
     &:active {
@@ -925,7 +923,7 @@ $accent-highlight: var(--el-text-color-secondary);
       height: 500px;
       top: 5%;
       right: 5%;
-      background: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
+      background: rgba($brand-primary, 0.3);
     }
 
     &.orb-2 {
@@ -953,7 +951,6 @@ $accent-highlight: var(--el-text-color-secondary);
 .glass {
   background: rgb(var(--el-fill-color-light-rgb), 0.4);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -964,7 +961,7 @@ $accent-highlight: var(--el-text-color-secondary);
   transition: none;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -987,14 +984,9 @@ $accent-highlight: var(--el-text-color-secondary);
   color: $brand-primary;
 }
 
-// ============ 脉冲发光（扁平化：原 keyframes 0/50/100% box-shadow 全相同，现改为 transform 缩放呼吸）============
+// ============ 脉冲发光 ============
 .pulse-glow {
-  animation: pulseScale 2s ease-in-out infinite;
-}
-
-@keyframes pulseScale {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.06); }
+  animation: pulseGlow 2s ease-in-out infinite;
 }
 
 // ============ 磁吸按钮 ============
@@ -1042,7 +1034,8 @@ $accent-highlight: var(--el-text-color-secondary);
 }
 
 @keyframes pulseGlow {
-  /* 死代码已删除：原 0/50/100% 三个 box-shadow 全部相同，扁平化设计要求移除 box-shadow 深度效果 */
+  0%, 100% { box-shadow: var(--global-box-shadow); }
+  50% { box-shadow: var(--global-box-shadow); }
 }
 
 @keyframes rippleExpand {
@@ -1058,12 +1051,12 @@ $accent-highlight: var(--el-text-color-secondary);
 // ============ Section 标题 ============
 .section-header {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 80px;
 
   .section-idx {
     font-family: var(--font-family-mono);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 900;
     color: $brand-primary;
     opacity: 0.6;
     letter-spacing: 0.1em;
@@ -1071,7 +1064,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
   h2 {
     font-size: clamp(32px, 5vw, 48px);
-    font-weight: 800;
+    font-weight: 950;
     letter-spacing: -0.02em;
     margin: 12px 0 16px;
   }
@@ -1126,7 +1119,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
   .hero-title {
     font-size: clamp(40px, 5vw, 64px);
-    font-weight: 800;
+    font-weight: 950;
     line-height: 1.2;
     letter-spacing: -0.03em;
     margin-bottom: 24px;
@@ -1157,7 +1150,7 @@ $accent-highlight: var(--el-text-color-secondary);
       .stat-number {
         display: block;
         font-size: clamp(32px, 4vw, 48px);
-        font-weight: 800;
+        font-weight: 950;
         letter-spacing: -0.02em;
         margin-bottom: 8px;
       }
@@ -1282,8 +1275,8 @@ $accent-highlight: var(--el-text-color-secondary);
         justify-content: center;
         margin-bottom: 28px;
         color: $brand-primary;
-        background: color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
-        transition: background-color 0.4s, color 0.4s, transform 0.4s;
+        background: rgba($brand-primary, 0.08);
+        transition: all 0.4s;
       }
 
       &:hover .benefit-icon {
@@ -1294,7 +1287,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
       .benefit-title {
         font-size: 24px;
-        font-weight: 700;
+        font-weight: 900;
         margin-bottom: 16px;
       }
 
@@ -1334,7 +1327,7 @@ $accent-highlight: var(--el-text-color-secondary);
 // ============ 价格套餐 ============
 :where(.pricing-section) {
   padding: 120px 0;
-  background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
+  background: rgba($brand-primary, 0.02);
 
   .pricing-toggle {
     display: flex;
@@ -1381,7 +1374,7 @@ $accent-highlight: var(--el-text-color-secondary);
       border-radius: var(--global-border-radius);
       position: relative;
       cursor: pointer;
-      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
       &.recommended {
         transform: scale(1.05);
@@ -1401,11 +1394,13 @@ $accent-highlight: var(--el-text-color-secondary);
           display: flex;
           align-items: center;
           gap: 8px;
+          box-shadow: var(--global-box-shadow);
         }
       }
 
       &.selected {
         border-color: $brand-primary;
+        box-shadow: var(--global-box-shadow);
       }
 
       .plan-header {
@@ -1430,7 +1425,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
           .amount {
             font-size: 56px;
-            font-weight: 800;
+            font-weight: 950;
             letter-spacing: -0.02em;
           }
 
@@ -1500,12 +1495,12 @@ $accent-highlight: var(--el-text-color-secondary);
           height: 56px;
           border-radius: var(--global-border-radius);
           font-size: 16px;
-          font-weight: 700;
+          font-weight: 900;
           cursor: pointer;
           border: var(--unified-border);
           background: transparent;
           color: inherit;
-          transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+          transition: all 0.3s;
 
           &.primary {
             background: $brand-primary;
@@ -1519,7 +1514,7 @@ $accent-highlight: var(--el-text-color-secondary);
             border-color: $brand-primary;
           }
 
-          :where(html.dark) & {
+          html.dark & {
             background: var(--el-bg-color);
             color: var(--el-text-color-primary);
             border-color: var(--el-border-color);
@@ -1556,6 +1551,8 @@ $accent-highlight: var(--el-text-color-secondary);
       position: relative;
 
       &:hover {
+        box-shadow: var(--global-box-shadow);
+
         .quote-icon {
           transform: scale(1.1);
         }
@@ -1571,7 +1568,7 @@ $accent-highlight: var(--el-text-color-secondary);
           left: -8px;
           font-size: 72px;
           font-weight: 900;
-          color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
+          color: rgba($brand-primary, 0.15);
           line-height: 1;
           transition: transform 0.3s;
         }
@@ -1615,7 +1612,7 @@ $accent-highlight: var(--el-text-color-secondary);
 // ============ 常见问题 ============
 :where(.faq-section) {
   padding: 120px 0;
-  background: color-mix(in srgb, var(--el-text-color-primary) 2%, transparent);
+  background: rgba($brand-primary, 0.02);
 
   .faq-content {
     max-width: 900px;
@@ -1651,11 +1648,11 @@ $accent-highlight: var(--el-text-color-secondary);
     padding: 80px;
     border-radius: var(--global-border-radius);
     text-align: center;
-    background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+    background: rgba($brand-primary, 0.05);
 
     h2 {
       font-size: clamp(32px, 4vw, 42px);
-      font-weight: 800;
+      font-weight: 950;
       margin-bottom: 16px;
     }
 
@@ -1681,12 +1678,16 @@ $accent-highlight: var(--el-text-color-secondary);
         display: flex;
         align-items: center;
         gap: 10px;
-        transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        transition: all 0.3s;
 
         &.primary {
           background: $brand-primary;
           color: var(--el-bg-color-page);
           border: none;
+
+          &:hover {
+            box-shadow: var(--global-box-shadow);
+          }
         }
 
         &.ghost {
@@ -1695,7 +1696,7 @@ $accent-highlight: var(--el-text-color-secondary);
           color: inherit;
 
           &:hover {
-            background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+            background: rgba($brand-primary, 0.05);
             border-color: $brand-primary;
           }
         }
@@ -1715,7 +1716,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
 // 暗色模式下按钮样式
 // 暗色模式：深色背景 + 浅色文字
-:where(html.dark) .cta-btn.primary {
+html.dark .cta-btn.primary {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
 }
@@ -1769,7 +1770,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
     .item-price {
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 900;
       color: $brand-primary;
     }
   }
@@ -1803,7 +1804,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
       .total-amount {
         font-size: 28px;
-        font-weight: 800;
+        font-weight: 950;
         color: $brand-primary;
       }
     }
@@ -1828,10 +1829,10 @@ $accent-highlight: var(--el-text-color-secondary);
         gap: 12px;
         padding: 16px;
         border-radius: var(--global-border-radius);
-        transition: background-color 0.3s;
+        transition: all 0.3s;
 
         &:hover {
-          background: color-mix(in srgb, var(--el-text-color-primary) 5%, transparent);
+          background: rgba($brand-primary, 0.05);
         }
 
         .payment-icon {
@@ -1928,11 +1929,11 @@ $accent-highlight: var(--el-text-color-secondary);
   }
 
   .benefits-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr ;
   }
 
   .pricing-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr ;
 
     .pricing-card.recommended {
       transform: none;
@@ -1940,7 +1941,7 @@ $accent-highlight: var(--el-text-color-secondary);
   }
 
   .testimonials-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr ;
   }
 
   .cta-content {

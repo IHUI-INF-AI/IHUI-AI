@@ -33,11 +33,14 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
+import { useRoute } from 'vue-router'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
 
-const list = ref<any[]>([])
+const route = useRoute()
+const lessonId = String(route.query.lessonId || route.params.id || '')
+const list = ref<unknown[]>([])
 const loading = ref(false)
 
 function statusLabel(s?: string) {
@@ -45,18 +48,23 @@ function statusLabel(s?: string) {
 }
 
 async function load() {
+  if (!lessonId) {
+    list.value = []
+    return
+  }
   loading.value = true
   try {
-    const res: any = await learnApi.homeworkList()
+    const res = await learnApi.homeworkList(lessonId) as unknown as { data?: { items?: unknown[]; list?: unknown[] } }
     list.value = res.data?.items || res.data?.list || []
   } finally {
     loading.value = false
   }
 }
 
-function handleSubmit(hw: any) {
+function handleSubmit(hw: unknown) {
   // 简化:弹窗录入
-  hw.submitStatus = 'submitted'
+  const item = hw as Record<string, unknown>
+  item.submitStatus = 'submitted'
 }
 
 onMounted(load)

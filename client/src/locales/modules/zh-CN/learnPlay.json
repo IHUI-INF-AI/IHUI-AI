@@ -1,6 +1,6 @@
 {
   "learnPlay": {
-    "chapters": "章节",
-    "selectChapter": "选择 chapter"
+    "selectChapter": "选择左侧章节开始学习",
+    "chapters": "章节"
   }
 }

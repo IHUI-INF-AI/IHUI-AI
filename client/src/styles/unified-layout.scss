@@ -32,7 +32,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: var(--z-0);
+  z-index: 0;
   pointer-events: none;
   overflow: hidden;
 
@@ -43,7 +43,7 @@
     border-radius: var(--global-border-radius);
     background: color-mix(in srgb, var(--el-color-primary) 2%, transparent);
 
-    :where(html.dark) & {
+    html.dark & {
       background: color-mix(in srgb, var(--el-color-primary) 2%, transparent);
     }
     }
@@ -70,7 +70,7 @@
     margin-bottom: 16px;
     border: 1px solid var(--border-unified-color);
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-white-5);
       border-color: var(--border-unified-color);
     }
@@ -94,7 +94,7 @@
     color: var(--el-text-color-primary);
     
     &.font-edix {
-      font-family: var(--font-family-edix);
+      font-family: 'EDIX', sans-serif;
     }
   }
 
@@ -124,7 +124,7 @@
   border: 1px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
 
-  :where(html.dark) & {
+  html.dark & {
     background: var(--color-black-30);
   }
 
@@ -154,7 +154,7 @@
           background: var(--el-bg-color);
         }
 
-        :where(html.dark) & {
+        html.dark & {
           background: var(--color-white-3);
           &:hover { border: 2px solid var(--border-unified-color-hover); }
           &.is-focus {
@@ -190,13 +190,13 @@
       &:hover {
         background: var(--color-black-5);
         color: var(--el-text-color-primary);
-        :where(html.dark) & { background: var(--color-white-5); }
+        html.dark & { background: var(--color-white-5); }
       }
 
       &.is-active {
         background: var(--el-color-primary);
-        color: var(--color-on-primary);
-        :where(html.dark) & { background: var(--el-color-primary); color: var(--color-on-primary); }
+        color: var(--el-color-white);
+        html.dark & { background: var(--el-color-primary); color: var(--el-color-black); }
       }
     }
   }
@@ -215,13 +215,18 @@
   position: relative;
   overflow: hidden;
 
-  :where(html.dark) & {
+  html.dark & {
     background: var(--el-bg-color);
   }
 
   &:hover {
-    
+    transform: translateY(-8px);
+    box-shadow: var(--global-box-shadow);
     border-color: var(--el-text-color-primary);
+
+    html.dark & {
+      box-shadow: var(--global-box-shadow);
+    }
   }
 }
 
@@ -246,13 +251,13 @@
   height: 44px;
   padding: 0 24px;
   border-radius: var(--global-border-radius);
-  font-weight: 700;
+  font-weight: 750;
   font-size: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   cursor: pointer;
   border: none;
   letter-spacing: -0.01em;
@@ -263,14 +268,15 @@
     color: var(--el-button-text-color);
     &:hover {
       background: var(--el-color-primary-dark-2);
-      
-      }
+      transform: translateY(-2px);
+      box-shadow: var(--global-box-shadow);
+    }
     &:active { transform: translateY(0); }
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--el-color-primary);
       color: var(--el-button-text-color);
-      &:hover { background: var(--el-color-primary-light-3); }
+      &:hover { background: var(--el-color-primary-light-3); box-shadow: var(--global-box-shadow); }
     }
   }
 
@@ -283,7 +289,7 @@
       border: 2px solid var(--border-unified-color-hover);
     }
 
-    :where(html.dark) & {
+    html.dark & {
       background: var(--color-white-4);
       &:hover { background: var(--color-white-8); border: 2px solid var(--border-unified-color-hover); }
     }
@@ -298,7 +304,7 @@
       background: var(--color-black-2);
     }
     
-    :where(html.dark) & {
+    html.dark & {
       &:hover { background: var(--color-white-2); }
     }
   }

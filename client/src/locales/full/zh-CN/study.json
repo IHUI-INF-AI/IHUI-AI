@@ -47,15 +47,7 @@
     "uploadCover": "请上传封面",
     "enterGroupTitle": "请输入合集标题",
     "enterGroupDesc": "请输入合集描述",
-    "selectTrack": "请选择主赛道和子赛道",
-    "subTrack": "细分赛道",
-    "titlePlaceholder": "请输入合集标题",
-    "descPlaceholder": "请输入合集描述",
-    "pleaseSelect": "请选择",
-    "uploadVideo": "上传视频",
-    "publish": "发布",
-    "edit": "修改",
-    "delist": "下架"
+    "selectTrack": "请选择主赛道和子赛道"
   },
   "studyIndexModelList": {
     "loading": "加载中...",

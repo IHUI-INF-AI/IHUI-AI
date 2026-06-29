@@ -182,7 +182,7 @@ const handleSubmit = async () => {
     })
   } catch (e) {
     console.error('[BecomeSupplier] 提交失败', e)
-    ElMessage.error(t('common.errors.submitFailedRetry'))
+    ElMessage.error(t('common.errors.submitFailed'))
   }
 }
 
@@ -341,7 +341,7 @@ const handleReset = () => formRef.value?.resetFields()
     &:hover {
       background: var(--el-text-color-regular);
       border-color: var(--el-text-color-regular);
-      
+      transform: translateY(-2px);
     }
 
     &:active {
@@ -396,11 +396,11 @@ const handleReset = () => formRef.value?.resetFields()
     font-size: 15px;
     font-weight: 900;
     cursor: pointer;
-    transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       background: var(--el-color-primary-light-3);
-      
+      transform: translateY(-2px);
     }
 
     &:disabled {
@@ -419,7 +419,7 @@ const handleReset = () => formRef.value?.resetFields()
     padding: 12px 32px;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: color 0.3s, border-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       color: var(--el-text-color-primary);
@@ -442,13 +442,13 @@ const handleReset = () => formRef.value?.resetFields()
   .el-input .el-input__wrapper,
   .el-input__wrapper {
     border: var(--unified-border);
-    box-shadow: none;
+    box-shadow: none ;
   }
 
   .el-textarea .el-textarea__inner,
   .el-textarea__inner {
     border: var(--unified-border);
-    box-shadow: none;
+    box-shadow: none ;
   }
   .el-input__inner, .el-textarea__inner { color: var(--el-text-color-primary); font-family: var(--font-family-mono); }
 }
@@ -469,14 +469,14 @@ const handleReset = () => formRef.value?.resetFields()
     font-size: 13px;
     font-weight: 900;
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s;
+    transition: all 0.3s;
     &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); }
   }
   .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
 
 /* ---------- 暗色模式覆盖 ---------- */
-:where(html.dark) .become-supplier-page {
+html.dark .become-supplier-page {
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
 }
@@ -496,7 +496,7 @@ const handleReset = () => formRef.value?.resetFields()
   p { color: var(--el-text-color-regular); }
 }
 
-:where(html.dark) :where(.become-supplier-page) :where(.section-label::after) {
+html.dark .become-supplier-page .section-label::after {
   background: var(--el-border-color);
 }
 
@@ -556,13 +556,13 @@ const handleReset = () => formRef.value?.resetFields()
   }
 }
 
-:where(html.dark) .become-supplier-page :deep(.tech-form) {
+html.dark .become-supplier-page :deep(.tech-form) {
   .el-form-item__label { color: var(--el-text-color-secondary); }
 
   .el-input .el-input__wrapper,
   .el-input__wrapper,
   .el-textarea .el-textarea__inner,
-  .el-textarea__inner { border-color: var(--border-unified-color); }
+  .el-textarea__inner { border-color: var(--border-unified-color) ; }
   .el-input__inner, .el-textarea__inner { color: var(--el-text-color-primary); }
 }
 

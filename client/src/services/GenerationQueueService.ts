@@ -71,7 +71,7 @@ type TaskEvent =
   | 'queue:resumed'
 
 /** 事件监听器 */
-type EventListener = (task: GenerationTask, data?: any) => void
+type EventListener = (task: GenerationTask, data?: unknown) => void
 
 // ============================================================================
 // 生成队列服务类
@@ -313,7 +313,7 @@ export class GenerationQueueService {
   /**
    * 触发事件
    */
-  private emit(event: TaskEvent, task: GenerationTask, data?: any): void {
+  private emit(event: TaskEvent, task: GenerationTask, data?: unknown): void {
     this.listeners.get(event)?.forEach(listener => {
       try {
         listener(task, data)

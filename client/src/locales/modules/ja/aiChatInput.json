@@ -1,14 +1,38 @@
 {
   "aiChatInput": {
-    "enterToSend": "enterToSend",
-    "inputPlaceholder": "请输入",
-    "messageStatsTotal": "messageStatsTotal",
-    "openChat": "openChat",
-    "pleaseEnterContentOrUploadFile": "pleaseEnterContentOrUploadFile",
-    "selectModel": "selectModel",
-    "send": "发送",
-    "uploadFile": "上传文件",
-    "voiceInput": "voiceInput",
-    "voiceStarted": "voiceStarted"
+    "openChat": "AIチャットを開く",
+    "selectModel": "モデルを選択",
+    "voiceInput": "音声入力",
+    "messageStatsTotal": "メッセージ統計: 合計 {count} 件のメッセージ",
+    "pleaseEnterContentOrUploadFile": "コンテンツを入力するか、ファイルをアップロードしてください",
+    "uploadFile": "ファイルをアップロード",
+    "inputPlaceholder": "メッセージを入力...",
+    "send": "送信",
+    "enterToSend": "Enterキーで送信、Shift+Enterで改行",
+    "voiceStarted": "Voice済み開始",
+    "messagesAria": "チャットメッセージリスト",
+    "searchModels": "モデルを検索...",
+    "filterByProvider": "プロバイダーでフィルター",
+    "modelCount": "{total}個のモデル中{count}個をテーブル示",
+    "noMatchingModels": "一貫するモデルが見つかりません",
+    "noModels": "利用可できるできる性なモデルがありません",
+    "searchMessages": "メッセージを検索",
+    "searchMessagesPlaceholder": "メッセージコンテンツを検索...",
+    "search": "検索",
+    "foundMessages": "{count}件の一貫するメッセージが見つかりました",
+    "noMatchingMessages": "一貫するメッセージが見つかりません",
+    "enterSearchKeyword": "検索キーワードを入力してください",
+    "searchFailed": "検索に失敗しました",
+    "messageStats": "メッセージ統計",
+    "exportFailed": "エクスポートに失敗しました",
+    "exportDeveloping": "エクスポート機できるは開発中です",
+    "modelDescriptions": {
+      "nanoBanana": "Googleの最も強力な画像編集モデル",
+      "nanoBananaPro": "最先端の画像生成・編集モデル",
+      "stableDiffusion": "クラシックなオープンソース画像生成モデル、安定した効果",
+      "videoModel01": "プロフェッショナルな動画生成・編集モデル",
+      "textModel01": "軽量なテキスト生成・会話モデル",
+      "textModel02": "効率的なテキスト理解・創作モデル"
+    }
   }
 }

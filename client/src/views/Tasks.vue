@@ -27,7 +27,7 @@
 
       <!-- 任务列表 -->
       <div v-else class="tasks-list">
-        <el-card v-for="task in tasks" :key="task.taskId" class="task-card" shadow="never">
+        <el-card v-for="task in tasks" :key="task.taskId" class="task-card" shadow="hover">
           <div class="task-content">
             <div class="task-header">
               <div class="task-info">
@@ -98,7 +98,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Clock, Refresh, Close } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { getTasks, cancelTask, type Task } from '@/api/system/tasks'
+import { getTasks, cancelTask, type Task } from '@/api/tasks'
 import { useTaskWebSocket } from '@/composables/useTaskWebSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
@@ -288,118 +288,72 @@ onUnmounted(() => {
 }
 
 .tasks-content {
-  /* 容器自身样式 */
-}
-
-.loading-container,
-.error-container {
-  padding: 40px 0;
-}
-
-.tasks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.task-card {
-  /* 卡片样式 */
-}
-
-.task-content {
-  /* 内容样式 */
-}
-
-.task-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.task-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.task-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.task-progress {
-  margin-bottom: 16px;
-}
-
-.task-result {
-  margin-bottom: 16px;
-}
-
-.result-content {
-  background: var(--el-fill-color-light);
-  padding: 12px;
-  border-radius: var(--global-border-radius);
-  font-size: 13px;
-  overflow-x: auto;
-}
-
-.task-error {
-  margin-bottom: 16px;
-}
-
-.task-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--el-text-color-regular);
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* ==================== 移动端响应式 ==================== */
-@media (max-width: 768px) {
-  .tasks-container { padding: 16px; }
-  .tasks-header {
-    margin-bottom: 16px;
-    .page-title { font-size: 22px; }
-    .page-subtitle { font-size: 13px; }
+  .loading-container,
+  .error-container {
+    padding: 40px 0;
   }
-  .tasks-list { gap: 12px; }
-  .task-header {
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .task-info {
-    gap: 8px;
-    flex: 1 1 100%;
-  }
-  .task-title { font-size: 15px; }
-  .task-meta {
-    gap: 12px;
-    font-size: 12px;
-  }
-}
 
-@media (max-width: 480px) {
-  .tasks-container { padding: 12px; }
-  .task-header {
+  .tasks-list {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 16px;
   }
-  .task-actions {
-    width: 100%;
-    :deep(.el-button) {
-      min-height: 44px;
-      width: 100%;
+
+  .task-card {
+    .task-content {
+      .task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+
+        .task-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex: 1;
+
+          .task-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+          }
+        }
+      }
+
+      .task-progress {
+        margin-bottom: 16px;
+      }
+
+      .task-result {
+        margin-bottom: 16px;
+
+        .result-content {
+          background: var(--el-fill-color-light);
+          padding: 12px;
+          border-radius: var(--global-border-radius);
+          font-size: 12px;
+          overflow-x: auto;
+        }
+      }
+
+      .task-error {
+        margin-bottom: 16px;
+      }
+
+      .task-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--el-text-color-regular);
+
+        .meta-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+      }
     }
   }
 }

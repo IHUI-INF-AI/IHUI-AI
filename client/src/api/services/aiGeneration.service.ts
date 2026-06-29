@@ -48,7 +48,7 @@ export const generateDashScopeImage = withApiResponseHandler(
     if (payload && typeof payload === 'object' && normalized.data && typeof normalized.data === 'object') {
       const extra = payload as { total_tokens?: number; request_id?: string }
       normalized.data = {
-        ...(normalized.data as unknown as Record<string, unknown>),
+        ...normalized.data,
         ...(typeof extra.total_tokens === 'number' ? { total_tokens: extra.total_tokens } : {}),
         ...(extra.request_id ? { request_id: extra.request_id } : {}),
       } as DashScopeImageGenResponse
@@ -95,7 +95,7 @@ export const generateDashScopeImageToImage = withApiResponseHandler(
     if (payload && typeof payload === 'object' && normalized.data && typeof normalized.data === 'object') {
       const extra = payload as { total_tokens?: number; request_id?: string }
       normalized.data = {
-        ...(normalized.data as unknown as Record<string, unknown>),
+        ...normalized.data,
         ...(typeof extra.total_tokens === 'number' ? { total_tokens: extra.total_tokens } : {}),
         ...(extra.request_id ? { request_id: extra.request_id } : {}),
       } as DashScopeImageToImageResponse
@@ -370,7 +370,7 @@ export const generateJimeng4Image = withApiResponseHandler(
     // 2. { code:10000, msg, data:{ image_url, image_urls, total_tokens, request_id } }
     // 3. 直接返回 { image_url, image_urls, ... }
     const payload = (response as unknown as { data?: unknown })?.data ?? response
-    const dataObj = (normalized.data || {}) as unknown as Record<string, unknown>
+    const dataObj: Partial<Jimeng4ImageGenResponse> = normalized.data || {}
 
     if (payload && typeof payload === 'object') {
       const extra = payload as {

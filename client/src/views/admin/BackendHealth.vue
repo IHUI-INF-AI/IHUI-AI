@@ -101,14 +101,10 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { loadEcharts } from '@/utils/echarts-lazy'
-import type { ECharts } from '@/utils/echarts'
+import echarts from '@/utils/echarts'
 import { useCleanup } from '@/composables/useCleanup'
-import { getUserToken } from '@/utils/request'
-import { useDarkModeStore } from '@/stores/darkMode'
 
 const { t } = useI18n()
-const darkModeStore = useDarkModeStore()
 
 interface EngineStatus { ok: boolean; msg: string }
 interface HealthData {
@@ -126,7 +122,7 @@ const history = ref<HistoryPoint[]>([])
 const lastUpdateAt = ref('')
 let timer: number | null = null
 const chartRef = ref<HTMLElement>()
-let chart: ECharts | null = null
+let chart: echarts.ECharts | null = null
 
 const MAX_HISTORY = 60
 
@@ -176,12 +172,7 @@ const fetchHealth = async () => {
   const t0 = performance.now()
   loading.value = true
   try {
-    const token = getUserToken()
-    const res = await fetch('/health', {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : '',
-      },
-    })
+    const res = await fetch('/health')
     const data = await res.json()
     healthData.value = data
     const latency = Math.round(performance.now() - t0)
@@ -228,9 +219,9 @@ const exportCsv = () => {
     ElMessage.warning(t('adminCommon.backendHealth.exportEmpty'))
     return
   }
-  // CSV 表头 (BOM 让 Excel 正确识别 UTF-8)
-  const header = '时间,状态,响应时间(ms),数据库,Redis'
-  // 字段转义: 包含逗号/引号/换行的值用双引号包裹, 内部引号双写
+  // CSV 表头 (BOM �?Excel 正确识别 UTF-8)
+  const header = '时间,状�?响应时间(ms),数据�?Redis'
+  // 字段转义: 包含逗号/引号/换行的值用双引号包�? 内部引号双写
   const esc = (v: unknown) => {
     const s = String(v ?? '')
     return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -242,7 +233,7 @@ const exportCsv = () => {
     p.dbOk ? 'ok' : 'fail',
     p.redisOk ? 'ok' : 'fail',
   ].map(esc).join(','))
-  // 顺序: 新 → 旧
+  // 顺序: �?�?�?
   const csv = '\ufeff' + [header, ...rows].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -256,34 +247,12 @@ const exportCsv = () => {
   URL.revokeObjectURL(url)
 }
 
-const renderChart = async () => {
+const renderChart = () => {
   if (!chartRef.value || history.value.length === 0) return
   if (!chart) {
-    const echarts = await loadEcharts()
     chart = echarts.init(chartRef.value)
     window.addEventListener('resize', handleResize)
   }
-  const isDark = darkModeStore.isDarkMode
-  const getVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  const toRgba = (hexOrRgb: string, alpha: number): string => {
-    const hexMatch = hexOrRgb.match(/^#([0-9a-f]{6})$/i)
-    if (hexMatch) {
-      const n = parseInt(hexMatch[1], 16)
-      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
-    }
-    const rgbMatch = hexOrRgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i)
-    if (rgbMatch) {
-      return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${alpha})`
-    }
-    return hexOrRgb
-  }
-  const bgColor = getVar('--el-bg-color') || 'var(--el-bg-color)'
-  const borderColor = getVar('--el-border-color') || 'var(--el-border-color)'
-  const textPrimary = getVar('--el-text-color-primary') || 'var(--el-text-color-primary)'
-  const successColor = getVar('--el-color-success') || 'var(--el-color-success)'
-  const warningColor = getVar('--el-color-warning') || 'var(--el-color-warning)'
-  const dangerColor = getVar('--el-color-danger') || 'var(--el-color-danger)'
-  const primaryColor = getVar('--el-color-primary') || 'var(--el-color-primary)'
   const xs = history.value.map(p => formatTime(p.ts))
   const ys = history.value.map(p => p.latency)
   const abnormalIdx: number[] = []
@@ -292,26 +261,26 @@ const renderChart = async () => {
     grid: { left: 50, right: 20, top: 30, bottom: 40 },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: bgColor,
-      borderColor: borderColor,
-      textStyle: { color: textPrimary, fontSize: 13 },
+      backgroundColor: 'rgba(50,50,50,0.9)',
+      borderColor: getComputedStyle(document.documentElement).getPropertyValue('--el-border-color').trim() || '#333',
+      textStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-bg-color').trim() || '#fff', fontSize: 13 },
       formatter: (params: unknown) => {
         const arr = params as Array<{ dataIndex: number }>
         const idx = arr[0]?.dataIndex
         const p = history.value[idx]
         if (!p) return ''
-        const statusColor = p.status === 'ok' ? successColor
-          : p.status === 'degraded' ? warningColor
-          : dangerColor
-        const dbColor = p.dbOk ? successColor : dangerColor
-        const redisColor = p.redisOk ? successColor : dangerColor
+        const statusColor = p.status === 'ok' ? getComputedStyle(document.documentElement).getPropertyValue('--el-color-success').trim() || '#67c23a'
+          : p.status === 'degraded' ? getComputedStyle(document.documentElement).getPropertyValue('--el-color-warning').trim() || '#e6a23c'
+          : getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c'
+        const dbColor = p.dbOk ? (getComputedStyle(document.documentElement).getPropertyValue('--el-color-success').trim() || '#67c23a') : (getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c')
+        const redisColor = p.redisOk ? (getComputedStyle(document.documentElement).getPropertyValue('--el-color-success').trim() || '#67c23a') : (getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c')
         return `
           <div style="line-height:1.6">
-            <div style="font-weight:700;margin-bottom:4px">${formatTime(p.ts)}</div>
+            <div style="font-weight:bold;margin-bottom:4px">${formatTime(p.ts)}</div>
             <div>响应时间: <b>${p.latency} ms</b></div>
-            <div>总状态: <span style="color:${statusColor}">${p.status}</span></div>
-            <div>DB: <span style="color:${dbColor}">${p.dbOk ? '✓ ok' : '✗ fail'}</span></div>
-            <div>Redis: <span style="color:${redisColor}">${p.redisOk ? '✓ ok' : '✗ fail'}</span></div>
+            <div>总状�? <span style="color:${statusColor}">${p.status}</span></div>
+            <div>DB: <span style="color:${dbColor}">${p.dbOk ? '�?ok' : '�?fail'}</span></div>
+            <div>Redis: <span style="color:${redisColor}">${p.redisOk ? '�?ok' : '�?fail'}</span></div>
           </div>
         `
       },
@@ -325,19 +294,19 @@ const renderChart = async () => {
       smooth: true,
       symbol: 'circle',
       symbolSize: 6,
-      lineStyle: { color: primaryColor, width: 2 },
-      itemStyle: { color: primaryColor },
-      areaStyle: { color: toRgba(primaryColor, isDark ? 0.1 : 0.15) },
+      lineStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim() || '#409eff', width: 2 },
+      itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim() || '#409eff' },
+      areaStyle: { color: 'rgba(64,158,255,0.15)' },
       markPoint: {
-        data: abnormalIdx.map(i => ({ coord: [xs[i], ys[i]], itemStyle: { color: dangerColor } })),
+        data: abnormalIdx.map(i => ({ coord: [xs[i], ys[i]], itemStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-danger').trim() || '#f56c6c' } })),
         symbol: 'pin',
         symbolSize: 28,
-        label: { formatter: '!', color: bgColor, fontWeight: 'bold' },
+        label: { formatter: '!', color: getComputedStyle(document.documentElement).getPropertyValue('--el-bg-color').trim() || '#fff', fontWeight: 'bold' },
       },
       markLine: {
         silent: true,
         symbol: 'none',
-        lineStyle: { color: warningColor, type: 'dashed' },
+        lineStyle: { color: getComputedStyle(document.documentElement).getPropertyValue('--el-color-warning').trim() || '#e6a23c', type: 'dashed' },
         data: [{ yAxis: 1000, name: '1s' }],
       },
     }],
@@ -353,16 +322,6 @@ let resizeRafId: number | null = null
 watch(history, () => {
   nextTick(() => renderChart())
 }, { deep: true })
-
-// 监听暗色模式变化，重新渲染图表以更新颜色
-watch(
-  () => darkModeStore.isDarkMode,
-  () => {
-    if (chart) {
-      renderChart()
-    }
-  }
-)
 
 onMounted(() => {
   fetchHealth()
@@ -382,10 +341,10 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .stat-item { text-align: center; }
 .stat-label { font-size: 14px; color: var(--el-text-color-primary); margin-bottom: 10px; }
-.stat-value { font-size: 24px; font-weight: 700; }
+.stat-value { font-size: 24px; font-weight: bold; }
 .engine-list { display: flex; flex-direction: column; gap: 12px; }
 .engine-item { display: flex; align-items: center; gap: 12px; }
-.engine-name { font-weight: 700; min-width: 70px; }
+.engine-name { font-weight: bold; min-width: 70px; }
 .engine-msg { color: var(--el-text-color-secondary); font-size: 13px; }
 .redis-info { display: flex; flex-direction: column; gap: 12px; }
 .info-row { display: flex; align-items: center; gap: 12px; }

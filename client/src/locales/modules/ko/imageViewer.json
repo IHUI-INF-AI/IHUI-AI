@@ -1,7 +1,7 @@
 {
   "imageViewer": {
-    "downloadToView": "downloadToView",
-    "image": "图片",
-    "zoomIn": "zoomIn"
+    "image": "이미지",
+    "downloadToView": "다운로드하여 보기",
+    "zoomIn": "확대"
   }
 }

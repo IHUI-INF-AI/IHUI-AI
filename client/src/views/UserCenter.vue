@@ -97,15 +97,6 @@
       </div>
     </div>
 
-    <!-- 弹窗保持原样 -->
-    <LoginPopup
-      v-if="showLoginPopup"
-      :loginInfo="currentUser"
-      @login="handleLogin"
-      @close="handleCloseLoginPopup"
-      @update:login-out="handleLoginOut"
-    />
-
     <ImageSharePopup v-if="showImageSharePopup" @close="closeImageSharePopup" />
   </div>
 </template>
@@ -122,12 +113,13 @@ import { logger } from '@/utils/logger'
 import UserInfoCard from '@/components/user/UserInfoCard.vue'
 import UserCard from '@/components/user/UserCard.vue'
 import UserMembershipBenefits from '@/components/user/UserMembershipBenefits.vue'
-import LoginPopup from '@/components/user/LoginPopup.vue'
 import ImageSharePopup from '@/components/user/ImageSharePopup.vue'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
 const { t } = useI18n()
 
 const cleanup = useCleanup()
+const loginDialog = useLoginDialog()
 
 // 滚动动画相关
 const containerRef = ref<HTMLElement | null>(null)
@@ -269,7 +261,6 @@ const currentUser = computed<UserInfo>(() => {
   }
 })
 
-const showLoginPopup = ref(false)
 const showImageSharePopup = ref(false)
 const showMembershipBenefits = ref(false)
 const isShow = ref(false)
@@ -296,7 +287,7 @@ onMounted(async () => {
 
 function checkPlatform() {
   const userAgent = navigator.userAgent
-  isShow.value = /iPad|iPhone|iPod/.test(userAgent) && !(window as Window & { MSStream?: any }).MSStream
+  isShow.value = /iPad|iPhone|iPod/.test(userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
 }
 
 function setupEventListeners() {
@@ -309,42 +300,33 @@ function handleShowImageSharePopup() {
 
 function handleEditProfile() {
   if (!currentUser.value.isLoggedIn) {
-    showLoginPopup.value = true
+    loginDialog.open('login')
   } else {
     router.push('/settings')
   }
 }
 
 function handleLoginOut(data: UserInfo) {
-  currentUser.value = data
+  // data 由子组件 emit，但 currentUser 是 computed（只读）
+  // 真正生效的是 authStore.logout()，computed 会自动重算为未登录态
+  logger.debug('[UserCenter] handleLoginOut', { data })
   authStore.logout()
-  showLoginPopup.value = false
-}
-
-function handleLogin(event: any) {
-  logger.info('[UserCenter] User logged in', { event })
-  authStore.fetchUserInfo()
-  showLoginPopup.value = false
-}
-
-function handleCloseLoginPopup() {
-  showLoginPopup.value = false
 }
 
 function handleOpenLevelIntroducePopup() {
-  router.push('/vip/details?type=levelPopup')
+  router.push('/vip-details?type=levelPopup')
 }
 
 function handleOpenIntroducePopup() {
-  router.push('/vip/details?type=IntroducePopup')
+  router.push('/vip-details?type=IntroducePopup')
 }
 
 function handleOpenIntroducePopups() {
-  router.push('/vip/details?type=IntroducePopups')
+  router.push('/vip-details?type=IntroducePopups')
 }
 
 function handleOpenPrivateAdvisoryPopup() {
-  router.push('/vip/details?type=PrivateAdvisory')
+  router.push('/vip-details?type=PrivateAdvisory')
 }
 
 function handleOpenIntroduces() {
@@ -359,7 +341,7 @@ function handleOpenIntroduces() {
 
 function handleCardClick(key: string) {
   if (!isLoggedIn.value) {
-    showLoginPopup.value = true
+    loginDialog.open('login')
     return
   }
 
@@ -564,7 +546,7 @@ $uc-transition-slow: 0.6s;
 
   &:hover {
     border-color: $uc-border-glow;
-    
+    transform: translateY(-2px);
   }
 
   &--hero {
@@ -839,27 +821,18 @@ $uc-transition-slow: 0.6s;
 }
 
 // ============================================
-// 暗色模式适配
-// ============================================
-// 暗色模式下 overlay 混合会让噪点纹理叠加异常，可能影响背景可读性，改用 normal
-:where(html.dark) .uc-noise-overlay,
-:where(body.dark) :where(.uc-noise-overlay) {
-  mix-blend-mode: normal;
-}
-
-// ============================================
 // 深度覆盖子组件样式
 // ============================================
 :deep(.user-info-card),
 :deep(.user-card) {
-  background: transparent;
-  box-shadow: none;
-  border: none;
+  background: transparent ;
+  box-shadow: none ;
+  border: none ;
 }
 
 :deep(.el-card) {
-  background: transparent;
-  border: none;
-  box-shadow: none;
+  background: transparent ;
+  border: none ;
+  box-shadow: none ;
 }
 </style>

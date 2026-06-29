@@ -252,67 +252,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=profile').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.usageRules') }}</div>
-                <div class="setting-description">{{ t('settings.desc.usageRules') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/usage-rules').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.appPermission') }}</div>
-                <div class="setting-description">{{ t('settings.desc.appPermission') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/app-permission').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.myAIModel') }}</div>
-                <div class="setting-description">{{ t('settings.desc.myAIModel') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=developer').catch(() => {}) }"
-                >
-                  {{ t('settings.actions.go') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">{{ t('settings.labels.privacySettings') }}</div>
-                <div class="setting-description">{{ t('settings.desc.privacySettings') }}</div>
-              </div>
-              <div class="setting-control">
-                <button
-                  class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/user?tab=privacy').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/edit-profile').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -327,7 +267,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/business-license').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/business-license').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -342,7 +282,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/icp-record').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/icp-record').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -357,7 +297,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/model-record').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/model-record').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -366,13 +306,73 @@
 
             <div class="setting-item">
               <div class="setting-info">
-                <div class="setting-label">更换手机号</div>
-                <div class="setting-description">更换账号绑定的手机号</div>
+                <div class="setting-label">{{ t('settings.labels.usageRules') }}</div>
+                <div class="setting-description">{{ t('settings.desc.usageRules') }}</div>
               </div>
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/change-phone').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/usage-rules').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.appPermission') }}</div>
+                <div class="setting-description">{{ t('settings.desc.appPermission') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/app-permission').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.myAIModel') }}</div>
+                <div class="setting-description">{{ t('settings.desc.myAIModel') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/my-ai-model').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.recruitment') }}</div>
+                <div class="setting-description">{{ t('settings.desc.recruitment') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/recruitment').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.myCompany') }}</div>
+                <div class="setting-description">{{ t('settings.desc.myCompany') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/my-company').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -403,6 +403,21 @@
                 <button
                   class="action-btn ripple-btn"
                   @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/about').catch(() => {}) }"
+                >
+                  {{ t('settings.actions.go') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">{{ t('settings.labels.privacySettings') }}</div>
+                <div class="setting-description">{{ t('settings.desc.privacySettings') }}</div>
+              </div>
+              <div class="setting-control">
+                <button
+                  class="action-btn ripple-btn"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/privacy-settings').catch(() => {}) }"
                 >
                   {{ t('settings.actions.go') }}
                 </button>
@@ -1251,7 +1266,7 @@
               <div class="setting-control">
                 <button
                   class="danger-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); router.push('/settings/account-cancel').catch(() => {}) }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); openDeleteAccountDialog() }"
                 >
                   {{ t('settings.actions.deleteAccount') }}
                 </button>
@@ -1268,7 +1283,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.changePassword.title') }}</h3>
-            <button @click="showPasswordDialog = false" class="close-btn" aria-label="关闭">&times;</button>
+            <button @click="showPasswordDialog = false" class="close-btn">&times;</button>
           </div>
           <div class="dialog-content">
             <div class="form-group">
@@ -1349,7 +1364,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.clearData.title') }}</h3>
-            <button @click="closeClearDataDialog" class="close-btn" aria-label="关闭">&times;</button>
+            <button @click="closeClearDataDialog" class="close-btn">&times;</button>
           </div>
           <div class="dialog-content">
             <p>{{ t('settings.dialogs.clearData.tip') }}</p>
@@ -1387,7 +1402,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.deleteAccount.title') }}</h3>
-            <button @click="closeDeleteAccountDialog" class="close-btn" aria-label="关闭">&times;</button>
+            <button @click="closeDeleteAccountDialog" class="close-btn">&times;</button>
           </div>
           <div class="dialog-content">
             <p>{{ t('settings.dialogs.deleteAccount.tip') }}</p>
@@ -1429,7 +1444,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.contact.title') }}</h3>
-            <button @click="showContactDialog = false" class="close-btn" aria-label="关闭">&times;</button>
+            <button @click="showContactDialog = false" class="close-btn">&times;</button>
           </div>
           <div class="dialog-content contact-dialog-content">
             <div class="contact-item">
@@ -1472,7 +1487,7 @@
         <div class="dialog glass" @click.stop>
           <div class="dialog-header">
             <h3>{{ t('settings.dialogs.miniapp.title') }}</h3>
-            <button @click="showMiniappDialog = false" class="close-btn" aria-label="关闭">&times;</button>
+            <button @click="showMiniappDialog = false" class="close-btn">&times;</button>
           </div>
           <div class="dialog-content miniapp-dialog-content">
             <img
@@ -1511,12 +1526,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getUserSettings } from '@/api/system/settings'
+import { getUserSettings } from '@/api/settings'
 import { ArrowLeft, User, Lock, Bell, Setting, Warning, Hide, Monitor, Document, Key, Clock, Connection, Download, Filter, TrendCharts, Brush, FolderOpened, Position, MagicStick, Cloudy, Link, Service, MoreFilled, Phone } from '@element-plus/icons-vue'
 import { useSettingsUserInfo } from '@/composables/settings/useSettingsUserInfo'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import { useSettings } from '@aizhs/shared-logic'
-import type { UserInfoData } from '@/api/user/user'
+import type { UserInfoData } from '@/api/user'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { useSettingsSecurity } from '@/composables/settings/useSettingsSecurity'
 import { useSettingsNotifications } from '@/composables/settings/useSettingsNotifications'
@@ -1647,7 +1663,12 @@ const handleLogout = () => {
     StorageManager.removeItem(STORAGE_KEYS.USER_INFO)
     StorageManager.removeItem(STORAGE_KEYS.DATA)
     authStore.logout?.()
-    router.push('/login').catch(() => {})
+    // 弹窗形式：跳首页 + 弹出登录弹窗，不再跳 /login 路由
+    router.push('/').then(() => {
+      useLoginDialog().open('login')
+    }).catch(() => {
+      useLoginDialog().open('login')
+    })
   }).catch(() => { /* 用户取消操作，无需处理 */ })
 }
 
@@ -1723,6 +1744,7 @@ const {
   deleteUserAccount,
   openClearDataDialog,
   closeClearDataDialog,
+  openDeleteAccountDialog,
   closeDeleteAccountDialog,
 } = dangerComposable
 
@@ -1822,7 +1844,7 @@ $text-main: var(--el-text-color-primary);
 $text-sec: var(--el-text-color-secondary);
 $border-light: var(--el-border-color-lighter);
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--el-text-color-primary);
+$brand-secondary: var(--color-gray-333);
 
 .settings-page-root {
   background: $bg-page;
@@ -1855,7 +1877,7 @@ $brand-secondary: var(--el-text-color-primary);
       height: 400px;
       top: 10%;
       right: 10%;
-      background: color-mix(in srgb, $brand-primary 30%, transparent);
+      background: rgba($brand-primary, 0.3);
     }
 
     &.orb-2 {
@@ -1877,7 +1899,7 @@ $brand-secondary: var(--el-text-color-primary);
   transition: none;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -1924,9 +1946,8 @@ $brand-secondary: var(--el-text-color-primary);
 
 // ============ 玻璃态样式 ============
 .glass {
-  background: rgb(var(--el-fill-color-light-rgb), 0.6);
+  background: rgb(var(--el-fill-color-light-rgb, 250, 250, 252), 0.6);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -2005,7 +2026,7 @@ $brand-secondary: var(--el-text-color-primary);
   }
 
   .page-header__badge-text {
-    font-family: var(--font-family-edix);
+    font-family: EDIX, var(--font-family-sans-serif);
     text-transform: uppercase;
   }
 
@@ -2067,7 +2088,7 @@ $brand-secondary: var(--el-text-color-primary);
   .section-icon {
     width: 52px;
     height: 52px;
-    background: color-mix(in srgb, $brand-primary 8%, transparent);
+    background: rgba($brand-primary, 0.08);
     color: $brand-primary;
     border-radius: var(--global-border-radius);
     display: flex;
@@ -2075,7 +2096,7 @@ $brand-secondary: var(--el-text-color-primary);
     justify-content: center;
     font-size: 22px;
     flex-shrink: 0;
-    transition: background-color 0.3s, color 0.3s;
+    transition: all 0.3s;
 
     &.danger {
       background: rgb(var(--color-danger-dark), 0.1);
@@ -2089,7 +2110,7 @@ $brand-secondary: var(--el-text-color-primary);
   }
 
   .section-idx {
-    font-family: var(--font-family-mono);
+    font-family: monospace;
     font-size: 12px;
     font-weight: 900;
     color: $brand-primary;
@@ -2138,7 +2159,7 @@ $brand-secondary: var(--el-text-color-primary);
   }
 
   &:hover {
-    background: color-mix(in srgb, $brand-primary 2%, transparent);
+    background: rgba($brand-primary, 0.02);
   }
 }
 
@@ -2172,11 +2193,11 @@ $brand-secondary: var(--el-text-color-primary);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
-  background: rgb(var(--el-fill-color-rgb), 0.5);
-  transition: border-color 0.3s;
+  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
+  transition: all 0.3s;
 
   &:focus {
-    outline: 2px solid color-mix(in srgb, $brand-primary 30%, transparent);
+    outline: 2px solid rgba($brand-primary, 0.3);
     outline-offset: 2px;
     border-color: $brand-primary;
   }
@@ -2188,12 +2209,12 @@ $brand-secondary: var(--el-text-color-primary);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
-  background: rgb(var(--el-fill-color-rgb), 0.5);
+  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
   cursor: pointer;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
 
   &:focus {
-    outline: 2px solid color-mix(in srgb, $brand-primary 30%, transparent);
+    outline: 2px solid rgba($brand-primary, 0.3);
     outline-offset: 2px;
     border-color: $brand-primary;
   }
@@ -2216,10 +2237,10 @@ $brand-secondary: var(--el-text-color-primary);
     position: absolute;
     cursor: pointer;
     inset: 0;
-    background: rgb(var(--el-fill-color-rgb), 0.8);
+    background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
     border: var(--unified-border);
-    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: var(--global-border-radius);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--global-border-radius-sm, 4px);
 
     &::before {
       position: absolute;
@@ -2229,7 +2250,7 @@ $brand-secondary: var(--el-text-color-primary);
       left: 2px;
       bottom: 2px;
       background: var(--el-bg-color);
-      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
     }
@@ -2255,12 +2276,12 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.3s, border-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     background: $brand-secondary;
-    
-    border-color: color-mix(in srgb, $brand-primary 30%, transparent);
+    transform: translateY(-2px);
+    border-color: rgba($brand-primary, 0.3);
   }
 }
 
@@ -2273,11 +2294,11 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.3s, border-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     background: var(--el-color-danger-dark-2);
-    
+    transform: translateY(-2px);
     border-color: rgb(var(--el-color-danger-rgb), 0.4);
   }
 }
@@ -2295,7 +2316,7 @@ $brand-secondary: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
   object-fit: cover;
   border: 2px solid $border-light;
-  transition: border-color 0.3s, transform 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     border-color: $brand-primary;
@@ -2305,17 +2326,17 @@ $brand-secondary: var(--el-text-color-primary);
 
 .upload-btn {
   padding: 10px 18px;
-  background: rgb(var(--el-fill-color-rgb), 0.8);
+  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s, border-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
-    background: color-mix(in srgb, $brand-primary 8%, transparent);
-    border-color: color-mix(in srgb, $brand-primary 30%, transparent);
+    background: rgba($brand-primary, 0.08);
+    border-color: rgba($brand-primary, 0.3);
   }
 }
 
@@ -2325,7 +2346,6 @@ $brand-secondary: var(--el-text-color-primary);
   inset: 0;
   background: var(--color-black-60);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2371,15 +2391,15 @@ $brand-secondary: var(--el-text-color-primary);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgb(var(--el-fill-color-rgb), 0.8);
+    background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
     border: none;
     border-radius: var(--global-border-radius);
     font-size: 1.5rem;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
-      background: color-mix(in srgb, $brand-primary 10%, transparent);
+      background: rgba($brand-primary, 0.1);
     }
   }
 }
@@ -2429,12 +2449,12 @@ $brand-secondary: var(--el-text-color-primary);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   font-size: 0.95rem;
-  background: rgb(var(--el-fill-color-rgb), 0.5);
+  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
   box-sizing: border-box;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
 
   &:focus {
-    outline: 2px solid color-mix(in srgb, $brand-primary 40%, transparent);
+    outline: 2px solid rgba($brand-primary, 0.4);
     outline-offset: 2px;
     border-color: $brand-primary;
   }
@@ -2484,7 +2504,7 @@ $brand-secondary: var(--el-text-color-primary);
   gap: 12px;
   padding: 20px 28px;
   border-top: var(--unified-border);
-  background: rgb(var(--el-fill-color-rgb), 0.3);
+  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.3);
 }
 
 .cancel-btn {
@@ -2495,10 +2515,10 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
 
   &:hover {
-    background: rgb(var(--el-fill-color-rgb), 0.8);
+    background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.8);
   }
 }
 
@@ -2511,18 +2531,18 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.3s;
+  transition: all 0.3s;
 
   &:hover {
     background: $brand-secondary;
-    
+    transform: translateY(-1px);
   }
 }
 
 // ============ 对话框过渡 ============
 .dialog-fade-enter-active,
 .dialog-fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .dialog-fade-enter-from,
@@ -2621,7 +2641,7 @@ $brand-secondary: var(--el-text-color-primary);
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--el-text-color-secondary);
-  font-family: var(--font-family-mono);
+  font-family: 'SF Mono', 'Fira Code', monospace;
   letter-spacing: 0.03em;
 }
 
@@ -2636,7 +2656,7 @@ $brand-secondary: var(--el-text-color-primary);
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: rgb(var(--el-fill-color-rgb), 0.5);
+  background: rgb(var(--el-fill-color-rgb, 245, 245, 247), 0.5);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
 

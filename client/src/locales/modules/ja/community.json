@@ -1,5 +1,7 @@
 {
   "community": {
+    "title": "コミュニティ",
+    "subtitle": "アイデアを共有し、経験を交換し、素晴らしいコンテンツを発見",
     "postContent": "あなたの考えを共有...",
     "publishPost": "投稿を公開",
     "allPosts": "すべての投稿",
@@ -87,8 +89,6 @@
       "codeGroup": "Codeグループ",
       "otherGroup": "その他グループ",
       "other": "その他"
-    },
-    "like": "点赞",
-    "views": "views"
+    }
   }
 }

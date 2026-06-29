@@ -1,14 +1,12 @@
 {
   "memberExamWrong": {
-    "analysis": "analysis",
-    "correctAnswer": "correctAnswer",
-    "empty": "empty",
-    "enterExam": "enterExam",
-    "master": "master",
-    "masteredFailed": "masteredFailed",
-    "masteredSuccess": "masteredSuccess",
-    "myAnswer": "myAnswer",
-    "notAnswered": "notAnswered",
-    "title": "标题"
+    "title": "오답 노트",
+    "empty": "오답 없음",
+    "remove": "제거",
+    "myAnswer": "내 답변: ",
+    "notAnswered": "미응답",
+    "correctAnswer": "정답: ",
+    "analysis": "해설: ",
+    "removed": "제거됨"
   }
 }

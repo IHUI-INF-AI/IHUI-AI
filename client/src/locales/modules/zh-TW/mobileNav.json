@@ -1,5 +1,8 @@
 {
   "mobileNav": {
-    "bottomNavAriaLabel": "bottomNavAriaLabel"
+    "title": "導航",
+    "close": "關閉",
+    "ariaLabel": "移動端導航",
+    "bottomNavAriaLabel": "移動端底部導航"
   }
 }

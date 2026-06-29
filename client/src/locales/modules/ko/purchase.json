@@ -1,5 +1,20 @@
 {
   "purchase": {
-    "핵심 장점": "구매기이것은"
+    "핵심 장점": "구매기이것은",
+    "myRecords": "내구매기이것은",
+    "searchPlaceholder": "검색에이전트이름또는주의문번호",
+    "agentName": "에이전트이름",
+    "orderNo": "주의문번호",
+    "purchasePrice": "구매가격",
+    "discountUnit": "% 할인",
+    "purchaseDuration": "구매시간",
+    "months": "개월",
+    "purchaseTime": "구매시간",
+    "expiryTime": "도달기간시간",
+    "orderStatus": "주의문상태",
+    "settlementStatus": "정산상태",
+    "settled": "완료정산",
+    "unsettled": "아직정산",
+    "title": "구매기이것은"
   }
 }

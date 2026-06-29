@@ -496,7 +496,7 @@ describe('webVitals', () => {
   describe('INP评级补充', () => {
     it('应该正确评级INP good (≤200)', () => {
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -507,7 +507,7 @@ describe('webVitals', () => {
 
     it('应该正确评级INP poor (>500)', () => {
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -521,7 +521,7 @@ describe('webVitals', () => {
   describe('LCP/FCP评级good', () => {
     it('应该正确评级LCP good (≤2500)', () => {
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -551,7 +551,7 @@ describe('webVitals', () => {
       setAlertHandler(handler)
       setAlertThresholds({ LCP: { good: 100, poor: 200 } })
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 150 }] })
@@ -563,7 +563,7 @@ describe('webVitals', () => {
       setAlertHandler(handler)
       setAlertThresholds({ LCP: { good: 100, poor: 200 } })
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 300 }] })
@@ -575,7 +575,7 @@ describe('webVitals', () => {
       setAlertHandler(handler)
       setAlertThresholds({ LCP: { good: 100, poor: 200 } })
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 50 }] })
@@ -589,7 +589,7 @@ describe('webVitals', () => {
       const { logger } = await import('../logger')
       setAlertThresholds({ LCP: { good: 100, poor: 200 } })
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 150 }] })
@@ -600,7 +600,7 @@ describe('webVitals', () => {
       const { logger } = await import('../logger')
       setAlertThresholds({ LCP: { good: 100, poor: 200 } })
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 300 }] })
@@ -610,7 +610,7 @@ describe('webVitals', () => {
     it('报告指标时应调用 logger.debug', async () => {
       const { logger } = await import('../logger')
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 1500 }] })
@@ -630,7 +630,7 @@ describe('webVitals', () => {
   describe('CLS累加', () => {
     it('应该累加多次 layout-shift 值', () => {
       const cbs: Array<(l: { getEntries: () => { value: number; hadRecentInput: boolean }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -644,7 +644,7 @@ describe('webVitals', () => {
 
     it('hadRecentInput=true 的条目应被跳过', () => {
       const cbs: Array<(l: { getEntries: () => { value: number; hadRecentInput: boolean }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -660,7 +660,7 @@ describe('webVitals', () => {
   describe('INP边界', () => {
     it('空 entries 时不应报告 INP', () => {
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -712,7 +712,7 @@ describe('webVitals', () => {
   describe('getRating默认分支', () => {
     it('未知指标名称应返回 good', async () => {
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       const callback: WebVitalsCallback = vi.fn()
       initWebVitals(callback)
@@ -745,7 +745,7 @@ describe('webVitals', () => {
       const mp = { getEntriesByType: vi.fn().mockReturnValue([]) }
       Object.defineProperty(window, 'performance', { value: mp, writable: true, configurable: true })
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       // 触发 20 次 INP 累积到 MAX_BUFFER_SIZE 立即 flush
@@ -765,7 +765,7 @@ describe('webVitals', () => {
       const mp = { getEntriesByType: vi.fn().mockReturnValue([]) }
       Object.defineProperty(window, 'performance', { value: mp, writable: true, configurable: true })
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       for (let i = 0; i < 20; i++) {
@@ -783,7 +783,7 @@ describe('webVitals', () => {
       const mp = { getEntriesByType: vi.fn().mockReturnValue([]) }
       Object.defineProperty(window, 'performance', { value: mp, writable: true, configurable: true })
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       expect(() => {
@@ -801,7 +801,7 @@ describe('webVitals', () => {
       const mp = { getEntriesByType: vi.fn().mockReturnValue([]) }
       Object.defineProperty(window, 'performance', { value: mp, writable: true, configurable: true })
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       for (let i = 0; i < 20; i++) {
@@ -858,7 +858,7 @@ describe('webVitals', () => {
           }
         })
         disconnect = vi.fn()
-        constructor(_cb: any) { callCount++ }
+        constructor(_cb: unknown) { callCount++ }
       }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       expect(() => initWebVitals()).not.toThrow()
@@ -874,7 +874,7 @@ describe('webVitals', () => {
       mockFetch.mockClear()
       setAlertThresholds({ LCP: { good: 100, poor: 200 } })
       const cbs: Array<(l: { getEntries: () => { startTime: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[0]!({ getEntries: () => [{ startTime: 300 }] })
@@ -894,7 +894,7 @@ describe('webVitals', () => {
       const mp = { getEntriesByType: vi.fn().mockReturnValue([]) }
       Object.defineProperty(window, 'performance', { value: mp, writable: true, configurable: true })
       const cbs: Array<(l: { getEntries: () => { duration: number }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       // 触发 20 次 INP 累积到 MAX_BUFFER_SIZE
@@ -908,11 +908,11 @@ describe('webVitals', () => {
 
   // 补充测试：reportToAnalytics gtag 上报（验证参数）
   describe('gtag上报验证', () => {
-    it('应在生产环境调用 gtag 上报', () => {
+    it('应用生产环境调用 gtag 上报', () => {
       vi.stubEnv('PROD', 'true')
       // spyOn 拦截 window.gtag
       const gtagMock = vi.fn()
-      vi.spyOn(window as any, 'gtag').mockImplementation(gtagMock)
+      vi.spyOn(window as unknown as { gtag: (...args: unknown[]) => void }, 'gtag').mockImplementation(gtagMock)
       const mp = { getEntriesByType: vi.fn().mockImplementation((t: string) => {
         if (t === 'paint') return [{ name: 'first-contentful-paint', startTime: 100 }]
         if (t === 'navigation') return [{ startTime: 0, responseStart: 100 }]
@@ -926,17 +926,17 @@ describe('webVitals', () => {
     it('CLS 指标应乘以 1000 再上报', () => {
       vi.stubEnv('PROD', 'true')
       const gtagMock = vi.fn()
-      vi.spyOn(window as any, 'gtag').mockImplementation(gtagMock)
+      vi.spyOn(window as unknown as { gtag: (...args: unknown[]) => void }, 'gtag').mockImplementation(gtagMock)
       const mp = { getEntriesByType: vi.fn().mockReturnValue([]) }
       Object.defineProperty(window, 'performance', { value: mp, writable: true, configurable: true })
       const cbs: Array<(l: { getEntries: () => { value: number; hadRecentInput: boolean }[] }) => void> = []
-      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: any) { cbs.push(cb) } }
+      class MockPO { observe = vi.fn(); disconnect = vi.fn(); constructor(cb: typeof cbs[number]) { cbs.push(cb) } }
       window.PerformanceObserver = MockPO as unknown as typeof PerformanceObserver
       initWebVitals()
       cbs[2]!({ getEntries: () => [{ value: 0.123, hadRecentInput: false }] })
       const clsCall = gtagMock.mock.calls.find(c => c[1] === 'CLS')
       expect(clsCall).toBeDefined()
-      expect((clsCall![2] as any).value).toBe(123)
+      expect((clsCall![2] as { value: number }).value).toBe(123)
     })
 
     it('无 gtag 时不抛错', () => {

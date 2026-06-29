@@ -1,7 +1,7 @@
 import { logger } from '@/utils/logger'
 
 // 安全的字符串分割函数
-export const safeSplit = (str: any, separator: string | RegExp, limit?: number): string[] => {
+export const safeSplit = (str: unknown, separator: string | RegExp, limit?: number): string[] => {
   // 确保str是字符串
   if (typeof str !== 'string') {
     logger.error('String expected for safeSplit, got:', typeof str, str)
@@ -23,7 +23,7 @@ export const safeSplit = (str: any, separator: string | RegExp, limit?: number):
 }
 
 // 安全的获取字符串属性函数
-export const safeGetProperty = (obj: any, path: string | string[]): any => {
+export const safeGetProperty = (obj: unknown, path: string | string[]): unknown => {
   try {
     if (!obj || typeof obj !== 'object') {
       return null
@@ -61,7 +61,7 @@ export const safeGetProperty = (obj: any, path: string | string[]): any => {
 }
 
 // 安全的获取字符串属性并返回字符串值函数
-export const safeGetStringProperty = (obj: any, path: string | string[]): string => {
+export const safeGetStringProperty = (obj: unknown, path: string | string[]): string => {
   const value = safeGetProperty(obj, path)
   return typeof value === 'string' ? value : String(value || '')
 }
@@ -69,7 +69,7 @@ export const safeGetStringProperty = (obj: any, path: string | string[]): string
 // 替换国际化文本中的 @ 符号占位符
 // vue-i18n 会将 @ 符号解析为 linked message，所以需要用 {'@'} 转义
 // 此函数将转义后的 {'@'} 替换回 @ 符号
-export const replaceAtSymbol = (value: any): string => {
+export const replaceAtSymbol = (value: unknown): string => {
   if (typeof value !== 'string') {
     return String(value || '')
   }

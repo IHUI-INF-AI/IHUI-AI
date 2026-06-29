@@ -1,14 +1,12 @@
 {
   "memberExamWrong": {
-    "analysis": "analysis",
-    "correctAnswer": "正确答案",
-    "empty": "空",
-    "enterExam": "进入考试",
-    "master": "主",
-    "masteredFailed": "mastered 失败",
-    "masteredSuccess": "mastered 成功",
-    "myAnswer": "my 答案",
-    "notAnswered": "未回答",
-    "title": "标题"
+    "title": "错题本",
+    "empty": "暂无错题",
+    "remove": "移除",
+    "myAnswer": "我的答案：",
+    "notAnswered": "未作答",
+    "correctAnswer": "正确答案：",
+    "analysis": "解析：",
+    "removed": "已移除"
   }
 }

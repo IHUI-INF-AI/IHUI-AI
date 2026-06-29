@@ -1,97 +1,122 @@
 {
   "aboutUs": {
+    "heroTitle": "关于我们",
+    "heroSubtitle": "我们专注把大模型与多模态能力变成可落地的产品与服务，为企业和开发者提供稳定、易用的AI能力与工具。",
+    "heroMission": "让每一家企业都能用上AI，让每一个创意都能被更好地实现。",
+    "stats": {
+      "users": "注册用户",
+      "developers": "开发者",
+      "models": "AI 模型"
+    },
     "companyIntro": {
-      "paragraph1": "段落 1",
-      "paragraph2": "段落 2",
-      "subtitle": "副标题",
-      "tag": "标签",
-      "title": "标题",
-      "visualSublabel": "可视化副标题"
+      "tag": "公司简介",
+      "title": "我们是谁",
+      "subtitle": "用技术与产品，把 AI 能力交付到每一款应用与每一次协作中。",
+      "paragraph1": "智汇AI 聚焦人工智能技术的产品化与规模化应用。我们对接国内外主流大模型与多模态能力，通过统一 API、工作流与开放平台，让企业与开发者能以更低成本、更快速度接入和迭代AI能力。",
+      "paragraph2": "团队来自互联网与AI一线，既有算法与工程经验，也懂业务场景。我们相信：AI 的价值在于真正被用起来。因此我们在稳定性、易用性和可扩展性上持续投入，并围绕企业协作、内容生产、智能体等场景提供开箱即用的解决方案。",
+      "visualSublabel": "以 AI 为优先的产品与架构设计"
     },
     "coreValues": {
-      "efficient": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "innovative": {
-        "description": "描述",
-        "title": "标题"
-      },
       "professional": {
-        "description": "描述",
-        "title": "标题"
+        "title": "专业",
+        "description": "深耕 AI 与工程实践，输出可落地的技术方案与最佳实践"
+      },
+      "efficient": {
+        "title": "高效",
+        "description": "统一接口与工作流，缩短从想法到上线的周期"
       },
       "reliable": {
-        "description": "描述",
-        "title": "标题"
-      }
+        "title": "可靠",
+        "description": "高可用架构与运维保障，支撑业务持续运行"
+      },
+      "innovative": {
+        "title": "创新",
+        "description": "紧跟模型与场景演进，持续迭代产品与能力"
+      },
+      "tag": "核心价值",
+      "title": "核心价值"
     },
     "developmentHistory": {
-      "tag": "标签",
-      "title": "标题"
-    },
-    "heroMission": "英雄使命",
-    "heroSubtitle": "副标题",
-    "heroTitle": "主标题",
-    "milestones": {
-      "aiAppStore": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "angelFunding": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "companyFounded": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "developersMilestone": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "firstUsers": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "modelIntegration": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "platformLaunched": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "usersMilestone": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      }
-    },
-    "quickNav": {
-      "contactUs": "联系我们"
+      "tag": "发展历程",
+      "title": "发展历程"
     },
     "team": {
-      "subtitle": "副标题",
-      "tag": "标签",
-      "title": "标题"
+      "tag": "核心团队",
+      "title": "核心团队",
+      "subtitle": "来自大厂与 AI 一线的产品、算法与工程团队，共同打造可规模化的 AI 服务。"
+    },
+    "quickNav": {
+      "contactUs": "联系我们",
+      "title": "快速导航",
+      "newsCenter": "AI动态",
+      "becomeSupplier": "成为供应商"
+    },
+    "milestones": {
+      "companyFounded": {
+        "date": "2024年12月",
+        "title": "公司成立",
+        "description": "智汇AI正式成立，专注AI技术研发与产品创新"
+      },
+      "aiAppStore": {
+        "date": "2025年1月",
+        "title": "全球首家智能体平台",
+        "description": "率先提出并创建全球首家智能体平台概念，引领AI应用生态发展"
+      },
+      "platformLaunched": {
+        "date": "2025年1月",
+        "title": "平台上线",
+        "description": "AI服务平台正式上线，提供智能对话、文本生成等核心能力"
+      },
+      "angelFunding": {
+        "date": "2025年2月",
+        "title": "获2000万天使轮融资",
+        "description": "获36氪报道，完成2000万元天使轮融资，多家VC基金联投"
+      },
+      "firstUsers": {
+        "date": "2025年3月",
+        "title": "首批用户突破",
+        "description": "平台首批种子用户突破1000人，产品获得早期市场验证"
+      },
+      "modelIntegration": {
+        "date": "2025年6月",
+        "title": "大模型全面接入",
+        "description": "接入GPT-4、Claude、DeepSeek、文心一言等主流大模型API，服务能力大幅提升"
+      },
+      "usersMilestone": {
+        "date": "2025年10月",
+        "title": "用户突破6万",
+        "description": "平台注册用户突破6万+，获得市场广泛认可"
+      },
+      "developersMilestone": {
+        "date": "2025年12月",
+        "title": "开发者突破8000",
+        "description": "平台开发者数量突破8000+，构建活跃开发者生态"
+      }
     },
     "teamMembers": {
       "founder": {
-        "description": "描述",
-        "name": "名称",
-        "role": "角色"
+        "name": "李总",
+        "role": "创始人兼CTO兼CEO",
+        "description": "AI 算法与系统架构专家，多项专利与论文，负责技术路线与平台架构"
       }
-    }
+    },
+    "sixKPlus": "6万+",
+    "title": "关于我们",
+    "subtitle": "了解智汇AI的发展历程和团队",
+    "backHome": "返回首页",
+    "heroEyebrow": "智汇AI",
+    "contact": {
+      "title": "联系方式",
+      "email": "邮箱",
+      "phone": "电话",
+      "address": "地址",
+      "emailValue": "contact@zhihuiai.com",
+      "phoneValue": "400-888-8888",
+      "addressValue": "北京市海淀区中关村大街1号"
+    },
+    "footerTagline": "用 AI 赋能每一份创作与每一次决策。欢迎合作与交流。"
   },
   "AboutUs": {
-    "sixKPlus": "6K+"
+    "sixKPlus": "6万+"
   }
 }

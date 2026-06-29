@@ -1,54 +1,54 @@
 {
   "techService": {
-    "appointmentFailed": "appointment 失败",
-    "appointmentSubmitted": "appointment Submitted",
-    "appointmentTitle": "appointment 标题",
-    "form": {
-      "datePlaceholder": "请选择日期",
-      "description": "描述",
-      "descriptionPlaceholder": "请输入描述",
-      "email": "邮箱",
-      "emailPlaceholder": "请输入邮箱",
-      "invalidEmail": "邮箱格式不正确",
-      "invalidPhone": "手机号格式不正确",
-      "name": "名称",
-      "namePlaceholder": "请输入名称",
-      "phone": "手机号",
-      "phonePlaceholder": "请输入手机号",
-      "preferredDate": "期望日期",
-      "preferredTime": "期望时间",
-      "timePlaceholder": "时间 placeholder",
-      "validationRequired": "validation 必填"
-    },
+    "title": "技术服务专区",
+    "subtitle": "获取专业的技术支持和帮助",
     "services": {
-      "consultation": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "custom": {
-        "desc": "描述",
-        "title": "标题"
+      "support": {
+        "title": "在线客服",
+        "desc": "联系我们的客服团队获取帮助"
       },
       "docs": {
-        "desc": "描述",
-        "title": "标题"
+        "title": "技术文档",
+        "desc": "查看详细的技术文档和API说明"
       },
-      "feedback": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "support": {
-        "desc": "描述",
-        "title": "标题"
+      "consultation": {
+        "title": "技术咨询",
+        "desc": "预约专业的技术咨询服务"
       },
       "training": {
-        "desc": "描述",
-        "title": "标题"
+        "title": "技术培训",
+        "desc": "报名参加我们的技术培训课程"
+      },
+      "custom": {
+        "title": "定制服务",
+        "desc": "获取个性化的技术解决方案"
+      },
+      "feedback": {
+        "title": "意见反馈",
+        "desc": "提交您的建议和反馈"
       }
     },
-    "submitAppointment": "提交 appointment",
-    "subtitle": "副标题",
-    "title": "标题",
-    "underDevelopment": "under Development"
+    "underDevelopment": "功能开发中",
+    "appointmentTitle": "服务预约",
+    "appointmentSubmitted": "预约提交成功，我们会尽快联系您",
+    "submitAppointment": "提交预约",
+    "form": {
+      "name": "姓名",
+      "namePlaceholder": "请输入您的姓名",
+      "email": "邮箱",
+      "emailPlaceholder": "请输入您的邮箱",
+      "phone": "电话",
+      "phonePlaceholder": "请输入您的电话",
+      "preferredDate": "偏好日期",
+      "preferredTime": "偏好时间",
+      "datePlaceholder": "选择日期",
+      "timePlaceholder": "选择时间",
+      "description": "需求描述",
+      "descriptionPlaceholder": "请详细描述您的需求...",
+      "validationRequired": "请填写必填项",
+      "invalidEmail": "请输入有效的邮箱地址",
+      "invalidPhone": "请输入有效的手机号码"
+    },
+    "appointmentFailed": "预约提交失败，请稍后重试"
   }
 }

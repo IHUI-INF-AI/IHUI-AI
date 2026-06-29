@@ -282,7 +282,7 @@ export function useXuqiuList(options: UseXuqiuListOptions = {}) {
 
       const responseTyped = response as {
         code?: number
-        data?: { records?: any[]; total?: number }
+        data?: { records?: unknown[]; total?: number }
       }
       if (responseTyped && responseTyped.code === 200 && responseTyped.data) {
         dataList.value = (responseTyped.data.records || []) as DemandItem[]
@@ -294,7 +294,7 @@ export function useXuqiuList(options: UseXuqiuListOptions = {}) {
         total.value = 0
         ElMessage.warning(t('xuqiu.fetchDataFailed'))
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 500 / 网络异常时 fallback 到本地 mock 数据，保证页面可用。
       logger.warn('[Xuqiu] Backend unreachable, switched to local demo data:', error)
       const mock = buildMockXuqiuList()

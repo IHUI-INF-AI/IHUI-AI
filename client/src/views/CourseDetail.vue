@@ -160,7 +160,7 @@ function buyNow() {
     .title {
       font-size: 20px;
       color: var(--color-white);
-      font-weight: 700;
+      font-weight: bold;
       margin-bottom: 4px;
     }
 
@@ -185,7 +185,7 @@ function buyNow() {
 
     .text {
       font-size: 14px;
-      color: var(--el-text-color-primary);
+      color: var(--color-gray-333);
     }
   }
 }
@@ -197,14 +197,14 @@ function buyNow() {
 
   .section-title {
     font-size: 16px;
-    font-weight: 700;
-    color: var(--el-text-color-primary);
+    font-weight: bold;
+    color: var(--color-gray-333);
     margin-bottom: 12px;
   }
 
   .section-content {
     font-size: 14px;
-    color: var(--el-text-color-secondary);
+    color: var(--color-gray-666);
     line-height: 1.8;
   }
 }
@@ -222,18 +222,18 @@ function buyNow() {
   padding-right: 12px;
 
   .outline-title {
-    color: var(--el-text-color-primary);
+    color: var(--color-gray-333);
   }
 
   .outline-duration {
-    color: var(--el-text-color-placeholder);
+    color: var(--color-gray-999);
     font-size: 12px;
   }
 }
 
 .outline-content {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-gray-666);
   line-height: 1.6;
 }
 
@@ -248,6 +248,8 @@ function buyNow() {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
+  box-shadow: var(--global-box-shadow);
+
   .price {
     .symbol {
       font-size: 14px;
@@ -257,7 +259,7 @@ function buyNow() {
     .amount {
       font-size: 22px;
       color: var(--color-blue-4080ff);
-      font-weight: 700;
+      font-weight: bold;
     }
   }
 

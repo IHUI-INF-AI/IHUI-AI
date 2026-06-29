@@ -7,13 +7,13 @@ import { apiClient } from '../client'
 import type { ApiResponse } from '@/types'
 // 定义缺失的类型
 interface AgentSwarmConfig {
-  [key: string]: any
+  [key: string]: unknown
 }
 interface TaskPlan {
-  [key: string]: any
+  [key: string]: unknown
 }
 interface ReflectionResult {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**
@@ -59,9 +59,9 @@ export interface SwarmStatusResponse {
 export interface SwarmExecutionResult {
   stepId: string
   stepAction: string
-  result: any
+  result: unknown
   reflection?: ReflectionResult
-  correctedResult?: any
+  correctedResult?: unknown
   executionTime: number
   tokensUsed: number
   status: string
@@ -76,14 +76,14 @@ export interface SwarmExecutionResult {
 export async function createAgenticSwarm(
   data: CreateSwarmRequest
 ): Promise<ApiResponse<CreateSwarmResponse>> {
-  return apiClient.post<CreateSwarmResponse>('/ai/agentic/swarm/create', data)
+  return apiClient.post<CreateSwarmResponse>('/api/ai/agentic/swarm/create', data)
 }
 
 /**
  * 获取 Swarm 状态
  */
 export async function getSwarmStatus(swarmId: string): Promise<ApiResponse<SwarmStatusResponse>> {
-  return apiClient.get<SwarmStatusResponse>(`/ai/agentic/swarm/${swarmId}/status`)
+  return apiClient.get<SwarmStatusResponse>(`/api/ai/agentic/swarm/${swarmId}/status`)
 }
 
 /**
@@ -92,15 +92,14 @@ export async function getSwarmStatus(swarmId: string): Promise<ApiResponse<Swarm
 export async function getSwarmResults(
   swarmId: string
 ): Promise<ApiResponse<SwarmExecutionResult[]>> {
-  return apiClient.get<SwarmExecutionResult[]>(`/ai/agentic/swarm/${swarmId}/results`)
+  return apiClient.get<SwarmExecutionResult[]>(`/api/ai/agentic/swarm/${swarmId}/results`)
 }
 
 /**
  * 获取 Swarm 性能指标
  */
 export async function getSwarmPerformance(swarmId: string): Promise<ApiResponse<unknown>> {
-  // 2026-06-24 修复: apiClient 拦截器自动加 /api 前缀, url 中去掉 /api 避免重复
-  return apiClient.get(`/ai/agentic/swarm/${swarmId}/performance`)
+  return apiClient.get(`/api/ai/agentic/swarm/${swarmId}/performance`)
 }
 
 /**
@@ -122,7 +121,7 @@ export async function getUserSwarms(
     totalPages: number
   }>
 > {
-  return apiClient.getPaginated<AgentSwarmConfig>('/ai/agentic/swarms', {
+  return apiClient.getPaginated<AgentSwarmConfig>('/api/ai/agentic/swarms', {
     page: params?.page || 1,
     pageSize: params?.pageSize || 20,
     ...(userId && { userId }),
@@ -134,12 +133,12 @@ export async function getUserSwarms(
  * 取消 Swarm 执行
  */
 export async function cancelSwarm(swarmId: string): Promise<ApiResponse<void>> {
-  return apiClient.post(`/ai/agentic/swarm/${swarmId}/cancel`)
+  return apiClient.post(`/api/ai/agentic/swarm/${swarmId}/cancel`)
 }
 
 /**
  * 获取 Swarm 优化建议
  */
 export async function getSwarmOptimization(swarmId: string): Promise<ApiResponse<unknown>> {
-  return apiClient.get(`/ai/agentic/swarm/${swarmId}/optimization`)
+  return apiClient.get(`/api/ai/agentic/swarm/${swarmId}/optimization`)
 }

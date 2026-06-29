@@ -1,10 +1,10 @@
 {
   "aiList": {
-    "createFailed": "创建失败",
-    "createSuccess": "创建成功",
-    "deleteFailed": "删除失败",
     "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "updateSuccess": "更新成功",
+    "createSuccess": "创建成功",
     "updateFailed": "更新失败",
-    "updateSuccess": "更新成功"
+    "createFailed": "创建失败"
   }
 }

@@ -87,26 +87,22 @@
     "thirdParty": {
       "or": "또는",
       "wechatLogin": "WeChat 로그인",
-      "alipayLogin": "Alipay 로그인",
       "googleLogin": "Google 로그인",
       "appleLogin": "Apple 로그인",
       "notice": "서드파티 로그인을 생각사용하면 다음에 동의하는 것으로 간주의됩니다",
       "privacyPolicy": "개인정보 보호정책",
       "termsOfService": "서비스 약관",
       "wechatLoginFailed": "WeChat 로그인 실패, 다시 시도하세요",
-      "alipayLoginFailed": "Alipay 로그인 실패, 다시 시도하세요",
       "googleLoginFailed": "Google 로그인 실패, 다시 시도하세요",
       "appleLoginFailed": "Apple 로그인 실패, 다시 시도하세요",
       "tooltip": {
         "wechat": "WeChat 로그인",
-        "alipay": "Alipay 로그인",
         "google": "Google 로그인",
         "apple": "Apple 로그인",
         "feishu": "Feishu 로그인"
       },
       "feishuLogin": "Feishu로그인",
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "이메일Login": "이메일Login",
       "feishu": "feishu",
@@ -121,9 +117,9 @@
       "phoneLogin": "phoneLogin"
     },
     "brand": {
-      "핵심 장점": "세계 최초 혁신 AI App Store",
+      "핵심 장점": "세계 최초 혁신 에이전트 플랫폼",
       "sub핵심 장점": "모두를 위한 원스톱 AI 통합 앱 플랫폼",
-      "title": "세계 최초 혁신 AI App Store",
+      "title": "세계 최초 혁신 에이전트 플랫폼",
       "subtitle": "모두를 위한 원스톱 AI 통합 앱 플랫폼"
     },
     "form": {
@@ -175,14 +171,5 @@
   "loginPopup": {
     "핵심 장점": "로그인",
     "전화Login": "전화번호 로그인"
-  },
-  "userLoginPopup": {
-    "welcomeBack": "돌아오신 것을 환영합니다, 로그인하세요",
-    "enterPhone": "전화번호를 입력하세요",
-    "invalidPhone": "전화번호 형식이 잘못되었습니다",
-    "codeSent": "인증번호 발송됨",
-    "codeSendFailed": "인증번호 발송 실패, 재시도하세요",
-    "loginSuccess": "로그인 성공",
-    "wechatLoginNotConfigured": "WeChat 로그인이 설정되지 않음"
   }
 }

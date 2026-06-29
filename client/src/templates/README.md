@@ -164,4 +164,4 @@ cp src/templates/ComponentTemplate.vue src/components/YourComponent.vue
 - [CSS 变量命名规范](../docs/css-variables-guide.md)
 - [暗色模式开发指南](../docs/dark-mode-guide.md)
 - [CSS 变量速查表组件](../src/components/dev/CSSVariablesCheatsheet.vue)
-- [硬编码颜色检测脚本](../scripts/check-hardcoded-colors.ts)
+- [硬编码颜色检测脚本](../scripts/check-hardcoded-colors.ts)（已移除，建议用 stylelint 或手动检查替代）

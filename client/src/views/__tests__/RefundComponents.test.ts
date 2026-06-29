@@ -67,9 +67,8 @@ describe('RefundStatus 组件', () => {
   it('凭证列表渲染', () => {
     setActivePinia(createPinia())
     const evidence = [
-      // 2026-06-25 修复: 用 mock:// 协议占位符代替 /tmp/, 避免在 Windows 上被误解释为 G:\\tmp\\
-      { id: '1', filename: 'a.png', stored_path: 'mock://evidence/a.png', size: 1024, uploaded_at: '2026-06-18T10:00:00Z' },
-      { id: '2', filename: 'b.pdf', stored_path: 'mock://evidence/b.pdf', size: 2048, uploaded_at: '2026-06-18T10:01:00Z' },
+      { id: '1', filename: 'a.png', stored_path: '/tmp/a.png', size: 1024, uploaded_at: '2026-06-18T10:00:00Z' },
+      { id: '2', filename: 'b.pdf', stored_path: '/tmp/b.pdf', size: 2048, uploaded_at: '2026-06-18T10:01:00Z' },
     ]
     const w = mount(RefundStatus, {
       props: { status: 'pending', timeline: [], evidence },

@@ -21,7 +21,7 @@ const isConnected = ref(false)
 const isLoadingHistory = ref(false)
 const hasMoreHistory = ref(true)
 
-let ws: WebSocket | { onMessage: (cb: (res: { data: any }) => void) => void; onClose: (cb: () => void) => void; onError: (cb: () => void) => void; send: (options: { data: string }) => void; close: (options?: Record<string, unknown>) => void } | null = null
+let ws: WebSocket | { onMessage: (cb: (res: { data: unknown }) => void) => void; onClose: (cb: () => void) => void; onError: (cb: () => void) => void; send: (options: { data: string }) => void; close: (options?: Record<string, unknown>) => void } | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectCount = 0
 const MAX_RECONNECT = 5
@@ -48,7 +48,7 @@ export function useChat() {
         success: () => {},
         fail: () => handleDisconnect(),
       })
-      ws.onMessage((res: { data: any }) => handleRawMessage(res.data as string | ArrayBuffer))
+      ws.onMessage((res: { data: unknown }) => handleRawMessage(res.data as string | ArrayBuffer))
       ws.onClose(() => handleDisconnect())
       ws.onError(() => handleDisconnect())
       isConnected.value = true
@@ -133,7 +133,16 @@ export function useChat() {
     try {
       const { request: req } = await import('../api/index')
       const res = await req({ url: `/api/chat/history?page=${page}&pageSize=${pageSize}`, method: 'GET' })
-      const history: ChatMessage[] = (res.data || []).map((item: any) => ({
+      interface HistoryItem {
+        id: string
+        type?: MessageType
+        content: string
+        senderId: string
+        senderName: string
+        senderAvatar: string
+        timestamp: number
+      }
+      const history: ChatMessage[] = ((res.data || []) as HistoryItem[]).map((item) => ({
         id: item.id,
         type: item.type || 'text',
         content: item.content,

@@ -1,18 +1,18 @@
 {
   "devPayCard": {
-    "discount": "折扣",
-    "discount50": "discount50",
-    "discount70": "discount70",
-    "discount80": "discount80",
-    "month": "月",
-    "noDiscount": "noDiscount",
-    "orderTime": "orderTime",
-    "pending": "待处理",
-    "permanent": "permanent",
-    "price": "价格",
-    "purchased": "purchased",
-    "relatedOrderNo": "relatedOrderNo",
-    "settled": "settled",
-    "year": "年"
+    "relatedOrderNo": "Related Order No: ",
+    "orderTime": "Order Time: ",
+    "price": "Price: ",
+    "discount": "Discount: ",
+    "purchased": "Purchased",
+    "settled": "Settled",
+    "pending": "Pending",
+    "month": "Month",
+    "year": "Year",
+    "permanent": "Permanent",
+    "noDiscount": "None",
+    "discount80": "20% off",
+    "discount70": "30% off",
+    "discount50": "50% off"
   }
 }

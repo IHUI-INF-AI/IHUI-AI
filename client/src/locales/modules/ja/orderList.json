@@ -1,9 +1,26 @@
 {
   "orderList": {
-    "noOrders": "noOrders",
-    "orderNo": "orderNo",
-    "orderTime": "orderTime",
-    "searchPlaceholder": "请输入搜索内容",
-    "title": "标题"
+    "title": "注文リスト",
+    "searchPlaceholder": "注文番号で検索...",
+    "orderNo": "注文番号",
+    "orderTime": "注文時間",
+    "noOrders": "注文が見つかりません",
+    "tabs": {
+      "all": "すべて",
+      "pending": "支払待ち",
+      "shipping": "発送待ち",
+      "completed": "完了",
+      "refunded": "返金済み"
+    },
+    "status": {
+      "pending": "支払待ち",
+      "paid": "支払済み",
+      "shipped": "発送済み",
+      "completed": "完了",
+      "cancelled": "キャンセル",
+      "refunded": "返金済み",
+      "ended": "終了",
+      "unknown": "不明"
+    }
   }
 }

@@ -27,7 +27,7 @@
       "code": "请输入验证码",
       "password": "请输入密码",
       "confirmPassword": "请确认密码",
-      "email": "邮箱"
+      "email": "email"
     },
     "validation": {
       "usernameRequired": "用户名不能为空",
@@ -60,6 +60,11 @@
       "codeSent": "验证码已发送",
       "codeSendFailed": "验证码发送失败",
       "codeSendFailedRetry": "验证码发送失败，请重试",
+      "codeError": "验证码错误",
+      "verifyFailed": "验证失败，请重试",
+      "verifySuccess": "验证成功",
+      "resetPasswordFailed": "密码重置失败",
+      "resetPasswordFailedRetry": "密码重置失败，请重试",
       "agreementRequired": "请同意服务条款和隐私政策",
       "registerSuccess": "注册成功",
       "registerFailed": "注册失败",

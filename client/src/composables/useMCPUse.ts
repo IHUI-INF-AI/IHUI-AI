@@ -42,7 +42,7 @@ export function useMCPUse() {
       }
 
       return success
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       ElMessage.error(err?.message || t('common.errors.mcpConnectFailed'))
       return false
@@ -70,7 +70,7 @@ export function useMCPUse() {
       }
 
       return success
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       ElMessage.error(err?.message || t('common.errors.mcpCreateFailed'))
       return false
@@ -119,7 +119,7 @@ export function useMCPUse() {
         toolName: 'runAgent',
         timestamp: Date.now(),
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       ElMessage.error(err?.message || t('common.errors.mcpExecuteFailed'))
       return {

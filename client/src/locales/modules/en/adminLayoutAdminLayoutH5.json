@@ -1,0 +1,8 @@
+{
+  "adminLayoutAdminLayoutH5": {
+    "profile": "Profile",
+    "systemSettings": "System Settings",
+    "logout": "Logout",
+    "confirmLogout": "Confirm logout?"
+  }
+}

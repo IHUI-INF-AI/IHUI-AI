@@ -5,7 +5,7 @@
 
 import { ElMessage } from 'element-plus'
 import { logger } from '../utils/logger'
-import { safeParseJson, StorageManager, STORAGE_KEYS } from '@/utils/storage'
+import { safeParseJson, StorageManager, STORAGE_KEYS, TokenStorage } from '@/utils/storage'
 import { t } from '@/composables/useLang'
 
 export class UnifiedAuthService {
@@ -121,10 +121,9 @@ export class UnifiedAuthService {
         })
 
         // 保存认证信息到本地存储 - 使用统一的存储 keys
-        StorageManager.setItem(STORAGE_KEYS.TOKEN, token)
-        StorageManager.setItem(STORAGE_KEYS.USER_TOKEN, token)
+        TokenStorage.setToken(token)
         if (refreshToken) {
-          StorageManager.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken)
+          TokenStorage.setRefreshToken(refreshToken)
         }
         StorageManager.setItem(STORAGE_KEYS.USER_DATA, userInfo)
 
@@ -153,7 +152,7 @@ export class UnifiedAuthService {
    * @returns 是否已登录
    */
   isLoggedIn(): boolean {
-    return !!StorageManager.getItem(STORAGE_KEYS.TOKEN) || !!StorageManager.getItem(STORAGE_KEYS.USER_TOKEN)
+    return !!TokenStorage.getToken()
   }
 
   /**
@@ -169,7 +168,7 @@ export class UnifiedAuthService {
    * @returns 认证令牌
    */
   getAuthToken(): string | null {
-    return StorageManager.getItem<string>(STORAGE_KEYS.TOKEN) || StorageManager.getItem<string>(STORAGE_KEYS.USER_TOKEN)
+    return TokenStorage.getToken()
   }
 
   /**
@@ -177,7 +176,7 @@ export class UnifiedAuthService {
    * @returns 刷新令牌
    */
   getRefreshToken(): string | null {
-    return StorageManager.getItem<string>(STORAGE_KEYS.REFRESH_TOKEN)
+    return TokenStorage.getRefreshToken()
   }
 
   /**
@@ -222,10 +221,9 @@ export class UnifiedAuthService {
       const data = await response.json()
 
       if (data.success) {
-        StorageManager.setItem(STORAGE_KEYS.TOKEN, data.data.token)
-        StorageManager.setItem(STORAGE_KEYS.USER_TOKEN, data.data.token)
+        TokenStorage.setToken(data.data.token)
         if (data.data.refreshToken) {
-          StorageManager.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.data.refreshToken)
+          TokenStorage.setRefreshToken(data.data.refreshToken)
         }
         return true
       }

@@ -59,7 +59,10 @@ export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
 // 2026-06-26 修复: 增加 'cmpErrorBoundary' 核心模块. Error.vue / common/ErrorBoundary.vue 顶层使用
 // t('cmpErrorBoundary.pageError'), 模块 JSON 存在但未注册导致键名裸露 ('cmpErrorBoundary.pageError:')
 // 触发 ErrorBoundary 兜底页文案错误. 体积 ~80B/locale, 5 语言共 ~400B, 可接受.
-const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4', 'cmpErrorBoundary'] as const
+// 2026-06-29 修复: 增加 'floatingChat' 核心模块. 桌面端 AI 面板默认开启, 首屏即渲染空状态
+// (floatingChat.emptyWorkspace.title/description/selectModel/selectAgent), 模块未加载时显示 key 字面量.
+// 体积 ~30KB/locale (gzip ~8KB), 桌面端核心功能, 必须首屏就绪.
+const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4', 'cmpErrorBoundary', 'floatingChat'] as const
 
 // 异步模块列表 - 按需加载
 // 2026-06-26 修复: 补充前台活跃页面缺失的 i18n 模块注册
@@ -75,7 +78,7 @@ const asyncModules = [
   'qrCode', 'unifiedQRLogin', 'register', 'app', 'errorBoundary', 'cmpErrorBoundary',
   'connectionStatus', 'pwa', 'tour', 'progress', 'markdown',
   'commandPalette', 'aiGeneration', 'footer', 'developer', 'workspace',
-  'purchase', 'apiTest', 'settlementStats', 'cmpindex', 'vip', 'search',
+  'purchase', 'apiTest', 'cmpindex', 'vip', 'search',
   'dramaScript',
   // 前台活跃页面缺失模块（2026-06-26 补充）
   'forgotPassword', 'ranking', 'chat', 'agents', 'plaza', 'xuqiu',
@@ -91,6 +94,10 @@ const asyncModules = [
   'buyConfirm', 'payment', 'recharge',
   'floatingChat', 'loginPopup', 'thirdPartyLogin',
   'themeSettings', 'designSystem',
+  // 2026-06-28 修复: member 用户中心 17 个页面 + Menu 组件键名全面裸露
+  // memberMenu/memberPersonal/memberXxx 翻译原本只在 full/ 下(首屏不加载),
+  // 现迁到 modules/member.json, member/Layout.vue onMounted 触发 loadModule
+  'member',
 ] as const
 
 // 2026-06-26 修复: 暴露预取函数, App.vue 在空闲时调用预热常用 i18n 模块
@@ -114,10 +121,62 @@ const COMMON_PREFETCH_MODULES: readonly string[] = [
   'workspace',       // 工作台
 ] as const
 
+// 2026-06-28 修复: 一次性 glob 加载 modules/{locale}/ 下所有 JSON, 根除 B 类未注册模块裸露
+// 背景: modules/ 下有 200+ 文件, 但 coreModules(18) + asyncModules(80) 只覆盖 98 个,
+//       其余 100+ 文件虽存在但从未被 loadModule 调用, 对应 t() 前缀首屏裸露.
+// 方案: 空闲时用 import.meta.glob 一次性加载所有 modules/ 文件并 merge.
+//       生产环境 glob 拆成独立 chunk 按需 import, 不会打成大包; dev 即时加载.
+//       跳过已加载模块 (isModuleLoaded) 避免重复 merge.
+const _allModulesGlobLoaded = new Set<string>()
+export async function loadAllModulesFromGlob(locale: SupportedLocale): Promise<void> {
+  if (_allModulesGlobLoaded.has(locale)) return
+  _allModulesGlobLoaded.add(locale)
+  try {
+    const allModules = import.meta.glob('./modules/*/*.json')
+    const entries = await Promise.all(
+      Object.entries(allModules)
+        .filter(([p]) => p.startsWith(`./modules/${locale}/`))
+        .map(async ([p, loader]) => {
+          const moduleName = p.split('/').pop()!.replace('.json', '')
+          // 跳过已加载模块 (coreModules/asyncModules 已加载的), 避免重复 merge
+          if (isModuleLoaded(locale, moduleName)) return null
+          try {
+            const entry = await (loader as () => Promise<Record<string, unknown>>)()
+            markModuleLoaded(locale, moduleName)
+            return entry
+          } catch {
+            return null
+          }
+        }),
+    )
+    const merged: Record<string, unknown> = {}
+    let count = 0
+    for (const entry of entries) {
+      if (entry) {
+        const msg = (entry as { default?: Record<string, unknown> }).default || (entry as Record<string, unknown>)
+        deepMergeInto(merged, msg)
+        count++
+      }
+    }
+    if (Object.keys(merged).length > 0) {
+      mergeI18nMessages(locale, merged)
+      if (import.meta.env.DEV) {
+        logger.debug(`[i18n] All modules glob loaded for ${locale}, ${count} files merged`)
+      }
+    }
+  } catch (error) {
+    _allModulesGlobLoaded.delete(locale)
+    if (import.meta.env.DEV) {
+      logger.warn(`[i18n] Failed to load all modules for ${locale}:`, error)
+    }
+  }
+}
+
 /**
  * 2026-06-26 修复: 空闲预取常用 i18n 模块, 解决 asyncModule 竞态导致的键名裸露
  * 用 requestIdleCallback (fallback setTimeout 100ms) 调度, 避开首屏关键渲染期
  * 同一 locale 重复调用仅调度一次; 切换语言时通过 resetPrefetchFlag 重新启用
+ * 2026-06-28 增强: 高频模块优先加载后, 追加 loadAllModulesFromGlob 全量补齐 B 类未注册模块
  */
 export function prefetchCommonI18nModules(locale: SupportedLocale): void {
   if (_prefetchScheduled.has(locale)) return
@@ -131,22 +190,29 @@ export function prefetchCommonI18nModules(locale: SupportedLocale): void {
     }
   }
 
-  schedule(() => {
+  schedule(async () => {
     // 静默加载, 失败不阻塞 (预取为优化项, 非必需)
-    loadModules(locale, [...COMMON_PREFETCH_MODULES]).catch((e) => {
+    try {
+      // 1. 高频模块优先 (用户最可能立即访问的页面)
+      await loadModules(locale, [...COMMON_PREFETCH_MODULES])
+      // 2. 全量补齐 B 类未注册模块 (modules/ 下所有文件一次性 glob 加载)
+      await loadAllModulesFromGlob(locale)
+    } catch (e) {
       if (import.meta.env.DEV) {
-        logger.debug(`[i18n] Prefetch common modules for ${locale} failed:`, e)
+        logger.debug(`[i18n] Prefetch modules for ${locale} failed:`, e)
       }
-    })
+    }
   })
 }
 
 /**
  * 2026-06-26 修复: 切换语言后重置预取标志, 下次 prefetchCommonI18nModules 重新调度
  * 因为 setLanguage 已加载完整语言包, 这里只是允许后续再次预取 (例如用户主动再切回)
+ * 2026-06-28: 同步重置 glob 加载标志
  */
 export function resetPrefetchFlag(): void {
   _prefetchScheduled.clear()
+  _allModulesGlobLoaded.clear()
 }
 
 // 已加载的模块缓存
@@ -175,7 +241,7 @@ export async function loadFullLocaleMessages(locale: SupportedLocale): Promise<v
       const merged: Record<string, unknown> = {}
       for (const entry of entries) {
         const msg = (entry as { default?: Record<string, unknown> }).default || entry as Record<string, unknown>
-        Object.assign(merged, msg)
+        deepMergeInto(merged, msg)
       }
       if (Object.keys(merged).length > 0) {
         mergeI18nMessages(locale, merged)
@@ -231,6 +297,7 @@ const CORE_MODULE_SOURCE: Record<string, 'modules' | 'full'> = {
   homePage3: 'modules',
   homePage4: 'modules',
   cmpErrorBoundary: 'modules',
+  floatingChat: 'modules',
 }
 
 // 2026-06-26 修复: 递归把 [ZH:xxx] 占位符替换为 zh-CN 同名 key 的实际值
@@ -277,6 +344,27 @@ function resolveKeyPath(obj: Record<string, unknown>, path: string): unknown {
   return cur
 }
 
+// 深度合并 source 的所有 key 到 target (修改 target).
+// - 若 target[key] 和 source[key] 都是普通对象 (非数组), 递归合并
+// - 否则用 source[key] 覆盖 target[key] (与 Object.assign 一致)
+// 用于 i18n 模块合并, 避免多个模块共享同一顶层 key (如 common) 时浅覆盖丢子 key.
+// 2026-06-27: export 以便单元测试覆盖 (deepMergeInto.test.ts).
+export function deepMergeInto(target: Record<string, unknown>, source: Record<string, unknown> | null | undefined): void {
+  if (!source || typeof source !== 'object') return
+  for (const key of Object.keys(source)) {
+    const srcVal = source[key]
+    const tgtVal = target[key]
+    if (
+      srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal) &&
+      tgtVal && typeof tgtVal === 'object' && !Array.isArray(tgtVal)
+    ) {
+      deepMergeInto(tgtVal as Record<string, unknown>, srcVal as Record<string, unknown>)
+    } else {
+      target[key] = srcVal
+    }
+  }
+}
+
 async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
   // 2026-06-26 修复: 真正 import 全部 coreModules, 每个模块按 CORE_MODULE_SOURCE 定位物理路径
   // 缺模块时 fallback 到 zh-CN 同名文件, 再失败则跳过该模块 (后续按 fallbackLocale 兜底)
@@ -297,11 +385,16 @@ async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string,
   coreModules.forEach(module => markModuleLoaded(locale, module))
 
   // 合并所有 coreModules 的 JSON 内容到顶层
+  // 2026-06-27 修复: 改用深度合并, 解决多个模块共享同一顶层 key (如 common) 时
+  // 后加载模块覆盖前者的子 key 问题. 例: common.json 有 common.learnAIHome,
+  // core.json 也有 common 顶层 key 但没有 learnAIHome, Object.assign 浅合并会
+  // 用 core.json 的 common 整体覆盖 common.json 的 common, 导致 learnAIHome 丢失.
   const merged: Record<string, unknown> = {}
-  for (const mod of coreImports) {
+  for (let i = 0; i < coreImports.length; i++) {
+    const mod = coreImports[i]
     if (mod) {
       const data = (mod as { default?: Record<string, unknown> }).default || (mod as Record<string, unknown>)
-      Object.assign(merged, data)
+      deepMergeInto(merged, data)
     }
   }
 
@@ -585,7 +678,9 @@ export async function setLanguage(lang: string): Promise<void> {
       }
       // 加载目标语言的完整语言包，保证切换语言后 t() 从对应语言文件取键值反显
       await loadFullLocaleMessages(targetLocale)
-      
+      // 2026-06-28 修复: 补齐 modules/ 下 full/ 未覆盖的 B 类未注册模块, 避免切语言后裸露
+      await loadAllModulesFromGlob(targetLocale)
+
       // 设置locale
       setI18nLocale(target)
       // 2026-06-26: 切换语言后重置预取标志, 下次 prefetchCommonI18nModules 重新调度
@@ -642,7 +737,7 @@ export async function loadModules(locale: SupportedLocale, modules: string[]): P
     const merged: Record<string, unknown> = {}
     for (const messages of results) {
       if (messages) {
-        Object.assign(merged, messages)
+        deepMergeInto(merged, messages)
       }
     }
     mergeI18nMessages(locale, merged)
@@ -687,11 +782,11 @@ const _epLocaleLoading = new Map<string, Promise<Record<string, unknown>>>()
 // 5 个 EP locale 已在文件顶部 static import, 这里直接拿引用
 // 之前的 () => import('...') 形式会在每次 dev HMR 后变成失效 hash
 const _epLocales: Record<string, Record<string, unknown>> = {
-  'zh-cn': zhCn as unknown as Record<string, unknown>,
-  'zh-tw': zhTw as unknown as Record<string, unknown>,
-  en: enUs as unknown as Record<string, unknown>,
-  ja: jaJp as unknown as Record<string, unknown>,
-  ko: koKr as unknown as Record<string, unknown>,
+  'zh-cn': zhCn as Record<string, unknown>,
+  'zh-tw': zhTw as Record<string, unknown>,
+  en: enUs as Record<string, unknown>,
+  ja: jaJp as Record<string, unknown>,
+  ko: koKr as Record<string, unknown>,
 }
 
 function _epKey(lang: string): string {
@@ -712,7 +807,7 @@ function _epKey(lang: string): string {
  */
 export function getElementPlusLocale(lang: string): Record<string, unknown> {
   const key = _epKey(lang)
-  return _epLocaleCache.get(key) || _epLocaleCache.get('en') || _epLocales.en || {}
+  return _epLocaleCache.get(key) || _epLocales[key] || _epLocaleCache.get('en') || _epLocales.en || {}
 }
 
 /**
@@ -742,6 +837,24 @@ export async function loadElementPlusLocale(lang: string): Promise<Record<string
 // 初始化i18n
 export async function initI18n(): Promise<void> {
   await initializeCoreMessages()
+  // 2026-06-28 修复: 首屏 coreMessages 就绪后, 空闲时 glob 加载 modules/ 所有文件,
+  // 根除 B 类未注册模块键名裸露 (100+ 文件从未被 loadModule 调用).
+  // idle 调度避开首屏关键渲染; 失败静默 (预取为优化项).
+  const idleLocale = getI18nLocale() as SupportedLocale
+  const scheduleIdle = (cb: () => void): void => {
+    if (typeof (globalThis as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback === 'function') {
+      ;(globalThis as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(cb)
+    } else {
+      setTimeout(cb, 200)
+    }
+  }
+  scheduleIdle(() => {
+    loadAllModulesFromGlob(idleLocale).catch((e) => {
+      if (import.meta.env.DEV) {
+        logger.debug(`[i18n] initI18n idle loadAllModulesFromGlob failed for ${idleLocale}:`, e)
+      }
+    })
+  })
 }
 
 export default i18n

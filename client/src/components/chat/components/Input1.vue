@@ -971,10 +971,10 @@ import { useI18n } from 'vue-i18n';
   
   .dialogue-panel {
     width: 720px;
-    max-width: min(720px, calc(100vw - 24px));
     max-height: 80vh;
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
+    box-shadow: var(--global-box-shadow);
     padding: 20px 20px 16px;
     display: flex;
     flex-direction: column;
@@ -1060,7 +1060,7 @@ import { useI18n } from 'vue-i18n';
   
   .icon-btn:hover {
     background: var(--el-fill-color-dark);
-    
+    transform: translateY(-1px);
   }
   
   .mode-tab {
@@ -1112,7 +1112,8 @@ import { useI18n } from 'vue-i18n';
     transform: translateX(-50%);
     transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: var(--z-dropdown);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   .mode-tab .mode-text::after {
     content: '';
@@ -1121,7 +1122,7 @@ import { useI18n } from 'vue-i18n';
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: var(--el-text-color-primary);
+    border-top-color: var(--border-unified-color);
   }
   
   .mode-tab:hover .mode-text {
@@ -1131,21 +1132,21 @@ import { useI18n } from 'vue-i18n';
   
   .mode-tab.active {
     background: var(--el-color-primary);
-    color: var(--color-on-primary);
+    color: var(--el-color-white);
   }
   
   .mode-tab:hover {
-    
+    transform: translateY(-1px);
   }
   
   .primary-btn {
-    height: 32px;
+    height: 12px;
     padding: 0 12px;
-    min-width: 48px;
+    min-width: 12px;
     border-radius: var(--global-border-radius);
     border: none;
     background: var(--el-color-primary);
-    color: var(--color-on-primary);
+    color: var(--el-color-white);
     font-size: 12px;
     cursor: pointer;
     transition: background-color 0.15s ease, transform 0.15s ease;
@@ -1153,7 +1154,7 @@ import { useI18n } from 'vue-i18n';
   
   .primary-btn:hover {
     background: var(--el-color-primary);
-    
+    transform: translateY(-1px);
   }
   
   /* 发送按钮 - 使用 CSS 变量，使用 CSS 变量控制 */
@@ -1162,20 +1163,21 @@ import { useI18n } from 'vue-i18n';
   .send-icon-btn {
     --send-btn-size: 32px;
     --send-btn-padding: 0;
-
+    
     width: var(--send-btn-size);
     height: var(--send-btn-size);
     min-width: var(--send-btn-size);
     min-height: var(--send-btn-size);
     padding: var(--send-btn-padding);
     border-radius: var(--global-border-radius);
-    background: var(--el-fill-color);
+    background: var(--el-text-color-placeholder);
     color: var(--el-color-white);
-    }
-
+    box-shadow: var(--global-box-shadow);
+  }
+  
   /* Hover 状态：背景不变，图标变蓝色 - 使用组合选择器确保优先级 */
   .send-icon-btn:hover {
-    background: var(--el-fill-color);
+    background: var(--el-text-color-placeholder);
     color: var(--el-color-primary);
     transition: color 0.3s ease;
     transform: none;
@@ -1188,7 +1190,8 @@ import { useI18n } from 'vue-i18n';
   /* Active 状态 */
   .send-icon-btn:active {
     transform: translateY(0);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   /* SVG 图标尺寸 */
   .send-icon-btn svg {
@@ -1232,18 +1235,20 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     background: var(--el-bg-color);
+    box-shadow: var(--global-box-shadow);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     font-size: 12px;
     color: var(--el-text-color-primary);
-    transition: background-color 0.15s ease, transform 0.15s ease;
+    transition: all 0.15s ease;
   }
-
+  
   .mode-group1 .secondary-btn:hover {
     background: var(--el-fill-color-lighter);
-    
+    box-shadow: var(--global-box-shadow);
+    transform: translateY(-1px);
   }
 
 
@@ -1288,10 +1293,10 @@ import { useI18n } from 'vue-i18n';
     border-radius: var(--global-border-radius);
     background: var(--el-bg-color);
     cursor: pointer;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    transition: all 0.15s ease;
     min-width: 80px;
   }
-
+  
   .unified-select-wrapper:hover {
     border-color: var(--el-border-color);
     background: var(--el-fill-color-lighter);
@@ -1339,6 +1344,7 @@ import { useI18n } from 'vue-i18n';
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
+    box-shadow: var(--global-box-shadow);
     z-index: var(--z-modal);
     max-height: 240px;
     overflow-y: auto;
@@ -1402,7 +1408,7 @@ import { useI18n } from 'vue-i18n';
   
   .secondary-btn:hover {
     background: var(--el-fill-color);
-    
+    transform: translateY(-1px);
   }
   
   .checkbox-group input {
@@ -1422,10 +1428,10 @@ import { useI18n } from 'vue-i18n';
 
   .template-dialog-panel {
     width: 600px;
-    max-width: min(600px, calc(100vw - 24px));
     max-height: 70vh;
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
+    box-shadow: var(--global-box-shadow);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1467,7 +1473,7 @@ import { useI18n } from 'vue-i18n';
 
   .template-close-btn:hover {
     background: var(--el-fill-color-dark);
-    
+    transform: translateY(-1px);
   }
 
   .template-dialog-content {

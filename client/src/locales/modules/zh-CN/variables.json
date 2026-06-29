@@ -1,48 +1,49 @@
 {
   "variables": {
+    "title": "变量管理",
+    "subtitle": "管理机器人的变量配置",
+    "createVariable": "新建变量",
+    "selectBot": "选择机器人",
+    "selectBotPlaceholder": "选择机器人",
+    "pleaseSelectBot": "请先选择机器人",
+    "noVariables": "暂无变量",
+    "createFirstVariable": "创建第一个变量",
+    "testBot1": "测试机器人1",
+    "testBot2": "测试机器人2",
+    "testBot3": "测试机器人3",
+    "table": {
+      "name": "变量名",
+      "type": "类型",
+      "value": "值",
+      "description": "描述",
+      "actions": "操作"
+    },
+    "dialog": {
+      "editTitle": "编辑变量",
+      "createTitle": "新建变量",
+      "name": "变量名",
+      "value": "变量值",
+      "description": "描述"
+    },
     "buttons": {
-      "cancel": "取消",
-      "delete": "删除",
       "edit": "编辑",
+      "delete": "删除",
+      "cancel": "取消",
       "save": "保存"
     },
-    "createFirstVariable": "创建 首 variable",
-    "createVariable": "创建 variable",
-    "dialog": {
-      "createTitle": "新建",
-      "description": "描述",
-      "editTitle": "编辑",
-      "name": "名称",
-      "value": "值"
+    "validation": {
+      "nameRequired": "请输入变量名",
+      "valueRequired": "请输入变量值"
     },
     "messages": {
-      "deleteConfirm": "确认删除?",
+      "deleteConfirm": "确定要删除这个变量吗？",
       "deleteConfirmTitle": "确认删除",
-      "deleteFailed": "删除失败",
       "deleteSuccess": "删除成功",
-      "loadBotsFailed": "加载 bots 失败",
+      "deleteFailed": "删除失败",
+      "saveSuccess": "保存成功",
       "saveFailed": "保存失败",
-      "saveSuccess": "保存成功"
-    },
-    "noVariables": "无 variables",
-    "pleaseSelectBot": "please 选择 bot",
-    "selectBot": "选择 bot",
-    "selectBotPlaceholder": "选择 bot placeholder",
-    "subtitle": "副标题",
-    "table": {
-      "actions": "操作",
-      "description": "描述",
-      "name": "名称",
-      "type": "类型",
-      "value": "值"
-    },
-    "testBot1": "测试机器人 1",
-    "testBot2": "测试机器人 2",
-    "testBot3": "测试机器人 3",
-    "title": "标题",
-    "validation": {
-      "nameRequired": "请输入名称",
-      "valueRequired": "值 必填"
+      "loadBotsFailed": "加载机器人列表失败",
+      "loadFailed": "加载变量失败"
     }
   }
 }

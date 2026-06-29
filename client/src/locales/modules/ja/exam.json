@@ -14,14 +14,13 @@
       "questionJudgment": "○×問題を検索",
       "questionMulti": "複数選択問題を検索",
       "questionSingle": "単一選択問題を検索",
-      "questionSubjective": "主観問題を検索",
-      "chapter": "章节",
-      "chapterSection": "chapterSection"
+      "questionSubjective": "主観問題を検索"
     },
     "label": {
       "user": "ユーザー",
       "paper": "試験問題",
       "score": "得点",
+      "duration": "所要時間",
       "submitTime": "提出時間"
     }
   }

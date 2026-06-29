@@ -9,7 +9,7 @@
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { updateUserInfo, uploadAvatar } from '@/api/user/user'
+import { updateUserInfo, uploadAvatar } from '@/api/user'
 
 /**
  * 用户信息接口
@@ -119,14 +119,13 @@ export function useSettingsUserInfo(options: UseSettingsUserInfoOptions = {}) {
     await handleResult(uploadAvatar(file), {
       successMessage: t('user.messages.settings.avatarUploadSuccess'),
       errorMessage: t('user.messages.settings.avatarUploadFailed'),
-      onSuccess: (response: any) => {
-        const res = response as { code?: number | string; data?: { url?: string } }
-        const codeNum = typeof res.code === 'string' ? parseInt(res.code, 10) : res.code
-        if (codeNum === 0 && res.data?.url) {
+      onSuccess: (response: unknown) => {
+        const res = response as { code?: number; data?: { url?: string } }
+        if (res.code === 0 && res.data?.url) {
           userInfo.avatar = res.data.url
         }
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         // 类型断言处理错误对象
         const errorObj = error as { response?: { status?: number } }
         if (errorObj.response?.status === 413) {

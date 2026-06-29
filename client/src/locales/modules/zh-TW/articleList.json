@@ -1,17 +1,14 @@
 {
   "articleList": {
-    "anonymous": "anonymous",
-    "comment": "评论",
-    "essence": "essence",
-    "essenceLabel": "essenceLabel",
-    "featuredArticles": "featuredArticles",
-    "hottest": "hottest",
-    "latest": "最新",
-    "like": "点赞",
-    "noArticle": "noArticle",
-    "pageDesc": "pageDesc",
-    "read": "read",
-    "searchArticle": "searchArticle",
-    "top": "置顶"
+    "featuredArticles": "精選文章",
+    "pageDesc": "深度好文 · 實戰經驗 · 行業洞察",
+    "top": "置頂",
+    "essence": "精",
+    "anonymous": "匿名",
+    "read": "閱讀",
+    "like": "點讚",
+    "comment": "評論",
+    "searchArticle": "搜尋文章",
+    "noArticle": "暫無文章"
   }
 }

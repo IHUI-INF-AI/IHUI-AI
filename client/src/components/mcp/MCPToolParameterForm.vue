@@ -183,7 +183,7 @@ watch(
 
 // 自动提取参数建议
 const suggestions = computed(() => {
-  const suggs: Array<{ key: string; value: any; label: string }> = []
+  const suggs: Array<{ key: string; value: unknown; label: string }> = []
   const userMessageSquare = props.context?.userMessageSquare || ''
 
   if (!props.toolSchema?.properties) return suggs
@@ -307,7 +307,7 @@ const removeArrayItem = (key: string, index: number) => {
   }
 }
 
-const applySuggestion = (suggestion: { key: string; value: any; label: string }) => {
+const applySuggestion = (suggestion: { key: string; value: unknown; label: string }) => {
   formData.value[suggestion.key] = suggestion.value
   showSuccess(t('mcp.params.suggestionApplied'))
 }
@@ -317,7 +317,7 @@ function extractParameterFromMessageSquare(
   message: string,
   paramName: string,
   schema: Record<string, unknown>
-): any {
+): unknown {
   const lowerMessageSquare = message.toLowerCase()
   const lowerParamName = paramName.toLowerCase()
 
@@ -360,7 +360,7 @@ function extractParameterFromMessageSquare(
   return undefined
 }
 
-function parseValue(value: string, schema: Record<string, unknown>): any {
+function parseValue(value: string, schema: Record<string, unknown>): unknown {
   if (schema.type === 'number' || schema.type === 'integer') {
     const num = parseFloat(value)
     return isNaN(num) ? undefined : num

@@ -107,7 +107,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, type Component } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check, X, User, Phone, MessageSquare } from '@/lib/lucide-fallback'
 import { logger } from '@/utils/logger'
@@ -116,15 +116,14 @@ import GoogleLogin from './GoogleLogin.vue'
 
 
 import AppleLogin from './AppleLogin.vue'
-import { FEISHU_AUTH_URL } from '@/constants/feishu'
 
 interface AuthMethod {
   key: string
   name: string
   description: string
   enabled: boolean
-  component: any
-  iconComponent?: any
+  component: Component | null
+  iconComponent?: Component
   iconPath?: { d: string; fill: string }[]
 }
 
@@ -133,7 +132,7 @@ interface Emits {
     e: 'login-success',
     data: { token: string; user: Record<string, unknown>; loginType: string }
   ): void
-  (e: 'login-error', error: any): void
+  (e: 'login-error', error: unknown): void
   (e: 'switch-method', method: string): void
 }
 
@@ -149,7 +148,7 @@ const allMethods: AuthMethod[] = [
     name: t('data.universal_third_party_auth.Google登录'),
     description: t('data.universal_third_party_auth.全球通用登录1'),
     enabled: true,
-    component: GoogleLogin,
+    component: GoogleLogin as Component,
     iconPath: [
       {
         d: 'M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z',
@@ -174,24 +173,11 @@ const allMethods: AuthMethod[] = [
     name: t('data.universal_third_party_auth.Apple登录2'),
     description: t('data.universal_third_party_auth.使用AppleI3'),
     enabled: true,
-    component: AppleLogin,
+    component: AppleLogin as Component,
     iconPath: [
       {
         d: 'M17.052 14.764c-.118 1.341-.726 2.523-1.797 3.304-.917.674-2.07 1.058-3.242 1.086-1.165.028-2.324-.308-3.221-.942-.912-.644-1.523-1.579-1.74-2.656-.217-1.077-.065-2.204.423-3.178.488-.974 1.275-1.761 2.249-2.249.974-.488 2.101-.64 3.178-.423 1.077.217 2.012.828 2.656 1.74-.726.423-1.201 1.178-1.201 2.039 0 .861.475 1.616 1.201 2.039zm-3.159-10.368c.889 1.016-.245 2.498-1.37 2.498s-2.259-1.482-1.37-2.498c.889-1.016 2.251-1.016 2.74 0z',
         fill: 'var(--el-text-color-primary)',
-      },
-    ],
-  },
-  {
-    key: 'feishu',
-    name: t('data.universal_third_party_auth.飞书登录4'),
-    description: t('data.universal_third_party_auth.使用飞书账号登录5'),
-    enabled: true,
-    component: null,
-    iconPath: [
-      {
-        d: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
-        fill: 'var(--color-brand-blue-2)',
       },
     ],
   },
@@ -206,11 +192,6 @@ const getMethodComponent = (methodKey: string) => {
 
 // 选择登录方式
 const selectMethod = (method: string) => {
-  if (method === 'feishu') {
-    window.location.href = FEISHU_AUTH_URL
-    return
-  }
-
   const selectedMethod = allMethods.find(m => m.key === method)
 
   logger.info('[UniversalThirdPartyAuth] Selected login method', {
@@ -236,7 +217,7 @@ const handleLoginSuccess = (data: { token: string; user: Record<string, unknown>
 }
 
 // 处理登录错误
-const handleLoginError = (error: any) => {
+const handleLoginError = (error: unknown) => {
   emit('login-error', error)
 }
 
@@ -333,7 +314,7 @@ const handleX = () => {
       border: none;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      transition: background-color 0.2s ease, opacity 0.2s ease, outline 0.2s ease;
+      transition: all 0.2s ease;
       background: var(--el-bg-color-page);
 
       &:hover:not(.disabled) {
@@ -386,10 +367,6 @@ const handleX = () => {
         &.apple {
           background: var(--el-bg-color-page);
           border: none;
-        }
-
-        &.feishu {
-          background: var(--el-color-info);
         }
       }
 

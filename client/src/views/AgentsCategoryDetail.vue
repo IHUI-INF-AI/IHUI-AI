@@ -96,7 +96,8 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Server, Loading, Star, CollectionFilled } from '@/lib/lucide-fallback'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
-import { getAgentList, getAgentCollect, getAgentLike, type AgentInfo } from '@/api/agent/agent-plaza'
+import { getAgentList, getAgentCollect, getAgentLike, type AgentInfo } from '@/api/payment'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -123,7 +124,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ])
 }
 
-function numFormat(n: any): string {
+function numFormat(n: unknown): string {
   if (n == null || n === '') return '0'
   const num = Number(n)
   if (Number.isNaN(num)) return '0'
@@ -143,7 +144,7 @@ function handleAgentClick(item: AgentInfo) {
 /** 收藏：未登录先跳转登录并带回当前页；登录后根据接口返回 message 更新状态 */
 async function toggleCollect(item: AgentInfo) {
   if (!isLoggedIn()) {
-    router.push({ path: '/login', query: { redirect: ((route as unknown) as { fullPath: string }).fullPath } })
+    useLoginDialog().open('login', ((route as unknown) as { fullPath: string }).fullPath)
     return
   }
   const id = String(item.botId ?? item.agentId ?? item.id)
@@ -165,7 +166,7 @@ async function toggleCollect(item: AgentInfo) {
 /** 点赞：未登录先跳转登录并带回当前页；登录后根据接口返回 message 更新状态 */
 async function toggleLike(item: AgentInfo) {
   if (!isLoggedIn()) {
-    router.push({ path: '/login', query: { redirect: ((route as unknown) as { fullPath: string }).fullPath } })
+    useLoginDialog().open('login', ((route as unknown) as { fullPath: string }).fullPath)
     return
   }
   const id = String(item.botId ?? item.agentId ?? item.id)
@@ -303,7 +304,7 @@ watch(
   transition: transform 0.2s;
 
   &:hover {
-    
+    transform: translateY(-2px);
   }
 }
 

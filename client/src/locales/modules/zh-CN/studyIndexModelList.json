@@ -1,8 +1,8 @@
 {
   "studyIndexModelList": {
-    "loading": "加载中",
-    "noMore": "没有更多了",
-    "recommendGroups": "推荐 groups",
-    "viewMore": "查看更多"
+    "loading": "加载中...",
+    "recommendGroups": "推荐课程合集",
+    "viewMore": "查看更多",
+    "noMore": "没有更多了"
   }
 }

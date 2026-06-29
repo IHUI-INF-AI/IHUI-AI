@@ -49,8 +49,8 @@ defineProps<{
   border-radius: var(--component-radius);
   box-shadow: var(--component-shadow);
   overflow: hidden;
-  transition: box-shadow var(--transition-normal, 0.3s ease);
-
+  transition: all var(--transition-normal, 0.3s ease);
+  
   // 悬停效果
   &:hover {
     box-shadow: var(--global-box-shadow-lg);

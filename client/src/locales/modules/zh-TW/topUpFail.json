@@ -1,8 +1,9 @@
 {
   "topUpFail": {
-    "backToHome": "backToHome",
-    "defaultMessage": "defaultMessage",
-    "retry": "重试",
-    "title": "标题"
+    "title": "充值失敗",
+    "defaultMessage": "充值過程中出现錯誤，請稍后重試",
+    "retry": "重新充值",
+    "backTo首頁": "返回首頁",
+    "backToHome": "返回首頁"
   }
 }

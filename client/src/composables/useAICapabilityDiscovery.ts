@@ -43,7 +43,7 @@ export function useAICapabilityDiscovery() {
       const recs = await discovery.discoverCapabilities(userMessage, context)
       recommendations.value = recs
       return recs
-    } catch (error: any) {
+    } catch (error: unknown) {
       const err = error as { message?: string }
       ElMessage.error(err?.message || t('common.errors.capabilityDiscoveryFailed'))
       return []

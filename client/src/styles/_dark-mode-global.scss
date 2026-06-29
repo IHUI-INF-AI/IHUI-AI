@@ -5,24 +5,26 @@
 
 @layer base {
   // 暗色模式 CSS 变量覆盖
-  :where(html.dark) {
+  html.dark {
     --el-text-color-primary: var(--color-gray-e5eaf3);
     --el-bg-color: var(--color-dark-bg-3);
     --el-bg-color-page: var(--color-dark-bg-3);
     --el-text-color-regular: var(--color-neutral-200);
     --el-text-color-secondary: var(--color-neutral-400);
-    --page-bg-color: var(--color-dark-bg-3);
+    // 修复：暗色模式 page-bg-color 应当用深色背景，而非 --el-text-color-primary（浅色 #e5eaf3）
+    // 原值 --el-text-color-primary 会导致 dialog/容器在暗色模式下显示为浅色，与整体深色背景不协调
+    --page-bg-color: var(--color-dark-bg-3, #0d0d0d);
   }
 }
 
 @layer components {
   // 暗色模式：强制覆盖 Element Plus 主题变量
   :where(html.dark) {
-    --el-bg-color: var(--color-dark-bg-3);
-    --el-bg-color-page: var(--color-dark-bg-3);
-    --el-bg-color-overlay: var(--color-dark-bg-3);
-    --el-bg-color-hover: var(--color-dark-bg-5);
-    --page-bg-color: var(--color-dark-bg-3);
+    --el-bg-color: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color-page: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color-overlay: var(--color-dark-bg-3, #0d0d0d);
+    --el-bg-color-hover: var(--color-dark-bg-5, #1a1a1a);
+    --page-bg-color: var(--color-dark-bg-3, #0d0d0d);
   }
 
   // 暗色模式：Element Plus 主题色覆盖
@@ -129,67 +131,6 @@
         background-color: var(--el-fill-color-light);
         color: var(--el-text-color-primary);
       }
-    }
-
-    // Element Plus 表格暗色适配（普通页面，admin-dark 已单独处理）
-    .el-table {
-      --el-table-bg-color: var(--el-bg-color);
-      --el-table-tr-bg-color: var(--el-bg-color);
-      --el-table-header-bg-color: var(--color-dark-bg-5);
-      --el-table-row-hover-bg-color: var(--color-dark-bg-5);
-      --el-table-border-color: var(--el-border-color);
-      --el-table-header-text-color: var(--el-text-color-primary);
-      --el-table-text-color: var(--el-text-color-primary);
-    }
-
-    // Element Plus 抽屉暗色适配
-    .el-drawer {
-      background-color: var(--el-bg-color);
-      color: var(--el-text-color-primary);
-    }
-
-    .el-drawer__header {
-      color: var(--el-text-color-primary);
-    }
-
-    // Element Plus 菜单暗色适配
-    .el-menu {
-      background-color: var(--el-bg-color);
-    }
-
-    .el-menu-item {
-      color: var(--el-text-color-primary);
-
-      &:hover {
-        background-color: var(--el-fill-color-light);
-      }
-
-      &.is-active {
-        color: var(--el-text-color-primary);
-      }
-    }
-
-    // Element Plus 输入框暗色适配（确保不透明）
-    .el-input__wrapper {
-      background-color: var(--el-fill-color-blank);
-    }
-
-    // Element Plus 选择器暗色适配
-    .el-select__wrapper {
-      background-color: var(--el-fill-color-blank);
-    }
-
-    // Element Plus popover 暗色适配
-    .el-popover.el-popper {
-      background-color: var(--el-bg-color);
-      color: var(--el-text-color-primary);
-      border-color: var(--el-border-color);
-    }
-
-    // Element Plus tooltip 暗色适配
-    .el-tooltip__popper {
-      background-color: var(--el-bg-color);
-      color: var(--el-text-color-primary);
     }
   }
 }

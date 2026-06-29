@@ -1,7 +1,7 @@
 {
   "adminFeedbackList": {
-    "closed": "closed",
+    "setProcessing": "已设为处理中",
     "resolved": "已解决",
-    "setProcessing": "设置 处理中"
+    "closed": "已关闭"
   }
 }

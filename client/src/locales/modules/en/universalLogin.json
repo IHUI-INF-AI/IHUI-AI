@@ -1,20 +1,20 @@
 {
   "universalLogin": {
-    "codeSendFailed": "codeSendFailed",
-    "codeSendSuccess": "codeSendSuccess",
-    "codeSentSms": "codeSentSms",
-    "defaultUser": "defaultUser",
-    "hoursMinutes": "hoursMinutes",
-    "minutesOnly": "minutesOnly",
-    "network": "network",
-    "noStack": "noStack",
-    "phoneFormatError": "phoneFormatError",
-    "sendFailed": "sendFailed",
-    "sendTooFrequent": "sendTooFrequent",
-    "timeout": "请求超时",
-    "wechatCallbackFailed": "wechatCallbackFailed",
-    "wechatInitFailed": "wechatInitFailed",
-    "wechatLoadFailed": "wechatLoadFailed",
-    "wechatQrFailed": "wechatQrFailed"
+    "wechatCallbackFailed": "WeChat login callback failed, please retry",
+    "wechatLoadFailed": "WeChat login component load failed, please refresh and retry",
+    "wechatInitFailed": "WeChat login initialization failed",
+    "wechatQrFailed": "WeChat QR code generation failed",
+    "noStack": "No stack info",
+    "codeSentSms": "Verification code sent, please check SMS",
+    "codeSendSuccess": "Verification code sent successfully",
+    "sendFailed": "Send failed, please retry",
+    "codeSendFailed": "Verification code send failed, please retry",
+    "sendTooFrequent": "Send too frequent, please try later",
+    "phoneFormatError": "Phone format incorrect, please check",
+    "network": "Network",
+    "timeout": "Timeout",
+    "defaultUser": "User",
+    "hoursMinutes": "{hours}h {minutes}m",
+    "minutesOnly": "{minutes}m"
   }
 }

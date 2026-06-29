@@ -1,97 +1,123 @@
 {
   "aboutUs": {
+    "backホーム": "ホームに戻る",
+    "heroTitle": "私たちについて",
+    "heroSubtitle": "大規模言語モデルとマルチモーダルAIを、安定した製品・サービスに落とし込み、企業と開発者に使いやすいAI機できるとツールを提供しています。",
+    "heroMission": "すべての組織にAIを、すべてのアイデアにより良い実行力を。",
+    "stats": {
+      "users": "登録ユーザー",
+      "developers": "開発者",
+      "models": "AIモデル"
+    },
     "companyIntro": {
-      "paragraph1": "paragraph1",
-      "paragraph2": "paragraph2",
-      "subtitle": "副标题",
-      "tag": "标签",
-      "title": "标题",
-      "visualSublabel": "visualSublabel"
+      "tag": "紹介",
+      "title": "私たちについて",
+      "subtitle": "技術と製品で、AIをあらゆるアプリとコラボレーションに届ける。",
+      "paragraph1": "ZhiHui AIはAIの製品化とスケールに注力しています。主要なLLM・マルチモーダルプロバイダーと接続し、統一API・ワークフロー・オープンプラットフォームで提供。企業がより低コスト・高速度でAIを導入・改善できるようにします。",
+      "paragraph2": "チームはインターネットとAIの最前線出身。アルゴリズムとエンジニアリングの深さと、実業務の理解を兼ね備えています。AIの価値は「実際に使われること」にあると信じ、信頼性・使いやすさ・拡張性に投資し、コラボレーション・コンテンツ制作・エージェント向けの即用ソリューションを提供しています。",
+      "visualSublabel": "AIファーストの製品・アーキテクチャ"
     },
     "coreValues": {
-      "efficient": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "innovative": {
-        "description": "描述",
-        "title": "标题"
-      },
       "professional": {
-        "description": "描述",
-        "title": "标题"
+        "title": "専門性",
+        "description": "AI分野に深く関わり、専門的な技術ソリューションを提供"
+      },
+      "efficient": {
+        "title": "効率性",
+        "description": "開発プロセスを簡素化し、AIアプリケーションを迅速にオンライン化"
       },
       "reliable": {
-        "description": "描述",
-        "title": "标题"
-      }
+        "title": "信頼性",
+        "description": "安定した信頼性の高いサービスで、ビジネスの継続性を保証"
+      },
+      "innovative": {
+        "title": "革新しい性",
+        "description": "継続的な革新により、AI技術の発展をリード"
+      },
+      "tag": "価値",
+      "title": "コアバリュー"
     },
     "developmentHistory": {
-      "tag": "标签",
-      "title": "标题"
-    },
-    "heroMission": "heroMission",
-    "heroSubtitle": "heroSubtitle",
-    "heroTitle": "heroTitle",
-    "milestones": {
-      "aiAppStore": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "angelFunding": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "companyFounded": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "developersMilestone": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "firstUsers": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "modelIntegration": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "platformLaunched": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      },
-      "usersMilestone": {
-        "date": "日期",
-        "description": "描述",
-        "title": "标题"
-      }
-    },
-    "quickNav": {
-      "contactUs": "联系我们"
+      "tag": "履歴",
+      "title": "開発履歴"
     },
     "team": {
-      "subtitle": "副标题",
-      "tag": "标签",
-      "title": "标题"
+      "tag": "チーム",
+      "title": "コアチーム",
+      "subtitle": "ビッグテックとAIの最前線出身のプロダクト・研究・エンジニアリングチームが、スケーラブルなAIサービスを構築しています。"
+    },
+    "quickNav": {
+      "contactUs": "お問い合わせ",
+      "title": "クイックナビゲーション",
+      "newsCenter": "AIニュース",
+      "becomeSupplier": "サプライヤーになる"
+    },
+    "milestones": {
+      "companyFounded": {
+        "date": "2024年12月",
+        "title": "会社設立",
+        "description": "ZhiHui AIが正式設立され、AI技術の研究開発と製品革新に注力"
+      },
+      "aiAppStore": {
+        "date": "2025年1月",
+        "title": "ワールド初のエージェントプラットフォーム",
+        "description": "ワールド初のエージェントプラットフォーム概念を先駆けて提案・創設し、AIアプリ生態系の発展をリード"
+      },
+      "platformLaunched": {
+        "date": "2025年1月",
+        "title": "プラットフォーム公開",
+        "description": "AIサービスプラットフォームが正式に公開され、インテリジェント対話やテキスト生成などの中核機できるを提供"
+      },
+      "angelFunding": {
+        "date": "2025年2月",
+        "title": "2000万元のエンジェル資金調達",
+        "description": "36Krに掲載され、2000万元のエンジェルラウンド資金調達を完了、複数のVCファンドが共同出資"
+      },
+      "firstUsers": {
+        "date": "2025年3月",
+        "title": "初期ユーザー数の突破",
+        "description": "プラットフォームの初期シードユーザーが1000人を突破し、製品が初期市場で検証を獲得"
+      },
+      "modelIntegration": {
+        "date": "2025年6月",
+        "title": "大規模モデルの全面統合",
+        "description": "GPT-4、Claude、DeepSeek、文心一言などの主流大規模モデルAPIを統合し、サービス機できるが大幅に向上"
+      },
+      "usersMilestone": {
+        "date": "2025年10月",
+        "title": "6万人ユーザーの突破",
+        "description": "プラットフォーム登録ユーザーが6万人以上を突破し、市場から広く認知される"
+      },
+      "developersMilestone": {
+        "date": "2025年12月",
+        "title": "8000人開発者の突破",
+        "description": "プラットフォーム開発者数が8000人以上を突破し、アクティブな開発者エコシステムを構築"
+      }
     },
     "teamMembers": {
       "founder": {
-        "description": "描述",
-        "name": "名称",
-        "role": "角色"
+        "name": "李総",
+        "role": "創設者兼CTO兼CEO",
+        "description": "AIアルゴリズム専門家、複数の特許発明者"
       }
-    }
+    },
+    "sixKPlus": "6万+",
+    "title": "私たちについて",
+    "subtitle": "ZhiHui AIの開発履歴とチームについて",
+    "heroEyebrow": "ZhiHui AI",
+    "contact": {
+      "title": "お問い合わせ",
+      "email": "メール",
+      "phone": "電話",
+      "address": "住所",
+      "emailValue": "contact@zhihuiai.com",
+      "phoneValue": "400-888-8888",
+      "addressValue": "北京市海淀区中关村大街1号"
+    },
+    "footerTagline": "AIで、あらゆる創作と意思決定を支える。パートナーシップと対話を歓迎します。",
+    "backHome": "戻るホーム"
   },
   "AboutUs": {
-    "sixKPlus": "sixKPlus"
+    "sixKPlus": "6万+"
   }
 }

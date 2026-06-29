@@ -1,12 +1,12 @@
 {
   "memberAsk": {
-    "answerPrefix": "答案 prefix",
-    "answers": "答案",
-    "askPrefix": "提问 prefix",
-    "emptyAnswer": "empty 答案",
-    "emptyQuestion": "empty 问题",
-    "myAnswers": "my Answers",
-    "myQuestions": "my Questions",
-    "title": "标题"
+    "title": "我的问答",
+    "myQuestions": "我提的问题",
+    "emptyQuestion": "暂无问题",
+    "askPrefix": "问：",
+    "answers": "回答",
+    "myAnswers": "我的回答",
+    "emptyAnswer": "暂无回答",
+    "answerPrefix": "答："
   }
 }

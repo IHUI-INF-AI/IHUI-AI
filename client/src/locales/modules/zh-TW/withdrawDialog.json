@@ -1,15 +1,14 @@
 {
   "withdrawDialog": {
-    "agreePrefix": "agreePrefix",
-    "amount": "金额",
-    "availableBalance": "availableBalance",
-    "bankCard": "bankCard",
-    "bindNow": "bindNow",
-    "change": "change",
-    "noBankCard": "noBankCard",
-    "submit": "提交",
-    "submitting": "提交中",
-    "termsTitle": "termsTitle",
-    "title": "标题"
+    "availableBalance": "可提現餘額",
+    "amount": "提現金額",
+    "bankCard": "到帳銀行卡",
+    "noBankCard": "暫未綁定銀行卡",
+    "bindNow": "立即綁定",
+    "change": "更換",
+    "agreePrefix": "我已閱讀並同意",
+    "termsTitle": "《提現服務協議》",
+    "submit": "申請提現",
+    "submitting": "提交中..."
   }
 }

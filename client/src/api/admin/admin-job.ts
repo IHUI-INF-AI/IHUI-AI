@@ -2,8 +2,7 @@
  * 定时任务管理 API
  * 后端模型已存在: SysJob(AdminJob), SysJobLog(AdminJobLog) (server/app/models/sys_models.py)
  *
- * 注意: 后端 audit 模块暂未提供定时任务接口, 本文件使用占位端点
- * /api/v1/system/audit/job/*, 待后端补充真实接口后替换。
+ * 对接后端 admin_panel.py 注册的路由: /api/v1/job/* 和 /api/v1/job/log/*
  *
  * 后端列表返回 {code, msg, data:[...], total};
  * 本文件统一转换为 {records, total} 以适配 useAdminTable 默认提取器。
@@ -70,7 +69,7 @@ function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {
 // ===========================================================================
 
 export async function jobList(params: JobListParams = {}): Promise<ApiResponse<{ records: JobItem[]; total: number }>> {
-  const res = await http.get('/api/v1/system/audit/job/list', {
+  const res = await http.get('/api/v1/job/list', {
     params: {
       page: params.current ?? 1,
       limit: params.size ?? 20,
@@ -84,33 +83,33 @@ export async function jobList(params: JobListParams = {}): Promise<ApiResponse<{
 }
 
 export async function jobCreate(payload: Partial<JobItem>): Promise<ApiResponse<JobItem>> {
-  const res = await http.post('/api/v1/system/audit/job', payload)
+  const res = await http.post('/api/v1/job', payload)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<JobItem>
 }
 
 export async function jobUpdate(payload: Partial<JobItem> & { job_id: number }): Promise<ApiResponse<JobItem>> {
-  const res = await http.put('/api/v1/system/audit/job', payload)
+  const res = await http.put('/api/v1/job', payload)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg) as unknown as ApiResponse<JobItem>
 }
 
 export async function jobDelete(ids: (string | number)[]): Promise<ApiResponse<unknown>> {
-  const res = await http.delete(`/api/v1/system/audit/job/${ids.join(',')}`)
+  const res = await http.delete(`/api/v1/job/${ids.join(',')}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }
 
 /** 改变任务状态 (0=正常 1=暂停) */
 export async function jobChangeStatus(jobId: number, status: string): Promise<ApiResponse<unknown>> {
-  const res = await http.put('/api/v1/system/audit/job/change-status', { job_id: jobId, status })
+  const res = await http.put('/api/v1/job/change-status', { job_id: jobId, status })
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }
 
 /** 立即执行一次 */
 export async function jobRunOnce(jobId: number): Promise<ApiResponse<unknown>> {
-  const res = await http.post(`/api/v1/system/audit/job/run/${jobId}`)
+  const res = await http.post(`/api/v1/job/run/${jobId}`)
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }
@@ -120,7 +119,7 @@ export async function jobRunOnce(jobId: number): Promise<ApiResponse<unknown>> {
 // ===========================================================================
 
 export async function jobLogList(params: JobListParams = {}): Promise<ApiResponse<{ records: JobLogItem[]; total: number }>> {
-  const res = await http.get('/api/v1/system/audit/job/log/list', {
+  const res = await http.get('/api/v1/job/log/list', {
     params: {
       page: params.current ?? 1,
       limit: params.size ?? 20,
@@ -133,7 +132,7 @@ export async function jobLogList(params: JobListParams = {}): Promise<ApiRespons
 }
 
 export async function jobLogClean(days = 90): Promise<ApiResponse<unknown>> {
-  const res = await http.post('/api/v1/system/audit/job/log/clean', null, { params: { days } })
+  const res = await http.post('/api/v1/job/log/clean', null, { params: { days } })
   const body = (res as any).data || {}
   return toDataResult(body.data, body.msg)
 }

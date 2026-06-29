@@ -39,6 +39,7 @@
     "enableSuccess": "啟用成功",
     "disableSuccess": "禁用成功",
     "testSuccess": "測試成功",
-    "testFailed": "測試失敗"
+    "testFailed": "測試失敗",
+    "apiAccessDoc": "接入文檔"
   }
 }

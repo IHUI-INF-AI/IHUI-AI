@@ -15,6 +15,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkModeStore } from '@/stores/darkMode'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import { logger } from '@/utils/logger'
 
 export interface AppLifecycleOptions {
@@ -32,64 +33,10 @@ export interface AppLifecycle {
 }
 
 export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle {
-  // 2026-06-24 修复: 不在 useAppLifecycle 顶层直接调用 useAuthStore/useDarkModeStore,
-  // 因为 App.vue setup 执行时机可能早于 main.ts 中某些动态 import 完成后的 Pinia
-  // 状态完全就绪, 触发 'getActivePinia() was called but there was no active Pinia' 错误.
-  // 改为: 1) 顶层先用 try/catch 兜底, 失败时 store 引用为 null, 事件触发时再懒加载.
-  //      2) 在 install()/onMounted 中重新尝试拿一次, 避免生命周期内重复尝试.
-  // 2026-06-25 扩展: 同样保护 useRouter / useRoute, Vite HMR 重载早期 setup 时
-  //   app.use(router) 注入尚未完成, 会抛 'injection "Symbol(router)" not found',
-  //   同样是 HMR 抖动暴露, 不属于生产问题, 但需要兜底不让 setup 整体失败.
-  let router: ReturnType<typeof useRouter> | null = null
-  try {
-    router = useRouter()
-  } catch (e) {
-    logger.debug('[useAppLifecycle] router unavailable on init, will lazy load:', e)
-  }
-
-  let authStore: ReturnType<typeof useAuthStore> | null = null
-  let darkModeStore: ReturnType<typeof useDarkModeStore> | null = null
-  try {
-    authStore = useAuthStore()
-  } catch (e) {
-    logger.debug('[useAppLifecycle] authStore unavailable on init, will lazy load:', e)
-  }
-  try {
-    darkModeStore = useDarkModeStore()
-  } catch (e) {
-    logger.debug('[useAppLifecycle] darkModeStore unavailable on init, will lazy load:', e)
-  }
-
-  const getRouter = (): ReturnType<typeof useRouter> | null => {
-    if (router) return router
-    try {
-      router = useRouter()
-      return router
-    } catch (e) {
-      logger.debug('[useAppLifecycle] router lazy load failed:', e)
-      return null
-    }
-  }
-
-  const getAuthStore = (): ReturnType<typeof useAuthStore> | null => {
-    if (authStore) return authStore
-    try {
-      authStore = useAuthStore()
-      return authStore
-    } catch {
-      return null
-    }
-  }
-
-  const getDarkModeStore = (): ReturnType<typeof useDarkModeStore> | null => {
-    if (darkModeStore) return darkModeStore
-    try {
-      darkModeStore = useDarkModeStore()
-      return darkModeStore
-    } catch {
-      return null
-    }
-  }
+  const router = useRouter()
+  const { t } = useI18n()
+  const authStore = useAuthStore()
+  const darkModeStore = useDarkModeStore()
 
   const isHome = ref(false)
 
@@ -100,24 +47,6 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
   let handleScroll: (() => void) | null = null
   let scrollRafId: number | null = null
   const disposers: Array<() => void> = []
-
-  // useI18n 同样做兜底（理论上 vue-i18n 在 i18n 插件挂载后即可用, 但 HMR 抖动期偶尔会失败）
-  let t: ((key: string) => string) | null = null
-  try {
-    t = useI18n().t
-  } catch (e) {
-    logger.debug('[useAppLifecycle] useI18n unavailable on init, will lazy load:', e)
-  }
-
-  const getT = (): ((key: string) => string) | null => {
-    if (t) return t
-    try {
-      t = useI18n().t
-      return t
-    } catch {
-      return null
-    }
-  }
 
   const updateScrollFade = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
@@ -136,10 +65,8 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     handleThemeShortcut = (event: KeyboardEvent) => {
       if (event.altKey && (event.key === 't' || event.key === 'T')) {
         event.preventDefault()
-        const dm = getDarkModeStore()
-        if (!dm) return
-        dm.toggleDarkMode()
-        const mode = dm.isDarkMode ? 'dark' : 'light'
+        darkModeStore.toggleDarkMode()
+        const mode = darkModeStore.isDarkMode ? 'dark' : 'light'
         import('element-plus').then(({ ElMessage }) => {
           ElMessage.success({
             message: `已切换至${mode === 'dark' ? '深色' : '浅色'}模式`,
@@ -154,13 +81,14 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     // 2) 会话过期事件
     handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent).detail
-      const auth = getAuthStore()
-      if (auth) auth.logout()
-      const r = getRouter()
-      if (r) void r.push('/login')
-      const reason = detail?.reason || getT()?.('auth.sessionExpiredMessage') || '会话已过期，请重新登录'
-      if (typeof window !== 'undefined' && (window as any).showGlobalNotification) {
-        ;(window as any).showGlobalNotification(reason, 'warning')
+      authStore.logout()
+      // 弹窗形式：跳首页 + 弹出登录弹窗，不再跳 /login 路由
+      useLoginDialog().open('login')
+      void router.push('/').catch(() => {})
+      const reason = detail?.reason || t('auth.sessionExpiredMessage')
+      const w = window as unknown as { showGlobalNotification?: (reason: string, type: string) => void }
+      if (typeof window !== 'undefined' && w.showGlobalNotification) {
+        w.showGlobalNotification(reason, 'warning')
       }
     }
     window.addEventListener('session-expired', handleSessionExpired)
@@ -169,8 +97,9 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     // 3) open-ai-chat 事件
     handleOpenAiChat = ((event: Event) => {
       const detail = (event as CustomEvent).detail
-      if ((window as any).openGlobalChat) {
-        ;(window as any).openGlobalChat({ mode: detail?.mode })
+      const w = window as unknown as { openGlobalChat?: (opts: { mode?: string }) => void }
+      if (w.openGlobalChat) {
+        w.openGlobalChat({ mode: detail?.mode })
       }
     }) as EventListener
     window.addEventListener('open-ai-chat', handleOpenAiChat)
@@ -178,9 +107,10 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
 
     // 4) select-agent 事件
     handleSelectAgent = ((event: Event) => {
-      const detail = (event as CustomEvent<{ agent: any }>).detail
-      if (detail?.agent && (window as any).selectAgent) {
-        ;(window as any).selectAgent(detail.agent)
+      const detail = (event as CustomEvent<{ agent: unknown }>).detail
+      const w = window as unknown as { selectAgent?: (agent: unknown) => void }
+      if (detail?.agent && w.selectAgent) {
+        w.selectAgent(detail.agent)
       }
     }) as EventListener
     window.addEventListener('select-agent', handleSelectAgent)

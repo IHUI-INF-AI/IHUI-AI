@@ -30,7 +30,7 @@ vi.mock('@/utils/logger', () => ({
 }))
 
 import axios from 'axios'
-import * as api from '../knowledge/knowledge'
+import * as api from '../knowledge'
 
 const mockClient: any = (axios.create as any)()
 

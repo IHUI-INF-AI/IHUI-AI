@@ -300,6 +300,7 @@ export { Microphone }
 export { Delete }
 export { Loading }
 export { CircleClose }
+export { DocumentChecked }
 export { CircleCheck }
 export { MagicStick }
 export { VideoPlay }

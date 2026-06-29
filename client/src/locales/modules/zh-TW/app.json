@@ -1,7 +1,14 @@
 {
   "app": {
+    "errorTitle": "發生錯誤",
+    "showErrorDetails": "顯示錯誤詳情",
+    "reload": "重新載入",
     "go首頁": "返回首頁",
+    "unknownError": "未知錯誤",
     "skipToMain": "跳轉到主要內容",
-    "offlineWarning": "網絡連接已斷開，請檢查您的網絡設定"
+    "offlineWarning": "網絡連接已斷開，請檢查您的網絡設定",
+    "loading": "加載中",
+    "loadingText": "加載中...",
+    "goHome": "返回首頁"
   }
 }

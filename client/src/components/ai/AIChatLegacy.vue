@@ -441,9 +441,9 @@
                   </el-button>
                 </template>
                 <div class="reasoning-chain">
-                  <div
-                    v-for="step in reasoningChain"
-                    :key="step.step"
+                  <div 
+                    v-for="(step, index) in reasoningChain" 
+                    :key="index" 
                     class="reasoning-step"
                     :data-step="step.step"
                   >
@@ -506,14 +506,14 @@ import {
 } from '@/utils/speechRecognition'
 import {
   streamGenerateContent,
-} from '@/api/ai/ai'
+} from '@/api/ai'
 import {
   getAvailableModels,
-} from '@/api/models/models'
+} from '@/api/models'
 import { exportMessagesToFile } from '@/utils/messageExport'
-import { getConversations, type Conversation } from '@/api/chat/chat-history'
+import { getConversations, type Conversation } from '@/api/chat-history'
 import { getChatHistoryMessages, deleteChatRecord } from '@/api/services'
-import type { AIModelInfo } from '@/api/models/models'
+import type { AIModelInfo } from '@/api/models'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Loader2,
@@ -954,7 +954,7 @@ const loadConversations = async () => {
     }
     
     logger.info(t('common.messages.loadSuccess'), { count: conversations.value.length })
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 静默处理 404 错误（后端可能未实现该功能）
     // 检查多种可能的错误格式?
     // 1. Axios 错误：error.response?.status === 404
@@ -1023,7 +1023,7 @@ const loadConversation = async (conversationId: string) => {
           created_at?: string
           createdAt?: string
           create_time?: string
-          [key: string]: any
+          [key: string]: unknown
         }
         const loadedMessages: ChatMessage[] = (messages as MessageData[]).map((msg: MessageData, index: number): ChatMessage => ({
           id: msg.id || msg.message_id || `msg-${Date.now()}-${index}-${Math.random()}`,
@@ -1101,7 +1101,7 @@ const handleDeleteConversation = async (conversationId: string) => {
     } else {
       ElMessage.error(response.message || t('aiChat.deleteFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
       logger.error(t('common.errors.deleteFailed'), error)
       ElMessage.error(t('aiChat.deleteFailed'))
@@ -1692,7 +1692,7 @@ const handleVoiceStop = async (audioData?: { audioUrl: string; duration: number 
     }
     
     // 备用方案：如?onEnd 回调没有触发或没有文本，尝试直接获取
-    // 使用 setTimeout 确保在识别完全停止后获取文本
+    // 使用 setTimeout 确保存识别完全停止后获取文本
     setTimeout(() => {
       const accumulatedText = getAccumulatedText()
       if (accumulatedText && !inputText.value.includes(accumulatedText)) {
@@ -2328,7 +2328,7 @@ const checkOverlapWithFooter = () => {
       const footerRect = footer.getBoundingClientRect()
       const isFooterInViewport = footerRect.bottom > 0 && footerRect.top < window.innerHeight
       
-      // 只有当footer确实在视口中可见，且位于视口底部附近时，才考虑隐藏对话?
+      // 只有当footer确实例视口中可见，且位于视口底部附近时，才考虑隐藏对话?
       // 否则，默认显示对话框
       if (isFooterInViewport) {
         // footer在视口中，检查是否在底部附近（距离底部小?00px?
@@ -2483,7 +2483,7 @@ const checkOverlapWithFooter = () => {
       })
     }
   } else if (import.meta.env.DEV && shouldHide) {
-    // 即使在状态不变的情况下，也记录日志，帮助调试
+    // 即使用状态不变的情况下，也记录日志，帮助调试
     logger.debug('[Overlap Check] Overlap detected but state unchanged:', {
       isOverlapping,
       isDialogInViewport,
@@ -3096,6 +3096,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
 .ai-chat {
   // 扁平化设计变?
+  --aic-flat-shadow: none;
   --aic-flat-filter: none;
   
   // 首页模式布局变量
@@ -3127,9 +3128,8 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   // 消息容器首页模式变量
   --aic-messages-home-bottom: 180px;
   
-  // 发送按钮颜色 - 明暗模式自动适配
-  // 亮色 primary=#000 → 文字=#fff；暗色 primary=#fff → 文字=#000
-  --aic-send-btn-color: var(--color-on-primary);
+  // 发送按钮颜色
+  --aic-send-btn-color: var(--el-color-white);
 
   position: relative;
 
@@ -3149,7 +3149,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    transition: all 0.3s ease;
 
     .el-icon {
       font-size: 22px;
@@ -3189,6 +3189,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       justify-content: flex-start;
       padding: 0;
       z-index: var(--aic-home-z-index-overlay);
+      box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
       filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
 
       // 首页时：底部固定小对话框，不显示全屏遮罩
@@ -3209,6 +3210,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         pointer-events: none;
         visibility: visible;
         opacity: 1;
+        box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
         filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
       }
     }
@@ -3236,8 +3238,14 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
+      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
       border: 0;
+      transition: box-shadow 0.3s ease;
       text-rendering: optimizelegibility;
+
+      &:hover {
+        box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
+      }
 
       &.is-minimized {
         height: 60px;
@@ -3253,6 +3261,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         max-height: var(--aic-home-max-height);
         min-height: var(--aic-home-min-height);
         border-radius: var(--aic-home-border-radius);
+        box-shadow: var(--aic-flat-shadow); // 扁平化设计：移除所有投?
         border: 0;
         margin: 0 auto;
         position: relative;
@@ -3293,6 +3302,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       justify-content: flex-start;
       padding: 0;
       z-index: var(--aic-home-z-index-overlay);
+      box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
       filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
 
       // 首页时：底部固定小对话框，不显示全屏遮罩
@@ -3313,6 +3323,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         pointer-events: none;
         visibility: visible;
         opacity: 1;
+        box-shadow: var(--aic-flat-shadow); // 扁平化设计：确保无投?
         filter: var(--aic-flat-filter); // 扁平化设计：移除可能?filter 效果
       }
     }
@@ -3340,8 +3351,14 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
+      box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
       border: 0;
+      transition: box-shadow 0.3s ease;
       text-rendering: optimizelegibility;
+
+      &:hover {
+        box-shadow: var(--aic-flat-shadow); // 扁平化设计：强制移除所有投?
+      }
 
       &.is-minimized {
         height: 60px;
@@ -3357,6 +3374,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         max-height: var(--aic-home-max-height);
         min-height: var(--aic-home-min-height);
         border-radius: var(--aic-home-border-radius);
+        box-shadow: var(--aic-flat-shadow); // 扁平化设计：移除所有投?
         border: 0;
         margin: 0 auto;
         position: relative;
@@ -3475,7 +3493,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       --aic-icon-size: var(--aic-header-btn-icon-size);
       
       padding: 0;
-      transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+      transition: all 0.3s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -3615,6 +3633,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     background: var(--el-bg-color);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
+    box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
 
     .el-card__header {
       display: flex;
@@ -3649,7 +3668,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       background: var(--el-bg-color-page);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
-      transition: transform 0.3s ease, border-color 0.3s ease;
+      transition: all 0.3s ease;
       position: relative;
       padding-left: 48px;
 
@@ -3671,6 +3690,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       }
 
       &:hover {
+        box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
         transform: translateX(0); // 扁平化设计：移除位移
         border-color: var(--el-color-primary-light-5);
       }
@@ -3877,7 +3897,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                transition: background-color 0.2s ease, color 0.2s ease;
+                transition: all 0.2s ease;
 
                 .el-icon {
                   color: inherit;
@@ -3890,8 +3910,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
                 }
 
                 :where(html.dark) &:hover {
-                  // 暗色 hover：白底（color-white-10）上需深字，用 on-primary 自适应
-                  --action-btn-color: var(--color-on-primary);
+                  --action-btn-color: var(--el-color-white);
                 }
 
                 &.delete-btn:hover {
@@ -3925,7 +3944,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   .date-label {
     padding: 4px 12px;
     background: var(--el-fill-color-light);
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
     font-size: 12px;
     color: var(--el-text-color-secondary);
     white-space: nowrap; // 防止文字换行
@@ -3977,7 +3996,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         position: relative;
         z-index: var(--z-base);
         pointer-events: auto;
-        transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        transition: all 0.3s ease;
         display: inline-flex;
         flex-direction: row;
         align-items: center;
@@ -4018,6 +4037,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
         &:hover:not(:disabled) {
           transform: translateY(0); // 扁平化设计：移除位移
+          box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
         }
 
         &:active:not(:disabled) {
@@ -4033,10 +4053,10 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   }
 }
 
-// 暗色模式发送按钮 - 使用 CSS 变量替代
+// 暗色模式发送按钮 - 使用 CSS 变量替代 
 :where(html.dark) .ai-dialog {
-  // 暗色模式下覆盖发送按钮颜色 - 与默认一致（已通过 --color-on-primary 自动适配）
-  --aic-send-btn-color: var(--color-on-primary);
+  // 暗色模式下覆盖发送按钮颜色
+  --aic-send-btn-color: var(--aic-send-btn-color);
   
   .input-actions {
     .send-btn {
@@ -4083,6 +4103,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         background-color: var(--el-color-primary-dark-2);
         border-color: var(--el-color-primary-dark-2);
         color: var(--aic-send-btn-color);
+        box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
 
         :deep(.el-icon) {
           color: var(--aic-send-btn-color);
@@ -4236,7 +4257,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   }
 
   30% {
-    
+    transform: translateY(-4px);
   }
 }
 
@@ -4346,7 +4367,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     border-radius: var(--global-border-radius);
     background: var(--el-bg-color-page);
     border: var(--unified-border);
-    transition: transform 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
 
@@ -4363,6 +4384,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     }
 
     &:hover {
+      box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
       transform: translateY(0); // 扁平化设计：移除位移
       border-color: var(--el-border-color);
 
@@ -4454,7 +4476,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       .agent-message-stage {
         padding: 4px 10px;
         background: var(--el-fill-color-light);
-        border-radius: var(--global-border-radius);
+        border-radius: var(--global-border-radius-sm, 4px);
         font-size: 12px;
         font-weight: 500;
         color: var(--el-text-color-regular);
@@ -4520,12 +4542,13 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       padding: 12px 16px;
       font-size: 14px;
       line-height: 1.6;
-      transition: border-color 0.3s ease;
+      transition: all 0.3s ease;
       resize: none;
 
       &:focus {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
 
       &::placeholder {
         color: var(--el-link-color-placeholder);
@@ -4543,10 +4566,11 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
       border-radius: var(--global-border-radius);
       padding: 10px 20px;
       font-weight: 500;
-      transition: transform 0.3s ease, background-color 0.3s ease;
+      transition: all 0.3s ease;
 
       &:hover {
         transform: translateY(0); // 扁平化设计：移除位移
+        box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
       }
 
       &.el-button--primary {
@@ -4634,7 +4658,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
 .message-fade-enter-active,
 .message-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .message-fade-enter-from,
@@ -4645,13 +4669,13 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
 .slide-down-enter-active,
 .slide-down-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-down-enter-from,
 .slide-down-leave-to {
   opacity: 0;
-  
+  transform: translateY(-10px);
 }
 </style>
 
@@ -4674,6 +4698,8 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
   --aic-global-home-border-radius: var(--global-border-radius);
   --aic-global-home-z-index-overlay: 2000;
   --aic-global-home-z-index-dialog: 2001;
+  --aic-global-flat-shadow: none;
+  --aic-global-flat-filter: none;
   --aic-global-messages-bottom: 180px;
   --aic-global-input-min-height: 106px;
 }
@@ -4697,6 +4723,8 @@ body .ai-chat-dialog-overlay.is-home,
   pointer-events: none;
   visibility: visible;
   opacity: 1;
+  box-shadow: var(--aic-global-flat-shadow);
+  filter: var(--aic-global-flat-filter);
   
   // 首页模式下的关闭动画
   &.dialog-fade-leave-active {
@@ -4713,10 +4741,11 @@ body .ai-chat-dialog-overlay.is-home,
 }
 
 // 暗色模式 - 使用高特异?
-:where(html.dark) :where(body) .ai-chat-dialog-overlay.is-home,
-:where(html.dark) .ai-chat-dialog-overlay.is-home {
+:where(html.dark) :where(body) .ai-chat-dialog-overlay.is-home {
   background: transparent;
   overflow: visible; // 确保暗色模式下也不被裁切
+  box-shadow: var(--aic-global-flat-shadow); // 扁平化设计：确保无投?
+  filter: var(--aic-global-flat-filter); // 扁平化设计：移除可能?filter 效果
 }
 
 // 首页对话框样?- 使用 CSS 变量和高特异性选择?
@@ -4728,6 +4757,7 @@ body .ai-chat-dialog.is-home,
   max-height: var(--aic-global-home-max-height); // 增加最大高度从 600px ?700px
   min-height: var(--aic-global-home-min-height); // 增加最小高度从 400px ?500px
   border-radius: var(--aic-global-home-border-radius);
+  box-shadow: var(--aic-global-flat-shadow); // 扁平化设计：移除所有投?
   border: 0;
   margin: 0 auto;
   position: relative;
@@ -4779,7 +4809,7 @@ body .ai-chat-dialog.is-home,
       
       // 消息容器通过下方的通用规则处理（因为它在模板中?ai-dialog 的兄弟元素，但顺序在 ai-dialog 之前?
       
-      // input-wrapper 固定在底?
+      // input-wrapper 固定义底?
       > .input-wrapper {
         flex: 0 0 auto; // 不占据额外空间，根据内容决定高度
         height: auto; // 根据内容自动调整高度
@@ -4858,6 +4888,7 @@ body .ai-chat-dialog.is-home,
   max-width: 90vw;
   height: 100%;
   background: var(--el-bg-color);
+  box-shadow: var(--global-box-shadow);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
@@ -4995,6 +5026,19 @@ body .ai-chat-dialog.is-home,
   }
 }
 
+/* 全局扁平化设计规则：确保所有对话框容器完全无投? */
+
+/* 使用 CSS 变量和高特异性选择? */
+.ai-chat-dialog-overlay,
+.ai-chat-dialog-overlay.is-home,
+.ai-chat-dialog,
+.ai-chat-dialog.is-home,
+.ai-chat-dialog-overlay .ai-chat-dialog,
+.ai-chat-dialog-overlay.is-home .ai-chat-dialog.is-home {
+  box-shadow: var(--aic-global-flat-shadow, none);
+  filter: var(--aic-global-flat-filter, none);
+}
+
 /* 全局规则：确保首页模式下 input-wrapper 正确定位 */
 
 /* 使用 :where() 与单类，使用 CSS 变量控制 */
@@ -5031,7 +5075,7 @@ body .ai-chat-dialog.is-home,
       position: relative;
       overflow: hidden;
       
-      // input-wrapper 固定在底部，根据内容自动调整高度
+      // input-wrapper 固定义底部，根据内容自动调整高度
       > .input-wrapper {
         flex: 0 0 auto;
         height: auto;
@@ -5074,5 +5118,16 @@ body .ai-chat-dialog.is-home > .ai-dialog > .input-wrapper,
   padding: 0 20px 20px;
   box-sizing: border-box;
   border-radius: var(--global-border-radius);
+}
+
+/* 伪元素扁平化设计规则 */
+.ai-chat-dialog-overlay::before,
+.ai-chat-dialog-overlay::after,
+.ai-chat-dialog::before,
+.ai-chat-dialog::after,
+.ai-chat-dialog.is-home::before,
+.ai-chat-dialog.is-home::after {
+  box-shadow: var(--aic-global-flat-shadow, none);
+  filter: var(--aic-global-flat-filter, none);
 }
 </style>

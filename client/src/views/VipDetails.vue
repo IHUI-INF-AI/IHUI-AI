@@ -73,6 +73,7 @@ import GlobalLoading from '@/components/common/GlobalLoading.vue'
 import { getVipPrice } from '@/api/vip'
 import { normalizeApiResponse } from '@/utils/api-response'
 import { useAuthStore } from '@/stores/auth'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
 import { useVipAnalytics } from '@/composables/useAnalytics'
@@ -161,7 +162,8 @@ const loadVipPrice = async () => {
 const choosePlan = (plan: 'monthly' | 'yearly') => {
   trackVipPlanClick(plan)
   if (!authStore.isLoggedIn) {
-    router.push({ path: '/login', query: { redirect: '/vip/details' } })
+    // 弹窗形式：直接弹出登录弹窗并携带回跳路径，不跳转路由
+    useLoginDialog().open('login', '/vip/details')
     return
   }
 
@@ -204,7 +206,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -225,11 +227,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -244,7 +246,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -258,14 +260,14 @@ onMounted(() => {
 
   // 扁平化设计：无阴影
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 24px;
   }
 }
 
-// 暗色模式下的VIP卡片
+// 暗色模式下的VIP卡片（增强边框对比度）
 :where(html.dark) .vip-card {
-  // 扁平化设计：无阴影
+  border-color: var(--el-border-color-light);
 }
 
 .monthly {

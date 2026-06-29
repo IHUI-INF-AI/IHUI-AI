@@ -331,7 +331,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { logger } from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
 import {
@@ -605,7 +605,7 @@ const handleModelItemClick = (modelCode: string): void => {
 // API入口点击
 const handleModelApiClick = (modelCode: string): void => {
    
-  router.push({ path: '/open/docs', query: { model: modelCode } } as any)
+  router.push({ path: '/api-docs', query: { model: modelCode } } as RouteLocationRaw)
 }
 
 const handleModelCheckboxChange = (modelCode: string, checked: boolean): void => {
@@ -972,7 +972,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     --send-btn-disabled-hover-border: var(--border-unified-color);
     --send-btn-bg-dark: color-mix(in srgb, var(--el-color-primary) 35%, transparent);
     --send-btn-border-dark: var(--border-unified-color);
-    --send-btn-color-dark: var(--color-on-primary);
+    --send-btn-color-dark: var(--el-color-white);
     --send-btn-shadow-1-dark: none; // 扁平化设计：移除投影
     --send-btn-shadow-2-dark: none; // 扁平化设计：移除投影
     --send-btn-inset-dark: var(--color-white-10);
@@ -1129,8 +1129,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           
           .tag-icon {
             font-size: 12px;
-            width: 14px;
-            height: 14px;
+            width: 11px;
+            height: 11px;
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;
@@ -1181,7 +1181,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       --header-btn-icon-size: var(--aid-icon-md);
       
       padding: 0;
-      transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       border-radius: var(--global-border-radius);
       display: inline-flex;
       align-items: center;
@@ -1286,7 +1286,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           padding: 10px 12px;
           font-size: 14px;
           line-height: 1.6;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, outline-color 0.2s ease;
+          transition: all 0.2s ease;
           resize: none;
           background: transparent;
           color: var(--el-text-color-primary);
@@ -1375,15 +1375,15 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           --amb-border: var(--el-border-width-primary) solid var(--el-color-primary);
           --amb-border-width: var(--el-border-width-primary);
 
-          color: var(--color-on-primary);
+          color: var(--el-color-white);
           box-shadow: var(--aid-shadow); // 扁平化设计：移除投影
 
           .agent-mode-text {
-            color: var(--color-on-primary);
+            color: var(--el-color-white);
           }
 
           :deep(.el-icon) {
-            color: var(--color-on-primary);
+            color: var(--el-color-white);
           }
 
           &:hover {
@@ -1391,7 +1391,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
             --amb-border: var(--el-border-width-primary) solid var(--el-color-primary);
           --amb-border-width: var(--el-border-width-primary);
 
-            color: var(--color-on-primary);
+            color: var(--el-color-white);
           }
         }
 
@@ -1823,7 +1823,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         
         padding: 0;
         border-radius: var(--global-border-radius);
-        transition: background-color 0.2s ease;
+        transition: all 0.2s ease;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1979,7 +1979,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &:active:not(:disabled) {
           transform: translateY(0) scale(1); // 扁平化设计
-          transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         &:disabled {
@@ -2165,20 +2165,22 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           --amb-bg-dark: var(--el-color-primary);
           --amb-border-color-dark: var(--el-color-primary);
 
-          color: var(--el-bg-color-page);
+          color: var(--el-color-white);
+          box-shadow: var(--global-box-shadow);
+
           .agent-mode-text {
-            color: var(--el-bg-color-page);
+            color: var(--el-color-white);
           }
 
           :deep(.el-icon) {
-            color: var(--el-bg-color-page);
+            color: var(--el-color-white);
           }
 
           &:hover {
             --amb-bg-dark: var(--el-color-primary);
             --amb-border-color-dark: var(--el-color-primary);
 
-            color: var(--el-bg-color-page);
+            color: var(--el-color-white);
           }
         }
 
@@ -2304,7 +2306,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       box-shadow: var(--send-btn-shadow-dark); // 扁平化设计
 
       :deep(.el-button__inner) {
-        color: var(--color-on-primary);
+        color: var(--el-color-white);
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -2315,7 +2317,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       :deep(.el-icon) {
-        color: var(--color-on-primary);
+        color: var(--el-color-white);
         font-size: var(--aid-icon-lg);
         width: var(--aid-icon-lg);
         height: var(--aid-icon-lg);
@@ -2330,7 +2332,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       span {
-        color: var(--color-on-primary);
+        color: var(--el-color-white);
         display: inline-block;
         font-size: 15px;
         line-height: 1.5;
@@ -2343,16 +2345,16 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       &:hover:not(:disabled) {
         background: rgb(var(--el-color-primary-rgb), 0.35);
         border-color: rgb(var(--el-color-primary-rgb), 0.5);
-        color: var(--color-on-primary);
+        color: var(--el-color-white);
         transform: translateY(0) scale(1); // 扁平化设计
 
         :deep(.el-icon) {
-          color: var(--color-on-primary);
+          color: var(--el-color-white);
           transform: translateX(3px) scale(1.05);
         }
 
         span {
-          color: var(--color-on-primary);
+          color: var(--el-color-white);
           transform: translateX(1px);
         }
       }
@@ -2360,9 +2362,9 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       &:active:not(:disabled) {
         background: rgb(var(--el-color-primary-rgb), 0.4);
         border-color: rgb(var(--el-color-primary-rgb), 0.6);
-        color: var(--color-on-primary);
+        color: var(--el-color-white);
         transform: translateY(0) scale(1); // 扁平化设计
-        transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       &:disabled {
@@ -2459,7 +2461,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       user-select: none;
       padding: 4px 8px;
       border-radius: var(--global-border-radius);
-      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
+      transition: all 0.2s ease;
       box-sizing: border-box;
 
       // 未激活状态：低对比度描边
@@ -2570,7 +2572,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     margin-right: 0;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, border-width 0.2s ease;
+    transition: all 0.2s ease;
     cursor: pointer;
     height: var(--mct-item-height);
     line-height: 16px;
@@ -2590,6 +2592,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       --mct-item-border-width: var(--el-border-width-primary);
 
       font-weight: 500;
+      box-shadow: var(--global-box-shadow);
+
       // 选中状态：添加粗描边，与容器背景形成强对比
       border-width: 2px;
     }
@@ -2822,7 +2826,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
       &:focus-visible {
         outline: 2px solid var(--el-color-primary-light-7);
-        outline-offset: 1px;
+        outline-offset: 2px;
+        box-shadow: none;
       }
     }
 
@@ -2873,13 +2878,14 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         // 新模型：New 文字标签
         font-size: 12px;
         font-weight: 700;
-        color: var(--color-on-primary); // 明暗模式自动适配：亮色=白字（绿底）、暗色=黑字（浅绿底）
+        color: var(--el-color-white);
         background: var(--el-color-success);
         padding: 2px 6px;
-        border-radius: var(--global-border-radius);
+        border-radius: var(--global-border-radius-sm, 4px);
         line-height: 1.2;
         letter-spacing: 0.5px;
-        }
+        box-shadow: var(--global-box-shadow);
+      }
     }
 
     // 暗色主题下的样式
@@ -2893,7 +2899,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &.model-badge-new {
           background: var(--el-color-success-light-4);
-          }
+          box-shadow: var(--global-box-shadow);
+        }
       }
     }
 
@@ -2986,7 +2993,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
     
     input[type="checkbox"]:checked + .checkmark::before {
-      color: var(--color-on-primary);
+      color: var(--el-color-white);
       transform: none; /* 移除 translateY，使用 flexbox 居中 */
     }
     
@@ -3001,6 +3008,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
     
     input[type="checkbox"]:focus + .checkmark {
+      box-shadow: var(--global-box-shadow);
       outline: none;
     }
     
@@ -3029,23 +3037,23 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     // 暗色模式适配
     :where(html.dark) & {
       color: var(--el-text-color-primary);
-
+      
       .checkmark {
-        border-color: var(--el-color-primary); // 暗色下边框跟随主色，避免浅色边框在浅色背景上消失
+        border-color: var(--el-color-white);
       }
-
+      
       &:hover:not(.is-disabled) .checkmark {
-        border-color: var(--el-color-primary);
+        border-color: var(--el-color-white);
         background-color: var(--color-white-10);
       }
-
+      
       input[type="checkbox"]:checked + .checkmark {
-        background-color: var(--el-color-primary); // 与亮色逻辑一致：primary 背景
-        border-color: var(--el-color-primary);
+        background-color: var(--el-color-white);
+        border-color: var(--el-color-white);
       }
-
+      
       input[type="checkbox"]:checked + .checkmark::before {
-        color: var(--color-on-primary); // 明暗模式自动适配：暗色下=黑对号
+        color: var(--el-text-color-primary); /* 暗色模式下对号颜色 */
       }
     }
   }
@@ -3115,12 +3123,12 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         justify-content: center;
         font-size: 12px;
         padding: 2px 6px;
-        border-radius: var(--global-border-radius);
+        border-radius: var(--global-border-radius-sm, 4px);
         background: var(--el-fill-color-light);
         color: var(--el-text-color-secondary);
         border: var(--unified-border);
-        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-
+        transition: all 0.2s ease;
+        
         .el-icon {
           font-size: 12px;
         }
@@ -3167,7 +3175,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     margin: 0;
     padding: 8px 12px;
     border-radius: var(--global-border-radius);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: all 0.2s ease;
 
     &:hover {
       background: var(--el-fill-color-light);
@@ -3550,6 +3558,11 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     filter: none;
     outline: none;
     transform: translateY(0);
+  }
+
+  .input-wrapper:hover:not(:focus-within),
+  .input-wrapper:focus-within {
+    box-shadow: var(--global-box-shadow);
   }
 
   .input-wrapper:not(:hover, :focus-within)::before,

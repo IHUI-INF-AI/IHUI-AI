@@ -388,7 +388,7 @@ defineExpose({
     text-align: center;
     opacity: 0.7;
 
-    :where(html.dark) & {
+    html.dark & {
       color: var(--color-white-50);
     }
   }
@@ -401,8 +401,8 @@ defineExpose({
     letter-spacing: -0.02em;
     line-height: 1.2;
 
-    :where(html.dark) & {
-      color: hsl(var(--foreground));
+    html.dark & {
+      color: hsl(var(--foreground, 0 0% 98%));
     }
   }
 
@@ -418,8 +418,8 @@ defineExpose({
     line-height: 1.5;
     opacity: 0.8;
 
-    :where(html.dark) & {
-      color: hsl(var(--muted-foreground));
+    html.dark & {
+      color: hsl(var(--muted-foreground, 0 0% 64%));
     }
   }
 
@@ -443,11 +443,11 @@ defineExpose({
   display: inline-flex;
   gap: 4px;
   padding: 4px;
-  background: hsl(var(--muted));
+  background: hsl(var(--muted, 0 0% 96%));
   border-radius: var(--global-border-radius);
 
-  :where(html.dark) & {
-    background: var(--color-dark-bg-3);
+  html.dark & {
+    background: hsl(0deg 0% 12%);
   }
 
   &__item {
@@ -459,32 +459,32 @@ defineExpose({
     border: none;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+    transition: all 0.2s ease;
     white-space: nowrap;
 
-    :where(html.dark) & {
-      color: hsl(var(--muted-foreground));
+    html.dark & {
+      color: hsl(var(--muted-foreground, 0 0% 64%));
     }
 
     &:hover:not(&--active) {
       color: var(--el-text-color-primary);
-      background: hsl(var(--background));
+      background: hsl(var(--background, 0 0% 100%));
 
-      :where(html.dark) & {
-        color: hsl(var(--foreground));
-        background: var(--color-dark-bg-5);
+      html.dark & {
+        color: hsl(var(--foreground, 0 0% 98%));
+        background: hsl(0deg 0% 18%);
       }
     }
 
     &--active {
       color: var(--el-text-color-primary);
-      background: hsl(var(--background));
+      background: hsl(var(--background, 0 0% 100%));
       border: var(--unified-border);
 
-      :where(html.dark) & {
-        color: hsl(var(--foreground));
-        background: var(--color-dark-bg-5);
-        border-color: var(--color-dark-bg-6);
+      html.dark & {
+        color: hsl(var(--foreground, 0 0% 98%));
+        background: hsl(0deg 0% 18%);
+        border-color: hsl(0deg 0% 25%);
       }
     }
   }
@@ -502,21 +502,21 @@ defineExpose({
   &__item {
     background: linear-gradient(
       90deg,
-      hsl(var(--muted)) 0%,
-      hsl(var(--background)) 50%,
-      hsl(var(--muted)) 100%
+      hsl(var(--muted, 0 0% 96%)) 0%,
+      hsl(var(--background, 0 0% 100%)) 50%,
+      hsl(var(--muted, 0 0% 96%)) 100%
     );
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
     border-radius: var(--global-border-radius);
     will-change: background-position;
 
-    :where(html.dark) & {
+    html.dark & {
       background: linear-gradient(
         90deg,
-        var(--color-dark-bg-3) 0%,
-        var(--color-dark-bg-5) 50%,
-        var(--color-dark-bg-3) 100%
+        hsl(0deg 0% 12%) 0%,
+        hsl(0deg 0% 16%) 50%,
+        hsl(0deg 0% 12%) 100%
       );
       background-size: 200% 100%;
     }
@@ -623,13 +623,13 @@ defineExpose({
   overflow: hidden;
   cursor: pointer;
   min-height: 340px;
-  background: hsl(var(--card));
+  background: hsl(var(--card, 0 0% 100%));
   border: var(--unified-border);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s ease;
 
-  :where(html.dark) & {
-    background: var(--color-dark-bg-1);
-    border-color: var(--color-dark-bg-4);
+  html.dark & {
+    background: hsl(0deg 0% 9%);
+    border-color: hsl(0deg 0% 15%);
   }
 
   @media (width <= 1024px) {
@@ -641,11 +641,11 @@ defineExpose({
   }
 
   &:hover {
-    
-    border-color: hsl(var(--border));
+    transform: translateY(-6px);
+    border-color: hsl(var(--border, 0 0% 75%));
 
-    :where(html.dark) & {
-      border-color: var(--color-dark-bg-6);
+    html.dark & {
+      border-color: hsl(0deg 0% 30%);
     }
 
     .news-hero__image img {
@@ -722,7 +722,7 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    :where(html.dark) & {
+    html.dark & {
       color: var(--el-text-color-primary);
     }
   }
@@ -756,7 +756,7 @@ defineExpose({
   position: relative;
   display: flex;
   flex-direction: column;
-  background: hsl(var(--card));
+  background: hsl(var(--card, 0 0% 100%));
   border-radius: var(--global-border-radius);
   overflow: hidden;
   cursor: pointer;
@@ -764,9 +764,9 @@ defineExpose({
   transition: transform 0.3s ease, border-color 0.3s ease;
   flex: 1;
 
-  :where(html.dark) & {
-    background: var(--color-dark-bg-1);
-    border-color: var(--color-dark-bg-4);
+  html.dark & {
+    background: hsl(0deg 0% 9%);
+    border-color: hsl(0deg 0% 15%);
   }
 
   @media (width <= 1024px) {
@@ -774,11 +774,11 @@ defineExpose({
   }
 
   &:hover {
-    
-    border-color: hsl(var(--border));
+    transform: translateY(-3px);
+    border-color: hsl(var(--border, 0 0% 80%));
 
-    :where(html.dark) & {
-      border-color: var(--color-dark-bg-6);
+    html.dark & {
+      border-color: hsl(0deg 0% 28%);
     }
 
     .news-side__image img {
@@ -792,10 +792,10 @@ defineExpose({
     width: 100%;
     height: 100px;
     overflow: hidden;
-    background: hsl(var(--muted));
+    background: hsl(var(--muted, 0 0% 96%));
 
-    :where(html.dark) & {
-      background: var(--color-dark-bg-3);
+    html.dark & {
+      background: hsl(0deg 0% 12%);
     }
 
     @media (width <= 1024px) {
@@ -848,8 +848,8 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    :where(html.dark) & {
-      color: hsl(var(--foreground));
+    html.dark & {
+      color: hsl(var(--foreground, 0 0% 98%));
     }
   }
 
@@ -863,8 +863,8 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    :where(html.dark) & {
-      color: hsl(var(--muted-foreground));
+    html.dark & {
+      color: hsl(var(--muted-foreground, 0 0% 64%));
     }
   }
 
@@ -874,8 +874,8 @@ defineExpose({
     opacity: 0.7;
     margin-top: auto;
 
-    :where(html.dark) & {
-      color: hsl(var(--muted-foreground));
+    html.dark & {
+      color: hsl(var(--muted-foreground, 0 0% 64%));
     }
   }
 }
@@ -893,12 +893,12 @@ defineExpose({
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   cursor: pointer;
-  transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+  transition: all 0.25s ease;
 
   &:hover {
     background: hsl(var(--muted));
     border-color: hsl(var(--border));
-    
+    transform: translateY(-2px);
 
     .news-list-item__arrow {
       transform: translateX(3px);
@@ -941,8 +941,8 @@ defineExpose({
     -webkit-box-orient: vertical;
     overflow: hidden;
 
-    :where(html.dark) & {
-      color: hsl(var(--foreground));
+    html.dark & {
+      color: hsl(var(--foreground, 0 0% 98%));
     }
   }
 
@@ -951,8 +951,8 @@ defineExpose({
     color: var(--el-text-color-secondary);
     opacity: 0.7;
 
-    :where(html.dark) & {
-      color: hsl(var(--muted-foreground));
+    html.dark & {
+      color: hsl(var(--muted-foreground, 0 0% 64%));
     }
   }
 
@@ -969,8 +969,8 @@ defineExpose({
       height: 14px;
     }
 
-    :where(html.dark) & {
-      color: hsl(var(--muted-foreground));
+    html.dark & {
+      color: hsl(var(--muted-foreground, 0 0% 64%));
     }
   }
 }

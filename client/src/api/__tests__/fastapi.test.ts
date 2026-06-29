@@ -13,7 +13,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../system/fastapi'
+import * as api from '../fastapi'
 
 describe('fastapi', () => {
   beforeEach(() => {

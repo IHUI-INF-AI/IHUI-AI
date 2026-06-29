@@ -1,17 +1,14 @@
 {
   "articleList": {
-    "anonymous": "anonymous",
-    "comment": "评论",
-    "essence": "essence",
-    "essenceLabel": "essenceLabel",
-    "featuredArticles": "featuredArticles",
-    "hottest": "hottest",
-    "latest": "最新",
-    "like": "点赞",
-    "noArticle": "noArticle",
-    "pageDesc": "pageDesc",
-    "read": "read",
-    "searchArticle": "searchArticle",
-    "top": "置顶"
+    "featuredArticles": "엄선된 글",
+    "pageDesc": "심층 글 · 실전 경험 · 업계 인사이트",
+    "top": "상단",
+    "essence": "정선",
+    "anonymous": "익명",
+    "read": "조회",
+    "like": "좋아요",
+    "comment": "댓글",
+    "searchArticle": "기사 검색",
+    "noArticle": "기사가 없습니다"
   }
 }

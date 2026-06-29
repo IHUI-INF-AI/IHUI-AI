@@ -26,12 +26,13 @@ import { useI18n } from 'vue-i18n'
 import { Users, FileText, User } from '@/lib/lucide-fallback'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { logger } from '@/utils/logger'
+import type { Component } from 'vue'
 
 interface FunctionItem {
   title: string
   subtitle: string
   iconSrc?: string
-  icon?: any
+  icon?: Component
   url: string
 }
 
@@ -109,11 +110,11 @@ const handleNavigate = (url: string, title: string) => {
   border-radius: var(--global-border-radius);
   padding: 20px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
 
   &:hover {
     background-color: var(--el-bg-color-hover);
-    
+    transform: translateY(-2px);
   }
 }
 

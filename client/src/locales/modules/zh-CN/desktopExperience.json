@@ -1,1 +1,12 @@
-{}
+{
+  "desktopExperience": {
+    "title": "桌面体验",
+    "description": "专为桌面浏览器优化的体验",
+    "fullScreenMode": "全屏模式",
+    "fullScreenModeDesc": "支持浏览器全屏模式",
+    "multiWindowSupport": "多窗口支持",
+    "multiWindowSupportDesc": "在多个浏览器窗口中同时使用",
+    "dragUpload": "拖拽上传",
+    "dragUploadDesc": "支持文件拖拽上传功能"
+  }
+}

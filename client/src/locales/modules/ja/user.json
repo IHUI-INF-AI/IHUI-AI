@@ -1,243 +1,246 @@
 {
   "user": {
-    "apiService": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "benefits": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "common": {
-      "prompt": "提示词"
-    },
-    "dialogs": {
-      "removeDevice": {
-        "confirm": "确认"
-      }
+    "quickActions": "クイック操作",
+    "purchases": {
+      "title": "購入履歴"
     },
     "examine": {
-      "title": "标题"
-    },
-    "favorites": {
-      "title": "标题"
+      "title": "審査履歴"
     },
     "menu": {
-      "apiService": "API 服务",
-      "benefits": "benefits",
-      "developer": "developer",
-      "examine": "examine",
-      "favorites": "收藏",
-      "messages": "messages",
-      "orders": "订单",
-      "privacy": "隐私",
-      "profile": "资料",
-      "purchaseRecords": "purchaseRecords",
-      "purchases": "purchases",
-      "security": "安全",
-      "settings": "设置",
-      "statistics": "统计",
-      "study": "study",
-      "uploadAgent": "uploadAgent"
+      "profile": "個人情報",
+      "security": "アカウントセキュリティ",
+      "messages": "メッセージセンター",
+      "privacy": "プライバシー設定",
+      "settings": "システム設定",
+      "orders": "注文管理",
+      "uploadAgent": "エージェントをアップロード",
+      "favorites": "お気に入り",
+      "purchases": "購入履歴",
+      "examine": "審査履歴",
+      "statistics": "データ統計",
+      "developer": "開発者管理",
+      "purchaseRecords": "購入記録",
+      "apiService": "APIサービス",
+      "benefits": "Benefits",
+      "study": "Study"
     },
-    "messages": {
-      "allRead": "allRead",
-      "clearCacheCancelButton": "clearCacheCancelButton",
-      "clearCacheConfirm": "clearCacheConfirm",
-      "clearCacheConfirmButton": "clearCacheConfirmButton",
-      "clearCacheFailed": "clearCacheFailed",
-      "clearCacheSuccess": "clearCacheSuccess",
-      "clearCacheTitle": "clearCacheTitle",
-      "deleteSuccess": "deleteSuccess",
-      "deviceRemoved": "deviceRemoved",
-      "emailRequired": "emailRequired",
-      "emailVerificationSent": "emailVerificationSent",
-      "examineApproveSuccess": "examineApproveSuccess",
-      "examineRejectSuccess": "examineRejectSuccess",
-      "exportDataCancelButton": "exportDataCancelButton",
-      "exportDataConfirm": "exportDataConfirm",
-      "exportDataConfirmButton": "exportDataConfirmButton",
-      "exportDataFailed": "exportDataFailed",
-      "exportDataSuccess": "exportDataSuccess",
-      "exportDataTitle": "exportDataTitle",
-      "languageSaveFailed": "languageSaveFailed",
-      "languageSaveSuccess": "languageSaveSuccess",
-      "loadMessageSquaresFailed": "loadMessageSquaresFailed",
-      "loadMessageSquaresFailedRetry": "loadMessageSquaresFailedRetry",
-      "markedRead": "markedRead",
-      "messages": "messages",
-      "notificationSaveFailed": "notificationSaveFailed",
-      "notificationSaveSuccess": "notificationSaveSuccess",
-      "orderStatus": {
-        "cancelled": "已取消",
-        "completed": "已完成",
-        "failed": "失败",
-        "pending": "待处理",
-        "processing": "处理中"
-      },
-      "orderType": {
-        "consumption": "consumption",
-        "recharge": "充值",
-        "refund": "退款",
-        "withdraw": "提现"
-      },
-      "passwordChangeFailedRetry": "passwordChangeFailedRetry",
-      "passwordChanged": "passwordChanged",
-      "phoneRequired": "phoneRequired",
-      "phoneVerificationSent": "phoneVerificationSent",
-      "privacySaveFailed": "privacySaveFailed",
-      "privacySaveSuccess": "privacySaveSuccess",
-      "saveFailedRetry": "saveFailedRetry",
-      "saveSuccess": "saveSuccess",
-      "settings": {
-        "accountDeletionFailed": "accountDeletionFailed",
-        "accountDeletionSuccess": "accountDeletionSuccess",
-        "appSettingsUpdateFailed": "appSettingsUpdateFailed",
-        "appSettingsUpdateSuccess": "appSettingsUpdateSuccess",
-        "avatarUploadFailed": "avatarUploadFailed",
-        "avatarUploadSuccess": "avatarUploadSuccess",
-        "dataClearFailed": "dataClearFailed",
-        "dataClearSuccess": "dataClearSuccess",
-        "imageFormatError": "imageFormatError",
-        "imageSizeError": "imageSizeError",
-        "imageTooLarge": "imageTooLarge",
-        "insufficientPermissionClearData": "insufficientPermissionClearData",
-        "insufficientPermissionDeleteAccount": "insufficientPermissionDeleteAccount",
-        "notificationUpdateFailed": "notificationUpdateFailed",
-        "notificationUpdateSuccess": "notificationUpdateSuccess",
-        "passwordChangeFailed": "passwordChangeFailed",
-        "passwordChangeSuccess": "passwordChangeSuccess",
-        "passwordConfirmRequired": "passwordConfirmRequired",
-        "passwordError": "passwordError",
-        "passwordMismatch": "两次密码不一致",
-        "passwordRequired": "passwordRequired",
-        "passwordTooShort": "密码至少 8 位",
-        "privacyUpdateFailed": "privacyUpdateFailed",
-        "privacyUpdateSuccess": "privacyUpdateSuccess",
-        "profileUpdateFailed": "profileUpdateFailed",
-        "profileUpdateSuccess": "profileUpdateSuccess",
-        "unsupportedImageFormat": "unsupportedImageFormat"
-      },
-      "themeSaveFailed": "themeSaveFailed",
-      "themeSaveSuccess": "themeSaveSuccess",
-      "title": "标题",
-      "uploadIncomplete": "uploadIncomplete",
-      "uploadSuccess": "uploadSuccess",
-      "userInfoNotFound": "userInfoNotFound"
-    },
-    "priority": {
-      "high": "高",
-      "low": "低",
-      "medium": "medium",
-      "urgent": "urgent"
-    },
-    "privacy": {
-      "title": "标题"
-    },
-    "purchases": {
-      "title": "标题"
-    },
-    "quickActions": "quickActions",
     "sections": {
-      "developer": {
-        "description": "描述"
-      },
-      "examine": {
-        "description": "描述"
-      },
-      "favorites": {
-        "description": "描述"
-      },
-      "messages": {
-        "description": "描述"
-      },
-      "orders": {
-        "description": "描述"
-      },
-      "privacy": {
-        "description": "描述"
-      },
       "profile": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "purchaseRecords": {
-        "description": "描述"
-      },
-      "purchases": {
-        "description": "描述"
+        "title": "個人情報",
+        "description": "プロフィールとアカウント情報を管理"
       },
       "security": {
-        "description": "描述",
-        "title": "标题"
+        "title": "アカウントセキュリティ",
+        "description": "アカウントを保護し、パスワードとログイン方法を管理"
+      },
+      "messages": {
+        "description": "システム通知とメッセージをテーブル示"
+      },
+      "privacy": {
+        "description": "プライバシー設定を管理"
       },
       "settings": {
-        "description": "描述"
+        "description": "システム設定とテーブル示オプションを設定"
       },
-      "statistics": {
-        "description": "描述"
+      "orders": {
+        "description": "注文をテーブル示・管理"
       },
       "upload": {
-        "description": "描述",
-        "title": "标题"
+        "title": "エージェントをアップロード",
+        "description": "AIエージェントを作成・アップロード"
+      },
+      "favorites": {
+        "description": "お気に入りのエージェントとコンテンツをテーブル示"
+      },
+      "purchases": {
+        "description": "購入記録をテーブル示"
+      },
+      "examine": {
+        "description": "審査状況と記録をテーブル示"
+      },
+      "statistics": {
+        "description": "使用データと統計情報をテーブル示"
+      },
+      "developer": {
+        "description": "開発者更新しい記録を管理"
+      },
+      "purchaseRecords": {
+        "description": "エージェント購入記録をテーブル示・管理"
       }
     },
-    "settings": {
-      "title": "标题"
-    },
     "sidebar": {
-      "ariaLabel": "ariaLabel",
-      "menuAriaLabel": "menuAriaLabel",
-      "unreadMessages": "unreadMessages"
+      "ariaLabel": "ユーザーセンターナビゲーション",
+      "menuAriaLabel": "ユーザーセンターメニュー",
+      "unreadMessages": "{label}に{count}件の未読メッセージ"
+    },
+    "settings": {
+      "title": "システム設定"
+    },
+    "apiService": {
+      "title": "APIサービス",
+      "description": "管理您的APIトークン和表示使用統計"
+    },
+    "privacy": {
+      "title": "プライバシー設定"
+    },
+    "favorites": {
+      "title": "我的お気に入り"
     },
     "statistics": {
-      "description": "描述",
-      "title": "标题",
+      "title": "データ統計",
       "withdrawal": {
-        "errors": {
-          "amountExceedsBalance": "amountExceedsBalance",
-          "invalidAccount": "invalidAccount",
-          "invalidAmount": "invalidAmount"
-        },
         "status": {
-          "approved": "已通过",
+          "approved": "approved",
           "inReview": "inReview",
           "pendingReview": "pendingReview",
-          "rejected": "已拒绝",
+          "rejected": "rejected",
           "unknown": "unknown",
           "withdrawn": "withdrawn"
         },
+        "errors": {
+          "invalidAmount": "ご入力出金金額",
+          "invalidAccount": "ご入力收款アカウント",
+          "amountExceedsBalance": "出金金額不できる超過可できる出金金額"
+        },
         "success": {
-          "submitSuccess": "submitSuccess"
+          "submitSuccess": "出金申ご送信成功"
         }
-      }
-    },
-    "strength": {
-      "medium": "medium",
-      "strong": "strong",
-      "weak": "weak"
-    },
-    "study": {
-      "description": "描述",
-      "title": "标题"
+      },
+      "description": "説明"
     },
     "validation": {
-      "confirmPassword": "confirmPassword",
-      "email": "邮箱",
-      "emailRequired": "emailRequired",
-      "newPassword": "newPassword",
-      "nickname": "昵称",
-      "nicknameLength": "nicknameLength",
-      "oldPassword": "oldPassword",
-      "passwordMatch": "passwordMatch",
-      "passwordStrength": "passwordStrength",
-      "phone": "手机号",
-      "phoneRequired": "phoneRequired",
-      "signatureLength": "signatureLength"
-    }
+      "nickname": "ご入力ニックネーム",
+      "nicknameLength": "ニックネーム長さ应在2-20件文字符之间",
+      "email": "ご入力有効的メール住所",
+      "emailRequired": "ご入力メール",
+      "phone": "ご入力有効的電話番号",
+      "phoneRequired": "ご入力電話番号",
+      "signatureLength": "件性署名不できる超過100件文字符",
+      "oldPassword": "ご入力原パスワード",
+      "newPassword": "ご入力新しいパスワード",
+      "confirmPassword": "ご確認パスワード",
+      "passwordStrength": "パスワード長さ至少8位，包含文字母和数字",
+      "passwordMatch": "两回入力的パスワード不一貫"
+    },
+    "strength": {
+      "weak": "弱",
+      "medium": "中",
+      "strong": "强"
+    },
+    "messages": {
+      "title": "メッセージセンター",
+      "allRead": "全て済み读",
+      "saveSuccess": "保存成功",
+      "saveFailedRetry": "保存に失敗，请再試行",
+      "emailRequired": "请先入力メール",
+      "emailVerificationSent": "検証码済み送信，请查收メール",
+      "phoneRequired": "ご先入力電話番号",
+      "phoneVerificationSent": "検証码済み送信，请查收短信",
+      "passwordChanged": "パスワード修改成功",
+      "passwordChangeFailedRetry": "パスワード修改失敗，ご再試行",
+      "deviceRemoved": "设备済み削除",
+      "settings": {
+        "appSettingsUpdateSuccess": "appSettingsUpdate成功",
+        "appSettingsUpdateFailed": "appSettingsUpdate失敗",
+        "dataClearSuccess": "dataClear成功",
+        "dataClearFailed": "dataClear失敗",
+        "insufficientPermissionClearData": "無効sufficientPermissionClearData",
+        "passwordConfirmRequired": "パスワード確認必須",
+        "accountDeletionSuccess": "accountDeletion成功",
+        "accountDeletionFailed": "accountDeletion失敗",
+        "passwordError": "パスワードエラー",
+        "insufficientPermissionDeleteAccount": "無効sufficientPermissionDeleteAccount",
+        "notificationUpdateSuccess": "なしtificationUpdate成功",
+        "notificationUpdateFailed": "なしtificationUpdate失敗",
+        "privacyUpdateSuccess": "privacyUpdate成功",
+        "privacyUpdateFailed": "privacyUpdate失敗",
+        "passwordRequired": "パスワード必須",
+        "passwordMismatch": "PasswordMismatch",
+        "passwordTooShort": "PasswordTooShort",
+        "passwordChangeSuccess": "passwordChange成功",
+        "passwordChangeFailed": "passwordChange失敗",
+        "profileUpdateSuccess": "profileUpdate成功",
+        "profileUpdateFailed": "profileUpdate失敗",
+        "imageFormatError": "imageFormatエラー",
+        "imageSizeError": "imageSizeエラー",
+        "avatarUploadSuccess": "avatarUpload成功",
+        "avatarUploadFailed": "avatarUpload失敗",
+        "imageTooLarge": "画像Too大",
+        "unsupportedImageFormat": "未supportedImageFormat"
+      },
+      "examineApproveSuccess": "examineApprove成功",
+      "examineRejectSuccess": "examineReject成功",
+      "loadMessageSquaresFailed": "loadMessageSquares失敗",
+      "loadMessageSquaresFailedRetry": "负载MessageSquaresFailed再試行",
+      "markedRead": "MarkedRead",
+      "messages": "メッセージ",
+      "deleteSuccess": "削除成功",
+      "orderType": {
+        "recharge": "チャージ",
+        "consumption": "Consumption",
+        "refund": "返金",
+        "withdraw": "出金"
+      },
+      "orderStatus": {
+        "pending": "待処理",
+        "processing": "処理中...",
+        "completed": "完了",
+        "failed": "失敗",
+        "cancelled": "済みキャンセル"
+      },
+      "privacySaveSuccess": "privacySave成功",
+      "privacySaveFailed": "privacySave失敗",
+      "notificationSaveSuccess": "なしtificationSave成功",
+      "notificationSaveFailed": "なしtificationSave失敗",
+      "themeSaveSuccess": "themeSave成功",
+      "themeSaveFailed": "themeSave失敗",
+      "languageSaveSuccess": "languageSave成功",
+      "languageSaveFailed": "languageSave失敗",
+      "exportDataConfirm": "exportData確認",
+      "exportDataTitle": "exportDataタイトル",
+      "exportDataConfirmButton": "Exportデータ確認Button",
+      "exportDataCancelButton": "ExportデータキャンセルButton",
+      "userInfoNotFound": "User情報NotFound",
+      "exportDataSuccess": "exportData成功",
+      "exportDataFailed": "exportData失敗",
+      "clearCacheConfirm": "clearCache確認",
+      "clearCacheTitle": "clearCacheタイトル",
+      "clearCacheConfirmButton": "クリアキャッシュ確認Button",
+      "clearCacheCancelButton": "クリアキャッシュキャンセルButton",
+      "clearCacheSuccess": "clearCache成功",
+      "clearCacheFailed": "clearCache失敗",
+      "uploadIncomplete": "UploadIncomplete",
+      "uploadSuccess": "アップロード成功"
+    },
+    "common": {
+      "prompt": "ヒント"
+    },
+    "dialogs": {
+      "removeDevice": {
+        "confirm": "確定要削除此设备吗？削除後该设备必要再ログイン。"
+      }
+    },
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "Urgent"
+    },
+    "benefits": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "study": {
+      "description": "Description",
+      "title": "Title"
+    },
+    "nickname": "ニックネーム",
+    "nickname2": "昵称"
   },
   "User": {
-    "nickname": "昵称",
-    "nickname2": "nickname2"
+    "inputplaceholder": "input[placeholder*=",
+    "nickname": "ニックネーム",
+    "nickname2": "昵称"
   }
 }

@@ -1,17 +1,16 @@
 {
   "memberExamSignUp": {
-    "actions": "actions",
-    "cancelled": "已取消",
-    "completed": "已完成",
-    "duration": "时长",
-    "enterExam": "enterExam",
-    "exam": "考试",
-    "inProgress": "inProgress",
-    "loadFailed": "loadFailed",
-    "noSignUp": "noSignUp",
-    "score": "分数",
-    "startTime": "开始时间",
-    "status": "状态",
-    "title": "标题"
+    "title": "시험 신청",
+    "noSignUp": "신청 없음",
+    "exam": "시험",
+    "status": "상태",
+    "score": "점수",
+    "duration": "시간(분)",
+    "startTime": "시작 시간",
+    "actions": "작업",
+    "enterExam": "시험 입장",
+    "completed": "완료됨",
+    "cancelled": "취소됨",
+    "inProgress": "진행 중"
   }
 }

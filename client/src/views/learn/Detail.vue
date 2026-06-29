@@ -79,7 +79,8 @@ import { VideoPlay } from '@element-plus/icons-vue'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import Rate from './Rate.vue'
-import { learnApi } from '@/api/learn/learn'
+import { learnApi } from '@/api/learn'
+import type { Lesson } from '@/api/learn'
 import { formatMoney } from '@/utils/format'
 
 const route = useRoute()
@@ -88,8 +89,8 @@ const { t } = useI18n()
 const id = String(route.params.id || '')
 
 const loading = ref(false)
-const lesson = ref<any>({})
-const chapters = ref<any[]>([])
+const lesson = ref<Partial<Lesson>>({})
+const chapters = ref<unknown[]>([])
 const isFavorite = ref(false)
 const isSigned = computed(() => {
   const s = lesson.value?.signUp?.status
@@ -116,27 +117,27 @@ function formatDuration(s: number | undefined): string {
 async function loadLesson() {
   loading.value = true
   try {
-    const res: any = await learnApi.detail(id)
-    lesson.value = res.data || {}
+    const res = await learnApi.detail(id)
+    lesson.value = res.data?.data || {}
   } finally {
     loading.value = false
   }
 }
 
 async function loadChapters() {
-  const res: any = await learnApi.chapterList(id)
-  chapters.value = res.data || []
+  const res = await learnApi.chapterList(id)
+  chapters.value = res.data?.data || []
 }
 
 async function handleSignUp() {
-  if (lesson.value.price > 0) {
+  if ((lesson.value.price ?? 0) > 0) {
     router.push({ path: '/learn/buyconfirm', query: { id } })
   } else {
     try {
       await learnApi.signUp(id)
       await loadLesson()
     } catch {
-      ElMessage.error(t('common.errors.enrollFailed'))
+      ElMessage.error(t('common.errors.signUpFailed'))
     }
   }
 }
@@ -145,13 +146,13 @@ function handleStartLearn() {
   router.push({ path: `/learn/detail/${id}/play`, query: { lessonId: id } })
 }
 
-function playVideo(v: any) {
-  router.push({ path: `/learn/detail/${id}/play`, query: { lessonId: id, videoId: v.id } })
+function playVideo(v: Record<string, unknown>) {
+  router.push({ path: `/learn/detail/${id}/play`, query: { lessonId: id, videoId: String(v.id) } })
 }
 
 async function toggleFavorite() {
-  const res: any = await learnApi.toggleFavorite(id)
-  isFavorite.value = res.data?.isFavorite || false
+  const res = await learnApi.toggleFavorite(id)
+  isFavorite.value = res.data?.data?.isFavorite || false
 }
 
 onMounted(() => {

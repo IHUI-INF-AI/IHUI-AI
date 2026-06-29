@@ -16,6 +16,7 @@
   .modal-container {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
+    box-shadow: none;
     max-height: 90vh;
     overflow: hidden;
     display: flex;
@@ -48,7 +49,7 @@
         align-items: center;
         justify-content: center;
         border-radius: var(--radius-md);
-        transition: background-color 0.2s ease, color 0.2s ease;
+        transition: all 0.2s ease;
 
         &:hover {
           background-color: var(--bg-hover);
@@ -95,7 +96,7 @@
     cursor: pointer;
     font-size: 1rem;
     font-weight: 600;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
 
     &:hover {
       background-color: var(--color-primary-dark);
@@ -115,6 +116,7 @@
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
+    box-shadow: none;
     z-index: var(--z-header);
     padding: 0.5rem 0;
     animation: slideDown 0.2s ease;
@@ -163,7 +165,7 @@
         font-size: 1rem;
         border-radius: var(--radius-md);
         cursor: pointer;
-        transition: background-color 0.2s ease, opacity 0.2s ease;
+        transition: all 0.2s ease;
 
         &:hover {
           background-color: var(--bg-hover);
@@ -287,7 +289,7 @@
 @keyframes slideDown {
   from {
     opacity: 0;
-    
+    transform: translateY(-10px);
   }
 
   to {
@@ -335,6 +337,14 @@
 @media (prefers-color-scheme: dark) {
   .modal-overlay {
     background-color: var(--color-black-70);
+  }
+
+  .modal-container {
+    box-shadow: none;
+  }
+
+  .dropdown-menu {
+    box-shadow: none;
   }
 }
 

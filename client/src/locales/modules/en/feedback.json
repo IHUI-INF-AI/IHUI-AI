@@ -1,25 +1,29 @@
 {
   "feedback": {
+    "title": "Feedback",
     "content": {
-      "tip": "tip"
+      "tip": "Your feedback is very important to us, please describe your problem or suggestion in detail"
+    },
+    "type": {
+      "feature": "Feature Suggestion",
+      "bug": "Bug Report",
+      "experience": "Experience Issue",
+      "other": "Other"
     },
     "rules": {
-      "contentMin": "contentMin",
-      "contentRequired": "contentRequired"
+      "contentRequired": "Please enter feedback content",
+      "contentMin": "Content must be at least 10 characters"
     },
-    "submitSuccess": "submitSuccess",
-    "title": "标题",
-    "type": {
-      "bug": "bug",
-      "experience": "experience",
-      "feature": "功能",
-      "other": "other"
-    }
+    "submitSuccess": "Feedback submitted successfully, thank you for your feedback!",
+    "feedbackRecords": "Feedback Records",
+    "submitFeedback": "Submit Feedback",
+    "loading": "Loading...",
+    "submitFailed": "Submit failed, please retry"
   },
   "Feedback": {
-    "feedbackRecords": "feedbackRecords",
-    "loading": "加载中",
-    "submitFailed": "submitFailed",
-    "submitFeedback": "submitFeedback"
+    "feedbackRecords": "Feedback Records",
+    "submitFeedback": "Submit Feedback",
+    "loading": "Loading...",
+    "submitFailed": "Submit failed, please retry"
   }
 }

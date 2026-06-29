@@ -17,6 +17,7 @@
           </div>
           <h1 class="page-title">{{ t('agents.createAgent') }}</h1>
           <p class="page-subtitle">{{ t('agents.createAgentDesc') }}</p>
+          <p class="page-subtitle">{{ t('agents.createAgentDesc') }}</p>
         </div>
         <div class="header-decoration">
           <div class="decoration-line"></div>
@@ -59,7 +60,7 @@
 
               <el-form-item :label="t('agents.category')" prop="category" class="glass-input-wrapper">
                 <el-select v-model="formData.category" :placeholder="t('agents.selectCategory')"
-                  class="industrial-select full-width">
+                  style="width: 100%" class="industrial-select">
                   <el-option v-for="category in categories" :key="category.id" :label="category.name"
                     :value="category.id" />
                 </el-select>
@@ -67,7 +68,7 @@
 
               <el-form-item :label="t('agents.platform')" prop="platform" class="glass-input-wrapper">
                 <el-select v-model="formData.platform" :placeholder="t('agents.selectPlatform')"
-                  class="industrial-select full-width">
+                  style="width: 100%" class="industrial-select">
                   <el-option :label="t('agents.platformInternal')" value="internal" />
                   <el-option :label="t('agents.platformCoze')" value="coze" />
                   <el-option :label="t('agents.platformN8n')" value="n8n" />
@@ -82,7 +83,8 @@
                   filterable
                   allow-create
                   :placeholder="t('agents.tagsPlaceholder')"
-                  class="industrial-select full-width"
+                  style="width: 100%"
+                  class="industrial-select"
                 >
                   <el-option v-for="tag in commonTags" :key="tag" :label="tag" :value="tag" />
                 </el-select>
@@ -122,7 +124,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { type FormInstance, type FormRules } from 'element-plus'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getAgentCategories, type AgentCategory } from '@/api/agent/agents'
+import { getAgentCategories, type AgentCategory } from '@/api/agents'
 import AISDK from '@/utils/ai-sdk'
 
 const { t } = useI18n()
@@ -200,7 +202,7 @@ const handleSubmit = async () => {
                 ? `/agents/${(data as { agentId?: string }).agentId}`
                 : '/agents'
               // 如果已经在目标路由，不执行跳转
-              if ((router as any).currentRoute.value.path !== path) {
+              if (router.currentRoute.value.path !== path) {
                 await router.push(path).catch(error => {
                   // 忽略导航重复错误
                   if (
@@ -225,7 +227,7 @@ const handleSubmit = async () => {
           },
         }
       )
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : t('agents.createFailed')
       showErrorMsg(message)
@@ -238,7 +240,7 @@ const handleSubmit = async () => {
 }
 
 const handleCancel = () => {
-  ; (router as any).back()
+  router.back()
 }
 
 onMounted(async () => {
@@ -255,12 +257,12 @@ $brand-accent: var(--el-bg-color);
 $brand-glow: var(--color-white-15);
 $brand-glow-strong: var(--color-white-25);
 $industrial-bg: var(--color-dark-bg-1);
-$industrial-surface: var(--el-bg-color);
+$industrial-surface: var(--color-gray-111);
 $industrial-border: var(--border-unified-color);
 $industrial-border-hover: var(--border-unified-color-hover);
-$industrial-text: var(--el-text-color-secondary);
-$industrial-text-muted: var(--el-text-color-placeholder);
-$industrial-text-dim: var(--el-text-color-secondary);
+$industrial-text: var(--color-gray-ededed);
+$industrial-text-muted: var(--color-gray-888888);
+$industrial-text-dim: var(--color-gray-555555);
 $glass-bg: color-mix(in srgb, var(--el-color-primary) 70%, transparent);
 $glass-border: var(--border-unified-color);
 $glass-border-hover: var(--border-unified-color-hover);
@@ -375,7 +377,7 @@ $glass-border-hover: var(--border-unified-color-hover);
     font-weight: 600;
     letter-spacing: 0.05em;
     color: $industrial-text-muted;
-    font-family: var(--font-family-edix);
+    font-family: EDIX, sans-serif;
     text-transform: uppercase;
   }
 }
@@ -395,7 +397,7 @@ $glass-border-hover: var(--border-unified-color-hover);
 
 .page-title {
   font-size: clamp(32px, 5vw, 48px);
-  font-weight: 700;
+  font-weight: 800;
   color: $industrial-text;
   margin: 0 0 12px;
   letter-spacing: -0.02em;
@@ -526,7 +528,7 @@ $glass-border-hover: var(--border-unified-color-hover);
   }
 
   .section-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.1em;
     color: $industrial-text-muted;
@@ -543,47 +545,48 @@ $glass-border-hover: var(--border-unified-color-hover);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     box-shadow: none;
-    transition: border-color 0.25s ease, background-color 0.25s ease;
+    transition: all 0.25s ease;
 
     &:hover {
-      border-color: $industrial-border-hover;
+      border-color: $industrial-border-hover ;
       background: var(--color-black-40);
     }
 
     &:focus,
     &.is-focus {
-      border-color: var(--el-color-primary);
+      border-color: var(--border-unified-color-hover);
       background: var(--color-black-50);
+      box-shadow: var(--global-box-shadow);
     }
   }
 
   :deep(.el-input__inner),
   :deep(.el-textarea__inner) {
-    color: $industrial-text;
+    color: $industrial-text ;
     font-size: 14px;
 
     &::placeholder {
-      color: $industrial-text-dim;
+      color: $industrial-text-dim ;
     }
   }
 
   :deep(.el-input__count) {
     background: transparent;
-    color: $industrial-text-dim;
+    color: $industrial-text-dim ;
   }
 
   :deep(.el-select__placeholder) {
-    color: $industrial-text-dim;
+    color: $industrial-text-dim ;
   }
 
   :deep(.el-select__selected-item) {
-    color: $industrial-text;
+    color: $industrial-text ;
   }
 
   :deep(.el-tag) {
     background: var(--color-white-10);
-    border-color: $industrial-border;
-    color: $industrial-text;
+    border-color: $industrial-border ;
+    color: $industrial-text ;
     border-radius: var(--global-border-radius);
   }
 }
@@ -611,7 +614,7 @@ $glass-border-hover: var(--border-unified-color-hover);
   border: none;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .btn-text {
     position: relative;
@@ -625,7 +628,8 @@ $glass-border-hover: var(--border-unified-color-hover);
     color: $brand-primary;
 
     &:hover:not(:disabled) {
-      
+      transform: translateY(-2px);
+      box-shadow: var(--global-box-shadow);
     }
 
     &:active:not(:disabled) {
@@ -711,7 +715,7 @@ $glass-border-hover: var(--border-unified-color-hover);
   }
 
   .footer-text {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 500;
     letter-spacing: 0.2em;
     color: $industrial-text-dim;
@@ -781,9 +785,5 @@ $glass-border-hover: var(--border-unified-color-hover);
 // ============================================
 // Element Plus 下拉菜单覆盖（使用全局样式 _element-plus.scss）
 // ============================================
-
-.full-width {
-  width: 100%;
-}
 </style>
 

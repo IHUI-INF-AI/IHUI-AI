@@ -99,8 +99,8 @@ import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useApiError } from '@/composables/useApiError'
 import { FileText, RefreshCw, Download } from '@/lib/lucide-fallback'
-import type { MCPResource } from '@/api/tools/mcp'
-import { getMCPResource } from '@/api/tools/mcp'
+import type { MCPResource } from '@/api/mcp'
+import { getMCPResource } from '@/api/mcp'
 import { sanitizeHtml } from '@/utils/htmlSanitizer'
 import MCPDataStructure from './MCPDataStructure.vue'
 
@@ -148,7 +148,7 @@ const parsedJson = computed(() => {
   }
 })
 
-const formatJson = (json: any): string => {
+const formatJson = (json: unknown): string => {
   try {
     const parsed = typeof json === 'string' ? JSON.parse(json) : json
     return JSON.stringify(parsed, null, 2)

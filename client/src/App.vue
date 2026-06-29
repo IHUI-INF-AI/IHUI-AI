@@ -2,6 +2,7 @@
   根组件 / App.vue
   原 1590 行,重构后 <300 行。
   拆出逻辑(全部抽到 composables/):
+    - 字体加载        → useFontLoader
     - SSO 回调       → useAuthBootstrap.handleSsoCallback
     - 认证状态恢复   → useAuthBootstrap.restoreAuthState
     - 滚动渐变       → useAppLifecycle (onScrollFade)
@@ -12,59 +13,157 @@
     - 图片错误兜底   → useElementVisibility.installImageFallback
     - 关键容器可见性 → useElementVisibility.forceVisible + CRITICAL_VISIBILITY_TARGETS
   全局兜底样式已抽到 styles/_app-shell.scss。
-  字体加载已统一由 index.html 同步 <link> 加载 public/fonts-optimized/fonts.css，
-  无需 composable 预热，无 store 运行时注入。
 -->
 <template>
-  <!--
-    2026-06-25: Error 组件包裹在 el-config-provider 外层,
-    el-config-provider 直接接收业务内容作为 default slot.
-    Error 的 onErrorCaptured 仍能捕获 el-config-provider 内部子组件的错误.
-    注意: <Teleport to="body"> 的 Header 及其子组件无法使用 useRoute/useRouter
-    (脱离了 RouterView 的 provide/inject 上下文), 这是已知限制.
-  -->
-  <Error>
-    <el-config-provider v-if="hasValidEpLocale" :locale="epLocale">
-      <Teleport to="body">
-        <Header v-if="!isAdminRoute" @select="handleSelect" />
-      </Teleport>
-
+  <el-config-provider :locale="epLocale">
+    <Error>
       <div v-if="isAdminRoute" class="admin-route-container">
         <RouterView />
       </div>
 
       <div v-else class="app-container">
         <a href="#main-content" class="skip-link">{{ t('app.skipToMain') }}</a>
-        <main
-          class="main-content"
-          :class="{
-            'login-route': isLoginRoute || isRegisterRoute,
-            'route-home': isHomeRoute,
-            'open-platform-route': isOpenPlatformRoute,
-          }"
-          id="main-content"
-        >
-          <RouterView v-slot="{ Component, route }">
-            <!-- 登录/注册/开放平台直接渲染,避免白屏 -->
-            <component
-              v-if="isBareRoute(route)"
-              :is="Component"
-              :key="route.path"
+        <!-- 左侧边栏 + 右侧工作区布局（所有非管理端页面均挂载 Sidebar，贯穿整个项目） -->
+        <div class="app-layout">
+          <Sidebar
+            @language-change="handleLanguageChange"
+            @show-login-popup="handleShowLoginPopup"
+            @feedback-click="handleFeedbackClick"
+          />
+
+          <!-- 左侧 AI 对话面板（桌面端，Trae Work 风格：紧贴 Sidebar 右侧） -->
+          <aside
+            v-if="showGlobalChat && !isAdminRoute"
+            class="ai-side-panel"
+            :class="{ 'is-resizing': isResizing, 'is-open': aiPanelIsOpen, 'is-empty': !hasEnteredWorkspace }"
+            :style="{ '--ai-panel-width': aiPanelWidth + 'px' }"
+            :aria-hidden="!aiPanelIsOpen"
+          >
+            <!-- 空文件夹形态：未进入工作区时，整个面板只显示空态 + 关闭按钮 -->
+            <div v-if="!hasEnteredWorkspace" class="ai-side-panel-empty">
+              <button
+                class="ai-side-panel-close ai-side-panel-close--floating"
+                @click="aiPanelClose"
+                :aria-label="t('common.close')"
+                :title="t('common.close')"
+                type="button"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+              <div class="ai-side-panel-empty-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                  <path d="M8 10h8" />
+                  <path d="M8 14h5" />
+                </svg>
+              </div>
+              <h3 class="ai-side-panel-empty-title">{{ t('floatingChat.emptyWorkspace.title') }}</h3>
+              <p class="ai-side-panel-empty-desc">{{ t('floatingChat.emptyWorkspace.description') }}</p>
+              <div class="ai-side-panel-empty-actions">
+                <el-button type="primary" @click="handleEnterWorkspace('model')">
+                  {{ t('floatingChat.emptyWorkspace.selectModel') }}
+                </el-button>
+                <el-button @click="handleEnterWorkspace('agent')">
+                  {{ t('floatingChat.emptyWorkspace.selectAgent') }}
+                </el-button>
+              </div>
+            </div>
+            <!-- 工作区已进入：显示标题栏 + AIChat -->
+            <template v-else>
+              <!-- 面板顶部标题栏 -->
+              <div class="ai-side-panel-header">
+                <div class="ai-side-panel-title">
+                  <span class="ai-side-panel-title-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 8V4H8" />
+                      <rect width="16" height="12" x="4" y="8" rx="2" />
+                      <path d="M2 14h2" />
+                      <path d="M20 14h2" />
+                      <path d="M15 13v2" />
+                      <path d="M9 13v2" />
+                    </svg>
+                  </span>
+                  <span>{{ aiPanelTitle }}</span>
+                </div>
+                <button
+                  class="ai-side-panel-close"
+                  @click="aiPanelClose"
+                  :aria-label="t('common.close')"
+                  :title="t('common.close')"
+                  type="button"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <!-- 面板主体：AIChat embedded 模式 -->
+              <div class="ai-side-panel-body">
+                <AIChat
+                  v-if="aiPanelLoaded"
+                  ref="embeddedChatRef"
+                  mode="embedded"
+                  :show-toggle="false"
+                  :show-minimize="false"
+                  :show-close="false"
+                  :draggable="false"
+                  :resizable="false"
+                  :enable-voice="true"
+                  :enable-file-upload="true"
+                  :enable-search="true"
+                  :show-model-selector="true"
+                  :show-header="true"
+                  :dialog-title="aiPanelTitle"
+                  @message-sent="onGlobalMessageSent"
+                  @message-received="onGlobalMessageSent"
+                />
+              </div>
+            </template>
+            <!-- 右侧拖拽手柄（调整面板宽度） -->
+            <div
+              class="ai-side-panel-resize-handle"
+              @mousedown.prevent="startResize"
+              role="separator"
+              aria-orientation="vertical"
+              :aria-valuenow="aiPanelWidth"
+              :aria-valuemin="aiPanelMinWidth"
+              :aria-valuemax="aiPanelMaxWidth"
+              tabindex="0"
             />
-            <!-- 其他路由用 Transition + KeepAlive -->
-            <Transition v-else :name="(route.meta?.transition as string) || 'fade'" mode="out-in">
-              <KeepAlive :include="keepAliveRoutes">
-                <component :is="Component" :key="route.path" />
-              </KeepAlive>
-            </Transition>
-          </RouterView>
-        </main>
-        <Footer v-if="safeRoute.meta?.showFooter === true" />
+          </aside>
+
+          <div class="workspace">
+            <WorkspaceHeader
+              @open-mobile-sidebar="openMobile"
+            />
+            <div
+              class="workspace-content"
+              :class="{
+                'route-home': isHomeRoute,
+                'open-platform-route': isOpenPlatformRoute,
+              }"
+              id="main-content"
+            >
+              <RouterView v-slot="{ Component, route: rv }">
+                <Transition :name="(rv.meta?.transition as string) || 'fade'" mode="out-in">
+                  <KeepAlive :include="keepAliveRoutes">
+                    <component :is="Component" :key="rv.path" />
+                  </KeepAlive>
+                </Transition>
+              </RouterView>
+            </div>
+            <Footer v-if="route.meta?.showFooter === true" />
+          </div>
+        </div>
 
         <!-- 网络离线提示 -->
         <Transition name="slide-down">
           <div v-if="!isOnline" class="network-offline-banner" role="status" aria-live="polite">
-            <AlertTriangle class="el-icon" :size="18" aria-hidden="true" />
+            <el-icon><AlertTriangle /></el-icon>
             <span>{{ t('app.offlineWarning') }}</span>
           </div>
         </Transition>
@@ -78,31 +177,31 @@
 
         <!-- 全局加载 -->
         <GlobalLoading
-          v-if="!isLoginRoute && !isRegisterRoute"
           :visible="globalLoading"
           :text="globalLoadingText"
           :fullscreen="true"
           :lock="true"
         />
 
-        <!-- AI 对话(管理端不显示) -->
+        <!-- AI 对话：桌面端已迁移至左侧 .ai-side-panel（embedded 模式，紧贴 Sidebar 右侧）；
+             此处仅保留移动端浮窗（floating 模式）和 Legacy 兼容模式 -->
         <AIChat
-          v-if="showAIChat && showGlobalChat && !useLegacyChat && !isAdminRoute"
-          :key="safeRoute.fullPath"
+          v-if="aiPanelIsMobile && showGlobalChat && !useLegacyChat && !isAdminRoute"
+          :key="'mobile-chat-' + route.fullPath"
           ref="floatingChatRef"
-          v-model:visible="showAIChat"
+          v-model:visible="mobileChatVisible"
           :show-toggle="true"
           :enable-voice="true"
           :enable-file-upload="true"
           :enable-search="true"
           :show-model-selector="true"
-          :dialog-title="t('hardcoded.app.AI智能助手')"
+          :dialog-title="aiPanelTitle"
           @message-sent="onGlobalMessageSent"
           @message-received="onGlobalMessageSent"
         />
         <AIChatLegacy
-          v-if="showAIChat && useLegacyChat && !isAdminRoute"
-          :key="safeRoute.fullPath"
+          v-if="aiPanelIsMobile && useLegacyChat && !isAdminRoute"
+          :key="'mobile-legacy-' + route.fullPath"
           ref="globalChatRef"
           :mode="chatMode"
           :show-toggle="true"
@@ -119,19 +218,17 @@
         <!-- PWA 更新提示 -->
         <PWAUpdatePrompt />
 
-        <!-- 移动端底部导航 -->
-        <MobileBottomNav v-if="!isAdminRoute" />
-
         <!-- 主题切换 loading -->
         <ThemeLoadingIndicator
           :is-visible="darkModeStore.isLoading"
           :is-dark="darkModeStore.isDarkMode"
         />
+
+        <!-- 全局登录/注册弹窗（贯穿所有非管理端页面） -->
+        <LoginDialog />
       </div>
-    </el-config-provider>
-    <!-- v-if 兜底: locale 尚未解析时显示空白背景占位, 避免白屏闪烁 -->
-    <div v-else class="app-locale-loading" aria-hidden="true"></div>
-  </Error>
+    </Error>
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">
@@ -146,14 +243,16 @@ import { useOptimization } from './utils/optimization'
 import { initCspReport } from './utils/cspReport'
 import { sessionManager } from './utils/sessionManager'
 import { AlertTriangle } from '@/lib/lucide-fallback'
-import { getElementPlusLocale, loadElementPlusLocale, loadModules, prefetchCommonI18nModules, getCurrentLocale, type SupportedLocale } from '@/locales'
+import { getElementPlusLocale } from '@/locales'
 
 import { useLanguageStore } from '@/stores/language'
+import { useFontStore } from '@/stores/font'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useChatModeStore } from '@/stores/chatMode'
 import { useLoadingStore } from '@/stores/loading'
 
 import { handleSsoCallback, restoreAuthState } from '@/composables/useAuthBootstrap'
+import { useFontLoader } from '@/composables/useFontLoader'
 import {
   useElementVisibility,
   CRITICAL_VISIBILITY_TARGETS,
@@ -161,10 +260,16 @@ import {
 import { useAppLifecycle } from '@/composables/useAppLifecycle'
 import { useGlobalNotification } from '@/composables/useGlobalNotification'
 import { useGlobalChat } from '@/composables/useGlobalChat'
+import { useSidebar } from '@/composables/useSidebar'
+import { useAiPanel } from '@/composables/useAiPanel'
+import { useCleanup } from '@/composables/useCleanup'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 
-import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
 import Error from './components/Error.vue'
+import Sidebar from './components/Sidebar.vue'
+import WorkspaceHeader from './components/WorkspaceHeader.vue'
+import LoginDialog from './components/login/LoginDialog.vue'
 
 // 异步组件按需加载(减小首屏 JS 体积)
 const ErrorNotification = defineAsyncComponent(() => import('./components/ErrorNotification.vue'))
@@ -180,108 +285,36 @@ const PWAInstallPrompt = defineAsyncComponent(
 const PWAUpdatePrompt = defineAsyncComponent(
   () => import('@/components/common/PWAUpdatePrompt.vue'),
 )
-const MobileBottomNav = defineAsyncComponent(
-  () => import('@/components/mobile/MobileBottomNav.vue'),
-)
 const ThemeLoadingIndicator = defineAsyncComponent(
   () => import('@/components/ThemeLoadingIndicator.vue'),
 )
 const AIChat = defineAsyncComponent(() => import('@/components/ai/AIChat.vue'))
 const AIChatLegacy = defineAsyncComponent(() => import('@/components/ai/AIChatLegacy.vue'))
 
-// 2026-06-26 修复: logger.info 启动提示在生产也会输出, 降级为 logger.debug
-// 避免用户打开控制台看到 [App] App.vue 开始初始化... 噪音
-if (import.meta.env.DEV) {
-  logger.debug('[App] App.vue setup start')
-}
+logger.info('[App] App.vue 开始初始化...')
 
 // ═══ 路由 / 国际化 ═══
-// 2026-06-25 修复: useRoute 顶层调用无兜底, HMR 抖动期 app.use(router) 还没执行
-// 会抛 'injection "Symbol(route location)" not found', 整个 setup 失败触发
-// ErrorBoundary 兜底页白屏. 顶层 try/catch, 失败时 route 引用为 null,
-// safeRoute computed 兜底返回空对象, 避免 template/computed 访问 .path/.name/.meta 抛错.
-// 注意: 占位对象必须保持响应式读取, 因此用 computed 包装而不是 const 普通对象.
-let route: ReturnType<typeof useRoute> | null = null
-try {
-  route = useRoute()
-} catch (e) {
-  logger.warn('[App] useRoute failed on init, route fallback to empty:', e)
-}
-const safeRoute = computed(() => (route || ({} as unknown as ReturnType<typeof useRoute>)))
+const route = useRoute()
 const { t, locale } = useI18n()
-// 2026-06-24 优化：EP 语言包懒加载，computed 同步返回（先 en 兜底），异步预加载后自动更新
-// vue-i18n 9.x 的 locale 是 Ref<string>, 直接 .value 即可
-const epLocale = ref<Record<string, unknown>>(getElementPlusLocale(locale.value))
-// 2026-06-24 修复: 仅有有效 locale (含 name 字段) 时才挂载 el-config-provider,
-// 避免空 {} locale 触发 Element Plus 内部 renderSlot(null children) 错误.
-const hasValidEpLocale = computed(() => {
-  const v = epLocale.value as { name?: unknown } | null | undefined
-  return !!(v && typeof v === 'object' && typeof v.name === 'string' && v.name.length > 0)
-})
-// ═══ 首屏关键 i18n 模块预加载 ═══
-// 2026-06-25 修复: 首屏可见页面 (Home.vue, HomePage4.vue, useNews.ts, Footer.vue) 依赖
-// home/title/footer 三个 async 模块. 之前因 asyncModules 不会自动加载,
-// 页面打开时出现大量键名裸露 (homePage4.subscribe, title.home_page3.XXX, footer.acknowledgments
-// 等), 影响上线体验. 在 onMounted 主动预加载, watch(locale) 切换语言时重新加载.
-// 注意: 失败不阻塞首屏, 静默走 fallback, 避免 i18n 错误引发 ErrorBoundary 兜底.
-const FIRST_SCREEN_I18N_MODULES = ['home', 'title', 'footer'] as const
-function preloadFirstScreenI18n(target: SupportedLocale) {
-  // 用 queueMicrotask 不阻塞当前同步流程, 并捕获错误避免未处理 promise rejection
-  queueMicrotask(() => {
-    loadModules(target, [...FIRST_SCREEN_I18N_MODULES]).catch((e) => {
-      logger.warn(`[App] Preload first-screen i18n modules failed for ${target}:`, e)
-    })
-  })
-}
-watch(
-  locale,
-  (lang) => {
-    // 跟随语言切换重新加载首屏关键 i18n 模块
-    const code: string = typeof lang === 'string' ? lang : String((lang as { value: unknown }).value ?? '')
-    const target: SupportedLocale = (code === 'zh-CN' || code === 'zh-TW' || code === 'en' || code === 'ja' || code === 'ko')
-      ? code
-      : 'zh-CN'
-    preloadFirstScreenI18n(target)
-  },
-  { immediate: true },
-)
-
-watch(
-  locale,
-  async (lang) => {
-    // vue-i18n 9.x: locale 是 Ref<string>, watch 回调参数可能是 string 或 Ref<string>
-    // vue-tsc 5.x 在 strict 模式下对 typeof 守卫不彻底 narrow, 用显式 string 注解强制收窄
-    const code: string = typeof lang === 'string' ? lang : String((lang as { value: unknown }).value ?? '')
-    const loaded = await loadElementPlusLocale(code)
-    epLocale.value = loaded
-  },
-  { immediate: true }
-)
+const epLocale = computed(() => getElementPlusLocale(locale.value))
 
 // ═══ 状态管理初始化 ═══
 const languageStore = useLanguageStore()
+const fontStore = useFontStore()
 const loadingStore = useLoadingStore()
 const darkModeStore = useDarkModeStore()
 const chatModeStore = useChatModeStore()
 darkModeStore.initDarkMode?.()
 
 // ═══ 路由判断 ═══
-// 2026-06-25 修复: 全部使用 safeRoute.value 访问, 避免 HMR 抖动期 route 为 null 时
-// .path/.name/.meta 抛 'Cannot read properties of undefined (reading path)'
-// 触发 watcher getter / computed 异常, 进而被 ErrorBoundary 兜底为白屏.
-const isLoginRoute = computed(() => safeRoute.value.name === 'login' || safeRoute.value.path === '/login')
-const isRegisterRoute = computed(() => safeRoute.value.name === 'register' || safeRoute.value.path === '/register')
-const isHomeRoute = computed(() => safeRoute.value.name === 'home' || safeRoute.value.path === '/')
-const isOpenPlatformRoute = computed(() => safeRoute.value.name === 'openPlatform' || safeRoute.value.path === '/open')
+const isHomeRoute = computed(() => route.name === 'home' || route.path === '/')
+const isOpenPlatformRoute = computed(() => route.name === 'openPlatform' || route.path === '/open')
 const isAdminRoute = computed(
-  () => (safeRoute.value.path?.startsWith('/admin-classic') ?? false) || (safeRoute.value.path?.startsWith('/m/admin') ?? false),
+  () => route.path.startsWith('/admin-classic') || route.path.startsWith('/m/admin'),
 )
 
-const isBareRoute = (r: { name?: string | symbol; path: string }) =>
-  r.name === 'login' ||
-  r.name === 'register' ||
-  r.name === 'openPlatform' ||
-  r.path === '/open'
+// 注：原 isBarePage 已废弃，所有非管理端页面均挂载 Sidebar（含登录/注册/开放平台）
+// 登录/注册改为弹窗形式（LoginDialog），由 useLoginDialog 单例 composable 全局控制
 
 // ═══ 异步 composable 装配 ═══
 const { isOnline } = useResilience()
@@ -289,34 +322,160 @@ const { checkFeatures, adaptToNetwork } = useProgressiveEnhancement()
 const { monitorTasks } = useOptimization()
 
 const { forceVisible, installImageFallback } = useElementVisibility()
+useFontLoader()
 const { notification: globalNotification, install: installNotification } =
   useGlobalNotification()
 installNotification()
 
-const showAIChat = ref(false) // 性能优化:默认隐藏,避免 405KB 拖累首屏
+const globalChat = useGlobalChat()
+globalChat.install()
+
+// 清理 composable（统一管理全局事件监听器，避免内存泄漏）
+const cleanup = useCleanup()
+
+// ═══ 左侧 AI 面板状态（Trae Work 风格，桌面端默认开启） ═══
+const aiPanel = useAiPanel()
+const aiPanelIsOpen = aiPanel.isOpen
+const aiPanelIsMobile = aiPanel.isMobile
+const aiPanelWidth = aiPanel.width
+const aiPanelMinWidth = aiPanel.minWidth
+const aiPanelMaxWidth = aiPanel.maxWidth
+const aiPanelClose = aiPanel.close
+const aiPanelToggle = aiPanel.toggle
+const hasEnteredWorkspace = aiPanel.hasEnteredWorkspace
+const enterWorkspace = aiPanel.enterWorkspace
+
+// 面板标题（i18n）
+const aiPanelTitle = computed(() => t('hardcoded.app.AI智能助手'))
+
+// 懒加载 AIChat 组件：首次打开面板时才挂载，避免 405KB 拖累首屏
+const aiPanelLoaded = ref(false)
+watch(
+  aiPanelIsOpen,
+  open => {
+    if (open && !aiPanelLoaded.value) {
+      aiPanelLoaded.value = true
+    }
+  },
+  { immediate: true },
+)
+
+// 拖拽调整面板宽度
+const isResizing = ref(false)
+const startResize = (e: MouseEvent): void => {
+  // 移动端不允许拖拽（面板隐藏）
+  if (aiPanelIsMobile.value) return
+  e.preventDefault()
+  isResizing.value = true
+  const startX = e.clientX
+  const startWidth = aiPanelWidth.value
+  // 拖拽过程禁止文本选中
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+
+  const onMove = (ev: MouseEvent): void => {
+    // 向右拖 → delta 正 → 宽度增加（手柄位于面板右侧）
+    const delta = ev.clientX - startX
+    aiPanel.setWidth(startWidth + delta)
+  }
+  const onUp = (): void => {
+    isResizing.value = false
+    document.body.style.userSelect = ''
+    document.body.style.cursor = ''
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
+// Ctrl/Cmd+I 快捷键：切换 AI 面板（与 VS Code 风格一致）
+// 规则：
+//   1. 仅桌面端生效（移动端由浮窗接管，无面板概念）
+//   2. 排除输入框聚焦场景，避免与编辑器快捷键冲突
+//   3. 阻止默认行为（部分浏览器 Cmd+I 有"斜体"等绑定）
+const handleAiToggleShortcut = (e: KeyboardEvent): void => {
+  if (aiPanelIsMobile.value) return
+  if (!(e.ctrlKey || e.metaKey)) return
+  const key = e.key.toLowerCase()
+  if (key !== 'i') return
+  const target = e.target as HTMLElement | null
+  if (target) {
+    const tag = target.tagName
+    if (
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT' ||
+      target.isContentEditable
+    ) {
+      return
+    }
+  }
+  e.preventDefault()
+  aiPanelToggle()
+}
+
+// AI 对话开关与 ref 注入
 const useLegacyChat = ref(false)
 const showCommandPalette = ref(false)
 const showPWAInstallPrompt = ref(false)
+
+// 移动端浮窗 visible 状态
+const mobileChatVisible = ref(false)
+
+// 桌面端 embedded 模式 AIChat ref
+const embeddedChatRef = ref<{
+  openDialog?: () => void
+  focusInput?: () => void
+  setInitialText?: (text: string) => void
+  setInitialAgentTag?: (name: string, avatar?: string) => void
+  switchMode?: (mode: string) => void
+  selectAgent?: (agent: unknown) => void
+  selectModel?: (model: unknown) => void
+  openCapabilityPanel?: (mode?: 'model' | 'agent' | 'mcp') => void
+} | null>(null)
+
+// 进入工作区后的待切换模式（'model' | 'agent'），由空文件夹 CTA 按钮设置，AIChat 挂载后消费
+const pendingMode = ref<'model' | 'agent' | null>(null)
+const handleEnterWorkspace = (mode: 'model' | 'agent'): void => {
+  pendingMode.value = mode
+  enterWorkspace()
+}
+watch(
+  () => embeddedChatRef.value,
+  inst => {
+    const mode = pendingMode.value
+    if (inst && mode) {
+      // AIChat 挂载后打开对应能力选择器（模型/智能体），让用户直接选择
+      nextTick(() => {
+        inst.openCapabilityPanel?.(mode)
+        pendingMode.value = null
+      })
+    }
+  },
+)
+// 移动端 floating 模式 AIChat ref
 const floatingChatRef = ref<{
   openDialog?: () => void
   focusInput?: () => void
   setInitialText?: (text: string) => void
   setInitialAgentTag?: (name: string, avatar?: string) => void
   switchMode?: (mode: string) => void
-  selectAgent?: (agent: any) => void
-  selectModel?: (model: any) => void
+  selectAgent?: (agent: unknown) => void
+  selectModel?: (model: unknown) => void
 } | null>(null)
 const globalChatRef = ref<{
   scrollToMessages?: () => void
   currentSessionId?: { value: string | null }
   loadSessionMessages?: () => Promise<void>
 } | null>(null)
-// showAIChat 需先声明,再传入 useGlobalChat 作为 onMount 回调(触发 AIChat 组件挂载)
-const globalChat = useGlobalChat(() => {
-  showAIChat.value = true
-})
-globalChat.install()
-watch(floatingChatRef, r => globalChat.setFloatingChatRef(r), { immediate: true })
+
+// 根据屏幕尺寸动态注入对应 ref 到 globalChat
+// 桌面端用 embeddedChatRef，移动端用 floatingChatRef
+const activeChatRef = computed(() =>
+  aiPanelIsMobile.value ? floatingChatRef.value : embeddedChatRef.value,
+)
+watch(activeChatRef, r => globalChat.setFloatingChatRef(r), { immediate: true })
 
 // 全局加载状态(从 store 获取)
 const globalLoading = computed(() => loadingStore.globalLoading)
@@ -326,9 +485,9 @@ const globalLoadingText = computed(() => loadingStore.globalLoadingText)
 const chatMode = computed<'global' | 'dialog' | 'agent'>(() => chatModeStore.mode)
 const showGlobalChat = computed(
   () =>
-    safeRoute.value.name !== 'AIManagement' &&
-    safeRoute.value.name !== 'login' &&
-    safeRoute.value.name !== 'register' &&
+    route.name !== 'AIManagement' &&
+    route.name !== 'login' &&
+    route.name !== 'register' &&
     !isAdminRoute.value,
 )
 const defaultCollapsed = computed(() => false)
@@ -354,19 +513,31 @@ useAppLifecycle({ onScrollFade: updateChatFade })
 // KeepAlive 路由列表
 const keepAliveRoutes = ref<string[]>(['Home', 'Xuqiu', 'Chat'])
 
-// 头部菜单点击
-const handleSelect = (): void => { /* 由子组件 emit,父级无需处理 */ }
+// 侧边栏状态（来自单例 composable，与 Sidebar/WorkspaceHeader 共享）
+const { openMobile } = useSidebar()
+
+// 登录弹窗状态（来自单例 composable，与 LoginDialog/Sidebar 共享）
+const loginDialog = useLoginDialog()
+
 const onGlobalMessageSent = (): void => { /* 全局 AI 聊天消息统计钩子 */ }
+
+// WorkspaceHeader 事件处理
+const handleLanguageChange = (lang: string): void => {
+  languageStore.setLanguage(lang)
+}
+const handleShowLoginPopup = (): void => {
+  // 触发全局登录弹窗（弹窗形式取代独立 /login 页面）
+  loginDialog.open('login')
+}
+const handleFeedbackClick = (): void => { /* 触发反馈 */ }
 
 // ═══ 启动流程 ═══
 onMounted(async () => {
+  // 注册 Ctrl/Cmd+I 快捷键（切换左侧 AI 面板）
+  cleanup.addEventListener<KeyboardEvent>(window, 'keydown', handleAiToggleShortcut)
+
   // CSP 违规上报
   initCspReport()
-
-  // 2026-06-26 新增: 空闲预取常用 i18n 模块, 解决 asyncModule 竞态 (键名裸露).
-  // 调用 prefetchCommonI18nModules 不会阻塞当前同步流程, 内部用 requestIdleCallback
-  // 调度, 避开首屏关键渲染期. 切换语言时 setLanguage 内部已重置 _prefetchScheduled.
-  prefetchCommonI18nModules(getCurrentLocale())
 
   // 强制清除残留加载态(多次兜底)
   const clearLoading = () => {
@@ -394,7 +565,12 @@ onMounted(async () => {
   }
 
   // 2) 恢复 localStorage 中的登录态
-  await restoreAuthState()
+  // 注: main.ts 在路由守卫前已调用 authStore.initAuth(), 此处不再重复调用
+  // 重复调用会导致 store 状态在启动初期被重置两次, 引发依赖 authStore 的 watch 抖动
+  // 仅在 SSO 回调成功后才需要重新初始化 (SSO 写入了新 token, 需刷新 store 状态)
+  if (ssoResult.hadSsoParams && ssoResult.success) {
+    await restoreAuthState()
+  }
 
   // 3) 会话管理
   sessionManager.init()
@@ -407,8 +583,9 @@ onMounted(async () => {
   // 5) 全局图片错误兜底
   const uninstallImageFallback = installImageFallback()
 
-  // 6) 语言 / 暗色模式初始化
+  // 6) 语言 / 字体 / 暗色模式初始化
   languageStore.initLanguage()
+  fontStore.initFont?.()
   darkModeStore.initDarkMode?.()
 
   // 7) 浏览器能力检测与网络自适应
@@ -423,11 +600,10 @@ onMounted(async () => {
   adaptToNetwork()
 
   // 8) 长任务监控(仅开发环境)
-  // 2026-06-26 修复: logger.debug 内部已有 isDevelopment 守卫, 移除冗余 import.meta.env.DEV
   monitorTasks(
     (duration: number) => {
-      if (duration > 200) {
-        logger.debug('检测到长时间任务', { duration })
+      if (import.meta.env.DEV && duration > 200) {
+        logger.warn('检测到长时间任务', { duration })
       }
     },
     { threshold: 200, delay: 5000 },
@@ -439,7 +615,7 @@ onMounted(async () => {
 
 // 路由切换时同步滚动渐变
 watch(
-  () => safeRoute.value.path,
+  () => route.path,
   () => {
     nextTick(() => {
       if (isHomeRoute.value) updateChatFade(0)

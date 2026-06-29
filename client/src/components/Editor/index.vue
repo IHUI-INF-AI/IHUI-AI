@@ -24,7 +24,7 @@ import axios from "axios";
 import "quill/dist/quill.core.css";
 import "quill/dist/quill.snow.css";
 import "quill/dist/quill.bubble.css";
-import { StorageManager, STORAGE_KEYS } from "@/utils/storage";
+import { TokenStorage } from "@/utils/storage";
 import { logger } from "@/utils/logger";
 import { sanitizeHtml } from "@/utils/htmlSanitizer";
 
@@ -66,7 +66,7 @@ export default {
     return {
       uploadUrl: (import.meta.env.VITE_BASE_API || import.meta.env.VUE_APP_BASE_API || "/dev-api") + "/cozeZhsApi/file/upload/form",
       headers: {
-        Authorization: "Bearer " + (StorageManager.getItem(STORAGE_KEYS.USER_TOKEN) || ""),
+        Authorization: "Bearer " + (TokenStorage.getToken() || ""),
       },
       Quill: null,
       currentValue: "",

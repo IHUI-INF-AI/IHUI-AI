@@ -42,7 +42,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import type { OperatorDataCardData } from '@/api/distribution/distribution'
+import type { OperatorDataCardData } from '@/api/distribution'
 
 interface Props {
   data: OperatorDataCardData

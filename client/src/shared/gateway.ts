@@ -39,7 +39,7 @@ export function validateApiEndpoint(endpoint: Partial<ApiEndpoint>): {
 
 export function validateParameterValue(
   param: ApiParameter,
-  value: any
+  value: unknown
 ): {
   valid: boolean
   error?: string
@@ -163,7 +163,7 @@ export function transformRequestData(
 ): {
   url: string
   method: string
-  body?: any
+  body?: unknown
   headers?: Record<string, string>
 } {
   const pathParams: Record<string, string> = {}

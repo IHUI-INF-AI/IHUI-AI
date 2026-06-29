@@ -2,8 +2,8 @@
   <div class="user-statistics">
     <h3 class="section-title">{{ t('userComponents.statistics.title') }}</h3>
     <div class="stats-grid">
-      <div class="stat-card stat-views">
-        <div class="stat-icon stat-icon--primary">
+      <div class="stat-card">
+        <div class="stat-icon">
           <el-icon :size="32"><View /></el-icon>
         </div>
         <div class="stat-info">
@@ -13,7 +13,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon stat-icon--warning">
+        <div class="stat-icon">
           <el-icon :size="32"><Star /></el-icon>
         </div>
         <div class="stat-info">
@@ -23,7 +23,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon stat-icon--success">
+        <div class="stat-icon">
           <el-icon :size="32"><ShoppingCart /></el-icon>
         </div>
         <div class="stat-info">
@@ -33,7 +33,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon stat-icon--info">
+        <div class="stat-icon">
           <el-icon :size="32"><Wallet /></el-icon>
         </div>
         <div class="stat-info">
@@ -76,7 +76,8 @@ const _props = defineProps<{
   background: var(--bg-card);
   border-radius: var(--global-border-radius);
   padding: 24px;
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .section-title {
   margin: 0 0 20px;
@@ -99,12 +100,13 @@ const _props = defineProps<{
   padding: 20px;
   background: var(--bg-secondary);
   border-radius: var(--global-border-radius);
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .stat-card:hover {
-  
-  }
+  transform: translateY(-4px);
+  box-shadow: var(--global-box-shadow);
+}
 
 .stat-icon {
   width: 56px;
@@ -116,11 +118,6 @@ const _props = defineProps<{
   color: var(--el-bg-color-page);
   border-radius: var(--global-border-radius);
 }
-
-.stat-icon--primary { background: var(--el-color-primary); color: var(--color-on-primary); }
-.stat-icon--warning { background: var(--el-color-warning); color: var(--color-on-primary); }
-.stat-icon--success { background: var(--el-color-success); color: var(--color-on-primary); }
-.stat-icon--info { background: var(--el-text-color-secondary); color: var(--color-on-primary); }
 
 .stat-info {
   display: flex;

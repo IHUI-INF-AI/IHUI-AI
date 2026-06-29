@@ -34,11 +34,11 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MemberLayout from '@/components/member/Layout.vue'
-import { memberApi } from '@/api/learn/member'
+import { memberApi } from '@/api/member'
 
 const { t } = useI18n()
-const askList = ref<any[]>([])
-const answerList = ref<any[]>([])
+const askList = ref<unknown[]>([])
+const answerList = ref<unknown[]>([])
 const loading = ref(false)
 
 async function load() {
@@ -48,8 +48,8 @@ async function load() {
       memberApi.myAskList(),
       memberApi.myAnswerList(),
     ])
-    askList.value = (a as any).data?.items || (a as any).data?.list || []
-    answerList.value = (b as any).data?.items || (b as any).data?.list || []
+    askList.value = a.data?.data?.items || a.data?.data?.list || []
+    answerList.value = b.data?.data?.items || b.data?.data?.list || []
   } catch (e) { console.error(e) } finally {
     loading.value = false
   }

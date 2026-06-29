@@ -1,8 +1,23 @@
 {
   "chatMode": {
-    "agentMode": "agentMode",
-    "enterAgentMode": "enterAgentMode",
-    "exitAgentMode": "exitAgentMode",
-    "normalMode": "normalMode"
+    "agentMode": "智能體模式",
+    "normalMode": "常规模式",
+    "enterAgentMode": "EnterAgent眾数",
+    "exitAgentMode": "ExitAgent眾数",
+    "minimal": "迷你",
+    "global": "全局",
+    "dialog": "對話框",
+    "agent": "智能體",
+    "switchToMinimal": "切換到迷你模式",
+    "switchToGlobal": "切換到全局模式",
+    "switchToDialog": "切換到對話框模式",
+    "switchToAgent": "切換到智能體模式",
+    "switchedTo": "已切換到{mode}",
+    "minimalMode": "迷你模式",
+    "globalMode": "全局模式",
+    "dialogMode": "對話框模式",
+    "switchMode": "切換模式",
+    "agentModeLabel": "智能體",
+    "switchModeLabel": "切換模式"
   }
 }

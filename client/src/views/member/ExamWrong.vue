@@ -6,18 +6,17 @@
       <div v-else class="wrong-list">
         <div v-for="w in list" :key="w.id" class="wrong-item">
           <div class="wrong-head">
-            <span class="wrong-exam">{{ w.paper_title || w.paper_id || w.exam_id }}</span>
-            <el-button size="small" @click="goPaper(w)">{{ t('memberExamWrong.enterExam') }}</el-button>
-            <el-button size="small" @click="handleMaster(w.id)">{{ t('memberExamWrong.master') }}</el-button>
+            <span class="wrong-exam">{{ w.examName || w.examId }}</span>
+            <el-button size="small" @click="handleRemove(w.id)">{{ t('memberExamWrong.remove') }}</el-button>
           </div>
-          <div class="wrong-question">{{ w.question_title || w.question_id }}</div>
+          <div class="wrong-question">{{ w.questionTitle || w.questionId }}</div>
           <div class="wrong-row">
             <span class="label">{{ t('memberExamWrong.myAnswer') }}</span>
-            <span class="value mine">{{ w.user_answer || t('memberExamWrong.notAnswered') }}</span>
+            <span class="value mine">{{ w.userAnswer || t('memberExamWrong.notAnswered') }}</span>
           </div>
           <div class="wrong-row">
             <span class="label">{{ t('memberExamWrong.correctAnswer') }}</span>
-            <span class="value right">{{ w.correct_answer || '—' }}</span>
+            <span class="value right">{{ w.correctAnswer || '—' }}</span>
           </div>
           <div v-if="w.analysis" class="wrong-row">
             <span class="label">{{ t('memberExamWrong.analysis') }}</span>
@@ -34,38 +33,30 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import MemberLayout from '@/components/member/Layout.vue'
-import { useRouter } from 'vue-router'
-import { examApi } from '@/api/learn/exam'
+import { memberApi } from '@/api/member'
 
 const { t } = useI18n()
-const router = useRouter()
-const list = ref<any[]>([])
+const list = ref<unknown[]>([])
 const loading = ref(false)
 
 async function load() {
   loading.value = true
   try {
-    const res = await examApi.wrongList({ page: 1, limit: 50 })
-    const data = res?.data
-    list.value = (data?.data || data?.list || data || []) as any[]
+    const res = await memberApi.examWrongList()
+    list.value = res.data?.data?.items || res.data?.data?.list || []
   } finally {
     loading.value = false
   }
 }
 
-async function handleMaster(id: number) {
+async function handleRemove(id: string) {
   try {
-    await (examApi as unknown as { markWrongMastered: (id: number) => Promise<unknown> }).markWrongMastered(id)
-    list.value = list.value.filter((item) => item.id !== id)
-    ElMessage.success(t('memberExamWrong.masteredSuccess'))
+    await memberApi.examWrongRemove(id)
+    ElMessage.success(t('memberExamWrong.removed'))
+    load()
   } catch {
-    ElMessage.error(t('memberExamWrong.masteredFailed'))
+    ElMessage.error(t('common.errors.removeFailed'))
   }
-}
-
-function goPaper(w: any) {
-  const paperId = w.paper_id || w.exam_id
-  if (paperId) router.push(`/exam/${paperId}`)
 }
 
 onMounted(load)
@@ -77,9 +68,9 @@ onMounted(load)
 }
 
 :where(.page-title) {
+  margin: 0 0 24px;
   font-size: 20px;
   font-weight: 600;
-  margin: 0 0 24px;
 }
 
 :where(.wrong-list) {
@@ -98,7 +89,6 @@ onMounted(load)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
   margin-bottom: 8px;
 }
 

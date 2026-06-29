@@ -1,7 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onErrorCaptured, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertTriangle, RefreshCw, Home, ChevronDown } from '@/lib/lucide-fallback'
+import { AlertTriangle, RefreshCw, Home } from '@/lib/lucide-fallback'
 
 interface Props {
   fallback?: boolean
@@ -25,8 +25,6 @@ const errorInfo = ref<{
   componentStack?: string
 } | null>(null)
 
-const showDetails = ref(false)
-
 onErrorCaptured((error: Error, instance: ComponentPublicInstance | null, info: string) => {
   hasError.value = true
   errorInfo.value = {
@@ -44,7 +42,6 @@ onErrorCaptured((error: Error, instance: ComponentPublicInstance | null, info: s
 const handleRetry = () => {
   hasError.value = false
   errorInfo.value = null
-  showDetails.value = false
 }
 
 const handleGoHome = () => {
@@ -54,77 +51,35 @@ const handleGoHome = () => {
 const handleReload = () => {
   window.location.reload()
 }
-
-const toggleDetails = () => {
-  showDetails.value = !showDetails.value
-}
 </script>
 
 <template>
   <slot v-if="!hasError" />
   <div v-else class="error-boundary">
-    <div class="error-card">
-      <div class="error-icon-wrap">
-        <div class="error-icon-bg">
-          <AlertTriangle :size="32" class="error-icon" />
-        </div>
+    <div class="error-content">
+      <div class="error-icon">
+        <AlertTriangle :size="48" />
       </div>
-
-      <h2 class="error-title">{{ t('cmpErrorBoundary.pageError') }}</h2>
-
-      <p class="error-message">
-        {{ errorInfo?.message || t('errorBoundary.unknownError') }}
-      </p>
-
+      <h2 class="error-title">{ t('cmpErrorBoundary.pageError') }</h2>
+      <p class="error-message">{{ errorInfo?.message || t('errorBoundary.unknownError') }}</p>
       <div class="error-actions">
-        <button
-          type="button"
-          class="btn btn-primary"
-          :aria-label="t('errorBoundary.retry')"
-          @click="handleRetry"
-        >
-          <RefreshCw :size="16" class="btn-icon" aria-hidden="true" />
-          <span class="btn-text">{{ t('errorBoundary.retry') }}</span>
-        </button>
-
-        <button
-          type="button"
-          class="btn btn-secondary"
-          :aria-label="t('errorBoundary.reload')"
-          @click="handleReload"
-        >
-          <span class="btn-text">{{ t('errorBoundary.reload') }}</span>
-        </button>
-
-        <button
-          type="button"
-          class="btn btn-ghost"
-          :aria-label="t('errorBoundary.goHome')"
-          @click="handleGoHome"
-        >
-          <Home :size="16" class="btn-icon" aria-hidden="true" />
-          <span class="btn-text">{{ t('errorBoundary.goHome') }}</span>
-        </button>
+        <el-button type="primary" @click="handleRetry">
+          <el-icon><RefreshCw :size="16" /></el-icon>
+          {{ t('errorBoundary.retry') }}
+        </el-button>
+        <el-button @click="handleReload">
+          {{ t('errorBoundary.reload') }}
+        </el-button>
+        <el-button @click="handleGoHome">
+          <el-icon><Home :size="16" /></el-icon>
+          {{ t('errorBoundary.goHome') }}
+        </el-button>
       </div>
-
-      <div v-if="errorInfo?.stack" class="error-details">
-        <button
-          type="button"
-          class="details-toggle"
-          :aria-expanded="showDetails"
-          :aria-label="t('errorBoundary.errorDetails')"
-          @click="toggleDetails"
-        >
-          <ChevronDown
-            :size="14"
-            class="chevron"
-            :class="{ rotated: showDetails }"
-            aria-hidden="true"
-          />
-          <span>{{ t('errorBoundary.errorDetails') }}</span>
-        </button>
-        <pre v-if="showDetails" class="error-stack">{{ errorInfo.stack }}</pre>
-      </div>
+      <el-collapse v-if="errorInfo?.stack" class="error-details">
+        <el-collapse-item :title="t('errorBoundary.errorDetails')" name="stack">
+          <pre class="error-stack">{{ errorInfo.stack }}</pre>
+        </el-collapse-item>
+      </el-collapse>
     </div>
   </div>
 </template>
@@ -134,261 +89,59 @@ const toggleDetails = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 200px);
-  padding: 32px 16px;
-  width: 100%;
-  box-sizing: border-box;
+  min-height: 400px;
+  padding: 24px;
 }
 
-.error-card {
-  width: 100%;
-  max-width: 480px;
-  padding: 32px 28px;
-  background-color: var(--color-white-90);
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.error-content {
+  max-width: 500px;
   text-align: center;
 }
 
-.error-icon-wrap {
-  margin-bottom: 20px;
-}
-
-.error-icon-bg {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background-color: #fef0f0;
-  color: #f56c6c;
-}
-
 .error-icon {
-  display: block;
+  color: var(--el-color-danger);
+  margin-bottom: 16px;
 }
 
 .error-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
   margin: 0 0 8px;
-  line-height: 1.4;
 }
 
 .error-message {
   font-size: 14px;
-  color: #606266;
+  color: var(--el-text-color-secondary);
   margin: 0 0 24px;
-  line-height: 1.6;
-  max-width: 360px;
-  word-break: break-word;
 }
 
 .error-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   justify-content: center;
-  margin-bottom: 16px;
-  width: 100%;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  min-width: 104px;
-  height: 36px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1;
-  border-radius: var(--global-border-radius);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  outline: none;
-  white-space: nowrap;
-  user-select: none;
-  box-sizing: border-box;
-}
-
-.btn:focus-visible {
-  outline: 2px solid #409eff;
-  outline-offset: 2px;
-}
-
-.btn-primary {
-  background-color: #409eff;
-  color: #fff;
-  border-color: #409eff;
-}
-
-.btn-primary:hover {
-  background-color: #66b1ff;
-  border-color: #66b1ff;
-}
-
-.btn-primary:active {
-  background-color: #337ecc;
-  border-color: #337ecc;
-}
-
-.btn-secondary {
-  background-color: #fff;
-  color: #606266;
-  border-color: #dcdfe6;
-}
-
-.btn-secondary:hover {
-  color: #409eff;
-  border-color: #c0dfff;
-  background-color: #ecf5ff;
-}
-
-.btn-secondary:active {
-  color: #337ecc;
-  border-color: #337ecc;
-}
-
-.btn-ghost {
-  background-color: transparent;
-  color: #606266;
-  border-color: transparent;
-}
-
-.btn-ghost:hover {
-  background-color: #f5f7fa;
-  color: #303133;
-}
-
-.btn-icon {
-  flex-shrink: 0;
-  display: block;
-}
-
-.btn-text {
-  display: inline-block;
-  line-height: 1;
+  margin-bottom: 24px;
 }
 
 .error-details {
-  width: 100%;
   text-align: left;
-  border-top: var(--unified-border);
-  padding-top: 16px;
-  margin-top: 8px;
-}
 
-.details-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  font-size: 13px;
-  color: #909399;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  outline: none;
-  transition: color 0.2s ease;
-}
-
-.details-toggle:hover {
-  color: #409eff;
-}
-
-.details-toggle:focus-visible {
-  outline: 2px solid #409eff;
-  outline-offset: 2px;
-  border-radius: 2px;
-}
-
-.chevron {
-  transition: transform 0.2s ease;
-}
-
-.chevron.rotated {
-  transform: rotate(180deg);
+  :deep(.el-collapse-item__header) {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+  }
 }
 
 .error-stack {
   font-size: 12px;
-  color: #606266;
-  background-color: #f5f7fa;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
   padding: 12px;
   border-radius: var(--global-border-radius);
-  border: var(--unified-border);
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  margin: 8px 0 0;
+  margin: 0;
   max-height: 200px;
-  line-height: 1.5;
-}
-
-:where(html.dark) .error-card {
-  background-color: var(--color-white-10);
-  border: var(--unified-border);
-}
-
-:where(html.dark) .error-icon-bg {
-  background-color: rgba(245, 108, 108, 0.15);
-}
-
-:where(html.dark) .error-title {
-  color: #e5eaf3;
-}
-
-:where(html.dark) .error-message {
-  color: #cfd3dc;
-}
-
-:where(html.dark) .btn-secondary {
-  background-color: transparent;
-  color: #cfd3dc;
-  border-color: #4c4d4f;
-}
-
-:where(html.dark) .btn-ghost {
-  color: #cfd3dc;
-}
-
-:where(html.dark) .btn-ghost:hover {
-  background-color: #2a2a2a;
-  color: #e5eaf3;
-}
-
-:where(html.dark) .error-stack {
-  background-color: #2a2a2a;
-  color: #cfd3dc;
-}
-
-@media (width <= 480px) {
-  .error-boundary {
-    padding: 16px 12px;
-  }
-
-  .error-card {
-    padding: 24px 20px;
-  }
-
-  .error-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .btn {
-    width: 100%;
-  }
 }
 </style>

@@ -2,12 +2,17 @@
   "errorBoundary": {
     "retry": "Retry",
     "goHome": "Go Home",
+    "hideDetails": "Hide Details",
     "showDetails": "Show Details",
     "errorDetails": "Error Details",
+    "title": "Title",
+    "message": "Message",
+    "pageLoadError": "Page Load Error",
     "reload": "Reload",
     "unknownError": "Unknown Error",
+    "loadTimeout": "Load Timeout",
     "${componentName} - Website NametError": "Component Error",
     "componentError": "Component Error",
-    "currentPath": "currentPath"
+    "currentPath": "Current path"
   }
 }

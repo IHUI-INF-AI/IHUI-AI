@@ -3,10 +3,10 @@
  */
 
 import { ref, reactive, computed } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, FormItemRule } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { sendPhoneLoginCode, phoneLogin, type UserInfoData } from '@/api/user/user'
+import { sendPhoneLoginCode, phoneLogin, type UserInfoData } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { useCleanup } from '@/composables/useCleanup'
 import { logger } from '@/utils/logger'
@@ -47,7 +47,7 @@ export function usePhoneForm(isRegisterMode: boolean) {
   let countdownTimer: NodeJS.Timeout | null = null
 
   // 手机号验证规则
-  const phoneValidator = (rule: any, value: string, callback: (error?: Error) => void) => {
+  const phoneValidator = (rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
     if (!value) {
       callback(new Error(t('auth.pleaseEnterPhone')))
       return
@@ -65,7 +65,7 @@ export function usePhoneForm(isRegisterMode: boolean) {
   }
 
   // 短信验证码验证规则
-  const smsCodeValidator = (rule: any, value: string, callback: (error?: Error) => void) => {
+  const smsCodeValidator = (rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
     if (!value) {
       callback(new Error(t('auth.pleaseEnterCode')))
       return
@@ -85,7 +85,7 @@ export function usePhoneForm(isRegisterMode: boolean) {
   }
 
   // 密码验证规则
-  const passwordValidator = (rule: any, value: string, callback: (error?: Error) => void) => {
+  const passwordValidator = (rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
     if (!isRegisterMode) {
       callback()
       return
@@ -118,7 +118,7 @@ export function usePhoneForm(isRegisterMode: boolean) {
   }
 
   // 确认密码验证规则
-  const confirmPasswordValidator = (rule: any, value: string, callback: (error?: Error) => void) => {
+  const confirmPasswordValidator = (rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
     if (!isRegisterMode) {
       callback()
       return
@@ -138,7 +138,7 @@ export function usePhoneForm(isRegisterMode: boolean) {
   }
 
   // 用户协议验证规则
-  const agreementValidator = (rule: any, value: boolean, callback: (error?: Error) => void) => {
+  const agreementValidator = (rule: FormItemRule, value: boolean, callback: (error?: Error) => void) => {
     if (!isRegisterMode) {
       callback()
       return

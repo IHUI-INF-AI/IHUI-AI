@@ -31,7 +31,7 @@
           <span class="number">{{ traderPrice }}</span>
         </div>
       </div>
-      <el-button type="primary" size="large" @click="handlePurchase" class="full-width">
+      <el-button type="primary" size="large" @click="handlePurchase" style="width: 100%">
         {{ t('vipTrader.purchase.button') }}
       </el-button>
     </div>
@@ -150,7 +150,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -171,11 +171,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -190,7 +190,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -202,7 +202,7 @@ onMounted(() => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -268,10 +268,6 @@ onMounted(() => {
 .symbol {
   font-size: 20px;
   color: var(--el-color-primary);
-}
-
-.full-width {
-  width: 100%;
 }
 
 .number {

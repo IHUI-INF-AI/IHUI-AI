@@ -18,7 +18,7 @@ vi.mock('@/utils/i18n', () => ({
   t: (k: string) => k,
 }))
 
-import * as api from '../ai/aiModelInfo'
+import * as api from '../aiModelInfo'
 
 describe('aiModelInfo', () => {
   beforeEach(() => {

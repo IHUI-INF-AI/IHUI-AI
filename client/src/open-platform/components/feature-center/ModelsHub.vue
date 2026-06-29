@@ -135,7 +135,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Setting, Cpu, Document } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
-import { getAvailableModels, type AIModelInfo } from '@/api/models/models'
+import { getAvailableModels, type AIModelInfo } from '@/api/models'
 import { logger } from '@/utils/logger'
 import { usePagination } from '@/composables/user/usePagination'
 
@@ -232,11 +232,11 @@ const { pagination, handlePageChange, handlePageSizeChange } = usePagination({
 
 // 模型操作
 const handleModelClick = (model: AIModelInfo) => {
-  router.push(`/open/documents?section=models&model=${model.name}`)
+  router.push(`/api-documentation?section=models&model=${model.name}`)
 }
 
 const handleViewApi = (model: AIModelInfo) => {
-  router.push(`/open/documents?section=models&model=${model.name}`)
+  router.push(`/api-documentation?section=models&model=${model.name}`)
 }
 
 const goToModelManager = () => {
@@ -301,11 +301,12 @@ onMounted(() => {
 
   .model-card {
     cursor: pointer;
-    transition: transform 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover {
-      
-      }
+      transform: translateY(-4px);
+      box-shadow: var(--global-box-shadow);
+    }
 
     .model-header {
       display: flex;

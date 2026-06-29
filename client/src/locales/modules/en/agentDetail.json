@@ -3,8 +3,10 @@
     "buyAgent": "Buy Agent",
     "selectPaymentMethod": "Please select payment method:",
     "close": "Close",
+    "purchaseFeatureInDevelopment": "Purchase feature under development",
     "backToList": "Back to List",
     "public": "Public",
+    "unknownCreator": "Unknown Creator",
     "timesUsed": "times used",
     "viewAgentList": "View Agent List",
     "purchaseAgent": "Purchase Agent",
@@ -71,12 +73,15 @@
     "purchaseFailed": "Purchase Failed",
     "linkCopied": "Link Copied",
     "copyFailed": "Copy Failed",
+    "print": "Print",
+    "navigationFailed": "NavigationFailed",
+    "routeNavigationError": "RouteJumpAbnormal",
     "refreshDetails": "Refresh Details",
     "thumbsUpCancelSuccess": "Cancel thumbs up successful",
     "refreshFailed": "Refresh Failed",
     "statusActive": "Active",
     "statusInactive": "Inactive",
     "statusDeprecated": "Deprecated",
-    "invalidPaymentForm": "invalidPaymentForm"
+    "invalidPaymentForm": "Invalid Payment Form"
   }
 }

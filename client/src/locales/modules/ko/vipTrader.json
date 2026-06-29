@@ -1,52 +1,65 @@
 {
   "vipTrader": {
+    "핵심 장점": "성숙위한작업보드근",
+    "sub핵심 장점": "한 번 결제 {price}위안, 평생 사용",
     "features": {
-      "agentBeta": {
-        "desc": "描述",
-        "title": "标题"
+      "핵심 장점": "작업보드근권한이익",
+      "distributionQualification": {
+        "핵심 장점": "대형 할당량 판매가 사용, 모든 커뮤니티 서비스 상업명 누리기",
+        "desc": "설명석",
+        "title": "대형 할당량 판매가 사용, 모든 커뮤니티 서비스 상업명 누리기"
       },
       "aiCourses": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "allVipRights": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "customAgentDiscount": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "distributionQualification": {
-        "desc": "描述",
-        "title": "标题"
+        "핵심 장점": "AI깊은도확인앎과정，미션은차원보기월드이익/깊은도상업업무과정/스트림수량글로벌링크로구방법이익/무료관점보기",
+        "desc": "설명석",
+        "title": "AI깊은도확인앎과정，미션은차원보기세계세계이익/깊은도상업업무과정/스트림수량글로벌링크로구방법이익/무료관점보기"
       },
       "founderQa": {
-        "desc": "描述",
-        "title": "标题"
+        "핵심 장점": "창립자 1:1 실시간 Q&A 동행",
+        "desc": "설명석",
+        "title": "창립자 1:1 실시간 Q&A 동행"
       },
-      "offlineLearning": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "secondaryDistribution": {
-        "desc": "描述",
-        "title": "标题"
-      },
-      "title": "标题",
-      "verticalAccountIncubation": {
-        "desc": "描述",
-        "title": "标题"
+      "agentBeta": {
+        "핵심 장점": "최신연구발전agent내부테스트게격목이것은년",
+        "desc": "설명석",
+        "title": "최신연구발전agent내부테스트게격목이것은년"
       },
       "vipMaxDiscount": {
-        "desc": "描述",
-        "title": "标题"
-      }
+        "핵심 장점": "회원 등급 만족, 모든 최고급 할인 누리기",
+        "desc": "설명석",
+        "title": "회원 등급 만족, 모든 최고급 할인 누리기"
+      },
+      "customAgentDiscount": {
+        "핵심 장점": "큐 삽입 독점 에이전트 기능 8% 할인 우대",
+        "desc": "설명석",
+        "title": "큐 삽입 독점 에이전트 기능 8% 할인 우대"
+      },
+      "allVipRights": {
+        "핵심 장점": "회원누리기수사용의모든권한이익",
+        "desc": "설명석",
+        "title": "회원누리기수사용의모든권한이익"
+      },
+      "verticalAccountIncubation": {
+        "핵심 장점": "AI+수직 계정 인큐베이터 변환 우선 동행 기회",
+        "desc": "설명석",
+        "title": "AI+수직 계정 인큐베이터 변환 우선 동행 기회"
+      },
+      "secondaryDistribution": {
+        "핵심 장점": "이분할판매권한이익，빠른확장장팀가능성수입이익",
+        "desc": "설명석",
+        "title": "이분할판매권한이익，빠른빠른확장장팀및수입이익"
+      },
+      "offlineLearning": {
+        "핵심 장점": "회사 총 배포 온오프라인 학습 실시간 작업 기회",
+        "desc": "설명석",
+        "title": "기업 총 배포 및 오프라인 학습 실시간 작업 기회"
+      },
+      "title": "작업보드근권한이익"
     },
     "purchase": {
-      "button": "button"
+      "button": "원핵심열통해작업보드근"
     },
-    "subtitle": "副标题",
-    "title": "标题"
+    "title": "성숙위한작업보드근",
+    "subtitle": "한 번 결제 {price}위안, 평생 사용"
   }
 }

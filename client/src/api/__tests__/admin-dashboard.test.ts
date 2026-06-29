@@ -1,7 +1,7 @@
 // admin-dashboard.ts 单元测试
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../admin/admin', () => ({
+vi.mock('../admin', () => ({
   adminApi: {
     dashboardStats: vi.fn(() => Promise.resolve({ success: true, data: { userCount: 100, orderCount: 10, revenue: 1000, agentCount: 5 } })),
     learnOrderList: vi.fn(() => Promise.resolve({ success: true, data: { total: 328 } })),
@@ -15,21 +15,21 @@ vi.mock('../admin/admin', () => ({
   },
 }))
 
-vi.mock('../statistics/statistics', () => ({
+vi.mock('../statistics', () => ({
   getSystemStatistics: vi.fn(() => Promise.resolve({ success: true, data: { chat: { totalConversations: 50 } } })),
   getRealtimeStatistics: vi.fn(() => Promise.resolve({ success: true, data: { currentQPS: 100, currentConcurrency: 30, errorRate: 0.05, avgResponseTime: 200 } })),
   getOrderStatistics: vi.fn(() => Promise.resolve({ success: true, data: { summary: { totalOrders: 20, totalAmount: 2000 } } })),
   getUsageStatistics: vi.fn(() => Promise.resolve({ success: true, data: { chat: { totalSessions: 100 } } })),
 }))
 
-vi.mock('../admin/admin-activities', () => ({
+vi.mock('../admin-activities', () => ({
   getAdminActivities: vi.fn(() => Promise.resolve({
     success: true,
     data: { list: [{ id: 1, type: 'user_register', description: '注册', userName: 'u', ip: '127.0.0.1', device: 'PC', createdAt: new Date().toISOString() }], total: 1 },
   })),
 }))
 
-vi.mock('../system/monitoring', () => ({
+vi.mock('../monitoring', () => ({
   getPoolStats: vi.fn(() => Promise.resolve({ success: true, data: { totalConnections: 100, activeConnections: 30, idleConnections: 70, waitingCount: 5 } })),
 }))
 
@@ -41,7 +41,7 @@ vi.mock('@/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-import * as api from '../admin/admin-dashboard'
+import * as api from '../admin-dashboard'
 
 describe('admin-dashboard', () => {
   beforeEach(() => {
@@ -55,22 +55,22 @@ describe('admin-dashboard', () => {
   })
 
   it('getDashboardOverview dashboardStats 失败', async () => {
-    const adminMod = await import('../admin/admin')
+    const adminMod = await import('../admin')
     ;(adminMod.adminApi.dashboardStats as any).mockResolvedValueOnce({ success: false })
     const r = await api.getDashboardOverview()
     expect(r).toBeDefined()
   })
 
   it('getDashboardOverview dashboardStats 抛出', async () => {
-    const adminMod = await import('../admin/admin')
+    const adminMod = await import('../admin')
     ;(adminMod.adminApi.dashboardStats as any).mockRejectedValueOnce(new Error('fail'))
     const r = await api.getDashboardOverview()
     expect(r.errors.length).toBeGreaterThan(0)
   })
 
   it('getDashboardOverview all fail 全空', async () => {
-    const adminMod = await import('../admin/admin')
-    const statsMod = await import('../statistics/statistics')
+    const adminMod = await import('../admin')
+    const statsMod = await import('../statistics')
     ;(adminMod.adminApi.dashboardStats as any).mockResolvedValueOnce({ success: false })
     ;(statsMod.getSystemStatistics as any).mockResolvedValueOnce({ success: false })
     ;(statsMod.getOrderStatistics as any).mockResolvedValueOnce({ success: false })
@@ -86,14 +86,14 @@ describe('admin-dashboard', () => {
   })
 
   it('getMonitorOverview realtime 失败', async () => {
-    const statsMod = await import('../statistics/statistics')
+    const statsMod = await import('../statistics')
     ;(statsMod.getRealtimeStatistics as any).mockRejectedValueOnce(new Error('fail'))
     const r = await api.getMonitorOverview()
     expect(r).toBeDefined()
   })
 
   it('getMonitorOverview monitoring 失败', async () => {
-    const monitorMod = await import('../system/monitoring')
+    const monitorMod = await import('../monitoring')
     ;(monitorMod.getPoolStats as any).mockRejectedValueOnce(new Error('fail'))
     const r = await api.getMonitorOverview()
     expect(r).toBeDefined()
@@ -111,21 +111,21 @@ describe('admin-dashboard', () => {
   })
 
   it('getActivityTimeline 失败', async () => {
-    const activitiesMod = await import('../admin/admin-activities')
+    const activitiesMod = await import('../admin-activities')
     ;(activitiesMod.getAdminActivities as any).mockResolvedValueOnce({ success: false })
     const r = await api.getActivityTimeline()
     expect(r.data.list).toEqual([])
   })
 
   it('getActivityTimeline 抛出', async () => {
-    const activitiesMod = await import('../admin/admin-activities')
+    const activitiesMod = await import('../admin-activities')
     ;(activitiesMod.getAdminActivities as any).mockRejectedValueOnce(new Error('fail'))
     const r = await api.getActivityTimeline()
     expect(r.data.list).toEqual([])
   })
 
   it('getActivityTimeline 不同活动类型', async () => {
-    const activitiesMod = await import('../admin/admin-activities')
+    const activitiesMod = await import('../admin-activities')
     const oldDate = new Date(Date.now() - 3600_000).toISOString()
     const oldDate2 = new Date(Date.now() - 86400_000).toISOString()
     const oldDate3 = new Date(Date.now() - 604800_000).toISOString()
@@ -155,9 +155,9 @@ describe('admin-dashboard', () => {
   })
 
   it('getDashboardAll 全空时 warning', async () => {
-    const adminMod = await import('../admin/admin')
-    const statsMod = await import('../statistics/statistics')
-    const activitiesMod = await import('../admin/admin-activities')
+    const adminMod = await import('../admin')
+    const statsMod = await import('../statistics')
+    const activitiesMod = await import('../admin-activities')
     ;(adminMod.adminApi.dashboardStats as any).mockResolvedValueOnce({ success: false })
     ;(statsMod.getRealtimeStatistics as any).mockResolvedValueOnce({ success: false })
     ;(activitiesMod.getAdminActivities as any).mockResolvedValueOnce({ success: false })
@@ -179,7 +179,7 @@ describe('admin-dashboard', () => {
   })
 
   it('getModuleStats 部分失败不影响其他', async () => {
-    const adminMod = await import('../admin/admin')
+    const adminMod = await import('../admin')
     ;(adminMod.adminApi.learnOrderList as any).mockRejectedValueOnce(new Error('orders fail'))
     const r = await api.getModuleStats()
     expect(r.data.byKey.orders?.ok).toBe(false)
@@ -188,7 +188,7 @@ describe('admin-dashboard', () => {
   })
 
   it('getModuleStats 全失败', async () => {
-    const adminMod = await import('../admin/admin')
+    const adminMod = await import('../admin')
     ;(adminMod.adminApi.learnOrderList as any).mockRejectedValueOnce(new Error('a'))
     ;(adminMod.adminApi.learnLessonList as any).mockRejectedValueOnce(new Error('b'))
     ;(adminMod.adminApi.memberList as any).mockRejectedValueOnce(new Error('c'))

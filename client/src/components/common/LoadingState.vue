@@ -61,7 +61,6 @@ const spinnerSize = computed(() => {
     background-color: var(--color-white-90);
     z-index: var(--z-modal);
     backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
 
   .loading-content {
@@ -131,7 +130,7 @@ const spinnerSize = computed(() => {
 }
 
 // 暗色模式支持
-:where(html.dark) {
+html.dark {
   .loading-state.loading-fullscreen {
     background-color: var(--color-black-80);
   }

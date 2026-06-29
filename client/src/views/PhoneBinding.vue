@@ -134,7 +134,7 @@ import {
   getDefaultCountryCode,
   type CountryCode,
 } from '@/utils/countryCodes'
-import { sendPhoneLoginCode, verifyPhoneCode, completePhoneLogin } from '@/api/user/user'
+import { sendPhoneLoginCode, verifyPhoneCode, completePhoneLogin } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { AuthFlowService } from '@/services/auth-flow.service'
 import { ElMessage } from 'element-plus'
@@ -232,7 +232,7 @@ function parseBindingParamsFromRoute() {
           platformType?: string
         }
         msg?: string
-        [key: string]: any
+        [key: string]: unknown
       }
       const data = parsed?.data
       if (data && typeof data === 'object') {
@@ -506,6 +506,17 @@ const _handleBack = () => {
 <style scoped lang="scss">
 // 白色背景 + 卡片样式，输入框与登录页一致；固定视口，禁止上下滚动；卡片在页面正中间（固定铺满视口以保证垂直居中）
 .phone-binding-page {
+  // 统一输入框变量定义（与 UniversalLogin.vue 亮色模式一致）
+  // 本组件不在 .login-content.login-page 上下文内，需自行定义变量，否则 hover/focus 状态失效
+  // 对齐 .checkmark：hover/focus 边框使用 --el-text-color-regular（黑色），1.3s 慢速过渡
+  --unified-input-border-color: var(--border-unified-color);
+  --unified-input-bg-color: var(--el-fill-color-light);
+  --unified-input-transition: border-color 1.3s, background-color 1.3s;
+  --unified-input-hover-border-color: var(--el-text-color-regular);
+  --unified-input-hover-bg-color: var(--el-fill-color-light);
+  --unified-input-focus-border-color: var(--el-text-color-regular);
+  --unified-input-focus-bg-color: var(--el-fill-color-light);
+
   position: fixed;
   inset: 0;
   width: 100vw;
@@ -530,6 +541,7 @@ const _handleBack = () => {
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   overflow: hidden;
 }
 
@@ -552,7 +564,7 @@ const _handleBack = () => {
   background: var(--el-fill-color-light);
   color: var(--el-text-color-regular);
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
   flex-shrink: 0;
 
   &:hover {
@@ -586,7 +598,7 @@ const _handleBack = () => {
   border-radius: var(--el-input-border-radius);
   background-color: var(--unified-input-bg-color);
   background: var(--unified-input-bg-color);
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: var(--unified-input-transition);
   padding: 0 10px;
   padding-right: 4px;
   height: clamp(48px, 4.5vw, 52px);
@@ -608,8 +620,6 @@ const _handleBack = () => {
     border-color: var(--unified-input-focus-border-color);
     background-color: var(--unified-input-focus-bg-color);
     background: var(--unified-input-focus-bg-color);
-    outline: 2px solid var(--el-color-primary-light-9);
-    outline-offset: 2px;
   }
 }
 
@@ -676,7 +686,7 @@ const _handleBack = () => {
   background: transparent;
   color: var(--el-color-primary);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s;
   white-space: nowrap;
 
   &:hover:not(:disabled) {
@@ -720,7 +730,7 @@ const _handleBack = () => {
   font-weight: 600;
   color: var(--el-text-color-primary);
   outline: none;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: var(--unified-input-transition);
   padding: 0;
   box-sizing: border-box;
 
@@ -734,8 +744,6 @@ const _handleBack = () => {
     border-color: var(--unified-input-focus-border-color);
     background-color: var(--unified-input-focus-bg-color);
     background: var(--unified-input-focus-bg-color);
-    outline: 2px solid var(--el-color-primary-light-9);
-    outline-offset: 2px;
   }
 }
 
@@ -761,11 +769,21 @@ const _handleBack = () => {
   max-height: 300px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   z-index: var(--z-notification);
 }
 
 /* 暗色模式 */
 :global(.dark) .phone-binding-page {
+  // 统一输入框变量定义（与 UniversalLogin.vue 暗色模式一致）
+  // 对齐 .checkmark：暗色模式下 --el-text-color-regular 自动为浅色
+  --unified-input-border-color: var(--border-unified-color);
+  --unified-input-bg-color: var(--color-white-5);
+  --unified-input-hover-border-color: var(--el-text-color-regular);
+  --unified-input-hover-bg-color: var(--el-fill-color-dark);
+  --unified-input-focus-border-color: var(--el-text-color-regular);
+  --unified-input-focus-bg-color: var(--el-fill-color-darker);
+
   background: var(--el-bg-color-page);
 }
 

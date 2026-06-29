@@ -1,1 +1,12 @@
-{}
+{
+  "wxMiniprogram": {
+    "title": "小程序首頁",
+    "description": "微信小程序首頁",
+    "hotFeatures": "熱門功能",
+    "hotFeaturesDesc": "最受歡迎的功能",
+    "latestActivities": "最新活動",
+    "latestActivitiesDesc": "最新活動和優惠",
+    "customerService": "客戶服務",
+    "customerServiceDesc": "在線客服支持"
+  }
+}

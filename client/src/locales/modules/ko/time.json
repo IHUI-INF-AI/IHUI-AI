@@ -1,9 +1,13 @@
 {
   "time": {
-    "daysAgo": "daysAgo",
-    "hoursAgo": "hoursAgo",
-    "justNow": "justNow",
-    "minutesAgo": "minutesAgo",
-    "never": "never"
+    "daysAgo": "{days}일앞",
+    "justNow": "방금",
+    "minutesAgo": "{minutes}분앞",
+    "hoursAgo": "{hours}시간앞",
+    "never": "부마음미",
+    "today": "오늘",
+    "yesterday": "어제",
+    "dayBeforeYesterday": "앞일",
+    "weeksAgo": "{weeks}주앞"
   }
 }

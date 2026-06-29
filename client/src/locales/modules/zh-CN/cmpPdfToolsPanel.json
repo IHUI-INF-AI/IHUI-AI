@@ -1,0 +1,9 @@
+{
+  "cmpPdfToolsPanel": {
+    "presetWatermark": "预设水印",
+    "splitOption": "拆分选项",
+    "allPages": "全部页面",
+    "currentPage": "当前页面",
+    "showPageNum": "显示页码"
+  }
+}

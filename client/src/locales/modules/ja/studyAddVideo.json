@@ -1,18 +1,18 @@
 {
   "studyAddVideo": {
-    "addLink": "addLink",
-    "addResourceLink": "addResourceLink",
-    "collectionTitle": "collectionTitle",
-    "descPlaceholder": "descPlaceholder",
-    "done": "已完成",
-    "edit": "编辑",
-    "linkPlaceholder": "linkPlaceholder",
-    "publish": "发布",
-    "remarkPlaceholder": "remarkPlaceholder",
-    "searchAgent": "searchAgent",
-    "shelf": "shelf",
-    "titlePlaceholder": "titlePlaceholder",
-    "uploadNext": "uploadNext",
-    "video": "视频"
+    "video": "動画",
+    "collectionTitle": "コレクションタイトル",
+    "titlePlaceholder": "タイトルを入力",
+    "descPlaceholder": "説明を入力",
+    "searchAgent": "エージェントを検索",
+    "remarkPlaceholder": "備考を入力",
+    "addLink": "リンク追加",
+    "addResourceLink": "リソースリンク追加",
+    "linkPlaceholder": "リンクを入力",
+    "publish": "公開",
+    "edit": "編集",
+    "shelf": "公開",
+    "uploadNext": "次をアップロード",
+    "done": "完了"
   }
 }

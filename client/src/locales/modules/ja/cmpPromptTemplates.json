@@ -1,7 +1,7 @@
 {
   "cmpPromptTemplates": {
-    "fillAllFields": "fillAllFields",
-    "templateAdded": "templateAdded",
-    "templateDeleted": "templateDeleted"
+    "fillAllFields": "全項目を入力してください",
+    "templateAdded": "テンプレート追加完了",
+    "templateDeleted": "テンプレート削除済み"
   }
 }

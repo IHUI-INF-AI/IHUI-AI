@@ -93,7 +93,7 @@
               </div>
               <div class="dc-context-menu-item" @click="handleCopyQrcode">
                 <span class="dc-context-menu-icon">📋</span>
-                <span>{{ t('DistributionCenter.copyImage') }}</span>
+                <span>{ t('distributionCenter.copyImage') }</span>
               </div>
               <div class="dc-context-menu-item" @click="handleShare">
                 <span class="dc-context-menu-icon">↗</span>
@@ -181,14 +181,14 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
-import type { UserInfoData } from '@/api/user/user'
+import type { UserInfoData } from '@/api/user'
 import { useCleanup } from '@/composables/useCleanup'
 import {
   getOperatorDataCardData,
   getInviteCode,
   getWxCode,
   realAuth,
-} from '@/api/distribution/distribution'
+} from '@/api/distribution'
 import PersonalInfoCard from './distribution/components/PersonalInfoCard.vue'
 import EarningsStatisticsCard from './distribution/components/EarningsStatisticsCard.vue'
 import FunctionBlockColumn from './distribution/components/FunctionBlockColumn.vue'
@@ -319,7 +319,7 @@ const handleShare = async () => {
   if (navigator.share) {
     try {
       await navigator.share({
-        title: t('DistributionCenter.distributionTitle'),
+        title: t('distributionCenter.distributionTitle'),
         text: '加入AI智汇社，开启智能分销之旅',
         url: window.location.href,
       })
@@ -382,9 +382,9 @@ const handleCopyQrcode = async () => {
     await navigator.clipboard.write([
       new ClipboardItem({ [blob.type]: blob })
     ])
-    ElMessage.success(t('DistributionCenter.imageCopied'))
+    ElMessage.success(t('distributionCenter.imageCopied'))
   } catch {
-    ElMessage.info(t('DistributionCenter.longPressToSave'))
+    ElMessage.info(t('distributionCenter.longPressToSave'))
   }
 }
 
@@ -537,9 +537,9 @@ $surface-glass: var(--color-white-3);
 $surface-glass-hover: var(--color-white-6);
 $border-subtle: var(--border-unified-color);
 $border-active: var(--border-unified-color-hover);
-$text-primary: var(--el-text-color-secondary);
-$text-secondary: var(--el-text-color-placeholder);
-$text-muted: var(--el-text-color-secondary);
+$text-primary: var(--color-gray-ededed);
+$text-secondary: var(--color-gray-888888);
+$text-muted: var(--color-gray-555555);
 $glow-primary: var(--color-white-5);
 $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
@@ -704,8 +704,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   padding: 24px;
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   // 顶部高光
@@ -722,7 +721,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   &:hover {
     background: $surface-glass-hover;
     border-color: $border-active;
-    
+    transform: translateY(-2px);
   }
 
   &--primary {
@@ -750,7 +749,8 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
+    box-shadow: var(--global-box-shadow);
+
     .el-dialog__header {
       border-bottom: var(--unified-border-bottom);
       padding: 20px 24px;
@@ -906,7 +906,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     border: var(--unified-border);
     border-radius: var(--global-border-radius);
     box-shadow: none;
-    transition: border-color 0.3s ease, background-color 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover,
     &.is-focus {
@@ -938,7 +938,6 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   inset: 0;
   background: var(--color-black-50);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   z-index: var(--z-notification);
   display: flex;
   align-items: center;
@@ -955,7 +954,6 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
 }
 
 .dc-spinner {
@@ -998,7 +996,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--global-box-shadow);
   z-index: calc(var(--z-base) + 9);
   min-width: 160px;
   padding: 4px 0;
@@ -1054,7 +1052,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   border-radius: var(--global-border-radius);
   border: none;
   cursor: pointer;
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   &--primary {
@@ -1063,7 +1061,7 @@ $glow-accent: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
     &:hover {
       background: var(--el-bg-color);
-      
+      transform: translateY(-1px);
     }
 
     &:active {

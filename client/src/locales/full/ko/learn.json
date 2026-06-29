@@ -664,24 +664,5 @@
       "핵심 장점": "구축귀하의전담역량글게변환<br />교육관리자전투장면",
       "sub핵심 장점": "소스 코드 전체 수량 납품, 물리적 다중 테넌트 격리, 10년 기술 축적, 귀하의 보호 항해.。"
     }
-  },
-  "learnRate": {
-    "reviews": "개의 평가",
-    "writeReview": "평가 쓰기"
-  },
-  "learn": {
-    "searchPlaceholder": {
-      "category": "분류 검색",
-      "lesson": "강의 검색",
-      "lessonTrash": "휴지통 강의 검색",
-      "map": "학습 맵 검색",
-      "order": "주문 검색",
-      "orderInvoiceApplication": "인보이스 신청 검색",
-      "orderInvoiceTitle": "인보이스 명의 검색",
-      "report": "보고서 검색",
-      "signup": "신청 검색",
-      "topic": "토픽 검색",
-      "topicCategory": "토픽 분류 검색"
-    }
   }
 }

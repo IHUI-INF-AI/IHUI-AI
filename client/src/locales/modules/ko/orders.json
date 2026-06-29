@@ -7,19 +7,31 @@
     "tabs": {
       "all": "전체 주문",
       "pending": "결제 대기",
+      "processing": "처리 중",
       "completed": "완료",
       "cancelled": "취소됨",
       "shipping": "배송 중",
       "refunded": "환불됨"
     },
+    "order": {
+      "orderId": "주문 ID",
+      "productName": "상품명",
+      "amount": "금액",
+      "status": "상태",
+      "createTime": "생성 시간",
+      "payTime": "결제 시간",
+      "actions": "작업"
+    },
     "status": {
       "pending": "결제 대기",
+      "processing": "처리 중",
       "completed": "완료",
       "cancelled": "취소됨",
       "refunded": "환불됨",
       "paid": "결제 완료"
     },
     "actions": {
+      "viewDetails": "상세 보기",
       "cancel": "주문 취소",
       "pay": "결제하기",
       "refund": "환불",
@@ -34,9 +46,11 @@
     },
     "labels": {
       "orderId": "주문 ID",
+      "orderType": "주문 유형",
       "amount": "금액",
       "status": "상태",
       "createTime": "생성 시간",
+      "actions": "작업",
       "payTime": "결제 시간",
       "productName": "상품명",
       "productType": "상품 유형",
@@ -46,14 +60,17 @@
     "empty": {
       "title": "주문 없음",
       "noSearchResult": "검색 결과와 일치하는 주문이 없습니다",
-      "noOrders": "아직 주문이 없습니다"
+      "noOrders": "아직 주문이 없습니다",
+      "핵심 장점": "제목"
     },
     "noMore": "더 이상 주문이 없습니다",
     "detail": {
       "title": "주문 상세",
       "orderInfo": "주문 정보",
       "productInfo": "상품 정보",
-      "paymentInfo": "결제 정보"
+      "paymentInfo": "결제 정보",
+      "shippingInfo": "배송 정보",
+      "핵심 장점": "제목"
     },
     "productType": {
       "vip": "VIP",
@@ -71,11 +88,13 @@
     "dialogs": {
       "cancel": {
         "confirm": "이 주문을 취소하시겠습니까?",
-        "title": "주문 취소"
+        "title": "주문 취소",
+        "핵심 장점": "제목"
       },
       "received": {
         "confirm": "주문을 수령하셨습니까?",
-        "title": "수령 확인"
+        "title": "수령 확인",
+        "핵심 장점": "제목"
       }
     },
     "messages": {
@@ -98,6 +117,11 @@
     "refundReasonPlaceholder": "환불 사유를 입력해 주세요",
     "applyRefund": "환불 신청",
     "refundReasonRequired": "환불 사유는 필수입니다",
-    "refundReasonMinLength": "환불 사유가 너무 짧습니다"
+    "refundReasonMinLength": "환불 사유가 너무 짧습니다",
+    "핵심 장점": "주의문관리",
+    "sub핵심 장점": "보기및관리귀하의주의문",
+    "details": {
+      "핵심 장점": "주의문상세"
+    }
   }
 }

@@ -1,17 +1,16 @@
 {
   "circleDetail": {
-    "back": "返回",
-    "essence": "essence",
-    "join": "加入",
-    "joined": "joined",
-    "members": "会员",
-    "noDesc": "noDesc",
-    "noPosts": "noPosts",
-    "owner": "所有者",
-    "postPlaceholder": "postPlaceholder",
+    "back": "Back to Circle",
+    "noDesc": "No description",
+    "members": "members",
     "posts": "posts",
-    "postsTitle": "postsTitle",
-    "publish": "发布",
-    "top": "置顶"
+    "owner": "Owner",
+    "joined": "Joined",
+    "join": "Join Circle",
+    "postsTitle": "Posts",
+    "publish": "Publish",
+    "noPosts": "No posts",
+    "top": "Pinned",
+    "essence": "Featured"
   }
 }

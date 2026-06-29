@@ -1,104 +1,108 @@
 {
   "imageGen": {
-    "doubao": {
-      "buttons": {
-        "generate": "generate"
-      },
+    "qwen": {
+      "title": "通義千問 - テキストから画像",
+      "tag": "DashScope",
       "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
+        "model": "モデル",
+        "modelPlaceholder": "モデルを選択",
+        "prompt": "プロンプト",
+        "promptPlaceholder": "生成したい画像を説明..."
       },
+      "buttons": {
+        "generate": "画像を生成",
+        "reset": "リセット",
+        "download": "ダウンロード",
+        "copyUrl": "リンクをコピー"
+      },
+      "result": "生成結果",
       "messages": {
-        "promptRequired": "promptRequired"
-      },
-      "tag": "标签",
-      "title": "标题"
+        "modelRequired": "モデルを選択してください",
+        "promptRequired": "プロンプトを入力してください",
+        "generateSuccess": "画像が正常に生成されました！",
+        "copySuccess": "リンクがコピーされました",
+        "generating": "画像を生成中...",
+        "modelRemarkMissing": "モデルインターフェースが設定されていません",
+        "wsNotSupported": "WebSocket生成はまだサポートされていません",
+        "generateFailed": "生成失敗"
+      }
     },
-    "edit": {
-      "alertDesc": "alertDesc",
-      "alertTitle": "alertTitle",
-      "buttons": {
-        "edit": "编辑",
-        "reset": "重置"
-      },
+    "doubao": {
+      "title": "豆包画像生成",
+      "tag": "ByteDance",
       "form": {
-        "image": "图片",
-        "selectImage": "selectImage",
-        "text": "文本",
-        "textPlaceholder": "textPlaceholder"
+        "prompt": "プロンプト",
+        "promptPlaceholder": "生成したい画像を説明..."
+      },
+      "buttons": {
+        "generate": "生成"
       },
       "messages": {
-        "editSuccess": "editSuccess",
-        "imageRequired": "imageRequired",
-        "textRequired": "textRequired",
-        "uploadFailed": "uploadFailed",
-        "uploadFirst": "uploadFirst"
-      },
-      "result": "result",
-      "tag": "标签",
-      "title": "标题"
+        "promptRequired": "プロンプトを入力してください",
+        "generateFailed": "生成失敗"
+      }
     },
     "i2i": {
-      "buttons": {
-        "generate": "generate",
-        "reset": "重置"
-      },
+      "title": "通義万相 - 画像から画像",
+      "tag": "DashScope",
       "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder",
-        "referenceImage": "referenceImage",
-        "selectImage": "selectImage",
-        "uploadTip": "uploadTip"
+        "referenceImage": "参照画像",
+        "selectImage": "画像を選択",
+        "uploadTip": "JPG、PNG形式をサポート、最大10MB",
+        "prompt": "プロンプト",
+        "promptPlaceholder": "希望する画像のスタイルとコンテンツを説明..."
       },
+      "buttons": {
+        "generate": "画像を生成",
+        "reset": "リセット"
+      },
+      "result": "生成結果",
       "messages": {
-        "imageRequired": "imageRequired",
-        "uploadFailed": "uploadFailed",
-        "uploadFirst": "uploadFirst"
-      },
-      "result": "result",
-      "tag": "标签",
-      "title": "标题"
+        "imageRequired": "参照画像をアップロードしてください",
+        "uploadFailed": "画像のアップロードに失敗しました",
+        "uploadFirst": "まず参照画像をアップロードしてください"
+      }
     },
     "jimeng": {
-      "buttons": {
-        "generate": "generate"
-      },
+      "title": "即夢画像生成",
+      "tag": "即夢AI",
       "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
+        "prompt": "プロンプト",
+        "promptPlaceholder": "生成したい画像を説明..."
+      },
+      "buttons": {
+        "generate": "生成"
       },
       "messages": {
-        "generating": "generating",
-        "promptRequired": "promptRequired"
-      },
-      "tag": "标签",
-      "title": "标题"
+        "promptRequired": "プロンプトを入力してください",
+        "generating": "画像を生成中...",
+        "generateFailed": "生成失敗"
+      }
     },
-    "qwen": {
-      "buttons": {
-        "copyUrl": "copyUrl",
-        "download": "下载",
-        "generate": "generate",
-        "reset": "重置"
-      },
+    "edit": {
+      "title": "通義千問 - 画像編集",
+      "tag": "DashScope",
+      "alertTitle": "画像編集機できる",
+      "alertDesc": "画像をアップロードして編集指示を入力すると、AIが指示に従って画像を編集します",
       "form": {
-        "model": "模型",
-        "modelPlaceholder": "modelPlaceholder",
-        "prompt": "提示词",
-        "promptPlaceholder": "promptPlaceholder"
+        "image": "元の画像",
+        "selectImage": "画像を選択",
+        "text": "編集指示",
+        "textPlaceholder": "希望する編集効果を説明してください。例：背景をビーチに変更..."
       },
+      "buttons": {
+        "edit": "編集を開始",
+        "reset": "リセット"
+      },
+      "result": "編集結果",
       "messages": {
-        "copySuccess": "copySuccess",
-        "generateSuccess": "generateSuccess",
-        "generating": "generating",
-        "modelRemarkMissing": "modelRemarkMissing",
-        "modelRequired": "modelRequired",
-        "promptRequired": "promptRequired",
-        "wsNotSupported": "wsNotSupported"
-      },
-      "result": "result",
-      "tag": "标签",
-      "title": "标题"
+        "imageRequired": "画像をアップロードしてください",
+        "textRequired": "編集指示を入力してください",
+        "uploadFailed": "画像のアップロードに失敗しました",
+        "uploadFirst": "まず画像をアップロードしてください",
+        "editSuccess": "画像の編集が正常に完了しました！",
+        "editFailed": "編集失敗"
+      }
     }
   }
 }

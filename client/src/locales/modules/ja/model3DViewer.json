@@ -1,7 +1,7 @@
 {
   "model3DViewer": {
-    "download": "下载",
-    "downloadView": "downloadView",
-    "model3d": "model3d"
+    "model3d": "3Dモデル",
+    "download": "ダウンロード",
+    "downloadView": "ダウンロードして表示"
   }
 }

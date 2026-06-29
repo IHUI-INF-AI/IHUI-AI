@@ -9,7 +9,7 @@ vi.mock('@/utils/request', () => ({
   },
 }))
 
-import * as api from '../payment/commission'
+import * as api from '../commission'
 
 describe('commission', () => {
   beforeEach(() => {

@@ -1,66 +1,71 @@
 {
   "becomeSupplier": {
+    "title": "成为供应商",
+    "subtitle": "加入我们的供应商网络，共同成长",
     "benefits": {
       "market": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "security": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "settlement": {
-        "description": "描述",
-        "title": "标题"
+        "title": "广阔市场",
+        "description": "接入我们的平台，触达数万企业用户"
       },
       "support": {
-        "description": "描述",
-        "title": "标题"
-      }
+        "title": "专业支持",
+        "description": "提供专业的技术支持和市场推广"
+      },
+      "settlement": {
+        "title": "灵活结算",
+        "description": "灵活的结算方式和透明的分成机制"
+      },
+      "security": {
+        "title": "安全保障",
+        "description": "完善的安全保障和风险控制体系"
+      },
+      "title": "合作优势"
     },
     "form": {
-      "address": "地址",
-      "addressPlaceholder": "请输入地址",
-      "business": "业务",
-      "businessPlaceholder": "请输入业务描述",
       "companyName": "公司名称",
       "companyNamePlaceholder": "请输入公司名称",
-      "contactName": "联系人姓名",
+      "contactName": "联系人",
       "contactNamePlaceholder": "请输入联系人姓名",
+      "phone": "联系电话",
+      "phonePlaceholder": "请输入联系电话",
       "email": "邮箱",
       "emailPlaceholder": "请输入邮箱",
+      "address": "公司地址",
+      "addressPlaceholder": "请输入公司地址",
+      "business": "主营业务",
+      "businessPlaceholder": "请描述公司的主营业务",
       "intention": "合作意向",
-      "intentionPlaceholder": "请输入合作意向",
-      "phone": "手机号",
-      "phonePlaceholder": "请输入手机号",
-      "processing": "处理中",
+      "intentionPlaceholder": "请描述您的合作意向和期望",
+      "submit": "提交申请",
       "reset": "重置",
-      "submit": "提交",
-      "submitProposal": "提交方案"
+      "processing": "提交中...",
+      "submitProposal": "提交"
     },
     "processSteps": {
-      "businessNegotiation": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "onlineDocking": {
-        "description": "描述",
-        "title": "标题"
+      "submitApplication": {
+        "title": "提交申请",
+        "description": "填写供应商申请表单，提交公司基本信息"
       },
       "qualificationReview": {
-        "description": "描述",
-        "title": "标题"
+        "title": "资质审核",
+        "description": "我们会在3-5个工作日内审核您的申请"
+      },
+      "businessNegotiation": {
+        "title": "商务洽谈",
+        "description": "审核通过后，我们的商务团队将与您联系"
       },
       "signAgreement": {
-        "description": "描述",
-        "title": "标题"
+        "title": "签署协议",
+        "description": "双方确认合作细节，签署正式合作协议"
       },
-      "submitApplication": {
-        "description": "描述",
-        "title": "标题"
+      "onlineDocking": {
+        "title": "上线对接",
+        "description": "技术团队协助完成产品对接和上线"
       }
     },
-    "subtitle": "副标题",
-    "title": "标题"
+    "process": {
+      "title": "合作流程"
+    },
+    "success": "申请提交成功，我们会在3-5个工作日内与您联系！"
   }
 }

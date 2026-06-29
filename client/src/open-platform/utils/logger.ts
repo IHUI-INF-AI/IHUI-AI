@@ -10,16 +10,16 @@ import { logger as baseLogger } from '../../utils/logger'
  * 添加 [open-platform] 前缀以便区分
  */
 export const logger = {
-  debug: (message: string, ...args: any[]): void => {
+  debug: (message: string, ...args: unknown[]): void => {
     baseLogger.debug(`[open-platform] ${message}`, args.length > 0 ? { args } : undefined)
   },
-  info: (message: string, ...args: any[]): void => {
+  info: (message: string, ...args: unknown[]): void => {
     baseLogger.info(`[open-platform] ${message}`, args.length > 0 ? { args } : undefined)
   },
-  warn: (message: string, ...args: any[]): void => {
+  warn: (message: string, ...args: unknown[]): void => {
     baseLogger.warn(`[open-platform] ${message}`, args.length > 0 ? { args } : undefined)
   },
-  error: (message: string, error?: Error | unknown, ...args: any[]): void => {
+  error: (message: string, error?: Error | unknown, ...args: unknown[]): void => {
     baseLogger.error(`[open-platform] ${message}`, error, args.length > 0 ? { args } : undefined)
   },
 }

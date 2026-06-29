@@ -84,6 +84,7 @@ import { useCleanup } from '@/composables/useCleanup'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/utils/logger'
+import { useAuthStore } from '@/stores/auth'
 
 interface RouteWithName {
   name?: string
@@ -103,6 +104,7 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const cleanup = useCleanup()
+const authStore = useAuthStore()
 const visible = ref(false)
 const showModalTimer = ref<NodeJS.Timeout | null>(null)
 
@@ -111,9 +113,8 @@ const SESSION_SHOWN_KEY = 'promotion-modal-session-shown'
 
 // 检查是否为主页面
 const isHomePage = () => {
-  if (!route) return false
-  const routeName = (route as RouteWithName)?.name
-  return routeName === 'home' || route?.path === '/' || route?.path === '/home'
+  const routeName = (route as RouteWithName).name
+  return routeName === 'home' || route.path === '/' || route.path === '/home'
 }
 
 // 检查当前会话是否已经显示过弹窗
@@ -184,6 +185,9 @@ const markAsShown = () => {
 
 // 显示弹窗的统一方法
 const showModalIfNeeded = () => {
+  // 未登录用户不显示推广弹窗：推广会员/积分应针对已登录用户，
+  // 且避免全屏遮罩遮挡登录按钮，导致用户无法点击登录
+  if (!authStore.isLoggedIn) return
   const shouldShow = isHomePage() && !hasShownBefore() && !visible.value
 
   if (shouldShow) {
@@ -205,8 +209,8 @@ const showModalIfNeeded = () => {
         if (import.meta.env.DEV) {
           logger.debug('[PromotionModal] Showing modal after page ready', {
             isHomePage: isHomePage(),
-            routeName: (route as RouteWithName)?.name,
-            routePath: route?.path
+            routeName: (route as RouteWithName).name,
+            routePath: route.path
           })
         }
       } else if (retryCount < MAX_RETRY) {
@@ -228,8 +232,8 @@ const showModalIfNeeded = () => {
         hasShownBefore: hasShownBefore(),
         hasShownInCurrentSession: hasShownInCurrentSession(),
         visible: visible.value,
-        routeName: (route as RouteWithName)?.name,
-        routePath: route?.path
+        routeName: (route as RouteWithName).name,
+        routePath: route.path
       })
     }
   }
@@ -245,9 +249,17 @@ const initModal = () => {
 }
 
 // 监听路由变化（包括路由名称和路径）
-watch([() => (route as RouteWithName)?.name, () => route?.path], ([_newName, _newPath]) => {
+watch([() => (route as RouteWithName).name, () => route.path], ([_newName, _newPath]) => {
   showModalIfNeeded()
 }, { immediate: true })
+
+// 监听登录状态变化：用户在首页登录后，检查是否需要显示推广弹窗
+watch(() => authStore.isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    // 延迟以等待路由跳转/页面稳定
+    setTimeout(() => showModalIfNeeded(), 500)
+  }
+})
 
 // 监听 modelValue 变化
 watch(() => props.modelValue, (newVal) => {
@@ -295,8 +307,7 @@ const handleGetCredits = () => {
   markAsShown()
   handleClose()
   // 跳转到VIP会员详情页面（选择套餐页面）
-  if (!router) return
-  router.push('/vip/details').catch((error: any) => {
+  router.push('/vip/details').catch((error: unknown) => {
     // 忽略导航重复错误
     if (error instanceof Error && error.name !== 'NavigationDuplicated' && error.name !== 'NavigationRedirected') {
       logger.error('[PromotionModal] Failed to navigate to VIP page:', error)
@@ -323,7 +334,7 @@ onMounted(() => {
         setTimeout(() => tryInit(attempt + 1), 200)
       } else {
         // 最后一次尝试
-        if (route?.path === '/' || route?.path === '/home') {
+        if (route.path === '/' || route.path === '/home') {
           initModal()
         }
       }
@@ -358,11 +369,10 @@ cleanup.add(() => {
   justify-content: center;
   background: var(--color-black-50);
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   padding: 20px;
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     background: var(--color-black-70);
   }
 }
@@ -375,10 +385,11 @@ cleanup.add(() => {
   max-width: 480px;
   width: 100%;
   border: var(--unified-border);
+  box-shadow: var(--global-box-shadow);
   text-align: center;
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     background: var(--el-bg-color);
     border-color: var(--color-white-10);
   }
@@ -423,7 +434,7 @@ cleanup.add(() => {
     transform: rotate(-90deg);
   }
 
-  :where(html.dark) & {
+  html.dark & {
     background: transparent;
     color: var(--el-text-color-secondary);
 
@@ -460,7 +471,7 @@ cleanup.add(() => {
   letter-spacing: -0.5px;
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     color: var(--el-text-color-regular);
   }
 }
@@ -472,7 +483,7 @@ cleanup.add(() => {
   line-height: 1.5;
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     color: var(--el-text-color-secondary);
   }
 }
@@ -502,7 +513,7 @@ cleanup.add(() => {
   }
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     color: var(--el-text-color-secondary);
 
     strong {
@@ -527,7 +538,7 @@ cleanup.add(() => {
   }
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     color: var(--el-text-color-secondary);
 
     strong {
@@ -557,7 +568,7 @@ cleanup.add(() => {
   &:hover {
     background: var(--el-color-primary-light-3);
     color: var(--el-bg-color-page);
-    
+    transform: translateY(-2px);
   }
 
   &:active {
@@ -566,7 +577,7 @@ cleanup.add(() => {
   }
 
   // 深色模式：白底黑字
-  :where(html.dark) & {
+  html.dark & {
     background: var(--el-color-primary);
     color: var(--el-bg-color-page);
 
@@ -596,7 +607,7 @@ cleanup.add(() => {
   }
 
   // 深色模式
-  :where(html.dark) & {
+  html.dark & {
     color: var(--el-text-color-secondary);
 
     &:hover {

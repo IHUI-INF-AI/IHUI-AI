@@ -52,7 +52,7 @@ describe('useSkills', () => {
     const r = useSkills()
     await r.initialize()
     // 二次调用不应报错
-    try { await r.initialize() } catch { /* noop */ }
+    try { await r.initialize() } catch (e) {}
   })
 
   it('initialize 错误', async () => {
@@ -67,7 +67,7 @@ describe('useSkills', () => {
     try {
       const result = await r.matchSkills('hello')
       expect(result).toBeDefined()
-    } catch { /* noop */ }
+    } catch (e) {}
   })
 
   it('matchSkills 已初始化', async () => {
@@ -109,7 +109,7 @@ describe('useSkills', () => {
       await r.initialize()
       const skill = await r.activateSkill('fail')
       expect(skill).toBeNull()
-    } catch { /* noop */ }
+    } catch (e) {}
   })
 
   it('activateSkill 未初始化', async () => {

@@ -23,13 +23,13 @@ import { businessIcons } from '@/assets/business-icons'
 
 const { t } = useI18n()
 const props = defineProps<{
-  item: { name?: string; tags?: any[]; id?: string | number }
+  item: { name?: string; tags?: Record<string, unknown>[]; id?: string | number }
   type?: string
-  tags?: any[]
+  tags?: Record<string, unknown>[]
   moreLink?: string
 }>()
 
-const emit = defineEmits<{ select: [tag: any] }>()
+const emit = defineEmits<{ select: [tag: Record<string, unknown>] }>()
 
 const iconSvg = computed(() => {
   if (!props.item) return ''

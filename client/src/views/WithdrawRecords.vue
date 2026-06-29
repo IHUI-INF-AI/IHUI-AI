@@ -15,7 +15,7 @@
             v-model="filterForm.status"
             :placeholder="t('withdrawRecords.filter.all')"
             clearable
-            class="filter-select"
+            style="width: 150px"
           >
             <el-option :label="t('withdrawRecords.filter.all')" value="" />
             <el-option :label="t('withdrawRecords.filter.pending')" :value="0" />
@@ -34,7 +34,7 @@
     </div>
 
     <div class="records-section radius-auto">
-      <el-table :data="paginatedRecords" v-loading="loading" class="full-width">
+      <el-table :data="paginatedRecords" v-loading="loading" style="width: 100%">
         <el-table-column
           prop="withdrawal_no"
           :label="t('withdrawRecords.table.withdrawalNo')"
@@ -104,8 +104,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { Wallet } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
-import { getWithdrawalRecords } from '@/api/payment/withdrawal'
-import type { WithdrawalRecord } from '@/api/payment/withdrawal'
+import { getWithdrawalRecords } from '@/api/withdrawal'
+import type { WithdrawalRecord } from '@/api/withdrawal'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
 import type { ApiResponse } from '@/types'
@@ -225,7 +225,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -246,11 +246,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -265,7 +265,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -277,7 +277,7 @@ onMounted(() => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -291,13 +291,5 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-}
-
-.filter-select {
-  width: 150px;
-}
-
-.full-width {
-  width: 100%;
 }
 </style>

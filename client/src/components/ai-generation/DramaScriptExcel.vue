@@ -54,7 +54,7 @@
                 type="success" 
                 style="margin-left: 8px;"
               >
-                {{ t('dramaScript.lastSaved', { time: formatTime(lastSavedTime, 'HH:mm:ss') }}) }}
+                {{ t('dramaScript.lastSaved', { time: formatTime(lastSavedTime, 'HH:mm:ss') }) }}
               </el-tag>
               <el-button
                 v-if="fragments.length > 0"
@@ -2043,10 +2043,10 @@ import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { createDashScopeVideoWebSocket } from '@/api/services/aiGeneration.service'
 import request from '@/utils/request'
-import { getAvailableModels } from '@/api/models/models'
-import { streamGenerateContent } from '@/api/ai/ai'
+import { getAvailableModels } from '@/api/models'
+import { streamGenerateContent } from '@/api/ai'
 import { getUserUuid } from '@/utils/auth'
-import { uploadFormFile } from '@/api/file/file-upload'
+import { uploadFormFile } from '@/api/file-upload'
 import { logger } from '@/utils/logger'
 import { useDramaScriptEnhancement } from '@/composables/useDramaScriptEnhancement'
 import CharacterManager from './DramaScriptExcel.CharacterManager.vue'
@@ -3549,7 +3549,7 @@ const generateVideo = async (fragment: SceneFragment) => {
               displayName.includes('通义') ||
               displayName.includes('万相')
             )
-          }) as (import('@/api/models/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
+          }) as (import('@/api/models').AIModelInfo & { remark?: string; quest_type?: string }) | undefined
 
           if (!imageModel?.remark) {
             throw new Error(t('dramaScript.firstFrameModelRemarkMissing'))
@@ -5189,14 +5189,14 @@ const generateHtmlPreview = (): string => {
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
     .header { text-align: center; margin-bottom: 30px; }
     .scene { border: var(--unified-border); padding: 15px; margin-bottom: 15px; border-radius: var(--global-border-radius); }
-    .scene-title { font-size: 18px; font-weight: 700; color: var(--el-text-color-primary); }
+    .scene-title { font-size: 18px; font-weight: bold; color: var(--el-text-color-primary); }
     .scene-meta { color: var(--el-text-color-regular); margin: 10px 0; }
     .scene-desc { line-height: 1.6; }
     .status { display: inline-block; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; }
     .status-completed { background: var(--color-success-10); color: var(--color-green-389e0d); }
-    .status-pending { background: var(--color-primary-10); color: var(--el-color-primary); }
-    .status-generating { background: var(--color-orange-fa8c16-10); color: var(--el-color-warning); }
-    .status-failed { background: rgba(var(--el-color-danger-rgb), 0.1); color: var(--el-color-danger); }
+    .status-pending { background: var(--color-primary-10); color: var(--color-blue-1890ff); }
+    .status-generating { background: var(--color-orange-fa8c16-10); color: var(--color-orange-fa8c16); }
+    .status-failed { background: var(--color-red-transparent-10-alt); color: var(--color-red-f5222d); }
   </style>
 </head>
 <body>
@@ -6457,12 +6457,14 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--global-box-shadow);
   z-index: var(--z-modal);
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
   
   &:hover {
     transform: scale(1.1);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   .trigger-icon {
     font-size: 24px;
@@ -6487,6 +6489,7 @@ defineExpose({
   position: absolute;
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6831,8 +6834,8 @@ defineExpose({
       padding: 4px;
       
       .el-button {
-        color: var(--el-bg-color-page);
-
+        color: var(--el-color-white);
+        
         &:hover {
           background: var(--color-white-20);
         }
@@ -6892,11 +6895,12 @@ defineExpose({
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       background: var(--el-bg-color);
-      transition: border-color 0.2s, border-width 0.2s;
+      transition: all 0.2s;
       
       &:hover {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
       
       .template-info {
         flex: 1;
@@ -6953,12 +6957,13 @@ defineExpose({
       border: var(--unified-border);
       border-radius: var(--global-border-radius);
       background: var(--el-bg-color);
-      transition: background-color 0.2s, border-color 0.2s, border-width 0.2s;
+      transition: all 0.2s;
       cursor: pointer;
       
       &:hover {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
       
       &.is-selected {
         border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -7111,7 +7116,8 @@ defineExpose({
       max-height: 420px;
       background: var(--el-fill-color-darker);
       border-radius: var(--global-border-radius);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     .video-controls {
       display: flex;
@@ -7127,8 +7133,9 @@ defineExpose({
         padding: 10px 20px;
         
         &:hover {
-          
-          }
+          transform: translateY(-2px);
+          box-shadow: var(--global-box-shadow);
+        }
       }
     }
     
@@ -7206,9 +7213,13 @@ defineExpose({
         cursor: pointer;
         border-radius: var(--global-border-radius);
         overflow: hidden;
-        transition: transform 0.3s ease;
+        transition: all 0.3s ease;
+        box-shadow: var(--global-box-shadow);
+        
         &:hover {
           transform: scale(1.08) translateY(-4px);
+          box-shadow: var(--global-box-shadow);
+          
           .keyframe-time {
             background: var(--el-color-primary);
           }
@@ -7228,7 +7239,7 @@ defineExpose({
           right: 0;
           padding: 6px 8px;
           background: var(--color-black-75);
-          color: var(--el-bg-color-page);
+          color: var(--el-color-white);
           font-size: 12px;
           text-align: center;
           font-family: var(--font-family-mono);
@@ -7268,11 +7279,12 @@ defineExpose({
         padding: 8px 16px;
         border-radius: var(--global-border-radius);
         font-size: 13px;
-        transition: transform 0.2s;
+        transition: all 0.2s;
         
         &:hover {
           transform: scale(1.08);
-          }
+          box-shadow: var(--global-box-shadow);
+        }
         
         &.el-tag--primary {
           background: var(--el-color-primary);
@@ -7339,11 +7351,12 @@ defineExpose({
     background: var(--el-fill-color-lighter);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: border-color 0.3s ease;
+    transition: all 0.3s ease;
     
     &:hover {
       border-color: var(--el-color-primary-light-7);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     h4 {
       font-size: 15px;
@@ -7372,7 +7385,7 @@ defineExpose({
     
     .el-progress {
       .el-progress-bar__outer {
-        height: 10px;
+        height: 10px ;
         border-radius: var(--global-border-radius);
       }
       
@@ -7398,8 +7411,9 @@ defineExpose({
       transition: all 0.2s;
       
       &:hover {
-        
-        }
+        transform: translateY(-2px);
+        box-shadow: var(--global-box-shadow);
+      }
     }
   }
   
@@ -7440,12 +7454,13 @@ defineExpose({
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: border-color 0.3s ease;
+    transition: all 0.3s ease;
     
     &:hover {
-      
+      transform: translateY(-2px);
       border-color: var(--el-color-primary-light-5);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     .plot-header {
       display: flex;
@@ -7489,7 +7504,7 @@ defineExpose({
     border-radius: var(--global-border-radius);
     margin-bottom: 12px;
     border: var(--unified-border);
-    transition: border-color 0.2s;
+    transition: all 0.2s;
     
     &:hover {
       border-color: var(--el-color-primary-light-7);
@@ -7562,7 +7577,7 @@ defineExpose({
       border-radius: var(--global-border-radius);
       
       &:hover {
-        
+        transform: translateY(-1px);
       }
     }
   }
@@ -7586,11 +7601,12 @@ defineExpose({
       padding: 8px 16px;
       border-radius: var(--global-border-radius);
       font-size: 13px;
-      transition: transform 0.2s;
+      transition: all 0.2s;
       
       &:hover {
         transform: scale(1.05);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
     }
   }
   
@@ -7610,7 +7626,7 @@ defineExpose({
     font-size: 14px;
     border: var(--unified-border);
     cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
+    transition: all 0.2s;
     
     &:hover {
       border-color: var(--el-color-primary-light-5);
@@ -7642,8 +7658,9 @@ defineExpose({
         border: none;
         
         &:hover {
-          
-          }
+          transform: translateY(-1px);
+          box-shadow: var(--global-box-shadow);
+        }
       }
     }
   }
@@ -7671,11 +7688,12 @@ defineExpose({
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: border-color 0.3s ease, opacity 0.3s ease;
+    transition: all 0.3s ease;
     
     &:hover {
       border-color: var(--el-color-primary-light-5);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     &.is-auto {
       opacity: 0.85;
@@ -7769,6 +7787,10 @@ defineExpose({
       .el-textarea__inner {
         border-radius: var(--global-border-radius);
         resize: none;
+        
+        &:focus {
+          box-shadow: var(--global-box-shadow);
+        }
       }
     }
     
@@ -7801,7 +7823,7 @@ defineExpose({
     background: var(--el-bg-color);
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
-    transition: border-color 0.2s;
+    transition: all 0.2s;
     
     &:hover {
       border-color: var(--el-border-color);
@@ -8097,11 +8119,11 @@ defineExpose({
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   z-index: var(--z-loading);
   min-width: 180px;
   padding: 4px 0;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   
   .context-menu-item {
     display: flex;
@@ -8174,11 +8196,11 @@ defineExpose({
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   z-index: var(--z-loading);
   min-width: 180px;
   padding: 4px 0;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   
   .context-menu-item {
     display: flex;
@@ -8230,7 +8252,7 @@ defineExpose({
 
 .dialog-slide-enter-active,
 .dialog-slide-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .dialog-slide-enter-from,
@@ -8244,11 +8266,12 @@ defineExpose({
 // 工具栏增强
 .toolbar-section {
   .el-button {
-    transition: transform 0.2s ease;
+    transition: all 0.2s ease;
     
     &:hover {
-      
-      }
+      transform: translateY(-1px);
+      box-shadow: var(--global-box-shadow);
+    }
     
     &:active {
       transform: translateY(0);
@@ -8261,8 +8284,9 @@ defineExpose({
   transition: all 0.3s ease;
   
   &:hover {
-    
-    }
+    transform: translateY(-2px);
+    box-shadow: var(--global-box-shadow);
+  }
 }
 
 // 渐变背景卡片
@@ -8289,11 +8313,12 @@ defineExpose({
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
   
   &:hover {
     border-color: var(--el-color-primary-light-5);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   .stat-value {
     font-size: 28px;
@@ -8341,7 +8366,8 @@ defineExpose({
     border-radius: var(--global-border-radius);
     background: var(--el-color-primary);
     border: 2px solid var(--el-bg-color);
-    }
+    box-shadow: var(--global-box-shadow);
+  }
   
   &::after {
     content: "";
@@ -8609,7 +8635,15 @@ defineExpose({
   .gradient-card {
     background: var(--el-color-primary-dark-2);
   }
-
+  
+  .stat-card:hover {
+    box-shadow: var(--global-box-shadow);
+  }
+  
+  .timeline-item::before {
+    box-shadow: var(--global-box-shadow);
+  }
+  
   .skeleton-item {
     background: linear-gradient(90deg, 
       var(--el-fill-color-darker) 25%, 
@@ -8652,7 +8686,7 @@ defineExpose({
   }
 
   50% {
-    
+    transform: translateY(-10px);
   }
 }
 
@@ -8680,11 +8714,11 @@ defineExpose({
 
 @keyframes pulse-glow {
   0%, 100% {
-    opacity: 1;
+    box-shadow: var(--global-box-shadow);
   }
 
   50% {
-    opacity: 0.7;
+    box-shadow: var(--global-box-shadow);
   }
 }
 
@@ -8717,7 +8751,7 @@ defineExpose({
     justify-content: center;
     border-radius: var(--global-border-radius);
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
+    transition: all 0.2s;
     background: var(--el-fill-color-light);
     color: var(--el-text-color-regular);
     
@@ -8747,19 +8781,23 @@ defineExpose({
 
     &.status-success {
       background: var(--el-color-success);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     &.status-warning {
       background: var(--el-color-warning);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     &.status-danger {
       background: var(--el-color-danger);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     &.status-info {
       background: var(--el-color-info);
-      }
+      box-shadow: var(--global-box-shadow);
+    }
     
     &.status-processing {
       background: var(--el-color-primary);
@@ -8819,7 +8857,8 @@ defineExpose({
         border: var(--unified-border);
         border-radius: var(--global-border-radius);
         color: var(--el-text-color-primary);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
       
       .shortcut-desc {
         color: var(--el-text-color-regular);
@@ -8893,11 +8932,12 @@ defineExpose({
       background: var(--el-fill-color-lighter);
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
-      transition: border-color 0.2s;
+      transition: all 0.2s;
       
       &:hover {
         border-color: var(--el-color-primary-light-5);
-        }
+        box-shadow: var(--global-box-shadow);
+      }
       
       .scene-header {
         display: flex;
@@ -8972,18 +9012,20 @@ defineExpose({
         border: 2px solid var(--el-border-color-lighter);
         border-radius: var(--global-border-radius);
         cursor: pointer;
-        transition: background-color 0.25s, border-color 0.25s, border-width 0.25s;
+        transition: all 0.25s;
         text-align: center;
         
         &:hover {
           border-color: var(--el-color-primary-light-5);
           background: var(--el-color-primary-light-9);
-          
+          transform: translateY(-2px);
         }
         
         &.active {
           border: var(--el-border-width-primary) solid var(--el-color-primary);
           background: var(--el-color-primary-light-9);
+          box-shadow: var(--global-box-shadow);
+          
           .format-name {
             color: var(--el-color-primary);
           }
@@ -9075,7 +9117,7 @@ defineExpose({
   transform: translate(-50%, -50%);
   padding: 12px 24px;
   background: var(--color-black-80);
-  color: var(--el-bg-color-page);
+  color: var(--el-color-white);
   border-radius: var(--global-border-radius);
   font-size: 14px;
   z-index: var(--z-notification);

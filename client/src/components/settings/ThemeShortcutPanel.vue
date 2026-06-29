@@ -153,7 +153,8 @@ function formatKeys(shortcut: ThemeShortcut): string[] {
   font-family: inherit;
   font-size: var(--font-size-xs);
   color: var(--el-text-color-regular);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .shortcut-tips {
   padding: var(--spacing-md);

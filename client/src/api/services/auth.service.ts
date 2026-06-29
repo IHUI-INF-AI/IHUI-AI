@@ -29,7 +29,7 @@ export interface LoginResponse {
     phone?: string
     email?: string
     roles?: string[]
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 

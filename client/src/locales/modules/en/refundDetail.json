@@ -1,17 +1,8 @@
 {
   "refundDetail": {
-    "applyTime": "applyTime",
-    "approveTime": "approveTime",
-    "backToList": "backToList",
-    "completeTime": "completeTime",
-    "originalOrderNo": "originalOrderNo",
-    "refundAmount": "refundAmount",
-    "refundDescription": "refundDescription",
-    "refundInfo": "refundInfo",
-    "refundNo": "refundNo",
-    "refundReason": "退款原因",
-    "rejectReason": "rejectReason",
-    "supplementEvidence": "supplementEvidence",
-    "title": "标题"
+    "backToList": "Back to Refund List",
+    "title": "Refund Detail",
+    "refundNo": "Refund No.",
+    "supplementEvidence": "Supplement Evidence (Multiple Files Supported)"
   }
 }

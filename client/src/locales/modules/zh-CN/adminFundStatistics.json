@@ -1,0 +1,9 @@
+{
+  "adminFundStatistics": {
+    "refresh": "刷新数据",
+    "failedOrders": "失败订单",
+    "period": {},
+    "messages": {},
+    "chart": {}
+  }
+}

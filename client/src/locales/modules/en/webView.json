@@ -1,6 +1,6 @@
 {
   "webView": {
-    "back": "返回",
-    "noUrlProvided": "noUrlProvided"
+    "noUrlProvided": "No Url Provided",
+    "back": "Back"
   }
 }

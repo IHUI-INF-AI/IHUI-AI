@@ -1,4 +1,4 @@
-{
+﻿﻿{
   "apiTest": {
     "title": "API Test",
     "allTestsPassed": "All",
@@ -36,8 +36,7 @@
     "selectDoc": "Please select a document from the left",
     "loadFailed": "Failed to load document",
     "searchPlaceholder": "Search documents...",
-    "toc": "Toc",
-    "enterpriseService": "Enterprise Services"
+    "toc": "Toc"
   },
   "open": {
     "documentCenter": {
@@ -46,6 +45,7 @@
     }
   },
   "openPlatform": {
+    "openPlatformTitle": "iHui Open Platform",
     "title": "Open Platform",
     "searchPlaceholder": "Search features, docs, APIs...",
     "backHome": "Back to Home",
@@ -887,6 +887,7 @@
     "adminLearnOrderInvoiceTitle": "Invoice Titles",
     "adminLearnOrderInvoiceApplication": "Invoice Applications",
     "adminLearnSignup": "Signups",
+    "adminLearnHomework": "Homework Review",
     "adminLearnReport": "Learning Reports",
     "adminExamList": "Exam List",
     "adminExamPaper": "Papers",
@@ -935,19 +936,6 @@
     "adminRefundAudit": "Refund Audit",
     "adminProductManagement": "Product Management",
     "adminAiworldSite": "AI World Site Management",
-    "adminSmsTemplate": "SMS Template",
-    "adminDict": "Dict Management",
-    "adminDictData": "Dict Data",
-    "adminDeveloper": "Developer Management",
-    "adminDeveloperLink": "Developer Binding",
-    "adminDemandSquare": "Demand Square",
-    "adminDemandSquareReview": "Demand Review",
-    "adminLogOperlog": "Operation Log",
-    "adminLogLogininfor": "Login Log",
-    "adminJob": "Scheduled Job",
-    "adminJobLog": "Job Log",
-    "adminOnline": "Online Users",
-    "adminZone": "Zone Management",
     "aiAgenticDashboard": "Agent Dashboard",
     "aiApiTest": "API Test",
     "aiAgentManagement": "AI Agent Management",
@@ -1079,12 +1067,6 @@
       "invalidFile": "Invalid File",
       "invalidFileType": "Invalid File Type",
       "fileTooLarge": "File Too Large",
-      "approveFailed": "Approval failed",
-      "rejectFailed": "Rejection failed",
-      "importRefreshFailed": "Failed to refresh after import",
-      "deleteRefreshFailed": "Failed to refresh after delete",
-      "pushRefreshFailed": "Failed to refresh after push",
-      "dataLoadFailed": "Data load failed",
       "websocketParseFailed": "WebSocket message parsing failed",
       "websocketConnectionOpened": "WebSocket connection opened",
       "websocketError": "WebSocket error",
@@ -1121,8 +1103,38 @@
       "exportFailed": "Export failed",
       "loginFailed": "Login Failed",
       "actionFailed": "Operation Failed",
-      "removeFailed": "Removal failed",
-      "jsonArrayError": "Options must be a JSON array, e.g. [\"A\",\"B\",\"C\",\"D\"]"
+      "updateFailed": "Update failed",
+      "removeFailed": "Remove failed",
+      "submitFailed": "Submit failed",
+      "orderCreateFailed": "Order creation failed",
+      "checkInFailed": "Check-in failed, please try again later",
+      "paymentInitFailed": "Payment initiation failed, please retry",
+      "loadScheduleFailed": "Failed to load schedule",
+      "loadBalanceFailed": "Failed to load balance",
+      "loadCourseFailed": "Failed to load courses",
+      "loadAgentFailed": "Failed to load agents",
+      "callFailed": "Call failed",
+      "simulateFailed": "Simulation failed",
+      "getVideoUrlFailed": "Failed to get video URL",
+      "giftListLoadFailed": "Failed to load gift list",
+      "commentSendFailed": "Failed to send comment",
+      "giftSendFailed": "Failed to send gift",
+      "incomeLoadFailed": "Failed to load income data, please refresh and retry",
+      "tokenLoadFailed": "Failed to load data, please refresh and retry",
+      "priceLoading": "Price is loading, please try again later",
+      "priceLoadFailed": "Failed to load price, please refresh the page",
+      "approveFailed": "Approval failed",
+      "rejectFailed": "Rejection failed",
+      "refreshAfterImportFailed": "Failed to refresh after import",
+      "refreshAfterDeleteFailed": "Failed to refresh after delete",
+      "refreshAfterPushFailed": "Failed to refresh after push",
+      "dashboardEmpty": "Dashboard data is empty, backend API may not be connected, placeholder shown.",
+      "operationFailedRetry": "Operation failed, please retry",
+      "likeFailed": "Like failed",
+      "signUpFailed": "Sign-up failed",
+      "selectAtLeastOneField": "Please select at least one field to modify",
+      "inputRateContent": "Please enter review content",
+      "messageSendFailedRetry": "Failed to send message, please retry"
     },
     "messages": {
       "loadSuccess": "Loaded successfully",
@@ -1134,7 +1146,11 @@
       "saving": "Saving",
       "Login Successful": "Login Successful",
       "loginSuccess": "Login successful",
-      "removed": "Removed"
+      "saved": "Saved",
+      "likeSuccess": "Liked",
+      "signUpSuccess": "Sign-up successful",
+      "rateSuccess": "Review submitted",
+      "viewLoginLog": "View login log"
     },
     "share": "Share",
     "print": "Print",
@@ -1149,18 +1165,6 @@
     "backToLogin": "Back to Login",
     "next": "Next",
     "previous": "Previous",
-    "previousItem": "Previous",
-    "toggleAnswer": "Toggle answer visibility",
-    "toggleThinking": "Toggle thinking process",
-    "voiceInput": "Voice input",
-    "categoryNav": "Category navigation",
-    "aiWorldCarousel": "AI World carousel",
-    "deleteImage": "Delete image",
-    "deleteNotification": "Delete notification",
-    "unsubscribe": "Unsubscribe",
-    "coreData": "Core data",
-    "hot": "Hot",
-    "pleaseSelect": "Please select",
     "tip": "Tip",
     "confirmDelete": "Confirm Delete",
     "batchDelete": "Batch Delete",
@@ -1179,6 +1183,7 @@
     "no": "No",
     "selected": "Selected",
     "clear": "Clear",
+    "action": "Action",
     "actions": "Actions",
     "yesterday": "Yesterday",
     "rangeSeparator": "to",
@@ -1315,7 +1320,7 @@
     "systemInternal": "System Internal",
     "commands": {
       "home": "Go Home",
-      "store": "AI App Store",
+      "store": "Agents",
       "plaza": "Requirement Plaza",
       "learnAI": "Learn AI",
       "community": "AI Community",
@@ -1458,7 +1463,6 @@
     "marquee": {
       "kouzi": "Kouzi Icon",
       "bbxLogo": "BBX Logo",
-      "brand4": "Brand Icon",
       "zhipu": "Zhipu Qingyan",
       "brand8": "Brand 8",
       "ali": "Alibaba Cloud",
@@ -1478,18 +1482,6 @@
       "news": "News"
     },
     "miniappBtn": "WeChat Mini Program",
-    "wheelSensitivityLabel": "Wheel Sensitivity",
-    "marqueeSpeedLabel": "Scroll Speed",
-    "clickToResume": "Click to resume scrolling",
-    "clickToPause": "Click to pause scrolling",
-    "resumeScroll": "Resume",
-    "pauseScroll": "Pause",
-    "sensitivityLow": "Low",
-    "sensitivityMid": "Mid",
-    "sensitivityHigh": "High",
-    "speedSlow": "Slow",
-    "speedMid": "Mid",
-    "speedFast": "Fast",
     "miniappModal": {
       "qrAlt": "Qr Alt",
       "scanTip": "Scan Tip",
@@ -1606,22 +1598,18 @@
     "thirdParty": {
       "or": "or",
       "wechatLogin": "WeChat Login",
-      "alipayLogin": "Alipay Login",
       "googleLogin": "Google Login",
       "appleLogin": "Apple Login",
       "notice": "By using third-party login, you agree to our",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service",
       "wechatLogin Failed": "WeChat login Failed, please try again",
-      "alipayLogin Failed": "Alipay login Failed, please try again",
       "googleLogin Failed": "Google login Failed, please try again",
       "appleLogin Failed": "Apple login Failed, please try again",
       "tooltip": {
         "wechat": "WeChat login",
-        "alipay": "Alipay login",
         "google": "Google login",
-        "apple": "Apple login",
-        "feishu": "Feishu login"
+        "apple": "Apple login"
       }
     },
     "logout": "Logout",
@@ -1636,12 +1624,8 @@
     "usernamePlaceholder": "Please enter username",
     "bind": "Bind",
     "wechatLogin": "WeChat Login",
-    "alipayLogin": "Alipay Login",
     "googleLogin": "Google Login",
     "appleLogin": "Apple Login",
-    "feishuLogin": "Feishu Login",
-    "dingtalkLogin": "DingTalk Login",
-    "wecomLogin": "WeCom Login",
     "validation": {
       "unsafeChars": "Input contains unsafe characters",
       "invalidEmail": "Please enter a valid email address",
@@ -1811,11 +1795,6 @@
     "wechatLogin Failed": "WeChat login Failed, please retry",
     "wechatLogin FailedRetry": "Login Failed, please retry",
     "qrLogin Failed": "QR Code Login Failed",
-    "alipayLogin Successful": "Login Successful！",
-    "alipayLogin FailedRetry": "Login Failed, please retry",
-    "Sandbox Mode": "Sandbox Mode",
-    "Sandbox ModeNotice": "Currently in Alipay sandbox environment, for development testing only",
-    "alipayLogin Failed": "Alipay login Failed, please retry",
     "missingAccount": "Account",
     "missingPassword": "Password",
     "Login SuccessfulProcessFailed": "Process Failed after login success",
@@ -1823,9 +1802,6 @@
     "initLogin Failed": "Failed to initialize {method} login",
     "accountLogin Successful": "AccountLogin Successful",
     "phoneLogin Successful": "PhoneLogin Successful",
-    "feishuLogin Successful": "Login Successful！",
-    "feishuLogin FailedRetry": "Login Failed, please retry",
-    "feishuLogin Failed": "Feishu login Failed, please retry",
     "formNotReady": "formNotReady",
     "verifyCodeFailed": "verifyCodeFailed",
     "accountLogin": "Account Login",
@@ -1890,7 +1866,6 @@
     "quickActions": "Quick Actions",
     "Model Management": "Model Management",
     "noData": "No data",
-    "me": "Me",
     "loadStatsFailed": "Failed to load statistics, please Refresh and try again",
     "navigationFailed": "Navigation Failed, please try again later",
     "analytics": "analytics",
@@ -2638,6 +2613,8 @@
     }
   },
   "mcpUseProject": {
+    "listDirFiles": "List all files in current directory",
+    "listDirFiles2": "列出当前目录的所有文件",
     "title": "mcp-use Project",
     "subtitle": "Full-stack MCP framework - Connect any MCP server in 6 lines of code",
     "managementInterface": "Management Interface",
@@ -2811,6 +2788,9 @@
     "exportSuccess": "Export successful"
   },
   "agents": {
+    "exploreAgents": "Explore AI Agents",
+    "createCustomAgent": "Create Custom Agent",
+    "oneClickDeploy": "One-click deploy and call",
     "title": "AI Agents Center",
     "subtitle": "Explore rich AI agents to boost your productivity",
     "metaTotal": "Total {count} agents",
@@ -2907,16 +2887,7 @@
     "statusReviewFailed": "Review Failed",
     "statusOffline": "Offline",
     "statusUnknown": "Unknown",
-    "seoKeywords": "AI agents,smart assistant,AI tools",
-    "hotSearch": "Hot Searches",
-    "searchHistory": "Search History",
-    "clearHistory": "Clear history",
-    "recommendTitle": "You may want",
-    "voiceSearch": "Voice Search",
-    "voiceInputNotSupported": "Voice input is not supported in this browser",
-    "voiceInputListening": "Listening...",
-    "voiceInputError": "Voice recognition failed, please try again",
-    "retryLoad": "Reload"
+    "seoKeywords": "AI agents,smart assistant,AI tools"
   },
   "fileUpload": {
     "uploading": "Uploading...",
@@ -3275,9 +3246,22 @@
     "becomeSupplier": "Become a Supplier",
     "noMoreItems": "No More Items",
     "aiStore": "AI Store",
-    "moreFeatures": "More Features"
+    "moreFeatures": "More Features",
+    "sidebar": "Sidebar",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar",
+    "coreFeatures": "Core Features",
+    "serviceSupport": "Service & Support",
+    "learnCourses": "Course Center",
+    "learnMap": "Learning Map",
+    "liveClass": "Live Class",
+    "myLearning": "My Learning",
+    "openAiPanel": "Open AI Assistant",
+    "closeAiPanel": "Close AI Assistant"
   },
   "user": {
+    "nickname": "Nickname",
+    "nickname2": "昵称",
     "quickActions": "Quick Actions",
     "menu": {
       "profile": "Profile",
@@ -4096,10 +4080,7 @@
       "method": "Method",
       "realName": "Real Name",
       "realNamePlaceholder": "Real Name Placeholder",
-      "title": "Title",
-      "alipay": "Alipay",
-      "wechat": "WeChat",
-      "bankCard": "Bank Card"
+      "title": "Title"
     }
   },
   "myCommission": {
@@ -5130,8 +5111,6 @@
     "allPosts": "All Posts",
     "noPosts": "No posts yet",
     "favorite": "Favorite",
-    "like": "Like",
-    "views": "Views",
     "following": "Following",
     "noFollowingPosts": "No following posts",
     "recommended": "Recommended",
@@ -5215,11 +5194,10 @@
       "codeGroup": "Code Group",
       "otherGroup": "Other Group",
       "other": "Other"
-    },
-    "searchPlaceholder": "Enter keywords to search",
-    "allTypes": "All types"
+    }
   },
   "aboutUs": {
+    "sixKPlus": "60K+",
     "heroTitle": "About Us",
     "heroSubtitle": "We turn LLMs and multimodal AI into reliable products and services. We give businesses and developers stable, easy-to-use AI capabilities and tools.",
     "heroMission": "Empowering every organization with AI, and every idea with better execution.",
@@ -5274,8 +5252,8 @@
       },
       "aiAppStore": {
         "date": "January 2025",
-        "title": "World's First AI App Store",
-        "description": "Pioneered and created the world's first AI app store concept, leading the development of AI application ecosystem"
+        "title": "World's First Agent Platform",
+        "description": "Pioneered and created the world's first agent platform concept, leading the development of AI application ecosystem"
       },
       "platformLaunched": {
         "date": "January 2025",
@@ -5601,29 +5579,20 @@
     },
     "thirdParty": {
       "or": "Or",
-      "alipayLogin": "Alipay Login",
-      "feishuLogin": "Feishu Login",
-      "dingtalkLogin": "DingTalk Login",
-      "wecomLogin": "WeCom Login",
       "notice": "Notice",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms Of Service",
       "wechatLogin Failed": "WeChat login Failed, please retry",
-      "alipayLogin Failed": "Alipay login Failed, please retry",
       "googleLogin Failed": "GoogleLogin Failed, please retry",
       "appleLogin Failed": "AppleLogin Failed, please retry",
       "tooltip": {
         "wechat": "WeChat Login",
-        "alipay": "AlipayLogin",
         "google": "GoogleLogin",
-        "apple": "AppleLogin",
-        "feishu": "Feishu Login"
+        "apple": "AppleLogin"
       },
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "emailLogin": "emailLogin",
-      "feishu": "feishu",
       "otherMethods": "otherMethods",
       "phoneLogin": "phoneLogin",
       "quickLogin": "quickLogin",
@@ -6468,6 +6437,8 @@
     }
   },
   "vip": {
+    "permanentVip": "/Permanent VIP",
+    "oneClickVip": "One-click activate VIP",
     "title": "Upgrade VIP Membership",
     "subtitle": "Unlock all AI tools, enjoy exclusive privileges, only ¥{amount}",
     "featuresTitle": "VIP Exclusive Privileges",
@@ -6684,8 +6655,7 @@
     "loginNow": "Login Now",
     "thirdParty": {
       "or": "or",
-      "wechat": "WeChat",
-      "alipay": "Alipay"
+      "wechat": "WeChat"
     },
     "messages": {
       "phoneInvalid": "Please enter a valid phone number",
@@ -6900,6 +6870,10 @@
     }
   },
   "feedback": {
+    "feedbackRecords": "Feedback Records",
+    "submitFeedback": "Submit Feedback",
+    "loading": "Loading...",
+    "submitFailed": "Submit failed, please retry",
     "title": "Feedback",
     "content": {
       "tip": "Your feedback is very important to us, please describe your problem or suggestion in detail"
@@ -7453,273 +7427,6 @@
       "microphonePermissionDenied": "Microphone Permission Denied",
       "recordingFailed": "Recording Failed"
     }
-  },
-  "EnterpriseService": {
-    "badge": "ENTERPRISE SERVICE",
-    "heroTitle": "ZHIHUI AI Community",
-    "heroSubtitle": "Enterprise rational efficiency service and mutual aid community in the AI era. Helping decision-makers deeply understand the relationship between AI and Enterprises, building human-machine collaborative super organizations.",
-    "stats": {
-      "priceLabel": "CNY/person/year standard",
-      "earlyBirdLabel": "CNY/person/year early bird",
-      "seatsLabel": "early bird seats"
-    },
-    "positioning": {
-      "title": "Enterprise Rational Efficiency Service in AI Era",
-      "description": "ZHIHUI AI Community is dedicated to helping Enterprise decision-makers deeply understand the relationship between AI and Enterprises. Through systematic courses, practical exploration, and community mutual aid, we build human-machine collaborative super organizations to achieve rational efficiency improvement."
-    },
-    "modules": {
-      "localCommunity": {
-        "title": "Local Community",
-        "description": "Offline courses, exploration activities, and mutual aid community for deep connections with like-minded decision-makers",
-        "features": {
-          "courses": "Systematic Courses",
-          "exploration": "Practical Exploration",
-          "mutualAid": "Community Support"
-        }
-      },
-      "onlineCommunity": {
-        "title": "Online Community",
-        "description": "Convenient online exchange platform for information and support anytime, anywhere",
-        "features": {
-          "platform": "Exchange Platform",
-          "exchange": "Experience Sharing",
-          "resources": "Resource Matching"
-        }
-      },
-      "aiService": {
-        "title": "AI Professional Service",
-        "description": "Professional large models and agent services providing in-depth AI consulting and support",
-        "features": {
-          "model": "Professional LLM",
-          "agent": "Agent Service",
-          "consulting": "Consulting"
-        }
-      },
-      "module01": "module01",
-      "module02": "module02",
-      "module03": "module03"
-    },
-    "architecture": {
-      "title": "Enterprise AI Service Path and Architecture",
-      "description": "From physical world to information world, building human-machine collaborative super Enterprises",
-      "physicalWorld": {
-        "title": "Physical World",
-        "structure": {
-          "title": "Organization Structure",
-          "description": "Help Enterprises organize structure and define digital employee positions"
-        },
-        "process": {
-          "title": "Process Analysis",
-          "description": "Forward and reverse process analysis to optimize operational efficiency"
-        },
-        "culture": {
-          "title": "Human Values",
-          "description": "Corporate culture, mission & vision, critical thinking and humility"
-        }
-      },
-      "infoWorld": {
-        "title": "Information World",
-        "basic": {
-          "label": "Basic Information World",
-          "items": {
-            "informatization": "Informatization",
-            "iot": "IoT",
-            "automation": "Automation"
-          }
-        },
-        "advanced": {
-          "label": "Advanced Information World",
-          "items": {
-            "perception": "Perceptual AI",
-            "generative": "Generative AI",
-            "agent": "Agent AI",
-            "physical": "Physical AI"
-          }
-        }
-      },
-      "aiEffect": {
-        "title": "AI Transformation Effects",
-        "superEmployee": "Super Employee",
-        "superTeam": "Super Team",
-        "superProduct": "Super Product/Service",
-        "metrics": {
-          "cost": "Cost Optimization",
-          "efficiency": "Efficiency Boost",
-          "experience": "Experience Upgrade"
-        }
-      }
-    },
-    "compass": {
-      "title": "Agent Scenario Compass",
-      "description": "Based on task execution complexity and autonomous decision-making dependence, helping Enterprises identify and plan agent application scenarios",
-      "axes": {
-        "complexity": {
-          "title": "Task Execution Complexity",
-          "low": "Low",
-          "high": "High"
-        },
-        "autonomy": {
-          "title": "Autonomous Decision Dependence",
-          "low": "Low",
-          "high": "High"
-        }
-      },
-      "quadrants": {
-        "simple": {
-          "title": "Efficient Assistant",
-          "description": "Simple decision + Simple execution, quick deployment for high-frequency applications",
-          "examples": {
-            "qa": "Knowledge Q&A",
-            "workflow": "Process Automation"
-          }
-        },
-        "decision": {
-          "title": "Wise Advisor",
-          "description": "Complex decision + Simple execution, providing deep analysis and suggestions",
-          "examples": {
-            "analysis": "Data Analysis",
-            "advisor": "Decision Support"
-          }
-        },
-        "execution": {
-          "title": "Execution Expert",
-          "description": "Simple decision + Complex execution, handling cross-system complex tasks",
-          "examples": {
-            "meeting": "Meeting Scheduling",
-            "approval": "Approval Process"
-          }
-        },
-        "complex": {
-          "title": "Omnipotent Expert",
-          "description": "Complex decision + Complex execution, autonomous planning and multi-agent collaboration",
-          "examples": {
-            "marketing": "Marketing Automation",
-            "multiAgent": "Multi-Agent Collaboration"
-          }
-        }
-      },
-      "cta": "Explore Agent Scenarios"
-    },
-    "courses": {
-      "title": "Course System",
-      "description": "Systematic AI cognition and practice courses to help Enterprise decision-makers comprehensively understand opportunities and challenges in the AI era",
-      "aiTools": {
-        "title": "AI Tools Courses",
-        "items": {
-          "development": "AI Technology Development Overview",
-          "productivity": "AI Productivity Tools Usage",
-          "toolsIntro": "Mainstream AI Tools Introduction",
-          "agentBuilding": "Low/No-code Agent Building",
-          "structureAnalysis": "Enterprise AI Structured Analysis",
-          "aiLiteracy": "AI Era Literacy - Critical Thinking"
-        },
-        "description": "description"
-      },
-      "thinking": {
-        "title": "Thinking Courses",
-        "items": {
-          "problemSolving": "Structured Problem Solving",
-          "innovationBarriers": "Innovation Barrier Breakthrough",
-          "creativeLearning": "Creative Learning Methods",
-          "orgChange": "Organizational Change Psychology"
-        },
-        "description": "description"
-      },
-      "culture": {
-        "title": "Culture Courses",
-        "items": {
-          "cultureManagement": "Corporate Culture Management",
-          "missionVision": "Mission, Vision & Values",
-          "easternPhilosophy": "Chinese Philosophy Series",
-          "westernPhilosophy": "Western Philosophy Series"
-        },
-        "description": "description"
-      }
-    },
-    "tools": {
-      "title": "Enterprise AI Tools Overview",
-      "description": "From general AI tools to industry-specific agents, comprehensively meeting Enterprise AI needs",
-      "general": {
-        "title": "General AI Tools",
-        "text": "Text Generation",
-        "image": "Image Generation",
-        "Voice": "Voice Processing",
-        "video": "Video Generation"
-      },
-      "industry": {
-        "title": "Industry Agents",
-        "manufacturing": "Manufacturing",
-        "education": "Education",
-        "healthcare": "Healthcare",
-        "government": "Government"
-      },
-      "function": {
-        "title": "Function Agents",
-        "sales": "Sales & Service",
-        "production": "Production",
-        "rd": "R&D Innovation",
-        "office": "Office Collaboration"
-      },
-      "partners": {
-        "title": "Ecosystem Partners"
-      }
-    },
-    "join": {
-      "title": "Join ZHIHUI AI Community",
-      "description": "Explore the infinite possibilities of the AI era with like-minded Enterprise decision-makers",
-      "originalPrice": "Original Price",
-      "earlyBird": "Early Bird",
-      "currentPrice": "Current Price",
-      "perYear": "/person/year",
-      "seatsNote": "Limited to first 18 members",
-      "benefits": {
-        "title": "Member Benefits",
-        "allCourses": "Free access to all courses",
-        "exploration": "Priority for exploration activities",
-        "mutualAid": "Unlimited community support",
-        "onlineCommunity": "Exclusive online community access",
-        "aiAssistant": "Early access to AI assistant",
-        "refund": "Full refund if not satisfied"
-      },
-      "cta": "Join Now",
-      "hint": "Scan code for consultation or contact us directly"
-    },
-    "footer": {
-      "company": "ZHIHUI AI Community",
-      "location": "Beijing, China",
-      "agentScenario": "Agent Scenario",
-      "humanMachine": "Human-Machine",
-      "contact": "Contact Us"
-    },
-    "badgeNew": "badgeNew",
-    "communityLabel": "communityLabel",
-    "coreService": "coreService",
-    "exit": "exit",
-    "jumpToSection": "jumpToSection",
-    "layers": {
-      "layer01": "layer01",
-      "layer02": "layer02",
-      "layer03": "layer03"
-    },
-    "learnMore": "learnMore",
-    "phases": {
-      "phase01": "phase01",
-      "phase02": "phase02",
-      "phase03": "phase03"
-    },
-    "scrollProgress": "scrollProgress",
-    "sectionNavigation": "sectionNavigation",
-    "sections": {
-      "agentCompass": "agentCompass",
-      "architecture": "architecture",
-      "courseSystem": "courseSystem",
-      "joinUs": "joinUs",
-      "positioning": "positioning",
-      "serviceModules": "serviceModules",
-      "toolsOverview": "toolsOverview"
-    },
-    "skipToMain": "skipToMain",
-    "enterpriseDesc": "AI-era enterprise services and community, help build human-machine super orgs"
   },
   "agentScenario": {
     "heroTitle": "Agent Scenario Compass",
@@ -9180,7 +8887,6 @@
     "autoRefreshing": "Auto Refreshing",
     "qrCodeLoadFailed": "Qr Code Load Failed",
     "wechat": "WeChat",
-    "alipay": "Alipay",
     "refreshQrCode": "刷新二维码"
   },
   "customerService": {
@@ -9214,6 +8920,7 @@
     "errorDetails": "Error Details",
     "reload": "Reload",
     "unknownError": "Unknown Error",
+    "${componentName} - Website NametError": "Component Error",
     "componentError": "ComponentWrong"
   },
   "errorNotification": {
@@ -9490,6 +9197,8 @@
     "defaultMessage": "Default Message"
   },
   "statistics": {
+    "zeroHour": "0 hours",
+    "zeroHour2": "0小时",
     "behavior": {
       "overview": "Overview",
       "loginDays": "Login Days",
@@ -9847,13 +9556,6 @@
     "cancel": "Cancel",
     "confirm": "Confirm"
   },
-  "VoiceRecording": {
-    "poweredBy": "iHui AI",
-    "provide": "Powered",
-    "service": "Service",
-    "clickMic": "Click",
-    "microphone": "Microphone"
-  },
   "agentCard": {
     "dashscopeModel": "Dashscope Model"
   },
@@ -9985,6 +9687,11 @@
     "voiceInputNotImplemented": "语音输入功能暂未实现"
   },
   "payment": {
+    "alreadyVip": "You are already a VIP",
+    "notLogged": "User not logged in",
+    "incompleteProduct": "Incomplete product info",
+    "selectPayMethod": "Please select payment method",
+    "notLoggedOrNoOpenId": "User not logged in or no openid",
     "channelBusyHint": "The preferred {method} channel is busy, downgraded to another payment method",
     "memberServiceAgreement": "Member Service Agreement",
     "paySuccess": "Payment Successful",
@@ -10527,7 +10234,7 @@
     },
     "mobile": {
       "menu": {
-        "AI应用商店": "AI App Store",
+        "AI应用商店": "Agents",
         "服务与支持": "Services & Support",
         "关于我们": "About Us"
       }
@@ -10817,7 +10524,7 @@
     "app": {
       "AI Assistant": "AI Assistant",
       "AI Smart Assistant": "AI Smart Assistant",
-      "AI智能助手": "AI智能助手"
+      "AI智能助手": "AI Smart Assistant"
     },
     "a_i_chat": {
       "VoiceAud": "Type a message...",
@@ -10854,10 +10561,7 @@
       "Scroll Down": "Scroll Down",
       "向下滚动": "向下滚动"
     },
-    "third_party_login": {
-      "Alipay": "Alipay",
-      "Feishu1": "Feishu"
-    },
+    "third_party_login": {},
     "project_selector_banner": {
       "Switch Platform": "Switch Platform"
     },
@@ -11417,18 +11121,14 @@
       "优先响应": "Priority Response",
       "高级模型访问": "Advanced Model Access"
     },
-    "third_party_login_universal": {
-      "Alipay": "Alipay",
-      "支付宝": "支付宝"
-    },
     "mobile_bottom_nav": {
-      "AI App Store": "AI App Store",
+      "AI App Store": "Agents",
       "Plaza1": "Plaza",
       "Smart AI2": "Smart AI",
       "Dynamic3": "Dynamic",
       "My4": "My",
       "Updates3": "Updates",
-      "AI应用商店": "AI应用商店",
+      "AI应用商店": "Agents",
       "动态3": "动态",
       "广场1": "广场",
       "我的4": "我的",
@@ -11456,20 +11156,14 @@
       "GlobalUse Login1": "GlobalUse Login",
       "AppleLogin2": "AppleLogin",
       "UseAppleI3": "UseApple IDLogin",
-      "Feishu Login4": "Feishu Login",
-      "UseFeishuAccountLogin5": "UseFeishuAccountLogin",
       "Googlelogin": "Googlelogin",
       "Global User Login1": "Global User Login",
       "Applelogin2": "Applelogin",
       "Login with Apple ID3": "Login with Apple ID",
-      "Feishulogin4": "Feishulogin",
-      "Login with Feishu Account5": "Login with Feishu Account",
       "Apple登录2": "AppleLogin",
       "Google登录": "GoogleLogin",
       "使用AppleI3": "使用AppleI",
-      "使用飞书账号登录5": "使用飞书账号登录",
-      "全球通用登录1": "全球通用登录",
-      "飞书登录4": "飞书登录"
+      "全球通用登录1": "全球通用登录"
     },
     "about": {
       "Zhang Mingyuan": "Zhang Mingyuan",
@@ -12749,17 +12443,6 @@
       "获取成功6": "GetSuccess",
       "调用成功": "Call successful",
       "调用成功1": "Call successful"
-    },
-    "unified_alipay": {
-      "Session ID Required": "Session ID Required",
-      "Session ID Required1": "Session ID Required",
-      "Authorization Code Required2": "Authorization Code Required",
-      "Session ID Cannot Be Empty": "Session ID Cannot Be Empty",
-      "Session ID Cannot Be Empty1": "Session ID Cannot Be Empty",
-      "Authorization Code Cannot Be Empty2": "Authorization Code Cannot Be Empty",
-      "会话ID不能为空": "会话ID不能为空",
-      "会话ID不能为空1": "会话ID不能为空",
-      "授权码不能为空2": "授权码不能为空"
     },
     "unified_auth": {
       "Login interface does not exist, please check backend service config. Error: ": "Login interface does not exist, please check backend service config. Error: ",
@@ -15151,8 +14834,6 @@
   },
   "studyGroup": {
     "subTrack": "Sub Track",
-    "titlePlaceholder": "Enter collection title",
-    "descPlaceholder": "Enter collection description",
     "pleaseSelect": "Please Select",
     "uploadVideo": "Upload Video",
     "publish": "Publish",
@@ -15165,17 +14846,6 @@
     "groupTitle": "Group Title",
     "selectTrack": "Please select track",
     "uploadCover": "Please upload a cover image"
-  },
-  "userLoginPopup": {
-    "welcomeBack": "Welcome back, please login",
-    "phonePlaceholder": "Enter phone number",
-    "codePlaceholder": "Enter verification code",
-    "enterPhone": "Please enter phone number",
-    "invalidPhone": "Invalid phone format",
-    "codeSent": "Verification code sent",
-    "codeSendFailed": "Failed to send code, please retry",
-    "loginSuccess": "Login Successful",
-    "wechatLoginNotConfigured": "WeChat login not configured"
   },
   "devCSSVariablesCheatsheet": {
     "textColor": "Text Color",
@@ -15219,11 +14889,7 @@
     "largeDocHint": "Large documents may take a while",
     "docLoadFailed": "Document load failed",
     "tryDownload": "Please try downloading and opening with local software",
-    "officeDoc": "Office Document",
-    "zoomOut": "Zoom Out",
-    "reset": "Reset",
-    "download": "Download",
-    "openInOfficeOnline": "Open in Office Online"
+    "officeDoc": "Office Document"
   },
   "featureAppleLogin": {
     "appleLoginFailed": "Apple login failed",
@@ -15232,26 +14898,12 @@
     "appleLoginRetry": "Apple login failed, please retry",
     "appleLoginFailed3": "Apple登录失败"
   },
-  "cmpConfirmPurchasePopUp": {
-    "vipPurchase": "VIP Purchase",
-    "agreementDeveloping": "Agreement page in development",
-    "productNotExist": "Product not found",
-    "paySuccess": "Payment Successful",
-    "paySuccess2": "支付成功"
-  },
   "cmpFileDownload": {
     "downloading": "Downloading...",
     "invalidDownloadLink": "Invalid download link",
     "downloadFailed": "Download Failed",
     "downloadComplete": "Download Complete",
     "downloadFailed2": "下载失败"
-  },
-  "Payment": {
-    "alreadyVip": "You are already a VIP",
-    "notLogged": "User not logged in",
-    "incompleteProduct": "Incomplete product info",
-    "selectPayMethod": "Please select payment method",
-    "notLoggedOrNoOpenId": "User not logged in or no openid"
   },
   "cmpindex": {
     "timeExpr": "Time Expression",
@@ -15266,12 +14918,6 @@
     "second": "Second",
     "week": "Week",
     "year": "Year"
-  },
-  "cmpPdfCompare": {
-    "syncScroll": "Sync Scroll",
-    "syncZoom": "Sync Zoom",
-    "selectPdfA": "Please select PDF file A",
-    "selectPdfB": "Please select PDF file B"
   },
   "studyIndexModelList": {
     "loading": "Loading...",
@@ -15309,18 +14955,6 @@
     "missing": "Missing",
     "attack": "Attack"
   },
-  "DistributionCenter": {
-    "copyImage": "Copy Image",
-    "distributionTitle": "iHuiShe AI - Distribution Center",
-    "imageCopied": "Image copied to clipboard",
-    "longPressToSave": "Long press to save image"
-  },
-  "Feedback": {
-    "feedbackRecords": "Feedback Records",
-    "submitFeedback": "Submit Feedback",
-    "loading": "Loading...",
-    "submitFailed": "Submit failed, please retry"
-  },
   "cmpPromptTemplates": {
     "fillAllFields": "Please fill in all fields",
     "templateAdded": "Template added",
@@ -15341,24 +14975,6 @@
     "codeLoadFailed": "Code load failed",
     "loadFailed": "Load failed"
   },
-  "viewerMonacoViewer": {
-    "loading": "Loading...",
-    "codeLoadFailed": "Code load failed",
-    "loadFailed": "Load failed",
-    "codeFile": "Code File",
-    "copy": "Copy",
-    "copied": "Copied",
-    "wordWrap": "Word Wrap",
-    "download": "Download",
-    "downloadView": "Download to View",
-    "lines": "Lines",
-    "chars": "Chars"
-  },
-  "cmpVipIntroducePopupAlt": {
-    "benefitsCount": "About <b>20</b> benefits and growing",
-    "paySuccess": "Payment Successful",
-    "payFailed": "Payment failed or cancelled"
-  },
   "adminFAQList": {
     "pinned": "Pinned",
     "unpinned": "Unpinned",
@@ -15368,20 +14984,6 @@
     "setProcessing": "Set to processing",
     "resolved": "Resolved",
     "closed": "Closed"
-  },
-  "AgenticAIPage": {
-    "swarmCreated": "Swarm created",
-    "createSwarmFailed": "Failed to create swarm",
-    "createSwarmFailed2": "创建Swarm失败"
-  },
-  "Agents": {
-    "exploreAgents": "Explore AI Agents",
-    "createCustomAgent": "Create Custom Agent",
-    "oneClickDeploy": "One-click deploy and call"
-  },
-  "User": {
-    "nickname": "Nickname",
-    "nickname2": "昵称"
   },
   "aiGenImageGenQwen": {
     "qwenRemarkMissing": "Qwen image model not configured in LLM list (remark/endpoint). Please configure in LLM Management first.",
@@ -15430,33 +15032,9 @@
     "enterComment": "Enter comment",
     "send": "Send"
   },
-  "cmpToolbar": {
-    "imagessvgxxxsvg": "/images/svg/大模型.svg",
-    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
-  },
-  "viewerEnhancedPdfViewer": {
-    "loadingPdf": "Loading PDF...",
-    "pdfLoadFailed": "PDF load failed",
-    "prevPage": "Previous Page",
-    "zoomOut": "Zoom Out",
-    "search": "Search",
-    "download": "Download",
-    "fullscreen": "Fullscreen"
-  },
   "viewerImageViewer": {
     "loading": "Loading...",
-    "imageLoadFailed": "Image load failed",
-    "zoomOut": "Zoom Out",
-    "reset": "Reset",
-    "rotateLeft": "Rotate Left",
-    "rotateRight": "Rotate Right",
-    "fitScreen": "Fit Screen",
-    "fullscreen": "Fullscreen",
-    "download": "Download"
-  },
-  "cmpVipLevelPopup": {
-    "vipLevelMechanism": "VIP Level Upgrade Mechanism",
-    "yuanToPoint": "1¥ = 1 Point"
+    "imageLoadFailed": "Image load failed"
   },
   "adminOrderList": {
     "completed": "Completed",
@@ -15471,18 +15049,6 @@
     "confirmRollback": "Confirm Rollback",
     "enterRollbackReason": "Please enter rollback reason",
     "createRelease": "Create Release"
-  },
-  "MCPUseProject": {
-    "listDirFiles": "List all files in current directory",
-    "listDirFiles2": "列出当前目录的所有文件"
-  },
-  "Statistics": {
-    "zeroHour": "0 hours",
-    "zeroHour2": "0小时"
-  },
-  "Vip": {
-    "permanentVip": "/Permanent VIP",
-    "oneClickVip": "One-click activate VIP"
   },
   "cmpAuditLog": {
     "loadLogFailed": "Failed to load log"
@@ -15527,29 +15093,10 @@
     "purchased": "Purchased"
   },
   "viewerMediaViewer": {
-    "mediaLoadFailed": "Media load failed",
-    "playSpeed": "Playback Speed",
-    "loop": "Loop",
-    "mute": "Mute",
-    "download": "Download"
+    "mediaLoadFailed": "Media load failed"
   },
   "featureGoogleLogin": {
     "googleLoginFailed": "Google login failed"
-  },
-  "ListTemplate": {
-    "loading": "Loading..."
-  },
-  "AboutUs": {
-    "sixKPlus": "60K+"
-  },
-  "ApiTestPage": {
-    "startAITest": "Start AI API test"
-  },
-  "DesignSystemDemo": {
-    "designSystemMeta": "Design system, UI components, Vue components, frontend dev"
-  },
-  "OpenPlatform": {
-    "openPlatformTitle": "iHui Open Platform"
   },
   "showcase": {
     "title": "Component Showcase",
@@ -15811,6 +15358,35 @@
     "placeholder": "Placeholder"
   },
   "enterpriseService": {
+    "badge": "ENTERPRISESERVICE",
+    "heroTitle": "智汇AI企业服务",
+    "heroSubtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系，构建人机协同的超级组织。",
+    "stats": {
+      "earlyBirdLabel": "元/人/年 早鸟价",
+      "priceLabel": "元/人/年 标准价格",
+      "seatsLabel": "位早鸟名额"
+    },
+    "positioning": {
+      "description": "智汇AI社致力于帮助企业决策者深度理解AI与企业的关系，通过系统化的课程、实践探索和社群互助，构建人机协同的超级组织，实现企业的理性效率提升。",
+      "title": "AI时代企业理性效率服务与互助社群"
+    },
+    "modules": {
+      "aiService": {
+        "description": "专业大模型与智能体服务，提供深度AI化咨询与支持",
+        "title": "AIProfessionalService"
+      },
+      "localCommunity": {
+        "description": "线下课程、探索活动与互助社群，深度链接志同道合的决策者",
+        "title": "在地社群"
+      },
+      "module01": "module01",
+      "module02": "module02",
+      "module03": "module03",
+      "onlineCommunity": {
+        "description": "便捷的在线交流平台，随时随地获取信息与支持",
+        "title": "线上社群"
+      }
+    },
     "architecture": {
       "aiEffect": {
         "metrics": {
@@ -15861,9 +15437,6 @@
       },
       "title": "企业AI化服务路径与架构原理"
     },
-    "badge": "ENTERPRISESERVICE",
-    "badgeNew": "badgeNew",
-    "communityLabel": "communityLabel",
     "compass": {
       "axes": {
         "autonomy": {
@@ -15913,7 +15486,6 @@
         }
       }
     },
-    "coreService": "coreService",
     "courses": {
       "aiTools": {
         "description": "description",
@@ -15950,86 +15522,6 @@
       },
       "title": "课程体系"
     },
-    "exit": "exit",
-    "footer": {
-      "agentScenario": "智能体场景",
-      "company": "智汇AI社",
-      "contact": "Contact Us",
-      "humanMachine": "人机协作",
-      "location": "中国 · 北京"
-    },
-    "heroSubtitle": "AI时代企业理性效率服务与互助社群。帮助决策者深度理解AI与企业的关系，构建人机协同的超级组织。",
-    "heroTitle": "智汇AI企业服务",
-    "join": {
-      "benefits": {
-        "aiAssistant": "AI助手优先体验",
-        "allCourses": "全年所有课程免费参加",
-        "exploration": "探索活动优先参与",
-        "mutualAid": "社群互助无限次",
-        "onlineCommunity": "线上社群专属入口",
-        "refund": "不满意全额退款",
-        "title": "Member Benefits"
-      },
-      "cta": "立即加入",
-      "currentPrice": "现价",
-      "description": "与志同道合的企业决策者一起，探索AI时代的无限可能",
-      "earlyBird": "早鸟优惠",
-      "hint": "扫码咨询或直接联系我们",
-      "originalPrice": "原价",
-      "perYear": "/人/年",
-      "seatsNote": "仅限前18位会员",
-      "title": "加入智汇AI社"
-    },
-    "jumpToSection": "jumpToSection",
-    "layers": {
-      "layer01": "layer01",
-      "layer02": "layer02",
-      "layer03": "layer03"
-    },
-    "learnMore": "learnMore",
-    "modules": {
-      "aiService": {
-        "description": "专业大模型与智能体服务，提供深度AI化咨询与支持",
-        "title": "AIProfessionalService"
-      },
-      "localCommunity": {
-        "description": "线下课程、探索活动与互助社群，深度链接志同道合的决策者",
-        "title": "在地社群"
-      },
-      "module01": "module01",
-      "module02": "module02",
-      "module03": "module03",
-      "onlineCommunity": {
-        "description": "便捷的在线交流平台，随时随地获取信息与支持",
-        "title": "线上社群"
-      }
-    },
-    "phases": {
-      "phase01": "phase01",
-      "phase02": "phase02",
-      "phase03": "phase03"
-    },
-    "positioning": {
-      "description": "智汇AI社致力于帮助企业决策者深度理解AI与企业的关系，通过系统化的课程、实践探索和社群互助，构建人机协同的超级组织，实现企业的理性效率提升。",
-      "title": "AI时代企业理性效率服务与互助社群"
-    },
-    "scrollProgress": "scrollProgress",
-    "sectionNavigation": "sectionNavigation",
-    "sections": {
-      "agentCompass": "agentCompass",
-      "architecture": "architecture",
-      "courseSystem": "courseSystem",
-      "joinUs": "joinUs",
-      "positioning": "positioning",
-      "serviceModules": "serviceModules",
-      "toolsOverview": "toolsOverview"
-    },
-    "skipToMain": "skipToMain",
-    "stats": {
-      "earlyBirdLabel": "元/人/年 早鸟价",
-      "priceLabel": "元/人/年 标准价格",
-      "seatsLabel": "位早鸟名额"
-    },
     "tools": {
       "description": "从通用AI工具到行业专属智能体，全方位满足企业AI化需求",
       "function": {
@@ -16058,6 +15550,62 @@
       },
       "title": "企业AI工具一览"
     },
+    "join": {
+      "benefits": {
+        "aiAssistant": "AI助手优先体验",
+        "allCourses": "全年所有课程免费参加",
+        "exploration": "探索活动优先参与",
+        "mutualAid": "社群互助无限次",
+        "onlineCommunity": "线上社群专属入口",
+        "refund": "不满意全额退款",
+        "title": "Member Benefits"
+      },
+      "cta": "立即加入",
+      "currentPrice": "现价",
+      "description": "与志同道合的企业决策者一起，探索AI时代的无限可能",
+      "earlyBird": "早鸟优惠",
+      "hint": "扫码咨询或直接联系我们",
+      "originalPrice": "原价",
+      "perYear": "/人/年",
+      "seatsNote": "仅限前18位会员",
+      "title": "加入智汇AI社"
+    },
+    "footer": {
+      "agentScenario": "智能体场景",
+      "company": "智汇AI社",
+      "contact": "Contact Us",
+      "humanMachine": "人机协作",
+      "location": "中国 · 北京"
+    },
+    "badgeNew": "badgeNew",
+    "communityLabel": "communityLabel",
+    "coreService": "coreService",
+    "exit": "exit",
+    "jumpToSection": "jumpToSection",
+    "layers": {
+      "layer01": "layer01",
+      "layer02": "layer02",
+      "layer03": "layer03"
+    },
+    "learnMore": "learnMore",
+    "phases": {
+      "phase01": "phase01",
+      "phase02": "phase02",
+      "phase03": "phase03"
+    },
+    "scrollProgress": "scrollProgress",
+    "sectionNavigation": "sectionNavigation",
+    "sections": {
+      "agentCompass": "agentCompass",
+      "architecture": "architecture",
+      "courseSystem": "courseSystem",
+      "joinUs": "joinUs",
+      "positioning": "positioning",
+      "serviceModules": "serviceModules",
+      "toolsOverview": "toolsOverview"
+    },
+    "skipToMain": "skipToMain",
+    "enterpriseDesc": "AI-era enterprise services and community, help build human-machine super orgs",
     "adoptionRate": "of enterprises adopted"
   },
   "file": {
@@ -16368,13 +15916,14 @@
     }
   },
   "adminCommon": {
-    "batchEdit": "Batch Edit",
-    "batchSave": "Batch Save",
-    "retryFailed": "Retry Failed",
-    "updating": "Updating",
-    "failed": "Failed",
-    "items": "items",
-    "canRetryHint": "Click \"Retry Failed\" to update again",
+    "filter": {
+      "searchNews": "Search news"
+    },
+    "stat": {
+      "tableCount": "Total Tables",
+      "recordCount": "Total Records",
+      "dbSize": "Database Size"
+    },
     "label": {
       "activityId": "Activity ID",
       "ai": "AI",
@@ -16513,7 +16062,80 @@
       "unfreeze": "Unfreeze",
       "updatedAt": "Updated At",
       "userAgent": "User Agent",
-      "userId": "User ID"
+      "userId": "User ID",
+      "amount": "Amount",
+      "appliedAt": "Applied At",
+      "avatar": "Avatar",
+      "bankAccount": "Account No.",
+      "bankName": "Bank",
+      "config": "Config",
+      "model": "Model",
+      "roleName": "Role Name",
+      "roleCode": "Role Code",
+      "authorityName": "Authority Name",
+      "authorityCode": "Authority Code",
+      "templateName": "Template Name",
+      "issuer": "Issuer",
+      "categoryName": "Category Name",
+      "account": "Account",
+      "role": "Role",
+      "parentId": "Parent ID",
+      "pathName": "Path Name",
+      "lessonCount": "Lesson Count",
+      "tagName": "Tag Name",
+      "tagFullName": "Tag Full Name",
+      "postName": "Post Name",
+      "levelName": "Level Name",
+      "levelRank": "Level",
+      "requiredPoints": "Required Points",
+      "groupName": "Group Name",
+      "companyName": "Company Name",
+      "scale": "Scale",
+      "topicName": "Topic Name",
+      "code": "Code",
+      "introduction": "Introduction",
+      "originalPrice": "Original Price",
+      "member": "Member",
+      "lesson": "Lesson",
+      "submitTime": "Submit Time",
+      "signupTime": "Signup Time",
+      "review": "Review",
+      "reviewOpinion": "Review Opinion",
+      "pass": "Pass",
+      "complete": "Complete",
+      "cancel": "Cancel",
+      "fullName": "Full Name",
+      "jobTitle": "Job Title",
+      "departmentName": "Department Name",
+      "manager": "Manager",
+      "hotKeyword": "Hot Keyword",
+      "channelName": "Channel Name",
+      "trigger": "Trigger",
+      "pointsCount": "Points Count",
+      "codePatternMsg": "Code can only contain letters, numbers and underscores, starting with a letter",
+      "usernamePatternMsg": "Username can only contain letters, numbers and underscores",
+      "author": "Author",
+      "readCount": "Views",
+      "content": "Content",
+      "paper": "Paper",
+      "score": "Score",
+      "examName": "Exam Name",
+      "durationMinutes": "Duration (min)",
+      "circleName": "Circle Name",
+      "post": "Post",
+      "paperName": "Paper Name",
+      "totalScore": "Total Score",
+      "lastLogin": "Last Login",
+      "question": "Question",
+      "asker": "Asker",
+      "answerCount": "Answers",
+      "questionStem": "Question Stem",
+      "questionScore": "Score",
+      "questionTitle": "Question Title",
+      "difficulty": "Difficulty",
+      "answer": "Answer",
+      "memberCountInRole": "Member Count",
+      "sensitiveWord": "Sensitive Word"
     },
     "placeholder": {
       "allCategories": "All Categories",
@@ -16593,7 +16215,6 @@
         "memberTag": "Member Tags",
         "memberUnaudited": "Unaudited Members",
         "messageAnnouncement": "Announcements",
-        "notification": "Notifications",
         "newsContent": "News Content",
         "orgDepartment": "Departments",
         "orgUser": "Users",
@@ -16736,6 +16357,28 @@
     "searchPlaceholder": {
       "list": "Search List",
       "sensitive": "Search Sensitive Words"
+    },
+    "sensitive": {
+      "createTitle": "Add Sensitive Word",
+      "word": "Word",
+      "wordPlaceholder": "Enter sensitive word",
+      "wordRequired": "Please enter a sensitive word",
+      "category": "Category",
+      "categoryPlaceholder": "Enter category",
+      "level": "Level",
+      "levelLow": "Low",
+      "levelMedium": "Medium",
+      "levelHigh": "High",
+      "action": "Action",
+      "actionReplace": "Replace",
+      "actionBlock": "Block",
+      "replacement": "Replacement",
+      "replacementPlaceholder": "Enter replacement",
+      "createSuccess": "Added successfully",
+      "createFailed": "Failed to add",
+      "deleteConfirm": "Are you sure to delete the sensitive word \"{word}\"?",
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Failed to delete"
     }
   },
   "exam": {
@@ -16764,7 +16407,6 @@
     }
   },
   "learn": {
-    "hotRecommend": "Hot Recommendations",
     "searchPlaceholder": {
       "category": "Search Category",
       "lesson": "Search Lesson",
@@ -16775,6 +16417,7 @@
       "orderInvoiceTitle": "Search Invoice Title",
       "report": "Search Report",
       "signup": "Search Signup",
+      "homework": "Search Homework",
       "topic": "Search Topic",
       "topicCategory": "Search Topic Category"
     }
@@ -16795,6 +16438,19 @@
       "post": "Search Post",
       "tag": "Search Tag",
       "unaudited": "Search Pending Review"
+    },
+    "audit": {
+      "username": "Username",
+      "mobile": "Mobile",
+      "submitTime": "Submit Time",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveConfirm": "Are you sure to approve \"{name}\"?",
+      "approveSuccess": "Approved",
+      "approveFailed": "Operation failed",
+      "rejectConfirm": "Are you sure to reject \"{name}\"?",
+      "rejectSuccess": "Rejected",
+      "rejectFailed": "Operation failed"
     }
   },
   "message": {
@@ -16989,10 +16645,24 @@
     "title": "Title",
     "content": "Content",
     "category": "Category",
+    "selectCategory": "Select category (optional)"
+  },
+  "askEdit": {
+    "createTitle": "New Question",
+    "editTitle": "Edit Question",
+    "questionTitle": "Question Title",
+    "titlePlaceholder": "Enter question title (5-100 chars)",
+    "titleRequired": "Please enter a question title",
+    "titleLength": "Title length must be between 5 and 100 characters",
+    "content": "Question Content",
+    "contentPlaceholder": "Describe your question in detail (10-2000 chars)",
+    "contentRequired": "Please enter question content",
+    "contentLength": "Content length must be between 10 and 2000 characters",
+    "category": "Category",
     "selectCategory": "Select category (optional)",
-    "searchPlaceholder": "Search questions...",
-    "titlePlaceholder": "Describe your question in one sentence",
-    "contentPlaceholder": "Provide details..."
+    "tags": "Tags",
+    "tagsPlaceholder": "Type a tag and press Enter",
+    "tagMax": "Up to {max} tags"
   },
   "adminClassicHome": {
     "vsYesterday": "vs yesterday",
@@ -17119,11 +16789,6 @@
     "markAllRead": "Mark All as Read",
     "allTypes": "All Types",
     "noNotifications": "No notifications",
-    "level": {
-      "info": "Info",
-      "warn": "Warning",
-      "error": "Critical"
-    },
     "typeOrder": "Order",
     "typeWallet": "Wallet",
     "typeSystem": "System",
@@ -17180,11 +16845,9 @@
     "publish": "Publish",
     "noPosts": "No posts",
     "top": "Pinned",
-    "essence": "Featured",
-    "postPlaceholder": "Say something..."
+    "essence": "Featured"
   },
   "withdrawDialog": {
-    "title": "Wallet Withdrawal",
     "availableBalance": "Available Balance",
     "amount": "Withdrawal Amount",
     "bankCard": "Bank Card",
@@ -17205,9 +16868,7 @@
     "top": "Pinned",
     "noDesc": "No description",
     "members": "members",
-    "posts": "posts",
-    "searchPlaceholder": "Search circles...",
-    "onlyOfficial": "Official only"
+    "posts": "posts"
   },
   "tools": {
     "title": "AI Tools",
@@ -17236,10 +16897,7 @@
     "like": "Likes",
     "comment": "Comments",
     "searchArticle": "Search articles",
-    "noArticle": "No articles",
-    "latest": "Latest",
-    "hottest": "Hottest",
-    "essenceLabel": "Featured"
+    "noArticle": "No articles"
   },
   "askDetail": {
     "backToList": "Back to List",
@@ -17383,18 +17041,7 @@
     "startExam": "Start Exam",
     "remaining": "Remaining",
     "score": "pts",
-    "submit": "Submit",
-    "inputAnswer": "Enter your answer",
-    "inputEssay": "Write your response...",
-    "examResult": "Exam Result",
-    "passed": "🎉 Congratulations, passed!",
-    "failed": "😢 Not passed",
-    "backToList": "Back to list",
-    "typeSingle": "Single choice",
-    "typeMultiple": "Multiple choice",
-    "typeJudge": "True/False",
-    "typeFill": "Fill in the blank",
-    "typeEssay": "Short answer"
+    "submit": "Submit"
   },
   "memberPoint": {
     "myPoints": "My Points",
@@ -17413,8 +17060,7 @@
     "top": "Top",
     "hot": "Hot",
     "official": "Official",
-    "read": "Read",
-    "all": "All"
+    "read": "Read"
   },
   "ranking": {
     "title": "Leaderboard",
@@ -17431,7 +17077,6 @@
     "selectFile": "Select File"
   },
   "transactionDetail": {
-    "title": "Transaction Detail",
     "txId": "Transaction ID",
     "status": "Status",
     "user": "User",
@@ -17651,6 +17296,112 @@
     "refreshed": "Security audit data refreshed",
     "simulatedFailures": "Simulated 10 failed logins, please check anomaly findings"
   },
+  "i18nDashboard": {
+    "title": "Internationalization Developer Dashboard",
+    "subtitle": "Multilingual management, translation memory, machine translation and quality monitoring",
+    "statLabel": "{langs} languages",
+    "languageSwitcher": "Language Switcher",
+    "metaTitle": "Language Metadata",
+    "metaTableAria": "9 languages metadata",
+    "colCode": "Code",
+    "colLocalName": "Local Name",
+    "colEnglishName": "English Name",
+    "colDirection": "Direction",
+    "colPluralRule": "Plural Rule",
+    "colSeparator": "Separator",
+    "colCurrency": "Currency Position",
+    "prefix": "Prefix",
+    "suffix": "Suffix",
+    "pluralPreview": "Plural Examples (CLDR)",
+    "pluralHint": "Current key: {key}",
+    "formatPreview": "Format Preview",
+    "formatNumber": "Number",
+    "formatCurrency": "Currency",
+    "formatDate": "Date",
+    "formatRelative": "Relative Time",
+    "diffTitle": "Diff Comparison",
+    "diffLangA": "Language A",
+    "diffLangB": "Language B",
+    "diffBtn": "Compare",
+    "diffAMissing": "A Missing",
+    "diffBMissing": "B Missing",
+    "diffIdentical": "Identical",
+    "syncLog": "Sync Log",
+    "syncLogListAria": "Sync log list",
+    "noSyncEvents": "No sync events",
+    "tmTitle": "Translation Memory (TM)",
+    "tmSearchPlaceholder": "Enter source text to search similar translations...",
+    "tmSearchAria": "TM Search",
+    "tmNoMatch": "No similar translations found",
+    "tmInputHint": "Enter source text to search translation memory",
+    "mtTitle": "Machine Translation (MT) + Human Review",
+    "mtSourcePlaceholder": "Enter Chinese source text...",
+    "mtSourceAria": "MT Source Text",
+    "mtTranslate": "Translate",
+    "mtSource": "Source Text",
+    "mtTranslated": "Translation",
+    "mtConfidence": "Confidence",
+    "mtApprove": "Approve",
+    "mtReject": "Reject",
+    "mtInputHint": "Enter source text for machine translation",
+    "targetLangAria": "Target Language",
+    "healthTitle": "Health Dashboard",
+    "healthScore": "Health Score",
+    "healthTotalKeys": "Total Keys",
+    "healthLanguages": "Languages",
+    "healthCoverage": "Coverage",
+    "healthPendingMt": "Pending MT",
+    "healthStaleKeys": "Stale Keys",
+    "loading": "Loading...",
+    "ioTitle": "Export / Import",
+    "export": "Export",
+    "allLanguages": "All Languages",
+    "exportBtn": "Export",
+    "exportLangAria": "Export Language",
+    "exportFmtAria": "Export Format",
+    "exportResultAria": "Export Result",
+    "import": "Import",
+    "importFmtAria": "Import Format",
+    "conflictStrategyAria": "Conflict Strategy",
+    "conflictOverwrite": "Overwrite",
+    "conflictSkip": "Skip",
+    "importBtn": "Import",
+    "importContentPlaceholder": "Paste CSV or XLIFF content...",
+    "importContentAria": "Import Content",
+    "importResult": "Imported {imported}, skipped {skipped}",
+    "historyTitle": "Version History",
+    "historyKeyPlaceholder": "Enter key, e.g. common.items",
+    "historyKeyAria": "History key",
+    "historyLangAria": "History Language",
+    "historyListAria": "Version history list",
+    "viewHistory": "View History",
+    "rollback": "Rollback",
+    "noHistory": "No history records",
+    "batchTitle": "Batch Operations",
+    "batchDeleteStatus": "Batch Delete / Status",
+    "batchKeysPlaceholder": "One key per line...",
+    "batchKeysAria": "Batch key list",
+    "batchLangAria": "Batch Language",
+    "batchStatusAria": "Target Status",
+    "batchDeleteBtn": "Batch Delete",
+    "batchStatusBtn": "Batch Set Status",
+    "batchPush": "Batch Push",
+    "batchPushPlaceholder": "common.items\tzh-CN\titem",
+    "batchPushAria": "Batch push content",
+    "batchPushBtn": "Push",
+    "monitorTitle": "MT Provider + V1 Retirement Monitor",
+    "mtProvider": "MT Provider",
+    "mtProviderListAria": "MT provider list",
+    "current": "Current",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "currentTag": "Current",
+    "v1Monitor": "V1 Retirement Monitor",
+    "v1TotalHits": "Total Hits",
+    "v1UniquePaths": "Unique Paths",
+    "v1TopPathsAria": "V1 retirement top paths",
+    "noV1Hits": "No V1 retirement traffic"
+  },
   "indexHome": {
     "platformTitle": "Zhixue Cloud Platform",
     "subtitle": "Make learning more efficient, make growth more visible",
@@ -17748,8 +17499,6 @@
     "tabAll": "All",
     "tabSystem": "System",
     "tabPrivate": "Private",
-    "tabFavorite": "Favorites",
-    "tabLike": "Likes",
     "typeSystem": "System Message",
     "typePrivate": "Private Message",
     "typeNotice": "Notice",
@@ -17930,9 +17679,7 @@
   },
   "learnRate": {
     "reviews": "reviews",
-    "writeReview": "Write a review",
-    "rating": "Rating",
-    "content": "Content"
+    "writeReview": "Write a review"
   },
   "learnTopicDetail": {
     "topicNotFound": "Topic does not exist",
@@ -17942,15 +17689,7 @@
   "livePlay": {
     "liveNotFound": "Live does not exist",
     "notLive": "Streamer is not live",
-    "send": "Send",
-    "danmuPlaceholder": "Send a message...",
-    "points": "points",
-    "liveIntro": "Live Introduction",
-    "noIntro": "No introduction",
-    "statistics": "Statistics",
-    "views": "Views",
-    "likes": "Likes",
-    "sentGift": "Sent {name} x1"
+    "send": "Send"
   },
   "memberArticle": {
     "myArticles": "My articles",
@@ -17980,10 +17719,7 @@
   },
   "p19AdminDashboard": {
     "title": "P19 Admin Dashboard",
-    "recentActivity": "Recent activity",
-    "action": "Action",
-    "target": "Target",
-    "time": "Time"
+    "recentActivity": "Recent activity"
   },
   "statisticsPage": {
     "zeroHour": "0 hours"
@@ -17995,10 +17731,7 @@
   "userPage": {
     "feedback": "Feedback",
     "noStudyContent": "No study content",
-    "views": " views",
-    "noTextContent": "No text content",
-    "noImageContent": "No image content",
-    "noVideoContent": "No video content"
+    "views": " views"
   },
   "p19PaymentMethods": {
     "title": "P19 Payment methods",
@@ -18216,16 +17949,7 @@
     "backToList": "Back to Refund List",
     "title": "Refund Detail",
     "refundNo": "Refund No.",
-    "supplementEvidence": "Supplement Evidence (Multiple Files Supported)",
-    "refundInfo": "Refund Information",
-    "originalOrderNo": "Original Order No.",
-    "refundAmount": "Refund Amount",
-    "refundReason": "Refund Reason",
-    "refundDescription": "Refund Description",
-    "rejectReason": "Rejection Reason",
-    "applyTime": "Application Time",
-    "approveTime": "Approval Time",
-    "completeTime": "Completion Time"
+    "supplementEvidence": "Supplement Evidence (Multiple Files Supported)"
   },
   "biDrilldown": {
     "detail": "Detail",
@@ -18411,16 +18135,23 @@
     "official": "Official"
   },
   "vipIntroducePopup": {
-    "loading": "Loading",
-    "noContinuousOptions": "No continuous purchase options available",
-    "trial": "Trial",
-    "noMonthlyOptions": "No monthly purchase options available"
+    "loading": "Loading"
   },
   "vipPrivateAdvisory": {
     "joinUs": "Join Us"
   },
   "adminBatchEditDialog": {
-    "selectedTip": "Selected {count} items, check the fields to modify and fill in new values."
+    "selectedTip": "Selected {count} items, check the fields to modify and fill in new values.",
+    "title": "Batch Edit",
+    "updating": "Updating {current} / {total}",
+    "failedTip": "Failed {count} items, click \"Retry Failed\" to update again",
+    "cancel": "Cancel",
+    "retryFailed": "Retry Failed",
+    "save": "Batch Save"
+  },
+  "adminTableV2": {
+    "searchPlaceholder": "Search",
+    "emptyText": "No Data"
   },
   "adminEditDialog": {
     "saveAndContinue": "Save and continue editing"
@@ -18457,5 +18188,25 @@
       "image": "Image",
       "video": "Video"
     }
+  },
+  "agenticAIPage": {
+    "swarmCreated": "Swarm created",
+    "createSwarmFailed": "Failed to create swarm",
+    "createSwarmFailed2": "创建Swarm失败"
+  },
+  "apiTestPage": {
+    "startAITest": "Start AI API test"
+  },
+  "designSystemDemo": {
+    "designSystemMeta": "Design system, UI components, Vue components, frontend dev"
+  },
+  "distributionCenter": {
+    "copyImage": "Copy Image",
+    "distributionTitle": "iHuiShe AI - Distribution Center",
+    "imageCopied": "Image copied to clipboard",
+    "longPressToSave": "Long press to save image"
+  },
+  "listTemplate": {
+    "loading": "Loading..."
   }
 }

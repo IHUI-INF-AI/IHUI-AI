@@ -1,1 +1,12 @@
-{}
+{
+  "systemTray": {
+    "title": "系统托盘",
+    "description": "系统托盘设置页面",
+    "autoStart": "开机自启",
+    "autoStartDesc": "系统启动时自动运行应用",
+    "minimizeToTray": "最小化到托盘",
+    "minimizeToTrayDesc": "关闭窗口时最小化到系统托盘",
+    "showNotifications": "显示通知",
+    "showNotificationsDesc": "在系统托盘显示通知"
+  }
+}

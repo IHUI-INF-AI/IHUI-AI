@@ -1,14 +1,17 @@
 {
   "imageShare": {
-    "copyFailed": "复制失败",
-    "copyLink": "复制链接",
-    "copySuccess": "复制成功",
-    "download": "下载",
+    "title": "分享图片",
+    "shareImage": "分享图片",
+    "shareMethod": "分享方式",
     "noImage": "暂无图片",
-    "noImageToDownload": "无 图片 到 下载",
-    "noLinkToCopy": "无 链接 到 复制",
-    "shareImage": "分享 图片",
-    "shareMethod": "分享 方法",
-    "title": "标题"
+    "download": "下载图片",
+    "copyLink": "复制链接",
+    "copySuccess": "链接已复制到剪贴板",
+    "copyFailed": "复制失败，请重试",
+    "noImageToDownload": "没有可下载的图片",
+    "noLinkToCopy": "没有可复制的链接",
+    "close": "关闭",
+    "downloadSuccess": "图片下载成功",
+    "downloadFailed": "下载失败，请重试"
   }
 }

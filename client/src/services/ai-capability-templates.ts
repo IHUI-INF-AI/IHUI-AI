@@ -35,7 +35,7 @@ export const dataAnalysisComposition: CapabilityComposition = {
         type: AICapabilityType.MODEL,
         input: '分析数据并生成报告',
       } as AICapabilityRequest,
-      transform: (prevResult: any) => ({
+      transform: (prevResult: unknown) => ({
         data: prevResult,
         task: '分析数据并生成详细报告',
       }),
@@ -63,7 +63,7 @@ export const contentGenerationComposition: CapabilityComposition = {
         type: AICapabilityType.AGENT,
         input: '优化内容',
       } as AICapabilityRequest,
-      transform: (prevResult: any) => ({
+      transform: (prevResult: unknown) => ({
         content: prevResult,
         task: '优化内容质量',
       }),
@@ -97,7 +97,7 @@ export const dataAggregationComposition: CapabilityComposition = {
         type: AICapabilityType.MODEL,
         input: '聚合和分析数据',
       } as AICapabilityRequest,
-      transform: (prevResult: any) => ({
+      transform: (prevResult: unknown) => ({
         dataSources: prevResult,
         task: '聚合和分析所有数据源',
       }),
@@ -125,7 +125,7 @@ export const intelligentQAComposition: CapabilityComposition = {
         type: AICapabilityType.MODEL,
         input: '基于信息回答问题',
       } as AICapabilityRequest,
-      transform: (prevResult: any) => ({
+      transform: (prevResult: unknown) => ({
         context: prevResult,
         question: '用户问题',
       }),
@@ -153,11 +153,11 @@ export const codeGenerationComposition: CapabilityComposition = {
         type: AICapabilityType.MCP,
         input: '测试代码',
       } as AICapabilityRequest,
-      transform: (prevResult: any) => ({
+      transform: (prevResult: unknown) => ({
         code: prevResult,
         action: 'test',
       }),
-      condition: (prevResult: any) => {
+      condition: (prevResult: unknown) => {
         const result = prevResult as Record<string, unknown>
         return result && (result.code as number) > 0
       },
@@ -185,7 +185,7 @@ export const documentGenerationComposition: CapabilityComposition = {
         type: AICapabilityType.AGENT,
         input: '格式化文档',
       } as AICapabilityRequest,
-      transform: (prevResult: any) => ({
+      transform: (prevResult: unknown) => ({
         content: prevResult,
         format: 'markdown',
       }),

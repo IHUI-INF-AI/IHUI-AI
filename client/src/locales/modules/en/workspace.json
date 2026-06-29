@@ -1,8 +1,26 @@
 {
   "workspace": {
     "members": {
+      "title": "Member Management",
+      "addMember": "Add Member",
+      "noMembers": "No members",
+      "userId": "User ID",
+      "userIdPlaceholder": "Please enter user ID",
+      "role": "Role",
+      "rolePlaceholder": "Please select role",
+      "roleAdmin": "Admin",
+      "roleMember": "Member",
+      "roleViewer": "Viewer",
+      "delete": "Delete",
+      "deleteTitle": "Confirm Delete",
+      "deleteConfirm": "Are you sure you want to delete this member?",
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Delete Failed",
+      "loadFailed": "Failed to load member list",
       "Add Success": "Added successfully",
-      "Add Failed": "Add Failed"
+      "Add Failed": "Add Failed",
+      "addSuccess": "Added successfully",
+      "addFailed": "Add Failed"
     }
   }
 }

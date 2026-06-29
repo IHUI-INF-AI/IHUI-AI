@@ -14,7 +14,7 @@ interface WorkerMessage {
 interface WorkerResponse {
   type: string
   id: string
-  result?: any
+  result?: unknown
   error?: string
 }
 
@@ -22,7 +22,7 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   const { type, id, data } = e.data
   
   try {
-    let result: any
+    let result: unknown
     
     switch (type) {
       case 'compress':

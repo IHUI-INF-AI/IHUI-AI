@@ -1,21 +1,21 @@
 {
   "resourceDetail": {
-    "anonymous": "匿名",
-    "breadcrumbResource": "breadcrumb 资源",
-    "current": "当前",
-    "downloadResource": "下载 资源",
-    "downloadTimes": "下载 times",
-    "favorite": "收藏",
-    "freeDownload": "免费 下载",
-    "like": "点赞",
-    "notExist": "不存在",
-    "operateFailed": "操作失败",
-    "pointsDownload": "积分 下载",
-    "rateResource": "rate 资源",
+    "breadcrumbResource": "资源中心",
+    "downloadTimes": "次下载",
+    "views": "次浏览",
     "rating": "评分",
-    "scoreUnit": "分数 unit",
-    "size": "大小",
-    "uploader": "uploader",
-    "views": "浏览"
+    "size": "大小：",
+    "uploader": "上传者：",
+    "anonymous": "匿名",
+    "freeDownload": "免费下载",
+    "pointsDownload": "积分下载",
+    "downloadResource": "下载资源",
+    "like": "点赞",
+    "favorite": "收藏",
+    "rateResource": "评分",
+    "current": "当前评分：",
+    "scoreUnit": "分",
+    "notExist": "资源不存在",
+    "operateFailed": "操作失败"
   }
 }

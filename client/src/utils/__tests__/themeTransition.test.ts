@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { ThemeTransitionConfig, ThemeTransitionType } from '../themeTransition'
 
 const mockLocalStorage: Record<string, string> = {}
 
@@ -403,7 +404,7 @@ describe('themeTransition', () => {
     it('应该在prefersReducedMotion时直接执行回调', async () => {
       const { themeTransitionManager } = await import('../themeTransition')
       themeTransitionManager.setConfig({ type: 'fade', duration: 100 })
-      ;(window.matchMedia as any).mockReturnValueOnce({ matches: true })
+      ;(window.matchMedia as ReturnType<typeof vi.fn>).mockReturnValueOnce({ matches: true })
       const callback = vi.fn()
       await themeTransitionManager.executeTransition(callback)
       expect(callback).toHaveBeenCalled()
@@ -473,7 +474,7 @@ describe('themeTransition', () => {
 
     it('应该处理未知过渡类型', async () => {
       const { themeTransitionManager } = await import('../themeTransition')
-      themeTransitionManager.setConfig({ type: 'unknown' as any, duration: 100 })
+      themeTransitionManager.setConfig({ type: 'unknown' as unknown as ThemeTransitionType, duration: 100 })
       const callback = vi.fn()
       await themeTransitionManager.executeTransition(callback)
       expect(callback).toHaveBeenCalled()
@@ -532,7 +533,7 @@ describe('themeTransition', () => {
         id: 'test',
         name: '测试',
         nameEn: 'Test',
-        config: {} as any,
+        config: {} as unknown as ThemeTransitionConfig,
       })
       const presets2 = themeTransitionManager.getPresets()
       expect(presets2.length).toBeLessThan(presets1.length)
@@ -673,7 +674,7 @@ describe('themeTransition', () => {
   describe('补充测试 - saveConfig异常', () => {
     it('应该处理localStorage.setItem异常', async () => {
       const { themeTransitionManager } = await import('../themeTransition')
-      ;(localStorage.setItem as any).mockImplementationOnce(() => {
+      ;(localStorage.setItem as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
         throw new Error('存储已满')
       })
       expect(() => themeTransitionManager.setConfig({ type: 'fade' })).not.toThrow()
@@ -862,7 +863,7 @@ describe('themeTransition', () => {
     it('应该处理overlay的parentNode为null的情况', async () => {
       const { themeTransitionManager } = await import('../themeTransition')
       // 修改createElement返回的overlay的parentNode为null
-      ;(document.createElement as any).mockImplementationOnce(() => ({
+      ;(document.createElement as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
         id: '',
         style: { cssText: '', background: '', transition: '', transform: '', opacity: '' },
         parentNode: null,

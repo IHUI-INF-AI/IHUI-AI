@@ -1,65 +1,65 @@
 {
   "file": {
-    "batchDelete": "批量删除",
-    "batchDownload": "batchDownload",
-    "batchShare": "batchShare",
-    "clearSelection": "clearSelection",
-    "delete": "删除",
+    "batchDelete": "Batch Delete",
+    "batchDownload": "Batch Download",
+    "batchShare": "Batch Share",
+    "clearSelection": "Clear Selection",
+    "delete": "Delete",
     "diff": {
-      "additions": "additions",
-      "changeDetails": "changeDetails",
-      "changes": "changes",
-      "compare": "compare",
-      "deletions": "deletions",
-      "from": "from",
-      "line": "line",
-      "selectVersions": "selectVersions",
-      "similarity": "similarity",
-      "to": "to"
+      "additions": "Additions",
+      "changeDetails": "Change Details",
+      "changes": "Changes",
+      "compare": "Compare",
+      "deletions": "Deletions",
+      "from": "From",
+      "line": "Line",
+      "selectVersions": "Select Versions",
+      "similarity": "Similarity",
+      "to": "To"
     },
-    "download": "下载",
-    "empty": "empty",
+    "download": "Download",
+    "empty": "Empty",
     "manager": {
-      "title": "标题"
+      "title": "Title"
     },
-    "preview": "预览",
-    "remove": "移除",
-    "search": "搜索",
-    "selected": "selected",
+    "preview": "Preview",
+    "remove": "Remove",
+    "search": "Search",
+    "selected": "Selected",
     "share": {
       "1day": "1day",
       "1hour": "1hour",
       "7days": "7days",
-      "expires": "expires",
-      "forever": "forever",
-      "password": "密码",
-      "passwordHint": "passwordHint",
-      "title": "标题"
+      "expires": "Expires",
+      "forever": "Forever",
+      "password": "Password",
+      "passwordHint": "Password Hint",
+      "title": "Title"
     },
     "sort": {
-      "date": "日期",
-      "name": "名称",
-      "size": "大小"
+      "date": "Date",
+      "name": "Name",
+      "size": "Size"
     },
-    "sortBy": "sortBy",
-    "stats": {
-      "selected": "selected",
-      "total": "总计",
-      "totalSize": "totalSize"
-    },
+    "sortBy": "Sort By",
     "upload": {
-      "dragDrop": "dragDrop",
-      "title": "标题"
+      "dragDrop": "Drag Drop",
+      "title": "Title"
     },
     "versions": {
-      "compare": "compare",
-      "current": "current",
-      "diff": "diff",
-      "empty": "empty",
-      "new": "最新",
-      "rollback": "rollback",
-      "summary": "summary",
-      "title": "标题"
+      "compare": "Compare",
+      "diff": "Diff",
+      "empty": "Empty",
+      "new": "New",
+      "rollback": "Rollback",
+      "summary": "Summary",
+      "title": "Title",
+      "current": "當前版本"
+    },
+    "stats": {
+      "selected": "已選",
+      "total": "總數",
+      "totalSize": "總大小"
     }
   }
 }

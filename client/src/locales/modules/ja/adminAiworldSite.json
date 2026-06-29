@@ -1,15 +1,15 @@
 {
   "adminAiworldSite": {
-    "mobileDevice": "mobileDevice",
-    "noDesc": "noDesc",
-    "noDetailContent": "noDetailContent",
-    "noSiteName": "noSiteName",
-    "pcDevice": "pcDevice",
-    "preview": "预览",
-    "previewTitle": "previewTitle",
-    "searchPlaceholder": "请输入搜索内容",
-    "sectionPlaceholder": "sectionPlaceholder",
-    "viewDetailPage": "viewDetailPage",
-    "visitOfficial": "visitOfficial"
+    "preview": "プレビュー",
+    "mobileDevice": "モバイル",
+    "noDesc": "説明なし",
+    "noDetailContent": "詳細内容なし",
+    "noSiteName": "サイト名未入力",
+    "pcDevice": "PC",
+    "previewTitle": "詳細ページプレビュー",
+    "searchPlaceholder": "サイト名または説明を検索",
+    "sectionPlaceholder": "例：AI対話、AI描画、AIプログラミング",
+    "viewDetailPage": "詳細ページを表示",
+    "visitOfficial": "公式サイトにアクセス"
   }
 }

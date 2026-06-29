@@ -1,11 +1,17 @@
 {
   "aiWorld": {
+    "subtitle": "探索 AI 創作、智能體、知識庫與開放能力",
     "empty": "暫無內容，敬請期待",
+    "loadMore": "載入更多",
     "loading": "載入中...",
     "back": "返回",
     "goToOfficial": "訪問官網",
+    "tagLabel": "標籤",
     "detailEmpty": "暫無詳情內容",
+    "visit": "訪問",
     "viewMore": "查看更多 >>",
+    "latestSection": "最新收錄",
+    "navAll": "全部",
     "heroCarousel": "輪播圖",
     "heroOverlayTitle": "探索 AI 世界",
     "heroOverlaySubtitle": "智能體 · 知識庫 · 開放能力，一站式創新生態",
@@ -14,6 +20,8 @@
       "badge": "AIGC TO AGI 智能時代引領者",
       "heroTitle": "一站式AI創新生態樞紐整合平臺",
       "heroDesc": "AI智賦，流量裂變，全域重構，破曉紀元！集智能體開發、超級個體孵化、企業轉型賦能、資訊學習於一體的人工智能全領域創新平臺",
+      "joinUs": "加入我們",
+      "learnSolution": "了解解決方案",
       "heroStats": "匯聚全球AI領域專業人才",
       "overviewTag": "PLATFORM OVERVIEW",
       "overviewTitle": "AI智匯社 平臺概述",
@@ -50,6 +58,18 @@
       "valueTag": "CORE VALUE",
       "valueTitle": "平臺核心價值與競爭優勢",
       "valueDesc": "依託四大核心價值，構建AI領域的核心競爭力，為個人與企業提供可持續的AI發展賦能",
+      "contactTitle": "攜手智匯社，共創AI新時代",
+      "contactDesc": "填寫表單，獲取專屬AI解決方案，我們將在1個工作日內與您聯絡",
+      "contactNameLabel": "企業/個人或名稱",
+      "contactNamePlaceholder": "請輸入名稱",
+      "contactPhonePlaceholder": "請輸入手機號",
+      "contactIndustry": "所屬行業",
+      "contactIndustryPlaceholder": "請選擇行業",
+      "contactDemand": "需求描述",
+      "contactDemandPlaceholder": "請簡要描述您的AI需求，如企業轉型、智能體開發、人才培養等",
+      "contactSubmit": "提交申請",
+      "contactRequired": "請填寫必填項！",
+      "contactSuccess": "提交成功，我們將儘快與您聯絡！",
       "fn1Title": "萬人AI社群構建",
       "fn1Desc": "精準招募+精細化運營，劃分興趣技能子社群，打造高質量AI交流社群。",
       "fn2Title": "AI交流學習平臺",
@@ -124,8 +144,8 @@
       "val3Desc": "深度挖掘行業需求與痛點，提供定製化AI解決方案，幫助企業提升生產效率、降低成本，推動產業鏈協同發展。",
       "val4Title": "資源共享與協同發展",
       "val4Desc": "整合學習、技術、項目、資金等多類資源，實現優化配置，成員間協同合作攻克技術難題，加速AI普及。",
-      "tenThousandPlus": "tenThousandPlus"
+      "tenThousandPlus": "萬+"
     },
-    "title": "标题"
+    "title": "AI世界"
   }
 }

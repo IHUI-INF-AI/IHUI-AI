@@ -1,25 +1,24 @@
 {
   "messageCenter": {
-    "allMarkedRead": "全部已读",
-    "deleteFailed": "删除失败",
-    "deleted": "已删除",
-    "detailTitle": "详情",
-    "empty": "空",
-    "loadFailed": "加载失败",
-    "markAllRead": "全部标记已读",
+    "title": "消息中心",
+    "subtitle": "站内信 / 系统消息 / 公告",
+    "markAllRead": "全部已读",
+    "empty": "暂无消息",
+    "topFlag": "置顶",
     "markRead": "标记已读",
-    "operateFailed": "操作失败",
-    "subtitle": "副标题",
+    "detailTitle": "消息详情",
     "tabAll": "全部",
-    "tabFavorite": "tab 收藏",
-    "tabLike": "tab 点赞",
-    "tabPrivate": "tab 私有",
-    "tabSystem": "tab System",
-    "title": "标题",
-    "topFlag": "置顶 flag",
-    "typeNotice": "通知类型",
+    "tabSystem": "系统",
+    "tabPrivate": "私信",
+    "typeSystem": "系统消息",
+    "typePrivate": "私信",
+    "typeNotice": "通知",
     "typeOther": "其他",
-    "typePrivate": "类型 私有",
-    "typeSystem": "系统类型"
-  }
+    "loadFailed": "加载失败，请稍后重试",
+    "operateFailed": "操作失败",
+    "allMarkedRead": "已全部标记为已读",
+    "deleted": "已删除",
+    "deleteFailed": "删除失败"
+  },
+  "MessageCenter": {}
 }

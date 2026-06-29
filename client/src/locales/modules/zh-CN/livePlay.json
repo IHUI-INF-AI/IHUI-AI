@@ -1,15 +1,7 @@
 {
   "livePlay": {
-    "danmuPlaceholder": "danmu Placeholder",
-    "likes": "点赞",
-    "liveIntro": "直播 intro",
-    "liveNotFound": "直播 非 found",
-    "noIntro": "无 intro",
-    "notLive": "非 直播",
-    "points": "积分",
-    "send": "发送",
-    "sentGift": "sent Gift",
-    "statistics": "统计",
-    "views": "浏览"
+    "liveNotFound": "直播不存在",
+    "notLive": "主播未开播",
+    "send": "发送"
   }
 }

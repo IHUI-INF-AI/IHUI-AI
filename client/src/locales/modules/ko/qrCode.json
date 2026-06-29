@@ -1,1 +1,13 @@
-{}
+{
+  "qrCode": {
+    "loading": "생성 중...",
+    "scanning": "스캔설명중간...",
+    "scanned": "스캔 완료",
+    "confirming": "확인중간...",
+    "expired": "완료과도기간",
+    "scanTipLine1": "요청생각사용휴대전화스캔설명",
+    "scanTipLine2": "QR 코드 로그인",
+    "qrCodeAlt": "로그인 QR 코드",
+    "methodQrCode": "{method}이차원코드"
+  }
+}

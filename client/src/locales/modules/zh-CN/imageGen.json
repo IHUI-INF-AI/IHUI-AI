@@ -1,104 +1,108 @@
 {
   "imageGen": {
-    "doubao": {
-      "buttons": {
-        "generate": "生成"
-      },
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "请输入提示词"
-      },
-      "messages": {
-        "promptRequired": "请输入提示词"
-      },
-      "tag": "标签",
-      "title": "标题"
-    },
-    "edit": {
-      "alertDesc": "警告描述",
-      "alertTitle": "警告",
-      "buttons": {
-        "edit": "编辑",
-        "reset": "重置"
-      },
-      "form": {
-        "image": "图片",
-        "selectImage": "选择图片",
-        "text": "文本",
-        "textPlaceholder": "请输入文本"
-      },
-      "messages": {
-        "editSuccess": "编辑成功",
-        "imageRequired": "请选择图片",
-        "textRequired": "请输入文本",
-        "uploadFailed": "上传失败",
-        "uploadFirst": "请先上传"
-      },
-      "result": "结果",
-      "tag": "标签",
-      "title": "标题"
-    },
-    "i2i": {
-      "buttons": {
-        "generate": "生成",
-        "reset": "重置"
-      },
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "请输入提示词",
-        "referenceImage": "参考图片",
-        "selectImage": "选择图片",
-        "uploadTip": "上传提示"
-      },
-      "messages": {
-        "imageRequired": "请选择图片",
-        "uploadFailed": "上传失败",
-        "uploadFirst": "请先上传"
-      },
-      "result": "结果",
-      "tag": "标签",
-      "title": "标题"
-    },
-    "jimeng": {
-      "buttons": {
-        "generate": "生成"
-      },
-      "form": {
-        "prompt": "提示词",
-        "promptPlaceholder": "请输入提示词"
-      },
-      "messages": {
-        "generating": "生成中",
-        "promptRequired": "请输入提示词"
-      },
-      "tag": "标签",
-      "title": "标题"
-    },
     "qwen": {
-      "buttons": {
-        "copyUrl": "复制链接",
-        "download": "下载",
-        "generate": "生成",
-        "reset": "重置"
-      },
+      "title": "通义千问 - 文生图",
+      "tag": "Dash范围",
       "form": {
         "model": "模型",
-        "modelPlaceholder": "请选择模型",
+        "modelPlaceholder": "选择模型",
         "prompt": "提示词",
-        "promptPlaceholder": "请输入提示词"
+        "promptPlaceholder": "描述你想要生成的图像..."
       },
+      "buttons": {
+        "generate": "生成图像",
+        "reset": "重置",
+        "download": "下载",
+        "copyUrl": "复制链接"
+      },
+      "result": "生成结果",
       "messages": {
-        "copySuccess": "复制成功",
-        "generateSuccess": "生成成功",
-        "generating": "生成中",
-        "modelRemarkMissing": "模型备注缺失",
         "modelRequired": "请选择模型",
         "promptRequired": "请输入提示词",
-        "wsNotSupported": "不支持WebSocket"
+        "generateSuccess": "图像生成成功！",
+        "copySuccess": "链接已复制",
+        "generating": "正在生成图像...",
+        "modelRemarkMissing": "模型未配置接口",
+        "wsNotSupported": "暂不支持WebSocket生成",
+        "generateFailed": "生成失败"
+      }
+    },
+    "doubao": {
+      "title": "豆包图像生成",
+      "tag": "字节跳动",
+      "form": {
+        "prompt": "提示词",
+        "promptPlaceholder": "描述你想要生成的图像..."
       },
-      "result": "结果",
-      "tag": "标签",
-      "title": "标题"
+      "buttons": {
+        "generate": "生成"
+      },
+      "messages": {
+        "promptRequired": "请输入提示词",
+        "generateFailed": "生成失败"
+      }
+    },
+    "i2i": {
+      "title": "通义万相 - 图生图",
+      "tag": "Dash范围",
+      "form": {
+        "referenceImage": "参考图片",
+        "selectImage": "选择图片",
+        "uploadTip": "支持JPG、PNG等格式，最大10MB",
+        "prompt": "提示词",
+        "promptPlaceholder": "描述你想要的图像风格和内容..."
+      },
+      "buttons": {
+        "generate": "生成图像",
+        "reset": "重置"
+      },
+      "result": "生成结果",
+      "messages": {
+        "imageRequired": "请上传参考图片",
+        "uploadFailed": "图片上传失败",
+        "uploadFirst": "请先上传参考图片"
+      }
+    },
+    "jimeng": {
+      "title": "即梦图像生成",
+      "tag": "即梦AI",
+      "form": {
+        "prompt": "提示词",
+        "promptPlaceholder": "描述你想要生成的图像..."
+      },
+      "buttons": {
+        "generate": "生成"
+      },
+      "messages": {
+        "promptRequired": "请输入提示词",
+        "generating": "正在生成图像...",
+        "generateFailed": "生成失败"
+      }
+    },
+    "edit": {
+      "title": "通义千问 - 图像编辑",
+      "tag": "Dash范围",
+      "alertTitle": "图像编辑功能",
+      "alertDesc": "上传图片并输入编辑指令，AI将根据您的指令编辑图片",
+      "form": {
+        "image": "原始图片",
+        "selectImage": "选择图片",
+        "text": "编辑指令",
+        "textPlaceholder": "描述你想要的编辑效果，例如：把背景换成海滩..."
+      },
+      "buttons": {
+        "edit": "开始编辑",
+        "reset": "重置"
+      },
+      "result": "编辑结果",
+      "messages": {
+        "imageRequired": "请上传图片",
+        "textRequired": "请输入编辑指令",
+        "uploadFailed": "图片上传失败",
+        "uploadFirst": "请先上传图片",
+        "editSuccess": "图像编辑成功！",
+        "editFailed": "编辑失败"
+      }
     }
   }
 }

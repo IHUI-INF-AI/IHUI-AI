@@ -539,7 +539,7 @@ onMounted(() => {
   border: 2px solid transparent;
   border-radius: var(--global-border-radius);
   padding: 12px;
-  transition: border-color 0.2s ease;
+  transition: all 0.2s ease;
   position: relative;
 }
 

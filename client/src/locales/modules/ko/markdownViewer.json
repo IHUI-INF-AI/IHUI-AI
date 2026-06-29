@@ -1,8 +1,8 @@
 {
   "markdownViewer": {
-    "chars": "chars",
-    "editMode": "editMode",
-    "lines": "lines",
-    "previewMode": "previewMode"
+    "chars": "자",
+    "lines": "줄",
+    "previewMode": "미리보기 모드",
+    "editMode": "편집 모드"
   }
 }

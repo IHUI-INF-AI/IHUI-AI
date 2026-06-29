@@ -1,69 +1,91 @@
 {
   "help": {
-    "channels": {
-      "coreDocs": {
-        "desc": "描述",
-        "status": "状态",
-        "title": "标题"
-      },
-      "feedback": {
-        "desc": "描述",
-        "status": "状态",
-        "title": "标题"
-      },
-      "liveUplink": {
-        "desc": "描述",
-        "status": "状态",
-        "title": "标题"
-      }
-    },
-    "faqs": {
-      "apiKeyLeak": {
-        "answer": "答案",
-        "question": "问题"
-      },
-      "beginner": "beginner",
-      "credits": {
-        "answer": "答案",
-        "question": "问题"
-      },
-      "optimize": "optimize",
-      "quality": {
-        "answer": "答案",
-        "question": "问题"
-      },
-      "recharge": "充值",
-      "register": {
-        "answer": "答案",
-        "question": "问题"
-      }
-    },
-    "feedbackFailed": "feedbackFailed",
-    "feedbackSubmitted": "feedbackSubmitted",
+    "wasThisHelpful": "這個回答對您有幫助吗？",
+    "yes": "是",
     "no": "否",
-    "sectionLabels": {
-      "knowledgeNodes": "knowledgeNodes",
-      "uplinkChannels": "uplinkChannels"
+    "feedbackSubmitted": "反饋已提交",
+    "feedbackFailed": "提交失敗",
+    "categories": {
+      "all": "全部",
+      "account": "賬戶",
+      "security": "安全",
+      "payment": "支付",
+      "usage": "使用",
+      "settings": "設置"
     },
     "tags": {
-      "billing": "billing",
-      "prompt": "提示词",
-      "register": "注册",
-      "security": "安全"
+      "register": "註冊",
+      "billing": "計费",
+      "security": "安全",
+      "prompt": "提示詞"
     },
-    "wasThisHelpful": "wasThisHelpful",
-    "yes": "是",
-    "title": "帮助中心",
-    "subtitle": "我们随时为您提供帮助",
-    "faq": "常见问题",
-    "refundPolicy": "根据我们的退款政策：",
-    "refundContact": "如需退款，请联系客服处理。",
-    "contactWays": "您可以通过以下方式联系我们：",
-    "workHours": "客服工作时间：周一至周五 9:00-18:00",
-    "quickEntry": "快速入口",
-    "courseCenter": "课程中心",
-    "personalCenter": "个人中心",
-    "feedback": "意见反馈",
-    "aboutUs": "关于我们"
+    "channels": {
+      "feedback": {
+        "title": "意见反饋",
+        "desc": "報告問題或建議新功能",
+        "status": "快速响應"
+      },
+      "liveUplink": {
+        "title": "在線客服",
+        "desc": "直接聯繫人工或AI支持",
+        "status": "在線"
+      },
+      "coreDocs": {
+        "title": "開發文檔",
+        "desc": "技術规范和集成指南",
+        "status": "V4.2 穩定版"
+      }
+    },
+    "sectionLabels": {
+      "knowledgeNodes": "知识節點",
+      "uplinkChannels": "联络通道"
+    },
+    "faqs": {
+      "register": {
+        "question": "如何註冊智匯 AI 賬號？",
+        "answer": "您可以通過手機號、微信或郵箱註冊。註冊成功即送 50,000 智匯值。"
+      },
+      "credits": {
+        "question": "智匯值是什么？",
+        "answer": "智匯值是平台的虚拟货币，用於支付 API 调用。1 元 = 100 智匯值。"
+      },
+      "apiKeyLeak": {
+        "question": "API Key 泄露了怎么办？",
+        "answer": "請立即在控制台刪除并重新生成，并檢查賬戶调用記錄是否正常。"
+      },
+      "quality": {
+        "question": "如何提升生成內容的質量:？",
+        "answer": "通過提供更具体的提示詞（Prompt）并设定明确的角色背景，可以显著提升效果。"
+      },
+      "beginner": "新手",
+      "recharge": "充值",
+      "optimize": "優化"
+    },
+    "title": "幫助中心",
+    "subtitle": "查找常見問題解答和獲取幫助",
+    "searchPlaceholder": "搜索幫助內容...",
+    "neuralQueryResolver": "智能搜索解析器",
+    "typeAndEnter": "輸入內容并按回车键",
+    "loadError": "加載失敗",
+    "empty": "暫無相關內容",
+    "needMoreHelp": "需要更多幫助？",
+    "supportTip": "如果您的問題沒有在上方找到答案，可以通過以下方式聯繫我們",
+    "submitFeedback": "提交反饋",
+    "onlineService": "在線客服",
+    "devRulesTitle": "開發规范",
+    "devRulesDesc": "查看項目開發规范和最佳实践",
+    "viewDevRules": "查看规范",
+    "devRulesDialogTitle": "開發规范文檔",
+    "searchTitle": "有什么可以帮您？",
+    "quickLinks": {
+      "accountSecurity": "賬戶安全",
+      "billing": "额度計费",
+      "guide": "新手指南"
+    },
+    "stats": {
+      "knowledgeNodes": "知识節點",
+      "autoFixRate": "自動修复率",
+      "coverage": "全时覆蓋"
+    }
   }
 }

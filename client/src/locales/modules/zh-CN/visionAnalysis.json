@@ -1,25 +1,26 @@
 {
   "visionAnalysis": {
-    "buttons": {
-      "analyze": "分析"
-    },
+    "title": "通义千问 - 视觉分析",
+    "tag": "视觉理解",
     "form": {
-      "prompt": "提示词",
-      "promptPlaceholder": "请输入提示词",
+      "upload": "上传图片",
       "selectImage": "选择图片",
-      "upload": "上传"
+      "prompt": "分析问题",
+      "promptPlaceholder": "例如：这张图片里有什么？请详细描述..."
     },
-    "messages": {
-      "analyzeSuccess": "analyze 成功",
-      "uploadAndPromptRequired": "上传 与 提示词 必填",
-      "uploadFailed": "上传失败"
+    "buttons": {
+      "analyze": "开始分析"
     },
     "result": {
-      "answer": "答案",
-      "reasoning": "推理",
-      "title": "标题"
+      "title": "分析结果",
+      "reasoning": "推理过程：",
+      "answer": "回答："
     },
-    "tag": "标签",
-    "title": "标题"
+    "messages": {
+      "uploadFailed": "图片上传失败",
+      "uploadAndPromptRequired": "请上传图片并输入问题",
+      "analyzeSuccess": "分析完成",
+      "analyzeFailed": "分析失败"
+    }
   }
 }

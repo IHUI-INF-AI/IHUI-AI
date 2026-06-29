@@ -24,6 +24,12 @@
       "paySettings": "決済設定",
       "wechatPay": "WeChat Pay",
       "alipay": "Alipay",
+      "title": "タイトル",
+      "image": "画像",
+      "link": "リンク",
+      "sort": "並び順",
+      "status": "ステータス",
+      "actions": "操作",
       "userAgreement": "利用規約",
       "privacyPolicy": "プライバシーポリシー",
       "serviceTerms": "サービス規約"

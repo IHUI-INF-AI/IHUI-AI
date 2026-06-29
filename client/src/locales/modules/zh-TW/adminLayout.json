@@ -1,6 +1,6 @@
 {
   "adminLayout": {
-    "administrator": "管理员",
-    "educationBackend": "educationBackend"
+    "educationBackend": "教育後台",
+    "administrator": "管理員"
   }
 }

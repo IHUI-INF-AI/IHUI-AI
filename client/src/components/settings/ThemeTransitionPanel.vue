@@ -234,7 +234,7 @@ function getPresetIcon(type: ThemeTransitionType) {
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  transition: border-color 0.2s, border-width 0.2s, background-color 0.2s;
+  transition: all 0.2s;
 
   &:hover {
     border-color: var(--el-color-primary-light-3);

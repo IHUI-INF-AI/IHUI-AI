@@ -24,7 +24,7 @@ vi.mock('@/utils/logger', () => ({
 
 import axios from 'axios'
 import { request } from '@/utils/request'
-import * as api from '../unified/unified-auth'
+import * as api from '../unified-auth'
 
 describe('unified-auth', () => {
   beforeEach(() => {

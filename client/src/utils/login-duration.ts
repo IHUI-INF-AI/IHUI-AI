@@ -54,8 +54,6 @@ export function initLoginDuration(): void {
 
 /**
  * 检查登录是否过期
- * @param loginTime 登录时间戳（毫秒）
- * @param duration 登录时长（毫秒），默认 7 天
  */
 export function isLoginExpired(loginTime?: number, duration?: number): boolean {
   if (!loginTime) return true
@@ -65,21 +63,15 @@ export function isLoginExpired(loginTime?: number, duration?: number): boolean {
 
 /**
  * 检查过期时间戳是否已过
- * 专用于判断 calculateExpiryTime 计算出的「过期时间戳」(= loginTime + duration)。
- * 注意：不要用 isLoginExpired 来判断过期时间戳，二者语义不同。
  * @param expiryTime 过期时间戳（毫秒）
+ * @returns true 表示已过期
  */
-export function isExpiryTimePassed(expiryTime?: number | null): boolean {
-  if (expiryTime === null || expiryTime === undefined || Number.isNaN(expiryTime)) {
-    // 无过期时间戳时，回退到「视为未过期」，由其它逻辑兜底
-    return false
-  }
+export function isExpiryTimePassed(expiryTime: number): boolean {
   return Date.now() > expiryTime
 }
 
 /**
  * 计算过期时间
- * @param duration 登录时长（毫秒）
  */
 export function calculateExpiryTime(duration: number): number {
   return Date.now() + duration

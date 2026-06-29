@@ -1,16 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
-import { loadModule, getCurrentLocale } from '@/locales'
-
-// 2026-06-26: 路由级 i18n 模块预加载辅助函数
-// 行为: 路由进入前 await 加载声明的 i18n 模块, 保证页面渲染时 t() 拿到翻译, 避免键名裸露
-function preloadI18n(modules: string[]) {
-  return async () => {
-    if (modules.length === 0) return
-    const locale = getCurrentLocale()
-    await Promise.all(modules.map((m) => loadModule(locale, m).catch(() => undefined)))
-  }
-}
 
 export const aiRoutes: Array<RouteRecordRaw> = [
   {
@@ -26,7 +15,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '智能体管理和监控仪表板',
       keywords: '智能体,仪表板,监控',
     },
-    beforeEnter: preloadI18n(['agenticDashboard']),
   },
   {
     path: '/ai-world',
@@ -43,7 +31,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.aiWorld.keywords',
       showFooter: false,
     },
-    beforeEnter: preloadI18n(['aiWorld']),
   } as RouteRecordRaw,
   {
     path: '/ai-world/detail/:id',
@@ -59,7 +46,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.aiWorld.keywords',
       showFooter: false,
     },
-    beforeEnter: preloadI18n(['aiWorld', 'aiWorldDetail']),
   },
   {
     path: '/ai-world/banner-detail/:index',
@@ -75,7 +61,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.aiWorld.keywords',
       showFooter: false,
     },
-    beforeEnter: preloadI18n(['aiWorld']),
   },
   {
     path: '/api-test',
@@ -90,7 +75,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'API,测试,AI,验证',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['apiTest']),
   },
   {
     path: '/agents',
@@ -103,9 +87,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       title: 'routes.agents',
       description: 'seo.agents.desc',
       keywords: 'seo.agents.keywords',
-      requiresAuth: false, // 公开页面:未登录可访问,API 请求无 token 时静默拒绝而非跳转 /login
     },
-    beforeEnter: preloadI18n(['agents']),
   },
   {
     path: '/designer-agent',
@@ -120,7 +102,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.designerAgent.keywords',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['designerAgent']),
   },
   {
     path: '/agents/category',
@@ -134,7 +115,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: 'seo.agents.desc',
       keywords: 'seo.agents.keywords',
     },
-    beforeEnter: preloadI18n(['agents', 'agentsCategory']),
   },
   {
     path: '/agents/create',
@@ -149,7 +129,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.agentsCreate.keywords',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['agents', 'agentsCreate']),
   },
   {
     path: '/agents/:id',
@@ -163,7 +142,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: 'seo.agentDetail.desc',
       keywords: 'seo.agentDetail.keywords',
     },
-    beforeEnter: preloadI18n(['agents', 'agentDetail']),
   },
   {
     path: '/ai-management',
@@ -178,7 +156,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'AI,智能体,管理',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['aiManagement']),
   },
   {
     path: '/mcp-manager',
@@ -193,7 +170,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'MCP,Model Context Protocol,工具调用',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['mcpManager']),
   },
   {
     path: '/mcp-use',
@@ -208,7 +184,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'mcp-use,MCP,Agent,智能体',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['mcpUse']),
   },
   {
     path: '/mcp-use-project',
@@ -223,7 +198,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'mcp-use,项目,文档,README',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['mcpUseProject']),
   },
   {
     path: '/unified-ai',
@@ -238,7 +212,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'AI,统一能力,模型,智能体,Agentic,MCP',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['unifiedAI']),
   },
   {
     path: '/models-management',
@@ -253,7 +226,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'AI,模型管理,大模型配置',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['modelManager']),
   },
   {
     path: '/agentic-ai',
@@ -268,7 +240,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'Agentic AI,智能体集群,Agent Swarm',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['agenticAI']),
   },
   {
     path: '/conversation',
@@ -283,7 +254,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.conversation.keywords',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['conversation', 'chat']),
   },
   {
     path: '/chat-history',
@@ -298,7 +268,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'seo.chatHistory.keywords',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['chatHistory']),
   },
   {
     path: '/knowledge',
@@ -313,7 +282,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: '知识库,文档管理,RAG',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['knowledgeBase']),
   },
   {
     path: '/knowledge/:kbId',
@@ -328,7 +296,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: '知识库,文档,详情',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['knowledgeBase', 'knowledgeDetail']),
   },
   {
     path: '/tasks',
@@ -343,10 +310,8 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: '任务,管理,状态',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['tasks']),
   },
   {
-    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (收藏功能, 后端无 /ai/favorites 路由)
     path: '/favorites',
     name: 'favorites',
     component: safeImport(
@@ -358,10 +323,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '查看和管理收藏的内容',
       keywords: '收藏,管理',
       requiresAuth: true,
-      hidden: true,
-      disabledReason: '功能升级中',
     },
-    beforeEnter: preloadI18n(['favorites']),
   },
   {
     path: '/ai-assistant',
@@ -376,7 +338,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '与AI智能体进行对话交流',
       keywords: 'AI助手,对话,智能体',
     },
-    beforeEnter: preloadI18n(['aiAssistant']),
   },
   {
     path: '/n8n-assistant',
@@ -391,7 +352,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '使用N8N工作流自动化工具',
       keywords: 'N8N,工作流,自动化',
     },
-    beforeEnter: preloadI18n(['n8nAssistant']),
   },
   {
     path: '/ai-team',
@@ -406,7 +366,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '查看和管理您的智能体团队',
       keywords: 'AI团队,智能体,团队管理',
     },
-    beforeEnter: preloadI18n(['aiTeam']),
   },
   {
     path: '/agent-income',
@@ -421,7 +380,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '查看您的智能体收入统计和结算记录',
       keywords: '智能体,收入,结算',
     },
-    beforeEnter: preloadI18n(['agentIncome']),
   },
   {
     path: '/n8n-agents',
@@ -436,7 +394,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: '创建和管理基于N8N的智能体',
       keywords: 'N8N,智能体,工作流',
     },
-    beforeEnter: preloadI18n(['n8nAgents']),
   },
   {
     path: '/variables',
@@ -451,7 +408,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: '变量,配置,管理',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['variables']),
   },
   {
     path: '/oauth-apps',
@@ -466,10 +422,8 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'OAuth,应用,认证,管理',
       requiresAuth: true,
     },
-    beforeEnter: preloadI18n(['oauthApps']),
   },
   {
-    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (内容生成 v2, 后端内容在 /api/v1/content/*)
     path: '/ai-generation',
     name: 'aiGeneration',
     component: safeImport(
@@ -481,10 +435,7 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: 'AI图像、视频、3D模型生成平台',
       keywords: 'AI生成,图像生成,视频生成,3D模型',
       requiresAuth: false,
-      hidden: true,
-      disabledReason: '功能升级中',
     },
-    beforeEnter: preloadI18n(['aiGeneration']),
   },
   {
     path: '/chat',
@@ -499,10 +450,8 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       keywords: 'AI聊天,智能对话',
       requiresAuth: false,
     },
-    beforeEnter: preloadI18n(['chat']),
   },
   {
-    // 2026-06-24: 后端模块缺失, 临时隐藏入口避免用户 404 (工具 v2, 后端工具在 /api/v1/tools/* 且仅3个端点)
     path: '/tools',
     name: 'tools',
     component: safeImport(
@@ -514,9 +463,6 @@ export const aiRoutes: Array<RouteRecordRaw> = [
       description: 'AI工具集合',
       keywords: 'AI工具,工具集合',
       requiresAuth: false,
-      hidden: true,
-      disabledReason: '功能升级中',
     },
-    beforeEnter: preloadI18n(['tools']),
   },
 ]

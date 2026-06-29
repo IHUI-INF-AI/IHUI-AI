@@ -10,7 +10,7 @@
  */
 
 import { logger } from '@/utils/logger'
-import { streamGenerateContent } from '@/api/ai/ai'
+import { streamGenerateContent } from '@/api/ai'
 import { t } from '@/utils/i18n'
 import type { SceneFragment, Character } from './DramaScriptExcel.types'
 
@@ -708,7 +708,7 @@ export function exportToHTML(
       .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
       h1 { text-align: center; color: var(--el-text-color-primary, var(--color-dark-1a1a2e)); margin-bottom: 10px; }
       .meta { text-align: center; color: var(--el-text-color-secondary, var(--el-text-color-secondary)); margin-bottom: 40px; }
-      .section { background: var(--el-bg-color, white); border-radius: var(--global-border-radius, 8px); padding: 24px; margin-bottom: 24px; }
+      .section { background: var(--el-bg-color, white); border-radius: var(--global-border-radius, 8px); padding: 24px; margin-bottom: 24px; box-shadow: var(--global-box-shadow); }
       .section h2 { color: var(--el-text-color-primary, var(--color-dark-1a1a2e)); border-bottom: 2px solid var(--border-unified-color, var(--color-gray-333)); padding-bottom: 10px; margin-bottom: 20px; }
       .character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
       .character-card { background: var(--el-fill-color-lighter, var(--color-gray-f8f9fa)); border-radius: var(--global-border-radius, 8px); padding: 16px; }

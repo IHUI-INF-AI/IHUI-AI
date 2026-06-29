@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { tourMultiPlatformService } from '../tourMultiPlatformService'
-import type { AdaptationRule, SyncData } from '../tourMultiPlatformService'
+import type { AdaptationRule, PlatformConfig, SyncData } from '../tourMultiPlatformService'
 
 // mock logger 避免日志输出干扰测试
 vi.mock('@/utils/logger', () => ({
@@ -254,7 +254,7 @@ describe('tourMultiPlatformService', () => {
     })
 
     it('更新后应保持原 id 不变', () => {
-      const updated = tourMultiPlatformService.updatePlatform('web_desktop', { id: 'hacked' } as any)
+      const updated = tourMultiPlatformService.updatePlatform('web_desktop', { id: 'hacked' } as unknown as Partial<PlatformConfig>)
       expect(updated?.id).toBe('web_desktop')
     })
   })
@@ -288,7 +288,7 @@ describe('tourMultiPlatformService', () => {
 
     it('更新后应保持原 id 不变', () => {
       const rule = tourMultiPlatformService.createAdaptationRule(buildRule())
-      const updated = tourMultiPlatformService.updateAdaptationRule(rule.id, { id: 'hacked' } as any)
+      const updated = tourMultiPlatformService.updateAdaptationRule(rule.id, { id: 'hacked' } as unknown as Partial<AdaptationRule>)
       expect(updated?.id).toBe(rule.id)
     })
   })
@@ -359,7 +359,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'scale', value: 0.5 }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1 })
-      expect((adapted as any).scale).toBe(0.5)
+      expect((adapted as { scale?: number }).scale).toBe(0.5)
     })
 
     it('条件不匹配时不应应用调整', () => {
@@ -373,7 +373,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'scale', value: 0.5 }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1 })
-      expect((adapted as any).scale).toBe(1)
+      expect((adapted as { scale?: number }).scale).toBe(1)
     })
 
     it('禁用的规则不应被应用', () => {
@@ -387,7 +387,7 @@ describe('tourMultiPlatformService', () => {
         enabled: false
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1 })
-      expect((adapted as any).scale).toBe(1)
+      expect((adapted as { scale?: number }).scale).toBe(1)
     })
 
     it('应该支持 eq 操作符', () => {
@@ -401,7 +401,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'content', property: 'title', value: '匹配' }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ title: '原始' })
-      expect((adapted as any).title).toBe('匹配')
+      expect((adapted as { title?: string }).title).toBe('匹配')
     })
 
     it('应该支持 between 操作符', () => {
@@ -414,7 +414,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'scale', value: 0.5 }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1 })
-      expect((adapted as any).scale).toBe(0.5)
+      expect((adapted as { scale?: number }).scale).toBe(0.5)
     })
 
     it('between 操作符超出范围时不应匹配', () => {
@@ -427,7 +427,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'scale', value: 0.5 }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1 })
-      expect((adapted as any).scale).toBe(1)
+      expect((adapted as { scale?: number }).scale).toBe(1)
     })
 
     it('应该支持嵌套属性设置', () => {
@@ -440,8 +440,8 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'style.fontSize', value: 14 }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ style: { color: 'red' } })
-      expect((adapted as any).style.fontSize).toBe(14)
-      expect((adapted as any).style.color).toBe('red')
+      expect((adapted as { style: { fontSize: number; color: string } }).style.fontSize).toBe(14)
+      expect((adapted as { style: { fontSize: number; color: string } }).style.color).toBe('red')
     })
 
     it('应该支持创建新的嵌套属性', () => {
@@ -454,7 +454,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'theme.color.primary', value: '#fff' }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({})
-      expect((adapted as any).theme.color.primary).toBe('#fff')
+      expect((adapted as { theme: { color: { primary: string } } }).theme.color.primary).toBe('#fff')
     })
 
     it('应该支持多个调整同时应用', () => {
@@ -471,9 +471,9 @@ describe('tourMultiPlatformService', () => {
         ]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1, title: '原标题', duration: 300 })
-      expect((adapted as any).scale).toBe(0.5)
-      expect((adapted as any).title).toBe('新标题')
-      expect((adapted as any).duration).toBe(200)
+      expect((adapted as { scale?: number }).scale).toBe(0.5)
+      expect((adapted as { title?: string }).title).toBe('新标题')
+      expect((adapted as { duration?: number }).duration).toBe(200)
     })
   })
 
@@ -767,7 +767,7 @@ describe('tourMultiPlatformService', () => {
         adjustments: [{ type: 'size', property: 'scale', value: 0.5 }]
       }))
       const adapted = tourMultiPlatformService.applyAdaptations({ scale: 1 })
-      expect((adapted as any).scale).toBe(0.5)
+      expect((adapted as { scale?: number }).scale).toBe(0.5)
     })
   })
 })

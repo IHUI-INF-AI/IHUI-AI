@@ -1,0 +1,15 @@
+{
+  "searchPage": {
+    "hotSearch": "Hot Searches",
+    "loading": "Loading...",
+    "emptyHot": "No hot searches",
+    "resultSummary": "Found {total} results",
+    "noResult": "No results found",
+    "typeAgent": "Agent",
+    "typeCourse": "Course",
+    "typeContent": "Content",
+    "typeAsk": "Q&A",
+    "typeCircle": "Circle",
+    "xxx": "Search"
+  }
+}

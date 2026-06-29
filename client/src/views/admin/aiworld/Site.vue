@@ -70,9 +70,10 @@
 import { ref, onMounted, h } from 'vue'
 import { ElButton, ElDialog, ElTag, ElRadioGroup, ElRadioButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import AdminEditDialog, { type FormField } from '@/components/admin/AdminEditDialog.vue'
 import AdminBatchEditDialog from '@/components/admin/AdminBatchEditDialog.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
 import { useAdminTable } from '@/composables/useAdminTable'
 import { useAdminCrud } from '@/composables/useAdminCrud'
 import { useI18n } from 'vue-i18n'
@@ -111,7 +112,7 @@ const { dialogVisible, dialogMode, formData, submitting, onAdd, onEdit, onDelete
   onSuccess: reload,
 })
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
   { key: 'name', dataKey: 'name', title: t('adminCommon.label.siteName'), width: 160 },
   { key: 'section', dataKey: 'section', title: t('adminCommon.label.category'), width: 120, cellRenderer: ({ rowData: row }) => h(ElTag, { type: 'info', size: 'small' }, row.section || '-') },
@@ -123,7 +124,7 @@ const columns: Column<any>[] = [
     key: 'actions',
     title: t('adminCommon.label.actions'),
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: ({ rowData: row }) => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary', onClick: () => onEdit(row) }, t('adminCommon.label.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger', onClick: () => onDelete(row) }, t('adminCommon.label.delete')),
@@ -258,7 +259,7 @@ onMounted(reload)
 .preview-detail__panel :deep(a:hover) { text-decoration: underline; }
 .preview-detail__panel :deep(blockquote) { margin: 12px 0; padding: 8px 16px; border-left: 4px solid var(--el-color-primary-light-5); background: var(--el-fill-color-light); border-radius: var(--global-border-radius); }
 .preview-detail__panel :deep(pre) { margin: 12px 0; padding: 12px; background: var(--el-fill-color-darker); border-radius: var(--global-border-radius); overflow-x: auto; }
-.preview-detail__panel :deep(code) { font-family: var(--font-family-mono); font-size: 13px; }
+.preview-detail__panel :deep(code) { font-family: monospace; font-size: 13px; }
 .preview-detail__panel-empty {
   padding: 24px;
   text-align: center;

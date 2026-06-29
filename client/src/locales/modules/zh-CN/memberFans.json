@@ -1,7 +1,7 @@
 {
   "memberFans": {
-    "lazyPerson": "lazy Person",
-    "myFans": "my 粉丝",
-    "noFans": "无 粉丝"
+    "myFans": "我的粉丝",
+    "noFans": "暂无粉丝",
+    "lazyPerson": "这个人很懒,什么都没写"
   }
 }

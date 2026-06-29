@@ -1,10 +1,28 @@
 {
   "errors": {
-    "aiCallFailed": "aiCallFailed",
-    "cannotLoadSwaggerDocs": "cannotLoadSwaggerDocs",
-    "loadDataFailed": "loadDataFailed",
-    "navigateFail": "navigateFail",
-    "routeNotFound": "routeNotFound",
-    "userInfoEmpty": "userInfoEmpty"
+    "pleaseLogin": "請先登錄",
+    "notLoggedIn": "未登錄",
+    "aiCallFailed": "aiCall失敗",
+    "cannotLoadSwaggerDocs": "是否可以无tLoadSwaggerDocs",
+    "navigateFail": "NavigateFail",
+    "loadDataFailed": "loadData失敗",
+    "routeNotFound": "RouteNotFound",
+    "userInfoEmpty": "User信息清空",
+    "forbidden": "Forbidden",
+    "notFound": "未找到",
+    "accountDeleted": "帳號已被刪除",
+    "accountDisabled": "帳號已被禁用，請聯繫客服",
+    "accountLocked": "帳號已被鎖定，請聯繫客服",
+    "captchaExpired": "驗證碼已過期，請重新獲取",
+    "captchaWrong": "驗證碼錯誤",
+    "passwordExpired": "密碼已過期，請修改密碼",
+    "passwordWrong": "密碼錯誤",
+    "phoneNotVerified": "手機號未驗證",
+    "serverError": "伺服器錯誤，請稍後再試",
+    "serviceUnavailable": "服務暫時不可用",
+    "tokenExpired": "登錄已過期，請重新登錄",
+    "tooManyRequests": "請求過於頻繁，請稍後再試",
+    "unknown": "未知錯誤",
+    "xssDetected": "XssDetected"
   }
 }

@@ -113,7 +113,8 @@ const borderRadius = computed(() => {
   overflow: hidden;
   background: var(--el-bg-color);
   border: var(--unified-border);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .skeleton-card-image {
   width: 100%;
@@ -142,7 +143,7 @@ const borderRadius = computed(() => {
     var(--el-fill-color) 75%
   );
   background-size: 200% 100%;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius-sm, 4px);
 }
 
 .skeleton-card-text {
@@ -156,7 +157,7 @@ const borderRadius = computed(() => {
     var(--el-fill-color) 75%
   );
   background-size: 200% 100%;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--global-border-radius-sm, 4px);
 
   &.short {
     width: 80%;

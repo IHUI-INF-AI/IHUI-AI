@@ -1,24 +1,32 @@
 {
   "tasks": {
-    "cancel": "取消",
-    "cancelFailed": "cancelFailed",
-    "cancelSuccess": "cancelSuccess",
-    "cancelledAt": "cancelledAt",
-    "confirmCancel": "确认取消",
-    "createdAt": "createdAt",
-    "noTasks": "noTasks",
-    "retry": "重试",
-    "status": {
-      "cancelled": "已取消",
-      "completed": "已完成",
-      "failed": "失败",
-      "pending": "待处理",
-      "processing": "处理中",
-      "unknown": "unknown"
+    "title": "Task Management",
+    "subtitle": "View and manage your task execution Status",
+    "noTasks": "No tasks",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "viewResults": "View Results",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "cancelledAt": "Cancelled At",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
     },
-    "subtitle": "副标题",
-    "title": "标题",
-    "updatedAt": "updatedAt",
-    "viewResults": "viewResults"
+    "confirmCancel": "This task",
+    "cancelSuccess": "Task cancelled",
+    "cancelFailed": "Failed to cancel task",
+    "status": {
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "failed": "Failed",
+      "pending": "等待中",
+      "processing": "Processing",
+      "unknown": "未知"
+    }
   }
 }

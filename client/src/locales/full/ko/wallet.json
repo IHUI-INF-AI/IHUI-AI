@@ -65,25 +65,5 @@
     "expense": "지출",
     "title": "제목",
     "subtitle": "Subtitle"
-  },
-  "transactionDetail": {
-    "txId": "거래 ID",
-    "status": "상태",
-    "user": "사용자",
-    "relatedOrder": "관련 주문",
-    "desc": "설명",
-    "createTime": "생성 시간"
-  },
-  "withdrawDialog": {
-    "availableBalance": "출금 가능 잔액",
-    "amount": "출금 금액",
-    "bankCard": "입금 은행 카드",
-    "noBankCard": "등록된 은행 카드 없음",
-    "bindNow": "지금 등록",
-    "change": "변경",
-    "agreePrefix": "읽고 동의합니다",
-    "termsTitle": "《출금 서비스 약관》",
-    "submit": "출금 신청",
-    "submitting": "제출 중..."
   }
 }

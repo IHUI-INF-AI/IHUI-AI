@@ -109,7 +109,7 @@ vi.mock('@/services/cozeApiService', () => ({
   },
 }))
 
-vi.mock('@/api/payment/payment', () => ({
+vi.mock('@/api/payment', () => ({
   findMockAgentById: vi.fn().mockReturnValue(null),
 }))
 
@@ -117,7 +117,7 @@ vi.mock('./fastapi', () => ({
   sendChatCompletion: vi.fn().mockResolvedValue({ code: 200, data: {} }),
 }))
 
-import * as api from '../agent/agents'
+import * as api from '../agents'
 
 async function callFn(fn: any, ...args: any[]): Promise<any> {
   try {

@@ -102,7 +102,7 @@
         :key="index"
         :src="img"
         :preview-src-list="currentFeedback.images"
-        class="feedback-avatar"
+        style="width: 100px; height: 100px; margin-right: 10px"
         fit="cover"
       />
     </div>
@@ -120,7 +120,7 @@ import {
   updateFeedbackStatus,
   type Feedback as ApiFeedback,
   type FeedbackStatus,
-} from '@/api/content/feedback'
+} from '@/api/feedback'
 
 interface Feedback {
   id: string
@@ -236,7 +236,7 @@ const handleSizeChange = (size: number) => {
   fetchFeedbacks()
 }
 
-const handleSelectionChange = (_rows: any[]) => {
+const handleSelectionChange = (_rows: unknown[]) => {
   // 选择变更
 }
 
@@ -281,12 +281,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.feedback-avatar {
-  width: 100px;
-  height: 100px;
-  margin-right: 10px;
-}
-
 .feedback-images {
   margin-top: 20px;
 }

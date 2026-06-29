@@ -251,11 +251,12 @@ onMounted(() => {
 
   .sdk-card {
     cursor: pointer;
-    transition: transform 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover {
-      
-      }
+      transform: translateY(-4px);
+      box-shadow: var(--global-box-shadow);
+    }
 
     .sdk-header {
       display: flex;

@@ -20,16 +20,17 @@ const { t } = useI18n()
 import { ref, onMounted, h } from 'vue'
 import { ElButton, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 
 const keyword = ref('')
 const page = ref(1)
 const size = ref(50)
 const total = ref(0)
 const loading = ref(false)
-const list = ref<any[]>([])
+const list = ref<unknown[]>([])
 
-const columns: Column<any>[] = [
+const columns: Column<unknown>[] = [
   { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
   { key: 'username', dataKey: 'username', title: '用户名', width: 140 },
   { key: 'mobile', dataKey: 'mobile', title: '手机号', width: 140 },
@@ -38,7 +39,7 @@ const columns: Column<any>[] = [
     key: 'actions',
     title: '操作',
     width: 180,
-    fixed: 'right' as any,
+    fixed: FIXED_RIGHT,
     cellRenderer: () => h('div', {}, [
       h(ElButton, { size: 'small', link: true, type: 'primary' }, t('common.edit')),
       h(ElButton, { size: 'small', link: true, type: 'danger' }, t('common.delete')),
@@ -50,8 +51,8 @@ const reload = async () => {
   loading.value = true
   try {
     const res = await adminApi.memberList({ current: page.value, size: size.value, keyword: keyword.value })
-    list.value = (res.data as any)?.records || []
-    total.value = (res.data as any)?.total || 0
+    list.value = (res.data as Record<string, unknown> | null)?.records as unknown[] || []
+    total.value = (res.data as Record<string, unknown> | null)?.total as number || 0
   } catch (e) { console.error(e) } finally {
     loading.value = false
   }

@@ -276,7 +276,7 @@ import {
   type ServiceAppointment,
   type GetAppointmentsParams,
 } from '@/api/service-appointment'
-import { sendAppointmentCancelledNotification } from '@/api/system/notification'
+import { sendAppointmentCancelledNotification } from '@/api/notification'
 import { formatTime } from '@/utils/format'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
@@ -430,7 +430,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -449,11 +449,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -468,7 +468,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -505,10 +505,10 @@ onMounted(() => {
 
 .appointment-card {
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: all 0.2s ease;
 
   &:hover {
-    
+    transform: translateY(-2px);
   }
 }
 

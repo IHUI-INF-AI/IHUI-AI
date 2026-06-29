@@ -11,8 +11,8 @@
       "lessonTrash": "搜尋回收站課程",
       "signup": "搜尋報名",
       "order": "搜尋訂單",
-      "lesson": "搜尋課程"
-    },
-    "hotRecommend": "hotRecommend"
+      "lesson": "搜尋課程",
+      "homework": "搜尋作業"
+    }
   }
 }

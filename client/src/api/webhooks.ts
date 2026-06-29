@@ -34,7 +34,7 @@ export interface WebhookEvent {
   eventType: string
   resourceType: string
   resourceId: string
-  payload: any
+  payload: unknown
   status: 'pending' | 'delivered' | 'failed'
   responseStatus?: number
   responseBody?: string
@@ -110,7 +110,7 @@ export async function deleteWebhook(id: string): Promise<ApiResponse<void>> {
 // 测试Webhook
 export async function testWebhook(
   id: string,
-  payload?: any
+  payload?: unknown
 ): Promise<
   ApiResponse<{
     success: boolean

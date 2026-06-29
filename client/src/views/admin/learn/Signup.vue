@@ -8,67 +8,87 @@
     :loading="loading"
     :keyword="keyword"
     :search-placeholder="t('learn.searchPlaceholder.signup')"
+    :show-add="false"
     @search="onSearch"
     @page-change="onPageChange"
-    :show-add="false"
   />
 </template>
 
 <script setup lang="ts">
+import { FIXED_RIGHT } from '@/utils/tableConstants'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, onMounted, h } from 'vue'
-import { ElButton, type Column } from 'element-plus'
+import { ElButton, ElMessage, ElMessageBox, type Column } from 'element-plus'
 import AdminTableV2 from '@/components/admin/AdminTableV2.vue'
-import { adminApi } from '@/api/admin/admin'
+import { adminApi } from '@/api/admin'
+import { useAdminTable } from '@/composables/useAdminTable'
+import { logger } from '@/utils/logger'
 
-const keyword = ref('')
-const page = ref(1)
-const size = ref(50)
-const total = ref(0)
-const loading = ref(false)
-const list = ref<any[]>([])
+const { keyword, page, size, total, loading, list, reload, onSearch, onPageChange } = useAdminTable({
+  fetchFn: (params) => adminApi.learnSignupList(params),
+})
 
-const columns: Column<any>[] = [
-  { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
-  { key: 'user', dataKey: 'user', title: '用户', width: 140 },
-  { key: 'course', dataKey: 'course', title: '课程', width: 220 },
-  { key: 'signupTime', dataKey: 'signupTime', title: '报名时间', width: 180 },
-  {
-    key: 'actions',
-    title: '操作',
-    width: 180,
-    fixed: 'right' as any,
-    cellRenderer: () => h('div', {}, [
-      h(ElButton, { size: 'small', link: true, type: 'primary' }, t('common.edit')),
-      h(ElButton, { size: 'small', link: true, type: 'danger' }, t('common.delete')),
-    ]),
-  },
-]
+const acting = ref(false)
 
-const reload = async () => {
-  loading.value = true
+const onComplete = async (row: Record<string, unknown>) => {
+  const id = row.id as string | number
   try {
-    const res = await adminApi.learnSignupList({ current: page.value, size: size.value, keyword: keyword.value })
-    list.value = (res.data as any)?.records || []
-    total.value = (res.data as any)?.total || 0
-  } catch (e) { console.error(e) } finally {
-    loading.value = false
+    await ElMessageBox.confirm(t('adminCommon.label.complete') + '?', t('common.tip'), { type: 'warning' })
+    acting.value = true
+    await adminApi.learnSignupComplete(id)
+    ElMessage.success(t('common.messages.updateSuccess'))
+    reload()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') {
+      logger.error('Signup complete failed:', e)
+      ElMessage.error(t('common.errors.saveFailed'))
+    }
+  } finally {
+    acting.value = false
   }
 }
 
-const onSearch = (k: string) => {
-  keyword.value = k
-  page.value = 1
-  reload()
+const onCancel = async (row: Record<string, unknown>) => {
+  const id = row.id as string | number
+  try {
+    await ElMessageBox.confirm(t('adminCommon.label.cancel') + '?', t('common.tip'), { type: 'warning' })
+    acting.value = true
+    await adminApi.learnSignupCancel(id)
+    ElMessage.success(t('common.messages.updateSuccess'))
+    reload()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') {
+      logger.error('Signup cancel failed:', e)
+      ElMessage.error(t('common.errors.saveFailed'))
+    }
+  } finally {
+    acting.value = false
+  }
 }
 
-const onPageChange = (p: number, s: number) => {
-  page.value = p
-  size.value = s
-  reload()
-}
-
+const columns: Column<unknown>[] = [
+  { key: 'id', dataKey: 'id', title: 'ID', width: 80 },
+  { key: 'lesson_id', dataKey: 'lesson_id', title: t('adminCommon.label.lesson'), width: 140 },
+  { key: 'member_id', dataKey: 'member_id', title: t('adminCommon.label.member'), width: 140 },
+  { key: 'status', dataKey: 'status', title: t('adminCommon.label.status'), width: 140 },
+  { key: 'created_at', dataKey: 'created_at', title: t('adminCommon.label.signupTime'), width: 180 },
+  {
+    key: 'actions',
+    title: t('adminCommon.label.operation'),
+    width: 180,
+    fixed: FIXED_RIGHT,
+    cellRenderer: ({ rowData: row }) => {
+      const r = row as Record<string, unknown>
+      const status = r.status as string
+      if (status !== 'enrolled') return h('span', {}, '-')
+      return h('div', {}, [
+        h(ElButton, { size: 'small', link: true, type: 'success', disabled: acting.value, onClick: () => onComplete(r) }, t('adminCommon.label.complete')),
+        h(ElButton, { size: 'small', link: true, type: 'warning', disabled: acting.value, onClick: () => onCancel(r) }, t('adminCommon.label.cancel')),
+      ])
+    },
+  },
+]
 
 onMounted(reload)
 </script>

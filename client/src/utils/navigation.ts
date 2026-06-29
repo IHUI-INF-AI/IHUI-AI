@@ -23,12 +23,10 @@ export function useNavigation() {
    * 返回上一页
    */
   const goBack = () => {
+    // router.back() 在 Vue Router 4 中可用
+    // 但类型定义可能不完整，使用 history.back() 作为备选
     if (typeof window !== 'undefined') {
-      if (window.history.length > 1) {
-        window.history.back()
-      } else {
-        void router.push('/')
-      }
+      window.history.back()
     }
   }
 

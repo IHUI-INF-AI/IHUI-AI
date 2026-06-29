@@ -38,8 +38,8 @@ export interface ChangeRecord {
   entityType: 'fragment' | 'character' | 'template' | 'project'
   entityId: string
   entityName?: string
-  previousValue?: any
-  newValue?: any
+  previousValue?: unknown
+  newValue?: unknown
   summary: string
 }
 

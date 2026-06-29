@@ -4,6 +4,12 @@
       "channel": "搜索渠道",
       "list": "搜索商品",
       "record": "搜索记录"
+    },
+    "label": {
+      "channelName": "渠道名称",
+      "trigger": "触发",
+      "points": "积分数",
+      "actions": "操作"
     }
   }
 }

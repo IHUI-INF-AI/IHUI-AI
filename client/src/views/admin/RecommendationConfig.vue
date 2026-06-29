@@ -187,7 +187,7 @@ import { tourRecommendationI18n } from '@/locales/tour-i18n'
 
 const t = (key: string) => {
   const keys = key.split('.')
-  let result: any = tourRecommendationI18n
+  let result: unknown = tourRecommendationI18n
   for (const k of keys) {
     result = (result as Record<string, unknown>)?.[k]
   }
@@ -351,7 +351,7 @@ onMounted(() => {
 
 .stat-value {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: bold;
   margin-top: 10px;
 }
 

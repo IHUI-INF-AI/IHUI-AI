@@ -1,6 +1,16 @@
 {
   "vipLevelPopup": {
-    "goActivate": "去激活",
-    "level0Desc": "等级 0 描述"
+    "level0Desc": "0级:智域访客...",
+    "goActivate": "去开通",
+    "benefitLevel1": "专属客服一对一服务",
+    "benefitLevel2": "每月100次AI智能问答",
+    "benefitLevel3": "全部课程免费学习",
+    "benefitLevel4": "专属学习社区权限",
+    "benefitLevel5": "每月500积分赠送",
+    "benefitLevel6": "高级AI工具优先体验",
+    "benefitLevel7": "专属活动邀请资格",
+    "benefitLevel8": "学习证书认证",
+    "benefitLevel9": "个性化学习路径定制",
+    "benefitLevel10": "商城商品专属折扣"
   }
 }

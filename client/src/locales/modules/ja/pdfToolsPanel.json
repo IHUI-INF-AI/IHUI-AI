@@ -1,14 +1,14 @@
 {
   "pdfToolsPanel": {
-    "addSignature": "addSignature",
-    "applyWatermark": "applyWatermark",
-    "clearAll": "全部清空",
-    "landscape": "landscape",
-    "page": "页面",
-    "portrait": "portrait",
-    "print": "打印",
-    "quickPrint": "quickPrint",
-    "resetSettings": "resetSettings",
-    "verifyAll": "verifyAll"
+    "addSignature": "署名を追加",
+    "verifyAll": "すべて検証",
+    "applyWatermark": "透かしを適用",
+    "clearAll": "すべてクリア",
+    "page": "ページ",
+    "portrait": "縦方向",
+    "landscape": "横方向",
+    "print": "印刷",
+    "quickPrint": "クイック印刷",
+    "resetSettings": "設定をリセット"
   }
 }

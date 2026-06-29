@@ -149,10 +149,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, FormItemRule } from 'element-plus'
 import { Phone, Lock, KeyRound } from '@/lib/lucide-fallback'
 import { InputValidator } from '@/utils/security'
-import { sendVerificationCode } from '@/api/user/user'
+import { sendVerificationCode } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
@@ -215,7 +215,7 @@ const formRules = computed((): FormRules => ({
   phone: [
     { required: true, message: t('auth.phonePlaceholder'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (!value) {
           callback()
           return
@@ -239,7 +239,7 @@ const formRules = computed((): FormRules => ({
   confirmPassword: [
     { required: true, message: t('auth.confirmPasswordPlaceholder'), trigger: 'blur' },
     {
-      validator: (_rule: any, value: string, callback: (error?: Error) => void): void => {
+      validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void): void => {
         if (value && value !== formData.newPassword) {
           callback(new Error(t('auth.passwordMismatch')))
           return
@@ -309,7 +309,7 @@ const handleSendCode = async (): Promise<void> => {
 
     ElMessage.success(t('auth.codeSentSuccess'))
     startCountdown()
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[PasswordReset] Failed to send verification code', error)
     ElMessage.error(error instanceof Error ? error.message : t('auth.codeSendFailed'))
   } finally {

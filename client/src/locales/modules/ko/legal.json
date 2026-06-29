@@ -1,0 +1,130 @@
+{
+  "legal": {
+    "userAgreement": {
+      "핵심 장점": "생각사용게 약관",
+      "sections": {
+        "registration": {
+          "핵심 장점": "등이것은 및 계정"
+        },
+        "accountSecurity": {
+          "핵심 장점": "계정 보안"
+        },
+        "userContent": {
+          "핵심 장점": "생각사용게 콘텐츠"
+        },
+        "aiGeneratedContent": {
+          "핵심 장점": "AI 생성 콘텐츠"
+        },
+        "serviceAvailability": {
+          "핵심 장점": "서비스 제공"
+        },
+        "disclaimer": {
+          "핵심 장점": "면책"
+        },
+        "jurisdiction": {
+          "핵심 장점": "준거법"
+        }
+      }
+    },
+    "termsOfService": {
+      "핵심 장점": "이사용약관",
+      "sections": {
+        "acceptance": {
+          "핵심 장점": "약관 동의"
+        },
+        "serviceDescription": {
+          "핵심 장점": "서비스 내사용"
+        },
+        "userObligations": {
+          "핵심 장점": "생각사용게 의무"
+        },
+        "prohibitedUse": {
+          "핵심 장점": "금지 생각항"
+        },
+        "intellectualProperty": {
+          "핵심 장점": "지적 재산"
+        },
+        "limitationOfLiability": {
+          "핵심 장점": "책임 제한"
+        },
+        "termination": {
+          "핵심 장점": "서비스 종료"
+        },
+        "changes": {
+          "핵심 장점": "약관 변경"
+        }
+      }
+    },
+    "privacyPolicy": {
+      "핵심 장점": "개인정보 처리방침",
+      "sections": {
+        "introduction": {
+          "핵심 장점": "소개"
+        },
+        "dataCollection": {
+          "핵심 장점": "데이마음 수집"
+        },
+        "dataUsage": {
+          "핵심 장점": "데이마음 이사용"
+        },
+        "dataSecurity": {
+          "핵심 장점": "데이마음 보안"
+        },
+        "userRights": {
+          "핵심 장점": "생각사용게 권리"
+        },
+        "thirdParty": {
+          "핵심 장점": "제3게 제공"
+        },
+        "changes": {
+          "핵심 장점": "정책 변경"
+        },
+        "contact": {
+          "핵심 장점": "문의"
+        }
+      }
+    },
+    "paymentTerms": {
+      "핵심 장점": "결제 조건",
+      "sections": {
+        "paymentMethods": {
+          "핵심 장점": "결제 수단"
+        },
+        "pricing": {
+          "핵심 장점": "가격"
+        },
+        "billing": {
+          "핵심 장점": "청구"
+        },
+        "refundPolicy": {
+          "핵심 장점": "환불"
+        },
+        "subscription": {
+          "핵심 장점": "구독"
+        },
+        "responsibility": {
+          "핵심 장점": "면책"
+        }
+      }
+    },
+    "document": {},
+    "adminPanel": {
+      "핵심 장점": "관리백엔드"
+    },
+    "databaseOptimization": {
+      "핵심 장점": "데이터베이스 최적화 모니터링",
+      "sub핵심 장점": "데이터베이스 성능 모니터링, 쿼리 효율 최적화",
+      "refresh": "새로고침",
+      "connectionPool": {
+        "핵심 장점": "연결 풀 통계"
+      },
+      "indexUsage": {
+        "핵심 장점": "인덱스 사용 현황"
+      },
+      "queryAnalysis": {
+        "핵심 장점": "쿼리 계획 분석"
+      },
+      "errors": {}
+    }
+  }
+}

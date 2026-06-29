@@ -457,7 +457,7 @@ export function useLoginAnalytics() {
     analytics.trackPageView('登录页')
   }
 
-  const trackLoginClick = (method: 'password' | 'sms' | 'third_party') => {
+  const trackLoginClick = (method: 'password' | 'sms' | 'email' | 'third_party') => {
     analytics.trackClick('login_button', { method })
   }
 
@@ -713,16 +713,4 @@ export const analyticsUtils = {
   getUserId,
   flushQueue,
   initAnalytics,
-  sendEvent,
-  trackPageView: (pageName?: string, path?: string) => {
-    void sendEvent({
-      category: 'page_view',
-      action: 'view',
-      label: pageName || path || (typeof window !== 'undefined' ? window.location.pathname : ''),
-      customData: {
-        title: typeof document !== 'undefined' ? document.title : '',
-        referrer: typeof document !== 'undefined' ? document.referrer : '',
-      },
-    })
-  },
 }

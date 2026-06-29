@@ -168,7 +168,7 @@ onMounted(() => {
     font-size: 13px;
     background: var(--el-fill-color-light);
     padding: 2px 6px;
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm, 4px);
   }
 }
 </style>

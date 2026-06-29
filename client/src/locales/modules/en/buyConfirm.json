@@ -1,12 +1,12 @@
 {
   "buyConfirm": {
-    "actualPay": "actualPay",
-    "alipay": "alipay",
-    "balancePay": "balancePay",
-    "courseAmount": "courseAmount",
-    "payMethod": "payMethod",
-    "peopleLearning": "peopleLearning",
-    "teacher": "teacher",
-    "wechatPay": "wechatPay"
+    "teacher": "Teacher",
+    "peopleLearning": "learning",
+    "payMethod": "Payment Method",
+    "alipay": "Alipay",
+    "wechatPay": "WeChat Pay",
+    "balancePay": "Balance Payment",
+    "courseAmount": "Course Amount",
+    "actualPay": "Actual Pay"
   }
 }

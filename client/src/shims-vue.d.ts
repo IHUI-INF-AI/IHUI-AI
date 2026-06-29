@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // 声明路径别名
 declare module '@/*' {
   const value: any

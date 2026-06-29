@@ -1,7 +1,7 @@
 {
   "loginPopup": {
-    "noAccount": "无账号",
     "or": "或",
-    "registerNow": "注册 now"
+    "noAccount": "还没有账户？",
+    "registerNow": "立即注册"
   }
 }

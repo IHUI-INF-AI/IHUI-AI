@@ -1,47 +1,67 @@
 {
   "agentChat": {
-    "agentReply": "智能体 回复",
-    "audioRecording": "音频 录制中",
-    "errors": {
-      "loadModelsFailed": "加载模型失败",
-      "sendMessageFailed": "发送消息失败",
-      "startVoiceRecognitionFailed": "语音识别启动失败",
-      "switchModeFailed": "切换模式失败"
-    },
-    "hideReasoning": "隐藏推理过程",
-    "inputMessagePlaceholder": "请输入消息",
+    "showReasoning": "显示思考过程",
+    "hideReasoning": "隐藏思考过程",
+    "inputMessagePlaceholder": "输入消息给智能体...",
+    "pleaseEnterContent": "请输入消息内容",
     "messageSent": "消息已发送",
-    "pleaseEnterContent": "请输入内容",
-    "reasoningChain": {
-      "step1": "第 1 步",
-      "step2": "第 2 步",
-      "step3": "第 3 步"
-    },
     "roles": {
-      "assistant": "助手",
-      "user": "用户"
+      "user": "用户",
+      "assistant": "AI助手"
     },
-    "showReasoning": "显示推理过程",
     "stages": {
-      "acting": "代理",
-      "reasoning": "推理",
-      "result": "结果"
+      "reasoning": "思考中",
+      "acting": "执行中",
+      "result": "完成"
+    },
+    "reasoningChain": {
+      "step1": "分析用户请求...",
+      "step2": "理解任务目标...",
+      "step3": "制定执行计划..."
+    },
+    "agentReply": "智能体回复: 我理解您的需求 \"{message}\"，正在处理中...",
+    "errors": {
+      "switchModeFailed": "切换模式失败",
+      "sendMessageFailed": "发送消息失败",
+      "startVoiceRecognitionFailed": "启动语音识别失败",
+      "loadModelsFailed": "获取模型列表失败",
+      "stopVoiceRecognitionFailed": "停止语音识别失败",
+      "voiceRecognitionAlreadyStarted": "语音识别已启动，请先停止当前识别",
+      "copyFailed": "复制失败",
+      "readFileFailed": "读取文件失败"
     },
     "success": {
-      "copyToClipboard": "复制到剪贴板",
+      "copyToClipboard": "已复制到剪贴板",
+      "messageUpdated": "消息已更新",
       "messageDeleted": "消息已删除",
-      "messageUpdated": "消息已更新"
-    },
-    "timeLabels": {
-      "justNow": "刚刚",
-      "minutesAgo": "分钟前"
-    },
-    "voiceRecognition": {
-      "stopped": "已停止"
+      "fileUploaded": "文件上传成功"
     },
     "warnings": {
-      "confirmDelete": "确认删除",
-      "maxFileUpload": "文件上传数量已达上限"
+      "maxFileUpload": "最多上传10个文件",
+      "confirmDelete": "确定要删除这条消息吗？",
+      "fileSizeExceeded": "文件大小超过限制"
+    },
+    "voiceRecognition": {
+      "stopped": "语音识别已停止"
+    },
+    "audioRecording": "🎤 录音 {duration}秒",
+    "timeLabels": {
+      "justNow": "刚刚",
+      "minutesAgo": "{minutes}分钟前",
+      "hoursAgo": "{hours}小时前",
+      "daysAgo": "{days}天前"
+    },
+    "send": "发送",
+    "reject": "拒绝",
+    "approve": "批准",
+    "needManualReview": "需要人工审核",
+    "startChat": "开始与智能体对话",
+    "startChatHint": "智能体可以帮您执行复杂的任务和推理",
+    "step": "步骤",
+    "features": {
+      "regenerateDeveloping": "重新生成功能",
+      "retryDeveloping": "重试功能",
+      "exportDeveloping": "导出功能"
     }
   }
 }

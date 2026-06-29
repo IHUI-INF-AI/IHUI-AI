@@ -1,4 +1,4 @@
-{
+﻿{
   "cmpVipIntroducePopup": {},
   "cmpEnhancedFileUpload": {
     "folderMode": "Folder Mode",
@@ -77,11 +77,6 @@
     "categoryModel3d": "3D Model",
     "categoryCad": "CAD Drawing",
     "categoryUnknown": "File"
-  },
-  "cmpHeader": {},
-  "cmpToolbar": {
-    "imagessvgxxxsvg": "/images/svg/大模型.svg",
-    "imagessvgxxxsvg2": "/images/svg/大模型.svg"
   },
   "cmpVipLevelPopup": {
     "vipLevelMechanism": "VIP Level Upgrade Mechanism",

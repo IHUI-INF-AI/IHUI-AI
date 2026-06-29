@@ -486,21 +486,21 @@ const aiIndustries = [
     id: 'enterprise',
     name: _t('data.learn_a_i.AI企业内训8'),
     desc: _t('learnAI.industry.enterprise.desc'),
-    color: 'var(--el-text-color-primary)',
+    color: 'var(--color-gray-333)',
     cases: [_t('data.learn_a_i.新员工入职培训32'), _t('learnAI.industry.enterprise.case2'), _t('learnAI.industry.enterprise.case3'), _t('learnAI.industry.enterprise.case4')]
   },
   {
     id: 'knowledge',
     name: _t('data.learn_a_i.AI知识付费9'),
     desc: _t('learnAI.industry.knowledge.desc'),
-    color: 'var(--el-text-color-secondary)',
+    color: 'var(--color-gray-555555)',
     cases: [_t('data.learn_a_i.专业知识博主33'), _t('learnAI.industry.knowledge.case2'), _t('learnAI.industry.knowledge.case3'), _t('learnAI.industry.knowledge.case4')]
   },
   {
     id: 'certification',
     name: _t('data.learn_a_i.AI技能认证10'),
     desc: _t('learnAI.industry.certification.desc'),
-    color: 'var(--el-text-color-primary)',
+    color: 'var(--color-gray-222)',
     cases: [_t('data.learn_a_i.职业资格认证34'), _t('learnAI.industry.certification.case2'), _t('learnAI.industry.certification.case3'), _t('learnAI.industry.certification.case4')]
   }
 ]
@@ -770,7 +770,6 @@ const filteredCourses = computed(() => {
 
 const filterCourses = () => {}
 
-// 生命周期
 onMounted(() => {
   isVisible.value = true
   startTypewriter()
@@ -1464,7 +1463,7 @@ $border-light: var(--el-border-color-lighter);
 
 // 使用项目规范的黑色主题，蓝色仅作点缀
 $brand-primary: var(--el-text-color-primary);
-$brand-secondary: var(--el-text-color-primary);
+$brand-secondary: var(--color-gray-333);
 $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
 // ============ 滚动进度指示器 ============
@@ -1495,7 +1494,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   transition: none;
 
   &.scroll-animated {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   &.animate-fadeInUp {
@@ -1684,7 +1683,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   }
 
   50% {
-    
+    transform: translateY(-10px);
   }
 }
 
@@ -1726,10 +1725,10 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 // 悬浮卡片增强
 .hover-lift {
   border: var(--unified-border);
-  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
+    border-color: rgba($brand-primary, 0.3);
   }
 }
 
@@ -1784,9 +1783,9 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
   .hero-title {
     font-size: clamp(42px, 5vw, 72px);
-    font-weight: 800;
+    font-weight: 950;
     line-height: 1.2;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.04em;
 
     .accent-gradient {
       color: $brand-primary;
@@ -1827,14 +1826,14 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
 /* 全部 hero 按钮：禁用磁吸位移，避免容器扩大，行为统一 */
 .hero-actions .hero-action-edu {
-  transform: none;
+  transform: none ;
   transition: background-color 0.2s, border-color 0.2s;
   will-change: auto;
 }
 
 .hero-actions .hero-action-edu:hover,
 .hero-actions .hero-action-edu:active {
-  transform: none;
+  transform: none ;
 }
 
 .ai-section {
@@ -1851,13 +1850,13 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   padding: 32px 28px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   background: transparent;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
+    border-color: rgba($brand-primary, 0.25);
 
     .ai-icon {
       color: var(--el-bg-color);
@@ -1875,7 +1874,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     justify-content: center;
     font-size: 28px;
     margin-bottom: 24px;
-    transition: color 0.4s, transform 0.4s;
+    transition: all 0.4s;
   }
 
   .ai-title {
@@ -1920,11 +1919,11 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   padding: 32px 24px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: border-color 0.4s;
+  transition: all 0.4s;
   background: transparent;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
+    border-color: rgba($brand-primary, 0.25);
 
     .ind-line {
       width: 100%;
@@ -1992,11 +1991,11 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     border-radius: var(--global-border-radius);
     border: var(--unified-border);
     background: var(--el-bg-color);
-    transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
-      border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
-      
+      border-color: rgba($brand-primary, 0.25);
+      transform: translateY(-4px);
     }
   }
 
@@ -2036,7 +2035,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     padding: 16px 8px;
     border-radius: var(--global-border-radius);
     background: var(--el-fill-color-light);
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
 
     &:hover {
       background: var(--el-fill-color);
@@ -2048,7 +2047,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
     .stat-num {
       font-size: 36px;
-      font-weight: 800;
+      font-weight: 950;
       color: $text-main;
       line-height: 1;
       transition: color 0.3s ease;
@@ -2089,10 +2088,10 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       border-radius: var(--global-border-radius);
       border: var(--unified-border);
       color: $text-sec;
-      transition: border-color 0.3s ease, color 0.3s ease;
+      transition: all 0.3s ease;
 
       &:hover {
-        border-color: color-mix(in srgb, var(--el-text-color-primary) 30%, transparent);
+        border-color: rgba($brand-primary, 0.3);
         color: $brand-primary;
       }
     }
@@ -2133,7 +2132,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -2162,7 +2161,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     font-size: 20px;
     flex-shrink: 0;
     border-radius: var(--global-border-radius);
-    transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+    transition: all 0.3s ease;
   }
 
   &:hover .tab-icon {
@@ -2185,7 +2184,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       font-weight: 800;
       margin: 0 0 6px;
       color: var(--el-text-color-primary);
-      transition: color 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     p {
@@ -2243,7 +2242,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: border-color 0.3s ease, border-width 0.3s ease;
+  transition: all 0.3s ease;
 
   &:hover {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -2260,7 +2259,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     color: var(--el-color-primary);
     background: var(--el-fill-color);
     border-radius: var(--global-border-radius);
-    transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+    transition: all 0.3s ease;
   }
 
   &:hover .panel-icon {
@@ -2298,11 +2297,11 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 
   &:hover {
-    
+    transform: translateY(-4px);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
     border-width: 2px;
   }
@@ -2315,7 +2314,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     .icon {
       font-size: 22px;
       color: var(--el-color-primary);
-      transition: transform 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     .svc-id {
@@ -2324,7 +2323,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       color: var(--el-text-color-secondary);
       opacity: 0.6;
       font-family: var(--font-family-mono);
-      transition: color 0.3s ease, opacity 0.3s ease;
+      transition: all 0.3s ease;
     }
   }
 
@@ -2342,7 +2341,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     font-weight: 900;
     margin-bottom: 10px;
     color: var(--el-text-color-primary);
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
   }
 
   &:hover .svc-title {
@@ -2370,13 +2369,13 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       color: var(--el-text-color-secondary);
       opacity: 0.6;
       text-transform: uppercase;
-      transition: color 0.3s ease, opacity 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     .el-icon {
       color: var(--el-text-color-secondary);
       opacity: 0.4;
-      transition: color 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
+      transition: all 0.3s ease;
     }
   }
 
@@ -2395,7 +2394,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 // 切换动画
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-slide-enter-from {
@@ -2431,10 +2430,10 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   flex-direction: column;
   background: var(--el-bg-color);
   border: var(--unified-border);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    
+    transform: translateY(-6px);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
     border-width: 2px;
   }
@@ -2552,7 +2551,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     font-weight: 700;
     font-size: 14px;
     cursor: pointer;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.3s ease, border-width 0.3s ease;
+    transition: all 0.3s ease;
 
     &.primary {
       background: var(--el-color-primary);
@@ -2564,7 +2563,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       background: var(--el-color-primary);
       border: var(--el-border-width-primary) solid var(--el-color-primary);
       color: var(--el-bg-color);
-      
+      transform: translateY(-2px);
       border-width: 2px;
     }
   }
@@ -2585,13 +2584,13 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   text-align: center;
-  transition: border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   background: transparent;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
+    border-color: rgba($brand-primary, 0.25);
 
     .stat-icon {
       color: var(--el-bg-color);
@@ -2613,7 +2612,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     align-items: center;
     justify-content: center;
     font-size: 24px;
-    transition: color 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     z-index: var(--z-base);
   }
@@ -2625,7 +2624,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
     .number {
       font-size: 42px;
-      font-weight: 800;
+      font-weight: 950;
       letter-spacing: -0.02em;
       color: $brand-primary;
     }
@@ -2677,7 +2676,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     font-weight: 700;
     padding: 12px 16px;
     border-radius: var(--global-border-radius);
-    transition: color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       color: $brand-primary;
@@ -2707,7 +2706,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+  transition: all 0.3s;
 
   &.active {
     background: $brand-primary;
@@ -2716,13 +2715,13 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   }
 }
 
-:where(html.dark) .course-tab {
+html.dark .course-tab {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
   border-color: var(--el-border-color);
 }
 
-:where(html.dark) .course-tab.active {
+html.dark .course-tab.active {
   background: var(--el-color-primary);
   color: var(--el-text-color-primary);
   border-color: var(--el-color-primary);
@@ -2744,12 +2743,12 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
   overflow: hidden;
-  transition: transform 0.4s, border-color 0.4s, border-width 0.4s;
+  transition: all 0.4s;
   cursor: pointer;
 
   &:hover {
     border: var(--el-border-width-primary) solid var(--el-color-primary);
-    
+    transform: translateY(-4px);
   }
 
   .course-cover {
@@ -2850,17 +2849,17 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   padding: 32px 28px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: border-color 0.4s;
+  transition: all 0.4s;
   background: transparent;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
+    border-color: rgba($brand-primary, 0.2);
   }
 
   .uc-number {
     font-size: 48px;
-    font-weight: 800;
-    color: var(--el-fill-color-dark);
+    font-weight: 950;
+    color: rgba($brand-primary, 0.15);
     margin-bottom: 16px;
   }
 
@@ -3059,17 +3058,17 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   padding: 32px;
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
-  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   background: transparent;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
+    border-color: rgba($brand-primary, 0.25);
 
     .case-logo {
       transform: scale(1.05);
-      border-color: color-mix(in srgb, var(--el-text-color-primary) 35%, transparent);
+      border-color: rgba($brand-primary, 0.35);
     }
   }
 
@@ -3088,7 +3087,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       object-fit: cover;
       flex-shrink: 0;
       border: 2px solid var(--border-unified-color);
-      transition: transform 0.3s, border-color 0.3s;
+      transition: all 0.3s;
     }
 
     .case-info {
@@ -3132,7 +3131,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   }
 
   .case-solution .label {
-    color: var(--el-color-success);
+    color: var(--color-emerald-500);
   }
 
   .case-results {
@@ -3150,7 +3149,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       .result-value {
         display: block;
         font-size: 18px;
-        font-weight: 800;
+        font-weight: 950;
         color: $brand-primary;
         margin-bottom: 4px;
       }
@@ -3179,15 +3178,15 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   position: relative;
-  transition: border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   background: transparent;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
+    border-color: rgba($brand-primary, 0.2);
 
     .quote-icon {
       transform: scale(1.1);
-      color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
+      color: rgba($brand-primary, 0.2);
     }
 
     .author-avatar {
@@ -3201,9 +3200,9 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     left: 32px;
     font-size: 72px;
     font-weight: 900;
-    color: color-mix(in srgb, var(--el-text-color-primary) 15%, transparent);
+    color: rgba($brand-primary, 0.15);
     line-height: 1;
-    transition: transform 0.3s, color 0.3s;
+    transition: all 0.3s;
   }
 
   .testimonial-content {
@@ -3231,7 +3230,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
       object-fit: cover;
       flex-shrink: 0;
       border: 2px solid var(--border-unified-color);
-      transition: transform 0.3s;
+      transition: all 0.3s;
     }
 
     .author-info {
@@ -3283,11 +3282,11 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     border-radius: var(--global-border-radius);
     font-size: 14px;
     font-weight: 800;
-    transition: transform 0.3s, border-color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
-      
-      border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
+      transform: translateY(-4px);
+      border-color: rgba($brand-primary, 0.2);
     }
   }
 }
@@ -3307,14 +3306,14 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   text-align: center;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   background: transparent;
 
   &:hover {
-    
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 25%, transparent);
+    transform: translateY(-6px);
+    border-color: rgba($brand-primary, 0.25);
 
     &::before {
       opacity: 1;
@@ -3359,10 +3358,10 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   padding: 32px 24px;
   border-radius: var(--global-border-radius);
   text-align: center;
-  transition: transform 0.3s;
+  transition: all 0.3s;
 
   &:hover {
-    
+    transform: translateY(-4px);
 
     .service-icon {
       color: var(--el-bg-color);
@@ -3379,7 +3378,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     align-items: center;
     justify-content: center;
     font-size: 28px;
-    transition: color 0.3s;
+    transition: all 0.3s;
   }
 
   h4 {
@@ -3413,11 +3412,11 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   display: flex;
   align-items: center;
   gap: 16px;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    
-    border-color: color-mix(in srgb, var(--el-text-color-primary) 20%, transparent);
+    transform: translateY(-4px);
+    border-color: rgba($brand-primary, 0.2);
   }
 
   .resource-icon {
@@ -3454,7 +3453,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     border: none;
     cursor: pointer;
     white-space: nowrap;
-    transition: color 0.3s;
+    transition: all 0.3s;
 
     &:hover {
       color: var(--el-bg-color);
@@ -3485,7 +3484,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
     h2 {
       font-size: 36px;
-      font-weight: 800;
+      font-weight: 950;
       margin: 0 0 16px;
     }
 
@@ -3532,7 +3531,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
   h2 {
     font-size: 42px;
-    font-weight: 800;
+    font-weight: 950;
     letter-spacing: -0.02em;
   }
 
@@ -3567,7 +3566,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
   white-space: nowrap;
 
   &.primary {
@@ -3587,7 +3586,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   }
 }
 
-:where(html.dark) .btn-luxe {
+html.dark .btn-luxe {
   &.primary {
     background: var(--el-text-color-primary);
     color: var(--el-bg-color);
@@ -3602,7 +3601,6 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 
 .glass {
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: var(--unified-border);
 }
 
@@ -3826,7 +3824,7 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
 }
 
 // 深色模式下使用 $brand-primary 作为文字颜色的元素
-:where(html.dark) {
+html.dark {
   // 核心图标 - 提高选择器优先级
   .architecture-core-visual .core-node .core-icon,
   .core-icon {

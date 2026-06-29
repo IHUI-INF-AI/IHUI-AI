@@ -116,12 +116,12 @@
             <el-text copyable>{{ selectedApp.client_secret }}</el-text>
           </el-descriptions-item>
           <el-descriptions-item :label="t('oauthApps.redirectURIs')">
-            <el-tag v-for="uri in selectedApp.redirect_uris" :key="uri" class="tag-spacing">
+            <el-tag v-for="uri in selectedApp.redirect_uris" :key="uri" style="margin-right: 8px">
               {{ uri }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item :label="t('oauthApps.scopes')">
-            <el-tag v-for="scope in selectedApp.scopes" :key="scope" class="tag-spacing">
+            <el-tag v-for="scope in selectedApp.scopes" :key="scope" style="margin-right: 8px">
               {{ scope }}
             </el-tag>
           </el-descriptions-item>
@@ -179,16 +179,9 @@ const rules = {
 const loadApps = async () => {
   const data = await executeApi(() => getOAuthApps())
   if (data !== null) {
-    const listData = Array.isArray(data) ? data : (typeof data === 'object' && 'list' in data ? (data as { list?: any[] }).list : [])
+    const listData = Array.isArray(data) ? data : (typeof data === 'object' && 'list' in data ? (data as { list?: unknown[] }).list : [])
     apps.value = (listData || []) as OAuthApp[]
   }
-}
-
-const resetForm = () => {
-  appForm.app_name = ''
-  appForm.app_description = ''
-  appForm.redirect_uris_text = ''
-  appForm.scopes = ['read', 'write']
 }
 
 const handleCreate = async () => {
@@ -245,6 +238,13 @@ const handleCommand = async ({ action, app }: { action: string; app: OAuthApp })
       }
     }
   }
+}
+
+const resetForm = () => {
+  appForm.app_name = ''
+  appForm.app_description = ''
+  appForm.redirect_uris_text = ''
+  appForm.scopes = ['read', 'write']
 }
 
 onMounted(() => {
@@ -348,9 +348,5 @@ onMounted(() => {
       color: var(--el-text-color-secondary);
     }
   }
-}
-
-.tag-spacing {
-  margin-right: 8px;
 }
 </style>

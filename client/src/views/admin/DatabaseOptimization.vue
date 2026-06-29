@@ -13,13 +13,13 @@
 
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-statistic title="总表数量" :value="stats.tableCount" />
+          <el-statistic :title="t('adminCommon.stat.tableCount')" :value="stats.tableCount" />
         </el-col>
         <el-col :span="8">
-          <el-statistic title="总记录数" :value="stats.recordCount" />
+          <el-statistic :title="t('adminCommon.stat.recordCount')" :value="stats.recordCount" />
         </el-col>
         <el-col :span="8">
-          <el-statistic title="数据库大小" :value="stats.dbSize" suffix="MB" />
+          <el-statistic :title="t('adminCommon.stat.dbSize')" :value="stats.dbSize" suffix="MB" />
         </el-col>
       </el-row>
 
@@ -29,7 +29,7 @@
       <el-space>
         <el-button type="primary" @click="optimizeTables">
           <el-icon><MagicStick /></el-icon>
-          优化表结构
+          优化表结�?
         </el-button>
         <el-button type="warning" @click="clearCache">
           <el-icon><Delete /></el-icon>
@@ -37,14 +37,14 @@
         </el-button>
         <el-button type="danger" @click="vacuumDatabase">
           <el-icon><FirstAidKit /></el-icon>
-          压缩数据库
+          压缩数据�?
         </el-button>
       </el-space>
 
       <el-divider />
 
       <h3>{{ t('adminComponents.databaseOptimization.tableStatus') }}</h3>
-      <el-table :data="tableStatus" class="full-width" v-loading="loading">
+      <el-table :data="tableStatus" style="width: 100%" v-loading="loading">
         <el-table-column prop="name" label="表名" />
         <el-table-column prop="rows" label="记录数" />
         <el-table-column prop="size" label="大小 (MB)" />
@@ -204,10 +204,6 @@ onMounted(() => {
     margin: 20px 0 16px;
     font-size: 16px;
     font-weight: 500;
-  }
-
-  .full-width {
-    width: 100%;
   }
 }
 </style>

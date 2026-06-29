@@ -1,30 +1,41 @@
 {
   "agenticAI": {
-    "actions": "actions",
-    "autoOptimize": "autoOptimize",
-    "coordinationHierarchical": "coordinationHierarchical",
-    "coordinationMarketBased": "coordinationMarketBased",
-    "coordinationMode": "coordinationMode",
-    "coordinationPeerToPeer": "coordinationPeerToPeer",
-    "createAndExecute": "createAndExecute",
-    "createSwarm": "createSwarm",
-    "enterTaskDescription": "enterTaskDescription",
-    "id": "编号",
-    "maxIterations": "maxIterations",
-    "mySwarm": "mySwarm",
-    "selectSwarmHint": "selectSwarmHint",
-    "status": {
-      "completed": "已完成",
-      "failed": "失败",
-      "pending": "待处理",
+    "title": "Agentic AI",
+    "subtitle": "Agent collaboration platform - Create and manage your Agent Swarm",
+    "createSwarm": "Create Agent Swarm",
+    "taskDescription": "Task Description",
+    "taskDescriptionPlaceholder": "Please enter task description",
+    "coordinationMode": "Coordination Mode",
+    "coordinationHierarchical": "Hierarchical",
+    "coordinationPeerToPeer": "Peer-to-Peer",
+    "coordinationMarketBased": "Market-based",
+    "maxIterations": "Max Iterations",
+    "autoOptimize": "Auto Optimize (based on historical experience)",
+    "createAndExecute": "Create and Execute",
+    "mySwarm": "My Swarm",
+    "id": "ID",
+    "task": "Task",
+    "Status": {
+      "completed": "completed",
+      "Failed": "Failed",
+      "pending": "pending",
       "running": "running",
-      "title": "标题"
+      "title": "Status"
     },
-    "subtitle": "副标题",
-    "task": "任务",
-    "taskDescription": "taskDescription",
-    "taskDescriptionPlaceholder": "taskDescriptionPlaceholder",
-    "title": "标题",
-    "view": "查看"
+    "actions": "Actions",
+    "view": "View",
+    "selectSwarmHint": "Please select a swarm to view details",
+    "enterTask Description": "Please enter task description",
+    "enterTaskDescription": "Please enterTaskDescribe",
+    "status": {
+      "completed": "completed",
+      "failed": "failed",
+      "pending": "pending",
+      "running": "running",
+      "title": "Status"
+    },
+    "swarmCreated": "Swarm created successfully",
+    "createSwarmFailed": "Failed to create swarm",
+    "loadSwarmListFailed": "Failed to load swarm list"
   }
 }

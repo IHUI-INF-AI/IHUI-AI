@@ -88,6 +88,7 @@ const themeClass = computed(() => {
   padding: 20px 30px;
   background: var(--el-bg-color-overlay);
   border-radius: var(--global-border-radius);
+  box-shadow: var(--global-box-shadow);
   animation: theme-loader-pop 0.2s ease-out;
 }
 
@@ -105,7 +106,8 @@ const themeClass = computed(() => {
 
 .theme-dark .theme-loading-spinner {
   background: var(--color-black-90);
-  }
+  box-shadow: var(--global-box-shadow);
+}
 
 .theme-high-contrast .theme-loading-spinner {
   border: 2px solid currentcolor;

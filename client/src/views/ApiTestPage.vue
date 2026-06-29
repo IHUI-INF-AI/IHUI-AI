@@ -30,7 +30,7 @@
             <div class="stat-label">{{ t('apiTest.failed') }}</div>
           </div>
         </el-col>
-        <el-col :span="6" :xs="12" :sm="12">
+        <el-col :span="6">
           <div class="stat-card duration">
             <div class="stat-value">{{ summary.duration.toFixed(0) }}ms</div>
             <div class="stat-label">{{ t('apiTest.duration') }}</div>
@@ -86,7 +86,7 @@ interface TestResult {
   status: 'pass' | 'fail' | 'skip' | 'pending'
   duration?: number
   error?: string
-  response?: any
+  response?: unknown
 }
 
 interface TestSummary {
@@ -180,7 +180,7 @@ async function runTests() {
   const allResults: TestResult[] = []
   
   log('========================================')
-  log(t('ApiTestPage.startAITest'))
+  log(t('apiTestPage.startAITest'))
   log('========================================\n')
   
   try {
@@ -197,7 +197,7 @@ async function runTests() {
     
     // 测试FastAPI服务
     allResults.push(await runSingleTest(t('apiTestPage.testName.fastapiImport'), t('apiTestPage.category.chat'), async () => {
-      const module = await import('@/api/system/fastapi')
+      const module = await import('@/api/fastapi')
       if (!module.sendChatCompletion) throw new Error(t('error.api_test_page.sendChat2'))
       if (!module.createTask) throw new Error(t('error.api_test_page.createTa3'))
       return { available: true }
@@ -205,7 +205,7 @@ async function runTests() {
     
     // 测试Agent服务
     allResults.push(await runSingleTest(t('apiTestPage.testName.agentImport'), t('apiTestPage.category.chat'), async () => {
-      const module = await import('@/api/agent/agents')
+      const module = await import('@/api/agents')
       if (!module.callAgent) throw new Error(t('error.api_test_page.callAgen4'))
       if (!module.getAgentsList) throw new Error(t('error.api_test_page.getAgent5'))
       return { available: true }
@@ -213,7 +213,7 @@ async function runTests() {
     
     // 测试MCP服务
     allResults.push(await runSingleTest(t('apiTestPage.testName.mcpImport'), t('apiTestPage.category.chat'), async () => {
-      const module = await import('@/api/tools/mcp')
+      const module = await import('@/api/mcp')
       if (!module.callMCPTool) throw new Error(t('error.api_test_page.callMCPT6'))
       return { available: true }
     }))
@@ -260,7 +260,7 @@ async function runTests() {
     
     // 测试AI模型服务
     allResults.push(await runSingleTest(t('apiTestPage.testName.aiModelImport'), t('apiTestPage.category.generation'), async () => {
-      const module = await import('@/api/ai/ai-models')
+      const module = await import('@/api/ai-models')
       if (!module.audioStart) throw new Error(t('error.api_test_page.audioSta20'))
       if (!module.aliGenerateTimbre) throw new Error(t('error.api_test_page.aliGener21'))
       if (!module.soraRequest) throw new Error(t('error.api_test_page.soraRequ22'))
@@ -269,7 +269,7 @@ async function runTests() {
     
     // 测试AI生成适配器
     allResults.push(await runSingleTest(t('apiTestPage.testName.aiGenAdapterImport'), t('apiTestPage.category.generation'), async () => {
-      const module = await import('@/api/ai/ai-generation')
+      const module = await import('@/api/ai-generation')
       if (!module.generateImageQwen) throw new Error(t('error.api_test_page.generate23'))
       if (!module.generateVideoKling) throw new Error(t('error.api_test_page.generate24'))
       if (!module.generate3DModel) throw new Error(t('error.api_test_page.generate25'))
@@ -289,7 +289,7 @@ async function runTests() {
     log(t('apiTest.typeTest'))
     
     allResults.push(await runSingleTest(t('apiTestPage.testName.aiChatTypeImport'), t('apiTestPage.category.type'), async () => {
-      const module = await import('@/api/ai/ai-chat-types')
+      const module = await import('@/api/ai-chat-types')
       if (!module.isFastAPIChatResponse) throw new Error(t('error.api_test_page.类型守卫未导出27'))
       return { available: true }
     }))
@@ -395,7 +395,7 @@ async function runTests() {
 
 .stat-value {
   font-size: 32px;
-  font-weight: 700;
+  font-weight: bold;
   margin-bottom: 8px;
 }
 

@@ -1,8 +1,14 @@
 {
+  "distributionCenter": {
+    "copyImage": "画像コピー",
+    "distributionTitle": "AI智匯社 - 流通センター",
+    "imageCopied": "画像がクリップボードにコピーされました",
+    "longPressToSave": "長押しで画像を保存"
+  },
   "DistributionCenter": {
-    "copyImage": "copyImage",
-    "distributionTitle": "distributionTitle",
-    "imageCopied": "imageCopied",
-    "longPressToSave": "longPressToSave"
+    "copyImage": "画像コピー",
+    "distributionTitle": "AI智匯社 - 流通センター",
+    "imageCopied": "画像がクリップボードにコピーされました",
+    "longPressToSave": "長押しで画像を保存"
   }
 }

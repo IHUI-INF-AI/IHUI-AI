@@ -1,16 +1,18 @@
 {
   "themeToggle": {
+    "lightMode": "浅色模式",
+    "darkMode": "深色模式",
     "autoMode": "跟随系统",
-    "clickToChange": "点击 到 change",
-    "currentMode": "当前 模式",
-    "darkMode": "暗黑模式",
-    "highContrastDark": "high Contrast Dark",
-    "highContrastLight": "high Contrast Light",
-    "lightMode": "明亮模式",
-    "menuLabel": "菜单 标签",
-    "switchingToDark": "switching 到 dark",
-    "switchingToHighContrastDark": "switching 到 high contrast dark",
-    "switchingToHighContrastLight": "switching 到 high contrast light",
-    "switchingToLight": "switching 到 light"
+    "currentMode": "当前主题",
+    "clickToChange": "点击更改",
+    "menuLabel": "主题选择菜单",
+    "switchingToDark": "正在切换到深色模式...",
+    "switchingToLight": "正在切换到浅色模式...",
+    "highContrastLight": "高对比度浅色",
+    "highContrastDark": "高对比度深色",
+    "switchingToHighContrastLight": "正在切换到高对比度浅色模式...",
+    "switchingToHighContrastDark": "正在切换到高对比度深色模式...",
+    "switchToLight": "切换到亮色模式",
+    "switchToDark": "切换到暗色模式"
   }
 }

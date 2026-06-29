@@ -70,6 +70,9 @@
     "totalShares": "总分享次数",
     "currentShares": "当前分享次数",
     "shareSources": "分享来源",
-    "wechatConfigFailed": "微信分享配置失败，请使用二维码分享"
+    "wechatConfigFailed": "微信分享配置失败，请使用二维码分享",
+    "qrCodeGenerateFailed": "生成二维码失败",
+    "qrCodeNotGenerated": "二维码未生成",
+    "contentDetails": "内容详情"
   }
 }

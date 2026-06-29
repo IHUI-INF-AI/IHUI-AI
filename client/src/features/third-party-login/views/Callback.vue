@@ -10,7 +10,7 @@
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
       <div v-if="errorMessage" class="error-actions">
         <el-button type="primary" size="small" @click="retryLogin">{{ t('common.retry') }}</el-button>
-        <el-button size="small" @click="router.push('/login')">{{ t('common.backToLogin') }}</el-button>
+        <el-button size="small" @click="goBackToLogin">{{ t('common.backToLogin') }}</el-button>
       </div>
     </div>
 
@@ -30,6 +30,7 @@ import * as authApi from '../api'
 import { initiateGoogleOAuth } from '../api/google'
 import { initiateAppleOAuth } from '../api/apple'
 import { AuthFlowService } from '@/services/auth-flow.service'
+import { useLoginDialog } from '@/composables/useLoginDialog'
 import logger from '@/utils/logger'
 
 const route = useRoute()
@@ -39,9 +40,9 @@ const statusMessage = ref(t('auth.processing'))
 const errorMessage = ref('')
 
 // 统一处理登录成功逻辑 - 优化版本，使用 AuthFlowService
-const handleLoginSuccess = async (data: any) => {
+const handleLoginSuccess = async (data: unknown) => {
   const loginData =
-    data && typeof data === 'object' ? (data as { token?: string; user?: any; refreshToken?: string }) : {}
+    data && typeof data === 'object' ? (data as { token?: string; user?: unknown; refreshToken?: string }) : {}
   const token = loginData.token || ''
   const user = loginData.user as Record<string, unknown> | undefined
   const refreshToken = loginData.refreshToken || ''
@@ -118,7 +119,7 @@ const handleGenericCallback = async (handler: CallbackHandler, providerName: str
       const errorMsg = (resultData as { message?: string })?.message || getI18nGlobal().t('common.loginFailed')
       throw new Error(errorMsg)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const msg = String(errorMessage || '')
 
@@ -138,8 +139,17 @@ const handleGenericCallback = async (handler: CallbackHandler, providerName: str
   }
 }
 
+// 返回登录：弹窗模式，跳首页 + 弹出登录弹窗
+const goBackToLogin = () => {
+  router.replace('/').then(() => {
+    useLoginDialog().open('login')
+  }).catch(() => {
+    useLoginDialog().open('login')
+  })
+}
+
 const retryLogin = async () => {
-  const name = String((route as any).name || '')
+  const name = String(route.name || '')
   try {
     if (name === 'GoogleCallback') {
       const url = await initiateGoogleOAuth()
@@ -151,9 +161,10 @@ const retryLogin = async () => {
       window.location.href = url
       return
     }
-    router.push('/login')
+    // 兜底：跳首页 + 弹出登录弹窗
+    goBackToLogin()
   } catch {
-    router.push('/login')
+    goBackToLogin()
   }
 }
 
@@ -224,7 +235,7 @@ const handleAppleCallback = () => {
 
 onMounted(() => {
   // 根据路由名称处理对应的回调
-  switch ((route as any).name) {
+  switch (route.name) {
 
     case 'GoogleCallback':
       handleGoogleCallback()

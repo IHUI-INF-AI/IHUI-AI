@@ -1,6 +1,6 @@
 {
   "moduleHot": {
-    "refresh": "换一换",
-    "noRecommendation": "暂无推荐"
+    "noRecommendation": "추천 없음",
+    "refresh": "새로고침"
   }
 }

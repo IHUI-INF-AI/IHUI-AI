@@ -1,0 +1,18 @@
+{
+  "adminCourseAuditManagement": {
+    "search": {
+      "export": "エクスポート"
+    },
+    "table": {},
+    "auditType": {},
+    "auditStatus": {
+      "approved": "承認",
+      "rejected": "拒いいえ"
+    },
+    "dialogs": {},
+    "messages": {
+      "exportSuccess": "エクスポート成功",
+      "exportFailed": "エクスポートに失敗"
+    }
+  }
+}

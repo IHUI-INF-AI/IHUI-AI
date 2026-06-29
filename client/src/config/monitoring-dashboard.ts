@@ -241,7 +241,7 @@ export const sentryConfig = {
     'ReportingObserver',
     'HttpContext',
   ],
-  beforeSend(event: any) {
+  beforeSend(event: unknown) {
     // 过滤敏感信息
     return event
   },

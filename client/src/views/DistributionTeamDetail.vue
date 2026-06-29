@@ -42,7 +42,7 @@
       <template #header>
         <span>{{ t('distributionTeamDetail.subordinatesList') }}</span>
       </template>
-      <el-table :data="subordinatesList" v-loading="loadingSubordinates" class="full-width">
+      <el-table :data="subordinatesList" v-loading="loadingSubordinates" style="width: 100%">
         <el-table-column prop="username" :label="t('distributionTeamDetail.username')" width="150">
           <template #default="{ row }">
             <div class="user-cell">
@@ -82,7 +82,7 @@
       <template #header>
         <span>{{ t('distributionTeamDetail.ordersList') }}</span>
       </template>
-      <el-table :data="ordersList" v-loading="loadingOrders" class="full-width">
+      <el-table :data="ordersList" v-loading="loadingOrders" style="width: 100%">
         <el-table-column
           prop="order_no"
           :label="t('distributionTeamDetail.orderNo')"
@@ -90,7 +90,7 @@
         />
         <el-table-column prop="amount" :label="t('distributionTeamDetail.amount')" width="120">
           <template #default="{ row }">
-            <span class="amount-text">
+            <span style="color: var(--el-color-primary); font-weight: bold">
               ¥{{ (row.amount / 100).toFixed(2) }}
             </span>
           </template>
@@ -122,7 +122,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { User } from '@/lib/lucide-fallback'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
-import { getSubordinates, getUserAndChildrenOrders, type SubordinateUser } from '@/api/distribution/distribution'
+import { getSubordinates, getUserAndChildrenOrders, type SubordinateUser } from '@/api/distribution'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
@@ -182,7 +182,7 @@ const loadOrders = async () => {
     quantity: 20,
   }))
   if (data !== null && typeof data === 'object' && 'list' in data) {
-    ordersList.value = (data as { list?: any[] }).list || []
+    ordersList.value = (data as { list?: unknown[] }).list || []
   }
 }
 
@@ -227,7 +227,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -246,11 +246,11 @@ onMounted(() => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -265,7 +265,7 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -278,7 +278,7 @@ onMounted(() => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -335,14 +335,5 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.full-width {
-  width: 100%;
-}
-
-.amount-text {
-  color: var(--el-color-primary);
-  font-weight: 700;
 }
 </style>

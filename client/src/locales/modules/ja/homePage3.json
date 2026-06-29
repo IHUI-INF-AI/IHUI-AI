@@ -1,12 +1,38 @@
 {
   "homePage3": {
-    "empty": {
-      "external": "external",
-      "platform": "platform"
-    },
     "tabs": {
-      "external": "external",
-      "platform": "platform"
+      "platform": "プラットフォームニュース",
+      "external": "AIニュース"
+    },
+    "empty": {
+      "platform": "プラットフォームニュースはありません",
+      "external": "AIニュースはありません"
+    },
+    "title": "最新情報",
+    "titleEn": "LATEST NEWS",
+    "subtitle": "プラットフォームの動向を把握し、AIの最前線を知る",
+    "refresh": "更新",
+    "refreshing": "更新中...",
+    "summary": {
+      "default": "概要情報はありません"
+    },
+    "date": {
+      "today": "今日",
+      "yesterday": "昨日",
+      "daysAgo": "{days}日前",
+      "weeksAgo": "{weeks}週間前",
+      "monthsAgo": "{months}ヶ月前"
+    },
+    "messages": {
+      "fetching": "最新ニュースを取得中...",
+      "fetchSuccess": "{count}件のニュースを取得し、{saved}件を保存しました",
+      "fetchWarning": "新しいニュースはありません、後でもう一度お試しください",
+      "fetchError": "更新に失敗しました、ネットワーク接続を確認してください",
+      "viewNews": "ニュースを見る: {title}"
+    },
+    "errors": {
+      "loadFailed": "プラットフォームニュースの読み込みに失敗しました",
+      "apiLoadFailed": "APIの読み込みに失敗しました、デフォルトのプラットフォームニュースを使用します"
     }
   }
 }

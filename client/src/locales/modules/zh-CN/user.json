@@ -1,243 +1,246 @@
 {
   "user": {
+    "quickActions": "快捷操作",
+    "menu": {
+      "profile": "个人信息",
+      "security": "账户安全",
+      "messages": "消息中心",
+      "privacy": "隐私设置",
+      "settings": "系统设置",
+      "orders": "订单管理",
+      "uploadAgent": "上传智能体",
+      "favorites": "我的收藏",
+      "purchases": "我的购买",
+      "examine": "我的审核",
+      "statistics": "数据统计",
+      "developer": "开发者管理",
+      "purchaseRecords": "购买记录",
+      "apiService": "API服务",
+      "benefits": "Benefits",
+      "study": "Study"
+    },
     "apiService": {
-      "description": "描述",
-      "title": "标题"
+      "title": "API服务",
+      "description": "管理您的API令牌和查看使用统计"
     },
-    "benefits": {
-      "description": "描述",
-      "title": "标题"
-    },
-    "common": {
-      "prompt": "提示词"
-    },
-    "dialogs": {
-      "removeDevice": {
-        "confirm": "确认"
+    "sections": {
+      "profile": {
+        "title": "个人信息",
+        "description": "管理您的个人资料和账户信息"
+      },
+      "security": {
+        "title": "账户安全",
+        "description": "保护您的账户安全，管理密码和登录方式"
+      },
+      "messages": {
+        "description": "查看系统通知和消息"
+      },
+      "privacy": {
+        "description": "管理您的隐私偏好设置"
+      },
+      "settings": {
+        "description": "配置您的系统偏好和显示选项"
+      },
+      "orders": {
+        "description": "查看和管理您的订单"
+      },
+      "upload": {
+        "title": "上传智能体",
+        "description": "创建和上传您的AI智能体"
+      },
+      "favorites": {
+        "description": "查看您收藏的智能体和内容"
+      },
+      "purchases": {
+        "description": "查看您的购买记录"
+      },
+      "examine": {
+        "description": "查看您的审核状态和记录"
+      },
+      "statistics": {
+        "description": "查看您的使用数据和统计信息"
+      },
+      "developer": {
+        "description": "管理您的开发者续费记录"
+      },
+      "purchaseRecords": {
+        "description": "查看和管理您的智能体购买记录"
       }
     },
-    "examine": {
-      "title": "标题"
+    "privacy": {
+      "title": "隐私设置"
+    },
+    "settings": {
+      "title": "系统设置"
     },
     "favorites": {
-      "title": "标题"
+      "title": "我的收藏"
     },
-    "menu": {
-      "apiService": "API 服务",
-      "benefits": "权益",
-      "developer": "开发者",
-      "examine": "审核",
-      "favorites": "收藏",
-      "messages": "消息",
-      "orders": "订单",
-      "privacy": "隐私",
-      "profile": "资料",
-      "purchaseRecords": "购买记录",
-      "purchases": "已购",
-      "security": "安全",
-      "settings": "设置",
-      "statistics": "统计",
-      "study": "学习",
-      "uploadAgent": "上传智能体"
+    "purchases": {
+      "title": "我的购买"
+    },
+    "examine": {
+      "title": "我的审核"
+    },
+    "statistics": {
+      "title": "数据统计",
+      "withdrawal": {
+        "status": {
+          "approved": "approved",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "rejected": "rejected",
+          "unknown": "unknown",
+          "withdrawn": "withdrawn"
+        },
+        "errors": {
+          "invalidAmount": "请输入提现金额",
+          "invalidAccount": "请输入收款账号",
+          "amountExceedsBalance": "提现金额不能超过可提现金额"
+        },
+        "success": {
+          "submitSuccess": "提现申请提交成功"
+        }
+      },
+      "description": "描述"
+    },
+    "sidebar": {
+      "ariaLabel": "用户中心导航",
+      "menuAriaLabel": "用户中心菜单",
+      "unreadMessages": "{label}有{count}条未读消息"
+    },
+    "validation": {
+      "nickname": "请输入昵称",
+      "nicknameLength": "昵称长度应在2-20个字符之间",
+      "email": "请输入有效的邮箱地址",
+      "emailRequired": "请输入邮箱",
+      "phone": "请输入有效的手机号",
+      "phoneRequired": "请输入手机号",
+      "signatureLength": "个性签名不能超过100个字符",
+      "oldPassword": "请输入原密码",
+      "newPassword": "请输入新密码",
+      "confirmPassword": "请确认密码",
+      "passwordStrength": "密码长度至少8位，包含字母和数字",
+      "passwordMatch": "两次输入的密码不一致"
+    },
+    "strength": {
+      "weak": "弱",
+      "medium": "中",
+      "strong": "强"
     },
     "messages": {
+      "title": "消息中心",
       "allRead": "全部已读",
-      "clearCacheCancelButton": "取消",
-      "clearCacheConfirm": "确认清空缓存?",
-      "clearCacheConfirmButton": "确认",
-      "clearCacheFailed": "清空缓存失败",
-      "clearCacheSuccess": "清空缓存成功",
-      "clearCacheTitle": "清空缓存",
-      "deleteSuccess": "删除成功",
+      "saveSuccess": "保存成功",
+      "saveFailedRetry": "保存失败，请重试",
+      "emailRequired": "请先输入邮箱",
+      "emailVerificationSent": "验证码已发送，请查收邮件",
+      "phoneRequired": "请先输入手机号",
+      "phoneVerificationSent": "验证码已发送，请查收短信",
+      "passwordChanged": "密码修改成功",
+      "passwordChangeFailedRetry": "密码修改失败，请重试",
       "deviceRemoved": "设备已移除",
-      "emailRequired": "请输入邮箱",
-      "emailVerificationSent": "验证邮件已发送",
-      "examineApproveSuccess": "审核通过",
-      "examineRejectSuccess": "审核已拒绝",
-      "exportDataCancelButton": "取消",
-      "exportDataConfirm": "确认导出数据?",
-      "exportDataConfirmButton": "确认导出",
-      "exportDataFailed": "导出数据失败",
-      "exportDataSuccess": "导出数据成功",
-      "exportDataTitle": "导出数据",
-      "languageSaveFailed": "语言保存失败",
-      "languageSaveSuccess": "语言保存成功",
-      "loadMessageSquaresFailed": "加载消息广场失败",
-      "loadMessageSquaresFailedRetry": "重试",
-      "markedRead": "已读",
-      "messages": "消息",
-      "notificationSaveFailed": "通知保存失败",
-      "notificationSaveSuccess": "通知保存成功",
-      "orderStatus": {
-        "cancelled": "已取消",
-        "completed": "已完成",
-        "failed": "失败",
-        "pending": "待处理",
-        "processing": "处理中"
+      "settings": {
+        "appSettingsUpdateSuccess": "appSettingsUpdate成功",
+        "appSettingsUpdateFailed": "appSettingsUpdate失败",
+        "dataClearSuccess": "dataClear成功",
+        "dataClearFailed": "dataClear失败",
+        "insufficientPermissionClearData": "无效sufficientPermissionClearData",
+        "passwordConfirmRequired": "密码确认必填",
+        "accountDeletionSuccess": "accountDeletion成功",
+        "accountDeletionFailed": "accountDeletion失败",
+        "passwordError": "密码错误",
+        "insufficientPermissionDeleteAccount": "无效sufficientPermissionDeleteAccount",
+        "notificationUpdateSuccess": "无tificationUpdate成功",
+        "notificationUpdateFailed": "无tificationUpdate失败",
+        "privacyUpdateSuccess": "privacyUpdate成功",
+        "privacyUpdateFailed": "privacyUpdate失败",
+        "passwordRequired": "密码必填",
+        "passwordMismatch": "PasswordMismatch",
+        "passwordTooShort": "PasswordTooShort",
+        "passwordChangeSuccess": "passwordChange成功",
+        "passwordChangeFailed": "passwordChange失败",
+        "profileUpdateSuccess": "profileUpdate成功",
+        "profileUpdateFailed": "profileUpdate失败",
+        "imageFormatError": "imageFormat错误",
+        "imageSizeError": "imageSize错误",
+        "avatarUploadSuccess": "avatarUpload成功",
+        "avatarUploadFailed": "avatarUpload失败",
+        "imageTooLarge": "图片Too大",
+        "unsupportedImageFormat": "未supportedImageFormat"
       },
+      "examineApproveSuccess": "examineApprove成功",
+      "examineRejectSuccess": "examineReject成功",
+      "loadMessageSquaresFailed": "loadMessageSquares失败",
+      "loadMessageSquaresFailedRetry": "负载MessageSquaresFailed重试",
+      "markedRead": "MarkedRead",
+      "messages": "消息",
+      "deleteSuccess": "删除成功",
       "orderType": {
-        "consumption": "消耗",
         "recharge": "充值",
+        "consumption": "Consumption",
         "refund": "退款",
         "withdraw": "提现"
       },
-      "passwordChangeFailedRetry": "重试",
-      "passwordChanged": "密码已修改",
-      "phoneRequired": "请输入手机号",
-      "phoneVerificationSent": "手机 verification sent",
-      "privacySaveFailed": "隐私 保存 失败",
-      "privacySaveSuccess": "隐私 保存 成功",
-      "saveFailedRetry": "保存 失败 重试",
-      "saveSuccess": "保存成功",
-      "settings": {
-        "accountDeletionFailed": "账号 deletion 失败",
-        "accountDeletionSuccess": "账号 deletion 成功",
-        "appSettingsUpdateFailed": "app 设置 更新 失败",
-        "appSettingsUpdateSuccess": "app 设置 更新 成功",
-        "avatarUploadFailed": "头像上传失败",
-        "avatarUploadSuccess": "头像上传成功",
-        "dataClearFailed": "数据 清空 失败",
-        "dataClearSuccess": "数据清空成功",
-        "imageFormatError": "图片 format 错误",
-        "imageSizeError": "图片 大小 错误",
-        "imageTooLarge": "图片 too large",
-        "insufficientPermissionClearData": "insufficient 权限 清空 数据",
-        "insufficientPermissionDeleteAccount": "insufficient 权限 删除 账号",
-        "notificationUpdateFailed": "通知 更新 失败",
-        "notificationUpdateSuccess": "通知 更新 成功",
-        "passwordChangeFailed": "密码 change 失败",
-        "passwordChangeSuccess": "密码 change 成功",
-        "passwordConfirmRequired": "密码 确认 必填",
-        "passwordError": "密码 错误",
-        "passwordMismatch": "两次密码不一致",
-        "passwordRequired": "请输入密码",
-        "passwordTooShort": "密码至少 8 位",
-        "privacyUpdateFailed": "隐私 更新 失败",
-        "privacyUpdateSuccess": "隐私 更新 成功",
-        "profileUpdateFailed": "资料更新失败",
-        "profileUpdateSuccess": "资料 更新 成功",
-        "unsupportedImageFormat": "unsupported 图片 format"
+      "orderStatus": {
+        "pending": "待处理",
+        "processing": "处理中...",
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消"
       },
-      "themeSaveFailed": "主题 保存 失败",
-      "themeSaveSuccess": "主题 保存 成功",
-      "title": "标题",
-      "uploadIncomplete": "上传 incomplete",
-      "uploadSuccess": "上传成功",
-      "userInfoNotFound": "用户 信息 非 found"
+      "privacySaveSuccess": "privacySave成功",
+      "privacySaveFailed": "privacySave失败",
+      "notificationSaveSuccess": "无tificationSave成功",
+      "notificationSaveFailed": "无tificationSave失败",
+      "themeSaveSuccess": "themeSave成功",
+      "themeSaveFailed": "themeSave失败",
+      "languageSaveSuccess": "languageSave成功",
+      "languageSaveFailed": "languageSave失败",
+      "exportDataConfirm": "exportData确认",
+      "exportDataTitle": "exportData标题",
+      "exportDataConfirmButton": "Export数据确认Button",
+      "exportDataCancelButton": "Export数据取消Button",
+      "userInfoNotFound": "User信息NotFound",
+      "exportDataSuccess": "exportData成功",
+      "exportDataFailed": "exportData失败",
+      "clearCacheConfirm": "clearCache确认",
+      "clearCacheTitle": "clearCache标题",
+      "clearCacheConfirmButton": "清除缓存确认Button",
+      "clearCacheCancelButton": "清除缓存取消Button",
+      "clearCacheSuccess": "clearCache成功",
+      "clearCacheFailed": "clearCache失败",
+      "uploadIncomplete": "UploadIncomplete",
+      "uploadSuccess": "上传成功"
+    },
+    "common": {
+      "prompt": "提示"
+    },
+    "dialogs": {
+      "removeDevice": {
+        "confirm": "确定要移除此设备吗？移除后该设备需要重新登录。"
+      }
     },
     "priority": {
-      "high": "高",
       "low": "低",
       "medium": "中",
-      "urgent": "紧急"
+      "high": "高",
+      "urgent": "Urgent"
     },
-    "privacy": {
-      "title": "标题"
-    },
-    "purchases": {
-      "title": "标题"
-    },
-    "quickActions": "快捷操作",
-    "sections": {
-      "developer": {
-        "description": "描述"
-      },
-      "examine": {
-        "description": "描述"
-      },
-      "favorites": {
-        "description": "描述"
-      },
-      "messages": {
-        "description": "描述"
-      },
-      "orders": {
-        "description": "描述"
-      },
-      "privacy": {
-        "description": "描述"
-      },
-      "profile": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "purchaseRecords": {
-        "description": "描述"
-      },
-      "purchases": {
-        "description": "描述"
-      },
-      "security": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "settings": {
-        "description": "描述"
-      },
-      "statistics": {
-        "description": "描述"
-      },
-      "upload": {
-        "description": "描述",
-        "title": "标题"
-      }
-    },
-    "settings": {
-      "title": "标题"
-    },
-    "sidebar": {
-      "ariaLabel": "aria 标签",
-      "menuAriaLabel": "菜单 aria 标签",
-      "unreadMessages": "未读消息"
-    },
-    "statistics": {
-      "description": "描述",
-      "title": "标题",
-      "withdrawal": {
-        "errors": {
-          "amountExceedsBalance": "金额 exceeds 余额",
-          "invalidAccount": "格式不正确 账号",
-          "invalidAmount": "金额无效"
-        },
-        "status": {
-          "approved": "已通过",
-          "inReview": "在 review",
-          "pendingReview": "待处理 review",
-          "rejected": "已拒绝",
-          "unknown": "未知",
-          "withdrawn": "已提现"
-        },
-        "success": {
-          "submitSuccess": "提交成功"
-        }
-      }
-    },
-    "strength": {
-      "medium": "中",
-      "strong": "强",
-      "weak": "弱"
+    "benefits": {
+      "description": "Description",
+      "title": "Title"
     },
     "study": {
-      "description": "描述",
-      "title": "标题"
+      "description": "Description",
+      "title": "Title"
     },
-    "validation": {
-      "confirmPassword": "确认密码",
-      "email": "邮箱",
-      "emailRequired": "请输入邮箱",
-      "newPassword": "新密码",
-      "nickname": "昵称",
-      "nicknameLength": "nickname 长度",
-      "oldPassword": "旧密码",
-      "passwordMatch": "密码 match",
-      "passwordStrength": "密码强度",
-      "phone": "手机号",
-      "phoneRequired": "请输入手机号",
-      "signatureLength": "signature 长度"
-    }
+    "nickname": "昵称",
+    "nickname2": "昵称"
   },
   "User": {
+    "inputplaceholder": "input[placeholder*=",
     "nickname": "昵称",
-    "nickname2": "昵称 2"
+    "nickname2": "昵称"
   }
 }

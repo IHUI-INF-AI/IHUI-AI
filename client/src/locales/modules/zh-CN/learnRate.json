@@ -1,8 +1,6 @@
 {
   "learnRate": {
-    "content": "内容",
-    "rating": "评分",
-    "reviews": "评论",
-    "writeReview": "write Review"
+    "reviews": "条评价",
+    "writeReview": "写评价"
   }
 }

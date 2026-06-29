@@ -1,1 +1,10 @@
-{}
+{
+  "connectionStatus": {
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "reconnecting": "Reconnecting",
+    "disconnected": "Disconnected",
+    "error": "Connection Error",
+    "reconnectAttempts": "Reconnect attempts: {attempts}/{maxAttempts}"
+  }
+}

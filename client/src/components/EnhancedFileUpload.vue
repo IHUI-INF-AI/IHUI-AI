@@ -26,7 +26,7 @@
         <p class="upload-text">{{ uploadText }}</p>
         <p class="upload-hint">{{ hint }}</p>
         <div v-if="folderMode" class="folder-mode-badge">
-          <el-tag size="small" type="info">{{ t('cmpEnhancedFileUpload.folderMode') }}</el-tag>
+          <el-tag size="small" type="info">{ t('cmpEnhancedFileUpload.folderMode') }</el-tag>
         </div>
       </div>
       
@@ -485,7 +485,7 @@ defineExpose({
   padding: 40px 20px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.3s ease, background-color 0.3s ease;
+  transition: all 0.3s ease;
   background: var(--el-fill-color-light);
 }
 

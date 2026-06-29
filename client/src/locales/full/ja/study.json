@@ -47,13 +47,7 @@
     "uploadCover": "カバーをアップロードしてください",
     "enterGroupTitle": "グループタイトルを入力してください",
     "enterGroupDesc": "グループ説明を入力してください",
-    "selectTrack": "メインとサブトラックを選択してください",
-    "subTrack": "サブトラック",
-    "pleaseSelect": "選択してください",
-    "uploadVideo": "動画をアップロード",
-    "publish": "公開",
-    "edit": "編集",
-    "delist": "掲載終了"
+    "selectTrack": "メインとサブトラックを選択してください"
   },
   "studyIndexModelList": {
     "loading": "読み込み中...",

@@ -1,43 +1,43 @@
 {
   "designer": {
+    "mode": "模式",
+    "labels": {
+      "strategy": "設計策略",
+      "audit": "設計審核",
+      "blueprint": "設計蓝图",
+      "code": "設計代码"
+    },
+    "model": "模型",
+    "selectModel": "選擇模型",
+    "input": "輸入",
+    "placeholder": "請輸入您的需求...",
     "actions": {
-      "generate": "generate",
+      "generate": "生成",
       "reset": "重置"
     },
-    "empty": "empty",
+    "tabs": {
+      "output": "输出",
+      "vue": "Vue",
+      "react": "React",
+      "html": "HTML"
+    },
+    "empty": "暫無內容",
+    "prompts": {
+      "line1": "你是一個專業的AI設計助手",
+      "line2": "根据用戶的需求，生成相應的設計內容",
+      "line3": "输出格式清晰，易於理解",
+      "line4": "確保內容的專業性和准确性"
+    },
     "errors": {
-      "enterRequirement": "enterRequirement",
-      "generateFailed": "generateFailed",
-      "selectModel": "selectModel"
+      "selectModel": "請選擇模型",
+      "enterRequirement": "請輸入需求",
+      "generateFailed": "生成失敗"
     },
     "expect": {
-      "audit": "审计",
-      "blueprint": "blueprint",
-      "code": "代码",
-      "strategy": "strategy"
-    },
-    "input": "输入",
-    "labels": {
-      "audit": "审计",
-      "blueprint": "blueprint",
-      "code": "代码",
-      "strategy": "strategy"
-    },
-    "mode": "mode",
-    "model": "模型",
-    "placeholder": "请输入",
-    "prompts": {
-      "line1": "line1",
-      "line2": "line2",
-      "line3": "line3",
-      "line4": "line4"
-    },
-    "selectModel": "selectModel",
-    "tabs": {
-      "html": "html",
-      "output": "输出",
-      "react": "react",
-      "vue": "vue"
+      "strategy": "設計策略",
+      "audit": "設計審核",
+      "blueprint": "設計蓝图",
+      "code": "設計代码"
     }
   }
 }

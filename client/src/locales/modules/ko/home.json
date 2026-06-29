@@ -1,6 +1,7 @@
 {
   "home": {
     "input": {
+      "placeholder": "요구 생각항을 설명석해 주의세요...",
       "inputTooShort": "입력이 너무 짧습니다",
       "inputTooLong": "입력이 너무 깁니다",
       "error": "입력 오류",
@@ -23,6 +24,7 @@
         "other": "기타"
       },
       "noModelData": "없음{type}모델데이마음",
+      "loadModelFailed": "모델 목이것은 로드 실패, 잠시 후 재시도",
       "apiAccess": "API통합장벽"
     },
     "button": {
@@ -47,8 +49,8 @@
       "downloadSuccess": "다운로드 성공",
       "downloadFailed": "다운로드 실패"
     },
+    "welcome": "스마트 AI 커뮤니티에 오신 것을 환영합니다",
     "page1": {
-      "brandWelcome": "WELCOME 智汇 INF . AI",
       "content": "스마트 AI커뮤니티，탐색AI무제한가능성",
       "ctaPrimary": "지금 체험",
       "ctaSecondary": "게세히 보기"
@@ -59,10 +61,11 @@
       "content": "글로벌 최고 수준의 AI 서비스를 탐색하고, 모델 통합부터 앱 스토어까지 다양한 요구를 충족합니다",
       "features": {
         "modelIntegration": "다중 모델 통합",
-        "appStore": "AI 앱 스토어",
+        "appStore": "에이전트",
         "contentCreation": "콘텐츠 창작",
         "edu": "AI교육",
-        "navigation": "스마트탐색"
+        "navigation": "스마트탐색",
+        "mcpUse": "MCP생각사용"
       },
       "advantages": {
         "핵심 장점": "핵심 장점",
@@ -92,7 +95,7 @@
         "titleEn": "CoreAdvantages",
         "subtitle": "왜 스마트 AI를 선택하나요"
       },
-      "title": "강력한 기능",
+      "title": "강력한대사용량기능",
       "titleEn": "PowerfulFeatures"
     },
     "page3": {
@@ -116,7 +119,7 @@
       "content": "다양한 요구에 맞는 유연한 가격 플랜으로 AI 여정을 시작하세요",
       "sub핵심 장점": "다양한 요구에 맞는 유연한 가격 플랜",
       "title": "귀하에게 맞는 패키지 선택",
-      "titleEn": "ChooseYourPlan",
+      "titleEn": "ChooseYour계획",
       "subtitle": "다양한 요구의 생각사용게에게 유연한 가격 솔루션 제공"
     },
     "page5": {
@@ -130,7 +133,6 @@
     "marquee": {
       "kouzi": "쿠자 아이콘",
       "bbxLogo": "바이샹 로고",
-      "brand4": "브랜드아이콘",
       "zhipu": "즈푸 청옌",
       "brand8": "브랜드8",
       "openai": "OpenAI",
@@ -142,7 +144,8 @@
       "yuanbaoxiang": "위안바오샹",
       "yushu": "위수 로보틱스",
       "dbsfdx": "둥베이 사범대학",
-      "jldx": "지린 대학"
+      "jldx": "지린 대학",
+      "n8n": "n8n"
     },
     "miniappBtn": "WeChat 미니프로그램",
     "miniappModal": {
@@ -159,28 +162,37 @@
       "핵심 장점": "신규 회원 특별 혜택!",
       "sub핵심 장점": "지금 구독하고 더블 포인트를 받으세요!",
       "doublePoints": "2배 포인트",
+      "credits": {
+        "starter": "Starter {total} 포인트 획득 (추가 {extra})",
+        "basic": "Basic {total} 포인트 획득 (추가 {extra})",
+        "pro": "Pro {total} 포인트 획득 (추가 {extra})"
+      },
+      "hint": "지금 구독하면 첫 달에 {highlight} 획득",
       "primaryButton": "추가 포인트 획득",
       "secondaryLink": "내미필요무료축적분할",
       "close": "닫기",
       "title": "신규 회원 특별 혜택!",
       "subtitle": "지금 구독하고 더블 포인트를 받으세요!"
     },
+    "comments": {
+      "mainContent": "홈 콘텐츠: 아래로 평면 표시",
+      "firstPage": "첫 번째 페이지",
+      "mainTitle": "중앙 메인 제목",
+      "interactiveText": "원래의 인터랙티브 텍스트 효과 유지 (AI 선택)",
+      "secondPage": "두 번째 페이지",
+      "featuresGrid": "기능 그리드 표시"
+    },
+    "features": {
+      "modelIntegration": "모델통합",
+      "appStore": "AppStore",
+      "contentCreation": "Content혁신축",
+      "edu": "Edu",
+      "navigation": "탐색"
+    },
     "hardcoded": {
       "hot": "인기",
       "news": "뉴스",
       "aiNews": "AI 뉴스"
-    },
-    "wheelSensitivityLabel": "휠 감도",
-    "marqueeSpeedLabel": "스크롤 속도",
-    "clickToResume": "클릭하여 스크롤 재개",
-    "clickToPause": "클릭하여 스크롤 일시정지",
-    "resumeScroll": "재개",
-    "pauseScroll": "일시정지",
-    "sensitivityLow": "낮음",
-    "sensitivityMid": "중간",
-    "sensitivityHigh": "높음",
-    "speedSlow": "느림",
-    "speedMid": "중간",
-    "speedFast": "빠름"
+    }
   }
 }

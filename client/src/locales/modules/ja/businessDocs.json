@@ -1,256 +1,262 @@
 {
   "businessDocs": {
     "changelog": {
+      "title": "Version Changelog",
       "items": {
-        "v090[0]": "v090[0]",
-        "v090[1]": "v090[1]",
-        "v090[2]": "v090[2]",
-        "v090[3]": "v090[3]",
-        "v100[0]": "v100[0]",
-        "v100[1]": "v100[1]",
-        "v100[2]": "v100[2]",
-        "v100[3]": "v100[3]",
-        "v100[4]": "v100[4]",
-        "v100[5]": "v100[5]",
-        "v110[0]": "v110[0]",
-        "v110[1]": "v110[1]",
-        "v110[2]": "v110[2]",
-        "v110[3]": "v110[3]",
-        "v110[4]": "v110[4]"
-      },
-      "title": "标题"
+        "v110": [
+          "PWA強化：Background Sync + Push通知 + Web Share Target",
+          "パフォーマンス最適化：vue-officeチャンクを5つのサブモジュールに分割",
+          "i18n補完：すべての言語カバレッジが100%に達成",
+          "API Mockサービス統一化：e2e/helpers/api-mock.ts",
+          "ドキュメント強化：FAQ + CHANGELOG + CONTRIBUTING Tab"
+        ],
+        "v100": [
+          "初期バージョンリリース",
+          "5言語i18nサポート（zh-CN/en/zh-TW/ja/ko）",
+          "PWA基本機能（オフラインキャッシュ + デスクトップにインストール）",
+          "コンポーネントショーケースページ（/storybook）+ ビジネスドキュメントページ（/business-docs）",
+          "完全なe2eテストスイート（851テスト）",
+          "パフォーマンス予算チェック + i18nカバレッジチェック"
+        ],
+        "v090": [
+          "Betaバージョン",
+          "コアページ開発完了（ホーム/ログイン/登録/AIチャット/エージェント）",
+          "Element Plusコンポーネントライブラリ統合",
+          "監視アラートシステム（Sentryスタイル）"
+        ]
+      }
     },
     "contributing": {
-      "note": "note",
+      "note": "Contributions are welcome! Please follow the steps above to submit a PR. Code must pass typecheck + lint + tests.",
+      "title": "Contributing Guide",
       "steps": {
-        "branch": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "check": {
-          "desc": "描述",
-          "title": "标题"
+        "fork": {
+          "title": "リポジトリをFork",
+          "desc": "GitHubでプロジェクトをあなたのアカウントにFork"
         },
         "clone": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "ローカルにクローン",
+          "desc": "git clone <your-fork-url> && cd officialsite"
         },
-        "commit": {
-          "desc": "描述",
-          "title": "标题"
+        "install": {
+          "title": "依存関係をインストール",
+          "desc": "npm install（sharedサブパッケージを自動ビルド）"
+        },
+        "branch": {
+          "title": "ブランチを作成",
+          "desc": "git checkout -b feature/your-feature-name"
         },
         "dev": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "開発 + テスト",
+          "desc": "npm run devで開発サーバーを起動；npm run test:unitでユニットテストを実行"
         },
-        "fork": {
-          "desc": "描述",
-          "title": "标题"
+        "check": {
+          "title": "コードチェック",
+          "desc": "npm run typecheck + npm run lintでコード品質を確保"
         },
-        "install": {
-          "desc": "描述",
-          "title": "标题"
+        "commit": {
+          "title": "コードをコミット",
+          "desc": "git commit -m \"feat: 変更内容を記述\"（Conventional Commitsに従う）"
         },
         "push": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "プッシュ + PR",
+          "desc": "git push origin feature/your-feature-name → GitHubでPull Requestを作成"
         }
-      },
-      "title": "标题"
+      }
     },
     "deploy": {
+      "title": "Deployment Steps",
       "steps": {
-        "build": {
-          "desc": "描述",
-          "title": "标题"
-        },
         "clone": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "env": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "リポジトリをクローン",
+          "desc": "git clone <repo-url> && cd officialsite"
         },
         "install": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "依存関係をインストール",
+          "desc": "npm install（sharedサブパッケージを自動ビルド）"
+        },
+        "env": {
+          "title": "環境変数",
+          "desc": ".env.exampleを.env.productionにコピーし、実際の値を入力"
+        },
+        "build": {
+          "title": "型チェック + ビルド",
+          "desc": "npm run build:typecheck（vue-tsc + vite buildを含む）"
         },
         "preview": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "ローカルプレビュー",
+          "desc": "npm run build && vite preview --port 8888"
         },
         "production": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "本番にデプロイ",
+          "desc": "nginxにdist/ディレクトリをコピー + CSPを設定 + HTTPSを有効化 + バックエンドを起動"
         }
-      },
-      "title": "标题"
+      }
     },
     "environment": {
-      "desc": "描述",
-      "key": "键",
-      "no": "否",
-      "note": "note",
-      "required": "必填",
-      "title": "标题",
+      "desc": "Description",
+      "key": "Key",
+      "no": "No",
+      "note": "These variables must be written to .env.production and injected by Vite at build time; access at runtime via import.meta.env",
+      "required": "Required",
+      "title": "Environment Variables",
+      "yes": "Yes",
       "vars": {
-        "buildPlatform": "buildPlatform",
-        "viteApiBaseUrl": "viteApiBaseUrl",
-        "viteAppTitle": "viteAppTitle",
-        "viteCspReportUri": "viteCspReportUri",
-        "viteEnableMonitor": "viteEnableMonitor",
-        "viteSentryDsn": "viteSentryDsn",
-        "viteUseVize": "viteUseVize"
-      },
-      "yes": "是"
+        "viteApiBaseUrl": "バックエンドAPIベースURL（例：https://api.example.com）",
+        "viteAppTitle": "サイトタイトル",
+        "viteEnableMonitor": "フロントエンド監視報告を有効にするか（true/false）",
+        "viteUseVize": "Vizeコンパイル最適化を有効にするか",
+        "buildPlatform": "ビルドターゲットプラットフォーム（web/h5/alipay/electron）",
+        "viteCspReportUri": "CSP違反報告URL",
+        "viteSentryDsn": "Sentryエラー監視DSN"
+      }
     },
     "faq": {
+      "title": "Frequently Asked Questions",
       "items": {
         "browser": {
-          "a": "a",
-          "q": "q"
-        },
-        "bug": {
-          "a": "a",
-          "q": "q"
-        },
-        "contribute": {
-          "a": "a",
-          "q": "q"
-        },
-        "demo": {
-          "a": "a",
-          "q": "q"
-        },
-        "deploy": {
-          "a": "a",
-          "q": "q"
+          "q": "プロジェクトはどのブラウザをサポートしていますか？",
+          "a": "Chrome 90+、Firefox 88+、Safari 14+、Edge 90+をサポートします。IEはサポートされていません。PWA機能はService Workerをサポートするブラウザが必要です。"
         },
         "language": {
-          "a": "a",
-          "q": "q"
+          "q": "言語を切り替えるには？",
+          "a": "トップナビゲーションバーの言語切り替えボタンをクリック。簡体字中国語、繁体字中国語、英語、日本語、韓国語の5言語をサポート。"
         },
-        "pwa": {
-          "a": "a",
-          "q": "q"
+        "demo": {
+          "q": "デモモードを有効にするには？",
+          "a": "URLに?demo=trueパラメータを追加するか、.envでVITE_DEMO_MODE=trueを設定。デモモードではネットワークエラー時に自動的にモックデータにフォールバックします。"
+        },
+        "deploy": {
+          "q": "本番環境にデプロイするには？",
+          "a": "「デプロイ」Tabを参照：1) npm run build:typecheck 2) dist/をnginxにコピー 3) HTTPS + CSPを設定 4) バックエンドサービスを起動。"
+        },
+        "contribute": {
+          "q": "コードをコントリビュートするには？",
+          "a": "「コントリビューション」Tabを参照：リポジトリをFork → ブランチを作成 → PRを提出。コードはtypecheck + lint + テストに合格する必要があります。"
         },
         "techStack": {
-          "a": "a",
-          "q": "q"
+          "q": "プロジェクトはどのテクノロジースタックを使用していますか？",
+          "a": "Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router + vue-i18n + Playwright + Vitest。"
+        },
+        "bug": {
+          "q": "バグを報告するには？",
+          "a": "GitHub Issuesでバグレポートを提出。再現手順、ブラウザバージョン、コンソールエラーログ、スクリーンショットを含めてください。"
+        },
+        "pwa": {
+          "q": "PWAはどの機能をサポートしていますか？",
+          "a": "オフラインアクセス、バックグラウンド同期（Background Sync）、プッシュ通知（Push）、共有ターゲット（Share Target）、デスクトップにインストール。"
         }
-      },
-      "title": "标题"
+      }
     },
     "modules": {
-      "desc": "描述",
+      "desc": "Description",
+      "method": "Method",
+      "path": "Path",
+      "title": "API Module Catalog",
       "list": {
-        "admin": {
-          "desc": "描述",
-          "endpoints": {
-            "login": "登录",
-            "menus": "menus",
-            "roles": "角色",
-            "users": "用户"
-          },
-          "title": "标题"
-        },
-        "ai": {
-          "desc": "描述",
-          "endpoints": {
-            "agentsCreate": "agentsCreate",
-            "chat": "对话",
-            "generate": "generate",
-            "models": "模型"
-          },
-          "title": "标题"
-        },
         "auth": {
-          "desc": "描述",
+          "title": "認証モジュール",
+          "desc": "アカウント登録、ログイン、サードパーティログイン、JWTトークン、デバイスバインディング、MFA",
           "endpoints": {
-            "login": "登录",
-            "logout": "退出登录",
-            "refresh": "刷新",
-            "register": "注册",
-            "userInfo": "用户信息"
-          },
-          "title": "标题"
+            "login": "アカウントパスワードログイン",
+            "register": "ユーザー登録",
+            "refresh": "トークンリフレッシュ",
+            "logout": "ログアウト",
+            "userInfo": "現在のユーザー情報を取得"
+          }
         },
         "payment": {
-          "desc": "描述",
+          "title": "決済モジュール",
+          "desc": "WeChat / Alipay / 銀聯マルチチャネル決済 + 注文作成 + 非同期通知 + 同期コールバック",
           "endpoints": {
-            "aliPay": "aliPay",
-            "aliPayNotify": "aliPayNotify",
-            "aliPaySuccess": "aliPaySuccess",
-            "orderCreate": "orderCreate",
-            "wxPay": "wxPay"
-          },
-          "title": "标题"
+            "aliPay": "Alipay決済注文を作成",
+            "aliPayNotify": "Alipay非同期通知",
+            "aliPaySuccess": "決済結果を照会",
+            "wxPay": "WeChat決済注文を作成",
+            "orderCreate": "統一注文を作成"
+          }
+        },
+        "ai": {
+          "title": "AIモジュール",
+          "desc": "AIチャット、画像生成、動画生成、モデル管理、エージェントオーケストレーション",
+          "endpoints": {
+            "chat": "AIチャット",
+            "generate": "AIコンテンツ生成",
+            "models": "利用可能なモデルリスト",
+            "agentsCreate": "エージェントを作成"
+          }
         },
         "user": {
-          "desc": "描述",
+          "title": "ユーザーモジュール",
+          "desc": "ユーザープロフィール、設定、VIPレベル、ウォレット、注文、メッセージ",
           "endpoints": {
-            "orders": "订单",
-            "profileGet": "profileGet",
-            "profileUpdate": "profileUpdate",
-            "vipLevels": "vipLevels"
-          },
-          "title": "标题"
+            "profileGet": "個人プロフィールを取得",
+            "profileUpdate": "個人プロフィールを更新",
+            "vipLevels": "VIPレベルリスト",
+            "orders": "マイ注文"
+          }
+        },
+        "admin": {
+          "title": "管理コンソール",
+          "desc": "管理コンソール（ユーザー、ロール、メニュー、辞書、監視）",
+          "endpoints": {
+            "login": "管理者ログイン",
+            "users": "ユーザーリスト",
+            "roles": "ロールリスト",
+            "menus": "メニューツリー"
+          }
         }
-      },
-      "method": "method",
-      "path": "path",
-      "title": "标题"
+      }
     },
     "overview": {
-      "description": "描述",
-      "descriptionValue": "descriptionValue",
-      "license": "license",
-      "node": "node",
-      "projectName": "projectName",
-      "title": "标题",
-      "version": "version"
+      "description": "Description",
+      "license": "License",
+      "node": "Node Version",
+      "projectName": "Project Name",
+      "title": "Project Info",
+      "version": "Version",
+      "descriptionValue": "iHui AIコミュニティ - プロフェッショナルAIツール統合プラットフォーム（Monorepo：公式サイト + WeChatミニプログラム）"
     },
     "security": {
+      "title": "Security Policies",
       "items": {
         "csp": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "CSP",
+          "desc": "metaで統一ソース宣言を注入 + nginxに同期。違反を/api/csp-reportに報告"
         },
         "hmac": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "rbac": {
-          "desc": "描述",
-          "title": "标题"
-        },
-        "session": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "HMAC署名",
+          "desc": "すべての書き込みAPIはDeviceServiceを使用してdevice_id + requestSignatureを生成（HMAC-SHA256）"
         },
         "webhook": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "Webhook署名",
+          "desc": "決済コールバック + WebhookはwebhookSignatureモジュールで検証 + リプレイ防止 + 冪等ID"
+        },
+        "session": {
+          "title": "セッション管理",
+          "desc": "StorageManagerでトークンを暗号化保存 + LoginDurationで有効期限を検出"
+        },
+        "rbac": {
+          "title": "RBAC権限",
+          "desc": "フロントエンドuseAuthStore + バックエンドRBAC。機密ページはrequiresAuth + requiresAdminでガード"
         },
         "xss": {
-          "desc": "描述",
-          "title": "标题"
+          "title": "XSS保護",
+          "desc": "vue-i18nデフォルトエスケープ + safeHtmlディレクティブホワイトリスト + DOMPurify二次フィルタリング"
         }
-      },
-      "title": "标题"
+      }
     },
-    "subtitle": "副标题",
+    "subtitle": "Project overview, API modules, deployment flow, environment variables, security, FAQ, changelog and contributing guide",
     "tab": {
-      "changelog": "changelog",
-      "contributing": "contributing",
-      "deploy": "deploy",
-      "environment": "environment",
-      "faq": "常见问题",
-      "modules": "modules",
-      "overview": "overview",
-      "security": "安全"
+      "changelog": "Changelog",
+      "contributing": "Contributing",
+      "deploy": "Deployment",
+      "environment": "Environment",
+      "faq": "FAQ",
+      "modules": "API Modules",
+      "overview": "Overview",
+      "security": "Security"
     },
-    "title": "标题"
+    "title": "Business Docs"
   }
 }

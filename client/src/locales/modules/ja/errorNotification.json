@@ -1,10 +1,10 @@
 {
   "errorNotification": {
-    "closeAria": "closeAria",
-    "details": "详情",
-    "errorCode": "errorCode",
-    "hideDetails": "hideDetails",
-    "recovery": "recovery",
-    "showDetails": "showDetails"
+    "errorCode": "エラーコード: {code}",
+    "showDetails": "テーブル示詳細",
+    "hideDetails": "非テーブル示詳細",
+    "details": "详细情報",
+    "recovery": "提案操作",
+    "closeAria": "閉じる通知"
   }
 }

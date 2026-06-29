@@ -1,5 +1,12 @@
 {
   "wxUserCenter": {
-    "핵심 장점": "개게센마음"
+    "핵심 장점": "개게센마음",
+    "description": "위챗미니 프로그램개게센마음",
+    "userNickname": "생각사용게닉네임",
+    "userId": "생각사용게ID",
+    "settings": "설정",
+    "orders": "주의문",
+    "favorites": "즐겨찾기",
+    "title": "개게중간마음"
   }
 }

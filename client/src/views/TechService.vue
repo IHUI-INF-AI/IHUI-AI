@@ -49,7 +49,7 @@
         <p>{{ selectedService.desc }}</p>
       </div>
 
-      <el-form :model="appointmentForm" label-width="120px" class="appointment-form">
+      <el-form :model="appointmentForm" label-width="120px" style="margin-top: 20px;">
         <el-form-item :label="t('techService.form.name')" required>
           <el-input v-model="appointmentForm.name" :placeholder="t('techService.form.namePlaceholder')" />
         </el-form-item>
@@ -64,7 +64,7 @@
             v-model="appointmentForm.preferredDate"
             type="date"
             :placeholder="t('techService.form.datePlaceholder')"
-            class="full-width"
+            style="width: 100%"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
           />
@@ -73,7 +73,7 @@
           <el-time-picker
             v-model="appointmentForm.preferredTime"
             :placeholder="t('techService.form.timePlaceholder')"
-            class="full-width"
+            style="width: 100%"
             format="HH:mm"
             value-format="HH:mm"
           />
@@ -108,7 +108,7 @@ import { ElMessage } from 'element-plus'
 import { Setting, Phone, Reading, ChatLineRound, Calendar } from '@element-plus/icons-vue'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { createAppointment, type CreateAppointmentRequest } from '@/api/service-appointment'
-import { sendAppointmentCreatedNotification } from '@/api/system/notification'
+import { sendAppointmentCreatedNotification } from '@/api/notification'
 import { logger } from '@/utils/logger'
 import { openCustomerServiceChat } from '@/composables/useOpenCustomerServiceChat'
 
@@ -275,7 +275,7 @@ const handleAppointmentSubmit = async () => {
   max-width: 100%;
   margin: 0 auto;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: $desktop-page-padding-mobile;
   }
 }
@@ -295,11 +295,11 @@ const handleAppointmentSubmit = async () => {
   color: var(--el-text-color-primary);
   margin: 0 0 8px;
 
-  @media (width <= $desktop-breakpoint-sm) {
+  @media (max-width: $desktop-breakpoint-sm) {
     font-size: 20px;
   }
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 18px;
   }
 }
@@ -314,7 +314,7 @@ const handleAppointmentSubmit = async () => {
   color: var(--el-text-color-secondary);
   margin: 0;
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     font-size: 12px;
   }
 }
@@ -334,7 +334,7 @@ const handleAppointmentSubmit = async () => {
   background-color: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 
-  @media (width <= $desktop-breakpoint-xs) {
+  @media (max-width: $desktop-breakpoint-xs) {
     padding: 16px;
   }
 }
@@ -373,13 +373,5 @@ const handleAppointmentSubmit = async () => {
   font-size: 14px;
   color: var(--el-text-color-secondary);
   margin: 0;
-}
-
-.appointment-form {
-  margin-top: 20px;
-}
-
-.full-width {
-  width: 100%;
 }
 </style>

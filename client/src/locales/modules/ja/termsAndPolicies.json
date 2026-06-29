@@ -1,25 +1,48 @@
 {
   "termsAndPolicies": {
+    "title": "利用規約とポリシー",
+    "subtitle": "サービス利用規約、プライバシーポリシーなど",
+    "readFullText": "全文を読む",
     "policies": {
-      "paymentTerms": {
-        "description": "描述",
-        "title": "标题"
+      "termsOfService": {
+        "title": "利用規約",
+        "description": "サービス利用の諸条件",
+        "viewDetails": "テーブル示詳細"
       },
       "privacyPolicy": {
-        "description": "描述",
-        "title": "标题"
-      },
-      "termsOfService": {
-        "description": "描述",
-        "title": "标题"
+        "title": "プライバシーポリシー",
+        "description": "個人情報の取り扱い",
+        "viewDetails": "テーブル示詳細"
       },
       "userAgreement": {
-        "description": "描述",
-        "title": "标题"
+        "title": "ユーザー規約",
+        "description": "プラットフォーム利用の基本規約",
+        "viewDetails": "テーブル示詳細"
+      },
+      "paymentTerms": {
+        "title": "支払い条件",
+        "description": "支払いと返金に関する規則",
+        "viewDetails": "テーブル示詳細"
       }
     },
-    "readFullText": "readFullText",
-    "subtitle": "副标题",
-    "title": "标题"
+    "nodeIds": {
+      "1": "POL-001",
+      "2": "POL-002",
+      "3": "POL-003",
+      "4": "POL-004"
+    },
+    "backToホーム": "ホームに戻る",
+    "legalBadge": "法的",
+    "protocolExit": "合意 / 戻る",
+    "encryptedConnection": "暗号化接続",
+    "navDocs": "ドキュメント",
+    "navSupport": "サポート",
+    "quickNav": {
+      "title": "クイックナビゲーション",
+      "downloadCenter": "ダウンロードセンター",
+      "documentCenter": "ドキュメントセンター",
+      "customerService": "客户サービス"
+    },
+    "backToHome": "戻るホーム"
   }
 }

@@ -1,9 +1,5 @@
 {
   "vipIntroducePopup": {
-    "loading": "加载中",
-    "noContinuousOptions": "无 continuous 选项",
-    "noMonthlyOptions": "无 monthly 选项",
-    "pointsPerMonth": "积分 per 月",
-    "trial": "试用"
+    "loading": "加载中"
   }
 }

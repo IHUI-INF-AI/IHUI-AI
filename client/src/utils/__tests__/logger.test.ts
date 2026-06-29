@@ -6,10 +6,10 @@ vi.stubEnv('DEV', true)
 vi.stubEnv('MODE', 'development')
 
 describe('logger', () => {
-  let consoleDebugSpy: any
-  let consoleLogSpy: any
-  let consoleWarnSpy: any
-  let consoleErrorSpy: any
+  let consoleDebugSpy: ReturnType<typeof vi.spyOn>
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})

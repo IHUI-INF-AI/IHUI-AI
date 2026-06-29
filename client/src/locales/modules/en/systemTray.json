@@ -1,1 +1,12 @@
-{}
+{
+  "systemTray": {
+    "title": "Title",
+    "description": "Description",
+    "autoStart": "Auto Start",
+    "autoStartDesc": "Auto Start Desc",
+    "minimizeToTray": "Minimize To Tray",
+    "minimizeToTrayDesc": "Minimize To Tray Desc",
+    "showNotifications": "Show Notifications",
+    "showNotificationsDesc": "Show Notifications Desc"
+  }
+}

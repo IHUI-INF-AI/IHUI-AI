@@ -374,7 +374,7 @@ import {
   type MCPProtocol,
   type MCPTool,
   type MCPResource,
-} from '@/api/tools/mcp'
+} from '@/api/mcp'
 import MCPResourceViewer from './MCPResourceViewer.vue'
 import MCPToolParameterForm from './MCPToolParameterForm.vue'
 import MCPToolCallResult from './MCPToolCallResult.vue'
@@ -514,7 +514,7 @@ const testServer = async (server: MCPServer) => {
     } else {
       showError(response.message || t('mcp.manager.testFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : t('mcp.manager.testFailed')
     showError(errorMessage)
   }
@@ -534,7 +534,7 @@ const deleteServer = async (server: MCPServer) => {
     } else {
       showError(response.message || t('mcp.manager.deleteFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : t('mcp.manager.deleteFailed')
     showError(errorMessage)
   }
@@ -565,7 +565,7 @@ const saveServer = async () => {
     } else {
       showError(response.message || t('mcp.manager.saveFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : t('mcp.manager.saveFailed')
     showError(errorMessage)
   }
@@ -602,7 +602,7 @@ const executeTool = async () => {
     } else {
       showError(result.error || t('mcp.manager.executeFailed'))
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : t('mcp.manager.executeFailed')
     showError(errorMessage)
   } finally {
@@ -673,10 +673,10 @@ onMounted(async () => {
   .tool-card {
     margin-bottom: 16px;
     cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: all 0.3s;
 
     &:hover {
-      
+      transform: translateY(-2px);
       box-shadow: none;
     }
 
@@ -720,7 +720,7 @@ onMounted(async () => {
       color: var(--el-text-color-placeholder);
 
       .history-server {
-        font-family: var(--font-family-mono);
+        font-family: monospace;
       }
 
       .history-error {

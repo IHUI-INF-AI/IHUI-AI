@@ -27,7 +27,7 @@
     "users": "Users",
     "availability": "Availability",
     "brand": {
-      "title": "World's First AI App Store",
+      "title": "World's First Agent Platform",
       "subtitle": "Everyone's AI Integration Platform"
     },
     "form": {
@@ -69,7 +69,6 @@
     },
     "thirdParty": {
       "or": "Or",
-      "alipayLogin": "Alipay Login",
       "feishuLogin": "Feishu Login",
       "notice": "Notice",
       "privacyPolicy": "Privacy Policy",
@@ -78,18 +77,15 @@
       "googleLogin": "GoogleLogin",
       "appleLogin": "AppleLogin",
       "wechatLogin Failed": "WeChat login Failed, please retry",
-      "alipayLogin Failed": "Alipay login Failed, please retry",
       "googleLogin Failed": "GoogleLogin Failed, please retry",
       "appleLogin Failed": "AppleLogin Failed, please retry",
       "tooltip": {
         "wechat": "WeChat Login",
-        "alipay": "AlipayLogin",
         "google": "GoogleLogin",
         "apple": "AppleLogin",
         "feishu": "Feishu Login"
       },
       "accountLogin": "accountLogin",
-      "alipay": "alipay",
       "comingSoon": "comingSoon",
       "emailLogin": "emailLogin",
       "feishu": "feishu",
@@ -158,16 +154,5 @@
     "goLogin": "Go Login",
     "goRegister": "Go Register",
     "hasAccount": "Has Account"
-  },
-  "userLoginPopup": {
-    "welcomeBack": "Welcome back, please login",
-    "phonePlaceholder": "Enter phone number",
-    "codePlaceholder": "Enter verification code",
-    "enterPhone": "Please enter phone number",
-    "invalidPhone": "Invalid phone format",
-    "codeSent": "Verification code sent",
-    "codeSendFailed": "Failed to send code, please retry",
-    "loginSuccess": "Login Successful",
-    "wechatLoginNotConfigured": "WeChat login not configured"
   }
 }

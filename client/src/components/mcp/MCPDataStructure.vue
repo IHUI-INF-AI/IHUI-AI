@@ -19,7 +19,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 interface Props {
-  data: any
+  data: unknown
 }
 
 const props = defineProps<Props>()
@@ -34,7 +34,7 @@ const treeData = computed(() => {
   return buildTreeData(props.data, 'root')
 })
 
-function buildTreeData(data: any, key: string): Record<string, unknown> {
+function buildTreeData(data: unknown, key: string): Record<string, unknown> {
   const type = getType(data)
 
   if (type === 'object' && !Array.isArray(data)) {
@@ -50,7 +50,7 @@ function buildTreeData(data: any, key: string): Record<string, unknown> {
     const dataArray = Array.isArray(data) ? data : []
     const children = dataArray
       .slice(0, 10)
-      .map((item: any, index: number) => buildTreeData(item, `[${index}]`))
+      .map((item: unknown, index: number) => buildTreeData(item, `[${index}]`))
     return {
       label: key,
       type: `array[${dataArray.length}]`,
@@ -66,13 +66,13 @@ function buildTreeData(data: any, key: string): Record<string, unknown> {
   }
 }
 
-function getType(value: any): string {
+function getType(value: unknown): string {
   if (value === null) return 'null'
   if (Array.isArray(value)) return 'array'
   return typeof value
 }
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
   if (typeof value === 'string') {
@@ -109,7 +109,7 @@ function formatValue(value: any): string {
     .node-value {
       font-size: 12px;
       color: var(--el-text-color-regular);
-      font-family: var(--font-family-mono);
+      font-family: monospace;
       margin-left: auto;
       max-width: 300px;
       overflow: hidden;

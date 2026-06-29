@@ -10,7 +10,7 @@ export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'err
 
 export interface WebSocketMessage {
   type: string
-  data: any
+  data: unknown
   timestamp?: number
 }
 
@@ -24,7 +24,7 @@ class WebSocketService {
   private maxReconnectAttempts = 5
   private reconnectDelay = 3000
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private messageHandlers: Map<string, Array<(data: any) => void>> = new Map()
+  private messageHandlers: Map<string, Array<(data: unknown) => void>> = new Map()
   private statusHandlers: Array<(status: WebSocketStatus) => void> = []
 
   /**
@@ -144,7 +144,7 @@ class WebSocketService {
   /**
    * 发送消息
    */
-  send(type: string, data: any): void {
+  send(type: string, data: unknown): void {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       logger.warn('[WebSocket] Not connected, cannot send message')
       return
@@ -178,7 +178,7 @@ class WebSocketService {
   /**
    * 订阅消息
    */
-  on(type: string, handler: (data: any) => void): () => void {
+  on(type: string, handler: (data: unknown) => void): () => void {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, [])
     }

@@ -1,14 +1,14 @@
 {
   "themeShortcut": {
-    "disabled": "已禁用",
+    "title": "主题快捷键",
+    "resetDefaults": "重置默认",
     "enabled": "已启用",
-    "resetDefaults": "重置 defaults",
-    "shortcutUpdated": "shortcut Updated",
-    "shortcutsReset": "shortcuts 重置",
-    "tip1": "提示 1",
-    "tip2": "提示",
-    "tip3": "提示 3",
-    "tips": "小贴士",
-    "title": "标题"
+    "disabled": "已禁用",
+    "shortcutUpdated": "快捷键已更新",
+    "shortcutsReset": "快捷键已重置",
+    "tips": "使用提示",
+    "tip1": "快捷键在页面加载后自动激活",
+    "tip2": "部分快捷键可能与其他应用冲突",
+    "tip3": "禁用快捷键后需要手动启用才能生效"
   }
 }

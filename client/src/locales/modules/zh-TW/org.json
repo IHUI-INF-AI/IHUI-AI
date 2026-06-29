@@ -3,6 +3,12 @@
     "searchPlaceholder": {
       "department": "搜尋部門",
       "user": "搜尋用戶"
+    },
+    "label": {
+      "departmentName": "部門名稱",
+      "manager": "負責人",
+      "count": "人數",
+      "actions": "操作"
     }
   }
 }

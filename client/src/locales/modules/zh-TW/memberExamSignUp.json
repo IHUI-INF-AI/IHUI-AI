@@ -1,17 +1,16 @@
 {
   "memberExamSignUp": {
-    "actions": "actions",
-    "cancelled": "已取消",
+    "title": "考試報名",
+    "noSignUp": "暫無報名",
+    "exam": "考試",
+    "status": "狀態",
+    "score": "得分",
+    "duration": "時長(分鐘)",
+    "startTime": "開始時間",
+    "actions": "操作",
+    "enterExam": "進入考試",
     "completed": "已完成",
-    "duration": "时长",
-    "enterExam": "enterExam",
-    "exam": "考试",
-    "inProgress": "inProgress",
-    "loadFailed": "loadFailed",
-    "noSignUp": "noSignUp",
-    "score": "分数",
-    "startTime": "开始时间",
-    "status": "状态",
-    "title": "标题"
+    "cancelled": "已取消",
+    "inProgress": "進行中"
   }
 }
