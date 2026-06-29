@@ -1,0 +1,201 @@
+{
+  "metadata": {
+    "topic": "MCP (Model Context Protocol) 教学资源",
+    "description": "MCP协议开发、配置和最佳实践教程",
+    "crawlDate": "2026-01-28",
+    "totalResources": 28
+  },
+  "videoResources": [
+    {
+      "title": "Cursor+MCP配置保姆级教程：手把手教你配置任意MCP服务",
+      "type": "video",
+      "platform": "Bilibili",
+      "url": "https://www.bilibili.com/video/BV1vwXPYkEGx/",
+      "description": "Windows环境下MCP配置详细教程，包括filesystem和claudecode服务器配置，解决Cursor无法写入文件问题",
+      "tags": ["MCP", "Cursor", "配置教程", "Windows", "保姆级"],
+      "language": "zh-CN",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "MCP入门实践：Cursor+MCP",
+      "type": "video",
+      "platform": "Bilibili",
+      "url": "https://www.bilibili.com/video/BV1t9QDY8EQj/",
+      "description": "MCP入门实践教程，涉及Java编程应用和AI编程工作流",
+      "tags": ["MCP", "Cursor", "入门", "Java", "实践"],
+      "language": "zh-CN",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "Claude 3.7 + Cursor + MCP：多AI员工协作",
+      "type": "video",
+      "platform": "Bilibili",
+      "url": "https://www.bilibili.com/video/BV1rqPYehEsS/",
+      "description": "介绍Claude 3.7推理模型与Cursor中的MCP服务调用，实现多个AI员工同时协助工作",
+      "tags": ["MCP", "Claude 3.7", "Cursor", "AI协作", "推理模型"],
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "How to Build MCP Servers That Give AI Superpowers",
+      "type": "video",
+      "platform": "YouTube",
+      "url": "https://youtube.com/watch?v=inkTWM71EiY",
+      "description": "完整MCP Server开发教程，涵盖架构、环境搭建、构建步骤和Claude Desktop测试",
+      "tags": ["MCP", "Server开发", "Claude Desktop", "架构", "英文"],
+      "language": "en",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "Build ANYTHING with MCP Servers - Coding Tutorial",
+      "type": "video",
+      "platform": "YouTube",
+      "url": "https://www.youtube.com/watch?v=sMqlObpNz64",
+      "duration": 810,
+      "description": "13.5分钟快速教程，涵盖MCP基础、服务器设置、TypeScript SDK使用和GitHub/Slack集成",
+      "tags": ["MCP", "TypeScript", "SDK", "GitHub", "Slack", "快速教程"],
+      "language": "en",
+      "difficulty": "beginner"
+    },
+    {
+      "title": "Build Your Own MCP Server & Client – Run Locally",
+      "type": "video",
+      "platform": "YouTube",
+      "url": "https://www.youtube.com/watch?v=03P9Y99bhLo",
+      "duration": 1020,
+      "description": "17分钟教程，从零构建MCP服务器和客户端，本地运行，包含AI Agent设置技巧",
+      "tags": ["MCP", "Server", "Client", "本地运行", "AI Agent"],
+      "language": "en",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "Develop MCP server from scratch - Complete Hands-on End-to-End",
+      "type": "video",
+      "platform": "YouTube",
+      "url": "https://www.youtube.com/watch?v=JGBNM1W4HAc",
+      "description": "从零开始开发MCP服务器完整实战教程，构建文档服务器并连接Claude Desktop",
+      "tags": ["MCP", "从零开始", "实战", "文档服务器", "Claude Desktop"],
+      "language": "en",
+      "difficulty": "advanced"
+    }
+  ],
+  "articleResources": [
+    {
+      "title": "MCP 学习路径：从零基础到精通",
+      "type": "article",
+      "platform": "官方文档",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/learning-path/",
+      "summary": "官方推荐的MCP学习路径，分为4个阶段：理解MCP(1-2h)、使用MCP(2-3h)、自行构建(4-6h)、持续进阶",
+      "tags": ["MCP", "学习路径", "官方", "入门到精通"],
+      "language": "zh-CN",
+      "difficulty": "all"
+    },
+    {
+      "title": "MCP 官方教程合集",
+      "type": "article",
+      "platform": "官方文档",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/tutorials/",
+      "summary": "官方教程，包括使用LLM构建MCP、构建MCP客户端(Python/Node.js)、为智能体编写有效工具等",
+      "tags": ["MCP", "官方教程", "Python", "Node.js", "工具开发"],
+      "language": "zh-CN",
+      "difficulty": "intermediate"
+    },
+    {
+      "title": "OpenAI Agents Python SDK - MCP集成",
+      "type": "article",
+      "platform": "OpenAI",
+      "url": "https://openai.github.io/openai-agents-python/zh/mcp/",
+      "summary": "OpenAI Agents SDK的MCP集成指南，支持托管MCP服务、Streamable HTTP、SSE和stdio传输",
+      "tags": ["MCP", "OpenAI", "Agents SDK", "Python", "集成"],
+      "language": "zh-CN",
+      "difficulty": "advanced"
+    }
+  ],
+  "officialDocumentation": [
+    {
+      "title": "MCP 官方中文文档",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/",
+      "description": "MCP完整官方文档，包含核心概念、SDK、Registry、测试调试等",
+      "tags": ["官方文档", "MCP", "中文"]
+    },
+    {
+      "title": "MCP 快速入门指南",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/quickstart/",
+      "description": "官方快速入门，5分钟了解MCP基础",
+      "tags": ["官方文档", "快速入门"]
+    },
+    {
+      "title": "MCP 核心概念",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/concepts/",
+      "description": "采样、传输、工具、提示词、资源等核心概念详解",
+      "tags": ["官方文档", "核心概念"]
+    },
+    {
+      "title": "MCP Java SDK",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/sdk/java/",
+      "description": "Java开发者的MCP SDK文档",
+      "tags": ["官方文档", "Java", "SDK"]
+    },
+    {
+      "title": "MCP Registry 发布指南",
+      "url": "https://modelcontextprotocol.info/zh-cn/docs/registry/",
+      "description": "如何发布和使用MCP Registry",
+      "tags": ["官方文档", "Registry", "发布"]
+    }
+  ],
+  "communityResources": [
+    {
+      "title": "Cursor MCP Dev - MCP服务器目录",
+      "url": "https://cursormcp.dev/",
+      "description": "社区维护的MCP服务器目录，包含各类MCP服务器的安装和配置指南",
+      "tags": ["社区", "MCP目录", "服务器列表"]
+    },
+    {
+      "title": "Bilibili MCP JS - B站内容搜索MCP",
+      "url": "https://cursormcp.dev/mcp-servers/1027-bilibili-mcp-js",
+      "description": "支持搜索B站内容的MCP服务器，含LangChain集成示例",
+      "tags": ["MCP", "Bilibili", "JavaScript", "LangChain"]
+    }
+  ],
+  "courseStructure": {
+    "courseName": "MCP (Model Context Protocol) 完全指南",
+    "courseDescription": "从零开始学习MCP协议，掌握MCP服务器开发、客户端集成和工具扩展，打造强大的AI应用",
+    "chapters": [
+      {
+        "chapterNo": 1,
+        "chapterName": "认识MCP",
+        "lessons": [
+          {"lessonName": "什么是MCP", "type": "article", "url": "https://modelcontextprotocol.info/zh-cn/docs/"},
+          {"lessonName": "MCP核心概念", "type": "article", "url": "https://modelcontextprotocol.info/zh-cn/docs/concepts/"},
+          {"lessonName": "MCP学习路径", "type": "article", "url": "https://modelcontextprotocol.info/zh-cn/docs/learning-path/"}
+        ]
+      },
+      {
+        "chapterNo": 2,
+        "chapterName": "MCP环境配置",
+        "lessons": [
+          {"lessonName": "Cursor+MCP保姆级配置", "type": "video", "url": "https://www.bilibili.com/video/BV1vwXPYkEGx/"},
+          {"lessonName": "MCP入门实践", "type": "video", "url": "https://www.bilibili.com/video/BV1t9QDY8EQj/"}
+        ]
+      },
+      {
+        "chapterNo": 3,
+        "chapterName": "MCP Server开发",
+        "lessons": [
+          {"lessonName": "快速构建MCP Server", "type": "video", "url": "https://www.youtube.com/watch?v=sMqlObpNz64"},
+          {"lessonName": "本地MCP Server和Client", "type": "video", "url": "https://www.youtube.com/watch?v=03P9Y99bhLo"},
+          {"lessonName": "完整MCP Server实战", "type": "video", "url": "https://www.youtube.com/watch?v=JGBNM1W4HAc"}
+        ]
+      },
+      {
+        "chapterNo": 4,
+        "chapterName": "MCP高级应用",
+        "lessons": [
+          {"lessonName": "MCP赋予AI超能力", "type": "video", "url": "https://youtube.com/watch?v=inkTWM71EiY"},
+          {"lessonName": "多AI协作与MCP", "type": "video", "url": "https://www.bilibili.com/video/BV1rqPYehEsS/"},
+          {"lessonName": "OpenAI Agents MCP集成", "type": "article", "url": "https://openai.github.io/openai-agents-python/zh/mcp/"}
+        ]
+      }
+    ]
+  }
+}
