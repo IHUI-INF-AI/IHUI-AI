@@ -235,25 +235,6 @@ def install_sql_events(engines: dict):
             pass
 
 
-def bind_engine_labels(engines: dict):
-    """为每个 connection 的 context 标记 engine label(通过 on_checkout 钩子)."""
-    from sqlalchemy import event
-
-    def _on_checkout(dbapi_conn, conn_record, conn_proxy):
-        try:
-            ctx = conn_proxy.connection if hasattr(conn_proxy, "connection") else None
-        except Exception:
-            return
-        for _label, eng in engines.items():
-            if ctx and getattr(ctx, "engine", None) is eng:
-                # 留作 before_cursor 时回填
-                pass
-
-    for _label, engine in engines.items():
-        with contextlib.suppress(Exception):
-            event.listen(engine, "checkout", _on_checkout)
-
-
 # ---------------------------------------------------------------------------
 # DB Pool 指标采集 (建议 5.1)
 # ---------------------------------------------------------------------------

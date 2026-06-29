@@ -29,7 +29,7 @@ def e2e_client(fresh_state_file, monkeypatch):
         return "test-admin-uuid"
 
     def _fake_require_role(role):
-        async def _dep(user_uuid: str = None):
+        async def _dep(user_uuid: str | None = None):
             return "test-admin-uuid"
 
         return _dep
@@ -297,7 +297,7 @@ class TestE2EErrorPaths:
 
     def test_invalid_request_body(self, e2e_client):
         """无效请求体应 422."""
-        r = e2e_client.post("/canary/promote", json={"actor": 123})  # 类型错
+        _r = e2e_client.post("/canary/promote", json={"actor": 123})  # 类型错
         # Pydantic 接受 str 输入, 不应错; 但缺 actor 字段应 422
         r2 = e2e_client.post("/canary/promote", json={"actor": None, "reason": "x"})
         # actor 是 str, None 会被强制转换或 422

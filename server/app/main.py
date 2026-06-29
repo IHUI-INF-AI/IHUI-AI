@@ -271,7 +271,7 @@ def create_app() -> FastAPI:
     if settings.ENV.lower() in ("production", "prod"):
         if not raw_origins:
             raise RuntimeError("CORS_ORIGINS is required in production")
-        if "*" in origins and True:
+        if "*" in origins:
             raise RuntimeError("CORS wildcard '*' is not allowed in production")
     app.add_middleware(
         CORSMiddleware,

@@ -365,7 +365,7 @@ def test_controller_synced_to_router():
     from app.shadow_traffic import ShadowRouter
 
     r = ShadowRouter()
-    c = ShadowRatioController(router=r, base_ratio=0.15)
+    _c = ShadowRatioController(router=r, base_ratio=0.15)
     assert r.ratio == 0.15
 
 

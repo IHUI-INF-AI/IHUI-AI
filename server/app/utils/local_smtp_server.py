@@ -50,10 +50,7 @@ class _EmailHandler:
         """收到邮件时调用."""
         try:
             raw_bytes = envelope.content
-            if isinstance(raw_bytes, bytes):
-                raw_text = raw_bytes.decode("utf-8", errors="ignore")
-            else:
-                raw_text = str(raw_bytes)
+            raw_text = raw_bytes.decode("utf-8", errors="ignore") if isinstance(raw_bytes, bytes) else str(raw_bytes)
 
             rcpt_tos = envelope.rcpt_tos or []
             to_addr = rcpt_tos[0] if rcpt_tos else "unknown"

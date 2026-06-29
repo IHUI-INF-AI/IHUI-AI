@@ -8999,6 +8999,16 @@ cleanup.add(() => {
       svg {
         fill: currentColor !important;
       }
+
+      // 直接锁定 > span 内的所有元素
+      > span {
+        color: rgba(255, 255, 255, 0.95) !important;
+      }
+
+      // 直接锁定 SVG path（避免 fill 继承问题）
+      svg path {
+        fill: rgba(255, 255, 255, 0.95) !important;
+      }
     }
 
     &.is-empty,

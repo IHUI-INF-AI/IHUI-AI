@@ -183,12 +183,12 @@ def _get_client_ip(request: Request) -> str:
 
 def _log_oauth_audit(
     event: str,
-    client_id: str = None,
-    user_uuid: str = None,
-    ip: str = None,
+    client_id: str | None = None,
+    user_uuid: str | None = None,
+    ip: str | None = None,
     status: str = "success",
-    detail: str = None,
-    request_summary: dict = None,
+    detail: str | None = None,
+    request_summary: dict | None = None,
 ):
     """写入 OAuth 审计日志 (fire-and-forget, 不阻塞主流程).
 
@@ -442,10 +442,7 @@ async def list_oauth_apps(
     with get_session() as db:
         try:
             q = db.query(OAuthApp)
-            if is_active is None:
-                q = q.filter(OAuthApp.is_active == 1)
-            else:
-                q = q.filter(OAuthApp.is_active == is_active)
+            q = q.filter(OAuthApp.is_active == (1 if is_active is None else is_active))
             # Round 31-B: 多租户过滤
             if include_all != 1:
                 from sqlalchemy import or_

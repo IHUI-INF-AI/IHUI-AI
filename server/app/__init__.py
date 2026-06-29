@@ -4,7 +4,7 @@ import enum as _enum
 
 if not hasattr(_enum, "StrEnum"):
     # Python < 3.11 兼容: 用 str + Enum 模拟 StrEnum
-    class _StrEnum(str, _enum.Enum):
+    class _StrEnum(str, _enum.Enum):  # noqa: UP042
         __str__ = str.__str__
 
     _enum.StrEnum = _StrEnum

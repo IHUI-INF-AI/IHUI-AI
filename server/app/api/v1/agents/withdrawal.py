@@ -76,10 +76,7 @@ async def list_withdrawals(
             else:
                 return error("time_range_type 必须是 1/2/3/4", "400000")
         sort_column = getattr(AgentWithdrawalDetail, sort_by, None) or AgentWithdrawalDetail.initiate_at
-        if sort_order.lower() == "asc":
-            q = q.order_by(sort_column.asc())
-        else:
-            q = q.order_by(sort_column.desc())
+        q = q.order_by(sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc())
         total = q.count()
         items = q.offset((page - 1) * limit).limit(limit).all()
         data = [

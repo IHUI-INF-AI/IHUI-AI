@@ -13,13 +13,6 @@ from app.services.database_service import (
     get_db,
 )
 from app.services.diff_service import FileDiffService
-from app.services.metrics_service import (
-    PrometheusMiddleware,
-    metrics_endpoint,
-    track_file_upload,
-    track_pdf_operation,
-    update_storage_metrics,
-)
 from app.services.pdf_service import (
     CertificateAuthority,
     PDFMergeSplitService,

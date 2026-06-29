@@ -276,16 +276,6 @@ def get_metadata_for_table(table_name: str):
     return Base1.metadata
 
 
-def get_session_for_table(table_name: str):
-    """Get the appropriate sessionmaker for a table."""
-    if table_name in CENTER_TABLES:
-        return SessionFactory2
-    elif table_name in COURSE_TABLES:
-        return SessionFactory3
-    else:
-        return SessionFactory1
-
-
 def create_all_per_db() -> None:
     """Create all tables. Base/Base1/Base2/Base3 share metadata, so once is enough.
 
@@ -299,17 +289,6 @@ def create_all_per_db() -> None:
             Base.metadata.create_all(bind=eng, checkfirst=True)
         except Exception as e:
             logger.warning(f"[create_all_per_db] engine bind failed: {e}")
-
-
-def drop_all_per_db() -> None:
-    """Drop all tables on each engine. Use with care (mainly for tests)."""
-    import app.models  # noqa: F401
-
-    for eng in (engine1, engine2, engine3):
-        try:
-            Base.metadata.drop_all(bind=eng, checkfirst=True)
-        except Exception as e:
-            logger.warning(f"[drop_all_per_db] engine bind failed: {e}")
 
 
 @contextmanager

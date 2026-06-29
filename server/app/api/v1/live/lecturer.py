@@ -11,14 +11,14 @@ from app.security import require_login
 router = APIRouter()
 
 
-def _lecturer_to_dict(l: Lecturer) -> dict:
+def _lecturer_to_dict(lecturer: Lecturer) -> dict:
     return {
-        "id": l.id,
-        "user_id": l.user_id,
-        "title": l.title,
-        "introduction": l.introduction,
-        "create_time": l.created_at.isoformat() if l.created_at else None,
-        "update_time": l.updated_at.isoformat() if l.updated_at else None,
+        "id": lecturer.id,
+        "user_id": lecturer.user_id,
+        "title": lecturer.title,
+        "introduction": lecturer.introduction,
+        "create_time": lecturer.created_at.isoformat() if lecturer.created_at else None,
+        "update_time": lecturer.updated_at.isoformat() if lecturer.updated_at else None,
     }
 
 
@@ -51,10 +51,10 @@ async def list_lecturers(
 async def get_lecturer(lid: int, user_uuid: str = Depends(require_login)):
     with get_session() as db:
         try:
-            l = db.query(Lecturer).filter(Lecturer.id == lid).first()
-            if not l:
+            lecturer = db.query(Lecturer).filter(Lecturer.id == lid).first()
+            if not lecturer:
                 return error("讲师不存在", "404")
-            return success(_lecturer_to_dict(l))
+            return success(_lecturer_to_dict(lecturer))
         except Exception as e:
             logger.error(f"lecturer get error: {e}")
             return error(str(e))
@@ -72,14 +72,14 @@ async def create_lecturer(
                 return error("user_id 必填", "400")
             title = payload.get("title") or ""
             introduction = payload.get("introduction") or ""
-            l = Lecturer(
+            lecturer = Lecturer(
                 user_id=int(user_id),
                 title=str(title)[:100],
                 introduction=str(introduction)[:2000],
             )
-            db.add(l)
+            db.add(lecturer)
             db.flush()
-            return success(_lecturer_to_dict(l))
+            return success(_lecturer_to_dict(lecturer))
         except Exception as e:
             logger.error(f"lecturer create error: {e}")
             return error(str(e))

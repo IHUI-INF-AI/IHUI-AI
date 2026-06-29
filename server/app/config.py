@@ -412,7 +412,7 @@ class Settings(BaseSettings):
     )
 
     @_validator("JWT_SECRET_KEY")
-    def _validate_jwt_secret(cls, v: str) -> str:  # type: ignore[no-redef]
+    def _validate_jwt_secret(cls, v: str) -> str:  # type: ignore[no-redef]  # noqa: N805
         """Validate JWT secret is not empty or placeholder."""
         if not v or v == "YOUR_JWT_SECRET_KEY_HERE":
             import os
@@ -420,7 +420,7 @@ class Settings(BaseSettings):
             fallback = os.environ.get("JWT_SECRET_KEY", "")
             if fallback and fallback != "YOUR_JWT_SECRET_KEY_HERE":
                 return fallback
-            warnings.warn("JWT_SECRET_KEY 未配置或为占位符, 使用默认开发密钥")
+            warnings.warn("JWT_SECRET_KEY 未配置或为占位符, 使用默认开发密钥", stacklevel=2)
             return "dev-only-insecure-key-do-not-use-in-production"
         return v
 

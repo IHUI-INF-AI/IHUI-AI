@@ -49,9 +49,6 @@ JWT_SECRET_KEY = _validate_jwt_secret()
 # Password hashing
 # ---------------------------------------------------------------------------
 
-pwd_context = None  # passlib 已移除, 直接使用 bcrypt
-
-
 def hash_password(password: str) -> str:
     """Hash a password with bcrypt (直接使用 bcrypt 库, 绕过 passlib 兼容问题)."""
     if not isinstance(password, str):
@@ -299,14 +296,6 @@ def _get_user_dept_id(db, user_uuid: str):
     return db.execute(stmt).scalar()
 
 
-def _get_user_id(db, user_uuid: str):
-    """Return the user_id for a user, or None."""
-    from app.models.sys_models import SysUser
-
-    stmt = select(SysUser.user_id).where(SysUser.user_uuid == user_uuid).limit(1)
-    return db.execute(stmt).scalar()
-
-
 def _get_dept_ids_with_children(db, dept_id: int) -> list:
     """Return dept_id and all descendant dept_ids using the ancestors path.
 
@@ -509,12 +498,12 @@ def require_oauth_scope(required_scope: str):
             )
         try:
             payload = decode_access_token(credentials.credentials)
-        except Exception:
+        except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid OAuth access_token",
                 headers={"WWW-Authenticate": "Bearer"},
-            )
+            ) from exc
         if not payload:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

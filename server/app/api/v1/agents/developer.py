@@ -119,10 +119,7 @@ async def list_developers(
                 return error("end_date 格式应为 YYYY-MM-DD", "400000")
         # 排序
         sort_column = getattr(AgentDeveloper, sort_by, None) or AgentDeveloper.id
-        if sort_order.lower() == "asc":
-            q = q.order_by(sort_column.asc())
-        else:
-            q = q.order_by(sort_column.desc())
+        q = q.order_by(sort_column.asc() if sort_order.lower() == "asc" else sort_column.desc())
         total = q.count()
         items = q.offset((page - 1) * limit).limit(limit).all()
         data = [

@@ -22,7 +22,7 @@ router = APIRouter(tags=["API v2 (Experimental)"])
 
 
 @router.get("/api/v2/info", summary="v2 API 元数据")
-async def v2_info(request: Request):
+async def v2_info():
     """返回 v2 API 元信息 (供客户端探测)."""
     return {
         "version": "v2",

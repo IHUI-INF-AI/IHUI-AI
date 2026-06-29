@@ -245,7 +245,7 @@ class TestAlertManagerAlertFormat:
             "annotations": {"summary": "Canary 卡在中间态", "description": ""},
             "status": "resolved",
         }
-        title, message = format_prometheus_alert(prom_alert)
+        _title, message = format_prometheus_alert(prom_alert)
         assert "resolved" in message
 
 
@@ -488,7 +488,7 @@ class TestAlertPayloadStructure:
                 "annotations": {"summary": "X", "description": ""},
                 "status": "firing",
             }
-            title, message = format_prometheus_alert(alert)
+            _title, message = format_prometheus_alert(alert)
             assert severity in message
 
 
