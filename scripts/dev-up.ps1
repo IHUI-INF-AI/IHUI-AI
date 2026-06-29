@@ -509,53 +509,6 @@ if (-not $NoFrontend) {
   }
 }
 
-# ----- Step 4: 运行时端口漂移检测 (2026-06-25 新增, 兜底, 失败不阻断)
-# 规范: client/docs/DEV_PORTS.md "运行时启动规范"
-# 脚本: client/scripts/check-runtime-port.mjs
-# 用途: 启动完成后扫一次运行中的 uvicorn/python 进程, 若发现监听非 8000 端口则报警.
-#       失败仅 warn + 写事件日志, 不阻断 dev-up 启动 (避免影响已经跑起来的前后端).
-$runtimeCheck = Join-Path $RootDir 'client\scripts\check-runtime-port.mjs'
-if (Test-Path $runtimeCheck) {
-  Write-Step "Step 4: runtime port drift check (backend must listen on $BackendPort)"
-  try {
-    $nodeExe = $null
-    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
-    if ($nodeCmd) { $nodeExe = $nodeCmd.Source }
-    if (-not $nodeExe) {
-      Write-Warn "Runtime port check skipped: node.exe not found in PATH"
-      Write-Event 'runtime_port_check' 'warn' @{ reason = 'node_not_found' }
-    } else {
-      # 注意: 用 & 调用并捕获输出, 检测脚本退出码 0=通过 1=违规
-      $runtimeOut = & $nodeExe $runtimeCheck 2>&1
-      $runtimeExit = $LASTEXITCODE
-      if ($runtimeOut) {
-        $runtimeOut | ForEach-Object {
-          if ($_ -is [System.Management.Automation.ErrorRecord]) {
-            Write-Host "  $_" -ForegroundColor DarkGray
-          } else {
-            Write-Host "  $_" -ForegroundColor DarkGray
-          }
-        }
-      }
-      if ($runtimeExit -eq 0) {
-        Write-Ok "Runtime port check passed"
-        Write-Event 'runtime_port_check' 'info' @{ exit_code = 0 }
-      } else {
-        Write-Warn "Runtime port check FAILED (exit=$runtimeExit). 可能存在后端监听非 $BackendPort 端口, 违反端口规范."
-        Write-Warn "  规范文档: client/docs/DEV_PORTS.md '运行时启动规范' 章节"
-        Write-Warn "  处理方法: Stop-Process 违规 PID, 然后用 $BackendPort 端口重启后端"
-        Write-Event 'runtime_port_check' 'error' @{ exit_code = $runtimeExit; expected_port = $BackendPort }
-      }
-    }
-  } catch {
-    Write-Warn "Runtime port check skipped: $_"
-    Write-Event 'runtime_port_check' 'warn' @{ reason = "$_" }
-  }
-} else {
-  Write-Warn "Runtime port check skipped: $runtimeCheck not found (legacy install?)"
-  Write-Event 'runtime_port_check' 'warn' @{ reason = 'script_missing'; path = $runtimeCheck }
-}
-
 # ----- Done -----
 Write-Ok "================ STARTED ================"
 Write-Ok "Backend:    http://127.0.0.1:$BackendPort"
