@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 `G:\1\client/` 内的全部后端资产(Python FastAPI 服务、Java 文档模块、Python 运行时、启动脚本)整建制迁移到 `G:\1\server/app/`,使 `client/` 变成纯前端项目,前端调用路径(`/api/pdf/*`, `/api/customer-service/*` 等)零改动。
+**Goal:** 将 `g:\IHUI-AI\client/` 内的全部后端资产(Python FastAPI 服务、Java 文档模块、Python 运行时、启动脚本)整建制迁移到 `g:\IHUI-AI\server/app/`,使 `client/` 变成纯前端项目,前端调用路径(`/api/pdf/*`, `/api/customer-service/*` 等)零改动。
 
 **Architecture:** 按 `server/app/api/v1/<domain>/` 模式拆分迁移 `client/backend/api/*` 与 `client/backend/services/*`;在 `server/app/api/legacy_alias.py` 中实现 ASGI 路径重写中间件,把旧 `/api/<domain>/...` 透明映射到 `/api/v1/<domain>/...`;client 端仅删除后端资产、调整 `package.json` 的 dev 脚本、改写 `start-frontend.bat`;`start-pdf-service.bat` 删除;`vite.config.ts` 保持不动。
 
@@ -16,8 +16,8 @@
 - 任务之间的 commit 顺序是 DAG,前面的失败立刻停止,不能跳步。
 - 所有"修改文件"步骤给出完整新内容(不能简写);若文件超过 200 行,使用"参考: `<原文件相对路径>`" 给出路径,实施者用 Read 工具读取。
 - 验证步骤必须看到 `Expected:` 所述的输出才算 PASS。
-- 路径全部使用 **绝对路径** `G:\1\...`。
-- 工作目录: `G:\1\`,所有 git 命令在 `G:\1\client` 与 `G:\1\server` 内分别执行。
+- 路径全部使用 **绝对路径** `g:\IHUI-AI\...`。
+- 工作目录: `g:\IHUI-AI\`,所有 git 命令在 `g:\IHUI-AI\client` 与 `g:\IHUI-AI\server` 内分别执行。
 
 ---
 
@@ -35,28 +35,28 @@
 - [ ] **Step 1: 验证 git 状态**
 
 ```bash
-cd /d G:\1
+cd /d g:\IHUI-AI
 git status
 ```
 
-Expected: 出现 `client` 与 `server` 的 working tree 状态;若 `G:\1` 不是 git 仓库, 则跳过本任务,只做文件级备份。
+Expected: 出现 `client` 与 `server` 的 working tree 状态;若 `g:\IHUI-AI` 不是 git 仓库, 则跳过本任务,只做文件级备份。
 
 - [ ] **Step 2: 备份 client/backend 与 client/lib**
 
 ```bash
-cmd /c "if not exist G:\1\.migration_backup mkdir G:\1\.migration_backup"
-cmd /c "xcopy /E /I /Y G:\1\client\backend G:\1\.migration_backup\client_backend"
-cmd /c "xcopy /E /I /Y G:\1\client\lib G:\1\.migration_backup\client_lib"
-cmd /c "xcopy /E /I /Y G:\1\client\backend-docs G:\1\.migration_backup\client_backend_docs"
-cmd /c "xcopy /E /I /Y G:\1\client\backend-api-service G:\1\.migration_backup\client_backend_api_service"
+cmd /c "if not exist g:\IHUI-AI\.migration_backup mkdir g:\IHUI-AI\.migration_backup"
+cmd /c "xcopy /E /I /Y g:\IHUI-AI\client\backend g:\IHUI-AI\.migration_backup\client_backend"
+cmd /c "xcopy /E /I /Y g:\IHUI-AI\client\lib g:\IHUI-AI\.migration_backup\client_lib"
+cmd /c "xcopy /E /I /Y g:\IHUI-AI\client\backend-docs g:\IHUI-AI\.migration_backup\client_backend_docs"
+cmd /c "xcopy /E /I /Y g:\IHUI-AI\client\backend-api-service g:\IHUI-AI\.migration_backup\client_backend_api_service"
 ```
 
-Expected: 4 个目录被复制到 `G:\1\.migration_backup\`。若 `xcopy` 在 Windows 提示 `(Y/N)`,加 `/Y` 跳过提示。
+Expected: 4 个目录被复制到 `g:\IHUI-AI\.migration_backup\`。若 `xcopy` 在 Windows 提示 `(Y/N)`,加 `/Y` 跳过提示。
 
 - [ ] **Step 3: 在 server 创建迁移日志文件**
 
 ```bash
-cmd /c "type nul > G:\1\server\.migration_log"
+cmd /c "type nul > g:\IHUI-AI\server\.migration_log"
 ```
 
 然后编辑该文件,首行写入:
@@ -65,10 +65,10 @@ cmd /c "type nul > G:\1\server\.migration_log"
 # Step-by-step actions logged here. See docs/MIGRATION_FROM_CLIENT_BACKEND.md
 ```
 
-- [ ] **Step 4: 提交工作区准备(仅当 G:\1 是 git 仓库)**
+- [ ] **Step 4: 提交工作区准备(仅当 g:\IHUI-AI 是 git 仓库)**
 
 ```bash
-cd /d G:\1
+cd /d g:\IHUI-AI
 git add .migration_backup server/.migration_log
 git commit -m "chore(migration): backup client/backend assets before migration"
 ```
@@ -82,87 +82,87 @@ Expected: 1 个 commit 出现,working tree 干净。
 ### Task 1: 在 server 创建目标目录骨架
 
 **Files:**
-- Create: `G:\1\server\app\api\v1\pdf\__init__.py`
-- Create: `G:\1\server\app\api\v1\upload\__init__.py`
-- Create: `G:\1\server\app\api\v1\version\__init__.py`
-- Create: `G:\1\server\app\api\v1\rbac\__init__.py`
-- Create: `G:\1\server\app\api\v1\audit\__init__.py`
-- Create: `G:\1\server\app\api\v1\customer_service\__init__.py`
-- Create: `G:\1\server\app\api\v1\agent\__init__.py`
-- Create: `G:\1\server\app\api\v1\docs\__init__.py`
-- Create: `G:\1\server\app\cli\__init__.py`
-- Create: `G:\1\server\app\api\_legacy_alias_marker.py`(占位)
-- Modify: `G:\1\server\app\api\v1\router.py` 加注册
+- Create: `g:\IHUI-AI\server\app\api\v1\pdf\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\upload\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\version\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\rbac\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\audit\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\customer_service\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\agent\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\docs\__init__.py`
+- Create: `g:\IHUI-AI\server\app\cli\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\_legacy_alias_marker.py`(占位)
+- Modify: `g:\IHUI-AI\server\app\api\v1\router.py` 加注册
 
 - [ ] **Step 1: 创建 9 个新目录 + 占位 `__init__.py`**
 
 对每个目录执行:
 
 ```bash
-cmd /c "if not exist G:\1\server\app\api\v1\pdf mkdir G:\1\server\app\api\v1\pdf"
-cmd /c "if not exist G:\1\server\app\api\v1\upload mkdir G:\1\server\app\api\v1\upload"
-cmd /c "if not exist G:\1\server\app\api\v1\version mkdir G:\1\server\app\api\v1\version"
-cmd /c "if not exist G:\1\server\app\api\v1\rbac mkdir G:\1\server\app\api\v1\rbac"
-cmd /c "if not exist G:\1\server\app\api\v1\audit mkdir G:\1\server\app\api\v1\audit"
-cmd /c "if not exist G:\1\server\app\api\v1\customer_service mkdir G:\1\server\app\api\v1\customer_service"
-cmd /c "if not exist G:\1\server\app\api\v1\agent mkdir G:\1\server\app\api\v1\agent"
-cmd /c "if not exist G:\1\server\app\api\v1\docs mkdir G:\1\server\app\api\v1\docs"
-cmd /c "if not exist G:\1\server\app\cli mkdir G:\1\server\app\cli"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\pdf mkdir g:\IHUI-AI\server\app\api\v1\pdf"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\upload mkdir g:\IHUI-AI\server\app\api\v1\upload"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\version mkdir g:\IHUI-AI\server\app\api\v1\version"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\rbac mkdir g:\IHUI-AI\server\app\api\v1\rbac"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\audit mkdir g:\IHUI-AI\server\app\api\v1\audit"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\customer_service mkdir g:\IHUI-AI\server\app\api\v1\customer_service"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\agent mkdir g:\IHUI-AI\server\app\api\v1\agent"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\docs mkdir g:\IHUI-AI\server\app\api\v1\docs"
+cmd /c "if not exist g:\IHUI-AI\server\app\cli mkdir g:\IHUI-AI\server\app\cli"
 ```
 
 然后创建 9 个 `__init__.py` 空文件:
 
 ```python
-# G:\1\server\app\api\v1\pdf\__init__.py
+# g:\IHUI-AI\server\app\api\v1\pdf\__init__.py
 # Legacy PDF processing endpoints (migrated from client/backend/api/routes.py)
 ```
 
 (每个文件首行注释不同,标对应模块名,其余 7 个目录类似)
 
 ```python
-# G:\1\server\app\api\v1\upload\__init__.py
+# g:\IHUI-AI\server\app\api\v1\upload\__init__.py
 # Legacy file upload endpoints (migrated from client/backend/api/upload_routes.py)
 ```
 
 ```python
-# G:\1\server\app\api\v1\version\__init__.py
+# g:\IHUI-AI\server\app\api\v1\version\__init__.py
 # Legacy version control endpoints (migrated from client/backend/api/version_routes.py)
 ```
 
 ```python
-# G:\1\server\app\api\v1\rbac\__init__.py
+# g:\IHUI-AI\server\app\api\v1\rbac\__init__.py
 # Legacy RBAC endpoints (migrated from client/backend/api/rbac_routes.py)
 ```
 
 ```python
-# G:\1\server\app\api\v1\audit\__init__.py
+# g:\IHUI-AI\server\app\api\v1\audit\__init__.py
 # Legacy audit log endpoints (migrated from client/backend/api/audit_routes.py)
 ```
 
 ```python
-# G:\1\server\app\api\v1\customer_service\__init__.py
+# g:\IHUI-AI\server\app\api\v1\customer_service\__init__.py
 # Legacy customer service + ticket endpoints (migrated from client/backend/api/customer_service_routes.py and ticket_routes.py)
 ```
 
 ```python
-# G:\1\server\app\api\v1\agent\__init__.py
+# g:\IHUI-AI\server\app\api\v1\agent\__init__.py
 # Legacy agent endpoints (migrated from client/backend/api/agent_routes.py)
 ```
 
 ```python
-# G:\1\server\app\api\v1\docs\__init__.py
+# g:\IHUI-AI\server\app\api\v1\docs\__init__.py
 # Document management endpoints (migrated from client/backend-docs/*.java)
 ```
 
 ```python
-# G:\1\server\app\cli\__init__.py
+# g:\IHUI-AI\server\app\cli\__init__.py
 # CLI entrypoints (run_customer_service etc.)
 ```
 
 - [ ] **Step 2: 验证目录创建**
 
 ```bash
-cmd /c "dir /B G:\1\server\app\api\v1\pdf G:\1\server\app\api\v1\upload G:\1\server\app\api\v1\version G:\1\server\app\api\v1\rbac G:\1\server\app\api\v1\audit G:\1\server\app\api\v1\customer_service G:\1\server\app\api\v1\agent G:\1\server\app\api\v1\docs G:\1\server\app\cli"
+cmd /c "dir /B g:\IHUI-AI\server\app\api\v1\pdf g:\IHUI-AI\server\app\api\v1\upload g:\IHUI-AI\server\app\api\v1\version g:\IHUI-AI\server\app\api\v1\rbac g:\IHUI-AI\server\app\api\v1\audit g:\IHUI-AI\server\app\api\v1\customer_service g:\IHUI-AI\server\app\api\v1\agent g:\IHUI-AI\server\app\api\v1\docs g:\IHUI-AI\server\app\cli"
 ```
 
 Expected: 每个目录至少有 `__init__.py`。
@@ -170,7 +170,7 @@ Expected: 每个目录至少有 `__init__.py`。
 - [ ] **Step 3: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/api/v1/pdf app/api/v1/upload app/api/v1/version app/api/v1/rbac app/api/v1/audit app/api/v1/customer_service app/api/v1/agent app/api/v1/docs app/cli
 git commit -m "feat(server): scaffold v1 modules for migrated client/backend endpoints"
 ```
@@ -182,38 +182,38 @@ Expected: 1 个 commit, working tree 干净。
 ### Task 2: 迁移 services (10 个文件) + 配置
 
 **Files:**
-- Create: `G:\1\server\app\services\pdf_service.py`(from `client/backend/services/pdf_service.py`)
-- Create: `G:\1\server\app\services\storage_service.py`
-- Create: `G:\1\server\app\services\cleanup_service.py`
-- Create: `G:\1\server\app\services\metrics_service.py`
-- Create: `G:\1\server\app\services\database_service.py`
-- Create: `G:\1\server\app\services\backup_service.py`
-- Create: `G:\1\server\app\services\security_service.py`
-- Create: `G:\1\server\app\services\auth_service.py`
-- Create: `G:\1\server\app\services\audit_service.py`
-- Create: `G:\1\server\app\services\diff_service.py`
-- Create: `G:\1\server\app\services\_legacy_settings.py`(封装 `client/backend/api/config.py` 的 settings)
+- Create: `g:\IHUI-AI\server\app\services\pdf_service.py`(from `client/backend/services/pdf_service.py`)
+- Create: `g:\IHUI-AI\server\app\services\storage_service.py`
+- Create: `g:\IHUI-AI\server\app\services\cleanup_service.py`
+- Create: `g:\IHUI-AI\server\app\services\metrics_service.py`
+- Create: `g:\IHUI-AI\server\app\services\database_service.py`
+- Create: `g:\IHUI-AI\server\app\services\backup_service.py`
+- Create: `g:\IHUI-AI\server\app\services\security_service.py`
+- Create: `g:\IHUI-AI\server\app\services\auth_service.py`
+- Create: `g:\IHUI-AI\server\app\services\audit_service.py`
+- Create: `g:\IHUI-AI\server\app\services\diff_service.py`
+- Create: `g:\IHUI-AI\server\app\services\_legacy_settings.py`(封装 `client/backend/api/config.py` 的 settings)
 
 - [ ] **Step 1: 复制所有 10 个 services 文件到目标位置**
 
 ```bash
-cmd /c "copy /Y G:\1\client\backend\services\pdf_service.py G:\1\server\app\services\pdf_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\storage_service.py G:\1\server\app\services\storage_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\cleanup_service.py G:\1\server\app\services\cleanup_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\metrics_service.py G:\1\server\app\services\metrics_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\database_service.py G:\1\server\app\services\database_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\backup_service.py G:\1\server\app\services\backup_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\security_service.py G:\1\server\app\services\security_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\auth_service.py G:\1\server\app\services\auth_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\audit_service.py G:\1\server\app\services\audit_service.py"
-cmd /c "copy /Y G:\1\client\backend\services\diff_service.py G:\1\server\app\services\diff_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\pdf_service.py g:\IHUI-AI\server\app\services\pdf_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\storage_service.py g:\IHUI-AI\server\app\services\storage_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\cleanup_service.py g:\IHUI-AI\server\app\services\cleanup_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\metrics_service.py g:\IHUI-AI\server\app\services\metrics_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\database_service.py g:\IHUI-AI\server\app\services\database_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\backup_service.py g:\IHUI-AI\server\app\services\backup_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\security_service.py g:\IHUI-AI\server\app\services\security_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\auth_service.py g:\IHUI-AI\server\app\services\auth_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\audit_service.py g:\IHUI-AI\server\app\services\audit_service.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\services\diff_service.py g:\IHUI-AI\server\app\services\diff_service.py"
 ```
 
 Expected: 10 个文件被复制(`1 file(s) copied` 出现 10 次)。
 
 - [ ] **Step 2: 改写 `pdf_service.py` 顶部的目录常量**
 
-`G:\1\server\app\services\pdf_service.py` 第 19-20 行(原 `UPLOAD_DIR = "uploads"` 与 `OUTPUT_DIR = "outputs"`)改为:
+`g:\IHUI-AI\server\app\services\pdf_service.py` 第 19-20 行(原 `UPLOAD_DIR = "uploads"` 与 `OUTPUT_DIR = "outputs"`)改为:
 
 ```python
 from pathlib import Path
@@ -240,7 +240,7 @@ OUTPUT_DIR = getattr(_app_settings, "LEGACY_OUTPUT_DIR", None) or str(
 执行:
 
 ```bash
-cd /d G:\1\server\app\services
+cd /d g:\IHUI-AI\server\app\services
 ```
 
 对每个 .py 文件,用 Read 工具读取后:
@@ -253,7 +253,7 @@ cd /d G:\1\server\app\services
 
 - [ ] **Step 4: 创建 `_legacy_settings.py`**
 
-文件 `G:\1\server\app\services\_legacy_settings.py`:
+文件 `g:\IHUI-AI\server\app\services\_legacy_settings.py`:
 
 ```python
 """Legacy settings wrapper for migrated client/backend services.
@@ -347,7 +347,7 @@ def generate_api_key() -> str:
 
 - [ ] **Step 5: 在 services 包内加导出**
 
-创建 `G:\1\server\app\services\__init__.py` (若不存在)或读取后追加:
+创建 `g:\IHUI-AI\server\app\services\__init__.py` (若不存在)或读取后追加:
 
 ```python
 # Re-export legacy client/backend service classes for backwards-compat.
@@ -396,7 +396,7 @@ from app.services._legacy_settings import settings  # noqa: F401
 - [ ] **Step 6: 验证 import 链**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.services import settings, PDFSignatureService, cleanup_service, security_middleware"
 ```
 
@@ -407,7 +407,7 @@ Expected: 命令以 exit code 0 结束, 无 ImportError。
 - [ ] **Step 7: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/services
 git commit -m "feat(server): migrate 10 client/backend services to app/services"
 ```
@@ -419,29 +419,29 @@ Expected: 1 commit。
 ### Task 3: 迁移 Pydantic models 与 legacy 内部 shim
 
 **Files:**
-- Create: `G:\1\server\app\schemas\legacy_schemas.py`(原 `client/backend/api/models.py`)
-- Create: `G:\1\server\app\api\v1\_legacy_internal\__init__.py`
-- Create: `G:\1\server\app\api\v1\_legacy_internal\__init__.py`
+- Create: `g:\IHUI-AI\server\app\schemas\legacy_schemas.py`(原 `client/backend/api/models.py`)
+- Create: `g:\IHUI-AI\server\app\api\v1\_legacy_internal\__init__.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\_legacy_internal\__init__.py`
 
 - [ ] **Step 1: 复制 models.py 到 schemas/legacy_schemas.py**
 
 ```bash
-cmd /c "copy /Y G:\1\client\backend\api\models.py G:\1\server\app\schemas\legacy_schemas.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\models.py g:\IHUI-AI\server\app\schemas\legacy_schemas.py"
 ```
 
 - [ ] **Step 2: 改写 models 内的相对 import**
 
-读取 `G:\1\server\app\schemas\legacy_schemas.py`, 把:
+读取 `g:\IHUI-AI\server\app\schemas\legacy_schemas.py`, 把:
 - `from api.config import settings` → `from app.services._legacy_settings import settings`
 - `from api.auth import ...` → `from app.api.v1._legacy_internal.auth import ...`(占位,Step 3 创建)
 
 - [ ] **Step 3: 创建 `_legacy_internal` 桥接包**
 
 ```bash
-cmd /c "if not exist G:\1\server\app\api\v1\_legacy_internal mkdir G:\1\server\app\api\v1\_legacy_internal"
+cmd /c "if not exist g:\IHUI-AI\server\app\api\v1\_legacy_internal mkdir g:\IHUI-AI\server\app\api\v1\_legacy_internal"
 ```
 
-`G:\1\server\app\api\v1\_legacy_internal\__init__.py`:
+`g:\IHUI-AI\server\app\api\v1\_legacy_internal\__init__.py`:
 
 ```python
 """Compatibility shim for legacy client/backend/api/* imports.
@@ -453,7 +453,7 @@ sweeping edits.
 """
 ```
 
-`G:\1\server\app\api\v1\_legacy_internal\config.py`:
+`g:\IHUI-AI\server\app\api\v1\_legacy_internal\config.py`:
 
 ```python
 """Backwards-compat: `from api.config import settings`"""
@@ -462,7 +462,7 @@ from app.services._legacy_settings import settings, LegacySettings, get_legacy_s
 __all__ = ["settings", "LegacySettings", "get_legacy_settings"]
 ```
 
-`G:\1\server\app\api\v1\_legacy_internal\auth.py`:
+`g:\IHUI-AI\server\app\api\v1\_legacy_internal\auth.py`:
 
 ```python
 """Backwards-compat: `from api.auth import verify_api_key`"""
@@ -471,7 +471,7 @@ from app.api.v1._legacy_internal._api_key import verify_api_key, api_key_header 
 __all__ = ["verify_api_key", "api_key_header"]
 ```
 
-`G:\1\server\app\api\v1\_legacy_internal\_api_key.py`:
+`g:\IHUI-AI\server\app\api\v1\_legacy_internal\_api_key.py`:
 
 ```python
 """API key auth (migrated from client/backend/api/auth.py)."""
@@ -505,7 +505,7 @@ async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
 - [ ] **Step 4: 验证 models 加载**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.schemas.legacy_schemas import SignatureRequest, WatermarkPosition"
 ```
 
@@ -514,7 +514,7 @@ Expected: exit code 0, 无输出。
 - [ ] **Step 5: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/schemas/legacy_schemas.py app/api/v1/_legacy_internal
 git commit -m "feat(server): migrate client/backend Pydantic models + legacy import shim"
 ```
@@ -524,22 +524,22 @@ git commit -m "feat(server): migrate client/backend Pydantic models + legacy imp
 ### Task 4: 迁移 PDF / Upload / Version / RBAC / Audit / Agent 路由
 
 **Files:**
-- Create: `G:\1\server\app\api\v1\pdf\pdf_routes.py`(from `client/backend/api/routes.py`)
-- Create: `G:\1\server\app\api\v1\upload\routes.py`(from `client/backend/api/upload_routes.py`)
-- Create: `G:\1\server\app\api\v1\version\routes.py`
-- Create: `G:\1\server\app\api\v1\rbac\routes.py`
-- Create: `G:\1\server\app\api\v1\audit\routes.py`
-- Create: `G:\1\server\app\api\v1\agent\routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\pdf\pdf_routes.py`(from `client/backend/api/routes.py`)
+- Create: `g:\IHUI-AI\server\app\api\v1\upload\routes.py`(from `client/backend/api/upload_routes.py`)
+- Create: `g:\IHUI-AI\server\app\api\v1\version\routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\rbac\routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\audit\routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\agent\routes.py`
 
 - [ ] **Step 1: 复制 6 个路由文件**
 
 ```bash
-cmd /c "copy /Y G:\1\client\backend\api\routes.py G:\1\server\app\api\v1\pdf\pdf_routes.py"
-cmd /c "copy /Y G:\1\client\backend\api\upload_routes.py G:\1\server\app\api\v1\upload\routes.py"
-cmd /c "copy /Y G:\1\client\backend\api\version_routes.py G:\1\server\app\api\v1\version\routes.py"
-cmd /c "copy /Y G:\1\client\backend\api\rbac_routes.py G:\1\server\app\api\v1\rbac\routes.py"
-cmd /c "copy /Y G:\1\client\backend\api\audit_routes.py G:\1\server\app\api\v1\audit\routes.py"
-cmd /c "copy /Y G:\1\client\backend\api\agent_routes.py G:\1\server\app\api\v1\agent\routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\routes.py g:\IHUI-AI\server\app\api\v1\pdf\pdf_routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\upload_routes.py g:\IHUI-AI\server\app\api\v1\upload\routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\version_routes.py g:\IHUI-AI\server\app\api\v1\version\routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\rbac_routes.py g:\IHUI-AI\server\app\api\v1\rbac\routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\audit_routes.py g:\IHUI-AI\server\app\api\v1\audit\routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\agent_routes.py g:\IHUI-AI\server\app\api\v1\agent\routes.py"
 ```
 
 - [ ] **Step 2: 在 6 个文件中替换 import**
@@ -566,7 +566,7 @@ cmd /c "copy /Y G:\1\client\backend\api\agent_routes.py G:\1\server\app\api\v1\a
 
 - [ ] **Step 3: pdf_routes.py 顶部 `pdf_router = APIRouter()` 改名**
 
-读取 `G:\1\server\app\api\v1\pdf\pdf_routes.py` 后, 把最后一行:
+读取 `g:\IHUI-AI\server\app\api\v1\pdf\pdf_routes.py` 后, 把最后一行:
 ```python
 pdf_router = APIRouter()
 ```
@@ -580,7 +580,7 @@ router = APIRouter()
 - [ ] **Step 4: 验证 6 个模块可加载**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.api.v1.pdf.pdf_routes import router"
 python -c "from app.api.v1.upload.routes import router"
 python -c "from app.api.v1.version.routes import router"
@@ -594,7 +594,7 @@ Expected: 6 行, 均 exit code 0, 无输出。
 - [ ] **Step 5: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/api/v1/pdf app/api/v1/upload app/api/v1/version app/api/v1/rbac app/api/v1/audit app/api/v1/agent
 git commit -m "feat(server): migrate pdf/upload/version/rbac/audit/agent routes from client/backend"
 ```
@@ -604,23 +604,23 @@ git commit -m "feat(server): migrate pdf/upload/version/rbac/audit/agent routes 
 ### Task 5: 迁移客服 + 工单 + 认证路由
 
 **Files:**
-- Create: `G:\1\server\app\api\v1\customer_service\customer_service_routes.py`
-- Create: `G:\1\server\app\api\v1\customer_service\ticket_routes.py`
-- Create: `G:\1\server\app\api\v1\auth\legacy_local.py`(从 `client/backend/api/auth_routes.py` 提取非重叠部分)
-- Create: `G:\1\server\app\core\customer_service_db.py`(从 `client/backend/customer_service_db.py`)
+- Create: `g:\IHUI-AI\server\app\api\v1\customer_service\customer_service_routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\customer_service\ticket_routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\auth\legacy_local.py`(从 `client/backend/api/auth_routes.py` 提取非重叠部分)
+- Create: `g:\IHUI-AI\server\app\core\customer_service_db.py`(从 `client/backend/customer_service_db.py`)
 
 - [ ] **Step 1: 复制客服/工单/客服 DB**
 
 ```bash
-cmd /c "copy /Y G:\1\client\backend\api\customer_service_routes.py G:\1\server\app\api\v1\customer_service\customer_service_routes.py"
-cmd /c "copy /Y G:\1\client\backend\api\ticket_routes.py G:\1\server\app\api\v1\customer_service\ticket_routes.py"
-cmd /c "if not exist G:\1\server\app\core mkdir G:\1\server\app\core"
-cmd /c "copy /Y G:\1\client\backend\customer_service_db.py G:\1\server\app\core\customer_service_db.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\customer_service_routes.py g:\IHUI-AI\server\app\api\v1\customer_service\customer_service_routes.py"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\api\ticket_routes.py g:\IHUI-AI\server\app\api\v1\customer_service\ticket_routes.py"
+cmd /c "if not exist g:\IHUI-AI\server\app\core mkdir g:\IHUI-AI\server\app\core"
+cmd /c "copy /Y g:\IHUI-AI\client\backend\customer_service_db.py g:\IHUI-AI\server\app\core\customer_service_db.py"
 ```
 
 - [ ] **Step 2: customer_service_routes.py 改 import + 路径**
 
-读取 `G:\1\server\app\api\v1\customer_service\customer_service_routes.py`, 替换:
+读取 `g:\IHUI-AI\server\app\api\v1\customer_service\customer_service_routes.py`, 替换:
 - 所有 `from services.` → `from app.services.`
 - (该文件无 `from api.` 引用, 但若有 `from api.models`, 改为 `from app.schemas.legacy_schemas`)
 - 文件顶部追加:
@@ -644,7 +644,7 @@ cmd /c "copy /Y G:\1\client\backend\customer_service_db.py G:\1\server\app\core\
 
 - [ ] **Step 3: ticket_routes.py 改 import + 路径**
 
-读取 `G:\1\server\app\api\v1\customer_service\ticket_routes.py`, 替换:
+读取 `g:\IHUI-AI\server\app\api\v1\customer_service\ticket_routes.py`, 替换:
 - `from services.` → `from app.services.`
 - 追加:
   ```python
@@ -666,7 +666,7 @@ cmd /c "copy /Y G:\1\client\backend\customer_service_db.py G:\1\server\app\core\
 - [ ] **Step 4: 验证客服模块可加载**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.api.v1.customer_service.customer_service_routes import router"
 python -c "from app.api.v1.customer_service.ticket_routes import router"
 ```
@@ -675,12 +675,12 @@ Expected: 2 行, exit code 0, 无输出。
 
 - [ ] **Step 5: 处理 auth_routes.py — 仅迁移非重叠部分到 legacy_local.py**
 
-读取 `G:\1\client\backend\api\auth_routes.py` 全文(200+ 行)。该文件含:
+读取 `g:\IHUI-AI\client\backend\api\auth_routes.py` 全文(200+ 行)。该文件含:
 - `register`、`login`、`refresh_token`、`me`、`change_password` 等端点。
 - 其中 `login` / `refresh_token` 已被 `server/app/api/v1/auth/login.py` 覆盖。
 - **只迁移**: `register`、`change_password`、`me` 三个端点到 `legacy_local.py`(与 `server` 已有 auth 模块并存)。
 
-`G:\1\server\app\api\v1\auth\legacy_local.py` 内容(从原文件抽出, 改 import):
+`g:\IHUI-AI\server\app\api\v1\auth\legacy_local.py` 内容(从原文件抽出, 改 import):
 
 ```python
 """
@@ -772,12 +772,12 @@ async def me(
     )
 ```
 
-**重要提示给实施者**: 用 Read 工具读取 `G:\1\client\backend\api\auth_routes.py` 全文,把 `register` / `change_password` / `me` 三个 handler 的实际实现粘贴到 `legacy_local.py` 中对应位置, **删除 3 个 `raise NotImplementedError`**。文件其余部分保留。
+**重要提示给实施者**: 用 Read 工具读取 `g:\IHUI-AI\client\backend\api\auth_routes.py` 全文,把 `register` / `change_password` / `me` 三个 handler 的实际实现粘贴到 `legacy_local.py` 中对应位置, **删除 3 个 `raise NotImplementedError`**。文件其余部分保留。
 
 - [ ] **Step 6: 验证 legacy_local.py 加载**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.api.v1.auth.legacy_local import router"
 ```
 
@@ -786,7 +786,7 @@ Expected: exit code 0, 无输出。
 - [ ] **Step 7: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/api/v1/customer_service app/api/v1/auth/legacy_local.py app/core/customer_service_db.py
 git commit -m "feat(server): migrate customer service + tickets + legacy local auth routes"
 ```
@@ -796,16 +796,16 @@ git commit -m "feat(server): migrate customer service + tickets + legacy local a
 ### Task 6: 迁移 Java 文档模块(backend-docs)→ FastAPI docs/ 模块
 
 **Files:**
-- Create: `G:\1\server\app\api\v1\docs\routes.py`
-- Create: `G:\1\server\app\api\v1\docs\schema.sql`
-- Create: `G:\1\server\app\api\v1\docs\models.py`
-- Create: `G:\1\server\app\api\v1\docs\README.md`
-- Create: `G:\1\server\app\services\markdown_converter.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\docs\routes.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\docs\schema.sql`
+- Create: `g:\IHUI-AI\server\app\api\v1\docs\models.py`
+- Create: `g:\IHUI-AI\server\app\api\v1\docs\README.md`
+- Create: `g:\IHUI-AI\server\app\services\markdown_converter.py`
 
 - [ ] **Step 1: 读取并分析 Java 文件**
 
 ```bash
-cd /d G:\1
+cd /d g:\IHUI-AI
 type client\backend-docs\Document.java
 type client\backend-docs\DocumentController.java
 type client\backend-docs\MarkdownConverter.java
@@ -817,7 +817,7 @@ type client\backend-docs\README.md
 
 - [ ] **Step 2: 创建 schema.sql**
 
-`G:\1\server\app\api\v1\docs\schema.sql`(从 `client/backend-docs/document.sql` 复制并简化):
+`g:\IHUI-AI\server\app\api\v1\docs\schema.sql`(从 `client/backend-docs/document.sql` 复制并简化):
 
 ```sql
 -- Document management schema (migrated from client/backend-docs/document.sql)
@@ -843,7 +843,7 @@ CREATE TABLE IF NOT EXISTS sys_document (
 
 - [ ] **Step 3: 创建 models.py**
 
-`G:\1\server\app\api\v1\docs\models.py`:
+`g:\IHUI-AI\server\app\api\v1\docs\models.py`:
 
 ```python
 """SQLAlchemy model for the docs module (migrated from client/backend-docs/Document.java)."""
@@ -908,7 +908,7 @@ def get_distinct_categories_query():
 
 - [ ] **Step 4: 创建 markdown_converter.py (Python 重写 Java MarkdownConverter)**
 
-`G:\1\server\app\services\markdown_converter.py`:
+`g:\IHUI-AI\server\app\services\markdown_converter.py`:
 
 ```python
 """File -> Markdown converter (re-implemented in Python from
@@ -1035,7 +1035,7 @@ def _pdf_to_md(p: Path) -> str:
 
 - [ ] **Step 5: 创建 routes.py**
 
-`G:\1\server\app\api\v1\docs\routes.py`:
+`g:\IHUI-AI\server\app\api\v1\docs\routes.py`:
 
 ```python
 """Document management routes (migrated from client/backend-docs/DocumentController.java)."""
@@ -1145,7 +1145,7 @@ async def list_categories():
 
 - [ ] **Step 6: 创建 README.md**
 
-`G:\1\server\app\api\v1\docs\README.md`:
+`g:\IHUI-AI\server\app\api\v1\docs\README.md`:
 
 ```markdown
 # Document Management API (migrated from client/backend-docs/)
@@ -1184,7 +1184,7 @@ by the server's `app/api/legacy_alias.py`.
 - [ ] **Step 7: 验证 docs/ 模块可加载**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.api.v1.docs.routes import router; from app.api.v1.docs.models import Document; from app.services.markdown_converter import convert_to_markdown"
 ```
 
@@ -1193,7 +1193,7 @@ Expected: exit code 0, 无输出。
 - [ ] **Step 8: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/api/v1/docs app/services/markdown_converter.py
 git commit -m "feat(server): migrate client/backend-docs Java module to FastAPI docs/ module"
 ```
@@ -1203,13 +1203,13 @@ git commit -m "feat(server): migrate client/backend-docs Java module to FastAPI 
 ### Task 7: 注册新模块到 v1 router + 别名兼容
 
 **Files:**
-- Modify: `G:\1\server\app\api\v1\router.py`
-- Create: `G:\1\server\app\api\legacy_alias.py`
-- Modify: `G:\1\server\app\main.py`(挂载别名)
+- Modify: `g:\IHUI-AI\server\app\api\v1\router.py`
+- Create: `g:\IHUI-AI\server\app\api\legacy_alias.py`
+- Modify: `g:\IHUI-AI\server\app\main.py`(挂载别名)
 
 - [ ] **Step 1: 在 `router.py` 末尾追加 7 个 import + 注册**
 
-读取 `G:\1\server\app\api\v1\router.py`, 找到文件末尾(若文件以 `api_router = APIRouter()` 结束, 则在此行**之前**追加)。追加:
+读取 `g:\IHUI-AI\server\app\api\v1\router.py`, 找到文件末尾(若文件以 `api_router = APIRouter()` 结束, 则在此行**之前**追加)。追加:
 
 ```python
 # --- Legacy migrated endpoints (from client/backend) ---
@@ -1234,7 +1234,7 @@ from app.api.v1.docs.routes import router as docs_legacy_router
 
 - [ ] **Step 2: 创建 `legacy_alias.py`(ASGI 路径重写中间件)**
 
-`G:\1\server\app\api\legacy_alias.py`:
+`g:\IHUI-AI\server\app\api\legacy_alias.py`:
 
 ```python
 """ASGI middleware that rewrites legacy /api/<domain>/... paths to
@@ -1291,7 +1291,7 @@ class LegacyPathRewriteASGI:
 
 - [ ] **Step 3: 在 `app/main.py` 中挂载别名 + 旧前缀路由**
 
-读取 `G:\1\server\app\main.py`, 找到 `# Import and mount routers` 段(约第 241 行 `try: from app.api.v1.router import api_router`), 在该段**之后**插入:
+读取 `g:\IHUI-AI\server\app\main.py`, 找到 `# Import and mount routers` 段(约第 241 行 `try: from app.api.v1.router import api_router`), 在该段**之后**插入:
 
 ```python
     # Legacy /api/<domain>/ paths (migrated from client/backend).
@@ -1368,7 +1368,7 @@ except Exception as _e:
 - [ ] **Step 4: 验证 server 启动并列出路由**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -c "from app.main import app; print(len(app.routes))"
 ```
 
@@ -1379,7 +1379,7 @@ Expected: 输出一个 > 0 的整数(具体数字取决于原有路由数, 至�
 打开 1 个终端:
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level info
 ```
 
@@ -1399,7 +1399,7 @@ Expected: 4 行均输出 `HTTP 200` 或 `HTTP 422`(路由命中但参数缺失, 
 - [ ] **Step 6: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add app/api/v1/router.py app/api/legacy_alias.py app/main.py
 git commit -m "feat(server): register legacy migrated routers + add /api/* path alias middleware"
 ```
@@ -1411,29 +1411,29 @@ git commit -m "feat(server): register legacy migrated routers + add /api/* path 
 ### Task 8: 删除 client/ 内后端资产
 
 **Files:**
-- Delete: `G:\1\client\backend-api-service\`(整目录)
-- Delete: `G:\1\client\lib\`(整目录)
-- Delete: `G:\1\client\start-pdf-service.bat`
-- Delete: `G:\1\client\backend\`(整目录, **最后一步**, 在确认所有迁移已完成)
+- Delete: `g:\IHUI-AI\client\backend-api-service\`(整目录)
+- Delete: `g:\IHUI-AI\client\lib\`(整目录)
+- Delete: `g:\IHUI-AI\client\start-pdf-service.bat`
+- Delete: `g:\IHUI-AI\client\backend\`(整目录, **最后一步**, 在确认所有迁移已完成)
 
 - [ ] **Step 1: 删除 backend-api-service 与 lib**
 
 ```bash
-cmd /c "rmdir /S /Q G:\1\client\backend-api-service"
-cmd /c "rmdir /S /Q G:\1\client\lib"
+cmd /c "rmdir /S /Q g:\IHUI-AI\client\backend-api-service"
+cmd /c "rmdir /S /Q g:\IHUI-AI\client\lib"
 ```
 
 Expected: 两条 `rmdir` 均无错误。若 `rmdir` 报"目录非空"但实际为空, 加 `/S` 已经覆盖; 若仍失败, 用:
 
 ```bash
-cmd /c "del /F /Q G:\1\client\lib\*.pyd 2>nul"
-cmd /c "rmdir /S /Q G:\1\client\lib"
+cmd /c "del /F /Q g:\IHUI-AI\client\lib\*.pyd 2>nul"
+cmd /c "rmdir /S /Q g:\IHUI-AI\client\lib"
 ```
 
 - [ ] **Step 2: 删除 start-pdf-service.bat**
 
 ```bash
-cmd /c "del /F /Q G:\1\client\start-pdf-service.bat"
+cmd /c "del /F /Q g:\IHUI-AI\client\start-pdf-service.bat"
 ```
 
 Expected: 1 file deleted.
@@ -1441,7 +1441,7 @@ Expected: 1 file deleted.
 - [ ] **Step 3: 验证 client/ 内后端痕迹**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 where /R . uvicorn 2>nul
 findstr /S /I "uvicorn" package.json 2>nul
 findstr /S /I "uvicorn" start-frontend.bat 2>nul
@@ -1452,7 +1452,7 @@ Expected: 3 个命令均无输出。
 - [ ] **Step 4: 提交(仅删除了空目录与 .bat, 此时 backend/ 仍在)**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 git add -A
 git status
 git commit -m "chore(client): remove empty backend-api-service/ and Python lib/ runtime"
@@ -1463,7 +1463,7 @@ Expected: working tree 干净,1 commit。
 - [ ] **Step 5: 删除 backend/(最后执行, 一次性)**
 
 ```bash
-cmd /c "rmdir /S /Q G:\1\client\backend"
+cmd /c "rmdir /S /Q g:\IHUI-AI\client\backend"
 ```
 
 Expected: 删除成功。
@@ -1471,7 +1471,7 @@ Expected: 删除成功。
 - [ ] **Step 6: 全量验证 client/ 无 Python 痕迹**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 dir /S /B *.py 2>nul
 findstr /S /I "import api.config" package.json src 2>nul
 findstr /S /I "from api." src 2>nul
@@ -1485,7 +1485,7 @@ Expected:
 - [ ] **Step 7: 提交**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 git add -A
 git commit -m "chore(client): remove backend/ directory (migrated to server/app/)"
 ```
@@ -1495,12 +1495,12 @@ git commit -m "chore(client): remove backend/ directory (migrated to server/app/
 ### Task 9: 改写 start-frontend.bat + package.json scripts
 
 **Files:**
-- Modify: `G:\1\client\start-frontend.bat`
-- Modify: `G:\1\client\package.json`
+- Modify: `g:\IHUI-AI\client\start-frontend.bat`
+- Modify: `g:\IHUI-AI\client\package.json`
 
 - [ ] **Step 1: 改写 start-frontend.bat**
 
-读取 `G:\1\client\start-frontend.bat`, **整文件替换**为:
+读取 `g:\IHUI-AI\client\start-frontend.bat`, **整文件替换**为:
 
 ```bat
 @echo off
@@ -1519,7 +1519,7 @@ pause
 
 - [ ] **Step 2: 改写 package.json 的 dev 脚本**
 
-读取 `G:\1\client\package.json`, 找到:
+读取 `g:\IHUI-AI\client\package.json`, 找到:
 
 ```json
     "dev:backend": "cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000",
@@ -1536,7 +1536,7 @@ pause
 - [ ] **Step 3: 验证 package.json 仍是合法 JSON**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).scripts['dev:server'])"
 ```
 
@@ -1545,15 +1545,15 @@ Expected: 输出 `cd ../server && start-all.bat`。
 - [ ] **Step 4: 验证 start-frontend.bat 内容**
 
 ```bash
-type G:\1\client\start-frontend.bat
+type g:\IHUI-AI\client\start-frontend.bat
 ```
 
-Expected: 文件中**不含** `uvicorn` / `python` / `cd /d G:\1\client\backend` 字样。
+Expected: 文件中**不含** `uvicorn` / `python` / `cd /d g:\IHUI-AI\client\backend` 字样。
 
 - [ ] **Step 5: 提交**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 git add start-frontend.bat package.json
 git commit -m "chore(client): remove backend dev scripts; route dev:server to server/start-all.bat"
 ```
@@ -1563,13 +1563,13 @@ git commit -m "chore(client): remove backend dev scripts; route dev:server to se
 ### Task 10: 迁移 backend-docs(已迁移, 此处做清理) + 更新 vite.config.ts 注释
 
 **Files:**
-- Modify: `G:\1\client\vite.config.ts` (注释更新,**不改代理配置**)
-- Delete: `G:\1\client\backend-docs\`(已全部迁移到 `server/app/api/v1/docs/`)
+- Modify: `g:\IHUI-AI\client\vite.config.ts` (注释更新,**不改代理配置**)
+- Delete: `g:\IHUI-AI\client\backend-docs\`(已全部迁移到 `server/app/api/v1/docs/`)
 
 - [ ] **Step 1: 验证 backend-docs 已被迁移**
 
 ```bash
-cmd /c "dir /B G:\1\client\backend-docs 2>nul"
+cmd /c "dir /B g:\IHUI-AI\client\backend-docs 2>nul"
 ```
 
 Expected: 仍有 `DocumentController.java` 等 5 个文件(尚未删除)。**先确认 Task 6 中 docs/ 模块的 curl 测试通过再删除**。
@@ -1577,12 +1577,12 @@ Expected: 仍有 `DocumentController.java` 等 5 个文件(尚未删除)。**先
 - [ ] **Step 2: 删除 backend-docs**
 
 ```bash
-cmd /c "rmdir /S /Q G:\1\client\backend-docs"
+cmd /c "rmdir /S /Q g:\IHUI-AI\client\backend-docs"
 ```
 
 - [ ] **Step 3: vite.config.ts 注释(可选, 仅顶部)**
 
-读取 `G:\1\client\vite.config.ts` 顶部(约前 14 行), 在导入区下加注释(不改代理逻辑):
+读取 `g:\IHUI-AI\client\vite.config.ts` 顶部(约前 14 行), 在导入区下加注释(不改代理逻辑):
 
 ```typescript
 // Note (2026-06-18 migration):
@@ -1596,7 +1596,7 @@ cmd /c "rmdir /S /Q G:\1\client\backend-docs"
 - [ ] **Step 4: 验证 vite.config.ts TS 编译**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 node -e "console.log('vite.config.ts ok')"
 ```
 
@@ -1605,7 +1605,7 @@ Expected: 输出 `vite.config.ts ok`(本步仅冒烟, 真编译在 e2e)。
 - [ ] **Step 5: 提交**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 git add -A
 git commit -m "chore(client): remove backend-docs/; annotate vite proxy target comment"
 ```
@@ -1617,26 +1617,26 @@ git commit -m "chore(client): remove backend-docs/; annotate vite proxy target c
 ### Task 11: 合并依赖到 server/requirements.txt + .env.example
 
 **Files:**
-- Modify: `G:\1\server\requirements.txt`
-- Modify: `G:\1\server\.env.example`
+- Modify: `g:\IHUI-AI\server\requirements.txt`
+- Modify: `g:\IHUI-AI\server\.env.example`
 
 - [ ] **Step 1: 读取 client/backend/requirements.txt 全文**
 
 ```bash
-type G:\1\client\backend\requirements.txt 2>nul
+type g:\IHUI-AI\client\backend\requirements.txt 2>nul
 ```
 
 若该文件已删除(在 Task 8 中删了 backend/), 从备份读取:
 
 ```bash
-type G:\1\.migration_backup\client_backend\requirements.txt
+type g:\IHUI-AI\.migration_backup\client_backend\requirements.txt
 ```
 
 (若 `client\backend` 在 `xcopy` 后**没有** `requirements.txt`, 改用 `client\backend\.env.example` 验证备份完整。)
 
 - [ ] **Step 2: 追加到 server/requirements.txt**
 
-读取 `G:\1\server\requirements.txt` 末尾, 追加:
+读取 `g:\IHUI-AI\server\requirements.txt` 末尾, 追加:
 
 ```text
 
@@ -1670,7 +1670,7 @@ bcrypt==4.1.2
 
 - [ ] **Step 3: 追加到 server/.env.example**
 
-读取 `G:\1\server\.env.example` 末尾, 追加:
+读取 `g:\IHUI-AI\server\.env.example` 末尾, 追加:
 
 ```text
 
@@ -1685,7 +1685,7 @@ PDF_REQUIRE_API_KEY=false
 - [ ] **Step 4: 验证 server 依赖安装 + 启动**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -m pip install -r requirements.txt 2>&1 | findstr /I "error"
 python -c "from app.main import app; print('routes:', len(app.routes))"
 ```
@@ -1695,7 +1695,7 @@ Expected: `findstr /I "error"` 无输出; `python -c` 输出 `routes: <数字>`�
 - [ ] **Step 5: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add requirements.txt .env.example
 git commit -m "chore(server): merge client/backend/requirements.txt into server deps"
 ```
@@ -1705,11 +1705,11 @@ git commit -m "chore(server): merge client/backend/requirements.txt into server 
 ### Task 12: 写迁移文档 server/docs/MIGRATION_FROM_CLIENT_BACKEND.md
 
 **Files:**
-- Create: `G:\1\server\docs\MIGRATION_FROM_CLIENT_BACKEND.md`
+- Create: `g:\IHUI-AI\server\docs\MIGRATION_FROM_CLIENT_BACKEND.md`
 
 - [ ] **Step 1: 写入文档**
 
-`G:\1\server\docs\MIGRATION_FROM_CLIENT_BACKEND.md`:
+`g:\IHUI-AI\server\docs\MIGRATION_FROM_CLIENT_BACKEND.md`:
 
 ```markdown
 # Migration: client/backend → server
@@ -1762,12 +1762,12 @@ rewritten to `/api/v1/customer-service/ws/chat`.
 
 ```bash
 # Backend (server)
-cd G:\1\server
+cd g:\IHUI-AI\server
 python -m pip install -r requirements.txt
 start-all.bat          # or: python -m uvicorn app.main:app --port 8000
 
 # Frontend (client)
-cd G:\1\client
+cd g:\IHUI-AI\client
 npm install            # first time
 npm run dev            # vite on 8888
 ```
@@ -1790,19 +1790,19 @@ in case the ASGI middleware is bypassed by some HTTP client).
 ## Backups
 
 If anything is wrong, restore from:
-- `G:\1\.migration_backup\client_backend\`
-- `G:\1\.migration_backup\client_lib\`
-- `G:\1\.migration_backup\client_backend_docs\`
-- `G:\1\.migration_backup\client_backend_api_service\`
+- `g:\IHUI-AI\.migration_backup\client_backend\`
+- `g:\IHUI-AI\.migration_backup\client_lib\`
+- `g:\IHUI-AI\.migration_backup\client_backend_docs\`
+- `g:\IHUI-AI\.migration_backup\client_backend_api_service\`
 
 ## Verification (re-run anytime)
 
 ```bash
 # 1. client/ should have no Python
-find G:\1\client -name "*.py" -not -path "*/node_modules/*"   # expect empty
+find g:\IHUI-AI\client -name "*.py" -not -path "*/node_modules/*"   # expect empty
 
 # 2. server imports
-cd G:\1\server && python -c "from app.main import app; print(len(app.routes))"
+cd g:\IHUI-AI\server && python -c "from app.main import app; print(len(app.routes))"
 
 # 3. legacy alias hit (server must be running)
 curl -i http://127.0.0.1:8000/api/pdf/certificate/ca
@@ -1822,7 +1822,7 @@ curl -i http://127.0.0.1:8000/api/customer-service/faq
 - [ ] **Step 2: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add docs/MIGRATION_FROM_CLIENT_BACKEND.md
 git commit -m "docs(server): add MIGRATION_FROM_CLIENT_BACKEND.md"
 ```
@@ -1832,11 +1832,11 @@ git commit -m "docs(server): add MIGRATION_FROM_CLIENT_BACKEND.md"
 ### Task 13: 更新 server/README.md 与客户端 e2e 验证
 
 **Files:**
-- Modify: `G:\1\server\README.md`(追加章节)
+- Modify: `g:\IHUI-AI\server\README.md`(追加章节)
 
 - [ ] **Step 1: 在 server/README.md 末尾追加章节**
 
-读取 `G:\1\server\README.md`, 在文件末尾追加:
+读取 `g:\IHUI-AI\server\README.md`, 在文件末尾追加:
 
 ```markdown
 
@@ -1869,7 +1869,7 @@ See `docs/MIGRATION_FROM_CLIENT_BACKEND.md` for full migration notes.
 - [ ] **Step 2: 验证 README 结构**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 type README.md
 ```
 
@@ -1879,13 +1879,13 @@ Expected: 末尾有新增的"Legacy PDF / Customer Service"章节。
 
 启动 server:
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 另开终端启动 client:
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 npm run dev
 ```
 
@@ -1896,7 +1896,7 @@ npm run dev
 - [ ] e2e 跑关键 spec:
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 npx playwright test e2e/api-integration.spec.ts e2e/backend-contract.spec.ts --reporter=line
 ```
 
@@ -1905,7 +1905,7 @@ Expected: 全部通过(若某 spec 失败,记录并修复 — 但根据设计,�
 - [ ] **Step 4: server 单元测试**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 python -m pytest tests/ -x -q 2>nul
 ```
 
@@ -1914,7 +1914,7 @@ Expected: 套件通过(若个别失败因引入了新路由,标记为 expected, 
 - [ ] **Step 5: 提交**
 
 ```bash
-cd /d G:\1\server
+cd /d g:\IHUI-AI\server
 git add README.md
 git commit -m "docs(server): add legacy modules section to README"
 ```
@@ -1926,22 +1926,22 @@ git commit -m "docs(server): add legacy modules section to README"
 ### Task 14: 移除 .migration_backup 备份 + 写最终 summary commit
 
 **Files:**
-- Delete: `G:\1\.migration_backup\`(整目录)
-- Delete: `G:\1\server\.migration_log`
+- Delete: `g:\IHUI-AI\.migration_backup\`(整目录)
+- Delete: `g:\IHUI-AI\server\.migration_log`
 
 - [ ] **Step 1: 移除备份(在所有验证通过后)**
 
 ```bash
-cmd /c "rmdir /S /Q G:\1\.migration_backup"
-cmd /c "del /F /Q G:\1\server\.migration_log"
+cmd /c "rmdir /S /Q g:\IHUI-AI\.migration_backup"
+cmd /c "del /F /Q g:\IHUI-AI\server\.migration_log"
 ```
 
 - [ ] **Step 2: 最终静态检查**
 
 ```bash
-cd /d G:\1\client
+cd /d g:\IHUI-AI\client
 dir /S /B *.py 2>nul
-cmd /c "dir /B G:\1\client\backend G:\1\client\backend-api-service G:\1\client\backend-docs G:\1\client\lib 2>nul"
+cmd /c "dir /B g:\IHUI-AI\client\backend g:\IHUI-AI\client\backend-api-service g:\IHUI-AI\client\backend-docs g:\IHUI-AI\client\lib 2>nul"
 ```
 
 Expected:
@@ -1961,7 +1961,7 @@ Expected:
 - [ ] **Step 4: 写一个 final 总结 commit (允许空, 用 --allow-empty)**
 
 ```bash
-cd /d G:\1
+cd /d g:\IHUI-AI
 git commit --allow-empty -m "chore: client/backend migration complete (2026-06-18)
 
 - client/ is now a pure frontend project
