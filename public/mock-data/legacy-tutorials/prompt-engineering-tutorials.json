@@ -1,0 +1,125 @@
+{
+  "metadata": {
+    "topic": "提示词工程教学资源",
+    "description": "Prompt Engineering提示词设计与优化教程",
+    "crawlDate": "2026-01-28",
+    "totalResources": 15
+  },
+  "videoResources": [
+    {
+      "title": "吴恩达 Prompt Engineering 课程",
+      "type": "video",
+      "platform": "DeepLearning.AI",
+      "url": "https://www.deeplearning.ai/short-courses/chatgpt-prompt-engineering-for-developers/",
+      "description": "由OpenAI技术团队成员Isa Fulford和吴恩达教授设计的开发者课程",
+      "sections": [
+        "Prompt设计原则",
+        "迭代优化Prompt",
+        "文本概括、转换、写作",
+        "聊天机器人设计"
+      ],
+      "tags": ["吴恩达", "Prompt Engineering", "OpenAI", "开发者"],
+      "language": "en",
+      "difficulty": "beginner"
+    }
+  ],
+  "articleResources": [
+    {
+      "title": "提示词工程指南 - SwanLab",
+      "type": "course",
+      "platform": "SwanLab",
+      "url": "https://docs.swanlab.cn/course/prompt_engineering_course/02-prompt_guide/README.html",
+      "summary": "9个章节的系统提示词工程课程，涵盖环境安装、撰写技巧、常见任务、多模态、RAG、Agent实践等",
+      "chapters": [
+        "环境安装与模型选择",
+        "提示词撰写技巧（含CoT等方法）",
+        "常见任务示例（文本生成、代码生成、数学计算等）",
+        "多模态大模型提示词",
+        "合成数据、RAG检索、Agent实践"
+      ],
+      "tags": ["提示词工程", "系统课程", "CoT", "RAG"],
+      "language": "zh-CN",
+      "difficulty": "all"
+    },
+    {
+      "title": "Prompt Tutorial - GitHub",
+      "type": "github",
+      "platform": "GitHub",
+      "url": "https://github.com/pandabearlab/prompt-tutorial",
+      "stars": 1300,
+      "summary": "开源提示词教程项目，包含ChatGPT、Prompt、LLM相关内容和最佳实践指南",
+      "tags": ["Prompt", "开源", "GitHub", "最佳实践"],
+      "language": "zh-CN",
+      "difficulty": "beginner"
+    }
+  ],
+  "techniques": [
+    {
+      "name": "Chain of Thought (CoT)",
+      "description": "思维链提示，引导模型展示推理过程",
+      "useCase": "复杂推理、数学问题"
+    },
+    {
+      "name": "Few-shot Learning",
+      "description": "少样本学习，通过示例教会模型任务格式",
+      "useCase": "格式化输出、特定风格"
+    },
+    {
+      "name": "Zero-shot Learning",
+      "description": "零样本学习，直接描述任务无需示例",
+      "useCase": "简单任务、通用指令"
+    },
+    {
+      "name": "Role Playing",
+      "description": "角色扮演，让模型扮演特定角色",
+      "useCase": "专业领域、特定视角"
+    },
+    {
+      "name": "Structured Output",
+      "description": "结构化输出，指定JSON/XML等格式",
+      "useCase": "API响应、数据提取"
+    }
+  ],
+  "courseStructure": {
+    "courseName": "提示词工程完全指南",
+    "courseDescription": "掌握与大语言模型有效沟通的技术，让AI输出更符合预期",
+    "chapters": [
+      {
+        "chapterNo": 1,
+        "chapterName": "提示词基础",
+        "lessons": [
+          {"lessonName": "什么是提示词工程", "type": "article"},
+          {"lessonName": "提示词设计原则", "type": "video", "url": "https://www.deeplearning.ai/short-courses/chatgpt-prompt-engineering-for-developers/"},
+          {"lessonName": "基础提示词模式", "type": "article"}
+        ]
+      },
+      {
+        "chapterNo": 2,
+        "chapterName": "核心技巧",
+        "lessons": [
+          {"lessonName": "Few-shot与Zero-shot", "type": "article"},
+          {"lessonName": "Chain of Thought", "type": "article", "url": "https://docs.swanlab.cn/course/prompt_engineering_course/02-prompt_guide/README.html"},
+          {"lessonName": "角色扮演与结构化输出", "type": "article"}
+        ]
+      },
+      {
+        "chapterNo": 3,
+        "chapterName": "应用实践",
+        "lessons": [
+          {"lessonName": "文本生成与摘要", "type": "article"},
+          {"lessonName": "代码生成", "type": "article"},
+          {"lessonName": "数据提取与分析", "type": "article"}
+        ]
+      },
+      {
+        "chapterNo": 4,
+        "chapterName": "高级应用",
+        "lessons": [
+          {"lessonName": "多模态提示词", "type": "article"},
+          {"lessonName": "RAG提示词设计", "type": "article"},
+          {"lessonName": "Agent提示词优化", "type": "article"}
+        ]
+      }
+    ]
+  }
+}
