@@ -10,22 +10,19 @@ services:
     image: aizhs-server:14.5
     container_name: aizhs-backend
     restart: unless-stopped
-    # 通过 env_file 注入完整生产配置 (server/.env.production)
-    # 避免在 environment 中逐项列举导致遗漏新增配置
-    env_file:
-      - ./server/.env.production
     environment:
-      # 以下变量需覆盖 env_file 中的值 (Docker 内部网络服务名)
       - DB1_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
       - DB2_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
       - DB3_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
-      - REDIS_HOST=redis
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET}
+      - SESSION_SECRET_KEY=${SESSION_SECRET}
+      - ENV=production
+      - CORS_ORIGINS=https://${DOMAIN}
       - MINIO_URL=http://minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_BUCKET=aizhs
-      - ENV=production
     depends_on:
       db:
         condition: service_healthy
@@ -34,7 +31,7 @@ services:
     networks:
       - aizhs-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -52,20 +49,11 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - aizhs-net
-    healthcheck:
-      test: ["CMD", "curl", "-kf", "https://localhost:443/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   # PostgreSQL 数据库
   db:
@@ -102,28 +90,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO 对象存储
-  minio:
-    image: minio/minio:latest
-    container_name: aizhs-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-    volumes:
-      - miniodata:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    networks:
-      - aizhs-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
 networks:
   aizhs-net:
     driver: bridge
@@ -131,4 +97,3 @@ networks:
 volumes:
   pgdata:
   redisdata:
-  miniodata:

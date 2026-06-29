@@ -1,0 +1,135 @@
+name: miniapp-preview
+
+# 触发条件：push v* 开头的 tag 时自动构建并预览微信小程序
+# 也支持 workflow_dispatch 手动触发
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      command:
+        description: '执行命令（preview 或 upload）'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - upload
+      version_desc:
+        description: '版本描述（仅 upload 命令使用）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write  # 上传 Release 资产需要
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  preview:
+    name: 微信小程序预览/上传
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            client/package-lock.json
+            client/miniapp/package-lock.json
+
+      - name: 安装 client 根依赖（含 build:shared postinstall）
+        working-directory: client
+        run: npm ci --no-audit --no-fund
+
+      - name: 安装 miniapp 依赖
+        working-directory: client/miniapp
+        run: npm ci --no-audit --no-fund
+
+      - name: 构建 mp-weixin 产物
+        working-directory: client
+        run: npm run build:mp-weixin
+
+      - name: 准备私钥
+        id: prepare-key
+        env:
+          MINIPROGRAM_PRIVATE_KEY: ${{ secrets.MINIPROGRAM_PRIVATE_KEY }}
+        run: |
+          if [ -z "$MINIPROGRAM_PRIVATE_KEY" ]; then
+            echo "::error::未配置 MINIPROGRAM_PRIVATE_KEY secret"
+            echo "请在仓库 Settings → Secrets and variables → Actions → New repository secret 添加"
+            echo "名称：MINIPROGRAM_PRIVATE_KEY"
+            echo "值：微信小程序后台下载的私钥文件全文"
+            exit 1
+          fi
+          # 写入临时文件供脚本读取
+          KEY_FILE="client/miniapp/private.key.wx27028e276ffdbc5d.key"
+          printf '%s' "$MINIPROGRAM_PRIVATE_KEY" > "$KEY_FILE"
+          echo "私钥已写入临时文件"
+        shell: bash
+
+      - name: 确定执行命令
+        id: resolve-cmd
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # tag 触发：默认 preview
+            echo "command=preview" >> $GITHUB_OUTPUT
+            echo "desc=" >> $GITHUB_OUTPUT
+          else
+            # 手动触发：使用 input
+            echo "command=${{ github.event.inputs.command }}" >> $GITHUB_OUTPUT
+            echo "desc=${{ github.event.inputs.version_desc }}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: 执行 miniprogram-ci
+        id: run-ci
+        working-directory: client/miniapp
+        run: |
+          CMD="${{ steps.resolve-cmd.outputs.command }}"
+          DESC="${{ steps.resolve-cmd.outputs.desc }}"
+          if [ "$CMD" = "upload" ] && [ -n "$DESC" ]; then
+            npx tsx scripts/upload-miniprogram.ts upload --desc "$DESC"
+          else
+            npx tsx scripts/upload-miniprogram.ts $CMD
+          fi
+        shell: bash
+
+      - name: 上传预览二维码到 Release（仅 tag 触发）
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: client/miniapp/preview-qr.png
+          body: |
+            # 微信小程序预览 ${{ github.ref_name }}
+
+            用微信扫描下方二维码即可预览（preview-qr.png 已附在资产中）。
+
+            - 标签：${{ github.ref_name }}
+            - 提交：${{ github.sha }}
+            - 触发者：${{ github.actor }}
+          tag_name: ${{ github.ref_name }}
+          name: 小程序预览 ${{ github.ref_name }}
+
+      - name: 上传预览二维码为 Artifact（手动触发时）
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-qr
+          path: client/miniapp/preview-qr.png
+          retention-days: 7
+
+      - name: 清理私钥
+        if: always()
+        run: |
+          rm -f client/miniapp/private.key.wx27028e276ffdbc5d.key
+          echo "私钥临时文件已清理"
+        shell: bash

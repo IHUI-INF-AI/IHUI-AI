@@ -1,375 +1,123 @@
-# ===== 依赖与构建产物 =====
-node_modules
-.venv
-__pycache__
-.git
-.pytest_cache
-coverage
-screenshots
-artifacts
-backups
-backup
-dist
-storybook-static
-.v8-coverage
-.e2e-coverage-history
-.token-history
-pw-output
-test-results
+# ============================================================================
+# 运行时产物 / 临时文件
+# ============================================================================
+logs/
+tmp/
+audit/
+pw-output/
+screenshots/
+test-results/
+.ruff_cache/
+*.log
+test_token.txt
+test_*.json
+test_*.log
+endpoints_500*
+test_endpoints.ps1
 
-# ===== 环境变量与密钥 =====
+# ============================================================================
+# 构建产物
+# ============================================================================
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# ============================================================================
+# 环境配置
+# ============================================================================
 .env
-.env.*
-!.env.example
-!.env.production.example
-!.env.development.example
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.production
+**/.env.vapid
 
-# Legacy production credentials (extracted from H:\历史项目存档, 2026-06-25)
-# Contains server passwords, API keys, database credentials.
-# MUST be encrypted at rest in production. KEEP OUT OF VERSION CONTROL.
-docs/PRODUCTION_CREDENTIALS.md
-docs/PRODUCTION_CREDENTIALS.*.md
-docs/legacy-secrets/
-secrets/
+# ============================================================================
+# 历史项目封存凭证（敏感，禁止入库）
+# ============================================================================
+server/deploy/legacy-archive/secrets/
+server/deploy/legacy-archive/**/secrets/
+# 历史运维脚本归档（含硬编码 MySQL 凭证 Raindrop_L250604，禁止入库）
+server/deploy/legacy-archive/ops-scripts-archive/
 
-# 证书与密钥文件
-*.pem
-*.key
-*.p12
-*.jks
-*.crt
-*.cer
-*.pfx
-*.keystore
-*.truststore
-*.key.backup
-*.pem.backup
-*_private.pem
-*_privkey.pem
-# 微信支付 / 支付宝 私钥文件名
-zhsLogin_private.*
-wxpay_cert.*
-appSecretRSA.*
-alipayPublicKey_*
-# SSH/PGP 密钥
-id_rsa
-id_dsa
-id_ecdsa
-id_ed25519
-*.gpg
-*.asc
+# ============================================================================
+# IDE / 编辑器
+# ============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
 
-# ===== 运行时数据与日志 =====
-logs
-uploads
-local_uploads
-ssl
-storage
-storage/*
-!storage/README.md
-!storage/edu-assets/README.md
-public/uploads
+# ============================================================================
+# 数据库 / 运行时数据
+# ============================================================================
 *.db
-dev.log
+*.sqlite
+*.sqlite3
+storage/
+uploads/
+local_uploads/
 
-# ===== 临时构建产物与输出 =====
-build_log*.txt
-build_output.txt
+# ============================================================================
+# Windows 设备文件
+# ============================================================================
 nul
-client/vue-tsc-full.txt
-tsc*.txt
-eslint*.txt
-tmp_seed.txt
-to-import.json
-test_escape.py
-worktree-manifest.txt
-push-bundle-*.bundle
 
-# 临时脚本
-temp_*.py
-patch_*.py
-__patch_tsc*
-__vue_tsc.patch
-# 2026-06-25 扩展: 一次性调查/清理脚本应在 archive/ 下, 不在主目录
-# 防止 _investigate_*.py / _cleanup_*.py 误入主目录 (真正需要时用 git mv 到 archive/)
-server/tests/_investigate_*.py
-server/tests/_cleanup_*.py
-server/scripts/_investigate_*.py
-server/scripts/_cleanup_*.py
+# ============================================================================
+# 依赖
+# ============================================================================
+node_modules/
+.venv/
+venv/
 
-# 临时测试/审计输出
-backend-paths-only.txt
-full-test-run.txt
-lazy-load-test*.txt
-nav_audit.json
-nav_audit_report.txt
-orphan_views.txt
-# 错误重定向文件名（防误入仓）
-/erver
-/tat*
+# ============================================================================
+# 测试产物（完整测试结果，体积大，不提交）
+# ============================================================================
+client/test-results-full/
+client/test-results/
+client/playwright-report/
+client/.v8-coverage/
+client/e2e-v8-coverage-report/
+client/e2e-v8-coverage-report.json
 
-# 后端运行时日志与测试输出
-server/test_out.txt
-server/test_out2.txt
-server/test_result.txt
-server/test_result_full.txt
-server/test_full_suite.txt
-server/test_suite2.txt
-server/e2e_full.txt
-server/e2e_result.txt
-server/e2e_detail.txt
-server/e2e_output.txt
-server/e2e_v.txt
-server/e2e_lines.txt
-server/e2e_long.txt
-server/e2e_junit.xml
-server/e2e_junit2.xml
-server/e2e_junit3.xml
-server/run_test.py
-server/_run_e2e.py
-server/tests/_smoke_fix_*.py
+# ============================================================================
+# Python 缓存
+# ============================================================================
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 
-# 前端临时 locale 备份
-client/src/locales/full/
-
-# ===== IDE 与编辑器 =====
-.vscode
-.idea
-
-# ===== 一次性历史报告（防御性，防止再次入库）=====
-# Chinese report HTML files in root
-前端Bug全面检查报告.html
-前端类型债务专项清单.html
-前端认证适配修复完成报告.html
-后端Bug修复完成报告.html
-后端Bug全面审计报告.html
-封版前按负责人分派任务表.html
-封版前缺陷跟踪表.html
-冒烟测试报告.html
-
-# ===== Python embed (should not be in repo) =====
-server/python-3.12.9-embed-amd64/
-
-# ===== 杂项临时文件 =====
-test-writer.toml
-tor-specialist.toml
-.nul
-.git-recover-*
-.git.bak-*
-.v1.0.0-stash-backup
-empty_tmp_dir
-_release_cleanup_staging
-final-migration-audit
-frontend-backend-integration-audit
-integration-audit-final
-integration-audit-report
-integration-comparison-analysis
-launch-readiness-checklist
-migration-analysis
-migration-comparison-analysis
-migration-final-audit
-migration-final-audit-2026
-migration-report
-migration-verification-report
-# 2026-06-26: server/audit 运行时动态输出 (hot-reload + rollout sampling), 不应入库
-server/audit/hot_config.json
-server/audit/rollout_sampling.jsonl
-# 2026-06-26: 一次性 app 路由冒烟脚本 (替代为 CI smoke-fast-gate, 避免本地误提交)
-server/tests/_smoke_app_routes.py
-# 注: server/tests/test_alembic_008_static.py + _verify_alembic_chain.py 是真测试, 已入库, 不 ignore
-
-# ===== 历史遗留防御性规则（截断的垃圾文件名，保留以防再次入库）=====
-# Skill/tool directories (not part of project)
-simulator-skill/
-slack-gif-creator/
-solana-vulnerability-scanner/
-sor-rules-collection/
-sset-generator/
-stematic-debugging/
-styling/
-systematic-debugging/
-t-driven-development/
-tematic-debugging/
-ternal-comms/
-theme-factory/
-tific-*/
-token-integration-analyzer/
-tter-algorithm-optimizer/
-tx/
-tyle/
-ual-regression.spec.ts-snapshots/
-uilder/
-ules/
-urity-*/
-ursor*/
-user-flow.spec.ts-snapshots/
-uting-plans/
-uzzing-harness-writing/
-vas-design/
-video-subtitle/
-visualization/
-web-asset-generator/
-web-fuzzing/
-ws/
-x/
-xtures/
-y-flow-e2e-enhanced.spec.ts
-y-fund-flow-e2e-enhanced.spec.ts
-yle-tokens-runtime.spec.ts
-yle/
-ype-data-flow-e2e-enhanced.spec.ts
-ywright-browser-automation/
-zing-libfuzzer/
-
-# Junk spec files in root
-service-proxy-flow-e2e-enhanced.spec.ts
-settings.spec.ts
-shboard.spec.ts
-t-flow-e2e-enhanced.spec.ts
-t-model-chat-flow-e2e-enhanced.spec.ts
-t.spec.ts
-te-config.spec.ts
-thouse-prod.spec.ts
-tics-flow-e2e-enhanced.spec.ts
-tionary-flow-e2e-enhanced.spec.ts
-tomer-service-flow-e2e-enhanced.spec.ts
-tools-behavior-visit-flow-e2e-enhanced.spec.ts
-tor.spec.ts
-ty-auth.spec.ts
-ty-flow-e2e-enhanced.spec.ts
-urity.spec.ts
-usiness-25.spec.ts
-ute-guard.spec.ts
-ve-breakpoints.spec.ts
-ve-flow-e2e-enhanced.spec.ts
-verflow.spec.ts
-vertise-flow-e2e-enhanced.spec.ts
-sual-regression.spec.ts-snapshots/
-
-# Junk markdown files
-ssibility-checker.md
-tabase-optimizer.md
-tend-expert.md
-ull_request_template.md
-ush
-weekly-cleanup.yml
-
-# ===== G 盘根目录防回归 (2026-06-25) =====
-# 防止任何脚本在 G:\ 盘根意外创建临时目录 (如 G:\1\pw-output, G:\tmp\ro.css, G:\Users\... 等)
-# 这些是 Linux/macOS 风格 /tmp/ 或 /Users/ 在 Windows 上的不当展开结果, 已被修复
-# 兜底规则: 不论来源, 一律忽略
-/G:/1/
-/G:/dev/
-/G:/tmp/
-/G:/pw-output/
-/G:/Users/
-/1/
-/dev/
-/tmp/
-/Users/
-
-# ===== 临时证据/canary 文件位置兜底 =====
-# 防止任何 .env 错误地把 LOCAL_FILE_DIR/REFUND_EVIDENCE_DIR 配回 /tmp/...
-# 忽略根目录和 server 根目录下的临时目录 (放在跨平台 tempdir)
-zhs_local_files/
-zhs_refund_evidence/
-zhs_canary_state.json
-zhs_backfill.db
-zhs_backfill.db-wal
-zhs_backfill.db-shm
-
-# ===== 根目录一次性临时文件 (2026-06-26 补充) =====
-# 防止调查脚本/测试输出/commit 消息临时文件回归
-.tmp_test_*.txt
-_diff_*.txt
-client-dev.log
-check-pages-temp.ps1
-server/scripts/__commit_*.txt
-
-# ===== i18n 自动翻译临时产物 (2026-06-26 补充) =====
-# auto-translate-i18n 运行时生成: 每次翻译前的快照
-client/scripts/reports/auto-translate-backup-*/
-# rollback-auto-translate 运行时生成: 回滚前的快照
-client/scripts/reports/pre-rollback-*/
-# verify-translation-quality 运行时生成: 验证报告
-client/scripts/reports/verify-translation-*.json
-
-# ===== 根目录 main.py 临时备份/diff (2026-06-26 补充) =====
-# 防止修复 main.py 时的临时备份 (如 main-head.py / main-cr-fixed.diff) 误入库
-# 已用完应物理删除, 这里仅作 ignore 防回归
-/main-*.diff
-/main-*.patch
-/main-*.py
-/main-*.bak
-/main-*.orig
-/server-*.diff
-/api-*.diff
-/edu-*.diff
-
-# ===== 根目录 i18n/翻译相关临时输出 (2026-06-26 补充) =====
-# 防止 mock 翻译/rollback/verify 运行时在根目录生成的临时文件误入库
-# (与 client/scripts/reports/* 互补, 这里只管根目录)
-/mock.txt
-/dryrun.txt
-/verify.txt
-/check-*.txt
-
-# ===== 临时 commit 消息目录 (2026-06-26 补充) =====
-# 防止 git commit -F 临时文件目录 (如 commit_msgs/*.md) 误入库
-/commit_msgs/
-
-# ===== server/scripts 一次性诊断脚本 (2026-06-26 补充) =====
-# 与 server/.gitignore 互补, 这里只补 server/.gitignore 没覆盖的:
-# - _verify_*.py (验证脚本, 如 _verify_e2e_login_outdir.py)
-# - _compare_*.py (对比脚本, 如 _compare_ruoyi.py)
-# - _scan_*.py (扫描脚本, 如 _scan_client_hardcoded_paths.py)
-# - _create_*.py (创建脚本, 如 _create_missing_tables.py)
-# - _gen_*.py (生成脚本, 如 _gen_baseline.py / _gen_ruoyi_crud.py)
-# - _add_*.py / _probe_*.py (探针脚本)
-server/scripts/_verify_*.py
-server/scripts/_compare_*.py
-server/scripts/_scan_*.py
-server/scripts/_create_*.py
-server/scripts/_gen_*.py
-server/scripts/_add_*.py
-server/scripts/_probe_*.py
-
-# ===== 根目录临时备份/diff 第二批 (2026-06-26 补充) =====
-# 与 main-* 规则互补, 覆盖其它模块的临时备份
-# - edu-*.py/ts/txt: edu 相关临时备份 (如 edu-api-head.py, edu-router-head.ts)
-# - el-empty-*.ts: el-empty 临时备份 (如 el-empty-head.ts)
-# - gitignore-diff.txt: .gitignore 修改的 diff 输出
-# 通用规则用 *-head.* / *-diff.txt 等更宽匹配
-/edu-*.py
-/edu-*.ts
-/edu-*.txt
-/el-empty-*.ts
-/el-empty-*.py
-/gitignore-diff.txt
-/*-head.py
-/*-head.ts
-/*-head2.ts
-/*-head.diff
-/*-diff.txt
-/*-diff2.txt
-/*-diff.patch
-
-# ===== 根目录 i18n 回归扫描临时输出 (2026-06-26 补充) =====
-# _scan_zh_cn_regression.py / _fix_value_equals_key.py / _analyze_regression_distribution.py
-# 等临时分析工具的输出 (一次性, 用完删)
-/_fix_log.txt
-/_zh_cn_full.txt
-/_zh_cn_full2.txt
-/_zh_cn_regression.txt
-/_zh_cn_*.txt
-
-# ===== 客户端 i18n dry-run 状态 (2026-06-26 补充) =====
-# verify-translation-quality / auto-translate 运行时生成的 dry-run 状态
-# 跟 verify-translation-*.json 类似的输出, 防止误入库
-client/scripts/reports/dry-run-status.txt
-client/scripts/reports/dry-run-*.txt
-
-# ===== 根目录 scripts/reports/ 派生报告 (2026-06-26 补充) =====
-# _scan_zh_cn_regression.py / _analyze_regression_distribution.py 等工具的输出
-# 派生数据, 每次运行重新生成, 不入库
-/scripts/reports/
+# ============================================================================
+# 临时分析脚本和报告（高特异性选择器优化期间生成的临时文件）
+# ============================================================================
+*.cjs
+!client/*.cjs
+!client/electron/*.cjs
+!client/scripts/*.cjs
+!client/miniapp/scripts/*.cjs
+!client/eslint-rules/*.cjs
+!client/config/*.cjs
+*.py
+!server/**/*.py
+!scripts/*.py
+i18n-report*.json
+openapi.json
+openapi_problems.json
+endpoints_500_list.txt
+missing_*.txt
+any-warnings.txt
+test-output*.txt
+test-output*.log
+test-result.txt
+vitest-output.txt
+dev.log
+report.json
+redundant_analysis.json
