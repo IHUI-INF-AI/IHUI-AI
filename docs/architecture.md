@@ -33,7 +33,7 @@
 - `DB_ALLOW_SQLITE_FALLBACK=False` (默认严格模式): PG 不可用时直接抛 RuntimeError, 不降级.
 - 允许降级时 (`=True`), dev/test 生成 `.zhs_db_fallback_{1,2,3}.sqlite` 本地文件.
 - 智能路由: `get_engine_for_table(table_name)` 按 `AI_PROJECT_TABLES / CENTER_TABLES / COURSE_TABLES` 三张白名单把表路由到对应 engine.
-- v2 业务端点 (agents/courses/order/admin) 额外用 `sqlite3` 标准库直查 `G:\1\server\data\zhs_dev.sqlite`, 绕过 SQLAlchemy `schema=public` 在 SQLite 上的不兼容问题.
+- v2 业务端点 (agents/courses/order/admin) 额外用 `sqlite3` 标准库直查 `g:\IHUI-AI\server\data\zhs_dev.sqlite`, 绕过 SQLAlchemy `schema=public` 在 SQLite 上的不兼容问题.
 
 ## 3. API 路由架构
 
@@ -85,10 +85,10 @@ app.include_router(v2_admin_router)
 ## 4. 数据层差异
 
 ### dev (SQLite)
-- v2 业务端点用 `sqlite3` 标准库直查 `G:\1\server\data\zhs_dev.sqlite` (绕过 SQLAlchemy `schema=public` 不兼容).
+- v2 业务端点用 `sqlite3` 标准库直查 `g:\IHUI-AI\server\data\zhs_dev.sqlite` (绕过 SQLAlchemy `schema=public` 不兼容).
 - ORM engine 在严格模式下连 PG, 失败抛 RuntimeError; 允许降级时落到 `.zhs_db_fallback_*.sqlite`.
 - 背景任务 (expiration_monitor / agent_sync 等) 通过 `_is_sqlite()` 检测静默跳过.
-- 数据文件: `G:\1\server\data\zhs_dev.sqlite` (agents 表 12 行真数据).
+- 数据文件: `g:\IHUI-AI\server\data\zhs_dev.sqlite` (agents 表 12 行真数据).
 - dev-up.ps1 默认 `ENV=development`, `RATE_LIMIT_DISABLED=1` (E2E 测试不限流).
 
 ### prod (PostgreSQL)
