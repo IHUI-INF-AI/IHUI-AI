@@ -1,0 +1,227 @@
+{
+  "metadata": {
+    "topic": "AI编程工具对比",
+    "description": "Cursor、Windsurf、Cline、Claude Code等AI编程工具对比分析",
+    "crawlDate": "2026-01-28",
+    "totalTools": 8
+  },
+  "tools": [
+    {
+      "name": "Cursor",
+      "type": "IDE",
+      "description": "基于VS Code的AI编程IDE，代码库级上下文感知，完整插件生态",
+      "url": "https://cursor.com",
+      "pricing": {
+        "free": "基础功能免费",
+        "pro": "$20/月"
+      },
+      "features": [
+        "代码库级上下文感知",
+        "AI对话与代码补全",
+        "GitHub集成",
+        "Rules和Skills系统",
+        "MCP支持"
+      ],
+      "pros": [
+        "VS Code用户熟悉度高",
+        "完整的插件生态",
+        "代码库理解能力强"
+      ],
+      "cons": [
+        "需要订阅解锁高级功能",
+        "资源占用较高"
+      ],
+      "bestFor": "全职开发者和需要熟悉环境的团队",
+      "tags": ["IDE", "VS Code", "企业级"]
+    },
+    {
+      "name": "Windsurf",
+      "type": "IDE",
+      "description": "Codeium出品的AI编程IDE，规则可编程的AI建议，专注内部工具开发",
+      "url": "https://codeium.com/windsurf",
+      "pricing": {
+        "free": "个人免费",
+        "team": "付费"
+      },
+      "features": [
+        "自定义AI规则",
+        "UI生成能力",
+        "内部工具构建",
+        "Cascade工作流"
+      ],
+      "pros": [
+        "UI生成能力突出",
+        "规则系统灵活"
+      ],
+      "cons": [
+        "生态系统较新"
+      ],
+      "bestFor": "使用AI规则构建内部工具的开发者",
+      "tags": ["IDE", "Codeium", "内部工具"]
+    },
+    {
+      "name": "Cline",
+      "type": "VS Code扩展",
+      "description": "开源VS Code扩展，强调自主代理能力，可配置任意LLM",
+      "url": "https://github.com/cline/cline",
+      "pricing": {
+        "free": "完全免费开源"
+      },
+      "features": [
+        "自主代理循环",
+        "代码执行与终端命令",
+        "浏览器自动化",
+        "人工审核机制",
+        "灵活配置任意LLM"
+      ],
+      "pros": [
+        "完全开源免费",
+        "最大自主权",
+        "灵活配置"
+      ],
+      "cons": [
+        "Token成本可能较高",
+        "需要自行配置LLM"
+      ],
+      "bestFor": "需要最大自主权和低成本的项目",
+      "tags": ["扩展", "开源", "自主代理"]
+    },
+    {
+      "name": "Claude Code",
+      "type": "CLI工具",
+      "description": "Anthropic官方命令行AI编程工具，深度集成Claude模型",
+      "url": "https://code.claude.com",
+      "pricing": {
+        "free": "需要Claude API",
+        "api": "按使用量计费"
+      },
+      "features": [
+        "命令行原生",
+        "CLAUDE.md项目配置",
+        "MCP集成",
+        "SubAgent并行执行",
+        "Git深度集成"
+      ],
+      "pros": [
+        "与Claude深度集成",
+        "命令行高效",
+        "功能强大"
+      ],
+      "cons": [
+        "学习曲线较陡",
+        "需要终端经验"
+      ],
+      "bestFor": "熟悉命令行的高级开发者",
+      "tags": ["CLI", "Anthropic", "Claude"]
+    },
+    {
+      "name": "GitHub Copilot",
+      "type": "IDE扩展",
+      "description": "GitHub/Microsoft的AI编程助手，集成于多种IDE",
+      "url": "https://github.com/features/copilot",
+      "pricing": {
+        "individual": "$10/月",
+        "business": "$19/用户/月"
+      },
+      "features": [
+        "代码补全",
+        "多IDE支持",
+        "Chat功能",
+        "企业级安全"
+      ],
+      "pros": [
+        "广泛IDE支持",
+        "企业级功能"
+      ],
+      "cons": [
+        "上下文理解有限"
+      ],
+      "bestFor": "已使用GitHub生态的团队",
+      "tags": ["扩展", "GitHub", "Microsoft"]
+    },
+    {
+      "name": "Replit",
+      "type": "在线IDE",
+      "description": "云端IDE，支持AI辅助编程，无需本地环境",
+      "url": "https://replit.com",
+      "pricing": {
+        "free": "基础功能",
+        "pro": "$25/月"
+      },
+      "features": [
+        "云端开发环境",
+        "AI代码生成",
+        "即时部署",
+        "协作功能"
+      ],
+      "pros": [
+        "无需本地配置",
+        "即时部署"
+      ],
+      "cons": [
+        "性能依赖网络",
+        "高级功能收费"
+      ],
+      "bestFor": "快速原型和教学场景",
+      "tags": ["在线IDE", "云端", "协作"]
+    },
+    {
+      "name": "Lovable",
+      "type": "AI应用平台",
+      "description": "AI驱动的应用开发平台，快速原型设计",
+      "url": "https://lovable.dev",
+      "features": [
+        "自然语言生成应用",
+        "快速原型",
+        "一键部署"
+      ],
+      "bestFor": "非技术人员快速构建应用",
+      "tags": ["平台", "无代码", "原型"]
+    },
+    {
+      "name": "Trae",
+      "type": "IDE",
+      "description": "字节跳动出品的AI编程IDE",
+      "url": "https://trae.ai",
+      "features": [
+        "中文优化",
+        "多模型支持"
+      ],
+      "bestFor": "国内开发者",
+      "tags": ["IDE", "字节跳动", "国产"]
+    }
+  ],
+  "comparisonTable": {
+    "headers": ["工具", "类型", "定价", "自主性", "上下文理解", "生态系统"],
+    "rows": [
+      ["Cursor", "IDE", "$20/月", "中", "强", "VS Code生态"],
+      ["Windsurf", "IDE", "免费/付费", "中", "中", "新兴"],
+      ["Cline", "扩展", "免费", "高", "中", "开源"],
+      ["Claude Code", "CLI", "按量计费", "高", "强", "Anthropic"],
+      ["GitHub Copilot", "扩展", "$10/月", "低", "中", "GitHub"],
+      ["Replit", "在线IDE", "$25/月", "中", "中", "云端"]
+    ]
+  },
+  "recommendations": {
+    "beginners": {
+      "tool": "Cursor",
+      "reason": "VS Code熟悉度高，学习曲线平缓"
+    },
+    "advanced": {
+      "tool": "Claude Code",
+      "reason": "功能强大，命令行高效"
+    },
+    "budget": {
+      "tool": "Cline",
+      "reason": "完全开源免费，灵活配置"
+    },
+    "enterprise": {
+      "tool": "GitHub Copilot",
+      "reason": "企业级安全和支持"
+    },
+    "rapid_prototyping": {
+      "tool": "Lovable/Replit",
+      "reason": "快速验证想法"
+    }
+  }
+}
