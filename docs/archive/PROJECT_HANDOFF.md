@@ -1,7 +1,7 @@
 # ZHS Platform Server 后端代码质量修复 - 交接文档
 
 ## 项目概述
-- **项目路径**: G:\1\server
+- **项目路径**: g:\IHUI-AI\server
 - **技术栈**: Python 3.13 + FastAPI + SQLAlchemy + PostgreSQL/Redis
 - **项目规模**: 完整的SaaS平台后端，包含200+测试文件
 
@@ -55,7 +55,7 @@
 
 运行检查脚本：
 `ash
-cd G:\1
+cd g:\IHUI-AI
 python deep_check.py
 `
 
@@ -70,7 +70,7 @@ logger.error(f"函数名 error: {e}")
 ## 验证命令
 
 `ash
-cd G:\1\server
+cd g:\IHUI-AI\server
 python -m pytest tests/test_code_quality_fixes.py -v
 `
 
