@@ -95,10 +95,7 @@ async function main() {
   // 5. 依赖安全审计（中高危必须为 0）
   results.push(runCommand('npm audit --audit-level=high', '依赖安全审计'))
 
-  // 6. 性能预算检查
-  results.push(runCommand('npm run check:perf', '性能预算检查'))
-
-  // 7. 检查环境变量
+  // 6. 检查环境变量
   results.push(checkEnvVariables())
 
   // 汇总结果

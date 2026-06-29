@@ -16,26 +16,22 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'backend'
+  - job_name: 'pdf-service'
     static_configs:
-      - targets: ['backend:8000']
+      - targets: ['pdf-service:8000']
     metrics_path: '/metrics'
 
-  - job_name: 'frontend'
+  - job_name: 'nginx'
     static_configs:
       - targets: ['frontend:80']
 
   - job_name: 'postgres'
     static_configs:
-      - targets: ['db:5432']
+      - targets: ['postgres:5432']
 
   - job_name: 'redis'
     static_configs:
       - targets: ['redis:6379']
-
-  - job_name: 'minio'
-    static_configs:
-      - targets: ['minio:9000']
 
   - job_name: 'node-exporter'
     static_configs:

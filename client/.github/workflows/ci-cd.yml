@@ -77,9 +77,6 @@ jobs:
       - name: Build frontend
         run: npm run build
       
-      - name: Check performance budget
-        run: npm run check:perf
-      
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

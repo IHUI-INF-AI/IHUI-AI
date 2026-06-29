@@ -1,9 +1,0 @@
-{
-  "time": {
-    "daysAgo": "[ZH:daysAgo]",
-    "hoursAgo": "[ZH:hoursAgo]",
-    "justNow": "[ZH:justNow]",
-    "minutesAgo": "[ZH:minutesAgo]",
-    "never": "[ZH:never]"
-  }
-}

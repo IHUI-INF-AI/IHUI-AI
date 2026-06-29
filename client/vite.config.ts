@@ -6,21 +6,10 @@ import type { ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
-import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import fs from 'fs'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { baiduSpeechPlugin } from './vite-plugins/baiduSpeechPlugin'
 import { aiWorldPlugin } from './vite-plugins/aiWorldPlugin'
-import { handleDeletedFilesHMR } from './vite-plugins/handleDeletedFilesHMR'
-import { forceNumericHostBanner } from './vite-plugins/forceNumericHostBanner'
-import { productionCSPOptimizer } from './vite-plugins/productionCSPOptimizer'
-import { monitoringEndpoints } from './vite-plugins/monitoringEndpoints'
-import { pwaManifestMiddleware } from './vite-plugins/pwaManifestMiddleware'
-import { mockDataPlugin } from './vite-plugins/mockDataPlugin'
-import { elementPlusOnDemand } from './vite-plugins/elementPlusOnDemand'
-// 2026-06-26 新增: 把 el-empty 编译时替换为本项目 NativeEmpty 组件
-// 规避 Element Plus 2.14.x + Vue 3.5.x 在暗色模式切换瞬间的 renderSlot null 报错
-import replaceElEmpty from './vite/plugins/replace-el-empty'
 import { DEV_CSP_STRING, PROD_CSP_STRING, CSP_REPORT_URL, REPORT_TO_HEADER } from './config/csp'
 import { BACKEND_URL, FRONTEND_PORT, FRONTEND_URL } from './config/ports'
 
@@ -240,9 +229,9 @@ const filterSassWarnings = () => {
         const url = req.url || ''
         const faviconPaths = ['/favicon.ico', '/favicon.ico/']
         if (faviconPaths.includes(url)) {
-          // ???? APP.jpg
+          // ???? logo.png
           res.writeHead(302, {
-            Location: '/images/APP.jpg',
+            Location: '/images/logo.png',
             'Cache-Control': 'public, max-age=31536000',
           })
           res.end()
@@ -679,17 +668,203 @@ const filterSassWarnings = () => {
   }
 }
 
-// 以下 6 个 dev 中间件已拆分到 vite-plugins/ 目录（2026-06-24 封版重构）：
-//   - handleDeletedFilesHMR           -> vite-plugins/handleDeletedFilesHMR.ts
-//   - forceNumericHostBanner          -> vite-plugins/forceNumericHostBanner.ts
-//   - productionCSPOptimizer          -> vite-plugins/productionCSPOptimizer.ts
-//   - monitoringEndpoints             -> vite-plugins/monitoringEndpoints.ts
-//   - pwaManifestMiddleware           -> vite-plugins/pwaManifestMiddleware.ts
-//   - mockDataPlugin                  -> vite-plugins/mockDataPlugin.ts
-// 保留在 vite.config.ts 内的 filterSassWarnings 函数含 7 个独立中间件职责（Sass 警告过滤 +
-// HTTP 安全头 + favicon 重定向 + openclaw sessions mock + ai-world HTML 注入 + /html/* 静态 +
-// MIME/CORS 兜底），整体紧耦合共享 console.warn 重写，暂不拆分。
+// ????????HMR????????
+const handleDeletedFilesHMR = () => {
+  return {
+    name: 'handle-deleted-files-hmr',
+    configureServer(server: ViteDevServer) {
+      // ????????HMR??
+      server.ws.on('connection', socket => {
+        socket.on('message', data => {
+          // ????????????????[0xc001d766b0 ...]??xc00bddb3b0??
+          if (typeof data === 'string') {
+            // ???????????????
+            if (
+              /^\[0x[0-9a-fA-F]+(\s+0x[0-9a-fA-F]+)*\]$/.test(data) ||
+              /^0x[0-9a-fA-F]+(\s+0x[0-9a-fA-F]+)*$/.test(data)
+            ) {
+              // ????????????
+              return
+            }
+            try {
+              const msg = JSON.parse(data)
+              // ????????????
+              if (msg.type === 'update' && msg.updates) {
+                msg.updates = msg.updates.filter((update: any) => {
+                  if (update.path && update.path.includes('Down.vue')) {
+                    return false
+                  }
+                  return true
+                })
+                // ????????????????
+                if (msg.updates.length === 0) {
+                  return
+                }
+              }
+            } catch {
+              // ?JSON????????
+            }
+          }
+        })
+      })
+    },
+  }
+}
 
+const forceNumericHostBanner = () => {
+  return {
+    name: 'force-numeric-host-banner',
+    configureServer(server: ViteDevServer) {
+      const original = server.printUrls.bind(server)
+      server.printUrls = () => {
+        try {
+          const port = server.config.server?.port || 8888
+          const protocol = server.config.server?.https ? 'https' : 'http'
+          const local = `${protocol}://127.0.0.1:${port}/`
+          const network = (server.resolvedUrls?.network || []).map(u =>
+            u.replace('localhost', '127.0.0.1')
+          )
+          server.resolvedUrls = {
+            local: [local],
+            network: network.length ? network : [local],
+            open: [local],
+          } as any
+        } catch {}
+        original()
+      }
+    },
+  }
+}
+
+// ????CSP???? - ??localhost??27.0.0.1??
+const productionCSPOptimizer = () => {
+  return {
+    name: 'production-csp-optimizer',
+    transformIndexHtml(html: string, context: any) {
+      // ??????????context.server?????????
+      if (context.server) {
+        return html // ???????
+      }
+
+      // ??CSP meta??????????????????
+      // ???????????????????meta??
+      const cspRegex =
+        /<meta\s+http-equiv=["']Content-Security-Policy["'][\s\S]*?content=["']([\s\S]*?)["']\s*\/?>/i
+      const match = html.match(cspRegex)
+
+      if (!match || !match[1]) {
+        return html // ????CSP????????
+      }
+
+      let cspContent = match[1]
+      const originalTag = match[0]
+
+      // ??????????????????
+      cspContent = cspContent.replace(/\s+/g, ' ').trim()
+
+      // ?????????????img-src, connect-src, frame-src??
+      // 1. ?? http://localhost:* ??http://127.0.0.1:* ??????????
+      cspContent = cspContent.replace(/\s*https?:\/\/(localhost|127\.0\.0\.1)(:\*|:\d+)?/gi, '')
+      // 2. ?? ws://localhost:* ??ws://127.0.0.1:* ??
+      cspContent = cspContent.replace(/\s*(ws|wss):\/\/(localhost|127\.0\.0\.1)(:\*|:\d+)?/gi, '')
+      // 3. ??????? localhost:* ??127.0.0.1:* ??????????????
+      cspContent = cspContent.replace(/\s*(localhost|127\.0\.0\.1)(:\*|:\d+)?/gi, '')
+
+      // ????????????????
+      cspContent = cspContent.replace(/\s+/g, ' ').replace(/;\s*;/g, ';').trim()
+
+      // ?????????????????
+      cspContent = cspContent.replace(/\s*;\s*/g, '; ').replace(/;\s*$/, '')
+
+      // ????meta??
+      const newTag = `<meta http-equiv="Content-Security-Policy" content="${cspContent}">`
+
+      // ????CSP??
+      const newHtml = html.replace(originalTag, newTag)
+
+      return newHtml
+    },
+  }
+}
+
+// Monitoring endpoints: dev server receives /api/csp-report (CSP violation)
+// and /api/rum (Web Vitals), writing to logs/ for local inspection.
+// Production forwards via nginx log_format (see nginx-production.conf).
+const monitoringEndpoints = () => {
+  const logDir = resolve(__dirname, 'logs')
+  try { if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true }) } catch (_) {}
+  const appendLog = (file: string, line: string) => {
+    try { fs.appendFileSync(resolve(logDir, file), line + '\n', 'utf-8') } catch (_) {}
+  }
+  const readBody = (req: any): Promise<string> => new Promise((resolveBody) => {
+    let data = ''
+    req.on('data', (chunk: Buffer | string) => { data += chunk.toString('utf-8') })
+    req.on('end', () => resolveBody(data))
+  })
+  return {
+    name: 'monitoring-endpoints',
+    apply: 'serve',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url || ''
+        if (url.split('?')[0] !== '/api/csp-report') return next()
+        if (req.method !== 'POST') return next()
+        try {
+          const body = await readBody(req)
+          appendLog('csp-report.log', `[${new Date().toISOString()}] ${body}`)
+          res.statusCode = 204
+          res.end()
+        } catch (_err) {
+          res.statusCode = 400
+          res.end('bad request')
+        }
+      })
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url || ''
+        if (url.split('?')[0] !== '/api/rum') return next()
+        if (req.method !== 'POST') return next()
+        try {
+          const body = await readBody(req)
+          appendLog('rum.log', `[${new Date().toISOString()}] ${body}`)
+          res.statusCode = 204
+          res.end()
+        } catch (_err) {
+          res.statusCode = 400
+          res.end('bad request')
+        }
+      })
+    },
+  }
+}
+
+// P6-4 PWA：dev server 不识别 .webmanifest 后缀
+// 加中间件强制 application/manifest+json MIME，否则浏览器安装 PWA 失败
+const pwaManifestMiddleware = () => {
+  return {
+    name: 'pwa-manifest-middleware',
+    apply: 'serve' as const,
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req, res, next) => {
+        if (req.headers?.upgrade === 'websocket') return next()
+        const url = (req.url || '').split('?')[0]
+        if (url === '/manifest.webmanifest' || url === '/manifest.json') {
+          const filePath = resolve(__dirname, 'public', url.replace(/^\//, ''))
+          try {
+            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+              res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8')
+              res.setHeader('Cache-Control', 'public, max-age=3600')
+              fs.createReadStream(filePath).pipe(res)
+              return
+            }
+          } catch (_e) {
+            // 文件不存在则走 Vite 自身处理
+          }
+        }
+        next()
+      })
+    },
+  }
+}
 
 // https://vitejs.dev/config/
 
@@ -699,7 +874,30 @@ const filterSassWarnings = () => {
 // 改端口只改 client/config/ports.ts 一个文件, vite.config.ts 不再持有端口字面量
 const BACKEND_TARGET = BACKEND_URL
 
-// P14.4 mock-data 中间件已拆分到 vite-plugins/mockDataPlugin.ts（见 L678 注释）
+// P14.4 mock-data 中间件:dev server 期间将 /mock-data/*.json 指向 public/mock-data/
+function mockDataPlugin() {
+  return {
+    name: 'mock-data-static',
+    apply: 'serve',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = (req.url || '').split('?')[0]
+        if (!url.startsWith('/mock-data/') || !url.endsWith('.json')) return next()
+        const fileName = url.replace('/mock-data/', '')
+        const filePath = resolve(__dirname, 'public/mock-data', fileName)
+        if (!fs.existsSync(filePath)) return next()
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8')
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-cache')
+          res.end(content)
+        } catch (_err) {
+          next()
+        }
+      })
+    },
+  }
+}
 
 export default defineConfig(async ({ mode, command }): Promise<import('vite').UserConfig> => {
   // ??????????
@@ -711,9 +909,7 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
   // ????????8888??????????????????
   // ????????????????
   const devPort = platformConfig[currentPlatform]?.server?.port || 8888
-  // 默认 localhost: 避免 trae-preview 沙盒隔离 127.0.0.1 环回导致 ERR_CONNECTION_REFUSED
-  // 需局域网访问(手机调试/同事联调)时设 VITE_DEV_HOST=0.0.0.0 恢复全网卡监听
-  const devHost = env.VITE_DEV_HOST || 'localhost'
+  const devHost = env.VITE_DEV_HOST || '0.0.0.0'
   const devOrigin = env.VITE_DEV_ORIGIN
   const hmrHost = env.VITE_DEV_HMR_HOST
   const hmrProtocol = env.VITE_DEV_HMR_PROTOCOL || 'ws'
@@ -739,12 +935,91 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     // ?? base ????
     base: '/',
     plugins: [
-      // 2026-06-26 修复: el-empty renderSlot null 报错, 编译时把 <el-empty> 全部替换为 NativeEmpty
-      // 必须放在 vue() 之前 (enforce: 'pre'), 这样 vue 编译器看到的已经是 <NativeEmpty>
-      replaceElEmpty(),
       vueOrVizePlugin,
       tailwindcss(),
-      // 2026-06-24 清理: P10 国际化深化测试 mock 已下线（前端不再请求 /api/v1/i18n-v2/*）
+      // P10 国际化深化测试 mock (仅在 P10_I18N_MOCK=on 时启用)
+      ...(process.env.P10_I18N_MOCK === 'on'
+        ? [
+            {
+              name: 'p10-i18n-mock',
+              configureServer(server: any) {
+                const LANGS = [
+                  { code: 'zh-CN', display_name: '简体中文', english_name: 'Chinese (Simplified)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 1, plural_rule: 'other_only', number_grouping: 3 },
+                  { code: 'en-US', display_name: 'English', english_name: 'English (US)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'one_other', number_grouping: 3 },
+                  { code: 'ar', display_name: 'العربية', english_name: 'Arabic', direction: 'rtl', is_rtl: true, decimal_separator: '٫', thousands_separator: '٬', currency_position: 'after', first_day_of_week: 6, plural_rule: 'arabic', number_grouping: 3 },
+                  { code: 'he', display_name: 'עברית', english_name: 'Hebrew', direction: 'rtl', is_rtl: true, decimal_separator: '.', thousands_separator: ',', currency_position: 'after', first_day_of_week: 0, plural_rule: 'hebrew', number_grouping: 3 },
+                  { code: 'fr', display_name: 'Français', english_name: 'French', direction: 'ltr', is_rtl: false, decimal_separator: ',', thousands_separator: ' ', currency_position: 'after', first_day_of_week: 1, plural_rule: 'french', number_grouping: 3 },
+                  { code: 'es', display_name: 'Español', english_name: 'Spanish', direction: 'ltr', is_rtl: false, decimal_separator: ',', thousands_separator: '.', currency_position: 'before', first_day_of_week: 1, plural_rule: 'one_other', number_grouping: 3 },
+                  { code: 'ja', display_name: '日本語', english_name: 'Japanese', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'other_only', number_grouping: 3 },
+                  { code: 'ko', display_name: '한국어', english_name: 'Korean', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 0, plural_rule: 'other_only', number_grouping: 3 },
+                  { code: 'zh-TW', display_name: '繁體中文', english_name: 'Chinese (Traditional)', direction: 'ltr', is_rtl: false, decimal_separator: '.', thousands_separator: ',', currency_position: 'before', first_day_of_week: 1, plural_rule: 'other_only', number_grouping: 3 },
+                ]
+                const KEYS = ['common.welcome', 'common.save', 'common.items', 'common.search', 'report.title', 'notify.sensitive_action']
+                server.middlewares.use(async (req: any, res: any, next: any) => {
+                  if (!req.url || !/^\/api\/v[12]\/i18n-v2\//.test(req.url)) return next()
+                  const url = new URL(req.url, 'http://localhost')
+                  const path = url.pathname.replace(/^\/api\/v[12]\/i18n-v2/, '')
+                  let body: any = {}
+                  if (req.method !== 'GET' && req.method !== 'HEAD') {
+                    const chunks: Buffer[] = []
+                    for await (const c of req) chunks.push(c as Buffer)
+                    if (chunks.length) {
+                      try { body = JSON.parse(Buffer.concat(chunks).toString('utf-8')) } catch { /* ignore */ }
+                    }
+                  }
+                  const respond = (data: any) => {
+                    res.setHeader('content-type', 'application/json')
+                    res.statusCode = 200
+                    res.end(JSON.stringify({ code: 0, msg: 'success', data, timestamp: Date.now() }))
+                  }
+                  if (path === '/languages') return respond({ languages: LANGS, count: LANGS.length })
+                  const langMatch = path.match(/^\/languages\/([^/]+)$/)
+                  if (langMatch) {
+                    const m = LANGS.find(l => l.code === langMatch[1]) || LANGS[0]
+                    return respond(m)
+                  }
+                  if (path === '/keys') return respond({ keys: KEYS, count: KEYS.length })
+                  if (path.startsWith('/entry/')) {
+                    const key = decodeURIComponent(path.replace('/entry/', ''))
+                    return respond({ key, translations: { 'zh-CN': `${key} 中文`, 'en-US': `${key} EN` }, plurals: {}, description: '', updated_at: 1, version: 1 })
+                  }
+                  if (path === '/pull') {
+                    const lang = url.searchParams.get('lang')
+                    const keys: Record<string, string> = {}
+                    KEYS.forEach(k => { keys[k] = lang ? `[${lang}] ${k}` : k })
+                    return respond({ scope: lang || 'all', keys, plurals: {}, count: KEYS.length })
+                  }
+                  if (path === '/push') return respond({ key: body.key, version: 1, updated_at: 1, translations: { 'zh-CN': body.value || '' } })
+                  if (path === '/push-plural') return respond({ key: body.key, version: 1, updated_at: 1, plurals: { [body.lang || 'zh-CN']: body.forms || {} } })
+                  if (path === '/sync-log') return respond({ events: [], count: 0 })
+                  if (path === '/stats') return respond({ total_keys: KEYS.length, per_language: { 'zh-CN': KEYS.length, 'en-US': KEYS.length }, plural_keys: 1, languages: 9 })
+                  if (path === '/diff') return respond({ lang_a: url.searchParams.get('lang_a'), lang_b: url.searchParams.get('lang_b'), a_missing: [], b_missing: [], identical: [{ key: 'common.welcome', a: '欢迎', b: 'Welcome' }], total: KEYS.length })
+                  if (path === '/format') {
+                    const kind = body.kind || 'number'
+                    let result = ''
+                    if (kind === 'number') result = '1,234.56'
+                    else if (kind === 'currency') result = (body.currency || 'USD') + ' 99.50'
+                    else if (kind === 'date') result = '2026-06-18'
+                    else if (kind === 'plural') result = '5 items'
+                    return respond({ kind, lang: body.lang, result, is_rtl: body.lang === 'ar' || body.lang === 'he' })
+                  }
+                  if (path === '/translate') return respond({ key: body.key, lang: body.lang, count: body.count, text: `${body.lang || 'zh-CN'}:${body.key}`, is_rtl: body.lang === 'ar' || body.lang === 'he' })
+                  if (path.startsWith('/plural/')) {
+                    const key = decodeURIComponent(path.replace('/plural/', ''))
+                    const lang = url.searchParams.get('lang') || 'zh-CN'
+                    const samples = [0, 1, 2, 3, 5, 11, 21, 100, 101].map(n => ({
+                      count: n,
+                      category: n === 0 ? 'zero' : n === 1 ? 'one' : n === 2 ? 'two' : n >= 11 && n <= 99 ? 'many' : 'other',
+                      text: `${n} ${key} [${lang}]`,
+                    }))
+                    return respond({ key, lang, is_rtl: lang === 'ar' || lang === 'he', samples })
+                  }
+                  return respond({})
+                })
+              },
+            },
+          ]
+        : []),
       // ????CSP?? - ??localhost??27.0.0.1??
       productionCSPOptimizer(),
       forceNumericHostBanner(),
@@ -756,11 +1031,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
       handleDeletedFilesHMR(),
       // P14.4 种子数据 mock-data 中间件
       mockDataPlugin(),
-      // 2026-06-24 优化：把 setup 里的 `import { ElXxx } from 'element-plus'` 改写为按需路径
-      // unplugin-vue-components 只处理模板 <el-xxx> 标签，setup 里的 import 需要此插件兜底
-      // 2026-06-24 修复：禁用此插件，因为路径映射有缺陷（ElRadioGroup 等组件无独立目录，radio-group/index.mjs 不存在）
-      // element-plus 按需加载已通过 unplugin-vue-components + ElementPlusResolver 处理模板标签
-      // elementPlusOnDemand(),
       // ?????? API ???????? VITE_BAIDU_SPEECH_* ??????      baiduSpeechPlugin(),
       // ????Vue?Element Plus?API - ????????????
       AutoImport({
@@ -836,13 +1106,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         // include: [/^[A-Z][a-zA-Z0-9]*\.vue$/],  // 临时注释：排查 Element Plus 组件无法解析问题
       }),
       // ??????????- ??????????
-      // SVG 雪碧图插件 - 配合 src/components/auth/SvgIcon.vue 使用
-      createSvgIconsPlugin({
-        iconDirs: [resolve(process.cwd(), 'src/assets/icons/svg')],
-        symbolId: 'icon-[name]',
-        inject: 'body-last',
-        customDomId: '__svg__icons__dom__',
-      }),
       enableVisualizer &&
         visualizer({
           filename: 'dist/visualizer-stats.html',
@@ -1006,97 +1269,25 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
-        // base: 1 智能体列表等接口, 对接 Python 后端真实路由
+        // base: 1 智能体列表等接口, 2026-06-20 切到 Python 后端 (v1_api_kou.py, 40 端点)
         '/api-kou': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           secure: false,
-          // /api-kou/* → /api/v1/* 真实路由映射
-          // 精确路径映射 (端点名不同) + 前缀替换 (端点名相同)
+          // /api-kou/admin/aiworld/* → /api/v1/ai-bot-sites/* (AI世界站点管理走真实端点)
+          // /api-kou/learn/* → /api/v1/learn/* (学习模块)
+          // /api-kou/behavior/* → /api/v1/behavior/* (行为管理)
+          // 其他 /api-kou/* 保持原路径 (走 v1_api_kou.py 或 mock 兜底)
           rewrite: (path: string) => {
-            const cleanPath = path.split('?')[0]
-            const query = path.includes('?') ? '?' + path.split('?').slice(1).join('?') : ''
-
-            // AI世界站点管理走 v2_admin.py
-            if (cleanPath.startsWith('/api-kou/admin/aiworld/')) {
-              return path.replace(/^\/api-kou\/admin/, '/api/v2/admin')
+            if (path.startsWith('/api-kou/admin/aiworld/')) {
+              return path.replace(/^\/api-kou\/admin\/aiworld/, '/api/v1/ai-bot-sites')
             }
-
-            // 路径重组 (需要调整路径段顺序)
-            const restructureMaps: [RegExp, string][] = [
-              // /course/delist/{ids} → /courses/{ids}/delist
-              [/^\/api-kou\/course\/delist\/(.+)$/, '/api/v1/courses/$1/delist'],
-              // /courseVideo/issue/{ids} → /courses/videos/{ids}/issue
-              [/^\/api-kou\/courseVideo\/issue\/(.+)$/, '/api/v1/courses/videos/$1/issue'],
-              // /kling/video/info/{id} → /chat/kling/task/{id}
-              [/^\/api-kou\/kling\/video\/info\/(.+)$/, '/api/v1/chat/kling/task/$1'],
-            ]
-            for (const [re, repl] of restructureMaps) {
-              if (re.test(cleanPath)) {
-                return cleanPath.replace(re, repl) + query
-              }
+            if (path.startsWith('/api-kou/learn/')) {
+              return path.replace(/^\/api-kou\/learn/, '/api/v1/learn')
             }
-
-            // 精确路径映射 (端点名不同, 全等匹配)
-            // 注意: finance 子模块 (commission/distribution/withdrawal) 注册 prefix 均为 /finance,
-            // 实际路径为 /api/v1/finance/{endpoint}, 无中间段
-            const exactMaps: Record<string, string> = {
-              '/api-kou/course': '/api/v1/courses/create',
-              '/api-kou/courseVideo': '/api/v1/courses/videos/create',
-              '/api-kou/flow/getStatistics': '/api/v1/finance/summary',
-              '/api-kou/flow/orderList': '/api/v1/finance/orders',
-              // 2026-06-24 修复: 补充 /flow/list 映射, 否则走兜底原样转发后端 404
-              '/api-kou/flow/list': '/api/v1/finance/flow/list',
-              '/api-kou/flow/getTraderTeamByCenter': '/api/v1/finance/team/center',
-              '/api-kou/distribution/getSubordinates': '/api/v1/finance/subordinates',
-              '/api-kou/distribution/getUserAndChildrenOrders': '/api/v1/finance/user-and-children-orders',
-              '/api-kou/distribution/getUserCommissionDetail': '/api/v1/finance/commission-detail',
-              '/api-kou/zhsWithdrawal/withdrawal': '/api/v1/finance/apply',
-              '/api-kou/zhsWithdrawal/getWithdrawal': '/api/v1/finance/list',
-              '/api-kou/zhsWithdrawal/my-records': '/api/v1/finance/list',
-              '/api-kou/resource/selectsGoods': '/api/v1/resource/goods',
-              '/api-kou/resource/fileUpload': '/api/v1/resource/file/upload',
-              '/api-kou/resource/first/share/show': '/api/v1/resource/share',
-              '/api-kou/resource/first/share': '/api/v1/resource/share',
-              '/api-kou/resource/getCoursePlanet': '/api/v1/resource/planets/course',
-              '/api-kou/kling/generate/video': '/api/v1/chat/kling/video/generate',
-              '/api-kou/bot/sites/kind': '/api/v1/ai-bot-sites/categories',
-              '/api-kou/zhs_activity/get': '/api/v1/content/activity/list',
-              '/api-kou/login/getWxCode': '/api/v1/auth/wechat/pc/wxCode',
+            if (path.startsWith('/api-kou/behavior/')) {
+              return path.replace(/^\/api-kou\/behavior/, '/api/v1/behavior')
             }
-            if (exactMaps[cleanPath]) {
-              return exactMaps[cleanPath] + query
-            }
-
-            // 前缀替换 (端点名相同, 按特异性排序)
-            // 注意: flow/distribution/zhsWithdrawal 已在 exactMaps 精确映射,
-            // 不再用前缀替换 (端点名前后端不同, 替换会导致路径不匹配)
-            const prefixMaps: [RegExp, string][] = [
-              [/^\/api-kou\/information/, '/api/v1/content/information'],
-              [/^\/api-kou\/course\//, '/api/v1/courses/'],
-              [/^\/api-kou\/courseVideo\//, '/api/v1/courses/videos/'],
-              [/^\/api-kou\/categoryDictionary/, '/api/v1/category-dictionary'],
-              [/^\/api-kou\/userFeedback/, '/api/v1/feedback'],
-              [/^\/api-kou\/resource\//, '/api/v1/resource/'],
-              [/^\/api-kou\/kling\//, '/api/v1/chat/kling/'],
-              [/^\/api-kou\/bot\/sites\//, '/api/v1/ai-bot-sites/'],
-              [/^\/api-kou\/userVideoLog/, '/api/v1/user-video-log'],
-              [/^\/api-kou\/userVideoComment/, '/api/v1/user-video-comment'],
-              [/^\/api-kou\/zhs_activity/, '/api/v1/content/activity'],
-              [/^\/api-kou\/exam\//, '/api/v1/exam/'],
-              [/^\/api-kou\/courseAudit/, '/api/v1/course-audit'],
-              [/^\/api-kou\/product_identity/, '/api/v1/product_identity'],
-              // 2026-06-26 对接联调: legacy_supplement 路径对齐前端
-              [/^\/api-kou\/auth_info/, '/api/v1/auth_info'],
-              [/^\/api-kou\/auth_accounts/, '/api/v1/auth_accounts'],
-              [/^\/api-kou\/coursePayLog/, '/api/v1/coursePayLog'],
-            ]
-            for (const [re, repl] of prefixMaps) {
-              if (re.test(cleanPath)) {
-                return path.replace(re, repl)
-              }
-            }
-
             return path
           },
           configure: (proxy: any, _options: any) => {
@@ -1118,6 +1309,8 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
+        // P10 国际化深化测试 mock - 仅在 P10_I18N_MOCK=on 时启用
+        // (移到下方 plugins 中以正确注册为 server middleware)
         // P22-联调: /login/wechat/* 已迁移到 Python 后端 (v1_third_party_auth.py 占位实现)
         '/login/wechat': {
           target: BACKEND_TARGET,
@@ -1194,11 +1387,11 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
-        // community 已迁移到 Python 后端 (v2_community.py), 2026-06-21 修正版本前缀
+        // community 已迁移到 Python 后端, 2026-06-29 修正: v2_community.py 不存在, 走 v1 circle 模块
         '/community/': {
           target: BACKEND_TARGET,
           changeOrigin: true,
-          rewrite: (path: string) => path.replace(/^\/community\//, '/api/v2/community/'),
+          rewrite: (path: string) => path.replace(/^\/community\//, '/api/v1/circle/'),
         },
         // ???????? /api -> /ai-program/plaza???? 8080 ?????????????? /plaza/
         // P22-联调: /tools/ 已迁移到 Python 后端 (v1_tools.py, 10 个端点)
@@ -1218,6 +1411,37 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           changeOrigin: true,
           rewrite: (path: string) => path,
         },
+        // 2026-06-29: 新增短路径代理, 避免被 mock catch-all 拦截
+        '/ranking/': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/ranking\//, '/api/v1/ranking/'),
+        },
+        '/circle/': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/circle\//, '/api/v1/circle/'),
+        },
+        '/exam/': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/exam\//, '/api/v1/exam/'),
+        },
+        '/visit-tracking/': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/visit-tracking\//, '/api/v1/visit/'),
+        },
+        '/commission/': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/commission\//, '/api/v1/finance/commission/'),
+        },
+        '/home/': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/home\//, '/api/v1/resource/home/'),
+        },
         // developer 已迁移到 Python 后端 (v1_developer.py), 2026-06-20 切换
         '/api/developer': {
           target: BACKEND_TARGET, // Python 后端
@@ -1231,13 +1455,12 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         },
         // 管理后台 /admin API 代理
         // 2026-06-18: 项目从 Java(RuoYi) 迁移到 Python(FastAPI)
-        // 2026-06-24: rewrite 改为 /api/v1, 后端 admin_panel.py 在 /api/v1/* 下 (RuoYi 风格 user/role/menu 等)
+        // 2026-06-29: v2_admin.py 不存在, 改为 /api/v1 (admin_panel.py RuoYi 系统路由)
         // 前端调用 /admin/*，后端真实路径为 /api/v1/*，通过 rewrite 桥接
-        // 注: 前端 admin.ts 有 Proxy fallback, 后端 404 时自动回退到 seedData
         '/admin': {
           target: BACKEND_TARGET,
           changeOrigin: true,
-          // rewrite 到 /api/v1, 后端 admin_panel 在 v1 下
+          // 2026-06-29: v2_admin.py 不存在, 改为 /api/v1 (admin_panel.py RuoYi 系统路由)
           rewrite: (path: string) => path.replace(/^\/admin/, '/api/v1'),
           // /admin-ruoyi 是前端路由，不代理到后端
           // 页面导航请求(Accept: text/html)是前端 SPA 路由,不代理到后端,交给 vite SPA fallback 返回 index.html
@@ -1269,20 +1492,10 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         },
         // P22-联调: v1→v2 rewrite 已删除, v1/v2 路由在后端并存
         // 客服 WebSocket：ws://localhost:8888/customer-service/chat -> Python 8000
-        // 2026-06-24 修复: 加 bypass 只代理 WebSocket 升级请求, HTTP 请求交给 SPA fallback
-        //   否则前端路由 /customer-service 的 GET 会被代理到后端返回 404
         '/customer-service': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           ws: true,
-          bypass: (req: any) => {
-            // 只放行 WebSocket 升级请求, HTTP 请求返回 undefined 交给 Vite SPA 处理
-            const upgrade = req.headers?.upgrade
-            if (upgrade && typeof upgrade === 'string' && upgrade.toLowerCase() === 'websocket') {
-              return undefined // 代理到后端
-            }
-            return req.url // 交给 Vite SPA fallback
-          },
           configure: (proxy: any) => {
             proxy.on('error', (err: any) => console.log('客服 WebSocket 代理错误:', err))
           },
@@ -1385,18 +1598,12 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           },
         },
         // 支付状态 WebSocket: 前端 ws://host:8888/payment/status/{orderNo}
-        // 2026-06-24 修复: 拆分代理, 仅 /payment/status 走 WebSocket rewrite, 其他 /payment HTTP 请求不被 rewrite
-        '/payment/status': {
-          target: BACKEND_TARGET,
-          changeOrigin: true,
-          ws: true,
-          rewrite: (path: string) => path.replace(/^\/payment\/status/, '/ws/payment/status'),
-        },
-        // 支付 HTTP API: 不 rewrite, 直接转发到后端 (后端 /api/v1/payments/*)
+        // 2026-06-21 联调: 重写到 /ws/payment/status/{orderNo}, 后端 app/ws/payment_status.py
         '/payment': {
           target: BACKEND_TARGET,
           changeOrigin: true,
-          rewrite: (path: string) => path.replace(/^\/payment/, '/api/v1/payments'),
+          ws: true,
+          rewrite: (path: string) => path.replace(/^\/payment/, '/ws/payment'),
         },
         // ?? WebSocket ??
         // 2026-06-19: 切到 Python 后端 (app/ws/* 已有 /ws/chat, /ws/notice, /ws/tts/stream 等路由)
@@ -1423,15 +1630,79 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             })
           },
         },
-        // Qwen WebSocket ??
+        // Qwen WebSocket 流式对话
+        // 2026-06-29 联调: 重写到后端实际端点 /api/v1/chat/ws/qwen-omni (app/api/v1/chat/qwen_omni.py)
+        // 前端 COZE_PATHS.ws.qwen = /cozeZhsApi/ws/qwen/stream, 经此 rewrite 对齐后端 /api/v1/chat/ws/qwen-omni
         '/cozeZhsApi/ws/qwen/stream': {
-          target: BACKEND_TARGET, // Python ?? WebSocket
+          target: BACKEND_TARGET, // Python 后端 WebSocket
           changeOrigin: true,
-          ws: true, // ??WebSocket??
-          rewrite: (path: string) => path,
+          ws: true, // 启用 WebSocket 代理
+          rewrite: (path: string) =>
+            path.replace(/^\/cozeZhsApi\/ws\/qwen\/stream/, '/api/v1/chat/ws/qwen-omni'),
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
-              console.log('Qwen WebSocket ????:', err)
+              console.log('Qwen WebSocket 代理错误:', err)
+            })
+          },
+        },
+        // 通义千问全模态 WebSocket (chatomni)
+        // 2026-06-29 联调: 前端 COZE_PATHS.ws.chatomni = /cozeZhsApi/ws/chatomni/stream
+        // 后端无独立 chatomni 端点, 复用 qwen-omni 端点 (app/api/v1/chat/qwen_omni.py)
+        '/cozeZhsApi/ws/chatomni/stream': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          ws: true,
+          rewrite: (path: string) =>
+            path.replace(/^\/cozeZhsApi\/ws\/chatomni\/stream/, '/api/v1/chat/ws/qwen-omni'),
+          configure: (proxy: any, _options: any) => {
+            proxy.on('error', (err: any, _req: any, _res: any) => {
+              console.log('QwenOmni(chatomni) WebSocket 代理错误:', err)
+            })
+          },
+        },
+        // 智谱 AI WebSocket
+        // 2026-06-29 联调: 前端 COZE_PATHS.ws.zhipu = /cozeZhsApi/ws/zhipu/stream
+        // 重写到后端 /api/v1/chat/ws/zhipu (app/api/v1/chat/zhipu.py)
+        '/cozeZhsApi/ws/zhipu/stream': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          ws: true,
+          rewrite: (path: string) =>
+            path.replace(/^\/cozeZhsApi\/ws\/zhipu\/stream/, '/api/v1/chat/ws/zhipu'),
+          configure: (proxy: any, _options: any) => {
+            proxy.on('error', (err: any, _req: any, _res: any) => {
+              console.log('Zhipu WebSocket 代理错误:', err)
+            })
+          },
+        },
+        // 豆包 WebSocket
+        // 2026-06-29 联调: 前端 COZE_PATHS.ws.doubao = /cozeZhsApi/ws/doubao/streamDou
+        // 重写到后端 /api/v1/chat/ws/doubao (app/api/v1/chat/doubao.py)
+        '/cozeZhsApi/ws/doubao/streamDou': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          ws: true,
+          rewrite: (path: string) =>
+            path.replace(/^\/cozeZhsApi\/ws\/doubao\/streamDou/, '/api/v1/chat/ws/doubao'),
+          configure: (proxy: any, _options: any) => {
+            proxy.on('error', (err: any, _req: any, _res: any) => {
+              console.log('Doubao WebSocket 代理错误:', err)
+            })
+          },
+        },
+        // DeepSeek WebSocket
+        // 2026-06-29 联调: 前端 COZE_PATHS.ws.chatdeepseek = /cozeZhsApi/ws/chatdeepseek/stream
+        // 注意: 后端 DeepSeek 仅有 HTTP SSE 端点 (app/api/v1/chat/deepseek.py), 无 WS 端点
+        // 此处保留代理透传, 前端调用时应改用 SSE; 此规则避免 WS 连接被 catch-all 错误兜底
+        '/cozeZhsApi/ws/chatdeepseek/stream': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          ws: true,
+          rewrite: (path: string) =>
+            path.replace(/^\/cozeZhsApi\/ws\/chatdeepseek\/stream/, '/api/v1/chat/ws/deepseek'),
+          configure: (proxy: any, _options: any) => {
+            proxy.on('error', (err: any, _req: any, _res: any) => {
+              console.log('DeepSeek WebSocket 代理错误 (后端无 WS, 应改用 SSE):', err)
             })
           },
         },
@@ -1480,19 +1751,11 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         // ihui-ai-api 网关代理, 2026-06-20 切到 Python 后端 (v1/llm/ws.py 已实现 3 端点)
         // 2026-06-21 修复: /ihui-ai-api/* 重写到 /api/v1/* (后端真实路径)
         // /ihui-ai-api/user-sk 已有上方更具体的规则优先匹配, 不受影响
-        // 2026-06-24 修复: 补充 ws:true, AIChat.vue 的 ws://host/ihui-ai-api/llm/ws 才能代理到后端
         '/ihui-ai-api': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           secure: false,
-          ws: true,
           rewrite: (path) => path.replace('/ihui-ai-api', '/api/v1'),
-        },
-        // remote 代理: 前端调用 /remote/*, 后端真实路径 /api/v1/remote/*
-        '/remote': {
-          target: BACKEND_TARGET,
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/remote/, '/api/v1/remote'),
         },
         // ai-bot.cn 资源 - 重写到 /ai-world/ 静态目录
         // 注意: target 指向 Vite 自身 (FRONTEND_URL), 是历史遗留的"自代理"配置
@@ -1539,9 +1802,7 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           target: BACKEND_TARGET, // Python 后端
           changeOrigin: true,
           secure: false,
-          // 2026-06-24: /prod-api/ai/* (BASE_URL2) 是 Java 时代遗留, 后端已迁移到 /api/v1/*
-          // rewrite /prod-api/ai/* → /api/v1/*, 让 user/info, remote/agent/* 等到达真实路由
-          rewrite: (path: string) => path.replace(/^\/prod-api\/ai/, '/api/v1'),
+          rewrite: (path: string) => path, // 路径不重写, 原样转发
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
               console.log('prod-api/ai 代理错误:', err)
@@ -1554,38 +1815,28 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         // P22-联调: /prod-api/login/pwd, /prod-api/auth, /prod-api/login/wechat 三个死代理已删除
         // (前端实际走 /login/pwd, /auth, /login/wechat 代理到 Python 后端)
         // 2026-06-19: 切到 Python 后端 (app/api/mock/__init__.py 已有 /prod-api/* 镜像路由)
-        // 2026-06-24: /prod-api/ai/* (BASE_URL2) 是 Java 时代遗留, 后端已迁移到 /api/v1/*
-        //   rewrite /prod-api/ai/* → /api/v1/*, 让 user/info, remote/agent/* 等到达真实路由
         '/prod-api': {
           target: BACKEND_TARGET,
           changeOrigin: true,
           secure: false,
-          rewrite: (path: string) => {
-            // /prod-api/ai/* → /api/v1/* (BASE_URL2='/prod-api/ai' 遗留映射)
-            if (path.startsWith('/prod-api/ai/')) {
-              return path.replace(/^\/prod-api\/ai/, '/api/v1')
-            }
-            return path
-          },
+          rewrite: (path: string) => path,
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
-              console.log('prod-api proxy error:', err)
+              console.log('prod-api ????:', err)
             })
           },
         },
-        // Python 后端 (base: 3) - cozeZhsApi，代理到本地 Python 后端
-        // 后端真实路由在 /api/v1/cozeZhsApi/* (file_upload/category_sync/stock)
+        // Python 后端 (base: 3) - cozeZhsApi，代理到生产环境 zca.aizhs.top（点赞/收藏等接口）
         // 视频合成等 WebSocket 全路径：wss://zca.aizhs.top/cozeZhsApi/dashscope/video-synthesis/ws
         '/cozeZhsApi': {
           target: BACKEND_TARGET,
           changeOrigin: true,
-          secure: false,
-          // rewrite 加 /api/v1 前缀, 对齐后端 /api/v1/cozeZhsApi/* 真实路由
-          rewrite: (path: string) => path.replace(/^\/cozeZhsApi/, '/api/v1/cozeZhsApi'),
+          secure: false, // ??????HTTPS??
+          rewrite: (path: string) => path,
           ws: true, // 开启 WebSocket 代理，否则 /cozeZhsApi/dashscope/video-synthesis/ws 无法连上
           configure: (proxy: any, _options: any) => {
             proxy.on('error', (err: any, _req: any, _res: any) => {
-              console.log('FastAPI cozeZhsApi 代理错误:', err)
+              console.log('FastAPI??API????:', err)
             })
           },
         },
@@ -1668,14 +1919,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           ) {
             return
           }
-          // 过滤 rolldown 的 INVALID_ANNOTATION (第三方库 @vueuse/core 的 #__PURE__ 注解位置问题, 不影响功能)
-          if (
-            warning.code === 'INVALID_ANNOTATION' ||
-            warning.message?.includes('INVALID_ANNOTATION') ||
-            warning.message?.includes('#__PURE__')
-          ) {
-            return
-          }
           warn(warning)
         },
         output: {
@@ -1729,17 +1972,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               if (id.includes('resize-observer-polyfill')) return 'resize-observer'
               if (id.includes('memoize-one')) return 'memoize'
               if (id.includes('lodash-es')) return 'lodash-es'
-              // 2026-06-24 优化：从 vue-vendor 拆出未识别的大依赖，避免首屏 410KB+
-              // exceljs: 1.28MB (rendered) — 实际是 DramaScriptExcel 导出 Excel 用的，可懒加载
-              if (id.includes('exceljs')) return 'exceljs'
-              // markstream-vue + stream-markdown-parser: 519KB — 流式 markdown 渲染（仅 AIChat 等场景）
-              if (id.includes('markstream-vue') || id.includes('stream-markdown-parser')) return 'markstream'
-              // tailwind-merge: 54KB — 工具函数，单独拆
-              if (id.includes('tailwind-merge')) return 'tailwind-merge'
-              // spark-md5: 14KB — 文件分片上传 hash 工具
-              if (id.includes('spark-md5')) return 'spark-md5'
-              // js-cookie: 2.5KB — cookie 工具
-              if (id.includes('js-cookie')) return 'js-cookie'
               if (id.includes('@babel')) return 'babel'
               if (id.includes('core-js')) return 'core-js'
               if (id.includes('regenerator-runtime')) return 'regenerator'
@@ -1787,17 +2019,7 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     css: {
       preprocessorOptions: {
         scss: {
-          // 函数形式: 排除 variables.scss 自身, 避免 @use 注入导致模块循环引用
-          additionalData: (source: string, filename: string) => {
-            // 跳过 variables.scss 自身以及已被 variables.scss @use 的文件
-            if (
-              filename.includes('variables.scss') ||
-              filename.includes('_global-tokens.scss')
-            ) {
-              return source
-            }
-            return `@use "@/styles/variables.scss" as *;\n${source}`
-          },
+          additionalData: `@use "@/styles/variables.scss" as *;`,
           silenceDeprecations: ['legacy-js-api', 'import'],
           importer: undefined,
         },
@@ -1825,22 +2047,13 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
     },
     // ?????? - ????????????????
     optimizeDeps: {
+      entries: ['src/main.ts'],
       include: [
         'vue',
         'vue-router',
         'pinia',
         'axios',
         'element-plus',
-        // 2026-06-25: Element Plus 5 个语言包已在 src/locales/index.ts 顶部 static import,
-        // 这里仍保留 optimizeDeps.include 作为显式声明, 让 Vite 在首次启动时主动预构建这 5 个 .mjs,
-        // 避免在 watcher 首次触发 loadElementPlusLocale 时 Vite 还要按需扫描构建导致首屏卡顿
-        // 历史: 此前依赖 dynamic import + optimizeDeps.include, 但 HMR 后 .vite/deps/* 的 ?v=<hash>
-        //       会失效, App.vue 的 watch(locale, immediate:true) 仍持有旧 hash 引发循环报错
-        'element-plus/es/locale/lang/zh-cn.mjs',
-        'element-plus/es/locale/lang/zh-tw.mjs',
-        'element-plus/es/locale/lang/en.mjs',
-        'element-plus/es/locale/lang/ja.mjs',
-        'element-plus/es/locale/lang/ko.mjs',
         '@vueuse/core',
         'dayjs',
         'crypto-js',
@@ -1850,35 +2063,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         'socket.io-client',
         'clsx',
         'class-variance-authority',
-      ],
-      // 2026-06-25 修复: 显式声明首屏路由触发的所有懒加载 entry, 让 Vite dev server
-      // 启动时主动预构建这些 .vue 模块, 避免浏览器首次访问时 Vite optimizeDeps
-      // 还在 race condition 阶段返回 ERR_ABORTED, 导致 componentLoader 必须等满 12s
-      // 才能 fallback 渲染. 这里只列首屏 router 路径真正会触发的入口, 不全量列 views/*
-      // (避免 dev 启动时间从 3s 涨到 30s+).
-      entries: [
-        'src/main.ts',
-        // 首屏 router-view 可能 mount 的 5 个最常访问路由
-        'src/views/Home.vue',
-        'src/views/Agents.vue',
-        'src/views/Login.vue',
-        'src/views/Register.vue',
-        'src/views/Chat.vue',
-        // 2026-06-25 补充: App.vue 顶层 defineAsyncComponent 触发的首屏动态组件
-        // 不预先声明, 首次访问触发 dynamic import 时 Vite 还在构建, 会 ERR_ABORTED
-        // 触发 ErrorBoundary 兜底页白屏. componentLoader 12s 重试也救不回来.
-        'src/components/ErrorNotification.vue',
-        'src/components/common/GlobalCommandPalette.vue',
-        'src/components/common/GlobalLoading.vue',
-        'src/components/common/PWAInstallPrompt.vue',
-        'src/components/common/PWAUpdatePrompt.vue',
-        'src/components/mobile/MobileBottomNav.vue',
-        'src/components/ThemeLoadingIndicator.vue',
-        'src/components/ai/AIChat.vue',
-        'src/components/ai/AIChatLegacy.vue',
-        // Header.vue 内嵌的 SearchTrigger (触发 Cmd+K 指令面板) 同样动态加载
-        'src/components/login/SearchTrigger.vue',
-        'src/components/Header.vue',
       ],
       exclude: [
         '@langchain/openai',

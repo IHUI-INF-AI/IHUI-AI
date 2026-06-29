@@ -13,9 +13,7 @@
     "src/**/*.json",
     "*.ts",
     "*.js",
-    "config/**/*.ts",
-    "packages/shared-edu-api/src/**/*.ts",
-    "packages/shared-edu-types/src/**/*.ts"
+    "config/**/*.ts"
   ],
   "exclude": [
     "src/api/admin/**",
@@ -45,14 +43,11 @@
     "src/shared/document/PPTEditor.vue",
     "src/shared/document/WordEditor.vue",
     "src/views/ComponentsLibrary.vue",
-    "src/views/feishu-callback-handler.vue",
     "src/views/migrated/**",
     "scripts/news-crawler/**",
     "src/open-platform/views/FeatureCenter.vue",
     "src/utils/guides/**",
-    "packages/shared-logic/**",
-    "packages/shared-edu-api/**",
-    "packages/shared-edu-types/**"
+    "packages/shared-logic/**"
   ],
   "compilerOptions": {
     "ignoreDeprecations": "6.0",
@@ -63,8 +58,6 @@
       "@aizhs/shared-services": ["./packages/shared-services/src/index.ts"],
       "@aizhs/shared-types": ["./packages/shared-types/src/index.ts"],
       "@aizhs/shared-logic": ["./packages/shared-logic/src/index.ts"],
-      "@aizhs/shared-edu-api": ["./packages/shared-edu-api/src/index.ts"],
-      "@aizhs/shared-edu-types": ["./packages/shared-edu-types/src/index.ts"],
       "@/*": ["./src/*"],
       "lucide-vue-next": ["./src/lib/lucide-fallback.ts"],
       "open/*": ["./src/open-platform/*"],

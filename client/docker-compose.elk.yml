@@ -3,7 +3,7 @@ version: '3.8'
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: aizhs-elasticsearch
+    container_name: pdf-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -21,7 +21,7 @@ services:
 
   logstash:
     image: docker.elastic.co/logstash/logstash:8.11.0
-    container_name: aizhs-logstash
+    container_name: pdf-logstash
     volumes:
       - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
       - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
@@ -36,7 +36,7 @@ services:
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
-    container_name: aizhs-kibana
+    container_name: pdf-kibana
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:
@@ -53,11 +53,11 @@ services:
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.11.0
-    container_name: aizhs-filebeat
+    container_name: pdf-filebeat
     user: root
     volumes:
       - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - ./server/logs:/var/log/aizhs-backend:ro
+      - ./backend/logs:/var/log/pdf-service:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     depends_on:
       - logstash
@@ -68,5 +68,5 @@ volumes:
 
 networks:
   default:
-    name: aizhs-net
+    name: pdf-network
     external: true

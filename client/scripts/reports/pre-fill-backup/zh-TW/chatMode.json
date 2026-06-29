@@ -1,8 +1,0 @@
-{
-  "chatMode": {
-    "agentMode": "[ZH:agentMode]",
-    "enterAgentMode": "[ZH:enterAgentMode]",
-    "exitAgentMode": "[ZH:exitAgentMode]",
-    "normalMode": "[ZH:normalMode]"
-  }
-}

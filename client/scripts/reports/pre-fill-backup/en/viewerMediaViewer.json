@@ -1,9 +1,0 @@
-{
-  "viewerMediaViewer": {
-    "download": "[ZH:download]",
-    "loop": "[ZH:loop]",
-    "mediaLoadFailed": "[ZH:mediaLoadFailed]",
-    "mute": "[ZH:mute]",
-    "playSpeed": "[ZH:playSpeed]"
-  }
-}

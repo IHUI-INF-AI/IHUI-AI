@@ -1,8 +1,0 @@
-{
-  "adminAuth": {
-    "searchPlaceholder": {
-      "authority": "権限を検索",
-      "role": "ロールを検索"
-    }
-  }
-}

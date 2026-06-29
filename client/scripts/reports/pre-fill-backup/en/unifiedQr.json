@@ -1,8 +1,0 @@
-{
-  "unifiedQr": {
-    "auth": "[ZH:auth]",
-    "loginRequired": "[ZH:loginRequired]",
-    "needLoginFirst": "[ZH:needLoginFirst]",
-    "qrFailed": "[ZH:qrFailed]"
-  }
-}

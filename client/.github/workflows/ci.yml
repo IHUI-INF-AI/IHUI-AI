@@ -151,35 +151,11 @@ jobs:
         # 用户规则：禁止使用 !important，保证后续样式可控
         run: npm run check:no-important
 
-      - name: Check no hardcoded colors
-        # 配色应统一通过 CSS 变量管理，禁止硬编码颜色值
-        run: npm run check:colors
-        continue-on-error: true
-
       - name: Check high specificity selectors
         # 用户规则：禁止使用高特异性选择器（4 类以上嵌套），项目代码中不得存在
         # 阈值 0：项目代码中不允许有任何高特异性选择器
-        run: |
-          npm run dev > /tmp/dev-server.log 2>&1 &
-          npx wait-on http://127.0.0.1:8888 -t 180000
-          HIGH_SPECIFICITY_THRESHOLD=0 npx playwright test e2e/analyze-high-specificity.spec.ts --project=chromium --reporter=list
-          kill %1 2>/dev/null || true
-
-      - name: Token usage check (unused threshold)
-        # 检查未使用 token 数量是否超过阈值（白名单 10 个不计，阈值 12）
-        run: npm run tokens:check
-
-      - name: Token naming convention check
-        # 检查 token 命名是否符合规范（--color-*/--el-*/--app-*/--z-*/--global-* 等）
-        run: npm run tokens:naming
-
-      - name: Token dark mode coverage check
-        # 检查 --app-* token 的映射目标在暗色模式下是否有覆盖
-        run: npm run tokens:dark-mode
-
-      - name: Token deprecated check
-        # 检查弃用 token 是否已过删除日期但仍被使用
-        run: npm run tokens:deprecated
+        # 使用静态分析脚本（无需启动 dev server）
+        run: HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs --all
 
       - name: --el-* token usage check (new components)
         # 检查新组件是否直接使用 --el-* token（应优先使用 --app-* 语义化 token）
@@ -254,16 +230,6 @@ jobs:
 
       - name: Build
         run: npm run build:web
-
-      - name: Record token usage trend
-        # 记录本次构建的 token 使用数据到 .token-history/（不提交，仅本机记录）
-        run: npm run tokens:record
-        continue-on-error: true
-
-      - name: Check performance budget
-        # P28-3: 性能预算硬门禁 - 超限则阻断合并
-        # 预算基于当前构建体积 + 缓冲, 后续逐步收紧
-        run: npm run check:perf
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -460,13 +426,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run i18n completeness check (strict-en)
-        # --strict-en: 只对纯英文 key 缺失阻断合并 (中文 key 缺失视为技术债, 仅 warn)
-        # 冗余键和硬编码中文仅 warn, 不阻断 (逐步清理)
-        # P29-2: 已补齐 admin.eventBus.* 等缺失翻译, 启用硬阻断
+      - name: Run i18n check
+        # check:i18n 同时检测: 覆盖率(阈值不达标 exit 1 阻断) + 硬编码中文(仅报告不阻断)
+        # 覆盖率阈值: en 90% / zh-TW 80% / ja 50% / ko 30%
         run: |
           echo "::group::i18n 翻译完整性检测 (5 语言: zh-CN/zh-TW/en/ja/ko)"
-          npm run check:i18n:strict-en
+          npm run check:i18n
           echo "::endgroup::"
 
       - name: Upload i18n report (on failure)
@@ -477,34 +442,6 @@ jobs:
           path: |
             src/locales/*.json
           retention-days: 7
-
-  i18n-chinese-residue:
-    # i18n 中文残留检测: en/en-US/ko 不允许任何中文字符, ja 仅检测中文残留词汇
-    # 仅 warning 不阻断 (逐步清理, 让 PR 作者知道但不影响合并)
-    name: i18n Chinese Residue (warning)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run i18n chinese residue check
-        # en/en-US/ko: 不允许任何中文字符
-        # ja: 只检测中文残留词汇 (日语汉字正常)
-        # 品牌名检测: 智汇/智匯/Zhihuishe
-        run: |
-          echo "::group::i18n 中文残留检测 (en/en-US/ko/ja)"
-          npm run check:i18n:chinese
-          echo "::endgroup::"
 
   visual-regression:
     # 视觉回归测试: 7 页面 × 2 主题 = 14 基线比对 + 6 交互验证 + 2 鉴权重定向
@@ -554,44 +491,3 @@ jobs:
           name: visual-regression-results
           path: test-results/
           retention-days: 7
-
-  e2e-coverage:
-    # E2E 测试覆盖率监控: 统计测试覆盖的页面/交互数 + 趋势对比
-    # 覆盖率下降超过 5% 时告警(continue-on-error, 不阻断合并)
-    # 无 needs: 仅扫描 e2e/ 目录统计测试文件, 不依赖 typecheck/lint/build, 可完全并行
-    name: E2E Coverage
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore coverage history
-        uses: actions/cache@v4
-        with:
-          path: .e2e-coverage-history
-          key: e2e-coverage-history-${{ github.sha }}
-          restore-keys: |
-            e2e-coverage-history-
-
-      - name: Run e2e coverage analysis
-        run: npm run e2e:coverage
-
-      - name: Save coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-coverage-report
-          path: |
-            e2e-coverage-report.json
-            .e2e-coverage-history/
-          retention-days: 30

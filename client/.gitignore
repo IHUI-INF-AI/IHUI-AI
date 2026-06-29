@@ -29,12 +29,8 @@ build/
 .env.test.local
 .env.production.local
 .env.production
-.env.production.example   (注: 历史版本忽略，新规则见下方白名单)
+.env.production.example
 .env.docker
-# 白名单: .example 模板文件需要提交（生产环境配置迁移）
-!.env.production.example
-!.env.development.example
-!.env.example
 
 # Logs
 logs
@@ -283,12 +279,3 @@ update-*.py
 i18n-*.cjs
 analyze-coverage.cjs
 coverage-temp.cjs
-
-# ============================================================================
-# 一次性 i18n 调查/修复脚本 (2026-06-26 补充)
-# 前缀 _ 表示临时调查脚本, fix- 前缀的一次性修复脚本完成后也不保留
-# 真正需要保留的脚本应放入 scripts/ 并在 package.json 注册 npm script
-# ============================================================================
-scripts/_*.mjs
-scripts/_*.cjs
-scripts/fix-zhcn-*.mjs

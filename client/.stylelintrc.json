@@ -1,12 +1,44 @@
 {
   "customSyntax": "postcss-html",
-  "extends": ["stylelint-config-standard-scss"],
+  "extends": [
+    "stylelint-config-standard-scss"
+  ],
+  "plugins": [
+    "./stylelint-plugin-no-css-typos.cjs"
+  ],
   "rules": {
-    "declaration-no-important": true,
+    "aizhs/no-css-typos": true,
+    "declaration-no-important": null,
     "selector-max-id": null,
     "no-descending-specificity": null,
-    "scss/at-rule-no-unknown": [true, { "ignoreAtRules": ["tailwind", "apply", "layer", "variants", "responsive", "screen"] }],
-    "selector-pseudo-class-no-unknown": [true, { "ignorePseudoClasses": ["global", "deep"] }],
+    "scss/at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind",
+          "apply",
+          "layer",
+          "variants",
+          "responsive",
+          "screen"
+        ]
+      }
+    ],
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": [
+          "global",
+          "deep",
+          "slotted",
+          "v-deep",
+          "v-global",
+          "v-slotted",
+          "loading",
+          "export"
+        ]
+      }
+    ],
     "property-no-vendor-prefix": null,
     "value-no-vendor-prefix": null,
     "selector-class-pattern": null,
@@ -24,9 +56,15 @@
     "scss/load-no-partial-leading-underscore": null,
     "font-family-name-quotes": "always-where-recommended",
     "font-weight-notation": null,
-    "declaration-block-no-duplicate-properties": [true, { "ignore": ["consecutive-duplicates-with-different-values"] }],
+    "declaration-block-no-duplicate-properties": [
+      true,
+      {
+        "ignore": [
+          "consecutive-duplicates-with-different-values"
+        ]
+      }
+    ],
     "no-duplicate-selectors": null,
-    "max-nesting-depth": null,
     "selector-max-compound-selectors": null,
     "selector-max-type": null,
     "shorthand-property-no-redundant-values": true,
@@ -38,18 +76,75 @@
     "hue-degree-notation": "angle",
     "custom-property-pattern": null,
     "no-invalid-double-slash-comments": null,
-    "unit-no-unknown": [true, { "ignoreUnits": ["rpx", "upx"] }],
+    "unit-no-unknown": [
+      true,
+      {
+        "ignoreUnits": [
+          "rpx",
+          "upx"
+        ]
+      }
+    ],
     "declaration-block-no-duplicate-custom-properties": null,
     "font-family-no-missing-generic-family-keyword": null,
     "selector-id-pattern": null,
-    "declaration-property-value-disallowed-list": {
-      "/^text-shadow$/": ["/\\d/"],
-      "/^box-shadow$/": ["/\\d/"]
-    }
+    "selector-pseudo-element-no-unknown": [
+      true,
+      {
+        "ignorePseudoElements": [
+          "v-deep",
+          "v-global",
+          "v-slotted"
+        ]
+      }
+    ],
+    "property-no-unknown": [
+      true,
+      {
+        "ignoreProperties": [
+          "container-type",
+          "container-name",
+          "tap-highlight-color",
+          "-webkit-tap-highlight-color",
+          "primaryColor",
+          "successColor",
+          "warningColor",
+          "errorColor",
+          "infoColor",
+          "text-security"
+        ]
+      }
+    ]
   },
   "overrides": [
     {
-      "files": ["src/views/**/*.vue", "src/views/**/*.scss", "src/components/**/*.vue", "src/components/**/*.scss"],
+      "files": [
+        "**/*.vue"
+      ],
+      "customSyntax": "postcss-html"
+    },
+    {
+      "files": [
+        "**/*.scss"
+      ],
+      "customSyntax": "postcss-scss"
+    },
+    {
+      "files": [
+        "src/views/**/*.vue",
+        "src/views/**/*.scss",
+        "src/components/**/*.vue",
+        "src/components/**/*.scss"
+      ],
+      "rules": {
+        "color-no-hex": true
+      }
+    },
+    {
+      "files": [
+        "miniapp/**/*.vue",
+        "miniapp/**/*.scss"
+      ],
       "rules": {
         "color-no-hex": true
       }

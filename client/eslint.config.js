@@ -430,33 +430,8 @@ export default [
       '@typescript-eslint/no-floating-promises': 'off',
       'no-console': 'off',
       'no-undef': 'off',
-    },
-  },
-  {
-    files: ['src/api/admin/**/*.ts', 'src/store/admin/**/*.ts', 'src/utils/admin/**/*.ts', 'src/views/admin-ruoyi/**', 'src/layout-admin/**', 'src/plugins/admin/**', 'src/components/admin-ruoyi/**'],
-    languageOptions: {
-      // 这些目录在 tsconfig.json 的 exclude 中, parserOptions.project 会失败
-      parserOptions: { project: null },
-    },
-    rules: {
-      // 关闭需要类型信息的规则
-      '@typescript-eslint/no-floating-promises': 'off',
-    },
-  },
-  // h5 目录: 移动端 H5 页面, 独立子项目, 不在 tsconfig.json include 中,
-  // parserOptions.project 会失败 ('none of those tsconfigs include this file').
-  // 关闭项目解析, 同时关闭 no-floating-promises (无类型信息无法判断).
-  // h5 是历史遗留代码, 未使用变量/重复 key 较多, 这里关闭 unused-vars 和
-  // no-dupe-keys 以避免遗留代码阻塞 CI. 后续清理时再按需重新启用.
-  {
-    files: ['h5/**/*.js', 'h5/**/*.ts', 'h5/**/*.vue', 'h5/*.config.js'],
-    languageOptions: {
-      parserOptions: { project: null },
-    },
-    rules: {
-      '@typescript-eslint/no-floating-promises': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      'no-dupe-keys': 'off',
+      // 测试文件允许空 catch 块（mock 场景常见，无副作用）
+      'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
   {
@@ -476,8 +451,6 @@ export default [
       'backend-docs/**',
       'miniapp/**',
       'storybook-static/**',
-      'packages/shared-edu-api/**',
-      'packages/shared-edu-types/**',
       '.storybook/**',
       'electron/**',
       'logs/**',

@@ -1,8 +1,0 @@
-{
-  "googleLogin": {
-    "failed": "[ZH:failed]",
-    "handleFailed": "[ZH:handleFailed]",
-    "retry": "[ZH:retry]",
-    "verifyFailed": "[ZH:verifyFailed]"
-  }
-}

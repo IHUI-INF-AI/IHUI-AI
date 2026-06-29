@@ -1,8 +1,0 @@
-{
-  "logs": {
-    "getUserInfoFailed": "[ZH:getUserInfoFailed]",
-    "loginFailed": "[ZH:loginFailed]",
-    "refreshTokenFailed": "[ZH:refreshTokenFailed]",
-    "thirdPartyLoginFailed": "[ZH:thirdPartyLoginFailed]"
-  }
-}

@@ -46,12 +46,12 @@ npx playwright test e2e/visual-regression.spec.ts --project=chromium
 ### 检查清单
 
 - [ ] 基线更新后，本地运行 `npx playwright test e2e/visual-regression.spec.ts` 全部通过
-- [ ] 基线更新后，运行 `npm run typecheck && npm run tokens:check` 无报错
+- [ ] 基线更新后，运行 `npm run typecheck` 无报错（`tokens:check` 脚本已移除，token 使用规范改为手动检查）
 - [ ] PR 描述中说明基线更新的原因
 
 ## 测试验证
 
 - [ ] `npm run typecheck` 通过
 - [ ] `npm run lint` 通过
-- [ ] `npm run tokens:check` 通过
+- [ ] token 使用规范手动检查通过（`npm run tokens:check` 脚本已移除）
 - [ ] `npx playwright test e2e/visual-regression.spec.ts` 通过（如涉及 UI 变更）

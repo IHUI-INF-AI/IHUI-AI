@@ -1,8 +1,0 @@
-{
-  "utils": {
-    "voiceRecorder": {
-      "microphonePermissionDenied": "[ZH:microphonePermissionDenied]",
-      "recordingFailed": "[ZH:recordingFailed]"
-    }
-  }
-}

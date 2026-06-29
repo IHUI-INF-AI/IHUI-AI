@@ -1,8 +1,0 @@
-{
-  "simpleFallback": {
-    "defaultMessage": "[ZH:defaultMessage]",
-    "goHome": "[ZH:goHome]",
-    "loading": "[ZH:loading]",
-    "reload": "[ZH:reload]"
-  }
-}

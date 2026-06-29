@@ -1,8 +1,0 @@
-{
-  "adminAuth": {
-    "searchPlaceholder": {
-      "authority": "권한 검색",
-      "role": "역할 검색"
-    }
-  }
-}

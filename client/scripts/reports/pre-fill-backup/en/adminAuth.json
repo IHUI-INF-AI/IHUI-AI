@@ -1,8 +1,0 @@
-{
-  "adminAuth": {
-    "searchPlaceholder": {
-      "authority": "Search permissions",
-      "role": "Search roles"
-    }
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "p19AdminDashboard": {
-    "action": "[ZH:action]",
-    "recentActivity": "[ZH:recentActivity]",
-    "target": "[ZH:target]",
-    "time": "[ZH:time]",
-    "title": "[ZH:title]"
-  }
-}

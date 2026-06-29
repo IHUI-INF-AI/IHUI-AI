@@ -1,9 +1,0 @@
-{
-  "cmpFileDownload": {
-    "downloadComplete": "[ZH:downloadComplete]",
-    "downloadFailed": "[ZH:downloadFailed]",
-    "downloadFailed2": "[ZH:downloadFailed2]",
-    "downloading": "[ZH:downloading]",
-    "invalidDownloadLink": "[ZH:invalidDownloadLink]"
-  }
-}

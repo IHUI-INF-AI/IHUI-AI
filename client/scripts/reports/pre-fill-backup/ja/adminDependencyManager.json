@@ -1,7 +1,0 @@
-{
-  "adminDependencyManager": {
-    "confirmDeleteConfig": "[ZH:confirmDeleteConfig]",
-    "enterTourId": "[ZH:enterTourId]",
-    "newConfig": "[ZH:newConfig]"
-  }
-}

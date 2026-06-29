@@ -34,12 +34,12 @@
 const envPort = (key: string, fallback: number): number => {
   try {
     // globalThis.process 在 Node 环境 (vite/playwright/e2e) 都有, 浏览器端为 undefined
-    const proc: any = (globalThis as any).process
+    const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
     const raw = proc?.env?.[key]
     if (raw == null || raw === '') return fallback
     const n = parseInt(String(raw), 10)
     if (!Number.isFinite(n) || n <= 0 || n >= 65536) {
-       
+
       console.warn(`[ports] env ${key}=${raw} 不是合法端口, 使用 fallback ${fallback}`)
       return fallback
     }
@@ -50,14 +50,7 @@ const envPort = (key: string, fallback: number): number => {
 }
 
 /** 单一后端源: FastAPI / uvicorn 监听端口. 严禁随意修改, 修改前必看 DEV_PORTS.md
- *
- * ⚠️ 运行时启动规范 (2026-06-25 强化):
- *   后端必须监听 8000 端口, 不得以任何理由临时改为其他端口.
- *   AI 助手/开发者启动 uvicorn 时必须用 --port 8000 或不带 --port (由 .env 的 API_PORT=8000 控制).
- *   8000 被占用时必须先释放 8000, 不得改端口绕过.
- *   详见 client/docs/DEV_PORTS.md "运行时启动规范" 章节.
- *
- *  运行时可用 $env:BACKEND_PORT 覆盖 (仅用于 CI/容器化, 本地开发不得使用) */
+ *  运行时可用 $env:BACKEND_PORT 覆盖 */
 export const BACKEND_PORT = envPort('BACKEND_PORT', 8000)
 /** 后端完整 URL (含协议), 供 Vite proxy target 与 e2e 直连使用 */
 export const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`

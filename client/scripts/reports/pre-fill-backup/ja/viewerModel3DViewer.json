@@ -1,8 +1,0 @@
-{
-  "viewerModel3DViewer": {
-    "format": "[ZH:format]",
-    "model3dFile": "[ZH:model3dFile]",
-    "supportedFormat": "[ZH:supportedFormat]",
-    "useBlenderHint": "[ZH:useBlenderHint]"
-  }
-}

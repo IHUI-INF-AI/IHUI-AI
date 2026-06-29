@@ -4,6 +4,39 @@
 
   <head>
 
+    <!--
+      2026-06-27 修复白屏: 开发环境下注销 Service Worker + 清除缓存.
+      旧 sw.js 用 SWR/cacheFirst 策略缓存了旧 HTML + 旧 JS, 导致 Vite HMR
+      修改后用户浏览器仍加载旧 JS (useEduPlatformNav 修改前无 try/catch 兜底),
+      抛 'injection Symbol(router) not found' 白屏.
+      此脚本在所有模块加载前执行, 确保旧 SW 不拦截后续 /src/main.ts 请求.
+      生产环境 (端口 80/443) 不执行.
+    -->
+    <script>
+      (function() {
+        'use strict';
+        // 仅开发环境执行 (8888 = Vite dev server)
+        if (location.port !== '8888') return;
+        if (!('serviceWorker' in navigator)) return;
+        // 立即注销所有 SW (不等待 promise, 避免阻塞页面加载)
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) { r.unregister(); });
+          if (regs.length > 0) {
+            console.log('[SW-Cleanup] DEV: unregistered ' + regs.length + ' SW(s)');
+          }
+        }).catch(function() {});
+        // 清除所有缓存
+        if ('caches' in window) {
+          caches.keys().then(function(keys) {
+            keys.forEach(function(k) { caches.delete(k); });
+            if (keys.length > 0) {
+              console.log('[SW-Cleanup] DEV: cleared ' + keys.length + ' cache(s)');
+            }
+          }).catch(function() {});
+        }
+      })();
+    </script>
+
     <!-- 防止某些缓存中的vendor chunk访问未定义的 __DEFINES__ -->
 
     <!-- 必须在所有脚本之前定义，确保 Vite 构建时的 define 替换正常工作 -->
@@ -170,23 +203,23 @@
 
     <!-- 注意：避免使用preload，favicon由浏览器自动处理，预加载可能导致警告 -->
 
-    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
 
-    <link rel="shortcut icon" type="image/jpeg" href="/images/APP.jpg" />
+    <link rel="shortcut icon" type="image/png" href="/images/logo.png" />
 
-    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/images/logo.png" sizes="32x32" />
 
-    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="16x16" />
+    <link rel="icon" type="image/png" href="/images/logo.png" sizes="16x16" />
 
     <!-- Apple设备图标 -->
 
-    <link rel="apple-touch-icon" href="/images/APP.jpg" />
+    <link rel="apple-touch-icon" href="/images/logo.png" />
 
     <!-- Android设备图标 -->
 
-    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="192x192" />
+    <link rel="icon" type="image/png" href="/images/logo.png" sizes="192x192" />
 
-    <link rel="icon" type="image/jpeg" href="/images/APP.jpg" sizes="512x512" />
+    <link rel="icon" type="image/png" href="/images/logo.png" sizes="512x512" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -376,7 +409,7 @@
     <meta property="og:title" content="智汇AI社区 - 专业AI工具平台" />
     <meta property="og:description" content="专业的AI工具集成平台，提供AI对话、图像生成、视频制作等多种AI服务" />
     <meta property="og:url" content="https://www.zhihui-ai.com/" />
-    <meta property="og:image" content="https://www.zhihui-ai.com/images/APP.jpg" />
+    <meta property="og:image" content="https://www.zhihui-ai.com/images/logo.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="zh_CN" />
@@ -394,7 +427,7 @@
 
     <meta name="twitter:description" content="专业的AI工具集成平台，提供AI对话、图像生成、视频制作等多种AI服务" />
 
-    <meta name="twitter:image" content="https://www.zhihui-ai.com/images/APP.jpg" />
+    <meta name="twitter:image" content="https://www.zhihui-ai.com/images/logo.png" />
 
 
 
@@ -426,12 +459,13 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#1a73e8" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/images/logo.png" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
 
     <!-- P6-4 PWA：Service Worker 注册（仅生产环境） -->
+    <!-- dev 环境跳过：SW 会缓存旧 HTML/JS 与 Vite HMR 冲突，且 localhost 常因存储隔离报 Failed to access storage -->
     <script>
-      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      if ('serviceWorker' in navigator && location.protocol !== 'file:' && !location.hostname.match(/^(localhost|127\.0\.0\.1)$/)) {
         window.addEventListener('load', function () {
           navigator.serviceWorker.register('/sw.js').catch(function (e) { console.warn('[sw] register failed', e) })
         })
