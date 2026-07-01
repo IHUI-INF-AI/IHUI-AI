@@ -412,6 +412,10 @@ html.dark {
     border-style: solid;
     border-color: var(--el-color-primary);
     color: var(--el-bg-color-page);
+    // 2026-07-02 新增: inset 1px 半透明白环补强暗色 CTA 按钮边界
+    // 暗色下 #2563eb (CTA) vs #6a6d77 (darkSurface) 底色对比度仅 1.001:1,
+    // 通过 inset 白环把视觉边界对比度提升至 WCAG AA UI 组件 ≥ 3:1
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 
     span, .el-button__text {
       color: var(--el-bg-color-page);
@@ -419,6 +423,14 @@ html.dark {
 
     .el-icon {
       color: var(--el-bg-color-page);
+    }
+
+    &:hover {
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    }
+
+    &:active {
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
     }
   }
 }

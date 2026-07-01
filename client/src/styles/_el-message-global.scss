@@ -271,7 +271,7 @@
   }
 
   .el-message__content {
-    color: #1d4ed8;
+    color: var(--color-cta-blue-hover, #1d4ed8);
   }
 
   :where(.el-message__closeBtn):hover {

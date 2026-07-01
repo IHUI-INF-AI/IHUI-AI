@@ -40,7 +40,6 @@
             :selected-model="selectedModel"
             :selected-agent="selectedAgent"
             :effective-show-tickets="effectiveShowTickets"
-            :panel-title="panelTitle"
             @toggle-session-list="showSessionList = !showSessionList"
             @toggle-search="toggleSearch"
             @menu-command="handleMenuCommand"
@@ -664,6 +663,139 @@
                   </div>
                 </div>
 
+                <!-- trae-work Row 1: 顶层能力选择下拉（+ 选择） -->
+                <div class="trae-work-actions-top">
+                  <el-dropdown trigger="click" v-model:visible="showCapabilityDropdown"
+                    class="ai-capability-selector"
+                    placement="top" :hide-on-click="false"
+                    :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
+                    popper-class="ai-chat-popper ai-capability-popper">
+                    <!-- Trigger pill: + 选择 -->
+                    <el-button link size="small" class="tw-selector-pill"
+                      :aria-label="t('aiChatInput.select')"
+                      aria-haspopup="menu"
+                      :aria-expanded="showCapabilityDropdown"
+                      :title="t('aiChatInput.select')"
+                      role="button"
+                      tabindex="0">
+                      <el-icon class="tw-selector-icon-plus"><Plus /></el-icon>
+                      <span class="tw-selector-label">{{ t('aiChatInput.select') }}</span>
+                      <el-icon class="tw-selector-caret" :class="{ 'is-open': showCapabilityDropdown }"><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <div class="ai-capability-popper-inner">
+                        <span class="sr-only" aria-live="polite">
+                          {{ capabilityDropdownView === 'prompts' ? t('floatingChat.promptTemplates') : t('floatingChat.aiCapability') }}
+                        </span>
+                        <Transition name="capability-view" mode="out-in">
+                          <!-- Main view: 5 capability cards + tools section -->
+                          <div v-if="capabilityDropdownView === 'main'" key="main"
+                            class="openclaw-quick-menu ai-capability-quick-menu capability-view-pane"
+                            role="menu">
+                            <div class="menu-header">
+                              <span class="menu-title">{{ t('floatingChat.aiCapability') }}</span>
+                            </div>
+                            <div class="menu-grid">
+                              <div class="menu-item" role="menuitem" tabindex="0"
+                                :class="{ active: currentAIMode === 'model' }"
+                                :aria-label="t('floatingChat.modeModel')"
+                                @click="onCapabilityCardClick('select:model')">
+                                <div class="item-icon models">
+                                  <AIStarIcon :size="20" />
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.modeModel') }}</span>
+                                <span class="item-desc">{{ selectedModel ? getModelDisplayName(selectedModel) : (t('floatingChat.selectModel')) }}</span>
+                              </div>
+                              <div class="menu-item" role="menuitem" tabindex="0"
+                                :class="{ active: currentAIMode === 'agent' }"
+                                :aria-label="t('floatingChat.modeAgent')"
+                                @click="onCapabilityCardClick('select:agent')">
+                                <div class="item-icon memory">
+                                  <el-icon><Bot /></el-icon>
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.modeAgent') }}</span>
+                                <span class="item-desc">{{ selectedAgent ? selectedAgent.name : (t('floatingChat.selectAgent')) }}</span>
+                              </div>
+                              <div class="menu-item" role="menuitem" tabindex="0"
+                                :class="{ active: currentAIMode === 'agentic' }"
+                                :aria-label="t('floatingChat.modeAgentic')"
+                                @click="onCapabilityCardClick('mode:agentic')">
+                                <div class="item-icon canvas">
+                                  <el-icon><Network /></el-icon>
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.modeAgentic') }}</span>
+                                <span class="item-desc">AgenticAI</span>
+                              </div>
+                              <div class="menu-item" role="menuitem" tabindex="0"
+                                :class="{ active: currentAIMode === 'mcp' }"
+                                :aria-label="t('floatingChat.modeMCP')"
+                                @click="onCapabilityCardClick('select:mcp')">
+                                <div class="item-icon browser">
+                                  <el-icon><Wrench /></el-icon>
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.modeMCP') }}</span>
+                                <span class="item-desc">{{ unifiedMCPTools.length }} {{ t('floatingChat.mcpTools') }}</span>
+                              </div>
+                              <div class="menu-item" role="menuitem" tabindex="0"
+                                :class="{ active: currentAIMode === 'auto' }"
+                                :aria-label="t('floatingChat.modeAuto')"
+                                @click="onCapabilityCardClick('mode:auto')">
+                                <div class="item-icon skills">
+                                  <el-icon><Zap /></el-icon>
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.modeAuto') }}</span>
+                                <span class="item-desc">{{ t('floatingChat.autoDecision') }}</span>
+                              </div>
+                            </div>
+                            <!-- Tools section: prompt templates + AI toolbox -->
+                            <div class="menu-section-divider"></div>
+                            <div class="menu-section-header">{{ t('aiChatInput.tools') }}</div>
+                            <div class="menu-grid-tools">
+                              <div class="menu-item menu-item-tool" role="menuitem" tabindex="0"
+                                :aria-label="t('floatingChat.promptTemplates')"
+                                @click="goToCapabilityView('prompts')">
+                                <div class="item-icon prompt">
+                                  <el-icon><FileText /></el-icon>
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.promptTemplates') }}</span>
+                                <span class="item-desc">{{ t('aiChatInput.promptTemplatesDesc') }}</span>
+                              </div>
+                              <div class="menu-item menu-item-tool" role="menuitem" tabindex="0"
+                                :aria-label="t('floatingChat.aiToolbox')"
+                                @click="handleOpenClawFromCapability">
+                                <div class="item-icon toolbox">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" class="openclaw-icon">
+                                    <rect x="2" y="2" width="9" height="9" rx="2" />
+                                    <rect x="13" y="2" width="9" height="9" rx="2" />
+                                    <rect x="2" y="13" width="9" height="9" rx="2" />
+                                    <path d="M13 13h9v9h-9z" fill="currentColor" opacity="0.3" />
+                                    <circle cx="17.5" cy="17.5" r="2.5" fill="none" stroke="currentColor" />
+                                  </svg>
+                                </div>
+                                <span class="item-label">{{ t('floatingChat.aiToolbox') }}</span>
+                                <span class="item-desc">{{ t('aiChatInput.aiToolboxDesc') }}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <!-- Sub view: prompts list -->
+                          <div v-else key="prompts"
+                            class="ai-capability-quick-menu ai-capability-subview capability-view-pane"
+                            role="menu">
+                            <button ref="capabilityBackBtnRef" type="button"
+                              class="menu-back-btn" @click="backToCapabilityMain">
+                              <el-icon><ArrowLeft /></el-icon>
+                              <span>{{ t('aiChatInput.back') }}</span>
+                            </button>
+                            <div class="menu-header-sub">{{ t('floatingChat.promptTemplates') }}</div>
+                            <PromptTemplates @select="handlePromptTemplateSelectFromDropdown" />
+                          </div>
+                        </Transition>
+                      </div>
+                    </template>
+                  </el-dropdown>
+                </div>
+
                 <!-- 正常输入模式（包含语音小卡片） -->
                 <div v-show="!isRecording" class="chat-input-container" :class="{ 'has-voice-mini': voiceAudioData }"
                   @click="onChatInputContainerClick">
@@ -700,302 +832,46 @@
                     @input="handleInputChange" @paste="handlePaste"></div>
                 </div>
 
-                <div class="input-actions">
-                  <!-- 语音输入 -->
-                  <el-tooltip :content="isRecording ? t('aiChat.stopRecording') : (voiceAudioData ? t('aiChat.reRecord') : t('floatingChat.voiceInput'))"
-                    placement="top" popper-class="ai-chat-action-tooltip">
-                    <el-button v-if="enableVoice" link size="small" class="action-btn" @click="toggleVoice"
-                      :class="{ 'is-recording': isRecording, 'has-audio': voiceAudioData }">
-                      <el-icon v-if="isRecording">
-                        <MicrophoneOff />
-                      </el-icon>
-                      <el-icon v-else>
-                        <Microphone />
-                      </el-icon>
-                    </el-button>
-                  </el-tooltip>
-                  <!-- 文件上传 - 直接触发文件选择 -->
-                  <el-tooltip :content="t('floatingChat.uploadFile')" placement="top"
-                    popper-class="ai-chat-action-tooltip">
-                    <el-button v-if="enableFileUpload" link size="small" class="action-btn"
-                      @click="handleFileUpload('file')">
-                      <UploadPlusIcon :size="16" />
-                    </el-button>
-                  </el-tooltip>
-                  <!-- AI能力选择器：与 AI 智能工具箱 同结构同样式（网格卡片） -->
-                  <el-dropdown trigger="click" v-model:visible="showCapabilityDropdown" class="ai-capability-selector"
-                    placement="top" :hide-on-click="false"
-                    :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
-                    popper-class="ai-chat-popper ai-capability-popper">
-                    <el-button link size="small" class="action-btn has-custom-tooltip"
-                      :class="{ 'is-active': showAICapabilityPanel }"
-                      :data-tooltip="getModeLabel(currentAIMode)"
-                      :title="getModeLabel(currentAIMode)">
-                      <AIStarIcon v-if="currentAIMode === 'model'" :size="16" />
-                      <el-icon v-else-if="currentAIMode === 'agent'">
-                        <Bot />
-                      </el-icon>
-                      <el-icon v-else-if="currentAIMode === 'agentic'">
-                        <Network />
-                      </el-icon>
-                      <el-icon v-else-if="currentAIMode === 'mcp'">
-                        <Wrench />
-                      </el-icon>
-                      <el-icon v-else>
-                        <Zap />
-                      </el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <div class="openclaw-quick-menu ai-capability-quick-menu">
-                        <div class="menu-header">
-                          <span class="menu-title">{{ t('floatingChat.aiCapability') }}</span>
-                        </div>
-                        <div class="menu-grid">
-                          <div class="menu-item" :class="{ active: currentAIMode === 'model' }"
-                            @click="onCapabilityCardClick('select:model')">
-                            <div class="item-icon models">
-                              <AIStarIcon :size="20" />
-                            </div>
-                            <span class="item-label">{{ t('floatingChat.modeModel') }}</span>
-                            <span class="item-desc">{{ selectedModel ? getModelDisplayName(selectedModel) : (t('floatingChat.selectModel')) }}</span>
-                          </div>
-                          <div class="menu-item" :class="{ active: currentAIMode === 'agent' }"
-                            @click="onCapabilityCardClick('select:agent')">
-                            <div class="item-icon memory">
-                              <el-icon><Bot /></el-icon>
-                            </div>
-                            <span class="item-label">{{ t('floatingChat.modeAgent') }}</span>
-                            <span class="item-desc">{{ selectedAgent ? selectedAgent.name : (t('floatingChat.selectAgent')) }}</span>
-                          </div>
-                          <div class="menu-item" :class="{ active: currentAIMode === 'agentic' }"
-                            @click="onCapabilityCardClick('mode:agentic')">
-                            <div class="item-icon canvas">
-                              <el-icon><Network /></el-icon>
-                            </div>
-                            <span class="item-label">{{ t('floatingChat.modeAgentic') }}</span>
-                            <span class="item-desc">AgenticAI</span>
-                          </div>
-                          <div class="menu-item" :class="{ active: currentAIMode === 'mcp' }"
-                            @click="onCapabilityCardClick('select:mcp')">
-                            <div class="item-icon browser">
-                              <el-icon><Wrench /></el-icon>
-                            </div>
-                            <span class="item-label">{{ t('floatingChat.modeMCP') }}</span>
-                            <span class="item-desc">{{ unifiedMCPTools.length }} {{ t('floatingChat.mcpTools') }}</span>
-                          </div>
-                          <div class="menu-item" :class="{ active: currentAIMode === 'auto' }"
-                            @click="onCapabilityCardClick('mode:auto')">
-                            <div class="item-icon skills">
-                              <el-icon><Zap /></el-icon>
-                            </div>
-                            <span class="item-label">{{ t('floatingChat.modeAuto') }}</span>
-                            <span class="item-desc">{{ t('floatingChat.autoDecision') }}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-                  </el-dropdown>
-
-                  <!-- 提示词模板（专用 class 便于样式撑满宽度） -->
-                  <el-dropdown v-model:visible="showPromptTemplates" trigger="click" class="prompt-templates-dropdown"
-                    popper-class="ai-chat-popper ai-chat-prompt-templates-popper" placement="top">
-                    <el-button link size="small" class="action-btn has-custom-tooltip"
-                      :title="t('floatingChat.promptTemplates')"
-                      :data-tooltip="t('floatingChat.promptTemplates')">
-                      <el-icon>
-                        <FileText />
-                      </el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <PromptTemplates @select="handlePromptTemplateSelect" />
-                    </template>
-                  </el-dropdown>
-                  <!-- OpenClaw 功能按钮 -->
-                  <el-popover placement="top" :width="320" trigger="click" :visible="showOpenClawPopover"
-                    popper-class="openclaw-popover" @update:visible="showOpenClawPopover = $event">
-                    <template #reference>
-                      <el-button link size="small" class="action-btn openclaw-btn has-custom-tooltip"
-                        :class="{ active: showOpenClawPanel || showOpenClawPopover }"
-                        :title="showOpenClawPanel ? t('floatingChat.returnToChat') : t('floatingChat.aiToolbox')"
-                        :data-tooltip="showOpenClawPanel ? t('floatingChat.returnToChat') : t('floatingChat.aiToolbox')">
-                        <!-- 自定义魔方/工具箱图标 -->
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                          stroke-linecap="round" stroke-linejoin="round" class="openclaw-icon">
-                          <rect x="2" y="2" width="9" height="9" rx="2" />
-                          <rect x="13" y="2" width="9" height="9" rx="2" />
-                          <rect x="2" y="13" width="9" height="9" rx="2" />
-                          <path d="M13 13h9v9h-9z" fill="currentColor" opacity="0.3" />
-                          <circle cx="17.5" cy="17.5" r="2.5" fill="none" stroke="currentColor" />
-                        </svg>
+                <!-- trae-work Row 3: 底部操作栏（文件左 / 语音+发送右） -->
+                <div class="trae-work-actions-bottom">
+                  <div class="trae-work-left-bottom">
+                    <!-- 文件上传 -->
+                    <el-tooltip :content="t('floatingChat.uploadFile')" placement="top"
+                      popper-class="ai-chat-action-tooltip">
+                      <el-button v-if="enableFileUpload" link size="small" class="action-btn"
+                        @click="handleFileUpload('file')">
+                        <UploadPlusIcon :size="16" />
                       </el-button>
-                    </template>
-                    <!-- OpenClaw 快捷功能菜单 -->
-                    <div class="openclaw-quick-menu">
-                      <div class="menu-header">
-                        <span class="menu-title">{{ t('text.ai_toolbox.title') }}</span>
-                        <el-button v-if="showOpenClawPanel" link size="small" @click="handleOpenClawBack">
-                          {{ t('text.ai_toolbox.返回对话') }}
-                        </el-button>
-                      </div>
-                      <div class="menu-grid">
-                        <!-- 仪表板：总览与数据 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('dashboard')"
-                          :class="{ active: openClawActivePanel === 'dashboard' }">
-                          <div class="item-icon dashboard">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <rect width="7" height="9" x="3" y="3" rx="1" />
-                              <rect width="7" height="5" x="14" y="3" rx="1" />
-                              <rect width="7" height="9" x="14" y="12" rx="1" />
-                              <rect width="7" height="5" x="3" y="16" rx="1" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.仪表板') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.总览与数据') }}</span>
-                        </div>
-                        <!-- 记忆系统：存储知识和笔记 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('memory')"
-                          :class="{ active: openClawActivePanel === 'memory' }">
-                          <div class="item-icon memory">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                              <line x1="12" x2="12" y1="19" y2="22" />
-                              <circle cx="12" cy="5" r="1" fill="currentColor" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.记忆') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.知识存储') }}</span>
-                        </div>
-                        <!-- 语音助手：语音交互 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('voice')"
-                          :class="{ active: openClawActivePanel === 'voice' }">
-                          <div class="item-icon voice">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                              <line x1="12" x2="12" y1="19" y2="22" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.语音') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.语音对话') }}</span>
-                        </div>
-                        <!-- 画布：可视化创作 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('canvas')"
-                          :class="{ active: openClawActivePanel === 'canvas' }">
-                          <div class="item-icon canvas">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08" />
-                              <path
-                                d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02Z" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.画布') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.可视化设计') }}</span>
-                        </div>
-                        <!-- 技能：能力插件 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('skills')"
-                          :class="{ active: openClawActivePanel === 'skills' }">
-                          <div class="item-icon skills">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.技能') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.能力扩展') }}</span>
-                        </div>
-                        <!-- 浏览器：网页自动化 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('browser')"
-                          :class="{ active: openClawActivePanel === 'browser' }">
-                          <div class="item-icon browser">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <circle cx="12" cy="12" r="10" />
-                              <path d="M2 12h20" />
-                              <path
-                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.浏览器') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.网页自动化') }}</span>
-                        </div>
-                        <!-- 自动化：定时任务 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('automation')"
-                          :class="{ active: openClawActivePanel === 'automation' }">
-                          <div class="item-icon automation">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                              <path d="M21 3v5h-5" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.自动化') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.定时任务') }}</span>
-                        </div>
-                        <!-- 模型：AI模型管理 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('models')"
-                          :class="{ active: openClawActivePanel === 'models' }">
-                          <div class="item-icon models">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-                              <path d="M20 3v4" />
-                              <path d="M22 5h-4" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.模型') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.AI模型切换') }}</span>
-                        </div>
-                        <!-- 集成：第三方连接 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('integrations')"
-                          :class="{ active: openClawActivePanel === 'integrations' }">
-                          <div class="item-icon integrations">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <rect x="16" y="16" width="6" height="6" rx="1" />
-                              <rect x="2" y="16" width="6" height="6" rx="1" />
-                              <rect x="9" y="2" width="6" height="6" rx="1" />
-                              <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
-                              <path d="M12 12V8" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.集成') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.第三方服务') }}</span>
-                        </div>
-                        <!-- 设置：系统配置 -->
-                        <div class="menu-item" @click="handleOpenClawFeature('settings')"
-                          :class="{ active: openClawActivePanel === 'settings' }">
-                          <div class="item-icon settings">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path
-                                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                          </div>
-                          <span class="item-label">{{ t('text.ai_toolbox.设置') }}</span>
-                          <span class="item-desc">{{ t('text.ai_toolbox.系统设置') }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </el-popover>
-                  <!-- 发送按钮 -->
-                  <el-button type="primary" size="small" class="send-btn"
-                    :class="{ 'is-empty': !canSend && !isSending, 'is-ready': canSend, 'is-sending': isSending }"
-                    :disabled="!canSend && !isSending" @click="handleSend"
-                    :title="t('floatingChat.send')">
-                    <el-icon v-if="!isSending" class="send-btn-icon-send">
-                      <Promotion />
-                    </el-icon>
-                    <el-icon v-else class="send-btn-icon-loading is-loading">
-                      <Loader2 />
-                    </el-icon>
-                    <span class="send-btn-text">{{ isSending ? '发送中...' : t('floatingChat.send') }}</span>
-                  </el-button>
+                    </el-tooltip>
+                  </div>
+                  <div class="trae-work-right-bottom">
+                    <!-- 语音输入 -->
+                    <el-tooltip :content="isRecording ? t('aiChat.stopRecording') : (voiceAudioData ? t('aiChat.reRecord') : t('floatingChat.voiceInput'))"
+                      placement="top" popper-class="ai-chat-action-tooltip">
+                      <el-button v-if="enableVoice" link size="small" class="action-btn" @click="toggleVoice"
+                        :class="{ 'is-recording': isRecording, 'has-audio': voiceAudioData }">
+                        <el-icon v-if="isRecording">
+                          <MicrophoneOff />
+                        </el-icon>
+                        <el-icon v-else>
+                          <Microphone />
+                        </el-icon>
+                      </el-button>
+                    </el-tooltip>
+                    <!-- 发送按钮 -->
+                    <el-button type="primary" size="small" class="send-btn"
+                      :class="{ 'is-empty': !canSend && !isSending, 'is-ready': canSend, 'is-sending': isSending }"
+                      :disabled="!canSend && !isSending" @click="handleSend"
+                      :title="t('floatingChat.send')">
+                      <el-icon v-if="!isSending" class="send-btn-icon-send">
+                        <Promotion />
+                      </el-icon>
+                      <el-icon v-else class="send-btn-icon-loading is-loading">
+                        <Loader2 />
+                      </el-icon>
+                      <span class="send-btn-text">{{ isSending ? '发送中...' : t('floatingChat.send') }}</span>
+                    </el-button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1612,6 +1488,7 @@ import { useFloatingChatEnhancement } from '@/composables/useFloatingChatEnhance
 import { useAICapabilityDiscovery } from '@/composables/useAICapabilityDiscovery'
 import { useMCP } from '@/composables/useMCP'
 import { useOpenClaw } from '@/composables/useOpenClaw'
+import { useSubViewDropdown } from '@/composables/useSubViewDropdown'
 import { StorageManager } from '@/utils/storage'
 import MarkdownStream from './MarkdownStream.vue'
 import PromptTemplates from './PromptTemplates.vue'
@@ -1701,6 +1578,10 @@ import {
   Cpu,
   Brain,
   ChevronDown,
+  Plus,
+  ArrowDown,
+  ArrowLeft,
+  ChevronRight,
 } from '@/lib/lucide-fallback'
 // Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
@@ -1839,13 +1720,6 @@ const props = withDefaults(
     showClose?: boolean  // 是否显示关闭按钮
     draggable?: boolean  // 是否可拖拽
     resizable?: boolean  // 是否可调整大小
-    /**
-     * 面板标题前缀（embedded 模式专用）。
-     * 由外层 App 传入，用于在 header-left 渲染"AI智能助手"等面板名，
-     * 替代原 ai-side-panel-header，避免双标题栏堆叠。
-     * floating 模式不传。
-     */
-    panelTitle?: string
     // AI 模式相关 props
     aiMode?: 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'auto' | 'generation'  // 初始 AI 模式
     agentId?: string  // 指定的 Agent ID（用于 Agent 模式）
@@ -1872,8 +1746,6 @@ const props = withDefaults(
     showClose: true,
     draggable: true,
     resizable: true,
-    // 面板标题前缀默认为空，floating 模式不显示，embedded 模式由 App 传入
-    panelTitle: '',
     // AI 模式默认值
     aiMode: undefined,
     agentId: undefined,
@@ -1941,6 +1813,21 @@ watch(showHistoryPanel, (val) => { if (val) shouldRenderHistoryPanel.value = tru
 const showSessionList = ref(false) // 浮窗左侧滑出的会话列表面板
 const showAICapabilityPanel = ref(false) // AI能力选择面板
 const showCapabilityDropdown = ref(false) // 输入区 AI 能力下拉（网格卡片）显隐
+
+// trae-work: 能力下拉子视图状态机（主视图 ↔ 提示词模板子视图）
+type CapabilityDropdownView = 'main' | 'prompts'
+const {
+  currentView: capabilityDropdownView,
+  goTo: goToCapabilityView,
+  backToMain: backToCapabilityMain,
+  handleEsc: handleCapabilityDropdownEsc,
+  closeAndReset: closeCapabilityDropdownAndReset,
+  backButtonRef: capabilityBackBtnRef,
+} = useSubViewDropdown<CapabilityDropdownView>({
+  parentVisible: showCapabilityDropdown,
+  mainView: 'main',
+})
+
 const showOpenClawPanel = ref(false) // OpenClaw 功能面板
 const showOpenClawPopover = ref(false) // OpenClaw 弹出菜单
 const openClawActivePanel = ref<string>('') // 当前激活的 OpenClaw 面板
@@ -3829,6 +3716,23 @@ const sendMessageWithRetry = async (userMessage: ChatMessage) => {
 }
 
 // ==================== OpenClaw 功能处理 ====================
+
+/** trae-work 顶层能力下拉中点击 "AI 智能工具箱"：直接展开工具箱 dashboard */
+const handleOpenClawFromCapability = () => {
+  closeCapabilityDropdownAndReset()
+  showOpenClawPopover.value = false
+  showOpenClawPanel.value = true
+  openClawActivePanel.value = 'dashboard'
+  if (openClawPanelRef.value) {
+    ;(openClawPanelRef.value as OpenClawPanelInstance).setPanel?.('dashboard')
+  }
+}
+
+/** trae-work 顶层能力下拉中点击提示词模板：选择后关闭下拉 */
+const handlePromptTemplateSelectFromDropdown = (template: { content: string; title?: string }) => {
+  handlePromptTemplateSelect(template)
+  closeCapabilityDropdownAndReset()
+}
 
 // 处理 OpenClaw 功能选择（含「设置」「仪表板」等）
 const handleOpenClawFeature = (feature: string) => {
@@ -8781,7 +8685,15 @@ cleanup.add(() => {
   pointer-events: all;
   border: var(--unified-border);
   transition: border-color 0.3s ease;
-  padding: 8px;
+  /* ── 设计意图 ──
+   * 浮窗 .floating-chat-dialog 自身有 8px padding 维持内容到边框的内边距。
+   * 标题栏 .dialog-header 故意"贴边"伸出 padding 范围以呈现浮窗边框整体感，
+   * 通过 width = 100% + 2*fcd-padding 与 margin = -1*fcd-padding 反向补偿。
+   * embedded 模式下父容器 padding 已被 sidebar-layout 设为 0，
+   * 因此 --fcd-padding 也必须同步为 0，让标题栏自动恢复 100% 宽贴齐 ai-side-panel。
+   * 不要硬编码 8px/16px 数字 — 改 padding 时只需改 --fcd-padding，标题栏自动跟随。 */
+  --fcd-padding: 8px;
+  padding: var(--fcd-padding);
   box-sizing: border-box;
   resize: none;
 
@@ -8799,13 +8711,29 @@ cleanup.add(() => {
     border-color: var(--el-border-color);
   }
 
-  /* 标题栏在 dialog 内：负外边距贴齐 dialog 顶与两侧，露出 dialog 顶部描边 */
+  /* embedded 模式：父容器 padding 已被 _sidebar-layout.scss 设为 0，
+   * 同步把 --fcd-padding 设为 0 让标题栏自动恢复 100% 宽贴齐父容器。
+   * 不必再手动重置 .dialog-header 的 width/margin，CSS 变量系统自动处理。 */
+  &.is-embedded {
+    --fcd-padding: 0;
+  }
+
+  /* 标题栏在 dialog 内：通过 --fcd-padding 反向贴边，露出 dialog 顶部描边 */
   .dialog-header {
-    width: calc(100% + 16px); /* 抵消父容器左右 padding 8px*2，使与 .floating-chat-dialog 右侧贴合 */
-    margin: -8px -8px 0 -8px;
+    width: calc(100% + var(--fcd-padding) * 2);
+    margin: calc(-1 * var(--fcd-padding)) calc(-1 * var(--fcd-padding)) 0;
     box-sizing: border-box;
     border-radius: var(--global-border-radius) var(--global-border-radius) 0 0;
     box-shadow: none;
+  }
+
+  /* 防御性兜底：如果未来有人改动 --fcd-padding 的级联路径（比如提到 wrapper 上），
+   * 这条规则确保 embedded 模式仍能强制重置标题栏。Playwright 测试会同时守门
+   * (1) --fcd-padding 重置 (2) 这条 fallback 规则 存在。 */
+  &.is-embedded .dialog-header {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
   }
 }
 
@@ -8984,30 +8912,30 @@ cleanup.add(() => {
     html.dark &.is-empty,
     html.dark &.is-empty.is-disabled,
     html.dark &.is-empty:disabled {
-      background: rgba(255, 255, 255, 0.18) !important;
-      border-color: rgba(255, 255, 255, 0.25) !important;
-      color: rgba(255, 255, 255, 0.95) !important;
-      --el-button-disabled-bg-color: rgba(255, 255, 255, 0.18) !important;
-      --el-button-disabled-border-color: rgba(255, 255, 255, 0.25) !important;
-      --el-button-disabled-text-color: rgba(255, 255, 255, 0.95) !important;
+      background: rgba(255, 255, 255, 0.18) !important; /* no-important-exempt: 覆盖 Element Plus el-button :disabled 自动降低不透明度的默认行为 */
+      border-color: rgba(255, 255, 255, 0.25) !important; /* no-important-exempt: 覆盖 Element Plus el-button :disabled 默认边框色 */
+      color: rgba(255, 255, 255, 0.95) !important; /* no-important-exempt: 覆盖 Element Plus el-button :disabled 默认文字色 */
+      --el-button-disabled-bg-color: rgba(255, 255, 255, 0.18) !important; /* no-important-exempt: 覆盖 Element Plus 内部 disabled 颜色变量 */
+      --el-button-disabled-border-color: rgba(255, 255, 255, 0.25) !important; /* no-important-exempt: 覆盖 Element Plus 内部 disabled 边框变量 */
+      --el-button-disabled-text-color: rgba(255, 255, 255, 0.95) !important; /* no-important-exempt: 覆盖 Element Plus 内部 disabled 文字变量 */
 
       .el-icon,
       .send-btn-text {
-        color: rgba(255, 255, 255, 0.95) !important;
+        color: rgba(255, 255, 255, 0.95) !important; /* no-important-exempt: 暗色模式强制 send-btn-text 浅色保持可读 */
       }
 
       svg {
-        fill: currentColor !important;
+        fill: currentColor !important; /* no-important-exempt: 暗色模式 SVG fill 跟随 currentColor */
       }
 
       // 直接锁定 > span 内的所有元素
       > span {
-        color: rgba(255, 255, 255, 0.95) !important;
+        color: rgba(255, 255, 255, 0.95) !important; /* no-important-exempt: 暗色模式 > span 文字保持浅色 */
       }
 
       // 直接锁定 SVG path（避免 fill 继承问题）
       svg path {
-        fill: rgba(255, 255, 255, 0.95) !important;
+        fill: rgba(255, 255, 255, 0.95) !important; /* no-important-exempt: 暗色模式 SVG path 强制浅色填充 */
       }
     }
 
@@ -9037,13 +8965,13 @@ cleanup.add(() => {
     html.dark &.is-empty:hover,
     html.dark &.is-empty.is-disabled:hover,
     html.dark &.is-empty:disabled:hover {
-      background: rgba(255, 255, 255, 0.24) !important;
-      border-color: rgba(255, 255, 255, 0.32) !important;
-      color: #ffffff !important;
+      background: rgba(255, 255, 255, 0.24) !important; /* no-important-exempt: 暗色模式 hover 提升对比度 */
+      border-color: rgba(255, 255, 255, 0.32) !important; /* no-important-exempt: 暗色模式 hover 边框提升 */
+      color: #ffffff !important; /* no-important-exempt: 暗色模式 hover 文字纯白 */
 
       .el-icon,
       .send-btn-text {
-        color: #ffffff !important;
+        color: #ffffff !important; /* no-important-exempt: 暗色模式 hover send-btn-text 纯白 */
       }
     }
 
@@ -9052,13 +8980,13 @@ cleanup.add(() => {
     // 不再跟随 --el-color-primary（被覆盖为黑色），改用固定品牌蓝
     // ============================
     &.is-ready {
-      background: #2563eb; // trae work 风格的蓝色
+      background: var(--color-ai-send-btn-bg); // trae work 风格的蓝色
       border: none;
       color: #ffffff;
       box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 
       :where(html.dark) & {
-        background: #3b82f6; // 暗色模式更亮一点的蓝
+        background: var(--color-ai-send-btn-bg); // 暗色模式更亮一点的蓝
         box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
       }
 
@@ -9072,24 +9000,24 @@ cleanup.add(() => {
       }
 
       &:hover:not(:disabled) {
-        background: #1d4ed8;
+        background: var(--color-ai-send-btn-active);
         color: #ffffff;
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
         transform: translateY(-1px);
 
         :where(html.dark) & {
-          background: #2563eb;
+          background: var(--color-ai-send-btn-bg);
           box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
         }
       }
 
       &:active:not(:disabled) {
-        background: #1e40af;
+        background: var(--color-cta-blue-active);
         transform: translateY(0);
         box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
 
         :where(html.dark) & {
-          background: #1d4ed8;
+          background: var(--color-cta-blue-hover);
         }
       }
     }
@@ -11289,7 +11217,7 @@ button.mini-delete-btn {
 :where(html.dark) .ai-capability-popup {
   --el-bg-color: var(--color-dark-bg-2);
   --el-bg-color-page: var(--color-dark-bg-1);
-  --el-text-color-primary: var(--color-gray-e5eaf3);
+  --el-text-color-primary: var(--color-gray-303133);
   --el-text-color-regular: var(--color-gray-cfd3dc);
   --el-text-color-secondary: var(--color-gray-a3a6ad);
   --el-border-color: var(--border-unified-color);
