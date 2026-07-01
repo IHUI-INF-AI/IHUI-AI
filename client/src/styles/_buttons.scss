@@ -1,7 +1,33 @@
 // ============================================
-// 按钮样式模块
+// ⚠️ 死代码警告 (2026-07-02 验证)
+// ============================================
+// 此文件 **未被 src/styles/index.scss @use 加载**, 所有规则均不生效!
+// 开发者误以为此文件生效, 实际依赖它的按钮样式都不工作.
+//
+// 历史背景:
+//   - 此文件原计划作为统一按钮覆盖样式入口
+//   - 但 index.scss 从未 `@use './_buttons'`
+//   - header.scss / _session-list.scss / _el-message-box.scss 中的注释
+//     "使用全局 _buttons.scss 中的样式" 是误导性的, 实际未生效
+//
+// 当前状态:
+//   - .login-button / .btn-luxe / .agreement-agree-button / .card-action 等
+//     按钮样式均已由组件内 scoped styles 或其他已加载的 SCSS 文件重复定义
+//   - .el-button-stack 反排除规则已在 _sidebar-layout.scss 针对具体容器声明
+//   - 此文件保留作为未来按钮样式重构的参考, 不应被 @use
+//
+// 如需让此文件生效, 必须:
+//   1. 在 index.scss 添加 `@use './_buttons';`
+//   2. 跑 `npm run check:theme-tokens` 确认主题色不变
+//   3. 跑 `npm run check:contrast` 确认对比度不变
+//   4. 跑 `npx playwright test e2e/visual-regression.spec.ts` 确认无视觉回归
+//   5. 人工 review 14 个视觉基线快照
+// ============================================
+
+// ============================================
+// 按钮样式模块 (DEAD CODE - 未被加载, 见上方警告)
 // 统一管理所有 Element Plus 按钮覆盖样式
-// 
+//
 // 样式规范：
 // - 亮色模式：黑底白字(primary)
 // - 暗色模式：白底黑字(primary)
@@ -161,9 +187,14 @@
 }
 
 // 暗色模式 primary 按钮样式
-:where(html.dark) .el-button.el-button--primary:not(.login-button, .hero-cta-btn, .card-action) {
+// 2026-07-02: 改 :where(html.dark) → html.dark 提升特异性, 避免 Element Plus 默认样式覆盖
+// 2026-07-02: 新增 inset 1px 半透明白环, 把 CTA 按钮 (#2563eb) 与 darkSurface (#6a6d77)
+//             1.001:1 的低对比度提升至视觉可识别 (WCAG AA UI 组件 ≥ 3:1)
+html.dark .el-button.el-button--primary:not(.login-button, .hero-cta-btn, .card-action) {
   background-color: var(--el-color-primary);
   color: var(--el-bg-color-page);
+  // inset 白环补强边界 (不占布局空间, 不与 border 冲突)
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 
   span,
   .el-button__text {
@@ -177,6 +208,7 @@
   &:hover {
     background-color: var(--el-color-primary-light-3);
     color: var(--el-bg-color-page);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 
     span,
     .el-button__text {
@@ -191,6 +223,7 @@
   &:active {
     background-color: var(--el-color-primary-light-5);
     color: var(--el-bg-color-page);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 
     span,
     .el-button__text {
@@ -276,8 +309,22 @@
 }
 
 // 按钮间距
+// - 行向布局（默认）：相邻 el-button 之间加 12px 间距
+// - 竖排容器：父容器需加 .el-button-stack 标记，由下方的反排除规则把第二个
+//   及之后的 el-button 的 margin-left 重置为 0（由父容器的 gap 控制垂直间距）
+// - el-message-box__btns：见 _el-message-box.scss 的独立 override
+// 规则：特异性 (0,4,0) - :root + .el-button + :not(.hero-cta-btn) + +.el-button
 :root .el-button:not(.hero-cta-btn)+.el-button {
   margin-left: 12px;
+}
+
+// Column flex 竖排容器反排除规则
+// 任何 display:flex; flex-direction:column; 的按钮容器都应加 .el-button-stack 标记
+// 使用 :is() 包裹 .el-button-stack 把特异性从 (0,3,0) 提到 (0,4,0)，
+// 与全局规则同等特异性，但源码在后，胜出
+// 再用 !important 防御性确保胜出（任何后续错误覆盖都会被这条规则压住）
+:root :is(.el-button-stack) .el-button+.el-button {
+  margin-left: 0 !important; /* no-important-exempt: 覆盖 Element Plus 全局 .el-button+.el-button { margin-left: 12px } 污染 column flex 容器 */
 }
 
 // link 按钮
@@ -473,13 +520,16 @@ html.dark {
 }
 
 // 暗色模式 - 支持原生 button 和 el-button
-:where(html.dark) .login-button,
-:where(html.dark) .el-button.login-button,
-:where(html.dark) .el-button.login-button.el-button--primary {
+// 2026-07-02: 改 :where(html.dark) → html.dark 提升特异性
+// 2026-07-02: 新增 inset 1px 半透明白环 (与 .el-button--primary 同策略), 提升暗色对比度
+html.dark .login-button,
+html.dark .el-button.login-button,
+html.dark .el-button.login-button.el-button--primary {
   background-color: var(--el-color-primary);
   background: var(--el-color-primary);
   color: var(--el-bg-color-page);
   border: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 
   span,
   .el-button__text,
@@ -491,6 +541,7 @@ html.dark {
     background-color: var(--el-color-primary-light-3);
     background: var(--el-color-primary-light-3);
     color: var(--el-bg-color-page);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 
     span,
     .el-button__text,
@@ -503,6 +554,7 @@ html.dark {
     background-color: var(--el-color-primary-light-5);
     background: var(--el-color-primary-light-5);
     color: var(--el-bg-color-page);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 
     span,
     .el-button__text,
