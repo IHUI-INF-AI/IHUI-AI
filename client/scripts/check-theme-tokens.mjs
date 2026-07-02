@@ -188,6 +188,12 @@ function scanFile(filePath) {
     FORBIDDEN_REGEX.lastIndex = 0;
     let match;
     while ((match = FORBIDDEN_REGEX.exec(line)) !== null) {
+      // 2026-07-02 优化: 排除 CSS 变量名后缀形式 (var(--xxx-HEX))
+      // var(--color-wechat-07c160) 中的 07c160 是 CSS 变量名片段, 不是色值硬编码
+      const before = line.slice(0, match.index);
+      if (/var\(--[a-zA-Z0-9_-]*$/.test(before)) {
+        continue;
+      }
       violations.push({
         file: relPath,
         line: i + 1,

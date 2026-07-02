@@ -131,6 +131,13 @@
 // SCSS 变量（供 variables.scss 和 element-plus-vars.scss 引用以避免循环依赖）
 $global-border-radius: 8px;
 
+// CTA 主色 SCSS 变量 (与 _theme-tokens.ts THEME_INVARIANTS.ctaBgDark 等同步)
+// 2026-07-02 修复: 之前 _login-tokens.scss 引用了不存在的 gt.$color-cta-blue 导致 SCSS 编译失败
+// 此处补齐 SCSS 桥接层, 与 --color-cta-blue CSS 变量值保持一致
+$color-cta-blue:         #2563eb;  // ctaBgDark
+$color-cta-blue-hover:   #1d4ed8;  // ctaBgDarkHover
+$color-cta-blue-active:  #1e40af;  // ctaBgDarkActive
+
 // 描边颜色（light / dark）
 $border-unified-light: #dcdfe6;
 $border-unified-light-hover: #c0c4cc;
@@ -393,6 +400,10 @@ $color-dark-text-primary: #e5eaf3;
   --color-miniapp-green-dark: #06ad56;
   --color-miniapp-green-darker: #059a4c;
   --color-miniapp-green-darkest: #048040;
+
+  /* 微信品牌色 - 单色版本 (用于 inline style 注入 / border / background 等不能用 linear-gradient 的场景) */
+  --color-wechat-07c160: #07c160;
+  --color-green-06ad56: #06ad56;
 
   /* 排行榜排名颜色 */
   --color-rank-gold: #f59e0b;
