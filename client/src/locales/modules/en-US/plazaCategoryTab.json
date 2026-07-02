@@ -1,0 +1,8 @@
+{
+  "plazaCategoryTab": {
+    "all": "All",
+    "setCustomCategory": "Please set custom category",
+    "custom": "Custom",
+    "enterCategory": "Enter category name"
+  }
+}

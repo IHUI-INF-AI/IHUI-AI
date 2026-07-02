@@ -1,0 +1,15 @@
+{
+  "learnDetail": {
+    "notExist": "Course does not exist",
+    "teacher": "Teacher",
+    "learnCount": "learners",
+    "buyNow": "Buy Now",
+    "learnNow": "Learn Now",
+    "continueLearn": "Continue",
+    "favorited": "Favorited",
+    "favorite": "Favorite",
+    "chapters": "Chapters",
+    "noChapters": "No chapters",
+    "reviews": "Reviews"
+  }
+}

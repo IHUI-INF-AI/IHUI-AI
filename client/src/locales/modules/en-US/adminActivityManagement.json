@@ -1,0 +1,25 @@
+{
+  "adminActivityManagement": {
+    "actions": {
+      "Export": "Export"
+    },
+    "activityList": {
+      "Status": "Status"
+    },
+    "search": {
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
+    },
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
+    },
+    "dialogs": {},
+    "messages": {
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    }
+  }
+}

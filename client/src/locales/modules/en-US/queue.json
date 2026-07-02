@@ -1,0 +1,22 @@
+{
+  "queue": {
+    "title": "Generation Queue",
+    "processing": "Processing",
+    "pending": "Pending",
+    "Failed": "Failed",
+    "idle": "Idle",
+    "processingLabel": "Processing",
+    "pendingLabel": "Pending",
+    "completedLabel": "Completed",
+    "FailedLabel": "Failed",
+    "processingTasks": "Processing",
+    "pendingTasks": "Pending",
+    "empty": "Queue is empty",
+    "moreTasks": "{count} more tasks",
+    "clearTitle": "Clear Queue",
+    "clearConfirm": "Are you sure you want to clear all pending tasks?",
+    "cleared": "Queue cleared",
+    "failed": "Failed",
+    "failedLabel": "Failed"
+  }
+}

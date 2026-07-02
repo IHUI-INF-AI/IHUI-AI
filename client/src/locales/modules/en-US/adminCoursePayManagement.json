@@ -1,0 +1,22 @@
+{
+  "adminCoursePayManagement": {
+    "Export": "Export",
+    "search": {
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
+    },
+    "table": {
+      "Status": "Status"
+    },
+    "discountType": {},
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
+    },
+    "dialogs": {},
+    "messages": {
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    }
+  }
+}

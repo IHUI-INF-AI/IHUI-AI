@@ -1,0 +1,52 @@
+{
+  "commonText": {
+    "view": "View",
+    "delete": "Delete",
+    "add": "Add",
+    "noData": "No Data",
+    "success": "Success",
+    "Failed": "Failed",
+    "Disabled": "Disabled",
+    "Status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "processing": "Processing",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    },
+    "failed": "Operation failed",
+    "fileTypes": {
+      "audio": "Audio",
+      "image": "Image",
+      "video": "Video"
+    },
+    "status": {
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "pending": "Processing",
+      "processing": "Processing",
+      "refunded": "已退款"
+    },
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "search": "Search",
+    "reset": "Reset",
+    "remove": "Remove",
+    "download": "Download",
+    "upload": "Upload",
+    "copy": "Copy",
+    "print": "Print",
+    "share": "Share",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "close": "Close",
+    "loading": "Loading...",
+    "noRecords": "No Records",
+    "enabled": "Enabled"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "adminVipManagement": {
+    "Export": "Export Records",
+    "search": {
+      "Status": "VIP Status",
+      "StatusPlaceholder": "Select VIP Status"
+    },
+    "table": {
+      "Status": "VIP Status"
+    },
+    "vipType": {},
+    "Status": {
+      "active": "Active",
+      "expired": "Expired",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "detail": {
+      "Status": "VIP Status"
+    },
+    "dialogs": {},
+    "messages": {
+      "ExportDeveloping": "Export feature under development",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
+    },
+    "Export Data": {
+      "id": "Id",
+      "userId": "User Id",
+      "vipType": "Vip Type",
+      "Status": "Status",
+      "price": "Price",
+      "originalPrice": "Original Price",
+      "discount": "Discount",
+      "orderId": "Order Id",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "createTime": "Create Time",
+      "updateTime": "Update Time",
+      "cancelTime": "Cancel Time",
+      "remark": "Remark",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
+  }
+}

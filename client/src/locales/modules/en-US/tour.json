@@ -1,0 +1,9 @@
+{
+  "tour": {
+    "close": "Close",
+    "prev": "Previous",
+    "next": "Next",
+    "skip": "Skip",
+    "complete": "Complete"
+  }
+}

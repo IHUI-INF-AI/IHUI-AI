@@ -1,0 +1,16 @@
+{
+  "circleDetail": {
+    "back": "Back to Circle",
+    "noDesc": "No description",
+    "members": "members",
+    "posts": "posts",
+    "owner": "Owner",
+    "joined": "Joined",
+    "join": "Join Circle",
+    "postsTitle": "Posts",
+    "publish": "Publish",
+    "noPosts": "No posts",
+    "top": "Pinned",
+    "essence": "Featured"
+  }
+}

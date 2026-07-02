@@ -1,0 +1,14 @@
+{
+  "resource": {
+    "searchPlaceholder": {
+      "category": "Search categories",
+      "list": "Search resources",
+      "tag": "Search tags"
+    },
+    "label": {
+      "categoryName": "Category Name",
+      "tagName": "Tag Name",
+      "actions": "Actions"
+    }
+  }
+}

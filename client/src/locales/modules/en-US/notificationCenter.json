@@ -1,0 +1,24 @@
+{
+  "notificationCenter": {
+    "title": "Notification Center",
+    "subtitle": "Order / Wallet / System / Marketing Notifications",
+    "unread": "Unread",
+    "total": "Total",
+    "markAllRead": "Mark All as Read",
+    "allTypes": "All Types",
+    "noNotifications": "No notifications",
+    "typeOrder": "Order",
+    "typeWallet": "Wallet",
+    "typeSystem": "System",
+    "typeRefund": "Refund",
+    "typeAgent": "Agent",
+    "typeMarketing": "Marketing",
+    "typeSite": "Site",
+    "typeOther": "Other",
+    "detailTitle": "Notification Details",
+    "loadFailed": "Failed to load",
+    "operationFailed": "Operation failed",
+    "allMarkedRead": "All marked as read",
+    "deleteFailed": "Delete failed"
+  }
+}

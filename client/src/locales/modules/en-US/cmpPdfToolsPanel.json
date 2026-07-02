@@ -1,0 +1,9 @@
+{
+  "cmpPdfToolsPanel": {
+    "presetWatermark": "Preset Watermark",
+    "splitOption": "Split Options",
+    "allPages": "All Pages",
+    "currentPage": "Current Page",
+    "showPageNum": "Show Page Number"
+  }
+}

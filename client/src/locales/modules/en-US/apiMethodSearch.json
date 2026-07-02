@@ -1,0 +1,14 @@
+{
+  "apiMethodSearch": {
+    "searchPlaceholder": "Search Placeholder",
+    "methodName": "Method Name",
+    "apiPath": "Api Path",
+    "description": "Description",
+    "actions": "Actions",
+    "copyMethodName": "Copy Method Name",
+    "noMatch": "No Match",
+    "copied": "Copied",
+    "copyFailed": "Copy Failed",
+    "loadFailed": "Load Failed"
+  }
+}

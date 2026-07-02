@@ -1,0 +1,8 @@
+{
+  "cmpVersionDiff": {
+    "selectVersionToCompare": "Please select version to compare",
+    "selectDiffVersion": "Please select different versions",
+    "getVersionFailed": "Failed to get version info",
+    "compareFailed": "Version compare failed"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "learnHomework": {
+    "course": "Course",
+    "homework": "Homework",
+    "empty": "No homework",
+    "deadline": "Deadline: ",
+    "status": "Status: ",
+    "score": "Score: ",
+    "submitted": "Submitted",
+    "submit": "Submit Homework"
+  }
+}

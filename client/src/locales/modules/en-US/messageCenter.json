@@ -1,0 +1,24 @@
+{
+  "messageCenter": {
+    "title": "Message Center",
+    "subtitle": "In-app Messages / System Messages / Announcements",
+    "markAllRead": "Mark All Read",
+    "empty": "No messages",
+    "topFlag": "Top",
+    "markRead": "Mark Read",
+    "detailTitle": "Message Detail",
+    "tabAll": "All",
+    "tabSystem": "System",
+    "tabPrivate": "Private",
+    "typeSystem": "System Message",
+    "typePrivate": "Private Message",
+    "typeNotice": "Notice",
+    "typeOther": "Other",
+    "loadFailed": "Load failed, please retry later",
+    "operateFailed": "Operation failed",
+    "allMarkedRead": "All marked as read",
+    "deleted": "Deleted",
+    "deleteFailed": "Delete failed"
+  },
+  "MessageCenter": {}
+}

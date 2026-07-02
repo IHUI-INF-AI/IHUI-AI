@@ -1,0 +1,19 @@
+{
+  "agenticDashboard": {
+    "title": "Agentic AI Console",
+    "subtitle": "Intelligent development platform deeply integrated with Agentic Orchestrator",
+    "activeSwarms": "Active Swarms",
+    "noActiveSwarms": "No active swarms",
+    "Status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "Failed": "Failed"
+    },
+    "coordination": "Coordination",
+    "iteration": "Iteration",
+    "seoTitle": "Agentic AI Console - AI Zhihui Society",
+    "seoDescription": "Agentic AI intelligent development platform, deeply integrated with Agentic Orchestrator",
+    "seoKeywords": "Agentic AI, Intelligent Development, AI Scheduling, Swarm"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "distributionTeamDetail": {
+    "title": "Subordinate Member Details",
+    "subtitle": "View detailed information and data of subordinate members",
+    "registerTime": "Registration Time",
+    "subCount": "Subordinate Count",
+    "totalCommission": "Total Commission",
+    "subordinatesList": "Member's Subordinate List",
+    "ordersList": "Member Order List",
+    "username": "Username",
+    "nickname": "Nickname",
+    "orderNo": "Order No.",
+    "amount": "Amount",
+    "Status": "Status",
+    "createTime": "Create Time",
+    "StatusPending": "Pending",
+    "StatusPaid": "Paid",
+    "StatusCancelled": "Cancelled",
+    "StatusUnknown": "Unknown",
+    "memberNotFound": "Member information not found",
+    "loadMemberInfoFailed": "Failed to load member information",
+    "status": "Status",
+    "statusCancelled": "Cancelled",
+    "statusPaid": "已支付",
+    "statusPending": "待支付",
+    "statusUnknown": "未知"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "themeShortcut": {
+    "title": "Theme Shortcuts",
+    "resetDefaults": "Reset to Defaults",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "shortcutUpdated": "Shortcut updated",
+    "shortcutsReset": "Shortcuts reset",
+    "tips": "Tips",
+    "tip1": "Shortcuts are activated automatically after page load",
+    "tip2": "Some shortcuts may conflict with other applications",
+    "tip3": "Disabled shortcuts need to be manually enabled to take effect"
+  }
+}

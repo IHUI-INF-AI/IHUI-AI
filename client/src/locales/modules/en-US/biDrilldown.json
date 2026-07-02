@@ -1,0 +1,10 @@
+{
+  "biDrilldown": {
+    "detail": "Detail",
+    "recent": "Recent",
+    "days": "days",
+    "total": "Total",
+    "dailyDetail": "Daily Detail",
+    "subDimensionTop": "Sub-dimension Top 3"
+  }
+}

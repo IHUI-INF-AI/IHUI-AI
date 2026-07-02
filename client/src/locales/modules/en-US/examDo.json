@@ -1,0 +1,12 @@
+{
+  "examDo": {
+    "questionCount": "Questions",
+    "duration": "Duration",
+    "minutes": "min",
+    "passScore": "Pass",
+    "startExam": "Start Exam",
+    "remaining": "Remaining",
+    "score": "pts",
+    "submit": "Submit"
+  }
+}

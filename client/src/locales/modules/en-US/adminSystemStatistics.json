@@ -1,0 +1,16 @@
+{
+  "adminSystemStatistics": {
+    "Refresh": "Refresh Data",
+    "users": {},
+    "orders": {},
+    "chat": {
+      "Total Messages": "Total Messages"
+    },
+    "agents": {
+      "ApprovedAgents": "Approved",
+      "RejectedAgents": "Rejected"
+    },
+    "files": {},
+    "messages": {}
+  }
+}

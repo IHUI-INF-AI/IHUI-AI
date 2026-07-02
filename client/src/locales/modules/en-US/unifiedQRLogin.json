@@ -1,0 +1,31 @@
+{
+  "unifiedQRLogin": {
+    "generatingQrCode": "Generating Qr Code",
+    "qrCodeExpired": "Qr Code Expired",
+    "RefreshQrCode": "Refresh Qr Code",
+    "qrCodeAlt": "Qr Code Alt",
+    "confirmingOnPhone": "Confirming On Phone",
+    "scannedConfirm": "Scanned Confirm",
+    "scanToLogin": "Scan To Login",
+    "scanning": "Scanning",
+    "scanned": "Scanned",
+    "loginFailed": "Login Failed",
+    "expireAfter": "Expire After",
+    "retry": "Retry",
+    "otherLoginMethods": "Other Login Methods",
+    "noProvider": "No Provider",
+    "useAccountPasswordLogin": "Use Account Password Login",
+    "qrCodeGenerated": "Qr Code Generated",
+    "logger": {
+      "generateProviderQrCodeFailed": "Generate Provider Qr Code Failed",
+      "checkProviderLoginStatusFailed": "Check Provider Login Status Failed",
+      "generateWechatQrCodeFailed": "GenerateWeChat QR CodeImageFailed"
+    },
+    "manualRefresh": "Manual Refresh",
+    "autoRefreshing": "Auto Refreshing",
+    "qrCodeLoadFailed": "Qr Code Load Failed",
+    "wechat": "WeChat",
+    "alipay": "Alipay",
+    "refreshQrCode": "Refresh QR Code"
+  }
+}

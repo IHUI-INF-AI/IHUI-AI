@@ -1,0 +1,9 @@
+{
+  "cmpFileDownload": {
+    "downloading": "Downloading...",
+    "invalidDownloadLink": "Invalid download link",
+    "downloadFailed": "Download Failed",
+    "downloadComplete": "Download Complete",
+    "downloadFailed2": "下载失败"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "admin": {
+    "eventBus": {
+      "allSubscriptionsCleared": "All Subscriptions Cleared",
+      "confirmClearAll": "Confirm Clear All",
+      "confirmClearHistory": "Confirm Clear History",
+      "eventSent": "Event Sent",
+      "historyCleared": "History Cleared",
+      "subscriptionDeleted": "Subscription Deleted"
+    }
+  }
+}

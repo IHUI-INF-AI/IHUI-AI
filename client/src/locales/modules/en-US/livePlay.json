@@ -1,0 +1,7 @@
+{
+  "livePlay": {
+    "liveNotFound": "Live does not exist",
+    "notLive": "Streamer is not live",
+    "send": "Send"
+  }
+}

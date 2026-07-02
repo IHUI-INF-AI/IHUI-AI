@@ -1,0 +1,18 @@
+{
+  "fileUpload": {
+    "uploading": "Uploading...",
+    "selectImage": "Select Image",
+    "selectVideo": "Select Video",
+    "clearFiles": "Clear",
+    "imageSizeExceeded": "Image size cannot exceed {size}MB",
+    "videoSizeExceeded": "Video size cannot exceed {size}MB",
+    "maxFilesReached": "Maximum {count} files can be uploaded",
+    "supportAllSize": "Support all file types, max {size}",
+    "sizeExceeded": "File size exceeds limit ({size})",
+    "unsupportedType": "Unsupported file type: {ext}",
+    "uploadSuccess": "Upload successful",
+    "uploadFailed": "Upload failed",
+    "networkError": "Network error",
+    "supportFormat": "Support {formats} formats, max {size}"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "designer": {
+    "mode": "Mode",
+    "labels": {
+      "strategy": "Design Strategy",
+      "audit": "Design Audit",
+      "blueprint": "Design Blueprint",
+      "code": "Design Code"
+    },
+    "model": "Model",
+    "selectModel": "Select Model",
+    "input": "Input",
+    "placeholder": "Please enter your requirements...",
+    "actions": {
+      "generate": "Generate",
+      "reset": "Reset"
+    },
+    "tabs": {
+      "output": "Output",
+      "vue": "Vue",
+      "react": "React",
+      "html": "HTML"
+    },
+    "empty": "No content",
+    "prompts": {
+      "line1": "You are a professional AI design assistant",
+      "line2": "Generate appropriate design content based on user requirements",
+      "line3": "Output format is clear and easy to understand",
+      "line4": "Ensure content professionalism and accuracy"
+    },
+    "errors": {
+      "selectModel": "Please select a model",
+      "enterRequirement": "Please enter requirements",
+      "generateFailed": "Generation Failed"
+    },
+    "expect": {
+      "strategy": "Design Strategy",
+      "audit": "Design Audit",
+      "blueprint": "Design Blueprint",
+      "code": "Design Code"
+    }
+  }
+}

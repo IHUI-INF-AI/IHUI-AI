@@ -1,0 +1,109 @@
+{
+  "imageGen": {
+    "qwen": {
+      "title": "Tongyi Qianwen - Text to Image",
+      "tag": "DashScope",
+      "form": {
+        "model": "Model",
+        "modelPlaceholder": "Select Model",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe the image you want to generate..."
+      },
+      "buttons": {
+        "generate": "Generate Image",
+        "reset": "Reset",
+        "download": "Download",
+        "copyUrl": "Copy Link"
+      },
+      "result": "Generation Result",
+      "messages": {
+        "modelRequired": "Please select a model",
+        "promptRequired": "Please enter a prompt",
+        "Generate Successful": "Image generated successfully!",
+        "copySuccess": "Link copied",
+        "generating": "Generating image...",
+        "modelRemarkMissing": "Model interface not configured",
+        "wsNotSupported": "WebSocket Protocol, for real-time bidirectional communicationt generation not supported yet",
+        "generateSuccess": "图像生成成功！",
+        "generateFailed": "Generation Failed"
+      }
+    },
+    "doubao": {
+      "title": "Doubao Image Generation",
+      "tag": "ByteDance",
+      "form": {
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe the image you want to generate..."
+      },
+      "buttons": {
+        "generate": "Generate"
+      },
+      "messages": {
+        "promptRequired": "Please enter a prompt",
+        "generateFailed": "Generation Failed"
+      }
+    },
+    "i2i": {
+      "title": "Tongyi Wanxiang - Image to Image",
+      "tag": "DashScope",
+      "form": {
+        "referenceImage": "Reference Image",
+        "selectImage": "Select Image",
+        "uploadTip": "Supports JPG, PNG formats, max 10MB",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe the image style and content you want..."
+      },
+      "buttons": {
+        "generate": "Generate Image",
+        "reset": "Reset"
+      },
+      "result": "Generation Result",
+      "messages": {
+        "imageRequired": "Please upload a reference image",
+        "uploadFailed": "Image upload Failed",
+        "uploadFirst": "Please upload a reference image first"
+      }
+    },
+    "jimeng": {
+      "title": "Jimeng Image Generation",
+      "tag": "Jimeng AI",
+      "form": {
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe the image you want to generate..."
+      },
+      "buttons": {
+        "generate": "Generate"
+      },
+      "messages": {
+        "promptRequired": "Please enter a prompt",
+        "generating": "Generating image...",
+        "generateFailed": "Generation Failed"
+      }
+    },
+    "edit": {
+      "title": "Tongyi Qianwen - Image Editing",
+      "tag": "DashScope",
+      "alertTitle": "Image Editing Feature",
+      "alertDesc": "Upload an image and enter editing instructions, AI will edit the image according to your instructions",
+      "form": {
+        "image": "Original Image",
+        "selectImage": "Select Image",
+        "text": "Editing Instructions",
+        "textPlaceholder": "Describe the editing effect you want, e.g., change the background to a beach..."
+      },
+      "buttons": {
+        "edit": "Start Editing",
+        "reset": "Reset"
+      },
+      "result": "Editing Result",
+      "messages": {
+        "imageRequired": "Please upload an image",
+        "textRequired": "Please enter editing instructions",
+        "uploadFailed": "Image upload Failed",
+        "uploadFirst": "Please upload an image first",
+        "editSuccess": "Image edited successfully!",
+        "editFailed": "Editing Failed"
+      }
+    }
+  }
+}

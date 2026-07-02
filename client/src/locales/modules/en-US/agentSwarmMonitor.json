@@ -1,0 +1,24 @@
+{
+  "agentSwarmMonitor": {
+    "Status": "Status",
+    "task": "Task",
+    "currentIteration": "Current Iteration",
+    "agentStatus": "Agent Status",
+    "agentName": "Agent Name",
+    "type": "Type",
+    "currentStep": "Current Step",
+    "performanceMetrics": "Performance Metrics",
+    "successRate": "Success Rate",
+    "averageExecutionTime": "Average Execution Time",
+    "averageTokens": "Average Tokens",
+    "totalSteps": "Total Steps",
+    "completedSteps": "Completed Steps",
+    "FailedSteps": "Failed Steps",
+    "toolResults": "Tool Results",
+    "reflection": "Reflection",
+    "corrected": "Corrected",
+    "correctedResult": "Corrected Result",
+    "failedSteps": "FailedSteps",
+    "status": "Status"
+  }
+}

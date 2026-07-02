@@ -1,0 +1,11 @@
+{
+  "adminBatchEditDialog": {
+    "selectedTip": "Selected {count} items, check the fields to modify and fill in new values.",
+    "title": "Batch Edit",
+    "updating": "Updating {current} / {total}",
+    "failedTip": "Failed {count} items, click \"Retry Failed\" to update again",
+    "cancel": "Cancel",
+    "retryFailed": "Retry Failed",
+    "save": "Batch Save"
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "videoGen": {
+    "kling": {
+      "title": "Kling AI Video Generation",
+      "tag": "Lip Sync",
+      "instructions": {
+        "title": "Usage Instructions",
+        "description": "First upload a video for face recognition, then select a face and enter a prompt to generate the video"
+      },
+      "steps": {
+        "upload": "Upload Video",
+        "identify": "Identify Faces",
+        "generate": "Generate Video"
+      },
+      "form": {
+        "uploadVideo": "Upload Video",
+        "selectVideo": "Select Video",
+        "selectFace": "Select Face",
+        "selectFaceId": "Select Face ID",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe video content..."
+      },
+      "buttons": {
+        "identify": "Identify",
+        "generate": "Generate",
+        "checkStatus": "Check Status",
+        "checking": "Checking..."
+      },
+      "Status": {
+        "completed": "completed",
+        "Failed": "Failed",
+        "pending": "pending",
+        "processing": "processing",
+        "title": "Status"
+      },
+      "messages": {
+        "uploadFirst": "Please upload a video first",
+        "identifySuccess": "Identification Successful",
+        "identifyFailed": "Identification Failed",
+        "fillComplete": "Please fill in complete information",
+        "taskSubmitted": "Task Submitted",
+        "generateFailed": "Generation Failed",
+        "taskId": "Task ID: {taskId}",
+        "taskIdRequired": "Please submit a generation task first",
+        "StatusCompleted": "Video generation completed",
+        "StatusProcessing": "Video generating...",
+        "StatusFailed": "Video generation Failed",
+        "StatusPending": "Task waiting for processing...",
+        "StatusUnknown": "Task Status unknown",
+        "checkStatusFailed": "Failed to check Status",
+        "pollTimeout": "Poll Timeout",
+        "statusCompleted": "Video GenerationDone",
+        "statusFailed": "Video GenerationFailed",
+        "checkStatusDev": "Status check feature under development"
+      },
+      "startPolling": "Auto Polling",
+      "stopPolling": "Stop Polling",
+      "downloadVideo": "Download Video",
+      "previewVideo": "Preview Video",
+      "videoUrlEmpty": "Video URL is empty",
+      "downloadStarted": "Video download started",
+      "message": "Message",
+      "status": {
+        "completed": "completed",
+        "failed": "failed",
+        "pending": "pending",
+        "processing": "processing",
+        "title": "Status"
+      }
+    },
+    "qwen": {
+      "title": "Tongyi Wanxiang - Video Synthesis",
+      "tag": "WebSocket Protocol, for real-time bidirectional communicationt Streaming",
+      "form": {
+        "prompt": "Prompt",
+        "promptPlaceholder": "Describe the video you want to generate...",
+        "images": "Reference Images (Optional)",
+        "imagesPlaceholder": "Image URL"
+      },
+      "buttons": {
+        "generate": "Start Generation"
+      },
+      "progress": {
+        "connecting": "Connecting...",
+        "generating": "Generating..."
+      },
+      "messages": {
+        "promptRequired": "Please enter a prompt",
+        "Generate Successful": "Generation Complete",
+        "generateFailed": "Generation Failed",
+        "generateSuccess": "GenerateDone"
+      }
+    },
+    "oneClick": {
+      "title": "One-Click Video Generation",
+      "tag": "Auto Generation",
+      "form": {
+        "topic": "Video Topic",
+        "topicPlaceholder": "e.g., Introduce our products...",
+        "duration": "Video Duration",
+        "ratio": "Video Ratio",
+        "audioStyle": "Audio Style (Optional)",
+        "audioPlaceholder": "e.g., Light and pleasant background music"
+      },
+      "buttons": {
+        "generate": "Start Generation",
+        "checkStatus": "Check Status"
+      },
+      "messages": {
+        "topicRequired": "Please enter video topic",
+        "Status": "Status: {Status}",
+        "checkFailed": "Check Failed",
+        "pollTimeout": "Poll Timeout",
+        "status": "Status: {status}",
+        "taskSubmitted": "Task Submitted",
+        "generateFailed": "Generation Failed",
+        "taskId": "Task ID: {taskId}"
+      },
+      "Status": {
+        "completed": "Completed",
+        "processing": "Processing",
+        "Failed": "Failed",
+        "pending": "Pending"
+      },
+      "startPolling": "Auto Polling",
+      "stopPolling": "Stop Polling",
+      "downloadVideo": "Download Video",
+      "previewVideo": "Preview Video",
+      "videoUrlEmpty": "Video URL is empty",
+      "downloadStarted": "Video download started",
+      "ratios": {
+        "r169": "16:9",
+        "r916": "9:16",
+        "r11": "1:1"
+      },
+      "durationUnit": "seconds",
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "pending": "等待中",
+        "processing": "Processing"
+      }
+    }
+  }
+}

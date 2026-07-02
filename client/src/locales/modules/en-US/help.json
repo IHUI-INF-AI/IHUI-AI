@@ -1,0 +1,94 @@
+{
+  "help": {
+    "wasThisHelpful": "Was this answer helpful?",
+    "feedbackSubmitted": "Feedback submitted",
+    "feedbackFailed": "Submission Failed",
+    "categories": {
+      "all": "All",
+      "account": "Account",
+      "security": "Security",
+      "payment": "Payment",
+      "usage": "Usage",
+      "settings": "Settings"
+    },
+    "tags": {
+      "register": "Register",
+      "billing": "Billing",
+      "security": "Security",
+      "prompt": "Prompt"
+    },
+    "channels": {
+      "feedback": {
+        "title": "Feedback",
+        "desc": "Report bugs or suggest new features",
+        "Status": "Fast Response",
+        "status": "QuickResponse"
+      },
+      "liveUplink": {
+        "title": "Live Support",
+        "desc": "Direct access to human or AI support",
+        "Status": "Online",
+        "status": "Online"
+      },
+      "coreDocs": {
+        "title": "Documentation",
+        "desc": "Technical specs & integration guides",
+        "Status": "V4.2 Stable",
+        "status": "V4.2 稳定版"
+      }
+    },
+    "sectionLabels": {
+      "knowledgeNodes": "KNOWLEDGE NODES",
+      "uplinkChannels": "UPLINK CHANNELS"
+    },
+    "faqs": {
+      "register": {
+        "question": "How do I register for a Zhihui AI account?",
+        "answer": "You can register using your phone number, WeChat, or email. New users receive 50,000 Zhihui credits upon registration."
+      },
+      "credits": {
+        "question": "What are Zhihui credits?",
+        "answer": "Zhihui credits are the platform's virtual currency used to pay for API calls. 1 RMB = 100 Zhihui credits."
+      },
+      "apiKeyLeak": {
+        "question": "What should I do if my API Key is leaked?",
+        "answer": "Please delete and regenerate it immediately in the console, and check if your account usage records are normal."
+      },
+      "quality": {
+        "question": "How can I improve the quality of generated content?",
+        "answer": "You can significantly improve results by providing more specific prompts and setting clear role backgrounds."
+      },
+      "beginner": "Beginner",
+      "recharge": "Recharge",
+      "optimize": "Optimize"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "title": "Help Center",
+    "subtitle": "Find FAQs and get help",
+    "searchPlaceholder": "Search help content...",
+    "neuralQueryResolver": "NEURAL QUERY RESOLVER",
+    "typeAndEnter": "TYPE AND ENTER",
+    "loadError": "Loading Failed",
+    "empty": "No relevant content",
+    "needMoreHelp": "Need more help?",
+    "supportTip": "If you didn't find an answer to your question above, you can contact us through the following ways",
+    "submitFeedback": "Submit Feedback",
+    "onlineService": "Online Service",
+    "devRulesTitle": "Development Guidelines",
+    "devRulesDesc": "View project development guidelines and best practices",
+    "viewDevRules": "View Guidelines",
+    "devRulesDialogTitle": "Development Guidelines Documentation",
+    "searchTitle": "How can we help you?",
+    "quickLinks": {
+      "accountSecurity": "Account Security",
+      "billing": "Billing",
+      "guide": "Beginner Guide"
+    },
+    "stats": {
+      "knowledgeNodes": "Knowledge Nodes",
+      "autoFixRate": "Auto Fix Rate",
+      "coverage": "24/7 Coverage"
+    }
+  }
+}

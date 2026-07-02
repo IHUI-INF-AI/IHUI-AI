@@ -1,0 +1,52 @@
+{
+  "vipTrader": {
+    "title": "Title",
+    "subtitle": "Subtitle",
+    "features": {
+      "title": "Title",
+      "distributionQualification": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "aiCourses": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "founderQa": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "agentBeta": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "vipMaxDiscount": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "customAgentDiscount": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "allVipRights": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "verticalAccountIncubation": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "secondaryDistribution": {
+        "title": "Title",
+        "desc": "Desc"
+      },
+      "offlineLearning": {
+        "title": "Title",
+        "desc": "Desc"
+      }
+    },
+    "purchase": {
+      "button": "Button"
+    }
+  }
+}

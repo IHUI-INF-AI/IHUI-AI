@@ -1,0 +1,11 @@
+{
+  "openPlatformDocs": {
+    "title": "Documentation Center",
+    "userDocs": "User Documentation",
+    "developerDocs": "Developer Documentation",
+    "selectDoc": "Please select a document from the left",
+    "loadFailed": "Failed to load document",
+    "searchPlaceholder": "Search documents...",
+    "toc": "Toc"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mediaViewer": {
+    "videoNotSupported": "Your browser does not support video playback",
+    "audioNotSupported": "Your browser does not support audio playback",
+    "mediaFile": "Media File",
+    "downloadView": "Download to View"
+  }
+}

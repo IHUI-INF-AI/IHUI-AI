@@ -1,0 +1,13 @@
+{
+  "qrCode": {
+    "loading": "Generating...",
+    "scanning": "scanMedium...",
+    "scanned": "AlReady Scanned",
+    "confirming": "ConfirmMedium...",
+    "expired": "Expired",
+    "scanTipLine1": "PleaseUsephone scan",
+    "scanTipLine2": "QR Code Login",
+    "qrCodeAlt": "Login QR Code",
+    "methodQrCode": "{method}QR code"
+  }
+}

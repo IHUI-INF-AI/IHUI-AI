@@ -1,0 +1,12 @@
+{
+  "memberPoint": {
+    "myPoints": "My Points",
+    "totalPoints": "Total",
+    "available": "Available",
+    "used": "Used",
+    "level": "Level",
+    "continuousSign": "Consecutive sign-in",
+    "days": "days",
+    "pointDetails": "Point Details"
+  }
+}

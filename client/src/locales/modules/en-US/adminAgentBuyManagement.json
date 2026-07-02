@@ -1,0 +1,21 @@
+{
+  "adminAgentBuyManagement": {
+    "actions": {},
+    "buyList": {
+      "Status": "Order Status"
+    },
+    "search": {
+      "Status": "Order Status",
+      "StatusPlaceholder": "Select order Status"
+    },
+    "Status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "settlementStatus": {},
+    "dialogs": {},
+    "messages": {}
+  }
+}

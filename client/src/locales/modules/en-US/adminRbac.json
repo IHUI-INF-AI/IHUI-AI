@@ -1,0 +1,28 @@
+{
+  "adminRbac": {
+    "title": "RBAC 权限管理 (集中接入 14 个 admin/* API)",
+    "tab": {
+      "user": "用户",
+      "role": "角色",
+      "menu": "菜单",
+      "dept": "部门",
+      "post": "岗位",
+      "config": "参数配置",
+      "orders": "订单",
+      "products": "商品",
+      "faq": "FAQ",
+      "dashboard": "仪表盘",
+      "jobLog": "任务日志",
+      "loginInfo": "登录日志",
+      "notice": "通知公告",
+      "agents": "智能体管理"
+    },
+    "completeOrder": "完成",
+    "card": {
+      "userCount": "用户数",
+      "courseCount": "课程数",
+      "orderCount": "订单数",
+      "revenue": "营收"
+    }
+  }
+}

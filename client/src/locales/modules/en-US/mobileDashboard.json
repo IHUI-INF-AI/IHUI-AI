@@ -1,0 +1,30 @@
+{
+  "mobileDashboard": {
+    "businessDashboard": "Business Dashboard",
+    "orderTrend": "Order Trend (Last 7 Days)",
+    "forecast": "Next 7 Days Forecast",
+    "orders": "Orders",
+    "recharge": "Recharge",
+    "agent": "Agent",
+    "subscribeDaily": "Subscribe to Daily Report",
+    "subscribeDesc": "Receive core business metrics automatically every day",
+    "email": "Email",
+    "frequency": "Frequency",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "modules": "Included Modules",
+    "subscribed": "Subscribed",
+    "subscribe": "Subscribe",
+    "slope": "Slope",
+    "method": "Method",
+    "subscribeReport": "Subscribe Report",
+    "loadFailed": "Load failed",
+    "forecastLoadFailed": "Forecast load failed",
+    "invalidEmail": "Please enter a valid email",
+    "subscribeSuccess": "Subscribed successfully",
+    "subscribeFailed": "Subscription failed",
+    "unsubscribed": "Unsubscribed",
+    "unsubscribeFailed": "Unsubscribe failed"
+  }
+}

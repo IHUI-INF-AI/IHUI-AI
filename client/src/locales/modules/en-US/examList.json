@@ -1,0 +1,36 @@
+{
+  "examList": {
+    "title": "Exam Center",
+    "subtitle": "Practice Papers / Review Mistakes / Skill Assessment",
+    "searchPlaceholder": "Search papers...",
+    "difficultyAll": "All Levels",
+    "difficultyEasy": "Easy",
+    "difficultyMedium": "Medium",
+    "difficultyHard": "Hard",
+    "difficultyUnknown": "Unknown",
+    "emptyPapers": "No papers",
+    "noDesc": "No description",
+    "questionUnit": "Q",
+    "minuteUnit": "min",
+    "passPrefix": "Pass",
+    "attemptPrefix": "Attempts",
+    "attemptSuffix": "people",
+    "wrongBook": "Wrong Answers",
+    "startExam": "Start Exam",
+    "emptyRecords": "No exam records",
+    "paperPrefix": "Paper",
+    "passed": "Passed",
+    "notPassed": "Not Passed",
+    "scorePrefix": "Score",
+    "usedTimePrefix": "Duration",
+    "emptyWrong": "No wrong answers",
+    "questionContent": "Question content",
+    "correctAnswer": "Correct answer:",
+    "remove": "Remove",
+    "tabs": {
+      "papers": "Papers",
+      "records": "Records",
+      "wrong": "Wrong Answers"
+    }
+  }
+}

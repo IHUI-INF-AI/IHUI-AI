@@ -1,0 +1,116 @@
+{
+  "aiCareer": {
+    "title": "AI Career Guidance",
+    "subtitle": "Provide professional AI learning guidance for your child",
+    "submit": "Submit",
+    "questions": {
+      "school": "1. What school does your child currently attend?",
+      "classLevel": "2. What is the overall level of your child's class?",
+      "scoreRange": "3. What are the score ranges for recent Chinese and English exams?",
+      "languageDifficulty": "4. In Chinese and English learning, what do you think is your child's biggest difficulty right now?",
+      "scienceCharacteristics": "5. Regarding science subjects, have you observed any characteristics in your child's thinking and problem-solving performance?",
+      "learningObstacle": "6. In the process of daily learning, what do you think is the factor that most affects your child's learning?",
+      "hobbies": "7. When there are no learning tasks, what does your child like to do most? Are there any long-term interests or talents?",
+      "personality": "8. What is your child's personality like in terms of interpersonal relationships and character? How do they usually react when facing setbacks?",
+      "extraTime": "9. Besides school tasks, how much extra time do you think your child has for extracurricular learning or training classes each week?",
+      "pressureTolerance": "10. When arranging learning and training, how do you think your child handles pressure?",
+      "learningGoal": "11. If you rate on a scale of 1-5, what is your expectation for your child's learning goals in the next three to five years?"
+    },
+    "personalityTests": {
+      "test1": "[Personality Test] At school or gatherings with peers, your child usually:",
+      "test2": "[Personality Test] When learning or thinking, your child is more likely to:",
+      "test3": "[Personality Test] When facing conflicts or choices, your child usually:",
+      "test4": "[Personality Test] In terms of learning arrangements or daily routine, your child is more like:",
+      "test5": "[Personality Test] When tired or stressed, he/she tends to:"
+    },
+    "options": {
+      "school": {
+        "public": "Ordinary public school",
+        "private": "Ordinary private school",
+        "key": "Key city school"
+      },
+      "classLevel": {
+        "normal": "Ordinary class",
+        "advanced": "Advanced class"
+      },
+      "scoreRangePlaceholder": "Please enter score range, e.g.: 80-90",
+      "languageDifficulty": {
+        "readingSpeed": "Reading speed",
+        "comprehension": "Comprehension ability",
+        "vocabulary": "Vocabulary",
+        "writing": "Writing expression"
+      },
+      "scienceCharacteristicsPlaceholder": "Please enter your observations...",
+      "learningObstacle": {
+        "gameAddiction": "Child is addicted to games",
+        "daydreaming": "Daydreaming during learning",
+        "procrastination": "Procrastination",
+        "lowEfficiency": "Low learning efficiency"
+      },
+      "hobbiesPlaceholder": "E.g.: music, painting",
+      "personality": {
+        "introverted": "Introverted personality",
+        "extroverted": "Extroverted personality",
+        "problemSolver": "Good at solving problems",
+        "cannotHandleFailure": "Not good at facing setbacks"
+      },
+      "extraTime": {
+        "heavy": "Child has heavy school learning tasks",
+        "plenty": "Child has plenty of free time"
+      },
+      "pressureTolerance": {
+        "light": "Suitable for relaxed training",
+        "challenging": "Suitable for challenging training",
+        "moderate": "Moderate training"
+      },
+      "learningGoal": {
+        "1": "1",
+        "2": "2",
+        "3": "3",
+        "4": "4",
+        "5": "5"
+      },
+      "personalityTest1": {
+        "social": "Easily integrates into groups, interacts with multiple peers, often becomes the center of conversation",
+        "quiet": "Tends to be with one or two familiar friends, or prefers quiet activities alone"
+      },
+      "personalityTest2": {
+        "concrete": "Focuses on facts, steps, and clear requirements from teachers; likes \"concrete things\"",
+        "abstract": "Asks questions beyond textbooks, makes associative leaps, likes to explore \"concepts\" and possibilities"
+      },
+      "personalityTest3": {
+        "logical": "Focuses on logic, fairness principles, expresses \"reasons\" and \"basis\"",
+        "emotional": "Values own or others' feelings more, easily influenced by emotions when making decisions"
+      },
+      "personalityTest4": {
+        "planned": "Likes to plan ahead (organizing desk, writing study plans), completes tasks in order",
+        "spontaneous": "Often quite spontaneous, needs reminders to start action, not resistant to sudden changes"
+      },
+      "personalityTest5": {
+        "socialRelax": "Relaxes by chatting with friends, going out, participating in social activities",
+        "quietRelax": "Wants to quiet down, e.g., Listening to music, being alone, doing personal hobbies"
+      }
+    },
+    "validation": {
+      "required": "Please fill in: {field}",
+      "school": "School your child currently attends",
+      "classLevel": "Overall level of your child's class",
+      "scoreRange": "Chinese and English exam score ranges",
+      "languageDifficulty": "Chinese and English learning difficulties",
+      "learningObstacle": "Factors affecting learning",
+      "personality": "Interpersonal relationships and personality",
+      "extraTime": "Extra Time",
+      "pressureTolerance": "Pressure Tolerance",
+      "learningGoal": "Learning Goal",
+      "personalityTest1": "Personality Test1",
+      "personalityTest2": "Personality Test2",
+      "personalityTest3": "Personality Test3",
+      "personalityTest4": "Personality Test4",
+      "personalityTest5": "Personality Test5"
+    },
+    "messages": {
+      "submitSuccess": "Submit Success",
+      "submitFailed": "Submit Failed"
+    }
+  }
+}

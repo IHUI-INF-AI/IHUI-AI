@@ -1,0 +1,7 @@
+{
+  "adminFeedbackList": {
+    "setProcessing": "Set to processing",
+    "resolved": "Resolved",
+    "closed": "Closed"
+  }
+}

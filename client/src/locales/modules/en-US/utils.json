@@ -1,0 +1,32 @@
+{
+  "utils": {
+    "VoiceRecorder": {
+      "recordingFailed": "Recording Failed",
+      "microphonePermissionDenied": "Cannot access microphone, please check permission settings"
+    },
+    "voiceRecorder": {
+      "microphonePermissionDenied": "Microphone Permission Denied",
+      "recordingFailed": "Recording Failed"
+    },
+    "pay": {
+      "wechatPayNotSupported": "WeChat Pay is not supported in current environment, please use other payment methods"
+    },
+    "saveAlbum": {
+      "imageUrlEmpty": "Image URL is empty",
+      "saveSuccess": "Save successful",
+      "saveFailed": "Save Failed",
+      "networkError": "Network request Failed, please check network connection",
+      "unknownError": "Unknown error"
+    },
+    "share": {
+      "shareSuccess": "Share successful",
+      "shareFailed": "Share Failed",
+      "copyToClipboard": "Share content copied to clipboard",
+      "copyFailed": "Copy Failed"
+    },
+    "uploadImage": {
+      "imageProcessFailed": "Image processing Failed",
+      "selectImageFailed": "Select image Failed"
+    }
+  }
+}

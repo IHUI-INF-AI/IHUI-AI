@@ -1,0 +1,124 @@
+{
+  "userComponents": {
+    "purchaseRecords": {
+      "title": "Purchase Records",
+      "orderNo": "Order No",
+      "viewDetails": "View Details",
+      "applyInVoice": "Apply InVoice",
+      "empty": "No purchase records",
+      "Status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "refunded": "Refunded"
+      },
+      "applyInvoice": "申请发票",
+      "status": {
+        "completed": "Completed",
+        "pending": "Processing",
+        "refunded": "已退款"
+      }
+    },
+    "developer": {
+      "title": "Developer Center",
+      "copy": "Copy",
+      "regenerate": "Regenerate",
+      "totalCalls": "Total Calls",
+      "remainingQuota": "Remaining Quota",
+      "successRate": "Success Rate",
+      "viewDocs": "View Docs"
+    },
+    "statistics": {
+      "title": "Usage Statistics",
+      "totalViews": "Total Views",
+      "favorites": "Favorites",
+      "orders": "Orders",
+      "totalSpent": "Total Spent",
+      "usageTrend": "Usage Trend",
+      "chartDeveloping": "Chart feature developing..."
+    },
+    "orders": {
+      "title": "My Orders",
+      "orderNo": "Order No",
+      "viewDetails": "View Details",
+      "payNow": "Pay Now",
+      "empty": "No orders"
+    },
+    "examine": {
+      "title": "My Reviews",
+      "RejectReason": "Reject Reason",
+      "view": "View",
+      "resubmit": "Resubmit",
+      "empty": "No review records",
+      "rejectReason": "拒绝原因"
+    },
+    "upload": {
+      "title": "My Uploads",
+      "view": "View",
+      "delete": "Delete",
+      "empty": "No upload records"
+    },
+    "purchases": {
+      "title": "My Purchases",
+      "view": "View",
+      "download": "Download",
+      "empty": "No purchase records"
+    },
+    "favorites": {
+      "title": "My Favorites",
+      "view": "View",
+      "remove": "Remove",
+      "empty": "No favorites"
+    },
+    "settings": {
+      "title": "General Settings",
+      "language": "Language",
+      "languageDesc": "Select your preferred display language",
+      "theme": "Theme",
+      "themeDesc": "Select your preferred interface theme",
+      "notifications": "Notifications",
+      "notificationsDesc": "Receive system and activity notifications",
+      "soundEffects": "Sound Effects",
+      "soundEffectsDesc": "Enable or disable interface sound effects"
+    },
+    "privacy": {
+      "title": "Privacy Settings",
+      "publicProfile": "Public Profile",
+      "publicProfileDesc": "Allow other users to view your profile",
+      "showOnlineStatus": "Show Online Status",
+      "showOnlineStatusDesc": "Allow other users to see your online Status",
+      "allowSearch": "Allow Search",
+      "allowSearchDesc": "Allow other users to find you via search",
+      "receiveMessages": "Receive Messages",
+      "receiveMessagesDesc": "Allow other users to send you messages"
+    },
+    "messages": {
+      "title": "Message Notifications",
+      "empty": "No messages"
+    },
+    "security": {
+      "title": "Security Settings",
+      "loginPassword": "Login Password",
+      "loginPasswordDesc": "Recommend changing password regularly to protect your account",
+      "modify": "Modify",
+      "phoneBinding": "Phone Binding",
+      "emailBinding": "Email Binding"
+    },
+    "profile": {
+      "admin": "Admin",
+      "email": "Email",
+      "phone": "Phone",
+      "registerTime": "Register Time",
+      "editProfile": "Edit Profile"
+    },
+    "loginPopup": {
+      "login": "Login",
+      "code": "Code",
+      "phone": "Phone",
+      "sendCode": "Send Code",
+      "wechatLogin": "Wechat Login"
+    },
+    "infoCard": {
+      "edit": "Edit"
+    }
+  }
+}

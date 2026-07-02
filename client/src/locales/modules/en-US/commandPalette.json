@@ -1,0 +1,28 @@
+{
+  "commandPalette": {
+    "placeholder": "Type command to search...",
+    "escToAbort": "ESC to close",
+    "enter": "Enter",
+    "navigate": "Navigate",
+    "execute": "Execute",
+    "systemReady": "System Ready",
+    "cpuOptimized": "Optimized",
+    "noResults": "No matching commands found",
+    "systemInternal": "System Internal",
+    "commands": {
+      "home": "Go Home",
+      "store": "Agents",
+      "plaza": "Requirement Plaza",
+      "learnAI": "Learn AI",
+      "community": "AI Community",
+      "download": "Download Center",
+      "docs": "Documentation",
+      "resources": "Resource Center",
+      "about": "About Us",
+      "contact": "Contact Us",
+      "darkMode": "Toggle Dark Mode",
+      "aiAssistant": "Open AI Assistant",
+      "backToTop": "Back to Top"
+    }
+  }
+}

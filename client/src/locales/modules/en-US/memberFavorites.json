@@ -1,0 +1,11 @@
+{
+  "memberFavorites": {
+    "title": "My Favorites",
+    "lesson": "Courses",
+    "ask": "Q&A",
+    "circle": "Circle",
+    "article": "Articles",
+    "live": "Live",
+    "noFavorites": "No favorites"
+  }
+}

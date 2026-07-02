@@ -1,0 +1,7 @@
+{
+  "devCashDetail": {
+    "withdrawTime": "Withdraw Time",
+    "processTime": "Process Time",
+    "arrivalTime": "Arrival Time"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "wxMiniprogram": {
+    "title": "Mini ProgramHome",
+    "description": "WeChatMini ProgramHome",
+    "hotFeatures": "PopularFeature",
+    "hotFeaturesDesc": "Most popular features",
+    "latestActivities": "Latest Activities",
+    "latestActivitiesDesc": "Latest Activities and Discounts",
+    "customerService": "Customer Service",
+    "customerServiceDesc": "Online customer service support"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "memberFollow": {
+    "title": "My Follows",
+    "empty": "No follows",
+    "followers": "followers",
+    "following": "following",
+    "mutualFollow": "Mutual Follow",
+    "followed": "Followed"
+  }
+}

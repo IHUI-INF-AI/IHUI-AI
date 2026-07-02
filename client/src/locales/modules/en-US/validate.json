@@ -1,0 +1,10 @@
+{
+  "validate": {
+    "become_supplier": {
+      "请输入公司名称": "Please enterCompanyName",
+      "请输入有效邮箱3": "Please enterValidEmail",
+      "请输入联系人姓名1": "请输入联系人姓名",
+      "请输入联系电话2": "Please enterContact Phone"
+    }
+  }
+}

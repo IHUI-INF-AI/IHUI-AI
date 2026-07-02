@@ -1,0 +1,18 @@
+{
+  "askList": {
+    "community": "Q&A Community",
+    "subtitle": "Ask / Answer / Share your AI knowledge",
+    "askQuestion": "Ask a Question",
+    "allCategories": "All Categories",
+    "latest": "Latest",
+    "hottest": "Hottest",
+    "mostAnswered": "Most Answered",
+    "noQuestions": "No questions yet",
+    "pinned": "Pinned",
+    "essence": "Featured",
+    "title": "Title",
+    "content": "Content",
+    "category": "Category",
+    "selectCategory": "Select category (optional)"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "userCenter": {
+    "regularMember": "Regular Member",
+    "openMembershipPrivilege": "Open Membership Privilege",
+    "membershipBenefits": "Membership Benefits",
+    "defaultUsername": "Default Username",
+    "copyWebsite": {
+      "success": "Success",
+      "Failed": "Failed",
+      "failed": "复制失败，请重试"
+    },
+    "clickToLogin": "点击登录",
+    "memberLevel": "Member Level",
+    "notLoggedIn": "Not logged in",
+    "recharge": "Recharge",
+    "tokenBalance": "TokenBalance",
+    "vipMember": "VIPMember"
+  }
+}

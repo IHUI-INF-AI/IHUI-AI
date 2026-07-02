@@ -1,0 +1,60 @@
+{
+  "toolbar": {
+    "agents": {
+      "title": "Title"
+    },
+    "marketing": {
+      "title": "Title",
+      "desc": "Desc"
+    },
+    "menu": {
+      "trafficOperation": "Traffic Operation",
+      "oneStopEquipment": "One Stop Equipment",
+      "aiTechnicalServices": "Ai Technical Services"
+    },
+    "tools": {
+      "items": {
+        "image": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        },
+        "creator": "Creator",
+        "video": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        },
+        "copy": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        },
+        "edit": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        },
+        "live": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        },
+        "digital": {
+          "title": "Title",
+          "desc": "Desc",
+          "tag1": "Tag1",
+          "tag2": "Tag2"
+        }
+      },
+      "categories": {
+        "creativeDesign": "Creative Design"
+      }
+    }
+  }
+}

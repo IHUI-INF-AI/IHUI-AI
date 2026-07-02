@@ -1,0 +1,15 @@
+{
+  "liveList": {
+    "title": "Live List",
+    "subtitle": "Watch Live",
+    "all": "All",
+    "living": "Live",
+    "preview": "Upcoming",
+    "replay": "Replay",
+    "empty": "No live",
+    "badgeLiving": "LIVE",
+    "badgePreview": "Upcoming",
+    "badgeReplay": "Replay",
+    "host": "Host: "
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "certificate": {
+    "searchPlaceholder": {
+      "template": "Search templates"
+    },
+    "label": {
+      "templateName": "Template Name",
+      "issuer": "Issuer",
+      "actions": "Actions"
+    }
+  }
+}

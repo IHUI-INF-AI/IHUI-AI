@@ -1,0 +1,16 @@
+{
+  "VoiceRecording": {
+    "poweredBy": "iHui AI",
+    "provide": "Powered",
+    "service": "Service",
+    "clickMic": "Click",
+    "microphone": "Microphone"
+  },
+  "voiceRecording": {
+    "poweredBy": "智汇AI",
+    "provide": "提供",
+    "service": "服务",
+    "clickMic": "点击",
+    "microphone": "麦克风"
+  }
+}

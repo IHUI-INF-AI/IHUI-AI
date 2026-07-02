@@ -1,0 +1,35 @@
+{
+  "promptOptimizer": {
+    "analysis": {
+      "addMoreDetails": "Add more detailed descriptions",
+      "addQuality": "Add quality descriptors like HD, 4K",
+      "addScene": "Add scene or background descriptions",
+      "addStyle": "Add style descriptions like realistic, anime",
+      "addSubject": "Specify the subject clearly",
+      "promptTooLong": "Prompt is too long, may exceed model limits",
+      "promptTooShort": "Prompt is too short, lacks sufficient information",
+      "simplifyDescription": "Simplify description and highlight key points",
+      "videoMissingAction": "Video prompt is missing action descriptions",
+      "videoNeedsAction": "Video prompts should include action descriptions"
+    },
+    "prompt": {
+      "outputChinese": "Please output in Chinese",
+      "outputEnglish": "Please output in English",
+      "principle4Image": "Image prompts should focus on composition, lighting and detail",
+      "principle4Video": "Video prompts should include clear action descriptions and time sequences",
+      "recommendedQuality": "Recommended quality keywords",
+      "recommendedStyle": "Recommended style keywords",
+      "system": "You are a professional {typeLabel} prompt optimization expert, proficient in {modelName} model characteristics.\n\nOptimization principles:\n1. Keep the prompt concise, no more than {maxLength} characters\n2. Highlight key elements: subject, scene, style, quality\n3. Use keywords the model understands better\n4. {principle4}\n{stylePart}{qualityPart}\nOutput requirements:\n{outputLang}\nPlease output the optimized prompt directly, without additional explanation.",
+      "userPrompt": "Please optimize the following {typeLabel} prompt:\n\nOriginal prompt:\n{prompt}\n\nIssues:\n{issues}\n\nOptimization suggestions:\n{suggestions}\n\nBased on the above analysis, please output the optimized prompt."
+    },
+    "quickEnhance": {
+      "naturalMotion": "natural fluid motion",
+      "styleSuffix": "style"
+    },
+    "typeLabel": {
+      "content": "Content",
+      "image": "Image",
+      "video": "Video"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "homePage3": {
+    "tabs": {
+      "platform": "Platform News",
+      "external": "AI News"
+    },
+    "empty": {
+      "platform": "No platform news",
+      "external": "No AI news"
+    },
+    "Refresh": "Refresh",
+    "Refreshing": "Refreshing...",
+    "title": "Latest News",
+    "titleEn": "LATEST NEWS",
+    "subtitle": "Stay updated with platform news and AI trends",
+    "summary": {
+      "default": "No summary available"
+    },
+    "date": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "daysAgo": "{days} days ago",
+      "weeksAgo": "{weeks} weeks ago",
+      "monthsAgo": "{months} months ago"
+    },
+    "messages": {
+      "fetching": "Fetching latest news...",
+      "fetchSuccess": "Successfully fetched {count} news, saved {saved}",
+      "fetchWarning": "No new news fetched, please try again later",
+      "fetchError": "Refresh failed, please check network connection",
+      "viewNews": "View News: {title}"
+    },
+    "errors": {
+      "loadFailed": "Failed to load platform news",
+      "apiLoadFailed": "API load failed, using default platform news"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "customerService": {
+    "chat": {
+      "title": "Title",
+      "faqs": "Faqs",
+      "startChat": "Start Chat",
+      "typing": "Typing",
+      "placeholder": "Placeholder",
+      "connected": "Connected",
+      "connecting": "Connecting",
+      "reconnecting": "Reconnecting",
+      "disconnected": "Disconnected",
+      "fileSizeExceeded": "File Size Exceeded",
+      "sendFailed": "Send Failed"
+    },
+    "faq": {
+      "title": "Title",
+      "noFAQs": "No F A Qs"
+    },
+    "title": "Title",
+    "subtitle": "Subtitle",
+    "ticket": {
+      "title": "Title"
+    }
+  }
+}

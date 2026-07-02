@@ -1,0 +1,32 @@
+{
+  "study": {
+    "relatedApp": "Related AI App",
+    "topComment": "Top Comment",
+    "selectTags": "Select Course Tags",
+    "chunkUploadFailed": "Chunk upload failed",
+    "videoUploadSuccess": "Video uploaded!",
+    "editSuccessReview": "Modified! Please wait for review",
+    "deleteSuccessReview": "Deleted! Please wait for review",
+    "selectTrack": "Select Collection Track",
+    "mainTrackPrefix": "#MainTrack",
+    "selectPhase": "Select Course Phase",
+    "uploadVideoCourse": "Upload Course Video",
+    "publishSuccessContinue": "Published, continue uploading videos",
+    "uploadSuccess": "Upload successful",
+    "uploadFailed": "Upload failed",
+    "cover": "Cover",
+    "courseTitle": "Course Title",
+    "courseDesc": "Course Description",
+    "publishCollectionFirst": "Please publish the collection first",
+    "videoProcessing": "Video is being processed, please publish later",
+    "uploadCover": "Please upload cover",
+    "uploadVideo": "Please upload video",
+    "enterCourseTitle": "Please enter course title",
+    "enterCourseDesc": "Please enter course description",
+    "groupTitle": "Collection Title",
+    "groupDesc": "Collection Description",
+    "enterGroupTitle": "Please enter collection title",
+    "enterGroupDesc": "Please enter collection description",
+    "selectMainSubTrack": "Please select main and sub tracks"
+  }
+}

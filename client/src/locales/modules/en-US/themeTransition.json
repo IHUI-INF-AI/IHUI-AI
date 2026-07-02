@@ -1,0 +1,45 @@
+{
+  "themeTransition": {
+    "title": "Theme Transition",
+    "preview": "Preview",
+    "presets": "Presets",
+    "customConfig": "Custom Configuration",
+    "type": "Animation Type",
+    "direction": "Direction",
+    "speed": "Speed",
+    "easing": "Easing",
+    "duration": "Duration",
+    "enableOverlay": "Enable Overlay",
+    "overlayColor": "Overlay Color",
+    "presetApplied": "Preset applied",
+    "previewComplete": "Preview complete",
+    "types": {
+      "fade": "Fade",
+      "slide": "Slide",
+      "zoom": "Zoom",
+      "flip": "Flip",
+      "ripple": "Ripple",
+      "none": "None"
+    },
+    "directions": {
+      "left": "From Left",
+      "right": "From Right",
+      "up": "From Top",
+      "down": "From Bottom"
+    },
+    "speeds": {
+      "slow": "Slow",
+      "normal": "Normal",
+      "fast": "Fast",
+      "instant": "Instant"
+    },
+    "easings": {
+      "bounce": "Bounce",
+      "smooth": "Smooth",
+      "swift": "Swift"
+    },
+    "playDemo": "Play Demo",
+    "playing": "Playing",
+    "previewTitle": "Preview Title"
+  }
+}

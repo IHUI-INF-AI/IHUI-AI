@@ -1,0 +1,20 @@
+{
+  "notification": {
+    "title": "Notifications",
+    "center": "Message Center",
+    "messages": "Messages",
+    "viewUser Center": "View User Center",
+    "empty": "No notifications",
+    "allRead": "Mark All as Read",
+    "viewAll": "View All",
+    "markAllRead Successful": "All marked as read",
+    "markAllRead Failed": "Failed to mark all as read",
+    "markRead Failed": "Failed to mark as read",
+    "operationFailed": "Operation Failed",
+    "loadAbnormal": "Load abnormal",
+    "markAllReadFailed": "标记失败",
+    "markAllReadSuccess": "全部标记为已读",
+    "markReadFailed": "标记已读失败",
+    "viewUserCenter": "ViewUserCenter"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "errorNotification": {
+    "errorCode": "Error Code",
+    "hideDetails": "Hide Details",
+    "showDetails": "Show Details",
+    "details": "Details",
+    "recovery": "Recovery",
+    "closeAria": "Close Aria"
+  }
+}

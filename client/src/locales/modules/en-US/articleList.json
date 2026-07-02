@@ -1,0 +1,14 @@
+{
+  "articleList": {
+    "featuredArticles": "Featured Articles",
+    "pageDesc": "In-depth Articles · Practical Experience · Industry Insights",
+    "top": "Top",
+    "essence": "Featured",
+    "anonymous": "Anonymous",
+    "read": "Reads",
+    "like": "Likes",
+    "comment": "Comments",
+    "searchArticle": "Search articles",
+    "noArticle": "No articles"
+  }
+}

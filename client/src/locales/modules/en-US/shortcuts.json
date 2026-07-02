@@ -1,0 +1,14 @@
+{
+  "shortcuts": {
+    "title": "Title",
+    "search": "Search",
+    "noResults": "No Results",
+    "toggleTip": "Toggle Tip",
+    "scopes": {
+      "chat": "Chat",
+      "drama": "Drama",
+      "editor": "Editor",
+      "input": "Input"
+    }
+  }
+}

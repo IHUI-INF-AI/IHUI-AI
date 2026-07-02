@@ -1,0 +1,11 @@
+{
+  "vipPopup": {
+    "activateNow": "Activate Now",
+    "agreeRecharge": "Agree Recharge",
+    "continuous": "Continuous",
+    "monthly": "Monthly",
+    "noProduct": "No Product",
+    "paySuccess": "Pay Success",
+    "productInfoError": "Product Info Error"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "imageShare": {
+    "title": "Share Image",
+    "shareImage": "Share Image",
+    "shareMethod": "Share Method",
+    "noImage": "No Image",
+    "download": "Download",
+    "copyLink": "Copy Link",
+    "copySuccess": "Link copied to clipboard",
+    "copyFailed": "Copy Failed",
+    "noImageToDownload": "No image to download",
+    "noLinkToCopy": "No link to copy",
+    "close": "Close",
+    "downloadFailed": "Download Failed",
+    "downloadSuccess": "Image downloaded successfully"
+  }
+}

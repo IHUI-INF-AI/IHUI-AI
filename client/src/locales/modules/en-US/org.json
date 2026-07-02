@@ -1,0 +1,14 @@
+{
+  "org": {
+    "searchPlaceholder": {
+      "department": "Search departments",
+      "user": "Search users"
+    },
+    "label": {
+      "departmentName": "Department Name",
+      "manager": "Manager",
+      "count": "Count",
+      "actions": "Actions"
+    }
+  }
+}

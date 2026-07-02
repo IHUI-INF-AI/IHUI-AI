@@ -1,0 +1,10 @@
+{
+  "transactionDetail": {
+    "txId": "Transaction ID",
+    "status": "Status",
+    "user": "User",
+    "relatedOrder": "Related Order",
+    "desc": "Description",
+    "createTime": "Created At"
+  }
+}

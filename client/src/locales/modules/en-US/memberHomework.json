@@ -1,0 +1,10 @@
+{
+  "memberHomework": {
+    "title": "My Homework",
+    "empty": "No homework",
+    "deadline": "Deadline: ",
+    "status": "Status: ",
+    "submitted": "Submitted",
+    "submit": "Submit"
+  }
+}

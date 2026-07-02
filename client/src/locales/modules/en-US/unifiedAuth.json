@@ -1,0 +1,8 @@
+{
+  "unifiedAuth": {
+    "Login Successful": "Login Successful",
+    "loginInfoParseFailed": "Login Info Parse Failed",
+    "logoutSuccess": "Logout Success",
+    "loginSuccess": "loginSuccess"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "h5Settings": {
+    "order": "Order",
+    "expense": "Expense",
+    "level": "Level",
+    "systemSettings": "System Settings",
+    "adminFeature": "Admin Feature",
+    "logout": "Logout",
+    "confirmLogout": "Confirm logout?"
+  }
+}

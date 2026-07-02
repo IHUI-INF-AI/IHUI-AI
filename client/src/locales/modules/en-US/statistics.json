@@ -1,0 +1,78 @@
+{
+  "statistics": {
+    "behavior": {
+      "overview": "Overview",
+      "loginDays": "Login Days",
+      "totalLoginCount": "Total Login Count",
+      "lastLoginTime": "Last Login Time",
+      "activeHours": "Active Hours",
+      "favoriteAgents": "Favorite Agents",
+      "botId": "Bot Id",
+      "usageCount": "Usage Count",
+      "totalTokens": "Total Tokens",
+      "notLoggedIn": "Not Logged In",
+      "hour": "Hour",
+      "messageCount": "Message Count",
+      "activity": "Activity"
+    },
+    "orders": {
+      "overview": "Overview",
+      "totalOrders": "Total Orders",
+      "totalAmount": "Total Amount",
+      "paidOrders": "Paid Orders",
+      "completedOrders": "Completed Orders",
+      "trends": "Trends",
+      "orderCount": "Order Count",
+      "orderAmount": "Order Amount",
+      "amountInYuan": "Amount In Yuan"
+    },
+    "usage": {
+      "overview": "Overview",
+      "chatSessions": "Chat Sessions",
+      "messageCount": "Message Count",
+      "tokenUsage": "Token Usage",
+      "uploadedFiles": "Uploaded Files",
+      "trends": "Trends",
+      "sessions": "Sessions",
+      "messages": "Messages",
+      "tokens": "Tokens"
+    },
+    "selectTimeRange": "Select Time Range",
+    "timeRanges": {
+      "today": "Today",
+      "week": "Week",
+      "month": "Month",
+      "all": "All"
+    },
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "labels": {
+      "conversations": "Conversations",
+      "duration": "Duration",
+      "loginDays": "Login Days",
+      "registerTime": "Register Time",
+      "shares": "Shares",
+      "totalDuration": "Total Duration",
+      "visits": "Visits"
+    },
+    "tabs": {
+      "usage": "Usage",
+      "behavior": "Behavior",
+      "orders": "Orders",
+      "agents": "Agents"
+    },
+    "loadFailed": "Load Failed",
+    "agents": {
+      "Approved": "Approved",
+      "Rejected": "Rejected"
+    },
+    "days": "Days",
+    "detailTitle": "Detail Title",
+    "zeroHour": "0 hours",
+    "zeroHour2": "0小时"
+  },
+  "Statistics": {
+    "zeroHour": "0 hours",
+    "zeroHour2": "0小时"
+  }
+}

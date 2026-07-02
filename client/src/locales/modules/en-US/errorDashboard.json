@@ -1,0 +1,16 @@
+{
+  "errorDashboard": {
+    "totalErrors": "Total Errors",
+    "todayErrors": "Today Errors",
+    "resolved": "Resolved",
+    "errorRate": "Error Rate",
+    "trend": "Error Trend",
+    "h24": "24 hours",
+    "d7": "7 days",
+    "d30": "30 days",
+    "typeDistribution": "Error Type Distribution",
+    "recentErrors": "Recent Errors",
+    "stackInfo": "Stack Info",
+    "other": "Other"
+  }
+}

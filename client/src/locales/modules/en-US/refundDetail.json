@@ -1,0 +1,8 @@
+{
+  "refundDetail": {
+    "backToList": "Back to Refund List",
+    "title": "Refund Detail",
+    "refundNo": "Refund No.",
+    "supplementEvidence": "Supplement Evidence (Multiple Files Supported)"
+  }
+}

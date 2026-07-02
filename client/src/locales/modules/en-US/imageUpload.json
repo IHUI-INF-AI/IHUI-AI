@@ -1,0 +1,12 @@
+{
+  "imageUpload": {
+    "countLimit": "Count Limit",
+    "filenameComma": "Filename Comma",
+    "formatError": "Format Error",
+    "preview": "Preview",
+    "sizeLimit": "Size Limit",
+    "tip": "Tip",
+    "uploadFail": "Upload Fail",
+    "uploading": "Uploading"
+  }
+}

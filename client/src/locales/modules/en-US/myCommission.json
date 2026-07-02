@@ -1,0 +1,29 @@
+{
+  "myCommission": {
+    "title": "My Commission",
+    "totalCommission": "Total Commission",
+    "yuan": "Yuan",
+    "available": "Available",
+    "withdrawn": "Withdrawn",
+    "pending": "Pending",
+    "todayCommission": "Today's Commission",
+    "withdraw": "Withdraw",
+    "withdrawDetail": "Withdrawal Details",
+    "commission": "Commission",
+    "buyer": "Buyer",
+    "orderTime": "Order Time",
+    "relatedOrder": "Related Order",
+    "copy": "Copy",
+    "noCommission": "No commission records",
+    "withdrawSuccess": "Withdrawal successful",
+    "withdrawDetailInfo": "Withdrawal details",
+    "copySuccess": "Copy successful",
+    "copyFailed": "Copy failed",
+    "tabs": {
+      "all": "All",
+      "pending": "Pending",
+      "settled": "Settled",
+      "cancelled": "Cancelled"
+    }
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "seo": {
+    "home": {
+      "desc": "iHui AI Home - One-stop AI agents, chat, image/video generation and open platform",
+      "keywords": "iHui AI,AI platform,agents,AI chat,AI generation"
+    },
+    "openPlatform": {
+      "desc": "iHui AI Open Platform - APIs, SDKs, models and agents. Build your app with ihui API.",
+      "keywords": "Open Platform,ihui API,API,SDK,AI models,agents"
+    },
+    "designSystem": {
+      "desc": "iHui AI Design System - Component specs, design tokens and visual standards",
+      "keywords": "Design System,component specs,design tokens,visual standards"
+    },
+    "componentShowcase": {
+      "desc": "Element Plus components live preview and interaction demo",
+      "keywords": "Component Showcase,Storybook,Element Plus"
+    },
+    "businessDocs": {
+      "desc": "Project overview, API modules, deployment and security",
+      "keywords": "Business Docs,API,Deployment,Security"
+    },
+    "aizhsDemo": {
+      "desc": "iHui AI Feature Demo - Product capability experience and examples",
+      "keywords": "iHui AI,feature demo,product experience,examples"
+    },
+    "notFound": {
+      "desc": "iHui AI 404 - The page you requested was not found",
+      "keywords": "404,page not found"
+    },
+    "forbidden": {
+      "desc": "Access denied",
+      "keywords": "403,forbidden"
+    },
+    "aiWorld": {
+      "desc": "iHui AI World - Explore AI apps, models and agent ecosystem",
+      "keywords": "AI World,AI apps,AI models,agent ecosystem"
+    },
+    "agents": {
+      "desc": "iHui AI Agents - Create, manage and use AI agents",
+      "keywords": "agents,AI Agent,agent marketplace,create agent"
+    },
+    "designerAgent": {
+      "desc": "iHui AI Designer Agent - AI-assisted design and creative generation",
+      "keywords": "designer agent,AI design,creative generation,design assistant"
+    },
+    "agentsCreate": {
+      "desc": "iHui AI Create Agent - Customize your AI agent",
+      "keywords": "create agent,custom agent,AI Agent,agent config"
+    },
+    "agentDetail": {
+      "desc": "iHui AI Agent Detail - View agent capabilities and usage",
+      "keywords": "agent detail,AI Agent,agent capabilities"
+    },
+    "conversation": {
+      "desc": "iHui AI Conversation - Multi-turn chat with AI agents",
+      "keywords": "AI chat,agent conversation,multi-turn chat"
+    },
+    "chatHistory": {
+      "desc": "iHui AI Chat History - View and manage conversation records",
+      "keywords": "chat history,conversation records,chat records"
+    },
+    "plaza": {
+      "desc": "iHui AI Plaza - Community updates, content sharing and discussion",
+      "keywords": "plaza,community updates,content sharing,discussion"
+    },
+    "xuqiu": {
+      "desc": "iHui AI Requirements - Post and browse AI requirements",
+      "keywords": "requirements,AI requirements,post requirement,requirement hall"
+    },
+    "courses": {
+      "desc": "iHui AI Courses - AI learning courses and tutorials",
+      "keywords": "courses,AI courses,learning tutorials,online courses"
+    },
+    "courseDetail": {
+      "desc": "iHui AI Course Detail - View course content and learn",
+      "keywords": "course detail,course content,AI learning"
+    },
+    "about": {
+      "desc": "iHui AI About Us - Learn about the iHui AI team and mission",
+      "keywords": "about us,iHui AI,team intro,company intro"
+    },
+    "feedback": {
+      "desc": "iHui AI Feedback - Submit suggestions and issue feedback",
+      "keywords": "feedback,suggestion,issue feedback"
+    },
+    "share": {
+      "desc": "iHui AI Share - Share content to social platforms",
+      "keywords": "share,content sharing,social sharing"
+    },
+    "customService": {
+      "desc": "iHui AI Customer Service - Online support and after-sales service",
+      "keywords": "customer service,online support,after-sales service"
+    },
+    "learnAI": {
+      "desc": "iHui AI Learn AI - Systematic AI learning paths and resources",
+      "keywords": "learn AI,AI learning,learning path,AI tutorial"
+    },
+    "user": {
+      "desc": "iHui AI User Center - Personal homepage and account management",
+      "keywords": "user center,personal homepage,account management"
+    },
+    "profile": {
+      "desc": "iHui AI Profile - Edit personal info and avatar",
+      "keywords": "profile,personal info,avatar,profile editing"
+    },
+    "settings": {
+      "desc": "iHui AI Settings - Account security and preference config",
+      "keywords": "settings,account settings,security config,preferences"
+    },
+    "vip": {
+      "desc": "iHui AI VIP Membership - Exclusive benefits and member services",
+      "keywords": "VIP,member,VIP membership,member benefits"
+    },
+    "orders": {
+      "desc": "iHui AI Orders - View and manage orders",
+      "keywords": "orders,order management,order list"
+    },
+    "orderDetail": {
+      "desc": "iHui AI Order Detail - View order info and status",
+      "keywords": "order detail,order info,order status"
+    },
+    "refundManagement": {
+      "desc": "iHui AI Refund Management - View and process refund requests",
+      "keywords": "refund management,refund request,refund processing"
+    },
+    "refund": {
+      "desc": "iHui AI Refund - Apply for refund and track progress",
+      "keywords": "refund,apply refund,refund progress"
+    },
+    "distribution": {
+      "desc": "iHui AI Distribution - Distribution promotion and commission earnings",
+      "keywords": "distribution,distribution promotion,commission,distribution earnings"
+    },
+    "payment": {
+      "desc": "iHui AI Payment - Order payment and top-up",
+      "keywords": "payment,order payment,online payment"
+    },
+    "statistics": {
+      "desc": "iHui AI Statistics - Revenue and usage data analysis",
+      "keywords": "statistics,data statistics,revenue analysis,usage data"
+    },
+    "adminGrayRelease": {
+      "desc": "Manage guided gray release and progressive rollout",
+      "keywords": "gray release,progressive release,traffic control"
+    },
+    "adminDependencyManager": {
+      "desc": "Configure dependency relationships and execution flow for guided steps",
+      "keywords": "dependency management,step dependency,flow control"
+    },
+    "adminEventBusMonitor": {
+      "desc": "Monitor and manage system event publishing and subscription",
+      "keywords": "event bus,event monitoring,subscription management"
+    },
+    "adminMonitoringDashboard": {
+      "desc": "Real-time performance monitoring and alert management",
+      "keywords": "monitoring,dashboard,performance,alerts"
+    },
+    "adminMobileDashboard": {
+      "desc": "Business dashboard mobile + forecast + subscription",
+      "keywords": "dashboard,mobile,forecast,subscription"
+    },
+    "adminErrorDashboard": {
+      "desc": "Frontend error monitoring and statistical analysis",
+      "keywords": "error,monitoring,statistics,analysis"
+    },
+    "adminPerformanceDashboard": {
+      "desc": "Web Vitals performance metrics monitoring and analysis",
+      "keywords": "performance,Web Vitals,LCP,FID,CLS"
+    },
+    "adminMobileAdapter": {
+      "desc": "Manage multi-platform adaptation settings and themes",
+      "keywords": "multi-device adaptation,mobile,platform settings"
+    },
+    "adminRecommendationConfig": {
+      "desc": "Configure guided recommendation rules and A/B testing",
+      "keywords": "recommendation,intelligent,A/B testing,user segmentation"
+    },
+    "adminDatabaseOptimization": {
+      "desc": "Monitor database performance and optimize query efficiency",
+      "keywords": "database,optimization,monitoring"
+    },
+    "adminUserManagement": {
+      "desc": "Manage system users, fund accounts and platform relationships",
+      "keywords": "user management,account management,platform relationships"
+    },
+    "adminRefundAudit": {
+      "desc": "Operations audit · Batch approval · SLA monitoring",
+      "keywords": "refund,audit,batch,SLA"
+    },
+    "adminProductManagement": {
+      "desc": "Manage products and product categories",
+      "keywords": "product management,product categories"
+    },
+    "adminActivityManagement": {
+      "desc": "Manage activities and activity categories",
+      "keywords": "activity management,activity categories"
+    },
+    "adminCourseManagement": {
+      "desc": "Manage courses and course categories",
+      "keywords": "course management,course categories"
+    },
+    "adminAgentManagement": {
+      "desc": "Manage agents and agent categories",
+      "keywords": "agent management,agent categories"
+    },
+    "adminPaymentManagement": {
+      "desc": "Manage payment records and transactions",
+      "keywords": "payment management,transaction management"
+    },
+    "adminWithdrawalManagement": {
+      "desc": "Manage withdrawal applications and audits",
+      "keywords": "withdrawal management,audit management"
+    },
+    "adminFundManagement": {
+      "desc": "Manage user fund accounts and balances",
+      "keywords": "fund account,balance management"
+    },
+    "adminFeedbackManagement": {
+      "desc": "Manage user feedback and issues",
+      "keywords": "feedback management,issue management"
+    },
+    "adminFaqManagement": {
+      "desc": "Manage FAQ and help documentation",
+      "keywords": "FAQ management,help documentation"
+    },
+    "adminWebhookManagement": {
+      "desc": "Manage Webhook configurations and events",
+      "keywords": "Webhook management,event management"
+    },
+    "dataDashboard": {
+      "desc": "System data statistics and quick actions",
+      "keywords": "data dashboard,statistics,management"
+    },
+    "adminSettlementManagement": {
+      "desc": "Manage and view settlement records",
+      "keywords": "settlement,management,records"
+    },
+    "adminAgentPricingConfig": {
+      "desc": "Manage and configure agent pricing plans",
+      "keywords": "agent,pricing,configuration,management"
+    },
+    "adminAgentAudit": {
+      "desc": "Audit and manage agent submission applications",
+      "keywords": "agent,audit,management"
+    },
+    "adminAiCapabilityManagement": {
+      "desc": "Manage AI capability configuration and services",
+      "keywords": "AI capability,capability management,service config"
+    },
+    "adminContentManagement": {
+      "desc": "Unified management of platform content resources",
+      "keywords": "content management,content resources,unified management"
+    },
+    "adminAuthManagement": {
+      "desc": "Manage authentication methods and account security",
+      "keywords": "authentication,account security,login management"
+    },
+    "adminNotificationCenter": {
+      "desc": "Platform notification sending and viewing center",
+      "keywords": "notification center,platform notification,message center"
+    },
+    "adminRbacManagement": {
+      "desc": "Role-based access control and permission assignment",
+      "keywords": "RBAC,role permission,access control"
+    },
+    "adminBusinessManagement": {
+      "desc": "Manage business modules and workflows",
+      "keywords": "business management,workflow,module management"
+    },
+    "adminCourseCategoryManagement": {
+      "desc": "Manage course categories and catalog structure",
+      "keywords": "course category,catalog management,course structure"
+    },
+    "adminDistributionManagement": {
+      "desc": "Manage distribution channels and agency relationships",
+      "keywords": "distribution management,channel management,agency"
+    },
+    "adminTourPermissionsAdmin": {
+      "desc": "Permission tour and permission security audit",
+      "keywords": "permission tour,security audit,permission check"
+    },
+    "adminUtilsAdmin": {
+      "desc": "Platform tools and utility management",
+      "keywords": "tools management,utilities,platform tools"
+    },
+    "supportTickets": {
+      "desc": "iHui AI Support Tickets - Submit and track ticket progress",
+      "keywords": "support tickets,ticket tracking,technical support"
+    }
+  }
+}

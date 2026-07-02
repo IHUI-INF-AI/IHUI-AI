@@ -1,0 +1,14 @@
+{
+  "pdfToolsPanel": {
+    "addSignature": "Add Signature",
+    "verifyAll": "Verify All",
+    "applyWatermark": "Apply Watermark",
+    "clearAll": "Clear All",
+    "page": "pages",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "print": "Print",
+    "quickPrint": "Quick Print",
+    "resetSettings": "Reset Settings"
+  }
+}

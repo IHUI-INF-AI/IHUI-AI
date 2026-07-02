@@ -1,0 +1,56 @@
+{
+  "withdrawRecords": {
+    "title": "Withdrawal Records",
+    "subtitle": "View your withdrawal records",
+    "filter": {
+      "Status": "Status",
+      "all": "All",
+      "pending": "Pending Review",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "search": "Search",
+      "reset": "Reset",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "status": "Status"
+    },
+    "table": {
+      "withdrawalNo": "Withdrawal Order No.",
+      "amount": "Withdrawal Amount",
+      "method": "Withdrawal Method",
+      "account": "Withdrawal Account",
+      "Status": "Status",
+      "createTime": "Application Time",
+      "actions": "Actions",
+      "viewDetail": "View Details",
+      "status": "Status"
+    },
+    "methods": {
+      "wechat": "WeChat",
+      "alipay": "Alipay",
+      "bank": "Bank Card"
+    },
+    "Status": {
+      "pending": "Pending Review",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "unknown": "Unknown"
+    },
+    "empty": {
+      "noRecords": "No withdrawal records"
+    },
+    "status": {
+      "approved": "Approved",
+      "completed": "Completed",
+      "pending": "Pending Review",
+      "rejected": "Rejected",
+      "unknown": "未知"
+    },
+    "error": {
+      "loadFailed": "Failed to load withdrawal records",
+      "loadFailedRetry": "Failed to load withdrawal records, please try again later"
+    }
+  }
+}

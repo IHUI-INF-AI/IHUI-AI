@@ -1,0 +1,19 @@
+{
+  "askEdit": {
+    "createTitle": "New Question",
+    "editTitle": "Edit Question",
+    "questionTitle": "Question Title",
+    "titlePlaceholder": "Enter question title (5-100 chars)",
+    "titleRequired": "Please enter a question title",
+    "titleLength": "Title length must be between 5 and 100 characters",
+    "content": "Question Content",
+    "contentPlaceholder": "Describe your question in detail (10-2000 chars)",
+    "contentRequired": "Please enter question content",
+    "contentLength": "Content length must be between 10 and 2000 characters",
+    "category": "Category",
+    "selectCategory": "Select category (optional)",
+    "tags": "Tags",
+    "tagsPlaceholder": "Type a tag and press Enter",
+    "tagMax": "Up to {max} tags"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "askDetail": {
+    "backToList": "Back to List",
+    "questionNotFound": "Question does not exist or has been deleted",
+    "top": "Top",
+    "essence": "Essence",
+    "answers": "answers",
+    "submitAnswer": "Submit Answer",
+    "adopted": "Adopted",
+    "adopt": "Adopt",
+    "favorite": "Favorite",
+    "writeAnswerPlaceholder": "Write your answer..."
+  }
+}

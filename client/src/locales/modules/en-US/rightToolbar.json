@@ -1,0 +1,12 @@
+{
+  "rightToolbar": {
+    "columnDisplay": "Column Display",
+    "dialogTitle": "Dialog Title",
+    "hide": "Hide",
+    "hideSearch": "Hide Search",
+    "refresh": "Refresh",
+    "show": "Show",
+    "showSearch": "Show Search",
+    "toggleColumns": "Toggle Columns"
+  }
+}

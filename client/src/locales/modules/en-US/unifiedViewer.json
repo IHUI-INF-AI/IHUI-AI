@@ -1,0 +1,32 @@
+{
+  "unifiedViewer": {
+    "cadFile": "CAD Drawing File",
+    "format": "Format",
+    "cadHint": "Recommend using AutoCAD or FreeCAD to open",
+    "archiveFile": "Archive File",
+    "loading": "Loading...",
+    "notSupport": "Preview of this file type is not yet supported",
+    "extension": "Extension",
+    "mimeType": "MIME Type",
+    "fullscreen": "Fullscreen",
+    "download": "Download",
+    "openInNewTab": "Open in new tab",
+    "type": "Type",
+    "downloadView": "Download to view",
+    "downloadExtract": "Download and extract to view",
+    "unknown": "Unknown",
+    "downloadFile": "Download file",
+    "file": "File",
+    "catDocument": "Document",
+    "catSpreadsheet": "Spreadsheet",
+    "catPresentation": "Presentation",
+    "catImage": "Image",
+    "catVideo": "Video",
+    "catAudio": "Audio",
+    "catCode": "Code",
+    "catText": "Text",
+    "catArchive": "Archive",
+    "catModel3d": "3D Model",
+    "catCad": "CAD Drawing"
+  }
+}

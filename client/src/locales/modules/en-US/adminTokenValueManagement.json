@@ -1,0 +1,23 @@
+{
+  "adminTokenValueManagement": {
+    "actions": {
+      "Export": "Export Records"
+    },
+    "search": {},
+    "table": {},
+    "statistics": {},
+    "Export": {
+      "filename": "filename",
+      "title": "Export"
+    },
+    "messages": {
+      "ExportNoData": "No data to Export",
+      "ExportSuccess": "Token value list Exported successfully",
+      "ExportFailed": "Export Failed"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
+  }
+}

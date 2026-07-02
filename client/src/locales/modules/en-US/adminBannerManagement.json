@@ -1,0 +1,39 @@
+{
+  "adminBannerManagement": {
+    "tabs": {},
+    "actions": {},
+    "bannerList": {
+      "Status": "Status"
+    },
+    "search": {
+      "StatusPlaceholder": "Please select Status",
+      "StatusAll": "All",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
+    },
+    "dialogs": {},
+    "messages": {},
+    "carouselForm": {
+      "Status": "Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled",
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "messages": {}
+    },
+    "activityForm": {
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled",
+      "validation": {
+        "StatusRequired": "Please select Status"
+      },
+      "upload": {
+        "Failed": "Upload Failed"
+      },
+      "messages": {}
+    }
+  }
+}

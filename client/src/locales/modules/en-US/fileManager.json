@@ -1,0 +1,24 @@
+{
+  "fileManager": {
+    "dropUpload": "Drag file here or click to upload",
+    "loadListFailed": "Failed to load file list",
+    "createShareFailed": "Create share failed",
+    "deleteSuccess": "Delete successful",
+    "deleteFailed": "Delete failed",
+    "uploadNewVersionSuccess": "New version uploaded",
+    "uploadNewVersionFailed": "Failed to upload new version",
+    "confirmRollback": "Confirm rollback to this version?",
+    "rollbackTitle": "Confirm Rollback",
+    "rollbackSuccess": "Rollback successful",
+    "rollbackFailed": "Rollback failed",
+    "downloadComplete": "Download complete",
+    "batchShareDev": "Batch share in development",
+    "batchDeleteFailed": "Batch delete failed",
+    "linkCopied": "Link copied",
+    "uploadSuccess": "Upload successful",
+    "confirmBatchDelete": "Are you sure you want to delete the selected {count} files?",
+    "confirmDelete": "Are you sure you want to delete the file \"{name}\"?",
+    "confirmDeleteTitle": "Confirm Delete",
+    "batchDeleteSuccess": "Batch delete successful"
+  }
+}

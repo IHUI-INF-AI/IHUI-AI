@@ -1,0 +1,8 @@
+{
+  "userUserMembershipBenefits": {
+    "benefitName": "Benefit Name",
+    "normalUser": "Normal User",
+    "vip": "VIP",
+    "trader": "Trader"
+  }
+}

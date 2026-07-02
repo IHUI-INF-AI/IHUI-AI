@@ -1,0 +1,10 @@
+{
+  "learnList": {
+    "category": "Category",
+    "all": "All",
+    "searchPlaceholder": "Search courses...",
+    "noCourses": "No courses",
+    "breadcrumbCourse": "Course",
+    "breadcrumbList": "Course List"
+  }
+}

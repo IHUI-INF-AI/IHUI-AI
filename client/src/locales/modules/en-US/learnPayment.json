@@ -1,0 +1,17 @@
+{
+  "learnPayment": {
+    "breadcrumbCourse": "Course",
+    "breadcrumbPay": "Payment",
+    "notExist": "Order not exist",
+    "scanTip": "Please use {type} to scan and pay",
+    "orderDetail": "Order Detail",
+    "orderId": "Order ID: ",
+    "payMethod": "Payment Method: ",
+    "amountDue": "Amount Due: ",
+    "simulatePay": "Simulate Payment",
+    "wechat": "WeChat",
+    "balance": "Balance",
+    "alipay": "Alipay",
+    "paySuccess": "Payment Success"
+  }
+}

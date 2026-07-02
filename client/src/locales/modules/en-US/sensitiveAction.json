@@ -1,0 +1,29 @@
+{
+  "sensitiveAction": {
+    "closeLabel": "Close",
+    "sendCode": "Send Code",
+    "codeSentPrefix": "Code sent, retry in {ttl}s",
+    "codeSentSuffix": "to resend",
+    "enterCode": "Enter code",
+    "resendWithCooldown": "Resend in {n}s",
+    "resend": "Resend",
+    "confirm": "Confirm",
+    "verifySuccess": "Verified",
+    "continueAction": "Continue",
+    "channelSms": "SMS",
+    "channelEmail": "Email",
+    "channelTotp": "Authenticator",
+    "channelPassword": "Password",
+    "channelPush": "Push",
+    "defaultDescription": "For account security, \"{action}\" requires two-factor verification.",
+    "codeExpired": "Code expired, please resend",
+    "needVerification": "{action} requires verification",
+    "requestFailed": "Failed to request code, please try again later",
+    "codeSentWithTtl": "Code sent, valid for {ttl} seconds",
+    "applyFailed": "Request failed",
+    "verifyFailedRetry": "Verification failed, please retry",
+    "codeError": "Invalid code",
+    "verifySuccessAnnounce": "Verification successful",
+    "verifyFailed": "Verification failed"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "resourceDetail": {
+    "breadcrumbResource": "Resources",
+    "downloadTimes": "downloads",
+    "views": "views",
+    "rating": "Rating",
+    "size": "Size: ",
+    "uploader": "Uploader: ",
+    "anonymous": "Anonymous",
+    "freeDownload": "Free Download",
+    "pointsDownload": "Points Download",
+    "downloadResource": "Download Resource",
+    "like": "Like",
+    "favorite": "Favorite",
+    "rateResource": "Rate",
+    "current": "Current: ",
+    "scoreUnit": "points",
+    "notExist": "Resource not exist",
+    "operateFailed": "Operation failed"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "tasks": {
+    "title": "Task Management",
+    "subtitle": "View and manage your task execution Status",
+    "noTasks": "No tasks",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "viewResults": "View Results",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "cancelledAt": "Cancelled At",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "confirmCancel": "This task",
+    "cancelSuccess": "Task cancelled",
+    "cancelFailed": "Failed to cancel task",
+    "status": {
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "failed": "Failed",
+      "pending": "等待中",
+      "processing": "Processing",
+      "unknown": "未知"
+    }
+  }
+}

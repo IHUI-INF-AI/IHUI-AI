@@ -1,0 +1,8 @@
+{
+  "mobileNav": {
+    "bottomNavAriaLabel": "Bottom Nav Aria Label",
+    "ariaLabel": "Aria Label",
+    "title": "Title",
+    "close": "Close"
+  }
+}
