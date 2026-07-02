@@ -57,6 +57,7 @@ import {
   indexRoutes,
   p19Routes,
   p20Routes,
+  eduRoutes,
 } from './modules'
 
 const routes: Array<RouteRecordRaw> = [
@@ -73,9 +74,26 @@ const routes: Array<RouteRecordRaw> = [
   ...indexRoutes,
   ...p19Routes,
   ...p20Routes,
+  ...eduRoutes,
 ]
 
 addThirdPartyLoginRoutes(routes)
+
+// 兜底：未匹配到的任何路径都落到 404 页面（不强制登录，便于调试）
+// 必须放在所有路由（含第三方登录）的最末尾，否则会抢占具体路径
+routes.push({
+  path: '/:pathMatch(.*)*',
+  name: 'notFound',
+  component: safeImport(
+    () => import(/* webpackChunkName: "not-found" */ '@/views/error/404.vue'),
+    'NotFound'
+  ),
+  meta: {
+    title: 'routes.notFound',
+    description: 'seo.notFound.desc',
+    keywords: 'seo.notFound.keywords',
+  },
+})
 
 try {
   logger.debug('[Router] Route modular loading complete')
@@ -356,6 +374,9 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
       return
     }
 
+    // vue-router 4: to.meta 自动合并所有 matched 路由的 meta (父路由 + 子路由)
+    // 这意味着 /admin 父路由的 requiresAuth: true 会自动传到所有 children
+    // 如果某个 child 不需要 auth (如登录回调), 必须放在顶级路由而非 /admin children
     const requiresAuth = to.meta?.requiresAuth ?? false
 
     // admin-classic 后台路径强制需要登录（路由可能由 catch-all 匹配，meta 缺失）

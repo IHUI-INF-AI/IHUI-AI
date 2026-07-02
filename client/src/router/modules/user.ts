@@ -162,9 +162,23 @@ export const userRoutes: Array<RouteRecordRaw> = [
       'CustomerService'
     ),
     meta: {
-      title: '客服中心',
-      description: '智汇AI客服中心',
-      keywords: '客服,在线客服,工单,技术支持',
+      title: 'routes.customService',
+      description: 'seo.customService.desc',
+      keywords: 'seo.customService.keywords',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/support/tickets',
+    name: 'supportTickets',
+    component: safeImport(
+      () => import(/* webpackChunkName: "support-tickets" */ '@/views/SupportTickets.vue'),
+      'SupportTickets'
+    ),
+    meta: {
+      title: 'routes.supportTickets',
+      description: 'seo.supportTickets.desc',
+      keywords: 'seo.supportTickets.keywords',
       requiresAuth: true,
     },
   },
@@ -626,5 +640,63 @@ export const userRoutes: Array<RouteRecordRaw> = [
       keywords: '国际化,i18n,多语言,RTL,阿拉伯语,希伯来语,复数',
       requiresAuth: true,
     },
+  },
+  // P2 死代码挂载: 协议页 (公开, 不需要 auth)
+  {
+    path: '/agreement/:type',
+    name: 'agreement',
+    component: safeImport(() => import('@/views/agreement/Index.vue'), 'agreement'),
+    meta: { title: 'routes.agreement' },
+  },
+  // P2 死代码挂载: 帮助中心 (公开, 不需要 auth)
+  {
+    path: '/help',
+    name: 'helpCenter',
+    component: safeImport(() => import('@/views/help/Index.vue'), 'helpCenter'),
+    meta: { title: 'routes.help' },
+  },
+  // P2 死代码挂载: 账号注销 (合规性页面, 需要 auth)
+  {
+    path: '/settings/account-cancel',
+    name: 'accountCancel',
+    component: safeImport(() => import('@/views/settings/AccountCancel.vue'), 'accountCancel'),
+    meta: { title: 'routes.accountCancel', requiresAuth: true },
+  },
+  // P1 孤岛群挂载: Settings 子页 (使用 SettingsPageLayout 布局)
+  {
+    path: '/settings/app-permission',
+    name: 'appPermission',
+    component: safeImport(() => import('@/views/settings/AppPermission.vue'), 'appPermission'),
+    meta: { title: 'routes.appPermission', requiresAuth: true },
+  },
+  {
+    path: '/settings/business-license',
+    name: 'businessLicense',
+    component: safeImport(() => import('@/views/settings/BusinessLicense.vue'), 'businessLicense'),
+    meta: { title: 'routes.businessLicense', requiresAuth: true },
+  },
+  {
+    path: '/settings/change-phone',
+    name: 'changePhone',
+    component: safeImport(() => import('@/views/settings/ChangePhone.vue'), 'changePhone'),
+    meta: { title: 'routes.changePhone', requiresAuth: true },
+  },
+  {
+    path: '/settings/icp-record',
+    name: 'icpRecord',
+    component: safeImport(() => import('@/views/settings/IcpRecord.vue'), 'icpRecord'),
+    meta: { title: 'routes.icpRecord', requiresAuth: true },
+  },
+  {
+    path: '/settings/model-record',
+    name: 'modelRecord',
+    component: safeImport(() => import('@/views/settings/ModelRecord.vue'), 'modelRecord'),
+    meta: { title: 'routes.modelRecord', requiresAuth: true },
+  },
+  {
+    path: '/settings/usage-rules',
+    name: 'usageRules',
+    component: safeImport(() => import('@/views/settings/UsageRules.vue'), 'usageRules'),
+    meta: { title: 'routes.usageRules', requiresAuth: true },
   },
 ]

@@ -234,9 +234,11 @@ const eduRoutes: RouteRecordRaw[] = [
   {
     path: '/admin/edu',
     name: 'EduAdminHome',
-    component: notFoundComponent,
+    component: (): Promise<Component> =>
+      import('@/views/edu/admin/index.vue').then((m) => m.default as Component),
     meta: {
       title: '教育后台',
+      requiresAuth: true,
       requiresAdmin: true,
       icon: 'Setting',
       hideInMenu: false,

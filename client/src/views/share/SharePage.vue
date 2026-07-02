@@ -206,7 +206,7 @@ const hasStats = computed(
 )
 
 const platforms = [
-  { id: 'wechat', name: t('share.wechat'), icon: ChatDotRound, color: '#07c160' },
+  { id: 'wechat', name: t('share.wechat'), icon: ChatDotRound, color: 'var(--color-wechat-07c160)' },
   { id: 'weibo', name: t('share.weibo'), icon: Share, color: '#e6162d' },
   { id: 'qq', name: t('share.qq'), icon: Message, color: '#12b7f5' },
   { id: 'copy', name: t('share.copyLink'), icon: Link, color: '#909399' },

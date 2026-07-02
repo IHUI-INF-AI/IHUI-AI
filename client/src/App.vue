@@ -62,7 +62,7 @@
               </div>
               <h3 class="ai-side-panel-empty-title">{{ t('floatingChat.emptyWorkspace.title') }}</h3>
               <p class="ai-side-panel-empty-desc">{{ t('floatingChat.emptyWorkspace.description') }}</p>
-              <div class="ai-side-panel-empty-actions el-button-stack">
+              <div class="ai-side-panel-empty-actions">
                 <el-button type="primary" @click="handleEnterWorkspace('model')">
                   {{ t('floatingChat.emptyWorkspace.selectModel') }}
                 </el-button>
