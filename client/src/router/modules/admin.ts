@@ -22,6 +22,85 @@ export const adminRoutes: Array<RouteRecordRaw> = [
     component: safeImport(() => import('@/views/admin-classic/index.vue'), 'adminClassic'),
     meta: { title: 'routes.adminClassic', requiresAuth: true, requiresAdmin: true },
   },
+  // P3-7 (2026-07-02): API 开放平台管理页面 (拆分 components/api 接入)
+  {
+    path: '/admin/api-platform/apps',
+    name: 'adminApiApps',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-apps" */ '@/views/admin/ApiApps.vue'),
+      'adminApiApps'
+    ),
+    meta: {
+      title: 'routes.adminApiApps',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/api-platform/groups',
+    name: 'adminApiGroups',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-groups" */ '@/views/admin/ApiGroups.vue'),
+      'adminApiGroups'
+    ),
+    meta: {
+      title: 'routes.adminApiGroups',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/api-platform/packages',
+    name: 'adminApiPackages',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-packages" */ '@/views/admin/ApiPackages.vue'),
+      'adminApiPackages'
+    ),
+    meta: {
+      title: 'routes.adminApiPackages',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/api-platform/billing',
+    name: 'adminApiBilling',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-billing" */ '@/views/admin/ApiBilling.vue'),
+      'adminApiBilling'
+    ),
+    meta: {
+      title: 'routes.adminApiBilling',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/api-platform/usage',
+    name: 'adminApiUsage',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-usage" */ '@/views/admin/ApiUsage.vue'),
+      'adminApiUsage'
+    ),
+    meta: {
+      title: 'routes.adminApiUsage',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
+    path: '/admin/api-platform/debug',
+    name: 'adminApiDebug',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-debug" */ '@/views/admin/ApiDebug.vue'),
+      'adminApiDebug'
+    ),
+    meta: {
+      title: 'routes.adminApiDebug',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
   {
     path: '/admin/gray-release',
     name: 'grayRelease',
