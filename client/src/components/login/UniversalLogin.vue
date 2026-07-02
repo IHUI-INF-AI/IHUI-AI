@@ -32,7 +32,7 @@
       <TabSwitcher
         :active-tab="activeTab"
         :is-register-mode="isRegisterMode"
-        @update:active-tab="(tab) => activeTab = tab"
+        @update:active-tab="handleActiveTabChange"
         @update:register-mode="updateRegisterMode"
       />
 
@@ -43,7 +43,7 @@
         :is-dark-mode="isDarkMode"
         :show-captcha="showCaptcha"
         @submit="onAccountLoginSubmit"
-        @switch-tab="(tab) => activeTab = tab"
+        @update:active-tab="handleActiveTabChange"
         @forgot-password="onForgotPassword"
         @sso-click="onSSOClick"
       />
@@ -54,7 +54,7 @@
         ref="phoneLoginFormRef"
         :loading="loginLoading"
         @submit="onPhoneLoginSubmit"
-        @switch-tab="activeTab = $event"
+        @update:active-tab="handleActiveTabChange"
       />
 
       <!-- 注册表单 -->
@@ -266,6 +266,10 @@ watch(
 
 const updateRegisterMode = (value: boolean): void => {
   isRegisterMode.value = value
+}
+
+const handleActiveTabChange = (tab: 'account' | 'phone'): void => {
+  activeTab.value = tab
 }
 
 const handleClose = (): void => {
