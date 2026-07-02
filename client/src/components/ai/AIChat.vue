@@ -40,7 +40,6 @@
             :selected-model="selectedModel"
             :selected-agent="selectedAgent"
             :effective-show-tickets="effectiveShowTickets"
-            @toggle-session-list="showSessionList = !showSessionList"
             @toggle-search="toggleSearch"
             @menu-command="handleMenuCommand"
             @toggle-minimize="toggleMinimize"
@@ -48,19 +47,8 @@
             @start-drag="startDrag"
             @dblclick="showMinimize ? toggleMinimize() : undefined"
           />
-          <!-- 浮窗主体区：左侧滑出会话列表 + 主内容 -->
+          <!-- 浮窗主体区：主内容（会话历史已统一走 Sidebar.vue 的 SidebarChatHistory，浮窗内不再重复入口） -->
           <div class="dialog-body-wrap">
-            <!-- 左侧滑出的会话列表面板（chat-parts 拆分）：见 ChatSessionPanel.vue -->
-            <ChatSessionPanel
-              :show-session-list="showSessionList"
-              :conversations="displayedConversationHistory"
-              :loading="modelChatHistoryLoading"
-              :current-conversation-id="currentConversationId"
-              @close="showSessionList = false"
-              @select-session="selectSessionAndClose"
-              @delete-session="deleteConversationHandler"
-            />
-
             <!-- 主内容：搜索栏、消息区、输入区 -->
             <!-- 搜索栏（chat-parts 拆分）：见 ChatSearchBar.vue -->
             <ChatSearchBar
@@ -1497,7 +1485,7 @@ import PromptTemplates from './PromptTemplates.vue'
 // OpenClaw 集成
 import { OpenClawContainer } from './openclaw'
 // 子组件：标题栏、会话列表、搜索栏（chat-parts 拆分，降低 AIChat.vue 模板复杂度）
-import { ChatHeaderBar, ChatSessionPanel, ChatSearchBar } from './chat-parts'
+import { ChatHeaderBar, ChatSearchBar } from './chat-parts'
 import {
   MemoryPanel,
   SkillsPanel,
@@ -1713,13 +1701,16 @@ const props = withDefaults(
     enableSearch?: boolean
     showModelSelector?: boolean
     inputPlaceholder?: string
-    dialogTitle?: string
     // embedded 模式额外的 props
     showHeader?: boolean  // 是否显示头部
     showMinimize?: boolean  // 是否显示最小化按钮
     showClose?: boolean  // 是否显示关闭按钮
     draggable?: boolean  // 是否可拖拽
     resizable?: boolean  // 是否可调整大小
+    /**
+     * 面板标题（用于浮窗 dialog-header 标题）
+     */
+    dialogTitle: string
     // AI 模式相关 props
     aiMode?: 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'auto' | 'generation'  // 初始 AI 模式
     agentId?: string  // 指定的 Agent ID（用于 Agent 模式）
@@ -1810,7 +1801,6 @@ const apiAccessInfo = ref({
 const showHistoryPanel = ref(false)
 const shouldRenderHistoryPanel = ref(false)
 watch(showHistoryPanel, (val) => { if (val) shouldRenderHistoryPanel.value = true })
-const showSessionList = ref(false) // 浮窗左侧滑出的会话列表面板
 const showAICapabilityPanel = ref(false) // AI能力选择面板
 const showCapabilityDropdown = ref(false) // 输入区 AI 能力下拉（网格卡片）显隐
 
@@ -6368,24 +6358,6 @@ const loadConversation = async (
   }
 }
 
-/** 在左侧会话列表中选中会话并关闭侧栏 */
-const selectSessionAndClose = async (conversationId: string) => {
-  await loadConversation(conversationId)
-  showSessionList.value = false
-  // 确保切换会话后消息区域自动滚动到底部
-  await nextTick()
-  // 使用一次异步定时，等待布局（如侧栏收起）完全稳定后再滚动
-  setTimeout(() => {
-    const container = messagesContainerRef.value
-    if (!container) return
-    // 直接滚动到内容最底部，避免“差一点”的残留偏差
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: 'smooth',
-    })
-  }, 50)
-}
-
 // 删除对话（支持后端同步删除 + 大模型 chatHistory 删除）
 const deleteConversationHandler = async (conversationId: string) => {
   const confirmed = await confirm(
@@ -8180,13 +8152,7 @@ watch(showHistoryPanel, (visible) => {
   }
 })
 
-// 打开左侧会话列表面板时也刷新（保证列表来自 user-model-chat/query）
-watch(showSessionList, (visible) => {
-  if (visible && currentAIMode.value === 'model' && selectedModel.value) {
-    // 打开面板仅刷新列表，不要自动切换/加载会话（避免反复弹“已加载历史会话”）
-    loadModelChatHistory({ autoSelectLatest: false })
-  }
-})
+// 原 showSessionList watch 已随 ChatSessionPanel 一起移除（会话历史入口已统一走 SidebarChatHistory）
 
 // 统一处理通过 props.agentId 选中智能体的情况（等 unifiedAgents 加载完再匹配）
 watch(
@@ -11640,9 +11606,5 @@ button.mini-delete-btn {
 }
 :where(body) :where(.api-access-dialog) .protocol-tabs .el-tabs__item {
   justify-content: center;
-}
-
-.session-list-panel .history-actions {
-  opacity: 1;
 }
 </style>

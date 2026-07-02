@@ -1,63 +1,10 @@
-// ========== 会话列表面板样式 ==========
-// 从 AIChat.vue 块1（scoped style）迁移
-// 包含 .session-list-panel/.session-list-header/.session-list-title/.session-list-close/
-//      .session-list-content/.session-list-slide 动画/.history-content
+// ========== 会话列表面板样式（精简版） ==========
+// 旧 .session-list-panel/.session-list-header/.session-list-title/.session-list-close/
+//    .session-list-content/.session-list-slide-* 动画已随 ChatSessionPanel 一起移除
+//    （会话历史入口已统一走 Sidebar.vue 的 SidebarChatHistory）
+//
+// 保留：.history-content 仍被 AIChat.vue 内嵌的 el-drawer 历史列表（1380-1401 行）使用
 
-.session-list-panel {
-  position: absolute;
-  left: 1px;
-  top: 1px;
-  bottom: 1px;
-  width: 258px;
-  z-index: calc(var(--z-base) + 9);
-  display: flex;
-  flex-direction: column;
-  background: var(--el-bg-color);
-  border: var(--unified-border);
-  border-radius: var(--fcd-radius-sm);
-  overflow: hidden;
-}
-
-.session-list-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: var(--unified-border-bottom);
-  background: var(--el-fill-color-lighter);
-}
-
-.session-list-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.session-list-close {
-  /* 尺寸与正方形由全局 _buttons-unified 的 .session-list-close 统一 */
-}
-
-.session-list-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px;
-  background: var(--el-bg-color);
-}
-
-// 会话列表滑入滑出动画
-.session-list-slide-enter-active,
-.session-list-slide-leave-active {
-  transition: transform 0.25s ease;
-}
-
-.session-list-slide-enter-from,
-.session-list-slide-leave-to {
-  transform: translateX(-100%);
-}
-
-// 历史记录面板样式
 .history-content {
   padding: 16px 0;
 
