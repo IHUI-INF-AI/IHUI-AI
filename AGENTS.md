@@ -274,3 +274,100 @@ Test: <e2e spec 名>
 - ❌ 提交时不带"Refs"或"Test"字段（后续无法追溯）
 - ❌ 用英文 commit message（与项目中文规范不一致）
 
+---
+
+## 端口配置统一守门（2026-07-02 立）
+
+修改任何含端口字面量（8000/8888/4173/18000）的文件，**必须**通过 `npm run check:port-drift` 守门，否则视为回归：
+
+### 触发文件
+
+- `client/vite.config.ts`（dev server 端口）
+- `client/playwright.config.ts`（e2e baseURL 端口）
+- `client/scripts/**/*.ts`（端口校验脚本）
+- `client/e2e/**/*.ts`（e2e 测试连接端口）
+- `.github/workflows/*.yml`（CI 端口）
+- `scripts/*.ps1` / `*.sh` / `*.bat`（本地启动脚本）
+
+### 端口字面量规则
+
+| 端口 | 用途 | 唯一来源 |
+|------|------|----------|
+| 8000 | 后端 (FastAPI) | `client/config/ports.ts:BACKEND_PORT` |
+| 8888 | 前端 (Vite dev) | `client/config/ports.ts:FRONTEND_PORT` |
+| 4173 | 前端 (Vite preview) | `client/config/ports.ts:PREVIEW_PORT` |
+| 18000 | 已废弃 (DEPRECATED) | `client/config/ports.ts:DEPRECATED_PORTS` |
+
+**强约束**：所有端口引用必须从 `client/config/ports.ts` 导入（`BACKEND_URL` / `FRONTEND_URL` / `PREVIEW_URL` / `BACKEND_PORT` / `FRONTEND_PORT` / `PREVIEW_PORT` / `DEPRECATED_PORTS`），**禁止**硬编码端口字面量。
+
+### 守门命令
+
+```bash
+# 本地开发 / CI 必跑
+npm run check:port-drift
+
+# 输出失败时: 替换端口字面量为 ports.ts import, 重新跑
+# 退出码 0 = 通过, 1 = 发现违规
+```
+
+### 红线
+
+- ❌ 在 `vite.config.ts` / `playwright.config.ts` 硬编码 8000/8888/4173（必须 import ports.ts）
+- ❌ 在 e2e 测试硬编码 `http://localhost:8888`（应使用 baseURL 变量）
+- ❌ 跳过 `check:port-drift` 把不达标的 PR 合并
+- ❌ 引入新的端口字面量（必须先在 `ports.ts` 定义常量）
+
+---
+
+## 行尾格式守门（2026-07-02 立）
+
+修改任何 src/scripts/e2e/config/docs 下的 `.ts/.vue/.scss/.json/.md` 等文本文件，**必须**保持 LF 行尾（`\n`），禁止引入 CRLF（`\r\n`）或 lone CR（`\r`）：
+
+### 触发文件
+
+- `client/src/**/*.{ts,tsx,js,jsx,mjs,cjs,vue,scss,css,sass,less,json,md,html,xml,yml,yaml}`
+- `client/scripts/**/*.{ts,js,mjs}`
+- `client/e2e/**/*.{ts,js,mjs}`
+- `client/config/**/*`
+- `scripts/**/*`
+- `docs/**/*.{md,mdx}`
+
+**例外**：
+- `.gitattributes`（CRLF-on-Windows 提示注释）
+- `.ps1` / `.sh` / `.bat` / `.cmd`（Windows 脚本，由 .gitattributes `eol=lf` + git 自动转换处理）
+
+### 守门命令
+
+```bash
+# staged 模式 (默认): 只检查 git diff --cached --name-only 中的文件
+# 集成到 lint-staged 与 pre-commit hook
+npm run check:line-endings
+
+# 全项目模式: 找出所有 CRLF 文件用于批量规范化
+npm run check:line-endings:all
+
+# 批量规范化历史遗留:
+#   git add --renormalize .
+#   git commit -m "chore: normalize line endings to LF"
+```
+
+### 守门集成
+
+`client/scripts/check-line-endings.mjs` 默认检查 git staged 文件，可与 lint-staged / pre-commit hook 集成：
+
+```json
+// package.json lint-staged 段 (建议)
+"lint-staged": {
+  "*.{ts,vue,scss,json,md}": [
+    "node scripts/check-line-endings.mjs"
+  ]
+}
+```
+
+### 红线
+
+- ❌ 在 Windows 编辑器保存为 CRLF 后 commit（git 会自动转 LF，但 .gitattributes 已声明 `text=auto eol=lf`）
+- ❌ 用 `String.Replace` 等字符串工具直接修改 .ts 文件后未规范化行尾
+- ❌ 跳过 `check:line-endings` 把含 CRLF 的 PR 合并
+- ❌ 引入 .ps1/.bat 文件用 LF 行尾（Windows 脚本会运行失败）
+
