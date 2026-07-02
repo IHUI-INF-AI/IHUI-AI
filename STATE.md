@@ -29,30 +29,14 @@
 | 54fc435d | fix(edu) | 2 个图表组件硬编码 #2563eb 改走 THEME_INVARIANTS.ctaBgDark | ✅ 已推送 |
 | 35c2f7bd | feat(edu) | 补提交 3 个缺失的 edu 模块文件 + 1 个测试 | ✅ 已推送 |
 | 5745065e | docs(state) | 第三轮 DELIVERED 状态记录 | ✅ 已推送 |
-| 8ec78be3 | feat | auth store HMR 稳定性修复 + edu C0 bug 修复 + AI 报告引擎(PR-D) + CRLF 规范化 | ⏳ 待推送 |
-| 9444c804 | fix(test) | 修复 useI18nV2 formatRelative 时间敏感测试 flaky | ⏳ 待推送 |
+| 8ec78be3 | feat | auth store HMR 稳定性修复 + edu C0 bug 修复 + AI 报告引擎(PR-D) + CRLF 规范化 | ✅ 已推送 |
+| 9444c804 | fix(test) | 修复 useI18nV2 formatRelative 时间敏感测试 flaky | ✅ 已推送 |
+| 6595c327 | docs(state) | 第三轮 BLOCKED 收尾记录 (后网络恢复已推送) | ✅ 已推送 |
 
-## Status: BLOCKED (网络阻塞,非代码问题)
+## Status: DELIVERED (网络恢复后全部推送完成)
 
-### 阻塞原因
-- GitHub HTTPS 443 端口 `Connection was reset`,连续 4 个 goal turn 失败
-- DNS 解析正常 (20.205.243.166),TCP 443 不可达
-- SSH 替代方案不可用 (本机无 SSH key 配置)
-- 镜像 (kkgithub.com) 可达,但走它会将 GitHub PAT 暴露给第三方代理 — 安全风险不可接受
-
-### 已尝试的方案
-1. ❌ `git push origin main` (HTTPS 443) — 4 次失败
-2. ❌ `ssh -T git@github.com` — 无 SSH key
-3. ❌ `ghproxy.com` / `hub.fastgit.org` / `github.com.cnpmjs.org` — 全部不可达
-4. ⚠️ `kkgithub.com` 可达但拒绝使用 (PAT 安全风险)
-
-### 待用户介入
-- 网络层问题需用户处理 (VPN/proxy/网络恢复)
-- 推荐用户配置 SSH key 作为长期替代方案:
-  ```
-  ssh-keygen -t ed25519 -C "lizong@aizhs.top"
-  # 把 ~/.ssh/id_ed25519.pub 添加到 GitHub Settings → SSH keys
-  git remote set-url origin git@github.com:IHUI-INF-AI/IHUI-AI.git
-  git push origin main
-  ```
-- 网络恢复后仅需执行: `git push origin main` (2 个 commit 自动推送)
+### 推送历史
+- 第三轮前 6 个 commit (c74a375e..5745065e) 在 2026-07-03 早期推送
+- 后 3 个 commit (8ec78be3, 9444c804, 6595c327) 因 GitHub HTTPS 443 不可达阻塞 5 个 goal turn
+- 网络恢复后 1 次推送成功: `5745065e..6595c327  main -> main`
+- 最终状态: origin/main = 6595c327, 工作树干净, 所有 commit 已推送
