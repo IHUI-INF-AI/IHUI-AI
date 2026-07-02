@@ -2,9 +2,19 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
+      "entry": [
+        "src/router/index.ts",
+        "src/router/modules/*.ts",
+        "src/router/thirdPartyLoginRoutes.ts",
+        "src/App.vue",
+        "src/api/index.ts",
+        "src/api/**/*.ts",
+        "src/stores/*.ts",
+        "src/composables/*.ts",
+        "src/composables/**/*.ts"
+      ],
       "project": [
         "src/**/*.{ts,js,vue}",
-        "!src/main.ts",
         "config/**/*.ts"
       ]
     }
@@ -15,7 +25,34 @@
     "packages/**",
     "scripts/**",
     "e2e/**",
-    ".storybook/**"
+    ".storybook/**",
+    "src/components/ai/chat-parts/chatheaderbar.vue",
+    "src/components/ai/composables/usechathistory.ts",
+    "src/components/ai/composables/useChatSearch.ts",
+    "src/components/ai/composables/useFileService.ts",
+    "src/components/ai/index.ts",
+    "src/components/api/ApiMethodSearch.vue",
+    "src/components/api/AppCard.vue",
+    "src/components/api/BillingRecordCard.vue",
+    "src/components/api/GroupCard.vue",
+    "src/components/api/GroupComparisonTable.vue",
+    "src/components/api/LogDetailDialog.vue",
+    "src/components/api/PackageCard.vue",
+    "src/components/api/ProductAdvantages.vue",
+    "src/components/api/QuickStart.vue",
+    "src/components/api/RequestBuilder.vue",
+    "src/components/api/ResponseViewer.vue",
+    "src/components/api/TicketCard.vue",
+    "src/components/api/UsageTopStats.vue",
+    "src/components/ai-generation/**",
+    "src/components/common/NativeEmpty.vue",
+    "src/components/ui/CustomCheckbox.vue",
+    "src/components/settings/ThemeSettingsPanel.vue",
+    "src/components/settings/ThemeTransitionPreview.vue",
+    "src/components/dev/DevThemeSwitcher.vue",
+    "src/components/AdminQuickAccess.vue",
+    "src/views/edu/index.vue",
+    "src/templates/**"
   ],
   "ignoreBinaries": [
     "chcp",
@@ -24,6 +61,17 @@
     "rimraf"
   ],
   "ignoreDependencies": [
-    "@aizhs/shared-logic"
-  ]
+    "@aizhs/shared-logic",
+    "sortablejs",
+    "@axe-core/playwright",
+    "@types/jszip",
+    "autoprefixer",
+    "mammoth",
+    "pdf-parse",
+    "pizzip",
+    "puppeteer",
+    "web-vitals",
+    "@vue/reactivity"
+  ],
+  "ignoreExportsUsedInFile": true
 }
