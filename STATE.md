@@ -12,9 +12,9 @@
 | 1 | P0 | 修复 knip Configuration hints (3 个) | ✅ done (commit 7481a829) | `npm run scan:knip` 0 hints |
 | 2 | P0 | 生成 docs/PENDING_COMPONENTS.md 清单 | ✅ done (commit a77afa3d) | 文件存在，含 19 个 component (5 组分类) |
 | 3 | P1 | 完整 e2e 回归（无 -g 过滤） | pending | `npx playwright test` 全量通过 |
-| 4 | P1 | AGENTS.md 加 port-drift + line-endings 守门 | pending | AGENTS.md 含 2 章节 + check 脚本 |
-| 5 | P2 | clean.mjs 集成 _archive 清理 | pending | `npm run clean` 清理 30 天前 _archive |
-| 6 | P2 | knip 结果落库 + commit 时校验 | pending | lint-staged 含 knip 检查 |
+| 4 | P1 | AGENTS.md 加 port-drift + line-endings 守门 | ✅ done (commit 7481b7d8) | AGENTS.md +97 行 (端口 33 行 + 行尾 53 行) |
+| 5 | P2 | clean.mjs 集成 _archive 清理 | ✅ done (commit 488f00fd) | `npm run clean -- --archive` 30 天前 _archive 自动删 |
+| 6 | P2 | knip 结果落库 + commit 时校验 | 🟡 in-progress | knip.json 变更触发 scan:knip:hints (5-10s) |
 | 7 | P3 | 拆分 admin views 接入 components/api/ | pending | 6-8 个 component 接入 |
 | 8 | P3 | knip 排除动态 import 误报 | pending | false positive 减少 |
 

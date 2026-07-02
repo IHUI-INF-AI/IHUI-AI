@@ -62,6 +62,7 @@
     "check:contrast": "node scripts/check-theme-contrast.mjs",
     "scan:dead-code": "node scripts/scan-dead-code.mjs",
     "scan:knip": "knip --no-progress",
+    "scan:knip:hints": "node scripts/check-knip-hints.mjs",
     "check:outdated": "node scripts/check-outdated.mjs",
     "check:outdated:miniapp": "node scripts/check-outdated.mjs --miniapp",
     "check:outdated:strict": "node scripts/check-outdated.mjs --fail-on-major",
@@ -132,6 +133,9 @@
     ],
     "../scripts/ci-env-setup.ps1": [
       "node scripts/check-port-drift.mjs"
+    ],
+    "knip.json": [
+      "npm run scan:knip:hints --silent"
     ]
   },
   "dependencies": {
