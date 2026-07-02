@@ -1,0 +1,15 @@
+{
+  "distMgmt": {
+    "title": "分销与开发者管理 (集中接入 3 个分销/开发者零引用 API)",
+    "tab": {
+      "shop": "商品",
+      "activity": "活动",
+      "subordinates": "下级用户",
+      "subordinateOrders": "下级订单",
+      "developer": "开发者申请"
+    },
+    "applyDeveloper": "申请开发者",
+    "openIdRequired": "请输入 openId",
+    "applySent": "申请已提交"
+  }
+}

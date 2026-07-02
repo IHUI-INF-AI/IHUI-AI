@@ -1,0 +1,15 @@
+{
+  "courseCat": {
+    "title": "课程与分类管理 (集中接入 12 个 course/category/* API)",
+    "tab": {
+      "course": "课程",
+      "audit": "课程审计",
+      "pay": "课程支付",
+      "payLog": "支付日志",
+      "planet": "课程星球",
+      "category": "分类",
+      "categoryDict": "分类字典",
+      "categoryLink": "分类关联"
+    }
+  }
+}

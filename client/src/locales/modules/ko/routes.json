@@ -255,6 +255,17 @@
     "resourceDetail": "리소스상세",
     "resourceList": "리소스센터",
     "search": "검색",
-    "adminBackendHealth": "백엔드 상태 확인"
+    "adminBackendHealth": "백엔드 상태 확인",
+    "adminAiCapabilityManagement": "AI 능력 관리",
+    "adminContentManagement": "콘텐츠 관리",
+    "adminAuthManagement": "인증 및 계정 관리",
+    "adminNotificationCenter": "알림 센터",
+    "adminRbacManagement": "RBAC 관리",
+    "adminBusinessManagement": "비즈니스 관리",
+    "adminCourseCategoryManagement": "강의 분류 관리",
+    "adminDistributionManagement": "유통 관리",
+    "adminTourPermissionsAdmin": "권한 투어",
+    "adminUtilsAdmin": "유틸리티 관리",
+    "supportTickets": "지원 티켓"
   }
 }

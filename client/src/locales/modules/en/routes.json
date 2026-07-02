@@ -254,6 +254,17 @@
     "thirdPartyLogin": "Third-party Login",
     "tools": "Tools",
     "adminBackendHealth": "Backend Health Check",
-    "schedule": "Schedule"
+    "schedule": "Schedule",
+    "adminAiCapabilityManagement": "AI Capability Management",
+    "adminContentManagement": "Content Management",
+    "adminAuthManagement": "Auth & Account Management",
+    "adminNotificationCenter": "Notification Center",
+    "adminRbacManagement": "RBAC Management",
+    "adminBusinessManagement": "Business Management",
+    "adminCourseCategoryManagement": "Course Category Management",
+    "adminDistributionManagement": "Distribution Management",
+    "adminTourPermissionsAdmin": "Permissions Tour",
+    "adminUtilsAdmin": "Utilities Admin",
+    "supportTickets": "Support Tickets"
   }
 }

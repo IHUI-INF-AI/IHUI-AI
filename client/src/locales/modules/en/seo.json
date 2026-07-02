@@ -243,6 +243,50 @@
     "adminAgentAudit": {
       "desc": "Audit and manage agent submission applications",
       "keywords": "agent,audit,management"
+    },
+    "adminAiCapabilityManagement": {
+      "desc": "Manage AI capability configuration and services",
+      "keywords": "AI capability,capability management,service config"
+    },
+    "adminContentManagement": {
+      "desc": "Unified management of platform content resources",
+      "keywords": "content management,content resources,unified management"
+    },
+    "adminAuthManagement": {
+      "desc": "Manage authentication methods and account security",
+      "keywords": "authentication,account security,login management"
+    },
+    "adminNotificationCenter": {
+      "desc": "Platform notification sending and viewing center",
+      "keywords": "notification center,platform notification,message center"
+    },
+    "adminRbacManagement": {
+      "desc": "Role-based access control and permission assignment",
+      "keywords": "RBAC,role permission,access control"
+    },
+    "adminBusinessManagement": {
+      "desc": "Manage business modules and workflows",
+      "keywords": "business management,workflow,module management"
+    },
+    "adminCourseCategoryManagement": {
+      "desc": "Manage course categories and catalog structure",
+      "keywords": "course category,catalog management,course structure"
+    },
+    "adminDistributionManagement": {
+      "desc": "Manage distribution channels and agency relationships",
+      "keywords": "distribution management,channel management,agency"
+    },
+    "adminTourPermissionsAdmin": {
+      "desc": "Permission tour and permission security audit",
+      "keywords": "permission tour,security audit,permission check"
+    },
+    "adminUtilsAdmin": {
+      "desc": "Platform tools and utility management",
+      "keywords": "tools management,utilities,platform tools"
+    },
+    "supportTickets": {
+      "desc": "iHui AI Support Tickets - Submit and track ticket progress",
+      "keywords": "support tickets,ticket tracking,technical support"
     }
   }
 }

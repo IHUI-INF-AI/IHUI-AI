@@ -254,6 +254,17 @@
     "resourceDetail": "リソース詳細",
     "resourceList": "リソースセンター",
     "search": "検索",
-    "adminBackendHealth": "バックエンドヘルスチェック"
+    "adminBackendHealth": "バックエンドヘルスチェック",
+    "adminAiCapabilityManagement": "AI能力管理",
+    "adminContentManagement": "コンテンツ管理",
+    "adminAuthManagement": "認証・アカウント管理",
+    "adminNotificationCenter": "通知センター",
+    "adminRbacManagement": "RBAC管理",
+    "adminBusinessManagement": "業務管理",
+    "adminCourseCategoryManagement": "コース分類管理",
+    "adminDistributionManagement": "流通管理",
+    "adminTourPermissionsAdmin": "権限ツアー",
+    "adminUtilsAdmin": "ユーティリティ管理",
+    "supportTickets": "サポートチケット"
   }
 }

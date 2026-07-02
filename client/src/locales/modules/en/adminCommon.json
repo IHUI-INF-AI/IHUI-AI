@@ -393,7 +393,18 @@
         "settingAgreement": "Agreement Management",
         "searchHot": "Hot Search Words",
         "aiworldSite": "AI World Site",
-        "backendHealth": "Backend Health"
+        "backendHealth": "Backend Health",
+        "contentManagement": "Content Management",
+        "authManagement": "Auth & Account",
+        "notificationCenter": "Notification Center",
+        "agentManagement": "Agent Management",
+        "aiCapabilityManagement": "AI Capability Management",
+        "adminRbacManagement": "RBAC Management",
+        "businessManagement": "Business Management",
+        "courseCategoryManagement": "Course Category",
+        "distributionManagement": "Distribution Management",
+        "tourPermissionsAdmin": "Permissions Tour",
+        "utilsAdmin": "Utilities Admin"
       }
     },
     "backendHealth": {

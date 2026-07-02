@@ -253,6 +253,17 @@
     "thirdPartyLogin": "第三方登录",
     "tools": "工具",
     "adminBackendHealth": "后端健康检查",
-    "schedule": "日程管理"
+    "schedule": "日程管理",
+    "adminAiCapabilityManagement": "AI能力管理",
+    "adminContentManagement": "内容管理",
+    "adminAuthManagement": "认证与账户管理",
+    "adminNotificationCenter": "通知中心",
+    "adminRbacManagement": "RBAC管理",
+    "adminBusinessManagement": "业务管理",
+    "adminCourseCategoryManagement": "课程分类管理",
+    "adminDistributionManagement": "分销管理",
+    "adminTourPermissionsAdmin": "权限巡检",
+    "adminUtilsAdmin": "工具管理",
+    "supportTickets": "客服工单"
   }
 }

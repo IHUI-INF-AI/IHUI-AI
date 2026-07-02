@@ -1,0 +1,28 @@
+{
+  "contentMgmt": {
+    "title": "内容管理 (集中接入 10 个 content/* API)",
+    "tab": {
+      "article": "文章",
+      "businessCard": "名片",
+      "circle": "圈子",
+      "community": "社区",
+      "contentGen": "AI 内容生成",
+      "favorites": "收藏",
+      "feedback": "反馈",
+      "news": "新闻",
+      "share": "分享",
+      "xuqiu": "需求广场"
+    },
+    "textPrompt": "输入文本生成 prompt...",
+    "generateText": "生成文本",
+    "generateImage": "生成图像",
+    "textResult": "生成文本:",
+    "imageResult": "生成图像:",
+    "generateShare": "生成分享链接",
+    "sharePlaceholder": "分享链接",
+    "promptRequired": "请输入 prompt",
+    "textGenerated": "文本生成成功",
+    "imageGenerated": "图像生成成功",
+    "shareGenerated": "分享链接已生成"
+  }
+}

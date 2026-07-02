@@ -393,7 +393,18 @@
         "settingAgreement": "協議管理",
         "searchHot": "熱搜詞",
         "aiworldSite": "AI世界站點",
-        "backendHealth": "後端健康"
+        "backendHealth": "後端健康",
+        "contentManagement": "內容管理",
+        "authManagement": "認證與帳戶",
+        "notificationCenter": "通知中心",
+        "agentManagement": "智能體管理",
+        "aiCapabilityManagement": "AI 能力管理",
+        "adminRbacManagement": "RBAC 管理",
+        "businessManagement": "業務管理",
+        "courseCategoryManagement": "課程分類",
+        "distributionManagement": "分銷管理",
+        "tourPermissionsAdmin": "權限巡檢",
+        "utilsAdmin": "工具管理"
       }
     },
     "backendHealth": {

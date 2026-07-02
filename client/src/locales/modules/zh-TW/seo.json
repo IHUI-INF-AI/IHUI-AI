@@ -243,6 +243,50 @@
     "adminAgentAudit": {
       "desc": "審核和管理智能體提交申請",
       "keywords": "智能體,審核,管理"
+    },
+    "adminAiCapabilityManagement": {
+      "desc": "管理 AI 能力配置與服務",
+      "keywords": "AI 能力,能力管理,服務配置"
+    },
+    "adminContentManagement": {
+      "desc": "統一管理平台內容資源",
+      "keywords": "內容管理,內容資源,統一管理"
+    },
+    "adminAuthManagement": {
+      "desc": "管理認證方式與帳戶安全",
+      "keywords": "認證,帳戶安全,登入管理"
+    },
+    "adminNotificationCenter": {
+      "desc": "平台通知發送與查看中心",
+      "keywords": "通知中心,平台通知,訊息中心"
+    },
+    "adminRbacManagement": {
+      "desc": "基於角色的訪問控制與權限分配",
+      "keywords": "RBAC,角色權限,訪問控制"
+    },
+    "adminBusinessManagement": {
+      "desc": "管理業務模組與業務流程",
+      "keywords": "業務管理,業務流程,模組管理"
+    },
+    "adminCourseCategoryManagement": {
+      "desc": "管理課程分類與目錄結構",
+      "keywords": "課程分類,目錄管理,課程結構"
+    },
+    "adminDistributionManagement": {
+      "desc": "管理分銷通路與代理關係",
+      "keywords": "分銷管理,通路管理,代理"
+    },
+    "adminTourPermissionsAdmin": {
+      "desc": "權限巡檢與權限安全稽核",
+      "keywords": "權限巡檢,安全稽核,權限檢查"
+    },
+    "adminUtilsAdmin": {
+      "desc": "平台工具與實用程式管理",
+      "keywords": "工具管理,實用程式,平台工具"
+    },
+    "supportTickets": {
+      "desc": "iHui AI 客服工單 - 提交與追蹤工單進度",
+      "keywords": "客服工單,工單追蹤,技術支援"
     }
   }
 }

@@ -1,0 +1,23 @@
+{
+  "adminQuick": {
+    "title": "管理后台",
+    "console": "核心控制台",
+    "adminClassic": "经典后台首页",
+    "rbacMgmt": "RBAC 权限管理",
+    "authMgmt": "认证与账户管理",
+    "business": "业务管理",
+    "agentMgmt": "智能体业务",
+    "aiMgmt": "AI 能力",
+    "courseMgmt": "课程与分类",
+    "contentMgmt": "内容管理",
+    "distMgmt": "分销与开发者",
+    "businessMgmt": "业务综合",
+    "system": "系统工具",
+    "tourPerm": "旅游平台权限",
+    "utilsTest": "工具函数测试",
+    "adminBadge": "管理员",
+    "collapse": "收起",
+    "navigated": "已跳转",
+    "navigateFailed": "跳转失败"
+  }
+}

@@ -243,6 +243,50 @@
     "adminAgentAudit": {
       "desc": "에이전트 제출 신청 심사 및 관리",
       "keywords": "에이전트,심사,관리"
+    },
+    "adminAiCapabilityManagement": {
+      "desc": "AI 능력 구성 및 서비스 관리",
+      "keywords": "AI 능력,능력 관리,서비스 구성"
+    },
+    "adminContentManagement": {
+      "desc": "플랫폼 콘텐츠 리소스의 통합 관리",
+      "keywords": "콘텐츠 관리,콘텐츠 리소스,통합 관리"
+    },
+    "adminAuthManagement": {
+      "desc": "인증 방식 및 계정 보안 관리",
+      "keywords": "인증,계정 보안,로그인 관리"
+    },
+    "adminNotificationCenter": {
+      "desc": "플랫폼 알림 발송 및 조회 센터",
+      "keywords": "알림 센터,플랫폼 알림,메시지 센터"
+    },
+    "adminRbacManagement": {
+      "desc": "역할 기반 접근 제어 및 권한 할당",
+      "keywords": "RBAC,역할 권한,접근 제어"
+    },
+    "adminBusinessManagement": {
+      "desc": "비즈니스 모듈 및 워크플로 관리",
+      "keywords": "비즈니스 관리,워크플로,모듈 관리"
+    },
+    "adminCourseCategoryManagement": {
+      "desc": "강의 분류 및 카탈로그 구조 관리",
+      "keywords": "강의 분류,카탈로그 관리,강의 구조"
+    },
+    "adminDistributionManagement": {
+      "desc": "유통 채널 및 대리점 관계 관리",
+      "keywords": "유통 관리,채널 관리,대리점"
+    },
+    "adminTourPermissionsAdmin": {
+      "desc": "권한 투어 및 권한 보안 감사",
+      "keywords": "권한 투어,보안 감사,권한 검사"
+    },
+    "adminUtilsAdmin": {
+      "desc": "플랫폼 도구 및 유틸리티 관리",
+      "keywords": "도구 관리,유틸리티,플랫폼 도구"
+    },
+    "supportTickets": {
+      "desc": "iHui AI 지원 티켓 - 티켓 진행 상황 제출 및 추적",
+      "keywords": "지원 티켓,티켓 추적,기술 지원"
     }
   }
 }

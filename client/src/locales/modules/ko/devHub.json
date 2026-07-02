@@ -1,0 +1,34 @@
+{
+  "devHub": {
+    "title": "개발 허브",
+    "subtitle": "데모 페이지, 디자인 시스템, 컴포넌트 실시간 미리보기의 집중 진입점. 개발 환경에서만 표시됩니다.",
+    "warning": "이 섹션은 개발 모드 (npm run dev)에서만 사용 가능하며, 프로덕션 빌드에서는 트리셰이크로 제거됩니다.",
+    "section": {
+      "components": "컴포넌트 데모",
+      "docs": "업무 문서"
+    },
+    "backHome": "홈으로 돌아가기",
+    "card": {
+      "designSystem": {
+        "title": "디자인 시스템",
+        "desc": "색상, 간격, 둥근 모서리, 그림자, 컴포넌트 스타일 토큰 및 기본 UI 컴포넌트"
+      },
+      "storybook": {
+        "title": "컴포넌트 전시 (Storybook)",
+        "desc": "Element Plus 버튼, 폼, 피드백, 데이터 전시, 네비게이션 실시간 미리보기"
+      },
+      "aizhs": {
+        "title": "AIZHS 컴포넌트 마이그레이션 예제",
+        "desc": "Vue 3 + TypeScript + Tailwind의 현대적인 컴포넌트 라이브러리 마이그레이션 예제"
+      },
+      "projectSelector": {
+        "title": "프로젝트 선택",
+        "desc": "로그인 배너 / Header 모바일의 두 가지 스타일 프로젝트 선택 컴포넌트 데모"
+      },
+      "businessDocs": {
+        "title": "업무 문서",
+        "desc": "프로젝트 개요, API 모듈, 배포 흐름, 보안 정책의 업무 문서"
+      }
+    }
+  }
+}

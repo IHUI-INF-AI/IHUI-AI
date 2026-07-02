@@ -1,0 +1,8 @@
+{
+  "adminClassicindex": {
+    "timeExpr": "時間表達式",
+    "cronExpr": "Cron 表達式",
+    "minute": "分鐘",
+    "hour": "小時"
+  }
+}

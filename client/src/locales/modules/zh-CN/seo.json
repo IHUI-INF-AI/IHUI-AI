@@ -243,6 +243,50 @@
     "adminAgentAudit": {
       "desc": "审核和管理智能体提交申请",
       "keywords": "智能体,审核,管理"
+    },
+    "adminAiCapabilityManagement": {
+      "desc": "管理AI能力配置与服务",
+      "keywords": "AI能力,能力管理,服务配置"
+    },
+    "adminContentManagement": {
+      "desc": "统一管理平台内容资源",
+      "keywords": "内容管理,内容资源,统一管理"
+    },
+    "adminAuthManagement": {
+      "desc": "管理认证方式与账户安全",
+      "keywords": "认证,账户安全,登录管理"
+    },
+    "adminNotificationCenter": {
+      "desc": "平台通知发送与查看中心",
+      "keywords": "通知中心,平台通知,消息中心"
+    },
+    "adminRbacManagement": {
+      "desc": "基于角色的访问控制与权限分配",
+      "keywords": "RBAC,角色权限,访问控制"
+    },
+    "adminBusinessManagement": {
+      "desc": "管理业务模块与业务流程",
+      "keywords": "业务管理,业务流程,模块管理"
+    },
+    "adminCourseCategoryManagement": {
+      "desc": "管理课程分类与目录结构",
+      "keywords": "课程分类,目录管理,课程结构"
+    },
+    "adminDistributionManagement": {
+      "desc": "管理分销渠道与代理关系",
+      "keywords": "分销管理,渠道管理,代理"
+    },
+    "adminTourPermissionsAdmin": {
+      "desc": "权限巡检与权限安全审计",
+      "keywords": "权限巡检,安全审计,权限检查"
+    },
+    "adminUtilsAdmin": {
+      "desc": "平台工具与实用程序管理",
+      "keywords": "工具管理,实用程序,平台工具"
+    },
+    "supportTickets": {
+      "desc": "智汇AI客服工单 - 提交与跟踪工单进度",
+      "keywords": "客服工单,工单跟踪,技术支持"
     }
   }
 }

@@ -393,7 +393,18 @@
         "settingAgreement": "약관 관리",
         "searchHot": "인기 검색어",
         "aiworldSite": "AI 월드 사이트",
-        "backendHealth": "백엔드 건강"
+        "backendHealth": "백엔드 건강",
+        "contentManagement": "콘텐츠 관리",
+        "authManagement": "인증 및 계정",
+        "notificationCenter": "알림 센터",
+        "agentManagement": "에이전트 관리",
+        "aiCapabilityManagement": "AI 능력 관리",
+        "adminRbacManagement": "RBAC 관리",
+        "businessManagement": "비즈니스 관리",
+        "courseCategoryManagement": "강의 분류",
+        "distributionManagement": "유통 관리",
+        "tourPermissionsAdmin": "권한 투어",
+        "utilsAdmin": "유틸리티 관리"
       }
     },
     "backendHealth": {

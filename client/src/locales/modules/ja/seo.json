@@ -243,6 +243,50 @@
     "adminAgentAudit": {
       "desc": "エージェント申請の監査と管理",
       "keywords": "エージェント,監査,管理"
+    },
+    "adminAiCapabilityManagement": {
+      "desc": "AI能力の構成とサービスの管理",
+      "keywords": "AI能力,能力管理,サービス構成"
+    },
+    "adminContentManagement": {
+      "desc": "プラットフォームコンテンツリソースの統一管理",
+      "keywords": "コンテンツ管理,コンテンツリソース,統一管理"
+    },
+    "adminAuthManagement": {
+      "desc": "認証方法とアカウントセキュリティの管理",
+      "keywords": "認証,アカウントセキュリティ,ログイン管理"
+    },
+    "adminNotificationCenter": {
+      "desc": "プラットフォーム通知の送信と閲覧センター",
+      "keywords": "通知センター,プラットフォーム通知,メッセージセンター"
+    },
+    "adminRbacManagement": {
+      "desc": "ロールベースのアクセス制御と権限割り当て",
+      "keywords": "RBAC,ロール権限,アクセス制御"
+    },
+    "adminBusinessManagement": {
+      "desc": "ビジネスモジュールとワークフローの管理",
+      "keywords": "業務管理,ワークフロー,モジュール管理"
+    },
+    "adminCourseCategoryManagement": {
+      "desc": "コース分類とカタログ構造の管理",
+      "keywords": "コース分類,カタログ管理,コース構造"
+    },
+    "adminDistributionManagement": {
+      "desc": "流通チャネルと代理店関係の管理",
+      "keywords": "流通管理,チャネル管理,代理店"
+    },
+    "adminTourPermissionsAdmin": {
+      "desc": "権限ツアーと権限セキュリティ監査",
+      "keywords": "権限ツアー,セキュリティ監査,権限チェック"
+    },
+    "adminUtilsAdmin": {
+      "desc": "プラットフォームツールとユーティリティ管理",
+      "keywords": "ツール管理,ユーティリティ,プラットフォームツール"
+    },
+    "supportTickets": {
+      "desc": "iHui AI サポートチケット - チケット進捗の送信と追跡",
+      "keywords": "サポートチケット,チケット追跡,技術サポート"
     }
   }
 }

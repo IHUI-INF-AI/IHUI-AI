@@ -1,0 +1,34 @@
+{
+  "devHub": {
+    "title": "開發中心",
+    "subtitle": "演示頁、設計系統、組件實時預覽的集中入口。僅在開發環境可見。",
+    "warning": "該目錄僅在開發模式 (npm run dev) 下可用，生產構建會自動剔除這些路由。",
+    "section": {
+      "components": "組件演示",
+      "docs": "業務文檔"
+    },
+    "backHome": "返回首頁",
+    "card": {
+      "designSystem": {
+        "title": "設計系統",
+        "desc": "顏色、間距、圓角、陰影、組件樣式令牌與基礎 UI 組件"
+      },
+      "storybook": {
+        "title": "組件展示 (Storybook)",
+        "desc": "Element Plus 按鈕、表單、反饋、數據展示、導航組件實時預覽"
+      },
+      "aizhs": {
+        "title": "AIZHS 組件遷移示例",
+        "desc": "Vue 3 + TypeScript + Tailwind 的現代化組件庫遷移示例"
+      },
+      "projectSelector": {
+        "title": "項目選擇器",
+        "desc": "登錄頁橫幅 / Header 移動端兩種樣式的項目選擇器組件演示"
+      },
+      "businessDocs": {
+        "title": "業務文檔",
+        "desc": "項目概覽、API 模塊、部署流程、安全策略的業務文檔"
+      }
+    }
+  }
+}

@@ -393,7 +393,18 @@
         "settingAgreement": "規約管理",
         "searchHot": "人気検索語",
         "aiworldSite": "AIワールドサイト",
-        "backendHealth": "バックエンド健全性"
+        "backendHealth": "バックエンド健全性",
+        "contentManagement": "コンテンツ管理",
+        "authManagement": "認証・アカウント",
+        "notificationCenter": "通知センター",
+        "agentManagement": "エージェント管理",
+        "aiCapabilityManagement": "AI能力管理",
+        "adminRbacManagement": "RBAC管理",
+        "businessManagement": "業務管理",
+        "courseCategoryManagement": "コース分類",
+        "distributionManagement": "流通管理",
+        "tourPermissionsAdmin": "権限ツアー",
+        "utilsAdmin": "ユーティリティ管理"
       }
     },
     "backendHealth": {

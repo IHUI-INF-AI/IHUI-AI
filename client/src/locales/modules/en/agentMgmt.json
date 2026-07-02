@@ -1,0 +1,24 @@
+{
+  "agentMgmt": {
+    "title": "智能体业务管理 (集中接入 9 个 agent/* API)",
+    "tab": {
+      "buy": "购买订单",
+      "category": "分类",
+      "categoryCache": "分类缓存",
+      "developer": "开发者",
+      "examine": "审核",
+      "plaza": "智能体广场",
+      "settlement": "结算",
+      "task": "任务",
+      "withdrawal": "提现"
+    },
+    "reloadCache": "刷新缓存",
+    "cache": {
+      "size": "缓存大小",
+      "hitRate": "命中率",
+      "lastReload": "最后刷新"
+    },
+    "cacheReloaded": "缓存已刷新",
+    "deleteFromDetail": "请调用详情接口删除"
+  }
+}
