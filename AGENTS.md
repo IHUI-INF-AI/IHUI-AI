@@ -36,3 +36,241 @@
 - 频繁人工决策的创意工作
 - 高风险生产环境操作
 - 单轮可完成的简单任务
+
+---
+
+## 主题色改动硬约束（2026-07-02 立）
+
+修改以下任一文件，**必须**同时执行 ① + ② + ③，否则视为回归：
+
+- `client/src/styles/_theme-tokens.ts`（THEME_TOKENS / THEME_INVARIANTS）
+- `client/src/styles/_theme-tokens.scss`（SCSS 桥接镜像）
+- `client/src/components/ThemeToggle.vue`（auto 模式视觉标识）
+- `client/src/components/header/parts/ThemeToggle.vue`（header 简化版）
+- `client/src/composables/useFirstDarkHint.ts`（首次暗色提示）
+- `client/src/views/Home.vue` / `Home.vue.styles.scss`（first-page 区域）
+
+### 三项必跑检查
+
+```bash
+# ① 同步性 + 硬编码拦截 (单值唯一来源)
+npm run check:theme-tokens
+
+# ② 对比度 + 联调值守门 (暗色按钮可读性)
+npm run check:contrast
+
+# ③ 视觉回归基线 (首页 first-page + ThemeToggle, light/dark/auto)
+npx playwright test e2e/visual/theme-snapshot.spec.ts
+# 基线变更: 追加 --update-snapshots, 然后人工 review diff 后提交
+```
+
+### 改色流程
+
+1. 改 `client/src/styles/_theme-tokens.ts` 中 `THEME_TOKENS` 或 `THEME_INVARIANTS`
+2. **同步** `client/src/styles/_theme-tokens.scss` 桥接镜像
+3. **同步** `client/scripts/check-theme-contrast.mjs` 顶部锚定值（脚本独立运行）
+4. 跑 ① ② 验证通过
+5. 跑 ③ 重新生成 baseline，人工 review diff
+6. 在 PR 描述中说明改色理由 + 截图对比
+
+### 红线
+
+- ❌ 在 `_theme-tokens.ts` / `_theme-tokens.scss` 以外的文件硬编码 `#6a6d77` / `#5a5d67` / `#e5eaf3` / `#2563eb` / `#07c160` 等主题色值
+- ❌ 把 darkSurface 改浅到 < 4.0:1 对比度（破坏 ghost 按钮可读性）
+- ❌ 删 `runThemeInvariantsCheck()` dev 期 console 校验
+- ❌ 跳过 `check:contrast` 把不达标的 PR 合并
+
+---
+
+## 纯白/纯黑边框改动硬约束（2026-07-02 立）
+
+修改任何 border / outline / box-shadow 涉及纯白或纯白变量 / 蓝色外环发光的文件，**必须**同步以下任一工具触发拦截，否则视为回归：
+
+- `client/.stylelintrc.json` `declaration-property-value-disallowed-list` 规则
+- `client/e2e/pure-border-cleanup.spec.ts`（源码级 CI 回归）
+- `client/e2e/pure-border-visual.spec.ts`（运行时视觉回归，需 PW_BASE_URL）
+
+### 禁止模式（被 stylelint 强制约束）
+
+- `border/outline: var(--el-color-white) | var(--el-color-black)`
+- `border/outline: var(--color-white) | var(--color-black)`（不带 N 后缀）
+- `box-shadow: 0 0 0 Npx rgba(59,130,246|37,99,235|96,165,250|160,196,255, ...)`（蓝色外环发光）
+
+### 推荐模式
+
+```scss
+border: 1px solid var(--color-white-30);   /* 默认 30% 白 */
+&:hover { border-color: var(--color-white-50); }  /* hover 50% 白 */
+&:active { border-color: var(--color-white-60); } /* active 60% 白 */
+&.is-selected { border-color: var(--color-white-80); } /* 选中 80% 白 */
+```
+
+或使用 SCSS Mixin（见 `client/src/styles/_design-tokens.scss` 12.14 节）：
+
+```scss
+@include dt.border-soft("default");     // 1px solid var(--color-white-30)
+@include dt.border-soft("hover");       // 1px solid var(--color-white-50)
+@include dt.border-soft("active");      // 1px solid var(--color-white-60)
+@include dt.border-soft("selected");    // 1px solid var(--color-white-80)
+```
+
+### 红线
+
+- ❌ 在 border / outline 上用 `var(--el-color-white)` / `var(--el-color-black)` / `#fff` / `#000` / `white` / `black`
+- ❌ 用 `box-shadow: 0 0 0 Npx rgba(blue)` 模拟外环（输入框/表单元素禁止）
+- ❌ 跨 P0/P1 commit 混合作业（hunks 物理混合时不要强拆，保留原 P0 commit，独立 PR 补白环清理）
+- ❌ 顺手"优化"无关位置的边框色（自作主张行为）
+
+---
+
+## AI 面板 embedded/floating 模式样式分离约束（2026-07-02 立）
+
+AIChat 组件同时支持两种渲染模式：
+- **floating 模式**：.floating-chat-dialog 在屏幕任意位置浮动，父容器有 `padding: 8px`
+- **embedded 模式**：.floating-chat-dialog.is-embedded 嵌在 ai-side-panel 内，_sidebar-layout.scss 显式把 padding 设为 0
+
+这两种模式的样式规则在 `client/src/components/ai/AIChat.vue` 的 `<style scoped>` 里**共用了大部分规则**，但 `.dialog-header` 是个例外 — 它有浮窗专属的"贴边"hack。
+
+### 必须区分模式的规则
+
+#### 1. `.floating-chat-dialog .dialog-header` （浮窗专属，禁止污染 embedded）
+
+```scss
+.dialog-header {
+  width: calc(100% + 16px); /* 抵消父容器左右 padding 8px*2 */
+  margin: -8px -8px 0 -8px;
+  box-sizing: border-box;
+  border-radius: var(--global-border-radius) var(--global-border-radius) 0 0;
+}
+```
+
+**设计意图**：浮窗的 `.floating-chat-dialog` 有 `padding: 8px`，标题栏通过 `width: calc(100% + 16px)` + 负 margin 反向贴边，露出浮窗顶部描边。
+
+**红线**：
+- ❌ 不要在 embedded 模式下使用这套负 margin 贴边 hack（embedded 模式父容器 padding 已经是 0）
+- ❌ 不要把浮窗专属的 `width: calc(100% + 16px)` 改成更激进的"自动填充"逻辑
+
+#### 2. `.floating-chat-dialog.is-embedded .dialog-header` （embedded 专用重置）
+
+```scss
+&.is-embedded .dialog-header {
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+```
+
+**设计意图**：embedded 模式父容器 padding 已被 _sidebar-layout.scss 设为 0，负 margin 反而会反向溢出 16px（左侧 -8px、右侧 +8px）。这条规则强制重置为标准 100% 宽，让标题栏贴齐 ai-side-panel 边缘。
+
+**红线**：
+- ❌ 禁止删除此覆盖规则 — 删除后 dialog-header 会重新溢出 16px，与暗色 sidebar (#6a6d77) 形成视觉错位
+- ❌ 禁止把 `width: 100%` 改成 `width: calc(100% + 16px)` 等带 padding 反向补偿的形式
+
+#### 3. 前置条件：父容器 padding 必须为 0
+
+`_sidebar-layout.scss` 必须有：
+
+```scss
+.ai-side-panel-body .floating-chat-dialog.is-embedded {
+  border: none;
+  border-radius: 0;
+  padding: 0;  /* ← 必须为 0 */
+  background: var(--el-bg-color);
+}
+```
+
+**红线**：
+- ❌ 禁止把 `padding: 0` 改回 `padding: 8px` — 这是 embedded 模式与 floating 模式视觉解耦的基础
+- ❌ 禁止在 `.floating-chat-dialog.is-embedded` 上加 `border` — embedded 模式贴齐 ai-side-panel 边缘，border 会导致与 sidebar 形成 1px 错位
+
+### 守门工具
+
+#### 源码级守门（已加入 e2e）
+
+`client/e2e/ai-panel-header-no-overflow.spec.ts` 包含 2 个源码级断言：
+1. `AIChat.vue` 必须含 `&.is-embedded .dialog-header { ... width: 100%; ... margin: 0 }` 覆盖
+2. `_sidebar-layout.scss` 必须含 `.floating-chat-dialog.is-embedded { padding: 0 }` 规则
+
+```bash
+npx playwright test e2e/ai-panel-header-no-overflow.spec.ts -g "源码级"
+```
+
+#### 浏览器级守门（需 PW_BASE_URL，dev server 健康时跑）
+
+6 个浏览器级断言覆盖亮色/暗色/320px min-width 边界/500px 中等面板/默认 320px/header-right 按钮不溢出场景。所有浏览器级测试在 Mobile Chrome (Pixel 5) 项目下 skip（AI 面板在 mobile viewport 不渲染）：
+
+```bash
+cmd /c "set PW_BASE_URL=http://localhost:8888&& npx playwright test e2e/ai-panel-header-no-overflow.spec.ts"
+```
+
+#### 精确锚点 regex
+
+源码级测试使用的 regex（**禁止修改**）：
+
+```js
+// AIChat.vue is-embedded 覆盖块
+/&\.is-embedded\s+\.dialog-header\s*\{[^}]*width:\s*100%[^}]*margin:\s*0/
+
+// _sidebar-layout.scss embedded padding 重置
+/[^{}]*\.floating-chat-dialog\.is-embedded\s*\{[^}]*padding:\s*0/
+```
+
+`[^}]*` 强制让 `width: 100%` 和 `margin: 0` 必须在**同一个规则块**内，避免跨块误匹配。
+
+### 历史 bug 复盘（2026-07-02 发现）
+
+**症状**：AI 面板 embedded 模式下，对话框标题栏 `.dialog-header` 渲染成 336px（父容器仅 320px），左右各溢出 8px。视觉上与 ai-side-panel (#6a6d77 暗色背景) 形成错位。
+
+**根因**：`.floating-chat-dialog .dialog-header` 的浮窗专属负 margin 在 embedded 模式未被覆盖。父容器 `.floating-chat-dialog.is-embedded` 的 padding 已经是 0（_sidebar-layout.scss 显式设置），但 `width: calc(100% + 16px)` + `margin: -8px -8px 0 -8px` 仍在生效，把标题栏反向推出父容器 16px。
+
+**修复**：在 AIChat.vue 浮窗规则后追加 `&.is-embedded .dialog-header { width: 100%; margin: 0; border-radius: 0; }` 覆盖。
+
+**实测验证**：
+
+| 指标 | 修复前 ❌ | 修复后 ✅ |
+|---|---|---|
+| `.dialog-header` width | 336px | **320px**（= 父容器 100%） |
+| header.x / right | 92 / 428 | **100 / 420**（与父容器精确对齐） |
+| header.margin | `-8px -8px 0px` | **0** |
+| 父容器容纳 | 溢出 +8px | **0 溢出** |
+
+---
+
+## 多 commit 协作模式下的 hunks 边界规范（2026-07-02 立）
+
+当本批次改动可能与他人的 P0/P1 commit 在同一文件产生 hunks 物理混合时，**禁止**用 `git add -p` 强拆，按以下流程处理：
+
+### 降级方案 A：交付报告形式
+
+1. 本批次 commit 写自己的全部改动（包括与他人的 hunks 混合处）
+2. 在 commit message 顶部加 `🤝 Hunks-Overlap: <file>` 标注混合作业
+3. 在交付报告里说明：`<file> 的 N-M 行实际属于 <他人 commit/PR 编号>，合并后会自动归属正确`
+
+### 降级方案 B：拆 stash + 独立 PR
+
+1. `git stash push -m "batch-fix-2026-07-02"`
+2. `git pull --rebase` 把对方 P0/P1 commit 拉下来
+3. `git stash pop` 后重新 commit（此时 hunks 边界清晰）
+4. 若有冲突需手工解决
+
+### Commit message 模板
+
+```
+<type>(<scope>): <subject>             ← 中文一句话说明
+                                        ← 空行
+- 改动 1: <文件>:<行号> <旧>→<新>
+- 改动 2: <文件>:<行号> <旧>→<新>
+                                        ← 空行
+Refs: #<issue/PR>
+Test: <e2e spec 名>
+```
+
+**type 取值**：`feat | fix | refactor | docs | style | test | chore`
+**scope 取值**：`theme | border | i18n | login | ai | sidebar | dev | e2e | docs | ci`
+
+### 红线
+
+- ❌ `git add -p` 强拆混合作业 hunk（会破坏对方 commit 完整性）
+- ❌ 提交时不带"Refs"或"Test"字段（后续无法追溯）
+- ❌ 用英文 commit message（与项目中文规范不一致）
+
