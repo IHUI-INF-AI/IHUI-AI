@@ -61,6 +61,7 @@ const groups = computed<MenuGroup[]>(() => [
       { path: '/admin/learn/order', title: t('adminCommon.menu.item.learnOrder'), icon: ShoppingCart },
       { path: '/admin/learn/signup', title: t('adminCommon.menu.item.learnSignup'), icon: EditPen },
       { path: '/admin/learn/report', title: t('adminCommon.menu.item.learnReport'), icon: Histogram },
+      { path: '/admin/course-category-management', title: t('adminCommon.menu.item.courseCategoryManagement'), icon: Connection },
     ],
   },
   {
@@ -97,6 +98,9 @@ const groups = computed<MenuGroup[]>(() => [
       { path: '/admin/resource/list', title: t('adminCommon.menu.item.resourceList'), icon: Collection },
       { path: '/admin/resource/category', title: t('adminCommon.menu.item.resourceCategory'), icon: Connection },
       { path: '/admin/resource/tag', title: t('adminCommon.menu.item.resourceTag'), icon: Collection },
+      { path: '/admin/content-management', title: t('adminCommon.menu.item.contentManagement'), icon: Document },
+      { path: '/admin/business-management', title: t('adminCommon.menu.item.businessManagement'), icon: OfficeBuilding },
+      { path: '/admin/distribution-management', title: t('adminCommon.menu.item.distributionManagement'), icon: Promotion },
     ],
   },
   {
@@ -110,12 +114,16 @@ const groups = computed<MenuGroup[]>(() => [
   {
     key: 'message', title: t('adminCommon.menu.group.message'), children: [
       { path: '/admin/message/announcement', title: t('adminCommon.menu.item.messageAnnouncement'), icon: Bell },
+      { path: '/admin/notification-center', title: t('adminCommon.menu.item.notificationCenter'), icon: Bell },
     ],
   },
   {
     key: 'auth', title: t('adminCommon.menu.group.auth'), children: [
       { path: '/admin/auth/role', title: t('adminCommon.menu.item.authRole'), icon: Key },
       { path: '/admin/auth/authority', title: t('adminCommon.menu.item.authAuthority'), icon: Lock },
+      { path: '/admin/auth-management', title: t('adminCommon.menu.item.authManagement'), icon: Lock },
+      { path: '/admin/rbac-management', title: t('adminCommon.menu.item.adminRbacManagement'), icon: Key },
+      { path: '/admin/tour-permissions', title: t('adminCommon.menu.item.tourPermissionsAdmin'), icon: Lock },
     ],
   },
   {
@@ -126,6 +134,9 @@ const groups = computed<MenuGroup[]>(() => [
       { path: '/admin/search/hot', title: t('adminCommon.menu.item.searchHot'), icon: Search },
       { path: '/admin/aiworld/site', title: t('adminCommon.menu.item.aiworldSite'), icon: Connection },
       { path: '/admin/backend-health', title: t('adminCommon.menu.item.backendHealth'), icon: Monitor },
+      { path: '/admin/agent-management', title: t('adminCommon.menu.item.agentManagement'), icon: Connection },
+      { path: '/admin/ai-capability-management', title: t('adminCommon.menu.item.aiCapabilityManagement'), icon: Monitor },
+      { path: '/admin/utils-admin', title: t('adminCommon.menu.item.utilsAdmin'), icon: Setting },
     ],
   },
 ])

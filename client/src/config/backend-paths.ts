@@ -719,4 +719,5 @@ export const USER_SETTINGS_PATHS = {
   themeSync: '/user/settings/theme/sync',
   themePresets: '/user/settings/theme/presets',
   themePresetById: (id: string) => `/user/settings/theme/presets/${id}`,
+  agreement: (type: string) => `/user/settings/agreement/${type}`,
 } as const

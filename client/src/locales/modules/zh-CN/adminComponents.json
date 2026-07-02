@@ -113,6 +113,10 @@
       "title": "资金账户管理",
       "desc": "用户资金账户列表管理页面"
     },
+    "crontabField": {
+      "generate": "生成",
+      "dialogTitle": "Cron 表达式生成器"
+    },
     "withdrawal": {
       "title": "提现管理",
       "desc": "提现列表管理页面"
