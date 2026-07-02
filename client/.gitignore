@@ -200,6 +200,9 @@ e2e-v8-coverage-report.json
 # 性能监控脚本生成的报告（可本地查看，不提交）
 PERFORMANCE_REPORT.md
 
+# ts-prune 死代码扫描报告（本地查看，不提交）
+TS_PRUNE_REPORT.md
+
 # Cursor editor global config (should not be in project)
 defaultSettings.json
 **/defaultSettings.json
