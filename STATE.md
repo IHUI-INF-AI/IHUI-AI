@@ -10,7 +10,7 @@
 | # | 优先级 | 任务 | 状态 | 验证 |
 |---|---|---|---|---|
 | 1 | P0 | 修复 knip Configuration hints (3 个) | ✅ done (commit 7481a829) | `npm run scan:knip` 0 hints |
-| 2 | P0 | 生成 docs/PENDING_COMPONENTS.md 清单 | pending | 文件存在，含 18 个 component |
+| 2 | P0 | 生成 docs/PENDING_COMPONENTS.md 清单 | ✅ done (commit a77afa3d) | 文件存在，含 19 个 component (5 组分类) |
 | 3 | P1 | 完整 e2e 回归（无 -g 过滤） | pending | `npx playwright test` 全量通过 |
 | 4 | P1 | AGENTS.md 加 port-drift + line-endings 守门 | pending | AGENTS.md 含 2 章节 + check 脚本 |
 | 5 | P2 | clean.mjs 集成 _archive 清理 | pending | `npm run clean` 清理 30 天前 _archive |
