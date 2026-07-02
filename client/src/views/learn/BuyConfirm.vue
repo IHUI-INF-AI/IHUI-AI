@@ -60,6 +60,8 @@ import { ElMessage } from 'element-plus'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import { learnApi } from '@/api/learn'
+import { wechatPayCreateCourse } from '@/api/payment/wechat-pay'
+import { logger } from '@/utils/logger'
 
 const route = useRoute()
 const router = useRouter()
@@ -88,13 +90,38 @@ async function load() {
 async function handlePay() {
   submitting.value = true
   try {
-    const orderRes = await learnApi.createOrder({ lessonId: id, payType: payType.value })
-    const orderId = orderRes.data?.data?.id
-    if (orderId) {
-      router.push({ path: '/learn/payment', query: { orderId } })
+    if (payType.value === 'wechat') {
+      // 微信支付分支: 调用 wechatPayCreateCourse 创建课程支付订单
+      const lessonData = lesson.value as { price?: number }
+      const amount = Math.round((lessonData.price || 0) * 100) // 元转分
+      if (amount <= 0) {
+        ElMessage.error(t('common.errors.orderCreateFailed'))
+        return
+      }
+      const res = await wechatPayCreateCourse({ amount, courseId: id })
+      if (res.success && res.data) {
+        const outTradeNo = (res.data as { outTradeNo?: string }).outTradeNo
+        if (outTradeNo) {
+          router.push({ path: '/learn/payment', query: { orderId: outTradeNo, channel: 'wechat' } })
+        } else {
+          ElMessage.error(t('common.errors.orderCreateFailed'))
+        }
+      } else {
+        ElMessage.error(res.message || t('common.errors.orderCreateFailed'))
+      }
     } else {
-      ElMessage.error(t('common.errors.orderCreateFailed'))
+      // 默认分支: 调用 learnApi.createOrder
+      const orderRes = await learnApi.createOrder({ lessonId: id, payType: payType.value })
+      const orderId = orderRes.data?.data?.id
+      if (orderId) {
+        router.push({ path: '/learn/payment', query: { orderId } })
+      } else {
+        ElMessage.error(t('common.errors.orderCreateFailed'))
+      }
     }
+  } catch (err) {
+    logger.error('[BuyConfirm] handlePay failed:', err)
+    ElMessage.error(t('common.errors.orderCreateFailed'))
   } finally {
     submitting.value = false
   }

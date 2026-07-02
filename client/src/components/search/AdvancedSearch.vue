@@ -208,7 +208,7 @@ const effectiveOperators = computed(() => props.operators)
 // 当前选中字段对应的 options (用于 value 输入切换 select / input)
 const currentFieldOptions = computed(() => {
   if (!form.field) return null
-  const f = effectiveFields.value.find(fd => fd.value === form.field)
+  const f = effectiveFields.value.find((fd: FieldConfig) => fd.value === form.field)
   return f?.options && f.options.length ? f.options : null
 })
 
@@ -271,9 +271,9 @@ const handleRemoveCondition = (index: number) => {
 // 获取条件文本
 const getConditionText = (condition: SearchCondition): string => {
   const field =
-    effectiveFields.value.find(f => f.value === condition.field)?.label || condition.field
+    effectiveFields.value.find((f: FieldConfig) => f.value === condition.field)?.label || condition.field
   const operator =
-    effectiveOperators.value.find(o => o.value === condition.operator)?.label || condition.operator
+    effectiveOperators.value.find((o: OperatorConfig) => o.value === condition.operator)?.label || condition.operator
   return `${field} ${operator} ${condition.value}`
 }
 

@@ -141,14 +141,14 @@ async function handleSearch() {
 }
 
 // 桥接 AdvancedSearch @search: conditions[] -> { targetType, category } + 同步 keyword
-function handleAdvancedSearch(conditions: SearchCondition[], keyword?: string) {
+function handleAdvancedSearch(conditions: SearchCondition[], kw?: string) {
   const filters: { targetType?: string; category?: string } = {}
   conditions.forEach(c => {
     if (c.field === 'targetType' && c.value) filters.targetType = c.value
     if (c.field === 'category' && c.value) filters.category = c.value
   })
   advancedFilters.value = filters
-  if (keyword) keyword.value = keyword
+  if (kw) keyword.value = kw
   handleSearch()
 }
 

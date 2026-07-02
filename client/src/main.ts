@@ -205,6 +205,7 @@ setActivePinia(pinia)
 app.use(pinia)
 
 // Vue 全局错误处理器 - 捕获组件内部未处理的错误
+// 注: setupMonitor(app) 会覆盖此 handler, 接入更完善的监控上报 (monitor.ts)
 ;(app.config as unknown as { errorHandler: (err: unknown, instance: unknown, info: string) => void }).errorHandler = (err, _instance, info) => {
   logger.error('[Vue Error]', err, { info })
 }
@@ -398,7 +399,7 @@ if (typeof window !== 'undefined') {
         event.preventDefault()
         return true
       }
-      // 其他错误正常处理
+      // 其他错误正常处理 (setupMonitor 的 window error 监听会接管上报)
       return false
     },
     true
