@@ -56,6 +56,8 @@
     "check:csp": "tsx scripts/check-csp.ts",
     "csp:hash": "tsx scripts/csp-hash.ts",
     "check:port-drift": "node scripts/check-port-drift.mjs",
+    "check:line-endings": "node scripts/check-line-endings.mjs",
+    "check:line-endings:all": "node scripts/check-line-endings.mjs --all",
     "check:theme-tokens": "node scripts/check-theme-tokens.mjs",
     "check:contrast": "node scripts/check-theme-contrast.mjs",
     "scan:dead-code": "node scripts/scan-dead-code.mjs",
