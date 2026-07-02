@@ -40,3 +40,8 @@ if [ -n "$FORBIDDEN" ]; then
   exit 1
 fi
 echo "✓ 工作区卫生检查通过"
+
+echo "▶ Checking AGENTS.md sections integrity on staged files..."
+# AGENTS.md 章节完整性守门 (2026-07-02 立)
+# 防止 stash 误覆盖/章节被删/顺序错乱, 仅当 AGENTS.md 在 staged 时才检查
+node scripts/check-agents-md-sections.mjs --staged
