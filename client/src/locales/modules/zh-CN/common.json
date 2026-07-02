@@ -224,6 +224,24 @@
       "email": "请输入正确的邮箱格式",
       "url": "请输入正确的URL格式",
       "phone": "请输入正确的手机号"
+    },
+    "collapse": "收起",
+    "expand": "展开",
+    "updateSuccess": "更新成功",
+    "messages": {
+      "saveSuccess": "保存成功",
+      "saving": "保存中...",
+      "loadSuccess": "加载成功",
+      "operationSuccess": "操作成功",
+      "deleteSuccess": "删除成功",
+      "loginSuccess": "登录成功",
+      "createSuccess": "创建成功",
+      "updateSuccess": "更新成功",
+      "viewLoginLog": "查看登录日志",
+      "saved": "已保存",
+      "rateSuccess": "评分成功",
+      "likeSuccess": "点赞成功",
+      "signUpSuccess": "报名成功"
     }
   }
 }

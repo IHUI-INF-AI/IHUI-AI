@@ -1,5 +1,10 @@
 {
   "notificationCenter": {
+    "level": {
+      "info": "信息",
+      "warn": "警告",
+      "error": "错误"
+    },
     "title": "通知中心",
     "subtitle": "订单 / 钱包 / 系统 / 营销 通知",
     "unread": "未读",

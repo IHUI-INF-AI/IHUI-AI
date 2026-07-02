@@ -1,6 +1,12 @@
 {
   "aiChatInput": {
     "openChat": "展开 AI 对话",
+    "select": "选择",
+    "tools": "工具",
+    "promptTemplatesDesc": "选择提示词模板",
+    "aiToolboxDesc": "AI 工具箱",
+    "back": "返回",
+    "modelLabel": "模型",
     "selectModel": "选择模型",
     "voiceInput": "语音输入",
     "messageStatsTotal": "消息统计: 共 {count} 条消息",

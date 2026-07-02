@@ -21,6 +21,7 @@
     "loginRequired": "Please login first to sync",
     "cancel": "Cancel",
     "cancelled": "Sync cancelled",
+    "conflictCheck": "Check Sync Conflict",
     "progress": {
       "preparing": "Preparing sync...",
       "uploading": "Uploading data...",

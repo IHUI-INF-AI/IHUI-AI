@@ -3,6 +3,7 @@
     "autoSync": "Auto Sync",
     "cancel": "Cancel",
     "cancelled": "Sync cancelled",
+    "conflictCheck": "동기화 충돌 감지",
     "conflict": {
       "cloudBackup": "Cloud Backup",
       "confirm": "Confirm",

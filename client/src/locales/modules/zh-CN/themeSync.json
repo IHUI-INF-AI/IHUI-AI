@@ -21,6 +21,7 @@
     "loginRequired": "请先登录后再同步",
     "cancel": "取消",
     "cancelled": "同步已取消",
+    "conflictCheck": "检测同步冲突",
     "progress": {
       "preparing": "正在准备同步...",
       "uploading": "正在上传数据...",

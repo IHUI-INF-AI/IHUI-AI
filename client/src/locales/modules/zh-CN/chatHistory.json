@@ -6,6 +6,11 @@
     "messages": "条消息",
     "selectSession": "请选择一个会话",
     "noMessages": "暂无消息",
+    "demoBadge": "演示",
+    "demo1Title": "演示 1",
+    "demo2Title": "演示 2",
+    "demo3Title": "演示 3",
+    "demoClickHint": "点击查看演示",
     "rename": "重命名",
     "export": {
       "ai": "ai",
