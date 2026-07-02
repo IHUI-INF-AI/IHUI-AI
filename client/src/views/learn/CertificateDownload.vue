@@ -31,6 +31,7 @@ import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import { learnApi } from '@/api/learn'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { exportElementToPDF, printElement } from '@/utils/exportService'
+import { THEME_TOKENS } from '@/styles/_theme-tokens'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -68,7 +69,7 @@ async function handleDownload() {
     const certName = (cert.value.name as string) || id
     await exportElementToPDF(certCardRef.value, {
       filename: `certificate-${certName}.pdf`,
-      backgroundColor: isDark.value ? '#6a6d77' : '#ffffff',
+      backgroundColor: isDark.value ? THEME_TOKENS.darkSurface : THEME_TOKENS.lightSurface,
     })
     ElMessage.success(t('learnCertificateDownload.downloadSuccess'))
   } catch (e) {
@@ -84,7 +85,7 @@ async function handlePrint() {
   printing.value = true
   try {
     await printElement(certCardRef.value, {
-      backgroundColor: isDark.value ? '#6a6d77' : '#ffffff',
+      backgroundColor: isDark.value ? THEME_TOKENS.darkSurface : THEME_TOKENS.lightSurface,
     })
   } catch (e) {
     console.error('[CertificateDownload] 打印失败', e)
