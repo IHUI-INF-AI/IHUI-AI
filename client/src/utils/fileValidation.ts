@@ -198,64 +198,6 @@ export function getFileExtension(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() || ''
 }
 
-export function getMimeTypeFromExtension(extension: string): string {
-  const ext = extension.startsWith('.') ? extension.toLowerCase() : '.' + extension.toLowerCase()
-  for (const [mimeType, extensions] of Object.entries(MIME_TO_EXTENSION)) {
-    if (extensions.includes(ext)) {
-      return mimeType
-    }
-  }
-  return 'application/octet-stream'
-}
-
 export function isImageFile(file: File): boolean {
   return file.type.startsWith('image/')
-}
-
-export function isVideoFile(file: File): boolean {
-  return file.type.startsWith('video/')
-}
-
-export function isAudioFile(file: File): boolean {
-  return file.type.startsWith('audio/')
-}
-
-export function isDocumentFile(file: File): boolean {
-  const docTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'text/plain',
-    'text/rtf'
-  ]
-  return docTypes.includes(file.type)
-}
-
-export function isArchiveFile(file: File): boolean {
-  const archiveTypes = [
-    'application/zip',
-    'application/x-rar-compressed',
-    'application/x-7z-compressed',
-    'application/x-tar',
-    'application/gzip'
-  ]
-  return archiveTypes.includes(file.type)
-}
-
-export function generateSafeFilename(filename: string): string {
-  const sanitized = filename
-    .replace(/[<>:"/\\|?*]/g, '_')
-    .replace(/\s+/g, '_')
-    .replace(/_{2,}/g, '_')
-    .substring(0, 255)
-  
-  const timestamp = Date.now()
-  const ext = getFileExtension(filename)
-  const name = sanitized.replace(new RegExp(`\\.${ext}$`), '')
-  
-  return `${name}_${timestamp}.${ext}`
 }

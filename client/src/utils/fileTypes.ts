@@ -167,59 +167,6 @@ export function getFileType(filename: string | undefined | null): FileTypeConfig
   }
 }
 
-export function getFileTypeFromUrl(url: string): FileTypeConfig {
-  const pathname = url.split('?')[0].split('#')[0]
-  const filename = pathname.split('/').pop() || ''
-  return getFileType(filename)
-}
-
-export function getFileTypeFromMime(mimeType: string): FileTypeConfig {
-  const config = FILE_TYPE_CONFIGS.find(c => c.mimeType === mimeType)
-  if (config) return config
-  
-  const baseType = mimeType.split('/')[0]
-  switch (baseType) {
-    case 'image': return { extension: '', category: 'image', mimeType, icon: '🖼️', viewer: 'image', downloadable: true, previewable: true }
-    case 'video': return { extension: '', category: 'video', mimeType, icon: '🎬', viewer: 'video', downloadable: true, previewable: true }
-    case 'audio': return { extension: '', category: 'audio', mimeType, icon: '🎵', viewer: 'audio', downloadable: true, previewable: true }
-    case 'text': return { extension: '', category: 'text', mimeType, icon: '📃', viewer: 'text', downloadable: true, previewable: true }
-    default: return { extension: '', category: 'unknown', mimeType, icon: '📄', viewer: 'unknown', downloadable: true, previewable: false }
-  }
-}
-
-export function isImageFile(filename: string): boolean {
-  return getFileType(filename).category === 'image'
-}
-
-export function isVideoFile(filename: string): boolean {
-  return getFileType(filename).category === 'video'
-}
-
-export function isAudioFile(filename: string): boolean {
-  return getFileType(filename).category === 'audio'
-}
-
-export function isCodeFile(filename: string): boolean {
-  return getFileType(filename).category === 'code'
-}
-
-export function isMarkdownFile(filename: string): boolean {
-  return getFileType(filename).category === 'markdown'
-}
-
-export function isDocumentFile(filename: string): boolean {
-  const category = getFileType(filename).category
-  return category === 'document' || category === 'spreadsheet' || category === 'presentation'
-}
-
-export function isArchiveFile(filename: string): boolean {
-  return getFileType(filename).category === 'archive'
-}
-
-export function isPreviewable(filename: string): boolean {
-  return getFileType(filename).previewable
-}
-
 export const CODE_LANGUAGES: Record<string, string> = {
   js: 'javascript',
   jsx: 'javascript',

@@ -5,13 +5,7 @@ import {
   validateFileAsync,
   formatFileSize,
   getFileExtension,
-  getMimeTypeFromExtension,
   isImageFile,
-  isVideoFile,
-  isAudioFile,
-  isDocumentFile,
-  isArchiveFile,
-  generateSafeFilename,
 } from '../fileValidation'
 
 // 创建一个普通文件
@@ -289,106 +283,10 @@ describe('fileValidation', () => {
     })
   })
 
-  describe('getMimeTypeFromExtension', () => {
-    it('应该根据扩展名返回MIME类型', () => {
-      expect(getMimeTypeFromExtension('.jpg')).toBe('image/jpeg')
-      expect(getMimeTypeFromExtension('png')).toBe('image/png')
-      expect(getMimeTypeFromExtension('.pdf')).toBe('application/pdf')
-    })
-
-    it('应该对未知扩展名返回octet-stream', () => {
-      expect(getMimeTypeFromExtension('.unknown')).toBe('application/octet-stream')
-      expect(getMimeTypeFromExtension('')).toBe('application/octet-stream')
-    })
-
-    it('应该处理docx等Office扩展名', () => {
-      expect(getMimeTypeFromExtension('.docx')).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-      expect(getMimeTypeFromExtension('.xlsx')).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-      expect(getMimeTypeFromExtension('.pptx')).toBe('application/vnd.openxmlformats-officedocument.presentationml.presentation')
-    })
-  })
-
   describe('文件类型判断函数', () => {
     it('isImageFile', () => {
       expect(isImageFile(createFile('test.jpg', 0, 'image/jpeg'))).toBe(true)
       expect(isImageFile(createFile('test.txt', 0, 'text/plain'))).toBe(false)
-    })
-
-    it('isVideoFile', () => {
-      expect(isVideoFile(createFile('test.mp4', 0, 'video/mp4'))).toBe(true)
-      expect(isVideoFile(createFile('test.jpg', 0, 'image/jpeg'))).toBe(false)
-    })
-
-    it('isAudioFile', () => {
-      expect(isAudioFile(createFile('test.mp3', 0, 'audio/mpeg'))).toBe(true)
-      expect(isAudioFile(createFile('test.mp4', 0, 'video/mp4'))).toBe(false)
-    })
-
-    it('isDocumentFile', () => {
-      expect(isDocumentFile(createFile('test.pdf', 0, 'application/pdf'))).toBe(true)
-      expect(isDocumentFile(createFile('test.doc', 0, 'application/msword'))).toBe(true)
-      expect(isDocumentFile(createFile('test.docx', 0, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'))).toBe(true)
-      expect(isDocumentFile(createFile('test.xls', 0, 'application/vnd.ms-excel'))).toBe(true)
-      expect(isDocumentFile(createFile('test.xlsx', 0, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))).toBe(true)
-      expect(isDocumentFile(createFile('test.ppt', 0, 'application/vnd.ms-powerpoint'))).toBe(true)
-      expect(isDocumentFile(createFile('test.pptx', 0, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'))).toBe(true)
-      expect(isDocumentFile(createFile('test.txt', 0, 'text/plain'))).toBe(true)
-      expect(isDocumentFile(createFile('test.rtf', 0, 'text/rtf'))).toBe(true)
-      expect(isDocumentFile(createFile('test.jpg', 0, 'image/jpeg'))).toBe(false)
-    })
-
-    it('isArchiveFile', () => {
-      expect(isArchiveFile(createFile('test.zip', 0, 'application/zip'))).toBe(true)
-      expect(isArchiveFile(createFile('test.rar', 0, 'application/x-rar-compressed'))).toBe(true)
-      expect(isArchiveFile(createFile('test.7z', 0, 'application/x-7z-compressed'))).toBe(true)
-      expect(isArchiveFile(createFile('test.tar', 0, 'application/x-tar'))).toBe(true)
-      expect(isArchiveFile(createFile('test.gz', 0, 'application/gzip'))).toBe(true)
-      expect(isArchiveFile(createFile('test.jpg', 0, 'image/jpeg'))).toBe(false)
-    })
-  })
-
-  describe('generateSafeFilename', () => {
-    it('应该替换特殊字符', () => {
-      const result = generateSafeFilename('file<name>.txt')
-      expect(result).not.toContain('<')
-      expect(result).not.toContain('>')
-      expect(result).toContain('.txt')
-    })
-
-    it('应该替换空格为下划线', () => {
-      const result = generateSafeFilename('my file name.txt')
-      expect(result).not.toContain(' ')
-      expect(result).toContain('_')
-    })
-
-    it('应该添加时间戳', () => {
-      const result = generateSafeFilename('test.txt')
-      expect(result).toMatch(/_\d+\.txt$/)
-    })
-
-    it('应该合并多个下划线', () => {
-      const result = generateSafeFilename('file   name.txt')
-      expect(result).not.toMatch(/_{2,}/)
-    })
-
-    it('应该处理多种特殊字符', () => {
-      const result = generateSafeFilename('a:b/c\\d|e?f*g"h<i>j.txt')
-      expect(result).not.toMatch(/[<>:"|?*\\/]/)
-    })
-
-    it('应该限制sanitized部分长度不超过255', () => {
-      const longName = 'a'.repeat(300) + '.txt'
-      const result = generateSafeFilename(longName)
-      // 拆分文件名主体（不含时间戳和扩展名）
-      const lastUnderscore = result.lastIndexOf('_')
-      const dotAfter = result.indexOf('.', lastUnderscore)
-      const namePart = result.substring(0, lastUnderscore)
-      // sanitized部分应该不超过255字符
-      expect(namePart.length).toBeLessThanOrEqual(255)
-      // 结果仍包含时间戳和扩展名
-      expect(result).toMatch(/_\d+\.txt$/)
-      // dotAfter 应该存在
-      expect(dotAfter).toBeGreaterThan(lastUnderscore)
     })
   })
 })
