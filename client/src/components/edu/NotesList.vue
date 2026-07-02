@@ -233,7 +233,7 @@ function formatTime(value?: string): string {
   font-weight: 500;
 
   &.is-public {
-    color: #2563eb;
+    color: var(--el-color-primary);
   }
 
   &.is-private {

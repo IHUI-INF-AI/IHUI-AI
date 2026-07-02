@@ -51,7 +51,7 @@ function buildOption(): echarts.EChartsOption {
   const dates = data.map(d => d.date)
   const minutes = data.map(d => d.minutes)
 
-  const lineColor = '#2563eb'
+  const lineColor = getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim() || '#409eff'
   const axisColor = isDark.value ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'
   const splitLineColor = isDark.value
     ? 'rgba(255,255,255,0.08)'
@@ -182,10 +182,10 @@ onUnmounted(() => {
   }
 
   :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
     color: #fff;
-    box-shadow: -1px 0 0 0 #2563eb;
+    box-shadow: -1px 0 0 0 var(--el-color-primary);
   }
 }
 </style>

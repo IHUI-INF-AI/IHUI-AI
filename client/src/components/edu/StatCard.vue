@@ -27,10 +27,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as ElIcons from '@element-plus/icons-vue'
-import { ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 
 const props = withDefaults(
   defineProps<{
@@ -42,26 +41,26 @@ const props = withDefaults(
   }>(),
   {
     icon: '',
-    color: '#2563eb',
+    color: '',
   }
 )
 
 const { t } = useI18n()
 
-const iconComp = computed(() => {
+const iconComp = computed<Component | null>(() => {
   if (!props.icon) return null
-  return (ElIcons as Record<string, unknown>)[props.icon] ?? null
+  return (ElIcons as Record<string, Component>)[props.icon] ?? null
 })
 
 const iconStyle = computed<Record<string, string>>(() => {
-  const c = props.color || '#2563eb'
+  const c = props.color || getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim() || '#409eff'
   return {
     color: c,
     backgroundColor: hexToRgba(c, 0.12),
   }
 })
 
-const trendIcon = computed(() => ((props.trend ?? 0) >= 0 ? ArrowUp : ArrowDown))
+const trendIcon = computed(() => ((props.trend ?? 0) >= 0 ? ElIcons.ArrowUp : ElIcons.ArrowDown))
 const trendClass = computed(() => ((props.trend ?? 0) >= 0 ? 'is-up' : 'is-down'))
 const trendAriaLabel = computed(() =>
   (props.trend ?? 0) >= 0
@@ -90,7 +89,7 @@ function hexToRgba(hex: string, alpha: number): string {
   &:hover {
     border-color: var(--color-white-50);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.06);
   }
 
   .card-body {
@@ -139,11 +138,11 @@ function hexToRgba(hex: string, alpha: number): string {
     font-weight: 500;
 
     &.is-up {
-      color: #16a34a;
+      color: var(--color-green-16a34a);
     }
 
     &.is-down {
-      color: #dc2626;
+      color: var(--color-red-ef4444);
     }
   }
 }

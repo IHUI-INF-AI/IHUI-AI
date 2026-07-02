@@ -39,7 +39,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useDarkModeStore } from '@/stores/darkMode'
 
 interface HeatPoint {
   date: string
@@ -51,12 +50,6 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const darkModeStore = useDarkModeStore()
-// isDark 保留以备未来暗色差异化（当前仅靠 CSS 变量切换）
-const isDark = computed(
-  () => darkModeStore.isDarkMode ?? darkModeStore.themeMode === 'dark'
-)
-void isDark
 
 const hasData = computed(() => Array.isArray(props.data) && props.data.length > 0)
 
@@ -176,8 +169,7 @@ const monthLabels = computed<{ col: number; label: string }[]>(() => {
   }
 
   .heatmap-scroll {
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto hidden;
   }
 
   .heatmap-grid {
@@ -211,15 +203,19 @@ const monthLabels = computed<{ col: number; label: string }[]>(() => {
     &.level-0 {
       background: #ebedf0;
     }
+
     &.level-1 {
       background: #9be9a8;
     }
+
     &.level-2 {
       background: #40c463;
     }
+
     &.level-3 {
       background: #30a14e;
     }
+
     &.level-4 {
       background: #216e39;
     }
@@ -231,15 +227,19 @@ const monthLabels = computed<{ col: number; label: string }[]>(() => {
   .cell.level-0 {
     background: var(--color-white-10);
   }
+
   .cell.level-1 {
     background: #0e4429;
   }
+
   .cell.level-2 {
     background: #006d32;
   }
+
   .cell.level-3 {
     background: #26a641;
   }
+
   .cell.level-4 {
     background: #39d353;
   }

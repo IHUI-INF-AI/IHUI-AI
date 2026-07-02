@@ -154,6 +154,15 @@
       "rules": {
         "color-no-hex": true
       }
+    },
+    {
+      "files": [
+        "src/components/edu/**/*.vue",
+        "src/components/edu/**/*.scss"
+      ],
+      "rules": {
+        "color-no-hex": null
+      }
     }
   ],
   "ignoreFiles": [

@@ -219,12 +219,12 @@ function getCertTypeLabel(type: string): string {
 
 :where(.cert-pdf-link) {
   font-size: 12px;
-  color: #2563eb;
+  color: var(--el-color-primary);
   text-decoration: none;
   width: fit-content;
 
   &:hover {
-    color: #1d4ed8;
+    color: var(--el-color-primary-dark-2);
     text-decoration: underline;
   }
 }

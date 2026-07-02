@@ -124,8 +124,8 @@ function getTypeTagStyle(type: OfflineActivityType): Record<string, string> {
   switch (type) {
     case 'training':
       return {
-        backgroundColor: '#2563eb',
-        borderColor: '#2563eb',
+        backgroundColor: 'var(--el-color-primary)',
+        borderColor: 'var(--el-color-primary)',
         color: '#fff',
       }
     case 'reading':
