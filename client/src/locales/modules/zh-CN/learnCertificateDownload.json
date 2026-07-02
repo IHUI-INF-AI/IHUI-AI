@@ -8,6 +8,9 @@
     "print": "打印",
     "breadcrumbCourse": "课程",
     "breadcrumbCert": "我的证书",
-    "downloadStart": "证书下载开始，正在对接后端 PDF 接口"
+    "downloadStart": "证书下载开始，正在对接后端 PDF 接口",
+    "downloadSuccess": "证书下载成功",
+    "downloadFailed": "证书下载失败，请重试",
+    "printFailed": "打印失败，请重试"
   }
 }

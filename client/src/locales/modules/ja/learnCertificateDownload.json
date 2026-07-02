@@ -1,13 +1,16 @@
 {
   "learnCertificateDownload": {
-    "notExist": "証明書が存在しません",
+    "notExist": "証明書は存在しません",
     "banner": "学習証明書",
-    "certText": "本コースの学習を完了したことを証明します",
-    "issueTime": "発行日時: ",
+    "certText": "本課程の学習を完了したことを証明します",
+    "issueTime": "発行日時：",
     "download": "ダウンロード",
     "print": "印刷",
     "breadcrumbCourse": "コース",
     "breadcrumbCert": "マイ証明書",
-    "downloadStart": "証明書ダウンロード開始、バックエンドPDF APIに接続中"
+    "downloadStart": "証明書ダウンロード開始、バックエンドPDF APIに接続中",
+    "downloadSuccess": "証明書ダウンロード成功",
+    "downloadFailed": "証明書ダウンロード失敗、再試行してください",
+    "printFailed": "印刷失敗、再試行してください"
   }
 }

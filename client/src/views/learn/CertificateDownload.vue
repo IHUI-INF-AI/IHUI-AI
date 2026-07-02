@@ -6,15 +6,15 @@
     <div v-loading="loading" class="content">
       <el-empty v-if="!cert.id" :description="t('learnCertificateDownload.notExist')" />
       <div v-else class="cert-preview">
-        <div class="cert-card">
+        <div ref="certCardRef" class="cert-card">
           <div class="cert-banner">{{ t('learnCertificateDownload.banner') }}</div>
           <h1 class="cert-name">{{ cert.name }}</h1>
           <p class="cert-text">{{ t('learnCertificateDownload.certText') }}</p>
           <div class="cert-time">{{ t('learnCertificateDownload.issueTime') }}{{ cert.issueTime }}</div>
         </div>
         <div class="actions">
-          <el-button type="primary" @click="handleDownload">{{ t('learnCertificateDownload.download') }}</el-button>
-          <el-button @click="handlePrint">{{ t('learnCertificateDownload.print') }}</el-button>
+          <el-button type="primary" :loading="downloading" @click="handleDownload">{{ t('learnCertificateDownload.download') }}</el-button>
+          <el-button :loading="printing" @click="handlePrint">{{ t('learnCertificateDownload.print') }}</el-button>
         </div>
       </div>
     </div>
@@ -29,13 +29,21 @@ import { ElMessage } from 'element-plus'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import { learnApi } from '@/api/learn'
+import { useDarkModeStore } from '@/stores/darkMode'
+import { exportElementToPDF, printElement } from '@/utils/exportService'
 
 const { t } = useI18n()
 const route = useRoute()
 const id = String(route.params.id || '')
+const darkModeStore = useDarkModeStore()
 
 const cert = ref<Record<string, unknown>>({})
 const loading = ref(false)
+const downloading = ref(false)
+const printing = ref(false)
+const certCardRef = ref<HTMLElement | null>(null)
+
+const isDark = computed(() => darkModeStore.isDarkMode ?? darkModeStore.themeMode === 'dark')
 
 const breadcrumbItems = computed(() => [
   { title: t('learnCertificateDownload.breadcrumbCourse'), path: '/learn' },
@@ -53,12 +61,37 @@ async function load() {
   }
 }
 
-function handleDownload() {
-  ElMessage.info(t('learnCertificateDownload.downloadStart'))
+async function handleDownload() {
+  if (!certCardRef.value) return
+  downloading.value = true
+  try {
+    const certName = (cert.value.name as string) || id
+    await exportElementToPDF(certCardRef.value, {
+      filename: `certificate-${certName}.pdf`,
+      backgroundColor: isDark.value ? '#6a6d77' : '#ffffff',
+    })
+    ElMessage.success(t('learnCertificateDownload.downloadSuccess'))
+  } catch (e) {
+    console.error('[CertificateDownload] 导出 PDF 失败', e)
+    ElMessage.error(t('learnCertificateDownload.downloadFailed'))
+  } finally {
+    downloading.value = false
+  }
 }
 
-function handlePrint() {
-  window.print()
+async function handlePrint() {
+  if (!certCardRef.value) return
+  printing.value = true
+  try {
+    await printElement(certCardRef.value, {
+      backgroundColor: isDark.value ? '#6a6d77' : '#ffffff',
+    })
+  } catch (e) {
+    console.error('[CertificateDownload] 打印失败', e)
+    ElMessage.error(t('learnCertificateDownload.printFailed'))
+  } finally {
+    printing.value = false
+  }
 }
 
 onMounted(load)

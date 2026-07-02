@@ -1,13 +1,16 @@
 {
   "learnCertificateDownload": {
-    "notExist": "Certificate not exist",
+    "notExist": "Certificate does not exist",
     "banner": "Learning Certificate",
-    "certText": "This is to certify that the course has been completed",
+    "certText": "This is to certify that the course learning has been completed",
     "issueTime": "Issue Time: ",
     "download": "Download",
     "print": "Print",
     "breadcrumbCourse": "Course",
     "breadcrumbCert": "My Certificate",
-    "downloadStart": "Certificate download started, connecting to backend PDF API"
+    "downloadStart": "Certificate download started, connecting to backend PDF API",
+    "downloadSuccess": "Certificate downloaded successfully",
+    "downloadFailed": "Certificate download failed, please retry",
+    "printFailed": "Print failed, please retry"
   }
 }

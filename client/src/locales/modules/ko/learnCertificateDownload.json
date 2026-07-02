@@ -2,12 +2,15 @@
   "learnCertificateDownload": {
     "notExist": "자격증이 존재하지 않습니다",
     "banner": "학습 자격증",
-    "certText": "본 코스의 학습을 완료했음을 증명합니다",
+    "certText": "본 과정 학습을 완료했음을 증명합니다",
     "issueTime": "발급 시간: ",
     "download": "다운로드",
     "print": "인쇄",
     "breadcrumbCourse": "코스",
     "breadcrumbCert": "내 자격증",
-    "downloadStart": "자격증 다운로드 시작, 백엔드 PDF API 연결 중"
+    "downloadStart": "자격증 다운로드 시작, 백엔드 PDF API 연결 중",
+    "downloadSuccess": "자격증 다운로드 성공",
+    "downloadFailed": "자격증 다운로드 실패, 다시 시도해주세요",
+    "printFailed": "인쇄 실패, 다시 시도해주세요"
   }
 }
