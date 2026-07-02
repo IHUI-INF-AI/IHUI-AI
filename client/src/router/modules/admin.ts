@@ -2,6 +2,26 @@ import type { RouteRecordRaw } from 'vue-router'
 import { safeImport } from '../utils/componentLoader'
 
 export const adminRoutes: Array<RouteRecordRaw> = [
+  // P2 死代码挂载: 第三方登录回调 (不需要 auth, 必须在 /admin 父路由之前避免被 requiresAuth 拦截)
+  {
+    path: '/admin/login/dingtalk',
+    name: 'adminLoginDingTalk',
+    component: safeImport(() => import('@/views/admin/login/DingTalk.vue'), 'adminLoginDingTalk'),
+    meta: { title: 'routes.adminLoginDingTalk' },
+  },
+  {
+    path: '/admin/login/work-wechat',
+    name: 'adminLoginWorkWechat',
+    component: safeImport(() => import('@/views/admin/login/WorkWechat.vue'), 'adminLoginWorkWechat'),
+    meta: { title: 'routes.adminLoginWorkWechat' },
+  },
+  // P2 死代码挂载: admin-classic catch-all (路径字符串在 App.vue/router/index.ts/WorkspaceHeader.vue/AdminQuickAccess.vue 中被引用)
+  {
+    path: '/admin-classic/:pathMatch(.*)*',
+    name: 'adminClassic',
+    component: safeImport(() => import('@/views/admin-classic/index.vue'), 'adminClassic'),
+    meta: { title: 'routes.adminClassic', requiresAuth: true, requiresAdmin: true },
+  },
   {
     path: '/admin/gray-release',
     name: 'grayRelease',
@@ -593,6 +613,28 @@ export const adminRoutes: Array<RouteRecordRaw> = [
       { path: 'distribution-management', name: 'adminDistributionManagement', component: safeImport(() => import('@/views/admin/DistributionManagement.vue'), 'adminDistributionManagement'), meta: { title: 'routes.adminDistributionManagement', description: 'seo.adminDistributionManagement.desc', keywords: 'seo.adminDistributionManagement.keywords' } },
       { path: 'tour-permissions', name: 'adminTourPermissionsAdmin', component: safeImport(() => import('@/views/admin/TourPermissionsAdmin.vue'), 'adminTourPermissionsAdmin'), meta: { title: 'routes.adminTourPermissionsAdmin', description: 'seo.adminTourPermissionsAdmin.desc', keywords: 'seo.adminTourPermissionsAdmin.keywords' } },
       { path: 'utils-admin', name: 'adminUtilsAdmin', component: safeImport(() => import('@/views/admin/UtilsAdmin.vue'), 'adminUtilsAdmin'), meta: { title: 'routes.adminUtilsAdmin', description: 'seo.adminUtilsAdmin.desc', keywords: 'seo.adminUtilsAdmin.keywords' } },
+      // P1 孤岛群挂载: 章节管理 (Chapter + ChapterDialog + ChapterSection + ChapterSectionDialog)
+      { path: 'exam/chapter', name: 'adminExamChapter', component: safeImport(() => import('@/views/admin/exam/Chapter.vue'), 'adminExamChapter'), meta: { title: 'routes.adminExamChapter' } },
+      { path: 'exam/chapter-section', name: 'adminExamChapterSection', component: safeImport(() => import('@/views/admin/exam/ChapterSection.vue'), 'adminExamChapterSection'), meta: { title: 'routes.adminExamChapterSection' } },
+      // P1 孤岛群挂载: 需求广场 (demandSquare/index + review)
+      { path: 'demand-square', name: 'adminDemandSquare', component: safeImport(() => import('@/views/admin/demandSquare/index.vue'), 'adminDemandSquare'), meta: { title: 'routes.adminDemandSquare' } },
+      { path: 'demand-square/review', name: 'adminDemandSquareReview', component: safeImport(() => import('@/views/admin/demandSquare/review.vue'), 'adminDemandSquareReview'), meta: { title: 'routes.adminDemandSquareReview' } },
+      // P1 孤岛群挂载: 开发者管理 (developer/index + link)
+      { path: 'developer', name: 'adminDeveloper', component: safeImport(() => import('@/views/admin/developer/index.vue'), 'adminDeveloper'), meta: { title: 'routes.adminDeveloper' } },
+      { path: 'developer/link', name: 'adminDeveloperLink', component: safeImport(() => import('@/views/admin/developer/link.vue'), 'adminDeveloperLink'), meta: { title: 'routes.adminDeveloperLink' } },
+      // P1 孤岛群挂载: 字典管理 (dict/index + data)
+      { path: 'dict', name: 'adminDict', component: safeImport(() => import('@/views/admin/dict/index.vue'), 'adminDict'), meta: { title: 'routes.adminDict' } },
+      { path: 'dict/data', name: 'adminDictData', component: safeImport(() => import('@/views/admin/dict/data.vue'), 'adminDictData'), meta: { title: 'routes.adminDictData' } },
+      // P1 孤岛群挂载: 定时任务 (job/index + log)
+      { path: 'job', name: 'adminJob', component: safeImport(() => import('@/views/admin/job/index.vue'), 'adminJob'), meta: { title: 'routes.adminJob' } },
+      { path: 'job/log', name: 'adminJobLog', component: safeImport(() => import('@/views/admin/job/log.vue'), 'adminJobLog'), meta: { title: 'routes.adminJobLog' } },
+      // P3 独立管理页挂载
+      { path: 'migration', name: 'adminMigration', component: safeImport(() => import('@/views/admin/MigrationAdmin.vue'), 'adminMigration'), meta: { title: 'routes.adminMigration' } },
+      { path: 'log/logininfor', name: 'adminLogLogininfor', component: safeImport(() => import('@/views/admin/log/logininfor.vue'), 'adminLogLogininfor'), meta: { title: 'routes.adminLogLogininfor' } },
+      { path: 'log/operlog', name: 'adminLogOperlog', component: safeImport(() => import('@/views/admin/log/operlog.vue'), 'adminLogOperlog'), meta: { title: 'routes.adminLogOperlog' } },
+      { path: 'online', name: 'adminOnline', component: safeImport(() => import('@/views/admin/online/index.vue'), 'adminOnline'), meta: { title: 'routes.adminOnline' } },
+      { path: 'sms/template', name: 'adminSmsTemplate', component: safeImport(() => import('@/views/admin/sms/Template.vue'), 'adminSmsTemplate'), meta: { title: 'routes.adminSmsTemplate' } },
+      { path: 'zone', name: 'adminZone', component: safeImport(() => import('@/views/admin/zone/index.vue'), 'adminZone'), meta: { title: 'routes.adminZone' } },
     ],
   },
 ]

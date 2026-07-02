@@ -90,7 +90,7 @@ const allPermissions = computed<Permission[]>(() => [
   'recommendation:view', 'recommendation:config', 'recommendation:abtest',
   'platform:view', 'platform:config',
 ])
-const userPermissions = computed(() => store.userPermissions as Permission[])
+const userPermissions = computed<Permission[]>(() => (store.userPermissions || []) as Permission[])
 const deniedPermissions = computed(() => allPermissions.value.filter(p => !userPermissions.value.includes(p)))
 
 const permRows = computed(() => allPermissions.value.map(p => ({
