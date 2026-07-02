@@ -5,6 +5,7 @@
     "emptyHot": "人気検索がありません",
     "resultSummary": "{total}件の結果が見つかりました",
     "noResult": "関連する結果が見つかりません",
+    "typeLabel": "タイプ",
     "typeAgent": "エージェント",
     "typeCourse": "コース",
     "typeContent": "コンテンツ",

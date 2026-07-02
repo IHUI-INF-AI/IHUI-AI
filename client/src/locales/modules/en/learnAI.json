@@ -579,6 +579,8 @@
       "aiDev": "AI Development",
       "aiCreative": "AI Creation"
     },
+    "featuredSectionTitle": "Featured Courses",
+    "featuredSectionSubtitle": "Editor's picks · Most popular",
     "course": {
       "c1": {
         "title": "LangChain LLM Application Development Beginner",

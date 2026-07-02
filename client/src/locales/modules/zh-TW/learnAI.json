@@ -553,6 +553,8 @@
       "aiDev": "AI 開發實戰",
       "aiCreative": "AI 創作"
     },
+    "featuredSectionTitle": "精選課程合集",
+    "featuredSectionSubtitle": "編輯推薦 · 最受歡迎",
     "course": {
       "c1": {
         "title": "LangChain 大模型應用開發入門",

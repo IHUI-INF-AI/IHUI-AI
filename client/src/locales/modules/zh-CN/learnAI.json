@@ -510,6 +510,8 @@
       "aiDev": "AI 开发实战",
       "aiCreative": "AI 创作"
     },
+    "featuredSectionTitle": "精选课程合集",
+    "featuredSectionSubtitle": "编辑推荐 · 最受欢迎",
     "course": {
       "c1": {
         "title": "LangChain 大模型应用开发入门",

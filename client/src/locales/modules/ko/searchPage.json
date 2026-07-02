@@ -5,6 +5,7 @@
     "emptyHot": "인기 검색이 없습니다",
     "resultSummary": "{total}개의 결과를 찾았습니다",
     "noResult": "관련 결과를 찾을 수 없습니다",
+    "typeLabel": "유형",
     "typeAgent": "에이전트",
     "typeCourse": "코스",
     "typeContent": "콘텐츠",

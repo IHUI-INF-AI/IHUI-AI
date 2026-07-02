@@ -582,6 +582,8 @@
       "aiDev": "AI 개발 실전",
       "aiCreative": "AI 크리에이티브"
     },
+    "featuredSectionTitle": "엄선 코스 컬렉션",
+    "featuredSectionSubtitle": "에디터 추천 · 최고 인기",
     "course": {
       "c1": {
         "title": "LangChain 대규모 모델 응용 개발 입문",

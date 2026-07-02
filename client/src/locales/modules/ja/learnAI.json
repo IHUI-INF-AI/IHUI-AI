@@ -568,6 +568,8 @@
       "aiDev": "AI開発実践",
       "aiCreative": "AIクリエイティブ"
     },
+    "featuredSectionTitle": "厳選コース合集",
+    "featuredSectionSubtitle": "編集者のおすすめ · 人気No.1",
     "course": {
       "c1": {
         "title": "LangChain大規模モデル応用開発入門",

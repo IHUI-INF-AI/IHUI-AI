@@ -5,6 +5,7 @@
     "emptyHot": "No hot searches",
     "resultSummary": "Found {total} results",
     "noResult": "No results found",
+    "typeLabel": "Type",
     "typeAgent": "Agent",
     "typeCourse": "Course",
     "typeContent": "Content",

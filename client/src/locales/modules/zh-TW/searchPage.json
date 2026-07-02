@@ -5,6 +5,7 @@
     "emptyHot": "暫無熱門搜尋",
     "resultSummary": "找到 {total} 個結果",
     "noResult": "未找到相關結果",
+    "typeLabel": "類型",
     "typeAgent": "智能體",
     "typeCourse": "課程",
     "typeContent": "內容",
