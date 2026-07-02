@@ -31,7 +31,9 @@ function preloadI18n(modules: string[]) {
 // 而 SFC <script setup> 的 import() 默认推断为整个模块, 这里显式取 default 并断言为 Component
 const notFoundComponent = (): Promise<Component> =>
   import('@/views/NotFound.vue').then((m) => m.default as Component);
-const EduLayout = notFoundComponent;
+// EduLayout: /edu 父级布局，含 el-aside 侧边栏菜单 + el-main router-view
+const EduLayout = (): Promise<Component> =>
+  import('@/views/edu/index.vue').then((m) => m.default as Component);
 
 // ============================================================================
 // Student-facing edu routes
@@ -167,8 +169,37 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'member',
         name: 'EduMember',
-        component: notFoundComponent,
-        meta: { title: '学员档案', icon: 'User' },
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/Profile.vue').then((m) => m.default as Component),
+        meta: { title: '学员档案', icon: 'User', requiresAuth: true },
+      },
+      {
+        path: 'member/report',
+        name: 'EduMemberReport',
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/Report.vue').then((m) => m.default as Component),
+        meta: { title: '学习档案报告', hideInMenu: true, requiresAuth: true },
+      },
+      {
+        path: 'member/notes',
+        name: 'EduMemberNotes',
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/Notes.vue').then((m) => m.default as Component),
+        meta: { title: '我的笔记', hideInMenu: true, requiresAuth: true },
+      },
+      {
+        path: 'member/offline-records',
+        name: 'EduMemberOfflineRecords',
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/OfflineRecords.vue').then((m) => m.default as Component),
+        meta: { title: '线下学习记录', hideInMenu: true, requiresAuth: true },
+      },
+      {
+        path: 'member/certificates/upload',
+        name: 'EduMemberCertUpload',
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/CertUpload.vue').then((m) => m.default as Component),
+        meta: { title: '上传历史证书', hideInMenu: true, requiresAuth: true },
       },
 
       // ----- Point (points) -----

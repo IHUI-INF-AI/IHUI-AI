@@ -70,6 +70,7 @@ const pathModuleMap: Array<{ prefix: string; module: string }> = [
   { prefix: '/vip', module: 'vip' },
   { prefix: '/footer', module: 'footer' },
   { prefix: '/app', module: 'app' },
+  { prefix: '/edu', module: 'edu' },
 ]
 
 export function setupRouteLanguageLoader(router: Router) {
