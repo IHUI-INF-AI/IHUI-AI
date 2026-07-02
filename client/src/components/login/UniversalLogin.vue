@@ -32,7 +32,7 @@
       <TabSwitcher
         :active-tab="activeTab"
         :is-register-mode="isRegisterMode"
-        @update:active-tab="activeTab = $event"
+        @update:active-tab="(tab) => activeTab = tab"
         @update:register-mode="updateRegisterMode"
       />
 
@@ -43,7 +43,7 @@
         :is-dark-mode="isDarkMode"
         :show-captcha="showCaptcha"
         @submit="onAccountLoginSubmit"
-        @switch-tab="activeTab = $event"
+        @switch-tab="(tab) => activeTab = tab"
         @forgot-password="onForgotPassword"
         @sso-click="onSSOClick"
       />
@@ -536,6 +536,7 @@ defineExpose({ reset })
 </script>
 
 <style scoped lang="scss">
+@use './_login-tokens.scss' as lt;
 @import './_agreement-scoped.css';
 
 /* 组件布局样式 */
@@ -575,10 +576,24 @@ defineExpose({ reset })
 
 .submit-btn {
   width: 100%;
+  height: lt.$login-btn-height;
   margin-top: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 1px;
+  border-radius: lt.$login-btn-radius;
+  font-size: lt.$login-btn-font-size;
+  font-weight: lt.$login-btn-font-weight;
+  letter-spacing: lt.$login-btn-letter-spacing;
+  transition: lt.$login-btn-transition;
+
+  // 浅色模式: 项目统一主色 #2563eb + 蓝色阴影 (覆盖 Element Plus 默认 #409eff)
+  @include lt.login-btn-primary;
+
+  &:hover:not(.is-disabled) {
+    @include lt.login-btn-primary-hover;
+  }
+
+  &:active:not(.is-disabled) {
+    @include lt.login-btn-primary-active;
+  }
 }
 
 html.dark .universal-login {
@@ -588,6 +603,25 @@ html.dark .universal-login {
     &:hover {
       color: var(--el-text-color-primary);
       background-color: var(--el-fill-color-dark);
+    }
+  }
+
+  .submit-btn {
+    background-color: lt.$login-dark-primary;
+    border-color: lt.$login-dark-primary;
+    box-shadow: 0 4px 12px lt.$login-dark-primary-glow;
+
+    &:hover:not(.is-disabled) {
+      background-color: lt.$login-dark-primary-hover;
+      border-color: lt.$login-dark-primary-hover;
+      box-shadow: 0 8px 20px lt.$login-dark-primary-glow;
+      transform: translateY(-1px);
+    }
+
+    &:active:not(.is-disabled) {
+      background-color: lt.$login-dark-primary;
+      transform: translateY(0);
+      box-shadow: 0 2px 8px lt.$login-dark-primary-glow-soft;
     }
   }
 }
