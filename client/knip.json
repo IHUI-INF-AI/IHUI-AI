@@ -20,7 +20,6 @@
   ],
   "ignoreBinaries": [
     "chcp",
-    "tsx",
     "python",
     "lhci",
     "rimraf"
