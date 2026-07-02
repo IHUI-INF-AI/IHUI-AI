@@ -5,7 +5,6 @@
  */
 
 import requestService from './request'
-import { getBaseUrl } from '@/config/api-config'
 import type { AxiosRequestConfig } from 'axios'
 
 export interface RequestOptions {
@@ -76,8 +75,3 @@ export default function compatRequest<T = unknown>(options: RequestOptions): Pro
       throw error
     })
 }
-
-// 导出 baseUrl 兼容常量（源项目的 service 文件中可能用到）
-export const baseUrl = getBaseUrl(1)
-export const baseUrl2 = getBaseUrl(2)
-export const baseUrl3 = getBaseUrl(3)

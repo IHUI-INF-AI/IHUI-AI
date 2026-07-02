@@ -85,7 +85,6 @@ export {
   isApiSuccess,
   extractApiData,
   extractApiError,
-  normalizePaginationResponse,
   createErrorResponse,
   withApiResponseHandler,
   ApiCache,

@@ -2,10 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   clearLoginDataCompletely,
   clearAllAuthData,
-  hasLoginData,
-  getStoredToken,
-  setStoredToken,
-  clearStoredToken,
 } from '../auth-compat'
 
 vi.mock('../logger', () => ({
@@ -81,118 +77,6 @@ describe('auth-compat', () => {
       clearAllAuthData()
 
       expect(localStorageMock['token']).toBeUndefined()
-    })
-  })
-
-  describe('hasLoginData', () => {
-    it('应该返回true当有token时', () => {
-      localStorageMock['token'] = 'test-token'
-
-      expect(hasLoginData()).toBe(true)
-    })
-
-    it('应该返回true当有access_token时', () => {
-      localStorageMock['access_token'] = 'test-access'
-
-      expect(hasLoginData()).toBe(true)
-    })
-
-    it('应该返回false当没有token时', () => {
-      expect(hasLoginData()).toBe(false)
-    })
-
-    it('应该在非浏览器环境返回false', () => {
-      const originalWindow = global.window
-      Object.defineProperty(global, 'window', { value: undefined, writable: true })
-
-      expect(hasLoginData()).toBe(false)
-
-      Object.defineProperty(global, 'window', { value: originalWindow, writable: true })
-    })
-  })
-
-  describe('getStoredToken', () => {
-    it('应该从localStorage获取token', () => {
-      localStorageMock['token'] = 'test-token'
-
-      expect(getStoredToken()).toBe('test-token')
-    })
-
-    it('应该从localStorage获取access_token', () => {
-      localStorageMock['access_token'] = 'test-access'
-
-      expect(getStoredToken()).toBe('test-access')
-    })
-
-    it('应该从sessionStorage获取token', () => {
-      sessionStorageMock['token'] = 'session-token'
-
-      expect(getStoredToken()).toBe('session-token')
-    })
-
-    it('应该返回null当没有token时', () => {
-      expect(getStoredToken()).toBeNull()
-    })
-
-    it('应该在非浏览器环境返回null', () => {
-      const originalWindow = global.window
-      Object.defineProperty(global, 'window', { value: undefined, writable: true })
-
-      expect(getStoredToken()).toBeNull()
-
-      Object.defineProperty(global, 'window', { value: originalWindow, writable: true })
-    })
-  })
-
-  describe('setStoredToken', () => {
-    it('应该存储到localStorage当remember为true', () => {
-      setStoredToken('test-token', true)
-
-      expect(localStorageMock['token']).toBe('test-token')
-    })
-
-    it('应该存储到sessionStorage当remember为false', () => {
-      setStoredToken('test-token', false)
-
-      expect(sessionStorageMock['token']).toBe('test-token')
-    })
-
-    it('应该默认存储到sessionStorage', () => {
-      setStoredToken('test-token')
-
-      expect(sessionStorageMock['token']).toBe('test-token')
-    })
-
-    it('应该在非浏览器环境不执行', () => {
-      const originalWindow = global.window
-      Object.defineProperty(global, 'window', { value: undefined, writable: true })
-
-      expect(() => setStoredToken('test-token')).not.toThrow()
-
-      Object.defineProperty(global, 'window', { value: originalWindow, writable: true })
-    })
-  })
-
-  describe('clearStoredToken', () => {
-    it('应该清除所有token', () => {
-      localStorageMock['token'] = 'test-token'
-      localStorageMock['access_token'] = 'test-access'
-      sessionStorageMock['token'] = 'session-token'
-
-      clearStoredToken()
-
-      expect(localStorageMock['token']).toBeUndefined()
-      expect(localStorageMock['access_token']).toBeUndefined()
-      expect(sessionStorageMock['token']).toBeUndefined()
-    })
-
-    it('应该在非浏览器环境不执行', () => {
-      const originalWindow = global.window
-      Object.defineProperty(global, 'window', { value: undefined, writable: true })
-
-      expect(() => clearStoredToken()).not.toThrow()
-
-      Object.defineProperty(global, 'window', { value: originalWindow, writable: true })
     })
   })
 })

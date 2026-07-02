@@ -299,7 +299,6 @@ describe('utils/index.ts 聚合导出测试', () => {
       expect(typeof mod.isApiSuccess).toBe('function')
       expect(typeof mod.extractApiData).toBe('function')
       expect(typeof mod.extractApiError).toBe('function')
-      expect(typeof mod.normalizePaginationResponse).toBe('function')
       expect(typeof mod.createErrorResponse).toBe('function')
       expect(typeof mod.debounceApi).toBe('function')
       expect(typeof mod.throttleApi).toBe('function')

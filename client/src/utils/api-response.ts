@@ -140,81 +140,9 @@ export function normalizeApiResponse<T = unknown>(response: unknown): ApiRespons
   }
 }
 
-/**
- * 创建模拟API响应
- * @param data 响应数据
- * @param message 响应消息
- * @param code 响应代码
- * @returns 模拟API响应
- */
-export function createMockApiResponse<T = unknown>(
-  data: T,
-  message: string = 'success',
-  code: number = 200
-): ApiResponse<T> {
-  return {
-    code,
-    message,
-    data,
-    success: code >= 200 && code < 300,
-    timestamp: Date.now(),
-    isMockData: true,
-    mockMessage: '使用模拟数据',
-  }
-}
-
-/**
- * 创建错误API响应
- * @param message 错误消息
- * @param code 错误代码
- * @param data 错误数据
- * @returns 错误API响应
- */
-export function createErrorApiResponse<T = unknown>(
-  message: string,
-  code: number = 500,
-  data: T | null = null
-): ApiResponse<T | null> {
-  return {
-    code,
-    message,
-    data,
-    success: false,
-    timestamp: Date.now(),
-  }
-}
-
-/**
- * 从API响应中提取数据
- * @param response API响应
- * @returns 响应数据
- */
-export function extractData<T = unknown>(response: ApiResponse<T>): T {
-  return response.data
-}
-
-/**
- * 检查API响应是否成功
- * @param response API响应
- * @returns 是否成功
- */
-export function isSuccessResponse<T = unknown>(response: ApiResponse<T>): boolean {
-  return response.success && response.code >= 200 && response.code < 300
-}
-
-/**
- * 检查API响应是否为模拟数据
- * @param response API响应
- * @returns 是否为模拟数据
- */
-export function isMockResponse<T = unknown>(response: ApiResponse<T>): boolean {
-  return !!response.isMockData
-}
-
 // 重新导出 apiResponseHandler 中的函数
 export {
   withApiResponseHandler,
-  normalizePaginationResponse,
 } from './apiResponseHandler'
 
 

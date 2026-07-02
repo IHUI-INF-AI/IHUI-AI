@@ -126,84 +126,9 @@ export const InputValidator = {
   },
 
   /**
-   * 验证验证码格式
+ * 验证验证码格式
    */
   isValidCode: (code: string, length = 6): boolean => {
     return new RegExp(`^\\d{${length}}$`).test(code)
   },
-}
-
-/**
- * XSS防护 - 转义HTML特殊字符
- */
-export function escapeHtml(text: string): string {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
-}
-
-/**
- * 检查密码强度
- */
-export function checkPasswordStrength(password: string): {
-  strength: 'weak' | 'medium' | 'strong'
-  score: number
-  suggestions: string[]
-} {
-  const suggestions: string[] = []
-  let score = 0
-
-  if (password.length >= 8) {
-    score++
-  } else {
-    suggestions.push('密码长度至少8位')
-  }
-
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
-    score++
-  } else {
-    suggestions.push('包含大小写字母')
-  }
-
-  if (/\d/.test(password)) {
-    score++
-  } else {
-    suggestions.push('包含数字')
-  }
-
-  if (/[^a-zA-Z0-9]/.test(password)) {
-    score++
-  } else {
-    suggestions.push('包含特殊字符')
-  }
-
-  let strength: 'weak' | 'medium' | 'strong' = 'weak'
-  if (score >= 4) strength = 'strong'
-  else if (score >= 2) strength = 'medium'
-
-  return { strength, score, suggestions }
-}
-
-/**
- * 生成随机字符串
- */
-export function generateRandomString(length = 32): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
-
-/**
- * 生成随机验证码
- */
-export function generateVerificationCode(length = 6): string {
-  const digits = '0123456789'
-  let code = ''
-  for (let i = 0; i < length; i++) {
-    code += digits.charAt(Math.floor(Math.random() * digits.length))
-  }
-  return code
 }

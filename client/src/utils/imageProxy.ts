@@ -14,14 +14,14 @@ const PLACEHOLDER_IMAGE = '/images/common/empty.svg'
 // weserv.nl 是最可靠的图片代理，支持图片格式转换和缓存
 const IMAGE_PROXIES = [
   // weserv.nl - 最可靠，支持图片处理参数
-  { 
+  {
     prefix: 'https://images.weserv.nl/?url=',
     encode: true,
     // 添加额外参数确保返回正确的图片格式
     suffix: '&default=1'
   },
   // wsrv.nl - weserv.nl 的备用域名
-  { 
+  {
     prefix: 'https://wsrv.nl/?url=',
     encode: true,
     suffix: '&default=1'
@@ -115,110 +115,4 @@ export function getProxiedImageUrl(imageUrl: string, forceProxy: boolean = false
 export function switchImageProxy(): void {
   currentProxyIndex = (currentProxyIndex + 1) % IMAGE_PROXIES.length
   logger.info(`[ImageProxy] Switched to proxy: ${currentProxyIndex + 1}/${IMAGE_PROXIES.length}`)
-}
-
-/**
- * 获取当前代理索引
- */
-export function getCurrentProxyIndex(): number {
-  return currentProxyIndex
-}
-
-/**
- * 重置代理索引
- */
-export function resetImageProxy(): void {
-  currentProxyIndex = 0
-}
-
-/**
- * 尝试加载图片，如果失败则自动切换代理
- * @param imageUrl 原始图片URL
- * @param maxRetries 最大重试次数
- * @returns Promise<string> 成功加载的图片URL
- */
-export async function loadImageWithFallback(
-  imageUrl: string, 
-  maxRetries: number = IMAGE_PROXIES.length
-): Promise<string> {
-  // 首先尝试直接加载
-  if (await testImageLoad(imageUrl)) {
-    return imageUrl
-  }
-
-  // 尝试使用代理
-  for (let i = 0; i < maxRetries; i++) {
-    const proxiedUrl = getProxiedImageUrl(imageUrl, true)
-    if (await testImageLoad(proxiedUrl)) {
-      return proxiedUrl
-    }
-    switchImageProxy()
-  }
-
-  // All proxies failed, returning original URL
-  logger.warn(`[ImageProxy] All proxies failed, returning original URL: ${imageUrl}`)
-  return imageUrl
-}
-
-/**
- * 测试图片是否可以加载
- */
-function testImageLoad(url: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof Image === 'undefined') {
-      resolve(false)
-      return
-    }
-
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    
-    const timeout = setTimeout(() => {
-      resolve(false)
-    }, 5000) // 5秒超时
-
-    img.onload = () => {
-      clearTimeout(timeout)
-      resolve(true)
-    }
-    
-    img.onerror = () => {
-      clearTimeout(timeout)
-      resolve(false)
-    }
-    
-    img.src = url
-  })
-}
-
-/**
- * 创建带有错误处理的图片元素
- * @param imageUrl 图片URL
- * @param fallbackUrl 失败时的回退URL
- */
-export function createImageWithFallback(
-  imageUrl: string, 
-  fallbackUrl: string = '/images/placeholder.png'
-): HTMLImageElement {
-  const img = document.createElement('img')
-  img.crossOrigin = 'anonymous'
-  
-  let retryCount = 0
-  const maxRetries = IMAGE_PROXIES.length
-
-  const handleError = () => {
-    if (retryCount < maxRetries) {
-      retryCount++
-      switchImageProxy()
-      img.src = getProxiedImageUrl(imageUrl, true)
-    } else {
-      // 所有代理都失败，使用回退图片
-      img.src = fallbackUrl
-    }
-  }
-
-  img.onerror = handleError
-  img.src = getProxiedImageUrl(imageUrl)
-
-  return img
 }
