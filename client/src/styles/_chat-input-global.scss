@@ -60,7 +60,7 @@
   }
 
   // 小号仅图标 link 按钮（全局统一为正方形）
-  :where(.session-list-close, .icon-link-btn-square-sm) {
+  :where(.icon-link-btn-square-sm) {
     --icon-link-size: var(--icon-link-btn-small-size, 28px);
 
     width: var(--icon-link-size);

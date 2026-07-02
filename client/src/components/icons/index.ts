@@ -32,8 +32,5 @@ export { default as AILogoIcon } from './AILogoIcon.vue'
 // 上传加号图标 - 外框+加号风格
 export { default as UploadPlusIcon } from './UploadPlusIcon.vue'
 
-// 会话列表图标 - 容器/历史列表风格
-export { default as SessionListIcon } from './SessionListIcon.vue'
-
 // 左右双引号图标 - 回复/引用
 export { default as QuoteIcon } from './QuoteIcon.vue'

@@ -243,6 +243,8 @@ interface Props {
   effectiveShowTickets: boolean
 }
 
+const props = defineProps<Props>()
+
 const emit = defineEmits<{
   (e: 'toggle-search'): void
   (e: 'menu-command', command: string): void
