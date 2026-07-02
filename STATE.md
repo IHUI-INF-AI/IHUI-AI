@@ -1,37 +1,32 @@
-# /goal 后续建议收尾 — STATE
+# /goal 第三轮 — STATE
 
 **目标**: 继续按上一轮建议执行直到全部做完收尾，没有后续建议可说为止
 
 ## 硬性指标
 
-1. ✅ 5 个 views/edu/member/*.vue 业务页面创建 (Profile/Report/Notes/OfflineRecords/CertUpload)
-2. ✅ edu.ts 路由由 notFoundComponent 改为真实组件
-3. ✅ e2e/learn-cert-download.spec.ts 创建并通过 (17 源码级 × 2 视口 = 34 passed)
-4. ✅ en-US i18n 覆盖率从 1% → 90% (555 模块同步自 en, 1983 keys 缺失)
-5. ✅ ts-prune 工具接入 (scan-ts-prune.mjs + npm scripts + knip.json ignore 复用)
-6. ✅ 6 项守门通过 (typecheck/i18n/theme-tokens/contrast/knip-hints/port-drift/line-endings/agents-md)
-7. ✅ 所有 commit 推送到 origin/main (4 commits)
+1. ✅ 推送 commit 到 origin/main — 11 个 commit 成功推送 (9e1756e7..35c2f7bd)
+2. ✅ 分析 ts-prune 报告 — 已完成误报过滤与人工审查清单 (commit c74a375e)
+3. ✅ en-US 美式英语定制化 — 162 条英式→美式替换规则 (commit ff705404)
+4. ✅ edu 业务页面浏览器级 e2e 验证 — 21 个测试全部通过 (commit c85c636b)
+5. ✅ 补全 en/zh-TW/ja/ko 剩余缺失 i18n 键 — 5 语言覆盖率 100% (commit ff705404)
 
 ## 软性指标
 
-- ✅ 业务页面 e2e 回归 (源码级 34 passed, 浏览器级条件跳过)
+- ✅ 6 项守门通过 (typecheck/i18n/theme-tokens/contrast/knip-hints/port-drift/line-endings/agents-md)
 - ✅ 文档更新 (STATE.md + loop-run-log.md)
+- ✅ 不破坏现有未提交的工作树（其他在途改动）
+- ✅ 修复 2 个 edu 图表组件硬编码 #2563eb → THEME_INVARIANTS.ctaBgDark (commit 54fc435d)
+- ✅ 补提交 3 个缺失 edu 模块文件 + 1 个测试 (commit 35c2f7bd)
+- ✅ AGENTS.md 14 个源码级守门测试全部通过
 
-## 执行计划
+## 本轮 commit 清单
 
-- ✅ 轮 1: 创建 5 个 edu/member/*.vue 业务页面 + 路由接入
-- ✅ 轮 2: 创建 e2e/learn-cert-download.spec.ts
-- ✅ 轮 3: 批量补全 en-US i18n 翻译键
-- ✅ 轮 4: 接入 ts-prune
-- ✅ 轮 5: 6 项守门 + push 收尾
+| commit | 类型 | 说明 |
+|--------|------|------|
+| c74a375e | refactor(dev) | 改进 ts-prune 扫描器, 增加误报过滤与人工审查清单 |
+| ff705404 | feat(i18n) | 5 语言 i18n 覆盖率提升至 100% + en-US 美式英语定制 |
+| c85c636b | fix(e2e) | 修复证书下载页浏览器级测试 — mock 响应格式 + Vite 模块加载拦截 |
+| 54fc435d | fix(edu) | 2 个图表组件硬编码 #2563eb 改走 THEME_INVARIANTS.ctaBgDark |
+| 35c2f7bd | feat(edu) | 补提交 3 个缺失的 edu 模块文件 + 1 个测试 |
 
-## Status: DELIVERED (推送待网络恢复)
-
-> 注: 6/7 硬性指标已达成。第 7 项 (push) 因 GitHub HTTPS 端口 443 不可达 (网络层问题) 暂缓。
-> 5 个 commit 已就绪在本地 main 分支, 网络恢复后执行 `git push origin main` 即可。
-> commit 列表:
-> - 278e9b9b feat(edu): 5 个学员档案业务页面 + 路由接入 + i18n 5 语言补全
-> - 77a60a5b test(e2e): 添加证书下载页源码级+浏览器级回归测试
-> - 7b01d146 feat(i18n): en-US 覆盖率从 1% 提升至 90% (555 模块同步自 en)
-> - 79af83c0 chore(dev): 接入 ts-prune 作为 knip 补充死代码扫描工具
-> - 2eff78c8 docs(state): 第二轮 /goal DELIVERED — 7/7 硬性指标达成 + 4 commits
+## Status: DELIVERED
