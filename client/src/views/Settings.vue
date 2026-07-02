@@ -473,7 +473,7 @@
               <div class="setting-control">
                 <button
                   class="action-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); showPasswordDialog = true }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); withSensitiveVerification('password_change', t('settings.dialogs.changePassword.title'), () => { showPasswordDialog = true }) }"
                 >
                   {{ t('settings.actions.changePassword') }}
                 </button>
@@ -942,6 +942,13 @@
             <ThemeSyncIndicator />
             <SyncHistoryPanel />
             <SyncSettingsPanel />
+            <button
+              class="action-btn ripple-btn"
+              style="margin-top: 12px;"
+              @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); openSyncConflictDialog() }"
+            >
+              {{ t('themeSync.conflictCheck') }}
+            </button>
           </div>
         </div>
 
@@ -963,6 +970,27 @@
           </div>
           <div class="settings-card">
             <DeviceManager />
+          </div>
+        </div>
+
+        <!-- 安全图表 (SEC_07A: 可视化补齐安全日志的文本展示) -->
+        <div
+          class="settings-section glass scroll-reveal"
+          data-animation="fadeInUp"
+          data-delay="552"
+        >
+          <div class="section-header">
+            <div class="section-icon">
+              <el-icon><TrendCharts /></el-icon>
+            </div>
+            <div class="section-info">
+              <h2 class="section-title">{{ t('settings.securityCharts.title') }}</h2>
+              <p class="section-description">{{ t('settings.securityLog.description') }}</p>
+            </div>
+            <span class="section-idx">SEC_07A</span>
+          </div>
+          <div class="settings-card">
+            <SecurityCharts />
           </div>
         </div>
 
@@ -1251,7 +1279,7 @@
               <div class="setting-control">
                 <button
                   class="danger-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); openClearDataDialog() }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); withSensitiveVerification('clear_data', t('settings.dialogs.clearData.title'), openClearDataDialog) }"
                 >
                   {{ t('settings.actions.clearData') }}
                 </button>
@@ -1266,7 +1294,7 @@
               <div class="setting-control">
                 <button
                   class="danger-btn ripple-btn"
-                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); openDeleteAccountDialog() }"
+                  @click="(e) => { createRipple(e, e.currentTarget as HTMLElement); withSensitiveVerification('delete_account', t('settings.dialogs.deleteAccount.title'), openDeleteAccountDialog) }"
                 >
                   {{ t('settings.actions.deleteAccount') }}
                 </button>
@@ -1509,6 +1537,24 @@
         </div>
       </div>
     </Transition>
+
+    <!-- 敏感操作验证码弹窗 (改密/清数据/注销前二次验证) -->
+    <SensitiveActionDialog
+      :open="sensitiveDialogOpen"
+      :user-id="authStore.user?.id || ''"
+      :action="sensitiveAction"
+      :title="sensitiveTitle"
+      @cancel="onSensitiveCancel"
+      @verified="onSensitiveVerified"
+    />
+
+    <!-- 主题云同步冲突解决弹窗 -->
+    <ThemeSyncConflictDialog
+      v-model="syncConflictVisible"
+      :local-data="syncConflictData?.localData ?? null"
+      :cloud-data="syncConflictData?.cloudData ?? null"
+      @resolve="onSyncConflictResolve"
+    />
   </div>
 </template>
 
@@ -1541,6 +1587,8 @@ import { useSettingsApp } from '@/composables/settings/useSettingsApp'
 import { useSettingsDanger } from '@/composables/settings/useSettingsDanger'
 import DeviceManager from '@/components/settings/DeviceManager.vue'
 import SecurityLog from '@/components/settings/SecurityLog.vue'
+import SecurityCharts from '@/components/settings/SecurityCharts.vue'
+import SensitiveActionDialog from '@/components/security/SensitiveActionDialog.vue'
 import TwoFactorAuth from '@/components/settings/TwoFactorAuth.vue'
 import LoginHistory from '@/components/settings/LoginHistory.vue'
 import SecurityScore from '@/components/settings/SecurityScore.vue'
@@ -1554,6 +1602,8 @@ import ThemeBackupPanel from '@/components/settings/ThemeBackupPanel.vue'
 import ThemeShortcutPanel from '@/components/settings/ThemeShortcutPanel.vue'
 import ThemeTransitionPanel from '@/components/settings/ThemeTransitionPanel.vue'
 import ThemeSyncIndicator from '@/components/settings/ThemeSyncIndicator.vue'
+import ThemeSyncConflictDialog from '@/components/settings/ThemeSyncConflictDialog.vue'
+import { themeSyncConflictService, type SyncConflictData, type ConflictResolution } from '@/utils/themeSyncConflict'
 import SyncHistoryPanel from '@/components/settings/SyncHistoryPanel.vue'
 import SyncSettingsPanel from '@/components/settings/SyncSettingsPanel.vue'
 import { analyzePassword, getPasswordStrengthColor, getPasswordStrengthLabel } from '@/utils/passwordStrength'
@@ -1792,6 +1842,78 @@ const loadUserSettings = async () => {
   } catch {
     // 404 或网络错误时静默使用默认设置，不打扰用户
   }
+}
+
+// ===== 敏感操作验证码弹窗 (改密/清数据/注销前二次验证) =====
+const sensitiveDialogOpen = ref(false)
+const sensitiveAction = ref('')
+const sensitiveTitle = ref('')
+const pendingSensitiveAction = ref<(() => void) | null>(null)
+
+/**
+ * 在执行敏感操作前请求验证码二次验证。
+ * 验证通过后执行传入的 next 回调,取消则放弃。
+ */
+const withSensitiveVerification = (action: string, title: string, next: () => void) => {
+  sensitiveAction.value = action
+  sensitiveTitle.value = title
+  pendingSensitiveAction.value = next
+  sensitiveDialogOpen.value = true
+}
+
+const onSensitiveVerified = () => {
+  pendingSensitiveAction.value?.()
+  pendingSensitiveAction.value = null
+  sensitiveDialogOpen.value = false
+}
+
+const onSensitiveCancel = () => {
+  pendingSensitiveAction.value = null
+  sensitiveDialogOpen.value = false
+}
+
+// ===== 主题云同步冲突检测与解决 =====
+const syncConflictVisible = ref(false)
+const syncConflictData = ref<SyncConflictData | null>(null)
+
+/**
+ * 模拟检测本地/云端主题同步冲突。
+ * 实际场景中应由 ThemeSyncIndicator 在同步完成后触发;
+ * 此处提供手动入口,让用户主动检查并解决冲突。
+ */
+const openSyncConflictDialog = () => {
+  // 构造示例冲突数据 (实际应从 themeCloudSync 服务获取)
+  const now = Date.now()
+  syncConflictData.value = {
+    localData: {
+      themeMode: (appSettings.theme as 'light' | 'dark' | 'auto') || 'light',
+      updatedAt: now,
+      deviceId: 'local-device',
+    },
+    cloudData: {
+      themeMode: 'dark',
+      updatedAt: now - 30000,
+      deviceId: 'cloud-device',
+    },
+  }
+  syncConflictVisible.value = true
+}
+
+const onSyncConflictResolve = (resolution: ConflictResolution, _remember: boolean) => {
+  if (syncConflictData.value) {
+    const result = themeSyncConflictService.resolveConflict(
+      syncConflictData.value.localData,
+      syncConflictData.value.cloudData,
+      resolution,
+    )
+    // 应用解决结果到本地主题 (appSettings.theme 仅支持 light/dark/auto, 需过滤其他 ThemeMode)
+    const allowedThemes: Array<'light' | 'dark' | 'auto'> = ['light', 'dark', 'auto']
+    if (result.themeMode && allowedThemes.includes(result.themeMode as 'light' | 'dark' | 'auto') && appSettings.theme !== result.themeMode) {
+      appSettings.theme = result.themeMode as 'light' | 'dark' | 'auto'
+      updateAppSettingsData()
+    }
+  }
+  syncConflictVisible.value = false
 }
 
 onMounted(() => {

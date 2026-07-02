@@ -18,46 +18,7 @@
         <span>{{ t('rechargeDialog.selectTip') }}</span>
       </p>
 
-      <div class="recharge-amount">
-        <label class="amount-label" for="recharge-amount-input">{{ t('rechargeDialog.amountLabel') }}</label>
-        <div class="amount-input-wrap">
-          <span class="amount-symbol" aria-hidden="true">¥</span>
-          <input
-            id="recharge-amount-input"
-            v-model.number="amountYuan"
-            type="number"
-            class="amount-input"
-            placeholder="0.00"
-            min="1"
-            max="100000"
-            step="0.01"
-            :aria-label="t('rechargeDialog.amountAriaLabel')"
-            :aria-invalid="!isValid"
-            aria-describedby="recharge-amount-help"
-          />
-          <span id="recharge-amount-help" class="sr-only">
-            {{ t('rechargeDialog.amountRange') }}
-          </span>
-        </div>
-      </div>
-
-      <div
-        class="recharge-presets"
-        role="group"
-        :aria-label="t('rechargeDialog.presetsLabel')"
-      >
-        <button
-          v-for="preset in presets"
-          :key="preset"
-          type="button"
-          :aria-pressed="amountYuan === preset"
-          :aria-label="t('rechargeDialog.selectAmount', { n: preset })"
-          :class="['preset-btn', { active: amountYuan === preset }]"
-          @click="amountYuan = preset"
-        >
-          ¥{{ preset }}
-        </button>
-      </div>
+      <AmountSelector v-model="amountYuan" :max-amount="100000" />
 
       <fieldset class="recharge-channel">
         <legend class="channel-label">{{ t('rechargeDialog.paymentMethod') }}</legend>
@@ -105,6 +66,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AmountSelector from '@/components/top-up/AmountSelector.vue'
 
 const { t } = useI18n()
 
@@ -118,7 +80,6 @@ const emit = defineEmits<{
   (e: 'success', data: { amount: number; txId: string }): void
 }>()
 
-const presets = [10, 50, 100, 200, 500, 1000]
 const amountYuan = ref<number>(100)
 const channel = ref<string>('alipay')
 const submitting = ref(false)
@@ -131,11 +92,9 @@ const channels = computed(() => [
 
 const isValid = computed(() => amountYuan.value >= 1 && amountYuan.value <= 100000)
 
-// 弹窗打开后：聚焦金额输入框 + 屏幕阅读器播报
+// 弹窗打开后：屏幕阅读器播报 (AmountSelector 自带金额输入焦点管理)
 function onOpened() {
   nextTick(() => {
-    const input = document.getElementById('recharge-amount-input') as HTMLInputElement | null
-    input?.focus()
     const live = document.getElementById('a11y-live-polite')
     if (live) live.textContent = t('rechargeDialog.openedA11y')
   })

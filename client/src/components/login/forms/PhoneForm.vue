@@ -21,11 +21,11 @@
           @input="handlePhoneInput"
         >
           <template #prepend>
-            <el-select v-model="formData.countryCode" style="width: 80px">
-              <el-option label="+86" value="+86" />
-              <el-option label="+1" value="+1" />
-              <el-option label="+44" value="+44" />
-            </el-select>
+            <CountryCodeSelector
+              :model-value="selectedCountry"
+              class="country-code-prepend"
+              @change="onCountryChange"
+            />
           </template>
         </el-input>
       </el-form-item>
@@ -112,9 +112,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Phone, Message, Lock } from '@element-plus/icons-vue'
 import PasswordStrengthIndicator from '../components/PasswordStrengthIndicator.vue'
+import CountryCodeSelector from '../CountryCodeSelector.vue'
+import { countryCodes, type CountryCode } from '@/utils/countryCodes'
 import { usePhoneForm } from '../composables/usePhoneForm'
 
 const { t } = useI18n()
@@ -160,6 +163,15 @@ const {
   resetForm,
 } = usePhoneForm(props.isRegisterMode)
 
+// 国家区号选择: formData.countryCode 是字符串 (如 '+86'), CountryCodeSelector 需要 CountryCode 对象
+const selectedCountry = computed<CountryCode | undefined>(() =>
+  countryCodes.find(c => c.dialCode === formData.countryCode),
+)
+
+const onCountryChange = (country: CountryCode) => {
+  formData.countryCode = country.dialCode
+}
+
 // 方法
 const handleSubmit = async () => {
   const isValid = await validateForm()
@@ -202,6 +214,15 @@ defineExpose({
 
 <style scoped lang="scss">
 .phone-form {
+  .country-code-prepend {
+    width: 110px;
+
+    :deep(.country-select) {
+      width: 100%;
+    }
+  }
+
+
   .sms-code-input {
     display: flex;
     gap: 12px;

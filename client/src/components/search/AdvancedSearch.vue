@@ -29,7 +29,7 @@
               style="width: 120px; margin-right: 8px"
             >
               <el-option
-                v-for="field in availableFields"
+                v-for="field in effectiveFields"
                 :key="field.value"
                 :label="field.label"
                 :value="field.value"
@@ -41,13 +41,29 @@
               style="width: 120px; margin-right: 8px"
             >
               <el-option
-                v-for="op in operators"
+                v-for="op in effectiveOperators"
                 :key="op.value"
                 :label="op.label"
                 :value="op.value"
               />
             </el-select>
+            <!-- value 输入: 根据当前 field 是否带 options 动态切换 select / input -->
+            <el-select
+              v-if="currentFieldOptions && currentFieldOptions.length"
+              v-model="form.value"
+              :placeholder="t('search.valuePlaceholder')"
+              style="flex: 1"
+              clearable
+            >
+              <el-option
+                v-for="opt in currentFieldOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
             <el-input
+              v-else
               v-model="form.value"
               :placeholder="t('search.valuePlaceholder')"
               style="flex: 1"
@@ -129,6 +145,46 @@ export interface SearchPreset {
   keyword?: string
 }
 
+/** 字段配置: 支持 input (默认) 或 select (带 options) */
+export interface FieldConfig {
+  label: string
+  value: string
+  options?: { label: string; value: string }[]
+}
+
+export interface OperatorConfig {
+  label: string
+  value: string
+}
+
+interface Props {
+  /** 可用字段列表; 不传则使用默认 4 字段 (name/description/category/tag) */
+  fields?: FieldConfig[]
+  /** 操作符列表; 不传则使用默认 4 操作符 (contains/equals/startsWith/endsWith) */
+  operators?: OperatorConfig[]
+  /** 预设存储的 localStorage key; 默认 'search-presets' */
+  presetKey?: string
+  /** 搜索历史的 storage key; 默认 'advanced-search-history' */
+  historyKey?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  fields: () => [
+    { label: t('search.field.name'), value: 'name' },
+    { label: t('search.field.description'), value: 'description' },
+    { label: t('search.field.category'), value: 'category' },
+    { label: t('search.field.tag'), value: 'tag' },
+  ],
+  operators: () => [
+    { label: t('search.operator.contains'), value: 'contains' },
+    { label: t('search.operator.equals'), value: 'equals' },
+    { label: t('search.operator.startsWith'), value: 'startsWith' },
+    { label: t('search.operator.endsWith'), value: 'endsWith' },
+  ],
+  presetKey: 'search-presets',
+  historyKey: 'advanced-search-history',
+})
+
 const emit = defineEmits<{
   search: [conditions: SearchCondition[], keyword?: string]
   reset: []
@@ -145,23 +201,18 @@ const conditions = ref<SearchCondition[]>([])
 const selectedPreset = ref<string>('')
 const searching = ref(false)
 
-// 可用字段
-const availableFields = ref([
-  { label: t('search.field.name'), value: 'name' },
-  { label: t('search.field.description'), value: 'description' },
-  { label: t('search.field.category'), value: 'category' },
-  { label: t('search.field.tag'), value: 'tag' },
-])
+// 生效字段/操作符 (优先用 prop, 兜底默认值)
+const effectiveFields = computed(() => props.fields)
+const effectiveOperators = computed(() => props.operators)
 
-// 操作符
-const operators = ref([
-  { label: t('search.operator.contains'), value: 'contains' },
-  { label: t('search.operator.equals'), value: 'equals' },
-  { label: t('search.operator.startsWith'), value: 'startsWith' },
-  { label: t('search.operator.endsWith'), value: 'endsWith' },
-])
+// 当前选中字段对应的 options (用于 value 输入切换 select / input)
+const currentFieldOptions = computed(() => {
+  if (!form.field) return null
+  const f = effectiveFields.value.find(fd => fd.value === form.field)
+  return f?.options && f.options.length ? f.options : null
+})
 
-// 搜索预设（从localStorage加载）
+// 搜索预设（从 localStorage 加载）
 const presets = ref<SearchPreset[]>([])
 
 // 是否可以保存预设
@@ -172,7 +223,7 @@ const canSavePreset = computed(() => {
 // 加载预设
 const loadPresets = () => {
   try {
-    const stored = localStorage.getItem('search-presets')
+    const stored = localStorage.getItem(props.presetKey)
     if (stored) {
       presets.value = JSON.parse(stored)
     }
@@ -186,7 +237,7 @@ const loadPresets = () => {
 // 保存预设
 const savePresets = () => {
   try {
-    localStorage.setItem('search-presets', JSON.stringify(presets.value))
+    localStorage.setItem(props.presetKey, JSON.stringify(presets.value))
   } catch (error) {
     logger.warn(t('common.errors.saveFailed'), {
       error: error instanceof Error ? error.message : String(error),
@@ -220,9 +271,9 @@ const handleRemoveCondition = (index: number) => {
 // 获取条件文本
 const getConditionText = (condition: SearchCondition): string => {
   const field =
-    availableFields.value.find(f => f.value === condition.field)?.label || condition.field
+    effectiveFields.value.find(f => f.value === condition.field)?.label || condition.field
   const operator =
-    operators.value.find(o => o.value === condition.operator)?.label || condition.operator
+    effectiveOperators.value.find(o => o.value === condition.operator)?.label || condition.operator
   return `${field} ${operator} ${condition.value}`
 }
 
@@ -232,7 +283,7 @@ const handleSearch = () => {
   emit('search', conditions.value, form.keyword.trim() || undefined)
 
   // 使用搜索历史
-  const searchHistory = useSearchHistory({ storageKey: 'advanced-search-history' })
+  const searchHistory = useSearchHistory({ storageKey: props.historyKey })
   if (form.keyword.trim()) {
     searchHistory.addToHistory(form.keyword.trim())
   }

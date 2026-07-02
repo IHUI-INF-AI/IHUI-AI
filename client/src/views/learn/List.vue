@@ -35,14 +35,11 @@
 
     <div v-loading="loading" class="list-content">
       <el-empty v-if="!list.length" :description="t('learnList.noCourses')" />
-      <div v-else class="grid">
-        <Rectangle
-          v-for="item in list"
-          :key="item.id"
-          :item="item"
-          link="/learn/detail"
-        />
-      </div>
+      <MiddleRectangle
+        v-else
+        :list="list as any[]"
+        @click="goDetail"
+      />
     </div>
 
     <LearnPage
@@ -58,14 +55,15 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import LearnBreadcrumb from '@/components/learn/Breadcrumb.vue'
 import LearnPage from '@/components/learn/Page.vue'
-import Rectangle from '@/components/module/Rectangle.vue'
+import MiddleRectangle from '@/components/module/MiddleRectangle.vue'
 import { learnApi } from '@/api/learn'
 
 const route = useRoute()
+const router = useRouter()
 const categories = ref<unknown[]>([])
 const list = ref<unknown[]>([])
 const total = ref(0)
@@ -99,6 +97,10 @@ function changeCid(v: string | number) {
   cid.value = v
   page.value = 1
   loadList()
+}
+
+function goDetail(item: { id: string | number }) {
+  router.push(`/learn/detail/${item.id}`)
 }
 
 onMounted(() => {

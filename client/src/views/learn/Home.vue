@@ -3,7 +3,7 @@
     <LearnNavMenu />
     <Banner :carousel="carousel" :loading="bannerLoading" />
     <Hot :list="hotList" :loading="hotLoading" title="热门推荐" type="learn" @refresh="loadHot" />
-    <RowTabs
+    <BigRowTabs
       v-for="cat in categoryLessons"
       :key="cat.id"
       :item="cat"
@@ -20,7 +20,7 @@ import { onMounted, ref } from 'vue'
 import LearnNavMenu from '@/components/learn/LearnNavMenu.vue'
 import Banner from '@/components/module/Banner.vue'
 import Hot from '@/components/module/Hot.vue'
-import RowTabs from '@/components/module/RowTabs.vue'
+import BigRowTabs from '@/components/module/BigRowTabs.vue'
 import { learnApi } from '@/api/learn'
 
 // 轮播图项

@@ -15,7 +15,35 @@
           <span>{{ t('login.thirdParty.feishuLogin') }}</span>
         </div>
       </el-button>
+
+      <!-- 微信扫码登录 -->
+      <el-button
+        class="third-party-btn wechat-btn"
+        @click="handleWechatLogin"
+      >
+        <div class="btn-content">
+          <img src="/images/loginSANFANG/微信.svg" :alt="t('login.thirdParty.tooltip.wechat')" class="btn-icon" loading="lazy" />
+          <span>{{ t('login.thirdParty.wechatLogin') }}</span>
+        </div>
+      </el-button>
     </div>
+
+    <!-- 微信扫码登录弹窗 -->
+    <el-dialog
+      v-model="wechatLoginVisible"
+      :title="t('login.thirdParty.wechatLogin')"
+      width="400px"
+      :close-on-click-modal="false"
+      append-to-body
+      class="wechat-qr-dialog"
+    >
+      <UnifiedQRLogin
+        v-if="wechatLoginVisible"
+        provider="wechat"
+        @login-success="handleWechatLoginSuccess"
+        @switch-method="handleWechatSwitchMethod"
+      />
+    </el-dialog>
 
     <!-- 第三方登录说明 -->
     <div class="third-party-notice">
@@ -34,14 +62,36 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { FEISHU_AUTH_URL } from '@/constants/feishu'
+import UnifiedQRLogin from '@/components/auth/UnifiedQRLogin.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 
 /** 飞书登录：固定跳转官方授权页 */
 const handleFeishuLogin = () => {
   window.location.href = FEISHU_AUTH_URL
+}
+
+// ═══ 微信扫码登录 ═══
+const wechatLoginVisible = ref(false)
+
+const handleWechatLogin = () => {
+  wechatLoginVisible.value = true
+}
+
+const handleWechatLoginSuccess = (_data: { token: string; user: Record<string, unknown>; loginType: string }) => {
+  // UnifiedQRLogin 内部已保存 token + user 数据, 这里关闭弹窗并跳转首页
+  wechatLoginVisible.value = false
+  router.push('/')
+}
+
+const handleWechatSwitchMethod = () => {
+  // 用户点击"其他登录方式", 关闭微信弹窗 (用户可自行切换登录 tab)
+  wechatLoginVisible.value = false
 }
 
 // 显示隐私政策

@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router'
 import { useEduPlatformNav } from '@/composables/useEduPlatformNav'
 import { getProxiedImageUrl, switchImageProxy } from '@/utils/imageProxy'
 import { useSEO } from '@/composables/useSEO'
+import BigRowTabsContent from '@/components/module/BigRowTabsContent.vue'
 
 const { t: _t } = useI18n()
 
@@ -770,6 +771,35 @@ const filteredCourses = computed(() => {
 
 const filterCourses = () => {}
 
+// ═══ 精选课程合集 (BigRowTabsContent 数据源) ═══
+// 复用 courseList, 按 views 降序取 Top 6 作为编辑精选
+const featuredRows = computed(() => {
+  const top = courseList.value
+    .slice()
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 6)
+    .map(c => ({
+      id: c.id,
+      title: c.title,
+      cover: c.cover,
+      desc: c.description,
+      author: c.category, // CourseItem 无 author 字段, 用分类名兜底
+      count: c.views,
+    }))
+  return [
+    {
+      title: _t('learnAI.featuredSectionTitle'),
+      subtitle: _t('learnAI.featuredSectionSubtitle'),
+      more: '/learn',
+      items: top,
+    },
+  ]
+})
+
+function goCourseDetail(item: { id: string | number }) {
+  router.push(`/learn/detail/${item.id}`)
+}
+
 onMounted(() => {
   isVisible.value = true
   startTypewriter()
@@ -1085,6 +1115,13 @@ const { goToEduWeb: _goToEduWeb, goToEduAdmin: _goToEduAdmin } = useEduPlatformN
         <div v-if="filteredCourses.length === 0" class="course-empty">
           <p>{{ _t('learnAI.noCourses') }}</p>
         </div>
+      </div>
+    </section>
+
+    <!-- 4.5 精选课程合集 (BigRowTabsContent) -->
+    <section id="featured-courses" class="featured-courses-section" aria-labelledby="learnai-featured-heading">
+      <div class="container">
+        <BigRowTabsContent :rows="featuredRows" @click="goCourseDetail" />
       </div>
     </section>
 

@@ -14,6 +14,16 @@
       </div>
     </div>
 
+    <!-- 高级筛选: 类型 / 分类 -->
+    <AdvancedSearch
+      :fields="advancedFields"
+      preset-key="search-page-presets"
+      history-key="search-page-history"
+      class="advanced-search-wrap"
+      @search="handleAdvancedSearch"
+      @reset="handleAdvancedReset"
+    />
+
     <div v-if="!searched" class="hot-section">
       <h2 class="section-title">{{ t('searchPage.hotSearch') }}</h2>
       <div v-if="hotLoading" class="loading">{{ t('searchPage.loading') }}</div>
@@ -48,12 +58,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { useRouter } from 'vue-router'
 import { loadModule, getCurrentLocale } from '@/locales'
 import http from '@/utils/request'
+import AdvancedSearch, { type FieldConfig, type SearchCondition } from '@/components/search/AdvancedSearch.vue'
 
 interface SearchResult {
   id?: number | string
@@ -70,6 +81,29 @@ interface SearchResult {
 const router = useRouter()
 const keyword = ref('')
 const hotKeywords = ref<Array<{ id: number; keyword: string }>>([])
+
+// ═══ 高级筛选配置 (AdvancedSearch 字段) ═══
+// targetType 用 select (带 options), category 用 input (自由输入)
+const advancedFields = computed<FieldConfig[]>(() => [
+  {
+    label: t('searchPage.typeLabel'),
+    value: 'targetType',
+    options: [
+      { label: t('searchPage.typeAgent'), value: 'agent' },
+      { label: t('searchPage.typeCourse'), value: 'course' },
+      { label: t('searchPage.typeContent'), value: 'content' },
+      { label: t('searchPage.typeAsk'), value: 'ask' },
+      { label: t('searchPage.typeCircle'), value: 'circle' },
+    ],
+  },
+  {
+    label: t('search.field.category'),
+    value: 'category',
+  },
+])
+
+// 当前生效的高级筛选 (由 AdvancedSearch @search 事件写入)
+const advancedFilters = ref<{ targetType?: string; category?: string }>({})
 const hotLoading = ref(false)
 const searching = ref(false)
 const searched = ref(false)
@@ -93,7 +127,10 @@ async function handleSearch() {
   searching.value = true
   searched.value = true
   try {
-    const res = await http.get('/search/query', { params: { keyword: keyword.value, page: 1, limit: 30 } })
+    const params: Record<string, unknown> = { keyword: keyword.value, page: 1, limit: 30 }
+    if (advancedFilters.value.targetType) params.targetType = advancedFilters.value.targetType
+    if (advancedFilters.value.category) params.category = advancedFilters.value.category
+    const res = await http.get('/search/query', { params })
     results.value = res?.data?.data || res?.data || []
     total.value = res?.data?.total || results.value.length
   } catch {
@@ -101,6 +138,22 @@ async function handleSearch() {
   } finally {
     searching.value = false
   }
+}
+
+// 桥接 AdvancedSearch @search: conditions[] -> { targetType, category } + 同步 keyword
+function handleAdvancedSearch(conditions: SearchCondition[], keyword?: string) {
+  const filters: { targetType?: string; category?: string } = {}
+  conditions.forEach(c => {
+    if (c.field === 'targetType' && c.value) filters.targetType = c.value
+    if (c.field === 'category' && c.value) filters.category = c.value
+  })
+  advancedFilters.value = filters
+  if (keyword) keyword.value = keyword
+  handleSearch()
+}
+
+function handleAdvancedReset() {
+  advancedFilters.value = {}
 }
 
 function quickSearch(kw: string) {
@@ -136,6 +189,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.advanced-search-wrap {
+  margin: 16px 0;
+}
+
 .page-container {
   max-width: 960px;
   margin: 0 auto;

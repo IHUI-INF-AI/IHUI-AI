@@ -150,6 +150,15 @@
           @close="globalNotification = null"
         />
 
+        <!-- 新设备登录 / 可疑登录通知 -->
+        <NewDeviceNotification
+          :visible="newDeviceNotificationVisible"
+          :is-warning="newDeviceIsWarning"
+          :device-info="newDeviceInfo"
+          @dismiss="dismissNewDeviceNotification"
+          @secure-account="dismissNewDeviceNotification"
+        />
+
         <!-- 全局加载 -->
         <GlobalLoading
           :visible="globalLoading"
@@ -245,6 +254,7 @@ import Error from './components/Error.vue'
 import Sidebar from './components/Sidebar.vue'
 import WorkspaceHeader from './components/WorkspaceHeader.vue'
 import LoginDialog from './components/login/LoginDialog.vue'
+import NewDeviceNotification from '@/components/common/NewDeviceNotification.vue'
 
 // 异步组件按需加载(减小首屏 JS 体积)
 const ErrorNotification = defineAsyncComponent(() => import('./components/ErrorNotification.vue'))
@@ -301,6 +311,21 @@ useFontLoader()
 const { notification: globalNotification, install: installNotification } =
   useGlobalNotification()
 installNotification()
+
+// ═══ 新设备登录通知 (登录安全检测) ═══
+interface NewDeviceNotificationData {
+  deviceName?: string
+  location?: string
+  time?: number
+  ip?: string
+}
+const newDeviceNotificationVisible = ref(false)
+const newDeviceIsWarning = ref(false)
+const newDeviceInfo = ref<NewDeviceNotificationData | undefined>(undefined)
+
+const dismissNewDeviceNotification = () => {
+  newDeviceNotificationVisible.value = false
+}
 
 const globalChat = useGlobalChat()
 globalChat.install()

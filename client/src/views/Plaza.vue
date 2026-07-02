@@ -182,6 +182,9 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 底部 CTA 栏: 找专家 / 我是开发者 -->
+    <DialogBottom @to-set="toSet" @to-dev="toDev" />
   </div>
 </template>
 
@@ -195,6 +198,7 @@ import {
   ArrowLeft, Plus, Eye, MessageSquare
 } from '@/lib/lucide-fallback'
 import SearchIcon from '@/components/common/SearchIcon.vue'
+import DialogBottom from '@/components/plaza/DialogBottom.vue'
 import {
   getDemandsList,
   createDemand,
@@ -316,6 +320,7 @@ const handleSearch = () => {
   searchTimer = setTimeout(() => getData(), 300)
 }
 const toSet = () => showSetPath.value = true
+const toDev = () => _router.push('/developer')
 const reback = () => { showSetPath.value = false; needForm.value = { title: '', type: '', category: '', description: '' } }
 
 const getStatusType = (s: number) => s === 1 ? 'completed' : 'ongoing'

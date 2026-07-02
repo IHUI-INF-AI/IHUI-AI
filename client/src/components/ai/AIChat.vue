@@ -653,6 +653,42 @@
 
                 <!-- trae-work Row 1: 顶层能力选择下拉（+ 选择） -->
                 <div class="trae-work-actions-top">
+                  <!-- Model 快捷选择胶囊 -->
+                  <TraeWorkSelector
+                    :items="modelsForSelector"
+                    :label="selectedModel ? getModelDisplayName(selectedModel) : ''"
+                    :is-active="currentAIMode === 'model'"
+                    :is-selected="(m) => selectedModel?.modelCode === m.modelCode"
+                    :get-name="getModelDisplayName"
+                    :get-key="(m) => m.modelCode"
+                    icon-mode="model"
+                    selector-class="tw-quick-model"
+                    :title-i18n="t('aiChatInput.modelLabel')"
+                    :empty-i18n="t('aiChatInput.noModels')"
+                    :placeholder-i18n="t('aiChatInput.selectModel')"
+                    :tooltip-i18n="t('aiChatInput.selectModel')"
+                    more-i18n="floatingChat.more"
+                    @select="(m) => handleModelSelect(m.modelCode)"
+                    @more="onCapabilityCardClick('select:model')"
+                  />
+                  <!-- Agent 快捷选择胶囊 -->
+                  <TraeWorkSelector
+                    :items="agentsForSelector"
+                    :label="selectedAgent ? selectedAgent.name : ''"
+                    :is-active="currentAIMode === 'agent'"
+                    :is-selected="(a) => String(selectedAgent?.id) === String(a.id)"
+                    :get-name="(a) => a.name || ''"
+                    :get-key="(a) => String(a.id)"
+                    icon-mode="agent"
+                    selector-class="tw-quick-agent"
+                    :title-i18n="t('aiChatInput.agentLabel')"
+                    :empty-i18n="t('aiChatInput.noAgents')"
+                    :placeholder-i18n="t('aiChatInput.selectAgent')"
+                    :tooltip-i18n="t('aiChatInput.selectAgent')"
+                    more-i18n="floatingChat.more"
+                    @select="handleAgentSelect"
+                    @more="onCapabilityCardClick('select:agent')"
+                  />
                   <el-dropdown trigger="click" v-model:visible="showCapabilityDropdown"
                     class="ai-capability-selector"
                     placement="top" :hide-on-click="false"
@@ -1480,6 +1516,7 @@ import { useSubViewDropdown } from '@/composables/useSubViewDropdown'
 import { StorageManager } from '@/utils/storage'
 import MarkdownStream from './MarkdownStream.vue'
 import PromptTemplates from './PromptTemplates.vue'
+import TraeWorkSelector from './TraeWorkSelector.vue'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成

@@ -14,6 +14,8 @@
         <ElInput v-else-if="field.type === 'textarea'" v-model="formData[field.prop]" type="textarea" :rows="field.rows || 3" :placeholder="field.placeholder || ''" />
         <!-- 开关 -->
         <ElSwitch v-else-if="field.type === 'switch'" v-model="formData[field.prop]" :active-text="field.activeText" :inactive-text="field.inactiveText" />
+        <!-- cron 表达式编辑器 -->
+        <CrontabField v-else-if="field.type === 'cron'" v-model="formData[field.prop]" :placeholder="field.placeholder || ''" />
         <!-- 默认: 文本输入 (input/email/url/phone 共用) -->
         <ElInput v-else v-model="formData[field.prop]" :placeholder="field.placeholder || ''" :style="{ width: field.width || '100%' }" />
       </ElFormItem>
@@ -46,6 +48,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElSwitch, ElButton, type FormInstance, type FormRules, type FormItemRule } from 'element-plus'
 import Editor from '@/components/Editor/index.vue'
+import CrontabField from '@/components/CrontabField.vue'
 
 const { t } = useI18n()
 
@@ -59,8 +62,8 @@ export interface FormField {
   prop: string
   /** 标签 */
   label: string
-  /** 类型: input(默认) / textarea / number / select / switch / email / url / phone / richtext */
-  type?: 'input' | 'textarea' | 'number' | 'select' | 'switch' | 'email' | 'url' | 'phone' | 'richtext'
+  /** 类型: input(默认) / textarea / number / select / switch / email / url / phone / richtext / cron */
+  type?: 'input' | 'textarea' | 'number' | 'select' | 'switch' | 'email' | 'url' | 'phone' | 'richtext' | 'cron'
   /** 占位符 */
   placeholder?: string
   /** 宽度 */

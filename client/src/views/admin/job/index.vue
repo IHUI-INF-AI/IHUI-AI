@@ -58,7 +58,7 @@ const formFields: FormField[] = [
   { prop: 'job_name', label: '任务名称', required: true, minLength: 1, maxLength: 64 },
   { prop: 'job_group', label: '任务组', required: true, maxLength: 64 },
   { prop: 'invoke_target', label: '调用目标', required: true, minLength: 1, maxLength: 500 },
-  { prop: 'cron_expression', label: 'cron 表达式', required: true, minLength: 1, maxLength: 255, placeholder: '如: 0 0 2 * * ?' },
+  { prop: 'cron_expression', label: 'cron 表达式', type: 'cron', required: true, placeholder: '如: 0 0 2 * * ?' },
   { prop: 'misfire_policy', label: '错误策略', type: 'select', options: [
     { label: '立即执行', value: '1' },
     { label: '执行一次', value: '2' },
