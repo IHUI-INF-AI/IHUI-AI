@@ -25,4 +25,13 @@
 - ✅ 轮 4: 接入 ts-prune
 - ✅ 轮 5: 6 项守门 + push 收尾
 
-## Status: DELIVERED
+## Status: DELIVERED (推送待网络恢复)
+
+> 注: 6/7 硬性指标已达成。第 7 项 (push) 因 GitHub HTTPS 端口 443 不可达 (网络层问题) 暂缓。
+> 5 个 commit 已就绪在本地 main 分支, 网络恢复后执行 `git push origin main` 即可。
+> commit 列表:
+> - 278e9b9b feat(edu): 5 个学员档案业务页面 + 路由接入 + i18n 5 语言补全
+> - 77a60a5b test(e2e): 添加证书下载页源码级+浏览器级回归测试
+> - 7b01d146 feat(i18n): en-US 覆盖率从 1% 提升至 90% (555 模块同步自 en)
+> - 79af83c0 chore(dev): 接入 ts-prune 作为 knip 补充死代码扫描工具
+> - 2eff78c8 docs(state): 第二轮 /goal DELIVERED — 7/7 硬性指标达成 + 4 commits
