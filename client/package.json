@@ -165,6 +165,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.61.0",
     "@storybook/builder-vite": "^10.4.6",

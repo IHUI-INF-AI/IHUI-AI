@@ -27,8 +27,8 @@ export enum ApiProtocolType {
  */
 export enum BillingType {
   TOKEN = 'token', // 按Token计费
-  REQUEST = 'request', // 按请求次数计费
-  SUBSCRIPTION = 'subscription', // 订阅制
+  REQUEST = 'request', // 按请求次数计费 (knip: 后端契约保留, 当前仅用 TOKEN)
+  SUBSCRIPTION = 'subscription', // 订阅制 (knip: 后端契约保留, 预留扩展)
 }
 
 /**

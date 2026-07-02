@@ -18,9 +18,9 @@ export enum MessageType {
 
 // 消息状态
 export enum MessageStatus {
-  UNREAD = 0, // 未读
+  UNREAD = 0, // 未读 (knip: 后端契约保留, 前端用 status !== READ 兜底)
   READ = 1, // 已读
-  DELETED = 2, // 已删除
+  DELETED = 2, // 已删除 (knip: 后端契约保留, 软删除状态)
 }
 
 // 消息接口
