@@ -371,3 +371,4 @@ npm run check:line-endings:all
 - ❌ 跳过 `check:line-endings` 把含 CRLF 的 PR 合并
 - ❌ 引入 .ps1/.bat 文件用 LF 行尾（Windows 脚本会运行失败）
 
+
