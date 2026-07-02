@@ -371,4 +371,97 @@ npm run check:line-endings:all
 - ❌ 跳过 `check:line-endings` 把含 CRLF 的 PR 合并
 - ❌ 引入 .ps1/.bat 文件用 LF 行尾（Windows 脚本会运行失败）
 
+---
+
+## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）
+
+对话历史入口**只能存在于一个地方**：`Sidebar.vue` 的 `<SidebarChatHistory />`。AI 浮窗 header 早期有 session-list-btn 按钮 + 左侧滑出的 ChatSessionPanel 组件，已在 2026-07-02 清理。**任何重新引入浮窗内对话历史入口的行为都是回归**。
+
+### 禁止的文件 / 标识
+
+- ❌ 重新创建 `client/src/components/ai/chat-parts/ChatSessionPanel.vue`
+- ❌ 重新创建 `client/src/components/icons/SessionListIcon.vue`
+- ❌ 在 `client/src/components/ai/chat-parts/chatheaderbar.vue` 加回 `class="session-list-btn"` 按钮
+- ❌ 在 `client/src/components/ai/chat-parts/chatheaderbar.vue` import `SessionListIcon`
+- ❌ 在 `client/src/components/ai/AIChat.vue` import / 使用 `ChatSessionPanel`
+- ❌ 在 `client/src/components/ai/AIChat.vue` 重新声明 `const showSessionList = ref(false)` / `watch(showSessionList, ...)`
+- ❌ 在 `client/src/styles/ai-chat/_session-list.scss` 重新加回 `.session-list-panel / .session-list-header / .session-list-title / .session-list-close / .session-list-content / .session-list-slide-*` 6 个块
+- ❌ 在 `client/src/components/icons/index.ts` 重新 export `SessionListIcon`
+- ❌ 在 `client/src/components/ai/chat-parts/index.ts` 重新 export `ChatSessionPanel`
+
+### 守门工具
+
+**源码级守门（已加入 e2e，CI 必跑）**：
+
+`client/e2e/ai-floating-chat-history-removed.spec.ts` 包含 **6 个源码级断言 × 2 视口 = 12 个测试**：
+
+1. `ChatHeaderBar.vue` 不再渲染 `session-list-btn` 按钮
+2. `ChatHeaderBar.vue` 不再 import `SessionListIcon`
+3. `ChatSessionPanel.vue` 文件不存在
+4. `AIChat.vue` 不再 import / 使用 `ChatSessionPanel`
+5. `SessionListIcon.vue` 文件不存在 + `icons/index.ts` 不再 export
+6. `chat-parts/index.ts` 不再 export `ChatSessionPanel`
+
+```bash
+npx playwright test e2e/ai-floating-chat-history-removed.spec.ts
+```
+
+**任何一条失败 = 浮窗对话历史入口被重新引入 = 立即回滚**。
+
+### 设计意图
+
+对话历史是"侧边栏持久状态"，浮窗是"临时对话窗口"。两个入口并存会导致：
+- 状态不同步（侧边栏删除一条 → 浮窗还在显示）
+- 视觉冗余（同一份数据在两个位置）
+- 交互割裂（侧边栏展开时浮窗入口遮挡内容）
+
+**统一入口 = 单源真相**（single source of truth）。
+
+---
+
+## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）
+
+`_login-tokens.scss` 定义了登录模块的完整设计令牌（圆角 10px / 高 44px / 蓝色阴影 #2563eb / hover 上移 1px / 暗色版）。**UniversalLogin.vue 的 submit 按钮必须消费这些 token，不允许退回 Element Plus 默认样式**。
+
+### 必须满足的规则
+
+`client/src/components/login/UniversalLogin.vue`：
+
+1. **第 1 行附近**必须有 `@use './_login-tokens.scss' as lt;`（消费令牌）
+2. **`.submit-btn` 规则块**内必须引用 **≥ 3 个 `lt.$login-btn-*` 变量**（`$login-btn-radius / $login-btn-height / $login-btn-font-size / $login-btn-font-weight / $login-btn-letter-spacing`）
+3. **`.submit-btn` 规则块**内必须使用 **3 个 `lt.login-btn-*` mixin**（`@include lt.login-btn-primary` / `@include lt.login-btn-primary-hover` / `@include lt.login-btn-primary-active`）
+4. **`html.dark .universal-login .submit-btn` 暗色变体规则块**必须存在，必须引用 `lt.$login-dark-primary` 等暗色 token
+
+### 禁止模式
+
+- ❌ 退回 Element Plus 默认样式（4px 圆角 / 40px 高度 / `#409eff` 浅蓝 / 无阴影 / 无 hover 上移）
+- ❌ 硬编码 `#2563eb` / `#07c160` 等品牌色（必须走 `lt.$login-primary` token）
+- ❌ 硬编码 `10px` / `44px` / `15px` / `600` / `0.5px`（必须走 `lt.$login-btn-*` token）
+- ❌ 删掉 `html.dark .submit-btn` 暗色变体块
+- ❌ 把 `_login-tokens.scss` 整个文件删除（它是设计源头）
+
+### 守门工具
+
+**源码级守门（已加入 e2e，CI 必跑）**：
+
+`client/e2e/login-submit-btn-design-tokens.spec.ts` 包含 **5 个源码级断言 × 2 视口 = 10 个测试**：
+
+1. `_login-tokens.scss` 文件必须存在
+2. `UniversalLogin.vue` 必须 `@use './_login-tokens.scss' as lt`
+3. `.submit-btn` 引用 ≥ 3 个 `lt.$login-btn-*` 变量
+4. `.submit-btn` 应用 3 个 `lt.login-btn-*` mixin
+5. `html.dark .submit-btn` 暗色变体块必须存在
+
+```bash
+npx playwright test e2e/login-submit-btn-design-tokens.spec.ts
+```
+
+**任何一条失败 = 登录按钮退回到 Element Plus 默认丑样式 = 立即回滚**。
+
+### 设计意图
+
+Element Plus 默认的 `<el-button type="primary">` 是 `#409eff` 浅蓝（通用 SaaS 配色），与项目"黑-白-蓝"极简风格不匹配。`_login-tokens.scss` 把登录按钮统一为项目 CTA 蓝 `#2563eb`（更深、更专业），并加上 10px 圆角 + 44px 高度 + 蓝色阴影 + hover 上移的"亲和力"细节，与全局 miniapp 按钮的"极简黑白"形成"主操作蓝色 + 次操作黑白"的双层级设计语言。
+
+---
+
 
