@@ -69,6 +69,33 @@ function isUsedInModule(symbol) {
   return /\(used in module\)/.test(symbol)
 }
 
+// barrel 文件 (index.ts) 的 re-export 是公共 API 入口,
+// ts-prune 无法识别通过 barrel 间接引用的消费者, 统一忽略
+function isBarrelReExport(filePath) {
+  return /(^|\/)index\.[tj]sx?$/.test(filePath)
+}
+
+// 纯类型 export (interface / type alias / type-only enum)
+// TypeScript 类型擦除后不存在于运行时, ts-prune 无法追踪类型引用
+const PURE_TYPE_PATTERNS = [
+  /^\s*(interface|type)\s+/,
+  /^\s*export\s+(type|interface)\s+/,
+]
+function isPureTypeSymbol(symbol) {
+  // ts-prune 输出 symbol 是标识符名, 无法直接判断是否类型
+  // 但通过命名约定 (PascalCase + 后缀) 可以高概率识别
+  const TYPE_NAME_PATTERNS = [
+    /^(?:I)?[A-Z][a-zA-Z0-9]*(?:Props|Emits|Options|Config|Data|State|Context|Params|Result|Response|Request|Payload|Item|Entry|Slot|SLOT|Meta|Metadata|Info|Event|Handler|Callback|Reducer|Action|Mutation|Getter|ContextType|Type|Kind|Mode|Status|Level|Category|Provider|Strategy|Spec|Schema|Shape|Input|Output|Error|Exception)$/,
+  ]
+  return TYPE_NAME_PATTERNS.some((p) => p.test(symbol))
+}
+
+// Vue SFC .vue 文件的默认导出 (组件) 由 Vue 编译器隐式使用,
+// ts-prune 无法识别 <Component /> 模板标签引用
+function isVueSFCDefaultExport(filePath, symbol) {
+  return filePath.endsWith('.vue') && symbol === 'default'
+}
+
 function shouldIgnore(filePath) {
   // 1. 检查 knip.json ignore 列表
   for (const pattern of KNIP_IGNORE) {
@@ -117,10 +144,17 @@ function parseOutput(output) {
 
     if (shouldIgnore(relativePath)) continue
 
+    // 高概率误报标记 (不删除, 但分类为 false positive)
+    const fpReasons = []
+    if (isBarrelReExport(relativePath)) fpReasons.push('barrel')
+    if (isPureTypeSymbol(symbol)) fpReasons.push('type')
+    if (isVueSFCDefaultExport(relativePath, symbol)) fpReasons.push('vue-sfc')
+
     results.push({
       file: relativePath,
       line: parseInt(lineNum, 10),
       symbol: symbol.trim(),
+      falsePositive: fpReasons.length > 0 ? fpReasons.join('+') : null,
     })
   }
 
@@ -158,6 +192,12 @@ function categorizeResults(results) {
 }
 
 function generateReport(results, categories) {
+  // 按误报类型分组
+  const trueUnused = results.filter((r) => !r.falsePositive)
+  const fpBarrel = results.filter((r) => r.falsePositive === 'barrel')
+  const fpType = results.filter((r) => r.falsePositive === 'type')
+  const fpVueSfc = results.filter((r) => r.falsePositive === 'vue-sfc')
+
   const lines = [
     '# ts-prune 未使用 Export 扫描报告',
     '',
@@ -169,7 +209,16 @@ function generateReport(results, categories) {
     `- 未使用 export 总数: ${results.length}`,
     `- 已过滤: knip.json ignore 列表 + 额外 ts-prune 误报模式`,
     '',
-    '## 分类统计',
+    '## 误报过滤统计',
+    '',
+    `| 类别 | 数量 | 说明 |`,
+    `|------|------|------|`,
+    `| 🔴 真未使用 (需人工审查) | ${trueUnused.length} | 可能是真正的死代码, 需人工确认后清理 |`,
+    `| ⚪ barrel re-export 误报 | ${fpBarrel.length} | index.ts 公共 API 入口, ts-prune 无法追踪消费者 |`,
+    `| ⚪ 纯类型 export 误报 | ${fpType.length} | interface/type, 类型擦除后无运行时引用 |`,
+    `| ⚪ Vue SFC default 误报 | ${fpVueSfc.length} | .vue 组件默认导出, 由 Vue 编译器隐式使用 |`,
+    '',
+    '## 分类统计 (含误报)',
     '',
   ]
 
@@ -178,9 +227,38 @@ function generateReport(results, categories) {
     lines.push(`### ${category} (${items.length} 个)`)
     lines.push('')
     for (const item of items) {
-      lines.push(`- \`${item.file}:${item.line}\` - **${item.symbol}**`)
+      const tag = item.falsePositive ? ` _[${item.falsePositive}]_` : ''
+      lines.push(`- \`${item.file}:${item.line}\` - **${item.symbol}**${tag}`)
     }
     lines.push('')
+  }
+
+  // 单独列出真未使用项 (优先人工审查)
+  if (trueUnused.length > 0) {
+    lines.push('---')
+    lines.push('')
+    lines.push(`## 🔴 真未使用 Export (人工审查清单, ${trueUnused.length} 个)`)
+    lines.push('')
+    lines.push('> 以下 export 不属于已知误报模式 (barrel/type/vue-sfc), 需人工确认是否真正死代码。')
+    lines.push('>')
+    lines.push('> 清理建议: 逐条核查 → 确认无引用 → 删除 export 声明 → typecheck 验证')
+    lines.push('')
+    // 按文件分组
+    const byFile = new Map()
+    for (const r of trueUnused) {
+      if (!byFile.has(r.file)) byFile.set(r.file, [])
+      byFile.get(r.file).push(r)
+    }
+    const sortedFiles = [...byFile.keys()].sort()
+    for (const f of sortedFiles) {
+      const items = byFile.get(f)
+      lines.push(`#### \`${f}\``)
+      lines.push('')
+      for (const it of items) {
+        lines.push(`- L${it.line}: \`${it.symbol}\``)
+      }
+      lines.push('')
+    }
   }
 
   lines.push('## 说明')
@@ -188,10 +266,11 @@ function generateReport(results, categories) {
   lines.push('- 本报告由 ts-prune 生成，作为 knip 的补充工具')
   lines.push('- ts-prune 专门检测未使用的 TypeScript export 声明')
   lines.push('- 已过滤 knip.json ignore 列表中的文件')
-  lines.push('- 可能存在误报：')
+  lines.push('- 已标记高概率误报 (barrel/type/vue-sfc), 这些不在清理范围内')
+  lines.push('- 仍可能存在误报：')
   lines.push('  - Vue SFC `<script setup>` 中定义的变量会被 Vue 编译器隐式使用')
   lines.push('  - 通过动态 import 或字符串路径引用的模块')
-  lines.push('  - re-export (barrel) 文件中的中间导出')
+  lines.push('  - unplugin-auto-import 自动导入的 API')
   lines.push('')
 
   return lines.join('\n')
@@ -205,27 +284,40 @@ if (!quiet) {
 const rawOutput = runTsPrune()
 const results = parseOutput(rawOutput)
 
+const trueUnused = results.filter((r) => !r.falsePositive)
+const fpBarrel = results.filter((r) => r.falsePositive === 'barrel')
+const fpType = results.filter((r) => r.falsePositive === 'type')
+const fpVueSfc = results.filter((r) => r.falsePositive === 'vue-sfc')
+
 if (!quiet) {
   console.log(`\n📊 ts-prune 扫描结果:`)
-  console.log(`   未使用 export: ${results.length} 个 (已过滤 ignore 列表)`)
+  console.log(`   未使用 export 总数: ${results.length} 个 (已过滤 ignore 列表)`)
+  console.log(`   误报标记:`)
+  console.log(`     - barrel re-export: ${fpBarrel.length} 个`)
+  console.log(`     - 纯类型 export:    ${fpType.length} 个`)
+  console.log(`     - Vue SFC default:  ${fpVueSfc.length} 个`)
+  console.log(`   🔴 真未使用 (需人工审查): ${trueUnused.length} 个`)
 }
 
 const categories = categorizeResults(results)
 
 if (results.length > 0 && !quiet) {
-  console.log('\n分类统计:')
+  console.log('\n分类统计 (含误报):')
   for (const [category, items] of Object.entries(categories)) {
     if (items.length > 0) {
-      console.log(`  ${category}: ${items.length} 个`)
+      const fp = items.filter((i) => i.falsePositive).length
+      console.log(`  ${category}: ${items.length} 个 (误报 ${fp}, 真未使用 ${items.length - fp})`)
     }
   }
 
-  console.log('\n前 20 条:')
-  for (const r of results.slice(0, 20)) {
-    console.log(`  ${r.file}:${r.line} - ${r.symbol}`)
-  }
-  if (results.length > 20) {
-    console.log(`  ... 还有 ${results.length - 20} 条`)
+  if (trueUnused.length > 0) {
+    console.log(`\n🔴 真未使用 export 前 30 条:`)
+    for (const r of trueUnused.slice(0, 30)) {
+      console.log(`  ${r.file}:${r.line} - ${r.symbol}`)
+    }
+    if (trueUnused.length > 30) {
+      console.log(`  ... 还有 ${trueUnused.length - 30} 条`)
+    }
   }
 }
 
