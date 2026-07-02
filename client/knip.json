@@ -1,0 +1,46 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.ts",
+    "src/vite-env.d.ts",
+    "src/auto-imports.d.ts",
+    "src/components.d.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.vue",
+    "src/**/*.d.ts",
+    "config/**/*.ts"
+  ],
+  "ignore": [
+    "src/api/admin/**",
+    "src/store/admin/**",
+    "src/utils/admin/**",
+    "src/views/admin-ruoyi/**",
+    "src/layout-admin/**",
+    "src/plugins/admin/**",
+    "src/components/admin-ruoyi/**",
+    "src/**/__tests__/*",
+    "src/open-platform/**",
+    "src/shared/**",
+    "packages/**",
+    "scripts/**",
+    "e2e/**"
+  ],
+  "ignoreBinaries": [
+    "chcp",
+    "tsx"
+  ],
+  "ignoreDependencies": [
+    "@vue/runtime-core",
+    "element-plus",
+    "unplugin-vue-components",
+    "unplugin-auto-import"
+  ],
+  "vue": {
+    "entry": [
+      "src/**/*.vue"
+    ]
+  }
+}

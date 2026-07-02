@@ -191,6 +191,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.9.2",
     "jsdom": "^27.4.0",
+    "knip": "^6.24.0",
     "less": "^4.6.6",
     "lint-staged": "^16.4.0",
     "mammoth": "^1.12.0",
