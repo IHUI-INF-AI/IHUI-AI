@@ -2,11 +2,9 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": [
-        "src/main.ts"
-      ],
       "project": [
         "src/**/*.{ts,js,vue}",
+        "!src/main.ts",
         "config/**/*.ts"
       ]
     }
@@ -14,7 +12,6 @@
   "ignore": [
     "src/**/__tests__/*",
     "src/open-platform/**",
-    "src/shared/**",
     "packages/**",
     "scripts/**",
     "e2e/**",
@@ -27,7 +24,6 @@
     "rimraf"
   ],
   "ignoreDependencies": [
-    "@aizhs/shared-logic",
-    "@vue/reactivity"
+    "@aizhs/shared-logic"
   ]
 }
