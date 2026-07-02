@@ -652,7 +652,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
   &:hover {
     background: var(--color-white-10);
-    border-color: var(--el-bg-color);
+    border-color: var(--color-white-50);
     color: var(--el-bg-color);
 
     :deep(.el-button__content) {
@@ -672,7 +672,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
   &:active {
     background: var(--color-white-20);
-    border-color: var(--el-bg-color);
+    border-color: var(--color-white-60);
     color: var(--el-bg-color);
 
     :deep(.el-button__content) {

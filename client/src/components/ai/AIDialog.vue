@@ -3037,19 +3037,19 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     // 暗色模式适配
     :where(html.dark) & {
       color: var(--el-text-color-primary);
-      
+
       .checkmark {
-        border-color: var(--el-color-white);
+        border-color: var(--color-white-30);
       }
-      
+
       &:hover:not(.is-disabled) .checkmark {
-        border-color: var(--el-color-white);
+        border-color: var(--color-white-50);
         background-color: var(--color-white-10);
       }
-      
+
       input[type="checkbox"]:checked + .checkmark {
         background-color: var(--el-color-white);
-        border-color: var(--el-color-white);
+        border-color: var(--color-white-80);
       }
       
       input[type="checkbox"]:checked + .checkmark::before {
