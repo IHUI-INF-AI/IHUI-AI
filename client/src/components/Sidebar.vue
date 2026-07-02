@@ -81,6 +81,8 @@
           </button>
         </el-tooltip>
       </div>
+      <!-- 对话历史模块：展开态渲染，折叠态完全隐藏（100px 紧凑态放不下列表） -->
+      <SidebarChatHistory :is-collapsed="isCollapsed" @new-chat="handleNewChat" />
       <div v-for="group in navGroups" :key="group.key" class="nav-group">
         <button
           v-if="group.label && !isCollapsed"
@@ -290,6 +292,7 @@ import LanguageSwitcher from '@/components/header/parts/LanguageSwitcher.vue'
 import ThemeToggle from '@/components/header/parts/ThemeToggle.vue'
 import AppDownload from '@/components/header/parts/AppDownload.vue'
 import UserMenu from '@/components/header/parts/UserMenu.vue'
+import SidebarChatHistory from '@/components/SidebarChatHistory.vue'
 const Notification = defineAsyncComponent(() => import('@/components/Notification.vue'))
 
 // ── 向父组件透传事件 (与原 WorkspaceHeader 事件签名保持一致) ──
@@ -494,7 +497,7 @@ const authStore = useAuthStore()
 
 // ── 侧边栏状态（来自单例 composable，与 WorkspaceHeader/App.vue 共享） ──
 // isMobile 用于 Ctrl/Cmd+B 快捷键的"桌面端限定"判断（移动端无折叠概念）
-// width/setWidth: 展开态宽度（可拖拽缩放，持久化）
+// width/setWidth: 展开态宽度（默认 140，可向左拖到 80 紧凑 / 60 折叠，持久化）
 const {
   isCollapsed,
   isMobile,
@@ -517,7 +520,8 @@ const {
 // ── 拖拽调整侧边栏宽度 ──
 // 手柄位于侧边栏右侧，向右拖 delta 正 → 宽度增加
 // 拖拽过程禁用过渡（is-resizing 类）+ 禁止文本选中，保证流畅
-// 折叠态下也可拖拽：从折叠宽度(60px)起算，向右拖超过阈值(120px)自动展开
+// 折叠态下也可拖拽：从折叠宽度(60px)起算，向右拖超过阈值(80px)自动展开
+// 展开态范围：80-140px（MIN_WIDTH=80, MAX_WIDTH=140）
 const sidebarCollapsedWidth = 60
 const isResizing = ref(false)
 const startResize = (e: MouseEvent): void => {
