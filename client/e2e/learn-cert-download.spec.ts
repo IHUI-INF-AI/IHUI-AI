@@ -159,11 +159,11 @@ test.describe('证书下载页 - 浏览器级守门', () => {
       }))
       localStorage.setItem('login_expiry_time', String(now + 86400000))
     })
-  })
 
-  test('证书下载页可访问 (使用 mock id)', async ({ page }) => {
-    // 拦截证书详情 API, 返回 mock 数据
-    await page.route('**/api/v1/learn/certificate/**', async (route) => {
+    // Mock /api/v1/user/info — auth guard 可能在页面加载时调用此接口
+    // 注意: 不能用 **/api/** 作为兜底, 因为它会匹配 Vite 模块加载 /src/api/*.ts
+    // 导致模块返回 application/json MIME 类型, Vue 应用无法渲染
+    await page.route('**/api/v1/user/info', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -171,11 +171,33 @@ test.describe('证书下载页 - 浏览器级守门', () => {
           code: 0,
           msg: 'ok',
           data: {
-            id: 'mock-cert-001',
-            name: '测试课程证书',
-            issueTime: '2026-07-03 10:00:00',
-            courseName: '测试课程',
+            uuid: 'mock-uuid',
+            username: 'test-user',
+            nickname: '测试用户',
+            avatar: '',
+            phone: '13800138000',
+            email: 'test@example.com',
+            isVip: false,
+            status: 1,
           },
+        }),
+      })
+    })
+  })
+
+  test('证书下载页可访问 (使用 mock id)', async ({ page }) => {
+    // 拦截证书详情 API, 返回 mock 数据
+    // 注意: 组件代码 cert.value = res.data, res 是 AxiosResponse, res.data 是响应体
+    // 所以 mock 响应体必须直接是证书对象, 不能用 { code, msg, data } 包装
+    await page.route('**/learn/certificate/*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'mock-cert-001',
+          name: '测试课程证书',
+          issueTime: '2026-07-03 10:00:00',
+          courseName: '测试课程',
         }),
       })
     })
@@ -190,18 +212,14 @@ test.describe('证书下载页 - 浏览器级守门', () => {
   })
 
   test('下载按钮 + 打印按钮存在且可点击', async ({ page }) => {
-    await page.route('**/api/v1/learn/certificate/**', async (route) => {
+    await page.route('**/learn/certificate/*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          code: 0,
-          msg: 'ok',
-          data: {
-            id: 'mock-cert-002',
-            name: '按钮测试证书',
-            issueTime: '2026-07-03',
-          },
+          id: 'mock-cert-002',
+          name: '按钮测试证书',
+          issueTime: '2026-07-03',
         }),
       })
     })
@@ -221,15 +239,11 @@ test.describe('证书下载页 - 浏览器级守门', () => {
   })
 
   test('证书不存在时显示空态', async ({ page }) => {
-    await page.route('**/api/v1/learn/certificate/**', async (route) => {
+    await page.route('**/learn/certificate/*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          code: 0,
-          msg: 'ok',
-          data: null,
-        }),
+        body: JSON.stringify(null),
       })
     })
 
@@ -242,18 +256,14 @@ test.describe('证书下载页 - 浏览器级守门', () => {
   })
 
   test('breadcrumb 面包屑渲染', async ({ page }) => {
-    await page.route('**/api/v1/learn/certificate/**', async (route) => {
+    await page.route('**/learn/certificate/*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          code: 0,
-          msg: 'ok',
-          data: {
-            id: 'mock-cert-003',
-            name: '面包屑测试证书',
-            issueTime: '2026-07-03',
-          },
+          id: 'mock-cert-003',
+          name: '面包屑测试证书',
+          issueTime: '2026-07-03',
         }),
       })
     })
