@@ -102,7 +102,7 @@ test.describe('P0 修复不回归守门 (2026-07-02)', () => {
         'P0 修复: 后端返回 OpenAI 兼容格式 { choices: [{ message: { content: "..." } }] }。\n' +
         '若用旧的 FastAPI 业务码格式 `data.message`, 管理员 AI 聊天测试会拿到 undefined。\n' +
         '正确写法: data.choices?.[0]?.message?.content ?? null (与 AIChat.vue / skills-enhanced-ai.ts 一致)'
-    ).toMatch(/data\.choices\?\[0\]\?\.message\?\.content/)
+    ).toMatch(/data\.choices\?\.\[0\]\?\.message\?\.content/)
 
     // 进一步验证: 必须用 isFastAPIChatResponse 类型守卫判断响应类型
     // 不允许直接 .data.message (会同时命中 error 响应)

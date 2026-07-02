@@ -172,28 +172,28 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 9 个 agent/* 零引用 API 集中接入
 import {
-  getAgentBuyList, createAgentBuy, buyAgent,
+  getAgentBuyList,
 } from '@/api/agent/agent-buy'
 import {
-  getAgentCategoryList, createAgentCategory, getAgentCategoryDetail,
+  getAgentCategoryList, createAgentCategory,
 } from '@/api/agent/agent-category'
 import {
   getCacheInfo, reloadCache,
 } from '@/api/agent/agent-category-cache'
 import {
-  getDeveloperList, createDeveloper, getDeveloperDetail,
+  getDeveloperList, createDeveloper,
 } from '@/api/agent/agent-developer'
 import {
-  getAgentExamineList, createAgentExamine,
+  getAgentExamineList,
 } from '@/api/agent/agent-examine'
 import {
-  getAgentList as getPlazaAgentList, categories as getPlazaCategories,
+  getAgentList as getPlazaAgentList,
 } from '@/api/agent/agent-plaza'
 import {
   createAgentSettlement, updateAgentSettlement,
 } from '@/api/agent/agent-settlement'
 import {
-  createAgentTask, updateAgentTask, setAgentTaskDeveloper,
+  createAgentTask, updateAgentTask,
 } from '@/api/agent/agent-task'
 import {
   getWithdrawalList, createWithdrawal,
@@ -281,7 +281,7 @@ async function onEdit(tab: CRUDTab, row: Record<string, any>) {
     reload(tab)
   } catch (e) { console.error(e); ElMessage.error(t('common.operationFailed')) }
 }
-async function onDelete(tab: CRUDTab, row: Record<string, any>) {
+async function onDelete(_tab: CRUDTab, _row: Record<string, any>) {
   try {
     await ElMessageBox.confirm(t('common.confirmDelete'), t('common.tip'), { type: 'warning' })
     ElMessage.info(t('agentMgmt.deleteFromDetail', '请调用详情接口删除'))

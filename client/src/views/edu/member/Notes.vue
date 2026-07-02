@@ -9,6 +9,9 @@
         <el-button :icon="Refresh" :loading="loading" @click="reload">
           {{ t('edu.profile.retry') }}
         </el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">
+          {{ t('edu.profile.createNote') }}
+        </el-button>
       </div>
     </header>
 
@@ -22,20 +25,59 @@
     />
 
     <div v-loading="loading" class="notes-body">
-      <NotesList :notes="notes" @view-all="handleViewAll" />
+      <NotesList
+        :notes="notes"
+        @view-all="handleViewAll"
+        @edit="handleEdit"
+        @delete="handleDelete"
+      />
     </div>
+
+    <NoteDialog v-model:visible="dialogVisible" :note="editingNote" @success="reload" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Plus } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'
+import { notesApi } from '@/api/edu/notes'
+import type { LearningNote } from '@/api/edu/notes'
 import NotesList from '@/components/edu/NotesList.vue'
+import NoteDialog from '@/components/edu/NoteDialog.vue'
 
 const { t } = useI18n()
 const { loading, error, notes, loadAll, refresh } = useStudentProfile()
+
+const dialogVisible = ref(false)
+const editingNote = ref<LearningNote | null>(null)
+
+function openCreate() {
+  editingNote.value = null
+  dialogVisible.value = true
+}
+
+function handleEdit(note: LearningNote) {
+  editingNote.value = note
+  dialogVisible.value = true
+}
+
+async function handleDelete(note: LearningNote) {
+  try {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.cancel'), {
+      type: 'warning',
+      confirmButtonText: t('edu.profile.submit'),
+      cancelButtonText: t('edu.profile.cancel'),
+    })
+    await notesApi.delete(note.id)
+    ElMessage.success(t('edu.profile.deleteSuccess'))
+    await reload()
+  } catch {
+    // 用户取消删除，无需处理
+  }
+}
 
 async function reload() {
   await refresh('notes')
@@ -62,6 +104,11 @@ onMounted(loadAll)
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .page-title {

@@ -6,7 +6,7 @@
  * 注意: 不包含回调端点 (notify/app/notify/agent/transfer/notify)。
  */
 import http from '@/utils/request'
-import type { ApiResponse, PaginationResponse } from '@/types'
+import type { ApiResponse } from '@/types'
 
 export interface FundInfo {
   userId: string
@@ -19,17 +19,6 @@ export interface FundStatistics {
   totalToken: number
   usedToken: number
   remainingToken: number
-}
-
-// 统一构造 ApiResponse<{records, total}> 格式
-function toListResult(rows: unknown[], total: number, msg = 'success'): ApiResponse<{ records: unknown[]; total: number }> {
-  return {
-    code: 0,
-    message: msg,
-    data: { records: rows, total },
-    success: true,
-    timestamp: Date.now(),
-  } as unknown as ApiResponse<{ records: unknown[]; total: number }>
 }
 
 function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {

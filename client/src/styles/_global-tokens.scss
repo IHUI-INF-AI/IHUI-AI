@@ -442,6 +442,11 @@ $color-dark-text-primary: #e5eaf3;
 
   /* 装饰性渐变 - 组背景（浅紫到浅黄低透明度） */
   --color-gradient-group: linear-gradient(106deg, rgba(228, 229, 255, 0.25) 4%, rgba(254, 255, 236, 0.25) 104%);
+
+  /* 教育模块业务品牌色 - reading 活动类型标签（紫色） */
+  --color-edu-reading: #7c3aed;
+  /* reading 标签文字色（el-tag effect="dark" 白色文字，不随主题变化） */
+  --color-edu-reading-text: #ffffff;
 }
 
 /* ============================================================

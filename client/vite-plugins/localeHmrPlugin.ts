@@ -34,8 +34,6 @@ export function localeHmrPlugin(): Plugin {
     name: 'locale-hmr',
     apply: 'serve', // 仅 dev 模式生效, build 不需要
     configureServer(server: ViteDevServer) {
-      const root = server.config.root
-
       // 把 locale JSON 加入主 watcher (双重保险, 即便 server.watch.depth 调小也能被监听到)
       server.watcher.add(LOCALE_GLOB)
 
@@ -56,7 +54,7 @@ export function localeHmrPlugin(): Plugin {
         }
         // 通知客户端 reload, 让相关组件重新 import
         server.ws.send({ type: 'full-reload', path: '*' })
-        // eslint-disable-next-line no-console
+         
         console.log(`[locale-hmr] invalidated locale modules (triggered by: ${path.basename(file)})`)
       }
 

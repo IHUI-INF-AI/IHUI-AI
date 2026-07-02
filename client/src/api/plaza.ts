@@ -40,16 +40,6 @@ function toListResult(rows: unknown[], total: number, msg = 'success'): ApiRespo
   } as unknown as ApiResponse<{ records: unknown[]; total: number }>
 }
 
-function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {
-  return {
-    code: 0,
-    message: msg,
-    data,
-    success: true,
-    timestamp: Date.now(),
-  } as unknown as ApiResponse<unknown>
-}
-
 // ===========================================================================
 // 广场智能体
 // ===========================================================================

@@ -6,24 +6,13 @@
  * 注意: save/remove/field/query/history 接口使用 Body 传值, 其余使用 Query 参数。
  */
 import http from '@/utils/request'
-import type { ApiResponse, PaginationResponse } from '@/types'
+import type { ApiResponse } from '@/types'
 
 export interface ContextData {
   agentId: string
   contextKey: string
   data?: unknown
   createTime?: string | null
-}
-
-// 统一构造 ApiResponse<{records, total}> 格式
-function toListResult(rows: unknown[], total: number, msg = 'success'): ApiResponse<{ records: unknown[]; total: number }> {
-  return {
-    code: 0,
-    message: msg,
-    data: { records: rows, total },
-    success: true,
-    timestamp: Date.now(),
-  } as unknown as ApiResponse<{ records: unknown[]; total: number }>
 }
 
 function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {

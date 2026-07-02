@@ -4,7 +4,7 @@
  */
 
 import { ref, reactive, type Ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { register } from '@/api/auth'
@@ -32,7 +32,6 @@ export interface RegisterLogicOptions {
 
 export function useRegisterLogic(options: RegisterLogicOptions) {
   const { captchaKey } = options
-  const router = useRouter()
   const route = useRoute()
   const { t } = useI18n()
   const cleanup = useCleanup()

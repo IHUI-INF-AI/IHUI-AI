@@ -6,23 +6,12 @@
  * 注意: 后端接口均使用 Body 传值。
  */
 import http from '@/utils/request'
-import type { ApiResponse, PaginationResponse } from '@/types'
+import type { ApiResponse } from '@/types'
 
 export interface WatermarkResult {
   outputPath: string
   success: boolean
   message?: string
-}
-
-// 统一构造 ApiResponse<{records, total}> 格式
-function toListResult(rows: unknown[], total: number, msg = 'success'): ApiResponse<{ records: unknown[]; total: number }> {
-  return {
-    code: 0,
-    message: msg,
-    data: { records: rows, total },
-    success: true,
-    timestamp: Date.now(),
-  } as unknown as ApiResponse<{ records: unknown[]; total: number }>
 }
 
 function toDataResult(data: unknown, msg = 'success'): ApiResponse<unknown> {

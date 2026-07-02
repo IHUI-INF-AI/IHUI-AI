@@ -112,12 +112,24 @@
 
       <!-- ⑦ 笔记预览 -->
       <section class="list-row">
-        <NotesList :notes="notes" :limit="5" @view-all="goNotes" />
+        <NotesList
+          :notes="notes"
+          :limit="5"
+          @view-all="goNotes"
+          @edit="handleEditNote"
+          @delete="handleDeleteNote"
+        />
       </section>
 
       <!-- ⑧ 线下记录预览 -->
       <section class="list-row">
-        <OfflineRecordsList :records="offlineRecords" :limit="5" @view-all="goOffline" />
+        <OfflineRecordsList
+          :records="offlineRecords"
+          :limit="5"
+          @view-all="goOffline"
+          @edit="handleEditRecord"
+          @delete="handleDeleteRecord"
+        />
       </section>
 
       <!-- ⑨ AI 报告占位（PR-D 替换为 <AiReportSection>） -->
@@ -131,6 +143,18 @@
         </el-card>
       </section>
     </div>
+
+    <!-- PR-B B5：预览区块 Dialog（放在 .profile-body 外，避免被 PDF 导出） -->
+    <NoteDialog
+      v-model:visible="noteDialogVisible"
+      :note="editingNote"
+      @success="refresh('notes')"
+    />
+    <OfflineRecordDialog
+      v-model:visible="offlineDialogVisible"
+      :record="editingRecord"
+      @success="refresh('offline')"
+    />
   </div>
 </template>
 
@@ -156,6 +180,13 @@ import CertificateList from '@/components/edu/CertificateList.vue'
 import WrongBookSummary from '@/components/edu/WrongBookSummary.vue'
 import NotesList from '@/components/edu/NotesList.vue'
 import OfflineRecordsList from '@/components/edu/OfflineRecordsList.vue'
+import NoteDialog from '@/components/edu/NoteDialog.vue'
+import OfflineRecordDialog from '@/components/edu/OfflineRecordDialog.vue'
+import { notesApi } from '@/api/edu/notes'
+import { offlineRecordsApi } from '@/api/edu/offline-records'
+import type { LearningNote } from '@/api/edu/notes'
+import type { OfflineRecord } from '@/api/edu/offline-records'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -180,6 +211,7 @@ const {
   offlineRecords,
   dailyStats,
   loadAll,
+  refresh,
   totalLearnHours,
   averageExamScore,
   completionRate,
@@ -189,6 +221,52 @@ const {
 
 const reportRef = ref<HTMLElement | null>(null)
 const exporting = ref(false)
+
+// PR-B B5：预览区块 Dialog 集成（edit/delete 支持，不增加"新建"按钮）
+const noteDialogVisible = ref(false)
+const editingNote = ref<LearningNote | null>(null)
+const offlineDialogVisible = ref(false)
+const editingRecord = ref<OfflineRecord | null>(null)
+
+function handleEditNote(note: LearningNote) {
+  editingNote.value = note
+  noteDialogVisible.value = true
+}
+
+async function handleDeleteNote(note: LearningNote) {
+  try {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.cancel'), {
+      type: 'warning',
+      confirmButtonText: t('edu.profile.submit'),
+      cancelButtonText: t('edu.profile.cancel'),
+    })
+    await notesApi.delete(note.id)
+    ElMessage.success(t('edu.profile.deleteSuccess'))
+    await refresh('notes')
+  } catch {
+    // 用户取消删除，无需处理
+  }
+}
+
+function handleEditRecord(record: OfflineRecord) {
+  editingRecord.value = record
+  offlineDialogVisible.value = true
+}
+
+async function handleDeleteRecord(record: OfflineRecord) {
+  try {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.cancel'), {
+      type: 'warning',
+      confirmButtonText: t('edu.profile.submit'),
+      cancelButtonText: t('edu.profile.cancel'),
+    })
+    await offlineRecordsApi.delete(record.id)
+    ElMessage.success(t('edu.profile.deleteSuccess'))
+    await refresh('offline')
+  } catch {
+    // 用户取消删除，无需处理
+  }
+}
 
 const avatarUrl = computed(() => {
   const u = authUser as { avatar?: string } | null

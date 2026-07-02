@@ -121,6 +121,7 @@ import {
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
 import { getOAuthAuditLogStats, type AuditLogStats } from '@/api/admin-oauth-audit-stats'
+import { useCleanup } from '@/composables/useCleanup'
 
 const cssVar = (name: string) =>
   getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -151,6 +152,7 @@ let trendChart: ECharts | null = null
 let eventChart: ECharts | null = null
 let eventBarChart: ECharts | null = null
 let resizeRafId: number | null = null
+const cleanup = useCleanup()
 
 const EVENT_NAME_MAP: Record<string, string> = {
   app_create: '创建应用',
@@ -277,20 +279,22 @@ function handleResize() {
   })
 }
 
-onMounted(() => {
-  loadStats()
-  window.addEventListener('resize', handleResize)
-})
-
-onBeforeUnmount(() => {
+cleanup.add(() => {
   if (resizeRafId !== null) {
     cancelAnimationFrame(resizeRafId)
     resizeRafId = null
   }
+})
+
+onMounted(() => {
+  loadStats()
+  cleanup.addEventListener(window, 'resize', handleResize)
+})
+
+onBeforeUnmount(() => {
   trendChart?.dispose()
   eventChart?.dispose()
   eventBarChart?.dispose()
-  window.removeEventListener('resize', handleResize)
 })
 
 watch(daysRange, () => loadStats())

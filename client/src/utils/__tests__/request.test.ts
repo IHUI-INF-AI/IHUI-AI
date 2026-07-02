@@ -1075,6 +1075,7 @@ describe('request.ts', () => {
       vi.doMock('@/locales', () => ({
         default: { global: {} },
       }))
+      // 并发执行时 vi.resetModules + vi.doMock 后 re-import 可能触发额外 transform
       try {
         const axiosModule = await import('axios')
         await import('../request')
@@ -1090,25 +1091,41 @@ describe('request.ts', () => {
         vi.doUnmock('@/locales')
         vi.resetModules()
       }
-    })
+    }, 60000)
   })
 
   // ========== 补齐：getStoredData 非浏览器环境（typeof window === 'undefined'） ==========
   describe('getStoredData 非浏览器环境', () => {
     it('window 不存在时应返回 mock 数据', async () => {
-      const originalWindow = globalThis.window
-      // 模拟非浏览器环境
-      // @ts-ignore
-      delete (globalThis as unknown as Record<string, unknown>).window
+      // 上一个测试 (i18nT fallback) 的 vi.doUnmock('@/locales') 可能让顶层 vi.mock 失效，
+      // 导致真实 @/locales 模块加载（含 vue-i18n 全量 locale），耗时 30s+。
+      // 这里重新 doMock 确保快速 mock 生效。
+      vi.doMock('@/locales', () => ({
+        default: {
+          global: {
+            t: (key: string) => key,
+          },
+        },
+      }))
       try {
+        // 先在 window 存在时导入模块，避免 jsdom 环境被破坏后 re-import 卡死
+        // getStoredData 在调用时检查 typeof window === 'undefined'，与导入时机无关
         const { getStoredData } = await import('../request')
-        const result = getStoredData()
-        expect(result).toEqual({
-          thirdPartyAccounts: { accessToken: 'mock-token' },
-          uuid: 'e774c6ea-09cc-4895-b49f-557556064052',
-        })
+        const originalWindow = globalThis.window
+        // 模拟非浏览器环境
+        // @ts-ignore
+        delete (globalThis as unknown as Record<string, unknown>).window
+        try {
+          const result = getStoredData()
+          expect(result).toEqual({
+            thirdPartyAccounts: { accessToken: 'mock-token' },
+            uuid: 'e774c6ea-09cc-4895-b49f-557556064052',
+          })
+        } finally {
+          globalThis.window = originalWindow
+        }
       } finally {
-        globalThis.window = originalWindow
+        vi.doUnmock('@/locales')
       }
     })
   })

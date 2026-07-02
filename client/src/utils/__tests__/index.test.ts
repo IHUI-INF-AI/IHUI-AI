@@ -42,6 +42,8 @@ describe('utils/index.ts 聚合导出测试', () => {
   })
 
   afterEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
     vi.restoreAllMocks()
   })
 
@@ -54,6 +56,8 @@ describe('utils/index.ts 聚合导出测试', () => {
 
     it('应该从sessionStorage读取token（当localStorage没有）', async () => {
       const { TokenManager } = await import('../index')
+      // 显式清 localStorage，确保 fallback 到 sessionStorage（防止跨测试污染）
+      localStorage.removeItem('token')
       sessionStorage.setItem('token', 'sess456')
       expect(TokenManager.getToken()).toBe('sess456')
     })

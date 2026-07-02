@@ -124,7 +124,12 @@
       "offlineDescription": "설명",
       "offlineProof": "증빙",
       "deleteConfirm": "삭제하시겠습니까? 이 작업은 취소할 수 없습니다",
-      "deleteSuccess": "삭제되었습니다"
+      "deleteSuccess": "삭제되었습니다",
+      "reportGeneratedAt": "보고서 생성 시간",
+      "categoryDistribution": "과목 분포",
+      "skillRadar": "스킬 레이더",
+      "reportMetadata": "보고서 메타데이터",
+      "reportFileName": "학습 아카이브 보고서"
     },
     "nav": {
       "home": "教育中心",

@@ -167,7 +167,7 @@ test.describe('CI button-stack-audit job 守门', () => {
 
     // 验证 job 不允许 continue-on-error (阻断合并)
     const jobMatch = content.match(
-      /button-stack-audit:[\s\S]*?(?=\n  [a-z][\w-]*:|\n*$)/,
+      /button-stack-audit:[\s\S]*?(?=\n {2}[a-z][\w-]*:|\n*$)/,
     )
     expect(
       jobMatch,

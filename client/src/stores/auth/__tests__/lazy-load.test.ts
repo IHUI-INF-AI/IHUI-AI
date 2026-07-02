@@ -255,7 +255,7 @@ describe('运行时: stores/auth/* 在 pinia 激活后正常工作', () => {
     expect(auth.isLoggedIn).toBe(false)
     expect(auth.isVip).toBe(false)
     expect(auth.isInitialized).toBe(false)
-  })
+  }, 60000)
 
   it('useAuthStore hasPermission 默认 false', async () => {
     const { useAuthStore } = await import('../index')

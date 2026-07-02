@@ -147,26 +147,23 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 // 7 个 auth 类 API 集中接入
 import {
-  getAuthInfoList, createAuthInfo, updateAuthInfo, deleteAuthInfo, exportAuthInfo,
+  getAuthInfoList, createAuthInfo, updateAuthInfo, deleteAuthInfo,
 } from '@/api/auth/auth-info'
 import {
-  getAuthAccountList, createAuthAccount, updateAuthAccount, deleteAuthAccount, exportAuthAccount,
+  getAuthAccountList, createAuthAccount, updateAuthAccount, deleteAuthAccount,
 } from '@/api/auth/auth-accounts'
 import {
-  getAuthTokenList, createAuthToken, updateAuthToken, deleteAuthToken, exportAuthToken,
+  getAuthTokenList, createAuthToken, updateAuthToken, deleteAuthToken,
 } from '@/api/auth/auth-tokens'
 import {
-  getAuthVeriCodeList, createAuthVeriCode, updateAuthVeriCode, deleteAuthVeriCode, exportAuthVeriCode,
+  getAuthVeriCodeList, createAuthVeriCode, updateAuthVeriCode, deleteAuthVeriCode,
 } from '@/api/auth/auth-veri-codes'
 import {
-  getAuthUserVipList, createAuthUserVip, updateAuthUserVip, deleteAuthUserVip, exportAuthUserVip,
+  getAuthUserVipList, createAuthUserVip, updateAuthUserVip, deleteAuthUserVip,
 } from '@/api/auth/auth-user-vip'
 import {
-  getAuthVipLevelList, createAuthVipLevel, updateAuthVipLevel, deleteAuthVipLevel, exportAuthVipLevel,
+  getAuthVipLevelList, createAuthVipLevel, updateAuthVipLevel, deleteAuthVipLevel,
 } from '@/api/auth/auth-vip-level'
-import {
-  createAuthUser,
-} from '@/api/auth/auth-user'
 
 const activeTab = ref('info')
 const loading = ref(false)

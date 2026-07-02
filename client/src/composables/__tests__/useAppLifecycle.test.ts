@@ -30,8 +30,8 @@ vi.mock('@/stores/darkMode', () => ({
   useDarkModeStore: vi.fn(() => mockDarkModeStore),
 }))
 
-// Mock vue-router
-const mockRouterPush = vi.fn()
+// Mock vue-router (push 必须返回 Promise, 源码里用了 router.push('/').catch())
+const mockRouterPush = vi.fn(() => Promise.resolve())
 vi.mock('vue-router', () => ({
   useRouter: vi.fn(() => ({
     push: mockRouterPush,
@@ -261,12 +261,12 @@ describe('useAppLifecycle', () => {
   })
 
   describe('session-expired 事件', () => {
-    it('触发后应调用 auth.logout 和 router.push(/login)', () => {
+    it('触发后应调用 auth.logout 和 router.push(/)', () => {
       const lifecycle = useAppLifecycle()
       lifecycle.install()
       window.dispatchEvent(new CustomEvent('session-expired'))
       expect(mockLogout).toHaveBeenCalled()
-      expect(mockRouterPush).toHaveBeenCalledWith('/login')
+      expect(mockRouterPush).toHaveBeenCalledWith('/')
     })
 
     it('应用 window.showGlobalNotification 存在时调用', () => {

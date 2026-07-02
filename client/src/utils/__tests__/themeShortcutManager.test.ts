@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest'
 import type { ThemeShortcut } from '../themeShortcutManager'
 
 type FrameRequestCallback = (time: number) => number
@@ -23,6 +23,11 @@ vi.mock('@/utils/logger', () => ({
 describe('themeShortcutManager', () => {
   let mockWindow: { addEventListener: ReturnType<typeof vi.fn>; removeEventListener: ReturnType<typeof vi.fn>; requestAnimationFrame: ReturnType<typeof vi.fn> }
   let mockDocument: { getElementById: ReturnType<typeof vi.fn>; head: { appendChild: ReturnType<typeof vi.fn> }; body: { appendChild: ReturnType<typeof vi.fn>; removeChild: ReturnType<typeof vi.fn> }; createElement: ReturnType<typeof vi.fn> }
+
+  // 预热 transform：全量跑时首次 import 会被 transform 卡住，提前在 beforeAll 触发
+  beforeAll(async () => {
+    await import('../themeShortcutManager')
+  }, 60000)
 
   beforeEach(async () => {
     Object.keys(mockStore).forEach(k => delete mockStore[k])

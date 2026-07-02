@@ -124,7 +124,12 @@
       "offlineDescription": "Description",
       "offlineProof": "Proof",
       "deleteConfirm": "Are you sure to delete? This cannot be undone",
-      "deleteSuccess": "Deleted successfully"
+      "deleteSuccess": "Deleted successfully",
+      "reportGeneratedAt": "Report Generated At",
+      "categoryDistribution": "Category Distribution",
+      "skillRadar": "Skill Radar",
+      "reportMetadata": "Report Metadata",
+      "reportFileName": "Learning Profile Report"
     },
     "nav": {
       "home": "教育中心",

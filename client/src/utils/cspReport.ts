@@ -46,7 +46,7 @@ function reportToLocal(violation: CspViolation): void {
 /**
  * 初始化 CSP 违规监听（应在 App.vue onMounted 调用）
  */
-export function initCspReport(): void {
+export function initCspReport() {
   if (typeof document === 'undefined') return
   document.addEventListener('securitypolicyviolation', (e) => {
     const violation: CspViolation = {
@@ -72,7 +72,8 @@ export function initCspReport(): void {
  * 主动上报单个 CSP 违规（暴露给 utils/index.ts 重导出）
  * 与 initCspReport 内的事件监听逻辑等价，便于业务侧按需调用
  */
-export function reportCspViolation(violation: Partial<CspViolation>): void {
+export function reportCspViolation(violation: Partial<CspViolation>) {
+  if (!violation) return
   const normalized: CspViolation = {
     'blocked-uri': violation['blocked-uri'] ?? '',
     'document-uri': violation['document-uri'] ?? '',

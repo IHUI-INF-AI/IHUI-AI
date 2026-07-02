@@ -118,8 +118,14 @@ export const useUserStore = defineStore('user', () => {
     fetchUserInfoPromise = (async () => {
       try {
         // 检查 token 是否仍然有效（在等待期间可能已登出）
-        const tokenStore = useTokenStore()
-        if (!options.ignoreAuthState && !tokenStore.token) {
+        // 2026-06-25 修复: useTokenStore 可能因 HMR 抖动失败, try/catch 兜底
+        let tokenStore: ReturnType<typeof useTokenStore> | null = null
+        try {
+          tokenStore = useTokenStore()
+        } catch (e) {
+          logger.debug('[UserStore] tokenStore unavailable, skip auth check:', e)
+        }
+        if (!options.ignoreAuthState && tokenStore && !tokenStore.token) {
           // Token 已清除，跳过请求
           logger.debug('[UserStore] Token cleared, skipping fetchUserInfo')
           return null
@@ -270,11 +276,21 @@ export const useUserStore = defineStore('user', () => {
 
         if (user.value) {
           const storedData = (getStoredData() as Record<string, unknown>) || {}
-          const tokenStore = useTokenStore()
+          // 2026-06-25 修复: useTokenStore 也做 try/catch, 失败时只影响 thirdPartyAccounts 写入
+          let ts: ReturnType<typeof useTokenStore> | null = null
+          try {
+            ts = useTokenStore()
+          } catch (e) {
+            logger.debug('[UserStore] tokenStore unavailable in save:', e)
+          }
+          const storedAccounts = (storedData.thirdPartyAccounts as Record<string, unknown>) || {}
           StorageManager.setItem(STORAGE_KEYS.USER_DATA, {
             ...storedData,
             ...user.value,
-            thirdPartyAccounts: { ...((storedData.thirdPartyAccounts as Record<string, unknown>) || {}), accessToken: tokenStore.token || (storedData.thirdPartyAccounts as Record<string, unknown>)?.accessToken },
+            thirdPartyAccounts: {
+              ...storedAccounts,
+              accessToken: ts?.token || (storedAccounts.accessToken as string | undefined) || '',
+            },
             fundInfo,
             vipInfo,
           })

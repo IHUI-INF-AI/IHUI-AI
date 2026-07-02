@@ -42,12 +42,18 @@
               <el-icon><Clock /></el-icon>
               {{ formatTime(note.create_time) }}
             </span>
-            <span v-if="note.is_public" class="note-visibility-text is-public">
-              {{ t('edu.profile.public') }}
-            </span>
-            <span v-else class="note-visibility-text is-private">
-              {{ t('edu.profile.private') }}
-            </span>
+            <div class="note-footer-right">
+              <span v-if="note.is_public" class="note-visibility-text is-public">
+                {{ t('edu.profile.public') }}
+              </span>
+              <span v-else class="note-visibility-text is-private">
+                {{ t('edu.profile.private') }}
+              </span>
+              <div class="note-actions">
+                <el-button text :icon="Edit" size="small" @click.stop="emit('edit', note)" />
+                <el-button text :icon="Delete" size="small" @click.stop="emit('delete', note)" />
+              </div>
+            </div>
           </div>
         </article>
       </div>
@@ -70,7 +76,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { View, Hide, Clock, ArrowRight } from '@element-plus/icons-vue'
+import { View, Hide, Clock, ArrowRight, Edit, Delete } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { LearningNote } from '@/api/edu/notes'
 
@@ -85,6 +91,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'view-all'): void
+  (e: 'edit', note: LearningNote): void
+  (e: 'delete', note: LearningNote): void
 }>()
 
 const visibleNotes = computed<LearningNote[]>(() => {
@@ -183,7 +191,7 @@ function formatTime(value?: string): string {
   color: var(--el-text-color-placeholder);
 
   &.is-public {
-    color: #3b82f6;
+    color: var(--el-color-primary);
   }
 }
 
@@ -238,6 +246,27 @@ function formatTime(value?: string): string {
 
   &.is-private {
     color: var(--el-text-color-placeholder);
+  }
+}
+
+:where(.note-footer-right) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+:where(.note-actions) {
+  display: flex;
+  gap: 4px;
+
+  :where(.el-button) {
+    padding: 4px;
+    color: var(--el-text-color-secondary);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
   }
 }
 

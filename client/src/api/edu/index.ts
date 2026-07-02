@@ -164,6 +164,18 @@ export interface EduExamRecord {
   status: string;
 }
 
+// Wrong book item (错题本条目)
+export interface EduWrongBookItem {
+  id?: number;
+  question_id?: number;
+  category?: string;
+  category_name?: string;
+  question?: { category?: string; tags?: string };
+  tags?: string;
+  mastered?: boolean;
+  create_time?: string;
+}
+
 // Ask (edu-unique)
 export interface EduAskQuestion {
   id: number;
@@ -591,7 +603,7 @@ export const examApi = {
     ),
 
   myWrongBook: (params?: { page?: number; size?: number; mastered?: boolean }) =>
-    request.get<EduBaseResponse<EduPaginatedResponse<Record<string, unknown>>>>(
+    request.get<EduBaseResponse<EduPaginatedResponse<EduWrongBookItem>>>(
       '/api/v1/edu/exam/wrong-book/me',
       { params }
     ),

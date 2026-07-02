@@ -147,7 +147,12 @@
       "offlineDescription": "描述",
       "offlineProof": "凭证",
       "deleteConfirm": "确定删除吗？此操作不可撤销",
-      "deleteSuccess": "删除成功"
+      "deleteSuccess": "删除成功",
+      "reportGeneratedAt": "报告生成时间",
+      "categoryDistribution": "科目分布",
+      "skillRadar": "技能雷达",
+      "reportMetadata": "报告元数据",
+      "reportFileName": "学习档案报告"
     }
   }
 }

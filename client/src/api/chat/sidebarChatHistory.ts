@@ -56,13 +56,6 @@ apiClient.interceptors.request.use(
 
 const isAuthError = (status?: number) => status === 401 || status === 403
 
-const errorResponse = (status: number | undefined, msg: string) => ({
-  code: status ?? 500,
-  success: false,
-  message: msg || t('api.common.requestFailed'),
-  data: null,
-})
-
 const LOCAL_STORAGE_KEY = 'floating-chat-history'
 
 /** 从本地存储读取会话列表（降级 fallback） */

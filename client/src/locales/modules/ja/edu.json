@@ -124,7 +124,12 @@
       "offlineDescription": "説明",
       "offlineProof": "証憑",
       "deleteConfirm": "削除してもよろしいですか？この操作は取り消せません",
-      "deleteSuccess": "削除しました"
+      "deleteSuccess": "削除しました",
+      "reportGeneratedAt": "レポート生成日時",
+      "categoryDistribution": "カテゴリ分布",
+      "skillRadar": "スキルレーダー",
+      "reportMetadata": "レポートメタデータ",
+      "reportFileName": "学習アーカイブレポート"
     },
     "nav": {
       "home": "教育中心",

@@ -76,7 +76,7 @@ import {
   createAbortController, cancelRequest, getCachedData, setCachedData, clearCachedData,
   resourcePreloader, setupMessageProgress,
   formatDateTime, formatTime, formatDuration,
-  debounce, throttle,
+  debounce,
   formatNumber, formatPercent, formatTokenValue, formatMoney, fenToYuan, yuanToFen,
   formatSize, formatFileSize,
   formatPhone, isEmpty,

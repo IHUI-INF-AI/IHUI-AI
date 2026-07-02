@@ -57,7 +57,7 @@ const loadPersisted = (): void => {
     }
     const savedEntered = localStorage.getItem(STORAGE_KEY_ENTERED)
     hasEnteredWorkspace.value = savedEntered === 'true'
-    // eslint-disable-next-line no-console
+     
     console.log('[useAiPanel] loadPersisted:', {
       savedOpen,
       savedEntered,
@@ -137,13 +137,13 @@ export function useAiPanel(): UseAiPanelReturn {
   }
 
   const toggle = (): void => {
-    // eslint-disable-next-line no-console
+     
     console.log('[useAiPanel] toggle called, before:', { isMobile: isMobile.value, isOpen: isOpen.value })
     // 移动端不响应（由浮窗接管）
     if (isMobile.value) return
     isOpen.value = !isOpen.value
     persist()
-    // eslint-disable-next-line no-console
+     
     console.log('[useAiPanel] toggle after:', { isOpen: isOpen.value })
   }
 

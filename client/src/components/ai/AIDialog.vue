@@ -1552,12 +1552,12 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
     }
 
-    // focus 状态 - 2px 主色边框
+    // focus 状态 - 2px 主色边框 (light: #3b82f6 显式蓝色 hex, 避免使用 var(--el-color-primary) 因 light 模式下被映射为黑色)
     &:focus-within {
       background: var(--el-bg-color);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-      border: var(--el-border-width-primary) solid var(--el-color-primary);
+      border: var(--el-border-width-primary) solid #3b82f6;
 
       --iw-shadow: var(--iw-shadow-focus);
 
@@ -2076,12 +2076,12 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
     }
 
-    // focus 状态
+    // focus 状态 (dark: #93c5fd 显式蓝色 hex, 避免使用 var(--el-color-primary) 因 dark 模式下可能与背景混淆)
     &:focus-within {
       background: var(--el-color-primary);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-      border: var(--el-border-width-primary) solid var(--el-color-primary);
+      border: var(--el-border-width-primary) solid #93c5fd;
 
       --iw-shadow: var(--iw-shadow-focus-dark);
 

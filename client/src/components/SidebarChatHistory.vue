@@ -82,7 +82,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Loader2, ChatLineRound, Trash2 } from '@/lib/lucide-fallback'
+import { Loader2, ChatLineRound, Trash2 } from '@/lib/lucide-fallback'
 import {
   fetchSidebarConversations,
   deleteSidebarConversation,
@@ -156,7 +156,7 @@ const loadList = async (): Promise<void> => {
     } else {
       conversations.value = list
     }
-  } catch (e) {
+  } catch {
     // 网络/后端失败: 也走 demo fallback, 保证 UI 不空
     conversations.value = getDemoConversations()
   } finally {
@@ -189,10 +189,6 @@ const handleSelect = (item: ConversationWithDemo): void => {
     return
   }
   emit('select', item)
-}
-
-const handleNewChat = (): void => {
-  emit('new-chat')
 }
 
 const handleDelete = async (item: ConversationWithDemo): Promise<void> => {

@@ -52,7 +52,7 @@ import Crontab from '@/components/Crontab/index.vue'
 
 const { t } = useI18n()
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     modelValue?: string
     placeholder?: string

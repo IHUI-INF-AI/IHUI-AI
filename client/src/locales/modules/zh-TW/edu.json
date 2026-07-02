@@ -124,7 +124,12 @@
       "offlineDescription": "描述",
       "offlineProof": "憑證",
       "deleteConfirm": "確定刪除嗎？此操作不可撤銷",
-      "deleteSuccess": "刪除成功"
+      "deleteSuccess": "刪除成功",
+      "reportGeneratedAt": "報告生成時間",
+      "categoryDistribution": "科目分佈",
+      "skillRadar": "技能雷達",
+      "reportMetadata": "報告元數據",
+      "reportFileName": "學習檔案報告"
     },
     "nav": {
       "home": "教育中心",

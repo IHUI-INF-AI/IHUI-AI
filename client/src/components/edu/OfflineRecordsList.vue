@@ -38,6 +38,11 @@
             <span class="duration-value">{{ record.duration_minutes ?? 0 }}</span>
             <span class="duration-unit">{{ t('edu.profile.minutes') }}</span>
           </div>
+
+          <div class="record-actions">
+            <el-button text :icon="Edit" size="small" @click.stop="emit('edit', record)" />
+            <el-button text :icon="Delete" size="small" @click.stop="emit('delete', record)" />
+          </div>
         </li>
       </ul>
 
@@ -59,7 +64,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { ArrowRight } from '@element-plus/icons-vue'
+import { ArrowRight, Edit, Delete } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { OfflineRecord, OfflineActivityType } from '@/api/edu/offline-records'
 
@@ -74,6 +79,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'view-all'): void
+  (e: 'edit', record: OfflineRecord): void
+  (e: 'delete', record: OfflineRecord): void
 }>()
 
 const visibleRecords = computed<OfflineRecord[]>(() => {
@@ -126,13 +133,13 @@ function getTypeTagStyle(type: OfflineActivityType): Record<string, string> {
       return {
         backgroundColor: 'var(--el-color-primary)',
         borderColor: 'var(--el-color-primary)',
-        color: '#fff',
+        color: 'var(--color-edu-reading-text)',
       }
     case 'reading':
       return {
-        backgroundColor: '#7c3aed',
-        borderColor: '#7c3aed',
-        color: '#fff',
+        backgroundColor: 'var(--color-edu-reading)',
+        borderColor: 'var(--color-edu-reading)',
+        color: 'var(--color-edu-reading-text)',
       }
     default:
       return {}
@@ -257,6 +264,23 @@ function getTypeLabel(type: OfflineActivityType): string {
   border-left: 1px solid var(--color-white-30);
 }
 
+:where(.record-actions) {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+  padding-left: 8px;
+  margin-left: auto;
+
+  :where(.el-button) {
+    padding: 4px;
+    color: var(--el-text-color-secondary);
+
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+}
+
 :where(.duration-value) {
   font-size: 16px;
   font-weight: 700;
@@ -292,6 +316,11 @@ function getTypeLabel(type: OfflineActivityType): string {
   :where(.record-duration-col) {
     border-left: none;
     padding-left: 0;
+  }
+
+  :where(.record-actions) {
+    padding-left: 0;
+    margin-left: 0;
   }
 }
 </style>

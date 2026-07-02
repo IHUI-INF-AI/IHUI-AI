@@ -8,9 +8,14 @@
  * - resetAll: 清空状态 + setAuthReady(false)
  * - 多次并发 ensureAuthed 共享同一等待 Promise
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('useAuthedApi', () => {
+  // 预热模块 transform 缓存，避免第一个 beforeEach 触发 30s+ 编译导致 hook 超时
+  beforeAll(async () => {
+    await import('@/utils/request')
+  }, 60000)
+
   beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()

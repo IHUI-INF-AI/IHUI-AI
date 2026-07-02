@@ -18,6 +18,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import { useDarkModeStore } from '@/stores/darkMode'
+import { useCleanup } from '@/composables/useCleanup'
 
 interface TrendPoint {
   date: string
@@ -33,6 +34,7 @@ const darkModeStore = useDarkModeStore()
 const isDark = computed(
   () => darkModeStore.isDarkMode ?? darkModeStore.themeMode === 'dark'
 )
+const cleanup = useCleanup()
 
 const range = ref<7 | 30 | 90>(30)
 const chartRef = ref<HTMLDivElement | null>(null)
@@ -130,14 +132,13 @@ watch(
 )
 
 onMounted(() => {
-  window.addEventListener('resize', resizeChart)
+  cleanup.addEventListener(window, 'resize', resizeChart)
   if (hasData.value) {
     nextTick(renderChart)
   }
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', resizeChart)
   if (chart) {
     chart.dispose()
     chart = null

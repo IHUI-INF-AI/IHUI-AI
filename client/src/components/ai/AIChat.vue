@@ -1602,11 +1602,9 @@ import {
   AlertCircle,
   Cpu,
   Brain,
-  ChevronDown,
   Plus,
   ArrowDown,
   ArrowLeft,
-  ChevronRight,
 } from '@/lib/lucide-fallback'
 // Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
@@ -1847,7 +1845,6 @@ const {
   currentView: capabilityDropdownView,
   goTo: goToCapabilityView,
   backToMain: backToCapabilityMain,
-  handleEsc: handleCapabilityDropdownEsc,
   closeAndReset: closeCapabilityDropdownAndReset,
   backButtonRef: capabilityBackBtnRef,
 } = useSubViewDropdown<CapabilityDropdownView>({
@@ -3759,20 +3756,6 @@ const handleOpenClawFromCapability = () => {
 const handlePromptTemplateSelectFromDropdown = (template: { content: string; title?: string }) => {
   handlePromptTemplateSelect(template)
   closeCapabilityDropdownAndReset()
-}
-
-// 处理 OpenClaw 功能选择（含「设置」「仪表板」等）
-const handleOpenClawFeature = (feature: string) => {
-  showOpenClawPopover.value = false
-  openClawActivePanel.value = feature
-  showOpenClawPanel.value = true
-
-  // 面板由 v-if 控制，需 nextTick 后 ref 才就绪
-  nextTick(() => {
-    if (openClawPanelRef.value) {
-      (openClawPanelRef.value as OpenClawPanelInstance).setPanel?.(feature)
-    }
-  })
 }
 
 const handleOpenClawBack = () => {
@@ -7725,20 +7708,6 @@ const getGenerationTypeLabel = (type: string): string => {
 }
 
 // getModeTagType 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
-
-// 获取模式标签文本
-const getModeLabel = (mode: 'model' | 'agent' | 'agentic' | 'mcp' | 'hybrid' | 'auto' | 'generation'): string => {
-  const labels: Record<string, string> = {
-    model: t('floatingChat.modeModel'),
-    agent: t('floatingChat.modeAgent'),
-    agentic: t('floatingChat.modeAgentic'),
-    mcp: t('floatingChat.modeMCP'),
-    hybrid: t('floatingChat.modeHybrid'),
-    auto: t('floatingChat.modeAuto'),
-    generation: t('floatingChat.modeGeneration'),
-  }
-  return labels[mode] || mode
-}
 
 // 获取生成类型描述 - 预留供将来使用
 const _getGenerationTypeDescription = (type: 'image' | 'video' | '3d' | 'vision' | 'audio' | 'music' | 'auto'): string => {

@@ -395,7 +395,7 @@ export default [
   },
   // 测试文件配置
   {
-    files: ['tests/**/*.ts', 'tests/**/*.tsx', '**/*.test.ts', '**/*.spec.ts', '**/*.e2e.ts', 'e2e/helpers/**/*.ts', '**/__tests__/**/*.ts'],
+    files: ['tests/**/*.ts', 'tests/**/*.tsx', '**/*.test.ts', '**/*.spec.ts', '**/*.e2e.ts', 'e2e/helpers/**/*.ts', 'e2e/utils/**/*.ts', '**/__tests__/**/*.ts'],
     languageOptions: {
       // 测试文件被 tsconfig.json 排除，关闭 project 避免解析错误
       parserOptions: { project: null },
@@ -466,6 +466,25 @@ export default [
       'packages/shared-logic/sync.config.js',
       'packages/shared-ui/index.js',
       'src/locales/_*.cjs',
+      // admin ruoyi 模块: tsconfig.json 已 exclude (未集成/迁移中), eslint 同步忽略
+      // 集成时需从 ignores 移除并修复类型/未用变量问题
+      'src/api/admin/**',
+      'src/store/admin/**',
+      'src/utils/admin/**',
+      'src/views/admin-ruoyi/**',
+      'src/layout-admin/**',
+      'src/plugins/admin/**',
+      'src/components/admin-ruoyi/**',
     ],
+  },
+  // vite-plugins: 构建期插件, 不在 tsconfig include 内, 关闭 project 类型信息避免 parsing error
+  {
+    files: ['vite-plugins/**/*.ts'],
+    languageOptions: {
+      parserOptions: { project: null },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
   },
 ]

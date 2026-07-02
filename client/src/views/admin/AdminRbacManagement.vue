@@ -277,10 +277,10 @@ import {
   getDashboardOverview,
 } from '@/api/admin/admin-dashboard'
 import {
-  jobLogList, jobLogDelete,
+  jobLogList,
 } from '@/api/admin/admin-job-log'
 import {
-  loginInfoList, loginInfoDelete,
+  loginInfoList,
 } from '@/api/admin/admin-logininfo'
 import {
   noticeList, noticeCreate,

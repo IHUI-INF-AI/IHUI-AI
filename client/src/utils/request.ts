@@ -106,7 +106,11 @@ export function setAuthReady(ready: boolean): void {
 
 export async function waitForAuthReady(timeoutMs = 5000): Promise<void> {
   if (_authReady) return
-  await new Promise<void>((resolve) => setTimeout(resolve, 0))
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 50))
+    if (_authReady) return
+  }
 }
 
 export function resetNotificationDedup(): void {
@@ -772,17 +776,9 @@ function setupResponseInterceptor() {
 
       // 处理401错误 - 未授权或Token过期
       if (status === 401) {
-        // 公开页面且无 refreshToken：用户从未登录或已完全登出，
-        // 静默拒绝，不弹"会话已过期" ElMessageBox，也不自动弹登录窗
-        // （避免遮挡登录按钮；用户主动点击登录按钮时由组件自行弹窗）
-        const _hasRefreshToken = !!(
-          TokenStorage.getRefreshToken() ||
-          (getStoredData() as { refreshToken?: string; thirdPartyAccounts?: { refreshToken?: string } } | null)
-            ?.thirdPartyAccounts?.refreshToken
-        )
-        if (isPublicPage() && !_hasRefreshToken) {
-          return Promise.reject(error)
-        }
+        // 注意: 请求拦截器已在请求发出前处理"公开页面未登录"场景 (line 566 isPublicPage 早返回),
+        // 能走到这里说明请求已发出并收到 401 响应, 意味着用户曾持有 token 且已被服务器拒绝,
+        // 应该提示重新登录而非静默丢弃 (否则用户会困惑为何功能无响应).
         // 如果是刷新Token的请求出错，直接跳转到登录页（避免刷新接口死循环）
         const refreshEndpointHints = [
           '/refresh-token',

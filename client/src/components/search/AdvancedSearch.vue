@@ -168,22 +168,18 @@ interface Props {
   historyKey?: string
 }
 
+// 注意: fields/operators 的默认值不能放在 withDefaults 里,
+// 因为它们需要调用 t() (i18n), 而 defineProps 会被 hoist 到 setup() 外,
+// 无法引用局部变量 t. 改为在 effectiveFields/effectiveOperators computed 里兜底.
+// presetKey/historyKey 是静态字符串, 可以安全使用 withDefaults.
 const props = withDefaults(defineProps<Props>(), {
-  fields: () => [
-    { label: t('search.field.name'), value: 'name' },
-    { label: t('search.field.description'), value: 'description' },
-    { label: t('search.field.category'), value: 'category' },
-    { label: t('search.field.tag'), value: 'tag' },
-  ],
-  operators: () => [
-    { label: t('search.operator.contains'), value: 'contains' },
-    { label: t('search.operator.equals'), value: 'equals' },
-    { label: t('search.operator.startsWith'), value: 'startsWith' },
-    { label: t('search.operator.endsWith'), value: 'endsWith' },
-  ],
   presetKey: 'search-presets',
   historyKey: 'advanced-search-history',
 })
+
+// 默认字段/操作符的 value 值 (静态, 不依赖 i18n)
+const DEFAULT_FIELD_VALUES = ['name', 'description', 'category', 'tag'] as const
+const DEFAULT_OPERATOR_VALUES = ['contains', 'equals', 'startsWith', 'endsWith'] as const
 
 const emit = defineEmits<{
   search: [conditions: SearchCondition[], keyword?: string]
@@ -201,9 +197,22 @@ const conditions = ref<SearchCondition[]>([])
 const selectedPreset = ref<string>('')
 const searching = ref(false)
 
-// 生效字段/操作符 (优先用 prop, 兜底默认值)
-const effectiveFields = computed(() => props.fields)
-const effectiveOperators = computed(() => props.operators)
+// 生效字段/操作符 (优先用 prop, 兜底默认值——默认值在此 computed 内用 t() 翻译,
+// 避免 defineProps withDefaults 引用局部变量导致的编译期 hoist 错误)
+const effectiveFields = computed<FieldConfig[]>(() => {
+  if (props.fields && props.fields.length) return props.fields
+  return DEFAULT_FIELD_VALUES.map(v => ({
+    label: t(`search.field.${v}`),
+    value: v,
+  }))
+})
+const effectiveOperators = computed<OperatorConfig[]>(() => {
+  if (props.operators && props.operators.length) return props.operators
+  return DEFAULT_OPERATOR_VALUES.map(v => ({
+    label: t(`search.operator.${v}`),
+    value: v,
+  }))
+})
 
 // 当前选中字段对应的 options (用于 value 输入切换 select / input)
 const currentFieldOptions = computed(() => {

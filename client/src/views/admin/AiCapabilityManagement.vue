@@ -158,7 +158,7 @@ import { ElMessage } from 'element-plus'
 
 // 15 个 ai/* 零引用 API 集中接入
 import {
-  getAIModelList, addAIModel, updateAIModel,
+  getAIModelList, addAIModel,
 } from '@/api/ai/aiModelInfo'
 import {
   getCreations, publishCreation,
@@ -176,7 +176,7 @@ import {
   getSupportedModels,
 } from '@/api/ai/ai-proxy'
 import {
-  sendAIChatMessage, getAIChatModels, getAIChatHistory,
+  sendAIChatMessage,
 } from '@/api/ai/aiChat'
 import {
   getList as getAigcList,
@@ -185,7 +185,7 @@ import {
   submitAICareerForm,
 } from '@/api/ai/ai-career'
 import {
-  getModelChat, createModelChat,
+  getModelChat,
 } from '@/api/ai/ai-index'
 import {
   isFastAPIChatResponse, isCozeStreamEvent, isAPIErrorResponse,

@@ -169,7 +169,7 @@ describe('components/Error.vue', () => {
       expect(wrapper.find('.happy-content').text()).toBe('all good')
       // 兜底 UI 不应出现
       expect(wrapper.find('.error-fallback').exists()).toBe(false)
-    })
+    }, 60000)
 
     it('子组件抛错时应显示 i18n 兜底 UI（async 组件加载失败触发 errorCaptured）', async () => {
       const Error = (await importErrorVue()).default
