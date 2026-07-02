@@ -1,6 +1,6 @@
 # 死代码完整扫描报告
 
-> 生成时间: 2026-07-02T13:32:59.114Z
+> 生成时间: 2026-07-02T14:20:23.394Z
 > 扫描范围: src/views + src/components + src/utils
 > 判定标准: 文件路径 + 组件名在 src/ 全局无 import/require/标签引用
 
@@ -31,15 +31,17 @@
 | 17 | `components/settings/ThemeTransitionPreview.vue` | 11.9 KB |
 | 18 | `components/ui/CustomCheckbox.vue` | 0.7 KB |
 
-## src/utils/ — 0/117 未引用
+## src/utils/ — 1/117 未引用
 
-✅ 全部文件都有引用
+| # | 路径 | 大小 |
+|---|------|------|
+| 1 | `utils/errorReport.ts` | 2.2 KB |
 
 ---
 ## 总计
 - 扫描文件: 755
-- 未引用: 18
-- 已引用: 737
+- 未引用: 19
+- 已引用: 736
 
 ## 已知限制
 - 动态 import (如 `import(`@/views/${name}`)`) 无法被静态扫描
