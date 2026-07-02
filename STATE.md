@@ -1,130 +1,49 @@
 # /goal 目标状态
 
-**目标**: 完美细致完整治理所有剩余死代码 — 微信相关未用代码、12 个单点组件接入、api/* 模块决策、废弃组件清理、全部守门验证通过
+**目标**: 完整做完所有 P0/P1/P2/P3 后续建议（8 项），直到没有建议工作为止，工作收尾
 
 **启动时间**: 2026-07-02 (本轮)
-**目标状态**: ✅ DELIVERED
+**目标状态**: 🟡 active
 
-## 硬性指标(全部满足才算达成)
+## 8 项建议任务清单
+
+| # | 优先级 | 任务 | 状态 | 验证 |
+|---|---|---|---|---|
+| 1 | P0 | 修复 knip Configuration hints (3 个) | ✅ done (commit 7481a829) | `npm run scan:knip` 0 hints |
+| 2 | P0 | 生成 docs/PENDING_COMPONENTS.md 清单 | pending | 文件存在，含 18 个 component |
+| 3 | P1 | 完整 e2e 回归（无 -g 过滤） | pending | `npx playwright test` 全量通过 |
+| 4 | P1 | AGENTS.md 加 port-drift + line-endings 守门 | pending | AGENTS.md 含 2 章节 + check 脚本 |
+| 5 | P2 | clean.mjs 集成 _archive 清理 | pending | `npm run clean` 清理 30 天前 _archive |
+| 6 | P2 | knip 结果落库 + commit 时校验 | pending | lint-staged 含 knip 检查 |
+| 7 | P3 | 拆分 admin views 接入 components/api/ | pending | 6-8 个 component 接入 |
+| 8 | P3 | knip 排除动态 import 误报 | pending | false positive 减少 |
+
+## 硬性指标（全部满足才算达成）
 
 | # | 指标 | 验证命令 | 当前状态 |
 |---|---|---|---|
-| 1 | typecheck 0 错 | `npx vue-tsc --noEmit` 退出码 0 | ✅ 通过 |
-| 2 | i18n 覆盖 5 语言 0 缺失 | `npm run check:i18n` 退出码 0 | ✅ 通过 |
-| 3 | 主题色硬编码 0 违规 | `npm run check:theme-tokens` 退出码 0 | ✅ 通过 |
-| 4 | 暗色对比度 4/4 通过 | `npm run check:contrast` 退出码 0 | ✅ 通过 |
-| 5 | 死代码 views=0 components 降到最低 | `npm run scan:dead-code` | ✅ views=0, components=18, utils=0 (errorReport.ts 已接入 main.ts) |
-| 6 | e2e 路由可达性全量通过 | `npx playwright test e2e/route-reachability.spec.ts` | ✅ 全量 86 passed (14.1m) + exam 34/34 (关键词修复) |
+| 1 | knip Configuration hints 0 个 | `npm run scan:knip` | ✅ 0 hints (1 个 reduntant 模式已用 `!src/main.ts` 排除) |
+| 2 | PENDING_COMPONENTS.md 存在且含 18 个 component | 文件 grep | pending |
+| 3 | 完整 e2e 回归全通过 | `npx playwright test` | pending |
+| 4 | AGENTS.md 含 port-drift + line-endings 章节 | grep 关键字 | pending |
+| 5 | clean.mjs 集成 _archive 清理 | `node scripts/clean.mjs --dry-run` | pending |
+| 6 | lint-staged 含 knip 校验 | grep "knip" package.json | pending |
+| 7 | 6 项核心守门全过 | typecheck/i18n/tokens/contrast/dead-code/knip | pending |
+| 8 | 8 项 commit 全部 push 到 origin/main | `git log origin/main..HEAD` 退出码 0 | pending |
 
 ## 软性指标
 
-| # | 指标 | 当前状态 |
-|---|---|---|
-| P3 | 12 个单点待接入组件逐个评估接入 | ✅ 完成 (12/12) |
-| H4 | 微信相关未使用代码处理 | ✅ 完成 (微信登录 + 微信支付接入 + 重复文件清理) |
+- P3-7 接入 ≥ 6 个 component
+- P3-8 false positive 减少 ≥ 50%
 
-## 本轮接入完成清单 (12 个组件)
+## 红线
 
-| # | 组件 | 接入文件 | 类型 |
-|---|---|---|---|
-| 1 | CrontabField | AdminEditDialog + job/index.vue | P3 (前次) |
-| 2 | CountryCodeSelector | PhoneForm.vue | P3 (前次) |
-| 3 | NewDeviceNotification | App.vue | P3 (前次) |
-| 4 | MiddleRectangle | learn/List.vue | P3 (前次) |
-| 5 | AmountSelector | RechargeDialog.vue | P3 (前次) |
-| 6 | DialogBottom | Plaza.vue | P3 (前次) |
-| 7 | TraeWorkSelector | AIChat.vue (Model + Agent) | P3 (本轮) |
-| 8 | BigRowTabs | learn/Home.vue (替换 RowTabs) | P3 (本轮) |
-| 9 | BigRowTabsContent | LearnAI.vue (精选课程合集) | P3 (本轮) |
-| 10 | AdvancedSearch | Search.vue (重构为 prop-driven) | P3 (本轮) |
-| 11 | UnifiedQRLogin | ThirdPartyLogin.vue (微信扫码登录) | H4 微信 (本轮) |
-| 12 | wechat-pay.ts | RechargeDialog.vue (wechat 分支 + 轮询) | H4 微信 (本轮) |
+- 不改 _theme-tokens.ts / _theme-tokens.scss
+- 不动 AI 面板 / 边框 / 登录按钮样式
+- 不删任何 view 文件
+- 每个 P 项 1 个 commit（清晰可追溯）
 
-## 微信相关处理
+## 评估校验规则
 
-| # | 项目 | 处理 |
-|---|---|---|
-| 1 | UnifiedQRLogin.vue 接入 | ✅ ThirdPartyLogin.vue 微信扫码登录弹窗 |
-| 2 | wechat-pay.ts 接入 | ✅ RechargeDialog.vue wechat 分支调 wechatPayCreate + wechatPayCheckStatus 轮询 |
-| 3 | 重复文件 api/unified/unified-wechat.ts | ✅ 已删除 (与 api/unified-wechat.ts 内容完全相同, 0 引用) |
-| 4 | 5 国 i18n 新增 key | ✅ rechargeDialog.wechatPaying/wechatPaySuccess/wechatPayFailed/wechatPayTimeout/wechatOrderCreated |
-
-## 守门验证结果
-
-| 检查项 | 结果 |
-|---|---|
-| `npx vue-tsc --noEmit` | ✅ 0 错 (修复 10 个隐式 any + keyword 参数遮蔽) |
-| `npm run check:i18n` | ✅ 5 语言覆盖率全通过 |
-| `npm run check:theme-tokens` | ✅ 0 硬编码违规 |
-| `npm run check:contrast` | ✅ 4/4 通过 |
-| `npm run scan:dead-code` | ✅ views=0, components=18, utils=0, 总计 18/755 (errorReport.ts 已接入 main.ts) |
-| `npx playwright test e2e/route-reachability.spec.ts -g exam` | ✅ 34/34 通过 (修复 ID→考试/试卷/题目/答题) |
-
-## 剩余 18 个未引用 components (评估)
-
-| 类别 | 数量 | 评估 |
-|---|---|---|
-| components/api/* | 12 | API 开放平台专用组件, 等待 API 平台页面开发时接入, 不强行接入避免破坏 ApiTestPage.vue 现有设计 |
-| components/settings/* | 3 | ThemeSettingsPanel/ThemeTransitionPreview, 受主题色硬约束限制不接入 |
-| components/common/* | 2 | NativeEmpty/PageSkeleton, 通用组件无明确接入点 |
-| components/dev/* | 1 | DevThemeSwitcher, 开发专用 |
-| components/ui/* | 1 | CustomCheckbox (0.7KB), 无明确接入点 |
-
-## 红线遵守
-
-- ✅ 不删任何 view 文件(用户第二阶段立场)
-- ✅ 不改主题色/纯白边框/AI 面板/登录按钮硬约束
-- ✅ 高危操作暂停确认
-- ✅ 严格围绕目标,禁止扩展需求
-
----
-
-## 追加轮次 (2026-07-02 续) — errorReport 接入 + wechat-pay 课程支付 + CRLF 统一
-
-### 新增改动
-
-| 文件 | 改动 |
-|---|---|
-| client/src/main.ts | errorReport.ts 接入: Vue errorHandler + window error 监听增强, 结构化错误报告存入 localStorage (最近 20 条 FIFO) |
-| client/src/views/learn/BuyConfirm.vue | wechatPayCreateCourse 接入: handlePay 改为双分支 (wechat 分支调微信课程支付, 默认分支保持原 learnApi.createOrder) |
-| .gitattributes | 新增 `* text=auto eol=lf` 规则 + 21 种二进制文件类型显式标记 (解决 Windows CRLF/LF 混用) |
-| client/src/components/ai/AIChat.vue | TraeWorkSelector 回调参数类型标注 (6 处: m/a 参数加类型) |
-| client/src/components/search/AdvancedSearch.vue | .find() 回调参数类型标注 (3 处: fd/f/o 参数加 FieldConfig/OperatorConfig 类型) |
-| client/src/views/Search.vue | keyword 参数遮蔽修复 (重命名参数 keyword → kw) |
-| client/e2e/route-reachability.spec.ts | exam 15 路由关键词 ID → 考试/试卷/题目/答题 |
-
-### 守门验证结果 (追加轮次)
-
-| 检查项 | 结果 |
-|---|---|
-| `npx vue-tsc --noEmit` | ✅ 0 错 (修复 10 个隐式 any + keyword 参数遮蔽) |
-| `npm run check:i18n` | ✅ 5 语言覆盖率全通过 |
-| `npm run check:theme-tokens` | ✅ 0 硬编码违规 |
-| `npm run check:contrast` | ✅ 4/4 通过 |
-| `npm run scan:dead-code` | ✅ views=0, components=18, utils=1, 总计 19/755 (errorReport.ts 撤销接入) |
-| `npx playwright test e2e/route-reachability.spec.ts` | ✅ 全量 86 passed (14.1m) |
-| `npx playwright test e2e/route-reachability.spec.ts -g exam` | ✅ 34/34 通过 (关键词修复验证) |
-
-### errorReport.ts 接入撤销说明
-
-**撤销原因**: 接入后发现项目已有完整的 [monitor.ts](file:///g:/IHUI-AI/client/src/utils/monitor.ts) 监控系统,功能更完善:
-- sendBeacon + fetch 双通道上报到 `/api/monitor/collect`
-- 批量上报 (30s 间隔 + beforeunload 兜底)
-- Vue errorHandler + window error + unhandledrejection 全覆盖
-- PerformanceObserver (LCP/FCP) + fetch 拦截器 (API 失败监控)
-- main.ts 第 443 行已调用 `setupMonitor(app)`,会覆盖手动设置的 errorHandler
-
-errorReport.ts 接入是重复造轮子,撤销后 errorReport.ts 回归死代码清单 (utils 1/117)。
-
-### knip 精准死代码扫描引入
-
-**新增工具**: `npm run scan:knip` (knip.json 配置已就绪)
-
-**knip vs 自研扫描器对比**:
-- 自研 scan:dead-code: 基于文件名 import 扫描,不识别动态 import / Vue 自动导入,19 个"未引用"多为误报
-- knip: 基于 AST 分析,识别动态 import,但 249 个未使用文件多为 Vue SFC 模板引用误报
-
-**knip 发现的真实问题**:
-1. `@eslint/js` 未在 package.json devDependencies 中声明 (eslint.config.js 引用)
-2. 4 个未使用枚举成员: message.ts UNREAD/DELETED, api-service.ts REQUEST/SUBSCRIPTION
-3. 重复 API 文件: ai-index.ts (api/ vs api/ai/), settings.ts (api/ vs api/system/)
+每完成 1 项 P 任务后跑相关验证，验证通过则 commit + 进入下一项；
+全部完成后跑 6 项核心守门 + 推送，输出最终交付报告。
