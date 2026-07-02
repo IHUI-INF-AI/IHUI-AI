@@ -542,7 +542,7 @@ describe('useI18nV2.ts', () => {
 
     it('未来时间应使用 future 短语', () => {
       const { formatRelative } = useI18nV2()
-      const future = new Date(Date.now() + 1000 * 60 * 10)
+      const future = new Date(Date.now() + 1000 * 60 * 10 + 30000)
       expect(formatRelative(future, 'en-US')).toBe('in 10 min')
     })
 
