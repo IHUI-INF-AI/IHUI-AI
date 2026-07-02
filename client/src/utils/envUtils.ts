@@ -102,9 +102,6 @@ const ENV_SCHEMA = {
 /** 所有已声明的环境变量 key 列表（用于类型安全访问） */
 export type EnvKey = keyof typeof ENV_SCHEMA
 
-/** Schema 中已声明的 key 列表（运行时校验用） */
-export const DECLARED_ENV_KEYS = Object.keys(ENV_SCHEMA) as EnvKey[]
-
 /**
  * 获取环境变量值
  * 业务代码推荐直接用 import.meta.env.VITE_X（编译时静态注入，性能最优）。
@@ -117,25 +114,6 @@ export function getEnv(key: EnvKey, defaultValue?: string): string {
   const value = import.meta.env[key] as string | undefined
   if (value !== undefined && value !== '') return value
   return defaultValue ?? schema.default
-}
-
-/** 获取布尔型环境变量 */
-export function getEnvBool(key: EnvKey): boolean {
-  const v = getEnv(key).toLowerCase()
-  return v === 'true' || v === '1'
-}
-
-/** 构建时校验：检查 Schema 中声明的 default 是否被正确读取 */
-export function validateEnv(): string[] {
-  const missing: string[] = []
-  for (const key of DECLARED_ENV_KEYS) {
-    const v = import.meta.env[key]
-    if (v === undefined || v === '') {
-      // 仅记录，不阻断（Schema 中 default 已兜底）
-      missing.push(key)
-    }
-  }
-  return missing
 }
 
 /** 检查是否为开发环境 */

@@ -203,16 +203,3 @@ export function setupMonitor(app: App) {
   }
   console.info(`[monitor] 已启用（上报 URL: ${REPORT_URL}）`)
 }
-
-export function trackAction(name: string, data?: Record<string, unknown>) {
-  push({ type: 'user_action', payload: { name, ...data } })
-}
-
-export function getMonitorStats() {
-  return { reported, failed, buffered: buffer.length }
-}
-
-export const MONITOR_CONFIG = {
-  enabled: ENABLED,
-  reportUrl: REPORT_URL,
-}

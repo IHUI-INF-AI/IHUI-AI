@@ -11,5 +11,3 @@ type FixedType = NonNullable<Column<unknown>['fixed']>
 
 /** 固定列方向 - 右侧 */
 export const FIXED_RIGHT: FixedType = 'right' as unknown as TableV2FixedDir
-/** 固定列方向 - 左侧 */
-export const FIXED_LEFT: FixedType = 'left' as unknown as TableV2FixedDir

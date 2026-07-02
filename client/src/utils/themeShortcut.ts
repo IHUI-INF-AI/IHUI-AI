@@ -174,14 +174,3 @@ export function initThemeShortcut(): () => void {
     isInitialized = false
   }
 }
-
-export function getThemeShortcutInfo(): { key: string; modifiers: string[] } {
-  return {
-    key: THEME_SHORTCUT_KEY.toUpperCase(),
-    modifiers: THEME_SHORTCUT_MODIFIERS
-  }
-}
-
-export function isThemeShortcutInitialized(): boolean {
-  return isInitialized
-}

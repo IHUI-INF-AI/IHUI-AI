@@ -6,7 +6,6 @@
 import { marked } from 'marked'
 import { logger } from '@/utils/logger'
 import hljs from '@/utils/highlight'
-import DOMPurify from 'dompurify'
 
 // 导入本地 highlight.js 主题样式
 import 'highlight.js/styles/github.css'
@@ -111,117 +110,6 @@ if (typeof window !== 'undefined') {
       }
     }
   }
-}
-
-/**
- * 渲染 Markdown 为 HTML
- */
-export function renderMarkdown(markdown: string): string {
-  if (!markdown) return ''
-
-  try {
-    // 使用 marked 渲染
-    const html = marked.parse(markdown) as string
-
-    // 使用 DOMPurify 清理 HTML，防止 XSS 攻击
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'p',
-        'br',
-        'strong',
-        'em',
-        'u',
-        's',
-        'ul',
-        'ol',
-        'li',
-        'code',
-        'pre',
-        'blockquote',
-        'a',
-        'img',
-        'table',
-        'thead',
-        'tbody',
-        'tr',
-        'th',
-        'td',
-        'hr',
-        'del',
-        'ins',
-        'sub',
-        'sup',
-        'div',
-        'button',
-        'span',
-      ],
-      ALLOWED_ATTR: [
-        'class',
-        'href',
-        'target',
-        'rel',
-        'src',
-        'alt',
-        'title',
-        'width',
-        'height',
-        'data-language',
-        'data-code',
-        'onclick',
-        'aria-label',
-        'style',
-      ],
-      ALLOWED_URI_REGEXP:
-        // eslint-disable-next-line no-useless-escape
-        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-    })
-  } catch (error) {
-    logger.error('Markdown rendering failed:', error)
-    // 返回转义后的纯文本
-    return DOMPurify.sanitize(markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;'))
-  }
-}
-
-/**
- * 提取 Markdown 中的代码块
- */
-export function extractCodeBlocks(markdown: string): Array<{ language: string; code: string }> {
-  const codeBlocks: Array<{ language: string; code: string }> = []
-  const regex = /```(\w+)?\n([\s\S]*?)```/g
-  let match
-
-  while ((match = regex.exec(markdown)) !== null) {
-    codeBlocks.push({
-      language: match[1] || 'plaintext',
-      code: match[2],
-    })
-  }
-
-  return codeBlocks
-}
-
-/**
- * 提取 Markdown 中的链接
- */
-export function extractLinks(markdown: string): Array<{ text: string; url: string }> {
-  const links: Array<{ text: string; url: string }> = []
-  const regex = /\[([^\]]+)\]\(([^)]+)\)/g
-  let match
-
-  while ((match = regex.exec(markdown)) !== null) {
-    links.push({
-      text: match[1],
-      url: match[2],
-    })
-  }
-
-  return links
 }
 
 /**
