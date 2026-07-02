@@ -23,6 +23,11 @@
     "actions": "操作",
     "viewDetail": "テーブル示詳細",
     "loadOrdersFailed": "取得注文リスト失敗",
-    "loadOrdersRetry": "取得注文リスト失敗，请稍後再試行"
+    "loadOrdersRetry": "取得注文リスト失敗，请稍後再試行",
+    "StatusPending": "Pending",
+    "StatusPaid": "Paid",
+    "StatusCancelled": "Cancelled",
+    "Status": "Status",
+    "StatusUnknown": "Unknown"
   }
 }

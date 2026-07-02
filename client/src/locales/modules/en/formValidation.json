@@ -48,6 +48,7 @@
     "countRequired": "Please enter purchase count",
     "orderNoRequired": "Please enter order number",
     "orderStatusRequired": "Please select order Status",
-    "settlementStatusRequired": "Please select settlement Status"
+    "settlementStatusRequired": "Please select settlement Status",
+    "statusRequired": "请选择状态"
   }
 }

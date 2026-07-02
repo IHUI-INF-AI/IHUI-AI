@@ -7,10 +7,16 @@
       "statusPlaceholder": "请選択ステータス",
       "statusActive": "あり効",
       "statusInactive": "無効",
-      "statusDeprecated": "済み废弃"
+      "statusDeprecated": "済み废弃",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "StatusActive": "Active",
+      "StatusInactive": "Inactive",
+      "StatusDeprecated": "Deprecated"
     },
     "table": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "platform": {},
     "status": {
@@ -21,12 +27,14 @@
     },
     "isPublic": {},
     "agentList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "categoryList": {},
     "dialog": {},
     "test": {
-      "failed": "テスト失敗"
+      "failed": "テスト失敗",
+      "Failed": "Test Failed"
     },
     "messages": {},
     "settlementForm": {
@@ -36,9 +44,15 @@
       "statusSettled": "済み決済",
       "statusWithdrawn": "出金済み",
       "validation": {
-        "statusRequired": "请選択ステータス"
+        "statusRequired": "请選択ステータス",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusPending": "Pending Settlement",
+      "StatusSettled": "Settled",
+      "StatusWithdrawn": "Withdrawn"
     },
     "agentForm": {
       "tabs": {},
@@ -47,7 +61,12 @@
         "statusPlaceholder": "请選択ステータス",
         "statusActive": "あり効",
         "statusInactive": "無効",
-        "statusDeprecated": "済み废弃"
+        "statusDeprecated": "済み废弃",
+        "Status": "Status",
+        "StatusPlaceholder": "Please select Status",
+        "StatusActive": "Active",
+        "StatusInactive": "Inactive",
+        "StatusDeprecated": "Deprecated"
       },
       "platform": {},
       "advanced": {
@@ -55,10 +74,12 @@
         "availableQuestions": {}
       },
       "validation": {
-        "statusRequired": "请選択ステータス"
+        "statusRequired": "请選択ステータス",
+        "StatusRequired": "Please select Status"
       },
       "messages": {
-        "avatarUploadSuccess": "アバターアップロード成功"
+        "avatarUploadSuccess": "アバターアップロード成功",
+        "avatarUpload Successful": "Avatar uploaded successfully"
       }
     },
     "agentCategoryForm": {
@@ -75,24 +96,41 @@
       "statusEnabled": "あり効",
       "statusDisabled": "無効",
       "validation": {
-        "statusRequired": "请選択ステータス"
+        "statusRequired": "请選択ステータス",
+        "StatusRequired": "Please select Status"
       },
       "upload": {
-        "failed": "アップロード失敗"
+        "failed": "アップロード失敗",
+        "Failed": "Upload Failed"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "activityForm": {
       "status": "ステータス",
       "statusEnabled": "ステータス済み有効",
       "statusDisabled": "ステータス済み無効",
       "validation": {
-        "statusRequired": "ステータス必須"
+        "statusRequired": "ステータス必須",
+        "StatusRequired": "Status Required"
       },
       "upload": {
-        "failed": "失敗"
+        "failed": "失敗",
+        "Failed": "Failed"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusEnabled": "Status Enabled",
+      "StatusDisabled": "Status Disabled"
+    },
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "deprecated": "Deprecated",
+      "unknown": "Unknown"
     }
   }
 }

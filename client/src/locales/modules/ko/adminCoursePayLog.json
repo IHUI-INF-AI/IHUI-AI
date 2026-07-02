@@ -3,7 +3,9 @@
     "핵심 장점": "수익 결제 로그",
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     }
   }
 }

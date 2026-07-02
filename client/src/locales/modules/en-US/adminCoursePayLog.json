@@ -2,7 +2,9 @@
   "adminCoursePayLog": {
     "messages": {
       "ExportSuccess": "Export Success",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     }
   }
 }

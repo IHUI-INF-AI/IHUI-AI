@@ -73,6 +73,7 @@
     "logShareFailed": "공유 실패",
     "logCopyFailed": "복생각 실패",
     "backToHome": "백엔드로홈",
-    "contentDetails": "콘텐츠 세부 정보"
+    "contentDetails": "콘텐츠 세부 정보",
+    "logCopy Failed": "Copy Failed"
   }
 }

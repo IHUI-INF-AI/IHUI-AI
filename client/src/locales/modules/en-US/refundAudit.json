@@ -15,7 +15,7 @@
     "statusProcessing": "Processing",
     "statusCompleted": "Completed",
     "statusFailed": "Failed",
-    "statusCancelled": "Cancelled",
+    "statusCancelled": "Canceled",
     "allSla": "All SLA",
     "slaGreen": "Green",
     "slaYellow": "Yellow",

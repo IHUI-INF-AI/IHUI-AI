@@ -19,6 +19,22 @@
     "loadFailed": "Failed to load",
     "operationFailed": "Operation failed",
     "allMarkedRead": "All marked as read",
-    "deleteFailed": "Delete failed"
+    "deleteFailed": "Delete failed",
+    "level": {
+      "info": "信息",
+      "warn": "警告",
+      "error": "错误"
+    },
+    "description": "查看安全相关通知",
+    "all": "全部",
+    "critical": "重要",
+    "high": "高优先级",
+    "settings": "通知设置",
+    "enableNotifications": "启用通知",
+    "desktopNotifications": "桌面通知",
+    "soundNotifications": "声音提醒",
+    "justNow": "刚刚",
+    "minutesAgo": "{count}分钟前",
+    "hoursAgo": "{count}小时前"
   }
 }

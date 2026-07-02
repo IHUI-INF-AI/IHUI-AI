@@ -5,5 +5,12 @@
     "service": "サービス",
     "clickMic": "クリック",
     "microphone": "マイク"
+  },
+  "VoiceRecording": {
+    "poweredBy": "iHui AI",
+    "provide": "Powered",
+    "service": "Service",
+    "clickMic": "Click",
+    "microphone": "Microphone"
   }
 }

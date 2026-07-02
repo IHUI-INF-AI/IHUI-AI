@@ -14,7 +14,9 @@
       "questionJudgment": "○×問題を検索",
       "questionMulti": "複数選択問題を検索",
       "questionSingle": "単一選択問題を検索",
-      "questionSubjective": "主観問題を検索"
+      "questionSubjective": "主観問題を検索",
+      "chapter": "搜索章节",
+      "chapterSection": "搜索小节"
     },
     "label": {
       "user": "ユーザー",

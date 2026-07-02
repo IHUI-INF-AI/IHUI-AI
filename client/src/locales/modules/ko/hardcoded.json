@@ -4,7 +4,9 @@
       "불러오기실패": "로딩 실패",
       "errorMes1": "요구 상세 정보를 로드할 수 없습니다",
       "로드실패": "로드실패",
-      "加载失败": "로드 실패"
+      "加载失败": "로드 실패",
+      "LoadFailed": "Loading Failed",
+      "loadFailed": "loadFailed"
     },
     "voice": {
       "panel": {
@@ -16,7 +18,16 @@
         "오디오호출": "오디오호출",
         "오디오수량": "오디오수량",
         "TTS제공상업": "TTS 제공상업",
-        "최근대화": "최근대화"
+        "최근대화": "최근대화",
+        "语音助手": "语音助手",
+        "语音设置": "语音设置",
+        "唤醒词": "唤醒词",
+        "语音": "语音",
+        "语速": "语速",
+        "音调": "音调",
+        "音量": "音量",
+        "TTS提供商": "TTS 提供商",
+        "最近对话": "最近对话"
       },
       "record": {
         "음성기이것은제어컴포넌트완료로드분할요청": "음성기이것은제어컴포넌트완료로드분할，요청수동이동제거장비시스템콘텐츠",
@@ -62,7 +73,11 @@
           "效率": "효율:",
           "目标": "목표:",
           "约束": "제약:",
-          "质量": "품질:"
+          "质量": "품질:",
+          "Goal": "Goal:",
+          "Constraint": "Constraint:",
+          "Quality": "Quality:",
+          "Efficiency": "Efficiency:"
         }
       }
     },
@@ -77,19 +92,40 @@
         "모시간": "모시간",
         "모일9여기": "모일9여기",
         "모주의목이것은9여기": "모주의목이것은9여기",
-        "모월1일": "모월1일"
+        "모월1일": "모월1일",
+        "Automated Task": "Automated Task",
+        "Every 5 Minutes": "Every 5 Minutes",
+        "Every Hour": "Every Hour",
+        "Daily at 9:00": "Daily at 9:00",
+        "Every Monday at 9:00": "Every Monday at 9:00",
+        "Every 1st": "Every 1st",
+        "Monthly on the 1st": "Monthly on the 1st",
+        "自动化任务": "自动化任务",
+        "每5分钟": "每5分钟",
+        "每小时": "每小时",
+        "每天9点": "每天9点",
+        "每周一9点": "每周一9点",
+        "每月1日": "每月1日"
       }
     },
     "browser": {
       "panel": {
         "브라우저 게동화": "브라우저 게동화",
-        "스크립트 내보내기": "스크립트 내보내기"
+        "스크립트 내보내기": "스크립트 내보내기",
+        "Browser Automation": "Browser Automation",
+        "Export Script": "Export Script",
+        "浏览器自动化": "浏览器自动化",
+        "导出脚本": "导出脚本"
       }
     },
     "canvas": {
       "panel": {
         "캔버스 작업 영역": "캔버스 작업 영역",
-        "내보내기": "내보내기"
+        "내보내기": "내보내기",
+        "Canvas Workspace": "Canvas Workspace",
+        "Export": "Export",
+        "画布工作区": "画布工作区",
+        "导出": "导出"
       }
     },
     "dashboard": {
@@ -111,7 +147,46 @@
         "샌드박스 모드": "샌드박스 모드",
         "상태": "상태:",
         "샌드박스 모드제한위험작업": "샌드박스 모드제한위험작업，보호보호시스템보안。활성화백엔드，파일액세스、Shell 혁명석지시등작업를수사용도달제한。",
-        "시스템대시보드": "시스템대시보드"
+        "시스템대시보드": "시스템대시보드",
+        "SystemDashboard": "SystemDashboard",
+        "Refresh": "Refresh",
+        "Diagnostics": "Diagnostics",
+        "Total Messages": "Total Messages",
+        "Total Tasks": "Total Tasks",
+        "ActiveSkill": "ActiveSkill",
+        "Connected Devices": "Connected Devices",
+        "Resource Usage": "Resource Usage",
+        "Memory": "Memory",
+        "Storage": "Storage",
+        "Approved": "Approved",
+        "Rejected": "Rejected",
+        "Recent Activity": "Recent Activity",
+        "Recent Error": "Recent Error",
+        "Sandbox Mode": "Sandbox Mode",
+        "Status": "Status:",
+        "Sandbox ModeLimitDanger Zone": "Sandbox mode limits dangerous operations to protect system security. When enabled, file access, shell commands and other operations will be restricted.",
+        "System Dashboard": "System Dashboard",
+        "Active Skills": "Active Skills",
+        "ConnectionDevice": "ConnectionDevice",
+        "Sandbox mode": "Sandbox mode",
+        "Sandbox mode limits dangerous operations to protect system security. When enabled, file access, shell commands and other operations will be restricted.": "Sandbox mode limits dangerous operations to protect system security. When enabled, file access, shell commands and other operations will be restricted.",
+        "系统仪表板": "系统仪表板",
+        "刷新": "刷新",
+        "诊断": "诊断",
+        "消息总数": "消息总数",
+        "任务总数": "任务总数",
+        "活跃技能": "活跃技能",
+        "连接设备": "连接设备",
+        "资源使用": "资源使用",
+        "内存": "内存",
+        "存储": "存储",
+        "批准": "批准",
+        "拒绝": "拒绝",
+        "最近活动": "最近活动",
+        "最近错误": "最近错误",
+        "沙箱模式": "沙箱模式",
+        "状态": "状态:",
+        "沙箱模式限制危险操作": "沙箱模式限制危险操作，保护系统安全。启用后，文件访问、Shell 命令等操作将受到限制。"
       },
       "데이마음제어센마음": "데이마음제어센마음",
       "실시간실시간이생각통제플랫폼운영마케팅데이마음": "실시간실시간모니마음링플랫폼운영마케팅데이마음및닫기핵심가이드태그",
@@ -119,7 +194,17 @@
       "빠른작업": "빠른작업",
       "데이마음제어중간마음": "데이마음제어중간마음",
       "새로고침데이마음": "새로고침데이마음",
-      "빠른빠른작업": "빠른빠른작업"
+      "빠른빠른작업": "빠른빠른작업",
+      "Data Control Center": "Data Control Center",
+      "Real-time monitoring of platform operational data and key indicators": "Real-time monitoring of platform operational data and key indicators",
+      "Refresh Data": "Refresh Data",
+      "QuickActions": "QuickActions",
+      "RefreshData": "RefreshData",
+      "Quick Actions": "Quick Actions",
+      "数据控制中心": "数据控制中心",
+      "实时监控平台运营数据": "实时监控平台运营数据与关键指标",
+      "刷新数据": "刷新数据",
+      "快速操作": "快速操作"
     },
     "devices": {
       "panel": {
@@ -158,14 +243,86 @@
         "스트지노드": "스트지노드",
         "클립보드붙여넣기판": "클립보드붙여넣기판",
         "사이기타기기위입력이배분": "사이기타기기위입력이페어링코드",
-        "🔍 근처 기기 발견": "🔍 🔍 근처 기기 발견"
+        "🔍 근처 기기 발견": "🔍 🔍 근처 기기 발견",
+        "Devices & Nodes": "Devices & Nodes",
+        "Local Node": "Local Node",
+        "Pair": "Pair",
+        "Camera": "Camera",
+        "Take Photo": "Take Photo",
+        "Record Video": "Record Video",
+        "Screen": "Screen",
+        "Available": "Available",
+        "Screenshot": "Screenshot",
+        "Screen Recording": "Screen Recording",
+        "Location": "Location",
+        "Get Location": "Get Location",
+        "Notification": "Notification",
+        "Request Permission": "Request Permission",
+        "Test Notification": "Test Notification",
+        "Clipboard": "Clipboard",
+        "Read": "Read",
+        "Write": "Write",
+        "System Information": "System Information",
+        "View": "View",
+        "Pair New Device": "Pair New Device",
+        "Send Message": "Send Message",
+        "Ring": "Ring",
+        "Cancel Pair": "Cancel Pair",
+        "Use Pair Code": "📱 Use Pair Code",
+        "Enter this pair code on other device": "Enter this pair code on other device",
+        "Found Nearby Device": "🔍 Found Nearby Device",
+        "Search for Smart AI devices on LAN": "Search for Smart AI devices on LAN",
+        "Enter Pair Code": "🔢 Enter Pair Code",
+        "Enter the pair code shown on other device": "Enter the pair code shown on other device",
+        "Cancel": "Cancel",
+        "Video Recording": "Video Recording",
+        "Position": "Position",
+        "Discover Nearby Devices": "🔍 Discover Nearby Devices",
+        "设备与节点": "设备与节点",
+        "本地节点": "本地节点",
+        "配对": "配对",
+        "相机": "相机",
+        "拍照": "拍照",
+        "录像": "录像",
+        "屏幕": "屏幕",
+        "可用": "可用",
+        "截屏": "截屏",
+        "录屏": "录屏",
+        "位置": "位置",
+        "获取位置": "获取位置",
+        "通知": "通知",
+        "请求权限": "请求权限",
+        "测试通知": "测试通知",
+        "剪贴板": "剪贴板",
+        "读取": "读取",
+        "写入": "写入",
+        "系统信息": "系统信息",
+        "查看": "查看",
+        "配对新设备": "配对新设备",
+        "发消息": "发消息",
+        "响铃": "响铃",
+        "定位": "定位",
+        "取消配对": "取消配对",
+        "使用配对码": "📱 使用配对码",
+        "在其他设备上输入此配": "在其他设备上输入此配对码",
+        "发现附近设备": "🔍 发现附近设备",
+        "搜索局域网内的Ope": "搜索局域网内的智汇AI设备",
+        "输入配对码": "🔢 输入配对码",
+        "输入其他设备显示的配": "输入其他设备显示的配对码",
+        "取消": "取消"
       }
     },
     "integrations": {
       "panel": {
         "서드파티 통합": "서드파티 통합",
         "추가통합": "추가통합",
-        "연결": "연결"
+        "연결": "연결",
+        "Third-party Integration": "Third-party Integration",
+        "AddIntegration": "AddIntegration",
+        "Connection": "Connection",
+        "第三方集成": "第三方集成",
+        "添加集成": "添加集成",
+        "连接": "连接"
       }
     },
     "memory": {
@@ -173,7 +330,11 @@
         "메모리 시스템": "메모리 시스템",
         "모일건수기억": "모일건수기억",
         "길이기간메모리": "길이기간메모리",
-        "검색": "검색"
+        "검색": "검색",
+        "记忆系统": "记忆系统",
+        "每日笔记": "每日笔记",
+        "长期记忆": "长期记忆",
+        "搜索": "搜索"
       }
     },
     "models": {
@@ -183,13 +344,25 @@
         "현재모델": "현재모델",
         "아직선택모델": "아직선택모델",
         "당시앞모델": "당시앞모델",
-        "미선택모델": "미선택모델"
+        "미선택모델": "미선택모델",
+        "ModelManagement": "ModelManagement",
+        "Config Provider": "Config Provider",
+        "CurrentModel": "CurrentModel",
+        "NotSelectModel": "NotSelectModel",
+        "Configuration Provider": "Configuration Provider",
+        "Current Model": "Current Model",
+        "模型管理": "模型管理",
+        "配置提供商": "配置提供商",
+        "当前模型": "当前模型",
+        "未选择模型": "未选择模型"
       }
     },
     "open": {
       "claw": {
         "container": {
-          "AI대화구": "AI 대화구"
+          "AI대화구": "AI 대화구",
+          "AI ChatArea": "AI ChatArea",
+          "AI对话区域": "AI 对话区域"
         }
       },
       "platform": {
@@ -221,7 +394,53 @@
         "오픈플랫폼기능중간마음": "오픈플랫폼기능중간마음",
         "자주 묻는 질문": "자주 묻는 질문",
         "설정즉시가입개발게계정번호선물": "설정즉시가입개발게계정번호，선물전송 50,000 스마트값。\n            참여역량만이름개발게의행동，공감함께구축스마트변환의아직옴。",
-        "프리셋약속기술데모예제": "프리셋약속기술데모예제"
+        "프리셋약속기술데모예제": "프리셋약속기술데모예제",
+        "Release": "Release",
+        "We provide industrial-grade AI infrastructure. Integrating world-class multimodal models with our proprietary agent cluster (Swarm) collaboration technology, enabling every line of code to think independently and evolve.": "We provide industrial-grade AI infrastructure. Integrating world-class multimodal models with our proprietary agent cluster (Swarm) collaboration technology, enabling every line of code to think independently and evolve.",
+        "nowStart": "nowStart",
+        "Technology Specification": "Technology Specification",
+        "Real-time Running": "Real-time Running",
+        "High-Performance Pipeline": "High-Performance Pipeline",
+        "Core Capability Matrix": "Core Capability Matrix",
+        "Ultimate Development Experience": "Ultimate Development Experience",
+        "No need to refactor existing business logic. We provide 100% OpenAI compatible SDK and RESTful API. Supporting multiple language clients, completing from local development to production deployment in seconds.": "No need to refactor existing business logic. We provide 100% OpenAI compatible SDK and RESTful API. Supporting multiple language clients, completing from local development to production deployment in seconds.",
+        "Elastic Computing Auto-scaling": "Elastic Computing Auto-scaling",
+        "Enterprise-grade RBAC Permission Control": "Enterprise-grade RBAC Permission Control",
+        "Real-time Traffic and Anomaly Dashboard": "Real-time Traffic and Anomaly Dashboard",
+        "Full-scenario Industry Solutions": "Full-scenario Industry Solutions",
+        "Explore Solutions": "Explore Solutions",
+        "Open Platform Feature Center": "Open Platform Feature Center",
+        "Developer Ecosystem Support": "Developer Ecosystem Support",
+        "FAQ": "FAQ",
+        "Ready to start the industrial-grade AI era?": "Ready to start the industrial-grade AI era?",
+        "Register for a developer account now and get 50,000 AI credits. Join tens of thousands of developers in building an intelligent future.": "Register for a developer account now and get 50,000 AI credits. Join tens of thousands of developers in building an intelligent future.",
+        "Register Now to get ": "Register Now to get ",
+        "Book a Technology Demo": "Book a Technology Demo",
+        "Technical Specifications": "Technical Specifications",
+        "High Performance Processing Pipeline": "High Performance Processing Pipeline",
+        "Core Capabilities Matrix": "Core Capabilities Matrix",
+        "Explore Solutionss": "Explore Solutionss",
+        "释放": "释放",
+        "为您提供工业级AI基": "为您提供工业级 AI 基础设施。集成全球顶级多模态模型与独创的智能体集群 (Swarm) 协作技术，\n            让每一行代码都具备自主思考与自我进化的能力。",
+        "立即开始": "立即开始",
+        "技术规格书": "技术规格书",
+        "实时运行中": "实时运行中",
+        "高性能处理管道": "高性能处理管道",
+        "核心能力矩阵": "核心能力矩阵",
+        "极致开发体验": "极致开发体验",
+        "无需重构现有业务逻辑": "无需重构现有业务逻辑。我们提供 100% 兼容 OpenAI 的 SDK 与 RESTful 接口。\n            支持多语言客户端，秒级完成从本地开发到生产环境的部署。",
+        "弹性算力自动扩展": "弹性算力自动扩展",
+        "企业级RBAC权限管": "企业级 RBAC 权限管控",
+        "实时用量与异常看板": "实时用量与异常看板",
+        "全场景行业方案": "全场景行业方案",
+        "探索方案": "探索方案",
+        "开放平台功能中心": "开放平台功能中心",
+        "开发者生态支持": "开发者生态支持",
+        "常见问题": "常见问题",
+        "准备好开启工业级AI": "准备好开启工业级 AI 时代了吗？",
+        "立即注册开发者账号赠": "立即注册开发者账号，赠送 50,000 智汇值。\n            加入数万名开发者的行列，共同构建智能化的未来。",
+        "立即注册领用": "立即注册领用",
+        "预约技术演示": "预约技术演示"
       }
     },
     "settings": {
@@ -262,7 +481,71 @@
         "열기대화": "열기대화",
         "음성 입력": "음성 입력",
         "삭제대화": "삭제대화",
-        "삭제모든데이마음": "삭제모든데이마음"
+        "삭제모든데이마음": "삭제모든데이마음",
+        "Settings": "Settings",
+        "Sandbox Mode": "Sandbox Mode",
+        "When Sandbox Mode is enabled, dangerous operations will be restricted to protect system security.": "When Sandbox Mode is enabled, dangerous operations will be restricted to protect system security.",
+        "Read": "Read",
+        "Write": "Write",
+        "Delete": "Delete",
+        "valseconds": "val + 'seconds'\"\r\n              />",
+        "Notification Settings": "Notification Settings",
+        "Privacy Settings": "Privacy Settings",
+        "Allow collecting anonymous usage data to improve services": "Allow collecting anonymous usage data to improve services",
+        "Save memory to local storage": "Save memory to local storage",
+        "Appearance Settings": "Appearance Settings",
+        "Auto": "Auto",
+        "Light": "Light",
+        "Dark": "Dark",
+        "Shortcuts": "Shortcuts",
+        "Open Chat": "Open Chat",
+        "Voice Input": "Voice Input",
+        "Screenshot": "Screenshot",
+        "Clear Chat": "Clear Chat",
+        "Toggle Panel": "Toggle Panel",
+        "Data Management": "Data Management",
+        "Export Data": "Export Data",
+        "Import Data": "Import Data",
+        "Clear All Data": "Clear All Data",
+        "About": "About",
+        "iHui AI Toolbox": "iHui AI Toolbox",
+        "Document": "Document",
+        "Official Website": "Official Website",
+        "Reset to Default": "Reset to Default",
+        "Save Settings": "Save Settings",
+        "Sandbox mode": "Sandbox mode",
+        "Documentation": "Documentation",
+        "设置": "设置",
+        "沙箱模式": "沙箱模式",
+        "启用沙箱模式后危险操": "启用沙箱模式后，危险操作将受到限制，保护系统安全。",
+        "读取": "读取",
+        "写入": "写入",
+        "删除": "删除",
+        "val秒": "val + '秒'\"\r\n              />",
+        "通知设置": "通知设置",
+        "隐私设置": "隐私设置",
+        "允许收集匿名使用数据": "允许收集匿名使用数据以改进服务",
+        "将记忆保存到本地存储": "将记忆保存到本地存储",
+        "外观设置": "外观设置",
+        "自动": "自动",
+        "浅色": "浅色",
+        "深色": "深色",
+        "快捷键": "快捷键",
+        "打开对话": "打开对话",
+        "语音输入": "语音输入",
+        "截图": "截图",
+        "清除对话": "清除对话",
+        "切换面板": "切换面板",
+        "数据管理": "数据管理",
+        "导出数据": "导出数据",
+        "导入数据": "导入数据",
+        "清除所有数据": "清除所有数据",
+        "关于": "关于",
+        "基于OpenClaw": "智汇AI工具箱",
+        "文档": "文档",
+        "官网": "官网",
+        "重置默认": "重置默认",
+        "保存设置": "保存设置"
       }
     },
     "skills": {
@@ -275,18 +558,38 @@
         "설정": "설정",
         "제거따라": "제거따라",
         "발전현재": "발전현재",
-        "브라우저스킬 마켓": "브라우저스킬 마켓"
+        "브라우저스킬 마켓": "브라우저스킬 마켓",
+        "Skill Market": "Skill Market",
+        "Found": "Found",
+        "Create": "Create",
+        "BrowseSkill Market": "BrowseSkill Market",
+        "Running": "Running",
+        "Config": "Config",
+        "Uninstall": "Uninstall",
+        "Discover": "Discover",
+        "Browse Skill Market": "Browse Skill Market",
+        "Run": "Run",
+        "Configuration": "Configuration",
+        "技能市场": "技能市场",
+        "发现": "发现",
+        "创建": "创建",
+        "浏览技能市场": "浏览技能市场",
+        "运行": "运行",
+        "配置": "配置",
+        "卸载": "卸载"
       }
     },
     "package": {
       "card": {
         "월": "/월",
-        "月": "/월"
+        "月": "/월",
+        "Month": "/Month"
       }
     },
     "content": {
       "대화구": "대화구",
-      "对话区域": "대화 영역"
+      "对话区域": "대화 영역",
+      "ChatArea": "ChatArea"
     },
     "input1": {
       "활성화도구": "활성화도구",
@@ -301,14 +604,28 @@
       "模板": "템플릿",
       "模板列表内容": "템플릿 목록 내용",
       "请输入您的需求可": "요구사항을 입력해 주세요, 여러 줄 입력 가능...",
-      "选择模板": "템플릿 선택"
+      "选择模板": "템플릿 선택",
+      "EnableTool": "EnableTool",
+      "Template": "Template",
+      "SelectTemplate": "SelectTemplate",
+      "TemplateColumnTableContent": "TemplateColumnTableContent",
+      "Please enter your requirements, you can enter multiple lines...": "Please enter your requirements, you can enter multiple lines...",
+      "Send1": "Send",
+      "TemplateListcontent": "TemplateListcontent",
+      "Send": "Send"
     },
     "not": {
       "found": {
         "페이지면찾을 수 없음": "페이지면찾을 수 없음",
         "홈으로": "홈으로",
         "페이지면미검색도달": "페이지면미검색도달",
-        "백엔드로홈": "백엔드로홈"
+        "백엔드로홈": "백엔드로홈",
+        "PageNot Found": "PageNot Found",
+        "BackHome": "BackHome",
+        "Page Not Found": "Page Not Found",
+        "Back to Home": "Back to Home",
+        "页面未找到": "页面未找到",
+        "返回首页": "返回首页"
       }
     },
     "demo": {
@@ -320,7 +637,13 @@
         "백엔드로홈": "백엔드로홈",
         "组件演示导航": "컴포넌트 데모 내비게이션",
         "返回首页": "홈으로",
-        "项目选择器": "프로젝트 선택기"
+        "项目选择器": "프로젝트 선택기",
+        "ComponentDemoNavigation": "ComponentDemoNavigation",
+        "Project Selector": "Project Selector",
+        "BackHome": "BackHome",
+        "Component Demo Navigation": "Component Demo Navigation",
+        "Target Selector": "Target Selector",
+        "Back to Home": "Back to Home"
       }
     },
     "project": {
@@ -344,7 +667,19 @@
           "选中项目": "선택된 프로젝트:",
           "项目Key": "프로젝트 Key:",
           "项目URL": "프로젝트 URL:",
-          "项目选择器组件演示": "프로젝트 선택기 컴포넌트 데모"
+          "项目选择器组件演示": "프로젝트 선택기 컴포넌트 데모",
+          "Project SelectorComponentDemo": "Project SelectorComponentDemo",
+          "Login Page Banner Style": "Login Page Banner Style",
+          "Header Style (Mobile)": "Header Style (Mobile)",
+          "CurrentSelect": "CurrentSelect",
+          "SelectedProject": "SelectedProject:",
+          "ProjectKey": "ProjectKey:",
+          "ProjectURL": "ProjectURL:",
+          "Target Selector Component Demo": "Target Selector Component Demo",
+          "Currently Selected": "Currently Selected",
+          "Selected Target:": "Selected Target::",
+          "Target Key:": "Target Key::",
+          "Target URL:": "Target URL::"
         }
       }
     },
@@ -354,7 +689,12 @@
           "전환도달": "전환도달",
           "생각사용게": "생각사용게",
           "총관리 포털": "총관리 포털",
-          "总管理端": "통합 관리자"
+          "总管理端": "통합 관리자",
+          "Switch to": "Switch to",
+          "User Portal": "User Portal",
+          "Admin Portal": "Admin Portal",
+          "切换到": "切换到",
+          "用户端": "用户端"
         }
       }
     },
@@ -364,7 +704,15 @@
         "프로모션": "할 광",
         "고객 서비스": "고객 서비스",
         "설정": "스트 놓음",
-        "할광": "할 광"
+        "할광": "할 광",
+        "Feedback": "Feedback",
+        "Promotion": "Promotion",
+        "Customer Service": "Customer Service",
+        "Settings": "Settings",
+        "反馈": "反馈",
+        "推广": "推 广",
+        "客服": "客 服",
+        "设置": "设 置"
       },
       "userInfoIncomplete": "생각사용게정보미완료，요청다시로그인"
     },
@@ -372,7 +720,10 @@
       "menu": {
         "AI应用商店": "에이전트",
         "服务与支持": "서비스 및 지원",
-        "关于我们": "회사 소개"
+        "关于我们": "회사 소개",
+        "goToPathsu": "goToPath('/support/terms-and-policies', 'termsAndPolicies')\"\n        >\n          条款与政策",
+        "goToPathcu": "goToPath('/custom-service', 'customService')\"\n        >\n          客户服务",
+        "goToPathab": "goToPath('/about/news-center', 'newsCenter')\"\n        >\n          新闻中心"
       }
     },
     "home": {
@@ -391,13 +742,20 @@
     "code": {
       "block": {
         "코드": "코드",
-        "代码": "코드"
+        "代码": "코드",
+        "Code": "Code"
       }
     },
     "selecter": {
       "태그정산480p": "태그정산 480p",
       "초정산720p": "초정산 720p",
-      "고급정산1080p": "고급정산 1080p"
+      "고급정산1080p": "고급정산 1080p",
+      "SD 480p": "SD 480p",
+      "HD 720p": "HD 720p",
+      "FHD 1080p": "FHD 1080p",
+      "标清480p": "标清 480p",
+      "超清720p": "超清 720p",
+      "高清1080p": "高清 1080p"
     },
     "index": {
       "피드백": "피드백",
@@ -406,11 +764,17 @@
       "선택글꼴": "선택글꼴",
       "反馈": "피드백",
       "搜索": "검색",
-      "选择字体": "글꼴 선택"
+      "选择字体": "글꼴 선택",
+      "Feedback": "Feedback",
+      "SelectcharactersBody": "SelectcharactersBody",
+      "Search": "Search",
+      "Select Font": "Select Font"
     },
     "introduce": {
       "popup": {
-        "가서 열기": "가서 열기"
+        "가서 열기": "가서 열기",
+        "Activate": "Activate",
+        "去开通": "去开通"
       }
     },
     "login": {
@@ -419,7 +783,17 @@
         "회원": "회원",
         "작업보드근": "작업보드근",
         "저장정보": "저장정보",
-        "로그인나감": "로그인나감"
+        "로그인나감": "로그인나감",
+        "Regular User": "Regular User",
+        "Member": "Member",
+        "Trader": "Trader",
+        "SaveInformation": "SaveInformation",
+        "Logout": "Logout",
+        "普通用户": "普通用户",
+        "会员": "会员",
+        "操盘手": "操盘手",
+        "保存信息": "保存信息",
+        "登出": "登出"
       },
       "글로벌벌최초혁신": "글로벌벌최초혁신",
       "게게의목이것은원스톱방식AI통합": "모두를 위한 원스톱 AI 통합 앱 플랫폼",
@@ -428,7 +802,23 @@
       "생각사용게": "생각사용게",
       "생각사용 가능성": "생각사용 가능성",
       "스마트Logo": "스마트 Logo",
-      "AI템플릿형": "AI 모델"
+      "AI템플릿형": "AI 모델",
+      "World's First": "World's First",
+      "One-stop AI Integration Platform for Everyone": "One-stop AI Integration Platform for Everyone",
+      "AIModel": "AI Model",
+      "500K+": "500K++",
+      "User": "User",
+      "Available": "Available",
+      "iHui Logo": "iHui Logo",
+      "AI Model": "AI Model",
+      "Availability": "Availability",
+      "全球首创": "全球首创",
+      "人人的一站式AI整合": "人人的一站式AI整合应用平台",
+      "AI模型": "AI 模型",
+      "50万": "50万+",
+      "用户": "用户",
+      "可用性": "可用性",
+      "智汇Logo": "智汇 Logo"
     },
     "user": {
       "card": {
@@ -440,7 +830,23 @@
         "스마트사용소모정보": "스마트사용소모정보",
         "내 지갑": "내 지갑",
         "보기잔액및충전": "보기잔액및충전",
-        "보기관련주의문": "보기관련주의문"
+        "보기관련주의문": "보기관련주의문",
+        "My Orders": "My Orders",
+        "ViewRelatedOrder": "ViewRelatedOrder",
+        "My Company": "My Company",
+        "View Employees and Performance": "View Employees and Performance",
+        "My AI Credits": "My AI Credits",
+        "AI Credits Usage Info": "AI Credits Usage Info",
+        "My Wallet": "My Wallet",
+        "ViewBalanceAndRecharge": "ViewBalanceAndRecharge",
+        "我的订单": "我的订单",
+        "查看相关订单": "查看相关订单",
+        "我的公司": "我的公司",
+        "查看员工与业绩": "查看员工与业绩",
+        "我的智汇值": "我的智汇值",
+        "智汇消耗信息": "智汇消耗信息",
+        "我的钱包": "我的钱包",
+        "查看余额与充值": "查看余额与充值"
       },
       "info": {
         "card": {
@@ -452,7 +858,22 @@
           "이사회": "이사회",
           "핵심선택": "핵심선택",
           "학습중간마음": "학습중간마음",
-          "여기핵심선택": "여기핵심선택"
+          "여기핵심선택": "여기핵심선택",
+          "|": "|",
+          "LearnCenter": "LearnCenter",
+          "Student Portal": "Student Portal",
+          "Admin Portal": "Admin Portal",
+          "Trader": "Trader",
+          "Board of Directors": "Board of Directors",
+          "ClickSelect": "ClickSelect",
+          "Learning Center": "Learning Center",
+          "丨": "丨",
+          "学习中心": "学习中心",
+          "学员端": "学员端",
+          "管理端": "管理端",
+          "操盘手": "操盘手",
+          "私董会": "私董会",
+          "点击选择": "点击选择"
         }
       },
       "membership": {
@@ -466,7 +887,27 @@
           "일반통해생각사용게": "일반통해생각사용게",
           "회원": "회원",
           "작업보드근": "작업보드근",
-          "설정즉시열통해": "설정즉시열통해"
+          "설정즉시열통해": "설정즉시열통해",
+          "Enjoy Benefits": "Enjoy Benefits",
+          "Limited Time 588 CNY/": "Limited Time 588 CNY//",
+          "CNY to Activate VIP/Year": "CNY to Activate VIP/Year",
+          "Limited Time 3888 CNY/": "Limited Time 3888 CNY//",
+          "CNY to Activate Trader/Year": "CNY to Activate Trader/Year",
+          "Benefit Name": "Benefit Name",
+          "Regular User": "Regular User",
+          "Member": "Member",
+          "Trader": "Trader",
+          "Activate Now": "Activate Now",
+          "享受权益": "享受权益",
+          "限时588元": "限时588元/",
+          "元开通VIP年": "元开通VIP/年",
+          "限时3888元": "限时3888元/",
+          "元开通操盘手年": "元开通操盘手/年",
+          "权益名称": "权益名称",
+          "普通用户": "普通用户",
+          "会员": "会员",
+          "操盘手": "操盘手",
+          "立即开通": "立即开通"
         }
       },
       "profile": {
@@ -475,18 +916,38 @@
           "회원": "회원",
           "작업보드근": "작업보드근",
           "저장정보": "저장정보",
-          "로그인나감": "로그인나감"
+          "로그인나감": "로그인나감",
+          "Regular User": "Regular User",
+          "Member": "Member",
+          "Trader": "Trader",
+          "SaveInformation": "SaveInformation",
+          "Logout": "Logout",
+          "普通用户": "普通用户",
+          "会员": "会员",
+          "操盘手": "操盘手",
+          "保存信息": "保存信息",
+          "登出": "登出"
         }
       },
       "center": {
-        "회원권한이익": "회원권한이익"
+        "회원권한이익": "회원권한이익",
+        "Member Benefits": "Member Benefits",
+        "会员权益": "会员权益"
       }
     },
     "_": {
       "component": {
         "template": {
           "선택항목1": "선택항목 1",
-          "선택항목2": "선택항목 2"
+          "선택항목2": "선택항목 2",
+          "选项1": "选项 1",
+          "选项2": "选项 2"
+        }
+      },
+      "${componentName} - Website Namet": {
+        "template": {
+          "option1": "Option 1",
+          "option2": "Option 2"
         }
       }
     },
@@ -495,7 +956,14 @@
         "처리 중로그인": "처리 중로그인...",
         "재시도": "재시도",
         "Apple로그인채택O": "Apple로그인채택OAuth 2.0보안동의，보호보호귀하의계정보안",
-        "공식사이로그인": "공식사이로그인..."
+        "공식사이로그인": "공식사이로그인...",
+        "ProcessingLogin": "ProcessingLogin...",
+        "Retry": "Retry",
+        "Apple Login uses OAuth 2.0 security protocol to protect your account security": "Apple Login uses OAuth 2.0 security protocol to protect your account security",
+        "Logging in...": "Logging in...",
+        "正在登录": "正在登录...",
+        "重试": "重试",
+        "Apple登录采用O": "Apple登录采用OAuth 2.0安全协议，保护您的账号安全"
       }
     },
     "google": {
@@ -503,7 +971,14 @@
         "처리 중로그인": "처리 중로그인...",
         "재시도": "재시도",
         "Google로그인채택": "Google로그인채택OAuth 2.0보안동의，보호보호귀하의계정보안",
-        "공식사이로그인": "공식사이로그인..."
+        "공식사이로그인": "공식사이로그인...",
+        "ProcessingLogin": "ProcessingLogin...",
+        "Retry": "Retry",
+        "Google Login uses OAuth 2.0 security protocol to protect your account security": "Google Login uses OAuth 2.0 security protocol to protect your account security",
+        "Logging in...": "Logging in...",
+        "正在登录": "正在登录...",
+        "重试": "重试",
+        "Google登录采用": "Google登录采用OAuth 2.0安全协议，保护您的账号安全"
       }
     },
     "universal": {
@@ -523,7 +998,31 @@
             "빠른빠른로그인": "빠른빠른로그인",
             "선택귀하의환경설정의로그인파티방식": "선택귀하의환경설정의로그인파티방식",
             "기타파티방식": "기타파티방식",
-            "로그인즉시표예제귀하의함께의우리": "• 로그인즉시표예제귀하의함께의우리의서비스 약관및개인정보정책"
+            "로그인즉시표예제귀하의함께의우리": "• 로그인즉시표예제귀하의함께의우리의서비스 약관및개인정보정책",
+            "QuickLogin": "QuickLogin",
+            "Select your preferred login method": "Select your preferred login method",
+            "OtherWay": "OtherWay",
+            "AccountPasswordLogin": "AccountPasswordLogin",
+            "Mobile Verification Login": "Mobile Verification Login",
+            "EmailLogin": "EmailLogin",
+            "Coming Soon": "Coming Soon",
+            "We use industry-standard security protocols to protect your account": "• We use industry-standard security protocols to protect your account",
+            "Third-party login will not leak your password information": "• Third-party login will not leak your password information",
+            "Login indicates you agree to our Terms of Service and Privacy Policy": "• Login indicates you agree to our Terms of Service and Privacy Policy",
+            "Quick Login": "Quick Login",
+            "Other Methods": "Other Methods",
+            "AccountPasswordlogin": "AccountPasswordlogin",
+            "Emaillogin": "Emaillogin",
+            "快速登录": "快速登录",
+            "选择您偏好的登录方式": "选择您偏好的登录方式",
+            "其他方式": "其他方式",
+            "账号密码登录": "账号密码登录",
+            "手机验证码登录": "手机验证码登录",
+            "邮箱登录": "邮箱登录",
+            "即将上线": "即将上线",
+            "我们使用业界标准的安": "• 我们使用业界标准的安全协议保护您的账号",
+            "第三方登录不会泄露您": "• 第三方登录不会泄露您的密码信息",
+            "登录即表示您同意我们": "• 登录即表示您同意我们的服务条款和隐私政策"
           }
         }
       }
@@ -565,7 +1064,54 @@
       "연락우리": "연락우리",
       "회생각주의소": "회생각주의소",
       "중국 확장시 푸동신구 장강 하이테크 단지": "중국확장시푸동신구 장강 하이테크 단지구",
-      "연락전화": "연락전화"
+      "연락전화": "연락전화",
+      "Building the Future of": "Building the Future of",
+      "AI Infrastructure": "AI Infrastructure",
+      "We are committed to building a world-leading AI application platform, enabling everyone to easily use artificial intelligence technology to drive social progress and innovation.": "We are committed to building a world-leading AI application platform, enabling everyone to easily use artificial intelligence technology to drive social progress and innovation.",
+      "BackHome": "BackHome",
+      "Learn More": "Learn More",
+      "Active Users": "Active Users",
+      "AI Projects": "AI Projects",
+      "Service Availability": "Service Availability",
+      "Countries Covered": "Countries Covered",
+      "Making AI Accessible to Everyone": "Making AI Accessible to All",
+      "Mission & Vision": "Mission & Vision",
+      "Our mission is to lower the barrier to AI adoption, enabling everyone and every Enterprise to easily access AI capabilities. We believe AI technology should serve all of humanity.": "Our mission is to lower the barrier to AI adoption, enabling everyone and every enterprise to easily access AI capabilities. We believe AI technology should serve all of humanity.",
+      "Platform Core Capabilities": "Platform Core Capabilities",
+      "Development History": "Development History",
+      "Core Team": "Core Team",
+      "Contact Us": "Contact Us",
+      "Email": "Email",
+      "Company Address": "Company Address",
+      "Zhangjiang Hi-Tech Park, Pudong New Area, Shanghai, China": "Zhangjiang Hi-Tech Park, Pudong New Area, Shanghai, China",
+      "Phone": "Phone",
+      "Building the Future": "Building the Future",
+      "We are dedicated to building the world's leading AI application platform, enabling everyone to easily use AI technology and drive social progress and innovation.": "We are dedicated to building the world's leading AI application platform, enabling everyone to easily use AI technology and drive social progress and innovation.",
+      "Back to Home": "Back to Home",
+      "ActiveUser": "ActiveUser",
+      "Making AI Accessible to All": "Making AI Accessible to All",
+      "Our mission is to lower the barrier to AI adoption, enabling everyone and every business to easily access AI capabilities. We believe AI technology should serve all humanity, not just a privileged few.": "Our mission is to lower the barrier to AI adoption, enabling everyone and every business to easily access AI capabilities. We believe AI technology should serve all humanity, not just a privileged few.",
+      "Contact Phone": "Contact Phone",
+      "构建未来的": "构建未来的",
+      "AI基础设施": "AI 基础设施",
+      "我们致力于打造全球领": "我们致力于打造全球领先的 AI 应用平台，让每个人都能轻松使用人工智能技术，\r\n            推动社会进步与创新发展。",
+      "返回首页": "返回首页",
+      "了解更多": "了解更多",
+      "活跃用户": "活跃用户",
+      "AI项目": "AI 项目",
+      "服务可用性": "服务可用性",
+      "覆盖国家": "覆盖国家",
+      "让AI触手可及": "让 AI 触手可及",
+      "使命愿景": "使命愿景",
+      "智汇AI的使命是降低": "智汇 AI 的使命是降低人工智能的使用门槛，让每个人、每个企业都能轻松接入 AI 能力。\r\n              我们相信，AI 技术应该服务于全人类，而不是少数人的专利。",
+      "平台核心能力": "平台核心能力",
+      "发展历程": "发展历程",
+      "核心团队": "核心团队",
+      "联系我们": "联系我们",
+      "电子邮件": "电子邮件",
+      "公司地址": "公司地址",
+      "中国上海市浦东新区张": "中国上海市浦东新区张江高科技园区",
+      "联系电话": "联系电话"
     },
     "agents": {
       "처리 중불러오기에이전트": "처리 중불러오기에이전트...",
@@ -574,9 +1120,15 @@
         "설정선택항목": "설정선택항목",
         "인프라정보": "인프라정보",
         "基础信息": "기본 정보",
-        "配置选项": "설정 옵션"
+        "配置选项": "설정 옵션",
+        "FoundationInformation": "FoundationInformation",
+        "Config Selection": "Config Selection",
+        "BasicInformation": "BasicInformation",
+        "Configuration Selection": "Configuration Selection"
       },
-      "공식사이에따라에이전트": "공식사이로드에이전트..."
+      "공식사이에따라에이전트": "공식사이로드에이전트...",
+      "Loading Agent...": "Loading Agent...",
+      "正在加载智能体": "正在加载智能体..."
     },
     "aizhs": {
       "demo": {
@@ -592,19 +1144,35 @@
           "통해": "통해 ✅",
           "실패": "실패 ❌",
           "소모실시간": "소모실시간",
-          "정산공간결과": "정산공간결과"
+          "정산공간결과": "정산공간결과",
+          "AIInterfaceTest": "AIInterfaceTest",
+          "ClearResult": "ClearResult",
+          "Total": "Total",
+          "Approved": "Approved ✅",
+          "Failed": "Failed ❌",
+          "Duration": "Duration",
+          "AI接口测试": "AI接口测试",
+          "清空结果": "清空结果",
+          "总计": "总计",
+          "通过": "通过 ✅",
+          "失败": "失败 ❌",
+          "耗时": "耗时"
         }
       }
     },
     "custom": {
       "service": {
         "및우리의AI 어시스턴트또는게": "및우리의AI 어시스턴트또는인공전문가제안설정암호화연결。",
-        "및우리의스마트어시스턴트또는게": "및우리의스마트어시스턴트또는인공전문가제안설정암호화연결。"
+        "및우리의스마트어시스턴트또는게": "및우리의스마트어시스턴트또는인공전문가제안설정암호화연결。",
+        "Establish an encrypted connection with our AI assistant or human expert.": "Establish an encrypted connection with our AI assistant or human expert.",
+        "与我们的智能助手或人": "与我们的智能助手或人工专家建立加密连接。"
       }
     },
     "distribution": {
       "AI 성장 엔진으로 영향력을 디지털 게산으로 전환.": "통해 AI 스마트생각증가길이끌어당김엔진，연결귀하의영향영향력이체변환위한역량글게정보프로덕션。",
-      "통해AI스마트생각증가길이끌어당김": "통해 AI 스마트생각증가길이끌어당김엔진，를귀하의영향영향력이체변환위한역량문자정보프로덕션。"
+      "통해AI스마트생각증가길이끌어당김": "통해 AI 스마트생각증가길이끌어당김엔진，를귀하의영향영향력이체변환위한역량문자정보프로덕션。",
+      "Convert your influence to digital assets with AI Growth Engine.": "Convert your influence to digital assets with AI Growth Engine.",
+      "通过AI智汇社增长引": "通过 AI 智汇社增长引擎，将您的影响力转化为数字资产。"
     },
     "edu": {
       "documentation": {
@@ -628,7 +1196,30 @@
         "search": "검색",
         "noDocs": "문서 없음",
         "noMatchingDocs": "일치하는 문서 없음",
-        "目录导航": "목차"
+        "目录导航": "목차",
+        "Back": "Back",
+        "Education Platform Technical Docs": "Education Platform Technical Docs",
+        "Contents": "Contents",
+        "ContentsNavigation": "Table of Contents",
+        "ProcessingLoadDocument": "Loading documentation",
+        "ReLoad": "Reload",
+        "Documentation Center": "Documentation Center",
+        "All Documents": "All Documents",
+        "Search": "Search",
+        "Education Platform Technical Documentation": "Education Platform Technical Documentation",
+        "Directory": "Directory",
+        "Directory Navigation": "Directory Navigation",
+        "Loading Documentation": "Loading Documentation",
+        "Reload": "Reload",
+        "Full Site Documentation": "Full Site Documentation",
+        "返回": "返回",
+        "教育平台技术文档": "教育平台技术文档",
+        "目录": "目录",
+        "正在加载文档": "正在加载文档",
+        "重新加载": "重新加载",
+        "文档中心": "文档中心",
+        "全站文档": "全站文档",
+        "搜索": "搜索"
       }
     },
     "agent": {
@@ -639,7 +1230,12 @@
         "효율향상": "효율향상",
         "企业已部署Q1": "기업 배포됨 Q1",
         "应用象限": "애플리케이션 사분면",
-        "效率提升": "효율 향상"
+        "效率提升": "효율 향상",
+        "Application Limit": "Application Limit",
+        "EnterpriseAlReadyDeployQ1": "EnterpriseAlReadyDeployQ1",
+        "EfficiencyImprove": "EfficiencyImprove",
+        "Application Quadrant": "Application Quadrant",
+        "Efficiency Improvement": "Efficiency Improvement"
       }
     },
     "enterprise": {
@@ -655,7 +1251,14 @@
         "스마트AI": "스마트AI",
         "알아보기더 많은": "알아보기더 많은",
         "양성AI실시간시대의생각차원파티": "양성AI실시간시대의생각차원파티방식및의사결정정책역량",
-        "이성이해AI및게텍의깊은계층": "이해AI및게텍의깊은계층투자합"
+        "이성이해AI및게텍의깊은계층": "이해AI및게텍의깊은계층투자합",
+        "跳转到主要内容": "跳转到主要内容",
+        "智汇AI": "智汇AI",
+        "了解更多": "了解更多",
+        "核心服务": "核心服务",
+        "掌握前沿AI工具提升": "掌握前沿AI工具，提升工作效率",
+        "培养AI时代的思维方": "培养AI时代的思维方式与决策能力",
+        "理解AI与人文的深层": "理解AI与人文的深层融合"
       }
     },
     "human": {
@@ -668,35 +1271,57 @@
           "효율향상": "효율향상",
           "成本降低": "비용 절감",
           "效率提升": "효율 향상",
-          "满意度": "만족도"
+          "满意度": "만족도",
+          "CostLower": "CostLower",
+          "EfficiencyImprove": "EfficiencyImprove",
+          "Satisfaction": "Satisfaction",
+          "Cost Reduction": "Cost Reduction",
+          "Efficiency Improvement": "Efficiency Improvement"
         }
       }
     },
     "help": {
-      "유무엇인가요AI를하여돕다귀하의": "유무엇인가요가능돕다귀하의？"
+      "유무엇인가요AI를하여돕다귀하의": "유무엇인가요가능돕다귀하의？",
+      "How can I help you?": "How can I help you?",
+      "有什么可以帮您": "有什么可以帮您？"
     },
     "plaza": {
       "aiNeedsHub": "AI 시대의 요구 통합 센터, 모든 창의적 아이디어를 실행자와 연결합니다.",
       "techDevelopment": "기술 개발",
       "creativeDesign": "창의 디자인",
-      "businessCooperation": "비즈니스 협력"
+      "businessCooperation": "비즈니스 협력",
+      "AI era demand hub, connecting every creative idea with executors.": "AI era demand hub, connecting every creative idea with executors.",
+      "TechnologyDevelopment": "TechnologyDevelopment",
+      "Creative Design1": "Creative Design",
+      "Business Cooperation2": "Business Cooperation",
+      "Technical Development": "Technical Development",
+      "AI时代的需求对接枢": "AI 时代的需求对接枢纽，让每一个创意找到执行者。",
+      "技术开发": "技术开发",
+      "创意设计1": "创意设计",
+      "商务合作2": "商务合作"
     },
     "document": {
       "center": {
-        "ARCHIVE기술텍": "ARCHIVE / 기술문서"
+        "ARCHIVE기술텍": "ARCHIVE / 기술문서",
+        "ARCHIVE / Technology Document": "ARCHIVE / Technology Document",
+        "ARCHIVE技术文": "ARCHIVE / 技术文档"
       }
     },
     "app": {
       "AIAI 어시스턴트": "AIAI 어시스턴트",
       "AI스마트어시스턴트": "AI스마트어시스턴트",
-      "AI智能助手": "AI 스마트 어시스턴트"
+      "AI智能助手": "AI 스마트 어시스턴트",
+      "AI Assistant": "AI Assistant",
+      "AI Smart Assistant": "AI Smart Assistant"
     },
     "a_i_chat": {
       "voiceAud": "메시지 입력...",
       "isAudioP1": "재생",
       "삭제2": "삭제",
       "删除2": "삭제",
-      "showOpen3": "AI 도구 상게"
+      "showOpen3": "AI 도구 상게",
+      "VoiceAud": "Type a message...",
+      "Delete2": "Delete"
     },
     "canvas_panel": {
       "입력A2UI혁명석지시": "입력 A2UI 혁명석지시，예방법：추가목이것은개블루색의청크단추..."
@@ -770,35 +1395,57 @@
       "模板名称3": "템플릿 이름",
       "添加自定义模板2": "사용자 정의 템플릿 추가",
       "输入具体的提示词1": "구체적인 프롬프트 내용을 입력하세요...",
-      "输入模板名称如周": "템플릿 이름 입력, 예: 주간 보고서 작성"
+      "输入模板名称如周": "템플릿 이름 입력, 예: 주간 보고서 작성",
+      "Enter template name, e.g.: Weekly Report": "Enter template name, e.g.: Weekly Report",
+      "Enter specific prompt content...": "Enter specific prompt content...",
+      "AddCustomTemplate2": "AddCustomTemplate",
+      "TemplateName3": "TemplateName",
+      "TemplateContent4": "TemplateContent",
+      "Classify5": "Classify",
+      "Templatecontent4": "Templatecontent",
+      "Category5": "Category"
     },
     "drama_script_excel": {
       "프레임Numberi1": "`프레임 ${Number(index) + 1}`",
       "프레임": "`프레임 ${Number(index) + 1}`",
-      "fragment": "fragment.qualityReport ? `품질평점：${fragment.qualityScore}/100\\n선명석도：${fragment.qualityReport.clarity}\\n부드러움도：${fragment.qualityReport.motionSmoothness}` : ''"
+      "fragment": "fragment.qualityReport ? `품질평점：${fragment.qualityScore}/100\\n선명석도：${fragment.qualityReport.clarity}\\n부드러움도：${fragment.qualityReport.motionSmoothness}` : ''",
+      "FrameNumberi1": "`Frame ${Number(index) + 1}`",
+      "`Frame ${Number(index) + 1}`": "`Frame ${Number(index) + 1}`",
+      "帧Numberi1": "`帧 ${Number(index) + 1}`"
     },
     "header_logo": {
       "펼치기 또는 접기 제거": "펼치기또는접기제거동메뉴",
-      "展开或收起移动端": "모바일 메뉴 펼치기/접기"
+      "展开或收起移动端": "모바일 메뉴 펼치기/접기",
+      "Expand or collapse mobile menu": "Expand or collapse mobile menu"
     },
     "scroll_down_button": {
       "방향아래스크롤동": "방향아래스크롤동",
-      "向下滚动": "아래로 스크롤"
+      "向下滚动": "아래로 스크롤",
+      "Scroll Down": "Scroll Down"
     },
     "third_party_login": {
-      "알리페이": "알리페이"
+      "알리페이": "알리페이",
+      "Alipay": "Alipay",
+      "支付宝": "支付宝"
     },
     "project_selector_banner": {
-      "전환플랫폼": "전환플랫폼"
+      "전환플랫폼": "전환플랫폼",
+      "Switch Platform": "Switch Platform",
+      "切换平台": "切换平台"
     },
     "universal_login": {
-      "위챗로그인": "위챗로그인"
+      "위챗로그인": "위챗로그인",
+      "WeChat Login": "WeChat Login",
+      "WeChatlogin": "WeChatlogin",
+      "微信登录": "微信登录"
     },
     "agents_hub": {
       "모든플랫폼": "모든플랫폼",
       "내부배포1": "내부배포",
       "全部平台": "전체 플랫폼",
-      "内部1": "내부"
+      "内部1": "내부",
+      "AllPlatform": "AllPlatform",
+      "Internal1": "Internal"
     },
     "models_hub": {
       "텍스트": "텍스트",
@@ -809,13 +1456,27 @@
       "图片1": "이미지",
       "文本": "텍스트",
       "视频2": "비디오",
-      "音频3": "오디오"
+      "音频3": "오디오",
+      "Text": "Text",
+      "Image1": "Image",
+      "Video2": "Video",
+      "Audio3": "Audio"
     },
     "contact_us": {
       "제품상담질의": "제품상담질의",
       "기술지원1": "기술지원",
       "상업업무합동작2": "상업업무합동작",
-      "기타제안3": "기타제안"
+      "기타제안3": "기타제안",
+      "Product Inquiry": "Product Inquiry",
+      "TechnologySupport1": "TechnologySupport",
+      "Business Cooperation2": "Business Cooperation",
+      "OtherSuggestions3": "OtherSuggestions",
+      "Technical Support1": "Technical Support",
+      "OtherSuggestion3": "OtherSuggestion",
+      "产品咨询": "产品咨询",
+      "技术支持1": "技术支持",
+      "商务合作2": "商务合作",
+      "其他建议3": "其他建议"
     },
     "edu_documentation": {
       "드래그하여 너비 조정, 더블핵심 복원": "드래그동조정너비，더블클릭복원기본",
@@ -879,17 +1540,25 @@
       "downloadDocument": "문서 다운로드",
       "reload": "Reload",
       "uploadSuccessViewHint": "Upload Success View Hint",
-      "返回顶部1": "맨 위로"
+      "返回顶部1": "맨 위로",
+      "Drag to adjust width, double-click to restore default": "Drag to adjust width, double-click to restore default",
+      "Back to Top1": "Back to Top",
+      "拖动调整宽度双击": "拖动调整宽度，双击恢复默认"
     },
     "enterprise_service": {
       "페이지면스크롤동진행률": "페이지면스크롤동진행률",
       "페이지면구청크탐색1": "페이지면구청크탐색",
       "이동도달secti2": "`이동도달${section.label}구청크`",
       "페이지구청크탐색1": "페이지구청크탐색",
-      "건너뛰기이체도달secti2": "`건너뛰기이체도달${section.label}구청크`"
+      "건너뛰기이체도달secti2": "`건너뛰기이체도달${section.label}구청크`",
+      "页面滚动进度": "页面滚动进度",
+      "页面区块导航1": "页面区块导航",
+      "跳转到secti2": "`跳转到${section.label}区块`"
     },
     "payment": {
-      "결제이차원코드": "결제이차원코드"
+      "결제이차원코드": "결제이차원코드",
+      "PaymentQR code": "PaymentQR code",
+      "支付二维码": "支付二维码"
     },
     "headerActions": {
       "wechatMiniProgram": "WeChat 미니 프로그램",
@@ -919,6 +1588,54 @@
       "retry": "다시 시도",
       "unsupportedFormat": "이 파일 형식은 미리보기를 지원하지 않습니다",
       "clickDownload": "클릭하여 다운로드"
+    },
+    "Voice": {
+      "panel": {
+        "Voice Assistant": "Voice Assistant",
+        "Voice Settings": "Voice Settings",
+        "Wake Word": "Wake Word",
+        "Voice": "Voice",
+        "Speech Rate": "Speech Rate",
+        "Pitch": "Pitch",
+        "Volume": "Volume",
+        "TTS Provider": "TTS Provider",
+        "Recent Chats": "Recent Chats"
+      },
+      "record": {
+        "Voice recording ${componentName} - Website Namet has been split, please migrate content manually": "Voice recording ${componentName} - Website Namet has been split, please migrate content manually"
+      },
+      "recording": {
+        "animation": {
+          "Smart AI": "Smart AI",
+          "Provide": "Provide",
+          "Service": "Service",
+          "Click": "Click",
+          "Microphone": "Microphone",
+          "Icon": "Icon",
+          "Complete": "Complete",
+          "Record": "Record",
+          "providing": "providing"
+        }
+      }
+    },
+    "Memory": {
+      "panel": {
+        "Memory System": "Memory System",
+        "Daily Transaction Log": "Daily Transaction Log",
+        "Long-term Memory": "Long-term Memory",
+        "Search": "Search"
+      }
+    },
+    "Enterprise": {
+      "service": {
+        "Jump to Main Content": "Jump to Main Content",
+        "Smart AI": "Smart AI",
+        "Learn More": "Learn More",
+        "CoreService": "CoreService",
+        "Master cutting-edge AI tools, improve work efficiency": "Master cutting-edge AI tools, improve work efficiency",
+        "Develop AI-era thinking patterns and decision-making abilities": "Develop AI-era thinking patterns and decision-making abilities",
+        "Understand the deep integration of AI and humanities": "Understand the deep integration of AI and humanities"
+      }
     }
   }
 }

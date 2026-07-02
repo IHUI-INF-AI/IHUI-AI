@@ -38,6 +38,7 @@
     "inputRequired": "入力必須",
     "refreshing": "更新しいしい中",
     "templateExecuted": "テンプレートExecuted",
-    "templateExecuteFailed": "templateExecute失敗"
+    "templateExecuteFailed": "templateExecute失敗",
+    "Refreshing": "Refreshing"
   }
 }

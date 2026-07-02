@@ -125,6 +125,13 @@
       "pattern": "Pattern",
       "enter": "Enter",
       "suggestionApplied": "Suggestion Applied"
+    },
+    "status": {
+      "active": "正常",
+      "inactive": "已停用",
+      "error": "错误",
+      "connecting": "连接中",
+      "unknown": "未知"
     }
   }
 }

@@ -71,7 +71,9 @@
       "reset": "リセット",
       "reward": "奖励",
       "transfer": "转账",
-      "cancelled": "済みキャンセル"
+      "cancelled": "済みキャンセル",
+      "Status": "Status",
+      "Failed": "Failed"
     },
     "table": {
       "type": "タイプ",
@@ -79,7 +81,8 @@
       "amount": "金額",
       "balance": "残高",
       "status": "ステータス",
-      "createTime": "作成時間"
+      "createTime": "作成時間",
+      "Status": "Status"
     },
     "exportFormatPrompt": "请選択エクスポート形式",
     "exportCSV": "エクスポートCSV",
@@ -96,6 +99,12 @@
     "transactions": "トランザクション",
     "viewStatistics": "テーブル示統計",
     "income": "收入",
-    "expense": "支出"
+    "expense": "支出",
+    "Refresh": "Refresh",
+    "Export": "Export",
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportFailed": "Export Failed"
   }
 }

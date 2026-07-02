@@ -65,7 +65,8 @@
       "disconnectSuccess": "disconnect성공",
       "deleteAgentSuccess": "deleteAgent성공",
       "title": "제목",
-      "subtitle": "Subtitle"
+      "subtitle": "Subtitle",
+      "Status": "Status"
     }
   }
 }

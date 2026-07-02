@@ -7,5 +7,12 @@
     "xbWljcmso": "마이크",
     "microphone": "마이크마이크위험",
     "micro전화": "마이크"
+  },
+  "VoiceRecording": {
+    "poweredBy": "iHui AI",
+    "provide": "Powered",
+    "service": "Service",
+    "clickMic": "Click",
+    "microphone": "Microphone"
   }
 }

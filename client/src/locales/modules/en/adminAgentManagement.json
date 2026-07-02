@@ -7,10 +7,16 @@
       "StatusPlaceholder": "Select Status",
       "StatusActive": "Active",
       "StatusInactive": "Inactive",
-      "StatusDeprecated": "Deprecated"
+      "StatusDeprecated": "Deprecated",
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusActive": "启用",
+      "statusInactive": "禁用",
+      "statusDeprecated": "已废弃"
     },
     "table": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "platform": {},
     "Status": {
@@ -21,12 +27,14 @@
     },
     "isPublic": {},
     "agentList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "categoryList": {},
     "dialog": {},
     "test": {
-      "Failed": "Test Failed"
+      "Failed": "Test Failed",
+      "failed": "测试失败"
     },
     "messages": {},
     "settlementForm": {
@@ -36,9 +44,15 @@
       "StatusSettled": "Settled",
       "StatusWithdrawn": "Withdrawn",
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusPending": "待结算",
+      "statusSettled": "已结算",
+      "statusWithdrawn": "已提现"
     },
     "agentForm": {
       "tabs": {},
@@ -47,7 +61,12 @@
         "StatusPlaceholder": "Please select Status",
         "StatusActive": "Active",
         "StatusInactive": "Inactive",
-        "StatusDeprecated": "Deprecated"
+        "StatusDeprecated": "Deprecated",
+        "status": "状态",
+        "statusPlaceholder": "请选择状态",
+        "statusActive": "启用",
+        "statusInactive": "禁用",
+        "statusDeprecated": "已废弃"
       },
       "platform": {},
       "advanced": {
@@ -55,10 +74,12 @@
         "availableQuestions": {}
       },
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
       "messages": {
-        "avatarUpload Successful": "Avatar uploaded successfully"
+        "avatarUpload Successful": "Avatar uploaded successfully",
+        "avatarUploadSuccess": "头像上传成功"
       }
     },
     "agentCategoryForm": {
@@ -75,24 +96,41 @@
       "StatusEnabled": "Enabled",
       "StatusDisabled": "Disabled",
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
       "upload": {
-        "Failed": "Upload Failed"
+        "Failed": "Upload Failed",
+        "failed": "上传失败"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用"
     },
     "activityForm": {
       "Status": "Status",
       "StatusEnabled": "Status Enabled",
       "StatusDisabled": "Status Disabled",
       "validation": {
-        "StatusRequired": "Status Required"
+        "StatusRequired": "Status Required",
+        "statusRequired": "状态必填"
       },
       "upload": {
-        "Failed": "Failed"
+        "Failed": "Failed",
+        "failed": "失败"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusEnabled": "状态已启用",
+      "statusDisabled": "状态已禁用"
+    },
+    "status": {
+      "active": "启用",
+      "inactive": "禁用",
+      "deprecated": "已废弃",
+      "unknown": "未知"
     }
   }
 }

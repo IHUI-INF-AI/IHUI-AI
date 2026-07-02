@@ -25,6 +25,11 @@
     "actions": "작업",
     "viewDetail": "보기상세",
     "loadOrdersFailed": "획득주의문목이것은실패",
-    "loadOrdersRetry": "주문 목이것은 획득 실패, 잠시 후 재시도하세요"
+    "loadOrdersRetry": "주문 목이것은 획득 실패, 잠시 후 재시도하세요",
+    "StatusPending": "Pending",
+    "StatusPaid": "Paid",
+    "StatusCancelled": "Cancelled",
+    "Status": "Status",
+    "StatusUnknown": "Unknown"
   }
 }

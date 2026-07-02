@@ -20,7 +20,7 @@
     "statusPending": "Pending",
     "statusShipped": "Shipped",
     "statusCompleted": "Completed",
-    "statusCancelled": "Cancelled",
+    "statusCancelled": "Canceled",
     "statusUnknown": "Unknown",
     "signinSuccess": "Sign-in successful +{point} points",
     "signinFailed": "Sign-in failed",

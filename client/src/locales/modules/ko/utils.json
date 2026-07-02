@@ -23,6 +23,10 @@
     "uploadImage": {
       "imageProcessFailed": "수익처리실패",
       "selectImageFailed": "선택수익실패"
+    },
+    "VoiceRecorder": {
+      "recordingFailed": "Recording Failed",
+      "microphonePermissionDenied": "Cannot access microphone, please check permission settings"
     }
   }
 }

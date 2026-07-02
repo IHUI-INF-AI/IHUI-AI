@@ -79,7 +79,12 @@
       "获取热门智能体失败": "Failed to get popular agents",
       "同步失败": "Sync failed",
       "互动操作失败": "Interaction operation failed",
-      "规则搜索失败": "Rule search failed"
+      "规则搜索失败": "Rule search failed",
+      "获取成功9": "获取成功",
+      "获取成功10": "获取成功",
+      "搜索失败29": "搜索失败",
+      "调用失败30": "调用失败",
+      "获取列表失败31": "获取列表失败"
     },
     "ai_career": {
       "Submit successful, we will provide guidance as soon as possible": "Submit successful, we will provide guidance as soon as possible",
@@ -103,7 +108,13 @@
       "Get Successful4": "Get Successful",
       "Rename Successful5": "Rename Successful",
       "Delete Successful6": "Delete Successful",
-      "AgenticA": "Agentic AI Task Created"
+      "AgenticA": "Agentic AI Task Created",
+      "发送成功1": "发送成功",
+      "创建成功2": "创建成功",
+      "获取成功3": "获取成功",
+      "获取成功4": "获取成功",
+      "重命名成功5": "重命名成功",
+      "删除成功6": "删除成功"
     },
     "ai_model_info": {
       "Get Model List Failed": "Get Model List Failed",
@@ -159,14 +170,16 @@
       "登录已过期请重新": "登录已过期请重新"
     },
     "chat": {
-      "Stream Send Message Failed": "Stream Send Message Failed"
+      "Stream Send Message Failed": "Stream Send Message Failed",
+      "流式发送消息失败": "流式发送消息失败"
     },
     "client": {
       "Network error, please check network connection": "Network error, please check network connection",
       "Network Connection Failed": "Network Connection Failed",
       "Request Timeout1": "Request Timeout",
       "网络连接失败": "Network connection failed",
-      "请求超时1": "Request timeout"
+      "请求超时1": "Request timeout",
+      "网络错误请检查网": "网络错误，请检查网络连接"
     },
     "community": {
       "Demo Data": "Demo Data",
@@ -188,7 +201,7 @@
       "Batch Release Successful3": "Batch Release Successful",
       "发布成功2": "Publish successful",
       "取消收藏成功8": "Removed from favorites",
-      "取消点赞成功6": "Like cancelled",
+      "取消点赞成功6": "Like canceled",
       "批量发布成功3": "批量发布成功",
       "收藏成功7": "Favorited successfully",
       "演示数据": "DemoData",
@@ -257,7 +270,13 @@
       "Upload Successful2": "Upload Successful",
       "Upload SuccessfulEtcPending3": "Upload Successful，EtcPending",
       "Upload Successful4": "Upload Successful",
-      "Upload Successful5": "Upload Successful"
+      "Upload Successful5": "Upload Successful",
+      "上传成功": "上传成功",
+      "上传成功1": "上传成功",
+      "上传成功2": "上传成功",
+      "上传成功等待审核3": "上传成功，等待审核",
+      "上传成功4": "上传成功",
+      "上传成功5": "上传成功"
     },
     "gateway": {
       "Get Successful": "Get Successful",
@@ -367,7 +386,8 @@
       "获取成功3": "GetSuccess",
       "获取详情失败": "GetDetailsFailed",
       "调用成功10": "Call successful",
-      "调用模型失败": "CallModelFailed"
+      "调用模型失败": "CallModelFailed",
+      "调用模型失败11": "调用模型失败"
     },
     "notification": {
       "Notification Send Successful (Simulated)": "Notification Send Successful (Simulated)",
@@ -598,8 +618,8 @@
       "发布成功1": "Publish successful",
       "取消关注成功10": "Unfollowed successfully",
       "取消收藏成功8": "Removed from favorites",
-      "取消点赞成功15": "Like cancelled",
-      "取消点赞成功6": "Like cancelled",
+      "取消点赞成功15": "Like canceled",
+      "取消点赞成功6": "Like canceled",
       "批量发布成功2": "批量发布成功",
       "收藏成功7": "Favorited successfully",
       "更新成功4": "Updated successfully",
@@ -696,7 +716,9 @@
     },
     "baidu_speech_provider": {
       "Baidu Voice Service not configured": "Baidu Voice Service not configured",
-      "Voice recognition already in progress1": "Voice recognition alReady in progress"
+      "Voice recognition already in progress1": "Voice recognition alReady in progress",
+      "未配置百度语音服": "未配置百度语音服务",
+      "语音识别已在进行1": "语音识别已在进行中"
     },
     "web_speech_provider": {
       "No voice detected, please retry": "No Voice detected, please retry",
@@ -706,15 +728,27 @@
       "Voice recognition alReady stopped4": "Voice recognition alReady stopped",
       "Browser does not support Voice5": "Browser does not support Voice recognition",
       "Voice recognition already in progress6": "Voice recognition alReady in progress",
-      "Start Voice recognition Failed7": "Start Voice recognition Failed"
+      "Start Voice recognition Failed7": "Start Voice recognition Failed",
+      "未检测到语音请重": "未检测到语音，请重试",
+      "未检测到麦克风1": "未检测到麦克风",
+      "麦克风权限被拒绝2": "麦克风权限被拒绝",
+      "网络错误语音服务3": "网络错误，语音服务不可用",
+      "语音识别已中止4": "语音识别已中止",
+      "浏览器不支持语音5": "浏览器不支持语音识别功能",
+      "语音识别已在进行6": "语音识别已在进行中",
+      "启动语音识别失败7": "启动语音识别失败"
     },
     "whisper_provider": {
-      "Voice recognition already in progress": "Voice recognition alReady in progress"
+      "Voice recognition already in progress": "Voice recognition alReady in progress",
+      "语音识别已在进行": "语音识别已在进行中"
     },
     "speech_manager": {
       "Check Failed": "Check Failed",
       "No available voice recognition service1": "No available Voice recognition service",
-      "Check Failed2": "Check Failed"
+      "Check Failed2": "Check Failed",
+      "检查失败": "检查失败",
+      "没有可用的语音识1": "没有可用的语音识别服务",
+      "检查失败2": "检查失败"
     },
     "speech_recognition": {
       "Start Voice recognition Failed": "Start Voice recognition Failed",
@@ -725,7 +759,12 @@
       "API key format correct1": "API key format correct",
       "API key secret format correct2": "API key secret format correct",
       "Custom format key3": "Custom format key",
-      "API key format incorrect, length at least 16 characters4": "API key format incorrect, length at least 16 characters"
+      "API key format incorrect, length at least 16 characters4": "API key format incorrect, length at least 16 characters",
+      "API密钥不能为": "API密钥不能为空",
+      "API密钥格式正1": "API密钥格式正确",
+      "API密钥Sec2": "API密钥Secret格式正确",
+      "自定义格式密钥3": "自定义格式密钥",
+      "API密钥格式不4": "API密钥格式不正确，长度至少16个字符"
     },
     "use_agentic_${componentName} - Website Namet_generator": {
       "Generate Component Failed": "Generate Component Failed"
@@ -734,7 +773,11 @@
       "Login Failed": "Login Failed",
       "Register Failed1": "Register Failed",
       "Logout Failed2": "Logout Failed",
-      "Update Failed3": "Update Failed"
+      "Update Failed3": "Update Failed",
+      "登录失败": "登录失败",
+      "注册失败1": "注册失败",
+      "退出失败2": "退出失败",
+      "更新失败3": "更新失败"
     },
     "use_file_upload": {
       "Upload Failed": "Upload Failed",
@@ -801,7 +844,8 @@
       "获取模型信息失败": "GetModel InfoFailed",
       "获取调用日志失败": "GetCall LogsFailed",
       "重新生成令牌失败": "HeavyNewGenerate TokenFailed",
-      "重新生成成功5": "RegenerateSuccess"
+      "重新生成成功5": "RegenerateSuccess",
+      "获取服务配置失败": "获取API服务配置失败"
     },
     "chat_history_service": {
       "创建成功": "Created successfully",

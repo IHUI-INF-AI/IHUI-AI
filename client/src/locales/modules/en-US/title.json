@@ -88,7 +88,21 @@
       "Custom Model10": "Custom Model",
       "Team Collaboration11": "Team Collaboration",
       "Data Export12": "Data Export",
-      "Dedicated Consultant13": "Dedicated Consultant"
+      "Dedicated Consultant13": "Dedicated Consultant",
+      "AI对话次数": "AI对话次数",
+      "图片生成1": "图片生成",
+      "视频生成2": "视频生成",
+      "语音输入3": "语音输入",
+      "文件上传4": "文件上传",
+      "历史记录5": "历史记录",
+      "专属客服6": "专属客服",
+      "优先响应7": "优先响应",
+      "高级模型8": "高级模型",
+      "API访问9": "API访问",
+      "自定义模型10": "自定义模型",
+      "团队协作11": "团队协作",
+      "数据导出12": "数据导出",
+      "专属顾问13": "专属顾问"
     },
     "_${componentName} - Website Namet_template": {
       "Title": "Title"
@@ -146,7 +160,12 @@
       "Large Model Prompt Engineering Advanced Course6": "Large Model Prompt Engineering Advanced Course",
       "SAAS Institution Management2": "SAAS Institution Management",
       "Clawdbot3": "AI Assistant: From Deployment to Mastery",
-      "ClaudeCo5": "Claude Code Terminal Assistant Guide"
+      "ClaudeCo5": "Claude Code Terminal Assistant Guide",
+      "分布式评测引擎": "分布式评测引擎",
+      "安全直播矩阵1": "安全直播矩阵",
+      "SAAS机构管理2": "SAAS 机构管理",
+      "MCP协议开发完4": "MCP 协议开发完全指南",
+      "大模型提示词工程6": "大模型提示词工程高级课"
     },
     "Enterprise_service": {
       "Enterprise AI Service - Smart AI Community | Enterprise-grade AI Solution": "Enterprise AI Service - Smart AI Community | Enterprise-grade AI Solution"
@@ -315,10 +334,29 @@
       "How to Quickly Build Your First AI Agent6": "How to Quickly Build Your First AI Agent",
       "Advanced: Private Deployment Pitfall Guide7": "Advanced: Private Deployment Pitfall Guide",
       "AI Basic Quick Start": "AI Basic Quick Start",
-      "Industry Best Practice 2026": "Industry Best Practice 2026"
+      "Industry Best Practice 2026": "Industry Best Practice 2026",
+      "AI基础快速入门": "AI 基础快速入门",
+      "API集成深度指1": "API 集成深度指南",
+      "行业最佳实践202": "行业最佳实践 2026",
+      "某电商巨头AI客3": "某电商巨头 AI 客服升级",
+      "智慧金融风控系统4": "智慧金融风控系统集成",
+      "iHuiAI平台5": "iHui AI 平台全局预览",
+      "如何快速构建你的6": "如何快速构建你的第一个 AI Agent",
+      "进阶私有化部署深7": "进阶：私有化部署深度避坑指南"
     },
     "enterprise_service": {
       "企业AI化服务智": "企业AI化服务智"
+    },
+    "memory_panel": {
+      "重要事实1": "重要事实",
+      "偏好设置2": "偏好设置",
+      "进行中项目3": "进行中项目",
+      "联系人4": "联系人",
+      "经验教训5": "经验教训",
+      "技能知识6": "技能知识"
+    },
+    "_component_template": {
+      "标题": "标题"
     }
   }
 }

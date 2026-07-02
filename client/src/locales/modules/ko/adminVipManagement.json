@@ -4,10 +4,13 @@
     "export": "내보내기기이것은",
     "search": {
       "status": "VIP상태",
-      "statusPlaceholder": "요청선택VIP상태"
+      "statusPlaceholder": "요청선택VIP상태",
+      "Status": "VIP Status",
+      "StatusPlaceholder": "Select VIP Status"
     },
     "table": {
-      "status": "VIP상태"
+      "status": "VIP상태",
+      "Status": "VIP Status"
     },
     "vipType": {},
     "status": {
@@ -18,13 +21,17 @@
     },
     "detail": {
       "핵심 장점": "VIP상세",
-      "status": "VIP상태"
+      "status": "VIP상태",
+      "Status": "VIP Status"
     },
     "dialogs": {},
     "messages": {
       "exportDeveloping": "내보내기기능개발중간",
       "exportFailed": "내보내기 실패",
-      "exportSuccess": "내보내기 성공"
+      "exportSuccess": "내보내기 성공",
+      "ExportDeveloping": "Export feature under development",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "exportData": {
       "id": "VIPID",
@@ -46,6 +53,34 @@
     "exportFormatPrompt": "요청선택내보내기형식",
     "exportCSV": "내보내기CSV",
     "exportExcel": "내보내기Excel",
-    "exportPDF": "내보내기PDF"
+    "exportPDF": "내보내기PDF",
+    "Export": "Export Records",
+    "Status": {
+      "active": "Active",
+      "expired": "Expired",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "Export Data": {
+      "id": "Id",
+      "userId": "User Id",
+      "vipType": "Vip Type",
+      "Status": "Status",
+      "price": "Price",
+      "originalPrice": "Original Price",
+      "discount": "Discount",
+      "orderId": "Order Id",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "createTime": "Create Time",
+      "updateTime": "Update Time",
+      "cancelTime": "Cancel Time",
+      "remark": "Remark",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

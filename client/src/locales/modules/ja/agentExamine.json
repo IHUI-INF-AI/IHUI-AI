@@ -47,6 +47,24 @@
     "typePaid": "有料",
     "typeUnknown": "-",
     "status": "ステータス",
-    "startTime": "開始時間"
+    "startTime": "開始時間",
+    "ApprovedExamine": "Approved",
+    "RejectedExamine": "Rejected",
+    "Approved": "Approved",
+    "Rejected": "Rejected",
+    "Approve": "Approve",
+    "Reject": "Reject",
+    "ApproveExamine": "Approve Review",
+    "RejectExamine": "Reject Review",
+    "ApproveReasonPlaceholder": "Please enter approval reason (optional)",
+    "RejectReasonPlaceholder": "Please enter Rejection reason",
+    "avatarSync Successful": "Avatar synced successfully",
+    "batchSync Successful": "Batch sync completed",
+    "StatusPending": "Pending",
+    "StatusExamining": "Reviewing",
+    "StatusApproved": "Approved",
+    "StatusRejected": "Rejected",
+    "StatusReturned": "Returned",
+    "Status": "Status"
   }
 }

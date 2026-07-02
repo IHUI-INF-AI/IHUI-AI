@@ -14,13 +14,13 @@
       "pending": "Pending",
       "confirmed": "Confirmed",
       "completed": "Completed",
-      "cancelled": "Cancelled"
+      "cancelled": "Canceled"
     },
     "viewDetail": "View Detail",
     "cancel": "Cancel Appointment",
     "confirmCancel": "Are you sure you want to cancel this appointment?",
     "confirmCancelTitle": "Confirm Cancel",
-    "cancelSuccess": "Appointment cancelled",
+    "cancelSuccess": "Appointment canceled",
     "cancelFailed": "Failed to cancel, please try again later",
     "detailTitle": "Appointment Detail",
     "detail": {
@@ -35,12 +35,12 @@
       "createdAt": "Created At",
       "confirmedAt": "Confirmed At",
       "completedAt": "Completed At",
-      "cancelledAt": "Cancelled At",
+      "cancelledAt": "Canceled At",
       "adminNotes": "Admin Notes",
       "status": "Status"
     },
     "status": {
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "completed": "Completed",
       "confirmed": "已确认",
       "pending": "待确认"

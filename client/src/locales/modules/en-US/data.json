@@ -13,7 +13,8 @@
       "音乐4": "音乐"
     },
     "canvas_panel": {
-      "Text": "Text"
+      "Text": "Text",
+      "文本": "文本"
     },
     "integrations_panel": {
       "Mail": "Mail",
@@ -33,7 +34,23 @@
       "Data Collection14": "Data Collection",
       "CustomAPI15": "CustomAPI",
       "Email": "Email",
-      "SendEmail6": "SendEmail"
+      "SendEmail6": "SendEmail",
+      "邮件": "邮件",
+      "日历1": "日历",
+      "智能家居2": "智能家居",
+      "生产力工具3": "生产力工具",
+      "社交4": "社交",
+      "存储5": "存储",
+      "发送邮件6": "发送邮件",
+      "查看日程7": "查看日程",
+      "代码提交8": "代码提交",
+      "设备控制9": "设备控制",
+      "任务管理10": "任务管理",
+      "消息推送11": "消息推送",
+      "文件上传12": "文件上传",
+      "即时消息13": "即时消息",
+      "数据采集14": "数据采集",
+      "自定义API15": "自定义API"
     },
     "open_claw_toolbar": {
       "Memory System": "Memory System",
@@ -49,7 +66,19 @@
       "SystemDashboard10": "SystemDashboard",
       "Settings11": "Settings",
       "Device Node3": "Device Node",
-      "System Dashboard10": "System Dashboard"
+      "System Dashboard10": "System Dashboard",
+      "记忆系统": "记忆系统",
+      "语音助手1": "语音助手",
+      "画布工作区2": "画布工作区",
+      "设备节点3": "设备节点",
+      "技能市场4": "技能市场",
+      "第三方集成5": "第三方集成",
+      "浏览器自动化6": "浏览器自动化",
+      "模型管理7": "模型管理",
+      "自动化任务8": "自动化任务",
+      "安全审批9": "安全审批",
+      "系统仪表板10": "系统仪表板",
+      "设置11": "设置"
     },
     "skills_panel": {
       "Practical Tools": "Practical Tools",
@@ -62,7 +91,17 @@
       "Productivity7": "Productivity",
       "Entertainment8": "Entertainment",
       "Education9": "Education",
-      "Analyze3": "Analyze"
+      "Analyze3": "Analyze",
+      "实用工具": "实用工具",
+      "自动化1": "自动化",
+      "集成2": "集成",
+      "分析3": "分析",
+      "通信4": "通信",
+      "创意5": "创意",
+      "开发6": "开发",
+      "生产力7": "生产力",
+      "娱乐8": "娱乐",
+      "教育9": "教育"
     },
     "prompt_templates": {
       "通用": "General",
@@ -74,7 +113,7 @@
     },
     "drama_script_excel": {
       "ChatScene": "ChatScene",
-      "Include Character Chat Scene Template": "Scene Template with Character Dialogue",
+      "Include Character Chat Scene Template": "Scene Template with Character Dialog",
       "Character1ChatContentn2": "[Character1]：[ChatContent]\\n[Character2]：[ChatContent]",
       "Action Scene3": "Action Scene",
       "Scene Template with Action Sequences": "Scene Template with Action Sequences",
@@ -86,11 +125,24 @@
       "Scene Transition Template": "Scene Transition Template",
       "Transition from [Scene A] to [Scene B]": "Transition from [Scene A] to [Scene B]",
       "No.12": "No.",
-      "Dialogue Scene": "Dialogue Scene",
-      "Scene Template with Character Dialogue": "Scene Template with Character Dialogue",
-      "[Person 1]: [Dialogue Content]\n[Person 2]: [Dialogue Content]": "[Person 1]: [Dialogue Content]\\n[Person 2]: [Dialogue Content]",
+      "Dialogue Scene": "Dialog Scene",
+      "Scene Template with Character Dialogue": "Scene Template with Character Dialog",
+      "[Person 1]: [Dialogue Content]\n[Person 2]: [Dialogue Content]": "[Person 1]: [Dialog Content]\\n[Person 2]: [Dialog Content]",
       "Emotional Scene6": "Emotional Scene",
-      "Serial Number12": "Serial Number"
+      "Serial Number12": "Serial Number",
+      "对话场景": "对话场景",
+      "包含人物对话的场1": "包含人物对话的场景模板",
+      "人物1对话内容n2": "[人物1]：[对话内容]\\n[人物2]：[对话内容]",
+      "动作场景3": "动作场景",
+      "包含动作戏的场景4": "包含动作戏的场景模板",
+      "动作描述5": "动作描述：",
+      "情感场景6": "情感场景",
+      "情感表达的细腻场7": "情感表达的细腻场景",
+      "情感氛围8": "情感氛围：",
+      "转场场景9": "转场场景",
+      "场景切换的过渡模10": "场景切换的过渡模板",
+      "从场景A转换到场11": "从 [场景A] 转换到 [场景B]",
+      "序号12": "序号"
     },
     "input1": {
       "Sora 2 Series": "Sora 2 Series",
@@ -116,7 +168,13 @@
       "PWAApply5": "PWA Apply",
       "iOS App ": "iOS App ",
       "WeChatSmallProgram2": "WeChatSmallProgram",
-      "PWA App 5": "PWA ShouldWith "
+      "PWA App 5": "PWA ShouldWith ",
+      "iOS应用": "iOS 应用",
+      "Android应1": "Android 应用",
+      "微信小程序2": "微信小程序",
+      "桌面端3": "桌面端",
+      "浏览器插件4": "浏览器插件",
+      "PWA应用5": "PWA 应用"
     },
     "home_page4": {
       "专业版": "Professional",
@@ -233,7 +291,9 @@
     },
     "api_console": {
       "Created new API key": "Created new API key",
-      "API call successful, consumed 1,234 tokens1": "API call successful, consumed 1,234 tokens"
+      "API call successful, consumed 1,234 tokens1": "API call successful, consumed 1,234 tokens",
+      "创建了新的API": "创建了新的API密钥",
+      "API调用成功消1": "API调用成功，消耗 1,234 tokens"
     },
     "api_documentation": {
       "Create Chat Completion": "Create Chat Completion",
@@ -261,7 +321,27 @@
       "Message list, includes role and content8": "Message list, includes role and content",
       "Maximum generated tokens10": "Maximum generated tokens",
       "Request frequency exceeded limit17": "Request frequency exceeded limit",
-      "ServerInternalError18": "ServerInternalError"
+      "ServerInternalError18": "ServerInternalError",
+      "创建聊天补全": "创建聊天补全",
+      "创建文本补全1": "创建文本补全",
+      "创建文本嵌入2": "创建文本嵌入",
+      "生成图像3": "生成图像",
+      "文本转语音4": "文本转语音",
+      "语音转文本5": "语音转文本",
+      "获取可用模型列表6": "获取可用模型列表",
+      "模型ID如gpt7": "模型ID，如 gpt-4o、claude-3-sonnet 等",
+      "消息列表包含ro8": "消息列表，包含 role 和 content",
+      "采样温度02之间9": "采样温度，0-2之间，默认1",
+      "最大生成Toke10": "最大生成Token数",
+      "是否使用流式输出11": "是否使用流式输出，默认false",
+      "Topp采样参数12": "Top-p采样参数，0-1之间",
+      "请求参数错误或缺13": "请求参数错误或缺失",
+      "API密钥无效或14": "API密钥无效或缺失",
+      "无权访问该资源15": "无权访问该资源",
+      "请求的资源不存在16": "请求的资源不存在",
+      "请求频率超过限制17": "请求频率超过限制",
+      "服务器内部错误18": "服务器内部错误",
+      "服务暂时不可用19": "服务暂时不可用"
     },
     "dashboard": {
       "ModelManagement": "ModelManagement",
@@ -292,7 +372,20 @@
       "MD5 Dynamic Anti-hotlinking Algorithm11": "MD5 Dynamic Anti-hotlinking Algorithm",
       "Data Completely Physically Isolated12": "Data Completely Physically Isolated",
       "8 Nodes4": "8 Nodes",
-      "StandardDocumentation9": "StandardDocumentation"
+      "StandardDocumentation9": "StandardDocumentation",
+      "官方入驻版": "官方入驻版",
+      "私有标准版1": "私有标准版",
+      "全量源码版2": "全量源码版",
+      "数字化中台3": "数字化中台",
+      "8个节点4": "8 个节点",
+      "仅基础题型5": "仅基础题型",
+      "前端编译包6": "前端编译包",
+      "公有云7": "公有云",
+      "50门核心包8": "50 门核心包",
+      "标准文档9": "标准文档",
+      "规则驱动随机组卷10": "规则驱动随机组卷",
+      "MD5动态防盗链11": "MD5 动态防盗链算法",
+      "数据完全物理隔离12": "数据完全物理隔离"
     },
     "Enterprise_service": {
       "Smart AI Enterprise Services: Help enterprise decision-makers deeply understand the relationship between AI and enterprise, provide Agent Scenario Compass, Human-AI Collaboration, Systematic AI Courses, Build Human-Machine collaborative super organization.": "Smart AI Enterprise Services: Help Enterprise decision-makers deeply understand the relationship between AI and Enterprise, provide Agent Scenario Compass, Human-AI Collaboration, Systematic AI Courses, Build Human-Machine collaborative super organization.",
@@ -335,7 +428,11 @@
       "System Vulnerability1": "System Vulnerability",
       "Experience Optimization2": "Experience Optimization",
       "Other Message3": "Other Message",
-      "Feature Suggestion": "Feature Suggestion"
+      "Feature Suggestion": "Feature Suggestion",
+      "特性建议": "特性建议",
+      "系统漏洞1": "系统漏洞",
+      "体验优化2": "体验优化",
+      "其他报文3": "其他报文"
     },
     "help": {
       "Account Security": "Account Security",
@@ -347,7 +444,17 @@
       "Register6": "Register",
       "Billing7": "Billing",
       "Security8": "Security",
-      "Prompt9": "Prompt"
+      "Prompt9": "Prompt",
+      "账户安全": "账户安全",
+      "额度计费1": "额度计费",
+      "新手指南2": "新手指南",
+      "知识节点3": "知识节点",
+      "自动修复率4": "自动修复率",
+      "全时覆盖5": "全时覆盖",
+      "注册6": "注册",
+      "计费7": "计费",
+      "安全8": "安全",
+      "提示词9": "提示词"
     },
     "learn_a_i": {
       "Teaching Research Platform": "Teaching Research Platform",
@@ -423,7 +530,7 @@
       "包含标准版全部功23": "Includes all features of Standard Edition",
       "后端架构19": "Backend Architecture",
       "图像识别30": "Image Recognition",
-      "多轮对话25": "Multi-turn Dialogue",
+      "多轮对话25": "Multi-turn Dialog",
       "持续迭代16": "Continuous Iteration",
       "支撑数据中台3": "Supporting Data Mid-end",
       "教学教研中台": "Teaching & Research Mid-end",
@@ -502,20 +609,33 @@
       "Control Business Dynamics Anytime Anywhere1": "Control Business Dynamics Anytime Anywhere",
       "API Development Reference Manual2": "API Development Reference Manual",
       "System Deployment Architecture Guide3": "System Deployment Architecture Guide",
-      "Brand Visual Recognition System4": "Brand Visual Recognition System"
+      "Brand Visual Recognition System4": "Brand Visual Recognition System",
+      "全能AI助手随身": "全能 AI 助手随身而行",
+      "随时随地掌控业务1": "随时随地掌控业务动态",
+      "API开发参考手2": "API 开发参考手册",
+      "系统部署架构指南3": "系统部署架构指南",
+      "品牌视觉识别系统4": "品牌视觉识别系统"
     },
     "resource_center": {
       "Master AI Core Concepts from Scratch": "Master AI Core Concepts from Scratch",
       "Developer Exclusive: Efficient AI Integration1": "Developer Exclusive: Efficient AI Integration",
       "AI Implementation Case Studies Across Industries2": "AI Implementation Case Studies Across Industries",
       "ApprovedDeployiHui3": "By deploying iHui AI, the Enterprise saved 70% on customer service costs and improved user satisfaction by 45%.",
-      "Using deep learning models, the bank achieved second-level credit review and reduced risk miss rate by 30%.4": "Using deep learning models, the bank achieved second-level credit review and reduced risk miss rate by 30%."
+      "Using deep learning models, the bank achieved second-level credit review and reduced risk miss rate by 30%.4": "Using deep learning models, the bank achieved second-level credit review and reduced risk miss rate by 30%.",
+      "从零开始掌握人工": "从零开始掌握人工智能核心概念",
+      "开发者专属高效对1": "开发者专属：高效对接 AI 能力",
+      "各领域AI落地成2": "各领域 AI 落地成熟案例分析",
+      "通过部署iHui3": "通过部署 iHui AI，该企业节省了 70% 的人工客服成本，并将用户满意度提升了 45%。",
+      "利用深度学习模型4": "利用深度学习模型，该银行实现了秒级信贷审核，风险漏报率降低了 30%。"
     },
     "v_i_p_membership": {
       "Active Users": "Active Users",
       "AI Features1": "AI Features",
       "Satisfaction2": "Satisfaction",
-      "ActiveUser": "ActiveUser"
+      "ActiveUser": "ActiveUser",
+      "活跃用户": "活跃用户",
+      "AI功能1": "AI功能",
+      "满意度2": "满意度"
     },
     "enterprise_service": {
       "AI专业服务9": "AIProfessionalService",

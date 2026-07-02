@@ -22,6 +22,11 @@
     "statusActive": "ステータスアクティビティ",
     "statusInactive": "ステータス非アクティビティ",
     "statusDeprecated": "ステータス済み弃用",
-    "statusUnknown": "ステータスUnknown"
+    "statusUnknown": "ステータスUnknown",
+    "Status": "Status",
+    "StatusActive": "Status Active",
+    "StatusInactive": "Status Inactive",
+    "StatusDeprecated": "Status Deprecated",
+    "StatusUnknown": "Status Unknown"
   }
 }

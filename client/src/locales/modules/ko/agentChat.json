@@ -28,7 +28,8 @@
       "stopVoiceRecognitionFailed": "음성 인식 중지 실패",
       "voiceRecognitionAlreadyStarted": "음성 인식이 이미 시작되었습니다, 먼저 정지하세요현재인식",
       "copyFailed": "복생각실패",
-      "readFileFailed": "읽음가져오기파일실패"
+      "readFileFailed": "읽음가져오기파일실패",
+      "VoiceRecognitionAlReadyStarted": "Voice recognition has alReady started, please stop the current recognition first"
     },
     "success": {
       "copyToClipboard": "클립보드에 복생각되었습니다",
@@ -39,7 +40,8 @@
     "warnings": {
       "maxFileUpload": "최대 10개의 파일을 업로드할 수 있습니다",
       "confirmDelete": "이 메시지를 삭제하시겠습니까?",
-      "fileSizeExceeded": "파일 크기가 제한을 초과했습니다"
+      "fileSizeExceeded": "파일 크기가 제한을 초과했습니다",
+      "maxFile Upload": "Maximum 10 files can be uploaded"
     },
     "voiceRecognition": {
       "stopped": "음성 인식이 중지되었습니다"
@@ -61,7 +63,13 @@
     "features": {
       "regenerateDeveloping": "재생성 기능 개발 중",
       "retryDeveloping": "재시도 기능 개발 중",
-      "exportDeveloping": "내보내기 기능 개발 중"
+      "exportDeveloping": "내보내기 기능 개발 중",
+      "ExportDeveloping": "Export feature is under development"
+    },
+    "Reject": "Reject",
+    "Approve": "Approve",
+    "VoiceRecognition": {
+      "stopped": "Voice recognition stopped"
     }
   }
 }

@@ -35,6 +35,8 @@
     "deleteFailed": "삭제실패",
     "title": "OAuth애플사용관리",
     "subtitle": "생성및관리OAuth애플사용，사용하여API인증",
-    "loadAppsFailed": "불러오기애플사용목이것은실패"
+    "loadAppsFailed": "불러오기애플사용목이것은실패",
+    "Disabled": "Disabled",
+    "Status": "Status"
   }
 }

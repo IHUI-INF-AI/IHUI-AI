@@ -4,11 +4,13 @@
     "sub핵심 장점": "관리이익및이익카테고리",
     "tabs": {},
     "actions": {
-      "export": "내보내기"
+      "export": "내보내기",
+      "Export": "Export"
     },
     "courseList": {
       "핵심 장점": "이익제목",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "search": {
       "핵심 장점Placeholder": "요청입력이익제목"
@@ -23,9 +25,13 @@
       "statusEnabled": "활성화",
       "statusDisabled": "비활성화",
       "validation": {
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "courseForm": {
       "핵심 장점": "이익제목",
@@ -43,7 +49,10 @@
     "dialogs": {},
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "fetchFailed": "Failed to fetch course list",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
     }
   }
 }

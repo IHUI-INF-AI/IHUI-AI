@@ -3,10 +3,13 @@
     "export": "エクスポート",
     "search": {
       "status": "ステータス",
-      "statusPlaceholder": "请選択ステータス"
+      "statusPlaceholder": "请選択ステータス",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
     },
     "table": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "linkType": {},
     "status": {
@@ -16,7 +19,14 @@
     "dialogs": {},
     "messages": {
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    },
+    "Export": "Export",
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
     }
   }
 }

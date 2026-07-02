@@ -17,6 +17,8 @@
     "toolResults": "ツールResults",
     "reflection": "Reflection",
     "corrected": "Corrected",
-    "correctedResult": "Corrected結果"
+    "correctedResult": "Corrected結果",
+    "Status": "Status",
+    "FailedSteps": "Failed Steps"
   }
 }

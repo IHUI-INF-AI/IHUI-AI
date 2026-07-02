@@ -28,6 +28,10 @@
     "realTime": "realTime",
     "refresh": "refresh",
     "shortcuts": "shortcuts",
-    "subtitle": "subtitle"
+    "subtitle": "subtitle",
+    "ApprovedExamine": "Approved",
+    "RejectedExamine": "Rejected",
+    "Model Management": "Model Management",
+    "Refresh": "Refresh"
   }
 }

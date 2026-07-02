@@ -19,7 +19,9 @@
       "loadFailed": "불러오기멤버목이것은실패",
       "addSuccess": "추가성공",
       "addFailed": "추가실패",
-      "title": "멤버관리"
+      "title": "멤버관리",
+      "Add Success": "Added successfully",
+      "Add Failed": "Add Failed"
     }
   }
 }

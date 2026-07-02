@@ -71,7 +71,9 @@
       "reset": "Reset",
       "reward": "Reward",
       "transfer": "Transfer",
-      "cancelled": "Cancelled"
+      "cancelled": "Canceled",
+      "status": "状态",
+      "failed": "失败"
     },
     "table": {
       "type": "Type",
@@ -79,7 +81,8 @@
       "amount": "Amount",
       "balance": "Balance",
       "Status": "Status",
-      "createTime": "Create Time"
+      "createTime": "Create Time",
+      "status": "状态"
     },
     "Export": "Export",
     "ExportFormatPrompt": "Export Format Prompt",
@@ -97,6 +100,11 @@
     "transactions": "Transactions",
     "viewStatistics": "View Statistics",
     "income": "Income",
-    "expense": "Expense"
+    "expense": "Expense",
+    "refresh": "刷新",
+    "exportFormatPrompt": "请选择导出格式",
+    "exportCSV": "导出CSV",
+    "exportExcel": "导出Excel",
+    "exportFailed": "导出失败"
   }
 }

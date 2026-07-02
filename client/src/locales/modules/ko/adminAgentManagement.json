@@ -9,10 +9,16 @@
       "statusPlaceholder": "요청선택상태",
       "statusActive": "활성화",
       "statusInactive": "비활성화",
-      "statusDeprecated": "폐기됨"
+      "statusDeprecated": "폐기됨",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "StatusActive": "Active",
+      "StatusInactive": "Inactive",
+      "StatusDeprecated": "Deprecated"
     },
     "table": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "platform": {},
     "status": {
@@ -23,13 +29,15 @@
     },
     "isPublic": {},
     "agentList": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "categoryList": {},
     "dialog": {},
     "test": {
       "핵심 장점": "테스트에이전트",
-      "failed": "테스트실패"
+      "failed": "테스트실패",
+      "Failed": "Test Failed"
     },
     "messages": {},
     "settlementForm": {
@@ -39,9 +47,15 @@
       "statusSettled": "완료정산",
       "statusWithdrawn": "완료출금",
       "validation": {
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusPending": "Pending Settlement",
+      "StatusSettled": "Settled",
+      "StatusWithdrawn": "Withdrawn"
     },
     "agentForm": {
       "tabs": {},
@@ -50,7 +64,12 @@
         "statusPlaceholder": "요청선택상태",
         "statusActive": "활성화",
         "statusInactive": "비활성화",
-        "statusDeprecated": "폐기됨"
+        "statusDeprecated": "폐기됨",
+        "Status": "Status",
+        "StatusPlaceholder": "Please select Status",
+        "StatusActive": "Active",
+        "StatusInactive": "Inactive",
+        "StatusDeprecated": "Deprecated"
       },
       "platform": {},
       "advanced": {
@@ -58,10 +77,12 @@
         "availableQuestions": {}
       },
       "validation": {
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
       "messages": {
-        "avatarUploadSuccess": "아바타업로드성공"
+        "avatarUploadSuccess": "아바타업로드성공",
+        "avatarUpload Successful": "Avatar uploaded successfully"
       }
     },
     "agentCategoryForm": {
@@ -82,12 +103,18 @@
       "validation": {
         "핵심 장점Required": "광고 제목을 입력하세요",
         "핵심 장점Length": "길이사이 2 도달 100 개글게일치",
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
       "upload": {
-        "failed": "업로드실패"
+        "failed": "업로드실패",
+        "Failed": "Upload Failed"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "activityForm": {
       "핵심 장점": "제목",
@@ -98,12 +125,23 @@
       "validation": {
         "핵심 장점Required": "제목필수",
         "핵심 장점Length": "제목길이",
-        "statusRequired": "상태필수"
+        "statusRequired": "상태필수",
+        "StatusRequired": "Status Required"
       },
       "upload": {
-        "failed": "실패"
+        "failed": "실패",
+        "Failed": "Failed"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusEnabled": "Status Enabled",
+      "StatusDisabled": "Status Disabled"
+    },
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "deprecated": "Deprecated",
+      "unknown": "Unknown"
     }
   }
 }

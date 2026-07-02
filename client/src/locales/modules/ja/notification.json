@@ -11,6 +11,10 @@
     "markAllReadFailed": "既読に失敗しました",
     "markReadFailed": "既読に失敗しました",
     "operationFailed": "操作に失敗しました",
-    "loadAbnormal": "読み込みエラー"
+    "loadAbnormal": "読み込みエラー",
+    "viewUser Center": "View User Center",
+    "markAllRead Successful": "All marked as read",
+    "markAllRead Failed": "Failed to mark all as read",
+    "markRead Failed": "Failed to mark as read"
   }
 }

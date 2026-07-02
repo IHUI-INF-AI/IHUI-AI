@@ -43,7 +43,8 @@
           "steps": "단계적은",
           "calls": "호출사용간단한",
           "volume": "처리수량고급",
-          "dependency": "낮음의존의존도"
+          "dependency": "낮음의존의존도",
+          "Volume": "High Volume"
         },
         "examples": {
           "workflow": {
@@ -163,7 +164,8 @@
     "footer": {
       "enterprise": "기업 서비스",
       "humanMachine": "인간-기계협업",
-      "contact": "문의하기"
+      "contact": "문의하기",
+      "Enterprise": "Enterprise Service"
     },
     "heroSubtitle": "인하여작업실행복잡도및자유 의사결정 정책 의존도두개차원도，돕는기업인식및규모계획에이전트애플사용장면장면，검색도달최적합의AI구현지경로。"
   }

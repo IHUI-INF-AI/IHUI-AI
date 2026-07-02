@@ -24,7 +24,8 @@
         "generating": "画像を生成中...",
         "modelRemarkMissing": "モデルインターフェースが設定されていません",
         "wsNotSupported": "WebSocket生成はまだサポートされていません",
-        "generateFailed": "生成失敗"
+        "generateFailed": "生成失敗",
+        "Generate Successful": "Image generated successfully!"
       }
     },
     "doubao": {

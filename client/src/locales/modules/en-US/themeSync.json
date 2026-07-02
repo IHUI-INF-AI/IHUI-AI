@@ -20,7 +20,7 @@
     "syncFailed": "Theme sync failed",
     "loginRequired": "Please login first to sync",
     "cancel": "Cancel",
-    "cancelled": "Sync cancelled",
+    "cancelled": "Sync canceled",
     "conflictCheck": "Check Sync Conflict",
     "progress": {
       "preparing": "Preparing sync...",

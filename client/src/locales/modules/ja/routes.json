@@ -292,6 +292,14 @@
     "icpRecord": "ICP記録",
     "modelRecord": "モデル記録",
     "usageRules": "利用規則",
-    "supportTickets": "サポートチケット"
+    "supportTickets": "サポートチケット",
+    "EnterpriseService": "Enterprise Service",
+    "adminApiApps": "API Apps",
+    "adminApiGroups": "API Groups",
+    "adminApiPackages": "API Packages",
+    "adminApiBilling": "API Billing",
+    "adminApiUsage": "API Usage",
+    "adminApiDebug": "API Debugger",
+    "schedule": "Schedule"
   }
 }

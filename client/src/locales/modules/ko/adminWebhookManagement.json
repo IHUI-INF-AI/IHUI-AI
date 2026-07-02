@@ -3,10 +3,13 @@
     "핵심 장점": "Webhook관리",
     "search": {
       "status": "상태",
-      "statusPlaceholder": "요청선택상태"
+      "statusPlaceholder": "요청선택상태",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
     },
     "table": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "status": {
       "enabled": "활성화",
@@ -16,23 +19,32 @@
     "signatureAlgorithm": {},
     "detail": {
       "핵심 장점": "Webhook상세",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "eventLog": {
       "핵심 장점": "이벤트로그",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "eventStatus": {
-      "failed": "실패"
+      "failed": "실패",
+      "Failed": "Failed"
     },
     "eventDetail": {
       "핵심 장점": "이벤트상세",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "dialogs": {},
     "messages": {
-      "addSuccess": "추가성공"
+      "addSuccess": "추가성공",
+      "Add Success": "Add successful"
     },
-    "rules": {}
+    "rules": {},
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
+    }
   }
 }

@@ -6,11 +6,14 @@
       "핵심 장점": "제목",
       "핵심 장점Placeholder": "요청입력제목",
       "status": "상태",
-      "statusPlaceholder": "요청선택상태"
+      "statusPlaceholder": "요청선택상태",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
     },
     "table": {
       "핵심 장점": "제목",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "linkType": {},
     "status": {
@@ -20,7 +23,14 @@
     "dialogs": {},
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    },
+    "Export": "Export",
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
     }
   }
 }

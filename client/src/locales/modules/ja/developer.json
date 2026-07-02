@@ -387,6 +387,18 @@
     "invalidJson": "無効なJSON",
     "testSuccess": "テスト成功",
     "testFailed": "テスト失敗",
-    "testError": "テストエラー"
+    "testError": "テストエラー",
+    "Failed": "Failed",
+    "Status": "Status",
+    "StatusCode": "Status Code",
+    "ExportResults": "Export Results",
+    "ExportSuccess": "Export Success",
+    "tabJavaScript/TypeScript Call Examplept": "Tab Java Script",
+    "ExportDocumentation": "Export Documentation",
+    "ExportCSV": "Export C S V",
+    "Generate Successful": "Generate Success",
+    "bulkCreate Successful": "Bulk Create Success",
+    "testConnection Failed": "Test Connection Failed",
+    "StatusAll": "Status All"
   }
 }

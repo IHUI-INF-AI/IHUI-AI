@@ -49,7 +49,15 @@
       "exportSection": "データカテゴリ",
       "overview": "統計概要",
       "date": "日付",
-      "stats": "使用統計"
+      "stats": "使用統計",
+      "Search Model": "Search model...",
+      "ExportStats": "Export Stats",
+      "ExportFormatPrompt": "Export Format Prompt",
+      "ExportExcel": "Export Excel",
+      "ExportCSV": "Export C S V",
+      "ExportSection": "Export Section",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "logs": {
       "time": "時間",
@@ -86,7 +94,42 @@
       "viewDetail": "ViewDetail",
       "loadDetailFailed": "loadDetail失敗",
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "Status": "Status",
+      "appInitStart": "[App] App.vue initialization started...",
+      "initStateManagement": "[App] Initializing state management...",
+      "languageStoreInitSuccess": "[App] LanguageStore initialized successfully",
+      "fontStoreInitSuccess": "[App] FontStore initialized successfully",
+      "loadingStoreInitSuccess": "[App] LoadingStore initialized successfully",
+      "darkModeStoreInitSuccess": "[App] DarkModeStore initialized successfully",
+      "globalLoadingTimeout": "[App] Global loading state timeout, automatically stopping loading",
+      "loadingStateCleared": "[App] Loading state cleared",
+      "clearLoadingStateFailed": "[App] Failed to clear loading state:",
+      "debugCurrentLoadingState": "[Debug] Current loading state:",
+      "debugClearAllLoadingState": "[Debug] Clear all loading states",
+      "debugCheckLoadingState": "[Debug] Use __checkLoadingState() to view loading state",
+      "debugClearLoadingState": "[Debug] Use __clearLoadingState() to clear loading state",
+      "longTaskDetected": "Long task detected",
+      "FailedToSetBodyVisibility": "[App] Failed to set body visibility:",
+      "FailedToSetAppContainerVisibility": "[App] Failed to set app-container visibility:",
+      "FailedToSetMainContentVisibility": "[App] Failed to set main-content visibility:",
+      "fontLoadStart": "Font loading started",
+      "fontLoadDone": "Font loading completed",
+      "fontLoadError": "Font loading error",
+      "pageInitError": "Page initialization error",
+      "errorInOpenGlobalChat": "[App] Error in openGlobalChat:",
+      "errorInOpenGlobalChatSetTimeout": "[App] Error in openGlobalChat setTimeout:",
+      "debugVisibilityNotFound": "[Debug Visibility] not found",
+      "debugVisibilityFailed": "[Debug Visibility] Failed",
+      "fontAuditSomeElementsIssues": "[FontAudit] Some elements may have font issues",
+      "fontAuditCurrentRoutePassed": "[FontAudit] Current route passed font check",
+      "fontAuditCurrentRouteIssues": "[FontAudit] Current route has font issues",
+      "fontAuditAllRoutesPassed": "[FontAudit] All routes passed font check",
+      "fontAuditSomeRoutesIssues": "[FontAudit] Some routes have font issues",
+      "StatusCode": "Status Code",
+      "Export": "Export",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "logStatus": {
       "success": "成功",
@@ -213,7 +256,12 @@
       "groupPlaceholder": "请選択グループ（可选）",
       "package": "使用プラン",
       "packagePlaceholder": "请選択プラン（可选）",
-      "noPackage": "未使用プラン"
+      "noPackage": "未使用プラン",
+      "Status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      }
     },
     "packages": {
       "quota": "配额",
@@ -263,7 +311,13 @@
       "confirmUpgrade": "確認アップグレード",
       "linkAppsSuccess": "linkApps成功",
       "linkAppsFailed": "linkApps失敗",
-      "loadPackagesFailed": "loadPackages失敗"
+      "loadPackagesFailed": "loadPackages失敗",
+      "Status": {
+        "active": "active",
+        "expired": "expired",
+        "suspended": "suspended",
+        "title": "Status"
+      }
     },
     "debug": {
       "method": "リクエスト方法",
@@ -291,7 +345,8 @@
       "requestHistory": "リクエスト履歴記録",
       "requestSuccess": "リクエスト成功",
       "requestFailed": "リクエスト失敗",
-      "load": "読み込み"
+      "load": "読み込み",
+      "Status": "Status"
     },
     "groups": {
       "comparison": {
@@ -306,7 +361,8 @@
         "basic": "基本版",
         "standard": "標準版",
         "premium": "高级版",
-        "enterprise": "企業版"
+        "enterprise": "企業版",
+        "Enterprise": "Enterprise"
       },
       "features": {
         "models": "サポートモデル数",
@@ -331,7 +387,8 @@
         "basic": "适合件人開発者和小型プロジェクトテスト使用",
         "standard": "适合中小型プロジェクト和生产环境使用",
         "premium": "适合大型プロジェクト和商业適用使用",
-        "enterprise": "适合企業级適用和大规模デプロイ使用"
+        "enterprise": "适合企業级適用和大规模デプロイ使用",
+        "Enterprise": "Enterprise"
       },
       "management": {
         "title": "グループ管理",
@@ -371,7 +428,12 @@
         "filterType": "グループタイプ",
         "filterStatus": "ステータス",
         "searchPlaceholder": "検索グループ名前或説明",
-        "viewGroup": "Viewグループ"
+        "viewGroup": "Viewグループ",
+        "Status": {
+          "active": "active",
+          "inactive": "inactive",
+          "title": "Status"
+        }
       },
       "updatedAt": "UpdatedAt"
     },
@@ -433,7 +495,13 @@
       "replyPlaceholder": "ご入力返信コンテンツ",
       "admin": "管理者",
       "user": "ユーザー",
-      "noReplies": "なし返信"
+      "noReplies": "なし返信",
+      "Status": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      }
     },
     "billing": {
       "app": "適用",
@@ -472,7 +540,18 @@
       "last7Days": "Last7 Days",
       "last30Days": "Last30 Days",
       "thisMonth": "ThisMonth",
-      "cost": "コスト"
+      "cost": "コスト",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportExcel": "Export Excel",
+      "ExportCsv": "Export Csv",
+      "Status": {
+        "success": "Success",
+        "error": "Error",
+        "timeout": "Timeout"
+      },
+      "last7 Days": "Last7 Days",
+      "last30 Days": "Last30 Days"
     },
     "tokenManagement": {
       "title": "APIトークン管理",
@@ -528,13 +607,15 @@
       "selectAppPlaceholder": "ご選択关联的適用（任意）",
       "selectAppTip": "選択適用後，该密钥を关联到此適用，便于管理和統計",
       "filterByApp": "按適用フィルター",
-      "allApps": "全て適用"
+      "allApps": "全て適用",
+      "Status": "Status"
     },
     "tokenStatus": {
       "active": "アクティブ",
       "disabled": "無効",
       "expired": "期限切れ",
-      "deleted": "削除済み"
+      "deleted": "削除済み",
+      "Disabled": "Disabled"
     },
     "balance": {
       "currentBalance": "現在の残高",

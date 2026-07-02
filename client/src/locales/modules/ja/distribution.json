@@ -15,7 +15,9 @@
       "idCardInvalid": "有効な身分証番号を入力してください",
       "userIncomplete": "ユーザー情報が不完全です。再度ログインしてください",
       "authSuccess": "本人確認が正常に完了しました",
-      "authFailed": "本人確認に失敗しました。再試行してください"
+      "authFailed": "本人確認に失敗しました。再試行してください",
+      "success": "Real-name authentication successful",
+      "failed": "Real-name authentication failed, please try again"
     },
     "order": {
       "status": {

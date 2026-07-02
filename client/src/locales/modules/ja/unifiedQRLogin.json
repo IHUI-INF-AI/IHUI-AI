@@ -25,6 +25,7 @@
       "generateWechatQrCodeFailed": "WeChatQRコード画像の生成失敗",
       "generateProviderQrCodeFailed": "{provider}QRコードの生成失敗",
       "checkProviderLoginStatusFailed": "{provider}ログインステータスの確認失敗"
-    }
+    },
+    "RefreshQrCode": "Refresh Qr Code"
   }
 }

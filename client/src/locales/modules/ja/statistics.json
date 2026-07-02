@@ -65,7 +65,11 @@
     "days": "Days",
     "detailTitle": "Detail Title",
     "zeroHour": "0時間",
-    "zeroHour2": "0小时"
+    "zeroHour2": "0小时",
+    "agents": {
+      "Approved": "Approved",
+      "Rejected": "Rejected"
+    }
   },
   "Statistics": {
     "zeroHour": "0時間",

@@ -2,13 +2,16 @@
   "adminAppointmentManagement": {
     "stats": {},
     "filter": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "table": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "detail": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     }
   }
 }

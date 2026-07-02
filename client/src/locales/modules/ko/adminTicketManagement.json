@@ -6,13 +6,18 @@
       "핵심 장점": "티켓제목",
       "핵심 장점Placeholder": "요청입력티켓제목",
       "status": "상태",
-      "statusPlaceholder": "요청선택상태"
+      "statusPlaceholder": "요청선택상태",
+      "Status": "Status",
+      "StatusPlaceholder": "Status Placeholder"
     },
     "table": {
       "핵심 장점": "제목",
       "status": "상태",
       "approve": "통해",
-      "reject": "거부됨"
+      "reject": "거부됨",
+      "Status": "Status",
+      "Approve": "Approve",
+      "Reject": "Reject"
     },
     "status": {
       "pending": "처리 대기 중",
@@ -24,11 +29,14 @@
     "priority": {},
     "detail": {
       "핵심 장점": "제목",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "audit": {
       "approveTitle": "심사이메일통해",
-      "rejectTitle": "심사이메일거부됨"
+      "rejectTitle": "심사이메일거부됨",
+      "ApproveTitle": "Approve Title",
+      "RejectTitle": "Reject Title"
     },
     "assign": {
       "핵심 장점": "할당티켓"
@@ -36,7 +44,17 @@
     "messages": {
       "approveSuccess": "티켓심사이메일통해",
       "rejectSuccess": "티켓완료거부됨",
-      "exportInDevelopment": "내보내기기능개발중간"
+      "exportInDevelopment": "내보내기기능개발중간",
+      "ApproveSuccess": "Approve Success",
+      "RejectSuccess": "Reject Success",
+      "ExportInDevelopment": "ExportFeatureDevelopmentMedium"
+    },
+    "Export": "Export",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "resolved": "Resolved",
+      "closed": "Closed"
     }
   }
 }

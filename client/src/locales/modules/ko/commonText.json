@@ -39,6 +39,16 @@
     "loading": "로딩 중...",
     "noRecords": "기이것은 없음",
     "enabled": "활성화",
-    "disabled": "비활성화"
+    "disabled": "비활성화",
+    "Failed": "Failed",
+    "Disabled": "Disabled",
+    "Status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "processing": "Processing",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    }
   }
 }

@@ -1,16 +1,22 @@
 {
   "adminActivityManagement": {
     "actions": {
-      "export": "エクスポート"
+      "export": "エクスポート",
+      "Export": "Export"
     },
     "activityList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "search": {
       "status": "ステータス",
       "statusPlaceholder": "请選択ステータス",
       "statusEnabled": "あり効",
-      "statusDisabled": "無効"
+      "statusDisabled": "無効",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "status": {
       "enabled": "あり効",
@@ -19,7 +25,13 @@
     "dialogs": {},
     "messages": {
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    },
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
     }
   }
 }

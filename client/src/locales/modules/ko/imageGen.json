@@ -24,7 +24,8 @@
         "generating": "수익 생성 중...",
         "modelRemarkMissing": "모델 인마음페이스가 구성되지 않았습니다",
         "wsNotSupported": "WebSocket 생성은 아직 지원되지 않습니다",
-        "generateFailed": "생성 실패"
+        "generateFailed": "생성 실패",
+        "Generate Successful": "Image generated successfully!"
       },
       "title": "통이천문 - 텍생태수익"
     },

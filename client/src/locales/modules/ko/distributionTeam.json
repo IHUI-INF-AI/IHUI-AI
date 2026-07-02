@@ -31,11 +31,16 @@
       "orders": "주의문역량",
       "commission": "커미션",
       "joinTime": "참여시간",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "status": {
       "active": "활성",
       "inactive": "비활성"
+    },
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive"
     }
   }
 }

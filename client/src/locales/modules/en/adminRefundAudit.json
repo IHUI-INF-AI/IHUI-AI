@@ -3,7 +3,9 @@
     "Export": "Export",
     "search": {
       "Status": "Status",
-      "StatusPlaceholder": "Status Placeholder"
+      "StatusPlaceholder": "Status Placeholder",
+      "status": "状态",
+      "statusPlaceholder": "状态请输入"
     },
     "Status": {
       "pending": "Pending",
@@ -17,22 +19,35 @@
       "Status": "Status",
       "ApprovedAt": "Approved At",
       "Approve": "Approve",
-      "Reject": "Reject"
+      "Reject": "Reject",
+      "status": "状态",
+      "approvedAt": "批准时间",
+      "approve": "通过",
+      "reject": "拒绝"
     },
     "detail": {
       "Status": "Status",
       "RejectReason": "Reject Reason",
-      "ApprovedAt": "Approved At"
+      "ApprovedAt": "Approved At",
+      "status": "状态",
+      "rejectReason": "拒绝Reason",
+      "approvedAt": "批准时间"
     },
     "audit": {
       "ApproveTitle": "Approve Title",
-      "RejectTitle": "Reject Title"
+      "RejectTitle": "Reject Title",
+      "approveTitle": "通过标题",
+      "rejectTitle": "拒绝标题"
     },
     "messages": {
       "ApproveSuccess": "Approve Success",
       "RejectSuccess": "Reject Success",
       "ExportSuccess": "Export Success",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "approveSuccess": "通过成功",
+      "rejectSuccess": "拒绝成功",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     },
     "Export Data": {
       "id": "Id",
@@ -49,6 +64,31 @@
     "ExportFormatPrompt": "Export Format Prompt",
     "ExportCSV": "Export C S V",
     "ExportExcel": "Export Excel",
-    "ExportPDF": "Export P D F"
+    "ExportPDF": "Export P D F",
+    "export": "导出",
+    "status": {
+      "pending": "待处理",
+      "processing": "处理中...",
+      "approved": "已通过",
+      "rejected": "已拒绝",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "exportData": {
+      "id": "ID",
+      "refundNo": "退款否",
+      "orderNo": "订单号",
+      "amount": "金额",
+      "reason": "原因",
+      "status": "状态",
+      "createTime": "创建时间",
+      "approvedAt": "批准时间",
+      "completedAt": "已完成At",
+      "filename": "文件名"
+    },
+    "exportFormatPrompt": "请选择导出格式",
+    "exportCSV": "导出CSV",
+    "exportExcel": "导出Excel",
+    "exportPDF": "导出PDF"
   }
 }

@@ -33,11 +33,17 @@
     },
     "pricing": {
       "features": {
-        "Storage": "Cloud Storage"
+        "Storage": "Cloud Storage",
+        "storage": "云端存储"
       },
       "plans": {
         "standard": {},
-        "professional": {}
+        "professional": {},
+        "enterprise": {
+          "name": "企业源码版",
+          "desc": "工业级闭环。全量源码交付与专家级支持。",
+          "services": "22 个全量服务"
+        }
       }
     },
     "matrix": {

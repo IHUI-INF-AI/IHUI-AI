@@ -54,7 +54,7 @@
       "resetPasswordFailed": "Failed to reset password",
       "verifyTokenFailed": "Token verification failed",
       "getCaptchaFailed": "Failed to get captcha",
-      "requestCancelled": "Request cancelled",
+      "requestCancelled": "Request canceled",
       "exportFailed": "Export failed",
       "loginFailed": "Login Failed",
       "actionFailed": "Operation Failed",
@@ -123,7 +123,8 @@
       "likeSuccess": "Liked",
       "signUpSuccess": "Sign-up successful",
       "rateSuccess": "Review submitted",
-      "viewLoginLog": "View login log"
+      "viewLoginLog": "View login log",
+      "saveSuccess": "保存成功"
     },
     "share": "Share",
     "print": "Print",
@@ -241,6 +242,9 @@
       "email": "Please enter a valid email",
       "url": "Please enter a valid URL",
       "phone": "Please enter a valid phone number"
-    }
+    },
+    "collapse": "收起",
+    "expand": "展开",
+    "updateSuccess": "更新成功"
   }
 }

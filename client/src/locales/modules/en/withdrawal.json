@@ -56,7 +56,8 @@
       "Failed": "Withdrawal application Failed",
       "success": "Withdrawal application submitted successfully",
       "insufficientBalance": "BalanceInsufficient",
-      "processing": "Processing withdrawal application..."
+      "processing": "Processing withdrawal application...",
+      "failed": "提现申请失败"
     },
     "withdrawAmount": "Withdrawal Amount",
     "inputAmount": "Please enter withdrawal amount",

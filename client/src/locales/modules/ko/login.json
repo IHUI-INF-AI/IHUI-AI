@@ -109,7 +109,10 @@
       "appleLogin": "Apple 로그인",
       "wechatLoginFailed": "WeChat 로그인 실패, 다시 시도하세요",
       "googleLoginFailed": "Google 로그인 실패, 다시 시도하세요",
-      "appleLoginFailed": "Apple 로그인 실패, 다시 시도하세요"
+      "appleLoginFailed": "Apple 로그인 실패, 다시 시도하세요",
+      "wechatLogin Failed": "WeChat login Failed, please retry",
+      "googleLogin Failed": "GoogleLogin Failed, please retry",
+      "appleLogin Failed": "AppleLogin Failed, please retry"
     },
     "brand": {
       "핵심 장점": "세계 최초 혁신 에이전트 플랫폼",
@@ -155,6 +158,7 @@
       "rememberMe": "나 기억하기"
     },
     "title": "로그인",
-    "login": "로그인"
+    "login": "로그인",
+    "Login Successful": "Login Successful"
   }
 }

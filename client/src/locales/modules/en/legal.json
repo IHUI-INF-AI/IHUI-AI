@@ -52,7 +52,8 @@
       "connectionPool": {},
       "indexUsage": {},
       "queryAnalysis": {},
-      "errors": {}
+      "errors": {},
+      "refresh": "刷新"
     },
     "homePage3": {
       "title": "Latest News",

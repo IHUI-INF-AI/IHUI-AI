@@ -22,6 +22,8 @@
     "addFailed": "追加失敗",
     "pleaseEnterDocumentContent": "ドキュメントコンテンツを入力",
     "documentContentMinLength": "ドキュメントコンテンツ至少10件文字符",
-    "metadataFormatError": "元データ形式エラー、有効なJSONを入力"
+    "metadataFormatError": "元データ形式エラー、有効なJSONを入力",
+    "Add Success": "Added successfully",
+    "Add Failed": "Add Failed"
   }
 }

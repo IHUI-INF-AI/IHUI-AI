@@ -13,7 +13,7 @@
     "pleaseLogin": "Please login first",
     "createOrderFailed": "Create order failed: HTTP {status}",
     "paySuccess": "Payment successful",
-    "payCancelled": "Payment cancelled or failed",
+    "payCancelled": "Payment canceled or failed",
     "redirectingPay": "Redirecting to payment...",
     "title": "Member Purchase",
     "agreementDev": "Agreement page in development",

@@ -23,6 +23,10 @@
     "uploadImage": {
       "imageProcessFailed": "画像処理失敗",
       "selectImageFailed": "選択画像失敗"
+    },
+    "VoiceRecorder": {
+      "recordingFailed": "Recording Failed",
+      "microphonePermissionDenied": "Cannot access microphone, please check permission settings"
     }
   }
 }

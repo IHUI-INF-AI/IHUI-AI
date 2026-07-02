@@ -97,7 +97,13 @@
     "seoKeywords": "AI에이전트,스마트 어시스턴트,AI도구",
     "exploreAgents": "AI 에이전트 탐색",
     "createCustomAgent": "맞춤 에이전트 생성",
-    "oneClickDeploy": "원클릭 배포"
+    "oneClickDeploy": "원클릭 배포",
+    "StatusActive": "Status Active",
+    "StatusInactive": "Status Inactive",
+    "StatusDeprecated": "Status Deprecated",
+    "StatusLive": "Live",
+    "listAriaLabel": "智能体列表",
+    "agentAriaLabel": "智能体"
   },
   "Agents": {
     "exploreAgents": "AI 에이전트 탐색",

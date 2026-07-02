@@ -10,7 +10,19 @@
       "dialog": {
         "핵심 장점": "심생각 상세"
       },
-      "title": "내심사이메일"
+      "title": "내심사이메일",
+      "Status": {
+        "pending": "Pending",
+        "Approved": "Approved",
+        "Rejected": "Rejected"
+      },
+      "descriptions": {
+        "Status": "Status"
+      },
+      "actions": {
+        "Reject": "Reject",
+        "Approve": "Approve"
+      }
     },
     "menu": {
       "profile": "개인정보",
@@ -109,9 +121,23 @@
         "핵심 장점": "언어 설정"
       },
       "data": {
-        "핵심 장점": "데이마음 관리"
+        "핵심 장점": "데이마음 관리",
+        "Export Data": "Export Data"
       },
-      "title": "시스템설정"
+      "title": "시스템설정",
+      "profileUpdate Successful": "Profile updated successfully",
+      "profileUpdate Failed": "Profile update Failed",
+      "avatarUpload Successful": "Avatar uploaded successfully",
+      "avatarUpload Failed": "Avatar upload Failed",
+      "unsupportedImage Format": "Unsupported image format",
+      "securityUpdate Successful": "Security settings updated successfully",
+      "securityUpdate Failed": "Security settings update Failed",
+      "privacyUpdate Successful": "Privacy settings updated successfully",
+      "privacyUpdate Failed": "Privacy settings update Failed",
+      "notificationUpdate Successful": "Notification settings updated successfully",
+      "notificationUpdate Failed": "Notification settings update Failed",
+      "appSettingsUpdate Successful": "ApplySettingsUpdate Successful",
+      "appSettingsUpdate Failed": "ApplySettingsUpdate Failed"
     },
     "apiService": {
       "핵심 장점": "API서비스",
@@ -132,10 +158,13 @@
         "핵심 장점": "비밀번호수정변경"
       },
       "loginDevices": {
-        "핵심 장점": "로그인기기"
+        "핵심 장점": "로그인기기",
+        "Refresh": "Refresh"
       },
       "loginHistory": {
-        "핵심 장점": "로그인기이것은"
+        "핵심 장점": "로그인기이것은",
+        "StatusSuccess": "Status Success",
+        "StatusFailed": "Status Failed"
       }
     },
     "favorites": {
@@ -160,7 +189,13 @@
         "핵심 장점": "수입이익통계"
       },
       "settlement": {
-        "핵심 장점": "정산기이것은"
+        "핵심 장점": "정산기이것은",
+        "Status": {
+          "settled": "Settled",
+          "unsettled": "Unsettled",
+          "withdrawn": "Withdrawn",
+          "notWithdrawn": "Not Withdrawn"
+        }
       },
       "withdrawal": {
         "핵심 장점": "출금기이것은",
@@ -183,10 +218,29 @@
         },
         "dialog": {
           "핵심 장점": "신청요청출금"
+        },
+        "Status": {
+          "Approved": "Approved",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "Rejected": "Rejected",
+          "unknown": "unknown",
+          "withdrawn": "withdrawn",
+          "title": "Status"
+        },
+        "StatusTypes": {
+          "pending": "Pending",
+          "processing": "Processing",
+          "success": "Success",
+          "Failed": "Failed",
+          "Rejected": "Rejected"
         }
       },
       "description": "설명석",
-      "title": "데이마음통계"
+      "title": "데이마음통계",
+      "overview": {
+        "Total Messages": "Total Messages"
+      }
     },
     "form": {
       "이메일": "이메일",
@@ -260,7 +314,20 @@
         "avatarUploadSuccess": "avatarUpload성공",
         "avatarUploadFailed": "avatarUpload실패",
         "imageTooLarge": "수익Too대사용량",
-        "unsupportedImageFormat": "미supportedImageFormat"
+        "unsupportedImageFormat": "미supportedImageFormat",
+        "appSettingsUpdate Successful": "App Settings Update Success",
+        "appSettingsUpdate Failed": "App Settings Update Failed",
+        "notificationUpdate Successful": "Notification Update Success",
+        "notificationUpdate Failed": "Notification Update Failed",
+        "privacyUpdate Successful": "Privacy Update Success",
+        "privacyUpdate Failed": "Privacy Update Failed",
+        "securityUpdate Successful": "Security Update Success",
+        "securityUpdate Failed": "Security Update Failed",
+        "profileUpdate Successful": "Profile Update Success",
+        "profileUpdate Failed": "Profile Update Failed",
+        "avatarUpload Successful": "Avatar Upload Success",
+        "avatarUpload Failed": "Avatar Upload Failed",
+        "unsupportedImage Format": "Unsupported Image Format"
       },
       "examineApproveSuccess": "examineApprove성공",
       "examineRejectSuccess": "examineReject성공",
@@ -280,7 +347,8 @@
         "processing": "처리중간...",
         "completed": "완료",
         "failed": "실패",
-        "cancelled": "완료취소"
+        "cancelled": "완료취소",
+        "Failed": "Failed"
       },
       "privacySaveSuccess": "privacySave성공",
       "privacySaveFailed": "privacySave실패",
@@ -309,7 +377,17 @@
       "emailRequired": "요청진입력이메일",
       "emailVerificationSent": "인증 코드가 발송되었습니다, 이메일을 확인하세요",
       "phoneRequired": "요청진입력휴대전화번호",
-      "phoneVerificationSent": "인증 코드가 발송되었습니다, 문자를 확인하세요"
+      "phoneVerificationSent": "인증 코드가 발송되었습니다, 문자를 확인하세요",
+      "privacySave Successful": "Privacy Save Success",
+      "notificationSave Successful": "Notification Save Success",
+      "themeSave Successful": "Theme Save Success",
+      "languageSave Successful": "Language Save Success",
+      "Export DataConfirm": "Export Data Confirm",
+      "Export DataTitle": "Export Data Title",
+      "Export DataConfirmButton": "Export Data Confirm Button",
+      "Export DataCancelButton": "Export Data Cancel Button",
+      "Export DataSuccess": "Export Data Success",
+      "Export DataFailed": "Export Data Failed"
     },
     "common": {
       "prompt": "팁"
@@ -324,7 +402,20 @@
     },
     "wallet": {
       "핵심 장점": "내 지갑",
-      "sub핵심 장점": "잔액, 충전, 출금 및 거래 기이것은 보기"
+      "sub핵심 장점": "잔액, 충전, 출금 및 거래 기이것은 보기",
+      "Refresh": "Refresh",
+      "filter": {
+        "Status": "Transaction Status",
+        "Failed": "Failed"
+      },
+      "table": {
+        "Status": "Status"
+      },
+      "Export": "ExportTransaction history",
+      "ExportCSV": "ExportCSV",
+      "ExportExcel": "ExportExcel",
+      "ExportFormatPrompt": "Please select Export format",
+      "ExportFailed": "Export Failed"
     },
     "customerService": {
       "핵심 장점": "고객 서비스센마음",
@@ -361,7 +452,20 @@
       "title": "Title"
     },
     "nickname": "닉네임",
-    "nickname2": "昵称"
+    "nickname2": "昵称",
+    "orderStatus": {
+      "Failed": "Failed"
+    },
+    "privacySave Successful": "Privacy settings saved successfully",
+    "notificationSave Successful": "Notification settings saved successfully",
+    "themeSave Successful": "Theme settings saved successfully",
+    "languageSave Successful": "LanguageSettings Saved Successfully",
+    "Export DataConfirm": "Confirm to Export data?？",
+    "Export DataTitle": "Export Data",
+    "Export DataConfirmButton": "Confirm",
+    "Export DataCancelButton": "Cancel",
+    "Export DataInDevelopment": "Data Export feature is under development",
+    "Export DataFailed": "Data Export Failed"
   },
   "User": {
     "inputplaceholder": "input[placeholder*=",

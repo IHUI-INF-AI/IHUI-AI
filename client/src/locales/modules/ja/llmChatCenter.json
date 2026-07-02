@@ -19,7 +19,8 @@
       "save": "保存",
       "expand": "展開",
       "minimize": "最小化",
-      "moreActions": "もっと操作"
+      "moreActions": "もっと操作",
+      "ExportChat": "Export Chat"
     },
     "agentThinkingProcess": "Agent 思考プロセス",
     "newConversation": "新しい会話",
@@ -109,7 +110,14 @@
       "assistantMessages": "AIメッセージ",
       "withFiles": "包含ファイル",
       "failedMessages": "失敗メッセージ",
-      "timeRange": "時間範囲"
-    }
+      "timeRange": "時間範囲",
+      "Total Messages": "Total Messages",
+      "FailedMessages": "FailedMessage"
+    },
+    "Status": {
+      "edited": "Edited",
+      "free": "Free"
+    },
+    "Search Model": "Search Model"
   }
 }

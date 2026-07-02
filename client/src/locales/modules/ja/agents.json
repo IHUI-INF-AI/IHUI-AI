@@ -95,7 +95,13 @@
     "seoKeywords": "AIエージェント,スマートアシスタント,AIツール",
     "exploreAgents": "AIエージェント探索",
     "createCustomAgent": "カスタムエージェント作成",
-    "oneClickDeploy": "ワンクリック展開"
+    "oneClickDeploy": "ワンクリック展開",
+    "StatusActive": "Status Active",
+    "StatusInactive": "Status Inactive",
+    "StatusDeprecated": "Status Deprecated",
+    "StatusLive": "Live",
+    "listAriaLabel": "智能体列表",
+    "agentAriaLabel": "智能体"
   },
   "Agents": {
     "exploreAgents": "AIエージェント探索",

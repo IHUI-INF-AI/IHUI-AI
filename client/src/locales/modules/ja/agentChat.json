@@ -28,7 +28,8 @@
       "stopVoiceRecognitionFailed": "音声認識の停止に失敗しました",
       "voiceRecognitionAlreadyStarted": "音声認識済み启动，请先停止現在認識",
       "copyFailed": "コピー失敗",
-      "readFileFailed": "读取ファイル失敗"
+      "readFileFailed": "读取ファイル失敗",
+      "VoiceRecognitionAlReadyStarted": "Voice recognition has alReady started, please stop the current recognition first"
     },
     "success": {
       "copyToClipboard": "クリップボードにコピーしました",
@@ -39,7 +40,8 @@
     "warnings": {
       "maxFileUpload": "最大10個のファイルをアップロードできます",
       "confirmDelete": "このメッセージを削除してもよろしいですか？",
-      "fileSizeExceeded": "ファイルサイズが制限を超えています"
+      "fileSizeExceeded": "ファイルサイズが制限を超えています",
+      "maxFile Upload": "Maximum 10 files can be uploaded"
     },
     "voiceRecognition": {
       "stopped": "音声認識が停止しました"
@@ -61,7 +63,13 @@
     "features": {
       "regenerateDeveloping": "再生成機できるは開発中です",
       "retryDeveloping": "再試行機できるは開発中です",
-      "exportDeveloping": "エクスポート機できるは開発中です"
+      "exportDeveloping": "エクスポート機できるは開発中です",
+      "ExportDeveloping": "Export feature is under development"
+    },
+    "Reject": "Reject",
+    "Approve": "Approve",
+    "VoiceRecognition": {
+      "stopped": "Voice recognition stopped"
     }
   }
 }

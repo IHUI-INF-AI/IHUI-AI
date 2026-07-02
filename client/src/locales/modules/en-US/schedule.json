@@ -27,7 +27,7 @@
     },
     "status": {
       "normal": "Normal",
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "completed": "Completed"
     },
     "actions": {

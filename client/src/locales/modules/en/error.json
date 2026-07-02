@@ -40,7 +40,8 @@
     },
     "ai_proxy": {
       "Cannot read response stream1": "Cannot read response stream1",
-      "无法读取响应流": "无法读取响应流"
+      "无法读取响应流": "无法读取响应流",
+      "无法读取响应流1": "无法读取响应流1"
     },
     "api_test_page": {
       "aliGener21": "aliGener21",
@@ -99,14 +100,17 @@
       "无效的响应数据格2": "无效的响应数据格",
       "无效的响应数据格3": "无效的响应数据格",
       "用户名和密码不能1": "用户名和密码不能",
-      "登录信息不完整4": "登录信息不完整"
+      "登录信息不完整4": "登录信息不完整",
+      "没有刷新toke": "没有刷新toke"
     },
     "browser_crawler": {
-      "All CORS proxies": "All CORS proxies"
+      "All CORS proxies": "All CORS proxies",
+      "所有CORS代理": "所有CORS代理"
     },
     "captcha_input": {
       "Verification code image data empty": "Verification code image data empty",
-      "验证码图片数据为空": "验证码图片数据为空"
+      "验证码图片数据为空": "验证码图片数据为空",
+      "验证码图片数据为": "验证码图片数据为"
     },
     "documentation": {
       "Document path does not exist": "Document path does not exist",
@@ -194,7 +198,8 @@
       "Response is not valid text": "Response is not valid text"
     },
     "llm_chat_service": {
-      "Cannot read response stream1": "Cannot read response stream1"
+      "Cannot read response stream1": "Cannot read response stream1",
+      "无法读取响应流1": "无法读取响应流1"
     },
     "models": {
       "Response format incorrect20": "Response format incorrect20",
@@ -204,10 +209,12 @@
     },
     "oauth2": {
       "OAuth2 Authentication": "OAuth2 Authentication",
-      "OAuth2to1": "OAuth2to1"
+      "OAuth2to1": "OAuth2to1",
+      "OAuth2认证": "OAuth2认证"
     },
     "progressive_enhancement": {
-      "Browser does not support this feature": "Browser does not support this feature"
+      "Browser does not support this feature": "Browser does not support this feature",
+      "浏览器不支持fe": "浏览器不支持fe"
     },
     "unified_ai": {
       "Agent ID invalid8": "Agent ID invalid8",
@@ -222,7 +229,11 @@
       "Agent ID invalid5": "Agent ID invalid5",
       "Agent ID invalid6": "Agent ID invalid6",
       "Agentic task7": "Agentic task7",
-      "MCP Server ID8": "MCP Server ID8"
+      "MCP Server ID8": "MCP Server ID8",
+      "AgentID不5": "AgentID不5",
+      "AgentID不6": "AgentID不6",
+      "Agentic任7": "Agentic任7",
+      "MCP服务器ID8": "MCP服务器ID8"
     },
     "unified_generation_service": {
       "Image to image requires parameters11": "Image to image requires parameters11",
@@ -249,7 +260,9 @@
       "Temp key is empty请重2": "Temp key is empty请重",
       "临时密钥为空请重2": "临时密钥为空请重",
       "登录状态保存失在": "登录状态保存失在",
-      "登录状态保存失败": "Login status save failed"
+      "登录状态保存失败": "Login status save failed",
+      "登录状态保存失败1": "登录状态保存失败1",
+      "验证码图片数据为": "验证码图片数据为"
     },
     "use_agentic": {
       "Create swarm Failed": "Create swarm Failed",
@@ -264,12 +277,15 @@
     "user": {
       "Upload Failed2": "Upload Failed2",
       "New password and confirm password": "New password and confirm password",
-      "上传失败2": "Upload failed"
+      "上传失败2": "Upload failed",
+      "新密码和确认密码": "新密码和确认密码"
     },
     "whisper_provider": {
       "Model not loaded2": "Model not loaded2",
       "Browser-side Whisper1": "Browser-side Whisper1",
-      "ModelNotload2": "ModelNotload2"
+      "ModelNotload2": "ModelNotload2",
+      "模型未加载2": "模型未加载2",
+      "浏览器端Whis1": "浏览器端Whis1"
     },
     "extended_channels": {
       "缺少Webhoo": "缺少Webhoo",

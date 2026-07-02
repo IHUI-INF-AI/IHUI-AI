@@ -11,6 +11,15 @@
       "roleCode": "角色代碼",
       "memberCount": "成員數",
       "actions": "操作"
+    },
+    "title": "認證管理",
+    "tab": {
+      "info": "認證信息",
+      "accounts": "第三方賬號",
+      "tokens": "API Token",
+      "veriCodes": "驗證碼",
+      "userVip": "VIP用戶",
+      "vipLevel": "VIP等級"
     }
   }
 }

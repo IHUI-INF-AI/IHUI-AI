@@ -53,10 +53,13 @@
       "userMessages": "UserMessage",
       "assistantMessages": "AIMessage",
       "withFiles": "IncludeFile",
-      "timeRange": "TimeRange"
+      "timeRange": "TimeRange",
+      "totalMessages": "总消息数",
+      "failedMessages": "失败消息"
     },
     "status": {
-      "edited": "已编辑"
+      "edited": "已编辑",
+      "free": "免费"
     },
     "title": "Title",
     "subtitle": "Subtitle",
@@ -114,6 +117,7 @@
     "dialogTitle": "AI Smart Chat",
     "message": "Message",
     "assistant": "Assistant",
-    "user": "User"
+    "user": "User",
+    "searchModel": "搜索模型..."
   }
 }

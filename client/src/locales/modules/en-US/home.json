@@ -51,7 +51,8 @@
       "empty": {
         "platform": "No platform news",
         "external": "No AI news"
-      }
+      },
+      "content": "Smart AI Community is dedicated to providing the best services and resources for AI enthusiasts and developers"
     },
     "page4": {
       "title": "Choose Your Plan",
@@ -120,11 +121,19 @@
         "talk": "Chat",
         "audio": "Audio",
         "videoa": "Digital Human",
-        "other": "Universal"
+        "other": "Universal",
+        "Voice": "Voice"
       },
       "noModelData": "No {type} model data available",
       "loadModelFailed": "Failed to load model list, please try again later",
-      "apiAccess": "API Access"
+      "apiAccess": "API Access",
+      "modelButton": "Model",
+      "modelSwitch": "Model",
+      "loading": "Loading...",
+      "imageTab": "Image",
+      "videoTab": "Video",
+      "textTab": "Text",
+      "selectAuto": "auto"
     },
     "features": {
       "modelIntegration": "Model Integration",
@@ -137,6 +146,17 @@
       "hot": "Hot",
       "news": "News",
       "aiNews": "AI News"
+    },
+    "miniappBtn": "WeChat Mini Program",
+    "miniappModal": {
+      "title": "WeChat Mini Program",
+      "qrAlt": "Mini Program QR Code",
+      "scanTip": "Open WeChat and scan to enter the mini program"
+    },
+    "typewriter": {
+      "explore": "Explore the Infinite Possibilities of AI",
+      "brand": "Smart AI Community",
+      "connect": "Connect Creativity, Unleash the Unknown"
     }
   }
 }

@@ -3,7 +3,8 @@
     "핵심 장점": "충전관리",
     "sub핵심 장점": "관리생각사용게충전기이것은및주의문정보",
     "actions": {
-      "export": "내보내기기이것은"
+      "export": "내보내기기이것은",
+      "Export": "Export Records"
     },
     "search": {
       "status": "충전상태",
@@ -11,10 +12,17 @@
       "statusPending": "결제 대기 중",
       "statusPaid": "완료결제",
       "statusFailed": "결제실패",
-      "statusCancelled": "완료취소"
+      "statusCancelled": "완료취소",
+      "Status": "Top-up Status",
+      "StatusPlaceholder": "Select top-up Status",
+      "StatusPending": "Pending",
+      "StatusPaid": "Paid",
+      "StatusFailed": "Failed",
+      "StatusCancelled": "Cancelled"
     },
     "table": {
-      "status": "충전상태"
+      "status": "충전상태",
+      "Status": "Top-up Status"
     },
     "paymentMethod": {},
     "status": {
@@ -26,13 +34,17 @@
     },
     "detail": {
       "핵심 장점": "충전상세",
-      "status": "충전상태"
+      "status": "충전상태",
+      "Status": "Top-up Status"
     },
     "dialog": {},
     "messages": {
       "noExportData": "없음AI를내보내기의데이마음",
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "noExport Data": "No data available for Export",
+      "ExportSuccess": "Exported successfully",
+      "ExportFailed": "Export Failed"
     },
     "export": {
       "filename": "filename",
@@ -42,6 +54,21 @@
     "exportFormatPrompt": "요청선택내보내기형식",
     "exportCSV": "내보내기CSV",
     "exportExcel": "내보내기Excel",
-    "exportPDF": "내보내기PDF"
+    "exportPDF": "내보내기PDF",
+    "Status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "Export": {
+      "filename": "filename",
+      "title": "Export"
+    },
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

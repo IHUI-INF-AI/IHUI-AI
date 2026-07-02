@@ -3,6 +3,14 @@
     "refresh": "更新しい",
     "connectionPool": {},
     "indexUsage": {},
-    "queryAnalysis": {}
+    "queryAnalysis": {},
+    "Refresh": "Refresh",
+    "errors": {
+      "loadPoolStatsFailed": "Failed to load connection pool statistics",
+      "loadIndexUsageFailed": "Failed to load index usage data",
+      "enterSQLQuery": "Please enter SQL query statement",
+      "invalidParamsFormat": "Invalid parameter format, please enter a valid JSON array",
+      "analyzeQueryFailed": "Failed to analyze query plan"
+    }
   }
 }

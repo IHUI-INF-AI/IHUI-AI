@@ -3,16 +3,24 @@
     "핵심 장점": "결제관리",
     "sub핵심 장점": "관리결제기이것은및소통쉬운",
     "actions": {
-      "export": "내보내기"
+      "export": "내보내기",
+      "Export": "Export"
     },
     "paymentList": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "status": {
       "pending": "결제 대기 중",
       "completed": "완료",
       "failed": "실패",
       "refunded": "완료환불"
+    },
+    "Status": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "refunded": "Refunded"
     }
   }
 }

@@ -2,6 +2,9 @@
   "aiChatComponents": {
     "memory": "메모리",
     "voice": "음성",
-    "voiceChat": "음성 채팅"
+    "voiceChat": "음성 채팅",
+    "Memory": "Memory",
+    "Voice": "Voice",
+    "VoiceChat": "Voice Chat"
   }
 }

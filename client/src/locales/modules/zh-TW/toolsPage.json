@@ -31,5 +31,16 @@
     "fallbackCategoryText": "文本創作",
     "fallbackCategoryAgent": "智能體",
     "fallbackCategoryStock": "股票分析"
+  },
+  "tools": {
+    "title": "AI 工具集",
+    "realtimeData": "實時數據",
+    "localData": "本地數據",
+    "sortDefault": "默認排序",
+    "sortByName": "按名稱",
+    "sortByHot": "按熱度",
+    "loading": "加載中",
+    "noMatch": "未找到匹配的工具",
+    "usage": "次使用"
   }
 }

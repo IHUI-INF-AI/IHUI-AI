@@ -2,12 +2,15 @@
   "adminAgentSettlementManagement": {
     "actions": {},
     "settlementList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "overview": {},
     "search": {
       "Status": "Status",
-      "StatusPlaceholder": "Select Status"
+      "StatusPlaceholder": "Select Status",
+      "status": "状态",
+      "statusPlaceholder": "请选择状态"
     },
     "Status": {
       "pending": "Pending",
@@ -18,6 +21,12 @@
     "settlementStatus": {},
     "withdrawalStatus": {},
     "dialogs": {},
-    "messages": {}
+    "messages": {},
+    "status": {
+      "pending": "待结算",
+      "settled": "已结算",
+      "withdrawn": "已提现",
+      "unknown": "未知"
+    }
   }
 }

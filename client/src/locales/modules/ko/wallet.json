@@ -71,7 +71,9 @@
       "reset": "초기화",
       "reward": "보상",
       "transfer": "이체",
-      "cancelled": "완료취소"
+      "cancelled": "완료취소",
+      "Status": "Status",
+      "Failed": "Failed"
     },
     "table": {
       "type": "유형",
@@ -79,7 +81,8 @@
       "amount": "금액",
       "balance": "잔액",
       "status": "상태",
-      "createTime": "생성시간"
+      "createTime": "생성시간",
+      "Status": "Status"
     },
     "exportFormatPrompt": "요청선택내보내기형식",
     "exportCSV": "내보내기CSV",
@@ -98,6 +101,12 @@
     "income": "수입",
     "expense": "지출",
     "title": "제목",
-    "subtitle": "Subtitle"
+    "subtitle": "Subtitle",
+    "Refresh": "Refresh",
+    "Export": "Export",
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportFailed": "Export Failed"
   }
 }

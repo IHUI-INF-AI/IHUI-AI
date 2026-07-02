@@ -13,6 +13,7 @@
     "message": "メッセージ",
     "componentError": "コンポーネントエラー",
     "goHome": "ホームに戻る",
-    "currentPath": "現在のパス"
+    "currentPath": "現在のパス",
+    "${componentName} - Website NametError": "Component Error"
   }
 }

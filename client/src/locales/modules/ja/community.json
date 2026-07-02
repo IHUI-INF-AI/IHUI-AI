@@ -51,7 +51,8 @@
       "uploadFailed": "uploadFailed",
       "uploadSuccess": "uploadSuccess",
       "uploadTip": "uploadTip",
-      "videoHint": "videoHint"
+      "videoHint": "videoHint",
+      "Failed": "Failed"
     },
     "comment": "コメント",
     "writeComment": "コメントを書く...",

@@ -6,7 +6,8 @@
     "table": {},
     "orderType": {},
     "orderStatus": {
-      "failed": "실패"
+      "failed": "실패",
+      "Failed": "Failed"
     },
     "paymentMethod": {},
     "detail": {
@@ -15,7 +16,10 @@
     "messages": {
       "exportFailed": "내보내기 실패",
       "exportDeveloping": "내보내기기능개발중간",
-      "exportSuccess": "내보내기 성공"
+      "exportSuccess": "내보내기 성공",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportDeveloping": "ExportFeatureDevelopmentMedium"
     },
     "exportData": {
       "orderId": "주의문ID",
@@ -34,6 +38,25 @@
     "exportFormatPrompt": "요청선택내보내기형식",
     "exportCSV": "내보내기CSV",
     "exportExcel": "내보내기Excel",
-    "exportPDF": "내보내기PDF"
+    "exportPDF": "내보내기PDF",
+    "Export": "Export",
+    "Export Data": {
+      "orderId": "Order Id",
+      "orderNo": "Order No",
+      "userId": "User Id",
+      "orderType": "Order Type",
+      "amount": "Amount",
+      "orderStatus": "Order Status",
+      "paymentMethod": "Payment Method",
+      "productName": "Product Name",
+      "description": "Description",
+      "createTime": "Create Time",
+      "completeTime": "Complete Time",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

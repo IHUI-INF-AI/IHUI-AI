@@ -2,10 +2,13 @@
   "adminWebhookManagement": {
     "search": {
       "Status": "Status",
-      "StatusPlaceholder": "Select Status"
+      "StatusPlaceholder": "Select Status",
+      "status": "状态",
+      "statusPlaceholder": "请选择状态"
     },
     "table": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "Status": {
       "enabled": "Enabled",
@@ -14,21 +17,30 @@
     "form": {},
     "signatureAlgorithm": {},
     "detail": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "eventLog": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "eventStatus": {
-      "Failed": "Failed"
+      "Failed": "Failed",
+      "failed": "失败"
     },
     "eventDetail": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "dialogs": {},
     "messages": {
-      "Add Success": "Add successful"
+      "Add Success": "Add successful",
+      "addSuccess": "添加成功"
     },
-    "rules": {}
+    "rules": {},
+    "status": {
+      "enabled": "启用",
+      "disabled": "禁用"
+    }
   }
 }

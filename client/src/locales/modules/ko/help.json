@@ -26,19 +26,22 @@
         "핵심 장점": "피드백",
         "desc": "버그 신고 또는 새 기능 제안",
         "status": "빠른 응답",
-        "title": "의견피드백"
+        "title": "의견피드백",
+        "Status": "Fast Response"
       },
       "liveUplink": {
         "핵심 장점": "온라인 지원",
         "desc": "인간 또는 AI 지원에 직접 연결",
         "status": "온라인",
-        "title": "온라인고객 서비스"
+        "title": "온라인고객 서비스",
+        "Status": "Online"
       },
       "coreDocs": {
         "핵심 장점": "개발 문서",
         "desc": "기술 생각양 및 통합 가이드",
         "status": "V4.2 안정판",
-        "title": "개발문서"
+        "title": "개발문서",
+        "Status": "V4.2 Stable"
       }
     },
     "sectionLabels": {
@@ -91,6 +94,16 @@
       "coverage": "글로벌벌 실시간 지원"
     },
     "title": "돕는중간마음",
-    "subtitle": "자주 묻는 질문의 답변을 찾고 도움을 받으세요"
+    "subtitle": "자주 묻는 질문의 답변을 찾고 도움을 받으세요",
+    "faq": "常见问题",
+    "refundPolicy": "退款政策",
+    "refundContact": "退款联系",
+    "contactWays": "联系方式",
+    "workHours": "工作时间",
+    "quickEntry": "快速入口",
+    "courseCenter": "课程中心",
+    "personalCenter": "个人中心",
+    "feedback": "意见反馈",
+    "aboutUs": "关于我们"
   }
 }

@@ -99,7 +99,9 @@
     "seoKeywords": "AI agents,smart assistant,AI tools",
     "exploreAgents": "Explore AI Agents",
     "createCustomAgent": "Create Custom Agent",
-    "oneClickDeploy": "One-click deploy and call"
+    "oneClickDeploy": "One-click deploy and call",
+    "listAriaLabel": "智能体列表",
+    "agentAriaLabel": "智能体"
   },
   "Agents": {
     "exploreAgents": "Explore AI Agents",

@@ -36,6 +36,12 @@
       "videoModel01": "專業視頻生成/剪輯模型",
       "textModel01": "輕量級文本生成/對話模型",
       "textModel02": "高效文本理解/創作模型"
-    }
+    },
+    "select": "選擇",
+    "tools": "工具",
+    "promptTemplatesDesc": "選擇提示詞模板",
+    "aiToolboxDesc": "AI 工具箱",
+    "back": "返回",
+    "modelLabel": "模型"
   }
 }

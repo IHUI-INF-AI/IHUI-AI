@@ -13,11 +13,14 @@
       "请对以下观点或事19": "以下の観点またはイベントを深く分析し、その背後にある根本原因、影響要因、利害関係者のダイナミクス、および可能な将来の傾向を分析してください。"
     },
     "introduce_popup": {
-      "アップグレード系统增加算力": "アップグレード系统增加算力チャージ/コース開通/サービス開通割引扣"
+      "アップグレード系统增加算力": "アップグレード系统增加算力チャージ/コース開通/サービス開通割引扣",
+      "Upgrade system to increase computing power, recharge/course activation/service activation discount": "Upgrade system to increase computing power, recharge/course activation/service activation discount",
+      "升级系统增加算力": "升级系统增加算力充值/课程开通/服务开通折扣"
     },
     "introduce_popup_operator": {
       "会社合計部入驻及线": "会社合計部入驻および线下学習实操机会",
-      "公司总部入驻及线": "公司总部入驻および线下学習实操机会"
+      "公司总部入驻及线": "公司总部入驻および线下学習实操机会",
+      "Company headquarters settlement and offline learning opportunities": "Company headquarters settlement and offline learning opportunities"
     },
     "learn_a_i": {
       "AI智能出题機できる50": "AI 智できる出题機できる太强大了，以前必要 3 天才できる完了的试卷，現在 10 分就できる生成，而且题目品質很高。",
@@ -26,7 +29,10 @@
       "AI智能出题功能50": "AI 智できる出题功できる太强大了，以前必要要 3 天才できる完了的试卷，現在 10 分就できる生成，而且题目质量很高。",
       "企业トレーニング系统的智51": "企业トレーニングシステム的智できる问答功できる解決了我们的大痛点，员工遇到問題可できる以随时问 AI，再也不用など待人工返信了。",
       "知识图谱功能让学52": "知识图谱功できる让学習パス更加清晰，学员可できる以看到自己的知识盲点，学習效果显著提升。",
-      "企业培训系统的智51": "企業研修システムのスマートQ&A機能は私たちの大きな課題を解決しました。従業員は問題に遭遇したらいつでもAIに質問でき、もう人工返信を待つ必要はありません。"
+      "企业培训系统的智51": "企業研修システムのスマートQ&A機能は私たちの大きな課題を解決しました。従業員は問題に遭遇したらいつでもAIに質問でき、もう人工返信を待つ必要はありません。",
+      "AI question generation feature is so powerful, what used to take 3 days to complete now takes 10 minutes, and the question quality is high.50": "AI question generation feature is so powerful, what used to take 3 days to complete now takes 10 minutes, and the question quality is high.",
+      "Enterprise training system's smart Q&A feature solved our major pain points, employees can ask AI anytime, no need to wait for human replies.51": "Enterprise training system's smart Q&A feature solved our major pain points, employees can ask AI anytime, no need to wait for human replies.",
+      "Knowledge graph feature makes learning paths clearer, students can see their knowledge gaps, learning effectiveness improved significantly.52": "Knowledge graph feature makes learning paths clearer, students can see their knowledge gaps, learning effectiveness improved significantly."
     }
   }
 }

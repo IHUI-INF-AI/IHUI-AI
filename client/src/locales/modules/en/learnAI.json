@@ -364,7 +364,7 @@
     },
     "stat": {
       "suffixCount": "+",
-      "suffixSet": "",
+      "suffixSet": "套",
       "suffixCompany": "+",
       "suffixTenThousand": "M+",
       "suffixYear": "+ yrs"
@@ -626,6 +626,8 @@
         "tag3": "Deep learning",
         "duration": "15 hours"
       }
-    }
+    },
+    "体验AI能力": "体验 AI 能力",
+    "核心能力": "核心能力"
   }
 }

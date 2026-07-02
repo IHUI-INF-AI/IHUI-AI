@@ -292,6 +292,13 @@
     "icpRecord": "ICP備案記錄",
     "modelRecord": "模型記錄",
     "usageRules": "使用規則",
-    "supportTickets": "客服工單"
+    "supportTickets": "客服工單",
+    "adminApiApps": "API應用管理",
+    "adminApiGroups": "API分組管理",
+    "adminApiPackages": "API套餐管理",
+    "adminApiBilling": "API計費記錄",
+    "adminApiUsage": "API使用統計",
+    "adminApiDebug": "API調試器",
+    "schedule": "日程管理"
   }
 }

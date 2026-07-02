@@ -25,6 +25,7 @@
       "generateWechatQrCodeFailed": "생성위챗 QR 코드수익실패",
       "generateProviderQrCodeFailed": "생성{provider}이차원코드실패",
       "checkProviderLoginStatusFailed": "확인{provider}로그인상태실패"
-    }
+    },
+    "RefreshQrCode": "Refresh Qr Code"
   }
 }

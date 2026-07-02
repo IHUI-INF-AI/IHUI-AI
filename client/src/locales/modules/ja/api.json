@@ -3,7 +3,9 @@
     "agent_category": {
       "見つかりませんカテゴリ設定": "見つかりませんカテゴリ設定",
       "未找到カテゴリ設定": "未找到カテゴリ設定",
-      "未找到分类配置": "カテゴリ設定が見つかりません"
+      "未找到分类配置": "カテゴリ設定が見つかりません",
+      "Classification Config Not Found": "Classification Config Not Found",
+      "Category Configuration Not Found": "Category Configuration Not Found"
     },
     "agents": {
       "操作成功": "操作成功",
@@ -73,23 +75,60 @@
       "获取热门智能体失败": "人気エージェントの取得に失敗",
       "同步失败": "同期失敗",
       "互动操作失败": "インタラクション操作失敗",
-      "规则搜索失败": "ルール検索失敗"
+      "规则搜索失败": "ルール検索失敗",
+      "Action Successful": "Action Successful",
+      "Call Successful1": "Call Successful",
+      "Call Successful2": "Call Successful",
+      "Get Successful3": "Get Successful",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Get Successful6": "Get Successful",
+      "Get Successful7": "Get Successful",
+      "Agent Not Found8": "Agent Not Found",
+      "Get Successful9": "Get Successful",
+      "Get Successful10": "Get Successful",
+      "Favorite Successful11": "Favorite Successful",
+      "CancelFavorite Successful12": "CancelFavorite Successful",
+      "Get Successful13": "Get Successful",
+      "Get Successful14": "Get Successful",
+      "Sync Successful15": "Sync Successful",
+      "Sync Successful16": "Sync Successful",
+      "Sync Successful17": "Sync Successful",
+      "Sync Successful18": "Sync Successful",
+      "Sync Successful19": "Sync Successful",
+      "Action Successful20": "Action Successful",
+      "Action Successful21": "Action Successful",
+      "Action Successful22": "Action Successful",
+      "Action Successful23": "Action Successful",
+      "Action Successful24": "Action Successful",
+      "Action Successful25": "Action Successful",
+      "Action Successful26": "Action Successful",
+      "Get Successful27": "Get Successful",
+      "Get Successful28": "Get Successful",
+      "搜索失败29": "搜索失败",
+      "调用失败30": "调用失败",
+      "获取列表失败31": "获取列表失败"
     },
     "ai_career": {
       "送信成功我们将尽": "送信成功，我们将尽速い为您提供指导提案",
-      "提交成功我们将尽": "送信成功、できるだけ早く指導アドバイスを提供します"
+      "提交成功我们将尽": "送信成功、できるだけ早く指導アドバイスを提供します",
+      "Submit successful, we will provide guidance as soon as possible": "Submit successful, we will provide guidance as soon as possible"
     },
     "ai_community": {
       "公開成功": "公開成功",
       "コメント成功1": "コメント成功",
       "リリース成功": "リリース成功",
       "发布成功": "公開成功",
-      "评论成功1": "コメント成功"
+      "评论成功1": "コメント成功",
+      "Publish Successful": "Publish Successful",
+      "Comment Successful1": "Comment Successful",
+      "Release Successful": "Release Successful"
     },
     "ai_proxy": {
       "不明なエラー": "不明なエラー",
       "不明エラー": "不明エラー",
-      "未知错误": "不明なエラー"
+      "未知错误": "不明なエラー",
+      "Unknown Error": "Unknown Error"
     },
     "ai_chat": {
       "送信成功1": "送信成功",
@@ -101,12 +140,21 @@
       "重命名成功5": "名前変更成功",
       "发送成功1": "送信成功",
       "获取成功3": "获取成功",
-      "获取成功4": "获取成功"
+      "获取成功4": "获取成功",
+      "Send Successful1": "Send Successful",
+      "Create Successful2": "Create Successful",
+      "Get Successful3": "Get Successful",
+      "Get Successful4": "Get Successful",
+      "Rename Successful5": "Rename Successful",
+      "Delete Successful6": "Delete Successful",
+      "创建成功2": "创建成功",
+      "删除成功6": "删除成功"
     },
     "ai_model_info": {
       "取得モデルリスト失敗": "取得モデルリスト失敗",
       "获取モデルリスト失敗": "获取モデルリスト失敗",
-      "获取模型列表失败": "モデルリストの取得に失敗しました"
+      "获取模型列表失败": "モデルリストの取得に失敗しました",
+      "Get Model List Failed": "Get Model List Failed"
     },
     "apis": {
       "取得成功": "取得成功",
@@ -138,7 +186,24 @@
       "删除成功4": "削除成功",
       "导出成功8": "エクスポート成功",
       "更新成功3": "更新成功",
-      "测试成功5": "テスト成功"
+      "测试成功5": "テスト成功",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Test Successful5": "Test Successful",
+      "Get Successful6": "Get Successful",
+      "Generate Successful7": "Generate Successful",
+      "Export Successful8": "Export Successful",
+      "Get Successful9": "Get Successful",
+      "Create Successful10": "Create Successful",
+      "Switch Successful11": "Switch Successful",
+      "Get Successful12": "Get Successful",
+      "Saved Successfully13": "Saved Successfully",
+      "Delete Successful14": "Delete Successful",
+      "Get Successful15": "Get Successful",
+      "Save Successful13": "Save Successful"
     },
     "batch_operations": {
       "一括作成成功": "一括作成成功",
@@ -149,16 +214,24 @@
       "批量更新しいしい成功2": "批量更新しいしい成功",
       "批量创建成功": "一括作成成功",
       "批量删除成功1": "一括削除成功",
-      "批量更新成功2": "一括更新成功"
+      "批量更新成功2": "一括更新成功",
+      "BatchCreate Successful": "BatchCreate Successful",
+      "BatchDelete Successful1": "BatchDelete Successful",
+      "Batch Update Successful2": "Batch Update Successful",
+      "Batch Create Successful": "Batch Create Successful",
+      "Batch Delete Successful1": "Batch Delete Successful"
     },
     "business_card": {
       "ログイン済み过期请再": "ログイン済み過ぎ期，请再ログイン",
       "ログイン已过期请重新": "ログイン期限切れ，ご重新しいログイン",
-      "登录已过期请重新": "ログインの有効期限が切れました。再度ログインしてください"
+      "登录已过期请重新": "ログインの有効期限が切れました。再度ログインしてください",
+      "Login expired, please re-login": "Login expired, please re-login"
     },
     "chat": {
       "流式送信メッセージ失敗": "流式送信メッセージ失敗",
-      "流式发送メッセージ失敗": "流式发送メッセージ失敗"
+      "流式发送メッセージ失敗": "流式发送メッセージ失敗",
+      "Stream Send Message Failed": "Stream Send Message Failed",
+      "流式发送消息失败": "流式发送消息失败"
     },
     "client": {
       "ネットワークエラー请チェック网": "ネットワークエラー，请チェックネットワーク接続",
@@ -168,7 +241,11 @@
       "网络接続失敗": "网络接続失敗",
       "リクエスト超时1": "リクエスト超时",
       "网络连接失败": "ネットワーク接続失敗",
-      "请求超时1": "リクエストタイムアウト"
+      "请求超时1": "リクエストタイムアウト",
+      "Network error, please check network connection": "Network error, please check network connection",
+      "Network Connection Failed": "Network Connection Failed",
+      "Request Timeout1": "Request Timeout",
+      "网络错误请检查网": "网络错误，请检查网络连接"
     },
     "community": {
       "デモデータ": "デモデータ",
@@ -204,7 +281,24 @@
       "演示数据": "デモデータ",
       "演示数据11": "デモデータ",
       "点赞成功5": "いいね成功",
-      "评论成功10": "コメント成功"
+      "评论成功10": "コメント成功",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "Publish Successful2": "Publish Successful",
+      "Batch Publish Successful3": "Batch Publish Successful",
+      "Get Successful4": "Get Successful",
+      "Like Successful5": "Like Successful",
+      "CancelLike Successful6": "CancelLike Successful",
+      "Favorite Successful7": "Favorite Successful",
+      "CancelFavorite Successful8": "CancelFavorite Successful",
+      "Get Successful9": "Get Successful",
+      "Comment Successful10": "Comment Successful",
+      "Demo Data11": "Demo Data",
+      "Get Successful12": "Get Successful",
+      "Get Successful13": "Get Successful",
+      "Get Successful14": "Get Successful",
+      "Release Successful2": "Release Successful",
+      "Batch Release Successful3": "Batch Release Successful"
     },
     "content_generation": {
       "生成成功": "生成成功",
@@ -213,7 +307,13 @@
       "生成成功3": "生成成功",
       "取得成功4": "取得成功",
       "批量生成成功1": "批量生成成功",
-      "获取成功4": "获取成功"
+      "获取成功4": "获取成功",
+      "Generate Successful": "Generate Successful",
+      "BatchGenerate Successful1": "BatchGenerate Successful",
+      "Generate Successful2": "Generate Successful",
+      "Generate Successful3": "Generate Successful",
+      "Get Successful4": "Get Successful",
+      "Batch Generate Successful1": "Batch Generate Successful"
     },
     "courses": {
       "デモデータ": "デモデータ",
@@ -242,15 +342,30 @@
       "导出成功11": "エクスポート成功",
       "更新成功10": "更新成功",
       "演示数据": "デモデータ",
-      "演示数据3": "デモデータ"
+      "演示数据3": "デモデータ",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "Get Successful2": "Get Successful",
+      "Demo Data3": "Demo Data",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Registration Successful6": "Registration Successful",
+      "Get Successful7": "Get Successful",
+      "Complete Successful8": "Complete Successful",
+      "Get Successful9": "Get Successful",
+      "Update Successful10": "Update Successful",
+      "Export Successful11": "Export Successful",
+      "Delete Successful12": "Delete Successful"
     },
     "developer": {
       "作成成功": "作成成功",
-      "创建成功": "作成成功"
+      "创建成功": "作成成功",
+      "Create Successful": "Create Successful"
     },
     "fastapi": {
       "タスク作成成功": "タスク作成成功",
-      "任务创建成功": "タスク作成成功"
+      "任务创建成功": "タスク作成成功",
+      "Task Create Successful": "Task Create Successful"
     },
     "file_upload": {
       "アップロード成功": "アップロード成功",
@@ -258,7 +373,19 @@
       "アップロード成功2": "アップロード成功",
       "アップロード成功など待审核3": "アップロード成功，など待审核",
       "アップロード成功4": "アップロード成功",
-      "アップロード成功5": "アップロード成功"
+      "アップロード成功5": "アップロード成功",
+      "Upload Successful": "Upload Successful",
+      "Upload Successful1": "Upload Successful",
+      "Upload Successful2": "Upload Successful",
+      "Upload SuccessfulEtcPending3": "Upload Successful，EtcPending",
+      "Upload Successful4": "Upload Successful",
+      "Upload Successful5": "Upload Successful",
+      "上传成功": "上传成功",
+      "上传成功1": "上传成功",
+      "上传成功2": "上传成功",
+      "上传成功等待审核3": "上传成功，等待审核",
+      "上传成功4": "上传成功",
+      "上传成功5": "上传成功"
     },
     "gateway": {
       "取得成功": "取得成功",
@@ -280,7 +407,17 @@
       "删除成功7": "削除成功",
       "更新成功2": "更新成功",
       "更新成功6": "更新成功",
-      "测试成功9": "テスト成功"
+      "测试成功9": "テスト成功",
+      "Get Successful": "Get Successful",
+      "Create Successful1": "Create Successful",
+      "Update Successful2": "Update Successful",
+      "Delete Successful3": "Delete Successful",
+      "Get Successful4": "Get Successful",
+      "Create Successful5": "Create Successful",
+      "Update Successful6": "Update Successful",
+      "Delete Successful7": "Delete Successful",
+      "Get Successful8": "Get Successful",
+      "Test Successful9": "Test Successful"
     },
     "knowledge": {
       "リクエスト失敗": "リクエスト失敗",
@@ -290,7 +427,14 @@
       "教育平台资源模块1": "教育プラットフォームリソースモジュールはドキュメントの追加を一時的にサポートしていません",
       "教育平台资源模块2": "教育プラットフォームリソースモジュールはドキュメントリストを一時的にサポートしていません",
       "教育平台资源模块3": "教育プラットフォームリソースモジュールはドキュメントの削除を一時的にサポートしていません",
-      "请求失败": "リクエスト失敗"
+      "请求失败": "リクエスト失敗",
+      "Request Failed": "Request Failed",
+      "Education Platform Resource Module does not support this operation1": "Education Platform Resource Module does not support adding documents",
+      "Education Platform Resource Module does not support this operation2": "Education Platform Resource Module does not support document list",
+      "Education Platform Resource Module does not support this operation3": "Education Platform Resource Module does not support deleting documents",
+      "Education Platform Resource Module does not support adding documents": "Education Platform Resource Module does not support adding documentsation",
+      "Education Platform Resource Module does not support document list": "Education Platform Resource Module does not support document list",
+      "Education Platform Resource Module does not support deleting documents": "Education Platform Resource Module does not support deleting documentsation"
     },
     "mcp": {
       "デモデータ": "デモデータ",
@@ -318,7 +462,19 @@
       "更新成功4": "更新成功",
       "未知错误7": "不明なエラー",
       "测试成功6": "テスト成功",
-      "演示数据": "デモデータ"
+      "演示数据": "デモデータ",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "Get Successful2": "Get Successful",
+      "Create Successful3": "Create Successful",
+      "Update Successful4": "Update Successful",
+      "Delete Successful5": "Delete Successful",
+      "Test Successful6": "Test Successful",
+      "Unknown Error7": "Unknown Error",
+      "Get Successful8": "Get Successful",
+      "Call Successful9": "Call Successful",
+      "Get Successful10": "Get Successful",
+      "Call Successful11": "Call Successful"
     },
     "models": {
       "デモデータ": "デモデータ",
@@ -375,7 +531,28 @@
       "演示数据": "デモデータ",
       "获取列表失败": "大モデルリストの取得に失敗しました",
       "获取详情失败": "大モデル詳細の取得に失敗しました",
-      "调用模型失败": "モデル呼び出し失敗"
+      "调用模型失败": "モデル呼び出し失敗",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "No Available Model2": "No Available Model",
+      "Get Successful3": "Get Successful",
+      "Create Successful4": "Create Successful",
+      "Update Successful5": "Update Successful",
+      "Delete Successful6": "Delete Successful",
+      "Model Switch Successful7": "Model Switch Successful",
+      "Test Successful8": "Test Successful",
+      "Unknown Error9": "Unknown Error",
+      "Call Successful10": "Call Successful",
+      "Call Model Failed11": "Call Model Failed",
+      "Get Successful12": "Get Successful",
+      "Get Successful13": "Get Successful",
+      "Get Successful14": "Get Successful",
+      "No Available Model15": "No Available Model",
+      "No Available Model16": "No Available Model",
+      "No Available Model17": "No Available Model",
+      "Get Successful18": "Get Successful",
+      "No Available Model19": "No Available Model",
+      "调用模型失败11": "调用模型失败"
     },
     "notification": {
       "通知送信成功模拟": "通知送信成功（模拟）",
@@ -405,7 +582,18 @@
       "通知显示成功2": "通知表示成功",
       "通知显示成功4": "通知表示成功",
       "通知显示成功6": "通知表示成功",
-      "通知显示成功8": "通知表示成功"
+      "通知显示成功8": "通知表示成功",
+      "Notification Send Successful (Simulated)": "Notification Send Successful (Simulated)",
+      "Browser Environment Not Available": "Browser Environment Not Available",
+      "Notification Show Successful1": "Notification Show Successful",
+      "Notification Show Successful2": "Notification Show Successful",
+      "Alipay SDK Not Initialized": "Alipay SDK Not Initialized",
+      "Notification Show Successful4": "Notification Show Successful",
+      "Notification Show Failed5": "Notification Show Failed",
+      "Notification Show Successful6": "Notification Show Successful",
+      "Notification Show Failed7": "Notification Show Failed",
+      "Notification Show Successful8": "Notification Show Successful",
+      "Browser Environment Unavailable": "Browser Environment Unavailable"
     },
     "platforms": {
       "取得成功": "取得成功",
@@ -426,7 +614,16 @@
       "同步成功8": "同期成功",
       "更新成功3": "更新成功",
       "未知错误6": "不明なエラー",
-      "测试成功5": "テスト成功"
+      "测试成功5": "テスト成功",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Test Successful5": "Test Successful",
+      "Unknown Error6": "Unknown Error",
+      "Get Successful7": "Get Successful",
+      "Sync Successful8": "Sync Successful"
     },
     "plugins": {
       "取得成功": "取得成功",
@@ -443,7 +640,15 @@
       "删除成功4": "削除成功",
       "发布成功5": "公開成功",
       "更新成功3": "更新成功",
-      "测试成功6": "テスト成功"
+      "测试成功6": "テスト成功",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Publish Successful5": "Publish Successful",
+      "Test Successful6": "Test Successful",
+      "Release Successful5": "Release Successful"
     },
     "pricing": {
       "取得成功": "取得成功",
@@ -461,7 +666,15 @@
       "更新成功1": "更新成功",
       "更新成功4": "更新成功",
       "未知错误6": "不明なエラー",
-      "测试成功5": "テスト成功"
+      "测试成功5": "テスト成功",
+      "Get Successful": "Get Successful",
+      "Update Successful1": "Update Successful",
+      "Calculation Successful2": "Calculation Successful",
+      "Get Successful3": "Get Successful",
+      "Update Successful4": "Update Successful",
+      "Test Successful5": "Test Successful",
+      "Unknown Error6": "Unknown Error",
+      "Get Successful7": "Get Successful"
     },
     "sdks": {
       "取得成功": "取得成功",
@@ -474,13 +687,21 @@
       "获取成功1": "获取成功",
       "创建成功2": "作成成功",
       "删除成功4": "削除成功",
-      "更新成功3": "更新成功"
+      "更新成功3": "更新成功",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Generate Successful5": "Generate Successful"
     },
     "service_appointment": {
       "预约送信成功模拟": "预约送信成功（模拟）",
       "取得成功模拟1": "取得成功（模拟）",
       "获取成功模拟1": "获取成功（模拟）",
-      "预约提交成功模拟": "予約送信成功（シミュレーション）"
+      "预约提交成功模拟": "予約送信成功（シミュレーション）",
+      "Appointment Submit Successful (Simulated)": "Appointment Submit Successful (Simulated)",
+      "Get Successful (Simulated)": "Get Successful (Simulated)"
     },
     "share": {
       "記録失敗但不影响": "記録失敗、但不影响共あり",
@@ -488,7 +709,10 @@
       "记录失敗但不影响": "記録失敗、但不影响共あり",
       "获取统计失敗戻る1": "获取統計失敗，戻るデフォルト値",
       "获取统计失败返回1": "統計の取得に失敗しました。デフォルト値を返します",
-      "记录失败但不影响": "記録に失敗しましたが、共有には影響しません"
+      "记录失败但不影响": "記録に失敗しましたが、共有には影響しません",
+      "Record Failed, but does not affect sharing": "Record Failed, but does not affect sharing",
+      "GetStatisticsFailedBack1": "Get Statistics Failed, returning default value",
+      "Get Statistics Failed, returning default value": "Get Statistics Failed, returning default value"
     },
     "statistics": {
       "取得パフォーマンス指標成功": "取得パフォーマンス指標成功",
@@ -512,7 +736,15 @@
       "获取使用统计失败": "使用統計の取得に失敗しました",
       "获取智能体统计失败": "エージェント統計の取得に失敗しました",
       "获取行为统计失败": "行動統計の取得に失敗しました",
-      "获取订单统计失败": "注文統計の取得に失敗しました"
+      "获取订单统计失败": "注文統計の取得に失敗しました",
+      "Get Capability Indicator Successful": "Get Capability Indicator Successful",
+      "Get Error Log Successful1": "Get Error Log Successful",
+      "MarkErrorforResolved2": "Mark Error as Resolved Successful",
+      "Get Real-time Statistics Successful3": "Get Real-time Statistics Successful",
+      "Get System Statistics Successful4": "Get System Statistics Successful",
+      "Get User Statistics Successful5": "Get User Statistics Successful",
+      "Get Performance Indicator Successful": "Get Performance Indicator Successful",
+      "Mark Error as Resolved Successful": "Mark Error as Resolved Successful"
     },
     "tools": {
       "取得成功": "取得成功",
@@ -535,7 +767,18 @@
       "使用记录成功2": "使用記録成功",
       "取消收藏成功9": "お気に入り解除成功",
       "批量使用记录成功3": "一括使用記録成功",
-      "收藏成功8": "お気に入り追加成功"
+      "收藏成功8": "お気に入り追加成功",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Use Record Successful2": "Use Record Successful",
+      "BatchUse Record Successful3": "BatchUse Record Successful",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Get Successful6": "Get Successful",
+      "Get Successful7": "Get Successful",
+      "Favorite Successful8": "Favorite Successful",
+      "CancelFavorite Successful9": "CancelFavorite Successful",
+      "Batch Use Record Successful": "Batch Use Record Successful"
     },
     "unified_ai": {
       "呼び出し成功": "呼び出し成功",
@@ -551,7 +794,14 @@
       "获取成功5": "获取成功",
       "获取成功6": "获取成功",
       "执行成功2": "実行成功",
-      "执行成功3": "実行成功"
+      "执行成功3": "実行成功",
+      "Call Successful": "Call Successful",
+      "Call Successful1": "Call Successful",
+      "Execution Successful2": "Execution Successful",
+      "Execution Successful3": "Execution Successful",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Get Successful6": "Get Successful"
     },
     "unified_auth": {
       "ログインインターフェース不存在请": "ログインインターフェース不存在，请チェックバックエンドサービス設定。エラー情報：",
@@ -559,19 +809,25 @@
       "ログイン接口不存在请": "ログインインターフェース不存在，ご检查後端サービス設定。エラー情報：",
       "登録接口不存在请1": "登録インターフェース不存在，ご检查後端サービス設定。エラー情報：",
       "注册接口不存在请1": "登録インターフェースが存在しません。バックエンドサービス設定を確認してください。エラーメッセージ：",
-      "登录接口不存在请": "ログインインターフェースが存在しません。バックエンドサービス設定を確認してください。エラーメッセージ："
+      "登录接口不存在请": "ログインインターフェースが存在しません。バックエンドサービス設定を確認してください。エラーメッセージ：",
+      "Login interface does not exist, please check backend service config. Error: ": "Login interface does not exist, please check backend service config. Error: ",
+      "Register interface does not exist, please check backend service config. Error: ": "Register interface does not exist, please check backend service config. Error: "
     },
     "unified_wechat": {
       "バックエンドサービス未レスポンス使": "バックエンドサービス未レスポンス，使用模拟データ",
       "loginId不1": "loginId必須",
       "后端サービス未レスポンス使": "後端サービス未レスポンス，使用模拟データ",
-      "后端服务未响应使": "バックエンドサービスが応答しません。シミュレーションデータを使用します"
+      "后端服务未响应使": "バックエンドサービスが応答しません。シミュレーションデータを使用します",
+      "Backend service not responding, using mock data": "Backend service not responding, using mock data",
+      "Login ID Required": "Login ID Required"
     },
     "user": {
       "アップロード成功": "アップロード成功",
       "アップロード成功1": "アップロード成功",
       "上传成功": "アップロード成功",
-      "上传成功1": "アップロード成功"
+      "上传成功1": "アップロード成功",
+      "Upload Successful": "Upload Successful",
+      "Upload Successful1": "Upload Successful"
     },
     "workflows": {
       "取得成功": "取得成功",
@@ -594,7 +850,18 @@
       "发布成功5": "公開成功",
       "取消成功9": "キャンセル成功",
       "执行成功6": "実行成功",
-      "更新成功3": "更新成功"
+      "更新成功3": "更新成功",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Publish Successful5": "Publish Successful",
+      "Execution Successful6": "Execution Successful",
+      "Get Successful7": "Get Successful",
+      "Get Successful8": "Get Successful",
+      "Cancel Successful9": "Cancel Successful",
+      "Release Successful5": "Release Successful"
     },
     "xuqiu": {
       "取得成功": "取得成功",
@@ -630,11 +897,30 @@
       "更新成功4": "更新成功",
       "点赞成功14": "いいね成功",
       "点赞成功5": "いいね成功",
-      "评论成功12": "コメント成功"
+      "评论成功12": "コメント成功",
+      "Get Successful": "Get Successful",
+      "Publish Successful1": "Publish Successful",
+      "Batch Publish Successful2": "Batch Publish Successful",
+      "Get Successful3": "Get Successful",
+      "Update Successful4": "Update Successful",
+      "Like Successful5": "Like Successful",
+      "CancelLike Successful6": "CancelLike Successful",
+      "Favorite Successful7": "Favorite Successful",
+      "CancelFavorite Successful8": "CancelFavorite Successful",
+      "Follow Successful9": "Follow Successful",
+      "CancelFollow Successful10": "CancelFollow Successful",
+      "Get Successful11": "Get Successful",
+      "Comment Successful12": "Comment Successful",
+      "Share Successful13": "Share Successful",
+      "Like Successful14": "Like Successful",
+      "CancelLike Successful15": "CancelLike Successful",
+      "Release Successful1": "Release Successful",
+      "Batch Release Successful2": "Batch Release Successful"
     },
     "index": {
       "技できる実行完了": "技できる実行完了",
-      "技能执行完成": "スキル実行完了"
+      "技能执行完成": "スキル実行完了",
+      "Skill Execution Complete": "Skill Execution Complete"
     },
     "clipboard": {
       "コピー失敗": "コピー失敗",
@@ -670,7 +956,24 @@
       "支付宝剪贴板读取14": "Alipayクリップボード読み取り機能は利用できません",
       "读取失败1": "読み取り失敗",
       "读取失败16": "読み取り失敗",
-      "读取失败7": "読み取り失敗"
+      "读取失败7": "読み取り失敗",
+      "Copy Failed": "Copy Failed",
+      "Read Failed1": "Read Failed",
+      "Copy Successful2": "Copy Successful",
+      "Copy Successful3": "Copy Successful",
+      "Copy Failed4": "Copy Failed",
+      "Copy Failed5": "Copy Failed",
+      "Read Successful6": "Read Successful",
+      "Read Failed7": "Read Failed",
+      "Clipboard Read Feature Not Available": "Clipboard Read Feature Not Available",
+      "Alipay SDK Not Initialized": "Alipay SDK Not Initialized",
+      "AlipayClipboardFeature10": "Alipay Clipboard Feature Not Available",
+      "Copy Successful11": "Copy Successful",
+      "Copy Failed12": "Copy Failed",
+      "AlipayClipboardRead14": "AlipayClipboard Read Feature Not Available",
+      "Read Successful15": "Read Successful",
+      "Read Failed16": "Read Failed",
+      "Alipay Clipboard Feature Not Available": "Alipay Clipboard Feature Not Available"
     },
     "form_validation": {
       "ご入力ユーザー名": "ご入力ユーザー名",
@@ -695,7 +998,16 @@
       "请输入用户名": "ユーザー名を入力してください",
       "请输入邮箱3": "メールアドレスを入力してください",
       "请输入金额5": "金額を入力してください",
-      "请输入验证码4": "認証コードを入力してください"
+      "请输入验证码4": "認証コードを入力してください",
+      "Please enter username": "Please enter username",
+      "Please enter password1": "Please enter password",
+      "Please enter phone number2": "Please enter phone number",
+      "Please enter email3": "Please enter email",
+      "Please enter verification code4": "Please enter verification code",
+      "Please enter amount5": "Please enter amount",
+      "Please confirm password6": "Please confirm password",
+      "This field is required7": "This field is required",
+      "Please enter mobile number2": "Please enter mobile number"
     },
     "plugin_validation": {
       "バージョン号形式不正确": "バージョン号形式不正确",
@@ -711,7 +1023,14 @@
       "次版本号更新新增2": "マイナーバージョン更新（新機能追加）",
       "版本号未更改5": "バージョン番号が変更されていません",
       "版本号格式不正确": "バージョン番号の形式が正しくありません",
-      "补丁版本号更新B3": "パッチバージョン更新（バグ修正）"
+      "补丁版本号更新B3": "パッチバージョン更新（バグ修正）",
+      "Version format is incorrect": "Version format is incorrect",
+      "Major version update (breaking changes)1": "Major version update (breaking changes)",
+      "Minor version update (new features)": "Minor version update (new features)",
+      "Patch version update (bug fixes)3": "Patch version update (bug fixes)",
+      "New version cannot be lower than old version4": "New version cannot be lower than old version",
+      "Version not changed5": "Version not changed",
+      "Minor version update (new features)2": "Minor version update (new features)"
     },
     "request": {
       "検証码済み送信": "検証码済み送信",
@@ -723,12 +1042,20 @@
       "登录成功3": "ログイン成功",
       "验证成功2": "認証成功",
       "验证码已发送": "認証コードが送信されました",
-      "验证码已发送至您1": "認証コードが携帯電話に送信されました"
+      "验证码已发送至您1": "認証コードが携帯電話に送信されました",
+      "Verification code alReady sent": "Verification code alReady sent",
+      "Verification code already sent to your mobile": "Verification code already sent to your mobile",
+      "Verification Successful2": "Verification Successful",
+      "Login Successful3": "Login Successful"
     },
     "baidu_speech_provider": {
       "未設定百度音声服": "未設定百度音声サービス",
       "音声認識済み在进行1": "音声認識済み在処理中",
-      "音声認識已在进行1": "音声認識済み在処理中"
+      "音声認識已在进行1": "音声認識済み在処理中",
+      "Baidu Voice Service not configured": "Baidu Voice Service not configured",
+      "Voice recognition already in progress1": "Voice recognition alReady in progress",
+      "未配置百度语音服": "未配置百度语音服务",
+      "语音识别已在进行1": "语音识别已在进行中"
     },
     "web_speech_provider": {
       "未检测到音声请重": "未检测到音声，ご再試行",
@@ -743,11 +1070,28 @@
       "网络エラー音声サービス3": "网络エラー，音声サービス利用不可できる",
       "浏览器不サポート音声5": "浏览器不サポート音声認識功できる",
       "音声認識已在进行6": "音声認識済み在処理中",
-      "未检测到麦克风1": "未检测到麦克风"
+      "未检测到麦克风1": "未检测到麦克风",
+      "No voice detected, please retry": "No Voice detected, please retry",
+      "No microphone detected1": "No microphone detected",
+      "Microphone permission Rejected2": "Microphone permission Rejected",
+      "Network ErrorVoiceService3": "Network error, Voice service unavailable",
+      "Voice recognition alReady stopped4": "Voice recognition alReady stopped",
+      "Browser does not support Voice5": "Browser does not support Voice recognition",
+      "Voice recognition already in progress6": "Voice recognition alReady in progress",
+      "Start Voice recognition Failed7": "Start Voice recognition Failed",
+      "未检测到语音请重": "未检测到语音，请重试",
+      "麦克风权限被拒绝2": "麦克风权限被拒绝",
+      "网络错误语音服务3": "网络错误，语音服务不可用",
+      "语音识别已中止4": "语音识别已中止",
+      "浏览器不支持语音5": "浏览器不支持语音识别功能",
+      "语音识别已在进行6": "语音识别已在进行中",
+      "启动语音识别失败7": "启动语音识别失败"
     },
     "whisper_provider": {
       "音声認識済み在进行": "音声認識済み在処理中",
-      "音声認識已在进行": "音声認識済み在処理中"
+      "音声認識已在进行": "音声認識済み在処理中",
+      "Voice recognition already in progress": "Voice recognition alReady in progress",
+      "语音识别已在进行": "语音识别已在进行中"
     },
     "speech_manager": {
       "チェック失敗": "チェック失敗",
@@ -755,18 +1099,33 @@
       "チェック失敗2": "チェック失敗",
       "检查失敗": "チェック失敗",
       "没有利用可できるできる的音声识1": "没有利用可できるできる的音声認識サービス",
-      "检查失敗2": "チェック失敗"
+      "检查失敗2": "チェック失敗",
+      "Check Failed": "Check Failed",
+      "No available voice recognition service1": "No available Voice recognition service",
+      "Check Failed2": "Check Failed",
+      "检查失败": "检查失败",
+      "没有可用的语音识1": "没有可用的语音识别服务",
+      "检查失败2": "检查失败"
     },
     "speech_recognition": {
       "启动音声認識失敗": "启动音声認識失敗",
-      "启动语音识别失败": "音声認識の起動に失敗しました"
+      "启动语音识别失败": "音声認識の起動に失敗しました",
+      "Start Voice recognition Failed": "Start Voice recognition Failed"
     },
     "token_generator": {
       "API密钥形式正1": "API密钥形式正确",
       "カスタム形式密钥3": "カスタム形式密钥",
       "API密钥形式不4": "API密钥形式不正确，長度至少ない16個字符",
       "API密钥不能为": "API密钥必須",
-      "API密钥Sec2": "API密钥Secret形式正确"
+      "API密钥Sec2": "API密钥Secret形式正确",
+      "API key required": "API key required",
+      "API key format correct1": "API key format correct",
+      "API key secret format correct2": "API key secret format correct",
+      "Custom format key3": "Custom format key",
+      "API key format incorrect, length at least 16 characters4": "API key format incorrect, length at least 16 characters",
+      "API密钥格式正1": "API密钥格式正确",
+      "自定义格式密钥3": "自定义格式密钥",
+      "API密钥格式不4": "API密钥格式不正确，长度至少16个字符"
     },
     "use_agentic_component_generator": {
       "生成コンポーネント失敗": "生成コンポーネント失敗",
@@ -776,7 +1135,15 @@
       "ログイン失敗": "ログイン失敗",
       "登録失敗1": "登録失敗",
       "ログアウト失敗2": "ログアウト失敗",
-      "更新しいしい失敗3": "更新しいしい失敗"
+      "更新しいしい失敗3": "更新しいしい失敗",
+      "Login Failed": "Login Failed",
+      "Register Failed1": "Register Failed",
+      "Logout Failed2": "Logout Failed",
+      "Update Failed3": "Update Failed",
+      "登录失败": "登录失败",
+      "注册失败1": "注册失败",
+      "退出失败2": "退出失败",
+      "更新失败3": "更新失败"
     },
     "use_file_upload": {
       "アップロード失敗": "アップロード失敗",
@@ -784,7 +1151,10 @@
       "アップロード失敗2": "アップロード失敗",
       "上传失败": "アップロード失敗",
       "上传失败1": "アップロード失敗",
-      "上传失败2": "アップロード失敗"
+      "上传失败2": "アップロード失敗",
+      "Upload Failed": "Upload Failed",
+      "Upload Failed1": "Upload Failed",
+      "Upload Failed2": "Upload Failed"
     },
     "use_payment_status": {
       "支払い超时": "支払い超时",
@@ -792,7 +1162,8 @@
     },
     "use_task_web_socket": {
       "接続失敗": "接続失敗",
-      "连接失败": "接続失敗"
+      "连接失败": "接続失敗",
+      "Connection Failed": "Connection Failed"
     },
     "use_user_auth": {
       "ネットワークエラー": "ネットワークエラー",
@@ -800,7 +1171,9 @@
       "网络エラー": "网络エラー",
       "网络エラー1": "网络エラー",
       "网络错误": "ネットワークエラー",
-      "网络错误1": "ネットワークエラー"
+      "网络错误1": "ネットワークエラー",
+      "Network Error": "Network Error",
+      "Network Error1": "Network Error"
     },
     "model_validation": {
       "モデル未有効请先启": "モデル未有効，先に有効化してくださいモデル",
@@ -818,7 +1191,15 @@
       "模型ID未配置4": "モデルIDが設定されていません",
       "模型未启用请先启": "モデルが有効になっていません。まずモデルを有効にしてください",
       "模型类型未配置1": "モデルタイプが設定されていません",
-      "模型配置有效可以5": "モデル設定は有効で、接続できます"
+      "模型配置有效可以5": "モデル設定は有効で、接続できます",
+      "Model not enabled, please enable model first": "Model not enabled, please enable model first",
+      "Model Type Not Configured1": "Model Type Not Configured",
+      "Invalid Model Provider2": "Invalid Model Provider",
+      "Base URL format incorrect3": "Base URL format incorrect",
+      "Model ID Not Configured4": "Model ID Not Configured",
+      "Model config valid, can connect5": "Model config valid, can connect",
+      "Model Type Not Configureduration1": "Model Type Not Configureduration",
+      "Model ID Not Configureduration4": "Model ID Not Configureduration"
     },
     "common": {
       "requestFailed": "Request Failed"
@@ -851,7 +1232,8 @@
       "获取模型信息失败": "モデルAPI情報の取得に失敗しました",
       "获取调用日志失败": "API呼び出しログの取得に失敗しました",
       "重新生成令牌失败": "APIトークンの再生成に失敗しました",
-      "重新生成成功5": "再生成成功"
+      "重新生成成功5": "再生成成功",
+      "获取服务配置失败": "获取API服务配置失败"
     },
     "chat_history_service": {
       "创建成功": "作成しました",
@@ -885,6 +1267,15 @@
     },
     "use_speech_config": {
       "初始化失败": "初期化に失敗しました"
+    },
+    "use_agentic_${componentName} - Website Namet_generator": {
+      "Generate Component Failed": "Generate Component Failed"
+    },
+    "use_payment_Status": {
+      "Payment Timeout": "Payment Timeout"
+    },
+    "error_handler": {
+      "发生未知错误": "发生未知错误"
     }
   }
 }

@@ -67,6 +67,16 @@
     "cancelFailed": "취소실패",
     "applySubtitle": "애플사용Subtitle",
     "title": "제목",
-    "subtitle": "Subtitle"
+    "subtitle": "Subtitle",
+    "ApprovedAt": "Approved At",
+    "RejectReason": "Reject Reason",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "Failed": "Failed"
+    }
   }
 }

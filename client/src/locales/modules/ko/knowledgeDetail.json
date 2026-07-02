@@ -23,6 +23,8 @@
     "pleaseEnterDocumentContent": "요청입력문서콘텐츠",
     "documentContentMinLength": "문서콘텐츠까지핵심10개글게일치",
     "metadataFormatError": "튜플데이마음형식오류，요청입력유효의JSON",
-    "title": "지식라이브러리상세"
+    "title": "지식라이브러리상세",
+    "Add Success": "Added successfully",
+    "Add Failed": "Add Failed"
   }
 }

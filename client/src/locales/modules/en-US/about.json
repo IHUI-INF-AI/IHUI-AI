@@ -18,7 +18,7 @@
     "Our mission is to lower the barrier to AI adoption, enabling everyone and every Enterprise to easily access AI capabilities. We believe AI technology should serve all of humanity.": "Our mission is to lower the barrier to AI adoption so that every person and every business can easily access AI capabilities. We believe AI should serve all of humanity.",
     "features": {
       "tag": "Features",
-      "aiDialogDesc": "Intelligent dialogue system based on large language models, supporting multi-turn conversations and context understanding",
+      "aiDialogDesc": "Intelligent dialog system based on large language models, supporting multi-turn conversations and context understanding",
       "fastResponseDesc": "Millisecond response speed, global CDN acceleration, ensuring the best user experience",
       "communityDesc": "Bringing together AI experts and enthusiasts to explore the frontier of artificial intelligence",
       "globalDesc": "Services covering 50+ countries and regions, supporting multilingual localization"

@@ -30,7 +30,11 @@
       "tip": "ヒント",
       "actionSuccess": "${action}成功",
       "editSuccess": "編統合功",
-      "addSuccess": "追加成功"
+      "addSuccess": "追加成功",
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "Disabled": "Disabled",
+      "Add Success": "Add successfully"
     },
     "listPage": {
       "refresh": "更新",
@@ -180,6 +184,10 @@
     },
     "webhook": {
       "desc": "Webhookリスト管理ページ"
+    },
+    "crontabField": {
+      "generate": "生成",
+      "dialogTitle": "Cron 表达式生成器"
     }
   }
 }

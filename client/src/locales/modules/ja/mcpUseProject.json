@@ -49,7 +49,8 @@
     "activeServers": "アクティブサービス器",
     "codeCopied": "コード済みコピー到クリップボード",
     "listDirFiles": "現在のディレクトリのすべてのファイル",
-    "listDirFiles2": "列出当前目录的所有文件"
+    "listDirFiles2": "列出当前目录的所有文件",
+    "Status": "Status"
   },
   "MCPUseProject": {
     "listDirFiles": "現在のディレクトリのすべてのファイル",

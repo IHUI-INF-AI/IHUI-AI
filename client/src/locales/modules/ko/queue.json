@@ -16,6 +16,8 @@
     "clearTitle": "큐 지우기",
     "clearConfirm": "모든 대기 중인 작업을 지우시겠습니까?",
     "cleared": "큐를 지웠습니다",
-    "title": "큐 생성"
+    "title": "큐 생성",
+    "Failed": "Failed",
+    "FailedLabel": "Failed"
   }
 }

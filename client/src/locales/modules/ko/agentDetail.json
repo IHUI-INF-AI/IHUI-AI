@@ -76,6 +76,12 @@
     "purchaseFailed": "purchase실패",
     "linkCopied": "링크Copied",
     "copyFailed": "copy실패",
-    "invalidPaymentForm": "Invalid Payment Form"
+    "invalidPaymentForm": "Invalid Payment Form",
+    "RefreshDetails": "Refresh Details",
+    "thumbsUpCancel Successful": "Cancel thumbs up successful",
+    "RefreshFailed": "Refresh Failed",
+    "StatusActive": "Active",
+    "StatusInactive": "Inactive",
+    "StatusDeprecated": "Deprecated"
   }
 }

@@ -19,7 +19,8 @@
       "status": "ステータス",
       "orderTime": "下单時間",
       "actions": "操作",
-      "copyOrderId": "コピー注文号"
+      "copyOrderId": "コピー注文号",
+      "Status": "Status"
     },
     "status": {
       "settled": "済み決済",
@@ -46,6 +47,12 @@
     "copy": "コピー",
     "noCommission": "なし佣金記録",
     "withdrawSuccess": "出金成功",
-    "withdrawDetailInfo": "テーブル示出金明細"
+    "withdrawDetailInfo": "テーブル示出金明細",
+    "Status": {
+      "settled": "Settled",
+      "pending": "Pending Settlement",
+      "cancelled": "Cancelled Settlement",
+      "unknown": "Unknown"
+    }
   }
 }

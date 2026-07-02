@@ -4,6 +4,8 @@
     "thirdPartyLoginFailed": "thirdPartyLogin失敗",
     "refreshTokenFailed": "refreshToken失敗",
     "getUserInfoFailed": "getUserInfo失敗",
-    "logoutApiFailed": "logoutApi失敗"
+    "logoutApiFailed": "logoutApi失敗",
+    "thirdPartyLogin Failed": "Third Party Login Failed",
+    "RefreshTokenFailed": "Refresh Token Failed"
   }
 }

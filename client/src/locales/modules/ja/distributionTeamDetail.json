@@ -18,6 +18,11 @@
     "statusCancelled": "済みキャンセル",
     "statusUnknown": "不明",
     "memberNotFound": "見つかりません该メンバー情報",
-    "loadMemberInfoFailed": "読み込みメンバー情報失敗"
+    "loadMemberInfoFailed": "読み込みメンバー情報失敗",
+    "Status": "Status",
+    "StatusPending": "Pending",
+    "StatusPaid": "Paid",
+    "StatusCancelled": "Cancelled",
+    "StatusUnknown": "Unknown"
   }
 }

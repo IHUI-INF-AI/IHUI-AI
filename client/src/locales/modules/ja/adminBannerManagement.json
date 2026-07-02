@@ -3,13 +3,18 @@
     "tabs": {},
     "actions": {},
     "bannerList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "search": {
       "statusPlaceholder": "请選択ステータス",
       "statusAll": "全て",
       "statusEnabled": "あり効",
-      "statusDisabled": "無効"
+      "statusDisabled": "無効",
+      "StatusPlaceholder": "Please select Status",
+      "StatusAll": "All",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "dialogs": {},
     "messages": {},
@@ -18,9 +23,13 @@
       "statusEnabled": "あり効",
       "statusDisabled": "無効",
       "validation": {
-        "statusRequired": "请選択ステータス"
+        "statusRequired": "请選択ステータス",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "activityForm": {
       "status": "ステータス",
@@ -28,12 +37,18 @@
       "statusEnabled": "あり効",
       "statusDisabled": "無効",
       "validation": {
-        "statusRequired": "请選択ステータス"
+        "statusRequired": "请選択ステータス",
+        "StatusRequired": "Please select Status"
       },
       "upload": {
-        "failed": "アップロード失敗"
+        "failed": "アップロード失敗",
+        "Failed": "Upload Failed"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     }
   }
 }

@@ -14,6 +14,7 @@
     "componentError": "컴포넌트오류",
     "goHome": "백엔드로홈",
     "title": "제목",
-    "currentPath": "현재 경로"
+    "currentPath": "현재 경로",
+    "${componentName} - Website NametError": "Component Error"
   }
 }

@@ -2,6 +2,9 @@
   "aiChatComponents": {
     "Memory": "Memory",
     "Voice": "Voice",
-    "VoiceChat": "Voice Chat"
+    "VoiceChat": "Voice Chat",
+    "memory": "记忆",
+    "voice": "语音",
+    "voiceChat": "语音对话"
   }
 }

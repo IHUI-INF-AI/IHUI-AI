@@ -59,8 +59,8 @@
       "print": "Print",
       "commentFeature": "CommentFeatureDevelopmentMedium"
     },
-    "StatusCancelled": "Status Cancelled",
-    "statusCancelled": "Cancelled",
+    "StatusCancelled": "Status Canceled",
+    "statusCancelled": "Canceled",
     "statusCompleted": "Completed",
     "statusInProgress": "In Progress",
     "statusPending": "Pending",

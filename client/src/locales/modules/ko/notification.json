@@ -12,6 +12,10 @@
     "markReadFailed": "읽음 표시 실패",
     "operationFailed": "작업 실패",
     "loadAbnormal": "로드 이상",
-    "title": "알림"
+    "title": "알림",
+    "viewUser Center": "View User Center",
+    "markAllRead Successful": "All marked as read",
+    "markAllRead Failed": "Failed to mark all as read",
+    "markRead Failed": "Failed to mark as read"
   }
 }

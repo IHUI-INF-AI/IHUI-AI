@@ -9,7 +9,7 @@
       "pending": "Pending",
       "processing": "Processing",
       "completed": "Completed",
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "shipping": "Shipping",
       "refunded": "Refunded"
     },
@@ -27,7 +27,7 @@
       "pending": "Pending Payment",
       "processing": "Processing",
       "completed": "Completed",
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "refunded": "Refunded",
       "paid": "Paid"
     },
@@ -100,7 +100,7 @@
       }
     },
     "messages": {
-      "cancelled": "Order cancelled successfully",
+      "cancelled": "Order canceled successfully",
       "cancelFailed": "Failed to cancel order",
       "received": "Order confirmed successfully",
       "receiveFailed": "Failed to confirm order",
@@ -125,7 +125,7 @@
       "pending": "Pending Payment",
       "shipping": "Shipping",
       "completed": "Completed",
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "refunded": "Refunded",
       "unknown": "Unknown",
       "paid": "Paid",

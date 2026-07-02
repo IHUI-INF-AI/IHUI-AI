@@ -37,6 +37,23 @@
     "exportFailed": "エクスポートに失敗",
     "loadModelsFailed": "読み込みモデルリスト失敗",
     "loadSessionsFailed": "読み込み会话リスト失敗",
-    "loadMessagesFailed": "読み込みメッセージリスト失敗"
+    "loadMessagesFailed": "読み込みメッセージリスト失敗",
+    "Export": {
+      "ai": "ai",
+      "createdAt": "createdAt",
+      "message": "message",
+      "model": "model",
+      "tokensHeader": "tokensHeader",
+      "unknown": "unknown",
+      "user": "user",
+      "title": "Export"
+    },
+    "ExportSuccess": "Exported successfully",
+    "ExportFailed": "Export Failed",
+    "demoBadge": "演示",
+    "demo1Title": "演示 1",
+    "demo2Title": "演示 2",
+    "demo3Title": "演示 3",
+    "demoClickHint": "点击查看演示"
   }
 }

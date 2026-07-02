@@ -17,7 +17,7 @@
       "paid": "Paid",
       "shipped": "Shipped",
       "completed": "Completed",
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "refunded": "Refunded",
       "ended": "Ended",
       "unknown": "Unknown"

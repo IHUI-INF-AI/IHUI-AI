@@ -174,7 +174,8 @@
     "footer": {
       "enterprise": "企業サービス",
       "agentScenario": "エージェントシーン",
-      "contact": "お問い合わせ"
+      "contact": "お問い合わせ",
+      "Enterprise": "Enterprise Service"
     }
   }
 }

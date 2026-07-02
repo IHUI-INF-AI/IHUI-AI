@@ -52,7 +52,8 @@
     },
     "logger": {
       "componentMounted": "[요구사항] 컴포넌트 마운트 완료, 데이터 로드 시작",
-      "mountError": "[요구사항] 컴포넌트 마운트 실시간 오류"
+      "mountError": "[요구사항] 컴포넌트 마운트 실시간 오류",
+      "${componentName} - Website NametMounted": "[Demand Plaza] Component mounted, starting to load data"
     },
     "tagAIPainting": "태그AIPainting",
     "tagAIWriting": "태그AIWriting",
@@ -63,6 +64,11 @@
     "loadFailed": "불러오기실패",
     "fetchFailed": "획득데이마음실패",
     "viewDetails": "보기상세",
-    "title": "요구광장"
+    "title": "요구광장",
+    "StatusPending": "Pending",
+    "StatusInProgress": "In Progress",
+    "StatusCompleted": "Completed",
+    "tagAI Writing": "Tag A I Writing",
+    "StatusCancelled": "Status Cancelled"
   }
 }

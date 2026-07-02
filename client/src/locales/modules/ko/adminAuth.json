@@ -11,6 +11,15 @@
       "roleCode": "역할 코드",
       "memberCount": "멤버 수",
       "actions": "작업"
+    },
+    "title": "认证管理",
+    "tab": {
+      "info": "认证信息",
+      "accounts": "第三方账号",
+      "tokens": "API Token",
+      "veriCodes": "验证码",
+      "userVip": "VIP用户",
+      "vipLevel": "VIP等级"
     }
   }
 }

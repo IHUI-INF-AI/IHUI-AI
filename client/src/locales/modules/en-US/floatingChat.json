@@ -265,7 +265,8 @@
       "idle": "Idle",
       "thinking": "Thinking",
       "acting": "Acting",
-      "reflecting": "Reflecting"
+      "reflecting": "Reflecting",
+      "failed": "失败"
     },
     "agenticMonitor": {
       "RefreshStatusFailed": "Failed to Refresh Status",
@@ -285,7 +286,8 @@
       "websocketConnected": "WebSocket Protocol, for real-time bidirectional communicationt connected successfully",
       "swarmCompleted": "Swarm execution completed",
       "swarmFailed": "Swarm execution Failed",
-      "unknownError": "Unknown error"
+      "unknownError": "Unknown error",
+      "refreshStatusFailed": "刷新状态失败"
     },
     "quickPrompts": {
       "explain": "Explain",
@@ -396,7 +398,8 @@
         "slack": "Slack",
         "wechat": "WeChat",
         "webchat": "Web Chat"
-      }
+      },
+      "status": "状态"
     },
     "openClaw": {
       "panels": {
@@ -412,7 +415,9 @@
         "automation": "Automation Tasks",
         "approvals": "Security Approvals",
         "dashboard": "System Dashboard",
-        "settings": "Settings"
+        "settings": "Settings",
+        "memory": "记忆系统",
+        "voice": "语音助手"
       },
       "Memory": {
         "title": "Memory System",
@@ -470,7 +475,8 @@
         "a2uiCommand": "A2UI Command",
         "undo": "Undo",
         "redo": "Redo",
-        "clear": "Clear"
+        "clear": "Clear",
+        "export": "导出"
       },
       "integrations": {
         "Add Integration": "Add Integration",
@@ -481,13 +487,15 @@
           "git": "Git",
           "smartHome": "Smart Home",
           "productivity": "Productivity",
-          "social": "Social"
+          "social": "Social",
+          "storage": "存储"
         },
         "title": "Third-party Integrations",
         "connected": "Connected",
         "disconnected": "Disconnected",
         "configure": "Configure",
-        "disconnect": "Disconnect"
+        "disconnect": "Disconnect",
+        "addIntegration": "添加集成"
       },
       "browser": {
         "Refresh": "Refresh",
@@ -500,7 +508,9 @@
         "wait": "Wait",
         "goBack": "Go Back",
         "goForward": "Go Forward",
-        "aiCommand": "AI Command"
+        "aiCommand": "AI Command",
+        "refresh": "刷新",
+        "exportScript": "导出脚本"
       },
       "models": {
         "Current Model": "Current Model",
@@ -513,7 +523,9 @@
         "totalCost": "Total Cost",
         "requests": "Requests",
         "avgLatency": "Avg Latency",
-        "ollamaLocal": "Local Models (Ollama)"
+        "ollamaLocal": "Local Models (Ollama)",
+        "currentModel": "当前模型",
+        "configureProvider": "配置提供商"
       },
       "dashboard": {
         "Memory": "Memory",
@@ -528,7 +540,11 @@
         "uptime": "Uptime",
         "resources": "Resources",
         "pendingApprovals": "Pending Approvals",
-        "runDiagnostics": "Run Diagnostics"
+        "runDiagnostics": "Run Diagnostics",
+        "memory": "内存",
+        "storage": "存储",
+        "recentActivity": "最近活动",
+        "recentErrors": "最近错误"
       },
       "settings": {
         "Export Data": "Export Data",
@@ -543,7 +559,8 @@
         "importData": "Import Data",
         "clearData": "Clear All Data",
         "resetSettings": "Reset to Default",
-        "saveSettings": "Save Settings"
+        "saveSettings": "Save Settings",
+        "exportData": "导出数据"
       },
       "title": "AI Toolbox",
       "backToChat": "Back to Chat",
@@ -593,6 +610,46 @@
         "delete": "Delete",
         "test": "Test",
         "copyUrl": "Copy URL"
+      },
+      "memory": {
+        "title": "记忆系统",
+        "dailyNotes": "每日笔记",
+        "longTermMemory": "长期记忆",
+        "search": "搜索",
+        "addNote": "添加笔记",
+        "addMemory": "添加记忆",
+        "exportMarkdown": "导出 Markdown",
+        "clearMemory": "清除记忆",
+        "noteTypes": {
+          "note": "笔记",
+          "activity": "活动",
+          "decision": "决策",
+          "learning": "学习",
+          "task": "任务",
+          "reminder": "提醒"
+        },
+        "memoryTypes": {
+          "fact": "事实",
+          "preference": "偏好",
+          "project": "项目",
+          "person": "人物",
+          "lesson": "经验",
+          "skill": "技能"
+        }
+      },
+      "voice": {
+        "title": "语音助手",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "listening": "正在聆听...",
+        "speaking": "正在说话...",
+        "talkMode": "对话模式",
+        "wakeWord": "唤醒词",
+        "voiceSettings": "语音设置",
+        "rate": "语速",
+        "pitch": "音调",
+        "volume": "音量",
+        "testVoice": "测试语音"
       }
     },
     "messageDeleted": "Message deleted",
@@ -770,6 +827,32 @@
     "generatedVideo": "Generated video",
     "unknownError": "Unknown error",
     "usePrompt": "Use: {prompt}",
-    "aiDialog": "AI Chat"
+    "aiDialog": "AI Chat",
+    "imageProviderQwen": "通义万相",
+    "imageProviderDoubao": "豆包",
+    "imageProviderJimeng": "即梦",
+    "videoProviderQwen": "通义万相",
+    "videoProviderKling": "可灵AI",
+    "videoProviderOneClick": "一键视频",
+    "componentGenerator": {
+      "title": "Agentic 组件生成器",
+      "componentName": "组件名称",
+      "componentDescription": "组件描述",
+      "descriptionPlaceholder": "描述组件的功能和用途...",
+      "features": "功能选项",
+      "useDesignSystem": "使用设计系统",
+      "useSEO": "集成 SEO",
+      "useAnimations": "添加微动画",
+      "generate": "生成组件",
+      "copyCode": "复制代码",
+      "saveComponent": "保存组件",
+      "generateFailed": "生成组件失败",
+      "tabs": {
+        "template": "模板",
+        "script": "脚本",
+        "style": "样式",
+        "documentation": "文档"
+      }
+    }
   }
 }

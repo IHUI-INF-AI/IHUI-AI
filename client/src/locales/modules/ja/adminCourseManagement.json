@@ -2,10 +2,12 @@
   "adminCourseManagement": {
     "tabs": {},
     "actions": {
-      "export": "エクスポート"
+      "export": "エクスポート",
+      "Export": "Export"
     },
     "courseList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "search": {},
     "categoryList": {},
@@ -18,9 +20,13 @@
       "statusEnabled": "あり効",
       "statusDisabled": "無効",
       "validation": {
-        "statusRequired": "请選択ステータス"
+        "statusRequired": "请選択ステータス",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "courseForm": {
       "validation": {},
@@ -33,7 +39,10 @@
     "dialogs": {},
     "messages": {
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "fetchFailed": "Failed to fetch course list",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
     }
   }
 }

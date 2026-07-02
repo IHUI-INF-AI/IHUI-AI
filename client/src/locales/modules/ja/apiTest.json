@@ -22,6 +22,8 @@
     "compTest": "\n--- Composableテスト ---",
     "typeTest": "\n--- 型定義テスト ---",
     "serviceTest": "\n--- サービスエクスポートテスト ---",
-    "testComplete": "テスト完了"
+    "testComplete": "テスト完了",
+    "Failed": "Failed",
+    "Status": "Status"
   }
 }

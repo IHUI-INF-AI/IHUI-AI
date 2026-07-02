@@ -14,6 +14,12 @@
     "iteration": "迭代",
     "seoTitle": "Agentic AI コンソール - AI智汇社",
     "seoDescription": "Agentic AI 智能開発プラットフォーム，与 Agentic Orchestrator 深度統合",
-    "seoKeywords": "Agentic AI, 智できる開発, AI 调度, Swarm"
+    "seoKeywords": "Agentic AI, 智できる開発, AI 调度, Swarm",
+    "Status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "Failed": "Failed"
+    }
   }
 }

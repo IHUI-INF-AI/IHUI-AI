@@ -39,6 +39,7 @@
     "refreshing": "새로고침중간",
     "templateExecuted": "템플릿Executed",
     "templateExecuteFailed": "templateExecute실패",
-    "title": "제목"
+    "title": "제목",
+    "Refreshing": "Refreshing"
   }
 }

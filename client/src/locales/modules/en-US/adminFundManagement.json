@@ -1,7 +1,8 @@
 {
   "adminFundManagement": {
     "actions": {
-      "Export": "Export"
+      "Export": "Export",
+      "export": "导出"
     },
     "fundList": {}
   }

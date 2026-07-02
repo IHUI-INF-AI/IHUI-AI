@@ -3,10 +3,13 @@
     "export": "エクスポート記録",
     "search": {
       "status": "VIPステータス",
-      "statusPlaceholder": "请選択VIPステータス"
+      "statusPlaceholder": "请選択VIPステータス",
+      "Status": "VIP Status",
+      "StatusPlaceholder": "Select VIP Status"
     },
     "table": {
-      "status": "VIPステータス"
+      "status": "VIPステータス",
+      "Status": "VIP Status"
     },
     "vipType": {},
     "status": {
@@ -16,13 +19,17 @@
       "unknown": "不明"
     },
     "detail": {
-      "status": "VIPステータス"
+      "status": "VIPステータス",
+      "Status": "VIP Status"
     },
     "dialogs": {},
     "messages": {
       "exportDeveloping": "エクスポート機できる開発中",
       "exportFailed": "エクスポートに失敗",
-      "exportSuccess": "エクスポート成功"
+      "exportSuccess": "エクスポート成功",
+      "ExportDeveloping": "Export feature under development",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "exportData": {
       "id": "VIPID",
@@ -44,6 +51,34 @@
     "exportFormatPrompt": "请選択エクスポート形式",
     "exportCSV": "エクスポートCSV",
     "exportExcel": "エクスポートExcel",
-    "exportPDF": "エクスポートPDF"
+    "exportPDF": "エクスポートPDF",
+    "Export": "Export Records",
+    "Status": {
+      "active": "Active",
+      "expired": "Expired",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "Export Data": {
+      "id": "Id",
+      "userId": "User Id",
+      "vipType": "Vip Type",
+      "Status": "Status",
+      "price": "Price",
+      "originalPrice": "Original Price",
+      "discount": "Discount",
+      "orderId": "Order Id",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "createTime": "Create Time",
+      "updateTime": "Update Time",
+      "cancelTime": "Cancel Time",
+      "remark": "Remark",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

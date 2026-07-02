@@ -2,10 +2,12 @@
   "adminCourseManagement": {
     "tabs": {},
     "actions": {
-      "Export": "Export"
+      "Export": "Export",
+      "export": "导出"
     },
     "courseList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "search": {},
     "categoryList": {},
@@ -13,7 +15,9 @@
     "messages": {
       "fetchFailed": "Failed to fetch course list",
       "ExportSuccess": "Export Successful",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     },
     "coursePayLogForm": {
       "validation": {},
@@ -24,9 +28,13 @@
       "StatusEnabled": "Enabled",
       "StatusDisabled": "Disabled",
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusEnabled": "启用",
+      "statusDisabled": "禁用"
     },
     "courseForm": {
       "validation": {},

@@ -33,7 +33,8 @@
     },
     "pricing": {
       "features": {
-        "storage": "云端ストレージ"
+        "storage": "云端ストレージ",
+        "Storage": "Cloud Storage"
       },
       "plans": {
         "standard": {},

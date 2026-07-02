@@ -208,7 +208,8 @@
       "swarmCompleted": "Swarm실행완료",
       "swarmFailed": "Swarm실행실패",
       "unknownError": "알 수 없는 오류",
-      "title": "Agent Swarm 모니마음링"
+      "title": "Agent Swarm 모니마음링",
+      "RefreshStatusFailed": "Failed to Refresh Status"
     },
     "example": {
       "핵심 장점": "플로팅 채팅 페이지 예제",
@@ -247,7 +248,11 @@
       "nodes": "기기 노드",
       "nodesDesc": "다중기기관리",
       "dashboard": "대시보드",
-      "dashboardDesc": "시스템상태이생각통제"
+      "dashboardDesc": "시스템상태이생각통제",
+      "Memory": "Memory",
+      "MemoryDesc": "Knowledge Storage & retrieval",
+      "Voice": "Voice Assistant",
+      "VoiceDesc": "Voice conversation"
     },
     "mcpTools": "MCP도구",
     "mcpToolsIntro": "MCP 도구로 대화 확장: 파일, 검색, 데이터베이스, 지도, 이미지 생성 등. 선택 후 채팅에서 사용할 수 있습니다.",
@@ -323,7 +328,8 @@
         "wechat": "위챗",
         "webchat": "네트워크페이지심심일"
       },
-      "title": "스마트AI어시스턴트"
+      "title": "스마트AI어시스턴트",
+      "Status": "Status"
     },
     "openClaw": {
       "핵심 장점": "AI 스마트도구박스",
@@ -386,7 +392,8 @@
         "undo": "실행 취소",
         "redo": "다시 실행",
         "clear": "지우기",
-        "title": "캔버스 작업 영역"
+        "title": "캔버스 작업 영역",
+        "Export": "Export"
       },
       "nodes": {
         "핵심 장점": "기기 노드",
@@ -433,14 +440,16 @@
           "social": "소셜",
           "storage": "저장",
           "email": "이메일",
-          "smartHome": "스마트 홈"
+          "smartHome": "스마트 홈",
+          "Storage": "Storage"
         },
         "addIntegration": "추가통합",
         "connected": "완료연결",
         "disconnected": "미연결",
         "configure": "설정",
         "disconnect": "연결 끊김",
-        "title": "서드파티 통합"
+        "title": "서드파티 통합",
+        "Add Integration": "Add Integration"
       },
       "browser": {
         "핵심 장점": "브라우저 게동화",
@@ -454,7 +463,9 @@
         "refresh": "새로고침",
         "exportScript": "스크립트 내보내기",
         "aiCommand": "AI 혁명석지시",
-        "title": "브라우저 게동화"
+        "title": "브라우저 게동화",
+        "Refresh": "Refresh",
+        "ExportScript": "Export Script"
       },
       "models": {
         "핵심 장점": "모델관리",
@@ -468,7 +479,9 @@
         "requests": "요청횟수",
         "avgLatency": "평균지연",
         "ollamaLocal": "로컬모델 (Ollama)",
-        "title": "모델관리"
+        "title": "모델관리",
+        "Current Model": "Current Model",
+        "Configure Provider": "Configure Provider"
       },
       "automation": {
         "핵심 장점": "게동화 작업",
@@ -500,7 +513,11 @@
         "recentActivity": "최근활동",
         "recentErrors": "최근오류",
         "runDiagnostics": "진단 실행",
-        "title": "시스템대시보드"
+        "title": "시스템대시보드",
+        "Memory": "Memory",
+        "Storage": "Storage",
+        "Recent Activity": "Recent Activity",
+        "Recent Errors": "Recent Errors"
       },
       "settings": {
         "핵심 장점": "설정",
@@ -516,7 +533,8 @@
         "clearData": "지우기소요유데이마음",
         "resetSettings": "초기화기본",
         "saveSettings": "저장설정",
-        "title": "설정"
+        "title": "설정",
+        "Export Data": "Export Data"
       },
       "backToChat": "백엔드로대화",
       "panels": {
@@ -532,9 +550,51 @@
         "automation": "게동화 작업",
         "approvals": "보안 승인",
         "dashboard": "시스템 대시보드",
-        "settings": "설정"
+        "settings": "설정",
+        "Memory": "Memory System",
+        "Voice": "Voice Assistant"
       },
-      "title": "AI 스마트도구박스"
+      "title": "AI 스마트도구박스",
+      "Memory": {
+        "title": "Memory System",
+        "dailyNotes": "Daily Notes",
+        "longTermMemory": "Long-term Memory",
+        "search": "Search",
+        "addNote": "Add Note",
+        "addMemory": "Add Memory",
+        "ExportMarkdown": "Export Markdown",
+        "clearMemory": "Clear Memory",
+        "noteTypes": {
+          "note": "Note",
+          "activity": "Activity",
+          "decision": "Decision",
+          "learning": "Learning",
+          "task": "Task",
+          "reminder": "Reminder"
+        },
+        "MemoryTypes": {
+          "fact": "Fact",
+          "preference": "Preference",
+          "project": "Project",
+          "person": "Person",
+          "lesson": "Lesson",
+          "skill": "Skill"
+        }
+      },
+      "Voice": {
+        "title": "Voice Assistant",
+        "enabled": "Enabled",
+        "Disabled": "Disabled",
+        "Listening": "Listening...",
+        "Speaking": "Speaking...",
+        "talkMode": "Talk Mode",
+        "Wake Word": "Wake Word",
+        "VoiceSettings": "Voice Settings",
+        "rate": "Rate",
+        "Pitch": "Pitch",
+        "Volume": "Volume",
+        "testVoice": "Test Voice"
+      }
     },
     "messageDeleted": "메시지완료삭제",
     "messageLiked": "완료좋아요",
@@ -715,7 +775,9 @@
       "webhookEndpoint": "Callback URL",
       "webhookEvents": "Events (comma-separated)",
       "webhookName": "Name",
-      "webhooks": "Webhooks"
+      "webhooks": "Webhooks",
+      "browserDesc": "Web automation: navigate, click, type, screenshot, etc.",
+      "cronScheduleHint": "e.g. 0 * * * * = every hour; 0 0 * * * = daily at midnight"
     },
     "recentActivity": "Recent Activity",
     "settingsComingSoon": "Settings Coming Soon",
@@ -751,7 +813,8 @@
       "idle": "유휴",
       "thinking": "생각참고중간",
       "acting": "실행중간",
-      "reflecting": "반성 중"
+      "reflecting": "반성 중",
+      "Failed": "Failed"
     },
     "mcpToolCallFailed": "MCP도구호출사용실패",
     "apiAccessTip": "생각사용하여아래정보사이담당어떻게지원 OpenAI 형식의플랫폼장벽모든이모델",
@@ -760,6 +823,56 @@
     "generatedVideo": "생성의동영상",
     "unknownError": "알 수 없는 오류",
     "usePrompt": "생각사용：{prompt}",
-    "aiDialog": "AI 대화"
+    "aiDialog": "AI 대화",
+    "Open Chat": "Open AI Chat",
+    "VoiceInput": "Voice Input",
+    "VoiceNotSupported": "Your browser does not support speech recognition",
+    "VoiceStarted": "Voice recognition started",
+    "VoiceAlReadyStarted": "Voice recognition alReady started, please stop first",
+    "VoicePermissionDenied": "Microphone permission denied, please allow access in browser settings",
+    "VoiceNoSpeech": "No speech detected, please try again",
+    "VoiceStartFailed": "Failed to start Voice recognition",
+    "VoiceStopped": "Recording stopped, duration {duration} seconds",
+    "VoiceStoppedShort": "Recording stopped",
+    "codeCopy Failed": "Failed to copy code",
+    "reGenerate Successful": "Regenerated successfully",
+    "ExportChat": "Export Chat (TXT)",
+    "ExportMarkdown": "Export as Markdown",
+    "ExportJSON": "Export as JSON",
+    "Exported": "Exported successfully",
+    "ExportFailed": "Export Failed",
+    "Total Messages": "Total Messages",
+    "FailedMessages": "Failed Messages",
+    "fileRead Failed": "Failed to read file {name}",
+    "fileUpload Successful": "File {name} uploaded successfully",
+    "agenticAITask Completed": "Agentic AI task completed",
+    "${componentName} - Website NametGenerator": {
+      "title": "Agentic Component Generator",
+      "${componentName} - Website NametName": "Component Name",
+      "${componentName} - Website NametDescription": "Component Description",
+      "descriptionPlaceholder": "Describe the ${componentName} - Website Namet's functionality and purpose...",
+      "features": "Features",
+      "useDesignSystem": "Use Design System",
+      "useSEO": "Integrate SEO",
+      "useAnimations": "Add Micro Animations",
+      "generate": "Generate Component",
+      "copyCode": "Copy Code",
+      "saveComponent": "Save Component",
+      "generateFailed": "Failed to generate ${componentName} - Website Namet",
+      "tabs": {
+        "template": "Template",
+        "script": "Script",
+        "style": "Style",
+        "documentation": "Documentation"
+      }
+    },
+    "imageUpload Failed": "Image upload Failed",
+    "ExportTimeLabel": "Export Time",
+    "imageProviderQwen": "通义万相",
+    "imageProviderDoubao": "豆包",
+    "imageProviderJimeng": "即梦",
+    "videoProviderQwen": "通义万相",
+    "videoProviderKling": "可灵AI",
+    "videoProviderOneClick": "一键视频"
   }
 }

@@ -76,6 +76,12 @@
     "purchaseFailed": "購入失敗",
     "linkCopied": "リンクコピー済み",
     "copyFailed": "コピー失敗",
-    "invalidPaymentForm": "Invalid Payment Form"
+    "invalidPaymentForm": "Invalid Payment Form",
+    "RefreshDetails": "Refresh Details",
+    "thumbsUpCancel Successful": "Cancel thumbs up successful",
+    "RefreshFailed": "Refresh Failed",
+    "StatusActive": "Active",
+    "StatusInactive": "Inactive",
+    "StatusDeprecated": "Deprecated"
   }
 }

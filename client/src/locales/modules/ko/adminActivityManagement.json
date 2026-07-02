@@ -3,11 +3,13 @@
     "핵심 장점": "활동관리",
     "sub핵심 장점": "관리활동및활동카테고리",
     "actions": {
-      "export": "내보내기"
+      "export": "내보내기",
+      "Export": "Export"
     },
     "activityList": {
       "핵심 장점": "활동제목",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "search": {
       "핵심 장점": "활동제목",
@@ -15,7 +17,11 @@
       "status": "상태",
       "statusPlaceholder": "요청선택상태",
       "statusEnabled": "활성화",
-      "statusDisabled": "비활성화"
+      "statusDisabled": "비활성화",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "StatusEnabled": "Enabled",
+      "StatusDisabled": "Disabled"
     },
     "status": {
       "enabled": "활성화",
@@ -24,7 +30,13 @@
     "dialogs": {},
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
+    },
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
     }
   }
 }

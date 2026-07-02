@@ -593,7 +593,9 @@
       "webhookEndpoint": "Callback URL",
       "webhookEvents": "Events (comma-separated)",
       "webhookName": "Name",
-      "webhooks": "Webhooks"
+      "webhooks": "Webhooks",
+      "browserDesc": "網頁自動化工具：導航、點擊、輸入、截圖等。",
+      "cronScheduleHint": "例: 0 * * * * = 每小時整點；0 0 * * * = 每天 0 點"
     },
     "recentActivity": "Recent Activity",
     "settingsComingSoon": "Settings Coming Soon",
@@ -741,6 +743,12 @@
     "generatedVideo": "生成的視頻",
     "unknownError": "未知錯誤",
     "usePrompt": "使用：{prompt}",
-    "aiDialog": "AI 對話"
+    "aiDialog": "AI 對話",
+    "imageProviderQwen": "通義萬相",
+    "imageProviderDoubao": "豆包",
+    "imageProviderJimeng": "即夢",
+    "videoProviderQwen": "通義萬相",
+    "videoProviderKling": "可靈AI",
+    "videoProviderOneClick": "一鍵視頻"
   }
 }

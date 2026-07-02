@@ -14,7 +14,9 @@
       "questionJudgment": "O/X 문제 검색",
       "questionMulti": "객관식 검색",
       "questionSingle": "단일 선택 검색",
-      "questionSubjective": "주관식 검색"
+      "questionSubjective": "주관식 검색",
+      "chapter": "搜索章节",
+      "chapterSection": "搜索小节"
     },
     "label": {
       "user": "사용자",

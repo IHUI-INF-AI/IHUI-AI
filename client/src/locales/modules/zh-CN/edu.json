@@ -129,7 +129,25 @@
       "continuousDays": "连续学习天数",
       "completedCourses": "完成课程数",
       "aiReportTitle": "AI 学习规划报告",
-      "aiReportComingSoon": "即将上线"
+      "aiReportComingSoon": "即将上线",
+      "createNote": "新建笔记",
+      "editNote": "编辑笔记",
+      "noteTitle": "标题",
+      "noteContent": "内容",
+      "noteTags": "标签",
+      "noteTagsHint": "多个标签用逗号分隔",
+      "noteVisibility": "公开",
+      "noteAttachments": "附件",
+      "createOffline": "新建线下记录",
+      "editOffline": "编辑线下记录",
+      "offlineTitleField": "标题",
+      "offlineDate": "日期",
+      "offlineDuration": "时长（分钟）",
+      "offlineActivityType": "活动类型",
+      "offlineDescription": "描述",
+      "offlineProof": "凭证",
+      "deleteConfirm": "确定删除吗？此操作不可撤销",
+      "deleteSuccess": "删除成功"
     }
   }
 }

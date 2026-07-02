@@ -2,13 +2,16 @@
   "adminAppointmentManagement": {
     "stats": {},
     "filter": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "table": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "detail": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     }
   }
 }

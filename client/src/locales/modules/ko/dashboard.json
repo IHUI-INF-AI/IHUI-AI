@@ -30,6 +30,10 @@
     "shortcuts": "shortcuts",
     "sub핵심 장점": "sub핵심 장점",
     "title": "데이터 대시보드",
-    "subtitle": "subtitle"
+    "subtitle": "subtitle",
+    "ApprovedExamine": "Approved",
+    "RejectedExamine": "Rejected",
+    "Model Management": "Model Management",
+    "Refresh": "Refresh"
   }
 }

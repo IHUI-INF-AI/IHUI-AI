@@ -2,11 +2,14 @@
   "adminAgentBuyManagement": {
     "actions": {},
     "buyList": {
-      "status": "注文ステータス"
+      "status": "注文ステータス",
+      "Status": "Order Status"
     },
     "search": {
       "status": "注文ステータス",
-      "statusPlaceholder": "请選択注文ステータス"
+      "statusPlaceholder": "请選択注文ステータス",
+      "Status": "Order Status",
+      "StatusPlaceholder": "Select order Status"
     },
     "status": {
       "pending": "待支払い",
@@ -16,6 +19,12 @@
     },
     "settlementStatus": {},
     "dialogs": {},
-    "messages": {}
+    "messages": {},
+    "Status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    }
   }
 }

@@ -18,6 +18,10 @@
     "statusOld": "老员工",
     "noMembers": "なしAIチームメンバー",
     "loadFailed": "読み込みAIチームリスト失敗，请稍後再試行",
-    "fetchFailed": "取得データ失敗"
+    "fetchFailed": "取得データ失敗",
+    "StatusFilter": "Status Filter",
+    "StatusAll": "All",
+    "StatusNew": "New",
+    "StatusOld": "Old"
   }
 }

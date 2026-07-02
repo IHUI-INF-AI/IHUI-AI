@@ -37,7 +37,11 @@
       "phone": "휴대전화번호",
       "phonePlaceholder": "요청입력휴대전화번호",
       "emailRequired": "요청입력이메일",
-      "emailInvalid": "이메일형식미공식확인"
+      "emailInvalid": "이메일형식미공식확인",
+      "Status": "Status",
+      "StatusPlaceholder": "Please select Status",
+      "Disabled": "Disabled",
+      "Add Success": "Add successfully"
     },
     "listPage": {
       "refresh": "새로고침",
@@ -197,6 +201,10 @@
     },
     "webhook": {
       "desc": "Webhook 목록 관리 페이지"
+    },
+    "crontabField": {
+      "generate": "生成",
+      "dialogTitle": "Cron 表达式生成器"
     }
   }
 }

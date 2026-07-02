@@ -20,7 +20,14 @@
       "所有代理都不可用1": "すべてのプロキシが利用不可1",
       "无效的JSON响5": "無効なJSONレスポンス5",
       "未找到任何新闻项4": "ニュース項目が見つかりません4",
-      "未找到新闻项8": "ニュース項目が見つかりません8"
+      "未找到新闻项8": "ニュース項目が見つかりません8",
+      "JSON Parse Failed6": "JSON Parse Failed6",
+      "XML Parse Failed3": "XML Parse Failed3",
+      "XML Parse Failed7": "XML Parse Failed7",
+      "All proxies unavailable1": "All proxies unavailable1",
+      "Invalid JSON response5": "Invalid JSON response5",
+      "No news found4": "No news found4",
+      "No news found8": "No news found8"
     },
     "ai_generation": {
       "3Dモデル生成失敗6": "3Dモデル生成失敗6",
@@ -41,11 +48,22 @@
       "批量查询任务状态8": "一括タスクステータス照会8",
       "查询任务状态失败7": "タスクステータス照会失敗7",
       "豆包图片生成失败1": "豆包画像生成失敗1",
-      "通义万相图片生成": "通義万相画像生成"
+      "通义万相图片生成": "通義万相画像生成",
+      "3D Model Generation Failed6": "3D Model Generation Failed6",
+      "Kling Video Generation3": "Kling Video Generation3",
+      "Vidu Video Generation5": "Vidu Video Generation5",
+      "Jimeng Image Generation Failed2": "Jimeng Image Generation Failed2",
+      "Jimeng Video Generation Failed4": "Jimeng Video Generation Failed4",
+      "Batch Query Task Status8": "Batch Query Task Status8",
+      "Query Task Status Failed7": "Query Task Status Failed7",
+      "Doubao Image Generation Failed1": "Doubao Image Generation Failed1",
+      "Tongyi Wanxiang Image Generation": "Tongyi Wanxiang Image Generation"
     },
     "ai_proxy": {
       "无法读取レスポンス流1": "无法读取レスポンス流1",
-      "无法读取响应流": "レスポンスストリームを読み取れません"
+      "无法读取响应流": "レスポンスストリームを読み取れません",
+      "Cannot read response stream1": "Cannot read response stream1",
+      "无法读取响应流1": "无法读取响应流1"
     },
     "api_test_page": {
       "aliGener21": "aliGener21",
@@ -83,13 +101,20 @@
       "chat未导出8": "chat未エクスポート8",
       "服务未导出": "サービス未エクスポート",
       "服务未导出13": "サービス未エクスポート13",
-      "类型守卫未导出27": "タイプガード未エクスポート27"
+      "类型守卫未导出27": "タイプガード未エクスポート27",
+      "chatNotExport8": "chatNotExport8",
+      "Not a function26": "Not a function26",
+      "Service Not Exported": "Service Not Exported",
+      "Service Not Exported13": "Service Not Exported13",
+      "Type Guard Not Exported27": "Type Guard Not Exported27"
     },
     "apple_login": {
       "无法開くログイン窗口": "无法開くログイン窗口",
       "ログインレスポンスデータ不完1": "ログインレスポンスデータ不完1",
       "无法打开登录窗口": "ログインウィンドウを開けません",
-      "登录响应数据不完1": "ログインレスポンスデータ不完1"
+      "登录响应数据不完1": "ログインレスポンスデータ不完1",
+      "Cannot open login window": "Cannot open login window",
+      "Login response data incomplete1": "Login response data incomplete1"
     },
     "auth": {
       "電話番号検証码和密": "電話番号検証码和密",
@@ -107,32 +132,49 @@
       "无效的响应数据格2": "無効なレスポンスデータ形式2",
       "无效的响应数据格3": "無効なレスポンスデータ形式3",
       "用户名和密码不能1": "ユーザー名とパスワードが不能1",
-      "登录信息不完整4": "ログイン情報が不完全4"
+      "登录信息不完整4": "ログイン情報が不完全4",
+      "Phone verification code and password": "Phone verification code and password",
+      "Invalid response data format2": "Invalid response data format2",
+      "Invalid response data format3": "Invalid response data format3",
+      "No Refresh token": "No Refresh token",
+      "Username and password cannot be empty1": "Username and password cannot be empty1",
+      "Login information incomplete4": "Login information incomplete4",
+      "Mobile verification code and password": "Mobile verification code and password",
+      "没有刷新toke": "没有刷新toke"
     },
     "browser_crawler": {
-      "すべてCORS代理": "すべてCORS代理"
+      "すべてCORS代理": "すべてCORS代理",
+      "All CORS proxies": "All CORS proxies",
+      "所有CORS代理": "所有CORS代理"
     },
     "captcha_input": {
       "検証码画像データ为": "検証码画像データ为",
-      "验证码图片数据为空": "認証コード画像データが空です"
+      "验证码图片数据为空": "認証コード画像データが空です",
+      "Verification code image data empty": "Verification code image data empty",
+      "验证码图片数据为": "验证码图片数据为"
     },
     "documentation": {
       "ドキュメントパス不存在": "ドキュメントパス不存在",
-      "文档路径不存在": "ドキュメントパスが存在しません"
+      "文档路径不存在": "ドキュメントパスが存在しません",
+      "Document path does not exist": "Document path does not exist"
     },
     "edu_documentation": {
       "ドキュメント読み込み失敗": "ドキュメント読み込み失敗",
-      "文档加载失败": "ドキュメントの読み込みに失敗しました"
+      "文档加载失败": "ドキュメントの読み込みに失敗しました",
+      "Document Load Failed": "Document Load Failed"
     },
     "files": {
       "ファイルダウンロードに失敗": "ファイルダウンロードに失敗",
       "ファイルダウンロード失敗": "ファイルダウンロード失敗",
-      "文件下载失败": "ファイルダウンロード失敗"
+      "文件下载失败": "ファイルダウンロード失敗",
+      "File Download Failed": "File Download Failed"
     },
     "google_login": {
       "GoogleAP": "GoogleAP",
       "无法開くログイン窗口1": "无法開くログイン窗口1",
-      "无法打开登录窗口1": "ログインウィンドウを開けません1"
+      "无法打开登录窗口1": "ログインウィンドウを開けません1",
+      "Google API": "Google API",
+      "Cannot open login window1": "Cannot open login window1"
     },
     "index": {
       "無効的Git統合7": "無効的Git統合7",
@@ -208,28 +250,69 @@
       "配对码已过期2": "ペアリングコード期限切れ2",
       "配对码无效": "ペアリングコード無効",
       "配对请求不存在3": "ペアリングリクエスト存在なし3",
-      "配对请求已过期4": "ペアリングリクエスト期限切れ4"
+      "配对请求已过期4": "ペアリングリクエスト期限切れ4",
+      "Invalid Git Integration7": "Invalid Git Integration7",
+      "Invalid Git Integration8": "Invalid Git Integration8",
+      "Invalid Git Integration9": "Invalid Git Integration9",
+      "Invalid Group Element1": "Invalid Group Element1",
+      "Invalid Calendar Integration5": "Invalid Calendar Integration5",
+      "Invalid Calendar Integration6": "Invalid Calendar Integration6",
+      "Invalid Smart Home Integration10": "Invalid Smart Home Integration10",
+      "Invalid Smart Home Integration11": "Invalid Smart Home Integration11",
+      "Invalid Smart Home Integration12": "Invalid Smart Home Integration12",
+      "Invalid Mail Integration3": "Invalid Mail Integration3",
+      "Invalid Mail Integration4": "Invalid Mail Integration4",
+      "No element to group found": "No element to group found",
+      "Browser does not support Voice": "Browser does not support Voice",
+      "Missing URL or access2": "Missing URL or access2",
+      "Missing webhook4": "Missing webhook4",
+      "Missing required parameter": "Missing required parameter",
+      "Missing required parameter1": "Missing required parameter1",
+      "Missing required parameter2": "Missing required parameter2",
+      "Missing required parameter3": "Missing required parameter3",
+      "Missing access token": "Missing access token",
+      "Missing access token1": "Missing access token1",
+      "DeviceNotConnection6": "DeviceNotConnection6",
+      "DeviceNotPair5": "DeviceNotPair5",
+      "DeviceNotPair7": "DeviceNotPair7",
+      "Pair code alReady used1": "Pair code alReady used1",
+      "Pair code expired2": "Pair code expired2",
+      "Pair code invalid": "Pair code invalid",
+      "Pair request not found3": "Pair request not found3",
+      "Pair request expired4": "Pair request expired4",
+      "Invalid group element1": "Invalid group element1",
+      "Pair code alReady used 1": "Pair code alReady used 1",
+      "Pair code alReady expired2": "Pair code alReady expired2",
+      "Pair request alReady expired4": "Pair request alReady expired4"
     },
     "invoice": {
       "レスポンス不是有効的文": "レスポンス不是有効的文",
       "响应不是有效的文": "レスポンスが有効な文ではありません"
     },
     "llm_chat_service": {
-      "无法读取レスポンス流1": "无法读取レスポンス流1"
+      "无法读取レスポンス流1": "无法读取レスポンス流1",
+      "Cannot read response stream1": "Cannot read response stream1",
+      "无法读取响应流1": "无法读取响应流1"
     },
     "models": {
       "レスポンス形式不正确20": "レスポンス形式不正确20",
       "レスポンス形式不正确21": "レスポンス形式不正确21",
       "响应格式不正确20": "レスポンス形式が正しくありません20",
-      "响应格式不正确21": "レスポンス形式が正しくありません21"
+      "响应格式不正确21": "レスポンス形式が正しくありません21",
+      "Response format incorrect20": "Response format incorrect20",
+      "Response format incorrect21": "Response format incorrect21"
     },
     "oauth2": {
       "OAuth2認証": "OAuth2認証",
-      "OAuth2to1": "OAuth2to1"
+      "OAuth2to1": "OAuth2to1",
+      "OAuth2 Authentication": "OAuth2 Authentication",
+      "OAuth2认证": "OAuth2认证"
     },
     "progressive_enhancement": {
       "閲覧器不サポートfe": "閲覧器不サポートfe",
-      "浏览器不サポートfe": "浏览器不サポートfe"
+      "浏览器不サポートfe": "浏览器不サポートfe",
+      "Browser does not support this feature": "Browser does not support this feature",
+      "浏览器不支持fe": "浏览器不支持fe"
     },
     "unified_ai": {
       "AgentID不8": "AgentID不8",
@@ -237,14 +320,23 @@
       "モデルID必須7": "モデルID必須7",
       "モデルID不できる为空7": "モデルID不できる为空7",
       "MCP工具ID不9": "MCPツールID不9",
-      "模型ID不能为空7": "モデルIDは空にできません7"
+      "模型ID不能为空7": "モデルIDは空にできません7",
+      "Agent ID invalid8": "Agent ID invalid8",
+      "MCP Tool ID invalid9": "MCP Tool ID invalid9",
+      "Model ID required7": "Model ID required7",
+      "Model ID cannot be empty7": "Model ID cannot be empty7"
     },
     "unified_chat_service": {
       "MCPサービス器ID8": "MCPサービス器ID8",
       "MCPサーバーID8": "MCPサーバーID8",
       "AgentID不5": "AgentID不5",
       "AgentID不6": "AgentID不6",
-      "Agentic任7": "Agentic任7"
+      "Agentic任7": "Agentic任7",
+      "Agent ID invalid5": "Agent ID invalid5",
+      "Agent ID invalid6": "Agent ID invalid6",
+      "Agentic task7": "Agentic task7",
+      "MCP Server ID8": "MCP Server ID8",
+      "MCP服务器ID8": "MCP服务器ID8"
     },
     "unified_generation_service": {
       "图生图必要提供参11": "图生图必要提供参11",
@@ -256,7 +348,11 @@
       "图生图需要提供参11": "画像生成にはパラメータ11の提供が必要",
       "视觉分析需要提供14": "視覚分析にはパラメータ14の提供が必要",
       "语音合成任务创建13": "音声合成タスク作成13",
-      "语音合成超时12": "音声合成タイムアウト12"
+      "语音合成超时12": "音声合成タイムアウト12",
+      "Image to image requires parameters11": "Image to image requires parameters11",
+      "Visual analysis requires parameters14": "Visual analysis requires parameters14",
+      "Speech synthesis task created13": "Speech synthesis task created13",
+      "Speech synthesis timeout12": "Speech synthesis timeout12"
     },
     "unified_q_r_login": {
       "QRCodeto2": "QRCodeto2",
@@ -264,7 +360,10 @@
       "バックエンド戻る的二维码": "バックエンド戻る的二维码",
       "後端戻る的二维码": "後端戻る的二维码",
       "QRCode模块1": "QRCodeモジュール1",
-      "后端返回的二维码": "バックエンドから返されたQRコード"
+      "后端返回的二维码": "バックエンドから返されたQRコード",
+      "QR code to2": "QR code to2",
+      "QR Code Module1": "QR Code Module1",
+      "QR code returned by backend": "QR code returned by backend"
     },
     "universal_login": {
       "临时密钥为空ご重2": "临时密钥为空ご重2",
@@ -274,28 +373,43 @@
       "临时密钥为空请重2": "一時キーが空です、再試行2",
       "Temp key is empty请重2": "Temp key is emptyです。再試行してください",
       "登录状态保存失在": "ログイン状態の保存に失敗",
-      "登录状态保存失败": "ログイン状態の保存に失敗"
+      "登录状态保存失败": "ログイン状態の保存に失敗",
+      "Temporary key is empty, please retry2": "Temporary key is empty, please retry2",
+      "Login Status save Failed1": "Login Status save Failed1",
+      "Verification code image data empty": "Verification code image data empty",
+      "登录状态保存失败1": "登录状态保存失败1",
+      "验证码图片数据为": "验证码图片数据为"
     },
     "use_agentic": {
       "作成Swarm失": "作成Swarm失",
       "取得ステータス失敗戻る1": "取得ステータス失敗戻る1",
       "获取ステータス失敗戻る1": "获取ステータス失敗戻る1",
       "创建Swarm失": "Swarm作成失敗",
-      "获取状态失败返回1": "ステータス取得失敗、デフォルト1を返します"
+      "获取状态失败返回1": "ステータス取得失敗、デフォルト1を返します",
+      "Create swarm Failed": "Create swarm Failed",
+      "Get Status Failed, returning1": "Get Status Failed, returning1"
     },
     "use_avatar_upload": {
       "アップロードレスポンス形式エラー": "アップロードレスポンス形式エラー",
-      "上传响应格式错误": "アップロードレスポンス形式エラー"
+      "上传响应格式错误": "アップロードレスポンス形式エラー",
+      "Upload response format error": "Upload response format error"
     },
     "user": {
       "アップロード失敗2": "アップロード失敗2",
       "新しいパスワード和確認パスワード": "新しいパスワード和確認パスワード",
-      "上传失败2": "アップロード失敗2"
+      "上传失败2": "アップロード失敗2",
+      "Upload Failed2": "Upload Failed2",
+      "New password and confirm password": "New password and confirm password",
+      "新密码和确认密码": "新密码和确认密码"
     },
     "whisper_provider": {
       "モデル未読み込み2": "モデル未読み込み2",
       "閲覧器端Whis1": "閲覧器端Whis1",
-      "浏览器端Whis1": "閲覧器端Whis1"
+      "浏览器端Whis1": "閲覧器端Whis1",
+      "Model not loaded2": "Model not loaded2",
+      "Browser-side Whisper1": "Browser-side Whisper1",
+      "ModelNotload2": "ModelNotload2",
+      "模型未加载2": "模型未加载2"
     },
     "extended_channels": {
       "缺少Webhoo": "Webhooが不足しています",
@@ -318,6 +432,9 @@
     "drama_script_excel": {
       "dataFormat": "データ形式エラー：期望数组"
     },
-    "analyzeQueryPlanFailed": "分析クエリ計画失敗"
+    "analyzeQueryPlanFailed": "分析クエリ計画失敗",
+    "inVoice": {
+      "Response is not valid text": "Response is not valid text"
+    }
   }
 }

@@ -10,7 +10,7 @@
     "actions": "Actions",
     "enterExam": "Enter Exam",
     "completed": "Completed",
-    "cancelled": "Cancelled",
+    "cancelled": "Canceled",
     "inProgress": "In Progress"
   }
 }

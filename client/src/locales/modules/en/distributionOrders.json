@@ -27,6 +27,7 @@
     "actions": "Actions",
     "viewDetail": "View Details",
     "loadOrdersFailed": "Failed to get order list",
-    "loadOrdersRetry": "Failed to get order list, please try again later"
+    "loadOrdersRetry": "Failed to get order list, please try again later",
+    "status": "状态"
   }
 }

@@ -20,7 +20,8 @@
       "status": "ステータス",
       "createTime": "作成時間",
       "payTime": "支払い時間",
-      "actions": "操作"
+      "actions": "操作",
+      "Status": "Status"
     },
     "status": {
       "pending": "支払い待ち",
@@ -42,7 +43,11 @@
       "copyOrderId": "注文IDをコピー",
       "copyProductId": "商品IDをコピー",
       "copyOrderInfo": "注文情報をコピー",
-      "retry": "再試行"
+      "retry": "再試行",
+      "payNow": "Pay Now",
+      "cancelOrder": "Cancel Order",
+      "requestRefund": "Request Refund",
+      "viewDetail": "View Details"
     },
     "labels": {
       "orderId": "注文ID",
@@ -55,7 +60,8 @@
       "productName": "商品名",
       "productType": "商品タイプ",
       "paymentMethod": "支払い方法",
-      "expireTime": "有効期限"
+      "expireTime": "有効期限",
+      "Status": "Status"
     },
     "empty": {
       "title": "注文なし",
@@ -105,7 +111,8 @@
       "copyOrderIdSuccess": "注文IDをコピーしました",
       "copyProductIdSuccess": "商品IDをコピーしました",
       "copyOrderInfoSuccess": "注文情報をコピーしました",
-      "loadFailed": "注文の読み込みに失敗しました。後でもう一度お試しください"
+      "loadFailed": "注文の読み込みに失敗しました。後でもう一度お試しください",
+      "payNotAvailable": "Payment is not available at this time"
     },
     "error": {
       "title": "読み込み失敗"
@@ -113,6 +120,16 @@
     "refundReasonPlaceholder": "返金理由を入力してください",
     "applyRefund": "返金を申請",
     "refundReasonRequired": "返金理由は必須です",
-    "refundReasonMinLength": "返金理由が短すぎます"
+    "refundReasonMinLength": "返金理由が短すぎます",
+    "Status": {
+      "pending": "Pending Payment",
+      "shipping": "Shipping",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded",
+      "unknown": "Unknown",
+      "paid": "Paid",
+      "processing": "Processing"
+    }
   }
 }

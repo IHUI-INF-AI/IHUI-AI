@@ -293,6 +293,14 @@
     "icpRecord": "ICP 기록",
     "modelRecord": "모델 기록",
     "usageRules": "사용 규칙",
-    "supportTickets": "지원 티켓"
+    "supportTickets": "지원 티켓",
+    "EnterpriseService": "Enterprise Service",
+    "adminApiApps": "API Apps",
+    "adminApiGroups": "API Groups",
+    "adminApiPackages": "API Packages",
+    "adminApiBilling": "API Billing",
+    "adminApiUsage": "API Usage",
+    "adminApiDebug": "API Debugger",
+    "schedule": "Schedule"
   }
 }

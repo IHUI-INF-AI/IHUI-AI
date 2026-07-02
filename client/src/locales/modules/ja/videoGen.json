@@ -74,7 +74,12 @@
         "checkStatusDev": "查询ステータス機できる開発中",
         "statusProcessing": "動画生成中...",
         "statusPending": "タスクなど待処理中...",
-        "statusUnknown": "タスクステータス不明"
+        "statusUnknown": "タスクステータス不明",
+        "StatusCompleted": "Video generation completed",
+        "StatusProcessing": "Video generating...",
+        "StatusFailed": "Video generation Failed",
+        "StatusPending": "Task waiting for processing...",
+        "StatusUnknown": "Task Status unknown"
       },
       "startPolling": "自動轮询",
       "stopPolling": "停止轮询",
@@ -82,7 +87,14 @@
       "previewVideo": "プレビュー動画",
       "videoUrlEmpty": "動画URL为空",
       "downloadStarted": "開始動画をダウンロード",
-      "message": "メッセージ"
+      "message": "メッセージ",
+      "Status": {
+        "completed": "completed",
+        "Failed": "Failed",
+        "pending": "pending",
+        "processing": "processing",
+        "title": "Status"
+      }
     },
     "qwen": {
       "title": "通義万相 - 動画合成",
@@ -103,7 +115,8 @@
       "messages": {
         "promptRequired": "プロンプトを入力してください",
         "generateSuccess": "生成完了",
-        "generateFailed": "生成失敗"
+        "generateFailed": "生成失敗",
+        "Generate Successful": "Generation Complete"
       }
     },
     "oneClick": {
@@ -128,7 +141,8 @@
         "pollTimeout": "PollTimeout",
         "taskSubmitted": "タスクが送信されました",
         "generateFailed": "生成失敗",
-        "taskId": "タスクID: {taskId}"
+        "taskId": "タスクID: {taskId}",
+        "Status": "Status: {Status}"
       },
       "ratios": {
         "r169": "16:9",
@@ -147,7 +161,13 @@
       "downloadVideo": "動画をダウンロード",
       "previewVideo": "プレビュー動画",
       "videoUrlEmpty": "動画URL为空",
-      "downloadStarted": "開始動画をダウンロード"
+      "downloadStarted": "開始動画をダウンロード",
+      "Status": {
+        "completed": "Completed",
+        "processing": "Processing",
+        "Failed": "Failed",
+        "pending": "Pending"
+      }
     }
   }
 }

@@ -33,6 +33,7 @@
     "mockResponseCopy": "이이것은통합\"{question}\"의N8N어시스턴트답장。",
     "generating": "Generating",
     "mockNotAvailable": "Mock Not Available",
-    "sendFailed": "전송실패"
+    "sendFailed": "전송실패",
+    "VoiceInputNotImplemented": "Voice Input Not Implemented"
   }
 }

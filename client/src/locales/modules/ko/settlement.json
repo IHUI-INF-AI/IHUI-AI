@@ -43,6 +43,9 @@
     "syncFailed": "동기화실패",
     "idRequired": "ID필수",
     "noValidIds": "없음ValidIds",
-    "title": "결산 관리"
+    "title": "결산 관리",
+    "selectStart Date": "Select Start Date",
+    "selectEnd Date": "Select End Date",
+    "batchDelete Successful": "Batch delete successful"
   }
 }

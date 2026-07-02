@@ -1,7 +1,8 @@
 {
   "adminTokenValueManagement": {
     "actions": {
-      "export": "エクスポート記録"
+      "export": "エクスポート記録",
+      "Export": "Export Records"
     },
     "search": {},
     "table": {},
@@ -13,11 +14,22 @@
     "messages": {
       "exportNoData": "なし可エクスポート的データ",
       "exportSuccess": "智汇値リストエクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ExportNoData": "No data to Export",
+      "ExportSuccess": "Token value list Exported successfully",
+      "ExportFailed": "Export Failed"
     },
     "exportFormatPrompt": "请選択エクスポート形式",
     "exportCSV": "エクスポートCSV",
     "exportExcel": "エクスポートExcel",
-    "exportPDF": "エクスポートPDF"
+    "exportPDF": "エクスポートPDF",
+    "Export": {
+      "filename": "filename",
+      "title": "Export"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

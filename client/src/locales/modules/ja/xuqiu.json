@@ -51,7 +51,8 @@
     },
     "logger": {
       "componentMounted": "[必要求广场] コンポーネント済み挂载，開始読み込みデータ",
-      "mountError": "[必要求广场] コンポーネント挂载时出错"
+      "mountError": "[必要求广场] コンポーネント挂载时出错",
+      "${componentName} - Website NametMounted": "[Demand Plaza] Component mounted, starting to load data"
     },
     "tagAIPainting": "タグAIPainting",
     "tagAIWriting": "タグAIWriting",
@@ -62,6 +63,11 @@
     "title": "必要求广场",
     "loadFailed": "読み込み失敗",
     "fetchFailed": "取得データ失敗",
-    "viewDetails": "テーブル示詳細"
+    "viewDetails": "テーブル示詳細",
+    "StatusPending": "Pending",
+    "StatusInProgress": "In Progress",
+    "StatusCompleted": "Completed",
+    "tagAI Writing": "Tag A I Writing",
+    "StatusCancelled": "Status Cancelled"
   }
 }

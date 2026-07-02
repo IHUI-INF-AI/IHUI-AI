@@ -166,7 +166,8 @@
         "referral": "✓ コミッションプラン資格",
         "support": "✓ 7*24時間テクニカルサポート",
         "lifetime": "✓ 一回支払い、永久使用"
-      }
+      },
+      "orderAlReadyPaid": "Order alReady paid"
     },
     "paymentFailed": "支払い失敗",
     "permanentVip": "/永久VIP",

@@ -56,7 +56,8 @@
       "filterByApp": "청크애플사용필마음",
       "allApps": "모든애플사용",
       "title": "API토대사용량관리",
-      "subtitle": "생성및관리귀하의API 액세스토대사용량，사용하여통합세 번째파티애플사용"
+      "subtitle": "생성및관리귀하의API 액세스토대사용량，사용하여통합세 번째파티애플사용",
+      "Status": "Status"
     },
     "usage": {
       "핵심 장점": "생각사용 통계",
@@ -109,7 +110,15 @@
       "date": "날짜",
       "stats": "생각사용통계",
       "title": "생각사용통계",
-      "subtitle": "보기API 호출수량、Token사용소모및요금통계"
+      "subtitle": "보기API 호출수량、Token사용소모및요금통계",
+      "Search Model": "Search model...",
+      "ExportStats": "Export Stats",
+      "ExportFormatPrompt": "Export Format Prompt",
+      "ExportExcel": "Export Excel",
+      "ExportCSV": "Export C S V",
+      "ExportSection": "Export Section",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "logs": {
       "time": "시간",
@@ -146,7 +155,42 @@
       "viewDetail": "ViewDetail",
       "loadDetailFailed": "loadDetail실패",
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "Status": "Status",
+      "appInitStart": "[App] App.vue initialization started...",
+      "initStateManagement": "[App] Initializing state management...",
+      "languageStoreInitSuccess": "[App] LanguageStore initialized successfully",
+      "fontStoreInitSuccess": "[App] FontStore initialized successfully",
+      "loadingStoreInitSuccess": "[App] LoadingStore initialized successfully",
+      "darkModeStoreInitSuccess": "[App] DarkModeStore initialized successfully",
+      "globalLoadingTimeout": "[App] Global loading state timeout, automatically stopping loading",
+      "loadingStateCleared": "[App] Loading state cleared",
+      "clearLoadingStateFailed": "[App] Failed to clear loading state:",
+      "debugCurrentLoadingState": "[Debug] Current loading state:",
+      "debugClearAllLoadingState": "[Debug] Clear all loading states",
+      "debugCheckLoadingState": "[Debug] Use __checkLoadingState() to view loading state",
+      "debugClearLoadingState": "[Debug] Use __clearLoadingState() to clear loading state",
+      "longTaskDetected": "Long task detected",
+      "FailedToSetBodyVisibility": "[App] Failed to set body visibility:",
+      "FailedToSetAppContainerVisibility": "[App] Failed to set app-container visibility:",
+      "FailedToSetMainContentVisibility": "[App] Failed to set main-content visibility:",
+      "fontLoadStart": "Font loading started",
+      "fontLoadDone": "Font loading completed",
+      "fontLoadError": "Font loading error",
+      "pageInitError": "Page initialization error",
+      "errorInOpenGlobalChat": "[App] Error in openGlobalChat:",
+      "errorInOpenGlobalChatSetTimeout": "[App] Error in openGlobalChat setTimeout:",
+      "debugVisibilityNotFound": "[Debug Visibility] not found",
+      "debugVisibilityFailed": "[Debug Visibility] Failed",
+      "fontAuditSomeElementsIssues": "[FontAudit] Some elements may have font issues",
+      "fontAuditCurrentRoutePassed": "[FontAudit] Current route passed font check",
+      "fontAuditCurrentRouteIssues": "[FontAudit] Current route has font issues",
+      "fontAuditAllRoutesPassed": "[FontAudit] All routes passed font check",
+      "fontAuditSomeRoutesIssues": "[FontAudit] Some routes have font issues",
+      "StatusCode": "Status Code",
+      "Export": "Export",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "logStatus": {
       "success": "성공",
@@ -294,7 +338,12 @@
       "packagePlaceholder": "패키지를 선택하세요 (선택)",
       "noPackage": "패키지 미사사용",
       "title": "애플사용관리",
-      "subtitle": "애플리케이션 생성 및 관리, API 호출 통합 관리"
+      "subtitle": "애플리케이션 생성 및 관리, API 호출 통합 관리",
+      "Status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      }
     },
     "console": {
       "핵심 장점": "API 콘솔",
@@ -376,7 +425,13 @@
       "linkAppsFailed": "linkApps실패",
       "loadPackagesFailed": "loadPackages실패",
       "title": "패키지관리",
-      "subtitle": "보기및관리귀하의서비스패키지"
+      "subtitle": "보기및관리귀하의서비스패키지",
+      "Status": {
+        "active": "active",
+        "expired": "expired",
+        "suspended": "suspended",
+        "title": "Status"
+      }
     },
     "debug": {
       "핵심 장점": "API 온라인 디버깅",
@@ -406,7 +461,8 @@
       "requestFailed": "요청실패",
       "load": "불러오기",
       "title": "API온라인디버그",
-      "subtitle": "온라인 API 인터페이스 테스트, 실시간 요청 및 응답 보기"
+      "subtitle": "온라인 API 인터페이스 테스트, 실시간 요청 및 응답 보기",
+      "Status": "Status"
     },
     "groups": {
       "comparison": {
@@ -423,7 +479,8 @@
         "basic": "기본버전",
         "standard": "표준버전",
         "premium": "고급버전",
-        "enterprise": "기업버전"
+        "enterprise": "기업버전",
+        "Enterprise": "Enterprise"
       },
       "features": {
         "models": "지원모델역량",
@@ -476,7 +533,12 @@
         "searchPlaceholder": "검색그룹이름또는설명석",
         "viewGroup": "View그룹",
         "title": "그룹 관리",
-        "subtitle": "애플리케이션 그룹 생성 및 관리, 다양한 애플리케이션에 다른 그룹 유형 설정"
+        "subtitle": "애플리케이션 그룹 생성 및 관리, 다양한 애플리케이션에 다른 그룹 유형 설정",
+        "Status": {
+          "active": "active",
+          "inactive": "inactive",
+          "title": "Status"
+        }
       },
       "appCount": "App카운트",
       "createdAt": "CreatedAt",
@@ -491,7 +553,8 @@
         "basic": "적합개게개발게및작은형프로젝트테스트생각사용",
         "standard": "중소형 프로젝트 및 프로덕션 환경 사사용에 적합",
         "premium": "대형 프로젝트 및 상업적 애플리케이션 사사용에 적합",
-        "enterprise": "기업 애플리케이션 및 대규모 배포 사사용에 적합"
+        "enterprise": "기업 애플리케이션 및 대규모 배포 사사용에 적합",
+        "Enterprise": "Enterprise"
       },
       "updatedAt": "UpdatedAt"
     },
@@ -558,7 +621,13 @@
       "subtitle": "공수단을 제출하여 기술 지원을 받으세요, 최대한 빨리 처리해 드립니다",
       "titlePlaceholder": "요청입력공수단순제목",
       "titleRequired": "요청입력공수단순제목",
-      "titleLength": "제목 길이는 5-100자 사이여야 합니다"
+      "titleLength": "제목 길이는 5-100자 사이여야 합니다",
+      "Status": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      }
     },
     "billing": {
       "app": "애플사용",
@@ -599,13 +668,25 @@
       "thisMonth": "ThisMonth",
       "cost": "비사용",
       "title": "제목",
-      "subtitle": "Subtitle"
+      "subtitle": "Subtitle",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportExcel": "Export Excel",
+      "ExportCsv": "Export Csv",
+      "Status": {
+        "success": "Success",
+        "error": "Error",
+        "timeout": "Timeout"
+      },
+      "last7 Days": "Last7 Days",
+      "last30 Days": "Last30 Days"
     },
     "tokenStatus": {
       "active": "활성",
       "disabled": "비활성화",
       "expired": "만료됨",
-      "deleted": "삭제됨"
+      "deleted": "삭제됨",
+      "Disabled": "Disabled"
     },
     "balance": {
       "currentBalance": "현재 잔액",

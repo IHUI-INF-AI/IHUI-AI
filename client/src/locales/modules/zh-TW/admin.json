@@ -7,6 +7,23 @@
       "eventSent": "Event Sent",
       "historyCleared": "History Cleared",
       "subscriptionDeleted": "Subscription Deleted"
+    },
+    "sms": {
+      "searchPlaceholder": "搜索短信模板",
+      "templateName": "模板名稱",
+      "templateCode": "模板編碼",
+      "templateContent": "模板內容",
+      "templateType": "模板類型",
+      "typeVerify": "驗證碼",
+      "typeNotice": "通知",
+      "typeMarketing": "營銷",
+      "signName": "簽名",
+      "status": "狀態",
+      "statusEnabled": "啟用",
+      "statusDisabled": "禁用",
+      "remark": "備註",
+      "createTime": "創建時間",
+      "toggleStatus": "切換狀態"
     }
   }
 }

@@ -3,10 +3,14 @@
     "actions": {
       "Approve": "Approve",
       "Reject": "Reject",
-      "Export": "Export"
+      "Export": "Export",
+      "approve": "通过",
+      "reject": "拒绝",
+      "export": "导出"
     },
     "withdrawalList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "Status": {
       "pending": "Pending",
@@ -14,6 +18,13 @@
       "Rejected": "Rejected",
       "processing": "Processing",
       "completed": "Completed"
+    },
+    "status": {
+      "pending": "待审核",
+      "approved": "已通过",
+      "rejected": "已拒绝",
+      "processing": "处理中",
+      "completed": "已完成"
     }
   }
 }

@@ -23,6 +23,11 @@
     "statusInactive": "상태비활동",
     "statusDeprecated": "상태 폐기됨",
     "statusUnknown": "상태Unknown",
-    "title": "제목"
+    "title": "제목",
+    "Status": "Status",
+    "StatusActive": "Status Active",
+    "StatusInactive": "Status Inactive",
+    "StatusDeprecated": "Status Deprecated",
+    "StatusUnknown": "Status Unknown"
   }
 }

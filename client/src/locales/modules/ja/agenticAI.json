@@ -28,6 +28,14 @@
     "enterTaskDescription": "ご入力タスク説明",
     "swarmCreated": "Swarm作成成功",
     "createSwarmFailed": "作成Swarm失敗",
-    "loadSwarmListFailed": "読み込みSwarmリスト失敗"
+    "loadSwarmListFailed": "読み込みSwarmリスト失敗",
+    "Status": {
+      "completed": "completed",
+      "Failed": "Failed",
+      "pending": "pending",
+      "running": "running",
+      "title": "Status"
+    },
+    "enterTask Description": "Please enter task description"
   }
 }

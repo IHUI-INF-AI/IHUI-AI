@@ -5,7 +5,9 @@
       "fetchDetailFailed": "획득요구상세실패",
       "로드실패": "로드실패",
       "加载失败": "로드 실패",
-      "errorMes1": "errorMessage || '없음방법불러오기요구상세'"
+      "errorMes1": "errorMessage || '없음방법불러오기요구상세'",
+      "LoadFailed": "LoadFailed",
+      "loadFailed": "loadFailed"
     },
     "automation_panel": {
       "작업완료생성": "작업완료생성",
@@ -17,7 +19,23 @@
       "Webhook이미2": "Webhook 완료생성",
       "테스트요청완료발송3": "테스트요청완료발송",
       "URL이미복생각4": "URL 완료복생각",
-      "Webhook이미5": "Webhook 완료삭제"
+      "Webhook이미5": "Webhook 완료삭제",
+      "TaskAlReadyCreate": "TaskAlReadyCreate",
+      "TaskAlReadyDelete1": "TaskAlReadyDelete",
+      "WebhookAlReady2": "Webhook Created",
+      "TestRequestAlReadySend3": "TestRequestAlReadySend",
+      "URLAlReadyCopy4": "URL Copied",
+      "WebhookAlReady5": "Webhook AlReadyDelete",
+      "TaskDeleted1": "TaskDeleted",
+      "Webhook Created": "Webhook Created",
+      "URL Copied": "URL Copied",
+      "Webhook Deleted": "Webhook Deleted",
+      "任务已创建": "任务已创建",
+      "任务已删除1": "任务已删除",
+      "Webhook已2": "Webhook 已创建",
+      "测试请求已发送3": "测试请求已发送",
+      "URL已复制4": "URL 已复制",
+      "Webhook已5": "Webhook 已删除"
     },
     "browser_panel": {
       "탐색성공": "탐색성공",
@@ -36,17 +54,66 @@
       "일시적미지원쉽게혁명석지시요청13": "일시적미지원쉽게혁명석지시, 요청시도테스트: 여기핵심xx, 입력xx, 액세스xx",
       "스크립트스트완료내보내기14": "스크립트스트완료내보내기",
       "여기핵심성공2": "여기핵심성공",
-      "여기핵심실패3": "여기핵심실패"
+      "여기핵심실패3": "여기핵심실패",
+      "NavigationSuccess": "NavigationSuccess",
+      "NavigationFailed1": "NavigationFailed",
+      "ClickSuccess2": "ClickSuccess",
+      "ClickFailed3": "ClickFailed",
+      "InputSuccess4": "InputSuccess",
+      "InputFailed5": "InputFailed",
+      "WaitComplete6": "WaitComplete",
+      "WaitFailed7": "WaitFailed",
+      "ScreenshotSuccess8": "ScreenshotSuccess",
+      "ScreenshotFailed9": "ScreenshotFailed",
+      "Go Back10": "Go Back",
+      "Go Forward11": "Go Forward",
+      "Refresh12": "Refresh",
+      "This command is not supported yet, please try: Click xx, Input xx, Visit xx": "This command is not supported yet, please try: Click xx, Input xx, Visit xx",
+      "Script Exported14": "Script Exported",
+      "Navigation Success": "Navigation Success",
+      "Navigation Failed1": "Navigation Failed",
+      "Input Success4": "Input Success",
+      "Input Failed5": "Input Failed",
+      "navigateSuccess": "导航成功",
+      "navigateFailed": "导航失败",
+      "clickSuccess": "点击成功",
+      "clickFailed": "点击失败",
+      "inputSuccess": "输入成功",
+      "inputFailed": "输入失败",
+      "waitComplete": "等待完成",
+      "waitFailed": "等待失败",
+      "screenshotSuccess": "截图成功",
+      "screenshotFailed": "截图失败",
+      "goBack": "后退",
+      "goForward": "前进",
+      "refresh": "刷新",
+      "commandNotSupported": "暂不支持该命令，请尝试：点击xx、输入xx、访问xx",
+      "scriptExported": "脚本已导出"
     },
     "canvas_panel": {
       "혁명석지시완료실행": "혁명석지시완료실행",
-      "실행실패1": "실행실패"
+      "실행실패1": "실행실패",
+      "Command Executed": "Command Executed",
+      "Execution Failed1": "Execution Failed",
+      "ExecuteFailed1": "ExecuteFailed",
+      "命令已执行": "命令已执行",
+      "执行失败1": "执行失败"
     },
     "dashboard_panel": {
       "완료새로고침": "완료새로고침",
       "진단실패1": "진단실패",
       "완료비판준비2": "완료비판준비",
-      "완료거부됨3": "완료거부됨"
+      "완료거부됨3": "완료거부됨",
+      "AlReadyRefresh": "AlReadyRefresh",
+      "DiagnosticsFailed1": "DiagnosticsFailed",
+      "Approved2": "Approved",
+      "Rejected3": "Rejected",
+      "AlReadyApproved2": "AlReadyApproved",
+      "AlReady Rejected3": "AlReady Rejected",
+      "已刷新": "已刷新",
+      "诊断失败1": "诊断失败",
+      "已批准2": "已批准",
+      "已拒绝3": "已拒绝"
     },
     "devices_panel": {
       "사진 촬영성공": "사진 촬영성공",
@@ -79,7 +146,56 @@
       "메시지완료발송17": "메시지완료발송",
       "완료발송알림 벨혁명석지시18": "완료발송알림 벨혁명석지시",
       "가격 위치요청완료발송19": "가격 위치요청완료발송",
-      "취소됨페어링20": "취소됨페어링"
+      "취소됨페어링20": "취소됨페어링",
+      "Take PhotoSuccess": "Take PhotoSuccess",
+      "Take PhotoFailed1": "Take PhotoFailed",
+      "Video recording feature in development...": "Video recording feature in development...",
+      "ScreenshotSuccess3": "ScreenshotSuccess",
+      "ScreenshotFailed4": "ScreenshotFailed",
+      "Screen recording feature in development...": "Screen recording feature in development...",
+      "LocationGet Successful6": "LocationGet Successful",
+      "Get LocationFailed7": "Get LocationFailed",
+      "Notification permission alReady granted8": "Notification permission alReady granted",
+      "ClipboardforEmpty9": "ClipboardforEmpty",
+      "ReadClipboardFailed10": "ReadClipboardFailed",
+      "Copied to Clipboard11": "Copied to Clipboard",
+      "Write to ClipboardFailed12": "Write to ClipboardFailed",
+      "GetSystem InformationFailed13": "GetSystem InformationFailed",
+      "NotFoundAvailableDevice14": "NotFoundAvailableDevice",
+      "SearchDeviceFailed15": "SearchDeviceFailed",
+      "PairSuccess16": "PairSuccess",
+      "MessageAlReadySend17": "MessageAlReadySend",
+      "Ring command sent18": "Ring command sent",
+      "LocationRequestAlReadySend19": "LocationRequestAlReadySend",
+      "CancelledPair20": "CancelledPair",
+      "PairFailed": "PairFailed: ",
+      "Position Retrieved Successfully6": "Position Retrieved Successfully",
+      "Failed to get system information13": "Failed to get system information",
+      "NotDiscoverAvailableDevice14": "NotDiscoverAvailableDevice",
+      "MessageAlReadySend7": "MessageAlReadySend",
+      "LocationRequestAlReadySend9": "LocationRequestAlReadySend",
+      "拍照成功": "拍照成功",
+      "拍照失败1": "拍照失败",
+      "视频录制功能开发2": "视频录制功能开发中...",
+      "截屏成功3": "截屏成功",
+      "截屏失败4": "截屏失败",
+      "屏幕录制功能开发5": "屏幕录制功能开发中...",
+      "位置获取成功6": "位置获取成功",
+      "获取位置失败7": "获取位置失败",
+      "通知权限已授予8": "通知权限已授予",
+      "剪贴板为空9": "剪贴板为空",
+      "读取剪贴板失败10": "读取剪贴板失败",
+      "已复制到剪贴板11": "已复制到剪贴板",
+      "写入剪贴板失败12": "写入剪贴板失败",
+      "获取系统信息失败13": "获取系统信息失败",
+      "未发现可用设备14": "未发现可用设备",
+      "搜索设备失败15": "搜索设备失败",
+      "配对成功16": "配对成功",
+      "消息已发送17": "消息已发送",
+      "已发送响铃命令18": "已发送响铃命令",
+      "定位请求已发送19": "定位请求已发送",
+      "已取消配对20": "已取消配对",
+      "配对失败": "配对失败: "
     },
     "integrations_panel": {
       "완료연결 끊김통합": "완료연결 끊김통합",
@@ -89,7 +205,21 @@
       "설정저장됨4": "설정저장됨",
       "추가실패": "추가실패: ",
       "연결 해제 완료": "연결 해제 완료",
-      "설정완료저장4": "설정완료저장"
+      "설정완료저장4": "설정완료저장",
+      "AlReadyDisconnectedIntegration": "AlReadyDisconnectedIntegration",
+      "OAuth Authorization feature in development...": "OAuth Authorization feature in development...",
+      "PleaseSelectProvider2": "PleaseSelectProvider",
+      "IntegrationAddSuccess3": "IntegrationAddSuccess",
+      "ConfigSaved4": "ConfigSaved",
+      "AddFailed": "AddFailed: ",
+      "AlReadyDisconnectIntegration": "AlReadyDisconnectIntegration",
+      "ConfigurationSaved4": "ConfigurationSaved",
+      "已断开集成": "已断开集成",
+      "OAuth授权功1": "OAuth 授权功能开发中...",
+      "请选择提供商2": "请选择提供商",
+      "集成添加成功3": "集成添加成功",
+      "配置已保存4": "配置已保存",
+      "添加失败": "添加失败: "
     },
     "memory_panel": {
       "건수기억완료추가": "건수기억완료추가",
@@ -97,12 +227,21 @@
       "메모리완료내보내기2": "메모리완료내보내기",
       "메모리완료지우기3": "메모리완료지우기",
       "메모리완료저장1": "메모리완료저장",
-      "메모리완료삭제3": "메모리완료삭제"
+      "메모리완료삭제3": "메모리완료삭제",
+      "笔记已添加": "笔记已添加",
+      "记忆已保存1": "记忆已保存",
+      "记忆已导出2": "记忆已导出",
+      "记忆已清除3": "记忆已清除"
     },
     "models_panel": {
       "요청입력APIKe": "요청입력 API Key",
       "설정저장됨1": "설정저장됨",
-      "설정완료저장1": "설정완료저장"
+      "설정완료저장1": "설정완료저장",
+      "Please enter API Key": "Please enter API Key",
+      "ConfigSaved1": "ConfigSaved",
+      "ConfigurationSaved1": "ConfigurationSaved",
+      "请输入APIKe": "请输入 API Key",
+      "配置已保存1": "配置已保存"
     },
     "settings_panel": {
       "설정완료내보내기": "설정완료내보내기",
@@ -113,7 +252,20 @@
       "설정저장됨5": "설정저장됨",
       "가져오기실패파일형식2": "가져오기실패：파일형식오류",
       "데이마음완료삭제3": "데이마음완료삭제",
-      "설정완료저장5": "설정완료저장"
+      "설정완료저장5": "설정완료저장",
+      "Settings AlReady Exported": "Settings AlReady Exported",
+      "Settings AlReady Imported1": "Settings AlReady Imported",
+      "Import failed, file format incorrect2": "ImportFailed: FileFormatError",
+      "Data alReady cleared3": "Data alReady cleared",
+      "AlReady reset to default settings4": "AlReady reset to default settings",
+      "Settings Saved5": "Settings Saved",
+      "Data Cleared3": "Data Cleared",
+      "设置已导出": "设置已导出",
+      "设置已导入1": "设置已导入",
+      "导入失败文件格式2": "导入失败：文件格式错误",
+      "数据已清除3": "数据已清除",
+      "已重置为默认设置4": "已重置为默认设置",
+      "设置已保存5": "设置已保存"
     },
     "skills_panel": {
       "테크가능일정설치성공": "테크가능일정설치성공",
@@ -123,40 +275,73 @@
       "테크가능생성성공4": "테크가능생성성공",
       "일정설치실패": "일정설치실패: ",
       "생성실패1": "생성실패: ",
-      "입력하세요테크가능이름및3": "입력하세요테크가능이름및기능요구"
+      "입력하세요테크가능이름및3": "입력하세요테크가능이름및기능요구",
+      "Skill InstallationSuccess": "Skill InstallationSuccess",
+      "SkillAlReadyUninstall1": "SkillAlReadyUninstall",
+      "ConfigFeatureDevelopmentMedium2": "ConfigFeatureDevelopmentMedium...",
+      "Please fill in skill name and feature requirements": "Please fill in skill name and feature requirements",
+      "SkillCreate Successful4": "SkillCreate Successful",
+      "Installation Failed: ": "Installation Failed: ",
+      "CreateFailed1": "CreateFailed: ",
+      "Configuration feature in development...": "Configuration feature in development...",
+      "技能安装成功": "技能安装成功",
+      "技能已卸载1": "技能已卸载",
+      "配置功能开发中2": "配置功能开发中...",
+      "请填写技能名称和3": "请填写技能名称和功能需求",
+      "技能创建成功4": "技能创建成功",
+      "安装失败": "安装失败: ",
+      "创建失败1": "创建失败: "
     },
     "voice_panel": {
       "음성처음시작변환실패": "음성처음시작변환실패",
       "음성재생실패1": "음성재생실패",
-      "음성방송개방실패1": "음성방송개방실패"
+      "음성방송개방실패1": "음성방송개방실패",
+      "语音初始化失败": "语音初始化失败",
+      "语音播放失败1": "语音播放失败"
     },
     "header_navigation": {
       "이동실패요청재시도": "이동실패，요청재시도",
       "건너뛰기이체실패요청재시도": "건너뛰기이체실패，요청재시도",
-      "跳转失败请重试": "이동 실패, 다시 시도해 주세요"
+      "跳转失败请重试": "이동 실패, 다시 시도해 주세요",
+      "Jump Failed, please retry": "Jump Failed, please retry"
     },
     "universal_login": {
       "요청바인딩전화번호완료": "요청바인딩전화번호완료로그인",
-      "요청바인딩휴대전화번호완료": "요청바인딩휴대전화번호완료로그인"
+      "요청바인딩휴대전화번호완료": "요청바인딩휴대전화번호완료로그인",
+      "Please bind phone to complete login": "Please bind phone to complete login",
+      "Please bind mobile number to complete login": "Please bind mobile number to complete login",
+      "请绑定手机号完成": "请绑定手机号完成登录"
     },
     "login_popup": {
       "업로드실패": "업로드실패",
       "사사용자 이름을 입력하세요1": "사사용자 이름을 입력하세요",
       "저장 성공2": "저장 성공",
-      "저장성공2": "저장성공"
+      "저장성공2": "저장성공",
+      "Upload Failed": "Upload Failed",
+      "Please enter username1": "Please enter username",
+      "Saved Successfully2": "Saved Successfully",
+      "Save Successful2": "Save Successful",
+      "上传失败": "上传失败",
+      "请输入用户名1": "请输入用户名",
+      "保存成功2": "保存成功"
     },
     "become_supplier": {
       "신청요청제출성공우리": "신청요청제출성공，우리를하여 3 개업무일내부답장！",
-      "申请提交成功我们": "신청 제출 완료, 영업일 기준 3일 이내에 답변드리겠습니다!"
+      "申请提交成功我们": "신청 제출 완료, 영업일 기준 3일 이내에 답변드리겠습니다!",
+      "Application submitted successfully, we will reply within 3 working days!": "Application submitted successfully, we will reply within 3 working days!"
     },
     "contact_us": {
       "귀하의 기업 번호 성공 발견": "귀하의 기업 번호 성공 발견매핑，우리연결말씀빠름답장！",
-      "귀하의 기업 번호 이미 성공 발견": "귀하의 기업 번호 성공 발견매핑，우리를말씀빠른답장！"
+      "귀하의 기업 번호 이미 성공 발견": "귀하의 기업 번호 성공 발견매핑，우리를말씀빠른답장！",
+      "Your signal has been successfully sent, we will reply as soon as possible!": "Your signal has been successfully sent, we will reply as soon as possible!",
+      "您的信号已成功发": "您的信号已成功发射，我们将尽快回复！"
     },
     "news_center": {
       "상세세부콘텐츠처리 중생성": "상세세부콘텐츠처리 중생성 중...",
       "상세세부내사용공식사이생성": "상세세부콘텐츠공식사이생성중간...",
-      "详细内容正在生成": "상세 내용 생성 중..."
+      "详细内容正在生成": "상세 내용 생성 중...",
+      "Processing detailed content...": "Processing detailed content...",
+      "Generating detailed content...": "Generating detailed content..."
     },
     "feedback": {
       "messageSentSuccess": "메시지가 중앙 처리 장치로 전송되었습니다",
@@ -164,7 +349,14 @@
       "messageLengthInsufficient": "메시지 길이가 부족합니다",
       "messageSentToCentral": "메시지가 성공적으로 전송되었습니다",
       "messageContentNotEmpty": "메시지 내용은 비워둘 수 없습니다",
-      "messageLengthSufficient": "메시지 길이가 충분합니다"
+      "messageLengthSufficient": "메시지 길이가 충분합니다",
+      "Message sent to central processor": "Message sent to central processor",
+      "Message content required": "Message content required",
+      "Message length insufficient1": "Message length insufficient",
+      "Message content cannot be empty": "Message content cannot be empty",
+      "报文已发送至中央": "报文已发送至中央处理器",
+      "报文内容不能为空": "报文内容不能为空",
+      "报文长度不足1": "报文长度不足"
     },
     "plaza": {
       "titleRequired": "제목을 입력해 주세요",
@@ -172,7 +364,8 @@
     },
     "business_card": {
       "요청실패1": "요청실패",
-      "请求失败1": "요청 실패"
+      "请求失败1": "요청 실패",
+      "Request Failed1": "Request Failed"
     },
     "login": {
       "요청실패": "요청실패",
@@ -195,7 +388,20 @@
       "请求失败4": "요청 실패",
       "请求失败5": "요청 실패",
       "请求失败7": "요청 실패",
-      "请求失败8": "요청 실패"
+      "请求失败8": "요청 실패",
+      "Request Failed": "Request Failed",
+      "Request Failed1": "Request Failed",
+      "Request Failed2": "Request Failed",
+      "Request Failed3": "Request Failed",
+      "Request Failed4": "Request Failed",
+      "Request Failed5": "Request Failed",
+      "Request Failed6": "Request Failed",
+      "Request Failed7": "Request Failed",
+      "Request Failed8": "Request Failed",
+      "Batch send SMS verification code Failed": "Batch send SMS verification code Failed",
+      "Refresh token Failed": "Refresh token Failed",
+      "请求失败6": "请求失败",
+      "刷新Token失10": "刷新Token失败"
     },
     "trader": {
       "획득이차원코드실패": "획득이차원코드실패",
@@ -205,13 +411,22 @@
       "实名认证失败2": "실명 인증 실패",
       "获取二维码失败": "QR 코드 가져오기 실패",
       "请求失败1": "요청 실패",
-      "请求失败3": "요청 실패"
+      "请求失败3": "요청 실패",
+      "GetQR codeFailed": "GetQR codeFailed",
+      "Request Failed1": "Request Failed",
+      "Real-name verification Failed2": "Real-name verification Failed",
+      "Request Failed3": "Request Failed",
+      "Failed to get QR code": "Failed to get QR code"
     },
     "use_ai_special_models": {
-      "생각사용게정보미완료": "생각사용게정보미완료"
+      "생각사용게정보미완료": "생각사용게정보미완료",
+      "User information incomplete": "User information incomplete",
+      "用户信息不完整": "用户信息不完整"
     },
     "use_ai_video": {
-      "생각사용게정보미완료": "생각사용게정보미완료"
+      "생각사용게정보미완료": "생각사용게정보미완료",
+      "User information incomplete": "User information incomplete",
+      "用户信息不完整": "用户信息不完整"
     },
     "use_m_c_p_use": {
       "MCP서비스게동화연결": "MCP 서버연결성공",
@@ -221,24 +436,35 @@
       "Agent创建失3": "Agent 생성 실패",
       "Agent创建成2": "Agent 생성 성공",
       "MCP服务器连接": "MCP 서버 연결 성공",
-      "MCP服务器连接1": "MCP 서버 연결 실패"
+      "MCP服务器连接1": "MCP 서버 연결 실패",
+      "MCP Server Connection Success": "MCP Server Connection Success",
+      "MCP Server Connection Success1": "MCP Server Connection Failed",
+      "Agent Created Successfully2": "Agent Created Successfully",
+      "Agent Creation Failed3": "Agent Creation Failed"
     },
     "use_unified_a_i": {
       "AI기능호출사용성공": "AI 기능호출사용성공",
       "AI쉽력호출사용성공": "AI 역량호출사용성공",
-      "AI能力调用成功": "AI 역량 호출 성공"
+      "AI能力调用成功": "AI 역량 호출 성공",
+      "AIAbilityCall Successful": "AI capability call successful",
+      "AI capability call successful": "AI capability call successful"
     },
     "use_unified_a_i_chat": {
       "불러오기대화기이것은실패": "불러오기대화기이것은실패",
       "로드대화기이것은실패": "로드대화기이것은실패",
-      "加载对话历史失败": "대화 기록 로드 실패"
+      "加载对话历史失败": "대화 기록 로드 실패",
+      "LoadChat HistoryFailed": "LoadChat HistoryFailed",
+      "loadChat HistoryFailed": "loadChat HistoryFailed"
     },
     "apple_login": {
       "처리 중이동도달App2": "처리 중이동도달Apple로그인페이지면...",
       "Apple로그인성숙3": "Apple로그인성공",
       "공식사이건너뛰기이체도달App2": "공식사이건너뛰기이체도달Apple로그인페이지면...",
       "Apple登录成3": "Apple 로그인 성공",
-      "正在跳转到App2": "Apple 로그인 페이지로 이동 중..."
+      "正在跳转到App2": "Apple 로그인 페이지로 이동 중...",
+      "Processing jump to Apple login page...2": "Processing jump to Apple login page...",
+      "Apple Login Successful3": "Apple Login Successful",
+      "Redirecting to Apple login page...2": "Redirecting to Apple login page..."
     },
     "google_login": {
       "검증 중Goog2": "검증 중Google로그인정보...",
@@ -252,11 +478,22 @@
       "Google登录5": "Google 로그인 성공",
       "正在跳转到Goo4": "Google 로그인 페이지로 이동 중...",
       "正在验证Goog2": "Google 로그인 정보 확인 중...",
-      "登录操作超时请重6": "로그인 작업 시간 초과, 다시 시도해 주세요"
+      "登录操作超时请重6": "로그인 작업 시간 초과, 다시 시도해 주세요",
+      "Processing VerificationGoog2": "Processing VerificationGoogleLoginInformation...",
+      "GoogleLogin3": "GoogleLoginVerification Successful",
+      "Processing redirect to Google login page...4": "Processing redirect to Google login page...",
+      "GoogleLogin5": "GoogleLogin Successful",
+      "Login action timeout, please retry6": "Login action timeout, please retry",
+      "VerifyingGoog2": "Verifying Google login information...",
+      "Googlelogin3": "GoogleloginVerification Successful",
+      "Redirecting to Google login page...4": "Redirecting to Google login page...",
+      "Googlelogin5": "GoogleLogin Successful"
     },
     "resource_center": {
       "이리소스처리 중동기화중간": "이리소스처리 중동기화중간...",
-      "이리소스공식사이함께생각회중간": "이리소스공식사이함께생각회중간..."
+      "이리소스공식사이함께생각회중간": "이리소스공식사이함께생각회중간...",
+      "This resource is being synced...": "This resource is being synced...",
+      "此资源正在同步中": "此资源正在同步中..."
     },
     "account_bind_dialog": {
       "密码设置失败3": "비밀번호 설정 실패",
@@ -275,6 +512,23 @@
     },
     "voice": {
       "noVoiceHistory": "없음음성기이것은"
+    },
+    "Memory_panel": {
+      "TransactionsAlReadyAdd": "TransactionsAlReadyAdd",
+      "MemorySaved1": "MemorySaved",
+      "MemoryAlReadyExport2": "MemoryAlReadyExport",
+      "MemoryAlReadyClear3": "MemoryAlReadyClear",
+      "Memory Saved1": "Memory Saved",
+      "Memory Exported2": "Memory Exported",
+      "Memory Cleared3": "Memory Cleared"
+    },
+    "Voice_panel": {
+      "Voice initialization Failed": "Voice initialization Failed",
+      "VoicePlayFailed1": "VoicePlayFailed",
+      "Voice playback Failed1": "Voice playback Failed"
+    },
+    "Voice": {
+      "noVoiceHistory": "No Voice history"
     }
   }
 }

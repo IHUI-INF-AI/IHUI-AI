@@ -3,12 +3,17 @@
     "export": "エクスポートチケット",
     "search": {
       "status": "ステータス",
-      "statusPlaceholder": "请選択ステータス"
+      "statusPlaceholder": "请選択ステータス",
+      "Status": "Status",
+      "StatusPlaceholder": "Status Placeholder"
     },
     "table": {
       "status": "ステータス",
       "approve": "承認",
-      "reject": "拒いいえ"
+      "reject": "拒いいえ",
+      "Status": "Status",
+      "Approve": "Approve",
+      "Reject": "Reject"
     },
     "status": {
       "pending": "待処理",
@@ -19,17 +24,30 @@
     "category": {},
     "priority": {},
     "detail": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "audit": {
       "approveTitle": "審査承認",
-      "rejectTitle": "審査拒いいえ"
+      "rejectTitle": "審査拒いいえ",
+      "ApproveTitle": "Approve Title",
+      "RejectTitle": "Reject Title"
     },
     "assign": {},
     "messages": {
       "approveSuccess": "チケット审核通過ぎ",
       "rejectSuccess": "チケット済み拒绝",
-      "exportInDevelopment": "エクスポート機できる開発中"
+      "exportInDevelopment": "エクスポート機できる開発中",
+      "ApproveSuccess": "Approve Success",
+      "RejectSuccess": "Reject Success",
+      "ExportInDevelopment": "ExportFeatureDevelopmentMedium"
+    },
+    "Export": "Export",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "resolved": "Resolved",
+      "closed": "Closed"
     }
   }
 }

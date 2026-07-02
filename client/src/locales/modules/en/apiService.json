@@ -54,13 +54,15 @@
       "selectAppPlaceholder": "Select App Placeholder",
       "selectAppTip": "Select App Tip",
       "filterByApp": "Filter by Application",
-      "allApps": "AllApply"
+      "allApps": "AllApply",
+      "status": "状态"
     },
     "tokenStatus": {
       "Disabled": "Disabled",
       "active": "Active",
       "expired": "Expired",
-      "deleted": "Deleted"
+      "deleted": "Deleted",
+      "disabled": "已禁用"
     },
     "usage": {
       "successRate": "Success Rate",
@@ -111,7 +113,15 @@
       "noDataToExport": "No Data To Export",
       "overview": "Overview",
       "date": "Date",
-      "stats": "Stats"
+      "stats": "Stats",
+      "searchModel": "搜索模型...",
+      "exportStats": "导出统计",
+      "exportFormatPrompt": "请选择导出格式",
+      "exportExcel": "导出Excel",
+      "exportCSV": "导出CSV",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败",
+      "exportSection": "数据分类"
     },
     "logs": {
       "time": "Time",
@@ -180,7 +190,10 @@
       "filterByApp": "Filter By App",
       "allApps": "All Apps",
       "viewDetail": "View Detail",
-      "loadDetailFailed": "Load Detail Failed"
+      "loadDetailFailed": "Load Detail Failed",
+      "export": "导出",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     },
     "logStatus": {
       "success": "Success",
@@ -222,7 +235,12 @@
       "appNameLength": "App Name Length",
       "package": "UsePackage",
       "packagePlaceholder": "PleaseSelectPackage（optional）",
-      "noPackage": "NotUsePackage"
+      "noPackage": "NotUsePackage",
+      "status": {
+        "active": "正常",
+        "inactive": "已停用",
+        "suspended": "已暂停"
+      }
     },
     "billing": {
       "app": "App",
@@ -263,7 +281,16 @@
       "monthCost": "Month Cost",
       "totalRecords": "Total Records",
       "thisMonth": "This Month",
-      "cost": "Cost"
+      "cost": "Cost",
+      "status": {
+        "success": "成功",
+        "error": "错误",
+        "timeout": "Timeout"
+      },
+      "exportExcel": "导出Excel",
+      "exportCsv": "导出CSV",
+      "last7Days": "最近7天",
+      "last30Days": "最近30天"
     },
     "groups": {
       "features": {
@@ -331,19 +358,26 @@
         "updateFailed": "UpdateGroupFailed",
         "deleteSuccess": "DeleteGroupSuccess",
         "deleteFailed": "DeleteGroupFailed",
-        "deleteConfirm": "Confirm to delete group \\\"{name}\\\"? This action cannot be undone."
+        "deleteConfirm": "Confirm to delete group \\\"{name}\\\"? This action cannot be undone.",
+        "status": {
+          "active": "活跃",
+          "inactive": "未激活",
+          "title": "状态"
+        }
       },
       "types": {
         "basic": "Basic",
         "standard": "Standard",
         "premium": "Premium",
-        "Enterprise": "Enterprise"
+        "Enterprise": "Enterprise",
+        "enterprise": "企业版"
       },
       "scenarios": {
         "Enterprise": "Enterprise",
         "basic": "Basic",
         "standard": "Standard",
-        "premium": "Premium"
+        "premium": "Premium",
+        "enterprise": "适合企业级应用和大规模部署使用"
       },
       "updatedAt": "Updated At"
     },
@@ -395,7 +429,13 @@
       "linkAppsFailed": "Link Apps Failed",
       "loadPackagesFailed": "Load Packages Failed",
       "used": "Used",
-      "downgrade": "Downgrade"
+      "downgrade": "Downgrade",
+      "status": {
+        "active": "正常",
+        "expired": "已过期",
+        "suspended": "已暂停",
+        "title": "状态"
+      }
     },
     "home": {
       "advantages": {
@@ -508,7 +548,8 @@
       "load": "Load",
       "urlRequired": "Url Required",
       "requestSuccess": "Request Success",
-      "requestFailed": "Request Failed"
+      "requestFailed": "Request Failed",
+      "status": "状态码"
     },
     "tickets": {
       "replies": "Replies",
@@ -568,7 +609,13 @@
       "titleLength": "Title Length",
       "categoryRequired": "Category Required",
       "descriptionRequired": "Description Required",
-      "descriptionLength": "Description Length"
+      "descriptionLength": "Description Length",
+      "status": {
+        "pending": "待处理",
+        "processing": "处理中",
+        "resolved": "已解决",
+        "closed": "已关闭"
+      }
     },
     "balance": {
       "currentBalance": "Current Balance",

@@ -31,6 +31,7 @@
     "linkCopied": "Link copied to clipboard, please share manually",
     "codeSent": "Verification code sent, please check",
     "loginFailed": "Login Failed",
-    "defaultSuccess": "Operation successful"
+    "defaultSuccess": "Operation successful",
+    "loginSuccess": "登录成功"
   }
 }

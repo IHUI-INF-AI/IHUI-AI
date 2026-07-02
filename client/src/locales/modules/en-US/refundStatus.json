@@ -19,12 +19,12 @@
     "descCompleted": "Refund has been credited successfully. Please check.",
     "statusFailed": "Refund Failed",
     "descFailed": "Refund processing failed. The system will retry automatically or contact customer service.",
-    "statusCancelled": "Cancelled",
-    "descCancelled": "You have cancelled this refund request.",
+    "statusCancelled": "Canceled",
+    "descCancelled": "You have canceled this refund request.",
     "actionCreate": "Submit Request",
     "actionEvidenceUpload": "Upload Evidence",
     "actionReview": "Customer Service Review",
-    "actionCancel": "User Cancelled",
+    "actionCancel": "User Canceled",
     "actionAutoRetry": "Auto Retry"
   }
 }

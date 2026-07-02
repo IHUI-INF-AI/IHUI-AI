@@ -114,7 +114,8 @@
       "viewDetails": "ViewDetails",
       "comment": "Comment",
       "like": "Like",
-      "share": "Share"
+      "share": "Share",
+      "status": "状态"
     },
     "title": "AI Needs Plaza",
     "exit": "Exit Plaza"

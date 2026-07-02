@@ -3,10 +3,14 @@
     "search": {
       "Status": "Status",
       "StatusPlaceholder": "Select Status",
-      "Export": "Export"
+      "Export": "Export",
+      "status": "状态",
+      "statusPlaceholder": "请选择状态",
+      "export": "导出"
     },
     "table": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "Status": {
       "enabled": "Enabled",
@@ -15,7 +19,13 @@
     "dialogs": {},
     "messages": {
       "ExportSuccess": "Export Successful",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
+    },
+    "status": {
+      "enabled": "启用",
+      "disabled": "禁用"
     }
   }
 }

@@ -72,6 +72,7 @@
     "logShareFailed": "共有に失敗しました",
     "logCopyFailed": "コピーに失敗しました",
     "backToHome": "戻るホーム",
-    "contentDetails": "コンテンツ詳細"
+    "contentDetails": "コンテンツ詳細",
+    "logCopy Failed": "Copy Failed"
   }
 }

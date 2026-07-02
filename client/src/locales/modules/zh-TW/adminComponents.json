@@ -180,6 +180,10 @@
     },
     "webhook": {
       "desc": "Webhook 列表管理頁面"
+    },
+    "crontabField": {
+      "generate": "生成",
+      "dialogTitle": "Cron 表達式生成器"
     }
   }
 }

@@ -89,6 +89,16 @@
       "knowledgeNodes": "Knowledge Nodes",
       "autoFixRate": "Auto Fix Rate",
       "coverage": "24/7 Coverage"
-    }
+    },
+    "faq": "常见问题",
+    "refundPolicy": "退款政策",
+    "refundContact": "退款联系",
+    "contactWays": "联系方式",
+    "workHours": "工作时间",
+    "quickEntry": "快速入口",
+    "courseCenter": "课程中心",
+    "personalCenter": "个人中心",
+    "feedback": "意见反馈",
+    "aboutUs": "关于我们"
   }
 }

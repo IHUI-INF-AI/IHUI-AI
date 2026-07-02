@@ -21,11 +21,19 @@
         "talk": "대화",
         "audio": "오디오",
         "videoa": "디지털 휴먼",
-        "other": "기타"
+        "other": "기타",
+        "Voice": "Voice"
       },
       "noModelData": "없음{type}모델데이마음",
       "loadModelFailed": "모델 목이것은 로드 실패, 잠시 후 재시도",
-      "apiAccess": "API통합장벽"
+      "apiAccess": "API통합장벽",
+      "modelButton": "Model",
+      "modelSwitch": "Model",
+      "loading": "Loading...",
+      "imageTab": "Image",
+      "videoTab": "Video",
+      "textTab": "Text",
+      "selectAuto": "auto"
     },
     "button": {
       "generate": "생성",

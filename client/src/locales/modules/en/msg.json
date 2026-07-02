@@ -17,7 +17,13 @@
       "TaskDeleted1": "TaskDeleted",
       "Webhook Created": "Webhook Created",
       "URL Copied": "URL Copied",
-      "Webhook Deleted": "Webhook Deleted"
+      "Webhook Deleted": "Webhook Deleted",
+      "任务已创建": "任务已创建",
+      "任务已删除1": "任务已删除",
+      "Webhook已2": "Webhook 已创建",
+      "测试请求已发送3": "测试请求已发送",
+      "URL已复制4": "URL 已复制",
+      "Webhook已5": "Webhook 已删除"
     },
     "browser_panel": {
       "NavigationSuccess": "NavigationSuccess",
@@ -38,12 +44,29 @@
       "Navigation Success": "Navigation Success",
       "Navigation Failed1": "Navigation Failed",
       "Input Success4": "Input Success",
-      "Input Failed5": "Input Failed"
+      "Input Failed5": "Input Failed",
+      "navigateSuccess": "导航成功",
+      "navigateFailed": "导航失败",
+      "clickSuccess": "点击成功",
+      "clickFailed": "点击失败",
+      "inputSuccess": "输入成功",
+      "inputFailed": "输入失败",
+      "waitComplete": "等待完成",
+      "waitFailed": "等待失败",
+      "screenshotSuccess": "截图成功",
+      "screenshotFailed": "截图失败",
+      "goBack": "后退",
+      "goForward": "前进",
+      "refresh": "刷新",
+      "commandNotSupported": "暂不支持该命令，请尝试：点击xx、输入xx、访问xx",
+      "scriptExported": "脚本已导出"
     },
     "canvas_panel": {
       "Command Executed": "Command Executed",
       "Execution Failed1": "Execution Failed",
-      "ExecuteFailed1": "ExecuteFailed"
+      "ExecuteFailed1": "ExecuteFailed",
+      "命令已执行": "命令已执行",
+      "执行失败1": "执行失败"
     },
     "dashboard_panel": {
       "AlReadyRefresh": "AlReadyRefresh",
@@ -51,7 +74,11 @@
       "Approved2": "Approved",
       "Rejected3": "Rejected",
       "AlReadyApproved2": "AlReadyApproved",
-      "AlReady Rejected3": "AlReady Rejected"
+      "AlReady Rejected3": "AlReady Rejected",
+      "已刷新": "已刷新",
+      "诊断失败1": "诊断失败",
+      "已批准2": "已批准",
+      "已拒绝3": "已拒绝"
     },
     "devices_panel": {
       "Take PhotoSuccess": "Take PhotoSuccess",
@@ -80,7 +107,29 @@
       "Failed to get system information13": "Failed to get system information",
       "NotDiscoverAvailableDevice14": "NotDiscoverAvailableDevice",
       "MessageAlReadySend7": "MessageAlReadySend",
-      "LocationRequestAlReadySend9": "LocationRequestAlReadySend"
+      "LocationRequestAlReadySend9": "LocationRequestAlReadySend",
+      "拍照成功": "拍照成功",
+      "拍照失败1": "拍照失败",
+      "视频录制功能开发2": "视频录制功能开发中...",
+      "截屏成功3": "截屏成功",
+      "截屏失败4": "截屏失败",
+      "屏幕录制功能开发5": "屏幕录制功能开发中...",
+      "位置获取成功6": "位置获取成功",
+      "获取位置失败7": "获取位置失败",
+      "通知权限已授予8": "通知权限已授予",
+      "剪贴板为空9": "剪贴板为空",
+      "读取剪贴板失败10": "读取剪贴板失败",
+      "已复制到剪贴板11": "已复制到剪贴板",
+      "写入剪贴板失败12": "写入剪贴板失败",
+      "获取系统信息失败13": "获取系统信息失败",
+      "未发现可用设备14": "未发现可用设备",
+      "搜索设备失败15": "搜索设备失败",
+      "配对成功16": "配对成功",
+      "消息已发送17": "消息已发送",
+      "已发送响铃命令18": "已发送响铃命令",
+      "定位请求已发送19": "定位请求已发送",
+      "已取消配对20": "已取消配对",
+      "配对失败": "配对失败: "
     },
     "integrations_panel": {
       "AlReadyDisconnectedIntegration": "AlReadyDisconnectedIntegration",
@@ -90,7 +139,13 @@
       "ConfigSaved4": "ConfigSaved",
       "AddFailed": "AddFailed: ",
       "AlReadyDisconnectIntegration": "AlReadyDisconnectIntegration",
-      "ConfigurationSaved4": "ConfigurationSaved"
+      "ConfigurationSaved4": "ConfigurationSaved",
+      "已断开集成": "已断开集成",
+      "OAuth授权功1": "OAuth 授权功能开发中...",
+      "请选择提供商2": "请选择提供商",
+      "集成添加成功3": "集成添加成功",
+      "配置已保存4": "配置已保存",
+      "添加失败": "添加失败: "
     },
     "Memory_panel": {
       "TransactionsAlReadyAdd": "TransactionsAlReadyAdd",
@@ -104,7 +159,9 @@
     "models_panel": {
       "Please enter API Key": "Please enter API Key",
       "ConfigSaved1": "ConfigSaved",
-      "ConfigurationSaved1": "ConfigurationSaved"
+      "ConfigurationSaved1": "ConfigurationSaved",
+      "请输入APIKe": "请输入 API Key",
+      "配置已保存1": "配置已保存"
     },
     "settings_panel": {
       "Settings AlReady Exported": "Settings AlReady Exported",
@@ -113,7 +170,13 @@
       "Data alReady cleared3": "Data alReady cleared",
       "AlReady reset to default settings4": "AlReady reset to default settings",
       "Settings Saved5": "Settings Saved",
-      "Data Cleared3": "Data Cleared"
+      "Data Cleared3": "Data Cleared",
+      "设置已导出": "设置已导出",
+      "设置已导入1": "设置已导入",
+      "导入失败文件格式2": "导入失败：文件格式错误",
+      "数据已清除3": "数据已清除",
+      "已重置为默认设置4": "已重置为默认设置",
+      "设置已保存5": "设置已保存"
     },
     "skills_panel": {
       "Skill InstallationSuccess": "Skill InstallationSuccess",
@@ -123,7 +186,14 @@
       "SkillCreate Successful4": "SkillCreate Successful",
       "Installation Failed: ": "Installation Failed: ",
       "CreateFailed1": "CreateFailed: ",
-      "Configuration feature in development...": "Configuration feature in development..."
+      "Configuration feature in development...": "Configuration feature in development...",
+      "技能安装成功": "技能安装成功",
+      "技能已卸载1": "技能已卸载",
+      "配置功能开发中2": "配置功能开发中...",
+      "请填写技能名称和3": "请填写技能名称和功能需求",
+      "技能创建成功4": "技能创建成功",
+      "安装失败": "安装失败: ",
+      "创建失败1": "创建失败: "
     },
     "Voice_panel": {
       "Voice initialization Failed": "Voice initialization Failed",
@@ -136,20 +206,25 @@
     },
     "universal_login": {
       "Please bind phone to complete login": "Please bind phone to complete login",
-      "Please bind mobile number to complete login": "Please bind mobile number to complete login"
+      "Please bind mobile number to complete login": "Please bind mobile number to complete login",
+      "请绑定手机号完成": "请绑定手机号完成登录"
     },
     "login_popup": {
       "Upload Failed": "Upload Failed",
       "Please enter username1": "Please enter username",
       "Saved Successfully2": "Saved Successfully",
-      "Save Successful2": "Save Successful"
+      "Save Successful2": "Save Successful",
+      "上传失败": "上传失败",
+      "请输入用户名1": "请输入用户名",
+      "保存成功2": "保存成功"
     },
     "become_supplier": {
       "Application submitted successfully, we will reply within 3 working days!": "Application submitted successfully, we will reply within 3 working days!",
       "申请提交成功我们": "申请提交成功我们"
     },
     "contact_us": {
-      "Your signal has been successfully sent, we will reply as soon as possible!": "Your signal has been successfully sent, we will reply as soon as possible!"
+      "Your signal has been successfully sent, we will reply as soon as possible!": "Your signal has been successfully sent, we will reply as soon as possible!",
+      "您的信号已成功发": "您的信号已成功发射，我们将尽快回复！"
     },
     "news_center": {
       "Processing detailed content...": "Processing detailed content...",
@@ -160,7 +235,10 @@
       "Message sent to central processor": "Message sent to central processor",
       "Message content required": "Message content required",
       "Message length insufficient1": "Message length insufficient",
-      "Message content cannot be empty": "Message content cannot be empty"
+      "Message content cannot be empty": "Message content cannot be empty",
+      "报文已发送至中央": "报文已发送至中央处理器",
+      "报文内容不能为空": "报文内容不能为空",
+      "报文长度不足1": "报文长度不足"
     },
     "plaza": {
       "titleRequired": "Please enter a title",
@@ -193,7 +271,9 @@
       "请求失败4": "Request failed",
       "请求失败5": "Request failed",
       "请求失败7": "Request failed",
-      "请求失败8": "Request failed"
+      "请求失败8": "Request failed",
+      "请求失败6": "请求失败",
+      "刷新Token失10": "刷新Token失败"
     },
     "trader": {
       "GetQR codeFailed": "GetQR codeFailed",
@@ -207,10 +287,12 @@
       "请求失败3": "Request failed"
     },
     "use_ai_special_models": {
-      "User information incomplete": "User information incomplete"
+      "User information incomplete": "User information incomplete",
+      "用户信息不完整": "用户信息不完整"
     },
     "use_ai_video": {
-      "User information incomplete": "User information incomplete"
+      "User information incomplete": "User information incomplete",
+      "用户信息不完整": "用户信息不完整"
     },
     "use_m_c_p_use": {
       "MCP Server Connection Success": "MCP Server Connection Success",
@@ -256,7 +338,8 @@
       "登录操作超时请重6": "登录操作超时请重"
     },
     "resource_center": {
-      "This resource is being synced...": "This resource is being synced..."
+      "This resource is being synced...": "This resource is being synced...",
+      "此资源正在同步中": "此资源正在同步中..."
     },
     "account_bind_dialog": {
       "密码设置失败3": "PasswordSettingsFailed",
@@ -272,6 +355,19 @@
     },
     "skills": {
       "noInstalledSkills": "No skills installed yet"
+    },
+    "memory_panel": {
+      "笔记已添加": "笔记已添加",
+      "记忆已保存1": "记忆已保存",
+      "记忆已导出2": "记忆已导出",
+      "记忆已清除3": "记忆已清除"
+    },
+    "voice_panel": {
+      "语音初始化失败": "语音初始化失败",
+      "语音播放失败1": "语音播放失败"
+    },
+    "voice": {
+      "noVoiceHistory": "暂无语音记录"
     }
   }
 }

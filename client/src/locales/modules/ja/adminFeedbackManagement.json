@@ -1,7 +1,8 @@
 {
   "adminFeedbackManagement": {
     "actions": {
-      "export": "エクスポート記録"
+      "export": "エクスポート記録",
+      "Export": "Export"
     },
     "search": {
       "status": "フィードバックステータス",
@@ -9,20 +10,31 @@
       "statusPending": "待処理",
       "statusProcessing": "処理中",
       "statusResolved": "解決済み",
-      "statusClosed": "済み閉じる"
+      "statusClosed": "済み閉じる",
+      "Status": "Status",
+      "StatusPlaceholder": "Status Placeholder",
+      "StatusPending": "Status Pending",
+      "StatusProcessing": "Status Processing",
+      "StatusResolved": "Status Resolved",
+      "StatusClosed": "Status Closed"
     },
     "table": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "dialog": {},
     "form": {},
     "messages": {
       "exportNoData": "なし可エクスポート的データ",
       "exportSuccess": "フィードバックリストエクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportNoData": "No data to Export"
     },
     "feedbackList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "type": {},
     "status": {
@@ -35,6 +47,17 @@
     "export": "エクスポート",
     "exportCSV": "エクスポートCSV",
     "exportExcel": "エクスポートExcel",
-    "exportPDF": "エクスポートPDF"
+    "exportPDF": "エクスポートPDF",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "Export": "Export",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

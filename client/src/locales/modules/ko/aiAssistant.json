@@ -22,6 +22,16 @@
     "downloadSuccess": "다운로드 성공",
     "imagesUploaded": "ImagesUploaded",
     "voiceInputFailed": "voiceInput실패",
-    "title": "제목"
+    "title": "제목",
+    "thinkingTitle": "Thinking",
+    "thinkingTip": "AI is thinking...",
+    "sendFailed": "Send Failed",
+    "shareNotSupported": "Current browser does not support sharing function",
+    "imageUploadNotImplemented": "Image upload function is not implemented yet",
+    "VoiceInputNotImplemented": "Voice input function is not implemented yet",
+    "thinkingText1": "Analyzing your needs...",
+    "thinkingText2": "Generating solutions...",
+    "thinkingText3": "Optimizing output results...",
+    "VoiceInputFailed": "Voice input Failed"
   }
 }

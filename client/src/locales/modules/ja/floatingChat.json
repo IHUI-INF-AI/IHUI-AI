@@ -183,7 +183,11 @@
       "nodes": "デバイス节点",
       "nodesDesc": "多い端设备管理",
       "dashboard": "ダッシュボード",
-      "dashboardDesc": "系统ステータス监控"
+      "dashboardDesc": "系统ステータス监控",
+      "Memory": "Memory",
+      "MemoryDesc": "Knowledge Storage & retrieval",
+      "Voice": "Voice Assistant",
+      "VoiceDesc": "Voice conversation"
     },
     "mcpTools": "MCPツール",
     "mcpToolsIntro": "MCPツールで会話を拡張：ファイル、検索、データベース、地図、画像生成など。選択するとチャットで利用できます。",
@@ -227,14 +231,16 @@
           "productivity": "生产力ツール",
           "social": "社交",
           "storage": "ストレージ",
-          "smartHome": "智できる家居"
+          "smartHome": "智できる家居",
+          "Storage": "Storage"
         },
         "title": "サードパーティ統合",
         "addIntegration": "追加統合",
         "connected": "済み接続",
         "disconnected": "未接続",
         "configure": "設定",
-        "disconnect": "切断"
+        "disconnect": "切断",
+        "Add Integration": "Add Integration"
       },
       "title": "AI 智能ツール箱",
       "backToChat": "戻る会話",
@@ -251,7 +257,9 @@
         "automation": "自動化タスク",
         "approvals": "セキュリティ审批",
         "dashboard": "系统ダッシュボード",
-        "settings": "設定"
+        "settings": "設定",
+        "Memory": "Memory System",
+        "Voice": "Voice Assistant"
       },
       "memory": {
         "title": "记忆システム",
@@ -309,7 +317,8 @@
         "export": "エクスポート",
         "undo": "元に戻す",
         "redo": "やり直し",
-        "clear": "クリア"
+        "clear": "クリア",
+        "Export": "Export"
       },
       "nodes": {
         "title": "デバイス节点",
@@ -354,7 +363,9 @@
         "goForward": "進む",
         "refresh": "更新しい",
         "exportScript": "エクスポート脚本",
-        "aiCommand": "AI 命令"
+        "aiCommand": "AI 命令",
+        "Refresh": "Refresh",
+        "ExportScript": "Export Script"
       },
       "models": {
         "title": "モデル管理",
@@ -367,7 +378,9 @@
         "totalCost": "合計料金",
         "requests": "リクエスト回数",
         "avgLatency": "平均遅延",
-        "ollamaLocal": "ローカルモデル (Ollama)"
+        "ollamaLocal": "ローカルモデル (Ollama)",
+        "Current Model": "Current Model",
+        "Configure Provider": "Configure Provider"
       },
       "automation": {
         "title": "自動化タスク",
@@ -397,7 +410,11 @@
         "pendingApprovals": "待审批",
         "recentActivity": "最近アクティビティ",
         "recentErrors": "最近エラー",
-        "runDiagnostics": "実行诊断"
+        "runDiagnostics": "実行诊断",
+        "Memory": "Memory",
+        "Storage": "Storage",
+        "Recent Activity": "Recent Activity",
+        "Recent Errors": "Recent Errors"
       },
       "settings": {
         "title": "設定",
@@ -412,7 +429,48 @@
         "importData": "インポートデータ",
         "clearData": "クリア所有データ",
         "resetSettings": "リセットデフォルト",
-        "saveSettings": "保存設定"
+        "saveSettings": "保存設定",
+        "Export Data": "Export Data"
+      },
+      "Memory": {
+        "title": "Memory System",
+        "dailyNotes": "Daily Notes",
+        "longTermMemory": "Long-term Memory",
+        "search": "Search",
+        "addNote": "Add Note",
+        "addMemory": "Add Memory",
+        "ExportMarkdown": "Export Markdown",
+        "clearMemory": "Clear Memory",
+        "noteTypes": {
+          "note": "Note",
+          "activity": "Activity",
+          "decision": "Decision",
+          "learning": "Learning",
+          "task": "Task",
+          "reminder": "Reminder"
+        },
+        "MemoryTypes": {
+          "fact": "Fact",
+          "preference": "Preference",
+          "project": "Project",
+          "person": "Person",
+          "lesson": "Lesson",
+          "skill": "Skill"
+        }
+      },
+      "Voice": {
+        "title": "Voice Assistant",
+        "enabled": "Enabled",
+        "Disabled": "Disabled",
+        "Listening": "Listening...",
+        "Speaking": "Speaking...",
+        "talkMode": "Talk Mode",
+        "Wake Word": "Wake Word",
+        "VoiceSettings": "Voice Settings",
+        "rate": "Rate",
+        "Pitch": "Pitch",
+        "Volume": "Volume",
+        "testVoice": "Test Voice"
       }
     },
     "messageDeleted": "メッセージ済み削除",
@@ -593,7 +651,9 @@
       "webhookEndpoint": "Callback URL",
       "webhookEvents": "Events (comma-separated)",
       "webhookName": "Name",
-      "webhooks": "Webhooks"
+      "webhooks": "Webhooks",
+      "browserDesc": "Web automation: navigate, click, type, screenshot, etc.",
+      "cronScheduleHint": "e.g. 0 * * * * = every hour; 0 0 * * * = daily at midnight"
     },
     "recentActivity": "Recent Activity",
     "settingsComingSoon": "Settings Coming Soon",
@@ -663,7 +723,8 @@
       "idle": "空闲",
       "thinking": "思考中",
       "acting": "実行中",
-      "reflecting": "反思中"
+      "reflecting": "反思中",
+      "Failed": "Failed"
     },
     "agenticMonitor": {
       "title": "Agent Swarm モニター",
@@ -683,7 +744,8 @@
       "websocketConnected": "WebSocket接続成功",
       "swarmCompleted": "Swarm実行完了",
       "swarmFailed": "Swarm実行失敗",
-      "unknownError": "不明なエラー"
+      "unknownError": "不明なエラー",
+      "RefreshStatusFailed": "Failed to Refresh Status"
     },
     "example": {
       "title": "悬浮会話ページ例",
@@ -735,12 +797,63 @@
         "slack": "Slack",
         "wechat": "WeChat",
         "webchat": "网ページ聊日"
-      }
+      },
+      "Status": "Status"
     },
     "agenticAITaskExecutionFailed": "Agentic AIタスク実行失敗",
     "generatedVideo": "生成的動画",
     "unknownError": "不明なエラー",
     "usePrompt": "使用：{prompt}",
-    "aiDialog": "AI 会話"
+    "aiDialog": "AI 会話",
+    "Open Chat": "Open AI Chat",
+    "VoiceInput": "Voice Input",
+    "VoiceNotSupported": "Your browser does not support speech recognition",
+    "VoiceStarted": "Voice recognition started",
+    "VoiceAlReadyStarted": "Voice recognition alReady started, please stop first",
+    "VoicePermissionDenied": "Microphone permission denied, please allow access in browser settings",
+    "VoiceNoSpeech": "No speech detected, please try again",
+    "VoiceStartFailed": "Failed to start Voice recognition",
+    "VoiceStopped": "Recording stopped, duration {duration} seconds",
+    "VoiceStoppedShort": "Recording stopped",
+    "codeCopy Failed": "Failed to copy code",
+    "reGenerate Successful": "Regenerated successfully",
+    "ExportChat": "Export Chat (TXT)",
+    "ExportMarkdown": "Export as Markdown",
+    "ExportJSON": "Export as JSON",
+    "Exported": "Exported successfully",
+    "ExportFailed": "Export Failed",
+    "Total Messages": "Total Messages",
+    "FailedMessages": "Failed Messages",
+    "fileRead Failed": "Failed to read file {name}",
+    "fileUpload Successful": "File {name} uploaded successfully",
+    "agenticAITask Completed": "Agentic AI task completed",
+    "${componentName} - Website NametGenerator": {
+      "title": "Agentic Component Generator",
+      "${componentName} - Website NametName": "Component Name",
+      "${componentName} - Website NametDescription": "Component Description",
+      "descriptionPlaceholder": "Describe the ${componentName} - Website Namet's functionality and purpose...",
+      "features": "Features",
+      "useDesignSystem": "Use Design System",
+      "useSEO": "Integrate SEO",
+      "useAnimations": "Add Micro Animations",
+      "generate": "Generate Component",
+      "copyCode": "Copy Code",
+      "saveComponent": "Save Component",
+      "generateFailed": "Failed to generate ${componentName} - Website Namet",
+      "tabs": {
+        "template": "Template",
+        "script": "Script",
+        "style": "Style",
+        "documentation": "Documentation"
+      }
+    },
+    "imageUpload Failed": "Image upload Failed",
+    "ExportTimeLabel": "Export Time",
+    "imageProviderQwen": "通义万相",
+    "imageProviderDoubao": "豆包",
+    "imageProviderJimeng": "即梦",
+    "videoProviderQwen": "通义万相",
+    "videoProviderKling": "可灵AI",
+    "videoProviderOneClick": "一键视频"
   }
 }

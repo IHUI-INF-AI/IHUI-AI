@@ -63,6 +63,16 @@
     },
     "cancelConfirm": "キャンセル確認",
     "cancelSuccess": "キャンセル成功",
-    "cancelFailed": "キャンセル失敗"
+    "cancelFailed": "キャンセル失敗",
+    "ApprovedAt": "Approved At",
+    "RejectReason": "Reject Reason",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "Failed": "Failed"
+    }
   }
 }

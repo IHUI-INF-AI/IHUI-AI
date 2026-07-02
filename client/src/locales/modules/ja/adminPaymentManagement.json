@@ -1,16 +1,24 @@
 {
   "adminPaymentManagement": {
     "actions": {
-      "export": "エクスポート"
+      "export": "エクスポート",
+      "Export": "Export"
     },
     "paymentList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "status": {
       "pending": "待支払い",
       "completed": "完了",
       "failed": "失敗",
       "refunded": "済み返金"
+    },
+    "Status": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "refunded": "Refunded"
     }
   }
 }

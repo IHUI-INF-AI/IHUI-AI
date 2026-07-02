@@ -302,7 +302,8 @@
       "difficulty": "난이도",
       "answer": "정답",
       "memberCountInRole": "멤버 수",
-      "sensitiveWord": "민감어"
+      "sensitiveWord": "민감어",
+      "bank": "银行"
     },
     "title": {
       "webhookManage": "Webhook 관리",

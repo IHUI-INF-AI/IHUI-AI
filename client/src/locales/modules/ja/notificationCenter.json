@@ -30,6 +30,11 @@
     "soundNotifications": "サウンド通知",
     "justNow": "たった今",
     "minutesAgo": "{count} 分前",
-    "hoursAgo": "{count} 時間前"
+    "hoursAgo": "{count} 時間前",
+    "level": {
+      "info": "信息",
+      "warn": "警告",
+      "error": "错误"
+    }
   }
 }

@@ -7,7 +7,8 @@
       "serviceType": "서비스유형",
       "allServices": "모든서비스",
       "status": "상태",
-      "allStatus": "모든상태"
+      "allStatus": "모든상태",
+      "Status": "Status"
     },
     "status": {
       "pending": "기다림확인",
@@ -37,10 +38,17 @@
       "cancelledAt": "취소시간",
       "adminNotes": "관리자준비가입",
       "email": "이메일",
-      "phone": "전화"
+      "phone": "전화",
+      "Status": "Status"
     },
     "title": "내프리셋약속",
     "subtitle": "보기및관리귀하의서비스프리셋약속",
-    "loadFailed": "불러오기실패，요청잠시백엔드재시도"
+    "loadFailed": "불러오기실패，요청잠시백엔드재시도",
+    "Status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
   }
 }

@@ -13,10 +13,12 @@
       "请对以下观点或事19": "Please deeply analyze the viewpoint or event, analyzing root causes, influencing factors, stakeholder dynamics, and possible future trends."
     },
     "introduce_popup": {
-      "Upgrade system to increase computing power, recharge/course activation/service activation discount": "Upgrade system to increase computing power, recharge/course activation/service activation discount"
+      "Upgrade system to increase computing power, recharge/course activation/service activation discount": "Upgrade system to increase computing power, recharge/course activation/service activation discount",
+      "升级系统增加算力": "升级系统增加算力充值/课程开通/服务开通折扣"
     },
     "introduce_popup_operator": {
-      "Company headquarters settlement and offline learning opportunities": "Company headquarters settlement and offline learning opportunities"
+      "Company headquarters settlement and offline learning opportunities": "Company headquarters settlement and offline learning opportunities",
+      "公司总部入驻及线": "公司总部入驻及线下学习实操机会"
     },
     "learn_a_i": {
       "AI question generation feature is so powerful, what used to take 3 days to complete now takes 10 minutes, and the question quality is high.50": "AI question generation feature is so powerful, what used to take 3 days to complete now takes 10 minutes, and the question quality is high.",

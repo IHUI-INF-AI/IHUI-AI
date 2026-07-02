@@ -33,6 +33,7 @@
     "requirementsMinLength": "요구설명석까지핵심필요10개글게일치",
     "submitSuccess": "제출성공，우리있도말씀빠름연락귀하의",
     "submitError": "제출실패，요청잠시백엔드재시도",
-    "onlineChat": "온라인Chat"
+    "onlineChat": "온라인Chat",
+    "welcomeMessage": "Hello! I'm Zhihui AI intelligent customer service, happy to serve you. How can I help you?"
   }
 }

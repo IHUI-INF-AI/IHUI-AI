@@ -19,7 +19,8 @@
       "status": "상태",
       "orderTime": "오프라인단순시간",
       "actions": "작업",
-      "copyOrderId": "복생각주의문번호"
+      "copyOrderId": "복생각주의문번호",
+      "Status": "Status"
     },
     "status": {
       "settled": "완료정산",
@@ -48,6 +49,12 @@
     "copy": "복생각",
     "noCommission": "없음커미션기이것은",
     "withdrawSuccess": "출금성공",
-    "withdrawDetailInfo": "보기출금명석세부"
+    "withdrawDetailInfo": "보기출금명석세부",
+    "Status": {
+      "settled": "Settled",
+      "pending": "Pending Settlement",
+      "cancelled": "Cancelled Settlement",
+      "unknown": "Unknown"
+    }
   }
 }

@@ -4,7 +4,8 @@
     "sub핵심 장점": "관리시스템생각사용게、게금계정및플랫폼닫기시리즈",
     "tabs": {},
     "actions": {
-      "exportUsers": "내보내기생각사용게"
+      "exportUsers": "내보내기생각사용게",
+      "ExportUsers": "Export Users"
     },
     "search": {
       "statusPlaceholder": "상태",
@@ -13,33 +14,48 @@
       "statusClosed": "닫기",
       "statusActive": "상태활동",
       "statusDisabled": "상태완료비활성화",
-      "status": "상태"
+      "status": "상태",
+      "StatusPlaceholder": "Status",
+      "StatusNormal": "Normal",
+      "StatusFrozen": "Frozen",
+      "StatusClosed": "Closed",
+      "StatusActive": "Status Active",
+      "StatusDisabled": "Status Disabled",
+      "Status": "Status"
     },
     "userList": {
       "이메일": "이메일",
       "전화": "전화번호",
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "marginList": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "platformList": {},
     "sysLinkList": {},
     "authInfoList": {
       "status": "상태",
-      "messages": {}
+      "messages": {},
+      "Status": "Status"
     },
     "authAccountList": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "authInfoForm": {
       "status": "상태",
       "statusNormal": "정상",
       "statusDisabled": "비활성화",
       "validation": {
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusNormal": "Normal",
+      "StatusDisabled": "Disabled"
     },
     "userForm": {
       "이메일": "이메일",
@@ -55,7 +71,10 @@
         "전화Required": "요청입력전화번호",
         "전화Invalid": "올바른 전화번호를 입력하세요"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "User Status",
+      "StatusActive": "Active",
+      "StatusDisabled": "Disabled"
     },
     "userMarginForm": {
       "status": "상태",
@@ -63,9 +82,14 @@
       "statusFrozen": "동결",
       "statusClosed": "닫기",
       "validation": {
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusNormal": "Normal",
+      "StatusFrozen": "Frozen",
+      "StatusClosed": "Closed"
     },
     "userSysLinkForm": {
       "validation": {},
@@ -80,14 +104,21 @@
       "statusNormal": "정상",
       "statusDisabled": "비활성화",
       "validation": {
-        "statusRequired": "요청선택상태"
+        "statusRequired": "요청선택상태",
+        "StatusRequired": "Please select Status"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusNormal": "Normal",
+      "StatusDisabled": "Disabled"
     },
     "dialogs": {},
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "fetchFailed": "Failed to fetch user list",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
     }
   }
 }

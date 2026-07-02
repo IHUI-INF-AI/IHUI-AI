@@ -7,6 +7,12 @@
       "completed": "완료",
       "cancelled": "취소됨",
       "refunded": "Refunded"
+    },
+    "Status": {
+      "unsettled": "Unsettled",
+      "pending": "Pending",
+      "refunded": "Refunded",
+      "completed": "Completed"
     }
   }
 }

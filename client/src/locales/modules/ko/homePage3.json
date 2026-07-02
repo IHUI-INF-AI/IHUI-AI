@@ -33,6 +33,8 @@
     "errors": {
       "loadFailed": "플랫폼 뉴스 로드 실패",
       "apiLoadFailed": "API 로드 실패, 기본 플랫폼 뉴스를 사용합니다"
-    }
+    },
+    "Refresh": "Refresh",
+    "Refreshing": "Refreshing..."
   }
 }

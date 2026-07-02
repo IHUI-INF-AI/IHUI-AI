@@ -189,7 +189,8 @@
         "text": "テキスト生成",
         "image": "画像生成",
         "voice": "音声処理",
-        "video": "動画生成"
+        "video": "動画生成",
+        "Voice": "Voice Processing"
       },
       "industry": {
         "title": "業界エージェント",
@@ -277,6 +278,270 @@
     }
   },
   "EnterpriseService": {
-    "enterpriseDesc": "AI時代の企業サービスとコミュニティ"
+    "enterpriseDesc": "AI時代の企業サービスとコミュニティ",
+    "badge": "ENTERPRISE SERVICE",
+    "heroTitle": "ZHIHUI AI Community",
+    "heroSubtitle": "Enterprise rational efficiency service and mutual aid community in the AI era. Helping decision-makers deeply understand the relationship between AI and Enterprises, building human-machine collaborative super organizations.",
+    "stats": {
+      "priceLabel": "CNY/person/year standard",
+      "earlyBirdLabel": "CNY/person/year early bird",
+      "seatsLabel": "early bird seats"
+    },
+    "positioning": {
+      "title": "Enterprise Rational Efficiency Service in AI Era",
+      "description": "ZHIHUI AI Community is dedicated to helping Enterprise decision-makers deeply understand the relationship between AI and Enterprises. Through systematic courses, practical exploration, and community mutual aid, we build human-machine collaborative super organizations to achieve rational efficiency improvement."
+    },
+    "modules": {
+      "localCommunity": {
+        "title": "Local Community",
+        "description": "Offline courses, exploration activities, and mutual aid community for deep connections with like-minded decision-makers",
+        "features": {
+          "courses": "Systematic Courses",
+          "exploration": "Practical Exploration",
+          "mutualAid": "Community Support"
+        }
+      },
+      "onlineCommunity": {
+        "title": "Online Community",
+        "description": "Convenient online exchange platform for information and support anytime, anywhere",
+        "features": {
+          "platform": "Exchange Platform",
+          "exchange": "Experience Sharing",
+          "resources": "Resource Matching"
+        }
+      },
+      "aiService": {
+        "title": "AI Professional Service",
+        "description": "Professional large models and agent services providing in-depth AI consulting and support",
+        "features": {
+          "model": "Professional LLM",
+          "agent": "Agent Service",
+          "consulting": "Consulting"
+        }
+      },
+      "module01": "module01",
+      "module02": "module02",
+      "module03": "module03"
+    },
+    "architecture": {
+      "title": "Enterprise AI Service Path and Architecture",
+      "description": "From physical world to information world, building human-machine collaborative super Enterprises",
+      "physicalWorld": {
+        "title": "Physical World",
+        "structure": {
+          "title": "Organization Structure",
+          "description": "Help Enterprises organize structure and define digital employee positions"
+        },
+        "process": {
+          "title": "Process Analysis",
+          "description": "Forward and reverse process analysis to optimize operational efficiency"
+        },
+        "culture": {
+          "title": "Human Values",
+          "description": "Corporate culture, mission & vision, critical thinking and humility"
+        }
+      },
+      "infoWorld": {
+        "title": "Information World",
+        "basic": {
+          "label": "Basic Information World",
+          "items": {
+            "informatization": "Informatization",
+            "iot": "IoT",
+            "automation": "Automation"
+          }
+        },
+        "advanced": {
+          "label": "Advanced Information World",
+          "items": {
+            "perception": "Perceptual AI",
+            "generative": "Generative AI",
+            "agent": "Agent AI",
+            "physical": "Physical AI"
+          }
+        }
+      },
+      "aiEffect": {
+        "title": "AI Transformation Effects",
+        "superEmployee": "Super Employee",
+        "superTeam": "Super Team",
+        "superProduct": "Super Product/Service",
+        "metrics": {
+          "cost": "Cost Optimization",
+          "efficiency": "Efficiency Boost",
+          "experience": "Experience Upgrade"
+        }
+      }
+    },
+    "compass": {
+      "title": "Agent Scenario Compass",
+      "description": "Based on task execution complexity and autonomous decision-making dependence, helping Enterprises identify and plan agent application scenarios",
+      "axes": {
+        "complexity": {
+          "title": "Task Execution Complexity",
+          "low": "Low",
+          "high": "High"
+        },
+        "autonomy": {
+          "title": "Autonomous Decision Dependence",
+          "low": "Low",
+          "high": "High"
+        }
+      },
+      "quadrants": {
+        "simple": {
+          "title": "Efficient Assistant",
+          "description": "Simple decision + Simple execution, quick deployment for high-frequency applications",
+          "examples": {
+            "qa": "Knowledge Q&A",
+            "workflow": "Process Automation"
+          }
+        },
+        "decision": {
+          "title": "Wise Advisor",
+          "description": "Complex decision + Simple execution, providing deep analysis and suggestions",
+          "examples": {
+            "analysis": "Data Analysis",
+            "advisor": "Decision Support"
+          }
+        },
+        "execution": {
+          "title": "Execution Expert",
+          "description": "Simple decision + Complex execution, handling cross-system complex tasks",
+          "examples": {
+            "meeting": "Meeting Scheduling",
+            "approval": "Approval Process"
+          }
+        },
+        "complex": {
+          "title": "Omnipotent Expert",
+          "description": "Complex decision + Complex execution, autonomous planning and multi-agent collaboration",
+          "examples": {
+            "marketing": "Marketing Automation",
+            "multiAgent": "Multi-Agent Collaboration"
+          }
+        }
+      },
+      "cta": "Explore Agent Scenarios"
+    },
+    "courses": {
+      "title": "Course System",
+      "description": "Systematic AI cognition and practice courses to help Enterprise decision-makers comprehensively understand opportunities and challenges in the AI era",
+      "aiTools": {
+        "title": "AI Tools Courses",
+        "items": {
+          "development": "AI Technology Development Overview",
+          "productivity": "AI Productivity Tools Usage",
+          "toolsIntro": "Mainstream AI Tools Introduction",
+          "agentBuilding": "Low/No-code Agent Building",
+          "structureAnalysis": "Enterprise AI Structured Analysis",
+          "aiLiteracy": "AI Era Literacy - Critical Thinking"
+        },
+        "description": "description"
+      },
+      "thinking": {
+        "title": "Thinking Courses",
+        "items": {
+          "problemSolving": "Structured Problem Solving",
+          "innovationBarriers": "Innovation Barrier Breakthrough",
+          "creativeLearning": "Creative Learning Methods",
+          "orgChange": "Organizational Change Psychology"
+        },
+        "description": "description"
+      },
+      "culture": {
+        "title": "Culture Courses",
+        "items": {
+          "cultureManagement": "Corporate Culture Management",
+          "missionVision": "Mission, Vision & Values",
+          "easternPhilosophy": "Chinese Philosophy Series",
+          "westernPhilosophy": "Western Philosophy Series"
+        },
+        "description": "description"
+      }
+    },
+    "tools": {
+      "title": "Enterprise AI Tools Overview",
+      "description": "From general AI tools to industry-specific agents, comprehensively meeting Enterprise AI needs",
+      "general": {
+        "title": "General AI Tools",
+        "text": "Text Generation",
+        "image": "Image Generation",
+        "Voice": "Voice Processing",
+        "video": "Video Generation"
+      },
+      "industry": {
+        "title": "Industry Agents",
+        "manufacturing": "Manufacturing",
+        "education": "Education",
+        "healthcare": "Healthcare",
+        "government": "Government"
+      },
+      "function": {
+        "title": "Function Agents",
+        "sales": "Sales & Service",
+        "production": "Production",
+        "rd": "R&D Innovation",
+        "office": "Office Collaboration"
+      },
+      "partners": {
+        "title": "Ecosystem Partners"
+      }
+    },
+    "join": {
+      "title": "Join ZHIHUI AI Community",
+      "description": "Explore the infinite possibilities of the AI era with like-minded Enterprise decision-makers",
+      "originalPrice": "Original Price",
+      "earlyBird": "Early Bird",
+      "currentPrice": "Current Price",
+      "perYear": "/person/year",
+      "seatsNote": "Limited to first 18 members",
+      "benefits": {
+        "title": "Member Benefits",
+        "allCourses": "Free access to all courses",
+        "exploration": "Priority for exploration activities",
+        "mutualAid": "Unlimited community support",
+        "onlineCommunity": "Exclusive online community access",
+        "aiAssistant": "Early access to AI assistant",
+        "refund": "Full refund if not satisfied"
+      },
+      "cta": "Join Now",
+      "hint": "Scan code for consultation or contact us directly"
+    },
+    "footer": {
+      "company": "ZHIHUI AI Community",
+      "location": "Beijing, China",
+      "agentScenario": "Agent Scenario",
+      "humanMachine": "Human-Machine",
+      "contact": "Contact Us"
+    },
+    "badgeNew": "badgeNew",
+    "communityLabel": "communityLabel",
+    "coreService": "coreService",
+    "exit": "exit",
+    "jumpToSection": "jumpToSection",
+    "layers": {
+      "layer01": "layer01",
+      "layer02": "layer02",
+      "layer03": "layer03"
+    },
+    "learnMore": "learnMore",
+    "phases": {
+      "phase01": "phase01",
+      "phase02": "phase02",
+      "phase03": "phase03"
+    },
+    "scrollProgress": "scrollProgress",
+    "sectionNavigation": "sectionNavigation",
+    "sections": {
+      "agentCompass": "agentCompass",
+      "architecture": "architecture",
+      "courseSystem": "courseSystem",
+      "joinUs": "joinUs",
+      "positioning": "positioning",
+      "serviceModules": "serviceModules",
+      "toolsOverview": "toolsOverview"
+    },
+    "skipToMain": "skipToMain"
   }
 }

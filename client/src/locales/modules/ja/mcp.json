@@ -41,7 +41,9 @@
       "saveFailed": "保存に失敗",
       "executeSuccess": "execute成功",
       "executeFailed": "execute失敗",
-      "historyCleared": "履歴記録Cleared"
+      "historyCleared": "履歴記録Cleared",
+      "Status": "Status",
+      "Execute Failed": "Execute Failed"
     },
     "resource": {
       "unknown": "未known",
@@ -84,7 +86,8 @@
       "requiredArg": "必須Arg",
       "executeSuccess": "execute成功",
       "executeFailed": "execute失敗",
-      "downloadStarted": "Download済み開始"
+      "downloadStarted": "Download済み開始",
+      "Execute Failed": "Execute Failed"
     },
     "quickCall": {
       "title": "タイトル",
@@ -122,6 +125,13 @@
       "error": "エラー",
       "connecting": "接続中",
       "unknown": "不明"
+    },
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "error": "Error",
+      "connecting": "Connecting",
+      "unknown": "Unknown"
     }
   }
 }

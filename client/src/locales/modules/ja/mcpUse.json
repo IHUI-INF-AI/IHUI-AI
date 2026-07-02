@@ -63,7 +63,8 @@
       "fillRequiredFields": "填充必須Fields",
       "contextInvalid": "上下文Invalid",
       "disconnectSuccess": "disconnect成功",
-      "deleteAgentSuccess": "deleteAgent成功"
+      "deleteAgentSuccess": "deleteAgent成功",
+      "Status": "Status"
     }
   }
 }

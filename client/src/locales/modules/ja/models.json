@@ -40,6 +40,9 @@
     "disableSuccess": "無効化成功",
     "testSuccess": "テスト成功",
     "testFailed": "テスト失敗",
-    "apiAccessDoc": "接続ドキュメント"
+    "apiAccessDoc": "接続ドキュメント",
+    "Search Model": "Search Model",
+    "Status": "Status",
+    "pleaseEnterModel Name": "Please Enter Model Name"
   }
 }

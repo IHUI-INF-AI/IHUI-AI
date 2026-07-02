@@ -4,10 +4,14 @@
     "search": {
       "status": "상태",
       "statusPlaceholder": "요청선택상태",
-      "export": "내보내기"
+      "export": "내보내기",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status",
+      "Export": "Export"
     },
     "table": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "status": {
       "enabled": "활성화",
@@ -15,7 +19,9 @@
     },
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
     },
     "dialog": {
       "핵심 장점": "팁"
@@ -25,9 +31,17 @@
       "statusEnabled": "상태완료활성화",
       "statusDisabled": "상태완료비활성화",
       "validation": {
-        "statusRequired": "상태필수"
+        "statusRequired": "상태필수",
+        "StatusRequired": "Status Required"
       },
-      "messages": {}
+      "messages": {},
+      "Status": "Status",
+      "StatusEnabled": "Status Enabled",
+      "StatusDisabled": "Status Disabled"
+    },
+    "Status": {
+      "enabled": "Enabled",
+      "Disabled": "Disabled"
     }
   }
 }

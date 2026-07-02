@@ -2,7 +2,9 @@
   "adminCoursePayLog": {
     "messages": {
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     }
   }
 }

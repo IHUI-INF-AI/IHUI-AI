@@ -45,6 +45,10 @@
     "bgSecondary": "배경회색",
     "bgHover": "호버 배경",
     "title": "디자인 시스템 데모",
-    "subtitle": "확장예제 Google Agentic AI IDE 디게인시스템의생각사용"
+    "subtitle": "확장예제 Google Agentic AI IDE 디게인시스템의생각사용",
+    "Status": "Status",
+    "DisabledStatus": "Disabled Status",
+    "Disabled": "Disabled",
+    "DisabledContent": "Disabled Content"
   }
 }

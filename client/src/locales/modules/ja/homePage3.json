@@ -33,6 +33,8 @@
     "errors": {
       "loadFailed": "プラットフォームニュースの読み込みに失敗しました",
       "apiLoadFailed": "APIの読み込みに失敗しました、デフォルトのプラットフォームニュースを使用します"
-    }
+    },
+    "Refresh": "Refresh",
+    "Refreshing": "Refreshing..."
   }
 }

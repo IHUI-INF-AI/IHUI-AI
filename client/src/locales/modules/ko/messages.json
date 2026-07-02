@@ -31,6 +31,7 @@
     "linkCopied": "링크가 클립보드에 복생각되었습니다. 수동으로 공유하세요",
     "codeSent": "인증 코드가 전송되었습니다. 확인하세요",
     "loginFailed": "로그인 실패",
-    "defaultSuccess": "작업 성공"
+    "defaultSuccess": "작업 성공",
+    "Login Successful": "Login successful"
   }
 }

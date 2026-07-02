@@ -4,6 +4,8 @@
     "failedOrders": "失敗注文",
     "period": {},
     "messages": {},
-    "chart": {}
+    "chart": {},
+    "Refresh": "Refresh Data",
+    "FailedOrders": "Failed Orders"
   }
 }

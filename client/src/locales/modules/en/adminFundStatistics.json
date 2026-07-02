@@ -4,6 +4,8 @@
     "FailedOrders": "Failed Orders",
     "period": {},
     "messages": {},
-    "chart": {}
+    "chart": {},
+    "refresh": "刷新数据",
+    "failedOrders": "失败订单"
   }
 }

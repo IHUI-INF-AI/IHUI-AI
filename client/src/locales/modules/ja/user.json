@@ -5,7 +5,19 @@
       "title": "購入履歴"
     },
     "examine": {
-      "title": "審査履歴"
+      "title": "審査履歴",
+      "Status": {
+        "pending": "Pending",
+        "Approved": "Approved",
+        "Rejected": "Rejected"
+      },
+      "descriptions": {
+        "Status": "Status"
+      },
+      "actions": {
+        "Reject": "Reject",
+        "Approve": "Approve"
+      }
     },
     "menu": {
       "profile": "個人情報",
@@ -75,7 +87,23 @@
       "unreadMessages": "{label}に{count}件の未読メッセージ"
     },
     "settings": {
-      "title": "システム設定"
+      "title": "システム設定",
+      "data": {
+        "Export Data": "Export Data"
+      },
+      "profileUpdate Successful": "Profile updated successfully",
+      "profileUpdate Failed": "Profile update Failed",
+      "avatarUpload Successful": "Avatar uploaded successfully",
+      "avatarUpload Failed": "Avatar upload Failed",
+      "unsupportedImage Format": "Unsupported image format",
+      "securityUpdate Successful": "Security settings updated successfully",
+      "securityUpdate Failed": "Security settings update Failed",
+      "privacyUpdate Successful": "Privacy settings updated successfully",
+      "privacyUpdate Failed": "Privacy settings update Failed",
+      "notificationUpdate Successful": "Notification settings updated successfully",
+      "notificationUpdate Failed": "Notification settings update Failed",
+      "appSettingsUpdate Successful": "ApplySettingsUpdate Successful",
+      "appSettingsUpdate Failed": "ApplySettingsUpdate Failed"
     },
     "apiService": {
       "title": "APIサービス",
@@ -105,9 +133,36 @@
         },
         "success": {
           "submitSuccess": "出金申ご送信成功"
+        },
+        "Status": {
+          "Approved": "Approved",
+          "inReview": "inReview",
+          "pendingReview": "pendingReview",
+          "Rejected": "Rejected",
+          "unknown": "unknown",
+          "withdrawn": "withdrawn",
+          "title": "Status"
+        },
+        "StatusTypes": {
+          "pending": "Pending",
+          "processing": "Processing",
+          "success": "Success",
+          "Failed": "Failed",
+          "Rejected": "Rejected"
         }
       },
-      "description": "説明"
+      "description": "説明",
+      "overview": {
+        "Total Messages": "Total Messages"
+      },
+      "settlement": {
+        "Status": {
+          "settled": "Settled",
+          "unsettled": "Unsettled",
+          "withdrawn": "Withdrawn",
+          "notWithdrawn": "Not Withdrawn"
+        }
+      }
     },
     "validation": {
       "nickname": "ご入力ニックネーム",
@@ -167,7 +222,20 @@
         "avatarUploadSuccess": "avatarUpload成功",
         "avatarUploadFailed": "avatarUpload失敗",
         "imageTooLarge": "画像Too大",
-        "unsupportedImageFormat": "未supportedImageFormat"
+        "unsupportedImageFormat": "未supportedImageFormat",
+        "appSettingsUpdate Successful": "App Settings Update Success",
+        "appSettingsUpdate Failed": "App Settings Update Failed",
+        "notificationUpdate Successful": "Notification Update Success",
+        "notificationUpdate Failed": "Notification Update Failed",
+        "privacyUpdate Successful": "Privacy Update Success",
+        "privacyUpdate Failed": "Privacy Update Failed",
+        "securityUpdate Successful": "Security Update Success",
+        "securityUpdate Failed": "Security Update Failed",
+        "profileUpdate Successful": "Profile Update Success",
+        "profileUpdate Failed": "Profile Update Failed",
+        "avatarUpload Successful": "Avatar Upload Success",
+        "avatarUpload Failed": "Avatar Upload Failed",
+        "unsupportedImage Format": "Unsupported Image Format"
       },
       "examineApproveSuccess": "examineApprove成功",
       "examineRejectSuccess": "examineReject成功",
@@ -187,7 +255,8 @@
         "processing": "処理中...",
         "completed": "完了",
         "failed": "失敗",
-        "cancelled": "済みキャンセル"
+        "cancelled": "済みキャンセル",
+        "Failed": "Failed"
       },
       "privacySaveSuccess": "privacySave成功",
       "privacySaveFailed": "privacySave失敗",
@@ -211,7 +280,17 @@
       "clearCacheSuccess": "clearCache成功",
       "clearCacheFailed": "clearCache失敗",
       "uploadIncomplete": "UploadIncomplete",
-      "uploadSuccess": "アップロード成功"
+      "uploadSuccess": "アップロード成功",
+      "privacySave Successful": "Privacy Save Success",
+      "notificationSave Successful": "Notification Save Success",
+      "themeSave Successful": "Theme Save Success",
+      "languageSave Successful": "Language Save Success",
+      "Export DataConfirm": "Export Data Confirm",
+      "Export DataTitle": "Export Data Title",
+      "Export DataConfirmButton": "Export Data Confirm Button",
+      "Export DataCancelButton": "Export Data Cancel Button",
+      "Export DataSuccess": "Export Data Success",
+      "Export DataFailed": "Export Data Failed"
     },
     "common": {
       "prompt": "ヒント"
@@ -236,7 +315,44 @@
       "title": "Title"
     },
     "nickname": "ニックネーム",
-    "nickname2": "昵称"
+    "nickname2": "昵称",
+    "security": {
+      "loginDevices": {
+        "Refresh": "Refresh"
+      },
+      "loginHistory": {
+        "StatusSuccess": "Status Success",
+        "StatusFailed": "Status Failed"
+      }
+    },
+    "wallet": {
+      "Refresh": "Refresh",
+      "filter": {
+        "Status": "Transaction Status",
+        "Failed": "Failed"
+      },
+      "table": {
+        "Status": "Status"
+      },
+      "Export": "ExportTransaction history",
+      "ExportCSV": "ExportCSV",
+      "ExportExcel": "ExportExcel",
+      "ExportFormatPrompt": "Please select Export format",
+      "ExportFailed": "Export Failed"
+    },
+    "orderStatus": {
+      "Failed": "Failed"
+    },
+    "privacySave Successful": "Privacy settings saved successfully",
+    "notificationSave Successful": "Notification settings saved successfully",
+    "themeSave Successful": "Theme settings saved successfully",
+    "languageSave Successful": "LanguageSettings Saved Successfully",
+    "Export DataConfirm": "Confirm to Export data?？",
+    "Export DataTitle": "Export Data",
+    "Export DataConfirmButton": "Confirm",
+    "Export DataCancelButton": "Cancel",
+    "Export DataInDevelopment": "Data Export feature is under development",
+    "Export DataFailed": "Data Export Failed"
   },
   "User": {
     "inputplaceholder": "input[placeholder*=",

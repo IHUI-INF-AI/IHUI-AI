@@ -29,11 +29,16 @@
       "orders": "注文数",
       "commission": "佣金",
       "joinTime": "参加時間",
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "status": {
       "active": "アクティブ",
       "inactive": "非アクティブ"
+    },
+    "Status": {
+      "active": "Active",
+      "inactive": "Inactive"
     }
   }
 }

@@ -1233,6 +1233,8 @@
     "dataLoaded": "Loaded {count} fragments",
     "showGuide": "Show Guide",
     "fragmentDuplicated": "Fragment duplicated",
-    "suggestionCharacterContinuation": "Confirm whether the character needs to appear in subsequent scenes"
+    "suggestionCharacterContinuation": "Confirm whether the character needs to appear in subsequent scenes",
+    "exportComingSoon": "导出功能开发中...",
+    "generatePrompts": "生成提示词"
   }
 }

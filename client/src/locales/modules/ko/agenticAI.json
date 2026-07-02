@@ -31,6 +31,14 @@
     "subtitle": "에이전트협업플랫폼 - 생성및관리귀하의Agent Swarm",
     "swarmCreated": "Swarm생성성공",
     "createSwarmFailed": "생성Swarm실패",
-    "loadSwarmListFailed": "불러오기Swarm목이것은실패"
+    "loadSwarmListFailed": "불러오기Swarm목이것은실패",
+    "Status": {
+      "completed": "completed",
+      "Failed": "Failed",
+      "pending": "pending",
+      "running": "running",
+      "title": "Status"
+    },
+    "enterTask Description": "Please enter task description"
   }
 }

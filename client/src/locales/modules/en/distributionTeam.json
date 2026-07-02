@@ -10,7 +10,8 @@
       "level": "Level",
       "orders": "Orders",
       "commission": "Commission",
-      "joinTime": "Join Time"
+      "joinTime": "Join Time",
+      "status": "状态"
     },
     "Status": {
       "active": "Active",
@@ -34,6 +35,10 @@
     "stats": {
       "totalMembers": "Total Members: {count}",
       "totalCommission": "Total Commission"
+    },
+    "status": {
+      "active": "活跃",
+      "inactive": "非活跃"
     }
   }
 }

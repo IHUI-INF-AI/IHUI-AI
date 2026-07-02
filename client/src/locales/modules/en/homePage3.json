@@ -33,6 +33,8 @@
     "errors": {
       "loadFailed": "Failed to load platform news",
       "apiLoadFailed": "API load failed, using default platform news"
-    }
+    },
+    "refresh": "刷新",
+    "refreshing": "刷新中..."
   }
 }

@@ -13,7 +13,7 @@
       "all": "All",
       "pending": "Pending Settlement",
       "settled": "Settled",
-      "cancelled": "Cancelled Settlement"
+      "cancelled": "Canceled Settlement"
     },
     "table": {
       "buyer": "Buyer",
@@ -28,7 +28,7 @@
     "Status": {
       "settled": "Settled",
       "pending": "Pending Settlement",
-      "cancelled": "Cancelled Settlement",
+      "cancelled": "Canceled Settlement",
       "unknown": "Unknown"
     },
     "noRecords": "No commission records",

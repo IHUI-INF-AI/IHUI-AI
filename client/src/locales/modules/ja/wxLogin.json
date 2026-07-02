@@ -5,6 +5,8 @@
     "authorizationTitle": "WeChat認可ログイン",
     "authorizationDesc": "WeChatアカウントでクイックログイン",
     "loginButton": "WeChatログイン",
-    "developmentInProgress": "WeChatログイン機能は開発中"
+    "developmentInProgress": "WeChatログイン機能は開発中",
+    "AuthorizationTitle": "WeChat Authorization Login",
+    "AuthorizationDesc": "Use WeChat account for quick login"
   }
 }

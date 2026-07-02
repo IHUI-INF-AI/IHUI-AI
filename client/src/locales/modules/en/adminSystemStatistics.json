@@ -4,13 +4,17 @@
     "users": {},
     "orders": {},
     "chat": {
-      "Total Messages": "Total Messages"
+      "Total Messages": "Total Messages",
+      "totalMessages": "总消息数"
     },
     "agents": {
       "ApprovedAgents": "Approved",
-      "RejectedAgents": "Rejected"
+      "RejectedAgents": "Rejected",
+      "approvedAgents": "已通过",
+      "rejectedAgents": "已拒绝"
     },
     "files": {},
-    "messages": {}
+    "messages": {},
+    "refresh": "刷新数据"
   }
 }

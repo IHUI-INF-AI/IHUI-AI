@@ -10,6 +10,7 @@
       "enterSQLQuery": "Please enter SQL query statement",
       "invalidParamsFormat": "Invalid parameter format, please enter a valid JSON array",
       "analyzeQueryFailed": "Failed to analyze query plan"
-    }
+    },
+    "refresh": "刷新"
   }
 }

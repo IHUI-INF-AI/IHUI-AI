@@ -86,6 +86,16 @@
       "knowledgeNodes": "知识節點",
       "autoFixRate": "自動修复率",
       "coverage": "全时覆蓋"
-    }
+    },
+    "faq": "常見問題",
+    "refundPolicy": "退款政策",
+    "refundContact": "退款聯繫",
+    "contactWays": "聯繫方式",
+    "workHours": "工作時間",
+    "quickEntry": "快速入口",
+    "courseCenter": "課程中心",
+    "personalCenter": "個人中心",
+    "feedback": "意見反饋",
+    "aboutUs": "關於我們"
   }
 }

@@ -4,12 +4,17 @@
     "export": "내보내기기이것은",
     "search": {
       "status": "출금상태",
-      "statusPlaceholder": "요청선택출금상태"
+      "statusPlaceholder": "요청선택출금상태",
+      "Status": "Status",
+      "StatusPlaceholder": "Status Placeholder"
     },
     "table": {
       "status": "출금상태",
       "approve": "심사이메일통해",
-      "reject": "심사이메일거부됨"
+      "reject": "심사이메일거부됨",
+      "Status": "Status",
+      "Approve": "Approve",
+      "Reject": "Reject"
     },
     "status": {
       "pending": "심사 대기 중",
@@ -23,7 +28,9 @@
     "detail": {
       "핵심 장점": "출금상세",
       "rejectReason": "거부 사유",
-      "approveTime": "심사이메일시간"
+      "approveTime": "심사이메일시간",
+      "RejectReason": "Reject Reason",
+      "ApproveTime": "Approve Time"
     },
     "rejectDialog": {
       "핵심 장점": "심사이메일거부됨",
@@ -42,7 +49,16 @@
       "approveConfirmTitle": "팁",
       "exportDeveloping": "내보내기기능개발중간",
       "exportFailed": "내보내기 실패",
-      "exportSuccess": "내보내기 성공"
+      "exportSuccess": "내보내기 성공",
+      "ApproveConfirm": "Approve Confirm",
+      "ApproveConfirmTitle": "Approve Confirm Title",
+      "ApproveSuccess": "Approve Success",
+      "ApproveFailed": "Approve Failed",
+      "RejectSuccess": "Reject Success",
+      "RejectFailed": "Reject Failed",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportDeveloping": "ExportFeatureDevelopmentMedium"
     },
     "exportData": {
       "id": "출금ID",
@@ -64,6 +80,44 @@
     "exportFormatPrompt": "요청선택내보내기형식",
     "exportCSV": "내보내기CSV",
     "exportExcel": "내보내기Excel",
-    "exportPDF": "내보내기PDF"
+    "exportPDF": "내보내기PDF",
+    "Export": "Export",
+    "Status": {
+      "pending": "Pending",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "processing": "Processing",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "RejectDialog": {
+      "title": "Title",
+      "reason": "Reason",
+      "reasonPlaceholder": "Reason Placeholder",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "Export Data": {
+      "id": "Id",
+      "withdrawalNo": "Withdrawal No",
+      "userId": "User Id",
+      "amount": "Amount",
+      "fee": "Fee",
+      "actualAmount": "Actual Amount",
+      "Status": "Status",
+      "bankName": "Bank Name",
+      "bankAccount": "Bank Account",
+      "accountName": "Account Name",
+      "bankBranch": "Bank Branch",
+      "remark": "Remark",
+      "createTime": "Create Time",
+      "completeTime": "Complete Time",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

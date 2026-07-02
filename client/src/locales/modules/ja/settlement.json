@@ -42,6 +42,9 @@
     "syncSuccess": "同期成功、{count}件の記録を同期",
     "syncFailed": "同期失敗",
     "idRequired": "ID必須",
-    "noValidIds": "有効なIDがありません"
+    "noValidIds": "有効なIDがありません",
+    "selectStart Date": "Select Start Date",
+    "selectEnd Date": "Select End Date",
+    "batchDelete Successful": "Batch delete successful"
   }
 }

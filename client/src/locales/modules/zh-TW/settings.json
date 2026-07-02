@@ -44,19 +44,24 @@
         "title": "Title"
       },
       "themeBackup": {
-        "desc": "Backup and restore your theme configuration"
+        "desc": "Backup and restore your theme configuration",
+        "title": "主題備份"
       },
       "themePresets": {
-        "desc": "Create and manage your theme presets"
+        "desc": "Create and manage your theme presets",
+        "title": "主題預設"
       },
       "themeShortcut": {
-        "desc": "Set keyboard shortcuts for theme switching"
+        "desc": "Set keyboard shortcuts for theme switching",
+        "title": "主題快捷鍵"
       },
       "themeSync": {
-        "desc": "View theme sync status and configure auto sync"
+        "desc": "View theme sync status and configure auto sync",
+        "title": "主題同步狀態"
       },
       "themeTransition": {
-        "desc": "Configure animation effects for theme switching"
+        "desc": "Configure animation effects for theme switching",
+        "title": "主題過渡動畫"
       }
     },
     "securityScore": {

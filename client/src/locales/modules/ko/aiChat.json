@@ -82,7 +82,8 @@
       "idle": "유휴",
       "thinking": "Thinking",
       "acting": "Acting",
-      "reflecting": "Reflecting"
+      "reflecting": "Reflecting",
+      "Failed": "Failed"
     },
     "agenticTask": {
       "핵심 장점": "제목",
@@ -186,6 +187,56 @@
       "jan": "Jan AI 로컬 배포",
       "dify": "Dify AI 애플리케이션 개발 플랫폼",
       "fastgpt": "FastGPT 지식 베이스 Q&A"
+    },
+    "VoiceInput": "Voice Input",
+    "logs": {
+      "audioLoadError": "[AI Chat] Audio load error:",
+      "blobUrlRevokeFailed": "[AI Chat] Blob URL revoke Failed (alReady revoked):",
+      "debugIsHomePage": "[AI Chat Debug] isHomePage:",
+      "initState": "[AI Chat] Initialization state:",
+      "dialogVisibleStateInconsistent": "[DialogVisible] Detected state inconsistency, resetting isScrolledToBottom to false",
+      "debugHasMessages": "[AI Chat Debug] hasMessages:",
+      "startNewConversation": "Starting new conversation",
+      "expandChatCalled": "[AI Chat] expandChat called - BEFORE",
+      "expandChatAfterNextTick": "[AI Chat] expandChat after nextTick - AFTER",
+      "dialogStillNotVisible": "[AI Chat] Dialog still not visible after expandChat, forcing show",
+      "dialogStillNotVisibleFinal": "[AI Chat] Dialog still not visible, performing final recovery",
+      "handleCloseCalled": "[AI Chat] handleClose called - BEFORE",
+      "handleCloseAfterNextTick": "[AI Chat] handleClose after nextTick - AFTER",
+      "handleModeChange": "[AI Chat] handleModeChange - Switching to:",
+      "handleChatModeToggleStart": "[AI Chat] ========== handleChatModeToggle START ==========",
+      "beforeCurrentMode": "[AI Chat] BEFORE - currentMode:",
+      "beforeInternalVisible": "[AI Chat] BEFORE - internalVisible:",
+      "beforeDialogVisible": "[AI Chat] BEFORE - dialogVisible:",
+      "beforeProps": "[AI Chat] BEFORE - props:",
+      "setIsInternalModeChange": "[AI Chat] Set isInternalModeChange = true",
+      "switchingFromTo": "[AI Chat] Switching from",
+      "setCurrentMode": "[AI Chat] Set currentMode.value =",
+      "settingDialogVisible": "[AI Chat] Setting dialog visible for mode:"
+    },
+    "unsupportedImage Format": "Unsupported image format",
+    "imageUpload Successful": "Image uploaded successfully",
+    "imageUpload Failed": "Image upload Failed",
+    "videoUpload Successful": "Video uploaded successfully",
+    "videoUpload Failed": "Video upload Failed",
+    "audioUpload Successful": "Audio uploaded successfully",
+    "audioUpload Failed": "Audio upload Failed",
+    "VoiceRecognitionSuccess": "Voice recognition successful",
+    "VoiceRecognitionError": "Voice recognition Failed: {message}",
+    "Status": "Status",
+    "${componentName} - Website NametGenerator": {
+      "title": "Title",
+      "${componentName} - Website NametName": "Component Name",
+      "${componentName} - Website NametDescription": "Component Description",
+      "descriptionPlaceholder": "Description Placeholder",
+      "features": "Features",
+      "useDesignSystem": "Use Design System",
+      "useSEO": "Use S E O",
+      "useAnimations": "Use Animations",
+      "generate": "Generate",
+      "copyCode": "Copy Code",
+      "saveComponent": "Save Component",
+      "generateFailed": "Generate Failed"
     }
   }
 }

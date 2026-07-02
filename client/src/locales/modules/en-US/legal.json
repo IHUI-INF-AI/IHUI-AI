@@ -52,7 +52,8 @@
       "connectionPool": {},
       "indexUsage": {},
       "queryAnalysis": {},
-      "errors": {}
+      "errors": {},
+      "refresh": "刷新"
     },
     "homePage3": {
       "title": "Latest News",
@@ -121,7 +122,7 @@
         "completed": "Completed",
         "pending": "Pending",
         "Failed": "Failed",
-        "cancelled": "Cancelled",
+        "cancelled": "Canceled",
         "search": "Search",
         "reset": "Reset"
       },
@@ -171,7 +172,7 @@
         "Rejected": "Rejected",
         "processing": "Processing",
         "completed": "Completed",
-        "cancelled": "Cancelled",
+        "cancelled": "Canceled",
         "unknown": "Unknown"
       },
       "detail": {
@@ -549,7 +550,7 @@
         "processing": "Processing",
         "completed": "Completed",
         "Failed": "Failed",
-        "cancelled": "Cancelled",
+        "cancelled": "Canceled",
         "paid": "Paid",
         "refunded": "Refunded",
         "unknown": "Unknown"

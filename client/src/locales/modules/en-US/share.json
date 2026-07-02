@@ -71,6 +71,7 @@
     "shareText": "Discover the latest AI news",
     "logFetchNewsFailed": "Failed to fetch news data",
     "logShareFailed": "Share Failed",
-    "contentDetails": "Content Details"
+    "contentDetails": "Content Details",
+    "logCopyFailed": "复制失败"
   }
 }

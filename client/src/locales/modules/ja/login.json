@@ -101,7 +101,10 @@
       "appleLogin": "Appleログイン",
       "wechatLoginFailed": "WeChatログインに失敗しました。もう一度お試しください",
       "googleLoginFailed": "Googleログインに失敗しました。もう一度お試しください",
-      "appleLoginFailed": "Appleログインに失敗しました。もう一度お試しください"
+      "appleLoginFailed": "Appleログインに失敗しました。もう一度お試しください",
+      "wechatLogin Failed": "WeChat login Failed, please retry",
+      "googleLogin Failed": "GoogleLogin Failed, please retry",
+      "appleLogin Failed": "AppleLogin Failed, please retry"
     },
     "hidePassword": "非テーブル示Password",
     "showPassword": "テーブル示Password",
@@ -143,6 +146,7 @@
       "phone": "携帯ログイン"
     },
     "register": "登録",
-    "login": "ログイン"
+    "login": "ログイン",
+    "Login Successful": "Login Successful"
   }
 }

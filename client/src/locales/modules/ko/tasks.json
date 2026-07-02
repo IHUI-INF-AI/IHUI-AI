@@ -21,6 +21,14 @@
     "cancelSuccess": "작업완료취소",
     "cancelFailed": "취소작업실패",
     "title": "작업관리",
-    "subtitle": "보기및관리귀하의작업실행상태"
+    "subtitle": "보기및관리귀하의작업실행상태",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    }
   }
 }

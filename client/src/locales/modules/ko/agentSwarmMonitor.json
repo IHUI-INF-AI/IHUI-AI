@@ -17,6 +17,8 @@
     "toolResults": "도구Results",
     "reflection": "Reflection",
     "corrected": "Corrected",
-    "correctedResult": "Corrected결과"
+    "correctedResult": "Corrected결과",
+    "Status": "Status",
+    "FailedSteps": "Failed Steps"
   }
 }

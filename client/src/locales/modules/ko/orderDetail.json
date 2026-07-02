@@ -39,7 +39,17 @@
     "invoiceOnlyForCompletedOrders": "무효voiceOnlyForCompletedOrders",
     "invoiceDownloadSuccess": "무효voiceDownload성공",
     "invoiceDownloadFailed": "무효voiceDownload실패",
-    "title": "주의문상세"
+    "title": "주의문상세",
+    "downloadInVoice": "Download InVoice",
+    "StatusPending": "Pending",
+    "StatusProcessing": "Processing",
+    "StatusCompleted": "Completed",
+    "StatusFailed": "Failed",
+    "StatusCancelled": "Cancelled",
+    "inVoiceDownloadInDevelopment": "InVoice download feature under development",
+    "inVoiceOnlyForCompletedOrders": "InVoice Only For Completed Orders",
+    "inVoiceDownloadSuccess": "InVoice Download Success",
+    "inVoiceDownloadFailed": "InVoice Download Failed"
   },
   "OrderDetail": {}
 }

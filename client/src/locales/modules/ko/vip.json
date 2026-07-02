@@ -184,7 +184,8 @@
         "lifetime": "✓ 일회 결제, 평생 사용"
       },
       "핵심 장점": "결제",
-      "sub핵심 장점": "요청선택결제방법완료주의문"
+      "sub핵심 장점": "요청선택결제방법완료주의문",
+      "orderAlReadyPaid": "Order alReady paid"
     },
     "paymentFailed": "결제 실패",
     "핵심 장점": "업그레이드VIP회원",

@@ -23,7 +23,7 @@
       "all": "All",
       "pending": "Pending",
       "settled": "Settled",
-      "cancelled": "Cancelled"
+      "cancelled": "Canceled"
     }
   }
 }

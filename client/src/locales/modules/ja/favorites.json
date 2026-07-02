@@ -15,6 +15,7 @@
     "removeFavoriteFailed": "キャンセルお気に入り失敗",
     "retry": "再試行",
     "loadFailed": "読み込みお気に入りリスト失敗",
-    "resourceId": "リソースID"
+    "resourceId": "リソースID",
+    "removeFavorite Successful": "Favorite removed"
   }
 }

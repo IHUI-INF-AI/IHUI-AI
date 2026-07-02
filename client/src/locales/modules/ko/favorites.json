@@ -17,6 +17,7 @@
     "title": "내즐겨찾기",
     "subtitle": "보기및관리귀하의즐겨찾기의콘텐츠",
     "loadFailed": "불러오기즐겨찾기목이것은실패",
-    "resourceId": "리소스ID"
+    "resourceId": "리소스ID",
+    "removeFavorite Successful": "Favorite removed"
   }
 }

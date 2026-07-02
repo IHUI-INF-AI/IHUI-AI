@@ -20,6 +20,10 @@
     "noMembers": "없음AI팀멤버",
     "loadFailed": "불러오기AI팀목이것은실패，요청잠시백엔드재시도",
     "fetchFailed": "획득데이마음실패",
-    "subtitle": "보기및관리귀하의에이전트팀"
+    "subtitle": "보기및관리귀하의에이전트팀",
+    "StatusFilter": "Status Filter",
+    "StatusAll": "All",
+    "StatusNew": "New",
+    "StatusOld": "Old"
   }
 }

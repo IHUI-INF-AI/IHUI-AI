@@ -30,7 +30,8 @@
       "loadModelsFailed": "Failed to load model list",
       "stopVoiceRecognitionFailed": "Failed to stop Voice recognition",
       "copyFailed": "Copy Failed",
-      "readFileFailed": "Failed to read file"
+      "readFileFailed": "Failed to read file",
+      "voiceRecognitionAlreadyStarted": "语音识别已启动，请先停止当前识别"
     },
     "success": {
       "copyToClipboard": "Copied to clipboard",
@@ -47,7 +48,8 @@
     "features": {
       "ExportDeveloping": "Export feature is under development",
       "regenerateDeveloping": "Regenerate feature is under development",
-      "retryDeveloping": "Retry feature is under development"
+      "retryDeveloping": "Retry feature is under development",
+      "exportDeveloping": "导出功能"
     },
     "VoiceRecognition": {
       "stopped": "Voice recognition stopped"
@@ -66,6 +68,8 @@
     "needManualReview": "Requires Manual Review",
     "startChat": "Start chatting with the agent",
     "startChatHint": "Agents can help you perform complex tasks and reasoning",
-    "step": "Step"
+    "step": "Step",
+    "reject": "拒绝",
+    "approve": "批准"
   }
 }

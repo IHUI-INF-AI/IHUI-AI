@@ -19,7 +19,8 @@
       "save": "저장",
       "expand": "확장",
       "minimize": "최소화",
-      "moreActions": "더 많은작업"
+      "moreActions": "더 많은작업",
+      "ExportChat": "Export Chat"
     },
     "핵심 장점": "대규모 모델 채팅 센마음",
     "sub핵심 장점": "다양한 대규모 모델을 선택하고 체험하며, 스트리밍 대화 지원",
@@ -109,9 +110,16 @@
       "assistantMessages": "AI메시지",
       "withFiles": "포함파일",
       "failedMessages": "실패메시지",
-      "timeRange": "시간범위"
+      "timeRange": "시간범위",
+      "Total Messages": "Total Messages",
+      "FailedMessages": "FailedMessage"
     },
     "title": "대형 모델심심일중간마음",
-    "subtitle": "선택동시체험다양한대형 모델，지원스트림방식대화"
+    "subtitle": "선택동시체험다양한대형 모델，지원스트림방식대화",
+    "Status": {
+      "edited": "Edited",
+      "free": "Free"
+    },
+    "Search Model": "Search Model"
   }
 }

@@ -52,19 +52,24 @@
         "title": "Title"
       },
       "themeBackup": {
-        "desc": "Backup and restore your theme configuration"
+        "desc": "Backup and restore your theme configuration",
+        "title": "Theme Backup"
       },
       "themePresets": {
-        "desc": "Create and manage your theme presets"
+        "desc": "Create and manage your theme presets",
+        "title": "Theme Presets"
       },
       "themeShortcut": {
-        "desc": "Set keyboard shortcuts for theme switching"
+        "desc": "Set keyboard shortcuts for theme switching",
+        "title": "Theme Shortcuts"
       },
       "themeSync": {
-        "desc": "View theme sync status and configure auto sync"
+        "desc": "View theme sync status and configure auto sync",
+        "title": "Theme Sync Status"
       },
       "themeTransition": {
-        "desc": "Configure animation effects for theme switching"
+        "desc": "Configure animation effects for theme switching",
+        "title": "Theme Transition"
       }
     },
     "securityScore": {

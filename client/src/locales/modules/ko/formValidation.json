@@ -52,6 +52,7 @@
     "countRequired": "요청입력구매수량",
     "orderNoRequired": "요청입력주의문번호",
     "orderStatusRequired": "요청선택주의문상태",
-    "settlementStatusRequired": "요청선택정산상태"
+    "settlementStatusRequired": "요청선택정산상태",
+    "StatusRequired": "Please select Status"
   }
 }

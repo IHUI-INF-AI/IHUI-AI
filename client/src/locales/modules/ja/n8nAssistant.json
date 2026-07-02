@@ -33,6 +33,7 @@
     "mockResponseCopy": "これはい対\"{question}\"的N8N助手返信。",
     "generating": "Generating",
     "mockNotAvailable": "Mock Not Available",
-    "sendFailed": "送信失敗"
+    "sendFailed": "送信失敗",
+    "VoiceInputNotImplemented": "Voice Input Not Implemented"
   }
 }

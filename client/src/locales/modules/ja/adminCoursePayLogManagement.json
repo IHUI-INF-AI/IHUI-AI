@@ -1,21 +1,26 @@
 {
   "adminCoursePayLogManagement": {
     "actions": {
-      "export": "エクスポート"
+      "export": "エクスポート",
+      "Export": "Export"
     },
     "search": {},
     "table": {},
     "payMethod": {},
     "payStatus": {
-      "failed": "支払い失敗"
+      "failed": "支払い失敗",
+      "Failed": "Failed"
     },
     "refundStatus": {
-      "failed": "返金失敗"
+      "failed": "返金失敗",
+      "Failed": "Refund Failed"
     },
     "dialog": {},
     "messages": {
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ExportSuccess": "Exported successfully",
+      "ExportFailed": "Export Failed"
     }
   }
 }

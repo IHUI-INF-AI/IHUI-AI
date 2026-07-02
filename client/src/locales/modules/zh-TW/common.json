@@ -169,7 +169,8 @@
       "likeSuccess": "點讚成功",
       "signUpSuccess": "報名成功",
       "rateSuccess": "評價成功",
-      "viewLoginLog": "查看登入日誌"
+      "viewLoginLog": "查看登入日誌",
+      "saveSuccess": "保存成功"
     },
     "create": "創建",
     "image": "圖片",
@@ -227,6 +228,9 @@
       "url": "請輸入正確的URL格式",
       "phone": "請輸入正確的手機號"
     },
-    "batchEdit": "批次編輯"
+    "batchEdit": "批次編輯",
+    "collapse": "收起",
+    "expand": "展開",
+    "updateSuccess": "更新成功"
   }
 }

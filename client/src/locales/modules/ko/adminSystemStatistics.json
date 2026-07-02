@@ -5,13 +5,17 @@
     "users": {},
     "orders": {},
     "chat": {
-      "totalMessages": "총메시지역량"
+      "totalMessages": "총메시지역량",
+      "Total Messages": "Total Messages"
     },
     "agents": {
       "approvedAgents": "완료통해",
-      "rejectedAgents": "완료거부됨"
+      "rejectedAgents": "완료거부됨",
+      "ApprovedAgents": "Approved",
+      "RejectedAgents": "Rejected"
     },
     "files": {},
-    "messages": {}
+    "messages": {},
+    "Refresh": "Refresh Data"
   }
 }

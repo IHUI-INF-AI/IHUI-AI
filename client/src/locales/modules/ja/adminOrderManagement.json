@@ -5,14 +5,18 @@
     "table": {},
     "orderType": {},
     "orderStatus": {
-      "failed": "失敗"
+      "failed": "失敗",
+      "Failed": "Failed"
     },
     "paymentMethod": {},
     "detail": {},
     "messages": {
       "exportFailed": "エクスポートに失敗",
       "exportDeveloping": "エクスポート機できる開発中",
-      "exportSuccess": "エクスポート成功"
+      "exportSuccess": "エクスポート成功",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed",
+      "ExportDeveloping": "ExportFeatureDevelopmentMedium"
     },
     "exportData": {
       "orderId": "注文ID",
@@ -31,6 +35,25 @@
     "exportFormatPrompt": "请選択エクスポート形式",
     "exportCSV": "エクスポートCSV",
     "exportExcel": "エクスポートExcel",
-    "exportPDF": "エクスポートPDF"
+    "exportPDF": "エクスポートPDF",
+    "Export": "Export",
+    "Export Data": {
+      "orderId": "Order Id",
+      "orderNo": "Order No",
+      "userId": "User Id",
+      "orderType": "Order Type",
+      "amount": "Amount",
+      "orderStatus": "Order Status",
+      "paymentMethod": "Payment Method",
+      "productName": "Product Name",
+      "description": "Description",
+      "createTime": "Create Time",
+      "completeTime": "Complete Time",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

@@ -26,7 +26,8 @@
       "completed": "Completed",
       "pending": "Processing",
       "processing": "Processing",
-      "refunded": "已退款"
+      "refunded": "已退款",
+      "failed": "失败"
     },
     "edit": "Edit",
     "cancel": "Cancel",
@@ -47,6 +48,7 @@
     "close": "Close",
     "loading": "Loading...",
     "noRecords": "No Records",
-    "enabled": "Enabled"
+    "enabled": "Enabled",
+    "disabled": "禁用"
   }
 }

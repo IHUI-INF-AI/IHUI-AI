@@ -3,7 +3,9 @@
     "export": "エクスポート",
     "search": {
       "status": "ステータス",
-      "statusPlaceholder": "ステータスご入力"
+      "statusPlaceholder": "ステータスご入力",
+      "Status": "Status",
+      "StatusPlaceholder": "Status Placeholder"
     },
     "status": {
       "pending": "待処理",
@@ -17,22 +19,35 @@
       "status": "ステータス",
       "approvedAt": "ApprovedAt",
       "approve": "承認",
-      "reject": "拒いいえ"
+      "reject": "拒いいえ",
+      "Status": "Status",
+      "ApprovedAt": "Approved At",
+      "Approve": "Approve",
+      "Reject": "Reject"
     },
     "detail": {
       "status": "ステータス",
       "rejectReason": "拒いいえReason",
-      "approvedAt": "ApprovedAt"
+      "approvedAt": "ApprovedAt",
+      "Status": "Status",
+      "RejectReason": "Reject Reason",
+      "ApprovedAt": "Approved At"
     },
     "audit": {
       "approveTitle": "通過ぎタイトル",
-      "rejectTitle": "拒绝タイトル"
+      "rejectTitle": "拒绝タイトル",
+      "ApproveTitle": "Approve Title",
+      "RejectTitle": "Reject Title"
     },
     "messages": {
       "approveSuccess": "承認成功",
       "rejectSuccess": "拒いいえ成功",
       "exportSuccess": "エクスポート成功",
-      "exportFailed": "エクスポートに失敗"
+      "exportFailed": "エクスポートに失敗",
+      "ApproveSuccess": "Approve Success",
+      "RejectSuccess": "Reject Success",
+      "ExportSuccess": "Export Success",
+      "ExportFailed": "Export Failed"
     },
     "exportData": {
       "id": "ID",
@@ -49,6 +64,31 @@
     "exportFormatPrompt": "请選択エクスポート形式",
     "exportCSV": "エクスポートCSV",
     "exportExcel": "エクスポートExcel",
-    "exportPDF": "エクスポートPDF"
+    "exportPDF": "エクスポートPDF",
+    "Export": "Export",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "Failed": "Failed"
+    },
+    "Export Data": {
+      "id": "Id",
+      "refundNo": "Refund No",
+      "orderNo": "Order No",
+      "amount": "Amount",
+      "reason": "Reason",
+      "Status": "Status",
+      "createTime": "Create Time",
+      "ApprovedAt": "Approved At",
+      "completedAt": "Completed At",
+      "filename": "Filename"
+    },
+    "ExportFormatPrompt": "Export Format Prompt",
+    "ExportCSV": "Export C S V",
+    "ExportExcel": "Export Excel",
+    "ExportPDF": "Export P D F"
   }
 }

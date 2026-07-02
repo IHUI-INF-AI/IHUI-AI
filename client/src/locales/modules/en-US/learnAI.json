@@ -300,7 +300,7 @@
     },
     "capability": {
       "assistant": {
-        "desc": "Intelligent Q&A assistant based on large language models, supports multi-turn dialogue, context understanding, personalized replies",
+        "desc": "Intelligent Q&A assistant based on large language models, supports multi-turn dialog, context understanding, personalized replies",
         "feature2": "Context understanding",
         "feature3": "Intent recognition",
         "feature4": "Sentiment analysis"
@@ -364,7 +364,7 @@
     },
     "stat": {
       "suffixCount": "+",
-      "suffixSet": "",
+      "suffixSet": "套",
       "suffixCompany": "+",
       "suffixTenThousand": "M+",
       "suffixYear": "+ yrs"
@@ -597,10 +597,10 @@
       },
       "c3": {
         "title": "AI Intelligent Teaching Assistant System Development",
-        "description": "Build intelligent teaching assistant system based on LLM, supports multi-turn dialogue and knowledge Q&A",
+        "description": "Build intelligent teaching assistant system based on LLM, supports multi-turn dialog and knowledge Q&A",
         "category": "AI + Education",
         "tag1": "Education",
-        "tag2": "Dialogue system",
+        "tag2": "Dialog system",
         "tag3": "Teaching",
         "duration": "10 hours"
       },
@@ -626,6 +626,8 @@
         "tag3": "Deep learning",
         "duration": "15 hours"
       }
-    }
+    },
+    "体验AI能力": "体验 AI 能力",
+    "核心能力": "核心能力"
   }
 }

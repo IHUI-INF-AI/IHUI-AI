@@ -4,13 +4,17 @@
     "users": {},
     "orders": {},
     "chat": {
-      "totalMessages": "合計メッセージ数"
+      "totalMessages": "合計メッセージ数",
+      "Total Messages": "Total Messages"
     },
     "agents": {
       "approvedAgents": "済み通過ぎ",
-      "rejectedAgents": "済み拒绝"
+      "rejectedAgents": "済み拒绝",
+      "ApprovedAgents": "Approved",
+      "RejectedAgents": "Rejected"
     },
     "files": {},
-    "messages": {}
+    "messages": {},
+    "Refresh": "Refresh Data"
   }
 }

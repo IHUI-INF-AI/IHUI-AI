@@ -106,7 +106,49 @@
       "continuousDays": "連續學習天數",
       "completedCourses": "完成課程數",
       "aiReportTitle": "AI 學習規劃報告",
-      "aiReportComingSoon": "即將上線"
+      "aiReportComingSoon": "即將上線",
+      "createNote": "新建筆記",
+      "editNote": "編輯筆記",
+      "noteTitle": "標題",
+      "noteContent": "內容",
+      "noteTags": "標籤",
+      "noteTagsHint": "多個標籤用逗號分隔",
+      "noteVisibility": "公開",
+      "noteAttachments": "附件",
+      "createOffline": "新建線下記錄",
+      "editOffline": "編輯線下記錄",
+      "offlineTitleField": "標題",
+      "offlineDate": "日期",
+      "offlineDuration": "時長（分鐘）",
+      "offlineActivityType": "活動類型",
+      "offlineDescription": "描述",
+      "offlineProof": "憑證",
+      "deleteConfirm": "確定刪除嗎？此操作不可撤銷",
+      "deleteSuccess": "刪除成功"
+    },
+    "nav": {
+      "home": "教育中心",
+      "learn": "我的課程",
+      "exam": "我的考試",
+      "ask": "問答",
+      "circle": "圈子",
+      "live": "直播",
+      "member": "學員檔案",
+      "point": "積分",
+      "order": "我的訂單",
+      "message": "消息中心",
+      "resource": "資源庫",
+      "search": "搜索",
+      "admin": "教育後臺"
+    },
+    "admin": {
+      "title": "教育後臺",
+      "stats": {
+        "totalCourses": "課程總數",
+        "totalStudents": "學員總數",
+        "totalRevenue": "總收入",
+        "todayActive": "今日活躍"
+      }
     }
   }
 }

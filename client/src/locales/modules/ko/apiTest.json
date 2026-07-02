@@ -23,6 +23,8 @@
     "compTest": "\n--- Composable 테스트 ---",
     "typeTest": "\n--- 타입 정의 테스트 ---",
     "serviceTest": "\n--- 서비스 내보내기 테스트 ---",
-    "testComplete": "테스트 완료"
+    "testComplete": "테스트 완료",
+    "Failed": "Failed",
+    "Status": "Status"
   }
 }

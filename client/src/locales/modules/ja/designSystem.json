@@ -43,6 +43,10 @@
     "textSecondary": "テキスト回色",
     "bgPrimary": "背景メインカラー",
     "bgSecondary": "背景回色",
-    "bgHover": "悬停背景"
+    "bgHover": "悬停背景",
+    "Status": "Status",
+    "DisabledStatus": "Disabled Status",
+    "Disabled": "Disabled",
+    "DisabledContent": "Disabled Content"
   }
 }

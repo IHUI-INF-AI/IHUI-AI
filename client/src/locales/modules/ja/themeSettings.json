@@ -53,6 +53,80 @@
       "schedule": "Schedule",
       "sync": "Cloud Sync"
     },
-    "title": "Theme Settings"
+    "title": "Theme Settings",
+    "transition": {
+      "title": "Transition Animation",
+      "previewTitle": "Animation Preview",
+      "playDemo": "Play Demo",
+      "playing": "Playing...",
+      "type": "Animation Type",
+      "direction": "Direction",
+      "speed": "Speed",
+      "easing": "Easing Function",
+      "enableOverlay": "Enable Overlay",
+      "types": {
+        "fade": "Fade",
+        "slide": "Slide",
+        "zoom": "Zoom",
+        "flip": "Flip",
+        "ripple": "Ripple",
+        "none": "None"
+      },
+      "directions": {
+        "left": "Left",
+        "right": "Right",
+        "up": "Up",
+        "down": "Down"
+      },
+      "speeds": {
+        "slow": "Slow",
+        "normal": "Normal",
+        "fast": "Fast",
+        "instant": "Instant"
+      }
+    },
+    "backup": {
+      "title": "Theme Backup",
+      "createBackup": "Create Backup",
+      "import": "Import",
+      "export": "Export",
+      "autoBackup": "Auto Backup",
+      "interval": "Backup Interval",
+      "maxBackups": "Max Backups",
+      "totalBackups": "Total Backups",
+      "storageSize": "Storage Size",
+      "auto": "Auto",
+      "manualBackup": "Manual Backup",
+      "restore": "Restore",
+      "delete": "Delete",
+      "noBackups": "No backups yet",
+      "importPlaceholder": "Paste backup JSON data",
+      "confirmDelete": "Confirm Delete",
+      "deleteWarning": "Are you sure you want to delete this backup? This action cannot be undone.",
+      "backupCreated": "Backup created successfully",
+      "backupRestored": "Backup restored, page will refresh",
+      "restoreFailed": "Restore failed",
+      "exportSuccess": "Export successful",
+      "importSuccess": "Import successful",
+      "importFailed": "Import failed",
+      "backupDeleted": "Backup deleted",
+      "intervals": {
+        "hourly": "Hourly",
+        "daily": "Daily",
+        "weekly": "Weekly"
+      }
+    },
+    "shortcut": {
+      "title": "Shortcut Settings",
+      "resetDefaults": "Reset to Defaults",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "shortcutUpdated": "Shortcut updated",
+      "shortcutsReset": "Shortcuts reset",
+      "tips": "Tips",
+      "tip1": "Shortcuts work outside of input fields",
+      "tip2": "Press Ctrl+Shift+D to toggle dark mode",
+      "tip3": "Press Ctrl+Shift+T to cycle themes"
+    }
   }
 }

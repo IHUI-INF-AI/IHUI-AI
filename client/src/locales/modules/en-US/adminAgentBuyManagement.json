@@ -2,20 +2,29 @@
   "adminAgentBuyManagement": {
     "actions": {},
     "buyList": {
-      "Status": "Order Status"
+      "Status": "Order Status",
+      "status": "订单状态"
     },
     "search": {
       "Status": "Order Status",
-      "StatusPlaceholder": "Select order Status"
+      "StatusPlaceholder": "Select order Status",
+      "status": "订单状态",
+      "statusPlaceholder": "请选择订单状态"
     },
     "Status": {
       "pending": "Pending",
       "paid": "Paid",
-      "cancelled": "Cancelled",
+      "cancelled": "Canceled",
       "unknown": "Unknown"
     },
     "settlementStatus": {},
     "dialogs": {},
-    "messages": {}
+    "messages": {},
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    }
   }
 }

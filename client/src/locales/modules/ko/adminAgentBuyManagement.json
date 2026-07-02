@@ -4,11 +4,14 @@
     "sub핵심 장점": "관리에이전트구매기이것은및주의문",
     "actions": {},
     "buyList": {
-      "status": "주의문상태"
+      "status": "주의문상태",
+      "Status": "Order Status"
     },
     "search": {
       "status": "주의문상태",
-      "statusPlaceholder": "요청선택주의문상태"
+      "statusPlaceholder": "요청선택주의문상태",
+      "Status": "Order Status",
+      "StatusPlaceholder": "Select order Status"
     },
     "status": {
       "pending": "결제 대기 중",
@@ -18,6 +21,12 @@
     },
     "settlementStatus": {},
     "dialogs": {},
-    "messages": {}
+    "messages": {},
+    "Status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    }
   }
 }

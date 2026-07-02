@@ -388,6 +388,18 @@
     "testSuccess": "test성공",
     "testFailed": "test실패",
     "testError": "test오류",
-    "title": "개발게관리"
+    "title": "개발게관리",
+    "Failed": "Failed",
+    "Status": "Status",
+    "StatusCode": "Status Code",
+    "ExportResults": "Export Results",
+    "ExportSuccess": "Export Success",
+    "tabJavaScript/TypeScript Call Examplept": "Tab Java Script",
+    "ExportDocumentation": "Export Documentation",
+    "ExportCSV": "Export C S V",
+    "Generate Successful": "Generate Success",
+    "bulkCreate Successful": "Bulk Create Success",
+    "testConnection Failed": "Test Connection Failed",
+    "StatusAll": "Status All"
   }
 }

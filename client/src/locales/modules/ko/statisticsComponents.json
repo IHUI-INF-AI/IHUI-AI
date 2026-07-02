@@ -14,6 +14,7 @@
     "totalSettlements": "총 정산 수",
     "totalWithdrawn": "총 출금 금액",
     "settled": "정산 완료",
-    "unsettled": "미정산"
+    "unsettled": "미정산",
+    "Rejected": "Rejected"
   }
 }

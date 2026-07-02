@@ -18,6 +18,10 @@
     "subtitle": "View and manage your AI agent team",
     "noMembers": "No AI team members",
     "loadFailed": "Failed to load AI team list, please try again later",
-    "fetchFailed": "Failed to fetch data"
+    "fetchFailed": "Failed to fetch data",
+    "statusFilter": "状态筛选",
+    "statusAll": "全部",
+    "statusNew": "新聘用",
+    "statusOld": "老员工"
   }
 }

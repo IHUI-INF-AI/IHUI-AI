@@ -302,7 +302,8 @@
       "difficulty": "Difficulty",
       "answer": "Answer",
       "memberCountInRole": "Member Count",
-      "sensitiveWord": "Sensitive Word"
+      "sensitiveWord": "Sensitive Word",
+      "bank": "银行"
     },
     "title": {
       "webhookManage": "Webhook Management",

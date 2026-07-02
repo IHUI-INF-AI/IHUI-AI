@@ -184,6 +184,10 @@
     },
     "webhook": {
       "desc": "Webhook list management page"
+    },
+    "crontabField": {
+      "generate": "生成",
+      "dialogTitle": "Cron 表达式生成器"
     }
   }
 }

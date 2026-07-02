@@ -5,24 +5,54 @@
       "異常2": "異常",
       "不明3": "不明",
       "たった今4": "たった今",
-      "健康": "健康"
+      "健康": "健康",
+      "Health": "Health",
+      "Can decline1": "Can decline",
+      "Abnormal2": "Abnormal",
+      "Unknown3": "Unknown",
+      "Just4": "Just",
+      "Performance decline1": "Performance decline",
+      "Just Now4": "Just Now",
+      "性能下降1": "性能下降",
+      "异常2": "异常",
+      "未知3": "未知",
+      "刚刚4": "刚刚"
     },
     "devices_panel": {
       "済み認可できる": "済み認可できる",
       "済み拒绝1": "済み拒绝",
-      "未認可できる2": "未認可できる"
+      "未認可できる2": "未認可できる",
+      "AlReady Authorized": "AlReady Authorized",
+      "Rejected1": "Rejected",
+      "Not Authorized2": "Not Authorized",
+      "AlReady Rejected1": "AlReady Rejected",
+      "已授权": "已授权",
+      "已拒绝1": "已拒绝",
+      "未授权2": "未授权"
     },
     "open_claw_toolbar": {
       "システムパフォーマンス下降": "システムパフォーマンス下降",
       "システム異常1": "システム異常",
-      "システム正常実行2": "システム正常実行"
+      "システム正常実行2": "システム正常実行",
+      "SystemCan decline": "SystemCan decline",
+      "System Abnormal1": "System Abnormal",
+      "System Normal Running2": "System Normal Running",
+      "SystemPerformance decline": "SystemPerformance decline",
+      "系统性能下降": "系统性能下降",
+      "系统异常1": "系统异常",
+      "系统正常运行2": "系统正常运行"
     },
     "settings_panel": {
       "なし法取得": "なし法取得",
-      "なし法获取": "なし法获取"
+      "なし法获取": "なし法获取",
+      "Cannot Get": "Cannot Get",
+      "无法获取": "无法获取"
     },
     "skills_panel": {
-      "たった今": "たった今"
+      "たった今": "たった今",
+      "Just": "Just",
+      "Just Now": "Just Now",
+      "刚刚": "刚刚"
     },
     "voice_panel": {
       "処理中说话": "処理中言う话...",
@@ -32,7 +62,10 @@
       "音声助手済み無効4": "音声助手済み無効",
       "音声助手無効4": "音声助手無効",
       "正在说话": "正在言う话...",
-      "正在聆听1": "正在聆听..."
+      "正在聆听1": "正在聆听...",
+      "对话模式已开启2": "对话模式已开启",
+      "语音助手已就绪3": "语音助手已就绪",
+      "语音助手已禁用4": "语音助手已禁用"
     },
     "home_page3": {
       "不明時間": "不明時間",
@@ -40,7 +73,10 @@
       "昨日2": "昨日",
       "今天1": "今日",
       "昨天2": "昨日",
-      "未知时间": "不明な時間"
+      "未知时间": "不明な時間",
+      "UnknownTime": "UnknownTime",
+      "Today1": "Today",
+      "Yesterday2": "Yesterday"
     },
     "universal_login": {
       "扣子アイコン": "扣子アイコン",
@@ -49,7 +85,12 @@
       "智谱清言3": "智谱清言",
       "品牌84": "品牌8",
       "扣子图标": "扣子图标",
-      "品牌图标2": "品牌图标"
+      "品牌图标2": "品牌图标",
+      "Button Icon": "Button Icon",
+      "Toolbox Logo1": "Toolbox Logo",
+      "Brand Icon2": "Brand Icon",
+      "Zhipu Qingyan3": "Zhipu Qingyan",
+      "Brand 84": "Brand 8"
     },
     "api_test_page": {
       "通过": "承認 ✅",
@@ -57,7 +98,11 @@
       "跳过2": "スキップ ⏭️",
       "など待3": "など待 ⏳",
       "失败1": "失敗 ❌",
-      "等待3": "待機 ⏳"
+      "等待3": "待機 ⏳",
+      "Approved": "Approved ✅",
+      "Failed1": "Failed ❌",
+      "Skip ⏭️2": "Skip ⏭️",
+      "Wait3": "Wait ⏳"
     },
     "home": {
       "扣子アイコン": "扣子アイコン",
@@ -66,7 +111,21 @@
       "智谱清言3": "智谱清言",
       "品牌84": "品牌8",
       "扣子图标": "扣子图标",
-      "品牌图标2": "品牌图标"
+      "品牌图标2": "品牌图标",
+      "Button Icon": "Button Icon",
+      "Toolbox Logo1": "Toolbox Logo",
+      "Brand Icon2": "Brand Icon",
+      "Zhipu Qingyan3": "Zhipu Qingyan",
+      "Brand 84": "Brand 8"
+    },
+    "Voice_panel": {
+      "Speaking...": "Speaking...",
+      "Listening...1": "Listening...",
+      "Chat Mode AlReady Enabled2": "Chat Mode AlReady Enabled",
+      "Voice Assistant Ready3": "Voice Assistant Ready",
+      "Voice Assistant Disabled4": "Voice Assistant Disabled",
+      "Speaking": "Speaking...",
+      "Listening1": "Listening..."
     }
   }
 }

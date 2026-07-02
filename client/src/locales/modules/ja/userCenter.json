@@ -5,7 +5,8 @@
     "membershipBenefits": "メンバー权益",
     "copyWebsite": {
       "success": "済みコピー官网住所，请在閲覧器打開",
-      "failed": "コピー失敗，请再試行"
+      "failed": "コピー失敗，请再試行",
+      "Failed": "Failed"
     },
     "defaultUsername": "ユーザー",
     "clickToLogin": "点击登录",

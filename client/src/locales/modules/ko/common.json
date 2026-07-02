@@ -85,7 +85,8 @@
       "signUpFailed": "신청 실패",
       "selectAtLeastOneField": "수정할 필드를 최소 하나 이상 선택해 주세요",
       "inputRateContent": "평가 내용을 입력해 주세요",
-      "messageSendFailedRetry": "메시지 전송 실패, 다시 시도해 주세요"
+      "messageSendFailedRetry": "메시지 전송 실패, 다시 시도해 주세요",
+      "ExportFailed": "Failed to Export"
     },
     "ok": "확인",
     "cancel": "취소",
@@ -172,7 +173,10 @@
       "likeSuccess": "좋아요 완료",
       "signUpSuccess": "신청 완료",
       "rateSuccess": "평가 완료",
-      "viewLoginLog": "로그인 기록 보기"
+      "viewLoginLog": "로그인 기록 보기",
+      "ExportSuccess": "Exported successfully",
+      "Login Successful": "Login Successful",
+      "saveSuccess": "保存成功"
     },
     "create": "생성",
     "image": "수익",
@@ -231,6 +235,20 @@
       "url": "올바른 URL을 입력해주세요",
       "phone": "올바른 전화번호를 입력해주세요"
     },
-    "batchEdit": "일괄 편집"
+    "batchEdit": "일괄 편집",
+    "Refresh": "Refresh",
+    "Status": "Status",
+    "Export": "Export",
+    "Failed": "Failed",
+    "Disabled": "Disabled",
+    "Approved": "Approved",
+    "Rejected": "Rejected",
+    "Volume": "Volume",
+    "RefreshSuccess": "Refresh Success",
+    "last7 Days": "Last7 Days",
+    "last30 Days": "Last30 Days",
+    "collapse": "收起",
+    "expand": "展开",
+    "updateSuccess": "更新成功"
   }
 }

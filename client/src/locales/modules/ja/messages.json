@@ -31,6 +31,7 @@
     "linkCopied": "リンクがクリップボードにコピーされました。手動で共有してください",
     "codeSent": "認証コードが送信されました。ご確認ください",
     "loginFailed": "ログインに失敗しました",
-    "defaultSuccess": "操作が成功しました"
+    "defaultSuccess": "操作が成功しました",
+    "Login Successful": "Login successful"
   }
 }

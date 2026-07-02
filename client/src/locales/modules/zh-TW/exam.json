@@ -14,7 +14,9 @@
       "questionJudgment": "搜尋判斷題",
       "questionMulti": "搜尋多選題",
       "questionSingle": "搜尋單選題",
-      "questionSubjective": "搜尋主觀題"
+      "questionSubjective": "搜尋主觀題",
+      "chapter": "搜索章節",
+      "chapterSection": "搜索小節"
     },
     "label": {
       "user": "用戶",

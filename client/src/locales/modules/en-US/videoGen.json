@@ -51,7 +51,10 @@
         "pollTimeout": "Poll Timeout",
         "statusCompleted": "Video GenerationDone",
         "statusFailed": "Video GenerationFailed",
-        "checkStatusDev": "Status check feature under development"
+        "checkStatusDev": "Status check feature under development",
+        "statusProcessing": "视频生成中...",
+        "statusPending": "任务等待处理中...",
+        "statusUnknown": "任务状态未知"
       },
       "startPolling": "Auto Polling",
       "stopPolling": "Stop Polling",

@@ -11,7 +11,13 @@
         "pending": "처리 중",
         "refunded": "환불됨"
       },
-      "title": "구매기이것은"
+      "title": "구매기이것은",
+      "applyInVoice": "Apply InVoice",
+      "Status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "refunded": "Refunded"
+      }
     },
     "developer": {
       "핵심 장점": "개발게 센마음",
@@ -47,7 +53,8 @@
       "view": "보기",
       "resubmit": "다시 제출",
       "empty": "심생각 기이것은 없음",
-      "title": "내심사이메일"
+      "title": "내심사이메일",
+      "RejectReason": "Reject Reason"
     },
     "upload": {
       "핵심 장점": "내 업로드",

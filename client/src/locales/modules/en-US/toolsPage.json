@@ -31,5 +31,16 @@
     "fallbackCategoryText": "Text Creation",
     "fallbackCategoryAgent": "Agent",
     "fallbackCategoryStock": "Stock Analysis"
+  },
+  "tools": {
+    "title": "AI 工具集",
+    "realtimeData": "实时数据",
+    "localData": "本地数据",
+    "sortDefault": "默认排序",
+    "sortByName": "按名称",
+    "sortByHot": "按热度",
+    "loading": "加载中",
+    "noMatch": "未找到匹配的工具",
+    "usage": "次使用"
   }
 }

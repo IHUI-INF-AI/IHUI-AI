@@ -106,7 +106,49 @@
       "continuousDays": "連続学習日数",
       "completedCourses": "完了コース数",
       "aiReportTitle": "AI 学習計画レポート",
-      "aiReportComingSoon": "近日公開"
+      "aiReportComingSoon": "近日公開",
+      "createNote": "ノート作成",
+      "editNote": "ノート編集",
+      "noteTitle": "タイトル",
+      "noteContent": "内容",
+      "noteTags": "タグ",
+      "noteTagsHint": "タグはカンマで区切ってください",
+      "noteVisibility": "公開",
+      "noteAttachments": "添付ファイル",
+      "createOffline": "オフライン記録作成",
+      "editOffline": "オフライン記録編集",
+      "offlineTitleField": "タイトル",
+      "offlineDate": "日付",
+      "offlineDuration": "所要時間（分）",
+      "offlineActivityType": "活動タイプ",
+      "offlineDescription": "説明",
+      "offlineProof": "証憑",
+      "deleteConfirm": "削除してもよろしいですか？この操作は取り消せません",
+      "deleteSuccess": "削除しました"
+    },
+    "nav": {
+      "home": "教育中心",
+      "learn": "我的课程",
+      "exam": "我的考试",
+      "ask": "问答",
+      "circle": "圈子",
+      "live": "直播",
+      "member": "学员档案",
+      "point": "积分",
+      "order": "我的订单",
+      "message": "消息中心",
+      "resource": "资源库",
+      "search": "搜索",
+      "admin": "教育后台"
+    },
+    "admin": {
+      "title": "教育后台",
+      "stats": {
+        "totalCourses": "课程总数",
+        "totalStudents": "学员总数",
+        "totalRevenue": "总收入",
+        "todayActive": "今日活跃"
+      }
     }
   }
 }

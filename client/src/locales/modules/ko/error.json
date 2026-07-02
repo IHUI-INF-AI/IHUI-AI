@@ -23,7 +23,14 @@
       "所有代理都不可用1": "모든 프록시를 사용할 수 없습니다1",
       "无效的JSON响5": "유효하지 않은 JSON 응답5",
       "未找到任何新闻项4": "뉴스 항목을 찾을 수 없습니다4",
-      "未找到新闻项8": "뉴스 항목을 찾을 수 없습니다8"
+      "未找到新闻项8": "뉴스 항목을 찾을 수 없습니다8",
+      "JSON Parse Failed6": "JSON Parse Failed6",
+      "XML Parse Failed3": "XML Parse Failed3",
+      "XML Parse Failed7": "XML Parse Failed7",
+      "All proxies unavailable1": "All proxies unavailable1",
+      "Invalid JSON response5": "Invalid JSON response5",
+      "No news found4": "No news found4",
+      "No news found8": "No news found8"
     },
     "ai_generation": {
       "3D모델생성실패6": "3D모델생성실패6",
@@ -44,11 +51,22 @@
       "批量查询任务状态8": "일괄 작업 상태 조회8",
       "查询任务状态失败7": "작업 상태 조회 실패7",
       "豆包图片生成失败1": "더우바오 이미지 생성 실패1",
-      "通义万相图片生成": "통이완샹 이미지 생성"
+      "通义万相图片生成": "통이완샹 이미지 생성",
+      "3D Model Generation Failed6": "3D Model Generation Failed6",
+      "Kling Video Generation3": "Kling Video Generation3",
+      "Vidu Video Generation5": "Vidu Video Generation5",
+      "Jimeng Image Generation Failed2": "Jimeng Image Generation Failed2",
+      "Jimeng Video Generation Failed4": "Jimeng Video Generation Failed4",
+      "Batch Query Task Status8": "Batch Query Task Status8",
+      "Query Task Status Failed7": "Query Task Status Failed7",
+      "Doubao Image Generation Failed1": "Doubao Image Generation Failed1",
+      "Tongyi Wanxiang Image Generation": "Tongyi Wanxiang Image Generation"
     },
     "ai_proxy": {
       "없음방법읽음가져오기응답스트림1": "없음방법읽음가져오기응답스트림1",
-      "无法读取响应流": "응답 스트림을 읽을 수 없습니다"
+      "无法读取响应流": "응답 스트림을 읽을 수 없습니다",
+      "Cannot read response stream1": "Cannot read response stream1",
+      "无法读取响应流1": "无法读取响应流1"
     },
     "api_test_page": {
       "aliGener21": "aliGener21",
@@ -91,13 +109,20 @@
       "不是函数26": "함수가 아닙니다26",
       "服务未导出": "서비스 내보내기 안됨",
       "服务未导出13": "서비스 내보내기 안됨13",
-      "类型守卫未导出27": "타입 가드 내보내기 안됨27"
+      "类型守卫未导出27": "타입 가드 내보내기 안됨27",
+      "chatNotExport8": "chatNotExport8",
+      "Not a function26": "Not a function26",
+      "Service Not Exported": "Service Not Exported",
+      "Service Not Exported13": "Service Not Exported13",
+      "Type Guard Not Exported27": "Type Guard Not Exported27"
     },
     "apple_login": {
       "없음방법열기로그인창인마음페이스": "없음방법열기로그인창인마음페이스",
       "로그인응답데이마음미완벽한1": "로그인응답데이마음미완벽한1",
       "无法打开登录窗口": "로그인 창을 열 수 없습니다",
-      "登录响应数据不完1": "로그인 응답 데이터 불완전1"
+      "登录响应数据不完1": "로그인 응답 데이터 불완전1",
+      "Cannot open login window": "Cannot open login window",
+      "Login response data incomplete1": "Login response data incomplete1"
     },
     "auth": {
       "전화번호인증 코드및밀도": "전화번호인증 코드및밀도",
@@ -115,33 +140,50 @@
       "无效的响应数据格2": "유효하지 않은 응답 데이터 형식2",
       "无效的响应数据格3": "유효하지 않은 응답 데이터 형식3",
       "用户名和密码不能1": "사용자 이름과 비밀번호는1",
-      "登录信息不完整4": "로그인 정보 불완전4"
+      "登录信息不完整4": "로그인 정보 불완전4",
+      "Phone verification code and password": "Phone verification code and password",
+      "Invalid response data format2": "Invalid response data format2",
+      "Invalid response data format3": "Invalid response data format3",
+      "No Refresh token": "No Refresh token",
+      "Username and password cannot be empty1": "Username and password cannot be empty1",
+      "Login information incomplete4": "Login information incomplete4",
+      "Mobile verification code and password": "Mobile verification code and password",
+      "没有刷新toke": "没有刷新toke"
     },
     "browser_crawler": {
-      "모든CORS프이것은시": "모든CORS프이것은시"
+      "모든CORS프이것은시": "모든CORS프이것은시",
+      "All CORS proxies": "All CORS proxies",
+      "所有CORS代理": "所有CORS代理"
     },
     "captcha_input": {
       "인증 코드수익데이마음위한": "인증 코드수익데이마음위한",
-      "验证码图片数据为空": "인증코드 이미지 데이터가 비어 있습니다"
+      "验证码图片数据为空": "인증코드 이미지 데이터가 비어 있습니다",
+      "Verification code image data empty": "Verification code image data empty",
+      "验证码图片数据为": "验证码图片数据为"
     },
     "documentation": {
       "문서경로미존재하는": "문서경로미존재하는",
-      "文档路径不存在": "문서 경로가 존재하지 않습니다"
+      "文档路径不存在": "문서 경로가 존재하지 않습니다",
+      "Document path does not exist": "Document path does not exist"
     },
     "edu_documentation": {
       "문서불러오기실패": "문서불러오기실패",
       "문서로드실패": "문서로드실패",
-      "文档加载失败": "문서 로드 실패"
+      "文档加载失败": "문서 로드 실패",
+      "Document Load Failed": "Document Load Failed"
     },
     "files": {
       "파일다운로드 실패": "파일다운로드 실패",
       "파일다운로드실패": "파일다운로드실패",
-      "文件下载失败": "파일 다운로드 실패"
+      "文件下载失败": "파일 다운로드 실패",
+      "File Download Failed": "File Download Failed"
     },
     "google_login": {
       "GoogleAP": "GoogleAP",
       "없음방법열기로그인창인마음페이스1": "없음방법열기로그인창인마음페이스1",
-      "无法打开登录窗口1": "로그인 창을 열 수 없습니다1"
+      "无法打开登录窗口1": "로그인 창을 열 수 없습니다1",
+      "Google API": "Google API",
+      "Cannot open login window1": "Cannot open login window1"
     },
     "index": {
       "무효의Git통합7": "무효의Git통합7",
@@ -217,28 +259,69 @@
       "配对码已过期2": "페어링 코드 만료2",
       "配对码无效": "페어링 코드가 유효하지 않습니다",
       "配对请求不存在3": "페어링 요청이 존재하지 않습니다3",
-      "配对请求已过期4": "페어링 요청 만료4"
+      "配对请求已过期4": "페어링 요청 만료4",
+      "Invalid Git Integration7": "Invalid Git Integration7",
+      "Invalid Git Integration8": "Invalid Git Integration8",
+      "Invalid Git Integration9": "Invalid Git Integration9",
+      "Invalid Group Element1": "Invalid Group Element1",
+      "Invalid Calendar Integration5": "Invalid Calendar Integration5",
+      "Invalid Calendar Integration6": "Invalid Calendar Integration6",
+      "Invalid Smart Home Integration10": "Invalid Smart Home Integration10",
+      "Invalid Smart Home Integration11": "Invalid Smart Home Integration11",
+      "Invalid Smart Home Integration12": "Invalid Smart Home Integration12",
+      "Invalid Mail Integration3": "Invalid Mail Integration3",
+      "Invalid Mail Integration4": "Invalid Mail Integration4",
+      "No element to group found": "No element to group found",
+      "Browser does not support Voice": "Browser does not support Voice",
+      "Missing URL or access2": "Missing URL or access2",
+      "Missing webhook4": "Missing webhook4",
+      "Missing required parameter": "Missing required parameter",
+      "Missing required parameter1": "Missing required parameter1",
+      "Missing required parameter2": "Missing required parameter2",
+      "Missing required parameter3": "Missing required parameter3",
+      "Missing access token": "Missing access token",
+      "Missing access token1": "Missing access token1",
+      "DeviceNotConnection6": "DeviceNotConnection6",
+      "DeviceNotPair5": "DeviceNotPair5",
+      "DeviceNotPair7": "DeviceNotPair7",
+      "Pair code alReady used1": "Pair code alReady used1",
+      "Pair code expired2": "Pair code expired2",
+      "Pair code invalid": "Pair code invalid",
+      "Pair request not found3": "Pair request not found3",
+      "Pair request expired4": "Pair request expired4",
+      "Invalid group element1": "Invalid group element1",
+      "Pair code alReady used 1": "Pair code alReady used 1",
+      "Pair code alReady expired2": "Pair code alReady expired2",
+      "Pair request alReady expired4": "Pair request alReady expired4"
     },
     "invoice": {
       "응답미이것은유효의텍": "응답미이것은유효의텍",
       "响应不是有效的文": "응답이 유효한 문서가 아닙니다"
     },
     "llm_chat_service": {
-      "없음방법읽음가져오기응답스트림1": "없음방법읽음가져오기응답스트림1"
+      "없음방법읽음가져오기응답스트림1": "없음방법읽음가져오기응답스트림1",
+      "Cannot read response stream1": "Cannot read response stream1",
+      "无法读取响应流1": "无法读取响应流1"
     },
     "models": {
       "응답형식미공식확인20": "응답형식미공식확인20",
       "응답형식미공식확인21": "응답형식미공식확인21",
       "响应格式不正确20": "응답 형식이 올바르지 않습니다20",
-      "响应格式不正确21": "응답 형식이 올바르지 않습니다21"
+      "响应格式不正确21": "응답 형식이 올바르지 않습니다21",
+      "Response format incorrect20": "Response format incorrect20",
+      "Response format incorrect21": "Response format incorrect21"
     },
     "oauth2": {
       "OAuth2인증": "OAuth2인증",
-      "OAuth2to1": "OAuth2to1"
+      "OAuth2to1": "OAuth2to1",
+      "OAuth2 Authentication": "OAuth2 Authentication",
+      "OAuth2认证": "OAuth2认证"
     },
     "progressive_enhancement": {
       "찾아보기게동화미지원fe": "찾아보기게동화미지원fe",
-      "브라우저게동화미지원fe": "브라우저게동화미지원fe"
+      "브라우저게동화미지원fe": "브라우저게동화미지원fe",
+      "Browser does not support this feature": "Browser does not support this feature",
+      "浏览器不支持fe": "浏览器不支持fe"
     },
     "unified_ai": {
       "AgentID미8": "AgentID미8",
@@ -247,14 +330,26 @@
       "모델ID미가능위한공간7": "모델ID미가능위한공간7",
       "AgentID不8": "AgentID가8",
       "MCP工具ID不9": "MCP 도구 ID가9",
-      "模型ID不能为空7": "모델 ID는 비워둘 수 없습니다7"
+      "模型ID不能为空7": "모델 ID는 비워둘 수 없습니다7",
+      "Agent ID invalid8": "Agent ID invalid8",
+      "MCP Tool ID invalid9": "MCP Tool ID invalid9",
+      "Model ID required7": "Model ID required7",
+      "Model ID cannot be empty7": "Model ID cannot be empty7"
     },
     "unified_chat_service": {
       "AgentID미5": "AgentID미5",
       "AgentID미6": "AgentID미6",
       "Agentic담당7": "Agentic담당7",
       "MCP서비스게동화ID8": "MCP서비스게동화ID8",
-      "MCP서버ID8": "MCP서버ID8"
+      "MCP서버ID8": "MCP서버ID8",
+      "Agent ID invalid5": "Agent ID invalid5",
+      "Agent ID invalid6": "Agent ID invalid6",
+      "Agentic task7": "Agentic task7",
+      "MCP Server ID8": "MCP Server ID8",
+      "AgentID不5": "AgentID不5",
+      "AgentID不6": "AgentID不6",
+      "Agentic任7": "Agentic任7",
+      "MCP服务器ID8": "MCP服务器ID8"
     },
     "unified_generation_service": {
       "수익생태수익필요제공참조11": "수익생태수익필요제공참조11",
@@ -266,14 +361,21 @@
       "图生图需要提供参11": "이미지 생성 시 매개변수 제공 필요11",
       "视觉分析需要提供14": "시각 분석 시 제공 필요14",
       "语音合成任务创建13": "음성 합성 작업 생성13",
-      "语音合成超时12": "음성 합성 시간 초과12"
+      "语音合成超时12": "음성 합성 시간 초과12",
+      "Image to image requires parameters11": "Image to image requires parameters11",
+      "Visual analysis requires parameters14": "Visual analysis requires parameters14",
+      "Speech synthesis task created13": "Speech synthesis task created13",
+      "Speech synthesis timeout12": "Speech synthesis timeout12"
     },
     "unified_q_r_login": {
       "QRCodeto2": "QRCodeto2",
       "QRCode모듈1": "QRCode모듈1",
       "백엔드백엔드로의이차원코드": "백엔드백엔드로의이차원코드",
       "QRCode模块1": "QRCode 모듈1",
-      "后端返回的二维码": "백엔드가 반환한 QR 코드"
+      "后端返回的二维码": "백엔드가 반환한 QR 코드",
+      "QR code to2": "QR code to2",
+      "QR Code Module1": "QR Code Module1",
+      "QR code returned by backend": "QR code returned by backend"
     },
     "universal_login": {
       "임시 키 비어있음 요청": "임시 키 비어있음 요청",
@@ -283,28 +385,44 @@
       "临时密钥为空请重2": "임시 키가 비어 있습니다, 다시 시도해 주세요2",
       "Temp key is empty请重2": "Temp key is empty입니다. 다시 시도해주세요",
       "登录状态保存失在": "로그인 상태 저장 실패",
-      "登录状态保存失败": "로그인 상태 저장 실패"
+      "登录状态保存失败": "로그인 상태 저장 실패",
+      "Temporary key is empty, please retry2": "Temporary key is empty, please retry2",
+      "Login Status save Failed1": "Login Status save Failed1",
+      "Verification code image data empty": "Verification code image data empty",
+      "登录状态保存失败1": "登录状态保存失败1",
+      "验证码图片数据为": "验证码图片数据为"
     },
     "use_agentic": {
       "생성Swarm실패": "생성Swarm실패",
       "획득상태실패백엔드로1": "획득상태실패백엔드로1",
       "创建Swarm失": "Swarm 생성 실패",
-      "获取状态失败返回1": "상태 가져오기 실패, 기본값 반환1"
+      "获取状态失败返回1": "상태 가져오기 실패, 기본값 반환1",
+      "Create swarm Failed": "Create swarm Failed",
+      "Get Status Failed, returning1": "Get Status Failed, returning1"
     },
     "use_avatar_upload": {
       "업로드응답형식오류": "업로드응답형식오류",
-      "上传响应格式错误": "업로드 응답 형식 오류"
+      "上传响应格式错误": "업로드 응답 형식 오류",
+      "Upload response format error": "Upload response format error"
     },
     "user": {
       "업로드실패2": "업로드실패2",
       "신규비밀번호및확인비밀번호": "신규비밀번호및확인비밀번호",
-      "上传失败2": "업로드 실패2"
+      "上传失败2": "업로드 실패2",
+      "Upload Failed2": "Upload Failed2",
+      "New password and confirm password": "New password and confirm password",
+      "新密码和确认密码": "新密码和确认密码"
     },
     "whisper_provider": {
       "모델아직불러오기2": "모델아직불러오기2",
       "찾아보기게동화Whis1": "찾아보기게동화Whis1",
       "모델미로드2": "모델미로드2",
-      "브라우저게동화Whis1": "브라우저게동화Whis1"
+      "브라우저게동화Whis1": "브라우저게동화Whis1",
+      "Model not loaded2": "Model not loaded2",
+      "Browser-side Whisper1": "Browser-side Whisper1",
+      "ModelNotload2": "ModelNotload2",
+      "模型未加载2": "模型未加载2",
+      "浏览器端Whis1": "浏览器端Whis1"
     },
     "extended_channels": {
       "缺少Webhoo": "Webhoo가 누락되었습니다",
@@ -327,6 +445,9 @@
     "drama_script_excel": {
       "dataFormat": "데이마음형식오류：기간바람역량조직"
     },
-    "analyzeQueryPlanFailed": "쿼리 계획 분석실패"
+    "analyzeQueryPlanFailed": "쿼리 계획 분석실패",
+    "inVoice": {
+      "Response is not valid text": "Response is not valid text"
+    }
   }
 }

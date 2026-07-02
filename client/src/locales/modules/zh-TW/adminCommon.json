@@ -302,7 +302,8 @@
       "difficulty": "難度",
       "answer": "答案",
       "memberCountInRole": "成員數",
-      "sensitiveWord": "敏感詞"
+      "sensitiveWord": "敏感詞",
+      "bank": "銀行"
     },
     "title": {
       "webhookManage": "Webhook管理",

@@ -3,10 +3,14 @@
     "actions": {
       "approve": "承認",
       "reject": "拒いいえ",
-      "export": "エクスポート"
+      "export": "エクスポート",
+      "Approve": "Approve",
+      "Reject": "Reject",
+      "Export": "Export"
     },
     "withdrawalList": {
-      "status": "ステータス"
+      "status": "ステータス",
+      "Status": "Status"
     },
     "status": {
       "pending": "待審査",
@@ -14,6 +18,13 @@
       "rejected": "済み拒绝",
       "processing": "処理中",
       "completed": "完了"
+    },
+    "Status": {
+      "pending": "Pending",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "processing": "Processing",
+      "completed": "Completed"
     }
   }
 }

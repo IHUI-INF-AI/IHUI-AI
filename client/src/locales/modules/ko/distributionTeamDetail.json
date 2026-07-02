@@ -20,6 +20,11 @@
     "memberNotFound": "찾을 수 없음쉽게멤버정보",
     "loadMemberInfoFailed": "불러오기멤버정보실패",
     "title": "아래멤버상세",
-    "subtitle": "보기아래멤버의상세세부정보및데이마음"
+    "subtitle": "보기아래멤버의상세세부정보및데이마음",
+    "Status": "Status",
+    "StatusPending": "Pending",
+    "StatusPaid": "Paid",
+    "StatusCancelled": "Cancelled",
+    "StatusUnknown": "Unknown"
   }
 }

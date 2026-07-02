@@ -2,18 +2,23 @@
   "adminCourseAuditManagement": {
     "핵심 장점": "이익심사 이메일 관리",
     "search": {
-      "export": "내보내기"
+      "export": "내보내기",
+      "Export": "Export"
     },
     "table": {},
     "auditType": {},
     "auditStatus": {
       "approved": "통해",
-      "rejected": "거부됨"
+      "rejected": "거부됨",
+      "Approved": "Approved",
+      "Rejected": "Rejected"
     },
     "dialogs": {},
     "messages": {
       "exportSuccess": "내보내기 성공",
-      "exportFailed": "내보내기 실패"
+      "exportFailed": "내보내기 실패",
+      "ExportSuccess": "Export Successful",
+      "ExportFailed": "Export Failed"
     }
   }
 }

@@ -3,7 +3,9 @@
     "agent_category": {
       "찾을 수 없음카테고리설정": "찾을 수 없음카테고리설정",
       "미검색도달카테고리설정": "미검색도달카테고리설정",
-      "未找到分类配置": "카테고리 설정을 찾을 수 없습니다"
+      "未找到分类配置": "카테고리 설정을 찾을 수 없습니다",
+      "Classification Config Not Found": "Classification Config Not Found",
+      "Category Configuration Not Found": "Category Configuration Not Found"
     },
     "agents": {
       "작업성공": "작업성공",
@@ -84,22 +86,61 @@
       "获取热门智能体失败": "인기 에이전트 가져오기 실패",
       "同步失败": "동기화 실패",
       "互动操作失败": "상호작용 조작 실패",
-      "规则搜索失败": "규칙 검색 실패"
+      "规则搜索失败": "규칙 검색 실패",
+      "Action Successful": "Action Successful",
+      "Call Successful1": "Call Successful",
+      "Call Successful2": "Call Successful",
+      "Get Successful3": "Get Successful",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Get Successful6": "Get Successful",
+      "Get Successful7": "Get Successful",
+      "Agent Not Found8": "Agent Not Found",
+      "Get Successful9": "Get Successful",
+      "Get Successful10": "Get Successful",
+      "Favorite Successful11": "Favorite Successful",
+      "CancelFavorite Successful12": "CancelFavorite Successful",
+      "Get Successful13": "Get Successful",
+      "Get Successful14": "Get Successful",
+      "Sync Successful15": "Sync Successful",
+      "Sync Successful16": "Sync Successful",
+      "Sync Successful17": "Sync Successful",
+      "Sync Successful18": "Sync Successful",
+      "Sync Successful19": "Sync Successful",
+      "Action Successful20": "Action Successful",
+      "Action Successful21": "Action Successful",
+      "Action Successful22": "Action Successful",
+      "Action Successful23": "Action Successful",
+      "Action Successful24": "Action Successful",
+      "Action Successful25": "Action Successful",
+      "Action Successful26": "Action Successful",
+      "Get Successful27": "Get Successful",
+      "Get Successful28": "Get Successful",
+      "获取成功9": "获取成功",
+      "获取成功10": "获取成功",
+      "搜索失败29": "搜索失败",
+      "调用失败30": "调用失败",
+      "获取列表失败31": "获取列表失败"
     },
     "ai_career": {
       "제출성공우리연결말씀": "제출성공，우리를말씀빠른위한귀하의제공가이드내보내기제안",
-      "提交成功我们将尽": "제출 완료, 최대한 빨리 안내를 드리겠습니다"
+      "提交成功我们将尽": "제출 완료, 최대한 빨리 안내를 드리겠습니다",
+      "Submit successful, we will provide guidance as soon as possible": "Submit successful, we will provide guidance as soon as possible"
     },
     "ai_community": {
       "릴리스성공": "릴리스성공",
       "댓글성공1": "댓글성공",
       "发布成功": "게시 성공",
-      "评论成功1": "댓글 작성 성공"
+      "评论成功1": "댓글 작성 성공",
+      "Publish Successful": "Publish Successful",
+      "Comment Successful1": "Comment Successful",
+      "Release Successful": "Release Successful"
     },
     "ai_proxy": {
       "알 수 없는 오류": "알 수 없는 오류",
       "알 수 없음오류": "알 수 없음오류",
-      "未知错误": "알 수 없는 오류"
+      "未知错误": "알 수 없는 오류",
+      "Unknown Error": "Unknown Error"
     },
     "ai_chat": {
       "전송성공1": "전송성공",
@@ -109,11 +150,24 @@
       "대규모혁명석이름성공5": "대규모혁명석이름성공",
       "삭제성공6": "삭제성공",
       "발송성공1": "발송성공",
-      "AgenticA": "Agentic AI작업완료생성"
+      "AgenticA": "Agentic AI작업완료생성",
+      "Send Successful1": "Send Successful",
+      "Create Successful2": "Create Successful",
+      "Get Successful3": "Get Successful",
+      "Get Successful4": "Get Successful",
+      "Rename Successful5": "Rename Successful",
+      "Delete Successful6": "Delete Successful",
+      "发送成功1": "发送成功",
+      "创建成功2": "创建成功",
+      "获取成功3": "获取成功",
+      "获取成功4": "获取成功",
+      "重命名成功5": "重命名成功",
+      "删除成功6": "删除成功"
     },
     "ai_model_info": {
       "획득모델목이것은실패": "획득모델목이것은실패",
-      "获取模型列表失败": "모델 목록 가져오기 실패"
+      "获取模型列表失败": "모델 목록 가져오기 실패",
+      "Get Model List Failed": "Get Model List Failed"
     },
     "apis": {
       "획득성공": "획득성공",
@@ -149,7 +203,24 @@
       "获取成功12": "가져오기 성공",
       "获取成功15": "가져오기 성공",
       "获取成功6": "가져오기 성공",
-      "获取成功9": "가져오기 성공"
+      "获取成功9": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Test Successful5": "Test Successful",
+      "Get Successful6": "Get Successful",
+      "Generate Successful7": "Generate Successful",
+      "Export Successful8": "Export Successful",
+      "Get Successful9": "Get Successful",
+      "Create Successful10": "Create Successful",
+      "Switch Successful11": "Switch Successful",
+      "Get Successful12": "Get Successful",
+      "Saved Successfully13": "Saved Successfully",
+      "Delete Successful14": "Delete Successful",
+      "Get Successful15": "Get Successful",
+      "Save Successful13": "Save Successful"
     },
     "batch_operations": {
       "일괄생성성공": "일괄생성성공",
@@ -160,16 +231,24 @@
       "비판수량업데이트성공2": "비판수량업데이트성공",
       "批量创建成功": "일괄 생성 성공",
       "批量删除成功1": "일괄 삭제 성공",
-      "批量更新成功2": "일괄 업데이트 성공"
+      "批量更新成功2": "일괄 업데이트 성공",
+      "BatchCreate Successful": "BatchCreate Successful",
+      "BatchDelete Successful1": "BatchDelete Successful",
+      "Batch Update Successful2": "Batch Update Successful",
+      "Batch Create Successful": "Batch Create Successful",
+      "Batch Delete Successful1": "Batch Delete Successful"
     },
     "business_card": {
       "로그인완료과도기간요청다시": "로그인완료과도기간，요청다시로그인",
       "로그인이미과도기간요청대규모신규": "로그인만료됨，요청대규모신규로그인",
-      "登录已过期请重新": "로그인이 만료되었습니다, 다시 로그인해 주세요"
+      "登录已过期请重新": "로그인이 만료되었습니다, 다시 로그인해 주세요",
+      "Login expired, please re-login": "Login expired, please re-login"
     },
     "chat": {
       "스트림방식전송메시지실패": "스트림방식전송메시지실패",
-      "스트림방식발송메시지실패": "스트림방식발송메시지실패"
+      "스트림방식발송메시지실패": "스트림방식발송메시지실패",
+      "Stream Send Message Failed": "Stream Send Message Failed",
+      "流式发送消息失败": "流式发送消息失败"
     },
     "client": {
       "네트워크오류요청확인네트워크": "네트워크오류，요청확인네트워크연결",
@@ -178,7 +257,11 @@
       "네트워크오류요청검색보기네트워크": "네트워크오류，요청검색보기네트워크연결",
       "요청초실시간1": "요청초실시간",
       "网络连接失败": "네트워크 연결 실패",
-      "请求超时1": "요청 시간 초과"
+      "请求超时1": "요청 시간 초과",
+      "Network error, please check network connection": "Network error, please check network connection",
+      "Network Connection Failed": "Network Connection Failed",
+      "Request Timeout1": "Request Timeout",
+      "网络错误请检查网": "网络错误，请检查网络连接"
     },
     "community": {
       "데모데이마음": "데모데이마음",
@@ -213,7 +296,24 @@
       "获取成功14": "가져오기 성공",
       "获取成功4": "가져오기 성공",
       "获取成功9": "가져오기 성공",
-      "评论成功10": "댓글 작성 성공"
+      "评论成功10": "댓글 작성 성공",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "Publish Successful2": "Publish Successful",
+      "Batch Publish Successful3": "Batch Publish Successful",
+      "Get Successful4": "Get Successful",
+      "Like Successful5": "Like Successful",
+      "CancelLike Successful6": "CancelLike Successful",
+      "Favorite Successful7": "Favorite Successful",
+      "CancelFavorite Successful8": "CancelFavorite Successful",
+      "Get Successful9": "Get Successful",
+      "Comment Successful10": "Comment Successful",
+      "Demo Data11": "Demo Data",
+      "Get Successful12": "Get Successful",
+      "Get Successful13": "Get Successful",
+      "Get Successful14": "Get Successful",
+      "Release Successful2": "Release Successful",
+      "Batch Release Successful3": "Batch Release Successful"
     },
     "content_generation": {
       "생성성공": "생성성공",
@@ -226,7 +326,13 @@
       "生成成功": "생성 성공",
       "生成成功2": "생성 성공",
       "生成成功3": "생성 성공",
-      "获取成功4": "가져오기 성공"
+      "获取成功4": "가져오기 성공",
+      "Generate Successful": "Generate Successful",
+      "BatchGenerate Successful1": "BatchGenerate Successful",
+      "Generate Successful2": "Generate Successful",
+      "Generate Successful3": "Generate Successful",
+      "Get Successful4": "Get Successful",
+      "Batch Generate Successful1": "Batch Generate Successful"
     },
     "courses": {
       "데모데이마음": "데모데이마음",
@@ -257,15 +363,30 @@
       "获取成功4": "가져오기 성공",
       "获取成功5": "가져오기 성공",
       "获取成功7": "가져오기 성공",
-      "获取成功9": "가져오기 성공"
+      "获取成功9": "가져오기 성공",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "Get Successful2": "Get Successful",
+      "Demo Data3": "Demo Data",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Registration Successful6": "Registration Successful",
+      "Get Successful7": "Get Successful",
+      "Complete Successful8": "Complete Successful",
+      "Get Successful9": "Get Successful",
+      "Update Successful10": "Update Successful",
+      "Export Successful11": "Export Successful",
+      "Delete Successful12": "Delete Successful"
     },
     "developer": {
       "생성성공": "생성성공",
-      "创建成功": "생성 성공"
+      "创建成功": "생성 성공",
+      "Create Successful": "Create Successful"
     },
     "fastapi": {
       "작업생성성공": "작업생성성공",
-      "任务创建成功": "작업 생성 성공"
+      "任务创建成功": "작업 생성 성공",
+      "Task Create Successful": "Task Create Successful"
     },
     "file_upload": {
       "업로드성공": "업로드성공",
@@ -273,7 +394,19 @@
       "업로드성공2": "업로드성공",
       "업로드성공등심사 대기 중3": "업로드성공，등심사 대기 중",
       "업로드성공4": "업로드성공",
-      "업로드성공5": "업로드성공"
+      "업로드성공5": "업로드성공",
+      "Upload Successful": "Upload Successful",
+      "Upload Successful1": "Upload Successful",
+      "Upload Successful2": "Upload Successful",
+      "Upload SuccessfulEtcPending3": "Upload Successful，EtcPending",
+      "Upload Successful4": "Upload Successful",
+      "Upload Successful5": "Upload Successful",
+      "上传成功": "上传成功",
+      "上传成功1": "上传成功",
+      "上传成功2": "上传成功",
+      "上传成功等待审核3": "上传成功，等待审核",
+      "上传成功4": "上传成功",
+      "上传成功5": "上传成功"
     },
     "gateway": {
       "획득성공": "획득성공",
@@ -295,7 +428,17 @@
       "测试成功9": "테스트 성공",
       "获取成功": "가져오기 성공",
       "获取成功4": "가져오기 성공",
-      "获取成功8": "가져오기 성공"
+      "获取成功8": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Create Successful1": "Create Successful",
+      "Update Successful2": "Update Successful",
+      "Delete Successful3": "Delete Successful",
+      "Get Successful4": "Get Successful",
+      "Create Successful5": "Create Successful",
+      "Update Successful6": "Update Successful",
+      "Delete Successful7": "Delete Successful",
+      "Get Successful8": "Get Successful",
+      "Test Successful9": "Test Successful"
     },
     "knowledge": {
       "요청실패": "요청실패",
@@ -305,7 +448,14 @@
       "教育平台资源模块1": "교육 플랫폼 리소스 모듈은 현재 문서 추가를 지원하지 않습니다",
       "教育平台资源模块2": "교육 플랫폼 리소스 모듈은 현재 문서 목록을 지원하지 않습니다",
       "教育平台资源模块3": "교육 플랫폼 리소스 모듈은 현재 문서 삭제를 지원하지 않습니다",
-      "请求失败": "요청 실패"
+      "请求失败": "요청 실패",
+      "Request Failed": "Request Failed",
+      "Education Platform Resource Module does not support this operation1": "Education Platform Resource Module does not support adding documents",
+      "Education Platform Resource Module does not support this operation2": "Education Platform Resource Module does not support document list",
+      "Education Platform Resource Module does not support this operation3": "Education Platform Resource Module does not support deleting documents",
+      "Education Platform Resource Module does not support adding documents": "Education Platform Resource Module does not support adding documentsation",
+      "Education Platform Resource Module does not support document list": "Education Platform Resource Module does not support document list",
+      "Education Platform Resource Module does not support deleting documents": "Education Platform Resource Module does not support deleting documentsation"
     },
     "mcp": {
       "데모데이마음": "데모데이마음",
@@ -333,7 +483,19 @@
       "获取成功2": "가져오기 성공",
       "获取成功8": "가져오기 성공",
       "调用成功11": "호출 성공",
-      "调用成功9": "호출 성공"
+      "调用成功9": "호출 성공",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "Get Successful2": "Get Successful",
+      "Create Successful3": "Create Successful",
+      "Update Successful4": "Update Successful",
+      "Delete Successful5": "Delete Successful",
+      "Test Successful6": "Test Successful",
+      "Unknown Error7": "Unknown Error",
+      "Get Successful8": "Get Successful",
+      "Call Successful9": "Call Successful",
+      "Get Successful10": "Get Successful",
+      "Call Successful11": "Call Successful"
     },
     "models": {
       "데모데이마음": "데모데이마음",
@@ -389,7 +551,28 @@
       "获取成功3": "가져오기 성공",
       "获取详情失败": "대형 모델 상세정보 가져오기 실패",
       "调用成功10": "호출 성공",
-      "调用模型失败": "모델 호출 실패"
+      "调用模型失败": "모델 호출 실패",
+      "Demo Data": "Demo Data",
+      "Get Successful1": "Get Successful",
+      "No Available Model2": "No Available Model",
+      "Get Successful3": "Get Successful",
+      "Create Successful4": "Create Successful",
+      "Update Successful5": "Update Successful",
+      "Delete Successful6": "Delete Successful",
+      "Model Switch Successful7": "Model Switch Successful",
+      "Test Successful8": "Test Successful",
+      "Unknown Error9": "Unknown Error",
+      "Call Successful10": "Call Successful",
+      "Call Model Failed11": "Call Model Failed",
+      "Get Successful12": "Get Successful",
+      "Get Successful13": "Get Successful",
+      "Get Successful14": "Get Successful",
+      "No Available Model15": "No Available Model",
+      "No Available Model16": "No Available Model",
+      "No Available Model17": "No Available Model",
+      "Get Successful18": "Get Successful",
+      "No Available Model19": "No Available Model",
+      "调用模型失败11": "调用模型失败"
     },
     "notification": {
       "알림전송성공템플릿모의": "알림전송성공（템플릿모의）",
@@ -413,7 +596,18 @@
       "通知显示成功2": "알림 표시 성공",
       "通知显示成功4": "알림 표시 성공",
       "通知显示成功6": "알림 표시 성공",
-      "通知显示成功8": "알림 표시 성공"
+      "通知显示成功8": "알림 표시 성공",
+      "Notification Send Successful (Simulated)": "Notification Send Successful (Simulated)",
+      "Browser Environment Not Available": "Browser Environment Not Available",
+      "Notification Show Successful1": "Notification Show Successful",
+      "Notification Show Successful2": "Notification Show Successful",
+      "Alipay SDK Not Initialized": "Alipay SDK Not Initialized",
+      "Notification Show Successful4": "Notification Show Successful",
+      "Notification Show Failed5": "Notification Show Failed",
+      "Notification Show Successful6": "Notification Show Successful",
+      "Notification Show Failed7": "Notification Show Failed",
+      "Notification Show Successful8": "Notification Show Successful",
+      "Browser Environment Unavailable": "Browser Environment Unavailable"
     },
     "platforms": {
       "획득성공": "획득성공",
@@ -435,7 +629,16 @@
       "测试成功5": "테스트 성공",
       "获取成功": "가져오기 성공",
       "获取成功1": "가져오기 성공",
-      "获取成功7": "가져오기 성공"
+      "获取成功7": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Test Successful5": "Test Successful",
+      "Unknown Error6": "Unknown Error",
+      "Get Successful7": "Get Successful",
+      "Sync Successful8": "Sync Successful"
     },
     "plugins": {
       "획득성공": "획득성공",
@@ -451,7 +654,15 @@
       "更新成功3": "업데이트 성공",
       "测试成功6": "테스트 성공",
       "获取成功": "가져오기 성공",
-      "获取成功1": "가져오기 성공"
+      "获取成功1": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Publish Successful5": "Publish Successful",
+      "Test Successful6": "Test Successful",
+      "Release Successful5": "Release Successful"
     },
     "pricing": {
       "획득성공": "획득성공",
@@ -470,7 +681,15 @@
       "获取成功": "가져오기 성공",
       "获取成功3": "가져오기 성공",
       "获取成功7": "가져오기 성공",
-      "计算成功2": "계산 성공"
+      "计算成功2": "계산 성공",
+      "Get Successful": "Get Successful",
+      "Update Successful1": "Update Successful",
+      "Calculation Successful2": "Calculation Successful",
+      "Get Successful3": "Get Successful",
+      "Update Successful4": "Update Successful",
+      "Test Successful5": "Test Successful",
+      "Unknown Error6": "Unknown Error",
+      "Get Successful7": "Get Successful"
     },
     "sdks": {
       "획득성공": "획득성공",
@@ -484,13 +703,21 @@
       "更新成功3": "업데이트 성공",
       "生成成功5": "생성 성공",
       "获取成功": "가져오기 성공",
-      "获取成功1": "가져오기 성공"
+      "获取成功1": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Generate Successful5": "Generate Successful"
     },
     "service_appointment": {
       "프리셋약속제출성공템플릿모의": "프리셋약속제출성공（템플릿모의）",
       "획득성공템플릿모의1": "획득성공（템플릿모의）",
       "获取成功模拟1": "가져오기 성공(시뮬레이션)",
-      "预约提交成功模拟": "예약 제출 성공(시뮬레이션)"
+      "预约提交成功模拟": "예약 제출 성공(시뮬레이션)",
+      "Appointment Submit Successful (Simulated)": "Appointment Submit Successful (Simulated)",
+      "Get Successful (Simulated)": "Get Successful (Simulated)"
     },
     "share": {
       "기이것은 실패하지만 영향 없음": "기이것은실패，하지만 공유에 영향 없음",
@@ -498,7 +725,10 @@
       "기억기이것은 실패하지만 영향 없음": "기억기이것은실패，하지만 공유에 영향 없음",
       "획득시스템계실패백엔드로1": "획득통계실패，백엔드로기본값",
       "获取统计失败返回1": "통계 가져오기 실패, 기본값 반환",
-      "记录失败但不影响": "기록 실패, 공유에는 영향 없음"
+      "记录失败但不影响": "기록 실패, 공유에는 영향 없음",
+      "Record Failed, but does not affect sharing": "Record Failed, but does not affect sharing",
+      "GetStatisticsFailedBack1": "Get Statistics Failed, returning default value",
+      "Get Statistics Failed, returning default value": "Get Statistics Failed, returning default value"
     },
     "statistics": {
       "획득성쉽지표성공": "획득성쉽지표성공",
@@ -519,7 +749,15 @@
       "获取使用统计失败": "사용 통계 가져오기 실패",
       "获取智能体统计失败": "에이전트 통계 가져오기 실패",
       "获取行为统计失败": "행동 통계 가져오기 실패",
-      "获取订单统计失败": "주문 통계 가져오기 실패"
+      "获取订单统计失败": "주문 통계 가져오기 실패",
+      "Get Capability Indicator Successful": "Get Capability Indicator Successful",
+      "Get Error Log Successful1": "Get Error Log Successful",
+      "MarkErrorforResolved2": "Mark Error as Resolved Successful",
+      "Get Real-time Statistics Successful3": "Get Real-time Statistics Successful",
+      "Get System Statistics Successful4": "Get System Statistics Successful",
+      "Get User Statistics Successful5": "Get User Statistics Successful",
+      "Get Performance Indicator Successful": "Get Performance Indicator Successful",
+      "Mark Error as Resolved Successful": "Mark Error as Resolved Successful"
     },
     "tools": {
       "획득성공": "획득성공",
@@ -543,7 +781,18 @@
       "获取成功4": "가져오기 성공",
       "获取成功5": "가져오기 성공",
       "获取成功6": "가져오기 성공",
-      "获取成功7": "가져오기 성공"
+      "获取成功7": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Use Record Successful2": "Use Record Successful",
+      "BatchUse Record Successful3": "BatchUse Record Successful",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Get Successful6": "Get Successful",
+      "Get Successful7": "Get Successful",
+      "Favorite Successful8": "Favorite Successful",
+      "CancelFavorite Successful9": "CancelFavorite Successful",
+      "Batch Use Record Successful": "Batch Use Record Successful"
     },
     "unified_ai": {
       "호출사용성공": "호출사용성공",
@@ -559,7 +808,14 @@
       "获取成功5": "가져오기 성공",
       "获取成功6": "가져오기 성공",
       "调用成功": "호출 성공",
-      "调用成功1": "호출 성공"
+      "调用成功1": "호출 성공",
+      "Call Successful": "Call Successful",
+      "Call Successful1": "Call Successful",
+      "Execution Successful2": "Execution Successful",
+      "Execution Successful3": "Execution Successful",
+      "Get Successful4": "Get Successful",
+      "Get Successful5": "Get Successful",
+      "Get Successful6": "Get Successful"
     },
     "unified_auth": {
       "로그인인마음페이스미존재하는요청": "로그인인마음페이스미존재하는，요청확인백엔드서비스설정。오류정보：",
@@ -567,20 +823,26 @@
       "로그인장벽인마음페이스미존재하는요청": "로그인인마음페이스미존재하는，요청검색보기백엔드서비스설정。오류정보：",
       "가입장벽인마음페이스미존재하는요청1": "가입인마음페이스미존재하는，요청검색보기백엔드서비스설정。오류정보：",
       "注册接口不存在请1": "등록 인터페이스가 존재하지 않습니다, 백엔드 서비스 설정을 확인해 주세요. 오류 메시지:",
-      "登录接口不存在请": "로그인 인터페이스가 존재하지 않습니다, 백엔드 서비스 설정을 확인해 주세요. 오류 메시지:"
+      "登录接口不存在请": "로그인 인터페이스가 존재하지 않습니다, 백엔드 서비스 설정을 확인해 주세요. 오류 메시지:",
+      "Login interface does not exist, please check backend service config. Error: ": "Login interface does not exist, please check backend service config. Error: ",
+      "Register interface does not exist, please check backend service config. Error: ": "Register interface does not exist, please check backend service config. Error: "
     },
     "unified_wechat": {
       "백엔드서비스아직응답생각": "백엔드서비스아직응답，생각사용템플릿모의데이마음",
       "loginId미1": "loginId필수",
       "후서비스아직응답생각": "백엔드서비스미응답，생각사용템플릿모의데이마음",
       "loginId不1": "loginId는 비워둘 수 없습니다",
-      "后端服务未响应使": "백엔드 서비스가 응답하지 않아, 시뮬레이션 데이터를 사용합니다"
+      "后端服务未响应使": "백엔드 서비스가 응답하지 않아, 시뮬레이션 데이터를 사용합니다",
+      "Backend service not responding, using mock data": "Backend service not responding, using mock data",
+      "Login ID Required": "Login ID Required"
     },
     "user": {
       "업로드성공": "업로드성공",
       "업로드성공1": "업로드성공",
       "上传成功": "업로드 성공",
-      "上传成功1": "업로드 성공"
+      "上传成功1": "업로드 성공",
+      "Upload Successful": "Upload Successful",
+      "Upload Successful1": "Upload Successful"
     },
     "workflows": {
       "획득성공": "획득성공",
@@ -602,7 +864,18 @@
       "获取成功": "가져오기 성공",
       "获取成功1": "가져오기 성공",
       "获取成功7": "가져오기 성공",
-      "获取成功8": "가져오기 성공"
+      "获取成功8": "가져오기 성공",
+      "Get Successful": "Get Successful",
+      "Get Successful1": "Get Successful",
+      "Create Successful2": "Create Successful",
+      "Update Successful3": "Update Successful",
+      "Delete Successful4": "Delete Successful",
+      "Publish Successful5": "Publish Successful",
+      "Execution Successful6": "Execution Successful",
+      "Get Successful7": "Get Successful",
+      "Get Successful8": "Get Successful",
+      "Cancel Successful9": "Cancel Successful",
+      "Release Successful5": "Release Successful"
     },
     "xuqiu": {
       "획득성공": "획득성공",
@@ -637,11 +910,30 @@
       "获取成功": "가져오기 성공",
       "获取成功11": "가져오기 성공",
       "获取成功3": "가져오기 성공",
-      "评论成功12": "댓글 작성 성공"
+      "评论成功12": "댓글 작성 성공",
+      "Get Successful": "Get Successful",
+      "Publish Successful1": "Publish Successful",
+      "Batch Publish Successful2": "Batch Publish Successful",
+      "Get Successful3": "Get Successful",
+      "Update Successful4": "Update Successful",
+      "Like Successful5": "Like Successful",
+      "CancelLike Successful6": "CancelLike Successful",
+      "Favorite Successful7": "Favorite Successful",
+      "CancelFavorite Successful8": "CancelFavorite Successful",
+      "Follow Successful9": "Follow Successful",
+      "CancelFollow Successful10": "CancelFollow Successful",
+      "Get Successful11": "Get Successful",
+      "Comment Successful12": "Comment Successful",
+      "Share Successful13": "Share Successful",
+      "Like Successful14": "Like Successful",
+      "CancelLike Successful15": "CancelLike Successful",
+      "Release Successful1": "Release Successful",
+      "Batch Release Successful2": "Batch Release Successful"
     },
     "index": {
       "테크가능실행완료": "테크가능실행완료",
-      "技能执行完成": "스킬 실행 완료"
+      "技能执行完成": "스킬 실행 완료",
+      "Skill Execution Complete": "Skill Execution Complete"
     },
     "clipboard": {
       "복생각실패": "복생각실패",
@@ -680,7 +972,24 @@
       "读取失败16": "읽기 실패",
       "读取失败7": "읽기 실패",
       "读取成功15": "읽기 성공",
-      "读取成功6": "읽기 성공"
+      "读取成功6": "읽기 성공",
+      "Copy Failed": "Copy Failed",
+      "Read Failed1": "Read Failed",
+      "Copy Successful2": "Copy Successful",
+      "Copy Successful3": "Copy Successful",
+      "Copy Failed4": "Copy Failed",
+      "Copy Failed5": "Copy Failed",
+      "Read Successful6": "Read Successful",
+      "Read Failed7": "Read Failed",
+      "Clipboard Read Feature Not Available": "Clipboard Read Feature Not Available",
+      "Alipay SDK Not Initialized": "Alipay SDK Not Initialized",
+      "AlipayClipboardFeature10": "Alipay Clipboard Feature Not Available",
+      "Copy Successful11": "Copy Successful",
+      "Copy Failed12": "Copy Failed",
+      "AlipayClipboardRead14": "AlipayClipboard Read Feature Not Available",
+      "Read Successful15": "Read Successful",
+      "Read Failed16": "Read Failed",
+      "Alipay Clipboard Feature Not Available": "Alipay Clipboard Feature Not Available"
     },
     "form_validation": {
       "사사용자 이름을 입력하세요": "사사용자 이름을 입력하세요",
@@ -700,7 +1009,16 @@
       "请输入用户名": "사용자 이름을 입력해 주세요",
       "请输入邮箱3": "이메일을 입력해 주세요",
       "请输入金额5": "금액을 입력해 주세요",
-      "请输入验证码4": "인증코드를 입력해 주세요"
+      "请输入验证码4": "인증코드를 입력해 주세요",
+      "Please enter username": "Please enter username",
+      "Please enter password1": "Please enter password",
+      "Please enter phone number2": "Please enter phone number",
+      "Please enter email3": "Please enter email",
+      "Please enter verification code4": "Please enter verification code",
+      "Please enter amount5": "Please enter amount",
+      "Please confirm password6": "Please confirm password",
+      "This field is required7": "This field is required",
+      "Please enter mobile number2": "Please enter mobile number"
     },
     "plugin_validation": {
       "버전번호형식미공식확인": "버전번호형식미공식확인",
@@ -716,7 +1034,14 @@
       "次版本号更新新增2": "마이너 버전 업데이트(기능 추가)",
       "版本号未更改5": "버전 번호가 변경되지 않았습니다",
       "版本号格式不正确": "버전 번호 형식이 올바르지 않습니다",
-      "补丁版本号更新B3": "패치 버전 업데이트(Bug 수정)"
+      "补丁版本号更新B3": "패치 버전 업데이트(Bug 수정)",
+      "Version format is incorrect": "Version format is incorrect",
+      "Major version update (breaking changes)1": "Major version update (breaking changes)",
+      "Minor version update (new features)": "Minor version update (new features)",
+      "Patch version update (bug fixes)3": "Patch version update (bug fixes)",
+      "New version cannot be lower than old version4": "New version cannot be lower than old version",
+      "Version not changed5": "Version not changed",
+      "Minor version update (new features)2": "Minor version update (new features)"
     },
     "request": {
       "인증 코드완료전송": "인증 코드완료전송",
@@ -729,12 +1054,20 @@
       "登录成功3": "로그인 성공",
       "验证成功2": "인증 성공",
       "验证码已发送": "인증코드가 발송되었습니다",
-      "验证码已发送至您1": "인증코드가 휴대폰으로 발송되었습니다"
+      "验证码已发送至您1": "인증코드가 휴대폰으로 발송되었습니다",
+      "Verification code alReady sent": "Verification code alReady sent",
+      "Verification code already sent to your mobile": "Verification code already sent to your mobile",
+      "Verification Successful2": "Verification Successful",
+      "Login Successful3": "Login Successful"
     },
     "baidu_speech_provider": {
       "아직설정바이두도음성서비스": "미설정바이두도음성서비스",
       "음성인식완료사이진행1": "음성인식완료사이진행 중",
-      "음성인식이미사이진행1": "음성인식완료사이진행 중"
+      "음성인식이미사이진행1": "음성인식완료사이진행 중",
+      "Baidu Voice Service not configured": "Baidu Voice Service not configured",
+      "Voice recognition already in progress1": "Voice recognition alReady in progress",
+      "未配置百度语音服": "未配置百度语音服务",
+      "语音识别已在进行1": "语音识别已在进行中"
     },
     "web_speech_provider": {
       "아직검색테스트도달음성요청대규모": "아직 음성이 감지되지 않았습니다, 다시 시도하세요",
@@ -748,11 +1081,29 @@
       "미검색테스트도달마이크마이크위험1": "미검색테스트도달마이크마이크위험",
       "마이크마이크위험권한당함거부됨2": "마이크마이크위험권한당함거부됨",
       "브라우저게동화미지원음성5": "브라우저게동화미지원음성인식기능",
-      "음성인식이미사이진행6": "음성인식완료사이진행 중"
+      "음성인식이미사이진행6": "음성인식완료사이진행 중",
+      "No voice detected, please retry": "No Voice detected, please retry",
+      "No microphone detected1": "No microphone detected",
+      "Microphone permission Rejected2": "Microphone permission Rejected",
+      "Network ErrorVoiceService3": "Network error, Voice service unavailable",
+      "Voice recognition alReady stopped4": "Voice recognition alReady stopped",
+      "Browser does not support Voice5": "Browser does not support Voice recognition",
+      "Voice recognition already in progress6": "Voice recognition alReady in progress",
+      "Start Voice recognition Failed7": "Start Voice recognition Failed",
+      "未检测到语音请重": "未检测到语音，请重试",
+      "未检测到麦克风1": "未检测到麦克风",
+      "麦克风权限被拒绝2": "麦克风权限被拒绝",
+      "网络错误语音服务3": "网络错误，语音服务不可用",
+      "语音识别已中止4": "语音识别已中止",
+      "浏览器不支持语音5": "浏览器不支持语音识别功能",
+      "语音识别已在进行6": "语音识别已在进行中",
+      "启动语音识别失败7": "启动语音识别失败"
     },
     "whisper_provider": {
       "음성인식완료사이진행": "음성인식완료사이진행 중",
-      "음성인식이미사이진행": "음성인식완료사이진행 중"
+      "음성인식이미사이진행": "음성인식완료사이진행 중",
+      "Voice recognition already in progress": "Voice recognition alReady in progress",
+      "语音识别已在进行": "语音识别已在进行中"
     },
     "speech_manager": {
       "확인실패": "확인실패",
@@ -760,18 +1111,35 @@
       "확인실패2": "확인실패",
       "검색보기실패": "검색보기실패",
       "없음유생각사용 가능의음성인식1": "없음유생각사용 가능의음성인식서비스",
-      "검색보기실패2": "검색보기실패"
+      "검색보기실패2": "검색보기실패",
+      "Check Failed": "Check Failed",
+      "No available voice recognition service1": "No available Voice recognition service",
+      "Check Failed2": "Check Failed",
+      "检查失败": "检查失败",
+      "没有可用的语音识1": "没有可用的语音识别服务",
+      "检查失败2": "检查失败"
     },
     "speech_recognition": {
       "계몽동음성인식실패": "계몽동음성인식실패",
-      "启动语音识别失败": "음성 인식 시작 실패"
+      "启动语音识别失败": "음성 인식 시작 실패",
+      "Start Voice recognition Failed": "Start Voice recognition Failed"
     },
     "token_generator": {
       "API 키미쉽위한": "API 키필수",
       "API 키형식공식1": "API 키형식공식확인",
       "API 키Sec2": "API 키Secret형식공식확인",
       "생각사용게 정의형식키3": "생각사용게 정의형식키",
-      "API 키형식미4": "API 키형식미공식확인，길이도까지적은16개문자일치"
+      "API 키형식미4": "API 키형식미공식확인，길이도까지적은16개문자일치",
+      "API key required": "API key required",
+      "API key format correct1": "API key format correct",
+      "API key secret format correct2": "API key secret format correct",
+      "Custom format key3": "Custom format key",
+      "API key format incorrect, length at least 16 characters4": "API key format incorrect, length at least 16 characters",
+      "API密钥不能为": "API密钥不能为空",
+      "API密钥格式正1": "API密钥格式正确",
+      "API密钥Sec2": "API密钥Secret格式正确",
+      "自定义格式密钥3": "自定义格式密钥",
+      "API密钥格式不4": "API密钥格式不正确，长度至少16个字符"
     },
     "use_agentic_component_generator": {
       "생성컴포넌트실패": "생성컴포넌트실패",
@@ -782,7 +1150,15 @@
       "가입실패1": "가입실패",
       "환불나감실패2": "환불나감실패",
       "업데이트실패3": "업데이트실패",
-      "로그아웃실패2": "로그아웃실패"
+      "로그아웃실패2": "로그아웃실패",
+      "Login Failed": "Login Failed",
+      "Register Failed1": "Register Failed",
+      "Logout Failed2": "Logout Failed",
+      "Update Failed3": "Update Failed",
+      "登录失败": "登录失败",
+      "注册失败1": "注册失败",
+      "退出失败2": "退出失败",
+      "更新失败3": "更新失败"
     },
     "use_file_upload": {
       "업로드실패": "업로드실패",
@@ -790,7 +1166,10 @@
       "업로드실패2": "업로드실패",
       "上传失败": "업로드 실패",
       "上传失败1": "업로드 실패",
-      "上传失败2": "업로드 실패"
+      "上传失败2": "업로드 실패",
+      "Upload Failed": "Upload Failed",
+      "Upload Failed1": "Upload Failed",
+      "Upload Failed2": "Upload Failed"
     },
     "use_payment_status": {
       "결제초실시간": "결제초실시간",
@@ -798,13 +1177,16 @@
     },
     "use_task_web_socket": {
       "연결실패": "연결실패",
-      "连接失败": "연결 실패"
+      "连接失败": "연결 실패",
+      "Connection Failed": "Connection Failed"
     },
     "use_user_auth": {
       "네트워크오류": "네트워크오류",
       "네트워크오류1": "네트워크오류",
       "网络错误": "네트워크 오류",
-      "网络错误1": "네트워크 오류"
+      "网络错误1": "네트워크 오류",
+      "Network Error": "Network Error",
+      "Network Error1": "Network Error"
     },
     "model_validation": {
       "모델아직활성화요청진계몽": "모델아직활성화，먼저 활성화하세요모델",
@@ -824,7 +1206,15 @@
       "模型ID未配置4": "모델 ID가 설정되지 않았습니다",
       "模型未启用请先启": "모델이 활성화되지 않았습니다, 먼저 모델을 활성화해 주세요",
       "模型类型未配置1": "모델 유형이 설정되지 않았습니다",
-      "模型配置有效可以5": "모델 설정이 유효하며, 연결 가능합니다"
+      "模型配置有效可以5": "모델 설정이 유효하며, 연결 가능합니다",
+      "Model not enabled, please enable model first": "Model not enabled, please enable model first",
+      "Model Type Not Configured1": "Model Type Not Configured",
+      "Invalid Model Provider2": "Invalid Model Provider",
+      "Base URL format incorrect3": "Base URL format incorrect",
+      "Model ID Not Configured4": "Model ID Not Configured",
+      "Model config valid, can connect5": "Model config valid, can connect",
+      "Model Type Not Configureduration1": "Model Type Not Configureduration",
+      "Model ID Not Configureduration4": "Model ID Not Configureduration"
     },
     "common": {
       "requestFailed": "Request Failed"
@@ -857,7 +1247,8 @@
       "获取模型信息失败": "모델 API 정보 가져오기 실패",
       "获取调用日志失败": "API 호출 로그 가져오기 실패",
       "重新生成令牌失败": "API 토큰 재생성 실패",
-      "重新生成成功5": "재생성 성공"
+      "重新生成成功5": "재생성 성공",
+      "获取服务配置失败": "获取API服务配置失败"
     },
     "chat_history_service": {
       "创建成功": "생성 성공",
@@ -891,6 +1282,15 @@
     },
     "use_speech_config": {
       "初始化失败": "초기화 실패"
+    },
+    "use_agentic_${componentName} - Website Namet_generator": {
+      "Generate Component Failed": "Generate Component Failed"
+    },
+    "use_payment_Status": {
+      "Payment Timeout": "Payment Timeout"
+    },
+    "error_handler": {
+      "发生未知错误": "发生未知错误"
     }
   }
 }

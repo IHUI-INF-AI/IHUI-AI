@@ -10,6 +10,12 @@
         "completed": "完了",
         "pending": "処理中",
         "refunded": "返金済み"
+      },
+      "applyInVoice": "Apply InVoice",
+      "Status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "refunded": "Refunded"
       }
     },
     "developer": {
@@ -42,7 +48,8 @@
       "rejectReason": "却下理由",
       "view": "テーブル示",
       "resubmit": "再提出",
-      "empty": "審査記録なし"
+      "empty": "審査記録なし",
+      "RejectReason": "Reject Reason"
     },
     "upload": {
       "title": "アップロード一覧",

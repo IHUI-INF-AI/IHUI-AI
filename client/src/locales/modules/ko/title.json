@@ -8,7 +8,11 @@
       "来自智汇AI的代1": "지후이 AI의 코드",
       "来自智汇AI的创": "지후이 AI의 창작",
       "来自智汇AI的视2": "지후이 AI의 비디오",
-      "来自智汇AI的音3": "지후이 AI의 오디오"
+      "来自智汇AI的音3": "지후이 AI의 오디오",
+      "Creation from Smart AI": "Creation from Smart AI",
+      "Code from Smart AI1": "Code from Smart AI",
+      "Video from Smart AI2": "Video from Smart AI",
+      "Audio from Smart AI3": "Audio from Smart AI"
     },
     "memory_panel": {
       "대규모 이슈 실시간1": "대규모 이슈 실시간",
@@ -16,7 +20,13 @@
       "진행 중프로젝트3": "진행 중프로젝트",
       "연락게4": "연락게",
       "체험교육훈련5": "체험교육훈련",
-      "테크가능지식6": "테크가능지식"
+      "테크가능지식6": "테크가능지식",
+      "重要事实1": "重要事实",
+      "偏好设置2": "偏好设置",
+      "进行中项目3": "进行中项目",
+      "联系人4": "联系人",
+      "经验教训5": "经验教训",
+      "技能知识6": "技能知识"
     },
     "prompt_templates": {
       "콘텐츠 정제": "콘텐츠 정제",
@@ -38,7 +48,13 @@
       "文章撰写4": "글 작성",
       "深度逻辑分析9": "심층 논리 분석",
       "爆款标题生成7": "히트 제목 생성",
-      "社交媒体文案6": "소셜 미디어 카피"
+      "社交媒体文案6": "소셜 미디어 카피",
+      "通用": "General",
+      "语言1": "Language",
+      "代码2": "Code",
+      "写作3": "Writing",
+      "创意4": "Creativity",
+      "分析5": "Analysis"
     },
     "home_page3": {
       "Meta, 20억 달러에": "Meta, 20억 달러에 AI 에이전트 스타트업 Manus 인수",
@@ -73,7 +89,25 @@
       "智汇AI推出企业8": "지후이 AI 기업용 출시, 기업 디지털 전환 지원",
       "智汇AI新增5010": "지후이 AI, 50+ AI 도구 추가, 더 많은 애플리케이션 시나리오 커버",
       "智汇AI获得A轮16": "지후이 AI, 시리즈 A 펀딩 유치, 제품 R&D 및 시장 확장 가속화",
-      "苹果开发类Cha3": "애플, ChatGPT 유사 앱 개발, 새로운 Siri 내부 테스트용"
+      "苹果开发类Cha3": "애플, ChatGPT 유사 앱 개발, 새로운 Siri 내부 테스트용",
+      "Meta acquires AI Agent startup Manus for $2 billion": "Meta acquires AI Agent startup Manus for $2 billion",
+      "OpenAI provides ChatGPT Enterprise to US Government1": "OpenAI provides ChatGPT Enterprise to US Government",
+      "Apple develops ChatGPT-like app for internal testing of new Siri3": "Apple develops ChatGPT-like app for internal testing of new Siri",
+      "Quark AI glasses receive first major OTA upgrade4": "Quark AI glasses receive first major OTA upgrade",
+      "Smart AI Platform fully upgraded, launching multi-modal AI capabilities5": "Smart AI Platform fully upgraded, launching multi-modal AI capabilities",
+      "AI Community users exceed 100,000, community ecosystem continues to thrive6": "AI Community users exceed 100,000, community ecosystem continues to thrive",
+      "Smart AI Open Platform launched, supporting third-party developer integration7": "Smart AI Open Platform launched, supporting third-party developer integration",
+      "Smart AI launches Enterprise version, helping enterprises with digital transformation8": "Smart AI launches Enterprise version, helping Enterprises with digital transformation",
+      "AI Community hosts first AI Innovation Competition, inspiring community creativity9": "AI Community hosts first AI Innovation Competition, inspiring community creativity",
+      "Smart AIAdd5010": "Smart AI adds 50+ AI tools, covering more application scenarios",
+      "Smart AI partners with multiple universities to advance AI talent development11": "Smart AI partners with multiple universities to advance AI talent development",
+      "AI Community launches VIP membership system, unlocking more premium features12": "AI Community launches VIP membership system, unlocking more premium features",
+      "Smart AI Platform optimized, response speed improved by 300%13": "Smart AI Platform optimized, response speed improved by 300%",
+      "Smart AIPublishAI14": "Smart AI releases AI Model Training Platform, lowering development barriers",
+      "AI Community activity hits new high, daily posts exceed 1,00015": "AI Community activity hits new high, daily posts exceed 1,000",
+      "Smart AI secures Series A funding, accelerating product development and market expansion16": "Smart AI secures Series A funding, accelerating product development and market expansion",
+      "Smart AI adds 50+ AI tools, covering more application scenarios10": "Smart AI adds 50+ AI tools, covering more application scenarios",
+      "Smart AIReleaseAI14": "Smart AI releases AI Model Training Platform, lowering development barriers"
     },
     "user_membership_benefits": {
       "AI대화횟수": "AI대화횟수",
@@ -89,10 +123,39 @@
       "생각사용게 정의모델10": "생각사용게 정의모델",
       "팀 협업11": "팀 협업",
       "데이마음내보내기12": "데이마음내보내기",
-      "전담컨설턴트13": "전담컨설턴트"
+      "전담컨설턴트13": "전담컨설턴트",
+      "AI Chat Count": "AI Chat Count",
+      "Image Generation1": "Image Generation",
+      "Video Generation2": "Video Generation",
+      "Voice Input3": "Voice Input",
+      "File Upload4": "File Upload",
+      "History Record5": "History Record",
+      "Dedicated Customer Service6": "Dedicated Customer Service",
+      "Priority Response7": "Priority Response",
+      "Advanced Model8": "Advanced Model",
+      "API Access9": "API Access",
+      "Custom Model10": "Custom Model",
+      "Team Collaboration11": "Team Collaboration",
+      "Data Export12": "Data Export",
+      "Dedicated Consultant13": "Dedicated Consultant",
+      "AI对话次数": "AI对话次数",
+      "图片生成1": "图片生成",
+      "视频生成2": "视频生成",
+      "语音输入3": "语音输入",
+      "文件上传4": "文件上传",
+      "历史记录5": "历史记录",
+      "专属客服6": "专属客服",
+      "优先响应7": "优先响应",
+      "高级模型8": "高级模型",
+      "API访问9": "API访问",
+      "自定义模型10": "自定义模型",
+      "团队协作11": "团队协作",
+      "数据导出12": "数据导出",
+      "专属顾问13": "专属顾问"
     },
     "_component_template": {
-      "제목": "제목"
+      "제목": "제목",
+      "标题": "标题"
     },
     "apple_login": {
       "공식사이건너뛰기이체": "공식사이건너뛰기이체",
@@ -104,7 +167,13 @@
       "登录失败2": "로그인 실패",
       "登录失败3": "로그인 실패",
       "登录失败4": "로그인 실패",
-      "登录成功1": "로그인 성공"
+      "登录成功1": "로그인 성공",
+      "Processing Redirect": "Processing Redirect",
+      "Login Successful1": "Login Successful",
+      "Login Failed2": "Login Failed",
+      "Login Failed3": "Login Failed",
+      "Login Failed4": "Login Failed",
+      "Redirecting": "Redirecting"
     },
     "google_login": {
       "공식사이검증": "공식사이검증",
@@ -124,7 +193,18 @@
       "登录失败8": "로그인 실패",
       "登录成功1": "로그인 성공",
       "登录成功4": "로그인 성공",
-      "登录超时7": "로그인 시간 초과"
+      "登录超时7": "로그인 시간 초과",
+      "Processing Verification": "Processing Verification",
+      "Login Successful1": "Login Successful",
+      "Login Failed2": "Login Failed",
+      "Processing Redirect3": "Processing Redirect",
+      "Login Successful4": "Login Successful",
+      "Login Failed5": "Login Failed",
+      "Login Failed6": "Login Failed",
+      "Login Timeout7": "Login Timeout",
+      "Login Failed8": "Login Failed",
+      "Verifying": "Verifying",
+      "Redirecting3": "Redirecting"
     },
     "about": {
       "AI스마트대화": "AI 스마트대화",
@@ -134,7 +214,11 @@
       "AI智能对话": "AI 스마트 대화",
       "专业社区2": "전문 커뮤니티",
       "全球覆盖3": "글로벌 커버리지",
-      "极速响应1": "초고속 응답"
+      "极速响应1": "초고속 응답",
+      "AI Smart Chat": "AI Smart Chat",
+      "Fast Response1": "Fast Response",
+      "Professional Community2": "Professional Community",
+      "Global Coverage3": "Global Coverage"
     },
     "edu_a_i": {
       "분할배치방식평가테스트끌어당김엔진": "분할배치방식평가테스트끌어당김엔진",
@@ -143,7 +227,18 @@
       "MCP동의개발완벽한4": "MCP 프로토콜 개발 완벽 가이드",
       "대사용량템플릿형프롬프트공수신6": "대형 모델 프롬프트 엔지니어링 고급 과정",
       "Clawdbot3": "AI어시스턴트부마음배포도달숙련",
-      "ClaudeCo5": "Claude Code 평생어시스턴트이해해석"
+      "ClaudeCo5": "Claude Code 평생어시스턴트이해해석",
+      "Distributed Evaluation Engine": "Distributed Evaluation Engine",
+      "Secure Live Streaming Matrix1": "Secure Live Streaming Matrix",
+      "SAASInstitutionManagement2": "SAAS Institution Management",
+      "MCP Protocol Development Complete Guide4": "MCP Protocol Development Complete Guide",
+      "Large Model Prompt Engineering Advanced Course6": "Large Model Prompt Engineering Advanced Course",
+      "SAAS Institution Management2": "SAAS Institution Management",
+      "分布式评测引擎": "分布式评测引擎",
+      "安全直播矩阵1": "安全直播矩阵",
+      "SAAS机构管理2": "SAAS 机构管理",
+      "MCP协议开发完4": "MCP 协议开发完全指南",
+      "大模型提示词工程6": "大模型提示词工程高级课"
     },
     "enterprise_service": {
       "기업AI변환서비스스마트": "기업AI변환서비스 - 스마트AI생각 | 기업AI해결솔루션",
@@ -249,7 +344,61 @@
       "通知服务15": "알림 서비스",
       "问答服务7": "Q&A 서비스",
       "防攻击防护48": "공격 방지 보호",
-      "高新技术企业28": "하이테크 기업"
+      "高新技术企业28": "하이테크 기업",
+      "Learning Service": "Learning Service",
+      "Exam Service1": "Exam Service",
+      "Content Service2": "Content Service",
+      "Resource Service3": "Resource Service",
+      "Cloud Storage Service4": "Cloud Storage Service",
+      "Course Scheduling Service5": "Course Scheduling Service",
+      "Live Streaming Service6": "Live Streaming Service",
+      "Q&A Service7": "Q&A Service",
+      "Community Service8": "Community Service",
+      "Online Service9": "Online Service",
+      "Message Service10": "Message Service",
+      "Member Service11": "Member Service",
+      "Order Service12": "Order Service",
+      "Payment Service13": "Payment Service",
+      "Points Service14": "Points Service",
+      "Notification Service15": "Notification Service",
+      "API Gateway16": "API Gateway",
+      "Certification Service17": "Certification Service",
+      "User Center18": "User Center",
+      "System Settings19": "System Settings",
+      "Search Service20": "Search Service",
+      "Access Tracking21": "Access Tracking",
+      "AI Assistant22": "AI Assistant",
+      "Knowledge Graph23": "Knowledge Graph",
+      "AIContentGenerate24": "AI Content Generation",
+      "Smart Analysis25": "Smart Analysis",
+      "Voice Interaction26": "Voice Interaction",
+      "AI Vision27": "AI Vision",
+      "High-tech Enterprise28": "High-tech Enterprise",
+      "Software Copyright29": "Software Copyright",
+      "Information Security Level Protection30": "Information Security Level Protection",
+      "ISO Certification31": "ISO Certification",
+      "724HourResponse32": "7×24 Hour Response",
+      "Dedicated Technical Consultant33": "Dedicated Technical Consultant",
+      "Complete Technical Documentation34": "Complete Technical Documentation",
+      "99.9% Availability35": "99.9% Availability",
+      "AI Platform White Paper36": "AI Platform White Paper",
+      "Customer Case Studies37": "Customer Case Studies",
+      "Technical Architecture Documentation38": "Technical Architecture Documentation",
+      "Product Demo Video39": "Product Demo Video",
+      "AI Smart Teaching Platform40": "AI Smart Teaching Platform",
+      "AIEnterpriseTrainingSystem41": "AI Enterprise Training System",
+      "AI Content Creation Platform42": "AI Content Creation Platform",
+      "AI Assessment Certification System43": "AI Assessment Certification System",
+      "Data Encryption Transmission44": "Data Encryption Transmission",
+      "Identity Authentication Security45": "Identity Authentication Security",
+      "Interface Access Control46": "Interface Access Control",
+      "Log Audit Tracking47": "Log Audit Tracking",
+      "Anti-attack Protection48": "Anti-attack Protection",
+      "Data Backup & Restore49": "Data Backup & Restore",
+      "Row Service9": "Row Service",
+      "AI Smart Assistant22": "AI Smart Assistant",
+      "AIcontentgenerate24": "AI Content Generation",
+      "AI Enterprise Training System41": "AI Enterprise Training System"
     },
     "open_platform": {
       "보안 표준": "보안 표준",
@@ -292,7 +441,13 @@
       "知识文档18": "지식 문서",
       "管理控制台19": "관리 콘솔",
       "质量回溯3": "품질 추적",
-      "集群分发1": "클러스터 배포"
+      "集群分发1": "클러스터 배포",
+      "Swarm协作A4": "Swarm Collaboration API",
+      "全格式文档API5": "Full Format Document API",
+      "多模态视觉API6": "Multi-modal Vision API",
+      "智能音频API7": "Smart Audio API",
+      "自动化插件API8": "Automation Plugin API",
+      "监控看板API9": "Monitoring Dashboard API"
     },
     "document_center": {
       "빠른빠른모든것개요리스트": "빠른빠른모든것개요리스트",
@@ -311,7 +466,17 @@
       "性能优化指南7": "성능 최적화 가이드",
       "账户认证授权1": "계정 인증 및 권한",
       "错误处理规范8": "오류 처리 규범",
-      "首个应用搭建2": "첫 애플리케이션 구축"
+      "首个应用搭建2": "첫 애플리케이션 구축",
+      "Quick Start Course Overview": "Quick Start Course Overview",
+      "Account Authentication Authorization1": "Account Authentication Authorization",
+      "First Application Setup2": "First Application Setup",
+      "REST API Reference3": "REST API Reference",
+      "WebSocket Protocol, for real-time bidirectional communication4": "WebSocket Protocol, for real-time bidirectional communicationt Interface",
+      "GraphQL Query5": "GraphQL Query",
+      "SDK Integration Best Practice6": "SDK Integration Best Practice",
+      "Capability Optimization Guide7": "Capability Optimization Guide",
+      "Error Handling Specification8": "Error Handling Specification",
+      "Performance Optimization Guide7": "Performance Optimization Guide"
     },
     "resource_center": {
       "AI인프라빠른모든것": "AI 인프라빠른빠른모든것",
@@ -321,7 +486,40 @@
       "스마트스마트금융리스크 관리시스템4": "스마트 금융 리스크 관리 시스템 통합",
       "iHuiAI플랫폼5": "iHui AI 플랫폼 전체 미리보기",
       "방법빠른구축당신의의6": "방법빠른빠른구축당신의의첫 번째개 AI Agent",
-      "이것은단계비공개변환배포깊은7": "심화: 비공개 배포 심층 가이드"
+      "이것은단계비공개변환배포깊은7": "심화: 비공개 배포 심층 가이드",
+      "AI Foundation Quick Start": "AI Foundation Quick Start",
+      "API Integration Depth Guide1": "API Integration Depth Guide",
+      "IndustryBest Practice202": "Industry Best Practice 2026",
+      "E-commerce Giant AI Customer Service Upgrade3": "E-commerce Giant AI Customer Service Upgrade",
+      "Smart Financial Risk Control System Integration4": "Smart Financial Risk Control System Integration",
+      "iHuiAIPlatform5": "iHui AI Platform Overview",
+      "How to Quickly Build Your First AI Agent6": "How to Quickly Build Your First AI Agent",
+      "Advanced: Private Deployment Pitfall Guide7": "Advanced: Private Deployment Pitfall Guide",
+      "AI Basic Quick Start": "AI Basic Quick Start",
+      "Industry Best Practice 2026": "Industry Best Practice 2026",
+      "AI基础快速入门": "AI 基础快速入门",
+      "API集成深度指1": "API 集成深度指南",
+      "行业最佳实践202": "行业最佳实践 2026",
+      "某电商巨头AI客3": "某电商巨头 AI 客服升级",
+      "智慧金融风控系统4": "智慧金融风控系统集成",
+      "iHuiAI平台5": "iHui AI 平台全局预览",
+      "如何快速构建你的6": "如何快速构建你的第一个 AI Agent",
+      "进阶私有化部署深7": "进阶：私有化部署深度避坑指南"
+    },
+    "Memory_panel": {
+      "Important Fact1": "Important Fact",
+      "Preference Settings2": "Preference Settings",
+      "In Progress Project3": "In Progress Project",
+      "Contact4": "Contact",
+      "Experience Lesson5": "Experience Lesson",
+      "Skill Knowledge6": "Skill Knowledge",
+      "In Progress Target3": "In Progress Target"
+    },
+    "_${componentName} - Website Namet_template": {
+      "Title": "Title"
+    },
+    "Enterprise_service": {
+      "Enterprise AI Service - Smart AI Community | Enterprise-grade AI Solution": "Enterprise AI Service - Smart AI Community | Enterprise-grade AI Solution"
     }
   }
 }

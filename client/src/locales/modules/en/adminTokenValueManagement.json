@@ -1,7 +1,8 @@
 {
   "adminTokenValueManagement": {
     "actions": {
-      "Export": "Export Records"
+      "Export": "Export Records",
+      "export": "导出记录"
     },
     "search": {},
     "table": {},
@@ -13,11 +14,22 @@
     "messages": {
       "ExportNoData": "No data to Export",
       "ExportSuccess": "Token value list Exported successfully",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportNoData": "没有可导出的数据",
+      "exportSuccess": "智汇值列表导出成功",
+      "exportFailed": "导出失败"
     },
     "ExportFormatPrompt": "Export Format Prompt",
     "ExportCSV": "Export C S V",
     "ExportExcel": "Export Excel",
-    "ExportPDF": "Export P D F"
+    "ExportPDF": "Export P D F",
+    "export": {
+      "filename": "文件名",
+      "title": "导出"
+    },
+    "exportFormatPrompt": "请选择导出格式",
+    "exportCSV": "导出CSV",
+    "exportExcel": "导出Excel",
+    "exportPDF": "导出PDF"
   }
 }

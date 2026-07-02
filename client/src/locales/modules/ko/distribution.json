@@ -16,7 +16,9 @@
       "userIncomplete": "생각사용게 정보가 불완전합니다. 다시 로그인하세요",
       "authSuccess": "신원 확인 성공",
       "authFailed": "신원 확인 실패, 다시 시도하세요",
-      "title": "제목"
+      "title": "제목",
+      "success": "Real-name authentication successful",
+      "failed": "Real-name authentication failed, please try again"
     },
     "order": {
       "status": {

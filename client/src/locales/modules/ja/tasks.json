@@ -19,6 +19,14 @@
     },
     "confirmCancel": "此タスク",
     "cancelSuccess": "タスク済みキャンセル",
-    "cancelFailed": "キャンセルタスク失敗"
+    "cancelFailed": "キャンセルタスク失敗",
+    "Status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "completed": "Completed",
+      "Failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    }
   }
 }

@@ -2,7 +2,8 @@
   "adminUserManagement": {
     "tabs": {},
     "actions": {
-      "ExportUsers": "Export Users"
+      "ExportUsers": "Export Users",
+      "exportUsers": "导出用户"
     },
     "search": {
       "StatusPlaceholder": "Status",
@@ -11,38 +12,56 @@
       "StatusClosed": "Closed",
       "StatusActive": "Status Active",
       "StatusDisabled": "Status Disabled",
-      "Status": "Status"
+      "Status": "Status",
+      "statusPlaceholder": "状态",
+      "statusNormal": "正常",
+      "statusFrozen": "冻结",
+      "statusClosed": "关闭",
+      "statusActive": "状态活动",
+      "statusDisabled": "状态已禁用",
+      "status": "状态"
     },
     "userList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "marginList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "platformList": {},
     "sysLinkList": {},
     "authInfoList": {
       "Status": "Status",
-      "messages": {}
+      "messages": {},
+      "status": "状态"
     },
     "authAccountList": {
-      "Status": "Status"
+      "Status": "Status",
+      "status": "状态"
     },
     "authInfoForm": {
       "Status": "Status",
       "StatusNormal": "Normal",
       "StatusDisabled": "Disabled",
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusNormal": "正常",
+      "statusDisabled": "禁用"
     },
     "userForm": {
       "Status": "User Status",
       "StatusActive": "Active",
       "StatusDisabled": "Disabled",
       "validation": {},
-      "messages": {}
+      "messages": {},
+      "status": "用户状态",
+      "statusActive": "正常",
+      "statusDisabled": "禁用"
     },
     "userMarginForm": {
       "Status": "Status",
@@ -50,9 +69,14 @@
       "StatusFrozen": "Frozen",
       "StatusClosed": "Closed",
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusNormal": "正常",
+      "statusFrozen": "冻结",
+      "statusClosed": "关闭"
     },
     "userSysLinkForm": {
       "validation": {},
@@ -67,15 +91,21 @@
       "StatusNormal": "Normal",
       "StatusDisabled": "Disabled",
       "validation": {
-        "StatusRequired": "Please select Status"
+        "StatusRequired": "Please select Status",
+        "statusRequired": "请选择状态"
       },
-      "messages": {}
+      "messages": {},
+      "status": "状态",
+      "statusNormal": "正常",
+      "statusDisabled": "禁用"
     },
     "dialogs": {},
     "messages": {
       "fetchFailed": "Failed to fetch user list",
       "ExportSuccess": "Export Successful",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     }
   }
 }

@@ -10,7 +10,10 @@
       "rejected": "拒いいえ",
       "completed": "完了",
       "search": "検索",
-      "reset": "リセット"
+      "reset": "リセット",
+      "Status": "Status",
+      "Approved": "Approved",
+      "Rejected": "Rejected"
     },
     "table": {
       "withdrawalNo": "出金注文番号",
@@ -20,7 +23,8 @@
       "status": "ステータス",
       "createTime": "申請時間",
       "actions": "操作",
-      "viewDetail": "詳細をテーブル示"
+      "viewDetail": "詳細をテーブル示",
+      "Status": "Status"
     },
     "methods": {
       "wechat": "WeChat",
@@ -40,6 +44,13 @@
     "error": {
       "loadFailed": "出金記録の読み込みに失敗しました",
       "loadFailedRetry": "出金記録の読み込みに失敗しました。後でもう一度お試しください"
+    },
+    "Status": {
+      "pending": "Pending Review",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "unknown": "Unknown"
     }
   }
 }

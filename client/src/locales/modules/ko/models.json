@@ -42,6 +42,9 @@
     "testFailed": "test실패",
     "title": "제목",
     "subtitle": "Subtitle",
-    "apiAccessDoc": "연동 문서"
+    "apiAccessDoc": "연동 문서",
+    "Search Model": "Search Model",
+    "Status": "Status",
+    "pleaseEnterModel Name": "Please Enter Model Name"
   }
 }

@@ -56,7 +56,8 @@
       "titleLabel": "titleLabel",
       "titleLength": "titleLength",
       "titlePlaceholder": "titlePlaceholder",
-      "titleRequired": "titleRequired"
+      "titleRequired": "titleRequired",
+      "Failed": "Failed"
     },
     "comment": "댓글",
     "writeComment": "댓글 작성...",

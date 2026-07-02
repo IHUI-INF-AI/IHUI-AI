@@ -65,7 +65,10 @@
       "selectPreferred": "selectPreferred",
       "wechatLogin": "WeChat Login",
       "googleLogin": "GoogleLogin",
-      "appleLogin": "AppleLogin"
+      "appleLogin": "AppleLogin",
+      "wechatLoginFailed": "微信登录失败，请重试",
+      "googleLoginFailed": "Google登录失败，请重试",
+      "appleLoginFailed": "Apple登录失败，请重试"
     },
     "agreement": {
       "and": "And",
@@ -143,6 +146,7 @@
     "rememberMe": "Remember Me",
     "registerNow": "Register Now",
     "loginFailed": "Login Failed",
-    "login": "Login"
+    "login": "Login",
+    "loginSuccess": "登录成功"
   }
 }

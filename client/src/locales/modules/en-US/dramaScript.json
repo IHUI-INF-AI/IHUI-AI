@@ -24,12 +24,12 @@
       "medium": {
         "name": "Medium Shot",
         "description": "Above the waist",
-        "useCase": "Dialogue, interaction"
+        "useCase": "Dialog, interaction"
       },
       "mediumClose": {
         "name": "Medium Close-up",
         "description": "Above the chest",
-        "useCase": "Dialogue focus"
+        "useCase": "Dialog focus"
       },
       "closeUp": {
         "name": "Close-up",
@@ -44,7 +44,7 @@
       "overShoulder": {
         "name": "Over-the-shoulder Shot",
         "description": "Looking over one person's shoulder at another",
-        "useCase": "Dialogue scenes"
+        "useCase": "Dialog scenes"
       },
       "pov": {
         "name": "POV Shot",
@@ -171,7 +171,7 @@
       "defaultSuggestion": "Please regenerate storyboards for better suggestions",
       "reasonWideForEnvironment": "Wide shot is suitable for showing environment and atmosphere",
       "impactGrandScale": "Creates grandeur and scene presence",
-      "reasonOverShoulderForDialogue": "Over-the-shoulder shot is a classic choice for dialogue scenes",
+      "reasonOverShoulderForDialogue": "Over-the-shoulder shot is a classic choice for dialog scenes",
       "impactSpatialRelation": "Establishes spatial relationship between characters",
       "reasonCloseUpForEmotion": "Close-up captures delicate emotional expressions",
       "impactEmotionalResonance": "Strengthens emotional resonance",
@@ -433,14 +433,14 @@
       "promptEmotionalTone": "Emotional Tone",
       "promptConfidence": "Confidence (0-1)",
       "promptReturnJsonOnly": "Return pure JSON array, nothing else.",
-      "promptGenerateDialogue": "Generate character dialogue for the following scene:",
+      "promptGenerateDialogue": "Generate character dialog for the following scene:",
       "promptScene": "Scene",
       "promptCharacter": "Characters",
       "promptContext": "Context",
       "promptAvailableCharacters": "Available Characters",
-      "promptDialogueRequest": "Generate 2-4 natural dialogue lines, return as JSON array, each containing:",
+      "promptDialogueRequest": "Generate 2-4 natural dialog lines, return as JSON array, each containing:",
       "promptCharacterName": "Character Name",
-      "promptDialogue": "Dialogue Content",
+      "promptDialogue": "Dialog Content",
       "promptEmotion": "Emotion (e.g.: happy, sad, angry, calm, surprised, etc.)",
       "promptAction": "Accompanying Action (optional)",
       "promptVoiceTone": "Voice Tone (optional)",
@@ -633,12 +633,12 @@
         "promptMood": "Mood Atmosphere",
         "promptDuration": "Estimated Duration (sec)",
         "promptActions": "Action Description",
-        "promptDialogues": "Dialogues",
+        "promptDialogues": "Dialogs",
         "promptDialogueCharacter": "Character",
         "promptDialogueLine": "Line",
         "promptDialogueEmotion": "Emotion",
         "promptReturnJson": "Return JSON array, containing all scenes.",
-        "dialogueLabel": "Dialogue"
+        "dialogueLabel": "Dialog"
       }
     },
     "common": {
@@ -1177,9 +1177,9 @@
     "templateActionName": "Action Scene Template",
     "templateActionScene": "Street - Day",
     "templateActionVideoPrompt": "Fast moving shot, following the character through the street, handheld camera style.",
-    "templateDialogueDesc": "Scene template focused on dialogue",
+    "templateDialogueDesc": "Scene template focused on dialog",
     "templateDialogueDescription": "Two people sit across from each other in a cafe, having an in-depth conversation.",
-    "templateDialogueName": "Dialogue Scene Template",
+    "templateDialogueName": "Dialog Scene Template",
     "templateDialogueScene": "Cafe - Afternoon",
     "templateDialogueVideoPrompt": "Medium shot, stable shooting, soft lighting.",
     "templateEmotionDesc": "Scene template focused on emotional expression",
@@ -1233,6 +1233,8 @@
     "dataLoaded": "Loaded {count} fragments",
     "showGuide": "Show Guide",
     "fragmentDuplicated": "Fragment duplicated",
-    "suggestionCharacterContinuation": "Confirm whether the character needs to appear in subsequent scenes"
+    "suggestionCharacterContinuation": "Confirm whether the character needs to appear in subsequent scenes",
+    "exportComingSoon": "导出功能开发中...",
+    "generatePrompts": "生成提示词"
   }
 }

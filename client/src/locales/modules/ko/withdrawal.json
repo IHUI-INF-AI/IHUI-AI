@@ -24,7 +24,9 @@
       "bankPlaceholder": "은행행동요청입력",
       "remark": "준비가입",
       "remarkPlaceholder": "remark요청입력",
-      "submit": "제출출금"
+      "submit": "제출출금",
+      "account": "Withdrawal Account",
+      "accountPlaceholder": "Please enter withdrawal account"
     },
     "methods": {
       "핵심 장점": "출금방법",
@@ -47,7 +49,13 @@
       "success": "출금신청요청제출성공",
       "failed": "출금신청요청실패",
       "insufficientBalance": "잔액부족",
-      "processing": "처리 중처리출금신청요청..."
+      "processing": "처리 중처리출금신청요청...",
+      "cannotWithdraw": "Cannot initiate withdrawal at this time, please try again later",
+      "submitSuccess": "Withdrawal request submitted, please wait for review",
+      "submitFailed": "Withdrawal request Failed",
+      "submitFailedRetry": "Withdrawal request Failed, please try again later",
+      "withdrawalOperationFailed": "Withdrawal Failed",
+      "Failed": "Withdrawal application Failed"
     },
     "submit": {
       "submitting": "제출중간...",
@@ -60,7 +68,8 @@
       "accountRequired": "계정필수",
       "realNameRequired": "실명필수",
       "bankNameRequired": "은행행동이름필수",
-      "bankAccountInvalid": "Bank계정Invalid"
+      "bankAccountInvalid": "Bank계정Invalid",
+      "methodRequired": "Please select withdrawal method"
     },
     "inputValidAmount": "요청입력유효금액",
     "insufficientBalance": "잔액부족",
@@ -71,6 +80,10 @@
     "certification": {
       "required": "필요실시간이름인증",
       "goToCertify": "인증하러 가기"
-    }
+    },
+    "subtitle": "Apply for withdrawal to your account",
+    "withdrawAmount": "Withdrawal Amount",
+    "inputAmount": "Please enter withdrawal amount",
+    "withdrawMethod": "Withdrawal Method"
   }
 }

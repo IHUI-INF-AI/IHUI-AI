@@ -36,6 +36,18 @@
       "videoModel01": "プロフェッショナルな動画生成・編集モデル",
       "textModel01": "軽量なテキスト生成・会話モデル",
       "textModel02": "効率的なテキスト理解・創作モデル"
-    }
+    },
+    "Open Chat": "Open AI Chat",
+    "Search Models": "Search models...",
+    "ExportFailed": "Export Failed",
+    "VoiceInput": "Voice Input",
+    "ExportDeveloping": "Export feature is under development",
+    "VoiceStarted": "Voice Started",
+    "select": "选择",
+    "tools": "工具",
+    "promptTemplatesDesc": "选择提示词模板",
+    "aiToolboxDesc": "AI 工具箱",
+    "back": "返回",
+    "modelLabel": "模型"
   }
 }

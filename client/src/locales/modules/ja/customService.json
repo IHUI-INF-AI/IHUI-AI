@@ -31,6 +31,7 @@
     "requirementsMinLength": "必要求説明至少ない必要10件文字符",
     "submitSuccess": "送信成功，我们会尽速い連絡您",
     "submitError": "送信失敗，ご稍後再試行",
-    "onlineChat": "オンラインChat"
+    "onlineChat": "オンラインChat",
+    "welcomeMessage": "Hello! I'm Zhihui AI intelligent customer service, happy to serve you. How can I help you?"
   }
 }

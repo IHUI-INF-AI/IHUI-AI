@@ -106,7 +106,49 @@
       "continuousDays": "연속 학습 일수",
       "completedCourses": "완료 코스 수",
       "aiReportTitle": "AI 학습 계획 보고서",
-      "aiReportComingSoon": "출시 예정"
+      "aiReportComingSoon": "출시 예정",
+      "createNote": "노트 작성",
+      "editNote": "노트 편집",
+      "noteTitle": "제목",
+      "noteContent": "내용",
+      "noteTags": "태그",
+      "noteTagsHint": "태그는 쉼표로 구분하세요",
+      "noteVisibility": "공개",
+      "noteAttachments": "첨부파일",
+      "createOffline": "오프라인 기록 작성",
+      "editOffline": "오프라인 기록 편집",
+      "offlineTitleField": "제목",
+      "offlineDate": "날짜",
+      "offlineDuration": "소요 시간(분)",
+      "offlineActivityType": "활동 유형",
+      "offlineDescription": "설명",
+      "offlineProof": "증빙",
+      "deleteConfirm": "삭제하시겠습니까? 이 작업은 취소할 수 없습니다",
+      "deleteSuccess": "삭제되었습니다"
+    },
+    "nav": {
+      "home": "教育中心",
+      "learn": "我的课程",
+      "exam": "我的考试",
+      "ask": "问答",
+      "circle": "圈子",
+      "live": "直播",
+      "member": "学员档案",
+      "point": "积分",
+      "order": "我的订单",
+      "message": "消息中心",
+      "resource": "资源库",
+      "search": "搜索",
+      "admin": "教育后台"
+    },
+    "admin": {
+      "title": "教育后台",
+      "stats": {
+        "totalCourses": "课程总数",
+        "totalStudents": "学员总数",
+        "totalRevenue": "总收入",
+        "todayActive": "今日活跃"
+      }
     }
   }
 }

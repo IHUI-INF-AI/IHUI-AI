@@ -38,7 +38,17 @@
     "orderNotExist": "注文が存在しません",
     "invoiceOnlyForCompletedOrders": "請求書は完了した注文のみ利用可能",
     "invoiceDownloadSuccess": "請求書ダウンロード成功",
-    "invoiceDownloadFailed": "請求書ダウンロード失敗"
+    "invoiceDownloadFailed": "請求書ダウンロード失敗",
+    "downloadInVoice": "Download InVoice",
+    "StatusPending": "Pending",
+    "StatusProcessing": "Processing",
+    "StatusCompleted": "Completed",
+    "StatusFailed": "Failed",
+    "StatusCancelled": "Cancelled",
+    "inVoiceDownloadInDevelopment": "InVoice download feature under development",
+    "inVoiceOnlyForCompletedOrders": "InVoice Only For Completed Orders",
+    "inVoiceDownloadSuccess": "InVoice Download Success",
+    "inVoiceDownloadFailed": "InVoice Download Failed"
   },
   "OrderDetail": {}
 }

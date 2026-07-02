@@ -33,6 +33,8 @@
     "confirmDeleteTitle": "削除の確認",
     "deleteSuccess": "削除成功",
     "deleteFailed": "削除失敗",
-    "loadAppsFailed": "読み込み適用リスト失敗"
+    "loadAppsFailed": "読み込み適用リスト失敗",
+    "Disabled": "Disabled",
+    "Status": "Status"
   }
 }

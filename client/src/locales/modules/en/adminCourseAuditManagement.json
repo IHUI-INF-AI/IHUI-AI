@@ -1,18 +1,23 @@
 {
   "adminCourseAuditManagement": {
     "search": {
-      "Export": "Export"
+      "Export": "Export",
+      "export": "导出"
     },
     "table": {},
     "auditType": {},
     "auditStatus": {
       "Approved": "Approved",
-      "Rejected": "Rejected"
+      "Rejected": "Rejected",
+      "approved": "通过",
+      "rejected": "拒绝"
     },
     "dialogs": {},
     "messages": {
       "ExportSuccess": "Export Successful",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     }
   }
 }

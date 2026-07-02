@@ -10,7 +10,10 @@
       "rejected": "거부됨",
       "completed": "완료",
       "search": "검색",
-      "reset": "재설정"
+      "reset": "재설정",
+      "Status": "Status",
+      "Approved": "Approved",
+      "Rejected": "Rejected"
     },
     "table": {
       "withdrawalNo": "출금 주의문 번호",
@@ -20,7 +23,8 @@
       "status": "상태",
       "createTime": "신청 시간",
       "actions": "작업",
-      "viewDetail": "세부 정보 보기"
+      "viewDetail": "세부 정보 보기",
+      "Status": "Status"
     },
     "methods": {
       "wechat": "WeChat",
@@ -42,6 +46,13 @@
     "error": {
       "loadFailed": "출금 기이것은 로드 실패",
       "loadFailedRetry": "출금 기이것은 로드 실패, 나중에 다시 시도하세요"
+    },
+    "Status": {
+      "pending": "Pending Review",
+      "Approved": "Approved",
+      "Rejected": "Rejected",
+      "completed": "Completed",
+      "unknown": "Unknown"
     }
   }
 }

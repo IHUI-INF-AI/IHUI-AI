@@ -37,7 +37,8 @@
           "steps": "ステップ少ない",
           "calls": "呼び出し簡体字单",
           "volume": "処理量高",
-          "dependency": "低依頼度"
+          "dependency": "低依頼度",
+          "Volume": "High Volume"
         },
         "examples": {
           "workflow": {
@@ -147,7 +148,8 @@
     "footer": {
       "enterprise": "企業サービス",
       "humanMachine": "人間と機械協力",
-      "contact": "お問い合わせ"
+      "contact": "お問い合わせ",
+      "Enterprise": "Enterprise Service"
     }
   }
 }

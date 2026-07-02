@@ -222,6 +222,16 @@
       "jan": "Jan AI Local Deployment",
       "dify": "Dify AI Application Development Platform",
       "fastgpt": "FastGPT Knowledge Base Q&A"
-    }
+    },
+    "voiceInput": "语音输入",
+    "unsupportedImageFormat": "不支持的图片格式",
+    "imageUploadSuccess": "图片上传成功",
+    "imageUploadFailed": "图片上传失败",
+    "videoUploadSuccess": "视频上传成功",
+    "videoUploadFailed": "视频上传失败",
+    "audioUploadSuccess": "音频上传成功",
+    "audioUploadFailed": "音频上传失败",
+    "voiceRecognitionSuccess": "语音识别成功",
+    "voiceRecognitionError": "语音识别失败: {message}"
   }
 }

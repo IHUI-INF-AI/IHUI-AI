@@ -39,6 +39,23 @@
     "loadModelsFailed": "불러오기모델목이것은실패",
     "title": "대화기이것은",
     "loadSessionsFailed": "불러오기있도대화목이것은실패",
-    "loadMessagesFailed": "불러오기메시지목이것은실패"
+    "loadMessagesFailed": "불러오기메시지목이것은실패",
+    "Export": {
+      "ai": "ai",
+      "createdAt": "createdAt",
+      "message": "message",
+      "model": "model",
+      "tokensHeader": "tokensHeader",
+      "unknown": "unknown",
+      "user": "user",
+      "title": "Export"
+    },
+    "ExportSuccess": "Exported successfully",
+    "ExportFailed": "Export Failed",
+    "demoBadge": "演示",
+    "demo1Title": "演示 1",
+    "demo2Title": "演示 2",
+    "demo3Title": "演示 3",
+    "demoClickHint": "点击查看演示"
   }
 }

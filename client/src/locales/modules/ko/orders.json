@@ -20,7 +20,8 @@
       "status": "상태",
       "createTime": "생성 시간",
       "payTime": "결제 시간",
-      "actions": "작업"
+      "actions": "작업",
+      "Status": "Status"
     },
     "status": {
       "pending": "결제 대기",
@@ -42,7 +43,11 @@
       "copyOrderId": "주문 ID 복사",
       "copyProductId": "상품 ID 복사",
       "copyOrderInfo": "주문 정보 복사",
-      "retry": "재시도"
+      "retry": "재시도",
+      "payNow": "Pay Now",
+      "cancelOrder": "Cancel Order",
+      "requestRefund": "Request Refund",
+      "viewDetail": "View Details"
     },
     "labels": {
       "orderId": "주문 ID",
@@ -55,7 +60,8 @@
       "productName": "상품명",
       "productType": "상품 유형",
       "paymentMethod": "결제 방법",
-      "expireTime": "만료 시간"
+      "expireTime": "만료 시간",
+      "Status": "Status"
     },
     "empty": {
       "title": "주문 없음",
@@ -109,7 +115,8 @@
       "copyOrderIdSuccess": "주문 ID가 복사되었습니다",
       "copyProductIdSuccess": "상품 ID가 복사되었습니다",
       "copyOrderInfoSuccess": "주문 정보가 복사되었습니다",
-      "loadFailed": "주문 로드에 실패했습니다. 나중에 다시 시도해 주세요"
+      "loadFailed": "주문 로드에 실패했습니다. 나중에 다시 시도해 주세요",
+      "payNotAvailable": "Payment is not available at this time"
     },
     "error": {
       "title": "로드 실패"
@@ -122,6 +129,16 @@
     "sub핵심 장점": "보기및관리귀하의주의문",
     "details": {
       "핵심 장점": "주의문상세"
+    },
+    "Status": {
+      "pending": "Pending Payment",
+      "shipping": "Shipping",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded",
+      "unknown": "Unknown",
+      "paid": "Paid",
+      "processing": "Processing"
     }
   }
 }

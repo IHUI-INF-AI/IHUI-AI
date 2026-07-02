@@ -4,12 +4,15 @@
     "sub핵심 장점": "관리에이전트정산기이것은및출금",
     "actions": {},
     "settlementList": {
-      "status": "상태"
+      "status": "상태",
+      "Status": "Status"
     },
     "overview": {},
     "search": {
       "status": "상태",
-      "statusPlaceholder": "요청선택상태"
+      "statusPlaceholder": "요청선택상태",
+      "Status": "Status",
+      "StatusPlaceholder": "Select Status"
     },
     "status": {
       "pending": "기다림정산",
@@ -20,6 +23,12 @@
     "settlementStatus": {},
     "withdrawalStatus": {},
     "dialogs": {},
-    "messages": {}
+    "messages": {},
+    "Status": {
+      "pending": "Pending",
+      "settled": "Settled",
+      "withdrawn": "Withdrawn",
+      "unknown": "Unknown"
+    }
   }
 }

@@ -7,7 +7,8 @@
       "serviceType": "サービスタイプ",
       "allServices": "全てサービス",
       "status": "ステータス",
-      "allStatus": "全てステータス"
+      "allStatus": "全てステータス",
+      "Status": "Status"
     },
     "status": {
       "pending": "待確認",
@@ -35,8 +36,15 @@
       "confirmedAt": "確認時間",
       "completedAt": "完了時間",
       "cancelledAt": "キャンセル時間",
-      "adminNotes": "管理者備考"
+      "adminNotes": "管理者備考",
+      "Status": "Status"
     },
-    "loadFailed": "読み込み失敗，请稍後再試行"
+    "loadFailed": "読み込み失敗，请稍後再試行",
+    "Status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
   }
 }

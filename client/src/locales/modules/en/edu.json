@@ -106,7 +106,49 @@
       "continuousDays": "Continuous Days",
       "completedCourses": "Completed Courses",
       "aiReportTitle": "AI Learning Plan Report",
-      "aiReportComingSoon": "Coming Soon"
+      "aiReportComingSoon": "Coming Soon",
+      "createNote": "Create Note",
+      "editNote": "Edit Note",
+      "noteTitle": "Title",
+      "noteContent": "Content",
+      "noteTags": "Tags",
+      "noteTagsHint": "Separate tags with commas",
+      "noteVisibility": "Public",
+      "noteAttachments": "Attachments",
+      "createOffline": "Create Offline Record",
+      "editOffline": "Edit Offline Record",
+      "offlineTitleField": "Title",
+      "offlineDate": "Date",
+      "offlineDuration": "Duration (minutes)",
+      "offlineActivityType": "Activity Type",
+      "offlineDescription": "Description",
+      "offlineProof": "Proof",
+      "deleteConfirm": "Are you sure to delete? This cannot be undone",
+      "deleteSuccess": "Deleted successfully"
+    },
+    "nav": {
+      "home": "教育中心",
+      "learn": "我的课程",
+      "exam": "我的考试",
+      "ask": "问答",
+      "circle": "圈子",
+      "live": "直播",
+      "member": "学员档案",
+      "point": "积分",
+      "order": "我的订单",
+      "message": "消息中心",
+      "resource": "资源库",
+      "search": "搜索",
+      "admin": "教育后台"
+    },
+    "admin": {
+      "title": "教育后台",
+      "stats": {
+        "totalCourses": "课程总数",
+        "totalStudents": "学员总数",
+        "totalRevenue": "总收入",
+        "todayActive": "今日活跃"
+      }
     }
   }
 }

@@ -48,6 +48,7 @@
     "countRequired": "ご入力購入数",
     "orderNoRequired": "ご入力注文号",
     "orderStatusRequired": "请選択注文ステータス",
-    "settlementStatusRequired": "请選択決済ステータス"
+    "settlementStatusRequired": "请選択決済ステータス",
+    "StatusRequired": "Please select Status"
   }
 }

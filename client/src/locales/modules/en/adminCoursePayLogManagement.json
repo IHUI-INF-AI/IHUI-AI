@@ -1,21 +1,26 @@
 {
   "adminCoursePayLogManagement": {
     "actions": {
-      "Export": "Export"
+      "Export": "Export",
+      "export": "导出"
     },
     "search": {},
     "table": {},
     "payMethod": {},
     "payStatus": {
-      "Failed": "Failed"
+      "Failed": "Failed",
+      "failed": "支付失败"
     },
     "refundStatus": {
-      "Failed": "Refund Failed"
+      "Failed": "Refund Failed",
+      "failed": "退款失败"
     },
     "dialog": {},
     "messages": {
       "ExportSuccess": "Exported successfully",
-      "ExportFailed": "Export Failed"
+      "ExportFailed": "Export Failed",
+      "exportSuccess": "导出成功",
+      "exportFailed": "导出失败"
     }
   }
 }
