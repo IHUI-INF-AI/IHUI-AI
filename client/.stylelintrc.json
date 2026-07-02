@@ -4,10 +4,16 @@
     "stylelint-config-standard-scss"
   ],
   "plugins": [
-    "./stylelint-plugin-no-css-typos.cjs"
+    "./stylelint-plugin-no-css-typos.cjs",
+    "./stylelint-plugin-no-flex-column-el-button-without-stack.cjs",
+    "./stylelint-plugin-no-input-glow.cjs",
+    "./stylelint-plugin-no-where-dark-css-var.cjs"
   ],
   "rules": {
     "aizhs/no-css-typos": true,
+    "aizhs/no-flex-column-el-button-without-stack": true,
+    "aizhs/no-input-glow": true,
+    "aizhs/no-where-dark-css-var": true,
     "declaration-no-important": null,
     "selector-max-id": null,
     "no-descending-specificity": null,

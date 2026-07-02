@@ -60,6 +60,7 @@
     "check:outdated:miniapp": "node scripts/check-outdated.mjs --miniapp",
     "check:outdated:strict": "node scripts/check-outdated.mjs --fail-on-major",
     "audit": "npm audit --registry=https://registry.npmjs.org/ --legacy-peer-deps",
+    "audit:column-flex-buttons": "node scripts/debug/audit-column-flex-buttons.cjs",
     "check:line-endings": "node ../scripts/check-line-endings.mjs",
     "sync:csp": "tsx scripts/sync-csp.ts",
     "monitor:perf": "node scripts/performance-monitor.js",

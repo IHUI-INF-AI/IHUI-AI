@@ -162,6 +162,44 @@ jobs:
         run: node scripts/check-el-token-staged.mjs
         continue-on-error: true
 
+  button-stack-audit:
+    # column flex 按钮容器对齐审计 (Element Plus 全局 .el-button+.el-button { margin-left: 12px } 防回归)
+    # 2026-07-02 立, 见 project_memory.md "纯白/纯黑边框改动硬约束" 相关章节
+    name: Button Stack Audit (column flex containers)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Audit column flex button containers
+        # 全站扫描 column flex 容器里 ≥2 个 el-button 的实际错位点
+        # PW_BASE_URL 默认 http://localhost:8888, CI 用 127.0.0.1:4173
+        run: npm run audit:column-flex-buttons
+
+      - name: Run e2e alignment test
+        # 验证 AI 侧栏空态两个按钮 x 完全一致, margin-left 均为 0
+        run: npx playwright test e2e/ai-panel-empty-buttons-align.spec.ts
+
   nul-residue-scan:
     # 拦截 Windows 终端残留 nul 文件（PowerShell `>nul` 副作用，硬限制无法删除，仅做拦截不阻断提交）
     name: Nul Residue Scan

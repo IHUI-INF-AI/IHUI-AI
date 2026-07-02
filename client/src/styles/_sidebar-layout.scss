@@ -1392,6 +1392,14 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
     margin: 0;
   }
 
+  // 反排除规则：项目统一 .el-button-stack 标记 → 强压 Element Plus 全局
+  // .el-button + .el-button { margin-left: 12px } (特异性 0,2,0)
+  // 用 :is(.el-button-stack) 把容器自身特异性从 :where() 0 提到 0,1,0,
+  // 整条规则特异性 0,4,0 + !important 强压全局 0,2,0
+  :where(.ai-side-panel-empty-actions:is(.el-button-stack)) .el-button + .el-button {
+    margin-left: 0 !important;
+  }
+
   /* ── 右侧拖拽手柄（调整面板宽度）──
    * 6px 可点击区域，默认显示 1px 浅色细线提升可发现性，
    * hover/active 时变 3px 蓝色实心条提供明确反馈 */
