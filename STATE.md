@@ -101,6 +101,30 @@
 | `npm run check:i18n` | ✅ 5 语言覆盖率全通过 |
 | `npm run check:theme-tokens` | ✅ 0 硬编码违规 |
 | `npm run check:contrast` | ✅ 4/4 通过 |
-| `npm run scan:dead-code` | ✅ views=0, components=18, utils=0, 总计 18/755 (errorReport.ts 已接入) |
+| `npm run scan:dead-code` | ✅ views=0, components=18, utils=1, 总计 19/755 (errorReport.ts 撤销接入) |
 | `npx playwright test e2e/route-reachability.spec.ts` | ✅ 全量 86 passed (14.1m) |
 | `npx playwright test e2e/route-reachability.spec.ts -g exam` | ✅ 34/34 通过 (关键词修复验证) |
+
+### errorReport.ts 接入撤销说明
+
+**撤销原因**: 接入后发现项目已有完整的 [monitor.ts](file:///g:/IHUI-AI/client/src/utils/monitor.ts) 监控系统,功能更完善:
+- sendBeacon + fetch 双通道上报到 `/api/monitor/collect`
+- 批量上报 (30s 间隔 + beforeunload 兜底)
+- Vue errorHandler + window error + unhandledrejection 全覆盖
+- PerformanceObserver (LCP/FCP) + fetch 拦截器 (API 失败监控)
+- main.ts 第 443 行已调用 `setupMonitor(app)`,会覆盖手动设置的 errorHandler
+
+errorReport.ts 接入是重复造轮子,撤销后 errorReport.ts 回归死代码清单 (utils 1/117)。
+
+### knip 精准死代码扫描引入
+
+**新增工具**: `npm run scan:knip` (knip.json 配置已就绪)
+
+**knip vs 自研扫描器对比**:
+- 自研 scan:dead-code: 基于文件名 import 扫描,不识别动态 import / Vue 自动导入,19 个"未引用"多为误报
+- knip: 基于 AST 分析,识别动态 import,但 249 个未使用文件多为 Vue SFC 模板引用误报
+
+**knip 发现的真实问题**:
+1. `@eslint/js` 未在 package.json devDependencies 中声明 (eslint.config.js 引用)
+2. 4 个未使用枚举成员: message.ts UNREAD/DELETED, api-service.ts REQUEST/SUBSCRIPTION
+3. 重复 API 文件: ai-index.ts (api/ vs api/ai/), settings.ts (api/ vs api/system/)
