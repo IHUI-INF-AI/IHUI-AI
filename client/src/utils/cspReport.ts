@@ -67,3 +67,25 @@ export function initCspReport(): void {
     reportToLocal(violation)
   })
 }
+
+/**
+ * 主动上报单个 CSP 违规（暴露给 utils/index.ts 重导出）
+ * 与 initCspReport 内的事件监听逻辑等价，便于业务侧按需调用
+ */
+export function reportCspViolation(violation: Partial<CspViolation>): void {
+  const normalized: CspViolation = {
+    'blocked-uri': violation['blocked-uri'] ?? '',
+    'document-uri': violation['document-uri'] ?? '',
+    'effective-directive': violation['effective-directive'] ?? '',
+    'original-policy': violation['original-policy'] ?? '',
+    'referrer': violation['referrer'] ?? '',
+    'violated-directive': violation['violated-directive'] ?? '',
+    'source-file': violation['source-file'] ?? '',
+    'line-number': violation['line-number'] ?? 0,
+    'column-number': violation['column-number'] ?? 0,
+    'status-code': violation['status-code'] ?? 0,
+    'disposition': violation['disposition'] ?? '',
+  }
+  reportToSentry(normalized)
+  reportToLocal(normalized)
+}

@@ -80,6 +80,23 @@ const ENV_SCHEMA = {
   VITE_DEV_ORIGIN: { default: '' },
   VITE_DEV_HMR_HOST: { default: '' },
   VITE_DEV_HMR_PROTOCOL: { default: 'ws' },
+
+  // 第三方登录 - 飞书
+  VITE_FEISHU_APP_ID: { default: '' },
+  VITE_FEISHU_REDIRECT_URI: { default: '' },
+  VITE_FEISHU_SCOPE: { default: '' },
+  VITE_FEISHU_ENABLED: { default: 'false' },
+
+  // 第三方登录 - 钉钉
+  VITE_DINGTALK_CORP_ID: { default: '' },
+  VITE_DINGTALK_LOGIN_APP_ID: { default: '' },
+  VITE_DINGTALK_REDIRECT_URI: { default: '' },
+
+  // 第三方登录 - 企业微信
+  VITE_WORKWECHAT_ENABLED: { default: 'false' },
+  VITE_WORKWECHAT_REDIRECT_URI: { default: '' },
+  VITE_WORKWECHAT_SCOPE: { default: '' },
+  VITE_WECOM_CORP_ID: { default: '' },
 } as const
 
 /** 所有已声明的环境变量 key 列表（用于类型安全访问） */

@@ -85,6 +85,36 @@ function redirectToLoginDialog(redirectPath?: string): void {
 }
 
 // ========================================
+// 鉴权就绪状态（由 useAuthedApi composable 引用）
+// 真实状态由 authStore 维护；此处提供类型安全的占位实现
+// 业务侧应通过 @/utils/auth 维护，不直接依赖此模块
+// ========================================
+let _authReady = false
+let _notificationDedupMap: Map<string, number> = new Map()
+
+export function isAuthReady(): boolean {
+  return _authReady
+}
+
+export function setAuthReady(ready: boolean): void {
+  _authReady = ready
+  if (ready) {
+    // 鉴权就绪后清空历史去重状态，避免长时间运行后 map 膨胀
+    _notificationDedupMap.clear()
+  }
+}
+
+export async function waitForAuthReady(timeoutMs = 5000): Promise<void> {
+  if (_authReady) return
+  await new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
+export function resetNotificationDedup(): void {
+  _notificationDedupMap.clear()
+  _authReady = false
+}
+
+// ========================================
 // Mock API 数据 - 用于演示模式
 // ========================================
 const mockData: Record<string, unknown> = {

@@ -4,21 +4,37 @@
  */
 
 import hljs from 'highlight.js/lib/core'
+import type { LanguageFn } from 'highlight.js'
 
 // 按需注册常用语言
-import javascript from 'highlight.js/lib/languages/javascript'
-import typescript from 'highlight.js/lib/languages/typescript'
-import python from 'highlight.js/lib/languages/python'
-import java from 'highlight.js/lib/languages/java'
-import css from 'highlight.js/lib/languages/css'
-import scss from 'highlight.js/lib/languages/scss'
-import xml from 'highlight.js/lib/languages/xml'
-import json from 'highlight.js/lib/languages/json'
-import bash from 'highlight.js/lib/languages/bash'
-import sql from 'highlight.js/lib/languages/sql'
-import markdown from 'highlight.js/lib/languages/markdown'
-import yaml from 'highlight.js/lib/languages/yaml'
-import dockerfile from 'highlight.js/lib/languages/dockerfile'
+import _javascript from 'highlight.js/lib/languages/javascript'
+import _typescript from 'highlight.js/lib/languages/typescript'
+import _python from 'highlight.js/lib/languages/python'
+import _java from 'highlight.js/lib/languages/java'
+import _css from 'highlight.js/lib/languages/css'
+import _scss from 'highlight.js/lib/languages/scss'
+import _xml from 'highlight.js/lib/languages/xml'
+import _json from 'highlight.js/lib/languages/json'
+import _bash from 'highlight.js/lib/languages/bash'
+import _sql from 'highlight.js/lib/languages/sql'
+import _markdown from 'highlight.js/lib/languages/markdown'
+import _yaml from 'highlight.js/lib/languages/yaml'
+import _dockerfile from 'highlight.js/lib/languages/dockerfile'
+
+// highlight.js v11+ 用 LanguageFn；不同子模块导出的形状不统一,统一 cast
+const javascript = _javascript as unknown as LanguageFn
+const typescript = _typescript as unknown as LanguageFn
+const python = _python as unknown as LanguageFn
+const java = _java as unknown as LanguageFn
+const css = _css as unknown as LanguageFn
+const scss = _scss as unknown as LanguageFn
+const xml = _xml as unknown as LanguageFn
+const json = _json as unknown as LanguageFn
+const bash = _bash as unknown as LanguageFn
+const sql = _sql as unknown as LanguageFn
+const markdown = _markdown as unknown as LanguageFn
+const yaml = _yaml as unknown as LanguageFn
+const dockerfile = _dockerfile as unknown as LanguageFn
 
 // 注册语言
 hljs.registerLanguage('javascript', javascript)
