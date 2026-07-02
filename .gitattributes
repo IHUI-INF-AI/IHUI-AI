@@ -17,3 +17,35 @@ client/miniapp/src/static/images/record_back.png filter=lfs diff=lfs merge=lfs -
 
 # 大型生成代码文件 (5.88 MB)
 server/sdk/typescript-axios/api.ts filter=lfs diff=lfs merge=lfs -text
+
+# ============================================================
+# 行尾统一: 所有文本文件强制使用 LF (Unix 风格)
+# 解决 Windows 开发环境 CRLF 与 LF 混用导致的问题
+# - text=auto: Git 自动识别文本/二进制文件
+# - eol=lf: 文本文件在仓库和工作区都使用 LF
+# 已被 LFS 追踪的二进制文件带 -text 标记, 不受影响
+# ============================================================
+* text=auto eol=lf
+
+# 显式标记二进制文件类型 (防止被 text=auto 误判)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.pptx binary
+*.docx binary
+*.xlsx binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+*.zip binary
+*.tar.gz binary
+*.tgz binary
+*.7z binary
