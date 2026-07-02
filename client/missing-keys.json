@@ -1,0 +1,513 @@
+[
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 663,
+    "key": "aiChatInput.select",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 select"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 666,
+    "key": "aiChatInput.select",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 select"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 670,
+    "key": "aiChatInput.select",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 select"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 740,
+    "key": "aiChatInput.tools",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 tools"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 749,
+    "key": "aiChatInput.promptTemplatesDesc",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 promptTemplatesDesc"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 765,
+    "key": "aiChatInput.aiToolboxDesc",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 aiToolboxDesc"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\AIChat.vue",
+    "line": 776,
+    "key": "aiChatInput.back",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 back"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\ai\\TraeWorkSelector.vue",
+    "line": 17,
+    "key": "aiChatInput.modelLabel",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/aiChatInput.json 中无 key 路径 modelLabel"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\CrontabField.vue",
+    "line": 11,
+    "key": "adminComponents.crontabField.generate",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminComponents.json 中无 key 路径 crontabField.generate"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\CrontabField.vue",
+    "line": 18,
+    "key": "adminComponents.crontabField.dialogTitle",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminComponents.json 中无 key 路径 crontabField.dialogTitle"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\dev\\DevThemeSwitcher.vue",
+    "line": 90,
+    "key": "common.collapse",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 collapse"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\dev\\DevThemeSwitcher.vue",
+    "line": 90,
+    "key": "common.expand",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 expand"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\SidebarChatHistory.vue",
+    "line": 52,
+    "key": "chatHistory.demoBadge",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/chatHistory.json 中无 key 路径 demoBadge"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\SidebarChatHistory.vue",
+    "line": 130,
+    "key": "chatHistory.demo1Title",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/chatHistory.json 中无 key 路径 demo1Title"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\SidebarChatHistory.vue",
+    "line": 136,
+    "key": "chatHistory.demo2Title",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/chatHistory.json 中无 key 路径 demo2Title"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\SidebarChatHistory.vue",
+    "line": 142,
+    "key": "chatHistory.demo3Title",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/chatHistory.json 中无 key 路径 demo3Title"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\components\\SidebarChatHistory.vue",
+    "line": 187,
+    "key": "chatHistory.demoClickHint",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/chatHistory.json 中无 key 路径 demoClickHint"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AdminRbacManagement.vue",
+    "line": 360,
+    "key": "common.updateSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 updateSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AdminRbacManagement.vue",
+    "line": 377,
+    "key": "common.updateSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 updateSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AgentManagement.vue",
+    "line": 280,
+    "key": "common.updateSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 updateSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 3,
+    "key": "adminAuth.title",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 title"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 7,
+    "key": "adminAuth.tab.info",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 tab.info"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 34,
+    "key": "adminAuth.tab.accounts",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 tab.accounts"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 55,
+    "key": "adminAuth.tab.tokens",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 tab.tokens"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 76,
+    "key": "adminAuth.tab.veriCodes",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 tab.veriCodes"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 97,
+    "key": "adminAuth.tab.userVip",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 tab.userVip"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 118,
+    "key": "adminAuth.tab.vipLevel",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/adminAuth.json 中无 key 路径 tab.vipLevel"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\AuthManagement.vue",
+    "line": 235,
+    "key": "common.updateSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 updateSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\BusinessManagement.vue",
+    "line": 338,
+    "key": "common.updateSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 updateSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\CourseCategoryManagement.vue",
+    "line": 239,
+    "key": "common.updateSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 updateSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\exam\\AnswerDetailDialog.vue",
+    "line": 124,
+    "key": "common.messages.saveSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 messages.saveSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\exam\\Chapter.vue",
+    "line": 10,
+    "key": "exam.searchPlaceholder.chapter",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/exam.json 中无 key 路径 searchPlaceholder.chapter"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\exam\\Chapter.vue",
+    "line": 143,
+    "key": "common.messages.saveSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 messages.saveSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\exam\\ChapterSection.vue",
+    "line": 10,
+    "key": "exam.searchPlaceholder.chapterSection",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/exam.json 中无 key 路径 searchPlaceholder.chapterSection"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\exam\\ChapterSection.vue",
+    "line": 145,
+    "key": "common.messages.saveSuccess",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/common.json 中无 key 路径 messages.saveSuccess"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\NotificationCenter.vue",
+    "line": 24,
+    "key": "notificationCenter.level.info",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/notificationCenter.json 中无 key 路径 level.info"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\NotificationCenter.vue",
+    "line": 28,
+    "key": "notificationCenter.level.warn",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/notificationCenter.json 中无 key 路径 level.warn"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\NotificationCenter.vue",
+    "line": 32,
+    "key": "notificationCenter.level.error",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/notificationCenter.json 中无 key 路径 level.error"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 10,
+    "key": "admin.sms.searchPlaceholder",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.searchPlaceholder"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 40,
+    "key": "admin.sms.templateName",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateName"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 41,
+    "key": "admin.sms.templateCode",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateCode"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 42,
+    "key": "admin.sms.templateContent",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateContent"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 43,
+    "key": "admin.sms.templateType",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateType"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 44,
+    "key": "admin.sms.typeVerify",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.typeVerify"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 45,
+    "key": "admin.sms.typeNotice",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.typeNotice"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 46,
+    "key": "admin.sms.typeMarketing",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.typeMarketing"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 48,
+    "key": "admin.sms.signName",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.signName"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 49,
+    "key": "admin.sms.status",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.status"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 50,
+    "key": "admin.sms.statusEnabled",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.statusEnabled"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 51,
+    "key": "admin.sms.statusDisabled",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.statusDisabled"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 53,
+    "key": "admin.sms.remark",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.remark"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 78,
+    "key": "admin.sms.templateName",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateName"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 79,
+    "key": "admin.sms.templateCode",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateCode"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 80,
+    "key": "admin.sms.templateType",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.templateType"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 81,
+    "key": "admin.sms.typeVerify",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.typeVerify"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 81,
+    "key": "admin.sms.typeNotice",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.typeNotice"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 81,
+    "key": "admin.sms.typeMarketing",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.typeMarketing"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 84,
+    "key": "admin.sms.signName",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.signName"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 85,
+    "key": "admin.sms.status",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.status"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 87,
+    "key": "admin.sms.statusEnabled",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.statusEnabled"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 87,
+    "key": "admin.sms.statusDisabled",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.statusDisabled"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 89,
+    "key": "admin.sms.createTime",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.createTime"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\admin\\sms\\Template.vue",
+    "line": 104,
+    "key": "admin.sms.toggleStatus",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/admin.json 中无 key 路径 sms.toggleStatus"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 29,
+    "key": "help.faq",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 faq"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 57,
+    "key": "help.refundPolicy",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 refundPolicy"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 61,
+    "key": "help.refundContact",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 refundContact"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 73,
+    "key": "help.contactWays",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 contactWays"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 75,
+    "key": "help.workHours",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 workHours"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 83,
+    "key": "help.quickEntry",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 quickEntry"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 87,
+    "key": "help.courseCenter",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 courseCenter"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 91,
+    "key": "help.personalCenter",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 personalCenter"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 95,
+    "key": "help.feedback",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 feedback"
+  },
+  {
+    "file": "G:\\IHUI-AI\\client\\src\\views\\help\\Index.vue",
+    "line": 99,
+    "key": "help.aboutUs",
+    "reason": "key_not_found",
+    "detail": "modules/zh-CN/help.json 中无 key 路径 aboutUs"
+  }
+]
