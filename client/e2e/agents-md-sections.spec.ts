@@ -4,15 +4,15 @@
  * 防回归目标：AGENTS.md 是项目级 Agent 行为规范的唯一来源，
  *   2026-07-02 曾因 stash 误覆盖导致 2 个章节（AI 浮窗对话历史入口唯一性 +
  *   登录/注册按钮设计令牌）整体丢失，commit 9b6ca3c6 自称"恢复"但只补了 1 行空行。
- *   本测试用源码级 regex 锚点断言 12 个 H2 章节必须存在且顺序正确，
+ *   本测试用源码级 regex 锚点断言 14 个 H2 章节必须存在且顺序正确，
  *   任何章节被删/被替换/顺序错乱都会在 CI 失败。
  *
  * 验证项（纯源码级，不需要浏览器）：
  *   1) AGENTS.md 文件存在
  *   2) 文件总行数 >= 200（防止被截断成空壳）
  *   3) 行尾必须全部为 LF（CRLF = 0）—— 顺便守门
- *   4) H2 章节计数必须 == 12（多余/缺失都算回归）
- *   5) 12 个章节标题按既定顺序逐字匹配
+ *   4) H2 章节计数必须 == 14（多余/缺失都算回归）
+ *   5) 14 个章节标题按既定顺序逐字匹配
  *
  * CI 入口：npx playwright test agents-md-sections.spec.ts
  */
@@ -28,7 +28,7 @@ const PROJECT_ROOT = join(ROOT, '..')
 const AGENTS_MD_PATH = join(PROJECT_ROOT, 'AGENTS.md')
 
 /**
- * 12 个 H2 章节的精确标题（按 AGENTS.md 中出现的顺序）。
+ * 14 个 H2 章节的精确标题（按 AGENTS.md 中出现的顺序）。
  *
  * 维护规则：
  *   - 新增章节时，先在 AGENTS.md 追加，再在本数组追加对应标题
@@ -88,6 +88,14 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; keyword: string }> = [
   {
     title: '## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）',
     keyword: '会话过期通知位置',
+  },
+  {
+    title: '## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）',
+    keyword: '会话过期通知按钮双层蓝边',
+  },
+  {
+    title: '## Vue scoped + @use partial 规范（2026-07-03 立）',
+    keyword: 'Vue scoped + @use partial 规范',
   },
 ]
 
@@ -198,6 +206,8 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
       { keyword: '登录/注册按钮设计令牌', mustContain: '_login-tokens.scss' },
       { keyword: '文案 / i18n 联动改动硬约束', mustContain: 'check:becomesupplier:join-us' },
       { keyword: '会话过期通知位置', mustContain: 'SESSION_EXPIRED_DURATION_MS' },
+      { keyword: '会话过期通知按钮双层蓝边', mustContain: '.session-expired-notification' },
+      { keyword: 'Vue scoped + @use partial 规范', mustContain: 'check-ai-header-style-scope' },
     ]
 
     sectionSpotChecks.forEach(({ keyword, mustContain }) => {
