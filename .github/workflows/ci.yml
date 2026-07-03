@@ -408,6 +408,12 @@ jobs:
         # 模板 + useSidebar 注释 + README 文档 + 路由配置 + becomeSupplier 页面 h1
         # 任一处回归到 "成为供应商" 族旧值即阻断 PR
         run: cd client && npx playwright test e2e/sidebar-becomesupplier-join-us.spec.ts --reporter=list
+      - name: 跑侧边栏暗色色阶源码级守门 (22 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: _sidebar-layout.scss dark 色阶 4 token + html.dark 特异性 +
+        # SidebarChatHistory.vue .chat-history-body fallback transparent + dark 容器背景 +
+        # 全局 _theme-tokens darkSurface 不变 + 色阶方向 + 旧值回退检测
+        # 任一处改回偏浅旧值 (#6a6d77 / #5a5d67 / #4f5259) 或 #ffffff fallback 即阻断 PR
+        run: cd client && npx playwright test e2e/sidebar-dark-color-tier.spec.ts --reporter=list
       - name: 跑样式验证
         run: cd client && npx playwright test e2e/final-styles-verify.spec.ts
       - name: 跑登录态联调
