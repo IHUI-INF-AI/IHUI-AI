@@ -5680,8 +5680,20 @@ const getAssistantMessageAvatarUrl = (message: ChatMessage): string | null => {
 }
 
 // 能力下拉显隐变化：同步 ref（el-dropdown trigger 模式下内部状态不会自动同步回 v-model）
+// 打开时自动把焦点移入 popper，确保 Esc 键能正常关闭下拉
 const onCapabilityDropdownVisibleChange = (val: boolean) => {
   showCapabilityDropdown.value = val
+  if (val) {
+    nextTick(() => {
+      const popper = document.querySelector('.el-popper.ai-capability-popper')
+      if (popper) {
+        const focusable = popper.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        )
+        focusable?.focus()
+      }
+    })
+  }
 }
 
 // 能力网格卡片点击：执行命令并关闭下拉（与工具箱一致交互）

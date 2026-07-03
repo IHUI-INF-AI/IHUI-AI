@@ -86,7 +86,6 @@ export interface UseSubViewDropdownReturn<TView extends SubViewId> {
 export function useSubViewDropdown<TView extends SubViewId = 'main'>(
   options: UseSubViewDropdownOptions<TView>,
 ): UseSubViewDropdownReturn<TView> {
-  console.log('[useSubViewDropdown] composable called, parentVisible=', options.parentVisible.value)
   const mainView = (options.mainView ?? 'main') as TView
   const initial = (options.initialView ?? mainView) as TView
 
@@ -160,13 +159,10 @@ export function useSubViewDropdown<TView extends SubViewId = 'main'>(
     const onDocKeydown = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
       if (!options.parentVisible.value) return
-      console.log('[useSubViewDropdown] Esc intercepted, view=', currentView.value, 'visible=', options.parentVisible.value)
+      if (currentView.value === mainView) return
       e.preventDefault()
       e.stopImmediatePropagation()
       handleEsc()
-      Promise.resolve().then(() => {
-        console.log('[useSubViewDropdown] after handleEsc, view=', currentView.value, 'visible=', options.parentVisible.value)
-      })
     }
     document.addEventListener('keydown', onDocKeydown, true)
     onScopeDispose(() => {
