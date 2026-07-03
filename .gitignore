@@ -132,3 +132,15 @@ vitest-output.txt
 dev.log
 report.json
 redundant_analysis.json
+
+# ============================================================================
+# 2026-07-04 调试产物 (前端 bug 诊断截图/临时报告 + 模型诊断 JSON + stylelint 输出)
+# 列入 .gitignore 但保留磁盘, 方便后续追溯
+# ============================================================================
+diag-*.png
+diag-models.json
+work_*.txt
+work_*.log
+work_stylelint.txt
+# 自动 WIP 备份目录 (scripts/auto-wip-commit.mjs 生成, 不入库, 防止丢失修改)
+client/.auto-wip/
