@@ -150,7 +150,7 @@
     inset: 7px 6px 6px;
     position: absolute;
     background: linear-gradient(to top, var(--neutral-1), var(--neutral-2));
-    border-radius: 30px;
+    border-radius: 8px;
     filter: blur(0.5px);
     z-index: 2;
 }

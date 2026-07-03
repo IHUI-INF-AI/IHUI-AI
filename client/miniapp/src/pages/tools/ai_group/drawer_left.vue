@@ -189,7 +189,7 @@ function handleDrawerClick(item) {
         padding: 2rpx 0 2rpx 2rpx;
         box-sizing: border-box;
         border-style: solid;
-        border-radius: 15px 0 0 15px;
+        border-radius: 8px 0 0 8px;
         overflow: hidden;
         margin: 0 !important;
 
@@ -225,7 +225,7 @@ function handleDrawerClick(item) {
         display: flex;
         align-items: center;
         padding: 2rpx 0 2rpx 2rpx;
-        border-radius: 15px 0 0 15px;
+        border-radius: 8px 0 0 8px;
         position: relative;
         border-width: 0;
         width: 100%;

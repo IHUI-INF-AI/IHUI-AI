@@ -222,7 +222,7 @@ onMounted(() => {
     color: #4080ff;
     font-size: 14px;
     padding: 5px 10px;
-    border-radius: 15px;
+    border-radius: 8px;
   }
 }
 
@@ -298,7 +298,7 @@ onMounted(() => {
   .input-box {
     flex: 1;
     background-color: #f5f7fa;
-    border-radius: 20px;
+    border-radius: 8px;
     padding: 8px 12px;
     
     .input {

@@ -442,7 +442,7 @@ listOrder()
 
 
 .order-tab-bar {
-  border-radius: 15px;
+  border-radius: 8px;
   background: linear-gradient(111deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
   margin-top: 16rpx;
   overflow: hidden;

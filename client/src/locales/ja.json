@@ -2838,7 +2838,7 @@
     "aiModels": "AIモデル",
     "users500k": "50万+",
     "users": "ユーザー",
-    "availability": "利用可できるできる性性",
+    "availability": "可用性",
     "tabs": {
       "account": "アカウントログイン",
       "phone": "電話番号ログイン",
@@ -2871,8 +2871,8 @@
       "noAccount": "アカウントをお持ちでないですか？登録"
     },
     "password": {
-      "show": "パスワードをテーブル示",
-      "hide": "パスワードを非テーブル示"
+      "show": "パスワードを表示",
+      "hide": "パスワードを非表示"
     },
     "agreement": {
       "prefix": "以下に同意します",
@@ -2893,34 +2893,33 @@
         "google": "Googleログイン",
         "apple": "Appleログイン"
       },
-      "accountLogin": "accountLogin",
-      "comingSoon": "comingSoon",
-      "emailLogin": "emailLogin",
-      "otherMethods": "otherMethods",
-      "phoneLogin": "phoneLogin",
-      "quickLogin": "quickLogin",
-      "securityNotice1": "securityNotice1",
-      "securityNotice2": "securityNotice2",
-      "securityNotice3": "securityNotice3",
-      "selectPreferred": "selectPreferred"
+      "accountLogin": "アカウントログイン",
+      "comingSoon": "近日公開",
+      "emailLogin": "メールログイン",
+      "otherMethods": "その他のログイン方法",
+      "phoneLogin": "電話ログイン",
+      "quickLogin": "クイックログイン",
+      "securityNotice1": "アカウントのセキュリティのため、公共のデバイスにログイン状態を保存しないでください",
+      "securityNotice2": "セキュリティ強化のため二段階認証を有効にすることをお勧めします",
+      "securityNotice3": "異常なログインがあった場合は、パスワードを変更しサポートに連絡してください",
+      "selectPreferred": "希望するログイン方法を選択してください"
     },
-    "hidePassword": "非テーブル示Password",
-    "showPassword": "テーブル示Password",
-    "welcomeTitle": "welcomeタイトル",
+    "hidePassword": "パスワードを非表示",
+    "showPassword": "パスワードを表示",
     "apple": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "ログイン中...",
+      "retry": "再試行",
+      "securityTip": "セキュリティのヒント"
     },
     "google": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "ログイン中...",
+      "retry": "再試行",
+      "securityTip": "セキュリティのヒント"
     },
-    "switchPlatform": "switchPlatform",
-    "goLogin": "Go Login",
-    "goRegister": "Go Register",
-    "hasAccount": "Has Account"
+    "switchPlatform": "プラットフォーム切り替え",
+    "goLogin": "ログインへ",
+    "goRegister": "登録へ",
+    "hasAccount": "アカウントをお持ちですか？"
   },
   "messages": {
     "checkFormInput": "フォーム入力を確認してください",

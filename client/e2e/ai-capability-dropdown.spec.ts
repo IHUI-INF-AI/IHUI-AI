@@ -3,13 +3,13 @@
  *
  * 覆盖 2026-07-01 trae work 三段式重构 + useSubViewDropdown 抽取后的关键交互：
  *  1. 触发 pill 显示 + 展开下拉
- *  2. 主视图：5 个能力 + 工具区（提示词模板 / AI 工具箱）
+ *  2. 主视图：7 个能力卡片合并分组（5 能力 + 提示词模板 + AI 工具箱）
  *  3. 子视图切换：点击「提示词模板」→ 进入 prompts 子视图 + 自动聚焦 back 按钮
  *  4. 子视图返回：back 按钮 / Esc 优先返回主视图
  *  5. 主视图 Esc：关闭整个下拉
  *  6. 父级关闭时自动重置到主视图
  *  7. ARIA 属性：aria-haspopup / aria-expanded / role=menu / tabindex=0
- *  8. 响应式：< 400px 工具网格 2 列 → 1 列
+ *  8. 响应式：窄屏 popper 宽度不超出视口
  *  9. OpenClaw 工具项 active 状态：点击后下拉关闭 + 主面板打开
  */
 
@@ -111,7 +111,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await closeCapabilityDropdown(page)
   })
 
-  test('主视图含 5 个能力卡片 + 工具区', async ({ page }) => {
+  test('主视图含 7 个能力卡片（合并分组，无独立工具区）', async ({ page }) => {
     await openAIDialogMaximized(page)
     await openCapabilityDropdown(page)
 
@@ -119,17 +119,15 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     const mainPane = page.locator(MAIN_PANE)
     await expect(mainPane).toBeVisible()
 
-    // 5 个能力卡片
+    // 7 个能力卡片合并到同一 .menu-grid（5 能力 + 提示词模板 + AI 工具箱）
     const mainGrid = mainPane.locator('.menu-grid').first()
     const cards = mainGrid.locator('.menu-item')
-    await expect(cards).toHaveCount(5)
+    await expect(cards).toHaveCount(7)
 
-    // 工具区存在（分割线 + 标题 + 工具网格）
-    await expect(mainPane.locator('.menu-section-divider')).toBeVisible()
-    await expect(mainPane.locator('.menu-section-header')).toBeVisible()
-    const toolsGrid = mainPane.locator('.menu-grid-tools')
-    await expect(toolsGrid).toBeVisible()
-    await expect(toolsGrid.locator('.menu-item')).toHaveCount(2)
+    // 不再存在独立工具区分割线 / 标题 / 工具网格（2026-07-03 合并分组重构）
+    await expect(mainPane.locator('.menu-section-divider')).toHaveCount(0)
+    await expect(mainPane.locator('.menu-section-header')).toHaveCount(0)
+    await expect(mainPane.locator('.menu-grid-tools')).toHaveCount(0)
 
     await closeCapabilityDropdown(page)
   })
@@ -140,9 +138,9 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
 
     const popper = page.locator(POPPER)
 
-    // 点击「提示词模板」（在工具区 .menu-grid-tools 内）
+    // 点击「提示词模板」（已合并到主 .menu-grid 内，2026-07-03 重构）
     const promptItem = popper
-      .locator('.menu-grid-tools .menu-item')
+      .locator('.menu-grid .menu-item')
       .filter({ hasText: /提示词|Prompt/ })
       .first()
     await promptItem.click()
@@ -174,7 +172,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     const popper = page.locator(POPPER)
     // 进入 prompts 子视图
     await popper
-      .locator('.menu-grid-tools .menu-item')
+      .locator('.menu-grid .menu-item')
       .filter({ hasText: /提示词|Prompt/ })
       .first()
       .click()
@@ -228,7 +226,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
 
     const popper = page.locator(POPPER)
     await popper
-      .locator('.menu-grid-tools .menu-item')
+      .locator('.menu-grid .menu-item')
       .filter({ hasText: /提示词|Prompt/ })
       .first()
       .click()
@@ -242,8 +240,8 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     // 主视图重新可见
     const mainPane = page.locator(MAIN_PANE)
     await expect(mainPane).toBeVisible()
-    // 5 个能力卡
-    await expect(mainPane.locator('.menu-grid').first().locator('.menu-item')).toHaveCount(5)
+    // 7 个能力卡（合并分组）
+    await expect(mainPane.locator('.menu-grid').first().locator('.menu-item')).toHaveCount(7)
 
     await closeCapabilityDropdown(page)
   })
@@ -256,7 +254,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     const cards = mainPane.locator('.menu-grid').first().locator('.menu-item')
 
     const count = await cards.count()
-    expect(count).toBe(5)
+    expect(count).toBe(7)
 
     for (let i = 0; i < count; i++) {
       const card = cards.nth(i)
@@ -270,7 +268,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await closeCapabilityDropdown(page)
   })
 
-  test('窄屏（< 400px）工具网格降为 1 列', async ({ page }) => {
+  test('窄屏（< 400px）popper 宽度不超出视口', async ({ page }) => {
     await openAIDialogMaximized(page)
 
     // 设置窄视口
@@ -278,16 +276,13 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await page.waitForTimeout(300)
 
     await openCapabilityDropdown(page)
-    const mainPane = page.locator(MAIN_PANE)
-    const toolsGrid = mainPane.locator('.menu-grid-tools')
+    const popper = page.locator(POPPER)
+    await expect(popper).toBeVisible()
 
-    // 验证 toolsGrid 在 < 400px 视口下为 1 列
-    const gridCols = await toolsGrid.evaluate((el) => {
-      const s = window.getComputedStyle(el)
-      return s.gridTemplateColumns
-    })
-    const colCount = gridCols.trim().split(/\s+/).length
-    expect(colCount).toBe(1)
+    // 验证 popper 宽度不超出窄屏视口（max-width: 280px 已约束，且应 ≤ 360px 视口）
+    const box = await popper.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.width).toBeLessThanOrEqual(360)
 
     await closeCapabilityDropdown(page)
     // 恢复视口
@@ -299,9 +294,9 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await openCapabilityDropdown(page)
 
     const popper = page.locator(POPPER)
-    // AI 工具箱项（在工具区 .menu-grid-tools 内）
+    // AI 工具箱项（已合并到主 .menu-grid 内，2026-07-03 重构）
     const toolItem = popper
-      .locator('.menu-grid-tools .menu-item')
+      .locator('.menu-grid .menu-item')
       .filter({ hasText: /工具箱|Toolbox/ })
       .first()
     await toolItem.click()

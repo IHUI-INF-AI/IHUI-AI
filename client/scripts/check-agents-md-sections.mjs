@@ -76,6 +76,8 @@ const EXPECTED_SECTIONS = [
   { title: '## 暗色浮层底色统一硬约束（2026-07-03 立）', mustContain: 'check-dark-overlay-bg-color-unified' },
   { title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: 'check-no-pill-radius' },
   { title: '## 侧边栏尺寸永久锁定 v11 硬约束（2026-07-04 立）', mustContain: 'check-sidebar-config.mjs' },
+  { title: '## 暗色模式按钮/标签/消息文字反色硬约束（2026-07-04 立）', mustContain: 'check-button-text-contrast.mjs' },
+  { title: '## Git Hook 同步硬约束（2026-07-04 立）', mustContain: 'check-pre-commit-hook-content.mjs' },
 ]
 
 // 从 H2 标题自动派生 keyword (用于在正文中定位章节)

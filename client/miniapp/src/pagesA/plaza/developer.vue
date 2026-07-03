@@ -607,7 +607,7 @@ function backPage() {
     text-align: center;
     border: none;
     box-shadow: 0 0 8rpx #8882;
-    border-radius: 15px;
+    border-radius: 8px;
     background: rgb(0 0 0 / 0.8);
     box-sizing: border-box;
 }

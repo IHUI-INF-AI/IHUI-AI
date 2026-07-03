@@ -85,17 +85,17 @@
         "apple": "AppleLogin",
         "feishu": "Feishu Login"
       },
-      "accountLogin": "accountLogin",
-      "comingSoon": "comingSoon",
-      "emailLogin": "emailLogin",
-      "feishu": "feishu",
-      "otherMethods": "otherMethods",
-      "phoneLogin": "phoneLogin",
-      "quickLogin": "quickLogin",
-      "securityNotice1": "securityNotice1",
-      "securityNotice2": "securityNotice2",
-      "securityNotice3": "securityNotice3",
-      "selectPreferred": "selectPreferred"
+      "accountLogin": "Account Login",
+      "comingSoon": "Coming Soon",
+      "emailLogin": "Email Login",
+      "feishu": "Feishu",
+      "otherMethods": "Other Login Methods",
+      "phoneLogin": "Phone Login",
+      "quickLogin": "Quick Login",
+      "securityNotice1": "For your account security, do not save login state on public devices",
+      "securityNotice2": "We recommend enabling two-factor authentication for better security",
+      "securityNotice3": "If you notice unusual login activity, change your password and contact support",
+      "selectPreferred": "Select your preferred login method"
     },
     "agreement": {
       "and": "And",
@@ -134,25 +134,24 @@
       "insecureConnection": "Insecure Connection",
       "unknownError": "Unknown Error"
     },
-    "welcomeTitle": "Welcome Title",
     "rememberMe": "Remember Me",
     "noAccount": "No account yet?？",
     "registerNow": "Register Now",
     "Login Successful": "Login Successful",
     "loginFailed": "Login Failed",
     "apple": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "Logging in...",
+      "retry": "Retry",
+      "securityTip": "Security Tip"
     },
     "google": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "Logging in...",
+      "retry": "Retry",
+      "securityTip": "Security Tip"
     },
-    "switchPlatform": "switchPlatform",
-    "goLogin": "Go Login",
-    "goRegister": "Go Register",
-    "hasAccount": "Has Account"
+    "switchPlatform": "Switch Platform",
+    "goLogin": "Go to Login",
+    "goRegister": "Go to Register",
+    "hasAccount": "Already have an account?"
   }
 }

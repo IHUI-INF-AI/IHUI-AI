@@ -7579,34 +7579,33 @@
         "google": "Google登录",
         "apple": "Apple登录"
       },
-      "accountLogin": "accountLogin",
-      "comingSoon": "comingSoon",
-      "emailLogin": "emailLogin",
-      "otherMethods": "otherMethods",
-      "phoneLogin": "phoneLogin",
-      "quickLogin": "quickLogin",
-      "securityNotice1": "securityNotice1",
-      "securityNotice2": "securityNotice2",
-      "securityNotice3": "securityNotice3",
-      "selectPreferred": "selectPreferred"
+      "accountLogin": "账号登录",
+      "comingSoon": "即将推出",
+      "emailLogin": "邮箱登录",
+      "otherMethods": "其他登录方式",
+      "phoneLogin": "手机登录",
+      "quickLogin": "快捷登录",
+      "securityNotice1": "为了您的账号安全，请勿在公共设备上保存登录状态",
+      "securityNotice2": "建议开启两步验证以增强账号安全性",
+      "securityNotice3": "如遇异常登录，请及时修改密码并联系客服",
+      "selectPreferred": "选择首选登录方式"
     },
-    "hidePassword": "隐藏Password",
-    "showPassword": "显示Password",
-    "welcomeTitle": "welcome标题",
+    "hidePassword": "隐藏密码",
+    "showPassword": "显示密码",
     "apple": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "正在登录",
+      "retry": "重试",
+      "securityTip": "安全提示"
     },
     "google": {
-      "loggingIn": "loggingIn",
-      "retry": "retry",
-      "securityTip": "securityTip"
+      "loggingIn": "正在登录",
+      "retry": "重试",
+      "securityTip": "安全提示"
     },
-    "switchPlatform": "switchPlatform",
-    "goLogin": "Go Login",
-    "goRegister": "Go Register",
-    "hasAccount": "Has Account"
+    "switchPlatform": "切换平台",
+    "goLogin": "前往登录",
+    "goRegister": "前往注册",
+    "hasAccount": "已有账号"
   },
   "designer": {
     "mode": "模式",

@@ -544,7 +544,7 @@ onBeforeUnmount(() => {
 		background-image: url('/static/images/inputBg.png');
 		background-size: 100% 100%;
 		background-repeat: no-repeat;
-		border-radius: 16px;
+		border-radius: 8px;
 		padding: 0 0 0 40rpx;
 		height: 110rpx;
 		box-sizing: border-box;
@@ -583,7 +583,7 @@ onBeforeUnmount(() => {
 		background-image: url('/static/images/InputBack.png');
 		background-size: 100% 100%;
 		background-repeat: no-repeat;
-		border-radius: 16px;
+		border-radius: 8px;
 		padding: 0 0 0 40rpx;
 		height: 110rpx;
 		box-sizing: border-box;

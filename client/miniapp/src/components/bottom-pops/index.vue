@@ -104,7 +104,7 @@ function handleScroll(e) {
   transform: translateY(100%);
   border-color: #D0D0D0;
   background-color: #fff;
-  border-radius: 30px 30px 0 0;
+  border-radius: 8px 8px 0 0;
   border: 1px solid rgb(251 255 203 / 0.08);
   box-shadow: 0 0 20px 0 rgb(255 255 255 / 0.8);
   backdrop-filter: blur(var(--blur-amount, 0));

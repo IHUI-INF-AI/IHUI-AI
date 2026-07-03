@@ -735,11 +735,7 @@
                                 <span class="item-label">{{ t('floatingChat.modeAuto') }}</span>
                                 <span class="item-desc">{{ t('floatingChat.autoDecision') }}</span>
                               </div>
-                            </div>
-                            <!-- Tools section: prompt templates + AI toolbox -->
-                            <div class="menu-section-divider"></div>
-                            <div class="menu-section-header">{{ t('aiChatInput.tools') }}</div>
-                            <div class="menu-grid-tools">
+                              <!-- 工具入口：与能力卡片合并到同一组 (2026-07-03 重构, 不再单独分组) -->
                               <div class="menu-item menu-item-tool" role="menuitem" tabindex="0"
                                 :aria-label="t('floatingChat.promptTemplates')"
                                 @click="goToCapabilityView('prompts')">
@@ -10756,28 +10752,6 @@ cleanup.add(() => {
     }
   }
 
-  // 工具区：与主能力卡片保持一致（同一套 .menu-item 样式）
-  .menu-grid-tools {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .menu-section-divider {
-    height: 1px;
-    background: var(--border-unified-color);
-    margin: 6px 4px;
-  }
-
-  .menu-section-header {
-    font-size: 11px;
-    color: var(--el-text-color-secondary);
-    padding: 2px 8px 4px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-  }
-
   .menu-footer {
     display: flex;
     justify-content: center;
@@ -10805,6 +10779,121 @@ cleanup.add(() => {
       }
     }
   }
+}
+
+// ========== AI 能力下拉 - 紧凑垂直列表 (覆盖 .openclaw-quick-menu 共享网格) ==========
+// 设计意图 (2026-07-03 重构): 高级简约, 单列纵向, 图标+标签+描述同行, 紧凑收口
+// 旧 4 列卡片网格"傻大傻大", 改为单列菜单行, 更时尚
+.ai-capability-quick-menu {
+  // 头部: 去掉粗边框 + accent bar, 改为小号 muted 标签
+  .menu-header {
+    padding: 0 4px 6px;
+    border-bottom: none;
+    margin-bottom: 4px;
+
+    .menu-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--el-text-color-secondary);
+      letter-spacing: 0.06em;
+
+      &::before {
+        display: none; // 去掉 4px 粗 accent bar, 更简约
+      }
+    }
+  }
+
+  // 单列纵向列表 (覆盖 4 列网格)
+  .menu-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  // 列表行: 图标左, 标签+描述右 (CSS grid 双行, 无需模板包裹)
+  .menu-item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 0;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: var(--global-border-radius);
+    transition: background-color 0.15s ease;
+
+    .item-icon {
+      grid-row: 1 / 3;
+      grid-column: 1;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--global-border-radius);
+      box-shadow: none; // 扁平化, 更高级
+
+      svg {
+        width: 15px;
+        height: 15px;
+      }
+    }
+
+    .item-label {
+      grid-row: 1;
+      grid-column: 2;
+      align-self: end;
+      font-size: 13px;
+      text-align: left;
+      line-height: 1.3;
+      margin-bottom: 1px;
+    }
+
+    .item-desc {
+      grid-row: 2;
+      grid-column: 2;
+      align-self: start;
+      font-size: 11px;
+      text-align: left;
+      line-height: 1.2;
+      opacity: 0.65;
+      transition: opacity 0.15s ease;
+    }
+
+    &:hover {
+      background: var(--el-fill-color-light);
+      transform: none; // 不缩放, 更稳重
+
+      .item-icon {
+        box-shadow: none;
+      }
+
+      .item-desc {
+        opacity: 0.9;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--el-color-primary);
+      outline-offset: -1px;
+    }
+
+    &.active {
+      background: var(--el-color-primary-light-9);
+
+      .item-icon {
+        transform: none;
+        box-shadow: none;
+      }
+
+      .item-label {
+        color: var(--el-color-primary);
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+// 暗色模式 active 态: 用 primary 半透明, 避免亮色 light-9 在深底上发灰
+:where(html.dark) .ai-capability-quick-menu .menu-item.active {
+  background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
 }
 
 // 语音小卡片 - 极简样式，与输入框同一行、不换行，右侧与输入框留隙
@@ -11176,10 +11265,11 @@ button.mini-delete-btn {
 
 /* ========== AI 能力选择器 - 与 OpenClaw 智能工具箱样式统一 ========== */
 :where(body) .el-popper.ai-chat-popper.ai-capability-popper {
-  padding: 16px;
-  margin-top: 10px;
-  max-width: 340px;
-  min-width: 300px;
+  padding: 10px;
+  margin-top: 8px;
+  max-width: 280px;
+  min-width: 240px;
+  max-height: 70vh;
   background: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);

@@ -4,7 +4,7 @@
  * 防回归目标：AGENTS.md 是项目级 Agent 行为规范的唯一来源，
  *   2026-07-02 曾因 stash 误覆盖导致 2 个章节（AI 浮窗对话历史入口唯一性 +
  *   登录/注册按钮设计令牌）整体丢失，commit 9b6ca3c6 自称"恢复"但只补了 1 行空行。
- *   本测试用源码级 regex 锚点断言 17 个 H2 章节必须存在且顺序正确，
+ *   本测试用源码级 regex 锚点断言 20 个 H2 章节必须存在且顺序正确，
  *   任何章节被删/被替换/顺序错乱都会在 CI 失败。
  *
  * 验证项（纯源码级，不需要浏览器）：
@@ -60,6 +60,8 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain: string }> =
   { title: '## 暗色浮层底色统一硬约束（2026-07-03 立）', mustContain: 'check-dark-overlay-bg-color-unified' },
   { title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: 'check-no-pill-radius' },
   { title: '## 侧边栏尺寸永久锁定 v11 硬约束（2026-07-04 立）', mustContain: 'check-sidebar-config.mjs' },
+  { title: '## 暗色模式按钮/标签/消息文字反色硬约束（2026-07-04 立）', mustContain: 'check-button-text-contrast.mjs' },
+  { title: '## Git Hook 同步硬约束（2026-07-04 立）', mustContain: 'check-pre-commit-hook-content.mjs' },
 ]
 
 // 从 H2 标题自动派生 keyword (用于在正文中定位章节)
