@@ -13,15 +13,22 @@
  *   5. AIDialog.vue line 3061 (暗色 checkbox :checked + .checkmark)     → var(--color-white-80)
  *
  * 验证策略:
- *   1) Home 页: 加载首页 + 切到 dark 主题, hover ghost 按钮, 读取实际 borderColor
- *   2) AIDialog: 加载 AI 页面 + 切到 dark 主题, 定位 checkbox, 读取实际 borderColor
- *   3) 三个状态都验证 (default/hover/active/checked)
+ *   1) Home 页: 浏览器级 (需 PW_BASE_URL) — 加载首页 + 切 dark + hover + getComputedStyle
+ *   2) AIDialog: 源码级 (始终运行) — 验证 :where(html.dark) 块内 CSS 规则
+ *      (浏览器级因需登录+移动端+模型选择器交互, 架构不可行, 改为源码级)
  *
  * 运行模式:
- *   - 默认: 跳过 (需 PW_BASE_URL, dev/preview server)
- *   - CI  : 跑 (CI=true 时强制启动)
+ *   - 默认: Home 浏览器级跳过 (需 PW_BASE_URL); AIDialog 源码级始终运行
+ *   - CI  : 全部运行 (CI=true 时 PW_BASE_URL 通常已设置)
  */
 import { test, expect, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const ROOT = join(__dirname, '..')
 
 const SKIP_BROWSER = !process.env.PW_BASE_URL
 
@@ -37,25 +44,22 @@ async function gotoAndDark(page: Page, path: string) {
   await page.waitForTimeout(400)
 }
 
-test.describe('纯白/纯黑边框修复 — 视觉/运行时回归 (2026-07-02)', () => {
+// -------------------------------------------------------------------------
+// 1) Home.vue.styles.scss: 暗色 hero-cta-btn.ghost 边框视觉验证 (浏览器级)
+// -------------------------------------------------------------------------
+test.describe('纯白/纯黑边框修复 — Home ghost 按钮视觉回归 (浏览器级)', () => {
   test.skip(SKIP_BROWSER, '需 PW_BASE_URL 环境变量指向运行中的 dev/preview server')
 
-  // -------------------------------------------------------------------------
-  // 1) Home.vue.styles.scss: 暗色 hero-cta-btn.ghost 边框视觉验证
-  // -------------------------------------------------------------------------
   test('Home ghost 按钮 :hover 边框 = rgba(255, 255, 255, 0.5) [var(--color-white-50)]', async ({ page }) => {
     await gotoAndDark(page, '/')
-    // 滚动到 first-page 让按钮进入视口 (hover 才能触发)
     await page.evaluate(() => {
       const btn = document.querySelector('.hero-cta-btn.ghost') as HTMLElement | null
       btn?.scrollIntoView({ block: 'center' })
     })
     await page.waitForTimeout(200)
-    // 悬停 ghost 按钮
     const ghost = page.locator('.hero-cta-btn.ghost').first()
     await ghost.hover()
     await page.waitForTimeout(200)
-    // 读取 hover 状态下的 borderColor
     const borderColor = await page.evaluate(() => {
       const el = document.querySelector('.hero-cta-btn.ghost') as HTMLElement | null
       return el ? getComputedStyle(el).borderColor : ''
@@ -71,64 +75,55 @@ test.describe('纯白/纯黑边框修复 — 视觉/运行时回归 (2026-07-02)
       btn?.scrollIntoView({ block: 'center' })
     })
     await page.waitForTimeout(200)
-    // 用 force + active 模拟按下 (无需真正 mouse down)
     const ghost = page.locator('.hero-cta-btn.ghost').first()
-    // dispatch mousedown 触发 :active 状态
     await ghost.dispatchEvent('mousedown')
     await page.waitForTimeout(200)
     const borderColor = await page.evaluate(() => {
       const el = document.querySelector('.hero-cta-btn.ghost') as HTMLElement | null
       return el ? getComputedStyle(el).borderColor : ''
     })
-    // 注意: :active 在 mouseup 后立即消失, 这里 dispatchEvent 不会保留,
-    //       所以这个 case 实际验证 default 态 (transparent → 来自 var(--el-bg-color))
-    //       仅作为烟雾测试, 真正的 active 视觉差异需手动验证
-    // 注: 若 CSS :active 在 dispatchEvent 后未保留, 至少验证 dark 下不是 var(--el-color-white)
+    // :active 在 dispatchEvent 后不保留, 烟雾测试验证 dark 下不是纯白
     expect(borderColor).not.toBe('rgb(255, 255, 255)')
   })
+})
 
-  // -------------------------------------------------------------------------
-  // 2) AIDialog.vue: 暗色 checkbox 边框视觉验证 (三个状态)
-  // -------------------------------------------------------------------------
-  test('AIDialog 暗色 checkbox 默认态边框 = rgba(255, 255, 255, 0.3) [var(--color-white-30)]', async ({ page }) => {
-    await gotoAndDark(page, '/ai-assistant')
-    // 找 checkbox 内部的 .checkmark
-    const borderColor = await page.evaluate(() => {
-      const el = document.querySelector('.el-checkbox .checkmark, .custom-checkbox .checkmark') as HTMLElement | null
-      return el ? getComputedStyle(el).borderColor : ''
-    })
-    // var(--color-white-30) = rgba(255, 255, 255, 0.3)
-    expect(borderColor).toMatch(/rgba?\(255,\s*255,\s*255,\s*0?\.3\)/)
+// -------------------------------------------------------------------------
+// 2) AIDialog.vue: 暗色 checkbox 边框验证 (源码级, 三个状态, 始终运行)
+//
+// 原设计为浏览器级 (getComputedStyle), 但 AIDialog 的 .checkmark 在
+// 模型选择下拉框内, 需登录 + 移动端 + 打开下拉框才渲染, 桌面端
+// /ai-assistant 页面无法直接访问. 改为源码级验证 :where(html.dark)
+// 块内的 CSS 规则, 与 pure-border-cleanup.spec.ts 互补 (那个检查
+// "不使用 var(--el-color-white)", 本测试检查 "使用 var(--color-white-N)").
+// -------------------------------------------------------------------------
+test.describe('纯白/纯黑边框修复 — AIDialog checkbox 源码级回归', () => {
+  test('AIDialog 暗色 checkbox 默认态边框源码 = var(--color-white-30)', () => {
+    const src = readFileSync(
+      join(ROOT, 'src/components/ai/AIDialog.vue'),
+      'utf8'
+    )
+    // 定位 :where(html.dark) & 块内的 .checkmark { border-color: var(--color-white-30) }
+    const darkBlockMatch = src.match(/:where\(html\.dark\)\s+&\s*\{[\s\S]*?\.checkmark\s*\{[^}]*border-color\s*:\s*var\(--color-white-30\)/)
+    expect(darkBlockMatch, 'AIDialog.vue 暗色块内 .checkmark 应使用 var(--color-white-30)').not.toBeNull()
   })
 
-  test('AIDialog 暗色 checkbox :hover 边框 = rgba(255, 255, 255, 0.5) [var(--color-white-50)]', async ({ page }) => {
-    await gotoAndDark(page, '/ai-assistant')
-    const checkbox = page.locator('.el-checkbox, .custom-checkbox').first()
-    if (await checkbox.count() === 0) {
-      test.skip(true, '页面无 checkbox 元素')
-    }
-    await checkbox.scrollIntoViewIfNeeded()
-    await checkbox.hover()
-    await page.waitForTimeout(200)
-    const borderColor = await page.evaluate(() => {
-      const el = document.querySelector('.el-checkbox .checkmark, .custom-checkbox .checkmark') as HTMLElement | null
-      return el ? getComputedStyle(el).borderColor : ''
-    })
-    expect(borderColor).toMatch(/rgba?\(255,\s*255,\s*255,\s*0?\.5\)/)
+  test('AIDialog 暗色 checkbox :hover 边框源码 = var(--color-white-50)', () => {
+    const src = readFileSync(
+      join(ROOT, 'src/components/ai/AIDialog.vue'),
+      'utf8'
+    )
+    // 定位 :where(html.dark) & 块内的 :hover:not(.is-disabled) .checkmark { border-color: var(--color-white-50) }
+    const hoverMatch = src.match(/:where\(html\.dark\)\s+&\s*\{[\s\S]*?:hover[^{]*\.checkmark\s*\{[^}]*border-color\s*:\s*var\(--color-white-50\)/)
+    expect(hoverMatch, 'AIDialog.vue 暗色块内 :hover .checkmark 应使用 var(--color-white-50)').not.toBeNull()
   })
 
-  test('AIDialog 暗色 checkbox :checked 边框 = rgba(255, 255, 255, 0.8) [var(--color-white-80)]', async ({ page }) => {
-    await gotoAndDark(page, '/ai-assistant')
-    const borderColor = await page.evaluate(() => {
-      // 找 :checked + .checkmark 组合
-      const input = document.querySelector('input[type="checkbox"]:checked')
-      if (!input) return ''
-      // sibling 关系: + .checkmark
-      const next = input.nextElementSibling as HTMLElement | null
-      if (!next || !next.classList.contains('checkmark')) return ''
-      return getComputedStyle(next).borderColor
-    })
-    // var(--color-white-80) = rgba(255, 255, 255, 0.8)
-    expect(borderColor).toMatch(/rgba?\(255,\s*255,\s*255,\s*0?\.8\)/)
+  test('AIDialog 暗色 checkbox :checked 边框源码 = var(--color-white-80)', () => {
+    const src = readFileSync(
+      join(ROOT, 'src/components/ai/AIDialog.vue'),
+      'utf8'
+    )
+    // 定位 :where(html.dark) & 块内的 input[type="checkbox"]:checked + .checkmark { border-color: var(--color-white-80) }
+    const checkedMatch = src.match(/:where\(html\.dark\)\s+&\s*\{[\s\S]*?:checked\s*\+\s*\.checkmark\s*\{[^}]*border-color\s*:\s*var\(--color-white-80\)/)
+    expect(checkedMatch, 'AIDialog.vue 暗色块内 :checked .checkmark 应使用 var(--color-white-80)').not.toBeNull()
   })
 })
