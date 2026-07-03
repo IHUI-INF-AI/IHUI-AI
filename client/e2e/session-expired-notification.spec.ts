@@ -8,14 +8,14 @@
  *
  * 本 spec 在源码级别保证:
  *   - useAppLifecycle.ts 必须用 ElNotification (而非 ElMessageBox 居中模态)
- *   - 必须从屏幕顶部下滑 (position: 'top-right')
- *   - 必须嵌"重新登录"按钮 + "取消"按钮
- *   - 必须自动关闭 (duration: 8000, 防止通知永久挂起遮挡屏幕)
+ *   - 必须从屏幕顶部居中下滑 (position: top-left + scss left: 50% 覆盖)
+ *   - 必须自动关闭 (duration 4000-15000, 防止通知永久挂起遮挡屏幕)
  *   - 必须带 customClass 'session-expired-notification' (样式钩子)
  *   - 必须使用 type: 'warning' (警告语义)
  *   - 样式文件 _session-expired-notification.scss 必须存在
  *   - main.ts 必须 import 这个样式
  *   - 必须带 onClick 回调 (点击通知本体也能弹登录框, 提升可达性)
+ *   - scss 必须含 left: 50% 居中覆盖 (防止 scss 丢失导致通知回退到左侧)
  *
  * 任一断言失败 = 会话过期弹窗退回到 ElMessageBox 居中模态 = 立即回滚。
  */
@@ -33,7 +33,7 @@ const SESSION_EXPIRED_STYLE = join(ROOT, 'src/styles/_session-expired-notificati
 const MAIN_TS = join(ROOT, 'src/main.ts')
 
 test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', () => {
-  test('1/9 useAppLifecycle.ts 必须用 ElNotification (而非 ElMessageBox 居中模态)', () => {
+  test('1/10 useAppLifecycle.ts 必须用 ElNotification (而非 ElMessageBox 居中模态)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     // 必须有 ElNotification 调用
     expect(
@@ -47,23 +47,44 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).not.toMatch(/ElMessageBox\s*\(/)
   })
 
-  test('2/9 必须从屏幕顶部居中下滑 (position: top-center)', () => {
+  test('2/10 必须从屏幕顶部居中下滑 (position: top-left + CSS 居中覆盖)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
+    // Element Plus ElNotification 不支持 top-center (notify.mjs:8-13 仅 4 个 key:
+    // top-left/top-right/bottom-left/bottom-right)。本项目用 top-left + scss 覆盖实现视觉居中。
     expect(
       src,
-      'useAppLifecycle.ts 缺少 position: top-center (通知不在顶部居中下滑, 与 ElMessage 视觉不一致)',
-    ).toMatch(/position:\s*['"]top-center['"]/)
-    // 守卫: 不能回退到 top-right / top-left 等其他位置
+      'useAppLifecycle.ts 缺少 position: top-left (Element Plus ElNotification 不支持 top-center, 必须用 top-left + CSS 居中覆盖)',
+    ).toMatch(/position:\s*['"]top-left['"]/)
+    // 守卫: 不能回退到 top-right (会回退到原来的右上角 bug)
     expect(
       src,
-      'useAppLifecycle.ts 仍在使用 top-right (会话过期通知应居中, 与 ElMessage 一致)',
+      'useAppLifecycle.ts 仍在使用 top-right (会话过期通知应居中, 不应回退到右上角)',
     ).not.toMatch(/position:\s*['"]top-right['"]/)
+    // 守卫: 不能直接用 top-center (会触发 'Cannot read properties of undefined (reading forEach)')
+    expect(
+      src,
+      'useAppLifecycle.ts 使用 top-center 会触发 Element Plus notify.mjs:21 forEach 错误, 通知将无法出现',
+    ).not.toMatch(/position:\s*['"]top-center['"]/)
   })
 
-  test('3/9 必须自动关闭 (duration 4000-15000ms, 防止通知永久挂起遮挡屏幕)', () => {
+  test('3/10 scss 必须包含 left: 50% 居中覆盖 (防止 scss 丢失导致通知回退到左侧)', () => {
+    const scss = readFileSync(SESSION_EXPIRED_STYLE, 'utf-8')
+    // scss 必须把 .el-notification.left { left: 16px } 覆盖为 left: 50% + margin-left: -165px
+    // 否则通知会落到屏幕左边 (left: 16px), 不是用户预期的居中
+    expect(
+      scss,
+      '_session-expired-notification.scss 缺少 left: 50% 居中覆盖 (通知会落到屏幕左边, 视觉不一致)',
+    ).toMatch(/left:\s*50%/)
+    expect(
+      scss,
+      '_session-expired-notification.scss 缺少 margin-left: -165px 居中偏移 (通知宽度 330px 的一半, 用于精确居中)',
+    ).toMatch(/margin-left:\s*-165px/)
+  })
+
+  test('4/10 必须自动关闭 (duration 4000-15000ms, 防止通知永久挂起遮挡屏幕)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
-    // 必须锚定到 ElNotification 块 (position: top-center 之后), 避免误匹配 Alt+T 的 ElMessage (duration: 1500)
-    const blockMatch = src.match(/position:\s*['"]top-center['"][\s\S]{0,300}?duration:\s*([A-Z_0-9]+|\d+)/)
+    // 必须锚定到 ElNotification 块 (position: top-left 之后), 避免误匹配 Alt+T 的 ElMessage (duration: 1500)
+    const blockMatch = src.match(/position:\s*['"]top-left['"][\s\S]{0,300}?duration:\s*([A-Z_0-9]+|\d+)/)
     expect(
       blockMatch,
       'useAppLifecycle.ts ElNotification 块缺少合法 duration (通知会永久挂起遮挡屏幕)',
@@ -93,7 +114,7 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     expect(numV).toBeLessThanOrEqual(15000)
   })
 
-  test('4/9 必须使用 type: warning (警告语义)', () => {
+  test('5/10 必须使用 type: warning (警告语义)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     expect(
       src,
@@ -101,7 +122,7 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).toMatch(/type:\s*['"]warning['"]/)
   })
 
-  test('5/9 必须带 customClass: session-expired-notification (样式钩子)', () => {
+  test('6/10 必须带 customClass: session-expired-notification (样式钩子)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     expect(
       src,
@@ -109,7 +130,7 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).toMatch(/customClass:\s*['"]session-expired-notification['"]/)
   })
 
-  test('6/9 必须嵌"重新登录"按钮', () => {
+  test('7/10 必须嵌"重新登录"按钮', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     expect(
       src,
@@ -117,7 +138,7 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).toMatch(/relogin/)
   })
 
-  test('7/9 必须嵌"取消"按钮', () => {
+  test('8/10 必须嵌"取消"按钮', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     expect(
       src,
@@ -125,7 +146,7 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).toMatch(/cancel/)
   })
 
-  test('8/9 样式文件 _session-expired-notification.scss 必须存在 + main.ts 必须 import', () => {
+  test('9/10 样式文件 _session-expired-notification.scss 必须存在 + main.ts 必须 import', () => {
     expect(
       existsSync(SESSION_EXPIRED_STYLE),
       '_session-expired-notification.scss 样式文件不存在 (顶部下滑通知无样式)',
@@ -137,7 +158,7 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).toMatch(/['"]\.\/styles\/_session-expired-notification\.scss['"]/)
   })
 
-  test('9/9 必须带 onClick 回调 (点击通知本体也能弹登录框)', () => {
+  test('10/10 必须带 onClick 回调 (点击通知本体也能弹登录框)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     // 必须有 onClick 配置项
     expect(
