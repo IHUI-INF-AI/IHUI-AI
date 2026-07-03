@@ -243,6 +243,7 @@ vite.err
 # ============================================================================
 pw-output/
 screenshots/
+__screenshots__/
 storybook-static/
 audit/
 .ruff_cache/
