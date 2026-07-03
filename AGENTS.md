@@ -39,6 +39,69 @@
 
 ---
 
+## 开发服务器启动约定（2026-07-03 立）
+
+启动前后端必须使用 `scripts/dev-up.ps1`，**禁止**直接 `npm run dev` / `python -m uvicorn` 手动起 — 端口漂移、旧进程残留、env 文件错配都会导致 30+ 分钟的故障定位。
+
+### 启动方式
+
+```powershell
+# 标准: 后端 8000 + Vite 8888 (本地 dev)
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
+
+# CI 慢盘场景: 把 health timeout 拉到 90s
+$env:HEALTH_TIMEOUT=90; powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1
+
+# 只起后端 (前端调试用)
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1 -NoFrontend
+
+# 端口探活 (不启动任何服务)
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1 -Status
+
+# 优雅停机
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1 -Down
+```
+
+### HEALTH_TIMEOUT 约定
+
+| 场景 | 推荐值 | 原因 |
+|---|---|---|
+| 本地开发（首次冷启动） | 默认 60s（已写入 dev-up.ps1） | FastAPI 11+ legacy routers 加载需 50-60s |
+| CI 慢盘 / 容器化 | `HEALTH_TIMEOUT=90` | 网络/磁盘抖动留 50% 余量 |
+| 已热启动 / dev 模式热重载 | 默认 60s | 仅 ~2s 即可 restart |
+
+**历史教训 (2026-07-03)**: 旧默认 30s 不足以让后端冷启动完成（路由模块多），首启必失败。已提至默认 60s，CI 需显式 90s 留余量。
+
+### 启动后必跑验收
+
+```bash
+# 1. 端口探活 (秒级, 不启服务)
+powershell -ExecutionPolicy Bypass -File scripts/dev-up.ps1 -Status
+
+# 2. 烟测 (5 个 HTTP 探活, 防路由静默失败)
+cd client && npx playwright test e2e/dev-up-smoke.spec.ts --project=chromium --reporter=line
+
+# 3. 端口字面量守门 (防 18000 历史端口复活)
+cd client && npm run check:port-drift
+```
+
+### 后端路由静默失败防控
+
+`server/app/api/v1/router.py` 用 `try/except ImportError` 包裹了大量"可选"路由模块（如 `app.api.v1.tools.personality`）。如果 import 路径写错（如历史错配到 `app.api.v1.tools.personality` 而文件实际在 `app.api.v1.agents.personality`），路由会被静默跳过，HTTP 调用会 5xx 而不是 404，难以排查。
+
+**防回归措施**：
+- `e2e/dev-up-smoke.spec.ts:70` 包含 "personality 路由注册" 断言，必须通过
+- 任何新增"可选"路由，必须在 dev-up-smoke.spec.ts 加对应探活断言
+
+### 红线
+
+- ❌ 直接 `npm run dev` / `python -m uvicorn` 手动起（端口/进程/env 失控）
+- ❌ 把 HEALTH_TIMEOUT 设回 30s 以下（FastAPI 冷启必失败）
+- ❌ 跳过 dev-up-smoke 烟测就交付 PR
+- ❌ 新增 try/except 路由导入而不在烟测加探活
+
+---
+
 ## 主题色改动硬约束（2026-07-02 立）
 
 修改以下任一文件，**必须**同时执行 ① + ② + ③，否则视为回归：
