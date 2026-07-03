@@ -92,8 +92,10 @@ for (const relPath of TARGET_FILES) {
 
   // 简化做法: 找到每个浮层组件选择器出现的位置, 取其后 1500 字符的"规则块上下文",
   // 检查其中是否有 hardcode 颜色 (background / background-color 属性)
-  // 注: 这种简化匹配可能误报嵌套规则块内的 hardcode, 但比解析 SCSS AST 更轻量
-  //     且对当前文件结构 (浮层组件规则块紧邻 selector) 适用
+  // 注: 跳过嵌套规则块内的 hardcode (2026-07-04 修复)
+  //   之前是粗略检查整个 outer block 文本, 会把 .el-message-box--error 嵌套块里的
+  //   #281414 (错误态红色调) 当成浮层主底色误报
+  //   现在只取 outer block 在 depth 1 的内容 (即 immediate 属性), 嵌套块内容被排除
   for (const selector of OVERLAY_SELECTORS) {
     // 转义 selector 中的点
     const selEscaped = selector.replace(/\./g, '\\.')
@@ -120,18 +122,31 @@ for (const relPath of TARGET_FILES) {
       if (blockEnd === -1) continue
       const blockContent = ctx.slice(0, blockEnd)
 
-      // 检查 blockContent 是否含 hardcode 颜色
-      const hardcodeMatch = blockContent.match(HARDCODE_COLOR_RE)
+      // 2026-07-04 修复: 只取 immediate block 内容, 跳过嵌套块
+      // immediate 内容 = depth 1 区间的字符 (即 outer { 之后, 第一个 { 之前)
+      let immediateContent = ''
+      let iDepth = 1
+      for (let i = 0; i < blockContent.length; i++) {
+        if (blockContent[i] === '{') {
+          // 进入嵌套块, 停止收集
+          break
+        }
+        immediateContent += blockContent[i]
+      }
+
+      // 检查 immediateContent 是否含 hardcode 颜色
+      const hardcodeMatch = immediateContent.match(HARDCODE_COLOR_RE)
       if (hardcodeMatch) {
         // 找到 hardcode 颜色所在的行号 (从 startIdx 计算)
         const lineStart = scss.slice(0, startIdx).split('\n').length
-        const offsetInBlock = blockContent.indexOf(hardcodeMatch[0])
-        const linesInBlock = blockContent.slice(0, offsetInBlock).split('\n').length - 1
+        const offsetInBlock = immediateContent.indexOf(hardcodeMatch[0])
+        const linesInBlock = immediateContent.slice(0, offsetInBlock).split('\n').length - 1
         const lineNum = lineStart + linesInBlock
         errors.push(
-          `${relPath}:${lineNum} 浮层组件 ${selector} 规则块内含 hardcode 颜色 "${hardcodeMatch[0]}"\n` +
+          `${relPath}:${lineNum} 浮层组件 ${selector} immediate 规则块内含 hardcode 颜色 "${hardcodeMatch[0]}"\n` +
             `  浮层底色必须用 var(--el-bg-color) / var(--el-bg-color-overlay) (允许带 fallback: var(--el-bg-color-overlay, #1a1a1a))\n` +
-            `  禁止 hardcode: #xxx / rgb(...) / rgba(...) / white / black 等`,
+            `  禁止 hardcode: #xxx / rgb(...) / rgba(...) / white / black 等\n` +
+            `  注: 嵌套块 (如 .el-message-box--error 错误态) 不在守门范围内`,
         )
       }
     }

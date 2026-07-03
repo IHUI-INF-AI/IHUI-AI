@@ -71,6 +71,20 @@ function findRuleBlocks(scss: string, selector: string): string[] {
   return blocks
 }
 
+/**
+ * 2026-07-04 新增: 从规则块中提取 immediate 内容 (depth 1 区间), 跳过嵌套块.
+ * 用于排除 .el-message-box--error 等错误态嵌套块中的 hardcode 颜色误报.
+ * immediate 内容 = outer { 之后到第一个内嵌 { 之前的字符.
+ */
+function extractImmediateBlock(block: string): string {
+  let out = ''
+  for (let i = 0; i < block.length; i++) {
+    if (block[i] === '{') break
+    out += block[i]
+  }
+  return out
+}
+
 test.describe('暗色浮层底色统一硬约束源码级守门', () => {
   // ===================================================================
   // 1) _element-plus-overrides.scss 中浮层组件 background-color 必须用 var(--el-bg-color*)
@@ -189,9 +203,10 @@ test.describe('暗色浮层底色统一硬约束源码级守门', () => {
   })
 
   // ===================================================================
-  // 5) 4 个文件 × 6 类浮层组件规则块内禁止 hardcode 颜色
+  // 5) 4 个文件 × 6 类浮层组件 immediate 规则块内禁止 hardcode 颜色
+  //    2026-07-04 增强: 只检查 immediate block (跳过 .el-message-box--error 等嵌套块)
   // ===================================================================
-  test('5/5 4 个文件 × 6 类浮层组件规则块内禁止 hardcode 颜色', () => {
+  test('5/5 4 个文件 × 6 类浮层组件 immediate 规则块内禁止 hardcode 颜色', () => {
     const TARGET_FILES = [
       'src/styles/_element-plus-overrides.scss',
       'src/styles/_el-message-box.scss',
@@ -206,17 +221,58 @@ test.describe('暗色浮层底色统一硬约束源码级守门', () => {
       for (const sel of OVERLAY_SELECTORS) {
         const blocks = findRuleBlocks(scss, sel)
         for (const block of blocks) {
-          const m = block.match(HARDCODE_COLOR_RE)
+          // 2026-07-04 修复: 只检查 immediate block, 跳过嵌套块
+          const immediate = extractImmediateBlock(block)
+          const m = immediate.match(HARDCODE_COLOR_RE)
           if (m) {
-            violations.push(`${relPath} ${sel} 规则块内含 hardcode 颜色: "${m[0]}"`)
+            violations.push(`${relPath} ${sel} immediate 规则块内含 hardcode 颜色: "${m[0]}"`)
           }
         }
       }
     }
     expect(
       violations,
-      `浮层组件规则块内发现 hardcode 颜色:\n${violations.map((v) => '  - ' + v).join('\n')}\n` +
-        `浮层底色必须用 var(--el-bg-color) / var(--el-bg-color-overlay) (允许带 fallback)`,
+      `浮层组件 immediate 规则块内发现 hardcode 颜色 (嵌套块如 .el-message-box--error 不在守门范围):\n` +
+        `${violations.map((v) => '  - ' + v).join('\n')}\n` +
+        `浮层主底色必须用 var(--el-bg-color) / var(--el-bg-color-overlay) (允许带 fallback)`,
     ).toHaveLength(0)
+  })
+
+  // ===================================================================
+  // 6) 2026-07-04 增强: 验证嵌套块内的 hardcode 颜色不被误报
+  //    例: .el-message-box--error { background-color: #281414 } 是错误态红调,
+  //       不在浮层主底色统一守门范围
+  // ===================================================================
+  test('6/6 嵌套块 (如 .el-message-box--error 错误态) 不在守门范围, 允许 hardcode 颜色', () => {
+    const filePath = join(CLIENT_ROOT, 'src/styles/_el-message-global.scss')
+    if (!existsSync(filePath)) {
+      test.skip(true, `文件不存在: ${filePath}`)
+      return
+    }
+    const scss = readFileSync(filePath, 'utf-8')
+
+    // 找到 :where(.el-message-box) 的 outer block
+    const blocks = findRuleBlocks(scss, '.el-message-box')
+    expect(blocks.length, '.el-message-box 应至少 1 个 outer block').toBeGreaterThan(0)
+
+    let foundNestedErrorBlock = false
+    for (const block of blocks) {
+      // outer block 全文里应包含嵌套 .el-message-box--error 块
+      if (block.includes('&.el-message-box--error') || block.includes('.el-message-box--error')) {
+        foundNestedErrorBlock = true
+        // 嵌套块内允许 hardcode #281414 (错误态红调)
+        expect(
+          /background-color\s*:\s*#281414/.test(block),
+          'outer block 文本里嵌套的 .el-message-box--error 块应含 #281414 错误态红调',
+        ).toBe(true)
+        // 但 immediate content 不应含 hardcode
+        const immediate = extractImmediateBlock(block)
+        expect(
+          HARDCODE_COLOR_RE.test(immediate),
+          'immediate content (跳过嵌套块) 不应含 hardcode 颜色',
+        ).toBe(false)
+      }
+    }
+    expect(foundNestedErrorBlock, '应找到 .el-message-box--error 嵌套块').toBe(true)
   })
 })
