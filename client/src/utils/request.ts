@@ -2,7 +2,7 @@ import axios from 'axios'
 import { t } from '@/utils/i18n'
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError, AxiosRequestConfig } from 'axios'
 import { AxiosHeaders } from 'axios'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import i18n from '@/locales'
 
 // 类型安全的 i18n 翻译函数
@@ -795,20 +795,11 @@ function setupResponseInterceptor() {
             // 改用登录弹窗代替硬跳转, 避免整页刷新循环 (与无 token 拦截器一致)
             redirectToLoginDialog()
           }
-          ElMessageBox.confirm(
-            i18nT('auth.sessionExpiredMessage'),
-            i18nT('auth.sessionExpiredTitle'),
-            {
-              confirmButtonText: i18nT('auth.relogin'),
-              cancelButtonText: i18nT('common.cancel'),
-              type: 'warning',
-            }
-          )
-            .then(clearAndRedirect)
-            .catch(() => {
-              // 用户点「取消」也清除 token 并跳转，避免停留在无效 token 导致循环弹窗
-              clearAndRedirect()
-            })
+          // 统一通过 session-expired 事件, 由 useAppLifecycle 弹 ElNotification 顶部下滑通知
+          // (避免直接 ElMessageBox 居中模态打断用户)
+          window.dispatchEvent(new CustomEvent('session-expired', {
+            detail: { reason: i18nT('auth.sessionExpiredMessage') },
+          }))
           return Promise.reject(error)
         }
 
@@ -1033,28 +1024,11 @@ function setupResponseInterceptor() {
               logger.debug('[request] auth store not initialized')
             }
 
-            // 显示重新登录提示
-            ElMessageBox.confirm(
-
-              i18nT('auth.sessionExpiredMessage'),
-
-              i18nT('auth.sessionExpiredTitle'),
-              {
-
-                confirmButtonText: i18nT('auth.relogin'),
-
-                cancelButtonText: i18nT('common.cancel'),
-                type: 'warning',
-              }
-            )
-              .then(() => {
-                // 改用登录弹窗, 避免整页刷新
-                redirectToLoginDialog()
-              })
-              .catch(() => {
-                // 用户取消，仍然弹出登录页 (避免停留在无效 token 导致循环弹窗)
-                redirectToLoginDialog()
-              })
+            // 统一通过 session-expired 事件, 由 useAppLifecycle 弹 ElNotification 顶部下滑通知
+            // (避免直接 ElMessageBox 居中模态打断用户)
+            window.dispatchEvent(new CustomEvent('session-expired', {
+              detail: { reason: i18nT('auth.sessionExpiredMessage') },
+            }))
 
             // 清空失败队列
             failedQueue.forEach(prom => {

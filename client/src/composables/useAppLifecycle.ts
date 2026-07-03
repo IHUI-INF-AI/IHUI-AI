@@ -84,8 +84,9 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     //   - 顶部下滑是非阻塞通知, 不强制打断用户当前操作 (避免误触模态导致数据丢失)
     //   - "重新登录"按钮: 用户主动点才弹模态登录框, 减少误触率
     //   - "取消"按钮: 让用户保留控制权, 通知消失前可继续浏览 (适合查看后再决定登录)
-    //   - duration: 0 = 必须用户主动操作, 防止错过会话过期事件
+    //   - duration: 8s 自动关闭 - 给用户足够时间看清并操作, 不会因忘记关闭而长期遮挡
     //   - 选用 ElNotification 而非 ErrorNotification 横幅: 后者只能显示纯文本, 无法嵌按钮
+    const SESSION_EXPIRED_DURATION_MS = 8000
     handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent).detail
       authStore.logout()
@@ -122,7 +123,7 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
         ]),
         type: 'warning',
         position: 'top-right',
-        duration: 0, // 不自动关闭, 必须用户主动操作
+        duration: SESSION_EXPIRED_DURATION_MS,
         showClose: true,
         customClass: 'session-expired-notification',
         // 点击通知本体(非按钮区域)也弹出登录框, 提升可达性

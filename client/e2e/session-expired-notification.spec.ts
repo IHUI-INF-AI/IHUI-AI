@@ -4,12 +4,13 @@
  * 背景: 会话过期弹窗原本用 ElMessageBox 居中模态弹窗, 强制打断用户操作。
  *       改版后: ElNotification 从屏幕顶部下滑通知, 嵌"重新登录" + "取消"按钮,
  *       用户主动点"重新登录"才弹模态登录框。
+ *       自动关闭时长: 8s (给用户足够时间看清并操作, 不会因忘记关闭而长期遮挡屏幕)
  *
  * 本 spec 在源码级别保证:
  *   - useAppLifecycle.ts 必须用 ElNotification (而非 ElMessageBox 居中模态)
  *   - 必须从屏幕顶部下滑 (position: 'top-right')
  *   - 必须嵌"重新登录"按钮 + "取消"按钮
- *   - 必须不自动关闭 (duration: 0)
+ *   - 必须自动关闭 (duration: 8000, 防止通知永久挂起遮挡屏幕)
  *   - 必须带 customClass 'session-expired-notification' (样式钩子)
  *   - 必须使用 type: 'warning' (警告语义)
  *   - 样式文件 _session-expired-notification.scss 必须存在
@@ -54,12 +55,37 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).toMatch(/position:\s*['"]top-right['"]/)
   })
 
-  test('3/9 必须不自动关闭 (duration: 0)', () => {
+  test('3/9 必须自动关闭 (duration 4000-15000ms, 防止通知永久挂起遮挡屏幕)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
+    // 必须锚定到 ElNotification 块 (position: top-right 之后), 避免误匹配 Alt+T 的 ElMessage (duration: 1500)
+    const blockMatch = src.match(/position:\s*['"]top-right['"][\s\S]{0,300}?duration:\s*([A-Z_0-9]+|\d+)/)
     expect(
-      src,
-      'useAppLifecycle.ts 缺少 duration: 0 (通知会自动消失, 用户错过会话过期)',
-    ).toMatch(/duration:\s*0/)
+      blockMatch,
+      'useAppLifecycle.ts ElNotification 块缺少合法 duration (通知会永久挂起遮挡屏幕)',
+    ).not.toBeNull()
+    if (!blockMatch) return
+
+    let numV: number
+    const raw = blockMatch[1]
+    if (/^\d+$/.test(raw)) {
+      // 字面量
+      numV = Number(raw)
+    } else {
+      // 变量引用, 追溯 const SESSION_EXPIRED_DURATION_MS = 8000
+      const varMatch = src.match(new RegExp(`const\\s+${raw}\\s*=\\s*(\\d+)`))
+      expect(
+        varMatch,
+        `useAppLifecycle.ts 变量 ${raw} 未在源码中定义 (duration 解析失败)`,
+      ).not.toBeNull()
+      if (!varMatch) return
+      numV = Number(varMatch[1])
+    }
+    // duration 必须在 4000-15000ms 合理区间, 防止:
+    //   - duration: 0 = 永久显示, 遮挡屏幕
+    //   - duration: <4000 = 太快用户来不及反应
+    //   - duration: >15000 = 太久, 实际等于半永久挂起
+    expect(numV).toBeGreaterThanOrEqual(4000)
+    expect(numV).toBeLessThanOrEqual(15000)
   })
 
   test('4/9 必须使用 type: warning (警告语义)', () => {

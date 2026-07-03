@@ -11,8 +11,26 @@
  */
 
 .session-expired-notification {
+  // 强制 fixed 定位: 通知始终在视口右上角, 不被页面滚动带走
+  // (Element Plus 某些版本/自定义样式可能让 el-notification 变 relative, 这里强制覆盖)
+  position: fixed !important;
+  top: 16px;
+  right: 16px;
   // 整体容器: 与暗色 sidebar 区分, 强调"通知"语义
   border-left: 3px solid var(--el-color-warning);
+
+  // 显式覆盖标题/内容字体大小, 避免被全局 :where(.el-notification__title) 规则
+  // 误用到 64px (--font-size-lg 未定义时浏览器 fallback)
+  :where(.el-notification__title) {
+    font-size: 15px !important;
+    line-height: 22px !important;
+    font-weight: 600 !important;
+  }
+
+  :where(.el-notification__content) {
+    font-size: 13px !important;
+    line-height: 18px !important;
+  }
 
   .session-expired-notify {
     .session-expired-msg {

@@ -301,7 +301,7 @@ describe('useAppLifecycle', () => {
       }
       expect(opts.type).toBe('warning')
       expect(opts.position).toBe('top-right')
-      expect(opts.duration).toBe(0)
+      expect(opts.duration).toBe(8000)
       expect(opts.customClass).toBe('session-expired-notification')
       expect(opts.message).toBeDefined()
     })

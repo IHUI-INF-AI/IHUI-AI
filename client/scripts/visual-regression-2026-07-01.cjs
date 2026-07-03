@@ -136,7 +136,7 @@ const HEX = (rgb) => {
   C('暗色 --ai-panel-content-bg 必须是 #1a1a1a', 'dark', HEX(dark.tokens.aiPanelContentBg), '#1a1a1a');
   C('暗色 --app-sidebar-color-surface 必须是 #6a6d77', 'dark', HEX(dark.tokens.appSidebarColorSurface), '#6a6d77');
   C('暗色 --app-sidebar-color-new-chat 必须是 #5a5d67', 'dark', HEX(dark.tokens.appSidebarColorNewChat), '#5a5d67');
-  C('暗色 --app-sidebar-color-active 必须是 #505259', 'dark', HEX(dark.tokens.appSidebarColorActive), '#505259');
+  C('暗色 --app-sidebar-color-active 必须是 #4f5259', 'dark', HEX(dark.tokens.appSidebarColorActive), '#4f5259');
   C('暗色 --app-sidebar-color-hover 必须是 #000000', 'dark', HEX(dark.tokens.appSidebarColorHover), '#000000');
   C('暗色 sidebar 必须是 #6a6d77', 'dark', HEX(dark.sidebar?.bg), '#6a6d77');
   C('暗色 ai-side-panel 背景 必须是 #1a1a1a', 'dark', HEX(dark.aiSidePanel?.bg), '#1a1a1a');
@@ -147,9 +147,9 @@ const HEX = (rgb) => {
   const light = results.light;
   C('浅色 --ai-panel-content-bg 必须是 #ffffff', 'light', HEX(light.tokens.aiPanelContentBg), '#ffffff');
   C('浅色 --app-sidebar-color-surface 必须是 #f5f5f5', 'light', HEX(light.tokens.appSidebarColorSurface), '#f5f5f5');
-  C('浅色 --app-sidebar-color-new-chat 必须是 #f0f0f0', 'light', HEX(light.tokens.appSidebarColorNewChat), '#f0f0f0');
-  C('浅色 --app-sidebar-color-active 必须是 #ebedf0', 'light', HEX(light.tokens.appSidebarColorActive), '#ebedf0');
-  C('浅色 --app-sidebar-color-hover 必须是 #ffffff', 'light', HEX(light.tokens.appSidebarColorHover), '#ffffff');
+  C('浅色 --app-sidebar-color-new-chat 必须是 #e8eaee', 'light', HEX(light.tokens.appSidebarColorNewChat), '#e8eaee');
+  C('浅色 --app-sidebar-color-active 必须是 #d8dbe1', 'light', HEX(light.tokens.appSidebarColorActive), '#d8dbe1');
+  C('浅色 --app-sidebar-color-hover 必须是 #c8ccd2', 'light', HEX(light.tokens.appSidebarColorHover), '#c8ccd2');
   C('浅色 sidebar 必须是 #f5f5f5', 'light', HEX(light.sidebar?.bg), '#f5f5f5');
   C('浅色 ai-side-panel 背景 必须是 #ffffff', 'light', HEX(light.aiSidePanel?.bg), '#ffffff');
   C('浅色 --app-hover-bg 必须是 #ffffff (纯白)', 'light', HEX(light.tokens.appHoverBg), '#ffffff');

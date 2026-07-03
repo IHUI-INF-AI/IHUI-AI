@@ -35,9 +35,12 @@ html.dark {
   --el-color-primary-light-7: var(--color-dark-bg-4, #222222);
   --el-color-primary-light-9: var(--color-dark-bg-5, #2d2d2d);
 
-  /* 页面/侧边栏背景安全覆盖 */
+  /* 页面/侧边栏背景安全覆盖
+   * sidebar 背景引用 _sidebar-layout.scss 的 surface token (#6a6d77 = darkSurface),
+   * 符合项目记忆 "暗色 sidebar 视觉层级 (2026-07-01 修正): sidebar=#6a6d77"。
+   * 之前引用 --el-bg-color (#1a1a1a) 导致 sidebar 与视觉回归基线/项目设计意图不符。 */
   --page-bg-color: var(--color-dark-bg-3, #1a1a1a);
-  --sidebar-bg-color: var(--el-bg-color);
+  --sidebar-bg-color: var(--app-sidebar-color-surface);
 
   /* 中性灰色阶安全覆盖 - 防止未定义导致 27+ 处容器背景失效 */
   --color-neutral-100: var(--color-dark-bg-3, #1a1a1a);

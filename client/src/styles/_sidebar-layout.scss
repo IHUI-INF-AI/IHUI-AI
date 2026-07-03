@@ -20,6 +20,8 @@
  *   - 使用 CSS 变量控制颜色
  * ═══════════════════════════════════════════════════════════════════════════ */
 
+@use '_theme-tokens.scss' as tt;
+
 @layer base {
   /* 侧边栏布局 CSS 变量 */
   :root {
@@ -49,11 +51,51 @@
     /* 侧边栏背景：亮色模式略偏浅灰，与白色工作区内容形成微弱层次；
      * 暗色模式在下方 html.dark 中回退到标准 bg-color，避免侧边栏过亮 */
     --sidebar-bg-color: var(--el-fill-color-lighter);
+
+    /* ── 侧边栏视觉层级 token 体系 (浅色) ──
+     * 设计意图: sidebar 是"持久态导航", 用 4 档色阶构建视觉层级:
+     *   surface (容器底色) → new-chat (主操作, 比容器深一档) →
+     *   active (选中态, 比 new-chat 再深一档) → hover (反馈态, 最深)
+     * 色阶方向: 浅色与暗色同向 — "向 #000 加深" (靠近黑 = 越深),
+     * 与项目记忆 "暗色 sidebar 视觉层级 (2026-07-01 修正)" 方向一致。
+     *
+     * 2026-07-03 修正: 旧值 new-chat=#f0f0f0 与 surface=#f5f5f5 仅差 5 单位,
+     * 视觉上几乎不可见 (用户反馈"背景缺失"); 旧 hover=#fff 方向错误 (应加深非变浅)。
+     * 新值按 dark 模式 delta 比例 (~12/27/119 单位) 缩放:
+     *   surface  #f5f5f5 (245,245,245) — 容器底色
+     *   new-chat #e8eaee (232,234,238) — 主操作, 深 ~13 单位 (可见)
+     *   active   #d8dbe1 (216,219,225) — 选中态, 深 ~29 单位 (明显)
+     *   hover    #c8ccd2 (200,204,210) — 反馈态, 深 ~45 单位 (最强) */
+    --app-sidebar-color-surface: #f5f5f5;
+    --app-sidebar-color-new-chat: #e8eaee;
+    --app-sidebar-color-active: #d8dbe1;
+    --app-sidebar-color-hover: #c8ccd2;
   }
 
-  /* 暗色模式保持 Element Plus 标准背景 */
-  :where(html.dark) {
-    --sidebar-bg-color: var(--el-bg-color);
+  /* 暗色模式 sidebar 背景引用 surface token (html.dark 特异性 0,0,1 同 :root,
+   * 源顺序在后赢; 不用 :where(html.dark) 避免零特异性导致 stylelint 违规) */
+  html.dark {
+    --sidebar-bg-color: var(--app-sidebar-color-surface);
+  }
+
+  /* ── 侧边栏视觉层级 token 体系 (暗色覆盖) ──
+   * 必须用 html.dark (特异性 0,0,1) 而非 :where(html.dark) (0,0,0),
+   * 否则会被 :root (0,0,1) 按特异性击败导致暗色覆盖静默失效
+   * (参考项目硬约束: 暗色覆盖 :root 变量必须用 html.dark)。
+   *
+   * 暗色色阶 (从浅到深, "靠近黑 = 越深"):
+   *   surface #6a6d77 (= $theme-dark-surface, 容器底色)
+   *   new-chat #5a5d67 (= $theme-dark-page, 主操作比容器深 12 单位)
+   *   active #4f5259 (选中态, surface 75% + #000 25%, 比容器深)
+   *   hover #000000 (反馈态, 纯黑最深, 与 --app-hover-bg 一致)
+   *
+   * #6a6d77 / #5a5d67 引用 SCSS token 单一来源, 不硬编码 (AGENTS.md 红线);
+   * #4f5259 / #000000 不在红线列表, 可直接写。 */
+  html.dark {
+    --app-sidebar-color-surface: #{tt.$theme-dark-surface};
+    --app-sidebar-color-new-chat: #{tt.$theme-dark-page};
+    --app-sidebar-color-active: #4f5259;
+    --app-sidebar-color-hover: #000;
   }
 }
 
@@ -800,6 +842,38 @@
               color 0.2s var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
+/* "新建对话"按钮三态背景色 (nav-new-chat 是 nav-item 的特化)
+ *
+ * 背景: .nav-item 在 unlayered 区声明 background-color: transparent (特异性 0,1,0),
+ * 而 :where(.nav-item.active) / :where(.nav-item):hover 在 @layer components 内
+ * (特异性 0,0,0), 被 unlayered 的 transparent 覆盖 → active/hover 背景色全部丢失。
+ * 这是预先存在的层叠 bug, 影响所有 nav-item。
+ *
+ * 修复策略: 给 .nav-new-chat 用 .nav-item.nav-new-chat 双类选择器 (特异性 0,2,0),
+ * 稳定赢过 .nav-item (0,1,0) 的 transparent, 三态各自绑定 token:
+ *   - 默认态: --app-sidebar-color-new-chat (主操作底色, 比容器深一档)
+ *   - hover:  --app-sidebar-color-hover   (反馈态, 最深)
+ *   - active: --app-sidebar-color-active   (选中态, aiPanelIsOpen=true)
+ *
+ * 不用 :not() 排除, 改为三态显式声明, 层叠顺序: active > hover > 默认。
+ * 三态选择器特异性:
+ *   .nav-item.nav-new-chat           (0,2,0) — 默认
+ *   .nav-item.nav-new-chat:hover     (0,3,0) — hover
+ *   .nav-item.nav-new-chat.active    (0,3,0) — active (与 hover 同特异性, 但 active
+ *                                          类在 hover 之后声明, 且实际不会同时触发
+ *                                          active+hover 需覆盖, 故顺序 active 在后) */
+.nav-item.nav-new-chat {
+  background-color: var(--app-sidebar-color-new-chat);
+}
+
+.nav-item.nav-new-chat:hover {
+  background-color: var(--app-sidebar-color-hover);
+}
+
+.nav-item.nav-new-chat.active {
+  background-color: var(--app-sidebar-color-active);
+}
+
 /* nav-group-label / nav-subitem 同样被 * reset 覆盖，统一恢复
  * 此外 button 元素的 UA 样式与 _reset.scss 的 background-color: transparent
  * 也会覆盖 @layer components 内的 :where() 规则（特异性 0），
@@ -849,7 +923,7 @@
 /* 暗色模式：--el-color-primary-light-* 被覆盖为中性深灰，hover 无变化。
  * 改用半透明主色 (--color-primary-10) 作为背景、纯主色作为边框，确保可见的 hover 反馈 */
 html.dark .nav-group-label:hover {
-  background-color: var(--color-primary-10, rgba(22, 119, 255, 0.15));
+  background-color: var(--color-primary-10, rgb(22 119 255 / 0.15));
   border-color: var(--el-color-primary, #409eff);
   color: var(--el-color-primary, #409eff);
 }
@@ -1240,7 +1314,7 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
     --ai-panel-bg-color: var(--el-bg-color);
   }
 
-  :where(html.dark) {
+  html.dark {
     --ai-panel-bg-color: var(--el-bg-color);
   }
 }
