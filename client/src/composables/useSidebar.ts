@@ -3,7 +3,7 @@
  *
  * 整合 Sidebar/WorkspaceHeader/App.vue 共享的侧边栏状态：
  *   - isCollapsed：折叠状态（localStorage 持久化，key: 'sidebar-collapsed'）
- *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 80-140）
+ *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 60-110）
  *   - isMobile：移动端检测（window.innerWidth < 768，防抖 resize）
  *   - isMobileOpen：移动端抽屉开关
  *   - toggleCollapse / openMobile / closeMobile / setWidth：状态变更方法
@@ -31,21 +31,25 @@ const MOBILE_BREAKPOINT = 768
 //   v5: COLLAPSE_THRESHOLD=80, DEFAULT_WIDTH=80, MAX_WIDTH=180（紧凑→展开 80-180）
 //   v6: COLLAPSE_THRESHOLD=80, DEFAULT_WIDTH=80, MAX_WIDTH=140（max 从 180 收紧到 140，4 字 label 完整）
 //   v7: COLLAPSE_THRESHOLD=80, DEFAULT_WIDTH=140, MAX_WIDTH=140（默认宽屏 140，可向左拖到 80 紧凑 / 60 折叠）
+//   v8: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=100, MAX_WIDTH=100（紧凑默认 100，可向左拖到 60 紧凑 / <60 折叠到 60）
+//   v9: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=120, MAX_WIDTH=120（默认紧凑 120，可向左拖到 60 紧凑 / <60 折叠到 60）
+//   v10: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=110, MAX_WIDTH=110（默认紧凑 110，可向左拖到 60 紧凑 / <60 折叠到 60）
+//   v11: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=116, MAX_WIDTH=116（默认紧凑 116，可向左拖到 60 紧凑 / <60 折叠到 60）
 // 升级时清掉 STORAGE_KEY_WIDTH，让新 DEFAULT_WIDTH 立即生效，
 // 避免用户在升级后看到 "旧持久化宽度 ≠ 新默认" 的体验割裂
-const CURRENT_CONFIG_VERSION = 7
+const CURRENT_CONFIG_VERSION = 11
 
-// ── 宽度范围（展开态固定 140，可向左拖到 80 紧凑 / <80 折叠到 60）──
-// min 80: 紧凑布局；text-overflow: ellipsis 已保证不破版
-// max 140: 4 字中文 label 完整显示，5 字截断（e.g. "加入我们" 完整 / 5 字 label → 截 1 字）
-// default 140: 首次打开默认宽屏（DEFAULT=MAX，向左拖可压缩；向右无空间）
-const MIN_WIDTH = 80
-const MAX_WIDTH = 140
-// 默认 140px：宽屏布局（4 字 label 完整）
-const DEFAULT_WIDTH = 140
+// ── 宽度范围（展开态固定 116，可向左拖到 60 紧凑 / <60 折叠到 60）──
+// min 60: 紧凑布局；text-overflow: ellipsis 已保证不破版
+// max 116: 4 字中文 label 完整，5 字截断
+// default 116: 首次打开默认紧凑（DEFAULT=MAX，向左拖可压缩；向右无空间）
+const MIN_WIDTH = 60
+const MAX_WIDTH = 116
+// 默认 116px：紧凑布局（4 字 label 完整，5 字截断）
+const DEFAULT_WIDTH = 116
 // 拖拽折叠阈值：向左拖到此处以下自动进入折叠态（图标-only 60px），
-// 向右拖超过此处自动展开。80 = MIN_WIDTH，触底即折叠。
-const COLLAPSE_THRESHOLD = 80
+// 向右拖超过此处自动展开。60 = MIN_WIDTH，触底即折叠。
+const COLLAPSE_THRESHOLD = 60
 
 // ── 模块级单例状态（所有组件共享） ──
 const isCollapsed = ref(false)
@@ -116,7 +120,7 @@ if (typeof window !== 'undefined' && !initialized) {
 export interface UseSidebarReturn {
   /** 侧边栏折叠状态（持久化） */
   isCollapsed: Ref<boolean>
-  /** 展开态宽度（持久化，范围 80-140，默认 140） */
+  /** 展开态宽度（持久化，范围 60-116，默认 116） */
   width: Ref<number>
   /** 移动端检测（< 768px） */
   isMobile: Ref<boolean>

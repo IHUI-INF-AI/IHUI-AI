@@ -44,4 +44,7 @@ node scripts/check-markraw-staged.mjs
 echo "▶ Checking high specificity selectors on staged files..."
 HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs
 
+echo "▶ Checking sidebar size locked at v11 (60-116)..."
+node scripts/check-sidebar-config.mjs --staged
+
 echo "✓ 所有前端检查通过"

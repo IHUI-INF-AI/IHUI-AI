@@ -520,8 +520,8 @@ const {
 // ── 拖拽调整侧边栏宽度 ──
 // 手柄位于侧边栏右侧，向右拖 delta 正 → 宽度增加
 // 拖拽过程禁用过渡（is-resizing 类）+ 禁止文本选中，保证流畅
-// 折叠态下也可拖拽：从折叠宽度(60px)起算，向右拖超过阈值(80px)自动展开
-// 展开态范围：80-140px（MIN_WIDTH=80, MAX_WIDTH=140）
+// 折叠态下也可拖拽：从折叠宽度(60px)起算，向右拖超过阈值(60px)自动展开
+// 展开态范围：60-116px（MIN_WIDTH=60, MAX_WIDTH=116, v11）
 const sidebarCollapsedWidth = 60
 const isResizing = ref(false)
 const startResize = (e: MouseEvent): void => {
@@ -1094,22 +1094,33 @@ watch(isMobileOpen, () => {
   height: 100vh;
 }
 
-/* header 水平 margin 与 .nav-item 一致，让 logo 左缘与导航项图标对齐
- * 在 scoped 中定义以提升优先级，覆盖全局 :where(.sidebar-header) 的 0 优先级
- * padding-left 在全局 16px 基础上增至 22px，因 logo.svg 图标从 viewBox x=0 起绘无内部留白，
- * 需更多视觉边距避免贴边感；nav-item 图标在 20px 容器内居中自带视觉缓冲，不受影响 */
+/* header 水平 padding 设为 0，让 logo 左缘贴齐 .sidebar-header 左缘 (= sidebar 左缘 + 4px margin = 4),
+ * collapse-btn 右缘贴齐 .sidebar-header 右缘 (= sidebar 右缘 - 4px margin = 112),
+ * 与下方 .nav-item / .nav-group-label / .sidebar-chat-history 等容器 (left=4, right=112) 完全对齐
+ * 旧实现 padding 0 10px 把 logo/button 推到 x=14/x=102, 比容器边缘各缩进 10px——用户反馈"图片左侧没跟下面容器左侧对齐, 按钮右侧没跟容器右侧对齐".
+ *
+ * 关键：必须用 scoped 样式（unlayered）声明，避开 @layer components 的 :where() 优先级陷阱 */
 .sidebar-header {
-  margin: 0 var(--nav-item-margin-x, 6px);
-  padding-left: 22px;
+  margin: 0 var(--nav-item-margin-x);
+  padding: 0;
 }
 
-/* logo 高度：必须在 scoped 中显式设置，以覆盖 fixes.scss 全局 img { height: auto } */
+/* logo 大小与对齐 (unlayered, 覆盖 fixes.scss 全局 img { height: auto } + @layer components 的 :where())
+ *
+ * 高度 32px (旧 26px, 用户反馈"logo 这么小了")；
+ * width: auto + object-fit: contain 保留 SVG 自然宽高比 (1527/493 ≈ 3.1)；
+ * max-width: 100% 让 logo 在 flex 容器内自适应收缩, 不会撑破 header；
+ * flex-shrink: 1 配合 .sidebar-collapse-btn 的 flex-shrink: 0,
+ *   保证按钮永远 28×28 完整显示, logo 在剩余空间内按 3.1:1 比例缩放 */
 .sidebar-logo {
-  height: 26px;
-  /* 位置微调：让 logo 左缘与 nav-item 图标(22px)对齐基础上再向左 4px，补偿 logo.svg 内部留白
-   * 关键：必须用 scoped 样式（unlayered）声明，避开 @layer components 的 :where() 优先级陷阱
-   * （_sidebar-layout.scss 的 @layer components + :where() 会被 Tailwind base 的 `* { margin: 0 }` 覆盖） */
-  margin-left: -4px;
+  height: 32px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  cursor: pointer;
+  flex-shrink: 1;
+  min-width: 0;
+  margin-left: 0;
 }
 
 /* 用户信息区域 */

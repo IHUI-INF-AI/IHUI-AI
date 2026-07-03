@@ -25,13 +25,13 @@
 @layer base {
   /* 侧边栏布局 CSS 变量 */
   :root {
-    /* 默认展开宽度 100px（更紧凑的初始宽度） */
-    --sidebar-width: 100px;
+    /* 默认展开宽度 116px（紧凑默认，与 useSidebar.ts DEFAULT_WIDTH=116 一致, v11） */
+    --sidebar-width: 116px;
     --sidebar-collapsed-width: 60px;
 
-    /* 拖拽缩放范围（与 useSidebar.ts MIN_WIDTH/MAX_WIDTH 一致） */
-    --sidebar-min-width: 100px;
-    --sidebar-max-width: 360px;
+    /* 拖拽缩放范围（与 useSidebar.ts MIN_WIDTH=60 / MAX_WIDTH=116 一致, v11） */
+    --sidebar-min-width: 60px;
+    --sidebar-max-width: 116px;
     --sidebar-header-height: 52px;
     --workspace-header-height: 48px;
     --nav-item-height: 40px;
@@ -120,7 +120,7 @@
 
   /* ── 侧边栏 ──
    * --sidebar-user-width 由 useSidebar 通过 inline style 注入（用户拖拽值），
-   * 未注入时回退到 --sidebar-width（默认 200px）。
+   * 未注入时回退到 --sidebar-width（默认 116px, v11）。
    * 折叠态由 .app-sidebar.collapsed 覆盖为 --sidebar-collapsed-width（60px），
    * 此时 --sidebar-user-width 虽仍存在但不被引用，不影响折叠宽度。 */
   :where(.app-sidebar) {
@@ -1073,7 +1073,7 @@ html.dark .nav-group-label:hover {
 
 /* ── 侧边栏本体：紧贴全局侧边栏，去除浮动卡片样式 ── */
 body:has(.app-layout) .ai-world-page__nav {
-  left: var(--sidebar-width, 200px);
+  left: var(--sidebar-width, 116px);
   top: var(--workspace-header-height, 48px);
   width: 200px;
   height: calc(100vh - var(--workspace-header-height, 48px));
