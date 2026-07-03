@@ -82,7 +82,7 @@
       //      inset 白环不再需要
       //   2. 小尺寸 (28-32px) 蓝色按钮 + 2px 蓝边 + inset 白环, 三者叠加视觉上
       //      出现"两层蓝边夹白线"的错觉, 像是渲染 bug
-      //   3. 通知内通知内用户停留时间短, 强对比度不是关键诉求
+      //   3. 通知内用户停留时间短, 强对比度不是关键诉求
       //
       // 修法: 局部重置 border-width: 0 + box-shadow: none
       //   (只作用于 .session-expired-notification 作用域内, 不污染全局暗色 primary 按钮)
@@ -100,7 +100,7 @@
 
       // 取消按钮 (默认 el-button) 同样受 inset 白环影响 (Element Plus 暗色默认按钮
       // 默认 box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18))
-      // 通知内通知背景对比度足够, 不需要这个白环
+      // 通知背景对比度足够, 不需要这个白环
       .el-button:not(.el-button--primary) {
         box-shadow: none;
       }
