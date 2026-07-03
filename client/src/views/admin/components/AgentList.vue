@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <AdminListPage
     :title="t('adminComponents.agent.title')"
     :description="t('adminComponents.agent.desc')"

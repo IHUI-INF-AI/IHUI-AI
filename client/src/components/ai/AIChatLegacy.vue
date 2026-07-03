@@ -3681,7 +3681,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
         height: 24px;
         border-radius: var(--global-border-radius);
         background: var(--el-color-primary);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3826,12 +3826,12 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 
         &.user-avatar {
           background: var(--el-color-primary);
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
         }
 
         &.assistant-avatar {
           background: var(--el-color-success);
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
         }
       }
 

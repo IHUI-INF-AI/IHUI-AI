@@ -1,0 +1,87 @@
+// ============================================
+// 业务组件文字/背景反色 mixin (2026-07-04 终结批次立)
+// ============================================
+// 用途: 业务组件 (.badge-* / .status-* / .text-* / .dot-*) 的文字/背景配对
+// 浅色 mode: 深色字 + 8% 透明背景
+// 暗色 mode: 浅色字 + 15% 透明背景 (--app-color-*-text/bg 在 _dark-mode-global.scss 重映射)
+// 始终保证 WCAG AA 4.5:1 对比度
+//
+// 用法:
+//   .my-status-success {
+//     @include app-text-on-success;
+//   }
+//   .my-status-success.compact {
+//     @include app-text-on-success-compact;  // 仅文字色, 不加背景
+//   }
+//
+// 与 EP 主题色 (--el-color-success 等) 的区别:
+//   - EP token: 主题色背景, 暗色下 = #15803d 深绿, 用于按钮背景
+//   - --app-color-{type}-text: 反色文字, 暗色下 = #bbf7d0 浅绿, 用于业务文字
+// ============================================
+
+@mixin app-text-on-success {
+  color: var(--app-color-success-text);
+  background-color: var(--app-color-success-bg);
+}
+
+@mixin app-text-on-warning {
+  color: var(--app-color-warning-text);
+  background-color: var(--app-color-warning-bg);
+}
+
+@mixin app-text-on-danger {
+  color: var(--app-color-danger-text);
+  background-color: var(--app-color-danger-bg);
+}
+
+@mixin app-text-on-info {
+  color: var(--app-color-info-text);
+  background-color: var(--app-color-info-bg);
+}
+
+@mixin app-text-on-primary {
+  color: var(--app-color-primary-text);
+  background-color: var(--app-color-primary-bg);
+}
+
+// 仅文字色版本 (用于: dot / 列表项前缀 / 状态点, 不加背景)
+@mixin app-color-success {
+  color: var(--app-color-success-text);
+}
+
+@mixin app-color-warning {
+  color: var(--app-color-warning-text);
+}
+
+@mixin app-color-danger {
+  color: var(--app-color-danger-text);
+}
+
+@mixin app-color-info {
+  color: var(--app-color-info-text);
+}
+
+@mixin app-color-primary {
+  color: var(--app-color-primary-text);
+}
+
+// 仅背景色版本 (用于: 大块底色 / card 状态, 文字由父级控制)
+@mixin app-bg-success {
+  background-color: var(--app-color-success-bg);
+}
+
+@mixin app-bg-warning {
+  background-color: var(--app-color-warning-bg);
+}
+
+@mixin app-bg-danger {
+  background-color: var(--app-color-danger-bg);
+}
+
+@mixin app-bg-info {
+  background-color: var(--app-color-info-bg);
+}
+
+@mixin app-bg-primary {
+  background-color: var(--app-color-primary-bg);
+}

@@ -33,7 +33,8 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useCleanup } from '@/composables/useCleanup'
 
 const { t } = useI18n()
 
@@ -50,6 +51,23 @@ const isClicking = ref(false)
 // 是否可见：最后一页时隐藏
 const visible = computed(() => props.currentPage < props.totalPages - 1)
 
+// ── 工作区水平中心定位 ──
+// 按钮需居中于「右侧工作区」(.workspace)，而非整个视口。
+// 由于左侧 Sidebar 宽度可变（116px/60px/拖拽）、AI 对话面板可开关可拖拽，
+// 纯 CSS 难以精确计算工作区中心，故用 JS 读取 .workspace 的 getBoundingClientRect，
+// 配合 ResizeObserver 监听其尺寸变化（sidebar 折叠 / ai-panel 开关 / 拖拽均会引起 .workspace 宽度变化）。
+const centerLeft = ref<number | null>(null)
+let workspaceEl: HTMLElement | null = null
+let sidebarEl: HTMLElement | null = null
+let resizeObserver: ResizeObserver | null = null
+
+const updateCenter = () => {
+  if (!workspaceEl) return
+  const rect = workspaceEl.getBoundingClientRect()
+  // 工作区水平中心 = left + width / 2（相对于视口，与 fixed 定位坐标系一致）
+  centerLeft.value = rect.left + rect.width / 2
+}
+
 const handleClick = () => {
   if (props.currentPage >= props.totalPages - 1) return
 
@@ -63,6 +81,39 @@ const handleClick = () => {
     }, 300)
   }, 100)
 }
+
+onMounted(() => {
+  const cleanup = useCleanup()
+  // eslint-disable-next-line no-console
+  console.log('[ScrollDownButton] onMounted fired')
+  workspaceEl = document.querySelector('.workspace')
+  sidebarEl = document.querySelector('.app-sidebar')
+  // eslint-disable-next-line no-console
+  console.log('[ScrollDownButton] workspaceEl found:', !!workspaceEl, 'sidebarEl:', !!sidebarEl)
+  if (!workspaceEl) return
+
+  updateCenter()
+  // eslint-disable-next-line no-console
+  console.log('[ScrollDownButton] centerLeft after updateCenter:', centerLeft.value)
+
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(updateCenter)
+    // 监听工作区自身宽度变化（ai-panel 开关 / 拖拽会改变 .workspace 宽度）
+    resizeObserver.observe(workspaceEl)
+    // 监听侧边栏宽度变化（折叠 / 展开 / 拖拽），更早触发更新，避免一帧延迟
+    if (sidebarEl) resizeObserver.observe(sidebarEl)
+  }
+  window.addEventListener('resize', updateCenter)
+  cleanup.add(() => {
+    if (resizeObserver) {
+      resizeObserver.disconnect()
+      resizeObserver = null
+    }
+    window.removeEventListener('resize', updateCenter)
+    workspaceEl = null
+    sidebarEl = null
+  })
+})
 </script>
 
 <style scoped lang="scss">
@@ -71,15 +122,17 @@ const handleClick = () => {
   bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 44px;
-  height: 44px;
+  width: 22px;
+  height: 22px;
   border: none;
   background: transparent;
   cursor: pointer;
   z-index: var(--z-dropdown);
   padding: 0;
   outline: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  // 仅过渡 transform，不过渡 left：left 由 JS 按工作区中心动态设置，
+  // 过渡会导致 sidebar 折叠 / ai-panel 拖拽时按钮滑动跟随，体验割裂。
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &:hover {
     transform: translateX(-50%) translateY(-2px);
@@ -128,13 +181,18 @@ const handleClick = () => {
   align-items: center;
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  // 容器缩小一倍(22px)后，向下箭头图标保持原尺寸(24px)会略大于容器，
+  // 需放开 overflow 让图标完整显示，不被裁剪。
+  overflow: visible;
 }
 
 .arrow-icon {
   position: relative;
   width: 24px;
   height: 24px;
+  // 容器缩小一倍(22px)后图标(24px)大于容器，需禁止 flex 收缩，
+  // 否则 flex 容器(.button-inner)会把图标压缩到容器尺寸，违背"不缩小图标"要求。
+  flex-shrink: 0;
   color: var(--color-black-75);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: calc(var(--z-base) + 1);
@@ -212,19 +270,14 @@ const handleClick = () => {
   transform: translateX(-50%) translateY(10px) scale(0.9);
 }
 
-// 响应式设计
+// 响应式设计：容器尺寸跟随减半，向下箭头图标尺寸保持不变（用户要求不缩小图标）
 @media (width <= 768px) {
   .scroll-down-button {
-    width: 40px;
-    height: 40px;
-    bottom: 64px;
-  }
-  
-  .arrow-icon {
     width: 20px;
     height: 20px;
+    bottom: 64px;
   }
-  
+
   .button-inner {
     border-radius: var(--global-border-radius);
   }
@@ -232,14 +285,9 @@ const handleClick = () => {
 
 @media (width <= 480px) {
   .scroll-down-button {
-    width: 40px;
-    height: 40px;
+    width: 20px;
+    height: 20px;
     bottom: 64px;
-  }
-
-  .arrow-icon {
-    width: 18px;
-    height: 18px;
   }
 
   .button-inner {

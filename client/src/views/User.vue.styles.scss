@@ -945,7 +945,7 @@
   :deep(.el-button--primary) {
     background: var(--el-color-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary); /* 使用主题? */
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border-radius: var(--global-border-radius);
     padding: clamp(10px, 1.5vw, 14px) clamp(20px, 3vw, 28px);
     font-weight: 500;
@@ -1079,7 +1079,7 @@
 
       &.is-active {
         background: var(--el-color-primary);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         font-weight: 600;
       }
     }

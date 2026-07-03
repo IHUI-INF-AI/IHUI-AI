@@ -208,7 +208,7 @@ const handleLevelClick = () => {
   align-items: center;
   justify-content: center;
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-size: 28px;
   font-weight: bold;
 }
@@ -220,7 +220,7 @@ const handleLevelClick = () => {
   align-items: center;
   justify-content: center;
   background: var(--color-black-60);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-size: 12px;
   opacity: 0;
   transition: opacity 0.2s;
@@ -253,7 +253,7 @@ const handleLevelClick = () => {
   padding: 2px 8px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--el-bg-color);
+  color: #1a1a1a;
   background: var(--color-amber-500);
   border-radius: var(--global-border-radius);
 }
@@ -349,7 +349,7 @@ const handleLevelClick = () => {
 
 .btn-login {
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   padding: 12px 48px;
 }
 

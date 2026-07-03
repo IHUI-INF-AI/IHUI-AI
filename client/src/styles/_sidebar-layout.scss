@@ -32,7 +32,10 @@
     /* 拖拽缩放范围（与 useSidebar.ts MIN_WIDTH=60 / MAX_WIDTH=116 一致, v11） */
     --sidebar-min-width: 60px;
     --sidebar-max-width: 116px;
-    --sidebar-header-height: 52px;
+    /* 40px 与 --nav-item-height 一致, logo 32px 居中后上下各 4px 留白 (2026-07-04 调整:
+       旧值 52px 导致 logo 距屏幕顶部 10px + logo 底部到新建对话按钮 12px, 用户反馈"间距太大";
+       新值 40px 后 logo 距顶 4px + logo 底部到新建对话按钮 6px, 整体紧凑) */
+    --sidebar-header-height: 40px;
     --workspace-header-height: 48px;
     --nav-item-height: 40px;
 

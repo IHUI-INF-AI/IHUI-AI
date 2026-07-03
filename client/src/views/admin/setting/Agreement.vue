@@ -1,4 +1,4 @@
-﻿﻿<template>
+﻿<template>
   <div class="admin-setting-page" v-loading="loading">
     <el-tabs v-model="active" class="setting-tabs">
       <el-tab-pane :label="t('setting.label.userAgreement')" name="user">

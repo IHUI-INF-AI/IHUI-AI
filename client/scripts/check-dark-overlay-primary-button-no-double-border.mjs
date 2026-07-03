@@ -2,12 +2,16 @@
 /**
  * 暗色浮层内 primary 按钮双层蓝边 + 中间白线视觉 bug 轻量级守门 (pre-commit)
  *
- * 目的: 防止 _element-plus-overrides.scss 中的"浮层作用域排除规则"被误删/重写
- *       2026-07-03 用户反馈暗色通知内 primary 按钮出现"双层蓝边 + 中间白线"视觉 bug
- *       Element Plus 暗色 .el-button--primary 默认有 2px 蓝边 + inset 1px 白环
- *       在浮层 (ElMessageBox/ElNotification/ElDialog/ElMessage/ElPopper/ElDropdown)
- *       小尺寸蓝色按钮上叠加显示为视觉错误
- *       修法是浮层作用域内局部重置 border-width: 0 + box-shadow: none
+ * 目的: 防止 _element-plus-overrides.scss 中的"暗色 primary inset 白环规则"
+ *       把 inset 1px 半透明白环应用到浮层内 (ElMessageBox/ElNotification/...)
+ *       2026-07-03 用户反馈暗色通知内 primary 按钮出现"双层蓝边 + 中间白线"
+ *       2026-07-04 源头改造: 用 :not(:where(.el-xxx) *) 在源头排除浮层,
+ *         旧"先加后减"双层结构 (浮层作用域内 border-width:0 + box-shadow:none 重置)
+ *         已删除. 新守门检查:
+ *           1. 主规则用 :not(:where(.el-xxx) *) 主动排除 8 类浮层容器
+ *           2. 8 类浮层容器全部列出 (新增 el-tooltip, el-popover 防御)
+ *           3. 浮层内主规则块不再含 inset 白环 (box-shadow 不含 rgb(255 255 255 / 0.18))
+ *           4. 浮层作用域外保留 inset 白环 (sidebar darkSurface 需要)
  *
  * 与 e2e/dark-overlay-primary-button-no-double-border.spec.ts 的关系:
  *   - 本脚本: 轻量级文本检查 (pre-commit 阶段, <10ms)
@@ -59,8 +63,9 @@ const scss = readFileSync(OVERRIDES_STYLE, 'utf-8')
 
 const errors = []
 
-// 检查 1: 必须含浮层作用域排除规则 (覆盖 6 类浮层组件)
-//   选择器形如: :where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu) :where(.el-button--primary)
+// 检查 1: 主规则必须用 :not(:where(.el-xxx) *) 主动排除 8 类浮层容器
+//   新结构: html.dark :where(.el-button--primary):not(:where(.el-message-box, .el-notification, ...) *) { ... }
+//   旧结构 (2026-07-04 已废弃): 浮层作用域内 border-width: 0 + box-shadow: none 重置
 const REQUIRED_OVERLAY_CLASSES = [
   '.el-message-box',
   '.el-notification',
@@ -68,67 +73,85 @@ const REQUIRED_OVERLAY_CLASSES = [
   '.el-message',
   '.el-popper',
   '.el-dropdown-menu',
+  '.el-tooltip',
+  '.el-popover',
 ]
-for (const cls of REQUIRED_OVERLAY_CLASSES) {
-  // 用宽松正则: 在 :where(...) 内某处出现 cls
-  // 注: scss 选择器跨多行, 用 [\s\S]*? 匹配
-  const re = new RegExp(
-    `:where\\([^)]*${cls.replace(/\./g, '\\.')}[^)]*\\)\\s*:where\\(\\.el-button--primary\\)`,
+
+// 检查 1a: 主规则块必须用 :not(:where(... *) 语法
+//   格式: html.dark { ... :where(.el-button--primary):not(:where(.el-xxx) *) { ... } }
+//   html.dark 和 :where(.el-button--primary) 在不同行, 中间可能有多行
+const mainRuleWithNot = scss.match(
+  /html\.dark\s*\{[\s\S]*?:where\(\.el-button--primary\):not\(:where\([^)]*\)\s*\*\)/,
+)
+if (!mainRuleWithNot) {
+  errors.push(
+    '主规则 (html.dark :where(.el-button--primary)) 必须用 :not(:where(.el-xxx) *) 主动排除浮层容器 (2026-07-04 源头改造硬约束)',
   )
-  if (!re.test(scss)) {
+}
+
+// 检查 1b: :not() 内的 8 类浮层容器必须全部列出
+if (mainRuleWithNot) {
+  for (const cls of REQUIRED_OVERLAY_CLASSES) {
+    const re = new RegExp(`:not\\(:where\\([^)]*${cls.replace(/\./g, '\\.')}[^)]*\\)\\s*\\*\\)`)
+    if (!re.test(scss)) {
+      errors.push(
+        `主规则 :not(:where(... *)) 内缺少 ${cls} (必须主动排除 8 类浮层: ElMessageBox/ElNotification/ElDialog/ElMessage/ElPopper/ElDropdown/ElTooltip/ElPopover)`,
+      )
+    }
+  }
+}
+
+// 检查 2: 浮层内的 primary 按钮主规则块不能再含 inset 白环
+//   找到 html.dark :where(.el-button--primary):not(...) { ... } 块, 检查不含 rgb(255 255 255 / 0.18)
+//   这确保浮层内不应用白环
+const mainRuleBlock = scss.match(
+  /html\.dark\s*:where\(\.el-button--primary\):not\(:where\([^)]*\)\s*\*\)\s*\{([\s\S]*?)\n\}/,
+)
+if (mainRuleBlock) {
+  const blockBody = mainRuleBlock[1]
+  // 白环标志: rgb(255 255 255 / 0.18) 或 rgba(255,255,255,0.18)
+  if (/rgb\(\s*255\s+255\s+255\s*\/\s*0?\.18\s*\)/.test(blockBody)) {
     errors.push(
-      `缺少浮层作用域排除规则中的 ${cls} (浮层排除规则必须覆盖 6 类浮层组件: ElMessageBox/ElNotification/ElDialog/ElMessage/ElPopper/ElDropdown)`,
+      '主规则块 (含 :not() 排除浮层) 内不应该再含 inset 白环 rgb(255 255 255 / 0.18) - :not() 主动排除后, 浮层内按钮不会匹配本规则, 但块内白环会误导未来阅读者',
     )
   }
 }
 
-// 检查 2: 浮层排除规则必须重置 border-width: 0
-//   通用做法: 找到浮层排除规则块, 在该块内检查
-//   宽松匹配: ":where(.el-button--primary) {" 后跟 "border-width: 0" 在合理范围内
-const blockBorderMatch = scss.match(
-  /:where\([^)]*\.el-message-box[^)]*\)\s*:where\(\.el-button--primary\)\s*\{[^}]*border-width:\s*0/,
+// 检查 3: 旧"先加后减"双层结构不能复活
+//   旧版 (2026-07-03): 浮层作用域内 border-width: 0 + box-shadow: none 重置块
+//   新版 (2026-07-04): 浮层内主规则根本不会匹配, 不需要重置
+//   防止有人手动重新加回重置块, 与 :not() 冲突
+const oldResetBlock = scss.match(
+  /:where\([^)]*\.el-message-box[^)]*\)\s*:where\(\.el-button--primary\)\s*\{[^}]*box-shadow:\s*none[^}]*border-width:\s*0/s,
 )
-if (!blockBorderMatch) {
-  errors.push('缺少浮层排除规则中 .el-button--primary { border-width: 0 } 重置 (Element Plus 暗色 primary 默认 2px 蓝边, 在浮层内显示为外层蓝边)')
+if (oldResetBlock) {
+  errors.push(
+    '检测到旧版"先加后减"双层结构 (浮层作用域内 border-width: 0 + box-shadow: none 重置). 2026-07-04 源头改造后, :not() 已主动排除浮层, 不需要重置块, 移除它',
+  )
 }
 
-// 检查 3: 浮层排除规则必须重置 box-shadow: none
-const blockShadowMatch = scss.match(
-  /:where\([^)]*\.el-message-box[^)]*\)\s*:where\(\.el-button--primary\)\s*\{[^}]*box-shadow:\s*none/,
+// 检查 4: 浮层内基础样式块必须保留 (颜色/文字, 不含 inset 白环)
+//   新结构: html.dark { ... :where(.el-message-box, .el-notification, ...) :where(.el-button--primary) { ... } }
+//   这是浮层内按钮的"基础色"块, 必须保留
+const overlayBaseBlock = scss.match(
+  /html\.dark\s*\{[\s\S]*?:where\([^)]*\.el-message-box[^)]*\)\s*:where\(\.el-button--primary\)\s*\{([\s\S]*?)\n\}/,
 )
-if (!blockShadowMatch) {
-  errors.push('缺少浮层排除规则中 .el-button--primary { box-shadow: none } 重置 (Element Plus inset 1px 白环在浮层小按钮上显示为"中间白线")')
-}
-
-// 检查 4: hover/active/focus/focus-visible 状态也必须 box-shadow: none
-//   宽松匹配: 在浮层排除规则块内含 &:hover &:active &:focus &:focus-visible 的 box-shadow: none
-const blockStatesMatch = scss.match(
-  /:where\([^)]*\.el-message-box[^)]*\)\s*:where\(\.el-button--primary\)\s*\{[\s\S]*?&:hover[\s\S]*?&:active[\s\S]*?&:focus[\s\S]*?&:focus-visible\s*\{[\s\S]*?box-shadow:\s*none/,
-)
-if (!blockStatesMatch) {
-  errors.push('缺少浮层排除规则中 :hover/:active/:focus/:focus-visible 状态 box-shadow: none 覆盖 (鼠标悬停时白环会重新出现)')
-}
-
-// 检查 5: 浮层排除规则必须在 html.dark 块内 (不能放到全局, 否则浅色模式也会被错误重置)
-//   做法: 找到浮层排除规则的行号, 找到 html.dark { 的行号, 确认前者 > 后者
-//   简化: 用 split('\n') 找行号
-const lines = scss.split('\n')
-let htmlDarkStart = -1
-let overlayRuleStart = -1
-for (let i = 0; i < lines.length; i++) {
-  if (htmlDarkStart === -1 && /^html\.dark\s*\{/.test(lines[i].trim())) {
-    htmlDarkStart = i
+if (!overlayBaseBlock) {
+  errors.push(
+    '缺少浮层内 primary 按钮基础样式块: html.dark :where(.el-message-box, .el-notification, ...) :where(.el-button--primary) { ... } (2026-07-04 源头改造后, 浮层内按钮需要单独基础色)',
+  )
+} else {
+  const body = overlayBaseBlock[1]
+  if (!/background-color\s*:\s*var\(--el-color-primary\)/.test(body)) {
+    errors.push('浮层内 primary 基础样式块必须含 background-color: var(--el-color-primary)')
   }
-  if (overlayRuleStart === -1 && /:where\(\.el-message-box[^)]*\)\s*:where\(\.el-button--primary\)/.test(lines[i])) {
-    overlayRuleStart = i
+  if (!/color\s*:\s*var\(--app-button-text-on-primary\)/.test(body)) {
+    errors.push('浮层内 primary 基础样式块必须含 color: var(--app-button-text-on-primary) (永定白字)')
   }
-}
-if (htmlDarkStart === -1) {
-  errors.push('未找到 html.dark { 块起始 (浮层排除规则必须放在 html.dark 块内)')
-} else if (overlayRuleStart === -1) {
-  // 已在检查 1 报过, 此处不重复
-} else if (overlayRuleStart < htmlDarkStart) {
-  errors.push(`浮层排除规则位于 html.dark 块之外 (行 ${overlayRuleStart + 1} < html.dark 行 ${htmlDarkStart + 1}), 必须放在 html.dark 块内, 否则浅色模式也会被错误重置`)
+  // 浮层内不能含 inset 白环
+  if (/rgb\(\s*255\s+255\s+255\s*\/\s*0?\.18\s*\)/.test(body)) {
+    errors.push('浮层内 primary 基础样式块不应该含 inset 白环 rgb(255 255 255 / 0.18)')
+  }
 }
 
 if (errors.length > 0) {
@@ -137,15 +160,19 @@ if (errors.length > 0) {
     console.error(`  - ${err}`)
   }
   console.error('')
-  console.error('修复: 在 _element-plus-overrides.scss 的 html.dark 块内, 全局 :where(.el-button--primary) 规则之后追加:')
-  console.error('  :where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu) :where(.el-button--primary) {')
-  console.error('    border-width: 0;')
-  console.error('    box-shadow: none;')
-  console.error('    &:hover, &:active, &:focus, &:focus-visible { box-shadow: none; }')
+  console.error('修复: 在 _element-plus-overrides.scss 的 html.dark 块内, 主规则用 :not() 主动排除浮层:')
+  console.error('  :where(.el-button--primary):not(:where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu, .el-tooltip, .el-popover) *) {')
+  console.error('    background-color: var(--el-color-primary);')
+  console.error('    color: var(--app-button-text-on-primary);')
+  console.error('    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);')
   console.error('  }')
-  console.error('参考: e2e/dark-overlay-primary-button-no-double-border.spec.ts (4 用例源码级断言)')
-  console.error('参考: e2e/dark-overlay-primary-button-no-double-border-visual.spec.ts (5 用例浏览器级断言)')
+  console.error('  // 浮层内基础样式块')
+  console.error('  :where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu) :where(.el-button--primary) {')
+  console.error('    background-color: var(--el-color-primary);')
+  console.error('    color: var(--app-button-text-on-primary);')
+  console.error('  }')
+  console.error('参考: e2e/dark-overlay-primary-button-no-double-border.spec.ts')
   process.exit(1)
 }
 
-console.log('[OK] 暗色浮层 primary 按钮无双层蓝边守门通过 (6 类浮层 + border-width: 0 + box-shadow: none + 4 状态 + html.dark 块内)')
+console.log('[OK] 暗色浮层 primary 按钮无双层蓝边守门通过 (:not() 源头排除 8 类浮层 + 浮层内基础样式块 + 无旧重置块)')

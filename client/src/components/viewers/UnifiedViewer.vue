@@ -403,7 +403,7 @@ watch(() => props.src, loadTextContent, { immediate: true })
   gap: 8px;
   padding: 12px 32px;
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   border-radius: var(--global-border-radius);
   text-decoration: none;
   font-size: 16px;

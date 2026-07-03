@@ -15,11 +15,12 @@
 
 import { test, expect, type Page } from '@playwright/test'
 
-const POPPER = '.el-popper.ai-capability-popper'
+// inline 面板 (2026-07-03 v2 重构: 不再使用 el-dropdown teleport, 改为 inline absolute 面板)
+const POPPER = '.ai-capability-inline-panel'
 const TRIGGER_PILL = '.ai-capability-selector .tw-selector-pill'
 // 主视图特定选择器（避免 Transition 期间 .last() 拿到 leaving 元素）
-const MAIN_PANE = '.el-popper.ai-capability-popper .openclaw-quick-menu.capability-view-pane'
-const SUB_PANE = '.el-popper.ai-capability-popper .ai-capability-subview.capability-view-pane'
+const MAIN_PANE = '.ai-capability-inline-panel .openclaw-quick-menu.capability-view-pane'
+const SUB_PANE = '.ai-capability-inline-panel .ai-capability-subview.capability-view-pane'
 
 /** 打开 AI 侧边栏面板（嵌入模式）并确保 trae-work 顶层 pill 可见 */
 async function openAIDialogMaximized(page: Page): Promise<void> {
@@ -268,25 +269,36 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await closeCapabilityDropdown(page)
   })
 
-  test('窄屏（< 400px）popper 宽度不超出视口', async ({ page }) => {
+  test('inline 面板固定宽度 320px, 不超出视口, absolute 定位', async ({ page }) => {
     await openAIDialogMaximized(page)
-
-    // 设置窄视口
-    await page.setViewportSize({ width: 360, height: 720 })
-    await page.waitForTimeout(300)
-
     await openCapabilityDropdown(page)
+
     const popper = page.locator(POPPER)
     await expect(popper).toBeVisible()
 
-    // 验证 popper 宽度不超出窄屏视口（max-width: 280px 已约束，且应 ≤ 360px 视口）
+    // inline 面板用 width: 320px (固定宽度, 不占满输入框, 不占满全屏)
+    // 用户要求"只在 AI 对话框组件内显示", 不再 teleport 到 body (2026-07-03 v3 重构)
     const box = await popper.boundingBox()
     expect(box).not.toBeNull()
-    expect(box!.width).toBeLessThanOrEqual(360)
+    expect(box!.width).toBeGreaterThan(0)
+    // 宽度应为 320px (允许 1px 误差, 因 border-box + 可能的子像素)
+    expect(Math.abs(box!.width - 320)).toBeLessThanOrEqual(1)
+    const viewport = page.viewportSize()
+    expect(box!.width).toBeLessThanOrEqual(viewport!.width)
+
+    // 验证面板是 absolute 定位 (inline, 非 teleport)
+    const position = await popper.evaluate((el) => {
+      return window.getComputedStyle(el).position
+    })
+    expect(position).toBe('absolute')
+
+    // 验证不再 teleport 到 body (应挂在 .ai-capability-selector 内)
+    const inSelector = await popper.evaluate((el) => {
+      return !!el.closest('.ai-capability-selector')
+    })
+    expect(inSelector).toBe(true)
 
     await closeCapabilityDropdown(page)
-    // 恢复视口
-    await page.setViewportSize({ width: 1280, height: 720 })
   })
 
   test('点击「AI 工具箱」：下拉关闭 + OpenClaw 主面板打开', async ({ page }) => {
@@ -329,7 +341,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
       const el = document.activeElement as HTMLElement
       return {
         role: el?.getAttribute('role'),
-        inPopper: !!el?.closest('.el-popper.ai-capability-popper'),
+        inPopper: !!el?.closest('.ai-capability-inline-panel'),
         inMenu: !!el?.closest('.openclaw-quick-menu'),
         className: el?.className || '',
       }

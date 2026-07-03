@@ -104,7 +104,7 @@ const handleDelete = (id: string) => {
   align-items: center;
   justify-content: center;
   background: var(--primary-color);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   border-radius: 50%;
   flex-shrink: 0;
 }

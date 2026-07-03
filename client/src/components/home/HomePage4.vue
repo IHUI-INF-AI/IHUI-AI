@@ -672,7 +672,7 @@ defineExpose({
   top: 10px;
   right: 10px;
   background: var(--el-text-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   padding: 5px 12px;
   border-radius: var(--global-border-radius);
   font-size: clamp(12px, 1.3vw, 15px);
@@ -783,7 +783,7 @@ defineExpose({
   letter-spacing: 0.3px;
   flex-shrink: 0;
   background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
 
   html.dark & {
     background: var(--el-bg-color);

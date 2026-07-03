@@ -492,7 +492,7 @@ onMounted(async () => {
 
     &.active {
       background: var(--el-text-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
     }
 
     &:hover:not(.active) {

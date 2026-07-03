@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LoginIcons - 登录页面统一 SVG 图标库
  *
  * 严格对齐侧边栏 Sidebar.vue 的图标规范：

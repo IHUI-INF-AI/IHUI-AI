@@ -235,7 +235,7 @@ watch(
     font-size: 14px;
     font-weight: 500;
     line-height: 1.5;
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     background: var(--el-color-primary);
     border: none;
     border-radius: var(--global-border-radius);
@@ -245,7 +245,7 @@ watch(
 
     &:hover {
       background: var(--el-color-primary-light-3);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       box-shadow: var(--global-box-shadow, 0 1px 2px var(--color-black-5));
     }
 

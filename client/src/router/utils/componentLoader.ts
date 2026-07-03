@@ -77,7 +77,7 @@ const createComponentLoader = (
               <p style="margin:0 0 24px 0; color:var(--el-text-color-secondary); font-size:14px;">组件加载失败，请刷新页面重试</p>
               <p v-if="errorDetail" style="margin:0 0 16px 0; color:var(--el-text-color-placeholder); font-size:12px; word-break:break-all; max-width:90%;">{{ errorDetail }}</p>
               <div>
-                <button type="button" @click="handleReload" style="padding:10px 20px; background:var(--color-primary); color:var(--el-bg-color); border:none; border-radius:var(--global-border-radius); cursor:pointer; font-size:14px; margin-right:12px;">重新加载</button>
+                <button type="button" @click="handleReload" style="padding:10px 20px; background:var(--color-primary); color:var(--app-button-text-on-primary); border:none; border-radius:var(--global-border-radius); cursor:pointer; font-size:14px; margin-right:12px;">重新加载</button>
                 <button type="button" @click="handleGoHome" style="padding:10px 20px; background:var(--color-gray-light); color:var(--el-text-color-primary); border:1px solid var(--border-unified-color); border-radius:var(--global-border-radius); cursor:pointer; font-size:14px;">返回首页</button>
               </div>
             </div>

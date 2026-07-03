@@ -41,6 +41,9 @@ const TARGET_FILES = [
   'src/styles/_el-message-box.scss',
   'src/styles/_el-message-global.scss',
   'src/styles/_session-expired-notification.scss',
+  'src/styles/_dark-mode-global.scss', // 2026-07-04 新增: 锚定暗色 --el-bg-color = --color-dark-bg-3
+  'src/styles/element-plus-vars.scss', // 2026-07-04 新增: 锚定暗色 --el-bg-color = --color-dark-bg-3
+  'src/styles/dark-mode-override.scss', // 2026-07-04 新增: 锚定暗色 --el-bg-color = --color-dark-bg-3
 ]
 
 // 6 类浮层组件选择器 (用于定位规则块)
@@ -147,4 +150,73 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`[OK] 暗色浮层底色统一硬约束守门通过 (${TARGET_FILES.length} 个文件, ${OVERLAY_SELECTORS.length} 类浮层组件, 0 处 hardcode 颜色)`)
+// 锚定检查 (2026-07-04 新增): 暗色下 --el-bg-color / --el-bg-color-overlay 必须 = --color-dark-bg-3
+//   目的: 显式锁死"暗色浮层底色 = #1a1a1a"的关系, 防止 --el-bg-color 在未来被重定义为别的值
+//         破坏浮层内 primary 按钮的 4.5:1 对比度
+//   范围: _dark-mode-global.scss, element-plus-vars.scss, dark-mode-override.scss
+const DARK_BG_ANCHOR_FILES = [
+  'src/styles/_dark-mode-global.scss',
+  'src/styles/element-plus-vars.scss',
+  'src/styles/dark-mode-override.scss',
+]
+
+const anchorErrors = []
+for (const relPath of DARK_BG_ANCHOR_FILES) {
+  const absPath = join(clientRoot, relPath)
+  if (!existsSync(absPath)) {
+    // 文件不存在不视为错误, 仅警告 (可能是新增文件名变化)
+    continue
+  }
+  const scss = readFileSync(absPath, 'utf-8')
+
+  // 找到 html.dark 块 (或 .dark 选择器块)
+  const darkBlockMatch = scss.match(/(?:^|\n)\s*(?::where\()?html\.dark\s*(?:\))?\s*\{[\s\S]*?^\s*\}/m)
+  if (!darkBlockMatch) continue
+
+  const darkBlock = darkBlockMatch[0]
+  // 检查 --el-bg-color 必须用 --color-dark-bg-3 (允许 fallback)
+  // 禁止: #0d0d0d / #1a1a1a / #ffffff / #2a2a2a 等 hardcode
+  // 允许: var(--color-dark-bg-3) / var(--color-dark-bg-3, #1a1a1a)
+  const elBgColorInDark = darkBlock.match(/--el-bg-color\s*:\s*([^;]+);/)
+  if (elBgColorInDark) {
+    const value = elBgColorInDark[1].trim()
+    if (!/var\(\s*--color-dark-bg-3\b/.test(value)) {
+      anchorErrors.push(
+        `${relPath} 暗色块 --el-bg-color 必须用 var(--color-dark-bg-3) 锚定暗色浮层底色\n` +
+          `  当前值: ${value}\n` +
+          `  期望: var(--color-dark-bg-3) 或 var(--color-dark-bg-3, #1a1a1a)\n` +
+          `  防止 --el-bg-color 在未来被重定义, 破坏浮层内 primary 按钮 4.5:1 对比度`,
+      )
+    }
+  }
+
+  // 检查 --el-bg-color-overlay 也必须用 --color-dark-bg-3
+  const elBgColorOverlayInDark = darkBlock.match(/--el-bg-color-overlay\s*:\s*([^;]+);/)
+  if (elBgColorOverlayInDark) {
+    const value = elBgColorOverlayInDark[1].trim()
+    if (!/var\(\s*--color-dark-bg-3\b/.test(value)) {
+      anchorErrors.push(
+        `${relPath} 暗色块 --el-bg-color-overlay 必须用 var(--color-dark-bg-3) 锚定暗色浮层底色\n` +
+          `  当前值: ${value}\n` +
+          `  期望: var(--color-dark-bg-3) 或 var(--color-dark-bg-3, #1a1a1a)\n` +
+          `  防止 --el-bg-color-overlay 在未来被重定义, 破坏浮层内 primary 按钮 4.5:1 对比度`,
+      )
+    }
+  }
+}
+
+if (anchorErrors.length > 0) {
+  console.error('[FAIL] 暗色浮层底色 = #1a1a1a 锚定检查失败:')
+  for (const err of anchorErrors) {
+    console.error(`  - ${err}`)
+  }
+  console.error('')
+  console.error('修复: 把 _dark-mode-global.scss / element-plus-vars.scss / dark-mode-override.scss 中')
+  console.error('  html.dark 块的 --el-bg-color / --el-bg-color-overlay 改为:')
+  console.error('    --el-bg-color: var(--color-dark-bg-3);')
+  console.error('    --el-bg-color-overlay: var(--color-dark-bg-3);')
+  console.error('  这样保证暗色浮层底色统一锚定在 #1a1a1a, 浮层内 primary 按钮保持 4.5:1 对比度')
+  process.exit(1)
+}
+
+console.log(`[OK] 暗色浮层底色统一硬约束守门通过 (${TARGET_FILES.length} 个文件, ${OVERLAY_SELECTORS.length} 类浮层组件, 0 处 hardcode 颜色, 暗色锚定 --color-dark-bg-3 通过)`)

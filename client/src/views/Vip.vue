@@ -1281,7 +1281,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
       &:hover .benefit-icon {
         background: $brand-primary;
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         transform: scale(1.05);
       }
 
@@ -1386,7 +1386,7 @@ $accent-highlight: var(--el-text-color-secondary);
           left: 50%;
           transform: translateX(-50%);
           background: $brand-primary;
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
           padding: 10px 24px;
           border-radius: var(--global-border-radius);
           font-size: 12px;
@@ -1504,13 +1504,13 @@ $accent-highlight: var(--el-text-color-secondary);
 
           &.primary {
             background: $brand-primary;
-            color: var(--el-bg-color-page);
+            color: var(--app-button-text-on-primary);
             border: none;
           }
 
           &:hover {
             background: $brand-primary;
-            color: var(--el-bg-color-page);
+            color: var(--app-button-text-on-primary);
             border-color: $brand-primary;
           }
 
@@ -1682,7 +1682,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
         &.primary {
           background: $brand-primary;
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
           border: none;
 
           &:hover {

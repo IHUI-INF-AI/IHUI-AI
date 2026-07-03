@@ -388,7 +388,7 @@ const handleReset = () => formRef.value?.resetFields()
 
   .btn-submit {
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border: none;
     padding: 12px 32px;
     border-radius: var(--global-border-radius);
@@ -461,7 +461,7 @@ const handleReset = () => formRef.value?.resetFields()
 
   .btn-submit {
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border: none;
     padding: 18px 48px;
     border-radius: var(--global-border-radius);
@@ -470,7 +470,7 @@ const handleReset = () => formRef.value?.resetFields()
     font-weight: 900;
     cursor: pointer;
     transition: all 0.3s;
-    &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); }
+    &:hover { background: var(--el-color-primary); color: var(--app-button-text-on-primary); }
   }
   .btn-reset { font-family: var(--font-family-mono); font-size: 12px; color: var(--el-text-color-secondary); font-weight: 800; }
 }
@@ -567,7 +567,7 @@ html.dark .become-supplier-page :deep(.tech-form) {
 }
 
 :where(html.dark) .become-supplier-page .form-actions {
-  .btn-submit { background: var(--el-bg-color); color: var(--el-text-color-primary); &:hover { background: var(--el-color-primary); color: var(--el-bg-color-page); } }
+  .btn-submit { background: var(--el-bg-color); color: var(--el-text-color-primary); &:hover { background: var(--el-color-primary); color: var(--app-button-text-on-primary); } }
   .btn-reset { color: var(--el-text-color-secondary); }
 }
 

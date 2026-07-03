@@ -337,13 +337,16 @@
 // (此前模板迁移类名后样式缺失, 导致按钮垂直堆叠)
 
 // Row1: 顶层能力选择胶囊行 — 横向排列, 允许换行
+// padding: 4px 4px 0 — 顶部 4px 与左右 4px 对齐, 让「+选择」按钮距父容器
+// .input-wrapper 上侧与左侧间距相等 (旧值 0 4px 导致上侧 0 / 左侧 4px 不对称)
+// 底部保留 0, 由 .input-wrapper 的 flex gap: 8px 控制与下方输入框的间距
 .trae-work-actions-top {
   display: flex;
   flex-flow: row wrap;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 0 4px;
+  padding: 4px 4px 0;
   box-sizing: border-box;
 }
 

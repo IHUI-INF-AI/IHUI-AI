@@ -1,4 +1,4 @@
-﻿﻿<template>
+﻿<template>
   <AdminListPage
     :title="t('adminComponents.order.title')"
     :description="t('adminComponents.order.desc')"

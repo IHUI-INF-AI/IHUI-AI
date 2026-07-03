@@ -1748,9 +1748,20 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           changeOrigin: true,
           rewrite: (path) => path.replace('/ihui-ai-api/user-sk', '/api/v1/auth/user-sk'),
         },
+        // ihui-ai-api/llm → 本地后端 (2026-07-03 修复 prefix 错位)
+        // 后端 app/api/v1/router.py 第 794 行: include_router(llm_ws_router, prefix="/llm")
+        // 而 llm_ws_router 自身 prefix="/ihui-ai-api/llm", 拼接后真实路径 = /api/v1/llm/ihui-ai-api/llm/*
+        // 因此前端 /ihui-ai-api/llm/* 必须重写为 /api/v1/llm/ihui-ai-api/llm/* (而非通用 /api/v1/llm/*)
+        // 必须在 /ihui-ai-api 通用规则前声明, vite proxy 按顺序匹配
+        '/ihui-ai-api/llm': {
+          target: BACKEND_TARGET,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace('/ihui-ai-api/llm', '/api/v1/llm/ihui-ai-api/llm'),
+        },
         // ihui-ai-api 网关代理, 2026-06-20 切到 Python 后端 (v1/llm/ws.py 已实现 3 端点)
         // 2026-06-21 修复: /ihui-ai-api/* 重写到 /api/v1/* (后端真实路径)
-        // /ihui-ai-api/user-sk 已有上方更具体的规则优先匹配, 不受影响
+        // /ihui-ai-api/user-sk 和 /ihui-ai-api/llm 已有上方更具体的规则优先匹配, 不受影响
         '/ihui-ai-api': {
           target: BACKEND_TARGET,
           changeOrigin: true,

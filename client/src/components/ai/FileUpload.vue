@@ -211,7 +211,7 @@ const removeFile = (index: number) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
 }
 
 .upload-progress-bar {
@@ -243,7 +243,7 @@ const removeFile = (index: number) => {
   z-index: calc(var(--z-base) + 9);
   background: var(--color-black-60);
   border: none;
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
 }
 
 .remove-file-btn:hover {

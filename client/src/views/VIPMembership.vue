@@ -695,7 +695,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
   &__title {
     font-size: 15px;
     font-weight: 600;
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
     margin: 0 0 4px;
   }
 
@@ -716,7 +716,7 @@ $transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
     span {
       font-size: 11px;
       font-weight: 700;
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
       letter-spacing: 0.05em;
     }
   }

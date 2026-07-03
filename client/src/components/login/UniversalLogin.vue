@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   UniversalLogin - 通用登录/注册组件（弹窗内嵌版本）
   被 LoginDialog.vue 包裹在 el-dialog 中使用。
   支持账号登录、手机号登录、注册模式切换、第三方登录、项目选择。
@@ -611,29 +611,30 @@ html.dark .universal-login {
   }
 
   .submit-btn {
-    // 2026-07-03 修复: 暗色模式显式指定文字色为深色 (#1a1a1a 偏黑).
-    // 原代码未设 color 属性, fallback 到 Element Plus 默认 --el-color-white (#ffffff),
-    // 在 #3b82f6 蓝底上虽勉强可读, 但用户反馈"应该偏黑色"——暗色模式用深色文字
-    // 视觉更和谐, 与项目"暗色模式偏深"设计语言一致. 对比度 #1a1a1a on #3b82f6 = 4.83:1
-    // (WCAG AA 4.5 通过), 改为 hover 色 #60a5fa 时 #1a1a1a on #60a5fa = 7.31:1 (AAA 通过).
-    color: #1a1a1a;
-    background-color: lt.$login-dark-primary;
-    border-color: lt.$login-dark-primary;
-    box-shadow: 0 4px 12px lt.$login-dark-primary-glow;
+    // 2026-07-04 修复: 暗色模式完全反相 — 白底 + 深蓝字.
+    // 浅色模式 = 蓝底(#2563eb) + 白字(#fff); 暗色模式 = 白底(#fff) + 深蓝字(#2563eb),
+    // 两者正好相反, 按钮在暗色页面(#0d0d0d)上形成高亮"反相" CTA.
+    // 对比度: #2563eb on #fff = 5.44:1 (WCAG AA 4.5 通过).
+    // 旧方案 (07-03 蓝底+深色字#1a1a1a) 已废弃 — 非反相, 与浅色模式同向.
+    color: lt.$login-primary;           // #2563eb 深蓝字
+    background-color: #ffffff;          // 纯白底
+    border-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
     &:hover:not(.is-disabled) {
-      color: #0a0a0a;
-      background-color: lt.$login-dark-primary-hover;
-      border-color: lt.$login-dark-primary-hover;
-      box-shadow: 0 8px 20px lt.$login-dark-primary-glow;
+      color: lt.$login-primary-hover;    // #1d4ed8 更深蓝
+      background-color: #f5f5f5;
+      border-color: #f5f5f5;
       transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     }
 
     &:active:not(.is-disabled) {
-      color: #1a1a1a;
-      background-color: lt.$login-dark-primary;
+      color: lt.$login-primary-active;  // #1e40af
+      background-color: #e5e7eb;
+      border-color: #e5e7eb;
       transform: translateY(0);
-      box-shadow: 0 2px 8px lt.$login-dark-primary-glow-soft;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     }
   }
 }

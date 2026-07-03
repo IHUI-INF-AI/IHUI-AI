@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P9-8 Storybook 体系升级 + Chromatic 视觉回归验证
  * - .storybook/main.ts 存在且配置正确
  * - .storybook/preview.ts 存在并导入全局样式

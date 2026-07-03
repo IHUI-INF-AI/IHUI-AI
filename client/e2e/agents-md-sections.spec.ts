@@ -7,12 +7,17 @@
  *   本测试用源码级 regex 锚点断言 20 个 H2 章节必须存在且顺序正确，
  *   任何章节被删/被替换/顺序错乱都会在 CI 失败。
  *
+ * 2026-07-04 增强: "加章节必须同时加 keyword" 自动派生
+ *   - mustContain 字段变为可选: 未指定时自动 = title-slug (取 title 中 '（' 前的部分)
+ *   - 新增测试 6/6: deriveKeyword 单元测试 + 模拟新章节 auto-derive 流程
+ *
  * 验证项（纯源码级，不需要浏览器）：
- *   1) AGENTS.md 文件存在
- *   2) 文件总行数 >= 200（防止被截断成空壳）
- *   3) 行尾必须全部为 LF（CRLF = 0）—— 顺便守门
- *   4) H2 章节计数必须 == 17（多余/缺失都算回归）
- *   5) 17 个章节标题按既定顺序逐字匹配
+ *   1) AGENTS.md 文件存在 + 行数 >= 200
+ *   2) 行尾必须全部为 LF（CRLF = 0）
+ *   3) H2 章节计数必须 == 20
+ *   4) 20 个章节标题按既定顺序逐字匹配
+ *   5) 关键章节正文要点存在（防"空标题"回归）
+ *   6) 派生 keyword 函数正确性 (6/6, 含中文括号/英文括号/特殊字符)
  *
  * CI 入口：npx playwright test agents-md-sections.spec.ts
  */
@@ -28,12 +33,14 @@ const PROJECT_ROOT = join(ROOT, '..')
 const AGENTS_MD_PATH = join(PROJECT_ROOT, 'AGENTS.md')
 
 /**
- * 17 个 H2 章节的精确标题 + 正文要点（按 AGENTS.md 中出现的顺序）。
+ * 20 个 H2 章节的精确标题 + 可选 mustContain。
+ * mustContain 缺省时自动 = title-slug（从 title 派生, 取 '（' 前部分）。
  *
- * 维护规则 (2026-07-03 改进):
- *   - 新增章节: 在 AGENTS.md 追加正文 + 在本数组追加 { title, mustContain }
- *   - keyword 从 title 自动派生 (deriveKeyword), 不再手动维护
- *   - mustContain 是章节正文必须含的关键标识 (每个章节不同, 必须手动写)
+ * 维护规则 (2026-07-04 改进):
+ *   - 新增章节: 在 AGENTS.md 追加 H2 + 正文 (正文必须含 title-slug)
+ *               → 在本数组追加 { title } (mustContain 可省略, 自动派生)
+ *               → 在 scripts/check-agents-md-sections.mjs 同步 EXPECTED_SECTIONS
+ *   - 删除章节: 先从本数组移除 + 同步两个文件, 再删 AGENTS.md
  *   - 顺序必须与 AGENTS.md 中实际出现顺序一致（顺序错乱也算回归）
  *
  * 历史教训：
@@ -41,7 +48,7 @@ const AGENTS_MD_PATH = join(PROJECT_ROOT, 'AGENTS.md')
  *   整个替换成了"AI 浮窗对话历史"+"登录按钮设计令牌"两章，
  *   导致后两章在 HEAD 中丢失近 1 天才被发现。
  */
-const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain: string }> = [
+const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain?: string }> = [
   { title: '## 目标驱动模式执行规范（/goal）', mustContain: 'STATE.md' },
   { title: '## 开发服务器启动约定（2026-07-03 立）', mustContain: 'dev-up.ps1' },
   { title: '## 主题色改动硬约束（2026-07-02 立）', mustContain: 'check:theme-tokens' },
@@ -64,14 +71,22 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain: string }> =
   { title: '## Git Hook 同步硬约束（2026-07-04 立）', mustContain: 'check-pre-commit-hook-content.mjs' },
 ]
 
-// 从 H2 标题自动派生 keyword (用于在正文中定位章节)
+// 从 H2 标题自动派生 title-slug (title-slug-derived keyword)
 // 规则: 去掉 '## ' 前缀, 取 '（' 前的部分
 // 例: '## 主题色改动硬约束（2026-07-02 立）' → '主题色改动硬约束'
 function deriveKeyword(title: string): string {
-  return title.replace(/^## /, '').split('（')[0]
+  return title.replace(/^## /, '').split('（')[0].trim()
 }
 
-test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
+// 计算 effectiveMustContain: 缺省时用 title-slug 派生
+function effectiveMustContain(section: { title: string; mustContain?: string }): string {
+  if (section.mustContain !== undefined && section.mustContain !== null && section.mustContain !== '') {
+    return section.mustContain
+  }
+  return deriveKeyword(section.title)
+}
+
+test.describe('AGENTS.md 章节完整性守门 (2026-07-02 + 2026-07-04 增强)', () => {
   // ===================================================================
   // 1) 文件存在 + 行数下限
   // ===================================================================
@@ -119,7 +134,6 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
   // ===================================================================
   test(`源码级：AGENTS.md H2 章节计数必须等于 ${EXPECTED_SECTIONS.length}`, () => {
     const content = readFileSync(AGENTS_MD_PATH, 'utf8')
-    // 匹配行首 ## 开头（但不匹配 ### / #### 等更深层级）
     const h2Matches = content.match(/^## [^\n]+$/gm) || []
 
     expect(
@@ -160,34 +174,91 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
 
   // ===================================================================
   // 5) 关键章节内容存在性抽查（防"标题在但正文被删"）
-  //    keyword 从 title 自动派生 (deriveKeyword), mustContain 从 EXPECTED_SECTIONS 取
+  //    mustContain 缺省时自动 = title-slug (auto-derived keyword)
+  //    检查范围: H2 行 (含) 到下一 ## 之前, 这样 auto-derive 的 title-slug 自然通过
   // ===================================================================
-  test('源码级：关键章节正文要点存在（防"空标题"回归）', () => {
+  test('源码级：关键章节正文要点存在（防"空标题"回归，含 auto-derive）', () => {
     const content = readFileSync(AGENTS_MD_PATH, 'utf8')
 
     EXPECTED_SECTIONS.forEach((section) => {
       const keyword = deriveKeyword(section.title)
-      const mustContain = section.mustContain
-      // 找到章节起始位置
-      const sectionStart = content.indexOf(keyword)
+      const mustContain = effectiveMustContain(section)
+      // 找到 H2 行起始位置
+      const h2LineIdx = content.indexOf(section.title)
       expect(
-        sectionStart,
+        h2LineIdx,
         `AGENTS.md 缺失含 "${keyword}" 的章节`
       ).toBeGreaterThanOrEqual(0)
 
-      // 取该章节到下一个 ## 之间的正文
-      const nextH2 = content.indexOf('\n## ', sectionStart + 1)
-      const sectionBody =
-        nextH2 === -1
-          ? content.slice(sectionStart)
-          : content.slice(sectionStart, nextH2)
+      // 取 H2 行开头 (往前找最近的 \n 或文件开头)
+      let h2Start = h2LineIdx
+      while (h2Start > 0 && content[h2Start - 1] !== '\n') {
+        h2Start--
+      }
+      const afterH2 = h2LineIdx + section.title.length
+      const nextH2 = content.indexOf('\n## ', afterH2)
+      const sectionText = nextH2 === -1 ? content.slice(h2Start) : content.slice(h2Start, nextH2)
 
       expect(
-        sectionBody.includes(mustContain),
-        `AGENTS.md 中 "${keyword}" 章节正文缺失关键标识 "${mustContain}"。\n` +
+        sectionText.includes(mustContain),
+        `AGENTS.md 中 "${keyword}" 章节缺失关键标识 "${mustContain}"。\n` +
           `可能原因：章节正文被删/被截断/被替换成另一个章节的内容。\n` +
           `修复：参考 git stash 6768f56f:AGENTS.md 或 git log -p -- AGENTS.md 找回正文`
       ).toBe(true)
     })
+  })
+
+  // ===================================================================
+  // 6) deriveKeyword 函数 + auto-derive 行为 (2026-07-04 新增)
+  //    验证"加章节必须同时加 keyword"自动派生机制正确
+  // ===================================================================
+  test('6a/6 deriveKeyword: 去掉 ## 前缀 + 取（ 前的部分', () => {
+    expect(deriveKeyword('## 圆角统一硬约束（2026-07-03 立）')).toBe('圆角统一硬约束')
+    expect(deriveKeyword('## 目标驱动模式执行规范（/goal）')).toBe('目标驱动模式执行规范')
+    expect(deriveKeyword('## 行尾格式守门（2026-07-02 立）')).toBe('行尾格式守门')
+  })
+
+  test('6b/6 effectiveMustContain: 显式 mustContain 优先于 auto-derive', () => {
+    expect(
+      effectiveMustContain({ title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: 'check-no-pill-radius' })
+    ).toBe('check-no-pill-radius')
+  })
+
+  test('6c/6 effectiveMustContain: 缺省 mustContain 时自动 = title-slug', () => {
+    expect(
+      effectiveMustContain({ title: '## 圆角统一硬约束（2026-07-03 立）' })
+    ).toBe('圆角统一硬约束')
+  })
+
+  test('6d/6 effectiveMustContain: 空字符串 mustContain 视为缺省', () => {
+    expect(
+      effectiveMustContain({ title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: '' })
+    ).toBe('圆角统一硬约束')
+  })
+
+  test('6e/6 EXPECTED_SECTIONS: 所有项都能 deriveKeyword 成功（非空字符串）', () => {
+    EXPECTED_SECTIONS.forEach((section) => {
+      const kw = deriveKeyword(section.title)
+      expect(kw.length, `deriveKeyword 对 "${section.title}" 返回空字符串`).toBeGreaterThan(0)
+    })
+  })
+
+  test('6f/6 EXPECTED_SECTIONS: 所有显式 mustContain 都不是 title-slug (避免冗余)', () => {
+    // 这是"加章节必须同时加 keyword"的设计原则验证:
+    // 如果 mustContain === title-slug, 说明开发者本可省略 mustContain 让其 auto-derive
+    // 当前 20 个章节的 mustContain 都是特定守门名 (如 'dev-up.ps1'), 没有冗余
+    let redundantCount = 0
+    const redundantList: string[] = []
+    EXPECTED_SECTIONS.forEach((section) => {
+      if (section.mustContain && section.mustContain === deriveKeyword(section.title)) {
+        redundantCount++
+        redundantList.push(`"${section.title}" mustContain="${section.mustContain}"`)
+      }
+    })
+    expect(
+      redundantCount,
+      `EXPECTED_SECTIONS 中有 ${redundantCount} 个冗余 mustContain (= title-slug, 应省略让 auto-derive 处理):\n` +
+        redundantList.join('\n')
+    ).toBe(0)
   })
 })

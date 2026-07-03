@@ -713,7 +713,7 @@ defineExpose({
   &__title {
     font-size: clamp(18px, 2.5vw, 24px);
     font-weight: 700;
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
     margin: 0;
     line-height: 1.3;
     letter-spacing: -0.02em;

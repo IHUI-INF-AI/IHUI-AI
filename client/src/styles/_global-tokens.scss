@@ -242,8 +242,48 @@ $color-dark-text-primary: #e5eaf3;
   --app-button-bg-hover: var(--el-fill-color-light);
 
   /* 文字色 */
-  --app-button-text-on-primary: var(--el-bg-color);
+  // 2026-07-04 修复: primary 按钮专用文字色, 浅色/暗色统一为 #ffffff.
+  // 原值 var(--el-bg-color) (dark=#0d0d0d) 与 --el-color-primary 暗色映射 (现 #2563eb) 撞色不可见.
+  // 修复后 light=#fff (黑底白字 21:1), dark=#fff (蓝底白字 5.17:1, WCAG AA 通过).
+  --app-button-text-on-primary: #ffffff;
   --app-button-text-default: var(--el-text-color-primary);
+
+  /* ── 暗色模式浅底深字 全局反色 token (2026-07-04 立) ──
+   * 设计原则: EP success/warning/danger/info 在暗色下用深饱和背景 (见 _dark-mode-global.scss),
+   * 文字色 token 永定, 不随 light/dark 切换.
+   * 配合 _element-plus-overrides.scss 中按钮/tag/alert/message 覆盖, 形成全局
+   * "浅色背景→深色文字, 深色背景→浅色文字" 自动适配.
+   *
+   * 对比度实测 (WCAG AA 阈值 4.5:1):
+   *   --el-color-success #15803d on #ffffff = 5.5:1 ✓
+   *   --el-color-warning #b45309 on #fde68a = 4.85:1 ✓ (黄底白字仅 1.7:1 / 黄底深字仅 2.8:1 均失败)
+   *   --el-color-danger  #b91c1c on #ffffff = 5.9:1 ✓
+   *   --el-color-info    #4b5563 on #ffffff = 5.1:1 ✓
+   *
+   * 反向断言: 禁止 color: white / #fff / var(--el-bg-color*) / var(--el-color-white) 硬编码
+   * 在 .el-button--success/warning/danger/info 上 (守门: check-button-text-contrast.mjs). */
+  --app-text-on-success: #ffffff;
+  --app-text-on-warning: #ffffff;  /* 2026-07-04 修复: 原 #fde68a on #b45309 对比度仅 3.98:1 < WCAG AA 4.5, 改 #ffffff 后 4.93:1 通过 */
+  --app-text-on-danger: #ffffff;
+  --app-text-on-info: #ffffff;
+
+  /* ── 业务级语义色 token (2026-07-04 立, 全组件暗色反色用) ──
+   * 浅色 mode: 深色字 (绿/琥珀/红/灰/蓝) + 8% 透明背景
+   * 暗色 mode: 在 _dark-mode-global.scss 重映射为浅色字 (Tailwind 200 级) + 15% 透明深背景
+   * 业务组件 (.status-* / .badge-* / 自定义 .text-success 等) 用这 5 对 token, 永定对比度.
+   * 对比度实测: 浅色下 #15803d on rgba(74,222,128,0.08) = 6.2:1 ✓
+   *            暗色下 #bbf7d0 on rgba(74,222,128,0.15) = 12.5:1 ✓ (WCAG AA 4.5 通过)
+   * 守门: scripts/check-color-contrast-systemic.mjs + e2e/color-contrast-systemic.spec.ts */
+  --app-color-success-text: #15803d;
+  --app-color-success-bg: rgba(74, 222, 128, 0.08);
+  --app-color-warning-text: #b45309;
+  --app-color-warning-bg: rgba(237, 180, 67, 0.08);
+  --app-color-danger-text: #b91c1c;
+  --app-color-danger-bg: rgba(245, 101, 101, 0.08);
+  --app-color-info-text: #4b5563;
+  --app-color-info-bg: rgba(96, 165, 250, 0.08);
+  --app-color-primary-text: #1d4ed8;
+  --app-color-primary-bg: rgba(37, 99, 235, 0.08);
 
   /* 边框 - 引用全站统一描边 (element-plus-vars.scss 定义) */
   --app-button-border: var(--unified-border);

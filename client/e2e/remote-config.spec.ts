@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P9-7 A/B 测试灰度远程配置接入验证
  * - src/api/remote-config.ts 存在且导出完整 API
  * - RemoteExperimentConfig 接口定义完整

@@ -196,7 +196,7 @@ const modelType = computed(() => {
   gap: 8px;
   padding: 12px 32px;
   background: var(--color-brand-blue-2);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   border-radius: var(--global-border-radius);
   text-decoration: none;
   font-size: 16px;

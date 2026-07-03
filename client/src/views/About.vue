@@ -560,7 +560,7 @@ section {
   gap: 10px;
   padding: v.$spacing-md v.$spacing-xl;
   background: $brand-primary;
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   border: none;
   border-radius: v.$border-radius;
   font-size: v.$font-size-sm;
@@ -889,7 +889,7 @@ html.dark .btn-primary {
         justify-content: center;
         font-size: v.$font-size-3xl;
         font-weight: 900;
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
       }
 
       .avatar-ring {

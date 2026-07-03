@@ -1,4 +1,4 @@
-﻿{
+{
   "apiTest": {
     "title": "API Test",
     "allTestsPassed": "All",
@@ -4478,7 +4478,8 @@
     "fileUpload Successful": "File {name} uploaded successfully",
     "fileDownloaded": "File {name} downloaded",
     "fileDownloadFailed": "Failed to download file",
-    "welcome": "Hello! I am an AI assistant. How can I help you?",
+    "welcomeTitle": "Start Your AI Conversation",
+    "welcomeSubtitle": "Ask a question, share an idea, or pick a topic below to get help",
     "suggestedQuestions": "Quick Start",
     "defaultQuestion1": "Help me write an article",
     "defaultQuestion2": "Explain this concept",

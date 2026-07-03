@@ -1090,6 +1090,25 @@ watch(isMobileOpen, () => {
 <style scoped lang="scss">
 /* 组件级补充样式（全局布局样式在 _sidebar-layout.scss 中定义） */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ HMR 缓存警告 (2026-07-04 立)
+ *
+ * 修改本组件 <style scoped> 块的样式后, 必须硬刷新浏览器 (Ctrl+Shift+R) 才能看到效果.
+ * 原因:
+ *   - 全局样式 _sidebar-layout.scss 中的规则用 :where() 包裹, 特异性 = 0,
+ *     写在 @layer components 内, 优先级低于本组件的 unlayered scoped 规则.
+ *   - Vite HMR 在 scoped 块更新时只重渲染组件 DOM, 但 :where() 全局规则的
+ *     旧版本可能被浏览器缓存/拼接在 CSSOM 中, 偶发出现"代码改了样式没变"的情况.
+ *   - 硬刷新会清空 CSSOM 重新加载所有 stylesheet, 一次性解决.
+ *
+ * 如果硬刷新后样式仍不生效, 检查顺序:
+ *   1. DevTools → Elements → Computed → 确认选择器命中的具体规则
+ *   2. DevTools → Network → 确认 sidebar CSS 资源 fresh load (200, 非 304)
+ *   3. DevTools → Console → 确认无 CSS 解析错误
+ *
+ * 守门: e2e/sidebar-header-alignment.spec.ts (4 用例 × 2 viewport = 8 测试)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 .app-sidebar {
   height: 100vh;
 }

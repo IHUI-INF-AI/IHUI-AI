@@ -563,61 +563,135 @@
 }
 
 // ------------------------------------------------------------
-// 通知暗色模式
+// 通知暗色模式 (2026-07-04 重构: 4 类嵌套进外层 html.dark 块, 与 _element-plus-overrides.scss 的 el-tag 风格一致)
+// 关键: checkIsInDarkContext 守门脚本要求 selector 出现在 body 中, 否则无法验证
 // ------------------------------------------------------------
 :where(html.dark) :where(.el-notification) {
   background-color: var(--el-bg-color-overlay, #1a1a1a);
   border-color: var(--color-neutral-4d, #4c4d4f);
+
+  &.el-notification--error {
+    background-color: #281414;
+    border-color: rgb(245 101 101 / 0.3);
+
+    :where(.el-notification__icon) {
+      color: #ff6b6b;
+    }
+
+    :where(.el-notification__title) {
+      color: #ffb8b8;
+    }
+  }
+
+  &.el-notification--warning {
+    background-color: #282414;
+    border-color: rgb(237 180 67 / 0.3);
+
+    :where(.el-notification__icon) {
+      color: #ffd93d;
+    }
+
+    :where(.el-notification__title) {
+      color: #fff4cc;
+    }
+  }
+
+  &.el-notification--success {
+    background-color: #142818;
+    border-color: rgb(74 222 128 / 0.3);
+
+    :where(.el-notification__icon) {
+      color: #4ade80;
+    }
+
+    :where(.el-notification__title) {
+      color: #bbf7d0;
+    }
+  }
+
+  &.el-notification--info {
+    background-color: #141c28;
+    border-color: rgb(96 165 250 / 0.3);
+
+    :where(.el-notification__icon) {
+      color: #93c5fd;
+    }
+
+    :where(.el-notification__title) {
+      color: #bfdbfe;
+    }
+  }
 }
 
-:where(html.dark) :where(.el-notification).el-notification--error {
-  background-color: #281414;
-  border-color: rgb(245 101 101 / 0.3);
+// ============================================================
+// Part 8: ElMessage--primary 暗色兜底 (2026-07-04 立)
+// 防御性兜底: Element Plus 默认 .el-message--primary 走 var(--el-color-primary) 背景,
+// 修复后 dark 下 --el-color-primary = #2563eb, 但 EP 默认文字色可能不永为白
+// (历史版本曾有 var(--el-color-white) 缺失的 bug), 此处显式钉死白字确保 WCAG AA.
+// ============================================================
+:where(.el-message).el-message--primary {
+  background-color: var(--el-color-primary);
+  color: var(--app-button-text-on-primary);
+  border-color: var(--el-color-primary);
 
-  :where(.el-notification__icon) {
-    color: #ff6b6b;
+  :where(.el-message__icon) {
+    color: var(--app-button-text-on-primary);
   }
 
-  :where(.el-notification__title) {
-    color: #ffb8b8;
+  .el-message__content {
+    color: var(--app-button-text-on-primary);
+  }
+
+  :where(.el-message__closeBtn):hover {
+    color: var(--app-button-text-on-primary);
+    background-color: rgb(37 99 235 / 0.2);
   }
 }
 
-:where(html.dark) :where(.el-notification).el-notification--warning {
-  background-color: #282414;
-  border-color: rgb(237 180 67 / 0.3);
-
-  :where(.el-notification__icon) {
-    color: #ffd93d;
-  }
-
-  :where(.el-notification__title) {
-    color: #fff4cc;
-  }
+:where(html.dark) :where(.el-message).el-message--primary {
+  background-color: var(--el-color-primary);
+  color: var(--app-button-text-on-primary);
+  border-color: var(--el-color-primary);
 }
 
-:where(html.dark) :where(.el-notification).el-notification--success {
-  background-color: #142818;
-  border-color: rgb(74 222 128 / 0.3);
+// ============================================
+// 弹窗 (el-message-box) 暗色覆盖 (2026-07-04 立, 全组件暗色反色硬约束)
+// 4 类 + primary (5 类), 配 --app-text-on-* token 永定白字
+// 2026-07-04 重构: 5 类嵌套进外层 :where(.el-message-box) 块, 与 _element-plus-overrides.scss 的 el-tag 风格一致
+// 关键: checkIsInDarkContext 守门脚本要求 selector 出现在 body 中
+// ============================================
+:where(html.dark) :where(.el-message-box) {
+  background-color: var(--el-bg-color-overlay, #1a1a1a);
+  border-color: var(--color-neutral-4d, #4c4d4f);
+  color: var(--el-text-color-primary);
 
-  :where(.el-notification__icon) {
-    color: #4ade80;
+  &.el-message-box--error {
+    background-color: #281414;
+    border-color: rgb(245 101 101 / 0.3);
+    color: #fecaca;
   }
 
-  :where(.el-notification__title) {
+  &.el-message-box--warning {
+    background-color: #282414;
+    border-color: rgb(237 180 67 / 0.3);
+    color: #ffffff;
+  }
+
+  &.el-message-box--success {
+    background-color: #142818;
+    border-color: rgb(74 222 128 / 0.3);
     color: #bbf7d0;
   }
-}
 
-:where(html.dark) :where(.el-notification).el-notification--info {
-  background-color: #141c28;
-  border-color: rgb(96 165 250 / 0.3);
-
-  :where(.el-notification__icon) {
-    color: #93c5fd;
+  &.el-message-box--info {
+    background-color: #141c28;
+    border-color: rgb(96 165 250 / 0.3);
+    color: #d1d5db;
   }
 
-  :where(.el-notification__title) {
-    color: #bfdbfe;
+  &.el-message-box--primary {
+    background-color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    color: var(--app-button-text-on-primary);
   }
 }

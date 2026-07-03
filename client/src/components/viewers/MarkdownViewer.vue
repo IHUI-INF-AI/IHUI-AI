@@ -297,7 +297,7 @@ watch(() => props.src, loadContent, { immediate: true })
 
 .action-btn.active {
   background: var(--color-brand-blue-2);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
 }
 
 .download-btn {
@@ -389,7 +389,7 @@ watch(() => props.src, loadContent, { immediate: true })
   padding: 10px 24px;
   background: var(--color-brand-blue-2);
   border-radius: var(--global-border-radius);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   text-decoration: none;
   font-size: 14px;
 }

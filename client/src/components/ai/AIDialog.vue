@@ -2206,7 +2206,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         --model-tag-border-color-dark: var(--color-white-30);
         
         background: var(--el-color-primary);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
 
         // 暗色主题：使用白色描边形成强对比 - 使用 CSS 变量
         border: var(--aid-border-width) solid var(--model-tag-border-color-dark);
@@ -2221,7 +2221,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
           --agent-tag-border-dark: var(--color-white-30);
           
           background: var(--agent-tag-bg-dark);
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
           border: var(--aid-border-width) solid var(--agent-tag-border-dark);
           padding: var(--aid-tag-padding);
           font-size: var(--aid-tag-font-size);

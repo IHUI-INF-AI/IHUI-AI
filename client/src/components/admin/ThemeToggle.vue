@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <el-button
     class="admin-theme-toggle"
     :icon="isDark ? Sunny : Moon"

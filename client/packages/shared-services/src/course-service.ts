@@ -1,4 +1,4 @@
-﻿import { API_ENDPOINTS } from '@aizhs/shared-api'
+import { API_ENDPOINTS } from '@aizhs/shared-api'
 import type { ApiResponse, CourseItem, CourseListParams, CourseVideoItem, PageResult } from '@aizhs/shared-types'
 import type { SharedRequestAdapter } from './request-adapter'
 import { normalizeApiResponse } from './request-adapter'

@@ -113,14 +113,14 @@
   border-radius: var(--global-border-radius-sm, 4px);
   font-size: 12px;
   background: var(--el-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   border: none;
   cursor: pointer;
   transition: all 0.3s;
   
   &:hover {
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
 
     .send-btn-text {
       transition: color 0.3s ease;
@@ -159,7 +159,7 @@
   
   &.active {
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
   }
   
   .voice-animation {
@@ -288,7 +288,7 @@
       
       &.confirm-btn {
         background: var(--el-color-primary);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         
         &:hover {
           background: var(--el-color-primary);

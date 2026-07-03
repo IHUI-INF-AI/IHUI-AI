@@ -557,7 +557,7 @@ cleanup.add(() => {
   width: 100%;
   padding: 14px 24px;
   background: var(--el-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   border: none;
   border-radius: var(--global-border-radius);
   font-size: 16px;
@@ -567,7 +567,7 @@ cleanup.add(() => {
 
   &:hover {
     background: var(--el-color-primary-light-3);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     transform: translateY(-2px);
   }
 
@@ -579,16 +579,16 @@ cleanup.add(() => {
   // 深色模式：白底黑字
   html.dark & {
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
 
     &:hover {
       background: var(--el-color-primary-light-3);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
     }
 
     &:active {
       background: var(--el-color-primary-light-5);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
     }
   }
 }

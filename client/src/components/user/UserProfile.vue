@@ -124,7 +124,7 @@ const handleChangeAvatar = () => {
   align-items: center;
   justify-content: center;
   background: var(--primary-color);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   font-size: 32px;
   font-weight: bold;
 }
@@ -142,7 +142,7 @@ const handleChangeAvatar = () => {
 
 .btn-change-avatar:hover {
   background: var(--primary-color);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
 }
 
 .info-section {
@@ -180,7 +180,7 @@ const handleChangeAvatar = () => {
 
 .badge.admin {
   background: var(--danger-color);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
 }
 
 .profile-body {

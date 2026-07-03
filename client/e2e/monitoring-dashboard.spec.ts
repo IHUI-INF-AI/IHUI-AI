@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P9-6 监控数据看板验证
  * - src/config/monitoring-dashboard.ts 存在且导出完整配置
  * - grafana/dashboard.json 是有效的 Grafana 看板配置

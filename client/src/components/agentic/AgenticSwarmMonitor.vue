@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <DesignSystemCard :title="t('aiChat.agenticMonitor.title')" radius="15" padding="lg">
     <div class="agentic-swarm-monitor">
       <!-- Swarm 状态概览 -->

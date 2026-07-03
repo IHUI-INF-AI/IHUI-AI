@@ -153,9 +153,13 @@
               <!-- 空状态 -->
               <div v-if="filteredMessages.length === 0" class="empty-state">
                 <div class="welcome-section">
-                  <!-- 欢迎文本 -->
+                  <!-- 欢迎区域：图标徽章 + 主标题 + 副标题 -->
                   <div class="welcome-text">
-                    <h3 class="welcome-title">{{ t('floatingChat.welcome') }}</h3>
+                    <div class="welcome-badge" aria-hidden="true">
+                      <img :src="welcomeLogoSrc" alt="" class="welcome-badge-img" />
+                    </div>
+                    <h3 class="welcome-title">{{ t('floatingChat.welcomeTitle') }}</h3>
+                    <p class="welcome-subtitle">{{ t('floatingChat.welcomeSubtitle') }}</p>
                   </div>
 
                   <!-- 快速问题建议 -->
@@ -651,14 +655,9 @@
                   </div>
                 </div>
 
-                <!-- trae-work Row 1: 顶层能力选择下拉（+ 选择） -->
+                <!-- trae-work Row 1: 顶层能力选择下拉（+ 选择）— inline 面板 (2026-07-03 重构: 不再 teleport 到 body) -->
                 <div class="trae-work-actions-top">
-                  <el-dropdown trigger="click" v-model:visible="showCapabilityDropdown"
-                    class="ai-capability-selector"
-                    placement="top" :hide-on-click="false"
-                    :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
-                    popper-class="ai-chat-popper ai-capability-popper"
-                    @visible-change="onCapabilityDropdownVisibleChange">
+                  <div class="ai-capability-selector" ref="capabilitySelectorRef">
                     <!-- Trigger pill: + 选择 -->
                     <el-button link size="small" class="tw-selector-pill"
                       :aria-label="t('aiChatInput.select')"
@@ -666,18 +665,21 @@
                       :aria-expanded="showCapabilityDropdown"
                       :title="t('aiChatInput.select')"
                       role="button"
-                      tabindex="0">
+                      tabindex="0"
+                      @click="toggleCapabilityDropdown">
                       <el-icon class="tw-selector-icon-plus"><Plus /></el-icon>
                       <span class="tw-selector-label">{{ t('aiChatInput.select') }}</span>
                       <el-icon class="tw-selector-caret" :class="{ 'is-open': showCapabilityDropdown }"><ArrowDown /></el-icon>
                     </el-button>
-                    <template #dropdown>
-                      <div class="ai-capability-popper-inner">
+
+                    <!-- Inline 能力面板: 绝对定位在 trigger 下方, 宽度填满 .trae-work-actions-top (即输入框宽度) -->
+                    <Transition name="capability-panel">
+                      <div v-if="showCapabilityDropdown" class="ai-capability-popper ai-capability-inline-panel">
                         <span class="sr-only" aria-live="polite">
                           {{ capabilityDropdownView === 'prompts' ? t('floatingChat.promptTemplates') : t('floatingChat.aiCapability') }}
                         </span>
                         <Transition name="capability-view" mode="out-in">
-                          <!-- Main view: 5 capability cards + tools section -->
+                          <!-- Main view: 5 capability cards + tools -->
                           <div v-if="capabilityDropdownView === 'main'" key="main"
                             class="openclaw-quick-menu ai-capability-quick-menu capability-view-pane"
                             role="menu">
@@ -777,8 +779,8 @@
                           </div>
                         </Transition>
                       </div>
-                    </template>
-                  </el-dropdown>
+                    </Transition>
+                  </div>
                 </div>
 
                 <!-- 正常输入模式（包含语音小卡片） -->
@@ -1412,6 +1414,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, type Component, type ComponentPublicInstance } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 import { useCleanup } from '@/composables/useCleanup'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -1798,6 +1801,32 @@ const shouldRenderHistoryPanel = ref(false)
 watch(showHistoryPanel, (val) => { if (val) shouldRenderHistoryPanel.value = true })
 const showAICapabilityPanel = ref(false) // AI能力选择面板
 const showCapabilityDropdown = ref(false) // 输入区 AI 能力下拉（网格卡片）显隐
+// inline 面板容器 ref (用于 onClickOutside 点击外部关闭, 2026-07-03 重构: 不再使用 el-dropdown)
+const capabilitySelectorRef = ref<HTMLElement | null>(null)
+
+// 切换能力下拉显隐 (替代 el-dropdown 的 trigger="click")
+// 打开时自动聚焦面板内首个可聚焦元素 (a11y + Esc 键可靠处理)
+const toggleCapabilityDropdown = () => {
+  showCapabilityDropdown.value = !showCapabilityDropdown.value
+  if (showCapabilityDropdown.value) {
+    nextTick(() => {
+      const panel = capabilitySelectorRef.value?.querySelector('.ai-capability-inline-panel')
+      if (panel) {
+        const focusable = panel.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        )
+        focusable?.focus()
+      }
+    })
+  }
+}
+
+// 点击外部关闭 inline 面板 (替代 el-dropdown 的内置 click-outside)
+onClickOutside(capabilitySelectorRef, () => {
+  if (showCapabilityDropdown.value) {
+    closeCapabilityDropdownAndReset()
+  }
+})
 
 // trae-work: 能力下拉子视图状态机（主视图 ↔ 提示词模板子视图）
 type CapabilityDropdownView = 'main' | 'prompts'
@@ -1900,6 +1929,9 @@ const effectiveQuickFaq = computed(() => {
   return isCustomServiceTheme.value ? DEFAULT_CUSTOMER_SERVICE_FAQ : []
 })
 const effectiveShowTickets = computed(() => props.showTicketsEntry ?? floatingShowTickets.value)
+// 欢迎徽章 logo：使用项目品牌图标（与 favicon 一致），不使用 AILogoIcon 等占位 SVG
+const assetBaseUrl = import.meta.env.BASE_URL || '/'
+const welcomeLogoSrc = `${assetBaseUrl}images/logo.png`
 const csConnectionStatus = ref<'connected' | 'connecting' | 'danger'>('connected')
 const csConnectionStatusText = computed(() =>
   csConnectionStatus.value === 'connected' ? 'SECURE_UPLINK' : 'RECONNECTING...'
@@ -5675,23 +5707,6 @@ const getAssistantMessageAvatarUrl = (message: ChatMessage): string | null => {
   return assistantAvatarUrl.value
 }
 
-// 能力下拉显隐变化：同步 ref（el-dropdown trigger 模式下内部状态不会自动同步回 v-model）
-// 打开时自动把焦点移入 popper，确保 Esc 键能正常关闭下拉
-const onCapabilityDropdownVisibleChange = (val: boolean) => {
-  showCapabilityDropdown.value = val
-  if (val) {
-    nextTick(() => {
-      const popper = document.querySelector('.el-popper.ai-capability-popper')
-      if (popper) {
-        const focusable = popper.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        )
-        focusable?.focus()
-      }
-    })
-  }
-}
-
 // 能力网格卡片点击：执行命令并关闭下拉（与工具箱一致交互）
 const onCapabilityCardClick = (command: string) => {
   handleAICapabilityCommand(command)
@@ -8505,7 +8520,7 @@ cleanup.add(() => {
     height: 20px;
     padding: 0 6px;
     background: var(--el-color-danger);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border-radius: var(--global-border-radius);
     font-size: 12px;
     display: flex;
@@ -9520,7 +9535,7 @@ cleanup.add(() => {
     width: 52px;
     height: 52px;
     border-radius: var(--global-border-radius);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     flex-shrink: 0;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -9646,12 +9661,15 @@ cleanup.add(() => {
 
 .empty-state {
   display: flex;
-  align-items: flex-start; // 改为顶部对齐，减少顶部空白
-  justify-content: center;
-  min-height: auto; // 取消最小高度限制
-  padding: 16px 24px; // 大幅减少顶部内边距
+  flex-direction: column; // 列方向，配合 justify-content 实现安全垂直居中
+  align-items: center; // 水平居中（交叉轴）
+  justify-content: center; // 垂直居中（主轴），内容超出时顶部不会被裁切
+  flex: 1; // 占满 messages-container 可用高度
+  min-height: 0; // 允许 flex 收缩，配合父容器滚动
+  padding: 24px;
   width: 100%;
   box-sizing: border-box;
+  overflow-y: auto; // 内容超出时允许滚动，避免被裁切
   // 启用容器查询，让子元素可以根据容器宽度响应
   container-type: inline-size;
   container-name: empty-state;
@@ -9665,15 +9683,50 @@ cleanup.add(() => {
   animation: fadeInUp 0.6s ease-out;
 
   .welcome-text {
-    margin-bottom: 16px; // 减少欢迎文字与快速开始的间距
+    margin-bottom: 24px; // 与下方快速开始的间距
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+
+    // 图标徽章：使用项目品牌 logo 图，容器透明且与图片同尺寸
+    .welcome-badge {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+      line-height: 0; // 消除 img 内联基线导致的 4px 偏移
+
+      .welcome-badge-icon,
+      .welcome-badge-img {
+        flex-shrink: 0;
+        display: block;
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        border-radius: 8px; // 跟随项目统一 8px token（项目品牌 logo 是圆角方图）
+      }
+    }
 
     .welcome-title {
-      font-size: 18px; // 稍微减小字号
+      font-size: 20px;
       font-weight: 600;
       color: var(--el-text-color-primary);
       line-height: 1.4;
       margin: 0;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
+    }
+
+    .welcome-subtitle {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--el-text-color-secondary);
+      line-height: 1.6;
+      margin: 0;
+      max-width: 460px;
+      letter-spacing: 0.01em;
     }
   }
 }
@@ -10547,8 +10600,14 @@ cleanup.add(() => {
   // 暗色模式下的欢迎区域优化
   .welcome-section {
     .welcome-text {
+      // .welcome-badge 无背景色，浅/暗模式一致，无需 dark 覆盖
+
       .welcome-title {
         color: var(--el-text-color-primary);
+      }
+
+      .welcome-subtitle {
+        color: var(--el-text-color-secondary);
       }
     }
   }
@@ -10782,35 +10841,35 @@ cleanup.add(() => {
 }
 
 // ========== AI 能力下拉 - 紧凑垂直列表 (覆盖 .openclaw-quick-menu 共享网格) ==========
-// 设计意图 (2026-07-03 重构): 高级简约, 单列纵向, 图标+标签+描述同行, 紧凑收口
-// 旧 4 列卡片网格"傻大傻大", 改为单列菜单行, 更时尚
+// 设计意图 (2026-07-03 v3 重构): 高级简约时尚, 单列纵向, 固定宽度 inline 面板
+// hover 左 accent 竖线 + 双层阴影, 去掉一切多余装饰
 .ai-capability-quick-menu {
-  // 头部: 去掉粗边框 + accent bar, 改为小号 muted 标签
+  // 头部: 极简小号 muted 标签 (去掉 uppercase, 中文无意义)
   .menu-header {
-    padding: 0 4px 6px;
+    padding: 4px 8px 6px;
     border-bottom: none;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 
     .menu-title {
       font-size: 11px;
       font-weight: 500;
       color: var(--el-text-color-secondary);
-      letter-spacing: 0.06em;
+      letter-spacing: 0.02em;
 
       &::before {
-        display: none; // 去掉 4px 粗 accent bar, 更简约
+        display: none; // 去掉 accent bar
       }
     }
   }
 
-  // 单列纵向列表 (覆盖 4 列网格)
+  // 单列纵向列表
   .menu-grid {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 1px; // 极小间隙, 防止 hover 背景连成片
   }
 
-  // 列表行: 图标左, 标签+描述右 (CSS grid 双行, 无需模板包裹)
+  // 列表行: 图标左, 标签+描述右 (CSS grid 双行)
   .menu-item {
     display: grid;
     grid-template-columns: 28px 1fr;
@@ -10818,21 +10877,22 @@ cleanup.add(() => {
     column-gap: 10px;
     row-gap: 0;
     align-items: center;
-    padding: 6px 8px;
-    border-radius: var(--global-border-radius);
-    transition: background-color 0.15s ease;
+    padding: 7px 8px;
+    border-radius: 6px; // 略小于容器圆角, 形成内嵌感
+    position: relative; // hover 竖线定位上下文
+    transition: background-color 0.12s ease;
 
     .item-icon {
       grid-row: 1 / 3;
       grid-column: 1;
       width: 28px;
       height: 28px;
-      border-radius: var(--global-border-radius);
-      box-shadow: none; // 扁平化, 更高级
+      border-radius: 6px;
+      box-shadow: none;
 
       svg {
-        width: 15px;
-        height: 15px;
+        width: 14px;
+        height: 14px;
       }
     }
 
@@ -10841,9 +10901,11 @@ cleanup.add(() => {
       grid-column: 2;
       align-self: end;
       font-size: 13px;
+      font-weight: 500;
       text-align: left;
       line-height: 1.3;
       margin-bottom: 1px;
+      color: var(--el-text-color-primary);
     }
 
     .item-desc {
@@ -10852,21 +10914,40 @@ cleanup.add(() => {
       align-self: start;
       font-size: 11px;
       text-align: left;
-      line-height: 1.2;
-      opacity: 0.65;
-      transition: opacity 0.15s ease;
+      line-height: 1.25;
+      color: var(--el-text-color-secondary);
+      opacity: 0.75;
+      transition: opacity 0.12s ease;
+    }
+
+    // hover: 左侧 accent 竖线 + 轻背景 (高级感, 替代粗俗的背景填充)
+    &::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%) scaleY(0);
+      width: 2px;
+      height: 60%;
+      background: var(--el-color-primary);
+      border-radius: 1px;
+      transition: transform 0.15s ease;
     }
 
     &:hover {
       background: var(--el-fill-color-light);
-      transform: none; // 不缩放, 更稳重
+      transform: none;
 
       .item-icon {
         box-shadow: none;
       }
 
       .item-desc {
-        opacity: 0.9;
+        opacity: 1;
+      }
+
+      &::before {
+        transform: translateY(-50%) scaleY(1);
       }
     }
 
@@ -10878,6 +10959,10 @@ cleanup.add(() => {
     &.active {
       background: var(--el-color-primary-light-9);
 
+      &::before {
+        transform: translateY(-50%) scaleY(1);
+      }
+
       .item-icon {
         transform: none;
         box-shadow: none;
@@ -10885,14 +10970,15 @@ cleanup.add(() => {
 
       .item-label {
         color: var(--el-color-primary);
-        font-weight: 500;
+        font-weight: 600;
       }
     }
   }
 }
 
 // 暗色模式 active 态: 用 primary 半透明, 避免亮色 light-9 在深底上发灰
-:where(html.dark) .ai-capability-quick-menu .menu-item.active {
+// 注意: 用 html.dark (非 :where, 避免零特异性被 :root 击败, 见 project_memory 2026-07-01 教训)
+html.dark .ai-capability-quick-menu .menu-item.active {
   background: color-mix(in srgb, var(--el-color-primary) 18%, transparent);
 }
 
@@ -11263,56 +11349,69 @@ button.mini-delete-btn {
   }
 }
 
-/* ========== AI 能力选择器 - 与 OpenClaw 智能工具箱样式统一 ========== */
-:where(body) .el-popper.ai-chat-popper.ai-capability-popper {
-  padding: 10px;
-  margin-top: 8px;
-  max-width: 280px;
-  min-width: 240px;
-  max-height: 70vh;
+/* ========== AI 能力选择器 - inline 面板 (2026-07-03 重构: 不再 teleport 到 body) ========== */
+/* 设计意图: 面板在 AI 对话框组件内显示, 绝对定位在 trigger 下方, 固定宽度避免占满全屏 */
+/* 替代旧 el-dropdown popper (全屏 teleport), 更轻量、更克制 */
+.ai-capability-selector {
+  position: relative; // inline 面板定位上下文
+  display: inline-flex; // 仅包裹 trigger pill, 不撑满父容器
+}
+
+.ai-capability-inline-panel {
+  position: absolute;
+  top: calc(100% + 6px); // trigger 下方 6px 间距
+  left: 0; // 对齐 trigger 左缘
+  width: 320px; // 固定宽度, 不占满输入框, 不占满全屏 (用户要求"只在 AI 对话框组件内显示")
+  max-width: calc(100vw - 16px); // 防止超出视口
+  z-index: var(--z-popover, 100);
+  max-height: min(420px, 60vh); // 不超过视口 60%, 不超过 420px
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px; // 收紧外边距, 让内容更聚拢
   background: var(--el-bg-color);
-  border: var(--unified-border);
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
-  overflow: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  // 双层阴影: 第一层近距离柔和, 第二层远距离扩散, 更精致
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.10);
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--el-border-color) transparent;
 
-  &::before {
-    display: none;
+  &::-webkit-scrollbar {
+    width: 4px;
   }
-
-  .el-popper__arrow {
-    display: none;
+  &::-webkit-scrollbar-thumb {
+    background: var(--el-border-color);
+    border-radius: 2px;
   }
-
-  .el-dropdown-menu {
-    padding: 0;
-    border: none;
+  &::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  :where(html.dark) & {
+  // 暗色模式: 用 html.dark (非 :where, 避免零特异性被击败, 见 project_memory 2026-07-01 教训)
+  html.dark & {
     background: var(--el-bg-color);
     border-color: var(--el-border-color);
-    box-shadow: var(--global-box-shadow);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.20),
+      0 8px 24px rgba(0, 0, 0, 0.36);
   }
 }
 
-/* AI 能力下拉复用 .openclaw-quick-menu 网格卡片样式，仅补丁图标为白色 */
-:where(body) :where(.el-popper.ai-chat-popper.ai-capability-popper) .openclaw-quick-menu {
-  .item-icon .el-icon,
-  .item-icon .ai-star-icon {
-    color: var(--el-color-white);
-  }
-
-  .item-icon .ai-star-icon svg path {
-    fill: var(--el-color-white);
-  }
-
-  .item-icon .el-icon svg {
-    color: var(--el-color-white);
-  }
+// 面板入场/退场动画 (轻量淡入 + 微上滑)
+.capability-panel-enter-active,
+.capability-panel-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
+.capability-panel-enter-from,
+.capability-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* AI 能力面板图标颜色继承 .openclaw-quick-menu 基础彩色背景 + 白色 svg (无需补丁) */
 
 // ========================================
 // AI能力选择面板样式 (Teleport 组件全局样式)
@@ -11737,7 +11836,7 @@ button.mini-delete-btn {
 /* 暗色模式适配 */
 :where(html.dark) .action-btn.has-custom-tooltip::after {
   background: var(--el-text-color-primary);
-  color: var(--el-bg-color-page);
+  color: #1a1a1a;
 }
 
 :where(html.dark) .action-btn.has-custom-tooltip::before {
@@ -11751,7 +11850,7 @@ button.mini-delete-btn {
 :where(html.dark) .el-popper.is-light.ai-chat-action-tooltip {
   background: var(--el-text-color-primary);
   border: var(--unified-border);
-  color: var(--el-bg-color-page);
+  color: #1a1a1a;
 
   .el-popper__arrow::before {
     background: var(--el-text-color-primary);

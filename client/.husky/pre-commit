@@ -38,6 +38,24 @@ echo "▶ Checking pill/capsule border-radius on staged files..."
 # 阈值 0：暂存文件中不允许有任何新的胶囊形圆角
 NO_PILL_RADIUS_THRESHOLD=0 node scripts/check-no-pill-radius.mjs
 
+echo "▶ Checking primary button dark contrast on staged files..."
+# primary 按钮暗色对比度守门 (2026-07-04 立, 用户规则: 禁止 --el-color-primary 撞色, 禁止 primary 按钮用 var(--el-bg-color-page) 作 color)
+# 阈值 0：暂存文件中不允许有任何 primary 按钮对比度回归
+PRIMARY_BUTTON_CONTRAST_THRESHOLD=0 node scripts/check-primary-button-contrast.mjs
+
+echo "▶ Checking button text contrast on staged files..."
+# 按钮/标签/消息暗色文字反色守门 (2026-07-04 立, 用户规则: 浅色背景下深色文字自动适配)
+# 检测 4 类彩色按钮 (success/warning/danger/info) + 5 类 el-tag + 4 类 el-alert 暗色模式必须用 --app-text-on-* token
+# 阈值 0：暂存文件中不允许有任何文字反色回归
+BUTTON_TEXT_CONTRAST_THRESHOLD=0 node scripts/check-button-text-contrast.mjs
+
+echo "▶ Checking systemic color contrast on staged files..."
+# 全组件暗色反色系统性守门 (2026-07-04 立, 用户规则: 从根本彻底解决)
+# 扩展自 check-button-text-contrast.mjs, 覆盖: 5 类按钮 + 5 类 tag + 4 类 alert + 5 类 link +
+#                                              4 类 notification + 5 类 message-box + tabs/checkbox/radio/switch
+# 阈值 0：暂存文件中不允许有任何反色回归
+COLOR_CONTRAST_THRESHOLD=0 node scripts/check-color-contrast-systemic.mjs --staged
+
 echo "▶ P22: 工作区卫生检查（禁止暂存运行时产物）..."
 # 检查暂存文件中是否包含禁止提交的运行时产物
 FORBIDDEN=$(git diff --cached --name-only | grep -E '(^|/)(pw-output|screenshots|test-results|storybook-static|audit|\.ruff_cache)/|\.env\.backup$|\.env\.bak$|eslint-report\.json$|e2e_failed_list\.txt$|e2e_full_log\.txt$|eslint-unused-vars\.txt$|test-output\.json$|temp_style\.scss$|dev-server\.log$|pytest_full\.txt$|pytest_result\.txt$|business-metrics\.txt$' || true)
@@ -53,3 +71,9 @@ echo "▶ Checking AGENTS.md sections integrity on staged files..."
 # AGENTS.md 章节完整性守门 (2026-07-02 立)
 # 防止 stash 误覆盖/章节被删/顺序错乱, 仅当 AGENTS.md 在 staged 时才检查
 node scripts/check-agents-md-sections.mjs --staged
+
+echo "▶ Checking FreeLLMAPI integration (env, vite proxy, backend routes)..."
+# FreeLLMAPI 集成守门 (2026-07-03 立)
+# 检查项: .env FREELLMAPI_API_KEY, vite proxy /ihui-ai-api/llm 规则, 后端 llm_ws_router 注册
+# 防止集成链路静默断裂 (env 缺 key / proxy 错位 / 路由丢失)
+node scripts/check-freellmapi-integration.mjs

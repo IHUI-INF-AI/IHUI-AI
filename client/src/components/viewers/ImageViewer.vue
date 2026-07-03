@@ -246,7 +246,7 @@ onMounted(() => {
   background: var(--color-white-10);
   border-radius: var(--global-border-radius);
   cursor: pointer;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-size: 16px;
   transition: all 0.2s;
 }
@@ -267,7 +267,7 @@ onMounted(() => {
 .scale-display {
   min-width: 60px;
   text-align: center;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-size: 14px;
 }
 
@@ -281,7 +281,7 @@ onMounted(() => {
   justify-content: center;
   gap: 16px;
   background: var(--color-black-90);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
 }
 
 .loading-spinner {
@@ -305,7 +305,7 @@ onMounted(() => {
   padding: 10px 24px;
   background: var(--color-brand-blue-2);
   border-radius: var(--global-border-radius);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   text-decoration: none;
   font-size: 14px;
   transition: background 0.2s;

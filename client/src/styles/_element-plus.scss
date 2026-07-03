@@ -191,6 +191,36 @@
 }
 
 // ============================================
+// 暗色模式覆盖 (2026-07-04 立, 全组件暗色反色硬约束)
+// el-tabs / el-checkbox / el-radio / el-switch 在暗色下需补强 CTA 边界
+// ============================================
+html.dark {
+  // 1. el-tabs active 文字 + active-bar 下划线: 暗色下 --el-color-primary = #2563eb CTA 蓝,
+  //    on #0d0d0d 背景 = 5.17:1 ✓, 主动覆盖以排除 EP 默认样式潜在污染
+  .el-tabs__item.is-active {
+    color: var(--el-color-primary);
+  }
+
+  .el-tabs__active-bar {
+    background-color: var(--el-color-primary);
+  }
+
+  // 2. el-checkbox / el-radio / el-switch checked 背景 = --el-color-primary (#2563eb),
+  //    配 #ffffff 勾选符号 5.17:1 ✓. 暗色下需要 inset 白环补强 #2563eb on #0d0d0d 视觉边界
+  .el-checkbox__input.is-checked .el-checkbox__inner,
+  .el-radio__input.is-checked .el-radio__inner,
+  .el-switch.is-checked .el-switch__core {
+    background-color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+  }
+
+  .el-switch.is-checked .el-switch__core {
+    border: var(--el-border-width-primary) solid var(--el-color-primary);
+  }
+}
+
+// ============================================
 // Tag 标签
 // ============================================
 .el-tag {
