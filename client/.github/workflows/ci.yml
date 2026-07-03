@@ -121,7 +121,7 @@ jobs:
         continue-on-error: true
 
   style-audit:
-    name: Style Audit (no-important / no-hardcoded-colors / no-high-specificity)
+    name: Style Audit (no-important / no-hardcoded-colors / no-high-specificity / no-pill-radius)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -150,6 +150,12 @@ jobs:
       - name: Check no !important in styles
         # 用户规则：禁止使用 !important，保证后续样式可控
         run: npm run check:no-important
+
+      - name: Check no pill/capsule border-radius
+        # 用户规则 (2026-07-03 立): 禁止彻底圆角/胶囊形 (border-radius: 14px+ / 999px / 9999px)
+        # 例外白名单: 50% (头像/纯装饰圆点)
+        # 全量扫描 src + miniapp/src, 阈值 0: 项目代码中不允许有任何胶囊形圆角
+        run: NO_PILL_RADIUS_THRESHOLD=0 node scripts/check-no-pill-radius.mjs --all
 
       - name: Check high specificity selectors
         # 用户规则：禁止使用高特异性选择器（4 类以上嵌套），项目代码中不得存在

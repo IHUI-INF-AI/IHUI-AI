@@ -134,7 +134,7 @@ function getCategoryTagType(category: string): 'primary' | 'success' | 'warning'
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: var(--global-border-radius);
   background: var(--color-white-10);
   border: 1px solid var(--color-white-30);
 }
@@ -175,7 +175,7 @@ function getCategoryTagType(category: string): 'primary' | 'success' | 'warning'
   min-width: 22px;
   height: 22px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--global-border-radius);
   background: var(--color-white-30);
   font-size: 12px;
   font-weight: 600;

@@ -230,7 +230,9 @@ $color-dark-text-primary: #e5eaf3;
   --app-button-height-2xl: 44px;
 
   --app-button-radius: var(--global-border-radius);     /* 8px, 全站唯一 */
-  --app-button-radius-pill: 14px;                        /* pill 形, 仅 tw-selector-pill */
+  /* 注: --app-button-radius-pill: 14px 已于 2026-07-03 移除
+   * 原因: 违反"禁止彻底圆角/胶囊形"硬约束 (见 project_memory.md)
+   * .tw-selector-pill 已统一使用 --app-button-radius (8px) */
 
   /* 背景色 4 种语义 */
   --app-button-bg-primary: var(--el-color-primary);

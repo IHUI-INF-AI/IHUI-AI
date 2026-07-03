@@ -77,6 +77,11 @@
  $border-radius-base: 12rpx;
  $border-radius-large: 16rpx;
  $border-radius-circle: 50%;
+ /* 全局统一圆角 (2026-07-03 立, 与 client/src 同步硬约束)
+  * 禁止使用 border-radius: 14px+ / 999px / 9999px (胶囊形/彻底圆角)
+  * 例外白名单: 50% (头像/纯装饰圆点)
+  * 守门: scripts/check-no-pill-radius.mjs --all (扫描 miniapp/src) */
+ $global-border-radius: 8px;
  
  /* 水平间距 */
  $spacing-h-mini: 8rpx;

@@ -68,61 +68,37 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
 
   /**
    * 通过实际 UI 点击 LanguageSwitcher 切换语言 (优先)
-   * 如果 UI 不可用 (e.g. 登录弹窗遮住 Header), fallback 到 localStorage + reload.
+   * 如果 UI 不可用 (e.g. 登录弹窗遮住 Header), fallback 到 localStorage + goto /login.
+   *
+   * 设计: 2026-07-03 简化, 优先用 localStorage + goto 路径
+   *   - UI 点击路径不可控: dialog 覆盖 Header 后点击可能被拦截, 点击成功也无法保证 reactive 更新稳定
+   *   - goto /login + 同步 language key 是确定性的路径:
+   *     1) 清空所有 i18n 相关的 localStorage key (language / i18n-locale / pinia-language)
+   *     2) 写入目标 locale 到 'language' key
+   *     3) page.goto(BASE + '/login') 触发路由守卫
+   *     4) 守卫重定向到 / 并弹窗, 弹窗的 i18n 用新 locale
+   *   - 2026-07-03 修复: 不能写 pinia-language, Pinia persist 插件的格式会把
+   *     我们写的值当 state 嵌套, 导致 currentLanguage 变成嵌套对象. 只写 'language' 让
+   *     languageStore.initLanguage 自然读 STORAGE_KEYS.LANGUAGE 即可.
    *
    * @returns true 表示切换成功
    */
   async function switchLanguage(page: import('@playwright/test').Page, targetLocale: string): Promise<boolean> {
-    // 1. 尝试找语言切换器 (Header 或 Sidebar 中)
-    let switcher = null
-    for (const sel of LANG_SWITCHER_SELECTORS) {
-      const el = page.locator(sel).first()
-      if (await el.isVisible({ timeout: 1_000 }).catch(() => false)) {
-        switcher = el
-        break
-      }
-    }
-
-    if (!switcher) {
-      // fallback: localStorage + reload
-      await page.evaluate((loc: string) => {
-        try {
-          window.localStorage.setItem('language', loc)
-          window.localStorage.setItem('i18n-locale', JSON.stringify({ value: loc }))
-        } catch { /* ignore */ }
-      }, targetLocale)
-      await page.reload({ waitUntil: 'domcontentloaded' })
-      await waitForLoginDialog(page)
-      return true
-    }
-
-    // 2. 点击触发器展开下拉面板
-    await switcher.click({ timeout: 3_000 }).catch(() => {})
-    // 等待下拉面板出现 (Teleport to body, role="menu")
-    const menu = page.locator('.language-dropdown-menu, [role="menu"]').first()
-    await menu.waitFor({ state: 'visible', timeout: 2_000 }).catch(() => {})
-
-    // 3. 找到目标语言选项 (按 native name 匹配 .language-option)
-    const targetName = NATIVE_NAMES[targetLocale] || targetLocale
-    // LanguageSwitcher.vue 的选项: a.language-option[role="menuitem"] > .language-name
-    const option = page.locator('.language-option').filter({ hasText: targetName }).first()
-
-    if (await option.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await option.click({ timeout: 3_000 })
-      // 等 i18n reactive 更新 + 下拉关闭
-      await page.waitForTimeout(500)
-      return true
-    }
-
-    // 4. fallback: 关闭下拉 + localStorage + reload
-    await page.keyboard.press('Escape').catch(() => {})
+    // 2026-07-03: 统一走 fallback 路径 (清空 i18n 持久化 key + 只设 'language' + goto /login)
     await page.evaluate((loc: string) => {
       try {
+        // 关键: 必须把 pinia-language 清空, 否则上一次保存的旧 locale 会盖掉新 locale
+        // 不能写 pinia-language (会触发嵌套 bug)
+        const i18nKeys = ['language', 'i18n-locale', 'pinia-language', 'el-locale', 'app-locale', 'preferred-locale', 'i18n_locale', 'locale']
+        for (const k of i18nKeys) {
+          window.localStorage.removeItem(k)
+        }
+        // 只设 'language' (STORAGE_KEYS.LANGUAGE), languageStore.initLanguage 会读到
         window.localStorage.setItem('language', loc)
-        window.localStorage.setItem('i18n-locale', JSON.stringify({ value: loc }))
       } catch { /* ignore */ }
     }, targetLocale)
-    await page.reload({ waitUntil: 'domcontentloaded' })
+    // 用 goto 强制走路由守卫, 而不是 reload (reload 留在 / 不会触发弹窗)
+    await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
     await waitForLoginDialog(page)
     return true
   }
@@ -341,14 +317,22 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
 
     // 快速切换 4 次
+    // 注意: 首次 goto /login 后, 路由守卫 (router/index.ts:246) 已把 URL 改写到 /
+    //       此时 page.reload 不会触发"未登录访问 /login 弹窗"的逻辑 (因为 reload 的不是 /login)
+    //       必须用 page.goto(BASE + '/login') 强制走一次路由守卫, 弹窗才会打开
+    //       同时必须清空 pinia-language, 不能写 (写会触发 persist 嵌套 bug)
     for (const locale of ['en', 'zh-CN', 'en', 'zh-CN'] as const) {
       await page.evaluate((loc: string) => {
         try {
+          const i18nKeys = ['language', 'i18n-locale', 'pinia-language', 'el-locale', 'app-locale', 'preferred-locale', 'i18n_locale', 'locale']
+          for (const k of i18nKeys) {
+            window.localStorage.removeItem(k)
+          }
           window.localStorage.setItem('language', loc)
-          window.localStorage.setItem('i18n-locale', JSON.stringify({ value: loc }))
         } catch { /* ignore */ }
       }, locale)
-      await page.reload({ waitUntil: 'domcontentloaded' })
+      // 用 goto 强制走路由守卫, 而不是 reload (reload 留在 / 不会触发弹窗)
+      await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
       await waitForLoginDialog(page)
     }
 

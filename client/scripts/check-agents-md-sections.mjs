@@ -50,24 +50,38 @@ if (onlyStaged) {
   }
 }
 
-// 14 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
+// 16 个 H2 章节的精确标题 + 正文要点 (按 AGENTS.md 中出现的顺序)
 // 与 e2e/agents-md-sections.spec.ts 中 EXPECTED_SECTIONS 保持一致
+//
+// 维护规则 (2026-07-03 改进):
+//   - 新增章节: 在 AGENTS.md 追加正文 + 在本数组追加 { title, mustContain }
+//   - keyword 从 title 自动派生 (deriveKeyword), 不再手动维护
+//   - mustContain 是章节正文必须含的关键标识 (每个章节不同, 必须手动写)
 const EXPECTED_SECTIONS = [
-  '## 目标驱动模式执行规范（/goal）',
-  '## 开发服务器启动约定（2026-07-03 立）',
-  '## 主题色改动硬约束（2026-07-02 立）',
-  '## 纯白/纯黑边框改动硬约束（2026-07-02 立）',
-  '## AI 面板 embedded/floating 模式样式分离约束（2026-07-02 立）',
-  '## 多 commit 协作模式下的 hunks 边界规范（2026-07-02 立）',
-  '## 端口配置统一守门（2026-07-02 立）',
-  '## 行尾格式守门（2026-07-02 立）',
-  '## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）',
-  '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）',
-  '## 文案 / i18n 联动改动硬约束（2026-07-03 立）',
-  '## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）',
-  '## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）',
-  '## Vue scoped + @use partial 规范（2026-07-03 立）',
+  { title: '## 目标驱动模式执行规范（/goal）', mustContain: 'STATE.md' },
+  { title: '## 开发服务器启动约定（2026-07-03 立）', mustContain: 'dev-up.ps1' },
+  { title: '## 主题色改动硬约束（2026-07-02 立）', mustContain: 'check:theme-tokens' },
+  { title: '## 纯白/纯黑边框改动硬约束（2026-07-02 立）', mustContain: 'declaration-property-value-disallowed-list' },
+  { title: '## AI 面板 embedded/floating 模式样式分离约束（2026-07-02 立）', mustContain: '.floating-chat-dialog.is-embedded' },
+  { title: '## 多 commit 协作模式下的 hunks 边界规范（2026-07-02 立）', mustContain: 'Hunks-Overlap' },
+  { title: '## 端口配置统一守门（2026-07-02 立）', mustContain: 'check:port-drift' },
+  { title: '## 行尾格式守门（2026-07-02 立）', mustContain: 'check:line-endings' },
+  { title: '## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）', mustContain: 'ChatSessionPanel.vue' },
+  { title: '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）', mustContain: '_login-tokens.scss' },
+  { title: '## 文案 / i18n 联动改动硬约束（2026-07-03 立）', mustContain: 'check:becomesupplier:join-us' },
+  { title: '## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）', mustContain: 'SESSION_EXPIRED_DURATION_MS' },
+  { title: '## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）', mustContain: '.session-expired-notification' },
+  { title: '## Vue scoped + @use partial 规范（2026-07-03 立）', mustContain: 'check-ai-header-style-scope' },
+  { title: '## 暗色浮层 primary 按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）', mustContain: ':where(.el-message-box, .el-notification, .el-dialog' },
+  { title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: 'check-no-pill-radius' },
 ]
+
+// 从 H2 标题自动派生 keyword (用于在正文中定位章节)
+// 规则: 去掉 '## ' 前缀, 取 '（' 前的部分
+// 例: '## 主题色改动硬约束（2026-07-02 立）' → '主题色改动硬约束'
+function deriveKeyword(title) {
+  return title.replace(/^## /, '').split('（')[0]
+}
 
 // 文件不存在
 if (!fs.existsSync(agentsMdPath)) {
@@ -115,25 +129,25 @@ if (h2Matches.length !== EXPECTED_SECTIONS.length) {
   console.error('  实际 H2 列表:')
   h2Matches.forEach((h, i) => console.error(`    ${i + 1}. ${h}`))
   console.error('  期望 H2 列表:')
-  EXPECTED_SECTIONS.forEach((h, i) => console.error(`    ${i + 1}. ${h}`))
+  EXPECTED_SECTIONS.forEach((s, i) => console.error(`    ${i + 1}. ${s.title}`))
   console.error('  新增章节: 先在 AGENTS.md 追加, 再更新本脚本 + e2e/agents-md-sections.spec.ts')
   console.error('  删除章节: 先更新本脚本 + e2e 测试, 再删 AGENTS.md')
   hasError = true
 }
 
-// 检查 4: 9 个章节标题按既定顺序逐字匹配
+// 检查 4: 章节标题按既定顺序逐字匹配
 EXPECTED_SECTIONS.forEach((expected, idx) => {
   const actual = h2Matches[idx]
   if (!actual) {
     console.error(
-      `[FAIL] AGENTS.md 第 ${idx + 1} 个 H2 章节缺失 (期望: ${expected})`
+      `[FAIL] AGENTS.md 第 ${idx + 1} 个 H2 章节缺失 (期望: ${expected.title})`
     )
     hasError = true
-  } else if (actual !== expected) {
+  } else if (actual !== expected.title) {
     console.error(
       `[FAIL] AGENTS.md 第 ${idx + 1} 个 H2 章节标题不匹配`
     )
-    console.error(`  期望: ${expected}`)
+    console.error(`  期望: ${expected.title}`)
     console.error(`  实际: ${actual}`)
     console.error('  可能原因: 标题被改字 / 顺序被打乱 / 章节被替换成另一个')
     hasError = true
@@ -141,22 +155,10 @@ EXPECTED_SECTIONS.forEach((expected, idx) => {
 })
 
 // 检查 5: 关键章节正文要点抽查 (防"标题在但正文被删")
-const sectionSpotChecks = [
-  { keyword: '目标驱动模式', mustContain: 'STATE.md' },
-  { keyword: '主题色改动硬约束', mustContain: 'check:theme-tokens' },
-  { keyword: '纯白/纯黑边框改动硬约束', mustContain: 'declaration-property-value-disallowed-list' },
-  { keyword: 'AI 面板 embedded/floating', mustContain: '.floating-chat-dialog.is-embedded' },
-  { keyword: 'hunks 边界规范', mustContain: 'Hunks-Overlap' },
-  { keyword: '端口配置统一守门', mustContain: 'check:port-drift' },
-  { keyword: '行尾格式守门', mustContain: 'check:line-endings' },
-  { keyword: 'AI 浮窗对话历史入口唯一性', mustContain: 'ChatSessionPanel.vue' },
-  { keyword: '登录/注册按钮设计令牌', mustContain: '_login-tokens.scss' },
-  { keyword: '文案 / i18n 联动改动硬约束', mustContain: 'check:becomesupplier:join-us' },
-  { keyword: '会话过期通知位置', mustContain: 'SESSION_EXPIRED_DURATION_MS' },
-  { keyword: '会话过期通知按钮双层蓝边', mustContain: '.session-expired-notification' },
-  { keyword: 'Vue scoped + @use partial 规范', mustContain: 'check-ai-header-style-scope' },
-]
-for (const { keyword, mustContain } of sectionSpotChecks) {
+// keyword 从 title 自动派生 (deriveKeyword), mustContain 从 EXPECTED_SECTIONS 取
+for (const section of EXPECTED_SECTIONS) {
+  const keyword = deriveKeyword(section.title)
+  const mustContain = section.mustContain
   const sectionStart = content.indexOf(keyword)
   if (sectionStart < 0) {
     console.error(`[FAIL] AGENTS.md 缺失含 "${keyword}" 的章节`)

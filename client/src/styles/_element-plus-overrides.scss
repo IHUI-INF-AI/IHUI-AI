@@ -433,4 +433,33 @@ html.dark {
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
     }
   }
+
+  // ============================================
+  // 浮层内 primary 按钮: 移除 inset 白环 (2026-07-03 立)
+  // ============================================
+  // 根因: 上方 :where(.el-button--primary) 规则给所有暗色 primary 按钮加了
+  //   border-width: 2px + box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18)
+  //   设计意图是补强 sidebar #6a6d77 darkSurface 上 CTA 蓝的边界 (1.001:1 → 3:1+)
+  //
+  // 但浮层底色 = --el-bg-color-overlay = #1a1a1a (比 #6a6d77 深 64 单位),
+  //   #409eff 蓝 on #1a1a1a 对比度 4.5:1 (WCAG AA 已通过), inset 白环不需要,
+  //   反而在小尺寸按钮上与 2px 蓝边叠加形成"双层蓝边 + 中间白线"视觉 bug
+  //
+  // 本规则在浮层作用域内局部重置, 不影响 sidebar 等其他需要 inset 白环的场景
+  // 覆盖组件: ElMessageBox / ElNotification / ElDialog / ElMessage / ElPopper / ElDropdown
+  //
+  // 特异性: html.dark (0,1,1) + :where() (0,0,0) + :where() (0,0,0) = (0,1,1)
+  //   与全局规则 html.dark :where(.el-button--primary) = (0,1,1) 相同
+  //   后定义胜出 (CSS 级联规则)
+  :where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu) :where(.el-button--primary) {
+    border-width: 0;
+    box-shadow: none;
+
+    &:hover,
+    &:active,
+    &:focus,
+    &:focus-visible {
+      box-shadow: none;
+    }
+  }
 }

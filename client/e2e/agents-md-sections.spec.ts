@@ -4,15 +4,15 @@
  * 防回归目标：AGENTS.md 是项目级 Agent 行为规范的唯一来源，
  *   2026-07-02 曾因 stash 误覆盖导致 2 个章节（AI 浮窗对话历史入口唯一性 +
  *   登录/注册按钮设计令牌）整体丢失，commit 9b6ca3c6 自称"恢复"但只补了 1 行空行。
- *   本测试用源码级 regex 锚点断言 14 个 H2 章节必须存在且顺序正确，
+ *   本测试用源码级 regex 锚点断言 15 个 H2 章节必须存在且顺序正确，
  *   任何章节被删/被替换/顺序错乱都会在 CI 失败。
  *
  * 验证项（纯源码级，不需要浏览器）：
  *   1) AGENTS.md 文件存在
  *   2) 文件总行数 >= 200（防止被截断成空壳）
  *   3) 行尾必须全部为 LF（CRLF = 0）—— 顺便守门
- *   4) H2 章节计数必须 == 14（多余/缺失都算回归）
- *   5) 14 个章节标题按既定顺序逐字匹配
+ *   4) H2 章节计数必须 == 16（多余/缺失都算回归）
+ *   5) 16 个章节标题按既定顺序逐字匹配
  *
  * CI 入口：npx playwright test agents-md-sections.spec.ts
  */
@@ -28,11 +28,12 @@ const PROJECT_ROOT = join(ROOT, '..')
 const AGENTS_MD_PATH = join(PROJECT_ROOT, 'AGENTS.md')
 
 /**
- * 14 个 H2 章节的精确标题（按 AGENTS.md 中出现的顺序）。
+ * 15 个 H2 章节的精确标题 + 正文要点（按 AGENTS.md 中出现的顺序）。
  *
- * 维护规则：
- *   - 新增章节时，先在 AGENTS.md 追加，再在本数组追加对应标题
- *   - 删除章节时，先在本数组删除，再在 AGENTS.md 删除
+ * 维护规则 (2026-07-03 改进):
+ *   - 新增章节: 在 AGENTS.md 追加正文 + 在本数组追加 { title, mustContain }
+ *   - keyword 从 title 自动派生 (deriveKeyword), 不再手动维护
+ *   - mustContain 是章节正文必须含的关键标识 (每个章节不同, 必须手动写)
  *   - 顺序必须与 AGENTS.md 中实际出现顺序一致（顺序错乱也算回归）
  *
  * 历史教训：
@@ -40,64 +41,31 @@ const AGENTS_MD_PATH = join(PROJECT_ROOT, 'AGENTS.md')
  *   整个替换成了"AI 浮窗对话历史"+"登录按钮设计令牌"两章，
  *   导致后两章在 HEAD 中丢失近 1 天才被发现。
  */
-const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; keyword: string }> = [
-  {
-    title: '## 目标驱动模式执行规范（/goal）',
-    keyword: '目标驱动模式',
-  },
-  {
-    title: '## 开发服务器启动约定（2026-07-03 立）',
-    keyword: '开发服务器启动约定',
-  },
-  {
-    title: '## 主题色改动硬约束（2026-07-02 立）',
-    keyword: '主题色改动硬约束',
-  },
-  {
-    title: '## 纯白/纯黑边框改动硬约束（2026-07-02 立）',
-    keyword: '纯白/纯黑边框改动硬约束',
-  },
-  {
-    title: '## AI 面板 embedded/floating 模式样式分离约束（2026-07-02 立）',
-    keyword: 'AI 面板 embedded/floating 模式样式分离约束',
-  },
-  {
-    title: '## 多 commit 协作模式下的 hunks 边界规范（2026-07-02 立）',
-    keyword: '多 commit 协作模式下的 hunks 边界规范',
-  },
-  {
-    title: '## 端口配置统一守门（2026-07-02 立）',
-    keyword: '端口配置统一守门',
-  },
-  {
-    title: '## 行尾格式守门（2026-07-02 立）',
-    keyword: '行尾格式守门',
-  },
-  {
-    title: '## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）',
-    keyword: 'AI 浮窗对话历史入口唯一性硬约束',
-  },
-  {
-    title: '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）',
-    keyword: '登录/注册按钮设计令牌应用硬约束',
-  },
-  {
-    title: '## 文案 / i18n 联动改动硬约束（2026-07-03 立）',
-    keyword: '文案 / i18n 联动改动硬约束',
-  },
-  {
-    title: '## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）',
-    keyword: '会话过期通知位置',
-  },
-  {
-    title: '## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）',
-    keyword: '会话过期通知按钮双层蓝边',
-  },
-  {
-    title: '## Vue scoped + @use partial 规范（2026-07-03 立）',
-    keyword: 'Vue scoped + @use partial 规范',
-  },
+const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain: string }> = [
+  { title: '## 目标驱动模式执行规范（/goal）', mustContain: 'STATE.md' },
+  { title: '## 开发服务器启动约定（2026-07-03 立）', mustContain: 'dev-up.ps1' },
+  { title: '## 主题色改动硬约束（2026-07-02 立）', mustContain: 'check:theme-tokens' },
+  { title: '## 纯白/纯黑边框改动硬约束（2026-07-02 立）', mustContain: 'declaration-property-value-disallowed-list' },
+  { title: '## AI 面板 embedded/floating 模式样式分离约束（2026-07-02 立）', mustContain: '.floating-chat-dialog.is-embedded' },
+  { title: '## 多 commit 协作模式下的 hunks 边界规范（2026-07-02 立）', mustContain: 'Hunks-Overlap' },
+  { title: '## 端口配置统一守门（2026-07-02 立）', mustContain: 'check:port-drift' },
+  { title: '## 行尾格式守门（2026-07-02 立）', mustContain: 'check:line-endings' },
+  { title: '## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）', mustContain: 'ChatSessionPanel.vue' },
+  { title: '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）', mustContain: '_login-tokens.scss' },
+  { title: '## 文案 / i18n 联动改动硬约束（2026-07-03 立）', mustContain: 'check:becomesupplier:join-us' },
+  { title: '## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）', mustContain: 'SESSION_EXPIRED_DURATION_MS' },
+  { title: '## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）', mustContain: '.session-expired-notification' },
+  { title: '## Vue scoped + @use partial 规范（2026-07-03 立）', mustContain: 'check-ai-header-style-scope' },
+  { title: '## 暗色浮层 primary 按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）', mustContain: ':where(.el-message-box, .el-notification, .el-dialog' },
+  { title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: 'check-no-pill-radius' },
 ]
+
+// 从 H2 标题自动派生 keyword (用于在正文中定位章节)
+// 规则: 去掉 '## ' 前缀, 取 '（' 前的部分
+// 例: '## 主题色改动硬约束（2026-07-02 立）' → '主题色改动硬约束'
+function deriveKeyword(title: string): string {
+  return title.replace(/^## /, '').split('（')[0]
+}
 
 test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
   // ===================================================================
@@ -173,7 +141,7 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
         `AGENTS.md 第 ${idx + 1} 个 H2 章节缺失。\n` +
           `期望：${expected.title}\n` +
           `实际：${actual ?? '(undefined — 章节被删或顺序错乱)'}\n` +
-          `关键字：${expected.keyword}\n` +
+          `关键字：${deriveKeyword(expected.title)}\n` +
           `修复：在 AGENTS.md 中恢复该章节（参考 git stash 6768f56f 或 git log -- AGENTS.md）`
       ).toBeDefined()
       expect(
@@ -188,29 +156,14 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
 
   // ===================================================================
   // 5) 关键章节内容存在性抽查（防"标题在但正文被删"）
+  //    keyword 从 title 自动派生 (deriveKeyword), mustContain 从 EXPECTED_SECTIONS 取
   // ===================================================================
   test('源码级：关键章节正文要点存在（防"空标题"回归）', () => {
     const content = readFileSync(AGENTS_MD_PATH, 'utf8')
 
-    // 每个章节抽一个最关键的标识词，确保不只是标题在、正文也在
-    const sectionSpotChecks: ReadonlyArray<{ keyword: string; mustContain: string }> = [
-      { keyword: '目标驱动模式', mustContain: 'STATE.md' },
-      { keyword: '开发服务器启动约定', mustContain: 'dev-up.ps1' },
-      { keyword: '主题色改动硬约束', mustContain: 'check:theme-tokens' },
-      { keyword: '纯白/纯黑边框改动硬约束', mustContain: 'declaration-property-value-disallowed-list' },
-      { keyword: 'AI 面板 embedded/floating', mustContain: '.floating-chat-dialog.is-embedded' },
-      { keyword: 'hunks 边界规范', mustContain: 'Hunks-Overlap' },
-      { keyword: '端口配置统一守门', mustContain: 'check:port-drift' },
-      { keyword: '行尾格式守门', mustContain: 'check:line-endings' },
-      { keyword: 'AI 浮窗对话历史入口唯一性', mustContain: 'ChatSessionPanel.vue' },
-      { keyword: '登录/注册按钮设计令牌', mustContain: '_login-tokens.scss' },
-      { keyword: '文案 / i18n 联动改动硬约束', mustContain: 'check:becomesupplier:join-us' },
-      { keyword: '会话过期通知位置', mustContain: 'SESSION_EXPIRED_DURATION_MS' },
-      { keyword: '会话过期通知按钮双层蓝边', mustContain: '.session-expired-notification' },
-      { keyword: 'Vue scoped + @use partial 规范', mustContain: 'check-ai-header-style-scope' },
-    ]
-
-    sectionSpotChecks.forEach(({ keyword, mustContain }) => {
+    EXPECTED_SECTIONS.forEach((section) => {
+      const keyword = deriveKeyword(section.title)
+      const mustContain = section.mustContain
       // 找到章节起始位置
       const sectionStart = content.indexOf(keyword)
       expect(

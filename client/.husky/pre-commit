@@ -1,13 +1,14 @@
 #!/usr/bin/env sh
-# Pre-commit 钩子：lint-staged + no-important 检查 + nul 残留扫描 + 工作区卫生检查 + markraw 规则检查 + 高特异性选择器检测
+# Pre-commit 钩子：lint-staged + no-important 检查 + nul 残留扫描 + 工作区卫生检查 + markraw 规则检查 + 高特异性选择器检测 + 胶囊形圆角检测
 # 1. 运行 lint-staged（eslint + stylelint 对暂存文件）
 # 2. 运行 no-important 检查（用户规则：禁止 !important）
 # 3. 扫描 nul 残留文件（Windows 终端重定向副作用，详见 .gitignore）
 # 4. P22: 工作区卫生检查 - 禁止暂存运行时产物/临时文件
 # 5. markraw-icon 规则检查（用户规则：响应式对象中组件 icon 必须用 markRaw 包装）
 # 6. 高特异性选择器检测（用户规则：禁止 4 类以上嵌套的选择器，只检查暂存文件）
+# 7. 胶囊形/彻底圆角检测（用户规则 2026-07-03 立：禁止 border-radius: 14px+/999/9999px，只检查暂存文件）
 # 注意：本项目用 simple-git-hooks，把钩子放在 .husky/ 目录
-# 为跨平台兼容，nul/markraw/high-specificity 扫描用 Node 脚本而非 sh find（Windows 终端可能无 bash）
+# 为跨平台兼容，nul/markraw/high-specificity/no-pill-radius 扫描用 Node 脚本而非 sh find（Windows 终端可能无 bash）
 
 set -e
 
@@ -29,6 +30,13 @@ echo "▶ Checking high specificity selectors on staged files..."
 # 只检查暂存文件中的高特异性选择器（4 类以上嵌套）
 # 阈值 0：暂存文件中不允许有任何新的高特异性选择器
 HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs
+
+echo "▶ Checking pill/capsule border-radius on staged files..."
+# 胶囊形/彻底圆角守门 (2026-07-03 立, 用户规则: 禁止彻底圆角/胶囊形)
+# 检测暂存 .vue/.scss/.css 文件中 border-radius: 14px+ / 999px / 9999px
+# 例外白名单: 50% (头像/纯装饰圆点)
+# 阈值 0：暂存文件中不允许有任何新的胶囊形圆角
+NO_PILL_RADIUS_THRESHOLD=0 node scripts/check-no-pill-radius.mjs
 
 echo "▶ P22: 工作区卫生检查（禁止暂存运行时产物）..."
 # 检查暂存文件中是否包含禁止提交的运行时产物

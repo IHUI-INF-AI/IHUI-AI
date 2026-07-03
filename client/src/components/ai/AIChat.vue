@@ -657,7 +657,8 @@
                     class="ai-capability-selector"
                     placement="top" :hide-on-click="false"
                     :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'offset', options: { offset: [0, 8] } }] }"
-                    popper-class="ai-chat-popper ai-capability-popper">
+                    popper-class="ai-chat-popper ai-capability-popper"
+                    @visible-change="onCapabilityDropdownVisibleChange">
                     <!-- Trigger pill: + 选择 -->
                     <el-button link size="small" class="tw-selector-pill"
                       :aria-label="t('aiChatInput.select')"
@@ -5678,6 +5679,11 @@ const getAssistantMessageAvatarUrl = (message: ChatMessage): string | null => {
   return assistantAvatarUrl.value
 }
 
+// 能力下拉显隐变化：同步 ref（el-dropdown trigger 模式下内部状态不会自动同步回 v-model）
+const onCapabilityDropdownVisibleChange = (val: boolean) => {
+  showCapabilityDropdown.value = val
+}
+
 // 能力网格卡片点击：执行命令并关闭下拉（与工具箱一致交互）
 const onCapabilityCardClick = (command: string) => {
   handleAICapabilityCommand(command)
@@ -8781,15 +8787,17 @@ cleanup.add(() => {
     }
   }
 
-  // 「+ 选择」能力下拉触发胶囊 - 覆盖上方通用 icon-button 方形尺寸
-  // 该按钮是「图标 + 文字 + 箭头」的文本胶囊，不是纯图标按钮：
+  // 「+ 选择」能力下拉触发按钮 - 覆盖上方通用 icon-button 方形尺寸
+  // 该按钮是「图标 + 文字 + 箭头」的文本按钮，不是纯图标按钮：
   //   - 需要按内容自适应宽度（不能用 28px 方形 max-width 钳制）
   //   - 需要 padding: 0 10px（通用规则强制 padding:0 会导致内容贴边、溢出）
-  //   - 透明背景 + 14px 圆角 + 白色描边（通用规则的灰底 6px 圆角不符合胶囊设计）
+  //   - 透明背景 + 白色描边 + 项目统一 8px 圆角 (跟随 --app-button-radius)
   // 使用更高特异性（带 .tw-selector-pill，0,5,0 > 通用 0,4,0）确保覆盖
-  // 历史教训(2026-07-03): 不加此覆盖时，胶囊被钳成 28×28 方块，60px 内容溢出，
+  // 历史教训(2026-07-03): 不加此覆盖时，按钮被钳成 28×28 方块，60px 内容溢出，
   //   Plus 图标被推到 input-wrapper(overflow:hidden) 左边界外被裁成"点"，
   //   且背景方块装不下「图标+选择+箭头」内容
+  // 圆角约束 (2026-07-03 更新): 改用 var(--app-button-radius) (8px) 跟随项目统一规范,
+  //   旧值 14px 胶囊形违反"禁止彻底圆角/胶囊形"硬约束 (见 project_memory.md)
   :deep(.el-button.el-button--small.tw-selector-pill) {
     // 尺寸 - 按内容自适应，不强制方形
     width: auto;
@@ -8801,10 +8809,10 @@ cleanup.add(() => {
     padding: 0 10px;
     margin: 0;
 
-    // 外观 - 胶囊样式（透明背景 + 白色描边 + 14px 圆角）
+    // 外观 - 透明背景 + 白色描边 + 项目统一圆角 (8px)
     background: transparent;
     border: 1px solid var(--color-white-30);
-    border-radius: 14px;
+    border-radius: var(--app-button-radius);
     color: var(--el-text-color-regular);
     box-shadow: none;
 

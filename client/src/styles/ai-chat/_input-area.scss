@@ -480,7 +480,9 @@
   gap: 4px;
   height: 28px;
   padding: 0 10px;
-  border-radius: 14px;
+  // 圆角: 跟随项目统一规范 (8px), 禁止使用 14px 胶囊形
+  // 旧值 14px 违反"禁止彻底圆角/胶囊形"硬约束, 2026-07-03 统一
+  border-radius: var(--app-button-radius);
   border: 1px solid var(--color-white-30);
   background: transparent;
   color: var(--el-text-color-regular);

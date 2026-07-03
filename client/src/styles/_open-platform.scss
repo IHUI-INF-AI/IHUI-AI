@@ -377,7 +377,7 @@ $dark-border: var(--border-unified-color);
   letter-spacing: 0.2em;
   margin-bottom: 16px;
   padding: 10px 20px;
-  border-radius: 999px;
+  border-radius: var(--global-border-radius);
   background: var(--op-color);
   color: var(--op-bg);
   border: 2px solid var(--op-color);
@@ -546,7 +546,7 @@ $dark-border: var(--border-unified-color);
   .hero-tag {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 10px 20px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em;
-    border: 2px solid var(--op-tag-border); border-radius: 999px;
+    border: 2px solid var(--op-tag-border); border-radius: var(--global-border-radius);
     background: var(--op-tag-bg); color: var(--op-color);
     transition: border-color 0.25s ease, background-color 0.25s ease;
     &:hover { border-color: var(--border-unified-color-hover, var(--op-tag-border)); }
@@ -594,7 +594,7 @@ $dark-border: var(--border-unified-color);
   .hero-monitor {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%; max-width: 920px; margin: 0 auto;
     .monitor-card {
-      padding: 22px; padding-left: 20px; border-radius: 14px; text-align: left;
+      padding: 22px; padding-left: 20px; border-radius: var(--global-border-radius); text-align: left;
       border: 2px solid var(--op-border);
       border-left-width: 4px;
       border-left-color: var(--op-accent, var(--op-color));
@@ -744,7 +744,7 @@ $dark-border: var(--border-unified-color);
   padding: 56px 0 64px;
   :where(.pipeline-visual) {
     padding: 32px 28px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -768,7 +768,7 @@ $dark-border: var(--border-unified-color);
           height: 44px;
           background: var(--op-step-icon-bg);
           border: 2px solid var(--op-border);
-          border-radius: 14px;
+          border-radius: var(--global-border-radius);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -798,14 +798,14 @@ $dark-border: var(--border-unified-color);
   .api-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
   .api-card {
     padding: 28px 24px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-bg);
     transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     &:hover { border-color: var(--color-black-20); transform: translateY(-3px); }
     :where(html.dark) & { background: var(--color-white-4); &:hover { border-color: color-mix(in srgb, var(--el-color-primary) 22%, transparent); } }
     .api-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-    .api-icon-box { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--op-border); background: var(--op-api-icon-bg); }
+    .api-icon-box { width: 44px; height: 44px; border-radius: var(--global-border-radius); display: flex; align-items: center; justify-content: center; border: 2px solid var(--op-border); background: var(--op-api-icon-bg); }
     .api-status { font-size: 12px; font-weight: 800; color: var(--op-accent, $accent); border: 2px solid var(--op-accent, $accent); padding: 4px 10px; border-radius: 8px; }
     .api-title { font-size: 17px; font-weight: 800; margin-bottom: 10px; color: var(--op-color); line-height: 1.35; }
     .api-desc { font-size: 14px; opacity: 0.75; line-height: 1.6; margin-bottom: 18px; min-height: 42px; }
@@ -872,7 +872,7 @@ $dark-border: var(--border-unified-color);
     .sdk-marquee { display: flex; flex-wrap: wrap; gap: 10px; .sdk-badge { padding: 8px 14px; border: 2px solid var(--op-sdk-badge-border); border-radius: 10px; font-size: 12px; font-weight: 800; opacity: 0.6; transition: border-color 0.2s ease; &:hover { border-color: var(--op-accent, currentColor); } } }
   }
   :where(.code-browser) {
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     overflow: hidden;
     border: 2px solid var(--op-border);
     transition: border-color 0.25s ease;
@@ -907,7 +907,7 @@ $dark-border: var(--border-unified-color);
   padding: 56px 0 64px;
   .solutions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
   .solution-item {
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     overflow: hidden;
     border: 2px solid var(--op-border);
     background: var(--op-bg);
@@ -938,7 +938,7 @@ $dark-border: var(--border-unified-color);
   .feature-hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
   .feature-hub-card {
     padding: 24px 26px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-bg);
     display: flex;
@@ -961,7 +961,7 @@ $dark-border: var(--border-unified-color);
     flex-shrink: 0;
     background: var(--op-feature-hub-icon-bg);
     border: 2px solid var(--op-border);
-    border-radius: 14px;
+    border-radius: var(--global-border-radius);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -982,7 +982,7 @@ $dark-border: var(--border-unified-color);
   .ecosystem-card {
     text-align: center;
     padding: 32px 28px 36px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-eco-card-border);
     background: var(--op-bg);
     transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -997,7 +997,7 @@ $dark-border: var(--border-unified-color);
       margin: 0 auto 20px;
       background: var(--op-eco-icon-bg);
       color: var(--op-eco-icon-color);
-      border-radius: 16px;
+      border-radius: var(--global-border-radius);
       border: 2px solid transparent;
       display: flex;
       align-items: center;
@@ -1066,7 +1066,7 @@ $dark-border: var(--border-unified-color);
     text-align: center; margin-bottom: 64px;
     .sl__label {
       display: inline-block; font-size: 12px; font-weight: 900; letter-spacing: 0.28em; color: var(--op-accent, var(--op-color));
-      margin-bottom: 20px; padding: 8px 20px; border: 2px solid var(--op-border); border-radius: 999px;
+      margin-bottom: 20px; padding: 8px 20px; border: 2px solid var(--op-border); border-radius: var(--global-border-radius);
       background: var(--op-glass-bg);
       transition: border-color 0.25s ease, background 0.25s ease;
     }
@@ -1086,7 +1086,7 @@ $dark-border: var(--border-unified-color);
   // 售卖区快捷锚点导航
   .sl-nav {
     display: flex; flex-wrap: wrap; gap: 10px 18px; justify-content: center; padding: 18px 24px;
-    border-radius: 14px; border: 2px solid var(--op-border); background: var(--op-glass-bg);
+    border-radius: var(--global-border-radius); border: 2px solid var(--op-border); background: var(--op-glass-bg);
     margin-bottom: 16px; overflow-x: auto; scrollbar-width: thin;
     .sl-nav__link {
       font-size: 12px; font-weight: 700; color: var(--op-color); text-decoration: none; white-space: nowrap;
@@ -1131,7 +1131,7 @@ $dark-border: var(--border-unified-color);
   // Bento：产品全貌与优势
   .sl-bento {
     padding: 44px 44px 40px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-glass-bg);
     transition: border-color 0.25s ease, background 0.25s ease;
@@ -1146,7 +1146,7 @@ $dark-border: var(--border-unified-color);
     .sl-bento__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
     .sl-bento__col {
       padding: 28px 26px 26px;
-      border-radius: 16px;
+      border-radius: var(--global-border-radius);
       border: 2px solid var(--op-border);
       background: var(--op-bg);
       transition: border-color 0.25s ease, background 0.25s ease;
@@ -1168,7 +1168,7 @@ $dark-border: var(--border-unified-color);
   // 通用内容卡片（售卖规则、协议、交付等）
   .sl-card {
     padding: 32px 40px 36px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-glass-bg);
     transition: border-color 0.25s ease, background 0.25s ease;
@@ -1223,7 +1223,7 @@ $dark-border: var(--border-unified-color);
     padding: 24px;
     padding-top: 52px; // 三卡统一顶部预留，推荐卡放角标，另两张留空，保证内容起始对齐
     min-height: 420px;
-    border-radius: 16px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-bg);
     display: flex;
@@ -1338,7 +1338,7 @@ $dark-border: var(--border-unified-color);
   // 客户/行业案例
   .sl-cases {
     padding: 32px 40px 36px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-glass-bg);
     transition: border-color 0.25s ease;
@@ -1349,7 +1349,7 @@ $dark-border: var(--border-unified-color);
     .sl-cases__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .sl-cases__card {
       padding: 20px 18px;
-      border-radius: 14px;
+      border-radius: var(--global-border-radius);
       border: 2px solid var(--op-border);
       background: var(--op-bg);
       transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1364,7 +1364,7 @@ $dark-border: var(--border-unified-color);
   // 与自建/SaaS/开源对比
   .sl-compare {
     padding: 32px 40px 36px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-glass-bg);
     transition: border-color 0.25s ease;
@@ -1375,7 +1375,7 @@ $dark-border: var(--border-unified-color);
     .sl-compare__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .sl-compare__card {
       padding: 20px 18px;
-      border-radius: 14px;
+      border-radius: var(--global-border-radius);
       border: 2px solid var(--op-border);
       background: var(--op-bg);
       transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1390,7 +1390,7 @@ $dark-border: var(--border-unified-color);
   // 为什么选择我们（定价前卖点条）
   .sl-why-choose {
     padding: 28px 36px 32px;
-    border-radius: 20px;
+    border-radius: var(--global-border-radius);
     border: 2px solid var(--op-border);
     background: var(--op-glass-bg);
     transition: border-color 0.25s ease, background 0.25s ease;
@@ -1492,7 +1492,7 @@ $dark-border: var(--border-unified-color);
   padding: 48px 0 56px;
   .faq-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
   .faq-card {
-    padding: 24px; border-radius: 16px; border: 2px solid var(--op-border);
+    padding: 24px; border-radius: var(--global-border-radius); border: 2px solid var(--op-border);
     background: var(--op-glass-bg);
     transition: border-color 0.25s ease, background-color 0.25s ease;
     &:hover { border-color: color-mix(in srgb, var(--el-color-primary) 14%, transparent); background: var(--color-black-2); }
@@ -1578,22 +1578,22 @@ $dark-border: var(--border-unified-color);
   .sl .sl__container { padding: 0 16px; }
   .sl .sl__head { margin-bottom: 44px; .sl__label { padding: 6px 14px; font-size: 12px; } }
   .sl .sl__body { gap: 32px; }
-  .sl .sl-bento { padding: 28px 20px 24px; border-radius: 16px; }
-  .sl .sl-bento__col { padding: 22px 20px 20px; border-radius: 14px; .sl-bento__col-title { font-size: 14px; margin-bottom: 16px; } }
+  .sl .sl-bento { padding: 28px 20px 24px; border-radius: var(--global-border-radius); }
+  .sl .sl-bento__col { padding: 22px 20px 20px; border-radius: var(--global-border-radius); .sl-bento__col-title { font-size: 14px; margin-bottom: 16px; } }
   .sl .sl-bento__intro { margin-bottom: 24px; padding-bottom: 20px; }
   .sl .sl-bento__title { font-size: 20px; }
-  .sl .sl-card { padding: 28px 20px; border-radius: 16px; }
+  .sl .sl-card { padding: 28px 20px; border-radius: var(--global-border-radius); }
   .sl .sl-card__title { font-size: 18px; }
   .sl .sl-plan-grid { max-width: 100%; gap: 24px; }
   .sl .sl-pricing__cta { margin-top: 20px; padding-top: 20px; gap: 12px; }
   .sl .sl-pricing__btn { min-width: 140px; }
-  .sl .sl-plan { padding: 20px; padding-top: 48px; min-height: 360px; border-radius: 14px; }
+  .sl .sl-plan { padding: 20px; padding-top: 48px; min-height: 360px; border-radius: var(--global-border-radius); }
   .sl .sl-plan .sl-plan__name { font-size: 17px; }
   .sl .sl-plan .sl-plan__desc { min-height: 2.4em; margin-bottom: 14px; padding-bottom: 14px; }
   .sl .sl-plan .sl-plan__price { font-size: 22px; padding: 12px 0 14px; margin-bottom: 14px; }
   .sl .sl-plan .sl-plan__features { min-height: 120px; max-height: 220px; }
   .sl .sl-faq__item { margin-bottom: 22px; padding-bottom: 20px; }
-  .sl .sl-why-choose { padding: 22px 20px 26px; border-radius: 16px; .sl-why-choose__list { grid-template-columns: 1fr; gap: 10px; } }
+  .sl .sl-why-choose { padding: 22px 20px 26px; border-radius: var(--global-border-radius); .sl-why-choose__list { grid-template-columns: 1fr; gap: 10px; } }
   .sl .sl-nav { padding: 10px 14px; gap: 6px 10px; .sl-nav__link { font-size: 12px; padding: 5px 10px; } }
   .sl .sl-cases { padding: 24px 20px 28px; .sl-cases__grid { grid-template-columns: 1fr; gap: 14px; } .sl-cases__card { padding: 18px 16px; } }
   .sl .sl-compare { padding: 24px 20px 28px; .sl-compare__grid { grid-template-columns: 1fr; gap: 14px; } .sl-compare__card { padding: 18px 16px; } }
@@ -1628,7 +1628,7 @@ $dark-border: var(--border-unified-color);
   .hero-arch-line { font-size: 14px; padding: 12px 18px; margin-bottom: 22px; }
   .ihui-arch-section--featured { padding: 36px 0 44px; .ihui-arch-section__main-title { font-size: 26px; } }
   .cta-section { padding: 32px 0 40px; }
-  .cta-wrapper { padding: 32px 20px; border-radius: 16px;
+  .cta-wrapper { padding: 32px 20px; border-radius: var(--global-border-radius);
     .cta-title { font-size: clamp(22px, 6vw, 36px); margin-bottom: 12px; }
     .cta-text { font-size: 14px; margin-bottom: 20px; }
   }
