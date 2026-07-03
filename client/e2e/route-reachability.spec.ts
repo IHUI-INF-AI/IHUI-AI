@@ -107,6 +107,14 @@ const AUTHED_ROUTES: Array<[string, string]> = [
   ['/admin/exam/question-subjective', '题目'],
   ['/admin/exam/answer', '答题'],
   ['/admin/exam/answer-detail', '答题'],
+  // PR-F F8: edu member 学员档案模块路由可达性
+  ['/edu/member', '档案'],
+  ['/edu/member/report', '档案'],
+  ['/edu/member/notes', '笔记'],
+  ['/edu/member/offline-records', '线下'],
+  ['/edu/member/certificates/upload', '证书'],
+  ['/edu/member/papers', '试卷'],
+  ['/edu/member/papers/upload', '试卷'],
 ]
 
 // 公开路由(不需要登录): [path, 期望关键词]

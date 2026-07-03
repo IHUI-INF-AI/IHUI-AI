@@ -73,6 +73,7 @@
                   target="_blank"
                   rel="noopener noreferrer"
                   class="paper-view-link"
+                  :aria-label="t('edu.profile.paperView') + ' ' + paper.title"
                 >
                   <el-icon><View /></el-icon>
                   <span>{{ t('edu.profile.paperView') }}</span>

@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
 import { Paperclip } from '@element-plus/icons-vue'
@@ -160,6 +160,11 @@ watch(
         is_public: form.is_public,
         tags: tagsInput.value,
         attachments: attachments.value,
+      })
+      // PR-F F7：Dialog 打开后自动聚焦第一个表单项
+      nextTick(() => {
+        const input = formRef.value?.$el?.querySelector('input') as HTMLInputElement | null
+        input?.focus()
       })
     }
   }
