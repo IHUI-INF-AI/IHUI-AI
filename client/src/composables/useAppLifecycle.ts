@@ -81,7 +81,7 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
 
     // 2) 会话过期事件
     // 设计意图: 用 ElNotification 顶部下滑通知 + 内嵌按钮, 而非 ElMessageBox 居中模态。
-    //   - 顶部下滑是非阻塞通知, 不强制打断用户当前操作 (避免误触模态导致数据丢失)
+    //   - 顶部居中下滑 (position: top-center) - 与 Element Plus ElMessage 默认位置一致, 符合用户对"系统通知"的视觉预期
     //   - "重新登录"按钮: 用户主动点才弹模态登录框, 减少误触率
     //   - "取消"按钮: 让用户保留控制权, 通知消失前可继续浏览 (适合查看后再决定登录)
     //   - duration: 8s 自动关闭 - 给用户足够时间看清并操作, 不会因忘记关闭而长期遮挡
@@ -122,7 +122,7 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
           ]),
         ]),
         type: 'warning',
-        position: 'top-right',
+        position: 'top-center',
         duration: SESSION_EXPIRED_DURATION_MS,
         showClose: true,
         customClass: 'session-expired-notification',
