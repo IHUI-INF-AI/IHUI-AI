@@ -83,3 +83,51 @@
 ✅ 3 个 commit (c7749ec4, 2d114c2d, 943fada2) 已成功推送: `9710611a..943fada2 main -> main`
 
 ## Status: 第四轮 DELIVERED (全部推送完成)
+
+---
+
+# 第五轮 — pure-border flaky 修复 + AGENTS.md 守门同步 + 并行会话工作收尾
+
+**触发**: 用户 "继续按你的建议去做执行,要求完美细致完整毫无遗漏 直到工作收尾"
+
+## 完成内容
+
+### 1. pure-border-visual.spec.ts flaky 修复 (commit 3ff429d0)
+- Home ghost hover 正则放宽: /rgba?\(255,...\)/ → /rgba?\(25[4-5],...\)/
+- 容忍浏览器色彩管理 ±1 偏差 (254 vs 255)
+- --repeat-each=3 三次全部通过, 消除 flaky
+
+### 2. AGENTS.md 守门同步 (commit aa80f415)
+- 并行会话新增 H2 章节"开发服务器启动约定(2026-07-03 立)"
+- check-agents-md-sections.mjs: EXPECTED_SECTIONS 9→10
+- agents-md-sections.spec.ts: EXPECTED_SECTIONS + sectionSpotChecks 同步
+- 修复 check:agents-md:all 失败 (H2 章节数 10 ≠ 期望 9)
+
+### 3. 并行会话工作收尾 (commit 339f4c1a, 63 files)
+- PR-E E6 试卷上传: Papers.vue + UploadedPapersList.vue + LearningProfileEntryCard.vue + router + Profile/UserCenter
+- PR-F F4 dirty 检测: NoteDialog.vue + OfflineRecordDialog.vue
+- 后端启动优化: ports.ts + dev-up.ps1 + router.py + dev-up-smoke.spec.ts
+- i18n 多模块同步: 5 语言 about/core/edu/navigation/routes/aboutUs
+- 应用生命周期: useAppLifecycle.ts + useSidebar.ts + main.ts
+
+### 4. loop-run-log.md 更新 (commit 8b321a6c)
+- 第五轮执行记录 + 并行会话第三/四批次死代码清理日志
+
+## 回归验证 (全部通过)
+
+### 工具脚本守门 (8/8 ✅)
+- ✅ typecheck | ✅ check:i18n:keys | ✅ check:port-drift | ✅ check:theme-tokens
+- ✅ check:contrast | ✅ check:agents-md:all | ✅ check:i18n | ✅ check:line-endings
+
+### AGENTS.md 源码级守门 (39 passed ✅)
+- ai-panel-header(9) + ai-floating-chat-history(6) + login-submit-btn(5)
+- p0-fixes(3) + pure-border-cleanup(3) + input-glow-cleanup(13)
+- agents-md-sections(5, 含新章节守门)
+
+### flaky 修复验证 (3/3 ✅)
+- pure-border-visual.spec.ts Home ghost hover --repeat-each=3 全部通过
+
+## 待推送
+4 个 commit (aa80f415, 3ff429d0, 339f4c1a, 8b321a6c)
+
+## Status: 第五轮 DELIVERED (待推送)
