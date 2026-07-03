@@ -29,6 +29,6 @@ echo "▶ Running style audit (no-important / colors / font-size)..."
 CHECK_NO_IMPORTANT_BASELINE=1 CHECK_COLORS=1 CHECK_FONT_SIZE=1 npm run check:no-important --silent
 
 echo "▶ Running design tokens check..."
-npm run check:tokens --silent
+npm run check:el-token --silent
 
 echo "✓ 所有前端检查通过"
