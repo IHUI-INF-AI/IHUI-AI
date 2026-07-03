@@ -9,12 +9,13 @@
  *
  * 与 e2e/sidebar-dark-color-tier.spec.ts 的关系:
  *   - 本脚本: 轻量级文本检查 (pre-commit 阶段, < 100ms)
- *   - e2e 测试: 完整源码级断言 (CI 阶段, 22 用例含 chromium + Mobile Chrome)
+ *   - e2e 测试: 完整源码级断言 (CI 阶段, 28 用例含 chromium + Mobile Chrome)
  *   两者并存: pre-commit 拦截 + CI 兜底
  *
  * 触发范围 (staged 模式):
  *   - client/src/styles/_sidebar-layout.scss
  *   - client/src/components/SidebarChatHistory.vue
+ *   - client/src/components/login/UniversalLogin.vue
  *   - client/src/styles/_theme-tokens.ts (防止全局 darkSurface 被改)
  *   - client/src/styles/_theme-tokens.scss
  *
@@ -43,19 +44,22 @@ const onlyStaged = process.argv.includes('--staged')
 // 期望值锚定 (与 _sidebar-layout.scss dark 覆盖块 + e2e spec 完全一致)
 // ════════════════════════════════════════════════════════════════════════
 const EXPECTED = {
-  // _sidebar-layout.scss dark mode 4 条 token
-  sidebarSurface: '#3a3d47',
-  sidebarNewChat: '#2a2d37',
-  sidebarActive: '#1f2229',
+  // _sidebar-layout.scss dark mode 4 条 token (v3 加深版)
+  sidebarSurface: '#2a2d37',
+  sidebarNewChat: '#1f2229',
+  sidebarActive: '#0f1117',
   sidebarHover: '#000',
   // SidebarChatHistory.vue dark 容器背景
   chatHistoryDarkBg: '#42454f',
   // 全局 _theme-tokens 必须保持不变 (本批次仅 sidebar 局部加深)
   globalDarkSurface: '#6a6d77',
+  // UniversalLogin.vue html.dark .submit-btn 文字色
+  loginDarkText: '#1a1a1a',
+  loginDarkTextHover: '#0a0a0a',
 }
 
-// 禁止在 _sidebar-layout.scss dark 覆盖块内出现的旧值
-const FORBIDDEN_OLD_VALUES = ['#6a6d77', '#5a5d67', '#4f5259']
+// 旧值检查已改为结构性 token-by-token, 见 checkSidebarLayoutScss() 第 3 段
+// (因 v3 surface=#2a2d37 撞 v2 new-chat, 简单"不能含某 hex"会自相矛盾)
 
 // ════════════════════════════════════════════════════════════════════════
 // 工具
@@ -139,16 +143,39 @@ function checkSidebarLayoutScss() {
     )
   }
 
-  // 3. dark 覆盖块内不能含旧值
+  // 3. 结构性反向断言: 按 token 名逐个验证当前值不是 v1/v2 旧值
+  //    (不能用"dark 块内不能含某 hex"的简单判断, 因为 v3 surface=#2a2d37
+  //    恰好等于 v2 new-chat, 简单包含判断会自相矛盾)
   const darkBlockMatch = src.match(/html\.dark\s*\{[^}]*--app-sidebar-color-surface:[^}]*\}/i)
   if (darkBlockMatch) {
     const darkBlock = darkBlockMatch[0]
-    for (const oldVal of FORBIDDEN_OLD_VALUES) {
-      if (darkBlock.includes(oldVal)) {
-        errors.push(
-          `[REGRESSION] ${rel} dark 覆盖块内含旧值 ${oldVal}.\n` +
-            `          2026-07-03 用户反馈旧值偏浅, 已改为更深的色阶. 改回旧值 = 回归.`
-        )
+    // 每个 token 历史上的旧值 (按 token 列出, 避免 v3 surface 与 v2 new-chat 撞值)
+    const tokenHistory = {
+      '--app-sidebar-color-surface': { old: ['#6a6d77', '#3a3d47'] }, // v1, v2
+      '--app-sidebar-color-new-chat': { old: ['#5a5d67', '#2a2d37'] }, // v1, v2
+      '--app-sidebar-color-active':   { old: ['#4f5259', '#1f2229'] }, // v1, v2
+      '--app-sidebar-color-hover':    { old: [] }, // hover 从未改过
+    }
+    for (const [name, { old }] of Object.entries(tokenHistory)) {
+      const m = darkBlock.match(new RegExp(`${name}:\\s*([#a-zA-Z0-9]+)`, 'i'))
+      if (!m) continue
+      const currentVal = m[1].toLowerCase()
+      for (const oldVal of old) {
+        if (currentVal === oldVal.toLowerCase()) {
+          const line = findLineNumber(darkBlock, `${name}:`)
+          const expectedNow = name === '--app-sidebar-color-surface'
+            ? EXPECTED.sidebarSurface
+            : name === '--app-sidebar-color-new-chat'
+              ? EXPECTED.sidebarNewChat
+              : name === '--app-sidebar-color-active'
+                ? EXPECTED.sidebarActive
+                : EXPECTED.sidebarHover
+          errors.push(
+            `[REGRESSION] ${rel}:${line || '?'} ${name} 当前值 ${currentVal} 等于历史旧值 ${oldVal}.\n` +
+              `          该值已被 v3 升级, 改回旧值 = 回归.\n` +
+              `          历史: v1 (${oldVal}) → v2 → v3 (${expectedNow})`
+          )
+        }
       }
     }
   }
@@ -234,6 +261,45 @@ function checkGlobalThemeTokens() {
   }
 }
 
+function checkUniversalLoginVue() {
+  // UniversalLogin.vue 暗色模式登录按钮文字色必须为偏黑色 (#1a1a1a),
+  // 替代 Element Plus 默认 --el-color-white (#ffffff). 用户反馈"应该偏黑色".
+  const rel = 'client/src/components/login/UniversalLogin.vue'
+  const abs = path.join(projectRoot, rel)
+  if (!fs.existsSync(abs)) {
+    errors.push(`[MISSING] ${rel} 文件不存在`)
+    return
+  }
+  const src = readFile(abs)
+
+  // 1. html.dark .submit-btn 块内必须显式 color: #1a1a1a
+  const darkTextPattern = new RegExp(
+    `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?color:\\s*${EXPECTED.loginDarkText.replace('#', '\\#')}`,
+    'i'
+  )
+  if (!darkTextPattern.test(src)) {
+    const line = findLineNumber(src, 'html\\.dark[\\s\\S]*?\\.submit-btn')
+    errors.push(
+      `[REGRESSION] ${rel}:${line || '?'} html.dark .submit-btn 必须显式 color: ${EXPECTED.loginDarkText} (偏黑文字).\n` +
+        `          原代码未设 color, fallback 到 Element Plus 默认 --el-color-white (#ffffff).\n` +
+        `          在 #3b82f6 蓝底上用户反馈"应该偏黑色". 暗色模式用深色文字与项目设计语言一致.\n` +
+        `          对比度 ${EXPECTED.loginDarkText} on #3b82f6 = 4.83:1 (WCAG AA 通过).`
+    )
+  }
+
+  // 2. .submit-btn:hover 块内必须有 color: #0a0a0a (更深)
+  const hoverTextPattern = new RegExp(
+    `\\.submit-btn[\\s\\S]*?:hover[\\s\\S]*?color:\\s*${EXPECTED.loginDarkTextHover.replace('#', '\\#')}`,
+    'i'
+  )
+  if (!hoverTextPattern.test(src)) {
+    const line = findLineNumber(src, '\\.submit-btn[\\s\\S]*?:hover')
+    errors.push(
+      `[REGRESSION] ${rel}:${line || '?'} .submit-btn:hover 必须含 color: ${EXPECTED.loginDarkTextHover} (比默认更深, hover 反馈更强).`
+    )
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // 主流程
 // ════════════════════════════════════════════════════════════════════════
@@ -251,10 +317,12 @@ const checkChatHistory = !onlyStaged || shouldCheck('client/src/components/Sideb
 const checkGlobalTokens = !onlyStaged ||
   shouldCheck('client/src/styles/_theme-tokens.ts', stagedFiles) ||
   shouldCheck('client/src/styles/_theme-tokens.scss', stagedFiles)
+const checkLogin = !onlyStaged || shouldCheck('client/src/components/login/UniversalLogin.vue', stagedFiles)
 
 if (checkSidebarLayout) checkSidebarLayoutScss()
 if (checkChatHistory) checkSidebarChatHistoryVue()
 if (checkGlobalTokens) checkGlobalThemeTokens()
+if (checkLogin) checkUniversalLoginVue()
 
 if (errors.length > 0) {
   console.error(`\n❌ [check-sidebar-dark-tier] 发现 ${errors.length} 处回归:`)
@@ -271,11 +339,14 @@ if (errors.length > 0) {
   console.error(`       .chat-history-body { background-color: var(--chat-history-body-bg, transparent) }`)
   console.error(`       html.dark .sidebar-chat-history { background-color: ${EXPECTED.chatHistoryDarkBg} }`)
   console.error(`    3. _theme-tokens.ts/.scss 全局 darkSurface 必须保持 ${EXPECTED.globalDarkSurface}`)
+  console.error(`    4. UniversalLogin.vue:`)
+  console.error(`       html.dark .submit-btn { color: ${EXPECTED.loginDarkText}; ... }`)
+  console.error(`       .submit-btn:hover:not(.is-disabled) { color: ${EXPECTED.loginDarkTextHover}; ... }`)
   console.error(`\n  若确需改色, 同步更新:`)
-  console.error(`    - e2e/sidebar-dark-color-tier.spec.ts 的 EXPECTED_DARK_TIER / EXPECTED_CHAT_HISTORY_DARK_BG`)
+  console.error(`    - e2e/sidebar-dark-color-tier.spec.ts 的 EXPECTED_DARK_TIER / EXPECTED_CHAT_HISTORY_DARK_BG / EXPECTED_LOGIN_DARK_TEXT`)
   console.error(`    - scripts/check-sidebar-dark-tier.mjs 的 EXPECTED 对象`)
-  console.error(`    - project_memory.md 暗色 sidebar 色阶记忆条目`)
+  console.error(`    - project_memory.md 暗色 sidebar 色阶 + 登录按钮文字色记忆条目`)
   process.exit(1)
 }
 
-console.log(`✓ [check-sidebar-dark-tier] 通过 (sidebar dark tier = ${EXPECTED.sidebarSurface} / ${EXPECTED.sidebarNewChat} / ${EXPECTED.sidebarActive} / ${EXPECTED.sidebarHover}, chat-history = ${EXPECTED.chatHistoryDarkBg}, global darkSurface = ${EXPECTED.globalDarkSurface})`)
+console.log(`✓ [check-sidebar-dark-tier] 通过 (sidebar dark tier = ${EXPECTED.sidebarSurface} / ${EXPECTED.sidebarNewChat} / ${EXPECTED.sidebarActive} / ${EXPECTED.sidebarHover}, chat-history = ${EXPECTED.chatHistoryDarkBg}, login dark text = ${EXPECTED.loginDarkText}, global darkSurface = ${EXPECTED.globalDarkSurface})`)
