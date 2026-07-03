@@ -35,7 +35,7 @@
     $env:REDIS_BIN    = 'D:/redis/redis-server.exe' # 覆盖 redis-server 路径
     $env:PG_BIN       = 'C:/Program Files/PostgreSQL/16/bin/pg_ctl.exe'
     $env:SKIP_PORT_CLEAN = '1'  # 跳过步骤 1 的旧进程清理 (CI 环境)
-    $env:HEALTH_TIMEOUT  = '60' # 健康检查超时秒数
+    $env:HEALTH_TIMEOUT  = '90' # 健康检查超时秒数 (推荐 60-90, 后端路由模块较多)
 #>
 
 param(
@@ -181,12 +181,33 @@ Write-Event 'start' 'info' @{
 
 # 建议 5: 环境变量覆盖 python / npm / redis / pg 二进制路径
 # 兼容 PowerShell 5.1 (不用 ?? / ?. 操作符)
+# 提取 Resolve-FrontendBin 函数: 优先 pnpm → npm → npm.cmd → yarn → bun
+# (Windows 上 Get-Command npm 可能找不到 npm.cmd, 必须显式 fallback)
+function Resolve-FrontendBin() {
+  foreach ($n in @('pnpm', 'npm', 'npm.cmd', 'yarn', 'bun')) {
+    $cmd = Get-Command $n -ErrorAction SilentlyContinue
+    if ($cmd) { return @{ Name = $n; Source = $cmd.Source } }
+  }
+  return $null
+}
 if ($env:BACKEND_BIN) { $pythonExe = $env:BACKEND_BIN } else { $pythonExe = (Get-Command python -ErrorAction SilentlyContinue); if ($pythonExe) { $pythonExe = $pythonExe.Source } else { $pythonExe = $null } }
-if ($env:FRONTEND_BIN) { $frontendExe = $env:FRONTEND_BIN } else { $frontendExe = (Get-Command pnpm -ErrorAction SilentlyContinue); if ($frontendExe) { $frontendExe = $frontendExe.Source } else { $frontendExe = (Get-Command npm -ErrorAction SilentlyContinue); if ($frontendExe) { $frontendExe = $frontendExe.Source } else { $frontendExe = $null } } }
+if ($env:FRONTEND_BIN) {
+  $frontendExe = $env:FRONTEND_BIN
+  $frontendCmd = if ($frontendExe -like '*pnpm*') { 'pnpm' } elseif ($frontendExe -like '*yarn*') { 'yarn' } elseif ($frontendExe -like '*bun*') { 'bun' } else { 'npm' }
+} else {
+  $resolved = Resolve-FrontendBin
+  if ($resolved) {
+    $frontendExe = $resolved.Source
+    $frontendCmd = $resolved.Name
+  } else {
+    $frontendExe = $null
+    $frontendCmd = $null
+  }
+}
 if ($env:REDIS_BIN) { $redisExe = $env:REDIS_BIN } else { $redisExe = (Get-Command redis-server -ErrorAction SilentlyContinue); if ($redisExe) { $redisExe = $redisExe.Source } else { $redisExe = $null } }
 if ($env:PG_BIN) { $pgCtlExe = $env:PG_BIN } else { $pgCtlExe = (Get-Command pg_ctl -ErrorAction SilentlyContinue); if ($pgCtlExe) { $pgCtlExe = $pgCtlExe.Source } else { $pgCtlExe = $null } }
 $skipClean  = $env:SKIP_PORT_CLEAN -eq '1'
-if ($env:HEALTH_TIMEOUT) { $healthTimeout = [int]$env:HEALTH_TIMEOUT } else { $healthTimeout = 30 }
+if ($env:HEALTH_TIMEOUT) { $healthTimeout = [int]$env:HEALTH_TIMEOUT } else { $healthTimeout = 60 }
 
 function Write-Step($msg) { Write-Host "[dev-up] $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "[dev-up] $msg" -ForegroundColor Green }
@@ -472,8 +493,8 @@ if (-not $NoFrontend) {
   if (-not (Test-Path $logDir2)) { New-Item -ItemType Directory -Path $logDir2 -Force | Out-Null }
   $viteLog = Join-Path $logDir2 'vite_dev_up.log'
   $viteErrLog = Join-Path $logDir2 'vite_dev_up.err.log'
-  # 优先 pnpm, 其次 npm
-  $frontendCmd = if ($frontendExe -like '*pnpm*') { 'pnpm' } else { 'npm' }
+  # $frontendCmd 已由顶部 Resolve-FrontendBin 解析 (pnpm/npm/npm.cmd/yarn/bun)
+  Write-Ok "Using frontend cmd: $frontendCmd ($frontendExe)"
   $viteProc = Start-Process -FilePath 'cmd.exe' `
     -ArgumentList @('/c', $frontendCmd, 'dev') `
     -WorkingDirectory $clientDir `
