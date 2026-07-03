@@ -1457,6 +1457,150 @@ node scripts/check-dark-overlay-primary-button-no-double-border.mjs --staged
 
 ---
 
+## 暗色浮层底色统一硬约束（2026-07-03 立）
+
+6 类浮层组件（ElMessageBox / ElNotification / ElDialog / ElMessage / ElPopper / ElDropdown）的**暗色底色必须统一为 `#1a1a1a`**（`--color-dark-bg-3` = `--el-bg-color` = `--el-bg-color-overlay`），**禁止** hardcode 任何其他颜色（`#ffffff` / `#2a2a2a` / `white` / `black` / `rgb(...)` 等）。这是浮层内 primary 按钮对比度 4.5:1（WCAG AA）的前提，也是设计一致性的硬性要求。
+
+### 触发文件
+
+- `client/src/styles/_element-plus-overrides.scss`（4 类浮层组件 background-color 规则）
+- `client/src/styles/_el-message-box.scss`（.el-message-box 暗色 background-color）
+- `client/src/styles/_el-message-global.scss`（.el-message / .el-notification 暗色 background-color）
+- `client/src/styles/_session-expired-notification.scss`（.session-expired-notification background）
+
+### 必须满足的规则
+
+6 类浮层组件选择器规则块内的 `background-color` / `background` 属性**必须**用 `var(--el-bg-color*)` 系列：
+
+```scss
+// ✅ 合规
+:where(.el-notification) {
+  background-color: var(--el-bg-color);
+}
+:where(html.dark) :where(.el-message) {
+  background-color: var(--el-bg-color-overlay, #1a1a1a);  // 允许带 fallback
+}
+
+// ❌ 违规
+:where(html.dark) :where(.el-message) {
+  background-color: var(--color-dark-202228, #202228);  // 不属于 --el-bg-color* 系列
+}
+:where(html.dark) :where(.el-notification) {
+  background-color: #1a1a1a;  // hardcode 颜色
+}
+```
+
+**允许的 token**：
+
+- `var(--el-bg-color)`（推荐，4 类浮层组件在 `_element-plus-overrides.scss` 用此 token）
+- `var(--el-bg-color-overlay)`（推荐，浮层 overlay 语义）
+- `var(--el-bg-color-overlay, #1a1a1a)`（允许带 fallback）
+- `var(--el-bg-color, #1a1a1a)`（允许带 fallback）
+
+**禁止的写法**：
+
+- `#xxx` / `rgb(...)` / `rgba(...)` / `white` / `black` 等 hardcode 颜色
+- `var(--color-dark-202228, ...)`（虽然暗色下被 alias 到 dark-bg-3，但破坏 token 体系一致性，应直接用 `var(--el-bg-color-overlay)`）
+
+### 例外：`.el-popper.is-dark`（tooltip 反差设计）
+
+`.el-popper.is-dark` 是 Element Plus 设计的反差 tooltip：
+
+- 浅色模式下：背景 = `--el-text-color-primary`（深色文字色 = 深色 tooltip 背景）
+- 暗色模式下：背景 = `--el-text-color-primary`（浅色文字色 = 浅色 tooltip 背景）
+
+这是 Element Plus 的设计选择，**不属于"浮层底色统一"范畴**，本硬约束**不检查** `.el-popper.is-dark`。
+
+守门只针对 `.el-popper.el-dropdown-menu__popper`（dropdown popper wrapper，背景 = `var(--el-bg-color)` = #1a1a1a）。
+
+### 状态变体例外
+
+`.el-notification--error` / `.el-notification--success` / `.el-notification--warning` 等状态变体允许 hardcode 语义色（如 `#281414` for error）。这些是状态语义色，不属于"浮层底色统一"范畴。
+
+守门只检查普通浮层组件（无 `--error` / `--success` / `--warning` / `--info` 后缀）。
+
+### 历史 bug 复盘（2026-07-03 修复）
+
+**症状**：`_el-message-global.scss` 中 `.el-message` 和 `.el-notification` 暗色模式下的 `background-color` 用了 `var(--color-dark-202228, #202228)`。
+
+**根因**：
+- `--color-dark-202228` 在 `_global-tokens.scss:370` 浅色定义为 `#202228`（偏蓝紫深色）
+- `dark-mode-override.scss:85` 暗色下 alias 到 `var(--color-dark-bg-3, #1a1a1a)` = #1a1a1a
+- 暗色下实际渲染确实是 #1a1a1a（alias 生效），所以视觉上无 bug
+- 但是这种"用 alias token 而不是直接用 `var(--el-bg-color*)`"的写法破坏了 token 体系一致性，未来如果有人删除了 `dark-mode-override.scss:85` 的 alias 规则，会回退到 `#202228`（fallback），形成隐性回归
+
+**修复**：把 `var(--color-dark-202228, #202228)` 改为 `var(--el-bg-color-overlay, #1a1a1a)`，统一 token 体系。
+
+**实测验证**（修复后）：
+
+| 文件 | 选择器 | 修复前 ❌ | 修复后 ✅ |
+|---|---|---|---|
+| `_el-message-global.scss:313` | `:where(html.dark) :where(.el-message)` | `var(--color-dark-202228, #202228)` | `var(--el-bg-color-overlay, #1a1a1a)` |
+| `_el-message-global.scss:569` | `:where(html.dark) :where(.el-notification)` | `var(--color-dark-202228, #202228)` | `var(--el-bg-color-overlay, #1a1a1a)` |
+
+### 守门工具
+
+#### 1. 源码级守门（CI 必跑，5 用例）
+
+`client/e2e/dark-overlay-bg-color-unified.spec.ts` 在源码级别保证：
+
+1. `_element-plus-overrides.scss` 中浮层组件 background-color 必须用 `var(--el-bg-color*)`
+2. `_el-message-box.scss` 中 `.el-message-box` background-color 必须用 `var(--el-bg-color*)`
+3. `_el-message-global.scss` 中 `.el-message` background-color 必须用 `var(--el-bg-color*)`
+4. `_session-expired-notification.scss` 中 `.el-notification` background 必须用 `var(--el-bg-color*)`
+5. 4 个文件 × 6 类浮层组件规则块内禁止 hardcode 颜色
+
+```bash
+npx playwright test e2e/dark-overlay-bg-color-unified.spec.ts --reporter=list
+```
+
+#### 2. 浏览器级守门（需 PW_BASE_URL，6 用例）
+
+`client/e2e/dark-overlay-bg-color-unified-visual.spec.ts` 在浏览器运行时验证：
+
+- 暗色 + ElMessageBox：`backgroundColor = rgb(26, 26, 26)`（#1a1a1a）
+- 暗色 + ElNotification：同上
+- 暗色 + ElDialog：同上
+- 暗色 + ElMessage：同上
+- 暗色 + ElPopper.el-dropdown-menu__popper：同上
+- 暗色 + ElDropdownMenu：同上
+
+```bash
+$env:PW_BASE_URL='http://127.0.0.1:8888'; npx playwright test e2e/dark-overlay-bg-color-unified-visual.spec.ts --reporter=list --project=chromium
+```
+
+#### 3. pre-commit 轻量级守门（< 10ms）
+
+`scripts/check-dark-overlay-bg-color-unified.mjs` 在 pre-commit 阶段拦截：
+
+- 4 个文件 × 6 类浮层组件规则块内禁止 hardcode 颜色
+- 检测正则：`background:/background-color:` 后跟 `#xxx` / `rgb` / `white` / `black` 等
+
+```bash
+node scripts/check-dark-overlay-bg-color-unified.mjs --staged
+```
+
+#### 4. 章节守门
+
+`scripts/check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS` 必须含本章节标题（17 章之一）。keyword 自动派生为"暗色浮层底色统一硬约束"。
+
+### 与第 15 章的关系
+
+- **第 15 章**：浮层内 primary 按钮**移除 inset 白环**（浮层底色已深，不需要补强）
+- **第 17 章（本章节）**：浮层底色**统一为 #1a1a1a**（保证 WCAG AA 对比度 4.5:1）
+
+**互为前提**：第 17 章保证浮层底色深 (#1a1a1a)，第 15 章基于此移除 inset 白环（因为对比度已够）。如果浮层底色变浅（如 #2a2a2a），蓝按钮对比度 < 4.5:1，第 15 章的"移除白环"反而会让按钮边界识别困难。
+
+### 红线
+
+- ❌ 在浮层组件规则块内 hardcode 颜色（`#xxx` / `rgb(...)` / `white` / `black` 等）
+- ❌ 用 `var(--color-dark-202228, ...)` 等 alias token 代替 `var(--el-bg-color*)`（破坏 token 体系一致性）
+- ❌ 删 `dark-mode-override.scss:85` 的 `--color-dark-202228: var(--color-dark-bg-3, #1a1a1a)` alias 规则（已修复后的源码不再依赖此 alias，但保留作为兼容）
+- ❌ 删 `e2e/dark-overlay-bg-color-unified.spec.ts` 或 `e2e/dark-overlay-bg-color-unified-visual.spec.ts` 或 `scripts/check-dark-overlay-bg-color-unified.mjs`（防回归兜底失效）
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
 ## 圆角统一硬约束（2026-07-03 立）
 
 ### 设计意图
@@ -1578,6 +1722,98 @@ PR 阶段全量扫描 `src`，违规会阻断合并。
 - ❌ 删除 `e2e/tw-selector-radius.spec.ts`（防回归兜底失效）
 - ❌ 在 CI 的 `style-audit` job 中移除 pill-radius 检查 step
 - ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
+## 侧边栏尺寸永久锁定 v11 硬约束（2026-07-04 立）
+
+**v11 永久锁定值**（用户口头强制要求"永久固定这个尺寸 不允许修改了 除非我强制要求"）：
+
+| 文件 | 常量 / token | 锁定值 |
+|---|---|---|
+| `client/src/composables/useSidebar.ts` | `MIN_WIDTH` | **60** |
+| `client/src/composables/useSidebar.ts` | `MAX_WIDTH` | **116** |
+| `client/src/composables/useSidebar.ts` | `DEFAULT_WIDTH` | **116** |
+| `client/src/composables/useSidebar.ts` | `COLLAPSE_THRESHOLD` | **60** |
+| `client/src/composables/useSidebar.ts` | `CURRENT_CONFIG_VERSION` | **11** |
+| `client/src/styles/_sidebar-layout.scss` | `--sidebar-width` | **116px** |
+| `client/src/styles/_sidebar-layout.scss` | `--sidebar-min-width` | **60px** |
+| `client/src/styles/_sidebar-layout.scss` | `--sidebar-max-width` | **116px** |
+| `client/src/styles/_sidebar-layout.scss` | `--sidebar-collapsed-width` | **60px** |
+
+### 设计动机
+
+2026-07-04 用户在 1 小时内连续迭代 `100 → 120 → 110 → 116` 共 4 次，每次都出现"改 `useSidebar.ts` 忘改 `_sidebar-layout.scss`"或反之的错位。v11 (60-116) 是"4 字中文 label 完整显示 + 5 字截断 + 比 120 紧凑 4px"的甜蜜点：
+
+- 比 120 窄 4px → 更紧凑
+- 比 110 宽 6px → 4 字 label 全部不截断
+- 文字区 = 116 - 8 (margin) - 20 (padding) = **88px**，恰好能容纳 4 字中文 + 图标 + 间距
+
+### 三层守门
+
+#### 第一层：pre-commit 轻量级守门
+
+`scripts/check-sidebar-config.mjs` 在 `.husky/pre-commit` 第 6 步执行：
+
+- 触发文件：`useSidebar.ts` / `useSidebar.test.ts` / `_sidebar-layout.scss` / `Sidebar.vue` 任一在 staged 时启动
+- 检查 8 个锁定值（4 useSidebar 常量 + 4 scss token）必须同时匹配
+- 性能 < 50ms（pre-commit 友好）
+
+手动执行：
+
+```bash
+# 检查暂存文件
+npm run check:sidebar:config:staged
+
+# 检查整个 src 目录
+npm run check:sidebar:config
+```
+
+#### 第二层：CI 集成
+
+`.github/workflows/ci.yml` 的 `style-audit` job 中新增 step：
+
+```yaml
+- name: Check sidebar size locked at v11 (60-116)
+  run: node scripts/check-sidebar-config.mjs --all
+```
+
+#### 第三层：E2E 源码 + 渲染守门
+
+`e2e/sidebar-width-v11.spec.ts`（12 用例，chromium）：
+
+- **A1-A4 源码级**（4 用例）：`useSidebar.ts` 4 个常量精确匹配
+- **B1-B4 源码级**（4 用例）：`_sidebar-layout.scss` 4 个 token 精确匹配
+- **C 源码级**（1 用例）：`CURRENT_CONFIG_VERSION = 11`
+- **D 源码级**（1 用例）：`Sidebar.vue` 拖拽注释含 v11 且不含 v8/v9/v10
+- **E 浏览器渲染级**（1 用例）：dev server 启动时 `getBoundingClientRect.width = 116px`，未起时自动 skip
+- **F 浏览器渲染级**（1 用例）：12 个 nav-item label 文字 `scrollWidth <= clientWidth`（0 截断）
+- **G 源码级反向**（3 用例）：`useSidebar.ts` 注释禁止残留 v8=100 / v9=120 / v10=110 旧值
+
+### 解除锁定流程（仅用户口头强制要求时）
+
+```bash
+# 1. 同步修改两个文件的 EXPECTED 锚定值
+#    - scripts/check-sidebar-config.mjs: const EXPECTED = { ... }
+#    - e2e/sidebar-width-v11.spec.ts: const EXPECTED = { ... }
+# 2. CURRENT_CONFIG_VERSION +1（v11 → v12），触发 localStorage 迁移
+# 3. 跑全套验证
+npm run check:sidebar:config
+npx playwright test e2e/sidebar-width-v11.spec.ts
+# 4. 提交时附"unlock: sidebar size"前缀，在 PR 描述中说明改动原因
+```
+
+### 红线
+
+- ❌ 改 `useSidebar.ts` 的 `MIN_WIDTH` / `MAX_WIDTH` / `DEFAULT_WIDTH` / `COLLAPSE_THRESHOLD` 任意一个
+- ❌ 改 `_sidebar-layout.scss` 的 `--sidebar-width` / `--sidebar-min-width` / `--sidebar-max-width` / `--sidebar-collapsed-width` 任意一个
+- ❌ 降低 `CURRENT_CONFIG_VERSION`（会破坏现有用户 v11 持久化数据）
+- ❌ 删除 `scripts/check-sidebar-config.mjs` 或注释掉 `.husky/pre-commit` 中的调用
+- ❌ 删除 `e2e/sidebar-width-v11.spec.ts`（防回归兜底失效）
+- ❌ 在 CI 的 `style-audit` job 中移除 sidebar-config 检查 step
+- ❌ 在 PR 中"无说明地"修改这两个文件的 `EXPECTED` 锚定值（必须附"unlock: sidebar size"前缀）
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 和 `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+- ❌ 改完后不跑 `npm run check:sidebar:config` + `npx playwright test e2e/sidebar-width-v11.spec.ts` 验证就提交
 
 ---
 

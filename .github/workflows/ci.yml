@@ -250,6 +250,8 @@ jobs:
         run: cd client && npm run check:port-drift
       - name: 静态 CRLF 行尾检查 (无需后端, 建议 13)
         run: npm run check:line-endings
+      - name: 侧边栏尺寸 v11 锁定值守门 (60-116, 2026-07-04 立)
+        run: cd client && npm run check:sidebar:config
       - name: 启动后端 (smoke gate, 8000)
         env:
           AUTO_CREATE_SCHEMA: '1'
@@ -441,6 +443,22 @@ jobs:
         # 状态覆盖 + 默认 el-button (取消按钮) 也重置 + 作用域必须在 .session-expired-notification
         # 内 (不能污染全局 CTA 按钮的 inset 白环补强)
         run: cd client && npx playwright test e2e/session-expired-button-no-double-border.spec.ts --reporter=list
+      - name: 跑暗色浮层 primary 按钮无双层蓝边源码级守门 (4 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: _element-plus-overrides.scss html.dark 块内必须有浮层作用域排除规则
+        # :where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu)
+        # :where(.el-button--primary) { border-width: 0; box-shadow: none; &:hover/active/focus/focus-visible { box-shadow: none } }
+        # 覆盖 6 类浮层组件 (ElMessageBox/ElNotification/ElDialog/ElMessage/ElPopper/ElDropdown),
+        # 移除 Element Plus 暗色 2px 蓝边 + inset 1px 白环在浮层小按钮上叠加形成的"双层蓝边 + 中间白线"视觉 bug,
+        # 不污染全局 sidebar 等 CTA 按钮的 inset 白环补强
+        run: cd client && npx playwright test e2e/dark-overlay-primary-button-no-double-border.spec.ts --reporter=list
+      - name: 跑暗色浮层底色统一源码级守门 (5 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: 4 文件 (_element-plus-overrides/_el-message-box/_el-message-global/
+        # _session-expired-notification) 中 6 类浮层组件 (ElMessageBox/ElNotification/ElDialog/
+        # ElMessage/ElPopper/ElDropdown) 的 background-color 必须用 var(--el-bg-color*) 系列,
+        # 禁止 hardcode 颜色 (#xxx/rgb/white/black) 或 alias token (var(--color-dark-202228)).
+        # 这是浮层内 primary 按钮对比度 4.5:1 (WCAG AA) 的前提, 也是设计一致性硬性要求.
+        # 任一处 hardcode 颜色或 alias token 即阻断 PR
+        run: cd client && npx playwright test e2e/dark-overlay-bg-color-unified.spec.ts --reporter=list
       - name: 跑样式验证
         run: cd client && npx playwright test e2e/final-styles-verify.spec.ts
       - name: 跑登录态联调
