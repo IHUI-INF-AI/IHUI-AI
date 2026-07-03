@@ -252,6 +252,10 @@ jobs:
         run: npm run check:line-endings
       - name: 侧边栏尺寸 v11 锁定值守门 (60-116, 2026-07-04 立)
         run: cd client && npm run check:sidebar:config
+      - name: 背景 token 禁作文字色守门 (2026-07-04 立, 杜绝浅色背景下文字不可见)
+        # 检测 color: var(--el-bg-color) 直接误用 + --xxx-color: var(--el-bg-color) 自定义属性误用
+        # 假阳性排除: background-color/border-color/shadow-color/outline-color/bg-color 属性
+        run: cd client && npm run check:no-bg-token-as-text-color
       - name: 启动后端 (smoke gate, 8000)
         env:
           AUTO_CREATE_SCHEMA: '1'
@@ -459,6 +463,66 @@ jobs:
         # 这是浮层内 primary 按钮对比度 4.5:1 (WCAG AA) 的前提, 也是设计一致性硬性要求.
         # 任一处 hardcode 颜色或 alias token 即阻断 PR
         run: cd client && npx playwright test e2e/dark-overlay-bg-color-unified.spec.ts --reporter=list
+      - name: 跑 primary 按钮暗色对比度守门 (12 用例, 不需浏览器, 早失败)
+        # 2026-07-04 立: _dark-mode-global.scss 暗色 --el-color-primary 必须为 #2563eb
+        # (禁止引用 var(--el-bg-color*) / var(--el-text-color-*) / 深色 hex),
+        # _element-plus-overrides.scss :where(.el-button--primary) color 必须用
+        # var(--app-button-text-on-primary) (永为白, 蓝底白字 5.17:1 WCAG AA),
+        # _global-tokens.scss --app-button-text-on-primary 必须为 #ffffff.
+        # 根因: 2026-07-04 之前 --el-color-primary 暗色映射 var(--el-bg-color)=#0d0d0d
+        # 与 button color var(--el-bg-color-page)=#0d0d0d 同色, 对比度 1:1 不可见
+        # (影响登录/订阅/付费/所有 .el-button--primary 按钮)
+        run: cd client && npx playwright test e2e/primary-button-contrast.spec.ts --reporter=list
+      - name: 跑按钮/标签/消息暗色文字反色守门 (16 用例, 不需浏览器, 早失败)
+        # 2026-07-04 立: 4 类彩色按钮 (success/warning/danger/info) + 5 类 el-tag + 4 类 el-alert
+        # 暗色模式必须用 --app-text-on-* token (永定) + 暗色 --el-color-* 主题色必须重映射为深饱和版本.
+        # _dark-mode-global.scss 暗色 --el-color-success/warning/danger/info 必须 = #15803d/#b45309/#b91c1c/#4b5563
+        # (禁止 EP 默认 #67c23a/#e6a23c/#f56c6c/#909399 亮色 / 禁止引用 --el-bg-color* / 深色 hex).
+        # _element-plus-overrides.scss :where(.el-button--success/warning/danger/info) color 必须用
+        # --app-text-on-* (深绿/深琥珀/深红/深灰底 + 白字或浅黄字, 对比度 WCAG AA 4.5+).
+        # _global-tokens.scss --app-text-on-success/warning/danger/info 必须为永定值.
+        # 根因: 2026-07-04 之前 4 类按钮 EP 默认亮色背景在暗色模式下与白字对比度 < 2.5:1 不可见.
+        run: cd client && npx playwright test e2e/button-text-contrast.spec.ts --reporter=list
+      - name: 跑全组件暗色反色系统性守门 (扩展自 button-text-contrast, 早失败)
+        # 2026-07-04 立: 用户规则"从根本彻底解决"扩展批次.
+        # 在 button-text-contrast 基础上扩展到: primary 蓝按钮 + 5 类 el-link + 5 类 el-message-box +
+        #   el-pagination active + el-tabs/checkbox/radio/switch 暗色块 + 5 对 --app-color-*-text/bg 业务 token.
+        # 守门: check-color-contrast-systemic.mjs 源码级 + e2e/color-contrast-systemic.spec.ts 浏览器级.
+        # 阈值 0: 任一组件暗色反色缺失或 token 值错位即阻断 PR.
+        run: cd client && npx playwright test e2e/color-contrast-systemic.spec.ts --reporter=list
+      - name: 跑 /edu 教育中心路由名一致性源码级守门 (8 项检查, 不需浏览器, 早失败)
+        # 2026-07-04 立 (Phase C 完成): 防止 /edu 路由误删 / Sidebar.vue nameMap/prefixMap/navGroups
+        # 接入遗漏导致子路由跳转后侧边栏高亮丢失.
+        # 守门: check-edu-route-consistency.mjs 源码级 (<50ms) — edu.ts 32 个 Edu* 路由名 +
+        #   Edu 前缀规范 + Sidebar.vue nameMap 32 映射 + prefixMap 2 条目 + navGroups eduCenter 项.
+        # 阈值 0: 任一回归即阻断 PR.
+        run: cd client && npm run check:edu:route-consistency
+      - name: 跑纯 CSS style 块 // 行注释守门 (711 文件扫描, 不需浏览器, 早失败)
+        # 2026-07-04 立: 12 个文件曾因批量颜色修复误用 // 注释于纯 CSS <style scoped> 块,
+        #   导致 PostCSS 解析失败 (CssSyntaxError: Unknown word), Vite build 阻断.
+        # 纯 CSS 只支持 /* */ 注释, 不支持 SCSS 的 // 行注释.
+        # 守门: check-no-css-line-comments.mjs 源码级 (~200ms) — 扫描 .vue 文件中
+        #   无 lang="scss" 的 <style> 块, 检测 // 行注释.
+        # 阈值 0: 任一违规即阻断 PR.
+        run: cd client && npm run check:no-css-line-comments
+      - name: 跑 AGENTS.md 章节完整性守门 (23 章节, 源码级, 不需浏览器)
+        # 2026-07-02 立 + 2026-07-04 增强: AGENTS.md 是项目级 Agent 行为规范唯一来源,
+        #   23 个 H2 章节必须存在且顺序正确, 任一章节被删/替换/顺序错乱都会 CI 失败.
+        # 含 auto-derive keyword 机制 (mustContain 缺省时自动 = title-slug).
+        run: cd client && npx playwright test e2e/agents-md-sections.spec.ts --project=chromium --reporter=list
+      - name: 跑 /edu 教育中心侧边栏 E2E 守门 (58 测试, 需 preview server)
+        # 2026-07-04 立, Phase C 完成: 主侧边栏 eduCenter + /edu 内部侧边栏双层结构.
+        # 6 组 29 用例 × 2 浏览器 = 58 测试:
+        #   A. eduCenter 菜单项存在 + label
+        #   B. eduCenter 跳转 + active 高亮
+        #   C. /edu 内部侧边栏结构 (el-aside + 11 el-menu-item)
+        #   D. 11 模块 label 正确
+        #   E. 10 子路由跳转后 eduCenter 保持 active
+        #   F. 内部侧边栏点击跳转
+        # 需 preview server (4173), 默认连 8888 dev server 会失败
+        env:
+          PW_BASE_URL: http://127.0.0.1:4173
+        run: cd client && npx playwright test e2e/edu-sidebar.spec.ts --project=chromium --reporter=list
       - name: 跑样式验证
         run: cd client && npx playwright test e2e/final-styles-verify.spec.ts
       - name: 跑登录态联调
