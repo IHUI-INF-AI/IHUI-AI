@@ -989,4 +989,301 @@ cmd /c "set PW_BASE_URL=http://localhost:8888&& npx playwright test e2e/session-
 
 ---
 
+## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）
+
+会话过期通知内的"重新登录"按钮是用户 401 后唯一的登录入口，其**视觉边界**决定了用户能否清晰识别可点击区域。Element Plus 暗色 `.el-button--primary` 默认有 `border: 2px solid` + `box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18)`，在小尺寸蓝色按钮上会形成"双层蓝边 + 中间白线"视觉错觉，**必须**在通知作用域内局部重置，否则视为回归。
+
+### 触发文件
+
+- `client/src/styles/_session-expired-notification.scss`（必须含局部重置规则）
+- `client/src/composables/useAppLifecycle.ts`（用 `customClass: 'session-expired-notification'` 注入样式钩子）
+
+### 根因（Element Plus 暗色 primary 按钮）
+
+`client/src/styles/_element-plus-overrides.scss:408-435` 的 `html.dark :where(.el-button--primary)` 规则在暗色模式下强制应用：
+
+```scss
+border-width: var(--el-border-width-primary)  // = 2px
+border-color: var(--el-color-primary)         // 暗色下 #409eff
+box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18)
+```
+
+**原始设计意图**：补强 `#2563eb` CTA 蓝在 `#6a6d77` darkSurface 上的边界（1.001:1 → 3:1+），适用于 sidebar / 暗色卡片等"按钮与底色对比度不足"场景。
+
+**为何不适用于 ElNotification**：
+
+| 场景 | 底色 | 蓝按钮对比度 | inset 白环 |
+|---|---|---|---|
+| sidebar 浅色 ghost 按钮 | #6a6d77 | 1.001:1（不足） | **需要** |
+| ElNotification 通知 | #1a1a1a（dark-bg-3） | 4.5:1（WCAG AA 已通过） | **不再需要** |
+
+ElNotification 背景 = `--el-bg-color-overlay` = `var(--color-dark-bg-3)` = `#1a1a1a`，比 `#6a6d77` 深 64 单位（106/109/119 → 26/26/26），`#409eff` 蓝 on `#1a1a1a` 对比度 4.5:1 已达 WCAG AA 标准。但 32px 蓝底按钮 + 2px 蓝边 + inset 1px 白环三者叠加，视觉上"两层蓝边夹白线"，像是渲染 bug。
+
+### 必须满足的规则
+
+`_session-expired-notification.scss` 必须在 `.session-expired-notification` 作用域内（含 `.session-expired-actions` 子级）含以下规则：
+
+```scss
+.session-expired-notification {
+  .session-expired-notify {
+    .session-expired-actions {
+      .el-button--primary {
+        border-width: 0;        // 移除 2px 蓝边, 蓝色背景已提供视觉边界
+        box-shadow: none;       // 移除 inset 白环, 通知背景对比度足够
+
+        &:hover,
+        &:active,
+        &:focus,
+        &:focus-visible {
+          box-shadow: none;     // 状态切换时白环不能又出现
+        }
+      }
+
+      .el-button:not(.el-button--primary) {
+        box-shadow: none;       // 取消按钮 (默认 el-button) 也移除 inset 白环
+      }
+    }
+  }
+}
+```
+
+**关键约束**：
+
+1. 重置规则**必须在** `.session-expired-notification` 作用域内（特异度 0,4,1），**不能**直接放在全局或 `_element-plus-overrides.scss` 关闭 inset 白环（会污染 sidebar 等其他需要 inset 白环的 CTA 按钮）
+2. `border-width: 0` 而非 `border: 0`（保留 `border-color` 不被破坏，未来如果需要恢复"边线"提示可以加颜色）
+3. hover/active/focus 状态也必须 `box-shadow: none`（Element Plus 默认 hover 会引入新阴影）
+
+### 禁止模式
+
+- ❌ 把 inset 白环在 `_element-plus-overrides.scss` 全局关闭（会破坏 sidebar 的 CTA 按钮边界识别）
+- ❌ 只重置 `box-shadow` 不重置 `border-width: 0`（2px 蓝边依然在 32px 按钮上显得厚重）
+- ❌ 重置规则放在 `.el-button--primary` 顶层（特异度 0,1,0 不够，Element Plus 的 `:where()` 规则 0,0,0 也会被更高特异度规则覆盖；但放在全局会污染其他位置）
+- ❌ hover/active/focus 不重置 `box-shadow: none`（Element Plus 状态切换会重新引入 inset 白环）
+- ❌ 把重置规则放到 `_session-expired-notification.scss` 之外的文件（作用域丢失，副作用扩大）
+
+### 守门工具
+
+#### 1. 源码级守门（CI 必跑，5 用例 × 2 视口 = 10 用例）
+
+`client/e2e/session-expired-button-no-double-border.spec.ts` 在源码级别保证：
+
+1. `_session-expired-notification.scss` 必须含 `.el-button--primary { border-width: 0 }` 重置
+2. 必须含 `.el-button--primary { box-shadow: none }` 重置
+3. hover/active/focus/focus-visible 必须也 `box-shadow: none`
+4. `.el-button:not(.el-button--primary)` 也必须 `box-shadow: none`（取消按钮）
+5. 重置规则必须在 `.session-expired-notification` 作用域内（特异度 ≥ 0,3,0）
+
+```bash
+npx playwright test e2e/session-expired-button-no-double-border.spec.ts --reporter=list
+```
+
+#### 2. 浏览器级守门（需 PW_BASE_URL，4 测试 × 1 视口 = 4 用例）
+
+`client/e2e/session-expired-button-no-double-border-visual.spec.ts` 在浏览器运行时验证：
+
+- 浅色 + Desktop Chrome：primary `borderWidth=0px` + `boxShadow=none`，取消按钮 `boxShadow=none`
+- 暗色 + Desktop Chrome：同上
+- 暗色 + Desktop Chrome hover 状态：`boxShadow=none`（状态切换不引入白环）
+- 暗色 + Mobile Chrome (Pixel 5)：同上
+
+```bash
+cmd /c "set PW_BASE_URL=http://localhost:8888&& npx playwright test e2e/session-expired-button-no-double-border-visual.spec.ts"
+```
+
+#### 3. 章节守门
+
+`scripts/check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS` 必须含本章节标题（13 章之一）。
+
+### 历史 bug 复盘（2026-07-03 修复）
+
+**症状**：用户反馈"重新登录按钮怎么有两层蓝色边呢 中间还夹着白线"。
+
+**实测渲染**（修复前，浏览器 computed style）：
+
+```json
+{
+  "borderWidth": "2px",
+  "borderColor": "rgb(64, 158, 255)",  // 外层 2px 蓝边
+  "boxShadow": "rgba(255, 255, 255, 0.18) 0px 0px 0px 1px inset",  // inset 1px 白环
+  "backgroundColor": "rgb(64, 158, 255)"  // 蓝色背景
+}
+```
+
+**根因**：
+
+1. Element Plus 暗色 primary 按钮的 2px 蓝边（`--el-border-width-primary` 来自 `_element-plus-overrides.scss:408-435`）
+2. 同规则的 `inset 1px rgba(255,255,255,0.18)` 内嵌阴影（设计意图是补强 sidebar 上 CTA 蓝的边界）
+3. 两个规则在小尺寸（32px）蓝色按钮上叠加，视觉上呈现"外层蓝边 → 背景蓝 → 内侧白环 → 中心蓝"四层结构，肉眼把 inset 白环误识别为"中间夹着白线"
+
+**修复**：在 `.session-expired-notification` 作用域内局部重置 `border-width: 0` + `box-shadow: none`，**不污染** `_element-plus-overrides.scss` 的全局规则（sidebar 等其他位置仍依赖 inset 白环补强边界）。
+
+**实测验证**（修复后）：
+
+| 指标 | 修复前 ❌ | 修复后 ✅ |
+|---|---|---|
+| 暗色 primary `border-width` | 2px | **0px** |
+| 暗色 primary `box-shadow` | `inset 0 0 0 1px rgba(255,255,255,0.18)` | **none** |
+| 暗色 primary `background-color` | `#409eff`（蓝） | `#409eff`（蓝，未变） |
+| 暗色 hover `box-shadow` | `inset 0 0 0 1px rgba(255,255,255,0.18)` | **none** |
+| 浅色 primary `box-shadow` | `none`（Element Plus 浅色默认无 inset） | **none**（未变） |
+| 全局 sidebar CTA 按钮 | 正常（依赖 inset 白环） | **正常**（未污染） |
+
+### 设计意图
+
+**Element Plus 暗色 primary 按钮的 inset 白环是有意为之**，但它只在"按钮底色对比度不足"的场景下必要。ElNotification 背景 `#1a1a1a` 已经是"deep dark"，蓝色按钮对比度 4.5:1 自给自足，inset 白环反而成视觉噪音。
+
+**作用域隔离原则**：CSS 重置应该贴近使用点，**不要**在全局关闭 Element Plus 的设计意图。本硬约束用 `.session-expired-notification` 作用域限制重置范围，sidebar / 暗色卡片等仍依赖 inset 白环的场景不受影响。
+
+### 红线
+
+- ❌ 把 inset 白环在 `_element-plus-overrides.scss` 全局关闭（破坏 sidebar CTA 按钮边界）
+- ❌ 删 `_session-expired-notification.scss` 的 `.el-button--primary { border-width: 0; box-shadow: none }` 规则
+- ❌ 把重置规则搬出 `.session-expired-notification` 作用域
+- ❌ hover/active/focus 状态不重置 `box-shadow: none`
+- ❌ 删 `e2e/session-expired-button-no-double-border.spec.ts` 或 `e2e/session-expired-button-no-double-border-visual.spec.ts`（防回归兜底失效）
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
+## Vue scoped + @use partial 规范（2026-07-03 立）
+
+父组件的 `<style lang="scss" scoped>` 块通过 `@use 'partial' as *` 引入 SCSS partial 时，**partial 中的选择器会被加上父组件的 scope hash（如 `[data-v-f3f3558b]`）**。这会与子组件内部的 DOM 元素**永远不匹配** —— 子组件内部元素只接收子组件自己的 scope attr，**不**接收父组件的 scope attr。
+
+### 触发场景（满足任一即中招）
+
+1. 父组件 `<style scoped>` 块顶部 `@use '@/styles/xxx/partial' as *`
+2. partial 内有针对子组件内部元素的选择器（如 `.header-right`、`.mode-tag`、`.cs-status-wrap`）
+3. 父组件在 template 里用 `<ChildComponent />` 渲染该子组件
+4. 子组件内部元素**永远不会**接收父组件的 scope attr
+
+### 症状
+
+- 改完 CSS 没报错，浏览器 DevTools 也看不到规则（`getMatchedStylesForNode` 返回 0 命中）
+- `getComputedStyle` 返回的是 Element Plus / 全局默认值，不是你写的值
+- 用户反馈"完全没变化"或"按钮不显示 / 边框消失 / 动画不跑"
+
+### 修复范式
+
+#### A. 子组件内部元素样式 → 迁回子组件自己的 `<style scoped>` 块
+
+```scss
+// ❌ 错误: _header.scss 在父 AIChat.vue @use
+// 父选择器变成 .header-right[data-v-parentHash], 子组件内 .header-right 只有 [data-v-childHash]
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+// ✅ 正确: 迁到 chatheaderbar.vue 自己的 <style scoped> 块
+// 子组件内所有元素都有 [data-v-childHash], 选择器匹配成功
+.dialog-header {
+  .header-right {
+    display: flex;
+    gap: 8px;
+  }
+}
+```
+
+**根元素**（如 `.dialog-header`）的样式可以保留在父 `@use` partial，因为子组件根元素**会**接收父 scope attr（Vue 3 的设计），父 scoped 选择器可以命中子组件根。
+
+#### B. `@keyframes` 也必须随使用方走
+
+scoped 块内的 `@keyframes name` 会被加上 scope 后缀，**只**在该 scope 内可见。引用 `animation: name` 的选择器如果在另一个 scope 加载，会找不到 keyframe。
+
+```scss
+// ❌ 错误: @keyframes typing 留在父, 子组件 scoped 内用 animation: typing
+// → 子组件 scope 找不到该 keyframe
+
+// ✅ 正确: @keyframes typing 迁到子组件的 <style scoped> 块
+// 或迁到非 scoped 块（变全局）但只适用于真正全局的动画
+```
+
+#### C. 非 scoped 块（全局）的 `@use` 是另一个故事
+
+父组件 `<style lang="scss">`（**无** scoped）的 `@use` partial 选择器不带 scope attr，可命中所有元素（含子组件内部）。**但**这违背"样式贴近使用方"的工程规范，不推荐。
+
+`AIChat.vue` 的 `_api-access.scss` 和 `_customer-service-theme.scss` 加载在非 scoped 块，纯粹是历史原因。**新代码禁止**用非 scoped 块 + `@use` 来规避 scope 问题。
+
+### 必跑守门
+
+```bash
+# 1. 源码级: 列出 @use 的 partial, 确认每个 partial 内的选择器都只命中父组件的"直接 DOM 元素"
+#    子组件内部元素选择器（如 .header-right）必须迁回子组件 scoped
+Grep "@use" client/src/components/ai/AIChat.vue
+
+# 2. 浏览器级 CDP 审计: 打开浮窗, 用 getMatchedStylesForNode 验证关键选择器命中
+node scripts/audit-ai-chat-scope.mjs
+
+# 3. E2E 源码级守门 (24 用例, 已存在)
+npx playwright test e2e/ai-header-style-scope.spec.ts --reporter=list
+
+# 4. pre-commit 轻量级守门 (< 100ms, 已存在)
+node scripts/check-ai-header-style-scope.mjs --staged
+```
+
+### 适用子组件清单（2026-07-03 审计）
+
+| 父组件 | @use partial | 加载位置 | 子组件内部元素选择器 | 状态 |
+|---|---|---|---|---|
+| `AIChat.vue` | `_header.scss` | scoped | `.header-right` 等 6 个块 | ✅ 已迁回 `chatheaderbar.vue` |
+| `AIChat.vue` | `_message-list.scss` | scoped | 无（仅直接 DOM 选择器） | ✅ 无需迁移 |
+| `AIChat.vue` | `_input-area.scss` | scoped | 无（仅直接 DOM 选择器） | ✅ 无需迁移 |
+| `AIChat.vue` | `_session-list.scss` | scoped | 无（仅直接 DOM 选择器） | ✅ 无需迁移 |
+| `AIChat.vue` | `_api-access.scss` | **非 scoped** | 0（dialog 元素在 AIChat.vue 直接渲染） | ⚠️ 历史遗留, 禁止新加 |
+| `AIChat.vue` | `_customer-service-theme.scss` | **非 scoped** | 5 个块（`.cs-status-*`） | ✅ 已迁回 `chatheaderbar.vue` |
+
+### 审计方法 (新增 @use partial 时必做)
+
+```bash
+# Step 1: 列出所有 @use 引入的 partial
+Grep -n "@use.*'" client/src/components/Parent.vue
+
+# Step 2: 列出每个 partial 内的顶层选择器
+Grep -n "^\." client/src/styles/xxx/_partial.scss
+
+# Step 3: 对每个选择器, 判断它命中的是:
+#   - 父组件的"直接 DOM 元素" (template 里 <div class="x">) → OK
+#   - 子组件的"内部元素" (template 里 <Child />, .x 在 Child 内部) → 必须迁回 Child 的 scoped 块
+
+# Step 4: 在浏览器里实际验证
+#   用 CDP 的 CSS.getMatchedStylesForNode 拿 matched rules, 0 命中 = bug
+node scripts/audit-ai-chat-scope.mjs
+```
+
+### 历史 bug 复盘（2026-07-03 发现）
+
+**症状**：用户反馈"AI对话框最上面右上角的这几个图标挨着太近了 请你调整间距"，修改 `_header.scss` 的 `.header-right` gap 4px → 8px，**完全没效果**。
+
+**根因**：`_header.scss` 被 `AIChat.vue` 的 `<style scoped>` 块 `@use` 引入，Vue 编译器给所有选择器加 `[data-v-f3f3558b]` 后缀。但 `.header-right` 元素在 `<ChatHeaderBar />` 子组件的 template 内，子组件内部元素只接收子组件自己的 `[data-v-xxx]` attr，**不**接收父的 `[data-v-f3f3558b]`。结果：选择器变成 `.header-right[data-v-f3f3558b]`，永远不匹配真实 DOM。
+
+**CDP 验证**（修复前）：
+```js
+// CSS.getMatchedStylesForNode(.header-right) 返回 17 条规则
+// 全部是 * { } / :where() / 全局 el-button 等
+// 0 条 .header-right 自己的规则
+```
+
+**修复**：把 `.header-right` / `.header-left` / `.header-center` / `.mode-tag` / `.typing-indicator` / `.minimized-model-info` 6 个块从 `_header.scss` 迁到 `chatheaderbar.vue` 自己的 `<style scoped>` 块。`@keyframes typing` 一并迁移（scoped keyframes 跨组件不共享）。
+
+**根元素 `.dialog-header` 保留在 `_header.scss`**：因为子组件根元素会接收父 scope attr，父 scoped 选择器可以命中子组件根。
+
+**实测验证**（修复后）：
+- `.header-right` gap: 4px → 8px 视觉上**生效**
+- 标题栏三个按钮间距明显拉大，用户反馈 OK
+- `.quick-tool-item` border-radius: 8px → 4px 视觉上**生效**
+- CDP matched rules: 17 → 24 条，命中实际的 .header-right 规则
+
+### 红线
+
+- ❌ 在父 `<style scoped>` 块 `@use` 的 partial 内写**子组件内部元素**选择器
+- ❌ 修复 scope 失配时**只在父组件里用 `:deep()` 穿透**（掩盖问题，应迁回子组件）
+- ❌ 用 `<style lang="scss">`（**非** scoped）作为规避 scope 问题的"万能解"（违背样式贴近使用方原则）
+- ❌ 跨组件共享 `@keyframes` 不确认 scope 兼容性（scoped keyframes 不跨组件共享）
+- ❌ 改完 CSS 只看"页面没报错"就交付，**必须**用 CDP 验证 getMatchedStylesForNode 实际命中
+- ❌ 新增 @use partial 时跳过"是否含子组件内部元素选择器"审计
+- ❌ 删 `e2e/ai-header-style-scope.spec.ts` 或 `scripts/check-ai-header-style-scope.mjs`（防回归兜底失效）
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
 
