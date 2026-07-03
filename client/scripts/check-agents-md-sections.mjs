@@ -50,10 +50,11 @@ if (onlyStaged) {
   }
 }
 
-// 9 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
+// 10 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
 // 与 e2e/agents-md-sections.spec.ts 中 EXPECTED_SECTIONS 保持一致
 const EXPECTED_SECTIONS = [
   '## 目标驱动模式执行规范（/goal）',
+  '## 开发服务器启动约定（2026-07-03 立）',
   '## 主题色改动硬约束（2026-07-02 立）',
   '## 纯白/纯黑边框改动硬约束（2026-07-02 立）',
   '## AI 面板 embedded/floating 模式样式分离约束（2026-07-02 立）',

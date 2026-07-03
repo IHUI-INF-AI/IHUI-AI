@@ -46,6 +46,10 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; keyword: string }> = [
     keyword: '目标驱动模式',
   },
   {
+    title: '## 开发服务器启动约定（2026-07-03 立）',
+    keyword: '开发服务器启动约定',
+  },
+  {
     title: '## 主题色改动硬约束（2026-07-02 立）',
     keyword: '主题色改动硬约束',
   },
@@ -175,6 +179,7 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
     // 每个章节抽一个最关键的标识词，确保不只是标题在、正文也在
     const sectionSpotChecks: ReadonlyArray<{ keyword: string; mustContain: string }> = [
       { keyword: '目标驱动模式', mustContain: 'STATE.md' },
+      { keyword: '开发服务器启动约定', mustContain: 'dev-up.ps1' },
       { keyword: '主题色改动硬约束', mustContain: 'check:theme-tokens' },
       { keyword: '纯白/纯黑边框改动硬约束', mustContain: 'declaration-property-value-disallowed-list' },
       { keyword: 'AI 面板 embedded/floating', mustContain: '.floating-chat-dialog.is-embedded' },
