@@ -125,6 +125,21 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
         duration: 0, // 不自动关闭, 必须用户主动操作
         showClose: true,
         customClass: 'session-expired-notification',
+        // 点击通知本体(非按钮区域)也弹出登录框, 提升可达性
+        // 排除: 内嵌按钮(.el-button) 与 关闭按钮(.el-notification__closeBtn) - 它们有自己的处理逻辑
+        onClick: (e?: MouseEvent) => {
+          if (e?.target) {
+            const target = e.target as HTMLElement
+            if (
+              target.closest('.el-button') ||
+              target.closest('.el-notification__closeBtn')
+            ) {
+              return
+            }
+          }
+          useLoginDialog().open('login')
+          notification.close()
+        },
       })
     }
     window.addEventListener('session-expired', handleSessionExpired)

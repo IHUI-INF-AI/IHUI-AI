@@ -45,6 +45,14 @@ vi.mock('vue-i18n', () => ({
   })),
 }))
 
+// Mock useLoginDialog (会话过期通知的"重新登录"按钮 + onClick 回调会调用)
+const mockLoginDialogOpen = vi.fn()
+vi.mock('@/composables/useLoginDialog', () => ({
+  useLoginDialog: vi.fn(() => ({
+    open: mockLoginDialogOpen,
+  })),
+}))
+
 // Mock element-plus（用于 Alt+T 提示 + 会话过期通知）
 vi.mock('element-plus', () => ({
   ElMessage: {
@@ -309,6 +317,70 @@ describe('useAppLifecycle', () => {
       }
       // title 走 i18n (mock 直接返回 key)
       expect(opts.title).toBe('auth.sessionExpiredTitle')
+    })
+
+    it('ElNotification 配置应包含 onClick 回调(点击通知本体可弹登录框)', async () => {
+      const { ElNotification } = await import('element-plus')
+      const lifecycle = useAppLifecycle()
+      lifecycle.install()
+      window.dispatchEvent(new CustomEvent('session-expired'))
+      const opts = (ElNotification as unknown as { mock: { calls: Array<[unknown]> } }).mock.calls[0][0] as {
+        onClick: (e?: MouseEvent) => void
+      }
+      expect(typeof opts.onClick).toBe('function')
+    })
+
+    it('onClick 点击非按钮区域应弹出登录框 + 关闭通知', async () => {
+      const { ElNotification } = await import('element-plus')
+      const closeFn = vi.fn()
+      ;(ElNotification as unknown as { mockReturnValue: unknown }).mockReturnValue = { close: closeFn }
+      ;(ElNotification as unknown as (...a: unknown[]) => unknown).mockImplementation(() => ({ close: closeFn }))
+      const lifecycle = useAppLifecycle()
+      lifecycle.install()
+      window.dispatchEvent(new CustomEvent('session-expired'))
+      const opts = (ElNotification as unknown as { mock: { calls: Array<[unknown]> } }).mock.calls[0][0] as {
+        onClick: (e?: MouseEvent) => void
+      }
+      // 模拟点击通知本体(无 target 或 target 不在按钮内)
+      opts.onClick({ target: document.createElement('div') } as unknown as MouseEvent)
+      expect(mockLoginDialogOpen).toHaveBeenCalledWith('login')
+      expect(closeFn).toHaveBeenCalled()
+    })
+
+    it('onClick 点击按钮区域不应重复弹出登录框(按钮有自己的处理逻辑)', async () => {
+      const { ElNotification } = await import('element-plus')
+      const closeFn = vi.fn()
+      ;(ElNotification as unknown as (...a: unknown[]) => unknown).mockImplementation(() => ({ close: closeFn }))
+      const lifecycle = useAppLifecycle()
+      lifecycle.install()
+      window.dispatchEvent(new CustomEvent('session-expired'))
+      const opts = (ElNotification as unknown as { mock: { calls: Array<[unknown]> } }).mock.calls[0][0] as {
+        onClick: (e?: MouseEvent) => void
+      }
+      // 模拟点击 ElButton 内部元素
+      const btn = document.createElement('button')
+      btn.className = 'el-button'
+      const span = document.createElement('span')
+      btn.appendChild(span)
+      opts.onClick({ target: span } as unknown as MouseEvent)
+      expect(mockLoginDialogOpen).not.toHaveBeenCalled()
+    })
+
+    it('onClick 点击关闭按钮不应弹出登录框', async () => {
+      const { ElNotification } = await import('element-plus')
+      const closeFn = vi.fn()
+      ;(ElNotification as unknown as (...a: unknown[]) => unknown).mockImplementation(() => ({ close: closeFn }))
+      const lifecycle = useAppLifecycle()
+      lifecycle.install()
+      window.dispatchEvent(new CustomEvent('session-expired'))
+      const opts = (ElNotification as unknown as { mock: { calls: Array<[unknown]> } }).mock.calls[0][0] as {
+        onClick: (e?: MouseEvent) => void
+      }
+      // 模拟点击 Element Plus 自带的关闭按钮
+      const closeBtn = document.createElement('i')
+      closeBtn.className = 'el-notification__closeBtn'
+      opts.onClick({ target: closeBtn } as unknown as MouseEvent)
+      expect(mockLoginDialogOpen).not.toHaveBeenCalled()
     })
   })
 
