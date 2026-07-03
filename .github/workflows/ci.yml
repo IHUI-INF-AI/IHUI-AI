@@ -414,6 +414,12 @@ jobs:
         # 全局 _theme-tokens darkSurface 不变 + 色阶方向 + 旧值回退检测
         # 任一处改回偏浅旧值 (#6a6d77 / #5a5d67 / #4f5259) 或 #ffffff fallback 即阻断 PR
         run: cd client && npx playwright test e2e/sidebar-dark-color-tier.spec.ts --reporter=list
+      - name: 跑 AI 浮窗标题栏样式 scope 失配源码级守门 (24 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: chatheaderbar.vue <style scoped> 必须含 .header-right gap:8px +
+        # _header.scss 不含子组件内部元素 CSS 规则 + AIChat.vue 不含 @keyframes typing +
+        # .quick-tool-item 用 var(--global-border-radius-sm) + 禁止 :deep 临时修复写回
+        # 任一处回归即阻断 PR
+        run: cd client && npx playwright test e2e/ai-header-style-scope.spec.ts --reporter=list
       - name: 跑样式验证
         run: cd client && npx playwright test e2e/final-styles-verify.spec.ts
       - name: 跑登录态联调
