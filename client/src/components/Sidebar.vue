@@ -1367,9 +1367,11 @@ watch(isMobileOpen, () => {
   padding: 0;
   justify-content: center;
 }
+
 .sidebar-login-row {
   display: flex;
   justify-content: center;
+
   /* padding-top 6 (替代 10) 释放 4px 给 actions margin-top 16,
    * 配合 actions margin 16 + actions h 28 + gap 2 + loginRow h 50 = 98
    * 按钮 y = loginRow.y + padding-top = 668 + 6 = 674 (不变) */

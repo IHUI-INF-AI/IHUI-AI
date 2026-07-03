@@ -115,7 +115,7 @@ export const useDarkModeStore = defineStore('darkMode', () => {
   const DARK_BG_CSS = `
     :where(html.dark), :where(html.dark) html, :where(html.dark) body, :where(html.dark) #app, :where(html.dark) .app-container,
     :where(html.dark) .main-content, :where(html.dark) .page-container, :where(html.dark) .agents-container,
-    :where(html.dark) .home-container, :where(html.dark) [class*="container"]:not(.brand-text-container),
+    :where(html.dark) .home-container, :where(html.dark) [class*="container"]:not(.brand-text-container, .app-container, .home-container, .ai-world-page__container, .logo-container, .form-container, .account-form-container, .phone-form-container, .icon-container, .chat-input-container, .prompt-templates-container),
     :where(html.dark) [id*="app"], :where(html.dark) [id*="page"], :where(html.dark) header, :where(html.dark) .glass-header,
     :where(html.dark) main, :where(html.dark) .page-section, :where(html.dark) #first-page, :where(html.dark) #second-page,
     :where(html.dark) #third-page, :where(html.dark) #fourth-page, :where(html.dark) #fifth-page, :where(html.dark) footer,
