@@ -312,3 +312,60 @@
 ### 需要 L2 升级
 无 — 工作树干净, 所有 commit 待推送
 
+## Run 2026-07-03T21:30:00+0000 (Asia/Shanghai) — 第六轮 /goal：侧边栏 nav span 文字 "成为供应商" → "加入我们" 完美化
+
+- trigger: user (`/goal` \`span\` 文字请改为加入我们 并且相关工作都做完美)
+- level: L1
+- duration_s: ~600
+- tokens: 12000 / budget 100000
+- status: delivered
+
+### 目标
+将 sidebar 导航中 `t('navigation.becomeSupplier')` 渲染的 span 文字从 "成为供应商" 改为 "加入我们"，并保证 5 语言 i18n 一致性 + dev server 渲染验证。
+
+### 硬性指标 (5/5 达成)
+1. ✅ zh-CN navigation.becomeSupplier 改为 "加入我们" (modules/zh-CN/navigation.json:9)
+2. ✅ 5 语言 navigation.becomeSupplier 同步更新 (en/en-US/zh-CN/zh-TW/ja/ko)
+3. ✅ 5 语言 routes.becomeSupplier 同步更新 (mobile 菜单显示一致)
+4. ✅ Dev server 重启后浏览器 sidebar 渲染 "加入我们" (ref e18 button)
+5. ✅ 视觉截图确认侧边栏 nav "关于我们" 下方显示 "加入我们" (取代 "成为供应商")
+
+### 同步更新的相关文件
+- `client/src/locales/modules/zh-CN/navigation.json:9` — "加入我们"
+- `client/src/locales/modules/en-US/navigation.json:7` — "Join Us"
+- `client/src/locales/modules/en/navigation.json` — "Join Us"
+- `client/src/locales/modules/zh-TW/navigation.json:9` — "加入我們"
+- `client/src/locales/modules/ja/navigation.json:9` — "参加する"
+- `client/src/locales/modules/ko/navigation.json:9` — "참여하기"
+- `client/src/locales/modules/zh-CN/routes.json:56` — "加入我们"
+- `client/src/locales/modules/en-US/routes.json:55` — "Join Us"
+- `client/src/locales/zh-CN.json:948,1400` — navigation/route titles
+- `client/src/composables/useSidebar.ts:40` — 注释 "5 字 label → 截 1 字" 改为 "e.g. '加入我们' 完整 / 5 字 label → 截 1 字"
+- `client/src/composables/__tests__/useSidebar.test.ts:6` — 设计目标注释同步
+- `README.md:108` — 关于-新闻中心、关于我们、联系我们、加入我们
+
+### 验证结果
+- ✅ check:i18n:keys: 缺失 0 (5 语言键集合一致)
+- ✅ check:line-endings: 0 个文件含 CRLF (git staged 模式)
+- ✅ check:port-drift: 端口配置无漂移
+- ✅ typecheck: vue-tsc --noEmit 通过
+- ✅ eslint useSidebar.ts: 0 warning
+- ✅ 浏览器渲染: dev server 重启后 sidebar ref e18 button 文本 "加入我们"
+- ✅ 视觉截图: sidebar-joinus-verified.png 已确认 (侧边栏 "关于我们" 下方显示 "加入我们")
+
+### 已验证的非问题 (pre-existing, 与本任务无关)
+- check:no-important 3 处违规 (_sidebar-layout.scss:1400, Report.vue:380/387) — 来自 PR-D/PR-F 历史提交, 非本轮改动
+- i18n-no-regression.spec.ts 失败 — selector `.login-tabs .el-tabs__item .tab-label-text` 找不到, 属于 i18n 切换流程 pre-existing 问题, 与 sidebar 改动无关
+
+### 工作树遗留 (不属于本轮, 来自其他 PR)
+- 2 untracked: edu-profile-crud.spec.ts (staged), session-expired-notification.spec.ts
+- 5 modified: NoteDialog/OfflineRecordDialog/UploadedPapersList (staged), useAppLifecycle.ts + useAppLifecycle.test.ts (unstaged)
+- 1 modified: client/public/sitemap.xml
+- 1 modified: client/e2e/route-reachability.spec.ts (staged)
+
+### 需要 L2 升级
+无 — 第五轮 /goal 任务完成, sidebar 文字已完美化
+
+### 需要 L2 升级
+无
+
