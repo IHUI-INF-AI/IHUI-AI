@@ -495,13 +495,24 @@ $brand-primary: v.$primary-color;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background: #1a1a1a;
+  color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+  /* stylelint-enable color-no-hex */
+
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
+
+  html.dark & {
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #fff;
+    color: #1a1a1a;
+    /* stylelint-enable color-no-hex */
+
+  }
 }
 
 .sub-info {
@@ -554,7 +565,7 @@ $brand-primary: v.$primary-color;
     outline: none;
 
     &:focus {
-      border-color: $brand-primary;
+      border-color: var(--border-unified-color-hover);
     }
   }
 
@@ -607,7 +618,7 @@ $brand-primary: v.$primary-color;
 
   &:hover {
     background: var(--el-color-danger);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   }
 }
 </style>

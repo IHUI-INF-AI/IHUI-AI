@@ -43,7 +43,7 @@
 }
 
 /* 暗色模式 body 背景 */
-:where(html.dark) :where(body) {
+html.dark :where(body) {
   --body-bg: var(--el-bg-color-page, var(--el-text-color-primary));
 }
 
@@ -73,19 +73,17 @@
   pointer-events: auto;
 }
 
-:where(html.dark) :where(.app-container) {
+html.dark :where(.app-container) {
   --app-bg: var(--el-bg-color-page, var(--el-text-color-primary));
 }
 
 /* ═══ 主内容区:可滚动,滚轮在此区域生效 ═══ */
+
 /* 侧边栏布局下 main-content 不需要 padding-top，由 app-layout 容器处理 */
 .main-content {
   flex: 1;
   min-height: 0;
-  padding-top: 60px;
-  padding-right: 0;
-  padding-bottom: 0;
-  padding-left: 0;
+  padding: 60px 0 0;
   margin: 0;
   position: relative;
   z-index: calc(var(--z-base) + 1);

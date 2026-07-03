@@ -2064,13 +2064,13 @@ $sidebar-width: 200px;
   gap: 6px;
 
   &:hover {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
     color: $brand-primary;
     background: $brand-primary-light;
   }
 
   &.active {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
     color: $brand-primary;
     background: $brand-primary-light;
   }
@@ -2078,12 +2078,12 @@ $sidebar-width: 200px;
   &--primary {
     background: var(--el-color-primary);
     border: none;
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary); /* 规则A: 主色深底白字 (原 var(--el-bg-color-page) 误用背景 token) */
     font-weight: 500;
 
     &:hover {
       background: var(--el-color-primary-light-3);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary); /* 规则A: 主色按钮 hover 保持白字 (按钮约定) */
       transform: translateY(-1px);
       box-shadow: var(--global-box-shadow);
     }
@@ -2109,12 +2109,12 @@ $sidebar-width: 200px;
     /* primary 浮动按钮保持主色，不被 --float 的默认背景覆盖 */
     &.cyber-btn--primary {
       background: var(--el-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary); /* 规则A: 主色深底白字 */
       border: none;
 
       &:hover {
         background: var(--el-color-primary-light-3);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary); /* 规则A: 主色按钮 hover 保持白字 */
       }
     }
   }
@@ -3097,7 +3097,7 @@ $sidebar-width: 200px;
   box-shadow: var(--global-box-shadow);
 
   &:hover {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
     color: $brand-primary;
     background: $brand-primary-light;
   }
@@ -3172,7 +3172,7 @@ $sidebar-width: 200px;
   }
 
   &:hover {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
     color: $brand-primary;
   }
 
@@ -3670,11 +3670,11 @@ html:not(.dark) body .edu-docs-root .cyber-btn {
   &.cyber-btn--primary {
     background: var(--el-color-primary);
     border: none;
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary); /* 规则A: 主色深底白字 */
 
     &:hover {
       background: var(--el-color-primary-light-3);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary); /* 规则A: 主色按钮 hover 保持白字 */
     }
   }
 
@@ -4108,7 +4108,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h2,
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h3 {
   color: var(--el-text-color-primary) ;
-  border-color: var(--el-text-color-primary);
+  border-color: var(--border-unified-color);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content h4 {
@@ -4122,7 +4122,7 @@ html:not(.dark) body .edu-docs-root .pulse-glow {
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content table td {
   color: var(--el-text-color-primary) ;
-  border-bottom-color: var(--el-text-color-primary);
+  border-bottom-color: var(--border-unified-color);
 }
 
 :where(html.dark, body) :where(.edu-docs-root) :where(.docs-content) .markdown-content code {

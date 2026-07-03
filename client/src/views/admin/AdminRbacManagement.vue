@@ -390,6 +390,7 @@ onMounted(() => {
   .page-title { margin: 0 0 16px; font-size: 22px; }
   .rbac-tabs { background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); }
   .tab-actions { margin-bottom: 12px; }
+
   .dashboard-card {
     margin-bottom: 12px;
     .card-label { font-size: 14px; color: var(--el-text-color-secondary); }

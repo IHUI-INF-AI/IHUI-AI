@@ -134,7 +134,7 @@ function addNotificationStyles(): void {
 
     html.high-contrast-light .theme-shortcut-notification {
       background: var(--el-text-color-primary);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
       border: 2px solid var(--el-text-color-primary);
     }
 

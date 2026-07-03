@@ -37,6 +37,11 @@
     "tools": "工具",
     "promptTemplatesDesc": "選擇提示詞模板",
     "aiToolboxDesc": "AI 工具箱",
-    "back": "返回"
+    "back": "返回",
+    "noModels": "暫無可用模型",
+    "selectAgent": "選擇智能體",
+    "selectMode": "選擇模式",
+    "modelLabel": "模型",
+    "agentLabel": "智能體"
   }
 }

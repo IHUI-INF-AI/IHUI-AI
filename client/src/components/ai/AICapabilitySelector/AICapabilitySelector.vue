@@ -36,6 +36,8 @@ import {
   Terminal,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { onMounted } from 'vue'
+import { useCleanup } from '@/composables/useCleanup'
 import CapabilityItem from './CapabilityItem.vue'
 import GenerationTypeSelector from './GenerationTypeSelector.vue'
 import type {
@@ -264,20 +266,55 @@ function getModelIconUrl(model: AIModelInfo & Record<string, unknown>): string |
   return undefined
 }
 
+/**
+ * 从模型对象中提取纯 model_code (供品牌识别使用)
+ * 后端新 API 字段结构:
+ *   { id: "fla_0001", code: "freellmapi/big-pickle", name: "Big Pickle", displayName: "Big Pickle", provider: "freellmapi" }
+ * 旧 API 字段结构 (兼容):
+ *   { id: "xxx", modelCode: "gpt-4.1", source: "GPT-4.1" }
+ * 实际 model_code 可能是 "freellmapi/gpt-4.1" (含 provider 前缀), 需剥离前缀
+ */
+function getRawModelCode(model: AIModelInfo & Record<string, unknown>): string {
+  const raw = model as Record<string, unknown>
+  const candidates: unknown[] = [raw.modelCode, raw.model_code, raw.code]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) {
+      // 剥离 "provider/" 前缀 (如 "freellmapi/gpt-4.1" → "gpt-4.1")
+      const stripped = c.includes('/') ? c.split('/').pop() || c : c
+      return stripped.trim()
+    }
+  }
+  return ''
+}
+
 /** 转换模型为能力项数据 - 兼容 source 字段（参考项目使用 source 作为显示名） */
 const modelItems = computed<CapabilityItemData[]>(() => {
-  const sel = props.selectedModel
-  const selId = sel?.modelCode || sel?.id
+  const sel = props.selectedModel as unknown as Record<string, unknown> | null
+  const selCode = sel ? getRawModelCode(sel as AIModelInfo & Record<string, unknown>) : ''
+  const selId = sel?.id
   return filteredModels.value.map((model: AIModelInfo) => {
-    const modelId = model.modelCode || model.id
-    const isSelected = !!selId && !!modelId && String(selId) === String(modelId)
+    const rawCode = getRawModelCode(model as AIModelInfo & Record<string, unknown>)
+    const modelId = model.id
+    const isSelected =
+      (!!selCode && !!rawCode && selCode === rawCode) ||
+      (!!selId && !!modelId && String(selId) === String(modelId))
+    const displayName =
+      model.source ||
+      model.displayName ||
+      model.name ||
+      rawCode ||
+      String(model.id || model.modelCode || '')
     return {
-      id: String(model.id || model.modelCode || ''),
-      name: model.source || model.displayName || model.name || model.modelCode || '',
+      id: String(model.id || model.modelCode || rawCode || ''),
+      name: displayName,
       description: model.description || model.remark || '',
       iconUrl: getModelIconUrl(model as AIModelInfo & Record<string, unknown>),
       isSelected,
-      metadata: { model },
+      metadata: {
+        model,
+        rawModelCode: rawCode,
+        provider: (model as unknown as Record<string, unknown>).provider ?? null,
+      },
     }
   })
 })
@@ -583,6 +620,23 @@ const updateVideoProvider = (provider: VideoProvider) => {
   internalVideoProvider.value = provider
   emit('update:videoProvider', provider)
 }
+
+/** 2026-07-04 立: backdrop 泄漏修复
+ *  ESC 键 → 关闭面板 (避免 backdrop 永久遮挡底层 div 点击)
+ *  全局 document keydown 监听, 卸载时 useCleanup 统一清理 */
+const cleanup = useCleanup()
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && props.modelValue) {
+    e.preventDefault()
+    e.stopPropagation()
+    emit('update:modelValue', false)
+  }
+}
+onMounted(() => {
+  if (typeof document !== 'undefined') {
+    cleanup.addEventListener(document, 'keydown', handleKeydown)
+  }
+})
 </script>
 
 <template>
@@ -1052,9 +1106,31 @@ html.dark .ai-capability-selector__backdrop .ai-capability-selector__header::bef
 }
 
 .ai-capability-selector__backdrop .ai-capability-selector__list {
-  display: flex;
-  flex-direction: column;
+  display: block;
   gap: 8px;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto hidden;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--el-border-color) transparent;
+}
+
+.ai-capability-selector__backdrop .ai-capability-selector__list > * + * {
+  margin-top: 8px;
+}
+
+.ai-capability-selector__backdrop .ai-capability-selector__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-capability-selector__backdrop .ai-capability-selector__list::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
+  border-radius: 3px;
+}
+
+.ai-capability-selector__backdrop .ai-capability-selector__list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .ai-capability-selector__backdrop .ai-capability-selector__mcp-wrap {
@@ -1071,8 +1147,8 @@ html.dark .ai-capability-selector__backdrop .ai-capability-selector__header::bef
   letter-spacing: 0.01em;
 }
 
-.ai-capability-selector__backdrop .ai-capability-selector__list--mcp {
-  gap: 10px;
+.ai-capability-selector__backdrop .ai-capability-selector__list--mcp > * + * {
+  margin-top: 10px;
 }
 
 :where(.ai-capability-selector__backdrop) :where(.ai-capability-selector__list--mcp) .capability-item {
@@ -1264,6 +1340,16 @@ html.dark .ai-capability-selector__backdrop .ai-capability-selector__header::bef
 .ai-capability-selector__backdrop.modal-enter-active,
 .ai-capability-selector__backdrop.modal-leave-active {
   transition: opacity 0.25s var(--acs-ease);
+}
+
+/* 2026-07-04 立: backdrop 泄漏修复
+ * leave 期间 pointer-events: none, 防止 backdrop 在 fade-out 动画中
+ * 继续阻挡底层 div 点击 (用户报告 "LanguageSwitcher/AppDownload 点击无反应")
+ * enter 期间无需 disable, 因为初始即 pointer-events: auto 且 opacity 0,
+ * leave-to 时 opacity 0 但仍 pointer-events: auto, 必须显式置 none */
+.ai-capability-selector__backdrop.modal-leave-active,
+.ai-capability-selector__backdrop.modal-leave-to {
+  pointer-events: none;
 }
 
 .ai-capability-selector__backdrop.modal-enter-active .ai-capability-selector,

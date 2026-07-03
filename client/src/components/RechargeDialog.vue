@@ -164,7 +164,9 @@ function onClose() {
     height: 18px;
     border-radius: 50%;
     background: var(--color-brand-blue);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    color: var(--app-button-text-on-primary);
     font-size: 12px;
     font-weight: 700;
     font-style: italic;
@@ -190,7 +192,7 @@ function onClose() {
     transition: border-color 0.2s;
 
     &:focus-within {
-      border-color: var(--el-text-color-primary);
+      border-color: var(--border-unified-color-hover);
     }
 
     .amount-symbol {
@@ -230,9 +232,22 @@ function onClose() {
     transition: all 0.2s;
 
     &.active {
-      background: var(--el-text-color-primary);
-      color: var(--el-bg-color);
-      border-color: var(--el-text-color-primary);
+      // 2026-07-04 修复: 反相配对双模式覆盖, 原 background: var(--el-text-color-primary) + color: var(--el-bg-color) 在暗色模式下文字不可见
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #1a1a1a;
+      color: #fff;
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
+
+      html.dark & {
+        /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+        background: #fff;
+        color: #1a1a1a;
+        /* stylelint-enable color-no-hex */
+
+        border-color: transparent;
+      }
     }
 
     &:hover:not(.active) {
@@ -269,7 +284,7 @@ function onClose() {
     transition: all 0.2s;
 
     &.active {
-      border-color: var(--el-text-color-primary);
+      border-color: var(--border-unified-color-hover);
       background: var(--color-black-04);
     }
 
@@ -317,10 +332,23 @@ function onClose() {
   transition: all 0.2s;
 
   &.primary {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
+    // 2026-07-04 修复: 反相配对双模式覆盖, 原 background: var(--el-text-color-primary) + color: var(--el-bg-color) 在暗色模式下文字不可见
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff;
+    /* stylelint-enable color-no-hex */
+
+    border-color: transparent;
     min-width: 180px;
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
+    }
 
     &:hover:not(:disabled) {
       opacity: 0.85;

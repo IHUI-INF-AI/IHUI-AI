@@ -706,7 +706,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   }
 
   &:hover {
-    border-color: $border-accent;
+    border-color: var(--border-unified-color-hover);
     transform: translateY(-2px);
   }
 }
@@ -820,7 +820,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     transition: all 0.3s;
 
     &:hover {
-      border-color: $accent-cyan;
+      border-color: var(--border-unified-color-hover);
       color: $accent-cyan;
 
       @include glow-effect($accent-cyan, 0.2);
@@ -963,7 +963,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
       &:hover {
         background: var(--color-cyan-00d4ff-05);
-        border-color: $border-accent;
+        border-color: var(--border-unified-color-hover);
       }
 
       .item-marker {
@@ -1172,7 +1172,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
     &:hover {
       transform: scale(1.05);
-      border-color: $accent-cyan;
+      border-color: var(--border-unified-color-hover);
 
       @include glow-effect($accent-cyan, 0.2);
     }
@@ -1238,7 +1238,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
       transition: all 0.3s;
 
       &:hover {
-        border-color: $accent-cyan;
+        border-color: var(--border-unified-color-hover);
       }
     }
 
@@ -1311,7 +1311,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
   transition: all 0.3s;
 
   &:hover {
-    border-color: $accent-cyan;
+    border-color: var(--border-unified-color-hover);
     color: $accent-cyan;
     background: var(--color-cyan-glow);
   }
@@ -1423,7 +1423,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
     &:hover {
       transform: translateY(-3px);
-      border-color: $accent-cyan;
+      border-color: var(--border-unified-color-hover);
 
       @include glow-effect($accent-cyan, 0.25);
     }
@@ -1600,7 +1600,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 
         &:hover,
         &.is-focus {
-          border-color: $accent-cyan;
+          border-color: var(--border-unified-color-hover);
           box-shadow: var(--global-box-shadow);
         }
 
@@ -1645,7 +1645,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
           }
 
           &:focus {
-            border-color: $accent-cyan;
+            border-color: var(--border-unified-color-hover);
             box-shadow: var(--global-box-shadow);
           }
         }
@@ -1793,6 +1793,7 @@ $glow-blue: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
 }
 
 :deep(.el-image-viewer__wrapper) {
+  /* stylelint-disable-next-line declaration-property-value-no-unknown -- postcss-html 误报 var() 未闭合, 实测 var(--color-black-95) 是合法 CSS 变量 */
   background: var(--color-black-95);
 }
 </style>

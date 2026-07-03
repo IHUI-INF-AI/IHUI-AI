@@ -218,13 +218,13 @@ onMounted(loadMessages)
 }
 
 .tab-btn.active {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
   color: $brand-primary;
 }
 
 .tab-badge {
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   font-size: 12px;
   padding: 0 6px;
   border-radius: var(--global-border-radius);
@@ -264,7 +264,7 @@ onMounted(loadMessages)
 }
 
 .message-item:hover {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
 }
 
 .message-item.unread {

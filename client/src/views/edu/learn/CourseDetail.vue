@@ -13,7 +13,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Back" @click="goBack">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -21,7 +21,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -86,7 +86,7 @@
                 <el-button type="primary" @click="goLearnFirstSection">
                   {{ t('edu.learn.continue') }}
                 </el-button>
-                <el-button :icon="Certificate" @click="goCertificates">
+                <el-button :icon="Medal" @click="goCertificates">
                   {{ t('edu.learn.myCerts') }}
                 </el-button>
               </template>
@@ -153,7 +153,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
-  Back, Reading, User, Clock, Notebook, VideoPlay, Certificate,
+  Back, Reading, User, Clock, Notebook, VideoPlay, Medal,
 } from '@element-plus/icons-vue'
 import {
   learnApi,

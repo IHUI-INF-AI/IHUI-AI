@@ -23,7 +23,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -61,7 +61,7 @@
           shadow="never"
         >
           <div class="question-head">
-            <span class="question-no">{{ idx + 1 }}</span>
+            <span class="question-no">{{ Number(idx) + 1 }}</span>
             <el-tag size="small" class="question-type-tag">
               {{ questionTypeLabel(q.question_type) }}
             </el-tag>
@@ -257,7 +257,7 @@ async function confirmSubmit() {
     await ElMessageBox.confirm(t('edu.exam.submitConfirm'), t('edu.exam.submitExam'), {
       type: 'warning',
       confirmButtonText: t('edu.exam.submitExam'),
-      cancelButtonText: t('edu.profile.cancel'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await doSubmit()
   } catch {
@@ -417,7 +417,9 @@ onBeforeUnmount(stopTimer)
   width: 24px;
   height: 24px;
   background: var(--el-color-primary);
+  /* stylelint-disable color-no-hex -- 主色徽章白字 */
   color: #fff;
+  /* stylelint-enable color-no-hex */
   font-size: 12px;
   font-weight: 600;
   border-radius: 8px;

@@ -20,7 +20,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -76,14 +76,14 @@
         </el-form-item>
 
         <el-form-item class="form-actions">
-          <el-button @click="goBack">{{ t('edu.profile.cancel') }}</el-button>
+          <el-button @click="goBack">{{ t('edu.common.cancel') }}</el-button>
           <el-button
             type="primary"
             :loading="submitting"
             :icon="Promotion"
             @click="handleSubmit"
           >
-            {{ t('edu.profile.submit') }}
+            {{ t('edu.common.submit') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -144,7 +144,7 @@ async function handleSubmit() {
     router.push({ name: 'EduAsk' })
   } catch {
     error.value = true
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     submitting.value = false
   }

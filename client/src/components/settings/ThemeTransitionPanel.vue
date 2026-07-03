@@ -237,7 +237,7 @@ function getPresetIcon(type: ThemeTransitionType) {
   transition: all 0.2s;
 
   &:hover {
-    border-color: var(--el-color-primary-light-3);
+    border-color: var(--border-unified-color-hover);
   }
 
   &.active {

@@ -276,14 +276,14 @@ onMounted(loadDetail)
 }
 
 .action-btn:hover {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
   color: $brand-primary;
 }
 
 .action-btn.active {
   background: $brand-primary;
-  color: var(--el-bg-color);
-  border-color: $brand-primary;
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
+  border-color: transparent;
 }
 
 .answer-section {
@@ -322,7 +322,7 @@ onMounted(loadDetail)
 }
 
 .answer-textarea:focus {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
 }
 
 .answer-list {
@@ -352,7 +352,7 @@ onMounted(loadDetail)
   top: 0;
   right: 0;
   background: var(--el-color-success);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   font-size: 12px;
   padding: 2px 8px;
   border-radius: var(--global-border-radius);

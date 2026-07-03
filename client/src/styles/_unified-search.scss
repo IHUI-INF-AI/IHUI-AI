@@ -12,7 +12,9 @@
   --unified-search-shadow: var(--global-box-shadow);
   --unified-search-focus-color: var(--el-text-color-primary);
   --unified-search-btn-bg: var(--el-text-color-primary);
-  --unified-search-btn-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --unified-search-btn-color: var(--app-button-text-on-primary);
   --unified-search-btn-hover-bg: var(--el-text-color-primary);
   --unified-search-btn-shadow: var(--global-box-shadow);
   --unified-search-btn-hover-shadow: var(--global-box-shadow);
@@ -24,7 +26,9 @@ html.dark {
   --unified-search-shadow: var(--global-box-shadow);
   --unified-search-focus-color: var(--el-text-color-primary);
   --unified-search-btn-bg: var(--el-text-color-primary);
-  --unified-search-btn-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --unified-search-btn-color: #1a1a1a;
   --unified-search-btn-hover-bg: var(--el-text-color-primary);
   --unified-search-btn-shadow: var(--global-box-shadow);
   --unified-search-btn-hover-shadow: var(--global-box-shadow);
@@ -52,6 +56,7 @@ html.dark {
 
   html.dark & {
     box-shadow: var(--unified-search-shadow);
+
     &:focus-within {
       border-width: 2px;
       border-color: var(--unified-search-focus-color);

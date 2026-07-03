@@ -12,7 +12,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadWrongBook">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -20,7 +20,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"

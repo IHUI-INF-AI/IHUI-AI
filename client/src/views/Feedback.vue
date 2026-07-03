@@ -482,7 +482,7 @@ onMounted(() => {
   transition: all 0.3s;
 
   &:hover {
-    border-color: var(--el-color-primary);
+    border-color: var(--border-unified-color-hover);
     transform: translateY(-2px);
   }
 

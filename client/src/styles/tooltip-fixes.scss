@@ -38,6 +38,7 @@ html.dark {
  * 使用 body 前缀以压过 el-tooltip 默认样式与 scoped 样式。
  * .app-sidebar > .sidebar-nav > .nav-item-wrapper > .el-tooltip__trigger
  * 选择器特异性 0,3,0，足以压过 :where() 包裹的 0 特异性规则 */
+
 /* 【关键修正】原选择器 .el-tooltip__trigger 会误匹配 nav-item button 本身。
  *
  * 实测（Element Plus 2.14）：el-tooltip 的 OnlyChild 对单个元素子项（如

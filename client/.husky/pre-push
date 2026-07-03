@@ -1,11 +1,12 @@
-#!/usr/bin/env sh
-# Pre-push 钩子：完整 TypeScript 类型检查 + 高特异性检测
-# 防止有类型错误或样式问题的代码进入远端分支
+#!/bin/sh
 
-set -e
+if [ "$SKIP_SIMPLE_GIT_HOOKS" = "1" ]; then
+    echo "[INFO] SKIP_SIMPLE_GIT_HOOKS is set to 1, skipping hook."
+    exit 0
+fi
 
-echo "▶ Running vue-tsc type check (this may take a while)..."
-npm run typecheck --silent
+if [ -f "$SIMPLE_GIT_HOOKS_RC" ]; then
+    . "$SIMPLE_GIT_HOOKS_RC"
+fi
 
-echo "▶ Running high specificity selector check..."
-HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent
+cd client && npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent

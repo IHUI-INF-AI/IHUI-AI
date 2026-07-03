@@ -942,7 +942,8 @@
     },
     "third_party_login": {
       "Alipay": "Alipay",
-      "支付宝": "支付宝"
+      "支付宝": "支付宝",
+      "Feishu1": "Feishu"
     },
     "project_selector_banner": {
       "Switch Platform": "Switch Platform",

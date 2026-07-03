@@ -1,4 +1,4 @@
-﻿# Phase 13 总结 (减法+加法双向, C 选项)
+# Phase 13 总结 (减法+加法双向, C 选项)
 
 > **完成时间**: 2026-06-15
 > **基线**: P12 末 1872 passed (1 fail: test_model_completeness, 预存 conftest bug)

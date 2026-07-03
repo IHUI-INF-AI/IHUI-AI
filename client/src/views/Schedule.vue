@@ -606,8 +606,8 @@ onMounted(() => {
 }
 
 .btn-create {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color-page);
+  background: var(--el-text-color-primary); /* 反相底: 浅色模式深底/暗色模式浅底 */
+  color: var(--app-button-text-on-primary); /* 规则A: 浅色模式深底白字 (原 var(--el-bg-color-page) 误用背景 token) */
   border: none;
   padding: 12px 28px;
   border-radius: var(--global-border-radius);
@@ -616,11 +616,18 @@ onMounted(() => {
   font-weight: 900;
   cursor: pointer;
   transition: background 0.3s, color 0.3s;
+
+  /* 暗色模式: 反相底 el-text-color-primary 反转为浅色，默认态文字改深 (hover 仍为主色蓝底白字) */
+  /* stylelint-disable color-no-hex -- 反相配对深字, 无对应 token */
+  html.dark & {
+    color: #1a1a1a;
+  }
+  /* stylelint-enable color-no-hex */
 }
 
 .btn-create:hover {
   background: var(--el-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary); /* 规则A: 主色 hover 白字 (原 var(--el-bg-color-page) 误用背景 token) */
 }
 
 .schedule-list {
@@ -639,7 +646,7 @@ onMounted(() => {
 }
 
 .schedule-item:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 .color-bar {
@@ -771,7 +778,7 @@ onMounted(() => {
 }
 
 .btn-action:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
   color: var(--el-color-primary);
 }
 

@@ -544,7 +544,9 @@ onMounted(() => {
   font-size: 10px;
   font-weight: 600;
   line-height: 16px;
+  /* stylelint-disable color-no-hex -- 红点角标文字在红色背景上必须为白色，无对应 token */
   color: #fff;
+  /* stylelint-enable color-no-hex */
   background-color: var(--el-color-danger);
   border-radius: 8px;
   box-sizing: border-box;
@@ -700,7 +702,7 @@ body .notification-dropdown-popper.el-dropdown__popper {
   }
 
   // 通知底部操作区域
-  .notification-footer {
+  .notification-footer.el-button-stack {
     padding: 12px 16px;
     display: flex;
     flex-direction: column;
@@ -760,9 +762,9 @@ body .notification-dropdown-popper.el-dropdown__popper {
   border-color: var(--el-color-danger-light-5);
 }
 
-// 暗色模式 - 使用 :where(html.dark) 降低特异性
-:where(html.dark) .notification-dropdown-popper .notification-dropdown,
-:where(html.dark) .notification-dropdown.el-dropdown-menu {
+// 暗色模式 - 使用 html.dark 提升特异性 (避免被 :root 击败)
+html.dark .notification-dropdown-popper .notification-dropdown,
+html.dark .notification-dropdown.el-dropdown-menu {
   --notif-dropdown-bg: var(--el-bg-color);
   --notif-dropdown-border: var(--border-unified-color);
 

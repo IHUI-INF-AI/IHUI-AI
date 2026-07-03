@@ -574,11 +574,13 @@
     margin-top: 8px;
   }
 }
+
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 }
+
 // 响应式设计
 @media (width <= 768px) {
   .page-header {

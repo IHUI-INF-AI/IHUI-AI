@@ -194,6 +194,10 @@ class Settings(BaseSettings):
     KLING_ALT_SECRET_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     LUYALA_API_KEY: str = ""
+    # FreeLLMAPI 本地聚合代理 (https://github.com/tashfeenahmed/freellmapi)
+    # 把多家 LLM 厂商的免费额度聚合到一个 OpenAI 兼容端点后, 后端可作为统一 provider 调用
+    FREELLMAPI_BASE_URL: str = "http://localhost:3001/v1"
+    FREELLMAPI_API_KEY: str = ""
     TENCENT_SECRET_ID: str = ""
     TENCENT_SECRET_KEY: str = ""
     BAIDU_API_KEY: str = ""

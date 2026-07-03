@@ -18,7 +18,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -379,17 +379,19 @@ onMounted(loadAll)
   .page-header .header-actions {
     display: none !important;
   }
+
   .report-paper {
     border: none;
     padding: 0;
   }
+
   .report-metadata {
     background: transparent !important;
     border: none;
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .report-paper {
     padding: 16px;
   }

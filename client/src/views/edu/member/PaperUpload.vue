@@ -14,7 +14,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -171,7 +171,7 @@ watch(
   padding: 24px;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .upload-form-section {
     padding: 16px;
   }

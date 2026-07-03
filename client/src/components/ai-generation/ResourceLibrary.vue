@@ -603,7 +603,7 @@ watch(visible, (val) => {
       align-items: center;
       justify-content: center;
       background: var(--color-black-30);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       
       .el-icon {
         font-size: 32px;
@@ -645,7 +645,7 @@ watch(visible, (val) => {
     align-items: center;
     justify-content: center;
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border-radius: var(--global-border-radius-sm, 4px);
   }
   
@@ -661,7 +661,7 @@ watch(visible, (val) => {
     background: var(--color-black-50);
     border: none;
     border-radius: var(--global-border-radius-sm, 4px);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.2s;

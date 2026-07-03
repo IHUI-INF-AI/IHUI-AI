@@ -298,7 +298,7 @@
 }
 
 // 额外的响应式工具类（兼容 Tailwind）
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .sm\:block { display: block; }
   .sm\:inline-block { display: inline-block; }
   .sm\:hidden { display: none; }
@@ -574,7 +574,7 @@
   }
 
   &:hover {
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
     transform: translateY(-6px);
     box-shadow: var(--global-box-shadow);
 
@@ -582,7 +582,7 @@
       background: var(--el-text-color-primary);
 
       .el-icon, svg {
-        color: var(--el-bg-color-page);
+        color: #fff;
       }
     }
   }
@@ -591,6 +591,12 @@
   html.dark & {
     &:hover {
       box-shadow: var(--global-box-shadow);
+
+      .feature-icon-box {
+        .el-icon, svg {
+          color: #1a1a1a;
+        }
+      }
     }
   }
 }
@@ -667,7 +673,11 @@
   // 主要按钮
   &.primary {
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color-page);
+    color: #fff;
+
+    html.dark & {
+      color: #1a1a1a;
+    }
 
     &:hover {
       opacity: 0.85;
@@ -687,7 +697,7 @@
     border: 1px solid var(--border-unified-color);
 
     &:hover {
-      border-color: var(--el-text-color-primary);
+      border-color: var(--border-unified-color-hover);
       background: var(--el-fill-color-light);
     }
   }
@@ -750,7 +760,7 @@
   &.cols-2 {
     grid-template-columns: repeat(2, 1fr);
 
-    @media (max-width: 768px) {
+    @media (width <= 768px) {
       grid-template-columns: 1fr;
     }
   }
@@ -759,11 +769,11 @@
   &.cols-3 {
     grid-template-columns: repeat(3, 1fr);
 
-    @media (max-width: 1024px) {
+    @media (width <= 1024px) {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 640px) {
+    @media (width <= 640px) {
       grid-template-columns: 1fr;
     }
   }
@@ -772,15 +782,15 @@
   &.cols-4 {
     grid-template-columns: repeat(4, 1fr);
 
-    @media (max-width: 1200px) {
+    @media (width <= 1200px) {
       grid-template-columns: repeat(3, 1fr);
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    @media (max-width: 640px) {
+    @media (width <= 640px) {
       grid-template-columns: 1fr;
     }
   }
@@ -821,7 +831,7 @@
     }
   }
 
-  @media (max-width: 1024px) {
+  @media (width <= 1024px) {
     grid-template-columns: repeat(2, 1fr);
 
     .bento-item.span-3 {
@@ -829,7 +839,7 @@
     }
   }
 
-  @media (max-width: 640px) {
+  @media (width <= 640px) {
     grid-template-columns: 1fr;
 
     .bento-item.span-2,
@@ -953,6 +963,7 @@
     transform: scale(1);
     opacity: 0.4;
   }
+
   50% {
     transform: scale(1.5);
     opacity: 0;
@@ -1079,7 +1090,7 @@
   transition: border-color 0.3s ease;
 
   &:hover {
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -1231,13 +1242,13 @@
   &.stacked {
     flex-direction: column;
     
-    @media (min-width: 640px) {
+    @media (width >= 640px) {
       flex-direction: row;
     }
   }
 
   // 响应式：小屏幕变为纵向堆叠
-  @media (max-width: 480px) {
+  @media (width <= 480px) {
     flex-direction: column;
     width: 100%;
 
@@ -1254,14 +1265,14 @@
 // 推荐卡片高亮
 .card-featured {
   position: relative;
-  border: 2px solid var(--el-text-color-primary);
-  
+  border: 2px solid var(--border-unified-color);
+
   &::before {
     content: '';
     position: absolute;
     inset: -4px;
     border-radius: inherit;
-    background: var(--el-text-color-primary);
+    background: var(--border-unified-color);
     opacity: 0.05;
     z-index: -1;
   }
@@ -1275,7 +1286,9 @@
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+  color: var(--app-button-text-on-primary);
   background: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
   text-transform: uppercase;
@@ -1299,7 +1312,7 @@
     border-radius: inherit;
     opacity: 0;
     transition: opacity 0.3s ease;
-    background: rgba(var(--el-color-primary-rgb), 0.08);
+    background: rgb(var(--el-color-primary-rgb), 0.08);
     pointer-events: none;
   }
 
@@ -1427,7 +1440,7 @@
   transition: all 0.2s ease;
 
   &:focus {
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
     outline: none;
   }
 
@@ -1460,7 +1473,7 @@
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
     background: var(--el-fill-color-light);
   }
 

@@ -538,20 +538,27 @@ $accent-red: var(--el-color-danger);
     align-items: center;
     gap: 8px;
     padding: 12px 24px;
-    background: $brand-primary;
-    color: var(--el-bg-color-page);
+    background: $brand-primary; /* $brand-primary = var(--el-text-color-primary) 反相底 */
+    color: var(--app-button-text-on-primary); /* 规则A: 浅色模式深底白字 (原 var(--el-bg-color-page) 误用背景 token) */
     border: none;
     border-radius: var(--global-border-radius);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s;
-    
+
     &:hover {
       transform: translateY(-2px);
     }
   }
 }
+
+/* 暗色模式: 反相底 el-text-color-primary 反转为浅色，文字改深 */
+/* stylelint-disable color-no-hex -- 暗色反相深字, 无对应 token */
+:global(html.dark) .dashboard-header .btn-refresh {
+  color: #1a1a1a;
+}
+/* stylelint-enable color-no-hex */
 
 // 统计卡片
 .stats-section {

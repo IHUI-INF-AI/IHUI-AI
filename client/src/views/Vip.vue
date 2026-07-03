@@ -1399,7 +1399,7 @@ $accent-highlight: var(--el-text-color-secondary);
       }
 
       &.selected {
-        border-color: $brand-primary;
+        border-color: var(--border-unified-color-hover);
         box-shadow: var(--global-box-shadow);
       }
 
@@ -1511,7 +1511,7 @@ $accent-highlight: var(--el-text-color-secondary);
           &:hover {
             background: $brand-primary;
             color: var(--app-button-text-on-primary);
-            border-color: $brand-primary;
+            border-color: transparent;
           }
 
           html.dark & {
@@ -1697,7 +1697,7 @@ $accent-highlight: var(--el-text-color-secondary);
 
           &:hover {
             background: rgba($brand-primary, 0.05);
-            border-color: $brand-primary;
+            border-color: var(--border-unified-color-hover);
           }
         }
       }

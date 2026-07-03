@@ -3,7 +3,7 @@
 @use './variables.scss' as *;
 @use './_global-tokens.scss' as *;
 @use './_global-ui.scss' as *;
-@use './_app-shell.scss';
+@use './_app-shell';
 @use './animations.scss' as *;
 @use './responsive.scss' as *;
 @use './_safe-area.scss' as *;
@@ -17,6 +17,7 @@
 @use './brand-marquee.scss' as *;
 @use './runtime-overrides.scss' as *;
 @use './tooltip-fixes.scss' as *;
+@use './fixes.scss' as *;
 @use './theme-transition-optimization.scss' as *;
 @use './_unified-search';
 @use './_search-bar-append';
@@ -212,17 +213,6 @@ html {
     --el-color-primary-light-8: var(--color-neutral-b3);
     --el-color-primary-light-9: var(--el-text-color-placeholder);
     --el-color-primary-dark-2: var(--color-dark-bg-3);
-  }
-
-  // 定价卡片 hover/active 状态描边色
-  :root {
-    --pricing-card-border-hover-color: var(--el-text-color-primary);
-    --pricing-card-border-active-color: var(--el-text-color-primary);
-  }
-
-  :where(html.dark) {
-    --pricing-card-border-hover-color: var(--el-bg-color);
-    --pricing-card-border-active-color: var(--el-bg-color);
   }
 
   // 高亮透明

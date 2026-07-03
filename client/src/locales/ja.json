@@ -1,4 +1,4 @@
-﻿{
+{
   "apiTest": {
     "title": "APIテスト",
     "allTestsPassed": "全て",
@@ -17190,5 +17190,8 @@
   },
   "listTemplate": {
     "loading": "読み込み中..."
+  },
+  "aiProviders": {
+    "freellmapi": "FreeLLMAPI 無料LLM集約"
   }
 }

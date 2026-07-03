@@ -818,7 +818,7 @@ onMounted(() => {
         top: 8px;
         right: 8px;
         background: var(--color-white-10);
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
         border: none;
 
         &:hover {

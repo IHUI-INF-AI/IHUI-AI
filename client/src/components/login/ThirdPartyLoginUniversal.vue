@@ -305,7 +305,7 @@ defineExpose({
   padding: 10px 16px;
   white-space: nowrap;
   
-  /* 视觉样式 - 明暗模式自动切换（语义变量随主题变化）*/
+  /* 视觉样式 - 明暗模式自动切换（语义变量随主题变化） */
   background: var(--el-bg-color-overlay);
   color: var(--el-text-color-primary);
   font-size: 13px;
@@ -314,7 +314,7 @@ defineExpose({
   text-align: center;
   letter-spacing: 0.2px;
 
-  /* 圆角和边框（扁平化：禁用 box-shadow）*/
+  /* 圆角和边框（扁平化：禁用 box-shadow） */
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
   backdrop-filter: blur(12px);

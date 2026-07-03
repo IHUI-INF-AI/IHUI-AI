@@ -247,7 +247,7 @@ onUnmounted(() => {
 
   &.unread {
     background: var(--el-color-primary-light-9);
-    border-left-color: var(--el-color-primary);
+    border-left-color: var(--border-unified-color-hover);
   }
 
   &.critical {

@@ -561,10 +561,9 @@ onMounted(async () => {
     transition: all 0.4s;
 
     &:hover {
-      border-color: var(--el-border-color-light);
       background: var(--el-fill-color);
       transform: translateY(-4px);
-      border-color: var(--el-color-primary);
+      border-color: var(--border-unified-color-hover);
 
       .entry-image img {
         transform: scale(1.05);
@@ -695,7 +694,7 @@ onMounted(async () => {
 
   &:hover:not(:disabled) {
     color: var(--el-color-primary);
-    border-color: var(--el-color-primary-light-5);
+    border-color: var(--border-unified-color-hover);
     background: var(--el-fill-color);
   }
 

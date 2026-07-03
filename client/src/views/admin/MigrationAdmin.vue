@@ -233,22 +233,26 @@ onMounted(() => {
 .migration-admin {
   padding: 20px;
 }
+
 .page-title {
   font-size: 22px;
   font-weight: 600;
   margin-bottom: 20px;
   color: var(--el-text-color-primary);
 }
+
 .health-card,
 .batch-card,
 .verify-card {
   margin-bottom: 20px;
 }
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .progress-text {
   display: block;
   font-size: 12px;

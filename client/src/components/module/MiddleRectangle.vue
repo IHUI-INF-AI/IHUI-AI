@@ -77,7 +77,10 @@ const handleClick = (item: Item) => emit('click', item)
   .tag {
     position: absolute; top: 8px; left: 8px;
     padding: 2px 8px; border-radius: var(--global-border-radius);
-    background: var(--el-color-primary); color: var(--el-bg-color);
+    background: var(--el-color-primary);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    color: var(--app-button-text-on-primary);
     font-size: 12px;
   }
   .info { padding: 12px; }

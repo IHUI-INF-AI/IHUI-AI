@@ -430,9 +430,9 @@ watch(visible, (newVal) => {
   --unified-input-border-color: var(--border-unified-color);
   --unified-input-bg-color: var(--el-fill-color-light);
   --unified-input-transition: border-color 1.3s, background-color 1.3s;
-  --unified-input-hover-border-color: var(--el-text-color-regular);
+  --unified-input-hover-border-color: var(--border-unified-color-hover);
   --unified-input-hover-bg-color: var(--el-fill-color-light);
-  --unified-input-focus-border-color: var(--el-text-color-regular);
+  --unified-input-focus-border-color: var(--border-unified-color-hover);
   --unified-input-focus-bg-color: var(--el-fill-color-light);
 
   :deep(.el-dialog__body) {
@@ -623,9 +623,9 @@ watch(visible, (newVal) => {
     // 对齐 .checkmark：暗色模式下 --el-text-color-regular 自动为浅色
     --unified-input-border-color: var(--border-unified-color);
     --unified-input-bg-color: var(--color-white-5);
-    --unified-input-hover-border-color: var(--el-text-color-regular);
+    --unified-input-hover-border-color: var(--border-unified-color-hover);
     --unified-input-hover-bg-color: var(--el-fill-color-dark);
-    --unified-input-focus-border-color: var(--el-text-color-regular);
+    --unified-input-focus-border-color: var(--border-unified-color-hover);
     --unified-input-focus-bg-color: var(--el-fill-color-darker);
 
     .phone-background-bar {

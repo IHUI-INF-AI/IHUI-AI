@@ -3,7 +3,7 @@
  *
  * 当前配置 (v11): MIN_WIDTH=60, MAX_WIDTH=116, DEFAULT_WIDTH=116, COLLAPSE_THRESHOLD=60
  * 侧边栏默认 116px（紧凑：4 字 label 完整，5 字截断），可向左拖到 60 紧凑 / <60 折叠到 60
- * 设计目标：4 字中文 label 完整显示，5 字截断
+ * 设计目标：4 字中文 label（如"加入我们"）完整显示，5 字截断
  *
  * 覆盖目标：
  *   1. 宽度常量 [60, 116] clamp 边界（min-1 / min / mid / max / max+1）

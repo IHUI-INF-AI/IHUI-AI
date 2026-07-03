@@ -105,7 +105,11 @@ function dismiss() {
 
     .alert-icon {
       background: var(--el-color-warning);
-      color: var(--el-bg-color);
+
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+      /* stylelint-disable color-no-hex -- 警告色背景上必须深色文字，无对应文字色 token */
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
     }
   }
 
@@ -115,7 +119,9 @@ function dismiss() {
 
     .alert-icon {
       background: var(--el-color-danger);
-      color: var(--el-bg-color);
+
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+      color: var(--app-button-text-on-primary);
     }
   }
 
@@ -159,12 +165,24 @@ function dismiss() {
     padding: 0 14px;
     border-radius: var(--global-border-radius);
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: 反相配对双模式覆盖, 原 color: var(--el-bg-color) 在暗色模式下文字不可见
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    color: #fff;
+    /* stylelint-enable color-no-hex */
     border: none;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     transition: opacity 0.2s;
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+    }
 
     &:hover {
       opacity: 0.85;

@@ -409,7 +409,7 @@ onMounted(() => {
 
 .env-development {
   background-color: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary-light-7);
+  border-color: var(--border-unified-color);
   color: var(--color-blue-1890ff);
 }
 
@@ -626,7 +626,7 @@ onMounted(() => {
   padding: 1px 6px;
   border-radius: var(--global-border-radius);
   background-color: var(--el-color-danger);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   line-height: 1.4;
 }
 
@@ -652,13 +652,13 @@ onMounted(() => {
 }
 
 .status-pill.tone-success,
-.status-dot.tone-success { background-color: var(--el-color-success); color: var(--el-bg-color); }
+.status-dot.tone-success { background-color: var(--el-color-success); color: var(--app-button-text-on-primary); }
 
 .status-pill.tone-warning,
-.status-dot.tone-warning { background-color: var(--el-color-warning); color: var(--el-bg-color); }
+.status-dot.tone-warning { background-color: var(--el-color-warning); /* stylelint-disable color-no-hex -- 警告色背景深色文字，无对应 token */ color: #1a1a1a; /* stylelint-enable color-no-hex */ }
 
 .status-pill.tone-danger,
-.status-dot.tone-danger { background-color: var(--el-color-danger); color: var(--el-bg-color); }
+.status-dot.tone-danger { background-color: var(--el-color-danger); color: var(--app-button-text-on-primary); }
 
 .status-pill.tone-success { background-color: var(--el-color-success-light-9); color: var(--el-color-success); }
 .status-pill.tone-warning { background-color: var(--el-color-warning-light-9); color: var(--el-color-warning); }
@@ -749,7 +749,7 @@ onMounted(() => {
   border-radius: 50%;
   font-size: 16px;
   flex-shrink: 0;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
 }
 
 .avatar-primary { background-color: var(--el-color-primary); }

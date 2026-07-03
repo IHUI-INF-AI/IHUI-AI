@@ -209,7 +209,7 @@ const renderMarkdown = (markdown: string): string => {
 
         &:focus {
           outline: none;
-          border-color: $primary-color;
+          border-color: var(--border-unified-color-hover);
           background-color: $bg-hover;
         }
       }

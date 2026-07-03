@@ -1,4 +1,4 @@
-﻿# PG 多租户冷启动 runbook (建议 142)
+# PG 多租户冷启动 runbook (建议 142)
 
 > 适用场景: 全新 PostgreSQL 14 集群, 从零初始化多租户 Schema 隔离模式
 > 配套工具: [migrate_tenants.py](scripts/ci/migrate_tenants.py) (建议 125/137) + [backfill_tenants.py](scripts/ci/backfill_tenants.py) (建议 139)

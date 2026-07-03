@@ -110,11 +110,11 @@ html.dark .main-content {
 }
 
 /* 暗色模式页面背景 */
-:where(html.dark) :where(#first-page),
-:where(html.dark) :where(#second-page),
-:where(html.dark) :where(#third-page),
-:where(html.dark) :where(#fourth-page),
-:where(html.dark) :where(#fifth-page),
+html.dark :where(#first-page),
+html.dark :where(#second-page),
+html.dark :where(#third-page),
+html.dark :where(#fourth-page),
+html.dark :where(#fifth-page),
 body.dark-background #first-page,
 body.dark-background #second-page,
 body.dark-background #third-page,
@@ -294,6 +294,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 }
 
 /* 第一页内容覆盖层 - 由父级 .page-section 的 flex column + justify-content:center 居中 */
+
 /* 通用布局属性（display/flex/padding/max-height/overflow/width/box-sizing）由 .page-content 提供，此处只保留首层独有样式 */
 :where(#first-page) .first-page-content-overlay {
   position: relative;
@@ -368,9 +369,11 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   justify-content: center;
   line-height: 1;
   padding: 0 24px;
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 深色背景用永定白字)
   background: var(--el-text-color-primary);
   border: var(--unified-border);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   box-shadow: none;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 
@@ -385,7 +388,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   :deep(span),
   :deep(.el-button__text),
   :deep(.el-icon) {
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     display: inline-flex;
     align-items: center;
     line-height: 1;
@@ -393,8 +396,8 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
   &:hover {
     background: var(--el-text-color-primary);
-    border-color: var(--el-text-color-primary);
-    color: var(--el-bg-color);
+    border-color: transparent;
+    color: var(--app-button-text-on-primary);
 
     :deep(.el-button__content) {
       display: flex;
@@ -407,14 +410,14 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
     :deep(span),
     :deep(.el-button__text),
     :deep(.el-icon) {
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
     }
   }
 
   &:active {
     background: var(--el-text-color-secondary);
-    border-color: var(--el-text-color-secondary);
-    color: var(--el-bg-color);
+    border-color: transparent;
+    color: var(--app-button-text-on-primary);
 
     :deep(.el-button__content) {
       display: flex;
@@ -427,7 +430,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
     :deep(span),
     :deep(.el-button__text),
     :deep(.el-icon) {
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
     }
   }
 }
@@ -467,7 +470,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
   &:hover {
     background: var(--el-fill-color-lighter);
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
     color: var(--el-text-color-primary);
 
     :deep(.el-button__content) {
@@ -487,7 +490,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
   &:active {
     background: var(--el-fill-color-light);
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
     color: var(--el-text-color-primary);
 
     :deep(.el-button__content) {
@@ -588,7 +591,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
   &:active {
     background: var(--color-gray-e8e8e8);
-    border-color: var(--el-text-color-placeholder);
+    border-color: var(--border-unified-color-hover);
     color: var(--el-button-text-color);
 
     * {
@@ -629,9 +632,11 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   justify-content: center;
   line-height: 1;
   padding: 0 24px;
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 透明背景用主题感知文字色)
   background: transparent;
   border: var(--unified-border);
-  color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
   box-shadow: none;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 
@@ -646,14 +651,14 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   :deep(span),
   :deep(.el-button__text),
   :deep(.el-icon) {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
     line-height: 1;
   }
 
   &:hover {
     background: var(--color-white-10);
-    border-color: var(--color-white-50);
-    color: var(--el-bg-color);
+    border-color: var(--border-unified-color-hover);
+    color: var(--el-text-color-primary);
 
     :deep(.el-button__content) {
       display: flex;
@@ -666,14 +671,14 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
     :deep(span),
     :deep(.el-button__text),
     :deep(.el-icon) {
-      color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
     }
   }
 
   &:active {
     background: var(--color-white-20);
-    border-color: var(--color-white-60);
-    color: var(--el-bg-color);
+    border-color: var(--border-unified-color-hover);
+    color: var(--el-text-color-primary);
 
     :deep(.el-button__content) {
       display: flex;
@@ -686,7 +691,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
     :deep(span),
     :deep(.el-button__text),
     :deep(.el-icon) {
-      color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
     }
   }
 }
@@ -851,7 +856,7 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: 0 clamp(20px, 3vw, 40px) 0;
+  padding: 0 clamp(20px, 3vw, 40px);
   min-height: auto;
   height: auto;
   max-height: none;
@@ -1321,12 +1326,12 @@ p {
 
 :where(html:not(.dark)) :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
   background: color-mix(in srgb, var(--el-bg-color) 100%, transparent);
-  border-color: var(--el-fill-color-darker);
+  border-color: var(--border-unified-color-hover);
 }
 
 :where(html.dark) :where(#second-page) .features-grid .feature-card:hover:not(.is-navigating) {
   background: var(--color-white-8);
-  border-color: var(--el-fill-color-dark);
+  border-color: var(--border-unified-color-hover);
   box-shadow: var(--global-box-shadow);
 }
 
@@ -1550,12 +1555,12 @@ p {
 
 :where(html:not(.dark)) :where(#second-page) .advantage-card:hover:not(.is-navigating) {
   background: color-mix(in srgb, var(--el-bg-color) 100%, transparent);
-  border-color: var(--el-fill-color-darker);
+  border-color: var(--border-unified-color-hover);
 }
 
 :where(html.dark) :where(#second-page) .advantage-card:hover:not(.is-navigating) {
   background: var(--color-white-10);
-  border-color: var(--el-fill-color-dark, color-mix(in srgb, var(--el-text-color-primary) 35%, transparent));
+  border-color: var(--border-unified-color-hover);
   box-shadow: var(--global-box-shadow);
 }
 
@@ -1578,7 +1583,7 @@ p {
 :where(#second-page) .advantage-icon svg {
   width: clamp(24px, 3vw, 28px);
   height: clamp(24px, 3vw, 28px);
-  stroke: currentColor;
+  stroke: currentcolor;
   fill: none;
   stroke-width: 1.8;
   color: inherit;
@@ -2470,18 +2475,18 @@ html.dark .brand-welcome-text {
 
     &.el-button--primary {
       background: var(--el-text-color-primary);
-      border-color: var(--el-text-color-primary);
+      border-color: transparent;
       color: var(--el-color-white);
 
       &:hover {
         background: var(--el-text-color-regular);
-        border-color: var(--el-text-color-regular);
+        border-color: transparent;
         box-shadow: var(--global-box-shadow);
       }
 
       &:active {
         background: var(--el-text-color-secondary);
-        border-color: var(--el-text-color-secondary);
+        border-color: transparent;
       }
     }
 
@@ -2518,7 +2523,7 @@ html.dark .feature-card {
   border-color: var(--color-white-8);
   
   &:hover {
-    border-color: var(--color-white-15);
+    border-color: var(--border-unified-color-hover);
     background: var(--color-white-6);
     box-shadow: var(--global-box-shadow);
   }
@@ -2541,7 +2546,7 @@ html.dark .advantage-card {
   border-color: var(--color-white-8);
   
   &:hover {
-    border-color: var(--color-white-15);
+    border-color: var(--border-unified-color-hover);
     background: var(--color-white-6);
   }
 }
@@ -2607,7 +2612,7 @@ html.dark .advantage-card {
   border-color: var(--color-white-8);
   
   &:hover {
-    border-color: var(--color-white-15);
+    border-color: var(--border-unified-color-hover);
     box-shadow: var(--global-box-shadow);
   }
 }

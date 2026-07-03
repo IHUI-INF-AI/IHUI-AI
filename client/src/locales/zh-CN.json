@@ -1,4 +1,4 @@
-﻿{
+{
   "apiTest": {
     "title": "AI接口测试",
     "allTestsPassed": "全部",
@@ -14746,5 +14746,8 @@
   },
   "listTemplate": {
     "loading": "加载中..."
+  },
+  "aiProviders": {
+    "freellmapi": "FreeLLMAPI 免费LLM聚合"
   }
 }

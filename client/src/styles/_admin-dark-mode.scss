@@ -55,6 +55,7 @@
 
   :where(.admin-list-page) {
     background: var(--admin-bg-card);
+
     .toolbar {
       background: var(--admin-bg-card);
       .search-input .el-input__wrapper { background: var(--admin-bg-hover); }

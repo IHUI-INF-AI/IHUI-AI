@@ -32,7 +32,7 @@
           {{ t('edu.profile.printReport') }}
         </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadAll">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -40,7 +40,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -277,10 +277,10 @@ function handleEditNote(note: LearningNote) {
 
 async function handleDeleteNote(note: LearningNote) {
   try {
-    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.cancel'), {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.common.cancel'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await notesApi.delete(note.id)
     ElMessage.success(t('edu.profile.deleteSuccess'))
@@ -297,10 +297,10 @@ function handleEditRecord(record: OfflineRecord) {
 
 async function handleDeleteRecord(record: OfflineRecord) {
   try {
-    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.cancel'), {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.common.cancel'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await offlineRecordsApi.delete(record.id)
     ElMessage.success(t('edu.profile.deleteSuccess'))
@@ -355,8 +355,8 @@ async function handleDeletePaper(paper: UploadedPaper) {
   try {
     await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.paperDelete'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await uploadedPapersApi.delete(paper.id)
     ElMessage.success(t('edu.profile.deleteSuccess'))
@@ -546,13 +546,13 @@ onMounted(loadAll)
   color: var(--el-color-primary);
 }
 
-@media (max-width: 1024px) {
+@media (width <= 1024px) {
   .chart-row {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .stat-row {
     grid-template-columns: 1fr;
   }

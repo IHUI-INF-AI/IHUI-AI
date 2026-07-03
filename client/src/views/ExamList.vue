@@ -235,8 +235,8 @@ onMounted(loadPapers)
 
 .tab-btn.active {
   background: $brand-primary;
-  color: var(--el-bg-color);
-  border-color: $brand-primary;
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
+  border-color: transparent;
 }
 
 .filter-bar {
@@ -360,14 +360,14 @@ onMounted(loadPapers)
 }
 
 .action-btn:hover {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
   color: $brand-primary;
 }
 
 .action-btn.primary {
   background: $brand-primary;
-  color: var(--el-bg-color);
-  border-color: $brand-primary;
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
+  border-color: transparent;
 }
 
 .action-btn.primary:hover {

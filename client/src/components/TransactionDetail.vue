@@ -153,7 +153,16 @@ function onViewOrder() {
 
   &.incoming {
     background: linear-gradient(135deg, var(--el-text-color-primary) 0%, var(--el-text-color-regular) 100%);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    color: #fff;
+
+    // 2026-07-04 修复: 反相配对双模式覆盖, 暗色模式下背景为浅色渐变需深色文字
+    html.dark & {
+      color: #1a1a1a;
+    }
+    /* stylelint-enable color-no-hex */
 
     .tx-amount-type {
       color: var(--color-white-70);
@@ -267,9 +276,22 @@ function onViewOrder() {
   transition: all 0.2s;
 
   &.primary {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
+    // 2026-07-04 修复: 反相配对双模式覆盖, 原 background: var(--el-text-color-primary) + color: var(--el-bg-color) 在暗色模式下文字不可见
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff;
+    /* stylelint-enable color-no-hex */
+
+    border-color: transparent;
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
+    }
 
     &:hover {
       opacity: 0.85;

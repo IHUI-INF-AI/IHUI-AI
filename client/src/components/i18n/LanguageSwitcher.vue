@@ -169,7 +169,7 @@ onMounted(async () => {
   /* WCAG AA: 4.5:1 对比度. 使用主文字色作背景 + 白字, 对比度 ≈ 12:1 */
   background: var(--el-text-color-primary);
   color: var(--el-color-white);
-  border-color: var(--el-text-color-primary);
+  border-color: transparent;
 }
 
 .lang-switcher-plural {

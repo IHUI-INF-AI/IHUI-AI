@@ -8,6 +8,8 @@
     "top": "置顶",
     "noDesc": "暂无简介",
     "members": "成员",
-    "posts": "动态"
+    "posts": "动态",
+    "searchPlaceholder": "搜索圈子...",
+    "onlyOfficial": "只看官方"
   }
 }

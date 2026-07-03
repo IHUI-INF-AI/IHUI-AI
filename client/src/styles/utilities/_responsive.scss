@@ -23,7 +23,7 @@
 }
 
 // 额外的响应式工具类（兼容 Tailwind）
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .sm\:block { display: block; }
   .sm\:inline-block { display: inline-block; }
   .sm\:hidden { display: none; }

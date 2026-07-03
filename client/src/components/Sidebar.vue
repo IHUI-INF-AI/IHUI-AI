@@ -367,6 +367,25 @@ const GraduationCapIcon = markRaw({
   },
 })
 
+/* ── 教育中心 (eduCenter) 顶级入口图标 — Lucide Building2 风格，区别于 learnAI 的 GraduationCap ── */
+const EduCenterIcon = markRaw({
+  name: 'EduCenterIcon',
+  render() {
+    return h('svg', svgBase, [
+      // 主楼体
+      h('path', { d: 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z' }),
+      // 底线
+      h('path', { d: 'M6 22h12' }),
+      // 左附楼
+      h('path', { d: 'M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2' }),
+      // 右附楼
+      h('path', { d: 'M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2' }),
+      // 大门
+      h('path', { d: 'M11 22v-4h2v4' }),
+    ])
+  },
+})
+
 const UsersIcon = markRaw({
   name: 'UsersIcon',
   render() {
@@ -687,11 +706,49 @@ const activeKey = computed<string>(() => {
     contactUs: 'aboutUs',
     feedback: 'aboutUs',
     becomeSupplier: 'becomeSupplier',
+    // ── 教育中心 (eduCenter) — /edu/* 全部子路由映射到顶级 eduCenter 项 ──
+    // EduLayout 自带内部侧边栏(12 模块),主侧边栏只需一个顶级入口
+    EduHome: 'eduCenter',
+    EduLearn: 'eduCenter',
+    EduLearnDetail: 'eduCenter',
+    EduLearnChapter: 'eduCenter',
+    EduLearnCertificate: 'eduCenter',
+    EduExam: 'eduCenter',
+    EduExamPaper: 'eduCenter',
+    EduExamRecord: 'eduCenter',
+    EduExamWrongBook: 'eduCenter',
+    EduAsk: 'eduCenter',
+    EduAskDetail: 'eduCenter',
+    EduAskCreate: 'eduCenter',
+    EduCircle: 'eduCenter',
+    EduCircleDetail: 'eduCenter',
+    EduCirclePost: 'eduCenter',
+    EduLive: 'eduCenter',
+    EduLiveRoom: 'eduCenter',
+    EduPoint: 'eduCenter',
+    EduOrder: 'eduCenter',
+    EduOrderDetail: 'eduCenter',
+    EduMessage: 'eduCenter',
+    EduNotification: 'eduCenter',
+    EduResource: 'eduCenter',
+    EduSearch: 'eduCenter',
+    EduMember: 'eduCenter',
+    EduMemberReport: 'eduCenter',
+    EduMemberNotes: 'eduCenter',
+    EduMemberOfflineRecords: 'eduCenter',
+    EduMemberCertUpload: 'eduCenter',
+    EduMemberPapers: 'eduCenter',
+    EduMemberPaperUpload: 'eduCenter',
+    EduAdminHome: 'eduCenter',
   }
   if (routeName && nameMap[routeName]) return nameMap[routeName]
 
   // 2. 路径前缀匹配（兜底，覆盖所有子路由）
   const prefixMap: Array<[string, string]> = [
+    // 教育中心 (eduCenter) — /edu/* 全部子路由映射到顶级 eduCenter 项（放最前优先匹配）
+    // 用带斜杠前缀避免误匹配 /education 等无关路径
+    ['/edu/', 'eduCenter'],
+    ['/edu', 'eduCenter'],
     // 教育平台子菜单（更具体的前缀放前面，确保优先匹配）
     ['/learn/list', 'learnCourses'],
     ['/learn/detail', 'learnCourses'],
@@ -865,6 +922,13 @@ const navGroups = computed<NavGroup[]>(() => {
           path: '/ai-community',
           icon: UsersIcon,
           handler: () => goToPath('/ai-community'),
+        },
+        {
+          key: 'eduCenter',
+          label: t('navigation.eduCenter'),
+          path: '/edu',
+          icon: EduCenterIcon,
+          handler: () => goToPath('/edu'),
         },
         {
           key: 'aiWorld',
@@ -1107,7 +1171,15 @@ watch(isMobileOpen, () => {
  *   3. DevTools → Console → 确认无 CSS 解析错误
  *
  * 守门: e2e/sidebar-header-alignment.spec.ts (4 用例 × 2 viewport = 8 测试)
- * ═══════════════════════════════════════════════════════════════════════════ */
+ *
+ * ── 2026-07-04: 对话历史底部间距跟顶部对称 (2px) ──
+ * 顶部间距 (.nav-new-chat margin-bottom: 2px) vs 底部间距 (.nav-group-label margin-top: 10px)
+ * 用户反馈底部"还是这么大, 应该跟上面一样"
+ * 用相邻兄弟选择器 .sidebar-chat-history + .nav-group .nav-group-label 只覆盖
+ * 跟在 chat-history 后面的那个 label (核心功能), 不影响后续组间距 */
+.sidebar-chat-history + .nav-group .nav-group-label {
+  margin-top: 2px;
+}
 
 .app-sidebar {
   height: 100vh;
@@ -1150,6 +1222,7 @@ watch(isMobileOpen, () => {
   padding: 8px var(--nav-item-pad-x, 14px);
   margin: 2px var(--nav-item-margin-x, 6px);
   cursor: pointer;
+
   /* 不设 width: 100%，让 flex 子项默认 align-self: stretch 拉伸占满；
    * 配合 margin-x 才不会超出父容器 */
   overflow: hidden;
@@ -1167,7 +1240,7 @@ watch(isMobileOpen, () => {
   border-radius: 50%;
   flex-shrink: 0;
   object-fit: cover;
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border: 1px solid var(--el-border-color-lighter);
 }
 
 .sidebar-user-name {
@@ -1371,8 +1444,12 @@ watch(isMobileOpen, () => {
  * 默认态 (.sidebar-login-row):
  *   flex 居中让子 UserMenu 在容器内居中,
  *   内部 .login-button width:100% 会撑满 UserMenu.
- *   三向 padding (10px/12px/10px/12px) 让按钮与侧边栏左/右/底边缘
- *   有视觉呼吸, 不贴边, 也不悬空, 平衡"卡片式"独立感.
+ *
+ * 水平对齐: 与 .nav-item 一致 (margin-x: var(--nav-item-margin-x) = 4px,
+ *   padding-x: 0), 让 .login-button (width:100%) 实际宽度 = sidebar - 8 = 108px ≡
+ *   nav-item 宽度. 旧 padding-x: 12px 让按钮比 nav-item 窄 16px (每边 8px),
+ *   用户反馈"距离侧边栏左右间距有点大, 应该跟上面的所有菜单按钮容器相同"
+ *   (实测 login-btn x=12 right=104 vs nav-item x=4 right=112, 差 8px/边).
  *
  * 折叠态 (.sidebar-login-row.is-collapsed):
  *   强制 .login-button 28×28 + 仅图标 + 居中,
@@ -1402,10 +1479,15 @@ watch(isMobileOpen, () => {
   display: flex;
   justify-content: center;
 
-  /* padding-top 6 (替代 10) 释放 4px 给 actions margin-top 16,
-   * 配合 actions margin 16 + actions h 28 + gap 2 + loginRow h 50 = 98
+  /* 2026-07-04: 水平间距对齐 nav-item 容器
+   *   - margin-x = var(--nav-item-margin-x) (4px) 与 nav-item 完全一致
+   *   - padding-x = 0 让 .login-button (width:100%) 撑满 = nav-item 同宽 (sidebar-8 = 108px)
+   *   - 旧 padding-x: 12px 让按钮比 nav-item 窄 16px (每边 8px), 用户反馈"间距大"
+   * padding-top 6 (替代 10) 释放 4px 给 actions margin-top 16,
+   *   配合 actions margin 16 + actions h 28 + gap 2 + loginRow h 50 = 98
    * 按钮 y = loginRow.y + padding-top = 668 + 6 = 674 (不变) */
-  padding: 6px 12px 10px;
+  margin: 0 var(--nav-item-margin-x);
+  padding: 6px 0 10px;
 }
 
 .sidebar-login-row.is-collapsed {

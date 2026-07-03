@@ -114,9 +114,9 @@
         :disabled="!canSubmit"
         @click="handleSubmit"
       >
-        {{ t('edu.profile.submit') }}
+        {{ t('edu.common.submit') }}
       </el-button>
-      <el-button @click="handleReset">{{ t('edu.profile.cancel') }}</el-button>
+      <el-button @click="handleReset">{{ t('edu.common.cancel') }}</el-button>
     </el-form-item>
   </el-form>
 </template>

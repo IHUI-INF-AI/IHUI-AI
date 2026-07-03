@@ -189,7 +189,7 @@ onMounted(() => {
 
 .ask-btn {
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   border: none;
   border-radius: var(--global-border-radius);
   padding: 8px 18px;
@@ -243,7 +243,7 @@ onMounted(() => {
 }
 
 .question-item:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 .q-head {

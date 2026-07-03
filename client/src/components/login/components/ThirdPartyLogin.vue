@@ -151,7 +151,6 @@ const showTermsOfService = () => {
   transition: transform 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 
   &:hover {
-    
     border-color: var(--el-border-color-darker);
   }
 

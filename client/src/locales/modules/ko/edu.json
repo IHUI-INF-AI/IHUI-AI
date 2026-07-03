@@ -233,6 +233,14 @@
         "todayActive": "오늘 활동"
       }
     },
+    "common": {
+      "retry": "재시도",
+      "loadFailed": "데이터 로드 실패, 재시도해 주세요",
+      "submit": "제출",
+      "cancel": "취소",
+      "actions": "작업",
+      "back": "뒤로"
+    },
     "learn": {
       "title": "내 강의",
       "subtitle": "수강 중인 강의 목록",
@@ -508,7 +516,8 @@
       "uploadTime": "업로드 시간",
       "uploadBy": "업로더",
       "noResources": "자료가 없습니다",
-      "downloadFailed": "다운로드 실패"
+      "downloadFailed": "다운로드 실패",
+      "typeArticle": "기사"
     },
     "search": {
       "title": "검색",

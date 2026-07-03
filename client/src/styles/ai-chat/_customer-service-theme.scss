@@ -20,7 +20,6 @@ $cs-accent-cyan: var(--el-text-color-primary);
 //   .input-area / .input-wrapper / .input-actions .send-btn / .message-avatar / .message-item 覆盖
 
 .floating-chat-dialog-wrapper.theme-custom-service {
-
   // 输入区上方：快捷 FAQ
   .cs-quick-faq {
     margin-bottom: 4px;
@@ -150,7 +149,6 @@ $cs-accent-cyan: var(--el-text-color-primary);
   }
 
   @keyframes cs-pulse-glow {
-
     0%,
     100% {
       opacity: 0.5;
@@ -229,7 +227,7 @@ $cs-accent-cyan: var(--el-text-color-primary);
 
   .message-item.is-user .message-content {
     background: var(--tool-color-blue);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border: none;
   }
 }

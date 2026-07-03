@@ -50,14 +50,14 @@ const sidebarOpen = ref(false)
   .admin-sidebar {
     width: 220px; flex-shrink: 0;
     background: var(--el-color-primary-dark-2);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     display: flex; flex-direction: column;
   }
 
   .admin-logo {
     height: 60px; display: flex; align-items: center; justify-content: center;
     border-bottom: var(--unified-border-bottom);
-    .admin-logo-text { font-size: 18px; font-weight: 600; color: var(--el-bg-color); letter-spacing: 1px; }
+    .admin-logo-text { font-size: 18px; font-weight: 600; color: var(--app-button-text-on-primary); letter-spacing: 1px; }
   }
   .admin-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 

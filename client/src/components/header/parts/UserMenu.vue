@@ -103,7 +103,9 @@ const handleLogin = () => {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  color: #ffffff;
+  /* stylelint-disable color-no-hex -- 登录按钮主色白字，无对应 token */
+  color: #fff;
+  /* stylelint-enable color-no-hex */
   background-color: lt.$login-mini-primary;
   border: none;
   border-radius: lt.$login-btn-radius;
@@ -120,12 +122,16 @@ const handleLogin = () => {
   .login-icon {
     display: none;
     font-size: 16px;
-    color: #ffffff;
+    /* stylelint-disable color-no-hex -- 登录图标白字 */
+    color: #fff;
+    /* stylelint-enable color-no-hex */
   }
 
   .login-text {
     display: inline;
-    color: #ffffff;
+    /* stylelint-disable color-no-hex -- 登录按钮文字白 */
+    color: #fff;
+    /* stylelint-enable color-no-hex */
   }
 
   &:hover:not(.is-disabled) {

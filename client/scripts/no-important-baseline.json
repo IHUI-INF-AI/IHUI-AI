@@ -1,28 +1,7 @@
 {
-  "generatedAt": "2026-07-04T00:00:00.000Z",
-  "count": 11,
-  "removed": [
-    {
-      "file": "src/styles/_touch-optimization.scss",
-      "line": 4,
-      "type": "!important"
-    },
-    {
-      "file": "src/views/Agents.vue",
-      "line": 1405,
-      "type": "!important"
-    },
-    {
-      "file": "src/views/Agents.vue",
-      "line": 1406,
-      "type": "!important"
-    },
-    {
-      "file": "src/views/Login.vue.styles.scss",
-      "line": 1685,
-      "type": "!important"
-    }
-  ],
+  "generatedAt": "2026-07-04T01:00:00.000Z",
+  "count": 31,
+  "removed": [],
   "violations": [
     {
       "file": "src/styles/_session-expired-notification.scss",
@@ -66,7 +45,17 @@
     },
     {
       "file": "src/styles/_sidebar-layout.scss",
-      "line": 1491,
+      "line": 1496,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/live/LiveList.vue",
+      "line": 370,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/live/LiveList.vue",
+      "line": 374,
       "type": "!important"
     },
     {
@@ -76,7 +65,97 @@
     },
     {
       "file": "src/views/edu/member/Report.vue",
-      "line": 387,
+      "line": 389,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/message/MessageCenter.vue",
+      "line": 336,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/message/MessageCenter.vue",
+      "line": 351,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/message/MessageCenter.vue",
+      "line": 360,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/notification/MyNotifications.vue",
+      "line": 247,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/order/MyOrders.vue",
+      "line": 316,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/order/MyOrders.vue",
+      "line": 320,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/point/MyPoints.vue",
+      "line": 326,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/point/MyPoints.vue",
+      "line": 330,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/resource/ResourceLibrary.vue",
+      "line": 357,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/search/EduSearch.vue",
+      "line": 357,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/search/EduSearch.vue",
+      "line": 372,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/search/EduSearch.vue",
+      "line": 386,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/fixes.scss",
+      "line": 193,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/fixes.scss",
+      "line": 205,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/fixes.scss",
+      "line": 206,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/fixes.scss",
+      "line": 207,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/fixes.scss",
+      "line": 208,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/fixes.scss",
+      "line": 214,
       "type": "!important"
     }
   ]

@@ -294,7 +294,7 @@ onMounted(() => {
 }
 
 .withdraw-btn {
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border-radius: var(--global-border-radius);
   font-size: 14px;
   padding: 0 30px;

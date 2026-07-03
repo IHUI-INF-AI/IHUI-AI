@@ -7,7 +7,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="reload">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">
           {{ t('edu.profile.createNote') }}
@@ -18,7 +18,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -70,10 +70,10 @@ function handleEdit(note: LearningNote) {
 
 async function handleDelete(note: LearningNote) {
   try {
-    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.cancel'), {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.common.cancel'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await notesApi.delete(note.id)
     ElMessage.success(t('edu.profile.deleteSuccess'))

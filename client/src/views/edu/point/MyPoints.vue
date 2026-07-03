@@ -8,7 +8,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadAll">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -16,7 +16,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -133,7 +133,7 @@ async function loadAccount() {
   try {
     const res = await pointApi.myAccount()
     account.value = res.data?.data ?? null
-  } catch (e) {
+  } catch (_e) {
     // 账户加载失败不阻断明细展示
   }
 }
@@ -155,7 +155,7 @@ async function loadRecords() {
       records.value = []
       total.value = 0
     }
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     records.value = []
     total.value = 0
@@ -335,7 +335,7 @@ onMounted(loadAll)
   box-shadow: none;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .stat-row {
     grid-template-columns: 1fr 1fr;
   }

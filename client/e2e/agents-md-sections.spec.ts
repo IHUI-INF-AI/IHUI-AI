@@ -69,6 +69,9 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain?: string }> 
   { title: '## 侧边栏尺寸永久锁定 v11 硬约束（2026-07-04 立）', mustContain: 'check-sidebar-config.mjs' },
   { title: '## 暗色模式按钮/标签/消息文字反色硬约束（2026-07-04 立）', mustContain: 'check-button-text-contrast.mjs' },
   { title: '## Git Hook 同步硬约束（2026-07-04 立）', mustContain: 'check-pre-commit-hook-content.mjs' },
+  { title: '## 前端样式改动后 Agent 自验硬约束（2026-07-04 立）', mustContain: 'check-frontend-verify.mjs' },
+  { title: '## /edu 教育中心路由名一致性硬约束（2026-07-04 立）', mustContain: 'check-edu-route-consistency.mjs' },
+  { title: '## 纯 CSS style 块 // 行注释硬约束（2026-07-04 立）', mustContain: 'check-no-css-line-comments.mjs' },
 ]
 
 // 从 H2 标题自动派生 title-slug (title-slug-derived keyword)

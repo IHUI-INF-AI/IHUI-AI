@@ -6,12 +6,12 @@
 
 /* 安全兜底：定义 --color-dark-bg-* 色阶，防止未定义时变量失效 */
 html.dark {
-  --color-dark-bg-1: #000000;
+  --color-dark-bg-1: #000;
   --color-dark-bg-2: #0a0a0a;
   --color-dark-bg-3: #1a1a1a;
-  --color-dark-bg-4: #222222;
+  --color-dark-bg-4: #222;
   --color-dark-bg-5: #2d2d2d;
-  --color-dark-bg-6: #333333;
+  --color-dark-bg-6: #333;
   --color-dark-bg-7: #383838;
 }
 
@@ -25,14 +25,14 @@ html.dark {
   /* 填充色安全覆盖 - 禁止引用 --el-text-color-primary（暗色下为浅色，会导致容器泛白） */
   --el-fill-color: var(--color-dark-bg-7, #383838);
   --el-fill-color-light: var(--color-dark-bg-5, #2d2d2d);
-  --el-fill-color-lighter: var(--color-dark-bg-4, #222222);
-  --el-fill-color-extra-light: var(--color-dark-bg-4, #222222);
+  --el-fill-color-lighter: var(--color-dark-bg-4, #222);
+  --el-fill-color-extra-light: var(--color-dark-bg-4, #222);
   --el-fill-color-dark: var(--color-dark-bg-5, #2d2d2d);
-  --el-fill-color-darker: var(--color-dark-bg-6, #333333);
+  --el-fill-color-darker: var(--color-dark-bg-6, #333);
   --el-fill-color-blank: transparent;
 
   /* 主色浅色变体安全覆盖 - 仅用作背景，必须为深色 */
-  --el-color-primary-light-7: var(--color-dark-bg-4, #222222);
+  --el-color-primary-light-7: var(--color-dark-bg-4, #222);
   --el-color-primary-light-9: var(--color-dark-bg-5, #2d2d2d);
 
   /* 页面/侧边栏背景安全覆盖
@@ -44,18 +44,18 @@ html.dark {
 
   /* 中性灰色阶安全覆盖 - 防止未定义导致 27+ 处容器背景失效 */
   --color-neutral-100: var(--color-dark-bg-3, #1a1a1a);
-  --color-neutral-200: var(--color-dark-bg-4, #222222);
+  --color-neutral-200: var(--color-dark-bg-4, #222);
   --color-neutral-300: var(--color-dark-bg-5, #2d2d2d);
-  --color-neutral-400: var(--color-dark-bg-6, #333333);
+  --color-neutral-400: var(--color-dark-bg-6, #333);
   --color-neutral-500: var(--color-dark-bg-7, #383838);
   --color-neutral-600: #6b6b6b;
   --color-neutral-700: #8d9095;
   --color-neutral-800: #e5eaf3;
 
   /* 通用色值安全覆盖 */
-  --color-gray-light: var(--color-dark-bg-4, #222222);
+  --color-gray-light: var(--color-dark-bg-4, #222);
   --color-bg-page: var(--color-dark-bg-3, #1a1a1a);
-  --color-primary-10: rgba(22, 119, 255, 0.15);
+  --color-primary-10: rgb(22 119 255 / 0.15);
   --color-gray-666: #a3a6ad;
   --color-gray-999: #8d9095;
   --color-text-muted: var(--el-text-color-placeholder, #8d9095);
@@ -68,15 +68,15 @@ html.dark {
   --color-gray-c0c4cc: #8d9095;
 
   /* 浅色灰阶变量暗色覆盖 - 原为浅色 hex 值，暗色模式下映射到深色背景色阶 */
-  --color-gray-f8f8f8: var(--color-dark-bg-4, #222222);
+  --color-gray-f8f8f8: var(--color-dark-bg-4, #222);
   --color-gray-f5f7fa: var(--color-dark-bg-3, #1a1a1a);
-  --color-gray-f5f6f7: var(--color-dark-bg-4, #222222);
+  --color-gray-f5f6f7: var(--color-dark-bg-4, #222);
   --color-gray-f2f3f5: var(--color-dark-bg-5, #2d2d2d);
-  --color-gray-f8f9fa: var(--color-dark-bg-4, #222222);
+  --color-gray-f8f9fa: var(--color-dark-bg-4, #222);
   --color-gray-f0f2f5: var(--color-dark-bg-5, #2d2d2d);
   --color-gray-e8e8e8: var(--color-dark-bg-5, #2d2d2d);
-  --color-gray-ebebeb: var(--color-dark-bg-6, #333333);
-  --color-gray-ccc: var(--color-dark-bg-6, #333333);
+  --color-gray-ebebeb: var(--color-dark-bg-6, #333);
+  --color-gray-ccc: var(--color-dark-bg-6, #333);
   --color-gray-fafafa: var(--color-dark-bg-3, #1a1a1a);
 
   /* 中性色别名暗色覆盖 */
@@ -85,7 +85,7 @@ html.dark {
   --color-dark-202228: var(--color-dark-bg-3, #1a1a1a);
 
   /* 灰阶边框色暗色覆盖 */
-  --color-gray-dde2e6: var(--color-dark-bg-6, #333333);
+  --color-gray-dde2e6: var(--color-dark-bg-6, #333);
   --color-gray-ccd2d8: var(--color-dark-bg-5, #2d2d2d);
   --color-gray-a1a1a1: #8d9095;
 }
@@ -128,6 +128,7 @@ html.dark footer::before {
 }
 
 /* 确保 body、html、#app、主容器整页深色，优先于其他样式 */
+
 /* 放入 @layer utilities 天然覆盖 vendor 层与组件默认样式，用层顺序控制 */
 @layer utilities {
   html.dark,
@@ -141,6 +142,7 @@ html.dark footer::before {
 }
 
 /* 定价按钮（subscribe-button）样式已迁移至 HomePage4.vue scoped 样式 */
+
 /* hero-cta-btn 样式已迁移至 Home.vue.styles.scss scoped 样式 */
 
 

@@ -672,9 +672,17 @@
                       <el-icon class="tw-selector-caret" :class="{ 'is-open': showCapabilityDropdown }"><ArrowDown /></el-icon>
                     </el-button>
 
-                    <!-- Inline 能力面板: 绝对定位在 trigger 下方, 宽度填满 .trae-work-actions-top (即输入框宽度) -->
-                    <Transition name="capability-panel">
-                      <div v-if="showCapabilityDropdown" class="ai-capability-popper ai-capability-inline-panel">
+                    <!-- Inline 能力面板: Teleport 到 body 脱离父级 stacking context (2026-07-04) -->
+                    <!-- 父级 .ai-side-panel 有 transform: matrix() 会让 position: fixed 失效 (成为 fixed 的 containing block) -->
+                    <!-- Teleport 到 body 后, panel 完全脱离 DOM 流, z-index 2001 真正生效 -->
+                    <Teleport to="body">
+                      <Transition name="capability-panel">
+                        <div v-if="showCapabilityDropdown"
+                          ref="capabilityPanelRef"
+                          class="ai-capability-popper ai-capability-inline-panel"
+                          :class="['ai-capability-inline-panel--' + capabilityDropdownPlacement]"
+                          :data-placement="capabilityDropdownPlacement"
+                          :style="capabilityDropdownStyle">
                         <span class="sr-only" aria-live="polite">
                           {{ capabilityDropdownView === 'prompts' ? t('floatingChat.promptTemplates') : t('floatingChat.aiCapability') }}
                         </span>
@@ -779,7 +787,8 @@
                           </div>
                         </Transition>
                       </div>
-                    </Transition>
+                      </Transition>
+                    </Teleport>
                   </div>
                 </div>
 
@@ -1803,14 +1812,48 @@ const showAICapabilityPanel = ref(false) // AI能力选择面板
 const showCapabilityDropdown = ref(false) // 输入区 AI 能力下拉（网格卡片）显隐
 // inline 面板容器 ref (用于 onClickOutside 点击外部关闭, 2026-07-03 重构: 不再使用 el-dropdown)
 const capabilitySelectorRef = ref<HTMLElement | null>(null)
+// 2026-07-04 立: Teleport 到 body 后, panel 脱离 trigger 子树,
+// onClickOutside(capabilitySelectorRef) 会把点击 panel 当成"外部"关闭面板
+// 用 capabilityPanelRef 标记 panel 节点, 在 onClickOutside 回调里判断事件目标是否在 panel 内
+const capabilityPanelRef = ref<HTMLElement | null>(null)
+// inline 面板方向: 'down' (默认, 在 trigger 下方) 或 'up' (trigger 接近视口底部时, 翻转到上方)
+// 2026-07-04 立: 修复 trigger 在 y=778 (输入框底部) 时面板下沿到 y=1180, 超出 900px 视口 280px,
+// 只显示 "大模型" 一个完整项, "智能体" 等 6 项被裁切 (用户反馈"向下拉出 + 只显示一个选项")
+const capabilityDropdownPlacement = ref<'down' | 'up'>('down')
+// inline 面板 fixed 定位坐标 (top/left), 用于脱离父级 stacking context 遮挡
+// 2026-07-04 立: 修复 panel z-index:2001 被同级 .messages-container 遮挡
+// (panel 父级 .input-area 是 z:1 stacking context, .messages-container DOM 顺序在后绘制在上, panel 无法跨越 z:1 边界)
+const capabilityDropdownStyle = ref<{ top: string; left: string }>({ top: '0px', left: '0px' })
 
 // 切换能力下拉显隐 (替代 el-dropdown 的 trigger="click")
 // 打开时自动聚焦面板内首个可聚焦元素 (a11y + Esc 键可靠处理)
+// 2026-07-04 增强: 打开前检测视口空间, 决定面板是向下还是向上弹出, 并计算 fixed 定位坐标
 const toggleCapabilityDropdown = () => {
   showCapabilityDropdown.value = !showCapabilityDropdown.value
   if (showCapabilityDropdown.value) {
+    // 计算 trigger 在视口中的位置, 决定 inline 面板方向 + fixed 定位坐标
+    const triggerEl = capabilitySelectorRef.value
+    if (triggerEl) {
+      const rect = triggerEl.getBoundingClientRect()
+      const viewportH = window.innerHeight
+      const spaceBelow = viewportH - rect.bottom
+      const PANEL_MAX_H = Math.min(420, viewportH * 0.6)
+      const placement = spaceBelow < PANEL_MAX_H + 22 ? 'up' : 'down'
+      capabilityDropdownPlacement.value = placement
+      // 2026-07-04 改用 position: fixed, 脱离父级 .input-area (z:1) stacking context
+      // 避免被同级 .messages-container (DOM 顺序在后) 绘制覆盖
+      // 坐标基于 trigger 在视口中的位置 (fixed 定位相对于 viewport)
+      capabilityDropdownStyle.value = {
+        top: placement === 'down'
+          ? `${rect.bottom + 6}px`  // trigger 下方 6px
+          : `${rect.top - 6}px`,     // trigger 上方 6px (bottom: calc(100% + 6px) 配合)
+        left: `${rect.left}px`,
+      }
+    }
+
     nextTick(() => {
-      const panel = capabilitySelectorRef.value?.querySelector('.ai-capability-inline-panel')
+      // 2026-07-04 立: panel 已 Teleport 到 body, 直接用 capabilityPanelRef
+      const panel = capabilityPanelRef.value
       if (panel) {
         const focusable = panel.querySelector<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -1822,11 +1865,16 @@ const toggleCapabilityDropdown = () => {
 }
 
 // 点击外部关闭 inline 面板 (替代 el-dropdown 的内置 click-outside)
-onClickOutside(capabilitySelectorRef, () => {
-  if (showCapabilityDropdown.value) {
-    closeCapabilityDropdownAndReset()
+// 2026-07-04 立: Teleport 后 panel 脱离 trigger 子树, 同时监听 trigger 和 panel ref,
+// 只有当点击同时不在 trigger 也不在 panel 内时才算"外部"并关闭
+onClickOutside(
+  [capabilitySelectorRef, capabilityPanelRef],
+  () => {
+    if (showCapabilityDropdown.value) {
+      closeCapabilityDropdownAndReset()
+    }
   }
-})
+)
 
 // trae-work: 能力下拉子视图状态机（主视图 ↔ 提示词模板子视图）
 type CapabilityDropdownView = 'main' | 'prompts'
@@ -2300,6 +2348,10 @@ const openDialog = () => {
 
 const closeDialog = () => {
   isVisible.value = false
+  // 2026-07-04 立: 关闭浮窗时同步关闭 AI 能力面板, 防止 backdrop 泄漏
+  // 之前未关闭导致 backdrop 永久遮挡底层 div 点击, 用户报告
+  // "LanguageSwitcher/AppDownload 点击后没反应" (实际是 backdrop 拦截)
+  showAICapabilityPanel.value = false
   emit('update:visible', false)
   emit('close')
 }
@@ -5589,7 +5641,14 @@ const getModelDisplayName = (model: Model): string => {
   // 优先使用 modelName（用户友好的显示名称），如果没有则使用 name，最后使用 modelCode
   // modelName 在 loadModels 中被设置为 displayName || name，是用户友好的名称
   // 而 name 可能是 UUID 或其他内部标识符
-  return model.modelName || model.name || model.modelCode || t('floatingChat.unknown')
+  const baseName = model.modelName || model.name || model.modelCode || t('floatingChat.unknown')
+  // 2026-07-03 FreeLLMAPI 集成: 模型来自聚合代理时, 拼接 i18n 厂商标签
+  // 让用户看到 "Big Pickle" 时能知道这是 FreeLLMAPI 提供的
+  const manufacturer = (model as Model & { manufacturer?: string }).manufacturer
+  if (manufacturer === 'freellmapi') {
+    return `${baseName} · ${t('aiProviders.freellmapi')}`
+  }
+  return baseName
 }
 
 // 获取消息对应的模型图标
@@ -5767,12 +5826,15 @@ const loadModels = async () => {
     logger.info('response', response)
     // 将 AIModelInfo 映射到 Model（保留 remark / quest_type / variables / category / type，用于按模型配置选择接口）
     availableModels.value = (response.data || []).map(
-      (model): Model & { remark?: string; quest_type?: string; variables?: unknown } => ({
+      (model): Model & { remark?: string; quest_type?: string; variables?: unknown; manufacturer?: string } => ({
         modelCode: model.id,
         name: model.name,
         modelName: model.displayName || model.name,
         modelDesc: model.description,
-        provider: model.provider,
+        // 2026-07-03 修复: 后端 /ihui-ai-api/llm/models-unify 返回 manufacturer 字段
+        // 但 AIModelInfo.type.provider 是空字符串 (后端不返回 provider), 必须从 manufacturer 兜底
+        provider: model.provider || (model as unknown as { manufacturer?: string }).manufacturer || '',
+        manufacturer: (model as unknown as { manufacturer?: string }).manufacturer || '',
         id: model.id,
         code: model.code,
         // 保留分类信息（从后端 AIModelInfo 类型推断）：用于区分对话/图片/视频/音频模型
@@ -6041,6 +6103,10 @@ watch(isVisible, (visible) => {
         // ignore
       }
     }
+    // 2026-07-04 立: 兜底关闭 AI 能力面板, 防止 backdrop 泄漏
+    // closeDialog 已有同步关闭, 此处为 minimize/props.visible 变更等
+    // 其他路径的兜底, 保证任意路径 isVisible=false 都会清理
+    showAICapabilityPanel.value = false
   }
 })
 
@@ -8388,9 +8454,11 @@ cleanup.add(() => {
   --fcd-input-bg: transparent;
   --fcd-input-border: none;
 
-  // 发送按钮（亮色：主色底、背景色字，hover 用全局 token）
-  --fcd-send-btn-bg: var(--el-text-color-primary);
-  --fcd-send-btn-color: var(--el-bg-color);
+  // 发送按钮（统一：深色底 + 白字, 浅/暗模式视觉一致）
+  // 2026-07-04 修复: 原 var(--el-text-color-primary) 作 bg + var(--el-bg-color) 作 color 是反相配对,
+  //                var(--el-bg-color) 是背景 token 误用作文字色, 改用稳定 token.
+  --fcd-send-btn-bg: #1a1a1a;                              // 固定深色底
+  --fcd-send-btn-color: var(--app-button-text-on-primary); // 永定白字
   --fcd-send-btn-hover-bg: var(--fcd-send-btn-hover-bg);
 
   // 发送按钮 is-ready 蓝色状态（trae work 主色蓝）— 引用 SCSS 桥接变量避免硬编码红线色值
@@ -8426,9 +8494,11 @@ cleanup.add(() => {
   --fcd-search-bg-hover: var(--color-white-8);
   --fcd-search-bg-focus: var(--color-white-10);
 
-  // 发送按钮（暗色：背景底、主色字，hover 用全局 token）
-  --fcd-send-btn-bg: var(--el-bg-color);
-  --fcd-send-btn-color: var(--el-text-color-primary);
+  // 发送按钮（暗色：与浅色一致, 深底白字, 不反相）
+  // 2026-07-04 修复: 原暗色用 var(--el-bg-color) 作 bg + var(--el-text-color-primary) 作 text,
+  //                虽非误用但与浅色不统一, 改为与浅色一致的稳定 token.
+  --fcd-send-btn-bg: #1a1a1a;
+  --fcd-send-btn-color: var(--app-button-text-on-primary);
   --fcd-send-btn-hover-bg: var(--fcd-send-btn-hover-bg);
 
   // 发送按钮 is-ready 蓝色状态（暗色更亮一点的蓝）
@@ -8826,15 +8896,16 @@ cleanup.add(() => {
     width: auto;
     min-width: 0;
     max-width: none;
-    height: 28px;
+    height: 32px;
     min-height: 0;
     max-height: none;
-    padding: 0 10px;
+    padding: 0 12px;
     margin: 0;
 
-    // 外观 - 透明背景 + 白色描边 + 项目统一圆角 (8px)
+    // 外观 - 透明背景 + 1px 描边 + 项目统一圆角 (8px)
+    // 描边颜色统一使用 var(--border-unified-color) 令牌 (浅色模式 = 白30%, 暗色模式 = 白20%)
     background: transparent;
-    border: 1px solid var(--color-white-30);
+    border: 1px solid var(--border-unified-color);
     border-radius: var(--app-button-radius);
     color: var(--el-text-color-regular);
     box-shadow: none;
@@ -8843,58 +8914,72 @@ cleanup.add(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 14px; // 与侧边栏 nav-item-label 同字号, 视觉一致
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
     outline: none;
 
-    // 图标尺寸（Plus / ArrowDown）
+    // 图标尺寸 (Plus / ArrowDown) - 与侧边栏 nav-item-icon 完全一致: 20×20
     .el-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
       margin: 0;
       padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      color: inherit;
     }
 
     svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
+      width: 20px;
+      height: 20px;
+      fill: none; // 侧边栏图标风格: 描边, 非填充
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
-    // 文字标签
+    // 文字标签 - 绝对不允许截断 (2026-07-04 用户反馈: 选择 后面出现两个点难看)
+    // 移除 max-width / overflow:hidden / text-overflow:ellipsis, 让内容自然撑开
     .tw-selector-label {
-      max-width: 120px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: none;
+      overflow: visible;
+      text-overflow: clip;
       white-space: nowrap;
-      flex-shrink: 1;
+      flex-shrink: 0; // 强制不被 flex 容器压缩
+      min-width: 0;
+      display: inline-block;
     }
 
     // 箭头图标稍弱
     .tw-selector-caret {
-      font-size: 12px;
+      font-size: 14px;
       opacity: 0.6;
+      transition: transform 0.2s ease;
+
+      &.is-open {
+        transform: rotate(180deg);
+        opacity: 1;
+      }
     }
 
     // 悬停
     &:hover:not(:disabled) {
-      border-color: var(--color-white-50);
+      border-color: var(--border-unified-color-hover);
       background: var(--el-fill-color-light);
-      color: var(--el-text-color-regular);
+      color: var(--el-text-color-primary);
     }
 
     // 按下
     &:active:not(:disabled) {
-      border-color: var(--color-white-60);
+      border-color: var(--border-unified-color-hover);
     }
   }
 
@@ -10001,7 +10086,7 @@ cleanup.add(() => {
 
   &:hover {
     background: var(--el-fill-color-light);
-    border-left-color: var(--el-color-primary);
+    border-left-color: var(--border-unified-color-hover);
   }
 
   .quoted-message-header {
@@ -11358,9 +11443,10 @@ button.mini-delete-btn {
 }
 
 .ai-capability-inline-panel {
-  position: absolute;
-  top: calc(100% + 6px); // trigger 下方 6px 间距
-  left: 0; // 对齐 trigger 左缘
+  position: fixed; // 2026-07-04 改 fixed: 脱离父级 .input-area (z:1) stacking context
+                   // 避免被同级 .messages-container (DOM 顺序在后) 绘制覆盖
+  // top/left 由 JS 根据 trigger rect 计算 (inline style :style="capabilityDropdownStyle")
+  // 反向定位 (up 模式) 时 transform: translateY(-100%) 把面板底边对齐 top
   width: 320px; // 固定宽度, 不占满输入框, 不占满全屏 (用户要求"只在 AI 对话框组件内显示")
   max-width: calc(100vw - 16px); // 防止超出视口
   z-index: var(--z-popover, 100);
@@ -11390,6 +11476,14 @@ button.mini-delete-btn {
     background: transparent;
   }
 
+  // 2026-07-04 立: 当 trigger 接近视口底部时, 翻转到 trigger 上方显示
+  // 修复: 输入框 trigger 在 y=778 时, 面板向下展开到 y=1180 超出 900px 视口 280px,
+  // 只显示 "大模型" 一个完整项 (用户反馈"向下拉出 + 只能显示一个选项")
+  // 配合 JS: top = rect.top - 6px, 然后 transform: translateY(-100%) 把面板底边对齐 top
+  &--up {
+    transform: translateY(-100%);
+  }
+
   // 暗色模式: 用 html.dark (非 :where, 避免零特异性被击败, 见 project_memory 2026-07-01 教训)
   html.dark & {
     background: var(--el-bg-color);
@@ -11401,6 +11495,10 @@ button.mini-delete-btn {
 }
 
 // 面板入场/退场动画 (轻量淡入 + 微上滑)
+// 2026-07-04 立: transform 必须用 translate3d 而不是 translateY, 让浏览器识别为 GPU 加速合成层
+// 兼容 --up 反向定位 (transform: translateY(-100%)) — 退场时叠加 -4px 微上滑:
+// 当 panel 在 trigger 上方 (--up) 时, 退场 transform = translateY(calc(-100% - 4px))
+// 当 panel 在 trigger 下方 (默认) 时, 退场 transform = translateY(-4px)
 .capability-panel-enter-active,
 .capability-panel-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -11409,6 +11507,11 @@ button.mini-delete-btn {
 .capability-panel-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+// 2026-07-04 立: --up 模式时, transform 基础值是 -100%, 退场动画叠加 -4px 微上滑
+.ai-capability-inline-panel--up.capability-panel-enter-from,
+.ai-capability-inline-panel--up.capability-panel-leave-to {
+  transform: translateY(calc(-100% - 4px));
 }
 
 /* AI 能力面板图标颜色继承 .openclaw-quick-menu 基础彩色背景 + 白色 svg (无需补丁) */

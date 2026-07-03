@@ -8,7 +8,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadResources">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -16,7 +16,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -57,7 +57,7 @@
           <div class="card-meta">
             <div class="meta-line">
               <span class="meta-label">{{ t('edu.resource.resourceType') }}:</span>
-              <el-tag size="small" effect="plain" type="success">文章</el-tag>
+              <el-tag size="small" effect="plain" type="success">{{ t('edu.resource.typeArticle') }}</el-tag>
             </div>
             <div class="meta-line">
               <span class="meta-label">{{ t('edu.resource.fileSize') }}:</span>
@@ -158,7 +158,7 @@ async function loadResources() {
       resources.value = []
       total.value = 0
     }
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     resources.value = []
     total.value = 0
@@ -357,7 +357,7 @@ onMounted(loadResources)
   box-shadow: none !important;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .resources-grid {
     grid-template-columns: 1fr;
   }

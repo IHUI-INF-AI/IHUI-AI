@@ -16,7 +16,7 @@
           {{ t('edu.message.unreadCount', { n: unreadCount }) }}
         </el-tag>
         <el-button :icon="Refresh" :loading="loading" @click="loadAll">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -24,7 +24,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -186,7 +186,7 @@ async function loadMessages() {
       messages.value = []
       total.value = 0
     }
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     messages.value = []
     total.value = 0

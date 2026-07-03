@@ -143,14 +143,14 @@ html.dark .card-neutral {
 // 推荐卡片高亮
 .card-featured {
   position: relative;
-  border: 2px solid var(--el-text-color-primary);
+  border: 2px solid var(--border-unified-color);
 
   &::before {
     content: "";
     position: absolute;
     inset: -4px;
     border-radius: inherit;
-    background: var(--el-text-color-primary);
+    background: var(--border-unified-color);
     opacity: 0.05;
     z-index: -1;
   }
@@ -164,7 +164,9 @@ html.dark .card-neutral {
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+  color: var(--app-button-text-on-primary);
   background: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
   text-transform: uppercase;

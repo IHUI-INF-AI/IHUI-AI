@@ -37,7 +37,7 @@
 
 :where(.el-textarea.is-focus .el-textarea__inner),
 :where(.el-textarea__inner:focus) {
-  border-color: var(--el-text-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 // el-textarea 外层容器

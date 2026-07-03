@@ -301,7 +301,7 @@ watch(
     &:active,
     &.el-button--primary {
       background-color: var(--el-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
     }
   }
 }

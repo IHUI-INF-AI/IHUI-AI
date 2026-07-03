@@ -13,7 +13,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="reload">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
         <el-button type="primary" :icon="EditPen" @click="goCreate">
           {{ t('edu.ask.askQuestion') }}
@@ -25,7 +25,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -163,7 +163,7 @@ async function loadList() {
     }
   } catch {
     error.value = true
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -275,8 +275,8 @@ onMounted(loadList)
 }
 
 .question-card:hover {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--border-unified-color-hover);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.06);
 }
 
 .card-main {
@@ -351,15 +351,14 @@ onMounted(loadList)
   justify-content: center;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .question-card {
     flex-direction: column;
   }
 
   .card-meta {
     align-items: flex-start;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
   }
 
   .filter-search {

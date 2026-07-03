@@ -171,7 +171,7 @@
   }
 }
 
-::where(html.dark) .app-download-dropdown-menu {
+html.dark .app-download-dropdown-menu {
   background: var(--el-bg-color);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;

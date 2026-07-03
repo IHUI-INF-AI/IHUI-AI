@@ -223,13 +223,13 @@ onMounted(() => {
 }
 
 .search-input:focus {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 .search-btn {
   padding: 10px 24px;
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   border: none;
   border-radius: var(--global-border-radius);
   font-size: 15px;
@@ -275,7 +275,7 @@ onMounted(() => {
 }
 
 .hot-tag:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
   color: var(--el-color-primary);
 }
 
@@ -300,7 +300,7 @@ onMounted(() => {
 }
 
 .result-card:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 .result-type {

@@ -140,6 +140,7 @@ onMounted(loadDetail)
   flex-direction: column;
   gap: 16px;
 }
+
 .review-header {
   display: flex;
   align-items: center;
@@ -147,20 +148,24 @@ onMounted(loadDetail)
   padding-bottom: 12px;
   border-bottom: 1px solid var(--el-border-color);
 }
+
 .review-header__title {
   font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
+
 .review-card {
   border: 1px solid var(--el-border-color);
 }
+
 .review-card__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
+
 .review-card__title {
   font-size: 15px;
   font-weight: 600;

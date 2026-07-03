@@ -765,11 +765,11 @@ $glow-white: var(--color-white-15);
   transition: all 0.3s ease;
 
   .amount-item:hover & {
-    border-color: var(--color-white-15);
+    border-color: var(--border-unified-color-hover);
   }
 
   .amount-item.active & {
-    border-color: $brand-accent;
+    border-color: var(--border-unified-color-hover);
     box-shadow: var(--global-box-shadow);
   }
 }
@@ -869,11 +869,11 @@ $glow-white: var(--color-white-15);
   transition: all 0.3s ease;
 
   .pay-item:hover & {
-    border-color: var(--color-white-15);
+    border-color: var(--border-unified-color-hover);
   }
 
   .pay-item.active & {
-    border-color: $brand-accent;
+    border-color: var(--border-unified-color-hover);
     box-shadow: var(--global-box-shadow);
   }
 }
@@ -910,7 +910,7 @@ $glow-white: var(--color-white-15);
   transition: all 0.3s ease;
 
   .pay-item.active & {
-    border-color: $brand-accent;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -957,7 +957,7 @@ $glow-white: var(--color-white-15);
 
   &:focus-visible {
     .btn-border {
-      border-color: $brand-accent;
+      border-color: var(--border-unified-color-hover);
     }
   }
 }

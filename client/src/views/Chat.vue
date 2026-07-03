@@ -453,7 +453,7 @@ cleanup.add(() => { if (streamingTimer !== null) { clearTimeout(streamingTimer);
   font-family: inherit;
   box-sizing: border-box;
 }
-.chat-textarea:focus { outline: none; border-color: var(--el-color-primary); }
+.chat-textarea:focus { outline: none; border-color: var(--border-unified-color-hover); }
 .chat-textarea:disabled { opacity: 0.5; }
 
 .chat-actions {

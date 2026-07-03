@@ -197,9 +197,14 @@ test.describe('primary 按钮暗色对比度 - 源码级守门', () => {
     const primaryDarkBlock = darkBlocks.find(b => b.body.includes('.el-button--primary'))
     expect(primaryDarkBlock, '必须存在暗色块覆盖 .el-button--primary').toBeDefined()
 
-    const colorMatch = primaryDarkBlock!.body.match(/color\s*:\s*([^;]+);/i)
+    // 2026-07-04 修复: 1) 剥离注释避免 comment 中"color:"字符串误配
+    //                2) 词边界 (^|[\s;{]) 避免 background-color / border-color 子串误配
+    const cleanedBody = primaryDarkBlock!.body
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '')
+    const colorMatch = cleanedBody.match(/(^|[\s;{])color\s*:\s*([^;]+);/i)
     expect(colorMatch, '暗色 .el-button--primary 必须显式 color').not.toBeNull()
-    const value = colorMatch![1].trim()
+    const value = colorMatch![2].trim()
 
     const isAllowed =
       value === 'var(--app-button-text-on-primary)' ||

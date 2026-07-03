@@ -159,7 +159,7 @@ function formatTime(value?: string): string {
   transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: var(--color-white-50);
+    border-color: var(--border-unified-color-hover);
   }
 }
 

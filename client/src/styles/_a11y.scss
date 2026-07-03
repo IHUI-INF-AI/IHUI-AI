@@ -23,8 +23,9 @@
     --a11y-focus-width: 2px;
   }
 
-  :where(html.dark) {
-    --a11y-focus-color: var(--el-bg-color);
+  html.dark {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+    --a11y-focus-color: #1a1a1a;
     --a11y-focus-bg: var(--el-text-color-primary);
   }
 }
@@ -139,7 +140,7 @@
   // 用户开启「高对比度」
   @media (prefers-contrast: more) {
     :where(button, a, [role="button"], [role="tab"], [role="menuitem"]) {
-      outline: var(--a11y-focus-width) solid currentColor;
+      outline: var(--a11y-focus-width) solid currentcolor;
       outline-offset: var(--a11y-focus-offset);
     }
 

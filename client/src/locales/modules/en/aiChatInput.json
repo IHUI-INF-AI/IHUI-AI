@@ -43,6 +43,11 @@
     "back": "返回",
     "searchModels": "搜索模型...",
     "exportFailed": "导出失败",
-    "exportDeveloping": "导出功能开发中"
+    "exportDeveloping": "导出功能开发中",
+    "noModels": "No available models",
+    "selectAgent": "Select agent",
+    "selectMode": "Select mode",
+    "modelLabel": "Model",
+    "agentLabel": "Agent"
   }
 }

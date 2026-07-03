@@ -12,7 +12,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="reload">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
         <el-button type="primary" :icon="Upload" @click="goUpload">
           {{ t('edu.profile.paperUploadBtn') }}
@@ -23,7 +23,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -62,8 +62,8 @@ async function handleDelete(paper: UploadedPaper) {
   try {
     await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.paperDelete'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await uploadedPapersApi.delete(paper.id)
     ElMessage.success(t('edu.profile.deleteSuccess'))

@@ -833,7 +833,7 @@ $border-light: var(--el-border-color-lighter);
   width: 64px;
   height: 64px;
   background: var(--bd-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border-radius: var(--global-border-radius);
   display: flex;
   align-items: center;

@@ -13,7 +13,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="reload">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
         <el-button type="primary" :icon="Plus" @click="openCreateDialog">
           {{ t('edu.circle.createCircle') }}
@@ -25,7 +25,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -162,9 +162,9 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('edu.profile.cancel') }}</el-button>
+        <el-button @click="dialogVisible = false">{{ t('edu.common.cancel') }}</el-button>
         <el-button type="primary" :loading="creating" @click="handleCreate">
-          {{ t('edu.profile.submit') }}
+          {{ t('edu.common.submit') }}
         </el-button>
       </template>
     </el-dialog>
@@ -229,7 +229,7 @@ async function loadList() {
     }
   } catch {
     error.value = true
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -253,7 +253,7 @@ async function handleJoin(c: EduCircle) {
     c.member_count += 1
     ElMessage.success(t('edu.circle.joinSuccess'))
   } catch {
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     joiningId.value = null
   }
@@ -287,7 +287,7 @@ async function handleCreate() {
     page.value = 1
     await loadList()
   } catch {
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     creating.value = false
   }
@@ -384,8 +384,8 @@ onMounted(loadList)
 }
 
 .circle-card:hover {
-  border-color: var(--el-color-primary);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--border-unified-color-hover);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.06);
 }
 
 .card-cover {
@@ -476,7 +476,7 @@ onMounted(loadList)
   justify-content: center;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .filter-search {
     max-width: none;
   }

@@ -10,7 +10,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -86,9 +86,9 @@
             :disabled="!canSubmit"
             @click="handleSubmit"
           >
-            {{ t('edu.profile.submit') }}
+            {{ t('edu.common.submit') }}
           </el-button>
-          <el-button @click="handleReset">{{ t('edu.profile.cancel') }}</el-button>
+          <el-button @click="handleReset">{{ t('edu.common.cancel') }}</el-button>
         </el-form-item>
       </el-form>
     </section>
@@ -274,7 +274,7 @@ onMounted(loadAll)
   margin-top: 4px;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .upload-form-section,
   .cert-list-section {
     padding: 16px;

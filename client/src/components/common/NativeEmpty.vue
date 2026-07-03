@@ -83,7 +83,7 @@ const resolvedDescription = computed(() => {
 }
 
 .native-empty__description {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 14px;
   line-height: 1.5;
   color: var(--el-text-color-regular);

@@ -1234,8 +1234,14 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           '**/logs/**',
           '**/*.log',
         ],
-        usePolling: false,
-        interval: 100,
+        // 2026-07-04 立: Windows 上原生 fs.watch 不稳定, 偶发丢失文件变更事件,
+        // 导致 HMR 不刷新或样式修改不生效 (memory 已记录"Vite HMR 文件监视器在
+        // Windows 环境下会导致修改被还原"). 改用 polling 模式可靠检测变更,
+        // 虽略增 CPU 但彻底杜绝"改完样式重启后丢失"问题.
+        usePolling: true,
+        interval: 200,
+        // 原子写入检测: 防止编辑器半写状态触发误事件
+        atomic: true,
         // ????????????
         followSymlinks: false,
         // ??????????????

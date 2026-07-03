@@ -925,7 +925,7 @@ $brand-secondary: var(--color-gray-333);
       font-weight: 900;
       padding: 3px 8px;
       background: $brand-primary;
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
       border-radius: var(--global-border-radius);
       letter-spacing: 0.05em;
     }
@@ -963,7 +963,7 @@ $brand-secondary: var(--color-gray-333);
         width: 24px;
         height: 24px;
         border: 3px solid var(--border-unified-color);
-        border-top-color: $brand-primary;
+        border-top-color: var(--el-color-primary);
         border-radius: var(--global-border-radius);
         animation: spin 1s linear infinite;
       }
@@ -1040,7 +1040,7 @@ $brand-secondary: var(--color-gray-333);
 
       &.is-active {
         background: $brand-primary;
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
         font-weight: 800;
       }
     }
@@ -1164,8 +1164,8 @@ $brand-secondary: var(--color-gray-333);
 
   &.active {
     background: $brand-primary;
-    color: var(--el-bg-color);
-    border-color: $brand-primary;
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+    border-color: transparent;
   }
 }
 
@@ -1190,7 +1190,7 @@ $brand-secondary: var(--color-gray-333);
 
   &.active {
     background: $brand-primary;
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
     font-weight: 800;
   }
 }

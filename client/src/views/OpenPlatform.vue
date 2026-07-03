@@ -1368,7 +1368,7 @@ function isExternalLink(href: string) {
     background: var(--op-bg);
   }
   .sl-plan.sl-plan--recommended { border-top-width: 4px; border-top-color: var(--op-accent); }
-  .sl-plan .sl-plan__badge { background: var(--op-accent); color: var(--el-bg-color); border-radius: 0 0 0 12px; }
+  .sl-plan .sl-plan__badge { background: var(--op-accent); color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */ border-radius: 0 0 0 12px; }
 }
 
 :where(html.dark) :where(.open-platform-container) :where(.sl) {

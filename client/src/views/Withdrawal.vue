@@ -899,7 +899,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     &.is-focus {
-      border-color: $text-secondary;
+      border-color: var(--border-unified-color-hover);
       box-shadow: var(--global-box-shadow);
     }
   }
@@ -942,7 +942,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     &:focus {
-      border-color: $text-secondary;
+      border-color: var(--border-unified-color-hover);
       box-shadow: var(--global-box-shadow);
     }
   }
@@ -966,7 +966,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   &:hover {
     background: var(--color-white-5);
     color: $text-primary;
-    border-color: $text-secondary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -997,7 +997,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   &.wd-method-active {
-    border-color: $text-secondary;
+    border-color: var(--border-unified-color-hover);
     background: var(--color-white-4);
 
     .wd-method-indicator {
@@ -1091,7 +1091,7 @@ $ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   transition: all 0.3s $ease-out-expo;
 
   &:hover:not(:disabled) {
-    border-color: $text-secondary;
+    border-color: var(--border-unified-color-hover);
     transform: translateY(-2px);
 
     .wd-btn-bg {

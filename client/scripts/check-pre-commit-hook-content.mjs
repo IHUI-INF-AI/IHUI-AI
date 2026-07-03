@@ -4,7 +4,7 @@
  *
  * 目的: 保证 g:\IHUI-AI\.git\hooks\pre-commit (git 真正查找的钩子) 与
  *       g:\IHUI-AI\.husky\pre-commit (项目级源, 入版本库) 内容一致,
- *       且 15 项 check 调用都存在, 0 个 simple-git-hooks v2 残留 wrapper.
+ *       且 21 项 check 调用都存在, 0 个 simple-git-hooks v2 残留 wrapper.
  *
  * 根因背景: simple-git-hooks@2.13.1 v2 系列存在 monorepo 设计缺陷
  *   (_getHooksDirPath(projectRoot) 用 projectRoot 而非 gitRoot 推导 hooks 目录),
@@ -14,7 +14,7 @@
  *
  * 与 e2e/pre-commit-hook-sync.spec.ts 的关系:
  *   - 本脚本: 轻量级 (pre-commit 阶段, < 100ms)
- *   - e2e 测试: 完整浏览器级断言 (CI 阶段, 含所有 14 项调用存在性)
+ *   - e2e 测试: 完整浏览器级断言 (CI 阶段, 含所有 21 项调用存在性)
  *   两者并存: pre-commit 拦截 + CI 兜底
  *
  * 用法:
@@ -43,7 +43,7 @@ const huskyPrePushPath = path.join(projectRoot, '.husky', 'pre-push')
 
 const onlyStaged = process.argv.includes('--staged')
 
-// 15 项 pre-commit 检查项 (按 .husky/pre-commit 中的执行顺序)
+// 21 项 pre-commit 检查项 (按 .husky/pre-commit 中的执行顺序)
 // 与 simple-git-hooks 配置 + pre-commit 钩子内容保持一致
 const EXPECTED_PRE_COMMIT_CHECKS = [
   'npx lint-staged',
@@ -60,7 +60,14 @@ const EXPECTED_PRE_COMMIT_CHECKS = [
   'npm run check:session-expired-button:no-double-border:staged --silent',
   'npm run check:dark-overlay-primary-button:no-double-border:staged --silent',
   'npm run check:dark-overlay-bg-color-unified:staged --silent',
+  'npm run check:primary-button-contrast:staged --silent',
+  'npm run check:button-text-contrast:staged --silent',
+  'npm run check:sidebar-header:staged --silent',
   'node scripts/check-pre-commit-hook-content.mjs',
+  'npm run check:frontend-verify:staged --silent',
+  'node scripts/check-edu-route-consistency.mjs --staged',
+  'node scripts/check-no-css-line-comments.mjs --staged',
+  'node scripts/check-popper-backdrop-leak.mjs',
 ]
 
 // 2 项 pre-push 检查项
@@ -113,10 +120,10 @@ if (huskyContent !== gitHookContent) {
   process.exit(1)
 }
 
-// 检查 4: 14 项 check 调用都必须存在
+// 检查 4: 21 项 check 调用都必须存在
 for (const check of EXPECTED_PRE_COMMIT_CHECKS) {
   if (!huskyContent.includes(check)) {
-    fail(`.husky/pre-commit 缺失 14 项检查之一: "${check}"`)
+    fail(`.husky/pre-commit 缺失 21 项检查之一: "${check}"`)
   }
 }
 
@@ -168,5 +175,5 @@ if (hasError) {
   process.exit(1)
 }
 
-console.log(`[OK] Git Hook 同步硬约束: .git/hooks/pre-commit == .husky/pre-commit, 18 项 check 齐, 0 残留, client/.git 已清理`)
+console.log(`[OK] Git Hook 同步硬约束: .git/hooks/pre-commit == .husky/pre-commit, 21 项 check 齐, 0 残留, client/.git 已清理`)
 process.exit(0)

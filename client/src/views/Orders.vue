@@ -1230,14 +1230,15 @@ $brand-secondary: var(--color-gray-333);
   }
 
   &.active {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: $brand-primary;
-    color: var(--el-bg-color);
-    border-color: $brand-primary;
+    color: var(--app-button-text-on-primary);
+    border-color: transparent;
     box-shadow: var(--global-box-shadow);
 
     .tab-count {
       background: var(--color-white-20);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
     }
   }
 }
@@ -1276,7 +1277,7 @@ $brand-secondary: var(--color-gray-333);
     position: absolute;
     inset: 0;
     border: 2px solid transparent;
-    border-top-color: $brand-primary;
+    border-top-color: var(--el-color-primary);
     border-radius: var(--global-border-radius);
     animation: spin 1s linear infinite;
 
@@ -1345,8 +1346,10 @@ $brand-secondary: var(--color-gray-333);
   justify-content: center;
   height: 56px;
   padding: 0 40px;
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   border: none;
   border-radius: var(--global-border-radius);
   font-size: 15px;
@@ -1390,8 +1393,9 @@ $brand-secondary: var(--color-gray-333);
   }
 
   &:hover {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: $brand-primary;
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     transform: translateY(-2px);
   }
 }
@@ -1506,34 +1510,64 @@ $brand-secondary: var(--color-gray-333);
   }
 }
 
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 .status-pending {
+  // 规则B 橙黄背景用深字
   background: var(--color-orange-ff9800);
-  color: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- 橙黄背景必须深色文字，无对应 token */
+  color: #1a1a1a;
+  /* stylelint-enable color-no-hex */
   box-shadow: var(--global-box-shadow);
 }
 
 .status-shipping {
+  // 规则A 主色背景用永定白字
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   box-shadow: var(--global-box-shadow);
 }
 
+// 反相配对重构为双模式
 .status-finished {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background: #1a1a1a;
+  color: #fff;
+  /* stylelint-enable color-no-hex */
+
   box-shadow: var(--global-box-shadow);
 }
 
+html.dark .status-finished {
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background: #fff;
+  color: #1a1a1a;
+  /* stylelint-enable color-no-hex */
+
+}
+
+// 规则C placeholder 背景用主题感知文字色 (两者随主题同向翻转, 对比度始终充足)
 .status-cancelled {
   background: var(--el-text-color-placeholder);
-  color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
   box-shadow: var(--global-box-shadow);
 }
 
+// 反相配对重构为双模式
 .status-refund {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background: #1a1a1a;
+  color: #fff;
+  /* stylelint-enable color-no-hex */
+
   box-shadow: var(--global-box-shadow);
+}
+
+html.dark .status-refund {
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background: #fff;
+  color: #1a1a1a;
+  /* stylelint-enable color-no-hex */
+
 }
 
 .card-body {
@@ -1683,20 +1717,24 @@ $brand-secondary: var(--color-gray-333);
   }
 
   &.primary {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: $brand-primary;
-    color: var(--el-bg-color);
-    border-color: $brand-primary;
+    color: var(--app-button-text-on-primary);
+    border-color: transparent;
 
     &:hover {
       background: $brand-secondary;
-      border-color: $brand-secondary;
+      border-color: transparent;
       box-shadow: var(--global-box-shadow);
     }
   }
 
   &.warning {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则B 橙黄背景用深字)
     background: var(--color-orange-ff9800);
-    color: var(--el-bg-color);
+    /* stylelint-disable color-no-hex -- 橙黄背景必须深色文字，无对应 token */
+    color: #1a1a1a;
+    /* stylelint-enable color-no-hex */
     border-color: transparent;
 
     &:hover {
@@ -1734,9 +1772,10 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: $brand-primary;
-    color: var(--el-bg-color);
-    border-color: $brand-primary;
+    color: var(--app-button-text-on-primary);
+    border-color: transparent;
     transform: translateY(-3px);
     box-shadow: var(--global-box-shadow);
   }

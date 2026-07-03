@@ -84,6 +84,7 @@ const handleClick = () => {
   color: var(--el-text-color-primary);
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   overflow: visible;
+
   /* 统一按钮高度，与其他 header 按钮对齐 */
   height: var(--header-action-height, 40px);
   min-height: var(--header-action-height, 40px);

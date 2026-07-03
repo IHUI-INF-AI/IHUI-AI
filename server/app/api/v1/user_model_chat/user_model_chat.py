@@ -98,5 +98,11 @@ async def list_models():
             "bytedance": [
                 {"id": "doubao-pro", "name": "豆包Pro", "type": "chat"},
             ],
+            "freellmapi": [
+                {"id": "auto", "name": "FreeLLMAPI Auto (自动路由)", "type": "chat"},
+                {"id": "gpt-oss-20b", "name": "GPT-OSS 20B (Pollinations, 免费)", "type": "chat"},
+                {"id": "llama-3.3-70b", "name": "Llama 3.3 70B", "type": "chat"},
+                {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "type": "chat"},
+            ],
         }
     )

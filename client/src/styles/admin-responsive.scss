@@ -3,6 +3,7 @@
  * 管理端移动端全局响应式样式
  * 容器样式走 .admin-layout 唯一全局设定，使用 CSS 变量控制
  */
+/* stylelint-disable media-feature-range-notation, media-feature-name-no-unknown -- retina 媒体查询用旧式 min-device-pixel-ratio 写法 */
 
 /* ===== Mobile First Base Styles ===== */
 .admin-layout {
@@ -18,7 +19,7 @@
 }
 
 /* ===== Mobile Overrides ===== */
-@media (max-width: 767px) {
+@media (width <= 767px) {
   .admin-layout {
     --admin-navbar-height: var(--admin-mobile-navbar-height);
     --admin-content-padding: var(--admin-mobile-content-padding);
@@ -64,11 +65,13 @@
   /* Buttons */
   .admin-layout .el-button {
     --el-button-size: 36px;
+
     min-height: 36px;
   }
 
   .admin-layout .el-button--small {
     --el-button-size: 32px;
+
     min-height: 32px;
   }
 
@@ -208,7 +211,7 @@
 }
 
 /* ===== Tablet Overrides ===== */
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (width >= 768px) and (width <= 1023px) {
   .admin-layout {
     --admin-sidebar-width: 180px;
   }
@@ -257,7 +260,7 @@
 }
 
 /* ===== Landscape Phone ===== */
-@media (max-width: 767px) and (orientation: landscape) {
+@media (width <= 767px) and (orientation: landscape) {
   .admin-layout .admin-app-main {
     padding: 8px;
   }
@@ -268,7 +271,7 @@
 }
 
 /* ===== High DPI Screens ===== */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+@media (min-device-pixel-ratio: 2), (resolution >= 192dpi) {
   .admin-layout .el-table,
   .admin-layout .el-input__inner,
   .admin-layout .el-button {

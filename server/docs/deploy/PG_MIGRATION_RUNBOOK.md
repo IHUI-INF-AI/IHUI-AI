@@ -1,4 +1,4 @@
-﻿# PostgreSQL 迁移 runbook (建议 109 / 建议 102 阶段 0)
+# PostgreSQL 迁移 runbook (建议 109 / 建议 102 阶段 0)
 
 > 适用版本: ZHS Platform v0.1 → v0.2 (MySQL → PG 14)
 > 预计耗时: 1-2 周 (含 3 次演练)

@@ -1,4 +1,4 @@
-﻿# Code Quality Fixes Summary
+# Code Quality Fixes Summary
 
 ## Overview
 This document summarizes the code quality improvements applied to the ZHS Platform backend.

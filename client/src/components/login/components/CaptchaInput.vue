@@ -179,7 +179,7 @@ onMounted(() => {
   justify-content: center;
   opacity: 0;
   transition: opacity 0.3s ease;
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
 }
 
 .refresh-icon {

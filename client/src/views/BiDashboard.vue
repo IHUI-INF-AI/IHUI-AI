@@ -544,9 +544,21 @@ onMounted(async () => {
   }
 
   .bi-check.active {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+    /* stylelint-enable color-no-hex */
+
+    border-color: transparent;
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
+    }
   }
 
   .bi-actions {
@@ -577,9 +589,21 @@ onMounted(async () => {
   }
 
   .bi-btn.primary {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+    /* stylelint-enable color-no-hex */
+
+    border-color: transparent;
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
+    }
   }
 
   .bi-btn.secondary {
@@ -739,12 +763,12 @@ onMounted(async () => {
 
   .bi-anomaly-badge.up {
     background: var(--el-color-success);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   }
 
   .bi-anomaly-badge.down {
     background: var(--el-color-danger);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   }
 
   .bi-anomaly-sev {

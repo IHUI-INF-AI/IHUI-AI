@@ -315,7 +315,7 @@ onMounted(async () => {
   width: 100%;
   box-sizing: border-box;
 }
-.sidebar-search:focus { outline: none; border-color: var(--el-color-primary); }
+.sidebar-search:focus { outline: none; border-color: var(--border-unified-color-hover); }
 .sidebar-categories { display: flex; flex-direction: column; gap: 4px; }
 
 .category-item {
@@ -408,7 +408,7 @@ onMounted(async () => {
 }
 
 .tool-card:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
   transform: translateY(-2px);
   box-shadow: var(--global-box-shadow);
 }

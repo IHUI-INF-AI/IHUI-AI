@@ -84,16 +84,16 @@ const handleClick = () => {
 
 onMounted(() => {
   const cleanup = useCleanup()
-  // eslint-disable-next-line no-console
+   
   console.log('[ScrollDownButton] onMounted fired')
   workspaceEl = document.querySelector('.workspace')
   sidebarEl = document.querySelector('.app-sidebar')
-  // eslint-disable-next-line no-console
+   
   console.log('[ScrollDownButton] workspaceEl found:', !!workspaceEl, 'sidebarEl:', !!sidebarEl)
   if (!workspaceEl) return
 
   updateCenter()
-  // eslint-disable-next-line no-console
+   
   console.log('[ScrollDownButton] centerLeft after updateCenter:', centerLeft.value)
 
   if (typeof ResizeObserver !== 'undefined') {
@@ -130,6 +130,7 @@ onMounted(() => {
   z-index: var(--z-dropdown);
   padding: 0;
   outline: none;
+
   // 仅过渡 transform，不过渡 left：left 由 JS 按工作区中心动态设置，
   // 过渡会导致 sidebar 折叠 / ai-panel 拖拽时按钮滑动跟随，体验割裂。
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -181,6 +182,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
   // 容器缩小一倍(22px)后，向下箭头图标保持原尺寸(24px)会略大于容器，
   // 需放开 overflow 让图标完整显示，不被裁剪。
   overflow: visible;
@@ -190,6 +192,7 @@ onMounted(() => {
   position: relative;
   width: 24px;
   height: 24px;
+
   // 容器缩小一倍(22px)后图标(24px)大于容器，需禁止 flex 收缩，
   // 否则 flex 容器(.button-inner)会把图标压缩到容器尺寸，违背"不缩小图标"要求。
   flex-shrink: 0;

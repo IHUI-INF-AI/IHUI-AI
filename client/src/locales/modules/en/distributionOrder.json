@@ -26,6 +26,12 @@
       "withdrawn": "Withdrawn",
       "approving": "Under Review",
       "unknown": "Unknown"
+    },
+    "Status": {
+      "unsettled": "Unsettled",
+      "refund": "Refunded",
+      "completed": "Completed",
+      "unknown": "Unknown"
     }
   }
 }

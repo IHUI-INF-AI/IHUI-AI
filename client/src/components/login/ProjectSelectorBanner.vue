@@ -111,7 +111,7 @@ const handleProjectSelect = (projectKey: string) => {
 
   &.active {
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
   }
 }

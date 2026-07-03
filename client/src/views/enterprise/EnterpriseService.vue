@@ -1873,7 +1873,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       &:hover {
         background: var(--el-color-primary);
         transform: translateY(-1px);
-        border-color: rgb(var(--el-color-black-rgb), 0.3);
+        border-color: var(--border-unified-color-hover);
 
         &::before {
           transform: translateX(100%);
@@ -1910,7 +1910,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
       transition: all 0.2s ease;
 
       &:hover {
-        border-color: var(--el-text-color-primary);
+        border-color: var(--border-unified-color-hover);
         background: var(--el-fill-color-light);
       }
     }
@@ -2788,7 +2788,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
       :where(.quadrant-header .q-number) {
         background: $accent-blue;
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary); /* 规则A: $accent-blue=主色深底白字 (原 var(--el-bg-color-page) 误用背景 token) */
       }
 
       h4 {
@@ -3102,7 +3102,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         border-color: $accent-purple;
         border-width: 2px;
 
-        .el-icon { color: var(--el-bg-color-page); }
+        .el-icon { color: var(--el-text-color-primary); /* 规则C: $accent-purple=light-3 浅底主题感知文字色 (原 var(--el-bg-color-page) 白字对比度不足) */ }
       }
 
       :where(.phase-content) {
@@ -3125,7 +3125,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         background: $accent-purple;
         border-color: $accent-purple;
 
-        .el-icon { color: var(--el-bg-color-page); }
+        .el-icon { color: var(--el-text-color-primary); /* 规则C: $accent-purple=light-3 浅底主题感知文字色 (原 var(--el-bg-color-page) 白字对比度不足) */ }
       }
     }
 

@@ -149,7 +149,7 @@ const getStatusText = (status: string): string => {
     }
 
     &.active {
-      border-color: $primary-color;
+      border-color: var(--border-unified-color-hover);
       background-color: $bg-hover;
     }
 

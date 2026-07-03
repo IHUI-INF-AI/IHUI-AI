@@ -2089,7 +2089,7 @@ html.dark {
 
       &:hover {
         background: var(--btn-primary-bg);
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary);
       }
     }
   }

@@ -17,7 +17,7 @@
   transition: all 0.1s linear;
   appearance: none;
   user-select: none;
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   background-color: var(--el-color-primary);
 
   &:hover {
@@ -48,7 +48,7 @@
     background: var(--el-color-primary);
 
     .ihui-ai-testimonial-text {
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
     }
   }
 }
@@ -86,6 +86,7 @@
     transform: translateX(-30px);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -104,6 +105,7 @@
     transform: translateY(-30px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -122,6 +124,7 @@
     transform: translateY(30px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -140,6 +143,7 @@
     transform: scale(0.7);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -158,6 +162,7 @@
   from {
     transform: translateX(-100%);
   }
+
   to {
     transform: translateX(300px);
   }
@@ -166,6 +171,7 @@
 /* IhuiAi背景纹理 */
 .ihui-ai-bg-texture {
   /* background-image: url('/images/ihui-ai/bgtop.3a236362.png'); */
+
   /* 图片文件不存在，暂时注释掉 */
   background-size: cover;
   background-repeat: no-repeat;
@@ -182,7 +188,7 @@
 }
 
 /* 响应式 */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .ihui-ai-button-primary {
     padding: 0 16px;
     font-size: 14px;

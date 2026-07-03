@@ -310,7 +310,9 @@ v.$text-primary: var(--el-text-color-primary);
 
   &:hover {
     background: var(--el-color-danger);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    color: var(--app-button-text-on-primary);
   }
 }
 

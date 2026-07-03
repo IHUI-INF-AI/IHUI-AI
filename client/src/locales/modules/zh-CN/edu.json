@@ -24,6 +24,14 @@
         "todayActive": "今日活跃"
       }
     },
+    "common": {
+      "retry": "重试",
+      "loadFailed": "数据加载失败，请稍后重试",
+      "submit": "提交",
+      "cancel": "取消",
+      "actions": "操作",
+      "back": "返回"
+    },
     "profile": {
       "entryCardTitle": "我的学习档案",
       "entryCardDesc": "查看学习统计、上传笔记与试卷、生成 AI 学习规划报告",
@@ -126,6 +134,7 @@
       "certTypeLabel": "证书类型",
       "submit": "提交",
       "cancel": "取消",
+      "print": "打印",
       "generateReport": "一键生成学习档案",
       "exportPdf": "导出 PDF",
       "printReport": "打印",
@@ -507,7 +516,8 @@
       "uploadTime": "上传时间",
       "uploadBy": "上传者",
       "noResources": "暂无资源",
-      "downloadFailed": "下载失败"
+      "downloadFailed": "下载失败",
+      "typeArticle": "文章"
     },
     "search": {
       "title": "搜索",

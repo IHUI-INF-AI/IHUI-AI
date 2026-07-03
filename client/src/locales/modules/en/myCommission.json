@@ -24,6 +24,30 @@
       "pending": "Pending",
       "settled": "Settled",
       "cancelled": "Cancelled"
+    },
+    "subtitle": "View your trader commission details",
+    "pendingCommission": "Pending Commission",
+    "table": {
+      "buyer": "Buyer",
+      "relatedOrder": "Related Order",
+      "commissionAmount": "Commission Amount",
+      "Status": "Status",
+      "orderTime": "Order Time",
+      "actions": "Actions",
+      "copyOrderId": "Copy Order ID"
+    },
+    "Status": {
+      "settled": "Settled",
+      "pending": "Pending",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "noRecords": "No commission records",
+    "errors": {
+      "loadFailed": "Failed to load commission data",
+      "loadRetry": "Failed to load commission data, please try again later",
+      "copySuccess": "Order ID copied to clipboard",
+      "copyFailed": "Copy Failed, please copy manually"
     }
   }
 }

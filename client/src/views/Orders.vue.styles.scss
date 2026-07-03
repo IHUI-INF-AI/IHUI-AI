@@ -195,7 +195,7 @@
 
 .orders-page .go-shop-btn {
   background: var(--el-color-primary); /* 使用主题色（黑色） */
-  color: var(--el-bg-color-page); /* 重要按钮保持白色文字 */
+  color: var(--app-button-text-on-primary); /* 重要按钮保持白色文字 */
   border: none;
   padding: 0.75rem 2rem;
   border-radius: var(--global-border-radius); /* 统一6px圆角 */
@@ -265,38 +265,73 @@
 }
 
 /* 待支付状态 - 醒目橙黄色系 */
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则B 橙黄背景用深字)
+/* stylelint-disable color-no-hex, color-hex-length -- 橙黄底色必须配深字, 不能用 var() (无对应 token) */
 .status-pending {
   background: var(--color-orange-ff953a);
-  color: var(--el-bg-color);
+  color: #1a1a1a;
   border: 0.02rem solid var(--border-unified-color);
   position: relative;
   overflow: hidden;
   font-weight: 600;
 }
+/* stylelint-enable color-no-hex, color-hex-length */
 
 /* 配送中状态 (已支付/已发货) - 灰色系 */
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (反相配对重构为双模式)
+/* stylelint-disable color-no-hex -- 反相配对显式色, 不依赖 token */
 .status-shipping {
-  background: var(--el-text-color-secondary);
-  color: var(--el-bg-color);
+  background: #1a1a1a;
+  color: #fff;
 }
+
+html.dark .status-shipping {
+  background: #fff;
+  color: #1a1a1a;
+}
+/* stylelint-enable color-no-hex */
 
 /* 已退款状态 - 红色系 */
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (反相配对重构为双模式)
+/* stylelint-disable color-no-hex -- 反相配对显式色, 不依赖 token */
 .status-refund {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+  background: #1a1a1a;
+  color: #fff;
 }
+
+html.dark .status-refund {
+  background: #fff;
+  color: #1a1a1a;
+}
+/* stylelint-enable color-no-hex */
 
 /* 已完成状态 - 绿色系 */
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (反相配对重构为双模式)
+/* stylelint-disable color-no-hex -- 反相配对显式色, 不依赖 token */
 .status-finished {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+  background: #1a1a1a;
+  color: #fff;
 }
 
-/* 已取消状态 - 灰色系 */
-.status-cancelled {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
+html.dark .status-finished {
+  background: #fff;
+  color: #1a1a1a;
 }
+/* stylelint-enable color-no-hex */
+
+/* 已取消状态 - 灰色系 */
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (反相配对重构为双模式)
+/* stylelint-disable color-no-hex -- 反相配对显式色, 不依赖 token */
+.status-cancelled {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+html.dark .status-cancelled {
+  background: #fff;
+  color: #1a1a1a;
+}
+/* stylelint-enable color-no-hex */
 
 .card-body {
   display: flex;
@@ -412,8 +447,9 @@
   }
 
   &.primary {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: var(--el-color-primary);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
 
     &:hover {
@@ -423,9 +459,12 @@
   }
 
   &.warning {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则B 黄色背景用深字)
+    /* stylelint-disable color-no-hex -- 黄色背景必须配深字, 不能用 var() (无对应 token) */
     background: var(--el-color-warning);
-    color: var(--el-bg-color);
+    color: #1a1a1a;
     border-color: var(--el-color-warning);
+    /* stylelint-enable color-no-hex */
 
     &:hover {
       background: var(--color-orange-f57c00);
@@ -601,11 +640,16 @@
 
 .action-btn.primary {
   background: var(--el-text-color-primary);
-  color: var(--el-bg-color-page);
+  /* stylelint-disable color-no-hex, color-hex-length -- 反相配对深底白字, 无对应 token */
+  color: #ffffff;
 }
 
+html.dark .action-btn.primary {
+  color: #1a1a1a;
+}
+/* stylelint-enable color-no-hex, color-hex-length */
+
 .action-btn.primary:hover {
-  
   box-shadow: none;
 }
 

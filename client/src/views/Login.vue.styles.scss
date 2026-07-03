@@ -499,6 +499,7 @@ $login-header-gap: 12px;
     }
   }
 }
+
 /* 项目选择器 - 移动端样式 */
 @media (width <= 992px) {
   .project-selector-banner {
@@ -733,6 +734,7 @@ $login-header-gap: 12px;
 }
 
 /* 品牌文案容器：不设背景，用单类覆盖继承/全局规则 */
+
 /* pointer-events: none 让品牌区域不拦截登录表单的点击事件 */
 :where(.login-page-root) :where(.login-left-brand) .brand-text-container {
   text-align: center;
@@ -973,13 +975,15 @@ $login-header-gap: 12px;
 }
 
 /* 暗色模式 - 通过覆盖 CSS 变量实现 */
-:where(html.dark, .dark-mode) .switch-project-btn {
+html.dark .switch-project-btn,
+.dark-mode .switch-project-btn {
   --spb-color: var(--el-color-white);
   --spb-bg: transparent;
   --spb-hover-bg: var(--el-fill-color-light);
   --spb-active-bg: var(--el-color-primary);
   --spb-active-color: var(--color-on-primary);
 }
+
 /* 确保Element Plus按钮样式被覆盖 - 已通过上方 CSS 变量实现 */
 
 /* 亮色模式使用 --spb-xxx 变量，暗色模式通过覆盖变量实现 */
@@ -1672,7 +1676,9 @@ input.verification-code-digit {
     padding: 10px 16px;
     white-space: nowrap;
     background: var(--color-black-85);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色模式下不可见. 此处 tooltip 是深色底 (#color-black-85), 文字应为永定白字.
+    color: var(--app-button-text-on-primary);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.5;
@@ -1958,6 +1964,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 .login-content.login-page {
   border-radius: var(--global-border-radius);
   border: var(--unified-border);
+
   // 登录标题
   .login-title,
   :deep(.login-title) {
@@ -1976,11 +1983,11 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     transition: background-color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
-      border-color: var(--el-border-color);
+      border-color: var(--border-unified-color-hover);
     }
 
     &.is-focus {
-      border-color: $accent-purple;
+      border-color: var(--border-unified-color-hover);
       background: var(--el-bg-color);
     }
   }
@@ -2044,6 +2051,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 :where(html.dark) .login-content.login-page {
   background: var(--color-dark-121212-95);
   border-color: var(--border-unified-color);
+
   :deep(.el-input__wrapper) {
     background: var(--color-white-3);
     border-color: var(--border-unified-color);
@@ -2053,7 +2061,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
 
     &.is-focus {
-      border-color: $accent-purple;
+      border-color: var(--border-unified-color-hover);
       background: var(--color-white-5);
     }
   }
@@ -2139,8 +2147,7 @@ $transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
     margin: 0;
     padding: 20px 16px;
     border-radius: var(--global-border-radius);
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden auto;
     
     // 移动端 hover 效果（如果支持 hover）
     @media (hover: hover) {

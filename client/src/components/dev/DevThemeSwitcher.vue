@@ -126,12 +126,12 @@ const selectMode = (mode: ThemeMode) => {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08), 0 0 0 1px rgb(37 99 235 / 0.18);
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.12), 0 0 0 1px rgb(37 99 235 / 0.4);
   }
 
   &:active {
@@ -155,7 +155,7 @@ const selectMode = (mode: ThemeMode) => {
 }
 
 .dev-theme-switcher.is-auto .dev-theme-switcher-toggle {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%);
+  background: linear-gradient(135deg, rgb(251 191 36 / 0.12) 0%, rgb(59 130 246 / 0.12) 100%);
 }
 
 .dev-theme-switcher-panel {
@@ -164,9 +164,11 @@ const selectMode = (mode: ThemeMode) => {
   min-width: 160px;
   padding: 4px;
   background: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- dev 工具边框 fallback，对应 var(--el-border-color-light) */
   border: 1px solid var(--el-border-color-light, #ebeef5);
+  /* stylelint-enable color-no-hex */
   border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.12);
 }
 
 .dts-option {
@@ -184,12 +186,14 @@ const selectMode = (mode: ThemeMode) => {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 
   &:hover {
+    /* stylelint-disable color-no-hex -- dev 工具 hover 背景 fallback */
     background: var(--el-fill-color-light, #f5f7fa);
+    /* stylelint-enable color-no-hex */
   }
 
   &.active {
-    background: var(--el-color-primary-light-9, rgba(37, 99, 235, 0.08));
-    border-color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9, rgb(37 99 235 / 0.08));
+    border-color: var(--border-unified-color-hover);
     color: var(--el-color-primary);
     font-weight: 600;
   }
@@ -208,21 +212,25 @@ const selectMode = (mode: ThemeMode) => {
 :global(html.dark) .dev-theme-switcher-toggle {
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(37, 99, 235, 0.5);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3), 0 0 0 1px rgb(37 99 235 / 0.5);
 }
 
 :global(html.dark) .dev-theme-switcher-panel {
   background: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- dev 工具暗色边框 fallback */
   border-color: var(--el-border-color, #4c4d4f);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  /* stylelint-enable color-no-hex */
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
 }
 
 :global(html.dark) .dts-option:hover {
+  /* stylelint-disable color-no-hex -- dev 工具暗色 hover 背景 fallback */
   background: var(--el-fill-color-dark, #2b2b2b);
+  /* stylelint-enable color-no-hex */
 }
 
 :global(html.dark) .dts-option.active {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgb(37 99 235 / 0.18);
 }
 
 /* 展开/收起过渡 */

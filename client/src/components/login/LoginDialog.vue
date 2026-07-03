@@ -152,10 +152,12 @@ watch(
 
 .el-dialog.login-dialog {
   // 扁平化：去除默认 box-shadow，改用边框
+  // 2026-07-04 修复: fallback 12px 违反全站统一 8px 硬约束, 改用无 fallback (token 必然存在)
   box-shadow: none;
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--global-border-radius, 12px);
+  border-radius: var(--global-border-radius);
   background: var(--el-bg-color);
+
   // 关键：align-center 模式下 element-plus 会给 .el-overlay-dialog 设置 display:flex
   // (见 element-plus dialog use-dialog.mjs: overlayDialogStyle -> { display: 'flex' })
   // 默认 align-items: stretch 会把 .el-dialog 拉伸到 100vh，需要 align-self: center
@@ -166,10 +168,12 @@ watch(
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
   // margin: auto 是 align-center 模式下的关键：让弹窗在 flex 容器 .el-overlay-dialog
   // 中水平垂直居中（因为父容器 top/right/bottom/left 都被 fixed 锁定了，
   // auto margin 会在所有方向上平分剩余空间）。原 margin: 0 auto 丢失垂直居中。
   margin: auto;
+
   // 关键：清零 el-dialog 默认 padding-primary (20px)，
   // 弹窗内边距由 .login-dialog__body / .login-content 控制。
   // 避免弹窗自身 padding 在动画中产生视觉异常。
@@ -183,13 +187,14 @@ watch(
 .el-dialog.login-dialog .el-dialog__body {
   padding: 0;
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden auto;
+
   // 关键：显式设置 overflow-x: hidden
   // 原因：Webkit 浏览器当 overflow-y: auto 时会强制 overflow-x: visible -> auto，
   // 配合全局 *:hover::-webkit-scrollbar { height: 6px }，弹窗打开时鼠标 hover
   // 会让 .el-dialog__body 内部出现 6px 高的水平滚动条占位，弹窗底部显示为白线。
   // 弹窗内容不会水平溢出，显式 hidden 即可防止滚动条占位变化。
-  overflow-x: hidden;
+
   // 移除项目全局 .el-dialog .el-dialog__body { max-height: 70vh } 的限制，
   // 让 .el-dialog 的 max-height: 90vh 统一控制弹窗总高度，
   // .el-dialog__body 用 flex: 1 + overflow-y: auto 自动滚动。
@@ -202,11 +207,11 @@ watch(
 
 // ============ 遮罩层扁平化（无 backdrop-filter，仅纯色半透明） ============
 .el-overlay:has(.login-dialog) {
-  background-color: rgba(0, 0, 0, 0.45);
+  background-color: rgb(0 0 0 / 0.45);
 }
 
 // ============ 响应式：移动端弹窗撑满 ============
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .el-dialog.login-dialog {
     width: 92vw;
     max-width: 92vw;

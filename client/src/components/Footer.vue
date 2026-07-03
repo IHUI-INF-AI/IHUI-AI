@@ -708,7 +708,9 @@ onMounted(() => {
 // 亮色模式：使用纯黑色背景
 :global(html:not(.dark)) {
   --footer-background: var(--el-text-color-primary);
-  --footer-text-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --footer-text-color: var(--app-button-text-on-primary);
   --footer-text-secondary: var(--color-white-70);
   --footer-border-color: var(--color-white-10);
   --footer-qrcode-bg: var(--color-white-10);
@@ -717,7 +719,11 @@ onMounted(() => {
 // 暗色模式：使用纯黑色背景
 :global(html.dark) {
   --footer-background: var(--el-text-color-primary);
-  --footer-text-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  --footer-text-color: #1a1a1a;
+  /* stylelint-enable color-no-hex */
   --footer-text-secondary: var(--color-white-70);
   --footer-border-color: var(--color-white-10);
   --footer-qrcode-bg: var(--color-white-10);

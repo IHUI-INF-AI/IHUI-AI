@@ -426,7 +426,7 @@ onMounted(() => {
       font-family: var(--font-family-mono);
       font-size: 12px;
       background: var(--el-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       padding: 5px 10px;
       border-radius: var(--global-border-radius);
       font-weight: 700;

@@ -12,7 +12,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadCerts">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -20,7 +20,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -40,7 +40,7 @@
         >
           <div class="cert-head">
             <div class="cert-icon">
-              <el-icon :size="40"><Certificate /></el-icon>
+              <el-icon :size="40"><Medal /></el-icon>
             </div>
             <div class="cert-head-info">
               <h3 class="cert-title" :title="cert.title">{{ cert.title }}</h3>
@@ -91,7 +91,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Refresh, View, Download, Certificate } from '@element-plus/icons-vue'
+import { Refresh, View, Download, Medal } from '@element-plus/icons-vue'
 import { learnApi, type EduCertificate } from '@/api/edu'
 
 const { t } = useI18n()
@@ -181,7 +181,7 @@ onMounted(loadCerts)
 }
 
 .cert-card:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 .cert-head {

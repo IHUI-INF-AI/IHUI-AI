@@ -159,9 +159,11 @@ onMounted(reload)
 .filter-input {
   width: 160px;
 }
+
 .filter-select {
   width: 130px;
 }
+
 .filter-date {
   width: 260px;
 }

@@ -11,6 +11,7 @@
     "publish": "发布",
     "noPosts": "暂无动态",
     "top": "置顶",
-    "essence": "精华"
+    "essence": "精华",
+    "postPlaceholder": "说点什么..."
   }
 }

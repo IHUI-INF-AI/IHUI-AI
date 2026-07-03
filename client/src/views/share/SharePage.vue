@@ -578,7 +578,9 @@ onMounted(() => {
   height: 40px;
   background: var(--platform-color, var(--el-color-primary));
   border-radius: var(--global-border-radius);
-  color: #ffffff;
+  /* stylelint-disable color-no-hex -- 平台图标背景上的白字 */
+  color: #fff;
+  /* stylelint-enable color-no-hex */
 }
 
 .share-h5__platform-name {
@@ -617,7 +619,9 @@ onMounted(() => {
 .share-h5__btn--primary {
   background: var(--el-color-primary);
   border-color: var(--el-color-primary);
-  color: #ffffff;
+  /* stylelint-disable color-no-hex -- 主色按钮白字 */
+  color: #fff;
+  /* stylelint-enable color-no-hex */
 
   &:hover {
     background: var(--el-color-primary-light-3);

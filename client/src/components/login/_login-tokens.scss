@@ -1,3 +1,5 @@
+/* stylelint-disable color-no-hex -- token 定义文件 hex 色值即 token 本身 */
+
 /* ============================================================
  * _login-tokens.scss — 登录模块共享设计令牌
  * ------------------------------------------------------------
@@ -12,48 +14,50 @@
 
 // 2026-07-02 修复: 不再硬编码主色 hex, 从 _global-tokens.scss 桥接
 // 严禁在非 TOKEN 文件硬编码 #2563eb 等主题色值
-$login-primary:           gt.$color-cta-blue;
-$login-primary-hover:     gt.$color-cta-blue-hover;
-$login-primary-active:    gt.$color-cta-blue-active;
-$login-primary-light:     #3b82f6;  // 浅主色：链接 hover / 图标 focus
-$login-primary-lighter:   #60a5fa;  // 更浅：暗色模式链接 hover
-$login-primary-lightest:  #93c5fd;  // 最浅：暗色模式 focus 边框
-$login-primary-bg:        #eff6ff;  // 浅蓝背景：hover 容器
-$login-primary-bg-hover:  #dbeafe;  // 浅蓝背景 hover
-$login-primary-glow:      rgba(37, 99, 235, 0.18);   // 蓝色光晕
-$login-primary-glow-soft: rgba(59, 130, 246, 0.12);  // 柔和光晕
+$login-primary: gt.$color-cta-blue;
+$login-primary-hover: gt.$color-cta-blue-hover;
+$login-primary-active: gt.$color-cta-blue-active;
+$login-primary-light: #3b82f6;  // 浅主色：链接 hover / 图标 focus
+$login-primary-lighter: #60a5fa;  // 更浅：暗色模式链接 hover
+$login-primary-lightest: #93c5fd;  // 最浅：暗色模式 focus 边框
+$login-primary-bg: #eff6ff;  // 浅蓝背景：hover 容器
+$login-primary-bg-hover: #dbeafe;  // 浅蓝背景 hover
+$login-primary-glow: rgb(37 99 235 / 0.18);   // 蓝色光晕
+$login-primary-glow-soft: rgb(59 130 246 / 0.12);  // 柔和光晕
 
 // ============ 暗色模式主色 ============
-$login-dark-primary:          #3b82f6;
-$login-dark-primary-hover:    #60a5fa;
-$login-dark-primary-light:    #93c5fd;
-$login-dark-primary-bg:       rgba(59, 130, 246, 0.18);
-$login-dark-primary-glow:     rgba(96, 165, 250, 0.28);
-$login-dark-primary-glow-soft: rgba(96, 165, 250, 0.15);
+$login-dark-primary: #3b82f6;
+$login-dark-primary-hover: #60a5fa;
+$login-dark-primary-light: #93c5fd;
+$login-dark-primary-bg: rgb(59 130 246 / 0.18);
+$login-dark-primary-glow: rgb(96 165 250 / 0.28);
+$login-dark-primary-glow-soft: rgb(96 165 250 / 0.15);
 
 // ============ 输入框 ============
-$login-input-radius:        10px;
-$login-input-height:        44px;
-$login-input-inner-height:  42px;
-$login-input-border:        #e4e7ed;
-$login-input-border-hover:  #a0c4ff;
-$login-input-border-focus:  #3b82f6;
-$login-input-bg:            #ffffff;
-$login-input-padding:       1px 12px;
+// 2026-07-04 修复: 圆角统一使用项目 token (硬约束: 全站唯一 8px), 不再硬编码 10px
+$login-input-radius: gt.$global-border-radius;
+$login-input-height: 44px;
+$login-input-inner-height: 42px;
+$login-input-border: #e4e7ed;
+$login-input-border-hover: #a0c4ff;
+$login-input-border-focus: #3b82f6;
+$login-input-bg: #fff;
+$login-input-padding: 1px 12px;
 $login-input-transition:    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                             background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 
 // 暗色输入框
-$login-dark-input-border:        #374151;
-$login-dark-input-border-hover:  #60a5fa;
-$login-dark-input-border-focus:  #93c5fd;
-$login-dark-input-bg:            #1f2937;
+$login-dark-input-border: #374151;
+$login-dark-input-border-hover: #60a5fa;
+$login-dark-input-border-focus: #93c5fd;
+$login-dark-input-bg: #1f2937;
 
 // ============ 按钮 ============
-$login-btn-radius:        10px;
-$login-btn-height:        44px;
-$login-btn-font-size:     15px;
-$login-btn-font-weight:   600;
+// 2026-07-04 修复: 圆角统一使用项目 token (硬约束: 全站唯一 8px), 不再硬编码 10px
+$login-btn-radius: gt.$global-border-radius;
+$login-btn-height: 44px;
+$login-btn-font-size: 15px;
+$login-btn-font-weight: 600;
 $login-btn-letter-spacing: 0.5px;
 $login-btn-transition:   transform 0.18s ease, box-shadow 0.25s ease,
                           background-color 0.2s ease;
@@ -63,59 +67,60 @@ $login-btn-transition:   transform 0.18s ease, box-shadow 0.25s ease,
 // 用于侧边栏底部未登录态按钮等次操作/持久态场景.
 // 颜色来源: --el-text-color-primary (light=#000, dark=#fff), 自动跟随主题.
 // 圆角/高度复用 $login-btn-radius/$login-btn-height 保持视觉节奏.
-$login-mini-primary:        var(--el-text-color-primary); // #000 light / #fff dark
-$login-mini-primary-hover:  var(--el-text-color-regular);  // 略浅
+$login-mini-primary: var(--el-text-color-primary); // #000 light / #fff dark
+$login-mini-primary-hover: var(--el-text-color-regular);  // 略浅
 $login-mini-primary-active: var(--el-text-color-secondary);
 
 // ============ 第三方登录图标 ============
-$login-icon-size:           40px;
-$login-icon-img-size:       22px;
-$login-icon-radius:         50%;
+$login-icon-size: 40px;
+$login-icon-img-size: 22px;
+$login-icon-radius: 50%;
 $login-icon-transition:     border-color 0.25s ease, background-color 0.25s ease,
                             transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
                             box-shadow 0.25s ease;
 
 // ============ 文字 ============
-$login-text-link:        #6b7280;
-$login-text-link-hover:  #3b82f6;
+$login-text-link: #6b7280;
+$login-text-link-hover: #3b82f6;
 $login-text-placeholder: var(--el-text-color-placeholder);
 
 // ============ 圆角统一 ============
+// 2026-07-04 修复: 全部对齐项目统一 token (硬约束: 全站唯一 8px, 禁 10/14/16/20px 胶囊形)
+// sm 4px 保留: 仅用于 checkbox checkmark 等超小装饰元素 (非胶囊形, 不在禁止列表)
 $login-radius-sm: 4px;
-$login-radius-md: 8px;
-$login-radius-lg: 10px;
-$login-radius-xl: 16px;
+$login-radius-md: gt.$global-border-radius;
+$login-radius-lg: gt.$global-border-radius;
+$login-radius-xl: gt.$global-border-radius;
 
 // ============ 阴影 ============
-$login-shadow-sm:   0 1px 2px rgba(15, 23, 42, 0.04);
-$login-shadow-md:   0 4px 12px rgba(37, 99, 235, 0.22);
-$login-shadow-lg:   0 8px 20px rgba(37, 99, 235, 0.32);
-$login-shadow-hover: 0 6px 14px rgba(37, 99, 235, 0.20);
+$login-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04);
+$login-shadow-md: 0 4px 12px rgb(37 99 235 / 0.22);
+$login-shadow-lg: 0 8px 20px rgb(37 99 235 / 0.32);
+$login-shadow-hover: 0 6px 14px rgb(37 99 235 / 0.20);
 
 // 弹窗外壳多层阴影
 $login-dialog-shadow:
-  0 24px 64px rgba(15, 23, 42, 0.18),
-  0 8px 24px rgba(15, 23, 42, 0.10),
-  0 2px 6px rgba(15, 23, 42, 0.06);
-
+  0 24px 64px rgb(15 23 42 / 0.18),
+  0 8px 24px rgb(15 23 42 / 0.10),
+  0 2px 6px rgb(15 23 42 / 0.06);
 $login-dialog-shadow-dark:
-  0 24px 64px rgba(0, 0, 0, 0.55),
-  0 8px 24px rgba(0, 0, 0, 0.35),
-  0 0 0 1px rgba(255, 255, 255, 0.04);
+  0 24px 64px rgb(0 0 0 / 0.55),
+  0 8px 24px rgb(0 0 0 / 0.35),
+  0 0 0 1px rgb(255 255 255 / 0.04);
 
 // ============ 过渡曲线 ============
-$login-ease-out:    cubic-bezier(0.4, 0, 0.2, 1);
+$login-ease-out: cubic-bezier(0.4, 0, 0.2, 1);
 $login-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-$login-duration-fast:   0.18s;
-$login-duration-base:   0.25s;
-$login-duration-slow:   0.3s;
+$login-duration-fast: 0.18s;
+$login-duration-base: 0.25s;
+$login-duration-slow: 0.3s;
 
 // ============ 状态色（密码强度等） ============
-$login-danger:    #ef4444;
-$login-warning:   #f59e0b;
-$login-success:   #10b981;
-$login-danger-bg: rgba(239, 68, 68, 0.08);
-$login-danger-bg-dark: rgba(239, 68, 68, 0.14);
+$login-danger: #ef4444;
+$login-warning: #f59e0b;
+$login-success: #10b981;
+$login-danger-bg: rgb(239 68 68 / 0.08);
+$login-danger-bg-dark: rgb(239 68 68 / 0.14);
 $login-danger-text-dark: #fca5a5;
 
 // ============ SCSS Mixin：输入框样式 ============
@@ -140,7 +145,7 @@ $login-danger-text-dark: #fca5a5;
 @mixin login-btn-primary {
   background-color: $login-primary;
   border-color: $login-primary;
-  color: #ffffff;
+  color: #fff;
   box-shadow: $login-shadow-md;
 }
 
@@ -154,5 +159,5 @@ $login-danger-text-dark: #fca5a5;
 @mixin login-btn-primary-active {
   background-color: $login-primary-active;
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.20);
+  box-shadow: 0 2px 8px rgb(37 99 235 / 0.20);
 }

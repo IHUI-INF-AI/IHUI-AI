@@ -201,7 +201,7 @@ function getCertTypeLabel(type: string): string {
 }
 
 :where(.cert-no) {
-  font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   color: var(--el-text-color-regular);
 }
@@ -253,7 +253,7 @@ function getCertTypeLabel(type: string): string {
   margin-bottom: 16px;
 
   &:hover {
-    border-color: var(--color-white-50);
+    border-color: var(--border-unified-color-hover);
   }
 }
 

@@ -677,9 +677,15 @@ $brand-primary: v.$primary-color;
   justify-content: space-between;
   padding: 32px;
   background: linear-gradient(135deg, var(--el-text-color-primary), var(--el-text-color-regular));
-  color: var(--el-bg-color);
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border-radius: var(--global-border-radius);
   box-shadow: var(--global-box-shadow);
+
+  html.dark & {
+    color: #1a1a1a;
+  }
+  /* stylelint-enable color-no-hex */
 
   .balance-info {
     display: flex;
@@ -748,7 +754,7 @@ $brand-primary: v.$primary-color;
 
     &.secondary {
       background: transparent;
-      color: var(--el-bg-color);
+      color: inherit; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色; 透明按钮继承 balance-card 双模式文字色
       border: var(--unified-border);
 
       &:hover {
@@ -877,7 +883,7 @@ $brand-primary: v.$primary-color;
     transition: border-color 0.2s;
 
     &:focus {
-      border-color: $brand-primary;
+      border-color: var(--border-unified-color-hover);
     }
 
     &.small {
@@ -929,18 +935,30 @@ $brand-primary: v.$primary-color;
     }
 
     &.primary {
-      background: var(--el-text-color-primary);
-      color: var(--el-bg-color);
-      border-color: var(--el-text-color-primary);
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #1a1a1a;
+      color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
 
       &:hover {
         opacity: 0.85;
+      }
+
+      html.dark & {
+        /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+        background: #fff;
+        color: #1a1a1a;
+        /* stylelint-enable color-no-hex */
+
+        border-color: transparent;
       }
     }
 
     &.secondary {
       &:hover {
-        border-color: $brand-primary;
+        border-color: var(--border-unified-color-hover);
         color: $brand-primary;
       }
     }
@@ -963,13 +981,25 @@ $brand-primary: v.$primary-color;
   transition: all 0.2s;
 
   &.active {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+    /* stylelint-enable color-no-hex */
+
+    border-color: transparent;
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+      border-color: transparent;
+    }
   }
 
   &:hover:not(.active) {
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -1003,7 +1033,7 @@ $brand-primary: v.$primary-color;
 
   &:hover {
     background: $brand-primary;
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   }
 }
 
@@ -1033,7 +1063,7 @@ $brand-primary: v.$primary-color;
   width: 32px;
   height: 32px;
   border: 3px solid var(--el-border-color);
-  border-top-color: $brand-primary;
+  border-top-color: var(--el-color-primary);
   border-radius: 50%;
   margin: 0 auto 12px;
   animation: spin 0.8s linear infinite;
@@ -1048,7 +1078,7 @@ $brand-primary: v.$primary-color;
   padding: 6px 20px;
   border-radius: var(--global-border-radius);
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border: none;
   font-weight: 700;
   cursor: pointer;

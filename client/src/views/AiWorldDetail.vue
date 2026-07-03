@@ -337,7 +337,7 @@ $aw-gray-border: var(--color-text-muted);
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   background: var(--el-color-primary);
   border-radius: var(--global-border-radius);
   text-decoration: none;

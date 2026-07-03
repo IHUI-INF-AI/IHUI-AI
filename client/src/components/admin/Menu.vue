@@ -160,8 +160,8 @@ const groups = computed<MenuGroup[]>(() => [
     text-decoration: none; font-size: 13px;
     border-radius: var(--global-border-radius);
     transition: all 0.2s;
-    &:hover { color: var(--el-bg-color); background: var(--color-white-8); }
-    &.active { color: var(--el-bg-color); background: var(--el-color-primary); }
+    &:hover { color: var(--app-button-text-on-primary); background: var(--color-white-8); }
+    &.active { color: var(--app-button-text-on-primary); background: var(--el-color-primary); }
   }
 }
 </style>

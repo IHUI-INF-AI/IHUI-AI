@@ -18,6 +18,7 @@
 @use "sass:math";
 @use "sass:meta";
 @use './variables.scss' as vars;
+@use './_global-tokens' as gt;
 
 // ============================================
 // 1. 颜色系统 - SCSS 变量
@@ -318,9 +319,9 @@ $z-toast: 1080 !default;
   --el-text-color-placeholder: var(--color-gray-a8abb2);
   --el-text-color-disabled: var(--color-gray-c0c4cc);
 
-  // 描边 - 设计语言：极细描边 1px，亮色 （--el-border-color）（与 element-plus-vars 一致）
-  --border-unified-color: var(--el-text-color-primary);
-  --border-unified-color-hover: var(--color-neutral-300);
+  // 描边 - 设计语言：极细描边 1px，亮色 （与 element-plus-vars.scss / _global-tokens.scss 唯一来源一致）
+  --border-unified-color: #{gt.$border-unified-light};
+  --border-unified-color-hover: #{gt.$border-unified-light-hover};
   --el-border-color: var(--border-unified-color);
 
   /** 主色描边宽度 - 全项目唯一，凡使用主色描边处均用此变量 */
@@ -334,9 +335,9 @@ $z-toast: 1080 !default;
   --el-fill-color: var(--color-gray-f0f2f5);
   --el-fill-color-light: var(--color-gray-f5f7fa);
   --el-fill-color-lighter: var(--color-gray-fafafa);
-  --el-fill-color-extra-light: var(--el-text-color-primary);
-  --el-fill-color-dark: var(--el-text-color-primary);
-  --el-fill-color-darker: var(--el-text-color-primary);
+  --el-fill-color-extra-light: var(--color-gray-f5f7fa);
+  --el-fill-color-dark: var(--color-gray-e9e9eb);
+  --el-fill-color-darker: var(--color-gray-e0e0e0);
   --el-fill-color-blank: var(--el-bg-color);
   --dropdown-border-color: var(--border-unified-color);
 
@@ -350,10 +351,6 @@ $z-toast: 1080 !default;
   --space-v: clamp(12px, 2vh, 24px);
   --space-h: clamp(12px, 3vw, 24px);
   --grid-gap: clamp(10px, 2vw, 15px);
-
-  // 定价卡片边框
-  --pricing-card-border-hover-color: var(--el-text-color-primary);
-  --pricing-card-border-active-color: var(--el-text-color-primary);
 
   // 遮罩颜色
   --el-mask-color: transparent;
@@ -400,7 +397,8 @@ $z-toast: 1080 !default;
   --header-btn-active-bg: var(--el-fill-color);
   
   // 顶部菜单栏登录按钮（与表单登录按钮区分）
-  --header-login-btn-color: var(--el-bg-color);
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --header-login-btn-color: var(--app-button-text-on-primary);
   --header-login-btn-bg: var(--color-black-80);
   --header-login-btn-border: 1px solid var(--border-unified-color);
   --header-login-btn-hover-bg: var(--color-black-85);
@@ -510,7 +508,8 @@ $z-toast: 1080 !default;
   --shadow-danger: var(--global-box-shadow);
 
   // 品牌色 - 暗色模式纯色
-  --brand-color: var(--el-bg-color);
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --brand-color: var(--el-text-color-primary);
   --brand-color-hover: var(--color-text-muted);
 
   // Element Plus 变量 - 暗色模式
@@ -531,9 +530,9 @@ $z-toast: 1080 !default;
   --el-text-color-placeholder: var(--color-gray-8d9095);
   --el-text-color-disabled: var(--el-text-color-primary);
 
-  // 描边 - 设计语言：极细描边 1px，暗色 （--color-gray-1f1f1f）
-  --border-unified-color: var(--color-gray-1f1f1f);
-  --border-unified-color-hover: var(--el-text-color-primary);
+  // 描边 - 设计语言：极细描边 1px，暗色 （与 element-plus-vars.scss / _global-tokens.scss 唯一来源一致）
+  --border-unified-color: #{gt.$border-unified-dark};
+  --border-unified-color-hover: #{gt.$border-unified-dark-hover};
   --el-border-color: var(--border-unified-color);
   --el-border-width-primary: 2px;
   --el-border-color-light: var(--border-unified-color);
@@ -550,10 +549,6 @@ $z-toast: 1080 !default;
   --el-fill-color-darker: var(--color-dark-bg-6);
   --el-fill-color-blank: transparent;
   --dropdown-border-color: var(--el-border-color);
-
-  // 定价卡片边框
-  --pricing-card-border-hover-color: var(--el-bg-color);
-  --pricing-card-border-active-color: var(--el-bg-color);
 
   // 全局字体变量（与亮色模式相同）
   --global-font-family: var(--font-family-chinese);
@@ -815,7 +810,7 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
   &:hover {
     transform: translateY(-4px);
     box-shadow: var(--global-box-shadow);
-    border-color: var(--el-text-color-primary);
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -852,7 +847,9 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
   
   @if $variant == 'primary' {
     background: var(--el-bg-color);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    color: var(--el-text-color-primary);
     padding: 12px 24px;
     
     &:hover {
@@ -866,7 +863,7 @@ $font-size-premium-display: clamp(40px, 6vw, 56px) !default;
     padding: 11px 23px;
     
     &:hover {
-      border-color: var(--el-text-color-primary);
+      border-color: var(--border-unified-color-hover);
     }
   } @else if $variant == 'ghost' {
     background: transparent;

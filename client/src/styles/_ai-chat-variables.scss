@@ -90,14 +90,18 @@
   
   // 按钮样式
   --ai-chat-btn-primary-bg: var(--el-color-primary);
-  --ai-chat-btn-primary-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --ai-chat-btn-primary-color: var(--app-button-text-on-primary);
   --ai-chat-btn-secondary-bg: transparent;
   --ai-chat-btn-secondary-color: var(--ai-chat-text-secondary);
   --ai-chat-btn-secondary-hover-bg: var(--ai-chat-bg-hover);
   
   // 发送按钮
   --ai-chat-send-btn-bg: var(--el-color-primary);
-  --ai-chat-send-btn-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --ai-chat-send-btn-color: var(--app-button-text-on-primary);
   --ai-chat-send-btn-disabled-bg: var(--color-black-10);
   --ai-chat-send-btn-disabled-color: var(--ai-chat-text-tertiary);
   
@@ -134,7 +138,9 @@
   // 悬浮触发按钮
   --ai-chat-trigger-size: 56px;
   --ai-chat-trigger-bg: var(--el-color-primary);
-  --ai-chat-trigger-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --ai-chat-trigger-color: var(--app-button-text-on-primary);
   --ai-chat-trigger-shadow: none;
   --ai-chat-trigger-hover-shadow: none;
   
@@ -207,7 +213,6 @@ html.dark {
   
   // 模型标签（暗色模式使用白色描边）
   --ai-chat-model-tag-border: var(--border-unified-color);
-  
   --ai-chat-glow-hover: var(--global-box-shadow);
   --ai-chat-glow-focus: var(--global-box-shadow);
   
@@ -227,7 +232,7 @@ html.dark {
 // ============================================
 // 4. 响应式尺寸调整
 // ============================================
-@media (max-width: 768px) {
+@media (width <= 768px) {
   :root {
     --ai-chat-dialog-width: 100%;
     --ai-chat-dialog-max-width: 100%;
@@ -270,6 +275,7 @@ html.dark {
   align-items: center;
   justify-content: center;
   border-radius: var(--ai-chat-border-radius-sm);
+
   @include ai-chat-btn-flat;
 }
 
@@ -293,6 +299,7 @@ html.dark {
     background: var(--ai-chat-assistant-message-bg);
     border: 1px solid var(--ai-chat-assistant-message-border);
   }
+
   border-radius: var(--ai-chat-border-radius-md);
   padding: var(--ai-chat-spacing-md) var(--ai-chat-spacing-lg);
   max-width: 85%;
@@ -351,6 +358,7 @@ html.dark {
 // 模型标签样式
 @mixin ai-chat-model-tag {
   @include ai-chat-tag;
+
   border-color: var(--ai-chat-model-tag-border);
 }
 
@@ -403,6 +411,7 @@ html.dark {
   flex: 1;
   overflow-y: auto;
   padding: var(--ai-chat-spacing-lg);
+
   @include ai-chat-scrollbar;
   
   .message-item {
@@ -459,6 +468,7 @@ html.dark {
     border-radius: var(--ai-chat-border-radius-md);
     padding: var(--ai-chat-spacing-md);
     transition: all var(--ai-chat-transition-normal);
+
     @include ai-chat-input-glow;
   }
   
@@ -492,6 +502,7 @@ html.dark {
     
     .action-btn {
       @include ai-chat-btn-flat;
+
       width: 32px;
       height: 32px;
       border-radius: var(--ai-chat-border-radius-sm);

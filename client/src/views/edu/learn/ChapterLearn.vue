@@ -20,7 +20,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -42,7 +42,7 @@
               :class="{ active: currentSectionId === section.id }"
               @click="selectSection(section)"
             >
-              <span class="aside-index">{{ idx + 1 }}</span>
+              <span class="aside-index">{{ Number(idx) + 1 }}</span>
               <div class="aside-info">
                 <span class="aside-name">{{ section.title }}</span>
                 <span class="aside-duration">{{ formatDuration(section.duration_seconds) }}</span>
@@ -373,7 +373,9 @@ onMounted(loadSections)
 }
 
 .aside-item.active .aside-index {
+  /* stylelint-disable color-no-hex -- 主色激活项白字 */
   color: #fff;
+  /* stylelint-enable color-no-hex */
   background: var(--el-color-primary);
 }
 
@@ -411,7 +413,9 @@ onMounted(loadSections)
 
 .player-wrap {
   width: 100%;
+  /* stylelint-disable color-no-hex -- 视频播放器底色必须黑 */
   background: #000;
+  /* stylelint-enable color-no-hex */
   border-radius: 8px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
@@ -486,7 +490,7 @@ onMounted(loadSections)
   gap: 12px;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .learn-layout {
     grid-template-columns: 1fr;
   }

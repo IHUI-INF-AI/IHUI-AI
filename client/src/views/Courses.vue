@@ -1056,7 +1056,7 @@ $brand-secondary: var(--color-gray-333);
       transition: all 0.3s;
 
       &:hover, &.is-focus {
-        border-color: $brand-primary;
+        border-color: var(--border-unified-color-hover);
         box-shadow: var(--global-box-shadow);
       }
     }
@@ -1080,7 +1080,7 @@ $brand-secondary: var(--color-gray-333);
       transition: all 0.3s;
 
       &:hover, &.is-focus {
-        border-color: $brand-primary;
+        border-color: var(--border-unified-color-hover);
       }
     }
   }
@@ -1161,7 +1161,7 @@ $brand-secondary: var(--color-gray-333);
       padding: 10px 28px;
       border-radius: var(--global-border-radius);
       background: $brand-primary;
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
       font-weight: 800;
       font-size: 14px;
       border: none;
@@ -1219,14 +1219,14 @@ $brand-secondary: var(--color-gray-333);
       .free-tag {
         background: var(--color-emerald-500);
         border: none;
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
         font-weight: 800;
       }
 
       .price-tag {
         background: $brand-primary;
         border: none;
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
         font-weight: 800;
       }
     }
@@ -1343,7 +1343,7 @@ $brand-secondary: var(--color-gray-333);
 
       .enroll-btn {
         background: $brand-primary;
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 
         &:hover {
           background: $brand-secondary;
@@ -1357,7 +1357,7 @@ $brand-secondary: var(--color-gray-333);
 
         &:hover {
           background: $brand-primary;
-          color: var(--el-bg-color);
+          color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
         }
       }
     }
@@ -1428,7 +1428,7 @@ $brand-secondary: var(--color-gray-333);
         padding: 14px 28px;
         border-radius: var(--global-border-radius);
         background: $brand-primary;
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
         font-weight: 800;
         font-size: 14px;
         border: none;
@@ -1607,7 +1607,7 @@ $brand-secondary: var(--color-gray-333);
 
       &.primary {
         background: $brand-primary;
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 
         &:hover {
           background: $brand-secondary;

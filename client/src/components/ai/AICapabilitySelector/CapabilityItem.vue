@@ -3,10 +3,11 @@
  * 能力项组件
  * @description 可复用的 AI 能力卡片组件，用于展示模型、智能体、MCP 工具等
  */
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Cpu } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { CapabilityItemData } from './types'
+import { getModelBrand, type ModelBrandInfo } from './modelBrandIcons'
 
 const props = withDefaults(
   defineProps<{
@@ -70,6 +71,85 @@ const resolvedIconUrl = computed(() => {
   // 无前导斜杠的相对路径（如 upload/xxx）补上 origin
   return (typeof window !== 'undefined' ? window.location.origin : '') + '/' + raw
 })
+
+/**
+ * 当后端没有返回 iconUrl/icon 时，从 metadata.model 提取 model_code + model_name，
+ * 调用 getModelBrand() 识别品牌，返回 {color, fg, initials} 用于渲染品牌色首字母 avatar
+ *
+ * 触发条件 (同时满足):
+ *   1. metadata.model 存在 (仅模型类条目有, 智能体/MCP 不触发)
+ *   2. resolvedIconUrl 为空 (后端没返回图标)
+ *   3. data.icon 不存在 (前端 SVG 组件也没传)
+ *
+ * 优先使用 metadata.rawModelCode (已剥离 provider 前缀, 如 "gpt-4.1"),
+ * 退回 modelCode/model_code/code/name 字段链
+ */
+const modelMeta = computed(() => {
+  const m = props.data?.metadata?.model as
+    | { modelCode?: string; model_code?: string; name?: string; source?: string; displayName?: string; manufacturer?: string; code?: string; provider?: string }
+    | undefined
+  if (!m) return null
+  return m
+})
+
+const modelCode = computed(() => {
+  const m = modelMeta.value
+  if (!m) return null
+  // 优先用 metadata.rawModelCode (在 AICapabilitySelector.vue 中已剥离前缀)
+  const explicitRaw = (props.data?.metadata as { rawModelCode?: string } | undefined)?.rawModelCode
+  if (explicitRaw && explicitRaw.trim()) return explicitRaw.trim()
+  const candidates: (string | undefined)[] = [m.modelCode, m.model_code, m.code]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) {
+      // 剥离 "provider/" 前缀
+      const stripped = c.includes('/') ? (c.split('/').pop() || c) : c
+      return stripped.trim()
+    }
+  }
+  return null
+})
+
+const modelName = computed(() => {
+  const m = modelMeta.value
+  if (!m) return null
+  return m.source || m.displayName || m.name || null
+})
+
+const showBrandAvatar = computed(
+  () => !!modelMeta.value && !resolvedIconUrl.value && !props.data?.icon,
+)
+
+const brandInfo = computed<ModelBrandInfo | null>(() => {
+  if (!showBrandAvatar.value) return null
+  return getModelBrand(modelCode.value, modelName.value)
+})
+
+/** 根据当前暗色模式选择品牌背景色 */
+const isDark = ref(false)
+let darkObserver: MutationObserver | null = null
+
+const brandBgColor = computed(() => {
+  const b = brandInfo.value
+  if (!b) return ''
+  return isDark.value ? b.colorDark : b.colorLight
+})
+
+onMounted(() => {
+  if (typeof document === 'undefined') return
+  isDark.value = document.documentElement.classList.contains('dark')
+  darkObserver = new MutationObserver(() => {
+    isDark.value = document.documentElement.classList.contains('dark')
+  })
+  darkObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+})
+
+onBeforeUnmount(() => {
+  darkObserver?.disconnect()
+  darkObserver = null
+})
 </script>
 
 <template>
@@ -82,7 +162,7 @@ const resolvedIconUrl = computed(() => {
       <!-- 头部：名称和操作 -->
       <div class="capability-item__header">
         <div class="capability-item__name-wrapper">
-          <!-- 图标：优先后端 URL，否则前端组件，最后默认 Cpu -->
+          <!-- 图标：优先后端 URL，否则前端组件，再否则品牌色首字母 avatar (仅模型)，最后默认 Cpu -->
           <div class="capability-item__icon">
             <img
               v-if="resolvedIconUrl && !iconError"
@@ -92,6 +172,15 @@ const resolvedIconUrl = computed(() => {
               @error="onIconError"
             />
             <component v-else-if="data.icon" :is="data.icon" class="capability-item__icon-svg" />
+            <div
+              v-else-if="brandInfo"
+              class="capability-item__brand-avatar"
+              :style="{ backgroundColor: brandBgColor, color: brandInfo.fg }"
+              :title="brandInfo.name"
+              :aria-label="brandInfo.name"
+            >
+              <span class="capability-item__brand-text">{{ brandInfo.initials }}</span>
+            </div>
             <Cpu v-else class="capability-item__icon-svg" />
           </div>
           <!-- 名称 -->
@@ -251,6 +340,27 @@ const resolvedIconUrl = computed(() => {
     height: 18px;
     flex-shrink: 0;
     color: inherit;
+  }
+
+  // 品牌色首字母 avatar (后端无图时回退, 仅模型)
+  &__brand-avatar {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: inherit;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  &__brand-text {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
   }
 
   // 名称

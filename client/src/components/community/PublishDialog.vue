@@ -580,7 +580,7 @@ onMounted(() => {
         border: none;
         border-radius: var(--global-border-radius);
         background: var(--color-black-60);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -664,7 +664,7 @@ onMounted(() => {
 
       &.is-selected {
         background: var(--el-color-primary);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         border: var(--el-border-width-primary) solid var(--el-color-primary);
       }
     }

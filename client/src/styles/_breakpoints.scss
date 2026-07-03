@@ -1,8 +1,9 @@
 // ============================================
 // 断点系统 - 从设计令牌导入
 // ============================================
-// 
+//
 // 本文件从 _design-tokens.scss 导入断点变量和混合宏
+/* stylelint-disable media-feature-range-notation, media-feature-name-no-unknown -- retina 媒体查询用旧式 min-device-pixel-ratio 写法 */
 // 并提供额外的设备专用混合宏
 // ============================================
 
@@ -40,7 +41,6 @@
   reduced-motion,
   get-breakpoint,
   strip-unit;
-
 @use './_design-tokens.scss' as tokens;
 
 // ============================================
@@ -109,49 +109,49 @@
 
 // iPhone SE 专用 (320px)
 @mixin iphone-se {
-  @media (max-width: 320px) {
+  @media (width <= 320px) {
     @content;
   }
 }
 
 // iPhone 标准尺寸 (375px - 389px)
 @mixin iphone-standard {
-  @media (min-width: 375px) and (max-width: 389px) {
+  @media (width >= 375px) and (width <= 389px) {
     @content;
   }
 }
 
 // iPhone Plus/Max 尺寸 (390px - 430px)
 @mixin iphone-plus {
-  @media (min-width: 390px) and (max-width: 430px) {
+  @media (width >= 390px) and (width <= 430px) {
     @content;
   }
 }
 
 // iPad Mini/标准 (768px - 833px)
 @mixin ipad {
-  @media (min-width: 768px) and (max-width: 833px) {
+  @media (width >= 768px) and (width <= 833px) {
     @content;
   }
 }
 
 // iPad Pro 11" (834px - 1023px)
 @mixin ipad-pro-11 {
-  @media (min-width: 834px) and (max-width: 1023px) {
+  @media (width >= 834px) and (width <= 1023px) {
     @content;
   }
 }
 
 // iPad Pro 12.9" (1024px - 1279px)
 @mixin ipad-pro-12 {
-  @media (min-width: 1024px) and (max-width: 1279px) {
+  @media (width >= 1024px) and (width <= 1279px) {
     @content;
   }
 }
 
 // 折叠屏展开状态 (约 717px - 884px)
 @mixin foldable-open {
-  @media (min-width: 717px) and (max-width: 884px) {
+  @media (width >= 717px) and (width <= 884px) {
     @content;
   }
 }
@@ -193,13 +193,13 @@
 // ============================================
 
 @mixin retina {
-  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  @media (min-device-pixel-ratio: 2), (resolution >= 192dpi) {
     @content;
   }
 }
 
 @mixin retina-3x {
-  @media (-webkit-min-device-pixel-ratio: 3), (min-resolution: 350dpi) {
+  @media (min-device-pixel-ratio: 3), (resolution >= 350dpi) {
     @content;
   }
 }
@@ -265,10 +265,7 @@
 
 // 全部安全区域
 @mixin safe-area($top: 0, $right: 0, $bottom: 0, $left: 0) {
-  padding-top: calc(#{$top} + env(safe-area-inset-top));
-  padding-right: calc(#{$right} + env(safe-area-inset-right));
-  padding-bottom: calc(#{$bottom} + env(safe-area-inset-bottom));
-  padding-left: calc(#{$left} + env(safe-area-inset-left));
+  padding: calc(#{$top} + env(safe-area-inset-top)) calc(#{$right} + env(safe-area-inset-right)) calc(#{$bottom} + env(safe-area-inset-bottom)) calc(#{$left} + env(safe-area-inset-left));
 }
 
 // ============================================

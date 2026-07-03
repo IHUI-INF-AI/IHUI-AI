@@ -110,7 +110,7 @@ onBeforeUnmount(() => {
   }
 
   &:focus-visible {
-    border-color: var(--el-color-primary);
+    border-color: var(--border-unified-color-hover);
     box-shadow: 0 0 0 2px var(--el-color-primary-light-7);
   }
 }

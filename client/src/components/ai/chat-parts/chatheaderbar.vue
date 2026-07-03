@@ -342,9 +342,9 @@ defineExpose({
 
   .header-center {
     position: absolute;
-    left: 50%;
+    left: 0; // 改为左侧对齐（贴左），不再居中
     top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
     box-sizing: border-box;
     width: calc(100% - 220px);
     max-width: 160px; // 缩短标签宽度，与右侧按钮留出明显空隙，避免重叠
@@ -360,23 +360,20 @@ defineExpose({
       width: 100%;
       max-width: 100%;
       min-width: 0;
-      overflow-x: hidden; /* 仅水平裁切以配合 ellipsis，避免垂直裁切导致汉字顶部笔画被裁浅 */
-      overflow-y: visible;
+      overflow: hidden visible; /* 仅水平裁切以配合 ellipsis，避免垂直裁切导致汉字顶部笔画被裁浅 */
       box-sizing: border-box;
 
       :deep(.el-tag__content) {
         min-width: 0;
         flex: 1 1 0;
-        overflow-x: hidden;
-        overflow-y: visible;
+        overflow: hidden visible;
         max-width: 100%;
       }
 
       span {
         display: block;
         min-width: 0;
-        overflow-x: hidden;
-        overflow-y: visible;
+        overflow: hidden visible;
         text-overflow: ellipsis;
         white-space: nowrap;
         line-height: 1.2; /* 略放宽，避免「豆」等字顶部一横被 line-height:1 裁切后看起来变浅 */
@@ -398,6 +395,7 @@ defineExpose({
     padding: 0 14px; // 增加左右内边距
     line-height: 1; // 强制 line-height 为 1，完全靠 flex 居中
     vertical-align: middle;
+
     // 该容器仅作文字/图标展示，无背景、描边、圆角
     background-color: transparent;
     border: none;
@@ -424,11 +422,11 @@ defineExpose({
       }
     }
 
-    // 穿透覆盖 Element Plus 默认样式，确保内容区也是 flex 居中
+    // 穿透覆盖 Element Plus 默认样式，内容区左对齐（图标+文字贴左，不再居中）
     :deep(.el-tag__content) {
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       height: 100%;
       line-height: 1.2;
     }
@@ -581,7 +579,6 @@ defineExpose({
 }
 
 @keyframes cs-status-pulse {
-
   0%,
   100% {
     transform: scale(1);

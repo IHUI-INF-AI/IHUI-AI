@@ -1,5 +1,5 @@
 /**
- * Edu business domain routes (Phase C)
+ * Edu business domain routes (Phase C — 视图层已完成 2026-07-04)
  *
  * Aggregates 129 endpoints from /api/v1/edu/* into client-side routes.
  * Frontend views use Element Plus components and bind to client/src/api/edu/* axios wrappers.
@@ -8,8 +8,9 @@
  * - /edu/* : Student-facing (learn, ask, circle, live, etc.)
  * - /admin/edu/* : Admin panel (course management, user management, etc.)
  *
- * P1 封版说明: Phase C 视图层尚未完成, 26 个子页面用 NotFound 占位,
- * 路由 + API 客户端 + 后端 API 已就绪, 后续 Phase C 完成时把占位替换为真实 view 即可.
+ * Phase C 完成: 23 个子页面从 NotFound 占位替换为真实 view, 涵盖
+ * Learn(4) / Exam(4) / Ask(3) / Circle(3) / Live(2) / Point(1) / Order(2) /
+ * Message(1) / Notification(1) / Resource(1) / Search(1).
  */
 
 import type { RouteRecordRaw } from 'vue-router';
@@ -25,15 +26,14 @@ function preloadI18n(modules: string[]) {
   }
 }
 
-// Phase C 视图占位: 所有 edu 子页面在 view 文件建好前统一渲染 NotFound,
-// 避免 TS 类型失败, 同时路由可达不报错
-// 使用 typed helper: vue-router 的 Lazy<RouteComponent> 期待 Promise<Component>,
-// 而 SFC <script setup> 的 import() 默认推断为整个模块, 这里显式取 default 并断言为 Component
-const notFoundComponent = (): Promise<Component> =>
-  import('@/views/NotFound.vue').then((m) => m.default as Component);
+// Lazy import helper: 显式取 default 并断言为 Component (与其他 edu 路由保持一致)
+// 用 Promise<any> 接受 Vue SFC 默认导出 (带 defineProps 的 SFC 导出类型为
+// { __typeProps: ..., __typeEmits: ... }, 与 Component 类型不兼容, 需用 as Component 断言)
+const lazy = (loader: () => Promise<any>): (() => Promise<Component>) =>
+  () => loader().then((m) => m.default as Component);
+
 // EduLayout: /edu 父级布局，含 el-aside 侧边栏菜单 + el-main router-view
-const EduLayout = (): Promise<Component> =>
-  import('@/views/edu/index.vue').then((m) => m.default as Component);
+const EduLayout = lazy(() => import('@/views/edu/index.vue'));
 
 // ============================================================================
 // Student-facing edu routes
@@ -55,27 +55,27 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'learn',
         name: 'EduLearn',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/learn/MyCourses.vue')),
         meta: { title: '我的课程', icon: 'Notebook' },
       },
       {
         path: 'learn/detail/:courseId',
         name: 'EduLearnDetail',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/learn/CourseDetail.vue')),
         meta: { title: '课程详情', hideInMenu: true },
         props: true,
       },
       {
         path: 'learn/chapter/:chapterId',
         name: 'EduLearnChapter',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/learn/ChapterLearn.vue')),
         meta: { title: '章节学习', hideInMenu: true },
         props: true,
       },
       {
         path: 'learn/certificate',
         name: 'EduLearnCertificate',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/learn/MyCertificates.vue')),
         meta: { title: '我的证书', icon: 'Medal' },
       },
 
@@ -83,27 +83,27 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'exam',
         name: 'EduExam',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/exam/MyExams.vue')),
         meta: { title: '我的考试', icon: 'EditPen' },
       },
       {
         path: 'exam/paper/:paperId',
         name: 'EduExamPaper',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/exam/ExamPaper.vue')),
         meta: { title: '试卷', hideInMenu: true },
         props: true,
       },
       {
         path: 'exam/record/:recordId',
         name: 'EduExamRecord',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/exam/ExamRecord.vue')),
         meta: { title: '考试记录', hideInMenu: true },
         props: true,
       },
       {
         path: 'exam/wrong-book',
         name: 'EduExamWrongBook',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/exam/WrongBook.vue')),
         meta: { title: '错题本', icon: 'Collection' },
       },
 
@@ -111,20 +111,20 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'ask',
         name: 'EduAsk',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/ask/AskList.vue')),
         meta: { title: '问答', icon: 'ChatLineRound' },
       },
       {
         path: 'ask/detail/:questionId',
         name: 'EduAskDetail',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/ask/AskDetail.vue')),
         meta: { title: '问题详情', hideInMenu: true },
         props: true,
       },
       {
         path: 'ask/create',
         name: 'EduAskCreate',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/ask/AskCreate.vue')),
         meta: { title: '提问', hideInMenu: true, requiresAuth: true },
       },
 
@@ -132,20 +132,20 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'circle',
         name: 'EduCircle',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/circle/CircleList.vue')),
         meta: { title: '圈子', icon: 'Connection' },
       },
       {
         path: 'circle/detail/:circleId',
         name: 'EduCircleDetail',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/circle/CircleDetail.vue')),
         meta: { title: '圈子详情', hideInMenu: true },
         props: true,
       },
       {
         path: 'circle/post/:postId',
         name: 'EduCirclePost',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/circle/CirclePost.vue')),
         meta: { title: '帖子详情', hideInMenu: true },
         props: true,
       },
@@ -154,66 +154,59 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'live',
         name: 'EduLive',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/live/LiveList.vue')),
         meta: { title: '直播', icon: 'VideoCamera' },
       },
       {
         path: 'live/room/:roomId',
         name: 'EduLiveRoom',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/live/LiveRoom.vue')),
         meta: { title: '直播间', hideInMenu: true },
         props: true,
       },
 
-      // ----- Member (student profile) -----
+      // ----- Member (student profile) — 已有实现 -----
       {
         path: 'member',
         name: 'EduMember',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/Profile.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/Profile.vue')),
         meta: { title: '学员档案', icon: 'User', requiresAuth: true },
       },
       {
         path: 'member/report',
         name: 'EduMemberReport',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/Report.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/Report.vue')),
         meta: { title: '学习档案报告', hideInMenu: true, requiresAuth: true },
       },
       {
         path: 'member/notes',
         name: 'EduMemberNotes',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/Notes.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/Notes.vue')),
         meta: { title: '我的笔记', hideInMenu: true, requiresAuth: true },
       },
       {
         path: 'member/offline-records',
         name: 'EduMemberOfflineRecords',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/OfflineRecords.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/OfflineRecords.vue')),
         meta: { title: '线下学习记录', hideInMenu: true, requiresAuth: true },
       },
       {
         path: 'member/certificates/upload',
         name: 'EduMemberCertUpload',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/CertUpload.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/CertUpload.vue')),
         meta: { title: '上传历史证书', hideInMenu: true, requiresAuth: true },
       },
       // PR-E E5：试卷列表 + 上传页
       {
         path: 'member/papers',
         name: 'EduMemberPapers',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/Papers.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/Papers.vue')),
         meta: { title: '我的试卷', hideInMenu: true, requiresAuth: true },
       },
       {
         path: 'member/papers/upload',
         name: 'EduMemberPaperUpload',
-        component: (): Promise<Component> =>
-          import('@/views/edu/member/PaperUpload.vue').then((m) => m.default as Component),
+        component: lazy(() => import('@/views/edu/member/PaperUpload.vue')),
         meta: { title: '上传试卷', hideInMenu: true, requiresAuth: true },
       },
 
@@ -221,7 +214,7 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'point',
         name: 'EduPoint',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/point/MyPoints.vue')),
         meta: { title: '积分', icon: 'Coin' },
       },
 
@@ -229,13 +222,13 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'order',
         name: 'EduOrder',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/order/MyOrders.vue')),
         meta: { title: '我的订单', icon: 'List' },
       },
       {
         path: 'order/detail/:orderId',
         name: 'EduOrderDetail',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/order/OrderDetail.vue')),
         meta: { title: '订单详情', hideInMenu: true },
         props: true,
       },
@@ -244,7 +237,7 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'message',
         name: 'EduMessage',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/message/MessageCenter.vue')),
         meta: { title: '消息中心', icon: 'ChatDotRound' },
       },
 
@@ -252,7 +245,7 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'notification',
         name: 'EduNotification',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/notification/MyNotifications.vue')),
         meta: { title: '通知', icon: 'Bell' },
       },
 
@@ -260,7 +253,7 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'resource',
         name: 'EduResource',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/resource/ResourceLibrary.vue')),
         meta: { title: '资源库', icon: 'Folder' },
       },
 
@@ -268,7 +261,7 @@ const eduRoutes: RouteRecordRaw[] = [
       {
         path: 'search',
         name: 'EduSearch',
-        component: notFoundComponent,
+        component: lazy(() => import('@/views/edu/search/EduSearch.vue')),
         meta: { title: '搜索', icon: 'Search' },
       },
     ],
@@ -280,8 +273,7 @@ const eduRoutes: RouteRecordRaw[] = [
   {
     path: '/admin/edu',
     name: 'EduAdminHome',
-    component: (): Promise<Component> =>
-      import('@/views/edu/admin/index.vue').then((m) => m.default as Component),
+    component: lazy(() => import('@/views/edu/admin/index.vue')),
     meta: {
       title: '教育后台',
       requiresAuth: true,

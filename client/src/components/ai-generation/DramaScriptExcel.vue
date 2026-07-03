@@ -6451,7 +6451,7 @@ defineExpose({
   height: 56px;
   border-radius: var(--global-border-radius);
   background: var(--el-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary);
   border: none;
   cursor: pointer;
   display: flex;
@@ -7288,7 +7288,7 @@ defineExpose({
         
         &.el-tag--primary {
           background: var(--el-color-primary);
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
           border: none;
         }
       }
@@ -7826,7 +7826,7 @@ defineExpose({
     transition: all 0.2s;
     
     &:hover {
-      border-color: var(--el-border-color);
+      border-color: var(--border-unified-color-hover);
     }
     
     .comment-header {
@@ -8509,8 +8509,8 @@ defineExpose({
     text-align: center;
     border-radius: var(--global-border-radius);
     background: var(--el-color-danger);
-    color: var(--el-bg-color-page);
-    
+    color: var(--app-button-text-on-primary);
+
     &.badge-dot {
       min-width: 8px;
       width: 8px;
@@ -8762,7 +8762,7 @@ defineExpose({
     
     &.active {
       background: var(--el-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
     }
   }
 }

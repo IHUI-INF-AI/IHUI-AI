@@ -184,7 +184,7 @@ onMounted(() => {
 }
 
 .circle-card:hover {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
 }
 
 .cover {
@@ -203,17 +203,20 @@ onMounted(() => {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: var(--global-border-radius);
-  color: var(--el-bg-color);
 }
 
 .flag-official {
   right: 8px;
   background: var(--el-color-warning);
+  /* stylelint-disable color-no-hex -- 警告色背景上必须深色文字，无对应文字色 token */
+  color: #1a1a1a; /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
+  /* stylelint-enable color-no-hex */
 }
 
 .flag-top {
   left: 8px;
   background: var(--el-color-danger);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
 }
 
 .cover-emoji {

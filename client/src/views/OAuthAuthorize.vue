@@ -386,7 +386,7 @@ function goHome() {
   font-size: 20px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  margin: 0 0 4px 0;
+  margin: 0 0 4px;
 }
 
 .app-hint {
@@ -415,7 +415,7 @@ function goHome() {
   font-size: 14px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
 }
 
 .scope-list {
@@ -514,7 +514,7 @@ function goHome() {
   text-align: center;
   font-size: 12px;
   color: var(--el-text-color-placeholder);
-  margin: 12px 0 0 0;
+  margin: 12px 0 0;
   line-height: 1.5;
 }
 </style>

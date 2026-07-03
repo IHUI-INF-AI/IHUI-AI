@@ -8,6 +8,8 @@
     "top": "Pinned",
     "noDesc": "No description",
     "members": "members",
-    "posts": "posts"
+    "posts": "posts",
+    "searchPlaceholder": "Search circles...",
+    "onlyOfficial": "Official only"
   }
 }

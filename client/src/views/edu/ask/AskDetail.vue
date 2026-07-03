@@ -15,7 +15,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadAll">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -24,7 +24,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -141,7 +141,7 @@
             :disabled="!answerContent.trim()"
             @click="handleSubmitAnswer"
           >
-            {{ t('edu.profile.submit') }}
+            {{ t('edu.common.submit') }}
           </el-button>
         </div>
       </section>
@@ -221,11 +221,11 @@ async function handleSubmitAnswer() {
   submitting.value = true
   try {
     await askApi.createAnswer(questionIdNum.value, { content: answerContent.value.trim() })
-    ElMessage.success(t('edu.profile.submit'))
+    ElMessage.success(t('edu.common.submit'))
     answerContent.value = ''
     await loadAll()
   } catch {
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     submitting.value = false
   }
@@ -241,7 +241,7 @@ async function handleLike(ans: EduAskAnswer) {
       ans.like_count += 1
     }
   } catch {
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   }
 }
 
@@ -249,8 +249,8 @@ async function handleAdopt(ans: EduAskAnswer) {
   try {
     await ElMessageBox.confirm(t('edu.ask.adoptConfirm'), t('edu.ask.adopt'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     await askApi.adoptAnswer(ans.id)
     ElMessage.success(t('edu.ask.adoptSuccess'))

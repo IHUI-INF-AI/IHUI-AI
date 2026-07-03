@@ -1,6 +1,9 @@
 {
   "p19AdminDashboard": {
     "title": "P19 Admin Dashboard",
-    "recentActivity": "Recent activity"
+    "recentActivity": "Recent activity",
+    "action": "Action",
+    "target": "Target",
+    "time": "Time"
   }
 }

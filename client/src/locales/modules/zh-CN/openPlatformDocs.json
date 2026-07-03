@@ -6,6 +6,7 @@
     "selectDoc": "请从左侧选择文档",
     "loadFailed": "加载文档失败",
     "searchPlaceholder": "搜索文档...",
-    "toc": "目录"
+    "toc": "目录",
+    "enterpriseService": "企业服务"
   }
 }

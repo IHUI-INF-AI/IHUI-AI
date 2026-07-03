@@ -214,7 +214,7 @@ const goToConsole = () => {
           position: absolute;
           top: 8px;
           right: 8px;
-          color: var(--el-bg-color);
+          color: var(--app-button-text-on-primary);
         }
       }
     }

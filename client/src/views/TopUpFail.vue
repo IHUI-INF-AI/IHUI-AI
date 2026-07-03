@@ -484,7 +484,7 @@ $font-family-mono: 'HarmonyOS Sans SC', monospace;
   
   &--primary {
     background: $tf-error-color;
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary); /* 规则A: $tf-error-color=danger 红底白字 (原 var(--el-bg-color-page) 误用背景 token) */
     box-shadow: var(--global-box-shadow);
     
     &:hover {

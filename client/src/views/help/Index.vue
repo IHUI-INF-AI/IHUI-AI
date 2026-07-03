@@ -122,29 +122,35 @@ const activeNames = ref(['1'])
   background: var(--el-bg-color);
   border-radius: var(--global-border-radius);
 }
+
 .help-header {
   text-align: center;
   padding: 40px 0;
   border-bottom: 1px solid var(--border-unified-color);
 }
+
 .help-title {
   font-size: 32px;
   color: var(--el-text-color-primary);
   margin: 0 0 10px;
   font-weight: 600;
 }
+
 .help-subtitle {
   font-size: 18px;
   color: var(--el-text-color-secondary);
   margin: 0;
 }
+
 .help-content {
   padding: 40px 0;
 }
+
 .search-section {
   max-width: 600px;
   margin: 0 auto 50px;
 }
+
 .section-title {
   font-size: 24px;
   color: var(--el-text-color-primary);
@@ -153,11 +159,14 @@ const activeNames = ref(['1'])
   border-bottom: 2px solid var(--el-text-color-primary);
   display: inline-block;
 }
+
 .faq-section {
   margin-bottom: 50px;
 }
+
 :deep(.el-collapse) {
   border: none;
+
   .el-collapse-item__header {
     font-size: 16px;
     font-weight: 500;
@@ -170,9 +179,11 @@ const activeNames = ref(['1'])
     border-radius: var(--global-border-radius);
     border: none;
   }
+
   .el-collapse-item__wrap {
     border: none;
   }
+
   .el-collapse-item__content {
     padding: 20px;
     background: var(--el-fill-color-blank);
@@ -181,21 +192,25 @@ const activeNames = ref(['1'])
     margin-bottom: 10px;
   }
 }
+
 .faq-content p {
   font-size: 14px;
   line-height: 2;
   color: var(--el-text-color-secondary);
   margin: 0;
 }
+
 .quick-entry {
   margin-top: 50px;
 }
+
 .entry-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-top: 30px;
 }
+
 .entry-item {
   display: flex;
   flex-direction: column;
@@ -208,24 +223,28 @@ const activeNames = ref(['1'])
   transition: transform 0.3s ease, background-color 0.3s ease;
   border: 1px solid var(--border-unified-color);
 }
+
 .entry-item:hover {
-  
   background: var(--el-fill-color-light);
 }
+
 .entry-icon {
   font-size: 40px;
   margin-bottom: 15px;
 }
+
 .entry-item span {
   font-size: 16px;
   color: var(--el-text-color-primary);
   font-weight: 500;
 }
+
 @media (width <= 768px) {
   .entry-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
 @media (width <= 480px) {
   .entry-grid {
     grid-template-columns: 1fr;

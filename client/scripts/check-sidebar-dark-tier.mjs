@@ -53,9 +53,13 @@ const EXPECTED = {
   chatHistoryDarkBg: '#42454f',
   // 全局 _theme-tokens 必须保持不变 (本批次仅 sidebar 局部加深)
   globalDarkSurface: '#6a6d77',
-  // UniversalLogin.vue html.dark .submit-btn 文字色
-  loginDarkText: '#1a1a1a',
-  loginDarkTextHover: '#0a0a0a',
+  // UniversalLogin.vue html.dark .submit-btn — 2026-07-04 v2 反相设计
+  // 旧设计 (07-03, 已废弃): 蓝底#3b82f6 + 深字#1a1a1a (非反相)
+  // 新设计 (07-04, 当前): 白底#ffffff + 深蓝字 (SCSS 变量 lt.$login-primary = #2563eb)
+  loginDarkText: 'lt.$login-primary',            // SCSS 变量 → #2563eb 深蓝字
+  loginDarkTextHover: 'lt.$login-primary-hover',  // SCSS 变量 → #1d4ed8 更深蓝
+  loginDarkBg: '#ffffff',                          // 白底 (反相)
+  loginDarkBorder: '#ffffff',                     // 白边 (与底色一致)
 }
 
 // 旧值检查已改为结构性 token-by-token, 见 checkSidebarLayoutScss() 第 3 段
@@ -262,8 +266,9 @@ function checkGlobalThemeTokens() {
 }
 
 function checkUniversalLoginVue() {
-  // UniversalLogin.vue 暗色模式登录按钮文字色必须为偏黑色 (#1a1a1a),
-  // 替代 Element Plus 默认 --el-color-white (#ffffff). 用户反馈"应该偏黑色".
+  // UniversalLogin.vue 暗色模式登录按钮 — 2026-07-04 v2 反相设计
+  // 新设计: 白底#ffffff + 深蓝字 lt.$login-primary (#2563eb), 与浅色模式蓝底白字完全反相
+  // 旧设计 (07-03, 已废弃): 蓝底#3b82f6 + 深字#1a1a1a (非反相, 与浅色模式同向)
   const rel = 'client/src/components/login/UniversalLogin.vue'
   const abs = path.join(projectRoot, rel)
   if (!fs.existsSync(abs)) {
@@ -272,30 +277,58 @@ function checkUniversalLoginVue() {
   }
   const src = readFile(abs)
 
-  // 1. html.dark .submit-btn 块内必须显式 color: #1a1a1a
+  // SCSS 变量中的 $ 在 RegExp 中需转义为 \$ (否则被解析为 end-of-string 锚点)
+  const escapeRe = (s) => s.replace(/[#$]/g, '\\$&')
+
+  // 1. html.dark .submit-btn 块内必须显式 color: lt.$login-primary (深蓝字反相)
   const darkTextPattern = new RegExp(
-    `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?color:\\s*${EXPECTED.loginDarkText.replace('#', '\\#')}`,
+    `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?color:\\s*${escapeRe(EXPECTED.loginDarkText)}`,
     'i'
   )
   if (!darkTextPattern.test(src)) {
     const line = findLineNumber(src, 'html\\.dark[\\s\\S]*?\\.submit-btn')
     errors.push(
-      `[REGRESSION] ${rel}:${line || '?'} html.dark .submit-btn 必须显式 color: ${EXPECTED.loginDarkText} (偏黑文字).\n` +
-        `          原代码未设 color, fallback 到 Element Plus 默认 --el-color-white (#ffffff).\n` +
-        `          在 #3b82f6 蓝底上用户反馈"应该偏黑色". 暗色模式用深色文字与项目设计语言一致.\n` +
-        `          对比度 ${EXPECTED.loginDarkText} on #3b82f6 = 4.83:1 (WCAG AA 通过).`
+      `[REGRESSION] ${rel}:${line || '?'} html.dark .submit-btn 必须显式 color: ${EXPECTED.loginDarkText} (SCSS 变量 → #2563eb 深蓝字).\n` +
+        `          2026-07-04 v2 反相设计: 暗色模式 = 白底#ffffff + 深蓝字#2563eb.\n` +
+        `          旧设计 (07-03 蓝底+深字#1a1a1a) 已废弃 — 非反相, 与浅色模式同向.\n` +
+        `          对比度 #2563eb on #ffffff = 5.44:1 (WCAG AA 4.5 通过).`
     )
   }
 
-  // 2. .submit-btn:hover 块内必须有 color: #0a0a0a (更深)
+  // 2. .submit-btn:hover 块内必须有 color: lt.$login-primary-hover (更深蓝)
   const hoverTextPattern = new RegExp(
-    `\\.submit-btn[\\s\\S]*?:hover[\\s\\S]*?color:\\s*${EXPECTED.loginDarkTextHover.replace('#', '\\#')}`,
+    `\\.submit-btn[\\s\\S]*?:hover[\\s\\S]*?color:\\s*${escapeRe(EXPECTED.loginDarkTextHover)}`,
     'i'
   )
   if (!hoverTextPattern.test(src)) {
     const line = findLineNumber(src, '\\.submit-btn[\\s\\S]*?:hover')
     errors.push(
-      `[REGRESSION] ${rel}:${line || '?'} .submit-btn:hover 必须含 color: ${EXPECTED.loginDarkTextHover} (比默认更深, hover 反馈更强).`
+      `[REGRESSION] ${rel}:${line || '?'} .submit-btn:hover 必须含 color: ${EXPECTED.loginDarkTextHover} (SCSS 变量 → #1d4ed8 更深蓝, hover 反馈更强).`
+    )
+  }
+
+  // 3. html.dark .submit-btn 块内必须有 background-color: #ffffff (白底反相)
+  const darkBgPattern = new RegExp(
+    `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?background-color:\\s*${EXPECTED.loginDarkBg.replace('#', '\\#')}`,
+    'i'
+  )
+  if (!darkBgPattern.test(src)) {
+    const line = findLineNumber(src, 'html\\.dark[\\s\\S]*?\\.submit-btn')
+    errors.push(
+      `[REGRESSION] ${rel}:${line || '?'} html.dark .submit-btn 必须显式 background-color: ${EXPECTED.loginDarkBg} (白底反相).\n` +
+        `          2026-07-04 v2 反相设计: 暗色模式白底, 与浅色模式蓝底 (#2563eb) 完全反相.`
+    )
+  }
+
+  // 4. html.dark .submit-btn 块内必须有 border-color: #ffffff (白边与底一致)
+  const darkBorderPattern = new RegExp(
+    `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?border-color:\\s*${EXPECTED.loginDarkBorder.replace('#', '\\#')}`,
+    'i'
+  )
+  if (!darkBorderPattern.test(src)) {
+    const line = findLineNumber(src, 'html\\.dark[\\s\\S]*?\\.submit-btn')
+    errors.push(
+      `[REGRESSION] ${rel}:${line || '?'} html.dark .submit-btn 必须显式 border-color: ${EXPECTED.loginDarkBorder} (白边, 与白底一致, 避免边框撞色).`
     )
   }
 }
@@ -339,8 +372,8 @@ if (errors.length > 0) {
   console.error(`       .chat-history-body { background-color: var(--chat-history-body-bg, transparent) }`)
   console.error(`       html.dark .sidebar-chat-history { background-color: ${EXPECTED.chatHistoryDarkBg} }`)
   console.error(`    3. _theme-tokens.ts/.scss 全局 darkSurface 必须保持 ${EXPECTED.globalDarkSurface}`)
-  console.error(`    4. UniversalLogin.vue:`)
-  console.error(`       html.dark .submit-btn { color: ${EXPECTED.loginDarkText}; ... }`)
+  console.error(`    4. UniversalLogin.vue (2026-07-04 v2 反相设计):`)
+  console.error(`       html.dark .submit-btn { color: ${EXPECTED.loginDarkText}; background-color: ${EXPECTED.loginDarkBg}; border-color: ${EXPECTED.loginDarkBorder}; ... }`)
   console.error(`       .submit-btn:hover:not(.is-disabled) { color: ${EXPECTED.loginDarkTextHover}; ... }`)
   console.error(`\n  若确需改色, 同步更新:`)
   console.error(`    - e2e/sidebar-dark-color-tier.spec.ts 的 EXPECTED_DARK_TIER / EXPECTED_CHAT_HISTORY_DARK_BG / EXPECTED_LOGIN_DARK_TEXT`)
@@ -349,4 +382,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`✓ [check-sidebar-dark-tier] 通过 (sidebar dark tier = ${EXPECTED.sidebarSurface} / ${EXPECTED.sidebarNewChat} / ${EXPECTED.sidebarActive} / ${EXPECTED.sidebarHover}, chat-history = ${EXPECTED.chatHistoryDarkBg}, login dark text = ${EXPECTED.loginDarkText}, global darkSurface = ${EXPECTED.globalDarkSurface})`)
+console.log(`✓ [check-sidebar-dark-tier] 通过 (sidebar dark tier = ${EXPECTED.sidebarSurface} / ${EXPECTED.sidebarNewChat} / ${EXPECTED.sidebarActive} / ${EXPECTED.sidebarHover}, chat-history = ${EXPECTED.chatHistoryDarkBg}, login dark = ${EXPECTED.loginDarkText} on ${EXPECTED.loginDarkBg} (反相), global darkSurface = ${EXPECTED.globalDarkSurface})`)

@@ -26,6 +26,7 @@ html.theme-instant {
   --theme-transition-duration: 0s;
   --theme-transition-delay: 0s;
 }
+
 html.theme-instant,
 html.theme-instant *,
 html.theme-instant *::before,
@@ -37,10 +38,7 @@ html.theme-instant *::after {
 
 // 在 html 元素上统一设置过渡，所有子元素继承
 html {
-  transition-property: background-color, background, color;
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay);
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), background var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay);
 }
 
 // 只针对可能受主题影响的容器和组件元素
@@ -49,10 +47,7 @@ html {
 // 否则会影响内部 position: fixed 元素的定位
 body {
   // 只对颜色和背景相关属性进行快速过渡，避免 layout 和 paint
-  transition-property: background-color, background, color, border-color;
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay); // 确保同步
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), background var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), border-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay); // 确保同步
 }
 
 // 这些容器不能使用 transform，避免影响 fixed 定位
@@ -70,10 +65,7 @@ body {
 :where(.error-boundary-wrapper),
 :where(div.login-page-container),
 :where(.login-page-container) {
-  transition-property: background-color, background, color, border-color;
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay); // 确保同步
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), background var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), border-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay); // 确保同步
   // 移除 transform 和 will-change，避免创建新的包含块
   transform: none;
   will-change: auto;
@@ -89,12 +81,10 @@ footer,
 nav,
 aside:not(.ai-world-page__nav) {
   // 只对颜色和背景相关属性进行快速过渡，避免 layout 和 paint
-  transition-property: background-color, background, color, border-color;
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay); // 确保同步
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), background var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), border-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay); // 确保同步
   // 启用 GPU 加速
   will-change: background-color, color, border-color;
+
   // 强制使用 GPU 合成层
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -103,24 +93,18 @@ aside:not(.ai-world-page__nav) {
 // 卡片和面板组件可以使用 GPU 加速（通常不包含 fixed 定位元素）
 [class*="card"]:not(.el-card),
 [class*="panel"],
-[class*="box"]:not(.el-select-dropdown):not([class*="input"]):not([class*="button"]) {
-  transition-property: background-color, background, color, border-color;
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay);
+[class*="box"]:not(.el-select-dropdown, [class*="input"], [class*="button"]) {
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), background var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), border-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay);
   will-change: background-color, color, border-color;
   transform: translateZ(0);
   backface-visibility: hidden;
 }
 
 // 优化表单元素和交互元素 - 使用统一变量确保同步
-input:not([type="checkbox"]):not([type="radio"]),
+input:not([type="checkbox"], [type="radio"]),
 textarea,
 select {
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay); // 确保同步
-  transition-property: background-color, color, border-color;
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), border-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay); // 确保同步
 }
 
 // 优化 Element Plus 组件
@@ -175,10 +159,7 @@ select {
 [class*="shadow"],
 [class*="glow"],
 [class*="hover"] {
-  transition-property: background-color, color, border-color, opacity;
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay); // 确保同步
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), border-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), opacity var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay); // 确保同步
   // 排除 box-shadow 的过渡，因为它可能导致重绘
   // box-shadow 变化会触发 paint，影响性能
 }
@@ -202,10 +183,7 @@ header::before,
 header::after,
 footer::before,
 footer::after {
-  transition-duration: var(--theme-transition-duration);
-  transition-timing-function: var(--theme-transition-timing);
-  transition-delay: var(--theme-transition-delay); // 确保同步
-  transition-property: background-color, color, opacity;
+  transition: background-color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), color var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay), opacity var(--theme-transition-duration) var(--theme-transition-timing) var(--theme-transition-delay); // 确保同步
   will-change: background-color, color, opacity;
   transform: translateZ(0);
 }
@@ -255,6 +233,7 @@ footer::after {
   transition-timing-function: var(--theme-transition-timing);
   transition-delay: var(--theme-transition-delay);
   will-change: background-color, color;
+
   // 不使用 transform: translateZ(0)，避免破坏 fixed 定位
 }
 
@@ -323,6 +302,7 @@ html.theme-switched {
     transform: scale(0);
     opacity: 0.5;
   }
+
   100% {
     transform: scale(4);
     opacity: 0;
@@ -334,6 +314,7 @@ html.theme-switched {
   0% {
     opacity: 0.8;
   }
+
   100% {
     opacity: 1;
   }
@@ -344,6 +325,7 @@ html.theme-switched {
   0%, 100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.95;
   }

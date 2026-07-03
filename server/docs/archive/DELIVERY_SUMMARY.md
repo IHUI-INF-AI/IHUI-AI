@@ -1,4 +1,4 @@
-﻿# ZHS Platform 交付总结
+# ZHS Platform 交付总结
 
 > **项目**: ZHS Platform — 智护数一体化平台 (FastAPI + Vue 3 + WebSocket)
 > **版本**: 1.0.0

@@ -33,7 +33,7 @@ main.container {
 }
 
 /* 响应式适配 */
-@media (min-width: 751px) {
+@media (width >= 751px) {
   #app {
     max-width: 100%;
     box-shadow: none;
@@ -90,7 +90,7 @@ html.landscape {
 }
 
 /* 横屏媒体查询 */
-@media (orientation: landscape) and (min-height: 500px) {
+@media (orientation: landscape) and (height >= 500px) {
   /* 横屏时的样式优化 */
   
   #app {

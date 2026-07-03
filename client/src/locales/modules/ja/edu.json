@@ -233,6 +233,14 @@
         "todayActive": "今日アクティブ"
       }
     },
+    "common": {
+      "retry": "再試行",
+      "loadFailed": "データ読み込み失敗、再試行してください",
+      "submit": "送信",
+      "cancel": "キャンセル",
+      "actions": "操作",
+      "back": "戻る"
+    },
     "learn": {
       "title": "マイコース",
       "subtitle": "受講中のコース一覧",
@@ -508,7 +516,8 @@
       "uploadTime": "アップロード時間",
       "uploadBy": "アップロード者",
       "noResources": "リソースがありません",
-      "downloadFailed": "ダウンロード失敗"
+      "downloadFailed": "ダウンロード失敗",
+      "typeArticle": "記事"
     },
     "search": {
       "title": "検索",

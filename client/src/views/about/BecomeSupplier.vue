@@ -340,13 +340,13 @@ const handleReset = () => formRef.value?.resetFields()
 
     &:hover {
       background: var(--el-text-color-regular);
-      border-color: var(--el-text-color-regular);
+      border-color: transparent;
       transform: translateY(-2px);
     }
 
     &:active {
       background: var(--el-text-color-secondary);
-      border-color: var(--el-text-color-secondary);
+      border-color: transparent;
     }
 
     .el-icon {

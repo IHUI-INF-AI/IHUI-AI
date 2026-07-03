@@ -15,7 +15,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadAll">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
         <el-button
           v-if="circle"
@@ -34,7 +34,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -230,11 +230,11 @@ async function handleSubmitPost() {
   submitting.value = true
   try {
     await circleApi.createPost(circleIdNum.value, { content: postContent.value.trim() })
-    ElMessage.success(t('edu.profile.submit'))
+    ElMessage.success(t('edu.common.submit'))
     postContent.value = ''
     await loadPosts()
   } catch {
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     submitting.value = false
   }
@@ -251,7 +251,7 @@ async function handleLikePost(p: EduCirclePost) {
       p.like_count += 1
     }
   } catch {
-    ElMessage.error(t('edu.profile.loadFailed'))
+    ElMessage.error(t('edu.common.loadFailed'))
   } finally {
     likingId.value = null
   }
@@ -262,8 +262,8 @@ async function handleLeave() {
   try {
     await ElMessageBox.confirm(t('edu.circle.leaveConfirm'), t('edu.circle.leave'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     leaving.value = true
     await circleApi.leaveCircle(circleIdNum.value)
@@ -531,7 +531,7 @@ onMounted(loadAll)
   gap: 8px;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .circle-hero {
     flex-direction: column;
   }

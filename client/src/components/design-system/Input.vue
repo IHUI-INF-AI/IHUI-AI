@@ -99,7 +99,7 @@ onMounted(() => {
 
   &.input-focused {
     .design-system-input {
-      border-color: $primary-color;
+      border-color: var(--border-unified-color-hover);
     }
   }
 
@@ -123,7 +123,7 @@ onMounted(() => {
 
   &:focus {
     outline: none;
-    border-color: $primary-color;
+    border-color: var(--border-unified-color-hover);
     background-color: $bg-hover;
   }
 

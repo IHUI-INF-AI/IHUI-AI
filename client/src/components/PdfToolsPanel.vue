@@ -632,7 +632,7 @@ defineExpose({
 
 .signature-item.selected,
 .watermark-item.selected {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
   background: var(--el-color-primary-light-9);
 }
 
@@ -699,7 +699,9 @@ defineExpose({
 
 .panel-actions button.primary-btn {
   background: var(--color-primary);
-  color: var(--el-bg-color);
+
+  /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见 */
+  color: var(--app-button-text-on-primary);
   border-color: var(--color-primary);
 }
 
@@ -850,7 +852,9 @@ defineExpose({
   top: 50%;
   transform: translate(-50%, -50%);
   font-size: 12px;
-  color: var(--el-bg-color);
+
+  /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见 */
+  color: var(--app-button-text-on-primary);
 }
 
 .print-options {

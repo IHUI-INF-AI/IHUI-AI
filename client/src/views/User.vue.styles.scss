@@ -859,7 +859,7 @@
       background: var(--color-black-3);
       border-color: var(--border-unified-color);
       border-left-width: 3px;
-      border-left-color: var(--el-text-color-primary);
+      border-left-color: var(--border-unified-color-hover);
 
       &::before {
         background: var(--el-bg-color-page);
@@ -957,7 +957,7 @@
 
     &:hover {
       background: var(--color-black-80);
-      border-color: var(--color-black-80);
+      border-color: transparent;
       transform: translateY(-1px);
     }
   }

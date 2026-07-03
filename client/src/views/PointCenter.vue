@@ -267,7 +267,7 @@ onMounted(() => {
 
 .account-card {
   background: linear-gradient(135deg, var(--color-rank-avatar-start), var(--color-rank-avatar-end));
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   border-radius: var(--global-border-radius);
   padding: 20px 24px;
   margin-bottom: 16px;
@@ -329,8 +329,8 @@ onMounted(() => {
 
 .tab-btn.active {
   background: $brand-primary;
-  color: var(--el-bg-color);
-  border-color: $brand-primary;
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
+  border-color: transparent;
 }
 
 .tab-content {
@@ -450,7 +450,7 @@ onMounted(() => {
 
 .exchange-btn {
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   border: none;
   border-radius: var(--global-border-radius);
   padding: 6px 12px;

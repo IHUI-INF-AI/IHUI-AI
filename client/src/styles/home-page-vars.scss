@@ -55,13 +55,15 @@
 html.dark {
   --home-card-bg: var(--color-white-5);
   --home-card-border: 1px solid var(--border-unified-color);
-  --home-title-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --home-title-color: var(--el-text-color-primary);
   --home-subtitle-color: var(--color-white-50);
   --home-description-color: var(--color-white-85);
 }
 
 // 响应式变量覆盖
-@media (max-width: 768px) {
+@media (width <= 768px) {
   :root {
     --home-marquee-img-width: 140px;
     --home-marquee-img-height: 70px;
@@ -69,7 +71,7 @@ html.dark {
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   :root {
     --home-marquee-img-width: 120px;
     --home-marquee-img-height: 60px;

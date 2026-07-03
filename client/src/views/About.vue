@@ -570,7 +570,7 @@ section {
 
   &:hover {
     transform: translateY(-2px);
-    border-color: var(--el-color-primary);
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -595,7 +595,7 @@ html.dark .btn-primary {
 
   &:hover {
     background: $bg-card;
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -994,7 +994,7 @@ html.dark .btn-primary {
     border-color: var(--color-white-8);
 
     &:hover {
-      border-color: var(--color-white-14);
+      border-color: var(--border-unified-color-hover);
     }
   }
 
@@ -1009,7 +1009,7 @@ html.dark .btn-primary {
 
     .stat-item:hover {
       background: var(--color-white-6);
-      border-color: var(--color-white-8);
+      border-color: var(--border-unified-color-hover);
     }
   }
 

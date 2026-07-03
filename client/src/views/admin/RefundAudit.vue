@@ -420,10 +420,19 @@ $brand-primary: v.$primary-color;
   &.sla-red { background: var(--el-color-danger-light-9); border-color: var(--el-color-danger-light-7); .sla-value { color: var(--el-color-danger); } }
 
   &.sla-critical {
-    background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
-    border-color: var(--el-text-color-primary);
-    .sla-value { color: var(--el-bg-color); }
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+    border-color: transparent;
+    .sla-value { color: #fff; }
+
+    html.dark & {
+      background: #fff;
+      color: #1a1a1a;
+      border-color: transparent;
+      .sla-value { color: #1a1a1a; }
+    }
+    /* stylelint-enable color-no-hex */
   }
 }
 
@@ -458,7 +467,7 @@ $brand-primary: v.$primary-color;
   outline: none;
 
   &:focus {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -470,7 +479,7 @@ $brand-primary: v.$primary-color;
   padding: 0 16px;
   border-radius: var(--global-border-radius);
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border: none;
   font-size: 13px;
   font-weight: 700;
@@ -502,12 +511,12 @@ $brand-primary: v.$primary-color;
 
   &.primary {
     background: var(--el-color-success);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
   }
 
   &.danger {
     background: var(--el-color-danger);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
   }
 
   &:disabled {
@@ -607,7 +616,21 @@ $brand-primary: v.$primary-color;
   &.sla-green { background: var(--el-color-success-light-7); color: var(--el-color-success); }
   &.sla-yellow { background: var(--el-color-warning-light-7); color: var(--el-color-warning); }
   &.sla-red { background: var(--el-color-danger-light-7); color: var(--el-color-danger); }
-  &.sla-critical { background: var(--el-text-color-primary); color: var(--el-bg-color); }
+
+  &.sla-critical {
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #1a1a1a;
+    color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+    /* stylelint-enable color-no-hex */
+
+    html.dark & {
+      /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+      background: #fff;
+      color: #1a1a1a;
+      /* stylelint-enable color-no-hex */
+
+    }
+  }
 }
 
 .sla-hours {
@@ -633,13 +656,13 @@ $brand-primary: v.$primary-color;
 
   &.primary {
     background: var(--el-color-success);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     border-color: var(--el-color-success);
   }
 
   &.danger {
     background: var(--el-color-danger);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     border-color: var(--el-color-danger);
   }
 }

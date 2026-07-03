@@ -5,7 +5,7 @@
 // ============================================
 
 // 字体变量
-$harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
 
 // ============================================
 // CSS 变量定义 - 放入 base 层
@@ -35,7 +35,7 @@ $harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Se
   }
 
   // 通用元素字体覆盖（排除特殊类）
-  :where(*:not(.font-edix):not(.el-icon):not([class*="icon"]):not(svg):not(path)) {
+  :where(*:not(.font-edix, .el-icon, [class*="icon"], svg, path)) {
     font-family: #{$harmony-font-stack};
   }
 
@@ -64,7 +64,7 @@ $harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Se
   }
 
   // 非标题标签不应该使用 EDIX 字体
-  :where(*:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6).font-edix) {
+  :where(*:not(h1, h2, h3, h4, h5, h6).font-edix) {
     font-family: #{$harmony-font-stack};
   }
 
@@ -151,18 +151,18 @@ $harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Se
     background: none;
     border: none;
   }
+
   .el-button__inner,
   .el-button__content {
     background: transparent;
-    background-color: transparent;
     color: inherit;
   }
+
   .el-button__inner *,
   .el-button__content *,
   .el-button__text,
   span {
     background: transparent;
-    background-color: transparent;
     color: inherit;
     visibility: visible;
     opacity: 1;
@@ -173,14 +173,17 @@ $harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Se
 :where(html:not(.dark)) :where(#app) .hero-cta-btn.el-button--primary,
 :where(html:not(.dark)) :where(#app) :where(.hero-cta) .hero-cta-btn.el-button--primary {
   background: var(--el-color-primary);
-  background-color: var(--el-color-primary);
   border-color: var(--el-color-primary);
-  color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+  color: var(--app-button-text-on-primary);
+
   .el-button__inner,
   .el-button__content,
   .el-button__text,
   span {
-    color: var(--el-bg-color);
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    color: var(--app-button-text-on-primary);
   }
 }
 
@@ -188,9 +191,9 @@ $harmony-font-stack: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Se
 :where(html.dark) :where(#app) .hero-cta-btn.el-button--primary,
 :where(html.dark) :where(#app) :where(.hero-cta) .hero-cta-btn.el-button--primary {
   background: var(--el-color-primary);
-  background-color: var(--el-color-primary);
   border-color: var(--el-color-primary);
   color: var(--el-button-text-color);
+
   .el-button__inner,
   .el-button__content,
   .el-button__text,

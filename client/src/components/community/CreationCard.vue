@@ -351,7 +351,7 @@ $text-muted: var(--el-text-color-placeholder);
 
         .play-icon {
           font-size: 40px;
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
         }
       }
     }
@@ -375,7 +375,7 @@ $text-muted: var(--el-text-color-placeholder);
 
         .audio-icon {
           font-size: 28px;
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
           margin-bottom: 8px;
         }
 
@@ -418,7 +418,7 @@ $text-muted: var(--el-text-color-placeholder);
 
         .article-icon {
           font-size: 40px;
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
         }
       }
     }

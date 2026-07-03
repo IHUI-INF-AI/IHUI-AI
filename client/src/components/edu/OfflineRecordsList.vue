@@ -203,7 +203,7 @@ function getTypeLabel(type: OfflineActivityType): string {
   transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: var(--color-white-50);
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -303,7 +303,7 @@ function getTypeLabel(type: OfflineActivityType): string {
   margin-left: 4px;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   :where(.record-item) {
     flex-wrap: wrap;
   }

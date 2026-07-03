@@ -743,7 +743,7 @@ const goToApiTokens = () => {
   align-items: center;
   justify-content: center;
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-size: 1.25rem;
   font-weight: 700;
   border-radius: var(--global-border-radius);

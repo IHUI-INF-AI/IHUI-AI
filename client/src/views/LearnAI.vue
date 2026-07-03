@@ -1896,7 +1896,8 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     border-color: rgba($brand-primary, 0.25);
 
     .ai-icon {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
+      color: var(--el-text-color-primary);
       transform: scale(1.1);
     }
   }
@@ -2202,14 +2203,15 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   }
 
   &:hover .tab-icon {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: var(--el-color-primary);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     transform: scale(1.05);
   }
 
   &.active .tab-icon {
     background: var(--el-color-primary);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
   }
 
   .tab-content {
@@ -2300,8 +2302,9 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   }
 
   &:hover .panel-icon {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: var(--el-color-primary);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     transform: scale(1.05);
   }
 
@@ -2493,8 +2496,10 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     position: absolute;
     top: 16px;
     right: 16px;
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: var(--el-color-primary);
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary);
     font-size: 12px;
     font-weight: 800;
     padding: 4px 10px;
@@ -2591,15 +2596,16 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     transition: all 0.3s ease;
 
     &.primary {
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
       background: var(--el-color-primary);
       border: var(--el-border-width-primary) solid var(--el-color-primary);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
     }
 
     &:hover {
       background: var(--el-color-primary);
       border: var(--el-border-width-primary) solid var(--el-color-primary);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
       transform: translateY(-2px);
       border-width: 2px;
     }
@@ -2630,7 +2636,8 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
     border-color: rgba($brand-primary, 0.25);
 
     .stat-icon {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
+      color: var(--el-text-color-primary);
       transform: scale(1.1) rotate(5deg);
     }
 
@@ -2746,9 +2753,10 @@ $accent-highlight: var(--el-text-color-primary); // 仅用于少量点缀
   transition: all 0.3s;
 
   &.active {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
     background: $brand-primary;
-    color: var(--el-bg-color);
-    border-color: $brand-primary;
+    color: var(--app-button-text-on-primary);
+    border-color: transparent;
   }
 }
 
@@ -2803,8 +2811,10 @@ html.dark .course-tab.active {
       position: absolute;
       top: 12px;
       left: 12px;
+
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
       background: var(--el-color-primary);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
       padding: 4px 10px;
       border-radius: var(--global-border-radius);
       font-size: 12px;
@@ -3039,7 +3049,9 @@ html.dark .course-tab.active {
     .q-icon {
       width: 28px;
       height: 28px;
-      color: var(--el-bg-color);
+
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
+      color: var(--el-text-color-primary);
       border-radius: var(--global-border-radius);
       display: flex;
       align-items: center;
@@ -3137,7 +3149,9 @@ html.dark .course-tab.active {
       .case-industry {
         display: inline-block;
         font-size: 12px;
-        color: var(--el-bg-color);
+
+        // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
+        color: var(--el-text-color-primary);
         font-weight: 700;
         padding: 3px 10px;
         border-radius: var(--global-border-radius);
@@ -3401,7 +3415,8 @@ html.dark .course-tab.active {
     transform: translateY(-4px);
 
     .service-icon {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
+      color: var(--el-text-color-primary);
     }
   }
 
@@ -3493,7 +3508,8 @@ html.dark .course-tab.active {
     transition: all 0.3s;
 
     &:hover {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
+      color: var(--el-text-color-primary);
     }
   }
 }
@@ -3607,8 +3623,11 @@ html.dark .course-tab.active {
   white-space: nowrap;
 
   &.primary {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (反相配对: 亮色模式深底白字)
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    color: #fff;
+    /* stylelint-enable color-no-hex */
     border: var(--unified-border);
   }
 
@@ -3619,14 +3638,17 @@ html.dark .course-tab.active {
   }
 
   &:hover {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
 html.dark .btn-luxe {
   &.primary {
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (反相配对: 暗色模式浅底深字)
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color);
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    color: #1a1a1a;
+    /* stylelint-enable color-no-hex */
   }
 
   &.ghost {
@@ -3856,8 +3878,9 @@ html.dark .btn-luxe {
 }
 
 // 深色模式下的标签样式
+// 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C 无背景用主题感知文字色)
 :where(html.dark) .ai-card .ai-tag {
-  color: var(--el-bg-color);
+  color: var(--el-text-color-primary);
 }
 
 // 深色模式下使用 $brand-primary 作为文字颜色的元素
@@ -3865,25 +3888,25 @@ html.dark {
   // 核心图标 - 提高选择器优先级
   .architecture-core-visual .core-node .core-icon,
   .core-icon {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // AI 卡片图标 - 提高选择器优先级
   .ai-card .ai-icon,
   .ai-icon {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 行业图标
   .industry-card .industry-icon,
   .industry-icon {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 服务图标
   .service-icon .icon,
   .service-count {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 定价卡片
@@ -3924,15 +3947,16 @@ html.dark {
       color: var(--el-text-color-primary);
 
       &.primary {
+        // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
         background: var(--el-color-primary);
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary);
       }
 
       &:hover {
         background: var(--el-color-primary);
         border: var(--el-border-width-primary) solid var(--el-color-primary);
-        color: var(--el-bg-color);
+        color: var(--app-button-text-on-primary);
       }
     }
   }
@@ -3941,33 +3965,34 @@ html.dark {
   .comparison-matrix-wrap {
     .hot,
     .hot-cell {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C)
+      color: var(--el-text-color-primary);
     }
   }
 
   // 统计数据
   .stat-icon {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 案例标签
   .case-tag {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 推荐卡片
   .testimonial-card .quote-icon {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 成就标签
   .achievement-tag {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 资源标签
   .resource-tag {
-    color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
   }
 
   // 中台导航
@@ -4002,13 +4027,14 @@ html.dark {
 
     &:hover .tab-icon,
     &.active .tab-icon {
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景用永定白字)
       background: var(--el-color-primary);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
     }
 
     &:hover .tab-icon .el-icon,
     &.active .tab-icon .el-icon {
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary);
     }
 
     .tab-content h3 {
@@ -4042,7 +4068,8 @@ html.dark {
     }
 
     .stat-num {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C)
+      color: var(--el-text-color-primary);
     }
   }
 
@@ -4052,19 +4079,23 @@ html.dark {
 
     &:hover {
       border: var(--el-border-width-primary) solid var(--el-color-primary);
-      color: var(--el-bg-color);
+
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C)
+      color: var(--el-text-color-primary);
     }
   }
 
   // 服务链接
   .service-link:hover {
-    color: var(--el-bg-color);
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C)
+    color: var(--el-text-color-primary);
   }
 
   // Hero 区域
   .hero-title .accent-gradient,
   .hero-desc strong {
-    color: var(--el-bg-color);
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C)
+    color: var(--el-text-color-primary);
   }
 
   // Element Plus 下拉菜单图标 - 使用 :where(html.dark) 降低特异性
@@ -4075,7 +4106,8 @@ html.dark {
 
   // 服务卡片图标
   :where(.services-panel) :where(.services-grid) .service-card .card-head .icon {
-    color: var(--el-bg-color);
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则C)
+    color: var(--el-text-color-primary);
   }
 
   // 服务面板暗色模式
@@ -4104,11 +4136,14 @@ html.dark {
 
     &:hover .panel-icon {
       background: var(--el-color-primary);
-      color: var(--el-bg-color);
+
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景,需永定白字)
+      color: var(--app-button-text-on-primary);
     }
 
     &:hover .panel-icon .el-icon {
-      color: var(--el-bg-color);
+      // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 (规则A 主色背景,需永定白字)
+      color: var(--app-button-text-on-primary);
     }
   }
 

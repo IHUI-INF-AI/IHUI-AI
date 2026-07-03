@@ -1,4 +1,4 @@
-﻿# 钉钉群机器人接入指南 (Phase 8)
+# 钉钉群机器人接入指南 (Phase 8)
 
 > 适用: ZHSPlatform 监控告警 (5 条 ZHSMonitor* 告警 + 抑制链) 推送到钉钉群 #zhs-monitor-ops
 

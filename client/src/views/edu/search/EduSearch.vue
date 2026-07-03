@@ -11,7 +11,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -54,7 +54,7 @@
 
     <!-- ④ 结果数提示 -->
     <div v-if="searched && !error && query" class="result-meta">
-      <span v-if="loading">{{ t('edu.profile.retry') }}...</span>
+      <span v-if="loading">{{ t('edu.common.retry') }}...</span>
       <span v-else>{{ t('edu.search.resultCount', { n: total }) }}</span>
     </div>
 
@@ -160,7 +160,7 @@ async function loadSearch() {
       results.value = []
       total.value = 0
     }
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     results.value = []
     total.value = 0
@@ -386,7 +386,7 @@ function entityTagType(type?: string): 'primary' | 'success' | 'warning' | 'info
   box-shadow: none !important;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .search-box {
     flex-direction: column;
     align-items: stretch;

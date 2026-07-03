@@ -8,7 +8,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadRooms">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -16,7 +16,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -136,7 +136,6 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { Refresh, View } from '@element-plus/icons-vue'
 import { liveApi } from '@/api/edu'
 import type { EduLiveRoom } from '@/api/edu'
@@ -169,7 +168,7 @@ async function loadRooms() {
       rooms.value = []
       total.value = 0
     }
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     rooms.value = []
     total.value = 0
@@ -380,7 +379,7 @@ onMounted(loadRooms)
   box-shadow: none;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .rooms-grid {
     grid-template-columns: 1fr;
   }

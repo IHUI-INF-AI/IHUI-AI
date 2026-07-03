@@ -529,7 +529,7 @@ input:checked + .track .moon-icon {
   padding: 0;
 }
 
-// 主题切换图标 - :where() 包裹祖先层级，特异性恒为 0
+/* 主题切换图标 - :where() 包裹祖先层级，特异性恒为 0 */
 :where(label.theme-toggle .track .knob) .icon.sun-icon,
 :where(label.theme-toggle .track .knob) .icon.moon-icon,
 :where(label.theme-toggle .track .knob) svg.icon {

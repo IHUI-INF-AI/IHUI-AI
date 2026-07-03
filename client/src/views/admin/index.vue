@@ -492,7 +492,7 @@ function formatTime(d: Date): string {
   min-height: 100%;
 }
 
-/* ══�?Hero 欢迎�?══�?*/
+/* ══�?Hero 欢迎�?══�? */
 .hero-card {
   display: flex;
   align-items: center;
@@ -525,7 +525,7 @@ function formatTime(d: Date): string {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   font-size: 24px;
   font-weight: 700;
   flex-shrink: 0;
@@ -554,7 +554,7 @@ function formatTime(d: Date): string {
   flex-shrink: 0;
 }
 
-/* ══�?KPI 网格 ══�?*/
+/* ══�?KPI 网格 ══�? */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -662,7 +662,7 @@ function formatTime(d: Date): string {
   line-height: 1.4;
 }
 
-/* ══�?通用 Card ══�?*/
+/* ══�?通用 Card ══�? */
 .card {
   background-color: var(--el-bg-color);
   border: var(--unified-border);
@@ -692,7 +692,7 @@ function formatTime(d: Date): string {
   line-height: 1.2;
 }
 
-/* ══�?中部双栏 ══�?*/
+/* ══�?中部双栏 ══�? */
 .middle-grid,
 .bottom-grid {
   display: grid;
@@ -707,7 +707,7 @@ function formatTime(d: Date): string {
   }
 }
 
-/* ══�?业务模块网格 ══�?*/
+/* ══�?业务模块网格 ══�? */
 .module-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -784,7 +784,7 @@ function formatTime(d: Date): string {
   font-variant-numeric: tabular-nums;
 }
 
-/* ══�?待办事项 ══�?*/
+/* ══�?待办事项 ══�? */
 .todo-list {
   list-style: none;
   margin: 0;
@@ -866,7 +866,7 @@ function formatTime(d: Date): string {
   color: var(--el-color-primary);
 }
 
-/* ══�?实时监控 ══�?*/
+/* ══�?实时监控 ══�? */
 .live-pill {
   display: inline-flex;
   align-items: center;
@@ -965,7 +965,7 @@ function formatTime(d: Date): string {
   color: var(--el-text-color-secondary);
 }
 
-/* ══�?时间�?══�?*/
+/* ══�?时间�?══�? */
 .timeline {
   list-style: none;
   margin: 0;
@@ -1041,7 +1041,7 @@ function formatTime(d: Date): string {
   margin-top: 2px;
 }
 
-/* ══�?空�?/ 提示 ══�?*/
+/* ══�?空�?/ 提示 ══�? */
 .card-empty {
   display: flex;
   align-items: center;
@@ -1102,7 +1102,7 @@ function formatTime(d: Date): string {
   }
 }
 
-/* ══�?响应�?══�?*/
+/* ══�?响应�?══�? */
 @media (width <= 1200px) {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);

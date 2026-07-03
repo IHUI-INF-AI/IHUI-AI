@@ -13,6 +13,9 @@
     "title": "Title",
     "content": "Content",
     "category": "Category",
-    "selectCategory": "Select category (optional)"
+    "selectCategory": "Select category (optional)",
+    "searchPlaceholder": "Search questions...",
+    "titlePlaceholder": "Describe your question in one sentence",
+    "contentPlaceholder": "Provide details..."
   }
 }

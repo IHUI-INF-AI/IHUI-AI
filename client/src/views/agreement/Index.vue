@@ -47,11 +47,13 @@ onMounted(async () => {
   border: 1px solid var(--border-unified-color);
   border-radius: var(--global-border-radius);
 }
+
 .agreement-content {
   font-size: 14px;
   line-height: 1.8;
   color: var(--el-text-color-primary);
 }
+
 .loading {
   text-align: center;
   padding: 60px 0;

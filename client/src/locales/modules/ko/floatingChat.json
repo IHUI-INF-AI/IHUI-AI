@@ -874,6 +874,7 @@
     "imageProviderJimeng": "即梦",
     "videoProviderQwen": "通义万相",
     "videoProviderKling": "可灵AI",
-    "videoProviderOneClick": "一键视频"
+    "videoProviderOneClick": "一键视频",
+    "welcome": "저는 AI 어시스턴트입니다, 무엇이든 말씀하세요"
   }
 }

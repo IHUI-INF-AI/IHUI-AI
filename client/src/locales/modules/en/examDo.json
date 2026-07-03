@@ -7,6 +7,17 @@
     "startExam": "Start Exam",
     "remaining": "Remaining",
     "score": "pts",
-    "submit": "Submit"
+    "submit": "Submit",
+    "inputAnswer": "Enter your answer",
+    "inputEssay": "Write your response...",
+    "examResult": "Exam Result",
+    "passed": "🎉 Congratulations, passed!",
+    "failed": "😢 Not passed",
+    "backToList": "Back to list",
+    "typeSingle": "Single choice",
+    "typeMultiple": "Multiple choice",
+    "typeJudge": "True/False",
+    "typeFill": "Fill in the blank",
+    "typeEssay": "Short answer"
   }
 }

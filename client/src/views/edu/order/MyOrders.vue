@@ -8,7 +8,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadOrders">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -16,7 +16,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -63,7 +63,7 @@
         <el-table-column :label="t('edu.order.createdAt')" prop="created_at" min-width="160">
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column :label="t('edu.profile.actions') || ''" min-width="160" fixed="right">
+        <el-table-column :label="t('edu.common.actions') || ''" min-width="160" fixed="right">
           <template #default="{ row }">
             <el-button size="small" link type="primary" @click="viewDetail(row.id)">
               {{ t('edu.order.detailTitle') }}
@@ -141,7 +141,7 @@ async function loadOrders() {
       orders.value = []
       total.value = 0
     }
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     orders.value = []
     total.value = 0
@@ -168,15 +168,15 @@ async function handleCancel(order: EduOrder) {
   try {
     await ElMessageBox.confirm(t('edu.order.cancelConfirm'), t('edu.order.cancelOrder'), {
       type: 'warning',
-      confirmButtonText: t('edu.profile.submit'),
-      cancelButtonText: t('edu.profile.cancel'),
+      confirmButtonText: t('edu.common.submit'),
+      cancelButtonText: t('edu.common.cancel'),
     })
     cancellingId.value = order.id
     try {
       await orderApi.cancelOrder(order.id)
       ElMessage.success(t('edu.order.cancelSuccess'))
       await loadOrders()
-    } catch (e) {
+    } catch (_e) {
       // 取消失败错误由全局拦截器处理
     } finally {
       cancellingId.value = null
@@ -325,7 +325,7 @@ onMounted(loadOrders)
   box-shadow: none;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .page-header {
     flex-direction: column;
     align-items: stretch;

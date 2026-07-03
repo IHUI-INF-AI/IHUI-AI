@@ -335,7 +335,7 @@ cleanup.add(() => {
   border: none;
   border-radius: var(--global-border-radius);
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-size: 12px;
   cursor: pointer;
 }

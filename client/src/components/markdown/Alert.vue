@@ -85,7 +85,7 @@ const iconComponent = computed(() => {
   }
 
   &.alert-tip {
-    border-left-color: var(--el-color-primary);
+    border-left-color: var(--border-unified-color-hover);
     background-color: var(--el-color-primary-light-9);
   }
 

@@ -1525,7 +1525,7 @@ cleanup.add(() => {
   --menu-item-hover-bg: var(--el-fill-color-light);
   --menu-item-hover-color: var(--el-text-color-primary);
   --menu-item-active-bg: var(--el-color-primary);
-  --menu-item-active-color: var(--el-bg-color-page);
+  --menu-item-active-color: var(--app-button-text-on-primary);
   --menu-item-border: none;
   --menu-item-hover-border: var(--unified-border);
   --menu-item-active-border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -2019,7 +2019,8 @@ html.dark .dropdown-item {
 /* 深色模式下顶部菜单项：未选中为白色，选中/悬停为黑色（悬停与选中为浅色底） */
 :where(.glass-header.dark-mode) .main-menu-items,
 :where(html.dark) :where(.glass-header) .main-menu-items {
-  --menu-item-color: var(--el-bg-color);
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --menu-item-color: var(--app-button-text-on-primary);
   --menu-item-hover-color: var(--el-text-color-primary);
   --menu-item-active-color: var(--el-text-color-primary);
 }
@@ -2029,7 +2030,8 @@ html.dark .dropdown-item {
 :where(body) :where(.glass-header.dark-mode) :where(.main-menu-items) button.menu-item,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) .menu-item,
 :where(body) :where(html.dark) :where(.glass-header) :where(.main-menu-items) button.menu-item {
-  color: var(--el-bg-color);
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+  color: var(--app-button-text-on-primary);
 }
 
 /* 悬停或展开时浅色底，文字改为黑色 */

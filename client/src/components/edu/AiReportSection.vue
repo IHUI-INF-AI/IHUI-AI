@@ -256,8 +256,8 @@ async function handleGenerateViaApi() {
 }
 
 .suggestion-item:hover {
-  border-color: var(--color-white-50);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-color: var(--border-unified-color-hover);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
 }
 
 .suggestion-item.cat-strength {
@@ -269,7 +269,7 @@ async function handleGenerateViaApi() {
 }
 
 .suggestion-item.cat-plan {
-  border-left-color: var(--el-color-primary);
+  border-left-color: var(--border-unified-color-hover);
 }
 
 .suggestion-item.cat-risk {
@@ -437,7 +437,7 @@ async function handleGenerateViaApi() {
   font-weight: 600;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .suggestion-item {
     padding: 12px;
   }

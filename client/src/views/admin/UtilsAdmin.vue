@@ -222,6 +222,7 @@ void downloadJson
   .page-title { margin: 0 0 16px; font-size: 22px; }
   .utils-tabs { background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); }
   .format-form { max-width: 600px; .result { margin-left: 12px; color: var(--el-color-primary); font-weight: 600; } }
+
   .demo-output, .session-output {
     margin-top: 12px; padding: 12px; background: var(--el-bg-color-page); border-radius: 4px;
     max-height: 320px; overflow: auto;

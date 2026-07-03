@@ -98,9 +98,9 @@ onMounted(reload)
   .type-select { width: 130px; }
   .sort-select { width: 130px; }
   .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .resource-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); border-color: var(--el-color-primary); } }
+  .resource-card { background: var(--el-bg-color); border-radius: var(--global-border-radius); overflow: hidden; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { transform: translateY(-2px); box-shadow: var(--global-box-shadow); border-color: var(--border-unified-color-hover); } }
   .card-cover { position: relative; aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; background: var(--el-fill-color-light); color: var(--el-color-primary); &.type-doc { background: var(--el-color-primary-light-9); } &.type-video { background: var(--el-color-success-light-9); color: var(--el-color-success); } &.type-audio { background: var(--el-color-warning-light-9); color: var(--el-color-warning); } &.type-image { background: var(--el-color-info-light-9); color: var(--el-color-info); } &.type-archive { background: var(--el-color-danger-light-9); color: var(--el-color-danger); } }
-  .badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; color: var(--el-bg-color); &.top { background: var(--el-color-danger); } }
+  .badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: var(--global-border-radius); font-size: 12px; &.top { background: var(--el-color-danger); color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */ } }
   .card-info { padding: 12px; }
   .card-title { margin: 0 0 6px; font-size: 14px; color: var(--el-text-color-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card-desc { margin: 0 0 8px; font-size: 12px; color: var(--el-text-color-secondary); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

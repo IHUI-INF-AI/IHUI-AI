@@ -2321,7 +2321,7 @@ $brand-secondary: var(--color-gray-333);
   &:focus {
     outline: 2px solid rgba($brand-primary, 0.3);
     outline-offset: 2px;
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -2338,7 +2338,7 @@ $brand-secondary: var(--color-gray-333);
   &:focus {
     outline: 2px solid rgba($brand-primary, 0.3);
     outline-offset: 2px;
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -2380,7 +2380,7 @@ $brand-secondary: var(--color-gray-333);
 
   input:checked + .slider {
     background: $brand-primary;
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
 
     &::before {
       transform: translateX(24px);
@@ -2392,7 +2392,7 @@ $brand-secondary: var(--color-gray-333);
 .action-btn {
   padding: 12px 24px;
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border: 2px solid transparent;
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;
@@ -2441,7 +2441,7 @@ $brand-secondary: var(--color-gray-333);
   transition: all 0.3s;
 
   &:hover {
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
     transform: scale(1.05);
   }
 }
@@ -2578,7 +2578,7 @@ $brand-secondary: var(--color-gray-333);
   &:focus {
     outline: 2px solid rgba($brand-primary, 0.4);
     outline-offset: 2px;
-    border-color: $brand-primary;
+    border-color: var(--border-unified-color-hover);
   }
 }
 
@@ -2647,7 +2647,7 @@ $brand-secondary: var(--color-gray-333);
 .confirm-btn {
   padding: 12px 24px;
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
   border: none;
   border-radius: var(--global-border-radius);
   font-size: 0.9rem;

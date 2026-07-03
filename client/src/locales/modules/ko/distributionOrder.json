@@ -26,6 +26,17 @@
       "withdrawn": "출금 완료",
       "approving": "심사 중",
       "unknown": "알 수 없음"
-    }
+    },
+    "핵심 장점": "배포 주의문",
+    "orderNumber": "주의문 번호",
+    "customerName": "고객 이름",
+    "customerPhone": "고객 전화",
+    "orderAmount": "주의문 금액",
+    "profit": "이익",
+    "orderDate": "주의문 날짜",
+    "orderStatus": "주의문 상태",
+    "settlement": "정산",
+    "action": "조치",
+    "viewOrder": "주의문 보기"
   }
 }

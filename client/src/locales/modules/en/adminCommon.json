@@ -405,7 +405,9 @@
         "courseCategoryManagement": "Course Category",
         "distributionManagement": "Distribution Management",
         "tourPermissionsAdmin": "Permissions Tour",
-        "utilsAdmin": "Utilities Admin"
+        "utilsAdmin": "Utilities Admin",
+        "migration": "Data Migration",
+        "notification": "Notifications"
       }
     },
     "backendHealth": {
@@ -442,6 +444,13 @@
       "tableCount": "Total Tables",
       "recordCount": "Total Records",
       "dbSize": "Database Size"
-    }
+    },
+    "batchEdit": "Batch Edit",
+    "batchSave": "Batch Save",
+    "retryFailed": "Retry Failed",
+    "updating": "Updating",
+    "failed": "Failed",
+    "items": "items",
+    "canRetryHint": "Click \"Retry Failed\" to update again"
   }
 }

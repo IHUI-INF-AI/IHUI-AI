@@ -527,7 +527,7 @@ $ts-text-muted: var(--color-white-50);
   // 主按钮
   &--primary {
     background: $brand-accent;
-    color: var(--el-bg-color);
+    color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
     box-shadow: var(--global-box-shadow);
 
     // 扫光效果已移至全局样式 (styles/index.scss)

@@ -1349,7 +1349,14 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
         
         .el-icon {
           font-size: 20px;
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary); /* 规则A: 浅色模式深底白字 (原 var(--el-bg-color-page) 误用背景 token) */
+
+          /* 暗色模式: 反相底 el-text-color-primary 反转为浅色，图标改深 */
+          /* stylelint-disable color-no-hex -- 反相配对深字, 无对应 token */
+          html.dark & {
+            color: #1a1a1a;
+          }
+          /* stylelint-enable color-no-hex */
         }
         
         &.perception {

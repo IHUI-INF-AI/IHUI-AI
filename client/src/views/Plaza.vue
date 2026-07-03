@@ -12,7 +12,7 @@
           <p class="subtitle">{{ t('plaza.subtitle') }}</p>
         </div>
         <div class="header-actions">
-          <button v-if="!showSetPath" class="btn-primary-tech" style="color: var(--el-bg-color);" @click="toSet">
+          <button v-if="!showSetPath" class="btn-primary-tech" style="color: var(--app-button-text-on-primary);" @click="toSet">
             <el-icon>
               <Plus />
             </el-icon>
@@ -439,7 +439,7 @@ onMounted(() => getData())
   .btn-primary-tech {
     /* 浅色模式：深色底 + 白字（ 覆盖全局 button 文字色） */
     background: var(--color-dark-bg-4) ;
-    color: var(--el-bg-color) ;
+    color: var(--app-button-text-on-primary) ; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
     border: none;
     padding: 16px 32px;
     border-radius: var(--global-border-radius);
@@ -458,7 +458,7 @@ onMounted(() => getData())
 
     &:hover {
       background: var(--el-color-primary) ;
-      color: var(--el-bg-color) ;
+      color: var(--app-button-text-on-primary) ; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
       transform: translateY(-2px);
     }
   }
@@ -479,7 +479,7 @@ onMounted(() => getData())
     transition: all 0.3s;
 
     &:hover {
-      border-color: var(--el-text-color-primary);
+      border-color: var(--border-unified-color-hover);
     }
   }
 }
@@ -487,11 +487,11 @@ onMounted(() => getData())
 /* 深色模式：发布按钮保持深色底 + 白字（ 覆盖全局） */
 :where(html.dark) .plaza-page .page-header .btn-primary-tech {
   background: var(--color-dark-bg-4) ;
-  color: var(--el-bg-color) ;
+  color: var(--app-button-text-on-primary) ; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 }
 :where(html.dark) .plaza-page .page-header .btn-primary-tech:hover {
   background: var(--el-color-primary) ;
-  color: var(--el-bg-color) ;
+  color: var(--app-button-text-on-primary) ; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 }
 
 .console-section {
@@ -530,7 +530,7 @@ onMounted(() => getData())
 
       &.active {
         background: var(--el-text-color-primary);
-        color: var(--el-bg-color-page);
+        color: #ffffff;
       }
     }
   }
@@ -561,7 +561,7 @@ html.dark .pill-selector button.active {
 
   .empty-action-btn {
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color-page);
+    color: #ffffff;
     border: none;
     padding: 14px 28px;
     border-radius: var(--global-border-radius);
@@ -573,7 +573,7 @@ html.dark .pill-selector button.active {
 
     &:hover {
       background: var(--el-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       transform: translateY(-2px);
     }
   }
@@ -794,7 +794,7 @@ html.dark .empty-action-btn {
 
   .btn-transmit {
     background: var(--el-text-color-primary);
-    color: var(--el-bg-color-page);
+    color: #ffffff;
     border: none;
     padding: 18px 48px;
     border-radius: var(--global-border-radius);
@@ -804,9 +804,13 @@ html.dark .empty-action-btn {
     cursor: pointer;
     transition: all 0.3s;
 
+    html.dark & {
+      color: #1a1a1a;
+    }
+
     &:hover {
       background: var(--el-color-primary);
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       transform: translateY(-2px);
     }
 
@@ -954,11 +958,11 @@ html.dark .empty-action-btn {
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech span,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech .el-icon {
-  color: var(--el-bg-color) ;
+  color: var(--app-button-text-on-primary) ; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 }
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover span,
 :where(.plaza-page) :where(.page-header) .header-actions button.btn-primary-tech:hover .el-icon {
-  color: var(--el-bg-color) ;
+  color: var(--app-button-text-on-primary) ; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 }
 </style>

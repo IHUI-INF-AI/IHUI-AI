@@ -233,6 +233,14 @@
         "todayActive": "Today Active"
       }
     },
+    "common": {
+      "retry": "Retry",
+      "loadFailed": "Failed to load data, please retry",
+      "submit": "Submit",
+      "cancel": "Cancel",
+      "actions": "Actions",
+      "back": "Back"
+    },
     "learn": {
       "title": "My Courses",
       "subtitle": "List of enrolled courses",
@@ -508,7 +516,8 @@
       "uploadTime": "Upload Time",
       "uploadBy": "Uploaded By",
       "noResources": "No resources",
-      "downloadFailed": "Download failed"
+      "downloadFailed": "Download failed",
+      "typeArticle": "Article"
     },
     "search": {
       "title": "Search",

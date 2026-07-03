@@ -233,6 +233,14 @@
         "todayActive": "今日活躍"
       }
     },
+    "common": {
+      "retry": "重試",
+      "loadFailed": "資料載入失敗，請稍後重試",
+      "submit": "提交",
+      "cancel": "取消",
+      "actions": "操作",
+      "back": "返回"
+    },
     "learn": {
       "title": "我的課程",
       "subtitle": "已報名的課程列表",
@@ -508,7 +516,8 @@
       "uploadTime": "上傳時間",
       "uploadBy": "上傳者",
       "noResources": "暫無資源",
-      "downloadFailed": "下載失敗"
+      "downloadFailed": "下載失敗",
+      "typeArticle": "文章"
     },
     "search": {
       "title": "搜尋",

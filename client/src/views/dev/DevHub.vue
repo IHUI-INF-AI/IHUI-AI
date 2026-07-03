@@ -144,7 +144,9 @@ const goHome = () => {
   height: 22px;
   padding: 0 8px;
   background: var(--el-color-warning);
+  /* stylelint-disable color-no-hex -- 警告色徽章白字，无对应 token */
   color: #fff;
+  /* stylelint-enable color-no-hex */
   border-radius: 4px;
   font-size: 12px;
   font-weight: 700;
@@ -211,8 +213,8 @@ const goHome = () => {
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-    border-color: var(--el-color-primary-light-5);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.08);
+    border-color: var(--border-unified-color-hover);
   }
 
   &.router-link-active {
@@ -228,7 +230,9 @@ const goHome = () => {
   width: 44px;
   height: 44px;
   border-radius: 10px;
+  /* stylelint-disable color-no-hex -- 卡片图标背景使用 token 但文字保持白 */
   color: #fff;
+  /* stylelint-enable color-no-hex */
   flex-shrink: 0;
 }
 

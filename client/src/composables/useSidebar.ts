@@ -3,7 +3,7 @@
  *
  * 整合 Sidebar/WorkspaceHeader/App.vue 共享的侧边栏状态：
  *   - isCollapsed：折叠状态（localStorage 持久化，key: 'sidebar-collapsed'）
- *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 60-110）
+ *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 60-116）
  *   - isMobile：移动端检测（window.innerWidth < 768，防抖 resize）
  *   - isMobileOpen：移动端抽屉开关
  *   - toggleCollapse / openMobile / closeMobile / setWidth：状态变更方法
@@ -15,6 +15,7 @@
  *   - SSR 安全：window/localStorage 访问均加 typeof guard
  *   - 配置版本迁移：MIN_WIDTH/DEFAULT_WIDTH/COLLAPSE_THRESHOLD/MAX_WIDTH 调整时通过 CURRENT_CONFIG_VERSION
  *     自动清掉旧 width（避免用户在升级后看到 "旧持久化宽度 ≠ 新默认" 的体验割裂）
+ *   - 4 字中文 label（如"加入我们"）在 MAX_WIDTH=116 时完整显示，不再截断
  */
 import { ref, type Ref } from 'vue'
 

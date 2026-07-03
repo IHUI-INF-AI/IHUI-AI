@@ -167,7 +167,7 @@ onMounted(loadData)
 
 .tab-btn.active {
   background: var(--el-color-primary);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   border-color: var(--el-color-primary);
 }
 
@@ -204,7 +204,7 @@ onMounted(loadData)
 }
 
 .rank-item:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--border-unified-color-hover);
 }
 
 .rank-item.top-1 {
@@ -250,7 +250,7 @@ onMounted(loadData)
   height: 36px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-rank-avatar-start), var(--color-rank-avatar-end));
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   display: flex;
   align-items: center;
   justify-content: center;

@@ -9,6 +9,7 @@
   background: var(--el-bg-color); // 亮色模式：使用纯白色背景
   padding: 12px; // 缩短左右下间距（原 16px 20px）
   flex-shrink: 0;
+
   // 抵消父容器 .floating-chat-dialog 的 padding: 8px，使宽度与父容器相同
   width: calc(100% + 16px); // 100% + 左右各 8px
   margin-left: -8px; // 抵消父容器左 padding
@@ -38,16 +39,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+
   // 亮色模式纯白、暗色模式纯黑，使用全局页面背景变量（不硬编码）
   background-color: var(--el-bg-color-page);
+
   // 圆角：与内部输入框一致（15px）
   border-radius: var(--fcd-radius-lg);
   -webkit-border-radius: var(--fcd-radius-lg);
   -moz-border-radius: var(--fcd-radius-lg);
-  border-top-left-radius: var(--fcd-radius-lg);
-  border-top-right-radius: var(--fcd-radius-lg);
-  border-bottom-left-radius: var(--fcd-radius-lg);
-  border-bottom-right-radius: var(--fcd-radius-lg);
   overflow: hidden; // 确保内容不会超出圆角边界
   // 使用全站统一描边，禁止 box-shadow 避免与 header 底部描边视觉叠加
   border: var(--unified-border);
@@ -88,27 +87,20 @@
   border-radius: var(--fcd-radius-lg);
   -webkit-border-radius: var(--fcd-radius-lg);
   -moz-border-radius: var(--fcd-radius-lg);
-  border-top-left-radius: var(--fcd-radius-lg);
-  border-top-right-radius: var(--fcd-radius-lg);
-  border-bottom-left-radius: var(--fcd-radius-lg);
-  border-bottom-right-radius: var(--fcd-radius-lg);
   background: var(--fcd-input-bg); // 移除默认背景色，使用透明
   outline: var(--fcd-outline);
-  outline-width: 0;
-  outline-style: none;
-  outline-color: transparent;
+  outline: transparent none 0;
   font-size: 14px;
   line-height: 1.5;
   color: var(--el-text-color-primary);
   box-sizing: border-box;
   box-shadow: var(--fcd-box-shadow);
-  overflow-y: auto; // 允许垂直滚动
-  overflow-x: hidden;
+  overflow: hidden auto; // 允许垂直滚动
   white-space: pre-wrap; // 保留换行和空格
   word-wrap: break-word; // 自动换行
 
   // Placeholder 样式
-  &:empty:before {
+  &:empty::before {
     content: attr(data-placeholder);
     color: var(--el-text-color-placeholder);
     pointer-events: none;
@@ -124,26 +116,18 @@
     border-radius: var(--fcd-radius-lg);
     -webkit-border-radius: var(--fcd-radius-lg);
     -moz-border-radius: var(--fcd-radius-lg);
-    border-top-left-radius: var(--fcd-radius-lg);
-    border-top-right-radius: var(--fcd-radius-lg);
-    border-bottom-left-radius: var(--fcd-radius-lg);
-    border-bottom-right-radius: var(--fcd-radius-lg);
   }
 
   &:focus {
     border: var(--fcd-border); // 移除 focus 状态下的描边
     outline: var(--fcd-outline);
-    outline-width: 0;
-    outline-style: none;
-    outline-color: transparent;
+    outline: transparent none 0;
     box-shadow: var(--fcd-box-shadow);
   }
 
   &:focus-visible {
     outline: var(--fcd-outline);
-    outline-width: 0;
-    outline-style: none;
-    outline-color: transparent;
+    outline: transparent none 0;
     box-shadow: var(--fcd-box-shadow);
   }
 }
@@ -197,7 +181,6 @@
 }
 
 @keyframes waveform-bounce {
-
   0%,
   100% {
     height: 8px;
@@ -238,7 +221,6 @@
 }
 
 @keyframes recording-pulse {
-
   0%,
   100% {
     opacity: 1;
@@ -256,8 +238,7 @@
 :where(.floating-chat-dialog .input-area .input-wrapper) .chat-input-container,
 :where(.input-area .input-wrapper) .chat-input-container {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-flow: row wrap;
   align-items: flex-start;
   gap: 4px;
   width: 100%;
@@ -315,14 +296,14 @@
 
   // 录音状态按钮（特殊状态覆盖）
   :deep(.el-button.is-recording) {
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     background: var(--el-color-danger);
     border-color: var(--el-color-danger);
     animation: recording-pulse 1s ease-in-out infinite;
     box-shadow: var(--global-box-shadow);
 
     .el-icon {
-      color: var(--el-bg-color-page);
+      color: inherit;
     }
   }
 }
@@ -449,7 +430,7 @@
   &:active:not(:disabled),
   &:focus:not(:disabled) {
     background: var(--el-fill-color-darker);
-    border-color: var(--el-fill-color-darker);
+    border-color: var(--border-unified-color-hover);
 
     :deep(.el-icon),
     .send-btn-text {
@@ -483,6 +464,7 @@
   gap: 4px;
   height: 28px;
   padding: 0 10px;
+
   // 圆角: 跟随项目统一规范 (8px), 禁止使用 14px 胶囊形
   // 旧值 14px 违反"禁止彻底圆角/胶囊形"硬约束, 2026-07-03 统一
   border-radius: var(--app-button-radius);
@@ -498,12 +480,12 @@
   outline: none;
 
   &:hover {
-    border-color: var(--color-white-50);
+    border-color: var(--border-unified-color-hover);
     background: var(--el-fill-color-light);
   }
 
   &:active {
-    border-color: var(--color-white-60);
+    border-color: var(--border-unified-color-hover);
   }
 }
 

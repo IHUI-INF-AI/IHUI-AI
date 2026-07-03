@@ -1817,4 +1817,537 @@ npx playwright test e2e/sidebar-width-v11.spec.ts
 
 ---
 
+## 暗色模式按钮/标签/消息文字反色硬约束（2026-07-04 立）
+
+**根因（用户反馈原文）**："button 这种按钮在暗色模式下背景色为浅色时没有自动切换文字色为深色，项目中还有很多很多类似这样的情况。"
+
+全项目（Web + 后续 miniapp）必须从根本解决"暗色模式浅色背景 + 深色/浅色文字不可见"问题，建立全局**双 token 反色体系**。
+
+### 设计原则
+
+| 模式 | 背景 | 文字 | 反色关系 |
+|---|---|---|---|
+| 浅色 | EP 默认浅色（亮绿/亮黄/亮红/亮灰） | 深字 | ✅ 可读 |
+| 暗色（修复前） | EP 仍为亮色（亮绿/亮黄/亮红/亮灰） | 浅字 | ❌ 1.7-2.5:1 不可见 |
+| 暗色（修复后） | 深饱和版本（深绿/深琥珀/深红/深灰） | 浅字 | ✅ 4.5:1+ 通过 |
+
+**关键洞察**：浅色背景下深字可读，暗色背景下浅字可读。所以"文字色 token" 永定（不随 light/dark 切换），只把 EP `--el-color-*` 在暗色下重映射为**深饱和版本**。
+
+### 锚定 token 体系
+
+`client/src/styles/_global-tokens.scss` `:root` 中新增 4 对永定 token：
+
+```scss
+--app-text-on-success: #ffffff;   /* 深绿底白字，5.5:1 WCAG AA */
+--app-text-on-warning: #fde68a;   /* 深琥珀底浅黄，4.85:1（黄底用纯白仅 1.7:1 失败）*/
+--app-text-on-danger:  #ffffff;   /* 深红底白字，5.9:1 WCAG AA */
+--app-text-on-info:    #ffffff;   /* 深灰底白字，5.1:1 WCAG AA */
+```
+
+### 暗色 EP 主题色重映射（_dark-mode-global.scss）
+
+`html.dark` 块内显式重映射 4 个 EP 主题色为深饱和版本（Tailwind 700 级）：
+
+| EP token | 暗色值 | 文字 token | 对比度 | 用途 |
+|---|---|---|---|---|
+| `--el-color-success` | `#15803d` | `--app-text-on-success` | 5.5:1 | 成功态按钮 / tag / alert / message |
+| `--el-color-warning` | `#b45309` | `--app-text-on-warning` | 4.85:1 | 警告态按钮 / tag / alert / message |
+| `--el-color-danger` | `#b91c1c` | `--app-text-on-danger` | 5.9:1 | 危险态按钮 / tag / alert / message |
+| `--el-color-info` | `#4b5563` | `--app-text-on-info` | 5.1:1 | 信息态按钮 / tag / alert / message |
+
+### 按钮 4 类独立规则（_element-plus-overrides.scss）
+
+2026-07-04 把 success/warning/danger/info 从 default 统一选择器**拆出**，每类独立 `background-color: var(--el-color-{type})` + `color: var(--app-text-on-{type})`。
+
+**禁止**：把 4 类彩色按钮合并到 `:where(.el-button--default)` 共用选择器（共用会因 4 类背景色不同而冲突）。
+
+### el-tag 暗色反色（_element-plus-overrides.scss `html.dark` 块）
+
+5 类 tag（success/warning/danger/info/primary）在 `html.dark` 块中加浅色字 + 深色 alpha 背景：
+
+| tag type | 暗色 color | 暗色 background-color |
+|---|---|---|
+| `.el-tag--success` | `#bbf7d0`（浅绿）| `rgba(21,128,61,0.18)` |
+| `.el-tag--warning` | `#fde68a`（浅黄）| `rgba(180,83,9,0.20)` |
+| `.el-tag--danger` | `#fecaca`（浅红）| `rgba(185,28,28,0.18)` |
+| `.el-tag--info` | `#d1d5db`（浅灰）| `rgba(75,85,99,0.20)` |
+| `.el-tag--primary` | `#93c5fd`（浅蓝）| `rgba(37,99,235,0.18)` |
+
+### el-alert 暗色反色（_element-plus-overrides.scss `html.dark` 块）
+
+4 类 alert（success/warning/info/error）每类覆盖 `background-color` + `color` + `__title` + `__description` + `__icon` 5 个子元素。
+
+### el-message / el-notification 暗色
+
+- `_el-message-global.scss` 已有 4 类覆盖（Part 6 + 7）— 复用即可
+- `_el-message-global.scss` 末尾的 `.el-message--primary` 兜底保持
+
+### 三层守门
+
+#### 第一层：pre-commit 轻量级守门
+
+`scripts/check-button-text-contrast.mjs` 在 `.husky/pre-commit` 第 8 步执行（紧跟 primary-button-contrast 之后）：
+
+- 触发文件：`_dark-mode-global.scss` / `_element-plus-overrides.scss` / `_global-tokens.scss` 任一在 staged 时启动
+- 检查 4 类 EP `--el-color-*` 暗色映射禁止值（EP 默认亮色 / `--el-bg-color*` / 深色 hex）
+- 检查 4 类按钮 color 必须严格等于 `var(--app-text-on-*)`
+- 检查 5 类 el-tag + 4 类 el-alert 暗色反色覆盖存在
+- 检查 4 个 `--app-text-on-*` token 必须 = 永定值
+- 性能 < 200ms
+
+```bash
+# 暂存文件
+npm run check:button-text-contrast:staged
+
+# 全量
+npm run check:button-text-contrast
+```
+
+#### 第二层：CI 集成
+
+`.github/workflows/ci.yml` 的 `style-audit` job 中新增 step（紧跟 primary-button-contrast 之后）：
+
+```yaml
+- name: 跑按钮/标签/消息暗色文字反色守门 (16 用例, 不需浏览器, 早失败)
+  run: cd client && npx playwright test e2e/button-text-contrast.spec.ts --reporter=list
+```
+
+#### 第三层：E2E 源码 + 浏览器级守门
+
+`e2e/button-text-contrast.spec.ts`（16 用例，chromium）：
+
+- **A1-A4 源码级**（4 用例）：`_dark-mode-global.scss` 暗色 4 个 EP `--el-color-*` 精确匹配深饱和版本
+- **B1-B4 源码级**（4 用例）：4 类彩色按钮 color 必须用 `--app-text-on-*`
+- **C1-C5 源码级**（5 用例）：5 类 el-tag 暗色反色覆盖存在 + 颜色非深色
+- **D1-D4 源码级**（4 用例）：4 类 el-alert 暗色反色覆盖存在
+- **E1-E4 源码级**（4 用例）：4 个 `--app-text-on-*` token 永定值精确匹配
+- **F1-F4 浏览器渲染级**（4 用例）：dev server 启动时注入测试按钮，验证 `getComputedStyle` 计算对比度 ≥ 4.5
+
+### 红线
+
+- ❌ 改 `_dark-mode-global.scss` 暗色 `--el-color-{success,warning,danger,info}` 回 EP 默认亮色（`#67c23a`/`#e6a23c`/`#f56c6c`/`#909399`）
+- ❌ 改 `_dark-mode-global.scss` 暗色 `--el-color-{success,warning,danger,info}` 引用 `var(--el-bg-color*)` / `var(--el-text-color-*)` / 深色 hex
+- ❌ 改 4 类按钮 color 为硬编码白色（`#fff` / `white` / `var(--el-color-white)`） — 必须用 `var(--app-text-on-*)` token
+- ❌ 改 4 类按钮 color 为 `var(--el-bg-color*)` / `var(--el-text-color-*)` / 深色 hex（与深饱和背景撞色）
+- ❌ 把 4 类彩色按钮合并到 `:where(.el-button--default)` 共用选择器
+- ❌ 改 `_global-tokens.scss` 的 `--app-text-on-{success,warning,danger,info}` token 引用 `var(--el-bg-color*)` 等深色变量
+- ❌ 删除 `html.dark` 块中 5 类 el-tag 浅色字反色覆盖
+- ❌ 删除 `html.dark` 块中 4 类 el-alert 暗色反色覆盖
+- ❌ 删除 `scripts/check-button-text-contrast.mjs` 或注释掉 `.husky/pre-commit` 中的调用
+- ❌ 删除 `e2e/button-text-contrast.spec.ts`（防回归兜底失效）
+- ❌ 在 CI 的 `style-audit` job 中移除 button-text-contrast 检查 step
+- ❌ 改完后不跑 `npm run check:button-text-contrast` + `npx playwright test e2e/button-text-contrast.spec.ts` 验证就提交
+
+### 同步更新清单（改色时必须同步）
+
+| 改动点 | 必同步 |
+|---|---|
+| `--el-color-{success,warning,danger,info}` 暗色值 | `scripts/check-button-text-contrast.mjs` `EXPECTED_DARK` + `e2e/button-text-contrast.spec.ts` `EXPECTED_DARK` + 本章节表格 |
+| `--app-text-on-{success,warning,danger,info}` token 值 | 同上 + 4 类按钮 color + 5 类 tag color 验证 |
+| 4 类按钮 color token 名 | 必保留 `var(--app-text-on-*)` 命名（守门正则严格匹配） |
+| 5 类 tag 暗色 color/background-color | 守门断言深色字列表 (`#15803d`/`#b45309`/`#b91c1c` 等) 需同步更新 |
+
+### 延伸场景（待评估，本批次未涵盖）
+
+- `el-link` 暗色 link 颜色（已用 `--el-color-primary` 但 hover 浅蓝可能不可见）
+- `el-button--text` / `--plain` / `--ghost` 暗色覆盖（无背景，按钮文字 = `--el-text-color-primary` 暗色下已浅，可读）
+- miniapp 端按钮（计划下一批次）
+- `.text-success` / `.text-warning` / `.text-danger` 等状态文本 class 散落各处（低优先级）
+
+---
+
+## Git Hook 同步硬约束（2026-07-04 立）
+
+**根因（2026-07-04 发现）**：
+
+`simple-git-hooks@2.13.1` v2 系列存在 monorepo 设计缺陷：`_getHooksDirPath(projectRoot)` 用 `projectRoot`（即 `process.cwd()`）而非 `gitRoot` 推导 hooks 目录。在本项目（`g:\IHUI-AI\client\package.json` 位于 monorepo 子目录）执行 `npx simple-git-hooks` 时，钩子被写到 `g:\IHUI-AI\client\.git\hooks\pre-commit`（错位死代码），而 git 真正查找的 `g:\IHUI-AI\.git\hooks\pre-commit` 永远不会被 simple-git-hooks 触碰。结果：所有 pre-commit / pre-push 守门只在 CI 跑，本地提交拦截失效。
+
+**解决方案（手工维护 + 守门）**：
+
+放弃依赖 `simple-git-hooks` 自动同步，改用「手工 `g:\IHUI-AI\.git\hooks\pre-commit` + `client/.husky/pre-commit` 镜像 + 守门脚本」三层架构。
+
+### 三层架构
+
+| 层 | 文件 | 状态 | 作用 |
+|---|---|---|---|
+| 1. Git 真正查找 | `g:\IHUI-AI\.git\hooks\pre-commit` | **不入版本库**（.git 不受 git 管理）| git 触发时实际执行 |
+| 2. 项目级源 | `g:\IHUI-AI\.husky\pre-commit` | 入版本库 | 14 项检查的「事实单一来源」 |
+| 3. 守门脚本 | `client/scripts/check-pre-commit-hook-content.mjs` | 入版本库 | pre-commit 阶段断言「第 1 层 = 第 2 层」同步 |
+
+### 必须满足的规则
+
+1. **`g:\IHUI-AI\.git\hooks\pre-commit` 必须与 `g:\IHUI-AI\.husky\pre-commit` 内容一致**
+
+   守门脚本 `client/scripts/check-pre-commit-hook-content.mjs` 在 pre-commit 阶段运行 `diff` 校验。任何对 `.husky/pre-commit` 的修改必须同步执行 `cp .husky/pre-commit .git/hooks/pre-commit`（或 `cmd /c copy /Y` Windows 等价命令）。
+
+2. **simple-git-hooks 配置中所有命令必须以 `cd client && ` 开头**
+
+   `client/package.json` `simple-git-hooks` 块中 pre-commit / pre-push 命令不能直接 `npm run ...` 或 `node scripts/...`，必须先 `cd client`（项目根无 package.json / node_modules）。即使第 1 层改为手工维护，simple-git-hooks 配置仍可能因 `npm install` 触发 prepare 脚本并把错位 hook 写到 `client/.git/hooks/`，命令本身的 `cd` 前缀是兜底。
+
+3. **`.husky/pre-commit` 必须包含 14 项 check 调用**
+
+   按顺序：lint-staged / no-important / nul / markraw-staged / high-specificity-staged / i18n:keys / agents-md / becomesupplier:join-us:staged / sidebar:dark-tier:staged / ai-header:style-scope:staged / ai-customer-service-status:staged / session-expired-button:no-double-border:staged / dark-overlay-primary-button:no-double-border:staged / dark-overlay-bg-color-unified:staged
+
+   新增检查项必须同步更新本章节 + `client/scripts/check-pre-commit-hook-content.mjs` `EXPECTED_CHECKS` + e2e 守门测试。
+
+4. **`.husky/pre-push` 必须用 `check:el-token` 替代不存在的 `check:tokens`**
+
+   `client/package.json` 中没有 `check:tokens` 脚本（npm 提示的最相似脚本是 `check:el-token`）。所有 hook 脚本必须使用存在的 npm script，否则 pre-push 因 `set -e` 立即失败。
+
+5. **`g:\IHUI-AI\client\.git\` 必须不存在**
+
+   该目录是 simple-git-hooks v2 bug 制造的副作用（错位 hook 写入位置）。每 30 天跑一次 `find . -name '.git' -type d -not -path './.git/*' -not -path './.git'` 清理，或在 pre-commit 守门里加 `if [ -d client/.git ]` 检查并自动清理。
+
+### 守门工具
+
+#### 1. 守门脚本（pre-commit 阶段必跑）
+
+`client/scripts/check-pre-commit-hook-content.mjs`：
+- 读取 `g:\IHUI-AI\.git\hooks\pre-commit` 内容
+- 与 `g:\IHUI-AI\.husky\pre-commit` 做 `diff`
+- 校验 14 项 check 调用都存在
+- 退出码 0 通过，1 不通过
+
+#### 2. 同步操作 SOP
+
+修改 `.husky/pre-commit` 后必须执行：
+```powershell
+# Windows
+cmd /c copy /Y "g:\IHUI-AI\.husky\pre-commit" "g:\IHUI-AI\.git\hooks\pre-commit"
+
+# Linux/macOS
+cp .husky/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
+#### 3. CI 兜底
+
+`client/e2e/pre-commit-hook-sync.spec.ts`（计划下一批次新增）：
+- 读取 `g:\IHUI-AI\.git\hooks\pre-commit`（开发机 CI 环境可能没有 .git/hooks/pre-commit，需 fallback 跳过）
+- 校验关键 14 项调用都在
+- 校验 0 个 simple-git-hooks 残留 wrapper 标记
+
+### 禁止模式
+
+- ❌ 修改 `client/package.json` `simple-git-hooks` 配置后不验证 `cd client &&` 前缀（pre-commit 会因找不到 npm script 失败）
+- ❌ 修改 `.husky/pre-commit` 后不同步到 `.git/hooks/pre-commit`（守门会失败，开发者误以为是检查脚本问题）
+- ❌ 在 `.git/hooks/pre-commit` 直接修改而不修改 `.husky/pre-commit`（下次重装或换机器时丢失修改）
+- ❌ 用 `husky install` / `husky add` 命令（Husky v9 在本项目尚未启用，混用会污染 `core.hooksPath`）
+- ❌ 删除 `client/scripts/check-pre-commit-hook-content.mjs`（防回归兜底失效）
+- ❌ 改完后不跑 `npm run check:agents-md --silent` 验证章节计数就提交（章节守门会失败）
+- ❌ 引入新 check 脚本（如 `check:xxx:staged`）后不更新本章节 EXPECTED_CHECKS 列表（pre-commit 14 项守门漏检）
+
+### 延伸场景（待评估，本批次未涵盖）
+
+- 迁移至 Husky v9（用 `core.hooksPath` 替代手工同步，已评估为「需要 `npm install husky --save-dev` 改写 `prepare` 脚本，影响面较大，列为 v2 长期方案」）
+- simple-git-hooks v3 发布后评估（v3 修复了 `_getHooksDirPath` bug，届时可回退到自动同步）
+- GitHub Actions / GitLab CI 上的 `core.hooksPath` 自动化（远端环境无 `.git/hooks/`，依赖 CI workflow 的对应 job step）
+
+---
+
+## 前端样式改动后 Agent 自验硬约束（2026-07-04 立）
+
+**根因（用户原话 2026-07-04）**："以后你不能让我自己去硬刷新 而且全部处理好保证前端页面显示为更改后的样式才停下来"。
+
+Vite HMR 偶发不刷新 scoped CSS（特别是 `<style scoped>` 块），浏览器 DevTools 看到的仍是旧 CSS。本硬约束规定：**任何对前端样式的修改，Agent 必须自己在浏览器里跑一遍端到端自验，强制让用户看到更新后的样式才算交付完成**。**绝对不能让用户自己去硬刷新**（`Ctrl+Shift+R` / `Cmd+Shift+R`）。
+
+### 触发条件（满足任一即必须自验）
+
+1. 修改任何 `.vue` / `.scss` / `.css` / `.sass` / `.less` 文件中的样式规则（color / padding / margin / border / font-size / display / flex / grid 等）
+2. 改 Element Plus 主题色 / 暗色模式 token / CSS 变量
+3. 改 `<style scoped>` 块（含 `@use` partial 引入的子组件内部选择器）
+4. 改全局 `_global-tokens.scss` / `_element-plus-overrides.scss` / `_dark-mode-global.scss` 等会影响多个组件的样式表
+5. 改 `index.html` / `vite.config.ts` 的 CSS 相关配置
+6. 改 i18n 文字后视觉布局发生变化（新增/删除文字、变长变短）
+
+### 必须满足的流程（缺一不可）
+
+#### Step 1: 改完后**立即**调用 MCP 浏览器工具强制刷新页面
+
+```ts
+// 通过 browser_navigate 加 cache buster 强制刷新 (推荐, 不需要清磁盘缓存)
+browser_navigate({ url: 'http://127.0.0.1:8888/?reload=' + Date.now() })
+```
+
+**禁止**只调用 `browser_snapshot`（snapshot 不触发 reload，DOM 拿到的还是旧数据）。
+
+#### Step 2: 等待页面 hydration 完成后, 用 `browser_evaluate` 验证计算样式
+
+```ts
+browser_evaluate({
+  script: `JSON.stringify({
+    el: !!document.querySelector('.target-class'),
+    paddingBottom: getComputedStyle(document.querySelector('.target-class')).paddingBottom,
+    color: getComputedStyle(document.querySelector('.target-class')).color,
+  })`
+})
+```
+
+返回的 `paddingBottom` / `color` 等必须是新值, 不是旧值. 如果 `el === false` 表明选择器写错或 DOM 还未挂载, 需重试.
+
+#### Step 3: 调用 `browser_take_screenshot` 视觉确认
+
+```ts
+browser_take_screenshot({ name: 'after-fix-verify' })
+```
+
+截图必须**视觉对比**改动是否生效（间距/颜色/边框/对齐/截断等）, 不仅"页面没报错就交付".
+
+#### Step 4: 必要时验证 dev server 返回的 CSS 包含新值
+
+```bash
+# 拉一次 dev server 的 CSS 资源, grep 确认新值/旧值
+curl.exe -s "http://127.0.0.1:8888/src/components/SidebarChatHistory.vue?vue&type=style&index=0&scoped=true&lang.scss" -o $tmp
+# 旧值出现次数 = 0, 新值出现次数 = 1
+```
+
+如果 dev server 仍返回旧值, 说明 Vite 没监听文件变化, 需要触发文件 touch / 重启 dev server / 检查 vite.config.ts 的 `server.watch` 配置.
+
+#### Step 5: 在交付报告里附 ① + ② + ③ 证据
+
+- ① `browser_evaluate` 的 JSON 输出（getComputedStyle 值）
+- ② `browser_take_screenshot` 截图（视觉确认）
+- ③ （可选）dev server 返回 CSS 的 grep 结果
+
+**没有这 3 项证据, 视为"未完成交付"**。
+
+### 为什么 HMR 偶发不刷新 scoped CSS
+
+Vite + Vue 3 scoped CSS 链路:
+- 文件保存 → Vite watcher 触发 HMR
+- Vite 增量更新 CSSOM, **不** 重新拉 `.vue` 文件的 query string 资源
+- 浏览器**可能**缓存了上一次 query string 的 CSS, 导致 `getComputedStyle` 仍是旧值
+- 触发现象: 用户反馈"完全没变化"、"改了和没改一样"、"硬刷新才行"
+
+**根因**: Vite 5.x 对 `<style scoped>` 的 HMR 边界 case 还在迭代, 特别是 `@use` partial + scoped 跨文件的场景.
+
+**绕开方案**: 在 URL 上加 `?reload=<timestamp>` 让 Vite 重新发整个 `.vue` 资源, 浏览器拿到的 CSS 就是新的. 这是 Step 1 推荐方案.
+
+### 常见陷阱（Agent 必看）
+
+| 陷阱 | 症状 | 修复 |
+|---|---|---|
+| 只改 `.vue` 模板没改 style | 用户看不到视觉变化 | 改模板必须改对应 CSS, 不能用 `<div style="...">` 内联凑数 |
+| 改 `:where(...)` 选择器没改 unlayered scoped | 全局规则优先级被压, 改完没效果 | 改完用 `getMatchedStylesForNode` 验证规则命中 |
+| 改 scoped 选择器但子组件用了 `:deep()` 穿透 | 父改了子不变, 或反之 | 改完用 `getComputedStyle` 验证**真实渲染的子元素** |
+| Vite watcher 失效（WSL/网络盘） | 文件保存了但 dev server 没收到 | `touch` 文件 / 重启 dev server / 用 `chokidar` polling 模式 |
+| 改完没验证就 commit | 用户报告"看不到效果"再回滚 | 跑 Step 1-5, 没截图不交付 |
+| 截图截图时没等动画/过渡结束 | 看到的是中间帧不是终态 | `setTimeout(1000)` 等动画结束再截图 |
+
+### 守门工具
+
+#### 1. 源码级守门 (pre-commit 阶段, < 50ms)
+
+`client/scripts/check-frontend-verify.mjs`:
+- 检查 AGENTS.md 含本章节 + 必含 7 个关键词 (`browser_navigate` / `browser_take_screenshot` / `Ctrl+Shift+R` / `scss` / `scss` / `computed` / 章节标题 slug)
+- 检查章节正文含"不能让用户硬刷新"否定语义
+- 退出码 1 = 章节被删/关键词漏检
+
+```bash
+node scripts/check-frontend-verify.mjs          # 全量
+node scripts/check-frontend-verify.mjs --staged # 仅 staged
+```
+
+#### 2. 章节守门 (与第 N 章并行, 防章节被删)
+
+`scripts/check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS` 必须含本章节标题.
+
+#### 3. 自动化自验脚本 (推荐用于 e2e / CI 流程)
+
+`scripts/verify-frontend-change.mjs` (本批次未实现, 列为 v2 长期方案):
+- 接受 `--file=<path>` 参数
+- 读取修改的 CSS 文件
+- 自动用 `playwright` 打开页面 + 截图 + 验证关键选择器的 `getComputedStyle`
+- 失败时输出 diff (旧值 vs 新值), 退出码 1
+
+### 历史 bug 复盘（2026-07-04 立）
+
+**症状**: 用户 2026-07-04 反馈"改完样式没变化, 我自己硬刷新才生效".
+
+**根因**:
+1. Vite 5.x HMR 对 scoped CSS 偶发不触发完整 reload
+2. 浏览器 CSSOM 缓存了上次 query string 的 CSS
+3. Agent 没有自验就交付, 用户被迫硬刷新
+
+**修复**:
+1. Agent 改完样式后**必须**用 `browser_navigate('?reload=<ts>')` 强制刷新
+2. 用 `browser_evaluate` 验证 `getComputedStyle` 拿到新值
+3. 用 `browser_take_screenshot` 视觉确认
+4. 在交付报告里附 3 项证据
+
+**绝对不能**让用户自己去硬刷新. 这是用户体验红线, 违反一次 = 整体流程重做.
+
+### 红线
+
+- ❌ 改完样式后**只**调 `browser_snapshot` 不调 `browser_navigate` (snapshot 不触发 reload)
+- ❌ 改完样式后**只**在终端里 `curl` 验证 CSS 包含新值, 不到浏览器里跑
+- ❌ 改完样式后**只**截图, 没用 `getComputedStyle` 验证计算样式
+- ❌ 改完样式后**没等**页面 hydration 完成就截图 (看到的是旧值)
+- ❌ 在交付报告里写"已修改" 但**没附** 截图 / evaluate 输出 / dev server CSS grep
+- ❌ 让用户自己去 `Ctrl+Shift+R` 硬刷新 (用户原话: "以后你不能让我自己去硬刷新")
+- ❌ 用 `<div style="...">` 内联样式凑数绕过 scoped CSS 链路问题 (掩盖 bug, 不修复)
+- ❌ 把"Agent 自验"流程写在 prompt 里但不执行 (口头承诺不交付)
+- ❌ 删 `client/scripts/check-frontend-verify.mjs` (防回归兜底失效)
+- ❌ 删本章节前不更新 `check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS` (章节守门会失败)
+
+
+---
+
+## /edu 教育中心路由名一致性硬约束（2026-07-04 立）
+
+**根因（2026-07-04 Phase C 完成）**：/edu 教育中心模块包含 32 个 Edu* 路由名，主侧边栏 Sidebar.vue 通过 nameMap + prefixMap 双映射机制让 /edu/* 子路由跳转后 eduCenter 顶级菜单项保持 active 高亮。若新增/删除 edu 路由时忘记同步更新 Sidebar.vue nameMap，会导致子路由跳转后侧边栏高亮丢失（用户反馈"侧边栏不亮了"）。
+
+### 锁定清单（32 个 Edu* 路由名）
+
+`scripts/check-edu-route-consistency.mjs` 的 `EXPECTED_EDU_ROUTE_NAMES` 锁定 32 个路由名：
+- EduHome / EduLearn / EduLearnDetail / EduLearnChapter / EduLearnCertificate
+- EduExam / EduExamPaper / EduExamRecord / EduExamWrongBook
+- EduAsk / EduAskDetail / EduAskCreate
+- EduCircle / EduCircleDetail / EduCirclePost
+- EduLive / EduLiveRoom
+- EduMember / EduMemberReport / EduMemberNotes / EduMemberOfflineRecords / EduMemberCertUpload / EduMemberPapers / EduMemberPaperUpload
+- EduPoint / EduOrder / EduOrderDetail / EduMessage / EduNotification / EduResource / EduSearch / EduAdminHome
+
+### 必须满足的规则
+
+1. **`client/src/router/modules/edu.ts` 中所有路由 name 必须以 `Edu` 前缀开头**（命名规范）
+2. **路由名数量必须恰好 32 个**（防止误删/误增）
+3. **Sidebar.vue nameMap 必须包含全部 32 个 Edu* → 'eduCenter' 映射**
+4. **Sidebar.vue prefixMap 必须包含 `['/edu/', 'eduCenter']` + `['/edu', 'eduCenter']`**（放最前优先匹配）
+5. **Sidebar.vue navGroups 必须包含 `key='eduCenter'` + `path='/edu'` 顶级菜单项**，label 引用 `t('navigation.eduCenter')`
+
+### 守门工具（三层防回归）
+
+#### 第一层：pre-commit 源码级守门
+
+`scripts/check-edu-route-consistency.mjs` 在 `.husky/pre-commit` 执行：
+
+- 8 项检查：edu.ts 路由名 Edu 前缀 + 数量=32 + 集合匹配 + Sidebar.vue nameMap 32 映射 + prefixMap 2 条目 + navGroups eduCenter 项 + label i18n 引用
+- 性能 < 50ms（pre-commit 友好）
+- `--staged` 模式：仅当 edu.ts 或 Sidebar.vue 在 staged 时才检查
+
+```bash
+npm run check:edu:route-consistency          # 全量
+npm run check:edu:route-consistency:staged   # 仅 staged
+```
+
+#### 第二层：CI 集成
+
+`.github/workflows/ci.yml` 的 `playwright-e2e` job 中新增 step（PR 阶段全量扫描）：
+
+```yaml
+- name: 跑 /edu 教育中心路由名一致性源码级守门 (8 项检查, 不需浏览器, 早失败)
+  run: cd client && npm run check:edu:route-consistency
+```
+
+#### 第三层：E2E 浏览器级守门
+
+`e2e/edu-sidebar.spec.ts`（29 用例 × 2 浏览器 = 58 测试，chromium + Mobile Chrome 双跑）：
+- A: 主侧边栏 eduCenter 菜单项存在 + label 正确
+- B: 点击 eduCenter 跳转到 /edu + active 高亮
+- C: /edu 页面渲染内部 el-aside 侧边栏 + 11 个 el-menu-item
+- D: 11 个模块菜单项 label 正确
+- E: 10 个子路由跳转后 eduCenter 保持 active
+- F: 内部侧边栏点击跳转验证
+
+### 红线
+
+- ❌ 在 `edu.ts` 中添加不以 `Edu` 前缀开头的路由名
+- ❌ 新增/删除 edu 路由时不同步更新 `EXPECTED_EDU_ROUTE_NAMES` + Sidebar.vue nameMap
+- ❌ 删除 Sidebar.vue prefixMap 中的 `['/edu/', 'eduCenter']` 或 `['/edu', 'eduCenter']` 条目
+- ❌ 删除 Sidebar.vue navGroups 中的 `eduCenter` 顶级菜单项
+- ❌ 删除 `scripts/check-edu-route-consistency.mjs` 或注释掉 `.husky/pre-commit` 中的调用
+- ❌ 删除 `e2e/edu-sidebar.spec.ts`（防回归兜底失效）
+- ❌ 在 CI 的 `playwright-e2e` job 中移除 edu-route-consistency 检查 step
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
+## 纯 CSS style 块 // 行注释硬约束（2026-07-04 立）
+
+**根因（2026-07-04 发现）**：批量颜色对比度修复时，12 个文件的纯 CSS `<style scoped>` 块（无 `lang="scss"`）内误用 `// 2026-07-04 修复: ...` 行注释。纯 CSS 只支持 `/* */` 注释，不支持 SCSS 的 `//` 行注释。PostCSS 解析失败（`CssSyntaxError: Unknown word`），Vite build 阻断。
+
+**关键教训**：`npm run typecheck`（vue-tsc）**不会**捕获此错误，只有 `npm run build`（Vite + PostCSS）会报错。因此 typecheck 通过 ≠ build 通过。
+
+### 禁止模式
+
+```vue
+<style scoped>
+.btn {
+  color: var(--app-button-text-on-primary); // ❌ 纯 CSS 不支持 // 注释
+}
+</style>
+```
+
+### 推荐模式
+
+```vue
+<style scoped>
+.btn {
+  color: var(--app-button-text-on-primary); /* ✅ 纯 CSS 用 /* */ 注释 */
+}
+</style>
+```
+
+或为 `<style>` 标签添加 `lang="scss"`（SCSS 支持 `//` 注释）：
+
+```vue
+<style scoped lang="scss">
+.btn {
+  color: var(--app-button-text-on-primary); // ✅ SCSS 支持 // 注释
+}
+</style>
+```
+
+### 守门工具（两层防回归）
+
+#### 第一层：pre-commit 源码级守门
+
+`scripts/check-no-css-line-comments.mjs` 在 `.husky/pre-commit` 执行：
+
+- 扫描 .vue 文件中所有 `<style>` 块
+- 若块无 `lang="scss"`（纯 CSS），检测块内 `//` 行注释
+- 排除 URL 协议（`http://` / `https://`）
+- 性能 ~200ms（711 文件扫描）
+- `--staged` 模式：仅扫描 staged .vue 文件
+
+```bash
+npm run check:no-css-line-comments          # 全量
+npm run check:no-css-line-comments:staged   # 仅 staged
+```
+
+#### 第二层：CI 集成
+
+`.github/workflows/ci.yml` 的 `playwright-e2e` job 中新增 step（PR 阶段全量扫描）：
+
+```yaml
+- name: 跑纯 CSS style 块 // 行注释守门 (711 文件扫描, 不需浏览器, 早失败)
+  run: cd client && npm run check:no-css-line-comments
+```
+
+### 已修复文件清单（2026-07-04，12 个文件）
+
+| 文件 | 违规数 | style 块类型 |
+|---|---|---|
+| `views/AskList.vue` | 1 | `<style scoped>` |
+| `views/AskDetail.vue` | 2 | `<style scoped>` |
+| `views/CircleDetail.vue` | 1 | `<style scoped>` |
+| `views/CircleList.vue` | 2 | `<style scoped>` |
+| `views/ExamList.vue` | 2 | `<style scoped>` |
+| `views/ExamDo.vue` | 1 | `<style scoped>` |
+| `views/PointCenter.vue` | 3 | `<style scoped>` |
+| `views/Ranking.vue` | 2 | `<style scoped>` |
+| `views/Search.vue` | 1 | `<style scoped>` |
+| `views/MessageCenter.vue` | 1 | `<style scoped>` |
+| `components/PdfToolsPanel.vue` | 2 | `<style scoped>` |
+| `components/ThemeToggle.vue` | 1 | `<style>` (非 scoped) |
+
+### 红线
+
+- ❌ 在纯 CSS `<style>` / `<style scoped>` 块（无 `lang="scss"`）内使用 `//` 行注释
+- ❌ 批量颜色修复时用脚本/搜索替换注入 `//` 注释而不区分 style 块 lang 属性
+- ❌ 删除 `scripts/check-no-css-line-comments.mjs` 或注释掉 `.husky/pre-commit` 中的调用
+- ❌ 在 CI 的 `playwright-e2e` job 中移除 no-css-line-comments 检查 step
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+
 

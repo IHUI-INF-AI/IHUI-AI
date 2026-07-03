@@ -369,6 +369,7 @@ onMounted(() => {
   .page-title { margin: 0 0 16px; font-size: 22px; }
   .ai-tabs { background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); }
   .tab-actions { margin-bottom: 12px; }
+
   .image-gen-form, .chat-test, .career-form {
     max-width: 720px;
     .form-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }

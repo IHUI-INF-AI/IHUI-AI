@@ -68,7 +68,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
     font-size: 24px;
     font-weight: 700;
     color: var(--el-text-color-primary);
-    margin: 0 0 8px 0;
+    margin: 0 0 8px;
 
     // 响应式字体大小
     @media (max-width: $desktop-breakpoint-sm) {
@@ -163,7 +163,7 @@ $desktop-breakpoint-xs: 768px; // 超小屏幕（平板）
     padding: 16px;
   }
 
-  &:not(.account-form-container):not(.phone-form-container) {
+  &:not(.account-form-container, .phone-form-container) {
     padding: 24px;
   }
 }

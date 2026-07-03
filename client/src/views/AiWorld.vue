@@ -1020,7 +1020,7 @@ $aw-gray-border: var(--color-text-muted);
 
   &:hover {
     transform: scale(1.01);
-    border-color: var(--el-color-primary);
+    border-color: var(--border-unified-color-hover);
   }
 
   &:focus-visible {
@@ -1181,12 +1181,12 @@ $aw-gray-border: var(--color-text-muted);
 
   /* 选中：主题色底 + 与主色对比的文字（亮色主题黑底白字，暗色主题白底黑字） */
   &--active {
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     background: var(--el-color-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
 
     &:hover {
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       background: var(--el-color-primary-dark-2);
       border-color: var(--el-color-primary-dark-2);
     }
@@ -1451,7 +1451,7 @@ $aw-gray-border: var(--color-text-muted);
     }
 
     &--active {
-      color: var(--el-bg-color-page);
+      color: var(--app-button-text-on-primary);
       background: var(--el-color-primary);
       border: var(--el-border-width-primary) solid var(--el-color-primary);
 

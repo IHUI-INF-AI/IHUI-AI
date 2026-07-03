@@ -8,10 +8,10 @@
       </div>
       <div class="header-actions">
         <el-button :icon="ArrowLeft" @click="goBack">
-          {{ t('edu.profile.back') || t('edu.live.leaveLive') }}
+          {{ t('edu.common.back') }}
         </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadOrder">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
@@ -19,7 +19,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -121,7 +121,7 @@ async function loadOrder() {
   try {
     const res = await orderApi.getOrder(id)
     order.value = res.data?.data ?? null
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     order.value = null
   } finally {
@@ -297,7 +297,7 @@ onMounted(loadOrder)
   box-shadow: none;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .page-header {
     flex-direction: column;
     align-items: stretch;

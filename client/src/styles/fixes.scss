@@ -173,6 +173,47 @@ h6 {
   }
 }
 
+/* ==================== Element Plus Popper 防御性修复 ====================
+ * 2026-07-04 立: 防止 el-select / el-select-v2 / el-dropdown 弹窗永久遮挡底层 div 点击
+ * 历史问题: 用户多次报告 "LanguageSwitcher / AppDownload 点击后没反应"，
+ * 根因是某个 el-select-v2 popper 卡在 display:block 状态，其内部的
+ * .dropdown--fullscreen-backdrop (aria-hidden=true, pointer-events:auto,
+ * position:fixed; inset:0; z-index:2147483647) 覆盖整个视口拦截点击。
+ *
+ * 三层防御:
+ * (A) 直接对 .dropdown--fullscreen-backdrop 强制 pointer-events:none
+ *     (它语义上就是装饰性 click-outside catcher, 不应阻塞其他 div 的点击)
+ * (B) 对父 popper 处于 aria-hidden="true" 时, 强制整个 popper 隐藏
+ *     (popper 关闭时不应该有任何视觉/交互)
+ * (C) 兜底: 任何以 "dropdown--" 开头的 backdrop 类强制 pointer-events:none
+ */
+
+/* (A) 装饰性 backdrop 永远不拦截点击 */
+:where(.dropdown--fullscreen-backdrop) {
+  pointer-events: none !important;
+}
+
+/* (B) 父 popper 关闭时, 子元素全部不可交互 (含 backdrop) */
+:where([aria-hidden='true']) {
+  &.el-popper,
+  &.el-select__popper,
+  &.el-select-v2__popper,
+  &.el-dropdown__popper,
+  &.el-tooltip__popper,
+  &.el-popper.is-light,
+  &.el-popper.is-dark {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* (C) 兜底: 所有 dropdown-* backdrop 类都不拦截点击 */
+:where([class*='dropdown--'][class*='backdrop']) {
+  pointer-events: none !important;
+}
+
 /* ==================== z-index修复 ==================== */
 
 /* 限制过高的z-index值 */
@@ -202,18 +243,21 @@ img {
 
 /* ==================== admin 移动端适配 ==================== */
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   :where(.el-dialog) {
     margin-top: 5vh;
     margin-bottom: 5vh;
   }
+
   :where(.el-form-item) {
     flex-direction: column;
     align-items: stretch;
+
     :where(.el-form-item__label) {
       text-align: left;
       padding-bottom: 4px;
     }
+
     :where(.el-form-item__content) {
       margin-left: 0;
     }

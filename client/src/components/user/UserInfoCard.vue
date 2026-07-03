@@ -253,7 +253,9 @@ const handleLevelClick = () => {
   padding: 2px 8px;
   font-size: 12px;
   font-weight: 500;
+  /* stylelint-disable color-no-hex -- 琥珀色背景必须深色文字，无对应 token */
   color: #1a1a1a;
+  /* stylelint-enable color-no-hex */
   background: var(--color-amber-500);
   border-radius: var(--global-border-radius);
 }

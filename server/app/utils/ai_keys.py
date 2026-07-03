@@ -51,3 +51,8 @@ def zhipu_key(explicit: str | None = None) -> str:
 def openai_key(explicit: str | None = None) -> str:
     """OpenAI 通用 key: 用 OPENROUTER_API_KEY 兜底 (兼容内部代理)."""
     return resolve_key(explicit, "OPENAI_API_KEY", "OPENROUTER_API_KEY")
+
+
+def freellmapi_key(explicit: str | None = None) -> str:
+    """FreeLLMAPI 本地聚合代理的统一 key (freellmapi-xxx)."""
+    return resolve_key(explicit, "FREELLMAPI_API_KEY")

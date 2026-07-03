@@ -84,11 +84,11 @@ onMounted(reload)
   .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; }
   .search-input { flex: 1; }
   .sort-select { width: 140px; }
-  .article-item { display: flex; gap: 16px; background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { border-color: var(--el-color-primary); transform: translateX(4px); } }
+  .article-item { display: flex; gap: 16px; background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border: var(--unified-border); &:hover { border-color: var(--border-unified-color-hover); transform: translateX(4px); } }
   .item-cover { width: 180px; height: 120px; flex-shrink: 0; border-radius: var(--global-border-radius); overflow: hidden; background: var(--el-fill-color-light); img { width: 100%; height: 100%; object-fit: cover; display: block; } }
   .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .item-title { margin: 0 0 8px; font-size: 16px; color: var(--el-text-color-primary); display: flex; align-items: center; gap: 6px; }
-  .badge { padding: 2px 6px; border-radius: var(--global-border-radius); font-size: 12px; color: var(--el-bg-color); &.top { background: var(--el-color-danger); } &.essence { background: var(--el-color-warning); } }
+  .badge { padding: 2px 6px; border-radius: var(--global-border-radius); font-size: 12px; &.top { background: var(--el-color-danger); color: var(--app-button-text-on-primary); } &.essence { background: var(--el-color-warning); /* stylelint-disable color-no-hex -- 警告色背景深色文字 */ color: #1a1a1a; /* stylelint-enable color-no-hex */ } }
   .item-summary { margin: 0 0 auto; font-size: 13px; color: var(--el-text-color-secondary); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .item-meta { display: flex; gap: 12px; font-size: 12px; color: var(--el-text-color-placeholder); margin-top: 8px; }
 }

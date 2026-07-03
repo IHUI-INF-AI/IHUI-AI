@@ -8,7 +8,7 @@
       </div>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadRoom">
-          {{ t('edu.profile.retry') }}
+          {{ t('edu.common.retry') }}
         </el-button>
         <el-button type="danger" :icon="Close" @click="handleLeave">
           {{ t('edu.live.leaveLive') }}
@@ -19,7 +19,7 @@
     <el-alert
       v-if="error"
       type="error"
-      :title="t('edu.profile.loadFailed')"
+      :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
       class="error-alert"
@@ -87,7 +87,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { Refresh, Close } from '@element-plus/icons-vue'
 import { liveApi } from '@/api/edu'
 import type { EduLiveRoom } from '@/api/edu'
@@ -121,7 +120,7 @@ async function loadRoom() {
   try {
     const res = await liveApi.getRoom(id)
     room.value = res.data?.data ?? null
-  } catch (e) {
+  } catch (_e) {
     error.value = true
     room.value = null
   } finally {
@@ -135,7 +134,7 @@ async function joinRoom() {
   try {
     await liveApi.joinLive(id)
     joined.value = true
-  } catch (e) {
+  } catch (_e) {
     // 加入失败不阻断观看，静默处理
   }
 }
@@ -145,7 +144,7 @@ async function leaveRoom() {
   if (!id || !joined.value) return
   try {
     await liveApi.leaveLive(id)
-  } catch (e) {
+  } catch (_e) {
     // 离开失败静默处理
   } finally {
     joined.value = false
@@ -262,7 +261,9 @@ onUnmounted(() => {
 .player-wrap {
   position: relative;
   width: 100%;
+  /* stylelint-disable color-no-hex -- 视频播放器底色必须黑 */
   background: #000;
+  /* stylelint-enable color-no-hex */
   aspect-ratio: 16 / 9;
 }
 
@@ -270,7 +271,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   display: block;
+  /* stylelint-disable color-no-hex -- 视频播放器底色必须黑 */
   background: #000;
+  /* stylelint-enable color-no-hex */
 }
 
 .live-badge {
@@ -281,8 +284,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: rgba(245, 108, 108, 0.9);
+  background: rgb(245 108 108 / 0.9);
+  /* stylelint-disable color-no-hex -- 直播徽章白字 */
   color: #fff;
+  /* stylelint-enable color-no-hex */
   font-size: 12px;
   font-weight: 600;
   border-radius: 8px;
@@ -291,7 +296,9 @@ onUnmounted(() => {
 .live-dot {
   width: 6px;
   height: 6px;
+  /* stylelint-disable color-no-hex -- 直播闪烁点白 */
   background: #fff;
+  /* stylelint-enable color-no-hex */
   border-radius: 50%;
   animation: live-blink 1.2s infinite;
 }
@@ -314,7 +321,7 @@ onUnmounted(() => {
 }
 
 .info-title {
-  margin: 0 0 16px 0;
+  margin: 0 0 16px;
   font-size: 18px;
   font-weight: 600;
   color: var(--el-text-color-primary);
@@ -350,7 +357,7 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .page-header {
     flex-direction: column;
     align-items: stretch;

@@ -281,7 +281,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   background-color: var(--el-color-primary);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary); /* 规则A: 主色深底白字 (原 var(--el-bg-color-page) 误用背景 token) */
   border-radius: var(--global-border-radius);
   font-weight: 700;
   flex-shrink: 0;

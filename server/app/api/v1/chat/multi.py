@@ -48,6 +48,12 @@ VENDOR_ENDPOINTS: dict[str, dict] = {
         "chat_path": "/chat/completions",
         "auth_header": lambda: {"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"},
     },
+    "freellmapi": {
+        # FreeLLMAPI 本地聚合代理: OpenAI 兼容端点, model=auto 自动路由到免费 provider
+        "base": settings.FREELLMAPI_BASE_URL,
+        "chat_path": "/chat/completions",
+        "auth_header": lambda: {"Authorization": f"Bearer {settings.FREELLMAPI_API_KEY}"} if settings.FREELLMAPI_API_KEY else {},
+    },
     "luyala": {
         "base": "https://api.luyala.cn/v1",
         "chat_path": "/chat/completions",
@@ -125,7 +131,16 @@ async def vendor_chat(
             track_event(EVENT_CHAT_RECEIVE, user_id=user_uuid, vendor=vendor, model=model)
             track_funnel("chat", "receive", user_id=user_uuid, vendor=vendor)
             track_latency(EVENT_CHAT_RECEIVE, time.perf_counter() - t0, user_id=user_uuid, vendor=vendor)
-            return success(resp.json())
+            payload = resp.json()
+            # FreeLLMAPI 等 OpenAI 兼容代理在 200 + 内部 error 时仍会返回 data.error
+            # (e.g. "All models exhausted"), 需显式检测并返回错误码, 避免前端误判为 success
+            if isinstance(payload, dict) and payload.get("error"):
+                err = payload["error"]
+                msg = err.get("message", "upstream error") if isinstance(err, dict) else str(err)
+                logger.warning(f"{vendor} upstream error: {msg[:200]}")
+                track_event("chat_error", user_id=user_uuid, vendor=vendor, reason=f"upstream:{msg[:80]}")
+                return error(f"上游返回错误: {msg[:200]}")
+            return success(payload)
         except Exception as e:
             logger.error(f"{vendor} chat error: {e}")
             track_event("chat_error", user_id=user_uuid, vendor=vendor, reason=str(e)[:120])
@@ -190,7 +205,14 @@ async def multi_vendor_chat(
                 resp = await client.post(url, headers=headers, json=body)
                 track_event(EVENT_CHAT_RECEIVE, user_id=user_uuid, vendor=v, model=model)
                 track_latency(EVENT_CHAT_RECEIVE, time.perf_counter() - t0, user_id=user_uuid, vendor=v)
-                results.append({"vendor": v, "ok": True, "data": resp.json()})
+                payload = resp.json()
+                # FreeLLMAPI 等上游 200 + data.error 包装检测
+                if isinstance(payload, dict) and payload.get("error"):
+                    err = payload["error"]
+                    msg = err.get("message", "upstream error") if isinstance(err, dict) else str(err)
+                    results.append({"vendor": v, "ok": False, "error": f"upstream:{msg[:200]}"})
+                else:
+                    results.append({"vendor": v, "ok": True, "data": payload})
             except Exception as e:
                 track_event("chat_error", user_id=user_uuid, vendor=v, reason=str(e)[:120])
                 results.append({"vendor": v, "ok": False, "error": str(e)})

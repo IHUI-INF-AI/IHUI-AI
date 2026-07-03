@@ -749,6 +749,7 @@
     "generatedVideo": "生成的视频",
     "unknownError": "未知错误",
     "usePrompt": "使用：{prompt}",
-    "aiDialog": "AI 对话"
+    "aiDialog": "AI 对话",
+    "welcome": "我是AI小方，有事尽管说"
   }
 }

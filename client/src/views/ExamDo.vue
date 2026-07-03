@@ -237,7 +237,7 @@ onMounted(loadDetail)
 
 .start-btn {
   background: $brand-primary;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); /* 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 */
   border: none;
   border-radius: var(--global-border-radius);
   padding: 10px 32px;
@@ -346,7 +346,7 @@ onMounted(loadDetail)
 
 .fill-input:focus,
 .essay-input:focus {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
 }
 
 .submit-bar {

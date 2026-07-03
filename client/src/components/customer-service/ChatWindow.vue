@@ -589,7 +589,7 @@ cleanup.add(() => {
 
         .message-body {
           background: var(--el-color-primary);
-          color: var(--el-bg-color-page);
+          color: var(--app-button-text-on-primary);
         }
       }
     }
@@ -780,7 +780,7 @@ cleanup.add(() => {
         top: -8px;
         right: -8px;
         background: var(--el-color-danger);
-        color: var(--el-bg-color-page);
+        color: var(--app-button-text-on-primary);
         border-radius: var(--global-border-radius);
         padding: 4px;
       }

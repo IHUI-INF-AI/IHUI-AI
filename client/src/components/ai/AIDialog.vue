@@ -1557,7 +1557,9 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       background: var(--el-bg-color);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      /* stylelint-disable color-no-hex -- focus 描边主色，light 模式下 --el-color-primary 被映射为黑色，必须用显式蓝色 hex */
       border: var(--el-border-width-primary) solid #3b82f6;
+      /* stylelint-enable color-no-hex */
 
       --iw-shadow: var(--iw-shadow-focus);
 
@@ -2081,6 +2083,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       background: var(--el-color-primary);
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
+      // stylelint-disable-next-line color-no-hex -- 显式蓝色 hex, 详见 SHADOW_AND_BORDER_RULES.md
       border: var(--el-border-width-primary) solid #93c5fd;
 
       --iw-shadow: var(--iw-shadow-focus-dark);
@@ -2600,7 +2603,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
   
   // 暗色主题下的选中状态描边
-  :where(html.dark) & {
+  html.dark & {
     :deep(.el-tabs__item.is-active) {
       // 暗色主题下使用更亮的颜色形成强对比
       --mct-item-border: var(--el-border-width-primary) solid var(--el-color-primary);
@@ -2696,7 +2699,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     // 选中状态 hover - 描边稍微加深
     &:hover:not(.is-disabled) {
       --mic-bg: var(--el-fill-color-light);
-      --mic-border-color: var(--el-border-color);
+      --mic-border-color: var(--border-unified-color-hover);
     }
   }
   
@@ -2720,7 +2723,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
   
   // 暗色主题下的样式
-  :where(html.dark) & {
+  html.dark & {
     // 普通状态 hover - 粗描边
     &:hover:not(.is-disabled, .is-selected) {
       --mic-bg: transparent;
@@ -2821,7 +2824,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       &:hover {
         background: var(--el-fill-color-light);
         color: var(--el-text-color-primary);
-        border-color: var(--el-border-color);
+        border-color: var(--border-unified-color-hover);
       }
 
       &:focus-visible {
@@ -2954,7 +2957,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     .checkmark {
       width: 24px;
       height: 24px;
-      border: 2px solid var(--el-text-color-primary);
+      border: 2px solid var(--border-unified-color-hover);
       border-radius: var(--global-border-radius);
       display: flex;
       align-items: center;
@@ -2988,7 +2991,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     
     input[type="checkbox"]:checked + .checkmark {
       background-color: var(--el-text-color-primary);
-      border-color: var(--el-text-color-primary);
+      border-color: transparent;
       transform: scale(1.1) rotateZ(360deg) rotateY(360deg);
     }
     
@@ -3001,7 +3004,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       color: var(--el-text-color-regular);
       
       .checkmark {
-        border-color: var(--el-text-color-regular);
+        border-color: var(--border-unified-color-hover);
         background-color: var(--el-fill-color-light);
         transform: scale(1.05);
       }
@@ -3043,7 +3046,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       &:hover:not(.is-disabled) .checkmark {
-        border-color: var(--color-white-50);
+        border-color: var(--border-unified-color-hover);
         background-color: var(--color-white-10);
       }
 
@@ -3459,9 +3462,9 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     &.is-selected:not(.is-disabled) {
       --mic-border-color: var(--el-border-color-lighter);
       --mic-bg: var(--el-fill-color-light);
-      
+
       &:hover:not(.is-disabled) {
-        --mic-border-color: var(--el-border-color);
+        --mic-border-color: var(--border-unified-color-hover);
         --mic-bg: var(--el-fill-color-light);
       }
     }
@@ -3479,16 +3482,16 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
 
   /* 暗色主题 model-item-card */
-  :where(html.dark) .model-item-card {
+  html.dark .model-item-card {
     &:hover:not(.is-disabled, .is-selected) {
-      --mic-border-color: var(--color-white-12);
+      --mic-border-color: var(--border-unified-color-hover);
     }
-    
+
     &.is-selected:not(.is-disabled) {
-      --mic-border-color: var(--color-white-12);
-      
+      --mic-border-color: var(--border-unified-color);
+
       &:hover:not(.is-disabled) {
-        --mic-border-color: var(--color-white-18);
+        --mic-border-color: var(--border-unified-color-hover);
       }
     }
   }
@@ -3512,7 +3515,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     height: var(--amb-height);
   }
 
-  :where(html.dark) .input-action-btn.agent-mode-btn {
+  html.dark .input-action-btn.agent-mode-btn {
     --amb-border-color: var(--el-border-color-darker);
   }
 
@@ -3537,11 +3540,11 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     }
   }
 
-  :where(html.dark) .model-tag.el-tag {
+  html.dark .model-tag.el-tag {
     --mt-border-color: var(--color-white-30);
     
     &:hover {
-      border-color: var(--color-white-50);
+      border-color: var(--border-unified-color-hover);
     }
   }
 

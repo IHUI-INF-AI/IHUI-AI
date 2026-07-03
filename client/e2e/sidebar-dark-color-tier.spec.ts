@@ -52,9 +52,15 @@ const EXPECTED_DARK_TIER = {
 const EXPECTED_CHAT_HISTORY_DARK_BG = '#42454f'
 const GLOBAL_DARK_SURFACE = '#6a6d77' // 全局 token, 必须保持不变
 
-// 登录按钮暗色文字色 (UniversalLogin.vue html.dark .submit-btn)
-const EXPECTED_LOGIN_DARK_TEXT = '#1a1a1a'
-const EXPECTED_LOGIN_DARK_TEXT_HOVER = '#0a0a0a'
+// 登录按钮暗色模式 (UniversalLogin.vue html.dark .submit-btn) — 2026-07-04 v2 反相设计
+// 旧设计 (07-03, 已废弃): 蓝底#3b82f6 + 深字#1a1a1a (非反相, 与浅色模式同向)
+// 新设计 (07-04, 当前): 白底#ffffff + 深蓝字#2563eb (完全反相, 与浅色模式蓝底白字对称)
+// 源码用 SCSS 变量桥接: lt.$login-primary (#2563eb) / lt.$login-primary-hover (#1d4ed8) / lt.$login-primary-active (#1e40af)
+// 对比度: #2563eb on #ffffff = 5.44:1 (WCAG AA 4.5 通过)
+const EXPECTED_LOGIN_DARK_TEXT = 'lt.$login-primary'            // SCSS 变量 → #2563eb 深蓝字
+const EXPECTED_LOGIN_DARK_TEXT_HOVER = 'lt.$login-primary-hover' // SCSS 变量 → #1d4ed8 更深蓝
+const EXPECTED_LOGIN_DARK_BG = '#ffffff'                        // 白底 (反相)
+const EXPECTED_LOGIN_DARK_BORDER = '#ffffff'                    // 白边 (与底色一致)
 
 // ════════════════════════════════════════════════════════════════════════
 // A. _sidebar-layout.scss dark mode 4 条 token 覆盖 (源码级)
@@ -287,44 +293,76 @@ test.describe('侧边栏暗色色阶源码级守门', () => {
   })
 
   // ════════════════════════════════════════════════════════════════════════
-  // H. 登录按钮暗色文字色 (UniversalLogin.vue)
+  // H. 登录按钮暗色反相设计 (UniversalLogin.vue) — 2026-07-04 v2
+  // 旧设计 (07-03): 蓝底#3b82f6 + 深字#1a1a1a (非反相, 已废弃)
+  // 新设计 (07-04): 白底#ffffff + 深蓝字#2563eb (完全反相, 与浅色模式蓝底白字对称)
   // ════════════════════════════════════════════════════════════════════════
-  test('H1: UniversalLogin.vue html.dark .submit-btn 必须含 color: #1a1a1a (偏黑文字)', () => {
+  test('H1: UniversalLogin.vue html.dark .submit-btn 必须含 color: lt.$login-primary (深蓝字反相)', () => {
     const src = readFileSync(join(ROOT, 'src/components/login/UniversalLogin.vue'), 'utf8')
-    // html.dark .submit-btn 块内必须含 color: #1a1a1a
-    // 用 [\s\S]*? (颜色块可能含 } 比如 rgba())
+    // html.dark .submit-btn 块内必须含 color: lt.$login-primary (SCSS 变量 → #2563eb 深蓝字)
+    // $ 在 RegExp 中需转义为 \$
     expect(
       src,
-      `html.dark .submit-btn 块内必须显式 color: ${EXPECTED_LOGIN_DARK_TEXT} (偏黑文字).\n` +
-        '原代码未设 color, fallback 到 Element Plus 默认 --el-color-white (#ffffff),\n' +
-        '在 #3b82f6 蓝底上用户反馈"应该偏黑色". 暗色模式用深色文字与项目设计语言一致.\n' +
-        `对比度 ${EXPECTED_LOGIN_DARK_TEXT} on #3b82f6 = 4.83:1 (WCAG AA 通过).`
+      `html.dark .submit-btn 块内必须显式 color: ${EXPECTED_LOGIN_DARK_TEXT} (SCSS 变量 → #2563eb 深蓝字).\n` +
+        '2026-07-04 v2 反相设计: 暗色模式 = 白底#ffffff + 深蓝字#2563eb,\n' +
+        '与浅色模式 (蓝底#2563eb + 白字#ffffff) 完全反相对称.\n' +
+        '旧设计 (07-03 蓝底+深字#1a1a1a) 已废弃 — 非反相, 与浅色模式同向.\n' +
+        '对比度 #2563eb on #ffffff = 5.44:1 (WCAG AA 4.5 通过).'
     ).toMatch(
       new RegExp(
-        `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?color:\\s*${EXPECTED_LOGIN_DARK_TEXT.replace('#', '\\#')}`,
+        `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?color:\\s*${EXPECTED_LOGIN_DARK_TEXT.replace(/\$/g, '\\$')}`,
         'i'
       )
     )
   })
 
-  test('H2: UniversalLogin.vue html.dark .submit-btn hover 必须含 color: #0a0a0a (更深)', () => {
+  test('H2: UniversalLogin.vue html.dark .submit-btn hover 必须含 color: lt.$login-primary-hover (更深蓝)', () => {
     const src = readFileSync(join(ROOT, 'src/components/login/UniversalLogin.vue'), 'utf8')
     expect(
       src,
-      `.submit-btn:hover 块内必须含 color: ${EXPECTED_LOGIN_DARK_TEXT_HOVER} (比默认更深, hover 反馈更强).`
+      `.submit-btn:hover 块内必须含 color: ${EXPECTED_LOGIN_DARK_TEXT_HOVER} (SCSS 变量 → #1d4ed8 更深蓝, hover 反馈更强).`
     ).toMatch(
       new RegExp(
-        `\\.submit-btn[\\s\\S]*?:hover[\\s\\S]*?color:\\s*${EXPECTED_LOGIN_DARK_TEXT_HOVER.replace('#', '\\#')}`,
+        `\\.submit-btn[\\s\\S]*?:hover[\\s\\S]*?color:\\s*${EXPECTED_LOGIN_DARK_TEXT_HOVER.replace(/\$/g, '\\$')}`,
         'i'
       )
     )
   })
 
-  test('H3: UniversalLogin.vue .submit-btn 默认(浅色) 必须 color: #ffffff (蓝底白字)', () => {
+  test('H3: UniversalLogin.vue .submit-btn 默认(浅色) 必须 color: #fff 或 #ffffff (蓝底白字)', () => {
     const mixin = readFileSync(join(ROOT, 'src/components/login/_login-tokens.scss'), 'utf8')
     expect(
       mixin,
-      '_login-tokens.scss login-btn-primary mixin 必须含 color: #ffffff (浅色模式蓝底白字).'
-    ).toMatch(/@mixin\s+login-btn-primary\s*\{[^}]*color:\s*#ffffff/)
+      '_login-tokens.scss login-btn-primary mixin 必须含 color: #fff 或 #ffffff (浅色模式蓝底白字).'
+    ).toMatch(/@mixin\s+login-btn-primary\s*\{[^}]*color:\s*#fff(?:fff)?\s*[;}]/)
+  })
+
+  test('H4: UniversalLogin.vue html.dark .submit-btn 必须含 background-color: #ffffff (白底反相)', () => {
+    const src = readFileSync(join(ROOT, 'src/components/login/UniversalLogin.vue'), 'utf8')
+    // html.dark .submit-btn 块内必须含 background-color: #ffffff (白底, 与浅色模式蓝底反相)
+    expect(
+      src,
+      `html.dark .submit-btn 块内必须显式 background-color: ${EXPECTED_LOGIN_DARK_BG} (白底反相).\n` +
+        '2026-07-04 v2 反相设计: 暗色模式白底, 与浅色模式蓝底 (#2563eb) 完全反相对称.\n' +
+        '白底在暗色页面 (#0d0d0d) 上形成高亮 CTA 视觉冲击.'
+    ).toMatch(
+      new RegExp(
+        `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?background-color:\\s*${EXPECTED_LOGIN_DARK_BG.replace('#', '\\#')}`,
+        'i'
+      )
+    )
+  })
+
+  test('H5: UniversalLogin.vue html.dark .submit-btn 必须含 border-color: #ffffff (白边与底一致)', () => {
+    const src = readFileSync(join(ROOT, 'src/components/login/UniversalLogin.vue'), 'utf8')
+    expect(
+      src,
+      `html.dark .submit-btn 块内必须显式 border-color: ${EXPECTED_LOGIN_DARK_BORDER} (白边, 与白底一致, 避免边框撞色).`
+    ).toMatch(
+      new RegExp(
+        `html\\.dark[\\s\\S]*?\\.submit-btn\\s*\\{[\\s\\S]*?border-color:\\s*${EXPECTED_LOGIN_DARK_BORDER.replace('#', '\\#')}`,
+        'i'
+      )
+    )
   })
 })

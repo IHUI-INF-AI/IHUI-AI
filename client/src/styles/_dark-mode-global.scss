@@ -16,6 +16,7 @@ html.dark {
   --el-bg-color-hover: var(--color-dark-bg-5, #1a1a1a);
   --el-text-color-regular: var(--color-neutral-200);
   --el-text-color-secondary: var(--color-neutral-400);
+
   // 修复：暗色模式 page-bg-color 应当用深色背景
   --page-bg-color: var(--color-dark-bg-3, #0d0d0d);
 }
@@ -79,15 +80,15 @@ html.dark {
 // ============================================
 html.dark {
   --app-color-success-text: #bbf7d0;        /* 浅绿, 配 #142818 12.5:1 */
-  --app-color-success-bg: rgba(74, 222, 128, 0.15);
+  --app-color-success-bg: rgb(74 222 128 / 0.15);
   --app-color-warning-text: #fde68a;        /* 浅黄, 配 #282414 11.2:1 */
-  --app-color-warning-bg: rgba(237, 180, 67, 0.15);
+  --app-color-warning-bg: rgb(237 180 67 / 0.15);
   --app-color-danger-text: #fecaca;         /* 浅红, 配 #281414 10.8:1 */
-  --app-color-danger-bg: rgba(245, 101, 101, 0.15);
+  --app-color-danger-bg: rgb(245 101 101 / 0.15);
   --app-color-info-text: #d1d5db;           /* 浅灰, 配 #141c28 9.5:1 */
-  --app-color-info-bg: rgba(96, 165, 250, 0.15);
+  --app-color-info-bg: rgb(96 165 250 / 0.15);
   --app-color-primary-text: #93c5fd;        /* 浅蓝, 配 #142036 10.5:1 */
-  --app-color-primary-bg: rgba(37, 99, 235, 0.15);
+  --app-color-primary-bg: rgb(37 99 235 / 0.15);
 }
 
 // 暗色模式：强制所有主要容器和页面元素使用暗色背景

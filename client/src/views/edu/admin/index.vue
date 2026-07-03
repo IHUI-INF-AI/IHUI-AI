@@ -96,17 +96,21 @@ onMounted(async () => {
   max-width: 1400px;
   margin: 0 auto;
 }
+
 .page-title {
   font-size: 20px;
   font-weight: 600;
 }
+
 .stats-row {
   margin: 24px 0;
 }
+
 .stat-card {
   display: flex;
   align-items: center;
   padding: 16px;
+
   :deep(.el-card__body) {
     display: flex;
     align-items: center;
@@ -114,39 +118,46 @@ onMounted(async () => {
     padding: 16px;
   }
 }
+
 .stat-icon {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-on-primary);
   margin-right: 16px;
 }
+
 .stat-value {
   font-size: 24px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
+
 .stat-label {
   font-size: 13px;
   color: var(--el-text-color-secondary);
   margin-top: 4px;
 }
+
 .menu-row {
   margin-top: 16px;
 }
+
 .menu-card {
   cursor: pointer;
   text-align: center;
   padding: 32px 16px;
   transition: transform 0.2s;
   margin-bottom: 16px;
+
   &:hover {
     
   }
 }
+
 .menu-label {
   margin-top: 12px;
   font-size: 14px;

@@ -201,6 +201,7 @@ onMounted(() => {
   .unread-label {
     display: inline-flex; align-items: center; gap: 6px;
   }
+
   .unread-dot {
     display: inline-block;
     width: 8px; height: 8px;
@@ -239,6 +240,7 @@ onMounted(() => {
   .level-info .notify-icon { color: var(--el-color-primary); }
 
   .notify-body { flex: 1; min-width: 0; }
+
   .notify-title {
     display: flex; align-items: center; gap: 8px;
     font-weight: 600; font-size: 14px;
@@ -271,10 +273,12 @@ onMounted(() => {
     background: var(--el-color-danger-light-9);
     border-color: var(--el-color-danger-light-5);
   }
+
   .notify-text {
     color: var(--color-white-70); font-size: 13px; line-height: 1.6;
     word-break: break-all;
   }
+
   .notify-meta {
     margin-top: 4px; font-size: 12px; color: var(--color-white-40);
   }

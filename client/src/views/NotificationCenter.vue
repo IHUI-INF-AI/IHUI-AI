@@ -270,7 +270,7 @@ onMounted(loadNotifications)
 }
 
 .notification-item:hover {
-  border-color: $brand-primary;
+  border-color: var(--border-unified-color-hover);
 }
 
 .notification-item.unread {

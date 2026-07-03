@@ -941,7 +941,7 @@ $ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 12px;
   background: var(--platform-color, $brand-secondary);
   border-radius: var(--global-border-radius);
-  color: var(--el-bg-color-page);
+  color: var(--app-button-text-on-primary); /* 规则A: 平台品牌色/深填充底用白字 (原 var(--el-bg-color-page) 误用背景 token) */
   transition: transform 0.4s $ease-out-expo;
 }
 

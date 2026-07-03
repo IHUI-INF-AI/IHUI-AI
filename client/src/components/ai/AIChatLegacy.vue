@@ -3600,7 +3600,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
 }
 
 // 暗色模式适配 - 通过 CSS 变量覆盖
-:where(html.dark) {
+html.dark {
   .search-bar {
     --aic-search-bg: var(--aic-search-bg-dark);
     --aic-search-bg-hover: var(--aic-search-bg-dark-hover);
@@ -3885,7 +3885,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
               --action-btn-color: var(--el-text-color-primary);
               --action-btn-hover-bg: var(--color-black-5);
 
-              :where(html.dark) & {
+              html.dark & {
                 --action-btn-color: var(--el-text-color-regular);
                 --action-btn-hover-bg: var(--color-white-10);
               }
@@ -3909,7 +3909,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
                   --action-btn-color: var(--el-text-color-primary);
                 }
 
-                :where(html.dark) &:hover {
+                html.dark &:hover {
                   --action-btn-color: var(--el-color-white);
                 }
 
@@ -4386,7 +4386,7 @@ cleanup.add(() => { if (windowScrollRafId !== null) { cancelAnimationFrame(windo
     &:hover {
       box-shadow: var(--aic-flat-shadow, none); // 扁平化设计：移除投影
       transform: translateY(0); // 扁平化设计：移除位移
-      border-color: var(--el-border-color);
+      border-color: var(--border-unified-color-hover);
 
       &::before {
         opacity: 1;

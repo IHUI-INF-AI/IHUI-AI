@@ -316,7 +316,14 @@ onMounted(() => { loadStats(); loadInvites(); })
       padding: 4px 12px;
       border-radius: var(--global-border-radius);
       cursor: pointer;
-      &.active { color: var(--el-bg-color-page); background: var(--el-text-color-primary); border-color: var(--el-text-color-primary); }
+
+      &.active {
+        /* stylelint-disable color-no-hex -- 反相配对深底白字, 无对应 token */
+        color: #fff;
+        background: var(--el-text-color-primary);
+        border-color: transparent;
+        /* stylelint-enable color-no-hex */
+      }
     }
   }
 
@@ -423,7 +430,9 @@ html.dark .distribution-page :deep(.tech-tabs) {
 }
 
 :where(html.dark) .distribution-page .trend-panel {
-  .period-pills button { background: var(--el-bg-color-page); border-color: var(--border-unified-color); color: var(--el-text-color-regular); &.active { color: var(--el-bg-color-page); background: var(--el-text-color-primary); border-color: var(--border-unified-color-hover); } }
+  /* stylelint-disable color-no-hex -- 反相配对深字, 无对应 token */
+  .period-pills button { background: var(--el-bg-color-page); border-color: var(--border-unified-color); color: var(--el-text-color-regular); &.active { color: #1a1a1a; background: var(--el-text-color-primary); border-color: var(--border-unified-color-hover); } }
+  /* stylelint-enable color-no-hex */
   .chart-placeholder { background: var(--el-bg-color-page); border-color: var(--border-unified-color); p { color: var(--el-text-color-secondary); } }
 }
 

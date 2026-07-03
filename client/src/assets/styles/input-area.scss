@@ -308,7 +308,7 @@
 }
 
 // 响应式调整
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .input-area {
     padding: 8px 12px;
   }

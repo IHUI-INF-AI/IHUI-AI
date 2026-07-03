@@ -1378,7 +1378,7 @@ cleanup.add(() => {
   --accent-hover: var(--color-primary);
   --warning-color: var(--color-warning-variant);
   --question-bg: var(--color-primary);
-  --question-color: var(--el-bg-color);
+  --question-color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 
   display: flex;
   flex-direction: column;
@@ -1403,7 +1403,7 @@ html.dark .ai-assistant-page {
   --accent-hover: var(--el-text-color-primary);
   --warning-color: var(--color-warning-variant);
   --question-bg: var(--color-primary);
-  --question-color: var(--el-bg-color);
+  --question-color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
 }
 
 .page-header {
@@ -1703,7 +1703,11 @@ html.dark .ai-assistant-page {
 
 .quick-action-btn:hover {
   background: var(--accent-hover);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+}
+// 暗色模式 --accent-hover 解析为近白色, 改用深字
+html.dark .quick-action-btn:hover {
+  color: #1a1a1a;
 }
 
 .input-section {

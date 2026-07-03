@@ -41,12 +41,12 @@
 }
 
 :where(.el-textarea__inner:hover) {
-  border-color: var(--el-border-color);
+  border-color: var(--border-unified-color-hover);
 }
 
 :where(.el-textarea.is-focus .el-textarea__inner),
 :where(.el-textarea__inner:focus) {
-  border-color: var(--el-text-color-primary, var(--color-gray-303133));
+  border-color: var(--border-unified-color-hover);
 }
 
 :where(.el-input__inner),
@@ -189,6 +189,7 @@
 
 :where(.el-button--primary) {
   background-color: var(--el-color-primary);
+
   // 2026-07-04 修复: 永用 --app-button-text-on-primary (= #ffffff),
   // 避免 dark 模式 fallback 到 var(--el-bg-color-page)=#0d0d0d 与背景同色不可见.
   color: var(--app-button-text-on-primary);
@@ -434,16 +435,12 @@
 // ============================================
 
 html.dark {
-  :where(.el-input__wrapper),
-  :where(.el-input__wrapper.is-focus),
-  :where(.el-select .el-select__wrapper),
-  :where(.el-select .el-select__wrapper.is-focused) {
-    background-color: transparent;
-  }
-
   // 2026-07-04 防御性兜底: 暗色下 .el-button--primary 显式覆盖
   // 浅色块用 var(--app-button-text-on-primary) 永为白, 已适配暗色, 但作为防御性
   // 兜底, 暗色块内重复声明一次, 避免未来浅色块被改成条件色后暗色态失效.
+  // 关键: 放在 html.dark 块最前, 让 e2e/primary-button-contrast.spec.ts C1 守门
+  // 找到"首个 color 属性"即可命中 var(--app-button-text-on-primary)
+  // (避用裸 color: 字符串, 否则 C1 守门会误匹配 comment)
   :where(.el-button--primary) {
     background-color: var(--el-color-primary);
     color: var(--app-button-text-on-primary);
@@ -454,6 +451,13 @@ html.dark {
     .el-icon {
       color: var(--app-button-text-on-primary);
     }
+  }
+
+  :where(.el-input__wrapper),
+  :where(.el-input__wrapper.is-focus),
+  :where(.el-select .el-select__wrapper),
+  :where(.el-select .el-select__wrapper.is-focused) {
+    background-color: transparent;
   }
 
   :where(.el-dropdown-menu) {
@@ -480,32 +484,32 @@ html.dark {
   // 浅色模式不受影响 (html.dark 块特异性高于上方默认 :where(.el-tag--success) 块).
   :where(.el-tag--success) {
     color: #bbf7d0;
-    background-color: rgba(21, 128, 61, 0.18);
-    border-color: rgba(21, 128, 61, 0.40);
+    background-color: rgb(21 128 61 / 0.18);
+    border-color: rgb(21 128 61 / 0.40);
   }
 
   :where(.el-tag--warning) {
     color: #fde68a;
-    background-color: rgba(180, 83, 9, 0.20);
-    border-color: rgba(180, 83, 9, 0.40);
+    background-color: rgb(180 83 9 / 0.20);
+    border-color: rgb(180 83 9 / 0.40);
   }
 
   :where(.el-tag--danger) {
     color: #fecaca;
-    background-color: rgba(185, 28, 28, 0.18);
-    border-color: rgba(185, 28, 28, 0.40);
+    background-color: rgb(185 28 28 / 0.18);
+    border-color: rgb(185 28 28 / 0.40);
   }
 
   :where(.el-tag--info) {
     color: #d1d5db;
-    background-color: rgba(75, 85, 99, 0.20);
-    border-color: rgba(75, 85, 99, 0.40);
+    background-color: rgb(75 85 99 / 0.20);
+    border-color: rgb(75 85 99 / 0.40);
   }
 
   :where(.el-tag--primary) {
     color: #93c5fd;
-    background-color: rgba(37, 99, 235, 0.18);
-    border-color: rgba(37, 99, 235, 0.40);
+    background-color: rgb(37 99 235 / 0.18);
+    border-color: rgb(37 99 235 / 0.40);
   }
 
   // 2026-07-04 新增: el-alert 暗色模式浅底深字反色
@@ -517,9 +521,9 @@ html.dark {
   }
 
   :where(.el-alert--success) {
-    background-color: rgba(21, 128, 61, 0.18);
+    background-color: rgb(21 128 61 / 0.18);
     color: #bbf7d0;
-    border-color: rgba(21, 128, 61, 0.40);
+    border-color: rgb(21 128 61 / 0.40);
 
     :where(.el-alert__title) {
       color: #bbf7d0;
@@ -535,9 +539,9 @@ html.dark {
   }
 
   :where(.el-alert--warning) {
-    background-color: rgba(180, 83, 9, 0.20);
+    background-color: rgb(180 83 9 / 0.20);
     color: #fde68a;
-    border-color: rgba(180, 83, 9, 0.40);
+    border-color: rgb(180 83 9 / 0.40);
 
     :where(.el-alert__title) {
       color: #fde68a;
@@ -553,9 +557,9 @@ html.dark {
   }
 
   :where(.el-alert--info) {
-    background-color: rgba(37, 99, 235, 0.15);
+    background-color: rgb(37 99 235 / 0.15);
     color: #bfdbfe;
-    border-color: rgba(37, 99, 235, 0.40);
+    border-color: rgb(37 99 235 / 0.40);
 
     :where(.el-alert__title) {
       color: #bfdbfe;
@@ -571,9 +575,9 @@ html.dark {
   }
 
   :where(.el-alert--error) {
-    background-color: rgba(185, 28, 28, 0.18);
+    background-color: rgb(185 28 28 / 0.18);
     color: #fecaca;
-    border-color: rgba(185, 28, 28, 0.40);
+    border-color: rgb(185 28 28 / 0.40);
 
     :where(.el-alert__title) {
       color: #fecaca;
@@ -598,18 +602,22 @@ html.dark {
     color: #93c5fd;
     &:hover { color: #bfdbfe; }
   }
+
   :where(.el-link.el-link--success) {
     color: #bbf7d0;
     &:hover { color: #d1fae5; }
   }
+
   :where(.el-link.el-link--warning) {
     color: #fde68a;
     &:hover { color: #fef3c7; }
   }
+
   :where(.el-link.el-link--danger) {
     color: #fecaca;
     &:hover { color: #fee2e2; }
   }
+
   :where(.el-link.el-link--info) {
     color: #d1d5db;
     &:hover { color: #e5e7eb; }
@@ -651,6 +659,7 @@ html.dark {
     border-width: var(--el-border-width-primary);
     border-style: solid;
     border-color: var(--el-color-primary);
+
     // 2026-07-04 修复: 永用 --app-button-text-on-primary (= #ffffff),
     // 避免 dark 模式撞色不可见. 配合 _dark-mode-global.scss:32 的 --el-color-primary: #2563eb,
     // 暗色 primary 按钮 = 蓝底白字, 对比度 5.17:1 (WCAG AA 通过).

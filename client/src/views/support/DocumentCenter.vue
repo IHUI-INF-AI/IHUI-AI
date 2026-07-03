@@ -646,7 +646,7 @@ onMounted(() => {
 
     &.active {
       background: var(--el-color-primary);
-      color: var(--el-bg-color);
+      color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
     }
   }
 

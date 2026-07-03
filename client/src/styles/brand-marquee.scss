@@ -48,7 +48,6 @@ html.dark {
     backdrop-filter: var(--marquee-blur);
     -webkit-backdrop-filter: var(--marquee-blur);
     border: var(--marquee-border);
-    
     transition: all 0.3s ease;
 
     &:hover {
@@ -81,7 +80,6 @@ html.dark {
     
     // 图片元素不设置背景、边框、阴影
     background: transparent;
-    background-color: transparent;
     padding: 0;
     border: none;
     box-shadow: none;

@@ -57,7 +57,7 @@
         .agent-description-large {
           font-size: 18px;
           color: var(--el-text-color-regular);
-          margin: 0 0 20px 0;
+          margin: 0 0 20px;
           line-height: 1.6;
         }
 
@@ -102,7 +102,7 @@
           font-size: 16px;
           font-weight: 600;
           color: var(--el-text-color-primary);
-          margin: 0 0 12px 0;
+          margin: 0 0 12px;
         }
 
         .tags-list {
@@ -274,7 +274,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .agent-detail-container {
     padding: 12px;
 

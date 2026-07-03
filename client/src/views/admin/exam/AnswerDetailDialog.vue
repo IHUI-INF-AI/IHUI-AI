@@ -142,60 +142,72 @@ function onClosed() {
 .desc-wrap {
   margin-bottom: 16px;
 }
+
 .question-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+
 .question-block {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
   padding: 14px;
 }
+
 .question-header {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
 }
+
 .question-index {
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
+
 .question-title {
   flex: 1;
   font-size: 14px;
   color: var(--el-text-color-primary);
 }
+
 .answer-row {
   display: flex;
   gap: 8px;
   font-size: 13px;
   margin-bottom: 8px;
 }
+
 .answer-row .label {
   width: 70px;
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
 }
+
 .answer-row .value {
   color: var(--el-text-color-primary);
 }
+
 .answer-row .right {
   color: var(--el-color-success);
 }
+
 .mark-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
 }
+
 .mark-row .label {
   width: 70px;
   font-size: 13px;
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
 }
+
 .max-score {
   font-size: 13px;
   color: var(--el-text-color-secondary);

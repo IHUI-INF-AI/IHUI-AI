@@ -48,7 +48,9 @@ const handleClearFilters = () => {
   --aes-btn-bg: var(--el-text-color-primary);
   --aes-btn-bg-hover: var(--color-dark-bg-3);
   --aes-btn-bg-active: var(--color-gray-333);
-  --aes-btn-color: var(--el-bg-color);
+
+  // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色 token 定义
+  --aes-btn-color: var(--app-button-text-on-primary);
   --aes-btn-border: none;
 
   display: flex;

@@ -67,7 +67,7 @@ import { Grid, HomeFilled } from '@element-plus/icons-vue'
   &.active {
     background: var(--el-color-primary);
     border: var(--el-border-width-primary) solid var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
   }
 
   .el-icon {

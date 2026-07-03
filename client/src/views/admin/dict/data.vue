@@ -161,6 +161,7 @@ onMounted(async () => {
   flex-direction: column;
   height: 100%;
 }
+
 .data-header {
   display: flex;
   align-items: center;
@@ -169,10 +170,12 @@ onMounted(async () => {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--el-border-color);
 }
+
 .data-header__label {
   color: var(--el-text-color-regular);
   font-size: 14px;
 }
+
 .data-header__select {
   width: 280px;
 }

@@ -405,7 +405,9 @@
         "courseCategoryManagement": "课程分类",
         "distributionManagement": "分销管理",
         "tourPermissionsAdmin": "权限巡检",
-        "utilsAdmin": "工具管理"
+        "utilsAdmin": "工具管理",
+        "migration": "数据迁移",
+        "notification": "通知中心"
       }
     },
     "backendHealth": {
@@ -442,6 +444,13 @@
       "tableCount": "总表数量",
       "recordCount": "总记录数",
       "dbSize": "数据库大小"
-    }
+    },
+    "batchEdit": "批量编辑",
+    "batchSave": "批量保存",
+    "retryFailed": "重试失败项",
+    "updating": "正在更新",
+    "failed": "失败",
+    "items": "条",
+    "canRetryHint": "可点击\"重试失败项\"重新更新"
   }
 }

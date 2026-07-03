@@ -964,7 +964,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     }
     
     &.active {
-      border-color: var(--el-color-primary-light-3);
+      border-color: var(--border-unified-color-hover);
       
       .quadrant-body {
         max-height: 2000px;
@@ -996,7 +996,7 @@ $transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
     .featured-badge {
       font-size: 12px;
       font-weight: 700;
-      color: var(--el-bg-color-page);
+      color: var(--el-text-color-primary); /* 规则C: light-3 浅底用主题感知文字色 (原 var(--el-bg-color-page) 白字在浅蓝底对比度不足) */
       background: var(--el-color-primary-light-3);
       padding: 2px 8px;
       border-radius: var(--global-border-radius);

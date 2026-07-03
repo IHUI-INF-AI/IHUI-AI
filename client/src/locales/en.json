@@ -4282,7 +4282,7 @@
   },
   "aiChatInput": {
     "Open Chat": "Open AI Chat",
-    "selectModel": "Select Model",
+    "selectModel": "Select model",
     "Search Models": "Search models...",
     "ExportFailed": "Export Failed",
     "VoiceInput": "Voice Input",
@@ -4297,7 +4297,6 @@
     "openChat": "Expand AI Chat",
     "voiceInput": "Voice Input",
     "voiceStarted": "Voice已开始",
-    "selectModel": "Select model",
     "selectAgent": "Select agent",
     "selectMode": "Select mode",
     "modelLabel": "Model",
@@ -18213,5 +18212,8 @@
   },
   "listTemplate": {
     "loading": "Loading..."
+  },
+  "aiProviders": {
+    "freellmapi": "FreeLLMAPI Free LLM Aggregator"
   }
 }

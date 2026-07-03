@@ -144,7 +144,7 @@ onMounted(() => {
   gap: 12px;
 
   .trigger-btn {
-    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+    box-shadow: 0 4px 12px rgb(64 158 255 / 0.4);
   }
 
   .quick-menu {
@@ -154,7 +154,7 @@ onMounted(() => {
     background: var(--el-bg-color);
     border: 1px solid var(--el-border-color-lighter);
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
     padding: 16px;
 
     .menu-header {
@@ -186,7 +186,7 @@ onMounted(() => {
         display: flex;
         width: 100%;
         justify-content: flex-start;
-        padding: 8px 8px;
+        padding: 8px;
         margin-bottom: 2px;
         border-radius: 6px;
 
@@ -214,6 +214,7 @@ onMounted(() => {
 .admin-menu-fade-leave-active {
   transition: opacity 0.2s, transform 0.2s;
 }
+
 .admin-menu-fade-enter-from,
 .admin-menu-fade-leave-to {
   opacity: 0;

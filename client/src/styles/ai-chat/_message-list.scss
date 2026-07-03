@@ -103,7 +103,7 @@
     height: 36px;
     border-radius: var(--global-border-radius);
     background: var(--el-color-primary);
-    color: var(--el-bg-color-page);
+    color: var(--app-button-text-on-primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -235,7 +235,7 @@
     }
 
     .assistant-avatar-fallback {
-      color: currentColor;
+      color: currentcolor;
     }
   }
 
@@ -271,7 +271,7 @@
         p {
           font-size: 14px;
           line-height: 1.6;
-          margin: 0 0 8px 0;
+          margin: 0 0 8px;
         }
 
         // 最后一处段落/块不留底 margin，避免与 .message-status 之间多出间距

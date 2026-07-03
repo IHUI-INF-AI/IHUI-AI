@@ -60,9 +60,14 @@
 }
 
 .agreement-confirm-links .agreement-link-item:hover {
-  color: var(--el-bg-color);
-  background-color: var(--el-text-color-primary);
+  color: #ffffff;
+  background-color: #1a1a1a;
   text-decoration: none;
+}
+
+html.dark .agreement-confirm-links .agreement-link-item:hover {
+  color: #1a1a1a;
+  background-color: #ffffff;
 }
 
 .agreement-confirm-links .agreement-link-item:active {
@@ -135,14 +140,14 @@
 .agreement-confirm-footer .agreement-agree-button {
   background-color: var(--el-color-primary);
   border: var(--unified-border);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-weight: 600;
 }
 
 .agreement-confirm-footer .agreement-agree-button :deep(.el-button__inner) {
   background-color: var(--el-color-primary);
   border: none;
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
   font-weight: 600;
   border-radius: var(--global-border-radius);
   transition: all 0.2s ease;
@@ -150,7 +155,7 @@
 
 .agreement-confirm-footer .agreement-agree-button :deep(.el-button__text),
 .agreement-confirm-footer .agreement-agree-button :deep(span) {
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
 }
 
 .agreement-confirm-footer .agreement-agree-button:hover {
@@ -160,7 +165,7 @@
 
 .agreement-confirm-footer .agreement-agree-button:hover :deep(.el-button__inner) {
   background-color: var(--el-color-primary-dark-2);
-  color: var(--el-bg-color);
+  color: var(--app-button-text-on-primary);
 }
 
 .agreement-confirm-footer .agreement-agree-button:active {

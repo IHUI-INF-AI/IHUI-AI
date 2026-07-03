@@ -11,6 +11,7 @@
     "publish": "Publish",
     "noPosts": "No posts",
     "top": "Pinned",
-    "essence": "Featured"
+    "essence": "Featured",
+    "postPlaceholder": "Say something..."
   }
 }

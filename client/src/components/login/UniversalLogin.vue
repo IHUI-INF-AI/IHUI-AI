@@ -141,7 +141,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, type FormInstance } from 'element-plus'
 import { Close } from '@element-plus/icons-vue'
 import { DocumentChecked } from '@/lib/lucide-fallback'
 import LoginBrandUniversal from './LoginBrandUniversal.vue'
@@ -215,9 +215,9 @@ const agreementText = ref('')
 const pendingAction = ref<(() => void) | null>(null)
 
 // 表单实例引用
-const accountLoginFormRef = ref<any>(null)
-const phoneLoginFormRef = ref<any>(null)
-const registerFormRef = ref<any>(null)
+const accountLoginFormRef = ref<FormInstance | null>(null)
+const phoneLoginFormRef = ref<FormInstance | null>(null)
+const registerFormRef = ref<FormInstance | null>(null)
 
 // ------------------------------------------------------------------
 // Computed
@@ -562,7 +562,7 @@ defineExpose({ reset })
   background: transparent;
   color: var(--el-text-color-secondary);
   cursor: pointer;
-  border-radius: var(--global-border-radius, 8px);
+  border-radius: var(--global-border-radius);
   transition: color 0.2s ease, background-color 0.2s ease;
   z-index: 10;
 
@@ -578,11 +578,45 @@ defineExpose({ reset })
   gap: 16px;
 }
 
+// ============ 输入框: 去除 Element Plus 默认蓝色发光 box-shadow ============
+// 硬约束: 输入框禁止蓝色发光边框, 使用边框色过渡替代
+// (hover: 浅色 #a0c4ff / 暗色 #60a5fa; focus: 浅色 #3b82f6 / 暗色 #93c5fd)
+// EP 默认 .is-focus 用 box-shadow 0 0 0 1px primary inset + 0 0 0 3px 发光,
+// 这里覆盖为单层 1px 主题色 inset, 去外发光, 用颜色过渡.
+// 覆盖所有子表单 (AccountLoginForm/PhoneLoginForm/RegisterForm) 的 el-input.
+.universal-login :deep(.el-input__wrapper) {
+  border-radius: var(--global-border-radius);
+  box-shadow: 0 0 0 1px lt.$login-input-border inset;
+  transition: box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0 0 0 1px lt.$login-input-border-hover inset;
+  }
+
+  &.is-focus {
+    box-shadow: 0 0 0 1px lt.$login-input-border-focus inset;
+  }
+}
+
+// 暗色模式输入框 (用 html.dark 非 :where, 确保特异性覆盖 EP 默认)
+html.dark .universal-login :deep(.el-input__wrapper) {
+  box-shadow: 0 0 0 1px lt.$login-dark-input-border inset;
+
+  &:hover {
+    box-shadow: 0 0 0 1px lt.$login-dark-input-border-hover inset;
+  }
+
+  &.is-focus {
+    box-shadow: 0 0 0 1px lt.$login-dark-input-border-focus inset;
+  }
+}
+
 .submit-btn {
   width: 100%;
   height: lt.$login-btn-height;
   margin-top: 8px;
-  border-radius: lt.$login-btn-radius;
+  // 2026-07-04 修复: 圆角改用全站统一 token (硬约束 8px), 不再引用 lt.$login-btn-radius
+  border-radius: var(--global-border-radius);
   font-size: lt.$login-btn-font-size;
   font-weight: lt.$login-btn-font-weight;
   letter-spacing: lt.$login-btn-letter-spacing;
@@ -611,28 +645,27 @@ html.dark .universal-login {
   }
 
   .submit-btn {
-    // 2026-07-04 修复: 暗色模式完全反相 — 白底 + 深蓝字.
-    // 浅色模式 = 蓝底(#2563eb) + 白字(#fff); 暗色模式 = 白底(#fff) + 深蓝字(#2563eb),
-    // 两者正好相反, 按钮在暗色页面(#0d0d0d)上形成高亮"反相" CTA.
-    // 对比度: #2563eb on #fff = 5.44:1 (WCAG AA 4.5 通过).
-    // 旧方案 (07-03 蓝底+深色字#1a1a1a) 已废弃 — 非反相, 与浅色模式同向.
-    color: lt.$login-primary;           // #2563eb 深蓝字
-    background-color: #ffffff;          // 纯白底
-    border-color: #ffffff;
+    // 2026-07-04 v2 反相设计: 暗色模式 = 白底#ffffff + 深蓝字#2563eb (与浅色模式蓝底白字完全反相)
+    // 旧设计 (07-03 蓝底#3b82f6 + 深字#1a1a1a, 非反相) 已废弃.
+    // 对比度: #2563eb on #ffffff = 5.44:1 (WCAG AA 4.5 通过).
+    // 守门: e2e/sidebar-dark-color-tier.spec.ts H1-H5 + scripts/check-sidebar-dark-tier.mjs.
+    color: lt.$login-primary;              // #2563eb 深蓝字 (反相)
+    background-color: #ffffff;             // 白底 (反相)
+    border-color: #ffffff;                 // 白边 (与底色一致, 避免边框撞色)
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
     &:hover:not(.is-disabled) {
-      color: lt.$login-primary-hover;    // #1d4ed8 更深蓝
-      background-color: #f5f5f5;
-      border-color: #f5f5f5;
+      color: lt.$login-primary-hover;      // #1d4ed8 更深蓝, hover 反馈更强
+      background-color: #ffffff;           // 白底保持
+      border-color: #ffffff;
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     }
 
     &:active:not(.is-disabled) {
-      color: lt.$login-primary-active;  // #1e40af
-      background-color: #e5e7eb;
-      border-color: #e5e7eb;
+      color: lt.$login-primary-active;     // #1e40af 最深蓝, active 反馈最强
+      background-color: #ffffff;
+      border-color: #ffffff;
       transform: translateY(0);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     }

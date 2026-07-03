@@ -43,6 +43,11 @@
     "tools": "工具",
     "promptTemplatesDesc": "选择提示词模板",
     "aiToolboxDesc": "AI 工具箱",
-    "back": "返回"
+    "back": "返回",
+    "noModels": "생각사용 가능한 모델이 없습니다",
+    "selectAgent": "에이전트 선택",
+    "selectMode": "모드 선택",
+    "modelLabel": "모델",
+    "agentLabel": "에이전트"
   }
 }

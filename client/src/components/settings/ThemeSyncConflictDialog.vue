@@ -180,7 +180,7 @@ function handleConfirm(): void {
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: var(--el-color-primary-light-5);
+    border-color: var(--border-unified-color-hover);
     background: var(--el-fill-color-lighter);
   }
 

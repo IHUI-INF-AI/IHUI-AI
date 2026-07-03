@@ -5,35 +5,35 @@
 
 // 基色变量补全（_global-tokens.scss 未定义 black/white/ccc，此处自包含定义，避免 var() 失效）
 :root {
-  --color-black: #000000;
-  --color-white: #ffffff;
-  --color-gray-ccc: #cccccc;
+  --color-black: #000;
+  --color-white: #fff;
+  --color-gray-ccc: #ccc;
 }
 
 // 高对比度亮色模式
 html.high-contrast-light {
-  --el-bg-color: #ffffff;
-  --el-bg-color-page: #ffffff;
-  --el-bg-color-overlay: #ffffff;
-  --el-text-color-primary: #000000;
-  --el-text-color-regular: #000000;
-  --el-text-color-secondary: #333333;
-  --el-text-color-placeholder: #000000;
-  --el-text-color-disabled: #555555;
-  --el-border-color: #000000;
-  --el-border-color-light: #000000;
-  --el-border-color-lighter: #333333;
-  --el-border-color-extra-light: #555555;
-  --el-border-color-dark: #000000;
-  --el-border-color-darker: #000000;
+  --el-bg-color: #fff;
+  --el-bg-color-page: #fff;
+  --el-bg-color-overlay: #fff;
+  --el-text-color-primary: #000;
+  --el-text-color-regular: #000;
+  --el-text-color-secondary: #333;
+  --el-text-color-placeholder: #000;
+  --el-text-color-disabled: #555;
+  --el-border-color: #000;
+  --el-border-color-light: #000;
+  --el-border-color-lighter: #333;
+  --el-border-color-extra-light: #555;
+  --el-border-color-dark: #000;
+  --el-border-color-darker: #000;
   --el-fill-color: #f0f0f0;
   --el-fill-color-light: #e0e0e0;
   --el-fill-color-lighter: #fafafa;
-  --el-fill-color-extra-light: #555555;
-  --el-fill-color-dark: #555555;
-  --el-fill-color-darker: #000000;
-  --el-fill-color-blank: #ffffff;
-  --el-color-primary: #000000;
+  --el-fill-color-extra-light: #555;
+  --el-fill-color-dark: #555;
+  --el-fill-color-darker: #000;
+  --el-fill-color-blank: #fff;
+  --el-color-primary: #000;
   --el-color-primary-light-3: var(--color-black);
   --el-color-primary-light-5: var(--color-black);
   --el-color-primary-light-7: var(--color-black);
@@ -41,25 +41,25 @@ html.high-contrast-light {
   --el-color-primary-light-9: var(--color-black);
   --el-color-primary-dark-2: var(--color-black);
   --el-border-width-primary: 2px;
-  --el-color-success: #000000;
-  --el-color-warning: #000000;
-  --el-color-danger: #000000;
-  --el-color-info: #000000;
-  --el-mask-color: rgba(0, 0, 0, 0.6);
+  --el-color-success: #000;
+  --el-color-warning: #000;
+  --el-color-danger: #000;
+  --el-color-info: #000;
+  --el-mask-color: rgb(0 0 0 / 0.6);
   --el-box-shadow: 0 0 0 1px var(--color-black);
   --el-box-shadow-light: 0 0 0 1px var(--color-black);
   --el-box-shadow-lighter: 0 0 0 1px var(--color-gray-333);
   --el-box-shadow-dark: 0 0 0 2px var(--color-black);
   
   // 全局变量
-  --global-text-primary: #000000;
-  --global-text-secondary: #333333;
-  --global-text-muted: #000000;
-  --global-bg-primary: #ffffff;
+  --global-text-primary: #000;
+  --global-text-secondary: #333;
+  --global-text-muted: #000;
+  --global-bg-primary: #fff;
   --global-bg-secondary: #f0f0f0;
   --global-bg-tertiary: #e0e0e0;
-  --global-border-color: #000000;
-  --global-border-light: #000000;
+  --global-border-color: #000;
+  --global-border-light: #000;
   --global-shadow: 0 0 0 1px var(--color-black);
   
   // 强制边框
@@ -89,28 +89,28 @@ html.high-contrast-light {
 
 // 高对比度暗色模式
 html.high-contrast-dark {
-  --el-bg-color: #000000;
-  --el-bg-color-page: #000000;
-  --el-bg-color-overlay: #000000;
-  --el-text-color-primary: #ffffff;
-  --el-text-color-regular: #ffffff;
-  --el-text-color-secondary: #cccccc;
-  --el-text-color-placeholder: #cccccc;
-  --el-text-color-disabled: #888888;
-  --el-border-color: #ffffff;
-  --el-border-color-light: #ffffff;
-  --el-border-color-lighter: #cccccc;
-  --el-border-color-extra-light: #888888;
-  --el-border-color-dark: #ffffff;
-  --el-border-color-darker: #ffffff;
-  --el-fill-color: #222222;
+  --el-bg-color: #000;
+  --el-bg-color-page: #000;
+  --el-bg-color-overlay: #000;
+  --el-text-color-primary: #fff;
+  --el-text-color-regular: #fff;
+  --el-text-color-secondary: #ccc;
+  --el-text-color-placeholder: #ccc;
+  --el-text-color-disabled: #888;
+  --el-border-color: #fff;
+  --el-border-color-light: #fff;
+  --el-border-color-lighter: #ccc;
+  --el-border-color-extra-light: #888;
+  --el-border-color-dark: #fff;
+  --el-border-color-darker: #fff;
+  --el-fill-color: #222;
   --el-fill-color-light: #2a2a2a;
   --el-fill-color-lighter: #3a3a3a;
-  --el-fill-color-extra-light: #ffffff;
-  --el-fill-color-dark: #ffffff;
-  --el-fill-color-darker: #ffffff;
-  --el-fill-color-blank: #ffffff;
-  --el-color-primary: #ffffff;
+  --el-fill-color-extra-light: #fff;
+  --el-fill-color-dark: #fff;
+  --el-fill-color-darker: #fff;
+  --el-fill-color-blank: #fff;
+  --el-color-primary: #fff;
   --el-color-primary-light-3: var(--color-white);
   --el-color-primary-light-5: var(--color-white);
   --el-color-primary-light-7: var(--color-white);
@@ -118,25 +118,25 @@ html.high-contrast-dark {
   --el-color-primary-light-9: var(--color-white);
   --el-color-primary-dark-2: var(--color-white);
   --el-border-width-primary: 2px;
-  --el-color-success: #ffffff;
-  --el-color-warning: #ffffff;
-  --el-color-danger: #ffffff;
-  --el-color-info: #ffffff;
-  --el-mask-color: rgba(255, 255, 255, 0.6);
+  --el-color-success: #fff;
+  --el-color-warning: #fff;
+  --el-color-danger: #fff;
+  --el-color-info: #fff;
+  --el-mask-color: rgb(255 255 255 / 0.6);
   --el-box-shadow: 0 0 0 1px var(--color-black);
   --el-box-shadow-light: 0 0 0 1px var(--color-gray-ccc);
   --el-box-shadow-lighter: 0 0 0 1px var(--color-gray-ccc);
   --el-box-shadow-dark: 0 0 0 2px var(--color-black);
   
   // 全局变量
-  --global-text-primary: #000000;
-  --global-text-secondary: #cccccc;
-  --global-text-muted: #cccccc;
-  --global-bg-primary: #ffffff;
-  --global-bg-secondary: #222222;
+  --global-text-primary: #000;
+  --global-text-secondary: #ccc;
+  --global-text-muted: #ccc;
+  --global-bg-primary: #fff;
+  --global-bg-secondary: #222;
   --global-bg-tertiary: #2a2a2a;
-  --global-border-color: #000000;
-  --global-border-light: #cccccc;
+  --global-border-color: #000;
+  --global-border-light: #ccc;
   --global-shadow: 0 0 0 1px var(--color-black);
   
   // 强制边框

@@ -157,7 +157,9 @@ const percentage = computed(() => {
   .progress-inner-text {
     position: relative;
     z-index: var(--z-base);
-    color: var(--el-bg-color);
+
+    // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色导致浅色背景下不可见
+    color: var(--app-button-text-on-primary);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;

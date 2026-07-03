@@ -917,7 +917,7 @@ onMounted(async () => {
   /* WCAG AA: 4.5:1 contrast. 使用项目主文字色 (#303133) 作为背景, 白字, 对比度 ≈ 12:1 远超 AA */
   background: var(--el-text-color-primary);
   color: var(--el-color-white);
-  border-color: var(--el-text-color-primary);
+  border-color: transparent;
 }
 
 .i18n-num {
@@ -1040,9 +1040,21 @@ onMounted(async () => {
 }
 
 .i18n-btn.primary {
-  background: var(--el-text-color-primary);
-  color: var(--el-bg-color);
-  border-color: var(--el-text-color-primary);
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background: #1a1a1a;
+  color: #fff; // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
+  /* stylelint-enable color-no-hex */
+
+  border-color: transparent;
+
+  html.dark & {
+    /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+    background: #fff;
+    color: #1a1a1a;
+    /* stylelint-enable color-no-hex */
+
+    border-color: transparent;
+  }
 }
 
 .i18n-btn:disabled {

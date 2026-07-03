@@ -213,7 +213,7 @@ onMounted(() => {
   font-size: 22px;
   font-weight: 600;
   color: var(--el-text-color-primary);
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
 }
 
 .page-desc {
@@ -359,7 +359,7 @@ onMounted(() => {
 }
 
 .notes-list {
-  margin: 8px 0 0 0;
+  margin: 8px 0 0;
   padding-left: 20px;
   font-size: 12px;
   color: var(--el-text-color-regular);

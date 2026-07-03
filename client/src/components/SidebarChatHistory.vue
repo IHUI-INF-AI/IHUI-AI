@@ -281,8 +281,13 @@ watch(
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+
   /* 与 nav-item 左右对齐: 视觉上与下方 nav 列表共用一套水平边距 */
-  margin: 0 var(--nav-item-margin-x, 4px) 8px;
+
+  /* 2026-07-04: 底部 margin 由 Sidebar.vue 中 .sidebar-chat-history + .nav-group .nav-group-label
+   * 选择器单独控制 (margin-top: 2px) — 这里的 0 不会被 nav-group-label 10px 合并覆盖,
+   * 跟上面 .nav-new-chat margin-bottom: 2px 对称 */
+  margin: 0 var(--nav-item-margin-x, 4px);
   padding: 0;
   background-color: var(--el-fill-color-blank);
   border: 1px solid var(--el-border-color-lighter);
@@ -346,8 +351,11 @@ watch(
   min-height: 24px;
   padding: 0 8px;
   margin: 8px 0 0;             /* 与上方 list/empty 留 8px 间距 */
-  background-color: #000000;
-  color: #ffffff;
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background-color: #000;
+  color: #fff;
+  /* stylelint-enable color-no-hex */
+
   border: none;
   border-radius: 4px;
   font-size: 12px;
@@ -360,14 +368,18 @@ watch(
 
 .chat-history-new-btn:hover,
 .el-button.el-button--primary.chat-history-new-btn:hover {
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
   background-color: #262626;
-  color: #ffffff;
+  color: #fff;
+  /* stylelint-enable color-no-hex */
 }
 
 .chat-history-new-btn:active,
 .el-button.el-button--primary.chat-history-new-btn:active {
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
   background-color: #404040;
-  color: #ffffff;
+  color: #fff;
+  /* stylelint-enable color-no-hex */
 }
 
 .new-btn-icon {
@@ -385,7 +397,9 @@ watch(
   display: inline-block;
   font-size: 12px;
   line-height: 1;
-  color: #ffffff;
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  color: #fff;
+  /* stylelint-enable color-no-hex */
 }
 
 /* ── 列表区 ── */
@@ -395,6 +409,7 @@ watch(
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
   /* 2026-07-03 修复: fallback 从 #ffffff 改为 transparent.
    * 原值在 dark 模式下因 --chat-history-body-bg 未定义而 fallback 到 #ffffff,
    * 导致对话历史容器在暗色模式下显示为刺眼的白色 (用户反馈).
@@ -444,7 +459,10 @@ watch(
 .chat-history-list {
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+
+  /* padding-bottom 8px 与 title-row 的 padding-bottom 8px 对齐,
+   * 让 ul 上下视觉留白对称. 顶部 4px 是为了让 li 跟左边 nav-item 视觉节奏一致. */
+  padding: 4px 0 8px;
   overflow-y: auto;
   max-height: 220px;
   flex: 1;
@@ -459,6 +477,7 @@ watch(
  * 让父容器(.chat-history-list)的白底从两侧漏出, 视觉上像"悬浮胶囊" */
 .chat-history-item {
   position: relative;
+
   /* 创建独立层叠上下文, 让 ::before 的负 z-index 不会"逃出"父容器
      (避免伪元素跑到 li 背后的 body 背景上, 同时保证子元素(包含 el-tooltip 包装)
      自然在伪元素之上) */
@@ -478,10 +497,8 @@ watch(
   &::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 8px;
-    right: 8px;
-    bottom: 0;
+    inset: 0 8px;
+
     /* 圆角与父级 item 一致, hover/active 时胶囊形状连续不割裂 */
     border-radius: var(--global-border-radius, 6px);
     background-color: transparent;
@@ -512,7 +529,8 @@ watch(
   /* 注意：--el-color-primary-light-9 在 light 下被 element-plus-vars.scss:188 覆盖为 #f5f7fa（浅灰），
      不再用 fallback 的蓝色。这里直接写死蓝色 tinted 背景 */
   &::before {
-    background-color: rgba(37, 99, 235, 0.08);
+    background-color: rgb(37 99 235 / 0.08);
+
     /* 激活态左侧加 2px 蓝色高亮条, 强化"已选中"语义
      * 2026-07-02 修复: 改用 --color-cta-blue 桥接 token, 严禁硬编码 #2563eb */
     box-shadow: inset 2px 0 0 0 var(--color-cta-blue);
@@ -572,16 +590,20 @@ watch(
   line-height: 14px;
   font-size: 9px;
   font-weight: 500;
+  /* stylelint-disable color-no-hex -- 蓝色 demo 徽章 fallback 颜色，对应 var(--el-color-primary-light-5) */
   color: var(--el-color-primary-light-5, #93c5fd);
-  background-color: var(--el-color-primary-light-9, rgba(37, 99, 235, 0.1));
+  /* stylelint-enable color-no-hex */
+  background-color: var(--el-color-primary-light-9, rgb(37 99 235 / 0.1));
   border-radius: 3px;
   vertical-align: middle;
   user-select: none;
 }
 
 html.dark .item-demo-badge {
+  /* stylelint-disable color-no-hex -- 蓝色 demo 徽章 dark 模式主色 */
   color: #93c5fd;
-  background-color: rgba(96, 165, 250, 0.15);
+  /* stylelint-enable color-no-hex */
+  background-color: rgb(96 165 250 / 0.15);
 }
 
 .item-delete-btn {
@@ -605,9 +627,10 @@ html.dark .item-demo-badge {
 }
 
 .item-delete-btn:hover {
-  background-color: var(--el-color-danger-light-5, rgba(239, 68, 68, 0.1));
+  background-color: var(--el-color-danger-light-5, rgb(239 68 68 / 0.1));
+  /* stylelint-disable color-no-hex -- 红色 danger 色 fallback */
   color: var(--el-color-danger, #ef4444);
-  opacity: 1;
+  /* stylelint-enable color-no-hex */
 }
 
 .item-delete-btn .el-icon {
@@ -629,7 +652,9 @@ html.dark .item-demo-badge {
  * 形成"卡片浮起"层次, 与 light 模式 (容器 #ffffff vs sidebar #f5f5f5, 差 10 单位) 对称.
  * #42454f 不在 AGENTS.md 红线硬编码禁止列表, 可直接写. */
 html.dark .sidebar-chat-history {
+  /* stylelint-disable color-no-hex -- 暗色容器背景 #42454f，sidebar 卡片浮起层次 */
   background-color: #42454f;
+  /* stylelint-enable color-no-hex */
 }
 
 :where(html.dark) .chat-history-title-row {
@@ -646,25 +671,34 @@ html.dark .sidebar-chat-history {
  * 同时显式 color: #000000 防止 Element Plus .el-button--primary 覆盖 */
 html.dark .chat-history-new-btn,
 html.dark .el-button.el-button--primary.chat-history-new-btn {
-  background-color: #ffffff;
-  color: #000000;
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  background-color: #fff;
+  color: #000;
+  /* stylelint-enable color-no-hex */
+
 }
 
 html.dark .chat-history-new-btn:hover,
 html.dark .el-button.el-button--primary.chat-history-new-btn:hover {
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
   background-color: #f5f5f5;
-  color: #000000;
+  color: #000;
+  /* stylelint-enable color-no-hex */
 }
 
 html.dark .chat-history-new-btn:active,
 html.dark .el-button.el-button--primary.chat-history-new-btn:active {
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
   background-color: #e5e5e5;
-  color: #000000;
+  color: #000;
+  /* stylelint-enable color-no-hex */
 }
 
 html.dark .new-btn-text,
 html.dark .el-button > .new-btn-text {
-  color: #000000;
+  /* stylelint-disable color-no-hex -- 反相配对 (背景/文字互为黑白), 无对应 token */
+  color: #000;
+  /* stylelint-enable color-no-hex */
 }
 
 /* 列表区 dark mode 适配 -- 同样原理：--el-text-color-regular / --el-text-color-placeholder
@@ -697,17 +731,24 @@ html.dark .chat-history-item.is-active {
 }
 
 :where(html.dark) .chat-history-item.is-active::before {
+  /* stylelint-disable color-no-hex -- 暗色激活项高亮色，fallback #2d2d2d 暗灰 */
   background-color: var(--color-dark-bg-6, #2d2d2d);
+
   /* dark 模式下用亮蓝高亮条 + 微弱发光感, 避免在深色上消失 */
   box-shadow: inset 2px 0 0 0 #60a5fa;
+  /* stylelint-enable color-no-hex */
 }
 
 :where(html.dark) .chat-history-item.is-active .item-title {
+  /* stylelint-disable color-no-hex -- 暗色激活项标题高亮色 #60a5fa */
   color: #60a5fa;
+  /* stylelint-enable color-no-hex */
 }
 
 :where(html.dark) .item-delete-btn:hover {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: rgb(239 68 68 / 0.15);
+  /* stylelint-disable color-no-hex -- 暗色模式下 danger hover 文字色 #fca5a5 */
   color: #fca5a5;
+  /* stylelint-enable color-no-hex */
 }
 </style>

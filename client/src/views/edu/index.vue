@@ -104,20 +104,25 @@ const isAdmin = computed(() => {
 .edu-home {
   min-height: calc(100vh - 64px);
 }
+
 .edu-sidebar {
   background: var(--el-text-color-primary);
 }
+
 .edu-menu {
   border-right: 0;
   height: 100%;
 }
+
 .edu-main {
   padding: 24px;
   background: var(--el-bg-color-page);
 }
+
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }

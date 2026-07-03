@@ -1298,7 +1298,7 @@ import { useI18n } from 'vue-i18n';
   }
   
   .unified-select-wrapper:hover {
-    border-color: var(--el-border-color);
+    border-color: var(--border-unified-color-hover);
     background: var(--el-fill-color-lighter);
   }
   
@@ -1313,7 +1313,7 @@ import { useI18n } from 'vue-i18n';
   }
   
   .unified-select-wrapper.template-btn:hover {
-    border-color: var(--el-border-color);
+    border-color: var(--border-unified-color-hover);
     background: var(--el-fill-color-lighter);
   }
   

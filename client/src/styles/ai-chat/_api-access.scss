@@ -37,6 +37,7 @@
         display: grid;
         grid-template-columns: 1fr;
         gap: 16px;
+
         /* 三个区块各占一行：API Key 一行、Base URL 一行、模型 ID 一行 */
       }
     }
@@ -213,7 +214,7 @@
         grid-template-columns: repeat(6, 1fr);
         gap: 8px;
 
-        @media (max-width: 768px) {
+        @media (width <= 768px) {
           grid-template-columns: repeat(3, 1fr);
         }
 
@@ -308,7 +309,7 @@
     }
 
     .api-notes {
-      background: rgba(var(--el-color-warning-rgb), 0.1);
+      background: rgb(var(--el-color-warning-rgb), 0.1);
     }
 
     .lang-badge {

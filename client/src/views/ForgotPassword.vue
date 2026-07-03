@@ -671,9 +671,9 @@ $transition-slow: 0.5s;
   
   &:hover {
     background: var(--color-white-10);
-    border-color: $accent-cyan;
+    border-color: var(--border-unified-color-hover);
     box-shadow: var(--global-box-shadow);
-    
+
     .el-icon {
       transform: translateX(-2px);
     }
@@ -929,7 +929,7 @@ $transition-slow: 0.5s;
   
   &:focus-within {
     .fp-input-border {
-      border-color: $accent-cyan;
+      border-color: var(--border-unified-color-hover);
       box-shadow: var(--global-box-shadow);
     }
   }
@@ -1002,7 +1002,7 @@ $transition-slow: 0.5s;
   
   &:hover:not(:disabled) {
     background: var(--color-cyan-00f0ff-20);
-    border-color: $accent-cyan;
+    border-color: var(--border-unified-color-hover);
     box-shadow: var(--global-box-shadow);
   }
   

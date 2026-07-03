@@ -146,6 +146,7 @@ onMounted(reload)
 .filter-select {
   width: 130px;
 }
+
 .filter-date {
   width: 260px;
 }
