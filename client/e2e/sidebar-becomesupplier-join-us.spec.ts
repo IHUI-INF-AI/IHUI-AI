@@ -53,10 +53,31 @@ const ROUTES_FILES = LOCALES.map(loc => join(ROOT, `src/locales/modules/${loc}/r
 const ABOUT_US_FILES = LOCALES.map(loc => join(ROOT, `src/locales/modules/${loc}/aboutUs.json`))
 const CORE_FILES = LOCALES.map(loc => join(ROOT, `src/locales/modules/${loc}/core.json`))
 
+// 顶层 i18n 文件 (legacy 兼容): navigation 段 + routes 段
+// en-US 无顶层文件, 仅 zh-CN/zh-TW/en/ja/ko 5 个
+const TOP_LEVEL_FILES: Record<Exclude<typeof LOCALES[number], 'en-US'>, string> = {
+  'zh-CN': join(ROOT, 'src/locales/zh-CN.json'),
+  en: join(ROOT, 'src/locales/en.json'),
+  'zh-TW': join(ROOT, 'src/locales/zh-TW.json'),
+  ja: join(ROOT, 'src/locales/ja.json'),
+  ko: join(ROOT, 'src/locales/ko.json'),
+}
+
+// full/*/about.json quickNav.becomeSupplier (5 语言, full/ 是合并后的 full-set)
+const FULL_ABOUT_FILES: Record<Exclude<typeof LOCALES[number], 'en-US'>, string> = {
+  'zh-CN': join(ROOT, 'src/locales/full/zh-CN/about.json'),
+  en: join(ROOT, 'src/locales/full/en/about.json'),
+  'zh-TW': join(ROOT, 'src/locales/full/zh-TW/about.json'),
+  ja: join(ROOT, 'src/locales/full/ja/about.json'),
+  ko: join(ROOT, 'src/locales/full/ko/about.json'),
+}
+
 const SIDEBAR_VUE = join(ROOT, 'src/components/Sidebar.vue')
 const HEADER_NAV_VUE = join(ROOT, 'src/components/header/HeaderNavigation.vue')
 const USE_SIDEBAR_TS = join(ROOT, 'src/composables/useSidebar.ts')
 const USE_SIDEBAR_TEST = join(ROOT, 'src/composables/__tests__/useSidebar.test.ts')
+const COMMUNITY_ROUTER = join(ROOT, 'src/router/modules/community.ts')
+const BECOME_SUPPLIER_VUE = join(ROOT, 'src/views/about/BecomeSupplier.vue')
 const README = join(ROOT, '../README.md')
 
 // 工具: 从 JSON 字符串中提取 `key: "value"` 形式 (顶层 + quickNav 嵌套)
@@ -254,5 +275,96 @@ test.describe('侧边栏 nav span 文字"加入我们"防回归 (6 语言 × 4 �
         `${file} 不应再含"成为供应商"族旧值 (mobile menu/document.title 仍残留?)`,
       ).not.toMatch(/成为供应商|成為供應商|サプライヤーになる|공급업체가 되기|Become a Supplier/)
     }
+  })
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 12) 顶层 i18n 文件: 5 语言 (zh-CN/en/zh-TW/ja/ko) 顶层 json 中的 becomeSupplier
+  //     影响: legacy 兼容 — 老代码可能仍 import 顶层 locales/zh-CN.json 等
+  // ─────────────────────────────────────────────────────────────────────
+  for (const loc of Object.keys(TOP_LEVEL_FILES) as Array<keyof typeof TOP_LEVEL_FILES>) {
+    test(`顶层 i18n [${loc}]: 顶层 ${loc}.json 至少 1 处 becomeSupplier = "${EXPECTED_JOIN_US[loc]}"`, () => {
+      const src = readFileSync(TOP_LEVEL_FILES[loc], 'utf-8')
+      const matches = src.match(/"becomeSupplier"\s*:\s*"([^"]*)"/g) || []
+      const values = matches.map(m => {
+        const v = m.match(/"becomeSupplier"\s*:\s*"([^"]*)"/)
+        return v ? v[1] : ''
+      })
+      // 顶层文件一般有 2-3 处 becomeSupplier (navigation/routes 段 + becomeSupplier 块入口)
+      expect(
+        values.length,
+        `顶层 ${loc}.json 应有 becomeSupplier 字段`,
+      ).toBeGreaterThanOrEqual(1)
+      // 至少 1 处是"加入我们"族 (排除 becomeSupplier 块入口的"成为供应商"页面 h1)
+      const joinUsValues = values.filter(v => v === EXPECTED_JOIN_US[loc])
+      expect(
+        joinUsValues.length,
+        `顶层 ${loc}.json 至少 1 处 becomeSupplier 应是 "${EXPECTED_JOIN_US[loc]}", 实际值: ${JSON.stringify(values)}`,
+      ).toBeGreaterThanOrEqual(1)
+    })
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 13) full/*/about.json: 5 语言 quickNav.becomeSupplier = "加入我们"族
+  //     影响: full/ 是 mergeLocaleMessage 的全量集, 必须与 modules/ 保持一致
+  // ─────────────────────────────────────────────────────────────────────
+  for (const loc of Object.keys(FULL_ABOUT_FILES) as Array<keyof typeof FULL_ABOUT_FILES>) {
+    test(`full/*/about.json [${loc}]: quickNav.becomeSupplier = "${EXPECTED_JOIN_US[loc]}"`, () => {
+      const src = readFileSync(FULL_ABOUT_FILES[loc], 'utf-8')
+      const value = extractFieldValue(src, 'becomeSupplier')
+      expect(
+        value,
+        `full/${loc}/about.json: quickNav.becomeSupplier 应是 "${EXPECTED_JOIN_US[loc]}" 而非 "${value}"`,
+      ).toBe(EXPECTED_JOIN_US[loc])
+    })
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 14) 路由配置: /about/become-supplier 路由 name = 'becomeSupplier'
+  //     影响: Sidebar.vue / HeaderNavigation.vue 用 router.push({ name: 'becomeSupplier' })
+  //     路由 name 被改会导致 sidebar "加入我们" 点击无响应 (跳 404)
+  // ─────────────────────────────────────────────────────────────────────
+  test('路由 1/3: community.ts: /about/become-supplier 路由 name = "becomeSupplier"', () => {
+    const src = readFileSync(COMMUNITY_ROUTER, 'utf-8')
+    expect(
+      src,
+      'community.ts 必须定义 path: "/about/become-supplier" 路由',
+    ).toMatch(/path:\s*['"]\/about\/become-supplier['"]/)
+    expect(
+      src,
+      'community.ts 该路由 name 必须 = "becomeSupplier" (Sidebar 用 router.push({name}) 跳转)',
+    ).toMatch(/path:\s*['"]\/about\/become-supplier['"][\s\S]*?name:\s*['"]becomeSupplier['"]/)
+  })
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 15) 路由配置: meta.title = 'routes.becomeSupplier' (引用 i18n key 而非硬编码)
+  //     meta.title 用于 document.title, 改硬编码会绕过 i18n 切换
+  // ─────────────────────────────────────────────────────────────────────
+  test('路由 2/3: community.ts: meta.title = "routes.becomeSupplier" (i18n key 引用, 不硬编码)', () => {
+    const src = readFileSync(COMMUNITY_ROUTER, 'utf-8')
+    expect(
+      src,
+      'community.ts /about/become-supplier 路由 meta.title 必须引用 i18n key 而非硬编码',
+    ).toMatch(/path:\s*['"]\/about\/become-supplier['"][\s\S]*?meta:\s*\{[\s\S]*?title:\s*['"]routes\.becomeSupplier['"]/)
+    // 反向断言: meta 块内不含硬编码"成为供应商"族
+    const blockMatch = src.match(/path:\s*['"]\/about\/become-supplier['"][\s\S]*?meta:\s*\{[\s\S]*?\},?\s*\},?/)
+    expect(blockMatch, '应能定位到 /about/become-supplier 路由块').not.toBeNull()
+    if (blockMatch) {
+      expect(
+        blockMatch[0],
+        'meta 块内不应硬编码"成为供应商"族 (应走 i18n key)',
+      ).not.toMatch(/成为供应商|成為供應商|サプライヤーになる|공급업체가 되기|Become a Supplier/)
+    }
+  })
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 16) BecomeSupplier.vue: 页面 h1 仍用 t('becomeSupplier.title') (页面主题)
+  //     与 nav "加入我们" 是不一致属于有意设计, 但 title 引用 i18n key 是必须的
+  // ─────────────────────────────────────────────────────────────────────
+  test('路由 3/3: BecomeSupplier.vue 页面 h1 用 t("becomeSupplier.title") 不硬编码', () => {
+    const src = readFileSync(BECOME_SUPPLIER_VUE, 'utf-8')
+    expect(
+      src,
+      'BecomeSupplier.vue h1 必须引用 t("becomeSupplier.title")',
+    ).toMatch(/<h1[^>]*>\s*\{\{\s*t\(\s*['"]becomeSupplier\.title['"]\s*\)\s*\}\}\s*<\/h1>/)
   })
 })
