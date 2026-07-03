@@ -414,6 +414,12 @@ jobs:
         # 全局 _theme-tokens darkSurface 不变 + 色阶方向 + 旧值回退检测
         # 任一处改回偏浅旧值 (#6a6d77 / #5a5d67 / #4f5259) 或 #ffffff fallback 即阻断 PR
         run: cd client && npx playwright test e2e/sidebar-dark-color-tier.spec.ts --reporter=list
+      - name: 跑暗色模式 .icon-container 透明背景源码级守门 (5 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: darkMode.ts DARK_BG_CSS [class*="container"]:not(...) 排除清单
+        # 必须含 11 个类名 (与 index.scss:167 同步), 防止 .icon-container / .chat-input-container
+        # 等透明容器被运行时注入规则误染为 #1a1a1a 黑色背景 (击败 scoped transparent)
+        # 任一处缩窄 :not() 清单或删除 .icon-container 排除即阻断 PR
+        run: cd client && npx playwright test e2e/dark-mode-icon-container-transparent.spec.ts -g "源码级" --reporter=list
       - name: 跑 AI 浮窗标题栏样式 scope 失配源码级守门 (24 用例, 不需浏览器, 早失败)
         # 2026-07-03 立: chatheaderbar.vue <style scoped> 必须含 .header-right gap:8px +
         # _header.scss 不含子组件内部元素 CSS 规则 + AIChat.vue 不含 @keyframes typing +
@@ -429,6 +435,13 @@ jobs:
           PW_BACKEND_URL: http://127.0.0.1:8000
           PW_BASE_URL: http://127.0.0.1:4173
         run: cd client && npx playwright test e2e/frontend-backend-e2e.spec.ts
+      - name: 跑暗色模式 .icon-container 透明背景浏览器级守门 (4 用例, 需 preview server)
+        # 2026-07-03 立: 暗色下 .app-sidebar 主容器背景完好 (#2a2d37) +
+        # .search-trigger-button / .icon-container / .chat-input-container 计算背景透明
+        # 防止"源码对了但运行时被覆盖"的隐性回归
+        env:
+          PW_BASE_URL: http://127.0.0.1:4173
+        run: cd client && npx playwright test e2e/dark-mode-icon-container-transparent.spec.ts -g "浏览器级" --project=chromium --reporter=list
       - name: 跑 WebSocket 联调
         env:
           PW_BACKEND_URL: http://127.0.0.1:8000
