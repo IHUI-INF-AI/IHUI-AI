@@ -403,6 +403,11 @@ jobs:
           cd client
           npm run preview --port 4173 &
           sleep 5
+      - name: 跑侧边栏 "加入我们" 源码级守门 (88 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: 6 语言 navigation/routes/aboutUs/core 4 段 + Sidebar/Header
+        # 模板 + useSidebar 注释 + README 文档 + 路由配置 + becomeSupplier 页面 h1
+        # 任一处回归到 "成为供应商" 族旧值即阻断 PR
+        run: cd client && npx playwright test e2e/sidebar-becomesupplier-join-us.spec.ts --reporter=list
       - name: 跑样式验证
         run: cd client && npx playwright test e2e/final-styles-verify.spec.ts
       - name: 跑登录态联调
