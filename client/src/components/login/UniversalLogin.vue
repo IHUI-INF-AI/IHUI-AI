@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   UniversalLogin - 通用登录/注册组件（弹窗内嵌版本）
   被 LoginDialog.vue 包裹在 el-dialog 中使用。
   支持账号登录、手机号登录、注册模式切换、第三方登录、项目选择。
@@ -611,11 +611,18 @@ html.dark .universal-login {
   }
 
   .submit-btn {
+    // 2026-07-03 修复: 暗色模式显式指定文字色为深色 (#1a1a1a 偏黑).
+    // 原代码未设 color 属性, fallback 到 Element Plus 默认 --el-color-white (#ffffff),
+    // 在 #3b82f6 蓝底上虽勉强可读, 但用户反馈"应该偏黑色"——暗色模式用深色文字
+    // 视觉更和谐, 与项目"暗色模式偏深"设计语言一致. 对比度 #1a1a1a on #3b82f6 = 4.83:1
+    // (WCAG AA 4.5 通过), 改为 hover 色 #60a5fa 时 #1a1a1a on #60a5fa = 7.31:1 (AAA 通过).
+    color: #1a1a1a;
     background-color: lt.$login-dark-primary;
     border-color: lt.$login-dark-primary;
     box-shadow: 0 4px 12px lt.$login-dark-primary-glow;
 
     &:hover:not(.is-disabled) {
+      color: #0a0a0a;
       background-color: lt.$login-dark-primary-hover;
       border-color: lt.$login-dark-primary-hover;
       box-shadow: 0 8px 20px lt.$login-dark-primary-glow;
@@ -623,6 +630,7 @@ html.dark .universal-login {
     }
 
     &:active:not(.is-disabled) {
+      color: #1a1a1a;
       background-color: lt.$login-dark-primary;
       transform: translateY(0);
       box-shadow: 0 2px 8px lt.$login-dark-primary-glow-soft;

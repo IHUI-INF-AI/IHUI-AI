@@ -83,21 +83,25 @@
    * 否则会被 :root (0,0,1) 按特异性击败导致暗色覆盖静默失效
    * (参考项目硬约束: 暗色覆盖 :root 变量必须用 html.dark)。
    *
-   * 2026-07-03 调整: 用户反馈 sidebar 整体偏浅, 将 surface 从 #6a6d77 加深到 #3a3d47
-   * (深约 48 单位, 保持蓝灰调), 与主内容区 #1a1a1a 形成适度层次而非强对比.
-   * 色阶同步加深, 保持 "向 #000 加深" 方向:
-   *   surface #3a3d47 (58,61,71) — 容器底色
-   *   new-chat #2a2d37 (42,45,55) — 主操作, 深 16 单位
-   *   active   #1f2229 (31,34,41) — 选中态, 深 27 单位 from surface
+   * 2026-07-03 第 2 轮调整: 用户反馈 #3a3d47 仍偏浅, 进一步加深色阶.
+   * 目标: 与主内容区 #1a1a1a 形成"容器感"层次, 而不是"撞色对比"层次.
+   * 新色阶 (与主内容区 #1a1a1a 关系):
+   *   surface #2a2d37 (42,45,55) — 容器底色, 比内容区 #1a1a1a 浅 25 单位 (容器浮起)
+   *   new-chat #1f2229 (31,34,41) — 主操作, 深 11 单位 (按钮下凹)
+   *   active   #0f1117 (15,17,23) — 选中态, 深 27 单位 (选中下凹更深)
    *   hover    #000000             — 反馈态, 纯黑最深, 与 --app-hover-bg 一致
+   *
+   * 历史色阶: v1 #6a6d77/#5a5d67/#4f5259 (用户反馈偏浅, 已废弃)
+   *           v2 #3a3d47/#2a2d37/#1f2229 (用户反馈 v2 仍偏浅, 已废弃)
+   *           v3 #2a2d37/#1f2229/#0f1117 (当前, 与内容区 #1a1a1a 形成容器层次)
    *
    * 不改全局 _theme-tokens 的 darkSurface (#6a6d77), 仅 sidebar 局部加深,
    * 避免影响 CTA/ghost/miniapp 按钮对比度联调 (那些按钮在主内容区, 不在 sidebar).
-   * #3a3d47 / #2a2d37 / #1f2229 不在 AGENTS.md 红线硬编码禁止列表, 可直接写. */
+   * #2a2d37 / #1f2229 / #0f1117 不在 AGENTS.md 红线硬编码禁止列表, 可直接写. */
   html.dark {
-    --app-sidebar-color-surface: #3a3d47;
-    --app-sidebar-color-new-chat: #2a2d37;
-    --app-sidebar-color-active: #1f2229;
+    --app-sidebar-color-surface: #2a2d37;
+    --app-sidebar-color-new-chat: #1f2229;
+    --app-sidebar-color-active: #0f1117;
     --app-sidebar-color-hover: #000;
   }
 }
@@ -239,17 +243,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    min-width: 28px;
-    height: 28px;
+    width: var(--app-button-height-sm);
+    min-width: var(--app-button-height-sm);
+    height: var(--app-button-height-sm);
     padding: 0;
     margin: 0;
-    border: none;
-    border-radius: var(--global-border-radius);
+    border: var(--app-button-border-transparent);
+    border-radius: var(--app-button-radius);
     background: transparent;
     color: var(--el-text-color-primary);
     cursor: pointer;
-    transition: background-color 0.2s var(--sidebar-easing);
+    transition: var(--app-button-transition);
     flex-shrink: 0;
   }
 
@@ -664,17 +668,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    min-width: 28px;
-    height: 28px;
+    width: var(--app-button-height-sm);
+    min-width: var(--app-button-height-sm);
+    height: var(--app-button-height-sm);
     padding: 0;
     margin: 0;
-    border: none;
-    border-radius: var(--global-border-radius);
+    border: var(--app-button-border-transparent);
+    border-radius: var(--app-button-radius);
     background: transparent;
     color: var(--el-text-color-primary);
     cursor: pointer;
-    transition: background-color 0.2s var(--sidebar-easing);
+    transition: var(--app-button-transition);
     flex-shrink: 0;
   }
 
@@ -800,13 +804,14 @@
  * 注：区域分隔描边线已按设计要求移除，区域间靠背景色差异区分。
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── 活跃导航项样式（unlayered，确保覆盖 CSS reset） ── */
+/* ── 活跃导航项样式（unlayered，确保覆盖 CSS reset） ──
+ * 2026-07-03: 迁移到 --app-button-* 统一 token 体系 */
 :where(.nav-item.active) {
   background-color: var(--el-color-primary-light-9);
   color: var(--el-color-primary);
   font-weight: 600;
-  border: 1px solid var(--border-unified-color);
-  border-radius: var(--global-border-radius, 8px);
+  border: var(--app-button-border);
+  border-radius: var(--app-button-radius);
 }
 
 /* nav-item 关键布局属性（unlayered，覆盖 button UA 的 display:inline-block 与 reset 的 margin:0/padding:0）
@@ -816,18 +821,24 @@
  * .nav-group 的 text-align:center 会干扰布局，导致图标与文字错位。
  * 此处用单类 .nav-item（特异性 0,1,0）在 unlayered 区域完整声明
  * 关键 flex 布局属性，确保图标在左、文字在右、垂直居中，不受其他规则干扰。
- * 无 !important，无堆叠类名，符合 CSS 优先级规范。 */
+ * 无 !important，无堆叠类名，符合 CSS 优先级规范。
+ *
+ * 2026-07-03: 迁移到 --app-button-* 统一 token 体系
+ *   - height: var(--nav-item-height) → var(--app-button-height-xl) (40px)
+ *   - border: none → var(--app-button-border-transparent) (1px solid transparent 占位, 防布局抖动)
+ *   - border-radius: var(--global-border-radius) → var(--app-button-radius)
+ *   - transition: 自定义 → var(--app-button-transition) */
 .nav-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: var(--nav-item-gap, 8px);
-  height: var(--nav-item-height, 40px);
-  min-height: var(--nav-item-height, 40px);
+  height: var(--app-button-height-xl);
+  min-height: var(--app-button-height-xl);
   margin: 2px var(--nav-item-margin-x, 6px);
   padding: 0 var(--nav-item-pad-x, 16px);
-  border: none;
-  border-radius: var(--global-border-radius, 8px);
+  border: var(--app-button-border-transparent);
+  border-radius: var(--app-button-radius);
   background-color: transparent;
   color: var(--el-text-color-primary);
   font-size: 14px;
@@ -841,8 +852,7 @@
   appearance: none;
   outline: none;
   user-select: none;
-  transition: background-color 0.2s var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1)),
-              color 0.2s var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  transition: var(--app-button-transition);
 }
 
 /* "新建对话"按钮三态背景色 (nav-new-chat 是 nav-item 的特化)
@@ -867,14 +877,17 @@
  *                                          active+hover 需覆盖, 故顺序 active 在后) */
 .nav-item.nav-new-chat {
   background-color: var(--app-sidebar-color-new-chat);
+  border: var(--app-button-border);
 }
 
 .nav-item.nav-new-chat:hover {
   background-color: var(--app-sidebar-color-hover);
+  border-color: var(--app-button-border-color-hover);
 }
 
 .nav-item.nav-new-chat.active {
   background-color: var(--app-sidebar-color-active);
+  border: var(--app-button-border);
 }
 
 /* nav-group-label / nav-subitem 同样被 * reset 覆盖，统一恢复
@@ -894,7 +907,9 @@
   width: calc(100% - var(--nav-item-margin-x) * 2);
   margin: 10px var(--nav-item-margin-x) 4px;
   padding: 3px 28px 3px 12px;
-  border: 1px solid var(--el-border-color-lighter);
+  /* border 走统一 token (--app-button-border = --unified-border);
+   * border-radius 保留 sm 档 (4px), 容器高度 ~24px 用 8px 偏"鼓" (设计意图) */
+  border: var(--app-button-border);
   border-radius: var(--global-border-radius-sm, 4px);
   background-color: var(--el-fill-color-light);
   color: var(--el-text-color-secondary);
@@ -912,9 +927,7 @@
   font-family: inherit;
   text-align: center;
   box-sizing: border-box;
-  transition: background-color 0.2s var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1)),
-              border-color 0.2s var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1)),
-              color 0.2s var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  transition: var(--app-button-transition);
 }
 
 .nav-group-label:hover {
@@ -968,12 +981,12 @@ html.dark .nav-group-label:hover {
   display: flex;
   align-items: center;
   gap: var(--nav-item-gap, 8px);
-  height: 32px;
-  min-height: 32px;
+  height: var(--app-button-height-md);
+  min-height: var(--app-button-height-md);
   margin: 0;
   padding: 0 var(--nav-item-pad-x, 16px) 0 calc(var(--nav-item-pad-x, 16px) + 20px);
-  border: none;
-  border-radius: var(--global-border-radius, 8px);
+  border: var(--app-button-border-transparent);
+  border-radius: var(--app-button-radius);
   background-color: transparent;
   color: var(--el-text-color-regular);
   font-size: 13px;
@@ -987,6 +1000,7 @@ html.dark .nav-group-label:hover {
   appearance: none;
   outline: none;
   user-select: none;
+  transition: var(--app-button-transition);
 }
 
 /* 活跃指示条 left 跟随 nav-item margin-x，确保对齐 */
@@ -1222,11 +1236,11 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
 :where(.nav-collapsed-submenu-item) {
   display: flex;
   align-items: center;
-  height: 32px;
-  min-height: 32px;
+  height: var(--app-button-height-md);
+  min-height: var(--app-button-height-md);
   padding: 0 10px;
-  border: none;
-  border-radius: var(--global-border-radius);
+  border: var(--app-button-border-transparent);
+  border-radius: var(--app-button-radius);
   background-color: transparent;
   color: var(--el-text-color-regular);
   font-size: 13px;
@@ -1239,7 +1253,7 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
   box-sizing: border-box;
   outline: none;
   user-select: none;
-  transition: background-color 0.2s var(--sidebar-easing), color 0.2s var(--sidebar-easing);
+  transition: var(--app-button-transition);
 }
 
 :where(.nav-collapsed-submenu-item):hover {
@@ -1251,14 +1265,14 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
   background-color: var(--el-color-primary-light-9);
   color: var(--el-color-primary);
   font-weight: 500;
-  border: 1px solid var(--border-unified-color);
-  border-radius: var(--global-border-radius, 8px);
+  border: var(--app-button-border);
+  border-radius: var(--app-button-radius);
 }
 
 :where(.nav-collapsed-submenu-item.active):hover {
   background-color: var(--el-color-primary-light-8);
-  border-color: var(--border-unified-color-hover);
-  border-radius: var(--global-border-radius, 8px);
+  border-color: var(--app-button-border-color-hover);
+  border-radius: var(--app-button-radius);
 }
 
 :where(.nav-collapsed-submenu-item):focus-visible {
@@ -1367,17 +1381,17 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    min-width: 24px;
-    height: 24px;
+    width: var(--app-button-height-xs);
+    min-width: var(--app-button-height-xs);
+    height: var(--app-button-height-xs);
     padding: 0;
     margin: 0;
-    border: none;
-    border-radius: var(--global-border-radius);
+    border: var(--app-button-border-transparent);
+    border-radius: var(--app-button-radius);
     background: transparent;
     color: var(--el-text-color-secondary);
     cursor: pointer;
-    transition: background-color 0.2s var(--sidebar-easing), color 0.2s var(--sidebar-easing);
+    transition: var(--app-button-transition);
     flex-shrink: 0;
   }
 
@@ -1516,17 +1530,17 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    min-width: 32px;
-    height: 32px;
+    width: var(--app-button-height-md);
+    min-width: var(--app-button-height-md);
+    height: var(--app-button-height-md);
     padding: 0;
     margin: 0;
-    border: 1px solid transparent;
-    border-radius: var(--global-border-radius);
+    border: var(--app-button-border-transparent);
+    border-radius: var(--app-button-radius);
     background: transparent;
     color: var(--el-text-color-regular);
     cursor: pointer;
-    transition: background-color 0.2s var(--sidebar-easing), color 0.2s var(--sidebar-easing), border-color 0.2s var(--sidebar-easing);
+    transition: var(--app-button-transition);
     flex-shrink: 0;
   }
 
