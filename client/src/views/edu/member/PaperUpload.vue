@@ -98,7 +98,8 @@ async function handleSubmit(payload: UploadedPaperCreate) {
     await uploadedPapersApi.create(payload)
     ElMessage.success(t('edu.profile.uploadSuccess'))
     handleReset()
-    await refresh('certs')
+    // PR-F 修复: 试卷上传成功后应刷新 papers 而非 certs
+    await refresh('papers')
     emit('success', payload)
     if (props.mode === 'dialog') {
       dialogVisible.value = false
