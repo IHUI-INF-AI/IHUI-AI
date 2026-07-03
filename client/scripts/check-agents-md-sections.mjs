@@ -50,7 +50,7 @@ if (onlyStaged) {
   }
 }
 
-// 10 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
+// 11 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
 // 与 e2e/agents-md-sections.spec.ts 中 EXPECTED_SECTIONS 保持一致
 const EXPECTED_SECTIONS = [
   '## 目标驱动模式执行规范（/goal）',
@@ -63,6 +63,7 @@ const EXPECTED_SECTIONS = [
   '## 行尾格式守门（2026-07-02 立）',
   '## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）',
   '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）',
+  '## 文案 / i18n 联动改动硬约束（2026-07-03 立）',
 ]
 
 // 文件不存在

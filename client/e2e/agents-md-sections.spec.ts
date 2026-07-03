@@ -81,6 +81,10 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; keyword: string }> = [
     title: '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）',
     keyword: '登录/注册按钮设计令牌应用硬约束',
   },
+  {
+    title: '## 文案 / i18n 联动改动硬约束（2026-07-03 立）',
+    keyword: '文案 / i18n 联动改动硬约束',
+  },
 ]
 
 test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
@@ -127,9 +131,9 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
   })
 
   // ===================================================================
-  // 3) H2 章节计数必须 == 9（多余/缺失都算回归）
+  // 3) H2 章节计数必须 == EXPECTED_SECTIONS.length（多余/缺失都算回归）
   // ===================================================================
-  test('源码级：AGENTS.md H2 章节计数必须等于 9', () => {
+  test(`源码级：AGENTS.md H2 章节计数必须等于 ${EXPECTED_SECTIONS.length}`, () => {
     const content = readFileSync(AGENTS_MD_PATH, 'utf8')
     // 匹配行首 ## 开头（但不匹配 ### / #### 等更深层级）
     const h2Matches = content.match(/^## [^\n]+$/gm) || []
@@ -144,9 +148,9 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
   })
 
   // ===================================================================
-  // 4) 9 个章节标题按既定顺序逐字匹配
+  // 4) EXPECTED_SECTIONS.length 个章节标题按既定顺序逐字匹配
   // ===================================================================
-  test('源码级：AGENTS.md 9 个 H2 章节标题按既定顺序逐字匹配', () => {
+  test(`源码级：AGENTS.md ${EXPECTED_SECTIONS.length} 个 H2 章节标题按既定顺序逐字匹配`, () => {
     const content = readFileSync(AGENTS_MD_PATH, 'utf8')
     const h2Matches = content.match(/^## [^\n]+$/gm) || []
 
@@ -188,6 +192,7 @@ test.describe('AGENTS.md 章节完整性守门 (2026-07-02)', () => {
       { keyword: '行尾格式守门', mustContain: 'check:line-endings' },
       { keyword: 'AI 浮窗对话历史入口唯一性', mustContain: 'ChatSessionPanel.vue' },
       { keyword: '登录/注册按钮设计令牌', mustContain: '_login-tokens.scss' },
+      { keyword: '文案 / i18n 联动改动硬约束', mustContain: 'check:becomesupplier:join-us' },
     ]
 
     sectionSpotChecks.forEach(({ keyword, mustContain }) => {
