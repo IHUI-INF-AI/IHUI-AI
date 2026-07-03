@@ -217,6 +217,41 @@ $color-dark-text-primary: #e5eaf3;
   --app-text-muted: var(--el-text-color-secondary);
   --app-divider: var(--el-border-color);
 
+  /* ── 按钮统一 token 体系 (2026-07-03 立, AGENTS.md "按钮样式统一硬约束") ──
+   * 设计意图: 全项目按钮 height/border-radius/border/transition 单一来源.
+   * _sidebar-layout.scss 9 个选择器 + _input-area.scss send-btn +
+   * Home.vue.styles.scss hero-cta-btn 均引用此体系.
+   * 登录按钮保留 _login-tokens.scss CTA 蓝色体系 (不同语义层级, AGENTS.md 硬约束). */
+  --app-button-height-xs: 24px;
+  --app-button-height-sm: 28px;
+  --app-button-height-md: 32px;
+  --app-button-height-lg: 36px;
+  --app-button-height-xl: 40px;
+  --app-button-height-2xl: 44px;
+
+  --app-button-radius: var(--global-border-radius);     /* 8px, 全站唯一 */
+  --app-button-radius-pill: 14px;                        /* pill 形, 仅 tw-selector-pill */
+
+  /* 背景色 4 种语义 */
+  --app-button-bg-primary: var(--el-color-primary);
+  --app-button-bg-ghost: transparent;
+  --app-button-bg-mini: var(--el-text-color-primary);
+  --app-button-bg-surface: var(--el-fill-color-light);
+  --app-button-bg-hover: var(--el-fill-color-light);
+
+  /* 文字色 */
+  --app-button-text-on-primary: var(--el-bg-color);
+  --app-button-text-default: var(--el-text-color-primary);
+
+  /* 边框 - 引用全站统一描边 (element-plus-vars.scss 定义) */
+  --app-button-border: var(--unified-border);
+  --app-button-border-color: var(--border-unified-color);
+  --app-button-border-color-hover: var(--border-unified-color-hover);
+  --app-button-border-transparent: 1px solid transparent;
+
+  /* transition */
+  --app-button-transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
   /* 全局投影 - 扁平化设计：禁止 box-shadow，使用 border 替代 */
   --global-box-shadow: none;
   --el-box-shadow: var(--global-box-shadow);
