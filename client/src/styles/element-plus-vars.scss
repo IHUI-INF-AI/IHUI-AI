@@ -15,6 +15,9 @@
 
   /* 全局圆角 - 唯一设定 8px，全站仅此一种 */
   --global-border-radius: #{$global-border-radius};
+  /* 小圆角档 - 4px, 用于小标签/小按钮/输入框内部元素 (49 处引用)
+   * 2026-07-03 正式定义, 之前靠 fallback 4px 生效 */
+  --global-border-radius-sm: 4px;
   /* 全局容器/页面背景色 - 来自 variables.scss 全局设定，其余处仅使用 var(--color-neutral-f7f8fa) */
   --color-neutral-f7f8fa: #{$color-neutral-f7f8fa};
   --el-border-radius-base: var(--global-border-radius);

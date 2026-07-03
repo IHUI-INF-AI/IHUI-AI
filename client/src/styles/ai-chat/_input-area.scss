@@ -384,9 +384,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 28px;
+  height: var(--app-button-height-sm);
   padding: 0 12px;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   transition: all 0.2s ease;
   font-size: 13px;
   font-weight: 500;
