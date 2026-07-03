@@ -116,8 +116,8 @@
     "chromatic": "chromatic --exit-zero-on-changes"
   },
   "simple-git-hooks": {
-    "pre-commit": "npx lint-staged && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent && npm run check:sidebar:dark-tier:staged --silent && npm run check:ai-header:style-scope:staged --silent && npm run check:ai-customer-service-status:staged --silent && npm run check:session-expired-button:no-double-border:staged --silent && npm run check:dark-overlay-primary-button:no-double-border:staged --silent && npm run check:dark-overlay-bg-color-unified:staged --silent",
-    "pre-push": "npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent"
+    "pre-commit": "cd client && npx lint-staged && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent && npm run check:sidebar:dark-tier:staged --silent && npm run check:ai-header:style-scope:staged --silent && npm run check:ai-customer-service-status:staged --silent && npm run check:session-expired-button:no-double-border:staged --silent && npm run check:dark-overlay-primary-button:no-double-border:staged --silent && npm run check:dark-overlay-bg-color-unified:staged --silent",
+    "pre-push": "cd client && npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
