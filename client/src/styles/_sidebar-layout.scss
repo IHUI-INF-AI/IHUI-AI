@@ -1374,7 +1374,7 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
   /* ── 面板顶部标题栏 ──
    * 注意：原 .ai-side-panel-header/.ai-side-panel-title/.ai-side-panel-title-icon
    * 已废弃。面板标题由 AIChat 内嵌的 ChatHeaderBar 通过 panelTitle prop 渲染，
-   * 见 styles/ai-chat/_header.scss 中的 .panel-title-prefix/.panel-title-icon/.panel-title-text。
+   * 标题栏样式见 styles/ai-chat/_header.scss（根元素）和 chatheaderbar.vue <style scoped>（内部元素）。
    * 保留 .ai-side-panel-close 基础样式供空态浮动关闭按钮复用。 */
 
   :where(.ai-side-panel-close) {

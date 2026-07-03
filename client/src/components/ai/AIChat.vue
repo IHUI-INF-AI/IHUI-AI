@@ -8781,6 +8781,92 @@ cleanup.add(() => {
     }
   }
 
+  // 「+ 选择」能力下拉触发胶囊 - 覆盖上方通用 icon-button 方形尺寸
+  // 该按钮是「图标 + 文字 + 箭头」的文本胶囊，不是纯图标按钮：
+  //   - 需要按内容自适应宽度（不能用 28px 方形 max-width 钳制）
+  //   - 需要 padding: 0 10px（通用规则强制 padding:0 会导致内容贴边、溢出）
+  //   - 透明背景 + 14px 圆角 + 白色描边（通用规则的灰底 6px 圆角不符合胶囊设计）
+  // 使用更高特异性（带 .tw-selector-pill，0,5,0 > 通用 0,4,0）确保覆盖
+  // 历史教训(2026-07-03): 不加此覆盖时，胶囊被钳成 28×28 方块，60px 内容溢出，
+  //   Plus 图标被推到 input-wrapper(overflow:hidden) 左边界外被裁成"点"，
+  //   且背景方块装不下「图标+选择+箭头」内容
+  :deep(.el-button.el-button--small.tw-selector-pill) {
+    // 尺寸 - 按内容自适应，不强制方形
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: 28px;
+    min-height: 0;
+    max-height: none;
+    padding: 0 10px;
+    margin: 0;
+
+    // 外观 - 胶囊样式（透明背景 + 白色描边 + 14px 圆角）
+    background: transparent;
+    border: 1px solid var(--color-white-30);
+    border-radius: 14px;
+    color: var(--el-text-color-regular);
+    box-shadow: none;
+
+    // 布局
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    outline: none;
+
+    // 图标尺寸（Plus / ArrowDown）
+    .el-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    // 文字标签
+    .tw-selector-label {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex-shrink: 1;
+    }
+
+    // 箭头图标稍弱
+    .tw-selector-caret {
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    // 悬停
+    &:hover:not(:disabled) {
+      border-color: var(--color-white-50);
+      background: var(--el-fill-color-light);
+      color: var(--el-text-color-regular);
+    }
+
+    // 按下
+    &:active:not(:disabled) {
+      border-color: var(--color-white-60);
+    }
+  }
+
   // 发送按钮特殊样式 - 覆盖上方通用 icon-button 样式
   // 发送按钮需要更宽（图标+文字同行），并提供三状态颜色
   // 使用更高特异性（带 el-button--primary）确保覆盖通用规则
@@ -10009,20 +10095,7 @@ cleanup.add(() => {
   }
 }
 
-@keyframes typing {
-
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.7;
-  }
-
-  30% {
-    transform: translateY(-10px);
-    opacity: 1;
-  }
-}
+// @keyframes typing 已迁移至 chatheaderbar.vue style scoped (2026-07-03)
 
 @keyframes spin {
   from {
