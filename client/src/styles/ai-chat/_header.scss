@@ -200,7 +200,7 @@
   .header-right {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px; // 2026-07-03 拉大三个图标间距，避免视觉粘连
     flex-shrink: 0;
     position: relative;
     z-index: var(--z-base); // 始终在 header-center 之上，保证搜索等按钮可点

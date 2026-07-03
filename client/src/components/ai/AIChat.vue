@@ -9687,7 +9687,7 @@ cleanup.add(() => {
     max-height: 22px;
     font-size: 12px;
     font-weight: 400;
-    border-radius: var(--global-border-radius);
+    border-radius: var(--global-border-radius-sm); // 2026-07-03 由 8px 缩为 4px（用小圆角档），降低 pill 感，与全局 8px 形成层级
     line-height: 20px;
     background: var(--fcd-btn-bg);
     border: var(--unified-border);
@@ -10673,7 +10673,7 @@ cleanup.add(() => {
 
   .menu-section-divider {
     height: 1px;
-    background: var(--unified-border-color);
+    background: var(--border-unified-color);
     margin: 6px 4px;
   }
 

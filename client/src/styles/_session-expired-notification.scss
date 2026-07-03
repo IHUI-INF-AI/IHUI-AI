@@ -16,6 +16,7 @@
   // 水平居中由 Element Plus 内部 left:50% + translateX(-50%) 处理, 不要在此写 left/right
   position: fixed !important;
   top: 16px;
+
   // 整体容器: 与暗色 sidebar 区分, 强调"通知"语义
   border-left: 3px solid var(--el-color-warning);
 
@@ -34,7 +35,7 @@
 
   .session-expired-notify {
     .session-expired-msg {
-      margin: 0 0 10px 0;
+      margin: 0 0 10px;
       color: var(--el-text-color-primary);
       font-size: 13px;
       line-height: 1.6;

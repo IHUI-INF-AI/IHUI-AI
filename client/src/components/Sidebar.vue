@@ -1349,15 +1349,31 @@ watch(isMobileOpen, () => {
  *   与 sidebar-actions 内 4 个图标中心 x 对齐
  *   (e2e/sidebar-collapsed-bottom-alignment.spec.ts:99 守门).
  *
- * 此外, 缩小 .sidebar-footer gap 从 8px → 2px (覆盖 _sidebar-layout.scss 的全局规则),
- * 让 sidebar-actions 那排图标"下移"贴近登录按钮, 登录按钮本身位置不变. */
+ * 用户要求"不要动登录注册按钮的位置": 按钮 y=674 / 底 y=710 / 顶 y=684 保持不变.
+ * "上面那排 (sidebar-actions) 下移 + 4 图标水平居中" 通过:
+ *   - .sidebar-footer gap 8px → 2px (覆盖全局)
+ *   - .sidebar-actions margin-top 6 → 16 (容器下移 10px, 明显靠近登录按钮)
+ *   - .sidebar-actions padding 6/10/6/10 → 0 (释放 16px 给 margin-top 10px + 图标居中)
+ *   - .sidebar-actions justify-content space-around → center (修图标未居中 bug)
+ *   - .sidebar-actions margin-x 6 → 0 (去掉, 让 actions 容器撑满 sidebar 全宽, justify-content center 才有空间居中)
+ *   - .sidebar-login-row padding-top 10 → 6 (释放 4px 给 margin-top, 按钮 y=674 保持不变)
+ *   - footer 总高仍 98, 登录按钮底 y=710 不变. */
 :where(.sidebar-footer) {
   gap: 2px;
+}
+
+.sidebar-actions {
+  margin: 16px 0 0;
+  padding: 0;
+  justify-content: center;
 }
 .sidebar-login-row {
   display: flex;
   justify-content: center;
-  padding: 10px 12px;
+  /* padding-top 6 (替代 10) 释放 4px 给 actions margin-top 16,
+   * 配合 actions margin 16 + actions h 28 + gap 2 + loginRow h 50 = 98
+   * 按钮 y = loginRow.y + padding-top = 668 + 6 = 674 (不变) */
+  padding: 6px 12px 10px;
 }
 
 .sidebar-login-row.is-collapsed {
