@@ -291,3 +291,92 @@ test.describe('学员档案模块 - API 契约守门', () => {
     expect(content).toMatch(/aiReportApi/)
   })
 })
+
+// ============================================================================
+// 5 类核心功能完整性守门 (2026-07-03 补充)
+// ============================================================================
+
+test.describe('学员档案模块 - 5 类核心功能完整性', () => {
+  test('① PDF 导出: Report.vue 绑定 exportElementToPDF + printElement', () => {
+    const content = readSrc('views/edu/member/Report.vue')
+    // 必须导入导出服务
+    expect(content).toMatch(/import.*exportElementToPDF.*printElement.*from.*exportService/)
+    // 必须有 handleDownload 调用 exportElementToPDF
+    expect(content).toMatch(/handleDownload/)
+    expect(content).toMatch(/exportElementToPDF/)
+    // 必须有 handlePrint 调用 printElement
+    expect(content).toMatch(/handlePrint/)
+    expect(content).toMatch(/printElement/)
+    // 必须有 reportRef 绑定到 DOM
+    expect(content).toMatch(/ref="reportRef"/)
+    // 必须有 exporting loading 状态
+    expect(content).toMatch(/exporting/)
+  })
+
+  test('② AI 报告: AiReportSection.vue 三模式 tab (local/chat/api) + 持久化', () => {
+    const content = readSrc('components/edu/AiReportSection.vue')
+    // 三模式 tab
+    expect(content).toMatch(/name="local"/)
+    expect(content).toMatch(/name="chat"/)
+    expect(content).toMatch(/name="api"/)
+    // tab 持久化到 localStorage
+    expect(content).toMatch(/localStorage/)
+    expect(content).toMatch(/ai-report-tab/)
+    // local 模式: localSuggestions
+    expect(content).toMatch(/localSuggestions/)
+    // chat 模式: useGlobalChat + autoSend
+    expect(content).toMatch(/useAiReportEngine/)
+    // api 模式: apiReport + marked 渲染
+    expect(content).toMatch(/apiReport/)
+    expect(content).toMatch(/marked/)
+  })
+
+  test('③ 试卷上传: PaperUploadForm.vue validateFile 参数 (10MB + accept 类型)', () => {
+    const content = readSrc('views/edu/member/PaperUploadForm.vue')
+    // 必须导入 validateFile
+    expect(content).toMatch(/import.*validateFile.*from.*fileValidation/)
+    // 必须调用 validateFile
+    expect(content).toMatch(/validateFile/)
+    // 文件大小限制 10MB
+    expect(content).toMatch(/10\s*\*\s*1024\s*\*\s*1024/)
+    // accept 属性指定文件类型
+    expect(content).toMatch(/accept=/)
+    expect(content).toMatch(/\.pdf/)
+  })
+
+  test('④ 学习档案报告: useReportGenerator 11 section (含 aiReport)', () => {
+    const content = readSrc('composables/useReportGenerator.ts')
+    // 必须导出 generateReport
+    expect(content).toMatch(/generateReport/)
+    // 必须有 metadata 元数据
+    expect(content).toMatch(/metadata/)
+    // 必须有 sections 数组
+    expect(content).toMatch(/sections/)
+    // 必须包含 aiReport section (PR-D D5)
+    expect(content).toMatch(/aiReport/)
+  })
+
+  test('⑤ 日常学习可视化: Profile.vue 集成 4 StatCard + Heatmap + TrendChart', () => {
+    const content = readSrc('views/edu/member/Profile.vue')
+    // 4 个 StatCard (总学习时长/连续天数/完成课程/考试通过率)
+    expect(content).toMatch(/StatCard/)
+    // 学习热力图
+    expect(content).toMatch(/LearningHeatmap/)
+    // 学习趋势图
+    expect(content).toMatch(/LearningTrendChart/)
+    // 课程进度列表
+    expect(content).toMatch(/CourseProgressList/)
+    // 考试记录列表
+    expect(content).toMatch(/ExamRecordList/)
+    // 证书列表
+    expect(content).toMatch(/CertificateList/)
+    // 错题本
+    expect(content).toMatch(/WrongBookSummary/)
+    // 笔记列表
+    expect(content).toMatch(/NotesList/)
+    // 线下记录列表
+    expect(content).toMatch(/OfflineRecordsList/)
+    // 试卷列表
+    expect(content).toMatch(/UploadedPapersList/)
+  })
+})

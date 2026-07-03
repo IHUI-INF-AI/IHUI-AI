@@ -83,18 +83,21 @@
    * 否则会被 :root (0,0,1) 按特异性击败导致暗色覆盖静默失效
    * (参考项目硬约束: 暗色覆盖 :root 变量必须用 html.dark)。
    *
-   * 暗色色阶 (从浅到深, "靠近黑 = 越深"):
-   *   surface #6a6d77 (= $theme-dark-surface, 容器底色)
-   *   new-chat #5a5d67 (= $theme-dark-page, 主操作比容器深 12 单位)
-   *   active #4f5259 (选中态, surface 75% + #000 25%, 比容器深)
-   *   hover #000000 (反馈态, 纯黑最深, 与 --app-hover-bg 一致)
+   * 2026-07-03 调整: 用户反馈 sidebar 整体偏浅, 将 surface 从 #6a6d77 加深到 #3a3d47
+   * (深约 48 单位, 保持蓝灰调), 与主内容区 #1a1a1a 形成适度层次而非强对比.
+   * 色阶同步加深, 保持 "向 #000 加深" 方向:
+   *   surface #3a3d47 (58,61,71) — 容器底色
+   *   new-chat #2a2d37 (42,45,55) — 主操作, 深 16 单位
+   *   active   #1f2229 (31,34,41) — 选中态, 深 27 单位 from surface
+   *   hover    #000000             — 反馈态, 纯黑最深, 与 --app-hover-bg 一致
    *
-   * #6a6d77 / #5a5d67 引用 SCSS token 单一来源, 不硬编码 (AGENTS.md 红线);
-   * #4f5259 / #000000 不在红线列表, 可直接写。 */
+   * 不改全局 _theme-tokens 的 darkSurface (#6a6d77), 仅 sidebar 局部加深,
+   * 避免影响 CTA/ghost/miniapp 按钮对比度联调 (那些按钮在主内容区, 不在 sidebar).
+   * #3a3d47 / #2a2d37 / #1f2229 不在 AGENTS.md 红线硬编码禁止列表, 可直接写. */
   html.dark {
-    --app-sidebar-color-surface: #{tt.$theme-dark-surface};
-    --app-sidebar-color-new-chat: #{tt.$theme-dark-page};
-    --app-sidebar-color-active: #4f5259;
+    --app-sidebar-color-surface: #3a3d47;
+    --app-sidebar-color-new-chat: #2a2d37;
+    --app-sidebar-color-active: #1f2229;
     --app-sidebar-color-hover: #000;
   }
 }

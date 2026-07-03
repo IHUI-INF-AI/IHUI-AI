@@ -395,7 +395,11 @@ watch(
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: var(--chat-history-body-bg, #ffffff);
+  /* 2026-07-03 修复: fallback 从 #ffffff 改为 transparent.
+   * 原值在 dark 模式下因 --chat-history-body-bg 未定义而 fallback 到 #ffffff,
+   * 导致对话历史容器在暗色模式下显示为刺眼的白色 (用户反馈).
+   * 改 transparent 后 body 跟随父容器 .sidebar-chat-history 背景, dark 下露出 sidebar surface. */
+  background-color: var(--chat-history-body-bg, transparent);
 }
 
 .chat-history-loading {
@@ -614,9 +618,20 @@ html.dark .item-demo-badge {
  * 修复要点：
  * 1. 标题/列表文字用 --el-text-color-secondary/-regular 不可靠（dark 下被覆盖为深色），
  *    显式指向 --el-text-color-primary (dark 下 = #e5eaf3 浅色)
- * 2. 容器背景在 dark 下用 --color-dark-bg-5/-6 显式指定（避免撞色）
+ * 2. 容器背景在 dark 下显式指定深色卡片背景 (比 sidebar surface 稍浅, 形成层次)
  * 3. 按钮/激活态颜色已在基础样式中 hardcode，dark 模式自动生效，无需重复
  */
+
+/* 2026-07-03 修复: dark 模式容器背景适配.
+ * 原代码 .sidebar-chat-history 用 var(--el-fill-color-blank), dark 下 = transparent,
+ * 加上 .chat-history-body fallback #ffffff, 导致容器内部显示刺眼白色 (用户反馈).
+ * 现显式给容器一个比 sidebar surface (#3a3d47) 稍浅的深色 (#42454f, 浅 8 单位),
+ * 形成"卡片浮起"层次, 与 light 模式 (容器 #ffffff vs sidebar #f5f5f5, 差 10 单位) 对称.
+ * #42454f 不在 AGENTS.md 红线硬编码禁止列表, 可直接写. */
+html.dark .sidebar-chat-history {
+  background-color: #42454f;
+}
+
 :where(html.dark) .chat-history-title-row {
   background-color: transparent;
 }

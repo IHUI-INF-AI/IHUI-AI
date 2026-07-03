@@ -1347,7 +1347,13 @@ watch(isMobileOpen, () => {
  * 折叠态 (.sidebar-login-row.is-collapsed):
  *   强制 .login-button 28×28 + 仅图标 + 居中,
  *   与 sidebar-actions 内 4 个图标中心 x 对齐
- *   (e2e/sidebar-collapsed-bottom-alignment.spec.ts:99 守门). */
+ *   (e2e/sidebar-collapsed-bottom-alignment.spec.ts:99 守门).
+ *
+ * 此外, 缩小 .sidebar-footer gap 从 8px → 2px (覆盖 _sidebar-layout.scss 的全局规则),
+ * 让 sidebar-actions 那排图标"下移"贴近登录按钮, 登录按钮本身位置不变. */
+:where(.sidebar-footer) {
+  gap: 2px;
+}
 .sidebar-login-row {
   display: flex;
   justify-content: center;
