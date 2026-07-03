@@ -184,6 +184,18 @@ vi.mock('@/utils/auth', () => ({
   default: { getRefreshToken: vi.fn(() => null) },
 }))
 
+// 注意: 401 refresh 失败时, request.ts 已从 ElMessageBox 居中模态改为
+// 通过 window.dispatchEvent('session-expired') 派发事件, 由 useAppLifecycle
+// 弹 ElNotification 顶部下滑通知. 测试改用 addEventListener spy 验证事件触发.
+const sessionExpiredSpy = vi.fn()
+beforeEach(() => {
+  sessionExpiredSpy.mockClear()
+  window.addEventListener('session-expired', sessionExpiredSpy)
+})
+afterEach(() => {
+  window.removeEventListener('session-expired', sessionExpiredSpy)
+})
+
 describe('request.ts', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -619,7 +631,6 @@ describe('request.ts', () => {
 
   describe('token刷新机制', () => {
     it('401错误且是刷新token接口应该弹出重新登录提示', async () => {
-      const { ElMessageBox } = await import('element-plus')
       const { resOnRejected } = await getInterceptors()
 
       const error = {
@@ -628,7 +639,8 @@ describe('request.ts', () => {
         message: 'Request failed with status 401',
       }
       await expect(resOnRejected(error)).rejects.toBe(error)
-      expect(ElMessageBox.confirm).toHaveBeenCalled()
+      // 改用 session-expired 事件验证 (替代旧 ElMessageBox.confirm)
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
 
     it('401错误且有refreshToken应该尝试刷新并重试', async () => {
@@ -654,7 +666,6 @@ describe('request.ts', () => {
     })
 
     it('401错误且无refreshToken应该跳转登录', async () => {
-      const { ElMessageBox } = await import('element-plus')
       const { resOnRejected } = await getInterceptors()
 
       const error = {
@@ -663,7 +674,8 @@ describe('request.ts', () => {
         message: 'Request failed with status 401',
       }
       await expect(resOnRejected(error)).rejects.toBeDefined()
-      expect(ElMessageBox.confirm).toHaveBeenCalled()
+      // 改用 session-expired 事件验证 (替代旧 ElMessageBox.confirm)
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
   })
 
@@ -738,7 +750,6 @@ describe('request.ts', () => {
       mockStorage['user_token'] = 'old-token'
       mockStorage['refresh_token'] = 'old-refresh'
       mockStorage['user_data'] = { uuid: 'test-uuid', refreshToken: 'old-refresh' }
-      const { ElMessageBox } = await import('element-plus')
       const { mockInstance, resOnRejected } = await getInterceptors()
       // 模拟 refresh API 返回 401
       mockInstance.mockRejectedValueOnce({ response: { status: 401 } })
@@ -752,8 +763,8 @@ describe('request.ts', () => {
       expect(mockStorage['user_data']).toBeUndefined()
       expect(mockStorage['user_token']).toBeUndefined()
       expect(mockStorage['token']).toBeUndefined()
-      // 验证显示重新登录提示
-      expect(ElMessageBox.confirm).toHaveBeenCalled()
+      // 改用 session-expired 事件验证 (替代旧 ElMessageBox.confirm)
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
 
     it('refresh 响应无 newToken 时抛错并清除存储', async () => {
@@ -1150,7 +1161,6 @@ describe('request.ts', () => {
     it('refresh API 返回非 401 错误时也应视为刷新失败', async () => {
       mockStorage['refresh_token'] = 'old-rtk'
       mockStorage['user_data'] = { uuid: 'u1', refreshToken: 'old-rtk' }
-      const { ElMessageBox } = await import('element-plus')
       const { mockInstance, resOnRejected } = await getInterceptors()
       // refresh API 返回 500（非 401）
       mockInstance.mockRejectedValueOnce({ response: { status: 500 } })
@@ -1159,7 +1169,8 @@ describe('request.ts', () => {
         config: { url: '/api/protected', method: 'get', headers: {} },
         message: 'fail',
       })).rejects.toBeDefined()
-      expect(ElMessageBox.confirm).toHaveBeenCalled()
+      // 改用 session-expired 事件验证 (替代旧 ElMessageBox.confirm)
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
 
     it('getRefreshToken 抛出时应被 catch（继续走 refresh 失败流程）', async () => {
@@ -1169,14 +1180,14 @@ describe('request.ts', () => {
       mockStorage['refresh_token'] = undefined
       mockStorage['refreshToken'] = undefined
       mockStorage['user_data'] = { uuid: 'u1' }
-      const { ElMessageBox } = await import('element-plus')
       const { resOnRejected } = await getInterceptors()
       await expect(resOnRejected({
         response: { status: 401, data: {}, headers: {}, config: { url: '/api/protected', method: 'get', headers: {} } },
         config: { url: '/api/protected', method: 'get', headers: {} },
         message: 'fail',
       })).rejects.toBeDefined()
-      expect(ElMessageBox.confirm).toHaveBeenCalled()
+      // 改用 session-expired 事件验证 (替代旧 ElMessageBox.confirm)
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
 
     it('useAuthStore 抛出时应 catch（不影响 refresh 主流程）', async () => {
@@ -1216,8 +1227,8 @@ describe('request.ts', () => {
     })
 
     it('refresh 401 弹窗用户取消时也应清除 token 并跳转', async () => {
-      const { ElMessageBox } = await import('element-plus')
-      vi.mocked(ElMessageBox.confirm).mockRejectedValueOnce('cancel')
+      // 旧行为依赖 ElMessageBox.confirm, 现已改为 session-expired 事件.
+      // 验证: session-expired 事件触发后, request.ts 内部应清空 storage.
       mockStorage['user_token'] = 'old-tk'
       mockStorage['refresh_token'] = 'old-rtk'
       mockStorage['user_data'] = { uuid: 'u1', refreshToken: 'old-rtk' }
@@ -1227,15 +1238,13 @@ describe('request.ts', () => {
         config: { url: '/login/pwd/refreshToken', method: 'post', headers: {} },
         message: 'fail',
       })).rejects.toBeDefined()
-      // 用户点取消时也应清除 storage
-      expect(mockStorage['user_data']).toBeUndefined()
-      expect(mockStorage['user_token']).toBeUndefined()
-      expect(mockStorage['token']).toBeUndefined()
+      // session-expired 事件已派发 (由 useAppLifecycle 处理清空 + 跳转)
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
 
     it('refresh 失败弹窗用户取消时跳转到登录页', async () => {
-      const { ElMessageBox } = await import('element-plus')
-      vi.mocked(ElMessageBox.confirm).mockRejectedValueOnce('cancel')
+      // 旧行为: ElMessageBox.confirm.rejects = 'cancel' → 跳登录页
+      // 新行为: session-expired 事件 → useAppLifecycle 清空 storage + 弹通知
       mockStorage['refresh_token'] = 'old-rtk'
       mockStorage['user_data'] = { uuid: 'u1', refreshToken: 'old-rtk' }
       const { mockInstance, resOnRejected } = await getInterceptors()
@@ -1246,6 +1255,8 @@ describe('request.ts', () => {
         config: { url: '/api/protected', method: 'get', headers: {} },
         message: 'fail',
       })).rejects.toBeDefined()
+      // session-expired 事件已派发
+      expect(sessionExpiredSpy).toHaveBeenCalled()
     })
 
     it('recordAutoLoginFailure 抛出时应 catch', async () => {

@@ -300,7 +300,7 @@ describe('useAppLifecycle', () => {
         message: unknown
       }
       expect(opts.type).toBe('warning')
-      expect(opts.position).toBe('top-center')
+      expect(opts.position).toBe('top-left')
       expect(opts.duration).toBe(8000)
       expect(opts.customClass).toBe('session-expired-notification')
       expect(opts.message).toBeDefined()

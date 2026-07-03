@@ -788,13 +788,6 @@ function setupResponseInterceptor() {
           LOGIN_PWD_PATHS.refreshToken,
         ].filter(Boolean) as string[]
         if (refreshEndpointHints.some(p => config.url?.includes(p))) {
-          const clearAndRedirect = () => {
-            StorageManager.removeItem(STORAGE_KEYS.USER_DATA)
-            StorageManager.removeItem(STORAGE_KEYS.TOKEN)
-            StorageManager.removeItem(STORAGE_KEYS.USER_TOKEN)
-            // 改用登录弹窗代替硬跳转, 避免整页刷新循环 (与无 token 拦截器一致)
-            redirectToLoginDialog()
-          }
           // 统一通过 session-expired 事件, 由 useAppLifecycle 弹 ElNotification 顶部下滑通知
           // (避免直接 ElMessageBox 居中模态打断用户)
           window.dispatchEvent(new CustomEvent('session-expired', {

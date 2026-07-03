@@ -84,7 +84,11 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
 
     // 2) 会话过期事件
     // 设计意图: 用 ElNotification 顶部下滑通知 + 内嵌按钮, 而非 ElMessageBox 居中模态。
-    //   - 顶部居中下滑 (position: top-center) - 与 Element Plus ElMessage 默认位置一致, 符合用户对"系统通知"的视觉预期
+    //   - 顶部居中下滑 (position: top-left + CSS 覆盖实现视觉居中)
+    //     Element Plus ElNotification 仅支持 4 个位置 (top-left/top-right/bottom-left/bottom-right),
+    //     不支持 top-center (notify.mjs:8-13 的 notifications 对象只声明 4 个 key,
+    //     用 top-center 会触发 'Cannot read properties of undefined (reading forEach)')。
+    //     解决: 用 top-left 让 Element Plus 走支持的代码路径, 再用 scss 把 left 覆盖为 50% + margin-left: -165px 实现视觉居中
     //   - "重新登录"按钮: 用户主动点才弹模态登录框, 减少误触率
     //   - "取消"按钮: 让用户保留控制权, 通知消失前可继续浏览 (适合查看后再决定登录)
     //   - duration: 8s 自动关闭 - 给用户足够时间看清并操作, 不会因忘记关闭而长期遮挡
@@ -132,9 +136,9 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
             ]),
           ]),
           type: 'warning',
-          position: 'top-center',
-          duration: SESSION_EXPIRED_DURATION_MS,
-          showClose: true,
+        position: 'top-left',
+        duration: SESSION_EXPIRED_DURATION_MS,
+        showClose: true,
           customClass: 'session-expired-notification',
           // 点击通知本体(非按钮区域)也弹出登录框, 提升可达性
           // 排除: 内嵌按钮(.el-button) 与 关闭按钮(.el-notification__closeBtn) - 它们有自己的处理逻辑
