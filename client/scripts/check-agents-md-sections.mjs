@@ -50,7 +50,7 @@ if (onlyStaged) {
   }
 }
 
-// 16 个 H2 章节的精确标题 + 正文要点 (按 AGENTS.md 中出现的顺序)
+// 17 个 H2 章节的精确标题 + 正文要点 (按 AGENTS.md 中出现的顺序)
 // 与 e2e/agents-md-sections.spec.ts 中 EXPECTED_SECTIONS 保持一致
 //
 // 维护规则 (2026-07-03 改进):
@@ -73,7 +73,9 @@ const EXPECTED_SECTIONS = [
   { title: '## 会话过期通知按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）', mustContain: '.session-expired-notification' },
   { title: '## Vue scoped + @use partial 规范（2026-07-03 立）', mustContain: 'check-ai-header-style-scope' },
   { title: '## 暗色浮层 primary 按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）', mustContain: ':where(.el-message-box, .el-notification, .el-dialog' },
+  { title: '## 暗色浮层底色统一硬约束（2026-07-03 立）', mustContain: 'check-dark-overlay-bg-color-unified' },
   { title: '## 圆角统一硬约束（2026-07-03 立）', mustContain: 'check-no-pill-radius' },
+  { title: '## 侧边栏尺寸永久锁定 v11 硬约束（2026-07-04 立）', mustContain: 'check-sidebar-config.mjs' },
 ]
 
 // 从 H2 标题自动派生 keyword (用于在正文中定位章节)
