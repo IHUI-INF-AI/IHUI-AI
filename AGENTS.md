@@ -1286,4 +1286,299 @@ node scripts/audit-ai-chat-scope.mjs
 
 ---
 
+## 暗色浮层 primary 按钮双层蓝边 + 中间白线视觉 bug 硬约束（2026-07-03 立）
+
+Element Plus 暗色 `.el-button--primary` 默认的 `border: 2px solid` + `box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18)` 在 **浮层组件**（ElMessageBox / ElNotification / ElDialog / ElMessage / ElPopper / ElDropdown）内的小尺寸蓝色按钮上叠加，会形成"双层蓝边 + 中间白线"视觉错觉。**必须**在浮层作用域内局部重置 `border-width: 0` + `box-shadow: none`，否则视为回归。
+
+### 触发文件
+
+- `client/src/styles/_element-plus-overrides.scss`（必须含浮层作用域排除规则，第 436-464 行）
+- 浮层组件清单：ElMessageBox / ElNotification / ElDialog / ElMessage / ElPopper / ElDropdown（共 6 类）
+
+### 根因（与第 13 章 ElNotification 同源）
+
+`_element-plus-overrides.scss:408-435` 的 `html.dark :where(.el-button--primary)` 规则在暗色模式下强制应用：
+
+```scss
+border-width: var(--el-border-width-primary)  // = 2px
+border-color: var(--el-color-primary)         // 暗色下 #409eff
+box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18)
+```
+
+**原始设计意图**：补强 `#2563eb` CTA 蓝在 `#6a6d77` darkSurface 上的边界（1.001:1 → 3:1+），适用于 sidebar / 暗色卡片等"按钮与底色对比度不足"场景。
+
+**为何不适用于所有浮层**：
+
+| 浮层组件 | 底色（--el-bg-color-overlay = #1a1a1a） | 蓝按钮对比度 | inset 白环 |
+|---|---|---|---|
+| ElMessageBox | #1a1a1a（dark-bg-3） | 4.5:1（WCAG AA 已通过） | **不需要** |
+| ElNotification | #1a1a1a | 4.5:1 | **不需要** |
+| ElDialog | #1a1a1a | 4.5:1 | **不需要** |
+| ElMessage | #1a1a1a | 4.5:1 | **不需要** |
+| ElPopper | #1a1a1a | 4.5:1 | **不需要** |
+| ElDropdown | #1a1a1a | 4.5:1 | **不需要** |
+| sidebar ghost 按钮 | #6a6d77 | 1.001:1（不足） | **需要**（保留） |
+
+浮层背景 = `--el-bg-color-overlay` = `var(--color-dark-bg-3)` = `#1a1a1a`，比 `#6a6d77` 深 64 单位，`#409eff` 蓝 on `#1a1a1a` 对比度 4.5:1 已达 WCAG AA 标准。但小尺寸蓝色按钮 + 2px 蓝边 + inset 1px 白环三者叠加，视觉上"两层蓝边夹白线"，像是渲染 bug。
+
+### 必须满足的规则
+
+`_element-plus-overrides.scss` 必须在 `html.dark` 块内、全局 `:where(.el-button--primary)` 规则之后，含以下浮层作用域排除规则：
+
+```scss
+html.dark {
+  // ... 全局 :where(.el-button--primary) 规则保留 (sidebar 等场景依赖) ...
+
+  // 浮层内 primary 按钮: 移除 inset 白环
+  :where(.el-message-box, .el-notification, .el-dialog, .el-message, .el-popper, .el-dropdown-menu) :where(.el-button--primary) {
+    border-width: 0;        // 移除 2px 蓝边
+    box-shadow: none;       // 移除 inset 白环
+
+    &:hover,
+    &:active,
+    &:focus,
+    &:focus-visible {
+      box-shadow: none;     // 状态切换时白环不能又出现
+    }
+  }
+}
+```
+
+**关键约束**：
+
+1. **覆盖范围必须含 6 类浮层组件**：ElMessageBox / ElNotification / ElDialog / ElMessage / ElPopper / ElDropdown，少一个都会让该类浮层继续出现"双层蓝边"
+2. **必须在 `html.dark` 块内**：放到全局会让浅色模式也错误重置（浅色本就没有 inset 白环，重置无副作用但语义错误，且 Element Plus 浅色 primary 的 border-color 会被错误清零）
+3. **必须在全局 `:where(.el-button--primary)` 规则之后**：CSS 级联中，相同特异性下后定义胜出。本规则特异性 = `html.dark` (0,1,1) + `:where()` (0,0,0) + `:where()` (0,0,0) = (0,1,1)，与全局规则相同，靠"后定义"胜出
+4. `border-width: 0` 而非 `border: 0`（保留 `border-color` 不被破坏，未来恢复边线只需删 border-width）
+5. hover/active/focus/focus-visible 状态也必须 `box-shadow: none`（Element Plus 默认 hover 会引入新阴影）
+
+### 与第 13 章的关系
+
+- **第 13 章**：会话过期通知（ElNotification）内的 primary 按钮局部重置 → 作用域 `.session-expired-notification`
+- **第 15 章（本章节）**：所有 6 类浮层内的 primary 按钮局部重置 → 作用域 `:where(.el-message-box, .el-notification, ...)`
+
+**两者并存**：第 13 章的 `.session-expired-notification` 作用域嵌套在 ElNotification 内，本章节的浮层作用域排除规则更宽泛（覆盖所有 ElNotification，不止 session-expired）。两者特异性相同，规则内容相同，互为冗余兜底 —— 任意一个被误删，另一个仍能保证 ElNotification 内的按钮无双层蓝边。
+
+**历史顺序**：先有第 13 章（session-expired 单点修复），后有第 15 章（6 类浮层统一覆盖）。第 13 章保留是为了应对"用户突然只看 session-expired 的回归测试"场景，第 15 章是"对所有同类浮层问题的统一防御"。
+
+### 禁止模式
+
+- ❌ 在 `_element-plus-overrides.scss` 全局关闭 inset 白环（会破坏 sidebar 等其他 CTA 按钮边界）
+- ❌ 浮层排除规则覆盖组件少于 6 类（漏一类会让该类浮层继续出现"双层蓝边"）
+- ❌ 浮层排除规则放在 `html.dark` 块外（浅色模式也会被错误重置）
+- ❌ 浮层排除规则放在全局 `:where(.el-button--primary)` 规则之前（CSS 级联会被先定义的规则覆盖）
+- ❌ hover/active/focus/focus-visible 状态不重置 `box-shadow: none`（状态切换会重新引入 inset 白环）
+- ❌ 只重置 `box-shadow` 不重置 `border-width: 0`（2px 蓝边依然在小按钮上显得厚重）
+
+### 守门工具
+
+#### 1. 源码级守门（CI 必跑，4 用例）
+
+`client/e2e/dark-overlay-primary-button-no-double-border.spec.ts` 在源码级别保证：
+
+1. 浮层排除规则必须覆盖 6 类浮层组件（ElMessageBox / ElNotification / ElDialog / ElMessage / ElPopper / ElDropdown）
+2. 浮层排除规则必须重置 `border-width: 0`
+3. 浮层排除规则必须重置 `box-shadow: none`
+4. 浮层排除规则必须在 `html.dark` 块内（不能放到全局）
+
+```bash
+npx playwright test e2e/dark-overlay-primary-button-no-double-border.spec.ts --reporter=list
+```
+
+#### 2. 浏览器级守门（需 PW_BASE_URL，5 用例）
+
+`client/e2e/dark-overlay-primary-button-no-double-border-visual.spec.ts` 在浏览器运行时验证：
+
+- 暗色 + ElMessageBox：primary `borderWidth=0px` + `boxShadow=none`
+- 暗色 + ElDialog：同上
+- 暗色 + ElNotification：同上
+- 暗色 + ElPopper：同上
+- 暗色 + 非浮层位置：primary **仍保留 inset 白环**（确保不污染全局 sidebar 等场景）
+
+```bash
+$env:PW_BASE_URL='http://127.0.0.1:8888'; npx playwright test e2e/dark-overlay-primary-button-no-double-border-visual.spec.ts --reporter=list --project=chromium
+```
+
+#### 3. pre-commit 轻量级守门（< 10ms）
+
+`scripts/check-dark-overlay-primary-button-no-double-border.mjs` 在 pre-commit 阶段拦截：
+
+- 6 类浮层组件必须全部出现在排除规则选择器中
+- `border-width: 0` / `box-shadow: none` / hover/active/focus/focus-visible 状态 `box-shadow: none` 必须齐备
+- 浮层排除规则必须在 `html.dark` 块内（行号顺序检查）
+
+```bash
+node scripts/check-dark-overlay-primary-button-no-double-border.mjs --staged
+```
+
+#### 4. 章节守门
+
+`scripts/check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS` 必须含本章节标题（15 章之一）。keyword 自动派生为"暗色浮层 primary 按钮双层蓝边 + 中间白线视觉 bug 硬约束"。
+
+### 历史 bug 复盘（2026-07-03 修复）
+
+**症状**：用户反馈"重新登录按钮怎么有两层蓝色边呢 中间还夹着白线"（session-expired 通知内的 primary 按钮）。
+
+**初始修复（第 13 章）**：在 `.session-expired-notification` 作用域内局部重置（commit 已提交）。但后续审计发现：
+
+- ElMessageBox / ElDialog / ElPopper / ElMessage / ElDropdown 等**所有浮层**内的 primary 按钮都存在同样的"双层蓝边 + 中间白线"问题
+- 单点修复 session-expired 不能覆盖其他 5 类浮层
+- 如果未来新增一个浮层（如 ElDrawer），又得加一个局部重置规则
+
+**本章节修复（第 15 章）**：在 `_element-plus-overrides.scss` 的 `html.dark` 块内，全局 `:where(.el-button--primary)` 规则之后追加浮层作用域排除规则，一次性覆盖 6 类浮层。
+
+**实测验证**（修复后）：
+
+| 浮层组件 | 修复前 ❌ | 修复后 ✅ |
+|---|---|---|
+| ElMessageBox primary `border-width` | 2px | **0px** |
+| ElMessageBox primary `box-shadow` | inset 白环 | **none** |
+| ElNotification primary `border-width` | 2px | **0px** |
+| ElDialog primary `box-shadow` | inset 白环 | **none** |
+| ElPopper primary `border-width` | 2px | **0px** |
+| 非浮层 sidebar primary `box-shadow` | inset 白环 | **保留 inset 白环**（不污染） |
+
+### 设计意图
+
+**Element Plus 暗色 primary 按钮的 inset 白环是有意为之**，但它只在"按钮底色对比度不足"的场景下必要。所有 6 类浮层背景 `#1a1a1a` 已经是"deep dark"，蓝色按钮对比度 4.5:1 自给自足，inset 白环反而成视觉噪音。
+
+**作用域隔离原则**：CSS 重置应该贴近使用点，**不要**在全局关闭 Element Plus 的设计意图。本硬约束用浮层选择器作用域限制重置范围，sidebar / 暗色卡片等仍依赖 inset 白环的场景不受影响。
+
+### 红线
+
+- ❌ 在 `_element-plus-overrides.scss` 全局关闭 inset 白环（破坏 sidebar CTA 按钮边界）
+- ❌ 删 `_element-plus-overrides.scss` 的浮层作用域排除规则（6 类浮层"双层蓝边"回归）
+- ❌ 浮层排除规则覆盖组件少于 6 类
+- ❌ 把浮层排除规则搬到 `html.dark` 块外
+- ❌ 把浮层排除规则搬到全局 `:where(.el-button--primary)` 规则之前
+- ❌ hover/active/focus/focus-visible 状态不重置 `box-shadow: none`
+- ❌ 删 `e2e/dark-overlay-primary-button-no-double-border.spec.ts` 或 `e2e/dark-overlay-primary-button-no-double-border-visual.spec.ts` 或 `scripts/check-dark-overlay-primary-button-no-double-border.mjs`（防回归兜底失效）
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
+## 圆角统一硬约束（2026-07-03 立）
+
+### 设计意图
+
+项目"黑-白-蓝"极简设计语言要求**圆角风格全站一致**。彻底圆角/胶囊形（pill / capsule）会破坏设计一致性，让 UI 显得"廉价"（用户反馈原话："圆角太大了 跟项目不统一"）。本硬约束规定**全项目圆角单一来源**：`var(--global-border-radius)` (8px)。
+
+### 圆角 token 体系（单一来源）
+
+| 用途 | Token | 解析值 |
+|---|---|---|
+| 全站容器/卡片 | `var(--global-border-radius)` | 8px |
+| 按钮 | `var(--app-button-radius)` | = `var(--global-border-radius)` = 8px |
+| 浮窗 | `var(--fcd-radius-lg)` | 15px（仅浮窗专用） |
+| 头像/纯装饰圆点 | `border-radius: 50%` | 几何圆形（白名单） |
+
+**SCSS 变量源头**：`_global-tokens.scss` 中 `$global-border-radius: 8px;` 是全站唯一数字源头，所有 token 引用必须最终解析到它。
+
+### 禁止模式
+
+❌ 以下写法**全部禁止**：
+
+```scss
+// 胶囊形 / 彻底圆角
+border-radius: 14px;   // ❌ 胶囊形
+border-radius: 16px;   // ❌ 胶囊形
+border-radius: 20px;   // ❌ 胶囊形
+border-radius: 999px;  // ❌ 胶囊形
+border-radius: 9999px; // ❌ 胶囊形
+
+// 已移除的违规 token
+border-radius: var(--app-button-radius-pill); // ❌ token 已删除, 不允许恢复
+```
+
+### 推荐模式
+
+✅ 以下写法**合规**：
+
+```scss
+// 容器/卡片
+border-radius: var(--global-border-radius);
+
+// 按钮
+border-radius: var(--app-button-radius);
+
+// 浮窗
+border-radius: var(--fcd-radius-lg);
+
+// 头像/纯装饰圆点（白名单）
+border-radius: 50%;
+```
+
+### 例外白名单
+
+仅以下场景允许使用 `border-radius: 50%`（几何圆形，非胶囊）：
+
+1. **头像** `.avatar` / `.user-avatar` / `.agent-avatar` 等
+2. **纯装饰圆点** `.recording-dot` / `.waveform-bar` / `.status-dot` 等
+3. **Loader / spinner** 等纯几何圆形元素
+
+**不允许**：按钮、卡片、输入框、徽章（badge）、tag、标签等 UI 元素使用 50% 圆角。
+
+### 守门工具（三层防回归）
+
+#### 第一层：pre-commit 守门
+
+`scripts/check-no-pill-radius.mjs` 在 `.husky/pre-commit` 第 7 步执行：
+
+- 扫描暂存 `.vue` / `.scss` / `.css` 文件
+- 检测正则：`border-radius:\s*(1[4-9]|[2-9]\d|999|9999)px`（排除 50% 与注释行）
+- 阈值 `NO_PILL_RADIUS_THRESHOLD=0`：暂存文件中不允许任何胶囊形圆角
+- 性能 < 100ms（pre-commit 友好）
+
+手动执行：
+
+```bash
+# 检查暂存文件
+npm run check:no-pill-radius:staged
+
+# 检查整个 src 目录
+npm run check:no-pill-radius
+```
+
+#### 第二层：CI 集成
+
+`.github/workflows/ci.yml` 的 `style-audit` job 中新增 step：
+
+```yaml
+- name: Check no pill/capsule border-radius
+  run: NO_PILL_RADIUS_THRESHOLD=0 node scripts/check-no-pill-radius.mjs --all
+```
+
+PR 阶段全量扫描 `src`，违规会阻断合并。
+
+#### 第三层：E2E 源码 + 渲染守门
+
+`e2e/tw-selector-radius.spec.ts`（11 用例，chromium + Mobile Chrome 双跑）：
+
+- **A-G2 源码级守门**（7 用例 × 2 浏览器 = 14）：验证 `.tw-selector-pill` 圆角 token + `--app-button-radius` 解析链 + `$global-border-radius=8px` + 不能含 14px 旧值
+- **F1/F2 渲染级守门**（2 用例 × 2 浏览器 = 4）：dev server 启动时验证 `getComputedStyle.borderRadius = 8px`（浅色/暗色），未启动时自动 skip
+
+### 已修复文件清单（2026-07-03）
+
+| 文件 | 违规数 | 修复 |
+|---|---|---|
+| `styles/ai-chat/_input-area.scss` `.tw-selector-pill` | 1 处 14px | → `var(--app-button-radius)` |
+| `components/ai/AIChat.vue` scoped 覆盖块 | 1 处 14px | → `var(--app-button-radius)` |
+| `styles/_global-tokens.scss` | 1 处 `--app-button-radius-pill: 14px` | token 删除 |
+| `styles/_open-platform.scss` | 31 处 14/16/20/999/9999px | → `var(--global-border-radius)` |
+| `views/AiWorldBannerDetail.vue` | 2 处 9999px | → `var(--global-border-radius)` |
+| `components/edu/WrongBookSummary.vue` | 2 处 999px | → `var(--global-border-radius)` |
+
+### 红线
+
+- ❌ 在 `.vue` / `.scss` / `.css` 文件中使用 `border-radius: 14px` / `16px` / `20px` / `999px` / `9999px`
+- ❌ 恢复已删除的 `--app-button-radius-pill` token
+- ❌ 在 `_global-tokens.scss` 之外定义新的圆角 token
+- ❌ 用 `border-radius: 50%` 写按钮/卡片/徽章（仅头像/纯装饰圆点允许）
+- ❌ 删除 `scripts/check-no-pill-radius.mjs` 或注释掉 `.husky/pre-commit` 中的调用
+- ❌ 删除 `e2e/tw-selector-radius.spec.ts`（防回归兜底失效）
+- ❌ 在 CI 的 `style-audit` job 中移除 pill-radius 检查 step
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
 
