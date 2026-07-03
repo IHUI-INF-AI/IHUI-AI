@@ -67,6 +67,8 @@
     "check:agents-md:all": "node scripts/check-agents-md-sections.mjs",
     "check:becomesupplier:join-us": "node scripts/check-becomesupplier-join-us.mjs",
     "check:becomesupplier:join-us:staged": "node scripts/check-becomesupplier-join-us.mjs --staged",
+    "check:sidebar:dark-tier": "node scripts/check-sidebar-dark-tier.mjs",
+    "check:sidebar:dark-tier:staged": "node scripts/check-sidebar-dark-tier.mjs --staged",
     "check:theme-tokens": "node scripts/check-theme-tokens.mjs",
     "check:contrast": "node scripts/check-theme-contrast.mjs",
     "scan:dead-code": "node scripts/scan-dead-code.mjs",
@@ -100,7 +102,7 @@
     "chromatic": "chromatic --exit-zero-on-changes"
   },
   "simple-git-hooks": {
-    "pre-commit": "npx lint-staged && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent",
+    "pre-commit": "npx lint-staged && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent && npm run check:sidebar:dark-tier:staged --silent",
     "pre-push": "npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent"
   },
   "lint-staged": {
