@@ -141,6 +141,8 @@
       "aiReportChatDesc": "与 AI 助手深度对话，获取个性化学习建议",
       "aiReportChatOpen": "开始对话",
       "aiReportChatFailed": "打开 AI 对话失败，请重试",
+      "aiReportChatSent": "已发送到 AI 对话面板，请在右侧查看流式回复",
+      "aiReportChatResend": "再次发送",
       "aiReportApiDesc": "基于你的学习数据，AI 将生成完整的规划报告",
       "aiReportApiGenerate": "生成报告",
       "aiReportApiRegenerate": "重新生成",

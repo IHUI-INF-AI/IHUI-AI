@@ -653,42 +653,6 @@
 
                 <!-- trae-work Row 1: 顶层能力选择下拉（+ 选择） -->
                 <div class="trae-work-actions-top">
-                  <!-- Model 快捷选择胶囊 -->
-                  <TraeWorkSelector
-                    :items="modelsForSelector"
-                    :label="selectedModel ? getModelDisplayName(selectedModel) : ''"
-                    :is-active="currentAIMode === 'model'"
-                    :is-selected="(m: { modelCode: string }) => selectedModel?.modelCode === m.modelCode"
-                    :get-name="getModelDisplayName"
-                    :get-key="(m: { modelCode: string }) => m.modelCode"
-                    icon-mode="model"
-                    selector-class="tw-quick-model"
-                    :title-i18n="t('aiChatInput.modelLabel')"
-                    :empty-i18n="t('aiChatInput.noModels')"
-                    :placeholder-i18n="t('aiChatInput.selectModel')"
-                    :tooltip-i18n="t('aiChatInput.selectModel')"
-                    more-i18n="floatingChat.more"
-                    @select="(m: { modelCode: string }) => handleModelSelect(m.modelCode)"
-                    @more="onCapabilityCardClick('select:model')"
-                  />
-                  <!-- Agent 快捷选择胶囊 -->
-                  <TraeWorkSelector
-                    :items="agentsForSelector"
-                    :label="selectedAgent ? selectedAgent.name : ''"
-                    :is-active="currentAIMode === 'agent'"
-                    :is-selected="(a: { id: string; name: string }) => String(selectedAgent?.id) === String(a.id)"
-                    :get-name="(a: { id: string; name: string }) => a.name || ''"
-                    :get-key="(a: { id: string; name: string }) => String(a.id)"
-                    icon-mode="agent"
-                    selector-class="tw-quick-agent"
-                    :title-i18n="t('aiChatInput.agentLabel')"
-                    :empty-i18n="t('aiChatInput.noAgents')"
-                    :placeholder-i18n="t('aiChatInput.selectAgent')"
-                    :tooltip-i18n="t('aiChatInput.selectAgent')"
-                    more-i18n="floatingChat.more"
-                    @select="handleAgentSelect"
-                    @more="onCapabilityCardClick('select:agent')"
-                  />
                   <el-dropdown trigger="click" v-model:visible="showCapabilityDropdown"
                     class="ai-capability-selector"
                     placement="top" :hide-on-click="false"
@@ -1516,7 +1480,6 @@ import { useSubViewDropdown } from '@/composables/useSubViewDropdown'
 import { StorageManager } from '@/utils/storage'
 import MarkdownStream from './MarkdownStream.vue'
 import PromptTemplates from './PromptTemplates.vue'
-import TraeWorkSelector from './TraeWorkSelector.vue'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成
@@ -6007,6 +5970,9 @@ defineExpose({
       showAICapabilityPanel.value = true
     }
   },
+  // streaming 前端准备：供 useGlobalChat.open({ autoSend: true }) 自动发送预填 prompt
+  // 包装 handleSend（无参，从 inputText.value 读取已预填内容）
+  sendMessage: handleSend,
 })
 
 // 对话框展示时，内容区域滚动到底部
@@ -8338,6 +8304,8 @@ cleanup.add(() => {
 <style lang="scss" scoped>
 // 导入 AI 对话框设计令牌
 @use '@/styles/ai-chat-variables' as *;
+// CTA 主色 SCSS 桥接变量 (单一来源 _global-tokens.scss, 避免硬编码 #2563eb 等红线色值)
+@use '@/styles/_global-tokens.scss' as gt;
 // SCSS 模块化迁移：标题栏 / 消息列表 / 输入区域 / 会话列表
 @use '@/styles/ai-chat/header' as *;
 @use '@/styles/ai-chat/message-list' as *;
@@ -8396,6 +8364,12 @@ cleanup.add(() => {
   --fcd-send-btn-color: var(--el-bg-color);
   --fcd-send-btn-hover-bg: var(--fcd-send-btn-hover-bg);
 
+  // 发送按钮 is-ready 蓝色状态（trae work 主色蓝）— 引用 SCSS 桥接变量避免硬编码红线色值
+  --color-ai-send-btn-bg: #{gt.$color-cta-blue};
+  --color-ai-send-btn-active: #{gt.$color-cta-blue-hover};
+  --color-cta-blue-active: #{gt.$color-cta-blue-active};
+  --color-cta-blue-hover: #{gt.$color-cta-blue-hover};
+
   // 消息气泡背景（亮色：天蓝色；暗色在下方覆盖为深蓝色）
   --fcd-message-bubble-bg: var(--el-color-primary-light-5);
 
@@ -8427,6 +8401,12 @@ cleanup.add(() => {
   --fcd-send-btn-bg: var(--el-bg-color);
   --fcd-send-btn-color: var(--el-text-color-primary);
   --fcd-send-btn-hover-bg: var(--fcd-send-btn-hover-bg);
+
+  // 发送按钮 is-ready 蓝色状态（暗色更亮一点的蓝）
+  --color-ai-send-btn-bg: #3b82f6;
+  --color-ai-send-btn-active: #{gt.$color-cta-blue};
+  --color-cta-blue-active: #{gt.$color-cta-blue-active};
+  --color-cta-blue-hover: #{gt.$color-cta-blue-hover};
 
   // 消息气泡背景（暗色模式：深蓝色）
   --fcd-message-bubble-bg: var(--el-color-primary-light-9);
@@ -8914,9 +8894,12 @@ cleanup.add(() => {
     &.is-empty,
     &.is-empty.is-disabled,
     &.is-empty:disabled {
+      // 显式设灰色，不能用 inherit —— .send-btn-text 的父元素是 Element Plus
+      // 内部包裹 span（被 :where(.el-button--primary) span 设为白色），inherit 会
+      // 继承到白色，导致浅灰背景上白字不可见。暗色模式由下方 !important 块覆盖为白色。
       .el-icon,
       .send-btn-text {
-        color: inherit;
+        color: var(--el-text-color-placeholder);
       }
 
       svg {

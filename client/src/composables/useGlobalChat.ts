@@ -21,6 +21,12 @@ export interface OpenChatOptions {
   sessionId?: string
   initialText?: string
   mode?: string
+  /**
+   * 自动发送 initialText（streaming 前端准备）
+   * - true: 预填 prompt 后自动调 sendMessage，用户无需手动点发送
+   * - false/undefined: 仅预填，用户需手动点发送（默认行为，向后兼容）
+   */
+  autoSend?: boolean
 }
 
 interface FloatingChatRef {
@@ -31,6 +37,8 @@ interface FloatingChatRef {
   switchMode?: (mode: string) => void
   selectAgent?: (agent: unknown) => void
   selectModel?: (model: unknown) => void
+  /** 自动发送当前输入框内容（streaming 前端准备，包装 AIChat.handleSend） */
+  sendMessage?: () => Promise<void>
   [key: string]: unknown
 }
 
@@ -77,6 +85,17 @@ export function useGlobalChat(): GlobalChat {
     if (options?.mode) {
       const openFn = (window as Window & { openFloatingChat?: (o: unknown) => void }).openFloatingChat
       if (openFn) openFn({ initialText: options.initialText, mode: options.mode })
+    }
+
+    // streaming 前端准备：autoSend=true 时预填 prompt 后自动发送
+    // 需等 nextTick 让 setInitialText 的 DOM 更新完成，再调 sendMessage
+    if (options?.autoSend && options?.initialText && chatRef.sendMessage) {
+      await nextTick()
+      try {
+        await chatRef.sendMessage()
+      } catch (e) {
+        console.error('[useGlobalChat] autoSend failed', e)
+      }
     }
   }
 

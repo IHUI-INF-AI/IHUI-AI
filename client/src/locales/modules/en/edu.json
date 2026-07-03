@@ -118,6 +118,8 @@
       "aiReportChatDesc": "Have an in-depth conversation with AI assistant for personalized learning advice",
       "aiReportChatOpen": "Start Chat",
       "aiReportChatFailed": "Failed to open AI chat, please retry",
+      "aiReportChatSent": "Sent to AI chat panel, please check the streaming reply on the right",
+      "aiReportChatResend": "Send again",
       "aiReportApiDesc": "Based on your learning data, AI will generate a complete plan report",
       "aiReportApiGenerate": "Generate Report",
       "aiReportApiRegenerate": "Regenerate",

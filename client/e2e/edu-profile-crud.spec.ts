@@ -145,6 +145,16 @@ test.describe('学员档案模块 - 关键组件存在', () => {
     expect(content).toBeTruthy()
   })
 
+  test('streaming 前端准备: AiReportSection.vue chat 模式含 chatConsulted 状态分支', () => {
+    const content = readSrc('components/edu/AiReportSection.vue')
+    // chatConsulted 状态分支（已发送/未发送两种 UI）
+    expect(content).toMatch(/chatConsulted/)
+    expect(content).toMatch(/aiReportChatSent/)
+    expect(content).toMatch(/aiReportChatResend/)
+    // CircleCheckFilled 图标（已发送状态）
+    expect(content).toMatch(/CircleCheckFilled/)
+  })
+
   test('PR-F F1: LearningProfileEntryCard.vue 存在 + 跳转 /edu/member', () => {
     const content = readSrc('components/edu/LearningProfileEntryCard.vue')
     expect(content).toBeTruthy()
@@ -195,6 +205,31 @@ test.describe('学员档案模块 - Composable 结构守门', () => {
     expect(content).toMatch(/TIP_NOTES_COUNT/)
   })
 
+  test('streaming 前端准备: useAiReportEngine chatConsulted + autoSend', () => {
+    const content = readSrc('composables/useAiReportEngine.ts')
+    // chatConsulted ref（标记已发送到 AI 对话面板）
+    expect(content).toMatch(/chatConsulted/)
+    // autoSend: true（自动发送 prompt）
+    expect(content).toMatch(/autoSend:\s*true/)
+  })
+
+  test('streaming 前端准备: useGlobalChat autoSend + sendMessage 接口', () => {
+    const content = readSrc('composables/useGlobalChat.ts')
+    // OpenChatOptions 含 autoSend 字段
+    expect(content).toMatch(/autoSend\?:\s*boolean/)
+    // FloatingChatRef 含 sendMessage 方法
+    expect(content).toMatch(/sendMessage\?:\s*\(\)\s*=>\s*Promise<void>/)
+    // open() 中 autoSend 逻辑
+    expect(content).toMatch(/options\?\.autoSend/)
+    expect(content).toMatch(/chatRef\.sendMessage/)
+  })
+
+  test('streaming 前端准备: AIChat.vue defineExpose 含 sendMessage', () => {
+    const content = readSrc('components/ai/AIChat.vue')
+    // defineExpose 中暴露 sendMessage（包装 handleSend）
+    expect(content).toMatch(/sendMessage:\s*handleSend/)
+  })
+
   test('PR-F F3: auth.logout 调用 resetStudentProfile', () => {
     const content = readSrc('stores/auth/index.ts')
     expect(content).toBeTruthy()
@@ -225,6 +260,9 @@ test.describe('学员档案模块 - i18n 6 语言关键键', () => {
       expect(content).toMatch(/"papersTitle"/)
       // PR-D AI 报告相关
       expect(content).toMatch(/"aiReportTitle"/)
+      // streaming 前端准备：chat 模式已发送状态
+      expect(content).toMatch(/"aiReportChatSent"/)
+      expect(content).toMatch(/"aiReportChatResend"/)
     })
   }
 })

@@ -241,6 +241,7 @@ export function useAiReportEngine() {
 
   // chat 模式：AIChat 深度咨询
   const chatLoading = ref(false)
+  const chatConsulted = ref(false) // streaming 前端准备：标记是否已发送到 AI 对话面板
   const globalChat = useGlobalChat()
 
   async function openChatConsult(): Promise<void> {
@@ -262,7 +263,9 @@ export function useAiReportEngine() {
         examPassRate: examPassRate.value,
         weakSubjects: weakSubjects.value,
       })
-      await globalChat.open({ initialText: prompt, mode: 'deep' })
+      // streaming 前端准备：autoSend=true 自动发送 prompt，用户无需手动点发送
+      await globalChat.open({ initialText: prompt, mode: 'deep', autoSend: true })
+      chatConsulted.value = true
     } finally {
       chatLoading.value = false
     }
@@ -314,6 +317,7 @@ export function useAiReportEngine() {
     localSuggestions,
     // chat 模式
     chatLoading,
+    chatConsulted,
     openChatConsult,
     // api 模式
     apiLoading,

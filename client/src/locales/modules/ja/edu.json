@@ -118,6 +118,8 @@
       "aiReportChatDesc": "AI アシスタントと深く対話し、個別化された学習アドバイスを取得",
       "aiReportChatOpen": "対話開始",
       "aiReportChatFailed": "AI チャットを開けませんでした、再試行してください",
+      "aiReportChatSent": "AIチャットパネルに送信しました、右側のストリーミング返信を確認してください",
+      "aiReportChatResend": "再送信",
       "aiReportApiDesc": "学習データに基づき、AI が完全な計画レポートを生成します",
       "aiReportApiGenerate": "レポート生成",
       "aiReportApiRegenerate": "再生成",

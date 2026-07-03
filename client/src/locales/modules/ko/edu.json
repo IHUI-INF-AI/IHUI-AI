@@ -118,6 +118,8 @@
       "aiReportChatDesc": "AI 어시스턴트와 심층 대화로 개인화된 학습 조언 받기",
       "aiReportChatOpen": "대화 시작",
       "aiReportChatFailed": "AI 채팅 열기 실패, 재시도하세요",
+      "aiReportChatSent": "AI 채팅 패널에 전송됨, 우측에서 스트리밍 응답을 확인하세요",
+      "aiReportChatResend": "다시 전송",
       "aiReportApiDesc": "학습 데이터를 기반으로 AI가 완전한 계획 보고서를 생성합니다",
       "aiReportApiGenerate": "보고서 생성",
       "aiReportApiRegenerate": "재생성",

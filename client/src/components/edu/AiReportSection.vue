@@ -34,19 +34,33 @@
         </div>
       </el-tab-pane>
 
-      <!-- ② AI 深度咨询 tab（调 useGlobalChat.open 传 prompt） -->
+      <!-- ② AI 深度咨询 tab（调 useGlobalChat.open 传 prompt，autoSend 自动发送） -->
       <el-tab-pane name="chat" :label="t('edu.profile.aiReportChat')">
         <div class="tab-body chat-entry">
-          <el-icon :size="40" class="chat-icon"><ChatDotRound /></el-icon>
-          <p class="chat-desc">{{ t('edu.profile.aiReportChatDesc') }}</p>
-          <el-button
-            type="primary"
-            :loading="chatLoading"
-            :icon="Promotion"
-            @click="handleOpenChat"
-          >
-            {{ t('edu.profile.aiReportChatOpen') }}
-          </el-button>
+          <template v-if="!chatConsulted">
+            <el-icon :size="40" class="chat-icon"><ChatDotRound /></el-icon>
+            <p class="chat-desc">{{ t('edu.profile.aiReportChatDesc') }}</p>
+            <el-button
+              type="primary"
+              :loading="chatLoading"
+              :icon="Promotion"
+              @click="handleOpenChat"
+            >
+              {{ t('edu.profile.aiReportChatOpen') }}
+            </el-button>
+          </template>
+          <!-- streaming 前端准备：已发送状态提示 -->
+          <template v-else>
+            <el-icon :size="40" class="chat-icon chat-icon--done"><CircleCheckFilled /></el-icon>
+            <p class="chat-desc">{{ t('edu.profile.aiReportChatSent') }}</p>
+            <el-button
+              :loading="chatLoading"
+              :icon="Promotion"
+              @click="handleOpenChat"
+            >
+              {{ t('edu.profile.aiReportChatResend') }}
+            </el-button>
+          </template>
         </div>
       </el-tab-pane>
 
@@ -111,6 +125,7 @@ import {
   Cpu,
   Coin,
   Refresh,
+  CircleCheckFilled,
 } from '@element-plus/icons-vue'
 import { useAiReportEngine } from '@/composables/useAiReportEngine'
 import { useStudentProfile } from '@/composables/useStudentProfile'
@@ -123,6 +138,7 @@ const { t } = useI18n()
 const {
   localSuggestions,
   chatLoading,
+  chatConsulted,
   openChatConsult,
   apiLoading,
   apiReport,
@@ -313,6 +329,10 @@ async function handleGenerateViaApi() {
 
 .chat-icon {
   color: var(--el-color-primary);
+}
+
+.chat-icon--done {
+  color: var(--el-color-success);
 }
 
 .chat-desc {
