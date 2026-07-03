@@ -112,6 +112,7 @@
       "completedCourses": "完了コース数",
       "aiReportTitle": "AI 学習計画レポート",
       "aiReportComingSoon": "近日公開",
+      "profileExportFilename": "学習者プロフィール",
       "aiReportLocal": "ローカル分析",
       "aiReportChat": "AI 深度相談",
       "aiReportApi": "AI レポート生成",

@@ -371,7 +371,7 @@ async function handleExportPdf() {
   exporting.value = true
   try {
     await exportElementToPDF(reportRef.value, {
-      filename: `学员档案_${new Date().toISOString().slice(0, 10)}.pdf`,
+      filename: `${t('edu.profile.profileExportFilename')}_${new Date().toISOString().slice(0, 10)}.pdf`,
       backgroundColor: isDark.value ? THEME_TOKENS.darkSurface : THEME_TOKENS.lightSurface,
     })
   } finally {

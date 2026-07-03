@@ -112,6 +112,7 @@
       "completedCourses": "완료 코스 수",
       "aiReportTitle": "AI 학습 계획 보고서",
       "aiReportComingSoon": "출시 예정",
+      "profileExportFilename": "학습자 프로필",
       "aiReportLocal": "로컬 분석",
       "aiReportChat": "AI 심층 상담",
       "aiReportApi": "AI 보고서 생성",
