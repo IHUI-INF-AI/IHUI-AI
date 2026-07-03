@@ -148,7 +148,7 @@
   }
 }
 
-/* 登录按钮：使用全局 _buttons.scss 中的样式 */
+/* 登录按钮：样式由 UserMenu.vue scoped 控制 (2026-07-03, 原 _buttons.scss 死代码已删) */
 
 /* 反馈按钮：与右侧功能区统一高度、字?*/
 .glass-header .header-right .feedback-button {

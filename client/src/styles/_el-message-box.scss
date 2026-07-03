@@ -212,7 +212,7 @@
 
 // ============================================
 // Unlayered 防御性覆盖
-// _buttons.scss 有 :root .el-button:not(.hero-cta-btn)+.el-button { margin-left: 12px }
+// 历史 _buttons.scss (2026-07-03 已删除) 曾有 :root .el-button:not(.hero-cta-btn)+.el-button { margin-left: 12px }
 // 该规则 unlayered + specificity (0,4,0)，会穿透 @layer components 的 :where() 规则。
 // 用 :root 前缀匹配 specificity，确保弹窗按钮间距仅由 gap 控制。
 // ============================================

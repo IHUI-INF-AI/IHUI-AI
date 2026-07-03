@@ -360,9 +360,9 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 /* 亮色模式：主按钮 - 使用全局主色（纯黑）与容器色（纯白文字） */
 :where(html:not(.dark)) :where(#first-page) .hero-cta .hero-cta-btn {
   min-width: 140px;
-  height: 44px;
+  height: var(--app-button-height-2xl);
   font-weight: 600;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -434,9 +434,9 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 
 :where(html:not(.dark)) :where(#first-page) .hero-cta .hero-cta-btn.ghost {
   min-width: 140px;
-  height: 44px;
+  height: var(--app-button-height-2xl);
   font-weight: 600;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -509,9 +509,9 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 // 暗色模式：主按钮 - 纯白色背?+ 低对比色描边 + 纯黑色文?
 :where(html.dark) :where(#first-page) .hero-cta .hero-cta-btn:not(.ghost) {
   min-width: 140px;
-  height: 44px;
+  height: var(--app-button-height-2xl);
   font-weight: 600;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -621,9 +621,9 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 // 暗色模式：Ghost按钮 - 透明背景 + 白色描边 + 白色文字
 :where(html.dark) :where(#first-page) .hero-cta .hero-cta-btn.ghost {
   min-width: 140px;
-  height: 44px;
+  height: var(--app-button-height-2xl);
   font-weight: 600;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -694,9 +694,9 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 /* 亮色模式：小程序按钮 - 微信绿主题 */
 :where(html:not(.dark)) :where(#first-page) .hero-cta .hero-cta-btn.miniapp-btn {
   min-width: 140px;
-  height: 44px;
+  height: var(--app-button-height-2xl);
   font-weight: 600;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -743,9 +743,9 @@ body.dark #first-page .first-page-content-overlay .brand-welcome-text {
 /* 暗色模式：小程序按钮 - 微信绿主题（保持一致） */
 :where(html.dark) :where(#first-page) .hero-cta .hero-cta-btn.miniapp-btn {
   min-width: 140px;
-  height: 44px;
+  height: var(--app-button-height-2xl);
   font-weight: 600;
-  border-radius: var(--global-border-radius);
+  border-radius: var(--app-button-radius);
   display: inline-flex;
   align-items: center;
   justify-content: center;
