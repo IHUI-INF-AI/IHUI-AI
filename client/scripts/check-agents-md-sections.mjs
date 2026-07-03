@@ -50,7 +50,7 @@ if (onlyStaged) {
   }
 }
 
-// 11 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
+// 12 个 H2 章节的精确标题 (按 AGENTS.md 中出现的顺序)
 // 与 e2e/agents-md-sections.spec.ts 中 EXPECTED_SECTIONS 保持一致
 const EXPECTED_SECTIONS = [
   '## 目标驱动模式执行规范（/goal）',
@@ -64,6 +64,7 @@ const EXPECTED_SECTIONS = [
   '## AI 浮窗对话历史入口唯一性硬约束（2026-07-02 立）',
   '## 登录/注册按钮设计令牌应用硬约束（2026-07-02 立）',
   '## 文案 / i18n 联动改动硬约束（2026-07-03 立）',
+  '## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）',
 ]
 
 // 文件不存在
@@ -148,6 +149,8 @@ const sectionSpotChecks = [
   { keyword: '行尾格式守门', mustContain: 'check:line-endings' },
   { keyword: 'AI 浮窗对话历史入口唯一性', mustContain: 'ChatSessionPanel.vue' },
   { keyword: '登录/注册按钮设计令牌', mustContain: '_login-tokens.scss' },
+  { keyword: '文案 / i18n 联动改动硬约束', mustContain: 'check:becomesupplier:join-us' },
+  { keyword: '会话过期通知位置', mustContain: 'SESSION_EXPIRED_DURATION_MS' },
 ]
 for (const { keyword, mustContain } of sectionSpotChecks) {
   const sectionStart = content.indexOf(keyword)
