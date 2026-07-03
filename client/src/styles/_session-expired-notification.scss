@@ -2,7 +2,7 @@
  * session-expired ElNotification 顶部下滑通知样式 (2026-07-03 立)
  *
  * 取代旧的 ElMessageBox 居中模态弹窗, 提供:
- *  - 顶部右侧下滑入场 (Element Plus 默认 position: top-right)
+ *  - 顶部居中下滑入场 (Element Plus position: top-center, 与 ElMessage 默认位置一致)
  *  - 自定义操作按钮 (重新登录 / 取消)
  *  - 暗色模式适配 (不依赖 Element Plus 默认皮肤)
  *
@@ -11,11 +11,11 @@
  */
 
 .session-expired-notification {
-  // 强制 fixed 定位: 通知始终在视口右上角, 不被页面滚动带走
+  // 强制 fixed 定位: 通知始终在视口顶部, 不被页面滚动带走
   // (Element Plus 某些版本/自定义样式可能让 el-notification 变 relative, 这里强制覆盖)
+  // 水平居中由 Element Plus 内部 left:50% + translateX(-50%) 处理, 不要在此写 left/right
   position: fixed !important;
   top: 16px;
-  right: 16px;
   // 整体容器: 与暗色 sidebar 区分, 强调"通知"语义
   border-left: 3px solid var(--el-color-warning);
 

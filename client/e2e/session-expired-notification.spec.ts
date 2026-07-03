@@ -47,18 +47,23 @@ test.describe('会话过期顶部下滑通知 + 重新登录按钮防回归', ()
     ).not.toMatch(/ElMessageBox\s*\(/)
   })
 
-  test('2/9 必须从屏幕顶部下滑 (position: top-right)', () => {
+  test('2/9 必须从屏幕顶部居中下滑 (position: top-center)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
     expect(
       src,
-      'useAppLifecycle.ts 缺少 position: top-right (通知不在顶部下滑)',
-    ).toMatch(/position:\s*['"]top-right['"]/)
+      'useAppLifecycle.ts 缺少 position: top-center (通知不在顶部居中下滑, 与 ElMessage 视觉不一致)',
+    ).toMatch(/position:\s*['"]top-center['"]/)
+    // 守卫: 不能回退到 top-right / top-left 等其他位置
+    expect(
+      src,
+      'useAppLifecycle.ts 仍在使用 top-right (会话过期通知应居中, 与 ElMessage 一致)',
+    ).not.toMatch(/position:\s*['"]top-right['"]/)
   })
 
   test('3/9 必须自动关闭 (duration 4000-15000ms, 防止通知永久挂起遮挡屏幕)', () => {
     const src = readFileSync(USE_APP_LIFECYCLE, 'utf-8')
-    // 必须锚定到 ElNotification 块 (position: top-right 之后), 避免误匹配 Alt+T 的 ElMessage (duration: 1500)
-    const blockMatch = src.match(/position:\s*['"]top-right['"][\s\S]{0,300}?duration:\s*([A-Z_0-9]+|\d+)/)
+    // 必须锚定到 ElNotification 块 (position: top-center 之后), 避免误匹配 Alt+T 的 ElMessage (duration: 1500)
+    const blockMatch = src.match(/position:\s*['"]top-center['"][\s\S]{0,300}?duration:\s*([A-Z_0-9]+|\d+)/)
     expect(
       blockMatch,
       'useAppLifecycle.ts ElNotification 块缺少合法 duration (通知会永久挂起遮挡屏幕)',
