@@ -17,6 +17,7 @@ import { memberApi, learnApi, examApi } from '@/api/edu'
 import { notesApi } from '@/api/edu/notes'
 import { offlineRecordsApi } from '@/api/edu/offline-records'
 import { uploadedCertsApi } from '@/api/edu/uploaded-certs'
+import { uploadedPapersApi } from '@/api/edu/uploaded-papers'
 import { learnStatsApi } from '@/api/edu/stats'
 import type {
   EduMember,
@@ -31,6 +32,7 @@ import type {
 import type { LearningNote } from '@/api/edu/notes'
 import type { OfflineRecord } from '@/api/edu/offline-records'
 import type { UploadedCert } from '@/api/edu/uploaded-certs'
+import type { UploadedPaper } from '@/api/edu/uploaded-papers'
 import type { DailyStat, CategoryStat, SkillRadarStat } from '@/api/edu/stats'
 
 export interface LearnStat {
@@ -63,7 +65,7 @@ function unwrapPaginated<T>(result: SettledResult<EduPaginatedResponse<T>>): T[]
   return []
 }
 
-/** refresh 支持的 section 类型（C0 B-2：从 4 个扩展到 7 个） */
+/** refresh 支持的 section 类型（C0 B-2：从 4 个扩展到 8 个，PR-E E6 新增 papers） */
 export type ProfileSection =
   | 'notes'
   | 'offline'
@@ -72,6 +74,7 @@ export type ProfileSection =
   | 'courses'
   | 'wrongbook'
   | 'ai-report'
+  | 'papers'
 
 // ============================================================================
 // C0 B-3：模块级 singleton（避免页面切换重复创建 ref + 重复请求 API）
@@ -109,6 +112,8 @@ function createStudentProfile() {
   const notes = ref<LearningNote[]>([])
   const offlineRecords = ref<OfflineRecord[]>([])
   const uploadedCerts = ref<UploadedCert[]>([])
+  // PR-E E6：新增 uploadedPapers ref
+  const uploadedPapers = ref<UploadedPaper[]>([])
   const dailyStats = ref<DailyStat[]>([])
   const categoryStats = ref<CategoryStat[]>([])
   const skillRadar = ref<SkillRadarStat[]>([])
@@ -131,6 +136,8 @@ function createStudentProfile() {
           notesApi.list({ page: 1, size: 100 }),
           offlineRecordsApi.list({ page: 1, size: 100 }),
           uploadedCertsApi.list({ page: 1, size: 100 }),
+          // PR-E E6：新增 uploadedPapers 数据源
+          uploadedPapersApi.list({ page: 1, size: 100 }),
           learnStatsApi.daily({ days: 30 }),
           learnStatsApi.byCategory(),
           learnStatsApi.skillRadar(),
@@ -146,6 +153,7 @@ function createStudentProfile() {
           notesRes,
           offlineRes,
           uploadedCertsRes,
+          uploadedPapersRes,
           dailyRes,
           catRes,
           radarRes,
@@ -159,6 +167,8 @@ function createStudentProfile() {
         notes.value = unwrapPaginated(notesRes as SettledResult<EduPaginatedResponse<LearningNote>>)
         offlineRecords.value = unwrapPaginated(offlineRes as SettledResult<EduPaginatedResponse<OfflineRecord>>)
         uploadedCerts.value = unwrapPaginated(uploadedCertsRes as SettledResult<EduPaginatedResponse<UploadedCert>>)
+        // PR-E E6：uploadedPapers 赋值
+        uploadedPapers.value = unwrapPaginated(uploadedPapersRes as SettledResult<EduPaginatedResponse<UploadedPaper>>)
         dailyStats.value = unwrap(dailyRes as SettledResult<DailyStat[]>) ?? []
         categoryStats.value = unwrap(catRes as SettledResult<CategoryStat[]>) ?? []
         skillRadar.value = unwrap(radarRes as SettledResult<SkillRadarStat[]>) ?? []
@@ -259,6 +269,10 @@ function createStudentProfile() {
       } else if (section === 'ai-report') {
         // C0 B-2：ai-report 占位（PR-D 实现，此处无数据源需要刷新，保留接口一致性）
         // AI 报告由 useAiReportEngine 本地生成或 aiReportApi 拉取，不在此刷新
+      } else if (section === 'papers') {
+        // PR-E E6：新增 papers 刷新
+        const res = await uploadedPapersApi.list({ page: 1, size: 100 })
+        uploadedPapers.value = (res as EduBaseResponse<EduPaginatedResponse<UploadedPaper>>)?.data?.items ?? []
       }
     } catch (e) {
       console.error(`[useStudentProfile] refresh ${section} 失败`, e)
@@ -314,6 +328,7 @@ function createStudentProfile() {
     notes,
     offlineRecords,
     uploadedCerts,
+    uploadedPapers,
     dailyStats,
     categoryStats,
     skillRadar,

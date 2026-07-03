@@ -264,6 +264,7 @@
       }
     },
     "packages": {
+      "create": "パッケージ作成",
       "quota": "配额",
       "remaining": "剩余",
       "startDate": "開始日付",
@@ -349,6 +350,7 @@
       "Status": "Status"
     },
     "groups": {
+      "create": "グループ作成",
       "comparison": {
         "feature": "機できる特性",
         "scenarios": "适用シーン",

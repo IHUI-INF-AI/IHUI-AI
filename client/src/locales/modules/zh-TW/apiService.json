@@ -216,6 +216,7 @@
       "noPackage": "未使用套餐"
     },
     "packages": {
+      "create": "創建套餐",
       "quota": "配額",
       "remaining": "剩餘",
       "startDate": "開始日期",
@@ -294,6 +295,7 @@
       "load": "加載"
     },
     "groups": {
+      "create": "創建分組",
       "comparison": {
         "feature": "功能特性",
         "scenarios": "适用場景",
