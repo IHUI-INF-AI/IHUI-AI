@@ -80,21 +80,19 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     disposers.push(() => handleThemeShortcut && window.removeEventListener('keydown', handleThemeShortcut))
 
     // 2) 会话过期事件
-    // 2026-07-03 改版: 从 ElMessageBox 居中模态弹窗改为 ElNotification 顶部下滑通知
-    // + 通知内嵌"重新登录"按钮 (用户主动点才弹模态, 避免强制打断操作)
+    // 设计意图: 用 ElNotification 顶部下滑通知 + 内嵌按钮, 而非 ElMessageBox 居中模态。
+    //   - 顶部下滑是非阻塞通知, 不强制打断用户当前操作 (避免误触模态导致数据丢失)
+    //   - "重新登录"按钮: 用户主动点才弹模态登录框, 减少误触率
+    //   - "取消"按钮: 让用户保留控制权, 通知消失前可继续浏览 (适合查看后再决定登录)
+    //   - duration: 0 = 必须用户主动操作, 防止错过会话过期事件
+    //   - 选用 ElNotification 而非 ErrorNotification 横幅: 后者只能显示纯文本, 无法嵌按钮
     handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent).detail
       authStore.logout()
       // 跳首页, 不再自动弹模态登录框
       void router.push('/').catch(() => {})
       const reason = detail?.reason || t('auth.sessionExpiredMessage')
-      // 优先走 window 全局通知 (老路径, 兼容 ErrorNotification 组件)
-      const w = window as unknown as { showGlobalNotification?: (reason: string, type: string) => void }
-      if (typeof window !== 'undefined' && w.showGlobalNotification) {
-        w.showGlobalNotification(reason, 'warning')
-        return
-      }
-      // 兜底: 直接调 ElNotification 弹顶部下滑通知, 嵌"重新登录"按钮
+      // 直接调 ElNotification 弹顶部下滑通知, 嵌"重新登录"按钮
       const notification = ElNotification({
         title: t('auth.sessionExpiredTitle') || '会话已过期',
         message: h('div', { class: 'session-expired-notify' }, [

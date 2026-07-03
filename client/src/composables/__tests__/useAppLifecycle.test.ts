@@ -275,22 +275,40 @@ describe('useAppLifecycle', () => {
       expect(mockRouterPush).toHaveBeenCalledWith('/')
     })
 
-    it('应用 window.showGlobalNotification 存在时调用', () => {
+    it('应直接调 ElNotification 弹顶部下滑通知(不走 showGlobalNotification 横幅)', async () => {
+      const { ElNotification } = await import('element-plus')
       const notify = vi.fn()
       ;(window as any).showGlobalNotification = notify
       const lifecycle = useAppLifecycle()
       lifecycle.install()
       window.dispatchEvent(new CustomEvent('session-expired', { detail: { reason: '凭证已过期' } }))
-      expect(notify).toHaveBeenCalledWith('凭证已过期', 'warning')
+      expect(notify).not.toHaveBeenCalled()
+      expect(ElNotification).toHaveBeenCalled()
+      const opts = (ElNotification as unknown as { mock: { calls: Array<[unknown]> } }).mock.calls[0][0] as {
+        type: string
+        position: string
+        duration: number
+        customClass: string
+        message: unknown
+      }
+      expect(opts.type).toBe('warning')
+      expect(opts.position).toBe('top-right')
+      expect(opts.duration).toBe(0)
+      expect(opts.customClass).toBe('session-expired-notification')
+      expect(opts.message).toBeDefined()
     })
 
-    it('未提供 reason 时应使用 i18n 文案', () => {
-      const notify = vi.fn()
-      ;(window as any).showGlobalNotification = notify
+    it('未提供 reason 时应使用 i18n 文案', async () => {
+      const { ElNotification } = await import('element-plus')
       const lifecycle = useAppLifecycle()
       lifecycle.install()
       window.dispatchEvent(new CustomEvent('session-expired'))
-      expect(notify).toHaveBeenCalledWith('auth.sessionExpiredMessage', 'warning')
+      expect(ElNotification).toHaveBeenCalled()
+      const opts = (ElNotification as unknown as { mock: { calls: Array<[unknown]> } }).mock.calls[0][0] as {
+        title: string
+      }
+      // title 走 i18n (mock 直接返回 key)
+      expect(opts.title).toBe('auth.sessionExpiredTitle')
     })
   })
 
