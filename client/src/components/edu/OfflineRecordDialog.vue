@@ -5,6 +5,7 @@
     width="560px"
     :close-on-click-modal="false"
     append-to-body
+    :before-close="handleBeforeClose"
     @update:model-value="emit('update:visible', $event)"
   >
     <el-form
@@ -94,7 +95,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
 import { Paperclip } from '@element-plus/icons-vue'
 import {
   offlineRecordsApi,
@@ -102,6 +103,7 @@ import {
   type OfflineRecordCreate,
   type OfflineActivityType,
 } from '@/api/edu/offline-records'
+import { validateFile } from '@/utils/fileValidation'
 
 const { t } = useI18n()
 
@@ -119,6 +121,20 @@ const formRef = ref<FormInstance | null>(null)
 const submitting = ref(false)
 const fileList = ref<UploadFile[]>([])
 const proofUrl = ref('')
+
+// PR-F F4：dirty 检测
+const initialSnapshot = ref('')
+const isDirty = computed(() => {
+  const current = JSON.stringify({
+    title: form.title,
+    record_date: form.record_date,
+    duration_minutes: form.duration_minutes,
+    activity_type: form.activity_type,
+    description: form.description,
+    proof_url: proofUrl.value,
+  })
+  return current !== initialSnapshot.value
+})
 
 const isEdit = computed(() => !!props.record?.id)
 
@@ -162,6 +178,15 @@ watch(
       } else {
         resetForm()
       }
+      // PR-F F4：回填后立即快照
+      initialSnapshot.value = JSON.stringify({
+        title: form.title,
+        record_date: form.record_date,
+        duration_minutes: form.duration_minutes,
+        activity_type: form.activity_type,
+        description: form.description,
+        proof_url: proofUrl.value,
+      })
     }
   }
 )
@@ -178,6 +203,18 @@ function resetForm() {
 }
 
 function handleFileChange(file: UploadFile) {
+  // PR-F F5：接入 utils/fileValidation.ts 统一校验
+  const raw = file.raw
+  if (raw) {
+    const result = validateFile(raw, {
+      allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+      maxSize: 10 * 1024 * 1024, // 10MB
+    })
+    if (!result.valid) {
+      ElMessage.error(result.errors[0] || t('edu.profile.uploadFailed'))
+      return
+    }
+  }
   fileList.value = [file]
   proofUrl.value = file.url || ''
 }
@@ -188,7 +225,33 @@ function handleFileRemove() {
 }
 
 function handleCancel() {
-  emit('update:visible', false)
+  void confirmClose(() => emit('update:visible', false))
+}
+
+// PR-F F4：el-dialog before-close 钩子
+async function handleBeforeClose(done: () => void) {
+  const ok = await confirmDirty()
+  if (ok) done()
+}
+
+async function confirmDirty(): Promise<boolean> {
+  if (!isDirty.value) return true
+  try {
+    await ElMessageBox.confirm(t('edu.profile.dirtyConfirm'), t('edu.profile.cancel'), {
+      type: 'warning',
+      confirmButtonText: t('edu.profile.discard'),
+      cancelButtonText: t('edu.profile.keepEditing'),
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function confirmClose(close: () => void) {
+  confirmDirty().then((ok) => {
+    if (ok) close()
+  })
 }
 
 async function handleSubmit() {

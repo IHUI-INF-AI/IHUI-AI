@@ -201,6 +201,21 @@ const eduRoutes: RouteRecordRaw[] = [
           import('@/views/edu/member/CertUpload.vue').then((m) => m.default as Component),
         meta: { title: '上传历史证书', hideInMenu: true, requiresAuth: true },
       },
+      // PR-E E5：试卷列表 + 上传页
+      {
+        path: 'member/papers',
+        name: 'EduMemberPapers',
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/Papers.vue').then((m) => m.default as Component),
+        meta: { title: '我的试卷', hideInMenu: true, requiresAuth: true },
+      },
+      {
+        path: 'member/papers/upload',
+        name: 'EduMemberPaperUpload',
+        component: (): Promise<Component> =>
+          import('@/views/edu/member/PaperUpload.vue').then((m) => m.default as Component),
+        meta: { title: '上传试卷', hideInMenu: true, requiresAuth: true },
+      },
 
       // ----- Point (points) -----
       {

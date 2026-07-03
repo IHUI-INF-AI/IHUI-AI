@@ -1,0 +1,53 @@
+/**
+ * session-expired ElNotification 顶部下滑通知样式 (2026-07-03 立)
+ *
+ * 取代旧的 ElMessageBox 居中模态弹窗, 提供:
+ *  - 顶部右侧下滑入场 (Element Plus 默认 position: top-right)
+ *  - 自定义操作按钮 (重新登录 / 取消)
+ *  - 暗色模式适配 (不依赖 Element Plus 默认皮肤)
+ *
+ * 触发源: composables/useAppLifecycle.ts handleSessionExpired
+ * 监听事件: window 'session-expired'
+ */
+
+.session-expired-notification {
+  // 整体容器: 与暗色 sidebar 区分, 强调"通知"语义
+  border-left: 3px solid var(--el-color-warning);
+
+  .session-expired-notify {
+    .session-expired-msg {
+      margin: 0 0 10px 0;
+      color: var(--el-text-color-primary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .session-expired-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+
+      .el-button {
+        // ElButton 默认带 1px 边框, 通知内紧凑展示要去掉多余 margin
+        margin: 0;
+      }
+
+      .el-button + .el-button {
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+// 暗色模式: 让背景更柔和, 文字对比度 ≥ 4.5:1
+html.dark .session-expired-notification {
+  background: var(--el-bg-color-overlay);
+  border-left-color: var(--el-color-warning);
+
+  .session-expired-notify {
+    .session-expired-msg {
+      color: var(--el-text-color-primary);
+    }
+  }
+}

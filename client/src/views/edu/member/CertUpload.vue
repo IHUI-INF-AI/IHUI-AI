@@ -107,6 +107,7 @@ import { UploadFilled } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { uploadedCertsApi, type UploadedCertCreate, type UploadedCertType } from '@/api/edu/uploaded-certs'
 import CertificateList from '@/components/edu/CertificateList.vue'
+import { validateFile } from '@/utils/fileValidation'
 
 const { t } = useI18n()
 const { loading, error, certificates, uploadedCerts, loadAll, refresh } = useStudentProfile()
@@ -150,6 +151,18 @@ const canSubmit = computed(() => {
 })
 
 function handleFileChange(file: UploadFile) {
+  // PR-F F5：接入 utils/fileValidation.ts 统一校验
+  const raw = file.raw
+  if (raw) {
+    const result = validateFile(raw, {
+      allowedTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+      maxSize: 10 * 1024 * 1024, // 10MB
+    })
+    if (!result.valid) {
+      ElMessage.error(result.errors[0] || t('edu.profile.uploadFailed'))
+      return
+    }
+  }
   fileList.value = [file]
   // 实际项目中应调用上传接口拿回 url，此处 mock 用本地 blob url 占位
   fileUrl.value = file.url || ''

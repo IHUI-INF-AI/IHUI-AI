@@ -30,7 +30,10 @@
  *   - client/scripts/*  (端口探活脚本)           (探活)
  */
 
-/** 安全读取环境变量作为端口号, 失败回退到默认值 */
+/** 安全读取环境变量作为端口号, 失败回退到默认值
+ *  后端首次冷启动需 50-60s (FastAPI 11+ legacy routers 加载), 配合
+ *  scripts/dev-up.ps1 -HealthTimeout 60 使用可避免 30s 默认超时被打断.
+ *  CI 环境建议显式设 $env:HEALTH_TIMEOUT=90 留余量 */
 const envPort = (key: string, fallback: number): number => {
   try {
     // globalThis.process 在 Node 环境 (vite/playwright/e2e) 都有, 浏览器端为 undefined

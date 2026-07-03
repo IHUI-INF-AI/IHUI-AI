@@ -3,7 +3,7 @@
  *
  * 当前配置 (v7): MIN_WIDTH=80, MAX_WIDTH=140, DEFAULT_WIDTH=140, COLLAPSE_THRESHOLD=80
  * 侧边栏默认 140px（宽屏：4 字 label 完整），可向左拖到 80 紧凑 / <80 折叠到 60
- * 设计目标：4 字中文 label 完整显示，5 字截断（"成为供应商" → "成为供..."）
+ * 设计目标：4 字中文 label 完整显示，5 字截断（e.g. "加入我们" 完整 / 5 字 label → 截 1 字）
  *
  * 覆盖目标：
  *   1. 宽度常量 [80, 140] clamp 边界（min-1 / min / mid / max / max+1）

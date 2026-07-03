@@ -23,6 +23,8 @@ import './styles/index.scss'
 import './styles/_scrollbar-overlay.scss'
 // ElMessageBox 全局样式覆盖（修复会话过期弹窗按钮挤在一起的问题）
 import './styles/_el-message-box.scss'
+// 会话过期 ElNotification 顶部下滑通知样式 (2026-07-03 替代 ElMessageBox)
+import './styles/_session-expired-notification.scss'
 import './styles/header.scss' // 顶部菜单栏 .glass-header 样式（必须加载，否则顶部栏不显示）
 import './styles/brand-marquee.scss' // 引入品牌跑马灯卡片样式
 import './styles/ihui-ai-effects.scss'

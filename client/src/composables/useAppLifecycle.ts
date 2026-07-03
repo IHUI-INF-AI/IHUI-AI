@@ -10,9 +10,10 @@
  * 内部使用 try/catch 兜底,失败不影响页面。
  */
 
-import { onMounted, onUnmounted, nextTick, ref } from 'vue'
+import { onMounted, onUnmounted, nextTick, ref, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ElButton, ElNotification } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useLoginDialog } from '@/composables/useLoginDialog'
@@ -79,17 +80,54 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     disposers.push(() => handleThemeShortcut && window.removeEventListener('keydown', handleThemeShortcut))
 
     // 2) 会话过期事件
+    // 2026-07-03 改版: 从 ElMessageBox 居中模态弹窗改为 ElNotification 顶部下滑通知
+    // + 通知内嵌"重新登录"按钮 (用户主动点才弹模态, 避免强制打断操作)
     handleSessionExpired = (event: Event) => {
       const detail = (event as CustomEvent).detail
       authStore.logout()
-      // 弹窗形式：跳首页 + 弹出登录弹窗，不再跳 /login 路由
-      useLoginDialog().open('login')
+      // 跳首页, 不再自动弹模态登录框
       void router.push('/').catch(() => {})
       const reason = detail?.reason || t('auth.sessionExpiredMessage')
+      // 优先走 window 全局通知 (老路径, 兼容 ErrorNotification 组件)
       const w = window as unknown as { showGlobalNotification?: (reason: string, type: string) => void }
       if (typeof window !== 'undefined' && w.showGlobalNotification) {
         w.showGlobalNotification(reason, 'warning')
+        return
       }
+      // 兜底: 直接调 ElNotification 弹顶部下滑通知, 嵌"重新登录"按钮
+      const notification = ElNotification({
+        title: t('auth.sessionExpiredTitle') || '会话已过期',
+        message: h('div', { class: 'session-expired-notify' }, [
+          h('p', { class: 'session-expired-msg' }, reason),
+          h('div', { class: 'session-expired-actions' }, [
+            h(
+              ElButton,
+              {
+                type: 'primary',
+                size: 'small',
+                onClick: () => {
+                  useLoginDialog().open('login')
+                  notification.close()
+                },
+              },
+              t('auth.relogin') || '重新登录'
+            ),
+            h(
+              ElButton,
+              {
+                size: 'small',
+                onClick: () => notification.close(),
+              },
+              t('common.cancel') || '取消'
+            ),
+          ]),
+        ]),
+        type: 'warning',
+        position: 'top-right',
+        duration: 0, // 不自动关闭, 必须用户主动操作
+        showClose: true,
+        customClass: 'session-expired-notification',
+      })
     }
     window.addEventListener('session-expired', handleSessionExpired)
     disposers.push(() => handleSessionExpired && window.removeEventListener('session-expired', handleSessionExpired))

@@ -40,6 +40,9 @@
         <UserCard @handle-click="handleCardClick" />
       </div>
 
+      <!-- 学员档案入口卡（PR-F F1+F2） -->
+      <LearningProfileEntryCard v-if="isLoggedIn" />
+
       <!-- 会员权益 - 玻璃态折叠面板 -->
       <div
         v-if="isLoggedIn && !isShow"
@@ -114,6 +117,7 @@ import UserInfoCard from '@/components/user/UserInfoCard.vue'
 import UserCard from '@/components/user/UserCard.vue'
 import UserMembershipBenefits from '@/components/user/UserMembershipBenefits.vue'
 import ImageSharePopup from '@/components/user/ImageSharePopup.vue'
+import LearningProfileEntryCard from '@/components/edu/LearningProfileEntryCard.vue'
 import { useLoginDialog } from '@/composables/useLoginDialog'
 
 const { t } = useI18n()

@@ -46,7 +46,34 @@
       class="error-alert"
     />
 
-    <div ref="reportRef" v-loading="loading" class="profile-body">
+    <!-- PR-F F6：骨架屏替换 v-loading（首次加载体验更佳） -->
+    <div v-if="loading && !profile" class="profile-skeleton">
+      <div class="skeleton-row">
+        <el-skeleton :rows="0" animated>
+          <template #template>
+            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
+          </template>
+        </el-skeleton>
+        <el-skeleton :rows="0" animated>
+          <template #template>
+            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
+          </template>
+        </el-skeleton>
+        <el-skeleton :rows="0" animated>
+          <template #template>
+            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
+          </template>
+        </el-skeleton>
+        <el-skeleton :rows="0" animated>
+          <template #template>
+            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
+          </template>
+        </el-skeleton>
+      </div>
+      <el-skeleton :rows="8" animated style="margin-top: 24px" />
+    </div>
+
+    <div v-else ref="reportRef" v-loading="loading" class="profile-body">
       <!-- ③ 统计卡 -->
       <section class="stat-row">
         <StatCard
@@ -132,7 +159,19 @@
         />
       </section>
 
-      <!-- ⑨ AI 报告（PR-D：前端规则引擎 + AIChat 深度咨询 + 后端 LLM 契约） -->
+      <!-- ⑨ 试卷预览（PR-E E7） -->
+      <section class="list-row">
+        <UploadedPapersList
+          :papers="uploadedPapers"
+          :show-header="true"
+          :show-delete="false"
+          :limit="5"
+          @view-all="goPapers"
+          @delete="handleDeletePaper"
+        />
+      </section>
+
+      <!-- ⑩ AI 报告（PR-D：前端规则引擎 + AIChat 深度咨询 + 后端 LLM 契约） -->
       <section class="ai-report-section-wrap">
         <h3 class="section-title">
           <el-icon><MagicStick /></el-icon>
@@ -178,10 +217,13 @@ import CertificateList from '@/components/edu/CertificateList.vue'
 import WrongBookSummary from '@/components/edu/WrongBookSummary.vue'
 import NotesList from '@/components/edu/NotesList.vue'
 import OfflineRecordsList from '@/components/edu/OfflineRecordsList.vue'
+import UploadedPapersList from '@/components/edu/UploadedPapersList.vue'
 import NoteDialog from '@/components/edu/NoteDialog.vue'
 import OfflineRecordDialog from '@/components/edu/OfflineRecordDialog.vue'
 import AiReportSection from '@/components/edu/AiReportSection.vue'
 import { notesApi } from '@/api/edu/notes'
+import { uploadedPapersApi } from '@/api/edu/uploaded-papers'
+import type { UploadedPaper } from '@/api/edu/uploaded-papers'
 import { offlineRecordsApi } from '@/api/edu/offline-records'
 import type { LearningNote } from '@/api/edu/notes'
 import type { OfflineRecord } from '@/api/edu/offline-records'
@@ -206,6 +248,7 @@ const {
   certificates,
   wrongBook,
   uploadedCerts,
+  uploadedPapers,
   notes,
   offlineRecords,
   dailyStats,
@@ -301,6 +344,26 @@ function goNotes() {
 }
 function goOffline() {
   router.push('/edu/member/offline-records')
+}
+
+// PR-E E7：试卷预览跳转 + 删除
+function goPapers() {
+  router.push('/edu/member/papers')
+}
+
+async function handleDeletePaper(paper: UploadedPaper) {
+  try {
+    await ElMessageBox.confirm(t('edu.profile.deleteConfirm'), t('edu.profile.paperDelete'), {
+      type: 'warning',
+      confirmButtonText: t('edu.profile.submit'),
+      cancelButtonText: t('edu.profile.cancel'),
+    })
+    await uploadedPapersApi.delete(paper.id)
+    ElMessage.success(t('edu.profile.deleteSuccess'))
+    await refresh('papers')
+  } catch {
+    // 用户取消删除，无需处理
+  }
 }
 
 async function handleExportPdf() {
@@ -406,6 +469,23 @@ onMounted(loadAll)
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+/* PR-F F6：骨架屏样式 */
+.profile-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--color-white-30);
+  border-radius: 8px;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
 }
 
 .stat-row {

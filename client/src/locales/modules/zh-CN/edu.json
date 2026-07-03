@@ -27,6 +27,9 @@
     "profile": {
       "entryCardTitle": "我的学习档案",
       "entryCardDesc": "查看学习统计、上传笔记与试卷、生成 AI 学习规划报告",
+      "dirtyConfirm": "您有未保存的更改，确定要放弃吗？",
+      "discard": "放弃更改",
+      "keepEditing": "继续编辑",
       "certificates": "我的证书",
       "onlineCerts": "在线证书",
       "uploadedCerts": "已上传证书",

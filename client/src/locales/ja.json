@@ -1,4 +1,4 @@
-﻿﻿{
+﻿{
   "apiTest": {
     "title": "APIテスト",
     "allTestsPassed": "全て",
@@ -82,7 +82,7 @@
     "apiホーム": "APIサービスホーム",
     "aiWorld": "AIワールド",
     "aboutUs": "私たちについて",
-    "becomeSupplier": "サプライヤーになる",
+    "becomeSupplier": "参加する",
     "documentCenter": "ドキュメントセンター",
     "newsCenter": "ニュースセンター",
     "agentsCategory": "カテゴリリスト",
@@ -1536,7 +1536,7 @@
     "documentCenter": "ドキュメントセンター",
     "newsCenter": "AIニュース",
     "aboutUs": "私たちについて",
-    "becomeSupplier": "サプライヤーになる",
+    "becomeSupplier": "参加する",
     "aiStore": "AIストア",
     "moreFeatures": "その他の機できる",
     "noMoreItems": "項目はありません",

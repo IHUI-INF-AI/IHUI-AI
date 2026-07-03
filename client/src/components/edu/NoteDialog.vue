@@ -5,6 +5,7 @@
     width="640px"
     :close-on-click-modal="false"
     append-to-body
+    :before-close="handleBeforeClose"
     @update:model-value="emit('update:visible', $event)"
   >
     <el-form
@@ -78,9 +79,10 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
 import { Paperclip } from '@element-plus/icons-vue'
 import { notesApi, type LearningNote, type LearningNoteCreate } from '@/api/edu/notes'
+import { validateFile } from '@/utils/fileValidation'
 
 const { t } = useI18n()
 
@@ -98,6 +100,19 @@ const formRef = ref<FormInstance | null>(null)
 const submitting = ref(false)
 const fileList = ref<UploadFile[]>([])
 const attachments = ref<Array<{ url: string; name: string; type: 'image' | 'file' }>>([])
+
+// PR-F F4：dirty 检测（表单回填后快照，关闭前对比）
+const initialSnapshot = ref('')
+const isDirty = computed(() => {
+  const current = JSON.stringify({
+    title: form.title,
+    content: form.content,
+    is_public: form.is_public,
+    tags: tagsInput.value,
+    attachments: attachments.value,
+  })
+  return current !== initialSnapshot.value
+})
 
 const isEdit = computed(() => !!props.note?.id)
 
@@ -138,6 +153,14 @@ watch(
       } else {
         resetForm()
       }
+      // PR-F F4：回填后立即快照（resetForm 后也要快照，否则新建态永远是 dirty）
+      initialSnapshot.value = JSON.stringify({
+        title: form.title,
+        content: form.content,
+        is_public: form.is_public,
+        tags: tagsInput.value,
+        attachments: attachments.value,
+      })
     }
   }
 )
@@ -153,6 +176,18 @@ function resetForm() {
 }
 
 function handleFileChange(file: UploadFile) {
+  // PR-F F5：接入 utils/fileValidation.ts 统一校验
+  const raw = file.raw
+  if (raw) {
+    const result = validateFile(raw, {
+      allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      maxSize: 10 * 1024 * 1024, // 10MB
+    })
+    if (!result.valid) {
+      ElMessage.error(result.errors[0] || t('edu.profile.uploadFailed'))
+      return
+    }
+  }
   fileList.value.push(file)
   attachments.value.push({
     url: file.url || '',
@@ -169,7 +204,34 @@ function handleFileRemove(file: UploadFile) {
 }
 
 function handleCancel() {
-  emit('update:visible', false)
+  void confirmClose(() => emit('update:visible', false))
+}
+
+// PR-F F4：el-dialog before-close 钩子（点击 X / 按 ESC / 点遮罩关闭时触发）
+async function handleBeforeClose(done: () => void) {
+  const ok = await confirmDirty()
+  if (ok) done()
+}
+
+// 统一确认逻辑：dirty 时弹确认框，非 dirty 直接关闭
+async function confirmDirty(): Promise<boolean> {
+  if (!isDirty.value) return true
+  try {
+    await ElMessageBox.confirm(t('edu.profile.dirtyConfirm'), t('edu.profile.cancel'), {
+      type: 'warning',
+      confirmButtonText: t('edu.profile.discard'),
+      cancelButtonText: t('edu.profile.keepEditing'),
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function confirmClose(close: () => void) {
+  confirmDirty().then((ok) => {
+    if (ok) close()
+  })
 }
 
 async function handleSubmit() {

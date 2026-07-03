@@ -134,10 +134,10 @@ from app.api.v1.ws_admin import router as ws_admin_router
 
 # --- Personality (可选) ---
 try:
-    from app.api.v1.tools.personality import router as personality_router
+    from app.api.v1.agents.personality import router as personality_router
     HAS_PERSONALITY = True
 except Exception as _e:
-    logger.warning(f"路由模块 app.api.v1.tools.personality 导入失败, 已跳过: {_e}")
+    logger.warning(f"路由模块 app.api.v1.agents.personality 导入失败, 已跳过: {_e}")
     personality_router = None  # type: ignore[assignment]
     HAS_PERSONALITY = False
 

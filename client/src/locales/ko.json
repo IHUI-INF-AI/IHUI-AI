@@ -1,4 +1,4 @@
-﻿﻿{
+{
   "apiTest": {
     "핵심 장점": "API 테스트",
     "allTestsPassed": "모든",
@@ -109,7 +109,7 @@
     "api홈": "API 서비스 홈",
     "aiWorld": "AI 월드",
     "aboutUs": "회사 소개",
-    "becomeSupplier": "공급자 되기",
+    "becomeSupplier": "참여하기",
     "documentCenter": "문서 센터",
     "newsCenter": "뉴스 센터",
     "agentsCategory": "카테고리 목록",
@@ -1188,7 +1188,7 @@
     "newsCenter": "AI 뉴스",
     "aboutUs": "핵심 장점",
     "문의하기": "문의하기",
-    "becomeSupplier": "공급업체가 되기",
+    "becomeSupplier": "참여하기",
     "aiStore": "AI 스토어",
     "moreFeatures": "더 많은 기능",
     "noMoreItems": "더 이상 항목 없음",

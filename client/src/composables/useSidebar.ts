@@ -37,7 +37,7 @@ const CURRENT_CONFIG_VERSION = 7
 
 // ── 宽度范围（展开态固定 140，可向左拖到 80 紧凑 / <80 折叠到 60）──
 // min 80: 紧凑布局；text-overflow: ellipsis 已保证不破版
-// max 140: 4 字中文 label 完整显示，5 字截断（"成为供应商" → "成为供..."）
+// max 140: 4 字中文 label 完整显示，5 字截断（e.g. "加入我们" 完整 / 5 字 label → 截 1 字）
 // default 140: 首次打开默认宽屏（DEFAULT=MAX，向左拖可压缩；向右无空间）
 const MIN_WIDTH = 80
 const MAX_WIDTH = 140

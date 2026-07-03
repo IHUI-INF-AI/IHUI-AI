@@ -45,10 +45,16 @@ vi.mock('vue-i18n', () => ({
   })),
 }))
 
-// Mock element-plus（用于 Alt+T 提示）
+// Mock element-plus（用于 Alt+T 提示 + 会话过期通知）
 vi.mock('element-plus', () => ({
   ElMessage: {
     success: vi.fn(),
+  },
+  ElNotification: vi.fn(() => ({
+    close: vi.fn(),
+  })),
+  ElButton: {
+    name: 'ElButton',
   },
 }))
 

@@ -24,7 +24,11 @@
       class="error-alert"
     />
 
-    <div v-loading="loading" class="offline-body">
+    <!-- PR-F F6：骨架屏替换 v-loading -->
+    <div v-if="loading && !offlineRecords.length" class="offline-skeleton">
+      <el-skeleton v-for="i in 3" :key="i" :rows="3" animated style="margin-bottom: 16px" />
+    </div>
+    <div v-else v-loading="loading" class="offline-body">
       <OfflineRecordsList
         :records="offlineRecords"
         @view-all="handleViewAll"
@@ -130,5 +134,14 @@ onMounted(loadAll)
 
 .offline-body {
   width: 100%;
+}
+
+/* PR-F F6：骨架屏 */
+.offline-skeleton {
+  width: 100%;
+  padding: 16px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--color-white-30);
+  border-radius: 8px;
 }
 </style>

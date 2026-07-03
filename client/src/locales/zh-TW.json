@@ -1,4 +1,4 @@
-﻿﻿{
+﻿{
   "apiTest": {
     "title": "AI接口測試",
     "allTestsPassed": "全部",
@@ -262,7 +262,7 @@
     "documentCenter": "文檔中心",
     "newsCenter": "AI動態",
     "aboutUs": "關於我們",
-    "becomeSupplier": "成為供應商",
+    "becomeSupplier": "加入我們",
     "aiStore": "智能體",
     "moreFeatures": "更多功能",
     "noMoreItems": "暫無更多功能",
@@ -578,7 +578,7 @@
     "api首頁": "API服務首頁",
     "aiWorld": "AI世界",
     "aboutUs": "關於我們",
-    "becomeSupplier": "成為供應商",
+    "becomeSupplier": "加入我們",
     "documentCenter": "文檔中心",
     "newsCenter": "新聞中心",
     "agentsCategory": "分類列表",
