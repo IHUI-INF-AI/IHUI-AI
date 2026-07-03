@@ -2,7 +2,6 @@ import { useDarkModeStore, type ThemeMode } from '@/stores/darkMode'
 import { logger } from '@/utils/logger'
 
 const THEME_SHORTCUT_KEY = 't'
-const THEME_SHORTCUT_MODIFIERS = ['ctrl', 'shift']
 
 const THEME_CYCLE_ORDER: ThemeMode[] = [
   'light',

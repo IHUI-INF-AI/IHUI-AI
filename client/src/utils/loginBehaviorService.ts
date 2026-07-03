@@ -3,11 +3,6 @@ import type { LoginLocation } from './locationService'
 
 const LOGIN_BEHAVIOR_KEY = 'login_behavior'
 
-export interface LoginPattern {
-  hour: number
-  count: number
-}
-
 export interface DevicePattern {
   deviceId: string
   deviceName: string

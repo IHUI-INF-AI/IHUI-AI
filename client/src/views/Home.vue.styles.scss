@@ -2484,17 +2484,10 @@ html.dark .brand-welcome-text {
         border-color: var(--el-text-color-secondary);
       }
     }
-    
-    &.ghost {
-      background: transparent;
-      border: var(--unified-border);
-      color: var(--el-text-color-primary);
-      
-      &:hover {
-        border-color: var(--el-text-color-primary);
-        background: var(--el-fill-color-lighter);
-      }
-    }
+
+    // ghost 按钮样式由 :where(html:not(.dark)) :where(#first-page) (light, line 435)
+    // 和 :where(html.dark) :where(#first-page) (dark, line 622) 分别定义
+    // 此处不再重复定义, 避免无 :where() 前缀的规则以同等特异性覆盖 dark 模式
   }
 }
 

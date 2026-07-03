@@ -30,31 +30,3 @@ export interface SpeechRecognitionCallbacks {
   onVolumeChange?: (volume: number) => void
   onStatusChange?: (status: string) => void
 }
-
-// 提供商状态
-export interface ProviderStatus {
-  available: boolean
-  name: string
-}
-
-// 语音配置
-export interface SpeechConfig {
-  lang?: string
-  continuous?: boolean
-  provider?: SpeechProvider
-  baidu?: {
-    appId: string
-    apiKey: string
-    secretKey?: string
-  }
-  whisper?: {
-    apiKey: string
-    mode?: string
-    modelSize?: string
-    apiEndpoint?: string
-    language?: string
-  }
-  webSpeech?: {
-    lang: string
-  }
-}

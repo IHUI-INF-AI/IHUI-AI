@@ -15,14 +15,6 @@ export interface SyncConflictData {
 
 export type ConflictResolution = 'local' | 'cloud' | 'merge'
 
-export interface ConflictResult {
-  hasConflict: boolean
-  resolution: ConflictResolution | null
-  resolvedData: {
-    themeMode: ThemeMode
-  } | null
-}
-
 const CONFLICT_THRESHOLD_MS = 60000
 
 class ThemeSyncConflictService {

@@ -27,8 +27,6 @@ interface MonitorEvent {
 }
 
 const buffer: MonitorEvent[] = []
-let reported = 0
-let failed = 0
 
 function send(events: MonitorEvent[]) {
   if (events.length === 0) return
@@ -43,7 +41,6 @@ function send(events: MonitorEvent[]) {
   if (navigator.sendBeacon) {
     const blob = new Blob([body], { type: 'application/json' })
     if (navigator.sendBeacon(REPORT_URL, blob)) {
-      reported += events.length
       return
     }
   }
@@ -53,8 +50,6 @@ function send(events: MonitorEvent[]) {
     headers: { 'Content-Type': 'application/json' },
     keepalive: true,
   })
-    .then(() => { reported += events.length })
-    .catch(() => { failed += events.length })
 }
 
 function getSessionId(): string {

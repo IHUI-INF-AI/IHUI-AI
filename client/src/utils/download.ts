@@ -5,11 +5,6 @@
 
 import { logger } from './logger'
 
-export interface DownloadOptions {
-  filename?: string
-  mimeType?: string
-}
-
 export interface DownloadProgress {
   loaded: number
   total: number

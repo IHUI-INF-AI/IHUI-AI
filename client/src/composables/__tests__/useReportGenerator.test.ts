@@ -124,9 +124,16 @@ describe('useReportGenerator', () => {
   })
 
   describe('sections 计算属性', () => {
-    it('返回 10 个 section 配置', () => {
+    it('返回 11 个 section 配置', () => {
       const { sections } = useReportGenerator()
-      expect(sections.value).toHaveLength(10)
+      expect(sections.value).toHaveLength(11)
+    })
+
+    it('包含 aiReport section（PR-D D5）', () => {
+      const { sections } = useReportGenerator()
+      const aiSection = sections.value.find((s) => s.key === 'aiReport')
+      expect(aiSection).toBeDefined()
+      expect(aiSection?.visible).toBe(true)
     })
 
     it('section keys 唯一', () => {
@@ -136,11 +143,11 @@ describe('useReportGenerator', () => {
       expect(uniqueKeys.size).toBe(keys.length)
     })
 
-    it('所有数据为空时，除 studentInfo 外 visible=false', () => {
+    it('所有数据为空时，除 studentInfo 和 aiReport 外 visible=false', () => {
       const { sections } = useReportGenerator()
       const visibleSections = sections.value.filter((s) => s.visible)
-      // studentInfo 总是 visible=true
-      expect(visibleSections.map((s) => s.key)).toEqual(['studentInfo'])
+      // studentInfo + aiReport（PR-D D5）总是 visible=true
+      expect(visibleSections.map((s) => s.key)).toEqual(['studentInfo', 'aiReport'])
     })
 
     it('dailyStats 有数据时 learningTrend visible=true', async () => {
@@ -232,7 +239,7 @@ describe('useReportGenerator', () => {
       expect(result).toHaveProperty('metadata')
       expect(result).toHaveProperty('sections')
       expect(Array.isArray(result.sections)).toBe(true)
-      expect(result.sections).toHaveLength(10)
+      expect(result.sections).toHaveLength(11)
     })
 
     it('返回的 metadata 包含所有必需字段', async () => {

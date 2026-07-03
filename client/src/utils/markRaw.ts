@@ -42,11 +42,4 @@ export function markIcons<T extends { icon?: Component }>(items: T[]): T[] {
   })
 }
 
-/**
- * IconComponent 类型别名
- * 用于统一项目中所有 icon 字段的类型定义
- * 约束开发者使用 markRaw 包装的组件
- */
-export type IconComponent = ReturnType<typeof markRaw<Component>>
-
 export { markRaw } from 'vue'

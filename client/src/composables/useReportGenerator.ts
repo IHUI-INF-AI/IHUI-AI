@@ -181,6 +181,13 @@ export function useReportGenerator() {
         visible: data.offlineRecords.length > 0,
         data: data.offlineRecords,
       },
+      {
+        // PR-D D5：AI 报告 section（始终 visible，内容由 AiReportSection 组件渲染）
+        key: 'aiReport',
+        title: 'aiReportTitle',
+        visible: true,
+        data: null,
+      },
     ]
   })
 

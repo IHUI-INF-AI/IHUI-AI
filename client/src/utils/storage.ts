@@ -37,15 +37,6 @@ export const STORAGE_KEYS = {
   DOC_LIST_HEIGHT: 'doc_list_height',
 } as const
 
-/**
- * 安全的存储操作结果
- */
-export interface StorageResult<T> {
-  success: boolean
-  data?: T
-  error?: Error
-}
-
 // 同步存储接口，用于向后兼容
 export class StorageManager {
   /**

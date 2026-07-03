@@ -4,19 +4,6 @@ import type { MonitoringMetric, AnomalyDetection, PerformanceSnapshot } from '@/
 import type { AlertInstance } from '@/services/tourAlertService'
 
 /**
- * 监控WebSocket消息接口
- * @description 定义WebSocket消息的结构
- */
-export interface MonitoringWebSocketMessage {
-  /** 消息类型 */
-  type: 'metric' | 'anomaly' | 'alert' | 'snapshot' | 'config_update'
-  /** 消息负载 */
-  payload: unknown
-  /** 时间戳 */
-  timestamp: number
-}
-
-/**
  * 监控事件处理器接口
  * @description 定义各类监控事件的回调函数
  */

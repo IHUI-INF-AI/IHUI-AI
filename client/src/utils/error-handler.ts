@@ -4,7 +4,7 @@
  */
 
 import { logger } from './logger'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import type { AxiosError } from 'axios'
 import { getI18nGlobal } from '@/locales'
 

@@ -16,11 +16,6 @@ export interface ApiResponse<T = unknown> {
 }
 
 /**
- * API响应处理函数类型
- */
-export type ApiResponseHandler<T = unknown> = (...args: unknown[]) => Promise<ApiResponse<T>>
-
-/**
  * 网络错误类型
  */
 export interface NetworkError extends Error {

@@ -132,15 +132,13 @@
         />
       </section>
 
-      <!-- ⑨ AI 报告占位（PR-D 替换为 <AiReportSection>） -->
-      <section class="ai-report-placeholder">
-        <el-card shadow="never" class="placeholder-card">
-          <div class="placeholder-content">
-            <el-icon :size="32" class="placeholder-icon"><MagicStick /></el-icon>
-            <h3 class="placeholder-title">{{ t('edu.profile.aiReportTitle') }}</h3>
-            <p class="placeholder-desc">{{ t('edu.profile.aiReportComingSoon') }}</p>
-          </div>
-        </el-card>
+      <!-- ⑨ AI 报告（PR-D：前端规则引擎 + AIChat 深度咨询 + 后端 LLM 契约） -->
+      <section class="ai-report-section-wrap">
+        <h3 class="section-title">
+          <el-icon><MagicStick /></el-icon>
+          {{ t('edu.profile.aiReportTitle') }}
+        </h3>
+        <AiReportSection />
       </section>
     </div>
 
@@ -182,6 +180,7 @@ import NotesList from '@/components/edu/NotesList.vue'
 import OfflineRecordsList from '@/components/edu/OfflineRecordsList.vue'
 import NoteDialog from '@/components/edu/NoteDialog.vue'
 import OfflineRecordDialog from '@/components/edu/OfflineRecordDialog.vue'
+import AiReportSection from '@/components/edu/AiReportSection.vue'
 import { notesApi } from '@/api/edu/notes'
 import { offlineRecordsApi } from '@/api/edu/offline-records'
 import type { LearningNote } from '@/api/edu/notes'
@@ -446,39 +445,25 @@ onMounted(loadAll)
   width: 100%;
 }
 
-.ai-report-placeholder {
+.ai-report-section-wrap {
   width: 100%;
-}
-
-.placeholder-card {
-  border: 1px dashed var(--color-white-50);
-  background: var(--el-fill-color-light);
-}
-
-.placeholder-content {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.section-title {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.placeholder-icon {
-  color: var(--el-color-primary);
-}
-
-.placeholder-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
-.placeholder-desc {
-  margin: 0;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
+.section-title .el-icon {
+  color: var(--el-color-primary);
 }
 
 @media (max-width: 1024px) {
