@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-06-19T12:33:38.429Z",
-  "count": 4,
-  "violations": [
+  "generatedAt": "2026-07-04T00:00:00.000Z",
+  "count": 11,
+  "removed": [
     {
       "file": "src/styles/_touch-optimization.scss",
       "line": 4,
@@ -20,6 +20,63 @@
     {
       "file": "src/views/Login.vue.styles.scss",
       "line": 1685,
+      "type": "!important"
+    }
+  ],
+  "violations": [
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 17,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 27,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 28,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 36,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 37,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 38,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 42,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_session-expired-notification.scss",
+      "line": 43,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_sidebar-layout.scss",
+      "line": 1491,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/member/Report.vue",
+      "line": 380,
+      "type": "!important"
+    },
+    {
+      "file": "src/views/edu/member/Report.vue",
+      "line": 387,
       "type": "!important"
     }
   ]

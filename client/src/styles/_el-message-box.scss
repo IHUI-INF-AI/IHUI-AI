@@ -20,7 +20,7 @@
     border: 1px solid var(--border-unified-color, var(--el-border-color-light));
     box-shadow: none;
     overflow: hidden;
-    background-color: var(--el-bg-color, #ffffff);
+    background-color: var(--el-bg-color, #fff);
   }
 
   // === 头部 ===
@@ -139,7 +139,7 @@
   }
 
   // 默认按钮（取消）- 幽灵风格：透明背景 + 描边
-  :where(.el-message-box__btns) :where(.el-button):not(.el-button--primary):not(.el-button--success):not(.el-button--danger) {
+  :where(.el-message-box__btns) :where(.el-button):not(.el-button--primary, .el-button--success, .el-button--danger) {
     background-color: transparent;
     border: 1px solid var(--border-unified-color, var(--el-border-color));
     color: var(--el-text-color-regular);
@@ -203,7 +203,7 @@
   }
 
   // 暗色模式默认按钮 hover
-  :where(html.dark) :where(.el-message-box__btns) :where(.el-button):not(.el-button--primary):not(.el-button--success):not(.el-button--danger):hover {
+  :where(html.dark) :where(.el-message-box__btns) :where(.el-button):not(.el-button--primary, .el-button--success, .el-button--danger):hover {
     background-color: var(--el-fill-color-light, rgb(255 255 255 / 0.06));
     border-color: var(--border-unified-color-hover);
     color: var(--el-text-color-primary);
