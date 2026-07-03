@@ -426,6 +426,21 @@ jobs:
         # .quick-tool-item 用 var(--global-border-radius-sm) + 禁止 :deep 临时修复写回
         # 任一处回归即阻断 PR
         run: cd client && npx playwright test e2e/ai-header-style-scope.spec.ts --reporter=list
+      - name: 跑客服主题 .cs-status-* 样式迁回 chatheaderbar.vue 源码级守门 (22 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: .cs-status-wrap / .cs-status-indicator / .cs-status-dot /
+        # .cs-status-ring / .cs-status-text 5 个块必须从 _customer-service-theme.scss
+        # 迁回 chatheaderbar.vue 自己的 <style scoped> 块 (与 .header-right 一起),
+        # @keyframes cs-status-pulse 也必须随使用方走 (scoped keyframe 不跨组件共享).
+        # 反向断言: _customer-service-theme.scss 不再含这 5 块, 防止回退.
+        # 任一处回归即阻断 PR
+        run: cd client && npx playwright test e2e/ai-customer-service-status-migrated.spec.ts --reporter=list
+      - name: 跑会话过期通知按钮无双层蓝边源码级守门 (5 用例, 不需浏览器, 早失败)
+        # 2026-07-03 立: _session-expired-notification.scss .el-button--primary 必须
+        # 重置 border-width: 0 + box-shadow: none (移除 Element Plus 暗色 2px 蓝边 +
+        # inset 1px 白环叠加形成的"双层蓝边 + 中间白线"视觉 bug) + hover/active/focus
+        # 状态覆盖 + 默认 el-button (取消按钮) 也重置 + 作用域必须在 .session-expired-notification
+        # 内 (不能污染全局 CTA 按钮的 inset 白环补强)
+        run: cd client && npx playwright test e2e/session-expired-button-no-double-border.spec.ts --reporter=list
       - name: 跑样式验证
         run: cd client && npx playwright test e2e/final-styles-verify.spec.ts
       - name: 跑登录态联调
