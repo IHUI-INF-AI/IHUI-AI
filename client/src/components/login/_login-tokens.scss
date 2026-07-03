@@ -58,6 +58,15 @@ $login-btn-letter-spacing: 0.5px;
 $login-btn-transition:   transform 0.18s ease, box-shadow 0.25s ease,
                           background-color 0.2s ease;
 
+// ============ 极简黑风格按钮 (mini 主题, 2026-07-03 立) ============
+// 设计意图: 与全局 miniapp 按钮"极简黑白"哲学一致 (AGENTS.md 双层级),
+// 用于侧边栏底部未登录态按钮等次操作/持久态场景.
+// 颜色来源: --el-text-color-primary (light=#000, dark=#fff), 自动跟随主题.
+// 圆角/高度复用 $login-btn-radius/$login-btn-height 保持视觉节奏.
+$login-mini-primary:        var(--el-text-color-primary); // #000 light / #fff dark
+$login-mini-primary-hover:  var(--el-text-color-regular);  // 略浅
+$login-mini-primary-active: var(--el-text-color-secondary);
+
 // ============ 第三方登录图标 ============
 $login-icon-size:           40px;
 $login-icon-img-size:       22px;

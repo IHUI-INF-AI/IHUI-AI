@@ -137,12 +137,21 @@ test.describe('路由可达性: 登录态路由渲染', () => {
 
   for (const [path, expectKeyword] of AUTHED_ROUTES) {
     test(`登录态访问 ${path} 渲染成功 (含 "${expectKeyword}")`, async ({ page }) => {
+      // PR-F F8: edu member 路由含 useStudentProfile 并发 API + HMR websocket,
+      // networkidle 永不满足, 改用 domcontentloaded + 内容等待
+      const isEduMember = path.startsWith('/edu/member')
       const resp = await page.goto(`${BASE}${path}`, {
-        waitUntil: 'networkidle',
+        waitUntil: isEduMember ? 'domcontentloaded' : 'networkidle',
         timeout: 30000,
       })
       expect(resp?.status()).toBe(200)
-      await page.waitForTimeout(1500)
+      // edu member 需额外等 SPA 渲染完成 (网络请求仍在进行)
+      if (isEduMember) {
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(3000)
+      } else {
+        await page.waitForTimeout(1500)
+      }
 
       // 验证不跳转到登录页 (用 pathname 精确匹配, 避免 /admin/log/logininfor 等含 /login 子串的路径误判)
       const pathname = new URL(page.url()).pathname

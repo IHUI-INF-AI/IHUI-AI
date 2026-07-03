@@ -10652,6 +10652,37 @@ cleanup.add(() => {
       white-space: nowrap;
       max-width: 100%;
     }
+
+    // 工具区图标颜色 - 与主能力卡片一致，统一用 --el-text-color-primary
+    .item-icon.prompt {
+      background: var(--el-text-color-primary);
+    }
+
+    .item-icon.toolbox {
+      background: var(--el-text-color-primary);
+    }
+  }
+
+  // 工具区：与主能力卡片保持一致（同一套 .menu-item 样式）
+  .menu-grid-tools {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .menu-section-divider {
+    height: 1px;
+    background: var(--unified-border-color);
+    margin: 6px 4px;
+  }
+
+  .menu-section-header {
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+    padding: 2px 8px 4px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
   }
 
   .menu-footer {

@@ -16,7 +16,10 @@
 
 import type { Page } from '@playwright/test'
 
-export const BASE = process.env.PW_BASE_URL || process.env.E2E_BASE_URL || 'http://127.0.0.1:8888'
+// 抗噪: PW_BASE_URL 在 Windows PowerShell/cmd 下被引用后可能带尾随空格或引号
+// 这里强制 trim 并 strip 引号, 防止 `${BASE}/login` 拼出 "8888 /login" 触发 invalid URL
+const _rawBase = process.env.PW_BASE_URL || process.env.E2E_BASE_URL || 'http://127.0.0.1:8888'
+export const BASE = _rawBase.trim().replace(/^['"]+|['"]+$/g, '')
 
 export const LOCALES = ['zh-CN', 'en', 'zh-TW', 'ja', 'ko'] as const
 export type Locale = typeof LOCALES[number]

@@ -15,10 +15,6 @@
     "filterByProvider": "プロバイダーでフィルター",
     "modelCount": "{total}個のモデル中{count}個をテーブル示",
     "noMatchingModels": "一貫するモデルが見つかりません",
-    "noModels": "利用可できるできる性なモデルがありません",
-    "agentLabel": "エージェント",
-    "selectAgent": "エージェントを選択",
-    "noAgents": "利用可能なエージェントがありません",
     "searchMessages": "メッセージを検索",
     "searchMessagesPlaceholder": "メッセージコンテンツを検索...",
     "search": "検索",
@@ -47,7 +43,6 @@
     "tools": "工具",
     "promptTemplatesDesc": "选择提示词模板",
     "aiToolboxDesc": "AI 工具箱",
-    "back": "返回",
-    "modelLabel": "模型"
+    "back": "返回"
   }
 }

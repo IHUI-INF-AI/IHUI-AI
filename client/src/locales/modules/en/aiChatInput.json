@@ -20,10 +20,6 @@
     "filterByProvider": "Filter by provider",
     "modelCount": "{count} of {total} models shown",
     "noMatchingModels": "No matching models found",
-    "noModels": "No available models",
-    "agentLabel": "Agent",
-    "selectAgent": "Select Agent",
-    "noAgents": "No available agents",
     "searchMessages": "Search Messages",
     "searchMessagesPlaceholder": "Search message content...",
     "search": "Search",
@@ -45,7 +41,6 @@
     "promptTemplatesDesc": "选择提示词模板",
     "aiToolboxDesc": "AI 工具箱",
     "back": "返回",
-    "modelLabel": "模型",
     "searchModels": "搜索模型...",
     "exportFailed": "导出失败",
     "exportDeveloping": "导出功能开发中"

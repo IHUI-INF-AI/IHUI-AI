@@ -15,10 +15,6 @@
     "filterByProvider": "공급게별 필마음",
     "modelCount": "{total}개 모델 중 {count}개 표시",
     "noMatchingModels": "일치하는 모델을 찾을 수 없습니다",
-    "noModels": "생각사용 가능한 모델이 없습니다",
-    "agentLabel": "에이전트",
-    "selectAgent": "에이전트 선택",
-    "noAgents": "사용 가능한 에이전트가 없습니다",
     "searchMessages": "메시지 검색",
     "searchMessagesPlaceholder": "메시지 내사용 검색...",
     "search": "검색",
@@ -47,7 +43,6 @@
     "tools": "工具",
     "promptTemplatesDesc": "选择提示词模板",
     "aiToolboxDesc": "AI 工具箱",
-    "back": "返回",
-    "modelLabel": "模型"
+    "back": "返回"
   }
 }

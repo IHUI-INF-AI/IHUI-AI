@@ -327,6 +327,57 @@
   }
 }
 
+// ========== TraeWork 操作栏布局 ==========
+// 模板结构:
+//   .trae-work-actions-top    → Row1: 模型/智能体/+选择 胶囊横向排列
+//   .trae-work-actions-bottom → Row3: 底部操作栏(文件左 / 语音+发送右)
+//     .trae-work-left-bottom  → 左侧: 文件上传
+//     .trae-work-right-bottom → 右侧: 语音 + 发送
+// 设计意图: 文件上传贴左, 语音+发送贴右, 通过 space-between 分两端
+// (此前模板迁移类名后样式缺失, 导致按钮垂直堆叠)
+
+// Row1: 顶层能力选择胶囊行 — 横向排列, 允许换行
+.trae-work-actions-top {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+// Row3: 底部操作栏 — 左右两端分布
+.trae-work-actions-bottom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+// 左下: 文件上传按钮容器
+.trae-work-left-bottom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+// 右下: 语音 + 发送按钮容器 — 紧凑横向排列, 贴右
+.trae-work-right-bottom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto; // 兜底靠右(配合父级 space-between)
+}
+
 // 发送按钮样式 - 图标 + 文字同一行（左右内边距与悬浮窗块一致）
 .send-btn {
   display: inline-flex;
@@ -410,20 +461,18 @@
     background: var(--fcd-send-btn-bg);
     border-color: var(--fcd-send-btn-bg);
 
+    // 图标与文字跟随按钮自身 color（is-empty 等状态块会覆盖 button color）
+    // 此前用 var(--fcd-send-btn-color)=白色, 在 is-empty 浅灰背景下白字不可见
     :deep(.el-icon),
     .send-btn-text {
-      color: var(--fcd-send-btn-color);
+      color: inherit;
     }
   }
 }
 
-// ========== TraeWorkSelector 胶囊选择器样式 ==========
-// 28px 圆角矩形胶囊 + 紧凑下拉, 供 .trae-work-actions-top 内的模型/智能体快速切换使用
-// 注意: popper-class=tw-quick-pick-popper 会 Teleport 到 body, 此处为全局样式
-
-.tw-selector {
-  display: inline-flex;
-}
+// ========== AI 能力下拉触发 pill 样式 ==========
+// 仅供 .trae-work-actions-top 中的「+ 选择」胶囊按钮复用
+// (早期 TraeWorkSelector 组件已删除, 模型/智能体/Agentic/MCP/自动 入口已合并到「+ 选择」下拉)
 
 .tw-selector-pill {
   display: inline-flex;
@@ -451,27 +500,6 @@
   &:active {
     border-color: var(--color-white-60);
   }
-
-  // 激活态: 当前模式为 model/agent 时
-  &.is-active {
-    border-color: var(--el-color-primary);
-    color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
-  }
-}
-
-.tw-selector-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-
-  .el-icon {
-    font-size: 14px;
-    line-height: 1;
-  }
 }
 
 .tw-selector-label {
@@ -486,106 +514,5 @@
   font-size: 12px;
   flex-shrink: 0;
   opacity: 0.6;
-}
-
-// ========== 下拉内容 (popper Teleport 到 body) ==========
-// 通过 .tw-quick-pick-popper 全局定位
-
-.tw-quick-pick-popper {
-  // el-popper 的 padding 会撑开, 这里归零让内部 .tw-quick-pick 自行控制
-  .el-popper__content {
-    padding: 0;
-  }
-}
-
-.tw-quick-pick {
-  min-width: 200px;
-  max-width: 320px;
-  background: var(--el-bg-color);
-  border: var(--unified-border);
-  border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
-  overflow: hidden;
-}
-
-.tw-quick-pick-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-.tw-quick-pick-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--el-text-color-secondary);
-}
-
-.tw-quick-pick-more {
-  background: none;
-  border: none;
-  font-size: 12px;
-  color: var(--el-color-primary);
-  cursor: pointer;
-  padding: 0;
-  white-space: nowrap;
-
-  &:hover {
-    opacity: 0.8;
-  }
-}
-
-.tw-quick-pick-list {
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 4px;
-}
-
-.tw-quick-pick-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: var(--global-border-radius);
-  background: transparent;
-  color: var(--el-text-color-primary);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: var(--el-fill-color-light);
-  }
-
-  &.is-selected {
-    color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
-  }
-}
-
-.tw-quick-pick-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.tw-quick-pick-check {
-  flex-shrink: 0;
-  color: var(--el-color-primary);
-  font-size: 14px;
-}
-
-.tw-quick-pick-empty {
-  padding: 16px 12px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--el-text-color-placeholder);
 }
 

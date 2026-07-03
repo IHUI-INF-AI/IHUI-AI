@@ -1336,6 +1336,59 @@ watch(isMobileOpen, () => {
   background-color: var(--el-fill-color-light);
 }
 
+/* ── 登录按钮行: 容器居中 + 折叠态强制 28×28 ──
+ *
+ * 默认态 (.sidebar-login-row):
+ *   flex 居中让子 UserMenu 在容器内居中,
+ *   内部 .login-button width:100% 会撑满 UserMenu.
+ *   三向 padding (10px/12px/10px/12px) 让按钮与侧边栏左/右/底边缘
+ *   有视觉呼吸, 不贴边, 也不悬空, 平衡"卡片式"独立感.
+ *
+ * 折叠态 (.sidebar-login-row.is-collapsed):
+ *   强制 .login-button 28×28 + 仅图标 + 居中,
+ *   与 sidebar-actions 内 4 个图标中心 x 对齐
+ *   (e2e/sidebar-collapsed-bottom-alignment.spec.ts:99 守门). */
+.sidebar-login-row {
+  display: flex;
+  justify-content: center;
+  padding: 10px 12px;
+}
+
+.sidebar-login-row.is-collapsed {
+  padding: 10px 0;
+
+  :deep(.login-button) {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    max-height: 28px;
+    padding: 0;
+    font-size: 0;
+    line-height: 1;
+    box-shadow: none;
+
+    .login-icon {
+      display: inline-flex;
+      font-size: 16px;
+    }
+
+    .login-text {
+      display: none;
+    }
+  }
+
+  :deep(.login-icon) {
+    display: inline-flex;
+    font-size: 16px;
+  }
+
+  :deep(.login-text) {
+    display: none;
+  }
+}
+
 /* 移动端遮罩过渡 */
 .sidebar-overlay {
   transition: opacity var(--sidebar-transition-duration, 0.2s) var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1));

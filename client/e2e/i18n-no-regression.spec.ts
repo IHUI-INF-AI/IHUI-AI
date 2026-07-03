@@ -142,7 +142,9 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     await waitForLoginDialog(page)
 
     // 先验证 zh-CN 状态
-    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label-text')
+    // 真实 DOM (TabSwitcher.vue): <el-tabs><el-tab-pane><template #label><div class="tab-label"><span>{{ text }}</span>
+    // 2026-07-03 修复: .tab-label-text → .tab-label span (旧 selector 与实际 DOM 不符, 永远找不到)
+    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
     const zhTexts = await tabs.allTextContents()
     expect(zhTexts[0]).toContain('账号登录')
 
@@ -179,7 +181,7 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
     await waitForLoginDialog(page)
 
-    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label-text')
+    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
     const enTexts = await tabs.allTextContents()
     expect(enTexts[0]).toBe('Account Login')
 
@@ -208,7 +210,7 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
     await waitForLoginDialog(page)
 
-    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label-text')
+    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
     expect((await tabs.allTextContents())[0]).toContain('账号登录')
 
     await switchLanguage(page, 'ja')
@@ -235,7 +237,7 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
     await waitForLoginDialog(page)
 
-    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label-text')
+    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
     expect((await tabs.allTextContents())[0]).toContain('账号登录')
 
     await switchLanguage(page, 'ko')
@@ -263,7 +265,7 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
     await waitForLoginDialog(page)
 
-    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label-text')
+    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
 
     // 循环切换
     for (const locale of ['en', 'zh-TW', 'ja', 'ko', 'zh-CN'] as const) {
@@ -336,7 +338,7 @@ test.describe('i18n 切换语言 - 旧键值不残留', () => {
     await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' })
     await waitForLoginDialog(page)
 
-    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label-text')
+    const tabs = page.locator('.login-tabs .el-tabs__item .tab-label span')
 
     // 快速切换 4 次
     for (const locale of ['en', 'zh-CN', 'en', 'zh-CN'] as const) {

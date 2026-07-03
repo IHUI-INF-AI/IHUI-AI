@@ -79,50 +79,70 @@ const handleLogin = () => {
 </script>
 
 <style scoped lang="scss">
+/* 侧边栏底部登录按钮 — 极简黑 mini 主题
+ * 设计意图: 与全局 miniapp 按钮"极简黑白"哲学一致
+ * (AGENTS.md 双层级: 主操作用蓝色, 次操作/未登录态用黑白)
+ *
+ * 高度 36px (介于 nav-item 40px 与 sidebar-actions 28×28 之间),
+ * 圆角 10px 复用 token, 无阴影 + 黑底白字克制风格.
+ * 颜色消费 _login-tokens.scss 的 $login-mini-* (light=#000 / dark=#fff 自动跟随). */
+@use '../../login/_login-tokens.scss' as lt;
+
 .user-menu {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  width: 100%;
 }
 
 .login-button {
+  /* 默认 (桌面端) — 极简黑, 宽度撑满父容器 (居中) */
+  width: 100%;
   padding: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--el-text-color-primary);
-  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background-color: lt.$login-mini-primary;
   border: none;
-  border-radius: var(--global-border-radius);
+  border-radius: lt.$login-btn-radius;
   cursor: pointer;
-  transition: all 0.3s ease;
-  height: 40px;
-  min-height: 40px;
-  max-height: 40px;
+  height: 36px;
+  min-height: 36px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 
   .login-icon {
     display: none;
-    font-size: 18px;
+    font-size: 16px;
+    color: #ffffff;
   }
 
   .login-text {
     display: inline;
+    color: #ffffff;
   }
 
-  &:hover {
-    background-color: var(--el-bg-color-hover);
-    color: var(--el-text-color-primary);
+  &:hover:not(.is-disabled) {
+    background-color: lt.$login-mini-primary-hover;
+  }
+
+  &:active:not(.is-disabled) {
+    background-color: lt.$login-mini-primary-active;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--el-color-primary);
+    outline: 2px solid lt.$login-mini-primary;
     outline-offset: 2px;
   }
 }
+
+/* 暗色模式: $login-mini-* 自动跟随 --el-text-color-primary 变白 */
 
 @media (width <= 767px) {
   .login-button {
