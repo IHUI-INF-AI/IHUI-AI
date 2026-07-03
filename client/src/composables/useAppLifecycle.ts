@@ -47,6 +47,9 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
   let handleSelectAgent: EventListener | null = null
   let handleScroll: (() => void) | null = null
   let scrollRafId: number | null = null
+  // 防止 401 时多个并发 API 同时失败, 触发多次 session-expired 事件导致 ElNotification 叠加
+  // (Element Plus notify 内部 forEach 在并发渲染时会报 "Cannot read properties of undefined (reading 'forEach')")
+  let sessionExpiredNotifying = false
   const disposers: Array<() => void> = []
 
   const updateScrollFade = () => {
@@ -88,60 +91,76 @@ export function useAppLifecycle(options: AppLifecycleOptions = {}): AppLifecycle
     //   - 选用 ElNotification 而非 ErrorNotification 横幅: 后者只能显示纯文本, 无法嵌按钮
     const SESSION_EXPIRED_DURATION_MS = 8000
     handleSessionExpired = (event: Event) => {
+      // 防抖: 多个并发 API 401 会同时 dispatchEvent, 只处理第一个
+      if (sessionExpiredNotifying) return
+      sessionExpiredNotifying = true
       const detail = (event as CustomEvent).detail
       authStore.logout()
       // 跳首页, 不再自动弹模态登录框
       void router.push('/').catch(() => {})
       const reason = detail?.reason || t('auth.sessionExpiredMessage')
       // 直接调 ElNotification 弹顶部下滑通知, 嵌"重新登录"按钮
-      const notification = ElNotification({
-        title: t('auth.sessionExpiredTitle') || '会话已过期',
-        message: h('div', { class: 'session-expired-notify' }, [
-          h('p', { class: 'session-expired-msg' }, reason),
-          h('div', { class: 'session-expired-actions' }, [
-            h(
-              ElButton,
-              {
-                type: 'primary',
-                size: 'small',
-                onClick: () => {
-                  useLoginDialog().open('login')
-                  notification.close()
+      // try/catch 兜底: Element Plus ElNotification 内部 notify 在并发场景下
+      // 可能抛 "Cannot read properties of undefined (reading 'forEach')",
+      // 降级到 console.warn 不阻断登出流程
+      try {
+        const notification = ElNotification({
+          title: t('auth.sessionExpiredTitle') || '会话已过期',
+          message: h('div', { class: 'session-expired-notify' }, [
+            h('p', { class: 'session-expired-msg' }, reason),
+            h('div', { class: 'session-expired-actions' }, [
+              h(
+                ElButton,
+                {
+                  type: 'primary',
+                  size: 'small',
+                  onClick: () => {
+                    useLoginDialog().open('login')
+                    notification.close()
+                  },
                 },
-              },
-              t('auth.relogin') || '重新登录'
-            ),
-            h(
-              ElButton,
-              {
-                size: 'small',
-                onClick: () => notification.close(),
-              },
-              t('common.cancel') || '取消'
-            ),
+                t('auth.relogin') || '重新登录'
+              ),
+              h(
+                ElButton,
+                {
+                  size: 'small',
+                  onClick: () => notification.close(),
+                },
+                t('common.cancel') || '取消'
+              ),
+            ]),
           ]),
-        ]),
-        type: 'warning',
-        position: 'top-center',
-        duration: SESSION_EXPIRED_DURATION_MS,
-        showClose: true,
-        customClass: 'session-expired-notification',
-        // 点击通知本体(非按钮区域)也弹出登录框, 提升可达性
-        // 排除: 内嵌按钮(.el-button) 与 关闭按钮(.el-notification__closeBtn) - 它们有自己的处理逻辑
-        onClick: (e?: MouseEvent) => {
-          if (e?.target) {
-            const target = e.target as HTMLElement
-            if (
-              target.closest('.el-button') ||
-              target.closest('.el-notification__closeBtn')
-            ) {
-              return
+          type: 'warning',
+          position: 'top-center',
+          duration: SESSION_EXPIRED_DURATION_MS,
+          showClose: true,
+          customClass: 'session-expired-notification',
+          // 点击通知本体(非按钮区域)也弹出登录框, 提升可达性
+          // 排除: 内嵌按钮(.el-button) 与 关闭按钮(.el-notification__closeBtn) - 它们有自己的处理逻辑
+          onClick: (e?: MouseEvent) => {
+            if (e?.target) {
+              const target = e.target as HTMLElement
+              if (
+                target.closest('.el-button') ||
+                target.closest('.el-notification__closeBtn')
+              ) {
+                return
+              }
             }
-          }
-          useLoginDialog().open('login')
-          notification.close()
-        },
-      })
+            useLoginDialog().open('login')
+            notification.close()
+          },
+          onClose: () => {
+            // 通知关闭后重置防抖锁, 允许下次会话过期再次通知
+            sessionExpiredNotifying = false
+          },
+        })
+      } catch (e) {
+        // ElNotification 内部错误降级: 不阻断登出流程
+        sessionExpiredNotifying = false
+        console.warn('[useAppLifecycle] ElNotification failed', e)
+      }
     }
     window.addEventListener('session-expired', handleSessionExpired)
     disposers.push(() => handleSessionExpired && window.removeEventListener('session-expired', handleSessionExpired))
