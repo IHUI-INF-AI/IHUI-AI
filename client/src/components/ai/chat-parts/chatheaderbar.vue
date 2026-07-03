@@ -519,6 +519,78 @@ defineExpose({
     position: relative;
     z-index: var(--z-base); // 始终在 header-center 之上，保证搜索等按钮可点
     // 按钮样式已在统一按钮系统中定义
+
+    // ========== 客服主题：连接状态指示器 ==========
+    // 2026-07-03 从 styles/ai-chat/_customer-service-theme.scss 迁移
+    // 原因：.cs-status-wrap 等是 chatheaderbar.vue 的内部元素，父 @use partial 加载到非 scoped
+    // 块虽能命中（非 scoped = 全局），但与 .header-right 一起迁回子组件 scoped 块可避免污染
+    // AIChat.vue 的样式空间，且为后续样式提供更好的封装。
+    .cs-status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-right: 8px;
+      font-family: var(--font-family-mono);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--el-text-color-secondary);
+    }
+
+    .cs-status-indicator {
+      position: relative;
+      width: 10px;
+      height: 10px;
+
+      .cs-status-dot {
+        position: absolute;
+        inset: 2px;
+        background: var(--el-color-success);
+        border-radius: var(--global-border-radius);
+      }
+
+      .cs-status-ring {
+        position: absolute;
+        inset: 0;
+        border: var(--unified-border);
+        border-radius: var(--global-border-radius);
+        animation: cs-status-pulse 2s ease-in-out infinite;
+      }
+
+      &.connecting .cs-status-dot {
+        background: var(--el-color-warning);
+      }
+
+      &.connecting .cs-status-ring {
+        border-color: var(--el-color-warning);
+      }
+
+      &.danger .cs-status-dot {
+        background: var(--el-color-danger);
+      }
+
+      &.danger .cs-status-ring {
+        border-color: var(--el-color-danger);
+      }
+    }
+
+    .cs-status-text {
+      font-size: 12px;
+    }
+  }
+}
+
+@keyframes cs-status-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.8);
+    opacity: 0;
   }
 }
 
