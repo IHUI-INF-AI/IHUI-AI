@@ -742,4 +742,251 @@ git push origin main
 
 ---
 
+## 会话过期通知位置 + 自动关闭硬约束（2026-07-03 立）
+
+会话过期通知（session-expired notification）是用户 401 后唯一的"重新登录"入口，其**位置 / 自动关闭 / 事件派发 / 可达性**四要素是用户体验与可达性的硬性保障。修改以下任一文件，**必须**保留四要素全部行为，否则视为回归：
+
+- `client/src/composables/useAppLifecycle.ts`（`SESSION_EXPIRED_DURATION_MS` / `position` / `duration` / `customClass` / `onClick` / `onClose`）
+- `client/src/styles/_session-expired-notification.scss`（`left: 50%` + `margin-left: -165px` 居中覆盖 + 暗色模式）
+- `client/src/utils/request.ts`（必须 `dispatchEvent('session-expired')`，禁止直接 `clearAndRedirect` 或 `ElMessageBox`）
+- `client/src/main.ts`（必须 `import './styles/_session-expired-notification.scss'`）
+
+### 必须满足的规则
+
+#### 1. `position: 'top-left'`（不可改 top-center / top-right）
+
+`useAppLifecycle.ts` ElNotification 块必须显式 `position: 'top-left'`：
+
+```ts
+const notification = ElNotification({
+  // ...
+  position: 'top-left',
+  // ...
+})
+```
+
+**设计意图**：Element Plus `ElNotification` 的 `notify.mjs:8-13` 仅声明 4 个位置 key（`top-left` / `top-right` / `bottom-left` / `bottom-right`），**不支持 `top-center`**。若传 `top-center`，`notify.mjs:21` 会 `notifications['top-center'].forEach(...)` 触发 `Cannot read properties of undefined (reading 'forEach')`，通知永不出现。
+
+本项目用 `position: 'top-left'` 走 Element Plus 支持的代码路径，再用 scss `left: 50%` + `margin-left: -165px` 实现视觉水平居中（见规则 3）。
+
+#### 2. `duration` 必须在 4000-15000ms 区间（禁止 0 / 永久 / <4s / >15s）
+
+`useAppLifecycle.ts` 必须有：
+
+```ts
+const SESSION_EXPIRED_DURATION_MS = 8000  // 当前值, 8s
+```
+
+且 `ElNotification({ duration: SESSION_EXPIRED_DURATION_MS })`。**当前值 8000**，禁止改成：
+
+- `0` = 永久显示，通知会遮挡屏幕，用户忘记关闭则长期占位
+- `< 4000` = 用户来不及看清并操作（特别是可达性场景）
+- `> 15000` = 等同于半永久挂起，失去"自动关闭"语义
+
+#### 3. scss 必须含 `left: 50%` + `margin-left: -165px` 居中覆盖
+
+`_session-expired-notification.scss` 必须含：
+
+```scss
+.session-expired-notification {
+  left: 50% !important;
+  margin-left: -165px !important;  // 通知宽度 330px 的一半, 精确居中
+}
+```
+
+**设计意图**：`ElNotification` 走 `top-left` 路径后，Element Plus 默认会给 `.el-notification.left { left: 16px }`，导致通知落在屏幕**左侧**而非居中。本覆盖把 `left` 改为 `50%`，再用 `margin-left: -165px` 反向偏移通知宽度的一半（`--el-notification-width` = 330px），实现精确水平居中。
+
+**动画兼容性**：Element Plus 入场动画作用于 `left` / `transform`，不作用于 `margin-left`，故本覆盖不影响入场动画。
+
+#### 4. `request.ts` 必须统一派发 `session-expired` 事件
+
+`request.ts` 401 处理路径必须用：
+
+```ts
+window.dispatchEvent(new CustomEvent('session-expired', {
+  detail: { reason: i18nT('auth.sessionExpiredMessage') },
+}))
+```
+
+**禁止**直接调 `ElMessageBox` / `clearAndRedirect` / `useLoginDialog().open()` — 这些会绕过 `useAppLifecycle` 的统一通知逻辑，导致：
+
+- 通知位置 / 自动关闭 / 防抖锁全部失效
+- 多个并发 401 会同时弹多个通知（防抖锁在 `useAppLifecycle` 内）
+- 未来调整通知样式需要改多处，违反单一职责
+
+#### 5. 必须带 `onClick` 回调（可达性）
+
+`useAppLifecycle.ts` ElNotification 块必须含：
+
+```ts
+onClick: (e?: MouseEvent) => {
+  if (e?.target) {
+    const target = e.target as HTMLElement
+    if (
+      target.closest('.el-button') ||
+      target.closest('.el-notification__closeBtn')
+    ) {
+      return  // 排除按钮与关闭按钮, 它们有自己的处理逻辑
+    }
+  }
+  useLoginDialog().open('login')
+  notification.close()
+},
+```
+
+**设计意图**：通知本体（非按钮区域）也可点击触发"重新登录"，提升可达性。**必须排除** `.el-button`（避免与按钮自身 `onClick` 重复触发）和 `.el-notification__closeBtn`（Element Plus 自带关闭按钮，点击不应弹登录框）。
+
+#### 6. 必须有"重新登录" + "取消"两个按钮
+
+`useAppLifecycle.ts` ElNotification `message` 必须用 `h()` 渲染：
+
+```ts
+h('div', { class: 'session-expired-notify' }, [
+  h('p', { class: 'session-expired-msg' }, reason),
+  h('div', { class: 'session-expired-actions' }, [
+    h(ElButton, { type: 'primary', size: 'small', onClick: ... }, t('auth.relogin')),
+    h(ElButton, { size: 'small', onClick: ... }, t('common.cancel')),
+  ]),
+])
+```
+
+**设计意图**："重新登录"是主操作（蓝色 primary），"取消"让用户保留控制权（不强制登录，可继续浏览）。
+
+#### 7. `customClass: 'session-expired-notification'` 必须存在
+
+`useAppLifecycle.ts` 必须含 `customClass: 'session-expired-notification'`，这是 scss 样式钩子的唯一来源。**禁止**改成其他类名（会导致 `_session-expired-notification.scss` 全部规则失效）。
+
+#### 8. `main.ts` 必须 import scss
+
+`client/src/main.ts` 必须含：
+
+```ts
+import './styles/_session-expired-notification.scss'
+```
+
+**禁止**删除此 import（scss 不会自动挂载，通知会失去居中覆盖 + 暗色模式适配）。
+
+### 禁止模式
+
+- ❌ `position: 'top-center'`（触发 Element Plus `notify.mjs:21` forEach 错误，通知永不出现）
+- ❌ `position: 'top-right'`（回退到右上角 bug，与"顶部居中下滑"设计意图冲突）
+- ❌ `duration: 0` 或 `> 15000`（永久挂起 / 半永久挂起，遮挡屏幕）
+- ❌ `duration < 4000`（用户来不及反应）
+- ❌ 删除 `_session-expired-notification.scss` 的 `left: 50%` 或 `margin-left: -165px`（通知会落到屏幕左侧 `left: 16px`）
+- ❌ 在 `request.ts` 直接调 `ElMessageBox` / `clearAndRedirect` / `useLoginDialog().open()`（绕过统一通知逻辑）
+- ❌ 删除 `useAppLifecycle.ts` 的 `onClick` 回调（点击通知本体无效果，可达性不足）
+- ❌ 删除 `useAppLifecycle.ts` 的 `onClose` 回调（防抖锁 `sessionExpiredNotifying` 永不复位，下次会话过期通知将永不出现）
+- ❌ 删除 `_session-expired-notification.scss` 文件
+- ❌ `main.ts` 不 import `_session-expired-notification.scss`
+- ❌ 删除"取消"按钮（用户失去"不重新登录"的选择权）
+
+### 守门工具
+
+#### 1. 源码级守门（CI 必跑，10 用例）
+
+`client/e2e/session-expired-notification.spec.ts` 覆盖：
+
+1. `useAppLifecycle.ts` 必须用 `ElNotification`（反 `ElMessageBox`）
+2. `position: 'top-left'` + 反 `top-right` + 反 `top-center`
+3. scss `left: 50%` + `margin-left: -165px` 必须存在
+4. `duration` 解析后必须在 4000-15000ms 区间（支持字面量 + `SESSION_EXPIRED_DURATION_MS` 常量追溯）
+5. `type: 'warning'`
+6. `customClass: 'session-expired-notification'`
+7. 必须有"重新登录"按钮（`relogin` 文案）
+8. 必须有"取消"按钮（`cancel` 文案）
+9. scss 文件存在 + `main.ts` import 该 scss
+10. `onClick` 回调存在 + 排除 `.el-button` + 排除 `.el-notification__closeBtn` + 调 `useLoginDialog().open('login')`
+
+```bash
+npx playwright test e2e/session-expired-notification.spec.ts --reporter=list
+```
+
+#### 2. 浏览器级守门（需 PW_BASE_URL，4 测试 × 2 视口 = 8 用例）
+
+`client/e2e/session-expired-position.spec.ts` 在运行时验证通知真的水平居中：
+
+- 浅色 + Desktop Chrome
+- 暗色 + Desktop Chrome
+- 浅色 + Mobile Chrome (Pixel 5)
+- 暗色 + Mobile Chrome (Pixel 5)
+
+每个测试断言：
+
+1. 通知中心 X 与 viewport 中心 X 偏差 < 20px（容差覆盖子像素渲染 / 滚动条 / DPR 缩放）
+2. 通知 top < 100px（顶部下滑）
+3. 通知 x > 50px（Desktop）/ > 20px（Mobile，防 top-left 默认 `left: 16px` 退化）
+
+```bash
+cmd /c "set PW_BASE_URL=http://localhost:8888&& npx playwright test e2e/session-expired-position.spec.ts"
+```
+
+#### 3. 章节守门
+
+`scripts/check-agents-md-sections.mjs` + `e2e/agents-md-sections.spec.ts` 的 `EXPECTED_SECTIONS` 必须含本章节标题（12 章之一）。
+
+#### 4. 单元测试
+
+`client/src/composables/__tests__/useAppLifecycle.test.ts` 覆盖：
+
+- `session-expired` 事件触发后调用 `ElNotification`（位置 `top-left`）
+- 防抖锁（多次 dispatchEvent 只弹一次）
+- `onClose` 重置防抖锁
+
+`client/src/utils/__tests__/request.test.ts` 覆盖：
+
+- 401 路径必须 `window.dispatchEvent('session-expired')`（用 `addEventListener` spy 验证）
+
+### 历史 bug 复盘（2026-07-03 修复）
+
+**症状 1（旧实现）**：会话过期用 `ElMessageBox` 居中模态弹窗，强制打断用户操作，用户必须先关闭弹窗才能继续，体验割裂。
+
+**症状 2（改版初版）**：改用 `ElNotification` 顶部下滑通知，但 `duration: 0`（永久挂起）+ `position: 'top-right'`（右上角），用户反馈"通知一直挂右上角挡按钮"。
+
+**症状 3（事件派发分裂）**：`request.ts` 在不同 401 路径分别派发事件 + 直接调 `clearAndRedirect`，逻辑分裂，部分路径通知永不出现。
+
+**修复（2026-07-03，commit 864ceec7 + f3695688）**：
+
+1. `position: 'top-left'` + scss `left: 50%` + `margin-left: -165px` 实现顶部居中下滑
+2. `SESSION_EXPIRED_DURATION_MS = 8000`（8s 自动关闭，平衡"看清操作"与"不长期遮挡"）
+3. `request.ts` 删除 `clearAndRedirect`，统一 `dispatchEvent('session-expired')`
+4. `onClick` 回调提升可达性（点击通知本体也弹登录框）
+5. `onClose` 重置防抖锁，允许下次会话过期再次通知
+
+**实测验证**：
+
+| 指标 | 修复前 ❌ | 修复后 ✅ |
+|---|---|---|
+| 通知位置 | top-right（右上角，挡按钮） | 顶部居中（top-left + scss 覆盖） |
+| 自动关闭 | `duration: 0` 永久挂起 | 8s 自动关闭 |
+| 事件派发 | `request.ts` 多路径分裂（部分直接 clearAndRedirect） | 统一 `dispatchEvent('session-expired')` |
+| 可达性 | 仅按钮可点 | `onClick` 回调，通知本体也可点 |
+| 防抖锁复位 | 永不复位（下次会话过期通知永不出现） | `onClose` 重置，下次正常 |
+
+### 设计意图
+
+**会话过期通知是"非阻断式提醒"，不是"强制操作"**。改版前后对比：
+
+| 维度 | 旧实现（ElMessageBox 模态） | 新实现（ElNotification 顶部下滑） |
+|---|---|---|
+| 阻断性 | 强阻断（必须关闭才能操作页面） | 非阻断（通知 8s 后自动消失，用户可继续浏览） |
+| 位置 | 屏幕中央（遮挡主内容） | 顶部居中（不遮挡主内容） |
+| 操作 | 仅"重新登录" | "重新登录" + "取消"（用户保留控制权） |
+| 可达性 | 仅按钮可点 | 通知本体也可点 |
+| 自动关闭 | 否（必须手动关） | 是（8s 后自动消失） |
+
+**为什么不用 `top-center`？** Element Plus `ElNotification` 的 `notify.mjs:8-13` 仅声明 4 个位置 key，`top-center` 不在其中，运行时会触发 `forEach` 错误。这是 Element Plus 的实现限制，本项目通过 `top-left` + scss 覆盖绕过。
+
+### 红线
+
+- ❌ `position: 'top-center'`（Element Plus 限制，触发 forEach 错误）
+- ❌ `duration: 0` 或 `> 15000`（永久 / 半永久挂起）
+- ❌ 删除 scss `left: 50%` 居中覆盖
+- ❌ `request.ts` 直接调 `ElMessageBox` / `clearAndRedirect`
+- ❌ 删除 `onClick` / `onClose` 回调
+- ❌ 删除"取消"按钮
+- ❌ 改 `customClass` 名称
+- ❌ 删章节前不更新 `check-agents-md-sections.mjs` 的 `EXPECTED_SECTIONS`（章节守门会失败）
+
+---
+
 
