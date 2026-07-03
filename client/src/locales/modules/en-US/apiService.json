@@ -293,6 +293,7 @@
       "last30Days": "最近30天"
     },
     "groups": {
+      "create": "Create Group",
       "features": {
         "models": "Models",
         "concurrent": "Concurrent",
@@ -382,6 +383,7 @@
       "updatedAt": "Updated At"
     },
     "packages": {
+      "create": "Create Package",
       "quota": "Quota",
       "remaining": "Remaining",
       "startDate": "Start Date",
