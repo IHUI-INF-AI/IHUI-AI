@@ -1,8 +1,12 @@
 /**
- * AI 对话输入框「+ 选择」能力下拉回归测试
+ * AI 对话输入框「✨ 能力」下拉回归测试 (2026-07-06 Trae 风格改造)
+ *
+ * 2026-07-06 改造:
+ *   触发源切换: 原 `.tw-selector-pill` (+选择) → 工具栏 ✨ 按钮 `[aria-label="能力"]`
+ *   旧 pill DOM 保留 (`display: none` CSS) 供 .tw-selector-radius.spec.ts 守门
  *
  * 覆盖 2026-07-01 trae work 三段式重构 + useSubViewDropdown 抽取后的关键交互：
- *  1. 触发 pill 显示 + 展开下拉
+ *  1. 触发按钮可见 + 展开下拉
  *  2. 主视图：7 个能力卡片合并分组（5 能力 + 提示词模板 + AI 工具箱）
  *  3. 子视图切换：点击「提示词模板」→ 进入 prompts 子视图 + 自动聚焦 back 按钮
  *  4. 子视图返回：back 按钮 / Esc 优先返回主视图
@@ -17,12 +21,15 @@ import { test, expect, type Page } from '@playwright/test'
 
 // inline 面板 (2026-07-03 v2 重构: 不再使用 el-dropdown teleport, 改为 inline absolute 面板)
 const POPPER = '.ai-capability-inline-panel'
-const TRIGGER_PILL = '.ai-capability-selector .tw-selector-pill'
+// 2026-07-06 Trae 改造: 触发器从 .tw-selector-pill 切换到工具栏 ✨ 按钮
+const TRIGGER = '[aria-label="能力"]'
+// 旧 pill DOM 仍存在 (display:none), 用于 .tw-selector-radius.spec.ts 守门
+const LEGACY_PILL = '.ai-capability-selector .tw-selector-pill'
 // 主视图特定选择器（避免 Transition 期间 .last() 拿到 leaving 元素）
 const MAIN_PANE = '.ai-capability-inline-panel .openclaw-quick-menu.capability-view-pane'
 const SUB_PANE = '.ai-capability-inline-panel .ai-capability-subview.capability-view-pane'
 
-/** 打开 AI 侧边栏面板（嵌入模式）并确保 trae-work 顶层 pill 可见 */
+/** 打开 AI 侧边栏面板（嵌入模式）并确保 trae-work 工具栏可见 */
 async function openAIDialogMaximized(page: Page): Promise<void> {
   // 用 domcontentloaded 替代 networkidle：dev server 持续有 HMR/polling 请求，
   // networkidle 可能永远不达，或达到时 Vue 早已 mount 完，无法稳定等 Vue 挂载。
@@ -62,14 +69,17 @@ async function openAIDialogMaximized(page: Page): Promise<void> {
     await page.waitForTimeout(800)
   }
 
-  // 确保 trae-work pill 可见（说明已进入 trae-work 输入态）
-  const pill = page.locator(TRIGGER_PILL)
-  await expect(pill).toBeVisible({ timeout: 8000 })
+  // 2026-07-06 Trae 改造: 工具栏 ✨ 按钮可见
+  const trigger = page.locator(TRIGGER)
+  await expect(trigger).toBeVisible({ timeout: 8000 })
+
+  // 旧 pill DOM 仍存在 (供 .tw-selector-radius.spec.ts 守门), 但视觉隐藏
+  await expect(page.locator(LEGACY_PILL)).toHaveCount(1)
 }
 
-/** 点击能力下拉触发 pill（+ 选择） */
+/** 点击能力下拉触发按钮 (工具栏 ✨) */
 async function openCapabilityDropdown(page: Page): Promise<void> {
-  await page.locator(TRIGGER_PILL).first().click()
+  await page.locator(TRIGGER).first().click()
   await expect(page.locator(POPPER)).toBeVisible({ timeout: 5000 })
   await page.waitForTimeout(300) // 等待入场动画
 }
@@ -80,28 +90,26 @@ async function closeCapabilityDropdown(page: Page): Promise<void> {
   await page.waitForTimeout(500)
 }
 
-test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
+test.describe('AI 对话输入框「✨ 能力」下拉 (Trae 风格)', () => {
   // 仅在桌面端运行（移动端 AI 面板默认隐藏）
   test.describe.configure({ mode: 'serial' })
 
-  test('触发 pill 可见并符合 ARIA 规范', async ({ page }) => {
+  test('触发按钮可见并符合 ARIA 规范', async ({ page }) => {
     await openAIDialogMaximized(page)
 
-    const trigger = page.locator(TRIGGER_PILL).first()
+    const trigger = page.locator(TRIGGER).first()
     await expect(trigger).toBeVisible()
     await expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
-    await expect(trigger).toHaveAttribute('role', 'button')
-    await expect(trigger).toHaveAttribute('tabindex', '0')
 
     await closeCapabilityDropdown(page)
   })
 
-  test('点击触发 pill 展开下拉，aria-expanded 变为 true', async ({ page }) => {
+  test('点击触发按钮展开下拉，aria-expanded 变为 true', async ({ page }) => {
     await openAIDialogMaximized(page)
     await openCapabilityDropdown(page)
 
-    const trigger = page.locator(TRIGGER_PILL).first()
+    const trigger = page.locator(TRIGGER).first()
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
 
     const popper = page.locator(POPPER)
@@ -192,7 +200,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await expect(mainPane.locator('.menu-title').first()).toBeVisible()
 
     // 下拉本身仍应打开（aria-expanded=true）
-    const trigger = page.locator(TRIGGER_PILL).first()
+    const trigger = page.locator(TRIGGER).first()
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
 
     await closeCapabilityDropdown(page)
@@ -314,7 +322,7 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
     await toolItem.click()
 
     // 下拉已关闭（检查 aria-expanded 变为 false 或 popper 不可见）
-    const trigger = page.locator(TRIGGER_PILL).first()
+    const trigger = page.locator(TRIGGER).first()
     await expect(trigger).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 })
 
     // OpenClaw 主面板出现
@@ -325,8 +333,8 @@ test.describe('AI 对话输入框「+ 选择」能力下拉', () => {
   test('键盘导航：Tab 可聚焦到菜单项', async ({ page }) => {
     await openAIDialogMaximized(page)
 
-    // 先点击触发 pill 打开下拉
-    const trigger = page.locator(TRIGGER_PILL).first()
+    // 先点击触发按钮打开下拉
+    const trigger = page.locator(TRIGGER).first()
     await trigger.focus()
     await page.keyboard.press('Enter')
     await expect(page.locator(POPPER)).toBeVisible({ timeout: 5000 })
