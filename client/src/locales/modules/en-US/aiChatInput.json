@@ -43,6 +43,17 @@
     "back": "返回",
     "searchModels": "搜索模型...",
     "exportFailed": "导出失败",
-    "exportDeveloping": "导出功能开发中"
+    "exportDeveloping": "导出功能开发中",
+    "play": "Play",
+    "agentModePlaceholder": "You're chatting with Agent. Type '/' for more capabilities like '/plan', '/spec'",
+    "agentTagLabel": "Agent",
+    "removeAgentAriaLabel": "Remove Agent",
+    "capabilityTriggerAria": "Capabilities",
+    "sendBtnAria": "Send message",
+    "stopBtnAria": "Stop generation",
+    "mentionsAria": "Mentions",
+    "tagAria": "Tag",
+    "imageAria": "Image",
+    "quickActionAria": "Quick action"
   }
 }

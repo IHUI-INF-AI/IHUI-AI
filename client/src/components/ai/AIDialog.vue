@@ -107,6 +107,15 @@
               </el-button>
             </div>
           </div>
+          <!-- 2026-07-06 Trae 风格: Agent 胶囊行 (agent 模式时显示) -->
+          <div v-if="props.currentMode === 'agent'" class="trae-input-row-agent">
+            <AgentPill
+              :agent-name="t('aiChatInput.agentTagLabel')"
+              :close-aria="t('aiChatInput.removeAgentAriaLabel')"
+              @remove="toggleAgentMode"
+            />
+          </div>
+
           <div class="input-row">
             <textarea
               v-if="props.currentMode !== 'agent'"
@@ -132,23 +141,27 @@
               @input="handleInput"
             />
           </div>
-          <div class="input-actions">
-              <el-button
-                v-if="enableVoice"
-                link
-                circle
-                size="small"
-                @click="handleVoiceToggle"
-                :disabled="isRecording"
-                class="input-action-btn"
-                :title="t('aiChatInput.voiceInput')"
-              >
-                <el-icon><Microphone /></el-icon>
-              </el-button>
+
+          <!-- 2026-07-06 Trae 风格工具栏行 (4左+中+2右+极右圆形绿底发送) -->
+          <div class="trae-toolbar-row">
+            <!-- 4 左: @ # 🖼 ⚡ -->
+            <div class="trae-toolbar-left">
+              <!-- @ 提及 -->
+              <button type="button" class="trae-toolbar-action-btn"
+                :aria-label="t('aiChatInput.mentionsAria')" :title="t('aiChatInput.mentionsAria')">
+                <el-icon><At /></el-icon>
+              </button>
+              <!-- # 标签 -->
+              <button type="button" class="trae-toolbar-action-btn"
+                :aria-label="t('aiChatInput.tagAria')" :title="t('aiChatInput.tagAria')">
+                <el-icon><Hash /></el-icon>
+              </button>
+              <!-- 🖼 文件上传 (image/video/audio 下拉) -->
               <el-dropdown v-if="enableFileUpload" trigger="click" @command="triggerFileUpload">
-                <el-button link circle size="small" class="input-action-btn" :title="t('aiChatInput.uploadFile')">
-                  <el-icon><Plus /></el-icon>
-                </el-button>
+                <button type="button" class="trae-toolbar-action-btn"
+                  :aria-label="t('aiChatInput.imageAria')" :title="t('aiChatInput.uploadFile')">
+                  <el-icon><Picture /></el-icon>
+                </button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="image">
@@ -166,31 +179,31 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-              <el-button
-                link
-                size="small"
-                @click="toggleAgentMode"
-                class="input-action-btn agent-mode-btn"
+              <!-- ⚡ 速通: Agent 模式切换 -->
+              <button type="button" class="trae-toolbar-action-btn trae-toolbar-action-btn--active"
                 :class="{ 'is-active': props.currentMode === 'agent' }"
+                :aria-label="t('aiChatInput.quickActionAria')"
                 :title="props.currentMode === 'agent' ? t('chatMode.exitAgentMode') : t('chatMode.enterAgentMode')"
-              >
-                <span class="agent-mode-text">{{ props.currentMode === 'agent' ? t('chatMode.agentMode') : t('chatMode.normalMode') }}</span>
-              </el-button>
-              <el-dropdown v-if="showModelSelector && props.currentMode !== 'agent'" trigger="click" @command="handleModelSelect">
-                <el-button link circle size="small" class="input-action-btn" :title="t('aiChatInput.selectModel')">
-                  <el-icon class="model-icon">
-                    <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="18" height="18" style="width: 18px; height: 18px; fill: currentcolor;">
-                      <path d="M830.976 184.32l124.416 71.68v176.64l-211.456 122.368-0.512-171.52L611.84 307.2l219.136-122.88z m-94.208-54.272l-217.088 124.416-224.256-129.536L511.488 0l225.28 130.048zM284.16 892.416L68.096 768v-233.984l216.064 123.904v234.496z m89.088 51.712v-235.008l140.288 80.384 139.264-80.384-1.024 233.984L511.488 1024l-138.24-79.872zM430.592 305.152L284.672 388.608l-0.512 164.352-216.064-125.952V256l138.752-79.872 223.744 129.024z m91.136 52.224l133.12 76.8-1.024 172.032-139.776 80.896-140.288-81.92V439.808l147.968-82.432z m433.152 177.152V768l-210.432 121.344-0.512-232.96 210.944-121.856z" fill="currentColor" />
-                    </svg>
-                  </el-icon>
-                </el-button>
+                @click="toggleAgentMode">
+                <el-icon><Zap /></el-icon>
+              </button>
+            </div>
+
+            <!-- 中: 模型选择器 (保留原 dropdown 复杂结构) -->
+            <div class="trae-toolbar-center" v-if="showModelSelector && props.currentMode !== 'agent'">
+              <el-dropdown trigger="click" @command="handleModelSelect">
+                <button type="button" class="trae-toolbar-action-btn trae-toolbar-model-btn"
+                  :aria-label="t('aiChatInput.modelLabel')"
+                  :title="modelButtonLabel">
+                  <span class="action-glyph">{{ modelButtonLabel }}</span>
+                </button>
                 <template #dropdown>
                   <el-dropdown-menu class="model-selector-dropdown">
                     <div class="model-selector-header">
                       <h3 class="model-selector-title">{{ t('home.input.model') }}</h3>
                       <div class="model-auto-switch-wrapper">
-                        <span 
-                          class="auto-label" 
+                        <span
+                          class="auto-label"
                           :class="{ 'is-active': localIsAutoModel }"
                           @click="localIsAutoModel = !localIsAutoModel"
                         >
@@ -219,7 +232,7 @@
                         v-for="item in modelList"
                         :key="item.modelCode"
                         class="model-item-card"
-                        :class="{ 
+                        :class="{
                           'is-selected': localSelectedModel === item.modelCode,
                           'is-disabled': localIsAutoModel
                         }"
@@ -241,50 +254,13 @@
                           <div class="model-item-name-wrapper">
                             <div class="model-item-name">
                               {{ item.modelName }}
-                              <!-- 热门标识：火焰图标 -->
                               <span v-if="item.is_top == 1 || item.is_top === true || item.is_top === '1' || String(item.is_top) === '1'" class="model-badge model-badge-top" :title="t('hardcoded.a_i_dialog.热门')">
                                 <img :src="fireIconSrc" :alt="t('hardcoded.a_i_dialog.热门2')" class="fire-icon" loading="lazy" />
                               </span>
-                              <!-- 新模型标识：New 标签 -->
                               <span v-if="item.is_new == 1 || item.is_new === true || item.is_new === '1' || String(item.is_new) === '1'" class="model-badge model-badge-new" :title="t('hardcoded.a_i_dialog.新模型1')">New</span>
-                              <!-- API 接入：与能力面板统一，</> + API 文案 -->
-                              <el-tooltip :content="t('home.input.apiAccess')" placement="top">
-                                <button
-                                  type="button"
-                                  class="model-api-btn"
-                                  aria-label="API 接入"
-                                  @click.stop="handleModelApiClick(item.modelCode)"
-                                >
-                                  <span class="model-api-btn__icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M5 6l6 6-6 6M13 5l2 14M19 6l-6 6 6 6" />
-                                    </svg>
-                                  </span>
-                                  <span class="model-api-btn__text">API</span>
-                                </button>
-                              </el-tooltip>
                             </div>
                           </div>
                           <div v-if="item.modelDesc" class="model-item-desc">{{ item.modelDesc }}</div>
-                          <!-- 模型能力指示器 -->
-                          <div v-if="hasCapabilities(item)" class="model-capabilities">
-                            <span v-if="item.supportsStreaming" class="capability-tag capability-streaming" :title="t('model.capabilities.streaming')">
-                              {{ t('model.capabilities.streamingShort') }}
-                            </span>
-                            <span v-if="item.supportsImages" class="capability-tag capability-image" :title="t('model.capabilities.image')">
-                              <el-icon><Picture /></el-icon>
-                            </span>
-                            <span v-if="item.supportsAudio" class="capability-tag capability-audio" :title="t('model.capabilities.audio')">
-                              <el-icon><Microphone /></el-icon>
-                            </span>
-                            <span v-if="item.supportsVideo" class="capability-tag capability-video" :title="t('model.capabilities.video')">
-                              <el-icon><VideoPlay /></el-icon>
-                            </span>
-                          </div>
-                          <!-- 只对图片和视频模型显示处理时间 -->
-                          <div v-if="shouldShowProcessingTime(item)" class="model-time-tag">
-                            {{ item.processingTime || getDefaultProcessingTime(item) }}
-                          </div>
                         </div>
                         <label class="custom-checkbox model-checkbox" :class="{ 'is-disabled': localIsAutoModel }">
                           <input
@@ -301,28 +277,50 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-              <el-button
-                v-if="props.currentMode === 'agent'"
-                link
-                circle
-                size="small"
-                @click="toggleReasoning"
-                class="input-action-btn reasoning-btn"
+            </div>
+
+            <!-- 中 (agent 模式) 占位: 保持 toolbar 居中布局 -->
+            <div v-else class="trae-toolbar-center" />
+
+            <!-- 2 右: ✨ 能力 + 🎤 语音 / 🧠 推理 -->
+            <div class="trae-toolbar-right">
+              <!-- ✨ 能力触发 (装饰性, 暂不绑功能) -->
+              <button type="button" class="trae-toolbar-action-btn"
+                :aria-label="t('aiChatInput.capabilityTriggerAria')"
+                :title="t('aiChatInput.capabilityTriggerAria')">
+                <el-icon><MagicStick /></el-icon>
+              </button>
+              <!-- 🧠 推理 (agent 模式) -->
+              <button v-if="props.currentMode === 'agent'" type="button"
+                class="trae-toolbar-action-btn"
                 :class="{ 'is-active': showReasoning }"
+                :aria-label="showReasoning ? t('agentChat.hideReasoning') : t('agentChat.showReasoning')"
                 :title="showReasoning ? t('agentChat.hideReasoning') : t('agentChat.showReasoning')"
-              >
+                @click="toggleReasoning">
                 <el-icon><Cpu /></el-icon>
-              </el-button>
-              <el-button
-                type="primary"
-                :loading="isSending"
-                :disabled="!localInputText.trim() || isSending"
-                @click="props.currentMode === 'agent' ? handleAgentSendMessage() : handleSendMessage()"
-                class="send-btn"
-              >
-                <el-icon><Promotion /></el-icon>
-                <span>{{ t('aiChatInput.send') }}</span>
-              </el-button>
+              </button>
+              <!-- 🎤 语音输入 -->
+              <button v-if="enableVoice" type="button"
+                class="trae-toolbar-action-btn"
+                :class="{ 'is-recording': isRecording }"
+                :aria-label="t('aiChatInput.voiceInput')"
+                :title="t('aiChatInput.voiceInput')"
+                :disabled="isRecording"
+                @click="handleVoiceToggle">
+                <el-icon><Microphone /></el-icon>
+              </button>
+            </div>
+
+            <!-- 极右: 圆形绿底发送 (2026-07-06 Trae 风格) -->
+            <el-button class="send-btn send-btn--trae-circular"
+              :loading="isSending"
+              :disabled="!localInputText.trim() || isSending"
+              :aria-label="isSending ? t('aiChatInput.stopBtnAria') : t('aiChatInput.sendBtnAria')"
+              :title="isSending ? t('floatingChat.stopGeneration') : t('aiChatInput.send')"
+              @click="props.currentMode === 'agent' ? handleAgentSendMessage() : handleSendMessage()">
+              <el-icon v-if="!isSending"><Promotion /></el-icon>
+              <el-icon v-else><Loading /></el-icon>
+            </el-button>
           </div>
         </div>
   </div>
@@ -350,11 +348,17 @@ import {
   Promotion,
   Loading,
   Clock,
-  Minus
+  Minus,
+  // 2026-07-06 Trae 风格工具栏新增图标
+  At,         // @ 提及
+  Hash,       // # 标签
+  MagicStick, // ✨ 能力触发
+  Zap,        // ⚡ 速通
 } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import VoiceRecordingAnimation from './VoiceRecordingAnimation.vue'
 import ImageList from '../InputArea/ImageList.vue'
+import AgentPill from './AgentPill.vue'
 
 type ChatMode = 'global' | 'dialog' | 'agent'
 type FileUploadType = 'image' | 'video' | 'audio'
@@ -823,6 +827,14 @@ const combinedPlaceholder = computed(() => {
   return `${basePlaceholder} (${shortcutHint})`
 })
 
+// 2026-07-06 Trae 风格: 工具栏模型按钮 label (紧凑显示)
+const modelButtonLabel = computed(() => {
+  if (!props.selectedModel) return t('aiChatInput.selectModel')
+  const m = props.modelList?.find((x) => x.modelCode === props.selectedModel)
+  const name = m?.modelName || props.selectedModel
+  return name.length > 6 ? `${name.slice(0, 6)}…` : name
+})
+
 // 火焰图标路径
 const fireIconSrc = computed(() => {
   const baseUrl = import.meta.env.BASE_URL || '/'
@@ -858,6 +870,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 </script>
 
 <style scoped lang="scss">
+@use '@/styles/_form-controls.scss' as fc;
 // ============================================================
 // CSS Variables - 组件级变量定义 (--aid- prefix)
 // 使用 CSS 变量，使用 CSS 变量控制
@@ -884,7 +897,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   // Border 变量
   --aid-border-width: 1px;
   --aid-border-color: var(--el-border-color);
-  --aid-border-color-active: var(--el-color-primary);
+  --aid-border-color-active: var(--border-unified-color-hover);
   
   // Layout 变量
   --aid-gap-sm: 4px;
@@ -1035,7 +1048,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
       .el-tag.model-tag {
         // 定义组件内部变量
-        --model-tag-border: var(--el-border-width-primary) solid var(--el-color-primary);
+        --model-tag-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
         --model-tag-border-width: var(--el-border-width-primary);
         --model-tag-border-width: var(--aid-border-width);
         
@@ -1098,7 +1111,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         &:hover {
           background: var(--el-color-primary-light-9);
 
-          --model-tag-border: var(--el-border-width-primary) solid var(--el-color-primary);
+          --model-tag-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
           --model-tag-border-width: var(--el-border-width-primary);
 
           transform: translateY(0); // 扁平化设计：移除位移
@@ -1361,7 +1374,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &:hover:not(.is-active) {
           --amb-bg: var(--el-fill-color-light);
-          --amb-border-color: var(--el-color-primary-light-5);
+          --amb-border-color: var(--border-unified-color-hover);
 
           color: var(--el-color-primary);
 
@@ -1372,7 +1385,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &.is-active {
           --amb-bg: var(--el-color-primary);
-          --amb-border: var(--el-border-width-primary) solid var(--el-color-primary);
+          --amb-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
           --amb-border-width: var(--el-border-width-primary);
 
           color: var(--el-color-white);
@@ -1388,7 +1401,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
           &:hover {
             --amb-bg: var(--el-color-primary);
-            --amb-border: var(--el-border-width-primary) solid var(--el-color-primary);
+            --amb-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
           --amb-border-width: var(--el-border-width-primary);
 
             color: var(--el-color-white);
@@ -2151,7 +2164,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &:hover:not(.is-active) {
           --amb-bg-dark: var(--el-fill-color);
-          --amb-border-color-dark: var(--el-color-primary-light-3);
+          --amb-border-color-dark: var(--border-unified-color-hover);
 
           color: var(--el-color-primary);
 
@@ -2166,7 +2179,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
         &.is-active {
           --amb-bg-dark: var(--el-color-primary);
-          --amb-border-color-dark: var(--el-color-primary);
+          --amb-border-color-dark: var(--border-unified-color-hover);
 
           color: var(--el-color-white);
           box-shadow: var(--global-box-shadow);
@@ -2181,7 +2194,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
           &:hover {
             --amb-bg-dark: var(--el-color-primary);
-            --amb-border-color-dark: var(--el-color-primary);
+            --amb-border-color-dark: var(--border-unified-color-hover);
 
             color: var(--el-color-white);
           }
@@ -2453,7 +2466,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
     .auto-label {
       // 使用 CSS 变量，使用 CSS 变量控制
-      --al-border-color: var(--color-black-8);
+      --al-border-color: var(--border-unified-color);
       --al-border-width: 2px;
       
       font-size: 14px;
@@ -2478,8 +2491,8 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       &.is-active {
-        // 激活状态：高对比度描边
-        --al-border: var(--el-border-width-primary) solid var(--el-color-primary);
+        // 激活状态：统一描边
+        --al-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
         --al-border-width: var(--el-border-width-primary);
 
         color: var(--el-text-color-primary);
@@ -2503,7 +2516,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         }
 
         &.is-active {
-          --al-border: var(--el-border-width-primary) solid var(--el-color-primary);
+          --al-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
         --al-border-width: var(--el-border-width-primary);
 
           color: var(--el-text-color-primary);
@@ -2591,7 +2604,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
     &.is-active {
       --mct-item-bg: var(--el-bg-color-page);
       --mct-item-color: var(--el-text-color-primary);
-      --mct-item-border: var(--el-border-width-primary) solid var(--el-color-primary);
+      --mct-item-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
       --mct-item-border-width: var(--el-border-width-primary);
 
       font-weight: 500;
@@ -2606,7 +2619,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   html.dark & {
     :deep(.el-tabs__item.is-active) {
       // 暗色主题下使用更亮的颜色形成强对比
-      --mct-item-border: var(--el-border-width-primary) solid var(--el-color-primary);
+      --mct-item-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
       --mct-item-border-width: var(--el-border-width-primary);
 
       border-width: 2px;
@@ -2828,7 +2841,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
       }
 
       &:focus-visible {
-        outline: 2px solid var(--el-color-primary-light-7);
+        outline: 2px solid var(--border-unified-color-hover);
         outline-offset: 2px;
         box-shadow: none;
       }
@@ -2938,125 +2951,29 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
 
   .model-checkbox {
+    // 2026-07-06 v4 统一: 改用 _form-controls.scss 统一来源
+    // 18x18 大小 + 4px 方形小圆角 + 1.3s 缓慢变色 + 3D 旋转, 全项目唯一来源
     flex-shrink: 0;
     margin-top: 8px;
-    display: inline-flex;
-    align-items: center;
-    cursor: pointer;
-    user-select: none;
-    font-size: 16px;
-    color: var(--el-text-color-primary);
-    transition: color 0.3s;
-    background-color: transparent;
-    background: transparent;
-    
-    input[type="checkbox"] {
-      display: none;
-    }
-    
+    position: relative;  // 为 .checkmark::before 绝对定位提供定位上下文
+
+    @include fc.custom-checkbox-base;
+    @include fc.custom-checkbox-disabled;
+    @include fc.custom-checkbox-dark-dialog;
+
+    // AIDialog 复选框在弹窗右侧, 紧贴 dropdown item 边缘, 不需要 margin-right
     .checkmark {
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--border-unified-color-hover);
-      border-radius: var(--global-border-radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
       margin-right: 0;
-      transition: background-color 1.3s, border-color 1.3s, color 1.3s, transform 0.3s;
-      transform-style: preserve-3d;
       position: relative;
     }
-    
-    .checkmark::before {
-      content: "\2713";
-      font-size: 16px;
-      color: transparent;
-      transition: color 1.3s, transform 0.3s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      margin: 0;
-      padding: 0;
-      transform: none; /* 移除 translateY，使用 flexbox 居中 */
-      text-align: center; /* 确保文本居中 */
-      box-sizing: border-box; /* 确保包含边框 */
-    }
-    
-    input[type="checkbox"]:checked + .checkmark {
-      background-color: var(--el-text-color-primary);
-      border-color: transparent;
-      transform: scale(1.1) rotateZ(360deg) rotateY(360deg);
-    }
-    
-    input[type="checkbox"]:checked + .checkmark::before {
-      color: var(--el-color-white);
-      transform: none; /* 移除 translateY，使用 flexbox 居中 */
-    }
-    
-    &:hover:not(.is-disabled) {
-      color: var(--el-text-color-regular);
-      
-      .checkmark {
+
+    // AI 弹窗是深色背景, 暗色模式下不需要再加 #4c4d4f (因为 _dark-dialog 已经接管)
+    // 这里覆盖 fc.custom-checkbox-dark 的影响, 让 _dark-dialog 完全接管暗色样式
+    :where(html.dark) & .checkmark {
+      border-color: var(--color-white-30);  // 与 _dark-dialog 一致
+
+      &:hover {
         border-color: var(--border-unified-color-hover);
-        background-color: var(--el-fill-color-light);
-        transform: scale(1.05);
-      }
-    }
-    
-    input[type="checkbox"]:focus + .checkmark {
-      box-shadow: var(--global-box-shadow);
-      outline: none;
-    }
-    
-    &.is-disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-      
-      .checkmark {
-        cursor: not-allowed;
-        border-color: var(--el-disabled-border-color);
-        background-color: var(--el-disabled-bg-color);
-      }
-      
-      input[type="checkbox"]:checked + .checkmark {
-        background-color: var(--el-disabled-bg-color);
-        border-color: var(--el-disabled-border-color);
-      }
-      
-      &:hover .checkmark {
-        transform: none;
-        background-color: var(--el-disabled-bg-color);
-        border-color: var(--el-disabled-border-color);
-      }
-    }
-    
-    // 暗色模式适配
-    :where(html.dark) & {
-      color: var(--el-text-color-primary);
-
-      .checkmark {
-        border-color: var(--color-white-30);
-      }
-
-      &:hover:not(.is-disabled) .checkmark {
-        border-color: var(--border-unified-color-hover);
-        background-color: var(--color-white-10);
-      }
-
-      input[type="checkbox"]:checked + .checkmark {
-        background-color: var(--el-color-white);
-        border-color: var(--color-white-80);
-      }
-      
-      input[type="checkbox"]:checked + .checkmark::before {
-        color: var(--el-text-color-primary); /* 暗色模式下对号颜色 */
       }
     }
   }
@@ -3143,9 +3060,9 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
         
         // 流式响应能力
         &.capability-streaming {
-          background: var(--color-black-10);
+          background: var(--el-fill-color-light);
           color: var(--el-color-primary);
-          border-color: var(--color-black-30);
+          border-color: var(--border-unified-color);
         }
         
         // 图像能力
@@ -3186,7 +3103,7 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
     &.is-checked {
       background: var(--el-color-primary-light-9);
-      border: var(--el-border-width-primary) solid var(--el-color-primary);
+      border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
 
       .model-name {
         color: var(--el-color-primary);
@@ -3425,6 +3342,154 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
   }
 }
 
+// ========== Trae 风格工具栏 (2026-07-06 立) ==========
+// 引用: trae-ai-input-style-restructure.md §2 / §3.4
+.trae-input-row-agent {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.trae-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+}
+
+.trae-toolbar-left,
+.trae-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.trae-toolbar-center {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.trae-toolbar-action-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-primary);
+  }
+
+  &:active {
+    background: var(--el-fill-color);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: 1px;
+  }
+
+  &.is-active {
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+  }
+
+  &.is-recording {
+    color: var(--el-color-danger);
+    animation: recording-pulse-aidi 1s ease-in-out infinite;
+  }
+
+  :deep(.el-icon) {
+    font-size: 16px;
+    line-height: 1;
+    color: inherit;
+  }
+}
+
+.trae-toolbar-model-btn {
+  width: auto;
+  min-width: 56px;
+  max-width: 140px;
+  padding: 0 10px;
+
+  .action-glyph {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+}
+
+// 圆形绿底发送按钮 (2026-07-06 Trae 风格)
+.send-btn.send-btn--trae-circular {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--ai-send-btn-bg, #16a34a);
+  border-color: var(--ai-send-btn-bg, #16a34a);
+  color: #fff;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+
+  :where(html.dark) & {
+    background: var(--ai-send-btn-bg, #15803d);
+    border-color: var(--ai-send-btn-bg, #15803d);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ai-send-btn-hover-bg, #15803d);
+    border-color: var(--ai-send-btn-hover-bg, #15803d);
+    opacity: 1;
+  }
+
+  :where(html.dark) &:hover:not(:disabled) {
+    background: var(--ai-send-btn-hover-bg, #052e16);
+    border-color: var(--ai-send-btn-hover-bg, #052e16);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  :deep(.el-icon),
+  :deep(.el-button__inner .el-icon) {
+    font-size: 16px;
+    color: #fff;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@keyframes recording-pulse-aidi {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.92); }
+}
+
 </style>
 
 <!-- 全局样式：使用 @layer utilities 确保优先级，使用 CSS 变量控制 -->
@@ -3521,12 +3586,12 @@ cleanup.add(() => { inputRef.value?.removeEventListener('input', adjustTextareaH
 
   /* model-category-tabs 选中状态描边 */
   .model-category-tabs :deep(.el-tabs__item.is-active) {
-    border: var(--el-border-width-primary) solid var(--el-color-primary);
+    border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
   }
 
   /* model-tag 描边 */
   .model-tag.el-tag {
-    --mt-border: var(--el-border-width-primary) solid var(--el-color-primary);
+    --mt-border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
     --mt-border-width: var(--el-border-width-primary);
     
     border: var(--unified-border);

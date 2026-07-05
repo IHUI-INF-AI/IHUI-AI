@@ -383,6 +383,19 @@
                             <div v-if="message.metadata?.audioUrl" class="assistant-audio">
                               <audio :src="message.metadata.audioUrl" controls class="assistant-audio-player" />
                             </div>
+                            <!-- 工作区 Agent 工具调用可视化 (ToolCallCard) -->
+                            <div v-if="getMessageToolCalls(message).length" class="assistant-tool-calls">
+                              <ToolCallCard
+                                v-for="toolCall in getMessageToolCalls(message)"
+                                :key="toolCall.id"
+                                :tool-name="toolCall.name"
+                                :tool-input="toolCall.input"
+                                :tool-output="toolCall.output"
+                                :status="toolCall.status"
+                                :iteration="toolCall.iteration"
+                                :error="toolCall.error"
+                              />
+                            </div>
                           </template>
                           <div v-else class="assistant-content-hidden">
                             {{ t('floatingChat.contentHidden') }}
@@ -642,6 +655,15 @@
 
               <!-- 输入框 -->
               <div class="input-wrapper">
+                <!-- 2026-07-06 Trae 风格: Agent 胶囊行 (条件显示) -->
+                <div v-if="selectedAgent || (currentAIMode as string) === 'agent'" class="trae-input-row-agent">
+                  <AgentPill
+                    :agent-name="selectedAgent?.name || t('aiChatInput.agentTagLabel')"
+                    :close-aria="t('aiChatInput.removeAgentAriaLabel')"
+                    @remove="handleRemoveAgent"
+                  />
+                </div>
+
                 <!-- 语音录制波形动画（录音时显示） -->
                 <div v-if="isRecording" class="voice-waveform-container" @click="toggleVoice">
                   <div class="voice-waveform">
@@ -669,7 +691,6 @@
                       @click="toggleCapabilityDropdown">
                       <el-icon class="tw-selector-icon-plus"><Plus /></el-icon>
                       <span class="tw-selector-label">{{ t('aiChatInput.select') }}</span>
-                      <el-icon class="tw-selector-caret" :class="{ 'is-open': showCapabilityDropdown }"><ArrowDown /></el-icon>
                     </el-button>
 
                     <!-- Inline 能力面板: Teleport 到 body 脱离父级 stacking context (2026-07-04) -->
@@ -823,29 +844,72 @@
 
                   <!-- 输入框（始终显示，可继续输入转换后的文字） -->
                   <div ref="inputRef" class="chat-input" :class="{ 'has-voice-card': voiceAudioData }"
-                    contenteditable="true" :data-placeholder="t('hardcoded.a_i_chat.voiceAud')"
+                    contenteditable="true" :data-placeholder="t('aiChatInput.inputPlaceholder')"
                     @keydown.enter.exact.prevent="handleSend" @keydown.enter.shift.exact="handleShiftEnter"
                     @input="handleInputChange" @paste="handlePaste"></div>
                 </div>
 
-                <!-- trae-work Row 3: 底部操作栏（文件左 / 语音+发送右） -->
-                <div class="trae-work-actions-bottom">
-                  <div class="trae-work-left-bottom">
-                    <!-- 文件上传 -->
-                    <el-tooltip :content="t('floatingChat.uploadFile')" placement="top"
+                <!-- 2026-07-06 Trae 风格工具栏行 (4左+中+2右+极右圆形绿底发送) -->
+                <!-- 引用: trae-ai-input-style-restructure.md §2 / §3.4 -->
+                <div class="trae-toolbar-row">
+                  <!-- 4 左: @ # 🖼 ⚡ -->
+                  <div class="trae-toolbar-left">
+                    <!-- @ 提及 -->
+                    <el-button class="trae-toolbar-action-btn"
+                      :aria-label="t('aiChatInput.mentionsAria')" :title="t('aiChatInput.mentionsAria')"
+                      @click="openMentions">
+                      <span class="action-glyph" aria-hidden="true">@</span>
+                    </el-button>
+                    <!-- # 标签 (跳转提示词模板) -->
+                    <el-button class="trae-toolbar-action-btn"
+                      :aria-label="t('aiChatInput.tagAria')" :title="t('aiChatInput.tagAria')"
+                      @click="goToCapabilityView('prompts'); toggleCapabilityDropdown()">
+                      <el-icon><Hash /></el-icon>
+                    </el-button>
+                    <!-- 🖼 文件上传 -->
+                    <el-tooltip v-if="enableFileUpload" :content="t('floatingChat.uploadFile')" placement="top"
                       popper-class="ai-chat-action-tooltip">
-                      <el-button v-if="enableFileUpload" link size="small" class="action-btn"
+                      <el-button class="trae-toolbar-action-btn"
+                        :aria-label="t('aiChatInput.imageAria')" :title="t('floatingChat.uploadFile')"
                         @click="handleFileUpload('file')">
                         <UploadPlusIcon :size="16" />
                       </el-button>
                     </el-tooltip>
+                    <!-- ⚡ 速通 (快捷工具) -->
+                    <el-button class="trae-toolbar-action-btn"
+                      :aria-label="t('aiChatInput.quickActionAria')" :title="t('aiChatInput.quickActionAria')"
+                      @click="openQuickTools">
+                      <el-icon><Zap /></el-icon>
+                    </el-button>
                   </div>
-                  <div class="trae-work-right-bottom">
-                    <!-- 语音输入 -->
-                    <el-tooltip :content="isRecording ? t('aiChat.stopRecording') : (voiceAudioData ? t('aiChat.reRecord') : t('floatingChat.voiceInput'))"
+
+                  <!-- 中: 模型选择器 (保留原 trigger pill 视觉, 套 .trae-toolbar-action-btn 风格) -->
+                  <div class="trae-toolbar-center">
+                    <button type="button" class="trae-toolbar-action-btn trae-toolbar-model-btn"
+                      :aria-label="t('aiChatInput.modelLabel')"
+                      :title="modelButtonLabel"
+                      @click="openModelSelector">
+                      <span class="action-glyph" aria-hidden="true">{{ modelButtonLabel }}</span>
+                    </button>
+                  </div>
+
+                  <!-- 2 右: ✨ 能力 + 🎤 语音 -->
+                  <div class="trae-toolbar-right">
+                    <!-- ✨ 能力触发 (替代原 + 选择 pill, DOM 保留在 trae-work-actions-top 内供 e2e) -->
+                    <el-button class="trae-toolbar-action-btn"
+                      :aria-label="t('aiChatInput.capabilityTriggerAria')"
+                      :title="t('aiChatInput.capabilityTriggerAria')"
+                      :aria-expanded="showCapabilityDropdown"
+                      aria-haspopup="menu"
+                      @click="toggleCapabilityDropdown">
+                      <el-icon><MagicStick /></el-icon>
+                    </el-button>
+                    <!-- 🎤 语音输入 -->
+                    <el-tooltip v-if="enableVoice"
+                      :content="isRecording ? t('aiChat.stopRecording') : (voiceAudioData ? t('aiChat.reRecord') : t('floatingChat.voiceInput'))"
                       placement="top" popper-class="ai-chat-action-tooltip">
-                      <el-button v-if="enableVoice" link size="small" class="action-btn" @click="toggleVoice"
-                        :class="{ 'is-recording': isRecording, 'has-audio': voiceAudioData }">
+                      <el-button class="trae-toolbar-action-btn" :class="{ 'is-recording': isRecording, 'has-audio': voiceAudioData }"
+                        :title="t('floatingChat.voiceInput')" @click="toggleVoice">
                         <el-icon v-if="isRecording">
                           <MicrophoneOff />
                         </el-icon>
@@ -854,20 +918,21 @@
                         </el-icon>
                       </el-button>
                     </el-tooltip>
-                    <!-- 发送按钮 -->
-                    <el-button type="primary" size="small" class="send-btn"
-                      :class="{ 'is-empty': !canSend && !isSending, 'is-ready': canSend, 'is-sending': isSending }"
-                      :disabled="!canSend && !isSending" @click="handleSend"
-                      :title="t('floatingChat.send')">
-                      <el-icon v-if="!isSending" class="send-btn-icon-send">
-                        <Promotion />
-                      </el-icon>
-                      <el-icon v-else class="send-btn-icon-loading is-loading">
-                        <Loader2 />
-                      </el-icon>
-                      <span class="send-btn-text">{{ isSending ? '发送中...' : t('floatingChat.send') }}</span>
-                    </el-button>
                   </div>
+
+                  <!-- 极右: 圆形绿底发送 / 停止按钮 (2026-07-06 Trae 风格) -->
+                  <el-button class="send-btn send-btn--trae-circular"
+                    :disabled="!canSend && !isSending"
+                    :aria-label="isSending ? t('aiChatInput.stopBtnAria') : t('aiChatInput.sendBtnAria')"
+                    :title="isSending ? t('floatingChat.stopGeneration') : t('floatingChat.send')"
+                    @click="isSending ? handleStopGeneration() : handleSend()">
+                    <el-icon v-if="!isSending" class="send-btn-icon-send">
+                      <Promotion />
+                    </el-icon>
+                    <el-icon v-else class="send-btn-icon-stop">
+                      <VideoPause />
+                    </el-icon>
+                  </el-button>
                 </div>
               </div>
             </div>
@@ -886,6 +951,15 @@
         </div>
       </div>
     </Transition>
+
+    <!-- 工具执行确认对话框 (default 权限模式: Agent 工具调用需要用户确认) -->
+    <PermissionConfirmDialog
+      v-model:visible="showPermissionDialog"
+      :tool-call="pendingConfirmation"
+      @confirm="confirmToolCall"
+      @deny="denyToolCall"
+      @allow-all="allowAllInSession"
+    />
 
     <!-- 统计对话框 -->
     <el-dialog v-if="shouldRenderStatsDialog" v-model="showStatsDialog" :title="t('floatingChat.stats')" width="500px" :close-on-click-modal="false" @closed="shouldRenderStatsDialog = false">
@@ -1486,9 +1560,14 @@ import { useAICapabilityDiscovery } from '@/composables/useAICapabilityDiscovery
 import { useMCP } from '@/composables/useMCP'
 import { useOpenClaw } from '@/composables/useOpenClaw'
 import { useSubViewDropdown } from '@/composables/useSubViewDropdown'
+import { useWorkspaceAgent } from '@/composables/useWorkspaceAgent'
+import type { ToolCallInfo } from '@/composables/useWorkspaceAgent'
+import { useAiPanel } from '@/composables/useAiPanel'
 import { StorageManager } from '@/utils/storage'
 import MarkdownStream from './MarkdownStream.vue'
 import PromptTemplates from './PromptTemplates.vue'
+import ToolCallCard from './ToolCallCard.vue'
+import PermissionConfirmDialog from './PermissionConfirmDialog.vue'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成
@@ -1575,9 +1654,12 @@ import {
   Cpu,
   Brain,
   Plus,
-  ArrowDown,
   ArrowLeft,
+  // 2026-07-06 Trae 风格工具栏新增图标
+  Hash,        // # 标签 (Document fallback)
+  MagicStick,  // ✨ 能力触发
 } from '@/lib/lucide-fallback'
+import AgentPill from './AgentPill.vue'
 // Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
 
 // 导入自定义图标（替代默认图标，更精致的设计）
@@ -1949,6 +2031,29 @@ try {
     timeline: [],
   })
 }
+
+// 工作区 Agent (对标 Claude Code / Cursor 的工具循环)
+const {
+  sendToAgent: sendToWorkspaceAgent,
+  stopAgent: stopWorkspaceAgent,
+  isAgentRunning: isWorkspaceAgentRunning,
+  pendingConfirmation,
+  confirmToolCall,
+  denyToolCall,
+  allowAllInSession,
+} = useWorkspaceAgent()
+
+// 工具执行确认弹窗可见性: 由 pendingConfirmation 派生 (有待确认工具调用时显示)
+const showPermissionDialog = computed<boolean>({
+  get: () => !!pendingConfirmation.value,
+  set: (val: boolean) => {
+    if (!val) {
+      pendingConfirmation.value = null
+    }
+  },
+})
+// 工作区面板状态 (获取 selectedFolderPath)
+const aiPanelState = useAiPanel()
 const openClawDashboard = computed(() =>
   (openClawActivePanel.value === 'dashboard' || openClawActivePanel.value === '')
     ? openClawGetDashboard()
@@ -3028,6 +3133,15 @@ const getAssistantDisplayContent = (message: ChatMessage): string => {
   return normalized
 }
 
+/** 获取助手消息中的工具调用列表（用于 ToolCallCard 可视化） */
+const getMessageToolCalls = (message: ChatMessage): ToolCallInfo[] => {
+  const toolCalls = message.metadata?.toolCalls
+  if (Array.isArray(toolCalls)) {
+    return toolCalls as ToolCallInfo[]
+  }
+  return []
+}
+
 // scrollToBottom 已在上方定义，这里删除重复定义
 
 // 滚动处理 - 增强功能
@@ -3971,6 +4085,55 @@ const normalizeZidingyican = (variables: unknown): Array<{ name: string; desc: s
   })
 }
 
+// 2026-07-05 新增: 用户点击 AI 思考时的"停止"按钮触发. 关闭 WebSocket
+// (agent 模式 + model WS 模式共用 currentModelWebSocket), 标记正在流式
+// 接收的 AI 消息为"已停止"状态, isSending 回到 false 让按钮恢复为发送态.
+// 注意: HTTP 一次性请求 (model HTTP 模式 / unified / mcp / hybrid / auto /
+// agentic 轮询) 无法中断, 只能等请求自然返回; 此函数对它们的处理是
+// 立即把 UI 状态复位 (isSending=false), 用户感知"停止"已生效, 后端响应
+// 到达时跳过处理 (isSending=false 后回调会被 handleModelStreamEvent 自然忽略).
+const handleStopGeneration = () => {
+  if (!isSending.value) return
+
+  // 0. 停止工作区 Agent (如果正在运行)
+  if (isWorkspaceAgentRunning.value) {
+    stopWorkspaceAgent()
+  }
+
+  // 1. 关闭活跃的 WebSocket (agent / model WS 模式)
+  if (currentModelWebSocket.value) {
+    try {
+      currentModelWebSocket.value.close()
+    } catch (e) {
+      logger.warn('Failed to close WebSocket on stop:', e)
+    }
+    currentModelWebSocket.value = null
+  }
+
+  // 2. 标记正在流式接收的 AI 消息为"已停止" (status='sent' + isStreaming=false),
+  //    保留已收到的部分内容. 在消息末尾追加 "（已停止）" 标记提示用户.
+  const lastAssistant = [...messages.value].reverse().find(m => m.role === 'assistant' && m.isStreaming)
+  if (lastAssistant) {
+    lastAssistant.isStreaming = false
+    lastAssistant.status = 'sent'
+    if (!lastAssistant.content.endsWith(t('floatingChat.stoppedSuffix'))) {
+      lastAssistant.content = lastAssistant.content
+        ? `${lastAssistant.content}\n\n${t('floatingChat.stoppedSuffix')}`
+        : t('floatingChat.stoppedSuffix')
+    }
+  }
+
+  // 3. UI 状态复位
+  isSending.value = false
+  isTyping.value = false
+
+  // 4. 通知 + 滚动
+  if (lastAssistant) {
+    emit('message-received', lastAssistant)
+  }
+  scrollToBottom(true)
+}
+
 const handleSend = async () => {
   // 防止重复发送
   if (isSending.value) return
@@ -4080,6 +4243,90 @@ const handleSend = async () => {
 
     // 根据当前AI模式选择不同的调用方式
     let responseContent = ''
+
+    // 工作区 Agent 模式: 当用户选择了本地文件夹时, 使用 Agent 工具循环 (对标 Claude Code)
+    // Agent 可以读写文件、执行命令、搜索代码, 而非普通 LLM 对话
+    const workspaceFolder = aiPanelState.selectedFolderPath.value
+    if (workspaceFolder) {
+      const modelCode = selectedModel.value?.modelCode || 'default'
+      const userUuid = getUserUuid()
+
+      sendToWorkspaceAgent({
+        prompt: messageContent,
+        modelId: modelCode,
+        workspacePath: workspaceFolder,
+        userUuid,
+        chatId: currentConversationId.value,
+        onTextDelta: (text: string) => {
+          responseContent += text
+          assistantMessage.content = responseContent
+          assistantMessage.isStreaming = true
+          scrollToBottom()
+        },
+        onToolCall: (tool) => {
+          // 使用 ToolCallCard 组件可视化工具调用，存储到消息 metadata 中
+          if (!assistantMessage.metadata) {
+            assistantMessage.metadata = {}
+          }
+          const toolCalls = (assistantMessage.metadata.toolCalls as ToolCallInfo[]) || []
+          toolCalls.push({ ...tool })
+          assistantMessage.metadata.toolCalls = toolCalls
+          // 触发响应式更新
+          assistantMessage.metadata = { ...assistantMessage.metadata }
+          scrollToBottom()
+        },
+        onToolResult: (tool) => {
+          // 更新对应工具调用的状态和输出
+          if (!assistantMessage.metadata) {
+            assistantMessage.metadata = {}
+          }
+          const toolCalls = (assistantMessage.metadata.toolCalls as ToolCallInfo[]) || []
+          const existingIndex = toolCalls.findIndex(tc => tc.id === tool.id)
+          if (existingIndex >= 0) {
+            toolCalls[existingIndex] = { ...tool }
+          } else {
+            toolCalls.push({ ...tool })
+          }
+          assistantMessage.metadata.toolCalls = toolCalls
+          // 触发响应式更新
+          assistantMessage.metadata = { ...assistantMessage.metadata }
+          scrollToBottom()
+        },
+        onContext: (ctx) => {
+          // 存储上下文信息到消息 metadata
+          if (!assistantMessage.metadata) {
+            assistantMessage.metadata = {}
+          }
+          assistantMessage.metadata.agentContext = ctx
+          assistantMessage.metadata = { ...assistantMessage.metadata }
+        },
+        onDone: (info) => {
+          assistantMessage.isStreaming = false
+          assistantMessage.status = 'sent'
+          isSending.value = false
+          isTyping.value = false
+          // 添加迭代信息
+          if (info.iterations > 0) {
+            responseContent += `\n\n---\n*Agent 完成 (${info.iterations} 次迭代)*`
+            assistantMessage.content = responseContent
+          }
+          scrollToBottom()
+          emit('message-received', assistantMessage)
+        },
+        onError: (errorMsg: string) => {
+          assistantMessage.isStreaming = false
+          assistantMessage.status = 'failed'
+          assistantMessage.content = responseContent + `\n\n❌ Agent 错误: ${errorMsg}`
+          isSending.value = false
+          isTyping.value = false
+          scrollToBottom()
+        },
+      })
+
+      // 保存 stop 函数用于 handleStopGeneration
+      currentModelWebSocket.value = null // Agent 模式不使用 currentModelWebSocket
+      return
+    }
 
     // 智能体模式但还没真正选中具体智能体时，直接给出提示，避免误走大模型接口
     if (currentAIMode.value === 'agent' && !selectedAgent.value) {
@@ -5969,6 +6216,53 @@ const useQuickTool = (toolText: string) => {
     }
   })
 }
+
+// 2026-07-06 Trae 风格: 工具栏新交互
+// 移除 Agent: 清除 selectedAgent 并切回 model 模式
+const handleRemoveAgent = () => {
+  selectedAgent.value = null
+  if ((currentAIMode.value as string) === 'agent') {
+    currentAIMode.value = 'model'
+  }
+  nextTick(() => inputRef.value?.focus())
+}
+
+// @ 提及: 暂时聚焦输入框, 后续可扩展 mentions 下拉
+const openMentions = () => {
+  inputRef.value?.focus()
+  // 预留: 后续可在此处触发 mentions 弹层 (mentions-popover)
+}
+
+// 速通 (快捷工具) 按钮: 滚动到 quickToolsBar 并展开
+const openQuickTools = () => {
+  // 滚动消息到顶部 (快捷工具栏在 messages 区域附近)
+  nextTick(() => {
+    quickToolsBarRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    // 把第一个常用工具插入到输入框
+    if (quickTools.value.length > 0) {
+      useQuickTool(quickTools.value[0].text)
+    }
+  })
+}
+
+// 模型选择器: 触发能力下拉并定位到 model 卡片
+const openModelSelector = () => {
+  showCapabilityDropdown.value = true
+  nextTick(() => {
+    // 模拟点击 model 卡片 (与 onCapabilityCardClick('select:model') 等价)
+    onCapabilityCardClick('select:model')
+  })
+}
+
+// 工具栏模型按钮 label (紧凑显示: 模型名截断 6 字)
+const modelButtonLabel = computed(() => {
+  const m = selectedModel.value
+  if (!m) return t('aiChatInput.selectModel')
+  const name = (m as { name?: string; modelName?: string }).name
+    || (m as { modelName?: string }).modelName
+    || t('aiChatInput.modelLabel')
+  return name.length > 6 ? `${name.slice(0, 6)}…` : name
+})
 
 // 快捷工具栏拖拽滚动事件处理
 const handleToolsBarMouseDown = (e: MouseEvent) => {
@@ -8248,6 +8542,20 @@ watch(
 
 // 生命周期
 onMounted(async () => {
+  // 2026-07-05 修复: 兜底加载 aiChatInput 模块, 避免任意情况下首屏 t('aiChatInput.select')
+  // / t('aiChatInput.inputPlaceholder') 显示英文 key 字面量. aiChatInput 已在 coreModules
+  // 首屏就绪, 这里再保险一次 (loadModule 内部 isModuleLoaded 短路, 无性能损耗).
+  // 用 dynamic import 拿 loadModule 避免循环依赖 (AIChat 是聊天核心, 切勿静态 import locales
+  // 顶层入口导致 coreModules 还没注册就被引用).
+  import('@/locales').then(({ loadModule }) => {
+    const locale = (typeof navigator !== 'undefined' && /^zh/i.test(navigator.language)) ? 'zh-CN'
+      : (typeof navigator !== 'undefined' && /^en/i.test(navigator.language)) ? 'en'
+      : (typeof navigator !== 'undefined' && /^ja/i.test(navigator.language)) ? 'ja'
+      : (typeof navigator !== 'undefined' && /^ko/i.test(navigator.language)) ? 'ko'
+      : 'zh-CN'
+    loadModule(locale, 'aiChatInput').catch(() => { /* 静默失败, coreModules 已就绪 */ })
+  }).catch(() => { /* 静默 */ })
+
   loadModels()
   // 修复无限刷新循环: 未登录时不调用 loadAgents (内部会调用 getAgentList 需要 token)
   // 原因同 loadBackendConversations: request.ts 拦截器无 token 会 setTimeout 1.5s 跳 /login
@@ -8424,7 +8732,11 @@ cleanup.add(() => {
   --fcd-radius-lg: 15px;
   --fcd-radius-md: 12px;
   --fcd-radius-sm: 8px;
-  --fcd-radius-xs: 6px;
+  // 2026-07-05 修复: 用户反馈"发送按钮的圆角度跟左边其他的容器圆角度是不是没有统一".
+  // 旧值 6px 让 .action-btn (上传/语音) 圆角跟 .send-btn 的 8px (var(--app-button-radius) =
+  // var(--global-border-radius)) 不一致. 统一为 8px 跟全站统一 token 对齐 (见 _global-tokens.scss:
+  // --app-button-radius: var(--global-border-radius) 8px 全站唯一).
+  --fcd-radius-xs: 8px;
   --fcd-radius-round: 50%;
 
   // 按钮尺寸（统一标准：普通28px，最小化24px）
@@ -8432,7 +8744,11 @@ cleanup.add(() => {
   --fcd-btn-size-min: 24px;
   --fcd-btn-icon-size: 16px;
   --fcd-btn-icon-size-min: 14px;
-  --fcd-btn-radius: 6px;
+  // 2026-07-05 修复: 用户反馈"发送按钮的圆角度跟左边其他的容器圆角度是不是
+  // 没有统一". 旧值 6px 让 .action-btn (上传/语音, 用 --fcd-btn-radius) 跟
+  // .send-btn (8px) 不一致. 改为 8px 跟全站统一 token (--app-button-radius =
+  // --global-border-radius = 8px) 对齐.
+  --fcd-btn-radius: 8px;
 
   // 按钮颜色（统一标准）；描边用全局变量，hover 时加深
   --fcd-btn-color: var(--el-text-color-regular);
@@ -8571,7 +8887,7 @@ cleanup.add(() => {
   cursor: pointer;
   transition: background-color 0.2s, border-color 0.2s;
   z-index: var(--z-dropdown);
-  border: var(--unified-border); // 低对比色描边
+  border: 1px solid #e6e8ed; // 低对比色描边
   background: var(--el-bg-color);
   color: var(--el-text-color-primary);
   border-radius: var(--global-border-radius);
@@ -8723,7 +9039,14 @@ cleanup.add(() => {
   }
 }
 
-// 对话框主体 - 使用全站唯一描边设定
+// 对话框主体 - AI 浮窗专属描边 (不能用 var(--unified-border) 跟 sidebar 共享)
+// 2026-07-06 修复: 旧值 `border: var(--unified-border)` 在浅色模式 = #e9e9e9 (与白色背景差值 23:1, 勉强可见),
+//   在暗色模式 = #171717 (v26 sidebar 定稿色, 与 page bg #1a1a1a 差值仅 3, 几乎不可见).
+//   用户反馈 "对话框的 div 的描边怎么都不显示了" 主要在暗色模式 + embedded 模式 (强制 border: none).
+//   改用 AI 浮窗专属描边 (差值 ≥18, 浅色/暗色都明显可见), 不影响 sidebar v26 定稿色:
+//     浅色默认 #e6e8ed / hover #ced1d8
+//     暗色默认 #3a3b3d / hover #54555a
+//   (与 _input-area.scss / _floating-chat-dialog-glowing.scss 修复保持一致)
 .floating-chat-dialog {
   position: absolute;
   background: var(--el-bg-color);
@@ -8734,7 +9057,8 @@ cleanup.add(() => {
   flex-direction: column;
   overflow: visible;
   pointer-events: all;
-  border: var(--unified-border);
+  // 浅色模式 AI 浮窗专属描边 #e6e8ed (与 #fff 差值 ~25, 明显可见)
+  border: 1px solid #e6e8ed;
   transition: border-color 0.3s ease;
   /* ── 设计意图 ──
    * 浮窗 .floating-chat-dialog 自身有 8px padding 维持内容到边框的内边距。
@@ -8757,14 +9081,31 @@ cleanup.add(() => {
     user-select: none;
   }
 
+  // is-dark: 切换背景到 page bg. 描边色由下方 :where(html.dark) & 块统一管理,
+  // 这里不再写 `border-color: var(--el-border-color)` (= #171717 v26 sidebar 定稿色,
+  // 暗色下与 page bg 差值仅 3 几乎不可见). 2026-07-06 移除.
   &.is-dark {
     background: var(--el-bg-color-page);
-    border-color: var(--el-border-color);
+  }
+
+  // 暗色模式 AI 浮窗专属描边 #3a3b3d (与 #1a1a1a 差值 ~30, 明显可见)
+  // 优先级比 .is-dark 块 (特异性 0,1,1) 高: 0,1,1 vs 0,1,1 (后者 with :where(0))
+  // 实测 :where(html.dark) & = 0,1,1 跟 .is-dark (0,1,1) 同级, 但 :where(html.dark) & 在
+  // 文件中后定义 → 后写覆盖前写, 暗色下永远是 #3a3b3d.
+  :where(html.dark) & {
+    border-color: #3a3b3d;
+  }
+
+  // 浅色模式 hover 提亮到 #ced1d8
+  &:hover {
+    border-color: #ced1d8;
   }
 
   /* embedded 模式：父容器 padding 已被 _sidebar-layout.scss 设为 0，
    * 同步把 --fcd-padding 设为 0 让标题栏自动恢复 100% 宽贴齐父容器。
-   * 不必再手动重置 .dialog-header 的 width/margin，CSS 变量系统自动处理。 */
+   * 不必再手动重置 .dialog-header 的 width/margin，CSS 变量系统自动处理。
+   * 2026-07-06 修复: 不再 `border: none` — sidebar-layout.scss 已移除强制覆盖,
+   * 让 base 描边在 embedded 模式下也可见. */
   &.is-embedded {
     --fcd-padding: 0;
   }
@@ -8893,13 +9234,15 @@ cleanup.add(() => {
   //   旧值 14px 胶囊形违反"禁止彻底圆角/胶囊形"硬约束 (见 project_memory.md)
   :deep(.el-button.el-button--small.tw-selector-pill) {
     // 尺寸 - 按内容自适应，不强制方形
+    // 2026-07-05 整体缩小: 32→26, 14→12, 20→16, 12→10, 6→4
+    // 父级 .trae-work-actions-top 的 padding (4px) 与 gap (8px) 保持不变
     width: auto;
     min-width: 0;
     max-width: none;
-    height: 32px;
+    height: 26px;
     min-height: 0;
     max-height: none;
-    padding: 0 12px;
+    padding: 0 10px;
     margin: 0;
 
     // 外观 - 透明背景 + 1px 描边 + 项目统一圆角 (8px)
@@ -8914,8 +9257,8 @@ cleanup.add(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    font-size: 14px; // 与侧边栏 nav-item-label 同字号, 视觉一致
+    gap: 4px;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -8923,11 +9266,11 @@ cleanup.add(() => {
     transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
     outline: none;
 
-    // 图标尺寸 (Plus / ArrowDown) - 与侧边栏 nav-item-icon 完全一致: 20×20
+    // 图标尺寸 (Plus) - 与按钮缩小后视觉匹配: 16×16
     .el-icon {
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
       margin: 0;
       padding: 0;
       display: inline-flex;
@@ -8937,8 +9280,8 @@ cleanup.add(() => {
     }
 
     svg {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       fill: none; // 侧边栏图标风格: 描边, 非填充
       stroke: currentColor;
       stroke-width: 2;
@@ -8958,18 +9301,6 @@ cleanup.add(() => {
       display: inline-block;
     }
 
-    // 箭头图标稍弱
-    .tw-selector-caret {
-      font-size: 14px;
-      opacity: 0.6;
-      transition: transform 0.2s ease;
-
-      &.is-open {
-        transform: rotate(180deg);
-        opacity: 1;
-      }
-    }
-
     // 悬停
     &:hover:not(:disabled) {
       border-color: var(--border-unified-color-hover);
@@ -8987,16 +9318,26 @@ cleanup.add(() => {
   // 发送按钮需要更宽（图标+文字同行），并提供三状态颜色
   // 使用更高特异性（带 el-button--primary）确保覆盖通用规则
   :deep(.el-button.el-button--primary.el-button--small.send-btn) {
-    // 尺寸 - 自适应内容宽度，但有最小宽度确保文字完整显示
+    // 尺寸 - 自适应内容宽度
     width: auto;
-    min-width: 92px;
-    height: 32px;
-    min-height: 32px;
+    min-width: fit-content;
+    // 2026-07-05 修复: 用户反馈"发送按钮太大了, 没有跟左边的上传按钮 语音按钮的
+    // 容器一样高度". 调整为 28px 跟 .action-btn (el-button--small 默认 28px) 对齐.
+    height: 28px;
+    min-height: 28px;
     max-width: none;
     max-height: none;
-    padding: 0 16px;
+    // 2026-07-05 修复: 用户反馈"发送按钮左右浪费很多空间". 高度 32→28 后
+    // min-width: 92px + padding: 0 16px 显得过宽, 改为 min-width: fit-content
+    // (内容自适应) + padding: 0 12px (跟 .send-btn 基础规则一致), 实测宽度
+    // 约 72-76px, 既不挤也不空.
+    padding: 0 12px;
     margin: 0;
-    border-radius: 8px;
+    // 2026-07-05 修复: 用户反馈"发送按钮的圆角度跟左边其他的容器圆角度是不是
+    // 没有统一". 改为 var(--fcd-btn-radius) (8px) 跟 .action-btn (.el-button--small
+    // 通用规则用 --fcd-btn-radius) 完全一致. 全站统一圆角 token 是
+    // var(--app-button-radius) = var(--global-border-radius) = 8px.
+    border-radius: var(--fcd-btn-radius);
     font-size: 13px;
     font-weight: 500;
     line-height: 1;
@@ -9180,20 +9521,30 @@ cleanup.add(() => {
     }
 
     // ============================
-    // 状态 3: 发送中 — 橙色（trae work 的"工作中"警示色）
-    // 与可发送状态的蓝色形成明显对比
+    // 状态 3: 发送中 (停止按钮态) — 保持蓝色 (跟 is-ready 形态一致)
+    // 2026-07-05 修复: 用户反馈"ai在思考分析时是一个图一的这种状态 但是样式
+    // 颜色不要学他, 要符合现在的形态 但是看着是一个停止按钮".
+    //   旧实现: 橙色背景 + Loader2 旋转 + "发送中..." 文字 — 不像停止按钮
+    //   新实现: 保持蓝色 (跟可发送一致) + VideoPause 停止图标 + "停止" 文字
+    //           形态是圆角矩形+蓝底+白字 (跟 is-ready 视觉一致),
+    //           标识上看着是停止按钮 (■■ 图标 + "停止" 文字)
+    //           取消脉冲/旋转动画避免视觉干扰
     // ============================
-    &.is-sending {
-      background: #f59e0b; // trae work 风格的橙色
+    &.is-sending,
+    &.is-stopping {
+      // 颜色: 跟 is-ready 完全一致 (蓝底白字), 保持"现在的形态"
+      background: var(--color-ai-send-btn-bg);
       border: none;
       color: #ffffff;
-      box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
-      cursor: wait;
-      animation: send-btn-pulse 1.4s ease-in-out infinite;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+      // cursor: pointer (可点击) 而非 wait — 让用户感知"这是可点击的停止按钮"
+      cursor: pointer;
+      // 取消脉冲动画 — 脉冲跟"停止"语义矛盾
+      animation: none;
 
       :where(html.dark) & {
-        background: #fbbf24; // 暗色模式更亮一点的橙
-        box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+        background: var(--color-ai-send-btn-bg);
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
       }
 
       .el-icon,
@@ -9201,18 +9552,33 @@ cleanup.add(() => {
         color: #ffffff;
       }
 
+      // VideoPause 停止图标 — 不要旋转动画 (停止 = 静态, 不是 loading)
       svg {
         fill: currentColor;
-        animation: send-btn-spin 1s linear infinite;
+        animation: none;
       }
 
-      &:hover {
-        background: #f59e0b;
-        transform: none;
-        box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+      // hover: 变更深蓝, 让用户感知"可点击"
+      &:hover:not(:disabled) {
+        background: #b91c1c; // 深红色 (危险色), 暗示"停止/取消"操作
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(185, 28, 28, 0.35);
+        transform: translateY(-1px);
 
         :where(html.dark) & {
-          background: #fbbf24;
+          background: #dc2626; // 暗色模式更亮的红
+          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        }
+      }
+
+      // active: 按下态
+      &:active:not(:disabled) {
+        background: #991b1b;
+        transform: translateY(0);
+        box-shadow: 0 1px 3px rgba(185, 28, 28, 0.3);
+
+        :where(html.dark) & {
+          background: #b91c1c;
         }
       }
     }
@@ -9374,7 +9740,7 @@ cleanup.add(() => {
     color: var(--el-text-color-primary);
   }
   &:focus-visible {
-    outline: 2px solid var(--el-color-primary);
+    outline: 2px solid var(--border-unified-color-hover);
     outline-offset: 2px;
   }
 }
@@ -9561,7 +9927,7 @@ cleanup.add(() => {
     transform: translateY(0);
   }
   &:focus-visible {
-    outline: 2px solid var(--el-color-primary);
+    outline: 2px solid var(--border-unified-color-hover);
     outline-offset: 2px;
   }
 }
@@ -9733,7 +10099,7 @@ cleanup.add(() => {
   &.active {
     color: var(--el-color-primary);
     background: var(--el-color-primary-light-9);
-    border-color: var(--el-color-primary-light-5);
+    border-color: var(--border-unified-color-hover);
 
     .openclaw-icon {
       transform: rotate(0deg);
@@ -10038,7 +10404,7 @@ cleanup.add(() => {
 .quoted-preview {
   padding: 8px 12px;
   background: var(--el-fill-color-light);
-  border-left: var(--el-border-width-primary) solid var(--el-color-primary);
+  border-left: var(--el-border-width-primary) solid var(--border-unified-color-hover);
   border-radius: var(--global-border-radius);
   margin-bottom: 8px;
 
@@ -10518,11 +10884,15 @@ cleanup.add(() => {
 
   .floating-chat-dialog {
     background: var(--el-bg-color-page);
-    border-color: var(--el-border-color);
+    // 2026-07-05 修复: 不能用 var(--el-border-color) (= #171717 v26 sidebar 定稿色),
+    //   与 page bg #1a1a1a 差值仅 3, 浮窗描边在暗色模式下几乎不可见 (用户反馈"对话框 div 描边不显示").
+    //   改用 AI 浮窗专属色 #3a3b3d (差值 ~30, 明显可见), 不影响 sidebar v26 定稿色.
+    border-color: #3a3b3d;
     box-shadow: var(--fcd-box-shadow);
 
     &:hover {
-      border-color: var(--el-border-color-lighter);
+      // hover 提亮到专属 hover 色 #54555a
+      border-color: #54555a;
       box-shadow: var(--global-box-shadow);
     }
   }
@@ -10772,7 +11142,7 @@ cleanup.add(() => {
     }
 
     &:focus-visible {
-      outline: 2px solid var(--el-color-primary);
+      outline: 2px solid var(--border-unified-color-hover);
       outline-offset: 2px;
     }
 
@@ -11037,7 +11407,7 @@ cleanup.add(() => {
     }
 
     &:focus-visible {
-      outline: 2px solid var(--el-color-primary);
+      outline: 2px solid var(--border-unified-color-hover);
       outline-offset: -1px;
     }
 
@@ -11111,6 +11481,14 @@ button.mini-delete-btn {
   align-items: center;
   gap: 1px;
   height: 12px;
+}
+
+/* 工作区 Agent 工具调用可视化容器 */
+.assistant-tool-calls {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .mini-wave-bar {
@@ -11668,7 +12046,7 @@ button.mini-delete-btn {
 
     &.is-selected {
       background: var(--el-color-primary-light-9);
-      border: var(--el-border-width-primary) solid var(--el-color-primary);
+      border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
     }
 
     .capability-header {
@@ -11835,7 +12213,7 @@ button.mini-delete-btn {
         background: var(--el-bg-color-page);
         color: var(--el-text-color-primary);
         font-weight: 500;
-        border: var(--el-border-width-primary) solid var(--el-color-primary);
+        border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
       }
     }
 

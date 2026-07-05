@@ -42,6 +42,17 @@
     "selectAgent": "選擇智能體",
     "selectMode": "選擇模式",
     "modelLabel": "模型",
-    "agentLabel": "智能體"
+    "agentLabel": "智能體",
+    "play": "播放",
+    "agentModePlaceholder": "您正在與 Agent 聊天。輸入 '/' 獲取更多能力，如 '/plan', '/spec'",
+    "agentTagLabel": "Agent",
+    "removeAgentAriaLabel": "移除 Agent",
+    "capabilityTriggerAria": "能力",
+    "sendBtnAria": "發送消息",
+    "stopBtnAria": "停止生成",
+    "mentionsAria": "提及",
+    "tagAria": "標籤",
+    "imageAria": "圖片",
+    "quickActionAria": "速通"
   }
 }

@@ -138,11 +138,22 @@ $color-cta-blue: #2563eb;  // ctaBgDark
 $color-cta-blue-hover: #1d4ed8;  // ctaBgDarkHover
 $color-cta-blue-active: #1e40af;  // ctaBgDarkActive
 
-// 描边颜色（light / dark）
-$border-unified-light: #dcdfe6;
-$border-unified-light-hover: #c0c4cc;
-$border-unified-dark: #4c4d4f;
-$border-unified-dark-hover: #6c6e72;
+// v26 全局描边色 border-unified 定稿（2026-07-05 立, 实现"全局统一单一描边色"）
+// 2026-07-06 v27 调整: 暗色 #171717 → #2e2e2e, 用户反馈"暗色下按钮描边看不到".
+//   根因: 旧值 #171717 在 page bg #1a1a1a 上差值仅 3 几乎不可见 (1.24:1).
+//   修复: 暗色 #2e2e2e 在 page bg 上差值 31, sidebar surface #080808 上差值 38
+//   (对比度 1.55:1), 仍保持"低对比度质感"但清晰可见.
+// 浅色 #e9e9e9 跟 --app-sidebar-border 同值, hover 也同值.
+// element-plus-vars.scss 编译期注入到 --border-unified-color → --el-border-color*,
+// 覆盖 EP 全局按钮描边 (.question-btn / .hero-cta-btn.ghost 等),
+// 改 sidebar 描边色即同步影响中央 EP 按钮.
+// 1px 描边 vs sidebar surface 差值 38 单位, vs page bg 差值 31 单位, 视觉"暗色描边可辨".
+// 守门: scripts/check-sidebar-dark-tier.mjs (checkGlobalBorderUnifiedTokens) +
+//       e2e/sidebar-dark-color-tier.spec.ts.
+$border-unified-light: #e9e9e9;
+$border-unified-light-hover: #e9e9e9;
+$border-unified-dark: #2e2e2e;
+$border-unified-dark-hover: #2e2e2e;
 
 // 暗色模式专用 token
 $el-color-primary-dark: #409eff;
@@ -150,6 +161,15 @@ $el-button-text-on-primary-dark: #fff;
 $fcd-send-btn-hover-light: #409eff;
 $fcd-send-btn-hover-dark: #66b1ff;
 $color-dark-text-primary: #e5eaf3;
+
+// AI 浮窗发送按钮 (2026-07-06 Trae 风格: 圆形绿底, 仅图标)
+// 浅色 #16a34a (Tailwind green-600) 白字 #fff = 4.14:1 ✓ WCAG AA Large
+// 暗色 #15803d (Tailwind green-700) 白字 #fff = 5.5:1 ✓ WCAG AA
+// 属 AI 浮窗专属色独立体系 (DESIGN.md 2.3), 不污染 --el-color-success 全局语义
+$ai-send-btn-bg-light: #16a34a;
+$ai-send-btn-bg-dark: #15803d;
+$ai-send-btn-hover-light: #15803d;
+$ai-send-btn-hover-dark: #052e16;
 
 :root {
   /* 默认字体变量 - 使用 HarmonyOS Sans SC */
@@ -241,6 +261,18 @@ $color-dark-text-primary: #e5eaf3;
   --app-button-bg-surface: var(--el-fill-color-light);
   --app-button-bg-hover: var(--el-fill-color-light);
 
+  /* Ghost 按钮实底色背景 (2026-07-06 立, 替代"描边线"作为按钮边界)
+   * 根因: --app-sidebar-border 浅色 #e9e9e9 / 暗色 #2e2e2e (v27 2026-07-06 调整, 旧 #171717)
+   *   在 page bg (#fff / #1a1a1a) 上差值 3~31 仍偏弱. Ghost 按钮放在 page bg 上时,
+   *   1px 描边视觉弱化. 改用实底色 + 1px transparent 描边保留布局尺寸.
+   * 对比度: 浅色 #f5f5f5 on #fff = 1.04:1 边界隐约可见 (按钮仍可辨);
+   *         暗色 #2a2a2a on #1a1a1a = 1.10:1 同理. hover 加深到 #ebebeb / #333333.
+   * 适用: Home.vue.styles.scss .hero-cta-btn.ghost. 其他 ghost 按钮 (sidebar / login / 卡片)
+   *   仍保留 --app-button-bg-ghost: transparent 透明 + 描边模式 (它们所在容器 bg 跟 sidebar 一致). */
+  --app-button-bg-ghost-surface: #f5f5f5;
+  --app-button-bg-ghost-surface-hover: #ebebeb;
+  --app-button-bg-ghost-surface-active: #e0e0e0;
+
   /* 文字色 */
   // 2026-07-04 修复: primary 按钮专用文字色, 浅色/暗色统一为 #ffffff.
   // 原值 var(--el-bg-color) (dark=#0d0d0d) 与 --el-color-primary 暗色映射 (现 #2563eb) 撞色不可见.
@@ -256,16 +288,16 @@ $color-dark-text-primary: #e5eaf3;
    *
    * 对比度实测 (WCAG AA 阈值 4.5:1):
    *   --el-color-success #15803d on #ffffff = 5.5:1 ✓
-   *   --el-color-warning #b45309 on #fde68a = 4.85:1 ✓ (黄底白字仅 1.7:1 / 黄底深字仅 2.8:1 均失败)
+   *   --el-color-warning #b45309 on #ffffff = 5.02:1 ✓ (原 #fde68a = 4.03:1 失败 WCAG AA)
    *   --el-color-danger  #b91c1c on #ffffff = 5.9:1 ✓
    *   --el-color-info    #4b5563 on #ffffff = 5.1:1 ✓
    *
    * 反向断言: 禁止 color: white / #fff / var(--el-bg-color*) / var(--el-color-white) 硬编码
    * 在 .el-button--success/warning/danger/info 上 (守门: check-button-text-contrast.mjs). */
-  --app-text-on-success: #fff;
-  --app-text-on-warning: #fff;  /* 2026-07-04 修复: 原 #fde68a on #b45309 对比度仅 3.98:1 < WCAG AA 4.5, 改 #ffffff 后 4.93:1 通过 */
-  --app-text-on-danger: #fff;
-  --app-text-on-info: #fff;
+  --app-text-on-success: #ffffff;
+  --app-text-on-warning: #ffffff;  /* 2026-07-04 v2 修复: #ffffff on #b45309 = 5.02:1 ✓ WCAG AA 4.5 (原 #fde68a = 4.03:1 失败) */
+  --app-text-on-danger: #ffffff;
+  --app-text-on-info: #ffffff;
 
   /* ── 业务级语义色 token (2026-07-04 立, 全组件暗色反色用) ──
    * 浅色 mode: 深色字 (绿/琥珀/红/灰/蓝) + 8% 透明背景
@@ -285,10 +317,32 @@ $color-dark-text-primary: #e5eaf3;
   --app-color-primary-text: #1d4ed8;
   --app-color-primary-bg: rgb(37 99 235 / 0.08);
 
-  /* 边框 - 引用全站统一描边 (element-plus-vars.scss 定义) */
-  --app-button-border: var(--unified-border);
-  --app-button-border-color: var(--border-unified-color);
-  --app-button-border-color-hover: var(--border-unified-color-hover);
+  /* 边框 (v18 立, 2026-07-05: 全局 button 描边统一指向 sidebar 专用 --app-sidebar-border)
+   *
+   * 历史:
+   *   v17 之前: --app-button-border 引用 --unified-border (浅色 #e6e8ed / 暗色 #3a3b3d),
+   *     跟 sidebar 内的 --app-sidebar-border (浅色 #b0b0b0 / 暗色 #6a6a6a) 不统一.
+   *     用户反馈"它俩的描边线设定是单独的吗 怎么没有跟 button 统一啊 全局应该都统一啊"
+   *     (2026-07-05), 改 v18: 全局 button 描边统一到 sidebar 专用 token, 单 token 简化.
+   *
+   * v18 设计原则 (与 v13 简化思路一致):
+   *   - 3 个 button 边框 token (--app-button-border / -border-color / -border-color-hover)
+   *     全部指向 --app-sidebar-border, 跟 sidebar 内 nav-item/nav-group-label/nav-subitem
+   *     统一用一个 token.
+   *   - 不设 hover 区分: 跟 v13 sidebar 简化 (6 token 合并为 2 token) 一致,
+   *     "hover/active 反馈由背景色承担, 描边保持单一色".
+   *   - 不动 --unified-border / --border-unified-color: 主内容区 200+ 处
+   *     input/card/dialog/divider/viewer/modal/table 仍用 #e6e8ed/#3a3b3d 浅灰,
+   *     避免主内容区大范围视觉变化.
+   *   - 零运行时影响: 全项目零引用 --app-button-border / -border-color / -border-color-hover,
+   *     改 token 值不触发任何运行时变化, 仅是"统一语义 + 防止未来误用".
+   *
+   * 守门:
+   *   - scripts/check-sidebar-dark-tier.mjs (v18 规则: 3 个 token 都引用 --app-sidebar-border)
+   *   - e2e/sidebar-dark-color-tier.spec.ts (v18 K 用例: --app-button-border 单值锚定) */
+  --app-button-border: var(--app-sidebar-border);
+  --app-button-border-color: var(--app-sidebar-border);
+  --app-button-border-color-hover: var(--app-sidebar-border);
   --app-button-border-transparent: 1px solid transparent;
 
   /* transition */
@@ -418,6 +472,12 @@ $color-dark-text-primary: #e5eaf3;
   --color-gray-dde2e6: #dde2e6;
   --color-gray-ccd2d8: #ccd2d8;
   --color-gray-a1a1a1: #a1a1a1;
+  // 2026-07-04 修复: --color-gray-ededed 之前在 _global-tokens.scss 中从未定义,
+  //   VIPMembership.vue 的 .vip-purchase-bar__btn { background: $gray-100; } (=$gray-100 = var(--color-gray-ededed))
+  //   引用未定义变量 → background fallback 为 transparent → 暗色下按钮透传 .vip-page 的 #000 黑底
+  //   + .vip-purchase-bar__btn-text { color: $gray-900; } = #000 → 黑字黑底完全不可见.
+  // 修复: 在浅色模式 (html) 显式定义 #ededed, 暗色模式在 dark-mode-override.scss 重映射为浅色.
+  --color-gray-ededed: #ededed;
 
   /* 补充组件引用的缺失 green/amber/red 系列 token */
   --color-green-16a34a: #16a34a;

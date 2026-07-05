@@ -48,6 +48,17 @@
     "selectAgent": "エージェントを選択",
     "selectMode": "モードを選択",
     "modelLabel": "モデル",
-    "agentLabel": "エージェント"
+    "agentLabel": "エージェント",
+    "play": "再生",
+    "agentModePlaceholder": "Agentとチャット中です。'/' を入力して '/plan'、'/spec' などの機能を取得",
+    "agentTagLabel": "Agent",
+    "removeAgentAriaLabel": "Agent を削除",
+    "capabilityTriggerAria": "能力",
+    "sendBtnAria": "メッセージを送信",
+    "stopBtnAria": "生成を停止",
+    "mentionsAria": "メンション",
+    "tagAria": "タグ",
+    "imageAria": "画像",
+    "quickActionAria": "クイックアクション"
   }
 }

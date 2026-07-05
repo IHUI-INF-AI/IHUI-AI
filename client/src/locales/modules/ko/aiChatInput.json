@@ -48,6 +48,17 @@
     "selectAgent": "에이전트 선택",
     "selectMode": "모드 선택",
     "modelLabel": "모델",
-    "agentLabel": "에이전트"
+    "agentLabel": "에이전트",
+    "play": "재생",
+    "agentModePlaceholder": "Agent와 채팅 중입니다. '/'를 입력하여 '/plan', '/spec' 등 더 많은 능력 얻기",
+    "agentTagLabel": "Agent",
+    "removeAgentAriaLabel": "Agent 제거",
+    "capabilityTriggerAria": "능력",
+    "sendBtnAria": "메시지 보내기",
+    "stopBtnAria": "생성 중지",
+    "mentionsAria": "멘션",
+    "tagAria": "태그",
+    "imageAria": "이미지",
+    "quickActionAria": "빠른 작업"
   }
 }

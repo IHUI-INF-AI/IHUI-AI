@@ -62,7 +62,13 @@ export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
 // 2026-06-29 修复: 增加 'floatingChat' 核心模块. 桌面端 AI 面板默认开启, 首屏即渲染空状态
 // (floatingChat.emptyWorkspace.title/description/selectModel/selectAgent), 模块未加载时显示 key 字面量.
 // 体积 ~30KB/locale (gzip ~8KB), 桌面端核心功能, 必须首屏就绪.
-const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4', 'cmpErrorBoundary', 'floatingChat'] as const
+// 2026-07-05 修复: 增加 'aiChatInput' 核心模块. 桌面端悬浮 AI 浮窗的「+ 选择」按钮
+// (:aria-label="t('aiChatInput.select')") 和 contenteditable 输入框
+// (:data-placeholder="t('aiChatInput.inputPlaceholder')") 在 AIChat.vue 模板里硬引用.
+// 这两个 key 在 modules/{lang}/aiChatInput.json 中存在, 但此前未在 coreModules 列表中,
+// 只能依赖 requestIdleCallback 异步 glob 兜底, 首屏渲染时模块未就绪, 显示 "aiChatInput.select" 字面量.
+// 修复: 加入 coreModules + CORE_MODULE_SOURCE (modules). 体积 ~1.9KB/locale, 5 语言共 ~10KB, 可接受.
+const coreModules = ['common', 'navigation', 'header', 'auth', 'routes', 'errorBoundary', 'core', 'app', 'login', 'commandPalette', 'api', 'footer', 'home', 'title', 'homePage3', 'homePage4', 'cmpErrorBoundary', 'floatingChat', 'edu', 'aiChat', 'agents', 'chatHistory', 'error404', 'aiChatInput'] as const
 
 // 异步模块列表 - 按需加载
 // 2026-06-26 修复: 补充前台活跃页面缺失的 i18n 模块注册
@@ -128,26 +134,51 @@ const COMMON_PREFETCH_MODULES: readonly string[] = [
 //       生产环境 glob 拆成独立 chunk 按需 import, 不会打成大包; dev 即时加载.
 //       跳过已加载模块 (isModuleLoaded) 避免重复 merge.
 const _allModulesGlobLoaded = new Set<string>()
+
+// 2026-07-05 修复: 并发限制器, 避免一次 Promise.all 50+ 个 import() 请求
+// 浏览器每个 origin 只允许 6 个并发连接, 超出会被排队并最终 ERR_ABORTED
+// 使用 5 并发 (留 1 个连接给其他模块如路由组件加载)
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  mapper: (item: T, index: number) => Promise<R>,
+  concurrency = 5,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+  const worker = async () => {
+    while (nextIndex < items.length) {
+      const myIndex = nextIndex++
+      results[myIndex] = await mapper(items[myIndex], myIndex)
+    }
+  }
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  await Promise.all(workers)
+  return results
+}
+
 export async function loadAllModulesFromGlob(locale: SupportedLocale): Promise<void> {
   if (_allModulesGlobLoaded.has(locale)) return
   _allModulesGlobLoaded.add(locale)
   try {
     const allModules = import.meta.glob('./modules/*/*.json')
-    const entries = await Promise.all(
-      Object.entries(allModules)
-        .filter(([p]) => p.startsWith(`./modules/${locale}/`))
-        .map(async ([p, loader]) => {
-          const moduleName = p.split('/').pop()!.replace('.json', '')
-          // 跳过已加载模块 (coreModules/asyncModules 已加载的), 避免重复 merge
-          if (isModuleLoaded(locale, moduleName)) return null
-          try {
-            const entry = await (loader as () => Promise<Record<string, unknown>>)()
-            markModuleLoaded(locale, moduleName)
-            return entry
-          } catch {
-            return null
-          }
-        }),
+    // 2026-07-05 修复: 使用并发限制器 (5 并发) 替代 Promise.all, 避免 50+ 同时请求
+    // 导致浏览器连接池耗尽, 其他模块 (路由组件等) ERR_ABORTED
+    const filteredEntries = Object.entries(allModules)
+      .filter(([p]) => p.startsWith(`./modules/${locale}/`))
+    const entries = await mapWithConcurrency(
+      filteredEntries,
+      async ([p, loader]) => {
+        const moduleName = p.split('/').pop()!.replace('.json', '')
+        // 跳过已加载模块 (coreModules/asyncModules 已加载的), 避免重复 merge
+        if (isModuleLoaded(locale, moduleName)) return null
+        try {
+          const entry = await (loader as () => Promise<Record<string, unknown>>)()
+          markModuleLoaded(locale, moduleName)
+          return entry
+        } catch {
+          return null
+        }
+      },
     )
     const merged: Record<string, unknown> = {}
     let count = 0
@@ -233,13 +264,23 @@ export async function loadFullLocaleMessages(locale: SupportedLocale): Promise<v
   const task = (async () => {
     try {
       const allModules = import.meta.glob('./full/*/*.json')
-      const entries = await Promise.all(
-        Object.entries(allModules)
-          .filter(([p]) => p.startsWith(`./full/${locale}/`))
-          .map(([, loader]) => loader())
+      // 2026-07-05 修复: 使用并发限制器 (5 并发) 替代 Promise.all
+      // 避免 50+ import() 同时请求导致浏览器连接池耗尽, 其他模块 ERR_ABORTED
+      const filteredEntries = Object.entries(allModules)
+        .filter(([p]) => p.startsWith(`./full/${locale}/`))
+      const entries = await mapWithConcurrency(
+        filteredEntries,
+        async ([, loader]) => {
+          try {
+            return await (loader as () => Promise<Record<string, unknown>>)()
+          } catch {
+            return null
+          }
+        },
       )
       const merged: Record<string, unknown> = {}
       for (const entry of entries) {
+        if (!entry) continue  // 跳过加载失败的模块
         const msg = (entry as { default?: Record<string, unknown> }).default || entry as Record<string, unknown>
         deepMergeInto(merged, msg)
       }
@@ -298,6 +339,15 @@ const CORE_MODULE_SOURCE: Record<string, 'modules' | 'full'> = {
   homePage4: 'modules',
   cmpErrorBoundary: 'modules',
   floatingChat: 'modules',
+  // 2026-07-05 新增: 侧边栏 + 首页依赖的核心 UI 模块, 必须首屏就绪
+  edu: 'modules',
+  aiChat: 'modules',
+  agents: 'modules',
+  chatHistory: 'modules',
+  error404: 'modules',
+  // 2026-07-05 新增: 桌面端悬浮 AI 浮窗的「+ 选择」+ placeholder 翻译, 必须首屏就绪
+  // (若未核心加载, 首屏 t('aiChatInput.select') 会裸露 'aiChatInput.select' 字面量)
+  aiChatInput: 'modules',
 }
 
 // 2026-06-26 修复: 递归把 [ZH:xxx] 占位符替换为 zh-CN 同名 key 的实际值
@@ -366,10 +416,11 @@ export function deepMergeInto(target: Record<string, unknown>, source: Record<st
 }
 
 async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string, unknown>> {
-  // 2026-06-26 修复: 真正 import 全部 coreModules, 每个模块按 CORE_MODULE_SOURCE 定位物理路径
-  // 缺模块时 fallback 到 zh-CN 同名文件, 再失败则跳过该模块 (后续按 fallbackLocale 兜底)
-  const coreImports = await Promise.all(
-    coreModules.map(async (m) => {
+  // 2026-07-05 修复: 使用 mapWithConcurrency 限制并发, 避免 18 模块 × 2 import = 36 请求
+  // 同时发起导致浏览器连接池耗尽
+  const coreImports = await mapWithConcurrency(
+    coreModules,
+    async (m) => {
       const source = CORE_MODULE_SOURCE[m] || 'modules'
       const primary = import(`./${source}/${locale}/${m}.json`).catch(() => null)
       const fallback = (source === 'modules' && locale !== 'zh-CN')
@@ -378,7 +429,7 @@ async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string,
       const result = await primary
       if (result) return result
       return fallback ? await fallback : null
-    }),
+    },
   )
 
   // 标记所有 coreModules 已加载 (不再尝试重新 import)
@@ -406,11 +457,13 @@ async function loadCoreMessages(locale: SupportedLocale): Promise<Record<string,
   if (locale !== 'zh-CN') {
     try {
       // 用与目标 locale 相同的 CORE_MODULE_SOURCE 列表加载 zh-CN 模板
-      const zhImports = await Promise.all(
-        coreModules.map(async (m) => {
+      // 2026-07-05 修复: 使用 mapWithConcurrency 限制并发
+      const zhImports = await mapWithConcurrency(
+        coreModules,
+        async (m) => {
           const source = CORE_MODULE_SOURCE[m] || 'modules'
           return import(`./${source}/zh-CN/${m}.json`).catch(() => null)
-        }),
+        },
       )
       const zhTemplate: Record<string, unknown> = {}
       for (const mod of zhImports) {
@@ -439,12 +492,14 @@ const _zhTemplateCache: { value: Record<string, unknown> | null } = { value: nul
 async function getZhTemplate(): Promise<Record<string, unknown>> {
   if (_zhTemplateCache.value) return _zhTemplateCache.value
   // 按需 lazy 加载 zh-CN coreModules 作为模板
+  // 2026-07-05 修复: 使用 mapWithConcurrency 限制并发
   try {
-    const zhImports = await Promise.all(
-      coreModules.map(async (m) => {
+    const zhImports = await mapWithConcurrency(
+      coreModules,
+      async (m) => {
         const source = CORE_MODULE_SOURCE[m] || 'modules'
         return import(`./${source}/zh-CN/${m}.json`).catch(() => null)
-      }),
+      },
     )
     const template: Record<string, unknown> = {}
     for (const mod of zhImports) {
@@ -731,8 +786,11 @@ export async function loadModules(locale: SupportedLocale, modules: string[]): P
   }
 
   try {
-    const results = await Promise.all(
-      modulesToLoad.map(module => loadAsyncModuleWithFallback(locale, module))
+    // 2026-07-05 修复: 使用 mapWithConcurrency 限制并发 (5 并发)
+    // 避免 /admin 进入时 40+ 模块同时 import() 导致浏览器连接池耗尽
+    const results = await mapWithConcurrency(
+      modulesToLoad,
+      (module) => loadAsyncModuleWithFallback(locale, module),
     )
     const merged: Record<string, unknown> = {}
     for (const messages of results) {

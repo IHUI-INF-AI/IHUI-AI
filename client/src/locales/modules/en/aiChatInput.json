@@ -48,6 +48,17 @@
     "selectAgent": "Select agent",
     "selectMode": "Select mode",
     "modelLabel": "Model",
-    "agentLabel": "Agent"
+    "agentLabel": "Agent",
+    "play": "Play",
+    "agentModePlaceholder": "You're chatting with Agent. Type '/' for more capabilities like '/plan', '/spec'",
+    "agentTagLabel": "Agent",
+    "removeAgentAriaLabel": "Remove Agent",
+    "capabilityTriggerAria": "Capabilities",
+    "sendBtnAria": "Send message",
+    "stopBtnAria": "Stop generation",
+    "mentionsAria": "Mentions",
+    "tagAria": "Tag",
+    "imageAria": "Image",
+    "quickActionAria": "Quick action"
   }
 }
