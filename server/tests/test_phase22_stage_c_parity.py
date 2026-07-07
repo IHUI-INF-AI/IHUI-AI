@@ -393,19 +393,17 @@ class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
     async def test_persona_id_injected_into_system_prompt(self):
         """persona_id 必须出现在 agent.context 事件的 system prompt 里"""
         from app.api.v1.workspace import agent_loop
-        from unittest.mock import patch, AsyncMock, MagicMock
+        from unittest.mock import patch
 
         tmp = Path(tempfile.mkdtemp())
         try:
-            # mock LLM cfg + 立即终止 chat_with_tools (避免真调 LLM)
             fake_cfg = {"model": "fake", "code": "default"}
-            with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
-                 patch.object(agent_loop, "chat_with_tools", new=AsyncMock()) as mock_chat:
-                # 让 chat_with_tools 立即返回 done 事件, 触发 agent.done
-                async def fake_stream(*args, **kwargs):
-                    yield {"type": "done", "usage": {}, "attempts": 1}
-                mock_chat.return_value = fake_stream()
 
+            async def fake_stream(*args, **kwargs):
+                yield {"type": "done", "usage": {}, "attempts": 1}
+
+            with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+                 patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream):
                 events = []
                 async for ev in agent_loop.run_agent_loop(
                     prompt="hello",
@@ -419,7 +417,6 @@ class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
 
             ctx = next((e for e in events if e.get("type") == "agent.context"), None)
             self.assertIsNotNone(ctx, "agent.context 事件必须被 yield")
-            # persona 字段必须带 name/category
             self.assertIsNotNone(ctx.get("persona"), "persona 字段必须存在")
             self.assertEqual(ctx["persona"]["id"], "code-reviewer")
             self.assertEqual(ctx["persona"]["name"], "Code Reviewer")
@@ -429,17 +426,17 @@ class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
     async def test_unknown_persona_id_skipped_safely(self):
         """未知 persona_id 不能让 agent_loop 崩"""
         from app.api.v1.workspace import agent_loop
-        from unittest.mock import patch, AsyncMock
+        from unittest.mock import patch
 
         tmp = Path(tempfile.mkdtemp())
         try:
             fake_cfg = {"model": "fake", "code": "default"}
-            with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
-                 patch.object(agent_loop, "chat_with_tools", new=AsyncMock()) as mock_chat:
-                async def fake_stream(*args, **kwargs):
-                    yield {"type": "done", "usage": {}, "attempts": 1}
-                mock_chat.return_value = fake_stream()
 
+            async def fake_stream(*args, **kwargs):
+                yield {"type": "done", "usage": {}, "attempts": 1}
+
+            with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+                 patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream):
                 events = []
                 async for ev in agent_loop.run_agent_loop(
                     prompt="hello",
@@ -459,7 +456,7 @@ class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
     async def test_disabled_persona_skipped(self):
         """禁用的 persona 不能注入"""
         from app.api.v1.workspace import agent_loop
-        from unittest.mock import patch, AsyncMock
+        from unittest.mock import patch
 
         tmp = Path(tempfile.mkdtemp())
         try:
@@ -467,12 +464,12 @@ class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
             reg.disable("code-reviewer")
             try:
                 fake_cfg = {"model": "fake", "code": "default"}
-                with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
-                     patch.object(agent_loop, "chat_with_tools", new=AsyncMock()) as mock_chat:
-                    async def fake_stream(*args, **kwargs):
-                        yield {"type": "done", "usage": {}, "attempts": 1}
-                    mock_chat.return_value = fake_stream()
 
+                async def fake_stream(*args, **kwargs):
+                    yield {"type": "done", "usage": {}, "attempts": 1}
+
+                with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+                     patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream):
                     events = []
                     async for ev in agent_loop.run_agent_loop(
                         prompt="hello",
