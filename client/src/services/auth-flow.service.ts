@@ -10,7 +10,7 @@
  */
 
 import { useAuthStore, useTokenStore, useUserStore, useWalletStore, useVipStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
+import { useRouter, type Router } from 'vue-router'
 import { StorageManager, TokenManager, STORAGE_KEYS, logger } from '@/utils/core'
 import {
   calculateExpiryTime,
@@ -93,6 +93,8 @@ export interface RedirectOptions {
   expiresIn?: number
   /** 用户信息 */
   userInfo?: Record<string, unknown>
+  /** 调用方显式传入的 router 实例(避免静态方法内 useRouter() 脱离 setup 上下文) */
+  router?: Router
 }
 
 // 防重入锁

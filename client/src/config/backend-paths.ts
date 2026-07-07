@@ -39,6 +39,7 @@ export const LOGIN_PWD_PATHS = {
   setEmail: '/api/v1/auth/profile/email',
   modifyPassword: '/api/v1/auth/profile/password',
   sendBatchSms: '/api/v1/auth/sms/code',
+  emailLogin: '/api/v1/auth/login/email',
 } as const
 
 /**
@@ -53,6 +54,8 @@ export const ADMIN_LOGIN_PATHS = {
 
 // ==================== 开发者 API（8080 /api/developer） ====================
 const DEV = '/api/developer'
+// Model provider config uses v1 prefix (backend mounts at /api/v1/developer/models)
+const DEV_V1 = '/api/v1/developer'
 export const DEVELOPER_PATHS = {
   base: DEV,
   apiKeys: `${DEV}/api-keys`,
@@ -88,19 +91,19 @@ export const DEVELOPER_PATHS = {
       `${DEV}/mcp/servers/${serverId}/prompts/${promptName}`,
   },
   models: {
-    list: `${DEV}/models`,
-    byId: (id: string) => `${DEV}/models/${id}`,
-    test: (id: string) => `${DEV}/models/${id}/test`,
-    chat: (id: string) => `${DEV}/models/${id}/chat`,
-    batch: `${DEV}/models/batch`,
-    batchToggle: `${DEV}/models/batch/toggle`,
-    pricing: (modelId: string) => `${DEV}/models/${modelId}/pricing`,
-    proxy: (modelId: string) => `${DEV}/models/${modelId}/proxy`,
-    proxyTest: (modelId: string) => `${DEV}/models/${modelId}/proxy/test`,
-    proxyHealth: (modelId: string) => `${DEV}/models/${modelId}/proxy/health`,
-    formats: `${DEV}/models/formats`,
-    testAdhoc: `${DEV}/models/test`,
-    toggle: (id: string | number) => `${DEV}/models/${id}/toggle`,
+    list: `${DEV_V1}/models`,
+    byId: (id: string) => `${DEV_V1}/models/${id}`,
+    test: (id: string) => `${DEV_V1}/models/${id}/test`,
+    chat: (id: string) => `${DEV_V1}/models/${id}/chat`,
+    batch: `${DEV_V1}/models/batch`,
+    batchToggle: `${DEV_V1}/models/batch/toggle`,
+    pricing: (modelId: string) => `${DEV_V1}/models/${modelId}/pricing`,
+    proxy: (modelId: string) => `${DEV_V1}/models/${modelId}/proxy`,
+    proxyTest: (modelId: string) => `${DEV_V1}/models/${modelId}/proxy/test`,
+    proxyHealth: (modelId: string) => `${DEV_V1}/models/${modelId}/proxy/health`,
+    formats: `${DEV_V1}/models/formats`,
+    testAdhoc: `${DEV_V1}/models/test`,
+    toggle: (id: string | number) => `${DEV_V1}/models/${id}/toggle`,
   },
   sdks: {
     list: `${DEV}/sdks`,

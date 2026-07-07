@@ -60,8 +60,7 @@
       "@aizhs/shared-logic": ["./packages/shared-logic/src/index.ts"],
       "@/*": ["./src/*"],
       "lucide-vue-next": ["./src/lib/lucide-fallback.ts"],
-      "open/*": ["./src/open-platform/*"],
-      "~projects/*": ["./projects/*"]
+      "open/*": ["./src/open-platform/*"]
     },
     "types": ["vite/client", "node"],
     "skipLibCheck": true,

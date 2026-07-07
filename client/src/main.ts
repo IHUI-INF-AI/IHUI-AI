@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import type { Component } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
@@ -9,6 +10,7 @@ import { logger } from '@/utils/logger'
 import { registerIcons } from '@/utils/element-plus-icons'
 import { StorageManager, STORAGE_KEYS } from '@/utils/storage'
 import { createPersistedState } from '@/plugins/pinia-persist'
+import CustomCheckbox from '@/components/ui/CustomCheckbox.vue'
 
 // E2E/演示模式下过滤噪声日志，避免无关错误充斥控制台
 // 直接导入 fixLogger，文件内部会根据环境变量决定是否启用
@@ -307,8 +309,10 @@ try {
 // 注意：unplugin-vue-components 已自动注册 components 目录下的组件
 // 这里只注册需要全局访问但不在自动扫描路径下的组件
 try {
-  // Loading 组件已被 unplugin-vue-components 自动注册，无需手动注册
-  logger.info('[Main] Global components checked')
+  // 全局注册未在 unplugin 自动扫描路径下的组件
+  // (components/ui 已在 vite.config 中被排除出自动导入目录)
+  app.component('CustomCheckbox', CustomCheckbox as Component)
+  logger.info('[Main] CustomCheckbox registered globally')
 } catch (error) {
   logger.warn('[Main] Global component registration failed:', error)
 }

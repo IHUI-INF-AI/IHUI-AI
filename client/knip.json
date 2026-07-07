@@ -3,10 +3,14 @@
   "workspaces": {
     ".": {
       "entry": [
+        "src/main.ts",
         "src/router/index.ts",
         "src/router/modules/*.ts",
         "src/router/thirdPartyLoginRoutes.ts",
         "src/App.vue",
+        "src/components/index.ts",
+        "src/views/**/*.vue",
+        "src/views/**/*.ts",
         "src/api/index.ts",
         "src/api/**/*.ts",
         "src/stores/*.ts",
@@ -49,7 +53,6 @@
     "src/components/ui/CustomCheckbox.vue",
     "src/components/settings/ThemeSettingsPanel.vue",
     "src/components/settings/ThemeTransitionPreview.vue",
-    "src/components/dev/DevThemeSwitcher.vue",
     "src/components/AdminQuickAccess.vue",
     "src/views/edu/index.vue",
     "src/templates/**"
