@@ -161,10 +161,17 @@ async function handleCommand(
       console.log('  /tools             列出可用工具')
       console.log('  /skills            列出 Skills (API)')
       console.log('  /hooks             列出 Hooks (API)')
-      console.log('  /memory            显示项目记忆 (API)')
+      console.log('  /memory [show|save|clear]  记忆管理 (API)')
       console.log('  /init              创建 AGENTS.md 模板')
       console.log('  /mcp               列出已配置的 MCP 服务器 (API)')
-      console.log('  /agents            列出 agent 配置 (.claude/agents/)')
+      console.log('  /agents            列出后台 Agent (API)')
+      console.log('  /cost              显示会话 Token 用量与成本 (API)')
+      console.log('  /usage             显示工作区全局用量统计 (API)')
+      console.log('  /pr [create|<编号>]  GitHub PR 管理 (API)')
+      console.log('  /routine [add|remove|enable|disable|trigger]  定时任务 (API)')
+      console.log('  /swarm <task>      Swarm 多智能体编排 (API)')
+      console.log('  /plan              进入 Plan 模式 (API)')
+      console.log('  /goal <task>       进入 Goal 模式 (API)')
       console.log('  /diff              显示最近的文件修改')
       console.log('  /undo              撤销最近一次文件修改 (API)')
       console.log('  /checkpoints       列出检查点历史 (API)')
@@ -278,7 +285,9 @@ async function handleCommand(
       break
 
     default:
-      console.log(chalk.red(`未知命令: /${command}. 输入 /help 查看可用命令`))
+      // 未知命令转发到后端 (后端会处理 /cost /usage /memory /pr /agents /routine /swarm 等新命令)
+      await sendToAgent(cmd, state)
+      return
   }
 }
 
@@ -718,6 +727,22 @@ function handleEvent(event: Record<string, unknown>, spinner: any): void {
     case 'agent.error':
       spinner.fail('错误')
       console.error(chalk.red(`\n❌ ${event.message}`))
+      break
+
+    case 'agent.command.result':
+      // Slash 纯命令结果 (/cost /usage /memory /pr /agents /routine /swarm /help /clear /init)
+      spinner.stop()
+      if (event.message) {
+        console.log(chalk.cyan(`\n${event.message}`))
+      }
+      break
+
+    case 'agent.command.handled':
+      // 状态修改命令已应用 (/plan /goal /compact /plan-accept), 继续进入 agent loop
+      spinner.stop()
+      if (event.message) {
+        console.log(chalk.dim(`\n> ${event.message}`))
+      }
       break
 
     case 'agent.done':
