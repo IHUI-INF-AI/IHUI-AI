@@ -367,6 +367,9 @@
 import { ref, computed, h, markRaw, onMounted, watch, nextTick, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ElDropdown } from 'element-plus'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _typeRef = ElDropdown
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useAuthStore } from '@/stores/auth'
 import { useSidebar } from '@/composables/useSidebar'
@@ -1301,7 +1304,9 @@ const handleUserDropdownVisibleChange = (visible: boolean) => {
 }
 
 // 2026-07-06: 通知下拉框打开时关闭用户菜单, 避免两个弹窗重叠
-const userDropdownRef = ref()
+// 只声明需要的最小接口, 不引用 ElDropdown 类型避免引入全量 element-plus 导入
+interface ElDropdownLike { handleClose?: () => void }
+const userDropdownRef = ref<ElDropdownLike | null>(null)
 const handleNotificationVisibleChange = (visible: boolean) => {
   if (visible && userDropdownVisible.value) {
     userDropdownVisible.value = false

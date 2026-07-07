@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-04T01:00:00.000Z",
-  "count": 31,
+  "generatedAt": "2026-07-07T15:18:38.657Z",
+  "count": 34,
   "removed": [],
   "violations": [
     {
@@ -41,11 +41,6 @@
     {
       "file": "src/styles/_session-expired-notification.scss",
       "line": 43,
-      "type": "!important"
-    },
-    {
-      "file": "src/styles/_sidebar-layout.scss",
-      "line": 1496,
       "type": "!important"
     },
     {
@@ -156,6 +151,26 @@
     {
       "file": "src/styles/fixes.scss",
       "line": 214,
+      "type": "!important"
+    },
+    {
+      "file": "src/components/ai/CheckpointHistoryPanel.vue",
+      "line": 202,
+      "type": "!important"
+    },
+    {
+      "file": "src/components/ai/CheckpointHistoryPanel.vue",
+      "line": 203,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/ai-chat/_input-area.scss",
+      "line": 690,
+      "type": "!important"
+    },
+    {
+      "file": "src/styles/_sidebar-layout.scss",
+      "line": 1481,
       "type": "!important"
     }
   ]
