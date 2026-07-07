@@ -625,6 +625,16 @@
                 class="plan-review-anchor"
               />
 
+              <!-- Token 用量面板 (agent.usage 事件, 对标 Codex/Gemini 用量追踪) -->
+              <div v-if="workspaceAgentUsage.total_tokens > 0" class="token-usage-anchor">
+                <TokenUsagePanel :usage="workspaceAgentUsage" />
+              </div>
+
+              <!-- 检查点历史面板 (对标 Aider git revert / Gemini checkpointing) -->
+              <div v-if="currentWorkspacePath" class="checkpoint-history-anchor">
+                <CheckpointHistoryPanel :workspace-path="currentWorkspacePath" />
+              </div>
+
               <!-- 文件预览 -->
               <div v-if="uploadedFiles.length > 0" class="file-preview">
                 <div v-for="file in uploadedFiles" :key="file.id" class="preview-item">
@@ -1596,6 +1606,8 @@ import PermissionConfirmDialog from './PermissionConfirmDialog.vue'
 import SlashCommandPalette from './SlashCommandPalette.vue'
 import TaskListPanel from './TaskListPanel.vue'
 import PlanReviewPanel from './PlanReviewPanel.vue'
+import TokenUsagePanel from './TokenUsagePanel.vue'
+import CheckpointHistoryPanel from './CheckpointHistoryPanel.vue'
 import type { SlashCommand } from './SlashCommandPalette.vue'
 import { getSlashCommands } from '@/api/services/workspace.service'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
@@ -2080,6 +2092,7 @@ const {
   allowAllInSession,
   currentTodos: workspaceTodos,
   currentPendingPlan: workspacePendingPlan,
+  currentUsage: workspaceAgentUsage,
   acceptPlan: agentAcceptPlan,
   rejectPlan: agentRejectPlan,
   clearPendingPlan: agentClearPendingPlan,
@@ -2115,6 +2128,13 @@ const showPermissionDialog = computed<boolean>({
 })
 // 工作区面板状态 (获取 selectedFolderPath)
 const aiPanelState = useAiPanel()
+
+// 当前工作区路径 (用于 CheckpointHistoryPanel 等组件, 对标 Aider/Gemini 回滚面板)
+const currentWorkspacePath = computed(() => {
+  return (aiPanelState as Record<string, unknown>).selectedFolderPath
+    ? ((aiPanelState as Record<string, unknown>).selectedFolderPath as { value: string }).value
+    : ''
+})
 const openClawDashboard = computed(() =>
   (openClawActivePanel.value === 'dashboard' || openClawActivePanel.value === '')
     ? openClawGetDashboard()

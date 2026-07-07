@@ -810,6 +810,12 @@ api_router.include_router(coze_chat_audio_router, prefix="/coze/chat-audio", tag
 # MCP
 api_router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
 
+# 2026-07-07 P0 修复: workspace router 此前未注册, 导致 /api/v1/workspace/* 全部 404
+# (Stage A 的 slash commands endpoint 不可达)
+# 注: workspace.routes 中 APIRouter 已自带 prefix="/workspace", include_router 不要重复加
+from app.api.v1.workspace import router as workspace_router
+api_router.include_router(workspace_router, tags=["Workspace"])
+
 # WebSocket
 api_router.include_router(ws_timbre_router, prefix="/ws/timbre", tags=["WS Timbre"])
 api_router.include_router(ws_admin_router, tags=["WS Admin"])
