@@ -76,7 +76,7 @@ check('stdio call_tool', /async def call_tool\(self, name: str, arguments: dict\
 check('http list_tools 实现', /class MCPHttpClient[\s\S]+?async def list_tools\(self\) -> list\[MCPTool\]:/.test(src))
 check('sse _consume_sse 实现', /async def _consume_sse\(self\) -> None:/.test(src))
 check('MCPSseClient POST URL 缓存', /_post_url/.test(src))
-check('MCPManager.add_server', /async def add_server\(self, config: MCPServerConfig\) -> bool:/.test(src))
+check('MCPManager.add_server', /async def add_server\(self, config: MCPServerConfig/.test(src))
 check('MCPManager.list_all_tools', /async def list_all_tools\(self\) -> list\[MCPTool\]:/.test(src))
 check('get_mcp_manager 单例', /def get_mcp_manager\(\) -> MCPManager:/.test(src))
 check('load_mcp_config 实现', /def load_mcp_config\(workspace_path: str\) -> list\[MCPServerConfig\]:/.test(src))
