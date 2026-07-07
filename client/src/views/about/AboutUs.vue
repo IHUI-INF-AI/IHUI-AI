@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSEO } from '@/composables/useSEO'
@@ -89,6 +89,10 @@ const applyHash = () => {
     })
   }
 }
+
+// 2026-07-08: 监听 hash 变化 (侧边栏 hash 跳转时滚动到对应 section)
+// 之前 onMounted 只读一次, 用户从侧边栏切换 hash 时不会自动滚动
+watch(() => route.hash, () => applyHash())
 
 onMounted(() => {
   applyHash()
