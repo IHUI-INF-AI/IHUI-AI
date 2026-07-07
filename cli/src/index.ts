@@ -233,8 +233,16 @@ mcpCmd
       console.log(chalk.cyan('\n本地 MCP 服务器配置:'))
       console.log(chalk.dim(`  配置文件: ${getMcpConfigPath()}`))
       for (const s of config.servers) {
-        const argStr = s.args && s.args.length > 0 ? ' ' + s.args.join(' ') : ''
-        console.log(`  ${chalk.bold(s.name)}: ${s.command}${argStr}`)
+        const tport = s.transport || 'stdio'
+        if (tport === 'stdio') {
+          const argStr = s.args && s.args.length > 0 ? ' ' + s.args.join(' ') : ''
+          console.log(`  ${chalk.bold(s.name)} [${tport}]: ${s.command || ''}${argStr}`)
+        } else {
+          console.log(`  ${chalk.bold(s.name)} [${tport}]: ${s.url || ''}`)
+          if (s.auth && s.auth.type !== 'none') {
+            console.log(chalk.dim(`    认证: ${s.auth.type}`))
+          }
+        }
       }
     } else {
       console.log(chalk.dim('\n本地无 MCP 服务器配置'))
@@ -259,18 +267,57 @@ mcpCmd
   })
 
 mcpCmd
-  .command('add <name> <command>')
-  .description('添加 MCP 服务器配置')
-  .option('-a, --args <args...>', '命令参数')
-  .action(async (name: string, command: string, options: { args?: string[] }) => {
-    const server = addMcpServer(name, command, options.args)
-    console.log(chalk.green(`已添加 MCP 服务器: ${server.name}`))
-    console.log(`  命令: ${server.command}`)
-    if (server.args && server.args.length > 0) {
-      console.log(`  参数: ${server.args.join(' ')}`)
+  .command('add [name] [command]')
+  .description('添加 MCP 服务器配置 (stdio 默认; -t http|sse 启用远程传输)')
+  .option('-a, --args <args...>', '命令参数 (stdio)')
+  .option('-t, --transport <transport>', '传输类型: stdio|http|sse', 'stdio')
+  .option('-u, --url <url>', 'http/sse 端点 URL')
+  .option('--api-key <key>', 'Bearer Token (兼容字段, 支持 ${VAR})')
+  .option('--token <token>', 'bearer 认证 token (支持 ${VAR})')
+  .action(
+    async (
+      name: string | undefined,
+      command: string | undefined,
+      options: {
+        args?: string[]
+        transport?: 'stdio' | 'http' | 'sse'
+        url?: string
+        apiKey?: string
+        token?: string
+      }
+    ) => {
+      if (!name) {
+        console.log(chalk.red('用法: ihui mcp add <name> [command] [-t stdio|http|sse] [-u url]'))
+        process.exit(1)
+      }
+      const transport = options.transport || 'stdio'
+      // 认证: 优先 --token (bearer), 其次 --api-key (兼容)
+      const auth =
+        options.token || options.apiKey
+          ? { type: 'bearer' as const, token: options.token || options.apiKey }
+          : undefined
+      const server = addMcpServer(name, command, options.args, {
+        transport,
+        url: options.url,
+        api_key: options.apiKey,
+        auth,
+      })
+      console.log(chalk.green(`已添加 MCP 服务器: ${server.name}`))
+      console.log(`  传输: ${server.transport}`)
+      if (server.transport === 'stdio') {
+        console.log(`  命令: ${server.command || ''}`)
+        if (server.args && server.args.length > 0) {
+          console.log(`  参数: ${server.args.join(' ')}`)
+        }
+      } else {
+        console.log(`  URL: ${server.url || ''}`)
+        if (server.auth && server.auth.type !== 'none') {
+          console.log(chalk.dim(`  认证: ${server.auth.type}`))
+        }
+      }
+      console.log(chalk.dim(`  配置文件: ${getMcpConfigPath()}`))
     }
-    console.log(chalk.dim(`  配置文件: ${getMcpConfigPath()}`))
-  })
+  )
 
 mcpCmd
   .command('remove <name>')
