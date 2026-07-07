@@ -626,7 +626,8 @@ submit_plan(
                 return {
                     "event": {"type": "agent.tool.result", "id": tc_id, "name": tc_name,
                               "output": result.output, "error": result.error,
-                              "success": result.success, "iteration": iteration},
+                              "success": result.success, "iteration": iteration,
+                              "diff_info": getattr(result, "diff_info", None)},
                     "msg": ChatMessage(role="tool", content=result.output if result.success else f"错误: {result.error}",
                                        tool_call_id=tc_id, name=tc_name,
                                        images=getattr(result, "images", None)),
@@ -808,6 +809,7 @@ submit_plan(
                     "error": result.error,
                     "success": result.success,
                     "iteration": iteration,
+                    "diff_info": getattr(result, "diff_info", None),
                 }
 
                 # todo_write 特殊处理: 额外推送 agent.todo.update 事件, 供前端 TaskListPanel 实时展示

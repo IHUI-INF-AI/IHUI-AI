@@ -33,6 +33,13 @@ export interface ToolCallInfo {
   iteration?: number
   blockedByHook?: boolean
   status: 'running' | 'completed' | 'failed' | 'blocked'
+  /** inline diff 预览信息 (write_file/edit_file/multi_edit 携带), 供 InlineDiffViewer 渲染 */
+  diffInfo?: {
+    file_path: string
+    old_content: string
+    new_content: string
+    is_new_file?: boolean
+  } | null
 }
 
 /** 任务清单条目 — 与后端 tools.py / agent_loop.py todo_write 协议保持一致 */
@@ -226,6 +233,8 @@ export function useWorkspaceAgent() {
           toolInfo.error = event.error || undefined
           toolInfo.success = event.success
           toolInfo.blockedByHook = (event as unknown as Record<string, unknown>).blocked_by_hook === true
+          // 透传 inline diff 预览信息 (对标 Cursor/Trae — write_file/edit_file/multi_edit)
+          toolInfo.diffInfo = event.diff_info ?? null
           toolInfo.status = toolInfo.blockedByHook
             ? 'blocked'
             : event.success
@@ -241,6 +250,7 @@ export function useWorkspaceAgent() {
             error: event.error || undefined,
             success: event.success,
             iteration: event.iteration,
+            diffInfo: event.diff_info ?? null,
             status: event.success ? 'completed' : 'failed',
           },
         )

@@ -134,6 +134,14 @@ export interface AgentEvent {
   plan?: unknown
   /** agent.command.handled 事件携带: 状态修改字段 */
   modify?: Record<string, unknown>
+  /** agent.tool.result 事件携带: inline diff 预览信息 (write_file/edit_file/multi_edit)
+   *  供前端 InlineDiffViewer 渲染 Accept/Reject 预览 (对标 Cursor/Trae) */
+  diff_info?: {
+    file_path: string
+    old_content: string
+    new_content: string
+    is_new_file?: boolean
+  } | null
 }
 
 // ---------------------------------------------------------------------------
