@@ -10,7 +10,7 @@
       class="captcha-field"
     >
       <template #prefix>
-        <el-icon class="input-icon"><Key /></el-icon>
+        <KeyIcon class="input-icon" />
       </template>
     </el-input>
 
@@ -22,7 +22,7 @@
         @error="handleImageError"
       />
       <div class="refresh-overlay">
-        <el-icon class="refresh-icon"><Refresh /></el-icon>
+        <RefreshIcon class="refresh-icon" />
         <span class="refresh-text">{{ t('auth.clickToRefresh') }}</span>
       </div>
     </div>
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Key, Refresh } from '@element-plus/icons-vue'
+import { KeyIcon, RefreshIcon } from '@/components/login/icons/login-icons'
 import { logger } from '@/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { getCaptcha } from '@/api/services/auth.service'
@@ -154,7 +154,7 @@ onMounted(() => {
   transition: border-color 0.3s ease;
 
   &:hover {
-    border: var(--el-border-width-primary) solid var(--el-color-primary);
+    border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
 
     .refresh-overlay {
       opacity: 1;

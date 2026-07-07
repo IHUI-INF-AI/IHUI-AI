@@ -57,7 +57,8 @@
       "userLogin": "ユーザーログイン",
       "userRegister": "ユーザー登録",
       "hasAccount": "アカウントをお持ちですか？ログイン",
-      "noAccount": "アカウントをお持ちでないですか？登録"
+      "noAccount": "アカウントをお持ちでないですか？登録",
+      "backToLogin": "ログインに戻る"
     },
     "password": {
       "show": "パスワードを表示",

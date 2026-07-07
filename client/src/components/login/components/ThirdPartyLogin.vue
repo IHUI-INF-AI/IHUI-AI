@@ -176,8 +176,8 @@ const showTermsOfService = () => {
 
 .feishu-btn {
   &:hover {
-    border-color: var(--color-brand-blue-2);
-    color: var(--color-brand-blue-2);
+    border-color: var(--border-unified-color-hover);
+    color: var(--el-text-color-primary);
   }
 }
 

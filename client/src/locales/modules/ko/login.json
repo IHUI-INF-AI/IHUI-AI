@@ -63,7 +63,8 @@
       "userLogin": "생각사용게 로그인",
       "userRegister": "생각사용게 가입",
       "hasAccount": "계정이 있으신가요? 로그인",
-      "noAccount": "계정이 없으신가요? 가입"
+      "noAccount": "계정이 없으신가요? 가입",
+      "backToLogin": "로그인으로 돌아가기"
     },
     "password": {
       "show": "비밀번호 표시",

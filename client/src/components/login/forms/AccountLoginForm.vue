@@ -10,7 +10,7 @@
       @submit.prevent="handleSubmit"
     >
       <el-form-item prop="username" class="username-form-item">
-        <div class="username-input-wrapper">
+        <div class="username-input-wrapper" @dblclick="handleUsernameDoubleClick">
           <el-input
             id="account-username"
             name="account-username"
@@ -22,19 +22,17 @@
             @input="handleUsernameInput"
             @focus="handleUsernameFocus"
             @blur="handleUsernameBlur"
-            @dblclick="handleUsernameDoubleClick"
           >
             <template #prefix>
-              <el-icon class="input-icon">
-                <User />
-              </el-icon>
+              <component :is="UserIcon" class="input-icon" />
             </template>
           </el-input>
-          <div v-if="showHistoryAccounts && filteredHistoryAccounts.length > 0" class="history-dropdown" @mousedown.prevent>
+          <div v-if="showHistoryAccounts" class="history-dropdown" @mousedown.prevent>
+            <div v-if="filteredHistoryAccounts.length === 0" class="history-empty">
+              <span>暂无历史记录</span>
+            </div>
             <div v-for="account in filteredHistoryAccounts" :key="account" class="history-item" @click="selectHistoryAccount(account)">
-              <el-icon class="history-icon">
-                <Clock />
-              </el-icon>
+              <component :is="ClockIcon" class="history-icon" />
               <span>{{ account }}</span>
             </div>
           </div>
@@ -55,19 +53,13 @@
           @keyup.enter="handleSubmit"
         >
           <template #prefix>
-            <el-icon class="input-icon">
-              <Lock />
-            </el-icon>
+            <component :is="LockIcon" class="input-icon" />
           </template>
           <template #suffix>
             <label class="password-eye-container" @click.stop>
               <input type="checkbox" :checked="passwordVisible" @change="togglePasswordVisibility" tabindex="-1" />
-              <svg class="eye" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                <path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z" />
-              </svg>
-              <svg class="eye-slash" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 640 512">
-                <path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z" />
-              </svg>
+              <component :is="EyeIcon" class="eye" />
+              <component :is="EyeOffIcon" class="eye-slash" />
             </label>
           </template>
         </el-input>
@@ -83,6 +75,19 @@
         <CaptchaInput id="account-captcha" v-model="formData.captcha" @refresh="handleCaptchaRefresh" />
       </el-form-item>
 
+      <el-form-item prop="agreement" class="agreement-item">
+        <label class="custom-checkbox agreement-checkbox">
+          <input id="account-agreement" name="account-agreement" type="checkbox" v-model="formData.agreement" />
+          <span class="checkmark"></span>
+          <span class="agreement-text">
+            {{ t('auth.agreeTo') }}
+            <a href="/terms" target="_blank" class="agreement-link">{{ t('auth.userAgreement') }}</a>
+            {{ t('auth.and') }}
+            <a href="/privacy" target="_blank" class="agreement-link">{{ t('auth.privacyPolicy') }}</a>
+          </span>
+        </label>
+      </el-form-item>
+
       <el-row class="form-actions-row">
         <el-col :span="12">
           <label class="custom-checkbox">
@@ -95,9 +100,6 @@
           <span class="switch-to-sso-link" @click="handleSSOClick">
             {{ ssoLinkText }}
           </span>
-          <span v-if="showPhoneLoginLink" class="switch-to-phone-link" @click="emit('switch-tab', 'phone')">
-            {{ t('auth.phoneLogin') }}
-          </span>
           <span class="forgot-password" @click="emit('forgot-password')">
             {{ t('auth.forgotPassword') }}
           </span>
@@ -108,14 +110,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules, FormItemRule } from 'element-plus'
-import { User, Lock, Clock } from '@/lib/lucide-fallback'
+import {
+  UserIcon,
+  LockIcon,
+  ClockIcon,
+  EyeIcon,
+  EyeOffIcon,
+} from '@/components/login/icons/login-icons'
 import CaptchaInput from '../components/CaptchaInput.vue'
 import { FormValidator } from '@/utils/formValidation'
 import { InputValidator } from '@/utils/security'
-import { StorageManager } from '@/utils/storage'
+import { useLoginInputHistory, LOGIN_HISTORY_KEYS, getLoginHistory } from '../composables/useLoginInputHistory'
+import { RememberMeService } from '@/utils/rememberMeService'
 import { logger } from '@/utils/logger'
 
 interface AccountFormProps {
@@ -127,8 +136,7 @@ interface AccountFormProps {
 }
 
 interface AccountFormEmits {
-  submit: [data: { username: string; password: string; rememberMe: boolean; captcha: string }]
-  'switch-tab': [tab: 'account' | 'phone']
+  submit: [data: { username: string; password: string; rememberMe: boolean; captcha: string; agreement: boolean }]
   'forgot-password': []
   'sso-click': []
 }
@@ -153,6 +161,7 @@ const formData = reactive({
   password: '',
   rememberMe: false,
   captcha: '',
+  agreement: false,
 })
 
 const passwordStrength = reactive({
@@ -162,31 +171,25 @@ const passwordStrength = reactive({
   text: '',
 })
 
-const HISTORY_ACCOUNT_KEY = 'login_history_accounts'
-const historyAccounts = ref<string[]>([])
-const showHistoryAccounts = ref(false)
-const historyAccountQuery = ref('')
+// 2026-07-06: 历史账号下拉记忆功能, 数据层抽到 useLoginInputHistory composable 统一管理
+// (账号/手机号/邮箱三个登录表单共用同一套读取+过滤+交互逻辑, 登录成功后由 useLoginLogic 写入)
+const {
+  history: historyAccounts,
+  showDropdown: showHistoryAccounts,
+  query: historyAccountQuery,
+  filtered: filteredHistoryAccounts,
+  reload: initHistoryAccounts,
+} = useLoginInputHistory({ storageKey: LOGIN_HISTORY_KEYS.account })
 
-const getHistoryAccounts = (): string[] => {
-  try {
-    const history = StorageManager.getItem<string[]>(HISTORY_ACCOUNT_KEY)
-    return Array.isArray(history) ? history : []
-  } catch {
-    return []
+// 2026-07-06: 记住密码功能 - 如果用户之前勾选了记住密码, 自动回填上次登录的账号
+onMounted(() => {
+  if (RememberMeService.isRememberMeEnabled()) {
+    formData.rememberMe = true
+    const history = getLoginHistory(LOGIN_HISTORY_KEYS.account)
+    if (history.length > 0 && !formData.username) {
+      formData.username = history[0]
+    }
   }
-}
-
-const initHistoryAccounts = (): void => {
-  historyAccounts.value = getHistoryAccounts()
-}
-
-const filteredHistoryAccounts = computed(() => {
-  if (!historyAccountQuery.value) {
-    return historyAccounts.value
-  }
-  return historyAccounts.value.filter((account: string) =>
-    account.toLowerCase().includes(historyAccountQuery.value.toLowerCase())
-  )
 })
 
 const selectHistoryAccount = (account: string): void => {
@@ -203,7 +206,8 @@ const handleUsernameInput = (val: string): void => {
 
 const handleUsernameFocus = (): void => {
   initHistoryAccounts()
-  showHistoryAccounts.value = historyAccounts.value.length > 0
+  // focus 也无条件弹出 (双击或点击都能看到下拉窗)
+  showHistoryAccounts.value = true
   historyAccountQuery.value = formData.username || ''
 }
 
@@ -219,18 +223,15 @@ const handleUsernameBlur = (_evt?: FocusEvent): void => {
 
 const handleUsernameDoubleClick = (): void => {
   initHistoryAccounts()
-  if (historyAccounts.value.length > 0) {
-    showHistoryAccounts.value = true
-    historyAccountQuery.value = ''
-    nextTick(() => {
-      const inputElement = document.getElementById('account-username')
-      if (inputElement) {
-        inputElement.focus()
-      }
-    })
-  } else {
-    showHistoryAccounts.value = false
-  }
+  // 双击无条件弹出 (无历史记录时显示"暂无历史记录"提示, 方便测试下拉窗样式)
+  showHistoryAccounts.value = true
+  historyAccountQuery.value = ''
+  nextTick(() => {
+    const inputElement = document.getElementById('account-username')
+    if (inputElement) {
+      inputElement.focus()
+    }
+  })
 }
 
 const formRules = computed((): FormRules => ({
@@ -308,6 +309,18 @@ const formRules = computed((): FormRules => ({
       trigger: 'blur',
     },
   ],
+  agreement: [
+    {
+      validator: (_rule: FormItemRule, value: boolean, callback: (error?: Error) => void): void => {
+        if (!value) {
+          callback(new Error(t('auth.confirmAgreement')))
+          return
+        }
+        callback()
+      },
+      trigger: 'change',
+    },
+  ],
 }))
 
 const togglePasswordVisibility = (): void => {
@@ -360,8 +373,6 @@ const ssoLinkText = computed(() => {
   return props.isEnterpriseMode ? t('auth.userLogin') : t('auth.ssoLogin')
 })
 
-const showPhoneLoginLink = computed(() => !props.isEnterpriseMode)
-
 const placeholder = computed(() => props.placeholder || t('auth.usernameOrPhoneOrEmail'))
 const passwordPlaceholder = computed(() => props.passwordPlaceholder || t('auth.passwordHint'))
 
@@ -374,18 +385,82 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
+@use '../_login-tokens.scss' as lt;
+@use '@/styles/_form-controls.scss' as fc;
+
 .account-form-container {
   width: 100%;
 }
 
 .login-form {
+  // 2026-07-06 修复 v2: 之前 el-form-item margin-bottom 为 0 让账号/密码输入框紧贴 (距离 0px),
+  // 用户反馈依旧还是挨着的输入框. 改为 20px 间距让两个输入框有喘息空间.
+  // UniversalLogin.vue 的 form-area gap 只控制外层 (tab-switcher / form-container / submit-btn) 间距,
+  // 不影响 form-container 内部的两个 el-form-item, 必须在这里加 margin-bottom.
   .el-form-item {
+    margin-bottom: 20px;
+  }
+
+  // 2026-07-06 v2: agreement-item 是最后一个 el-form-item, 但 DOM 顺序上不是 form 的 last-child
+  // (后面还有 .form-actions-row el-row). EP 默认 .el-form-item margin-bottom 18px +
+  // 上面 20px 规则, agreement-item 必须显式覆盖为 0, 否则下方会多 20px 空白.
+  // 特异度 .login-form .agreement-item 高于 .login-form .el-form-item, 同特异度后定义胜出.
+  .agreement-item {
+    margin-top: 4px;
     margin-bottom: 0;
   }
 }
 
+// 2026-07-07 修复 v5 (margin-bottom 18px):
+//   v2/v3/v4 全部失败的真正根因:
+//     .form-actions-row 是 <el-row> 组件根元素, scoped CSS 选择器
+//     ".form-actions-row[data-v-xxx]" 在 EP 子组件根元素上**会**命中
+//     (实测 fa.dataset={} 但 fa.outerHTML 含 data-v-7a7c8a89, dataset 不暴露 data-v-),
+//     .form-actions-row { margin-top: 8px } 实际是生效的 (getComputedStyle.marginTop = "8px").
+//     错误文字 .el-form-item__error 是 absolute 定位浮在 .agreement-item 底部.
+//
+//   真实间距公式 (实测):
+//     el-form-item 默认 position: relative, 创建 BFC, 阻止 margin collapse
+//     → fa-top = item-bottom + margin-bottom (item.is-error) + margin-top (form-actions-row)
+//     = item-bottom + mb + 8px
+//     err-bottom = item-bottom + 19px (error height)
+//     gapErrToFa = mb + 8 - 19 = mb - 11
+//
+//     mb=24 → gap=13 (用户反馈"空余间距"过大, 因为错误文字属于 agreement 组, 下方
+//                  13px 视觉空白显得"空旷")
+//     mb=18 → gap=7 (当前选择: 仍能让错误文字与"自动登录"行视觉分离, 不会有
+//                  13px 的"空着"感, 又比 5px 多一点呼吸)
+//     mb=14 → gap=3 (太贴, 容易让人觉得"文字贴在自动登录上")
+//
+//   v5 修复: margin-bottom: 18px → 视觉间距 7px (紧凑且清晰分离).
+//
+//   不报错时 .agreement-item 仍 margin-bottom: 0 (.login-form 块内覆盖), 紧凑布局不变.
+//   必须在 .login-form 块**外**定义, 同特异度后定义胜出 (v2 实测: 嵌套会让 Vite 跳过此条规则).
+//   与 PhoneLoginForm.vue / EmailLoginForm.vue 同步.
+.agreement-item.is-error {
+  margin-bottom: 18px;
+}
+
+// 2026-07-07 修复: 解决 .history-dropdown 被下一行 el-form-item 的 el-input__wrapper 遮挡
+// 根因链:
+//   1) el-form-item 自身默认无 position/transform/opacity, 普通块级元素不创建 stacking context.
+//      此时即便声明 z-index 也不会参与层叠比较 (z-index 仅对 positioned 元素有效).
+//   2) .el-input__wrapper 主题强制 `transform: translate(0,0)` → 内部 stacking context (z-auto=0).
+//   3) 下一行 el-form-item 内的 el-input__wrapper 仍按 DOM 顺序画在 .username-form-item 之后,
+//      直接把下拉窗盖住.
+// 修复: 必须 .username-form-item 加 `position: relative; z-index: var(--z-base)`,
+//   显式创建 stacking context 并浮在下一行 form-item (z-auto=0) 之上.
+//   .username-input-wrapper 同理 (wrapper 内部: el-input__wrapper 的 transform
+//   不会压住 .history-dropdown, 因为 dropdown 的 z=2001 在 wrapper 的 stacking context 内胜出).
+// 取值: --z-base (1) 即可超过下一行 form-item (z-auto=0), 不需要更大的值.
+.username-form-item {
+  position: relative;
+  z-index: var(--z-base);
+}
+
 .username-input-wrapper {
   position: relative;
+  z-index: var(--z-base);
   width: 100%;
 }
 
@@ -394,13 +469,27 @@ defineExpose({
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--el-bg-color);
+  // 2026-07-07 修复: 背景改用 --el-bg-color (弹窗同色) + 强 box-shadow, 杜绝"下拉窗透弹窗底色"视觉错觉.
+  // 之前用 --el-fill-color (浅色 #f0f2f5 / 暗色 #2d2d2d), 跟弹窗 --el-bg-color (浅色 #f7f8fa / 暗色 #1a1a1a) 太接近,
+  // 边缘几乎看不出, 看起来像"透明"穿透.
+  background-color: var(--el-bg-color);
   border: var(--unified-border);
   border-radius: var(--global-border-radius);
-  box-shadow: var(--global-box-shadow);
-  z-index: var(--z-header);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.16);
+  z-index: var(--z-popover);
   max-height: 200px;
   overflow-y: auto;
+  opacity: 1;
+  backdrop-filter: none;
+}
+
+.history-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 
 .history-item {
@@ -417,6 +506,8 @@ defineExpose({
 
   .history-icon {
     color: var(--el-text-color-secondary);
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -433,8 +524,9 @@ defineExpose({
   .eye-slash {
     width: 20px;
     height: 20px;
-    fill: var(--el-text-color-secondary);
-    transition: fill 0.2s;
+    color: var(--el-text-color-secondary);
+    stroke: currentColor;
+    transition: color 0.2s;
   }
 
   input:checked ~ .eye {
@@ -448,7 +540,7 @@ defineExpose({
   &:hover {
     .eye,
     .eye-slash {
-      fill: var(--el-color-primary);
+      color: var(--el-text-color-primary);
     }
   }
 }
@@ -501,45 +593,20 @@ defineExpose({
   }
 }
 
+// 2026-07-06 v2: agreement 复选框与 rememberMe 复选框之间垂直距离过大 (16px → 8px, 缩小一半)
 .form-actions-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
+// 2026-07-06 v4 统一: .custom-checkbox 样式统一切到 _form-controls.scss
+// 18x18 大小 + 4px 方形小圆角 + 1.3s 缓慢变色 + 3D 旋转, 全项目唯一来源
+// (24x24 偏大问题已修复: 18x18 与 14px 文字匹配度更好)
 .custom-checkbox {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-
-  input {
-    display: none;
-  }
-
-  .checkmark {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--el-border-color);
-    border-radius: var(--global-border-radius);
-    margin-right: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  input:checked + .checkmark {
-    background-color: var(--el-color-primary);
-    border: var(--el-border-width-primary) solid var(--el-color-primary);
-  }
-
-  input:checked + .checkmark::after {
-    content: "\2713";
-    color: var(--el-color-white);
-    font-size: 12px;
-  }
+  @include fc.custom-checkbox-base;
+  @include fc.custom-checkbox-dark;
 }
 
 .remember-me-text {
@@ -547,17 +614,45 @@ defineExpose({
   color: var(--el-text-color-regular);
 }
 
+// 2026-07-06 v2: .agreement-item 已迁到 .login-form 作用域内 (上方 line 408),
+// 提升特异度覆盖 .el-form-item { margin-bottom: 20px }, 旧位置不再定义.
+
+.agreement-checkbox {
+  @include fc.custom-checkbox-base;
+  @include fc.custom-checkbox-dark;
+  align-items: flex-start;
+
+  .checkmark {
+    margin-top: 2px;
+  }
+}
+
+.agreement-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
+}
+
+.agreement-link {
+  color: var(--el-text-color-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .account-form-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
 .switch-to-sso-link,
-.switch-to-phone-link,
 .forgot-password {
-  color: var(--el-text-color-placeholder);
+  color: var(--el-text-color-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -565,7 +660,7 @@ defineExpose({
   transition: color 0.2s;
 
   &:hover {
-    color: var(--el-text-color-secondary);
+    color: var(--el-text-color-primary);
   }
 }
 

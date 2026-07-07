@@ -57,7 +57,8 @@
       "userLogin": "用戶登錄",
       "userRegister": "用戶註冊",
       "hasAccount": "已有賬號？去登錄",
-      "noAccount": "沒有賬號？去註冊"
+      "noAccount": "沒有賬號？去註冊",
+      "backToLogin": "返回登錄"
     },
     "password": {
       "show": "顯示密碼",

@@ -476,7 +476,7 @@ defineExpose({
 }
 
 .account-bind-dialog :deep(.el-input__wrapper.is-focus) {
-  border: var(--el-border-width-primary) solid var(--el-color-primary);
+  border: var(--el-border-width-primary) solid var(--border-unified-color-hover);
 }
 
 .account-bind-dialog :deep(.el-input__inner) {

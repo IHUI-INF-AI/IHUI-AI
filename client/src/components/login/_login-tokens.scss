@@ -34,22 +34,27 @@ $login-dark-primary-glow: rgb(96 165 250 / 0.28);
 $login-dark-primary-glow-soft: rgb(96 165 250 / 0.15);
 
 // ============ 输入框 ============
+// 2026-07-06 修复 v3: 输入框 normal 描边改回灰色 (用户原话: "默认没激活状态下的描边色请给我改成灰色 适配好明暗两种主题")
+// 浅色模式: zinc-300 #d4d4d8 (柔和浅灰, 与白底对比明显但不抢眼)
+// 暗色模式: zinc-600 #525252 (中性深灰, 在深色背景上看得清, 不偏蓝)
+// hover/focus 保持蓝色系 (浅蓝 → 中蓝 → 深蓝) 用于交互反馈
+// 2026-07-06 修复: 描边宽度 2px (用户要求 2px 描边, 见 UniversalLogin.vue)
 // 2026-07-04 修复: 圆角统一使用项目 token (硬约束: 全站唯一 8px), 不再硬编码 10px
 $login-input-radius: gt.$global-border-radius;
 $login-input-height: 44px;
 $login-input-inner-height: 42px;
-$login-input-border: #e4e7ed;
-$login-input-border-hover: #a0c4ff;
-$login-input-border-focus: #3b82f6;
+$login-input-border: #d4d4d8;             // 2026-07-06 v3: 浅色模式 normal = zinc-300 浅灰
+$login-input-border-hover: #6ba3f5;       // 2026-07-06 修复: 中蓝 hover
+$login-input-border-focus: #2563eb;       // 2026-07-06 修复: 深蓝 focus
 $login-input-bg: #fff;
 $login-input-padding: 1px 12px;
 $login-input-transition:    border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
                             background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 
-// 暗色输入框
-$login-dark-input-border: #374151;
-$login-dark-input-border-hover: #60a5fa;
-$login-dark-input-border-focus: #93c5fd;
+// 暗色输入框 (2026-07-06 v3: normal 改用 zinc-600 中性深灰, hover/focus 保持浅蓝)
+$login-dark-input-border: #525252;        // 2026-07-06 v3: 暗色模式 normal = zinc-600 中性深灰
+$login-dark-input-border-hover: #60a5fa;  // 2026-07-06 修复: 浅蓝 hover
+$login-dark-input-border-focus: #93c5fd;  // 2026-07-06 修复: 更浅蓝 focus
 $login-dark-input-bg: #1f2937;
 
 // ============ 按钮 ============
@@ -70,6 +75,11 @@ $login-btn-transition:   transform 0.18s ease, box-shadow 0.25s ease,
 $login-mini-primary: var(--el-text-color-primary); // #000 light / #fff dark
 $login-mini-primary-hover: var(--el-text-color-regular);  // 略浅
 $login-mini-primary-active: var(--el-text-color-secondary);
+// 2026-07-04 修复: 暗色模式反相文字色 (mini 按钮 background=$login-mini-primary 浅色下=#000 / 暗色下=#fff).
+// 原值 #fff 硬编码, 暗色模式下按钮底色 #fff 时文字 #fff → 白底白字不可见.
+// 按 check-no-bg-token-as-text-color.mjs 规则 D 反相配对重构, 显式双模式 + html.dark 反转 (不用 var(--el-bg-color)).
+$login-mini-on-primary: #fff;  // light: 黑底白字
+// dark: 白底黑字 (html.dark 在使用方组件 scoped 块内覆写为 #1a1a1a)
 
 // ============ 第三方登录图标 ============
 $login-icon-size: 40px;
@@ -161,3 +171,90 @@ $login-danger-text-dark: #fca5a5;
   transform: translateY(0);
   box-shadow: 0 2px 8px rgb(37 99 235 / 0.20);
 }
+
+// ============ 极简黑风格弹窗 (2026-07-04 立, login-dialog-beautification.md Phase 1) ============
+// 弹窗外壳阴影 (极简版 - 与 Wallet.vue/RechargeDialog 一致)
+$login-shell-shadow:     0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.08);
+$login-shell-shadow-dark:0 1px 2px rgb(0 0 0 / 0.30),  0 8px 24px rgb(0 0 0 / 0.45);
+
+// 输入框 (B&W 边框色, 替代蓝色发光)
+$login-input-bw-border:        var(--border-unified-color);
+$login-input-bw-border-hover:  var(--border-unified-color-hover);
+$login-input-bw-border-focus:  var(--border-unified-color-hover);
+$login-input-bw-bg:            var(--el-bg-color);
+$login-input-bw-height:        44px;
+
+// 分段控件 (segmented control, B&W 反相, 替代 el-tabs)
+// 2026-07-04 修复: 暗色模式反相设计
+//   浅色: 黑底 #000 + 白字 #fff (B&W 强反相, 与 miniapp 极简风格一致)
+//   暗色: 白底 #fff + 黑字 #1a1a1a (反相, 确保暗色 dialog 内视觉焦点清晰)
+// 之前用 var(--el-text-color-primary) 在暗色下 = #e5eaf3 浅色, 选中 Tab 飘在深色弹窗上
+// 视觉突兀, 图标对比度低 (虽然 stroke 是 #1a1a1a 深色, 但浅灰背景 + 浅色描边的视觉权重感差)
+// 2026-07-04 二次修复: 滑动指示器与 color transition 错位
+//   问题: 之前 color transition 0.2s + transform transition 0.32s 不同步,
+//   200-320ms 之间 tab1 color 已变浅 (白底) 但 indicator 还在 tab1 位置 → 白底+浅字看不清.
+//   修复: color transition 同步到 0.32s (与 transform 一致) + 同样的 cubic-bezier
+//   让两者在动画期间完全同步, 避免错位瞬间.
+$login-tab-padding:           10px 18px;
+$login-tab-active-bg-light:   #000;
+$login-tab-active-color-light: #fff;
+$login-tab-active-bg-dark:    #fff;
+// 2026-07-07: 暗色模式活跃 tab 文字/图标色改为纯黑 #000 (用户原话: "选中状态下的图标颜色怎么在暗色模式下那么浅 应该设置成黑色啊")
+//   之前 #1a1a1a 在白底 indicator 上看仍然偏灰, 用户反馈"图标浅" → 改为纯黑 #000 与白底 #fff 形成最强反相焦点
+$login-tab-active-color-dark: #000;
+// 2026-07-04 二次修复: 暗色模式未选中 tab 文字色提亮 (#e5eaf3 → #ffffff)
+// 原因: #e5eaf3 跟 segment-tabs 背景 #2d2d2d 对比度 11+ :1 实际够用, 但视觉上
+// "白字+灰底" 显"灰" → 用户感觉"图标浅灰色看不清".
+// 改用纯白 #ffffff, segment-tabs 背景适当加深 (#2d2d2d → #1a1a1a) 增强对比.
+$login-tab-inactive-color-dark: #ffffff;
+
+// 复选框 (B&W, 替代 Element Plus 蓝色)
+$login-check-size:        16px;
+$login-check-active-bg:   var(--el-text-color-primary);
+$login-check-active-mark: var(--el-bg-color);
+
+// 第三方登录图标 (圆形描边, 40×40, 替代胶囊形)
+$login-third-party-size:     40px;
+$login-third-party-radius:   50%;
+$login-third-party-border:   var(--unified-border);
+$login-third-party-hover-bg: var(--el-fill-color-light);
+
+// ============ SCSS Mixin: 分段控件 (B&W 极简版, 替代 el-tabs) ============
+// 2026-07-04 修复: 暗色模式反相设计
+//   浅色 (.light-mode .is-active): 黑底 #000 + 白字 #fff
+//   暗色 (.dark-mode  .is-active): 白底 #fff + 黑字 #1a1a1a
+// 用 :where() 包裹 html.dark 选择器避免特异性膨胀
+@mixin login-segment-tab {
+  padding: $login-tab-padding;
+  border-radius: var(--global-border-radius);
+  background: transparent;
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  border: 1px solid transparent;
+
+  &:hover:not(.is-active) { border-color: var(--border-unified-color-hover); }
+
+  &.is-active {
+    background: $login-tab-active-bg-light;
+    color: $login-tab-active-color-light;
+    border-color: transparent;
+  }
+}
+
+// 暗色模式反相: 选中 Tab 改为白底黑字
+// 2026-07-04 修复: 实际验证发现 puppeteer 报告 dark 下选中 Tab 仍用 light token (#000 黑底白字),
+// 原因是项目用 html.dark 类 (非 .dark-mode 父类) + @at-root 让选择器跳出父级,
+// 编译后 .segment-tab.is-active 在父选择器中没应用上, 暗色样式失效.
+// 修复: 用 :where() 包裹 html.dark 让暗色样式明确应用, !important 强制覆盖浅色 token.
+:where(html.dark) .segment-tab.is-active {
+  background: $login-tab-active-bg-dark;
+  color: $login-tab-active-color-dark;
+  border-color: transparent;
+}
+
+// ============ v3 精炼美化 token (2026-07-05) ============
+// 弹窗外壳更柔和的多层阴影（比现有更细腻，三层递进）
+$login-shell-shadow-v3:      0 2px 8px rgb(15 23 42 / 0.04), 0 12px 32px rgb(15 23 42 / 0.10), 0 1px 2px rgb(15 23 42 / 0.06);
+$login-shell-shadow-v3-dark: 0 2px 8px rgb(0 0 0 / 0.30), 0 12px 32px rgb(0 0 0 / 0.50), 0 1px 2px rgb(0 0 0 / 0.20);

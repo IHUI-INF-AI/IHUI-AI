@@ -21,9 +21,7 @@
           @input="handleUsernameInput"
         >
           <template #prefix>
-            <el-icon class="input-icon">
-              <User />
-            </el-icon>
+            <UserIcon class="input-icon" />
           </template>
         </el-input>
       </el-form-item>
@@ -41,9 +39,7 @@
             @input="handlePhoneInput"
           >
             <template #prefix>
-              <el-icon class="input-icon">
-                <Phone />
-              </el-icon>
+              <PhoneIcon class="input-icon" />
             </template>
           </el-input>
           <el-button
@@ -60,21 +56,19 @@
       </el-form-item>
 
       <el-form-item prop="code">
-        <el-input
-          id="register-code"
-          name="register-code"
-          v-model="formData.code"
-          :placeholder="codePlaceholder"
-          maxlength="6"
-          clearable
-          autocomplete="one-time-code"
-        >
-          <template #prefix>
-            <el-icon class="input-icon">
-              <KeyRound />
-            </el-icon>
-          </template>
-        </el-input>
+        <div class="verification-code-block">
+          <label class="verification-code-sr-label" for="register-code-0">
+            {{ t('auth.captchaLabel') }}
+          </label>
+          <VerificationCodeInput
+            v-model="formData.code"
+            :length="6"
+            input-id="register-code"
+            :error-message="codeError"
+            @complete="handleCodeComplete"
+            @keyup.enter="handleSubmit"
+          />
+        </div>
       </el-form-item>
 
       <el-form-item prop="password">
@@ -90,19 +84,13 @@
           @input="handlePasswordInput"
         >
           <template #prefix>
-            <el-icon class="input-icon">
-              <Lock />
-            </el-icon>
+            <LockIcon class="input-icon" />
           </template>
           <template #suffix>
             <label class="password-eye-container" :aria-label="passwordVisible ? t('login.password.hide') : t('login.password.show')" @click.stop>
               <input type="checkbox" :checked="passwordVisible" @change="togglePasswordVisibility" tabindex="-1" />
-              <svg class="eye" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                <path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z" />
-              </svg>
-              <svg class="eye-slash" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 640 512">
-                <path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z" />
-              </svg>
+              <EyeIcon class="eye" />
+              <EyeOffIcon class="eye-slash" />
             </label>
           </template>
         </el-input>
@@ -126,19 +114,13 @@
           autocomplete="new-password"
         >
           <template #prefix>
-            <el-icon class="input-icon">
-              <Lock />
-            </el-icon>
+            <LockIcon class="input-icon" />
           </template>
           <template #suffix>
             <label class="password-eye-container" @click.stop>
               <input type="checkbox" :checked="confirmPasswordVisible" @change="toggleConfirmPasswordVisibility" tabindex="-1" />
-              <svg class="eye" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                <path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z" />
-              </svg>
-              <svg class="eye-slash" xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 640 512">
-                <path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z" />
-              </svg>
+              <EyeIcon class="eye" />
+              <EyeOffIcon class="eye-slash" />
             </label>
           </template>
         </el-input>
@@ -164,12 +146,19 @@
 import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { FormInstance, FormRules } from 'element-plus'
-import { User, Phone, Lock, KeyRound } from '@/lib/lucide-fallback'
+import {
+  UserIcon,
+  PhoneIcon,
+  LockIcon,
+  EyeIcon,
+  EyeOffIcon,
+} from '@/components/login/icons/login-icons'
 import { InputValidator } from '@/utils/security'
 import { sendVerificationCode } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import { logger } from '@/utils/logger'
 import { useCleanup } from '@/composables/useCleanup'
+import VerificationCodeInput from '@/components/login/VerificationCodeInput.vue'
 
 interface RegisterFormProps {
   loading?: boolean
@@ -193,6 +182,7 @@ const passwordVisible = ref(false)
 const confirmPasswordVisible = ref(false)
 const countdown = ref(0)
 const sendingCode = ref(false)
+const codeError = ref('')
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 const formData = reactive({
@@ -379,6 +369,13 @@ const handleSubmit = async (): Promise<void> => {
   }
 }
 
+const handleCodeComplete = (value: string): void => {
+  codeError.value = ''
+  if (value.length === 6 && /^\d{6}$/.test(value)) {
+    void handleSubmit()
+  }
+}
+
 defineExpose({
   formRef,
   formData,
@@ -388,13 +385,22 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
+@use '../_login-tokens.scss' as lt;
+@use '@/styles/_form-controls.scss' as fc;
+
 .register-form-container {
   width: 100%;
 }
 
 .register-form {
+  /* 2026-07-06 修复 v2: 之前 el-form-item { margin-bottom: 0 } 让注册表单 6 个输入框全部紧贴. */
+  /* 改为 20px 间距让每个输入框有喘息空间, 最后一个 (agreement) 不需要底部间距. */
   .el-form-item {
-    margin-bottom: 0;
+    margin-bottom: 20px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 }
 
@@ -410,7 +416,105 @@ defineExpose({
 
 .send-code-btn {
   flex-shrink: 0;
-  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 96px;
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--border-unified-color);
+  border-radius: var(--global-border-radius);
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  box-sizing: border-box;
+
+  &:hover:not(.is-disabled):not(:disabled) {
+    color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
+    background-color: var(--el-color-primary-light-9);
+  }
+
+  &:active:not(.is-disabled):not(:disabled) {
+    transform: translateY(0.5px);
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--el-color-primary);
+    outline-offset: 1px;
+  }
+
+  &.is-disabled,
+  &:disabled {
+    color: var(--el-text-color-placeholder);
+    border-color: var(--el-border-color-lighter);
+    background-color: transparent;
+    cursor: not-allowed;
+  }
+
+  &.is-counting:not(.is-disabled):not(:disabled) {
+    color: var(--el-text-color-secondary);
+    border-color: var(--border-unified-color);
+    cursor: default;
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid var(--el-border-color);
+    border-top-color: var(--el-color-primary);
+    border-radius: 50%;
+    animation: send-code-btn-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes send-code-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:where(html.dark) .send-code-btn {
+  border-color: var(--border-unified-color);
+  color: var(--el-text-color-regular);
+
+  &:hover:not(.is-disabled):not(:disabled) {
+    color: var(--el-color-primary-light-3);
+    border-color: var(--el-color-primary-light-3);
+    background-color: var(--el-color-primary-dark-2);
+  }
+
+  &.is-disabled,
+  &:disabled {
+    color: var(--el-text-color-placeholder);
+    border-color: var(--el-border-color);
+  }
+}
+
+.verification-code-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.verification-code-sr-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .password-eye-container {
@@ -426,8 +530,9 @@ defineExpose({
   .eye-slash {
     width: 20px;
     height: 20px;
-    fill: var(--el-text-color-secondary);
-    transition: fill 0.2s;
+    color: var(--el-text-color-secondary);
+    stroke: currentColor;
+    transition: color 0.2s;
   }
 
   input:checked ~ .eye {
@@ -441,7 +546,7 @@ defineExpose({
   &:hover {
     .eye,
     .eye-slash {
-      fill: var(--el-color-primary);
+      color: var(--el-text-color-primary);
     }
   }
 }
@@ -499,38 +604,17 @@ defineExpose({
 }
 
 .agreement-checkbox {
-  display: flex;
-  align-items: flex-start;
-  cursor: pointer;
-  user-select: none;
+  /* 2026-07-06 v4 统一: 改用 _form-controls.scss 统一来源 */
+  /* 18x18 大小 + 4px 方形小圆角 + 1.3s 缓慢变色 + 3D 旋转, 全项目唯一来源 */
+  /* agreement 复选框左上对齐 (与多行协议文字顶部对齐), 其它与 base 一致 */
+  @include fc.custom-checkbox-base;
+  @include fc.custom-checkbox-dark;
 
-  input {
-    display: none;
-  }
+  /* 协议复选框需要顶部对齐 (与多行协议文字第一行 baseline 对齐) */
+  align-items: flex-start;
 
   .checkmark {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--el-border-color);
-    border-radius: var(--global-border-radius);
-    margin-right: 8px;
     margin-top: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  input:checked + .checkmark {
-    background-color: var(--el-color-primary);
-    border: var(--el-border-width-primary) solid var(--el-color-primary);
-  }
-
-  input:checked + .checkmark::after {
-    content: "\2713";
-    color: var(--el-color-white);
-    font-size: 12px;
   }
 }
 
@@ -541,7 +625,7 @@ defineExpose({
 }
 
 .agreement-link {
-  color: var(--el-color-primary);
+  color: var(--el-text-color-primary);
   text-decoration: none;
 
   &:hover {

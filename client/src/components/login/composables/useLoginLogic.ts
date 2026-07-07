@@ -12,13 +12,14 @@ import { useUserAuth } from '@/composables/useUserAuth'
 import { AuthFlowService } from '@/services/auth-flow.service'
 import { RememberMeService } from '@/utils/rememberMeService'
 import { unifiedLogin } from '@/api/unified-auth'
-import { verifyPhoneCode, completePhoneLogin } from '@/api/user'
+import { phoneLogin } from '@/api/user'
 import { useLoginProject } from '@/composables/login/useLoginProject'
 import { logger } from '@/utils/logger'
 import request from '@/utils/request'
 import { getSafeRedirectPath } from '@/utils/auth'
 import { LOGIN_PWD_PATHS } from '@/config/backend-paths'
 import { useCleanup } from '@/composables/useCleanup'
+import { saveLoginHistoryItem, LOGIN_HISTORY_KEYS } from './useLoginInputHistory'
 
 export interface LoginFormData {
   username: string
@@ -29,6 +30,12 @@ export interface LoginFormData {
 
 export interface PhoneFormData {
   phoneNumber: string
+  verificationCode: string
+  rememberMe: boolean
+}
+
+export interface EmailFormData {
+  email: string
   verificationCode: string
   rememberMe: boolean
 }
@@ -199,10 +206,9 @@ export function useLoginLogic(options: LoginLogicOptions) {
         return { success: false }
       }
     }
-    if (!isSSOAdmin && !/^1[3-9]\d{9}$/.test(account)) {
-      ElMessage.warning(t('auth.pleaseEnterCorrectPhone'))
-      return { success: false }
-    }
+    // 2026-07-04 修复: 删掉强制 11 位手机号正则 /AccountLoginForm 校验已接受 username/phone/email,
+    // 后端 /api/v1/auth/login 扩展为兼容 sys_user.user_name (admin/admin123 等),
+    // 不再前端拦截. 注释保留说明避免后续误回退.
 
     logger.info('[handleAccountLogin] Preparing to login', { isSSOAdmin, accountLen: account.length })
 
@@ -212,6 +218,8 @@ export function useLoginLogic(options: LoginLogicOptions) {
     try {
       if (isSSOAdmin) {
         await handleEnterpriseLogin(account, password, captchaCode, captchaUuid)
+        // 2026-07-06: 企业(SSO)登录成功后保存账号到历史记忆 (下拉窗一键填入)
+        saveLoginHistoryItem(LOGIN_HISTORY_KEYS.account, account)
         return { success: true }
       }
 
@@ -229,6 +237,9 @@ export function useLoginLogic(options: LoginLogicOptions) {
       // 2026-06-28 联调: 后端统一响应码 SUCCESS="0" (error_codes.py),
       // 同时兼容旧 Java 后端的 code=200. 接受 0/"0"/200/"200" 均视为成功.
       if (resCode === 200 || resCode === '200' || resCode === 0 || resCode === '0') {
+        // 2026-07-06 修复: 登录响应成功后立即保存账号到历史记忆 (下拉窗一键填入)
+        // 提前到 token 解析之前, 确保即使 token 解析异常也能记住账号
+        saveLoginHistoryItem(LOGIN_HISTORY_KEYS.account, account)
         const rawData = resData?.data as Record<string, unknown> | undefined
         const userData = (rawData?.user as Record<string, unknown>) || rawData
         const thirdPartyAccounts = userData?.thirdPartyAccounts as Record<string, unknown> | undefined
@@ -266,6 +277,10 @@ export function useLoginLogic(options: LoginLogicOptions) {
             RememberMeService.setRememberMePreference(true)
             RememberMeService.saveRefreshToken(refreshToken)
             RememberMeService.saveAccountCredentials(account, refreshToken)
+          } else {
+            // 2026-07-06: 取消勾选记住密码时清除记住状态, 避免下次仍回填账号
+            RememberMeService.setRememberMePreference(false)
+            RememberMeService.clearCredentials()
           }
 
           ElMessage.success(t('auth.loginSuccess'))
@@ -283,6 +298,17 @@ export function useLoginLogic(options: LoginLogicOptions) {
               }
             }
           }
+
+          // 2026-07-06 修复: 统一 edu source 空 redirect 填充 (与 handlePhoneLogin 一致)
+          // 之前账号登录缺少此逻辑, 导致 edu-web/edu-admin 登录后卡在登录页不跳转
+          if ((source === 'edu-web' || source === 'edu-admin') && !redirectUrl) {
+            const eduRoutes: Record<string, string> = {
+              'edu-web': '/edu',
+              'edu-admin': '/admin/edu',
+            }
+            redirectUrl = eduRoutes[source]
+          }
+
           const isCrossProject = source && ['admin', 'edu-web', 'edu-admin'].includes(source)
           if (isCrossProject && redirectUrl) {
             await AuthFlowService.redirectAfterLogin({
@@ -292,6 +318,7 @@ export function useLoginLogic(options: LoginLogicOptions) {
               refreshToken: refreshToken || '',
               expiresIn: AuthFlowService.calculateExpiresInSeconds(),
               userInfo: userForStore as Record<string, unknown>,
+              router, // 2026-07-06: 传入 router 实例, 避免静态方法内 useRouter() 脱离 setup
             })
             return { success: true }
           }
@@ -364,141 +391,130 @@ export function useLoginLogic(options: LoginLogicOptions) {
     const verificationCode = formData.verificationCode
 
     try {
-      let verifyResponse: Awaited<ReturnType<typeof verifyPhoneCode>>
-      try {
-        verifyResponse = await verifyPhoneCode({
-          phone: fullPhoneNumber,
-          code: verificationCode,
-        })
-      } catch (error) {
-        logger.error('[handlePhoneLogin] Verification code validation failed:', error)
-        throw error
-      }
-
-      if (!verifyResponse.success || !verifyResponse.data) {
-        logger.error('[handlePhoneLogin] Invalid verification response:', {
-          success: verifyResponse.success,
-          data: verifyResponse.data,
-          message: verifyResponse.message,
-          code: verifyResponse.code,
-        })
-        throw new Error(verifyResponse.message || '校验验证码失败')
-      }
-
-      const tempKey = verifyResponse.data as string
-      if (!tempKey || tempKey.trim() === '') {
-        logger.error('[handlePhoneLogin] Temporary key is empty')
-        throw new Error(t('error.universal_login.临时密钥为空请重2'))
-      }
-      logger.info('[handlePhoneLogin] Got temporary key successfully:', tempKey)
-
-      const loginData = {
+      // 2026-07-06 修复: 直接调用后端 /api/v1/auth/login/sms 一步登录
+      // 原实现走三步流程 (verifyPhoneCode → completePhoneLogin), 但后端
+      // /api/v1/auth/sms/verify 只返回 {valid: true/false} 不返回临时密钥,
+      // 导致登录流程中断. 改为直接调用 /api/v1/auth/login/sms 验证码+登录一步到位.
+      const response = await phoneLogin({
         phone: fullPhoneNumber,
-        tempKey: tempKey,
-      }
+        code: verificationCode,
+      })
 
-      const response = await completePhoneLogin(loginData)
+      if (!response.success || !response.data) {
+        logger.error('[handlePhoneLogin] Login failed:', {
+          success: response.success,
+          message: response.message,
+          code: response.code,
+        })
 
-      const codeNum = typeof response.code === 'string' ? parseInt(response.code, 10) : response.code
-      const isSuccess = (codeNum === 200 || response.success === true) && response.data
-      logger.debug('[handlePhoneLogin] Is response successful', { isSuccess, code: codeNum, success: response.success })
+        const msgStr = (response.message || '').trim()
+        const isAccountNotFound =
+          msgStr.includes(t('auth.userDoesNotExist')) ||
+          msgStr.includes(t('auth.accountDoesNotExist')) ||
+          msgStr.includes(t('auth.userNotRegistered')) ||
+          msgStr.includes('not found') ||
+          response.code === 404 ||
+          response.code === 4001
 
-      if (isSuccess) {
-        const loginData = response.data
-        let token: string = ''
-        let refreshTokenValue: string = ''
-        let userInfo: Record<string, unknown>
- | undefined
-
-        if (loginData && typeof loginData === 'object') {
-          const loginDataObj = loginData as unknown as Record<string, unknown> // 双重断言必要: loginData 为 UserToken|LoginResponseData 具体接口，需动态访问多字段
-          logger.debug('[handlePhoneLogin] loginData keys:', Object.keys(loginDataObj))
-
-          if ('thirdPartyAccounts' in loginDataObj && loginDataObj.thirdPartyAccounts) {
-            const thirdPartyAccounts = loginDataObj.thirdPartyAccounts as Record<string, unknown>
-            token = (thirdPartyAccounts.accessToken as string) || ''
-            refreshTokenValue = (thirdPartyAccounts.refreshToken as string) || ''
-            userInfo = loginDataObj as Record<string, unknown>
-          }
-          else if ('tokenType' in loginDataObj || 'expiresIn' in loginDataObj) {
-            token = (loginDataObj.token as string) || ''
-            refreshTokenValue = (loginDataObj.refreshToken as string) || ''
-          }
-          else if ('token' in loginDataObj || 'accessToken' in loginDataObj) {
-            token = (loginDataObj.token as string) || (loginDataObj.accessToken as string) || ''
-            refreshTokenValue = (loginDataObj.refreshToken as string) || ''
-            userInfo = (loginDataObj.userInfo || loginDataObj.user) as Record<string, unknown> | undefined
-          } else {
-            throw new Error(t('auth.invalidResponseFormat'))
-          }
+        if (isAccountNotFound) {
+          ElMessage.info(t('auth.accountNotExistsRegistering'))
+          return false
         } else {
-          throw new Error(t('auth.loginResponseMissingToken'))
-        }
-
-        if (!token) {
-          throw new Error(t('auth.loginResponseMissingToken'))
-        }
-
-        logger.debug('[handlePhoneLogin] Extracted Token:', token ? 'Extracted' : 'Not found')
-
-        const processResult = await AuthFlowService.processLoginResponse(
-          token,
-          refreshTokenValue,
-          userInfo
-        )
-
-        if (!processResult.success) {
-          throw new Error(t('auth.loginStatusUpdateFailed'))
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 0))
-
-        if (!authStore.isLoggedIn || !authStore.token) {
-          logger.error('[handlePhoneLogin] Login status validation failed')
-          ElMessage.error(t('auth.loginStatusUpdateFailed'))
+          ElMessage.error(msgStr || t('auth.loginFailed'))
           return false
         }
+      }
 
-        logger.info('[handlePhoneLogin] Login successful, preparing to redirect')
-        AuthFlowService.showSuccess()
+      // 2026-07-06 修复: 登录响应成功后立即保存手机号到历史记忆 (下拉窗一键填入)
+      // 提前到 token 解析之前, 确保即使 token 解析异常也能记住手机号
+      saveLoginHistoryItem(LOGIN_HISTORY_KEYS.phone, formData.phoneNumber)
 
-        if (formData.rememberMe && authStore.refreshToken) {
-          RememberMeService.setRememberMePreference(true)
-          RememberMeService.saveRefreshToken(authStore.refreshToken)
-          await RememberMeService.savePhoneCredentials(
-            getFullPhoneNumber(),
-            '+86',
-            authStore.refreshToken
-          )
-        } else {
-          await RememberMeService.clearCredentials()
-        }
+      // 从后端响应中提取 token 和用户信息
+      const loginDataObj = response.data as unknown as Record<string, unknown>
+      logger.debug('[handlePhoneLogin] loginData keys:', Object.keys(loginDataObj))
 
-        const source = route.query.source as string
-        let redirectUrl = route.query.redirect as string
+      let token: string = ''
+      let refreshTokenValue: string = ''
+      let userInfo: Record<string, unknown> | undefined
 
-        if (redirectUrl) {
-          let prevDecoded = ''
-          while (redirectUrl !== prevDecoded) {
-            prevDecoded = redirectUrl
-            try {
-              redirectUrl = decodeURIComponent(redirectUrl)
-            } catch {
-              break
-            }
+      // 后端 /auth/login/sms 返回 accessToken / access_token / token
+      token =
+        (loginDataObj.accessToken as string) ||
+        (loginDataObj.access_token as string) ||
+        (loginDataObj.token as string) ||
+        ''
+      refreshTokenValue =
+        (loginDataObj.refreshToken as string) ||
+        (loginDataObj.refresh_token as string) ||
+        ''
+      userInfo = (loginDataObj.user as Record<string, unknown>) || undefined
+
+      if (!token) {
+        throw new Error(t('auth.loginResponseMissingToken'))
+      }
+
+      logger.debug('[handlePhoneLogin] Extracted Token:', token ? 'Extracted' : 'Not found')
+
+      const processResult = await AuthFlowService.processLoginResponse(
+        token,
+        refreshTokenValue,
+        userInfo
+      )
+
+      if (!processResult.success) {
+        throw new Error(t('auth.loginStatusUpdateFailed'))
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      if (!authStore.isLoggedIn || !authStore.token) {
+        logger.error('[handlePhoneLogin] Login status validation failed')
+        ElMessage.error(t('auth.loginStatusUpdateFailed'))
+        return false
+      }
+
+      logger.info('[handlePhoneLogin] Login successful, preparing to redirect')
+      AuthFlowService.showSuccess()
+
+      if (formData.rememberMe && authStore.refreshToken) {
+        RememberMeService.setRememberMePreference(true)
+        RememberMeService.saveRefreshToken(authStore.refreshToken)
+        await RememberMeService.savePhoneCredentials(
+          getFullPhoneNumber(),
+          '+86',
+          authStore.refreshToken
+        )
+      } else {
+        // 2026-07-06: 取消勾选记住密码时清除记住状态, 避免下次仍回填账号
+        RememberMeService.setRememberMePreference(false)
+        await RememberMeService.clearCredentials()
+      }
+
+      const source = route.query.source as string
+      let redirectUrl = route.query.redirect as string
+
+      if (redirectUrl) {
+        let prevDecoded = ''
+        while (redirectUrl !== prevDecoded) {
+          prevDecoded = redirectUrl
+          try {
+            redirectUrl = decodeURIComponent(redirectUrl)
+          } catch {
+            break
           }
         }
+      }
 
-        // 2026-06-26: 教育平台源码已迁移到项目内, 登录后跳项目内路由
-        if ((source === 'edu-web' || source === 'edu-admin') && !redirectUrl) {
-          const eduRoutes: Record<string, string> = {
-            'edu-web': '/edu',
-            'edu-admin': '/admin/edu',
-          }
-          redirectUrl = eduRoutes[source]
+      // 2026-06-26: 教育平台源码已迁移到项目内, 登录后跳项目内路由
+      if ((source === 'edu-web' || source === 'edu-admin') && !redirectUrl) {
+        const eduRoutes: Record<string, string> = {
+          'edu-web': '/edu',
+          'edu-admin': '/admin/edu',
         }
+        redirectUrl = eduRoutes[source]
+      }
 
-        const isCrossProjectSource = source && ['admin', 'edu-web', 'edu-admin'].includes(source)
+      const isCrossProjectSource = source && ['admin', 'edu-web', 'edu-admin'].includes(source)
         if (isCrossProjectSource && redirectUrl) {
           await AuthFlowService.redirectAfterLogin({
             source,
@@ -507,46 +523,162 @@ export function useLoginLogic(options: LoginLogicOptions) {
             refreshToken: refreshTokenValue,
             expiresIn: AuthFlowService.calculateExpiresInSeconds(),
             userInfo: processResult.userInfo || undefined,
+            router, // 2026-07-06: 传入 router 实例
           })
           return true
         }
 
         if (!isCrossProjectSource) {
-          await AuthFlowService.redirectAfterLogin()
+          await AuthFlowService.redirectAfterLogin({ router })
         }
         logger.info('[handlePhoneLogin] Redirect complete')
-        return true
-
-      } else {
-        logger.error('[handlePhoneLogin] Login failed', {
-          code: response.code,
-          success: response.success,
-          message: (response as { message?: string }).message
-        })
-        const loginResponseMessage = (response as { message?: string }).message
-        const errorMessageSquare =
-          typeof loginResponseMessage === 'string' ? loginResponseMessage : ''
-        const isAccountNotFound =
-          errorMessageSquare.includes(t('auth.userDoesNotExist')) ||
-          errorMessageSquare.includes(t('auth.accountDoesNotExist')) ||
-          errorMessageSquare.includes(t('auth.userNotRegistered')) ||
-          errorMessageSquare.includes('not found') ||
-          response.code === 404 ||
-          response.code === 4001
-
-        if (isAccountNotFound) {
-          ElMessage.info(t('auth.accountNotExistsRegistering'))
-          return false
-        } else {
-          ElMessage.error(errorMessageSquare || t('auth.loginFailed'))
-          return false
-        }
-      }
+      return true
     } catch (error) {
       logger.error('[handlePhoneLogin] Login error', error)
       ElMessage.error(error instanceof Error ? error.message : t('auth.loginFailed'))
       return false
     }
+  }
+
+  /**
+   * 邮箱验证码登录 (2026-07-04 立, 对齐后端 /api/v1/auth/login/email 接口).
+   * 邮箱未注册时后端会自动注册账号.
+   */
+  const handleEmailLogin = async (formData: EmailFormData): Promise<boolean> => {
+    const email = (formData.email ?? '').trim().toLowerCase()
+    const code = (formData.verificationCode ?? '').trim()
+
+    if (!email) {
+      ElMessage.warning(t('auth.pleaseEnterEmail'))
+      return false
+    }
+    if (!code) {
+      ElMessage.warning(t('login.placeholders.emailCode'))
+      return false
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    if (!emailRegex.test(email)) {
+      ElMessage.warning(t('auth.pleaseEnterCorrectEmail'))
+      return false
+    }
+
+    try {
+      track_funnel_local('login_submit', 'email')
+
+      const response = await request.post(
+        LOGIN_PWD_PATHS.emailLogin,
+        { email, code },
+        { headers: { 'platform-type': 'web' } }
+      )
+
+      const resData = (response.data as Record<string, unknown>) || {}
+      const resCode = (resData?.code as number | string) ?? 0
+      const isSuccess = resCode === 0 || resCode === '0' || resCode === 200 || resCode === '200'
+
+      if (!isSuccess) {
+        const msg = (resData?.msg || resData?.message || '') as string
+        logger.warn('[handleEmailLogin] Backend rejected', { resCode, msg })
+        ElMessage.error(msg || t('auth.loginFailed'))
+        return false
+      }
+
+      // 2026-07-06 修复: 登录响应成功后立即保存邮箱到历史记忆 (下拉窗一键填入)
+      // 提前到 token 解析之前, 确保即使 token 解析异常也能记住邮箱
+      saveLoginHistoryItem(LOGIN_HISTORY_KEYS.email, email)
+
+      const rawData = resData?.data as Record<string, unknown> | undefined
+      const userData = (rawData?.user as Record<string, unknown>) || rawData || {}
+      const thirdPartyAccounts = userData?.thirdPartyAccounts as Record<string, unknown> | undefined
+      const token =
+        (thirdPartyAccounts?.accessToken as string) ||
+        (userData?.accessToken as string) ||
+        (userData?.access_token as string) ||
+        (userData?.token as string) ||
+        (rawData?.accessToken as string) ||
+        (rawData?.access_token as string) ||
+        (rawData?.token as string) ||
+        ''
+      const refreshToken =
+        (thirdPartyAccounts?.refreshToken as string) ||
+        (userData?.refreshToken as string) ||
+        (userData?.refresh_token as string) ||
+        (rawData?.refreshToken as string) ||
+        (rawData?.refresh_token as string) ||
+        ''
+
+      if (!token) {
+        ElMessage.error(t('auth.loginFailedNoToken'))
+        return false
+      }
+
+      const userForStore = (userData && Object.keys(userData).length > 0) ? userData : { email }
+      if (!(userForStore as Record<string, unknown>).uuid && !(userForStore as Record<string, unknown>).id) {
+        ;(userForStore as Record<string, unknown>).uuid = (userForStore as Record<string, unknown>).id || ''
+      }
+
+      await authStore.thirdPartyLogin({
+        token,
+        refreshToken,
+        user: userForStore as Record<string, unknown>,
+        loginType: 'email',
+      })
+
+      if (formData.rememberMe && refreshToken) {
+        RememberMeService.setRememberMePreference(true)
+        RememberMeService.saveRefreshToken(refreshToken)
+        RememberMeService.saveAccountCredentials(email, refreshToken)
+      } else {
+        // 2026-07-06: 取消勾选记住密码时清除记住状态, 避免下次仍回填账号
+        RememberMeService.setRememberMePreference(false)
+        RememberMeService.clearCredentials()
+      }
+
+      ElMessage.success(t('auth.loginSuccess'))
+      AuthFlowService.showSuccess()
+
+      const source = route.query.source as string
+      let redirectUrl = getSafeRedirectPath(route.query.redirect as string)
+
+      // 2026-07-06 修复: 统一 edu source 空 redirect 填充 (与 handlePhoneLogin 一致)
+      // 之前邮箱登录缺少此逻辑, 导致 edu-web/edu-admin 登录后跳首页而非 /edu
+      if ((source === 'edu-web' || source === 'edu-admin') && (!redirectUrl || redirectUrl === '/')) {
+        const eduRoutes: Record<string, string> = {
+          'edu-web': '/edu',
+          'edu-admin': '/admin/edu',
+        }
+        redirectUrl = eduRoutes[source]
+      }
+
+      const isCrossProject = source && ['admin', 'edu-web', 'edu-admin'].includes(source)
+      if (isCrossProject && redirectUrl) {
+        await AuthFlowService.redirectAfterLogin({
+          source,
+          redirectUrl,
+          token,
+          refreshToken,
+          expiresIn: AuthFlowService.calculateExpiresInSeconds(),
+          userInfo: userForStore as Record<string, unknown>,
+          router, // 2026-07-06: 传入 router 实例
+        })
+        return true
+      }
+
+      if (!isCrossProject) {
+        void router.push(redirectUrl)
+      }
+      return true
+    } catch (error) {
+      logger.error('[handleEmailLogin] Login error', error)
+      const msg = error instanceof Error ? error.message : t('auth.loginFailed')
+      ElMessage.error(msg)
+      return false
+    }
+  }
+
+  const track_funnel_local = (stage: string, channel: string): void => {
+    // 2026-07-04 本地简化: 不依赖 tracking 服务, 避免 handleEmailLogin 引入额外依赖.
+    logger.debug('[useLoginLogic] login funnel', { stage, channel })
   }
 
   const handleSSOLogin = async (): Promise<void> => {
@@ -569,6 +701,7 @@ export function useLoginLogic(options: LoginLogicOptions) {
     startLoginCooldown,
     handleAccountLogin,
     handlePhoneLogin,
+    handleEmailLogin,
     handleEnterpriseLogin,
     handleSSOLogin,
     adminRedirectUrl,

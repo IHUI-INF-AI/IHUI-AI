@@ -11,7 +11,7 @@
       "user": "User Portal"
     },
     "crossProject": {
-      "loggingIn": "Logging in to {name}",
+      "loggingIn": "Logging in to {project}",
       "user": "Switch to User Portal",
       "admin": "Switch to Admin Portal",
       "switchTo": "Switch To"
@@ -29,13 +29,16 @@
       "userRegister": "User Register",
       "userLogin": "User Login",
       "hasAccount": "Has Account",
-      "noAccount": "No Account"
+      "noAccount": "No Account",
+      "backToLogin": "Back to Login"
     },
     "tabs": {
       "account": "Account",
       "accountRegister": "Account Register",
       "phone": "Phone",
-      "phoneRegister": "Phone Register"
+      "phoneRegister": "Phone Register",
+      "email": "Email",
+      "emailRegister": "Email Register"
     },
     "thirdParty": {
       "or": "Or",
@@ -80,6 +83,7 @@
       "username": "Username",
       "usernameOrEmail": "Username Or Email",
       "email": "Email",
+      "emailCode": "Email verification code",
       "setPassword": "Set Password",
       "password": "Password",
       "confirmPassword": "Confirm Password",

@@ -28,13 +28,16 @@
     "tabs": {
       "account": "账号登录",
       "phone": "手机登录",
+      "email": "邮箱登录",
       "accountRegister": "账号注册",
-      "phoneRegister": "手机注册"
+      "phoneRegister": "手机注册",
+      "emailRegister": "邮箱注册"
     },
     "placeholders": {
       "username": "请输入用户名",
       "usernameOrEmail": "请输入用户名或邮箱",
       "email": "请输入邮箱地址",
+      "emailCode": "请输入邮箱验证码",
       "password": "请输入密码",
       "setPassword": "请设置密码",
       "confirmPassword": "请确认密码",
@@ -57,7 +60,8 @@
       "userLogin": "用户登录",
       "userRegister": "用户注册",
       "hasAccount": "已有账号？去登录",
-      "noAccount": "没有账号？去注册"
+      "noAccount": "没有账号？去注册",
+      "backToLogin": "返回登录"
     },
     "password": {
       "show": "显示密码",

@@ -21,7 +21,7 @@
           @keyup.enter="handleSubmit"
         >
           <template #prefix>
-            <el-icon class="input-icon"><User /></el-icon>
+            <UserIcon class="input-icon" />
           </template>
         </el-input>
       </el-form-item>
@@ -36,7 +36,7 @@
           @keyup.enter="handleSubmit"
         >
           <template #prefix>
-            <el-icon class="input-icon"><Message /></el-icon>
+            <MailIcon class="input-icon" />
           </template>
         </el-input>
       </el-form-item>
@@ -55,7 +55,7 @@
           @keyup.enter="handleSubmit"
         >
           <template #prefix>
-            <el-icon class="input-icon"><Lock /></el-icon>
+            <LockIcon class="input-icon" />
           </template>
           <template #suffix>
             <div
@@ -63,9 +63,7 @@
               @click.stop="togglePasswordVisibility"
               :title="passwordVisible ? t('login.password.hide') : t('login.password.show')"
             >
-              <el-icon>
-                <component :is="passwordVisible ? 'Hide' : 'View'" />
-              </el-icon>
+              <component :is="passwordVisible ? EyeOffIcon : EyeIcon" :size="18" />
             </div>
           </template>
         </el-input>
@@ -88,7 +86,7 @@
           @keyup.enter="handleSubmit"
         >
           <template #prefix>
-            <el-icon class="input-icon"><Lock /></el-icon>
+            <LockIcon class="input-icon" />
           </template>
           <template #suffix>
             <div
@@ -97,9 +95,7 @@
               :title="passwordVisible ? t('login.password.hide') : t('login.password.show')"
               :aria-label="passwordVisible ? t('login.password.hide') : t('login.password.show')"
             >
-              <el-icon>
-                <component :is="passwordVisible ? 'Hide' : 'View'" />
-              </el-icon>
+              <component :is="passwordVisible ? EyeOffIcon : EyeIcon" :size="18" />
             </div>
           </template>
         </el-input>
@@ -135,7 +131,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { User, Lock, Message } from '@element-plus/icons-vue'
+import { UserIcon, LockIcon, MailIcon, EyeIcon, EyeOffIcon } from '@/components/login/icons/login-icons'
 import type { FormInstance } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import PasswordStrengthIndicator from '../components/PasswordStrengthIndicator.vue'

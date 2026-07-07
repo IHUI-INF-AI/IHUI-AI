@@ -228,7 +228,7 @@ export function usePhoneForm(isRegisterMode: boolean) {
         message: response.message,
       })
 
-      if (response.code === 200 && response.success) {
+      if (response.success) {
         ElMessage.success(t('auth.smsCodeSent'))
 
         // 开始倒计时
@@ -300,13 +300,22 @@ export function usePhoneForm(isRegisterMode: boolean) {
         message: response.message,
       })
 
-      if (response.code === 200 && response.success) {
+      if (response.success) {
         const responseData = response.data
 
         if (typeof responseData === 'object' && responseData !== null) {
-          const tokenValue = (responseData as { token?: string }).token || ''
-          const refreshTokenValue = (responseData as { refreshToken?: string }).refreshToken || ''
-          const userInfo = (responseData as { user?: UserInfoData }).user
+          // 2026-07-06 修复: 后端 /auth/login/sms 返回 accessToken / access_token (非 token)
+          const responseDataObj = responseData as Record<string, unknown>
+          const tokenValue =
+            (responseDataObj.accessToken as string) ||
+            (responseDataObj.access_token as string) ||
+            (responseDataObj.token as string) ||
+            ''
+          const refreshTokenValue =
+            (responseDataObj.refreshToken as string) ||
+            (responseDataObj.refresh_token as string) ||
+            ''
+          const userInfo = (responseDataObj.user as UserInfoData) || undefined
 
           if (tokenValue) {
             await authStore.thirdPartyLogin({

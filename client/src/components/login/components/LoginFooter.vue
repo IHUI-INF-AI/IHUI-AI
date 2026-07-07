@@ -39,11 +39,14 @@ const toggleMode = () => {
 }
 
 .toggle-link {
-  color: var(--el-color-primary);
+  color: var(--el-text-color-primary);
   text-decoration: none;
   margin-left: 4px;
+  font-weight: 500;
+  transition: color 0.2s ease;
 
   &:hover {
+    color: var(--el-text-color-primary);
     text-decoration: underline;
   }
 }

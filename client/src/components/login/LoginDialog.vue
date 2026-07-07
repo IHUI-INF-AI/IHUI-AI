@@ -10,7 +10,7 @@
     v-if="shouldRender"
     v-model="dialogVisible"
     class="login-dialog"
-    width="440px"
+    width="460px"
     :show-close="false"
     :close-on-click-modal="true"
     :close-on-press-escape="true"
@@ -150,20 +150,36 @@ watch(
  * 类名 .login-dialog 足够独特，不会污染全局。
  */
 
+@use './_login-tokens.scss' as lt;
+
 .el-dialog.login-dialog {
-  // 扁平化：去除默认 box-shadow，改用边框
-  // 2026-07-04 修复: fallback 12px 违反全站统一 8px 硬约束, 改用无 fallback (token 必然存在)
-  box-shadow: none;
-  border: 1px solid var(--el-border-color-lighter);
+  // 2026-07-04 极简黑白美化: 移除硬边框,改用柔和多层阴影,体现层次感
+  box-shadow: lt.$login-shell-shadow-v3;
+  border: none;
   border-radius: var(--global-border-radius);
+
+  // 2026-07-07 修复: 显式声明 background (含暗色兜底), 杜绝任何半透明继承自 EP 默认
+  // theme-chalk (--el-dialog-bg-color) 出现"看穿弹窗"的视觉问题
+  background-color: var(--el-bg-color);
   background: var(--el-bg-color);
+
+  // 2026-07-07 修复: 显式声明 z-index + 创建 stacking context (append-to-body=true
+  // 挂到 body 后默认 z-index=auto=0, 会被页面上其他高 z-index 元素穿透遮挡).
+  // --z-modal=2000 已是项目 token 体系里弹窗的官方层级, 配合 isolation: isolate
+  // 创建独立 stacking context, 内部 .history-dropdown (z=2001) 能稳定压在弹窗内
+  // 任何后续 form-item 之上.
+  z-index: var(--z-modal);
+  isolation: isolate;
+
+  // 入场动画: 透明度+位移动画,0.28s 完成 (v3 更流畅过渡)
+  animation: login-shell-in 0.28s lt.$login-ease-out both;
 
   // 关键：align-center 模式下 element-plus 会给 .el-overlay-dialog 设置 display:flex
   // (见 element-plus dialog use-dialog.mjs: overlayDialogStyle -> { display: 'flex' })
   // 默认 align-items: stretch 会把 .el-dialog 拉伸到 100vh，需要 align-self: center
   // 让弹窗垂直居中，max-height 限制高度。
   align-self: center;
-  max-height: 90vh;
+  max-height: 95vh;
   height: auto;
   display: flex;
   flex-direction: column;
@@ -178,6 +194,23 @@ watch(
   // 弹窗内边距由 .login-dialog__body / .login-content 控制。
   // 避免弹窗自身 padding 在动画中产生视觉异常。
   padding: 0;
+}
+
+@keyframes login-shell-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .el-dialog.login-dialog {
+    animation: none;
+  }
 }
 
 .el-dialog.login-dialog .el-dialog__header {
@@ -206,15 +239,28 @@ watch(
 }
 
 // ============ 遮罩层扁平化（无 backdrop-filter，仅纯色半透明） ============
+// 2026-07-07 修复: 给 .el-overlay 显式声明 z-index (与 dialog 同级 = --z-modal=2000),
+//   并用 :where() 限制背景为纯色 0.5 透明 (无 backdrop-filter 任何模糊), 杜绝
+//   "弹窗背后半透明导致下拉窗透出来" 的视觉错觉.
 .el-overlay:has(.login-dialog) {
-  background-color: rgb(0 0 0 / 0.45);
+  z-index: var(--z-modal);
+  background-color: rgb(0 0 0 / 0.5);
+  backdrop-filter: none;
+}
+
+// 2026-07-07 修复: 给 .el-overlay-dialog 显式声明 z-index + 创建 stacking context,
+//   EP 默认 z-index: auto 会导致 .login-dialog 内的 .history-dropdown (z=2001)
+//   在跨 stacking context 比较时被错判为低层级, 弹出后被外层元素遮挡.
+.el-overlay-dialog:has(.login-dialog) {
+  z-index: var(--z-modal);
+  isolation: isolate;
 }
 
 // ============ 响应式：移动端弹窗撑满 ============
 @media (width <= 480px) {
   .el-dialog.login-dialog {
-    width: 92vw;
-    max-width: 92vw;
+    width: 94vw;
+    max-width: 94vw;
     max-height: 88vh;
   }
 }
@@ -227,7 +273,7 @@ watch(
 html.dark .el-dialog.login-dialog {
   background-color: var(--el-bg-color);
   background: var(--el-bg-color);
-  border-color: var(--el-border-color);
+  box-shadow: lt.$login-shell-shadow-v3-dark;
 }
 
 html.dark .el-dialog.login-dialog .el-dialog__body {

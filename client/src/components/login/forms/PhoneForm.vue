@@ -13,9 +13,9 @@
         <el-input
           v-model="formData.phone"
           :placeholder="
-            isRegisterMode ? t('login.placeholders.phoneRegister') : t('login.placeholders.phone')
-          "
-          :prefix-icon="Phone"
+              isRegisterMode ? t('login.placeholders.phoneRegister') : t('login.placeholders.phone')
+            "
+            :prefix-icon="PhoneIcon"
           maxlength="11"
           clearable
           @input="handlePhoneInput"
@@ -114,7 +114,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Phone, Message, Lock } from '@element-plus/icons-vue'
+import { PhoneIcon, MessageSquareIcon, LockIcon } from '@/components/login/icons/login-icons'
 import PasswordStrengthIndicator from '../components/PasswordStrengthIndicator.vue'
 import CountryCodeSelector from '../CountryCodeSelector.vue'
 import { countryCodes, type CountryCode } from '@/utils/countryCodes'
