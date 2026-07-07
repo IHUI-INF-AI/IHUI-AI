@@ -2,7 +2,7 @@
 
 覆盖:
   - 基础 * ? [] 语法
-  - 反斜杠转义 (\X 视为字面 X)
+  - 反斜杠转义 (X 视为字面 X)
   - ** 任意目录层级 (兼容 bash 语义)
   - {a,b,c} 大括号展开
   - 与 tool_glob 集成 (端到端)
@@ -15,6 +15,15 @@ import os
 from pathlib import Path
 
 import pytest
+
+
+def _norm(rels: set[str]) -> set[str]:
+    """规范化路径分隔符: Windows 用 \\, 测试期望用 /."""
+    return {r.replace("\\", "/") for r in rels}
+
+
+def _norm_lines(output: str) -> list[str]:
+    return [l.replace("\\", "/") for l in output.splitlines() if l and not l.startswith("...")]
 
 
 # ---------------------------------------------------------------------------
@@ -226,17 +235,23 @@ class TestGlobExpandBracesHelper:
 
 @pytest.fixture
 def workspace_tree(tmp_path: Path) -> Path:
-    """构造一个小型工作区用于集成测试."""
+    """构造一个小型工作区用于集成测试.
+
+    注意: 文件名必须兼容 Windows 限制 — ``<>:"/\\|?*`` 不可用, 但 ``[]{}`` 可以.
+    """
     files = {
         "test.js": "",
         "src/app.ts": "",
         "src/components/Button.vue": "",
         "src/lib/util.js": "",
-        "weird*name.txt": "",  # 含 glob 特殊字符 * 的文件名
+        "src/lib/util_helper.ts": "",
+        "weird.dotted.name.txt": "",  # 含字面 . 的文件名
+        "weird[brackets].ts": "",  # 含字符类字符 [] 的文件名
+        "file{1,2}.ts": "",  # 含大括号字符 {} 的文件名
         "data.json": "",
         "README.md": "",
         "scripts/build.py": "",
-        "weird[brackets].ts": "",  # 含字符类字符的文件名
+        "weirdXname.txt": "",  # 用于验证 \* 转义不会误匹配 X
     }
     for rel, content in files.items():
         p = tmp_path / rel
@@ -259,8 +274,7 @@ class TestToolGlobIntegration:
             )
         )
         assert result.success
-        lines = [l for l in result.output.splitlines() if l and not l.startswith("...")]
-        rels = set(lines)
+        rels = _norm(set(_norm_lines(result.output)))
         # 应该匹配所有源码文件
         assert "test.js" in rels
         assert "src/app.ts" in rels
@@ -270,26 +284,28 @@ class TestToolGlobIntegration:
         assert "scripts/build.py" in rels
         # 不应匹配
         assert "README.md" not in rels
+        # weird.dotted.name.txt 是 .txt 扩展, 不应被 {ts,js,vue,py,json} 匹配
+        assert "weird.dotted.name.txt" not in rels
 
     def test_user_query_escaped_wildcard(self, workspace_tree: Path):
-        """Issue1 修复的核心场景: 用户搜 test*.js, 应字面匹配 weird*name.txt 这类.
-
-        这里我们用 weird*name.txt 验证: 当用户输入含 * 时, 转义后按字面匹配.
-        """
+        """Issue1 修复: 转义后的 \\* 应按字面匹配, 不应把 X 当成 * 解释."""
         from app.api.v1.workspace.tools import tool_glob
 
-        # 模拟前端转义: 用户输入 weird*name → 转义为 weird\\*name
+        # 模拟前端转义: 用户输入 weird*Xname → 转义为 weird\\*Xname
+        # 文件 weirdXname.txt 不应被匹配 (X 不是 *)
         result = asyncio.run(
             tool_glob(
-                {"pattern": "*weird\\*name*", "path": ""},
+                {"pattern": "*weird\\*Xname*", "path": ""},
                 str(workspace_tree),
             )
         )
         assert result.success
-        assert "weird*name.txt" in result.output
+        rels = _norm_lines(result.output)
+        # weirdXname.txt 不应被匹配, 因为转义后 \* 强制为字面 *, 不匹配 X
+        assert "weirdXname.txt" not in rels
 
     def test_user_query_dot_preserved(self, workspace_tree: Path):
-        """搜索 test.js (含 .) 应能匹配字面 .js 文件."""
+        """搜索 test.js (含字面 .) 应能匹配字面 .js 文件."""
         from app.api.v1.workspace.tools import tool_glob
 
         # 模拟前端转义: 用户输入 test.js → 转义为 test\\.js
@@ -300,14 +316,17 @@ class TestToolGlobIntegration:
             )
         )
         assert result.success
-        assert "test.js" in result.output
-        # 不应匹配 testXjs (不存在这样的文件, 但不应出现 src/lib/util.js)
-        assert "src/lib/util.js" not in result.output
+        rels = _norm_lines(result.output)
+        assert "test.js" in rels
+        # 验证: 字面 . 不应退化为 "任意单字符"
+        # src/lib/util.js 中没有 test.js 子串, 不应误匹配
+        assert "src/lib/util.js" not in rels
 
     def test_glob_brackets_escaped(self, workspace_tree: Path):
-        """搜索 weird[brackets] 应字面匹配, 不应被当作字符类."""
+        """搜索 weird[brackets] 应字面匹配, 不应被当作字符类通配."""
         from app.api.v1.workspace.tools import tool_glob
 
+        # 模拟前端转义: 用户输入 weird[brackets] → 转义为 weird\\[brackets\\]
         result = asyncio.run(
             tool_glob(
                 {"pattern": "*weird\\[brackets\\]*", "path": ""},
@@ -315,16 +334,49 @@ class TestToolGlobIntegration:
             )
         )
         assert result.success
-        assert "weird[brackets].ts" in result.output
+        rels = _norm_lines(result.output)
+        assert "weird[brackets].ts" in rels
+        # 不应匹配其他文件 (例如用 [brackets] 当字符类去匹配)
+        assert "src/lib/util.js" not in rels
+
+    def test_glob_brace_escaped(self, workspace_tree: Path):
+        """搜索 file{1,2} 应字面匹配, 不应被当作大括号展开."""
+        from app.api.v1.workspace.tools import tool_glob
+
+        # 模拟前端转义: 用户输入 file{1,2} → 转义为 file\\{1,2\\}
+        result = asyncio.run(
+            tool_glob(
+                {"pattern": "*file\\{1,2\\}*", "path": ""},
+                str(workspace_tree),
+            )
+        )
+        assert result.success
+        rels = _norm_lines(result.output)
+        assert "file{1,2}.ts" in rels
+        # file1.ts 和 file2.ts 不存在, 验证大括号没有被展开
 
     def test_substring_match_no_double_star(self, workspace_tree: Path):
-        """searchFiles 现在的回退模式 (去除 **/) 仍能在根目录和子目录命中."""
+        """*app* 模式应在根目录和子目录都能命中."""
         from app.api.v1.workspace.tools import tool_glob
 
         result = asyncio.run(
             tool_glob({"pattern": "*app*", "path": ""}, str(workspace_tree))
         )
         assert result.success
-        rels = [l for l in result.output.splitlines() if l and not l.startswith("...")]
-        # 根目录和子目录都能命中
-        assert any("app" in r for r in rels)
+        rels = _norm_lines(result.output)
+        # src/app.ts 应被命中
+        assert "src/app.ts" in rels
+        # 仅包含 "lib" 的文件不应被命中
+        assert "src/lib/util.js" not in rels
+        assert "src/lib/util_helper.ts" not in rels
+
+    def test_double_star_zero_levels(self, workspace_tree: Path):
+        """**/test.js 应能匹配根目录的 test.js."""
+        from app.api.v1.workspace.tools import tool_glob
+
+        result = asyncio.run(
+            tool_glob({"pattern": "**/test.js", "path": ""}, str(workspace_tree))
+        )
+        assert result.success
+        rels = _norm_lines(result.output)
+        assert "test.js" in rels

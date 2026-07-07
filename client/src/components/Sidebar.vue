@@ -411,6 +411,19 @@ const SparklesIcon = markRaw({
   },
 })
 
+const ModelConfigIcon = markRaw({
+  name: 'ModelConfigIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('rect', { x: '3', y: '3', width: '18', height: '18', rx: '2' }),
+      h('path', { d: 'M9 9h6' }),
+      h('path', { d: 'M9 15h6' }),
+      h('circle', { cx: '7', cy: '9', r: '1' }),
+      h('circle', { cx: '7', cy: '15', r: '1' }),
+    ])
+  },
+})
+
 const FilesIcon = markRaw({
   name: 'FilesIcon',
   render() {
@@ -936,6 +949,13 @@ const navGroups = computed<NavGroup[]>(() => {
           path: '/ai-world',
           icon: SparklesIcon,
           handler: () => goToPath('/ai-world'),
+        },
+        {
+          key: 'modelConfig',
+          label: t('models.providerManage'),
+          path: '/models-management',
+          icon: ModelConfigIcon,
+          handler: () => goToPath('/models-management'),
         },
       ],
     },

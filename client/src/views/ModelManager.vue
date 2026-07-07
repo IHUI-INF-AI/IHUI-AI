@@ -78,7 +78,7 @@ import {
 
 const { t } = useI18n()
 const { showSuccess, showError } = useOperationFeedback()
-const { confirmDelete } = useConfirmDialog()
+const { confirm } = useConfirmDialog()
 
 // --- State ---
 const loading = ref(false)
@@ -323,7 +323,7 @@ async function handleToggle(id: number | string, enabled: boolean) {
 }
 
 async function handleDelete(id: number | string) {
-  const confirmed = await confirmDelete(t('models.deleteConfirm'))
+  const confirmed = await confirm(t('models.deleteConfirm'))
   if (!confirmed) return
   try {
     const res = await deleteModelProvider(id)

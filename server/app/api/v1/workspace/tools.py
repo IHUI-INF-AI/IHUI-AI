@@ -758,7 +758,10 @@ async def tool_list_dir(args: dict[str, Any], workspace: str) -> ToolCallResult:
 # 工具调用方 (前端 searchFiles 回退、Agent glob) 都需要这些语义,
 # 因此提供一个统一的 _compile_glob, 把 glob 模式编译成正则后用 re.search 匹配。
 
-_GLOB_ESCAPE = "\x00"  # 唯一占位符, 不会出现在真实路径或 glob 模式中
+# 转义大括号的占位符: 用单字符占位符替换整个 \X 序列, 避免 _glob_expand_braces 看到 {, }
+# 注意: 占位符是单字符, 不含 { 或 }, 所以 _glob_expand_braces 不会误识别
+_PH_LBRACE_ESC = "\x01"
+_PH_RBRACE_ESC = "\x02"
 
 
 def _glob_expand_braces(pattern: str) -> list[str]:
@@ -840,12 +843,20 @@ def _compile_glob(pattern: str) -> re.Pattern[str]:
     - ``**``      : 任意层级目录前缀 (可匹配 0 个), 如 ``**/foo.js``
     - ``?``       : 任意单字符
     - ``[abc]`` / ``[!abc]`` : 字符类
-    - ``\\\\X``     : 反斜杠转义, ``X`` 当字面字符 (如 ``\\\\*`` 匹配字面 ``*``)
+    - ``\\X``     : 反斜杠转义, ``X`` 当字面字符 (如 ``\\*`` 匹配字面 ``*``)
     - ``{a,b,c}`` : 大括号展开, 生成多条模式取并集 (含 ``.ts,.js``)
 
     匹配语义: 子串匹配 (用 re.search), 同时覆盖全路径与纯文件名时效果与原 fnmatch 等价.
     """
-    expanded = _glob_expand_braces(pattern)
+    # 1. 临时把转义的大括号替换为单字符占位符 (避免 _glob_expand_braces 误处理)
+    protected = pattern.replace("\\{", _PH_LBRACE_ESC).replace("\\}", _PH_RBRACE_ESC)
+    # 2. 大括号展开 (此时模式中已没有未转义的 { 或 })
+    expanded = _glob_expand_braces(protected)
+    # 3. 还原占位符为 \X 序列, 让 _glob_to_regex_single 当作转义处理
+    expanded = [
+        p.replace(_PH_LBRACE_ESC, "\\{").replace(_PH_RBRACE_ESC, "\\}") for p in expanded
+    ]
+    # 4. 编译每条模式
     if len(expanded) == 1:
         body = _glob_to_regex_single(expanded[0])
     else:
