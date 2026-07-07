@@ -232,6 +232,27 @@
     "audioUploadSuccess": "音频上传成功",
     "audioUploadFailed": "音频上传失败",
     "voiceRecognitionSuccess": "语音识别成功",
-    "voiceRecognitionError": "语音识别失败: {message}"
+    "voiceRecognitionError": "语音识别失败: {message}",
+    "tokenUsagePanel": {
+      "title": "Token Usage",
+      "input": "Input",
+      "output": "Output",
+      "iterations": "{n} iterations",
+      "avgPerIteration": "avg {n} tokens/iter",
+      "empty": "No usage data"
+    },
+    "checkpointPanel": {
+      "title": "Checkpoint History",
+      "undo": "Undo",
+      "rollback": "Rollback",
+      "loading": "Loading...",
+      "empty": "No checkpoints",
+      "undoSuccess": "Undo successful",
+      "undoFailed": "Undo failed",
+      "rollbackSuccess": "Rollback successful",
+      "rollbackFailed": "Rollback failed",
+      "noCheckpoint": "No checkpoint to undo",
+      "useRollbackHint": "Use /rollback <id> to rollback to a specific checkpoint"
+    }
   }
 }

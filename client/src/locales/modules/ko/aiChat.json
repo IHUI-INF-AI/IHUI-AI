@@ -237,6 +237,27 @@
       "copyCode": "Copy Code",
       "saveComponent": "Save Component",
       "generateFailed": "Generate Failed"
+    },
+    "tokenUsagePanel": {
+      "title": "토큰 사용량",
+      "input": "입력",
+      "output": "출력",
+      "iterations": "{n}회 반복",
+      "avgPerIteration": "평균 {n} tokens/회",
+      "empty": "사용량 데이터 없음"
+    },
+    "checkpointPanel": {
+      "title": "체크포인트 기록",
+      "undo": "실행 취소",
+      "rollback": "롤백",
+      "loading": "로딩 중...",
+      "empty": "체크포인트 없음",
+      "undoSuccess": "실행 취소 성공",
+      "undoFailed": "실행 취소 실패",
+      "rollbackSuccess": "롤백 성공",
+      "rollbackFailed": "롤백 실패",
+      "noCheckpoint": "취소할 체크포인트 없음",
+      "useRollbackHint": "/rollback <id>로 지정 체크포인트에 롤백"
     }
   }
 }

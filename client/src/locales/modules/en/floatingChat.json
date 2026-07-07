@@ -878,7 +878,8 @@
           "help": "Help",
           "mode": "Mode",
           "info": "Info",
-          "setup": "Setup"
+          "setup": "Setup",
+          "github": "GitHub"
         }
       },
       "taskList": {

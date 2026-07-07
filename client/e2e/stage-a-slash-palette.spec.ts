@@ -3,7 +3,7 @@
  *
  * 覆盖:
  *  1. 输入 / 后 SlashCommandPalette 出现
- *  2. 8 个内置命令 (help/clear/compact/plan/plan-accept/plan-reject/init/goal) 全部加载
+ *  2. 至少 8 个内置命令 (核心: help/clear/compact/plan/plan-accept/plan-reject/init/goal) 全部加载
  *  3. 筛选: 输入 "pl" 只显示 plan/plan-accept/plan-reject
  *  4. 选中 /help 命令, 自动填入输入框
  *  5. 发送 /help, 后端返回 commands 列表
@@ -57,7 +57,7 @@ test.describe('SlashCommandPalette — Stage A-3 (对标 Claude Code / Codex / T
     await expect(page.locator(PALETTE)).toBeVisible({ timeout: 5000 })
   })
 
-  test('8 个内置命令全部加载', async ({ page }) => {
+  test('至少 8 个内置命令全部加载', async ({ page }) => {
     await openAIDialogMaximized(page)
     const input = page.locator(CHAT_INPUT).first()
     await expect(input).toBeVisible({ timeout: 8000 })
@@ -70,9 +70,12 @@ test.describe('SlashCommandPalette — Stage A-3 (对标 Claude Code / Codex / T
     const body = await response.json()
     const commands = body.data?.commands || []
     const names = new Set(commands.map((c: { name: string }) => c.name))
-    expect(names).toEqual(
-      new Set(['/help', '/clear', '/compact', '/plan', '/plan-accept', '/plan-reject', '/init', '/goal'])
-    )
+    // 核心 8 个必须存在 (实际已扩展到 12 个, 包含 cost/usage/memory/agents)
+    const core = new Set(['/help', '/clear', '/compact', '/plan', '/plan-accept', '/plan-reject', '/init', '/goal'])
+    for (const c of core) {
+      expect(names.has(c), `核心命令 ${c} 缺失`).toBe(true)
+    }
+    expect(names.size).toBeGreaterThanOrEqual(8)
   })
 
   test('筛选: 输入 "pl" 只显示 plan 类命令', async ({ page }) => {
@@ -107,7 +110,7 @@ test.describe('SlashCommandPalette — Stage A-3 (对标 Claude Code / Codex / T
     }
   })
 
-  test('发送 /help, 后端返回 8 个命令列表 (通过 WebSocket)', async ({ page }) => {
+  test('发送 /help, 后端返回至少 8 个命令列表 (通过 WebSocket)', async ({ page }) => {
     await openAIDialogMaximized(page)
     // 监听 WebSocket 响应
     const wsMessages: unknown[] = []

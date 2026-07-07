@@ -1,5 +1,6 @@
  
 // @ts-nocheck
+import * as ElementPlusIcons from '@element-plus/icons-vue'
 import {
   User,
   Lock,
@@ -140,6 +141,7 @@ export { EditPen }
 
 export { Files }
 export const AlertTriangle = WarningFilled
+export { WarningFilled } // 直接导出 WarningFilled(子组件 import 用)
 export const Copy = CopyDocument
 export { CopyDocument } // 直接导出 CopyDocument
 export { Download }
@@ -179,6 +181,7 @@ export const ChatBubble = ChatDotRound // ChatBubble 使用 ChatDotRound 图标�
 export const VideoCamera = VideoPlay // VideoCamera 使用 VideoPlay 图标替代
 export const Edit = EditIcon
 export const CheckCircle = CircleCheck
+export const CheckCircle2 = CheckCircle // CheckCircle2 别名(对齐 lucide 命名)
 export const XCircle = CircleClose
 export const Circle = InfoFilled
 export const Image = Picture
@@ -189,6 +192,7 @@ export { Share }
 export const Play = VideoPlay
 export const Network = Connection
 export const Zap = Lightning
+export const At = Connection // At(@) 图标替代(Element Plus 无 At 导出, 用 Connection 近似)
 export const Target = Aim
 export const Headphones = Headset
 export { Headset } // 直接导出 Headset
@@ -392,6 +396,8 @@ export const MicrophoneOff = Close // MicrophoneOff 使用 Close 图标替代
 export const VideoPause = Close // VideoPause 使用 Close 图标替代（暂停按钮）
 export const StopCircle = CircleClose // StopCircle 使用 CircleClose 图标替代
 export const Square = Close // Square 使用 Close 图标替代（停止图标）
+export const CircleCloseFilled = CircleClose // CircleCloseFilled 使用 CircleClose 替代
+export const WarnTriangleFilled = WarningFilled // WarnTriangleFilled 使用 WarningFilled 替代
 
 // Shield and Folder icons
 export const ShieldCheck = CircleCheckFilled // ShieldCheck 使用 CircleCheckFilled 图标替代
@@ -425,6 +431,10 @@ export const Wifi = Connection // Wifi 使用 Connection 图标替代
 export const Cog = Setting // Cog 使用 Setting 图标替代
 export const TrendingDown = TrendCharts // TrendingDown 使用 TrendCharts 图标替代
 export const Factory = Document // Factory 使用 Document 图标替代
+export const Reading = Document // Reading 使用 Document 图标替代 (element-plus icons 中可能不存在)
+
+// 兜底: re-export 所有 Element Plus 图标, 避免 179 个使用方出现 "does not provide an export named X" 错误
+export * from '@element-plus/icons-vue'
 
 // Lucide exports some generic types or functions, we might need to mock them if used?
 // For now, just icons.

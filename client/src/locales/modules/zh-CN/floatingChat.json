@@ -774,7 +774,8 @@
           "help": "帮助",
           "mode": "模式",
           "info": "信息",
-          "setup": "初始化"
+          "setup": "初始化",
+          "github": "GitHub"
         }
       },
       "taskList": {

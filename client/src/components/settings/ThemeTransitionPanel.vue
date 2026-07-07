@@ -85,6 +85,11 @@
       </div>
     </div>
 
+    <div class="preview-section" v-if="config.type !== 'none'">
+      <div class="section-label">{{ t('themeTransition.preview') }}</div>
+      <ThemeTransitionPreview />
+    </div>
+
     <div class="duration-info" v-if="config.type !== 'none'">
       <span>{{ t('themeTransition.duration') }}: {{ actualDuration }}ms</span>
     </div>
@@ -109,6 +114,7 @@ import {
   Coin, 
   Close 
 } from '@element-plus/icons-vue'
+import ThemeTransitionPreview from '@/components/settings/ThemeTransitionPreview.vue'
 
 const { t, locale } = useI18n()
 

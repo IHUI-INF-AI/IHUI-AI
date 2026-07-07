@@ -72,6 +72,7 @@ const EXPECTED_SECTIONS: ReadonlyArray<{ title: string; mustContain?: string }> 
   { title: '## 前端样式改动后 Agent 自验硬约束（2026-07-04 立）', mustContain: 'check-frontend-verify.mjs' },
   { title: '## /edu 教育中心路由名一致性硬约束（2026-07-04 立）', mustContain: 'check-edu-route-consistency.mjs' },
   { title: '## 纯 CSS style 块 // 行注释硬约束（2026-07-04 立）', mustContain: 'check-no-css-line-comments.mjs' },
+  { title: '## Cursor 规则完整整合（单一事实来源 · 已并入本文件）' },
 ]
 
 // 从 H2 标题自动派生 title-slug (title-slug-derived keyword)

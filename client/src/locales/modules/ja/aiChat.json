@@ -232,6 +232,27 @@
       "copyCode": "Copy Code",
       "saveComponent": "Save Component",
       "generateFailed": "Generate Failed"
+    },
+    "tokenUsagePanel": {
+      "title": "トークン使用量",
+      "input": "入力",
+      "output": "出力",
+      "iterations": "{n} 回反復",
+      "avgPerIteration": "平均 {n} tokens/回",
+      "empty": "使用量データなし"
+    },
+    "checkpointPanel": {
+      "title": "チェックポイント履歴",
+      "undo": "元に戻す",
+      "rollback": "ロールバック",
+      "loading": "読み込み中...",
+      "empty": "チェックポイントなし",
+      "undoSuccess": "元に戻す成功",
+      "undoFailed": "元に戻す失敗",
+      "rollbackSuccess": "ロールバック成功",
+      "rollbackFailed": "ロールバック失敗",
+      "noCheckpoint": "元に戻せるチェックポイントなし",
+      "useRollbackHint": "/rollback <id> で指定チェックポイントにロールバック"
     }
   }
 }

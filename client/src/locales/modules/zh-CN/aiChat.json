@@ -181,6 +181,27 @@
       "jan": "Jan AI 本地部署",
       "dify": "Dify AI 应用开发平台",
       "fastgpt": "FastGPT 知识库问答"
+    },
+    "tokenUsagePanel": {
+      "title": "Token 用量",
+      "input": "输入",
+      "output": "输出",
+      "iterations": "{n} 轮迭代",
+      "avgPerIteration": "均 {n} tokens/轮",
+      "empty": "暂无用量数据"
+    },
+    "checkpointPanel": {
+      "title": "检查点历史",
+      "undo": "撤销",
+      "rollback": "回滚",
+      "loading": "加载中...",
+      "empty": "暂无检查点",
+      "undoSuccess": "撤销成功",
+      "undoFailed": "撤销失败",
+      "rollbackSuccess": "回滚成功",
+      "rollbackFailed": "回滚失败",
+      "noCheckpoint": "没有可撤销的检查点",
+      "useRollbackHint": "使用 /rollback <id> 回滚到指定检查点"
     }
   }
 }
