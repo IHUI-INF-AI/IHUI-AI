@@ -1083,3 +1083,11 @@ try:
     api_router.include_router(order_items_router, prefix="/order", tags=["Order Items"])
 except Exception as _e:  # pragma: no cover
     logger.warning(f"路由模块 app.api.v1.order.items 导入失败, 已跳过: {_e}")
+
+# --- Developer: Model Config (custom model provider configuration + test connection) ---
+try:
+    from app.api.v1.developer.models import router as developer_models_router
+
+    api_router.include_router(developer_models_router, prefix="/developer", tags=["Developer: Model Config"])
+except Exception as _e:  # pragma: no cover
+    logger.warning(f"路由模块 app.api.v1.developer.models 导入失败, 已跳过: {_e}")

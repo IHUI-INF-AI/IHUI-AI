@@ -1595,7 +1595,7 @@ import { useMCP } from '@/composables/useMCP'
 import { useOpenClaw } from '@/composables/useOpenClaw'
 import { useSubViewDropdown } from '@/composables/useSubViewDropdown'
 import { useWorkspaceAgent } from '@/composables/useWorkspaceAgent'
-import type { ToolCallInfo } from '@/composables/useWorkspaceAgent'
+import type { ToolCallInfo, AgentPlan } from '@/composables/useWorkspaceAgent'
 import { useAiPanel } from '@/composables/useAiPanel'
 import { StorageManager } from '@/utils/storage'
 import MarkdownStream from './MarkdownStream.vue'
@@ -2103,8 +2103,8 @@ const todoListForPanel = computed(() => workspaceTodos.value ?? [])
 
 // 2026-07-07 Stage B: PlanReviewPanel 数据派生 (从 useWorkspaceAgent 同步到本地响应式)
 watch(
-  workspacePendingPlan,
-  (plan) => {
+  () => workspacePendingPlan.value,
+  (plan: AgentPlan | null) => {
     pendingPlanForReview.value = plan
       ? {
           title: plan.title,
@@ -2131,9 +2131,11 @@ const aiPanelState = useAiPanel()
 
 // 当前工作区路径 (用于 CheckpointHistoryPanel 等组件, 对标 Aider/Gemini 回滚面板)
 const currentWorkspacePath = computed(() => {
-  return (aiPanelState as Record<string, unknown>).selectedFolderPath
-    ? ((aiPanelState as Record<string, unknown>).selectedFolderPath as { value: string }).value
-    : ''
+  const raw = (aiPanelState as unknown as Record<string, unknown>).selectedFolderPath
+  if (raw && typeof raw === 'object' && 'value' in raw) {
+    return (raw as { value: string }).value
+  }
+  return ''
 })
 const openClawDashboard = computed(() =>
   (openClawActivePanel.value === 'dashboard' || openClawActivePanel.value === '')
@@ -4382,7 +4384,7 @@ const handleSend = async () => {
 
     // 工作区 Agent 模式: 当用户选择了本地文件夹时, 使用 Agent 工具循环 (对标 Claude Code)
     // Agent 可以读写文件、执行命令、搜索代码, 而非普通 LLM 对话
-    const workspaceFolder = aiPanelState.selectedFolderPath.value
+    const workspaceFolder = (aiPanelState as unknown as Record<string, { value: string }>).selectedFolderPath?.value || ''
     if (workspaceFolder) {
       const modelCode = selectedModel.value?.modelCode || 'default'
       const userUuid = getUserUuid()

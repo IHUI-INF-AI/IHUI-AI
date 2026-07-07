@@ -159,6 +159,10 @@ async def run_subagent(
     from app.api.v1.workspace.agent_loop import run_agent_loop
     from app.api.v1.workspace.llm_gateway import ChatMessage
 
+    # 生成唯一 agent_id (对标 Claude Code Resumable Subagents)
+    import uuid as _uuid
+    agent_id = _uuid.uuid4().hex[:12]
+
     # 确定模型
     model_id = main_model_id if subagent.model == "inherit" else subagent.model
 
@@ -231,7 +235,16 @@ async def run_subagent(
             })
         except Exception:
             pass
-        return {"success": False, "output": f"子代理执行失败: {e}", "iterations": 0}
+        _persist_subagent_run(workspace_path, {
+            "agent_id": agent_id,
+            "subagent_name": subagent.name,
+            "task_prompt": task_prompt,
+            "output": f"子代理执行失败: {e}",
+            "iterations": 0,
+            "success": False,
+            "status": "failed",
+        })
+        return {"agent_id": agent_id, "success": False, "output": f"子代理执行失败: {e}", "iterations": 0}
 
     # SubagentStop Hook (Stage B: 补全 Hook 扩展点)
     # 在子代理完成后触发, 可用于清理资源/通知/审计
@@ -247,9 +260,169 @@ async def run_subagent(
     except Exception as e:
         logger.warning(f"SubagentStop Hook 触发失败 (非阻断): {e}")
 
+    # 持久化 transcript (支持可恢复 resume)
+    _persist_subagent_run(workspace_path, {
+        "agent_id": agent_id,
+        "subagent_name": subagent.name,
+        "task_prompt": task_prompt,
+        "output": accumulated_output or "(子代理无输出)",
+        "iterations": iterations,
+        "success": success,
+        "status": "completed",
+    })
+
     return {
+        "agent_id": agent_id,
         "success": success,
         "output": accumulated_output or "(子代理无输出)",
+        "iterations": iterations,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 持久化 + 并发池 + 可恢复 (对标 Claude Code Resumable Subagents + Codex max_threads)
+# ---------------------------------------------------------------------------
+
+def _get_subagent_run_path(workspace_path: str, agent_id: str) -> Path:
+    """子代理执行记录路径。"""
+    return Path(workspace_path) / ".claude" / "subagent-runs" / f"{agent_id}.json"
+
+
+def _persist_subagent_run(workspace_path: str, data: dict[str, Any]) -> None:
+    """持久化子代理执行记录 (支持 resume 恢复上下文)。"""
+    try:
+        path = _get_subagent_run_path(workspace_path, data["agent_id"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        import json
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        logger.warning(f"持久化子代理记录失败: {e}")
+
+
+def load_subagent_run(workspace_path: str, agent_id: str) -> dict[str, Any] | None:
+    """加载子代理执行记录 (用于 resume)。"""
+    try:
+        path = _get_subagent_run_path(workspace_path, agent_id)
+        if not path.exists():
+            return None
+        import json
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"加载子代理记录失败: {e}")
+        return None
+
+
+async def run_subagents_parallel(
+    tasks: list[dict[str, Any]],
+    workspace_path: str,
+    main_model_id: str,
+    *,
+    max_workers: int = 4,
+    user_uuid: str = "anonymous",
+) -> list[dict[str, Any]]:
+    """并发池执行多个子代理任务 (对标 Codex max_threads 并发)。
+
+    Args:
+        tasks: [{"subagent": SubagentConfig, "prompt": str}, ...]
+        max_workers: 最大并发数 (默认 4, 对标 Codex max_threads=6 的保守值)
+    Returns:
+        [{"agent_id", "success", "output", "iterations"}, ...] 顺序与输入一致
+    """
+    import asyncio
+    sem = asyncio.Semaphore(max_workers)
+
+    async def _run_one(task: dict[str, Any]) -> dict[str, Any]:
+        async with sem:
+            return await run_subagent(
+                subagent=task["subagent"],
+                task_prompt=task["prompt"],
+                workspace_path=workspace_path,
+                main_model_id=main_model_id,
+                user_uuid=user_uuid,
+            )
+
+    return await asyncio.gather(*[_run_one(t) for t in tasks])
+
+
+async def resume_subagent(
+    agent_id: str,
+    new_prompt: str,
+    workspace_path: str,
+    main_model_id: str,
+    *,
+    max_iterations: int = 15,
+    user_uuid: str = "anonymous",
+) -> dict[str, Any]:
+    """恢复已结束的子代理, 保留上下文继续执行 (对标 Claude Code Resumable Subagents)。
+
+    之前的 task_prompt + output 作为历史注入, 新 prompt 作为当前输入。
+    """
+    from app.api.v1.workspace.agent_loop import run_agent_loop
+    from app.api.v1.workspace.llm_gateway import ChatMessage
+
+    record = load_subagent_run(workspace_path, agent_id)
+    if not record:
+        return {"agent_id": agent_id, "success": False, "output": f"子代理记录 {agent_id} 未找到, 无法恢复", "iterations": 0}
+
+    # 重建子代理配置
+    agents = discover_subagents(workspace_path)
+    subagent = next((a for a in agents if a.name == record["subagent_name"]), None)
+    if not subagent:
+        return {"agent_id": agent_id, "success": False, "output": f"子代理 {record['subagent_name']} 配置已不存在", "iterations": 0}
+
+    model_id = main_model_id if subagent.model == "inherit" else subagent.model
+
+    # 构建历史上下文 (之前的任务 + 输出)
+    history = [
+        ChatMessage(role="user", content=record["task_prompt"]),
+        ChatMessage(role="assistant", content=record["output"]),
+    ]
+
+    sys_prompt = subagent.system_prompt or f"你是子代理 {subagent.name}。{subagent.description}"
+    sys_prompt += f"\n\n## 子代理身份 (恢复会话)\n你是 \"{subagent.name}\" 子代理的恢复会话。之前的上下文已恢复, 请继续完成新任务。\n"
+
+    accumulated = ""
+    iterations = 0
+    success = True
+    try:
+        async for event in run_agent_loop(
+            prompt=new_prompt,
+            model_id=model_id,
+            workspace_path=workspace_path,
+            user_uuid=user_uuid,
+            system_prompt=sys_prompt,
+            max_iterations=max_iterations,
+            allowed_tools=subagent.tools if subagent.tools else None,
+            permission_mode="bypassPermissions",
+            history=history,
+        ):
+            etype = event.get("type")
+            if etype == "agent.text.delta":
+                accumulated += event.get("content", "")
+            elif etype == "agent.done":
+                iterations = event.get("iterations", 0)
+            elif etype == "agent.error":
+                success = False
+                accumulated += f"\n[错误] {event.get('message', '')}"
+    except Exception as e:
+        logger.error(f"恢复子代理 {agent_id} 失败: {e}")
+        return {"agent_id": agent_id, "success": False, "output": f"恢复失败: {e}", "iterations": 0}
+
+    # 持久化恢复后的记录
+    _persist_subagent_run(workspace_path, {
+        "agent_id": agent_id,
+        "subagent_name": subagent.name,
+        "task_prompt": f"{record['task_prompt']}\n\n--- resume ---\n{new_prompt}",
+        "output": f"{record['output']}\n\n--- resume ---\n{accumulated or '(无输出)'}",
+        "iterations": iterations,
+        "success": success,
+        "status": "resumed",
+    })
+
+    return {
+        "agent_id": agent_id,
+        "success": success,
+        "output": accumulated or "(恢复后无输出)",
         "iterations": iterations,
     }
 
@@ -266,12 +439,38 @@ async def tool_task(args: dict[str, Any], workspace: str) -> Any:
     - 或直接指定子代理名称
     - 返回子代理的执行结果摘要
     """
+    from app.api.v1.workspace.tools import ToolCallResult
     subagent_name = args.get("subagent", "")
     task_prompt = args.get("prompt", "")
     model_id = args.get("model_id", "default")
 
+    # 并发派发多个子代理 (对标 Codex spawn_agent 并发, max_threads)
+    tasks_list = args.get("tasks")
+    if tasks_list and isinstance(tasks_list, list):
+        agents = discover_subagents(workspace)
+        if not agents:
+            return ToolCallResult(tool="task", input=args, output="无可用子代理", error="no subagents", success=False)
+        parallel_tasks: list[dict[str, Any]] = []
+        for t in tasks_list:
+            sa_name = t.get("subagent", "")
+            sa = next((a for a in agents if a.name == sa_name), agents[0])
+            parallel_tasks.append({"subagent": sa, "prompt": t.get("prompt", "")})
+        results = await run_subagents_parallel(parallel_tasks, workspace, model_id, max_workers=args.get("max_workers", 4))
+        lines = []
+        for i, r in enumerate(results):
+            lines.append(f"[并发子代理 {i+1}: {parallel_tasks[i]['subagent'].name} (id={r.get('agent_id')})]\n{r['output']}\n[迭代: {r['iterations']}, 成功: {r['success']}]")
+        return ToolCallResult(tool="task", input=args, output="\n\n".join(lines), success=all(r["success"] for r in results))
+
+    # 恢复已有子代理 (对标 Claude Code Resumable Subagents)
+    resume_id = args.get("resume")
+    if resume_id:
+        if not task_prompt:
+            return ToolCallResult(tool="task", input=args, output="", error="resume 需配合 prompt 参数", success=False)
+        r = await resume_subagent(resume_id, task_prompt, workspace, model_id)
+        output = f"[恢复子代理 id={r.get('agent_id')}]\n{r['output']}\n[迭代: {r['iterations']}]"
+        return ToolCallResult(tool="task", input=args, output=output, success=r["success"])
+
     if not task_prompt:
-        from app.api.v1.workspace.tools import ToolCallResult
         return ToolCallResult(
             tool="task",
             input=args,
@@ -352,7 +551,26 @@ TASK_TOOL_DEFINITION = {
                 },
                 "prompt": {
                     "type": "string",
-                    "description": "委派给子代理的任务描述",
+                    "description": "委派给子代理的任务描述 (resume 模式下为追加的新指令)",
+                },
+                "tasks": {
+                    "type": "array",
+                    "description": "并发派发多个子代理 (对标 Codex 并发)。每项 {subagent, prompt}。提供此参数时忽略 subagent/prompt。",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "subagent": {"type": "string"},
+                            "prompt": {"type": "string"},
+                        },
+                    },
+                },
+                "resume": {
+                    "type": "string",
+                    "description": "恢复已结束的子代理 agent_id, 保留其上下文继续执行 (对标 Claude Code Resumable Subagents)",
+                },
+                "max_workers": {
+                    "type": "integer",
+                    "description": "并发最大数 (tasks 模式, 默认 4)",
                 },
                 "model_id": {
                     "type": "string",

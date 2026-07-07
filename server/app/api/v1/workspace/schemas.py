@@ -150,14 +150,54 @@ class MemoryEntry(BaseModel):
 # MCP
 # ---------------------------------------------------------------------------
 
+class MCPOAuthConfig(BaseModel):
+    """MCP OAuth 配置 (授权码流程, 对标 Codex OAuth)。
+
+    简化版: 支持配置静态 access_token / refresh_token 直接使用,
+    同时预留完整授权码流程接口 (build_auth_url / exchange_code / refresh)。
+    所有字符串字段支持 ${VAR} 环境变量展开。
+    """
+    client_id: str = ""
+    client_secret: str = ""
+    auth_url: str = ""  # 授权端点 (用户浏览器跳转)
+    token_url: str = ""  # token 交换/刷新端点
+    scopes: list[str] = Field(default_factory=list)
+    redirect_uri: str = "http://localhost:8765/callback"
+    # 已缓存/静态 token (配置时可直接填入, 跳过交互式授权)
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "Bearer"
+    expires_in: int | None = None  # 秒
+
+
+class MCPAuthConfig(BaseModel):
+    """MCP 认证配置 (对标 Claude Code 的认证支持)。
+
+    - none: 无认证
+    - bearer: 静态 Bearer Token (从 config 或环境变量读取)
+    - oauth: OAuth 2.0 授权码流程 (Codex 风格)
+    """
+    type: str = "none"  # none|bearer|oauth
+    token: str | None = None  # bearer 静态 token (支持 ${VAR})
+    oauth: MCPOAuthConfig | None = None
+
+
 class MCPServerConfig(BaseModel):
-    """MCP 服务器配置。"""
+    """MCP 服务器配置。
+
+    向后兼容: command/args/env 用于 stdio; url+transport 用于 http/sse。
+    api_key/headers/auth 为 P1 缺口补齐新增字段, 全部可选。
+    """
     name: str
     command: str | None = None
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
-    url: str | None = None  # SSE/HTTP 模式
-    transport: str = "stdio"  # stdio|sse|http
+    url: str | None = None  # SSE/HTTP 模式端点
+    transport: str = "stdio"  # stdio|http|sse
+    # P1 缺口补齐: 认证 + 自定义 headers (全部可选, 向后兼容)
+    api_key: str | None = None  # 兼容字段: 等价于 auth.type=bearer + auth.token; 支持 ${VAR}
+    headers: dict[str, str] = Field(default_factory=dict)  # 自定义请求头
+    auth: MCPAuthConfig | None = None  # 结构化认证配置
 
 
 class MCPTool(BaseModel):
@@ -166,6 +206,16 @@ class MCPTool(BaseModel):
     description: str
     input_schema: dict[str, Any] = Field(default_factory=dict)
     server_name: str = ""
+
+
+class MCPServerStatus(BaseModel):
+    """MCP 连接器运行状态 (供前端连接器面板可视化)。"""
+    name: str
+    transport: str = "stdio"  # stdio|http|sse
+    online: bool = False  # 在线/离线
+    tool_count: int = 0  # 已发现工具数
+    url: str | None = None
+    error: str | None = None
 
 
 # ---------------------------------------------------------------------------

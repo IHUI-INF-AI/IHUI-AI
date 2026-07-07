@@ -1,842 +1,443 @@
 <template>
   <div class="model-manager page-container">
-    <!-- 头部 -->
-    <div class="header">
-      <div>
-        <h1 class="title">{{ t('models.title') }}</h1>
-        <p class="subtitle">{{ t('models.subtitle') }}</p>
+    <!-- Header -->
+    <div class="mm-header">
+      <div class="mm-header__left">
+        <h1 class="mm-header__title">{{ t('models.providerManage') }}</h1>
+        <p class="mm-header__subtitle">{{ t('models.providerManageSubtitle') }}</p>
       </div>
-      <div class="header-actions">
-        <el-input
-          v-model="searchKeyword"
-          :placeholder="t('models.searchModel')"
-          clearable
-          class="search-input"
-          @keyup.enter="handleSearch"
-          @clear="handleSearch"
-        >
-          <template #prefix>
-            <SearchIcon />
-          </template>
-        </el-input>
-        <el-select
-          v-model="filterProvider"
-          clearable
-          :placeholder="t('models.filterProviderPlaceholder')"
-          class="provider-select"
-          @change="handleSearch"
-        >
-          <el-option
-            v-for="provider in providerOptions"
-            :key="provider"
-            :label="provider"
-            :value="provider"
-          />
-        </el-select>
-        <el-switch v-model="onlyEnabled" :active-text="t('models.onlyEnabled')" />
-        <el-button type="primary" @click="handleCreate">
-          <el-icon><Plus /></el-icon>
-          {{ t('models.addModel') }}
+      <div class="mm-header__right">
+        <el-button @click="handleRefresh" :loading="loading">
+          <RefreshIcon class="btn-icon" />
+          {{ t('common.refresh') }}
         </el-button>
       </div>
     </div>
 
-    <!-- 模型列表 -->
-    <el-card class="model-card" shadow="never">
-      <el-empty
-        v-if="!loading && models.length === 0"
-        :description="t('models.noModelData')"
-        :image-size="120"
-      />
-      <el-table v-else :data="models" v-loading="loading" border style="width: 100%">
-        <el-table-column prop="name" :label="t('models.modelName')" min-width="160">
-          <template #default="{ row }">
-            <div class="model-name-cell">
-              <span class="model-display-name">{{ row.name }}</span>
-              <span class="model-id">({{ row.modelId }})</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="provider" :label="t('models.provider')" width="120" />
-        <el-table-column prop="type" :label="t('models.type')" width="120" />
-        <el-table-column :label="t('models.capabilities')" min-width="160">
-          <template #default="{ row }">
-            <el-tag
-              v-for="cap in row.capabilities || []"
-              :key="cap"
-              size="small"
-              type="info"
-              class="cap-tag"
-            >
-              {{ cap }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="enabled" :label="t('models.status')" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="usageCount" :label="t('models.usageCount')" width="120">
-          <template #default="{ row }">
-            {{ row.usageCount ?? '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('common.operation')" fixed="right" width="320">
-          <template #default="{ row }">
-            <el-button link size="small" @click="handleEdit(row)">
-              {{ t('common.edit') }}
-            </el-button>
-            <el-button link size="small" type="primary" @click="handleToggle(row)">
-              {{ row.enabled ? t('models.disable') : t('models.enable') }}
-            </el-button>
-            <el-button link size="small" type="success" @click="handleTest(row)">
-              {{ t('models.test') }}
-            </el-button>
-            <el-button link size="small" type="warning" @click="handleShowApiInfo(row)">
-              {{ t('models.apiAccess') }}
-            </el-button>
-            <el-button link size="small" type="danger" @click="handleDelete(row)">
-              {{ t('common.delete') }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="pagination.total"
-          @current-change="handlePageChange"
-          @size-change="handlePageSizeChange"
+    <!-- Three-column layout -->
+    <div class="mm-layout">
+      <!-- Middle: Provider List Panel -->
+      <div class="mm-layout__list">
+        <ProviderListPanel
+          :builtin-providers="builtinProviderList"
+          :custom-providers="customProviders"
+          :selected-code="selectedBuiltinCode"
+          :selected-id="selectedProviderId"
+          :enabled-codes="enabledCodes"
+          @select="handleSelectBuiltin"
+          @select-custom="handleSelectCustom"
+          @add="handleAddCustom"
         />
       </div>
-    </el-card>
 
-    <!-- 创建/编辑模型对话框 -->
-    <el-dialog
-      v-model="editDialogVisible"
-      :title="editingModel ? t('models.editModel') : t('models.addModel')"
-      width="640px"
-    >
-      <el-form ref="formRef" :model="formModel" :rules="rules" label-width="120px">
-        <el-form-item :label="t('models.modelName')" prop="name">
-          <el-input v-model="formModel.name" />
-        </el-form-item>
-        <el-form-item :label="t('models.modelId')" prop="modelId">
-          <el-input v-model="formModel.modelId" />
-        </el-form-item>
-        <el-form-item :label="t('models.provider')" prop="provider">
-          <el-input v-model="formModel.provider" />
-        </el-form-item>
-        <el-form-item :label="t('models.type')" prop="type">
-          <el-select v-model="formModel.type" filterable>
-            <el-option v-for="type in modelTypes" :key="type" :label="type" :value="type" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('models.description')" prop="description">
-          <el-input v-model="formModel.description" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item :label="t('models.capabilities')" prop="capabilities">
-          <el-select v-model="formModel.capabilities" multiple filterable>
-            <el-option v-for="cap in capabilityOptions" :key="cap" :label="cap" :value="cap" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('models.enabled')" prop="enabled">
-          <el-switch v-model="formModel.enabled" />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="editDialogVisible = false">
-            {{ t('common.cancel') }}
-          </el-button>
-          <el-button type="primary" :loading="saving" @click="handleSave">
-            {{ t('common.save') }}
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- API对接信息对话框 -->
-    <el-dialog
-      v-model="apiInfoDialogVisible"
-      :title="t('models.apiAccessTitle')"
-      width="800px"
-      class="api-info-dialog"
-    >
-      <template v-if="selectedModelForApi">
-        <el-alert
-          :title="t('models.apiAccessTip')"
-          type="info"
-          :closable="false"
-          show-icon
-          class="api-alert"
+      <!-- Right: Provider Config Panel -->
+      <div class="mm-layout__config">
+        <ProviderConfigPanel
+          :provider="selectedProvider"
+          :is-creating="isCreating"
+          :api-formats="apiFormats"
+          :saving="saving"
+          :test-state="testState"
+          :test-result="testResult"
+          :is-testing="isTesting"
+          :has-result="hasResult"
+          :success-message="successMessage"
+          :error-message="errorMessage"
+          @save="handleSave"
+          @test="handleTest"
+          @toggle="handleToggle"
+          @delete="handleDelete"
         />
-
-        <el-descriptions :column="2" border class="api-descriptions">
-          <el-descriptions-item :label="t('models.modelName')">
-            {{ selectedModelForApi.name }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('models.modelId')">
-            <code>{{ selectedModelForApi.modelId }}</code>
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('models.provider')">
-            {{ selectedModelForApi.provider }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('models.type')">
-            {{ selectedModelForApi.type }}
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <el-divider>{{ t('models.apiEndpoints') }}</el-divider>
-
-        <div class="api-endpoints">
-          <div class="endpoint-item">
-            <div class="endpoint-header">
-              <span class="endpoint-label">OpenAI {{ t('models.compatible') }}</span>
-              <el-tag type="success" size="small">{{ t('models.recommended') }}</el-tag>
-            </div>
-            <div class="endpoint-url">
-              <code>{{ apiBaseUrl }}/v1/chat/completions</code>
-              <el-button link size="small" @click="copyToClipboard(`${apiBaseUrl}/v1/chat/completions`)">
-                {{ t('common.copy') }}
-              </el-button>
-            </div>
-          </div>
-          <div class="endpoint-item">
-            <div class="endpoint-header">
-              <span class="endpoint-label">Anthropic {{ t('models.compatible') }}</span>
-            </div>
-            <div class="endpoint-url">
-              <code>{{ apiBaseUrl }}/v1/messages</code>
-              <el-button link size="small" @click="copyToClipboard(`${apiBaseUrl}/v1/messages`)">
-                {{ t('common.copy') }}
-              </el-button>
-            </div>
-          </div>
-        </div>
-
-        <el-divider>{{ t('models.codeExample') }}</el-divider>
-
-        <el-tabs v-model="codeExampleTab" class="code-tabs">
-          <el-tab-pane label="cURL" name="curl">
-            <div class="code-block">
-              <pre><code>{{ generateCurlExample(selectedModelForApi) }}</code></pre>
-              <el-button
-                class="copy-btn"
-                size="small"
-                @click="copyToClipboard(generateCurlExample(selectedModelForApi))"
-              >
-                {{ t('common.copy') }}
-              </el-button>
-            </div>
-          </el-tab-pane>
-          <el-tab-pane label="Python" name="python">
-            <div class="code-block">
-              <pre><code>{{ generatePythonExample(selectedModelForApi) }}</code></pre>
-              <el-button
-                class="copy-btn"
-                size="small"
-                @click="copyToClipboard(generatePythonExample(selectedModelForApi))"
-              >
-                {{ t('common.copy') }}
-              </el-button>
-            </div>
-          </el-tab-pane>
-          <el-tab-pane label="Node.js" name="nodejs">
-            <div class="code-block">
-              <pre><code>{{ generateNodejsExample(selectedModelForApi) }}</code></pre>
-              <el-button
-                class="copy-btn"
-                size="small"
-                @click="copyToClipboard(generateNodejsExample(selectedModelForApi))"
-              >
-                {{ t('common.copy') }}
-              </el-button>
-            </div>
-          </el-tab-pane>
-        </el-tabs>
-
-        <el-divider>{{ t('models.quickActions') }}</el-divider>
-
-        <div class="quick-actions">
-          <el-button type="primary" @click="goToApiTokens">
-            <el-icon><Key /></el-icon>
-            {{ t('models.manageApiTokens') }}
-          </el-button>
-          <el-button @click="goToApiDocs">
-            <el-icon><Document /></el-icon>
-            {{ t('models.viewApiDocs') }}
-          </el-button>
-          <el-button @click="goToApiStats">
-            <el-icon><DataAnalysis /></el-icon>
-            {{ t('models.viewUsageStats') }}
-          </el-button>
-        </div>
-      </template>
-
-      <template #footer>
-        <el-button @click="apiInfoDialogVisible = false">{{ t('common.close') }}</el-button>
-      </template>
-    </el-dialog>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
- 
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
-import { type FormInstance, type FormRules, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { RefreshIcon } from '@/lib/lucide-fallback'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
-import { usePageState } from '@/composables/usePageState'
-import { ApiErrorType } from '@/utils/errorHandler'
-import { Plus, Key, Document, DataAnalysis } from '@element-plus/icons-vue'
-import SearchIcon from '@/components/common/SearchIcon.vue'
+import ProviderListPanel from './models/ProviderListPanel.vue'
+import ProviderConfigPanel from './models/ProviderConfigPanel.vue'
+import { useModelTest } from '@/composables/useModelTest'
 import {
-  getModelsList,
-  createModel,
-  updateModel,
-  deleteModel,
-  testModel,
-  type AIModel,
-  type ModelType,
+  getModelProviders,
+  createModelProvider,
+  updateModelProvider,
+  deleteModelProvider,
+  toggleModelProvider,
+  getApiFormats,
+  MODEL_PROVIDERS,
+  type ModelProviderConfig,
+  type ApiFormatInfo,
+  type ApiFormatType,
 } from '@/api/models'
 
 const { t } = useI18n()
-const router = useRouter()
-const { handleResult, showError: showErrorMsg, showWarning } = useOperationFeedback()
+const { showSuccess, showError } = useOperationFeedback()
 const { confirmDelete } = useConfirmDialog()
-const { loading, error: pageError } = usePageState()
+
+// --- State ---
+const loading = ref(false)
 const saving = ref(false)
-const models = ref<AIModel[]>([])
-const searchKeyword = ref('')
-const filterProvider = ref<string | undefined>(undefined)
-const onlyEnabled = ref(true)
+const customProviders = ref<ModelProviderConfig[]>([])
+const apiFormats = ref<ApiFormatInfo[]>([])
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0,
+const selectedBuiltinCode = ref<string | null>(null)
+const selectedProviderId = ref<number | string | null>(null)
+const isCreating = ref(false)
+
+// Built-in providers from MODEL_PROVIDERS constant
+const builtinProviderList = computed(() => {
+  return Object.entries(MODEL_PROVIDERS)
+    .filter(([code]) => code !== 'custom')
+    .map(([code, info]) => ({
+      code,
+      name: info.name,
+      icon: info.icon,
+    }))
 })
 
-const providerOptions = computed(() => {
-  const set = new Set<string>()
-  models.value.forEach(m => {
-    if (m.provider) set.add(m.provider)
+const enabledCodes = computed(() => {
+  const codes = new Set<string>()
+  customProviders.value.forEach((p) => {
+    if (p.enabled) codes.add(p.providerCode)
   })
-  return Array.from(set).sort()
+  return codes
 })
 
-const capabilityOptions = ['chat', 'image', 'audio', 'video']
-const modelTypes: ModelType[] = [
-  'openai',
-  'anthropic',
-  'google',
-  'coze',
-  'dashscope',
-  'baidu',
-  'alibaba',
-  'tencent',
-  'doubao',
-  'zhipu',
-  'moonshot',
-  'custom',
-]
-
-// 对话框 & 表单
-const editDialogVisible = ref(false)
-const editingModel = ref<AIModel | null>(null)
-const formRef = ref<FormInstance | null>(null)
-const formModel = reactive<Partial<AIModel>>({
-  name: '',
-  modelId: '',
-  provider: '',
-  type: 'talk',
-  description: '',
-  capabilities: ['chat'],
-  enabled: true,
+// Currently selected provider (for config panel)
+const selectedProvider = computed<ModelProviderConfig | null>(() => {
+  if (isCreating.value) return null
+  if (selectedProviderId.value) {
+    return customProviders.value.find((p) => p.id === selectedProviderId.value) || null
+  }
+  // For built-in selection, find matching custom provider config
+  if (selectedBuiltinCode.value) {
+    return (
+      customProviders.value.find((p) => p.providerCode === selectedBuiltinCode.value) || null
+    )
+  }
+  return null
 })
 
-const rules: FormRules = {
-  name: [{ required: true, message: t('models.pleaseEnterModelName'), trigger: 'blur' }],
-  modelId: [{ required: true, message: t('models.pleaseEnterModelId'), trigger: 'blur' }],
-  provider: [{ required: true, message: t('models.pleaseEnterProvider'), trigger: 'blur' }],
-  type: [{ required: true, message: t('models.pleaseSelectType'), trigger: 'change' }],
-}
+// --- Test composable ---
+const {
+  testState,
+  testResult,
+  isTesting,
+  hasResult,
+  runTest,
+  resetTest,
+  getErrorMessage,
+  getSuccessMessage,
+} = useModelTest()
 
-const loadModels = async () => {
+const successMessage = computed(() => {
+  if (!testResult.value) return ''
+  return getSuccessMessage(testResult.value)
+})
+
+const errorMessage = computed(() => {
+  if (!testResult.value) return ''
+  return getErrorMessage(testResult.value)
+})
+
+// --- Data loading ---
+async function loadProviders() {
   loading.value = true
-  pageError.value = null
   try {
-    const res = await getModelsList({
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      enabled: onlyEnabled.value ? true : undefined,
-    })
-    if (res.code === 200 && res.success && res.data) {
-      let list = res.data.list || []
-      if (searchKeyword.value) {
-        const kw = searchKeyword.value.toLowerCase()
-        list = list.filter(
-          m => m.name.toLowerCase().includes(kw) || m.modelId.toLowerCase().includes(kw)
-        )
-      }
-      if (filterProvider.value) {
-        list = list.filter(m => m.provider === filterProvider.value)
-      }
-      models.value = list
-      pagination.total = res.data.pagination?.total ?? list.length
+    const res = await getModelProviders({ pageSize: 200 })
+    if (res.success) {
+      customProviders.value = res.data.list
     } else {
-      models.value = []
-      pagination.total = 0
-      const errorMsg = res.message || t('models.loadModelsFailed')
-      pageError.value = {
-        type: ApiErrorType.BUSINESS,
-        code: res.code,
-        message: errorMsg,
-      }
-      if (res.message) {
-        showWarning(res.message)
-      }
+      showError(res.message)
     }
-  } catch (error: unknown) {
-    models.value = []
-    pagination.total = 0
-    const errorMsg =
-      (error instanceof Error ? error.message : String(error)) || t('models.loadModelsFailed')
-    pageError.value = {
-      type: ApiErrorType.UNKNOWN,
-      code: 500,
-      message: errorMsg,
-      originalError: error,
-    }
-    showErrorMsg(errorMsg)
+  } catch (err) {
+    showError(err instanceof Error ? err.message : t('common.loadFailed'))
   } finally {
     loading.value = false
   }
 }
 
-const handleSearch = () => {
-  pagination.page = 1
-  loadModels()
-}
-
-const handlePageChange = (page: number) => {
-  pagination.page = page
-  loadModels()
-}
-
-const handlePageSizeChange = (size: number) => {
-  pagination.pageSize = size
-  pagination.page = 1
-  loadModels()
-}
-
-const resetFormModel = () => {
-  formModel.id = undefined
-  formModel.name = ''
-  formModel.modelId = ''
-  formModel.provider = ''
-  formModel.type = 'talk'
-  formModel.description = ''
-  formModel.capabilities = ['chat']
-  formModel.enabled = true
-}
-
-const handleCreate = () => {
-  editingModel.value = null
-  resetFormModel()
-  editDialogVisible.value = true
-}
-
-const handleEdit = (row: AIModel) => {
-  editingModel.value = row
-  formModel.id = row.id
-  formModel.name = row.name
-  formModel.modelId = row.modelId
-  formModel.provider = row.provider
-  formModel.type = row.type
-  formModel.description = row.description
-  formModel.capabilities = [...(row.capabilities || [])]
-  formModel.enabled = row.enabled
-  editDialogVisible.value = true
-}
-
-const handleSave = () => {
-  if (!formRef.value) return
-  formRef.value.validate(async (valid: boolean) => {
-    if (!valid) return
-    saving.value = true
-    try {
-      const payload: Partial<AIModel> = {
-        name: formModel.name?.trim() || '',
-        modelId: formModel.modelId?.trim() || '',
-        provider: formModel.provider?.trim() || '',
-        type: formModel.type,
-        description: formModel.description,
-        capabilities: formModel.capabilities || [],
-        enabled: !!formModel.enabled,
-      }
-      let _res
-      if (editingModel.value) {
-        _res = await updateModel(editingModel.value.id, payload)
-      } else {
-        _res = await createModel(payload)
-      }
-      await handleResult(
-        editingModel.value ? updateModel(editingModel.value.id, payload) : createModel(payload),
-        {
-          successMessage: t('common.success'),
-          errorMessage: t('common.failed'),
-          onSuccess: () => {
-            editDialogVisible.value = false
-            loadModels()
-          },
-        }
-      )
-    } catch (error: unknown) {
-      showErrorMsg((error instanceof Error ? error.message : String(error)) || t('common.failed'))
-    } finally {
-      saving.value = false
-    }
-  })
-}
-
-const handleDelete = async (row: AIModel) => {
-  const confirmed = await confirmDelete(row.name || t('common.item'))
-  if (!confirmed) return
-
-  await handleResult(deleteModel(row.id), {
-    successMessage: t('common.deleteSuccess'),
-    errorMessage: t('common.failed'),
-    onSuccess: () => {
-      loadModels()
-    },
-  })
-}
-
-const handleToggle = async (row: AIModel) => {
-  const target = !row.enabled
-  await handleResult(updateModel(row.id, { enabled: target }), {
-    successMessage: target ? t('models.enableSuccess') : t('models.disableSuccess'),
-    errorMessage: t('common.failed'),
-    onSuccess: () => {
-      loadModels()
-    },
-  })
-}
-
-const handleTest = async (row: AIModel) => {
-  await handleResult(testModel(row.id), {
-    successMessage: (data?: unknown) => {
-      const message = (data as Record<string, unknown>)?.message as string
-      return message || t('models.testSuccess')
-    },
-    errorMessage: (data?: unknown) => {
-      const message = (data as Record<string, unknown>)?.message as string
-      return message || t('models.testFailed')
-    },
-  })
-}
-
-// API对接相关
-const apiInfoDialogVisible = ref(false)
-const selectedModelForApi = ref<AIModel | null>(null)
-const codeExampleTab = ref('curl')
-const apiBaseUrl = computed(() => window.location.origin)
-
-const handleShowApiInfo = (row: AIModel) => {
-  selectedModelForApi.value = row
-  apiInfoDialogVisible.value = true
-}
-
-const copyToClipboard = async (text: string) => {
+async function loadApiFormats() {
   try {
-    await navigator.clipboard.writeText(text)
-    ElMessage.success(t('common.copySuccess'))
+    const res = await getApiFormats()
+    if (res.success && res.data) {
+      apiFormats.value = res.data
+    }
   } catch {
-    ElMessage.error(t('common.copyFailed'))
+    // Fallback to default formats
+    apiFormats.value = [
+      {
+        value: 'openai_chat',
+        label: 'OpenAI Chat Completions',
+        endpoint: '/v1/chat/completions',
+        description: 'OpenAI-compatible chat API',
+      },
+      {
+        value: 'anthropic_messages',
+        label: 'Anthropic Messages',
+        endpoint: '/v1/messages',
+        description: 'Anthropic Claude native Messages API',
+      },
+      {
+        value: 'openai_responses',
+        label: 'OpenAI Responses',
+        endpoint: '/v1/responses',
+        description: 'OpenAI Responses API',
+      },
+    ]
   }
 }
 
-const generateCurlExample = (model: AIModel): string => {
-  return `curl ${apiBaseUrl.value}/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -d '{
-    "model": "${model.modelId}",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Hello!"}
-    ]
-  }'`
+// --- Handlers ---
+function handleSelectBuiltin(code: string) {
+  selectedBuiltinCode.value = code
+  selectedProviderId.value = null
+  isCreating.value = false
+  resetTest()
+  // If there's already a config for this builtin provider, select it
+  const existing = customProviders.value.find((p) => p.providerCode === code)
+  if (existing) {
+    selectedProviderId.value = existing.id
+  }
 }
 
-const generatePythonExample = (model: AIModel): string => {
-  return `from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_API_KEY",
-    base_url="${apiBaseUrl.value}/v1"
-)
-
-response = client.chat.completions.create(
-    model="${model.modelId}",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello!"}
-    ]
-)
-
-print(response.choices[0].message.content)`
+function handleSelectCustom(id: number | string) {
+  selectedProviderId.value = id
+  selectedBuiltinCode.value = null
+  isCreating.value = false
+  resetTest()
 }
 
-const generateNodejsExample = (model: AIModel): string => {
-  return `import OpenAI from 'openai';
-
-const client = new OpenAI({
-  apiKey: 'YOUR_API_KEY',
-  baseURL: '${apiBaseUrl.value}/v1'
-});
-
-async function main() {
-  const response = await client.chat.completions.create({
-    model: '${model.modelId}',
-    messages: [
-      { role: 'system', content: 'You are a helpful assistant.' },
-      { role: 'user', content: 'Hello!' }
-    ]
-  });
-  
-  logger.debug(response.choices[0].message.content);
+function handleAddCustom() {
+  isCreating.value = true
+  selectedProviderId.value = null
+  selectedBuiltinCode.value = null
+  resetTest()
 }
 
-main();`
+async function handleSave(data: {
+  name: string
+  baseUrl: string
+  apiFormat: ApiFormatType
+  apiKey: string
+  modelIdForTest: string
+}) {
+  saving.value = true
+  try {
+    if (isCreating.value) {
+      // Create new provider
+      const res = await createModelProvider({
+        name: data.name,
+        providerCode: 'custom',
+        baseUrl: data.baseUrl,
+        apiFormat: data.apiFormat,
+        apiKey: data.apiKey,
+        modelIdForTest: data.modelIdForTest,
+        enabled: true,
+      })
+      if (res.success) {
+        showSuccess(t('models.saveSuccess'))
+        isCreating.value = false
+        await loadProviders()
+        if (res.data?.id) {
+          selectedProviderId.value = res.data.id
+        }
+      } else {
+        showError(res.message)
+      }
+    } else if (selectedProvider.value) {
+      // Update existing provider
+      const updateData: Record<string, unknown> = {
+        name: data.name,
+        baseUrl: data.baseUrl,
+        apiFormat: data.apiFormat,
+        modelIdForTest: data.modelIdForTest,
+      }
+      // Only send apiKey if user entered a new one
+      if (data.apiKey) {
+        updateData.apiKey = data.apiKey
+      }
+      const res = await updateModelProvider(selectedProvider.value.id, updateData)
+      if (res.success) {
+        showSuccess(t('models.saveSuccess'))
+        await loadProviders()
+      } else {
+        showError(res.message)
+      }
+    }
+  } catch (err) {
+    showError(err instanceof Error ? err.message : t('common.saveFailed'))
+  } finally {
+    saving.value = false
+  }
 }
 
-const goToApiTokens = () => {
-  apiInfoDialogVisible.value = false
-  router.push('/api-tokens')
+async function handleTest(data: {
+  baseUrl: string
+  apiKey: string
+  apiFormat: ApiFormatType
+  modelIdForTest: string
+}) {
+  // If we have a saved provider with an API key, and user didn't enter a new key,
+  // test the saved provider by ID (so the backend can use the stored key)
+  if (
+    selectedProvider.value &&
+    selectedProvider.value.hasApiKey &&
+    !data.apiKey
+  ) {
+    await runTest({
+      providerId: selectedProvider.value.id,
+      apiFormat: data.apiFormat,
+      mode: 'chat',
+    })
+  } else {
+    // Ad-hoc test with provided credentials
+    await runTest({
+      baseUrl: data.baseUrl,
+      apiKey: data.apiKey,
+      apiFormat: data.apiFormat,
+      modelIdForTest: data.modelIdForTest,
+      mode: 'chat',
+    })
+  }
 }
 
-const goToApiDocs = () => {
-  apiInfoDialogVisible.value = false
-  router.push('/api-docs')
+async function handleToggle(id: number | string, enabled: boolean) {
+  try {
+    const res = await toggleModelProvider(id, enabled)
+    if (res.success) {
+      showSuccess(enabled ? t('models.enableSuccess') : t('models.disableSuccess'))
+      await loadProviders()
+    } else {
+      showError(res.message)
+    }
+  } catch (err) {
+    showError(err instanceof Error ? err.message : t('common.operationFailed'))
+  }
 }
 
-const goToApiStats = () => {
-  apiInfoDialogVisible.value = false
-  router.push('/api-usage')
+async function handleDelete(id: number | string) {
+  const confirmed = await confirmDelete(t('models.deleteConfirm'))
+  if (!confirmed) return
+  try {
+    const res = await deleteModelProvider(id)
+    if (res.success) {
+      showSuccess(t('models.deleteSuccess'))
+      selectedProviderId.value = null
+      await loadProviders()
+    } else {
+      showError(res.message)
+    }
+  } catch (err) {
+    showError(err instanceof Error ? err.message : t('common.deleteFailed'))
+  }
 }
 
+function handleRefresh() {
+  loadProviders()
+}
+
+// Reset test when selection changes
+watch([selectedProviderId, selectedBuiltinCode, isCreating], () => {
+  resetTest()
+})
+
+// --- Lifecycle ---
 onMounted(() => {
-  loadModels()
+  loadProviders()
+  loadApiFormats()
 })
 </script>
 
 <style scoped lang="scss">
 .model-manager {
-  width: 100%;
-  margin: 0 auto;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--spacing-md);
+}
 
-  .header {
+.mm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+
+  &__left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--app-text-primary);
+    line-height: 1.3;
+  }
+
+  &__subtitle {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--app-text-secondary);
+    line-height: 1.4;
+  }
+
+  &__right {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    gap: 16px;
+    gap: var(--spacing-sm);
+  }
+}
 
-    .title {
-      font-size: 24px;
-      font-weight: 600;
-      margin: 0 0 4px;
-    }
+.btn-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+}
 
-    .subtitle {
-      margin: 0;
-      color: var(--el-text-color-regular);
-      font-size: 14px;
-    }
+.mm-layout {
+  display: flex;
+  gap: var(--spacing-md);
+  flex: 1;
+  min-height: 0;
+
+  &__list {
+    width: 300px;
+    flex-shrink: 0;
+    border-radius: var(--global-border-radius);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border-unified-color);
+    background-color: var(--app-surface-2);
+    overflow: hidden;
   }
 
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    .search-input {
-      width: 260px;
-    }
-
-    .provider-select {
-      width: 180px;
-    }
+  &__config {
+    flex: 1;
+    min-width: 0;
+    border-radius: var(--global-border-radius);
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border-unified-color);
+    background-color: var(--app-surface-2);
+    overflow: hidden;
   }
+}
 
-  .model-card {
-    margin-top: 8px;
-  }
-
-  .model-name-cell {
-    display: flex;
+@media (max-width: 768px) {
+  .mm-layout {
     flex-direction: column;
 
-    .model-display-name {
-      font-weight: 600;
-    }
-
-    .model-id {
-      font-size: 12px;
-      color: var(--el-text-color-regular);
-    }
-  }
-
-  .cap-tag {
-    margin-right: 4px;
-    margin-bottom: 2px;
-  }
-
-  .pagination {
-    margin-top: 16px;
-    display: flex;
-    justify-content: flex-end;
-  }
-}
-
-@media (width <= 768px) {
-  .model-manager {
-    padding: 12px;
-
-    .header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .header-actions {
-      flex-wrap: wrap;
-
-      .search-input,
-      .provider-select {
-        width: 100%;
-      }
-    }
-  }
-}
-
-// API对接对话框样式
-.api-info-dialog {
-  .api-alert {
-    margin-bottom: 20px;
-  }
-
-  .api-descriptions {
-    margin-bottom: 16px;
-
-    code {
-      background: var(--el-fill-color-light);
-      padding: 2px 8px;
-      border-radius: var(--global-border-radius);
-      font-family: var(--font-family-mono);
-    }
-  }
-
-  .api-endpoints {
-    .endpoint-item {
-      padding: 16px;
-      background: var(--el-fill-color-lighter);
-      border-radius: var(--global-border-radius);
-      margin-bottom: 12px;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      .endpoint-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
-
-        .endpoint-label {
-          font-weight: 600;
-          color: var(--el-text-color-primary);
-        }
-      }
-
-      .endpoint-url {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-
-        code {
-          flex: 1;
-          background: var(--el-bg-color);
-          padding: 8px 12px;
-          border-radius: var(--global-border-radius);
-          font-family: var(--font-family-mono);
-          font-size: 13px;
-          color: var(--el-color-primary);
-          border: var(--unified-border);
-        }
-      }
-    }
-  }
-
-  .code-tabs {
-    .code-block {
-      position: relative;
-      background: var(--color-gray-1e1e1e);
-      border-radius: var(--global-border-radius);
-      overflow: hidden;
-
-      pre {
-        margin: 0;
-        padding: 16px;
-        overflow-x: auto;
-
-        code {
-          font-family: var(--font-family-mono);
-          font-size: 13px;
-          line-height: 1.6;
-          color: var(--color-neutral-300);
-          white-space: pre;
-        }
-      }
-
-      .copy-btn {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: var(--color-white-10);
-        color: var(--app-button-text-on-primary); // 2026-07-04 修复: var(--el-bg-color) 是背景 token, 误用作文字色
-        border: none;
-
-        &:hover {
-          background: var(--color-white-20);
-        }
-      }
-    }
-  }
-
-  .quick-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-
-    .el-button {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    &__list {
+      width: 100%;
+      max-height: 240px;
     }
   }
 }

@@ -205,20 +205,32 @@ async def run_agent_loop(
     except Exception:
         pass  # Subagents 模块加载失败不阻断
 
-    # 3c. 加载 Codebase 索引工具
+    # 3c. 加载 Codebase 索引工具 (三模式: 语义检索 / 模糊文件 / 符号检索)
+    # 对标 Trae 代码库语义索引 + Cursor Codebase Indexing
     try:
         from app.api.v1.workspace.codebase_index import get_or_build_index, fuzzy_search_files, search_symbols
-        # 添加 codebase_search 工具定义
+        from app.api.v1.workspace.vector_index import semantic_search as _vector_semantic_search
         tools.append({
             "type": "function",
             "function": {
                 "name": "codebase_search",
-                "description": "搜索代码库中的文件 (模糊匹配文件名和路径)。类似 VS Code Quick Open。",
+                "description": (
+                    "搜索代码库。支持三种模式:\n"
+                    "- semantic (默认): 基于向量 embedding 的语义检索, 按相关性召回代码块 (对标 Trae 语义索引)\n"
+                    "- fuzzy: 模糊匹配文件名和路径 (类似 VS Code Quick Open)\n"
+                    "- symbols: 搜索函数/类/变量定义位置\n"
+                    "理解大型代码库时优先用 semantic 模式。"
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "搜索关键词"},
-                        "limit": {"type": "integer", "description": "最大结果数, 默认 20"},
+                        "query": {"type": "string", "description": "搜索查询 (语义模式用自然语言描述)"},
+                        "mode": {
+                            "type": "string",
+                            "enum": ["semantic", "fuzzy", "symbols"],
+                            "description": "搜索模式, 默认 semantic",
+                        },
+                        "limit": {"type": "integer", "description": "最大结果数, 默认 10"},
                     },
                     "required": ["query"],
                 },
@@ -227,9 +239,31 @@ async def run_agent_loop(
 
         async def _tool_codebase_search(args: dict, ws: str):
             from app.api.v1.workspace.tools import ToolCallResult
-            idx = get_or_build_index(ws)
-            results = fuzzy_search_files(idx, args.get("query", ""), args.get("limit", 20))
-            output = "\n".join(f"{r['path']} (score: {r['score']})" for r in results) if results else "(无结果)"
+            query = args.get("query", "")
+            mode = args.get("mode", "semantic")
+            limit = args.get("limit", 10)
+
+            if mode == "semantic":
+                # 向量语义检索 (P0 缺口补齐) — 返回相关代码块含文件/行号/预览
+                results = await _vector_semantic_search(ws, query, limit)
+                if not results:
+                    output = "(语义检索无结果, 建议改用 fuzzy 模式)"
+                else:
+                    lines = []
+                    for r in results:
+                        sym = f" [{r['symbol']}]" if r.get("symbol") else ""
+                        lines.append(
+                            f"{r['file']}:{r['start_line']}-{r['end_line']}{sym} (score: {r['score']})\n  {r['preview'][:200]}"
+                        )
+                    output = "\n\n".join(lines)
+            elif mode == "symbols":
+                idx = get_or_build_index(ws)
+                results = search_symbols(idx, query, limit)
+                output = "\n".join(f"{r['name']}  →  {r['file']} ({r['ext']})" for r in results) if results else "(无符号结果)"
+            else:  # fuzzy
+                idx = get_or_build_index(ws)
+                results = fuzzy_search_files(idx, query, limit)
+                output = "\n".join(f"{r['path']} (score: {r['score']})" for r in results) if results else "(无结果)"
             return ToolCallResult(tool="codebase_search", input=args, output=output, success=True)
 
         from app.api.v1.workspace.tools import TOOL_DISPATCH

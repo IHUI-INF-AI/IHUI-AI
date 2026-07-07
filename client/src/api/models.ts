@@ -1181,3 +1181,315 @@ export const MODEL_PROVIDERS = {
     },
   },
 }
+
+// ---------------------------------------------------------------------------
+// Custom Model Provider Configuration (zcode-inspired settings page)
+// ---------------------------------------------------------------------------
+
+/** API format supported by the test connection feature */
+export type ApiFormatType = 'openai_chat' | 'anthropic_messages' | 'openai_responses'
+
+/** Test mode for connection testing */
+export type TestModeType = 'connect' | 'list' | 'chat'
+
+/** Test status (three-state: operational / degraded / failed) */
+export type TestStatusType = 'operational' | 'degraded' | 'failed'
+
+/** Error classification for test results */
+export type TestErrorType = 'auth' | 'endpoint' | 'network' | 'format' | 'unknown'
+
+/** Custom model provider configuration (maps to backend AiModelConfig) */
+export interface ModelProviderConfig {
+  id: number | string
+  name: string
+  providerCode: string
+  isBuiltin: boolean
+  baseUrl: string
+  apiFormat: ApiFormatType
+  apiKey: string // masked (e.g. sk-****3456)
+  hasApiKey: boolean
+  modelIdForTest?: string
+  enabled: boolean
+  description?: string
+  sortOrder: number
+  ownerUuid?: string
+  lastTestStatus?: TestStatusType | null
+  lastTestResponseMs?: number | null
+  lastTestedAt?: string | null
+  lastTestError?: string | null
+  extraConfig?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** Connection test result */
+export interface ModelTestResult {
+  status: TestStatusType
+  success: boolean
+  responseMs: number
+  mode: TestModeType
+  message: string
+  detail?: string | null
+  errorType?: TestErrorType | null
+  models?: string[] | null
+}
+
+/** API format metadata */
+export interface ApiFormatInfo {
+  value: string
+  label: string
+  endpoint: string
+  description: string
+}
+
+/** Request body for creating/updating a provider */
+export interface ProviderConfigInput {
+  name: string
+  providerCode: string
+  baseUrl: string
+  apiFormat: ApiFormatType
+  apiKey?: string
+  modelIdForTest?: string
+  enabled?: boolean
+  description?: string
+  sortOrder?: number
+  extraConfig?: string
+}
+
+/** Request body for ad-hoc test (before saving) */
+export interface TestAdhocRequest {
+  baseUrl: string
+  apiKey: string
+  apiFormat: ApiFormatType
+  modelIdForTest?: string
+  mode?: TestModeType
+}
+
+// --- API Functions ---
+
+/** Get supported API formats for the format dropdown */
+export async function getApiFormats(): Promise<ApiResponse<ApiFormatInfo[]>> {
+  try {
+    const response = await request.get(DEVELOPER_PATHS.models.formats)
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: response.data?.data || response.data || [],
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to get API formats:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to get API formats',
+      data: [],
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** List all custom model provider configurations */
+export async function getModelProviders(params?: {
+  page?: number
+  pageSize?: number
+  enabled?: boolean
+  providerCode?: string
+  keyword?: string
+}): Promise<ApiResponse<{ list: ModelProviderConfig[]; total: number }>> {
+  try {
+    const response = await request.get(DEVELOPER_PATHS.models.list, { params })
+    const body = response.data?.data ?? response.data
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: {
+        list: Array.isArray(body) ? body : body?.list || [],
+        total: body?.total ?? (Array.isArray(body) ? body.length : 0),
+      },
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to get model providers:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to get providers',
+      data: { list: [], total: 0 },
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** Create a new custom model provider configuration */
+export async function createModelProvider(
+  input: ProviderConfigInput
+): Promise<ApiResponse<ModelProviderConfig>> {
+  try {
+    const response = await request.post(DEVELOPER_PATHS.models.list, input)
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: response.data?.data || response.data,
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to create model provider:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create provider',
+      data: {} as ModelProviderConfig,
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** Update an existing provider configuration */
+export async function updateModelProvider(
+  id: number | string,
+  input: Partial<ProviderConfigInput>
+): Promise<ApiResponse<ModelProviderConfig>> {
+  try {
+    const response = await request.put(DEVELOPER_PATHS.models.byId(String(id)), input)
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: response.data?.data || response.data,
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to update model provider:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update provider',
+      data: {} as ModelProviderConfig,
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** Delete a provider configuration (built-in providers cannot be deleted) */
+export async function deleteModelProvider(
+  id: number | string
+): Promise<ApiResponse<boolean>> {
+  try {
+    await request.delete(DEVELOPER_PATHS.models.byId(String(id)))
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: true,
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to delete model provider:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete provider',
+      data: false,
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** Toggle a provider's enabled state */
+export async function toggleModelProvider(
+  id: number | string,
+  enabled: boolean
+): Promise<ApiResponse<ModelProviderConfig>> {
+  try {
+    const response = await request.patch(DEVELOPER_PATHS.models.toggle(String(id)), {
+      enabled,
+    })
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: response.data?.data || response.data,
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to toggle model provider:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to toggle provider',
+      data: {} as ModelProviderConfig,
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** Test a saved provider's connection (by ID) */
+export async function testSavedModelProvider(
+  id: number | string,
+  mode: TestModeType = 'chat'
+): Promise<ApiResponse<ModelTestResult>> {
+  try {
+    const response = await request.post(
+      `${DEVELOPER_PATHS.models.test(String(id))}?mode=${mode}`
+    )
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: response.data?.data || response.data,
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to test saved model provider:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Test failed',
+      data: {
+        status: 'failed' as TestStatusType,
+        success: false,
+        responseMs: 0,
+        mode,
+        message: error instanceof Error ? error.message : 'Test failed',
+        errorType: 'unknown' as TestErrorType,
+      },
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/** Test an unsaved provider config (ad-hoc, before saving) */
+export async function testModelAdhoc(
+  input: TestAdhocRequest
+): Promise<ApiResponse<ModelTestResult>> {
+  try {
+    const response = await request.post(DEVELOPER_PATHS.models.testAdhoc, input)
+    return {
+      code: 200,
+      success: true,
+      message: 'success',
+      data: response.data?.data || response.data,
+      timestamp: Date.now(),
+    }
+  } catch (error: unknown) {
+    logger.error('Failed to test model adhoc:', error)
+    return {
+      code: 500,
+      success: false,
+      message: error instanceof Error ? error.message : 'Test failed',
+      data: {
+        status: 'failed' as TestStatusType,
+        success: false,
+        responseMs: 0,
+        mode: input.mode || 'chat',
+        message: error instanceof Error ? error.message : 'Test failed',
+        errorType: 'unknown' as TestErrorType,
+      },
+      timestamp: Date.now(),
+    }
+  }
+}

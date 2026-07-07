@@ -343,6 +343,14 @@ export const sendVerificationCode = withApiResponseHandler(
   }
 )
 
+// 2026-07-07 P0 修复: 邮件验证码登录专用,直接调 /auth/email/code (无需登录态)
+export const sendEmailLoginCode = withApiResponseHandler(
+  async (email: string): Promise<ApiResponse<{ codeId?: string }>> => {
+    const response = await request.post<{ codeId?: string }>('/auth/email/code', { email })
+    return normalizeApiResponse(response)
+  }
+)
+
 // 验证验证码
 export const verifyCode = withApiResponseHandler(
   async (data: { codeId: string; code: string }): Promise<ApiResponse<boolean>> => {

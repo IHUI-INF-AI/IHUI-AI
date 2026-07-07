@@ -267,6 +267,9 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 60
     SESSION_SECRET_KEY: str = ""
     CHAT_ROOM_ADMIN_UUID: str = ""
+    # Fernet encryption key for sensitive fields (API Keys etc.)
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ENCRYPTION_KEY: str = ""
 
     # ===================================================================
     # SSL / HTTPS

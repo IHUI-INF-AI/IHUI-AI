@@ -95,6 +95,9 @@ export const DEVELOPER_PATHS = {
     proxy: (modelId: string) => `${DEV}/models/${modelId}/proxy`,
     proxyTest: (modelId: string) => `${DEV}/models/${modelId}/proxy/test`,
     proxyHealth: (modelId: string) => `${DEV}/models/${modelId}/proxy/health`,
+    formats: `${DEV}/models/formats`,
+    testAdhoc: `${DEV}/models/test`,
+    toggle: (id: string | number) => `${DEV}/models/${id}/toggle`,
   },
   sdks: {
     list: `${DEV}/sdks`,
