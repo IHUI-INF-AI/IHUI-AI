@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from app.api.v1.workspace.schemas import MemoryEntry
 
 
@@ -203,3 +205,190 @@ def save_memory_entry(workspace_path: str, entry: MemoryEntry) -> bool:
         return True
     except Exception:
         return False
+
+
+# ---------------------------------------------------------------------------
+# AutoMemory 自动学习 (对标 Claude Code 的 Auto Memory / CLAUDE.md 自动更新)
+# ---------------------------------------------------------------------------
+
+# 自动学习存储路径
+_AUTO_LEARNING_FILE = "auto-learnings.md"
+
+# 提取 prompt — 指导 LLM 从对话中提取可记忆的知识
+_EXTRACTION_PROMPT = """你是一个记忆提取助手。请分析以下 AI Agent 与用户的对话历史，提取值得长期记忆的知识。
+
+提取规则:
+1. 只提取项目特定的、非显而易见的知识（通用编程知识不需要提取）
+2. 每条记忆要简洁、可操作
+3. 按以下分类输出:
+
+## 构建与运行命令
+（项目特定的构建/测试/lint/部署命令, 如果之前不知道的话）
+
+## 代码规范与风格
+（用户强调的代码风格偏好、命名约定、禁止事项）
+
+## 项目架构与依赖
+（项目结构、关键依赖关系、模块间调用关系）
+
+## 常见错误与修复
+（遇到过的错误及解决方案, 避免重复踩坑）
+
+## 用户偏好
+（用户的工作习惯、沟通偏好、工具偏好）
+
+如果某个分类没有值得提取的内容, 省略该分类。
+如果整个对话没有值得记忆的内容, 输出 "NO_LEARNINGS"。
+
+对话历史:
+"""
+
+
+async def extract_learnings_from_session(
+    messages: list[dict[str, Any]],
+    model_id: str,
+    workspace_path: str,
+) -> str | None:
+    """从会话历史中提取关键学习内容。
+
+    调用 LLM 分析对话历史, 提取:
+    - 构建命令 / 代码规范 / 项目架构 / 常见错误 / 用户偏好
+
+    Args:
+        messages: 会话消息列表 (role/content 格式)
+        model_id: 模型 ID
+        workspace_path: 工作区路径
+
+    Returns:
+        提取的学习内容 (Markdown), 或 None 如果无值得记忆的内容
+    """
+    from app.api.v1.workspace.llm_gateway import ChatMessage, _get_model_config, _detect_protocol
+    from app.api.v1.workspace.llm_gateway import chat_openai, chat_anthropic
+
+    # 构建对话摘要 (过滤过长的工具输出)
+    conv_parts: list[str] = []
+    for msg in messages[-30:]:  # 最多取最近 30 条消息
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if not content:
+            # 工具调用消息, 取摘要
+            tc = msg.get("tool_call", {})
+            if tc:
+                name = tc.get("name", "")
+                content = f"[工具调用: {name}]"
+            tr = msg.get("tool_result", {})
+            if tr:
+                output = str(tr.get("output", ""))[:200]
+                content = f"[工具结果: {output}]"
+        if content:
+            # 截断过长的消息
+            if len(content) > 500:
+                content = content[:500] + "..."
+            conv_parts.append(f"**{role}**: {content}")
+
+    if not conv_parts:
+        return None
+
+    conversation_text = "\n\n".join(conv_parts)
+
+    # 获取模型配置
+    cfg = _get_model_config(model_id)
+    if not cfg:
+        return None
+
+    # 构建提取请求
+    extract_messages = [
+        ChatMessage(role="system", content=_EXTRACTION_PROMPT),
+        ChatMessage(role="user", content=conversation_text),
+    ]
+
+    # 调用 LLM (非流式)
+    try:
+        protocol = _detect_protocol(cfg)
+        result_text = ""
+
+        if protocol == "anthropic":
+            async for event in chat_anthropic(extract_messages, cfg, stream=False):
+                if event.get("type") == "text_delta":
+                    result_text += event.get("content", "")
+                elif event.get("type") == "done":
+                    break
+                elif event.get("type") == "error":
+                    return None
+        else:
+            async for event in chat_openai(extract_messages, cfg, stream=False):
+                if event.get("type") == "text_delta":
+                    result_text += event.get("content", "")
+                elif event.get("type") == "done":
+                    break
+                elif event.get("type") == "error":
+                    return None
+
+        result_text = result_text.strip()
+        if not result_text or result_text == "NO_LEARNINGS":
+            return None
+
+        return result_text
+    except Exception as e:
+        logger.warning(f"AutoMemory 提取失败: {e}")
+        return None
+
+
+def save_auto_learning(workspace_path: str, learning: str) -> bool:
+    """保存自动学习内容到文件。
+
+    追加到 .ihui/memory/auto-learnings.md, 带时间戳和分隔符。
+    """
+    try:
+        import time
+        mem_dir = Path(workspace_path) / ".ihui" / "memory"
+        mem_dir.mkdir(parents=True, exist_ok=True)
+        mem_file = mem_dir / _AUTO_LEARNING_FILE
+
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        entry = f"\n\n---\n\n## 自动学习 — {timestamp}\n\n{learning}\n"
+
+        # 追加模式
+        with open(mem_file, "a", encoding="utf-8") as f:
+            f.write(entry)
+
+        return True
+    except Exception as e:
+        logger.warning(f"保存自动学习失败: {e}")
+        return False
+
+
+def load_auto_learnings(workspace_path: str) -> str:
+    """加载自动学习内容。"""
+    try:
+        mem_file = Path(workspace_path) / ".ihui" / "memory" / _AUTO_LEARNING_FILE
+        if mem_file.exists():
+            return mem_file.read_text(encoding="utf-8", errors="replace")
+        return ""
+    except Exception:
+        return ""
+
+
+def clear_auto_learnings(workspace_path: str) -> bool:
+    """清除自动学习内容。"""
+    try:
+        mem_file = Path(workspace_path) / ".ihui" / "memory" / _AUTO_LEARNING_FILE
+        if mem_file.exists():
+            mem_file.unlink()
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def build_system_prompt_with_auto(workspace_path: str, memory: dict[str, Any]) -> str:
+    """构建系统提示词 — 包含项目记忆 + 自动学习 + 工作区信息。
+
+    增强版: 在 build_system_prompt 基础上注入自动学习内容。
+    """
+    base_prompt = build_system_prompt(workspace_path, memory)
+
+    # 注入自动学习内容
+    auto_learnings = load_auto_learnings(workspace_path)
+    if auto_learnings:
+        base_prompt += f"\n\n## 自动学习记忆 (AutoMemory)\n\n以下是从历史会话中自动提取的知识, 请参考:\n\n{auto_learnings

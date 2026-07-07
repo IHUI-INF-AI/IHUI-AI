@@ -57,6 +57,14 @@ SLASH_COMMANDS: dict[str, dict[str, Any]] = {
         "description": "进入 Goal 模式: max_iterations=20, 完成后 yield done",
         "category": "mode",
     },
+    "cost": {
+        "description": "显示当前会话的 Token 用量与成本估算",
+        "category": "info",
+    },
+    "usage": {
+        "description": "显示工作区全局用量统计 (所有会话汇总)",
+        "category": "info",
+    },
 }
 
 
@@ -82,6 +90,196 @@ def get_command_list() -> list[dict[str, str]]:
         {"name": f"/{name}", "description": info["description"], "category": info["category"]}
         for name, info in SLASH_COMMANDS.items()
     ]
+
+
+# ---------------------------------------------------------------------------
+# Token 用量与成本估算 (对标 Codex /cost /usage 和 Claude Code 的用量追踪)
+# ---------------------------------------------------------------------------
+
+# 模型定价表 (美元 / 百万 tokens) — 仅供参考, 实际以供应商为准
+# 格式: { "模型关键字": {"input": float, "output": float} }
+MODEL_PRICING: dict[str, dict[str, float]] = {
+    "claude-opus-4": {"input": 15.0, "output": 75.0},
+    "claude-sonnet-4": {"input": 3.0, "output": 15.0},
+    "claude-3-5-sonnet": {"input": 3.0, "output": 15.0},
+    "claude-3-5-haiku": {"input": 0.8, "output": 4.0},
+    "claude-3-opus": {"input": 15.0, "output": 75.0},
+    "gpt-4o": {"input": 2.5, "output": 10.0},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.6},
+    "gpt-4-turbo": {"input": 10.0, "output": 30.0},
+    "deepseek-chat": {"input": 0.27, "output": 1.1},
+    "deepseek-reasoner": {"input": 0.55, "output": 2.19},
+    "qwen-max": {"input": 2.76, "output": 8.28},
+    "qwen-plus": {"input": 0.42, "output": 1.26},
+    "qwen-turbo": {"input": 0.14, "output": 0.42},
+    "doubao-pro": {"input": 0.11, "output": 0.28},
+    "moonshot-v1": {"input": 1.68, "output": 1.68},
+}
+
+# 默认费率 (无法识别模型时使用)
+_DEFAULT_PRICING = {"input": 3.0, "output": 15.0}
+
+
+def _get_model_pricing(model_id: str) -> dict[str, float]:
+    """根据模型 ID 匹配定价表。"""
+    model_lower = model_id.lower()
+    for key, pricing in MODEL_PRICING.items():
+        if key in model_lower:
+            return pricing
+    return _DEFAULT_PRICING
+
+
+def _estimate_cost(usage: dict[str, Any], model_id: str = "") -> dict[str, float]:
+    """估算成本 (美元)。
+
+    Returns:
+        {"input_cost": float, "output_cost": float, "total_cost": float}
+    """
+    pricing = _get_model_pricing(model_id)
+    prompt_tokens = usage.get("prompt_tokens", 0)
+    completion_tokens = usage.get("completion_tokens", 0)
+    input_cost = (prompt_tokens / 1_000_000) * pricing["input"]
+    output_cost = (completion_tokens / 1_000_000) * pricing["output"]
+    return {
+        "input_cost": round(input_cost, 6),
+        "output_cost": round(output_cost, 6),
+        "total_cost": round(input_cost + output_cost, 6),
+        "input_rate": pricing["input"],
+        "output_rate": pricing["output"],
+    }
+
+
+def _format_tokens(n: int) -> str:
+    """格式化 token 数量 (K/M)。"""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.2f}M"
+    elif n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
+def _format_cost(cost: float) -> str:
+    """格式化成本。"""
+    if cost < 0.01:
+        return f"${cost * 1000:.3f}m"  # 毫美元
+    return f"${cost:.4f}"
+
+
+async def handle_cost(
+    websocket: WebSocket,
+    chat_id: str | None,
+    model_id: str = "",
+    **kwargs,
+) -> dict[str, Any]:
+    """/cost - 显示当前会话的 Token 用量与成本估算。
+
+    读取 session 中累积的 usage 数据, 计算:
+    - prompt / completion / total tokens
+    - API 调用次数 / 交互轮数
+    - 成本估算 (基于模型定价表)
+    """
+    if not chat_id:
+        return {
+            "type": "agent.command.result",
+            "command": "cost",
+            "message": "没有活跃的会话, 无法查询用量。",
+            "error": "no_chat_id",
+        }
+
+    from app.api.v1.workspace.session_store import get_session_usage, load_session
+
+    usage = get_session_usage(chat_id)
+    if not usage or usage.get("total_tokens", 0) == 0:
+        return {
+            "type": "agent.command.result",
+            "command": "cost",
+            "message": "当前会话尚无 Token 用量记录。",
+            "usage": usage or {},
+        }
+
+    # 获取模型 ID
+    session = load_session(chat_id)
+    effective_model = model_id or (session.get("model_id", "") if session else "")
+
+    cost = _estimate_cost(usage, effective_model)
+
+    # 构建可读消息
+    msg_lines = [
+        f"📊 会话 Token 用量 (会话: {chat_id})",
+        f"  模型: {effective_model or '未知'}",
+        f"  输入 Tokens: {_format_tokens(usage.get('prompt_tokens', 0))}",
+        f"  输出 Tokens: {_format_tokens(usage.get('completion_tokens', 0))}",
+        f"  总计 Tokens: {_format_tokens(usage.get('total_tokens', 0))}",
+        f"  API 调用: {usage.get('api_calls', 0)} 次",
+        f"  交互轮数: {usage.get('rounds', 0)} 轮",
+        f"  成本估算: {_format_cost(cost['total_cost'])} "
+        f"(输入 {_format_cost(cost['input_cost'])} @ ${cost['input_rate']}/M + "
+        f"输出 {_format_cost(cost['output_cost'])} @ ${cost['output_rate']}/M)",
+    ]
+
+    return {
+        "type": "agent.command.result",
+        "command": "cost",
+        "message": "\n".join(msg_lines),
+        "usage": usage,
+        "cost": cost,
+        "model": effective_model,
+    }
+
+
+async def handle_usage(
+    websocket: WebSocket,
+    workspace_path: str,
+    **kwargs,
+) -> dict[str, Any]:
+    """/usage - 显示工作区全局用量统计。
+
+    汇总工作区下所有会话的 token 用量:
+    - 总输入 / 输出 / 总 tokens
+    - 总 API 调用次数
+    - 会话数量
+    - 各会话用量摘要 (最近 10 条)
+    """
+    from app.api.v1.workspace.session_store import get_workspace_usage_summary
+
+    summary = get_workspace_usage_summary(workspace_path)
+
+    if summary["total_tokens"] == 0:
+        return {
+            "type": "agent.command.result",
+            "command": "usage",
+            "message": "工作区尚无 Token 用量记录。",
+            "summary": summary,
+        }
+
+    # 构建可读消息
+    msg_lines = [
+        f"📈 工作区全局用量统计 ({workspace_path})",
+        f"  会话总数: {summary['session_count']}",
+        f"  总输入 Tokens: {_format_tokens(summary['total_prompt_tokens'])}",
+        f"  总输出 Tokens: {_format_tokens(summary['total_completion_tokens'])}",
+        f"  总计 Tokens: {_format_tokens(summary['total_tokens'])}",
+        f"  总 API 调用: {summary['total_api_calls']} 次",
+        "",
+        "  最近会话:",
+    ]
+
+    for i, s in enumerate(summary["sessions"][:10], 1):
+        su = s.get("usage", {})
+        prompt = s.get("initial_prompt", "(无)")
+        if len(prompt) > 50:
+            prompt = prompt[:50] + "..."
+        msg_lines.append(
+            f"  {i}. [{s['id']}] {_format_tokens(su.get('total_tokens', 0))} tokens, "
+            f"{su.get('api_calls', 0)} calls — {prompt}"
+        )
+
+    return {
+        "type": "agent.command.result",
+        "command": "usage",
+        "message": "\n".join(msg_lines),
+        "summary": summary,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -409,4 +607,6 @@ COMMAND_HANDLERS = {
     "plan-reject": handle_plan_reject,
     "init": handle_init,
     "goal": handle_goal,
+    "cost": handle_cost,
+    "usage": handle_usage,
 }
