@@ -1,0 +1,18 @@
+{
+  "workspaceFolder": {
+    "selectTitle": "选择工作区文件夹",
+    "selectDrive": "选择驱动器",
+    "goUp": "返回上级",
+    "newProject": "新建项目",
+    "noFolders": "此目录下没有子文件夹",
+    "recentProjects": "最近项目",
+    "noRecentProjects": "暂无最近项目",
+    "selected": "已选择",
+    "openWorkspace": "打开工作区",
+    "enterProjectPath": "请输入项目路径",
+    "justNow": "刚刚",
+    "minutesAgo": "分钟前",
+    "hoursAgo": "小时前",
+    "daysAgo": "天前"
+  }
+}

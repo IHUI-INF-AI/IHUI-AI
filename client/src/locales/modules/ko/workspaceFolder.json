@@ -1,0 +1,18 @@
+{
+  "workspaceFolder": {
+    "selectTitle": "워크스페이스 폴더 선택",
+    "selectDrive": "드라이브 선택",
+    "goUp": "상위로",
+    "newProject": "새 프로젝트",
+    "noFolders": "이 디렉토리에 하위 폴더가 없습니다",
+    "recentProjects": "최근 프로젝트",
+    "noRecentProjects": "최근 프로젝트 없음",
+    "selected": "선택됨",
+    "openWorkspace": "워크스페이스 열기",
+    "enterProjectPath": "프로젝트 경로 입력",
+    "justNow": "방금",
+    "minutesAgo": "분 전",
+    "hoursAgo": "시간 전",
+    "daysAgo": "일 전"
+  }
+}

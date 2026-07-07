@@ -1,0 +1,18 @@
+{
+  "workspaceFolder": {
+    "selectTitle": "選擇工作區資料夾",
+    "selectDrive": "選擇磁碟機",
+    "goUp": "返回上層",
+    "newProject": "新建專案",
+    "noFolders": "此目錄下沒有子資料夾",
+    "recentProjects": "最近項目",
+    "noRecentProjects": "暫無最近項目",
+    "selected": "已選擇",
+    "openWorkspace": "打開工作區",
+    "enterProjectPath": "請輸入專案路徑",
+    "justNow": "剛剛",
+    "minutesAgo": "分鐘前",
+    "hoursAgo": "小時前",
+    "daysAgo": "天前"
+  }
+}

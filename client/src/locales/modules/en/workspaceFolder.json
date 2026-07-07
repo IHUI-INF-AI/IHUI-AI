@@ -1,0 +1,18 @@
+{
+  "workspaceFolder": {
+    "selectTitle": "Select Workspace Folder",
+    "selectDrive": "Select Drive",
+    "goUp": "Go Up",
+    "newProject": "New Project",
+    "noFolders": "No subfolders in this directory",
+    "recentProjects": "Recent Projects",
+    "noRecentProjects": "No recent projects",
+    "selected": "Selected",
+    "openWorkspace": "Open Workspace",
+    "enterProjectPath": "Enter project path",
+    "justNow": "just now",
+    "minutesAgo": "min ago",
+    "hoursAgo": "hr ago",
+    "daysAgo": "days ago"
+  }
+}

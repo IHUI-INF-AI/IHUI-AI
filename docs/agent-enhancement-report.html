@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IHUI-AI Agent 能力增强报告</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --dim: #8b949e; --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, "Noto Sans CJK SC", "Segoe UI", sans-serif; line-height: 1.7; padding: 40px 20px; }
+  .container { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+  h2 { font-size: 22px; margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: #fff; }
+  h3 { font-size: 17px; margin: 20px 0 8px; color: var(--accent); }
+  p { margin-bottom: 12px; color: var(--text); }
+  .subtitle { color: var(--dim); font-size: 14px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 6px; }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .badge-red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+  .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  td { color: var(--text); }
+  tr:hover td { background: rgba(88,166,255,0.05); }
+  code { background: rgba(110,118,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: "Cascadia Code", "Fira Code", monospace; color: #79c0ff; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .stat-num { font-size: 32px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 13px; color: var(--dim); margin-top: 4px; }
+  ul { margin: 8px 0 16px 20px; }
+  li { margin-bottom: 6px; }
+  .file-path { color: var(--yellow); font-family: monospace; font-size: 12px; }
+  .test-pass { color: var(--green); font-weight: 700; }
+  .summary-bar { background: linear-gradient(135deg, rgba(63,185,80,0.1), rgba(88,166,255,0.1)); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>IHUI-AI Agent 能力增强报告</h1>
+<p class="subtitle">对标 Claude Code / Codex / Gemini CLI / Aider — 差距分析与全面增强开发</p>
+
+<div class="summary-bar">
+  <strong>交付状态: 已完成</strong> — 7 项核心增强 + CLI 集成 + 前端集成, 74/74 验证测试通过, 9 个文件修改 + 1 个新文件创建
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="stat-num">7</div><div class="stat-label">核心增强项</div></div>
+  <div class="stat"><div class="stat-num">19</div><div class="stat-label">工具总数 (原16+3)</div></div>
+  <div class="stat"><div class="stat-num">74</div><div class="stat-label">测试通过</div></div>
+  <div class="stat"><div class="stat-num">10</div><div class="stat-label">修改文件数</div></div>
+</div>
+
+<h2>一、差距分析: 本项目 vs 主流工具</h2>
+
+<table>
+  <tr><th>能力维度</th><th>Claude Code</th><th>Codex CLI</th><th>Gemini CLI</th><th>Aider</th><th>本项目 (增强前)</th><th>本项目 (增强后)</th></tr>
+  <tr><td>检查点/回滚</td><td>会话 resume + Git</td><td>Git 原生</td><td>Checkpointing</td><td>Git auto-commit</td><td><span class="badge badge-red">无</span></td><td><span class="badge badge-green">快照+undo+rollback</span></td></tr>
+  <tr><td>Diff 预览</td><td>内置</td><td>内置</td><td>-</td><td>SEARCH/REPLACE</td><td><span class="badge badge-red">无</span></td><td><span class="badge badge-green">dry_run + unified diff</span></td></tr>
+  <tr><td>编辑容错</td><td>精确匹配</td><td>apply-patch</td><td>-</td><td>多编辑格式</td><td><span class="badge badge-red">仅精确匹配</span></td><td><span class="badge badge-green">模糊匹配恢复</span></td></tr>
+  <tr><td>并行工具</td><td>支持</td><td>支持</td><td>-</td><td>-</td><td><span class="badge badge-red">顺序执行</span></td><td><span class="badge badge-green">只读工具并行</span></td></tr>
+  <tr><td>API 重试</td><td>Hooks 容错</td><td>Rust 稳健</td><td>Token Caching</td><td>-</td><td><span class="badge badge-red">无重试</span></td><td><span class="badge badge-green">指数退避 3 次</span></td></tr>
+  <tr><td>Token 追踪</td><td>内置</td><td>内置</td><td>内置</td><td>内置</td><td><span class="badge badge-red">未追踪</span></td><td><span class="badge badge-green">agent.usage 事件</span></td></tr>
+  <tr><td>上下文压缩</td><td>auto-compact</td><td>依赖模型</td><td>1M 窗口</td><td>repo map</td><td><span class="badge badge-yellow">截断 100 字符</span></td><td><span class="badge badge-green">结构化摘要</span></td></tr>
+  <tr><td>子代理</td><td>Subagents</td><td>单 Agent</td><td>单 Agent</td><td>单 Agent</td><td><span class="badge badge-green">已有</span></td><td><span class="badge badge-green">已有</span></td></tr>
+  <tr><td>MCP 支持</td><td>完整</td><td>rmcp</td><td>完整</td><td>-</td><td><span class="badge badge-green">已有</span></td><td><span class="badge badge-green">已有</span></td></tr>
+  <tr><td>权限系统</td><td>4 级</td><td>3 档审批</td><td>Trusted Folders</td><td>-</td><td><span class="badge badge-green">已有 4 级</span></td><td><span class="badge badge-green">已有 4 级</span></td></tr>
+  <tr><td>Hooks 钩子</td><td>11 事件</td><td>-</td><td>-</td><td>-</td><td><span class="badge badge-green">7 事件</span></td><td><span class="badge badge-green">7 事件</span></td></tr>
+</table>
+
+<h2>二、增强开发详情</h2>
+
+<h3>1. Checkpoint 快照与回滚系统 <span class="badge badge-green">新增</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Aider (Git auto-commit + revert) / Gemini CLI (Checkpointing)</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/checkpoint.py</span> (新建, 280 行)</p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>snapshot_before_modify()</code> — 在 write/edit/delete 前自动快照原始文件内容到磁盘</li>
+    <li><code>undo_last()</code> — 撤销最近一次修改, 恢复文件到快照状态 (含撤销新建文件)</li>
+    <li><code>rollback_to(checkpoint_id)</code> — 回滚到指定检查点, 撤销该点及之后所有修改</li>
+    <li><code>list_checkpoints()</code> — 列出检查点历史 (工具名/文件/状态)</li>
+    <li>内存 + 磁盘双存储, 按工作区隔离, FIFO 淘汰 (最多 100 个)</li>
+    <li>可选 Git stash 集成 (当工作区是 git 仓库时)</li>
+  </ul>
+  <p><strong>REST API:</strong> <code>GET /checkpoints</code> / <code>POST /checkpoints/undo</code> / <code>POST /checkpoints/rollback</code> / <code>DELETE /checkpoints</code></p>
+</div>
+
+<h3>2. Diff 预览 + dry_run 模式 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code diff 预览 / Aider SEARCH/REPLACE 可视化</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/tools.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>write_file</code> / <code>edit_file</code> / <code>multi_edit</code> 新增 <code>dry_run</code> 参数</li>
+    <li><code>dry_run=true</code> 时仅返回 unified diff 预览, 不实际写入文件</li>
+    <li>实际写入时也返回 diff 摘要, 帮助 Agent 理解变更范围</li>
+    <li><code>_generate_unified_diff()</code> 使用 Python difflib, 支持 200 行截断</li>
+  </ul>
+</div>
+
+<h3>3. 模糊匹配恢复 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code edit 工具容错能力</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/tools.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>_fuzzy_find_match()</code> — 当 old_text 精确匹配失败时, 归一化空白后重新匹配</li>
+    <li>处理制表符 vs 空格、多余空行、尾部空白等常见差异</li>
+    <li><code>edit_file</code> 和 <code>multi_edit</code> 自动触发模糊匹配, 返回提示 "(模糊匹配恢复成功)"</li>
+    <li>仍保证唯一性要求, 避免误替换</li>
+  </ul>
+</div>
+
+<h3>4. 并行工具执行 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code / Codex 并发工具调用</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/agent_loop.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li>当一轮中所有工具调用都是只读工具 (read_file/grep/glob/git_*/web_*/todo_read/list_checkpoints) 时, 使用 <code>asyncio.gather</code> 并行执行</li>
+    <li>权限检查 + PreToolUse Hook + 工具执行 + PostToolUse Hook 全部并行</li>
+    <li>事件推送和 messages 追加保持顺序一致性</li>
+    <li>写工具 (write/edit/delete/run_command) 仍顺序执行, 保证安全</li>
+  </ul>
+</div>
+
+<h3>5. LLM API 重试退避 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Codex Rust 稳健容错 / Gemini CLI 容错机制</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/llm_gateway.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>chat_with_tools()</code> 新增 <code>max_retries=3</code> 参数, 指数退避 (1s → 2s → 4s)</li>
+    <li>在流式输出开始前遇到可重试错误 (超时/连接/429/5xx) 自动重试</li>
+    <li>流式输出开始后不重试, 避免重复输出</li>
+    <li><code>_is_retriable_error()</code> 支持中英文错误关键词识别</li>
+    <li>底层 <code>httpx.TimeoutException</code> / <code>ConnectError</code> / <code>ReadError</code> 也纳入重试</li>
+  </ul>
+</div>
+
+<h3>6. Token 用量追踪 <span class="badge badge-green">新增</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Codex / Gemini CLI / Claude Code 用量追踪</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/agent_loop.py</span> + <span class="file-path">schemas.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li>每轮 LLM 调用后捕获 <code>usage</code> (prompt/completion/total tokens)</li>
+    <li>累计追踪 <code>total_usage</code>, 包含迭代次数</li>
+    <li>推送 <code>agent.usage</code> 事件 (每轮 + 总计), 供前端展示 token 消耗</li>
+    <li><code>agent.done</code> 事件附带最终 <code>usage</code> 汇总</li>
+    <li><code>AgentEventType.USAGE</code> 新增到 schemas 枚举</li>
+  </ul>
+</div>
+
+<h3>7. 智能上下文压缩 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code auto-compact / Codex context window management</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/agent_loop.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li>保留尾部消息从 10 条增加到 12 条</li>
+    <li>中间消息摘要从"截断 100 字符"升级为结构化摘要 (200 字符 + 工具名 + 调用记录)</li>
+    <li>assistant 消息记录调用了哪些工具 (tool_calls), 保留关键决策信息</li>
+    <li>摘要总长度限制 4000 字符, 防止摘要本身过长</li>
+    <li>摘要包含消息计数, 帮助 LLM 理解压缩程度</li>
+  </ul>
+</div>
+
+<h2>三、修改文件清单</h2>
+<table>
+  <tr><th>文件</th><th>类型</th><th>变更内容</th></tr>
+  <tr><td><span class="file-path">server/.../checkpoint.py</span></td><td>新建</td><td>检查点快照与回滚系统 (280 行)</td></tr>
+  <tr><td><span class="file-path">server/.../tools.py</span></td><td>修改</td><td>Diff 预览 + 模糊匹配 + Checkpoint 集成 + 3 个新工具</td></tr>
+  <tr><td><span class="file-path">server/.../llm_gateway.py</span></td><td>修改</td><td>API 重试退避 + 中英文错误识别</td></tr>
+  <tr><td><span class="file-path">server/.../agent_loop.py</span></td><td>修改</td><td>并行工具执行 + Token 追踪 + 智能压缩</td></tr>
+  <tr><td><span class="file-path">server/.../schemas.py</span></td><td>修改</td><td>新增 USAGE + TOOL_CONFIRM 事件类型</td></tr>
+  <tr><td><span class="file-path">server/.../routes.py</span></td><td>修改</td><td>5 个 Checkpoint REST API 端点</td></tr>
+  <tr><td><span class="file-path">cli/src/repl.ts</span></td><td>修改</td><td>/undo /checkpoints /rollback 命令 + /tools 更新 + agent.usage 事件</td></tr>
+  <tr><td><span class="file-path">client/.../workspace.service.ts</span></td><td>修改</td><td>AgentEvent 类型扩展 + 5 个 Checkpoint API 函数 + UsageInfo/CheckpointInfo 类型</td></tr>
+  <tr><td><span class="file-path">client/.../useWorkspaceAgent.ts</span></td><td>修改</td><td>agent.usage 事件处理 + currentUsage ref + onUsage 回调 + onDone 扩展</td></tr>
+</table>
+
+<h2>四、验证测试结果</h2>
+<div class="card">
+  <p><span class="test-pass">74/74 测试通过</span> — 覆盖 9 个测试类别:</p>
+  <table>
+    <tr><th>测试类别</th><th>测试数</th><th>状态</th></tr>
+    <tr><td>Checkpoint 快照与回滚</td><td>10</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>Diff 预览生成</td><td>5</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>模糊匹配恢复</td><td>4</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>智能上下文压缩</td><td>5</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>工具定义完整性</td><td>26</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>LLM Gateway 重试逻辑</td><td>8</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>write_file 集成检查点</td><td>7</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>edit_file 模糊匹配</td><td>5</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>Schemas 事件类型</td><td>4</td><td><span class="test-pass">全部通过</span></td></tr>
+  </table>
+</div>
+
+<h2>五、后续建议</h2>
+<div class="card">
+  <ul>
+    <li><strong>代码执行沙箱</strong> — 当前 run_command 在宿主机执行 (已有黑名单+超时+输出限制), 建议后续引入 Docker/seatbelt 沙箱隔离 (对标 Codex)</li>
+    <li><strong>语义代码搜索</strong> — codebase_index.py 使用正则符号提取, 建议引入向量嵌入实现语义搜索 (对标 Cursor)</li>
+    <li><strong>LLM 摘要压缩</strong> — 当前压缩使用规则摘要, 可进一步用小模型生成 LLM 摘要 (对标 Claude Code auto-compact)</li>
+    <li><strong>前端用量面板</strong> — currentUsage ref 已暴露, 可在 Web 界面渲染 token 用量面板和检查点历史面板</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

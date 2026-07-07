@@ -1,0 +1,129 @@
+# ============================================================================
+# Docker 构建上下文排除 (2026-07-07 深度分析修复)
+# docker-compose.yml frontend context: . (根目录)
+# 之前无根 .dockerignore, 导致根目录上万污染文件进入构建上下文, 严重拖慢构建
+# ============================================================================
+
+# 版本控制
+.git/
+.gitattributes
+.github/
+.husky/
+.gitignore
+
+# 依赖目录 (镜像内重新安装, 不复制宿主 node_modules)
+**/node_modules/
+**/.venv/
+**/venv/
+
+# 构建产物
+**/dist/
+**/build/
+**/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.vite/
+**/.vite_clean/
+
+# 浏览器 profile 目录 (含敏感凭证, 绝不进镜像)
+.pp-edge-*/
+.tmp-pptr-*/
+
+# 误创建目录
+--version/
+
+# 调试截图 / 脚本 / 报告 (体积大, 与构建无关)
+**/_test_*.png
+**/_test_*.mjs
+**/verify-*.png
+**/verify-*.mjs
+**/verify-*.json
+**/debug-*.png
+**/debug-*.mjs
+**/debug-*.txt
+**/tmp-*.png
+**/tmp-*.html
+**/audit-*.png
+**/audit-*.txt
+**/scan-*.txt
+**/scan-*.png
+**/full-audit*.txt
+**/spa-*.png
+**/final-dark-*.png
+**/final-light-*.png
+**/dark-mode-*.png
+**/light-mode-*.png
+**/toolbar-*.png
+**/widths-*.png
+**/v11-*.png
+**/check-*.png
+**/capture-*.mjs
+
+# 编译产物 CSS
+**/*_compiled.css
+**/*-compiled.css
+**/served-scss.css
+
+# HTML 报告 / 临时页面
+*.html
+**/acc-err*.html
+**/head-err*.html
+
+# 临时文本报告
+*.txt
+!server/requirements.txt
+!server/requirements.lock.txt
+!server/DEPLOY.md
+
+# IDE / 编辑器
+.idea/
+.vscode/
+**/.vscode/
+**/.cursorrules
+**/.editorconfig
+
+# 日志 / 运行时数据
+logs/
+**/logs/
+**/*.log
+**/dev-up-events*.jsonl
+
+# 测试产物
+**/test-results/
+**/playwright-report/
+**/pw-output/
+**/screenshots/
+**/login-history-verify/
+**/verify-tab-spacing-output/
+**/coverage/
+**/.v8-coverage/
+**/e2e-v8-coverage-report*/
+**/storybook-static/
+
+# 过程产物 / 工作笔记
+.trae/
+archive/
+**/.auto-wip/
+loop-budget.md
+loop-run-log.md
+trae-ai-input-delivery-*.md
+STATE.md
+LOOP.md
+
+# Docker 自身 (避免递归)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 环境配置 (敏感, 不进镜像)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# OS 文件
+**/.DS_Store
+**/Thumbs.db
+nul

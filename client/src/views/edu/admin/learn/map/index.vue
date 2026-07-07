@@ -1,0 +1,462 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form :inline="true" :model="searchParam" class="form-inline">
+        <el-form-item label="">
+          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字">
+            <template #suffix>
+              <el-icon class="el-input__icon search-btn" @click="search"><Search /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item label="状态" class="select">
+          <el-select size="small" v-model="searchParam.status" @change="search">
+            <el-option label="全部" value=""></el-option>
+            <el-option label="未发布" value="unpublished"></el-option>
+            <el-option label="已发布" value="published"></el-option>
+            <el-option label="已删除" value="deleted"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button size="small" type="primary" :icon="Plus" @click="edit()">
+            新增
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </div>
+    <div class="content">
+      <el-table v-loading="dataLoading" :show-header="false" class="custom-table" ref="multipleTable" :data="list" style="width: 100%" @expand-change="expandChange">
+        <el-table-column type="expand">
+          <template #default="scope">
+            <el-card class="box-card">
+              <template #header>
+                <div class="clearfix">
+                  <span>基础信息</span>
+                </div>
+              </template>
+              <div class="table-wrapper">
+                <table class="fl-table" style="width: 100%;">
+                  <tbody>
+                    <tr><td style="width: 120px;">名称：</td><td>{{scope.row.title}}</td></tr>
+                    <tr><td style="vertical-align: top;">详情：</td><td><div v-html="scope.row.description"></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </el-card>
+            <el-card style="margin-top: 20px;">
+              <template #header>
+                <div class="clearfix">
+                  <span>关联专题</span>
+                </div>
+              </template>
+              <div>
+                <el-table class="custom-table" :data="scope.row.topicList" :show-header="false" style="width: 100%;">
+                  <el-table-column prop="title" label="标题"></el-table-column>
+                </el-table>
+              </div>
+            </el-card>
+          </template>
+        </el-table-column>
+        <el-table-column>
+          <template #default="scope">
+            <div class="content-item-warp">
+              <a class="image" v-if="scope.row.image && scope.row.image.trim()">
+                <img :src="scope.row.image">
+              </a>
+              <div class="article-card-bone">
+                <div class="title-wrap">
+                  <a class="title">{{scope.row.title}}</a>
+                  <span class="label create-time">{{scope.row.createTime}}</span>
+                </div>
+                <div class="status-wrapper">
+                  <div class="status" :class="scope.row.status">{{statusMap[scope.row.status]}}</div>
+                </div>
+                <div class="count-wrapper">
+                  <ul class="count">
+                    <li>学习 {{scope.row.learnNum || 0}}</li>
+                    <li>点赞 {{scope.row.likeNum || 0}}</li>
+                    <li>收藏 {{scope.row.favoriteNum || 0}}</li>
+                    <li>评论 {{scope.row.commentNum || 0}}</li>
+                  </ul>
+                  <div class="article-action-list">
+                    <span class="icon-label" @click="info('敬请期待')">报名记录</span>
+                    <span class="icon-label" @click="commentView(scope.row)">查看评论</span>
+                    <span class="icon-label" @click="edit(scope.row.id)">编辑</span>
+                    <span class="icon-label" @click="remove(scope.row)">删除</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+    <comment-drawer topic-type="learn_map" :drawer-close="drawerClose" :show-drawer="drawer" :topic="selectTopic"/>
+    <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
+  </div>
+</template>
+
+<script>
+// @ts-nocheck
+import router from "@/router"
+import Page from "@/components/Page/index.vue"
+import CommentDrawer from "@/views/edu/admin/comment/commentDrawer.vue";
+import {ref, markRaw} from "vue"
+import {Plus, Search} from '@/lib/lucide-fallback'
+import { learnApi } from '@/api/edu/admin-api'
+const { findList, removeMap } = learnApi
+import {confirm, info, success} from "@/util/tipsUtils";
+
+export default {
+  name: "LearnMapIndex",
+  components: {
+    Page,
+    CommentDrawer,
+    Plus,
+    Search
+  },
+  setup() {
+    const list = ref([])
+    const total = ref(0)
+    const dataLoading = ref(true)
+    const topicIdList = ref([])
+    const searchParam = ref({
+      keyword: "",
+      cid: "",
+      status: "",
+      size: 20,
+      current: 1
+    })
+    const statusMap = {
+      unpublished: "未发布",
+      published: "已发布",
+      deleted: "已删除"
+    }
+    // 加载列表
+    const loadList = () => {
+      dataLoading.value = true
+      findList(searchParam.value, (res) => {
+        dataLoading.value = false
+        if (!res) {return;}
+        for (const listElement of res.list) {
+          listElement.chapterList = [];
+        }
+        list.value = res.list;
+        total.value = res.total;
+      })
+    }
+    loadList();
+    // 搜索
+    const search = () => {
+      loadList();
+    }
+    // 选择列表项
+    const selectItem = (val) => {
+      topicIdList.value = [];
+      if (val && val.length > 0) {
+        for (const valElement of val) {
+          topicIdList.value.push(valElement.id);
+        }
+      }
+    }
+    // 编辑
+    const edit = (id) => {
+      router.push({path: "/admin/edu/learn/map/edit", query: { id : id }})
+    }
+    const remove = (item) => {
+      confirm("确认删除该地图？", "提示", () => {
+        removeMap({id: item.id}, () => {
+          success("删除成功")
+          loadList();
+        })
+      })
+    }
+    const currentChange = (currentPage) => {
+      searchParam.value.current = currentPage;
+      loadList();
+    }
+    const sizeChange = (s) => {
+      searchParam.value.size = s;
+      loadList();
+    }
+    const expandChange = (row, expandedRows) => {
+      // 展开
+      if(expandedRows.length>0){
+      }
+    }
+    // 查看评论
+    const selectTopic = ref({})
+    const drawer = ref(false)
+    const drawerClose = (done) => {
+      drawer.value = false
+      done()
+    }
+    const commentView = (item) => {
+      drawer.value = true
+      selectTopic.value = item
+    }
+    return {
+      list,
+      total,
+      searchParam,
+      topicIdList,
+      search,
+      selectItem,
+      edit,
+      remove,
+      currentChange,
+      sizeChange,
+      expandChange,
+      dataLoading,
+      statusMap,
+      commentView,
+      selectTopic,
+      drawer,
+      drawerClose,
+      info,
+      Plus: markRaw(Plus)
+    };
+  }
+};
+</script>
+
+<style scoped lang="scss">
+.app-container {
+  margin: 20px;
+  .header {
+    .form-inline {
+      .search-input {
+        width: 242px;
+        :deep(.el-input__inner){
+          height: 34px;
+          line-height: 34px;
+          border-color: #f3f5f8;
+          &:focus, &:hover {
+            border-color: #f3f5f8;
+          }
+        }
+        :deep(.el-input__icon){
+          height: 34px;
+          line-height: 34px;
+          cursor: pointer;
+          &:hover {
+            color: var(--el-color-primary);
+          }
+        }
+      }
+      .select {
+        :deep(.el-form-item__label){
+          font-size: 12px;
+        }
+        :deep(.el-input__inner){
+          height: 34px;
+          line-height: 34px;
+          border-color: #f3f5f8;
+        }
+      }
+      :deep(.el-form-item){
+        margin-bottom: 20px;
+      }
+    }
+  }
+  .content {
+    :deep(.custom-table table tr:last-child){
+      td {
+        border: 0;
+      }
+    }
+    .custom-table {
+      width: 100%;
+      .content-item-warp {
+        position: relative;
+        display: flex;
+        .image {
+          min-width: 130px;
+          width: 180px;
+          height: 80px;
+          margin-right: 20px;
+          position: relative;
+          overflow: hidden;
+          border-radius: 4px;
+          border: 1px solid #e8e8e8;
+          cursor: default;
+          img {
+            width: 100%;
+            height: 100%;
+            transition: all .5s ease-out .1s;
+            -o-object-fit: cover;
+            object-fit: cover;
+            -o-object-position: center;
+            object-position: center;
+            &:hover {
+              transform: matrix(1.04,0,0,1.04,0,0);
+              -webkit-backface-visibility: hidden;
+              backface-visibility: hidden;
+            }
+          }
+        }
+        .article-card-bone {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          .title-wrap {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0;
+            .title {
+              font-size: 16px;
+              overflow: hidden;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+              line-height: 24px;
+              font-weight: 600;
+              display: block;
+              color: #222;
+              cursor: text;
+            }
+            .create-time {
+              color: #999;
+              line-height: 24px;
+              margin-left: 12px;
+              flex-shrink: 0;
+              font-size: 12px;
+            }
+          }
+          .content {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            margin: 8px 0 4px 0;
+            font-size: 12px;
+          }
+          .status-wrapper {
+            line-height: 20px;
+            margin-top: 8px;
+            height: 20px;
+            display: flex;
+            align-items: flex-end;
+            .status {
+              color: #999;
+              border: none;
+              background-color: #f5f5f5;
+              padding: 0 8px;
+              line-height: 20px;
+              font-size: 12px;
+              border-radius: 2px;
+              white-space: nowrap;
+              display: inline-block;
+              box-sizing: border-box;
+              transition: all .3s;
+              margin-right: 8px;
+            }
+            .published {
+              background: #67c23a;
+              color: #ffffff;
+            }
+            .unpublished {
+              background: #e6a23c;
+              color: #ffffff;
+            }
+            .deleted {
+              background: #f56c6c;
+              color: #ffffff;
+            }
+            .article-card .byte-tag-simple {
+              margin-right: 8px;
+            }
+            .divider {
+              width: 1px;
+              height: 12px;
+              margin: 4px 10px 4px 4px;
+              background: #bfbfbf;
+            }
+            .icon {
+              margin-right: 8px;
+              svg {
+                vertical-align: bottom;
+                &:focus {
+                  outline: none;
+                }
+              }
+            }
+          }
+          .count-wrapper {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            .count {
+              line-height: 20px;
+              position: relative;
+              li {
+                display: inline-block;
+                margin-right: 20px;
+                &:after {
+                  content: "\ff65";
+                  font-size: 20px;
+                  margin: 0 8px;
+                  line-height: 0;
+                  position: absolute;
+                  top: 10px;
+                  color: #666;
+                }
+                &:last-child:after {
+                  content: ""
+                }
+              }
+            }
+            .article-action-list {
+              display: flex;
+              line-height: 20px;
+              flex: 1 0 auto;
+              justify-content: flex-end;
+              .icon-label {
+                cursor: pointer;
+                line-height: 20px;
+                display: flex;
+                color: #222;
+                font-weight: 400;
+                margin-left: 20px;
+                &:first-child {
+                  margin-left: 0;
+                }
+                &:hover {
+                  color: var(--el-color-primary);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    :deep(.el-table__empty-block){
+      line-height: 400px;
+      .el-table__empty-text {
+        line-height: 400px;
+      }
+    }
+  }
+  .el-table th.is-leaf, .el-table td {
+    border: 0;
+  }
+  .el-table th.is-leaf, .el-table td:nth-child(1) {
+    min-width: 100px;
+  }
+  .image {
+    height: 60px;
+    display: inline-block;
+  }
+  .el-table-column--selection .cell{
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  :deep(.el-table tbody tr:hover > td){
+    background-color: transparent;
+  }
+}
+</style>
+<style lang="scss">
+  .el-table::before {
+    height: 0;
+  }
+</style>
