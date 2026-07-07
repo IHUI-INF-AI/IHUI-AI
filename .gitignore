@@ -24,6 +24,7 @@ DEAD_CODE_FULL_REPORT.md
 
 # 2026-07-02 IDE 工作笔记 (trae / stash inventory), 不入库
 .trae/
+.trae-cn/
 archive/
 
 # ============================================================================
