@@ -25,13 +25,13 @@
 @layer base {
   /* 侧边栏布局 CSS 变量 */
   :root {
-    /* 默认展开宽度 116px（紧凑默认，与 useSidebar.ts DEFAULT_WIDTH=116 一致, v11） */
-    --sidebar-width: 116px;
+    /* 默认展开宽度 136px（紧凑默认，与 useSidebar.ts DEFAULT_WIDTH=136 一致, v12） */
+    --sidebar-width: 136px;
     --sidebar-collapsed-width: 60px;
 
-    /* 拖拽缩放范围（与 useSidebar.ts MIN_WIDTH=60 / MAX_WIDTH=116 一致, v11） */
+    /* 拖拽缩放范围（与 useSidebar.ts MIN_WIDTH=60 / MAX_WIDTH=136 一致, v12） */
     --sidebar-min-width: 60px;
-    --sidebar-max-width: 116px;
+    --sidebar-max-width: 136px;
 
     /* 40px 与 --nav-item-height 一致, logo 32px 居中后上下各 4px 留白 (2026-07-04 调整:
        旧值 52px 导致 logo 距屏幕顶部 10px + logo 底部到新建对话按钮 12px, 用户反馈"间距太大";
@@ -124,7 +124,7 @@
 
   /* ── 侧边栏 ──
    * --sidebar-user-width 由 useSidebar 通过 inline style 注入（用户拖拽值），
-   * 未注入时回退到 --sidebar-width（默认 116px, v11）。
+   * 未注入时回退到 --sidebar-width（默认 136px, v12）。
    * 折叠态由 .app-sidebar.collapsed 覆盖为 --sidebar-collapsed-width（60px），
    * 此时 --sidebar-user-width 虽仍存在但不被引用，不影响折叠宽度。 */
   :where(.app-sidebar) {
@@ -1063,7 +1063,7 @@ html.dark .nav-group-label:hover {
 
 /* ── 侧边栏本体：紧贴全局侧边栏，去除浮动卡片样式 ── */
 body:has(.app-layout) .ai-world-page__nav {
-  left: var(--sidebar-width, 116px);
+  left: var(--sidebar-width, 136px);
   top: var(--workspace-header-height, 48px);
   width: 200px;
   height: calc(100vh - var(--workspace-header-height, 48px));
