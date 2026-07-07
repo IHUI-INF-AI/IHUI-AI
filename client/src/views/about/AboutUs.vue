@@ -37,6 +37,7 @@ import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSEO } from '@/composables/useSEO'
+import { loadModule, getCurrentLocale } from '@/locales'
 import AboutSection from './sections/AboutSection.vue'
 import ContactSection from './sections/ContactSection.vue'
 import SupplierSection from './sections/SupplierSection.vue'
@@ -44,6 +45,10 @@ import SupplierSection from './sections/SupplierSection.vue'
 const { t } = useI18n()
 const route = useRoute()
 const _router = useRouter()
+
+// 2026-07-08: 显式预热 aboutUs + footer 模块, 避免首屏渲染时 i18n key 裸露
+// (asyncModules 已注册 aboutUs, 但首次进入页面时模块可能尚未加载, 这里主动触发)
+loadModule(getCurrentLocale(), 'aboutUs')
 
 useSEO({
   title: t('about.seo.title'),

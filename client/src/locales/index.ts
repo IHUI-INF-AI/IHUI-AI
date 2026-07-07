@@ -88,7 +88,7 @@ const asyncModules = [
   'dramaScript',
   // 前台活跃页面缺失模块（2026-06-26 补充）
   'forgotPassword', 'ranking', 'chat', 'agents', 'plaza', 'xuqiu',
-  'about', 'share', 'feedback', 'agenticAI', 'aiManagement',
+  'about', 'aboutUs', 'share', 'feedback', 'agenticAI', 'aiManagement',
   'knowledgeBase', 'memberPoint', 'wallet', 'distribution',
   'myCommission', 'withdrawal', 'supportTickets',
   'chatHistory', 'chatInput1', 'chatMode',
