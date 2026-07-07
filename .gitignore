@@ -259,3 +259,24 @@ scripts/check-slash-commands.mjs
 scripts/check-tasklist-panel.mjs
 scripts/clean-g-root-tmp.ps1
 ts_parse_tmp.mjsdbg_tmp.mjsscss_tmp.shscss_vue_tmp.mjs server/debug_glob.py server/debug_re_sub.pyserver/debug_*.py *_tmp.mjs *_tmp.sh scss_*tmp*
+
+# ============================================================================
+# 2026-07-07 工作区根目录调试/分析/扫描临时脚本 (Sidebar 恢复尝试残留)
+# 不入库但保留在磁盘供后续追溯
+# ============================================================================
+analyze_*.mjs
+compare_*.mjs
+deep_scan.mjs
+dump_*.mjs
+extract_*.mjs
+extract_*.txt
+precise_*.mjs
+precise_matches.json
+query_*.mjs
+restore_perfect_version.mjs
+scan_*.mjs
+backups_before_restore/
+backups_before_restore_sidebar.vue
+backups_before_restore_sidebar*.vue
+backups_before_restore*.vue
+unreachable_sidebar_dumps/
