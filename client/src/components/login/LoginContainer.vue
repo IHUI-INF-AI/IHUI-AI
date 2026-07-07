@@ -83,7 +83,7 @@ const _router = useRouter()
 const route = useRoute()
 
 // 响应式状态
-const activeTab = ref<'account' | 'phone'>('account')
+const activeTab = ref<'account' | 'phone' | 'email'>('account')
 const isRegisterMode = ref(false)
 const showSecurityAlert = ref(false)
 const securityAlertMessage = ref('')

@@ -57,6 +57,14 @@
         @update:active-tab="handleActiveTabChange"
       />
 
+      <!-- 邮箱登录表单 -->
+      <EmailLoginForm
+        v-else-if="!isRegisterMode && activeTab === 'email'"
+        ref="emailLoginFormRef"
+        :loading="loginLoading"
+        @submit="onEmailLoginSubmit"
+      />
+
       <!-- 注册表单 -->
       <RegisterForm
         v-else-if="isRegisterMode"
@@ -83,6 +91,16 @@
         class="submit-btn"
         :loading="loginLoading"
         @click="submitPhoneLogin"
+      >
+        {{ loginBtnLabel }}
+      </el-button>
+      <el-button
+        v-else-if="!isRegisterMode && activeTab === 'email'"
+        type="primary"
+        size="large"
+        class="submit-btn"
+        :loading="loginLoading"
+        @click="submitEmailLogin"
       >
         {{ loginBtnLabel }}
       </el-button>
@@ -148,6 +166,7 @@ import LoginBrandUniversal from './LoginBrandUniversal.vue'
 import TabSwitcher from './components/TabSwitcher.vue'
 import AccountLoginForm from './forms/AccountLoginForm.vue'
 import PhoneLoginForm from './forms/PhoneLoginForm.vue'
+import EmailLoginForm from './forms/EmailLoginForm.vue'
 import RegisterForm from './forms/RegisterForm.vue'
 import ThirdPartyLoginUniversal from './ThirdPartyLoginUniversal.vue'
 import ProjectSelectorBanner from './ProjectSelectorBanner.vue'
@@ -195,6 +214,7 @@ const {
   loading: loginLoading,
   handleAccountLogin,
   handlePhoneLogin,
+  handleEmailLogin,
 } = useLoginLogic({ showCaptcha, captchaKey })
 
 const {
@@ -208,7 +228,7 @@ const {
 // State
 // ------------------------------------------------------------------
 
-const activeTab = ref<'account' | 'phone'>('account')
+const activeTab = ref<'account' | 'phone' | 'email'>('account')
 const isRegisterMode = ref(props.mode === 'register')
 const showAgreementDialog = ref(false)
 const agreementText = ref('')
@@ -217,6 +237,7 @@ const pendingAction = ref<(() => void) | null>(null)
 // 表单实例引用
 const accountLoginFormRef = ref<FormInstance | null>(null)
 const phoneLoginFormRef = ref<FormInstance | null>(null)
+const emailLoginFormRef = ref<FormInstance | null>(null)
 const registerFormRef = ref<FormInstance | null>(null)
 
 // ------------------------------------------------------------------
@@ -268,7 +289,7 @@ const updateRegisterMode = (value: boolean): void => {
   isRegisterMode.value = value
 }
 
-const handleActiveTabChange = (tab: 'account' | 'phone'): void => {
+const handleActiveTabChange = (tab: 'account' | 'phone' | 'email'): void => {
   activeTab.value = tab
 }
 
@@ -351,6 +372,16 @@ const performPhoneLogin = async (data: {
   )
 }
 
+/** 邮箱验证码登录核心逻辑（useLoginLogic 内部更新 authStore） */
+const performEmailLogin = async (data: {
+  email: string
+  verificationCode: string
+  rememberMe: boolean
+  agreement: boolean
+}): Promise<void> => {
+  await handleEmailLogin(data)
+}
+
 /** 注册核心逻辑（useRegisterLogic 返回 token，由本组件更新 authStore） */
 const performRegister = async (data: {
   username: string
@@ -406,6 +437,17 @@ const onPhoneLoginSubmit = (data: {
   })
 }
 
+const onEmailLoginSubmit = (data: {
+  email: string
+  verificationCode: string
+  rememberMe: boolean
+  agreement: boolean
+}): void => {
+  requireAgreement(() => {
+    void performEmailLogin(data)
+  })
+}
+
 const onRegisterSubmit = (data: {
   username: string
   phone: string
@@ -457,6 +499,26 @@ const submitPhoneLogin = async (): Promise<void> => {
       countryCode: fd.countryCode,
       verificationCode: fd.verificationCode,
       rememberMe: fd.rememberMe,
+    })
+  })
+}
+
+const submitEmailLogin = async (): Promise<void> => {
+  const inst = emailLoginFormRef.value
+  if (!inst) return
+  try {
+    await inst.validate?.()
+  } catch {
+    return
+  }
+  const fd = inst.formData
+  if (!fd) return
+  requireAgreement(() => {
+    void performEmailLogin({
+      email: fd.email,
+      verificationCode: fd.verificationCode,
+      rememberMe: fd.rememberMe,
+      agreement: true,
     })
   })
 }
@@ -532,6 +594,7 @@ const reset = (): void => {
   pendingAction.value = null
   accountLoginFormRef.value?.resetFields?.()
   phoneLoginFormRef.value?.resetFields?.()
+  emailLoginFormRef.value?.resetFields?.()
   registerFormRef.value?.resetFields?.()
   resetRegisterForm()
 }
