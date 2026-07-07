@@ -23,6 +23,8 @@ import sys
 import uuid
 from typing import Any, AsyncGenerator
 
+from loguru import logger
+
 from app.api.v1.workspace.llm_gateway import (
     ChatMessage,
     _get_model_config,

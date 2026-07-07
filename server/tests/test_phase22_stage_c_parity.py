@@ -370,5 +370,126 @@ class TestCodebaseIncrementalGit(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# Persona 注入到 agent_loop (P0 修复验证)
+# ---------------------------------------------------------------------------
+
+class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
+    """验证 persona_id 真正注入到 agent_loop 的 system prompt"""
+
+    def setUp(self):
+        # 隔离 personas 持久化
+        self.tmp = Path(tempfile.mkdtemp())
+        os.environ["IHUI_PERSONAS_DIR"] = str(self.tmp)
+        # 重置 singleton
+        persona_registry._registry = None
+
+    def tearDown(self):
+        if "IHUI_PERSONAS_DIR" in os.environ:
+            del os.environ["IHUI_PERSONAS_DIR"]
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        persona_registry._registry = None
+
+    async def test_persona_id_injected_into_system_prompt(self):
+        """persona_id 必须出现在 agent.context 事件的 system prompt 里"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch, AsyncMock, MagicMock
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            # mock LLM cfg + 立即终止 chat_with_tools (避免真调 LLM)
+            fake_cfg = {"model": "fake", "code": "default"}
+            with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+                 patch.object(agent_loop, "chat_with_tools", new=AsyncMock()) as mock_chat:
+                # 让 chat_with_tools 立即返回 done 事件, 触发 agent.done
+                async def fake_stream(*args, **kwargs):
+                    yield {"type": "done", "usage": {}, "attempts": 1}
+                mock_chat.return_value = fake_stream()
+
+                events = []
+                async for ev in agent_loop.run_agent_loop(
+                    prompt="hello",
+                    model_id="default",
+                    workspace_path=str(tmp),
+                    user_uuid="test",
+                    max_iterations=1,
+                    persona_id="code-reviewer",
+                ):
+                    events.append(ev)
+
+            ctx = next((e for e in events if e.get("type") == "agent.context"), None)
+            self.assertIsNotNone(ctx, "agent.context 事件必须被 yield")
+            # persona 字段必须带 name/category
+            self.assertIsNotNone(ctx.get("persona"), "persona 字段必须存在")
+            self.assertEqual(ctx["persona"]["id"], "code-reviewer")
+            self.assertEqual(ctx["persona"]["name"], "Code Reviewer")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    async def test_unknown_persona_id_skipped_safely(self):
+        """未知 persona_id 不能让 agent_loop 崩"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch, AsyncMock
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            fake_cfg = {"model": "fake", "code": "default"}
+            with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+                 patch.object(agent_loop, "chat_with_tools", new=AsyncMock()) as mock_chat:
+                async def fake_stream(*args, **kwargs):
+                    yield {"type": "done", "usage": {}, "attempts": 1}
+                mock_chat.return_value = fake_stream()
+
+                events = []
+                async for ev in agent_loop.run_agent_loop(
+                    prompt="hello",
+                    model_id="default",
+                    workspace_path=str(tmp),
+                    max_iterations=1,
+                    persona_id="nonexistent-persona-12345",
+                ):
+                    events.append(ev)
+
+            ctx = next((e for e in events if e.get("type") == "agent.context"), None)
+            self.assertIsNotNone(ctx)
+            self.assertIsNone(ctx.get("persona"), "未知 persona 注入时 persona 字段必须为 None")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    async def test_disabled_persona_skipped(self):
+        """禁用的 persona 不能注入"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch, AsyncMock
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            reg = persona_registry.get_persona_registry()
+            reg.disable("code-reviewer")
+            try:
+                fake_cfg = {"model": "fake", "code": "default"}
+                with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+                     patch.object(agent_loop, "chat_with_tools", new=AsyncMock()) as mock_chat:
+                    async def fake_stream(*args, **kwargs):
+                        yield {"type": "done", "usage": {}, "attempts": 1}
+                    mock_chat.return_value = fake_stream()
+
+                    events = []
+                    async for ev in agent_loop.run_agent_loop(
+                        prompt="hello",
+                        model_id="default",
+                        workspace_path=str(tmp),
+                        max_iterations=1,
+                        persona_id="code-reviewer",
+                    ):
+                        events.append(ev)
+                ctx = next((e for e in events if e.get("type") == "agent.context"), None)
+                self.assertIsNotNone(ctx)
+                self.assertIsNone(ctx.get("persona"), "禁用 persona 注入时 persona 字段必须为 None")
+            finally:
+                reg.enable("code-reviewer")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

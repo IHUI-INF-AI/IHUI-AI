@@ -32,7 +32,7 @@ from app.schemas.developer_models import (
     AiModelToggleRequest,
 )
 from app.security import require_login
-from app.services.model_test_service import get_api_formats, test_model_connection
+from app.api.v1.developer.model_test_service import get_api_formats, test_model_connection
 from app.utils.crypto_util import decrypt_value, encrypt_value, mask_api_key
 
 router = APIRouter(prefix="/models", tags=["Developer: Model Config"])
