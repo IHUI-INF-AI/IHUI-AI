@@ -144,3 +144,117 @@ work_*.log
 work_stylelint.txt
 # 自动 WIP 备份目录 (scripts/auto-wip-commit.mjs 生成, 不入库, 防止丢失修改)
 client/.auto-wip/
+
+# ============================================================================
+# 2026-07-07 浏览器 profile 数据 (puppeteer/playwright 调试残留, 含敏感登录数据)
+# ============================================================================
+.pp-edge*/
+.pp-ed*/
+.tmp-pptr*/
+.tmp-pptr*/
+.trae-html-share-packages/
+.workbuddy/
+
+# ============================================================================
+# 2026-07-07 调试脚本/截图/报告 (会话期间生成的临时诊断产物)
+# ============================================================================
+client/_test_*
+client/_dark-*-compiled.css
+client/_ep-overrides-compiled.css
+client/_global-ui-compiled.css
+client/.audit-snapshots/
+client/.verify-shots/
+client/served-scss.css
+client/aichat-compiled.css
+client/verify-*.png
+client/verify-*.mjs
+client/verify-*.json
+client/verify-*/
+client/check-*.mjs
+client/check-*.txt
+client/diag-*.mjs
+client/scan-*.mjs
+client/decode-*.mjs
+client/parse-*.mjs
+client/fetch-css.mjs
+client/inspect-*.mjs
+client/capture-*.mjs
+client/test-*.mjs
+client/test-*.cjs
+client/tab-icon-zoom.png
+client/widths-*.png
+client/v11-*.png
+client/snap-*.png
+client/_dark-global-compiled.css
+*.html
+!client/public/**/*.html
+!client/src/**/*.html
+!server/app/api/**/*.html
+!docs/**/*.html
+!deploy/**/*.html
+audit-*.txt
+audit-*.png
+audit-v*.txt
+audit-final*.txt
+full-audit*.txt
+scan-*-result.txt
+scan-result.txt
+phone-from-dev.txt
+dark-mode-*.png
+light-mode-*.png
+final-dark-*.png
+final-light-*.png
+spa-*.png
+debug-*.png
+debug-*.txt
+tmp-*.png
+tmp-*.html
+tmp-tab-*.png
+tmp-login-*.png
+tmp-final-*.png
+verify-aiworld-*.png
+verify-aiworld-*.mjs
+verify-aiworld-*.json
+verify-active-focus-*.png
+verify-active-focus-*.json
+verify-*.png
+login-history-verify/
+verify-border-*.png
+verify-*.mjs
+verify-*.json
+verify-*/
+check-tab-icon.mjs
+PROJECT深度分析与优化报告.html
+
+# ============================================================================
+# 2026-07-07 剩余调试产物 (截图/备份/临时输出)
+# ============================================================================
+*.bak
+client/final-*.png
+client/check-*.png
+client/toolbar-*.png
+client/acc-*.txt
+client/diag-page-output/
+client/debug-*.mjs
+client/scripts/_*.png
+client/scripts/_*.mjs
+client/scripts/_light-*.png
+client/scripts/_light-*.mjs
+client/scripts/_tmp_*.mjs
+client/public/page-v6-actual.png
+client/public/toolbar-v6-actual.png
+server/_inspect_sqlite.py
+server/alembic_output.txt
+server/mig_err.txt
+server/scripts/_inspect_admin_user.py
+server/scripts/_run_migration_029.py
+server/scripts/_verify_unique_constraint.py
+server/tmp_sources.json
+deploy/oracle/
+docker-compose.ai-feed.yml
+docs/competitive-analysis/
+scripts/check-cursorrules-memory.mjs
+scripts/check-shell-blacklist.mjs
+scripts/check-slash-commands.mjs
+scripts/check-tasklist-panel.mjs
+scripts/clean-g-root-tmp.ps1
