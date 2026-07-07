@@ -227,6 +227,9 @@ async function handleCommand(
       console.log('  list_checkpoints 列出检查点')
       console.log('  rollback         回滚到检查点')
       console.log('')
+      console.log(chalk.dim('  环境变量:'))
+      console.log(chalk.dim('  IHUI_GIT_AUTOCOMMIT=1  启用 Aider 风格自动 git commit (每次修改/撤销自动提交)'))
+      console.log('')
       break
 
     case 'skills':
