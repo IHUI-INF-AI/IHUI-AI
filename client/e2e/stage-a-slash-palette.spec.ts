@@ -12,7 +12,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 
-const CHAT_INPUT = '.ai-side-panel textarea, .ai-side-panel .el-textarea__inner'
+const CHAT_INPUT = '.chat-input[contenteditable="true"]'
 const PALETTE = '.slash-palette-anchor'
 
 /** 打开 AI 浮窗并进入 trae-work 输入态 (复用 agent-pill.spec.ts 的 helper 逻辑) */

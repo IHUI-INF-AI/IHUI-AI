@@ -45,7 +45,7 @@ async function openAIDialogMaximized(page: Page): Promise<void> {
 async function injectTodoUpdate(page: Page, todos: Array<{ id: string; title: string; status: string; priority?: string }>) {
   await page.evaluate((todosData) => {
     // 模拟 useWorkspaceAgent 的事件处理
-    const event = new CustomEvent('agent:todo:update', { detail: { todos: todosData } })
+    const event = new CustomEvent('agent.todo.update', { detail: { todos: todosData } })
     window.dispatchEvent(event)
   }, todos)
 }
