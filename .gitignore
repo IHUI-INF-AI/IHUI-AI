@@ -120,6 +120,10 @@ __pycache__/
 *.py
 !server/**/*.py
 !scripts/*.py
+# 2026-07-08 一次性 D 盘历史项目交叉验证脚本 (引用 D:/历史项目存档, 仅本地分析)
+# 保留磁盘供用户后续追溯, 不污染主仓库. 必须在 !scripts/*.py 之后声明以覆盖白名单.
+scripts/cross_verify_ctrl.py
+scripts/cross_verify_ctrl_to_py.py
 i18n-report*.json
 openapi.json
 openapi_problems.json
