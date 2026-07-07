@@ -416,33 +416,17 @@ export const communityRoutes: Array<RouteRecordRaw> = [
       requiresAuth: false,
     },
   },
+  // 2026-07-08: 整合到统一页面 /about/about-us 通过 hash 切换
+  // 保留 name 字段以兼容旧 history/replaceState
   {
     path: '/about/contact-us',
     name: 'contactUs',
-    component: safeImport(
-      () => import(/* webpackChunkName: "about" */ '@/views/about/ContactUs.vue'),
-      'ContactUs'
-    ),
-    meta: {
-      title: 'routes.contactUs',
-      description: '联系智汇AI，获取产品咨询与商务合作',
-      keywords: '联系我们,咨询,商务合作',
-      requiresAuth: false,
-    },
+    redirect: '/about/about-us#contact',
   },
   {
     path: '/about/become-supplier',
     name: 'becomeSupplier',
-    component: safeImport(
-      () => import(/* webpackChunkName: "about" */ '@/views/about/BecomeSupplier.vue'),
-      'BecomeSupplier'
-    ),
-    meta: {
-      title: 'routes.becomeSupplier',
-      description: '加入我们的供应商网络，共同为AI生态贡献力量',
-      keywords: '供应商,合作,申请',
-      requiresAuth: false,
-    },
+    redirect: '/about/about-us#supplier',
   },
   {
     path: '/messages',
