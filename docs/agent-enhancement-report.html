@@ -43,13 +43,13 @@
 <p class="subtitle">对标 Claude Code / Codex / Gemini CLI / Aider — 差距分析与全面增强开发</p>
 
 <div class="summary-bar">
-  <strong>交付状态: 已完成</strong> — 12 项核心增强 + CLI 集成 + 前端 UI 组件 + Git auto-commit 双模式 + i18n 5 语言全覆盖, 100/100 验证测试通过, 21 个文件修改/创建
+  <strong>交付状态: 已完成</strong> — 18 项核心增强 + CLI 集成 + 前端 UI 组件 + Git auto-commit 双模式 + i18n 5 语言全覆盖, 117/117 验证测试通过, 21 个文件修改/创建
 </div>
 
 <div class="stat-grid">
-  <div class="stat"><div class="stat-num">12</div><div class="stat-label">核心增强项</div></div>
+  <div class="stat"><div class="stat-num">18</div><div class="stat-label">核心增强项</div></div>
   <div class="stat"><div class="stat-num">19</div><div class="stat-label">工具总数 (原16+3)</div></div>
-  <div class="stat"><div class="stat-num">100</div><div class="stat-label">测试通过</div></div>
+  <div class="stat"><div class="stat-num">117</div><div class="stat-label">测试通过</div></div>
   <div class="stat"><div class="stat-num">16</div><div class="stat-label">修改文件数</div></div>
 </div>
 
@@ -245,6 +245,40 @@
   </ul>
 </div>
 
+<h3>16. edit_file 文件大小保护 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code (编辑文件大小限制)</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/tools.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>edit_file</code> 读取文件后检查大小, 超过 10MB 返回友好错误</li>
+    <li>与 <code>read_file</code> / <code>write_file</code> 的 10MB 限制保持一致</li>
+  </ul>
+</div>
+
+<h3>17. delete_file 存在性检查 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code (删除前验证)</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/tools.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>delete_file</code> 在创建检查点前检查文件是否存在</li>
+    <li>避免对不存在的文件创建无用检查点, 减少检查点污染</li>
+    <li>返回友好错误消息而非异常堆栈</li>
+  </ul>
+</div>
+
+<h3>18. multi_edit 文件大小保护 <span class="badge badge-green">增强</span></h3>
+<div class="card">
+  <p><strong>对标:</strong> Claude Code (批量编辑大小限制)</p>
+  <p><strong>文件:</strong> <span class="file-path">server/app/api/v1/workspace/tools.py</span></p>
+  <p><strong>能力:</strong></p>
+  <ul>
+    <li><code>multi_edit</code> 读取文件后检查大小, 超过 10MB 返回友好错误</li>
+    <li>与 <code>edit_file</code> 的 10MB 限制保持一致</li>
+  </ul>
+</div>
+
 <h2>三、修改文件清单</h2>
 <table>
   <tr><th>文件</th><th>类型</th><th>变更内容</th></tr>
@@ -285,6 +319,8 @@
     <tr><td>9. Schemas 事件类型</td><td>4</td><td><span class="test-pass">全部通过</span></td></tr>
     <tr><td>10. Git Auto-Commit 双模式</td><td>15</td><td><span class="test-pass">全部通过</span></td></tr>
     <tr><td>11. read_file 文件大小保护</td><td>7</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>12. 工具大小保护 (write/list/grep)</td><td>9</td><td><span class="test-pass">全部通过</span></td></tr>
+    <tr><td>13. 编辑/删除安全保护</td><td>8</td><td><span class="test-pass">全部通过</span></td></tr>
   </table>
 </div>
 
