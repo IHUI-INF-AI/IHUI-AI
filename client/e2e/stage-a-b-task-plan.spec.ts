@@ -56,7 +56,8 @@ async function injectPlanProposed(
   plan: { title: string; summary: string; steps: Array<{ id?: string; title: string; description?: string; files?: string[] }>; risks?: string[] }
 ) {
   await page.evaluate((planData) => {
-    const event = new CustomEvent('agent:plan:proposed', { detail: { plan: planData } })
+    // 2026-07-08: 与 useWorkspaceAgent 监听保持一致 — 'agent.plan.proposed' (点号)
+    const event = new CustomEvent('agent.plan.proposed', { detail: { plan: planData } })
     window.dispatchEvent(event)
   }, plan)
 }
