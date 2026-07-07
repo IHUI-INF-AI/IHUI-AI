@@ -454,6 +454,11 @@ async def agent_websocket(websocket: WebSocket, user_uuid: str = ""):
                     if accumulated_assistant:
                         append_message(chat_id, "assistant", accumulated_assistant)
                     accumulated_assistant = ""
+                    # 持久化 token 用量 (对标 Codex /cost /usage)
+                    done_usage = event.get("usage")
+                    if done_usage and chat_id:
+                        from app.api.v1.workspace.session_store import update_session_usage
+                        update_session_usage(chat_id, done_usage)
 
     except WebSocketDisconnect:
         logger.info("Agent WebSocket 已断开")

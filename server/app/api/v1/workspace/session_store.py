@@ -236,3 +236,111 @@ def clear_plan(session_id: str) -> bool:
         del session["pending_plan"]
         _save_session(session)
     return True
+
+
+# ---------------------------------------------------------------------------
+# Token 用量持久化 (对标 Codex /cost /usage 和 Claude Code 的用量追踪)
+# ---------------------------------------------------------------------------
+
+def update_session_usage(session_id: str, usage: dict[str, Any]) -> bool:
+    """累积更新会话的 token 用量。
+
+    每次 agent loop 结束时调用, 将本轮 total_usage 累积到 session。
+    累积维度: prompt_tokens / completion_tokens / total_tokens / iterations / api_calls
+
+    Args:
+        session_id: 会话 ID
+        usage: agent_loop 的 total_usage dict
+
+    Returns:
+        是否更新成功
+    """
+    session = load_session(session_id)
+    if not session:
+        return False
+
+    # 初始化或读取已有用量
+    cur = session.get("usage", {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "iterations": 0,
+        "api_calls": 0,
+        "rounds": 0,  # 用户交互轮数
+    })
+
+    cur["prompt_tokens"] += usage.get("prompt_tokens", 0)
+    cur["completion_tokens"] += usage.get("completion_tokens", 0)
+    cur["total_tokens"] += usage.get("total_tokens", 0)
+    cur["iterations"] = max(cur.get("iterations", 0), usage.get("iterations", 0))
+    cur["api_calls"] = cur.get("api_calls", 0) + usage.get("iterations", 0)
+    cur["rounds"] = cur.get("rounds", 0) + 1
+    cur["last_updated"] = time.time()
+
+    session["usage"] = cur
+    _save_session(session)
+    return True
+
+
+def get_session_usage(session_id: str) -> dict[str, Any] | None:
+    """获取会话的累计 token 用量。"""
+    session = load_session(session_id)
+    if not session:
+        return None
+    return session.get("usage", {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "iterations": 0,
+        "api_calls": 0,
+        "rounds": 0,
+    })
+
+
+def get_workspace_usage_summary(workspace_path: str) -> dict[str, Any]:
+    """汇总工作区下所有会话的 token 用量 (供 /usage 全局统计)。
+
+    Returns:
+        {
+            "total_prompt_tokens": int,
+            "total_completion_tokens": int,
+            "total_tokens": int,
+            "total_api_calls": int,
+            "session_count": int,
+            "sessions": list[dict],  # 各会话摘要
+        }
+    """
+    _ensure_dirs()
+    summary: dict[str, Any] = {
+        "total_prompt_tokens": 0,
+        "total_completion_tokens": 0,
+        "total_tokens": 0,
+        "total_api_calls": 0,
+        "session_count": 0,
+        "sessions": [],
+    }
+
+    for file_path in _SESSIONS_DIR.glob("*.json"):
+        try:
+            session = json.loads(file_path.read_text(encoding="utf-8"))
+            if session.get("workspace_path") != workspace_path:
+                continue
+            usage = session.get("usage", {})
+            summary["total_prompt_tokens"] += usage.get("prompt_tokens", 0)
+            summary["total_completion_tokens"] += usage.get("completion_tokens", 0)
+            summary["total_tokens"] += usage.get("total_tokens", 0)
+            summary["total_api_calls"] += usage.get("api_calls", 0)
+            summary["session_count"] += 1
+            summary["sessions"].append({
+                "id": session["id"],
+                "created_at": session.get("created_at", 0),
+                "updated_at": session.get("updated_at", 0),
+                "usage": usage,
+                "initial_prompt": session.get("initial_prompt", "")[:80],
+            })
+        except Exception:
+            continue
+
+    # 按更新时间排序
+    summary["sessions"].sort(key=lambda s: s.get("updated_at", 0), reverse=True)
+    return summary

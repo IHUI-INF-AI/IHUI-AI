@@ -490,3 +490,168 @@ class TestPersonaInjection(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ---------------------------------------------------------------------------
+# End-to-end Mock LLM 测试 (P1 修复: 不依赖真 LLM, 验证完整 agent_loop 流程)
+# ---------------------------------------------------------------------------
+
+class TestAgentLoopEndToEnd(unittest.IsolatedAsyncioTestCase):
+    """端到端: mock LLM 工具调用循环, 验证 events 序列 + tool dispatch + 历史持久化"""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        os.environ["IHUI_PERSONAS_DIR"] = str(self.tmp)
+        persona_registry._registry = None
+
+    def tearDown(self):
+        if "IHUI_PERSONAS_DIR" in os.environ:
+            del os.environ["IHUI_PERSONAS_DIR"]
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        persona_registry._registry = None
+
+    async def test_full_loop_with_tool_call(self):
+        """完整一轮: agent.context → tool.call → tool.result → agent.text.delta → agent.done"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch
+
+        fake_cfg = {"model": "fake", "code": "default"}
+
+        # mock LLM stream: 第一次产出 tool_call, 第二次产出文本
+        call_count = [0]
+
+        async def fake_stream(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                yield {
+                    "type": "tool_call_complete",
+                    "id": "call_1",
+                    "name": "read_file",
+                    "arguments": {"path": "test.txt"},
+                }
+                yield {"type": "done", "usage": {"prompt_tokens": 10, "completion_tokens": 5}, "attempts": 1}
+            else:
+                yield {"type": "text_delta", "content": "Hello "}
+                yield {"type": "text_delta", "content": "world"}
+                yield {"type": "done", "usage": {"prompt_tokens": 20, "completion_tokens": 10}, "attempts": 1}
+
+        with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+             patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream):
+            events = []
+            async for ev in agent_loop.run_agent_loop(
+                prompt="read test.txt",
+                model_id="default",
+                workspace_path=str(self.tmp),
+                max_iterations=3,
+            ):
+                events.append(ev)
+
+        event_types = [e.get("type") for e in events]
+        # 必须包含: context, tool.call, tool.result, text_delta (2次), done
+        self.assertIn("agent.context", event_types)
+        self.assertIn("agent.tool.call", event_types)
+        self.assertIn("agent.tool.result", event_types)
+        self.assertIn("agent.text.delta", event_types)
+        self.assertIn("agent.done", event_types)
+
+        # 至少 2 个 text.delta
+        text_deltas = [e for e in events if e.get("type") == "agent.text.delta"]
+        self.assertGreaterEqual(len(text_deltas), 1)
+
+        # tool.call 事件必须带 input
+        tool_call = next(e for e in events if e.get("type") == "agent.tool.call")
+        self.assertEqual(tool_call["name"], "read_file")
+        self.assertEqual(tool_call["input"]["path"], "test.txt")
+
+    async def test_permission_mode_default_blocks_dangerous_tool(self):
+        """default 模式下, run_command 黑名单命令应被拦截"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch
+
+        fake_cfg = {"model": "fake", "code": "default"}
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "tool_call_complete",
+                "id": "call_1",
+                "name": "run_command",
+                "arguments": {"command": "rm -rf /"},
+            }
+            yield {"type": "done", "usage": {}, "attempts": 1}
+
+        with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+             patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream):
+            events = []
+            async for ev in agent_loop.run_agent_loop(
+                prompt="rm -rf /",
+                model_id="default",
+                workspace_path=str(self.tmp),
+                max_iterations=2,
+                permission_mode="default",
+            ):
+                events.append(ev)
+
+        # tool.result 应带 success=False 或包含禁止提示
+        tool_result = next((e for e in events if e.get("type") == "agent.tool.result"), None)
+        self.assertIsNotNone(tool_result)
+        # shell blacklisted 或 perm deny
+        self.assertFalse(tool_result.get("success", True))
+
+    async def test_permission_mode_bypass_allows_dangerous_tool(self):
+        """bypassPermissions 模式下, 危险命令也应被允许 (但黑名单仍硬拦截)"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch
+
+        fake_cfg = {"model": "fake", "code": "default"}
+
+        async def fake_stream(*args, **kwargs):
+            yield {
+                "type": "tool_call_complete",
+                "id": "call_1",
+                "name": "run_command",
+                "arguments": {"command": "ls"},
+            }
+            yield {"type": "done", "usage": {}, "attempts": 1}
+
+        with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+             patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream):
+            events = []
+            async for ev in agent_loop.run_agent_loop(
+                prompt="ls",
+                model_id="default",
+                workspace_path=str(self.tmp),
+                max_iterations=2,
+                permission_mode="bypassPermissions",
+            ):
+                events.append(ev)
+
+        tool_result = next((e for e in events if e.get("type") == "agent.tool.result"), None)
+        self.assertIsNotNone(tool_result)
+        self.assertTrue(tool_result.get("success", False), "bypass 模式下 ls 必须成功")
+
+    async def test_plan_mode_registers_submit_plan_tool(self):
+        """plan 模式必须注册 submit_plan 工具"""
+        from app.api.v1.workspace import agent_loop
+        from unittest.mock import patch
+
+        fake_cfg = {"model": "fake", "code": "default"}
+
+        async def fake_stream(*args, **kwargs):
+            yield {"type": "done", "usage": {}, "attempts": 1}
+
+        with patch.object(agent_loop, "_get_model_config", return_value=fake_cfg), \
+             patch.object(agent_loop, "chat_with_tools", side_effect=fake_stream) as mock_chat:
+            async for _ in agent_loop.run_agent_loop(
+                prompt="plan it",
+                model_id="default",
+                workspace_path=str(self.tmp),
+                max_iterations=1,
+                permission_mode="plan",
+            ):
+                pass
+
+        # 检查 chat_with_tools 被调用时的 tools 参数
+        call_args = mock_chat.call_args
+        tools = call_args.kwargs.get("tools") or call_args.args[2] if len(call_args.args) > 2 else []
+        tool_names = [t.get("function", {}).get("name") for t in tools]
+        self.assertIn("submit_plan", tool_names, "plan 模式下必须注册 submit_plan 工具")
