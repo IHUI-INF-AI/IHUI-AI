@@ -385,16 +385,26 @@
                             </div>
                             <!-- 工作区 Agent 工具调用可视化 (ToolCallCard) -->
                             <div v-if="getMessageToolCalls(message).length" class="assistant-tool-calls">
-                              <ToolCallCard
-                                v-for="toolCall in getMessageToolCalls(message)"
-                                :key="toolCall.id"
-                                :tool-name="toolCall.name"
-                                :tool-input="toolCall.input"
-                                :tool-output="toolCall.output"
-                                :status="toolCall.status"
-                                :iteration="toolCall.iteration"
-                                :error="toolCall.error"
-                              />
+                              <div v-for="toolCall in getMessageToolCalls(message)" :key="toolCall.id" class="assistant-tool-call-wrap">
+                                <ToolCallCard
+                                  :tool-name="toolCall.name"
+                                  :tool-input="toolCall.input"
+                                  :tool-output="toolCall.output"
+                                  :status="toolCall.status"
+                                  :iteration="toolCall.iteration"
+                                  :error="toolCall.error"
+                                />
+                                <!-- Inline Diff 预览 (对标 Cursor/Trae): write_file/edit_file/multi_edit 携带 diffInfo -->
+                                <InlineDiffViewer
+                                  v-if="toolCall.diffInfo && isDiffTool(toolCall.name)"
+                                  :old-content="toolCall.diffInfo.old_content"
+                                  :new-content="toolCall.diffInfo.new_content"
+                                  :file-name="toolCall.diffInfo.file_path"
+                                  :is-new-file="toolCall.diffInfo.is_new_file"
+                                  @accept="handleDiffAccept($event, message, toolCall)"
+                                  @reject="handleDiffReject($event, message, toolCall)"
+                                />
+                              </div>
                             </div>
                           </template>
                           <div v-else class="assistant-content-hidden">
@@ -1719,7 +1729,7 @@ import BackgroundAgentsPanel from './BackgroundAgentsPanel.vue'
 import RoutinesPanel from './RoutinesPanel.vue'
 import FileMentionPopover from './FileMentionPopover.vue'
 import type { SlashCommand } from './SlashCommandPalette.vue'
-import { getSlashCommands, readFile } from '@/api/services/workspace.service'
+import { getSlashCommands, readFile, writeFile } from '@/api/services/workspace.service'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成
