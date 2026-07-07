@@ -112,6 +112,7 @@ async def run_agent_loop(
     allowed_tools: list[str] | None = None,
     history: list[ChatMessage] | None = None,
     permission_mode: str = PermissionMode.DEFAULT,
+    persona_id: str | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """运行 Agent 工具循环。
 
@@ -170,13 +171,21 @@ async def run_agent_loop(
     # 尝试加载 MCP 工具并追加到工具列表
     mcp_tool_names: list[str] = []
     try:
-        from app.api.v1.workspace.mcp_bridge import load_mcp_config, MCPManager
+        from app.api.v1.workspace.mcp_bridge import load_mcp_config, get_mcp_manager
         mcp_servers = load_mcp_config(workspace_path)
         if mcp_servers:
-            mgr = MCPManager()
+            # 修复: 用全局 singleton, 不要每次新建 — 否则连接/工具列表不缓存, 每次重连
+            mgr = get_mcp_manager()
             for server_config in mcp_servers:
+                # 已连接的 server 跳过 (避免重复 add_server)
+                if mgr.get_status(server_config.name) and server_config.name in getattr(mgr, "_clients", {}):
+                    pass
+                else:
+                    try:
+                        await mgr.add_server(server_config)
+                    except Exception:
+                        pass  # MCP 服务器连接失败不阻断 Agent
                 try:
-                    await mgr.add_server(server_config)
                     mcp_tools = await mgr.list_tools(server_config.name)
                     for mt in mcp_tools:
                         tools.append({
@@ -189,7 +198,7 @@ async def run_agent_loop(
                         })
                         mcp_tool_names.append(f"mcp__{server_config.name}__{mt.name}")
                 except Exception:
-                    pass  # MCP 服务器连接失败不阻断 Agent
+                    pass  # list_tools 失败不阻断
     except Exception:
         pass  # MCP 模块加载失败不阻断
 
@@ -278,6 +287,36 @@ async def run_agent_loop(
         memory = load_project_memory(workspace_path)
         sys_prompt = build_system_prompt(workspace_path, memory)
 
+    # 4.1 注入 Persona system_prompt (对标 Claude Code Sub-agents / Codex GPTs)
+    # — 通过 persona_id 加载专家角色, 拼接到 system prompt 头部
+    persona_info: dict[str, Any] | None = None
+    if persona_id:
+        try:
+            from app.api.v1.workspace.persona_registry import get_persona_registry
+            reg = get_persona_registry()
+            p = reg.get(persona_id)
+            if p and p.enabled:
+                persona_system = reg.get_system_prompt(persona_id)
+                if persona_system:
+                    persona_info = {
+                        "id": p.id,
+                        "name": p.name,
+                        "category": p.category,
+                    }
+                    sys_prompt = (
+                        f"# Persona: {p.name}\n\n"
+                        f"{persona_system}\n\n"
+                        f"---\n\n"
+                        f"{sys_prompt}"
+                    )
+                    logger.info(f"Agent 注入 Persona: {p.id} ({p.name})")
+            elif p and not p.enabled:
+                logger.warning(f"Persona {persona_id} 已禁用, 跳过注入")
+            else:
+                logger.warning(f"Persona {persona_id} 不存在, 跳过注入")
+        except Exception as e:
+            logger.error(f"Persona 注入失败 ({persona_id}): {e}")
+
     # 补充工具使用说明
     sys_prompt += f"""
 
@@ -315,6 +354,7 @@ async def run_agent_loop(
 7. 任务跟踪: 复杂任务用 todo_write 跟踪进度
 8. 安全修改: 修改前可用 dry_run=true 预览 diff; 误操作可用 undo 撤销, 或 list_checkpoints + rollback 回滚到更早状态
 9. 模糊匹配: edit_file/multi_edit 支持空白差异容错, 但仍需保证 old_text 唯一
+10. Git 集成: 设置环境变量 IHUI_GIT_AUTOCOMMIT=1 可启用 Aider 风格自动 git commit (每次修改/撤销自动提交, 便于 git revert 回溯)
 """
 
     # Plan 模式特定指导: 探索后必须调用 submit_plan 提交计划
@@ -397,6 +437,7 @@ submit_plan(
         "workspace": workspace_path,
         "model": model_id,
         "tools": [t["function"]["name"] for t in tools],
+        "persona": persona_info,
     }
 
     # 8. Agent 循环
