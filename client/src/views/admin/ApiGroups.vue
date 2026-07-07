@@ -17,7 +17,7 @@
     </div>
 
     <div v-if="groups.length === 0 && !loading" class="empty-state">
-      <el-empty :description="t('apiMgmt.groups.empty', '暂无分组')" />
+      <NativeEmpty :description="t('apiMgmt.groups.empty', '暂无分组')" />
     </div>
 
     <div v-else class="group-grid">
@@ -30,16 +30,25 @@
         @delete="onDelete(group)"
       />
     </div>
+
+    <GroupComparisonTable
+      v-if="groups.length"
+      :groups="comparisonGroups"
+      :comparisonData="comparisonData"
+      class="comparison-wrap"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { getGroups, deleteGroup, type ApiGroup } from '@/api/groups'
 import { logger } from '@/utils/logger'
 import GroupCard from '@/components/api/GroupCard.vue'
+import GroupComparisonTable from '@/components/api/GroupComparisonTable.vue'
+import NativeEmpty from '@/components/common/NativeEmpty.vue'
 
 defineOptions({ name: 'AdminApiGroups' })
 
@@ -47,6 +56,32 @@ const { t } = useI18n()
 const groups = ref<ApiGroup[]>([])
 const loading = ref(false)
 const error = ref('')
+
+// 分组对比表数据（接通 GroupComparisonTable）
+const comparisonGroups = computed(() => groups.value.map(g => ({
+  id: g.id,
+  name: g.name,
+  scenario: g.description || '',
+})))
+
+const comparisonData = computed<Record<string, string | number | boolean>[]>(() => {
+  const gs = groups.value
+  if (!gs.length) return []
+  const row = (feature: string, fn: (g: ApiGroup) => string | number | boolean) => {
+    const r: Record<string, string | number | boolean> = { feature }
+    for (const g of gs) r[g.id] = fn(g)
+    return r
+  }
+  return [
+    row('类型', g => g.type),
+    row('最大并发', g => g.maxConcurrent),
+    row('速率限制(次/分)', g => g.rateLimit),
+    row('平均延迟(ms)', g => (g.avgLatency != null ? g.avgLatency : '—')),
+    row('关联应用数', g => g.appCount),
+    row('支持模型数', g => g.models.length),
+    row('状态', g => g.status),
+  ]
+})
 
 const loadGroups = async () => {
   loading.value = true

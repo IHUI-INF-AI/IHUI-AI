@@ -922,6 +922,20 @@
           </div>
         </div>
 
+        <!-- SEC_06F 主题综合设置（接通 ThemeSettingsPanel） -->
+        <div
+          class="settings-section glass scroll-reveal"
+          data-animation="fadeInUp"
+        >
+          <div class="section-header-row">
+            <span class="section-idx">SEC_06F</span>
+            <h2 class="section-title">{{ t('settings.themeSettings', '主题设置') }}</h2>
+          </div>
+          <div class="settings-card theme-settings-section">
+            <ThemeSettingsPanel />
+          </div>
+        </div>
+
         <!-- 主题同步状态 -->
         <div
           class="settings-section glass scroll-reveal"
@@ -1601,6 +1615,7 @@ import ThemePresetPanel from '@/components/settings/ThemePresetPanel.vue'
 import ThemeBackupPanel from '@/components/settings/ThemeBackupPanel.vue'
 import ThemeShortcutPanel from '@/components/settings/ThemeShortcutPanel.vue'
 import ThemeTransitionPanel from '@/components/settings/ThemeTransitionPanel.vue'
+import ThemeSettingsPanel from '@/components/settings/ThemeSettingsPanel.vue'
 import ThemeSyncIndicator from '@/components/settings/ThemeSyncIndicator.vue'
 import ThemeSyncConflictDialog from '@/components/settings/ThemeSyncConflictDialog.vue'
 import { themeSyncConflictService, type SyncConflictData, type ConflictResolution } from '@/utils/themeSyncConflict'

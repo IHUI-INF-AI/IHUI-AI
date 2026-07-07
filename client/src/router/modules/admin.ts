@@ -89,6 +89,19 @@ export const adminRoutes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/admin/api-platform/logs',
+    name: 'adminApiLogs',
+    component: safeImport(
+      () => import(/* webpackChunkName: "admin-api-logs" */ '@/views/admin/ApiLogs.vue'),
+      'adminApiLogs'
+    ),
+    meta: {
+      title: 'routes.adminApiLogs',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+  {
     path: '/admin/api-platform/debug',
     name: 'adminApiDebug',
     component: safeImport(

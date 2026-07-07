@@ -86,6 +86,13 @@
       </div>
     </section>
 
+    <!-- 产品优势（接通 ProductAdvantages 组件） -->
+    <section class="section-band product-advantages-section" aria-label="product-advantages">
+      <div class="container">
+        <ProductAdvantages />
+      </div>
+    </section>
+
     <!-- 2.5 自研 IHUI AI 架构与智汇 API（首屏后第一焦点） -->
     <section class="ihui-arch-section ihui-arch-section--featured" id="ihui-arch" aria-labelledby="ihui-arch-title">
       <div class="container">
@@ -872,6 +879,7 @@ import { markIcon } from '@/utils/markRaw'
 import { useRouter } from 'vue-router'
 import { useMouseGlow } from '@/composables/useMouseGlow'
 import { getProxiedImageUrl, switchImageProxy } from '@/utils/imageProxy'
+import ProductAdvantages from '@/components/api/ProductAdvantages.vue'
 import {
   Connection, Check, ArrowRight, Monitor, Box, Microphone,
   View, Share, Lock, Operation, Lightning,
