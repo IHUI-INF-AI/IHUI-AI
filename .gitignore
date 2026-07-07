@@ -258,4 +258,4 @@ scripts/check-shell-blacklist.mjs
 scripts/check-slash-commands.mjs
 scripts/check-tasklist-panel.mjs
 scripts/clean-g-root-tmp.ps1
-ts_parse_tmp.mjsdbg_tmp.mjsscss_tmp.sh
+ts_parse_tmp.mjsdbg_tmp.mjsscss_tmp.shscss_vue_tmp.mjs server/debug_glob.py server/debug_re_sub.py
