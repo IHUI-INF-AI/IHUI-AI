@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,10 @@ SLASH_COMMANDS: dict[str, dict[str, Any]] = {
     },
     "routine": {
         "description": "定时任务管理: /routine [add|remove|enable|disable|trigger] 管理定时任务",
+        "category": "session",
+    },
+    "swarm": {
+        "description": "多智能体编排: /swarm <task> | /swarm status [id] | /swarm list | /swarm cancel <id>",
         "category": "session",
     },
 }
@@ -1267,6 +1272,275 @@ async def handle_routine(
     }
 
 
+# ---------------------------------------------------------------------------
+# Swarm — 多智能体编排 (/swarm — IHUI-AI 独特优势功能)
+# ---------------------------------------------------------------------------
+
+def _resolve_swarm_id(orchestrator: Any, id_or_prefix: str) -> str:
+    """根据完整 ID 或前缀解析出完整 swarm_id。"""
+    swarms = orchestrator.list_swarms()
+    # 完整匹配
+    for s in swarms:
+        if s.get("swarm_id") == id_or_prefix:
+            return s["swarm_id"]
+    # 前缀匹配
+    matches = [s["swarm_id"] for s in swarms if s.get("swarm_id", "").startswith(id_or_prefix)]
+    if len(matches) == 1:
+        return matches[0]
+    return id_or_prefix
+
+
+def _format_swarm_status(status: dict[str, Any]) -> str:
+    """格式化 swarm 状态为可读消息。"""
+    lines: list[str] = []
+    swarm_id = status.get("swarm_id", "?")
+    task = status.get("task", "")
+    swarm_status = status.get("status", "?")
+    stats = status.get("stats", {})
+    agents = status.get("agents", [])
+
+    status_icon = {
+        "planning": "📋",
+        "executing": "▶",
+        "completed": "✓",
+        "failed": "✗",
+    }.get(swarm_status, "?")
+
+    lines.append(f"{status_icon} Swarm [{swarm_id}] — {swarm_status}")
+    lines.append(f"  任务: {task[:100]}")
+    lines.append(
+        f"  统计: 总计 {stats.get('total', 0)} | "
+        f"运行中 {stats.get('running', 0)} | "
+        f"完成 {stats.get('completed', 0)} | "
+        f"失败 {stats.get('failed', 0)}"
+    )
+    lines.append("")
+
+    # 各 agent 状态
+    role_label = {"coordinator": "协调者", "worker": "工作者", "reviewer": "审查者"}
+    for a in agents:
+        a_status = a.get("status", "?")
+        a_icon = {"idle": "⏳", "running": "▶", "completed": "✓", "failed": "✗"}.get(a_status, "?")
+        a_role = role_label.get(a.get("role", ""), a.get("role", ""))
+        a_name = a.get("name", a.get("agent_id", "?"))
+        deps = a.get("dependencies", [])
+        dep_str = f" (依赖: {', '.join(d[:8] for d in deps)})" if deps else ""
+
+        lines.append(f"  {a_icon} [{a.get('agent_id', '?')[:8]}] {a_role}: {a_name}{dep_str} — {a_status}")
+
+        # 显示结果摘要 (仅完成/失败的 agent)
+        if a_status in ("completed", "failed") and a.get("result"):
+            result_preview = a["result"].replace("\n", " ")[:120]
+            if len(a["result"]) > 120:
+                result_preview += "..."
+            lines.append(f"      结果: {result_preview}")
+
+    return "\n".join(lines)
+
+
+async def handle_swarm(
+    websocket: WebSocket,
+    args: str,
+    workspace_path: str,
+    model_id: str = "",
+    **kwargs,
+) -> dict[str, Any]:
+    """/swarm - 多智能体编排 (创建/执行/状态/列表/取消)。
+
+    子命令:
+    - /swarm <task>          — 创建并执行 swarm 任务
+    - /swarm status [id]     — 查看 swarm 状态 (默认最近一个)
+    - /swarm list            — 列出所有 swarm
+    - /swarm cancel <id>     — 取消 swarm
+    """
+    from app.api.v1.workspace.swarm import get_swarm_orchestrator
+
+    orchestrator = get_swarm_orchestrator()
+    raw = (args or "").strip()
+    parts = raw.split(maxsplit=1) if raw else []
+    sub = parts[0].lower() if parts else ""
+
+    # /swarm <task> — 创建并执行 swarm (默认行为)
+    if not sub or sub not in ("status", "list", "cancel"):
+        # 整个 args 作为任务描述
+        task = raw
+        if not task:
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": (
+                    "用法: /swarm <task>\n"
+                    "  /swarm <任务描述>     — 创建并执行多 agent 协作任务\n"
+                    "  /swarm status [id]    — 查看 swarm 状态\n"
+                    "  /swarm list           — 列出所有 swarm\n"
+                    "  /swarm cancel <id>    — 取消 swarm"
+                ),
+                "error": "missing_task",
+            }
+
+        effective_model = model_id or "default"
+
+        # 1. 创建 swarm (LLM 自动分解任务)
+        await websocket.send_text(json.dumps({
+            "type": "agent.command.result",
+            "command": "swarm",
+            "message": f"正在分析任务并创建 Swarm...\n  任务: {task[:100]}",
+            "phase": "creating",
+        }, ensure_ascii=False))
+
+        try:
+            plan = await orchestrator.create_swarm(
+                task=task,
+                workspace_path=workspace_path,
+                model_id=effective_model,
+            )
+        except Exception as e:
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": f"创建 Swarm 失败: {e}",
+                "error": str(e),
+            }
+
+        # 2. 显示分解方案
+        plan_status = orchestrator.get_swarm_status(plan.swarm_id)
+        plan_msg = "Swarm 已创建, 开始执行...\n\n" + _format_swarm_status(plan_status) if plan_status else "Swarm 已创建"
+        await websocket.send_text(json.dumps({
+            "type": "agent.command.result",
+            "command": "swarm",
+            "message": plan_msg,
+            "phase": "executing",
+            "swarm_id": plan.swarm_id,
+        }, ensure_ascii=False))
+
+        # 3. 执行 swarm (阻塞直到完成)
+        try:
+            result = await orchestrator.execute_swarm(plan.swarm_id)
+        except Exception as e:
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": f"Swarm 执行失败: {e}",
+                "swarm_id": plan.swarm_id,
+                "error": str(e),
+            }
+
+        # 4. 返回最终状态
+        final_status = orchestrator.get_swarm_status(plan.swarm_id)
+        final_msg = "Swarm 执行完成\n\n" + _format_swarm_status(final_status) if final_status else "Swarm 执行完成"
+
+        return {
+            "type": "agent.command.result",
+            "command": "swarm",
+            "message": final_msg,
+            "swarm_id": plan.swarm_id,
+            "result": result,
+        }
+
+    # /swarm status [id] — 查看 swarm 状态
+    if sub == "status":
+        target_id = parts[1].strip() if len(parts) > 1 else ""
+        if not target_id:
+            # 默认最近一个
+            swarms = orchestrator.list_swarms(workspace_path)
+            if not swarms:
+                return {
+                    "type": "agent.command.result",
+                    "command": "swarm",
+                    "message": "当前工作区没有 Swarm。",
+                }
+            target_id = swarms[0].get("swarm_id", "")
+            # 如果最近一个正在执行, 显示它; 否则提示列表
+        else:
+            target_id = _resolve_swarm_id(orchestrator, target_id)
+
+        status = orchestrator.get_swarm_status(target_id)
+        if not status:
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": f"Swarm {target_id} 不存在。",
+                "error": "not_found",
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "swarm",
+            "message": _format_swarm_status(status),
+            "status": status,
+        }
+
+    # /swarm list — 列出所有 swarm
+    if sub == "list":
+        swarms = orchestrator.list_swarms(workspace_path)
+        if not swarms:
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": "当前工作区没有 Swarm。\n\n用法: /swarm <task> 创建并执行多 agent 任务",
+                "swarms": [],
+            }
+
+        status_icon = {
+            "planning": "📋",
+            "executing": "▶",
+            "completed": "✓",
+            "failed": "✗",
+        }
+        msg_lines = [f"🐝 Swarm 列表 (共 {len(swarms)} 个)", ""]
+        for s in swarms:
+            icon = status_icon.get(s.get("status", ""), "?")
+            task_preview = s.get("task", "")
+            if len(task_preview) > 60:
+                task_preview = task_preview[:60] + "..."
+            created = _format_ts(s.get("created_at"))
+            msg_lines.append(
+                f"  {icon} [{s.get('swarm_id', '?')[:8]}] {s.get('status', '?')} "
+                f"({s.get('agent_count', 0)} agents) — {task_preview}"
+            )
+            msg_lines.append(f"      创建: {created}")
+
+        msg_lines.append("\n操作: /swarm status <id> | /swarm cancel <id>")
+        return {
+            "type": "agent.command.result",
+            "command": "swarm",
+            "message": "\n".join(msg_lines),
+            "swarms": swarms,
+        }
+
+    # /swarm cancel <id> — 取消 swarm
+    if sub == "cancel":
+        if len(parts) < 2 or not parts[1].strip():
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": "用法: /swarm cancel <swarm_id>",
+                "error": "missing_id",
+            }
+        target_id = _resolve_swarm_id(orchestrator, parts[1].strip())
+        ok = orchestrator.cancel_swarm(target_id)
+        if ok:
+            return {
+                "type": "agent.command.result",
+                "command": "swarm",
+                "message": f"Swarm {target_id[:8]} 已取消。",
+                "cancelled": target_id,
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "swarm",
+            "message": f"无法取消 Swarm {parts[1]}: 不存在或已完成。",
+            "error": "cancel_failed",
+        }
+
+    # 未知子命令 (不会到达, 因为前面已兜底)
+    return {
+        "type": "agent.command.result",
+        "command": "swarm",
+        "message": f"未知子命令: {sub}",
+        "error": "unknown_subcommand",
+    }
+
+
 # 命令分发映射
 COMMAND_HANDLERS = {
     "help": handle_help,
@@ -1283,4 +1557,5 @@ COMMAND_HANDLERS = {
     "agents": handle_agents,
     "pr": handle_pr,
     "routine": handle_routine,
+    "swarm": handle_swarm,
 }
