@@ -12,11 +12,11 @@ import { test, expect } from '@playwright/test'
 
 const MEMORY_ENDPOINT = '/api/v1/workspace/memory/system-prompt'
 const RUN_ENDPOINT = '/api/v1/workspace/run'
+const SHELL_PAYLOAD = { workspace_path: '.', timeout_ms: 10000 }
 
 test.describe('项目记忆 (.cursorrules) — Stage A-2', () => {
   test('system-prompt 端点返回 200 + 包含 system_prompt 字段', async ({ request }) => {
-    const res = await request.get(MEMORY_ENDPOINT, { failOnStatusCode: false })
-    // 不强制 200 (可能未认证), 但若 200 必须包含 system_prompt 字段
+    const res = await request.get(MEMORY_ENDPOINT + '?workspace_path=.', { failOnStatusCode: false })
     if (res.status() === 200) {
       const body = await res.json()
       expect(body.data).toHaveProperty('system_prompt')
@@ -30,7 +30,7 @@ test.describe('项目记忆 (.cursorrules) — Stage A-2', () => {
 test.describe('Shell 命令黑名单 — Stage A-5', () => {
   test('危险命令: rm -rf / 应被拒绝', async ({ request }) => {
     const res = await request.post(RUN_ENDPOINT, {
-      data: { command: 'rm -rf /' },
+      data: { command: 'rm -rf /', ...SHELL_PAYLOAD },
       failOnStatusCode: false,
     })
     // 期望 400/403 (blocked) 或 200 但不执行 (后端拦截)
@@ -45,7 +45,7 @@ test.describe('Shell 命令黑名单 — Stage A-5', () => {
 
   test('危险命令: sudo 应被拒绝', async ({ request }) => {
     const res = await request.post(RUN_ENDPOINT, {
-      data: { command: 'sudo apt install curl' },
+      data: { command: 'sudo apt install curl', ...SHELL_PAYLOAD },
       failOnStatusCode: false,
     })
     if (res.status() === 200) {
@@ -58,7 +58,7 @@ test.describe('Shell 命令黑名单 — Stage A-5', () => {
 
   test('危险命令: shutdown -h now 应被拒绝', async ({ request }) => {
     const res = await request.post(RUN_ENDPOINT, {
-      data: { command: 'shutdown -h now' },
+      data: { command: 'shutdown -h now', ...SHELL_PAYLOAD },
       failOnStatusCode: false,
     })
     if (res.status() === 200) {
@@ -71,7 +71,7 @@ test.describe('Shell 命令黑名单 — Stage A-5', () => {
 
   test('安全命令: ls -la 可执行', async ({ request }) => {
     const res = await request.post(RUN_ENDPOINT, {
-      data: { command: 'ls -la' },
+      data: { command: 'ls -la', ...SHELL_PAYLOAD },
       failOnStatusCode: false,
     })
     // 期望 200 (执行成功) 或 401/403 (需要鉴权但不拦截命令)
@@ -80,7 +80,7 @@ test.describe('Shell 命令黑名单 — Stage A-5', () => {
 
   test('安全命令: git status 可执行', async ({ request }) => {
     const res = await request.post(RUN_ENDPOINT, {
-      data: { command: 'git status' },
+      data: { command: 'git status', ...SHELL_PAYLOAD },
       failOnStatusCode: false,
     })
     expect([200, 401, 403]).toContain(res.status())
