@@ -368,8 +368,6 @@ import { ref, computed, h, markRaw, onMounted, watch, nextTick, type Component }
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElDropdown } from 'element-plus'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _typeRef = ElDropdown
 import { useDarkModeStore } from '@/stores/darkMode'
 import { useAuthStore } from '@/stores/auth'
 import { useSidebar } from '@/composables/useSidebar'
@@ -1634,12 +1632,11 @@ watch([isCollapsed, collapsedGroups], () => {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 6px;
+  padding: 6px;
   margin: 2px var(--nav-item-margin-x, 6px);
   cursor: pointer;
   width: 100%;
   box-sizing: border-box;
-
   overflow: hidden;
   border-radius: var(--global-border-radius, 6px);
   transition: background-color 0.2s var(--sidebar-easing);
@@ -1684,6 +1681,7 @@ watch([isCollapsed, collapsedGroups], () => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+
   /* 浅色: 图标颜色 = el-text-color-primary (深灰) */
   color: var(--el-text-color-primary);
   box-sizing: border-box;
@@ -1695,7 +1693,7 @@ watch([isCollapsed, collapsedGroups], () => {
   height: 18px;
   display: block;
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1744,6 +1742,7 @@ html.dark .sidebar-user-avatar {
   display: flex;
   width: 100%;
 }
+
 .sidebar-user-row :deep(.sidebar-user-dropdown > *) {
   flex: 1 1 auto;
   min-width: 0;
@@ -1835,8 +1834,7 @@ html.dark .sidebar-user-avatar {
  * 选择器深度均为 2 层 (.sidebar-actions + 子类), 特异性 (0,3,0) 高于子组件 scoped 样式 */
 .sidebar-actions {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-flow: row wrap;
   align-items: center;
   justify-content: space-around;
   padding: 6px var(--nav-item-pad-x, 14px);
@@ -2091,7 +2089,7 @@ html.dark .sidebar-user-avatar {
 body .sidebar-user-dropdown-popper.el-popper {
   border: 1px solid var(--el-border-color-light);
   border-radius: var(--global-border-radius, 8px);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
   padding: 0;
   background-color: var(--el-bg-color);
   min-width: 200px;
@@ -2107,7 +2105,7 @@ body .sidebar-user-dropdown-popper.el-popper {
 
 :where(html.dark) body .sidebar-user-dropdown-popper.el-popper {
   border-color: var(--app-sidebar-color-card, #1a1a1a);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
 }
 
 /* ── 头部用户信息区 ──
@@ -2241,7 +2239,7 @@ body .sidebar-user-dropdown-popper.el-popper {
   }
 
   &:hover {
-    background-color: rgb(220 38 38 / 25%);
+    background-color: rgb(220 38 38 / 0.25);
     color: #fca5a5;
 
     :deep(svg),
