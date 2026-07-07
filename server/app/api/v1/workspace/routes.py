@@ -602,6 +602,161 @@ async def list_mcp_tools(workspace_path: str):
 
 
 # ---------------------------------------------------------------------------
+# Codebase 索引 — 增量更新 + RAG 检索 (对标 Cursor Codebase Indexing)
+# ---------------------------------------------------------------------------
+
+@router.get("/codebase/status")
+async def codebase_status(workspace_path: str):
+    """查看 codebase 索引状态 (符号索引 + 语义索引)。"""
+    from app.api.v1.workspace.codebase_incremental import get_status
+
+    s = get_status(workspace_path)
+    return success(data={
+        "workspace": s.workspace,
+        "symbol_index": {
+            "exists": s.symbol_index_age >= 0,
+            "age_seconds": round(max(s.symbol_index_age, 0), 2),
+            "files": s.symbol_files,
+        },
+        "semantic_index": {
+            "exists": s.semantic_index_age >= 0,
+            "age_seconds": round(max(s.semantic_index_age, 0), 2),
+            "chunks": s.semantic_chunks,
+            "backend": s.semantic_backend,
+        },
+        "last_incremental_at": s.last_incremental_at,
+        "last_incremental_changes": s.last_incremental_changes,
+    })
+
+
+@router.post("/codebase/incremental-update")
+async def codebase_incremental_update(workspace_path: str):
+    """触发增量更新 (git status 或 mtime 优先)。"""
+    from app.api.v1.workspace.codebase_incremental import incremental_update
+
+    result = incremental_update(workspace_path)
+    return success(data=result)
+
+
+@router.get("/codebase/search")
+async def codebase_search(
+    workspace_path: str,
+    q: str,
+    mode: str = "fuzzy",
+    limit: int = 20,
+):
+    """统一检索 (fuzzy / symbols / semantic)。"""
+    from app.api.v1.workspace.codebase_incremental import search_codebase
+
+    if not q or not q.strip():
+        return error(msg="参数 q 不能为空")
+    if mode not in ("fuzzy", "symbols", "semantic"):
+        return error(msg=f"mode 必须为 fuzzy/symbols/semantic, 收到: {mode}")
+    results = search_codebase(workspace_path, q.strip(), mode=mode, limit=limit)
+    return success(data={"mode": mode, "query": q, "results": results})
+
+
+# ---------------------------------------------------------------------------
+# Persona Registry — 151 expert 角色 (对标 Claude Code Sub-agents / Codex GPTs)
+# ---------------------------------------------------------------------------
+
+@router.get("/personas")
+async def list_personas(category: str | None = None, include_disabled: bool = False):
+    """列出所有 persona (可按 category 过滤)。"""
+    from app.api.v1.workspace.persona_registry import get_persona_registry
+
+    reg = get_persona_registry()
+    items = reg.list_by_category(category, include_disabled=include_disabled) if category else reg.list_all(include_disabled=include_disabled)
+    return success(data={
+        "total": len(items),
+        "categories": reg.list_categories(),
+        "personas": [p.to_dict() for p in items],
+    })
+
+
+@router.get("/personas/categories")
+async def list_persona_categories():
+    """列出所有 persona 分类及计数。"""
+    from app.api.v1.workspace.persona_registry import get_persona_registry
+
+    reg = get_persona_registry()
+    return success(data=reg.list_categories())
+
+
+@router.get("/personas/search")
+async def search_personas(q: str, limit: int = 30):
+    """模糊检索 persona (name / description / tags / examples)。"""
+    from app.api.v1.workspace.persona_registry import get_persona_registry
+
+    reg = get_persona_registry()
+    hits = reg.search(q, limit=limit)
+    return success(data={"query": q, "total": len(hits), "personas": [p.to_dict() for p in hits]})
+
+
+@router.get("/personas/{persona_id}")
+async def get_persona(persona_id: str):
+    """获取单个 persona 详情。"""
+    from app.api.v1.workspace.persona_registry import get_persona_registry
+
+    p = get_persona_registry().get(persona_id)
+    if not p:
+        return error(msg=f"Persona {persona_id} 不存在")
+    return success(data=p.to_dict())
+
+
+@router.post("/personas")
+async def create_persona(payload: dict):
+    """新建自定义 persona。"""
+    from app.api.v1.workspace.persona_registry import Persona, get_persona_registry
+
+    required = {"id", "name", "category", "description", "system_prompt"}
+    missing = required - set(payload.keys())
+    if missing:
+        return error(msg=f"缺少必填字段: {missing}")
+    p = Persona(
+        id=payload["id"],
+        name=payload["name"],
+        category=payload["category"],
+        description=payload["description"],
+        system_prompt=payload["system_prompt"],
+        tools=payload.get("tools", []),
+        examples=payload.get("examples", []),
+        tags=payload.get("tags", []),
+        enabled=payload.get("enabled", True),
+    )
+    try:
+        get_persona_registry().add(p)
+    except ValueError as e:
+        return error(msg=str(e))
+    return success(data=p.to_dict())
+
+
+@router.patch("/personas/{persona_id}")
+async def update_persona(persona_id: str, payload: dict):
+    """更新 persona 字段。"""
+    from app.api.v1.workspace.persona_registry import get_persona_registry
+
+    p = get_persona_registry().update(persona_id, **payload)
+    if not p:
+        return error(msg=f"Persona {persona_id} 不存在")
+    return success(data=p.to_dict())
+
+
+@router.delete("/personas/{persona_id}")
+async def delete_persona(persona_id: str):
+    """删除自定义 persona (内置不可删除)。"""
+    from app.api.v1.workspace.persona_registry import get_persona_registry
+
+    try:
+        ok = get_persona_registry().delete(persona_id)
+    except ValueError as e:
+        return error(msg=str(e))
+    if not ok:
+        return error(msg=f"Persona {persona_id} 不存在")
+    return success(data={"deleted": persona_id})
+
+
+# ---------------------------------------------------------------------------
 # Checkpoint 快照与回滚 (对标 Aider git revert / Gemini checkpointing)
 # ---------------------------------------------------------------------------
 

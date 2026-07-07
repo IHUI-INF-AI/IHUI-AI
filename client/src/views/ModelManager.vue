@@ -151,10 +151,10 @@ async function loadProviders() {
   loading.value = true
   try {
     const res = await getModelProviders({ pageSize: 200 })
-    if (res.success) {
+    if (res.success && res.data) {
       customProviders.value = res.data.list
     } else {
-      showError(res.message)
+      showError(res.message || t('common.loadFailed'))
     }
   } catch (err) {
     showError(err instanceof Error ? err.message : t('common.loadFailed'))
@@ -249,7 +249,7 @@ async function handleSave(data: {
           selectedProviderId.value = res.data.id
         }
       } else {
-        showError(res.message)
+        showError(res.message || t('common.saveFailed'))
       }
     } else if (selectedProvider.value) {
       // Update existing provider
@@ -268,7 +268,7 @@ async function handleSave(data: {
         showSuccess(t('models.saveSuccess'))
         await loadProviders()
       } else {
-        showError(res.message)
+        showError(res.message || t('common.saveFailed'))
       }
     }
   } catch (err) {
@@ -315,7 +315,7 @@ async function handleToggle(id: number | string, enabled: boolean) {
       showSuccess(enabled ? t('models.enableSuccess') : t('models.disableSuccess'))
       await loadProviders()
     } else {
-      showError(res.message)
+      showError(res.message || t('common.operationFailed'))
     }
   } catch (err) {
     showError(err instanceof Error ? err.message : t('common.operationFailed'))
@@ -332,7 +332,7 @@ async function handleDelete(id: number | string) {
       selectedProviderId.value = null
       await loadProviders()
     } else {
-      showError(res.message)
+      showError(res.message || t('common.deleteFailed'))
     }
   } catch (err) {
     showError(err instanceof Error ? err.message : t('common.deleteFailed'))

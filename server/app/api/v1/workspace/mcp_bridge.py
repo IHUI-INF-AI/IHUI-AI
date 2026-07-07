@@ -701,6 +701,14 @@ class MCPManager:
             client = MCPSseClient(config)
         else:
             logger.error(f"MCP 不支持的传输: {transport}")
+            self._statuses[config.name] = MCPServerStatus(
+                name=config.name,
+                transport=transport,
+                online=False,
+                tool_count=0,
+                url=config.url,
+                error=f"不支持的传输: {transport}",
+            )
             return False
         try:
             ok = await client.connect()

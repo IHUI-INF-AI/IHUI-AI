@@ -611,6 +611,16 @@
                 />
               </div>
 
+              <!-- 2026-07-07 @文件提及触发锚点 (@ 触发, 对标 Claude Code @file) -->
+              <div v-if="fileMentionVisible" class="file-mention-anchor" @click.stop>
+                <FileMentionPopover
+                  :workspace-path="currentWorkspacePath"
+                  :initial-query="fileMentionQuery"
+                  @select="onFileMentionSelect"
+                  @cancel="closeFileMention"
+                />
+              </div>
+
               <!-- 2026-07-07 Stage A: TaskListPanel (agent.todo.update 事件实时刷新) -->
               <div v-if="todoListForPanel.length > 0" class="task-list-anchor">
                 <TaskListPanel :todos="todoListForPanel" />
@@ -630,9 +640,14 @@
                 <TokenUsagePanel :usage="workspaceAgentUsage" />
               </div>
 
-              <!-- 检查点历史面板 (对标 Aider git revert / Gemini checkpointing) -->
-              <div v-if="currentWorkspacePath" class="checkpoint-history-anchor">
-                <CheckpointHistoryPanel :workspace-path="currentWorkspacePath" />
+              <!-- 检查点历史面板 (对标 Aider git revert / Gemini checkpointing / Claude Code Esc+Esc) -->
+              <div v-if="currentWorkspacePath && showCheckpointPanel" class="checkpoint-history-anchor">
+                <CheckpointHistoryPanel
+                  :workspace-path="currentWorkspacePath"
+                  closable
+                  @close="showCheckpointPanel = false"
+                  @rolled-back="onCheckpointRolledBack"
+                />
               </div>
 
               <!-- 文件预览 -->
@@ -688,7 +703,13 @@
               </div>
 
               <!-- 输入框 -->
-              <div class="input-wrapper">
+              <div
+                class="input-wrapper"
+                :class="{ 'is-dragover': isDragover }"
+                @drop.prevent="handleDrop"
+                @dragover.prevent="handleDragOver"
+                @dragleave.prevent="handleDragLeave"
+              >
                 <!-- 2026-07-06 Trae 风格: Agent 胶囊行 (条件显示) -->
                 <div v-if="selectedAgent || (currentAIMode as string) === 'agent'" class="trae-input-row-agent">
                   <AgentPill
@@ -880,6 +901,7 @@
                   <div ref="inputRef" class="chat-input" :class="{ 'has-voice-card': voiceAudioData }"
                     contenteditable="true" :data-placeholder="t('aiChatInput.inputPlaceholder')"
                     @keydown.enter.exact.prevent="handleSend" @keydown.enter.shift.exact="handleShiftEnter"
+                    @keydown.esc="handleEscKey"
                     @input="handleInputChange" @paste="handlePaste"></div>
                 </div>
 
@@ -927,8 +949,25 @@
                     </button>
                   </div>
 
-                  <!-- 2 右: ✨ 能力 + 🎤 语音 -->
+                  <!-- 2 右: ⟲ ✨ 🎤 -->
                   <div class="trae-toolbar-right">
+                    <!-- ⟲ 撤销/回滚 (Checkpoint/Rewind, 对标 Claude Code Esc+Esc) -->
+                    <el-tooltip
+                      v-if="currentWorkspacePath"
+                      :content="t('floatingChat.workspaceAgent.rewind', '撤销/回滚 (Esc+Esc)')"
+                      placement="top"
+                      popper-class="ai-chat-action-tooltip"
+                    >
+                      <el-button
+                        class="trae-toolbar-action-btn"
+                        :class="{ 'is-active': showCheckpointPanel }"
+                        :aria-label="t('floatingChat.workspaceAgent.rewind', '撤销/回滚')"
+                        :title="t('floatingChat.workspaceAgent.rewind', '撤销/回滚 (Esc+Esc)')"
+                        @click="toggleCheckpointPanel"
+                      >
+                        <el-icon><History /></el-icon>
+                      </el-button>
+                    </el-tooltip>
                     <!-- ✨ 能力触发 (替代原 + 选择 pill, DOM 保留在 trae-work-actions-top 内供 e2e) -->
                     <el-button class="trae-toolbar-action-btn"
                       :aria-label="t('aiChatInput.capabilityTriggerAria')"
@@ -1608,8 +1647,9 @@ import TaskListPanel from './TaskListPanel.vue'
 import PlanReviewPanel from './PlanReviewPanel.vue'
 import TokenUsagePanel from './TokenUsagePanel.vue'
 import CheckpointHistoryPanel from './CheckpointHistoryPanel.vue'
+import FileMentionPopover from './FileMentionPopover.vue'
 import type { SlashCommand } from './SlashCommandPalette.vue'
-import { getSlashCommands } from '@/api/services/workspace.service'
+import { getSlashCommands, readFile } from '@/api/services/workspace.service'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成
@@ -1700,6 +1740,8 @@ import {
   // 2026-07-06 Trae 风格工具栏新增图标
   Hash,        // # 标签 (Document fallback)
   MagicStick,  // ✨ 能力触发
+  // 2026-07-07 Checkpoint/Rewind 工具栏按钮 (对标 Claude Code Esc+Esc)
+  History,     // ⟲ 撤销/回滚 (检查点历史)
 } from '@/lib/lucide-fallback'
 import AgentPill from './AgentPill.vue'
 // Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
@@ -1914,6 +1956,17 @@ const inputText = ref('')
 const slashPaletteVisible = ref(false)
 const slashPaletteInitialFilter = ref('')
 const slashCommands = ref<SlashCommand[]>([])
+// 2026-07-07 Checkpoint/Rewind 面板切换 (对标 Claude Code Esc+Esc 一键回滚)
+const showCheckpointPanel = ref(false)
+// 2026-07-07 @文件提及 (对标 Claude Code @file / Cursor @file)
+const fileMentionVisible = ref(false)
+const fileMentionQuery = ref('')
+/** @文件提及: 记录触发 @ 的光标位置, 选中后在此处插入 @path */
+let fileMentionAnchorOffset = 0
+/** Esc+Esc 双击检测 (对标 Claude Code Esc+Esc 触发 rewind) */
+let lastEscTime = 0
+/** 拖拽图片进入输入框的视觉反馈状态 */
+const isDragover = ref(false)
 // 2026-07-07 Stage B: Plan Mode 待确认计划 (来自 agent.plan.proposed 事件)
 const pendingPlanForReview = ref<{ title?: string; summary?: string; steps?: Array<{ id?: string; title: string; description?: string; files?: string[]; tool_hint?: string }>; risks?: string[] } | null>(null)
 const replyingToMessageId = ref<string | null>(null)
@@ -2181,6 +2234,7 @@ function useQuickFaq(faq: { id: number; question: string; answer: string }) {
 // 2026-07-07 Stage A: 监听 inputText 变化,自动触发 / 命令面板
 watch(inputText, () => {
   detectSlashPalette()
+  detectFileMention()
 })
 
 // 2026-07-07 Stage A: Slash 命令面板 (对标 Claude Code / Codex / Trae 的 /command 面板)
@@ -2220,6 +2274,162 @@ function onSlashCommandSelect(cmd: SlashCommand): void {
 
 function closeSlashPalette(): void {
   slashPaletteVisible.value = false
+}
+
+// ---------------------------------------------------------------------------
+// 2026-07-07 @文件提及 (对标 Claude Code @file / Cursor @file)
+// ---------------------------------------------------------------------------
+
+/** 监听输入变化,检测 @ 触发 FileMentionPopover */
+function detectFileMention(): void {
+  // slash 命令面板打开时不触发 @ 检测, 避免冲突
+  if (slashPaletteVisible.value) {
+    fileMentionVisible.value = false
+    return
+  }
+  const text = inputText.value
+  // 检测光标前最近的 @ (前导为行首或空白, 避免匹配邮箱)
+  // 取末尾的 @xxx 片段
+  const m = /(?:^|\s)@(\S*)$/.exec(text)
+  if (m && currentWorkspacePath.value) {
+    fileMentionQuery.value = m[1] ?? ''
+    // anchorOffset 指向 @ 字符的位置 (保留前面的空格, 替换 @query 整段)
+    fileMentionAnchorOffset = text.length - (m[1]?.length ?? 0) - 1
+    fileMentionVisible.value = true
+  } else {
+    fileMentionVisible.value = false
+  }
+}
+
+/** 工具栏 @ 按钮: 在输入框末尾插入 @ 并触发文件选择器 */
+function openMentions(): void {
+  if (!currentWorkspacePath.value) {
+    showWarning(t('floatingChat.workspaceAgent.selectWorkspaceFirst', '请先选择工作区文件夹'))
+    return
+  }
+  inputRef.value?.focus()
+  // 在光标处插入 @ (若末尾无空格则补一个)
+  const current = getInputText()
+  const sep = current && !/\s$/.test(current) ? ' ' : ''
+  insertAtCursor(`${sep}@`)
+  handleInputChange()
+  // detectFileMention 由 inputText watch 触发
+}
+
+/** 在 contenteditable 输入框光标处插入文本 */
+function insertAtCursor(text: string): void {
+  if (!inputRef.value) return
+  const selection = window.getSelection()
+  if (selection && selection.rangeCount > 0 && inputRef.value.contains(selection.anchorNode)) {
+    const range = selection.getRangeAt(0)
+    range.deleteContents()
+    const textNode = document.createTextNode(text)
+    range.insertNode(textNode)
+    range.setStartAfter(textNode)
+    range.setEndAfter(textNode)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  } else {
+    // 无光标时追加到末尾
+    inputRef.value.textContent = (inputRef.value.textContent || '') + text
+  }
+}
+
+/** 替换输入框中正在输入的 @query 片段为选中的 @path */
+function onFileMentionSelect(path: string): void {
+  if (!inputRef.value) return
+  const text = getInputText()
+  // 将 @query (从 anchorOffset 到末尾) 替换为 @path + 空格
+  const before = text.slice(0, fileMentionAnchorOffset)
+  const insertion = `@${path} `
+  const newText = before + insertion
+  setInputText(newText)
+  // 将光标移到末尾
+  nextTick(() => {
+    inputRef.value?.focus()
+    const sel = window.getSelection()
+    if (sel && inputRef.value) {
+      const range = document.createRange()
+      range.selectNodeContents(inputRef.value)
+      range.collapse(false)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    handleInputChange()
+  })
+  fileMentionVisible.value = false
+}
+
+function closeFileMention(): void {
+  fileMentionVisible.value = false
+}
+
+/**
+ * 解析 prompt 中的 @path 文件提及, 读取文件内容并注入为上下文块.
+ * 仅处理看起来像文件路径的 @提及 (含 / \ 或 . 扩展名), 跳过 @username 等.
+ * 单文件最大注入 50KB, 超出截断. 读取失败静默跳过.
+ *
+ * 对标 Claude Code @file: 用户输入 @path, 发送时把文件内容作为上下文注入 prompt.
+ */
+async function resolveFileMentions(prompt: string, workspacePath: string): Promise<string> {
+  const matches = Array.from(prompt.matchAll(/(?:^|\s)@(\S+)/g))
+  if (matches.length === 0) return prompt
+
+  const MAX_FILE_BYTES = 50_000
+  const contexts: string[] = []
+  for (const m of matches) {
+    const path = m[1]
+    // 跳过明显非文件路径 (无扩展名且无路径分隔符, 可能是 @username)
+    if (!/[./\\]/.test(path)) continue
+    try {
+      const result = await readFile(workspacePath, path)
+      if (result.success && result.content) {
+        const content = result.content.length > MAX_FILE_BYTES
+          ? result.content.slice(0, MAX_FILE_BYTES) + '\n... (已截断)'
+          : result.content
+        contexts.push(`--- 文件: @${path} ---\n\`\`\`\n${content}\n\`\`\``)
+      }
+    } catch {
+      // 读取失败静默跳过
+    }
+  }
+  if (contexts.length === 0) return prompt
+  return `${prompt}\n\n以下是通过 @ 提及的文件内容, 供参考:\n\n${contexts.join('\n\n')}`
+}
+
+/** 切换 Checkpoint/Rewind 面板 (对标 Claude Code Esc+Esc) */
+function toggleCheckpointPanel(): void {
+  if (!currentWorkspacePath.value) {
+    showWarning(t('floatingChat.workspaceAgent.selectWorkspaceFirst', '请先选择工作区文件夹'))
+    return
+  }
+  showCheckpointPanel.value = !showCheckpointPanel.value
+}
+
+/**
+ * Esc 键处理 (对标 Claude Code Esc+Esc 一键回滚):
+ * - 若 @文件提及 / slash 命令面板打开, 先关闭它们
+ * - 否则检测双击 Esc (400ms 内), 切换 Rewind 面板
+ */
+function handleEscKey(): void {
+  if (fileMentionVisible.value || slashPaletteVisible.value) {
+    fileMentionVisible.value = false
+    slashPaletteVisible.value = false
+    return
+  }
+  const now = Date.now()
+  if (now - lastEscTime < 400) {
+    toggleCheckpointPanel()
+    lastEscTime = 0
+  } else {
+    lastEscTime = now
+  }
+}
+
+/** 检查点回滚成功后刷新文件树等 */
+function onCheckpointRolledBack(): void {
+  // 触发工作区文件树刷新 (若 Sidebar 提供了刷新方法可在此调用)
+  // 目前仅保留钩子, CheckpointHistoryPanel 内部已 ElMessage 反馈
 }
 
 /** 2026-07-07 Stage B: 接受 / 拒绝 Agent 提交的计划 */
@@ -3392,8 +3602,33 @@ const handleInputChange = () => {
   }
 }
 
-// 处理粘贴事件（移除格式，只保留纯文本）
+// 处理粘贴事件:
+// 1. 优先检测图片 (image/*) → 转 base64 加入附件 (对标 Claude Code 图片粘贴分析)
+// 2. 无图片时移除格式, 只保留纯文本
 const handlePaste = (e: ClipboardEvent) => {
+  // 1. 检测剪贴板中的图片
+  const items = e.clipboardData?.items
+  if (items) {
+    const imageItems: DataTransferItem[] = []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item && item.kind === 'file' && item.type.startsWith('image/')) {
+        imageItems.push(item)
+      }
+    }
+    if (imageItems.length > 0) {
+      e.preventDefault()
+      for (const item of imageItems) {
+        const file = item.getAsFile()
+        if (file) {
+          addImageAsAttachment(file)
+        }
+      }
+      return
+    }
+  }
+
+  // 2. 无图片: 移除格式, 只保留纯文本
   e.preventDefault()
   const text = e.clipboardData?.getData('text/plain') || ''
   if (inputRef.value) {
@@ -3411,6 +3646,79 @@ const handlePaste = (e: ClipboardEvent) => {
       inputRef.value.textContent = (inputRef.value.textContent || '') + text
     }
     handleInputChange()
+  }
+}
+
+/**
+ * 将图片 File 转为 base64 data URL 并加入附件列表 (粘贴/拖拽共用).
+ * 复用 handleFileUpload 相同的数据结构, 后续随消息发送 (后端 LLM 支持多模态).
+ */
+function addImageAsAttachment(file: File): void {
+  if (uploadedFiles.value.length >= MAX_FILES) {
+    showWarning(t('floatingChat.maxFilesReached', { max: MAX_FILES }))
+    return
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    showError(t('floatingChat.fileTooLarge', { name: file.name, max: '10MB' }))
+    return
+  }
+  const reader = new FileReader()
+  reader.onerror = () => {
+    showError(t('floatingChat.fileReadFailed', { name: file.name }))
+  }
+  reader.onload = (event) => {
+    const dataUrl = event.target?.result as string
+    if (dataUrl) {
+      uploadedFiles.value.push({
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        name: file.name || `pasted-image-${Date.now()}.png`,
+        type: file.type || 'image/png',
+        preview: dataUrl,
+        size: file.size,
+        uploadedAt: Date.now() as Timestamp,
+      })
+    }
+  }
+  reader.readAsDataURL(file)
+}
+
+// ---------------------------------------------------------------------------
+// 2026-07-07 图片拖拽 (对标 Claude Code / Cursor 拖拽图片分析)
+// ---------------------------------------------------------------------------
+const handleDragOver = (e: DragEvent) => {
+  // 仅当拖入包含文件时显示拖拽反馈
+  if (e.dataTransfer?.types?.includes('Files')) {
+    isDragover.value = true
+  }
+}
+
+const handleDragLeave = (_e: DragEvent) => {
+  isDragover.value = false
+}
+
+const handleDrop = (e: DragEvent) => {
+  isDragover.value = false
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+  e.preventDefault()
+  for (const file of Array.from(files)) {
+    if (file.type.startsWith('image/')) {
+      addImageAsAttachment(file)
+    } else if (file.size <= MAX_FILE_SIZE && uploadedFiles.value.length < MAX_FILES) {
+      // 非图片文件也支持加入附件 (复用 handleFileUpload 的读取逻辑)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        uploadedFiles.value.push({
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          preview: (event.target?.result as string) || '',
+          size: file.size,
+          uploadedAt: Date.now() as Timestamp,
+        })
+      }
+      reader.readAsDataURL(file)
+    }
   }
 }
 
@@ -4389,8 +4697,11 @@ const handleSend = async () => {
       const modelCode = selectedModel.value?.modelCode || 'default'
       const userUuid = getUserUuid()
 
+      // 2026-07-07 @文件提及: 读取 @path 文件内容注入 prompt 上下文 (对标 Claude Code @file)
+      const resolvedPrompt = await resolveFileMentions(messageContent, workspaceFolder)
+
       sendToWorkspaceAgent({
-        prompt: messageContent,
+        prompt: resolvedPrompt,
         modelId: modelCode,
         workspacePath: workspaceFolder,
         userUuid,
@@ -6365,11 +6676,7 @@ const handleRemoveAgent = () => {
   nextTick(() => inputRef.value?.focus())
 }
 
-// @ 提及: 暂时聚焦输入框, 后续可扩展 mentions 下拉
-const openMentions = () => {
-  inputRef.value?.focus()
-  // 预留: 后续可在此处触发 mentions 弹层 (mentions-popover)
-}
+// @ 提及: 已在上方实现 (function openMentions), 触发 FileMentionPopover 文件选择器
 
 // 速通 (快捷工具) 按钮: 滚动到 quickToolsBar 并展开
 const openQuickTools = () => {

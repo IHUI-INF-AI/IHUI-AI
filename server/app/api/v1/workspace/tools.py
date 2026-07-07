@@ -36,6 +36,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from app.api.v1.workspace.checkpoint import commit_after_modify
 from app.api.v1.workspace.schemas import ToolCallResult
 from app.api.v1.workspace.sandbox import execute_in_sandbox, SandboxMode
 
@@ -583,7 +584,6 @@ async def tool_write_file(args: dict[str, Any], workspace: str) -> ToolCallResul
 
         # 写入后可选 git auto-commit (对标 Aider)
         try:
-            from app.api.v1.workspace.checkpoint import commit_after_modify
             commit_after_modify(workspace, cp_id, "write_file", [rel_path])
         except Exception:
             pass
@@ -670,7 +670,6 @@ async def tool_edit_file(args: dict[str, Any], workspace: str) -> ToolCallResult
 
         # 编辑后可选 git auto-commit (对标 Aider)
         try:
-            from app.api.v1.workspace.checkpoint import commit_after_modify
             commit_after_modify(workspace, cp_id, "edit_file", [rel_path])
         except Exception:
             pass
@@ -709,7 +708,6 @@ async def tool_delete_file(args: dict[str, Any], workspace: str) -> ToolCallResu
 
         # 删除后可选 git auto-commit (对标 Aider)
         try:
-            from app.api.v1.workspace.checkpoint import commit_after_modify
             commit_after_modify(workspace, cp_id, "delete_file", [rel_path])
         except Exception:
             pass
@@ -982,7 +980,6 @@ async def tool_multi_edit(args: dict[str, Any], workspace: str) -> ToolCallResul
 
         # 编辑后可选 git auto-commit (对标 Aider)
         try:
-            from app.api.v1.workspace.checkpoint import commit_after_modify
             commit_after_modify(workspace, cp_id, "multi_edit", [rel_path])
         except Exception:
             pass

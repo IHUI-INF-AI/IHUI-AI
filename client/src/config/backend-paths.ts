@@ -77,6 +77,9 @@ export const DEVELOPER_PATHS = {
     serverById: (id: string) => `${DEV}/mcp/servers/${id}`,
     test: (id: string) => `${DEV}/mcp/servers/${id}/test`,
     capabilities: (id: string) => `${DEV}/mcp/servers/${id}/capabilities`,
+    // P1 缺口补齐: 连接器状态 (在线/离线/工具数) — 对标 WorkBuddy 连接器可视化
+    statuses: `${DEV}/mcp/servers/status`,
+    status: (id: string) => `${DEV}/mcp/servers/${id}/status`,
     tool: (serverId: string, toolName: string) =>
       `${DEV}/mcp/servers/${serverId}/tools/${toolName}`,
     resource: (serverId: string, uri: string) =>

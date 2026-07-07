@@ -4,7 +4,7 @@
     <div class="checkpoint-panel__header">
       <span class="checkpoint-panel__title">
         <el-icon class="checkpoint-panel__icon"><Clock /></el-icon>
-        检查点历史
+        {{ t('aiChat.checkpointPanel.title') }}
       </span>
       <div class="checkpoint-panel__actions">
         <el-button
@@ -16,7 +16,7 @@
           class="checkpoint-panel__btn"
         >
           <el-icon><Back /></el-icon>
-          撤销
+          {{ t('aiChat.checkpointPanel.undo') }}
         </el-button>
         <el-button
           text
@@ -32,12 +32,12 @@
     <!-- 加载中 -->
     <div v-if="loading" class="checkpoint-panel__loading">
       <el-icon class="is-loading"><Loading /></el-icon>
-      加载中...
+      {{ t('aiChat.checkpointPanel.loading') }}
     </div>
 
     <!-- 空状态 -->
     <div v-else-if="!checkpoints.length" class="checkpoint-panel__empty">
-      暂无检查点
+      {{ t('aiChat.checkpointPanel.empty') }}
     </div>
 
     <!-- 检查点列表 -->
@@ -68,7 +68,7 @@
             @click="handleRollback(cp.id)"
             class="checkpoint-panel__btn"
           >
-            回滚
+            {{ t('aiChat.checkpointPanel.rollback') }}
           </el-button>
         </div>
       </li>
@@ -78,6 +78,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Clock, Back, Refresh, Loading } from '@element-plus/icons-vue'
 import {
@@ -86,6 +87,8 @@ import {
   rollbackToCheckpoint,
   type CheckpointInfo,
 } from '@/api/services/workspace.service'
+
+const { t } = useI18n()
 
 interface Props {
   workspacePath: string
@@ -117,13 +120,13 @@ async function handleUndo() {
   try {
     const result = await undoLastCheckpoint(props.workspacePath)
     if (result.success) {
-      ElMessage.success(result.message)
+      ElMessage.success(t('aiChat.checkpointPanel.undoSuccess'))
     } else {
-      ElMessage.warning(result.message)
+      ElMessage.warning(result.message || t('aiChat.checkpointPanel.noCheckpoint'))
     }
     await refresh()
   } catch {
-    ElMessage.error('撤销失败')
+    ElMessage.error(t('aiChat.checkpointPanel.undoFailed'))
   } finally {
     undoLoading.value = false
   }
@@ -134,13 +137,13 @@ async function handleRollback(id: string) {
   try {
     const result = await rollbackToCheckpoint(props.workspacePath, id)
     if (result.success) {
-      ElMessage.success(result.message)
+      ElMessage.success(t('aiChat.checkpointPanel.rollbackSuccess'))
     } else {
       ElMessage.warning(result.message)
     }
     await refresh()
   } catch {
-    ElMessage.error('回滚失败')
+    ElMessage.error(t('aiChat.checkpointPanel.rollbackFailed'))
   } finally {
     rollbackId.value = null
   }

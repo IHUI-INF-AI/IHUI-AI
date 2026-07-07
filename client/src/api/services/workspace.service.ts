@@ -487,3 +487,59 @@ export async function searchSymbols(workspacePath: string, query: string, limit 
   const resp = await request.get(`${BASE}/index/symbols`, { params: { workspace_path: workspacePath, query, limit } })
   return resp.data?.data ?? []
 }
+
+// ---------------------------------------------------------------------------
+// @文件提及: 模糊搜索工作区文件 (对标 Claude Code @file / Cursor @file)
+// ---------------------------------------------------------------------------
+
+/**
+ * 模糊搜索工作区文件 — 供 @文件提及使用.
+ *
+ * 优先使用 codebase 索引 (searchCodebase, 带 score 排序); 若索引未构建或无结果,
+ * 回退到 globFiles (按文件名子串匹配, 始终可用). 返回去重后的相对路径列表.
+ *
+ * @param workspacePath 工作区绝对路径
+ * @param query 搜索关键词 (文件名子串); 空字符串时返回常见文件列表
+ * @param limit 最多返回条数
+ */
+export async function searchFiles(workspacePath: string, query: string, limit = 30): Promise<string[]> {
+  // 1. 空查询: 用 glob 列出常见源码文件 (限制数量, 避免大工作区卡顿)
+  if (!query.trim()) {
+    try {
+      const result = await globFiles(workspacePath, '', '**/*.{ts,js,vue,py,go,rs,java,json,md,yaml,yml,txt}')
+      const files = parseGlobOutput(result.output)
+      return files.slice(0, limit)
+    } catch {
+      return []
+    }
+  }
+
+  // 2. 非空查询: 优先 codebase 索引 (带 score)
+  try {
+    const indexed = await searchCodebase(workspacePath, query, limit)
+    if (indexed.length > 0) {
+      return indexed.map((r) => r.path).slice(0, limit)
+    }
+  } catch {
+    // 索引未构建, 继续回退
+  }
+
+  // 3. 回退: glob 按文件名子串匹配 (始终可用)
+  try {
+    const safe = query.replace(/[*?[\](){}.+]/g, '')
+    const result = await globFiles(workspacePath, '', `**/*${safe}*`)
+    return parseGlobOutput(result.output).slice(0, limit)
+  } catch {
+    return []
+  }
+}
+
+/** 解析 glob 工具的输出 (换行分隔的相对路径列表) 为数组, 过滤截断提示行. */
+function parseGlobOutput(output: string | undefined | null): string[] {
+  if (!output) return []
+  return output
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('...') && l !== '(无匹配)')
+    .sort((a, b) => a.localeCompare(b))
+}

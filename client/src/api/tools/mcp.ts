@@ -7,7 +7,7 @@ import { DEVELOPER_PATHS } from '@/config/backend-paths'
 import { MCP_CURATED_SERVERS } from '@/data/mcp-curated'
 
 // MCP协议类型
-export type MCPProtocol = 'stdio' | 'sse' | 'websocket'
+export type MCPProtocol = 'stdio' | 'http' | 'sse' | 'websocket'
 
 // MCP服务器状态
 export type MCPServerStatus = 'active' | 'inactive' | 'error'
@@ -409,6 +409,11 @@ export const MCP_PROTOCOLS: Record<
     name: 'STDIO',
     description: t('text.mcp.标准输入输出适用15'),
     icon: '📟',
+  },
+  http: {
+    name: 'HTTP',
+    description: 'Streamable HTTP 传输 (单端点 POST JSON-RPC, 推荐远程)',
+    icon: '🌐',
   },
   sse: {
     name: 'SSE',

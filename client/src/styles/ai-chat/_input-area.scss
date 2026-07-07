@@ -83,6 +83,13 @@
       border-color: #54555a;
     }
   }
+
+  // 2026-07-07 拖拽图片进入时的视觉反馈 (柔和描边提亮, 无蓝色发光)
+  &.is-dragover {
+    border-color: var(--el-color-success);
+    background-color: var(--el-fill-color-light);
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+  }
 }
 
 // 聊天输入框 - 使用 contenteditable div 替代 textarea，确保圆角生效
@@ -574,6 +581,12 @@
   &:hover {
     background: var(--el-fill-color-light);
     color: var(--el-text-color-primary);
+  }
+
+  // 2026-07-07 激活态 (Rewind 面板打开时, 与 sidebar 按钮描边色一致)
+  &.is-active {
+    background: var(--el-fill-color);
+    color: var(--el-color-primary);
   }
 
   &:active {

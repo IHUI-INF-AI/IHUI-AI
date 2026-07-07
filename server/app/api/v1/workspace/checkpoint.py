@@ -341,6 +341,29 @@ def get_checkpoint_detail(workspace: str, checkpoint_id: str) -> dict[str, Any] 
 # ---------------------------------------------------------------------------
 
 
+def commit_after_modify(
+    workspace: str,
+    checkpoint_id: str,
+    tool: str,
+    file_paths: list[str],
+) -> bool:
+    """文件修改后尝试 git auto-commit (对标 Aider)。
+
+    当工作区是 git 仓库时, 调用 ``git stash create`` 创建一个轻量快照作为安全网。
+    失败时静默返回 False (非 git 仓库 / 无未提交修改 / 进程异常均不影响主流程)。
+
+    Args:
+        workspace: 工作区绝对路径
+        checkpoint_id: 关联的检查点 ID
+        tool: 触发工具名 (write_file/edit_file/multi_edit/delete_file)
+        file_paths: 被修改的文件相对路径列表 (仅用于日志/扩展, 当前实现未使用)
+
+    Returns:
+        是否成功创建 git 快照
+    """
+    return _try_git_snapshot(workspace, checkpoint_id)
+
+
 def _try_git_snapshot(workspace: str, checkpoint_id: str) -> bool:
     """尝试用 git stash 创建快照 (可选增强)。
 

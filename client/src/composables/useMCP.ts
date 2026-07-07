@@ -11,10 +11,12 @@ import {
   getMCPServersList,
   getMCPServerCapabilities,
   callMCPTool,
+  getMCPConnectorStatuses,
   type MCPServer,
   type MCPTool,
   type MCPResource,
   type MCPPrompt,
+  type MCPConnectorStatus,
 } from '@/api/mcp'
 import { useMCPPerformance } from './useMCPPerformance'
 
@@ -308,6 +310,62 @@ export async function useMCPTool(
    
 
   return await invokeMCPTool(allTools[0].server.id, toolName, arguments_)
+}
+
+/**
+ * 连接器状态 (P1 缺口补齐, 对标 WorkBuddy 连接器可视化)
+ * 提供连接器在线/离线/工具数查询能力
+ */
+const connectorStatuses = ref<MCPConnectorStatus[]>([])
+const connectorStatusLoading = ref(false)
+
+/**
+ * 加载所有连接器运行状态
+ */
+export async function loadConnectorStatuses(): Promise<void> {
+  connectorStatusLoading.value = true
+  try {
+    const response = await getMCPConnectorStatuses()
+    if (response.code === 200 && response.success === true) {
+      connectorStatuses.value = response.data || []
+    }
+  } catch (error) {
+    logger.error('Failed to load MCP connector statuses:', error)
+  } finally {
+    connectorStatusLoading.value = false
+  }
+}
+
+/**
+ * 连接器状态 Composable
+ */
+export function useMCPConnectors() {
+  const onlineConnectors = computed(() =>
+    connectorStatuses.value.filter((c) => c.online)
+  )
+  const offlineConnectors = computed(() =>
+    connectorStatuses.value.filter((c) => !c.online)
+  )
+  const totalTools = computed(() =>
+    connectorStatuses.value.reduce((sum, c) => sum + (c.tool_count || 0), 0)
+  )
+
+  /**
+   * 按名称查询连接器状态
+   */
+  function getConnectorStatus(name: string): MCPConnectorStatus | undefined {
+    return connectorStatuses.value.find((c) => c.name === name)
+  }
+
+  return {
+    connectorStatuses,
+    connectorStatusLoading,
+    onlineConnectors,
+    offlineConnectors,
+    totalTools,
+    loadConnectorStatuses,
+    getConnectorStatus,
+  }
 }
 
 /**

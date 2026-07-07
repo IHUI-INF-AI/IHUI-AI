@@ -3,7 +3,7 @@
     <div class="token-usage-panel__header">
       <span class="token-usage-panel__title">
         <el-icon class="token-usage-panel__icon"><DataLine /></el-icon>
-        Token 用量
+        {{ t('aiChat.tokenUsagePanel.title') }}
       </span>
       <span v-if="usage.total_tokens > 0" class="token-usage-panel__total">
         {{ formatNumber(usage.total_tokens) }}
@@ -14,7 +14,7 @@
       <!-- 双柱状条: prompt vs completion -->
       <div class="token-usage-panel__bars">
         <div class="token-usage-panel__bar-item">
-          <span class="token-usage-panel__bar-label">输入</span>
+          <span class="token-usage-panel__bar-label">{{ t('aiChat.tokenUsagePanel.input') }}</span>
           <div class="token-usage-panel__bar-track">
             <div
               class="token-usage-panel__bar-fill token-usage-panel__bar-fill--prompt"
@@ -24,7 +24,7 @@
           <span class="token-usage-panel__bar-value">{{ formatNumber(usage.prompt_tokens) }}</span>
         </div>
         <div class="token-usage-panel__bar-item">
-          <span class="token-usage-panel__bar-label">输出</span>
+          <span class="token-usage-panel__bar-label">{{ t('aiChat.tokenUsagePanel.output') }}</span>
           <div class="token-usage-panel__bar-track">
             <div
               class="token-usage-panel__bar-fill token-usage-panel__bar-fill--completion"
@@ -39,24 +39,27 @@
       <div v-if="usage.iterations > 0" class="token-usage-panel__meta">
         <span class="token-usage-panel__meta-item">
           <el-icon><Refresh /></el-icon>
-          {{ usage.iterations }} 轮迭代
+          {{ t('aiChat.tokenUsagePanel.iterations', { n: usage.iterations }) }}
         </span>
         <span v-if="avgTokensPerIteration > 0" class="token-usage-panel__meta-item">
-          均 {{ formatNumber(avgTokensPerIteration) }} tokens/轮
+          {{ t('aiChat.tokenUsagePanel.avgPerIteration', { n: formatNumber(avgTokensPerIteration) }) }}
         </span>
       </div>
     </div>
 
     <!-- 空状态 -->
     <div v-else class="token-usage-panel__empty">
-      暂无用量数据
+      {{ t('aiChat.tokenUsagePanel.empty') }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { DataLine, Refresh } from '@element-plus/icons-vue'
+
+const { t } = useI18n()
 
 export interface UsageData {
   prompt_tokens: number

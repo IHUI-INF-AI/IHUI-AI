@@ -166,8 +166,9 @@ import {
   type ModelProviderConfig,
   type ApiFormatInfo,
   type ApiFormatType,
+  type ModelTestResult,
 } from '@/api/models'
-import type { TestState, ModelTestResult } from '@/composables/useModelTest'
+import type { TestState } from '@/composables/useModelTest'
 
 const props = defineProps<{
   provider: ModelProviderConfig | null
@@ -223,7 +224,7 @@ const baseUrlPlaceholder = computed(() => {
 })
 
 const currentFormatDesc = computed(() => {
-  const fmt = props.apiFormats.find((f) => f.value === form.apiFormat)
+  const fmt = props.apiFormats.find((f: ApiFormatInfo) => f.value === form.apiFormat)
   return fmt?.description || ''
 })
 

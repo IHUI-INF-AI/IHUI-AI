@@ -43,14 +43,14 @@
 <p class="subtitle">对标 Claude Code / Codex / Gemini CLI / Aider — 差距分析与全面增强开发</p>
 
 <div class="summary-bar">
-  <strong>交付状态: 已完成</strong> — 7 项核心增强 + CLI 集成 + 前端集成, 74/74 验证测试通过, 9 个文件修改 + 1 个新文件创建
+  <strong>交付状态: 已完成</strong> — 7 项核心增强 + CLI 集成 + 前端 UI 组件 + Git auto-commit, 74/74 验证测试通过, 12 个文件修改/创建
 </div>
 
 <div class="stat-grid">
   <div class="stat"><div class="stat-num">7</div><div class="stat-label">核心增强项</div></div>
   <div class="stat"><div class="stat-num">19</div><div class="stat-label">工具总数 (原16+3)</div></div>
   <div class="stat"><div class="stat-num">74</div><div class="stat-label">测试通过</div></div>
-  <div class="stat"><div class="stat-num">10</div><div class="stat-label">修改文件数</div></div>
+  <div class="stat"><div class="stat-num">12</div><div class="stat-label">修改文件数</div></div>
 </div>
 
 <h2>一、差距分析: 本项目 vs 主流工具</h2>
@@ -172,8 +172,8 @@
 <h2>三、修改文件清单</h2>
 <table>
   <tr><th>文件</th><th>类型</th><th>变更内容</th></tr>
-  <tr><td><span class="file-path">server/.../checkpoint.py</span></td><td>新建</td><td>检查点快照与回滚系统 (280 行)</td></tr>
-  <tr><td><span class="file-path">server/.../tools.py</span></td><td>修改</td><td>Diff 预览 + 模糊匹配 + Checkpoint 集成 + 3 个新工具</td></tr>
+  <tr><td><span class="file-path">server/.../checkpoint.py</span></td><td>新建</td><td>检查点快照与回滚系统 + Git auto-commit 集成 (370 行)</td></tr>
+  <tr><td><span class="file-path">server/.../tools.py</span></td><td>修改</td><td>Diff 预览 + 模糊匹配 + Checkpoint 集成 + Git auto-commit + 3 个新工具</td></tr>
   <tr><td><span class="file-path">server/.../llm_gateway.py</span></td><td>修改</td><td>API 重试退避 + 中英文错误识别</td></tr>
   <tr><td><span class="file-path">server/.../agent_loop.py</span></td><td>修改</td><td>并行工具执行 + Token 追踪 + 智能压缩</td></tr>
   <tr><td><span class="file-path">server/.../schemas.py</span></td><td>修改</td><td>新增 USAGE + TOOL_CONFIRM 事件类型</td></tr>
@@ -181,6 +181,9 @@
   <tr><td><span class="file-path">cli/src/repl.ts</span></td><td>修改</td><td>/undo /checkpoints /rollback 命令 + /tools 更新 + agent.usage 事件</td></tr>
   <tr><td><span class="file-path">client/.../workspace.service.ts</span></td><td>修改</td><td>AgentEvent 类型扩展 + 5 个 Checkpoint API 函数 + UsageInfo/CheckpointInfo 类型</td></tr>
   <tr><td><span class="file-path">client/.../useWorkspaceAgent.ts</span></td><td>修改</td><td>agent.usage 事件处理 + currentUsage ref + onUsage 回调 + onDone 扩展</td></tr>
+  <tr><td><span class="file-path">client/.../TokenUsagePanel.vue</span></td><td>新建</td><td>Token 用量面板组件 (双柱状图 + 迭代次数 + 均值)</td></tr>
+  <tr><td><span class="file-path">client/.../CheckpointHistoryPanel.vue</span></td><td>新建</td><td>检查点历史面板组件 (列表 + 撤销 + 回滚按钮)</td></tr>
+  <tr><td><span class="file-path">client/.../AIChat.vue</span></td><td>修改</td><td>集成两个面板 + 修复 watch 类型 + currentWorkspacePath computed</td></tr>
 </table>
 
 <h2>四、验证测试结果</h2>
