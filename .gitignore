@@ -258,3 +258,4 @@ scripts/check-shell-blacklist.mjs
 scripts/check-slash-commands.mjs
 scripts/check-tasklist-panel.mjs
 scripts/clean-g-root-tmp.ps1
+ts_parse_tmp.mjsdbg_tmp.mjs
