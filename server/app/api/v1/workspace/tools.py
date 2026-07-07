@@ -734,6 +734,12 @@ async def tool_write_file(args: dict[str, Any], workspace: str) -> ToolCallResul
                 input=args,
                 output=f"[dry_run 预览] {path}\n{diff}",
                 success=True,
+                diff_info={
+                    "file_path": rel_path,
+                    "old_content": old_content,
+                    "new_content": content,
+                    "is_new_file": not path.exists(),
+                },
             )
 
         # 写入前创建检查点快照 (对标 Aider git auto-commit)
@@ -756,6 +762,12 @@ async def tool_write_file(args: dict[str, Any], workspace: str) -> ToolCallResul
             input=args,
             output=f"已写入 {path} ({len(content)} 字符, {content.count(chr(10)) + 1} 行)\n\n变更预览:\n{diff_preview}",
             success=True,
+            diff_info={
+                "file_path": rel_path,
+                "old_content": old_content,
+                "new_content": content,
+                "is_new_file": old_content == "",
+            },
         )
     except Exception as e:
         return ToolCallResult(tool="write_file", input=args, output="", error=str(e), success=False)
@@ -821,6 +833,12 @@ async def tool_edit_file(args: dict[str, Any], workspace: str) -> ToolCallResult
                 input=args,
                 output=f"[dry_run 预览] {path}\n{diff}",
                 success=True,
+                diff_info={
+                    "file_path": rel_path,
+                    "old_content": content,
+                    "new_content": new_content,
+                    "is_new_file": False,
+                },
             )
 
         # 编辑前创建检查点快照
@@ -841,6 +859,12 @@ async def tool_edit_file(args: dict[str, Any], workspace: str) -> ToolCallResult
             input=args,
             output=f"已替换 1 处{match_note}, 文件 {path} 已更新\n\n变更预览:\n{diff_preview}",
             success=True,
+            diff_info={
+                "file_path": rel_path,
+                "old_content": content,
+                "new_content": new_content,
+                "is_new_file": False,
+            },
         )
     except Exception as e:
         return ToolCallResult(tool="edit_file", input=args, output="", error=str(e), success=False)
@@ -1248,6 +1272,12 @@ async def tool_multi_edit(args: dict[str, Any], workspace: str) -> ToolCallResul
                 input=args,
                 output=f"[dry_run 预览] {path} ({applied}/{len(edits)} 个替换)\n{diff}",
                 success=True,
+                diff_info={
+                    "file_path": rel_path,
+                    "old_content": original_content,
+                    "new_content": content,
+                    "is_new_file": False,
+                },
             )
 
         # 写入前创建检查点快照
@@ -1268,6 +1298,12 @@ async def tool_multi_edit(args: dict[str, Any], workspace: str) -> ToolCallResul
             input=args,
             output=f"成功应用 {applied}/{len(edits)} 个替换{fuzzy_note}\n\n变更预览:\n{diff_preview}",
             success=True,
+            diff_info={
+                "file_path": rel_path,
+                "old_content": original_content,
+                "new_content": content,
+                "is_new_file": False,
+            },
         )
     except PermissionError as e:
         return ToolCallResult(tool="multi_edit", input=args, output="", error=str(e), success=False)

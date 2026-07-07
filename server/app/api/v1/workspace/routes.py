@@ -30,6 +30,13 @@ Workspace API 路由 — 完整的 AI Coding 能力 HTTP + WebSocket 端点。
   GET  /workspace/mcp/servers        列出 MCP 服务器配置
   POST /workspace/mcp/connect        连接 MCP 服务器
   GET  /workspace/mcp/tools          列出所有 MCP 工具
+
+  # Swarm (多智能体编排 — IHUI-AI 独特优势)
+  POST   /workspace/swarms              创建 swarm (自动分解任务)
+  GET    /workspace/swarms              列出 swarm
+  GET    /workspace/swarms/{swarm_id}   获取 swarm 状态
+  POST   /workspace/swarms/{swarm_id}/execute  执行 swarm
+  DELETE /workspace/swarms/{swarm_id}   取消 swarm
 """
 
 from __future__ import annotations
@@ -65,6 +72,7 @@ from app.api.v1.workspace.schemas import (
     StartBackgroundAgentRequest,
     CreateRoutineRequest,
     UpdateRoutineRequest,
+    CreateSwarmRequest,
 )
 from app.api.v1.workspace.session_store import (
     load_recent_workspaces,
@@ -1112,6 +1120,83 @@ async def trigger_routine(routine_id: str):
     if "error" in result:
         return error(msg=result["error"])
     return success(data=result)
+
+
+# ---------------------------------------------------------------------------
+# Swarm — 多智能体编排 (IHUI-AI 独特优势功能)
+# ---------------------------------------------------------------------------
+
+@router.post("/swarms")
+async def create_swarm(req: CreateSwarmRequest):
+    """创建 Swarm — 自动分析任务, 分解为多 agent 协作方案。
+
+    流程:
+    1. 调用 LLM 分析任务, 生成子任务分解方案 (含角色和依赖)
+    2. 为每个子任务创建 SwarmAgent (复用 SubagentConfig)
+    3. 返回 SwarmPlan, 后续通过 /swarms/{swarm_id}/execute 执行
+    """
+    from app.api.v1.workspace.swarm import get_swarm_orchestrator
+
+    if not req.task or not req.workspace_path:
+        return error(msg="缺少 task 或 workspace_path")
+
+    orchestrator = get_swarm_orchestrator()
+    plan = await orchestrator.create_swarm(
+        task=req.task,
+        workspace_path=req.workspace_path,
+        model_id=req.model_id,
+    )
+    return success(data=plan.to_dict())
+
+
+@router.get("/swarms")
+async def list_swarms(workspace_path: str | None = None):
+    """列出所有 Swarm (可按工作区过滤)。"""
+    from app.api.v1.workspace.swarm import get_swarm_orchestrator
+
+    orchestrator = get_swarm_orchestrator()
+    swarms = orchestrator.list_swarms(workspace_path)
+    return success(data=swarms, total=len(swarms))
+
+
+@router.get("/swarms/{swarm_id}")
+async def get_swarm_status(swarm_id: str):
+    """获取 Swarm 状态 — 含所有 agent 的当前状态和结果。"""
+    from app.api.v1.workspace.swarm import get_swarm_orchestrator
+
+    orchestrator = get_swarm_orchestrator()
+    status = orchestrator.get_swarm_status(swarm_id)
+    if not status:
+        return error(msg=f"Swarm {swarm_id} 不存在")
+    return success(data=status)
+
+
+@router.post("/swarms/{swarm_id}/execute")
+async def execute_swarm(swarm_id: str):
+    """执行 Swarm — 按依赖关系并行执行所有 agent。
+
+    无依赖的 agent 立即并行启动, 有依赖的 agent 等待依赖完成后启动。
+    执行是异步的, 此端点会阻塞直到所有 agent 完成 (或被取消)。
+    """
+    from app.api.v1.workspace.swarm import get_swarm_orchestrator
+
+    orchestrator = get_swarm_orchestrator()
+    result = await orchestrator.execute_swarm(swarm_id)
+    if result.get("status") == "not_found":
+        return error(msg=f"Swarm {swarm_id} 不存在")
+    return success(data=result)
+
+
+@router.delete("/swarms/{swarm_id}")
+async def cancel_swarm(swarm_id: str):
+    """取消 Swarm — 设置取消信号, 运行中的 agent 完成当前步骤后终止。"""
+    from app.api.v1.workspace.swarm import get_swarm_orchestrator
+
+    orchestrator = get_swarm_orchestrator()
+    ok = orchestrator.cancel_swarm(swarm_id)
+    if not ok:
+        return error(msg=f"无法取消: Swarm {swarm_id} 不存在或已完成")
+    return success(data={"swarm_id": swarm_id, "status": "cancelled"})
 
 
 # ---------------------------------------------------------------------------

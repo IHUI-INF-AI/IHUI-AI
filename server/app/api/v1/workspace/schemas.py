@@ -269,6 +269,9 @@ class ToolCallResult(BaseModel):
     # Computer Use: 截图等工具可携带 base64 编码的图片 (PNG), 供 LLM vision 接收。
     # 每个元素为不含 data URI 前缀的纯 base64 字符串。
     images: list[str] | None = None
+    # Inline Diff 预览 (对标 Cursor/Trae): write_file/edit_file 携带原内容与新内容,
+    # 供前端渲染 inline diff 预览 + Accept/Reject 按钮
+    diff_info: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -307,3 +310,38 @@ class UpdateRoutineRequest(BaseModel):
     cron_expression: str | None = Field(None, description="5 字段 cron 表达式 (分 时 日 月 周)")
     model_id: str | None = Field(None, description="模型 code")
     enabled: bool | None = Field(None, description="是否启用")
+
+
+# ---------------------------------------------------------------------------
+# Swarm — 多智能体编排 (IHUI-AI 独特优势功能)
+# ---------------------------------------------------------------------------
+
+class CreateSwarmRequest(BaseModel):
+    """创建 Swarm 请求 — 自动分解任务为多 agent 协作方案。"""
+    task: str = Field(..., description="总体任务描述")
+    workspace_path: str = Field(..., description="工作区绝对路径")
+    model_id: str = Field("default", description="模型 code")
+
+
+class SwarmAgentStatus(BaseModel):
+    """Swarm 中单个 Agent 的状态。"""
+    agent_id: str = Field(..., description="Agent ID")
+    role: str = Field(..., description="角色: coordinator/worker/reviewer")
+    name: str = Field("", description="Agent 名称")
+    description: str = Field("", description="子任务描述")
+    status: str = Field("idle", description="状态: idle/running/completed/failed")
+    result: str | None = Field(None, description="执行结果")
+    dependencies: list[str] = Field(default_factory=list, description="依赖的其他 agent_id")
+
+
+class SwarmStatusResponse(BaseModel):
+    """Swarm 状态响应。"""
+    swarm_id: str = Field(..., description="Swarm ID")
+    task: str = Field(..., description="总体任务描述")
+    status: str = Field(..., description="Swarm 状态: planning/executing/completed/failed")
+    agents: list[SwarmAgentStatus] = Field(default_factory=list, description="所有 agent 状态")
+    created_at: float = Field(0.0, description="创建时间戳")
+    model_id: str = Field("", description="模型 code")
+    workspace_path: str = Field("", description="工作区路径")
+    results: dict[str, str] = Field(default_factory=dict, description="agent_id → 结果")
+    stats: dict[str, int] = Field(default_factory=dict, description="统计信息")
