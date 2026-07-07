@@ -3,7 +3,7 @@
  *
  * 整合 Sidebar/WorkspaceHeader/App.vue 共享的侧边栏状态：
  *   - isCollapsed：折叠状态（localStorage 持久化，key: 'sidebar-collapsed'）
- *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 60-116）
+ *   - width：展开态宽度（localStorage 持久化，key: 'sidebar-width'，范围 60-136）
  *   - isMobile：移动端检测（window.innerWidth < 768，防抖 resize）
  *   - isMobileOpen：移动端抽屉开关
  *   - toggleCollapse / openMobile / closeMobile / setWidth：状态变更方法
@@ -15,9 +15,9 @@
  *   - SSR 安全：window/localStorage 访问均加 typeof guard
  *   - 配置版本迁移：MIN_WIDTH/DEFAULT_WIDTH/COLLAPSE_THRESHOLD/MAX_WIDTH 调整时通过 CURRENT_CONFIG_VERSION
  *     自动清掉旧 width（避免用户在升级后看到 "旧持久化宽度 ≠ 新默认" 的体验割裂）
- *   - 4 字中文 label（如"加入我们"）在 MAX_WIDTH=116 时完整显示，不再截断
+ *   - 4 字中文 label（如"加入我们"）在 DEFAULT_WIDTH=136 时完整显示，不再截断
  */
-import { ref, type Ref } from 'vue'
+import { ref, watch, type Ref } from 'vue'
 
 const STORAGE_KEY_COLLAPSED = 'sidebar-collapsed'
 const STORAGE_KEY_WIDTH = 'sidebar-width'
@@ -36,18 +36,21 @@ const MOBILE_BREAKPOINT = 768
 //   v9: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=120, MAX_WIDTH=120（默认紧凑 120，可向左拖到 60 紧凑 / <60 折叠到 60）
 //   v10: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=110, MAX_WIDTH=110（默认紧凑 110，可向左拖到 60 紧凑 / <60 折叠到 60）
 //   v11: COLLAPSE_THRESHOLD=60, DEFAULT_WIDTH=116, MAX_WIDTH=116（默认紧凑 116，可向左拖到 60 紧凑 / <60 折叠到 60）
+//   v11-max-ext (2026-07-06): MAX_WIDTH 116→146（用户强制要求 max 拉伸上限 +30px；DEFAULT_WIDTH/MIN_WIDTH/COLLAPSE_THRESHOLD/CURRENT_CONFIG_VERSION 均不变；已持久化的 60-116 宽度在新区间 [60,146] 内仍合法，无需迁移清缓存）
+//   v11-max-ext-2 (2026-07-06): MAX_WIDTH 146→136 + DEFAULT_WIDTH 116→136（用户要求再减 10px 并把默认宽度与 max 统一为单一数值；DEFAULT=MAX=136；MIN_WIDTH/COLLAPSE_THRESHOLD 不变；原计划不升级 version，但用户反馈浏览器 localStorage 缓存了旧的 116px（version=11 合法值）导致默认宽度未生效，故升级 version→12 强制清缓存）
+//   v12 (2026-07-06): CURRENT_CONFIG_VERSION 11→12（强制清除 v11 时代持久化的 sidebar-width=116，让新 DEFAULT_WIDTH=136 立即生效；MAX/DEFAULT/MIN/COLLAPSE 数值与 v11-max-ext-2 相同不变）
 // 升级时清掉 STORAGE_KEY_WIDTH，让新 DEFAULT_WIDTH 立即生效，
 // 避免用户在升级后看到 "旧持久化宽度 ≠ 新默认" 的体验割裂
-const CURRENT_CONFIG_VERSION = 11
+const CURRENT_CONFIG_VERSION = 12
 
-// ── 宽度范围（展开态固定 116，可向左拖到 60 紧凑 / <60 折叠到 60）──
+// ── 宽度范围（展开态固定 136，可向左拖到 60 紧凑 / <60 折叠到 60）──
 // min 60: 紧凑布局；text-overflow: ellipsis 已保证不破版
-// max 116: 4 字中文 label 完整，5 字截断
-// default 116: 首次打开默认紧凑（DEFAULT=MAX，向左拖可压缩；向右无空间）
+// max 136: 4 字 label 完整（2026-07-06 用户要求再减 10px 并与 default 统一）
+// default 136: 首次打开默认（DEFAULT=MAX，向左拖可压缩到 60；向右无空间）
 const MIN_WIDTH = 60
-const MAX_WIDTH = 116
-// 默认 116px：紧凑布局（4 字 label 完整，5 字截断）
-const DEFAULT_WIDTH = 116
+const MAX_WIDTH = 136
+// 默认 136px：4 字 label 完整，5 字截断
+const DEFAULT_WIDTH = 136
 // 拖拽折叠阈值：向左拖到此处以下自动进入折叠态（图标-only 60px），
 // 向右拖超过此处自动展开。60 = MIN_WIDTH，触底即折叠。
 const COLLAPSE_THRESHOLD = 60
@@ -108,6 +111,22 @@ const handleResize = (): void => {
   resizeTimeout = setTimeout(checkMobile, 100)
 }
 
+// 折叠态宽度常量（用于同步 :root 变量）
+const COLLAPSED_WIDTH = 60
+
+/** 把当前侧边栏"实际占用宽度"同步到 :root, 让 Teleport 到 body 的元素
+ * (如 AiWorld 自建侧栏) 也能通过 var(--sidebar-current-width) 自动跟随
+ * 全局 sidebar 折叠/展开/拖拽. 类似 useAiPanel.ts 同步 --ai-panel-width 的做法.
+ *
+ *  2026-07-06 立: 修复"AiWorld 侧栏不跟随全局 sidebar 折叠"用户反馈
+ *  (useAiWorldNav toggleAiNav 折叠到 60px 时, 全局 sidebar 仍在 136px,
+ *   AiWorld 侧栏因 left=var(--sidebar-current-width) 取不到值而停在 136px). */
+function syncCurrentWidthToRoot(): void {
+  if (typeof document === 'undefined') return
+  const w = isCollapsed.value ? COLLAPSED_WIDTH : width.value
+  document.documentElement.style.setProperty('--sidebar-current-width', `${w}px`)
+}
+
 // 模块加载时初始化（仅浏览器环境，仅一次）
 if (typeof window !== 'undefined' && !initialized) {
   initialized = true
@@ -116,12 +135,17 @@ if (typeof window !== 'undefined' && !initialized) {
   loadPersisted()
   checkMobile()
   window.addEventListener('resize', handleResize, { passive: true })
+  // 同步初始值到 :root (immediate: true 等价于 setWidth 后立即同步)
+  syncCurrentWidthToRoot()
+  // 监听状态变化, 把 isCollapsed/width 任意变化映射到 :root 的 --sidebar-current-width.
+  // 移动端 sidebar 用 transform 隐藏 (width 仍占位), 此处按 width 同步即可, 不区分 isMobile.
+  watch([isCollapsed, width], syncCurrentWidthToRoot, { immediate: false })
 }
 
 export interface UseSidebarReturn {
   /** 侧边栏折叠状态（持久化） */
   isCollapsed: Ref<boolean>
-  /** 展开态宽度（持久化，范围 60-116，默认 116） */
+  /** 展开态宽度（持久化，范围 60-136，默认 136） */
   width: Ref<number>
   /** 移动端检测（< 768px） */
   isMobile: Ref<boolean>

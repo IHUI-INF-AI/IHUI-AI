@@ -59,10 +59,10 @@
     <nav ref="navRef" class="sidebar-nav" role="navigation" :aria-label="t('navigation.sidebar')">
       <!-- 活跃指示条（独立元素，随路由切换滑动过渡） -->
       <div class="nav-active-indicator" :style="indicatorStyle" aria-hidden="true" />
-      <!-- 新建对话按钮：打开 AI 助手面板（与 WorkspaceHeader 的 ws-ai-toggle 行为一致） -->
-      <div v-if="!aiPanelIsMobile" class="nav-item-wrapper nav-new-chat-wrapper">
+      <!-- 新建任务按钮：打开 AI 助手面板 (2026-07-05 v2: 所有屏幕尺寸都显示, 包括移动端) -->
+      <div class="nav-item-wrapper nav-new-chat-wrapper">
         <el-tooltip
-          :content="t('aiChat.newConversation')"
+          :content="t('aiChat.newTask')"
           placement="right"
           :disabled="!isCollapsed"
           :show-after="300"
@@ -71,13 +71,13 @@
           <button
             class="nav-item nav-new-chat"
             :class="{ active: aiPanelIsOpen }"
-            :aria-label="t('aiChat.newConversation')"
+            :aria-label="t('aiChat.newTask')"
             :aria-pressed="aiPanelIsOpen"
             @click="handleNewChat"
             type="button"
           >
             <component :is="MessageCircleIcon" class="nav-item-icon" />
-            <span v-if="!isCollapsed" class="nav-item-label">{{ t('aiChat.newConversation') }}</span>
+            <span v-if="!isCollapsed" class="nav-item-label">{{ t('aiChat.newTask') }}</span>
           </button>
         </el-tooltip>
       </div>
@@ -207,17 +207,25 @@
               role="group"
               :aria-label="item.label"
             >
-              <button
+              <el-tooltip
                 v-for="child in item.children"
                 :key="child.key"
-                class="nav-subitem"
-                :class="{ active: activeKey === child.key }"
-                @click="handleSubnavClick(child)"
-                type="button"
+                :content="child.label"
+                placement="right"
+                :show-after="300"
+                :offset="6"
+                popper-class="nav-subitem-tooltip-popper"
               >
-                <component v-if="child.icon" :is="child.icon" class="nav-subitem-icon" />
-                <span class="nav-subitem-label">{{ child.label }}</span>
-              </button>
+                <button
+                  class="nav-subitem"
+                  :class="{ active: activeKey === child.key }"
+                  @click="handleSubnavClick(child)"
+                  type="button"
+                >
+                  <component v-if="child.icon" :is="child.icon" class="nav-subitem-icon" />
+                  <span class="nav-subitem-label">{{ child.label }}</span>
+                </button>
+              </el-tooltip>
             </div>
           </div>
         </div>
@@ -226,14 +234,9 @@
 
     <!-- 底部: 用户信息 / 操作区 / 版权 -->
     <div class="sidebar-footer">
-      <!-- 用户区: 已登录显示头像+用户名, 点击进入个人中心 -->
-      <div v-if="isLoggedIn" class="sidebar-user" @click="goToProfile">
-        <img :src="userAvatar" :alt="userName" class="sidebar-user-avatar" loading="lazy" />
-        <span v-if="!isCollapsed" class="sidebar-user-name">{{ userName }}</span>
-      </div>
-
-      <!-- 操作图标条: 搜索 / 语言 / 主题 / 下载 / 通知
-           role=group + aria-label 让屏幕阅读器识别为一组相关操作 -->
+      <!-- 操作图标条: 搜索 / 语言 / 主题 / 下载
+           role=group + aria-label 让屏幕阅读器识别为一组相关操作
+           (消息中心铃铛已移至 sidebar-user-row 用户信息右侧, 2026-07-06) -->
       <div
         class="sidebar-actions"
         :class="{ 'is-collapsed': isCollapsed }"
@@ -244,12 +247,13 @@
         <LanguageSwitcher @change="emit('language-change', $event)" />
         <ThemeToggle />
         <AppDownload />
-        <Notification v-if="isLoggedIn" :is-dark-mode="isDark" />
       </div>
 
-      <!-- 登录按钮: 单独一排, Trae Work 风格 (临时调试: 强制显示) -->
+      <!-- 用户区: 同一位置互斥显示
+           - 已登录: 显示头像+用户名, 点击进入个人中心 (2026-07-05 从顶部移到底部, 替换原登录按钮位置)
+           - 未登录: 显示登录/注册按钮 (UserMenu 内部 v-if=!isLoggedIn 进一步保护) -->
       <div
-        v-if="true"
+        v-if="!isLoggedIn"
         class="sidebar-login-row"
         :class="{ 'is-collapsed': isCollapsed }"
       >
@@ -257,6 +261,88 @@
           @show-login-popup="emit('show-login-popup')"
           @feedback-click="emit('feedback-click')"
         />
+      </div>
+      <div v-else class="sidebar-user-row">
+        <el-dropdown
+          ref="userDropdownRef"
+          class="sidebar-user-dropdown"
+          placement="top-start"
+          trigger="click"
+          popper-class="sidebar-user-dropdown-popper"
+          :teleported="true"
+          :hide-on-click="true"
+          :popper-options="{
+            modifiers: [
+              { name: 'offset', options: { offset: [0, 8] } }
+            ]
+          }"
+          @command="handleUserCommand"
+          @visible-change="handleUserDropdownVisibleChange"
+        >
+        <div
+          class="sidebar-user"
+          :class="{ 'is-collapsed': isCollapsed, 'is-open': userDropdownVisible }"
+          tabindex="0"
+          role="button"
+          :aria-haspopup="true"
+          :aria-expanded="userDropdownVisible"
+          :aria-label="userDropdownLabel"
+        >
+          <div
+            class="sidebar-user-avatar"
+            role="img"
+            :aria-label="userName"
+          >
+            <img
+              v-if="hasCustomAvatar"
+              :src="userAvatar"
+              :alt="userName"
+              class="sidebar-user-avatar-image"
+              loading="lazy"
+            />
+            <svg
+              v-else
+              class="sidebar-user-avatar-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <span v-if="!isCollapsed" class="sidebar-user-name">{{ userName }}</span>
+          <div v-if="!isCollapsed" class="sidebar-user-notification" @click.stop>
+            <Notification :is-dark-mode="isDark" @visible-change="handleNotificationVisibleChange" />
+          </div>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu class="sidebar-user-dropdown-menu">
+            <div class="sidebar-user-dropdown-header">
+              <img :src="userAvatar" :alt="userName" class="sidebar-user-dropdown-avatar" loading="lazy" />
+              <div class="sidebar-user-dropdown-info">
+                <div class="sidebar-user-dropdown-name">{{ userName }}</div>
+                <div class="sidebar-user-dropdown-meta">{{ t('auth.loggedInAs') }}</div>
+              </div>
+            </div>
+            <el-dropdown-item command="profile" :icon="UserIcon" class="sidebar-user-dropdown-item">
+              <span class="sidebar-user-dropdown-item-label">{{ profileLabel }}</span>
+            </el-dropdown-item>
+            <el-dropdown-item command="settings" :icon="SettingsIcon" class="sidebar-user-dropdown-item">
+              <span class="sidebar-user-dropdown-item-label">{{ settingsLabel }}</span>
+            </el-dropdown-item>
+            <div class="sidebar-user-dropdown-divider" />
+            <el-dropdown-item command="logout" :icon="LogOutIcon" class="sidebar-user-dropdown-item sidebar-user-dropdown-item--danger">
+              <span class="sidebar-user-dropdown-item-label">{{ logoutLabel }}</span>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+        </el-dropdown>
       </div>
 
     </div>
@@ -278,7 +364,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, markRaw, onMounted, watch, nextTick, defineAsyncComponent, type Component } from 'vue'
+import { ref, computed, h, markRaw, onMounted, watch, nextTick, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -286,6 +372,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useSidebar } from '@/composables/useSidebar'
 import { useAiPanel } from '@/composables/useAiPanel'
 import { useCleanup } from '@/composables/useCleanup'
+import { loadModule, getCurrentLocale } from '@/locales'
 import type { Language } from '@/composables/useLang'
 import SearchActions from '@/components/header/parts/SearchActions.vue'
 import LanguageSwitcher from '@/components/header/parts/LanguageSwitcher.vue'
@@ -293,7 +380,8 @@ import ThemeToggle from '@/components/header/parts/ThemeToggle.vue'
 import AppDownload from '@/components/header/parts/AppDownload.vue'
 import UserMenu from '@/components/header/parts/UserMenu.vue'
 import SidebarChatHistory from '@/components/SidebarChatHistory.vue'
-const Notification = defineAsyncComponent(() => import('@/components/Notification.vue'))
+// 2026-07-06: Notification 同步导入, 避免异步加载导致铃铛延迟渲染
+import Notification from '@/components/Notification.vue'
 
 // ── 向父组件透传事件 (与原 WorkspaceHeader 事件签名保持一致) ──
 const emit = defineEmits<{
@@ -327,20 +415,6 @@ const HomeIcon = markRaw({
     return h('svg', svgBase, [
       h('path', { d: 'M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8' }),
       h('path', { d: 'M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }),
-    ])
-  },
-})
-
-const BotIcon = markRaw({
-  name: 'BotIcon',
-  render() {
-    return h('svg', svgBase, [
-      h('path', { d: 'M12 8V4H8' }),
-      h('rect', { width: '16', height: '12', x: '4', y: '8', rx: '2' }),
-      h('path', { d: 'M2 14h2' }),
-      h('path', { d: 'M20 14h2' }),
-      h('path', { d: 'M15 13v2' }),
-      h('path', { d: 'M9 13v2' }),
     ])
   },
 })
@@ -407,19 +481,6 @@ const SparklesIcon = markRaw({
       h('path', { d: 'M19 17v4' }),
       h('path', { d: 'M3 5h4' }),
       h('path', { d: 'M17 19h4' }),
-    ])
-  },
-})
-
-const ModelConfigIcon = markRaw({
-  name: 'ModelConfigIcon',
-  render() {
-    return h('svg', svgBase, [
-      h('rect', { x: '3', y: '3', width: '18', height: '18', rx: '2' }),
-      h('path', { d: 'M9 9h6' }),
-      h('path', { d: 'M9 15h6' }),
-      h('circle', { cx: '7', cy: '9', r: '1' }),
-      h('circle', { cx: '7', cy: '15', r: '1' }),
     ])
   },
 })
@@ -521,6 +582,92 @@ const ClockIcon = markRaw({
   },
 })
 
+const BellIcon = markRaw({
+  name: 'BellIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'M10.268 21a2 2 0 0 0 3.464 0' }),
+      h('path', { d: 'M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8a6 6 0 0 0-12 0c0 4.499-1.411 5.956-2.738 7.326' }),
+    ])
+  },
+})
+
+/* ── 侧边栏用户菜单图标 (2026-07-05 新增, 用于 sidebar-user 下拉菜单) ── */
+const UserIcon = markRaw({
+  name: 'UserIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' }),
+      h('circle', { cx: '12', cy: '7', r: '4' }),
+    ])
+  },
+})
+
+const SettingsIcon = markRaw({
+  name: 'SettingsIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' }),
+      h('circle', { cx: '12', cy: '12', r: '3' }),
+    ])
+  },
+})
+
+const LogOutIcon = markRaw({
+  name: 'LogOutIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }),
+      h('polyline', { points: '16 17 21 12 16 7' }),
+      h('line', { x1: '21', y1: '12', x2: '9', y2: '12' }),
+    ])
+  },
+})
+
+const SearchIcon = markRaw({
+  name: 'SearchIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('circle', { cx: '11', cy: '11', r: '8' }),
+      h('path', { d: 'm21 21-4.3-4.3' }),
+    ])
+  },
+})
+
+/* ── 教育中心新增分类图标 (首页/资讯/文章/公告) ── */
+const EduHomeIcon = markRaw({
+  name: 'EduHomeIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'm3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }),
+      h('polyline', { points: '9 22 9 12 15 12 15 22' }),
+    ])
+  },
+})
+
+const FileTextIcon = markRaw({
+  name: 'FileTextIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z' }),
+      h('path', { d: 'M14 2v4a2 2 0 0 0 2 2h4' }),
+      h('path', { d: 'M10 9H8' }),
+      h('path', { d: 'M16 13H8' }),
+      h('path', { d: 'M16 17H8' }),
+    ])
+  },
+})
+
+const MegaphoneIcon = markRaw({
+  name: 'MegaphoneIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('path', { d: 'm3 11 18-5v12L3 14v-3z' }),
+      h('path', { d: 'M11.6 16.8a3 3 0 1 1-5.8-1.6' }),
+    ])
+  },
+})
+
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
@@ -541,11 +688,12 @@ const {
   closeMobile,
 } = useSidebar()
 
-// ── AI 面板状态（来自单例 composable，与 WorkspaceHeader/App.vue 共享） ──
-// 用于"新建对话"按钮：点击切换 AI 助手面板，与 ws-ai-toggle 行为一致
+// ── AI 面板状态（来自单例 composable，与 App.vue 共享） ──
+// 用于"新建对话"按钮：点击切换 AI 助手面板
 const {
   isOpen: aiPanelIsOpen,
-  isMobile: aiPanelIsMobile,
+  // 2026-07-05 v2: 移除 aiPanelIsMobile 引用（改为所有屏幕尺寸都显示新建对话按钮），
+  // useAiPanel 的 isMobile 仍保留供其他调用方使用, 此处只取需要的字段
   toggle: aiPanelToggle,
 } = useAiPanel()
 
@@ -553,7 +701,7 @@ const {
 // 手柄位于侧边栏右侧，向右拖 delta 正 → 宽度增加
 // 拖拽过程禁用过渡（is-resizing 类）+ 禁止文本选中，保证流畅
 // 折叠态下也可拖拽：从折叠宽度(60px)起算，向右拖超过阈值(60px)自动展开
-// 展开态范围：60-116px（MIN_WIDTH=60, MAX_WIDTH=116, v11）
+// 展开态范围：60-136px（MIN_WIDTH=60, MAX_WIDTH=136, DEFAULT_WIDTH=136, v11-max-ext-2）
 const sidebarCollapsedWidth = 60
 const isResizing = ref(false)
 const startResize = (e: MouseEvent): void => {
@@ -587,6 +735,17 @@ const userName = computed(() => authStore.nickname || authStore.userUuid || '')
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 // 深色模式状态（传给 Notification 组件）
 const isDark = computed(() => darkModeStore.isDarkMode ?? darkModeStore.themeMode === 'dark')
+
+// 头像渲染策略 (2026-07-05 v3): 改用 inline <svg> 渲染默认图标
+// 原因: v2 用的 <div> + mask-image 在 SVG 缺少 width/height 属性时,
+// mask-size: contain 不可靠缩放 (浏览器把 SVG 渲染在默认 300x150 画布上),
+// 导致头像"突然变大". inline <svg> 由 CSS width/height 精确控制尺寸,
+// 颜色仍由 color + stroke="currentColor" 自动随主题切换.
+// 自定义头像 (jpg/png) 仍用 <img> 渲染, 走 object-fit: cover 填满容器.
+const hasCustomAvatar = computed(() => {
+  const a = authStore.avatar
+  return !!a && !a.endsWith('/userIcon.svg') && !a.endsWith('userIcon.svg')
+})
 
 // ── Logo ──
 const logoSrc = computed(() => {
@@ -635,14 +794,19 @@ const updateActiveIndicator = () => {
     indicatorStyle.value = { opacity: '0' }
     return
   }
-  // 累加 offsetTop 链，计算相对于 nav 的位置（不受滚动影响）
-  let top = 0
-  let current: HTMLElement | null = activeEl
-  while (current && current !== navRef.value) {
-    top += current.offsetTop
-    current = current.offsetParent as HTMLElement | null
-  }
-  const height = activeEl.offsetHeight
+  // 使用 getBoundingClientRect 获取活动元素的可视位置 (border box),
+  // 避免 offsetTop 链式累加的复杂性:
+  //   - .nav-item-wrapper / .nav-group-items 上有 `contain: layout style`,
+  //     会创建新的定位上下文, 让它们成为 offsetParent
+  //   - 中间节点的 offsetTop 累加需要精确遍历, 容易因 DOM 结构变化
+  //     (如 SidebarChatHistory 异步加载) 而计算出过时值
+  // getBoundingClientRect 直接返回元素的视口坐标, 不依赖 offsetParent 链,
+  // 减去 nav 的位置后即为活动元素相对 nav 的位置, 再加 scrollTop
+  // 转换为 content 坐标 (position:absolute 相对滚动内容)
+  const navRect = navRef.value.getBoundingClientRect()
+  const activeRect = activeEl.getBoundingClientRect()
+  const top = activeRect.top - navRect.top + navRef.value.scrollTop
+  const height = activeRect.height
   // 指示条高度为 nav-item 高度的 70%，垂直居中（增强活跃状态视觉反馈）
   const indicatorHeight = Math.round(height * 0.7)
   const indicatorTop = top + Math.round((height - indicatorHeight) / 2)
@@ -654,9 +818,37 @@ const updateActiveIndicator = () => {
 }
 
 // ── activeKey - 基于路径前缀匹配表的路由映射 ──
+// 文档子项 docId → sidebar key 映射 (/docs/:docId 单 name 多 path 场景)
+const DOC_ID_TO_SIDEBAR_KEY: Record<string, string> = {
+  'project-readme': 'docEducation',
+  'user-introduction': 'docUserQuickStart',
+  'user-ai-chat': 'docUserFeatures',
+  'user-video-generation': 'docUserGuide',
+  'user-faq': 'docUserFaq',
+  'dev-incentive-overview': 'docDevIncentive',
+  'dev-introduction': 'docDevQuickStart',
+  'dev-api-overview': 'docDevApi',
+  'dev-sdk-javascript': 'docDevSdk',
+  'dev-integration-webhook': 'docDevIntegration',
+  'dev-best-practices': 'docDevOther',
+  'terms-of-service': 'docTermsPolicy',
+  'privacy-policy': 'docTermsPolicy',
+  'user-agreement': 'docTermsPolicy',
+  'payment-terms': 'docTermsPolicy',
+  'enterprise-whitepaper': 'docEnterprise',
+}
+
 const activeKey = computed<string>(() => {
   const routeName = (route as { name?: string | symbol }).name as string
   const routePath = route.path
+
+  // 0. /docs/:docId 文档子项 → 优先匹配 docId 映射
+  if (routeName === 'eduDocumentation' && routePath.startsWith('/docs/')) {
+    const docId = (route.params.docId as string) || ''
+    if (DOC_ID_TO_SIDEBAR_KEY[docId]) return DOC_ID_TO_SIDEBAR_KEY[docId]
+    // 未知 docId → 高亮父项 documentCenter
+    if (docId) return 'documentCenter'
+  }
 
   // 1. 精确路由名匹配（优先，用于无规律路径的页面）
   const nameMap: Record<string, string> = {
@@ -664,41 +856,59 @@ const activeKey = computed<string>(() => {
     xuqiu: 'xuqiu',
     xuqiuDetail: 'xuqiu',
     plaza: 'xuqiu',
-    agents: 'agents',
-    agentDetail: 'agents',
-    agentsCategory: 'agents',
-    agentsCreate: 'agents',
     openPlatform: 'openPlatform',
     openPlatformProxy: 'openPlatform',
     openDashboard: 'openPlatform',
-    learnAI: 'learnAI',
-    learnAIProxy: 'learnAI',
-    learnHome: 'learnAI',
-    // 课程中心
-    learnList: 'learnCourses',
-    learnDetail: 'learnCourses',
-    learnPlay: 'learnCourses',
-    learnTopic: 'learnCourses',
-    learnTopicDetail: 'learnCourses',
-    learnBuyConfirm: 'learnCourses',
-    learnPayment: 'learnCourses',
-    learnPaymentConfirm: 'learnCourses',
-    learnRate: 'learnCourses',
-    courses: 'learnCourses',
-    courseDetail: 'learnCourses',
-    // 学习地图
-    learnMap: 'learnMapNav',
-    // 直播课堂
-    liveList: 'liveClass',
-    liveDetail: 'liveClass',
-    livePlay: 'liveClass',
-    // 我的学习
-    learnHomework: 'myLearning',
-    learnCertificate: 'myLearning',
-    learnCertificateDownload: 'myLearning',
-    memberLearnRecord: 'myLearning',
-    memberHomework: 'myLearning',
-    memberCertificate: 'myLearning',
+    learnAI: 'eduLearnAI',
+    learnAIProxy: 'eduLearnAI',
+    EduLearnAI: 'eduLearnAI',
+    learnHome: 'eduCourses',
+    learnList: 'eduCourses',
+    learnDetail: 'eduCourses',
+    learnPlay: 'eduCourses',
+    learnTopic: 'eduCourses',
+    learnTopicDetail: 'eduCourses',
+    learnBuyConfirm: 'eduCourses',
+    learnPayment: 'eduCourses',
+    learnPaymentConfirm: 'eduCourses',
+    learnRate: 'eduCourses',
+    courses: 'eduCourses',
+    courseDetail: 'eduCourses',
+    EduCourses: 'eduCourses',
+    EduCourseDetail: 'eduCourses',
+    EduCoursePlay: 'eduCourses',
+    EduCourseTopic: 'eduCourses',
+    EduCourseTopicDetail: 'eduCourses',
+    EduCourseBuyConfirm: 'eduCourses',
+    EduCoursePayment: 'eduCourses',
+    EduCoursePaymentConfirm: 'eduCourses',
+    EduCourseRate: 'eduCourses',
+    learnMap: 'eduLearnMap',
+    EduLearnMap: 'eduLearnMap',
+    liveList: 'eduLiveClass',
+    liveDetail: 'eduLiveClass',
+    livePlay: 'eduLiveClass',
+    EduLive: 'eduLiveClass',
+    EduLiveDetail: 'eduLiveClass',
+    EduLivePlay: 'eduLiveClass',
+    EduLiveRoom: 'eduLiveClass',
+    learnHomework: 'eduMyLearning',
+    learnCertificate: 'eduMyLearning',
+    learnCertificateDownload: 'eduMyLearning',
+    memberLearnRecord: 'eduMyLearning',
+    memberHomework: 'eduMyLearning',
+    memberCertificate: 'eduMyLearning',
+    EduHomework: 'eduMyLearning',
+    EduCourseCertificateDownload: 'eduMyLearning',
+    EduMember: 'eduMyLearning',
+    EduMemberHomework: 'eduMyLearning',
+    EduMemberCertificate: 'eduMyLearning',
+    EduMemberReport: 'eduMyLearning',
+    EduMemberNotes: 'eduMyLearning',
+    EduMemberOfflineRecords: 'eduMyLearning',
+    EduMemberCertUpload: 'eduMyLearning',
+    EduMemberPapers: 'eduMyLearning',
+    EduMemberPaperUpload: 'eduMyLearning',
     aiCommunity: 'aiCommunity',
     share: 'aiCommunity',
     shareDetail: 'aiCommunity',
@@ -716,75 +926,104 @@ const activeKey = computed<string>(() => {
     newsCenter: 'newsCenter',
     about: 'aboutUs',
     aboutUs: 'aboutUs',
+    aboutUsAbout: 'aboutUsAbout',
+    becomeSupplier: 'becomeSupplier',
     contactUs: 'aboutUs',
     feedback: 'aboutUs',
-    becomeSupplier: 'becomeSupplier',
     // ── 教育中心 (eduCenter) — /edu/* 全部子路由映射到顶级 eduCenter 项 ──
     // EduLayout 自带内部侧边栏(12 模块),主侧边栏只需一个顶级入口
-    EduHome: 'eduCenter',
-    EduLearn: 'eduCenter',
-    EduLearnDetail: 'eduCenter',
-    EduLearnChapter: 'eduCenter',
-    EduLearnCertificate: 'eduCenter',
-    EduExam: 'eduCenter',
-    EduExamPaper: 'eduCenter',
-    EduExamRecord: 'eduCenter',
-    EduExamWrongBook: 'eduCenter',
-    EduAsk: 'eduCenter',
-    EduAskDetail: 'eduCenter',
-    EduAskCreate: 'eduCenter',
-    EduCircle: 'eduCenter',
-    EduCircleDetail: 'eduCenter',
-    EduCirclePost: 'eduCenter',
-    EduLive: 'eduCenter',
-    EduLiveRoom: 'eduCenter',
-    EduPoint: 'eduCenter',
-    EduOrder: 'eduCenter',
-    EduOrderDetail: 'eduCenter',
-    EduMessage: 'eduCenter',
-    EduNotification: 'eduCenter',
-    EduResource: 'eduCenter',
-    EduSearch: 'eduCenter',
-    EduMember: 'eduCenter',
-    EduMemberReport: 'eduCenter',
-    EduMemberNotes: 'eduCenter',
-    EduMemberOfflineRecords: 'eduCenter',
-    EduMemberCertUpload: 'eduCenter',
-    EduMemberPapers: 'eduCenter',
-    EduMemberPaperUpload: 'eduCenter',
-    EduAdminHome: 'eduCenter',
+    EduHome: 'eduHome',
+    EduLearn: 'eduLearnHome',
+    EduLearnDetail: 'eduLearnHome',
+    EduLearnChapter: 'eduLearnHome',
+    EduLearnList: 'eduLearnList',
+    EduLearnTopic: 'eduLearnTopic',
+    EduLearnCertificate: 'eduMyLearning',
+    EduExam: 'eduExam',
+    EduExamPaper: 'eduExam',
+    EduExamRecord: 'eduExam',
+    EduExamWrongBook: 'eduExam',
+    EduNews: 'eduNews',
+    EduNewsDetail: 'eduNews',
+    EduArticle: 'eduArticle',
+    EduArticleDetail: 'eduArticle',
+    EduAsk: 'eduAsk',
+    EduAskDetail: 'eduAsk',
+    EduAskCreate: 'eduAsk',
+    EduAskQuestion: 'eduAsk',
+    EduCircle: 'eduCircle',
+    EduCircleDetail: 'eduCircle',
+    EduCirclePost: 'eduCircle',
+    EduCircleEdit: 'eduCircle',
+    EduPoint: 'eduPoint',
+    EduOrder: 'eduOrder',
+    EduOrderDetail: 'eduOrder',
+    EduMessage: 'eduMessage',
+    EduNotification: 'eduNotification',
+    EduResource: 'eduResource',
+    EduResourceDetail: 'eduResource',
+    EduAnnouncement: 'eduAnnouncement',
+    EduAnnouncementDetail: 'eduAnnouncement',
+    EduSearch: 'eduSearch',
+    EduAdminHome: 'eduAdmin',
   }
   if (routeName && nameMap[routeName]) return nameMap[routeName]
 
   // 2. 路径前缀匹配（兜底，覆盖所有子路由）
   const prefixMap: Array<[string, string]> = [
-    // 教育中心 (eduCenter) — /edu/* 全部子路由映射到顶级 eduCenter 项（放最前优先匹配）
-    // 用带斜杠前缀避免误匹配 /education 等无关路径
+    // 教育中心二级菜单（更具体的前缀必须放在 /edu 兜底前）
+    ['/edu/learn-ai', 'eduLearnAI'],
+    ['/edu/courses/detail', 'eduCourses'],
+    ['/edu/courses/topic', 'eduCourses'],
+    ['/edu/courses/buyconfirm', 'eduCourses'],
+    ['/edu/courses/payment', 'eduCourses'],
+    ['/edu/courses/rate', 'eduCourses'],
+    ['/edu/courses', 'eduCourses'],
+    ['/edu/learn-map', 'eduLearnMap'],
+    ['/edu/learn/detail', 'eduLearnHome'],
+    ['/edu/learn/chapter', 'eduLearnHome'],
+    ['/edu/learn/certificate', 'eduMyLearning'],
+    ['/edu/learn/list', 'eduLearnList'],
+    ['/edu/learn/topic', 'eduLearnTopic'],
+    ['/edu/learn', 'eduLearnHome'],
+    ['/edu/live', 'eduLiveClass'],
+    ['/edu/member', 'eduMyLearning'],
+    ['/edu/homework', 'eduMyLearning'],
+    ['/edu/exam', 'eduExam'],
+    ['/edu/news', 'eduNews'],
+    ['/edu/article', 'eduArticle'],
+    ['/edu/ask', 'eduAsk'],
+    ['/edu/circle', 'eduCircle'],
+    ['/edu/point', 'eduPoint'],
+    ['/edu/order', 'eduOrder'],
+    ['/edu/message', 'eduMessage'],
+    ['/edu/notification', 'eduNotification'],
+    ['/edu/resource', 'eduResource'],
+    ['/edu/announcement', 'eduAnnouncement'],
+    ['/edu/search', 'eduSearch'],
+    ['/admin/edu', 'eduAdmin'],
     ['/edu/', 'eduCenter'],
-    ['/edu', 'eduCenter'],
-    // 教育平台子菜单（更具体的前缀放前面，确保优先匹配）
-    ['/learn/list', 'learnCourses'],
-    ['/learn/detail', 'learnCourses'],
-    ['/learn/topic', 'learnCourses'],
-    ['/learn/buyconfirm', 'learnCourses'],
-    ['/learn/payment', 'learnCourses'],
-    ['/learn/rate', 'learnCourses'],
-    ['/learn/map', 'learnMapNav'],
-    ['/learn/homework', 'myLearning'],
-    ['/learn/certificate', 'myLearning'],
-    ['/live/', 'liveClass'],
-    ['/live', 'liveClass'],
-    ['/member/learn-record', 'myLearning'],
-    ['/member/homework', 'myLearning'],
-    ['/member/certificate', 'myLearning'],
-    // 教育平台父级（兜底）
-    ['/learn/', 'learnAI'],
-    ['/learn', 'learnAI'],
-    ['/learn-ai', 'learnAI'],
-    ['/courses/', 'learnCourses'],
-    ['/courses', 'learnCourses'],
-    ['/agents/', 'agents'],
-    ['/agents', 'agents'],
+    ['/edu', 'eduHome'],
+    // 旧学习/直播/学习型会员入口统一归入教育中心二级菜单
+    ['/learn/list', 'eduCourses'],
+    ['/learn/detail', 'eduCourses'],
+    ['/learn/topic', 'eduCourses'],
+    ['/learn/buyconfirm', 'eduCourses'],
+    ['/learn/payment', 'eduCourses'],
+    ['/learn/rate', 'eduCourses'],
+    ['/learn/map', 'eduLearnMap'],
+    ['/learn/homework', 'eduMyLearning'],
+    ['/learn/certificate', 'eduMyLearning'],
+    ['/live/', 'eduLiveClass'],
+    ['/live', 'eduLiveClass'],
+    ['/member/learn-record', 'eduMyLearning'],
+    ['/member/homework', 'eduMyLearning'],
+    ['/member/certificate', 'eduMyLearning'],
+    ['/learn/', 'eduCourses'],
+    ['/learn', 'eduCourses'],
+    ['/learn-ai', 'eduLearnAI'],
+    ['/courses/', 'eduCourses'],
+    ['/courses', 'eduCourses'],
     ['/ai-world/', 'aiWorld'],
     ['/ai-world', 'aiWorld'],
     ['/ai-community/', 'aiCommunity'],
@@ -861,10 +1100,10 @@ interface NavGroup {
 }
 
 const navGroups = computed<NavGroup[]>(() => {
-  const goToPath = (path: string) => {
-    router.push(path)
-    closeMobile()
-  }
+  const goToPath = (path: string, query?: Record<string, string>) => {
+  router.push(query ? { path, query } : path)
+  closeMobile()
+}
 
   return [
     {
@@ -879,13 +1118,6 @@ const navGroups = computed<NavGroup[]>(() => {
           handler: () => goToPath('/'),
         },
         {
-          key: 'agents',
-          label: t('navigation.aiStore'),
-          path: '/agents',
-          icon: BotIcon,
-          handler: () => goToPath('/agents'),
-        },
-        {
           key: 'openPlatform',
           label: t('routes.openPlatform'),
           path: '/open',
@@ -893,41 +1125,11 @@ const navGroups = computed<NavGroup[]>(() => {
           handler: () => goToPath('/open'),
         },
         {
-          key: 'learnAI',
-          label: t('common.learnAI'),
-          path: '/learn-ai',
-          icon: GraduationCapIcon,
-          handler: () => goToPath('/learn-ai'),
-          children: [
-            {
-              key: 'learnCourses',
-              label: t('navigation.learnCourses'),
-              path: '/learn/list',
-              icon: BookOpenIcon,
-              handler: () => goToPath('/learn/list'),
-            },
-            {
-              key: 'learnMapNav',
-              label: t('navigation.learnMap'),
-              path: '/learn/map',
-              icon: MapIcon,
-              handler: () => goToPath('/learn/map'),
-            },
-            {
-              key: 'liveClass',
-              label: t('navigation.liveClass'),
-              path: '/live',
-              icon: VideoIcon,
-              handler: () => goToPath('/live'),
-            },
-            {
-              key: 'myLearning',
-              label: t('navigation.myLearning'),
-              path: '/member/learn-record',
-              icon: ClockIcon,
-              handler: () => goToPath('/member/learn-record'),
-            },
-          ],
+          key: 'newsCenter',
+          label: t('navigation.newsCenter'),
+          path: '/about/news-center',
+          icon: NewspaperIcon,
+          handler: () => goToPath('/about/news-center'),
         },
         {
           key: 'aiCommunity',
@@ -942,6 +1144,30 @@ const navGroups = computed<NavGroup[]>(() => {
           path: '/edu',
           icon: EduCenterIcon,
           handler: () => goToPath('/edu'),
+          children: [
+            { key: 'eduHome', label: t('edu.nav.eduHome'), path: '/edu', icon: EduHomeIcon, handler: () => goToPath('/edu') },
+            { key: 'eduLearnAI', label: t('edu.nav.learnAI'), path: '/edu/learn-ai', icon: GraduationCapIcon, handler: () => goToPath('/edu/learn-ai') },
+            { key: 'eduCourses', label: t('edu.nav.courses'), path: '/edu/courses', icon: BookOpenIcon, handler: () => goToPath('/edu/courses') },
+            { key: 'eduLearnHome', label: t('edu.nav.learnHome'), path: '/edu/learn', icon: BookOpenIcon, handler: () => goToPath('/edu/learn') },
+            { key: 'eduLearnList', label: t('edu.nav.learnList'), path: '/edu/learn/list', icon: BookOpenIcon, handler: () => goToPath('/edu/learn/list') },
+            { key: 'eduLearnTopic', label: t('edu.nav.learnTopic'), path: '/edu/learn/topic', icon: BookOpenIcon, handler: () => goToPath('/edu/learn/topic') },
+            { key: 'eduLearnMap', label: t('edu.nav.learnMap'), path: '/edu/learn-map', icon: MapIcon, handler: () => goToPath('/edu/learn-map') },
+            { key: 'eduLiveClass', label: t('edu.nav.live'), path: '/edu/live', icon: VideoIcon, handler: () => goToPath('/edu/live') },
+            { key: 'eduMyLearning', label: t('edu.nav.member'), path: '/edu/member', icon: ClockIcon, handler: () => goToPath('/edu/member') },
+            { key: 'eduExam', label: t('edu.nav.exam'), path: '/edu/exam', icon: BookOpenIcon, handler: () => goToPath('/edu/exam') },
+            { key: 'eduNews', label: t('edu.nav.news'), path: '/edu/news', icon: NewspaperIcon, handler: () => goToPath('/edu/news') },
+            { key: 'eduArticle', label: t('edu.nav.article'), path: '/edu/article', icon: FileTextIcon, handler: () => goToPath('/edu/article') },
+            { key: 'eduAsk', label: t('edu.nav.ask'), path: '/edu/ask', icon: MessageCircleIcon, handler: () => goToPath('/edu/ask') },
+            { key: 'eduCircle', label: t('edu.nav.circle'), path: '/edu/circle', icon: UsersIcon, handler: () => goToPath('/edu/circle') },
+            { key: 'eduPoint', label: t('edu.nav.point'), path: '/edu/point', icon: SparklesIcon, handler: () => goToPath('/edu/point') },
+            { key: 'eduOrder', label: t('edu.nav.order'), path: '/edu/order', icon: FilesIcon, handler: () => goToPath('/edu/order') },
+            { key: 'eduMessage', label: t('edu.nav.message'), path: '/edu/message', icon: MessageCircleIcon, handler: () => goToPath('/edu/message') },
+            { key: 'eduNotification', label: t('edu.nav.notification'), path: '/edu/notification', icon: BellIcon, handler: () => goToPath('/edu/notification') },
+            { key: 'eduResource', label: t('edu.nav.resource'), path: '/edu/resource', icon: FilesIcon, handler: () => goToPath('/edu/resource') },
+            { key: 'eduAnnouncement', label: t('edu.nav.announcement'), path: '/edu/announcement', icon: MegaphoneIcon, handler: () => goToPath('/edu/announcement') },
+            { key: 'eduSearch', label: t('edu.nav.search'), path: '/edu/search', icon: SearchIcon, handler: () => goToPath('/edu/search') },
+            ...(authStore.hasRole('admin') ? [{ key: 'eduAdmin', label: t('edu.nav.admin'), path: '/admin/edu', icon: BriefcaseIcon, handler: () => goToPath('/admin/edu') }] : []),
+          ],
         },
         {
           key: 'aiWorld',
@@ -949,13 +1175,6 @@ const navGroups = computed<NavGroup[]>(() => {
           path: '/ai-world',
           icon: SparklesIcon,
           handler: () => goToPath('/ai-world'),
-        },
-        {
-          key: 'modelConfig',
-          label: t('models.providerManage'),
-          path: '/models-management',
-          icon: ModelConfigIcon,
-          handler: () => goToPath('/models-management'),
         },
       ],
     },
@@ -966,16 +1185,24 @@ const navGroups = computed<NavGroup[]>(() => {
         {
           key: 'documentCenter',
           label: t('navigation.documentCenter'),
-          path: '/support/document-center',
+          path: '/docs',
           icon: FilesIcon,
-          handler: () => goToPath('/support/document-center'),
-        },
-        {
-          key: 'newsCenter',
-          label: t('navigation.newsCenter'),
-          path: '/about/news-center',
-          icon: NewspaperIcon,
-          handler: () => goToPath('/about/news-center'),
+          handler: () => router.push({ path: '/docs/project-readme' }),
+          children: [
+            { key: 'docEducation', label: t('eduDoc.category.education'), path: '/docs/project-readme', icon: GraduationCapIcon, handler: () => router.push({ path: '/docs/project-readme' }) },
+            { key: 'docUserQuickStart', label: t('eduDoc.category.userQuickStart'), path: '/docs/user-introduction', icon: SparklesIcon, handler: () => router.push({ path: '/docs/user-introduction' }) },
+            { key: 'docUserFeatures', label: t('eduDoc.category.userFeatures'), path: '/docs/user-ai-chat', icon: BookOpenIcon, handler: () => router.push({ path: '/docs/user-ai-chat' }) },
+            { key: 'docUserGuide', label: t('eduDoc.category.userGuide'), path: '/docs/user-video-generation', icon: MapIcon, handler: () => router.push({ path: '/docs/user-video-generation' }) },
+            { key: 'docUserFaq', label: t('eduDoc.category.userFaq'), path: '/docs/user-faq', icon: MessageCircleIcon, handler: () => router.push({ path: '/docs/user-faq' }) },
+            { key: 'docDevIncentive', label: t('eduDoc.category.devIncentive'), path: '/docs/dev-incentive-overview', icon: SparklesIcon, handler: () => router.push({ path: '/docs/dev-incentive-overview' }) },
+            { key: 'docDevQuickStart', label: t('eduDoc.category.devQuickStart'), path: '/docs/dev-introduction', icon: BookOpenIcon, handler: () => router.push({ path: '/docs/dev-introduction' }) },
+            { key: 'docDevApi', label: t('eduDoc.category.devApi'), path: '/docs/dev-api-overview', icon: BookOpenIcon, handler: () => router.push({ path: '/docs/dev-api-overview' }) },
+            { key: 'docDevSdk', label: t('eduDoc.category.devSdk'), path: '/docs/dev-sdk-javascript', icon: BookOpenIcon, handler: () => router.push({ path: '/docs/dev-sdk-javascript' }) },
+            { key: 'docDevIntegration', label: t('eduDoc.category.devIntegration'), path: '/docs/dev-integration-webhook', icon: BriefcaseIcon, handler: () => router.push({ path: '/docs/dev-integration-webhook' }) },
+            { key: 'docDevOther', label: t('eduDoc.category.devOther'), path: '/docs/dev-best-practices', icon: InfoIcon, handler: () => router.push({ path: '/docs/dev-best-practices' }) },
+            { key: 'docTermsPolicy', label: t('eduDoc.category.termsPolicy'), path: '/docs/terms-of-service', icon: FilesIcon, handler: () => router.push({ path: '/docs/terms-of-service' }) },
+            { key: 'docEnterprise', label: t('eduDoc.category.enterprise'), path: '/docs/enterprise-whitepaper', icon: BriefcaseIcon, handler: () => router.push({ path: '/docs/enterprise-whitepaper' }) },
+          ],
         },
         {
           key: 'aboutUs',
@@ -983,13 +1210,23 @@ const navGroups = computed<NavGroup[]>(() => {
           path: '/about/about-us',
           icon: InfoIcon,
           handler: () => goToPath('/about/about-us'),
-        },
-        {
-          key: 'becomeSupplier',
-          label: t('navigation.becomeSupplier'),
-          path: '/about/become-supplier',
-          icon: BriefcaseIcon,
-          handler: () => goToPath('/about/become-supplier'),
+          // 2026-07-07: 把"加入我们"融合为 aboutUs 的子项，不再独立顶级
+          children: [
+            {
+              key: 'aboutUsAbout',
+              label: t('navigation.aboutUs'),
+              path: '/about/about-us',
+              icon: InfoIcon,
+              handler: () => goToPath('/about/about-us'),
+            },
+            {
+              key: 'becomeSupplier',
+              label: t('navigation.becomeSupplier'),
+              path: '/about/become-supplier',
+              icon: BriefcaseIcon,
+              handler: () => goToPath('/about/become-supplier'),
+            },
+          ],
         },
       ],
     },
@@ -998,6 +1235,14 @@ const navGroups = computed<NavGroup[]>(() => {
 
 // ── 导航点击 ──
 const handleNavClick = (item: NavItem) => {
+  // documentCenter 例外: 用户要求"点击后直接显示具体文档",不走 toggle,跳首个子项
+  if (item.key === 'documentCenter' && item.children && item.children.length > 0) {
+    const firstChild = item.children[0]
+    if (firstChild.handler) firstChild.handler()
+    else router.push({ path: firstChild.path })
+    closeMobile()
+    return
+  }
   // 如果有子菜单且侧边栏展开，切换展开状态
   if (item.children && item.children.length > 0 && !isCollapsed.value) {
     expandedKey.value = expandedKey.value === item.key ? null : item.key
@@ -1036,7 +1281,7 @@ const goHome = () => {
   closeMobile()
 }
 
-// ── 新建对话：打开 AI 助手面板（与 WorkspaceHeader 的 ws-ai-toggle 一致） ──
+// ── 新建对话：打开 AI 助手面板 ──
 const handleNewChat = () => {
   aiPanelToggle()
 }
@@ -1045,6 +1290,76 @@ const handleNewChat = () => {
 const goToProfile = () => {
   router.push('/user')
   closeMobile()
+}
+
+// ── 侧边栏用户下拉菜单 ──
+// 状态: 用于 aria-expanded + chevron 旋转
+const userDropdownVisible = ref(false)
+
+const handleUserDropdownVisibleChange = (visible: boolean) => {
+  userDropdownVisible.value = visible
+}
+
+// 2026-07-06: 通知下拉框打开时关闭用户菜单, 避免两个弹窗重叠
+const userDropdownRef = ref()
+const handleNotificationVisibleChange = (visible: boolean) => {
+  if (visible && userDropdownVisible.value) {
+    userDropdownVisible.value = false
+    // 通过 ref 手动关闭 el-dropdown
+    userDropdownRef.value?.handleClose?.()
+  }
+}
+
+const userDropdownLabel = computed(() => {
+  return isCollapsed.value
+    ? t('navigation.profile')
+    : `${t('navigation.profile')} · ${userName.value}`
+})
+
+// 2026-07-05 fix: 下拉菜单 slot 内的 t() 在某些版本/配置下可能返回 key 字面量,
+// 改用计算属性包装, 确保 menu item 文本一定走 setup 顶层 t() 上下文.
+const profileLabel = computed(() => t('navigation.profile'))
+const settingsLabel = computed(() => t('navigation.settings'))
+const logoutLabel = computed(() => t('auth.logout'))
+
+const handleUserCommand = (command: string | number | null) => {
+  userDropdownVisible.value = false
+  switch (command) {
+    case 'profile':
+      goToProfile()
+      break
+    case 'settings':
+      // 设置页: 跳转到 /settings 路由 (项目实际设置页)
+      router.push('/settings')
+      closeMobile()
+      break
+    case 'logout':
+      void handleLogout()
+      break
+    default:
+      break
+  }
+}
+
+const handleLogout = async () => {
+  try {
+    await authStore.logout()
+    await nextTick()
+    try {
+      await router.replace('/login')
+      sessionStorage.removeItem('__logout_flag__')
+    } catch (routeError) {
+      const error = routeError as { name?: string }
+      if (error.name !== 'NavigationDuplicated' && error.name !== 'NavigationRedirected') {
+        window.location.replace('/login')
+      } else {
+        sessionStorage.removeItem('__logout_flag__')
+      }
+    }
+  } catch (error) {
+    console.error('[Sidebar] Logout failed:', error)
+    window.location.replace('/login')
+  }
 }
 
 // ── Ctrl/Cmd+B 快捷键：切换侧边栏折叠（与 VS Code 习惯一致） ──
@@ -1120,6 +1435,13 @@ const handleEscShortcut = (e: KeyboardEvent) => {
 // ── 生命周期 ──
 // 折叠状态 / 移动端检测 / resize 监听由 useSidebar 单例管理，组件无需重复
 onMounted(() => {
+  // 预加载 documentCenter 13 个 children 用到的 i18n 模块,
+  // 否则 navGroups computed 在 setup 阶段首次执行 t('eduDoc.category.*')
+  // 时模块未加载, t() fallback 返回 key 字符串 'eduDoc.category.education'
+  void loadModule(getCurrentLocale(), 'eduDoc').then(() => {
+    // i18n 合并后 navGroups computed 自动重算, t() 拿到真实翻译
+  })
+
   cleanup.addEventListener(window, 'keydown', handleToggleShortcut)
   cleanup.addEventListener(window, 'keydown', handleSearchShortcut)
   cleanup.addEventListener(window, 'keydown', handleEscShortcut)
@@ -1169,6 +1491,49 @@ watch(collapsedGroups, () => {
 watch(isMobileOpen, () => {
   nextTick(() => updateActiveIndicator())
 })
+
+// nav 内容高度变化时重新计算（SidebarChatHistory 异步加载完成、
+// 子菜单展开/收起、对话历史增删等场景）
+// ResizeObserver 比逐个监听子组件更健壮，覆盖所有高度变化场景
+//
+// ⚠️ 关键陷阱：nav 本身是 flex: 1 1 0% 占满 sidebar 剩余高度（固定 ~1090px），
+// 子元素（如 chat history 从 0 异步加载到 ~165px、nav-group-items 展开/收起）
+// 高度变化时 nav 自身的 offsetHeight/scrollHeight 都不会变，
+// 只观察 nav 永远不会触发回调 → 指示条卡在旧位置错位。
+// 必须同时观察所有"高度会变"的子元素。
+//
+// ResizeObserver 实例需跨 onMounted/watch 共享，存为模块级 ref
+const navResizeObserver = ref<ResizeObserver | null>(null)
+const observeNavChildren = () => {
+  if (!navRef.value || !navResizeObserver.value) return
+  const observer = navResizeObserver.value
+  const navEl = navRef.value
+  // 2) 观察 chat history 元素（异步加载导致高度从 0 → ~165px）
+  navEl.querySelectorAll('.sidebar-chat-history').forEach(el => observer.observe(el))
+  // 3) 观察所有 nav-group-items（展开/收起时高度变化）
+  navEl.querySelectorAll('.nav-group-items').forEach(el => observer.observe(el))
+  // 4) 观察 nav-submenu（学习 AI 项的展开/收起二级菜单）
+  navEl.querySelectorAll('.nav-submenu').forEach(el => observer.observe(el))
+}
+
+onMounted(() => {
+  if (!navRef.value || typeof ResizeObserver === 'undefined') return
+  const navEl = navRef.value
+  const resizeObserver = new ResizeObserver(() => {
+    updateActiveIndicator()
+  })
+  navResizeObserver.value = resizeObserver
+  // 1) 观察 nav 本身（兜底，应对 nav 高度真变化的情况，如 sidebar resize）
+  resizeObserver.observe(navEl)
+  observeNavChildren()
+  cleanup.add(() => resizeObserver.disconnect())
+})
+
+// isCollapsed / collapsedGroups 变化后, v-if 切换可能让新元素（chat history
+// / nav-group-items）需要重新观察。用 nextTick 等 DOM 更新后再 observe
+watch([isCollapsed, collapsedGroups], () => {
+  nextTick(observeNavChildren)
+})
 </script>
 
 <style scoped lang="scss">
@@ -1192,13 +1557,36 @@ watch(isMobileOpen, () => {
  *
  * 守门: e2e/sidebar-header-alignment.spec.ts (4 用例 × 2 viewport = 8 测试)
  *
- * ── 2026-07-04: 对话历史底部间距跟顶部对称 (2px) ──
- * 顶部间距 (.nav-new-chat margin-bottom: 2px) vs 底部间距 (.nav-group-label margin-top: 10px)
- * 用户反馈底部"还是这么大, 应该跟上面一样"
+ * ── 2026-07-06: 对话历史上下间距统一为 4px (跟下面菜单按钮一致) ──
+ * 用户反馈"对话历史 / 核心功能 / 智能体 之间的间距应该跟下面菜单按钮一致"
+ * (即 button-button 之间的 4px). 三段间距:
+ *   - 新建任务 → 对话历史: 新建任务 margin-bottom 2px + chat-history margin-top 2px = 4px
+ *   - 对话历史 → 核心功能: chat-history margin-bottom 2px + 此处 margin-top 2px = 4px
+ *   - 核心功能 → 智能体:   核心功能 margin-bottom 4px + 智能体 margin-top 2px = 6px
+ *                         (label 跟第一个 menu item 之间保留稍大间距作为视觉分组)
  * 用相邻兄弟选择器 .sidebar-chat-history + .nav-group .nav-group-label 只覆盖
- * 跟在 chat-history 后面的那个 label (核心功能), 不影响后续组间距 */
+ * 跟在 chat-history 后面的那个 label (核心功能), 不影响后续组间距.
+ *
+ * 改前 (2026-07-04): chat-history margin 0 → 顶部 2px / 底部 2px (用户反馈 2px 太紧)
+ * 改后 (2026-07-06): chat-history margin 2px (在 SidebarChatHistory.vue) +
+ *                    此处 margin-top 2px → 顶部 4px / 底部 4px ✓ */
 .sidebar-chat-history + .nav-group .nav-group-label {
   margin-top: 2px;
+}
+
+/* ── 2026-07-06: 核心功能 ↔ 服务支持 (button ↔ button) 间距统一为 4px ──
+ * 跟 .nav-new-chat ↔ .sidebar-chat-history (4px) 一致:
+ *   - 核心功能 margin-bottom 4px (label → first item 凑出 6px 视觉分组, 保留不变)
+ *   - 服务支持 margin-top 0 (override 默认 10px)
+ *   - 总间距: 4 + 0 = 4px ✓
+ * 用相邻兄弟选择器 .nav-group + .nav-group .nav-group-label 只覆盖跟在
+ * 另一个 nav-group 后面的 label (服务支持), 不影响首个 label (核心功能).
+ *
+ * 改前: 服务支持 margin-top 10px (沿用 .nav-group-label 基础值) →
+ *       核心功能 4 + 服务支持 10 = 14px (用户反馈"两个 button 间距太大,
+ *       应该跟 button-div 间距统一"). */
+.nav-group + .nav-group .nav-group-label {
+  margin-top: 0;
 }
 
 .app-sidebar {
@@ -1238,40 +1626,164 @@ watch(isMobileOpen, () => {
 .sidebar-user {
   display: flex;
   align-items: center;
-  gap: var(--nav-item-gap, 12px);
-  padding: 8px var(--nav-item-pad-x, 14px);
+  gap: 4px;
+  padding: 6px 6px;
   margin: 2px var(--nav-item-margin-x, 6px);
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 
-  /* 不设 width: 100%，让 flex 子项默认 align-self: stretch 拉伸占满；
-   * 配合 margin-x 才不会超出父容器 */
   overflow: hidden;
   border-radius: var(--global-border-radius, 6px);
   transition: background-color 0.2s var(--sidebar-easing);
+  outline: none;
 
   &:hover {
     background-color: var(--el-fill-color-light);
   }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--el-color-primary-light-5, #d6e4ff);
+  }
+
+  /* 下拉菜单打开态: 与 hover 同样的填充色作为视觉反馈 */
+  &.is-open {
+    background-color: var(--el-fill-color-light);
+  }
 }
 
+/* 折叠态隐藏文字 + 居中显示头像 (chevron 元素已移除, 无需再隐藏) */
+.app-sidebar.collapsed .sidebar-user {
+  justify-content: center;
+  padding: 6px 0;
+}
+
+/* 头像 (2026-07-05 v3 改造: 改用 inline <svg>, 解决 mask-image 缩放不可靠问题)
+ * 设计要点:
+ *   1. 渲染方式: 默认头像用 inline <svg>, 颜色由 stroke="currentColor" + CSS color 控制;
+ *      自定义头像 (jpg/png) 走 <img> + object-fit: cover.
+ *      解决 v2 方案 (<div> + mask-image + SVG 缺 width/height) 导致的"图标突然变大"问题
+ *      (mask-size: contain 在 SVG 缺 width/height 时不可靠缩放, 浏览器用 300x150 默认画布).
+ *   2. 容器 28x28, border-radius 8px (项目统一 token), 满足用户"正方形的小圆角"要求
+ *   3. 浅色: color 走 --el-text-color-primary (深灰); 暗色: color #fff (白) 跟亮色相反
+ *   4. inline <svg> 用 flex 居中, 18x18 (留 5px 内边距让 SVG 视觉上跟原来 <img> 一致) */
 .sidebar-user-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--global-border-radius, 8px);
   flex-shrink: 0;
-  object-fit: cover;
   border: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* 浅色: 图标颜色 = el-text-color-primary (深灰) */
+  color: var(--el-text-color-primary);
+  box-sizing: border-box;
+  transition: color 0.2s var(--sidebar-easing), border-color 0.2s var(--sidebar-easing);
+}
+
+.sidebar-user-avatar-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar-user-avatar-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+/* 暗色模式: 图标颜色反转为白色, 边框更深 */
+html.dark .sidebar-user-avatar {
+  color: #fff;
+  border-color: var(--app-sidebar-color-card, #1a1a1a);
 }
 
 .sidebar-user-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--el-text-color-regular);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+  flex: 1;
+  min-width: 0;
 }
+
+/* ── 用户信息行: 铃铛已移入 sidebar-user 容器内部 (2026-07-06 v2) ──
+ * 登录后 sidebar-actions 仅保留 4 个工具图标 (搜索/语言/主题/下载),
+ * 消息中心铃铛从 sidebar-actions 移到 sidebar-user 容器内部右侧,
+ * 与头像+用户名在同一个可点击区域内, 避免单独一行突兀.
+ * 折叠态: 铃铛隐藏 (仅显示头像居中). */
+.sidebar-user-row {
+  display: flex;
+  align-items: center;
+  margin: 2px var(--nav-item-margin-x, 6px);
+}
+
+/* el-dropdown 触发器及其内部包装层撑满行宽 */
+.sidebar-user-row :deep(.sidebar-user-dropdown) {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  width: 100%;
+}
+.sidebar-user-row :deep(.sidebar-user-dropdown > *) {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  width: 100%;
+}
+
+/* sidebar-user 在行内: 去掉自身 margin (由 row 统一), 撑满 el-dropdown */
+.sidebar-user-row .sidebar-user {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 消息中心铃铛容器: 在 sidebar-user 内部右侧, 不压缩 */
+.sidebar-user-notification {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 2px;
+}
+
+/* 在 sidebar-user 内部缩小铃铛按钮 (从 28px 缩至 20px, 给用户名留空间) */
+.sidebar-user-notification :deep(.button-message) {
+  width: 20px;
+  min-width: 20px;
+  max-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  max-height: 20px;
+}
+
+.sidebar-user-notification :deep(.notification-icon) {
+  font-size: 14px;
+}
+
+/* 折叠态: 铃铛隐藏 (v-if="!isCollapsed" 已控制 DOM, 此处兜底) */
+.app-sidebar.collapsed .sidebar-user-row {
+  margin: 2px 0;
+}
+
+.app-sidebar.collapsed .sidebar-user-row :deep(.sidebar-user-dropdown),
+.app-sidebar.collapsed .sidebar-user-row :deep(.sidebar-user-dropdown > *) {
+  flex: 0 0 auto;
+}
+
+/* ── 折叠态专用 (与上方 collapsed 块合用) ── */
 
 /* 折叠态下隐藏文字，仅图标居中 */
 .app-sidebar.collapsed {
@@ -1303,20 +1815,21 @@ watch(isMobileOpen, () => {
     padding: 8px 0;
   }
 
-  :where(.sidebar-user) {
-    justify-content: center;
-    padding: 6px 0;
-  }
+  /* 折叠态 sidebar-user 复用上面 .app-sidebar.collapsed .sidebar-user 块
+   * (justify-content: center + padding: 6px 0) */
 }
 
 /* ── 操作图标条: 搜索 / 语言 / 主题 / 用户菜单 ──
- * 展开态: 水平排列, 4 个图标均匀分布
+ * 展开态: 水平排列, 宽度不够时自动换行 (flex-wrap)
  * 折叠态: 垂直堆叠
+ * 拉伸过程中: 按钮根据可用宽度自动换行, 不会被裁切;
+ *   宽度足够时一行水平排列, 宽度不够时自动换到下一行, 极窄时自然变为竖排
  * 设计遵循扁平化规范: 无 text-shadow / box-shadow / !important / 高特异性选择器
  * 选择器深度均为 2 层 (.sidebar-actions + 子类), 特异性 (0,3,0) 高于子组件 scoped 样式 */
 .sidebar-actions {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-around;
   padding: 6px var(--nav-item-pad-x, 14px);
@@ -1324,6 +1837,11 @@ watch(isMobileOpen, () => {
   gap: 4px;
   flex-shrink: 0;
   border-radius: var(--global-border-radius, 6px);
+}
+
+/* 子按钮不压缩: 宽度不够时换行而非缩小 (保持 28×28 图标完整) */
+.sidebar-actions :deep(*) {
+  flex-shrink: 0;
 }
 
 /* 折叠态: 垂直堆叠, 居中对齐, 间距比展开态略大避免图标挤在一起 */
@@ -1548,5 +2066,188 @@ watch(isMobileOpen, () => {
 /* 移动端遮罩过渡 */
 .sidebar-overlay {
   transition: opacity var(--sidebar-transition-duration, 0.2s) var(--sidebar-easing, cubic-bezier(0.4, 0, 0.2, 1));
+}
+</style>
+
+<!--
+  sidebar-user-dropdown popper 全局样式块
+  el-dropdown 通过 Teleport 将 #dropdown slot 内容渲染到 body,
+  scoped 样式无法匹配 Teleport 内容, 必须用不带 scoped 的全局块
+-->
+<style lang="scss">
+/* ── popper 容器 (Teleport 到 body, unlayered 块) ──
+ * 设计要点:
+ *   1. 边框 + 阴影: 与 notification-dropdown 保持一致风格
+ *   2. 圆角 8px (项目统一 border-radius token)
+ *   3. 内边距 0: 由内层 .el-dropdown-menu 控制
+ *   4. 暗色模式: 背景色 --el-bg-color, 边框稍深 */
+body .sidebar-user-dropdown-popper.el-popper {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--global-border-radius, 8px);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
+  padding: 0;
+  background-color: var(--el-bg-color);
+  min-width: 200px;
+
+  // 覆盖 Element Plus 默认白底, 暗色模式跟随主题
+  .el-dropdown-menu {
+    background-color: transparent;
+    border: none;
+    padding: 6px;
+    box-shadow: none;
+  }
+}
+
+:where(html.dark) body .sidebar-user-dropdown-popper.el-popper {
+  border-color: var(--app-sidebar-color-card, #1a1a1a);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+}
+
+/* ── 头部用户信息区 ──
+ * 设计: 顶部用户卡片式信息, 头像 + 昵称 + "已登录" 副标题 */
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  margin-bottom: 4px;
+}
+
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--global-border-radius, 8px);
+  flex-shrink: 0;
+  object-fit: contain;
+  border: 1px solid var(--el-border-color-lighter);
+  background-color: var(--app-sidebar-color-card, var(--el-fill-color-blank));
+  padding: 2px;
+  color: var(--el-text-color-primary);
+  box-sizing: border-box;
+}
+
+:where(html.dark) .sidebar-user-dropdown-popper .sidebar-user-dropdown-avatar {
+  color: #fff;
+  border-color: var(--app-sidebar-color-card, #1a1a1a);
+  background-color: var(--app-sidebar-color-new-chat, #1f1f1f);
+}
+
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-meta {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* ── 菜单项 ── */
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.3;
+  border-radius: var(--global-border-radius, 6px);
+  margin: 2px 0;
+  color: var(--el-text-color-regular);
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  /* el-dropdown-item 自带 :hover 蓝底, 浅色下是 #ecf5ff,
+   * 暗色下跟背景 #1d1e1f 几乎同色不可见, 覆盖为统一 hover 填充 */
+  &:hover {
+    background-color: var(--el-fill-color-light);
+    color: var(--el-text-color-primary);
+  }
+
+  &.is-disabled {
+    cursor: not-allowed;
+    color: var(--el-text-color-placeholder);
+  }
+}
+
+/* 菜单项内 el-icon / svg 颜色跟随 */
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item :deep(svg),
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item :deep(.el-icon) {
+  width: 16px;
+  height: 16px;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+}
+
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item:hover :deep(svg),
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item:hover :deep(.el-icon) {
+  color: var(--el-text-color-primary);
+}
+
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 危险项 (退出登录) 文字色: 浅色 danger / 暗色 danger-light */
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-item--danger {
+  color: var(--el-color-danger);
+
+  :deep(svg),
+  :deep(.el-icon) {
+    color: var(--el-color-danger);
+  }
+
+  &:hover {
+    background-color: var(--el-color-danger-light-9);
+    color: var(--el-color-danger);
+
+    :deep(svg),
+    :deep(.el-icon) {
+      color: var(--el-color-danger);
+    }
+  }
+}
+
+/* 暗色模式: 危险项 hover 用更深红底 */
+:where(html.dark) .sidebar-user-dropdown-popper .sidebar-user-dropdown-item--danger {
+  color: #fca5a5;
+
+  :deep(svg),
+  :deep(.el-icon) {
+    color: #fca5a5;
+  }
+
+  &:hover {
+    background-color: rgb(220 38 38 / 25%);
+    color: #fca5a5;
+
+    :deep(svg),
+    :deep(.el-icon) {
+      color: #fca5a5;
+    }
+  }
+}
+
+/* 分隔线 (退出登录与上方菜单项分组) */
+.sidebar-user-dropdown-popper .sidebar-user-dropdown-divider {
+  height: 1px;
+  background-color: var(--el-border-color-lighter);
+  margin: 4px 0;
 }
 </style>

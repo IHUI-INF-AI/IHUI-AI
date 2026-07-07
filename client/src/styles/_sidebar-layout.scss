@@ -646,8 +646,6 @@
     flex-shrink: 0;
     position: relative;
     z-index: calc(var(--z-base) + 5);
-
-    /* 溢出兜底：防止 .ws-actions 撑破容器超出屏幕右侧 */
     box-sizing: border-box;
     max-width: 100%;
     overflow: hidden;
@@ -718,19 +716,6 @@
     white-space: nowrap;
     line-height: 1.4;
     letter-spacing: 0.01em;
-  }
-
-  :where(.ws-actions) {
-    display: flex;
-    align-items: center;
-
-    /* gap 与 workspace-header 的 12px 一致，视觉节奏统一 */
-    gap: 12px;
-    flex-shrink: 0;
-
-    /* 允许内部子项收缩 + 防止内容撑破容器 */
-    min-width: 0;
-    overflow: hidden;
   }
 
   /* ── 工作区内容 ── */
@@ -1528,47 +1513,6 @@ body:has(.app-layout) .ai-world-page__wrap--nav-fixed > .ai-world-page__containe
   :where(.ai-side-panel.is-resizing) :where(.ai-side-panel-resize-handle)::before {
     background-color: var(--el-color-primary);
     width: 3px;
-  }
-
-  /* ── WorkspaceHeader 右侧 AI 切换按钮 ── */
-  :where(.ws-ai-toggle) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--app-button-height-md);
-    min-width: var(--app-button-height-md);
-    height: var(--app-button-height-md);
-    padding: 0;
-    margin: 0;
-    border: var(--app-button-border-transparent);
-    border-radius: var(--app-button-radius);
-    background: transparent;
-    color: var(--el-text-color-regular);
-    cursor: pointer;
-    transition: var(--app-button-transition);
-    flex-shrink: 0;
-  }
-
-  :where(.ws-ai-toggle):hover {
-    background-color: var(--el-fill-color-light);
-    color: var(--el-text-color-primary);
-  }
-
-  :where(.ws-ai-toggle):focus-visible {
-    outline: 2px solid var(--el-color-primary);
-    outline-offset: 2px;
-  }
-
-  /* 激活态：primary 边框 + 浅色背景，表明面板已开启 */
-  :where(.ws-ai-toggle.active) {
-    background-color: var(--el-color-primary-light-9);
-    color: var(--el-color-primary);
-    border-color: var(--el-color-primary-light-7);
-  }
-
-  :where(.ws-ai-toggle.active):hover {
-    background-color: var(--el-color-primary-light-8);
-    color: var(--el-color-primary);
   }
 
   /* ── 移动端：AI 面板隐藏，由 AIChatLegacy 浮窗接管 ── */
