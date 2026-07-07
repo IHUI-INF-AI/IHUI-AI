@@ -541,6 +541,17 @@ const MessageCircleIcon = markRaw({
   },
 })
 
+// 2026-07-08: "联系我们" 子项用 MailIcon (envelope)
+const MailIcon = markRaw({
+  name: 'MailIcon',
+  render() {
+    return h('svg', svgBase, [
+      h('rect', { x: '2', y: '4', width: '20', height: '16', rx: '2' }),
+      h('path', { d: 'm22 7-10 5L2 7' }),
+    ])
+  },
+})
+
 /* ── 教育平台子菜单图标 ── */
 const BookOpenIcon = markRaw({
   name: 'BookOpenIcon',
@@ -851,6 +862,15 @@ const activeKey = computed<string>(() => {
     if (docId) return 'documentCenter'
   }
 
+  // 0.5 2026-07-08: /about/about-us 同路由 hash 区分 (关于我们/联系我们/加入我们)
+  // 此前 onMounted 只读一次, 用户从侧边栏切换 hash 时不会自动滚动 (Step 2 watch 已修)
+  if (routeName === 'aboutUs') {
+    const h = route.hash.replace(/^#/, '')
+    if (h === 'contact') return 'aboutUsContact'
+    if (h === 'supplier') return 'aboutUsSupplier'
+    return 'aboutUsAbout'
+  }
+
   // 1. 精确路由名匹配（优先，用于无规律路径的页面）
   const nameMap: Record<string, string> = {
     home: 'home',
@@ -927,11 +947,12 @@ const activeKey = computed<string>(() => {
     aiWorldBannerDetail: 'aiWorld',
     documentCenter: 'documentCenter',
     newsCenter: 'newsCenter',
+    // 2026-07-08: aboutUs 整合 — 3 子项对应 hash, 旧路由名仍可高亮到对应子项
     about: 'aboutUs',
     aboutUs: 'aboutUs',
     aboutUsAbout: 'aboutUsAbout',
-    becomeSupplier: 'becomeSupplier',
-    contactUs: 'aboutUs',
+    contactUs: 'aboutUsContact',
+    becomeSupplier: 'aboutUsSupplier',
     feedback: 'aboutUs',
     // ── 教育中心 (eduCenter) — /edu/* 全部子路由统一映射到顶级 eduCenter 项 ──
     // EduLayout 自带内部侧边栏(12 模块), 主侧边栏只高亮顶级入口, 子项定位由 EduLayout 内部处理
@@ -1083,6 +1104,8 @@ interface NavItem {
   path: string
   icon?: Component | Record<string, unknown>
   handler?: () => void
+  // 2026-07-08: hash 锚点跳转 (侧边栏同路由不同 section 切换)
+  hash?: string
   children?: NavItem[]
 }
 
@@ -1203,21 +1226,32 @@ const navGroups = computed<NavGroup[]>(() => {
           path: '/about/about-us',
           icon: InfoIcon,
           handler: () => goToPath('/about/about-us'),
-          // 2026-07-07: 把"加入我们"融合为 aboutUs 的子项，不再独立顶级
+          // 2026-07-08: 整合关于我们/联系我们/加入我们为统一页面的 hash 子项
+          // 3 项共用 /about/about-us 路由, 通过 hash 锚点切换显示 section
           children: [
             {
               key: 'aboutUsAbout',
               label: t('navigation.aboutUs'),
               path: '/about/about-us',
               icon: InfoIcon,
-              handler: () => goToPath('/about/about-us'),
+              hash: '#about',
+              handler: () => goToPath('/about/about-us', undefined, '#about'),
             },
             {
-              key: 'becomeSupplier',
+              key: 'aboutUsContact',
+              label: t('navigation.contactUs'),
+              path: '/about/about-us',
+              icon: MailIcon,
+              hash: '#contact',
+              handler: () => goToPath('/about/about-us', undefined, '#contact'),
+            },
+            {
+              key: 'aboutUsSupplier',
               label: t('navigation.becomeSupplier'),
-              path: '/about/become-supplier',
+              path: '/about/about-us',
               icon: BriefcaseIcon,
-              handler: () => goToPath('/about/become-supplier'),
+              hash: '#supplier',
+              handler: () => goToPath('/about/about-us', undefined, '#supplier'),
             },
           ],
         },
