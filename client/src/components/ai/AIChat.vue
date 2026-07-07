@@ -597,9 +597,33 @@
                   </el-button>
                 </div>
                 <div class="quoted-preview-content">
-                  {{ quotedMessage.content.substring(0, 100) }}{{ quotedMessage.content.length > 100 ? '...' : '' }}
-                </div>
+                {{ quotedMessage.content.substring(0, 100) }}{{ quotedMessage.content.length > 100 ? '...' : '' }}
               </div>
+              </div>
+
+              <!-- 2026-07-07 Stage A: SlashCommandPalette 触发锚点 (/ 触发) -->
+              <div v-if="slashPaletteVisible" class="slash-palette-anchor" @click.stop>
+                <SlashCommandPalette
+                  :commands="slashCommands"
+                  :initial-filter="slashPaletteInitialFilter"
+                  @select="onSlashCommandSelect"
+                  @cancel="closeSlashPalette"
+                />
+              </div>
+
+              <!-- 2026-07-07 Stage A: TaskListPanel (agent.todo.update 事件实时刷新) -->
+              <div v-if="todoListForPanel.length > 0" class="task-list-anchor">
+                <TaskListPanel :todos="todoListForPanel" />
+              </div>
+
+              <!-- 2026-07-07 Stage B: PlanReviewPanel (agent.plan.proposed 事件) -->
+              <PlanReviewPanel
+                v-if="pendingPlanForReview"
+                :plan="pendingPlanForReview"
+                @accept="onAcceptPlan"
+                @reject="onRejectPlan"
+                class="plan-review-anchor"
+              />
 
               <!-- 文件预览 -->
               <div v-if="uploadedFiles.length > 0" class="file-preview">
@@ -1568,6 +1592,12 @@ import MarkdownStream from './MarkdownStream.vue'
 import PromptTemplates from './PromptTemplates.vue'
 import ToolCallCard from './ToolCallCard.vue'
 import PermissionConfirmDialog from './PermissionConfirmDialog.vue'
+// 2026-07-07 Stage A: Slash / Task / Plan 3 组件 (对标 Claude Code / Codex / Trae)
+import SlashCommandPalette from './SlashCommandPalette.vue'
+import TaskListPanel from './TaskListPanel.vue'
+import PlanReviewPanel from './PlanReviewPanel.vue'
+import type { SlashCommand } from './SlashCommandPalette.vue'
+import { getSlashCommands } from '@/api/services/workspace.service'
 // SearchIcon 已迁移至 ChatSearchBar.vue（chat-parts 拆分）
 // VoiceRecordingAnimation 已移除，使用内联波形动画替代
 // OpenClaw 集成
@@ -1868,6 +1898,12 @@ const selectedMessageId = ref<string | null>(null)
 const editingMessageId = ref<string | null>(null)
 const editContent = ref('')
 const inputText = ref('')
+// 2026-07-07 Stage A: Slash 命令面板状态 (输入 / 触发 Palette)
+const slashPaletteVisible = ref(false)
+const slashPaletteInitialFilter = ref('')
+const slashCommands = ref<SlashCommand[]>([])
+// 2026-07-07 Stage B: Plan Mode 待确认计划 (来自 agent.plan.proposed 事件)
+const pendingPlanForReview = ref<{ title?: string; summary?: string; steps?: Array<{ id?: string; title: string; description?: string; files?: string[]; tool_hint?: string }>; risks?: string[] } | null>(null)
 const replyingToMessageId = ref<string | null>(null)
 const quotedMessage = ref<ChatMessage | null>(null)
 const showSettingsDialog = ref(false)
@@ -2033,6 +2069,7 @@ try {
 }
 
 // 工作区 Agent (对标 Claude Code / Cursor 的工具循环)
+// 2026-07-07 Stage A+B: 合并为单次调用, 避免重复 WebSocket 连接
 const {
   sendToAgent: sendToWorkspaceAgent,
   stopAgent: stopWorkspaceAgent,
@@ -2041,7 +2078,31 @@ const {
   confirmToolCall,
   denyToolCall,
   allowAllInSession,
+  currentTodos: workspaceTodos,
+  currentPendingPlan: workspacePendingPlan,
+  acceptPlan: agentAcceptPlan,
+  rejectPlan: agentRejectPlan,
+  clearPendingPlan: agentClearPendingPlan,
 } = useWorkspaceAgent()
+
+// 2026-07-07 Stage A: TaskListPanel 数据派生 (空数组兜底,避免 undefined 警告)
+const todoListForPanel = computed(() => workspaceTodos.value ?? [])
+
+// 2026-07-07 Stage B: PlanReviewPanel 数据派生 (从 useWorkspaceAgent 同步到本地响应式)
+watch(
+  workspacePendingPlan,
+  (plan) => {
+    pendingPlanForReview.value = plan
+      ? {
+          title: plan.title,
+          summary: plan.summary,
+          steps: plan.steps,
+          risks: plan.risks,
+        }
+      : null
+  },
+  { immediate: true },
+)
 
 // 工具执行确认弹窗可见性: 由 pendingConfirmation 派生 (有待确认工具调用时显示)
 const showPermissionDialog = computed<boolean>({
@@ -2093,6 +2154,61 @@ function useQuickFaq(faq: { id: number; question: string; answer: string }) {
   setInputText(faq.question)
   inputText.value = faq.question
   nextTick(() => handleSend())
+}
+
+// 2026-07-07 Stage A: 监听 inputText 变化,自动触发 / 命令面板
+watch(inputText, () => {
+  detectSlashPalette()
+})
+
+// 2026-07-07 Stage A: Slash 命令面板 (对标 Claude Code / Codex / Trae 的 /command 面板)
+async function loadSlashCommands(): Promise<void> {
+  if (slashCommands.value.length > 0) return
+  try {
+    const cmds = await getSlashCommands()
+    slashCommands.value = cmds.map((c) => ({ name: c.name, description: c.description, category: c.category }))
+  } catch (e) {
+    logger.warn('[AIChat] loadSlashCommands 失败:', e)
+    slashCommands.value = []
+  }
+}
+
+/** 监听输入变化,检测 / 触发 SlashCommandPalette */
+function detectSlashPalette(): void {
+  const text = inputText.value
+  // 仅在行首出现 / 时触发,避免正文中的 / 误触发
+  const m = /^\/(\S*)$/.exec(text)
+  if (m) {
+    slashPaletteInitialFilter.value = m[1] ?? ''
+    slashPaletteVisible.value = true
+    if (slashCommands.value.length === 0) {
+      void loadSlashCommands()
+    }
+  } else {
+    slashPaletteVisible.value = false
+  }
+}
+
+/** 用户从 palette 选中命令,自动填入输入框 (替换 /xxx) */
+function onSlashCommandSelect(cmd: SlashCommand): void {
+  inputText.value = cmd.name + ' '
+  slashPaletteVisible.value = false
+  nextTick(() => inputRef.value?.focus())
+}
+
+function closeSlashPalette(): void {
+  slashPaletteVisible.value = false
+}
+
+/** 2026-07-07 Stage B: 接受 / 拒绝 Agent 提交的计划 */
+function onAcceptPlan(extra: string): void {
+  agentAcceptPlan(extra)
+  pendingPlanForReview.value = null
+}
+
+function onRejectPlan(): void {
+  agentRejectPlan()
+  pendingPlanForReview.value = null
 }
 
 /** 在对话框内切换为客服模式（不跳转页面） */

@@ -875,6 +875,42 @@
     "videoProviderQwen": "通义万相",
     "videoProviderKling": "可灵AI",
     "videoProviderOneClick": "一键视频",
-    "welcome": "저는 AI 어시스턴트입니다, 무엇이든 말씀하세요"
+    "welcome": "저는 AI 어시스턴트입니다, 무엇이든 말씀하세요",
+    "workspaceAgent": {
+      "planReview": {
+        "untitled": "제목 없는 계획",
+        "badge": "확인 대기 중",
+        "stepsTitle": "실행 단계",
+        "filesLabel": "관련 파일",
+        "risksTitle": "위험 요소",
+        "accept": "계획 수락",
+        "reject": "계획 거절"
+      },
+      "slashPalette": {
+        "searchPlaceholder": "슬래시 명령 검색...",
+        "noResults": "일치하는 명령 없음",
+        "navigate": "탐색",
+        "select": "선택",
+        "cancel": "취소",
+        "category": {
+          "session": "세션",
+          "workflow": "워크플로",
+          "context": "컨텍스트",
+          "help": "도움말",
+          "mode": "모드",
+          "info": "정보",
+          "setup": "설정"
+        }
+      },
+      "taskList": {
+        "title": "작업 목록",
+        "empty": "작업 없음",
+        "priority": {
+          "high": "높음",
+          "medium": "보통",
+          "low": "낮음"
+        }
+      }
+    }
   }
 }

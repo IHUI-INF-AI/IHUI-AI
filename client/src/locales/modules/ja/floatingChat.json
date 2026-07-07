@@ -856,6 +856,42 @@
     "videoProviderQwen": "通义万相",
     "videoProviderKling": "可灵AI",
     "videoProviderOneClick": "一键视频",
-    "welcome": "我はいAI小方、あり事尽管言う"
+    "welcome": "我はいAI小方、あり事尽管言う",
+    "workspaceAgent": {
+      "planReview": {
+        "untitled": "無題の計画",
+        "badge": "確認待ち",
+        "stepsTitle": "実行ステップ",
+        "filesLabel": "対象ファイル",
+        "risksTitle": "リスク",
+        "accept": "計画を承認",
+        "reject": "計画を却下"
+      },
+      "slashPalette": {
+        "searchPlaceholder": "スラッシュコマンドを検索...",
+        "noResults": "一致するコマンドがありません",
+        "navigate": "移動",
+        "select": "選択",
+        "cancel": "キャンセル",
+        "category": {
+          "session": "セッション",
+          "workflow": "ワークフロー",
+          "context": "コンテキスト",
+          "help": "ヘルプ",
+          "mode": "モード",
+          "info": "情報",
+          "setup": "初期化"
+        }
+      },
+      "taskList": {
+        "title": "タスクリスト",
+        "empty": "タスクがありません",
+        "priority": {
+          "high": "高",
+          "medium": "中",
+          "low": "低"
+        }
+      }
+    }
   }
 }

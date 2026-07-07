@@ -854,6 +854,42 @@
         "style": "样式",
         "documentation": "文档"
       }
+    },
+    "workspaceAgent": {
+      "planReview": {
+        "untitled": "Untitled Plan",
+        "badge": "Pending",
+        "stepsTitle": "Execution Steps",
+        "filesLabel": "Files",
+        "risksTitle": "Risks",
+        "accept": "Accept Plan",
+        "reject": "Reject"
+      },
+      "slashPalette": {
+        "searchPlaceholder": "Search slash commands...",
+        "noResults": "No matching commands",
+        "navigate": "Navigate",
+        "select": "Select",
+        "cancel": "Cancel",
+        "category": {
+          "session": "Session",
+          "workflow": "Workflow",
+          "context": "Context",
+          "help": "Help",
+          "mode": "Mode",
+          "info": "Info",
+          "setup": "Setup"
+        }
+      },
+      "taskList": {
+        "title": "Task List",
+        "empty": "No tasks",
+        "priority": {
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        }
+      }
     }
   }
 }

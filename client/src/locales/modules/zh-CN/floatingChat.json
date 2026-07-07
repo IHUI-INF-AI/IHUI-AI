@@ -750,6 +750,42 @@
     "unknownError": "未知错误",
     "usePrompt": "使用：{prompt}",
     "aiDialog": "AI 对话",
-    "welcome": "我是AI小方，有事尽管说"
+    "welcome": "我是AI小方，有事尽管说",
+    "workspaceAgent": {
+      "planReview": {
+        "untitled": "未命名计划",
+        "badge": "待确认",
+        "stepsTitle": "执行步骤",
+        "filesLabel": "涉及文件",
+        "risksTitle": "风险点",
+        "accept": "接受计划",
+        "reject": "拒绝计划"
+      },
+      "slashPalette": {
+        "searchPlaceholder": "搜索 slash 命令...",
+        "noResults": "没有匹配的命令",
+        "navigate": "导航",
+        "select": "选择",
+        "cancel": "取消",
+        "category": {
+          "session": "会话",
+          "workflow": "工作流",
+          "context": "上下文",
+          "help": "帮助",
+          "mode": "模式",
+          "info": "信息",
+          "setup": "初始化"
+        }
+      },
+      "taskList": {
+        "title": "任务列表",
+        "empty": "暂无任务",
+        "priority": {
+          "high": "高",
+          "medium": "中",
+          "low": "低"
+        }
+      }
+    }
   }
 }
