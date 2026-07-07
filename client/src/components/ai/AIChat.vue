@@ -2235,6 +2235,7 @@ const {
   currentUsage: workspaceAgentUsage,
   acceptPlan: agentAcceptPlan,
   rejectPlan: agentRejectPlan,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   clearPendingPlan: agentClearPendingPlan,
 } = useWorkspaceAgent()
 
@@ -3610,26 +3611,26 @@ const isDiffTool = (toolName: string): boolean => {
 /**
  * Inline Diff — 接受变更 (对标 Cursor/Trae Accept)
  * 文件已被 Agent 写入, Accept 主要为 UI 状态确认 + 通知用户。
+ * InlineDiffViewer 内部会切换为"已接受"状态 (不隐藏, 保留决策痕迹)。
  */
 const handleDiffAccept = (
   _payload: { fileName: string; newContent: string },
   _message: ChatMessage,
-  toolCall: ToolCallInfo,
+  _toolCall: ToolCallInfo,
 ): void => {
-  // 标记该工具调用的 diff 决策状态 (供 UI 显示"已接受")
-  toolCall.diffInfo = null
   ElMessage.success(t('floatingChat.workspaceAgent.diffPreview.accepted') || '变更已接受')
 }
 
 /**
  * Inline Diff — 拒绝变更 (对标 Cursor/Trae Reject)
  * 将文件回滚到修改前的内容 (old_content), 恢复原状。
+ * InlineDiffViewer 内部会切换为"已拒绝"状态。
  */
 const handleDiffReject = async (
   payload: { fileName: string; oldContent: string },
   _message: ChatMessage,
-  toolCall: ToolCallInfo,
-): void => {
+  _toolCall: ToolCallInfo,
+): Promise<void> => {
   const workspaceFolder = (aiPanelState as unknown as Record<string, { value: string }>).selectedFolderPath?.value || ''
   if (!workspaceFolder) {
     ElMessage.warning(t('floatingChat.workspaceAgent.diffPreview.noWorkspace') || '未选择工作区, 无法回滚')
@@ -3638,8 +3639,6 @@ const handleDiffReject = async (
   try {
     // 将文件内容恢复为修改前的 old_content
     await writeFile(workspaceFolder, payload.fileName, payload.oldContent)
-    // 标记该工具调用的 diff 决策状态 (供 UI 显示"已拒绝")
-    toolCall.diffInfo = null
     ElMessage.success(t('floatingChat.workspaceAgent.diffPreview.rejected') || '变更已拒绝, 文件已回滚')
   } catch (err) {
     logger.error('Inline diff reject (rollback) failed:', err)
