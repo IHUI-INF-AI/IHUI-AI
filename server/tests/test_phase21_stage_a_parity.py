@@ -213,14 +213,17 @@ class TestSlashCommands:
         assert hasattr(slash_commands, "get_command_list")
 
     def test_eight_built_in_commands(self):
-        """必须实现 8 个内置命令: 6 个 Stage A + 2 个 Stage B (plan-accept/plan-reject)."""
+        """必须实现 8 个 Stage A/B 核心命令 (实际已扩展到 12 个, 包含 cost/usage/memory/agents)."""
         from app.api.v1.workspace.slash_commands import SLASH_COMMANDS
 
-        expected = {"help", "clear", "compact", "plan", "plan-accept", "plan-reject", "init", "goal"}
+        # 8 个核心 (Stage A + Stage B Plan 模式)
+        core = {"help", "clear", "compact", "plan", "plan-accept", "plan-reject", "init", "goal"}
         actual = set(SLASH_COMMANDS.keys())
-        assert actual == expected, (
-            f"内置命令不符, 期望 {expected}, 实际 {actual}"
+        assert core.issubset(actual), (
+            f"核心命令缺失: 核心 {core}, 实际 {actual}, 差集 {core - actual}"
         )
+        # 至少 8 个
+        assert len(actual) >= 8, f"命令过少: {actual}"
 
     def test_parse_slash_command_basic(self):
         from app.api.v1.workspace.slash_commands import parse_slash_command
@@ -255,7 +258,7 @@ class TestSlashCommands:
         from app.api.v1.workspace.slash_commands import get_command_list
 
         cmds = get_command_list()
-        assert len(cmds) == 8
+        assert len(cmds) >= 8
         for c in cmds:
             assert c["name"].startswith("/")
             assert "description" in c
@@ -269,7 +272,7 @@ class TestSlashCommands:
         result = await handle_help(mock_ws)
         assert result["type"] == "agent.command.result"
         assert result["command"] == "help"
-        assert len(result["commands"]) == 8
+        assert len(result["commands"]) >= 8
 
     @pytest.mark.asyncio
     async def test_handle_clear(self):

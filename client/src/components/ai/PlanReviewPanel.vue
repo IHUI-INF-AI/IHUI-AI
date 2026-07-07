@@ -26,7 +26,7 @@
           class="plan-review-panel__step"
         >
           <div class="plan-review-panel__step-head">
-            <span class="plan-review-panel__step-index">{{ idx + 1 }}</span>
+            <span class="plan-review-panel__step-index">{{ Number(idx) + 1 }}</span>
             <span class="plan-review-panel__step-title">{{ step.title }}</span>
             <el-tag
               v-if="step.tool_hint"

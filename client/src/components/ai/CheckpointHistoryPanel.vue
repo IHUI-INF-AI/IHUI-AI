@@ -295,17 +295,13 @@ defineExpose({ refresh })
   &__desc {
     color: var(--el-text-color-regular);
     font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-word;
   }
 
   &__files {
     color: var(--el-text-color-secondary);
     font-size: 10px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-all;
     font-family: 'Cascadia Code', 'Fira Code', monospace;
   }
 

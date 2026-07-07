@@ -650,6 +650,24 @@
                 />
               </div>
 
+              <!-- 后台 Agent 面板 (对标 Claude Code Background Agents / Codex 多会话并行) -->
+              <div v-if="showBackgroundAgentsPanel" class="background-agents-anchor">
+                <BackgroundAgentsPanel
+                  :workspace-path="currentWorkspacePath"
+                  closable
+                  @close="showBackgroundAgentsPanel = false"
+                />
+              </div>
+
+              <!-- 定时任务面板 (对标 Claude Code Routines) -->
+              <div v-if="showRoutinesPanel" class="routines-anchor">
+                <RoutinesPanel
+                  :workspace-path="currentWorkspacePath"
+                  closable
+                  @close="showRoutinesPanel = false"
+                />
+              </div>
+
               <!-- 文件预览 -->
               <div v-if="uploadedFiles.length > 0" class="file-preview">
                 <div v-for="file in uploadedFiles" :key="file.id" class="preview-item">
@@ -966,6 +984,56 @@
                         @click="toggleCheckpointPanel"
                       >
                         <el-icon><History /></el-icon>
+                      </el-button>
+                    </el-tooltip>
+                    <!-- 后台 Agent 面板 (对标 Claude Code Background Agents / Codex 多会话并行) -->
+                    <el-tooltip
+                      v-if="currentWorkspacePath"
+                      content="后台 Agent (多会话并行)"
+                      placement="top"
+                      popper-class="ai-chat-action-tooltip"
+                    >
+                      <el-button
+                        class="trae-toolbar-action-btn"
+                        :class="{ 'is-active': showBackgroundAgentsPanel }"
+                        aria-label="后台 Agent"
+                        title="后台 Agent (多会话并行)"
+                        @click="toggleBackgroundAgentsPanel"
+                      >
+                        <el-icon><Cpu /></el-icon>
+                      </el-button>
+                    </el-tooltip>
+                    <!-- PR 管理 (对标 Codex GitHub PR 集成) -->
+                    <el-tooltip
+                      v-if="currentWorkspacePath"
+                      content="GitHub PR 管理"
+                      placement="top"
+                      popper-class="ai-chat-action-tooltip"
+                    >
+                      <el-button
+                        class="trae-toolbar-action-btn"
+                        aria-label="GitHub PR"
+                        title="GitHub PR 管理 (/pr)"
+                        @click="insertSlashCommand('/pr ')"
+                      >
+                        <el-icon><Share /></el-icon>
+                      </el-button>
+                    </el-tooltip>
+                    <!-- 定时任务 (对标 Claude Code Routines) -->
+                    <el-tooltip
+                      v-if="currentWorkspacePath"
+                      content="定时任务 (Routines)"
+                      placement="top"
+                      popper-class="ai-chat-action-tooltip"
+                    >
+                      <el-button
+                        class="trae-toolbar-action-btn"
+                        :class="{ 'is-active': showRoutinesPanel }"
+                        aria-label="定时任务"
+                        title="定时任务 (Routines)"
+                        @click="toggleRoutinesPanel"
+                      >
+                        <el-icon><Timer /></el-icon>
                       </el-button>
                     </el-tooltip>
                     <!-- ✨ 能力触发 (替代原 + 选择 pill, DOM 保留在 trae-work-actions-top 内供 e2e) -->
@@ -1647,6 +1715,8 @@ import TaskListPanel from './TaskListPanel.vue'
 import PlanReviewPanel from './PlanReviewPanel.vue'
 import TokenUsagePanel from './TokenUsagePanel.vue'
 import CheckpointHistoryPanel from './CheckpointHistoryPanel.vue'
+import BackgroundAgentsPanel from './BackgroundAgentsPanel.vue'
+import RoutinesPanel from './RoutinesPanel.vue'
 import FileMentionPopover from './FileMentionPopover.vue'
 import type { SlashCommand } from './SlashCommandPalette.vue'
 import { getSlashCommands, readFile } from '@/api/services/workspace.service'
@@ -1742,6 +1812,9 @@ import {
   MagicStick,  // ✨ 能力触发
   // 2026-07-07 Checkpoint/Rewind 工具栏按钮 (对标 Claude Code Esc+Esc)
   History,     // ⟲ 撤销/回滚 (检查点历史)
+  // 2026-07-07 PR & Routines 工具栏按钮
+  Timer,       // ⏰ 定时任务 (Routines)
+  // Share 已在上方导入 (line 1797)
 } from '@/lib/lucide-fallback'
 import AgentPill from './AgentPill.vue'
 // Settings/MoreHorizontal/Ticket/Headset 已迁移至 ChatHeaderBar.vue（chat-parts 拆分）
@@ -1958,6 +2031,10 @@ const slashPaletteInitialFilter = ref('')
 const slashCommands = ref<SlashCommand[]>([])
 // 2026-07-07 Checkpoint/Rewind 面板切换 (对标 Claude Code Esc+Esc 一键回滚)
 const showCheckpointPanel = ref(false)
+// 后台 Agent 面板切换 (对标 Claude Code Background Agents / Codex 多会话并行)
+const showBackgroundAgentsPanel = ref(false)
+// 定时任务面板切换 (对标 Claude Code Routines)
+const showRoutinesPanel = ref(false)
 // 2026-07-07 @文件提及 (对标 Claude Code @file / Cursor @file)
 const fileMentionVisible = ref(false)
 const fileMentionQuery = ref('')
@@ -2364,6 +2441,26 @@ function closeFileMention(): void {
   fileMentionVisible.value = false
 }
 
+/** 切换定时任务面板 */
+function toggleRoutinesPanel(): void {
+  showRoutinesPanel.value = !showRoutinesPanel.value
+}
+
+/** 在输入框中插入 slash 命令 (供工具栏快捷按钮使用) */
+function insertSlashCommand(cmd: string): void {
+  const input = inputText.value || ''
+  // 如果输入框为空或已是 slash 命令, 直接替换; 否则换行追加
+  if (!input.trim() || input.trim().startsWith('/')) {
+    inputText.value = cmd
+  } else {
+    inputText.value = input + '\n' + cmd
+  }
+  // 聚焦输入框
+  nextTick(() => {
+    inputRef.value?.focus()
+  })
+}
+
 /**
  * 解析 prompt 中的 @path 文件提及, 读取文件内容并注入为上下文块.
  * 仅处理看起来像文件路径的 @提及 (含 / \ 或 . 扩展名), 跳过 @username 等.
@@ -2404,6 +2501,11 @@ function toggleCheckpointPanel(): void {
     return
   }
   showCheckpointPanel.value = !showCheckpointPanel.value
+}
+
+/** 切换后台 Agent 面板 (对标 Claude Code Background Agents) */
+function toggleBackgroundAgentsPanel(): void {
+  showBackgroundAgentsPanel.value = !showBackgroundAgentsPanel.value
 }
 
 /**
@@ -4748,6 +4850,33 @@ const handleSend = async () => {
           }
           assistantMessage.metadata.agentContext = ctx
           assistantMessage.metadata = { ...assistantMessage.metadata }
+        },
+        onCommandResult: (result) => {
+          // Slash 纯命令结果 (/help /clear /init /cost /usage /memory /pr /agents /routine 等)
+          // 纯命令不进入 agent loop, onDone 不会被调用, 需在此结束 streaming 状态
+          const cmdMessage = result.message || `[/${result.command}] 命令已执行`
+          assistantMessage.content = cmdMessage
+          assistantMessage.isStreaming = false
+          assistantMessage.status = 'sent'
+          // 存储结构化结果到 metadata (供前端渲染表格/列表等)
+          if (!assistantMessage.metadata) {
+            assistantMessage.metadata = {}
+          }
+          assistantMessage.metadata.commandResult = result
+          assistantMessage.metadata = { ...assistantMessage.metadata }
+          isSending.value = false
+          isTyping.value = false
+          scrollToBottom()
+          emit('message-received', assistantMessage)
+        },
+        onCommandHandled: (info) => {
+          // 状态修改命令 (/plan /goal /compact /plan-accept) 已应用, 继续进入 agent loop
+          // 显示确认消息作为初始内容, onTextDelta 会追加 Agent 回复
+          if (info.message) {
+            responseContent = `> ${info.message}\n\n`
+            assistantMessage.content = responseContent
+          }
+          scrollToBottom()
         },
         onDone: (info) => {
           assistantMessage.isStreaming = false

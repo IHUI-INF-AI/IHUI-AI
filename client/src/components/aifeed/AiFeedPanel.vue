@@ -245,7 +245,7 @@
           class="topic-card"
         >
           <div class="topic-header">
-            <span class="topic-rank">#{{ idx + 1 }}</span>
+            <span class="topic-rank">#{{ Number(idx) + 1 }}</span>
             <h3 class="topic-title">{{ topic.topic_title }}</h3>
             <span
               class="topic-trend-badge"
@@ -487,7 +487,7 @@ const seenNotificationIds = new Set<number>()
 async function pollNotifications() {
   try {
     const res = await getAiFeedNotifications({ hours: 24, min_growth: 15, limit: 10 })
-    const data = res?.data ?? res
+    const data = res?.data
     const list: AiFeedItem[] = Array.isArray(data) ? data : (data?.items ?? [])
     for (const item of list) {
       if (!seenNotificationIds.has(item.id)) {

@@ -23,6 +23,10 @@ Agent 工具集实现 — 对标 Claude Code / Codex 的工具系统。
   git_status     查看 git 状态
   git_diff       查看 git diff
   git_log        查看 git 日志
+  github_create_pr   创建 GitHub PR
+  github_list_prs    列出 GitHub PR
+  github_pr_comment  添加 PR 评论
+  github_pr_review   请求 PR 审查
 """
 
 from __future__ import annotations
@@ -95,7 +99,21 @@ def check_shell_blacklist(command: str) -> str | None:
 # 工具定义 (JSON Schema for LLM function calling)
 # ---------------------------------------------------------------------------
 
-TOOL_DEFINITIONS: list[dict[str, Any]] = [
+class _ToolRegistry(list):
+    """工具定义注册表 — ``list[dict]`` 的轻量子类。
+
+    额外支持按工具名做 ``in`` 判断 (如 ``"github_create_pr" in TOOL_DEFINITIONS``),
+    便于快速查询某工具是否已注册; 同时完全保留 list 的迭代/索引/序列化行为,
+    不影响 ``llm_gateway`` 与 ``get_tool_names`` 等既有调用方。
+    """
+
+    def __contains__(self, item: object) -> bool:  # type: ignore[override]
+        if isinstance(item, str):
+            return any(t.get("function", {}).get("name") == item for t in self)
+        return super().__contains__(item)
+
+
+TOOL_DEFINITIONS: _ToolRegistry = _ToolRegistry([
     {
         "type": "function",
         "function": {
@@ -388,7 +406,138 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
-]
+    # GitHub PR 工具 (对标 Codex GitHub 集成)
+    {
+        "type": "function",
+        "function": {
+            "name": "github_create_pr",
+            "description": "创建 GitHub Pull Request。需要配置 GITHUB_TOKEN (环境变量或 ~/.ihui/github_token)。会自动从 git remote 解析仓库。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "PR 标题"},
+                    "body": {"type": "string", "description": "PR 描述正文 (Markdown), 默认空"},
+                    "head_branch": {"type": "string", "description": "源分支 (要合并的特性分支)"},
+                    "base_branch": {"type": "string", "description": "目标分支 (如 main/master)"},
+                },
+                "required": ["title", "head_branch", "base_branch"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "github_list_prs",
+            "description": "列出当前 GitHub 仓库的 Pull Request。需要配置 GITHUB_TOKEN。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "state": {
+                        "type": "string",
+                        "enum": ["open", "closed", "all"],
+                        "description": "PR 状态过滤, 默认 open",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "github_pr_comment",
+            "description": "在指定 PR 上添加评论。需要配置 GITHUB_TOKEN。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pr_number": {"type": "integer", "description": "PR 编号"},
+                    "body": {"type": "string", "description": "评论内容 (Markdown)"},
+                },
+                "required": ["pr_number", "body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "github_pr_review",
+            "description": "向指定 PR 请求审查者 (request review)。需要配置 GITHUB_TOKEN。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pr_number": {"type": "integer", "description": "PR 编号"},
+                    "reviewers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "审查者 GitHub 用户名列表",
+                    },
+                },
+                "required": ["pr_number", "reviewers"],
+            },
+        },
+    },
+    # ------------------------------------------------------------------
+    # Computer Use 工具 (对标 Claude Computer Use / Codex 浏览器控制)
+    # 需显式启用: 环境变量 IHUI_COMPUTER_USE_ENABLED=1 或 AGENTS.md 标记
+    # ------------------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "screenshot",
+            "description": "截取当前屏幕截图并返回 (供视觉分析)。用于查看屏幕内容、定位 UI 元素、验证操作结果。坐标基于屏幕像素 (左上角为 0,0)。需启用 Computer Use。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "highlight_mouse": {"type": "boolean", "description": "是否在截图上高亮当前鼠标位置, 默认 false"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_click",
+            "description": "在屏幕指定坐标点击鼠标。坐标基于屏幕像素 (左上角为 0,0), 可先用 screenshot 截图定位。支持左键/右键/双击。需启用 Computer Use。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "横坐标 (屏幕像素)"},
+                    "y": {"type": "integer", "description": "纵坐标 (屏幕像素)"},
+                    "button": {"type": "string", "enum": ["left", "right", "middle"], "description": "鼠标按键, 默认 left"},
+                    "clicks": {"type": "integer", "description": "点击次数, 2=双击, 默认 1"},
+                },
+                "required": ["x", "y"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "keyboard_type",
+            "description": "输入文本 (支持中文)。中文通过剪贴板粘贴实现。需启用 Computer Use。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "要输入的文本"},
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "keyboard_key",
+            "description": "按键或组合键。如 Enter, Tab, Escape, ctrl+c, alt+f4, ctrl+shift+esc。需启用 Computer Use。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "按键名, 组合键用 + 连接 (如 ctrl+c)"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+])
 
 
 def get_tool_names() -> list[str]:
@@ -527,6 +676,18 @@ async def tool_read_file(args: dict[str, Any], workspace: str) -> ToolCallResult
         path = _resolve_path(args["path"], workspace)
         if not path.exists():
             return ToolCallResult(tool="read_file", input=args, output="", error=f"文件不存在: {path}", success=False)
+
+        # 文件大小保护 (对标 Claude Code — 防止读取超大文件导致内存问题)
+        MAX_READ_SIZE = 10 * 1024 * 1024  # 10MB
+        file_size = path.stat().st_size
+        if file_size > MAX_READ_SIZE:
+            return ToolCallResult(
+                tool="read_file",
+                input=args,
+                output="",
+                error=f"文件过大 ({file_size // 1024 // 1024}MB), 超过 10MB 限制。请使用 start_line/end_line 参数分段读取, 或用 grep 搜索关键内容。",
+                success=False,
+            )
 
         content = path.read_text(encoding="utf-8", errors="replace")
         lines = content.split("\n")
@@ -1393,6 +1554,249 @@ async def tool_rollback(args: dict[str, Any], workspace: str) -> ToolCallResult:
 
 
 # ---------------------------------------------------------------------------
+# GitHub PR 工具 (对标 Codex GitHub 集成)
+# ---------------------------------------------------------------------------
+
+async def tool_github_create_pr(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """创建 GitHub Pull Request。"""
+    try:
+        from app.api.v1.workspace.github_integration import (
+            GitHubClient,
+            format_pr_detail,
+            token_missing_message,
+        )
+
+        client = GitHubClient(workspace)
+        if not client.has_token:
+            return ToolCallResult(
+                tool="github_create_pr", input=args, output="", error=token_missing_message(), success=False
+            )
+
+        title = args["title"]
+        body = args.get("body", "")
+        head = args["head_branch"]
+        base = args["base_branch"]
+
+        resp = await client.create_pr(title=title, body=body, head=head, base=base)
+        if resp["ok"]:
+            data = resp["data"]
+            return ToolCallResult(
+                tool="github_create_pr",
+                input=args,
+                output=f"已创建 PR\n{format_pr_detail(data)}",
+                success=True,
+            )
+        return ToolCallResult(
+            tool="github_create_pr",
+            input=args,
+            output="",
+            error=f"GitHub API 错误 ({resp['status_code']}): {resp['data']}",
+            success=False,
+        )
+    except Exception as e:
+        return ToolCallResult(tool="github_create_pr", input=args, output="", error=str(e), success=False)
+
+
+async def tool_github_list_prs(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """列出 GitHub Pull Request。"""
+    try:
+        from app.api.v1.workspace.github_integration import (
+            GitHubClient,
+            format_pr_brief,
+            token_missing_message,
+        )
+
+        client = GitHubClient(workspace)
+        if not client.has_token:
+            return ToolCallResult(
+                tool="github_list_prs", input=args, output="", error=token_missing_message(), success=False
+            )
+
+        state = args.get("state", "open")
+        resp = await client.list_prs(state=state)
+        if resp["ok"]:
+            prs = resp["data"]
+            if not isinstance(prs, list) or not prs:
+                return ToolCallResult(
+                    tool="github_list_prs",
+                    input=args,
+                    output=f"(没有 {state} 状态的 PR)",
+                    success=True,
+                )
+            lines = [f"## PR 列表 ({state}, 共 {len(prs)} 个)"]
+            for pr in prs:
+                lines.append(format_pr_brief(pr))
+            return ToolCallResult(
+                tool="github_list_prs", input=args, output="\n".join(lines), success=True
+            )
+        return ToolCallResult(
+            tool="github_list_prs",
+            input=args,
+            output="",
+            error=f"GitHub API 错误 ({resp['status_code']}): {resp['data']}",
+            success=False,
+        )
+    except Exception as e:
+        return ToolCallResult(tool="github_list_prs", input=args, output="", error=str(e), success=False)
+
+
+async def tool_github_pr_comment(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """在指定 PR 上添加评论。"""
+    try:
+        from app.api.v1.workspace.github_integration import GitHubClient, token_missing_message
+
+        client = GitHubClient(workspace)
+        if not client.has_token:
+            return ToolCallResult(
+                tool="github_pr_comment", input=args, output="", error=token_missing_message(), success=False
+            )
+
+        pr_number = args["pr_number"]
+        body = args["body"]
+        resp = await client.add_pr_comment(pr_number, body)
+        if resp["ok"]:
+            data = resp["data"]
+            url = data.get("html_url", "")
+            url_suffix = f"\nURL: {url}" if url else ""
+            return ToolCallResult(
+                tool="github_pr_comment",
+                input=args,
+                output=f"已在 PR #{pr_number} 添加评论{url_suffix}",
+                success=True,
+            )
+        return ToolCallResult(
+            tool="github_pr_comment",
+            input=args,
+            output="",
+            error=f"GitHub API 错误 ({resp['status_code']}): {resp['data']}",
+            success=False,
+        )
+    except Exception as e:
+        return ToolCallResult(tool="github_pr_comment", input=args, output="", error=str(e), success=False)
+
+
+async def tool_github_pr_review(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """向指定 PR 请求审查者。"""
+    try:
+        from app.api.v1.workspace.github_integration import GitHubClient, token_missing_message
+
+        client = GitHubClient(workspace)
+        if not client.has_token:
+            return ToolCallResult(
+                tool="github_pr_review", input=args, output="", error=token_missing_message(), success=False
+            )
+
+        pr_number = args["pr_number"]
+        reviewers = args["reviewers"]
+        if not reviewers:
+            return ToolCallResult(
+                tool="github_pr_review",
+                input=args,
+                output="",
+                error="reviewers 不能为空",
+                success=False,
+            )
+        resp = await client.request_review(pr_number, reviewers)
+        if resp["ok"]:
+            return ToolCallResult(
+                tool="github_pr_review",
+                input=args,
+                output=f"已向 PR #{pr_number} 请求审查: {', '.join(reviewers)}",
+                success=True,
+            )
+        return ToolCallResult(
+            tool="github_pr_review",
+            input=args,
+            output="",
+            error=f"GitHub API 错误 ({resp['status_code']}): {resp['data']}",
+            success=False,
+        )
+    except Exception as e:
+        return ToolCallResult(tool="github_pr_review", input=args, output="", error=str(e), success=False)
+
+
+# ---------------------------------------------------------------------------
+# Computer Use 工具 (对标 Claude Computer Use / Codex 浏览器控制)
+# 屏幕截图 + 鼠标键盘控制, 实现在 app.api.v1.workspace.computer_use
+# 阻塞操作通过 asyncio.to_thread 调度, 避免卡住事件循环
+# ---------------------------------------------------------------------------
+
+async def tool_screenshot(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """截取屏幕截图, 返回 base64 图片 (供 LLM vision 接收)。"""
+    from app.api.v1.workspace.computer_use import take_screenshot
+
+    highlight = bool(args.get("highlight_mouse", False))
+    try:
+        result = await asyncio.to_thread(take_screenshot, highlight, workspace)
+        if not result.get("success"):
+            return ToolCallResult(
+                tool="screenshot", input=args, output="", error=result.get("error", "截图失败"), success=False,
+            )
+        # output 为文本摘要; images 携带 base64 图片供网关转成多模态内容发给 LLM
+        output = (
+            f"已截屏: {result['path']} ({result['width']}x{result['height']})\n"
+            f"图片已附在本次工具结果中, 可直接视觉分析屏幕内容。"
+        )
+        return ToolCallResult(
+            tool="screenshot",
+            input=args,
+            output=output,
+            success=True,
+            images=[result["base64"]],
+        )
+    except Exception as e:
+        return ToolCallResult(tool="screenshot", input=args, output="", error=str(e), success=False)
+
+
+async def tool_mouse_click(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """鼠标点击。"""
+    from app.api.v1.workspace.computer_use import mouse_click
+
+    try:
+        x = int(args["x"])
+        y = int(args["y"])
+    except (KeyError, ValueError, TypeError):
+        return ToolCallResult(tool="mouse_click", input=args, output="", error="缺少或无效的 x/y 坐标", success=False)
+    button = args.get("button", "left")
+    clicks = args.get("clicks", 1)
+    try:
+        result = await asyncio.to_thread(mouse_click, x, y, button, clicks, workspace)
+        if result.get("success"):
+            return ToolCallResult(tool="mouse_click", input=args, output=result["output"], success=True)
+        return ToolCallResult(tool="mouse_click", input=args, output="", error=result.get("error", "点击失败"), success=False)
+    except Exception as e:
+        return ToolCallResult(tool="mouse_click", input=args, output="", error=str(e), success=False)
+
+
+async def tool_keyboard_type(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """键盘输入文本 (支持中文)。"""
+    from app.api.v1.workspace.computer_use import keyboard_type as kb_type
+
+    text = args.get("text", "")
+    try:
+        result = await asyncio.to_thread(kb_type, text, workspace)
+        if result.get("success"):
+            return ToolCallResult(tool="keyboard_type", input=args, output=result["output"], success=True)
+        return ToolCallResult(tool="keyboard_type", input=args, output="", error=result.get("error", "输入失败"), success=False)
+    except Exception as e:
+        return ToolCallResult(tool="keyboard_type", input=args, output="", error=str(e), success=False)
+
+
+async def tool_keyboard_key(args: dict[str, Any], workspace: str) -> ToolCallResult:
+    """按键 / 组合键。"""
+    from app.api.v1.workspace.computer_use import keyboard_key as kb_key
+
+    key = args.get("key", "")
+    try:
+        result = await asyncio.to_thread(kb_key, key, workspace)
+        if result.get("success"):
+            return ToolCallResult(tool="keyboard_key", input=args, output=result["output"], success=True)
+        return ToolCallResult(tool="keyboard_key", input=args, output="", error=result.get("error", "按键失败"), success=False)
+    except Exception as e:
+        return ToolCallResult(tool="keyboard_key", input=args, output="", error=str(e), success=False)
+
+
+# ---------------------------------------------------------------------------
 # 工具分发器
 # ---------------------------------------------------------------------------
 
@@ -1417,6 +1821,16 @@ TOOL_DISPATCH: dict[str, Any] = {
     "undo": tool_undo,
     "list_checkpoints": tool_list_checkpoints,
     "rollback": tool_rollback,
+    # GitHub PR 工具 (对标 Codex GitHub 集成)
+    "github_create_pr": tool_github_create_pr,
+    "github_list_prs": tool_github_list_prs,
+    "github_pr_comment": tool_github_pr_comment,
+    "github_pr_review": tool_github_pr_review,
+    # Computer Use 工具 (对标 Claude Computer Use / Codex 浏览器控制)
+    "screenshot": tool_screenshot,
+    "mouse_click": tool_mouse_click,
+    "keyboard_type": tool_keyboard_type,
+    "keyboard_key": tool_keyboard_key,
     # task 工具由 subagents 模块提供, 延迟注册
 }
 

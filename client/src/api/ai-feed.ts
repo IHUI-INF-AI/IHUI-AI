@@ -95,12 +95,24 @@ export interface AiFeedTopic {
   representative_item_id: number
 }
 
+/**
+ * AI 动态 API 统一返回结构
+ * request-compat 返回 Axios 响应体, 业务层取 res.data / res.total / res.code。
+ * 显式声明返回类型, 消除调用方 `Property 'data' does not exist on type '{}'` 错误。
+ */
+export interface AiFeedApiResult<T = unknown> {
+  code?: number
+  message?: string
+  data?: T
+  total?: number
+}
+
 // ---------------------------------------------------------------------------
 // API 函数
 // ---------------------------------------------------------------------------
 
 /** 获取数据源列表(动态 Tab 渲染) */
-export function getAiFeedSources(enabledOnly = true) {
+export function getAiFeedSources(enabledOnly = true): Promise<AiFeedApiResult<AiFeedSource[]>> {
   return request({
     url: `${AI_FEED_BASE}/sources`,
     method: 'GET',
@@ -115,7 +127,7 @@ export function getAiFeedTopics(params?: {
   hours?: number
   min_sources?: number
   limit?: number
-}) {
+}): Promise<AiFeedApiResult<AiFeedTopic[]>> {
   return request({
     url: `${AI_FEED_BASE}/topics`,
     method: 'GET',
@@ -134,7 +146,7 @@ export function getAiFeedNotifications(params?: {
   hours?: number
   min_growth?: number
   limit?: number
-}) {
+}): Promise<AiFeedApiResult<AiFeedItem[] | { items: AiFeedItem[] }>> {
   return request({
     url: `${AI_FEED_BASE}/notifications`,
     method: 'GET',
@@ -156,7 +168,7 @@ export function getAiFeedItems(params: {
   keyword?: string
   page?: number
   limit?: number
-}) {
+}): Promise<AiFeedApiResult<AiFeedItem[] | AiFeedListResponse>> {
   return request({
     url: `${AI_FEED_BASE}/items`,
     method: 'GET',
@@ -174,7 +186,7 @@ export function getAiFeedItems(params: {
 }
 
 /** 获取条目详情 */
-export function getAiFeedItem(itemId: number) {
+export function getAiFeedItem(itemId: number): Promise<AiFeedApiResult<AiFeedItem>> {
   return request({
     url: `${AI_FEED_BASE}/items/${itemId}`,
     method: 'GET',
@@ -184,7 +196,7 @@ export function getAiFeedItem(itemId: number) {
 }
 
 /** 获取趋势图表数据 */
-export function getAiFeedTrend(itemId: number, window = 14) {
+export function getAiFeedTrend(itemId: number, window = 14): Promise<AiFeedApiResult<AiFeedTrendChart>> {
   return request({
     url: `${AI_FEED_BASE}/trend/${itemId}`,
     method: 'GET',
@@ -195,7 +207,7 @@ export function getAiFeedTrend(itemId: number, window = 14) {
 }
 
 /** 获取数据源采集统计(管理用) */
-export function getAiFeedStats() {
+export function getAiFeedStats(): Promise<AiFeedApiResult<AiFeedStats>> {
   return request({
     url: `${AI_FEED_BASE}/stats`,
     method: 'GET',
@@ -205,7 +217,7 @@ export function getAiFeedStats() {
 }
 
 /** 手动触发采集(管理员) */
-export function triggerAiFeedFetch() {
+export function triggerAiFeedFetch(): Promise<AiFeedApiResult<unknown>> {
   return request({
     url: `${AI_FEED_BASE}/fetch`,
     method: 'POST',
@@ -214,7 +226,7 @@ export function triggerAiFeedFetch() {
 }
 
 /** 手动触发趋势计算(管理员) */
-export function triggerAiFeedTrend() {
+export function triggerAiFeedTrend(): Promise<AiFeedApiResult<unknown>> {
   return request({
     url: `${AI_FEED_BASE}/trend`,
     method: 'POST',
@@ -223,7 +235,7 @@ export function triggerAiFeedTrend() {
 }
 
 /** 手动触发 LLM 分类摘要(管理员) */
-export function triggerAiFeedLlm(limit = 100) {
+export function triggerAiFeedLlm(limit = 100): Promise<AiFeedApiResult<unknown>> {
   return request({
     url: `${AI_FEED_BASE}/llm`,
     method: 'GET',
@@ -233,7 +245,7 @@ export function triggerAiFeedLlm(limit = 100) {
 }
 
 /** 更新数据源配置(管理员) */
-export function updateAiFeedSource(sourceId: number, body: Partial<AiFeedSource>) {
+export function updateAiFeedSource(sourceId: number, body: Partial<AiFeedSource>): Promise<AiFeedApiResult<unknown>> {
   return request({
     url: `${AI_FEED_BASE}/sources/${sourceId}`,
     method: 'PUT',

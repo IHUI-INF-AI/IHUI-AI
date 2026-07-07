@@ -65,6 +65,22 @@ SLASH_COMMANDS: dict[str, dict[str, Any]] = {
         "description": "显示工作区全局用量统计 (所有会话汇总)",
         "category": "info",
     },
+    "memory": {
+        "description": "记忆管理: /memory [show|save|clear] 查看/提取/清除自动学习",
+        "category": "context",
+    },
+    "pr": {
+        "description": "GitHub PR 管理: /pr 列出 | /pr <编号> 详情 | /pr create <标题> 创建",
+        "category": "github",
+    },
+    "agents": {
+        "description": "后台 Agent 管理: /agents [cancel <id>] 列出/取消后台任务",
+        "category": "session",
+    },
+    "routine": {
+        "description": "定时任务管理: /routine [add|remove|enable|disable|trigger] 管理定时任务",
+        "category": "session",
+    },
 }
 
 
@@ -279,6 +295,117 @@ async def handle_usage(
         "command": "usage",
         "message": "\n".join(msg_lines),
         "summary": summary,
+    }
+
+
+async def handle_memory(
+    websocket: WebSocket,
+    args: str,
+    workspace_path: str,
+    chat_id: str | None,
+    model_id: str = "",
+    **kwargs,
+) -> dict[str, Any]:
+    """/memory - 记忆管理 (show/save/clear).
+
+    子命令:
+    - /memory 或 /memory show  — 显示自动学习内容 + 项目记忆文件列表
+    - /memory save             — 从当前会话提取学习并保存 (AutoMemory)
+    - /memory clear            — 清除自动学习内容
+    """
+    from app.api.v1.workspace.memory import (
+        load_auto_learnings,
+        save_auto_learning,
+        clear_auto_learnings,
+        extract_learnings_from_session,
+        load_project_memory,
+    )
+    from app.api.v1.workspace.session_store import get_history, load_session
+
+    sub = args.strip().lower() if args else "show"
+
+    if sub == "clear":
+        cleared = clear_auto_learnings(workspace_path)
+        return {
+            "type": "agent.command.result",
+            "command": "memory",
+            "message": "自动学习记忆已清除。" if cleared else "没有自动学习记忆可清除。",
+            "cleared": cleared,
+        }
+
+    if sub == "save":
+        if not chat_id:
+            return {
+                "type": "agent.command.result",
+                "command": "memory",
+                "message": "没有活跃的会话, 无法提取学习。",
+                "error": "no_chat_id",
+            }
+
+        # 获取会话历史
+        history = get_history(chat_id)
+        if len(history) < 4:
+            return {
+                "type": "agent.command.result",
+                "command": "memory",
+                "message": "对话太短 (<4 条消息), 没有足够内容提取学习。",
+            }
+
+        # 获取模型 ID
+        session = load_session(chat_id)
+        effective_model = model_id or (session.get("model_id", "") if session else "")
+
+        # 提取学习
+        learning = await extract_learnings_from_session(history, effective_model, workspace_path)
+        if not learning:
+            return {
+                "type": "agent.command.result",
+                "command": "memory",
+                "message": "本次会话没有值得记忆的新知识。",
+            }
+
+        saved = save_auto_learning(workspace_path, learning)
+        return {
+            "type": "agent.command.result",
+            "command": "memory",
+            "message": f"自动学习已保存 {'✓' if saved else '✗'}\n\n{learning}",
+            "learning": learning,
+            "saved": saved,
+        }
+
+    # 默认: show
+    auto = load_auto_learnings(workspace_path)
+    proj_mem = load_project_memory(workspace_path)
+
+    msg_lines = ["🧠 记忆系统状态", ""]
+
+    # 项目记忆文件
+    msg_lines.append("## 项目记忆文件")
+    if proj_mem.get("files"):
+        for f in proj_mem["files"]:
+            msg_lines.append(f"  ✓ {f}")
+    else:
+        msg_lines.append("  (无项目记忆文件)")
+    msg_lines.append("")
+
+    # 自动学习
+    msg_lines.append("## 自动学习 (AutoMemory)")
+    if auto:
+        # 只显示摘要 (前 500 字符)
+        preview = auto[:500]
+        if len(auto) > 500:
+            preview += "\n... (更多内容请查看 .ihui/memory/auto-learnings.md)"
+        msg_lines.append(preview)
+    else:
+        msg_lines.append("  (暂无自动学习记忆)")
+        msg_lines.append("  使用 /memory save 从当前会话提取学习")
+
+    return {
+        "type": "agent.command.result",
+        "command": "memory",
+        "message": "\n".join(msg_lines),
+        "auto_learnings": auto,
+        "project_memory_files": proj_mem.get("files", []),
     }
 
 
@@ -597,6 +724,549 @@ def _format_plan_for_execution(plan: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Background Agents (多会话并行 — 对标 Claude Code Background Agents)
+# ---------------------------------------------------------------------------
+
+async def handle_agents(
+    websocket: WebSocket,
+    args: str,
+    workspace_path: str,
+    **kwargs,
+) -> dict[str, Any]:
+    """/agents - 后台 Agent 管理 (列出 / 取消).
+
+    子命令:
+    - /agents                — 列出所有后台 agent 状态
+    - /agents cancel <id>    — 取消指定 agent
+    """
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    parts = args.strip().split(maxsplit=1) if args.strip() else []
+
+    # /agents cancel <agent_id>
+    if parts and parts[0].lower() == "cancel":
+        if len(parts) < 2 or not parts[1].strip():
+            return {
+                "type": "agent.command.result",
+                "command": "agents",
+                "message": "用法: /agents cancel <agent_id>",
+                "error": "missing_agent_id",
+            }
+        target_id = parts[1].strip()
+        ok = manager.cancel_background_agent(target_id)
+        if ok:
+            return {
+                "type": "agent.command.result",
+                "command": "agents",
+                "message": f"后台 agent {target_id} 已取消。",
+                "cancelled": target_id,
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "agents",
+            "message": f"无法取消 agent {target_id}: 不存在或已结束。",
+            "error": "cancel_failed",
+        }
+
+    # /agents — 列出所有后台 agent
+    agents = manager.list_background_agents(workspace_path or None)
+
+    if not agents:
+        return {
+            "type": "agent.command.result",
+            "command": "agents",
+            "message": "当前工作区没有后台 agent。",
+            "agents": [],
+        }
+
+    # 统计
+    running = [a for a in agents if a.get("status") == "running"]
+    completed = [a for a in agents if a.get("status") == "completed"]
+    failed = [a for a in agents if a.get("status") == "failed"]
+    cancelled = [a for a in agents if a.get("status") == "cancelled"]
+
+    msg_lines = [
+        f"📋 后台 Agent 列表 (共 {len(agents)} 个)",
+        f"  运行中: {len(running)}  完成: {len(completed)}  失败: {len(failed)}  已取消: {len(cancelled)}",
+        "",
+    ]
+
+    for a in agents[:20]:  # 最多显示 20 条
+        aid = a.get("agent_id", "?")
+        status = a.get("status", "?")
+        prompt = a.get("prompt", "")
+        if len(prompt) > 60:
+            prompt = prompt[:60] + "..."
+        progress = a.get("progress", {})
+        tool_calls = progress.get("tool_calls", 0)
+        preview = progress.get("text_preview", "")
+
+        status_icon = {
+            "running": "▶",
+            "completed": "✓",
+            "failed": "✗",
+            "cancelled": "⊘",
+        }.get(status, "?")
+
+        line = f"  {status_icon} [{aid}] {status}"
+        if tool_calls:
+            line += f" (工具调用: {tool_calls})"
+        line += f"\n      任务: {prompt}"
+        if preview and status == "running":
+            prev = preview.replace("\n", " ")[:80]
+            line += f"\n      进度: {prev}"
+        msg_lines.append(line)
+
+    if len(agents) > 20:
+        msg_lines.append(f"\n  ... 还有 {len(agents) - 20} 个未显示")
+
+    msg_lines.append("\n  提示: /agents cancel <agent_id> 取消指定 agent")
+
+    return {
+        "type": "agent.command.result",
+        "command": "agents",
+        "message": "\n".join(msg_lines),
+        "agents": agents,
+        "stats": {
+            "total": len(agents),
+            "running": len(running),
+            "completed": len(completed),
+            "failed": len(failed),
+            "cancelled": len(cancelled),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# GitHub PR 管理 (/pr — 对标 Codex GitHub 集成)
+# ---------------------------------------------------------------------------
+
+async def handle_pr(
+    websocket: WebSocket,
+    args: str,
+    workspace_path: str,
+    **kwargs,
+) -> dict[str, Any]:
+    """/pr - GitHub PR 管理。
+
+    子命令:
+    - /pr                 — 列出当前仓库的 open PR
+    - /pr <编号>          — 查看 PR 详情
+    - /pr create <标题>   — 创建 PR (正文由 Agent 从后续对话/变更生成)
+    """
+    from app.api.v1.workspace.github_integration import (
+        GitHubClient,
+        format_pr_brief,
+        format_pr_detail,
+        token_missing_message,
+    )
+
+    raw = (args or "").strip()
+    client = GitHubClient(workspace_path)
+
+    # /pr create <title> — 进入 agent loop, 让 Agent 生成正文并调用 github_create_pr
+    if raw.lower().startswith("create"):
+        title = raw[len("create"):].strip()
+        if not title:
+            return {
+                "type": "agent.command.result",
+                "command": "pr",
+                "message": "用法: /pr create <标题>",
+                "error": "missing_title",
+            }
+
+        # 探测当前分支与默认分支, 注入到执行 prompt 中
+        head_branch = client.current_branch() or "(当前分支)"
+        base_branch = client.default_branch() or "main"
+
+        execution_prompt = (
+            f"请创建一个 GitHub Pull Request, 标题为: {title}\n"
+            f"源分支(head): {head_branch}\n"
+            f"目标分支(base): {base_branch}\n\n"
+            "步骤:\n"
+            "1. 使用 git_diff / git_log 工具查看当前分支相对 base 分支的变更\n"
+            "2. 基于变更内容撰写清晰的 PR 正文 (Markdown): 含变更摘要 / 动机 / 测试方式\n"
+            "3. 调用 github_create_pr 工具创建 PR (head_branch / base_branch 使用上面探测的值)\n"
+            "4. 报告创建结果 (PR 编号与 URL)"
+        )
+        return {
+            "type": "agent.command.handled",
+            "command": "pr",
+            "continue_to_loop": True,
+            "execution_prompt": execution_prompt,
+            "message": f"将在 Agent 循环中为 '{title}' 生成 PR 正文并创建 (head={head_branch} → base={base_branch})",
+        }
+
+    # /pr <number> — 查看 PR 详情 (纯命令)
+    if raw.isdigit():
+        number = int(raw)
+        if not client.has_token:
+            return {
+                "type": "agent.command.result",
+                "command": "pr",
+                "message": token_missing_message(),
+                "error": "no_token",
+            }
+        resp = await client.get_pr(number)
+        if resp["ok"]:
+            data = resp["data"]
+            return {
+                "type": "agent.command.result",
+                "command": "pr",
+                "message": format_pr_detail(data),
+                "pr": data,
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "pr",
+            "message": f"获取 PR #{number} 失败 (HTTP {resp['status_code']}): {resp['data']}",
+            "error": "api_error",
+        }
+
+    # /pr — 列出 open PR (纯命令)
+    if not client.has_token:
+        return {
+            "type": "agent.command.result",
+            "command": "pr",
+            "message": token_missing_message(),
+            "error": "no_token",
+        }
+    if not client.owner_repo:
+        return {
+            "type": "agent.command.result",
+            "command": "pr",
+            "message": "无法解析 GitHub 仓库 (请确认 git remote origin 指向 GitHub 仓库)。",
+            "error": "no_remote",
+        }
+    resp = await client.list_prs(state="open")
+    if resp["ok"]:
+        prs = resp["data"]
+        if not isinstance(prs, list) or not prs:
+            return {
+                "type": "agent.command.result",
+                "command": "pr",
+                "message": "当前没有 open 状态的 PR。",
+                "prs": [],
+            }
+        owner, repo = client.owner_repo
+        lines = [f"## Open PR — {owner}/{repo} (共 {len(prs)} 个)"]
+        for pr in prs:
+            lines.append(format_pr_brief(pr))
+        lines.append("\n提示: /pr <编号> 查看详情 | /pr create <标题> 创建 PR")
+        return {
+            "type": "agent.command.result",
+            "command": "pr",
+            "message": "\n".join(lines),
+            "prs": prs,
+        }
+    return {
+        "type": "agent.command.result",
+        "command": "pr",
+        "message": f"列出 PR 失败 (HTTP {resp['status_code']}): {resp['data']}",
+        "error": "api_error",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Routines — 定时任务管理 (/routine — 对标 Claude Code Routines)
+# ---------------------------------------------------------------------------
+
+def _format_ts(ts: float | None) -> str:
+    """格式化 Unix timestamp 为可读时间字符串。"""
+    if ts is None:
+        return "—"
+    from datetime import datetime
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _resolve_routine_id(manager: Any, id_or_prefix: str) -> str:
+    """根据完整 ID 或前缀解析出完整 routine_id。
+
+    支持用 ID 前 8 位简写引用 (如 a1b2c3d4)。
+    """
+    # 完整匹配
+    routines = manager.list_routines()
+    for r in routines:
+        if r.id == id_or_prefix:
+            return r.id
+    # 前缀匹配
+    matches = [r.id for r in routines if r.id.startswith(id_or_prefix)]
+    if len(matches) == 1:
+        return matches[0]
+    return id_or_prefix
+
+
+async def handle_routine(
+    websocket: WebSocket,
+    args: str,
+    workspace_path: str,
+    model_id: str = "",
+    **kwargs,
+) -> dict[str, Any]:
+    """/routine - 定时任务管理 (add/remove/enable/disable/trigger/list)。
+
+    子命令:
+    - /routine                              — 列出所有定时任务
+    - /routine add <name> <cron> <prompt>   — 添加任务
+        cron 可用引号包裹为单个参数, 也可直接写 5 个空格分隔的字段
+    - /routine remove <id>                  — 删除任务
+    - /routine enable <id>                  — 启用任务
+    - /routine disable <id>                 — 禁用任务
+    - /routine trigger <id>                 — 手动触发任务
+    """
+    import shlex
+
+    from app.api.v1.workspace.routines import get_routine_manager, parse_cron
+
+    manager = get_routine_manager()
+    raw = (args or "").strip()
+
+    # /routine (无参数) — 列出所有定时任务
+    if not raw:
+        routines = manager.list_routines(workspace_path or None)
+        if not routines:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": (
+                    "当前工作区没有定时任务。\n\n"
+                    "用法: /routine add <name> <cron> <prompt>\n"
+                    "cron 示例: \"*/5 * * * *\" (每5分钟) / \"0 9 * * 1-5\" (工作日9点)"
+                ),
+                "routines": [],
+            }
+
+        msg_lines = [f"⏰ 定时任务列表 (共 {len(routines)} 个)", ""]
+        for r in routines:
+            status = "✓" if r.enabled else "✗"
+            next_str = _format_ts(r.next_run) if r.enabled else "(已禁用)"
+            last_str = _format_ts(r.last_run) if r.last_run else "从未"
+            prompt_preview = r.prompt[:50] + "..." if len(r.prompt) > 50 else r.prompt
+            msg_lines.append(
+                f"  {status} [{r.id[:8]}] {r.name}\n"
+                f"      cron: {r.cron_expression}\n"
+                f"      下次: {next_str}  上次: {last_str}\n"
+                f"      任务: {prompt_preview}"
+            )
+        msg_lines.append("\n操作: /routine add|remove|enable|disable|trigger <id>")
+        return {
+            "type": "agent.command.result",
+            "command": "routine",
+            "message": "\n".join(msg_lines),
+            "routines": [r.to_dict() for r in routines],
+        }
+
+    # 解析子命令 (支持引号)
+    try:
+        parts = shlex.split(raw)
+    except ValueError:
+        parts = raw.split()
+
+    sub = parts[0].lower() if parts else ""
+
+    # /routine add <name> <cron> <prompt>
+    if sub == "add":
+        if len(parts) < 4:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": (
+                    "用法: /routine add <name> <cron> <prompt>\n"
+                    "cron 示例: \"*/5 * * * *\" (每5分钟) / \"0 9 * * 1-5\" (工作日9点)\n"
+                    "prompt 可用引号包裹多行内容"
+                ),
+                "error": "missing_args",
+            }
+        name = parts[1]
+        # cron 可以是引号包裹的单个参数, 也可以是 5 个独立字段
+        if len(parts[2].split()) == 5:
+            cron_expr = parts[2]
+            prompt_parts = parts[3:]
+        else:
+            # 取接下来 5 个字段作为 cron
+            if len(parts) < 8:
+                return {
+                    "type": "agent.command.result",
+                    "command": "routine",
+                    "message": (
+                        "cron 表达式需要 5 个字段 (分 时 日 月 周)。\n"
+                        "建议用引号包裹: /routine add <name> \"*/5 * * * *\" <prompt>"
+                    ),
+                    "error": "invalid_cron",
+                }
+            cron_expr = " ".join(parts[2:7])
+            prompt_parts = parts[7:]
+        prompt = " ".join(prompt_parts)
+        if not prompt:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": "prompt 不能为空。",
+                "error": "missing_prompt",
+            }
+
+        # 校验 cron
+        try:
+            parse_cron(cron_expr)
+        except ValueError as e:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": f"cron 表达式非法: {e}",
+                "error": "invalid_cron",
+            }
+
+        effective_model = model_id or "default"
+        cfg = manager.add_routine(
+            name=name,
+            prompt=prompt,
+            cron_expression=cron_expr,
+            workspace_path=workspace_path,
+            model_id=effective_model,
+        )
+        next_str = _format_ts(cfg.next_run)
+        return {
+            "type": "agent.command.result",
+            "command": "routine",
+            "message": (
+                f"✓ 定时任务已创建\n"
+                f"  ID: {cfg.id}\n"
+                f"  名称: {cfg.name}\n"
+                f"  cron: {cfg.cron_expression}\n"
+                f"  下次执行: {next_str}\n"
+                f"  任务: {cfg.prompt[:80]}"
+            ),
+            "routine": cfg.to_dict(),
+        }
+
+    # /routine remove <id>
+    if sub == "remove":
+        if len(parts) < 2:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": "用法: /routine remove <id>",
+                "error": "missing_id",
+            }
+        target_id = _resolve_routine_id(manager, parts[1])
+        ok = manager.remove_routine(target_id)
+        if ok:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": f"✓ 定时任务 {target_id[:8]} 已删除。",
+                "removed": target_id,
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "routine",
+            "message": f"定时任务 {parts[1]} 不存在。",
+            "error": "not_found",
+        }
+
+    # /routine enable <id>
+    if sub == "enable":
+        if len(parts) < 2:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": "用法: /routine enable <id>",
+                "error": "missing_id",
+            }
+        target_id = _resolve_routine_id(manager, parts[1])
+        ok = manager.enable_routine(target_id)
+        if ok:
+            cfg = manager.get_routine(target_id)
+            next_str = _format_ts(cfg.next_run) if cfg else ""
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": f"✓ 定时任务 {target_id[:8]} 已启用。下次执行: {next_str}",
+                "enabled": target_id,
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "routine",
+            "message": f"定时任务 {parts[1]} 不存在。",
+            "error": "not_found",
+        }
+
+    # /routine disable <id>
+    if sub == "disable":
+        if len(parts) < 2:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": "用法: /routine disable <id>",
+                "error": "missing_id",
+            }
+        target_id = _resolve_routine_id(manager, parts[1])
+        ok = manager.disable_routine(target_id)
+        if ok:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": f"✓ 定时任务 {target_id[:8]} 已禁用。",
+                "disabled": target_id,
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "routine",
+            "message": f"定时任务 {parts[1]} 不存在。",
+            "error": "not_found",
+        }
+
+    # /routine trigger <id>
+    if sub == "trigger":
+        if len(parts) < 2:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": "用法: /routine trigger <id>",
+                "error": "missing_id",
+            }
+        target_id = _resolve_routine_id(manager, parts[1])
+        result = manager.trigger_routine(target_id)
+        if result is None:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": f"定时任务 {parts[1]} 不存在。",
+                "error": "not_found",
+            }
+        if "error" in result:
+            return {
+                "type": "agent.command.result",
+                "command": "routine",
+                "message": f"触发失败: {result['error']}",
+                "error": result["error"],
+            }
+        return {
+            "type": "agent.command.result",
+            "command": "routine",
+            "message": (
+                f"✓ 定时任务 {target_id[:8]} 已手动触发。\n"
+                f"  后台 agent_id: {result.get('agent_id', '?')}\n"
+                f"  可用 /agents 查看执行进度。"
+            ),
+            "triggered": result,
+        }
+
+    # 未知子命令
+    return {
+        "type": "agent.command.result",
+        "command": "routine",
+        "message": (
+            f"未知子命令: {sub}\n"
+            f"可用: add / remove / enable / disable / trigger\n"
+            f"或直接 /routine 查看所有定时任务"
+        ),
+        "error": "unknown_subcommand",
+    }
+
+
 # 命令分发映射
 COMMAND_HANDLERS = {
     "help": handle_help,
@@ -609,4 +1279,8 @@ COMMAND_HANDLERS = {
     "goal": handle_goal,
     "cost": handle_cost,
     "usage": handle_usage,
+    "memory": handle_memory,
+    "agents": handle_agents,
+    "pr": handle_pr,
+    "routine": handle_routine,
 }

@@ -20,6 +20,7 @@ import {
   getAiFeedTrend,
   triggerAiFeedFetch,
   type AiFeedItem,
+  type AiFeedListResponse,
   type AiFeedSource,
   type AiFeedTopic,
 } from '@/api/ai-feed'
@@ -111,7 +112,7 @@ export function useAiFeed() {
       // 后端返回 { code, data: [...items], total } — data 是数组, total 在顶层
       const resData = res?.data
       items.value = Array.isArray(resData) ? resData : (resData?.items ?? [])
-      total.value = res?.total ?? resData?.total ?? 0
+      total.value = res?.total ?? (resData as AiFeedListResponse | undefined)?.total ?? 0
       noMore.value = items.value.length >= total.value
     } catch (e) {
       console.warn('[useAiFeed] loadItems failed:', e)
@@ -165,7 +166,7 @@ export function useAiFeed() {
   async function loadStats() {
     try {
       const res = await getAiFeedStats()
-      const data = res?.data ?? res
+      const data = res?.data
       stats.value = data?.sources ?? []
     } catch (e) {
       console.warn('[useAiFeed] loadStats failed:', e)

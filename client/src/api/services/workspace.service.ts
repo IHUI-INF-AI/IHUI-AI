@@ -545,3 +545,181 @@ function parseGlobOutput(output: string | undefined | null): string[] {
     .filter((l) => l && !l.startsWith('...') && l !== '(无匹配)')
     .sort((a, b) => a.localeCompare(b))
 }
+
+// ---------------------------------------------------------------------------
+// Background Agents API (多会话并行 — 对标 Claude Code Background Agents)
+// ---------------------------------------------------------------------------
+
+/** 后台 Agent 状态 */
+export type BackgroundAgentStatus = 'running' | 'completed' | 'failed' | 'cancelled'
+
+/** 后台 Agent 进度信息 */
+export interface BackgroundAgentProgress {
+  iterations: number
+  tool_calls: number
+  last_event_type: string
+  text_preview: string
+}
+
+/** 后台 Agent 结果 */
+export interface BackgroundAgentResult {
+  output: string
+  iterations: number
+  finish_reason?: string
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+    iterations: number
+  }
+}
+
+/** 后台 Agent 信息 */
+export interface BackgroundAgentInfo {
+  agent_id: string
+  status: BackgroundAgentStatus
+  prompt: string
+  workspace_path: string
+  model_id: string
+  user_uuid: string
+  created_at: number
+  updated_at: number
+  progress: BackgroundAgentProgress
+  result: BackgroundAgentResult | null
+  error: string | null
+  events_file: string
+}
+
+/** 启动后台 Agent 的参数 */
+export interface StartBackgroundAgentParams {
+  prompt: string
+  workspace_path: string
+  model_id?: string
+  user_uuid?: string
+  max_iterations?: number
+  system_prompt?: string
+  permission_mode?: string
+}
+
+/** 启动后台 Agent */
+export async function startBackgroundAgent(params: StartBackgroundAgentParams): Promise<{ agent_id: string; status: string }> {
+  const resp = await request.post(`${BASE}/background-agents`, {
+    prompt: params.prompt,
+    workspace_path: params.workspace_path,
+    model_id: params.model_id ?? 'default',
+    user_uuid: params.user_uuid ?? 'anonymous',
+    max_iterations: params.max_iterations ?? 25,
+    system_prompt: params.system_prompt,
+    permission_mode: params.permission_mode ?? 'bypassPermissions',
+  })
+  return resp.data?.data ?? { agent_id: '', status: 'running' }
+}
+
+/** 列出后台 Agent (可按工作区过滤) */
+export async function listBackgroundAgents(workspacePath?: string): Promise<BackgroundAgentInfo[]> {
+  const resp = await request.get(`${BASE}/background-agents`, {
+    params: workspacePath ? { workspace_path: workspacePath } : {},
+  })
+  return resp.data?.data ?? []
+}
+
+/** 获取后台 Agent 状态 */
+export async function getBackgroundAgentStatus(agentId: string): Promise<BackgroundAgentInfo | null> {
+  const resp = await request.get(`${BASE}/background-agents/${agentId}`)
+  return resp.data?.data ?? null
+}
+
+/** 取消后台 Agent */
+export async function cancelBackgroundAgent(agentId: string): Promise<boolean> {
+  const resp = await request.delete(`${BASE}/background-agents/${agentId}`)
+  return resp.data?.code === '0'
+}
+
+/** 获取后台 Agent 结果 */
+export async function getBackgroundAgentResult(agentId: string): Promise<{
+  status: string
+  output: string
+  iterations: number
+  usage: Record<string, number>
+  error: string | null
+} | null> {
+  const resp = await request.get(`${BASE}/background-agents/${agentId}/result`)
+  return resp.data?.data ?? null
+}
+
+/** 获取后台 Agent 事件流 (增量读取) */
+export async function getBackgroundAgentEvents(agentId: string, fromLine = 0, limit = 500): Promise<Record<string, unknown>[]> {
+  const resp = await request.get(`${BASE}/background-agents/${agentId}/events`, {
+    params: { from_line: fromLine, limit },
+  })
+  return resp.data?.data ?? []
+}
+
+/** 彻底删除后台 Agent 记录 */
+export async function purgeBackgroundAgent(agentId: string): Promise<boolean> {
+  const resp = await request.delete(`${BASE}/background-agents/${agentId}/purge`)
+  return resp.data?.data?.deleted ?? false
+}
+
+// ---------------------------------------------------------------------------
+// Routines 定时任务 API (对标 Claude Code Routines)
+// ---------------------------------------------------------------------------
+
+export interface RoutineInfo {
+  id: string
+  name: string
+  prompt: string
+  cron_expression: string
+  workspace_path: string
+  model_id: string
+  enabled: boolean
+  created_at: number
+  last_run: number | null
+  last_result: string | null
+  next_run: number | null
+}
+
+export interface CreateRoutinePayload {
+  name: string
+  prompt: string
+  cron_expression: string
+  workspace_path: string
+  model_id?: string
+  enabled?: boolean
+}
+
+/** 列出定时任务 */
+export async function listRoutines(workspacePath: string): Promise<RoutineInfo[]> {
+  const resp = await request.get(`${BASE}/routines`, { params: { workspace_path: workspacePath } })
+  return resp.data?.data ?? []
+}
+
+/** 创建定时任务 */
+export async function createRoutine(payload: CreateRoutinePayload): Promise<RoutineInfo> {
+  const resp = await request.post(`${BASE}/routines`, payload)
+  return resp.data?.data
+}
+
+/** 获取定时任务详情 */
+export async function getRoutine(routineId: string): Promise<RoutineInfo | null> {
+  const resp = await request.get(`${BASE}/routines/${routineId}`)
+  return resp.data?.data ?? null
+}
+
+/** 更新定时任务 */
+export async function updateRoutine(routineId: string, updates: Partial<CreateRoutinePayload>): Promise<RoutineInfo | null> {
+  const resp = await request.put(`${BASE}/routines/${routineId}`, updates)
+  return resp.data?.data ?? null
+}
+
+/** 删除定时任务 */
+export async function deleteRoutine(routineId: string): Promise<boolean> {
+  const resp = await request.delete(`${BASE}/routines/${routineId}`)
+  return resp.data?.data?.deleted ?? false
+}
+
+/** 手动触发定时任务 */
+export async function triggerRoutine(routineId: string): Promise<{ triggered: boolean; agent_id?: string }> {
+  const resp = await request.post(`${BASE}/routines/${routineId}/trigger`)
+  return resp.data?.data ?? { triggered: false }
+}

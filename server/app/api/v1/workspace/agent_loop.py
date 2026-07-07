@@ -32,7 +32,7 @@ from app.api.v1.workspace.llm_gateway import (
     get_tool_definitions,
 )
 from app.api.v1.workspace.tools import execute_tool
-from app.api.v1.workspace.memory import load_project_memory, build_system_prompt
+from app.api.v1.workspace.memory import load_project_memory, build_system_prompt_with_auto
 from app.api.v1.workspace.skills import run_hooks, discover_skills
 from app.api.v1.workspace.permissions import PermissionChecker, PermissionMode
 
@@ -287,7 +287,7 @@ async def run_agent_loop(
         sys_prompt = system_prompt
     else:
         memory = load_project_memory(workspace_path)
-        sys_prompt = build_system_prompt(workspace_path, memory)
+        sys_prompt = build_system_prompt_with_auto(workspace_path, memory)
 
     # 4.1 注入 Persona system_prompt (对标 Claude Code Sub-agents / Codex GPTs)
     # — 通过 persona_id 加载专家角色, 拼接到 system prompt 头部
@@ -451,6 +451,7 @@ submit_plan(
         "iterations": 0,
     }
     for iteration in range(1, max_iterations + 1):
+      try:
         # 上下文压缩 (对标 Codex 的 context window management)
         if len(messages) > MAX_CONTEXT_MESSAGES:
             # PreCompact Hook
@@ -609,6 +610,11 @@ submit_plan(
                 # 执行工具
                 result = await execute_tool(tc_name, tc_args, workspace_path)
 
+                # 工具输出截断保护 (对标 Claude Code — 防止超长输出污染上下文)
+                MAX_TOOL_OUTPUT = 30000
+                if len(result.output) > MAX_TOOL_OUTPUT:
+                    result.output = result.output[:MAX_TOOL_OUTPUT] + f"\n\n[输出已截断: 原始 {len(result.output)} 字符, 显示前 {MAX_TOOL_OUTPUT} 字符]"
+
                 # PostToolUse Hook
                 post_hook = await run_hooks(workspace_path, "PostToolUse", {
                     "tool_name": tc_name, "tool_input": tc_args, "tool_output": result.output,
@@ -622,7 +628,8 @@ submit_plan(
                               "output": result.output, "error": result.error,
                               "success": result.success, "iteration": iteration},
                     "msg": ChatMessage(role="tool", content=result.output if result.success else f"错误: {result.error}",
-                                       tool_call_id=tc_id, name=tc_name),
+                                       tool_call_id=tc_id, name=tc_name,
+                                       images=getattr(result, "images", None)),
                 }
 
             # 并行执行所有只读工具
@@ -777,6 +784,11 @@ submit_plan(
                 # 执行工具
                 result = await execute_tool(tc_name, tc_args, workspace_path)
 
+                # 工具输出截断保护 (对标 Claude Code — 防止超长输出污染上下文)
+                MAX_TOOL_OUTPUT = 30000  # ~7500 tokens
+                if len(result.output) > MAX_TOOL_OUTPUT:
+                    result.output = result.output[:MAX_TOOL_OUTPUT] + f"\n\n[输出已截断: 原始 {len(result.output)} 字符, 显示前 {MAX_TOOL_OUTPUT} 字符]"
+
                 # PostToolUse Hook (可反馈但不能阻断已执行的操作)
                 post_hook = await run_hooks(workspace_path, "PostToolUse", {
                     "tool_name": tc_name,
@@ -807,15 +819,35 @@ submit_plan(
                         "workspace_path": workspace_path,
                     }
 
-                # 将工具结果加入消息
+                # 将工具结果加入消息 (Computer Use 截图等可携带图片供 LLM vision 接收)
                 messages.append(
                     ChatMessage(
                         role="tool",
                         content=result.output if result.success else f"错误: {result.error}",
                         tool_call_id=tc_id,
                         name=tc_name,
+                        images=getattr(result, "images", None),
                     )
                 )
+
+      except Exception as e:
+        # 顶层错误恢复: 单次迭代异常不终止整个循环 (对标 Codex 稳健容错)
+        yield {
+            "type": "agent.error",
+            "message": f"第 {iteration} 轮迭代异常: {e}",
+            "iteration": iteration,
+            "recoverable": True,
+        }
+        # 如果是第 1 次迭代就出错, 直接终止 (可能是配置/连接问题)
+        if iteration == 1:
+            yield {"type": "agent.done", "iterations": iteration,
+                   "finish_reason": "error", "message": f"首轮即异常, 终止: {e}",
+                   "usage": dict(total_usage)}
+            await run_hooks(workspace_path, "SessionEnd", {
+                "reason": "error",
+                "workspace_path": workspace_path,
+            })
+            return
 
     # 达到最大迭代次数
     # Stop Hook

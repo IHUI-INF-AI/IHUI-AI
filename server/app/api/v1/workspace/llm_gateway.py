@@ -41,6 +41,9 @@ class ChatMessage:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)  # assistant 消息的工具调用
     tool_call_id: str | None = None  # tool 角色消息的关联 ID
     name: str | None = None  # 工具名 (tool 角色)
+    # 多模态图片 (Computer Use 截图等): 每个元素为不含 data URI 前缀的纯 base64 字符串 (PNG)。
+    # 网关会按协议转成对应的多模态内容块 (OpenAI image_url / Anthropic image)。
+    images: list[str] | None = None
 
 
 @dataclass
@@ -140,10 +143,13 @@ async def chat_openai(
 
     url = f"{api_base.rstrip('/')}/chat/completions"
 
-    # 构建请求体
+    # 构建请求体 (每条消息可能展开为多条, 例如 tool+图片会拆成 tool 文本 + user 图片)
+    oai_messages: list[dict[str, Any]] = []
+    for m in messages:
+        oai_messages.extend(_msg_to_openai(m))
     body: dict[str, Any] = {
         "model": model_name,
-        "messages": [_msg_to_openai(m) for m in messages],
+        "messages": oai_messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": stream,
@@ -260,18 +266,54 @@ async def chat_openai(
         yield {"type": "error", "message": str(e)}
 
 
-def _msg_to_openai(m: ChatMessage) -> dict[str, Any]:
-    """ChatMessage → OpenAI 消息格式。"""
+def _oai_image_blocks(images: list[str]) -> list[dict[str, Any]]:
+    """将 base64 图片列表转为 OpenAI image_url 内容块。"""
+    return [
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
+        for b64 in images
+    ]
+
+
+def _msg_to_openai(m: ChatMessage) -> list[dict[str, Any]]:
+    """ChatMessage → OpenAI 消息列表 (支持多模态图片)。
+
+    - tool 角色: OpenAI 不支持图片放入 tool 消息, 故有图片时拆成
+      [tool 文本消息, user 图片消息] 两条 (OpenAI 允许连续消息)。
+    - user/assistant 角色: 有图片时 content 转为多模态内容块列表。
+    """
     if m.role == "tool":
-        return {
+        msgs: list[dict[str, Any]] = [{
             "role": "tool",
             "content": m.content,
             "tool_call_id": m.tool_call_id or "",
-        }
-    msg: dict[str, Any] = {"role": m.role, "content": m.content}
+        }]
+        if m.images:
+            msgs.append({
+                "role": "user",
+                "content": [{"type": "text", "text": "[截图结果]"}] + _oai_image_blocks(m.images),
+            })
+        return msgs
+
+    msg: dict[str, Any] = {"role": m.role}
+    if m.images:
+        blocks: list[dict[str, Any]] = []
+        if m.content:
+            blocks.append({"type": "text", "text": m.content})
+        blocks.extend(_oai_image_blocks(m.images))
+        msg["content"] = blocks
+    else:
+        msg["content"] = m.content
     if m.tool_calls:
         msg["tool_calls"] = m.tool_calls
-    return msg
+    return [msg]
+
+
+def _anthropic_image_blocks(images: list[str]) -> list[dict[str, Any]]:
+    """将 base64 图片列表转为 Anthropic image 内容块。"""
+    return [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}}
+        for b64 in images
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -303,12 +345,16 @@ async def chat_anthropic(
         if m.role == "system":
             system_text += m.content + "\n"
         elif m.role == "tool":
+            # tool_result 内容: 有图片时转为 [文本块, 图片块...] (Anthropic 支持)
+            tr_content: Any = m.content
+            if m.images:
+                tr_content = [{"type": "text", "text": m.content}] + _anthropic_image_blocks(m.images)
             chat_msgs.append({
                 "role": "user",
                 "content": [{
                     "type": "tool_result",
                     "tool_use_id": m.tool_call_id or "",
-                    "content": m.content,
+                    "content": tr_content,
                 }],
             })
         elif m.role == "assistant" and m.tool_calls:
@@ -334,7 +380,15 @@ async def chat_anthropic(
                 })
             chat_msgs.append({"role": "assistant", "content": content_blocks})
         else:
-            chat_msgs.append({"role": m.role, "content": m.content})
+            # 普通用户/助手消息: 有图片时转为多模态内容块列表
+            if m.images:
+                blocks = []
+                if m.content:
+                    blocks.append({"type": "text", "text": m.content})
+                blocks.extend(_anthropic_image_blocks(m.images))
+                chat_msgs.append({"role": m.role, "content": blocks})
+            else:
+                chat_msgs.append({"role": m.role, "content": m.content})
 
     body: dict[str, Any] = {
         "model": model_name,

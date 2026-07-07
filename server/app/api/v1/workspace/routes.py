@@ -62,6 +62,9 @@ from app.api.v1.workspace.schemas import (
     RunCommandRequest,
     AgentChatRequest,
     SkillMeta,
+    StartBackgroundAgentRequest,
+    CreateRoutineRequest,
+    UpdateRoutineRequest,
 )
 from app.api.v1.workspace.session_store import (
     load_recent_workspaces,
@@ -382,6 +385,7 @@ async def agent_websocket(websocket: WebSocket, user_uuid: str = ""):
                     chat_id=chat_id,
                     args=cmd_args,
                     user_uuid=user_uuid,
+                    model_id=model_id,
                 )
                 await websocket.send_text(json.dumps(result, ensure_ascii=False, default=str))
 
@@ -907,6 +911,207 @@ async def search_symbols(workspace_path: str, query: str, limit: int = 30):
     index = get_or_build_index(workspace_path)
     results = search_symbols(index, query, limit)
     return success(data=results)
+
+
+# ---------------------------------------------------------------------------
+# Background Agents (多会话并行 — 对标 Claude Code Background Agents / Codex 多会话)
+# ---------------------------------------------------------------------------
+
+@router.post("/background-agents")
+async def start_background_agent(req: StartBackgroundAgentRequest):
+    """启动一个后台 Agent — 在后台运行 agent loop, 不阻塞调用方。
+
+    返回 agent_id, 后续可通过 GET /background-agents/{agent_id} 查询状态。
+    """
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    if not req.prompt or not req.workspace_path:
+        return error(msg="缺少 prompt 或 workspace_path")
+
+    manager = get_background_agent_manager()
+    agent_id = manager.start_background_agent(
+        prompt=req.prompt,
+        workspace_path=req.workspace_path,
+        model_id=req.model_id,
+        user_uuid=req.user_uuid,
+        max_iterations=req.max_iterations,
+        system_prompt=req.system_prompt,
+        permission_mode=req.permission_mode,
+    )
+    return success(data={"agent_id": agent_id, "status": "running"})
+
+
+@router.get("/background-agents")
+async def list_background_agents(workspace_path: str | None = None):
+    """列出所有后台 Agent (可按工作区过滤)。"""
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    agents = manager.list_background_agents(workspace_path)
+    return success(data=agents, total=len(agents))
+
+
+@router.get("/background-agents/{agent_id}")
+async def get_background_agent_status(agent_id: str):
+    """获取指定后台 Agent 的状态 + 进度摘要。"""
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    status = manager.get_agent_status(agent_id)
+    if not status:
+        return error(msg=f"后台 agent {agent_id} 不存在")
+    return success(data=status)
+
+
+@router.delete("/background-agents/{agent_id}")
+async def cancel_background_agent(agent_id: str):
+    """取消运行中的后台 Agent。"""
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    ok = manager.cancel_background_agent(agent_id)
+    if not ok:
+        return error(msg=f"无法取消: agent {agent_id} 不存在或已结束")
+    return success(data={"agent_id": agent_id, "status": "cancelled"})
+
+
+@router.get("/background-agents/{agent_id}/result")
+async def get_background_agent_result(agent_id: str):
+    """获取已完成后台 Agent 的结果。"""
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    result = manager.get_agent_result(agent_id)
+    if not result:
+        return error(msg=f"后台 agent {agent_id} 不存在")
+    return success(data=result)
+
+
+@router.get("/background-agents/{agent_id}/events")
+async def get_background_agent_events(agent_id: str, from_line: int = 0, limit: int = 500):
+    """获取后台 Agent 的事件流 (JSONL, 支持增量读取)。"""
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    events = manager.get_agent_events(agent_id, from_line=from_line, limit=limit)
+    return success(data=events)
+
+
+@router.delete("/background-agents/{agent_id}/purge")
+async def purge_background_agent(agent_id: str):
+    """彻底删除后台 Agent 记录 (含磁盘文件)。"""
+    from app.api.v1.workspace.background_agents import get_background_agent_manager
+
+    manager = get_background_agent_manager()
+    ok = manager.delete_background_agent(agent_id)
+    return success(data={"deleted": ok})
+
+
+# ---------------------------------------------------------------------------
+# Routines — 定时任务 (对标 Claude Code Routines)
+# ---------------------------------------------------------------------------
+
+@router.post("/routines")
+async def create_routine(req: CreateRoutineRequest):
+    """创建定时任务 — 指定 cron 表达式和 prompt, 调度器到期自动执行。"""
+    from app.api.v1.workspace.routines import get_routine_manager, parse_cron
+
+    if not req.name or not req.prompt or not req.cron_expression or not req.workspace_path:
+        return error(msg="缺少 name / prompt / cron_expression / workspace_path")
+
+    # 校验 cron 表达式
+    try:
+        parse_cron(req.cron_expression)
+    except ValueError as e:
+        return error(msg=f"cron 表达式非法: {e}")
+
+    manager = get_routine_manager()
+    cfg = manager.add_routine(
+        name=req.name,
+        prompt=req.prompt,
+        cron_expression=req.cron_expression,
+        workspace_path=req.workspace_path,
+        model_id=req.model_id,
+        enabled=req.enabled,
+    )
+    return success(data=cfg.to_dict())
+
+
+@router.get("/routines")
+async def list_routines(workspace_path: str | None = None):
+    """列出所有定时任务 (可按工作区过滤)。"""
+    from app.api.v1.workspace.routines import get_routine_manager
+
+    manager = get_routine_manager()
+    routines = manager.list_routines(workspace_path)
+    return success(data=[r.to_dict() for r in routines], total=len(routines))
+
+
+@router.get("/routines/{routine_id}")
+async def get_routine(routine_id: str):
+    """获取定时任务详情。"""
+    from app.api.v1.workspace.routines import get_routine_manager
+
+    manager = get_routine_manager()
+    cfg = manager.get_routine(routine_id)
+    if cfg is None:
+        return error(msg=f"定时任务 {routine_id} 不存在")
+    return success(data=cfg.to_dict())
+
+
+@router.put("/routines/{routine_id}")
+async def update_routine(routine_id: str, req: UpdateRoutineRequest):
+    """更新定时任务配置 (所有字段可选)。"""
+    from app.api.v1.workspace.routines import get_routine_manager, parse_cron
+
+    # 校验 cron (如果提供了)
+    if req.cron_expression is not None:
+        try:
+            parse_cron(req.cron_expression)
+        except ValueError as e:
+            return error(msg=f"cron 表达式非法: {e}")
+
+    manager = get_routine_manager()
+    cfg = manager.update_routine(
+        routine_id,
+        name=req.name,
+        prompt=req.prompt,
+        cron_expression=req.cron_expression,
+        model_id=req.model_id,
+        enabled=req.enabled,
+    )
+    if cfg is None:
+        return error(msg=f"定时任务 {routine_id} 不存在")
+    return success(data=cfg.to_dict())
+
+
+@router.delete("/routines/{routine_id}")
+async def delete_routine(routine_id: str):
+    """删除定时任务。"""
+    from app.api.v1.workspace.routines import get_routine_manager
+
+    manager = get_routine_manager()
+    ok = manager.remove_routine(routine_id)
+    if not ok:
+        return error(msg=f"定时任务 {routine_id} 不存在")
+    return success(data={"deleted": True, "routine_id": routine_id})
+
+
+@router.post("/routines/{routine_id}/trigger")
+async def trigger_routine(routine_id: str):
+    """手动触发定时任务 (立即执行一次, 不影响调度周期)。
+
+    通过 BackgroundAgentManager 启动后台 agent 执行 prompt。
+    """
+    from app.api.v1.workspace.routines import get_routine_manager
+
+    manager = get_routine_manager()
+    result = manager.trigger_routine(routine_id)
+    if result is None:
+        return error(msg=f"定时任务 {routine_id} 不存在")
+    if "error" in result:
+        return error(msg=result["error"])
+    return success(data=result)
 
 
 # ---------------------------------------------------------------------------

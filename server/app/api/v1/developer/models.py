@@ -270,7 +270,7 @@ async def toggle_provider(
 @router.post("/{provider_id}/test", summary="Test saved provider connection")
 async def test_saved_provider(
     provider_id: int,
-    mode: str = Query("chat", regex="^(connect|list|chat)$"),
+    mode: str = Query("chat", pattern="^(connect|list|chat)$"),
     user_uuid: str = Depends(require_login),
 ):
     """Test a saved provider's connection and update last_test_* cache fields."""

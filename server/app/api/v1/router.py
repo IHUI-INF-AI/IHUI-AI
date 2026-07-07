@@ -813,8 +813,29 @@ api_router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
 # 2026-07-07 P0 修复: workspace router 此前未注册, 导致 /api/v1/workspace/* 全部 404
 # (Stage A 的 slash commands endpoint 不可达)
 # 注: workspace.routes 中 APIRouter 已自带 prefix="/workspace", include_router 不要重复加
+# 重要: 由于 FastAPI 嵌套 include_router 在某些版本下会变成 _IncludedRouter 包装
+# 而不真正展开 routes, 这里采用低层级方式: 手动遍历并 add_api_route, 确保 routes 进入 api_router
+# 同时为了避免重复 Operation ID 警告, 先 include_router, 然后检测是否真正展开
 from app.api.v1.workspace import router as workspace_router
-api_router.include_router(workspace_router, tags=["Workspace"])
+if not any("workspace" in getattr(r, "path", "").lower() for r in api_router.routes):
+    # 嵌套 include_router 没生效, 手动展开
+    from fastapi.routing import APIRoute, APIWebSocketRoute
+    for r in workspace_router.routes:
+        if isinstance(r, APIRoute):
+            api_router.add_api_route(
+                path=r.path,
+                endpoint=r.endpoint,
+                methods=list(r.methods or []),
+                tags=["Workspace"],
+            )
+        elif isinstance(r, APIWebSocketRoute):
+            api_router.add_websocket_route(
+                path=r.path,
+                endpoint=r.endpoint,
+            )
+else:
+    # 已生效, 正常 include_router
+    api_router.include_router(workspace_router, tags=["Workspace"])
 
 # WebSocket
 api_router.include_router(ws_timbre_router, prefix="/ws/timbre", tags=["WS Timbre"])

@@ -140,9 +140,9 @@ onMounted(() => {
 })
 
 // 监听分类加载完成
-watch(categories, (cats) => {
-  if (cats.length > 0 && !activeCategoryId.value) {
-    activeCategoryId.value = cats[0].id
+watch(categories, () => {
+  if (categories.value.length > 0 && !activeCategoryId.value) {
+    activeCategoryId.value = categories.value[0].id
   }
 }, { immediate: true })
 

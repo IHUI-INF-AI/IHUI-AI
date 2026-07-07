@@ -391,4 +391,6 @@ def build_system_prompt_with_auto(workspace_path: str, memory: dict[str, Any]) -
     # 注入自动学习内容
     auto_learnings = load_auto_learnings(workspace_path)
     if auto_learnings:
-        base_prompt += f"\n\n## 自动学习记忆 (AutoMemory)\n\n以下是从历史会话中自动提取的知识, 请参考:\n\n{auto_learnings
+        base_prompt += f"\n\n## 自动学习记忆 (AutoMemory)\n\n以下是从历史会话中自动提取的知识, 请参考:\n\n{auto_learnings}"
+
+    return base_prompt

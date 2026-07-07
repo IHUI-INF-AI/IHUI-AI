@@ -102,9 +102,9 @@ def main():
             return codebase_incremental.incremental_update(str(tmp_workspace))
         bench("Codebase 增量更新 (git + 1 文件)", incremental, iters=20)
 
-        # 6. Codebase 检索 (semantic)
+        # 6. Codebase 检索 (semantic) — 用真实存在的 token
         def search_semantic():
-            return codebase_incremental.search_codebase(str(tmp_workspace), "function", mode="semantic", limit=10)
+            return codebase_incremental.search_codebase(str(tmp_workspace), "file_1", mode="semantic", limit=10)
         bench("Codebase 检索 (semantic 模式)", search_semantic, iters=50)
 
         def search_fuzzy():

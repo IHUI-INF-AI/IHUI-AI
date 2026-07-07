@@ -266,3 +266,44 @@ class ToolCallResult(BaseModel):
     output: str
     error: str | None = None
     success: bool = True
+    # Computer Use: 截图等工具可携带 base64 编码的图片 (PNG), 供 LLM vision 接收。
+    # 每个元素为不含 data URI 前缀的纯 base64 字符串。
+    images: list[str] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Background Agents (多会话并行 — 对标 Claude Code Background Agents / Codex 多会话)
+# ---------------------------------------------------------------------------
+
+class StartBackgroundAgentRequest(BaseModel):
+    """启动后台 Agent 请求。"""
+    prompt: str = Field(..., description="任务描述")
+    workspace_path: str = Field(..., description="工作区绝对路径")
+    model_id: str = Field("default", description="模型 code")
+    user_uuid: str = Field("anonymous", description="用户 UUID")
+    max_iterations: int = Field(25, ge=1, le=100, description="最大工具循环次数")
+    system_prompt: str | None = Field(None, description="自定义系统提示词 (可选)")
+    permission_mode: str = Field("bypassPermissions", description="权限模式 (后台默认 bypassPermissions)")
+
+
+# ---------------------------------------------------------------------------
+# Routines — 定时任务 (对标 Claude Code Routines)
+# ---------------------------------------------------------------------------
+
+class CreateRoutineRequest(BaseModel):
+    """创建定时任务请求。"""
+    name: str = Field(..., description="用户可读名称")
+    prompt: str = Field(..., description="定时执行的 agent prompt")
+    cron_expression: str = Field(..., description="5 字段 cron 表达式 (分 时 日 月 周)")
+    workspace_path: str = Field(..., description="工作区绝对路径")
+    model_id: str = Field("default", description="模型 code")
+    enabled: bool = Field(True, description="是否启用")
+
+
+class UpdateRoutineRequest(BaseModel):
+    """更新定时任务请求 (所有字段可选)。"""
+    name: str | None = Field(None, description="用户可读名称")
+    prompt: str | None = Field(None, description="定时执行的 agent prompt")
+    cron_expression: str | None = Field(None, description="5 字段 cron 表达式 (分 时 日 月 周)")
+    model_id: str | None = Field(None, description="模型 code")
+    enabled: bool | None = Field(None, description="是否启用")

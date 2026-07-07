@@ -208,10 +208,28 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Monitor/canary bridge start skipped: {e}")
 
+    # IHUI-AI: 启动 Routines 定时任务调度器 (加载已保存的 routines 并开始定时检查)
+    try:
+        from app.api.v1.workspace.routines import get_routine_manager
+
+        _routine_mgr = get_routine_manager()
+        await _routine_mgr.start_scheduler()
+        logger.info(f"Routines scheduler started ({len(_routine_mgr._routines)} routines loaded)")
+    except Exception as e:
+        logger.warning(f"Routines scheduler start skipped: {e}")
+
     yield  # Application runs here
 
     # Shutdown
     logger.info("Shutting down ZHS Platform...")
+
+    # IHUI-AI: 停止 Routines 定时任务调度器
+    try:
+        from app.api.v1.workspace.routines import get_routine_manager
+
+        await get_routine_manager().stop_scheduler()
+    except Exception as e:
+        logger.warning(f"Routines scheduler stop skipped: {e}")
 
     # Stop local SMTP server
     try:

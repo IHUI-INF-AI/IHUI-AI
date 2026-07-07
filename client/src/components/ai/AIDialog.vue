@@ -350,11 +350,10 @@ import {
   Clock,
   Minus,
   // 2026-07-06 Trae 风格工具栏新增图标
-  At,         // @ 提及
-  Hash,       // # 标签
   MagicStick, // ✨ 能力触发
-  Zap,        // ⚡ 速通
 } from '@element-plus/icons-vue'
+// At / Hash / Zap 在 @element-plus/icons-vue 无对应导出, 改从 lucide-fallback 引入(已有映射)
+import { At, Hash, Zap } from '@/lib/lucide-fallback'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import VoiceRecordingAnimation from './VoiceRecordingAnimation.vue'
 import ImageList from '../InputArea/ImageList.vue'
@@ -830,7 +829,7 @@ const combinedPlaceholder = computed(() => {
 // 2026-07-06 Trae 风格: 工具栏模型按钮 label (紧凑显示)
 const modelButtonLabel = computed(() => {
   if (!props.selectedModel) return t('aiChatInput.selectModel')
-  const m = props.modelList?.find((x) => x.modelCode === props.selectedModel)
+  const m = props.modelList?.find((x: ModelInfo) => x.modelCode === props.selectedModel)
   const name = m?.modelName || props.selectedModel
   return name.length > 6 ? `${name.slice(0, 6)}…` : name
 })
