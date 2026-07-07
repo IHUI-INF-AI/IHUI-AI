@@ -1117,14 +1117,14 @@ interface NavGroup {
 
 const navGroups = computed<NavGroup[]>(() => {
   const goToPath = (path: string, query?: Record<string, string>, hash?: string) => {
-    // 2026-07-08: hash 锚点跳转 (同路由 /about/about-us 切换 #contact 等)
-    if (hash) {
-      router.push({ path, hash })
-    } else {
-      router.push(query ? { path, query } : path)
-    }
-    closeMobile()
+  const route = query ? { path, query } : path
+  if (hash) {
+    router.push(typeof route === 'string' ? { path: route, hash } : { ...route, hash })
+  } else {
+    router.push(route)
   }
+  closeMobile()
+}
 
   return [
     {
