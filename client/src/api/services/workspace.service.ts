@@ -526,8 +526,10 @@ export async function searchFiles(workspacePath: string, query: string, limit = 
 
   // 3. 回退: glob 按文件名子串匹配 (始终可用)
   try {
-    const safe = query.replace(/[*?[\](){}.+]/g, '')
-    const result = await globFiles(workspacePath, '', `**/*${safe}*`)
+    // 转义 glob 元字符 (\* ? [ ] { } ( ) . +), 让后端按字面解释.
+    // 比起直接删除, 转义能保留 "test.js" 中的 . 等有效字符, 避免误匹配.
+    const safe = query.replace(/[*?[\](){}.+]/g, '\\$&')
+    const result = await globFiles(workspacePath, '', `*${safe}*`)
     return parseGlobOutput(result.output).slice(0, limit)
   } catch {
     return []
