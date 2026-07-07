@@ -35,6 +35,18 @@
     "build:wx": "npm run build:mp-weixin",
     "build:alipay": "chcp 65001 >NUL && cross-env-shell BUILD_PLATFORM=alipay \"vue-tsc && vite build\"",
     "build:electron": "chcp 65001 >NUL && cross-env-shell BUILD_PLATFORM=electron \"vue-tsc && vite build\"",
+    "prebuild:web": "node scripts/keep-build-archive.mjs --platform web",
+    "prebuild:h5": "node scripts/keep-build-archive.mjs --platform h5",
+    "prebuild:alipay": "node scripts/keep-build-archive.mjs --platform alipay",
+    "prebuild:electron": "node scripts/keep-build-archive.mjs --platform electron",
+    "prebuild:mp-weixin": "node scripts/keep-build-archive.mjs --platform mp-weixin",
+    "archive:web": "node scripts/keep-build-archive.mjs --platform web",
+    "archive:h5": "node scripts/keep-build-archive.mjs --platform h5",
+    "archive:alipay": "node scripts/keep-build-archive.mjs --platform alipay",
+    "archive:electron": "node scripts/keep-build-archive.mjs --platform electron",
+    "archive:mp-weixin": "node scripts/keep-build-archive.mjs --platform mp-weixin",
+    "archive:all": "node scripts/keep-build-archive.mjs --platform web && node scripts/keep-build-archive.mjs --platform h5 && node scripts/keep-build-archive.mjs --platform alipay && node scripts/keep-build-archive.mjs --platform electron && node scripts/keep-build-archive.mjs --platform mp-weixin",
+    "archive:list": "node -e \"const fs=require('fs'),path=require('path');const dir=path.resolve('..','archives');if(!fs.existsSync(dir)){console.log('archives 目录不存在');process.exit(0);}const files=fs.readdirSync(dir).filter(f=>f.startsWith('frontend-')&&f.endsWith('.zip')).sort().reverse();const total=files.reduce((a,f)=>a+fs.statSync(path.join(dir,f)).size,0);console.log('共 '+files.length+' 份, 总 '+((total/1024/1024).toFixed(2))+' MB');files.forEach(f=>{const s=fs.statSync(path.join(dir,f));console.log(new Date(s.mtime).toISOString().replace('T',' ').slice(0,19)+'  '+((s.size/1024/1024).toFixed(2).padStart(8))+' MB  '+f);});\"",
     "electron:dev": "chcp 65001 >NUL && cross-env NODE_ENV=development electron electron/main.cjs",
     "electron:build": "chcp 65001 >NUL && npm run build:electron && electron-builder",
     "build:fast": "vite build --mode production",
@@ -152,17 +164,20 @@
     "build:storybook": "storybook build -o storybook-static",
     "clean": "node scripts/clean.mjs",
     "clean:dist": "rimraf dist dist-ssr .vite",
-    "chromatic": "chromatic --exit-zero-on-changes"
+    "chromatic": "chromatic --exit-zero-on-changes",
+    "check:keep-build-archive": "node scripts/check-keep-build-archive.mjs",
+    "check:keep-build-archive:strict": "node scripts/check-keep-build-archive.mjs --strict",
+    "check:keep-build-archive:fix": "node scripts/check-keep-build-archive.mjs --fix"
   },
   "simple-git-hooks": {
     "pre-commit": "cd client && npx lint-staged --no-stash && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent && npm run check:sidebar:dark-tier:staged --silent && npm run check:sidebar-login-row:alignment:staged --silent && npm run check:ai-header:style-scope:staged --silent && npm run check:ai-customer-service-status:staged --silent && npm run check:session-expired-button:no-double-border:staged --silent && npm run check:dark-overlay-primary-button:no-double-border:staged --silent && npm run check:dark-overlay-bg-color-unified:staged --silent && npm run check:primary-button-contrast:staged --silent && npm run check:button-text-contrast:staged --silent && npm run check:color-contrast:systemic:staged --silent && npm run check:sidebar-header:staged --silent && npm run check:popper-backdrop-leak --silent && node scripts/check-pre-commit-hook-content.mjs",
-    "pre-push": "cd client && npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent"
+    "pre-push": "cd client && npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent && npm run check:keep-build-archive --silent"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
       "eslint --fix --max-warnings=-1"
     ],
-    "*.{js,jsx}": [
+    "*.{js,jsx,mjs,cjs}": [
       "eslint --fix --max-warnings=-1"
     ],
     "*.{vue}": [
@@ -171,6 +186,9 @@
     ],
     "*.{css,scss}": [
       "stylelint --fix"
+    ],
+    "scripts/keep-build-archive.mjs": [
+      "node scripts/check-keep-build-archive.mjs"
     ],
     "vite.config.ts": [
       "node scripts/check-port-drift.mjs"
