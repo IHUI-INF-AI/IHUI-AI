@@ -471,6 +471,7 @@ const mostUsedTools = computed(() => getMostUsedTools.value)
 const getProtocolTagType = (protocol: MCPProtocol) => {
   const map: Record<MCPProtocol, string> = {
     stdio: 'info',
+    http: 'primary',
     sse: 'warning',
     websocket: 'success',
   }
