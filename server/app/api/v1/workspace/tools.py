@@ -576,10 +576,17 @@ async def tool_write_file(args: dict[str, Any], workspace: str) -> ToolCallResul
             )
 
         # 写入前创建检查点快照 (对标 Aider git auto-commit)
-        _checkpoint_snapshot(workspace, [rel_path], "write_file", f"write_file: {rel_path}")
+        cp_id = _checkpoint_snapshot(workspace, [rel_path], "write_file", f"write_file: {rel_path}")
 
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+
+        # 写入后可选 git auto-commit (对标 Aider)
+        try:
+            from app.api.v1.workspace.checkpoint import commit_after_modify
+            commit_after_modify(workspace, cp_id, "write_file", [rel_path])
+        except Exception:
+            pass
 
         # 返回结果中附带 diff 摘要 (帮助 Agent 理解变更)
         diff = _generate_unified_diff(old_content, content, rel_path)
@@ -657,9 +664,16 @@ async def tool_edit_file(args: dict[str, Any], workspace: str) -> ToolCallResult
             )
 
         # 编辑前创建检查点快照
-        _checkpoint_snapshot(workspace, [rel_path], "edit_file", f"edit_file: {rel_path}")
+        cp_id = _checkpoint_snapshot(workspace, [rel_path], "edit_file", f"edit_file: {rel_path}")
 
         path.write_text(new_content, encoding="utf-8")
+
+        # 编辑后可选 git auto-commit (对标 Aider)
+        try:
+            from app.api.v1.workspace.checkpoint import commit_after_modify
+            commit_after_modify(workspace, cp_id, "edit_file", [rel_path])
+        except Exception:
+            pass
         diff = _generate_unified_diff(content, new_content, rel_path)
         diff_preview = diff[:500] + "..." if len(diff) > 500 else diff
         match_note = " (模糊匹配恢复成功)" if actual_old_text != old_text else ""
@@ -681,7 +695,7 @@ async def tool_delete_file(args: dict[str, Any], workspace: str) -> ToolCallResu
         rel_path = str(path.relative_to(Path(workspace).resolve()))
 
         # 删除前创建检查点快照 (对标 Aider git auto-commit, 支持撤销)
-        _checkpoint_snapshot(workspace, [rel_path], "delete_file", f"delete_file: {rel_path}")
+        cp_id = _checkpoint_snapshot(workspace, [rel_path], "delete_file", f"delete_file: {rel_path}")
 
         if path.is_dir():
             if recursive:
@@ -692,6 +706,13 @@ async def tool_delete_file(args: dict[str, Any], workspace: str) -> ToolCallResu
                 path.rmdir()  # 仅空目录
         else:
             path.unlink()
+
+        # 删除后可选 git auto-commit (对标 Aider)
+        try:
+            from app.api.v1.workspace.checkpoint import commit_after_modify
+            commit_after_modify(workspace, cp_id, "delete_file", [rel_path])
+        except Exception:
+            pass
 
         return ToolCallResult(
             tool="delete_file",
@@ -955,9 +976,16 @@ async def tool_multi_edit(args: dict[str, Any], workspace: str) -> ToolCallResul
             )
 
         # 写入前创建检查点快照
-        _checkpoint_snapshot(workspace, [rel_path], "multi_edit", f"multi_edit: {rel_path} ({applied} edits)")
+        cp_id = _checkpoint_snapshot(workspace, [rel_path], "multi_edit", f"multi_edit: {rel_path} ({applied} edits)")
 
         path.write_text(content, encoding="utf-8")
+
+        # 编辑后可选 git auto-commit (对标 Aider)
+        try:
+            from app.api.v1.workspace.checkpoint import commit_after_modify
+            commit_after_modify(workspace, cp_id, "multi_edit", [rel_path])
+        except Exception:
+            pass
         diff = _generate_unified_diff(original_content, content, rel_path)
         diff_preview = diff[:500] + "..." if len(diff) > 500 else diff
         fuzzy_note = " (含模糊匹配恢复)" if fuzzy_used else ""
