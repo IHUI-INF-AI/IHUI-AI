@@ -28,7 +28,6 @@ Agent 工具集实现 — 对标 Claude Code / Codex 的工具系统。
 from __future__ import annotations
 
 import asyncio
-import fnmatch
 import os
 import re
 import subprocess
@@ -752,12 +751,116 @@ async def tool_list_dir(args: dict[str, Any], workspace: str) -> ToolCallResult:
         return ToolCallResult(tool="list_dir", input=args, output="", error=str(e), success=False)
 
 
+# ---------------------------------------------------------------------------
+# Glob 模式编译 (扩展 fnmatch 语义)
+# ---------------------------------------------------------------------------
+# 标准 fnmatch 不支持: 反斜杠转义、** 递归、大括号展开 {a,b,c}。
+# 工具调用方 (前端 searchFiles 回退、Agent glob) 都需要这些语义,
+# 因此提供一个统一的 _compile_glob, 把 glob 模式编译成正则后用 re.search 匹配。
+
+_GLOB_ESCAPE = "\x00"  # 唯一占位符, 不会出现在真实路径或 glob 模式中
+
+
+def _glob_expand_braces(pattern: str) -> list[str]:
+    """递归展开 ``{a,b,c}`` 大括号 (不含嵌套大括号)."""
+    m = re.search(r"\{([^{}]*)\}", pattern)
+    if not m:
+        return [pattern]
+    before, options, after = pattern[: m.start()], m.group(1).split(","), pattern[m.end() :]
+    out: list[str] = []
+    for opt in options:
+        out.extend(_glob_expand_braces(before + opt + after))
+    return out
+
+
+def _glob_to_regex_single(pattern: str) -> str:
+    """将单个 (已展开大括号的) glob 模式编译成正则字符串, 支持反斜杠转义."""
+    parts: list[str] = []
+    i, n = 0, len(pattern)
+    while i < n:
+        c = pattern[i]
+        # 1. 反斜杠转义: \X 视为字面 X
+        if c == "\\" and i + 1 < n:
+            parts.append(re.escape(pattern[i + 1]))
+            i += 2
+            continue
+        # 2. ** 任意层级目录 (兼容 bash 语义): 当作 "可选 (任意字符 + /)" 前缀
+        if c == "*" and i + 1 < n and pattern[i + 1] == "*":
+            parts.append("(?:.*/)?")
+            i += 2
+            # 紧跟的 / 当作目录分隔符 (bash 里 **/ 常带尾随 /, 这里保留)
+            if i < n and pattern[i] == "/":
+                i += 1
+            continue
+        # 3. * 单层通配 (匹配任意字符序列, 含 /)
+        if c == "*":
+            parts.append(".*")
+            i += 1
+            continue
+        # 4. ? 单字符通配
+        if c == "?":
+            parts.append(".")
+            i += 1
+            continue
+        # 5. [...] 字符类 (支持 [!...] 取反, ] 作为首字符)
+        if c == "[":
+            j = i + 1
+            negate = False
+            if j < n and pattern[j] == "!":
+                negate = True
+                j += 1
+            inner_start = j
+            if j < n and pattern[j] == "]":  # 字符类内 ] 字面化
+                j += 1
+            while j < n and pattern[j] != "]":
+                j += 1
+            if j >= n:  # 未闭合, 当字面 [
+                parts.append(re.escape("["))
+                i += 1
+                continue
+            inner = pattern[inner_start:j]
+            if negate:
+                parts.append(f"[^{inner}]")
+            else:
+                parts.append(f"[{inner}]")
+            i = j + 1
+            continue
+        # 6. 普通字符
+        parts.append(re.escape(c))
+        i += 1
+    # 用 re.search 模式 (子串匹配), 工具侧关心 "包含" 而非 "整词相等"
+    return ".*" + "".join(parts) + ".*"
+
+
+def _compile_glob(pattern: str) -> re.Pattern[str]:
+    """把 glob 模式编译为正则 Pattern.
+
+    支持的语法 (比标准 fnmatch 更丰富):
+    - ``*``       : 任意字符序列 (含 ``/``)
+    - ``**``      : 任意层级目录前缀 (可匹配 0 个), 如 ``**/foo.js``
+    - ``?``       : 任意单字符
+    - ``[abc]`` / ``[!abc]`` : 字符类
+    - ``\\\\X``     : 反斜杠转义, ``X`` 当字面字符 (如 ``\\\\*`` 匹配字面 ``*``)
+    - ``{a,b,c}`` : 大括号展开, 生成多条模式取并集 (含 ``.ts,.js``)
+
+    匹配语义: 子串匹配 (用 re.search), 同时覆盖全路径与纯文件名时效果与原 fnmatch 等价.
+    """
+    expanded = _glob_expand_braces(pattern)
+    if len(expanded) == 1:
+        body = _glob_to_regex_single(expanded[0])
+    else:
+        body = "(?:" + "|".join(_glob_to_regex_single(p) for p in expanded) + ")"
+    return re.compile("(?s:" + body + ")\\Z")
+
+
 async def tool_glob(args: dict[str, Any], workspace: str) -> ToolCallResult:
     """glob 模式匹配文件。"""
     try:
         pattern = args["pattern"]
         root = args.get("path", "") or workspace
         root_path = _resolve_path(root, workspace) if root else Path(workspace).resolve()
+
+        glob_re = _compile_glob(pattern)
 
         matches: list[str] = []
         for dirpath, dirnames, filenames in os.walk(root_path):
@@ -766,7 +869,7 @@ async def tool_glob(args: dict[str, Any], workspace: str) -> ToolCallResult:
             for filename in filenames:
                 full = os.path.join(dirpath, filename)
                 rel = os.path.relpath(full, root_path)
-                if fnmatch.fnmatch(rel, pattern) or fnmatch.fnmatch(filename, pattern):
+                if glob_re.search(rel) or glob_re.search(filename):
                     matches.append(rel)
             if len(matches) > 500:
                 matches.append("... (结果超过 500, 已截断)")
@@ -797,10 +900,12 @@ async def tool_grep(args: dict[str, Any], workspace: str) -> ToolCallResult:
         file_count = 0
         files_with_matches: set[str] = set()  # 统一追踪有匹配的文件
 
+        file_glob_re = _compile_glob(file_glob) if file_glob else None
+
         for dirpath, dirnames, filenames in os.walk(root_path):
             dirnames[:] = [d for d in dirnames if d not in (".git", "node_modules", "__pycache__", "dist", "build")]
             for filename in filenames:
-                if file_glob and not fnmatch.fnmatch(filename, file_glob):
+                if file_glob_re and not file_glob_re.search(filename):
                     continue
                 full = os.path.join(dirpath, filename)
                 try:
