@@ -159,9 +159,12 @@ client/.auto-wip/
 server/boto3_log*.txt
 server/pip_*.log
 
-# 2026-07-08 失败构建产物 + 被破坏的孤儿文件 (InlineDiffViewer.vue 内容被重复复制, 1.25MB 异常)
+# 2026-07-08 失败构建产物 (zip 失败产物归档, 不入库)
 archives/
-client/src/components/ai/InlineDiffViewer.vue
+
+# 2026-07-08 unplugin-auto-import 自动生成的 eslint 缓存 (构建产物, 不入库)
+client/.eslintrc-auto-import.json
+client/src/types/auto-imports.d.ts
 
 # ============================================================================
 # 2026-07-07 调试脚本/截图/报告 (会话期间生成的临时诊断产物)
