@@ -933,42 +933,32 @@ const activeKey = computed<string>(() => {
     becomeSupplier: 'becomeSupplier',
     contactUs: 'aboutUs',
     feedback: 'aboutUs',
-    // ── 教育中心 (eduCenter) — /edu/* 全部子路由映射到顶级 eduCenter 项 ──
-    // EduLayout 自带内部侧边栏(12 模块),主侧边栏只需一个顶级入口
-    EduHome: 'eduHome',
-    EduLearn: 'eduLearnHome',
-    EduLearnDetail: 'eduLearnHome',
-    EduLearnChapter: 'eduLearnHome',
-    EduLearnList: 'eduLearnList',
-    EduLearnTopic: 'eduLearnTopic',
-    EduLearnCertificate: 'eduMyLearning',
-    EduExam: 'eduExam',
-    EduExamPaper: 'eduExam',
-    EduExamRecord: 'eduExam',
-    EduExamWrongBook: 'eduExam',
-    EduNews: 'eduNews',
-    EduNewsDetail: 'eduNews',
-    EduArticle: 'eduArticle',
-    EduArticleDetail: 'eduArticle',
-    EduAsk: 'eduAsk',
-    EduAskDetail: 'eduAsk',
-    EduAskCreate: 'eduAsk',
-    EduAskQuestion: 'eduAsk',
-    EduCircle: 'eduCircle',
-    EduCircleDetail: 'eduCircle',
-    EduCirclePost: 'eduCircle',
-    EduCircleEdit: 'eduCircle',
-    EduPoint: 'eduPoint',
-    EduOrder: 'eduOrder',
-    EduOrderDetail: 'eduOrder',
-    EduMessage: 'eduMessage',
-    EduNotification: 'eduNotification',
-    EduResource: 'eduResource',
-    EduResourceDetail: 'eduResource',
-    EduAnnouncement: 'eduAnnouncement',
-    EduAnnouncementDetail: 'eduAnnouncement',
-    EduSearch: 'eduSearch',
-    EduAdminHome: 'eduAdmin',
+    // ── 教育中心 (eduCenter) — /edu/* 全部子路由统一映射到顶级 eduCenter 项 ──
+    // EduLayout 自带内部侧边栏(12 模块), 主侧边栏只高亮顶级入口, 子项定位由 EduLayout 内部处理
+    // 守门约束: check-edu-route-consistency.mjs 要求全部 32 个 Edu* → 'eduCenter' 映射
+    EduHome: 'eduCenter',
+    EduLearn: 'eduCenter',
+    EduLearnDetail: 'eduCenter',
+    EduLearnChapter: 'eduCenter',
+    EduLearnCertificate: 'eduCenter',
+    EduExam: 'eduCenter',
+    EduExamPaper: 'eduCenter',
+    EduExamRecord: 'eduCenter',
+    EduExamWrongBook: 'eduCenter',
+    EduAsk: 'eduCenter',
+    EduAskDetail: 'eduCenter',
+    EduAskCreate: 'eduCenter',
+    EduCircle: 'eduCenter',
+    EduCircleDetail: 'eduCenter',
+    EduCirclePost: 'eduCenter',
+    EduPoint: 'eduCenter',
+    EduOrder: 'eduCenter',
+    EduOrderDetail: 'eduCenter',
+    EduMessage: 'eduCenter',
+    EduNotification: 'eduCenter',
+    EduResource: 'eduCenter',
+    EduSearch: 'eduCenter',
+    EduAdminHome: 'eduCenter',
   }
   if (routeName && nameMap[routeName]) return nameMap[routeName]
 
@@ -1647,7 +1637,9 @@ watch([isCollapsed, collapsedGroups], () => {
   }
 
   &:focus-visible {
+    /* stylelint-disable color-no-hex -- 主题色 light-5 兜底, 暗色模式下 var() 失效时需 fallback */
     box-shadow: 0 0 0 2px var(--el-color-primary-light-5, #d6e4ff);
+    /* stylelint-enable color-no-hex */
   }
 
   /* 下拉菜单打开态: 与 hover 同样的填充色作为视觉反馈 */
@@ -1708,8 +1700,10 @@ watch([isCollapsed, collapsedGroups], () => {
 
 /* 暗色模式: 图标颜色反转为白色, 边框更深 */
 html.dark .sidebar-user-avatar {
+  /* stylelint-disable color-no-hex -- 暗色反相配对 (白文字 + 暗卡片), 无 token 表达 */
   color: #fff;
   border-color: var(--app-sidebar-color-card, #1a1a1a);
+  /* stylelint-enable color-no-hex */
 }
 
 .sidebar-user-name {
@@ -2104,7 +2098,9 @@ body .sidebar-user-dropdown-popper.el-popper {
 }
 
 :where(html.dark) body .sidebar-user-dropdown-popper.el-popper {
+  /* stylelint-disable color-no-hex -- 暗色卡片边框 fallback */
   border-color: var(--app-sidebar-color-card, #1a1a1a);
+  /* stylelint-enable color-no-hex */
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
 }
 
@@ -2133,9 +2129,11 @@ body .sidebar-user-dropdown-popper.el-popper {
 }
 
 :where(html.dark) .sidebar-user-dropdown-popper .sidebar-user-dropdown-avatar {
+  /* stylelint-disable color-no-hex -- 暗色反相配对 (白文字 + 暗卡片背景), 无 token 表达 */
   color: #fff;
   border-color: var(--app-sidebar-color-card, #1a1a1a);
   background-color: var(--app-sidebar-color-new-chat, #1f1f1f);
+  /* stylelint-enable color-no-hex */
 }
 
 .sidebar-user-dropdown-popper .sidebar-user-dropdown-info {
@@ -2231,6 +2229,7 @@ body .sidebar-user-dropdown-popper.el-popper {
 
 /* 暗色模式: 危险项 hover 用更深红底 */
 :where(html.dark) .sidebar-user-dropdown-popper .sidebar-user-dropdown-item--danger {
+  /* stylelint-disable color-no-hex -- 暗色危险项用浅红 #fca5a5 (ep 主题 light-3) 提升可读性, 暗色背景对比 */
   color: #fca5a5;
 
   :deep(svg),
@@ -2247,6 +2246,7 @@ body .sidebar-user-dropdown-popper.el-popper {
       color: #fca5a5;
     }
   }
+  /* stylelint-enable color-no-hex */
 }
 
 /* 分隔线 (退出登录与上方菜单项分组) */

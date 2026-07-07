@@ -68,7 +68,7 @@ const EXPECTED = {
 
   // 4 类文字色 token (永定, 不随 light/dark 切换)
   textOnSuccess: '#ffffff',
-  textOnWarning: '#fde68a', // 浅黄 (黄底用纯白对比度仅 1.7:1 失败)
+  textOnWarning: '#ffffff', // 2026-07-04 v2 修复: #ffffff on #b45309 = 5.02:1 ✓ WCAG AA 4.5 (原 #fde68a = 4.03:1 失败)
   textOnDanger: '#ffffff',
   textOnInfo: '#ffffff',
 }

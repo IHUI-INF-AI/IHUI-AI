@@ -5,5 +5,18 @@
 
 set -e
 
+# client/ 目录才有 check-rule1-commit-msg.mjs
+# $1 是 git 传入的 commit-msg 文件路径 (相对 repo root, 如 .git/COMMIT_EDITMSG)
+# 必须先保存绝对路径, 再 cd, 然后用绝对路径调用脚本
+COMMIT_MSG_FILE="$1"
+if [ -n "$COMMIT_MSG_FILE" ] && [ "${COMMIT_MSG_FILE:0:1}" != "/" ]; then
+  # 相对路径 → 转为绝对路径 (基于原 cwd, 即 git 仓库根)
+  COMMIT_MSG_FILE="$(pwd)/$COMMIT_MSG_FILE"
+fi
+
+ORIG_DIR=$(pwd)
+cd client || { echo "::error::无法 cd 到 client/ 目录, 钩子终止"; exit 1; }
+trap 'cd "$ORIG_DIR"' EXIT
+
 echo "▶ [commit-msg] Checking RULE 1 先问再做硬约束..."
-node scripts/check-rule1-commit-msg.mjs "$1"
+node scripts/check-rule1-commit-msg.mjs "$COMMIT_MSG_FILE"

@@ -12,6 +12,12 @@
 
 set -e
 
+# 项目 npm scripts 都在 client/ 目录, 统一 cd 到 client 解决路径问题
+# 使用 pushd/popd 确保退出时回到原 cwd (兼容 IDE 多 cwd 调用)
+ORIG_DIR=$(pwd)
+cd client || { echo "::error::无法 cd 到 client/ 目录, 钩子终止"; exit 1; }
+trap 'cd "$ORIG_DIR"' EXIT
+
 echo "▶ Running lint-staged..."
 npx lint-staged
 
