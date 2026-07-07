@@ -343,6 +343,7 @@ async def agent_websocket(websocket: WebSocket, user_uuid: str = ""):
             user_uuid = data.get("user_uuid", "anonymous")
             chat_id = data.get("chat_id")
             system_prompt = data.get("system_prompt")
+            persona_id = data.get("persona_id")
             max_iterations = data.get("max_iterations", 25)
             allowed_tools = data.get("allowed_tools")
             permission_mode = data.get("permission_mode", "default")

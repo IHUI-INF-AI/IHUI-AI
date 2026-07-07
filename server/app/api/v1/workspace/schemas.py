@@ -90,6 +90,7 @@ class AgentChatRequest(BaseModel):
     user_uuid: str = Field("anonymous", description="用户 UUID")
     chat_id: str | None = Field(None, description="会话 ID, 用于多轮上下文")
     system_prompt: str | None = Field(None, description="自定义系统提示词")
+    persona_id: str | None = Field(None, description="Persona 角色 ID (对标 Claude Code Sub-agents / Codex GPTs)")
     max_iterations: int = Field(25, ge=1, le=100, description="最大工具循环次数")
     allowed_tools: list[str] | None = Field(None, description="允许使用的工具列表, None=全部")
     permission_mode: str = Field("default", description="权限模式: default/acceptEdits/plan/bypassPermissions")
