@@ -243,6 +243,10 @@ def undo_last(workspace: str) -> dict[str, Any]:
                     pass
 
     cp.applied = False
+
+    # git auto-commit 记录撤销操作 (仅 IHUI_GIT_AUTOCOMMIT=1 时生效)
+    _git_auto_commit_after_undo(workspace, cp.id, "undo")
+
     return {
         "success": True,
         "checkpoint_id": cp.id,
@@ -294,6 +298,10 @@ def rollback_to(workspace: str, checkpoint_id: str) -> dict[str, Any]:
                         pass
         c.applied = False
         count += 1
+
+    # git auto-commit 记录回滚操作 (仅 IHUI_GIT_AUTOCOMMIT=1 时生效)
+    if count > 0:
+        _git_auto_commit_after_undo(workspace, checkpoint_id, "rollback")
 
     return {
         "success": True,
@@ -349,23 +357,128 @@ def commit_after_modify(
 ) -> bool:
     """文件修改后尝试 git auto-commit (对标 Aider)。
 
-    当工作区是 git 仓库时, 调用 ``git stash create`` 创建一个轻量快照作为安全网。
+    双模式 (通过环境变量 ``IHUI_GIT_AUTOCOMMIT`` 控制):
+    - ``IHUI_GIT_AUTOCOMMIT=1``: 执行 ``git add`` + ``git commit`` (Aider 风格, 真实提交到历史)
+    - 默认: 执行 ``git stash create`` 创建轻量快照 (不污染提交历史)
+
     失败时静默返回 False (非 git 仓库 / 无未提交修改 / 进程异常均不影响主流程)。
 
     Args:
         workspace: 工作区绝对路径
         checkpoint_id: 关联的检查点 ID
         tool: 触发工具名 (write_file/edit_file/multi_edit/delete_file)
-        file_paths: 被修改的文件相对路径列表 (仅用于日志/扩展, 当前实现未使用)
+        file_paths: 被修改的文件相对路径列表
 
     Returns:
-        是否成功创建 git 快照
+        是否成功创建 git 快照/提交
     """
+    if os.environ.get("IHUI_GIT_AUTOCOMMIT", "").lower() in ("1", "true", "yes"):
+        return _git_auto_commit(workspace, checkpoint_id, tool, file_paths)
     return _try_git_snapshot(workspace, checkpoint_id)
 
 
+def _git_auto_commit(
+    workspace: str,
+    checkpoint_id: str,
+    tool: str,
+    file_paths: list[str],
+) -> bool:
+    """Aider 风格: git add + git commit (真实提交到历史)。
+
+    每次文件修改后自动创建一个 git commit, 使变更可追溯、可 git revert。
+    """
+    import subprocess
+
+    git_dir = Path(workspace) / ".git"
+    if not git_dir.exists():
+        return False
+    try:
+        # 检查是否有未提交修改
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if status_result.returncode != 0 or not status_result.stdout.strip():
+            return False
+
+        # git add 被修改的文件 (精准添加, 不全量 add)
+        for rel_path in file_paths:
+            subprocess.run(
+                ["git", "add", "--", rel_path],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+        # git commit (带检查点 ID 关联)
+        commit_msg = f"feat(agent): {tool} [{checkpoint_id}]\n\nFiles: {', '.join(file_paths)}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", commit_msg, "--no-verify"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return commit_result.returncode == 0
+    except Exception:
+        return False
+
+
+def _git_auto_commit_after_undo(workspace: str, checkpoint_id: str, action: str = "undo") -> bool:
+    """撤销/回滚后执行 git commit 记录恢复操作 (仅 IHUI_GIT_AUTOCOMMIT=1 时)。
+
+    Args:
+        workspace: 工作区路径
+        checkpoint_id: 被撤销的检查点 ID
+        action: "undo" 或 "rollback"
+    """
+    if os.environ.get("IHUI_GIT_AUTOCOMMIT", "").lower() not in ("1", "true", "yes"):
+        return False
+
+    import subprocess
+
+    git_dir = Path(workspace) / ".git"
+    if not git_dir.exists():
+        return False
+    try:
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if status_result.returncode != 0 or not status_result.stdout.strip():
+            return False
+
+        # git add -A (撤销可能涉及删除文件, 需要全量 add)
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        commit_msg = f"revert(agent): {action} [{checkpoint_id}]\n\nRestored files from checkpoint {checkpoint_id}"
+        commit_result = subprocess.run(
+            ["git", "commit", "-m", commit_msg, "--no-verify"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        return commit_result.returncode == 0
+    except Exception:
+        return False
+
+
 def _try_git_snapshot(workspace: str, checkpoint_id: str) -> bool:
-    """尝试用 git stash 创建快照 (可选增强)。
+    """尝试用 git stash 创建快照 (轻量模式, 默认)。
 
     当工作区是 git 仓库且有未提交修改时, 创建一个 stash 作为安全网。
     失败时静默 (非 git 仓库不影响)。
