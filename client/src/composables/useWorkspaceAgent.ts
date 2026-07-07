@@ -16,8 +16,9 @@
  *   sendToAgent({ prompt, modelId, workspacePath, onTextDelta, onToolCall, onToolResult, onDone })
  */
 
-import { ref, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, onMounted, type Ref } from 'vue'
 import { createAgentWebSocket, type AgentEvent, type AgentChatParams } from '@/api/services/workspace.service'
+import { useCleanup } from '@/composables/useCleanup'
 
 // ---------------------------------------------------------------------------
 // 类型定义
@@ -144,6 +145,14 @@ export function useWorkspaceAgent() {
    * 让 Playwright e2e 可以通过 window.dispatchEvent 模拟后端 WebSocket 推送
    * 真实运行时事件来自 WebSocket (handleAgentEvent) 不会受此影响
    */
+  // 兼容: useCleanup / onMounted 在 setup 之外调用会 warn, 用 try/catch 避免影响非组件场景
+  let cleanup: ReturnType<typeof useCleanup> | null = null
+  try {
+    cleanup = useCleanup()
+  } catch {
+    // composable 在 setup 外调用 (如单元测试), 跳过监听注册
+  }
+
   function handleWindowTodoUpdate(event: Event): void {
     const ce = event as CustomEvent<{ todos: AgentTodoItem[] }>
     const todos = ce.detail?.todos
@@ -160,18 +169,14 @@ export function useWorkspaceAgent() {
     }
   }
 
-  // 兼容: onMounted/onUnmounted 在 setup 之外调用会 warn, 用 try/catch 避免影响非组件场景
+  // 注册 window 事件监听 (用 useCleanup 统一管理清理, 避免手写 onUnmounted)
   try {
     onMounted(() => {
-      window.addEventListener('agent.todo.update', handleWindowTodoUpdate as EventListener)
-      window.addEventListener('agent.plan.proposed', handleWindowPlanProposed as EventListener)
-    })
-    onUnmounted(() => {
-      window.removeEventListener('agent.todo.update', handleWindowTodoUpdate as EventListener)
-      window.removeEventListener('agent.plan.proposed', handleWindowPlanProposed as EventListener)
+      cleanup?.addEventListener(window, 'agent.todo.update', handleWindowTodoUpdate as EventListener)
+      cleanup?.addEventListener(window, 'agent.plan.proposed', handleWindowPlanProposed as EventListener)
     })
   } catch {
-    // composable 在 setup 外调用 (如单元测试), 跳过监听
+    // setup 外调用, 跳过
   }
 
   /**

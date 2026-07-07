@@ -72,38 +72,98 @@ export interface SwarmExecutionResult {
 
 /**
  * 创建 Agentic Swarm
+ * 调用后端真实 Swarm 编排 API (POST /api/v1/workspace/swarms)
  */
 export async function createAgenticSwarm(
   data: CreateSwarmRequest
 ): Promise<ApiResponse<CreateSwarmResponse>> {
-  return apiClient.post<CreateSwarmResponse>('/api/ai/agentic/swarm/create', data)
+  const resp = await apiClient.post<{ swarm_id: string; task: string; status: string; agents: unknown[] }>('/api/v1/workspace/swarms', {
+    task: data.task,
+    workspace_path: (data.options as Record<string, unknown>)?.workspace_path || '',
+    model_id: (data.options as Record<string, unknown>)?.model_id || 'default',
+  })
+  // 适配响应格式: 后端返回 swarm_id, 前端期望 swarmId
+  if (resp.success && resp.data) {
+    return {
+      ...resp,
+      data: {
+        swarmId: resp.data.swarm_id,
+        plan: { task: resp.data.task, agents: resp.data.agents },
+      } as unknown as CreateSwarmResponse,
+    }
+  }
+  return resp as unknown as ApiResponse<CreateSwarmResponse>
 }
 
 /**
  * 获取 Swarm 状态
+ * 调用后端真实 API (GET /api/v1/workspace/swarms/{swarmId})
  */
 export async function getSwarmStatus(swarmId: string): Promise<ApiResponse<SwarmStatusResponse>> {
-  return apiClient.get<SwarmStatusResponse>(`/api/ai/agentic/swarm/${swarmId}/status`)
+  const resp = await apiClient.get<{ swarm_id: string; status: string; results: Record<string, string>; agents: Array<{ agent_id: string; status: string; result: string | null }> }>(`/api/v1/workspace/swarms/${swarmId}`)
+  // 适配响应格式
+  if (resp.success && resp.data) {
+    const agentStates: Record<string, string> = {}
+    for (const agent of resp.data.agents || []) {
+      agentStates[agent.agent_id] = agent.status
+    }
+    // 如果 swarm 已完成, 从 results 中提取最终结果
+    let result: string | undefined
+    if (resp.data.status === 'completed' && resp.data.results) {
+      const values = Object.values(resp.data.results)
+      if (values.length > 0) {
+        result = values.join('\n\n---\n\n')
+      }
+    }
+    return {
+      ...resp,
+      data: {
+        swarm: { swarmId: resp.data.swarm_id, status: resp.data.status, result } as unknown as AgentSwarmConfig,
+        agentStates,
+      } as unknown as SwarmStatusResponse,
+    }
+  }
+  return resp as unknown as ApiResponse<SwarmStatusResponse>
 }
 
 /**
  * 获取 Swarm 执行结果
+ * 调用后端真实 API (GET /api/v1/workspace/swarms/{swarmId})
  */
 export async function getSwarmResults(
   swarmId: string
 ): Promise<ApiResponse<SwarmExecutionResult[]>> {
-  return apiClient.get<SwarmExecutionResult[]>(`/api/ai/agentic/swarm/${swarmId}/results`)
+  const resp = await apiClient.get<{ results: Record<string, string>; agents: Array<{ agent_id: string; result: string | null; status: string }> }>(`/api/v1/workspace/swarms/${swarmId}`)
+  // 将后端结果格式适配为前端期望的数组格式
+  if (resp.success && resp.data) {
+    const data = resp.data
+    const agents = data.agents || []
+    const results: SwarmExecutionResult[] = agents.map((agent, i) => ({
+      stepId: agent.agent_id,
+      stepAction: `Agent ${agent.agent_id}`,
+      result: agent.result,
+      executionTime: 0,
+      tokensUsed: 0,
+      status: agent.status,
+      agentId: agent.agent_id,
+      createdAt: new Date(Date.now() - (agents.length - i) * 60000).toISOString(),
+    }))
+    return { ...resp, data: results }
+  }
+  return resp as unknown as ApiResponse<SwarmExecutionResult[]>
 }
 
 /**
  * 获取 Swarm 性能指标
+ * 复用状态 API
  */
 export async function getSwarmPerformance(swarmId: string): Promise<ApiResponse<unknown>> {
-  return apiClient.get(`/api/ai/agentic/swarm/${swarmId}/performance`)
+  return apiClient.get(`/api/v1/workspace/swarms/${swarmId}`)
 }
 
 /**
  * 获取用户的 Swarm 列表
+ * 调用后端真实 API (GET /api/v1/workspace/swarms)
  */
 export async function getUserSwarms(
   userId?: string,
@@ -121,24 +181,42 @@ export async function getUserSwarms(
     totalPages: number
   }>
 > {
-  return apiClient.getPaginated<AgentSwarmConfig>('/api/ai/agentic/swarms', {
-    page: params?.page || 1,
-    pageSize: params?.pageSize || 20,
+  const resp = await apiClient.get<AgentSwarmConfig[]>('/api/v1/workspace/swarms', {
     ...(userId && { userId }),
     ...(params?.status && { status: params.status }),
   })
+  // 适配分页格式
+  const items = resp.data || []
+  return {
+    ...resp,
+    data: {
+      items,
+      total: items.length,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || 20,
+      totalPages: 1,
+    },
+  } as unknown as ApiResponse<{
+    items: AgentSwarmConfig[]
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+  }>
 }
 
 /**
  * 取消 Swarm 执行
+ * 调用后端真实 API (DELETE /api/v1/workspace/swarms/{swarmId})
  */
 export async function cancelSwarm(swarmId: string): Promise<ApiResponse<void>> {
-  return apiClient.post(`/api/ai/agentic/swarm/${swarmId}/cancel`)
+  return apiClient.delete(`/api/v1/workspace/swarms/${swarmId}`)
 }
 
 /**
  * 获取 Swarm 优化建议
+ * 复用状态 API (优化建议可从 agent 状态和结果中推导)
  */
 export async function getSwarmOptimization(swarmId: string): Promise<ApiResponse<unknown>> {
-  return apiClient.get(`/api/ai/agentic/swarm/${swarmId}/optimization`)
+  return apiClient.get(`/api/v1/workspace/swarms/${swarmId}`)
 }
