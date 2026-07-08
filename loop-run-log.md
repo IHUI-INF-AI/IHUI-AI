@@ -415,3 +415,26 @@
 
 ### 需要 L2 升级
 无
+
+## Run 2026-07-08T03:33:15+0000 (Asia/Shanghai)
+
+- trigger: schedule
+- level: L1
+- duration_s: 实测见 Actions 日志
+- tokens: 24000 / budget 100000
+- status: ok
+
+### Signals
+- todo_fixme_count: 57
+- forbidden_files_tracked: 0
+- env_backup_leak: 0
+- ruff_warnings: 216
+- bandit_high: 19
+- pip_outdated: 1
+- eslint_warnings: 未采集
+- npm_high_critical: 1
+- openapi_present: yes
+- cov_present: no
+
+### 需要 L2 升级
+无
