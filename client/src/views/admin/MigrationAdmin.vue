@@ -44,10 +44,7 @@
             <TableCell class="max-w-[400px] truncate" :title="row.description ?? ''">{{ row.description }}</TableCell>
             <TableCell class="text-center">{{ row.task_count }}</TableCell>
             <TableCell>
-              <el-progress
-                :percentage="row.task_count > 0 ? Math.round((row.done_count / row.task_count) * 100) : 0"
-                :status="row.failed_count > 0 ? 'exception' : 'success'"
-              />
+              <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :class="row.failed_count > 0 ? 'bg-red-500' : 'bg-green-500'" :style="{ width: (row.task_count > 0 ? Math.round((row.done_count / row.task_count) * 100) : 0) + '%' }"></div></div>
               <span class="progress-text">
                 {{ row.done_count }} / {{ row.task_count }} done
                 <Tag v-if="row.running_count > 0" type="warning" size="small">{{ t('migrationAdmin.running') }} {{ row.running_count }}</Tag>

@@ -46,15 +46,15 @@
         <Card><CardHeader><CardTitle>{{ t('monitoring.systemResources') }}</CardTitle></CardHeader><CardContent class="p-5">
                     <div class="resource-item">
             <span>{{ t('monitoring.memoryUsage') }}</span>
-            <el-progress :percentage="performanceSnapshot.memory.percentage" :status="performanceSnapshot.memory.percentage > 80 ? 'exception' : ''" />
+            <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :class="performanceSnapshot.memory.percentage > 80 ? 'bg-red-500' : 'bg-primary'" :style="{ width: performanceSnapshot.memory.percentage + '%' }"></div></div>
           </div>
           <div class="resource-item">
             <span>{{ t('monitoring.cpuUsage') }}</span>
-            <el-progress :percentage="performanceSnapshot.cpu.usage" :status="performanceSnapshot.cpu.usage > 80 ? 'exception' : ''" />
+            <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :class="performanceSnapshot.cpu.usage > 80 ? 'bg-red-500' : 'bg-primary'" :style="{ width: performanceSnapshot.cpu.usage + '%' }"></div></div>
           </div>
           <div class="resource-item">
             <span>{{ t('monitoring.renderFps') }}</span>
-            <el-progress :percentage="Math.min(100, performanceSnapshot.render.fps / 60 * 100)" />
+            <div class="w-full bg-muted rounded-full h-2"><div class="bg-primary h-2 rounded-full" :style="{ width: Math.min(100, performanceSnapshot.render.fps / 60 * 100) + '%' }"></div></div>
           </div>
         </CardContent></Card>
       </div>

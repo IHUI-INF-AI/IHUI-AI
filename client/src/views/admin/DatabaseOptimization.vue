@@ -60,10 +60,7 @@
             <TableCell>{{ row.rows }}</TableCell>
             <TableCell>{{ row.size }}</TableCell>
             <TableCell>
-              <el-progress
-                :percentage="row.fragmentation"
-                :status="row.fragmentation > 30 ? 'exception' : 'success'"
-              />
+              <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :class="row.fragmentation > 30 ? 'bg-red-500' : 'bg-green-500'" :style="{ width: row.fragmentation + '%' }"></div></div>
             </TableCell>
             <TableCell>
               <Button variant="default" size="sm" @click="optimizeTable(row.name)">

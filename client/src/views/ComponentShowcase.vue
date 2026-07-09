@@ -116,8 +116,8 @@
           </div>
           <Divider />
           <div class="demo-row">
-            <el-progress :percentage="progressValue" :stroke-width="14" />
-            <el-slider v-model="progressValue" :min="0" :max="100" />
+            <div class="w-full bg-muted rounded-full h-3.5"><div class="bg-primary h-3.5 rounded-full" :style="{ width: progressValue + '%' }"></div></div>
+            <input type="range" v-model="progressValue" min="0" max="100" class="w-full" />
           </div>
         </CardContent></Card>
       </TabsContent>
