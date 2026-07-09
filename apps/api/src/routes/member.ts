@@ -1,0 +1,676 @@
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
+import { authenticate } from '../plugins/auth.js';
+import {
+  findMembers,
+  findUnauditedMembers,
+  findMemberById,
+  findMembersByIds,
+  findAuthMembers,
+  createMember,
+  updateMember,
+  setMemberStatus,
+  resetMemberPassword,
+  deleteMember,
+  registerMember,
+  registerMemberByMobile,
+  findMemberCompanies,
+  findMemberLevels,
+  findMemberLevelById,
+  createMemberLevel,
+  updateMemberLevel,
+  deleteMemberLevel,
+  getMemberStatistics,
+  findCompanies,
+  findCompanyById,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  findDepartments,
+  findDepartmentById,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+  MemberConflictError,
+} from '../db/member-queries.js';
+import { success, error, emptyToUndefined } from '../utils/response.js';
+
+const ADMIN_ROLE_ID = 1;
+
+/** 复用响应 schema：data 字段允许任意附加属性。 */
+const R = {
+  200: {
+    type: 'object',
+    properties: {
+      code: { type: 'number' },
+      message: { type: 'string' },
+      data: { type: 'object', additionalProperties: true },
+    },
+  },
+  201: {
+    type: 'object',
+    properties: {
+      code: { type: 'number' },
+      message: { type: 'string' },
+      data: { type: 'object', additionalProperties: true },
+    },
+  },
+  400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  409: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+};
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') });
+
+const paginationQuery = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+};
+
+const listMembersQuery = z.object({
+  ...paginationQuery,
+  username: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  mobile: z.preprocess(emptyToUndefined, z.string().min(1).max(30).optional()),
+  status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  levelId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+});
+
+const authListQuery = z.object({
+  ...paginationQuery,
+  keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+});
+
+const companyListQuery = z.object({
+  ...paginationQuery,
+  name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+});
+
+const byIdsQuery = z.object({ ids: z.string().min(1, 'ids 不能为空') });
+
+const byIdQuery = z.object({ id: z.string().uuid('无效的会员 ID') });
+
+const registerSchema = z.object({
+  username: z.string().min(1, '用户名不能为空').max(100),
+  password: z.string().min(6, '密码至少 6 位'),
+  nickname: z.string().max(100).nullable().optional(),
+  mobile: z.string().max(30).nullable().optional(),
+  email: z.string().max(200).nullable().optional(),
+});
+
+const registerMobileSchema = z.object({
+  mobile: z.string().min(1, '手机号不能为空'),
+  password: z.string().min(6, '密码至少 6 位'),
+  code: z.string().min(1, '验证码不能为空'),
+  nickname: z.string().max(100).nullable().optional(),
+});
+
+const createMemberSchema = z.object({
+  username: z.string().min(1, '用户名不能为空').max(100),
+  password: z.string().min(1, '密码不能为空'),
+  mobile: z.string().max(30).nullable().optional(),
+  email: z.string().max(200).nullable().optional(),
+  nickname: z.string().max(100).nullable().optional(),
+  avatar: z.string().max(500).nullable().optional(),
+  gender: z.number().int().min(0).max(2).optional(),
+  levelId: z.string().uuid().nullable().optional(),
+  companyId: z.string().uuid().nullable().optional(),
+  departmentId: z.string().uuid().nullable().optional(),
+  status: z.number().int().min(0).max(2).optional(),
+});
+
+const updateMemberSchema = z.object({
+  id: z.string().uuid('无效的会员 ID'),
+  mobile: z.string().max(30).nullable().optional(),
+  email: z.string().max(200).nullable().optional(),
+  nickname: z.string().max(100).nullable().optional(),
+  avatar: z.string().max(500).nullable().optional(),
+  gender: z.number().int().min(0).max(2).optional(),
+  levelId: z.string().uuid().nullable().optional(),
+  companyId: z.string().uuid().nullable().optional(),
+  departmentId: z.string().uuid().nullable().optional(),
+  growthValue: z.number().int().min(0).optional(),
+});
+
+const memberIdBodySchema = z.object({ id: z.string().uuid('无效的会员 ID') });
+
+const resetPwdSchema = z.object({
+  id: z.string().uuid('无效的会员 ID'),
+  password: z.string().min(1, '密码不能为空'),
+});
+
+const createLevelSchema = z.object({
+  name: z.string().min(1, '名称不能为空').max(100),
+  growthValue: z.number().int().min(0).optional(),
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, '折扣格式错误').optional(),
+  sort: z.number().int().min(0).optional(),
+});
+
+const updateLevelSchema = z.object({
+  id: z.string().uuid('无效的等级 ID'),
+  name: z.string().min(1).max(100).optional(),
+  growthValue: z.number().int().min(0).optional(),
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, '折扣格式错误').optional(),
+  sort: z.number().int().min(0).optional(),
+});
+
+// ----- 企业 / 部门 -----
+
+const companiesListQuery = z.object({
+  ...paginationQuery,
+  name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
+  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
+});
+
+const createCompanySchema = z.object({
+  name: z.string().min(1, '名称不能为空').max(200),
+  contactName: z.string().max(100).nullable().optional(),
+  contactPhone: z.string().max(30).nullable().optional(),
+  address: z.string().max(500).nullable().optional(),
+  remark: z.string().max(500).nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+});
+
+const updateCompanySchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  contactName: z.string().max(100).nullable().optional(),
+  contactPhone: z.string().max(30).nullable().optional(),
+  address: z.string().max(500).nullable().optional(),
+  remark: z.string().max(500).nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+});
+
+const departmentsListQuery = z.object({
+  ...paginationQuery,
+  companyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
+  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
+});
+
+const createDepartmentSchema = z.object({
+  companyId: z.string().uuid('无效的企业 ID'),
+  name: z.string().min(1, '名称不能为空').max(200),
+  pid: z.string().uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+});
+
+const updateDepartmentSchema = z.object({
+  companyId: z.string().uuid().optional(),
+  name: z.string().min(1).max(200).optional(),
+  pid: z.string().uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+});
+
+// =============================================================================
+// 鉴权辅助
+// =============================================================================
+
+async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  try {
+    await authenticate(request);
+    return true;
+  } catch (e) {
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
+    const message = (e as Error).message || 'Authentication required';
+    reply.status(statusCode).send(error(statusCode, message));
+    return false;
+  }
+}
+
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  try {
+    await authenticate(request);
+  } catch (e) {
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
+    const message = (e as Error).message || 'Authentication required';
+    reply.status(statusCode).send(error(statusCode, message));
+    return false;
+  }
+  const roleId = request.jwtPayload?.roleId ?? 0;
+  if (roleId < ADMIN_ROLE_ID) {
+    reply.status(403).send(error(403, '需要管理员权限'));
+    return false;
+  }
+  return true;
+}
+
+// =============================================================================
+// 路由（前缀 /api）
+// =============================================================================
+
+export const memberRoutes: FastifyPluginAsync = async (server) => {
+  // 公开注册端点（无需登录）
+  server.post('/members/register', { schema: { response: R } }, async (request, reply) => {
+    const parsed = registerSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    try {
+      const member = await registerMember(parsed.data);
+      return reply.status(201).send(success({ id: member.id, username: member.username }));
+    } catch (e) {
+      if (e instanceof MemberConflictError) {
+        return reply.status(409).send(error(409, e.message));
+      }
+      throw e;
+    }
+  });
+
+  server.post('/members/register/mobile', { schema: { response: R } }, async (request, reply) => {
+    const parsed = registerMobileSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    try {
+      const member = await registerMemberByMobile({
+        mobile: parsed.data.mobile,
+        password: parsed.data.password,
+        nickname: parsed.data.nickname,
+      });
+      return reply.status(201).send(success({ id: member.id, mobile: member.mobile }));
+    } catch (e) {
+      if (e instanceof MemberConflictError) {
+        return reply.status(409).send(error(409, e.message));
+      }
+      throw e;
+    }
+  });
+
+  // 需登录端点
+  server.register(async (authed) => {
+    authed.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!(await requireAuth(request, reply))) return;
+    });
+
+    // GET /members/by-id - 按 ID 查询会员
+    authed.get('/members/by-id', { schema: { response: R } }, async (request, reply) => {
+      const parsed = byIdQuery.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const member = await findMemberById(parsed.data.id);
+      if (!member) {
+        return reply.status(404).send(error(404, '会员不存在'));
+      }
+      const { password: _pw, ...memberPublic } = member;
+      return reply.send(success({ member: memberPublic }));
+    });
+
+    // GET /members/by-ids - 批量按 ID 查询
+    authed.get('/members/by-ids', { schema: { response: R } }, async (request, reply) => {
+      const parsed = byIdsQuery.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const ids = parsed.data.ids.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+      const list = await findMembersByIds(ids);
+      const publicList = list.map(({ password: _p, ...rest }) => rest);
+      return reply.send(success({ list: publicList }));
+    });
+
+    // GET /members/auth-list - 登录用户列表（status=1）
+    authed.get('/members/auth-list', { schema: { response: R } }, async (request, reply) => {
+      const parsed = authListQuery.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const result = await findAuthMembers(parsed.data);
+      const list = result.list.map(({ password: _pw, ...rest }) => rest);
+      return reply.send(success({ ...result, list }));
+    });
+  });
+};
+
+// =============================================================================
+// 管理员路由（前缀 /api/admin）
+// =============================================================================
+
+export const adminMemberRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await requireAdmin(request, reply))) return;
+  });
+
+  // ----- 会员管理 -----
+
+  // GET /members - 会员列表
+  server.get('/members', { schema: { response: R } }, async (request, reply) => {
+    const parsed = listMembersQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findMembers(parsed.data);
+    // 剥离密码字段，避免哈希泄漏到客户端
+    const list = result.list.map(({ password: _pw, ...rest }) => rest);
+    return reply.send(success({ ...result, list }));
+  });
+
+  // GET /members/unaudited - 待审核列表
+  server.get('/members/unaudited', { schema: { response: R } }, async (request, reply) => {
+    const parsed = z.object(paginationQuery).safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findUnauditedMembers(parsed.data);
+    const list = result.list.map(({ password: _pw, ...rest }) => rest);
+    return reply.send(success({ ...result, list }));
+  });
+
+  // GET /members/statistics - 会员统计
+  server.get('/members/statistics', { schema: { response: R } }, async (_request, reply) => {
+    const statistics = await getMemberStatistics();
+    return reply.send(success({ statistics }));
+  });
+
+  // GET /members/companies - 会员企业列表
+  server.get('/members/companies', { schema: { response: R } }, async (request, reply) => {
+    const parsed = companyListQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findMemberCompanies(parsed.data);
+    return reply.send(success(result));
+  });
+
+  // POST /members - 创建会员
+  server.post('/members', { schema: { response: R } }, async (request, reply) => {
+    const parsed = createMemberSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    try {
+      const member = await createMember(parsed.data);
+      return reply.status(201).send(success({ id: member.id }));
+    } catch (e) {
+      if (e instanceof MemberConflictError) {
+        return reply.status(409).send(error(409, e.message));
+      }
+      throw e;
+    }
+  });
+
+  // PUT /members - 更新会员
+  server.put('/members', { schema: { response: R } }, async (request, reply) => {
+    const parsed = updateMemberSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMemberById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    await updateMember(parsed.data.id, parsed.data);
+    return reply.send(success({ id: parsed.data.id }));
+  });
+
+  // PUT /members/seal - 封禁
+  server.put('/members/seal', { schema: { response: R } }, async (request, reply) => {
+    const parsed = memberIdBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const member = await setMemberStatus(parsed.data.id, 2);
+    if (!member) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    return reply.send(success({ id: member.id, status: member.status }));
+  });
+
+  // PUT /members/unseal - 解封
+  server.put('/members/unseal', { schema: { response: R } }, async (request, reply) => {
+    const parsed = memberIdBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const member = await setMemberStatus(parsed.data.id, 1);
+    if (!member) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    return reply.send(success({ id: member.id, status: member.status }));
+  });
+
+  // PUT /members/approved - 审核通过
+  server.put('/members/approved', { schema: { response: R } }, async (request, reply) => {
+    const parsed = memberIdBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const member = await setMemberStatus(parsed.data.id, 1);
+    if (!member) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    return reply.send(success({ id: member.id, status: member.status }));
+  });
+
+  // PUT /members/reject - 审核拒绝
+  server.put('/members/reject', { schema: { response: R } }, async (request, reply) => {
+    const parsed = memberIdBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const member = await setMemberStatus(parsed.data.id, 0);
+    if (!member) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    return reply.send(success({ id: member.id, status: member.status }));
+  });
+
+  // PUT /members/pwd/reset - 重置密码
+  server.put('/members/pwd/reset', { schema: { response: R } }, async (request, reply) => {
+    const parsed = resetPwdSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMemberById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    await resetMemberPassword(parsed.data.id, parsed.data.password);
+    return reply.send(success({ id: parsed.data.id }));
+  });
+
+  // DELETE /members - 删除会员
+  server.delete('/members', { schema: { response: R } }, async (request, reply) => {
+    const parsed = byIdQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMemberById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '会员不存在'));
+    }
+    await deleteMember(parsed.data.id);
+    return reply.send(success({ id: parsed.data.id }));
+  });
+
+  // ----- 会员等级 -----
+
+  // GET /members/levels - 等级列表
+  server.get('/members/levels', { schema: { response: R } }, async (_request, reply) => {
+    const list = await findMemberLevels();
+    return reply.send(success({ list }));
+  });
+
+  // GET /members/levels/:id - 等级详情
+  server.get('/members/levels/:id', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const level = await findMemberLevelById(parsed.data.id);
+    if (!level) {
+      return reply.status(404).send(error(404, '等级不存在'));
+    }
+    return reply.send(success({ level }));
+  });
+
+  // POST /members/levels - 创建等级
+  server.post('/members/levels', { schema: { response: R } }, async (request, reply) => {
+    const parsed = createLevelSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const level = await createMemberLevel(parsed.data);
+    return reply.status(201).send(success({ id: level.id }));
+  });
+
+  // PUT /members/levels - 更新等级
+  server.put('/members/levels', { schema: { response: R } }, async (request, reply) => {
+    const parsed = updateLevelSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMemberLevelById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '等级不存在'));
+    }
+    await updateMemberLevel(parsed.data.id, parsed.data);
+    return reply.send(success({ id: parsed.data.id }));
+  });
+
+  // DELETE /members/levels - 删除等级
+  server.delete('/members/levels', { schema: { response: R } }, async (request, reply) => {
+    const parsed = byIdQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMemberLevelById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '等级不存在'));
+    }
+    await deleteMemberLevel(parsed.data.id);
+    return reply.send(success({ ok: true }));
+  });
+
+  // ----- 企业管理 -----
+
+  // GET /members/companies/list - 企业列表(分页,支持名称搜索 + 状态筛选)
+  server.get('/members/companies/list', { schema: { response: R } }, async (request, reply) => {
+    const parsed = companiesListQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findCompanies(parsed.data);
+    return reply.send(success(result));
+  });
+
+  // GET /members/companies/:id - 企业详情
+  server.get('/members/companies/:id', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const company = await findCompanyById(parsed.data.id);
+    if (!company) return reply.status(404).send(error(404, '企业不存在'));
+    return reply.send(success({ company }));
+  });
+
+  // POST /members/companies - 创建企业
+  server.post('/members/companies', { schema: { response: R } }, async (request, reply) => {
+    const parsed = createCompanySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const company = await createCompany(parsed.data);
+    return reply.status(201).send(success({ id: company.id }));
+  });
+
+  // PUT /members/companies/:id - 更新企业
+  server.put('/members/companies/:id', { schema: { response: R } }, async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = updateCompanySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findCompanyById(idParsed.data.id);
+    if (!existing) return reply.status(404).send(error(404, '企业不存在'));
+    await updateCompany(idParsed.data.id, parsed.data);
+    return reply.send(success({ id: idParsed.data.id }));
+  });
+
+  // DELETE /members/companies/:id - 删除企业
+  server.delete('/members/companies/:id', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findCompanyById(parsed.data.id);
+    if (!existing) return reply.status(404).send(error(404, '企业不存在'));
+    await deleteCompany(parsed.data.id);
+    return reply.send(success({ ok: true }));
+  });
+
+  // ----- 部门管理 -----
+
+  // GET /members/departments - 部门列表(分页,支持企业/名称/状态筛选)
+  server.get('/members/departments', { schema: { response: R } }, async (request, reply) => {
+    const parsed = departmentsListQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findDepartments(parsed.data);
+    return reply.send(success(result));
+  });
+
+  // GET /members/departments/:id - 部门详情
+  server.get('/members/departments/:id', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const department = await findDepartmentById(parsed.data.id);
+    if (!department) return reply.status(404).send(error(404, '部门不存在'));
+    return reply.send(success({ department }));
+  });
+
+  // POST /members/departments - 创建部门
+  server.post('/members/departments', { schema: { response: R } }, async (request, reply) => {
+    const parsed = createDepartmentSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const company = await findCompanyById(parsed.data.companyId);
+    if (!company) return reply.status(404).send(error(404, '企业不存在'));
+    const department = await createDepartment(parsed.data);
+    return reply.status(201).send(success({ id: department.id }));
+  });
+
+  // PUT /members/departments/:id - 更新部门
+  server.put('/members/departments/:id', { schema: { response: R } }, async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = updateDepartmentSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findDepartmentById(idParsed.data.id);
+    if (!existing) return reply.status(404).send(error(404, '部门不存在'));
+    await updateDepartment(idParsed.data.id, parsed.data);
+    return reply.send(success({ id: idParsed.data.id }));
+  });
+
+  // DELETE /members/departments/:id - 删除部门
+  server.delete('/members/departments/:id', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findDepartmentById(parsed.data.id);
+    if (!existing) return reply.status(404).send(error(404, '部门不存在'));
+    await deleteDepartment(parsed.data.id);
+    return reply.send(success({ ok: true }));
+  });
+};

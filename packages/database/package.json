@@ -1,0 +1,35 @@
+{
+  "name": "@ihui/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "clean": "rimraf dist .turbo node_modules"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.2",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "drizzle-kit": "^0.31.10",
+    "rimraf": "^6.0.1",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2"
+  }
+}
