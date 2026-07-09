@@ -1,0 +1,47 @@
+# Prometheus 配置 — IHUI-AI 监控
+# 抓取 api(/metrics)、ai-service(/metrics)、web 无 /metrics 端点跳过
+
+global:
+  scrape_interval: 15s          # 默认抓取间隔
+  evaluation_interval: 15s      # 规则评估间隔
+  external_labels:
+    project: 'ihui-ai'
+    environment: 'production'
+
+# 告警规则(可选,后续可扩展)
+rule_files:
+  - "alerts.yml"
+
+# 抓取目标
+scrape_configs:
+  # Fastify 后端 API(端口 8080,/metrics 端点由 metrics.ts 插件暴露)
+  - job_name: 'api'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['api:8080']
+        labels:
+          service: 'api'
+          layer: 'backend'
+
+  # FastAPI AI 服务(端口 8000,需 prometheus-fastapi-instrumentator)
+  - job_name: 'ai-service'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['ai-service:8000']
+        labels:
+          service: 'ai-service'
+          layer: 'ai'
+
+  # Prometheus 自监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter(主机指标,可选)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'node'

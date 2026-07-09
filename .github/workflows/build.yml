@@ -1,0 +1,42 @@
+name: Build Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.api-new
+          push: false
+          tags: ihui-api:latest
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.web-new
+          push: false
+          tags: ihui-web:latest
+
+  build-ai-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build AI Service image
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/ai-service
+          push: false
+          tags: ihui-ai-service:latest

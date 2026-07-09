@@ -1,0 +1,230 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783482284103,
+      "tag": "0000_naive_barracuda",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783484583494,
+      "tag": "0001_mature_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783485419702,
+      "tag": "0002_lucky_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783486340053,
+      "tag": "0003_easy_the_hood",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783487221914,
+      "tag": "0004_cuddly_wind_dancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783488323955,
+      "tag": "0005_tranquil_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783489648270,
+      "tag": "0006_aberrant_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783574400000,
+      "tag": "0007_levels_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783574401000,
+      "tag": "0008_announcement_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783574402000,
+      "tag": "0009_files_soft_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783574403000,
+      "tag": "0010_fulltext_search_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783574404000,
+      "tag": "0011_file_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783574405000,
+      "tag": "0012_learn_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783574406000,
+      "tag": "0013_exam_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783574407000,
+      "tag": "0014_community_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1783574408000,
+      "tag": "0015_order_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1783574409000,
+      "tag": "0016_live_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783574410000,
+      "tag": "0017_member_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783574411000,
+      "tag": "0018_resource_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783574412000,
+      "tag": "0019_point_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1783574413000,
+      "tag": "0020_usercenter_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1783574414000,
+      "tag": "0021_schedule_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1783574415000,
+      "tag": "0022_statistics_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783574416000,
+      "tag": "0023_message_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783574417000,
+      "tag": "0024_topic_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783574418000,
+      "tag": "0025_behavior_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783574419000,
+      "tag": "0026_visit_tracking_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1783574420000,
+      "tag": "0027_oss_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1783574421000,
+      "tag": "0028_setting_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783574422000,
+      "tag": "0029_drop_legacy_file_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783574423000,
+      "tag": "0030_chat_favorites_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783574424000,
+      "tag": "0031_users_bio",
+      "breakpoints": true
+    }
+  ]
+}
