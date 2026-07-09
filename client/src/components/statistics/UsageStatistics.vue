@@ -1,10 +1,7 @@
 <template>
   <div class="usage-statistics">
-    <el-skeleton :loading="loading" animated>
-      <template #template>
-        <el-skeleton-item variant="rect" style="height: 200px" />
-      </template>
-      <template #default>
+    <div v-if="loading" class="h-[200px] bg-muted rounded animate-pulse"></div>
+    <div v-else>
         <!-- 使用概览 -->
         <Card class="overview-card transition-shadow hover:shadow-md">
           <CardHeader>
@@ -59,8 +56,7 @@
             <div ref="chartRef" style="height: 300px"></div>
           </CardContent>
         </Card>
-      </template>
-    </el-skeleton>
+    </div>
   </div>
 </template>
 

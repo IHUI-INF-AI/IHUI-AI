@@ -1,4 +1,3 @@
-<!-- MIGRATION-TEST-MARKER -->
 <template>
   <div class="member-notes" role="region" :aria-label="t('edu.profile.notesTitle')">
     <header class="page-header">
@@ -7,12 +6,12 @@
         <p class="page-subtitle">{{ t('edu.profile.notesSubtitle') }}</p>
       </div>
       <div class="header-actions">
-        <el-button :icon="Refresh" :loading="loading" :aria-label="t('edu.common.retry')" @click="reload">
-          {{ t('edu.common.retry') }}
-        </el-button>
-        <el-button type="primary" :icon="Plus" :aria-label="t('edu.profile.createNote')" @click="openCreate">
-          {{ t('edu.profile.createNote') }}
-        </el-button>
+        <Button variant="outline" className="" :disabled="loading" :aria-label="t('edu.common.retry')" @click="reload">
+          <Refresh />{{ t('edu.common.retry') }}
+        </Button>
+        <Button variant="default" className="" :aria-label="t('edu.profile.createNote')" @click="openCreate">
+          <Plus />{{ t('edu.profile.createNote') }}
+        </Button>
       </div>
     </header>
 
@@ -46,6 +45,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
+import Button from '@/components/ui/Button.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'
@@ -121,13 +121,13 @@ onMounted(loadAll)
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: hsl(var(--foreground));
+  color: var(--el-text-color-primary);
 }
 
 .page-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: hsl(var(--muted-foreground));
+  color: var(--el-text-color-secondary);
 }
 
 .error-alert {
@@ -142,7 +142,7 @@ onMounted(loadAll)
 .notes-skeleton {
   width: 100%;
   padding: 16px;
-  background: hsl(var(--background));
+  background: var(--el-bg-color);
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
 }
