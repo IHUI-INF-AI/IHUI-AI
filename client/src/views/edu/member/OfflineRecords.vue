@@ -6,12 +6,12 @@
         <p class="page-subtitle">{{ t('edu.profile.offlineSubtitle') }}</p>
       </div>
       <div class="header-actions">
-        <el-button :icon="Refresh" :loading="loading" :aria-label="t('edu.common.retry')" @click="reload">
-          {{ t('edu.common.retry') }}
-        </el-button>
-        <el-button type="primary" :icon="Plus" :aria-label="t('edu.profile.createOffline')" @click="openCreate">
-          {{ t('edu.profile.createOffline') }}
-        </el-button>
+        <Button variant="outline" className="" :disabled="loading" :aria-label="t('edu.common.retry')" @click="reload">
+          <Refresh />{{ t('edu.common.retry') }}
+        </Button>
+        <Button variant="default" className="" :aria-label="t('edu.profile.createOffline')" @click="openCreate">
+          <Plus />{{ t('edu.profile.createOffline') }}
+        </Button>
       </div>
     </header>
 
@@ -45,6 +45,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
+import Button from '@/components/ui/Button.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'

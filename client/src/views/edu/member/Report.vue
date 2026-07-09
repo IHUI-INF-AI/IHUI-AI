@@ -6,12 +6,12 @@
         <p class="page-subtitle">{{ t('edu.profile.reportSubtitle') }}</p>
       </div>
       <div class="header-actions">
-        <el-button :icon="Download" :loading="exporting" type="primary" :aria-label="t('edu.profile.exportPdf')" @click="handleDownload">
-          PDF
-        </el-button>
-        <el-button :icon="Printer" :loading="exporting" :aria-label="t('edu.profile.printReport')" @click="handlePrint">
-          {{ t('edu.profile.printReport') }}
-        </el-button>
+        <Button variant="default" className="" :disabled="exporting" :aria-label="t('edu.profile.exportPdf')" @click="handleDownload">
+          <Download />PDF
+        </Button>
+        <Button variant="outline" className="" :disabled="exporting" :aria-label="t('edu.profile.printReport')" @click="handlePrint">
+          <Printer />{{ t('edu.profile.printReport') }}
+        </Button>
       </div>
     </header>
 
@@ -150,6 +150,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
+import Button from '@/components/ui/Button.vue'
 import { Download, Printer } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { useReportGenerator } from '@/composables/useReportGenerator'

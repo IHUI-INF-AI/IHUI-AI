@@ -79,7 +79,7 @@
               accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp"
               class="cert-uploader"
             >
-              <el-button :icon="UploadFilled">{{ t('edu.profile.selectFile') }}</el-button>
+              <Button variant="outline" className=""><UploadFilled />{{ t('edu.profile.selectFile') }}</Button>
               <template #tip>
                 <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
               </template>
@@ -88,16 +88,16 @@
         </div>
 
         <div class="mb-4">
-          <el-button
-            type="primary"
-            :loading="submitting"
-            :disabled="!canSubmit"
+          <Button
+            variant="default"
+            className=""
+            :disabled="submitting || !canSubmit"
             :aria-label="t('edu.common.submit')"
             @click="handleSubmit"
           >
             {{ t('edu.common.submit') }}
-          </el-button>
-          <el-button :aria-label="t('edu.common.cancel')" @click="handleReset">{{ t('edu.common.cancel') }}</el-button>
+          </Button>
+          <Button variant="outline" className="" :aria-label="t('edu.common.cancel')" @click="handleReset">{{ t('edu.common.cancel') }}</Button>
         </div>
       </form>
     </section>

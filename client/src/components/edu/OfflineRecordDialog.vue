@@ -90,7 +90,7 @@
             :file-list="fileList"
             accept="image/*"
           >
-            <el-button :icon="Paperclip">{{ t('edu.profile.selectFile') }}</el-button>
+            <Button variant="outline" className=""><Paperclip />{{ t('edu.profile.selectFile') }}</Button>
             <template #tip>
               <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
             </template>
@@ -99,13 +99,14 @@
       </div>
     </form>
 
-    <template #footer>
-      <el-button @click="handleCancel">{{ t('edu.profile.cancel') }}</el-button>
-      <el-button type="primary" :loading="submitting" @click="handleSubmit">
-        {{ t('edu.profile.submit') }}
-      </el-button>
-    </template>
-  </el-dialog>
+      <DialogFooter>
+        <Button variant="outline" className="" @click="handleCancel">{{ t('edu.profile.cancel') }}</Button>
+        <Button variant="default" className="" :disabled="submitting" @click="handleSubmit">
+          {{ t('edu.profile.submit') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -121,6 +122,8 @@ import {
 } from '@/api/edu/offline-records'
 import { validateFile } from '@/utils/fileValidation'
 import { Select, SelectOption } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import Button from '@/components/ui/Button.vue'
 
 const { t } = useI18n()
 

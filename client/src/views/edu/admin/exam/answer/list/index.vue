@@ -88,95 +88,112 @@
         </TableBody>
       </Table>
     </div>
-    <el-drawer class="custom-drawer" v-model="recordListDrawer" direction="rtl" :before-close="drawerClose" destroy-on-close>
-      <template #header>
-        <div class="work-item-box">
-          <div class="item-content">
-            <div class="content-main">
-              <div class="main-title">
-                <div class="title-box two-line">
-                  <span class="title-text">{{selectTopic.name || selectTopic.title || selectTopic.content}}</span>
+    <Teleport to="body">
+      <div v-if="recordListDrawer" class="fixed inset-0 z-50">
+        <div class="absolute inset-0 bg-black/50" @click="recordListDrawer = false" />
+        <div class="absolute right-0 top-0 h-full bg-background shadow-lg custom-drawer flex flex-col" style="width: calc(100% - 210px)">
+          <div class="border-b p-4 flex-shrink-0">
+            <div class="work-item-box">
+              <div class="item-content">
+                <div class="content-main">
+                  <div class="main-title">
+                    <div class="title-box two-line">
+                      <span class="title-text">{{selectTopic.name || selectTopic.title || selectTopic.content}}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="content-info">
+                  <div class="answer-box">
+                    <div class="flex flex-wrap" v-if="selectTopic.paper">
+                      <div class="w-1/3">
+                        <div class="answer-item">
+                          <div class="answer-info-label">试卷标题：</div>
+                          <div class="answer-info-value">
+                            {{selectTopic.paper.title}}
+                          </div>
+                        </div>
+                        <div class="answer-item">
+                          <div class="answer-info-label">试卷类型：</div>
+                          <div class="answer-info-value">
+                            {{paperTypeMap[selectTopic.paper.type]}}
+                          </div>
+                        </div>
+                        <div class="answer-item">
+                          <div class="answer-info-label">试卷难度：</div>
+                          <div class="answer-info-value">
+                            <div class="flex gap-1">
+                              <svg v-for="i in 5" :key="i" :class="['h-4 w-4', i <= selectTopic.paper.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="w-1/3">
+                        <div class="answer-item" v-if="selectTopic.paper && selectTopic.paper.questionList">
+                          <div class="answer-info-label">题目数量：</div>
+                          <div class="answer-info-value">{{selectTopic.paper.questionList.length || 0}}</div>
+                        </div>
+                        <div class="answer-item">
+                          <div class="answer-info-label">试卷总分：</div>
+                          <div class="answer-info-value">{{selectTopic.paper.score || 0}}</div>
+                        </div>
+                        <div class="answer-item">
+                          <div class="answer-info-label">合格分数：</div>
+                          <div class="answer-info-value">{{selectTopic.paper.passScore || 0}}</div>
+                        </div>
+                      </div>
+                      <div class="w-1/3">
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="content-info">
-              <div class="answer-box">
-                <div class="flex flex-wrap" v-if="selectTopic.paper">
-                  <div class="w-1/3">
-                    <div class="answer-item">
-                      <div class="answer-info-label">试卷标题：</div>
-                      <div class="answer-info-value">
-                        {{selectTopic.paper.title}}
-                      </div>
-                    </div>
-                    <div class="answer-item">
-                      <div class="answer-info-label">试卷类型：</div>
-                      <div class="answer-info-value">
-                        {{paperTypeMap[selectTopic.paper.type]}}
-                      </div>
-                    </div>
-                    <div class="answer-item">
-                      <div class="answer-info-label">试卷难度：</div>
-                      <div class="answer-info-value">
-                        <el-rate :disabled="true" v-model="selectTopic.paper.difficulty" :colors="colors"></el-rate>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="w-1/3">
-                    <div class="answer-item" v-if="selectTopic.paper && selectTopic.paper.questionList">
-                      <div class="answer-info-label">题目数量：</div>
-                      <div class="answer-info-value">{{selectTopic.paper.questionList.length || 0}}</div>
-                    </div>
-                    <div class="answer-item">
-                      <div class="answer-info-label">试卷总分：</div>
-                      <div class="answer-info-value">{{selectTopic.paper.score || 0}}</div>
-                    </div>
-                    <div class="answer-item">
-                      <div class="answer-info-label">合格分数：</div>
-                      <div class="answer-info-value">{{selectTopic.paper.passScore || 0}}</div>
-                    </div>
-                  </div>
-                  <div class="w-1/3">
-                  </div>
-                </div>
-              </div>
+          </div>
+          <div class="overflow-auto flex-1">
+            <div class="topic-comment-list-wrapper">
+              <div v-if="paperRecordLoading" class="loading-text">加载中...</div>
+              <Table v-show="!paperRecordLoading" class="w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>姓名</TableHead>
+                    <TableHead>开始时间</TableHead>
+                    <TableHead>提交时间</TableHead>
+                    <TableHead>得分</TableHead>
+                    <TableHead>得分</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="(row, index) in paperRecordList" :key="row.id ?? index">
+                    <TableCell>{{ row.member && row.member.name }}</TableCell>
+                    <TableCell>{{ row.startTime }}</TableCell>
+                    <TableCell>{{ row.endTime }}</TableCell>
+                    <TableCell>{{ row.score || 0 }}</TableCell>
+                    <TableCell><Button variant="link" @click="showDetail(row)">答题详情</Button></TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <page :total="paperRecordTotal" :current-change="paperRecordCurrentChange" :size-change="paperRecordSizeChange" :page-size="paperRecordParam.size"></page>
             </div>
           </div>
         </div>
-      </template>
-      <div class="topic-comment-list-wrapper">
-        <div v-if="paperRecordLoading" class="loading-text">加载中...</div>
-        <Table v-show="!paperRecordLoading" class="w-full">
-          <TableHeader>
-            <TableRow>
-              <TableHead>姓名</TableHead>
-              <TableHead>开始时间</TableHead>
-              <TableHead>提交时间</TableHead>
-              <TableHead>得分</TableHead>
-              <TableHead>得分</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="(row, index) in paperRecordList" :key="row.id ?? index">
-              <TableCell>{{ row.member && row.member.name }}</TableCell>
-              <TableCell>{{ row.startTime }}</TableCell>
-              <TableCell>{{ row.endTime }}</TableCell>
-              <TableCell>{{ row.score || 0 }}</TableCell>
-              <TableCell><Button variant="link" @click="showDetail(row)">答题详情</Button></TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <page :total="paperRecordTotal" :current-change="paperRecordCurrentChange" :size-change="paperRecordSizeChange" :page-size="paperRecordParam.size"></page>
       </div>
-      <el-drawer v-if="detailDrawer" :append-to-body="true" v-model="detailDrawer" direction="rtl" :before-close="hideDetail" destroy-on-close class="detail-drawer">
-        <template #header>
-          <div>
-            {{detailItem.member && detailItem.member.name}} <span style="color: #999999;font-size: 12px;">(报名id：{{detailItem.signUpId}})</span>
+    </Teleport>
+    <Teleport to="body">
+      <div v-if="detailDrawer" class="fixed inset-0 z-[60]">
+        <div class="absolute inset-0 bg-black/50" @click="detailDrawer = false" />
+        <div class="absolute right-0 top-0 h-full bg-background shadow-lg detail-drawer flex flex-col" style="width: calc(100% - 210px)">
+          <div class="flex items-center justify-between border-b p-4 flex-shrink-0">
+            <div>
+              {{detailItem.member && detailItem.member.name}} <span style="color: #999999;font-size: 12px;">(报名id：{{detailItem.signUpId}})</span>
+            </div>
+            <button @click="detailDrawer = false" class="text-muted-foreground hover:text-foreground text-2xl leading-none flex-shrink-0">&times;</button>
           </div>
-        </template>
-        <paper-detail v-if="detailDrawer" :exam-chapter-section-id="detailItem.examChapterSectionId" :exam-id="detailItem.examId" :sign-up-id="detailItem.signUpId"/>
-      </el-drawer>
-    </el-drawer>
+          <div class="overflow-auto flex-1">
+            <paper-detail v-if="detailDrawer" :exam-chapter-section-id="detailItem.examChapterSectionId" :exam-id="detailItem.examId" :sign-up-id="detailItem.signUpId"/>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
   </div>
 </template>

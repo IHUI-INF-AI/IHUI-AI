@@ -20,18 +20,18 @@
       </div>
       <!-- ② 快速操作栏 -->
       <div class="hero-actions">
-        <el-button type="primary" :icon="Document" :aria-label="t('edu.profile.generateReport')" @click="goReport">
-          {{ t('edu.profile.generateReport') }}
-        </el-button>
-        <el-button :icon="Download" :loading="exporting" :aria-label="t('edu.profile.exportPdf')" @click="handleExportPdf">
-          {{ t('edu.profile.exportPdf') }}
-        </el-button>
-        <el-button :icon="Printer" :loading="exporting" :aria-label="t('edu.profile.printReport')" @click="handlePrint">
-          {{ t('edu.profile.printReport') }}
-        </el-button>
-        <el-button :icon="Refresh" :loading="loading" :aria-label="t('edu.common.retry')" @click="loadAll">
-          {{ t('edu.common.retry') }}
-        </el-button>
+        <Button variant="default" className="" :aria-label="t('edu.profile.generateReport')" @click="goReport">
+          <Document />{{ t('edu.profile.generateReport') }}
+        </Button>
+        <Button variant="outline" className="" :disabled="exporting" :aria-label="t('edu.profile.exportPdf')" @click="handleExportPdf">
+          <Download />{{ t('edu.profile.exportPdf') }}
+        </Button>
+        <Button variant="outline" className="" :disabled="exporting" :aria-label="t('edu.profile.printReport')" @click="handlePrint">
+          <Printer />{{ t('edu.profile.printReport') }}
+        </Button>
+        <Button variant="outline" className="" :disabled="loading" :aria-label="t('edu.common.retry')" @click="loadAll">
+          <Refresh />{{ t('edu.common.retry') }}
+        </Button>
       </div>
     </header>
 
@@ -197,6 +197,7 @@
 import { onMounted, computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
+import Button from '@/components/ui/Button.vue'
 import { useRouter } from 'vue-router'
 import {
   Refresh, Document, Download, Printer, MagicStick, User,

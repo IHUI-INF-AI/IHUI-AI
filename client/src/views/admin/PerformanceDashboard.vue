@@ -7,7 +7,7 @@
             <div class="stat-value" :class="getScoreClass(lcpScore)">{{ lcpScore }}ms</div>
             <div class="stat-label">{{ t('performance.lcp') }}</div>
           </div>
-          <el-progress :percentage="getScorePercentage(lcpScore, 'LCP')" :color="getScoreColor(lcpScore, 'LCP')" :show-text="false" />
+          <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :style="{ width: getScorePercentage(lcpScore, 'LCP') + '%', backgroundColor: getScoreColor(lcpScore, 'LCP') }"></div></div>
         </Card>
       </div>
       <div class="w-1/4">
@@ -16,7 +16,7 @@
             <div class="stat-value" :class="getScoreClass(fidScore)">{{ fidScore }}ms</div>
             <div class="stat-label">{{ t('performance.fid') }}</div>
           </div>
-          <el-progress :percentage="getScorePercentage(fidScore, 'FID')" :color="getScoreColor(fidScore, 'FID')" :show-text="false" />
+          <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :style="{ width: getScorePercentage(fidScore, 'FID') + '%', backgroundColor: getScoreColor(fidScore, 'FID') }"></div></div>
         </Card>
       </div>
       <div class="w-1/4">
@@ -25,7 +25,7 @@
             <div class="stat-value" :class="getScoreClass(clsScore)">{{ clsScore.toFixed(3) }}</div>
             <div class="stat-label">{{ t('performance.cls') }}</div>
           </div>
-          <el-progress :percentage="getScorePercentage(clsScore, 'CLS')" :color="getScoreColor(clsScore, 'CLS')" :show-text="false" />
+          <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :style="{ width: getScorePercentage(clsScore, 'CLS') + '%', backgroundColor: getScoreColor(clsScore, 'CLS') }"></div></div>
         </Card>
       </div>
       <div class="w-1/4">
@@ -34,7 +34,7 @@
             <div class="stat-value" :class="getScoreClass(ttfbScore)">{{ ttfbScore }}ms</div>
             <div class="stat-label">{{ t('performance.ttfb') }}</div>
           </div>
-          <el-progress :percentage="getScorePercentage(ttfbScore, 'TTFB')" :color="getScoreColor(ttfbScore, 'TTFB')" :show-text="false" />
+          <div class="w-full bg-muted rounded-full h-2"><div class="h-2 rounded-full" :style="{ width: getScorePercentage(ttfbScore, 'TTFB') + '%', backgroundColor: getScoreColor(ttfbScore, 'TTFB') }"></div></div>
         </Card>
       </div>
     </div>
