@@ -1,0 +1,33 @@
+FROM node:20-alpine AS base
+RUN npm install -g pnpm@9.15.0
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/types/package.json ./packages/types/
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/package.json ./packages/database/
+COPY packages/auth/package.json ./packages/auth/
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY . .
+RUN pnpm --filter @ihui/api run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 apijs
+# 创建 uploads 目录(@fastify/static 注册时验证 root 存在)
+RUN mkdir -p /app/uploads && chown apijs:nodejs /app/uploads
+COPY --from=builder --chown=apijs:nodejs /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=apijs:nodejs /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder --chown=apijs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=apijs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
+USER apijs
+EXPOSE 8080
+CMD ["node", "apps/api/dist/index.js"]

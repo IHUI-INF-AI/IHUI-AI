@@ -1,0 +1,117 @@
+﻿{
+  "annotations": {
+    "list": []
+  },
+  "description": "IHUI-AI 应用监控总览",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "请求总量(QPS)",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "sum(rate(http_requests_total[1m]))", "legendFormat": "QPS", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true}
+    },
+    {
+      "title": "平均响应时间(ms)",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {"expr": "http_response_time_ms_avg", "legendFormat": "avg", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "title": "错误率(5xx)",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "sum(rate(http_requests_by_status{status=~\"5..\"}[1m])) / sum(rate(http_requests_total[1m]))", "legendFormat": "error rate", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}]}}},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "服务运行时间",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {"expr": "process_uptime_seconds", "legendFormat": "uptime", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "请求量趋势(QPM)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {"expr": "sum(rate(http_requests_total[1m])) * 60", "legendFormat": "QPM", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqpm"}}
+    },
+    {
+      "title": "响应时间分布",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {"expr": "http_response_time_ms_avg", "legendFormat": "平均", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "title": "状态码分布",
+      "type": "piechart",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "targets": [
+        {"expr": "sum by (status) (http_requests_by_status)", "legendFormat": "{{status}}", "refId": "A"}
+      ]
+    },
+    {
+      "title": "响应时间桶分布",
+      "type": "barchart",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "targets": [
+        {"expr": "http_response_time_bucket", "legendFormat": "{{le}}", "refId": "A"}
+      ]
+    },
+    {
+      "title": "按方法统计",
+      "type": "table",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
+      "targets": [
+        {"expr": "sum by (method) (http_requests_by_method)", "legendFormat": "{{method}}", "refId": "A", "format": "table", "instant": true}
+      ]
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ihui-ai", "overview"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "IHUI-AI 总览",
+  "uid": "ihui-ai-overview",
+  "version": 1,
+  "weekStart": ""
+}
