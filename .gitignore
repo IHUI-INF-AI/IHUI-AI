@@ -3,29 +3,9 @@
 # ============================================================================
 logs/
 tmp/
-audit/
-pw-output/
-screenshots/
-test-results/
-.ruff_cache/
 *.log
-test_token.txt
 test_*.json
 test_*.log
-endpoints_500*
-test_endpoints.ps1
-
-# 2026-07-02 归档: 历史 pre-baked commit message 临时文件
-# (作为会话工作笔记, 不入库但保留在磁盘供后续追溯)
-client/docs/_archive/
-
-# 2026-07-02 死代码扫描器: 自动生成报告, 时间戳每次扫描都变, 不入库
-DEAD_CODE_FULL_REPORT.md
-
-# 2026-07-02 IDE 工作笔记 (trae / stash inventory), 不入库
-.trae/
-.trae-cn/
-archive/
 
 # ============================================================================
 # 构建产物
@@ -35,6 +15,9 @@ build/
 *.egg-info/
 __pycache__/
 *.pyc
+*.pyo
+.next/
+.turbo/
 
 # ============================================================================
 # 环境配置
@@ -45,21 +28,14 @@ __pycache__/
 **/.env
 **/.env.local
 **/.env.production
-**/.env.vapid
-
-# ============================================================================
-# 历史项目封存凭证（敏感，禁止入库）
-# ============================================================================
-server/deploy/legacy-archive/secrets/
-server/deploy/legacy-archive/**/secrets/
-# 历史运维脚本归档（含硬编码 MySQL 凭证 Raindrop_L250604，禁止入库）
-server/deploy/legacy-archive/ops-scripts-archive/
 
 # ============================================================================
 # IDE / 编辑器
 # ============================================================================
 .idea/
 .vscode/
+.trae/
+.trae-cn/
 *.swp
 *.swo
 .DS_Store
@@ -76,223 +52,44 @@ uploads/
 local_uploads/
 
 # ============================================================================
-# Windows 设备文件
-# ============================================================================
-nul
-
-# ============================================================================
 # 依赖
 # ============================================================================
 node_modules/
 .venv/
 venv/
-
-# ============================================================================
-# 测试产物（完整测试结果，体积大，不提交）
-# ============================================================================
-client/test-results-full/
-client/test-results/
-client/playwright-report/
-client/.v8-coverage/
-client/e2e-v8-coverage-report/
-client/e2e-v8-coverage-report.json
+.pnpm-store/
+.pnpm-cache/
+.turbo/
+.next/
 
 # ============================================================================
 # Python 缓存
 # ============================================================================
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 
 # ============================================================================
-# 临时分析脚本和报告（高特异性选择器优化期间生成的临时文件）
+# 测试产物
+# ============================================================================
+test-results/
+playwright-report/
+coverage/
+.v8-coverage/
+
+# ============================================================================
+# 监控数据卷(Docker 卷,不入库)
+# ============================================================================
+monitoring/data/
+prometheusdata/
+grafanadata/
+
+# ============================================================================
+# 临时分析脚本和报告
 # ============================================================================
 *.cjs
-!client/*.cjs
-!client/electron/*.cjs
-!client/scripts/*.cjs
-!client/miniapp/scripts/*.cjs
-!client/eslint-rules/*.cjs
-!client/config/*.cjs
-*.py
-!server/**/*.py
-!scripts/*.py
-# 2026-07-08 一次性 D 盘历史项目交叉验证脚本 (引用 D:/历史项目存档, 仅本地分析)
-# 保留磁盘供用户后续追溯, 不污染主仓库. 必须在 !scripts/*.py 之后声明以覆盖白名单.
-scripts/cross_verify_ctrl.py
-scripts/cross_verify_ctrl_to_py.py
+*.html
 i18n-report*.json
 openapi.json
 openapi_problems.json
-endpoints_500_list.txt
-missing_*.txt
-any-warnings.txt
-test-output*.txt
-test-output*.log
-test-result.txt
-vitest-output.txt
-dev.log
 report.json
-redundant_analysis.json
-
-# ============================================================================
-# 2026-07-04 调试产物 (前端 bug 诊断截图/临时报告 + 模型诊断 JSON + stylelint 输出)
-# 列入 .gitignore 但保留磁盘, 方便后续追溯
-# ============================================================================
-diag-*.png
-diag-models.json
-work_*.txt
-work_*.log
-work_stylelint.txt
-# 自动 WIP 备份目录 (scripts/auto-wip-commit.mjs 生成, 不入库, 防止丢失修改)
-client/.auto-wip/
-
-# ============================================================================
-# 2026-07-07 浏览器 profile 数据 (puppeteer/playwright 调试残留, 含敏感登录数据)
-# ============================================================================
-.pp-edge*/
-.pp-ed*/
-.tmp-pptr*/
-.tmp-pptr*/
-.trae-html-share-packages/
-.workbuddy/
-
-# 2026-07-07 pip 升级通知日志 (server/.venv 运行时输出, 不入库)
-server/boto3_log*.txt
-server/pip_*.log
-
-# 2026-07-08 失败构建产物 (zip 失败产物归档, 不入库)
-archives/
-
-# 2026-07-08 unplugin-auto-import 自动生成的 eslint 缓存 (构建产物, 不入库)
-client/.eslintrc-auto-import.json
-client/src/types/auto-imports.d.ts
-
-# ============================================================================
-# 2026-07-07 调试脚本/截图/报告 (会话期间生成的临时诊断产物)
-# ============================================================================
-client/_test_*
-client/_dark-*-compiled.css
-client/_ep-overrides-compiled.css
-client/_global-ui-compiled.css
-client/.audit-snapshots/
-client/.verify-shots/
-client/served-scss.css
-client/aichat-compiled.css
-client/verify-*.png
-client/verify-*.mjs
-client/verify-*.json
-client/verify-*/
-client/check-*.mjs
-client/check-*.txt
-client/diag-*.mjs
-client/scan-*.mjs
-client/decode-*.mjs
-client/parse-*.mjs
-client/fetch-css.mjs
-client/inspect-*.mjs
-client/capture-*.mjs
-client/test-*.mjs
-client/test-*.cjs
-client/tab-icon-zoom.png
-client/widths-*.png
-client/v11-*.png
-client/snap-*.png
-client/_dark-global-compiled.css
-*.html
-!client/public/**/*.html
-!client/src/**/*.html
-!server/app/api/**/*.html
-!docs/**/*.html
-!deploy/**/*.html
-audit-*.txt
-audit-*.png
-audit-v*.txt
-audit-final*.txt
-full-audit*.txt
-scan-*-result.txt
-scan-result.txt
-phone-from-dev.txt
-dark-mode-*.png
-light-mode-*.png
-final-dark-*.png
-final-light-*.png
-spa-*.png
-debug-*.png
-debug-*.txt
-tmp-*.png
-tmp-*.html
-tmp-tab-*.png
-tmp-login-*.png
-tmp-final-*.png
-verify-aiworld-*.png
-verify-aiworld-*.mjs
-verify-aiworld-*.json
-verify-active-focus-*.png
-verify-active-focus-*.json
-verify-*.png
-login-history-verify/
-verify-border-*.png
-verify-*.mjs
-verify-*.json
-verify-*/
-check-tab-icon.mjs
-PROJECT深度分析与优化报告.html
-
-# ============================================================================
-# 2026-07-07 剩余调试产物 (截图/备份/临时输出)
-# ============================================================================
-*.bak
-client/final-*.png
-client/check-*.png
-client/toolbar-*.png
-client/acc-*.txt
-client/diag-page-output/
-client/debug-*.mjs
-client/scripts/_*.png
-client/scripts/_*.mjs
-client/scripts/_light-*.png
-client/scripts/_light-*.mjs
-client/scripts/_tmp_*.mjs
-client/public/page-v6-actual.png
-client/public/toolbar-v6-actual.png
-server/_inspect_sqlite.py
-server/alembic_output.txt
-server/mig_err.txt
-server/scripts/_inspect_admin_user.py
-server/scripts/_run_migration_029.py
-server/scripts/_verify_unique_constraint.py
-server/tmp_sources.json
-deploy/oracle/
-docker-compose.ai-feed.yml
-docs/competitive-analysis/
-scripts/check-cursorrules-memory.mjs
-scripts/check-shell-blacklist.mjs
-scripts/check-slash-commands.mjs
-scripts/check-tasklist-panel.mjs
-scripts/clean-g-root-tmp.ps1
-ts_parse_tmp.mjsdbg_tmp.mjsscss_tmp.shscss_vue_tmp.mjs server/debug_glob.py server/debug_re_sub.pyserver/debug_*.py *_tmp.mjs *_tmp.sh scss_*tmp*
-
-# ============================================================================
-# 2026-07-07 工作区根目录调试/分析/扫描临时脚本 (Sidebar 恢复尝试残留)
-# 不入库但保留在磁盘供后续追溯
-# ============================================================================
-analyze_*.mjs
-compare_*.mjs
-deep_scan.mjs
-dump_*.mjs
-extract_*.mjs
-extract_*.txt
-precise_*.mjs
-precise_matches.json
-query_*.mjs
-restore_perfect_version.mjs
-scan_*.mjs
-backups_before_restore/
-backups_before_restore_sidebar.vue
-backups_before_restore_sidebar*.vue
-backups_before_restore*.vue
-unreachable_sidebar_dumps/

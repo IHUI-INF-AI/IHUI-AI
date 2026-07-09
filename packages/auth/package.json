@@ -1,0 +1,36 @@
+{
+  "name": "@ihui/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf dist .turbo node_modules"
+  },
+  "dependencies": {
+    "@ihui/types": "workspace:*",
+    "@ihui/database": "workspace:*",
+    "@ihui/config": "workspace:*",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^5.7.2",
+    "eslint": "^9.16.0",
+    "rimraf": "^6.0.1",
+    "vitest": "^2.1.8"
+  }
+}

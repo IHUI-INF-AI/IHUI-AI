@@ -1,0 +1,85 @@
+import { create } from 'zustand'
+
+export type ChatRole = 'user' | 'assistant' | 'system'
+
+export interface ChatMessage {
+  id: string
+  role: ChatRole
+  content: string
+  createdAt: number
+  model?: string
+  error?: boolean
+}
+
+interface ChatState {
+  messages: ChatMessage[]
+  currentModel: string
+  isStreaming: boolean
+  error: string | null
+  /** 当前绑定的会话 ID；为 null 表示新会话尚未持久化 */
+  conversationId: string | null
+
+  setModel: (model: string) => void
+  addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
+  appendToMessage: (id: string, delta: string) => void
+  setMessageError: (id: string, error: string) => void
+  clearMessages: () => void
+  setStreaming: (v: boolean) => void
+  setError: (e: string | null) => void
+  setConversationId: (id: string | null) => void
+}
+
+function genId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+export const useChatStore = create<ChatState>((set) => ({
+  messages: [],
+  currentModel: 'gpt-4o-mini',
+  isStreaming: false,
+  error: null,
+  conversationId: null,
+
+  setModel: (model) => set({ currentModel: model }),
+
+  addMessage: (msg) => {
+    const id = genId()
+    const message: ChatMessage = {
+      id,
+      role: msg.role,
+      content: msg.content,
+      createdAt: Date.now(),
+      model: msg.model,
+    }
+    set((s) => ({ messages: [...s.messages, message] }))
+    return id
+  },
+
+  appendToMessage: (id, delta) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === id ? { ...m, content: m.content + delta } : m,
+      ),
+    })),
+
+  setMessageError: (id, error) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === id
+          ? { ...m, error: true, content: m.content || error }
+          : m,
+      ),
+      error,
+    })),
+
+  clearMessages: () => set({ messages: [], error: null }),
+
+  setStreaming: (v) => set({ isStreaming: v }),
+
+  setError: (e) => set({ error: e }),
+
+  setConversationId: (id) => set({ conversationId: id }),
+}))

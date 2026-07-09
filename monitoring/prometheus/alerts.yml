@@ -1,0 +1,83 @@
+﻿# 告警规则 — IHUI-AI 监控告警
+
+groups:
+  - name: api-alerts
+    rules:
+      # API 宕机(1 分钟内无指标)
+      - alert: ApiDown
+        expr: up{job="api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 服务宕机"
+          description: "API 服务 {{ $labels.instance }} 已宕机超过 1 分钟"
+
+      # API 高错误率(5xx 占比 > 5%)
+      - alert: ApiHighErrorRate
+        expr: |
+          sum(rate(http_requests_by_status{job="api",status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_by_status{job="api"}[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 错误率过高"
+          description: "API 5xx 错误率 {{ $value | humanizePercentage }} 超过 5% 持续 5 分钟"
+
+      # API 响应时间过长(P95 > 1s)
+      - alert: ApiSlowResponse
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_response_time_bucket{job="api"}[5m])
+          ) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 响应时间过长"
+          description: "API P95 响应时间 {{ $value }}ms 超过 1s 持续 5 分钟"
+
+  - name: ai-service-alerts
+    rules:
+      # AI 服务宕机
+      - alert: AiServiceDown
+        expr: up{job="ai-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI 服务宕机"
+          description: "AI 服务已宕机超过 1 分钟"
+
+  - name: infrastructure-alerts
+    rules:
+      # 主机磁盘空间不足(< 10%)
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+          /
+          node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})
+          < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘空间不足"
+          description: "{{ $labels.mountpoint }} 剩余空间不足 10%"
+
+      # 主机内存不足(< 10%)
+      - alert: MemoryLow
+        expr: |
+          (node_memory_MemAvailable_bytes
+          /
+          node_memory_MemTotal_bytes)
+          < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存不足"
+          description: "可用内存不足 10%"
