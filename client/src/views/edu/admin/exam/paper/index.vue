@@ -2,98 +2,124 @@
   <div>
     <div class="container">
       <div class="header">
-        <el-form :inline="true" :model="params" class="demo-form-inline">
-          <el-form-item label="">
-            <el-input size="small" class="search-input" v-model="params.keyword" placeholder="请输入关键字"></el-input>
-            <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
-          </el-form-item>
-          <el-form-item label="类型" class="status">
-            <el-select size="small" v-model="params.type" @change="search">
-              <el-option label="全部" value=""></el-option>
-              <el-option :label="key" :value="value" v-for="(key, value) in paperTypeMap" :key="value"></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item label="状态" class="status">
-            <el-select size="small" v-model="params.status" @change="search">
-              <el-option label="全部" value=""></el-option>
-              <el-option :label="key" :value="value" v-for="(key, value) in statusMap" :key="value"></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item label="分类" v-if="!isComponent">
-            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-          </el-form-item>
-        </el-form>
+        <form class="demo-form-inline flex flex-wrap items-end gap-4" @submit.prevent>
+          <div class="mb-4">
+            <Input size="small" class="search-input" v-model="params.keyword" placeholder="请输入关键字"></Input>
+            <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
+          </div>
+          <div class="mb-4 status">
+            <label class="mb-1 block text-sm font-medium text-foreground">类型</label>
+            <div>
+              <Select size="small" v-model="params.type" @change="search">
+                <SelectOption label="全部" value=""></SelectOption>
+                <SelectOption :label="key" :value="value" v-for="(key, value) in paperTypeMap" :key="value"></SelectOption>
+              </Select>
+            </div>
+          </div>
+          <div class="mb-4 status">
+            <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+            <div>
+              <Select size="small" v-model="params.status" @change="search">
+                <SelectOption label="全部" value=""></SelectOption>
+                <SelectOption :label="key" :value="value" v-for="(key, value) in statusMap" :key="value"></SelectOption>
+              </Select>
+            </div>
+          </div>
+          <div class="mb-4" v-if="!isComponent">
+            <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
+            <div>
+              <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+            </div>
+          </div>
+        </form>
       </div>
       <div class="content">
-        <el-table ref="multipleTable" @selection-change="selectItem" :data="list" style="width: 100%;" @expand-change="expandChange">
-          <el-table-column v-if="isComponent" type="selection" width="30"></el-table-column>
-          <el-table-column type="expand">
-            <template #default="scope">
-              <el-card class="box-card">
-                <template #header>
-                  <div class="clearfix">
-                    <span>基础信息</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <table class="fl-table" style="width: 100%;">
-                    <tr><td>试卷名称：</td><td>{{scope.row.title}}</td></tr>
-                    <tr><td width="120">创建时间：</td><td>{{scope.row.createTime}}</td></tr>
-                    <tr><td>试卷描述：</td><td>{{scope.row.note || "无"}}</td></tr>
-                  </table>
-                </div>
-              </el-card>
-              <el-card style="margin-top: 20px;">
-                <template #header>
-                  <div class="clearfix">
-                    <span>题目</span>
-                  </div>
-                </template>
-                <div class="fl-table">
-                  <el-table :data="scope.row.questionList" v-if="scope.row.questionList && scope.row.type !== 'random'" :show-header="false" style="width: 100%;">
-                    <el-table-column type="index" width="50"></el-table-column>
-                    <el-table-column prop="title"></el-table-column>
-                  </el-table>
-                  <div v-else>
-                    根据抽题条件随机抽取题目组成试卷
-                  </div>
-                </div>
-              </el-card>
+        <Table class="w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead v-if="isComponent" class="w-[30px]"><input type="checkbox" :checked="allSelected" @change="toggleAll($event)" /></TableHead>
+              <TableHead></TableHead>
+              <TableHead class="w-[50px]">ID</TableHead>
+              <TableHead class="w-[80px]">试卷类型</TableHead>
+              <TableHead>试卷名称</TableHead>
+              <TableHead class="w-[80px]">总分</TableHead>
+              <TableHead class="w-[80px]">合格分数</TableHead>
+              <TableHead class="w-[140px]">难度</TableHead>
+              <TableHead class="w-[80px]">状态</TableHead>
+              <TableHead v-if="!isComponent" class="w-[100px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <template v-for="(row, index) in list" :key="row.id ?? index">
+              <TableRow>
+                <TableCell v-if="isComponent" class="w-[30px]"><input type="checkbox" :checked="selectedRows.includes(row)" @change="toggleRow(row)" /></TableCell>
+                <TableCell>
+                  <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+                </TableCell>
+                <TableCell>{{ row.id }}</TableCell>
+                <TableCell>{{ paperTypeMap[row.type] }}</TableCell>
+                <TableCell>{{ row.title }}</TableCell>
+                <TableCell>{{ row.score }}</TableCell>
+                <TableCell>{{ row.passScore }}</TableCell>
+                <TableCell><el-rate :disabled="true" v-model="row.difficulty" :colors="colors"></el-rate></TableCell>
+                <TableCell>{{ statusMap[row.status] }}</TableCell>
+                <TableCell v-if="!isComponent">
+                  <Button className="right-btn" variant="link" @click="edit(row)" size="sm">编辑</Button>
+                  <Button className="right-btn" variant="link" @click="remove(row.id)" size="sm">删除</Button>
+                </TableCell>
+              </TableRow>
+              <tr v-if="expandedRows.has(index)">
+                <td colspan="99">
+                  <Card class="box-card">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>基础信息</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <table class="fl-table" style="width: 100%;">
+                        <tr><td>试卷名称：</td><td>{{row.title}}</td></tr>
+                        <tr><td width="120">创建时间：</td><td>{{row.createTime}}</td></tr>
+                        <tr><td>试卷描述：</td><td>{{row.note || "无"}}</td></tr>
+                      </table>
+                    </div>
+                  </CardContent>
+                  </Card>
+                  <Card style="margin-top: 20px;">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>题目</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="fl-table">
+                      <Table class="w-full" v-if="row.questionList && row.type !== 'random'">
+                        <TableBody>
+                          <TableRow v-for="(q, qIndex) in row.questionList" :key="q.id ?? qIndex">
+                            <TableCell class="w-[50px]">{{ qIndex + 1 }}</TableCell>
+                            <TableCell>{{ q.title }}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                      <div v-else>
+                        根据抽题条件随机抽取题目组成试卷
+                      </div>
+                    </div>
+                  </CardContent>
+                  </Card>
+                </td>
+              </tr>
             </template>
-          </el-table-column>
-          <el-table-column prop="id" label="ID" width="50"></el-table-column>
-          <el-table-column label="试卷类型" width="80">
-            <template #default="scope">
-              {{paperTypeMap[scope.row.type]}}
-            </template>
-          </el-table-column>
-          <el-table-column prop="title" label="试卷名称"></el-table-column>
-          <el-table-column prop="score" label="总分" width="80"></el-table-column>
-          <el-table-column prop="passScore" label="合格分数" width="80"></el-table-column>
-          <el-table-column prop="difficulty" label="难度" width="140">
-            <template #default="scope">
-              <el-rate :disabled="true" v-model="scope.row.difficulty" :colors="colors"></el-rate>
-            </template>
-          </el-table-column>
-          <el-table-column prop="difficulty" label="状态" width="80">
-            <template #default="scope">
-              {{statusMap[scope.row.status]}}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" v-if="!isComponent" width="100">
-            <template #default="scope">
-              <el-button class="right-btn" link @click="edit(scope.row)" size="small">编辑</el-button>
-              <el-button class="right-btn" link @click="remove(scope.row.id)" size="small">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+          </TableBody>
+        </Table>
       </div>
       <page :total="total" :page-size="params.size" :current-change="pageChange" :size-change="sizeChange"></page>
     </div>
     <template v-if="isComponent">
       <div class="dialog-footer" style="text-align: right;margin-top: 30px;">
-        <el-button size="small" @click="hideComponent">取 消</el-button>
-        <el-button size="small" type="primary" @click="selectionChangeCallback(commodityIdList)">确 定</el-button>
+        <Button size="sm" variant="outline" @click="hideComponent">取 消</Button>
+        <Button size="sm" variant="default" @click="selectionChangeCallback(commodityIdList)">确 定</Button>
       </div>
     </template>
   </div>
@@ -101,7 +127,7 @@
 
 <script>
 // @ts-nocheck
-import {ref} from "vue"
+import {ref, computed} from "vue"
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = examApi
 const { findList, delPaper } = examApi
@@ -109,10 +135,28 @@ import Page from "@/components/Page/index.vue"
 import {confirm, success} from "@/util/tipsUtils";
 import router from "@/router";
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "PaperList",
   components: {
-    Page
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Page,
+    Button,
+    Input,
+    Select,
+    SelectOption
   },
   props: {
     isComponent: {
@@ -140,6 +184,33 @@ export default {
     const categoryOptions = ref([])
     const list = ref([])
     const total = ref(0)
+    const expandedRows = ref(new Set())
+    const toggleExpand = (key) => {
+      if (expandedRows.value.has(key)) {
+        expandedRows.value.delete(key)
+      } else {
+        expandedRows.value.add(key)
+      }
+    }
+    const selectedRows = ref([])
+    const allSelected = computed(() => list.value.length > 0 && selectedRows.value.length === list.value.length)
+    const toggleAll = (event) => {
+      if (event.target.checked) {
+        selectedRows.value = [...list.value]
+      } else {
+        selectedRows.value = []
+      }
+      selectItem(selectedRows.value)
+    }
+    const toggleRow = (row) => {
+      const idx = selectedRows.value.findIndex(r => r.id === row.id)
+      if (idx > -1) {
+        selectedRows.value.splice(idx, 1)
+      } else {
+        selectedRows.value.push(row)
+      }
+      selectItem(selectedRows.value)
+    }
     const params = ref({
       keyword: "",
       cid: "",
@@ -237,7 +308,13 @@ export default {
       remove,
       pageChange,
       sizeChange,
-      expandChange
+      expandChange,
+      expandedRows,
+      toggleExpand,
+      selectedRows,
+      allSelected,
+      toggleAll,
+      toggleRow
     }
   }
 };
@@ -256,13 +333,6 @@ export default {
   }
   .search-input {
     width: 242px;
-  }
-  :deep(.el-table-column--selection .cell){
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  :deep(.el-table tbody tr:hover > td){
-    background-color: transparent;
   }
   .fl-table {
     tr:last-child, :deep(tr:last-child){

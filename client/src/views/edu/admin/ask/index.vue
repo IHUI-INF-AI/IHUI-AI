@@ -1,7 +1,7 @@
 <template>
   <div class="ask-container">
     <div class="head">
-      <el-input
+      <Input
         v-model="searchParam.keyword"
         clearable
         size="small"
@@ -9,35 +9,45 @@
         class="search-input"
         @keyup.enter="search"
       />
-      <el-button class="search-btn" size="small" type="primary" :icon="Search" @click="search">搜索</el-button>
+      <Button className="search-btn" size="sm" variant="default" @click="search"><Search />搜索</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="list" size="small" style="width: 100%;">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="title" label="标题" min-width="200" :show-overflow-tooltip="true" />
-      <el-table-column prop="content" label="内容" min-width="220" :show-overflow-tooltip="true" />
-      <el-table-column label="提问人" width="120">
-        <template #default="scope">
-          {{ scope.row.memberName || scope.row.member?.name || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="viewNum" label="浏览量" width="90" align="center">
-        <template #default="scope">{{ scope.row.viewNum || 0 }}</template>
-      </el-table-column>
-      <el-table-column prop="answerNum" label="回答数" width="90" align="center">
-        <template #default="scope">{{ scope.row.answerNum || 0 }}</template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" align="center" width="160" fixed="right">
-        <template #default="scope">
-          <el-button link size="small" @click="showDetail(scope.row)">详情</el-button>
-          <el-button link size="small" style="color: red;" @click="remove(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div v-if="dataLoading" class="loading-overlay">加载中...</div>
+    <Table class="text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead class="w-[70px]">ID</TableHead>
+          <TableHead class="min-w-[200px]">标题</TableHead>
+          <TableHead class="min-w-[220px]">内容</TableHead>
+          <TableHead class="w-[120px]">提问人</TableHead>
+          <TableHead class="w-[90px] text-center">浏览量</TableHead>
+          <TableHead class="w-[90px] text-center">回答数</TableHead>
+          <TableHead class="w-[160px]">创建时间</TableHead>
+          <TableHead class="w-[160px] text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+          <TableCell>{{ row.id }}</TableCell>
+          <TableCell>{{ row.title }}</TableCell>
+          <TableCell>{{ row.content }}</TableCell>
+          <TableCell>{{ row.memberName || row.member?.name || '-' }}</TableCell>
+          <TableCell class="text-center">{{ row.viewNum || 0 }}</TableCell>
+          <TableCell class="text-center">{{ row.answerNum || 0 }}</TableCell>
+          <TableCell>{{ row.createTime }}</TableCell>
+          <TableCell class="text-center">
+            <Button variant="link" size="sm" @click="showDetail(row)">详情</Button>
+            <Button variant="link" size="sm" style="color: red;" @click="remove(row)">删除</Button>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size" />
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailDialogVisible" title="问答详情" width="70%" :before-close="hideDetail">
+    <Dialog v-model="detailDialogVisible" width="70%" @close="hideDetail">
+      <DialogHeader>
+        <DialogTitle>问答详情</DialogTitle>
+      </DialogHeader>
       <div v-loading="detailLoading" class="detail-wrapper">
         <template v-if="detail">
           <div class="detail-item"><span class="detail-label">ID：</span>{{ detail.id }}</div>
@@ -51,12 +61,12 @@
           <div class="detail-item"><span class="detail-label">创建时间：</span>{{ detail.createTime }}</div>
         </template>
       </div>
-      <template #footer>
+      <DialogFooter>
         <div class="dialog-footer">
-          <el-button size="small" @click="hideDetail">关 闭</el-button>
+          <Button size="sm" variant="outline" @click="hideDetail">关 闭</Button>
         </div>
-      </template>
-    </el-dialog>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -64,6 +74,10 @@
 // @ts-nocheck
 import { ref } from 'vue'
 import Page from '@/components/Page/index.vue'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
 import { askApi } from '@/api/edu/admin-api'
 import { confirm, success } from '@/util/tipsUtils'
 import { Search } from '@/lib/lucide-fallback'

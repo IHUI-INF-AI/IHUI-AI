@@ -1,45 +1,62 @@
 <template>
   <div class="sensitive-word-container">
     <div class="head">
-      <el-input size="small" v-model="param.keyword" clearable placeholder="输入标题搜索" class="custom-input" @keyup.enter="search"></el-input>
-      <el-button size="small" class="search-btn" :icon="Search" @click="search">搜索</el-button>
-      <el-button style="margin-left: 10px;" @click="show(-1)" size="small" type="primary">新增</el-button>
+      <Input size="small" v-model="param.keyword" clearable placeholder="输入标题搜索" class="custom-input" @keyup.enter="search"></Input>
+      <Button size="sm" className="search-btn" variant="outline" @click="search"><Search />搜索</Button>
+      <Button style="margin-left: 10px;" size="sm" variant="default" @click="show(-1)">新增</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="announcementList" size="small" style="width: 100%;">
-      <el-table-column prop="title" label="标题"/>
-      <el-table-column width="90" label="发布状态">
-        <template #default="scope">
-          {{statusMap[scope.row.status]}}
-        </template>
-      </el-table-column>
-      <el-table-column width="140" prop="createTime" label="创建时间"/>
-      <el-table-column width="140" prop="updateTime" label="修改时间"/>
-      <el-table-column label="操作" align="center">
-        <template #default="scope">
-          <el-button class="right-btn" @click="publish(scope.row)" v-if="scope.row.status !== 'deleted'" size="small">{{scope.row.status === 'published' ? '取消发布' : '发布'}}</el-button>
-          <el-button class="right-btn" @click="edit(scope.row)" v-if="scope.row.status !== 'deleted'" size="small">编辑</el-button>
-          <el-button class="right-btn" @click="del(scope.row)" v-if="scope.row.status !== 'deleted'" size="small">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div v-if="dataLoading" class="loading-overlay">加载中...</div>
+    <Table class="text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead>标题</TableHead>
+          <TableHead class="w-[90px]">发布状态</TableHead>
+          <TableHead class="w-[140px]">创建时间</TableHead>
+          <TableHead class="w-[140px]">修改时间</TableHead>
+          <TableHead class="text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="(row, index) in announcementList" :key="row.id ?? index">
+          <TableCell>{{ row.title }}</TableCell>
+          <TableCell>{{ statusMap[row.status] }}</TableCell>
+          <TableCell>{{ row.createTime }}</TableCell>
+          <TableCell>{{ row.updateTime }}</TableCell>
+          <TableCell class="text-center">
+            <Button className="right-btn" variant="outline" size="sm" v-if="row.status !== 'deleted'" @click="publish(row)">{{ row.status === 'published' ? '取消发布' : '发布' }}</Button>
+            <Button className="right-btn" variant="outline" size="sm" v-if="row.status !== 'deleted'" @click="edit(row)">编辑</Button>
+            <Button className="right-btn" variant="outline" size="sm" v-if="row.status !== 'deleted'" @click="del(row)">删除</Button>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
     <!--分页组件-->
     <page :total="total" @size-change="sizeChange" @current-change="currentChange" :page-size="param.size"/>
-    <el-dialog title="编辑" v-model="showDialog" :before-close="hide">
-      <el-form :model="announcement" :rules="announcementRules" ref="announcementRef">
-        <el-form-item label="标题：" label-width="80px" prop="title">
-          <el-input size="small" v-model="announcement.title" placeholder="请输入标题" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="内容：" label-width="80px" prop="content">
-          <wang-editor v-model="announcement.content"></wang-editor>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button size="small" @click="hide">取 消</el-button>
-          <el-button size="small" type="primary" @click="submit">确 定</el-button>
+    <Dialog v-model="showDialog" @close="hide">
+      <DialogHeader>
+        <DialogTitle>编辑</DialogTitle>
+      </DialogHeader>
+      <form ref="announcementRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">标题：</label>
+          <div>
+            <Input size="small" v-model="announcement.title" placeholder="请输入标题" autocomplete="off"></Input>
+          </div>
         </div>
-      </template>
-    </el-dialog>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">内容：</label>
+          <div>
+            <wang-editor v-model="announcement.content"></wang-editor>
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <div class="dialog-footer">
+          <Button size="sm" variant="outline" @click="hide">取 消</Button>
+          <Button size="sm" variant="default" @click="submit">确 定</Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -47,6 +64,10 @@
 // @ts-nocheck
   import {ref, markRaw} from "vue"
   import Page from "@/components/Page/index.vue"
+  import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
   import { messageApi } from '@/api/edu/admin-api'
 const { getAnnouncementList, removeAnnouncement, saveAnnouncement, updateAnnouncement } = messageApi;
   import {confirm} from "@/util/tipsUtils"
@@ -56,7 +77,11 @@ const { getAnnouncementList, removeAnnouncement, saveAnnouncement, updateAnnounc
     name: "MessageAnnouncementIndex",
     components: {
       WangEditor,
-      Page
+      Page,
+      Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+      Button,
+      Search,
+      Input
     },
     setup() {
       const statusMap = {

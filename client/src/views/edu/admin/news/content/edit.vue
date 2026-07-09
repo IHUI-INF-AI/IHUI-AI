@@ -1,41 +1,59 @@
 <template>
   <div class="news-edit-wrap">
-    <el-form :model="news" :rules="newsRules" ref="newsRef" label-width="120px">
-      <el-form-item label="标题：" prop="title">
-        <el-input size="small" v-model="news.title" placeholder="请输入标题"></el-input>
-      </el-form-item>
-      <el-form-item label="导语：" prop="description">
-        <el-input size="small" v-model="news.description" placeholder="请输入导语"></el-input>
-      </el-form-item>
-      <el-form-item label="内容：" prop="content">
-        <wang-editor v-if="loadWangEditorFlag" v-model="news.content"></wang-editor>
-      </el-form-item>
-      <el-form-item label="封面：" prop="image">
-        <upload
-          :on-upload-success="onUploadImageSuccess"
-          :on-upload-remove="onUploadImageRemove"
-          :files="uploadData.files"
-          :upload-url="uploadData.url"
-          :limit="1"
-          accept="image/jpeg,image/gif,image/png">
-        </upload>
-        <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
-      </el-form-item>
-      <el-form-item label="标签：">
-        <el-tag size="small" :key="tag" v-for="(tag, index) in tags" closable :disable-transitions="false" @close="delTag(index)">{{tag}}</el-tag>
-        <el-input size="small" class="input-new-tag" v-if="tagsVisible" v-model="tag" ref="tagsRef" @blur="tagsInputConfirm" placeholder="请输入标签"></el-input>
-        <el-button v-else class="button-new-tag" size="small" @click="showTagsInput">+ 新增标签</el-button>
-      </el-form-item>
-      <el-form-item label="关键字：">
-        <el-tag size="small" :key="keyword" v-for="(keyword, index) in keywords" closable :disable-transitions="false" @close="delKeyword(index)">{{keyword}}</el-tag>
-        <el-input size="small" class="input-new-tag" v-if="keywordsVisible" v-model="keyword" ref="keywordsRef" @blur="keywordsInputConfirm" @keydown.enter="keywordsInputConfirm" placeholder="请输入关键字"></el-input>
-        <el-button v-else class="button-new-tag" size="small" @click="showKeywordsInput">+ 新增关键字</el-button>
-      </el-form-item>
-      <el-form-item style="text-align: center">
-        <el-button size="small" @click="submitNewsDraft">存草稿</el-button>
-        <el-button size="small" @click="submitNewsPublished">发布</el-button>
-      </el-form-item>
-    </el-form>
+    <form ref="newsRef" @submit.prevent>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">标题：</label>
+        <div>
+          <Input size="small" v-model="news.title" placeholder="请输入标题"></Input>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">导语：</label>
+        <div>
+          <Input size="small" v-model="news.description" placeholder="请输入导语"></Input>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">内容：</label>
+        <div>
+          <wang-editor v-if="loadWangEditorFlag" v-model="news.content"></wang-editor>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">封面：</label>
+        <div>
+          <upload
+            :on-upload-success="onUploadImageSuccess"
+            :on-upload-remove="onUploadImageRemove"
+            :files="uploadData.files"
+            :upload-url="uploadData.url"
+            :limit="1"
+            accept="image/jpeg,image/gif,image/png">
+          </upload>
+          <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">标签：</label>
+        <div>
+          <Tag size="small" :key="tag" v-for="(tag, index) in tags" closable @close="delTag(index)">{{tag}}</Tag>
+          <Input size="small" class="input-new-tag" v-if="tagsVisible" v-model="tag" ref="tagsRef" @blur="tagsInputConfirm" placeholder="请输入标签"></Input>
+          <Button v-else className="button-new-tag" size="sm" variant="outline" @click="showTagsInput">+ 新增标签</Button>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">关键字：</label>
+        <div>
+          <Tag size="small" :key="keyword" v-for="(keyword, index) in keywords" closable @close="delKeyword(index)">{{keyword}}</Tag>
+          <Input size="small" class="input-new-tag" v-if="keywordsVisible" v-model="keyword" ref="keywordsRef" @blur="keywordsInputConfirm" @keydown.enter="keywordsInputConfirm" placeholder="请输入关键字"></Input>
+          <Button v-else className="button-new-tag" size="sm" variant="outline" @click="showKeywordsInput">+ 新增关键字</Button>
+        </div>
+      </div>
+      <div class="mb-4" style="text-align: center">
+        <Button size="sm" variant="outline" @click="submitNewsDraft">存草稿</Button>
+        <Button size="sm" variant="outline" @click="submitNewsPublished">发布</Button>
+      </div>
+    </form>
   </div>
 </template>
 <script>
@@ -48,12 +66,18 @@ const { saveNews, updateNews, getNews } = contentApi
   import Upload from "@/components/Uplaod/index.vue"
   import WangEditor from "@/components/WangEditor/index.vue"
   import {success} from "@/util/tipsUtils";
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Tag } from '@/components/ui/tag'
 
   export default {
     name: "NewsContentEdit",
     components:{
       Upload,
-      WangEditor
+      WangEditor,
+      Button,
+      Input,
+      Tag
     },
     setup() {
       const loadWangEditorFlag = ref(false)

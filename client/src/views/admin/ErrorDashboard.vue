@@ -1,100 +1,104 @@
 <template>
   <div class="error-dashboard">
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <div class="flex flex-wrap gap-5 stats-row">
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ errorStats.total }}</div>
             <div class="stat-label">{{ t('errorDashboard.totalErrors') }}</div>
           </div>
-          <el-icon class="stat-icon error"><WarningFilled /></el-icon>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+          <WarningFilled class="h-4 w-4 stat-icon error" />
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ errorStats.today }}</div>
             <div class="stat-label">{{ t('errorDashboard.todayErrors') }}</div>
           </div>
-          <el-icon class="stat-icon warning"><CircleCloseFilled /></el-icon>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+          <CircleCloseFilled class="h-4 w-4 stat-icon warning" />
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ errorStats.resolved }}</div>
             <div class="stat-label">{{ t('errorDashboard.resolved') }}</div>
           </div>
-          <el-icon class="stat-icon success"><CircleCheckFilled /></el-icon>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+          <CircleCheckFilled class="h-4 w-4 stat-icon success" />
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ errorStats.rate }}%</div>
             <div class="stat-label">{{ t('errorDashboard.errorRate') }}</div>
           </div>
-          <el-icon class="stat-icon info"><DataAnalysis /></el-icon>
-        </el-card>
-      </el-col>
-    </el-row>
+          <DataAnalysis class="h-4 w-4 stat-icon info" />
+        </Card>
+      </div>
+    </div>
 
-    <el-row :gutter="20">
-      <el-col :span="16">
-        <el-card class="chart-card">
-          <template #header>
+    <div class="flex flex-wrap gap-5">
+      <div class="w-2/3">
+        <Card class="chart-card"><CardHeader>
             <div class="card-header">
               <span>{{ t('errorDashboard.trend') }}</span>
-              <el-radio-group v-model="chartRange" size="small">
-                <el-radio-button label="24h">{{ t('errorDashboard.h24') }}</el-radio-button>
-                <el-radio-button label="7d">{{ t('errorDashboard.d7') }}</el-radio-button>
-                <el-radio-button label="30d">{{ t('errorDashboard.d30') }}</el-radio-button>
-              </el-radio-group>
+                <Radio v-model="chartRange" value="24h">{{ t('errorDashboard.h24') }}</Radio>
+                <Radio v-model="chartRange" value="7d">{{ t('errorDashboard.d7') }}</Radio>
+                <Radio v-model="chartRange" value="30d">{{ t('errorDashboard.d30') }}</Radio>
             </div>
-          </template>
-          <div ref="trendChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card class="chart-card">
-          <template #header>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="trendChartRef" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+      <div class="w-1/3">
+        <Card class="chart-card"><CardHeader>
             <span>t('errorDashboard.typeDistribution')</span>
-          </template>
-          <div ref="typeChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="typeChartRef" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+    </div>
 
-    <el-card class="table-card">
-      <template #header>
+    <Card class="table-card"><CardHeader>
         <div class="card-header">
           <span>t('errorDashboard.recentErrors')</span>
-          <el-button type="primary" size="small" @click="refreshErrors">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" size="sm" @click="refreshErrors">{{ t('common.refresh') }}</Button>
         </div>
-      </template>
-      <el-table :data="recentErrors" stripe style="width: 100%">
-        <el-table-column prop="name" :label="t('adminCommon.label.errorType')" width="150" />
-        <el-table-column prop="message" :label="t('adminCommon.label.errorMessage')" show-overflow-tooltip />
-        <el-table-column prop="url" :label="t('adminCommon.label.page')" width="200" show-overflow-tooltip />
-        <el-table-column prop="timestamp" :label="t('adminCommon.label.time')" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.timestamp) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="level" :label="t('adminCommon.label.level')" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getLevelType(row.level)">{{ row.level }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('adminCommon.label.actions')" width="120">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="viewDetail(row)">{{ t('adminCommon.label.detail') }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      </CardHeader><CardContent class="p-5">
+            <Table class="w-full">
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[150px]">{{ t('adminCommon.label.errorType') }}</TableHead>
+            <TableHead>{{ t('adminCommon.label.errorMessage') }}</TableHead>
+            <TableHead class="w-[200px]">{{ t('adminCommon.label.page') }}</TableHead>
+            <TableHead class="w-[180px]">{{ t('adminCommon.label.time') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('adminCommon.label.level') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('adminCommon.label.actions') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in recentErrors" :key="row.id ?? index">
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell class="max-w-[400px] truncate" :title="row.message">{{ row.message }}</TableCell>
+            <TableCell class="max-w-[300px] truncate" :title="row.url">{{ row.url }}</TableCell>
+            <TableCell>{{ formatTime(row.timestamp) }}</TableCell>
+            <TableCell>
+              <Tag :type="getLevelType(row.level)">{{ row.level }}</Tag>
+            </TableCell>
+            <TableCell>
+              <Button variant="link" size="sm" @click="viewDetail(row)">{{ t('adminCommon.label.detail') }}</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent></Card>
 
-    <el-dialog v-model="detailVisible" :title="t('adminCommon.title.errorDetail')" width="600px">
+    <Dialog v-model="detailVisible" width="600px">
+      <DialogHeader>
+        <DialogTitle>{{ t('adminCommon.title.errorDetail') }}</DialogTitle>
+      </DialogHeader>
       <el-descriptions :column="1" border>
         <el-descriptions-item :label="t('adminCommon.label.errorId')">{{ currentError?.id }}</el-descriptions-item>
         <el-descriptions-item :label="t('adminCommon.label.errorType')">{{ currentError?.name }}</el-descriptions-item>
@@ -107,7 +111,7 @@
         <h4>{{ t('errorDashboard.stackInfo') }}</h4>
         <pre class="stack-content">{{ currentError.stack }}</pre>
       </div>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -120,6 +124,12 @@ import { WarningFilled, CircleCloseFilled, CircleCheckFilled, DataAnalysis } fro
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
 import { formatDateTime as _formatTime } from '@/utils/format'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Radio } from '@/components/ui/radio'
+import { Tag } from '@/components/ui/tag'
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 

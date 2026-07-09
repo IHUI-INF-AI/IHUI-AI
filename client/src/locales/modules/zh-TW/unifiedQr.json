@@ -1,8 +1,0 @@
-{
-  "unifiedQr": {
-    "loginRequired": "需要登入",
-    "auth": "認證",
-    "qrFailed": "產生二維碼失敗：請檢查後端服務配置，該介面應該不需要登入",
-    "needLoginFirst": "Need Login First"
-  }
-}

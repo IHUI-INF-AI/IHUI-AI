@@ -1,8 +1,0 @@
-{
-  "Feedback": {
-    "feedbackRecords": "フィードバック記録",
-    "submitFeedback": "フィードバック送信",
-    "loading": "読み込み中...",
-    "submitFailed": "送信失敗、再試行してください"
-  }
-}

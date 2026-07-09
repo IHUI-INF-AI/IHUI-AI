@@ -1,6 +1,0 @@
-{
-  "aiGenImageGenQwen": {
-    "qwenRemarkMissing": "当前通义图片模型未在大模型列表中配置 remark（接口地址），请先在「大模型管理」中配置后再重试",
-    "websocketNotSupport": "当前暂不支持通过 WebSocket 生图，请将图片模型的 quest_type 配置为 HTTP 再试"
-  }
-}

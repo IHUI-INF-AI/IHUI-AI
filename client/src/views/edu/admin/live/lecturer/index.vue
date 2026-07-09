@@ -1,22 +1,22 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-          <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-        <el-form-item>
-          <el-button size="small" type="primary" @click="edit()">
-            <el-icon><Plus /></el-icon>
+      <form @submit.prevent class="demo-form-inline">
+        <div class="mb-4">
+          <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
+          <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
+        </div>
+        <div class="mb-4">
+          <Button size="sm" variant="default" @click="edit()">
+            <Plus />
             新增
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="content" v-loading="dataLoading">
       <div class="content-list">
-        <el-empty v-if="!list || !list.length"/>
+        <Empty v-if="!list || !list.length"/>
         <div class="content-item" v-for="item in list" :key="item.id + ''">
           <div class="content-item-warp">
             <a class="image">
@@ -61,13 +61,19 @@ const { deleteLecturer, findList } = lecturerApi
   import Page from "@/components/Page/index.vue"
   import {confirm, success} from "@/util/tipsUtils";
   import {Plus} from '@/lib/lucide-fallback';
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Empty } from '@/components/ui/empty'
 
   export default {
     name: "LecturerIndex",
-  components: {
-    Page,
-    Plus,
-  },
+    components: {
+      Page,
+      Plus,
+      Button,
+      Input,
+      Empty,
+    },
   setup() {
     const statusMap = {
       "published": "已发布",

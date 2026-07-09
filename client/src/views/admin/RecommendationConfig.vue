@@ -1,133 +1,156 @@
 <template>
   <div class="recommendation-config">
-    <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <div class="flex flex-wrap gap-5">
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('recommendation.recommendationRules') }}</div>
           <div class="stat-value">{{ ruleStats.total }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('recommendation.enabledRules') }}</div>
           <div class="stat-value success">{{ ruleStats.enabled }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('recommendation.userSegments') }}</div>
           <div class="stat-value">{{ segmentStats.total }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('recommendation.abTests') }}</div>
           <div class="stat-value warning">{{ abTestStats.running }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-tabs v-model="activeTab" class="mt-20">
-      <el-tab-pane :label="t('recommendation.recommendationRules')" name="rules">
-        <el-card>
-          <template #header>
+    <Tabs v-model="activeTab" class="mt-20">
+      <TabsList>
+        <TabsTrigger value="rules">{{ t('recommendation.recommendationRules') }}</TabsTrigger>
+        <TabsTrigger value="segments">{{ t('recommendation.userSegments') }}</TabsTrigger>
+        <TabsTrigger value="abtests">{{ t('recommendation.abTests') }}</TabsTrigger>
+        <TabsTrigger value="behavior">{{ t('recommendation.userBehavior') }}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="rules">
+        <Card><CardHeader>
             <div class="card-header">
               <span>{{ t('recommendation.recommendationRules') }}</span>
-              <el-button v-if="canConfigRecommendation" size="small" type="primary" @click="showRuleDialog = true">{{ t('recommendation.newRule') }}</el-button>
+              <Button v-if="canConfigRecommendation" size="sm" variant="default" @click="showRuleDialog = true">{{ t('recommendation.newRule') }}</Button>
             </div>
-          </template>
-          <el-table :data="rules">
-            <el-table-column prop="name" :label="t('recommendation.ruleName')" />
-            <el-table-column prop="type" :label="t('recommendation.ruleType')">
-              <template #default="{ row }">
-                <el-tag>{{ t(`recommendation.ruleTypes.${row.type}`) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="priority" :label="t('recommendation.priority')" width="80" />
-            <el-table-column prop="enabled" :label="t('recommendation.actions')" width="120">
-              <template #default="{ row }">
-                <el-switch v-model="row.enabled" :disabled="!canConfigRecommendation" @change="toggleRule(row)" />
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('recommendation.actions')" width="150">
-              <template #default="{ row }">
-                <el-button v-if="canConfigRecommendation" size="small" text @click="editRule(row)">{{ t('mobileAdapter.edit') }}</el-button>
-                <el-button v-if="canConfigRecommendation" size="small" text type="danger" @click="deleteRule(row.id)">{{ t('mobileAdapter.delete') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-tab-pane>
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('recommendation.ruleName') }}</TableHead>
+                <TableHead>{{ t('recommendation.ruleType') }}</TableHead>
+                <TableHead class="w-[80px]">{{ t('recommendation.priority') }}</TableHead>
+                <TableHead class="w-[120px]">{{ t('recommendation.actions') }}</TableHead>
+                <TableHead class="w-[150px]">{{ t('recommendation.actions') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in rules" :key="row.id ?? index">
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>
+                  <Tag>{{ t(`recommendation.ruleTypes.${row.type}`) }}</Tag>
+                </TableCell>
+                <TableCell>{{ row.priority }}</TableCell>
+                <TableCell>
+                  <Switch v-model="row.enabled" :disabled="!canConfigRecommendation" @change="toggleRule(row)" />
+                </TableCell>
+                <TableCell>
+                  <Button v-if="canConfigRecommendation" size="sm" variant="ghost" @click="editRule(row)">{{ t('mobileAdapter.edit') }}</Button>
+                  <Button v-if="canConfigRecommendation" size="sm" variant="ghost" @click="deleteRule(row.id)">{{ t('mobileAdapter.delete') }}</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('recommendation.userSegments')" name="segments">
-        <el-card>
-          <template #header>
+      <TabsContent value="segments">
+        <Card><CardHeader>
             <div class="card-header">
               <span>{{ t('recommendation.userSegments') }}</span>
-              <el-button v-if="canConfigRecommendation" size="small" type="primary" @click="showSegmentDialog = true">{{ t('recommendation.newSegment') }}</el-button>
+              <Button v-if="canConfigRecommendation" size="sm" variant="default" @click="showSegmentDialog = true">{{ t('recommendation.newSegment') }}</Button>
             </div>
-          </template>
-          <el-table :data="segments">
-            <el-table-column prop="name" :label="t('recommendation.segmentName')" />
-            <el-table-column prop="userCount" :label="t('recommendation.userCount')" width="100" />
-            <el-table-column prop="createdAt" :label="t('recommendation.createTime')" width="180">
-              <template #default="{ row }">{{ new Date(row.createdAt).toLocaleString() }}</template>
-            </el-table-column>
-            <el-table-column :label="t('recommendation.actions')" width="150">
-              <template #default="{ row }">
-                <el-button v-if="canConfigRecommendation" size="small" text @click="editSegment(row)">{{ t('mobileAdapter.edit') }}</el-button>
-                <el-button v-if="canConfigRecommendation" size="small" text type="danger" @click="deleteSegment(row.id)">{{ t('mobileAdapter.delete') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-tab-pane>
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('recommendation.segmentName') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('recommendation.userCount') }}</TableHead>
+                <TableHead class="w-[180px]">{{ t('recommendation.createTime') }}</TableHead>
+                <TableHead class="w-[150px]">{{ t('recommendation.actions') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in segments" :key="row.id ?? index">
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>{{ row.userCount }}</TableCell>
+                <TableCell>{{ new Date(row.createdAt).toLocaleString() }}</TableCell>
+                <TableCell>
+                  <Button v-if="canConfigRecommendation" size="sm" variant="ghost" @click="editSegment(row)">{{ t('mobileAdapter.edit') }}</Button>
+                  <Button v-if="canConfigRecommendation" size="sm" variant="ghost" @click="deleteSegment(row.id)">{{ t('mobileAdapter.delete') }}</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('recommendation.abTests')" name="abtests">
-        <el-card>
-          <template #header>
+      <TabsContent value="abtests">
+        <Card><CardHeader>
             <div class="card-header">
               <span>{{ t('recommendation.abTests') }}</span>
-              <el-button v-if="canManageABTest" size="small" type="primary" @click="showABTestDialog = true">{{ t('recommendation.newTest') }}</el-button>
+              <Button v-if="canManageABTest" size="sm" variant="default" @click="showABTestDialog = true">{{ t('recommendation.newTest') }}</Button>
             </div>
-          </template>
-          <el-table :data="abTests">
-            <el-table-column prop="name" :label="t('recommendation.testName')" />
-            <el-table-column prop="trafficAllocation" :label="t('recommendation.trafficAllocation')" width="100">
-              <template #default="{ row }">{{ row.trafficAllocation }}%</template>
-            </el-table-column>
-            <el-table-column prop="status" :label="t('recommendation.actions')" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getABTestStatusTag(row.status)">{{ t(`recommendation.testStatus.${row.status}`) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('recommendation.results')" width="100">
-              <template #default="{ row }">
-                <el-button v-if="row.status === 'completed'" size="small" text @click="viewResults(row)">{{ t('recommendation.results') }}</el-button>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('recommendation.actions')" width="200">
-              <template #default="{ row }">
-                <el-button v-if="canManageABTest && row.status === 'draft'" size="small" text type="success" @click="startABTest(row.id)">{{ t('recommendation.start') }}</el-button>
-                <el-button v-if="canManageABTest && row.status === 'running'" size="small" text type="warning" @click="pauseABTest(row.id)">{{ t('recommendation.pause') }}</el-button>
-                <el-button v-if="canManageABTest && row.status === 'running'" size="small" text type="danger" @click="endABTest(row.id)">{{ t('recommendation.end') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-tab-pane>
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('recommendation.testName') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('recommendation.trafficAllocation') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('recommendation.actions') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('recommendation.results') }}</TableHead>
+                <TableHead class="w-[200px]">{{ t('recommendation.actions') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in abTests" :key="row.id ?? index">
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>{{ row.trafficAllocation }}%</TableCell>
+                <TableCell>
+                  <Tag :type="getABTestStatusTag(row.status)">{{ t(`recommendation.testStatus.${row.status}`) }}</Tag>
+                </TableCell>
+                <TableCell>
+                  <Button v-if="row.status === 'completed'" size="sm" variant="ghost" @click="viewResults(row)">{{ t('recommendation.results') }}</Button>
+                </TableCell>
+                <TableCell>
+                  <Button v-if="canManageABTest && row.status === 'draft'" size="sm" variant="ghost" @click="startABTest(row.id)">{{ t('recommendation.start') }}</Button>
+                  <Button v-if="canManageABTest && row.status === 'running'" size="sm" variant="ghost" @click="pauseABTest(row.id)">{{ t('recommendation.pause') }}</Button>
+                  <Button v-if="canManageABTest && row.status === 'running'" size="sm" variant="ghost" @click="endABTest(row.id)">{{ t('recommendation.end') }}</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('recommendation.userBehavior')" name="behavior">
-        <el-card>
-          <template #header>{{ t('recommendation.userBehavior') }}</template>
-          <el-form :inline="true">
-            <el-form-item :label="t('recommendation.userId')">
-              <el-input v-model="behaviorSearch" :placeholder="t('recommendation.userId')" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="searchBehavior">{{ t('recommendation.search') }}</el-button>
-            </el-form-item>
-          </el-form>
+      <TabsContent value="behavior">
+        <Card><CardHeader><CardTitle>{{ t('recommendation.userBehavior') }}</CardTitle></CardHeader><CardContent class="p-5">
+                    <form @submit.prevent class="flex flex-wrap items-end gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-sm font-medium text-foreground">{{ t('recommendation.userId') }}</label>
+              <Input v-model="behaviorSearch" :placeholder="t('recommendation.userId')" />
+            </div>
+            <div>
+              <Button variant="default" @click="searchBehavior">{{ t('recommendation.search') }}</Button>
+            </div>
+          </form>
           <el-descriptions v-if="currentBehavior" :column="3" border>
             <el-descriptions-item :label="t('recommendation.sessions')">{{ currentBehavior.totalSessions }}</el-descriptions-item>
             <el-descriptions-item :label="t('recommendation.pageViews')">{{ currentBehavior.pageViews.length }}</el-descriptions-item>
@@ -137,44 +160,69 @@
           </el-descriptions>
           <div v-if="recommendations.length > 0" class="mt-20">
             <h4>{{ t('recommendation.recommendationResults') }}</h4>
-            <el-table :data="recommendations">
-              <el-table-column prop="tourId" :label="t('recommendation.tourId')" />
-              <el-table-column prop="score" :label="t('recommendation.score')" width="100" />
-              <el-table-column prop="reason" :label="t('recommendation.reason')" />
-              <el-table-column prop="confidence" :label="t('recommendation.confidence')" width="100">
-                <template #default="{ row }">{{ (row.confidence * 100).toFixed(0) }}%</template>
-              </el-table-column>
-            </el-table>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{{ t('recommendation.tourId') }}</TableHead>
+                  <TableHead class="w-[100px]">{{ t('recommendation.score') }}</TableHead>
+                  <TableHead>{{ t('recommendation.reason') }}</TableHead>
+                  <TableHead class="w-[100px]">{{ t('recommendation.confidence') }}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="(row, index) in recommendations" :key="row.tourId ?? index">
+                  <TableCell>{{ row.tourId }}</TableCell>
+                  <TableCell>{{ row.score }}</TableCell>
+                  <TableCell>{{ row.reason }}</TableCell>
+                  <TableCell>{{ (row.confidence * 100).toFixed(0) }}%</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
-        </el-card>
-      </el-tab-pane>
-    </el-tabs>
+        </CardContent></Card>
+      </TabsContent>
+    </Tabs>
 
-    <el-dialog v-model="showRuleDialog" :title="t('recommendation.newRule')" width="600px">
-      <el-form :model="newRule" label-width="100px">
-        <el-form-item :label="t('recommendation.ruleName')">
-          <el-input v-model="newRule.name" />
-        </el-form-item>
-        <el-form-item :label="t('recommendation.ruleType')">
-          <el-select v-model="newRule.type">
-            <el-option :label="t('recommendation.ruleTypes.behavior')" value="behavior" />
-            <el-option :label="t('recommendation.ruleTypes.context')" value="context" />
-            <el-option :label="t('recommendation.ruleTypes.time')" value="time" />
-            <el-option :label="t('recommendation.ruleTypes.segment')" value="segment" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('recommendation.priority')">
-          <el-input-number v-model="newRule.priority" :min="1" :max="100" />
-        </el-form-item>
-        <el-form-item :label="t('recommendation.description')">
-          <el-input v-model="newRule.description" type="textarea" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showRuleDialog = false">{{ t('monitoring.cancel') }}</el-button>
-        <el-button type="primary" @click="createRule">{{ t('monitoring.create') }}</el-button>
-      </template>
-    </el-dialog>
+    <Dialog v-model="showRuleDialog" width="600px">
+      <DialogHeader>
+        <DialogTitle>{{ t('recommendation.newRule') }}</DialogTitle>
+      </DialogHeader>
+      <form @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('recommendation.ruleName') }}</label>
+          <div class="flex-1">
+            <Input v-model="newRule.name" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('recommendation.ruleType') }}</label>
+          <div class="flex-1">
+            <Select v-model="newRule.type">
+              <SelectOption :label="t('recommendation.ruleTypes.behavior')" value="behavior" />
+              <SelectOption :label="t('recommendation.ruleTypes.context')" value="context" />
+              <SelectOption :label="t('recommendation.ruleTypes.time')" value="time" />
+              <SelectOption :label="t('recommendation.ruleTypes.segment')" value="segment" />
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('recommendation.priority') }}</label>
+          <div class="flex-1">
+            <el-input-number v-model="newRule.priority" :min="1" :max="100" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('recommendation.description') }}</label>
+          <div class="flex-1">
+            <Textarea v-model="newRule.description" />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="showRuleDialog = false">{{ t('monitoring.cancel') }}</Button>
+        <Button variant="default" @click="createRule">{{ t('monitoring.create') }}</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -184,6 +232,16 @@ import { ElMessage } from 'element-plus'
 import { tourRecommendationService, type RecommendationRule, type UserSegment, type ABTestConfig } from '@/services/tourRecommendationService'
 import { useTourPermissions } from '@/composables/useTourPermissions'
 import { tourRecommendationI18n } from '@/locales/tour-i18n'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const t = (key: string) => {
   const keys = key.split('.')

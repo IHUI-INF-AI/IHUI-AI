@@ -2,7 +2,7 @@
   <div class="overview-page">
     <div class="stats-cards">
       <div class="stat-card">
-        <div class="stat-icon lesson-icon"><el-icon><VideoCamera /></el-icon></div>
+        <div class="stat-icon lesson-icon"><VideoCamera class="h-4 w-4" /></div>
         <div class="stat-content">
           <div class="stat-title">课程总数</div>
           <div class="stat-value">{{ stats.lessonCount || 0 }}</div>
@@ -10,7 +10,7 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon signup-icon"><el-icon><User /></el-icon></div>
+        <div class="stat-icon signup-icon"><User class="h-4 w-4" /></div>
         <div class="stat-content">
           <div class="stat-title">报名总数</div>
           <div class="stat-value">{{ stats.signUpCount || 0 }}</div>
@@ -18,7 +18,7 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon complete-icon"><el-icon><CircleCheck /></el-icon></div>
+        <div class="stat-icon complete-icon"><CircleCheck class="h-4 w-4" /></div>
         <div class="stat-content">
           <div class="stat-title">完成学习</div>
           <div class="stat-value">{{ stats.completedCount || 0 }}</div>
@@ -26,7 +26,7 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon time-icon"><el-icon><Timer /></el-icon></div>
+        <div class="stat-icon time-icon"><Timer class="h-4 w-4" /></div>
         <div class="stat-content">
           <div class="stat-title">总学习时长</div>
           <div class="stat-value">{{ formatTime(stats.totalLearnTime) }}</div>

@@ -1,99 +1,94 @@
 <template>
   <div class="backend-health">
-    <el-card class="status-card">
-      <template #header>
+    <Card class="status-card"><CardHeader>
         <div class="card-header">
           <span>{{ t('adminCommon.backendHealth.title') }}</span>
           <div class="header-actions">
-            <el-switch v-model="autoRefresh" :active-text="t('adminCommon.backendHealth.autoRefresh')" @change="toggleAutoRefresh" />
-            <el-button size="small" :loading="loading" @click="fetchHealth">{{ t('adminCommon.backendHealth.refresh') }}</el-button>
+            <Switch v-model="autoRefresh" @change="toggleAutoRefresh" />
+            <Button variant="outline" size="sm" @click="fetchHealth">{{ t('adminCommon.backendHealth.refresh') }}</Button>
           </div>
         </div>
-      </template>
-      <div v-loading="loading">
-        <el-row :gutter="20">
-          <el-col :span="6">
+      </CardHeader><CardContent class="p-5">
+            <div v-loading="loading">
+        <div class="flex flex-wrap gap-5">
+          <div class="w-1/4">
             <div class="stat-item">
               <div class="stat-label">{{ t('adminCommon.backendHealth.overallStatus') }}</div>
-              <el-tag :type="statusTagType" size="large">{{ statusText }}</el-tag>
+              <Tag :type="statusTagType" size="large">{{ statusText }}</Tag>
             </div>
-          </el-col>
-          <el-col :span="6">
+          </div>
+          <div class="w-1/4">
             <div class="stat-item">
               <div class="stat-label">{{ t('adminCommon.backendHealth.uptime') }}</div>
               <div class="stat-value">{{ formattedUptime }}</div>
             </div>
-          </el-col>
-          <el-col :span="6">
+          </div>
+          <div class="w-1/4">
             <div class="stat-item">
               <div class="stat-label">{{ t('adminCommon.backendHealth.database') }}</div>
-              <el-tag :type="dbOk ? 'success' : 'danger'" size="large">{{ dbOk ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</el-tag>
+              <Tag :type="dbOk ? 'success' : 'danger'" size="large">{{ dbOk ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</Tag>
             </div>
-          </el-col>
-          <el-col :span="6">
+          </div>
+          <div class="w-1/4">
             <div class="stat-item">
               <div class="stat-label">{{ t('adminCommon.backendHealth.redis') }}</div>
-              <el-tag :type="redisOk ? 'success' : 'danger'" size="large">{{ redisOk ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</el-tag>
+              <Tag :type="redisOk ? 'success' : 'danger'" size="large">{{ redisOk ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</Tag>
             </div>
-          </el-col>
-        </el-row>
+          </div>
+        </div>
       </div>
-    </el-card>
+    </CardContent></Card>
 
-    <el-row :gutter="20" class="mt-20">
-      <el-col :span="12">
-        <el-card>
-          <template #header>{{ t('adminCommon.backendHealth.databaseEngines') }}</template>
-          <div v-loading="loading" class="engine-list">
+    <div class="flex flex-wrap gap-5 mt-20">
+      <div class="w-1/2">
+        <Card><CardHeader><CardTitle>{{ t('adminCommon.backendHealth.databaseEngines') }}</CardTitle></CardHeader><CardContent class="p-5">
+                    <div v-loading="loading" class="engine-list">
             <div v-for="(eng, idx) in dbEngines" :key="idx" class="engine-item">
               <span class="engine-name">engine{{ Number(idx) + 1 }}</span>
-              <el-tag :type="eng.ok ? 'success' : 'danger'" size="small">{{ eng.ok ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</el-tag>
+              <Tag :type="eng.ok ? 'success' : 'danger'" size="small">{{ eng.ok ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</Tag>
               <span class="engine-msg">{{ eng.msg }}</span>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header>{{ t('adminCommon.backendHealth.redisInfo') }}</template>
-          <div v-loading="loading" class="redis-info">
+        </CardContent></Card>
+      </div>
+      <div class="w-1/2">
+        <Card><CardHeader><CardTitle>{{ t('adminCommon.backendHealth.redisInfo') }}</CardTitle></CardHeader><CardContent class="p-5">
+                    <div v-loading="loading" class="redis-info">
             <div class="info-row">
               <span class="info-label">{{ t('adminCommon.backendHealth.status') }}</span>
-              <el-tag :type="redisOk ? 'success' : 'danger'" size="small">{{ redisOk ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</el-tag>
+              <Tag :type="redisOk ? 'success' : 'danger'" size="small">{{ redisOk ? t('adminCommon.backendHealth.normal') : t('adminCommon.backendHealth.abnormal') }}</Tag>
             </div>
             <div class="info-row">
               <span class="info-label">{{ t('adminCommon.backendHealth.message') }}</span>
               <span class="info-value">{{ redisMsg }}</span>
             </div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </CardContent></Card>
+      </div>
+    </div>
 
-    <el-card class="mt-20">
-      <template #header>
+    <Card class="mt-20"><CardHeader>
         <div class="card-header">
           <span>{{ t('adminCommon.backendHealth.trendChart') }}</span>
           <div class="header-actions">
             <span class="history-tip">{{ t('adminCommon.backendHealth.historyPoints', { n: history.length }) }}</span>
-            <el-button v-if="history.length" size="small" class="export-csv-btn" @click="exportCsv">{{ t('adminCommon.backendHealth.exportCsv') }}</el-button>
-            <el-button v-if="history.length" size="small" class="clear-history-btn" @click="clearHistory">{{ t('adminCommon.backendHealth.clearHistory') }}</el-button>
+            <Button v-if="history.length" variant="outline" size="sm" className="export-csv-btn" @click="exportCsv">{{ t('adminCommon.backendHealth.exportCsv') }}</Button>
+            <Button v-if="history.length" variant="outline" size="sm" className="clear-history-btn" @click="clearHistory">{{ t('adminCommon.backendHealth.clearHistory') }}</Button>
           </div>
         </div>
-      </template>
-      <div v-if="history.length === 0" class="empty-history">
+      </CardHeader><CardContent class="p-5">
+            <div v-if="history.length === 0" class="empty-history">
         {{ t('adminCommon.backendHealth.historyEmpty') }}
       </div>
       <div v-else ref="chartRef" class="trend-chart"></div>
       <div v-if="lastUpdateAt" class="last-update">
         {{ t('adminCommon.backendHealth.lastUpdate') }}: {{ lastUpdateAt }}
       </div>
-    </el-card>
+    </CardContent></Card>
 
-    <el-card class="mt-20">
-      <template #header>{{ t('adminCommon.backendHealth.rawData') }}</template>
-      <pre class="raw-data">{{ JSON.stringify(healthData, null, 2) }}</pre>
-    </el-card>
+    <Card class="mt-20"><CardHeader><CardTitle>{{ t('adminCommon.backendHealth.rawData') }}</CardTitle></CardHeader><CardContent class="p-5">
+            <pre class="raw-data">{{ JSON.stringify(healthData, null, 2) }}</pre>
+    </CardContent></Card>
   </div>
 </template>
 
@@ -103,6 +98,10 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import echarts from '@/utils/echarts'
 import { useCleanup } from '@/composables/useCleanup'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Button from '@/components/ui/Button.vue'
+import { Tag } from '@/components/ui/tag'
+import { Switch } from '@/components/ui/switch'
 
 const { t } = useI18n()
 

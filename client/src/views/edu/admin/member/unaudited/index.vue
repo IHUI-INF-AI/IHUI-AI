@@ -1,61 +1,74 @@
 <template>
   <div class="member-container">
     <div class="head">
-      <el-input v-model="param.keyword" clearable placeholder="输入名称搜索" class="custom-input" @keyup.enter="search"></el-input>
-      <el-button class="search-btn" :icon="Search" @click="search">搜索</el-button>
+      <Input v-model="param.keyword" clearable placeholder="输入名称搜索" class="custom-input" @keyup.enter="search"></Input>
+      <Button className="search-btn" variant="outline" @click="search"><Search />搜索</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="memberList" style="width: 100%;">
-      <el-table-column type="expand">
-        <template #default="props">
-          <el-card class="box-card">
-            <template #header>
-              <div>
-                <span>基础信息</span>
-              </div>
-            </template>
-            <div class="table-wrapper">
-              <table class="fl-table">
-                <tbody>
-                  <tr><td>编号</td><td>{{props.row.code}}</td></tr>
-                  <tr><td>姓名</td><td>{{props.row.name}}</td></tr>
-                  <tr><td>性别</td><td>{{props.row.gender}}</td></tr>
-                  <tr><td>出生日期</td><td>{{props.row.birthday}}</td></tr>
-                  <tr><td>人员状态</td><td>{{stateMap[props.row.status]}}</td></tr>
-                  <tr><td>注册时间</td><td>{{props.row.createTime}}</td></tr>
-                  <tr><td>到期时间</td><td>{{props.row.expireTime}}</td></tr>
-                  <tr><td>手机电话</td><td>{{props.row.mobile}}</td></tr>
-                  <tr><td>座机号码</td><td>{{props.row.telephone}}</td></tr>
-                  <tr><td>电子邮箱</td><td>{{props.row.email}}</td></tr>
-                  <tr><td>会员等级</td><td>{{props.row.level && props.row.level.name || "无"}}</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </el-card>
+    <div v-if="dataLoading" class="loading">加载中...</div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead class="w-[70px]"></TableHead>
+          <TableHead class="w-[70px]">序号</TableHead>
+          <TableHead>账号</TableHead>
+          <TableHead>姓名</TableHead>
+          <TableHead>手机号码</TableHead>
+          <TableHead>邮箱</TableHead>
+          <TableHead>会员等级</TableHead>
+          <TableHead class="text-center">状态</TableHead>
+          <TableHead class="text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <template v-for="(row, index) in memberList" :key="row.id ?? index">
+          <TableRow>
+            <TableCell><button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button></TableCell>
+            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{ row.username }}</TableCell>
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell>{{ row.mobile }}</TableCell>
+            <TableCell>{{ row.email }}</TableCell>
+            <TableCell>{{row.level && row.level.name || "无"}}</TableCell>
+            <TableCell class="text-center">{{stateMap[row.status]}}</TableCell>
+            <TableCell class="text-center">
+              <Button variant="link" @click="reject(row.id)">拉黑</Button>
+              <Button variant="link" @click="approved(row.id)">通过</Button>
+              <Button variant="link" @click="remove(row)" style="color: red;">删除</Button>
+            </TableCell>
+          </TableRow>
+          <tr v-if="expandedRows.has(index)">
+            <td colspan="99">
+              <Card class="box-card">
+                <CardHeader>
+                  <div>
+                    <span>基础信息</span>
+                  </div>
+                </CardHeader>
+                  <CardContent>
+                <div class="table-wrapper">
+                  <table class="fl-table">
+                    <tbody>
+                      <tr><td>编号</td><td>{{row.code}}</td></tr>
+                      <tr><td>姓名</td><td>{{row.name}}</td></tr>
+                      <tr><td>性别</td><td>{{row.gender}}</td></tr>
+                      <tr><td>出生日期</td><td>{{row.birthday}}</td></tr>
+                      <tr><td>人员状态</td><td>{{stateMap[row.status]}}</td></tr>
+                      <tr><td>注册时间</td><td>{{row.createTime}}</td></tr>
+                      <tr><td>到期时间</td><td>{{row.expireTime}}</td></tr>
+                      <tr><td>手机电话</td><td>{{row.mobile}}</td></tr>
+                      <tr><td>座机号码</td><td>{{row.telephone}}</td></tr>
+                      <tr><td>电子邮箱</td><td>{{row.email}}</td></tr>
+                      <tr><td>会员等级</td><td>{{row.level && row.level.name || "无"}}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+              </Card>
+            </td>
+          </tr>
         </template>
-      </el-table-column>
-      <el-table-column label="序号" width="70" type="index"/>
-      <el-table-column prop="username" label="账号"/>
-      <el-table-column prop="name" label="姓名"/>
-      <el-table-column prop="mobile" label="手机号码"/>
-      <el-table-column :show-overflow-tooltip="true" prop="email" label="邮箱"/>
-      <el-table-column label="会员等级">
-        <template #default="scope">
-          {{scope.row.level && scope.row.level.name || "无"}}
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" align="center">
-        <template #default="scope">
-          {{stateMap[scope.row.status]}}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center">
-        <template #default="scope">
-          <el-button link @click="reject(scope.row.id)">拉黑</el-button>
-          <el-button link @click="approved(scope.row.id)">通过</el-button>
-          <el-button link @click="remove(scope.row)" style="color: red;">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      </TableBody>
+    </Table>
     <!--分页组件-->
     <page :total="total" @size-change="sizeChange" @current-change="currentChange" :page-size="param.size"/>
   </div>
@@ -69,16 +82,40 @@
 const { getMemberUnauditedList, approvedMember, rejectMember, removeMember } = memberApi;
   import {confirm, success} from "@/util/tipsUtils";
   import {Search} from '@/lib/lucide-fallback'
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+export default {
     name: "MemeberUnauditedList",
     components: {
-      Page
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Button,
+    Search,
+      Page,
+      Input
     },
     setup() {
       const stateMap = {"normal": "正常", "active": "激活", "black": "黑名单", "lock": "锁定", "deleted": "注销", "unaudited": "待审核"}
       const total = ref(0)
       const memberList = ref([])
       const dataLoading = ref(true)
+      const expandedRows = ref(new Set())
+      const toggleExpand = (index) => {
+        if (expandedRows.value.has(index)) {
+          expandedRows.value.delete(index)
+        } else {
+          expandedRows.value.add(index)
+        }
+      }
       const param = ref({
         current: 1,
         size: 20,
@@ -142,6 +179,8 @@ const { getMemberUnauditedList, approvedMember, rejectMember, removeMember } = m
         dataLoading,
         approved,
         reject,
+        expandedRows,
+        toggleExpand,
         Search: markRaw(Search)
       }
     }

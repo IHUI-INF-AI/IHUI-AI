@@ -1,18 +1,17 @@
 <template>
   <div class="demand-review-page" v-loading="loading">
     <div class="review-header">
-      <el-button :icon="ArrowLeft" @click="goBack">返回</el-button>
+      <Button variant="outline" @click="goBack"><ArrowLeft class="h-4 w-4" /> 返回</Button>
       <span class="review-header__title">需求审核</span>
     </div>
 
-    <el-card class="review-card" v-if="detail">
-      <template #header>
+    <Card class="review-card" v-if="detail"><CardHeader>
         <div class="review-card__head">
           <span class="review-card__title">{{ detail.title }}</span>
-          <el-tag :type="statusTagType" size="small">{{ statusLabel }}</el-tag>
+          <Tag :type="statusTagType" size="small">{{ statusLabel }}</Tag>
         </div>
-      </template>
-      <el-descriptions :column="2" border>
+      </CardHeader><CardContent class="p-5">
+            <el-descriptions :column="2" border>
         <el-descriptions-item label="需求 ID">{{ detail.id }}</el-descriptions-item>
         <el-descriptions-item label="提交人">{{ detail.user_name || detail.user_id || '-' }}</el-descriptions-item>
         <el-descriptions-item label="关联 Agent">{{ detail.agent_name || detail.agent_id || '-' }}</el-descriptions-item>
@@ -27,29 +26,29 @@
         <el-descriptions-item label="交付物" :span="2">{{ detail.deliverable || '-' }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
-    </el-card>
+    </CardContent></Card>
 
-    <el-card class="review-card" v-if="detail">
-      <template #header>审核操作</template>
-      <el-form :model="reviewForm" label-width="100px">
-        <el-form-item label="审核备注">
-          <el-input
-            v-model="reviewForm.remark"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入审核备注（可选）"
-            maxlength="500"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="success" :loading="submitting" @click="doReview(true)">审核通过</el-button>
-          <el-button type="warning" :loading="submitting" @click="doReview(false)">审核拒绝</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    <Card class="review-card" v-if="detail"><CardHeader><CardTitle>审核操作</CardTitle></CardHeader><CardContent class="p-5">
+            <form @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">审核备注</label>
+          <div class="flex-1">
+            <Textarea
+              v-model="reviewForm.remark"
+              :rows="4"
+              placeholder="请输入审核备注（可选）"
+              maxlength="500"
+            />
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="doReview(true)">审核通过</Button>
+          <Button variant="secondary" @click="doReview(false)">审核拒绝</Button>
+        </div>
+      </form>
+    </CardContent></Card>
 
-    <el-empty v-if="!loading && !detail" description="未找到需求" />
+    <Empty v-if="!loading && !detail" description="未找到需求" />
   </div>
 </template>
 
@@ -59,6 +58,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { demandApi, type DemandItem } from '@/api/admin/admin-demand-square'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Button from '@/components/ui/Button.vue'
+import { Empty } from '@/components/ui/empty'
+import { Textarea } from '@/components/ui/textarea'
+import { Tag } from '@/components/ui/tag'
 
 const route = useRoute()
 const router = useRouter()

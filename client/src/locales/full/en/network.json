@@ -1,6 +1,0 @@
-{
-  "network": {
-    "connectionRestored": "Network connection restored",
-    "connectionLost": "Network connection lost, some features may be unavailable"
-  }
-}

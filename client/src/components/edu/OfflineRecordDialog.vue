@@ -1,5 +1,6 @@
 <template>
   <el-dialog
+    ref="dialogRef"
     :model-value="visible"
     :title="isEdit ? t('edu.profile.editOffline') : t('edu.profile.createOffline')"
     width="560px"
@@ -7,81 +8,96 @@
     append-to-body
     :before-close="handleBeforeClose"
     @update:model-value="emit('update:visible', $event)"
+    role="dialog"
+    :aria-label="isEdit ? t('edu.profile.editOffline') : t('edu.profile.createOffline')"
+    aria-modal="true"
   >
-    <el-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      label-width="110px"
-      label-position="right"
-    >
-      <el-form-item :label="t('edu.profile.offlineTitleField')" prop="title">
-        <el-input
-          v-model="form.title"
-          :placeholder="t('edu.profile.offlineTitleField')"
-          maxlength="100"
-          show-word-limit
-        />
-      </el-form-item>
+    <form ref="formRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineTitleField') }}</label>
+        <div class="flex-1">
+          <el-input
+            v-model="form.title"
+            :placeholder="t('edu.profile.offlineTitleField')"
+            maxlength="100"
+            show-word-limit
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.offlineDate')" prop="record_date">
-        <el-date-picker
-          v-model="form.record_date"
-          type="date"
-          value-format="YYYY-MM-DD"
-          :placeholder="t('edu.profile.offlineDate')"
-          style="width: 100%"
-        />
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineDate') }}</label>
+        <div class="flex-1">
+          <el-date-picker
+            v-model="form.record_date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            :placeholder="t('edu.profile.offlineDate')"
+            style="width: 100%"
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.offlineDuration')" prop="duration_minutes">
-        <el-input-number
-          v-model="form.duration_minutes"
-          :min="1"
-          :max="1440"
-          :step="15"
-          style="width: 180px"
-        />
-        <span class="unit-suffix">{{ t('edu.profile.minutes') }}</span>
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineDuration') }}</label>
+        <div class="flex-1">
+          <el-input-number
+            v-model="form.duration_minutes"
+            :min="1"
+            :max="1440"
+            :step="15"
+            style="width: 180px"
+          />
+          <span class="unit-suffix">{{ t('edu.profile.minutes') }}</span>
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.offlineActivityType')" prop="activity_type">
-        <el-select v-model="form.activity_type" style="width: 100%">
-          <el-option :label="t('edu.profile.activityTraining')" value="training" />
-          <el-option :label="t('edu.profile.activitySelfStudy')" value="self_study" />
-          <el-option :label="t('edu.profile.activityPractice')" value="practice" />
-          <el-option :label="t('edu.profile.activityReading')" value="reading" />
-          <el-option :label="t('edu.profile.activityOther')" value="other" />
-        </el-select>
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineActivityType') }}</label>
+        <div class="flex-1">
+          <Select v-model="form.activity_type" style="width: 100%">
+            <SelectOption :label="t('edu.profile.activityTraining')" value="training" />
+            <SelectOption :label="t('edu.profile.activitySelfStudy')" value="self_study" />
+            <SelectOption :label="t('edu.profile.activityPractice')" value="practice" />
+            <SelectOption :label="t('edu.profile.activityReading')" value="reading" />
+            <SelectOption :label="t('edu.profile.activityOther')" value="other" />
+          </Select>
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.offlineDescription')">
-        <el-input
-          v-model="form.description"
-          type="textarea"
-          :rows="3"
-          :placeholder="t('edu.profile.offlineDescription')"
-          maxlength="500"
-          show-word-limit
-        />
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineDescription') }}</label>
+        <div class="flex-1">
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            :placeholder="t('edu.profile.offlineDescription')"
+            maxlength="500"
+            show-word-limit
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.offlineProof')">
-        <el-upload
-          :auto-upload="false"
-          :limit="1"
-          :on-change="handleFileChange"
-          :on-remove="handleFileRemove"
-          :file-list="fileList"
-          accept="image/*"
-        >
-          <el-button :icon="Paperclip">{{ t('edu.profile.selectFile') }}</el-button>
-          <template #tip>
-            <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
-          </template>
-        </el-upload>
-      </el-form-item>
-    </el-form>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineProof') }}</label>
+        <div class="flex-1">
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleFileChange"
+            :on-remove="handleFileRemove"
+            :file-list="fileList"
+            accept="image/*"
+          >
+            <el-button :icon="Paperclip">{{ t('edu.profile.selectFile') }}</el-button>
+            <template #tip>
+              <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
+            </template>
+          </el-upload>
+        </div>
+      </div>
+    </form>
 
     <template #footer>
       <el-button @click="handleCancel">{{ t('edu.profile.cancel') }}</el-button>
@@ -104,6 +120,7 @@ import {
   type OfflineActivityType,
 } from '@/api/edu/offline-records'
 import { validateFile } from '@/utils/fileValidation'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { t } = useI18n()
 
@@ -121,6 +138,26 @@ const formRef = ref<FormInstance | null>(null)
 const submitting = ref(false)
 const fileList = ref<UploadFile[]>([])
 const proofUrl = ref('')
+
+// PR-F F7：焦点陷阱（Dialog 打开记录触发元素、Tab 循环、关闭还原焦点）
+const triggerEl = ref<HTMLElement | null>(null)
+const dialogRef = ref<InstanceType<typeof import('element-plus')['ElDialog']> | null>(null)
+function onKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Tab' || !dialogRef.value?.$el) return
+  const focusable = dialogRef.value.$el.querySelectorAll<HTMLElement>(
+    'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
+  )
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
 
 // PR-F F4：dirty 检测
 const initialSnapshot = ref('')
@@ -165,6 +202,9 @@ watch(
   () => props.visible,
   (val) => {
     if (val) {
+      // PR-F F7：记录触发元素 + 注册 Tab 焦点陷阱
+      triggerEl.value = document.activeElement as HTMLElement | null
+      window.addEventListener('keydown', onKeydown)
       if (props.record) {
         form.title = props.record.title || ''
         form.record_date = props.record.record_date || new Date().toISOString().slice(0, 10)
@@ -192,6 +232,10 @@ watch(
         const input = formRef.value?.$el?.querySelector('input') as HTMLInputElement | null
         input?.focus()
       })
+    } else {
+      // PR-F F7：Dialog 关闭后移除监听并还原焦点到触发元素
+      window.removeEventListener('keydown', onKeydown)
+      nextTick(() => triggerEl.value?.focus())
     }
   }
 )

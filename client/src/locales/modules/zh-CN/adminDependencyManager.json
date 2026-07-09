@@ -1,7 +1,0 @@
-{
-  "adminDependencyManager": {
-    "enterTourId": "请输入引导ID",
-    "confirmDeleteConfig": "确定要删除此配置吗？",
-    "newConfig": "新建配置"
-  }
-}

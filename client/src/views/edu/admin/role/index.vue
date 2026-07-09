@@ -1,7 +1,7 @@
 <template>
   <div class="role-container">
     <div class="head">
-      <el-input
+      <Input
         v-model="searchParam.keyword"
         clearable
         size="small"
@@ -9,51 +9,73 @@
         class="search-input"
         @keyup.enter="search"
       />
-      <el-button class="search-btn" size="small" type="primary" :icon="Search" @click="search">搜索</el-button>
-      <el-button size="small" type="primary" :icon="Plus" @click="showDialog()">新增角色</el-button>
+      <Button className="search-btn" size="sm" variant="default" @click="search"><Search />搜索</Button>
+      <Button size="sm" variant="default" @click="showDialog()"><Plus />新增角色</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="list" size="small" style="width: 100%;">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="name" label="角色名称" min-width="160" />
-      <el-table-column prop="code" label="角色编码" min-width="140" />
-      <el-table-column prop="description" label="描述" min-width="220" :show-overflow-tooltip="true" />
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" align="center" width="160" fixed="right">
-        <template #default="scope">
-          <el-button link size="small" @click="showDialog(scope.row)">编辑</el-button>
-          <el-button link size="small" style="color: red;" @click="remove(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div v-if="dataLoading" class="loading-div">加载中...</div>
+    <Table class="text-sm" style="width: 100%">
+      <TableHeader>
+        <TableRow>
+          <TableHead class="w-[70px]">ID</TableHead>
+          <TableHead class="min-w-[160px]">角色名称</TableHead>
+          <TableHead class="min-w-[140px]">角色编码</TableHead>
+          <TableHead class="min-w-[220px]">描述</TableHead>
+          <TableHead class="w-[160px]">创建时间</TableHead>
+          <TableHead class="w-[160px] text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+          <TableCell>{{ row.id }}</TableCell>
+          <TableCell>{{ row.name }}</TableCell>
+          <TableCell>{{ row.code }}</TableCell>
+          <TableCell>{{ row.description }}</TableCell>
+          <TableCell>{{ row.createTime }}</TableCell>
+          <TableCell class="text-center">
+            <Button variant="link" size="sm" @click="showDialog(row)">编辑</Button>
+            <Button variant="link" size="sm" style="color: red;" @click="remove(row)">删除</Button>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size" />
 
     <!-- 新增/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="role.id ? '编辑角色' : '新增角色'" width="500px" :before-close="hideDialog">
-      <el-form :model="role" :rules="roleRules" ref="roleRef" label-width="90px">
-        <el-form-item label="角色名称" prop="name">
-          <el-input v-model="role.name" size="small" placeholder="请输入角色名称" autocomplete="off" />
-        </el-form-item>
-        <el-form-item label="角色编码" prop="code">
-          <el-input v-model="role.code" size="small" placeholder="请输入角色编码" autocomplete="off" />
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="role.description"
-            size="small"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入描述"
-            autocomplete="off"
-          />
-        </el-form-item>
-      </el-form>
+    <Dialog v-model="dialogVisible" :width="'500px'" @close="hideDialog">
+      <DialogHeader>
+        <DialogTitle>{{ role.id ? '编辑角色' : '新增角色' }}</DialogTitle>
+      </DialogHeader>
+      <form ref="roleRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">角色名称</label>
+          <div>
+            <Input v-model="role.name" size="small" placeholder="请输入角色名称" autocomplete="off" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">角色编码</label>
+          <div>
+            <Input v-model="role.code" size="small" placeholder="请输入角色编码" autocomplete="off" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">描述</label>
+          <div>
+            <Textarea
+              v-model="role.description"
+              :rows="3"
+              placeholder="请输入描述"
+            />
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hideDialog">取 消</el-button>
-          <el-button size="small" type="primary" @click="submit">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hideDialog">取 消</Button>
+          <Button size="sm" variant="default" @click="submit">确 定</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -64,6 +86,11 @@ import Page from '@/components/Page/index.vue'
 import { roleApi } from '@/api/edu/admin-api'
 import { confirm, success } from '@/util/tipsUtils'
 import { Search, Plus } from '@/lib/lucide-fallback'
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 const { findRoleList, saveRole, updateRole, deleteRole } = roleApi
 

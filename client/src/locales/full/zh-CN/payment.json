@@ -1,9 +1,0 @@
-{
-  "Payment": {
-    "alreadyVip": "您已是VIP会员",
-    "notLogged": "用户未登录",
-    "incompleteProduct": "商品信息不完整",
-    "selectPayMethod": "请选择支付方式",
-    "notLoggedOrNoOpenId": "用户未登录或openid不存在"
-  }
-}

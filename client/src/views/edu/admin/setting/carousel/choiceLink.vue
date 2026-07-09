@@ -1,11 +1,11 @@
 <template>
   <div class="link-box">
     <div>
-      <el-radio v-model="itemObj.linkType" label="0" @change="linkTypeChange">无</el-radio>
-      <el-radio v-model="itemObj.linkType" label="1" @change="linkTypeChange">链接</el-radio>
+      <Radio v-model="itemObj.linkType" value="0" @change="linkTypeChange">无</Radio>
+      <Radio v-model="itemObj.linkType" value="1" @change="linkTypeChange">链接</Radio>
     </div>
     <div v-if="itemObj.linkType !== '0'">
-      <el-input v-model="itemObj.link" class="input" @change="linkChange" placeholder="请输入链接地址"/>
+      <Input v-model="itemObj.link" class="input" @change="linkChange" placeholder="请输入链接地址"/>
     </div>
   </div>
 </template>
@@ -13,9 +13,15 @@
 <script>
 // @ts-nocheck
 import {computed} from "vue";
+import { Input } from '@/components/ui/input'
+import { Radio } from '@/components/ui/radio'
 
 export default {
   name: "CarouselChoiceLink",
+  components: {
+    Radio,
+    Input
+  },
   props: {
     index: {
       type: Number,

@@ -2,240 +2,406 @@
   <div class="admin-rbac-page" v-loading="loading">
     <h2 class="page-title">{{ t('adminRbac.title', 'RBAC 权限管理 (集中接入 14 个 admin/* API)') }}</h2>
 
-    <el-tabs v-model="activeTab" class="rbac-tabs">
+    <Tabs v-model="activeTab" class="rbac-tabs">
+      <TabsList>
+        <TabsTrigger value="user">{{ t('adminRbac.tab.user', '用户') }}</TabsTrigger>
+        <TabsTrigger value="role">{{ t('adminRbac.tab.role', '角色') }}</TabsTrigger>
+        <TabsTrigger value="menu">{{ t('adminRbac.tab.menu', '菜单') }}</TabsTrigger>
+        <TabsTrigger value="dept">{{ t('adminRbac.tab.dept', '部门') }}</TabsTrigger>
+        <TabsTrigger value="post">{{ t('adminRbac.tab.post', '岗位') }}</TabsTrigger>
+        <TabsTrigger value="config">{{ t('adminRbac.tab.config', '参数配置') }}</TabsTrigger>
+        <TabsTrigger value="orders">{{ t('adminRbac.tab.orders', '订单') }}</TabsTrigger>
+        <TabsTrigger value="products">{{ t('adminRbac.tab.products', '商品') }}</TabsTrigger>
+        <TabsTrigger value="faq">{{ t('adminRbac.tab.faq', 'FAQ') }}</TabsTrigger>
+        <TabsTrigger value="dashboard">{{ t('adminRbac.tab.dashboard', '仪表盘') }}</TabsTrigger>
+        <TabsTrigger value="jobLog">{{ t('adminRbac.tab.jobLog', '任务日志') }}</TabsTrigger>
+        <TabsTrigger value="loginInfo">{{ t('adminRbac.tab.loginInfo', '登录日志') }}</TabsTrigger>
+        <TabsTrigger value="notice">{{ t('adminRbac.tab.notice', '通知公告') }}</TabsTrigger>
+        <TabsTrigger value="agents">{{ t('adminRbac.tab.agents', '智能体管理') }}</TabsTrigger>
+      </TabsList>
       <!-- 用户管理 -->
-      <el-tab-pane :label="t('adminRbac.tab.user', '用户')" name="user">
+      <TabsContent value="user">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('user')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('user')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('user')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('user')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.user" stripe>
-          <el-table-column prop="userId" label="用户ID" width="100" />
-          <el-table-column prop="userName" label="用户名" width="150" />
-          <el-table-column prop="nickName" label="昵称" width="150" />
-          <el-table-column prop="deptId" label="部门ID" width="100" />
-          <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onEdit('user', row)">{{ t('common.edit') }}</el-button>
-              <el-button size="small" link type="danger" @click="onDelete('user', row)">{{ t('common.delete') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">用户ID</TableHead>
+              <TableHead class="w-[150px]">用户名</TableHead>
+              <TableHead class="w-[150px]">昵称</TableHead>
+              <TableHead class="w-[100px]">部门ID</TableHead>
+              <TableHead class="w-[100px]">状态</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.user" :key="row.userId ?? index">
+              <TableCell>{{ row.userId }}</TableCell>
+              <TableCell>{{ row.userName }}</TableCell>
+              <TableCell>{{ row.nickName }}</TableCell>
+              <TableCell>{{ row.deptId }}</TableCell>
+              <TableCell>{{ row.status }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onEdit('user', row)">{{ t('common.edit') }}</Button>
+                <Button variant="link" size="sm" @click="onDelete('user', row)">{{ t('common.delete') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 角色管理 -->
-      <el-tab-pane :label="t('adminRbac.tab.role', '角色')" name="role">
+      <TabsContent value="role">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('role')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('role')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('role')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('role')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.role" stripe>
-          <el-table-column prop="roleId" label="角色ID" width="100" />
-          <el-table-column prop="roleName" label="角色名" width="150" />
-          <el-table-column prop="roleKey" label="权限字符" width="150" />
-          <el-table-column prop="roleSort" label="排序" width="80" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onEdit('role', row)">{{ t('common.edit') }}</el-button>
-              <el-button size="small" link type="danger" @click="onDelete('role', row)">{{ t('common.delete') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">角色ID</TableHead>
+              <TableHead class="w-[150px]">角色名</TableHead>
+              <TableHead class="w-[150px]">权限字符</TableHead>
+              <TableHead class="w-[80px]">排序</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.role" :key="row.roleId ?? index">
+              <TableCell>{{ row.roleId }}</TableCell>
+              <TableCell>{{ row.roleName }}</TableCell>
+              <TableCell>{{ row.roleKey }}</TableCell>
+              <TableCell>{{ row.roleSort }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onEdit('role', row)">{{ t('common.edit') }}</Button>
+                <Button variant="link" size="sm" @click="onDelete('role', row)">{{ t('common.delete') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 菜单管理 -->
-      <el-tab-pane :label="t('adminRbac.tab.menu', '菜单')" name="menu">
+      <TabsContent value="menu">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('menu')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('menu')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('menu')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('menu')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.menu" stripe>
-          <el-table-column prop="menuId" label="菜单ID" width="100" />
-          <el-table-column prop="menuName" label="菜单名" width="200" />
-          <el-table-column prop="menuType" label="类型" width="80" />
-          <el-table-column prop="perms" label="权限标识" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onEdit('menu', row)">{{ t('common.edit') }}</el-button>
-              <el-button size="small" link type="danger" @click="onDelete('menu', row)">{{ t('common.delete') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">菜单ID</TableHead>
+              <TableHead class="w-[200px]">菜单名</TableHead>
+              <TableHead class="w-[80px]">类型</TableHead>
+              <TableHead>权限标识</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.menu" :key="row.menuId ?? index">
+              <TableCell>{{ row.menuId }}</TableCell>
+              <TableCell>{{ row.menuName }}</TableCell>
+              <TableCell>{{ row.menuType }}</TableCell>
+              <TableCell>{{ row.perms }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onEdit('menu', row)">{{ t('common.edit') }}</Button>
+                <Button variant="link" size="sm" @click="onDelete('menu', row)">{{ t('common.delete') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 部门管理 -->
-      <el-tab-pane :label="t('adminRbac.tab.dept', '部门')" name="dept">
+      <TabsContent value="dept">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('dept')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('dept')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('dept')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('dept')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.dept" stripe>
-          <el-table-column prop="deptId" label="部门ID" width="100" />
-          <el-table-column prop="deptName" label="部门名" width="200" />
-          <el-table-column prop="parentId" label="父部门" width="100" />
-          <el-table-column prop="orderNum" label="排序" width="80" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onEdit('dept', row)">{{ t('common.edit') }}</el-button>
-              <el-button size="small" link type="danger" @click="onDelete('dept', row)">{{ t('common.delete') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">部门ID</TableHead>
+              <TableHead class="w-[200px]">部门名</TableHead>
+              <TableHead class="w-[100px]">父部门</TableHead>
+              <TableHead class="w-[80px]">排序</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.dept" :key="row.deptId ?? index">
+              <TableCell>{{ row.deptId }}</TableCell>
+              <TableCell>{{ row.deptName }}</TableCell>
+              <TableCell>{{ row.parentId }}</TableCell>
+              <TableCell>{{ row.orderNum }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onEdit('dept', row)">{{ t('common.edit') }}</Button>
+                <Button variant="link" size="sm" @click="onDelete('dept', row)">{{ t('common.delete') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 岗位管理 -->
-      <el-tab-pane :label="t('adminRbac.tab.post', '岗位')" name="post">
+      <TabsContent value="post">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('post')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('post')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('post')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('post')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.post" stripe>
-          <el-table-column prop="postId" label="岗位ID" width="100" />
-          <el-table-column prop="postName" label="岗位名" width="200" />
-          <el-table-column prop="postCode" label="岗位编码" width="150" />
-          <el-table-column prop="postSort" label="排序" width="80" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onEdit('post', row)">{{ t('common.edit') }}</el-button>
-              <el-button size="small" link type="danger" @click="onDelete('post', row)">{{ t('common.delete') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">岗位ID</TableHead>
+              <TableHead class="w-[200px]">岗位名</TableHead>
+              <TableHead class="w-[150px]">岗位编码</TableHead>
+              <TableHead class="w-[80px]">排序</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.post" :key="row.postId ?? index">
+              <TableCell>{{ row.postId }}</TableCell>
+              <TableCell>{{ row.postName }}</TableCell>
+              <TableCell>{{ row.postCode }}</TableCell>
+              <TableCell>{{ row.postSort }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onEdit('post', row)">{{ t('common.edit') }}</Button>
+                <Button variant="link" size="sm" @click="onDelete('post', row)">{{ t('common.delete') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 参数配置 -->
-      <el-tab-pane :label="t('adminRbac.tab.config', '参数配置')" name="config">
+      <TabsContent value="config">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('config')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('config')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('config')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('config')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.config" stripe>
-          <el-table-column prop="configId" label="ID" width="80" />
-          <el-table-column prop="configName" label="参数名" width="200" />
-          <el-table-column prop="configKey" label="参数键" width="200" />
-          <el-table-column prop="configValue" label="参数值" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onEdit('config', row)">{{ t('common.edit') }}</el-button>
-              <el-button size="small" link type="danger" @click="onDelete('config', row)">{{ t('common.delete') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[80px]">ID</TableHead>
+              <TableHead class="w-[200px]">参数名</TableHead>
+              <TableHead class="w-[200px]">参数键</TableHead>
+              <TableHead>参数值</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.config" :key="row.configId ?? index">
+              <TableCell>{{ row.configId }}</TableCell>
+              <TableCell>{{ row.configName }}</TableCell>
+              <TableCell>{{ row.configKey }}</TableCell>
+              <TableCell>{{ row.configValue }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onEdit('config', row)">{{ t('common.edit') }}</Button>
+                <Button variant="link" size="sm" @click="onDelete('config', row)">{{ t('common.delete') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 订单管理 (admin-orders) -->
-      <el-tab-pane :label="t('adminRbac.tab.orders', '订单')" name="orders">
+      <TabsContent value="orders">
         <div class="tab-actions">
-          <el-button @click="reload('orders')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('orders')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.orders" stripe>
-          <el-table-column prop="id" label="订单ID" width="100" />
-          <el-table-column prop="userId" label="用户ID" width="100" />
-          <el-table-column prop="amount" label="金额" width="120" />
-          <el-table-column prop="status" label="状态" width="120" />
-          <el-table-column :label="t('common.operation')" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="onCompleteOrder(row)">{{ t('adminRbac.completeOrder', '完成') }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">订单ID</TableHead>
+              <TableHead class="w-[100px]">用户ID</TableHead>
+              <TableHead class="w-[120px]">金额</TableHead>
+              <TableHead class="w-[120px]">状态</TableHead>
+              <TableHead class="w-[200px]">{{ t('common.operation') }}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.orders" :key="row.id ?? index">
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.userId }}</TableCell>
+              <TableCell>{{ row.amount }}</TableCell>
+              <TableCell>{{ row.status }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="onCompleteOrder(row)">{{ t('adminRbac.completeOrder', '完成') }}</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 商品管理 (admin-products) -->
-      <el-tab-pane :label="t('adminRbac.tab.products', '商品')" name="products">
+      <TabsContent value="products">
         <div class="tab-actions">
-          <el-button @click="reload('products')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('products')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.products" stripe>
-          <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="name" label="商品名" width="200" />
-          <el-table-column prop="price" label="价格" width="120" />
-          <el-table-column prop="stock" label="库存" width="100" />
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[80px]">ID</TableHead>
+              <TableHead class="w-[200px]">商品名</TableHead>
+              <TableHead class="w-[120px]">价格</TableHead>
+              <TableHead class="w-[100px]">库存</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.products" :key="row.id ?? index">
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.name }}</TableCell>
+              <TableCell>{{ row.price }}</TableCell>
+              <TableCell>{{ row.stock }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- FAQ 管理 (admin-faq) -->
-      <el-tab-pane :label="t('adminRbac.tab.faq', 'FAQ')" name="faq">
+      <TabsContent value="faq">
         <div class="tab-actions">
-          <el-button @click="reload('faq')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('faq')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.faq" stripe>
-          <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="question" label="问题" width="300" />
-          <el-table-column prop="answer" label="答案" />
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[80px]">ID</TableHead>
+              <TableHead class="w-[300px]">问题</TableHead>
+              <TableHead>答案</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.faq" :key="row.id ?? index">
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.question }}</TableCell>
+              <TableCell>{{ row.answer }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 仪表盘 (admin-dashboard) -->
-      <el-tab-pane :label="t('adminRbac.tab.dashboard', '仪表盘')" name="dashboard">
+      <TabsContent value="dashboard">
         <div class="tab-actions">
-          <el-button @click="reload('dashboard')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('dashboard')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-row :gutter="16" v-if="dashboardData">
-          <el-col :span="8" v-for="(item, idx) in dashboardCards" :key="idx">
-            <el-card class="dashboard-card">
+        <div class="flex flex-wrap gap-4" v-if="dashboardData">
+          <div class="w-1/3" v-for="(item, idx) in dashboardCards" :key="idx">
+            <Card class="dashboard-card p-5">
               <div class="card-label">{{ item.label }}</div>
               <div class="card-value">{{ item.value }}</div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </el-tab-pane>
+            </Card>
+          </div>
+        </div>
+      </TabsContent>
 
       <!-- 任务日志 (admin-job-log) -->
-      <el-tab-pane :label="t('adminRbac.tab.jobLog', '任务日志')" name="jobLog">
+      <TabsContent value="jobLog">
         <div class="tab-actions">
-          <el-button @click="reload('jobLog')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('jobLog')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.jobLog" stripe>
-          <el-table-column prop="jobLogId" label="日志ID" width="100" />
-          <el-table-column prop="jobName" label="任务名" width="200" />
-          <el-table-column prop="invokeTarget" label="调用目标" />
-          <el-table-column prop="status" label="状态" width="100" />
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[100px]">日志ID</TableHead>
+              <TableHead class="w-[200px]">任务名</TableHead>
+              <TableHead>调用目标</TableHead>
+              <TableHead class="w-[100px]">状态</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.jobLog" :key="row.jobLogId ?? index">
+              <TableCell>{{ row.jobLogId }}</TableCell>
+              <TableCell>{{ row.jobName }}</TableCell>
+              <TableCell>{{ row.invokeTarget }}</TableCell>
+              <TableCell>{{ row.status }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 登录日志 (admin-logininfo) -->
-      <el-tab-pane :label="t('adminRbac.tab.loginInfo', '登录日志')" name="loginInfo">
+      <TabsContent value="loginInfo">
         <div class="tab-actions">
-          <el-button @click="reload('loginInfo')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('loginInfo')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.loginInfo" stripe>
-          <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="userName" label="用户名" width="150" />
-          <el-table-column prop="ipaddr" label="IP" width="150" />
-          <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="loginTime" label="登录时间" width="180" />
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[80px]">ID</TableHead>
+              <TableHead class="w-[150px]">用户名</TableHead>
+              <TableHead class="w-[150px]">IP</TableHead>
+              <TableHead class="w-[100px]">状态</TableHead>
+              <TableHead class="w-[180px]">登录时间</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.loginInfo" :key="row.id ?? index">
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.userName }}</TableCell>
+              <TableCell>{{ row.ipaddr }}</TableCell>
+              <TableCell>{{ row.status }}</TableCell>
+              <TableCell>{{ row.loginTime }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 通知公告 (admin-notice) -->
-      <el-tab-pane :label="t('adminRbac.tab.notice', '通知公告')" name="notice">
+      <TabsContent value="notice">
         <div class="tab-actions">
-          <el-button type="primary" @click="onCreate('notice')">{{ t('common.add') }}</el-button>
-          <el-button @click="reload('notice')">{{ t('common.refresh') }}</el-button>
+          <Button variant="default" @click="onCreate('notice')">{{ t('common.add') }}</Button>
+          <Button variant="outline" @click="reload('notice')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.notice" stripe>
-          <el-table-column prop="noticeId" label="ID" width="80" />
-          <el-table-column prop="noticeTitle" label="标题" width="300" />
-          <el-table-column prop="noticeType" label="类型" width="100" />
-          <el-table-column prop="status" label="状态" width="100" />
-        </el-table>
-      </el-tab-pane>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[80px]">ID</TableHead>
+              <TableHead class="w-[300px]">标题</TableHead>
+              <TableHead class="w-[100px]">类型</TableHead>
+              <TableHead class="w-[100px]">状态</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.notice" :key="row.noticeId ?? index">
+              <TableCell>{{ row.noticeId }}</TableCell>
+              <TableCell>{{ row.noticeTitle }}</TableCell>
+              <TableCell>{{ row.noticeType }}</TableCell>
+              <TableCell>{{ row.status }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
 
       <!-- 智能体 (admin-agents) -->
-      <el-tab-pane :label="t('adminRbac.tab.agents', '智能体管理')" name="agents">
+      <TabsContent value="agents">
         <div class="tab-actions">
-          <el-button @click="reload('agents')">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" @click="reload('agents')">{{ t('common.refresh') }}</Button>
         </div>
-        <el-table :data="lists.agents" stripe>
-          <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="name" label="名称" width="200" />
-          <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="category" label="分类" width="150" />
-        </el-table>
-      </el-tab-pane>
-    </el-tabs>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[80px]">ID</TableHead>
+              <TableHead class="w-[200px]">名称</TableHead>
+              <TableHead class="w-[100px]">状态</TableHead>
+              <TableHead class="w-[150px]">分类</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in lists.agents" :key="row.id ?? index">
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.name }}</TableCell>
+              <TableCell>{{ row.status }}</TableCell>
+              <TableCell>{{ row.category }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TabsContent>
+    </Tabs>
   </div>
 </template>
 
@@ -310,6 +476,10 @@ const dashboardCards = computed(() => {
 })
 
 import { reactive } from 'vue'
+import { Card } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
 
 async function reload(tab: string) {
   loading.value = true

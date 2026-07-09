@@ -1,8 +1,0 @@
-{
-  "cmpVersionDiff": {
-    "selectVersionToCompare": "请选择要对比的版本",
-    "selectDiffVersion": "请选择不同的版本进行对比",
-    "getVersionFailed": "版本信息获取失败",
-    "compareFailed": "版本对比失败"
-  }
-}

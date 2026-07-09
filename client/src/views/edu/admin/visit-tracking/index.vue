@@ -14,36 +14,36 @@
         :clearable="false"
         @change="onDateChange"
       />
-      <el-button size="small" type="primary" @click="refreshAll">查询</el-button>
-      <el-button size="small" @click="setRecentDays(7)">近7天</el-button>
-      <el-button size="small" @click="setRecentDays(30)">近30天</el-button>
+      <Button variant="default" size="sm" @click="refreshAll">查询</Button>
+      <Button variant="outline" size="sm" @click="setRecentDays(7)">近7天</Button>
+      <Button variant="outline" size="sm" @click="setRecentDays(30)">近30天</Button>
     </div>
 
     <!-- 统计概览 -->
     <div class="stat-box">
       <div class="stat-card stat-pv">
-        <div class="stat-icon"><el-icon :size="22"><View /></el-icon></div>
+        <div class="stat-icon"><View class="h-5 w-5" /></div>
         <div class="stat-info">
           <div class="stat-title">总浏览量 PV</div>
           <div class="stat-value">{{ statistics.pv || 0 }}</div>
         </div>
       </div>
       <div class="stat-card stat-uv">
-        <div class="stat-icon"><el-icon :size="22"><User /></el-icon></div>
+        <div class="stat-icon"><User class="h-5 w-5" /></div>
         <div class="stat-info">
           <div class="stat-title">总访客数 UV</div>
           <div class="stat-value">{{ statistics.uv || 0 }}</div>
         </div>
       </div>
       <div class="stat-card stat-vv">
-        <div class="stat-icon"><el-icon :size="22"><DataLine /></el-icon></div>
+        <div class="stat-icon"><DataLine class="h-5 w-5" /></div>
         <div class="stat-info">
           <div class="stat-title">总访问次数 VV</div>
           <div class="stat-value">{{ statistics.vv || 0 }}</div>
         </div>
       </div>
       <div class="stat-card stat-ip">
-        <div class="stat-icon"><el-icon :size="22"><LocationInformation /></el-icon></div>
+        <div class="stat-icon"><LocationInformation class="h-5 w-5" /></div>
         <div class="stat-info">
           <div class="stat-title">IP 数</div>
           <div class="stat-value">{{ statistics.ipNum || statistics.ip || 0 }}</div>
@@ -67,7 +67,7 @@
     <div class="list-section">
       <div class="list-header">
         <span>访问明细</span>
-        <el-input
+        <Input
           v-model="listParam.keyword"
           clearable
           size="small"
@@ -75,24 +75,35 @@
           class="list-search"
           @keyup.enter="searchList"
         />
-        <el-button size="small" type="primary" :icon="Search" @click="searchList">搜索</el-button>
+        <Button variant="default" size="sm" @click="searchList"><Search />搜索</Button>
       </div>
-      <el-table v-loading="listLoading" :data="list" size="small" style="width: 100%;">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="ip" label="IP地址" width="140" />
-        <el-table-column prop="ipCityName" label="所在城市" width="120">
-          <template #default="scope">{{ scope.row.ipCityName || scope.row.city || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="url" label="访问路径" min-width="220" :show-overflow-tooltip="true" />
-        <el-table-column prop="referer" label="来源" min-width="160" :show-overflow-tooltip="true">
-          <template #default="scope">{{ scope.row.referer || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="userAgent" label="浏览器UA" min-width="200" :show-overflow-tooltip="true">
-          <template #default="scope">{{ scope.row.userAgent || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="visitDate" label="访问日期" width="120" />
-        <el-table-column prop="createTime" label="访问时间" width="160" />
-      </el-table>
+      <div v-if="listLoading" class="loading-div">加载中...</div>
+      <Table class="text-sm" style="width: 100%">
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[70px]">ID</TableHead>
+            <TableHead class="w-[140px]">IP地址</TableHead>
+            <TableHead class="w-[120px]">所在城市</TableHead>
+            <TableHead class="min-w-[220px]">访问路径</TableHead>
+            <TableHead class="min-w-[160px]">来源</TableHead>
+            <TableHead class="min-w-[200px]">浏览器UA</TableHead>
+            <TableHead class="w-[120px]">访问日期</TableHead>
+            <TableHead class="w-[160px]">访问时间</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+            <TableCell>{{ row.id }}</TableCell>
+            <TableCell>{{ row.ip }}</TableCell>
+            <TableCell>{{ row.ipCityName || row.city || '-' }}</TableCell>
+            <TableCell>{{ row.url }}</TableCell>
+            <TableCell>{{ row.referer || '-' }}</TableCell>
+            <TableCell>{{ row.userAgent || '-' }}</TableCell>
+            <TableCell>{{ row.visitDate }}</TableCell>
+            <TableCell>{{ row.createTime }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
       <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="listParam.size" />
     </div>
   </div>
@@ -105,6 +116,9 @@ import * as echarts from 'echarts'
 import Page from '@/components/Page/index.vue'
 import { indexApi } from '@/api/edu/admin-api'
 import { Search, View, User, DataLine, LocationInformation } from '@/lib/lucide-fallback'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
 
 const { getStatistics, getVisitList, getDayPvList, getDayUvList } = indexApi
 

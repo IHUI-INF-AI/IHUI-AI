@@ -16,7 +16,7 @@
             <choice-image :index="index" :item="item" @on-success="uploadCallback" @on-remove="uploadCallback"/>
           </div>
           <div class="choice-title">
-            <el-input placeholder="请输入标题" v-model="item.title"/>
+            <Input placeholder="请输入标题" v-model="item.title"/>
           </div>
           <div class="choice-link">
             <choice-link :index="index" :item="item" @change-link-type="changeLinkType" @change-link="changeLink"/>
@@ -24,9 +24,9 @@
         </li>
       </ul>
       <!--      </draggable>-->
-      <el-button class="add-btn" @click="addItem">添加图片</el-button>
+      <Button className="add-btn" variant="outline" @click="addItem">添加图片</Button>
       <div class="submit-btn">
-        <el-button type="primary" @click="save">保存</el-button>
+        <Button variant="default" @click="save">保存</Button>
       </div>
     </div>
   </div>
@@ -37,6 +37,8 @@
 import {ref, reactive} from "vue";
 import ChoiceImage from "./choiceImage.vue";
 import ChoiceLink from "./choiceLink.vue";
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
 import { settingApi } from '@/api/edu/admin-api'
 const { saveCarousel, getCarousel } = settingApi;
 import {success, error} from "@/util/tipsUtils";
@@ -45,8 +47,10 @@ const { deleteFile } = ossApi;
 export default {
   name: "CarouselIndex",
   components: {
+    Button,
     ChoiceImage,
-    ChoiceLink
+    ChoiceLink,
+    Input
   },
   setup() {
     const isDeleteItem = ref(true)

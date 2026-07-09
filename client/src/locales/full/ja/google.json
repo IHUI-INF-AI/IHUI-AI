@@ -1,9 +1,0 @@
-{
-  "googleLogin": {
-    "useGoogle": "Googleアカウントでログイン",
-    "failed": "Googleログイン失敗",
-    "verifyFailed": "Googleログイン認証失敗、再試行",
-    "handleFailed": "Googleログイン処理失敗",
-    "retry": "Googleログイン失敗、再試行"
-  }
-}

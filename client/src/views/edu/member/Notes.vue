@@ -1,23 +1,23 @@
 <template>
-  <div class="member-notes">
+  <div class="member-notes" role="region" :aria-label="t('edu.profile.notesTitle')">
     <header class="page-header">
       <div class="header-text">
         <h1 class="page-title">{{ t('edu.profile.notesTitle') }}</h1>
         <p class="page-subtitle">{{ t('edu.profile.notesSubtitle') }}</p>
       </div>
       <div class="header-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="reload">
+        <el-button :icon="Refresh" :loading="loading" :aria-label="t('edu.common.retry')" @click="reload">
           {{ t('edu.common.retry') }}
         </el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">
+        <el-button type="primary" :icon="Plus" :aria-label="t('edu.profile.createNote')" @click="openCreate">
           {{ t('edu.profile.createNote') }}
         </el-button>
       </div>
     </header>
 
-    <el-alert
+    <Alert
       v-if="error"
-      type="error"
+      variant="destructive"
       :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Alert } from '@/components/ui/alert'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'

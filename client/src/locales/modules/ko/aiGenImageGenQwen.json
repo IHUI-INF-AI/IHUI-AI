@@ -1,6 +1,0 @@
-{
-  "aiGenImageGenQwen": {
-    "qwenRemarkMissing": "Qwen 이미지 모델이 설정되지 않음",
-    "websocketNotSupport": "WebSocket 이미지 생성 미지원"
-  }
-}

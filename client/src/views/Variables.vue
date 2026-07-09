@@ -3,20 +3,19 @@
     <div class="page-header">
       <div class="header-content">
         <h1 class="page-title">
-          <el-icon><Setting /></el-icon>
+          <Setting class="h-4 w-4" />
           {{ t('variables.title') }}
         </h1>
         <p class="page-subtitle">{{ t('variables.subtitle') }}</p>
       </div>
-      <el-button type="primary" @click="showCreateDialog = true">
-        <el-icon><Plus /></el-icon>
+      <Button variant="default" @click="showCreateDialog = true">
+        <Plus class="h-4 w-4" />
         {{ t('variables.createVariable') }}
-      </el-button>
+      </Button>
     </div>
 
     <div class="variables-content">
-      <el-card shadow="hover">
-        <template #header>
+      <Card class="transition-shadow hover:shadow-md"><CardHeader>
           <div class="card-header">
             <span>{{ t('variables.selectBot') }}</span>
             <el-select
@@ -28,69 +27,83 @@
               <el-option v-for="bot in bots" :key="bot.id" :label="bot.name" :value="bot.id" />
             </el-select>
           </div>
-        </template>
-
+        </CardHeader><CardContent class="p-5">
+        
         <div v-loading="loading">
-          <el-empty v-if="!selectedBotId" :description="t('variables.pleaseSelectBot')" />
+          <Empty v-if="!selectedBotId" :description="t('variables.pleaseSelectBot')" />
           <div v-else-if="variables.length === 0" class="empty-state">
-            <el-empty :description="t('variables.noVariables')">
-              <el-button type="primary" @click="showCreateDialog = true">{{
+            <Empty :description="t('variables.noVariables')">
+              <Button variant="default" @click="showCreateDialog = true">{{
                 t('variables.createFirstVariable')
-              }}</el-button>
-            </el-empty>
+              }}</Button>
+            </Empty>
           </div>
-          <el-table v-else :data="variables" style="width: 100%">
-            <el-table-column prop="name" :label="t('variables.table.name')" width="200" />
-            <el-table-column prop="type" :label="t('variables.table.type')" width="120" />
-            <el-table-column
-              prop="value"
-              :label="t('variables.table.value')"
-              show-overflow-tooltip
-            />
-            <el-table-column
-              prop="description"
-              :label="t('variables.table.description')"
-              show-overflow-tooltip
-            />
-            <el-table-column :label="t('variables.table.actions')" width="180" fixed="right">
-              <template #default="{ row }">
-                <el-button link @click="handleEdit(row)">{{
-                  t('variables.buttons.edit')
-                }}</el-button>
-                <el-button link type="danger" @click="handleDelete(row)">{{
-                  t('variables.buttons.delete')
-                }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <Table v-else class="w-full">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[200px]">{{ t('variables.table.name') }}</TableHead>
+                <TableHead class="w-[120px]">{{ t('variables.table.type') }}</TableHead>
+                <TableHead>{{ t('variables.table.value') }}</TableHead>
+                <TableHead>{{ t('variables.table.description') }}</TableHead>
+                <TableHead class="w-[180px]">{{ t('variables.table.actions') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in variables" :key="row.name ?? index">
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>{{ row.type }}</TableCell>
+                <TableCell class="max-w-[400px] truncate" :title="String(row.value ?? '')">{{ row.value }}</TableCell>
+                <TableCell class="max-w-[400px] truncate" :title="String(row.description ?? '')">{{ row.description }}</TableCell>
+                <TableCell>
+                  <Button variant="link" @click="handleEdit(row)">{{
+                    t('variables.buttons.edit')
+                  }}</Button>
+                  <Button variant="link" @click="handleDelete(row)">{{
+                    t('variables.buttons.delete')
+                  }}</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
-      </el-card>
+      </CardContent></Card>
     </div>
 
     <!-- 创建/编辑对话框 -->
-    <el-dialog
+    <Dialog
       v-model="showCreateDialog"
-      :title="editingVariable ? t('variables.dialog.editTitle') : t('variables.dialog.createTitle')"
       width="600px"
     >
-      <el-form :model="variableForm" :rules="rules" ref="variableFormRef" label-width="100px">
-        <el-form-item :label="t('variables.dialog.name')" prop="name">
-          <el-input v-model="variableForm.name" :disabled="!!editingVariable" />
-        </el-form-item>
-        <el-form-item :label="t('variables.dialog.value')" prop="value">
-          <el-input v-model="variableForm.value" type="textarea" :rows="4" />
-        </el-form-item>
-        <el-form-item :label="t('variables.dialog.description')">
-          <el-input v-model="variableForm.description" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showCreateDialog = false">{{ t('variables.buttons.cancel') }}</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">{{
+      <DialogHeader>
+        <DialogTitle>{{ editingVariable ? t('variables.dialog.editTitle') : t('variables.dialog.createTitle') }}</DialogTitle>
+      </DialogHeader>
+      <form ref="variableFormRef" @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('variables.dialog.name') }}</label>
+          <div class="flex-1">
+            <Input v-model="variableForm.name" :disabled="!!editingVariable" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('variables.dialog.value') }}</label>
+          <div class="flex-1">
+            <Textarea v-model="variableForm.value" :rows="4" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('variables.dialog.description') }}</label>
+          <div class="flex-1">
+            <Input v-model="variableForm.description" />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="showCreateDialog = false">{{ t('variables.buttons.cancel') }}</Button>
+        <Button variant="default" @click="handleSave">{{
           t('variables.buttons.save')
-        }}</el-button>
-      </template>
-    </el-dialog>
+        }}</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -108,6 +121,13 @@ import {
 } from '@/api/services/variables.service'
 import { logger } from '@/utils/logger'
 import { useApiError } from '@/composables/useApiError'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Empty } from '@/components/ui/empty'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 const { t } = useI18n()
 const { loading, execute: executeApi } = useApiError({ showMessage: true })

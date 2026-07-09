@@ -1,144 +1,176 @@
 <template>
   <div class="paper-box">
-    <el-form :model="paper" :rules="paperRules" ref="paperRef" label-width="120px">
-      <el-form-item label="分类：" prop="cidList">
-        <el-cascader size="small" style="width: 100%;"
-                     v-model="selectCidList"
-                     :props="{ multiple: true, checkStrictly: true }"
-                     :options="categoryOptions"
-                     @change="changeCategory">
-        </el-cascader>
-      </el-form-item>
-      <el-form-item label="试卷名称：" prop="title">
-        <el-input size="small" v-model="paper.title" placeholder="请输入试卷名称"></el-input>
-      </el-form-item>
-      <el-form-item label="试卷描述：" prop="description">
-        <el-input size="small" type="textarea" :rows="5" v-model="paper.description" placeholder="请输入试卷描述"></el-input>
-      </el-form-item>
-      <el-form-item label="抽题规则：" prop="questionIdList">
-        <el-card size="small" shadow="never">
-          <template #header>
-            <div class="clearfix"></div>
-          </template>
-          <div class="question-rule">
-            <div class="question-rule-item">
-              <div class="title">题目分类</div>
-              <div class="content">
-                <el-cascader size="small" style="width: 100%;"
-                             v-model="selectQuestionCidList"
-                             :props="{ multiple: true, checkStrictly: true }"
-                             :options="questionCategoryOptions"
-                             @change="changeQuestionCategory"></el-cascader>
+    <form ref="paperRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
+        <div class="flex-1">
+          <el-cascader size="small" style="width: 100%;"
+                       v-model="selectCidList"
+                       :props="{ multiple: true, checkStrictly: true }"
+                       :options="categoryOptions"
+                       @change="changeCategory">
+          </el-cascader>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷名称：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="paper.title" placeholder="请输入试卷名称"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷描述：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="paper.description" placeholder="请输入试卷描述"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">抽题规则：</label>
+        <div class="flex-1">
+          <Card class="shadow-none">
+            <CardHeader>
+              <div class="clearfix"></div>
+            </CardHeader>
+            <CardContent>
+              <div class="question-rule">
+                <div class="question-rule-item">
+                  <div class="title">题目分类</div>
+                  <div class="content">
+                    <el-cascader size="small" style="width: 100%;"
+                                 v-model="selectQuestionCidList"
+                                 :props="{ multiple: true, checkStrictly: true }"
+                                 :options="questionCategoryOptions"
+                                 @change="changeQuestionCategory"></el-cascader>
+                  </div>
+                </div>
+                <div class="question-rule-item">
+                  <div class="title">单选题</div>
+                  <div class="content">
+                    <div class="content-item">
+                      <span>题目数量：</span>
+                      <Input v-model="questionRule.singleChoice.number" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>每题分数：</span>
+                      <Input v-model="questionRule.singleChoice.score" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>题目难度：</span>
+                      <el-rate v-model="questionRule.singleChoice.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                    </div>
+                  </div>
+                </div>
+                <div class="question-rule-item">
+                  <div class="title">多选题</div>
+                  <div class="content">
+                    <div class="content-item">
+                      <span>题目数量：</span>
+                      <Input v-model="questionRule.multiChoice.number" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>每题分数：</span>
+                      <Input v-model="questionRule.multiChoice.score" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>题目难度：</span>
+                      <el-rate v-model="questionRule.multiChoice.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                    </div>
+                  </div>
+                </div>
+                <div class="question-rule-item">
+                  <div class="title">判断题</div>
+                  <div class="content">
+                    <div class="content-item">
+                      <span>题目数量：</span>
+                      <Input v-model="questionRule.judgment.number" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>每题分数：</span>
+                      <Input v-model="questionRule.judgment.score" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>题目难度：</span>
+                      <el-rate v-model="questionRule.judgment.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                    </div>
+                  </div>
+                </div>
+                <div class="question-rule-item">
+                  <div class="title">填空题</div>
+                  <div class="content">
+                    <div class="content-item">
+                      <span>题目数量：</span>
+                      <Input v-model="questionRule.fillBlank.number" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>每题分数：</span>
+                      <Input v-model="questionRule.fillBlank.score" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>题目难度：</span>
+                      <el-rate v-model="questionRule.fillBlank.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                    </div>
+                  </div>
+                </div>
+                <div class="question-rule-item">
+                  <div class="title">简答题</div>
+                  <div class="content">
+                    <div class="content-item">
+                      <span>题目数量：</span>
+                      <Input v-model="questionRule.subjective.number" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>每题分数：</span>
+                      <Input v-model="questionRule.subjective.score" @blur="changeRule" size="small"/>
+                    </div>
+                    <div class="content-item">
+                      <span>题目难度：</span>
+                      <el-rate v-model="questionRule.subjective.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div class="question-rule-item">
-              <div class="title">单选题</div>
-              <div class="content">
-                <div class="content-item">
-                  <span>题目数量：</span>
-                  <el-input v-model="questionRule.singleChoice.number" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>每题分数：</span>
-                  <el-input v-model="questionRule.singleChoice.score" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>题目难度：</span>
-                  <el-rate v-model="questionRule.singleChoice.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
-                </div>
-              </div>
-            </div>
-            <div class="question-rule-item">
-              <div class="title">多选题</div>
-              <div class="content">
-                <div class="content-item">
-                  <span>题目数量：</span>
-                  <el-input v-model="questionRule.multiChoice.number" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>每题分数：</span>
-                  <el-input v-model="questionRule.multiChoice.score" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>题目难度：</span>
-                  <el-rate v-model="questionRule.multiChoice.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
-                </div>
-              </div>
-            </div>
-            <div class="question-rule-item">
-              <div class="title">判断题</div>
-              <div class="content">
-                <div class="content-item">
-                  <span>题目数量：</span>
-                  <el-input v-model="questionRule.judgment.number" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>每题分数：</span>
-                  <el-input v-model="questionRule.judgment.score" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>题目难度：</span>
-                  <el-rate v-model="questionRule.judgment.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
-                </div>
-              </div>
-            </div>
-            <div class="question-rule-item">
-              <div class="title">填空题</div>
-              <div class="content">
-                <div class="content-item">
-                  <span>题目数量：</span>
-                  <el-input v-model="questionRule.fillBlank.number" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>每题分数：</span>
-                  <el-input v-model="questionRule.fillBlank.score" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>题目难度：</span>
-                  <el-rate v-model="questionRule.fillBlank.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
-                </div>
-              </div>
-            </div>
-            <div class="question-rule-item">
-              <div class="title">简答题</div>
-              <div class="content">
-                <div class="content-item">
-                  <span>题目数量：</span>
-                  <el-input v-model="questionRule.subjective.number" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>每题分数：</span>
-                  <el-input v-model="questionRule.subjective.score" @blur="changeRule" size="small"/>
-                </div>
-                <div class="content-item">
-                  <span>题目难度：</span>
-                  <el-rate v-model="questionRule.subjective.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
-                </div>
-              </div>
-            </div>
-          </div>
-        </el-card>
-      </el-form-item>
-      <el-form-item label="试卷总分：">
-        {{paper.score}} 分
-      </el-form-item>
-      <el-form-item label="合格分数："  prop="passScore">
-        <el-input size="small" v-model="paper.passScore" placeholder="请输入试题分数"></el-input>
-      </el-form-item>
-      <el-form-item label="试卷时间：" prop="limitTime">
-        <el-input size="small" v-model="paper.limitTime" placeholder="请输入试卷时间（分）"></el-input>
-      </el-form-item>
-      <el-form-item label="题序打乱：" prop="questionDisordered">
-        <el-switch id="questionDisordered" v-model="paper.questionDisordered" active-color="#415fff" active-text="是" inactive-text="否"></el-switch>
-      </el-form-item>
-      <el-form-item label="选项打乱：" prop="optionDisordered">
-        <el-switch id="optionDisordered" v-model="paper.optionDisordered" active-color="#415fff" active-text="是" inactive-text="否"></el-switch>
-      </el-form-item>
-      <el-form-item label="试卷难度：" prop="difficulty">
-        <el-rate style="line-height: 48px;" v-model="paper.difficulty" :colors="colors"></el-rate>
-      </el-form-item>
-    </el-form>
-    <el-button size="small" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</el-button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷总分：</label>
+        <div class="flex-1">
+          {{paper.score}} 分
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">合格分数：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="paper.passScore" placeholder="请输入试题分数"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷时间：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="paper.limitTime" placeholder="请输入试卷时间（分）"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">题序打乱：</label>
+        <div class="flex-1">
+          <Switch id="questionDisordered" v-model="paper.questionDisordered" />
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">选项打乱：</label>
+        <div class="flex-1">
+          <Switch id="optionDisordered" v-model="paper.optionDisordered" />
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷难度：</label>
+        <div class="flex-1">
+          <el-rate style="line-height: 48px;" v-model="paper.difficulty" :colors="colors"></el-rate>
+        </div>
+      </div>
+    </form>
+    <Button variant="outline" size="sm" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</Button>
   </div>
 </template>
 <script>
@@ -153,8 +185,19 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import router from "@/router";
   import { examApi as questionApi } from '@/api/edu/admin-api';
 
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Switch } from '@/components/ui/switch'
+  import { Textarea } from '@/components/ui/textarea'
+export default {
     name: "ExamPaperRandomIndex",
+    components: {
+      Button,
+      Input,
+      Textarea,
+      Switch
+    },
     setup() {
       const route = useRoute()
       const colors = ["#99A9BF", "#F7BA2A", "#FF9900"]

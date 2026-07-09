@@ -1,38 +1,57 @@
 <template>
   <div class="sensitive-word-container">
     <div class="head">
-      <el-input size="small" v-model="param.keyword" clearable placeholder="输入名称搜索" class="custom-input" @keyup.enter="search"></el-input>
-      <el-button size="small" class="search-btn" :icon="Search" @click="search">搜索</el-button>
-      <el-button style="margin-left: 10px;" @click="show(-1)" size="small" type="primary">新增</el-button>
+      <Input size="small" v-model="param.keyword" clearable placeholder="输入名称搜索" class="custom-input" @keyup.enter="search"></Input>
+      <Button size="sm" className="search-btn" variant="outline" @click="search"><Search />搜索</Button>
+      <Button style="margin-left: 10px;" @click="show(-1)" size="sm" variant="default">新增</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="hotWordList" size="small" style="width: 100%;">
-      <el-table-column prop="name" label="名称"/>
-      <el-table-column prop="sortOrder" label="权重"/>
-      <el-table-column label="操作" align="center">
-        <template #default="scope">
-          <el-button class="right-btn" @click="edit(scope.row)" size="small">编辑</el-button>
-          <el-button class="right-btn" @click="del(scope.row)" size="small">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div v-if="dataLoading" class="loading-div">加载中...</div>
+    <Table class="text-sm" style="width: 100%">
+      <TableHeader>
+        <TableRow>
+          <TableHead>名称</TableHead>
+          <TableHead>权重</TableHead>
+          <TableHead class="text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="(row, index) in hotWordList" :key="row.id ?? index">
+          <TableCell>{{ row.name }}</TableCell>
+          <TableCell>{{ row.sortOrder }}</TableCell>
+          <TableCell class="text-center">
+            <Button className="right-btn" @click="edit(row)" size="sm" variant="outline">编辑</Button>
+            <Button className="right-btn" @click="del(row)" size="sm" variant="outline">删除</Button>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
     <!--分页组件-->
     <page :total="total" @size-change="sizeChange" @current-change="currentChange" :page-size="param.size"/>
-    <el-dialog title="编辑" v-model="showDialog" :before-close="hide">
-      <el-form :model="hotWord" :rules="hotWordRules" ref="hotWordRef">
-        <el-form-item label="名称：" label-width="80px" prop="name">
-          <el-input size="small" v-model="hotWord.name" placeholder="请输入名称" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="权重：" label-width="80px" prop="sortOrder">
-          <el-input size="small" v-model="hotWord.sortOrder" placeholder="请输入权重" autocomplete="off"></el-input>
-        </el-form-item>
-      </el-form>
+    <Dialog v-model="showDialog" @close="hide">
+      <DialogHeader>
+        <DialogTitle>编辑</DialogTitle>
+      </DialogHeader>
+      <form ref="hotWordRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+          <div>
+            <Input size="small" v-model="hotWord.name" placeholder="请输入名称" autocomplete="off"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">权重：</label>
+          <div>
+            <Input size="small" v-model="hotWord.sortOrder" placeholder="请输入权重" autocomplete="off"></Input>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hide">取 消</el-button>
-          <el-button size="small" type="primary" @click="submit">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hide">取 消</Button>
+          <Button size="sm" variant="default" @click="submit">确 定</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -44,10 +63,17 @@
 const { findList, removeHotWord, saveHotWord, updateHotWord } = searchApi;
   import {confirm} from "@/util/tipsUtils"
   import {Search} from '@/lib/lucide-fallback'
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
   export default {
     name: "HotWordIndex",
     components: {
-      Page
+      Page,
+      Button,
+      Input,
+      Table, TableHeader, TableBody, TableRow, TableHead, TableCell
     },
     setup() {
       const total = ref(0)

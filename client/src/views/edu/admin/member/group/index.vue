@@ -1,61 +1,82 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
-          <el-input class="search-input" v-model="searchParam.name" placeholder="请输入关键字"></el-input>
-          <el-button class="search-btn" type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-        <el-form-item v-if="!isComponent">
-          <el-button type="primary" @click="add">创建分组</el-button>
-        </el-form-item>
-      </el-form>
+      <form @submit.prevent class="demo-form-inline">
+        <div class="mb-4">
+          <Input class="search-input" v-model="searchParam.name" placeholder="请输入关键字"></Input>
+          <Button className="search-btn" variant="default" @click="search">搜索</Button>
+        </div>
+        <div class="mb-4" v-if="!isComponent">
+          <Button variant="default" @click="add">创建分组</Button>
+        </div>
+      </form>
     </div>
     <div class="content">
       <div class="content-list">
-        <el-table v-loading="dataLoading" :data="list" style="width: 100%;" @selection-change="handleSelectionChange">
-          <el-table-column type="selection" width="45" v-if="isComponent"/>
-          <el-table-column label="序号" width="70" type="index"/>
-          <el-table-column prop="name" label="名称"/>
-          <el-table-column prop="sortOrder" label="排序"/>
-          <el-table-column prop="status" label="状态">
-            <template #default="scope">
-              {{scope.row.status === 'enable' ? '启用' : '禁用'}}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150" v-if="!isComponent">
-            <template #default="scope">
-              <el-button link @click="edit(scope.row)">编辑</el-button>
-              <el-button link style="color: red;" @click="remove(scope.row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div v-if="dataLoading" class="loading">加载中...</div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead v-if="isComponent" class="w-[55px]"><input type="checkbox" :checked="allSelected" @change="toggleAll($event)" /></TableHead>
+              <TableHead class="w-[70px]">序号</TableHead>
+              <TableHead>名称</TableHead>
+              <TableHead>排序</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead v-if="!isComponent" class="w-[150px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+              <TableCell v-if="isComponent" class="w-[55px]"><input type="checkbox" :checked="multipleSelection.includes(row)" @change="toggleRow(row)" /></TableCell>
+              <TableCell>{{ index + 1 }}</TableCell>
+              <TableCell>{{ row.name }}</TableCell>
+              <TableCell>{{ row.sortOrder }}</TableCell>
+              <TableCell>{{row.status === 'enable' ? '启用' : '禁用'}}</TableCell>
+              <TableCell v-if="!isComponent">
+                <Button variant="link" @click="edit(row)">编辑</Button>
+                <Button variant="link" style="color: red;" @click="remove(row)">删除</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
     </div>
     <page style="margin-top: 20px;" :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
-    <el-dialog title="编辑会员分组" v-model="showMemberGroupFormDialog" :before-close="hideMemberGroupForm">
-      <el-form :model="memberGroup" :rules="memberGroupRules" ref="memberGroupRef">
-        <el-form-item label="名称：" label-width="150px" prop="name">
-          <el-input v-model="memberGroup.name" placeholder="请输入名称" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="排序：" label-width="150px" prop="sortOrder">
-          <el-input v-model="memberGroup.sortOrder" placeholder="请输入排序，数值越大越靠前" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="状态：" label-width="150px" prop="status">
-          <el-switch active-color="#13ce66" :active-value="'enable'" :inactive-value="'disable'"  v-model="memberGroup.status"></el-switch>
-        </el-form-item>
-      </el-form>
+    <Dialog v-model="showMemberGroupFormDialog" @close="hideMemberGroupForm">
+      <DialogHeader>
+        <DialogTitle>编辑会员分组</DialogTitle>
+      </DialogHeader>
+      <form ref="memberGroupRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+          <div>
+            <Input v-model="memberGroup.name" placeholder="请输入名称" autocomplete="off"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">排序：</label>
+          <div>
+            <Input v-model="memberGroup.sortOrder" placeholder="请输入排序，数值越大越靠前" autocomplete="off"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态：</label>
+          <div>
+            <el-switch active-color="#13ce66" :active-value="'enable'" :inactive-value="'disable'"  v-model="memberGroup.status"></el-switch>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="hideMemberGroupForm">取 消</el-button>
-          <el-button type="primary" @click="submitMemberGroup">确 定</el-button>
+          <Button variant="outline" @click="hideMemberGroupForm">取 消</Button>
+          <Button variant="default" @click="submitMemberGroup">确 定</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
     <template v-if="isComponent">
       <div class="dialog-footer" style="text-align: right;margin-top: 30px;">
-        <el-button @click="cancelCallback">取 消</el-button>
-        <el-button type="primary" @click="selectSelectionChange">确 定</el-button>
+        <Button variant="outline" @click="cancelCallback">取 消</Button>
+        <Button variant="default" @click="selectSelectionChange">确 定</Button>
       </div>
     </template>
   </div>
@@ -63,16 +84,28 @@
 
 <script>
 // @ts-nocheck
-  import {ref} from "vue"
+  import {ref, computed} from "vue"
   import { memberApi } from '@/api/edu/admin-api'
 const { findList, updateGroup, saveGroup, deleteGroup } = memberApi
   import Page from "@/components/Page/index.vue"
   import {confirm, error, success} from "@/util/tipsUtils";
+  import Button from '@/components/ui/Button.vue'
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import { Input } from '@/components/ui/input'
 
   export default {
     name: "MemberGroup",
     components: {
-      Page
+      Button,
+      Page,
+      Table,
+      TableHeader,
+      TableBody,
+      TableRow,
+      TableHead,
+      TableCell,
+      Input
     },
     props: {
       cancelCallback: {
@@ -166,6 +199,22 @@ const { findList, updateGroup, saveGroup, deleteGroup } = memberApi
       const handleSelectionChange = (val) => {
         multipleSelection.value = val;
       }
+      const allSelected = computed(() => list.value.length > 0 && list.value.every(item => multipleSelection.value.includes(item)))
+      const toggleAll = (event) => {
+        if (event.target.checked) {
+          multipleSelection.value = [...list.value]
+        } else {
+          multipleSelection.value = []
+        }
+      }
+      const toggleRow = (row) => {
+        const idx = multipleSelection.value.indexOf(row)
+        if (idx === -1) {
+          multipleSelection.value.push(row)
+        } else {
+          multipleSelection.value.splice(idx, 1)
+        }
+      }
       const selectSelectionChange = () => {
         if (!multipleSelection.value.length) {
           error("请至少选择一个")
@@ -187,6 +236,9 @@ const { findList, updateGroup, saveGroup, deleteGroup } = memberApi
         remove,
         handleSelectionChange,
         selectSelectionChange,
+        allSelected,
+        toggleAll,
+        toggleRow,
         list,
         total,
         searchParam,

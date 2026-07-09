@@ -1,20 +1,29 @@
 <template>
   <div class="app-container">
-    <el-form ref="departmentRef" :rules="rules" :model="department" label-width="110px">
-      <el-form-item label="上级组织" prop="pid">
-        <el-input size="small" v-if="parentDepartment.name" type="text" class="input-text" disabled v-model="parentDepartment.name"></el-input>
-        <el-cascader size="small" v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="departmentOptions" placeholder="请选择上级组织" @change="changeParentDepartment"></el-cascader>
-      </el-form-item>
-      <el-form-item label="组织名称" prop="name">
-        <el-input size="small" maxlength="15" show-word-limit class="input-text" v-model="department.name"></el-input>
-      </el-form-item>
-      <el-form-item label="是否显示" prop="enabled">
-        <el-switch size="small" id="enabled" active-color="#13ce66" v-model="department.enabled"></el-switch>
-      </el-form-item>
-    </el-form>
+    <form ref="departmentRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">上级组织</label>
+        <div class="flex-1">
+          <Input size="small" v-if="parentDepartment.name" type="text" class="input-text" disabled v-model="parentDepartment.name"></Input>
+          <el-cascader size="small" v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="departmentOptions" placeholder="请选择上级组织" @change="changeParentDepartment"></el-cascader>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">组织名称</label>
+        <div class="flex-1">
+          <Input size="small" maxlength="15" class="input-text" v-model="department.name"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm">是否显示</label>
+        <div class="flex-1">
+          <Switch size="small" id="enabled" v-model="department.enabled" />
+        </div>
+      </div>
+    </form>
     <div class="dialog-footer">
-      <el-button size="small" @click="cancel()">取 消</el-button>
-      <el-button size="small" type="primary" @click="submit()">确 定</el-button>
+      <Button variant="outline" size="sm" @click="cancel()">取 消</Button>
+      <Button variant="default" size="sm" @click="submit()">确 定</Button>
     </div>
   </div>
 </template>
@@ -23,11 +32,19 @@
 // @ts-nocheck
   import {ref, watch} from "vue"
   import router from "@/router"
+  import Button from '@/components/ui/Button.vue';
+  import { Input } from '@/components/ui/input'
+  import { Switch } from '@/components/ui/switch'
   import { organizationalApi } from '@/api/edu/admin-api'
 const { findDepartmentList, toTree, getDepartment, saveDepartment, updateDepartment } = organizationalApi
   import {success, error} from "@/util/tipsUtils";
   export default {
     name: "departmentEdit",
+    components: {
+      Button,
+      Input,
+      Switch
+    },
     props: {
       data: {
         type: Object,

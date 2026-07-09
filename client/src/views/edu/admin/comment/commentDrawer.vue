@@ -7,7 +7,7 @@
     :before-close="handleClose"
   >
     <div class="comment-drawer-stub">
-      <el-empty description="评论管理（占位组件，原 commentDrawer 待完整迁移）" />
+      <Empty description="评论管理（占位组件，原 commentDrawer 待完整迁移）" />
     </div>
   </el-drawer>
 </template>
@@ -15,8 +15,10 @@
 <script>
 // @ts-nocheck
 import { ref, watch } from 'vue'
+import { Empty } from '@/components/ui/empty'
 export default {
   name: 'CommentDrawer',
+  components: { Empty },
   props: {
     topicType: { type: String, default: '' },
     topic: { type: Object, default: () => ({}) },

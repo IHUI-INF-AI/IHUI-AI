@@ -1,69 +1,84 @@
 <template>
   <div class="report">
     <div class="header">
-      <el-form :inline="true" :model="params" class="form-inline">
-        <el-form-item label="课程名称：">
-          <el-input
-              size="small"
-              @keydown.enter="search"
-              class="search-input"
-              v-model="params.name"
-              placeholder="请输入关键字"
-              style="width: 300px;"
-          >
-            <template #suffix>
-              <el-icon class="el-input__icon search-btn" @click="search"><Search /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item label="课程状态：" class="select">
-          <el-select
-              size="small"
-              v-model="params.status"
-              @change="search"
-              style="width: 300px;"
-          >
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未发布" value="unpublished"></el-option>
-            <el-option label="已发布" value="published"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="课程分类：" class="select">
-          <el-cascader
-              size="small"
-              v-model="selectCidList"
-              :options="categoryOptions"
-              :props="{ checkStrictly: true }"
-              @change="search"
-              clearable
-              style="width: 300px;"
-          ></el-cascader>
-        </el-form-item>
-        <el-form-item>
-          <el-button size="small" type="primary" @click="search()">
-            <el-icon style="vertical-align: middle; margin-right: 4px;">
-              <Search />
-            </el-icon>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">课程名称：</label>
+          <div>
+            <Input
+                size="small"
+                @keydown.enter="search"
+                class="search-input"
+                v-model="params.name"
+                placeholder="请输入关键字"
+                style="width: 300px;"
+            />
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">课程状态：</label>
+          <div>
+            <el-select
+                size="small"
+                v-model="params.status"
+                @change="search"
+                style="width: 300px;"
+            >
+              <el-option label="全部" value=""></el-option>
+              <el-option label="未发布" value="unpublished"></el-option>
+              <el-option label="已发布" value="published"></el-option>
+            </el-select>
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">课程分类：</label>
+          <div>
+            <el-cascader
+                size="small"
+                v-model="selectCidList"
+                :options="categoryOptions"
+                :props="{ checkStrictly: true }"
+                @change="search"
+                clearable
+                style="width: 300px;"
+            ></el-cascader>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button size="sm" variant="default" @click="search()">
+            <Search class="h-4 w-4" style="vertical-align: middle; margin-right: 4px;" />
             <span style="vertical-align: middle;">搜索</span>
-          </el-button>
-          <el-button size="small" @click="resetParams()">重置</el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+          <Button size="sm" variant="outline" @click="resetParams()">重置</Button>
+        </div>
+      </form>
     </div>
     <div class="report-main">
-      <el-table
-          :data="dataList"
-          v-loading="loading"
-          :row-style="{ marginTop: '5px', borderRadius: '8px' }"
-      >
-        <el-table-column label="序号" type="index" :index="customIndexFn"></el-table-column>
-        <el-table-column label="名称" prop="name"></el-table-column>
-        <el-table-column label="今日报名人数" prop="todaySignMemberQty"></el-table-column>
-        <el-table-column label="今日报名次数" prop="todaySignQty"></el-table-column>
-        <el-table-column label="总报名人数" prop="totalSignMemberQty"></el-table-column>
-        <el-table-column label="总报名次数" prop="totalSignQty"></el-table-column>
-        <el-table-column label="取消报名数" prop="cancelSignQty"></el-table-column>
-      </el-table>
+      <div v-if="loading" class="loading-overlay">加载中...</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>序号</TableHead>
+            <TableHead>名称</TableHead>
+            <TableHead>今日报名人数</TableHead>
+            <TableHead>今日报名次数</TableHead>
+            <TableHead>总报名人数</TableHead>
+            <TableHead>总报名次数</TableHead>
+            <TableHead>取消报名数</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in dataList" :key="row.id ?? index">
+            <TableCell>{{ customIndexFn(index) }}</TableCell>
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell>{{ row.todaySignMemberQty }}</TableCell>
+            <TableCell>{{ row.todaySignQty }}</TableCell>
+            <TableCell>{{ row.totalSignMemberQty }}</TableCell>
+            <TableCell>{{ row.totalSignQty }}</TableCell>
+            <TableCell>{{ row.cancelSignQty }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
       <div style="width: 100%; text-align: center;"><page :total="total" :size-change="sizeChange" :current-change="currentChange" :page-size="params.size"/></div>
     </div>
   </div>
@@ -75,11 +90,14 @@ import { ref } from "vue"
 import Page from "@/components/Page/index.vue";
 import { Search } from '@/lib/lucide-fallback';
 import { learnApi } from '@/api/edu/admin-api'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
 const { findCategoryList, toTree } = learnApi;
 const { getLessonSignReport } = learnApi;
 export default {
   name: "LearnSignUpReport",
-  components: { Search, Page },
+  components: { Search, Page, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell },
   setup() {
     const loading = ref(true)
     const total = ref(0)

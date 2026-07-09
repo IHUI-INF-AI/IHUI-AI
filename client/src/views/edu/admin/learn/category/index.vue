@@ -1,20 +1,21 @@
 <template>
   <div class="app-container">
-    <el-row>
-      <el-col :span="6">
+    <div class="flex flex-wrap">
+      <div class="w-1/4">
         <category-tree :current-node-key="currentNodeKey" class="tree" @node-click="handleNodeClick"/>
-      </el-col>
-      <el-col :span="18">
-        <el-card class="box-card">
-          <template #header>
+      </div>
+      <div class="w-3/4">
+        <Card class="box-card">
+          <CardHeader>
             <div class="category-head clearfix">
               <span class="category-title">{{cardTitle}}</span>
-              <el-button link size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="addChildren(category.id)">新增子类目</el-button>
-              <el-button link size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="edit(category.pid, category)">编辑</el-button>
-              <el-button link size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="remove(category)">删除</el-button>
-              <el-button link size="small" class="category-btn" v-if="type !== 'edit'" @click="add(category.pid)">新增同级类目</el-button>
+              <Button variant="link" size="sm" className="category-btn" v-if="type !== 'edit' && category.id" @click="addChildren(category.id)">新增子类目</Button>
+              <Button variant="link" size="sm" className="category-btn" v-if="type !== 'edit' && category.id" @click="edit(category.pid, category)">编辑</Button>
+              <Button variant="link" size="sm" className="category-btn" v-if="type !== 'edit' && category.id" @click="remove(category)">删除</Button>
+              <Button variant="link" size="sm" className="category-btn" v-if="type !== 'edit'" @click="add(category.pid)">新增同级类目</Button>
             </div>
-          </template>
+          </CardHeader>
+              <CardContent>
           <!-- 详情 -->
           <div class="table-wrapper" v-if="type === 'detail'">
             <table class="fl-table" v-if="!category.id">
@@ -27,8 +28,8 @@
             <table class="fl-table" v-else>
               <tbody>
                 <tr><td width="20%">名称：</td><td>{{category.name}}</td></tr>
-                <tr><td>显示/隐藏：</td><td><el-switch v-model="category.isShow" @change="changeIsShow(category)" active-color="#13ce66" :active-value="true" :inactive-value="false"></el-switch></td></tr>
-                <tr><td>显示在首页：</td><td><el-switch v-model="category.isShowIndex" @change="changeIsShowIndex(category)" active-color="#13ce66" :active-value="true" :inactive-value="false"></el-switch></td></tr>
+                <tr><td>显示/隐藏：</td><td><Switch v-model="category.isShow" @change="changeIsShow(category)" /></td></tr>
+                <tr><td>显示在首页：</td><td><Switch v-model="category.isShowIndex" @change="changeIsShowIndex(category)" /></td></tr>
                 <tr><td>排序：</td><td>{{category.sortOrder}}</td></tr>
                 <tr><td>级别：</td><td>{{category.level}}</td></tr>
                 <tr><td>图片：</td><td><img :src="category.image" alt=""/></td></tr>
@@ -39,9 +40,10 @@
           <div class="table-wrapper" v-else>
             <category-edit :edit-success="editSuccess" :edit-cancel="editCancel" :data="category" :pid="pid"/>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </CardContent>
+        </Card>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -55,9 +57,17 @@
   import { learnApi } from '@/api/edu/admin-api'
 const { getCategory, removeCategory } = learnApi;
   import {error, confirm, success, info} from "@/util/tipsUtils";
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Switch } from '@/components/ui/switch'
+export default {
     name: "LearnCategory",
     components: {
+    Card,
+    CardHeader,
+    CardContent,
+    Button,
+    Switch,
       CategoryTree,
       CategoryEdit
     },

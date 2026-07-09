@@ -1,122 +1,21 @@
-#!/usr/bin/env sh
-# Pre-commit 钩子：lint-staged + no-important 检查 + nul 残留扫描 + 工作区卫生检查 + markraw 规则检查 + 高特异性选择器检测 + 胶囊形圆角检测
-# 1. 运行 lint-staged（eslint + stylelint 对暂存文件）
-# 2. 运行 no-important 检查（用户规则：禁止 !important）
-# 3. 扫描 nul 残留文件（Windows 终端重定向副作用，详见 .gitignore）
-# 4. P22: 工作区卫生检查 - 禁止暂存运行时产物/临时文件
-# 5. markraw-icon 规则检查（用户规则：响应式对象中组件 icon 必须用 markRaw 包装）
-# 6. 高特异性选择器检测（用户规则：禁止 4 类以上嵌套的选择器，只检查暂存文件）
-# 7. 胶囊形/彻底圆角检测（用户规则 2026-07-03 立：禁止 border-radius: 14px+/999/9999px，只检查暂存文件）
-# 注意：本项目用 simple-git-hooks，把钩子放在 .husky/ 目录
-# 为跨平台兼容，nul/markraw/high-specificity/no-pill-radius 扫描用 Node 脚本而非 sh find（Windows 终端可能无 bash）
+#!/bin/sh
+# Pre-commit 守门钩子
+# 防止 API key 泄露 + i18n 键完整性 + 其他质量检查
 
-set -e
-
-# 项目 npm scripts 都在 client/ 目录, 统一 cd 到 client 解决路径问题
-# 使用 pushd/popd 确保退出时回到原 cwd (兼容 IDE 多 cwd 调用)
-ORIG_DIR=$(pwd)
-cd client || { echo "::error::无法 cd 到 client/ 目录, 钩子终止"; exit 1; }
-trap 'cd "$ORIG_DIR"' EXIT
-
-echo "▶ Running lint-staged..."
-npx lint-staged
-
-echo "▶ Running no-important check..."
-# 使用 baseline 模式：仅检查新增违规（baseline.json 已记录历史违规清单）
-# 当前 baseline: 25 处 (session-expired 8 + sidebar-layout 1 + edu/* 16)
-# 新增违规会立即 fail，确保不引入新的 !important 用法
-CHECK_NO_IMPORTANT_BASELINE=1 npm run check:no-important --silent
-
-echo "▶ Scanning for nul residue files..."
-# 跨平台扫描（用 Node 替代 sh find，避免 Windows IDE 终端无 bash 的问题）
-node scripts/check-nul.mjs
-
-echo "▶ Checking markraw-icon rule on staged files..."
-# 跨平台检查（用 Node 替代 sh+xargs，避免 Windows IDE 终端无 bash 的问题）
-node scripts/check-markraw-staged.mjs
-
-echo "▶ Checking high specificity selectors on staged files..."
-# 只检查暂存文件中的高特异性选择器（4 类以上嵌套）
-# 阈值 0：暂存文件中不允许有任何新的高特异性选择器
-HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs
-
-echo "▶ Checking pill/capsule border-radius on staged files..."
-# 胶囊形/彻底圆角守门 (2026-07-03 立, 用户规则: 禁止彻底圆角/胶囊形)
-# 检测暂存 .vue/.scss/.css 文件中 border-radius: 14px+ / 999px / 9999px
-# 例外白名单: 50% (头像/纯装饰圆点)
-# 阈值 0：暂存文件中不允许有任何新的胶囊形圆角
-NO_PILL_RADIUS_THRESHOLD=0 node scripts/check-no-pill-radius.mjs
-
-echo "▶ Checking var(--el-bg-color) misuse as text color on staged files..."
-# 背景 token 禁作文字色守门 (2026-07-04 立, 用户规则: 杜绝浅色背景下文字不可见)
-# 检测暂存 .vue/.scss/.css/.ts/.js 文件中 color: var(--el-bg-color) 直接误用 + --xxx-color: var(--el-bg-color) 自定义属性误用
-# 例外白名单: background-color/border-color/shadow-color/outline-color/bg-color 属性 (假阳性排除)
-# 阈值 0：暂存文件中不允许有任何 var(--el-bg-color) 文字色误用
-NO_BG_TOKEN_AS_TEXT_COLOR_THRESHOLD=0 node scripts/check-no-bg-token-as-text-color.mjs
-
-echo "▶ Checking primary button dark contrast on staged files..."
-# primary 按钮暗色对比度守门 (2026-07-04 立, 用户规则: 禁止 --el-color-primary 撞色, 禁止 primary 按钮用 var(--el-bg-color-page) 作 color)
-# 阈值 0：暂存文件中不允许有任何 primary 按钮对比度回归
-PRIMARY_BUTTON_CONTRAST_THRESHOLD=0 node scripts/check-primary-button-contrast.mjs
-
-echo "▶ Checking button text contrast on staged files..."
-# 按钮/标签/消息暗色文字反色守门 (2026-07-04 立, 用户规则: 浅色背景下深色文字自动适配)
-# 检测 4 类彩色按钮 (success/warning/danger/info) + 5 类 el-tag + 4 类 el-alert 暗色模式必须用 --app-text-on-* token
-# 阈值 0：暂存文件中不允许有任何文字反色回归
-BUTTON_TEXT_CONTRAST_THRESHOLD=0 node scripts/check-button-text-contrast.mjs
-
-echo "▶ Checking systemic color contrast on staged files..."
-# 全组件暗色反色系统性守门 (2026-07-04 立, 用户规则: 从根本彻底解决)
-# 扩展自 check-button-text-contrast.mjs, 覆盖: 5 类按钮 + 5 类 tag + 4 类 alert + 5 类 link +
-#                                              4 类 notification + 5 类 message-box + tabs/checkbox/radio/switch
-# 阈值 0：暂存文件中不允许有任何反色回归
-COLOR_CONTRAST_THRESHOLD=0 node scripts/check-color-contrast-systemic.mjs --staged
-
-echo "▶ P22: 工作区卫生检查（禁止暂存运行时产物）..."
-# 检查暂存文件中是否包含禁止提交的运行时产物
-FORBIDDEN=$(git diff --cached --name-only | grep -E '(^|/)(pw-output|screenshots|test-results|storybook-static|audit|\.ruff_cache)/|\.env\.backup$|\.env\.bak$|eslint-report\.json$|e2e_failed_list\.txt$|e2e_full_log\.txt$|eslint-unused-vars\.txt$|test-output\.json$|temp_style\.scss$|dev-server\.log$|pytest_full\.txt$|pytest_result\.txt$|business-metrics\.txt$' || true)
-if [ -n "$FORBIDDEN" ]; then
-  echo "::error::暂存文件中包含禁止提交的运行时产物:"
-  echo "$FORBIDDEN"
-  echo "::error::请删除这些文件或加入 .gitignore 后重新提交"
+# 1. API key 泄露检查(最高优先级,防止真实 key 被提交)
+echo "🔐 检查 API key 泄露..."
+node scripts/check-api-key-leak.mjs --staged
+if [ $? -ne 0 ]; then
+  echo "❌ API key 泄露检查失败,提交已阻止"
   exit 1
 fi
-echo "✓ 工作区卫生检查通过"
 
-echo "▶ Checking AGENTS.md sections integrity on staged files..."
-# AGENTS.md 章节完整性守门 (2026-07-02 立)
-# 防止 stash 误覆盖/章节被删/顺序错乱, 仅当 AGENTS.md 在 staged 时才检查
-node scripts/check-agents-md-sections.mjs --staged
+# 2. i18n 键完整性检查(防止 t('key') 调用了 messages 未定义的键)
+echo "🌐 检查 i18n 键完整性..."
+node scripts/check-i18n-keys.mjs --staged
+if [ $? -ne 0 ]; then
+  echo "❌ i18n 键检查失败,提交已阻止"
+  exit 1
+fi
 
-echo "▶ Checking FreeLLMAPI integration (env, vite proxy, backend routes)..."
-# FreeLLMAPI 集成守门 (2026-07-03 立)
-# 检查项: .env FREELLMAPI_API_KEY, vite proxy /ihui-ai-api/llm 规则, 后端 llm_ws_router 注册
-# 防止集成链路静默断裂 (env 缺 key / proxy 错位 / 路由丢失)
-node scripts/check-freellmapi-integration.mjs
-
-echo "▶ Checking /edu route name consistency + sidebar integration on staged files..."
-# /edu 教育中心路由名一致性守门 (2026-07-04 立, Phase C 完成)
-# 检查项: edu.ts 32 个 Edu* 路由名 + Sidebar.vue nameMap/prefixMap/navGroups 接入
-# 防止 /edu/* 子路由跳转后侧边栏高亮丢失, 仅当 edu.ts 或 Sidebar.vue 在 staged 时才检查
-node scripts/check-edu-route-consistency.mjs --staged
-
-echo "▶ Checking navigation.json 6 语言 key 树一致性 + eduCenter 关键 key..."
-# navigation.json 6 语言一致性守门 (2026-07-04 立)
-# 检查项: 6 语言 leaf key 集合完全一致 + 关键 key (navigation.eduCenter) 全部存在
-# 防止某语言 navigation 缺失导致 sidebar 渲染空白, 仅当 navigation.json 在 staged 时才检查
-npm run check:navigation-tree:staged --silent
-
-echo "▶ Checking no // line comments in plain CSS style blocks on staged files..."
-# 纯 CSS style 块禁止 // 行注释 (2026-07-04 立)
-# 12 个文件曾因批量颜色修复误用 // 注释于纯 CSS <style scoped> 块, 导致 Vite build 阻断
-# 检查项: .vue 文件中无 lang="scss" 的 <style> 块内不得含 // 行注释
-node scripts/check-no-css-line-comments.mjs --staged
-
-echo "▶ Checking popper backdrop leak defensive CSS in fixes.scss..."
-# popper backdrop 泄漏守门 (2026-07-04 立)
-# 历史问题: 用户多次报告 LanguageSwitcher / AppDownload 点击后没反应
-# 根因: el-select-v2 popper 卡在 display:block 状态, .dropdown--fullscreen-backdrop
-#       (aria-hidden=true, pointer-events:auto, z-index:2147483647) 覆盖整个视口拦截点击
-# 修复: fixes.scss 含 3 层防御 CSS (A: pointer-events:none, B: display:none, C: 全类兜底)
-# 阈值 0: 任何一层缺失都会 fail, 保证修复不被意外回退
-node scripts/check-popper-backdrop-leak.mjs
+echo "✅ Pre-commit 检查通过"

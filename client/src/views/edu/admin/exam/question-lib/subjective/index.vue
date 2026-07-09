@@ -1,34 +1,55 @@
 <template>
   <div class="question-box">
-    <el-form :model="question" :rules="questionRules" ref="questionRef" label-width="120px">
-      <el-form-item label="分类：" prop="cidList">
-        <el-cascader size="small" style="width: 100%;"
-                     v-model="selectCidList"
-                     :props="{ multiple: true, checkStrictly: true }"
-                     :options="categoryOptions"
-                     @change="changeCategory">
-        </el-cascader>
-      </el-form-item>
-      <el-form-item label="题干：" prop="title">
-        <el-input size="small" v-model="question.title" placeholder="请输入题干"></el-input>
-      </el-form-item>
-      <el-form-item label="描述：" prop="note">
-        <el-input size="small" type="textarea" :rows="5" v-model="question.note" placeholder="请输入题干描述"></el-input>
-      </el-form-item>
-      <el-form-item label="参考答案："  prop="referenceAnswer">
-        <el-input size="small" type="textarea" :rows="5" v-model="question.referenceAnswer" placeholder="请输入答案"></el-input>
-      </el-form-item>
-      <el-form-item label="答案解析：" prop="referenceAnswerNote">
-        <el-input size="small" type="textarea" :rows="5" v-model="question.referenceAnswerNote" placeholder="请输入答案解析"></el-input>
-      </el-form-item>
-      <el-form-item label="分数：" prop="score">
-        <el-input size="small" v-model="question.score" placeholder="请输入试题分数"></el-input>
-      </el-form-item>
-      <el-form-item label="难度：" prop="difficulty">
-        <el-rate style="line-height: 48px;" v-model="question.difficulty" :colors="colors"></el-rate>
-      </el-form-item>
-    </el-form>
-    <el-button size="small" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</el-button>
+    <form ref="questionRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
+        <div class="flex-1">
+          <el-cascader size="small" style="width: 100%;"
+                       v-model="selectCidList"
+                       :props="{ multiple: true, checkStrictly: true }"
+                       :options="categoryOptions"
+                       @change="changeCategory">
+          </el-cascader>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">题干：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="question.title" placeholder="请输入题干"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">描述：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="question.note" placeholder="请输入题干描述"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">参考答案：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="question.referenceAnswer" placeholder="请输入答案"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">答案解析：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="question.referenceAnswerNote" placeholder="请输入答案解析"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">分数：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="question.score" placeholder="请输入试题分数"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">难度：</label>
+        <div class="flex-1">
+          <el-rate style="line-height: 48px;" v-model="question.difficulty" :colors="colors"></el-rate>
+        </div>
+      </div>
+    </form>
+    <Button variant="outline" size="sm" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</Button>
   </div>
 </template>
 <script>
@@ -40,9 +61,17 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import {useRoute} from "vue-router";
   import {success} from "@/util/tipsUtils";
   import router from "@/router";
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Textarea } from '@/components/ui/textarea'
 
   export default {
     name: "ExamQuestionLibSubjective",
+    components: {
+      Button,
+      Input,
+      Textarea
+    },
     setup() {
       const route = useRoute()
       const colors = ["#99A9BF", "#F7BA2A", "#FF9900"]

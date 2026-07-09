@@ -4,7 +4,7 @@
     <div class="stats-cards">
       <div class="stat-card">
         <div class="stat-icon total-icon">
-          <el-icon><User /></el-icon>
+          <User class="h-4 w-4" />
         </div>
         <div class="stat-content">
           <div class="stat-title">会员总数</div>
@@ -17,7 +17,7 @@
 
       <div class="stat-card">
         <div class="stat-icon today-icon">
-          <el-icon><Plus /></el-icon>
+          <Plus class="h-4 w-4" />
         </div>
         <div class="stat-content">
           <div class="stat-title">今日新增</div>
@@ -33,15 +33,15 @@
 
       <div class="stat-card">
         <div class="stat-icon pending-icon">
-          <el-icon><Clock /></el-icon>
+          <Clock class="h-4 w-4" />
         </div>
         <div class="stat-content">
           <div class="stat-title">待审核</div>
           <div class="stat-value warning-text">{{ statistics.unauditedCount || 0 }}</div>
           <div class="stat-footer">
-            <el-button v-if="statistics.unauditedCount > 0" type="primary" link size="small" @click="goToUnaudited">
+            <Button v-if="statistics.unauditedCount > 0" variant="link" size="sm" @click="goToUnaudited">
               去处理 →
-            </el-button>
+            </Button>
             <span v-else class="stat-label">暂无待审核</span>
           </div>
         </div>
@@ -49,7 +49,7 @@
 
       <div class="stat-card">
         <div class="stat-icon expiring-icon">
-          <el-icon><Warning /></el-icon>
+          <Warning class="h-4 w-4" />
         </div>
         <div class="stat-content">
           <div class="stat-title">即将过期</div>
@@ -106,41 +106,39 @@
       <div class="list-box">
         <div class="list-header">
           <span class="list-title">最近注册会员</span>
-          <el-button type="primary" link size="small" @click="goToMemberList">
+          <Button variant="link" size="sm" @click="goToMemberList">
             查看全部 →
-          </el-button>
+          </Button>
         </div>
         <div class="list-content">
-          <el-table :data="statistics.recentMembers" style="width: 100%" size="small">
-            <el-table-column prop="name" label="姓名" width="120">
-              <template #default="{ row }">
-                <div class="member-info">
-                  <el-avatar :size="28" :src="row.avatar">
-                    {{ (row.name || '').charAt(0) }}
-                  </el-avatar>
-                  <span class="member-name">{{ row.name || '-' }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="mobile" label="手机号" width="130">
-              <template #default="{ row }">
-                {{ row.mobile || '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="80">
-              <template #default="{ row }">
-                <el-tag :type="getStatusType(row.status)" size="small">
-                  {{ getStatusText(row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="createTime" label="注册时间">
-              <template #default="{ row }">
-                {{ formatTime(row.createTime) }}
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!statistics.recentMembers || statistics.recentMembers.length === 0" description="暂无数据" />
+          <Table class="text-sm">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[120px]">姓名</TableHead>
+                <TableHead class="w-[130px]">手机号</TableHead>
+                <TableHead class="w-[80px]">状态</TableHead>
+                <TableHead>注册时间</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in statistics.recentMembers" :key="row.id ?? index">
+                <TableCell>
+                  <div class="member-info">
+                    <Avatar :size="28" :src="row.avatar" />
+                    <span class="member-name">{{ row.name || '-' }}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{{ row.mobile || '-' }}</TableCell>
+                <TableCell>
+                  <Tag :type="getStatusType(row.status)" size="small">
+                    {{ getStatusText(row.status) }}
+                  </Tag>
+                </TableCell>
+                <TableCell>{{ formatTime(row.createTime) }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <Empty v-if="!statistics.recentMembers || statistics.recentMembers.length === 0" description="暂无数据" />
         </div>
       </div>
 
@@ -150,36 +148,34 @@
           <span class="list-title">即将过期会员</span>
         </div>
         <div class="list-content">
-          <el-table :data="statistics.expiringMembers" style="width: 100%" size="small">
-            <el-table-column prop="name" label="姓名" width="120">
-              <template #default="{ row }">
-                <div class="member-info">
-                  <el-avatar :size="28" :src="row.avatar">
-                    {{ (row.name || '').charAt(0) }}
-                  </el-avatar>
-                  <span class="member-name">{{ row.name || '-' }}</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="mobile" label="手机号" width="130">
-              <template #default="{ row }">
-                {{ row.mobile || '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="expireTime" label="到期时间">
-              <template #default="{ row }">
-                <span class="expire-time">{{ formatTime(row.expireTime) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="daysLeft" label="剩余天数" width="100">
-              <template #default="{ row }">
-                <el-tag type="danger" size="small">
-                  {{ getDaysLeft(row.expireTime) }}天
-                </el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!statistics.expiringMembers || statistics.expiringMembers.length === 0" description="暂无即将过期会员" />
+          <Table class="text-sm">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[120px]">姓名</TableHead>
+                <TableHead class="w-[130px]">手机号</TableHead>
+                <TableHead>到期时间</TableHead>
+                <TableHead class="w-[100px]">剩余天数</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in statistics.expiringMembers" :key="row.id ?? index">
+                <TableCell>
+                  <div class="member-info">
+                    <Avatar :size="28" :src="row.avatar" />
+                    <span class="member-name">{{ row.name || '-' }}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{{ row.mobile || '-' }}</TableCell>
+                <TableCell><span class="expire-time">{{ formatTime(row.expireTime) }}</span></TableCell>
+                <TableCell>
+                  <Tag type="danger" size="small">
+                    {{ getDaysLeft(row.expireTime) }}天
+                  </Tag>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <Empty v-if="!statistics.expiringMembers || statistics.expiringMembers.length === 0" description="暂无即将过期会员" />
         </div>
       </div>
     </div>
@@ -206,14 +202,29 @@ import { User, Plus, Clock, Warning } from '@/lib/lucide-fallback';
 import * as echarts from "echarts";
 import { memberApi } from '@/api/edu/admin-api'
 const { getMemberStatistics } = memberApi;
+import Button from '@/components/ui/Button.vue'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { Avatar } from '@/components/ui/avatar'
+import { Tag } from '@/components/ui/tag'
+import { Empty } from '@/components/ui/empty'
 
 export default {
   name: "MemberIndex",
   components: {
+    Button,
     User,
     Plus,
     Clock,
-    Warning
+    Warning,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Avatar,
+    Tag,
+    Empty
   },
   setup() {
     const router = useRouter();

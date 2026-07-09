@@ -1,71 +1,106 @@
 <template>
   <div>
-    <el-form :model="channel" :rules="channelRules" ref="channelRef" label-width="120px">
-      <el-form-item label="标题：" prop="name">
-        <el-input v-model="channel.name" placeholder="请输入标题"></el-input>
-      </el-form-item>
-      <el-form-item label="时间：" prop="startTime">
-        <el-date-picker
-          v-model="channel.startTime"
-          type="datetime"
-          placeholder="选择直播时间"
-          class="input-text"
-          :default-time="new Date(2000, 0, 1, 19, 0, 0)"
-          size="small"
-          @change="changeStartTime"
-          style="width: 100%;"></el-date-picker>
-      </el-form-item>
-      <el-form-item label="分类：" prop="cidList">
-        <el-cascader style="width: 100%;"
-                     v-model="selectCidList"
-                     :props="{ multiple: true, checkStrictly: true }"
-                     :options="categoryOptions"
-                     @change="changeCategory">
-        </el-cascader>
-      </el-form-item>
-      <el-form-item label="讲师：" prop="lecturerId">
-        <el-button size="small" @click="showLecturer">选择讲师</el-button>
-        <div class="lecturer-selected" v-if="lecturerSelection && lecturerSelection.id">{{lecturerSelection.userName}}</div>
-        <el-dialog title="选择讲师" v-model="showLecturerDialog" :before-close="hideLecturer" :close-on-click-modal="false" :close-on-press-escape="false">
-          <el-table :data="lecturerList" style="width: 100%" ref="multipleTable" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55"></el-table-column>
-            <el-table-column width="180px" label="头像">
-              <template #default="scope">
-                <img :src="scope.row.image" style="width: 100px;height: 100px;"/>
-              </template>
-            </el-table-column>
-            <el-table-column prop="userName" label="名字"></el-table-column>
-            <el-table-column prop="jobTitle" label="头衔"></el-table-column>
-          </el-table>
-          <page :current-change="lecturerCurrentChange" :size-change="lecturerSizeChange" :total="lecturerTotal" :page-size="lecturerParam.size"/>
-          <template #footer>
-            <div class="dialog-footer">
-              <el-button size="small" type="primary" @click="selectedLecturer()">确认</el-button>
-            </div>
-          </template>
-        </el-dialog>
-      </el-form-item>
-      <el-form-item label="详情：" prop="introduction">
-        <wang-editor v-if="loadWangEditorFlag" v-model="channel.introduction"></wang-editor>
-      </el-form-item>
-      <el-form-item label="海报：" prop="image">
-        <upload :on-upload-success="onUploadImageSuccess"
-                :on-upload-remove="onUploadImageRemove"
-                :files="uploadData.files"
-                :upload-url="uploadData.url"
-                :limit="1"
-                accept="image/jpeg,image/gif,image/png">
-        </upload>
-        <span class="upload-image-tips">尺寸建议 1920 x 1200 像素，大小7M以下，张数1张</span>
-      </el-form-item>
-      <el-form-item label="允许聊天：" prop="enableChat">
-        <el-switch id="enableChat" v-model="channel.enableChat" active-color="#07c160" :active-value="true" :inactive-value="false"></el-switch>
-      </el-form-item>
-      <el-form-item label="人数显示：" prop="showNumber">
-        <el-switch id="showNumber" v-model="channel.showNumber" active-color="#07c160" :active-value="true" :inactive-value="false"></el-switch>
-      </el-form-item>
-      <el-button style="display:block;margin:50px auto;" @click="submitChannel">提交</el-button>
-    </el-form>
+    <form ref="channelRef" @submit.prevent>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">标题：</label>
+        <div>
+          <Input v-model="channel.name" placeholder="请输入标题"></Input>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">时间：</label>
+        <div>
+          <el-date-picker
+            v-model="channel.startTime"
+            type="datetime"
+            placeholder="选择直播时间"
+            class="input-text"
+            :default-time="new Date(2000, 0, 1, 19, 0, 0)"
+            size="small"
+            @change="changeStartTime"
+            style="width: 100%;"></el-date-picker>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">分类：</label>
+        <div>
+          <el-cascader style="width: 100%;"
+                       v-model="selectCidList"
+                       :props="{ multiple: true, checkStrictly: true }"
+                       :options="categoryOptions"
+                       @change="changeCategory">
+          </el-cascader>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">讲师：</label>
+        <div>
+          <Button size="sm" variant="outline" @click="showLecturer">选择讲师</Button>
+          <div class="lecturer-selected" v-if="lecturerSelection && lecturerSelection.id">{{lecturerSelection.userName}}</div>
+          <Dialog v-model="showLecturerDialog" @close="hideLecturer" :close-on-click-overlay="false" :close-on-esc="false">
+            <DialogHeader>
+              <DialogTitle>选择讲师</DialogTitle>
+            </DialogHeader>
+            <Table style="width: 100%">
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="w-[55px]"><input type="checkbox" :checked="selectedRows.length === lecturerList.length && lecturerList.length > 0" @change="toggleAll($event)" /></TableHead>
+                  <TableHead class="w-[180px]">头像</TableHead>
+                  <TableHead>名字</TableHead>
+                  <TableHead>头衔</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="(row, index) in lecturerList" :key="row.id ?? index">
+                  <TableCell class="w-[55px]"><input type="checkbox" :checked="selectedRows.includes(row)" @change="toggleRow(row)" /></TableCell>
+                  <TableCell><img :src="row.image" style="width: 100px;height: 100px;"/></TableCell>
+                  <TableCell>{{ row.userName }}</TableCell>
+                  <TableCell>{{ row.jobTitle }}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            <page :current-change="lecturerCurrentChange" :size-change="lecturerSizeChange" :total="lecturerTotal" :page-size="lecturerParam.size"/>
+            <template #footer>
+              <div class="dialog-footer">
+                <Button size="sm" variant="default" @click="selectedLecturer()">确认</Button>
+              </div>
+            </template>
+          </Dialog>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">详情：</label>
+        <div>
+          <wang-editor v-if="loadWangEditorFlag" v-model="channel.introduction"></wang-editor>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">海报：</label>
+        <div>
+          <upload :on-upload-success="onUploadImageSuccess"
+                  :on-upload-remove="onUploadImageRemove"
+                  :files="uploadData.files"
+                  :upload-url="uploadData.url"
+                  :limit="1"
+                  accept="image/jpeg,image/gif,image/png">
+          </upload>
+          <span class="upload-image-tips">尺寸建议 1920 x 1200 像素，大小7M以下，张数1张</span>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">允许聊天：</label>
+        <div>
+          <Switch id="enableChat" v-model="channel.enableChat" />
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">人数显示：</label>
+        <div>
+          <Switch id="showNumber" v-model="channel.showNumber" />
+        </div>
+      </div>
+      <Button variant="outline" style="display:block;margin:50px auto;" @click="submitChannel">提交</Button>
+    </form>
   </div>
 </template>
 <script>
@@ -82,13 +117,22 @@ const { findCategoryList, toTree, getAllParent } = liveApi
   import { lecturerApi } from '@/api/edu/admin-api'
 const { findList } = lecturerApi
   import Page from "@/components/Page/index.vue";
+  import Button from '@/components/ui/Button.vue'
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import { Input } from '@/components/ui/input'
+  import { Switch } from '@/components/ui/switch'
 
   export default {
     name: "LiveChannelEdit",
     components:{
+      Button,
       Page,
       Upload,
-      WangEditor
+      WangEditor,
+      Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+      Input,
+      Switch
     },
     setup() {
       const loadWangEditorFlag = ref(false)
@@ -245,6 +289,24 @@ const { findList } = lecturerApi
           }
         }
       }
+      const selectedRows = ref([])
+      const toggleRow = (row) => {
+        const idx = selectedRows.value.indexOf(row)
+        if (idx >= 0) {
+          selectedRows.value.splice(idx, 1)
+        } else {
+          selectedRows.value.push(row)
+        }
+        handleSelectionChange(selectedRows.value)
+      }
+      const toggleAll = (event) => {
+        if (event.target.checked) {
+          selectedRows.value = [...lecturerList.value]
+        } else {
+          selectedRows.value = []
+        }
+        handleSelectionChange(selectedRows.value)
+      }
       const selectedLecturer = () => {
         showLecturerDialog.value = false
       }
@@ -271,7 +333,10 @@ const { findList } = lecturerApi
         handleSelectionChange,
         selectedLecturer,
         lecturerSelection,
-        loadWangEditorFlag
+        loadWangEditorFlag,
+        selectedRows,
+        toggleRow,
+        toggleAll
       };
     }
   }

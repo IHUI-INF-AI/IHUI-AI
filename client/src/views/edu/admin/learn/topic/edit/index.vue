@@ -1,68 +1,85 @@
 <template>
   <div class="topic-edit">
-    <el-row>
-      <el-col :span="20">
+    <div class="flex flex-wrap">
+      <div class="w-5/6">
         <div v-if="showStep === 'base'" class="base">
-          <el-form :model="topic" :rules="topicRules" ref="topicRef" label-width="120px">
-            <el-form-item label="名称：" prop="title">
-              <el-input size="small" v-model="topic.title" placeholder="请输入标题"></el-input>
-            </el-form-item>
-            <el-form-item label="课程：" prop="lidList" class="name">
-              <el-button size="small" @click="showLesson">选择</el-button>
-              <template v-for="(item, index) in selectLessonList" :key="item.id">
-                <el-input size="small" placeholder="请选择课程" v-model="item.name" readonly>
-                  <template #suffix>
-                    <el-icon @click="deleteSelectLesson(item, index)" class="el-input__icon search-btn"><Delete /></el-icon>
-                  </template>
-                </el-input>
-              </template>
-            </el-form-item>
-            <el-form-item label="分类：" prop="cidList">
-              <el-cascader style="width: 100%;"
-                           size="small"
-                           v-model="selectCidList"
-                           :props="{ multiple: true, checkStrictly: true }"
-                           :options="categoryOptions"
-                           @change="changeCategory">
-              </el-cascader>
-            </el-form-item>
-            <el-form-item label="价格：" prop="price">
-              <el-input-number class="input-number" v-model="topic.price" placeholder="请输入价格" :precision="2" :step="1" :min="0"></el-input-number>
-              <el-input-number class="input-number" v-model="topic.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0"></el-input-number>
-            </el-form-item>
-            <el-form-item label="海报：" prop="image">
-              <upload
-                :class="{'no-plus': topic.image}"
-                :on-upload-success="onUploadImageSuccess"
-                :on-upload-remove="onUploadImageRemove"
-                :files="uploadData.files"
-                :upload-url="uploadData.url"
-                :limit="1"
-                accept="image/jpeg,image/gif,image/png">
-              </upload>
-              <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
-            </el-form-item>
-            <el-form-item label="介绍：" prop="description">
-              <wang-editor v-if="loadWangEditorFlag" v-model="topic.description"></wang-editor>
-            </el-form-item>
-            <el-button size="small" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</el-button>
-          </el-form>
+          <form ref="topicRef" @submit.prevent>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+              <div>
+                <Input size="small" v-model="topic.title" placeholder="请输入标题" />
+              </div>
+            </div>
+            <div class="mb-4 name">
+              <label class="mb-1 block text-sm font-medium text-foreground">课程：</label>
+              <div>
+                <Button size="sm" variant="outline" @click="showLesson">选择</Button>
+                <template v-for="(item, index) in selectLessonList" :key="item.id">
+                  <div class="flex">
+                    <Input size="small" placeholder="请选择课程" v-model="item.name" readonly />
+                    <Delete @click="deleteSelectLesson(item, index)" class="h-4 w-4 cursor-pointer el-input__icon search-btn" />
+                  </div>
+                </template>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">分类：</label>
+              <div>
+                <el-cascader style="width: 100%;"
+                             size="small"
+                             v-model="selectCidList"
+                             :props="{ multiple: true, checkStrictly: true }"
+                             :options="categoryOptions"
+                             @change="changeCategory">
+                </el-cascader>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">价格：</label>
+              <div>
+                <el-input-number class="input-number" v-model="topic.price" placeholder="请输入价格" :precision="2" :step="1" :min="0"></el-input-number>
+                <el-input-number class="input-number" v-model="topic.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0"></el-input-number>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">海报：</label>
+              <div>
+                <upload
+                  :class="{'no-plus': topic.image}"
+                  :on-upload-success="onUploadImageSuccess"
+                  :on-upload-remove="onUploadImageRemove"
+                  :files="uploadData.files"
+                  :upload-url="uploadData.url"
+                  :limit="1"
+                  accept="image/jpeg,image/gif,image/png">
+                </upload>
+                <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">介绍：</label>
+              <div>
+                <wang-editor v-if="loadWangEditorFlag" v-model="topic.description"></wang-editor>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</Button>
+          </form>
         </div>
         <div v-if="showStep === 'publish'" class="publish">
           <div class="publish-box">
             <div class="current-status">
-              <el-alert :title="statusMap[topic.status]" effect="dark" type="success" :closable="false" show-icon v-if="topic.status === 'published'"></el-alert>
-              <el-alert :title="statusMap[topic.status]" effect="dark" type="warning" :closable="false" show-icon v-else-if="topic.status === 'unpublished'"> </el-alert>
-              <el-alert :title="statusMap[topic.status]" effect="dark" type="error" :closable="false" show-icon v-else> </el-alert>
+              <Alert :title="statusMap[topic.status]" variant="success" :closable="false" show-icon v-if="topic.status === 'published'"></Alert>
+              <Alert :title="statusMap[topic.status]" variant="warning" :closable="false" show-icon v-else-if="topic.status === 'unpublished'"> </Alert>
+              <Alert :title="statusMap[topic.status]" variant="destructive" :closable="false" show-icon v-else> </Alert>
             </div>
             <div class="btn-list">
-              <el-button size="small" @click="publish" v-if="topic.status === 'unpublished'">马上发布</el-button>
-              <el-button size="small" @click="unPublish" v-if="topic.status === 'published'">移入草稿</el-button>
+              <Button size="sm" variant="outline" @click="publish" v-if="topic.status === 'unpublished'">马上发布</Button>
+              <Button size="sm" variant="outline" @click="unPublish" v-if="topic.status === 'published'">移入草稿</Button>
             </div>
           </div>
         </div>
-      </el-col>
-      <el-col :span="4" style="position: relative;">
+      </div>
+      <div class="w-1/6" style="position: relative;">
         <el-affix :offset="160" class="affix">
           <div class="step-list">
             <div class="title">
@@ -73,11 +90,14 @@
             </el-steps>
           </div>
         </el-affix>
-      </el-col>
-    </el-row>
-    <el-dialog class="custom-dialog" title="选择课程" v-model="showLessonDialog" :before-close="hideLesson" width="80%">
+      </div>
+    </div>
+    <Dialog class="custom-dialog" v-model="showLessonDialog" width="80%" @close="hideLesson">
+      <DialogHeader>
+        <DialogTitle>选择课程</DialogTitle>
+      </DialogHeader>
       <lesson-list :cancel-callback="hideLesson" :select-callback="selectLesson" :is-component="true"/>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 <script>
@@ -87,6 +107,9 @@
   import Upload from "@/components/Uplaod/index.vue"
   import WangEditor from "@/components/WangEditor/index.vue"
   import LessonList from "@/views/edu/admin/learn/lesson/index.vue";
+  import Button from '@/components/ui/Button.vue'
+  import { Alert } from '@/components/ui/alert'
+  import { Input } from '@/components/ui/input'
   import {ref} from "vue"
   import {useRoute} from "vue-router"
   import {success} from "@/util/tipsUtils";
@@ -97,10 +120,16 @@ const { findCategoryList, toTree, getAllParent } = learnApi
   export default {
     name: "LearnTopicEdit",
     components:{
+      Alert,
       LessonList,
       Upload,
       WangEditor,
-      Delete
+      Delete,
+      Button,
+      Dialog,
+      DialogHeader,
+      DialogTitle,
+      Input
     },
     setup() {
       const loadWangEditorFlag = ref(false)

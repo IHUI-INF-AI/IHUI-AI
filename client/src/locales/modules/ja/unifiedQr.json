@@ -1,8 +1,0 @@
-{
-  "unifiedQr": {
-    "loginRequired": "ログイン必要",
-    "auth": "認証",
-    "qrFailed": "QRコード生成失敗：バックエンドサービス設定を確認、このAPI はログイン不要のはず",
-    "needLoginFirst": "Need Login First"
-  }
-}

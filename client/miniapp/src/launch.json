@@ -1,6 +1,0 @@
-{
-    "type": "uniapp-run",
-    "request": "launch",
-    "name": "Uniapp Run",
-    "platform": "mp-weixin"
-}

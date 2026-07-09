@@ -1,1 +1,0 @@
-"""Bots routes."""

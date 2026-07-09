@@ -1,9 +1,0 @@
-{
-  "n8nAgents": {
-    "title": "N8N Agents",
-    "subtitle": "Create and manage N8N-based agents",
-    "createN8NAgent": "Create N8N Agent",
-    "noAgents": "No N8N agents",
-    "loadFailed": "Failed to load N8N agent list, please try again later"
-  }
-}

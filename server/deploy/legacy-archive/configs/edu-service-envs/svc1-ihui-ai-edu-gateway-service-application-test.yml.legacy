@@ -1,6 +1,0 @@
-spring:
-    cloud:
-        nacos:
-            discovery:
-                # Nacos 服务器地址
-                server-addr: localhost:8848

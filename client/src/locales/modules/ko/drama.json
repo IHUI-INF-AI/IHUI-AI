@@ -1,9 +1,0 @@
-{
-  "drama": {
-    "addCharDesc": "(캐릭터 설명 필요)",
-    "coherent": "이전 세그먼트와 시각적/플롯 일관성 유지, 자연스러운 전환, 일관된 캐릭터 이미지 보장",
-    "transition": "전환",
-    "sceneTransition": "장면 전환",
-    "confirmCharContinue": "캐릭터의 후속 출연 여부 확인"
-  }
-}

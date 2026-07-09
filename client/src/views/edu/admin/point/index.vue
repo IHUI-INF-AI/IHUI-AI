@@ -1,9 +1,9 @@
 <template>
   <div class="overview-page">
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><el-icon><Coin /></el-icon></div><div class="stat-content"><div class="stat-title">积分项目</div><div class="stat-value">{{ stats.pointCount || 0 }}</div><div class="stat-footer">渠道 <span class="highlight">{{ stats.channelCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><el-icon><Top /></el-icon></div><div class="stat-content"><div class="stat-title">总发放积分</div><div class="stat-value">{{ stats.totalIncrease || 0 }}</div><div class="stat-footer">今日发放 <span class="highlight">+{{ stats.todayIncrease || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><el-icon><Bottom /></el-icon></div><div class="stat-content"><div class="stat-title">总消耗积分</div><div class="stat-value">{{ stats.totalDecrease || 0 }}</div><div class="stat-footer">今日消耗 <span class="highlight">{{ stats.todayDecrease || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><Coin class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">积分项目</div><div class="stat-value">{{ stats.pointCount || 0 }}</div><div class="stat-footer">渠道 <span class="highlight">{{ stats.channelCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><Top class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">总发放积分</div><div class="stat-value">{{ stats.totalIncrease || 0 }}</div><div class="stat-footer">今日发放 <span class="highlight">+{{ stats.todayIncrease || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><Bottom class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">总消耗积分</div><div class="stat-value">{{ stats.totalDecrease || 0 }}</div><div class="stat-footer">今日消耗 <span class="highlight">{{ stats.todayDecrease || 0 }}</span></div></div></div>
     </div>
     <div class="charts-row">
       <div class="chart-box"><div class="chart-header">积分发放趋势（近7天）</div><div class="chart-content" id="point-increase-chart"></div></div>

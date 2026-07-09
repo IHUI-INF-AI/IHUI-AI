@@ -1,11 +1,9 @@
 <template>
-  <div class="member-profile">
+  <div class="member-profile" role="region" :aria-label="t('edu.profile.pageTitle')">
     <!-- ① 学员信息头 -->
     <header class="profile-hero">
       <div class="hero-avatar">
-        <el-avatar :size="64" :src="avatarUrl">
-          <el-icon :size="28"><User /></el-icon>
-        </el-avatar>
+        <Avatar :size="64" :src="avatarUrl" />
       </div>
       <div class="hero-info">
         <h1 class="hero-name">{{ displayName }}</h1>
@@ -22,24 +20,24 @@
       </div>
       <!-- ② 快速操作栏 -->
       <div class="hero-actions">
-        <el-button type="primary" :icon="Document" @click="goReport">
+        <el-button type="primary" :icon="Document" :aria-label="t('edu.profile.generateReport')" @click="goReport">
           {{ t('edu.profile.generateReport') }}
         </el-button>
-        <el-button :icon="Download" :loading="exporting" @click="handleExportPdf">
+        <el-button :icon="Download" :loading="exporting" :aria-label="t('edu.profile.exportPdf')" @click="handleExportPdf">
           {{ t('edu.profile.exportPdf') }}
         </el-button>
-        <el-button :icon="Printer" :loading="exporting" @click="handlePrint">
+        <el-button :icon="Printer" :loading="exporting" :aria-label="t('edu.profile.printReport')" @click="handlePrint">
           {{ t('edu.profile.printReport') }}
         </el-button>
-        <el-button :icon="Refresh" :loading="loading" @click="loadAll">
+        <el-button :icon="Refresh" :loading="loading" :aria-label="t('edu.common.retry')" @click="loadAll">
           {{ t('edu.common.retry') }}
         </el-button>
       </div>
     </header>
 
-    <el-alert
+    <Alert
       v-if="error"
-      type="error"
+      variant="destructive"
       :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
@@ -174,7 +172,7 @@
       <!-- ⑩ AI 报告（PR-D：前端规则引擎 + AIChat 深度咨询 + 后端 LLM 契约） -->
       <section class="ai-report-section-wrap">
         <h3 class="section-title">
-          <el-icon><MagicStick /></el-icon>
+          <MagicStick class="h-4 w-4" />
           {{ t('edu.profile.aiReportTitle') }}
         </h3>
         <AiReportSection />
@@ -198,6 +196,7 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Alert } from '@/components/ui/alert'
 import { useRouter } from 'vue-router'
 import {
   Refresh, Document, Download, Printer, MagicStick, User,
@@ -228,6 +227,7 @@ import { offlineRecordsApi } from '@/api/edu/offline-records'
 import type { LearningNote } from '@/api/edu/notes'
 import type { OfflineRecord } from '@/api/edu/offline-records'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Avatar } from '@/components/ui/avatar'
 
 const { t } = useI18n()
 const router = useRouter()

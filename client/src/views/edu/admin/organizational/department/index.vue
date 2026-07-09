@@ -1,20 +1,21 @@
 <template>
   <div class="app-container">
-    <el-row>
-      <el-col :span="6">
+    <div class="flex flex-wrap">
+      <div class="w-1/4">
         <department-tree :current-node-key="currentNodeKey" class="tree" @node-click="handleNodeClick"/>
-      </el-col>
-      <el-col :span="18">
-        <el-card class="box-card" shadow="never">
-          <template #header>
+      </div>
+      <div class="w-3/4">
+        <Card class="box-card shadow-none">
+          <CardHeader>
             <div class="category-head clearfix">
               <span class="category-title">{{cardTitle}}</span>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="addChildren(category.id)">新增子组织</el-button>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="edit(category.pid, category)">编辑</el-button>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="remove(category)">删除</el-button>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit'" @click="add(category.pid)">新增同级组织</el-button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit' && category.id" @click="addChildren(category.id)">新增子组织</Button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit' && category.id" @click="edit(category.pid, category)">编辑</Button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit' && category.id" @click="remove(category)">删除</Button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit'" @click="add(category.pid)">新增同级组织</Button>
             </div>
-          </template>
+          </CardHeader>
+              <CardContent>
           <!-- 详情 -->
           <div class="table-wrapper" v-if="type === 'detail'">
             <table class="fl-table" v-if="!category.id"><tbody><tr><td>请选择左边的组织查看详细信息</td></tr></tbody></table>
@@ -22,7 +23,7 @@
               <tbody>
                 <tr><td width="20%">编号</td><td>{{category.code}}</td></tr>
                 <tr><td>名称</td><td>{{category.name}}</td></tr>
-                <tr><td>显示/隐藏</td><td><el-switch v-model="category.enabled" :disabled="true" active-color="#13ce66" :active-value="true" :inactive-value="false"></el-switch></td></tr>
+                <tr><td>显示/隐藏</td><td><Switch v-model="category.enabled" :disabled="true" /></td></tr>
               </tbody>
             </table>
           </div>
@@ -30,9 +31,10 @@
           <div class="table-wrapper" v-else>
             <department-edit :edit-success="editSuccess" :edit-cancel="editCancel" :data="category" :pid="pid"/>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </CardContent>
+        </Card>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -46,9 +48,17 @@ const { getDepartment, removeDepartment } = organizationalApi;
   import DepartmentEdit from "./edit.vue";
   import DepartmentTree from "./tree.vue";
   import {error, confirm, success, info} from "@/util/tipsUtils";
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Switch } from '@/components/ui/switch'
+export default {
     name: "DepartmentIndex",
     components: {
+    Card,
+    CardHeader,
+    CardContent,
+    Button,
+    Switch,
       DepartmentTree,
       DepartmentEdit
     },

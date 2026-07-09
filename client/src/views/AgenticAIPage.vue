@@ -13,93 +13,101 @@
       </div>
     </div>
 
-    <el-row :gutter="20">
+    <div class="flex flex-wrap gap-5">
       <!-- 左侧：创建Swarm -->
-      <el-col :span="8">
-        <el-card>
-          <template #header>
+      <div class="w-1/3">
+        <Card><CardHeader>
             <span>{{ t('agenticAI.createSwarm') }}</span>
-          </template>
+          </CardHeader><CardContent class="p-5">
+          
+          <form @submit.prevent>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('agenticAI.taskDescription') }}</label>
+              <div class="flex-1">
+                <Textarea
+                  v-model="swarmForm.task"
+                  :rows="4"
+                  :placeholder="t('agenticAI.taskDescriptionPlaceholder')"
+                />
+              </div>
+            </div>
 
-          <el-form :model="swarmForm" label-width="100px">
-            <el-form-item :label="t('agenticAI.taskDescription')" required>
-              <el-input
-                v-model="swarmForm.task"
-                type="textarea"
-                :rows="4"
-                :placeholder="t('agenticAI.taskDescriptionPlaceholder')"
-              />
-            </el-form-item>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('agenticAI.coordinationMode') }}</label>
+              <div class="flex-1">
+                <Select v-model="swarmForm.coordination">
+                  <SelectOption :label="t('agenticAI.coordinationHierarchical')" value="hierarchical" />
+                  <SelectOption :label="t('agenticAI.coordinationPeerToPeer')" value="peer-to-peer" />
+                  <SelectOption :label="t('agenticAI.coordinationMarketBased')" value="market-based" />
+                </Select>
+              </div>
+            </div>
 
-            <el-form-item :label="t('agenticAI.coordinationMode')">
-              <el-select v-model="swarmForm.coordination">
-                <el-option :label="t('agenticAI.coordinationHierarchical')" value="hierarchical" />
-                <el-option :label="t('agenticAI.coordinationPeerToPeer')" value="peer-to-peer" />
-                <el-option :label="t('agenticAI.coordinationMarketBased')" value="market-based" />
-              </el-select>
-            </el-form-item>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('agenticAI.maxIterations') }}</label>
+              <div class="flex-1">
+                <el-input-number v-model="swarmForm.maxIterations" :min="1" :max="20" />
+              </div>
+            </div>
 
-            <el-form-item :label="t('agenticAI.maxIterations')">
-              <el-input-number v-model="swarmForm.maxIterations" :min="1" :max="20" />
-            </el-form-item>
-
-            <el-form-item>
-              <el-checkbox v-model="swarmForm.autoOptimize">{{
+            <div class="mb-4">
+              <Checkbox v-model="swarmForm.autoOptimize">{{
                 t('agenticAI.autoOptimize')
-              }}</el-checkbox>
-            </el-form-item>
+              }}</Checkbox>
+            </div>
 
-            <el-form-item>
-              <el-button
-                type="primary"
+            <div class="mb-4">
+              <Button
+                variant="default"
                 @click="createSwarm"
-                :loading="creating"
                 :disabled="!swarmForm.task"
               >
                 {{ t('agenticAI.createAndExecute') }}
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
+              </Button>
+            </div>
+          </form>
+        </CardContent></Card>
 
         <!-- Swarm列表 -->
-        <el-card style="margin-top: 20px">
-          <template #header>
+        <Card style="margin-top: 20px"><CardHeader>
             <span>{{ t('agenticAI.mySwarm') }}</span>
-          </template>
-
-          <el-table :data="swarmList" style="width: 100%">
-            <el-table-column
-              prop="swarm_id"
-              :label="t('agenticAI.id')"
-              width="120"
-              show-overflow-tooltip
-            />
-            <el-table-column prop="task" :label="t('agenticAI.task')" show-overflow-tooltip />
-            <el-table-column prop="status" :label="t('agenticAI.status.title')" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getStatusType(row.status)">
-                  {{ getStatusText(row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('agenticAI.actions')" width="100">
-              <template #default="{ row }">
-                <el-button link size="small" @click="viewSwarm(row.swarm_id)">
-                  {{ t('agenticAI.view') }}
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
+          </CardHeader><CardContent class="p-5">
+          
+          <Table class="w-full">
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[120px]">{{ t('agenticAI.id') }}</TableHead>
+                <TableHead>{{ t('agenticAI.task') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('agenticAI.status.title') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('agenticAI.actions') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in swarmList" :key="row.swarm_id ?? index">
+                <TableCell class="max-w-[200px] truncate" :title="row.swarm_id">{{ row.swarm_id }}</TableCell>
+                <TableCell class="max-w-[400px] truncate" :title="row.task">{{ row.task }}</TableCell>
+                <TableCell>
+                  <Tag :type="getStatusType(row.status)">
+                    {{ getStatusText(row.status) }}
+                  </Tag>
+                </TableCell>
+                <TableCell>
+                  <Button variant="link" size="sm" @click="viewSwarm(row.swarm_id)">
+                    {{ t('agenticAI.view') }}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </div>
 
       <!-- 右侧：Swarm监控 -->
-      <el-col :span="16">
+      <div class="w-2/3">
         <AgentSwarmMonitor v-if="selectedSwarmId" :swarm-id="selectedSwarmId" />
-        <el-empty v-else :description="t('agenticAI.selectSwarmHint')" />
-      </el-col>
-    </el-row>
+        <Empty v-else :description="t('agenticAI.selectSwarmHint')" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -117,6 +125,14 @@ import AgentSwarmMonitor from '@/components/ai/AgentSwarmMonitor.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
 import MCPQuickCall from '@/components/mcp/MCPQuickCall.vue'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { Empty } from '@/components/ui/empty'
+import { Checkbox } from '@/components/ui/checkbox'
+import Button from '@/components/ui/Button.vue'
+import { Textarea } from '@/components/ui/textarea'
+import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { showWarning, showSuccess, showError: showErrorMsg } = useOperationFeedback()
 

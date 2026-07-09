@@ -1,8 +1,0 @@
-{
-  "mediaViewer": {
-    "videoNotSupported": "您的瀏覽器不支援影片播放",
-    "audioNotSupported": "您的瀏覽器不支援音訊播放",
-    "mediaFile": "媒體文件",
-    "downloadView": "下載查看"
-  }
-}

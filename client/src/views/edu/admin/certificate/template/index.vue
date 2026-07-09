@@ -1,19 +1,27 @@
 <template>
   <div class="certificate-template-list-stub">
     <div v-if="isComponent" class="component-mode">
-      <el-table :data="tableData" border style="width: 100%">
-        <el-table-column prop="name" label="证书名称" />
-        <el-table-column label="操作" width="120">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleSelect(row)">选择</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <Table class="border">
+        <TableHeader>
+          <TableRow>
+            <TableHead>证书名称</TableHead>
+            <TableHead class="w-[120px]">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in tableData" :key="row.id ?? index">
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell>
+              <Button variant="default" size="sm" @click="handleSelect(row)">选择</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
       <div class="footer-actions">
-        <el-button @click="handleCancel">取消</el-button>
+        <Button variant="outline" @click="handleCancel">取消</Button>
       </div>
     </div>
-    <el-empty v-else description="证书模板管理（占位组件，待完整迁移）" />
+    <Empty v-else description="证书模板管理（占位组件，待完整迁移）" />
   </div>
 </template>
 
@@ -21,8 +29,12 @@
 // @ts-nocheck
 import { ref, onMounted } from 'vue'
 import { certificateApi } from '@/api/edu/admin-api'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Empty } from '@/components/ui/empty'
 export default {
   name: 'CertificateTemplateList',
+  components: { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button, Empty },
   props: {
     isComponent: { type: Boolean, default: false },
     cancelCallback: { type: Function, default: () => {} },

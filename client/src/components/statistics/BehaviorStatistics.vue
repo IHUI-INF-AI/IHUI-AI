@@ -6,73 +6,84 @@
       </template>
       <template #default>
         <!-- 行为概览 -->
-        <el-card shadow="hover" class="overview-card">
-          <template #header>
+        <Card class="overview-card transition-shadow hover:shadow-md">
+          <CardHeader>
             <div class="card-header">
               <span>{{ t('statistics.behavior.overview') }}</span>
             </div>
-          </template>
-          <el-row :gutter="20">
-            <el-col :xs="24" :sm="12" :md="6">
+          </CardHeader>
+          <CardContent>
+          <div class="flex flex-wrap gap-5">
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.behavior.loginDays') }}</div>
                 <div class="stat-value">{{ data?.login?.loginDays || 0 }}</div>
               </div>
-            </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
+            </div>
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.behavior.totalLoginCount') }}</div>
                 <div class="stat-value">
                   {{ data?.login?.totalLoginCount || 0 }}
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
+            </div>
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.behavior.lastLoginTime') }}</div>
                 <div class="stat-value">
                   {{ formatDate(data?.login?.lastLoginTime) }}
                 </div>
               </div>
-            </el-col>
-          </el-row>
-        </el-card>
+            </div>
+          </div>
+          </CardContent>
+        </Card>
 
         <!-- 活跃时段 -->
-        <el-card
-          shadow="hover"
-          class="chart-card"
+        <Card
+          class="chart-card transition-shadow hover:shadow-md"
           v-if="data?.activeHours && data.activeHours.length > 0"
         >
-          <template #header>
+          <CardHeader>
             <div class="card-header">
               <span>{{ t('statistics.behavior.activeHours') }}</span>
             </div>
-          </template>
-          <div ref="hourChartRef" style="height: 300px"></div>
-        </el-card>
+          </CardHeader>
+          <CardContent>
+            <div ref="hourChartRef" style="height: 300px"></div>
+          </CardContent>
+        </Card>
 
         <!-- 最常用智能体 -->
-        <el-card
-          shadow="hover"
-          class="agents-card"
+        <Card
+          class="agents-card transition-shadow hover:shadow-md"
           v-if="data?.favoriteAgents && data.favoriteAgents.length > 0"
         >
-          <template #header>
+          <CardHeader>
             <div class="card-header">
               <span>{{ t('statistics.behavior.favoriteAgents') }}</span>
             </div>
-          </template>
-          <el-table :data="data.favoriteAgents" stripe>
-            <el-table-column prop="botId" :label="t('statistics.behavior.botId')" />
-            <el-table-column prop="usageCount" :label="t('statistics.behavior.usageCount')" />
-            <el-table-column prop="totalTokens" :label="t('statistics.behavior.totalTokens')">
-              <template #default="{ row }">
-                {{ formatNumber(row.totalTokens) }}
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{{ t('statistics.behavior.botId') }}</TableHead>
+                  <TableHead>{{ t('statistics.behavior.usageCount') }}</TableHead>
+                  <TableHead>{{ t('statistics.behavior.totalTokens') }}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="(row, index) in data.favoriteAgents" :key="row.botId ?? index">
+                  <TableCell>{{ row.botId }}</TableCell>
+                  <TableCell>{{ row.usageCount }}</TableCell>
+                  <TableCell>{{ formatNumber(row.totalTokens) }}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </template>
     </el-skeleton>
   </div>
@@ -90,6 +101,8 @@ import * as echarts from 'echarts/core'
 import { BarChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, GridComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 // 注册所需组件
 echarts.use([BarChart, TitleComponent, TooltipComponent, GridComponent, CanvasRenderer])

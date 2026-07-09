@@ -2,62 +2,84 @@
   <div>
     <div class="container">
       <div class="header">
-        <el-form :inline="true" :model="params" class="demo-form-inline">
-          <el-form-item label="">
-            <el-input size="small" class="search-input" v-model="params.keyword" placeholder="请输入关键字"></el-input>
-            <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
-          </el-form-item>
-          <el-form-item label="类型" class="status">
-            <el-select size="small" v-model="params.type" @change="search">
-              <el-option label="全部" value=""></el-option>
-              <el-option :label="key" :value="value" v-for="(key, value) in paperTypeMap" :key="value"></el-option>
-            </el-select>
-          </el-form-item>
-        </el-form>
+        <form class="demo-form-inline flex flex-wrap items-end gap-4" @submit.prevent>
+          <div class="mb-4">
+            <Input size="small" class="search-input" v-model="params.keyword" placeholder="请输入关键字"></Input>
+            <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
+          </div>
+          <div class="mb-4 status">
+            <label class="mb-1 block text-sm font-medium text-foreground">类型</label>
+            <div>
+              <Select size="small" v-model="params.type" @change="search">
+                <SelectOption label="全部" value=""></SelectOption>
+                <SelectOption :label="key" :value="value" v-for="(key, value) in paperTypeMap" :key="value"></SelectOption>
+              </Select>
+            </div>
+          </div>
+        </form>
       </div>
       <div class="content">
-        <el-table ref="multipleTable" :data="list" style="width: 100%;">
-          <el-table-column type="expand">
-            <template #default="scope">
-              <el-card class="box-card">
-                <template #header>
-                  <div class="clearfix">
-                    <span>基础信息</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <table class="fl-table" style="width: 100%;" v-if="scope.row.paper">
-                    <tr><td>试卷名称：</td><td>{{scope.row.paper.title}}</td></tr>
-                    <tr><td>难度：</td><td><el-rate :disabled="true" v-model="scope.row.paper.difficulty" :colors="colors"></el-rate></td></tr>
-                    <tr><td width="120">答题开始时间：</td><td>{{scope.row.startTime}}</td></tr>
-                    <tr><td width="120">答题结束时间：</td><td>{{scope.row.endTime}}</td></tr>
-                    <tr><td>状态：</td><td>{{statusMap[scope.row.status]}}</td></tr>
-                  </table>
-                </div>
-              </el-card>
+        <Table class="w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead></TableHead>
+              <TableHead>考试名称</TableHead>
+              <TableHead>试卷名称</TableHead>
+              <TableHead class="w-[80px]">试卷类型</TableHead>
+              <TableHead class="w-[80px]">总分</TableHead>
+              <TableHead class="w-[80px]">合格分数</TableHead>
+              <TableHead class="w-[80px]">已得分数</TableHead>
+              <TableHead class="w-[160px]">提交时间</TableHead>
+              <TableHead class="w-[100px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <template v-for="(row, index) in list" :key="row.id ?? index">
+              <TableRow>
+                <TableCell>
+                  <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+                </TableCell>
+                <TableCell>{{ row.examTitle }}</TableCell>
+                <TableCell>{{ row.paper.title }}</TableCell>
+                <TableCell>{{ paperTypeMap[row.paper.type] }}</TableCell>
+                <TableCell>{{ row.paper.score }}</TableCell>
+                <TableCell>{{ row.paper.passScore }}</TableCell>
+                <TableCell>{{ row.score }}</TableCell>
+                <TableCell>{{ row.endTime }}</TableCell>
+                <TableCell><Button className="right-btn" variant="link" @click="showMarkDialog(row)" size="sm">批改</Button></TableCell>
+              </TableRow>
+              <tr v-if="expandedRows.has(index)">
+                <td colspan="99">
+                  <Card class="box-card">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>基础信息</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <table class="fl-table" style="width: 100%;" v-if="row.paper">
+                        <tr><td>试卷名称：</td><td>{{row.paper.title}}</td></tr>
+                        <tr><td>难度：</td><td><el-rate :disabled="true" v-model="row.paper.difficulty" :colors="colors"></el-rate></td></tr>
+                        <tr><td width="120">答题开始时间：</td><td>{{row.startTime}}</td></tr>
+                        <tr><td width="120">答题结束时间：</td><td>{{row.endTime}}</td></tr>
+                        <tr><td>状态：</td><td>{{statusMap[row.status]}}</td></tr>
+                      </table>
+                    </div>
+                  </CardContent>
+                  </Card>
+                </td>
+              </tr>
             </template>
-          </el-table-column>
-          <el-table-column prop="examTitle" label="考试名称"></el-table-column>
-          <el-table-column prop="paper.title" label="试卷名称"></el-table-column>
-          <el-table-column label="试卷类型" width="80">
-            <template #default="scope">
-              {{paperTypeMap[scope.row.paper.type]}}
-            </template>
-          </el-table-column>
-          <el-table-column prop="paper.score" label="总分" width="80"></el-table-column>
-          <el-table-column prop="paper.passScore" label="合格分数" width="80"></el-table-column>
-          <el-table-column prop="score" label="已得分数" width="80"></el-table-column>
-          <el-table-column prop="endTime" label="提交时间" width="160"></el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button class="right-btn" link @click="showMarkDialog(scope.row)" size="small">批改</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+          </TableBody>
+        </Table>
       </div>
       <page :total="total" :page-size="params.size" :current-change="pageChange" :size-change="sizeChange"></page>
     </div>
-    <el-dialog title="批改试卷" v-model="showMarkDialogModel" :before-close="hideMarkDialog" width="90%">
+    <Dialog v-model="showMarkDialogModel" :width="'90%'" @close="hideMarkDialog">
+      <DialogHeader>
+        <DialogTitle>批改试卷</DialogTitle>
+      </DialogHeader>
       <div class="paper-question-list">
         <div class="paper-question" v-for="(item, index) in paperRecord.paper.questionList" :key="index">
           <div class="title">
@@ -65,28 +87,28 @@
           </div>
           <div class="question-body">
             <div v-if="item.type === 'subjective'">
-              <el-input :readonly="true" type="textarea" :rows="10" v-model="paperRecord.answer[item.type + '_' + item.id]"/>
+              <Textarea :readonly="true" :rows="10" v-model="paperRecord.answer[item.type + '_' + item.id]"/>
             </div>
             <div v-if="item.type === 'fill_blank'">
               <div v-for="i in item.blankCount" :key="i" style="display: flex;margin: 10px 0;">
                 <div style="width: 20px;padding: 0 10px;">{{i}}.</div>
-                <el-input :readonly="true" size="small" v-model="paperRecord.answer[item.type + '_' + item.id + '_' + i]"/>
+                <Input :readonly="true" size="small" v-model="paperRecord.answer[item.type + '_' + item.id + '_' + i]"/>
               </div>
             </div>
             <div v-else-if="item.options">
-              <el-checkbox-group v-if="item.type === 'multi_choice'" v-model="paperRecord.answer[item.type + '_' + item.id]">
-                <el-checkbox :disabled="true" :label="o.key" v-for="o in JSON.parse(item.options)" :key="o.key">{{o.key}}. {{o.value}}</el-checkbox>
-              </el-checkbox-group>
+              <div v-if="item.type === 'multi_choice'">
+                <Checkbox :disabled="true" v-model="paperRecord.answer[item.type + '_' + item.id]" :value="o.key" v-for="o in JSON.parse(item.options)" :key="o.key">{{o.key}}. {{o.value}}</Checkbox>
+              </div>
               <div v-else v-for="o in JSON.parse(item.options)" :key="o.key">
-                <el-radio :disabled="true" v-model="paperRecord.answer[item.type + '_' + item.id]" :label="o.key">{{o.key}}. {{o.value}}</el-radio>
+                <Radio :disabled="true" v-model="paperRecord.answer[item.type + '_' + item.id]" :value="o.key">{{o.key}}. {{o.value}}</Radio>
               </div>
             </div>
             <div class="answer-box">
               <div class="answer-item">
                 <div class="answer-info-label">结果：</div>
                 <div class="answer-info-value">
-                  <el-button style="padding: 3px 10px;" v-if="item.result" size="small" type="success">对</el-button>
-                  <el-button style="padding: 3px 10px;" v-else size="small" type="danger">错</el-button>
+                  <Button style="padding: 3px 10px;" v-if="item.result" size="sm" variant="default">对</Button>
+                  <Button style="padding: 3px 10px;" v-else size="sm" variant="destructive">错</Button>
                 </div>
               </div>
               <div class="answer-item">
@@ -133,10 +155,10 @@
         </div>
       </div>
       <div class="main-bottom">
-        <el-button size="small" type="primary" @click="submitMark">提交</el-button>
-        <el-button size="small" @click="hideMarkDialog">取消</el-button>
+        <Button size="sm" variant="default" @click="submitMark">提交</Button>
+        <Button size="sm" variant="outline" @click="hideMarkDialog">取消</Button>
       </div>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -149,12 +171,45 @@ const { manualMarkRecord, getMarkRecordList } = examApi
 import Page from "@/components/Page/index.vue"
 import {confirm, success} from "@/util/tipsUtils";
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Radio } from '@/components/ui/radio'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "MarkList",
   components: {
-    Page
+    Radio,
+    Checkbox,
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Page,
+    Button,
+    Input,
+    Textarea,
+    Select,
+    SelectOption
   },
   setup() {
+    const expandedRows = ref(new Set())
+    const toggleExpand = (key) => {
+      if (expandedRows.value.has(key)) {
+        expandedRows.value.delete(key)
+      } else {
+        expandedRows.value.add(key)
+      }
+    }
     const selectCidList = ref([])
     const commodityIdList = ref([])
     const categoryOptions = ref([])
@@ -286,7 +341,9 @@ export default {
       paperRecord,
       formatTitle,
       answerMap,
-      submitMark
+      submitMark,
+      expandedRows,
+      toggleExpand
     }
   }
 };
@@ -306,13 +363,6 @@ export default {
   .search-input {
     width: 242px;
   }
-  :deep(.el-table-column--selection .cell){
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  :deep(.el-table tbody tr:hover > td){
-    background-color: transparent;
-  }
   .fl-table {
     tr:last-child, :deep(tr:last-child){
       td {
@@ -328,22 +378,6 @@ export default {
     .paper-question {
       padding: 20px 0;
       line-height: 36px;
-      .question-body {
-        :deep(.el-checkbox__input.is-disabled.is-checked .el-checkbox__inner){
-          background-color: var(--el-color-primary);
-        }
-        :deep(.el-radio__input.is-disabled.is-checked .el-radio__inner){
-          background-color: var(--el-color-primary);
-        }
-        :deep(.el-checkbox-group){
-          .el-checkbox__label {
-            color: #333;
-          }
-        }
-        :deep(.el-radio__label){
-          color: #333;
-        }
-      }
       .answer-box {
         margin-top: 20px;
         .answer-item {

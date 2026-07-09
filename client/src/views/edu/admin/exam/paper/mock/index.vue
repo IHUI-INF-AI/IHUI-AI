@@ -1,62 +1,99 @@
 <template>
   <div class="paper-box">
-    <el-form :model="paper" :rules="paperRules" ref="paperRef" label-width="120px">
-      <el-form-item label="分类：" prop="cidList">
-        <el-cascader size="small" style="width: 100%;"
-                     v-model="selectCidList"
-                     :props="{ multiple: true, checkStrictly: true }"
-                     :options="categoryOptions"
-                     @change="changeCategory">
-        </el-cascader>
-      </el-form-item>
-      <el-form-item label="试卷名称：" prop="title">
-        <el-input size="small" v-model="paper.title" placeholder="请输入试卷名称"></el-input>
-      </el-form-item>
-      <el-form-item label="试卷描述：" prop="description">
-        <el-input size="small" type="textarea" :rows="5" v-model="paper.description" placeholder="请输入试卷描述"></el-input>
-      </el-form-item>
-      <el-form-item label="选择题目：" prop="questionIdList">
-        <el-card size="small" shadow="never">
-          <template #header>
-            <div class="clearfix">
-              <el-button size="small" style="padding: 10px;" link @click="showAddQuestion">添加题目</el-button>
-            </div>
-          </template>
-          <div v-if="!(questionList && questionList.length > 0)">请添加题目</div>
-          <div v-else>
-            <el-table :data="questionList" :show-header="false" :highlight-current-row="false" style="width: 100%">
-              <el-table-column>
-                <template #default="scope">
-                  <div>{{(scope.$index + 1) + '.' + scope.row.title}}</div>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </el-card>
-        <el-dialog title="添加题目" v-model="showAddQuestionDialog" :before-close="hideAddQuestion" width="90%">
-          <question-lib :is-component="true" :hide-component="hideAddQuestion" :selection-change-callback="selectionChangeCallback"/>
-        </el-dialog>
-      </el-form-item>
-      <el-form-item label="试卷总分：">
-        {{paper.score}} 分
-      </el-form-item>
-      <el-form-item label="合格分数："  prop="passScore">
-        <el-input size="small" v-model="paper.passScore" placeholder="请输入试题分数"></el-input>
-      </el-form-item>
-      <el-form-item label="试卷时间：" prop="limitTime">
-        <el-input size="small" v-model="paper.limitTime" placeholder="请输入试卷时间（分）"></el-input>
-      </el-form-item>
-      <el-form-item label="题序打乱：" prop="questionDisordered">
-        <el-switch id="questionDisordered" v-model="paper.questionDisordered" active-color="#415fff" active-text="是" inactive-text="否"></el-switch>
-      </el-form-item>
-      <el-form-item label="选项打乱：" prop="optionDisordered">
-        <el-switch id="optionDisordered" v-model="paper.optionDisordered" active-color="#415fff" active-text="是" inactive-text="否"></el-switch>
-      </el-form-item>
-      <el-form-item label="试卷难度：" prop="difficulty">
-        <el-rate style="line-height: 48px;" v-model="paper.difficulty" :colors="colors"></el-rate>
-      </el-form-item>
-    </el-form>
-    <el-button size="small" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</el-button>
+    <form ref="paperRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
+        <div class="flex-1">
+          <el-cascader size="small" style="width: 100%;"
+                       v-model="selectCidList"
+                       :props="{ multiple: true, checkStrictly: true }"
+                       :options="categoryOptions"
+                       @change="changeCategory">
+          </el-cascader>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷名称：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="paper.title" placeholder="请输入试卷名称"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷描述：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="paper.description" placeholder="请输入试卷描述"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">选择题目：</label>
+        <div class="flex-1">
+          <Card class="shadow-none">
+            <CardHeader>
+              <div class="clearfix">
+                <Button size="sm" style="padding: 10px;" variant="link" @click="showAddQuestion">添加题目</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div v-if="!(questionList && questionList.length > 0)">请添加题目</div>
+              <div v-else>
+                <Table class="w-full">
+                  <TableBody>
+                    <TableRow v-for="(row, index) in questionList" :key="row.id ?? index">
+                      <TableCell>
+                        <div>{{(index + 1) + '.' + row.title}}</div>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          <Dialog v-model="showAddQuestionDialog" width="90%" @close="hideAddQuestion">
+            <DialogHeader>
+              <DialogTitle>添加题目</DialogTitle>
+            </DialogHeader>
+            <question-lib :is-component="true" :hide-component="hideAddQuestion" :selection-change-callback="selectionChangeCallback"/>
+          </Dialog>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷总分：</label>
+        <div class="flex-1">
+          {{paper.score}} 分
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">合格分数：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="paper.passScore" placeholder="请输入试题分数"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷时间：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="paper.limitTime" placeholder="请输入试卷时间（分）"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">题序打乱：</label>
+        <div class="flex-1">
+          <Switch id="questionDisordered" v-model="paper.questionDisordered" />
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">选项打乱：</label>
+        <div class="flex-1">
+          <Switch id="optionDisordered" v-model="paper.optionDisordered" />
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷难度：</label>
+        <div class="flex-1">
+          <el-rate style="line-height: 48px;" v-model="paper.difficulty" :colors="colors"></el-rate>
+        </div>
+      </div>
+    </form>
+    <Button size="sm" variant="outline" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</Button>
   </div>
 </template>
 <script>
@@ -71,10 +108,33 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import QuestionLib from "@/views/edu/admin/exam/question-lib/index.vue";
   import { examApi as questionApi } from '@/api/edu/admin-api';
 
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import { Input } from '@/components/ui/input'
+  import { Switch } from '@/components/ui/switch'
+  import { Textarea } from '@/components/ui/textarea'
+export default {
     name: "ExamPaperMock",
     components: {
-      QuestionLib
+    Button,
+    Card,
+    CardHeader,
+    CardContent,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Input,
+    Textarea,
+      QuestionLib,
+      Switch
     },
     setup() {
       const route = useRoute()
@@ -207,9 +267,6 @@ const { findCategoryList, toTree, getAllParent } = examApi
   }
   :deep(.el-card__header){
     padding: 0;
-  }
-  :deep(.el-card .el-table__row:last-child td){
-    border: 0;
   }
 }
 </style>

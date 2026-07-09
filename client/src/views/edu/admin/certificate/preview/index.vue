@@ -1,22 +1,27 @@
 <template>
   <div class="certificate-preview-stub">
-    <el-card v-if="certificate && certificate.id" shadow="never">
-      <template #header>
+    <Card v-if="certificate && certificate.id" class="shadow-none">
+      <CardHeader>
         <span>{{ certificate.name || '证书预览' }}</span>
-      </template>
+      </CardHeader>
+              <CardContent>
       <div class="preview-body" v-html="certificate.content || certificate.template || ''"></div>
       <div v-if="download" class="preview-footer">
-        <el-button type="primary" size="small" @click="handleDownload">下载证书</el-button>
+        <Button variant="default" size="sm" @click="handleDownload">下载证书</Button>
       </div>
-    </el-card>
-    <el-empty v-else description="暂无证书数据" />
+    </CardContent>
+    </Card>
+    <Empty v-else description="暂无证书数据" />
   </div>
 </template>
 
 <script>
 // @ts-nocheck
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Empty } from '@/components/ui/empty'
 export default {
   name: 'CertificatePreview',
+  components: { Card, CardHeader, CardContent, Empty },
   props: {
     certificate: { type: Object, default: () => ({}) },
     download: { type: Boolean, default: false }

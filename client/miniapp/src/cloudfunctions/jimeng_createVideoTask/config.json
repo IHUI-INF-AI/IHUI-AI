@@ -1,6 +1,0 @@
-{
-  "timeout": 300,
-  "memorySize": 256,
-  "concurrency": 1,
-  "env": "cloud1-5gszljn762dc4719"
-} 

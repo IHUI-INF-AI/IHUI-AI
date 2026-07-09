@@ -3,83 +3,84 @@
     <div class="header">
       <el-form :inline="true" :model="searchParam" class="demo-form-inline">
         <el-form-item label="">
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-          <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
+          <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
+          <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
         </el-form-item>
         <el-form-item class="status">
-          <el-select size="small" v-model="searchParam.status" @change="search" placeholder="请选择状态">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未生效" value="not_effect"></el-option>
-            <el-option label="生效中" value="effect"></el-option>
-            <el-option label="已失效" value="expired"></el-option>
-          </el-select>
+          <Select size="small" v-model="searchParam.status" @change="search" placeholder="请选择状态">
+            <SelectOption label="全部" value=""></SelectOption>
+            <SelectOption label="未生效" value="not_effect"></SelectOption>
+            <SelectOption label="生效中" value="effect"></SelectOption>
+            <SelectOption label="已失效" value="expired"></SelectOption>
+          </Select>
         </el-form-item>
         <el-form-item>
-          <el-button size="small" class="search-btn" type="primary" @click="add">创建积分</el-button>
+          <Button size="sm" className="search-btn" variant="default" @click="add">创建积分</Button>
         </el-form-item>
       </el-form>
     </div>
     <div class="content">
       <div class="content-list">
-        <el-table v-loading="dataLoading" :data="list" size="small" style="width: 100%;">
-          <el-table-column prop="id" label="ID" width="50"/>
-          <el-table-column prop="name" label="积分名称"/>
-          <el-table-column label="有效期">
-            <template #default="scope">
-              {{scope.row.startDate + " 至 " + scope.row.endDate}}
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="scope">
-              <div :class="scope.row.status">{{statusMap[scope.row.status]}}</div>
-            </template>
-          </el-table-column>
-          <el-table-column prop="redemptionRatio" label="兑换比例" width="130">
-            <template #default="scope">
-              1元RMB={{scope.row.redemptionRatio || 0}}积分
-            </template>
-          </el-table-column>
-          <el-table-column prop="issuedNum" label="总发放个数" width="120">
-            <template #default="scope">
-              {{scope.row.issuedNum || 0}}
-            </template>
-          </el-table-column>
-          <el-table-column prop="consumedNum" label="总消耗个数" width="120">
-            <template #default="scope">
-              {{scope.row.consumedNum || 0}}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作">
-            <template #default="scope">
-              <el-button link size="small" @click="edit(scope.row)">编辑</el-button>
-              <el-button link size="small" @click="editPointChannel(scope.row.id)">管理积分渠道</el-button>
-              <el-button link size="small" @click="gotoRecord(scope.row.id)">积分记录</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div v-if="dataLoading" class="loading-div">加载中...</div>
+        <Table class="text-sm" style="width: 100%">
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[50px]">ID</TableHead>
+              <TableHead>积分名称</TableHead>
+              <TableHead>有效期</TableHead>
+              <TableHead class="w-[100px]">状态</TableHead>
+              <TableHead class="w-[130px]">兑换比例</TableHead>
+              <TableHead class="w-[120px]">总发放个数</TableHead>
+              <TableHead class="w-[120px]">总消耗个数</TableHead>
+              <TableHead>操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.name }}</TableCell>
+              <TableCell>{{ row.startDate + " 至 " + row.endDate }}</TableCell>
+              <TableCell><div :class="row.status">{{ statusMap[row.status] }}</div></TableCell>
+              <TableCell>1元RMB={{ row.redemptionRatio || 0 }}积分</TableCell>
+              <TableCell>{{ row.issuedNum || 0 }}</TableCell>
+              <TableCell>{{ row.consumedNum || 0 }}</TableCell>
+              <TableCell>
+                <Button variant="link" size="sm" @click="edit(row)">编辑</Button>
+                <Button variant="link" size="sm" @click="editPointChannel(row.id)">管理积分渠道</Button>
+                <Button variant="link" size="sm" @click="gotoRecord(row.id)">积分记录</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
     </div>
     <page style="margin-top: 20px;" :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
-    <el-dialog title="新增/编辑积分" v-model="showPointFormDialog" :before-close="hidePointForm">
+    <Dialog v-model="showPointFormDialog" @close="hidePointForm">
+      <DialogHeader>
+        <DialogTitle>新增/编辑积分</DialogTitle>
+      </DialogHeader>
       <el-form :model="point" :rules="pointRules" ref="pointRef">
         <el-form-item label="名称：" label-width="120px" prop="name">
-          <el-input size="small" v-model="point.name" placeholder="请输入名称" autocomplete="off"></el-input>
+          <Input size="small" v-model="point.name" placeholder="请输入名称" autocomplete="off"></Input>
         </el-form-item>
         <el-form-item label="有效期：" label-width="120px" prop="startDate">
           <el-date-picker size="small" v-model="datetime" @change="datetimeChange" type="datetimerange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期"></el-date-picker>
         </el-form-item>
         <el-form-item label="兑换比例：" label-width="120px" prop="redemptionRatio">
-          <el-input size="small" v-model="point.redemptionRatio" placeholder="请输入兑换比例，1元可以兑换多少积分"></el-input>
+          <Input size="small" v-model="point.redemptionRatio" placeholder="请输入兑换比例，1元可以兑换多少积分"></Input>
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hidePointForm">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitPoint">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hidePointForm">取 消</Button>
+          <Button size="sm" variant="default" @click="submitPoint">确 定</Button>
         </div>
       </template>
-    </el-dialog>
-    <el-dialog title="管理积分渠道" v-model="showPointChannelFormDialog" :before-close="hidePointChannelForm">
+    </Dialog>
+    <Dialog v-model="showPointChannelFormDialog" @close="hidePointChannelForm">
+      <DialogHeader>
+        <DialogTitle>管理积分渠道</DialogTitle>
+      </DialogHeader>
       <el-form :model="pointChannel" ref="pointChannelRef">
         <el-form-item label="积分渠道：" label-width="120px" prop="name">
           <el-cascader size="small" v-model="pointChannel.channelIdList" :options="channelOptions" :props="{ checkStrictly: true, multiple: true }" clearable></el-cascader>
@@ -87,11 +88,11 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hidePointChannelForm">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitPointChannel">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hidePointChannelForm">取 消</Button>
+          <Button size="sm" variant="default" @click="submitPointChannel">确 定</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -103,12 +104,22 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
   import Page from "@/components/Page/index.vue"
   import {success, error} from "@/util/tipsUtils";
   import router from "@/router";
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Select, SelectOption } from '@/components/ui/select'
 
   export default {
     name: "PointListIndex",
-  components: {
-    Page
-  },
+    components: {
+      Page,
+      Button,
+      Input,
+      Select,
+      SelectOption,
+      Table, TableHeader, TableBody, TableRow, TableHead, TableCell
+    },
   setup() {
     const statusMap = {
       "not_effect": "未生效",

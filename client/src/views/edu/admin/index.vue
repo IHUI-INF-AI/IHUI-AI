@@ -6,32 +6,33 @@
       </template>
     </el-page-header>
 
-    <el-row :gutter="16" class="stats-row" v-loading="loading">
-      <el-col :xs="24" :sm="12" :md="6" v-for="stat in stats" :key="stat.label">
-        <el-card class="stat-card" shadow="hover">
+    <div class="flex flex-wrap gap-[16px] stats-row" v-loading="loading">
+      <div class="w-full sm:w-1/2 md:w-1/4" v-for="stat in stats" :key="stat.label">
+        <Card class="stat-card transition-shadow hover:shadow-md">
           <div class="stat-icon" :style="{ background: stat.color }">
-            <el-icon :size="24"><component :is="stat.icon" /></el-icon>
+            <component :is="stat.icon" class="h-6 w-6" />
           </div>
           <div class="stat-body">
             <div class="stat-value">{{ stat.value }}</div>
             <div class="stat-label">{{ stat.label }}</div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-row :gutter="16" class="menu-row">
-      <el-col :xs="12" :sm="8" :md="6" v-for="m in menus" :key="m.path">
-        <el-card class="menu-card" shadow="hover" @click="goMenu(m.path)">
-          <el-icon :size="32" :color="m.color"><component :is="m.icon" /></el-icon>
+    <div class="flex flex-wrap gap-[16px] menu-row">
+      <div class="w-1/2 sm:w-1/3 md:w-1/4" v-for="m in menus" :key="m.path">
+        <Card class="menu-card transition-shadow hover:shadow-md" @click="goMenu(m.path)">
+          <component :is="m.icon" class="h-8 w-8" :style="{ color: m.color }" />
           <div class="menu-label">{{ t(m.labelKey) }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Card } from '@/components/ui/card'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'

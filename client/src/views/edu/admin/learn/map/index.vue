@@ -1,95 +1,113 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="form-inline">
-        <el-form-item label="">
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字">
-            <template #suffix>
-              <el-icon class="el-input__icon search-btn" @click="search"><Search /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item label="状态" class="select">
-          <el-select size="small" v-model="searchParam.status" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未发布" value="unpublished"></el-option>
-            <el-option label="已发布" value="published"></el-option>
-            <el-option label="已删除" value="deleted"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button size="small" type="primary" :icon="Plus" @click="edit()">
-            新增
-          </el-button>
-        </el-form-item>
-      </el-form>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <div class="flex">
+            <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字" />
+            <Search class="h-4 w-4 cursor-pointer el-input__icon search-btn" @click="search" />
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+          <div>
+            <Select size="small" v-model="searchParam.status" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption label="未发布" value="unpublished"></SelectOption>
+              <SelectOption label="已发布" value="published"></SelectOption>
+              <SelectOption label="已删除" value="deleted"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button size="sm" variant="default" @click="edit()">
+            <Plus />新增
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="content">
-      <el-table v-loading="dataLoading" :show-header="false" class="custom-table" ref="multipleTable" :data="list" style="width: 100%" @expand-change="expandChange">
-        <el-table-column type="expand">
-          <template #default="scope">
-            <el-card class="box-card">
-              <template #header>
-                <div class="clearfix">
-                  <span>基础信息</span>
-                </div>
-              </template>
-              <div class="table-wrapper">
-                <table class="fl-table" style="width: 100%;">
-                  <tbody>
-                    <tr><td style="width: 120px;">名称：</td><td>{{scope.row.title}}</td></tr>
-                    <tr><td style="vertical-align: top;">详情：</td><td><div v-html="scope.row.description"></div></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </el-card>
-            <el-card style="margin-top: 20px;">
-              <template #header>
-                <div class="clearfix">
-                  <span>关联专题</span>
-                </div>
-              </template>
-              <div>
-                <el-table class="custom-table" :data="scope.row.topicList" :show-header="false" style="width: 100%;">
-                  <el-table-column prop="title" label="标题"></el-table-column>
-                </el-table>
-              </div>
-            </el-card>
-          </template>
-        </el-table-column>
-        <el-table-column>
-          <template #default="scope">
-            <div class="content-item-warp">
-              <a class="image" v-if="scope.row.image && scope.row.image.trim()">
-                <img :src="scope.row.image">
-              </a>
-              <div class="article-card-bone">
-                <div class="title-wrap">
-                  <a class="title">{{scope.row.title}}</a>
-                  <span class="label create-time">{{scope.row.createTime}}</span>
-                </div>
-                <div class="status-wrapper">
-                  <div class="status" :class="scope.row.status">{{statusMap[scope.row.status]}}</div>
-                </div>
-                <div class="count-wrapper">
-                  <ul class="count">
-                    <li>学习 {{scope.row.learnNum || 0}}</li>
-                    <li>点赞 {{scope.row.likeNum || 0}}</li>
-                    <li>收藏 {{scope.row.favoriteNum || 0}}</li>
-                    <li>评论 {{scope.row.commentNum || 0}}</li>
-                  </ul>
-                  <div class="article-action-list">
-                    <span class="icon-label" @click="info('敬请期待')">报名记录</span>
-                    <span class="icon-label" @click="commentView(scope.row)">查看评论</span>
-                    <span class="icon-label" @click="edit(scope.row.id)">编辑</span>
-                    <span class="icon-label" @click="remove(scope.row)">删除</span>
+      <div v-if="dataLoading">加载中...</div>
+      <Table class="custom-table" style="width: 100%">
+        <TableBody>
+          <template v-for="(row, index) in list" :key="row.id ?? index">
+            <TableRow>
+              <TableCell>
+                <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+              </TableCell>
+              <TableCell>
+                <div class="content-item-warp">
+                  <a class="image" v-if="row.image && row.image.trim()">
+                    <img :src="row.image">
+                  </a>
+                  <div class="article-card-bone">
+                    <div class="title-wrap">
+                      <a class="title">{{row.title}}</a>
+                      <span class="label create-time">{{row.createTime}}</span>
+                    </div>
+                    <div class="status-wrapper">
+                      <div class="status" :class="row.status">{{statusMap[row.status]}}</div>
+                    </div>
+                    <div class="count-wrapper">
+                      <ul class="count">
+                        <li>学习 {{row.learnNum || 0}}</li>
+                        <li>点赞 {{row.likeNum || 0}}</li>
+                        <li>收藏 {{row.favoriteNum || 0}}</li>
+                        <li>评论 {{row.commentNum || 0}}</li>
+                      </ul>
+                      <div class="article-action-list">
+                        <span class="icon-label" @click="info('敬请期待')">报名记录</span>
+                        <span class="icon-label" @click="commentView(row)">查看评论</span>
+                        <span class="icon-label" @click="edit(row.id)">编辑</span>
+                        <span class="icon-label" @click="remove(row)">删除</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </TableCell>
+            </TableRow>
+            <tr v-if="expandedRows.has(index)">
+              <td colspan="99">
+                <Card class="box-card">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>基础信息</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div class="table-wrapper">
+                    <table class="fl-table" style="width: 100%;">
+                      <tbody>
+                        <tr><td style="width: 120px;">名称：</td><td>{{row.title}}</td></tr>
+                        <tr><td style="vertical-align: top;">详情：</td><td><div v-html="row.description"></div></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+                </Card>
+                <Card style="margin-top: 20px;">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>关联专题</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div>
+                    <Table class="custom-table" style="width: 100%;">
+                      <TableBody>
+                        <TableRow v-for="(topic, tIndex) in row.topicList" :key="tIndex">
+                          <TableCell>{{ topic.title }}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+                </Card>
+              </td>
+            </tr>
           </template>
-        </el-table-column>
-      </el-table>
+        </TableBody>
+      </Table>
     </div>
     <comment-drawer topic-type="learn_map" :drawer-close="drawerClose" :show-drawer="drawer" :topic="selectTopic"/>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
@@ -107,9 +125,27 @@ import { learnApi } from '@/api/edu/admin-api'
 const { findList, removeMap } = learnApi
 import {confirm, info, success} from "@/util/tipsUtils";
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "LearnMapIndex",
   components: {
+    Button,
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Input,
+    Select,
+    SelectOption,
     Page,
     CommentDrawer,
     Plus,
@@ -184,6 +220,14 @@ export default {
       if(expandedRows.length>0){
       }
     }
+    const expandedRows = ref(new Set())
+    const toggleExpand = (index) => {
+      if (expandedRows.value.has(index)) {
+        expandedRows.value.delete(index)
+      } else {
+        expandedRows.value.add(index)
+      }
+    }
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
@@ -214,7 +258,9 @@ export default {
       drawer,
       drawerClose,
       info,
-      Plus: markRaw(Plus)
+      Plus: markRaw(Plus),
+      expandedRows,
+      toggleExpand
     };
   }
 };

@@ -1,9 +1,0 @@
-{
-  "drama": {
-    "addCharDesc": "（需要补充人物形象描述）",
-    "coherent": "与上一段保持视觉和情节连贯性，自然过渡，确保人物形象一致",
-    "transition": "切换",
-    "sceneTransition": "转场",
-    "confirmCharContinue": "确认角色是否需要后续出场"
-  }
-}

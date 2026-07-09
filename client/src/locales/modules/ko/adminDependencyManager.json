@@ -1,7 +1,0 @@
-{
-  "adminDependencyManager": {
-    "enterTourId": "둘러보기 ID를 입력하세요",
-    "confirmDeleteConfig": "이 설정을 삭제하시겠습니까?",
-    "newConfig": "새 설정"
-  }
-}

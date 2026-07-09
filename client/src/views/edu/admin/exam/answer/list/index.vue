@@ -1,65 +1,92 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-          <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-        <el-form-item label="状态" class="status">
-          <el-select size="small" v-model="searchParam.isShow" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未发布" value="unpublished"></el-option>
-            <el-option label="已发布" value="published"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-        </el-form-item>
-      </el-form>
+      <form class="demo-form-inline flex flex-wrap items-end gap-4" @submit.prevent>
+        <div class="mb-4">
+          <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
+          <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
+        </div>
+        <div class="mb-4 status">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+          <div>
+            <Select size="small" v-model="searchParam.isShow" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption label="未发布" value="unpublished"></SelectOption>
+              <SelectOption label="已发布" value="published"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
+          <div>
+            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+          </div>
+        </div>
+      </form>
     </div>
     <div class="content">
-      <el-table v-loading="dataLoading" class="custom-table" ref="multipleTable" :data="list" style="width: 100%" @expand-change="expandChange">
-        <el-table-column type="expand">
-          <template #default="scope">
-            <el-card style="margin-top: 20px;">
-              <template #header>
-                <div class="clearfix">
-                  <span>章节</span>
-                </div>
-              </template>
-              <div>
-                <el-table :default-expand-all="true" class="custom-table" :data="scope.row.chapterList" :show-header="false" style="width: 100%;">
-                  <el-table-column type="expand">
-                    <template #default="props">
-                      <el-table class="custom-table" :data="props.row.chapterSectionList" :show-header="false" style="width: 100%;">
-                        <el-table-column prop="title" label="标题"></el-table-column>
-                        <el-table-column label="操作" width="100">
-                          <template #default="s">
-                            <el-button link @click="showRecordListDrawer(s.row)">答题记录</el-button>
-                          </template>
-                        </el-table-column>
-                      </el-table>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="title" label="标题"></el-table-column>
-                </el-table>
-              </div>
-            </el-card>
+      <div v-if="dataLoading" class="loading-text">加载中...</div>
+      <Table v-show="!dataLoading" class="custom-table w-full">
+        <TableHeader>
+          <TableRow>
+            <TableHead></TableHead>
+            <TableHead>考试标题</TableHead>
+            <TableHead class="text-center">报名人数</TableHead>
+            <TableHead class="text-right">状态</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <template v-for="(row, index) in list" :key="row.id ?? index">
+            <TableRow>
+              <TableCell>
+                <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+              </TableCell>
+              <TableCell>{{ row.name }}</TableCell>
+              <TableCell class="text-center">{{ row.signUpNum || 0 }}</TableCell>
+              <TableCell class="text-right">{{ statusMap[row.status] }}</TableCell>
+            </TableRow>
+            <tr v-if="expandedRows.has(index)">
+              <td colspan="99">
+                <Card style="margin-top: 20px;">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>章节</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div>
+                    <Table class="custom-table w-full">
+                      <TableBody>
+                        <template v-for="(chapter, cIndex) in row.chapterList" :key="chapter.id ?? cIndex">
+                          <TableRow>
+                            <TableCell>
+                              <button @click="toggleExpand(`${index}-${cIndex}`)">{{ expandedRows.has(`${index}-${cIndex}`) ? '▼' : '▶' }}</button>
+                            </TableCell>
+                            <TableCell>{{ chapter.title }}</TableCell>
+                          </TableRow>
+                          <tr v-if="expandedRows.has(`${index}-${cIndex}`)">
+                            <td colspan="99">
+                              <Table class="custom-table w-full">
+                                <TableBody>
+                                  <TableRow v-for="(section, sIndex) in chapter.chapterSectionList" :key="section.id ?? sIndex">
+                                    <TableCell>{{ section.title }}</TableCell>
+                                    <TableCell class="w-[100px]"><Button variant="link" @click="showRecordListDrawer(section)">答题记录</Button></TableCell>
+                                  </TableRow>
+                                </TableBody>
+                              </Table>
+                            </td>
+                          </tr>
+                        </template>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+                </Card>
+              </td>
+            </tr>
           </template>
-        </el-table-column>
-        <el-table-column prop="name" label="考试标题"></el-table-column>
-        <el-table-column align="center" label="报名人数">
-          <template #default="scope">
-            {{scope.row.signUpNum || 0}}
-          </template>
-        </el-table-column>
-        <el-table-column align="right" label="状态">
-          <template #default="scope">
-            {{statusMap[scope.row.status]}}
-          </template>
-        </el-table-column>
-      </el-table>
+        </TableBody>
+      </Table>
     </div>
     <el-drawer class="custom-drawer" v-model="recordListDrawer" direction="rtl" :before-close="drawerClose" destroy-on-close>
       <template #header>
@@ -74,8 +101,8 @@
             </div>
             <div class="content-info">
               <div class="answer-box">
-                <el-row v-if="selectTopic.paper">
-                  <el-col :span="8">
+                <div class="flex flex-wrap" v-if="selectTopic.paper">
+                  <div class="w-1/3">
                     <div class="answer-item">
                       <div class="answer-info-label">试卷标题：</div>
                       <div class="answer-info-value">
@@ -94,8 +121,8 @@
                         <el-rate :disabled="true" v-model="selectTopic.paper.difficulty" :colors="colors"></el-rate>
                       </div>
                     </div>
-                  </el-col>
-                  <el-col :span="8">
+                  </div>
+                  <div class="w-1/3">
                     <div class="answer-item" v-if="selectTopic.paper && selectTopic.paper.questionList">
                       <div class="answer-info-label">题目数量：</div>
                       <div class="answer-info-value">{{selectTopic.paper.questionList.length || 0}}</div>
@@ -108,35 +135,37 @@
                       <div class="answer-info-label">合格分数：</div>
                       <div class="answer-info-value">{{selectTopic.paper.passScore || 0}}</div>
                     </div>
-                  </el-col>
-                  <el-col :span="8">
-                  </el-col>
-                </el-row>
+                  </div>
+                  <div class="w-1/3">
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </template>
       <div class="topic-comment-list-wrapper">
-        <el-table v-loading="paperRecordLoading" :data="paperRecordList" style="width: 100%">
-          <el-table-column label="姓名">
-            <template #default="scope">
-              {{scope.row.member && scope.row.member.name}}
-            </template>
-          </el-table-column>
-          <el-table-column label="开始时间" prop="startTime"></el-table-column>
-          <el-table-column label="提交时间" prop="endTime"></el-table-column>
-          <el-table-column label="得分">
-            <template #default="scope">
-              {{scope.row.score || 0}}
-            </template>
-          </el-table-column>
-          <el-table-column label="得分">
-            <template #default="scope">
-              <el-button link @click="showDetail(scope.row)">答题详情</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div v-if="paperRecordLoading" class="loading-text">加载中...</div>
+        <Table v-show="!paperRecordLoading" class="w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead>姓名</TableHead>
+              <TableHead>开始时间</TableHead>
+              <TableHead>提交时间</TableHead>
+              <TableHead>得分</TableHead>
+              <TableHead>得分</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in paperRecordList" :key="row.id ?? index">
+              <TableCell>{{ row.member && row.member.name }}</TableCell>
+              <TableCell>{{ row.startTime }}</TableCell>
+              <TableCell>{{ row.endTime }}</TableCell>
+              <TableCell>{{ row.score || 0 }}</TableCell>
+              <TableCell><Button variant="link" @click="showDetail(row)">答题详情</Button></TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
         <page :total="paperRecordTotal" :current-change="paperRecordCurrentChange" :size-change="paperRecordSizeChange" :page-size="paperRecordParam.size"></page>
       </div>
       <el-drawer v-if="detailDrawer" :append-to-body="true" v-model="detailDrawer" direction="rtl" :before-close="hideDetail" destroy-on-close class="detail-drawer">
@@ -164,13 +193,39 @@ import {info} from "@/util/tipsUtils";
 const { getRecordList, getPaper } = examApi;
 import PaperDetail from "@/views/edu/admin/exam/answer/detail/index.vue";
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "ExamAnswerListIndex",
   components: {
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
     PaperDetail,
-    Page
+    Page,
+    Button,
+    Input,
+    Select,
+    SelectOption
   },
   setup() {
+    const expandedRows = ref(new Set())
+    const toggleExpand = (key) => {
+      if (expandedRows.value.has(key)) {
+        expandedRows.value.delete(key)
+      } else {
+        expandedRows.value.add(key)
+      }
+    }
     const list = ref([])
     const total = ref(0)
     const dataLoading = ref(true)
@@ -343,7 +398,9 @@ export default {
       showDetail,
       hideDetail,
       detailItem,
-      detailDrawer
+      detailDrawer,
+      expandedRows,
+      toggleExpand
     }
   }
 };
@@ -463,22 +520,12 @@ export default {
       }
     }
   }
-  .el-table th.is-leaf, .el-table td {
-    border: 0;
-  }
   .image {
     height: 60px;
     display: inline-block;
   }
   .search-input {
     width: 242px;
-  }
-  .el-table-column--selection .cell{
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  :deep(.el-table tbody tr:hover > td){
-    background-color: transparent;
   }
   :deep(.custom-drawer){
     width: calc(100% - 210px);
@@ -578,18 +625,12 @@ export default {
     }
   }
 }
-:deep(.el-table__inner-wrapper::before){
-  content: normal;
-}
 </style>
 <style lang="scss">
   .custom-table table tr:last-child {
     td {
       border: 0;
     }
-  }
-  .el-table::before {
-    height: 0;
   }
   .detail-drawer {
     width: calc(100% - 210px);

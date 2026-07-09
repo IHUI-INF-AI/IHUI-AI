@@ -7,140 +7,135 @@
     </el-page-header>
 
     <!-- 统计卡片 -->
-    <el-row :gutter="20" class="stats-cards" v-if="stats">
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+    <div class="flex flex-wrap gap-5 stats-cards" v-if="stats">
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value">{{ stats.total || 0 }}</div>
             <div class="stat-label">{{ t('agentExamine.totalExamineCount') }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value warning">{{ stats.pending || 0 }}</div>
             <div class="stat-label">{{ t('agentExamine.pendingExamine') }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value success">{{ stats.approved || 0 }}</div>
             <div class="stat-label">{{ t('agentExamine.approvedExamine') }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value danger">{{ stats.rejected || 0 }}</div>
             <div class="stat-label">{{ t('agentExamine.rejectedExamine') }}</div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-card shadow="never" class="main-card">
-      <template #header>
+    <Card class="main-card shadow-none"><CardHeader>
         <div class="card-header">
           <span>{{ t('agentExamine.examineList') }}</span>
           <div style="display: flex; gap: 10px">
-            <el-input
+            <Input
               v-model="searchKeyword"
               :placeholder="t('agentExamine.searchPlaceholder')"
               style="width: 240px"
               clearable
               @input="debouncedLoadExamines"
             />
-            <el-select v-model="filterStatus" @change="loadExamines" style="width: 120px" clearable>
-              <el-option :label="t('agentExamine.allStatus')" value="" />
-              <el-option :label="t('agentExamine.examining')" :value="1" />
-              <el-option :label="t('agentExamine.approved')" :value="2" />
-              <el-option :label="t('agentExamine.rejected')" :value="3" />
-              <el-option :label="t('agentExamine.returned')" :value="4" />
-            </el-select>
-            <el-button @click="loadExamines">
-              <el-icon><RefreshCw /></el-icon>
+            <Select v-model="filterStatus" @change="loadExamines" style="width: 120px" clearable>
+              <SelectOption :label="t('agentExamine.allStatus')" value="" />
+              <SelectOption :label="t('agentExamine.examining')" :value="1" />
+              <SelectOption :label="t('agentExamine.approved')" :value="2" />
+              <SelectOption :label="t('agentExamine.rejected')" :value="3" />
+              <SelectOption :label="t('agentExamine.returned')" :value="4" />
+            </Select>
+            <Button variant="outline" @click="loadExamines">
+              <RefreshCw class="h-4 w-4" />
               {{ t('common.refresh') }}
-            </el-button>
+            </Button>
           </div>
         </div>
-      </template>
-
-      <el-empty
+      </CardHeader><CardContent class="p-5">
+      
+      <Empty
         v-if="!loading && examineList.length === 0"
         :description="t('agentExamine.noExamineRecords')"
         :image-size="120"
       />
-      <el-table
-        v-else
-        :data="examineList"
-        stripe
-        v-loading="loading"
-        @selection-change="selectedRows = $event"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="agent_name" :label="t('agentCategory.agentName')" min-width="150">
-          <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 8px">
-              <el-avatar
-                v-if="row.agent_avatar"
-                :src="row.agent_avatar"
-                :size="32"
-                shape="square"
-              />
-              <span>{{ row.agent_name }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="agent_id" :label="t('agentCategory.agentId')" width="120" />
-        <el-table-column prop="start_name" :label="t('agentExamine.initiator')" width="120" />
-        <el-table-column :label="t('agentExamine.status')" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusTagType(row.status)">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="start_time" :label="t('agentExamine.startTime')" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.start_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="examine_time" :label="t('agentExamine.examineTime')" width="180">
-          <template #default="{ row }">
-            {{ row.examine_time ? formatTime(row.examine_time) : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="examine_user" :label="t('agentExamine.examiner')" width="120" />
-        <el-table-column :label="t('common.actions')" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="handleViewDetail(row)">{{
-              t('agentExamine.detail')
-            }}</el-button>
-            <el-button
-              link
-              type="info"
-              @click="handleSyncAvatar(row)"
-              :loading="syncingAvatar === row.id"
-            >
-              {{ t('agentExamine.syncAvatar') }}
-            </el-button>
-            <el-button v-if="row.status === 1" link type="success" @click="handleApprove(row)">
-              {{ t('agentExamine.approve') }}
-            </el-button>
-            <el-button v-if="row.status === 1" link type="danger" @click="handleReject(row)">
-              {{ t('agentExamine.reject') }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-else-if="loading" class="flex justify-center py-8 text-muted-foreground">Loading...</div>
+      <Table v-else>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[55px]"><input type="checkbox" :checked="allSelected" @change="toggleAll($event)" /></TableHead>
+            <TableHead class="min-w-[150px]">{{ t('agentCategory.agentName') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('agentCategory.agentId') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('agentExamine.initiator') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('agentExamine.status') }}</TableHead>
+            <TableHead class="w-[180px]">{{ t('agentExamine.startTime') }}</TableHead>
+            <TableHead class="w-[180px]">{{ t('agentExamine.examineTime') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('agentExamine.examiner') }}</TableHead>
+            <TableHead class="w-[200px]">{{ t('common.actions') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in examineList" :key="row.id ?? index">
+            <TableCell class="w-[55px]"><input type="checkbox" :checked="selectedRows.includes(row)" @change="toggleRow(row)" /></TableCell>
+            <TableCell>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <Avatar
+                  v-if="row.agent_avatar"
+                  :src="row.agent_avatar"
+                  :size="32"
+                  shape="square"
+                />
+                <span>{{ row.agent_name }}</span>
+              </div>
+            </TableCell>
+            <TableCell>{{ row.agent_id }}</TableCell>
+            <TableCell>{{ row.start_name }}</TableCell>
+            <TableCell>
+              <Tag :type="getStatusTagType(row.status)">
+                {{ getStatusText(row.status) }}
+              </Tag>
+            </TableCell>
+            <TableCell>{{ formatTime(row.start_time) }}</TableCell>
+            <TableCell>{{ row.examine_time ? formatTime(row.examine_time) : '-' }}</TableCell>
+            <TableCell>{{ row.examine_user }}</TableCell>
+            <TableCell>
+              <Button variant="link" @click="handleViewDetail(row)">{{
+                t('agentExamine.detail')
+              }}</Button>
+              <Button
+                variant="link"
+                @click="handleSyncAvatar(row)"
+              >
+                {{ t('agentExamine.syncAvatar') }}
+              </Button>
+              <Button v-if="row.status === 1" variant="link" @click="handleApprove(row)">
+                {{ t('agentExamine.approve') }}
+              </Button>
+              <Button v-if="row.status === 1" variant="link" @click="handleReject(row)">
+                {{ t('agentExamine.reject') }}
+              </Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
-      <el-pagination
+      <Pagination
         v-if="pagination.total > 0"
-        v-model:current-page="pagination.page"
+        v-model:page="pagination.page"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         layout="prev, pager, next, sizes, jumper, total"
@@ -148,10 +143,13 @@
         @current-change="loadExamines"
         style="margin-top: 20px"
       />
-    </el-card>
+    </CardContent></Card>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="showDetailDialog" :title="t('agentExamine.examineDetail')" width="800px">
+    <Dialog v-model="showDetailDialog" width="800px">
+      <DialogHeader>
+        <DialogTitle>{{ t('agentExamine.examineDetail') }}</DialogTitle>
+      </DialogHeader>
       <div v-if="currentExamine" class="examine-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item :label="t('agentCategory.agentName')">
@@ -167,9 +165,9 @@
             {{ formatTime(currentExamine.start_time) }}
           </el-descriptions-item>
           <el-descriptions-item :label="t('agentExamine.status')">
-            <el-tag :type="getStatusTagType(currentExamine.status)">
+            <Tag :type="getStatusTagType(currentExamine.status)">
               {{ getStatusText(currentExamine.status) }}
-            </el-tag>
+            </Tag>
           </el-descriptions-item>
           <el-descriptions-item :label="t('agentExamine.examiner')">
             {{ currentExamine.examine_user || '-' }}
@@ -198,45 +196,48 @@
           </el-descriptions>
         </div>
       </div>
-    </el-dialog>
+    </Dialog>
 
     <!-- 审核对话框 -->
-    <el-dialog
-      v-model="showReviewDialog"
-      :title="
-        reviewAction === 'approve'
-          ? t('agentExamine.approveExamine')
-          : t('agentExamine.rejectExamine')
-      "
-      width="500px"
-    >
-      <el-form :model="reviewForm" label-width="100px">
-        <el-form-item :label="t('agentExamine.description')" required>
-          <el-input
-            v-model="reviewForm.desc"
-            type="textarea"
-            :rows="4"
-            :placeholder="
-              reviewAction === 'approve'
-                ? t('agentExamine.approveReasonPlaceholder')
-                : t('agentExamine.rejectReasonPlaceholder')
-            "
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showReviewDialog = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="reviewSubmitting" @click="handleSubmitReview">
+    <Dialog v-model="showReviewDialog" width="500px">
+      <DialogHeader>
+        <DialogTitle>
+          {{
+            reviewAction === 'approve'
+              ? t('agentExamine.approveExamine')
+              : t('agentExamine.rejectExamine')
+          }}
+        </DialogTitle>
+      </DialogHeader>
+      <form @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('agentExamine.description') }}</label>
+          <div class="flex-1">
+            <Textarea
+              v-model="reviewForm.desc"
+              :rows="4"
+              :placeholder="
+                reviewAction === 'approve'
+                  ? t('agentExamine.approveReasonPlaceholder')
+                  : t('agentExamine.rejectReasonPlaceholder')
+              "
+            />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="showReviewDialog = false">{{ t('common.cancel') }}</Button>
+        <Button variant="default" @click="handleSubmitReview">
           {{ t('common.confirm') }}
-        </el-button>
-      </template>
-    </el-dialog>
+        </Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
  
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
@@ -257,6 +258,17 @@ import {
 } from '@/api/agent-examine'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime as _formatTime } from '@/utils/format'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Tag } from '@/components/ui/tag'
+import { Avatar } from '@/components/ui/avatar'
+import { Pagination } from '@/components/ui/pagination'
+import { Empty } from '@/components/ui/empty'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -292,6 +304,30 @@ const reviewForm = reactive({
 })
 const syncingAvatar = ref<string | null>(null)
 const selectedRows = ref<AgentExamine[]>([])
+
+const allSelected = computed(
+  () =>
+    examineList.value.length > 0 &&
+    examineList.value.every(r => selectedRows.value.includes(r))
+)
+
+const toggleAll = (event: Event) => {
+  const checked = (event.target as HTMLInputElement).checked
+  if (checked) {
+    selectedRows.value = [...examineList.value]
+  } else {
+    selectedRows.value = []
+  }
+}
+
+const toggleRow = (row: AgentExamine) => {
+  const idx = selectedRows.value.indexOf(row)
+  if (idx >= 0) {
+    selectedRows.value.splice(idx, 1)
+  } else {
+    selectedRows.value.push(row)
+  }
+}
 
 // 防抖函数
 const debounce = <T extends (...args: unknown[]) => unknown>(

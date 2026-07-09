@@ -1,7 +1,7 @@
 <template>
   <div class="oss-container">
     <div class="head">
-      <el-input
+      <Input
         v-model="searchParam.keyword"
         clearable
         size="small"
@@ -9,68 +9,78 @@
         class="search-input"
         @keyup.enter="search"
       />
-      <el-button class="search-btn" size="small" type="primary" :icon="Search" @click="search">搜索</el-button>
-      <el-button size="small" type="primary" :icon="Upload" @click="showUploadDialog">上传文件</el-button>
+      <Button className="search-btn" variant="default" size="sm" @click="search"><Search />搜索</Button>
+      <Button variant="default" size="sm" @click="showUploadDialog"><Upload />上传文件</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="list" size="small" style="width: 100%;">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column label="文件名" min-width="220" :show-overflow-tooltip="true">
-        <template #default="scope">
-          {{ scope.row.name || scope.row.fileName || scope.row.originalName || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="文件路径" min-width="260" :show-overflow-tooltip="true">
-        <template #default="scope">
-          <el-link type="primary" :href="scope.row.url || scope.row.path" target="_blank" :underline="false">
-            {{ scope.row.url || scope.row.path || '-' }}
-          </el-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="文件类型" width="100" align="center">
-        <template #default="scope">
-          <el-tag size="small" type="info">{{ scope.row.fileType || scope.row.type || getFileType(scope.row) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="文件大小" width="110" align="center">
-        <template #default="scope">{{ formatSize(scope.row.size || scope.row.fileSize) }}</template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="上传时间" width="160" />
-      <el-table-column label="操作" align="center" width="140" fixed="right">
-        <template #default="scope">
-          <el-button link size="small" @click="copyUrl(scope.row)">复制链接</el-button>
-          <el-button link size="small" style="color: red;" @click="remove(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div v-if="dataLoading" class="loading">加载中...</div>
+    <Table class="text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead class="w-[70px]">ID</TableHead>
+          <TableHead class="min-w-[220px]">文件名</TableHead>
+          <TableHead class="min-w-[260px]">文件路径</TableHead>
+          <TableHead class="w-[100px] text-center">文件类型</TableHead>
+          <TableHead class="w-[110px] text-center">文件大小</TableHead>
+          <TableHead class="w-[160px]">上传时间</TableHead>
+          <TableHead class="w-[140px] text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+          <TableCell>{{ row.id }}</TableCell>
+          <TableCell>{{ row.name || row.fileName || row.originalName || '-' }}</TableCell>
+          <TableCell>
+            <el-link type="primary" :href="row.url || row.path" target="_blank" :underline="false">
+              {{ row.url || row.path || '-' }}
+            </el-link>
+          </TableCell>
+          <TableCell class="text-center">
+            <Tag size="small" type="info">{{ row.fileType || row.type || getFileType(row) }}</Tag>
+          </TableCell>
+          <TableCell class="text-center">{{ formatSize(row.size || row.fileSize) }}</TableCell>
+          <TableCell>{{ row.createTime }}</TableCell>
+          <TableCell class="text-center">
+            <Button variant="link" size="sm" @click="copyUrl(row)">复制链接</Button>
+            <Button variant="link" size="sm" style="color: red;" @click="remove(row)">删除</Button>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size" />
 
     <!-- 上传弹窗 -->
-    <el-dialog v-model="uploadDialogVisible" title="上传文件" width="500px" :before-close="hideUploadDialog">
-      <el-form label-width="90px">
-        <el-form-item label="选择文件">
-          <el-upload
-            ref="uploadRef"
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleFileChange"
-            :on-exceed="handleExceed"
-            drag
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
-            <template #tip>
-              <div class="el-upload__tip">支持上传任意类型文件，单次上传一个</div>
-            </template>
-          </el-upload>
-        </el-form-item>
-      </el-form>
+    <Dialog v-model="uploadDialogVisible" :width="'500px'" @close="hideUploadDialog">
+      <DialogHeader>
+        <DialogTitle>上传文件</DialogTitle>
+      </DialogHeader>
+      <form @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">选择文件</label>
+          <div>
+            <el-upload
+              ref="uploadRef"
+              :auto-upload="false"
+              :limit="1"
+              :on-change="handleFileChange"
+              :on-exceed="handleExceed"
+              drag
+            >
+              <UploadFilled class="h-4 w-4 el-icon--upload" />
+              <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+              <template #tip>
+                <div class="el-upload__tip">支持上传任意类型文件，单次上传一个</div>
+              </template>
+            </el-upload>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hideUploadDialog">取 消</el-button>
-          <el-button size="small" type="primary" :loading="uploading" @click="submitUpload">开始上传</el-button>
+          <Button variant="outline" size="sm" @click="hideUploadDialog">取 消</Button>
+          <Button variant="default" size="sm" @click="submitUpload">开始上传</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -82,6 +92,11 @@ import { ossApi } from '@/api/edu/admin-api'
 import { confirm, success, error } from '@/util/tipsUtils'
 import { Search, Upload, UploadFilled } from '@/lib/lucide-fallback'
 import { ElMessage } from 'element-plus'
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Tag } from '@/components/ui/tag'
 
 const { findFileList, uploadOssFile, deleteOssFile } = ossApi
 

@@ -1,50 +1,76 @@
 <template>
   <div class="question-box">
-    <el-form :model="question" :rules="questionRules" ref="questionRef" label-width="120px">
-      <el-form-item label="分类：" prop="cidList">
-        <el-cascader size="small" style="width: 100%;"
-                     v-model="selectCidList"
-                     :props="{ multiple: true, checkStrictly: true }"
-                     :options="categoryOptions"
-                     @change="changeCategory">
-        </el-cascader>
-      </el-form-item>
-      <el-form-item label="题干：" prop="title">
-        <el-input size="small" v-model="question.title" placeholder="请输入题干"></el-input>
-      </el-form-item>
-      <el-form-item label="描述：" prop="note">
-        <el-input size="small" type="textarea" :rows="5" v-model="question.note" placeholder="请输入题干描述"></el-input>
-      </el-form-item>
-      <el-form-item label="选项：" prop="options">
-        <el-card size="small" shadow="never">
-          <template #header>
-            <div class="clearfix">
-              <el-button size="small" style="padding: 10px;" link @click="addOption">添加选项</el-button>
-            </div>
-          </template>
-          <div v-if="!(optionList && optionList.length > 0) && !showAddOptionInput">请添加选项</div>
-          <div v-else-if="optionList && optionList.length > 0" v-for="(o, index) in optionList" :key="o.key" class="text item">
-            <span>{{o.key + '. ' + o.value}}</span>
-            <el-icon class="option-delete" @click="editOption(index)"><Edit /></el-icon>
-            <el-icon class="option-delete" @click="deleteOption(index)"><Delete /></el-icon>
-          </div>
-          <el-input size="small" placeholder="请输入选项内容" v-if="showAddOptionInput" v-model="option" @blur="optionBlur" @keypress.enter="optionBlur"/>
-        </el-card>
-      </el-form-item>
-      <el-form-item label="参考答案："  prop="referenceAnswer">
-        <el-radio v-model="question.referenceAnswer" v-for="item in optionList" :key="item.key" :label="item.key">{{item.key}}</el-radio>
-      </el-form-item>
-      <el-form-item label="答案解析：" prop="referenceAnswerNote">
-        <el-input size="small" type="textarea" :rows="5" v-model="question.referenceAnswerNote" placeholder="请输入答案解析"></el-input>
-      </el-form-item>
-      <el-form-item label="分数：" prop="score">
-        <el-input size="small" v-model="question.score" placeholder="请输入试题分数"></el-input>
-      </el-form-item>
-      <el-form-item label="难度：" prop="difficulty">
-        <el-rate style="line-height: 48px;" v-model="question.difficulty" :colors="colors"></el-rate>
-      </el-form-item>
-    </el-form>
-    <el-button size="small" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</el-button>
+    <form ref="questionRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
+        <div class="flex-1">
+          <el-cascader size="small" style="width: 100%;"
+                       v-model="selectCidList"
+                       :props="{ multiple: true, checkStrictly: true }"
+                       :options="categoryOptions"
+                       @change="changeCategory">
+          </el-cascader>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">题干：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="question.title" placeholder="请输入题干"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">描述：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="question.note" placeholder="请输入题干描述"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">选项：</label>
+        <div class="flex-1">
+          <Card class="shadow-none">
+            <CardHeader>
+              <div class="clearfix">
+                <Button variant="link" size="sm" style="padding: 10px;" @click="addOption">添加选项</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div v-if="!(optionList && optionList.length > 0) && !showAddOptionInput">请添加选项</div>
+              <div v-else-if="optionList && optionList.length > 0" v-for="(o, index) in optionList" :key="o.key" class="text item">
+                <span>{{o.key + '. ' + o.value}}</span>
+                <Edit class="h-4 w-4 option-delete" @click="editOption(index)" />
+                <Delete class="h-4 w-4 option-delete" @click="deleteOption(index)" />
+              </div>
+              <Input size="small" placeholder="请输入选项内容" v-if="showAddOptionInput" v-model="option" @blur="optionBlur" @keypress.enter="optionBlur"/>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">参考答案：</label>
+        <div class="flex-1">
+          <Radio v-model="question.referenceAnswer" v-for="item in optionList" :key="item.key" :value="item.key">{{item.key}}</Radio>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">答案解析：</label>
+        <div class="flex-1">
+          <Textarea size="small" :rows="5" v-model="question.referenceAnswerNote" placeholder="请输入答案解析"></Textarea>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">分数：</label>
+        <div class="flex-1">
+          <Input size="small" v-model="question.score" placeholder="请输入试题分数"></Input>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-28 shrink-0 text-sm font-medium text-foreground">难度：</label>
+        <div class="flex-1">
+          <el-rate style="line-height: 48px;" v-model="question.difficulty" :colors="colors"></el-rate>
+        </div>
+      </div>
+    </form>
+    <Button variant="outline" size="sm" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</Button>
   </div>
 </template>
 <script>
@@ -58,9 +84,20 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import {success} from "@/util/tipsUtils";
   import router from "@/router";
 
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Textarea } from '@/components/ui/textarea'
+  import { Radio } from '@/components/ui/radio'
+export default {
     name: "ExamQuestionLibJudgment",
-    components: {Edit, Delete},
+    components: {
+    Radio,
+    Card,
+    CardHeader,
+    CardContent,Edit, Delete, Button,
+    Input,
+    Textarea},
     setup() {
       const route = useRoute()
       const colors = ["#99A9BF", "#F7BA2A", "#FF9900"]

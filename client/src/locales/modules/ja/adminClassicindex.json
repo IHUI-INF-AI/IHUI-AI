@@ -1,8 +1,0 @@
-{
-  "adminClassicindex": {
-    "timeExpr": "時間式",
-    "cronExpr": "Cron式",
-    "minute": "分",
-    "hour": "時"
-  }
-}

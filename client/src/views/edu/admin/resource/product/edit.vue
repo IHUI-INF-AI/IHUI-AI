@@ -1,19 +1,28 @@
 <template>
   <div class="app-container">
-    <el-form ref="categoryRef" :rules="rules" :model="category" label-width="110px">
-      <el-form-item label="名称" prop="name">
-        <el-input size="small" maxlength="15" show-word-limit class="input-text" v-model="category.name"></el-input>
-      </el-form-item>
-      <el-form-item label="图片" prop="image">
-        <upload-image :limit="1" :files="uploadData.files" :on-upload-success="onUploadSuccess" :on-upload-remove="onUploadRemove" :upload-url="uploadData.url"></upload-image>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-switch size="small"  id="status" active-color="#13ce66" v-model="category.status"></el-switch>
-      </el-form-item>
-    </el-form>
+    <form ref="categoryRef" @submit.prevent>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">名称</label>
+        <div>
+          <Input size="small" maxlength="15" class="input-text" v-model="category.name"></Input>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">图片</label>
+        <div>
+          <upload-image :limit="1" :files="uploadData.files" :on-upload-success="onUploadSuccess" :on-upload-remove="onUploadRemove" :upload-url="uploadData.url"></upload-image>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+        <div>
+          <Switch size="small"  id="status" v-model="category.status" />
+        </div>
+      </div>
+    </form>
     <div class="dialog-footer">
-      <el-button size="small"  @click="cancel()">取 消</el-button>
-      <el-button size="small"  type="primary" @click="submit()">确 定</el-button>
+      <Button variant="outline" size="sm" @click="cancel()">取 消</Button>
+      <Button variant="default" size="sm" @click="submit()">确 定</Button>
     </div>
   </div>
 </template>
@@ -26,11 +35,17 @@
 const { toTree } = resourceApi
   const { findProductList, getProduct, saveProduct, updateProduct } = resourceApi
   import uploadImage from "@/components/Uplaod/index.vue";
+  import Button from '@/components/ui/Button.vue';
+  import { Input } from '@/components/ui/input'
+  import { Switch } from '@/components/ui/switch'
   import {success, error} from "@/util/tipsUtils";
   export default {
     name: "ResourceProductEdit",
     components: {
-      uploadImage
+      uploadImage,
+      Button,
+      Input,
+      Switch
     },
     props: {
       data: {

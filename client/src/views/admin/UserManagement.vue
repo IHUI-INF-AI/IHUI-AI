@@ -1,66 +1,80 @@
 <template>
   <div class="user-management">
-    <el-card class="page-card">
-      <template #header>
+    <Card class="page-card"><CardHeader>
         <div class="card-header">
           <h2>{{ t('adminComponents.userManagement.title') }}</h2>
-          <el-button type="primary" @click="showAddDialog">
-            <el-icon><Plus /></el-icon>
+          <Button variant="default" @click="showAddDialog">
+            <Plus class="h-4 w-4" />
             {{ t('adminComponents.userManagement.addUser') }}
-          </el-button>
+          </Button>
         </div>
-      </template>
-
-      <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item :label="t('adminComponents.userManagement.username')">
-          <el-input v-model="searchForm.username" :placeholder="t('adminComponents.userManagement.usernamePlaceholder')" clearable />
-        </el-form-item>
-        <el-form-item :label="t('adminComponents.userManagement.status')">
-          <el-select v-model="searchForm.status" :placeholder="t('adminComponents.userManagement.statusPlaceholder')" clearable>
-            <el-option :label="t('adminComponents.userManagement.enabled')" :value="1" />
-            <el-option :label="t('adminComponents.userManagement.disabled')" :value="0" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">
+      </CardHeader><CardContent class="p-5">
+      
+      <form @submit.prevent class="search-form flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.username') }}</label>
+          <Input v-model="searchForm.username" :placeholder="t('adminComponents.userManagement.usernamePlaceholder')" clearable />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.status') }}</label>
+          <Select v-model="searchForm.status" :placeholder="t('adminComponents.userManagement.statusPlaceholder')" clearable>
+            <SelectOption :label="t('adminComponents.userManagement.enabled')" :value="1" />
+            <SelectOption :label="t('adminComponents.userManagement.disabled')" :value="0" />
+          </Select>
+        </div>
+        <div>
+          <Button variant="default" @click="handleSearch">
             <SearchIcon />
             {{ t('adminComponents.userManagement.search') }}
-          </el-button>
-          <el-button @click="resetSearch">{{ t('adminComponents.userManagement.reset') }}</el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+          <Button variant="outline" @click="resetSearch">{{ t('adminComponents.userManagement.reset') }}</Button>
+        </div>
+      </form>
 
-      <el-table :data="userList" v-loading="loading" stripe>
-        <el-table-column type="index" width="50" />
-        <el-table-column prop="username" :label="t('adminComponents.userManagement.username')" />
-        <el-table-column prop="nickname" :label="t('adminComponents.userManagement.nickname')" />
-        <el-table-column prop="email" :label="t('adminComponents.userManagement.email')" />
-        <el-table-column prop="phone" :label="t('adminComponents.userManagement.phone')" />
-        <el-table-column prop="status" :label="t('adminComponents.userManagement.status')">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'">
-              {{ row.status === 1 ? t('adminComponents.userManagement.enabled') : t('adminComponents.userManagement.disabled') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" :label="t('adminComponents.userManagement.createTime')" />
-        <el-table-column :label="t('adminComponents.userManagement.actions')" width="200">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleEdit(row)">{{ t('adminComponents.userManagement.editUser') }}</el-button>
-            <el-button
-              :type="row.status === 1 ? 'danger' : 'success'"
-              size="small"
-              @click="handleToggleStatus(row)"
-            >
-              {{ row.status === 1 ? t('adminComponents.userManagement.disabled') : t('adminComponents.userManagement.enabled') }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="loading" class="flex justify-center py-8 text-muted-foreground">Loading...</div>
+      <Table v-else>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[50px]">#</TableHead>
+            <TableHead>{{ t('adminComponents.userManagement.username') }}</TableHead>
+            <TableHead>{{ t('adminComponents.userManagement.nickname') }}</TableHead>
+            <TableHead>{{ t('adminComponents.userManagement.email') }}</TableHead>
+            <TableHead>{{ t('adminComponents.userManagement.phone') }}</TableHead>
+            <TableHead>{{ t('adminComponents.userManagement.status') }}</TableHead>
+            <TableHead>{{ t('adminComponents.userManagement.createTime') }}</TableHead>
+            <TableHead class="w-[200px]">{{ t('adminComponents.userManagement.actions') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in userList" :key="row.id ?? index">
+            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{ row.username }}</TableCell>
+            <TableCell>{{ row.nickname }}</TableCell>
+            <TableCell>{{ row.email }}</TableCell>
+            <TableCell>{{ row.phone }}</TableCell>
+            <TableCell>
+              <Tag :type="row.status === 1 ? 'success' : 'danger'">
+                {{ row.status === 1 ? t('adminComponents.userManagement.enabled') : t('adminComponents.userManagement.disabled') }}
+              </Tag>
+            </TableCell>
+            <TableCell>{{ row.createTime }}</TableCell>
+            <TableCell>
+              <Button variant="default" size="sm" @click="handleEdit(row)">{{ t('adminComponents.userManagement.editUser') }}</Button>
+              <Button
+                :variant="row.status === 1 ? 'destructive' : 'default'"
+                size="sm"
+                @click="handleToggleStatus(row)"
+              >
+                {{ row.status === 1 ? t('adminComponents.userManagement.disabled') : t('adminComponents.userManagement.enabled') }}
+              </Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
       <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.page"
+        <Pagination
+          v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="pagination.total"
@@ -69,34 +83,50 @@
           @current-change="handlePageChange"
         />
       </div>
-    </el-card>
+    </CardContent></Card>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
-        <el-form-item :label="t('adminComponents.userManagement.username')" prop="username">
-          <el-input v-model="form.username" :placeholder="t('adminComponents.userManagement.usernamePlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('adminComponents.userManagement.nickname')" prop="nickname">
-          <el-input v-model="form.nickname" :placeholder="t('adminComponents.userManagement.nicknamePlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('adminComponents.userManagement.email')" prop="email">
-          <el-input v-model="form.email" :placeholder="t('adminComponents.userManagement.emailPlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('adminComponents.userManagement.phone')" prop="phone">
-          <el-input v-model="form.phone" :placeholder="t('adminComponents.userManagement.phonePlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="t('adminComponents.userManagement.status')" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :label="1">{{ t('adminComponents.userManagement.enabled') }}</el-radio>
-            <el-radio :label="0">{{ t('adminComponents.userManagement.disabled') }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">{{ t('adminComponents.userManagement.cancel') }}</el-button>
-        <el-button type="primary" @click="handleSubmit">{{ t('adminComponents.userManagement.confirm') }}</el-button>
-      </template>
-    </el-dialog>
+    <Dialog v-model="dialogVisible" width="500px">
+      <DialogHeader>
+        <DialogTitle>{{ dialogTitle }}</DialogTitle>
+      </DialogHeader>
+      <form ref="formRef" @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.username') }}</label>
+          <div class="flex-1">
+            <Input v-model="form.username" :placeholder="t('adminComponents.userManagement.usernamePlaceholder')" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.nickname') }}</label>
+          <div class="flex-1">
+            <Input v-model="form.nickname" :placeholder="t('adminComponents.userManagement.nicknamePlaceholder')" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.email') }}</label>
+          <div class="flex-1">
+            <Input v-model="form.email" :placeholder="t('adminComponents.userManagement.emailPlaceholder')" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.phone') }}</label>
+          <div class="flex-1">
+            <Input v-model="form.phone" :placeholder="t('adminComponents.userManagement.phonePlaceholder')" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('adminComponents.userManagement.status') }}</label>
+          <div class="flex-1">
+            <Radio v-model="form.status" :value="1">{{ t('adminComponents.userManagement.enabled') }}</Radio>
+            <Radio v-model="form.status" :value="0">{{ t('adminComponents.userManagement.disabled') }}</Radio>
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="dialogVisible = false">{{ t('adminComponents.userManagement.cancel') }}</Button>
+        <Button variant="default" @click="handleSubmit">{{ t('adminComponents.userManagement.confirm') }}</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -106,6 +136,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useI18n } from 'vue-i18n'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Radio } from '@/components/ui/radio'
+import { Pagination } from '@/components/ui/pagination'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
+import { Tag } from '@/components/ui/tag'
 
 const { t } = useI18n()
 

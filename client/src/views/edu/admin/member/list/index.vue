@@ -2,214 +2,292 @@
   <div class="member-container">
     <div class="head">
       <div class="el-form-item-wrap">
-        <el-form-item label="会员公司" v-if="memberCompanyList && memberCompanyList.length">
-          <el-select clearable filterable v-model="param.companyId" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option v-for="company in memberCompanyList" :label="company.name"  :value="company.id" :key="company.id"></el-option>
-          </el-select>
-        </el-form-item>
-      </div>
-      <el-input v-model="param.keyword" clearable placeholder="输入名称搜索" class="custom-input" @keyup.enter="search"></el-input>
-      <el-button class="search-btn" :icon="Search" @click="search">搜索</el-button>
-
-      <el-button type="primary" :icon="Plus" @click="showUserDialog()" v-if="!isComponent">新增</el-button>
-
-      <el-button :icon="Upload" @click="showImportDialog()" v-if="!isComponent">导入</el-button>
-    </div>
-    <el-table v-loading="dataLoading" :data="memberList" style="width: 100%;" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="45" v-if="isComponent"/>
-      <el-table-column type="expand">
-        <template #default="props">
-          <el-card class="box-card">
-            <template #header>
-              <div>
-                <span>基础信息</span>
-              </div>
-            </template>
-            <div class="table-wrapper">
-              <table class="fl-table">
-                <tbody>
-                  <tr><td>编号</td><td>{{props.row.code}}</td></tr>
-                  <tr><td>姓名</td><td>{{props.row.name}}</td></tr>
-                  <tr><td>真实姓名</td><td>{{props.row.realname}}</td></tr>
-                  <tr><td>性别</td><td>{{props.row.gender}}</td></tr>
-                  <tr><td>出生日期</td><td>{{props.row.birthday}}</td></tr>
-                  <tr><td>人员状态</td><td>{{stateMap[props.row.status]}}</td></tr>
-                  <tr><td>注册时间</td><td>{{props.row.createTime}}</td></tr>
-                  <tr><td>过期时间</td><td>{{props.row.expireTime}}</td></tr>
-                  <tr><td>手机电话</td><td>{{props.row.mobile}}</td></tr>
-                  <tr><td>座机号码</td><td>{{props.row.telephone}}</td></tr>
-                  <tr><td>电子邮箱</td><td>{{props.row.email}}</td></tr>
-                  <tr><td>会员等级</td><td>{{props.row.level && props.row.level.name || "无"}}</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </el-card>
-        </template>
-      </el-table-column>
-<!--      <el-table-column prop="username" label="账号"/>-->
-      <el-table-column label="序号" width="70" type="index"/>
-      <el-table-column prop="name" label="姓名"/>
-      <el-table-column prop="mobile" label="手机号码"/>
-      <el-table-column prop="realname" label="真实姓名"/>
-      <el-table-column prop="companyName" label="公司"  min-width="140"/>
-      <el-table-column label="职务">
-        <template #default="scope">
-          <div v-if="scope.row.memberPostList && scope.row.memberPostList.length">
-            <span v-for="(mg, index) in scope.row.memberPostList" :key="mg.id">
-              {{mg.name}} {{(index + 1) !== scope.row.memberPostList.length ? "、" : ""}}
-            </span>
+        <div class="mb-4" v-if="memberCompanyList && memberCompanyList.length">
+          <label class="mb-1 block text-sm font-medium text-foreground">会员公司</label>
+          <div>
+            <Select clearable v-model="param.companyId" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption v-for="company in memberCompanyList" :label="company.name"  :value="company.id" :key="company.id"></SelectOption>
+            </Select>
           </div>
+        </div>
+      </div>
+      <Input v-model="param.keyword" clearable placeholder="输入名称搜索" class="custom-input" @keyup.enter="search"></Input>
+      <Button className="search-btn" variant="outline" @click="search"><Search />搜索</Button>
+
+      <Button variant="default" @click="showUserDialog()" v-if="!isComponent"><Plus />新增</Button>
+
+      <Button variant="outline" @click="showImportDialog()" v-if="!isComponent"><Upload />导入</Button>
+    </div>
+    <div v-if="dataLoading" class="loading">加载中...</div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead v-if="isComponent" class="w-[55px]"><input type="checkbox" :checked="allSelected" @change="toggleAll($event)" /></TableHead>
+          <TableHead class="w-[70px]"></TableHead>
+          <TableHead class="w-[70px]">序号</TableHead>
+          <TableHead>姓名</TableHead>
+          <TableHead>手机号码</TableHead>
+          <TableHead>真实姓名</TableHead>
+          <TableHead class="min-w-[140px]">公司</TableHead>
+          <TableHead>职务</TableHead>
+          <TableHead class="text-center">状态</TableHead>
+          <TableHead v-if="!isComponent" class="min-w-[140px] text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <template v-for="(row, index) in memberList" :key="row.id ?? index">
+          <TableRow>
+            <TableCell v-if="isComponent" class="w-[55px]"><input type="checkbox" :checked="multipleSelection.includes(row)" @change="toggleRow(row)" /></TableCell>
+            <TableCell><button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button></TableCell>
+            <TableCell>{{ index + 1 }}</TableCell>
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell>{{ row.mobile }}</TableCell>
+            <TableCell>{{ row.realname }}</TableCell>
+            <TableCell>{{ row.companyName }}</TableCell>
+            <TableCell>
+              <div v-if="row.memberPostList && row.memberPostList.length">
+                <span v-for="(mg, mIndex) in row.memberPostList" :key="mg.id">
+                  {{mg.name}} {{(mIndex + 1) !== row.memberPostList.length ? "、" : ""}}
+                </span>
+              </div>
+            </TableCell>
+            <TableCell class="text-center">{{stateMap[row.status]}}</TableCell>
+            <TableCell v-if="!isComponent" class="text-center">
+              <Button variant="link" @click="showUserDialog(row)">编辑</Button>
+              <Button variant="link" style="color: red;" @click="seal(row)" v-if="row.status === 'normal'">禁用</Button>
+              <Button variant="link" v-if="row.status === 'lock'" @click="unseal(row)">解禁</Button>
+              <Button variant="link" @click="showResetPwdDialog(row)">重置密码</Button>
+              <Button variant="link" @click="batchShowSignUpListDrawer(row)">批量报名</Button>
+              <Button variant="link" @click="remove(row)" style="color: red;">删除</Button>
+            </TableCell>
+          </TableRow>
+          <tr v-if="expandedRows.has(index)">
+            <td colspan="99">
+              <Card class="box-card">
+                <CardHeader>
+                  <div>
+                    <span>基础信息</span>
+                  </div>
+                </CardHeader>
+                  <CardContent>
+                <div class="table-wrapper">
+                  <table class="fl-table">
+                    <tbody>
+                      <tr><td>编号</td><td>{{row.code}}</td></tr>
+                      <tr><td>姓名</td><td>{{row.name}}</td></tr>
+                      <tr><td>真实姓名</td><td>{{row.realname}}</td></tr>
+                      <tr><td>性别</td><td>{{row.gender}}</td></tr>
+                      <tr><td>出生日期</td><td>{{row.birthday}}</td></tr>
+                      <tr><td>人员状态</td><td>{{stateMap[row.status]}}</td></tr>
+                      <tr><td>注册时间</td><td>{{row.createTime}}</td></tr>
+                      <tr><td>过期时间</td><td>{{row.expireTime}}</td></tr>
+                      <tr><td>手机电话</td><td>{{row.mobile}}</td></tr>
+                      <tr><td>座机号码</td><td>{{row.telephone}}</td></tr>
+                      <tr><td>电子邮箱</td><td>{{row.email}}</td></tr>
+                      <tr><td>会员等级</td><td>{{row.level && row.level.name || "无"}}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+              </Card>
+            </td>
+          </tr>
         </template>
-      </el-table-column>
-<!--      <el-table-column :show-overflow-tooltip="true" prop="email" label="邮箱"/>-->
-<!--      <el-table-column label="会员等级">-->
-<!--        <template #default="scope">-->
-<!--          {{scope.row.level && scope.row.level.name || "无"}}-->
-<!--        </template>-->
-<!--      </el-table-column>-->
-      <el-table-column label="状态" align="center">
-        <template #default="scope">
-          {{stateMap[scope.row.status]}}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" min-width="140" v-if="!isComponent">
-        <template #default="scope">
-          <el-button link @click="showUserDialog(scope.row)">编辑</el-button>
-          <el-button link style="color: red;" @click="seal(scope.row)" v-if="scope.row.status === 'normal'">禁用</el-button>
-          <el-button link v-if="scope.row.status === 'lock'" @click="unseal(scope.row)">解禁</el-button>
-          <el-button link @click="showResetPwdDialog(scope.row)">重置密码</el-button>
-          <el-button link @click="batchShowSignUpListDrawer(scope.row)">批量报名</el-button>
-          <el-button link @click="remove(scope.row)" style="color: red;">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      </TableBody>
+    </Table>
     <!--分页组件-->
     <page :total="total" @size-change="sizeChange" @current-change="currentChange" :page-size="param.size"/>
-    <el-dialog v-model="showResetPwdDialogFlag" :title="'重置密码'" append-to-body width="90%" :before-close="hideResetPwdDialog">
+    <Dialog v-model="showResetPwdDialogFlag" width="90%" @close="hideResetPwdDialog">
+      <DialogHeader>
+        <DialogTitle>重置密码</DialogTitle>
+      </DialogHeader>
       <div style="padding: 10px 0;text-align: center;">
         <div style="margin: 10px;display: inline-block;">新密码：</div>
         <div style="margin: 10px;display: inline-block;width: 300px;">
-          <el-input style="height: 40px;" v-model="memberReset.password" placeholder="请输入密码"></el-input>
+          <Input style="height: 40px;" v-model="memberReset.password" placeholder="请输入密码"></Input>
         </div>
       </div>
-      <template #footer>
+      <DialogFooter>
         <div style="text-align: center;">
-          <el-button @click="resetPwdSubmit">提交</el-button>
+          <Button variant="outline" @click="resetPwdSubmit">提交</Button>
         </div>
-      </template>
-    </el-dialog>
+      </DialogFooter>
+    </Dialog>
     <!-- 编辑 -->
-    <el-dialog v-model="showUserDialogFlag" :title="'编辑会员'" append-to-body width="90%" :before-close="hideUserDialog">
-      <el-form :model="member" :rules="userRules" ref="userRef" class="user-form" label-width="150px">
-        <el-form-item label="名字：" prop="name">
-          <el-input v-model="member.name" placeholder="请输入名字"></el-input>
-        </el-form-item>
-        <el-form-item label="账号：" prop="username">
-          <el-input v-model="member.username" placeholder="请输入账号"></el-input>
-        </el-form-item>
-        <el-form-item label="邮箱：" prop="email">
-          <el-input v-model="member.email" placeholder="请输入邮箱"></el-input>
-        </el-form-item>
-        <el-form-item label="手机号码：" prop="mobile">
-          <el-input v-model="member.mobile" placeholder="请输入手机号码"></el-input>
-        </el-form-item>
-        <el-form-item label="密码：" prop="password" v-if="!member.id">
-          <el-input v-model="member.password" placeholder="请输入密码"></el-input>
-        </el-form-item>
-        <el-form-item label="确认密码：" prop="confirmPassword" v-if="!member.id">
-          <el-input v-model="member.confirmPassword" placeholder="请再次输入密码"></el-input>
-        </el-form-item>
-        <el-form-item label="工号：" prop="code">
-          <el-input v-model="member.code" placeholder="请输入工号"></el-input>
-        </el-form-item>
-        <el-form-item label="出生日期：" prop="birthday">
-          <el-date-picker style="width: 100%;" v-model="member.birthday" type="date" placeholder="选择出生日期"></el-date-picker>
-        </el-form-item>
-        <el-form-item label="性别：" prop="gender">
-          <el-radio v-model="member.gender" label="男">男</el-radio>
-          <el-radio v-model="member.gender" label="女">女</el-radio>
-        </el-form-item>
-        <el-form-item label="办公电话：" prop="telephone">
-          <el-input v-model="member.telephone" placeholder="请输入电话"></el-input>
-        </el-form-item>
-        <el-form-item label="过期时间：" prop="contractStartDate">
-          <el-date-picker style="width: 100%;" v-model="member.expireTime" type="date" placeholder="过期时间" format="YYYY-MM-DD HH:mm:ss" value-format="YYYY-MM-DD HH:mm:ss"></el-date-picker>
-        </el-form-item>
-        <el-form-item label="会员公司：" prop="telephone">
-          <el-button @click="showMemberCompany">选择</el-button>
-          <template v-for="(item, index) in selectMemberCompanyList" :key="item.id">
-            <el-input placeholder="请选择公司" v-model="item.name" readonly>
-              <template #suffix>
+    <Dialog v-model="showUserDialogFlag" width="90%" @close="hideUserDialog">
+      <DialogHeader>
+        <DialogTitle>编辑会员</DialogTitle>
+      </DialogHeader>
+      <form ref="userRef" @submit.prevent class="user-form">
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">名字：</label>
+          <div>
+            <Input v-model="member.name" placeholder="请输入名字"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">账号：</label>
+          <div>
+            <Input v-model="member.username" placeholder="请输入账号"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">邮箱：</label>
+          <div>
+            <Input v-model="member.email" placeholder="请输入邮箱"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">手机号码：</label>
+          <div>
+            <Input v-model="member.mobile" placeholder="请输入手机号码"></Input>
+          </div>
+        </div>
+        <div class="mb-4" v-if="!member.id">
+          <label class="mb-1 block text-sm font-medium text-foreground">密码：</label>
+          <div>
+            <Input v-model="member.password" placeholder="请输入密码"></Input>
+          </div>
+        </div>
+        <div class="mb-4" v-if="!member.id">
+          <label class="mb-1 block text-sm font-medium text-foreground">确认密码：</label>
+          <div>
+            <Input v-model="member.confirmPassword" placeholder="请再次输入密码"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">工号：</label>
+          <div>
+            <Input v-model="member.code" placeholder="请输入工号"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">出生日期：</label>
+          <div>
+            <el-date-picker style="width: 100%;" v-model="member.birthday" type="date" placeholder="选择出生日期"></el-date-picker>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">性别：</label>
+          <div>
+            <Radio v-model="member.gender" value="男">男</Radio>
+            <Radio v-model="member.gender" value="女">女</Radio>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">办公电话：</label>
+          <div>
+            <Input v-model="member.telephone" placeholder="请输入电话"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">过期时间：</label>
+          <div>
+            <el-date-picker style="width: 100%;" v-model="member.expireTime" type="date" placeholder="过期时间" format="YYYY-MM-DD HH:mm:ss" value-format="YYYY-MM-DD HH:mm:ss"></el-date-picker>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">会员公司：</label>
+          <div>
+            <Button variant="outline" @click="showMemberCompany">选择</Button>
+            <template v-for="(item, index) in selectMemberCompanyList" :key="item.id">
+              <div class="flex">
+                <Input placeholder="请选择公司" v-model="item.name" readonly />
                 <span class="delete-btn" @click="deleteSelectMemberCompany(item, index)">
-                  <el-icon><Delete/></el-icon>
+                  <Delete class="h-4 w-4" />
                 </span>
-              </template>
-            </el-input>
-          </template>
-          <el-dialog class="custom-dialog" title="选择公司" v-model="memberCompanyDialogFlag" :before-close="hideMemberCompany" width="80%">
-            <member-company :cancel-callback="hideMemberCompany" :select-callback="selectMemberCompany" :is-component="true"/>
-          </el-dialog>
-        </el-form-item>
-        <el-form-item label="会员分组：" prop="telephone">
-          <el-button @click="showMemberGroup">选择</el-button>
-          <template v-for="(item, index) in selectMemberGroupList" :key="item.id">
-            <el-input placeholder="请选择分组" v-model="item.name" readonly>
-              <template #suffix>
+              </div>
+            </template>
+            <Dialog class="custom-dialog" v-model="memberCompanyDialogFlag" width="80%" @close="hideMemberCompany">
+              <DialogHeader>
+                <DialogTitle>选择公司</DialogTitle>
+              </DialogHeader>
+              <member-company :cancel-callback="hideMemberCompany" :select-callback="selectMemberCompany" :is-component="true"/>
+            </Dialog>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">会员分组：</label>
+          <div>
+            <Button variant="outline" @click="showMemberGroup">选择</Button>
+            <template v-for="(item, index) in selectMemberGroupList" :key="item.id">
+              <div class="flex">
+                <Input placeholder="请选择分组" v-model="item.name" readonly />
                 <span class="delete-btn" @click="deleteSelectMemberGroup(item, index)">
-                  <el-icon><Delete/></el-icon>
+                  <Delete class="h-4 w-4" />
                 </span>
-              </template>
-            </el-input>
-          </template>
-          <el-dialog class="custom-dialog" title="选择分组" v-model="memberGroupDialogFlag" :before-close="hideMemberGroup" width="80%">
-            <member-group :cancel-callback="hideMemberGroup" :select-callback="selectMemberGroup" :is-component="true"/>
-          </el-dialog>
-        </el-form-item>
-        <el-form-item label="会员岗位：" prop="telephone">
-          <el-button @click="showMemberPost">选择</el-button>
-          <template v-for="(item, index) in selectMemberPostList" :key="item.id">
-            <el-input placeholder="请选择岗位" v-model="item.name" readonly>
-              <template #suffix>
+              </div>
+            </template>
+            <Dialog class="custom-dialog" v-model="memberGroupDialogFlag" width="80%" @close="hideMemberGroup">
+              <DialogHeader>
+                <DialogTitle>选择分组</DialogTitle>
+              </DialogHeader>
+              <member-group :cancel-callback="hideMemberGroup" :select-callback="selectMemberGroup" :is-component="true"/>
+            </Dialog>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">会员岗位：</label>
+          <div>
+            <Button variant="outline" @click="showMemberPost">选择</Button>
+            <template v-for="(item, index) in selectMemberPostList" :key="item.id">
+              <div class="flex">
+                <Input placeholder="请选择岗位" v-model="item.name" readonly />
                 <span class="delete-btn" @click="deleteSelectMemberPost(item, index)">
-                  <el-icon><Delete/></el-icon>
+                  <Delete class="h-4 w-4" />
                 </span>
-              </template>
-            </el-input>
-          </template>
-          <el-dialog class="custom-dialog" title="选择岗位" v-model="memberPostDialogFlag" :before-close="hideMemberPost" width="80%">
-            <member-post :cancel-callback="hideMemberPost" :select-callback="selectMemberPost" :is-component="true"/>
-          </el-dialog>
-        </el-form-item>
-        <el-form-item label="会员标签：" prop="tag">
-          <el-tag :key="tag" v-for="(tag, index) in tags" closable :disable-transitions="false" @close="delTag(index)">{{tag}}</el-tag>
-          <el-input class="input-new-tag" v-if="tagsVisible" v-model="tag" ref="tagsRef" @blur="tagsInputConfirm" placeholder="请输入标签" @keydown.enter="tagsInputConfirm"></el-input>
-          <el-button v-else class="button-new-tag" @click="showTagsInput">+ 新增标签</el-button>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div style="text-align: center;">
-          <el-button @click="submit" type="primary">提交</el-button>
-          <el-button @click="hideUserDialog">关闭</el-button>
+              </div>
+            </template>
+            <Dialog class="custom-dialog" v-model="memberPostDialogFlag" width="80%" @close="hideMemberPost">
+              <DialogHeader>
+                <DialogTitle>选择岗位</DialogTitle>
+              </DialogHeader>
+              <member-post :cancel-callback="hideMemberPost" :select-callback="selectMemberPost" :is-component="true"/>
+            </Dialog>
+          </div>
         </div>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="showImportDialogFlag" :title="'导入会员'" append-to-body width="90%" :before-close="hideImportDialog">
-      <el-form ref="importRef" class="user-form" label-width="150px">
-        <el-form-item label="导入文件：" prop="name">
-          <input style="min-width: 400px;" type="file" placeholder="请输入选择文件" @change="handleFileChange"/>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div style="text-align: center;">
-          <el-button @click="submitImport" :loading="uploadingFlag" type="primary">提交</el-button>
-          <el-button @click="hideImportDialog">关闭</el-button>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">会员标签：</label>
+          <div>
+            <Tag :key="tag" v-for="(tag, index) in tags" closable @close="delTag(index)">{{tag}}</Tag>
+            <Input class="input-new-tag" v-if="tagsVisible" v-model="tag" ref="tagsRef" @blur="tagsInputConfirm" placeholder="请输入标签" @keydown.enter="tagsInputConfirm"></Input>
+            <Button v-else className="button-new-tag" variant="outline" @click="showTagsInput">+ 新增标签</Button>
+          </div>
         </div>
-      </template>
-    </el-dialog>
+      </form>
+      <DialogFooter>
+        <div style="text-align: center;">
+          <Button variant="default" @click="submit">提交</Button>
+          <Button variant="outline" @click="hideUserDialog">关闭</Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
 
-    <el-dialog v-model="showImportResultDialogFlag" style="max-height: 100vh;" top="0" :title="'编辑用户'" append-to-body width="90%" :before-close="hideImportResultDialog">
+    <Dialog v-model="showImportDialogFlag" width="90%" @close="hideImportDialog">
+      <DialogHeader>
+        <DialogTitle>导入会员</DialogTitle>
+      </DialogHeader>
+      <form ref="importRef" @submit.prevent class="user-form">
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">导入文件：</label>
+          <div>
+            <input style="min-width: 400px;" type="file" placeholder="请输入选择文件" @change="handleFileChange"/>
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <div style="text-align: center;">
+          <Button variant="default" @click="submitImport">提交</Button>
+          <Button variant="outline" @click="hideImportDialog">关闭</Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
+
+    <Dialog v-model="showImportResultDialogFlag" style="max-height: 100vh;" top="0" width="90%" @close="hideImportResultDialog">
+      <DialogHeader>
+        <DialogTitle>编辑用户</DialogTitle>
+      </DialogHeader>
       <div v-if="importResult" class="result-wrap">
         <div class="result-header">
           <div class="result-header-item">总数量：{{(importResult.successCount || 0) + (importResult.failureCount || 0)}}</div>
@@ -217,36 +295,51 @@
           <div class="result-header-item">失败数量：{{importResult.failureCount || 0}}</div>
         </div>
         <div class="result-main">
-          <el-table :data="importResult.resultItemList">
-            <el-table-column label="序号" prop="serialNum"></el-table-column>
-            <el-table-column label="行号" prop="rowNum"></el-table-column>
-            <el-table-column label="结果">
-              <template #default="score">
-                <span :class="{'result-sccess': score.row.success, 'result-fail': !score.row.success}">
-                  {{score.row.success ? '成功' : '失败'}}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="结果描述" prop="message"></el-table-column>
-            <el-table-column label="公司名称" prop="companyName"></el-table-column>
-            <el-table-column label="学员姓名" prop="memberName"></el-table-column>
-            <el-table-column label="手机号" prop="memberMobile"></el-table-column>
-            <el-table-column label="职务" prop="postName"></el-table-column>
-            <el-table-column label="学习课程" prop="lessonName"></el-table-column>
-          </el-table>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>序号</TableHead>
+                <TableHead>行号</TableHead>
+                <TableHead>结果</TableHead>
+                <TableHead>结果描述</TableHead>
+                <TableHead>公司名称</TableHead>
+                <TableHead>学员姓名</TableHead>
+                <TableHead>手机号</TableHead>
+                <TableHead>职务</TableHead>
+                <TableHead>学习课程</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in importResult.resultItemList" :key="row.id ?? index">
+                <TableCell>{{ row.serialNum }}</TableCell>
+                <TableCell>{{ row.rowNum }}</TableCell>
+                <TableCell>
+                  <span :class="{'result-sccess': row.success, 'result-fail': !row.success}">
+                    {{row.success ? '成功' : '失败'}}
+                  </span>
+                </TableCell>
+                <TableCell>{{ row.message }}</TableCell>
+                <TableCell>{{ row.companyName }}</TableCell>
+                <TableCell>{{ row.memberName }}</TableCell>
+                <TableCell>{{ row.memberMobile }}</TableCell>
+                <TableCell>{{ row.postName }}</TableCell>
+                <TableCell>{{ row.lessonName }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
       </div>
-      <template #footer>
+      <DialogFooter>
         <div style="text-align: center;">
-          <el-button @click="hideImportResultDialog">关闭</el-button>
+          <Button variant="outline" @click="hideImportResultDialog">关闭</Button>
         </div>
-      </template>
-    </el-dialog>
+      </DialogFooter>
+    </Dialog>
 
     <template v-if="isComponent">
       <div class="dialog-footer" style="text-align: right;margin-top: 30px;">
-        <el-button @click="cancelCallback">取 消</el-button>
-        <el-button type="primary" @click="selectSelectionChange">确 定</el-button>
+        <Button variant="outline" @click="cancelCallback">取 消</Button>
+        <Button variant="default" @click="selectSelectionChange">确 定</Button>
       </div>
     </template>
     <batch-signup-lesson v-if="batchSignUpDrawer" :drawer-close="batchSignUpDrawerClose" :show-drawer="batchSignUpDrawer" :topic="selectTopic" />
@@ -255,7 +348,7 @@
 
 <script>
 // @ts-nocheck
-  import {ref, markRaw} from "vue"
+  import {ref, markRaw, computed} from "vue"
   import Page from "@/components/Page/index.vue"
   import { memberApi } from '@/api/edu/admin-api'
 const { getMemberList, sealMember, unsealMember, updateMember, memberPwdReset, createMember, findMemberCompanyList, batchUploadMember, removeMember } = memberApi;
@@ -265,15 +358,45 @@ const { getMemberList, sealMember, unsealMember, updateMember, memberPwdReset, c
   import MemberCompany from "@/views/edu/admin/member/company/index.vue";
   import {Delete, Search, Plus, Upload} from '@/lib/lucide-fallback';
   import BatchSignupLesson from "@/views/edu/admin/learn/signup/batchlesson/index.vue";
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import { Input } from '@/components/ui/input'
+  import { Radio } from '@/components/ui/radio'
+  import { Tag } from '@/components/ui/tag'
+  import { Select, SelectOption } from '@/components/ui/select'
+export default {
     name: "MemberList",
     components: {
+    Radio,
+    Button,
+    Card,
+    CardHeader,
+    CardContent,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
       BatchSignupLesson,
       Delete,
+      Search,
+      Plus,
+      Upload,
       MemberGroup,
       MemberPost,
       MemberCompany,
-      Page
+      Page,
+      Input,
+      Tag,
+      Select,
+      SelectOption
     },
     props: {
       cancelCallback: {
@@ -537,6 +660,30 @@ const { getMemberList, sealMember, unsealMember, updateMember, memberPwdReset, c
       const handleSelectionChange = (val) => {
         multipleSelection.value = val;
       }
+      const allSelected = computed(() => memberList.value.length > 0 && memberList.value.every(item => multipleSelection.value.includes(item)))
+      const toggleAll = (event) => {
+        if (event.target.checked) {
+          multipleSelection.value = [...memberList.value]
+        } else {
+          multipleSelection.value = []
+        }
+      }
+      const toggleRow = (row) => {
+        const idx = multipleSelection.value.indexOf(row)
+        if (idx === -1) {
+          multipleSelection.value.push(row)
+        } else {
+          multipleSelection.value.splice(idx, 1)
+        }
+      }
+      const expandedRows = ref(new Set())
+      const toggleExpand = (index) => {
+        if (expandedRows.value.has(index)) {
+          expandedRows.value.delete(index)
+        } else {
+          expandedRows.value.add(index)
+        }
+      }
       const selectSelectionChange = () => {
         if (!multipleSelection.value.length) {
           error("请至少选择一个")
@@ -644,6 +791,11 @@ const { getMemberList, sealMember, unsealMember, updateMember, memberPwdReset, c
         batchSignUpDrawerClose,
         handleSelectionChange,
         selectSelectionChange,
+        allSelected,
+        toggleAll,
+        toggleRow,
+        expandedRows,
+        toggleExpand,
         tags,
         tag,
         tagsVisible,

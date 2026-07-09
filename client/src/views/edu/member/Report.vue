@@ -1,23 +1,23 @@
 <template>
-  <div class="member-report">
+  <div class="member-report" role="region" :aria-label="t('edu.profile.reportTitle')">
     <header class="page-header">
       <div class="header-text">
         <h1 class="page-title">{{ t('edu.profile.reportTitle') }}</h1>
         <p class="page-subtitle">{{ t('edu.profile.reportSubtitle') }}</p>
       </div>
       <div class="header-actions">
-        <el-button :icon="Download" :loading="exporting" type="primary" @click="handleDownload">
+        <el-button :icon="Download" :loading="exporting" type="primary" :aria-label="t('edu.profile.exportPdf')" @click="handleDownload">
           PDF
         </el-button>
-        <el-button :icon="Printer" :loading="exporting" @click="handlePrint">
+        <el-button :icon="Printer" :loading="exporting" :aria-label="t('edu.profile.printReport')" @click="handlePrint">
           {{ t('edu.profile.printReport') }}
         </el-button>
       </div>
     </header>
 
-    <el-alert
+    <Alert
       v-if="error"
-      type="error"
+      variant="destructive"
       :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
@@ -149,6 +149,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Alert } from '@/components/ui/alert'
 import { Download, Printer } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { useReportGenerator } from '@/composables/useReportGenerator'

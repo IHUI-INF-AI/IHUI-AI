@@ -1,8 +1,0 @@
-{
-  "refundDetail": {
-    "backToList": "返回退款列表",
-    "title": "退款详情",
-    "refundNo": "退款单号",
-    "supplementEvidence": "补充凭证 (支持多文件)"
-  }
-}

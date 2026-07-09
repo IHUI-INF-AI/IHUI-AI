@@ -1,112 +1,106 @@
 <template>
   <div class="oauth-audit-dashboard">
     <!-- 顶部统计卡片 -->
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <div class="flex flex-wrap gap-5 stats-row">
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ stats.total }}</div>
             <div class="stat-label">总事件数 (近 {{ stats.days }} 天)</div>
           </div>
-          <el-icon class="stat-icon primary"><DataAnalysis /></el-icon>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+          <DataAnalysis class="h-4 w-4 stat-icon primary" />
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ totalSuccess }}</div>
             <div class="stat-label">成功事件</div>
           </div>
-          <el-icon class="stat-icon success"><CircleCheckFilled /></el-icon>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+          <CircleCheckFilled class="h-4 w-4 stat-icon success" />
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ totalFailure }}</div>
             <div class="stat-label">失败事件</div>
           </div>
-          <el-icon class="stat-icon danger"><CircleCloseFilled /></el-icon>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+          <CircleCloseFilled class="h-4 w-4 stat-icon danger" />
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value">{{ stats.by_event.length }}</div>
             <div class="stat-label">事件类型数</div>
           </div>
-          <el-icon class="stat-icon warning"><WarningFilled /></el-icon>
-        </el-card>
-      </el-col>
-    </el-row>
+          <WarningFilled class="h-4 w-4 stat-icon warning" />
+        </Card>
+      </div>
+    </div>
 
     <!-- 范围切换 -->
     <div class="toolbar">
       <span class="title">OAuth 审计日志趋势</span>
-      <el-radio-group v-model="daysRange" size="small" @change="loadStats">
-        <el-radio-button :value="7">近 7 天</el-radio-button>
-        <el-radio-button :value="30">近 30 天</el-radio-button>
-        <el-radio-button :value="90">近 90 天</el-radio-button>
-      </el-radio-group>
-      <el-button type="primary" size="small" :loading="loading" @click="loadStats">刷新</el-button>
+      <span class="range-group">
+        <Radio v-model="daysRange" :value="7" @change="loadStats">近 7 天</Radio>
+        <Radio v-model="daysRange" :value="30" @change="loadStats">近 30 天</Radio>
+        <Radio v-model="daysRange" :value="90" @change="loadStats">近 90 天</Radio>
+      </span>
+      <Button variant="default" size="sm" @click="loadStats">刷新</Button>
     </div>
 
     <!-- 趋势图 + 事件分布 -->
-    <el-row :gutter="20">
-      <el-col :span="16">
-        <el-card class="chart-card">
-          <template #header>
+    <div class="flex flex-wrap gap-5">
+      <div class="w-2/3">
+        <Card class="chart-card"><CardHeader>
             <span>按日趋势</span>
-          </template>
-          <div ref="trendChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card class="chart-card">
-          <template #header>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="trendChartRef" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+      <div class="w-1/3">
+        <Card class="chart-card"><CardHeader>
             <span>事件类型分布</span>
-          </template>
-          <div ref="eventChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="eventChartRef" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+    </div>
 
     <!-- 事件明细 + Top Client -->
-    <el-row :gutter="20">
-      <el-col :span="14">
-        <el-card class="chart-card">
-          <template #header>
+    <div class="flex flex-wrap gap-5">
+      <div style="width: calc(14/24 * 100%)">
+        <Card class="chart-card"><CardHeader>
             <span>按事件类型统计 (成功/失败)</span>
-          </template>
-          <div ref="eventBarChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="10">
-        <el-card class="chart-card">
-          <template #header>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="eventBarChartRef" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+      <div style="width: calc(10/24 * 100%)">
+        <Card class="chart-card"><CardHeader>
             <span>Top 10 应用 (按事件数)</span>
-          </template>
-          <el-table
-            :data="stats.by_client"
-            stripe
-            style="width: 100%"
-            empty-text="暂无数据"
-          >
-            <el-table-column type="index" label="#" width="50" />
-            <el-table-column prop="client_id" label="Client ID" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="client-id-cell">{{ row.client_id }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="count" label="事件数" width="100" sortable>
-              <template #default="{ row }">
-                <el-tag type="warning" size="small">{{ row.count }}</el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-    </el-row>
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[50px]">#</TableHead>
+                <TableHead>Client ID</TableHead>
+                <TableHead class="w-[100px]">事件数</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in stats.by_client" :key="row.client_id ?? index">
+                <TableCell>{{ index + 1 }}</TableCell>
+                <TableCell><span class="client-id-cell">{{ row.client_id }}</span></TableCell>
+                <TableCell><Tag type="warning" size="small">{{ row.count }}</Tag></TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -122,6 +116,11 @@ import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
 import { getOAuthAuditLogStats, type AuditLogStats } from '@/api/admin-oauth-audit-stats'
 import { useCleanup } from '@/composables/useCleanup'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Radio } from '@/components/ui/radio'
+import { Tag } from '@/components/ui/tag'
 
 const cssVar = (name: string) =>
   getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -358,7 +357,7 @@ watch(daysRange, () => loadStats())
   color: var(--el-text-color-primary);
 }
 
-.toolbar .el-radio-group {
+.toolbar .range-group {
   margin-left: auto;
 }
 

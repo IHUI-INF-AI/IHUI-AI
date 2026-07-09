@@ -1,6 +1,6 @@
 <template>
   <div class="category-tree">
-    <el-input size="small" placeholder="输入关键字进行搜索" v-model="filterText"></el-input>
+    <Input size="small" placeholder="输入关键字进行搜索" v-model="filterText" />
     <el-tree v-loading="dataLoading" size="small" ref="treeRef" v-if="treeFlag" :current-node-key="nodeKey" node-key="id" :filter-node-method="filterNode" :highlight-current="true" :data="treeData" :props="defaultProps" :expand-on-click-node="false" @node-click="handleNodeClick" class="el-tree"></el-tree>
   </div>
 </template>
@@ -11,8 +11,12 @@
 import { learnApi } from '@/api/edu/admin-api'
 const { findCategoryList } = learnApi
 import {ref, watch, nextTick} from "vue";
+import { Input } from '@/components/ui/input'
 export default {
   name: "LearnTopicCategoryTree",
+  components: {
+    Input
+  },
   props: {
     currentNodeKey: Number
   },

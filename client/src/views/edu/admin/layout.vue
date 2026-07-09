@@ -3,7 +3,7 @@
     <el-affix :offset="0">
       <div class="admin-nav-bar">
         <div class="nav-brand">
-          <el-icon :size="20"><School /></el-icon>
+          <School class="h-5 w-5" />
           <span class="brand-text">{{ t('edu.admin.title') }}</span>
         </div>
         <el-scrollbar class="nav-scroll">
@@ -15,7 +15,7 @@
               class="nav-link"
               active-class="active"
             >
-              <el-icon :size="16"><component :is="m.icon" /></el-icon>
+              <component :is="m.icon" class="h-4 w-4" />
               <span>{{ t(m.labelKey) }}</span>
             </router-link>
           </div>

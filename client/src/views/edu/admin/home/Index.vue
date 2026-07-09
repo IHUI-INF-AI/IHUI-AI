@@ -41,18 +41,11 @@
       <div class="operation">
         <div class="operation-content">
           <div class="stat-icon stat-icon-pv">
-            <el-icon :size="24"><View /></el-icon>
+            <View class="h-6 w-6" />
           </div>
           <div class="title">
             总浏览量/PV
-            <el-tooltip
-              class="item"
-              effect="dark"
-              content="页面被浏览的次数。每打开一个页面或每刷新一次均记录1次"
-              placement="top"
-            >
-              <el-icon><Warning /></el-icon>
-            </el-tooltip>
+            <Warning class="h-4 w-4 item" title="页面被浏览的次数。每打开一个页面或每刷新一次均记录1次" />
           </div>
           <div style="display: flex; align-items: center; justify-content: center;">
             <div class="value">{{ totalVisitMap.pv || 0 }}</div>
@@ -70,18 +63,11 @@
       <div class="operation">
         <div class="operation-content">
           <div class="stat-icon stat-icon-uv">
-            <el-icon :size="24"><User /></el-icon>
+            <User class="h-6 w-6" />
           </div>
           <div class="title">
             总访客数/UV
-            <el-tooltip
-              class="item"
-              effect="dark"
-              content="1天之内，访问网站的用户数，一天内同一访客多次访问网站计算1次"
-              placement="top"
-            >
-              <el-icon><Warning /></el-icon>
-            </el-tooltip>
+            <Warning class="h-4 w-4" title="1天之内，访问网站的用户数，一天内同一访客多次访问网站计算1次" />
           </div>
           <div style="display: flex; align-items: center; justify-content: center;">
             <div class="value">{{ totalVisitMap.uv || 0 }}</div>
@@ -99,18 +85,11 @@
       <div class="operation">
         <div class="operation-content">
           <div class="stat-icon stat-icon-vv">
-            <el-icon :size="24"><DataLine /></el-icon>
+            <DataLine class="h-6 w-6" />
           </div>
           <div class="title">
             总访问次数/VV
-            <el-tooltip
-              class="item"
-              effect="dark"
-              content="visit view，一个session算一次，页面停留超过10分钟重新计算"
-              placement="top"
-            >
-              <el-icon><Warning /></el-icon>
-            </el-tooltip>
+            <Warning class="h-4 w-4 item" title="visit view，一个session算一次，页面停留超过10分钟重新计算" />
           </div>
           <div style="display: flex; align-items: center; justify-content: center;">
             <div class="value">{{ totalVisitMap.vv || 0 }}</div>

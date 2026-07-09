@@ -2,64 +2,80 @@
   <div class="tour-perm-page" v-loading="loading">
     <h2 class="page-title">{{ t('tourPerm.title', '旅游平台权限管理 (useTourPermissionsStore)') }}</h2>
 
-    <el-row :gutter="16" class="stats-row">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <div class="flex flex-wrap gap-4 stats-row">
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-label">{{ t('tourPerm.currentRole', '当前角色') }}</div>
           <div class="stat-value">{{ currentRole }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-label">{{ t('tourPerm.totalPerms', '总权限数') }}</div>
           <div class="stat-value">{{ allPermissions.length }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-label">{{ t('tourPerm.granted', '已授予') }}</div>
           <div class="stat-value">{{ userPermissions.length }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-label">{{ t('tourPerm.denied', '未授予') }}</div>
           <div class="stat-value">{{ deniedPermissions.length }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-card class="perm-section">
-      <template #header>
+    <Card class="perm-section"><CardHeader>
         <span>{{ t('tourPerm.allPerms', '所有权限') }}</span>
-      </template>
-      <el-table :data="permRows" stripe>
-        <el-table-column prop="key" label="权限标识" width="280" />
-        <el-table-column prop="category" label="类别" width="120" />
-        <el-table-column :label="t('tourPerm.granted', '已授予')" width="120">
-          <template #default="{ row }">
-            <el-tag :type="row.granted ? 'success' : 'info'">
-              {{ row.granted ? t('common.yes') : t('common.no') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      </CardHeader><CardContent class="p-5">
+            <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[280px]">权限标识</TableHead>
+            <TableHead class="w-[120px]">类别</TableHead>
+            <TableHead class="w-[120px]">{{ t('tourPerm.granted', '已授予') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in permRows" :key="row.key ?? index">
+            <TableCell>{{ row.key }}</TableCell>
+            <TableCell>{{ row.category }}</TableCell>
+            <TableCell>
+              <Tag :type="row.granted ? 'success' : 'info'">
+                {{ row.granted ? t('common.yes') : t('common.no') }}
+              </Tag>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent></Card>
 
-    <el-card class="role-section">
-      <template #header>
+    <Card class="role-section"><CardHeader>
         <span>{{ t('tourPerm.roles', '角色映射') }}</span>
-      </template>
-      <el-table :data="roleRows" stripe>
-        <el-table-column prop="role" :label="t('tourPerm.role', '角色')" width="150" />
-        <el-table-column prop="count" :label="t('tourPerm.permCount', '权限数')" width="100" />
-        <el-table-column :label="t('tourPerm.perms', '权限')">
-          <template #default="{ row }">
-            <el-tag v-for="p in row.permissions" :key="p" size="small" style="margin: 2px">{{ p }}</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      </CardHeader><CardContent class="p-5">
+            <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[150px]">{{ t('tourPerm.role', '角色') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('tourPerm.permCount', '权限数') }}</TableHead>
+            <TableHead>{{ t('tourPerm.perms', '权限') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in roleRows" :key="row.role ?? index">
+            <TableCell>{{ row.role }}</TableCell>
+            <TableCell>{{ row.count }}</TableCell>
+            <TableCell>
+              <Tag v-for="p in row.permissions" :key="p" size="small" style="margin: 2px">{{ p }}</Tag>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent></Card>
   </div>
 </template>
 
@@ -68,6 +84,9 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, computed, onMounted } from 'vue'
 import { useTourPermissionsStore, type Permission, type Role } from '@/stores/auth/tour-permissions'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { Tag } from '@/components/ui/tag'
 
 const loading = ref(false)
 const store = useTourPermissionsStore()

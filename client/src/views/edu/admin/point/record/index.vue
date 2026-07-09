@@ -6,35 +6,47 @@
           <el-date-picker size="small" v-model="datetime" @change="datetimeChange" type="datetimerange" :shortcuts="shortcuts" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" align="right"></el-date-picker>
         </el-form-item>
         <el-form-item>
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-          <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
+          <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
+          <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
         </el-form-item>
         <el-form-item>
-          <el-select size="small" v-model="searchParam.type" @change="search" placeholder="请选择类型">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="增加积分" value="increase"></el-option>
-            <el-option label="消耗积分" value="decrease"></el-option>
-            <el-option label="回退积分" value="fallback"></el-option>
-            <el-option label="回收积分" value="recycle"></el-option>
-          </el-select>
+          <Select size="small" v-model="searchParam.type" @change="search" placeholder="请选择类型">
+            <SelectOption label="全部" value=""></SelectOption>
+            <SelectOption label="增加积分" value="increase"></SelectOption>
+            <SelectOption label="消耗积分" value="decrease"></SelectOption>
+            <SelectOption label="回退积分" value="fallback"></SelectOption>
+            <SelectOption label="回收积分" value="recycle"></SelectOption>
+          </Select>
         </el-form-item>
       </el-form>
     </div>
     <div class="content">
       <div class="content-list">
-        <el-table v-loading="dataLoading" :data="list" size="small" style="width: 100%;">
-          <el-table-column prop="pointId" label="积分ID" width="60"/>
-          <el-table-column prop="pointNum" label="积分个数"/>
-          <el-table-column label="类型">
-            <template #default="scope">
-              {{typeMap[scope.row.type]}}
-            </template>
-          </el-table-column>
-          <el-table-column prop="memberId" label="会员ID"/>
-          <el-table-column prop="mobile" label="手机号"/>
-          <el-table-column prop="createTime" label="发放/消耗时间"/>
-          <el-table-column prop="remark" label="发放/消耗原因"/>
-        </el-table>
+        <div v-if="dataLoading" class="loading-div">加载中...</div>
+        <Table class="text-sm" style="width: 100%">
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[60px]">积分ID</TableHead>
+              <TableHead>积分个数</TableHead>
+              <TableHead>类型</TableHead>
+              <TableHead>会员ID</TableHead>
+              <TableHead>手机号</TableHead>
+              <TableHead>发放/消耗时间</TableHead>
+              <TableHead>发放/消耗原因</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+              <TableCell>{{ row.pointId }}</TableCell>
+              <TableCell>{{ row.pointNum }}</TableCell>
+              <TableCell>{{ typeMap[row.type] }}</TableCell>
+              <TableCell>{{ row.memberId }}</TableCell>
+              <TableCell>{{ row.mobile }}</TableCell>
+              <TableCell>{{ row.createTime }}</TableCell>
+              <TableCell>{{ row.remark }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
     </div>
     <page style="margin-top: 20px;" :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
@@ -48,11 +60,20 @@
 const { findList } = pointApi
   import Page from "@/components/Page/index.vue"
   import {formatDate} from "@/util/dateUtils";
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Select, SelectOption } from '@/components/ui/select'
 
   export default {
     name: "PointRecordIndex",
     components: {
-      Page
+      Page,
+      Button,
+      Input,
+      Select,
+      SelectOption,
+      Table, TableHeader, TableBody, TableRow, TableHead, TableCell
     },
     setup() {
       const typeMap = {

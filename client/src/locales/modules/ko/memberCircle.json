@@ -1,9 +1,0 @@
-{
-  "memberCircle": {
-    "title": "내 서클",
-    "joinedCircles": "가입한 서클",
-    "emptyCircle": "가입한 서클 없음",
-    "publishedPosts": "게시한 게시물",
-    "emptyPost": "게시물 없음"
-  }
-}

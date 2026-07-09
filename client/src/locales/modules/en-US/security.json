@@ -1,9 +1,0 @@
-{
-  "security": {
-    "newDeviceLogin": "New Device Login",
-    "newDeviceLoginMessage": "Your account was logged in from a new device",
-    "suspiciousLogin": "Suspicious Login Warning",
-    "suspiciousLoginMessage": "Your account was logged in from an unusual location. Please verify this was you",
-    "secureAccount": "Secure Account"
-  }
-}

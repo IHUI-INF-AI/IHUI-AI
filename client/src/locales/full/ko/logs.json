@@ -1,9 +1,0 @@
-{
-  "logs": {
-    "loginFailed": "login실패",
-    "logoutApiFailed": "logoutApi실패",
-    "thirdPartyLoginFailed": "thirdPartyLogin실패",
-    "refreshTokenFailed": "refreshToken실패",
-    "getUserInfoFailed": "getUserInfo실패"
-  }
-}

@@ -2,17 +2,17 @@
   <div class="overview-page">
     <div class="info-section">
       <div class="info-card">
-        <div class="info-header"><el-icon><Setting /></el-icon> 系统设置概览</div>
+        <div class="info-header"><Setting class="h-4 w-4" /> 系统设置概览</div>
         <div class="info-content">
           <div class="info-item"><span class="label">协议管理</span><span class="value">用户协议、隐私政策等</span></div>
           <div class="info-item"><span class="label">轮播图管理</span><span class="value">首页轮播图配置</span></div>
         </div>
       </div>
       <div class="info-card">
-        <div class="info-header"><el-icon><InfoFilled /></el-icon> 快捷入口</div>
+        <div class="info-header"><InfoFilled class="h-4 w-4" /> 快捷入口</div>
         <div class="info-content">
-          <el-button type="primary" @click="$router.push('/admin/edu/setting/agreement')">协议管理</el-button>
-          <el-button @click="$router.push('/admin/edu/setting/carousel')">轮播图管理</el-button>
+          <Button variant="default" @click="$router.push('/admin/edu/setting/agreement')">协议管理</Button>
+          <Button variant="outline" @click="$router.push('/admin/edu/setting/carousel')">轮播图管理</Button>
         </div>
       </div>
     </div>
@@ -22,10 +22,11 @@
 <script>
 // @ts-nocheck
 import { Setting, InfoFilled } from '@/lib/lucide-fallback';
+import Button from '@/components/ui/Button.vue';
 
 export default {
   name: "SettingIndex",
-  components: { Setting, InfoFilled }
+  components: { Setting, InfoFilled, Button }
 };
 </script>
 

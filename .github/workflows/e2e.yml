@@ -1,170 +1,147 @@
 name: e2e
 
 # =============================================================================
-# E2E (Playwright) 测试 workflow —— 从 ci.yml 拆分而来.
+# E2E (Playwright) 测试 workflow — 新架构 (apps/web + apps/api)
 #
-# 背景: 原 ci.yml 的 playwright-e2e job 内含 25+ 个串行 test step, 无分片并行,
-#       单次运行耗时长. 本 workflow 改用 matrix 分 4 个 shard 并行执行, 并在
-#       e2e-report job 中合并所有分片的 blob 报告为统一 HTML 报告.
+# 架构: Monorepo (pnpm workspace + Turborepo)
+#   - apps/web: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+#   - apps/api: Fastify 5 + Drizzle ORM + PostgreSQL
 #
-# 独立性: 本 workflow 自包含, 不依赖 ci.yml 的任何 artifact; 后端/前端/预览均在
-#         每个 shard 内自行拉起 (复用 scripts/ci-env-setup.sh 统一编排入口).
+# 流程:
+#   1. 安装 pnpm 依赖
+#   2. 安装 Playwright 浏览器 (chromium)
+#   3. 构建 Next.js 前端 (production build)
+#   4. 启动 Next.js 预览服务器 (localhost:3000)
+#   5. 运行 Playwright E2E 测试 (apps/web/e2e/*.spec.ts)
 # =============================================================================
 
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - 'apps/api/**'
+      - 'packages/**'
+      - '.github/workflows/e2e.yml'
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: '3.11'
-  NODE_VERSION: '20'
+  NODE_VERSION: '20.10'
+  PNPM_VERSION: '9.15'
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # e2e-shard: 4 分片并行执行 Playwright E2E
-  #   - fail-fast: false  -> 任一分片失败不取消其他分片, 便于一次性看到全部失败
-  #   --shard=X/Y         -> Playwright 自动把全部测试文件均匀切分到 4 个 shard
-  #   - PW_SHARD_MODE=1   -> playwright.config.ts 切换为 blob+list reporter,
-  #                          blob 报告按 shard 命名, 供 e2e-report 合并
-  # ---------------------------------------------------------------------------
-  e2e-shard:
-    name: E2E 分片 ${{ matrix.shard }}/${{ strategy.job-total }}
+  e2e:
+    name: Playwright E2E
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ihui
+          POSTGRES_PASSWORD: ihui_test
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ihui"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+          cache: 'pnpm'
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: 安装后端依赖 (editable, server/pyproject.toml)
-        run: pip install -e server/
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
 
-      - name: 安装前端依赖
-        working-directory: client
-        run: npm ci
-
-      - name: 安装 Playwright 浏览器 (chromium)
-        working-directory: client
-        run: npx playwright install --with-deps chromium
-
-      - name: 启动后端 + 构建前端 + 启动预览 (ci-env-setup.sh 统一编排)
-        # scripts/ci-env-setup.sh 已含完整的后端启动 + /api/health 健康检查
-        # + client build + vite preview(4173) 逻辑, 复用为单一编排入口.
-        #   SKIP_DEPS_INSTALL=1 -> 跳过脚本内置的 pip/npm 安装 (上一步已装)
-        #   SKIP_PORT_CLEAN=1   -> 干净 runner 无遗留进程, 跳过端口清理
-        #   AUTO_CREATE_SCHEMA=1 / ENV=development -> 确保后端以开发态自建表启动
+      - name: Run database migrations
+        working-directory: apps/api
         env:
-          AUTO_CREATE_SCHEMA: '1'
-          ENV: development
-          SKIP_DEPS_INSTALL: '1'
-          SKIP_PORT_CLEAN: '1'
-        run: bash scripts/ci-env-setup.sh
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+        run: pnpm exec drizzle-kit migrate
 
-      - name: 运行 Playwright E2E (分片 ${{ matrix.shard }}/${{ strategy.job-total }})
+      - name: Build API
+        run: pnpm --filter @ihui/api run build
+
+      - name: Build web (production)
+        run: pnpm --filter @ihui/web run build
+
+      - name: Start API server (background)
+        working-directory: apps/api
         env:
-          PW_SHARD_MODE: '1'
-          PW_SHARD_INDEX: ${{ matrix.shard }}
-          PW_BASE_URL: http://127.0.0.1:4173
-          PW_BACKEND_URL: http://127.0.0.1:8000
-          # 让 playwright.config.ts 的 webServer 复用已在 4173 运行的 vite preview,
-          # 避免在 Linux 上尝试 `npm run dev` (其内含 Windows 专属 chcp 命令).
-          FRONTEND_PORT: '4173'
-        working-directory: client
-        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
-
-      - name: 上传 blob 报告 (shard ${{ matrix.shard }})
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: blob-report-shard-${{ matrix.shard }}
-          path: client/blob-report/
-          retention-days: 7
-
-      - name: 上传 test-results / 截图 / trace (shard ${{ matrix.shard }})
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-shard-${{ matrix.shard }}
-          path: client/test-results/
-          if-no-files-found: ignore
-          retention-days: 7
-
-  # ---------------------------------------------------------------------------
-  # e2e-report: 合并所有分片的 blob 报告为统一 HTML 报告
-  #   - needs: e2e-shard + if: always() -> 无论分片成功/失败都执行合并
-  #   - 下载所有 blob-report-shard-* artifact -> npx playwright merge-reports
-  # ---------------------------------------------------------------------------
-  e2e-report:
-    name: E2E 报告合并
-    runs-on: ubuntu-latest
-    needs: e2e-shard
-    if: always()
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-
-      - name: 安装客户端依赖 (提供 npx playwright merge-reports)
-        # --ignore-scripts: 跳过 postinstall (build:shared 等工作区构建),
-        # 合并报告仅需 @playwright/test 提供的 merge-reports 子命令, 无需构建产物.
-        working-directory: client
-        run: npm ci --ignore-scripts
-
-      - name: 下载所有分片 blob 报告
-        uses: actions/download-artifact@v4
-        with:
-          path: all-blob-reports
-          pattern: blob-report-shard-*
-
-      - name: 合并 blob 报告为统一 HTML 报告
+          NODE_ENV: test
+          PORT: '8080'
+          HOST: '0.0.0.0'
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-jwt-secret-for-e2e
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: |
-          set -e
-          mkdir -p merged-blobs
-          find all-blob-reports -name '*.zip' -print -exec cp {} merged-blobs/ \;
-          echo "=== 待合并的 blob 报告 ==="
-          ls -1 merged-blobs/ || true
-          if [ -z "$(ls -A merged-blobs 2>/dev/null)" ]; then
-            echo "::warning::未找到任何 blob 报告 (所有分片可能均未产出), 跳过合并"
-            exit 0
-          fi
-          cd client
-          npx playwright merge-reports --reporter html ../merged-blobs
+          node dist/index.js &
+          sleep 5
+          curl -sf http://localhost:8080/health || exit 1
 
-      - name: 上传合并后的 HTML 报告
+      - name: Start web server (background)
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+        run: |
+          pnpm start &
+          sleep 5
+          curl -sf http://localhost:3000 || exit 1
+
+      - name: Run Playwright E2E tests
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+        run: pnpm exec playwright test
+
+      - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-e2e-report
-          path: client/playwright-report/
-          if-no-files-found: ignore
+          name: playwright-report
+          path: apps/web/playwright-report/
           retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

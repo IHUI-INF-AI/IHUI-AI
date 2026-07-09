@@ -1,9 +1,9 @@
 <template>
   <div class="overview-page">
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><el-icon><VideoPlay /></el-icon></div><div class="stat-content"><div class="stat-title">直播总数</div><div class="stat-value">{{ stats.channelCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayChannelCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><el-icon><VideoPause /></el-icon></div><div class="stat-content"><div class="stat-title">活跃直播</div><div class="stat-value">{{ stats.activeChannelCount || 0 }}</div><div class="stat-footer">分类 <span class="highlight">{{ stats.categoryCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><el-icon><Bell /></el-icon></div><div class="stat-content"><div class="stat-title">订阅总数</div><div class="stat-value">{{ stats.subscribeCount || 0 }}</div><div class="stat-footer">今日订阅 <span class="highlight">+{{ stats.todaySubscribeCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><VideoPlay class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">直播总数</div><div class="stat-value">{{ stats.channelCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayChannelCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><VideoPause class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">活跃直播</div><div class="stat-value">{{ stats.activeChannelCount || 0 }}</div><div class="stat-footer">分类 <span class="highlight">{{ stats.categoryCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><Bell class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">订阅总数</div><div class="stat-value">{{ stats.subscribeCount || 0 }}</div><div class="stat-footer">今日订阅 <span class="highlight">+{{ stats.todaySubscribeCount || 0 }}</span></div></div></div>
     </div>
     <div class="charts-row">
       <div class="chart-box"><div class="chart-header">订阅趋势（近7天）</div><div class="chart-content" id="live-trend-chart"></div></div>

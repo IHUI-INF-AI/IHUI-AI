@@ -5,156 +5,188 @@
       <p class="showcase-subtitle">{{ t('showcase.subtitle') }}</p>
     </header>
 
-    <el-tabs v-model="activeTab" class="showcase-tabs">
-      <el-tab-pane :label="t('showcase.tab.buttons')" name="buttons">
-        <el-card class="showcase-card" shadow="hover">
-          <template #header>
+    <Tabs v-model="activeTab" class="showcase-tabs">
+      <TabsList>
+        <TabsTrigger value="buttons">{{ t('showcase.tab.buttons') }}</TabsTrigger>
+        <TabsTrigger value="forms">{{ t('showcase.tab.forms') }}</TabsTrigger>
+        <TabsTrigger value="feedback">{{ t('showcase.tab.feedback') }}</TabsTrigger>
+        <TabsTrigger value="data">{{ t('showcase.tab.data') }}</TabsTrigger>
+        <TabsTrigger value="navigation">{{ t('showcase.tab.navigation') }}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="buttons">
+        <Card class="showcase-card transition-shadow hover:shadow-md"><CardHeader>
             <span>{{ t('showcase.buttons.title') }}</span>
-          </template>
-          <div class="demo-row">
-            <el-button type="primary">{{ t('showcase.buttons.primary') }}</el-button>
-            <el-button type="success">{{ t('showcase.buttons.success') }}</el-button>
-            <el-button type="warning">{{ t('showcase.buttons.warning') }}</el-button>
-            <el-button type="danger">{{ t('showcase.buttons.danger') }}</el-button>
-            <el-button type="info">{{ t('showcase.buttons.info') }}</el-button>
+          </CardHeader><CardContent class="p-5">
+                    <div class="demo-row">
+            <Button variant="default">{{ t('showcase.buttons.primary') }}</Button>
+            <Button variant="default">{{ t('showcase.buttons.success') }}</Button>
+            <Button variant="secondary">{{ t('showcase.buttons.warning') }}</Button>
+            <Button variant="destructive">{{ t('showcase.buttons.danger') }}</Button>
+            <Button variant="ghost">{{ t('showcase.buttons.info') }}</Button>
           </div>
-          <el-divider />
+          <Divider />
           <div class="demo-row">
-            <el-button type="primary" :loading="loadingState.btnLoading" @click="onClick('btn')">
+            <Button variant="default" @click="onClick('btn')">
               {{ t('showcase.buttons.loading') }}
-            </el-button>
-            <el-button type="primary" disabled>{{ t('showcase.buttons.disabled') }}</el-button>
-            <el-button type="primary" round>{{ t('showcase.buttons.round') }}</el-button>
-            <el-button type="primary" circle icon="Plus" />
+            </Button>
+            <Button variant="default" disabled>{{ t('showcase.buttons.disabled') }}</Button>
+            <Button variant="default" className="rounded-full">{{ t('showcase.buttons.round') }}</Button>
+            <Button variant="default" size="icon"><Plus class="h-4 w-4" /></Button>
           </div>
-        </el-card>
-      </el-tab-pane>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('showcase.tab.forms')" name="forms">
-        <el-card class="showcase-card" shadow="hover">
-          <template #header>
+      <TabsContent value="forms">
+        <Card class="showcase-card transition-shadow hover:shadow-md"><CardHeader>
             <span>{{ t('showcase.forms.title') }}</span>
-          </template>
-          <el-form :model="formData" label-width="100px" class="demo-form">
-            <el-form-item :label="t('showcase.forms.input')">
-              <el-input v-model="formData.input" :placeholder="t('showcase.forms.inputPlaceholder')" />
-            </el-form-item>
-            <el-form-item :label="t('showcase.forms.textarea')">
-              <el-input v-model="formData.textarea" type="textarea" :rows="3" />
-            </el-form-item>
-            <el-form-item :label="t('showcase.forms.select')">
-              <el-select v-model="formData.select" :placeholder="t('showcase.forms.selectPlaceholder')">
-                <el-option :label="t('showcase.forms.optionA')" value="a" />
-                <el-option :label="t('showcase.forms.optionB')" value="b" />
-                <el-option :label="t('showcase.forms.optionC')" value="c" />
-              </el-select>
-            </el-form-item>
-            <el-form-item :label="t('showcase.forms.switch')">
-              <el-switch v-model="formData.switchVal" />
-            </el-form-item>
-            <el-form-item :label="t('showcase.forms.checkbox')">
-              <el-checkbox-group v-model="formData.checkboxVal">
-                <el-checkbox value="vue">{{ t('showcase.forms.vue') }}</el-checkbox>
-                <el-checkbox value="react">{{ t('showcase.forms.react') }}</el-checkbox>
-                <el-checkbox value="ai">{{ t('showcase.forms.ai') }}</el-checkbox>
-              </el-checkbox-group>
-            </el-form-item>
-            <el-form-item :label="t('showcase.forms.radio')">
-              <el-radio-group v-model="formData.radioVal">
-                <el-radio value="m">{{ t('showcase.forms.male') }}</el-radio>
-                <el-radio value="f">{{ t('showcase.forms.female') }}</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item :label="t('showcase.forms.date')">
-              <el-date-picker v-model="formData.date" type="date" :placeholder="t('showcase.forms.datePlaceholder')" />
-            </el-form-item>
-          </el-form>
-        </el-card>
-      </el-tab-pane>
+          </CardHeader><CardContent class="p-5">
+                    <form @submit.prevent class="demo-form">
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.input') }}</label>
+              <div class="flex-1">
+                <Input v-model="formData.input" :placeholder="t('showcase.forms.inputPlaceholder')" />
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.textarea') }}</label>
+              <div class="flex-1">
+                <Textarea v-model="formData.textarea" :rows="3" />
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.select') }}</label>
+              <div class="flex-1">
+                <Select v-model="formData.select" :placeholder="t('showcase.forms.selectPlaceholder')">
+                  <SelectOption :label="t('showcase.forms.optionA')" value="a" />
+                  <SelectOption :label="t('showcase.forms.optionB')" value="b" />
+                  <SelectOption :label="t('showcase.forms.optionC')" value="c" />
+                </Select>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.switch') }}</label>
+              <div class="flex-1">
+                <Switch v-model="formData.switchVal" />
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.checkbox') }}</label>
+              <div class="flex-1">
+                <div>
+                  <Checkbox v-model="formData.checkboxVal" value="vue">{{ t('showcase.forms.vue') }}</Checkbox>
+                  <Checkbox v-model="formData.checkboxVal" value="react">{{ t('showcase.forms.react') }}</Checkbox>
+                  <Checkbox v-model="formData.checkboxVal" value="ai">{{ t('showcase.forms.ai') }}</Checkbox>
+                </div>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.radio') }}</label>
+              <div class="flex-1">
+                <div>
+                  <Radio v-model="formData.radioVal" value="m">{{ t('showcase.forms.male') }}</Radio>
+                  <Radio v-model="formData.radioVal" value="f">{{ t('showcase.forms.female') }}</Radio>
+                </div>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.date') }}</label>
+              <div class="flex-1">
+                <el-date-picker v-model="formData.date" type="date" :placeholder="t('showcase.forms.datePlaceholder')" />
+              </div>
+            </div>
+          </form>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('showcase.tab.feedback')" name="feedback">
-        <el-card class="showcase-card" shadow="hover">
-          <template #header>
+      <TabsContent value="feedback">
+        <Card class="showcase-card transition-shadow hover:shadow-md"><CardHeader>
             <span>{{ t('showcase.feedback.title') }}</span>
-          </template>
-          <div class="demo-row">
-            <el-alert :title="t('showcase.feedback.successAlert')" type="success" :closable="false" />
-            <el-alert :title="t('showcase.feedback.warningAlert')" type="warning" :closable="false" />
-            <el-alert :title="t('showcase.feedback.errorAlert')" type="error" :closable="false" />
+          </CardHeader><CardContent class="p-5">
+                    <div class="demo-row">
+            <Alert :title="t('showcase.feedback.successAlert')" variant="success" :closable="false" />
+            <Alert :title="t('showcase.feedback.warningAlert')" variant="warning" :closable="false" />
+            <Alert :title="t('showcase.feedback.errorAlert')" variant="destructive" :closable="false" />
           </div>
-          <el-divider />
+          <Divider />
           <div class="demo-row">
-            <el-tag type="success">{{ t('showcase.feedback.tagSuccess') }}</el-tag>
-            <el-tag type="info">{{ t('showcase.feedback.tagInfo') }}</el-tag>
-            <el-tag type="warning">{{ t('showcase.feedback.tagWarning') }}</el-tag>
-            <el-tag type="danger">{{ t('showcase.feedback.tagDanger') }}</el-tag>
+            <Tag type="success">{{ t('showcase.feedback.tagSuccess') }}</Tag>
+            <Tag type="info">{{ t('showcase.feedback.tagInfo') }}</Tag>
+            <Tag type="warning">{{ t('showcase.feedback.tagWarning') }}</Tag>
+            <Tag type="danger">{{ t('showcase.feedback.tagDanger') }}</Tag>
           </div>
-          <el-divider />
+          <Divider />
           <div class="demo-row">
             <el-progress :percentage="progressValue" :stroke-width="14" />
             <el-slider v-model="progressValue" :min="0" :max="100" />
           </div>
-        </el-card>
-      </el-tab-pane>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('showcase.tab.data')" name="data">
-        <el-card class="showcase-card" shadow="hover">
-          <template #header>
+      <TabsContent value="data">
+        <Card class="showcase-card transition-shadow hover:shadow-md"><CardHeader>
             <span>{{ t('showcase.data.title') }}</span>
-          </template>
-          <el-table :data="tableData" stripe>
-            <el-table-column prop="name" :label="t('showcase.data.columnName')" />
-            <el-table-column prop="category" :label="t('showcase.data.columnCategory')" />
-            <el-table-column prop="status" :label="t('showcase.data.columnStatus')">
-              <template #default="{ row }">
-                <el-tag :type="row.statusType">{{ row.status }}</el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-pagination
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('showcase.data.columnName') }}</TableHead>
+                <TableHead>{{ t('showcase.data.columnCategory') }}</TableHead>
+                <TableHead>{{ t('showcase.data.columnStatus') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in tableData" :key="row.name ?? index">
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>{{ row.category }}</TableCell>
+                <TableCell>
+                  <Tag :type="row.statusType">{{ row.status }}</Tag>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <Pagination
             class="demo-pagination"
             layout="prev, pager, next, total"
             :total="50"
             :page-size="10"
-            :current-page="1"
+            :page="1"
           />
-        </el-card>
-      </el-tab-pane>
+        </CardContent></Card>
+      </TabsContent>
 
-      <el-tab-pane :label="t('showcase.tab.navigation')" name="navigation">
-        <el-card class="showcase-card" shadow="hover">
-          <template #header>
+      <TabsContent value="navigation">
+        <Card class="showcase-card transition-shadow hover:shadow-md"><CardHeader>
             <span>{{ t('showcase.navigation.title') }}</span>
-          </template>
-          <el-menu mode="horizontal" class="demo-menu" :default-active="'home'">
+          </CardHeader><CardContent class="p-5">
+                    <el-menu mode="horizontal" class="demo-menu" :default-active="'home'">
             <el-menu-item index="home">{{ t('showcase.navigation.menuHome') }}</el-menu-item>
             <el-menu-item index="agents">{{ t('showcase.navigation.menuAgents') }}</el-menu-item>
             <el-menu-item index="docs">{{ t('showcase.navigation.menuDocs') }}</el-menu-item>
             <el-menu-item index="about">{{ t('showcase.navigation.menuAbout') }}</el-menu-item>
           </el-menu>
-          <el-divider />
+          <Divider />
           <el-breadcrumb separator="/">
             <el-breadcrumb-item>{{ t('showcase.navigation.breadcrumbHome') }}</el-breadcrumb-item>
             <el-breadcrumb-item>{{ t('showcase.navigation.breadcrumbDocs') }}</el-breadcrumb-item>
             <el-breadcrumb-item>{{ t('showcase.navigation.breadcrumbCurrent') }}</el-breadcrumb-item>
           </el-breadcrumb>
-          <el-divider />
+          <Divider />
           <el-steps :active="stepValue" finish-status="success" class="demo-steps">
             <el-step :title="t('showcase.navigation.step1')" />
             <el-step :title="t('showcase.navigation.step2')" />
             <el-step :title="t('showcase.navigation.step3')" />
           </el-steps>
-          <el-button-group class="demo-row">
-            <el-button @click="stepValue = Math.max(1, stepValue - 1)">
+          <div class="flex gap-2 demo-row">
+            <Button variant="outline" @click="stepValue = Math.max(1, stepValue - 1)">
               {{ t('showcase.navigation.prev') }}
-            </el-button>
-            <el-button @click="stepValue = Math.min(3, stepValue + 1)">
+            </Button>
+            <Button variant="outline" @click="stepValue = Math.min(3, stepValue + 1)">
               {{ t('showcase.navigation.next') }}
-            </el-button>
-          </el-button-group>
-        </el-card>
-      </el-tab-pane>
-    </el-tabs>
+            </Button>
+          </div>
+        </CardContent></Card>
+      </TabsContent>
+    </Tabs>
   </div>
 </template>
 
@@ -162,6 +194,16 @@
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCleanup } from '@/composables/useCleanup'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
+import { Plus } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 const activeTab = ref('buttons')

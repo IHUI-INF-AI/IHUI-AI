@@ -1,9 +1,0 @@
-{
-  "headerNav": {
-    "moreFeaturesMouseDown": "[更多功能] mousedown 事件，設置標誌",
-    "moreFeaturesClearFlag": "[更多功能] 清除標誌",
-    "moreFeaturesToggle": "[更多功能] toggleMoreMenu 被調用",
-    "moreMenuSwitch": "[更多功能] showMoreMenu 切換為",
-    "moreFeatures": "更多功能"
-  }
-}

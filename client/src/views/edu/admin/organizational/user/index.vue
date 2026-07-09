@@ -1,168 +1,241 @@
 <template>
   <div class="user-container">
-    <el-row>
-      <el-col :span="6">
+    <div class="flex flex-wrap">
+      <div class="w-1/4">
         <department-tree class="department-tree" @node-click="handleNodeClick"/>
-      </el-col>
-      <el-col :span="18" class="user-list">
+      </div>
+      <div class="w-3/4 user-list">
         <div class="head">
-          <el-input size="small" v-model="param.keyword" clearable placeholder="输入姓名搜索" class="custom-input" @keyup.enter="search"></el-input>
-          <el-button size="small" class="search-btn" :icon="Search" @click="search">搜索</el-button>
-          <el-button style="margin-left: 10px;" size="small" @click="add">新增</el-button>
+          <Input size="small" v-model="param.keyword" clearable placeholder="输入姓名搜索" class="custom-input" @keyup.enter="search"></Input>
+          <Button size="sm" className="search-btn" variant="outline" @click="search"><Search />搜索</Button>
+          <Button style="margin-left: 10px;" size="sm" variant="outline" @click="add">新增</Button>
         </div>
-        <el-table :data="userList" size="small" style="width: 100%;" @selection-change="handleSelectionChange">
-          <el-table-column type="selection" width="45" v-if="isComponent"/>
-          <el-table-column type="expand">
-            <template #default="props">
-              <el-card class="box-card" shadow="never">
-                <template #header>
-                  <div class="clearfix">
-                    <span>基础信息</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <table class="fl-table">
-                    <tbody>
-                      <tr><td>编号</td><td>{{props.row.code}}</td></tr>
-                      <tr><td>账号</td><td>{{props.row.username}}</td></tr>
-                      <tr><td>姓名</td><td>{{props.row.name}}</td></tr>
-                      <tr><td>性别</td><td>{{props.row.gender}}</td></tr>
-                      <tr><td>出生日期</td><td>{{props.row.birthday}}</td></tr>
-                      <tr><td>籍贯</td><td>{{props.row.nativePlace}}</td></tr>
-                      <tr><td>民族</td><td>{{props.row.nation}}</td></tr>
-                      <tr><td>婚姻状态</td><td>{{props.row.maritalStatus}}</td></tr>
-                      <tr><td>身份证号</td><td>{{props.row.idCard}}</td></tr>
-                      <tr><td>身份证地址</td><td>{{props.row.idCardAddress}}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </el-card>
-              <el-card class="box-card" shadow="never">
-                <template #header>
-                  <div class="clearfix">
-                    <span>工作信息</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <table class="fl-table">
-                    <tbody>
-                      <tr><td>人员状态</td><td>{{stateMap[props.row.status]}}</td></tr>
-                      <tr><td>合约开始时间</td><td>{{props.row.contractStartDate}}</td></tr>
-                      <tr><td>合约结束时间</td><td>{{props.row.contractEndDate}}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </el-card>
-              <el-card class="box-card" shadow="never">
-                <template #header>
-                  <div class="clearfix">
-                    <span>通讯信息</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <table class="fl-table">
-                    <tbody>
-                      <tr><td>移动电话</td><td>{{props.row.mobile}}</td></tr>
-                      <tr><td>办公室电话</td><td>{{props.row.telephone}}</td></tr>
-                      <tr><td>电子邮箱</td><td>{{props.row.email}}</td></tr>
-                      <tr><td>当前住址</td><td>{{props.row.currentAddress}}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </el-card>
+        <Table class="text-sm" @selection-change="handleSelectionChange">
+          <TableHeader>
+            <TableRow>
+              <TableHead v-if="isComponent" class="w-[55px]"><input type="checkbox" :checked="allSelected" @change="toggleAll($event)" /></TableHead>
+              <TableHead class="w-[70px]"></TableHead>
+              <TableHead>账号</TableHead>
+              <TableHead>姓名</TableHead>
+              <TableHead>性别</TableHead>
+              <TableHead>邮箱</TableHead>
+              <TableHead class="text-center">状态</TableHead>
+              <TableHead v-if="!isComponent" class="w-[100px] text-center">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <template v-for="(row, index) in userList" :key="row.id ?? index">
+              <TableRow>
+                <TableCell v-if="isComponent" class="w-[55px]"><input type="checkbox" :checked="multipleSelection.includes(row)" @change="toggleRow(row)" /></TableCell>
+                <TableCell><button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button></TableCell>
+                <TableCell>{{ row.username }}</TableCell>
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>{{ row.gender }}</TableCell>
+                <TableCell>{{ row.email }}</TableCell>
+                <TableCell class="text-center">{{stateMap[row.status]}}</TableCell>
+                <TableCell v-if="!isComponent" class="text-center">
+                  <Button size="sm" variant="link" @click="editUser(row)">编辑</Button>
+                  <edit :data="row"/>
+                  <Button size="sm" variant="link" @click="remove(row)" style="color: red;">删除</Button>
+                  <Button size="sm" variant="link" @click="resetPassword(row)">重置密码</Button>
+                </TableCell>
+              </TableRow>
+              <tr v-if="expandedRows.has(index)">
+                <td colspan="99">
+                  <Card class="box-card shadow-none">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>基础信息</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <table class="fl-table">
+                        <tbody>
+                          <tr><td>编号</td><td>{{row.code}}</td></tr>
+                          <tr><td>账号</td><td>{{row.username}}</td></tr>
+                          <tr><td>姓名</td><td>{{row.name}}</td></tr>
+                          <tr><td>性别</td><td>{{row.gender}}</td></tr>
+                          <tr><td>出生日期</td><td>{{row.birthday}}</td></tr>
+                          <tr><td>籍贯</td><td>{{row.nativePlace}}</td></tr>
+                          <tr><td>民族</td><td>{{row.nation}}</td></tr>
+                          <tr><td>婚姻状态</td><td>{{row.maritalStatus}}</td></tr>
+                          <tr><td>身份证号</td><td>{{row.idCard}}</td></tr>
+                          <tr><td>身份证地址</td><td>{{row.idCardAddress}}</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                  </Card>
+                  <Card class="box-card shadow-none">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>工作信息</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <table class="fl-table">
+                        <tbody>
+                          <tr><td>人员状态</td><td>{{stateMap[row.status]}}</td></tr>
+                          <tr><td>合约开始时间</td><td>{{row.contractStartDate}}</td></tr>
+                          <tr><td>合约结束时间</td><td>{{row.contractEndDate}}</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                  </Card>
+                  <Card class="box-card shadow-none">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>通讯信息</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <table class="fl-table">
+                        <tbody>
+                          <tr><td>移动电话</td><td>{{row.mobile}}</td></tr>
+                          <tr><td>办公室电话</td><td>{{row.telephone}}</td></tr>
+                          <tr><td>电子邮箱</td><td>{{row.email}}</td></tr>
+                          <tr><td>当前住址</td><td>{{row.currentAddress}}</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                  </Card>
+                </td>
+              </tr>
             </template>
-          </el-table-column>
-          <el-table-column prop="username" label="账号"/>
-          <el-table-column prop="name" label="姓名"/>
-          <el-table-column prop="gender" label="性别"/>
-          <el-table-column :show-overflow-tooltip="true" prop="email" label="邮箱"/>
-          <el-table-column label="状态" align="center">
-            <template #default="scope">
-              {{stateMap[scope.row.status]}}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" align="center" width="100" v-if="!isComponent">
-            <template #default="scope">
-              <el-button size="small" link @click="editUser(scope.row)">编辑</el-button>
-              <edit :data="scope.row"/>
-              <el-button size="small" link @click="remove(scope.row)" style="color: red;">删除</el-button>
-              <el-button size="small" link @click="resetPassword(scope.row)">重置密码</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+          </TableBody>
+        </Table>
         <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="param.size"/>
-      </el-col>
-    </el-row>
-    <el-dialog v-model="showUserDialog" :title="user.id ? '新增用户' : '编辑用户'" append-to-body width="90%" :before-close="hideUserDialog">
-      <el-form :model="user" :rules="userRules" ref="userRef" class="user-form" label-width="150px">
-        <el-form-item label="名字：" prop="name">
-          <el-input size="small" v-model="user.name" placeholder="请输入名字"></el-input>
-        </el-form-item>
-        <el-form-item label="账号：" prop="username">
-          <el-input size="small" v-model="user.username" placeholder="请输入账号"></el-input>
-        </el-form-item>
-        <el-form-item label="工号：" prop="code">
-          <el-input size="small" v-model="user.code" placeholder="请输入工号"></el-input>
-        </el-form-item>
-        <el-form-item label="邮箱：" prop="email">
-          <el-input size="small" v-model="user.email" placeholder="请输入导语"></el-input>
-        </el-form-item>
-        <el-form-item label="部门：" prop="departmentId">
-          <el-cascader style="width: 100%;"
-                       size="small"
-                       v-model="selectDepartmentList"
-                       :props="{ checkStrictly: true }"
-                       :options="departmentOptionList"
-                       @change="changeDepartment"></el-cascader>
-        </el-form-item>
-        <el-form-item label="手机号码：" prop="mobile">
-          <el-input size="small" v-model="user.mobile" placeholder="请输入导语"></el-input>
-        </el-form-item>
-        <el-form-item label="出生日期：" prop="birthday">
-          <el-date-picker style="width: 100%;" size="small" v-model="user.birthday" type="date" placeholder="选择出生日期"></el-date-picker>
-        </el-form-item>
-        <el-form-item label="性别：" prop="gender">
-          <el-radio size="small" v-model="user.gender" label="男">男</el-radio>
-          <el-radio size="small" v-model="user.gender" label="女">女</el-radio>
-        </el-form-item>
-        <el-form-item label="籍贯：" prop="nativePlace">
-          <el-input size="small" v-model="user.nativePlace" placeholder="请输入籍贯"></el-input>
-        </el-form-item>
-        <el-form-item label="民族：" prop="nation">
-          <el-input size="small" v-model="user.nation" placeholder="请输入民族"></el-input>
-        </el-form-item>
-        <el-form-item label="婚姻状态：" prop="maritalStatus">
-          <el-input size="small" v-model="user.maritalStatus" placeholder="请输入身份证住址"></el-input>
-        </el-form-item>
-        <el-form-item label="身份证号：" prop="idCard">
-          <el-input size="small" v-model="user.idCard" placeholder="请输入身份证号"></el-input>
-        </el-form-item>
-        <el-form-item label="身份证地址：" prop="idCardAddress">
-          <el-input size="small" v-model="user.idCardAddress" placeholder="请输入身份证地址"></el-input>
-        </el-form-item>
-        <el-form-item label="当前住址：" prop="currentAddress">
-          <el-input size="small" v-model="user.currentAddress" placeholder="请输入当前住址"></el-input>
-        </el-form-item>
-        <el-form-item label="办公电话：" prop="telephone">
-          <el-input size="small" v-model="user.telephone" placeholder="请输入导语"></el-input>
-        </el-form-item>
-        <el-form-item label="合约开始时间：" prop="contractStartDate">
-          <el-date-picker style="width: 100%;" size="small" v-model="user.contractStartDate" type="date" placeholder="选择合约开始时间"></el-date-picker>
-        </el-form-item>
-        <el-form-item label="合约结束时间：" prop="contractEndDate">
-          <el-date-picker style="width: 100%;" size="small" v-model="user.contractEndDate" type="date" placeholder="选择合约结束时间"></el-date-picker>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div style="text-align: center;">
-          <el-button size="small" @click="submit">提交</el-button>
+      </div>
+    </div>
+    <Dialog v-model="showUserDialog" width="90%" @close="hideUserDialog">
+      <DialogHeader>
+        <DialogTitle>{{ user.id ? '新增用户' : '编辑用户' }}</DialogTitle>
+      </DialogHeader>
+      <form ref="userRef" @submit.prevent class="user-form">
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">名字：</label>
+          <div>
+            <Input size="small" v-model="user.name" placeholder="请输入名字"></Input>
+          </div>
         </div>
-      </template>
-    </el-dialog>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">账号：</label>
+          <div>
+            <Input size="small" v-model="user.username" placeholder="请输入账号"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">工号：</label>
+          <div>
+            <Input size="small" v-model="user.code" placeholder="请输入工号"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">邮箱：</label>
+          <div>
+            <Input size="small" v-model="user.email" placeholder="请输入导语"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">部门：</label>
+          <div>
+            <el-cascader style="width: 100%;"
+                         size="small"
+                         v-model="selectDepartmentList"
+                         :props="{ checkStrictly: true }"
+                         :options="departmentOptionList"
+                         @change="changeDepartment"></el-cascader>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">手机号码：</label>
+          <div>
+            <Input size="small" v-model="user.mobile" placeholder="请输入导语"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">出生日期：</label>
+          <div>
+            <el-date-picker style="width: 100%;" size="small" v-model="user.birthday" type="date" placeholder="选择出生日期"></el-date-picker>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">性别：</label>
+          <div>
+            <Radio v-model="user.gender" value="男">男</Radio>
+            <Radio v-model="user.gender" value="女">女</Radio>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">籍贯：</label>
+          <div>
+            <Input size="small" v-model="user.nativePlace" placeholder="请输入籍贯"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">民族：</label>
+          <div>
+            <Input size="small" v-model="user.nation" placeholder="请输入民族"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">婚姻状态：</label>
+          <div>
+            <Input size="small" v-model="user.maritalStatus" placeholder="请输入身份证住址"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">身份证号：</label>
+          <div>
+            <Input size="small" v-model="user.idCard" placeholder="请输入身份证号"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">身份证地址：</label>
+          <div>
+            <Input size="small" v-model="user.idCardAddress" placeholder="请输入身份证地址"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">当前住址：</label>
+          <div>
+            <Input size="small" v-model="user.currentAddress" placeholder="请输入当前住址"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">办公电话：</label>
+          <div>
+            <Input size="small" v-model="user.telephone" placeholder="请输入导语"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">合约开始时间：</label>
+          <div>
+            <el-date-picker style="width: 100%;" size="small" v-model="user.contractStartDate" type="date" placeholder="选择合约开始时间"></el-date-picker>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">合约结束时间：</label>
+          <div>
+            <el-date-picker style="width: 100%;" size="small" v-model="user.contractEndDate" type="date" placeholder="选择合约结束时间"></el-date-picker>
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <div style="text-align: center;">
+          <Button size="sm" variant="outline" @click="submit">提交</Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
     <template v-if="isComponent">
       <div class="dialog-footer" style="text-align: right;margin-top: 30px;">
-        <el-button size="small" @click="cancelCallback">取 消</el-button>
-        <el-button size="small" type="primary" @click="submitSelectionChange">确 定</el-button>
+        <Button size="sm" variant="outline" @click="cancelCallback">取 消</Button>
+        <Button size="sm" variant="default" @click="submitSelectionChange">确 定</Button>
       </div>
     </template>
   </div>
@@ -170,7 +243,7 @@
 
 <script>
 // @ts-nocheck
-  import {ref, onMounted, nextTick, markRaw} from "vue"
+  import {ref, onMounted, nextTick, markRaw, computed} from "vue"
   import Edit from "./edit.vue"
   import DepartmentTree from "./tree.vue"
   import Page from "@/components/Page/index.vue"
@@ -179,7 +252,13 @@ const { getUserList, updateUser, saveUser, resetPwd, deleteUser } = organization
   import {error, success, confirm} from "@/util/tipsUtils";
   const { findDepartmentList, toTree, getAllParent } = organizationalApi;
   import {Search} from '@/lib/lucide-fallback'
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Radio } from '@/components/ui/radio'
+export default {
     name: "UserList",
     props: {
       cancelCallback: {
@@ -198,6 +277,22 @@ const { getUserList, updateUser, saveUser, resetPwd, deleteUser } = organization
       }
     },
     components: {
+    Radio,
+    Card,
+    CardHeader,
+    CardContent,
+    Button,
+    Input,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
       Edit,
       Page,
       DepartmentTree
@@ -332,6 +427,30 @@ const { getUserList, updateUser, saveUser, resetPwd, deleteUser } = organization
       const handleSelectionChange = (val) => {
         multipleSelection.value = val;
       }
+      const allSelected = computed(() => userList.value.length > 0 && userList.value.every(item => multipleSelection.value.includes(item)))
+      const toggleAll = (event) => {
+        if (event.target.checked) {
+          multipleSelection.value = [...userList.value]
+        } else {
+          multipleSelection.value = []
+        }
+      }
+      const toggleRow = (row) => {
+        const idx = multipleSelection.value.indexOf(row)
+        if (idx === -1) {
+          multipleSelection.value.push(row)
+        } else {
+          multipleSelection.value.splice(idx, 1)
+        }
+      }
+      const expandedRows = ref(new Set())
+      const toggleExpand = (index) => {
+        if (expandedRows.value.has(index)) {
+          expandedRows.value.delete(index)
+        } else {
+          expandedRows.value.add(index)
+        }
+      }
       const submitSelectionChange = () => {
         if (!multipleSelection.value.length) {
           error("请选择用户")
@@ -386,6 +505,11 @@ const { getUserList, updateUser, saveUser, resetPwd, deleteUser } = organization
         changeDepartment,
         handleSelectionChange,
         submitSelectionChange,
+        allSelected,
+        toggleAll,
+        toggleRow,
+        expandedRows,
+        toggleExpand,
         resetPassword,
         Search: markRaw(Search)
       }

@@ -1,8 +1,8 @@
 <template>
   <div class="overview-page">
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><el-icon><Notebook /></el-icon></div><div class="stat-content"><div class="stat-title">新闻总数</div><div class="stat-value">{{ stats.newsCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayNewsCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><el-icon><View /></el-icon></div><div class="stat-content"><div class="stat-title">总浏览量</div><div class="stat-value">{{ stats.newsViewCount || 0 }}</div><div class="stat-footer">点赞 <span class="highlight">{{ stats.newsLikeCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><Notebook class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">新闻总数</div><div class="stat-value">{{ stats.newsCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayNewsCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><View class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">总浏览量</div><div class="stat-value">{{ stats.newsViewCount || 0 }}</div><div class="stat-footer">点赞 <span class="highlight">{{ stats.newsLikeCount || 0 }}</span></div></div></div>
     </div>
     <div class="charts-row">
       <div class="chart-box"><div class="chart-header">新闻发布趋势（近7天）</div><div class="chart-content" id="news-trend-chart"></div></div>

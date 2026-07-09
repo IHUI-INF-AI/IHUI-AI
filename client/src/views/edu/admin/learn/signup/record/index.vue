@@ -14,39 +14,31 @@
       </div>
     </template>
     <div class="topic-list-wrapper">
-      <el-table v-loading="signUpLoading" :data="signUpList" style="width: 100%">
-        <el-table-column label="姓名">
-          <template #default="scope">
-            {{scope.row.member?.name || '未知用户'}}
-          </template>
-        </el-table-column>
-        <el-table-column label="真实姓名">
-          <template #default="scope">
-            {{scope.row.member?.realname || ''}}
-          </template>
-        </el-table-column>
-        <el-table-column label="公司">
-          <template #default="scope">
-            {{scope.row.member && scope.row.member.memberCompanyList && scope.row.member.memberCompanyList[0].name }}
-          </template>
-        </el-table-column>
-        <el-table-column label="报名时间" prop="createTime"></el-table-column>
-        <el-table-column label="进度">
-          <template #default="scope">
-            {{scope.row.progress || 0 }} %
-          </template>
-        </el-table-column>
-        <el-table-column label="完成时间" prop="completedTime">
-          <template #default="scope">
-            {{scope.row.completedTime || "--"}}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态">
-          <template #default="scope">
-            {{signUpStatusMap[scope.row.status]}}
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="signUpLoading">加载中...</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>姓名</TableHead>
+            <TableHead>真实姓名</TableHead>
+            <TableHead>公司</TableHead>
+            <TableHead>报名时间</TableHead>
+            <TableHead>进度</TableHead>
+            <TableHead>完成时间</TableHead>
+            <TableHead>状态</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in signUpList" :key="index">
+            <TableCell>{{ row.member?.name || '未知用户' }}</TableCell>
+            <TableCell>{{ row.member?.realname || '' }}</TableCell>
+            <TableCell>{{ row.member && row.member.memberCompanyList && row.member.memberCompanyList[0].name }}</TableCell>
+            <TableCell>{{ row.createTime }}</TableCell>
+            <TableCell>{{ row.progress || 0 }} %</TableCell>
+            <TableCell>{{ row.completedTime || "--" }}</TableCell>
+            <TableCell>{{ signUpStatusMap[row.status] }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
       <page class="page-bar" :total="signUpTotal" :current-change="signUpCurrentChange" :size-change="signUpSizeChange" :page-size="signUpParam.size"></page>
     </div>
   </el-drawer>
@@ -58,11 +50,18 @@ import page from "@/components/Page/index.vue"
 import {computed, ref} from "vue";
 import { learnApi } from '@/api/edu/admin-api'
 const { getSignUpList } = learnApi;
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 export default {
   name: "SignupRecordIndex",
   components: {
-    page
+    page,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell
   },
   props: {
     topic: {

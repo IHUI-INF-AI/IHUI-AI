@@ -1,138 +1,170 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="form-inline">
-        <el-form-item label="">
-          <el-input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字（公司名称/税号）" clearable></el-input>
-        </el-form-item>
-        <el-form-item label="抬头类型" class="select">
-          <el-select v-model="searchParam.titleType" @change="search" clearable placeholder="全部">
-            <el-option label="企业单位" :value="1"></el-option>
-            <el-option label="个人/非企业单位" :value="2"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="success" @click="handleAdd">
-            <el-icon><Plus /></el-icon>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <Input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字（公司名称/税号）" clearable />
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">抬头类型</label>
+          <div>
+            <Select v-model="searchParam.titleType" @change="search" clearable placeholder="全部">
+              <SelectOption label="企业单位" :value="1"></SelectOption>
+              <SelectOption label="个人/非企业单位" :value="2"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="search">搜索</Button>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="handleAdd">
+            <Plus class="h-4 w-4" />
             添加抬头
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="content">
-      <el-table :data="list" v-loading="dataLoading" style="width: 100%">
-        <el-table-column label="会员" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.member">{{ scope.row.member.name || scope.row.member.mobile }}</span>
-            <span v-else class="text-gray">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="抬头类型" width="120">
-          <template #default="scope">
-            <el-tag :type="scope.row.titleType === 1 ? 'primary' : 'success'" size="small">
-              {{ scope.row.titleType === 1 ? '企业单位' : '个人/非企业' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="companyName" label="发票抬头" min-width="200">
-          <template #default="scope">
-            <span>{{ scope.row.companyName }}</span>
-            <el-tag v-if="scope.row.defaultFlag" type="warning" size="small" style="margin-left: 8px">默认</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="companyTaxNumber" label="税号" width="180">
-          <template #default="scope">
-            {{ scope.row.companyTaxNumber || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="email" label="接收邮箱" width="200">
-          <template #default="scope">
-            {{ scope.row.email || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="mobilePhone" label="手机号码" width="130">
-          <template #default="scope">
-            {{ scope.row.mobilePhone || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180"></el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(scope.row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="dataLoading">加载中...</div>
+      <Table class="w-full">
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[150px]">会员</TableHead>
+            <TableHead class="w-[120px]">抬头类型</TableHead>
+            <TableHead class="min-w-[200px]">发票抬头</TableHead>
+            <TableHead class="w-[180px]">税号</TableHead>
+            <TableHead class="w-[200px]">接收邮箱</TableHead>
+            <TableHead class="w-[130px]">手机号码</TableHead>
+            <TableHead class="w-[180px]">创建时间</TableHead>
+            <TableHead class="w-[150px]">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+            <TableCell>
+              <span v-if="row.member">{{ row.member.name || row.member.mobile }}</span>
+              <span v-else class="text-gray">-</span>
+            </TableCell>
+            <TableCell>
+              <Tag :type="row.titleType === 1 ? 'primary' : 'success'" size="small">
+                {{ row.titleType === 1 ? '企业单位' : '个人/非企业' }}
+              </Tag>
+            </TableCell>
+            <TableCell>
+              <span>{{ row.companyName }}</span>
+              <Tag v-if="row.defaultFlag" type="warning" size="small" style="margin-left: 8px">默认</Tag>
+            </TableCell>
+            <TableCell>{{ row.companyTaxNumber || '-' }}</TableCell>
+            <TableCell>{{ row.email || '-' }}</TableCell>
+            <TableCell>{{ row.mobilePhone || '-' }}</TableCell>
+            <TableCell>{{ row.createTime }}</TableCell>
+            <TableCell>
+              <Button variant="link" @click="handleEdit(row)">编辑</Button>
+              <Button variant="link" @click="handleDelete(row)">删除</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
 
     <!-- 添加/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑发票抬头' : '添加发票抬头'" width="600px">
-      <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <el-form-item label="选择会员" prop="userId" v-if="!isEdit">
-          <el-select
-            v-model="formData.userId"
-            filterable
-            remote
-            reserve-keyword
-            placeholder="请输入会员手机号/姓名搜索"
-            :remote-method="searchMember"
-            :loading="memberLoading"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="member in memberOptions"
-              :key="member.id"
-              :label="`${member.name || member.mobile} (${member.mobile})`"
-              :value="member.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="会员" v-if="isEdit">
-          <span>{{ formData.memberName || '-' }}</span>
-        </el-form-item>
-        <el-form-item label="抬头类型" prop="titleType">
-          <el-radio-group v-model="formData.titleType">
-            <el-radio :label="1">企业单位</el-radio>
-            <el-radio :label="2">个人/非企业单位</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item :label="formData.titleType === 1 ? '公司名称' : '个人姓名'" prop="companyName">
-          <el-input v-model="formData.companyName" :placeholder="formData.titleType === 1 ? '请输入公司名称' : '请输入个人姓名'"></el-input>
-        </el-form-item>
-        <el-form-item label="税号" :prop="formData.titleType === 1 ? 'companyTaxNumber' : ''" v-if="formData.titleType === 1">
-          <el-input v-model="formData.companyTaxNumber" placeholder="请输入公司税号"></el-input>
-        </el-form-item>
-        <el-form-item label="公司地址" v-if="formData.titleType === 1">
-          <el-input v-model="formData.companyAddress" placeholder="请输入公司地址（选填）"></el-input>
-        </el-form-item>
-        <el-form-item label="公司电话" v-if="formData.titleType === 1">
-          <el-input v-model="formData.companyPhone" placeholder="请输入公司电话（选填）"></el-input>
-        </el-form-item>
-        <el-form-item label="开户银行" v-if="formData.titleType === 1">
-          <el-input v-model="formData.bankName" placeholder="请输入开户银行（选填）"></el-input>
-        </el-form-item>
-        <el-form-item label="银行账号" v-if="formData.titleType === 1">
-          <el-input v-model="formData.bankAccount" placeholder="请输入银行账号（选填）"></el-input>
-        </el-form-item>
-        <el-form-item label="接收邮箱" prop="email">
-          <el-input v-model="formData.email" placeholder="请输入接收电子发票的邮箱"></el-input>
-        </el-form-item>
-        <el-form-item label="手机号码">
-          <el-input v-model="formData.mobilePhone" placeholder="请输入手机号码（选填）"></el-input>
-        </el-form-item>
-        <el-form-item label="设为默认">
-          <el-switch v-model="formData.defaultFlag"></el-switch>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitting">确定</el-button>
-      </template>
-    </el-dialog>
+    <Dialog v-model="dialogVisible" width="600px">
+      <DialogHeader>
+        <DialogTitle>{{ isEdit ? '编辑发票抬头' : '添加发票抬头' }}</DialogTitle>
+      </DialogHeader>
+      <form ref="formRef" @submit.prevent>
+        <div class="mb-4" v-if="!isEdit">
+          <label class="mb-1 block text-sm font-medium text-foreground">选择会员</label>
+          <div>
+            <Select
+              v-model="formData.userId"
+              placeholder="请输入会员手机号/姓名搜索"
+              style="width: 100%"
+            >
+              <SelectOption
+                v-for="member in memberOptions"
+                :key="member.id"
+                :label="`${member.name || member.mobile} (${member.mobile})`"
+                :value="member.id"
+              />
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4" v-if="isEdit">
+          <label class="mb-1 block text-sm font-medium text-foreground">会员</label>
+          <div>
+            <span>{{ formData.memberName || '-' }}</span>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">抬头类型</label>
+          <div>
+              <Radio v-model="formData.titleType" :value="1">企业单位</Radio>
+              <Radio v-model="formData.titleType" :value="2">个人/非企业单位</Radio>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">{{ formData.titleType === 1 ? '公司名称' : '个人姓名' }}</label>
+          <div>
+            <Input v-model="formData.companyName" :placeholder="formData.titleType === 1 ? '请输入公司名称' : '请输入个人姓名'" />
+          </div>
+        </div>
+        <div class="mb-4" v-if="formData.titleType === 1">
+          <label class="mb-1 block text-sm font-medium text-foreground">税号</label>
+          <div>
+            <Input v-model="formData.companyTaxNumber" placeholder="请输入公司税号" />
+          </div>
+        </div>
+        <div class="mb-4" v-if="formData.titleType === 1">
+          <label class="mb-1 block text-sm font-medium text-foreground">公司地址</label>
+          <div>
+            <Input v-model="formData.companyAddress" placeholder="请输入公司地址（选填）" />
+          </div>
+        </div>
+        <div class="mb-4" v-if="formData.titleType === 1">
+          <label class="mb-1 block text-sm font-medium text-foreground">公司电话</label>
+          <div>
+            <Input v-model="formData.companyPhone" placeholder="请输入公司电话（选填）" />
+          </div>
+        </div>
+        <div class="mb-4" v-if="formData.titleType === 1">
+          <label class="mb-1 block text-sm font-medium text-foreground">开户银行</label>
+          <div>
+            <Input v-model="formData.bankName" placeholder="请输入开户银行（选填）" />
+          </div>
+        </div>
+        <div class="mb-4" v-if="formData.titleType === 1">
+          <label class="mb-1 block text-sm font-medium text-foreground">银行账号</label>
+          <div>
+            <Input v-model="formData.bankAccount" placeholder="请输入银行账号（选填）" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">接收邮箱</label>
+          <div>
+            <Input v-model="formData.email" placeholder="请输入接收电子发票的邮箱" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">手机号码</label>
+          <div>
+            <Input v-model="formData.mobilePhone" placeholder="请输入手机号码（选填）" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">设为默认</label>
+          <div>
+            <Switch v-model="formData.defaultFlag" />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="dialogVisible = false">取消</Button>
+        <Button variant="default" @click="submitForm">确定</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -140,6 +172,14 @@
 // @ts-nocheck
 import Page from "@/components/Page/index.vue"
 import { ref, reactive } from "vue"
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Radio } from '@/components/ui/radio'
+import { Switch } from '@/components/ui/switch'
+import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
 import { learnApi } from '@/api/edu/admin-api'
 const { getInvoiceTitleList, createInvoiceTitle, updateInvoiceTitle, removeInvoiceTitle } = learnApi
 import { memberApi } from '@/api/edu/admin-api'
@@ -151,8 +191,25 @@ import { Plus } from '@/lib/lucide-fallback'
 export default {
   name: "InvoiceTitle",
   components: {
+    Radio,
     Page,
-    Plus
+    Button,
+    Plus,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Input,
+    Tag,
+    Select,
+    SelectOption,
+    Switch
   },
   setup() {
     const list = ref([])

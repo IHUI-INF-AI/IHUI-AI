@@ -1,26 +1,27 @@
 <template>
   <div class="app-container">
-    <el-row>
-      <el-col :span="6">
+    <div class="flex flex-wrap">
+      <div class="w-1/4">
         <category-tree :current-node-key="currentNodeKey" class="tree" @node-click="handleNodeClick"/>
-      </el-col>
-      <el-col :span="18">
-        <el-card class="box-card">
-          <template #header>
+      </div>
+      <div class="w-3/4">
+        <Card class="box-card">
+          <CardHeader>
             <div class="category-head clearfix">
               <span class="category-title">{{cardTitle}}</span>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="edit(category.pid, category)">编辑</el-button>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit' && category.id" @click="remove(category)">删除</el-button>
-              <el-button size="small" class="category-btn" v-if="type !== 'edit'" @click="add(category.pid)">新增标签</el-button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit' && category.id" @click="edit(category.pid, category)">编辑</Button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit' && category.id" @click="remove(category)">删除</Button>
+              <Button size="sm" className="category-btn" variant="outline" v-if="type !== 'edit'" @click="add(category.pid)">新增标签</Button>
             </div>
-          </template>
+          </CardHeader>
+              <CardContent>
           <!-- 详情 -->
           <div class="table-wrapper" v-if="type === 'detail'">
             <table class="fl-table" v-if="!category.id"><tbody><tr><td>请选择左边的标签查看详细信息</td></tr></tbody></table>
             <table class="fl-table" v-else>
               <tbody>
                 <tr><td width="20%">名称</td><td>{{category.name}}</td></tr>
-                <tr><td>状态</td><td><el-switch v-model="category.status" disabled nline-prompt active-text="启用" inactive-text="禁用" active-color="#13ce66" :active-value="true" :inactive-value="false"></el-switch></td></tr>
+                <tr><td>状态</td><td><Switch v-model="category.status" disabled /></td></tr>
               </tbody>
             </table>
           </div>
@@ -28,9 +29,10 @@
           <div class="table-wrapper" v-else>
             <category-edit :edit-success="editSuccess" :edit-cancel="editCancel" :data="category" :pid="pid"/>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </CardContent>
+        </Card>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -44,9 +46,17 @@ const { getTag, removeTag } = resourceApi;
   import CategoryEdit from "./edit.vue";
   import CategoryTree from "./tree.vue";
   import {error, confirm, success, info} from "@/util/tipsUtils";
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import Button from '@/components/ui/Button.vue'
+  import { Switch } from '@/components/ui/switch'
+export default {
     name: "ResourceProductIndex",
     components: {
+    Card,
+    CardHeader,
+    CardContent,
+    Button,
+    Switch,
       CategoryTree,
       CategoryEdit
     },

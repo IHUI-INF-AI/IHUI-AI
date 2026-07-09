@@ -1,9 +1,9 @@
 <template>
   <div class="overview-page">
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><el-icon><Bell /></el-icon></div><div class="stat-content"><div class="stat-title">通知总数</div><div class="stat-value">{{ stats.noticeCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayNoticeCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><el-icon><Notification /></el-icon></div><div class="stat-content"><div class="stat-title">公告总数</div><div class="stat-value">{{ stats.announcementCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayAnnouncementCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><el-icon><ChatLineSquare /></el-icon></div><div class="stat-content"><div class="stat-title">私信总数</div><div class="stat-value">{{ stats.privateLetterCount || 0 }}</div><div class="stat-footer">模板 <span class="highlight">{{ stats.templateCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><Bell class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">通知总数</div><div class="stat-value">{{ stats.noticeCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayNoticeCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><Notification class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">公告总数</div><div class="stat-value">{{ stats.announcementCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayAnnouncementCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><ChatLineSquare class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">私信总数</div><div class="stat-value">{{ stats.privateLetterCount || 0 }}</div><div class="stat-footer">模板 <span class="highlight">{{ stats.templateCount || 0 }}</span></div></div></div>
     </div>
     <div class="charts-row">
       <div class="chart-box full-width"><div class="chart-header">通知趋势（近7天）</div><div class="chart-content" id="message-trend-chart"></div></div>

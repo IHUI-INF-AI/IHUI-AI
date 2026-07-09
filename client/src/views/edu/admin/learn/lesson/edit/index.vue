@@ -1,154 +1,192 @@
 <template>
   <div class="app-container">
-    <el-row>
-      <el-col :span="20">
+    <div class="flex flex-wrap">
+      <div class="w-5/6">
         <div v-if="showStep === 'base'" class="base">
-          <el-form :model="lesson" :rules="lessonRules" ref="lessonRef" label-width="120px">
-            <el-form-item label="名称：" prop="name">
-              <el-input size="small" v-model="lesson.name" placeholder="请输入标题" class="custom-input" style="background-color: rgba(206, 203, 241, 0.25);"></el-input>
-            </el-form-item>
-            <el-form-item label="有效期：" prop="timeType">
-              <el-radio-group v-model="lesson.timeType">
-                <el-radio label="infinite" style="--el-color-primary: #8481eb; color: #413838;">永久有效</el-radio>
-                <el-radio label="customize"  style="--el-color-primary: #8481eb; color: #413838;">自定义</el-radio>
-              </el-radio-group>
-            </el-form-item>
-            <el-form-item label="开始时间：" prop="startTime" v-if="lesson.timeType !== 'infinite'">
-              <el-date-picker
-                v-if="showdatepicker"
-                v-model="lesson.startTime"
-                type="datetime"
-                placeholder="选择开始时间"
-                class="input-text"
-                :default-time="new Date(2000, 0, 1, 0, 0, 0)"
-                size="small"
-                @change="changeStartTime"
-                style="width: 100%;"></el-date-picker>
-            </el-form-item>
-            <el-form-item label="结束时间：" prop="endTime" v-if="lesson.timeType !== 'infinite'">
-              <el-date-picker
-                v-if="showdatepicker"
-                v-model="lesson.endTime"
-                type="datetime"
-                placeholder="选择结束时间"
-                class="input-text"
-                :default-time="new Date(2000, 0, 1, 22, 0, 0)"
-                size="small"
-                @change="changeEndTime"
-                style="width: 100%;"></el-date-picker>
-            </el-form-item>
-            <el-form-item label="分类：" prop="cidList">
-              <el-cascader style="width: 100%;"
-                           size="small"
-                           v-model="selectCidList"
-                           :props="{ multiple: true, checkStrictly: true }"
-                           :options="categoryOptions"
-                           @change="changeCategory">
-              </el-cascader>
-            </el-form-item>
-            <el-form-item label="简介：" prop="phrase">
-              <el-input size="small" v-model="lesson.phrase" placeholder="请输入简介"></el-input>
-            </el-form-item>
-            <el-form-item label="价格：" prop="price">
-              <el-input-number class="input-number" v-model="lesson.price" placeholder="请输入价格" :precision="2" :step="1" :min="0"></el-input-number>
-              <el-input-number class="input-number" v-model="lesson.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0"></el-input-number>
-            </el-form-item>
-            <el-form-item label="海报：" prop="image">
-              <upload
-                :class="{'no-plus': lesson.image}"
-                :on-upload-success="onUploadImageSuccess"
-                :on-upload-remove="onUploadImageRemove"
-                :files="uploadData.files"
-                :upload-url="uploadData.url"
-                :limit="1"
-                accept="image/jpeg,image/gif,image/png">
-              </upload>
-              <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
-            </el-form-item>
-            <el-form-item label="详情描述：" prop="introduction">
-              <wang-editor v-if="loadWangEditorFlag" v-model="lesson.introduction"></wang-editor>
-            </el-form-item>
-            <div style="margin:50px auto;text-align: center;">
-              <el-button size="small" @click="stepClick('content')" v-if="lesson.id">下一步</el-button>
-              <el-button class="ql_bu" size="small" @click="submitBaseInfo">提交</el-button>
+          <form ref="lessonRef" @submit.prevent>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+              <div>
+                <Input size="small" v-model="lesson.name" placeholder="请输入标题" class="custom-input" style="background-color: rgba(206, 203, 241, 0.25);" />
+              </div>
             </div>
-          </el-form>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">有效期：</label>
+              <div>
+                  <Radio v-model="lesson.timeType" value="infinite" style="color: #413838;">永久有效</Radio>
+                  <Radio v-model="lesson.timeType" value="customize" style="color: #413838;">自定义</Radio>
+              </div>
+            </div>
+            <div class="mb-4" v-if="lesson.timeType !== 'infinite'">
+              <label class="mb-1 block text-sm font-medium text-foreground">开始时间：</label>
+              <div>
+                <el-date-picker
+                  v-if="showdatepicker"
+                  v-model="lesson.startTime"
+                  type="datetime"
+                  placeholder="选择开始时间"
+                  class="input-text"
+                  :default-time="new Date(2000, 0, 1, 0, 0, 0)"
+                  size="small"
+                  @change="changeStartTime"
+                  style="width: 100%;"></el-date-picker>
+              </div>
+            </div>
+            <div class="mb-4" v-if="lesson.timeType !== 'infinite'">
+              <label class="mb-1 block text-sm font-medium text-foreground">结束时间：</label>
+              <div>
+                <el-date-picker
+                  v-if="showdatepicker"
+                  v-model="lesson.endTime"
+                  type="datetime"
+                  placeholder="选择结束时间"
+                  class="input-text"
+                  :default-time="new Date(2000, 0, 1, 22, 0, 0)"
+                  size="small"
+                  @change="changeEndTime"
+                  style="width: 100%;"></el-date-picker>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">分类：</label>
+              <div>
+                <el-cascader style="width: 100%;"
+                             size="small"
+                             v-model="selectCidList"
+                             :props="{ multiple: true, checkStrictly: true }"
+                             :options="categoryOptions"
+                             @change="changeCategory">
+                </el-cascader>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">简介：</label>
+              <div>
+                <Input size="small" v-model="lesson.phrase" placeholder="请输入简介" />
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">价格：</label>
+              <div>
+                <el-input-number class="input-number" v-model="lesson.price" placeholder="请输入价格" :precision="2" :step="1" :min="0"></el-input-number>
+                <el-input-number class="input-number" v-model="lesson.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0"></el-input-number>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">海报：</label>
+              <div>
+                <upload
+                  :class="{'no-plus': lesson.image}"
+                  :on-upload-success="onUploadImageSuccess"
+                  :on-upload-remove="onUploadImageRemove"
+                  :files="uploadData.files"
+                  :upload-url="uploadData.url"
+                  :limit="1"
+                  accept="image/jpeg,image/gif,image/png">
+                </upload>
+                <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">详情描述：</label>
+              <div>
+                <wang-editor v-if="loadWangEditorFlag" v-model="lesson.introduction"></wang-editor>
+              </div>
+            </div>
+            <div style="margin:50px auto;text-align: center;">
+              <Button variant="outline" size="sm" @click="stepClick('content')" v-if="lesson.id">下一步</Button>
+              <Button className="ql_bu" variant="outline" size="sm" @click="submitBaseInfo">提交</Button>
+            </div>
+          </form>
         </div>
         <div v-if="showStep === 'content'" class="content">
           <div class="content-header">
-            <el-button size="small" @click="stepClick('base')">上一步</el-button>
-            <el-button size="small" @click="stepClick('homework')">下一步</el-button>
-            <el-button size="small" @click="showChapter">新增章节</el-button>
+            <Button variant="outline" size="sm" @click="stepClick('base')">上一步</Button>
+            <Button variant="outline" size="sm" @click="stepClick('homework')">下一步</Button>
+            <Button variant="outline" size="sm" @click="showChapter">新增章节</Button>
           </div>
           <div style="margin-top: 20px;">
-            <el-table ref="table" @expand-change="handleExpandChange" :default-expand-all="false" :data="contentList" :show-header="false" :highlight-current-row="true" style="width: 100%">
-              <el-table-column type="expand">
-                <template #default="props">
-                  <div v-if="props.row.phrase" class="tips">{{props.row.phrase}}</div>
-                  <el-card class="box-card" v-for="section in props.row.chapterSectionList" :key="section.title">
-                    <template #header>
-                      <div class="clearfix" style="line-height: 28px;">
-                        <span>{{section.title}}</span>
-                        <span class="opt-btn">
-                          <el-button link size="small" @click="section.isPreview = !section.isPreview">预览</el-button>
-                          <el-button link size="small" @click="showChapterSection(props.row.id, section)">修改</el-button>
-                          <el-button link size="small" @click="deleteChapterSection(section.id)">删除</el-button>
-                        </span>
+            <Table style="width: 100%">
+              <TableBody>
+                <template v-for="(row, index) in contentList" :key="index">
+                  <TableRow>
+                    <TableCell>
+                      <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+                    </TableCell>
+                    <TableCell>
+                      <div
+                        class="expandable-cell"
+                        @click="toggleExpand(index)"
+                      >
+                        {{ row.title }}
                       </div>
-                    </template>
-                    <div class="table-wrapper" :class="{'show': section.isPreview}">
-                      <div v-if="section.phrase" class="tips">{{section.phrase}}</div>
-                      <div class="video-box">
-                        <video :src="section.url" controls="controls" :style="{'margin-top:20px;': !!section.phrase}"></video>
-                      </div>
-                    </div>
-                  </el-card>
+                    </TableCell>
+                    <TableCell class="w-[240px]">
+                      <span class="opt-btn">
+                        <Button variant="link" size="sm" @click="showChapterSection(row.id)">新增章节内容</Button>
+                        <Button variant="link" size="sm" @click="showChapter(row)">修改</Button>
+                        <Button variant="link" size="sm" @click="deleteChapter(row.id)">删除</Button>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <tr v-if="expandedRows.has(index)">
+                    <td colspan="99">
+                      <div v-if="row.phrase" class="tips">{{row.phrase}}</div>
+                      <Card class="box-card" v-for="section in row.chapterSectionList" :key="section.title">
+                        <CardHeader>
+                          <div class="clearfix" style="line-height: 28px;">
+                            <span>{{section.title}}</span>
+                            <span class="opt-btn">
+                              <Button variant="link" size="sm" @click="section.isPreview = !section.isPreview">预览</Button>
+                              <Button variant="link" size="sm" @click="showChapterSection(row.id, section)">修改</Button>
+                              <Button variant="link" size="sm" @click="deleteChapterSection(section.id)">删除</Button>
+                            </span>
+                          </div>
+                        </CardHeader>
+                  <CardContent>
+                        <div class="table-wrapper" :class="{'show': section.isPreview}">
+                          <div v-if="section.phrase" class="tips">{{section.phrase}}</div>
+                          <div class="video-box">
+                            <video :src="section.url" controls="controls" :style="{'margin-top:20px;': !!section.phrase}"></video>
+                          </div>
+                        </div>
+                      </CardContent>
+                      </Card>
+                    </td>
+                  </tr>
                 </template>
-              </el-table-column>
-              <el-table-column prop="title" label="标题">
-                <template #default="{ row }">
-                  <div
-                    class="expandable-cell"
-                    @click="toggleRowExpansion(row)"
-                  >
-                    {{ row.title }}
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="240">
-                <template #default="r">
-                  <span class="opt-btn">
-                    <el-button link @click="showChapterSection(r.row.id)" size="small">新增章节内容</el-button>
-                    <el-button link @click="showChapter(r.row)" size="small">修改</el-button>
-                    <el-button link @click="deleteChapter(r.row.id)" size="small">删除</el-button>
-                  </span>
-                </template>
-              </el-table-column>
-            </el-table>
+              </TableBody>
+            </Table>
           </div>
         </div>
         <div v-if="showStep === 'homework'" class="homework">
-          <el-form :model="homework" :rules="homeworkRules" ref="homeworkRef" label-width="120px">
-            <el-form-item label="作业内容：" prop="content">
-              <el-input size="small" type="textarea" v-model="homework.content" :rows="20" placeholder="请输入作业内容"></el-input>
-            </el-form-item>
-            <el-form-item label="作业附件：">
-              <upload
-                list-link
-                :on-upload-success="onUploadHomeworkAttachmentSuccess"
-                :on-upload-remove="onUploadHomeworkAttachmentRemove"
-                :files="uploadHomeworkData.files"
-                :upload-url="uploadHomeworkData.url"
-                :limit="1"
-                accept="image/*,video/*,audio/*,application/*">
-              </upload>
-            </el-form-item>
-            <div style="margin:50px auto;text-align: center;">
-              <el-button size="small" @click="stepClick('content')">上一步</el-button>
-              <el-button size="small" @click="stepClick('exam')">下一步</el-button>
-              <el-button size="small" @click="submitHomework">提交</el-button>
+          <form ref="homeworkRef" @submit.prevent>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">作业内容：</label>
+              <div>
+                <Textarea v-model="homework.content" :rows="20" placeholder="请输入作业内容" />
+              </div>
             </div>
-          </el-form>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">作业附件：</label>
+              <div>
+                <upload
+                  list-link
+                  :on-upload-success="onUploadHomeworkAttachmentSuccess"
+                  :on-upload-remove="onUploadHomeworkAttachmentRemove"
+                  :files="uploadHomeworkData.files"
+                  :upload-url="uploadHomeworkData.url"
+                  :limit="1"
+                  accept="image/*,video/*,audio/*,application/*">
+                </upload>
+              </div>
+            </div>
+            <div style="margin:50px auto;text-align: center;">
+              <Button variant="outline" size="sm" @click="stepClick('content')">上一步</Button>
+              <Button variant="outline" size="sm" @click="stepClick('exam')">下一步</Button>
+              <Button variant="outline" size="sm" @click="submitHomework">提交</Button>
+            </div>
+          </form>
         </div>
         <div v-if="showStep === 'exam'" class="exam">
           <div class="exam-select">
@@ -157,28 +195,31 @@
               <div class="exam-select-value" v-loading="baseLoading">{{examPaper && examPaper.id ? examPaper.title : '未选择'}}</div>
               <div class="exam-select-btn">
                 <div>
-                <el-button size="small" @click="showExamPaper">选择</el-button>
+                <Button variant="outline" size="sm" @click="showExamPaper">选择</Button>
                 </div>
                 <div>
-<!--                  <el-button size="small" @click="showPreview">预览</el-button>-->
+<!--                  <Button variant="outline" size="sm" @click="showPreview">预览</Button>-->
                 </div>
               </div>
             </div>
-<!--            <el-dialog style="min-width: 840px" title="证书预览" v-model="showPreviewViewFlag" :before-close="hidePreview">-->
+<!--            <Dialog style="min-width: 840px" v-model="showPreviewViewFlag" @close="hidePreview">-->
+<!--              <DialogHeader>-->
+<!--                <DialogTitle>证书预览</DialogTitle>-->
+<!--              </DialogHeader>-->
 <!--              <div>-->
 <!--                <certificate-preview v-if="showPreviewViewFlag" :download="false" :certificate="certificateTemplate" />-->
 <!--              </div>-->
-<!--              <template #footer>-->
+<!--              <DialogFooter>-->
 <!--                <div class="dialog-footer">-->
-<!--                  <el-button size="small" @click="hidePreview">取 消</el-button>-->
+<!--                  <Button variant="outline" size="sm" @click="hidePreview">取 消</Button>-->
 <!--                </div>-->
-<!--              </template>-->
-<!--            </el-dialog>-->
+<!--              </DialogFooter>-->
+<!--            </Dialog>-->
           </div>
           <div style="margin:50px auto;text-align: center;">
-            <el-button size="small" @click="stepClick('homework')">上一步</el-button>
-            <el-button size="small" @click="stepClick('certificate')">下一步</el-button>
-            <el-button size="small" @click="submitExamPaper">提交</el-button>
+            <Button variant="outline" size="sm" @click="stepClick('homework')">上一步</Button>
+            <Button variant="outline" size="sm" @click="stepClick('certificate')">下一步</Button>
+            <Button variant="outline" size="sm" @click="submitExamPaper">提交</Button>
           </div>
         </div>
         <div v-if="showStep === 'certificate'" class="certificate">
@@ -188,46 +229,49 @@
               <div class="certificate-select-value" v-loading="baseLoading">{{certificateTemplate && certificateTemplate.id ? certificateTemplate.name : '未选择'}}</div>
               <div class="certificate-select-btn">
                 <div>
-                  <el-button size="small" @click="showCertificateTemplate">选择</el-button>
+                  <Button variant="outline" size="sm" @click="showCertificateTemplate">选择</Button>
                 </div>
                 <div>
-                  <el-button size="small" @click="showPreview">预览</el-button>
+                  <Button variant="outline" size="sm" @click="showPreview">预览</Button>
                 </div>
               </div>
             </div>
-            <el-dialog style="min-width: 840px" title="证书预览" v-model="showPreviewViewFlag" :before-close="hidePreview">
+            <Dialog style="min-width: 840px" v-model="showPreviewViewFlag" @close="hidePreview">
+              <DialogHeader>
+                <DialogTitle>证书预览</DialogTitle>
+              </DialogHeader>
               <div>
                 <certificate-preview v-if="showPreviewViewFlag" :download="false" :certificate="certificateTemplate" />
               </div>
-              <template #footer>
+              <DialogFooter>
                 <div class="dialog-footer">
-                  <el-button size="small" @click="hidePreview">取 消</el-button>
+                  <Button variant="outline" size="sm" @click="hidePreview">取 消</Button>
                 </div>
-              </template>
-            </el-dialog>
+              </DialogFooter>
+            </Dialog>
           </div>
           <div style="margin:50px auto;text-align: center;">
-            <el-button size="small" @click="stepClick('exam')">上一步</el-button>
-            <el-button size="small" @click="stepClick('publish')">下一步</el-button>
-            <el-button size="small" @click="submitCertificateTemplate">提交</el-button>
+            <Button variant="outline" size="sm" @click="stepClick('exam')">上一步</Button>
+            <Button variant="outline" size="sm" @click="stepClick('publish')">下一步</Button>
+            <Button variant="outline" size="sm" @click="submitCertificateTemplate">提交</Button>
           </div>
         </div>
         <div v-if="showStep === 'publish'" class="publish">
           <div class="publish-box">
             <div class="current-status" v-if="lesson.status">
-              <el-alert :title="statusMap[lesson.status]" effect="dark" type="success" :closable="false" show-icon v-if="lesson.status === 'published'"></el-alert>
-              <el-alert :title="statusMap[lesson.status]" effect="dark" type="warning" :closable="false" show-icon v-else-if="lesson.status === 'unpublished'"> </el-alert>
-              <el-alert :title="statusMap[lesson.status]" effect="dark" type="error" :closable="false" show-icon v-else> </el-alert>
+              <Alert :title="statusMap[lesson.status]" variant="success" :closable="false" show-icon v-if="lesson.status === 'published'"></Alert>
+              <Alert :title="statusMap[lesson.status]" variant="warning" :closable="false" show-icon v-else-if="lesson.status === 'unpublished'"> </Alert>
+              <Alert :title="statusMap[lesson.status]" variant="destructive" :closable="false" show-icon v-else> </Alert>
             </div>
             <div class="btn-list">
-              <el-button size="small" @click="stepClick('certificate')">上一步</el-button>
-              <el-button size="small" @click="publish" v-if="lesson.status === 'unpublished'">马上发布</el-button>
-              <el-button size="small" @click="unPublish" v-if="lesson.status === 'published'">移入草稿</el-button>
+              <Button variant="outline" size="sm" @click="stepClick('certificate')">上一步</Button>
+              <Button variant="outline" size="sm" @click="publish" v-if="lesson.status === 'unpublished'">马上发布</Button>
+              <Button variant="outline" size="sm" @click="unPublish" v-if="lesson.status === 'published'">移入草稿</Button>
             </div>
           </div>
         </div>
-      </el-col>
-      <el-col :span="4" style="position: relative;">
+      </div>
+      <div class="w-1/6" style="position: relative;">
         <el-affix :offset="60" class="affix">
           <div class="step-list">
             <div class="title">
@@ -255,69 +299,105 @@
             </draggable>
           </div>
         </el-affix>
-      </el-col>
-    </el-row>
-    <el-dialog title="编辑章节" v-model="showChapterDialog" :before-close="hideChapter">
-      <el-form :model="lessonChapter" :rules="lessonChapterRules" ref="lessonChapterRef">
-        <el-form-item label="标题：" label-width="120px" prop="title">
-          <el-input size="small" v-model="lessonChapter.title" placeholder="请输入标题" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="简介：" label-width="120px" prop="phrase">
-          <el-input size="small" v-model="lessonChapter.phrase" type="textarea" :rows="4" placeholder="请输入简介"></el-input>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button size="small" @click="hideChapter">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitChapter">确 定</el-button>
+      </div>
+    </div>
+    <Dialog v-model="showChapterDialog" @close="hideChapter">
+      <DialogHeader>
+        <DialogTitle>编辑章节</DialogTitle>
+      </DialogHeader>
+      <form ref="lessonChapterRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">标题：</label>
+          <div>
+            <Input size="small" v-model="lessonChapter.title" placeholder="请输入标题" autocomplete="off" />
+          </div>
         </div>
-      </template>
-    </el-dialog>
-    <el-dialog title="编辑章节内容" v-model="showChapterSectionDialog" :before-close="hideChapterSection">
-      <el-form :model="lessonChapterSection" :rules="lessonChapterSectionRules" ref="lessonChapterSectionRef">
-        <el-form-item label="标题：" label-width="120px" prop="title">
-          <el-input size="small" v-model="lessonChapterSection.title" placeholder="请输入标题" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="视频方式：" label-width="120px" prop="type">
-          <el-radio v-model="lessonChapterSection.type" label="link">视频链接</el-radio>
-          <el-radio v-model="lessonChapterSection.type" label="upload">视频上传</el-radio>
-        </el-form-item>
-        <el-form-item label="视频链接：" label-width="120px" prop="url" v-if="lessonChapterSection.type === 'link'">
-          <el-input size="small" @blur="urlBlur" v-model="lessonChapterSection.url" placeholder="请输入视频地址" autocomplete="off"></el-input>
-          <video ref="linkVideo" style="display: none;" :src="lessonChapterSection.url"></video>
-        </el-form-item>
-        <el-form-item label="视频上传：" label-width="120px" prop="url" v-else>
-          <upload
-            :on-before-upload="onBeforeUploadVideo"
-            :on-upload-success="onUploadVideoSuccess"
-            :on-upload-remove="onUploadVideoRemove"
-            :files="uploadVideoData.files"
-            :upload-url="uploadVideoData.url"
-            :limit="1"
-            listlink
-            accept="audio/mp4,video/mp4">
-          </upload>
-        </el-form-item>
-        <el-form-item label="视频时长：" label-width="120px" prop="totalTime">
-          <el-input size="small" v-model="lessonChapterSection.totalTime" placeholder="请输入时长" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="简介：" label-width="120px" prop="phrase">
-          <el-input size="small" v-model="lessonChapterSection.phrase" type="textarea" :rows="4" placeholder="请输入简介"></el-input>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button size="small" @click="hideChapterSection">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitChapterSection">确 定</el-button>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">简介：</label>
+          <div>
+            <Textarea v-model="lessonChapter.phrase" :rows="4" placeholder="请输入简介" />
+          </div>
         </div>
-      </template>
-    </el-dialog>
-    <el-dialog class="custom-dialog" title="选择证书" v-model="showCertificateTemplateFlag" :before-close="hideCertificateTemplate" width="80%">
+      </form>
+      <DialogFooter>
+        <div class="dialog-footer">
+          <Button variant="outline" size="sm" @click="hideChapter">取 消</Button>
+          <Button variant="default" size="sm" @click="submitChapter">确 定</Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
+    <Dialog v-model="showChapterSectionDialog" @close="hideChapterSection">
+      <DialogHeader>
+        <DialogTitle>编辑章节内容</DialogTitle>
+      </DialogHeader>
+      <form ref="lessonChapterSectionRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">标题：</label>
+          <div>
+            <Input size="small" v-model="lessonChapterSection.title" placeholder="请输入标题" autocomplete="off" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">视频方式：</label>
+          <div>
+            <Radio v-model="lessonChapterSection.type" value="link">视频链接</Radio>
+            <Radio v-model="lessonChapterSection.type" value="upload">视频上传</Radio>
+          </div>
+        </div>
+        <div class="mb-4" v-if="lessonChapterSection.type === 'link'">
+          <label class="mb-1 block text-sm font-medium text-foreground">视频链接：</label>
+          <div>
+            <Input size="small" @blur="urlBlur" v-model="lessonChapterSection.url" placeholder="请输入视频地址" autocomplete="off" />
+            <video ref="linkVideo" style="display: none;" :src="lessonChapterSection.url"></video>
+          </div>
+        </div>
+        <div class="mb-4" v-else>
+          <label class="mb-1 block text-sm font-medium text-foreground">视频上传：</label>
+          <div>
+            <upload
+              :on-before-upload="onBeforeUploadVideo"
+              :on-upload-success="onUploadVideoSuccess"
+              :on-upload-remove="onUploadVideoRemove"
+              :files="uploadVideoData.files"
+              :upload-url="uploadVideoData.url"
+              :limit="1"
+              listlink
+              accept="audio/mp4,video/mp4">
+            </upload>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">视频时长：</label>
+          <div>
+            <Input size="small" v-model="lessonChapterSection.totalTime" placeholder="请输入时长" autocomplete="off" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">简介：</label>
+          <div>
+            <Textarea v-model="lessonChapterSection.phrase" :rows="4" placeholder="请输入简介" />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <div class="dialog-footer">
+          <Button variant="outline" size="sm" @click="hideChapterSection">取 消</Button>
+          <Button variant="default" size="sm" @click="submitChapterSection">确 定</Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
+    <Dialog class="custom-dialog" v-model="showCertificateTemplateFlag" width="80%" @close="hideCertificateTemplate">
+      <DialogHeader>
+        <DialogTitle>选择证书</DialogTitle>
+      </DialogHeader>
       <certificate-template-list :cancel-callback="hideCertificateTemplate" :select-callback="selectCertificateTemplate" :is-component="true"/>
-    </el-dialog>
-    <el-dialog class="custom-dialog" title="选择证书" v-model="showExamPaperFlag" :before-close="hideExamPaper" width="80%">
+    </Dialog>
+    <Dialog class="custom-dialog" v-model="showExamPaperFlag" width="80%" @close="hideExamPaper">
+      <DialogHeader>
+        <DialogTitle>选择证书</DialogTitle>
+      </DialogHeader>
       <paper-list :is-component="true" :hide-component="hideExamPaper" :selection-change-callback="selectExamPaper"/>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 <script>
@@ -336,9 +416,35 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLesson, unPublishLesso
 import CertificateTemplateList from "@/views/edu/admin/certificate/template/index.vue";
 import CertificatePreview from "@/views/edu/admin/certificate/preview/index.vue";
 
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Alert } from '@/components/ui/alert'
+  import { Radio } from '@/components/ui/radio'
+  import { Input } from '@/components/ui/input'
+  import { Textarea } from '@/components/ui/textarea'
+export default {
   name: "LearnLessonEdit",
     components:{
+    Alert,
+    Radio,
+    Button,
+    Card,
+    CardHeader,
+    CardContent,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Input,
+    Textarea,
       CertificatePreview,
       CertificateTemplateList,
       Upload,
@@ -348,39 +454,16 @@ import CertificatePreview from "@/views/edu/admin/certificate/preview/index.vue"
     },
     data() {
       return {
-        expandedFlag: false,
-        expandedRows: [], // 用于存储已展开的行
+        expandedRows: new Set(),
       };
     },
     methods: {
-      // 自定义切换行展开
-      toggleRowExpansion(row) {
-        this.expandedFlag = true;
-        const index = this.expandedRows.indexOf(row);
-        if (index === -1) {
-          this.expandedRows.push(row);
-          this.$refs.table.toggleRowExpansion(row, true);
+      toggleExpand(index) {
+        if (this.expandedRows.has(index)) {
+          this.expandedRows.delete(index);
         } else {
-          this.expandedRows.splice(index, 1);
-          this.$refs.table.toggleRowExpansion(row, false);
+          this.expandedRows.add(index);
         }
-        this.expandedFlag = false;
-      },
-      handleExpandChange(row, expanded) {
-        if (!this.expandedFlag) {
-          if (expanded && expanded.length) {
-            const index = this.expandedRows.indexOf(row);
-            if (index === -1) {
-              this.expandedRows.push(row);
-            }
-          } else {
-            const index = this.expandedRows.indexOf(row);
-            if (index !== -1) {
-              this.expandedRows.splice(index, 1)
-            }
-          }
-        }
-        this.expandedFlag = false;
       }
     },
     setup() {

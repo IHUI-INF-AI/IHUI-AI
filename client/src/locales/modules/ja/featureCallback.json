@@ -1,8 +1,0 @@
-{
-  "featureCallback": {
-    "expired": "期限切れ",
-    "verifyFailed": "検証失敗",
-    "missing": "欠落",
-    "attack": "攻撃"
-  }
-}

@@ -1,8 +1,0 @@
-{
-  "databaseOptimization": {
-    "refresh": "更新しい",
-    "connectionPool": {},
-    "indexUsage": {},
-    "queryAnalysis": {}
-  }
-}

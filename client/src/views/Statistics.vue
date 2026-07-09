@@ -1,13 +1,13 @@
 <template>
   <div class="statistics-container page-container" v-loading="loadingStats">
-    <el-card shadow="hover" class="header-card radius-auto">
+    <Card class="header-card radius-auto transition-shadow hover:shadow-md p-5">
       <h2 class="page-title">{{ t('user.statistics.title') }}</h2>
       <p class="page-description">{{ t('user.statistics.description') }}</p>
-    </el-card>
+    </Card>
 
-    <el-card shadow="hover" class="filter-card radius-auto">
-      <el-row :gutter="15">
-        <el-col :xs="24" :sm="8" :md="6">
+    <Card class="filter-card radius-auto transition-shadow hover:shadow-md p-5">
+      <div class="flex flex-wrap gap-4">
+        <div class="w-full sm:w-1/3 md:w-1/4">
           <el-select
             v-model="timeRange"
             :placeholder="t('statistics.selectTimeRange')"
@@ -18,8 +18,8 @@
             <el-option :label="t('statistics.timeRanges.month')" value="month" />
             <el-option :label="t('statistics.timeRanges.all')" value="all" />
           </el-select>
-        </el-col>
-        <el-col :xs="24" :sm="8" :md="6">
+        </div>
+        <div class="w-full sm:w-1/3 md:w-1/4">
           <el-date-picker
             v-model="customDateRange"
             type="daterange"
@@ -30,66 +30,66 @@
             value-format="YYYY-MM-DD"
             @change="handleCustomDateChange"
           />
-        </el-col>
-      </el-row>
-    </el-card>
+        </div>
+      </div>
+    </Card>
 
-    <el-row :gutter="15" class="stats-cards">
-      <el-col :xs="24" :sm="12" :md="6">
-        <el-card shadow="hover" class="stat-card radius-auto">
+    <div class="flex flex-wrap gap-4 stats-cards">
+      <div class="w-full sm:w-1/2 md:w-1/4">
+        <Card class="stat-card radius-auto transition-shadow hover:shadow-md p-5">
           <div class="stat-content">
             <div class="stat-icon visit">
-              <el-icon><View /></el-icon>
+              <View class="h-4 w-4" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ formatNumber(usageStats.visits || 0) }}</div>
               <div class="stat-label">{{ t('statistics.labels.visits') }}</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
-        <el-card shadow="hover" class="stat-card radius-auto">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/2 md:w-1/4">
+        <Card class="stat-card radius-auto transition-shadow hover:shadow-md p-5">
           <div class="stat-content">
             <div class="stat-icon duration">
-              <el-icon><Timer /></el-icon>
+              <Timer class="h-4 w-4" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ usageStats.duration || t('statisticsPage.zeroHour') }}</div>
               <div class="stat-label">{{ t('statistics.labels.duration') }}</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
-        <el-card shadow="hover" class="stat-card radius-auto">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/2 md:w-1/4">
+        <Card class="stat-card radius-auto transition-shadow hover:shadow-md p-5">
           <div class="stat-content">
             <div class="stat-icon conversation">
-              <el-icon><ChatLineRound /></el-icon>
+              <ChatLineRound class="h-4 w-4" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ formatNumber(usageStats.conversations || 0) }}</div>
               <div class="stat-label">{{ t('statistics.labels.conversations') }}</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
-        <el-card shadow="hover" class="stat-card radius-auto">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/2 md:w-1/4">
+        <Card class="stat-card radius-auto transition-shadow hover:shadow-md p-5">
           <div class="stat-content">
             <div class="stat-icon share">
-              <el-icon><Share /></el-icon>
+              <Share class="h-4 w-4" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ formatNumber(usageStats.shares || 0) }}</div>
               <div class="stat-label">{{ t('statistics.labels.shares') }}</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-card shadow="hover" class="detail-card radius-auto">
+    <Card class="detail-card radius-auto transition-shadow hover:shadow-md p-5">
       <h3 class="detail-title">{{ t('statistics.detailTitle') }}</h3>
       <div class="detail-list">
         <div class="detail-item">
@@ -105,24 +105,30 @@
           <span class="detail-value">{{ usageStats.totalDuration || t('statisticsPage.zeroHour') }}</span>
         </div>
       </div>
-    </el-card>
+    </Card>
 
-    <el-card shadow="hover" class="tabs-card radius-auto">
-      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        <el-tab-pane :label="t('statistics.tabs.usage')" name="usage">
+    <Card class="tabs-card radius-auto transition-shadow hover:shadow-md p-5">
+      <Tabs v-model="activeTab" @tab-change="handleTabChange">
+        <TabsList>
+          <TabsTrigger value="usage">{{ t('statistics.tabs.usage') }}</TabsTrigger>
+          <TabsTrigger value="behavior">{{ t('statistics.tabs.behavior') }}</TabsTrigger>
+          <TabsTrigger value="orders">{{ t('statistics.tabs.orders') }}</TabsTrigger>
+          <TabsTrigger v-if="isAgentCreator" value="agents">{{ t('statistics.tabs.agents') }}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="usage">
           <UsageStatistics :time-range="timeRange" :custom-date-range="customDateRange" />
-        </el-tab-pane>
-        <el-tab-pane :label="t('statistics.tabs.behavior')" name="behavior">
+        </TabsContent>
+        <TabsContent value="behavior">
           <BehaviorStatistics :time-range="timeRange" />
-        </el-tab-pane>
-        <el-tab-pane :label="t('statistics.tabs.orders')" name="orders">
+        </TabsContent>
+        <TabsContent value="orders">
           <OrderStatistics :time-range="timeRange" />
-        </el-tab-pane>
-        <el-tab-pane :label="t('statistics.tabs.agents')" name="agents" v-if="isAgentCreator">
+        </TabsContent>
+        <TabsContent v-if="isAgentCreator" value="agents">
           <AgentStatistics :time-range="timeRange" />
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+        </TabsContent>
+      </Tabs>
+    </Card>
   </div>
 </template>
 
@@ -146,6 +152,8 @@ import UsageStatistics from '@/components/statistics/UsageStatistics.vue'
 import BehaviorStatistics from '@/components/statistics/BehaviorStatistics.vue'
 import OrderStatistics from '@/components/statistics/OrderStatistics.vue'
 import AgentStatistics from '@/components/statistics/AgentStatistics.vue'
+import { Card } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 const { t } = useI18n()
 const _authStore = useAuthStore()

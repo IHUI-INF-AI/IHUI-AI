@@ -6,55 +6,59 @@
       </template>
       <template #default>
         <!-- 订单概览 -->
-        <el-card shadow="hover" class="overview-card">
-          <template #header>
+        <Card class="overview-card transition-shadow hover:shadow-md">
+          <CardHeader>
             <div class="card-header">
               <span>{{ t('statistics.orders.overview') }}</span>
             </div>
-          </template>
-          <el-row :gutter="20">
-            <el-col :xs="24" :sm="12" :md="6">
+          </CardHeader>
+          <CardContent>
+          <div class="flex flex-wrap gap-5">
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.orders.totalOrders') }}</div>
                 <div class="stat-value">
                   {{ data?.summary?.totalOrders || 0 }}
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
+            </div>
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.orders.totalAmount') }}</div>
                 <div class="stat-value">¥{{ (data?.summary?.totalAmount || 0) / 100 }}</div>
               </div>
-            </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
+            </div>
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.orders.paidOrders') }}</div>
                 <div class="stat-value">
                   {{ data?.summary?.paidOrders || 0 }}
                 </div>
               </div>
-            </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
+            </div>
+            <div class="w-full sm:w-1/2 md:w-1/4">
               <div class="stat-item">
                 <div class="stat-label">{{ t('statistics.orders.completedOrders') }}</div>
                 <div class="stat-value">
                   {{ data?.summary?.completedOrders || 0 }}
                 </div>
               </div>
-            </el-col>
-          </el-row>
-        </el-card>
+            </div>
+          </div>
+          </CardContent>
+        </Card>
 
         <!-- 订单趋势图 -->
-        <el-card shadow="hover" class="chart-card" v-if="data?.trends && data.trends.length > 0">
-          <template #header>
+        <Card class="chart-card transition-shadow hover:shadow-md" v-if="data?.trends && data.trends.length > 0">
+          <CardHeader>
             <div class="card-header">
               <span>{{ t('statistics.orders.trends') }}</span>
             </div>
-          </template>
-          <div ref="chartRef" style="height: 300px"></div>
-        </el-card>
+          </CardHeader>
+          <CardContent>
+            <div ref="chartRef" style="height: 300px"></div>
+          </CardContent>
+        </Card>
       </template>
     </el-skeleton>
   </div>
@@ -77,6 +81,7 @@ import {
   GridComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
 
 // 注册所需组件
 echarts.use([

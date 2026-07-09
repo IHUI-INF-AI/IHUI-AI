@@ -1,9 +1,0 @@
-{
-  "n8nAgents": {
-    "title": "N8N智能体",
-    "subtitle": "创建和管理基于N8N的智能体",
-    "createN8NAgent": "创建N8N智能体",
-    "noAgents": "暂无N8N智能体",
-    "loadFailed": "加载N8N智能体列表失败，请稍后重试"
-  }
-}

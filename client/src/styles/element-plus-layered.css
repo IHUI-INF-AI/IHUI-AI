@@ -1,7 +1,0 @@
-/* 声明 CSS Layers 顺序（必须在所有样式之前，包括 Element Plus） */
-@layer reset, base, vendor, components, utilities;
-
-/* 把 Element Plus 样式放入 vendor 层，降低其优先级 */
-/* 这样项目代码的样式可以轻松覆盖 Element Plus 默认样式 */
-@import 'element-plus/dist/index.css' layer(vendor);
-@import 'element-plus/theme-chalk/dark/css-vars.css' layer(vendor);

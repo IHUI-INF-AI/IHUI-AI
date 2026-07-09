@@ -1,8 +1,0 @@
-{
-  "featureCallback": {
-    "expired": "Expired",
-    "verifyFailed": "Verify Failed",
-    "missing": "Missing",
-    "attack": "Attack"
-  }
-}

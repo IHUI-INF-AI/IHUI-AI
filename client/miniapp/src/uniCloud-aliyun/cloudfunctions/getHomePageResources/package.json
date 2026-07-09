@@ -1,7 +1,0 @@
-{
-  "name": "getHomePageResources",
-  "dependencies": {},
-  "extensions": {
-    "uni-cloud-jql": {}
-  }
-}

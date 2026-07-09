@@ -1,8 +1,0 @@
-{
-  "topUpFail": {
-    "title": "Recharge Failed",
-    "defaultMessage": "An error occurred during recharge, please try again later",
-    "retry": "Retry Recharge",
-    "backToHome": "Back to Home"
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "cmpFileDownload": {
-    "downloading": "下载中...",
-    "invalidDownloadLink": "下载链接无效",
-    "downloadFailed": "下载失败",
-    "downloadComplete": "下载完成",
-    "downloadFailed2": "下载失败"
-  }
-}

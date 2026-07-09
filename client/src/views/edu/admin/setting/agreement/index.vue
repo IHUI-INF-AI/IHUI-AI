@@ -1,44 +1,65 @@
 <template>
   <div style="margin: 20px;">
     <div class="header">
-      <el-row>
-        <el-button size="small" type="primary" @click="addAgreement()">
-          <el-icon><Plus /></el-icon>
+      <div class="flex flex-wrap">
+        <Button size="sm" variant="default" @click="addAgreement()">
+          <Plus class="h-4 w-4" />
           新增
-        </el-button>
-      </el-row>
+        </Button>
+      </div>
     </div>
     <div class="content">
-      <el-table ref="multipleTable" :data="agreementList" style="width: 100%">
-        <el-table-column prop="name" label="名称"></el-table-column>
-        <el-table-column prop="type" label="类型"></el-table-column>
-        <el-table-column label="操作">
-          <template #default="scope">
-            <el-button size="small" class="right-btn" @click="edit(scope.row.type)">编辑</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <Table style="width: 100%">
+        <TableHeader>
+          <TableRow>
+            <TableHead>名称</TableHead>
+            <TableHead>类型</TableHead>
+            <TableHead>操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in agreementList" :key="row.id ?? index">
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell>{{ row.type }}</TableCell>
+            <TableCell>
+              <Button size="sm" className="right-btn" variant="outline" @click="edit(row.type)">编辑</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="param.size"></page>
-    <el-dialog title="编辑协议" v-model="showAgreementVisible" :before-close="hideAgreement" width="90%">
-      <el-form :model="agreement" :rules="agreementRules" ref="agreementRef">
-        <el-form-item label="名称：" label-width="120px" prop="name">
-          <el-input size="small" v-model="agreement.name" placeholder="请输入名称" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="类型：" label-width="120px" prop="type">
-          <el-input size="small" v-model="agreement.type" placeholder="请输入类型" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="内容：" label-width="120px" prop="content">
-          <wang-editor v-if="loadWangEditorFlag && showAgreementVisible" v-model="agreement.content"></wang-editor>
-        </el-form-item>
-      </el-form>
+    <Dialog v-model="showAgreementVisible" :width="'90%'" @close="hideAgreement">
+      <DialogHeader>
+        <DialogTitle>编辑协议</DialogTitle>
+      </DialogHeader>
+      <form ref="agreementRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+          <div>
+            <Input size="small" v-model="agreement.name" placeholder="请输入名称" autocomplete="off" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">类型：</label>
+          <div>
+            <Input size="small" v-model="agreement.type" placeholder="请输入类型" autocomplete="off" />
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">内容：</label>
+          <div>
+            <wang-editor v-if="loadWangEditorFlag && showAgreementVisible" v-model="agreement.content"></wang-editor>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hideAgreement">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitAgreement">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hideAgreement">取 消</Button>
+          <Button size="sm" variant="default" @click="submitAgreement">确 定</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -51,12 +72,19 @@ import { settingApi } from '@/api/edu/admin-api'
 const { saveAgreement, getAgreement, getAgreementList, putAgreement } = settingApi;
 import {error} from "@/util/tipsUtils";
 import {Plus} from '@/lib/lucide-fallback';
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
 export default {
   name: "SettingAgreement",
   components: {
     WangEditor,
     Page,
-    Plus
+    Plus,
+    Button,
+    Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+    Input
   },
   setup() {
     const loadWangEditorFlag = ref(false)

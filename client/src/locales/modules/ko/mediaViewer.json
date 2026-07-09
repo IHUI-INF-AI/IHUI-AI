@@ -1,8 +1,0 @@
-{
-  "mediaViewer": {
-    "videoNotSupported": "브라우저가 비디오 재생을 지원하지 않습니다",
-    "audioNotSupported": "브라우저가 오디오 재생을 지원하지 않습니다",
-    "mediaFile": "미디어 파일",
-    "downloadView": "다운로드하여 보기"
-  }
-}

@@ -1,23 +1,23 @@
 <template>
-  <div class="member-offline">
+  <div class="member-offline" role="region" :aria-label="t('edu.profile.offlineTitle')">
     <header class="page-header">
       <div class="header-text">
         <h1 class="page-title">{{ t('edu.profile.offlineTitle') }}</h1>
         <p class="page-subtitle">{{ t('edu.profile.offlineSubtitle') }}</p>
       </div>
       <div class="header-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="reload">
+        <el-button :icon="Refresh" :loading="loading" :aria-label="t('edu.common.retry')" @click="reload">
           {{ t('edu.common.retry') }}
         </el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">
+        <el-button type="primary" :icon="Plus" :aria-label="t('edu.profile.createOffline')" @click="openCreate">
           {{ t('edu.profile.createOffline') }}
         </el-button>
       </div>
     </header>
 
-    <el-alert
+    <Alert
       v-if="error"
-      type="error"
+      variant="destructive"
       :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Alert } from '@/components/ui/alert'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'

@@ -1,99 +1,240 @@
-# P14.5 Docker Compose 编排: 前端 + 后端
-version: '3.8'
-
+# IHUI-AI Docker Compose 编排(新架构: Fastify + Next.js + FastAPI AI 服务)
+# 旧架构(Python FastAPI server/ + Vue client/)已弃用,不再编排
 services:
-  # 后端 FastAPI
-  backend:
+  # 新后端 API(Fastify 5 + Drizzle ORM)
+  api:
     build:
-      context: ./server
-      dockerfile: ../Dockerfile.server
-    image: aizhs-server:14.5
-    container_name: aizhs-backend
+      context: .
+      dockerfile: Dockerfile.api-new
+    image: ihui-api:latest
+    container_name: ihui-api
     restart: unless-stopped
     environment:
-      - DB1_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
-      - DB2_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
-      - DB3_URL=postgresql+psycopg2://aizhs:${DB_PASSWORD}@db:5432/aizhs
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - JWT_SECRET_KEY=${JWT_SECRET}
-      - SESSION_SECRET_KEY=${SESSION_SECRET}
-      - ENV=production
-      - CORS_ORIGINS=https://${DOMAIN}
-      - MINIO_URL=http://minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - MINIO_BUCKET=aizhs
+      - NODE_ENV=production
+      - PORT=8080
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=http://${DOMAIN:-localhost}
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@ihui.ai}
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      # BullMQ Worker 开关(多实例部署可设为 false 仅做生产者)
+      - ENABLE_WORKER=${ENABLE_WORKER:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # 新前端(Next.js 15 standalone)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web-new
+    image: ihui-web:latest
+    container_name: ihui-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://api:8080
+      - AI_SERVICE_URL=http://ai-service:8000
+      - NEXT_TELEMETRY_DISABLED=1
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ihui-net
+
+  # AI 服务(FastAPI + LangGraph + LiteLLM + MCP)
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    image: ihui-ai-service:latest
+    container_name: ihui-ai-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=http://${DOMAIN:-localhost}
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - AGNES_API_KEY=${AGNES_API_KEY:-}
+      - AGNES_API_BASE=${AGNES_API_BASE:-https://apihub.agnes-ai.com/v1}
+      - STEPFUN_API_KEY=${STEPFUN_API_KEY:-}
+      - STEPFUN_API_BASE=${STEPFUN_API_BASE:-https://api.stepfun.com/step_plan/v1}
+      - LITELLM_MODEL=${LITELLM_MODEL:-stepfun/step-3.7-flash}
+      - API_SERVICE_URL=http://api:8080
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:-}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - aizhs-net
+      - ihui-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-
-  # 前端 nginx
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.client
-      args:
-        VITE_API_BASE: https://${DOMAIN}/api/v1
-        VITE_APP_TITLE: ${APP_TITLE}
-    image: aizhs-client:14.5
-    container_name: aizhs-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - aizhs-net
+      start_period: 20s
 
   # PostgreSQL 数据库
   db:
     image: postgres:15-alpine
-    container_name: aizhs-db
+    container_name: ihui-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: aizhs
+      POSTGRES_USER: ${DB_USER:-ihui}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: aizhs
+      POSTGRES_DB: ${DB_NAME:-ihui}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - aizhs-net
+      - ihui-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aizhs"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ihui}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # 数据库迁移(一次性服务:执行 drizzle-kit migrate 后退出)
+  # api 服务依赖 migrate 成功完成(service_completed_successfully)才启动
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    image: ihui-migrate:latest
+    container_name: ihui-migrate
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ihui-net
+    restart: "no"
+    # 迁移失败时 docker compose up 会因依赖条件不满足而停止,避免 api 启动到空库
 
   # Redis 缓存
   redis:
     image: redis:7-alpine
-    container_name: aizhs-redis
+    container_name: ihui-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
     volumes:
       - redisdata:/data
     networks:
-      - aizhs-net
+      - ihui-net
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Prometheus 监控(抓取 api + ai-service 的 /metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ihui-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheusdata:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "${PROMETHEUS_PORT:-9091}:9090"
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Grafana 仪表盘(可视化监控数据)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ihui-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafanadata:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-ihui-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Node Exporter(主机指标:CPU/内存/磁盘/网络)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: ihui-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    ports:
+      - "${NODE_EXPORTER_PORT:-9100}:9100"
+    networks:
+      - ihui-net
+
 networks:
-  aizhs-net:
+  ihui-net:
     driver: bridge
 
 volumes:
   pgdata:
   redisdata:
+  prometheusdata:
+  grafanadata:

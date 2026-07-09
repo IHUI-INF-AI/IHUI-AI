@@ -1,5 +1,6 @@
 <template>
   <el-dialog
+    ref="dialogRef"
     :model-value="visible"
     :title="isEdit ? t('edu.profile.editNote') : t('edu.profile.createNote')"
     width="640px"
@@ -7,65 +8,77 @@
     append-to-body
     :before-close="handleBeforeClose"
     @update:model-value="emit('update:visible', $event)"
+    role="dialog"
+    :aria-label="isEdit ? t('edu.profile.editNote') : t('edu.profile.createNote')"
+    aria-modal="true"
   >
-    <el-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      label-width="100px"
-      label-position="right"
-    >
-      <el-form-item :label="t('edu.profile.noteTitle')" prop="title">
-        <el-input
-          v-model="form.title"
-          :placeholder="t('edu.profile.noteTitle')"
-          maxlength="100"
-          show-word-limit
-        />
-      </el-form-item>
+    <form ref="formRef" @submit.prevent>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteTitle') }}</label>
+        <div class="flex-1">
+          <el-input
+            v-model="form.title"
+            :placeholder="t('edu.profile.noteTitle')"
+            maxlength="100"
+            show-word-limit
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.noteContent')" prop="content">
-        <el-input
-          v-model="form.content"
-          type="textarea"
-          :rows="6"
-          :placeholder="t('edu.profile.noteContent')"
-          maxlength="2000"
-          show-word-limit
-        />
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteContent') }}</label>
+        <div class="flex-1">
+          <el-input
+            v-model="form.content"
+            type="textarea"
+            :rows="6"
+            :placeholder="t('edu.profile.noteContent')"
+            maxlength="2000"
+            show-word-limit
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.noteTags')">
-        <el-input
-          v-model="tagsInput"
-          :placeholder="t('edu.profile.noteTagsHint')"
-        />
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteTags') }}</label>
+        <div class="flex-1">
+          <el-input
+            v-model="tagsInput"
+            :placeholder="t('edu.profile.noteTagsHint')"
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.noteVisibility')">
-        <el-switch
-          v-model="form.is_public"
-          :active-text="t('edu.profile.public')"
-          :inactive-text="t('edu.profile.private')"
-        />
-      </el-form-item>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteVisibility') }}</label>
+        <div class="flex-1">
+          <el-switch
+            v-model="form.is_public"
+            :active-text="t('edu.profile.public')"
+            :inactive-text="t('edu.profile.private')"
+          />
+        </div>
+      </div>
 
-      <el-form-item :label="t('edu.profile.noteAttachments')">
-        <el-upload
-          :auto-upload="false"
-          :limit="3"
-          :on-change="handleFileChange"
-          :on-remove="handleFileRemove"
-          :file-list="fileList"
-          accept="image/*,.pdf,.doc,.docx"
-        >
-          <el-button :icon="Paperclip">{{ t('edu.profile.selectFile') }}</el-button>
-          <template #tip>
-            <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
-          </template>
-        </el-upload>
-      </el-form-item>
-    </el-form>
+      <div class="mb-4 flex items-center gap-4">
+        <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteAttachments') }}</label>
+        <div class="flex-1">
+          <el-upload
+            :auto-upload="false"
+            :limit="3"
+            :on-change="handleFileChange"
+            :on-remove="handleFileRemove"
+            :file-list="fileList"
+            accept="image/*,.pdf,.doc,.docx"
+          >
+            <el-button :icon="Paperclip">{{ t('edu.profile.selectFile') }}</el-button>
+            <template #tip>
+              <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
+            </template>
+          </el-upload>
+        </div>
+      </div>
+    </form>
 
     <template #footer>
       <el-button @click="handleCancel">{{ t('edu.profile.cancel') }}</el-button>
@@ -100,6 +113,26 @@ const formRef = ref<FormInstance | null>(null)
 const submitting = ref(false)
 const fileList = ref<UploadFile[]>([])
 const attachments = ref<Array<{ url: string; name: string; type: 'image' | 'file' }>>([])
+
+// PR-F F7：焦点陷阱（Dialog 打开记录触发元素、关闭还原焦点）
+const triggerEl = ref<HTMLElement | null>(null)
+const dialogRef = ref<InstanceType<typeof import('element-plus')['ElDialog']> | null>(null)
+function onKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Tab' || !dialogRef.value?.$el) return
+  const focusable = dialogRef.value.$el.querySelectorAll<HTMLElement>(
+    'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
+  )
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
 
 // PR-F F4：dirty 检测（表单回填后快照，关闭前对比）
 const initialSnapshot = ref('')
@@ -139,6 +172,9 @@ watch(
   () => props.visible,
   (val) => {
     if (val) {
+      // PR-F F7：记录触发元素 + 注册 Tab 焦点陷阱
+      triggerEl.value = document.activeElement as HTMLElement | null
+      window.addEventListener('keydown', onKeydown)
       if (props.note) {
         form.title = props.note.title || ''
         form.content = props.note.content || ''
@@ -166,6 +202,10 @@ watch(
         const input = formRef.value?.$el?.querySelector('input') as HTMLInputElement | null
         input?.focus()
       })
+    } else {
+      // PR-F F7：Dialog 关闭后移除监听并还原焦点到触发元素
+      window.removeEventListener('keydown', onKeydown)
+      nextTick(() => triggerEl.value?.focus())
     }
   }
 )

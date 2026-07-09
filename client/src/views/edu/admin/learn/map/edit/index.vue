@@ -1,55 +1,66 @@
 <template>
   <div class="learn-map-edit">
-    <el-row>
-      <el-col :span="20">
+    <div class="flex flex-wrap">
+      <div class="w-5/6">
         <div v-if="showStep === 'base'" class="base">
-          <el-form :model="learnMap" :rules="learnMapRules" ref="learnMapRef" label-width="120px">
-            <el-form-item label="名称：" prop="title">
-              <el-input size="small" v-model="learnMap.title" placeholder="请输入标题"></el-input>
-            </el-form-item>
-            <el-form-item label="专题：" prop="tidList" class="name">
-              <el-button size="small" @click="showTopic">选择</el-button>
-              <template v-for="(item, index) in selectTopicList" :key="item.id">
-                <el-input size="small" placeholder="请选择专题" v-model="item.title" readonly>
-                  <template #suffix>
-                    <el-icon @click="deleteSelectTopic(item, index)" class="el-input__icon search-btn"><Delete /></el-icon>
-                  </template>
-                </el-input>
-              </template>
-            </el-form-item>
-            <el-form-item label="海报：" prop="image">
-              <upload
-                :class="{'no-plus': learnMap.image}"
-                :on-upload-success="onUploadImageSuccess"
-                :on-upload-remove="onUploadImageRemove"
-                :files="uploadData.files"
-                :upload-url="uploadData.url"
-                :limit="1"
-                accept="image/jpeg,image/gif,image/png">
-              </upload>
-              <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
-            </el-form-item>
-            <el-form-item label="介绍：" prop="description">
-              <wang-editor v-if="loadWangEditorFlag" v-model="learnMap.description"></wang-editor>
-            </el-form-item>
-            <el-button size="small" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</el-button>
-          </el-form>
+          <form ref="learnMapRef" @submit.prevent>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+              <div>
+                <Input size="small" v-model="learnMap.title" placeholder="请输入标题" />
+              </div>
+            </div>
+            <div class="mb-4 name">
+              <label class="mb-1 block text-sm font-medium text-foreground">专题：</label>
+              <div>
+                <Button size="sm" variant="outline" @click="showTopic">选择</Button>
+                <template v-for="(item, index) in selectTopicList" :key="item.id">
+                  <div class="flex">
+                    <Input size="small" placeholder="请选择专题" v-model="item.title" readonly />
+                    <Delete @click="deleteSelectTopic(item, index)" class="h-4 w-4 cursor-pointer el-input__icon search-btn" />
+                  </div>
+                </template>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">海报：</label>
+              <div>
+                <upload
+                  :class="{'no-plus': learnMap.image}"
+                  :on-upload-success="onUploadImageSuccess"
+                  :on-upload-remove="onUploadImageRemove"
+                  :files="uploadData.files"
+                  :upload-url="uploadData.url"
+                  :limit="1"
+                  accept="image/jpeg,image/gif,image/png">
+                </upload>
+                <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-sm font-medium text-foreground">介绍：</label>
+              <div>
+                <wang-editor v-if="loadWangEditorFlag" v-model="learnMap.description"></wang-editor>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" style="display:block;margin:50px auto;" @click="submitBaseInfo">提交</Button>
+          </form>
         </div>
         <div v-if="showStep === 'publish'" class="publish">
           <div class="publish-box">
             <div class="current-status">
-              <el-alert :title="statusMap[learnMap.status]" effect="dark" type="success" :closable="false" show-icon v-if="learnMap.status === 'published'"></el-alert>
-              <el-alert :title="statusMap[learnMap.status]" effect="dark" type="warning" :closable="false" show-icon v-else-if="learnMap.status === 'unpublished'"> </el-alert>
-              <el-alert :title="statusMap[learnMap.status]" effect="dark" type="error" :closable="false" show-icon v-else> </el-alert>
+              <Alert :title="statusMap[learnMap.status]" variant="success" :closable="false" show-icon v-if="learnMap.status === 'published'"></Alert>
+              <Alert :title="statusMap[learnMap.status]" variant="warning" :closable="false" show-icon v-else-if="learnMap.status === 'unpublished'"> </Alert>
+              <Alert :title="statusMap[learnMap.status]" variant="destructive" :closable="false" show-icon v-else> </Alert>
             </div>
             <div class="btn-list">
-              <el-button size="small" @click="publish" v-if="learnMap.status === 'unpublished'">马上发布</el-button>
-              <el-button size="small" @click="unPublish" v-if="learnMap.status === 'published'">移入草稿</el-button>
+              <Button size="sm" variant="outline" @click="publish" v-if="learnMap.status === 'unpublished'">马上发布</Button>
+              <Button size="sm" variant="outline" @click="unPublish" v-if="learnMap.status === 'published'">移入草稿</Button>
             </div>
           </div>
         </div>
-      </el-col>
-      <el-col :span="4" style="position: relative;">
+      </div>
+      <div class="w-1/6" style="position: relative;">
         <el-affix :offset="160" class="affix">
           <div class="step-list">
             <div class="title">
@@ -60,11 +71,14 @@
             </el-steps>
           </div>
         </el-affix>
-      </el-col>
-    </el-row>
-    <el-dialog class="custom-dialog" title="选择专题" v-model="showTopicDialog" :before-close="hideTopic" width="80%">
+      </div>
+    </div>
+    <Dialog class="custom-dialog" v-model="showTopicDialog" width="80%" @close="hideTopic">
+      <DialogHeader>
+        <DialogTitle>选择专题</DialogTitle>
+      </DialogHeader>
       <topic-list :cancel-callback="hideTopic" :select-callback="selectTopic" :is-component="true"/>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 <script>
@@ -74,6 +88,10 @@
   import Upload from "@/components/Uplaod/index.vue"
   import WangEditor from "@/components/WangEditor/index.vue"
   import TopicList from "@/views/edu/admin/learn/topic/index.vue"
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import Button from '@/components/ui/Button.vue'
+  import { Alert } from '@/components/ui/alert'
+  import { Input } from '@/components/ui/input'
   import {ref} from "vue"
   import {useRoute} from "vue-router"
   import {success} from "@/util/tipsUtils"
@@ -83,10 +101,16 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
   export default {
     name: "LearnMapEdit",
     components:{
+      Alert,
+      Button,
       TopicList,
       Upload,
       WangEditor,
-      Delete
+      Delete,
+      Dialog,
+      DialogHeader,
+      DialogTitle,
+      Input
     },
     setup() {
       const loadWangEditorFlag = ref(false)

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-input size="small" placeholder="输入关键字进行过滤" v-model="filterText"></el-input>
+    <Input size="small" placeholder="输入关键字进行过滤" v-model="filterText"></Input>
     <el-tree size="small" ref="treeRef" v-if="treeFlag" :current-node-key="nodeKey" node-key="id" :filter-node-method="filterNode" :highlight-current="true" :data="treeData" :props="defaultProps" :expand-on-click-node="false" @node-click="handleNodeClick" class="el-tree"></el-tree>
   </div>
 </template>
@@ -11,8 +11,10 @@
 import { resourceApi } from '@/api/edu/admin-api'
 const { findProductList } = resourceApi
 import {ref, watch, nextTick} from "vue";
+import { Input } from '@/components/ui/input'
 export default {
   name: "categoryTree",
+  components: { Input },
   props: {
     currentNodeKey: Number
   },

@@ -1,6 +1,6 @@
 <template>
   <div class="tree-wrap">
-    <el-input v-model="searchName" placeholder="输入关键字进行过滤" />
+    <Input v-model="searchName" placeholder="输入关键字进行过滤" />
     <el-tree
       ref="treeRef"
       :data="dataList"
@@ -26,10 +26,14 @@
 // @ts-nocheck
 import { ref, watch } from "vue"
 import { learnApi } from '@/api/edu/admin-api'
+import { Input } from '@/components/ui/input'
 const { findCategoryList, toTree } = learnApi
 
 export default {
   name: "LearnCategoryTree",
+  components: {
+    Input
+  },
   props: {
     pid: {
       type: Number,

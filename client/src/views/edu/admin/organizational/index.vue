@@ -1,9 +1,9 @@
 <template>
   <div class="overview-page">
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><el-icon><User /></el-icon></div><div class="stat-content"><div class="stat-title">用户总数</div><div class="stat-value">{{ stats.userCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayUserCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><el-icon><OfficeBuilding /></el-icon></div><div class="stat-content"><div class="stat-title">企业总数</div><div class="stat-value">{{ stats.companyCount || 0 }}</div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><el-icon><Grid /></el-icon></div><div class="stat-content"><div class="stat-title">部门总数</div><div class="stat-value">{{ stats.departmentCount || 0 }}</div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><User class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">用户总数</div><div class="stat-value">{{ stats.userCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayUserCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><OfficeBuilding class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">企业总数</div><div class="stat-value">{{ stats.companyCount || 0 }}</div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><Grid class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">部门总数</div><div class="stat-value">{{ stats.departmentCount || 0 }}</div></div></div>
     </div>
     <div class="charts-row">
       <div class="chart-box"><div class="chart-header">用户状态分布</div><div class="chart-content" id="user-status-chart"></div></div>

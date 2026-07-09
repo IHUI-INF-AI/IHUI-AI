@@ -1,40 +1,46 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="form-inline">
-        <el-form-item label="">
-          <el-input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-        </el-form-item>
-        <el-form-item label="状态" class="select">
-          <el-select v-model="searchParam.status" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option v-for="(item, k) in orderStatusMap" :label="item" :value="k" :key="k"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="日期" class="select">
-          <div style="display: flex;">
-            <el-date-picker
-              v-model="searchParam.startTime"
-              type="datetime"
-              placeholder="订单开始时间"
-              class="input-text"
-              :default-time="new Date(2000, 0, 1, 0, 0, 0)"
-              @change="changeStartTime"
-              style="width: 100%;"></el-date-picker>
-            <el-date-picker
-              v-model="searchParam.endTime"
-              type="datetime"
-              placeholder="订单结束时间"
-              class="input-text"
-              :default-time="new Date(2000, 0, 1, 22, 0, 0)"
-              @change="changeEndTime"
-              style="width: 100%;"></el-date-picker>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <Input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字" />
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+          <div>
+            <Select v-model="searchParam.status" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption v-for="(item, k) in orderStatusMap" :label="item" :value="k" :key="k"></SelectOption>
+            </Select>
           </div>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-      </el-form>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">日期</label>
+          <div>
+            <div style="display: flex;">
+              <el-date-picker
+                v-model="searchParam.startTime"
+                type="datetime"
+                placeholder="订单开始时间"
+                class="input-text"
+                :default-time="new Date(2000, 0, 1, 0, 0, 0)"
+                @change="changeStartTime"
+                style="width: 100%;"></el-date-picker>
+              <el-date-picker
+                v-model="searchParam.endTime"
+                type="datetime"
+                placeholder="订单结束时间"
+                class="input-text"
+                :default-time="new Date(2000, 0, 1, 22, 0, 0)"
+                @change="changeEndTime"
+                style="width: 100%;"></el-date-picker>
+            </div>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="search">搜索</Button>
+        </div>
+      </form>
     </div>
     <div class="content">
       <div class="order-table-header">
@@ -49,7 +55,7 @@
         <div class="width10 padding-10-0">操作</div>
       </div>
       <div class="order-table-list" v-loading="dataLoading">
-        <el-empty style="background-color: #FFFFFF;" v-if="!(list && list.length)"></el-empty>
+        <Empty style="background-color: #FFFFFF;" v-if="!(list && list.length)" />
         <div v-else class="order-item" v-for="item in list" :key="item.id">
           <div class="order-header">
             <div class="member-info" v-if="item.member">
@@ -65,13 +71,7 @@
             <div class="commodity-list width65">
               <div class="commodity-item" v-for="c in item.itemList" :key="c.id">
                 <div class="image">
-                  <el-image :src="c.image">
-                    <template #error>
-                      <div class="image-slot">
-                        <el-icon><Picture /></el-icon>
-                      </div>
-                    </template>
-                  </el-image>
+                  <img :src="c.image" class="object-cover" />
                 </div>
                 <div class="title-box">
                   <div class="title">{{c.title}}</div>
@@ -107,12 +107,21 @@ const { findList } = learnApi
 import {error, info} from "@/util/tipsUtils";
 import {formatDate} from "@/util/dateUtils";
 import {Picture} from '@/lib/lucide-fallback';
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Empty } from '@/components/ui/empty'
+import { Select, SelectOption } from '@/components/ui/select'
 
 export default {
   name: "OrderList",
   components: {
     Page,
-    Picture
+    Picture,
+    Button,
+    Input,
+    Empty,
+    Select,
+    SelectOption
   },
   setup(props) {
     const list = ref([])
@@ -379,7 +388,7 @@ export default {
                 width: 80px;
                 height: 45px;
                 margin-left: 20px;
-                :deep(.el-image){
+                img {
                   width: 100%;
                   height: 100%;
                 }

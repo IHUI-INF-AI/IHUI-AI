@@ -1,9 +1,0 @@
-{
-  "promptTemplates": {
-    "title": "提示詞模板庫",
-    "addCustom": "添加自定義",
-    "cancel": "取消",
-    "confirm": "確定",
-    "other": "其他"
-  }
-}

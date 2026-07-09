@@ -1,9 +1,9 @@
 <template>
   <div class="overview-page">
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><el-icon><FolderOpened /></el-icon></div><div class="stat-content"><div class="stat-title">资源总数</div><div class="stat-value">{{ stats.resourceCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayResourceCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><el-icon><Download /></el-icon></div><div class="stat-content"><div class="stat-title">下载总数</div><div class="stat-value">{{ stats.downloadCount || 0 }}</div><div class="stat-footer">今日下载 <span class="highlight">+{{ stats.todayDownloadCount || 0 }}</span></div></div></div>
-      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><el-icon><View /></el-icon></div><div class="stat-content"><div class="stat-title">总浏览量</div><div class="stat-value">{{ stats.totalViews || 0 }}</div><div class="stat-footer">标签 <span class="highlight">{{ stats.tagCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)"><FolderOpened class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">资源总数</div><div class="stat-value">{{ stats.resourceCount || 0 }}</div><div class="stat-footer">今日新增 <span class="highlight">+{{ stats.todayResourceCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#11998e,#38ef7d)"><Download class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">下载总数</div><div class="stat-value">{{ stats.downloadCount || 0 }}</div><div class="stat-footer">今日下载 <span class="highlight">+{{ stats.todayDownloadCount || 0 }}</span></div></div></div>
+      <div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)"><View class="h-4 w-4" /></div><div class="stat-content"><div class="stat-title">总浏览量</div><div class="stat-value">{{ stats.totalViews || 0 }}</div><div class="stat-footer">标签 <span class="highlight">{{ stats.tagCount || 0 }}</span></div></div></div>
     </div>
     <div class="charts-row">
       <div class="chart-box"><div class="chart-header">资源上传趋势（近7天）</div><div class="chart-content" id="resource-trend-chart"></div></div>

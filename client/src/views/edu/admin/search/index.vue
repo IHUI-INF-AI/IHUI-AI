@@ -2,16 +2,16 @@
   <div class="overview-page">
     <div class="info-section">
       <div class="info-card">
-        <div class="info-header"><el-icon><Search /></el-icon> 搜索管理概览</div>
+        <div class="info-header"><Search class="h-4 w-4" /> 搜索管理概览</div>
         <div class="info-content">
           <div class="info-item"><span class="label">热词管理</span><span class="value">配置搜索热词</span></div>
           <div class="info-item"><span class="label">搜索内容</span><span class="value">管理可搜索的内容</span></div>
         </div>
       </div>
       <div class="info-card">
-        <div class="info-header"><el-icon><TrendCharts /></el-icon> 快捷入口</div>
+        <div class="info-header"><TrendCharts class="h-4 w-4" /> 快捷入口</div>
         <div class="info-content">
-          <el-button type="primary" @click="$router.push('/admin/edu/search/hot-word')">热词管理</el-button>
+          <Button variant="default" @click="$router.push('/admin/edu/search/hot-word')">热词管理</Button>
         </div>
       </div>
     </div>
@@ -21,10 +21,11 @@
 <script>
 // @ts-nocheck
 import { Search, TrendCharts } from '@/lib/lucide-fallback';
+import Button from '@/components/ui/Button.vue';
 
 export default {
   name: "SearchIndex",
-  components: { Search, TrendCharts }
+  components: { Search, TrendCharts, Button }
 };
 </script>
 

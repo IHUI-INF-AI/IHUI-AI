@@ -1,123 +1,153 @@
 <template>
   <div class="app-container">
-    <el-row :gutter="20">
-      <el-col :span="20" style="border-right: 1px solid #dddddd;margin-top: 10px;">
+    <div class="flex flex-wrap gap-5">
+      <div class="w-5/6" style="border-right: 1px solid #dddddd;margin-top: 10px;">
         <div v-if="showStep === 'base'">
-          <el-form :model="exam" :rules="examRules" ref="examRef" label-width="120px">
-            <el-form-item label="名称：" prop="name">
-              <el-input size="small" v-model="exam.name" placeholder="请输入标题"></el-input>
-            </el-form-item>
-            <el-form-item label="开始时间：" prop="startTime">
-              <el-date-picker
-                v-model="exam.startTime"
-                type="datetime"
-                placeholder="选择开始时间"
-                class="input-text"
-                :default-time="new Date(2000, 0, 1, 0, 0, 0)"
-                size="small"
-                @change="changeStartTime"
-                style="width: 100%;"></el-date-picker>
-            </el-form-item>
-            <el-form-item label="结束时间：" prop="endTime">
-              <el-date-picker
-                v-model="exam.endTime"
-                type="datetime"
-                placeholder="选择结束时间"
-                class="input-text"
-                :default-time="new Date(2000, 0, 1, 22, 0, 0)"
-                size="small"
-                @change="changeEndTime"
-                style="width: 100%;"></el-date-picker>
-            </el-form-item>
-            <el-form-item label="分类：" prop="cidList">
-              <el-cascader style="width: 100%;"
-                           size="small"
-                           v-model="selectCidList"
-                           :props="{ multiple: true, checkStrictly: true }"
-                           :options="categoryOptions"
-                           @change="changeCategory">
-              </el-cascader>
-            </el-form-item>
-            <el-form-item label="简介：" prop="phrase">
-              <el-input size="small" v-model="exam.phrase" placeholder="请输入简介"></el-input>
-            </el-form-item>
-            <el-form-item label="海报：" prop="image">
-              <upload
-                :on-upload-success="onUploadImageSuccess"
-                :on-upload-remove="onUploadImageRemove"
-                :files="uploadData.files"
-                :upload-url="uploadData.url"
-                :limit="1"
-                accept="image/jpeg,image/gif,image/png">
-              </upload>
-              <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
-            </el-form-item>
-            <el-form-item label="详情描述：" prop="introduction">
-              <wang-editor v-if="loadWangEditorFlag" v-model="exam.introduction"></wang-editor>
-            </el-form-item>
-            <div style="margin:50px auto;text-align: center;">
-              <el-button size="small" @click="stepClick('content')" v-if="exam.id">下一步</el-button>
-              <el-button size="small" @click="submitBaseInfo">提交</el-button>
+          <form ref="examRef" @submit.prevent>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">名称：</label>
+              <div class="flex-1">
+                <Input size="small" v-model="exam.name" placeholder="请输入标题"></Input>
+              </div>
             </div>
-          </el-form>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">开始时间：</label>
+              <div class="flex-1">
+                <el-date-picker
+                  v-model="exam.startTime"
+                  type="datetime"
+                  placeholder="选择开始时间"
+                  class="input-text"
+                  :default-time="new Date(2000, 0, 1, 0, 0, 0)"
+                  size="small"
+                  @change="changeStartTime"
+                  style="width: 100%;"></el-date-picker>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">结束时间：</label>
+              <div class="flex-1">
+                <el-date-picker
+                  v-model="exam.endTime"
+                  type="datetime"
+                  placeholder="选择结束时间"
+                  class="input-text"
+                  :default-time="new Date(2000, 0, 1, 22, 0, 0)"
+                  size="small"
+                  @change="changeEndTime"
+                  style="width: 100%;"></el-date-picker>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
+              <div class="flex-1">
+                <el-cascader style="width: 100%;"
+                             size="small"
+                             v-model="selectCidList"
+                             :props="{ multiple: true, checkStrictly: true }"
+                             :options="categoryOptions"
+                             @change="changeCategory">
+                </el-cascader>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">简介：</label>
+              <div class="flex-1">
+                <Input size="small" v-model="exam.phrase" placeholder="请输入简介"></Input>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">海报：</label>
+              <div class="flex-1">
+                <upload
+                  :on-upload-success="onUploadImageSuccess"
+                  :on-upload-remove="onUploadImageRemove"
+                  :files="uploadData.files"
+                  :upload-url="uploadData.url"
+                  :limit="1"
+                  accept="image/jpeg,image/gif,image/png">
+                </upload>
+                <span class="upload-image-tips">图片建议：尺寸 1920 x 1200 像素，大小7M以下</span>
+              </div>
+            </div>
+            <div class="mb-4 flex items-center gap-4">
+              <label class="w-28 shrink-0 text-sm font-medium text-foreground">详情描述：</label>
+              <div class="flex-1">
+                <wang-editor v-if="loadWangEditorFlag" v-model="exam.introduction"></wang-editor>
+              </div>
+            </div>
+            <div style="margin:50px auto;text-align: center;">
+              <Button size="sm" variant="outline" @click="stepClick('content')" v-if="exam.id">下一步</Button>
+              <Button size="sm" variant="outline" @click="submitBaseInfo">提交</Button>
+            </div>
+          </form>
         </div>
         <div v-if="showStep === 'content'" class="content">
           <div class="content-header">
-            <el-button size="small" @click="stepClick('base')">上一步</el-button>
-            <el-button size="small" @click="stepClick('publish')">下一步</el-button>
-            <el-button size="small" @click="showChapter">新增章节</el-button>
+            <Button size="sm" variant="outline" @click="stepClick('base')">上一步</Button>
+            <Button size="sm" variant="outline" @click="stepClick('publish')">下一步</Button>
+            <Button size="sm" variant="outline" @click="showChapter">新增章节</Button>
           </div>
           <div style="margin-top: 20px;">
-            <el-table default-expand-all :data="contentList" :show-header="false" :highlight-current-row="true" style="width: 100%">
-              <el-table-column type="expand">
-                <template #default="props">
-                  <div class="tips">{{props.row.phrase}}</div>
-                  <el-card class="box-card" v-for="section in props.row.chapterSectionList" :key="section.title" style="margin-top: 20px;">
-                    <template #header>
-                      <div class="clearfix" style="line-height: 28px;">
-                        <span>{{section.title}}</span>
-                        <span style="float: right;">
-                          <el-button link size="small" @click="showChapterSection(props.row.id, section)">修改</el-button>
-                          <el-button link size="small" @click="deleteChapterSection(props.row.id)">删除</el-button>
-                        </span>
-                      </div>
-                    </template>
-                    <div class="table-wrapper">
-                      <div class="tips">{{section.phrase}}</div>
-                      <div>{{section.question ? section.question.title : ""}}</div>
-                    </div>
-                  </el-card>
+            <Table class="w-full">
+              <TableBody>
+                <template v-for="(row, index) in contentList" :key="row.id ?? index">
+                  <TableRow>
+                    <TableCell>
+                      <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+                    </TableCell>
+                    <TableCell>{{ row.title }}</TableCell>
+                    <TableCell>
+                      <span style="float: right;">
+                        <Button variant="link" @click="showChapterSection(row.id)" size="sm">新增章节内容</Button>
+                        <Button variant="link" @click="showChapter(row)" size="sm">修改</Button>
+                        <Button variant="link" @click="deleteChapter(row.id)" size="sm">删除</Button>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <tr v-if="expandedRows.has(index)">
+                    <td colspan="99">
+                      <div class="tips">{{row.phrase}}</div>
+                      <Card class="box-card" v-for="section in row.chapterSectionList" :key="section.title" style="margin-top: 20px;">
+                        <CardHeader>
+                          <div class="clearfix" style="line-height: 28px;">
+                            <span>{{section.title}}</span>
+                            <span style="float: right;">
+                              <Button variant="link" size="sm" @click="showChapterSection(row.id, section)">修改</Button>
+                              <Button variant="link" size="sm" @click="deleteChapterSection(row.id)">删除</Button>
+                            </span>
+                          </div>
+                        </CardHeader>
+                  <CardContent>
+                        <div class="table-wrapper">
+                          <div class="tips">{{section.phrase}}</div>
+                          <div>{{section.question ? section.question.title : ""}}</div>
+                        </div>
+                      </CardContent>
+                      </Card>
+                    </td>
+                  </tr>
                 </template>
-              </el-table-column>
-              <el-table-column prop="title" label="标题"></el-table-column>
-              <el-table-column label="操作">
-                <template #default="r">
-                  <span style="float: right;">
-                    <el-button link @click="showChapterSection(r.row.id)" size="small">新增章节内容</el-button>
-                    <el-button link @click="showChapter(r.row)" size="small">修改</el-button>
-                    <el-button link @click="deleteChapter(r.row.id)" size="small">删除</el-button>
-                  </span>
-                </template>
-              </el-table-column>
-            </el-table>
+              </TableBody>
+            </Table>
           </div>
         </div>
         <div v-if="showStep === 'publish'" class="publish">
           <div class="publish-box">
             <div class="current-status">
-              <el-alert :title="statusMap[exam.status]" effect="dark" type="success" :closable="false" show-icon v-if="exam.status === 'published'"></el-alert>
-              <el-alert :title="statusMap[exam.status]" effect="dark" type="warning" :closable="false" show-icon v-else-if="exam.status === 'unpublished'"> </el-alert>
-<!--              <el-alert :title="statusMap[exam.status]" effect="dark" type="error" :closable="false" show-icon v-else> </el-alert>-->
+              <Alert :title="statusMap[exam.status]" variant="success" :closable="false" show-icon v-if="exam.status === 'published'"></Alert>
+              <Alert :title="statusMap[exam.status]" variant="warning" :closable="false" show-icon v-else-if="exam.status === 'unpublished'"> </Alert>
+<!--              <Alert :title="statusMap[exam.status]" variant="destructive" :closable="false" show-icon v-else> </Alert>-->
             </div>
             <div class="btn-list">
-              <el-button size="small" @click="stepClick('content')">上一步</el-button>
-              <el-button size="small" type="success" @click="publish" v-if="exam.status === 'unpublished'">马上发布</el-button>
-              <el-button size="small" type="danger" @click="unPublish" v-if="exam.status === 'published'">移入草稿</el-button>
+              <Button size="sm" variant="outline" @click="stepClick('content')">上一步</Button>
+              <Button size="sm" variant="default" @click="publish" v-if="exam.status === 'unpublished'">马上发布</Button>
+              <Button size="sm" variant="destructive" @click="unPublish" v-if="exam.status === 'published'">移入草稿</Button>
             </div>
           </div>
         </div>
-      </el-col>
-      <el-col :span="4" style="position: relative;">
+      </div>
+      <div class="w-1/6" style="position: relative;">
         <el-affix :offset="160" class="affix">
           <div class="step-list">
             <div class="title">
@@ -145,47 +175,71 @@
             </draggable>
           </div>
         </el-affix>
-      </el-col>
-    </el-row>
-    <el-dialog title="编辑章节" v-model="showChapterDialog" :before-close="hideChapter">
-      <el-form :model="examChapter" :rules="examChapterRules" ref="examChapterRef">
-        <el-form-item label="标题：" label-width="120px" prop="title">
-          <el-input size="small" v-model="examChapter.title" placeholder="请输入标题"></el-input>
-        </el-form-item>
-        <el-form-item label="简介：" label-width="120px" prop="phrase">
-          <el-input size="small" v-model="examChapter.phrase" type="textarea" :rows="4" placeholder="请输入简介"></el-input>
-        </el-form-item>
-      </el-form>
+      </div>
+    </div>
+    <Dialog v-model="showChapterDialog" @close="hideChapter">
+      <DialogHeader>
+        <DialogTitle>编辑章节</DialogTitle>
+      </DialogHeader>
+      <form ref="examChapterRef" @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">标题：</label>
+          <div class="flex-1">
+            <Input size="small" v-model="examChapter.title" placeholder="请输入标题"></Input>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">简介：</label>
+          <div class="flex-1">
+            <Textarea size="small" v-model="examChapter.phrase" :rows="4" placeholder="请输入简介"></Textarea>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hideChapter">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitChapter">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hideChapter">取 消</Button>
+          <Button size="sm" variant="default" @click="submitChapter">确 定</Button>
         </div>
       </template>
-    </el-dialog>
-    <el-dialog title="编辑章节内容" v-model="showChapterSectionDialog" :before-close="hideChapterSection">
-      <el-form :model="examChapterSection" :rules="examChapterSectionRules" ref="examChapterSectionRef">
-        <el-form-item label="标题：" label-width="120px" prop="title">
-          <el-input size="small" v-model="examChapterSection.title" placeholder="请输入标题" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="试卷：" label-width="120px" prop="paperId">
-          <div>{{paper.title}}</div>
-          <el-button size="small" @click="showPaper">选择试卷</el-button>
-        </el-form-item>
-        <el-form-item label="简介：" label-width="120px" prop="phrase">
-          <el-input size="small" v-model="examChapterSection.phrase" type="textarea" :rows="4" placeholder="请输入简介"></el-input>
-        </el-form-item>
-      </el-form>
+    </Dialog>
+    <Dialog v-model="showChapterSectionDialog" @close="hideChapterSection">
+      <DialogHeader>
+        <DialogTitle>编辑章节内容</DialogTitle>
+      </DialogHeader>
+      <form ref="examChapterSectionRef" @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">标题：</label>
+          <div class="flex-1">
+            <Input size="small" v-model="examChapterSection.title" placeholder="请输入标题" autocomplete="off"></Input>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷：</label>
+          <div class="flex-1">
+            <div>{{paper.title}}</div>
+            <Button size="sm" variant="outline" @click="showPaper">选择试卷</Button>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">简介：</label>
+          <div class="flex-1">
+            <Textarea size="small" v-model="examChapterSection.phrase" :rows="4" placeholder="请输入简介"></Textarea>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button size="small" @click="hideChapterSection">取 消</el-button>
-          <el-button size="small" type="primary" @click="submitChapterSection">确 定</el-button>
+          <Button size="sm" variant="outline" @click="hideChapterSection">取 消</Button>
+          <Button size="sm" variant="default" @click="submitChapterSection">确 定</Button>
         </div>
       </template>
-    </el-dialog>
-    <el-dialog title="选择试卷" v-model="showPaperDialog" :before-close="hidePaper" width="90%">
+    </Dialog>
+    <Dialog v-model="showPaperDialog" :width="'90%'" @close="hidePaper">
+      <DialogHeader>
+        <DialogTitle>选择试卷</DialogTitle>
+      </DialogHeader>
       <paper-list :is-component="true" :hide-component="hidePaper" :selection-change-callback="paperSelectionChange"/>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 <script>
@@ -203,15 +257,43 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import PaperList from "@/views/edu/admin/exam/paper/index.vue";
   import { VueDraggableNext} from "vue-draggable-next";
 
-  export default {
+  import { Card, CardHeader, CardContent } from '@/components/ui/card'
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Alert } from '@/components/ui/alert'
+  import { Input } from '@/components/ui/input'
+  import { Textarea } from '@/components/ui/textarea'
+export default {
     name: "ExamListEditIndex",
     components:{
+    Alert,
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Button,
+    Input,
+    Textarea,
       draggable: VueDraggableNext,
       PaperList,
       Upload,
       WangEditor
     },
     setup() {
+      const expandedRows = ref(new Set())
+      const toggleExpand = (key) => {
+        if (expandedRows.value.has(key)) {
+          expandedRows.value.delete(key)
+        } else {
+          expandedRows.value.add(key)
+        }
+      }
       const loadWangEditorFlag = ref(false)
       const route = useRoute()
       const showPaperDialog = ref(false)
@@ -358,6 +440,7 @@ const { findCategoryList, toTree, getAllParent } = examApi
               }
             }
             contentList.value = res.list;
+            expandedRows.value = new Set(res.list.map((_, i) => i))
           }
         })
       }
@@ -613,7 +696,9 @@ const { findCategoryList, toTree, getAllParent } = examApi
         paper,
         paperSelectionChange,
         loadWangEditorFlag,
-        onDraggableChange
+        onDraggableChange,
+        expandedRows,
+        toggleExpand
       };
     }
   }
@@ -749,18 +834,6 @@ const { findCategoryList, toTree, getAllParent } = examApi
   :deep(.el-form-item__label){
     font-size: 12px;
   }
-  :deep(.el-table th),
-  :deep(.el-table td){
-    padding: 5px 0;
-    font-size: 12px;
-    color: #000000;
-  }
-  :deep(.el-table--enable-row-hover .el-table__body tr:hover > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-table__body tr.current-row > td){
-    background-color: #FFFFFF;
-  }
   :deep(.el-button--text){
     color: #303133;
     &:hover {
@@ -875,11 +948,5 @@ const { findCategoryList, toTree, getAllParent } = examApi
   }
   :deep(.el-affix--fixed){
     z-index: 98;
-  }
-  :deep(.el-table__empty-block){
-    line-height: 400px;
-    .el-table__empty-text {
-      line-height: 400px;
-    }
   }
 </style>

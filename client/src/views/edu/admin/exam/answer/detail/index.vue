@@ -24,28 +24,28 @@
             </div>
             <div class="question-body">
               <div v-if="item.type === 'subjective'">
-                <el-input :readonly="true" type="textarea" @blur="answerChangeHandle(index, item)" :rows="10" v-model="answerMap[item.type + '_' + item.id]"/>
+                <Textarea :readonly="true" @blur="answerChangeHandle(index, item)" :rows="10" v-model="answerMap[item.type + '_' + item.id]"/>
               </div>
               <div v-if="item.type === 'fill_blank'">
                 <div v-for="i in item.blankCount" :key="i" style="display: flex;margin: 10px 0;">
                   <div style="width: 20px;padding: 0 10px;">{{i}}.</div>
-                  <el-input :readonly="true" @blur="answerChangeHandle(index, item)" size="small" v-model="answerMap[item.type + '_' + item.id + '_' + i]"/>
+                  <Input :readonly="true" @blur="answerChangeHandle(index, item)" size="small" v-model="answerMap[item.type + '_' + item.id + '_' + i]"/>
                 </div>
               </div>
               <div v-else-if="item.options">
-                <el-checkbox-group v-if="item.type === 'multi_choice'" v-model="answerMap[item.type + '_' + item.id]" @change="answerChangeHandle(index, item)">
-                  <el-checkbox :disabled="true" :label="o.key" v-for="o in JSON.parse(item.options)" :key="o.key">{{o.key}}. {{o.value}}</el-checkbox>
-                </el-checkbox-group>
+                <div v-if="item.type === 'multi_choice'">
+                  <Checkbox :disabled="true" v-model="answerMap[item.type + '_' + item.id]" :value="o.key" @change="answerChangeHandle(index, item)" v-for="o in JSON.parse(item.options)" :key="o.key">{{o.key}}. {{o.value}}</Checkbox>
+                </div>
                 <div v-else v-for="o in JSON.parse(item.options)" :key="o.key">
-                  <el-radio :disabled="true" @change="answerChangeHandle(index, item)" v-model="answerMap[item.type + '_' + item.id]" :label="o.key">{{o.key}}. {{o.value}}</el-radio>
+                  <Radio :disabled="true" @change="answerChangeHandle(index, item)" v-model="answerMap[item.type + '_' + item.id]" :value="o.key">{{o.key}}. {{o.value}}</Radio>
                 </div>
               </div>
               <div class="answer-box">
                 <div class="answer-item">
                   <div class="answer-info-label">结果：</div>
                   <div class="answer-info-value">
-                    <el-button style="padding: 3px 10px;" v-if="item.result" size="small" type="success">对</el-button>
-                    <el-button style="padding: 3px 10px;" v-else size="small" type="danger">错</el-button>
+                    <Button style="padding: 3px 10px;" v-if="item.result" size="sm" variant="default">对</Button>
+                    <Button style="padding: 3px 10px;" v-else size="sm" variant="destructive">错</Button>
                   </div>
                 </div>
                 <div class="answer-item">
@@ -95,8 +95,20 @@
 import {nextTick, ref} from "vue"
 import { examApi } from '@/api/edu/admin-api'
 const { getPaper, getRecord } = examApi
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Radio } from '@/components/ui/radio'
+import { Checkbox } from '@/components/ui/checkbox'
 export default {
   name: "PaperDetail",
+  components: {
+    Radio,
+    Checkbox,
+    Button,
+    Input,
+    Textarea
+  },
   props: {
     examId: {
       type: Number
@@ -294,22 +306,6 @@ export default {
       .paper-question {
         padding: 20px 0;
         line-height: 36px;
-        .question-body {
-          :deep(.el-checkbox__input.is-disabled.is-checked .el-checkbox__inner){
-            background-color: var(--el-color-primary);
-          }
-          :deep(.el-radio__input.is-disabled.is-checked .el-radio__inner){
-            background-color: var(--el-color-primary);
-          }
-          :deep(.el-checkbox-group){
-            .el-checkbox__label {
-              color: #333;
-            }
-          }
-          :deep(.el-radio__label){
-            color: #333;
-          }
-        }
         .answer-box {
           margin-top: 20px;
           .answer-item {

@@ -1,125 +1,146 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="form-inline">
-        <el-form-item label="">
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字">
-            <template #suffix>
-              <el-icon class="el-input__icon search-btn" @click="search"><Search /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item label="状态" class="select">
-          <el-select size="small" v-model="searchParam.status" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未发布" value="unpublished"></el-option>
-            <el-option label="已发布" value="published"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分类" class="select">
-          <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-        </el-form-item>
-        <el-form-item v-if="!isComponent">
-          <el-button size="small" type="primary" @click="edit()">
-            <el-icon><Plus /></el-icon>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <div class="flex">
+            <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字" />
+            <Search class="h-4 w-4 cursor-pointer el-input__icon search-btn" @click="search" />
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+          <div>
+            <Select size="small" v-model="searchParam.status" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption label="未发布" value="unpublished"></SelectOption>
+              <SelectOption label="已发布" value="published"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
+          <div>
+            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+          </div>
+        </div>
+        <div class="mb-4" v-if="!isComponent">
+          <Button size="sm" variant="default" @click="edit()">
+            <Plus class="h-4 w-4" />
             新增
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="content">
-      <el-table v-loading="dataLoading" :show-header="false" class="custom-table" style="border-radius: 15px;" ref="multipleTable" :data="list" @expand-change="expandChange"
-                @selection-change="handleSelectionChange" :row-style="{ background: 'transparent', border: '1px solid rgba(0, 0, 0, 0.08)' }">
-        <el-table-column type="selection" width="45" v-if="isComponent" style="border-radius: 15px;"/>
-        <el-table-column type="expand" style="border-radius: 20px;">
-          <template #default="scope">
-            <el-card class="box-card">
-              <template #header>
-                <div class="clearfix">
-                  <span>基础信息</span>
-                </div>
-              </template>
-              <div class="table-wrapper">
-                <table class="fl-table" style="width: 100%;">
-                  <tbody>
-                    <tr><td style="width: 120px;">编号：</td><td>{{scope.row.code}}</td></tr>
-                    <tr><td>名称：</td><td>{{scope.row.name}}</td></tr>
-                    <tr><td>开始时间：</td><td>{{scope.row.startTime}}</td></tr>
-                    <tr><td>结束时间：</td><td>{{scope.row.endTime}}</td></tr>
-                    <tr><td style="vertical-align: top;">详情：</td><td><div v-html="scope.row.introduction"></div></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </el-card>
-            <el-card v-if="!isComponent" style="margin-top: 20px;">
-              <template #header>
-                <div class="clearfix">
-                  <span>课程章节</span>
-                </div>
-              </template>
-              <div v-if="scope.row.chapterList">
-                <el-table class="custom-table" :data="scope.row.chapterList" :show-header="false" style="width: 100%;">
-                  <el-table-column type="expand">
-                    <template #default="props">
-                      <el-table class="custom-table" :data="props.row.chapterSectionList" :show-header="false" style="width: 100%;">
-                        <el-table-column prop="title" label="标题"></el-table-column>
-                      </el-table>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="title" label="标题"></el-table-column>
-                </el-table>
-              </div>
-            </el-card>
-          </template>
-        </el-table-column>
-        <el-table-column>
-          <template #default="scope">
-            <div class="content-item-warp"  style="border-bottom: 1px solid white;">
-              <a class="image" v-if="scope.row.image && scope.row.image.trim()">
-                <img :src="scope.row.image">
-              </a>
-              <div class="article-card-bone">
-                <!-- 父容器添加 flex 布局，控制子元素在同一行 -->
-                <div class="top-and-middle-container">
-                  <div class="top-row">
-                    <a class="title">{{scope.row.name}}</a>
-                    <span class="label create-time">{{scope.row.createTime}}</span>
-                  </div>
-                  <div class="middle-row">
-                    <div class="status" :class="scope.row.status">{{statusMap[scope.row.status]}}</div>
-                  </div>
-                </div>
+      <div v-if="dataLoading">加载中...</div>
+      <Table class="custom-table" style="border-radius: 15px;">
+        <TableBody>
+          <template v-for="(row, index) in list" :key="row.id ?? index">
+            <TableRow :style="{ background: 'transparent', border: '1px solid rgba(0, 0, 0, 0.08)' }">
+              <TableCell v-if="isComponent" class="w-[45px]" style="border-radius: 15px;">
+                <input type="checkbox" :checked="multipleSelection.includes(row)" @change="toggleRow(row)" />
+              </TableCell>
+              <TableCell style="border-radius: 20px;">
+                <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+              </TableCell>
+              <TableCell>
+                <div class="content-item-warp"  style="border-bottom: 1px solid white;">
+                  <a class="image" v-if="row.image && row.image.trim()">
+                    <img :src="row.image">
+                  </a>
+                  <div class="article-card-bone">
+                    <!-- 父容器添加 flex 布局，控制子元素在同一行 -->
+                    <div class="top-and-middle-container">
+                      <div class="top-row">
+                        <a class="title">{{row.name}}</a>
+                        <span class="label create-time">{{row.createTime}}</span>
+                      </div>
+                      <div class="middle-row">
+                        <div class="status" :class="row.status">{{statusMap[row.status]}}</div>
+                      </div>
+                    </div>
 
-                <div class="bottom-row">
-                  <ul class="count">
-                    <li>学习 {{scope.row.learnNum || 0}}</li>
-                    <li>点赞 {{scope.row.likeNum || 0}}</li>
-                    <li>收藏 {{scope.row.favoriteNum || 0}}</li>
-                    <li>评论 {{scope.row.commentNum || 0}}</li>
-                  </ul>
-                  <div class="article-action-list" v-if="!isComponent">
-                    <el-tooltip content="批量报名" placement="top">
-                      <el-icon class="icon-label" @click="batchShowSignUpListDrawer(scope.row)"><User /></el-icon>
-                    </el-tooltip>
-                    <el-tooltip content="报名记录" placement="top">
-                      <el-icon class="icon-label" @click="showSignUpListDrawer(scope.row)"><Notebook /></el-icon>
-                    </el-tooltip>
-                    <el-tooltip content="查看评论" placement="top">
-                      <el-icon class="icon-label" @click="commentView(scope.row)"><ChatDotRound /></el-icon>
-                    </el-tooltip>
-                    <el-tooltip content="编辑" placement="top">
-                      <el-icon class="icon-label" @click="edit(scope.row.id)"><Edit /></el-icon>
-                    </el-tooltip>
-                    <el-tooltip content="删除" placement="top">
-                      <el-icon class="icon-label" @click="remove(scope.row)"><Delete /></el-icon>
-                    </el-tooltip>
+                    <div class="bottom-row">
+                      <ul class="count">
+                        <li>学习 {{row.learnNum || 0}}</li>
+                        <li>点赞 {{row.likeNum || 0}}</li>
+                        <li>收藏 {{row.favoriteNum || 0}}</li>
+                        <li>评论 {{row.commentNum || 0}}</li>
+                      </ul>
+                      <div class="article-action-list" v-if="!isComponent">
+                        <User class="h-4 w-4 cursor-pointer icon-label" title="批量报名" @click="batchShowSignUpListDrawer(row)" />
+                        <Notebook class="h-4 w-4 cursor-pointer icon-label" title="报名记录" @click="showSignUpListDrawer(row)" />
+                        <ChatDotRound class="h-4 w-4 cursor-pointer icon-label" title="查看评论" @click="commentView(row)" />
+                        <Edit class="h-4 w-4 cursor-pointer icon-label" title="编辑" @click="edit(row.id)" />
+                        <Delete class="h-4 w-4 cursor-pointer icon-label" title="删除" @click="remove(row)" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </TableCell>
+            </TableRow>
+            <tr v-if="expandedRows.has(index)">
+              <td colspan="99">
+                <Card class="box-card">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>基础信息</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div class="table-wrapper">
+                    <table class="fl-table" style="width: 100%;">
+                      <tbody>
+                        <tr><td style="width: 120px;">编号：</td><td>{{row.code}}</td></tr>
+                        <tr><td>名称：</td><td>{{row.name}}</td></tr>
+                        <tr><td>开始时间：</td><td>{{row.startTime}}</td></tr>
+                        <tr><td>结束时间：</td><td>{{row.endTime}}</td></tr>
+                        <tr><td style="vertical-align: top;">详情：</td><td><div v-html="row.introduction"></div></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+                </Card>
+                <Card v-if="!isComponent" style="margin-top: 20px;">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>课程章节</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div v-if="row.chapterList">
+                    <Table class="custom-table" style="width: 100%;">
+                      <TableBody>
+                        <template v-for="(chapter, chapterIndex) in row.chapterList" :key="chapterIndex">
+                          <TableRow>
+                            <TableCell>
+                              <button @click="toggleChapterExpand(index + '-' + chapterIndex)">{{ chapterExpandedRows.has(index + '-' + chapterIndex) ? '▼' : '▶' }}</button>
+                            </TableCell>
+                            <TableCell>{{ chapter.title }}</TableCell>
+                          </TableRow>
+                          <tr v-if="chapterExpandedRows.has(index + '-' + chapterIndex)">
+                            <td colspan="99">
+                              <Table class="custom-table" style="width: 100%;">
+                                <TableBody>
+                                  <TableRow v-for="(section, sIndex) in chapter.chapterSectionList" :key="sIndex">
+                                    <TableCell>{{ section.title }}</TableCell>
+                                  </TableRow>
+                                </TableBody>
+                              </Table>
+                            </td>
+                          </tr>
+                        </template>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+                </Card>
+              </td>
+            </tr>
           </template>
-        </el-table-column>
-      </el-table>
+        </TableBody>
+      </Table>
     </div>
     <signup-record v-if="signUpDrawer" :drawer-close="signUpDrawerClose" :show-drawer="signUpDrawer" :topic="selectTopic"/>
     <batch-signup-record v-if="batchSignUpDrawer" :drawer-close="batchSignUpDrawerClose" :show-drawer="batchSignUpDrawer" :topic="selectTopic"/>
@@ -127,8 +148,8 @@
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
     <template v-if="isComponent">
       <div class="dialog-footer" style="text-align: right;margin-top: 30px;">
-        <el-button size="small" @click="cancelCallback">取 消</el-button>
-        <el-button size="small" type="primary" @click="selectSelectionChange">确 定</el-button>
+        <Button size="sm" variant="outline" @click="cancelCallback">取 消</Button>
+        <Button size="sm" variant="default" @click="selectSelectionChange">确 定</Button>
       </div>
     </template>
   </div>
@@ -148,9 +169,27 @@ import SignupRecord from "@/views/edu/admin/learn/signup/record/index.vue";
 import BatchSignupRecord from "@/views/edu/admin/learn/signup/batch/index.vue";
 import {Plus, Search, User, Notebook, ChatDotRound, Edit, Delete} from '@/lib/lucide-fallback';
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "LessonIndex",
   components: {
+    Button,
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Input,
+    Select,
+    SelectOption,
     SignupRecord,
     BatchSignupRecord,
     Page,
@@ -254,6 +293,30 @@ export default {
       if(expandedRows.length>0){
       }
     }
+    const expandedRows = ref(new Set())
+    const chapterExpandedRows = ref(new Set())
+    const toggleExpand = (index) => {
+      if (expandedRows.value.has(index)) {
+        expandedRows.value.delete(index)
+      } else {
+        expandedRows.value.add(index)
+      }
+    }
+    const toggleChapterExpand = (key) => {
+      if (chapterExpandedRows.value.has(key)) {
+        chapterExpandedRows.value.delete(key)
+      } else {
+        chapterExpandedRows.value.add(key)
+      }
+    }
+    const toggleRow = (row) => {
+      const idx = multipleSelection.value.indexOf(row)
+      if (idx === -1) {
+        multipleSelection.value.push(row)
+      } else {
+        multipleSelection.value.splice(idx, 1)
+      }
+    }
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
@@ -330,7 +393,13 @@ export default {
       remove,
       signUpDrawer,
       signUpDrawerClose,
-      showSignUpListDrawer
+      showSignUpListDrawer,
+      expandedRows,
+      chapterExpandedRows,
+      toggleExpand,
+      toggleChapterExpand,
+      toggleRow,
+      multipleSelection
     };
   }
 };

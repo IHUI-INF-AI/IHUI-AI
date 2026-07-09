@@ -1,8 +1,0 @@
-export { default as MemoryPanel } from './MemoryPanel.vue'
-export { default as SkillsPanel } from './SkillsPanel.vue'
-export { default as AutomationPanel } from './AutomationPanel.vue'
-export { default as IntegrationsPanel } from './IntegrationsPanel.vue'
-export { default as ModelsPanel } from './ModelsPanel.vue'
-export { default as VoicePanel } from './VoicePanel.vue'
-export { default as CanvasPanel } from './CanvasPanel.vue'
-export { default as BrowserPanel } from './BrowserPanel.vue'

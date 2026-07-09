@@ -1,52 +1,50 @@
 <template>
   <div class="monitoring-dashboard">
-    <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <div class="flex flex-wrap gap-5">
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('monitoring.activeTours') }}</div>
           <div class="stat-value">{{ performanceSnapshot.tour.activeCount }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('monitoring.completionRate') }}</div>
           <div class="stat-value">{{ performanceSnapshot.tour.completionRate.toFixed(1) }}%</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('monitoring.errorRate') }}</div>
           <div class="stat-value error">{{ performanceSnapshot.tour.errorRate.toFixed(1) }}%</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-title">{{ t('monitoring.activeAlerts') }}</div>
           <div class="stat-value warning">{{ alertStats.firingAlerts }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-row :gutter="20" class="mt-20">
-      <el-col :span="16">
-        <el-card>
-          <template #header>
+    <div class="flex flex-wrap gap-5 mt-20">
+      <div class="w-2/3">
+        <Card><CardHeader>
             <div class="card-header">
               <span>{{ t('monitoring.performanceMonitor') }}</span>
-              <el-button-group>
-                <el-button size="small" @click="timeRange = '1h'" :type="timeRange === '1h' ? 'primary' : ''">{{ t('monitoring.timeRange.1h') }}</el-button>
-                <el-button size="small" @click="timeRange = '24h'" :type="timeRange === '24h' ? 'primary' : ''">{{ t('monitoring.timeRange.24h') }}</el-button>
-                <el-button size="small" @click="timeRange = '7d'" :type="timeRange === '7d' ? 'primary' : ''">{{ t('monitoring.timeRange.7d') }}</el-button>
-              </el-button-group>
+              <div class="flex gap-2">
+                <Button size="sm" :variant="timeRange === '1h' ? 'default' : 'outline'" @click="timeRange = '1h'">{{ t('monitoring.timeRange.1h') }}</Button>
+                <Button size="sm" :variant="timeRange === '24h' ? 'default' : 'outline'" @click="timeRange = '24h'">{{ t('monitoring.timeRange.24h') }}</Button>
+                <Button size="sm" :variant="timeRange === '7d' ? 'default' : 'outline'" @click="timeRange = '7d'">{{ t('monitoring.timeRange.7d') }}</Button>
+              </div>
             </div>
-          </template>
-          <div ref="performanceChart" class="chart-container"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <template #header>{{ t('monitoring.systemResources') }}</template>
-          <div class="resource-item">
+          </CardHeader><CardContent class="p-5">
+                    <div ref="performanceChart" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+      <div class="w-1/3">
+        <Card><CardHeader><CardTitle>{{ t('monitoring.systemResources') }}</CardTitle></CardHeader><CardContent class="p-5">
+                    <div class="resource-item">
             <span>{{ t('monitoring.memoryUsage') }}</span>
             <el-progress :percentage="performanceSnapshot.memory.percentage" :status="performanceSnapshot.memory.percentage > 80 ? 'exception' : ''" />
           </div>
@@ -58,111 +56,139 @@
             <span>{{ t('monitoring.renderFps') }}</span>
             <el-progress :percentage="Math.min(100, performanceSnapshot.render.fps / 60 * 100)" />
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </CardContent></Card>
+      </div>
+    </div>
 
-    <el-row :gutter="20" class="mt-20">
-      <el-col :span="12">
-        <el-card>
-          <template #header>
+    <div class="flex flex-wrap gap-5 mt-20">
+      <div class="w-1/2">
+        <Card><CardHeader>
             <div class="card-header">
               <span>{{ t('monitoring.anomalyDetection') }}</span>
-              <el-badge :value="unacknowledgedAnomalies.length" :hidden="unacknowledgedAnomalies.length === 0">
-                <el-button size="small" @click="showAnomalyDialog = true">{{ t('monitoring.viewAll') }}</el-button>
-              </el-badge>
+              <span class="relative inline-flex">
+                <Button variant="outline" size="sm" @click="showAnomalyDialog = true">{{ t('monitoring.viewAll') }}</Button>
+                <span v-if="unacknowledgedAnomalies.length > 0" class="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-xs text-white">{{ unacknowledgedAnomalies.length }}</span>
+              </span>
             </div>
-          </template>
-          <el-table :data="recentAnomalies" max-height="300">
-            <el-table-column prop="type" :label="t('monitoring.type')" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getAnomalyTypeTag(row.type)">{{ t(`monitoring.anomalyTypes.${row.type}`) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="severity" :label="t('monitoring.severity')" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity}`) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="value" :label="t('monitoring.currentValue')" width="100">
-              <template #default="{ row }">{{ row.value.toFixed(2) }}</template>
-            </el-table-column>
-            <el-table-column prop="expectedValue" :label="t('monitoring.expectedValue')" width="100">
-              <template #default="{ row }">{{ row.expectedValue.toFixed(2) }}</template>
-            </el-table-column>
-            <el-table-column :label="t('monitoring.acknowledge')" width="80">
-              <template #default="{ row }">
-                <el-button v-if="canManageAlerts" size="small" text @click="acknowledgeAnomaly(row.id)">{{ t('monitoring.acknowledge') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card>
-          <template #header>
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-[100px]">{{ t('monitoring.type') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('monitoring.severity') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('monitoring.currentValue') }}</TableHead>
+                <TableHead class="w-[100px]">{{ t('monitoring.expectedValue') }}</TableHead>
+                <TableHead class="w-[80px]">{{ t('monitoring.acknowledge') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in recentAnomalies" :key="row.id ?? index">
+                <TableCell>
+                  <Tag :type="getAnomalyTypeTag(row.type)">{{ t(`monitoring.anomalyTypes.${row.type}`) }}</Tag>
+                </TableCell>
+                <TableCell>
+                  <Tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity}`) }}</Tag>
+                </TableCell>
+                <TableCell>{{ row.value.toFixed(2) }}</TableCell>
+                <TableCell>{{ row.expectedValue.toFixed(2) }}</TableCell>
+                <TableCell>
+                  <Button v-if="canManageAlerts" variant="ghost" size="sm" @click="acknowledgeAnomaly(row.id)">{{ t('monitoring.acknowledge') }}</Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </div>
+      <div class="w-1/2">
+        <Card><CardHeader>
             <div class="card-header">
               <span>{{ t('monitoring.alertRules') }}</span>
-              <el-button v-if="canManageAlerts" size="small" type="primary" @click="showRuleDialog = true">{{ t('monitoring.newRule') }}</el-button>
+              <Button v-if="canManageAlerts" variant="default" size="sm" @click="showRuleDialog = true">{{ t('monitoring.newRule') }}</Button>
             </div>
-          </template>
-          <el-table :data="alertRules" max-height="300">
-            <el-table-column prop="name" :label="t('monitoring.ruleName')" />
-            <el-table-column prop="metric" :label="t('monitoring.monitorMetric')" width="120" />
-            <el-table-column prop="severity" :label="t('monitoring.severityLevel')" width="80">
-              <template #default="{ row }">
-                <el-tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity}`) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="enabled" :label="t('monitoring.status')" width="80">
-              <template #default="{ row }">
-                <el-switch v-model="row.enabled" @change="toggleRule(row)" />
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-    </el-row>
+          </CardHeader><CardContent class="p-5">
+                    <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{{ t('monitoring.ruleName') }}</TableHead>
+                <TableHead class="w-[120px]">{{ t('monitoring.monitorMetric') }}</TableHead>
+                <TableHead class="w-[80px]">{{ t('monitoring.severityLevel') }}</TableHead>
+                <TableHead class="w-[80px]">{{ t('monitoring.status') }}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="(row, index) in alertRules" :key="row.id ?? index">
+                <TableCell>{{ row.name }}</TableCell>
+                <TableCell>{{ row.metric }}</TableCell>
+                <TableCell>
+                  <Tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity}`) }}</Tag>
+                </TableCell>
+                <TableCell>
+                  <Switch v-model="row.enabled" @change="toggleRule(row)" />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      </div>
+    </div>
 
-    <el-dialog v-model="showRuleDialog" :title="t('monitoring.newRule')" width="500px">
-      <el-form :model="newRule" label-width="80px">
-        <el-form-item :label="t('monitoring.ruleName')">
-          <el-input v-model="newRule.name" />
-        </el-form-item>
-        <el-form-item :label="t('monitoring.monitorMetric')">
-          <el-select v-model="newRule.metric">
-            <el-option :label="t('monitoring.metrics.tourStart')" value="tour_start" />
-            <el-option :label="t('monitoring.metrics.tourComplete')" value="tour_complete" />
-            <el-option :label="t('monitoring.metrics.tourError')" value="tour_error" />
-            <el-option :label="t('monitoring.metrics.memoryUsage')" value="memory_usage" />
-            <el-option :label="t('monitoring.metrics.cpuUsage')" value="cpu_usage" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('monitoring.condition')">
-          <el-select v-model="newRule.operator" style="width: 100px">
-            <el-option :label="t('monitoring.operators.gt')" value="gt" />
-            <el-option :label="t('monitoring.operators.lt')" value="lt" />
-            <el-option :label="t('monitoring.operators.eq')" value="eq" />
-          </el-select>
-          <el-input-number v-model="newRule.threshold" style="width: 150px" />
-        </el-form-item>
-        <el-form-item :label="t('monitoring.severityLevel')">
-          <el-select v-model="newRule.severity">
-            <el-option :label="t('monitoring.severityLevels.info')" value="info" />
-            <el-option :label="t('monitoring.severityLevels.warning')" value="warning" />
-            <el-option :label="t('monitoring.severityLevels.critical')" value="critical" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('monitoring.cooldownTime')">
-          <el-input-number v-model="newRule.cooldown" :min="60" :step="60" />
-          <span class="ml-10">{{ t('monitoring.seconds') }}</span>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showRuleDialog = false">{{ t('monitoring.cancel') }}</el-button>
-        <el-button type="primary" @click="createRule">{{ t('monitoring.create') }}</el-button>
-      </template>
-    </el-dialog>
+    <Dialog v-model="showRuleDialog" width="500px">
+      <DialogHeader>
+        <DialogTitle>{{ t('monitoring.newRule') }}</DialogTitle>
+      </DialogHeader>
+      <form @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('monitoring.ruleName') }}</label>
+          <div class="flex-1">
+            <Input v-model="newRule.name" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('monitoring.monitorMetric') }}</label>
+          <div class="flex-1">
+            <Select v-model="newRule.metric">
+              <SelectOption :label="t('monitoring.metrics.tourStart')" value="tour_start" />
+              <SelectOption :label="t('monitoring.metrics.tourComplete')" value="tour_complete" />
+              <SelectOption :label="t('monitoring.metrics.tourError')" value="tour_error" />
+              <SelectOption :label="t('monitoring.metrics.memoryUsage')" value="memory_usage" />
+              <SelectOption :label="t('monitoring.metrics.cpuUsage')" value="cpu_usage" />
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('monitoring.condition') }}</label>
+          <div class="flex-1">
+            <Select v-model="newRule.operator" style="width: 100px">
+              <SelectOption :label="t('monitoring.operators.gt')" value="gt" />
+              <SelectOption :label="t('monitoring.operators.lt')" value="lt" />
+              <SelectOption :label="t('monitoring.operators.eq')" value="eq" />
+            </Select>
+            <el-input-number v-model="newRule.threshold" style="width: 150px" />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('monitoring.severityLevel') }}</label>
+          <div class="flex-1">
+            <Select v-model="newRule.severity">
+              <SelectOption :label="t('monitoring.severityLevels.info')" value="info" />
+              <SelectOption :label="t('monitoring.severityLevels.warning')" value="warning" />
+              <SelectOption :label="t('monitoring.severityLevels.critical')" value="critical" />
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('monitoring.cooldownTime') }}</label>
+          <div class="flex-1">
+            <el-input-number v-model="newRule.cooldown" :min="60" :step="60" />
+            <span class="ml-10">{{ t('monitoring.seconds') }}</span>
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="showRuleDialog = false">{{ t('monitoring.cancel') }}</Button>
+        <Button variant="default" @click="createRule">{{ t('monitoring.create') }}</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -177,6 +203,14 @@ import { useTourPermissions } from '@/composables/useTourPermissions'
 import { monitoringWebSocket } from '@/utils/monitoring-websocket'
 import { getUserToken } from '@/utils/request'
 import { tourMonitoringI18n } from '@/locales/tour-i18n'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Tag } from '@/components/ui/tag'
+import { Switch } from '@/components/ui/switch'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const t = (key: string) => {
   const keys = key.split('.')

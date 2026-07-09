@@ -1,40 +1,59 @@
 <template>
   <div class="report">
     <div class="header">
-      <el-form :inline="true" :model="params" class="form-inline">
-        <el-form-item label="公司" v-if="memberCompanyList && memberCompanyList.length">
-          <el-select v-model="params.companyIdList" clearable multiple filterable @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option v-for="company in memberCompanyList" :label="company.name"  :value="company.id" :key="company.id"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="年份" class="select">
-          <el-input @keydown.enter="search" class="search-input" v-model="params.year" placeholder="请输入年份"></el-input>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="search()">
-            <el-icon style="vertical-align: middle">
-              <Search />
-            </el-icon>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4" v-if="memberCompanyList && memberCompanyList.length">
+          <label class="mb-1 block text-sm font-medium text-foreground">公司</label>
+          <div>
+            <Select v-model="params.companyIdList" clearable multiple @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption v-for="company in memberCompanyList" :label="company.name"  :value="company.id" :key="company.id"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">年份</label>
+          <div>
+            <Input @keydown.enter="search" class="search-input" v-model="params.year" placeholder="请输入年份"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="search()">
+            <Search class="h-4 w-4" style="vertical-align: middle" />
             <span style="vertical-align: middle">搜索</span>
-          </el-button>
-          <el-button @click="resetParams()">
+          </Button>
+          <Button variant="outline" @click="resetParams()">
             <span style="vertical-align: middle;">重置</span>
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="report-main">
-      <el-table :data="dataList" v-loading="loading">
-        <el-table-column label="序号" type="index" :index="customIndexFn"></el-table-column>
-        <el-table-column label="公司" prop="companyName"></el-table-column>
-        <el-table-column label="年份" prop="year"></el-table-column>
-        <el-table-column label="报名会员数" prop="signUpMemberQty"></el-table-column>
-        <el-table-column label="报名次数" prop="signUpQty"></el-table-column>
-        <el-table-column label="已取得证书的会员数量" prop="certificateMemberQty"></el-table-column>
-        <el-table-column label="取得的证书数量" prop="certificateQty"></el-table-column>
-<!--        <el-table-column label="公司总会员数" prop="memberQty"></el-table-column>-->
-      </el-table>
+      <div v-if="loading">加载中...</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>序号</TableHead>
+            <TableHead>公司</TableHead>
+            <TableHead>年份</TableHead>
+            <TableHead>报名会员数</TableHead>
+            <TableHead>报名次数</TableHead>
+            <TableHead>已取得证书的会员数量</TableHead>
+            <TableHead>取得的证书数量</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in dataList" :key="index">
+            <TableCell>{{ customIndexFn(index) }}</TableCell>
+            <TableCell>{{ row.companyName }}</TableCell>
+            <TableCell>{{ row.year }}</TableCell>
+            <TableCell>{{ row.signUpMemberQty }}</TableCell>
+            <TableCell>{{ row.signUpQty }}</TableCell>
+            <TableCell>{{ row.certificateMemberQty }}</TableCell>
+            <TableCell>{{ row.certificateQty }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
       <page :total="total" :size-change="sizeChange" :current-change="currentChange" :page-size="params.size"/>
     </div>
   </div>
@@ -49,12 +68,16 @@ import { learnApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = learnApi;
 const { getCompanyStudyReport } = learnApi;
 import {formatSeconds} from "@/util/dateUtils";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 import { memberApi } from '@/api/edu/admin-api'
 const { findMemberCompanyList } = memberApi;
 export default {
   name: "LearnReportIndex",
   methods: {formatSeconds},
-  components: {Search, Page},
+  components: {Search, Page, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select, SelectOption},
   setup() {
     const loading = ref(true)
     const total = ref(0)

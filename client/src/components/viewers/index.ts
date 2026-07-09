@@ -1,7 +1,0 @@
-export { default as ImageViewer } from './ImageViewer.vue'
-export { default as MediaViewer } from './MediaViewer.vue'
-export { default as CodeViewer } from './CodeViewer.vue'
-export { default as MarkdownViewer } from './MarkdownViewer.vue'
-export { default as OfficeViewer } from './OfficeViewer.vue'
-export { default as UnifiedViewer } from './UnifiedViewer.vue'
-export { default as Model3DViewer } from './Model3DViewer.vue'

@@ -2,94 +2,112 @@
   <div class="app-container">
     <div v-if="routerAlive">
       <div class="header">
-        <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-          <el-form-item label="" class="text-left search-form-item">
-            <el-input class="search-input" size="small" v-model="searchParam.keyword" placeholder="请输入名称关键字"></el-input>
-            <el-button class="search-btn" size="small" type="primary" @click="search" style="margin-left: 20px;">搜索</el-button>
-          </el-form-item>
-          <el-form-item label="状态" class="status">
-            <el-select size="small" v-model="searchParam.status" @change="search">
-              <el-option label="全部" value=""></el-option>
-              <el-option label="未开播" value="inactive"></el-option>
-              <el-option label="直播中" value="active"></el-option>
-              <el-option label="禁播中" value="forbid"></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item label="分类">
-            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-          </el-form-item>
-          <el-form-item class="text-left">
-            <el-button size="small" type="primary" @click="edit()" style="margin-left: 20px;">
-              <el-icon><Plus /></el-icon>
+        <form @submit.prevent class="demo-form-inline">
+          <div class="mb-4 text-left search-form-item">
+            <Input class="search-input" size="small" v-model="searchParam.keyword" placeholder="请输入名称关键字"></Input>
+            <Button className="search-btn" size="sm" variant="default" @click="search" style="margin-left: 20px;">搜索</Button>
+          </div>
+          <div class="mb-4 status">
+            <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+            <div>
+              <Select size="small" v-model="searchParam.status" @change="search">
+                <SelectOption label="全部" value=""></SelectOption>
+                <SelectOption label="未开播" value="inactive"></SelectOption>
+                <SelectOption label="直播中" value="active"></SelectOption>
+                <SelectOption label="禁播中" value="forbid"></SelectOption>
+              </Select>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
+            <div>
+              <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+            </div>
+          </div>
+          <div class="mb-4 text-left">
+            <Button size="sm" variant="default" @click="edit()" style="margin-left: 20px;">
+              <Plus class="h-4 w-4" />
               新增
-            </el-button>
-          </el-form-item>
-        </el-form>
+            </Button>
+          </div>
+        </form>
       </div>
       <div class="content">
-        <el-table v-loading="dataLoading" class="custom-table" ref="multipleTable" :show-header="false" :data="list" style="width: 100%">
-          <el-table-column type="expand">
-            <template #default="scope">
-              <el-card class="box-card" style="margin-bottom: 20px;">
-                <template #header>
-                  <div class="clearfix">
-                    <span>直播流信息</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <table class="fl-table" style="width: 100%;">
-                    <tr><td style="width: 120px;">流名称：</td><td>{{scope.row.stream ? scope.row.stream.streamName : ""}}</td></tr>
-                    <tr><td style="width: 120px;">推流地址：</td><td>{{scope.row.stream ? scope.row.stream.pushUrl : ""}}</td></tr>
-                    <tr><td style="width: 120px;">拉流地址：</td><td>{{scope.row.stream ? scope.row.stream.pullUrl : ""}}</td></tr>
-                    <tr><td style="width: 120px;">创建时间：</td><td>{{scope.row.createTime}}</td></tr>
-                  </table>
-                </div>
-              </el-card>
-              <el-card class="box-card">
-                <template #header>
-                  <div class="clearfix">
-                    <span>详情</span>
-                  </div>
-                </template>
-                <div class="table-wrapper">
-                  <div v-html="scope.row.introduction"></div>
-                </div>
-              </el-card>
-            </template>
-          </el-table-column>
-          <el-table-column>
-            <template #default="scope">
-              <div class="content-item-warp">
-                <a class="image" v-if="scope.row.image && scope.row.image.trim()">
-                  <img :src="scope.row.image">
-                </a>
-                <div class="article-card-bone">
-                  <div class="title-wrap">
-                    <a class="title">{{scope.row.name}}</a>
-                    <span class="label create-time">{{scope.row.startTime}}</span>
-                  </div>
-                  <div class="abstruct">
-                    <div class="status">{{statusMap[scope.row.status]}}</div>
-                  </div>
-                  <div class="count-wrapper">
-                    <ul class="count">
-                      <li>预约 {{scope.row.subscriptionNum || 0}}</li>
-                      <li>观看 {{scope.row.watchNum || 0}}</li>
-                      <li>点赞 {{scope.row.likeNum || 0}}</li>
-                      <li>收藏 {{scope.row.favoriteNum || 0}}</li>
-                      <li>评论 {{scope.row.commentNum || 0}}</li>
-                    </ul>
-                    <div class="article-action-list">
-                      <span class="icon-label" @click="commentView(scope.row)">查看评论</span>
-                      <span class="icon-label" @click="edit(scope.row.id)">编辑</span>
-                      <span class="icon-label" @click="remove(scope.row)">删除</span>
+        <div v-if="dataLoading" class="loading-div">加载中...</div>
+        <Table class="custom-table" style="width: 100%">
+          <TableBody>
+            <template v-for="(row, index) in list" :key="row.id ?? index">
+              <TableRow>
+                <TableCell>
+                  <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+                </TableCell>
+                <TableCell>
+                  <div class="content-item-warp">
+                    <a class="image" v-if="row.image && row.image.trim()">
+                      <img :src="row.image">
+                    </a>
+                    <div class="article-card-bone">
+                      <div class="title-wrap">
+                        <a class="title">{{ row.name }}</a>
+                        <span class="label create-time">{{ row.startTime }}</span>
+                      </div>
+                      <div class="abstruct">
+                        <div class="status">{{ statusMap[row.status] }}</div>
+                      </div>
+                      <div class="count-wrapper">
+                        <ul class="count">
+                          <li>预约 {{ row.subscriptionNum || 0 }}</li>
+                          <li>观看 {{ row.watchNum || 0 }}</li>
+                          <li>点赞 {{ row.likeNum || 0 }}</li>
+                          <li>收藏 {{ row.favoriteNum || 0 }}</li>
+                          <li>评论 {{ row.commentNum || 0 }}</li>
+                        </ul>
+                        <div class="article-action-list">
+                          <span class="icon-label" @click="commentView(row)">查看评论</span>
+                          <span class="icon-label" @click="edit(row.id)">编辑</span>
+                          <span class="icon-label" @click="remove(row)">删除</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </TableCell>
+              </TableRow>
+              <tr v-if="expandedRows.has(index)">
+                <td colspan="99">
+                  <Card class="box-card" style="margin-bottom: 20px;">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>直播流信息</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <table class="fl-table" style="width: 100%;">
+                        <tr><td style="width: 120px;">流名称：</td><td>{{ row.stream ? row.stream.streamName : "" }}</td></tr>
+                        <tr><td style="width: 120px;">推流地址：</td><td>{{ row.stream ? row.stream.pushUrl : "" }}</td></tr>
+                        <tr><td style="width: 120px;">拉流地址：</td><td>{{ row.stream ? row.stream.pullUrl : "" }}</td></tr>
+                        <tr><td style="width: 120px;">创建时间：</td><td>{{ row.createTime }}</td></tr>
+                      </table>
+                    </div>
+                  </CardContent>
+                  </Card>
+                  <Card class="box-card">
+                    <CardHeader>
+                      <div class="clearfix">
+                        <span>详情</span>
+                      </div>
+                    </CardHeader>
+                  <CardContent>
+                    <div class="table-wrapper">
+                      <div v-html="row.introduction"></div>
+                    </div>
+                  </CardContent>
+                  </Card>
+                </td>
+              </tr>
             </template>
-          </el-table-column>
-        </el-table>
+          </TableBody>
+        </Table>
       </div>
       <comment-drawer topic-type="channel" :drawer-close="drawerClose" :show-drawer="drawer" :topic="selectTopic"/>
       <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
@@ -111,12 +129,25 @@ import {confirm, success} from "@/util/tipsUtils";
 import commentDrawer from "../../comment/commentDrawer.vue"
 import {Plus} from '@/lib/lucide-fallback';
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import Button from '@/components/ui/Button.vue'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "LiveChannelIndex",
   components: {
+    Button,
+    Card,
+    CardHeader,
+    CardContent,
     Page,
     commentDrawer,
-    Plus
+    Plus,
+    Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+    Input,
+    Select,
+    SelectOption
   },
   setup() {
     // 监听路由
@@ -129,6 +160,14 @@ export default {
     const list = ref([])
     const total = ref(0)
     const dataLoading = ref(true)
+    const expandedRows = ref(new Set())
+    const toggleExpand = (index) => {
+      if (expandedRows.value.has(index)) {
+        expandedRows.value.delete(index)
+      } else {
+        expandedRows.value.add(index)
+      }
+    }
     const selectCidList = ref([])
     const categoryOptions = ref([])
     const searchParam = ref({
@@ -223,6 +262,8 @@ export default {
       selectTopic,
       drawer,
       drawerClose,
+      expandedRows,
+      toggleExpand,
     };
   }
 };

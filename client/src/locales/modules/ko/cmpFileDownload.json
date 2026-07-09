@@ -1,9 +1,0 @@
-{
-  "cmpFileDownload": {
-    "downloading": "다운로드 중...",
-    "invalidDownloadLink": "잘못된 다운로드 링크",
-    "downloadFailed": "다운로드 실패",
-    "downloadComplete": "다운로드 완료",
-    "downloadFailed2": "下载失败"
-  }
-}

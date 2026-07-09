@@ -1,57 +1,78 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
-          <el-input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-          <el-button class="search-btn" type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="add">创建会员等级</el-button>
-        </el-form-item>
-      </el-form>
+      <form @submit.prevent class="demo-form-inline">
+        <div class="mb-4">
+          <Input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
+          <Button className="search-btn" variant="default" @click="search">搜索</Button>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="add">创建会员等级</Button>
+        </div>
+      </form>
     </div>
     <div class="content">
       <div class="content-list">
-        <el-table v-loading="dataLoading" :data="list" style="width: 100%;">
-          <el-table-column label="序号" width="70" type="index"/>
-          <el-table-column prop="id" label="ID" width="50"/>
-          <el-table-column prop="name" label="名称"/>
-          <el-table-column prop="description" label="描述"/>
-          <el-table-column prop="conditions" label="达成条件">
-            <template #default="scope">
-              {{scope.row.conditions || 0}} 积分
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150">
-            <template #default="scope">
-              <el-button link @click="edit(scope.row)">编辑</el-button>
-              <el-button link @click="remove(scope.row)" style="color: red;">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div v-if="dataLoading" class="loading">加载中...</div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-[70px]">序号</TableHead>
+              <TableHead class="w-[50px]">ID</TableHead>
+              <TableHead>名称</TableHead>
+              <TableHead>描述</TableHead>
+              <TableHead>达成条件</TableHead>
+              <TableHead class="w-[150px]">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+              <TableCell>{{ index + 1 }}</TableCell>
+              <TableCell>{{ row.id }}</TableCell>
+              <TableCell>{{ row.name }}</TableCell>
+              <TableCell>{{ row.description }}</TableCell>
+              <TableCell>{{row.conditions || 0}} 积分</TableCell>
+              <TableCell>
+                <Button variant="link" @click="edit(row)">编辑</Button>
+                <Button variant="link" @click="remove(row)" style="color: red;">删除</Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
     </div>
     <page style="margin-top: 20px;" :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
-    <el-dialog title="新增/编辑积分" v-model="showMemberLevelFormDialog" :before-close="hideMemberLevelForm">
-      <el-form :model="memberLevel" :rules="memberLevelRules" ref="memberLevelRef">
-        <el-form-item label="名称：" label-width="150px" prop="name">
-          <el-input v-model="memberLevel.name" placeholder="请输入名称" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="描述：" label-width="150px" prop="description">
-          <el-input v-model="memberLevel.description" placeholder="请输入描述" autocomplete="off"></el-input>
-        </el-form-item>
-        <el-form-item label="达成条件：" label-width="150px" prop="conditions">
-          <el-input v-model="memberLevel.conditions" placeholder="请输入大于0的整数" autocomplete="off"></el-input>
-        </el-form-item>
-      </el-form>
+    <Dialog v-model="showMemberLevelFormDialog" @close="hideMemberLevelForm">
+      <DialogHeader>
+        <DialogTitle>新增/编辑积分</DialogTitle>
+      </DialogHeader>
+      <form ref="memberLevelRef" @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">名称：</label>
+          <div>
+            <Input v-model="memberLevel.name" placeholder="请输入名称" autocomplete="off"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">描述：</label>
+          <div>
+            <Input v-model="memberLevel.description" placeholder="请输入描述" autocomplete="off"></Input>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">达成条件：</label>
+          <div>
+            <Input v-model="memberLevel.conditions" placeholder="请输入大于0的整数" autocomplete="off"></Input>
+          </div>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="hideMemberLevelForm">取 消</el-button>
-          <el-button type="primary" @click="submitMemberLevel">确 定</el-button>
+          <Button variant="outline" @click="hideMemberLevelForm">取 消</Button>
+          <Button variant="default" @click="submitMemberLevel">确 定</Button>
         </div>
       </template>
-    </el-dialog>
+    </Dialog>
   </div>
 </template>
 
@@ -62,11 +83,23 @@
 const { findList, updateLevel, saveLevel, deleteLevel } = memberApi
   import Page from "@/components/Page/index.vue"
   import {confirm, success} from "@/util/tipsUtils";
+  import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+  import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
 
   export default {
     name: "MemberLevelIndex",
     components: {
-      Page
+      Page,
+      Table,
+      TableHeader,
+      TableBody,
+      TableRow,
+      TableHead,
+      TableCell,
+      Button,
+      Input
     },
     setup() {
       const list = ref([])

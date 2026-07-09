@@ -1,29 +1,47 @@
 <template>
   <div class="category-edit">
-    <el-form ref="categoryRef" :rules="rules" :model="category" label-width="120px">
-      <el-form-item label="上级分类：" prop="pid">
-        <el-input  size="small" v-if="parentCategory.name" type="text" class="input-text" disabled v-model="parentCategory.name" ></el-input>
-        <el-cascader  v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="categoryOptions" placeholder="请选择上级分类" @change="changeParentCategory"></el-cascader>
-      </el-form-item>
-      <el-form-item label="分类名称：" prop="name">
-        <el-input size="small" maxlength="15" show-word-limit class="input-text" v-model="category.name"></el-input>
-      </el-form-item>
-      <el-form-item label="排序：" prop="sortOrder">
-        <el-input size="small" class="input-text" v-model="category.sortOrder" placeholder="数据越大显示越前"></el-input>
-      </el-form-item>
-      <el-form-item label="是否显示：" prop="isShow">
-        <el-switch size="small" id="isShow" active-color="#13ce66" v-model="category.isShow"></el-switch>
-      </el-form-item>
-      <el-form-item label="首页显示：" prop="isShowIndex">
-        <el-switch size="small" id="isShowIndex" active-color="#13ce66" v-model="category.isShowIndex"></el-switch>
-      </el-form-item>
-      <el-form-item label="分类图片：" prop="image">
-        <upload-image :limit="1" :files="uploadData.files" :on-upload-success="onUploadSuccess" :on-upload-remove="onUploadRemove" :upload-url="uploadData.url"></upload-image>
-      </el-form-item>
-    </el-form>
+    <form ref="categoryRef" @submit.prevent>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">上级分类：</label>
+        <div>
+          <Input size="small" v-if="parentCategory.name" type="text" class="input-text" disabled v-model="parentCategory.name" />
+          <el-cascader  v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="categoryOptions" placeholder="请选择上级分类" @change="changeParentCategory"></el-cascader>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">分类名称：</label>
+        <div>
+          <Input size="small" maxlength="15" class="input-text" v-model="category.name" />
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">排序：</label>
+        <div>
+          <Input size="small" class="input-text" v-model="category.sortOrder" placeholder="数据越大显示越前" />
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">是否显示：</label>
+        <div>
+          <Switch size="small" id="isShow" v-model="category.isShow" />
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">首页显示：</label>
+        <div>
+          <Switch size="small" id="isShowIndex" v-model="category.isShowIndex" />
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-sm font-medium text-foreground">分类图片：</label>
+        <div>
+          <upload-image :limit="1" :files="uploadData.files" :on-upload-success="onUploadSuccess" :on-upload-remove="onUploadRemove" :upload-url="uploadData.url"></upload-image>
+        </div>
+      </div>
+    </form>
     <div class="dialog-footer">
-      <el-button class="ql_bu" size="small" @click="cancel()">取 消</el-button>
-      <el-button class="ql_bu" size="small" type="primary" @click="submit()">确 定</el-button>
+      <Button className="ql_bu" size="sm" variant="outline" @click="cancel()">取 消</Button>
+      <Button className="ql_bu" size="sm" variant="default" @click="submit()">确 定</Button>
     </div>
   </div>
 </template>
@@ -32,6 +50,9 @@
 // @ts-nocheck
   import router from "@/router"
   import uploadImage from "@/components/Uplaod/index.vue"
+  import Button from '@/components/ui/Button.vue'
+  import { Input } from '@/components/ui/input'
+  import { Switch } from '@/components/ui/switch'
   import {ref, watch} from "vue"
   import {success, error} from "@/util/tipsUtils"
   import { learnApi } from '@/api/edu/admin-api'
@@ -39,7 +60,10 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
   export default {
     name: "LearnCategoryEdit",
     components: {
-      uploadImage
+      Button,
+      uploadImage,
+      Input,
+      Switch
     },
     props: {
       data: {

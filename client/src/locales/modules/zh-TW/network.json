@@ -1,6 +1,0 @@
-{
-  "network": {
-    "connectionRestored": "網絡連接已恢復",
-    "connectionLost": "網絡連接已斷開，部分功能可能不可用"
-  }
-}

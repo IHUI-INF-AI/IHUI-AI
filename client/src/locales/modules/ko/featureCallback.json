@@ -1,8 +1,0 @@
-{
-  "featureCallback": {
-    "expired": "만료",
-    "verifyFailed": "검증 실패",
-    "missing": "누락",
-    "attack": "공격"
-  }
-}

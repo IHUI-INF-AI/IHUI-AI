@@ -1,9 +1,0 @@
-{
-  "googleLogin": {
-    "useGoogle": "Sign in with Google",
-    "failed": "Google sign-in failed",
-    "verifyFailed": "Google sign-in verification failed, please retry",
-    "handleFailed": "Google sign-in processing failed",
-    "retry": "Google sign-in failed, please retry"
-  }
-}

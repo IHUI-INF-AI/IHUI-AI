@@ -1,8 +1,0 @@
-{
-  "refundDetail": {
-    "backToList": "환불 목록으로",
-    "title": "환불 상세",
-    "refundNo": "환불 번호",
-    "supplementEvidence": "증빙 자료 추가 (다중 파일 지원)"
-  }
-}

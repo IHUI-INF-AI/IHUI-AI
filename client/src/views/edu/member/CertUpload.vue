@@ -1,5 +1,5 @@
 <template>
-  <div class="member-cert-upload">
+  <div class="member-cert-upload" role="region" :aria-label="t('edu.profile.certUploadTitle')">
     <header class="page-header">
       <div class="header-text">
         <h1 class="page-title">{{ t('edu.profile.certUploadTitle') }}</h1>
@@ -7,9 +7,9 @@
       </div>
     </header>
 
-    <el-alert
+    <Alert
       v-if="error"
-      type="error"
+      variant="destructive"
       :title="t('edu.common.loadFailed')"
       show-icon
       :closable="false"
@@ -17,80 +17,89 @@
     />
 
     <section class="upload-form-section">
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="120px"
-        label-position="right"
-        class="upload-form"
-      >
-        <el-form-item :label="t('edu.profile.certTitleLabel')" prop="title">
-          <el-input
-            v-model="form.title"
-            :placeholder="t('edu.profile.certTitleLabel')"
-            maxlength="100"
-            show-word-limit
-          />
-        </el-form-item>
+      <form ref="formRef" @submit.prevent class="upload-form">
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certTitleLabel') }}</label>
+          <div class="flex-1">
+            <el-input
+              v-model="form.title"
+              :placeholder="t('edu.profile.certTitleLabel')"
+              maxlength="100"
+              show-word-limit
+            />
+          </div>
+        </div>
 
-        <el-form-item :label="t('edu.profile.certIssuerLabel')" prop="issuer">
-          <el-input
-            v-model="form.issuer"
-            :placeholder="t('edu.profile.certIssuerLabel')"
-            maxlength="100"
-          />
-        </el-form-item>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certIssuerLabel') }}</label>
+          <div class="flex-1">
+            <el-input
+              v-model="form.issuer"
+              :placeholder="t('edu.profile.certIssuerLabel')"
+              maxlength="100"
+            />
+          </div>
+        </div>
 
-        <el-form-item :label="t('edu.profile.certIssueDateLabel')" prop="issue_date">
-          <el-date-picker
-            v-model="form.issue_date"
-            type="date"
-            value-format="YYYY-MM-DD"
-            :placeholder="t('edu.profile.certIssueDateLabel')"
-            style="width: 100%"
-          />
-        </el-form-item>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certIssueDateLabel') }}</label>
+          <div class="flex-1">
+            <el-date-picker
+              v-model="form.issue_date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              :placeholder="t('edu.profile.certIssueDateLabel')"
+              style="width: 100%"
+            />
+          </div>
+        </div>
 
-        <el-form-item :label="t('edu.profile.certTypeLabel')" prop="cert_type">
-          <el-select v-model="form.cert_type" style="width: 100%">
-            <el-option :label="t('edu.profile.certTypeCertificate')" value="certificate" />
-            <el-option :label="t('edu.profile.certTypeTranscript')" value="transcript" />
-            <el-option :label="t('edu.profile.certTypeDiploma')" value="diploma" />
-            <el-option :label="t('edu.profile.certTypeOther')" value="other" />
-          </el-select>
-        </el-form-item>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certTypeLabel') }}</label>
+          <div class="flex-1">
+            <Select v-model="form.cert_type" style="width: 100%">
+              <SelectOption :label="t('edu.profile.certTypeCertificate')" value="certificate" />
+              <SelectOption :label="t('edu.profile.certTypeTranscript')" value="transcript" />
+              <SelectOption :label="t('edu.profile.certTypeDiploma')" value="diploma" />
+              <SelectOption :label="t('edu.profile.certTypeOther')" value="other" />
+            </Select>
+          </div>
+        </div>
 
-        <el-form-item :label="t('edu.profile.selectFile')" prop="file_url">
-          <el-upload
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleFileChange"
-            :on-exceed="handleExceed"
-            :on-remove="handleFileRemove"
-            :file-list="fileList"
-            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp"
-            class="cert-uploader"
-          >
-            <el-button :icon="UploadFilled">{{ t('edu.profile.selectFile') }}</el-button>
-            <template #tip>
-              <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
-            </template>
-          </el-upload>
-        </el-form-item>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.selectFile') }}</label>
+          <div class="flex-1">
+            <el-upload
+              :auto-upload="false"
+              :limit="1"
+              :on-change="handleFileChange"
+              :on-exceed="handleExceed"
+              :on-remove="handleFileRemove"
+              :file-list="fileList"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp"
+              class="cert-uploader"
+            >
+              <el-button :icon="UploadFilled">{{ t('edu.profile.selectFile') }}</el-button>
+              <template #tip>
+                <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
+              </template>
+            </el-upload>
+          </div>
+        </div>
 
-        <el-form-item>
+        <div class="mb-4">
           <el-button
             type="primary"
             :loading="submitting"
             :disabled="!canSubmit"
+            :aria-label="t('edu.common.submit')"
             @click="handleSubmit"
           >
             {{ t('edu.common.submit') }}
           </el-button>
-          <el-button @click="handleReset">{{ t('edu.common.cancel') }}</el-button>
-        </el-form-item>
-      </el-form>
+          <el-button :aria-label="t('edu.common.cancel')" @click="handleReset">{{ t('edu.common.cancel') }}</el-button>
+        </div>
+      </form>
     </section>
 
     <section v-loading="loading" class="cert-list-section">
@@ -102,12 +111,14 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Alert } from '@/components/ui/alert'
 import { ElMessage, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { uploadedCertsApi, type UploadedCertCreate, type UploadedCertType } from '@/api/edu/uploaded-certs'
 import CertificateList from '@/components/edu/CertificateList.vue'
 import { validateFile } from '@/utils/fileValidation'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { t } = useI18n()
 const { loading, error, certificates, uploadedCerts, loadAll, refresh } = useStudentProfile()

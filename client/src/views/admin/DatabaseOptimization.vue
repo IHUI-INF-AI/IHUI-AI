@@ -1,70 +1,79 @@
 <template>
   <div class="database-optimization">
-    <el-card class="page-card">
-      <template #header>
+    <Card class="page-card"><CardHeader>
         <div class="card-header">
           <h2>{{ t('adminComponents.databaseOptimization.title') }}</h2>
-          <el-button type="primary" @click="refreshData">
-            <el-icon><Refresh /></el-icon>
+          <Button variant="default" @click="refreshData">
+            <Refresh class="h-4 w-4" />
             {{ t('commonText.view') }}
-          </el-button>
+          </Button>
         </div>
-      </template>
-
-      <el-row :gutter="20">
-        <el-col :span="8">
+      </CardHeader><CardContent class="p-5">
+      
+      <div class="flex flex-wrap gap-5">
+        <div class="w-1/3">
           <el-statistic :title="t('adminCommon.stat.tableCount')" :value="stats.tableCount" />
-        </el-col>
-        <el-col :span="8">
+        </div>
+        <div class="w-1/3">
           <el-statistic :title="t('adminCommon.stat.recordCount')" :value="stats.recordCount" />
-        </el-col>
-        <el-col :span="8">
+        </div>
+        <div class="w-1/3">
           <el-statistic :title="t('adminCommon.stat.dbSize')" :value="stats.dbSize" suffix="MB" />
-        </el-col>
-      </el-row>
+        </div>
+      </div>
 
-      <el-divider />
+      <Divider />
 
       <h3>{{ t('adminComponents.databaseOptimization.operations') }}</h3>
       <el-space>
-        <el-button type="primary" @click="optimizeTables">
-          <el-icon><MagicStick /></el-icon>
+        <Button variant="default" @click="optimizeTables">
+          <MagicStick class="h-4 w-4" />
           优化表结�?
-        </el-button>
-        <el-button type="warning" @click="clearCache">
-          <el-icon><Delete /></el-icon>
+        </Button>
+        <Button variant="secondary" @click="clearCache">
+          <Delete class="h-4 w-4" />
           清理缓存
-        </el-button>
-        <el-button type="danger" @click="vacuumDatabase">
-          <el-icon><FirstAidKit /></el-icon>
+        </Button>
+        <Button variant="destructive" @click="vacuumDatabase">
+          <FirstAidKit class="h-4 w-4" />
           压缩数据�?
-        </el-button>
+        </Button>
       </el-space>
 
-      <el-divider />
+      <Divider />
 
       <h3>{{ t('adminComponents.databaseOptimization.tableStatus') }}</h3>
-      <el-table :data="tableStatus" style="width: 100%" v-loading="loading">
-        <el-table-column prop="name" label="表名" />
-        <el-table-column prop="rows" label="记录数" />
-        <el-table-column prop="size" label="大小 (MB)" />
-        <el-table-column prop="fragmentation" label="碎片率">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="row.fragmentation"
-              :status="row.fragmentation > 30 ? 'exception' : 'success'"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('adminComponents.userManagement.actions')" width="120">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="optimizeTable(row.name)">
-              {{ t('adminComponents.databaseOptimization.operations') }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      <div v-if="loading" class="loading-text">加载中...</div>
+      <Table v-show="!loading" class="w-full">
+        <TableHeader>
+          <TableRow>
+            <TableHead>表名</TableHead>
+            <TableHead>记录数</TableHead>
+            <TableHead>大小 (MB)</TableHead>
+            <TableHead>碎片率</TableHead>
+            <TableHead class="w-[120px]">{{ t('adminComponents.userManagement.actions') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in tableStatus" :key="row.name ?? index">
+            <TableCell>{{ row.name }}</TableCell>
+            <TableCell>{{ row.rows }}</TableCell>
+            <TableCell>{{ row.size }}</TableCell>
+            <TableCell>
+              <el-progress
+                :percentage="row.fragmentation"
+                :status="row.fragmentation > 30 ? 'exception' : 'success'"
+              />
+            </TableCell>
+            <TableCell>
+              <Button variant="default" size="sm" @click="optimizeTable(row.name)">
+                {{ t('adminComponents.databaseOptimization.operations') }}
+              </Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent></Card>
   </div>
 </template>
 
@@ -74,6 +83,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, MagicStick, Delete, FirstAidKit } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useCleanup } from '@/composables/useCleanup'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { Divider } from '@/components/ui/divider'
+import Button from '@/components/ui/Button.vue'
 
 const { t } = useI18n()
 

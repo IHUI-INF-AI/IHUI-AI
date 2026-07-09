@@ -1,0 +1,27 @@
+# 数据库迁移专用 Dockerfile(一次性容器)
+# 启动时执行 drizzle-kit migrate,完成后退出
+FROM node:20-alpine AS base
+RUN apk add --no-cache tini && npm install -g pnpm@9.15.0
+WORKDIR /app
+
+# 仅复制 database 包所需文件(最小化镜像)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/config/package.json ./packages/config/
+RUN pnpm install --frozen-lockfile
+
+# 复制 database 包源码 + 迁移文件
+COPY packages/database/src ./packages/database/src
+COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/database/drizzle ./packages/database/drizzle
+COPY packages/database/drizzle.config.ts ./packages/database/
+
+# 切换到 database 包目录,构建后执行迁移
+WORKDIR /app/packages/database
+RUN pnpm run build
+
+# 使用 tini 处理信号,确保迁移完成后容器正确退出
+ENTRYPOINT ["/sbin/tini", "--"]
+# drizzle-kit migrate 读取 drizzle.config.ts + DATABASE_URL 环境变量
+CMD ["pnpm", "run", "db:migrate"]

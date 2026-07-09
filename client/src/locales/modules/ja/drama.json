@@ -1,9 +1,0 @@
-{
-  "drama": {
-    "addCharDesc": "（人物イメージ説明の補充が必要）",
-    "coherent": "前セグメントとの視覚・プロット一貫性を保持、自然な遷移、人イメージの一貫性を確保",
-    "transition": "切り替え",
-    "sceneTransition": "シーン遷移",
-    "confirmCharContinue": "キャラクターのその後の出演を確認"
-  }
-}

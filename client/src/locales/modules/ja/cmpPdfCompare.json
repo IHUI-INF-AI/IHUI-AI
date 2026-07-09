@@ -1,8 +1,0 @@
-{
-  "cmpPdfCompare": {
-    "selectPdfA": "selectPdfA",
-    "selectPdfB": "selectPdfB",
-    "syncScroll": "syncScroll",
-    "syncZoom": "syncZoom"
-  }
-}

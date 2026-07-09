@@ -3,14 +3,13 @@
     <h2 class="page-title">{{ t('migrationAdmin.title') }}</h2>
 
     <!-- 健康检查 -->
-    <el-card class="health-card" shadow="never">
-      <template #header>
+    <Card class="health-card shadow-none"><CardHeader>
         <div class="card-header">
           <span>{{ t('migrationAdmin.healthCheck') }}</span>
-          <el-button size="small" @click="loadHealth" :loading="healthLoading">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" size="sm" @click="loadHealth">{{ t('common.refresh') }}</Button>
         </div>
-      </template>
-      <el-descriptions v-if="health" :column="2" border>
+      </CardHeader><CardContent class="p-5">
+            <el-descriptions v-if="health" :column="2" border>
         <el-descriptions-item label="G 盘 zhs_ai_project">{{ health.g_disk?.engines?.ai }}</el-descriptions-item>
         <el-descriptions-item label="G 盘 zhs_center_project">{{ health.g_disk?.engines?.center }}</el-descriptions-item>
         <el-descriptions-item label="G 盘 zhs_educational_training">{{ health.g_disk?.engines?.course }}</el-descriptions-item>
@@ -19,93 +18,126 @@
         <el-descriptions-item label="id_mapping 总数">{{ health.id_mapping_count }}</el-descriptions-item>
         <el-descriptions-item label="checkpoint 总数">{{ health.checkpoint_count }}</el-descriptions-item>
       </el-descriptions>
-    </el-card>
+    </CardContent></Card>
 
     <!-- 批次列表 -->
-    <el-card class="batch-card" shadow="never">
-      <template #header>
+    <Card class="batch-card shadow-none"><CardHeader>
         <div class="card-header">
           <span>{{ t('migrationAdmin.batchList') }}</span>
-          <el-button size="small" @click="loadBatches" :loading="loading">{{ t('common.refresh') }}</el-button>
+          <Button variant="outline" size="sm" @click="loadBatches">{{ t('common.refresh') }}</Button>
         </div>
-      </template>
-      <el-table :data="batches" border stripe>
-        <el-table-column prop="batch_id" label="批次号" width="200" />
-        <el-table-column prop="description" label="描述" min-width="280" show-overflow-tooltip />
-        <el-table-column prop="task_count" label="任务数" width="80" align="center" />
-        <el-table-column label="进度" width="200">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="row.task_count > 0 ? Math.round((row.done_count / row.task_count) * 100) : 0"
-              :status="row.failed_count > 0 ? 'exception' : 'success'"
-            />
-            <span class="progress-text">
-              {{ row.done_count }} / {{ row.task_count }} done
-              <el-tag v-if="row.running_count > 0" type="warning" size="mini">{{ t('migrationAdmin.running') }} {{ row.running_count }}</el-tag>
-              <el-tag v-if="row.failed_count > 0" type="danger" size="mini">{{ t('migrationAdmin.failed') }} {{ row.failed_count }}</el-tag>
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="数据量" width="200">
-          <template #default="{ row }">
-            {{ row.migrated_rows.toLocaleString() }} / {{ row.total_rows.toLocaleString() }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
-          <template #default="{ row }">
-            <el-button size="mini" type="primary" @click="runBatch(row, false, false)">{{ t('migrationAdmin.execute') }}</el-button>
-            <el-button size="mini" @click="runBatch(row, true, false)">Dry-Run</el-button>
-            <el-button size="mini" type="warning" @click="runBatch(row, false, true)">{{ t('migrationAdmin.restart') }}</el-button>
-            <el-button size="mini" @click="showCheckpoints(row.batch_id)">{{ t('migrationAdmin.details') }}</el-button>
-            <el-button size="mini" @click="verifyBatch(row.batch_id)">{{ t('migrationAdmin.validate') }}</el-button>
-            <el-button size="mini" type="danger" @click="confirmRollback(row.batch_id)">{{ t('migrationAdmin.rollback') }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      </CardHeader><CardContent class="p-5">
+            <Table class="border">
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[200px]">批次号</TableHead>
+            <TableHead class="min-w-[280px]">描述</TableHead>
+            <TableHead class="w-[80px] text-center">任务数</TableHead>
+            <TableHead class="w-[200px]">进度</TableHead>
+            <TableHead class="w-[200px]">数据量</TableHead>
+            <TableHead class="w-[320px]">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in batches" :key="row.batch_id ?? index">
+            <TableCell>{{ row.batch_id }}</TableCell>
+            <TableCell class="max-w-[400px] truncate" :title="row.description ?? ''">{{ row.description }}</TableCell>
+            <TableCell class="text-center">{{ row.task_count }}</TableCell>
+            <TableCell>
+              <el-progress
+                :percentage="row.task_count > 0 ? Math.round((row.done_count / row.task_count) * 100) : 0"
+                :status="row.failed_count > 0 ? 'exception' : 'success'"
+              />
+              <span class="progress-text">
+                {{ row.done_count }} / {{ row.task_count }} done
+                <Tag v-if="row.running_count > 0" type="warning" size="small">{{ t('migrationAdmin.running') }} {{ row.running_count }}</Tag>
+                <Tag v-if="row.failed_count > 0" type="danger" size="small">{{ t('migrationAdmin.failed') }} {{ row.failed_count }}</Tag>
+              </span>
+            </TableCell>
+            <TableCell>
+              {{ row.migrated_rows.toLocaleString() }} / {{ row.total_rows.toLocaleString() }}
+            </TableCell>
+            <TableCell>
+              <Button variant="default" size="sm" @click="runBatch(row, false, false)">{{ t('migrationAdmin.execute') }}</Button>
+              <Button variant="outline" size="sm" @click="runBatch(row, true, false)">Dry-Run</Button>
+              <Button variant="secondary" size="sm" @click="runBatch(row, false, true)">{{ t('migrationAdmin.restart') }}</Button>
+              <Button variant="outline" size="sm" @click="showCheckpoints(row.batch_id)">{{ t('migrationAdmin.details') }}</Button>
+              <Button variant="outline" size="sm" @click="verifyBatch(row.batch_id)">{{ t('migrationAdmin.validate') }}</Button>
+              <Button variant="destructive" size="sm" @click="confirmRollback(row.batch_id)">{{ t('migrationAdmin.rollback') }}</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent></Card>
 
     <!-- 校验结果 -->
-    <el-card v-if="verifyResult" class="verify-card" shadow="never">
-      <template #header>
+    <Card class="verify-card shadow-none" v-if="verifyResult"><CardHeader>
         <div class="card-header">
           <span>{{ t('migrationAdmin.validationResult') }} {{ verifyResult.batch_id }}</span>
-          <el-button size="small" @click="verifyResult = null">{{ t('common.close') }}</el-button>
+          <Button variant="outline" size="sm" @click="verifyResult = null">{{ t('common.close') }}</Button>
         </div>
-      </template>
-      <el-table :data="verifyResult.tables" border>
-        <el-table-column prop="source_table" label="H 盘表" />
-        <el-table-column prop="target_table" label="G 盘表" />
-        <el-table-column prop="h_count" label="H 行数" align="right" />
-        <el-table-column prop="g_count" label="G 行数" align="right" />
-        <el-table-column prop="ratio" label="覆盖率" align="right">
-          <template #default="{ row }">
-            <el-tag :type="row.ok ? 'success' : 'danger'">{{ row.ratio }}%</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      </CardHeader><CardContent class="p-5">
+            <Table class="border">
+        <TableHeader>
+          <TableRow>
+            <TableHead>H 盘表</TableHead>
+            <TableHead>G 盘表</TableHead>
+            <TableHead class="text-right">H 行数</TableHead>
+            <TableHead class="text-right">G 行数</TableHead>
+            <TableHead class="text-right">覆盖率</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in verifyResult.tables" :key="(row.source_table ?? '') + index">
+            <TableCell>{{ row.source_table }}</TableCell>
+            <TableCell>{{ row.target_table }}</TableCell>
+            <TableCell class="text-right">{{ row.h_count }}</TableCell>
+            <TableCell class="text-right">{{ row.g_count }}</TableCell>
+            <TableCell class="text-right">
+              <Tag :type="row.ok ? 'success' : 'danger'">{{ row.ratio }}%</Tag>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent></Card>
 
     <!-- checkpoint 明细 -->
-    <el-dialog
+    <Dialog
       v-model="checkpointDialogVisible"
-      :title="`Checkpoint 明细: ${currentBatchId}`"
       width="80%"
     >
-      <el-table :data="checkpoints" border>
-        <el-table-column prop="source_table" label="源表" />
-        <el-table-column prop="target_table" label="目标表" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="migrated_rows" label="已迁移" width="100" />
-        <el-table-column prop="total_rows" label="总数" width="100" />
-        <el-table-column prop="last_pk" label="最后 PK" width="100" />
-        <el-table-column prop="updated_at" label="更新时间" width="180" />
-        <el-table-column prop="error_msg" label="错误" show-overflow-tooltip />
-      </el-table>
-    </el-dialog>
+      <DialogHeader>
+        <DialogTitle>Checkpoint 明细: {{ currentBatchId }}</DialogTitle>
+      </DialogHeader>
+      <Table class="border">
+        <TableHeader>
+          <TableRow>
+            <TableHead>源表</TableHead>
+            <TableHead>目标表</TableHead>
+            <TableHead class="w-[100px]">状态</TableHead>
+            <TableHead class="w-[100px]">已迁移</TableHead>
+            <TableHead class="w-[100px]">总数</TableHead>
+            <TableHead class="w-[100px]">最后 PK</TableHead>
+            <TableHead class="w-[180px]">更新时间</TableHead>
+            <TableHead>错误</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in checkpoints" :key="(row.source_table ?? '') + index">
+            <TableCell>{{ row.source_table }}</TableCell>
+            <TableCell>{{ row.target_table }}</TableCell>
+            <TableCell>
+              <Tag :type="statusTagType(row.status)">{{ row.status }}</Tag>
+            </TableCell>
+            <TableCell>{{ row.migrated_rows }}</TableCell>
+            <TableCell>{{ row.total_rows }}</TableCell>
+            <TableCell>{{ row.last_pk }}</TableCell>
+            <TableCell>{{ row.updated_at }}</TableCell>
+            <TableCell class="max-w-[400px] truncate" :title="row.error_msg ?? ''">{{ row.error_msg }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </Dialog>
   </div>
 </template>
 
@@ -114,6 +146,11 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Tag } from '@/components/ui/tag'
   type BatchInfo,
   type CheckpointInfo,
   type TableVerifyInfo,

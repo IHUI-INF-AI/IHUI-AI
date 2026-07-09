@@ -7,49 +7,48 @@
     </el-page-header>
 
     <!-- 统计卡片 -->
-    <el-row :gutter="20" class="stats-cards" v-if="overview">
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+    <div class="flex flex-wrap gap-5 stats-cards" v-if="overview">
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value">{{ overview.total_settlements || 0 }}</div>
             <div class="stat-label">{{ t('settlement.totalSettlements') }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value primary">
               ¥{{ (overview.total_amount / 100 || 0).toFixed(2) }}
             </div>
             <div class="stat-label">{{ t('settlement.totalAmount') }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value success">{{ overview.settled_count || 0 }}</div>
             <div class="stat-label">{{ t('settlement.settledCount') }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="6">
-        <el-card shadow="hover">
+        </Card>
+      </div>
+      <div class="w-full sm:w-1/4">
+        <Card class="transition-shadow hover:shadow-md p-5">
           <div class="stat-item">
             <div class="stat-value warning">{{ overview.unsettled_count || 0 }}</div>
             <div class="stat-label">{{ t('settlement.unsettledCount') }}</div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-card shadow="never" class="main-card">
-      <template #header>
+    <Card class="main-card shadow-none"><CardHeader>
         <div class="card-header">
           <span>{{ t('settlement.settlementList') }}</span>
           <div style="display: flex; gap: 10px">
-            <el-input
+            <Input
               v-model="searchKeyword"
               :placeholder="t('settlement.searchPlaceholder')"
               style="width: 240px"
@@ -66,72 +65,79 @@
               <el-option :label="t('settlement.unsettled')" value="0" />
               <el-option :label="t('settlement.settled')" value="1" />
             </el-select>
-            <el-button @click="loadSettlements">
-              <el-icon><RefreshCw /></el-icon>
+            <Button variant="outline" @click="loadSettlements">
+              <RefreshCw class="h-4 w-4" />
               {{ t('common.refresh') }}
-            </el-button>
-            <el-button type="primary" @click="showSyncDialog = true">{{
+            </Button>
+            <Button variant="default" @click="showSyncDialog = true">{{
               t('settlement.syncPurchaseRecords')
-            }}</el-button>
+            }}</Button>
           </div>
         </div>
-      </template>
-
-      <el-table :data="settlementList" stripe v-loading="loading">
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="agent_name" :label="t('settlement.agentName')" min-width="150" />
-        <el-table-column prop="order_no" :label="t('settlement.orderNo')" min-width="150" />
-        <el-table-column :label="t('settlement.amount')" width="120">
-          <template #default="{ row }">
-            <span style="color: var(--el-color-primary); font-weight: bold">
-              ¥{{ ((row.amount || 0) / 100).toFixed(2) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="accountType" :label="t('settlement.chargeType')" width="120" />
-        <el-table-column prop="total" :label="t('settlement.quantity')" width="80" />
-        <el-table-column :label="t('settlement.settlementStatus')" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.settlement === '1' ? 'success' : 'warning'">
-              {{ row.settlement === '1' ? t('settlement.settled') : t('settlement.unsettled') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('settlement.withdrawalStatus')" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.withdrawal === '1' ? 'success' : 'info'">
-              {{
-                row.withdrawal === '1' ? t('settlement.withdrawn') : t('settlement.notWithdrawn')
-              }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="create_time" :label="t('settlement.createTime')" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.create_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('common.actions')" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="handleViewDetail(row)">{{
-              t('settlement.detail')
-            }}</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">{{
-              t('settlement.delete')
-            }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      </CardHeader><CardContent class="p-5">
+      
+      <div v-if="loading" class="flex justify-center py-8 text-muted-foreground">Loading...</div>
+      <Table v-else>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[55px]"><input type="checkbox" :checked="allSelected" @change="toggleAll($event)" /></TableHead>
+            <TableHead class="min-w-[150px]">{{ t('settlement.agentName') }}</TableHead>
+            <TableHead class="min-w-[150px]">{{ t('settlement.orderNo') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('settlement.amount') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('settlement.chargeType') }}</TableHead>
+            <TableHead class="w-[80px]">{{ t('settlement.quantity') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('settlement.settlementStatus') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('settlement.withdrawalStatus') }}</TableHead>
+            <TableHead class="w-[180px]">{{ t('settlement.createTime') }}</TableHead>
+            <TableHead class="w-[150px]">{{ t('common.actions') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in settlementList" :key="row.id ?? index">
+            <TableCell class="w-[55px]"><input type="checkbox" :checked="selectedRows.includes(row)" @change="toggleRow(row)" /></TableCell>
+            <TableCell>{{ row.agent_name }}</TableCell>
+            <TableCell>{{ row.order_no }}</TableCell>
+            <TableCell>
+              <span style="color: var(--el-color-primary); font-weight: bold">
+                ¥{{ ((row.amount || 0) / 100).toFixed(2) }}
+              </span>
+            </TableCell>
+            <TableCell>{{ row.accountType }}</TableCell>
+            <TableCell>{{ row.total }}</TableCell>
+            <TableCell>
+              <Tag :type="row.settlement === '1' ? 'success' : 'warning'">
+                {{ row.settlement === '1' ? t('settlement.settled') : t('settlement.unsettled') }}
+              </Tag>
+            </TableCell>
+            <TableCell>
+              <Tag :type="row.withdrawal === '1' ? 'success' : 'info'">
+                {{
+                  row.withdrawal === '1' ? t('settlement.withdrawn') : t('settlement.notWithdrawn')
+                }}
+              </Tag>
+            </TableCell>
+            <TableCell>{{ formatTime(row.create_time) }}</TableCell>
+            <TableCell>
+              <Button variant="link" @click="handleViewDetail(row)">{{
+                t('settlement.detail')
+              }}</Button>
+              <Button variant="link" @click="handleDelete(row)">{{
+                t('settlement.delete')
+              }}</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
       <div
         style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center"
       >
-        <el-button :disabled="selectedRows.length === 0" @click="handleBatchDelete">
+        <Button variant="outline" :disabled="selectedRows.length === 0" @click="handleBatchDelete">
           {{ t('settlement.batchDelete') }} ({{ selectedRows.length }})
-        </el-button>
-        <el-pagination
+        </Button>
+        <Pagination
           v-if="pagination.total > 0"
-          v-model:current-page="pagination.page"
+          v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           layout="prev, pager, next, sizes, jumper, total"
@@ -139,10 +145,13 @@
           @current-change="loadSettlements"
         />
       </div>
-    </el-card>
+    </CardContent></Card>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="showDetailDialog" :title="t('settlement.settlementDetail')" width="800px">
+    <Dialog v-model="showDetailDialog" width="800px">
+      <DialogHeader>
+        <DialogTitle>{{ t('settlement.settlementDetail') }}</DialogTitle>
+      </DialogHeader>
       <div v-if="currentSettlement" class="settlement-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item :label="t('settlement.agentName')">
@@ -158,77 +167,85 @@
             {{ currentSettlement.accountType || '-' }}
           </el-descriptions-item>
           <el-descriptions-item :label="t('settlement.settlementStatus')">
-            <el-tag :type="currentSettlement.settlement === '1' ? 'success' : 'warning'">
+            <Tag :type="currentSettlement.settlement === '1' ? 'success' : 'warning'">
               {{
                 currentSettlement.settlement === '1'
                   ? t('settlement.settled')
                   : t('settlement.unsettled')
               }}
-            </el-tag>
+            </Tag>
           </el-descriptions-item>
           <el-descriptions-item :label="t('settlement.withdrawalStatus')">
-            <el-tag :type="currentSettlement.withdrawal === '1' ? 'success' : 'info'">
+            <Tag :type="currentSettlement.withdrawal === '1' ? 'success' : 'info'">
               {{
                 currentSettlement.withdrawal === '1'
                   ? t('settlement.withdrawn')
                   : t('settlement.notWithdrawn')
               }}
-            </el-tag>
+            </Tag>
           </el-descriptions-item>
           <el-descriptions-item :label="t('settlement.createTime')">
             {{ formatTime(currentSettlement.create_time) }}
           </el-descriptions-item>
         </el-descriptions>
       </div>
-    </el-dialog>
+    </Dialog>
 
     <!-- 同步对话框 -->
-    <el-dialog
-      v-model="showSyncDialog"
-      :title="t('settlement.syncPurchaseToSettlement')"
-      width="500px"
-    >
-      <el-form :model="syncForm" label-width="120px">
-        <el-form-item :label="t('settlement.startDate')">
-          <el-date-picker
-            v-model="syncForm.start_date"
-            type="date"
-            :placeholder="t('settlement.selectStartDate')"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item :label="t('settlement.endDate')">
-          <el-date-picker
-            v-model="syncForm.end_date"
-            type="date"
-            :placeholder="t('settlement.selectEndDate')"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item :label="t('settlement.developerUuid')">
-          <el-input
-            v-model="syncForm.agent_order_uuid"
-            :placeholder="t('settlement.developerUuidPlaceholder')"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showSyncDialog = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="syncSubmitting" @click="handleSync">{{
+    <Dialog v-model="showSyncDialog" width="500px">
+      <DialogHeader>
+        <DialogTitle>{{ t('settlement.syncPurchaseToSettlement') }}</DialogTitle>
+      </DialogHeader>
+      <form @submit.prevent>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('settlement.startDate') }}</label>
+          <div class="flex-1">
+            <el-date-picker
+              v-model="syncForm.start_date"
+              type="date"
+              :placeholder="t('settlement.selectStartDate')"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('settlement.endDate') }}</label>
+          <div class="flex-1">
+            <el-date-picker
+              v-model="syncForm.end_date"
+              type="date"
+              :placeholder="t('settlement.selectEndDate')"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('settlement.developerUuid') }}</label>
+          <div class="flex-1">
+            <Input
+              v-model="syncForm.agent_order_uuid"
+              :placeholder="t('settlement.developerUuidPlaceholder')"
+            />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="showSyncDialog = false">{{ t('common.cancel') }}</Button>
+        <Button variant="default" @click="handleSync">{{
           t('settlement.startSync')
-        }}</el-button>
-      </template>
-    </el-dialog>
+        }}</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
  
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
@@ -248,6 +265,13 @@ import {
 } from '@/api/agent-settlement'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime as _formatTime } from '@/utils/format'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Pagination } from '@/components/ui/pagination'
+import { Input } from '@/components/ui/input'
+import { Tag } from '@/components/ui/tag'
 
 const { t } = useI18n()
 
@@ -270,6 +294,30 @@ const pagination = reactive({
 
 const overview = ref<SettlementOverview | null>(null)
 const selectedRows = ref<AgentSettlement[]>([])
+
+const allSelected = computed(
+  () =>
+    settlementList.value.length > 0 &&
+    settlementList.value.every(r => selectedRows.value.includes(r))
+)
+
+const toggleAll = (event: Event) => {
+  const checked = (event.target as HTMLInputElement).checked
+  if (checked) {
+    selectedRows.value = [...settlementList.value]
+  } else {
+    selectedRows.value = []
+  }
+}
+
+const toggleRow = (row: AgentSettlement) => {
+  const idx = selectedRows.value.indexOf(row)
+  if (idx >= 0) {
+    selectedRows.value.splice(idx, 1)
+  } else {
+    selectedRows.value.push(row)
+  }
+}
 
 const showDetailDialog = ref(false)
 const currentSettlement = ref<AgentSettlement | null>(null)

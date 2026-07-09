@@ -1,8 +1,0 @@
-{
-  "simpleFallback": {
-    "loading": "Loading",
-    "reload": "Reload",
-    "goHome": "Go Home",
-    "defaultMessage": "Default Message"
-  }
-}

@@ -1,0 +1,40 @@
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+RUN npm install -g pnpm@9.15.0
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/types/package.json ./packages/types/
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/package.json ./packages/database/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/ui/package.json ./packages/ui/
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+# 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
+ENV API_URL=http://api:8080
+ENV AI_SERVICE_URL=http://ai-service:8000
+RUN pnpm --filter @ihui/web run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+# public 目录可能为空,条件复制避免构建失败
+COPY --from=builder /app/apps/web/public* ./apps/web/public/
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+CMD ["node", "apps/web/server.js"]

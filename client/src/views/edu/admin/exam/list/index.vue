@@ -1,107 +1,136 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
-          <el-input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></el-input>
-          <el-button size="small" class="search-btn" type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-        <el-form-item label="状态" class="status">
-          <el-select size="small" v-model="searchParam.isShow" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未发布" value="unpublished"></el-option>
-            <el-option label="已发布" value="published"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-        </el-form-item>
-        <el-form-item>
-          <el-button size="small" type="primary" @click="edit()">
-            <el-icon><Plus /></el-icon>
+      <form class="demo-form-inline flex flex-wrap items-end gap-4" @submit.prevent>
+        <div class="mb-4">
+          <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
+          <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
+        </div>
+        <div class="mb-4 status">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+          <div>
+            <Select size="small" v-model="searchParam.isShow" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption label="未发布" value="unpublished"></SelectOption>
+              <SelectOption label="已发布" value="published"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
+          <div>
+            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button size="sm" variant="default" @click="edit()">
+            <Plus class="h-4 w-4" />
             新增
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="content">
-      <el-table v-loading="dataLoading" :show-header="false" class="custom-table" ref="multipleTable" :data="list" style="width: 100%" @expand-change="expandChange">
-        <el-table-column type="expand">
-          <template #default="scope">
-            <el-card class="box-card">
-              <template #header>
-                <div class="clearfix">
-                  <span>基础信息</span>
-                </div>
-              </template>
-              <div class="table-wrapper">
-                <table class="fl-table" style="width: 100%;">
-                  <tbody>
-                    <tr><td style="width: 120px;">编号：</td><td>{{scope.row.code}}</td></tr>
-                    <tr><td>名称：</td><td>{{scope.row.name}}</td></tr>
-                    <tr><td>开始时间：</td><td>{{scope.row.startTime}}</td></tr>
-                    <tr><td>结束时间：</td><td>{{scope.row.endTime}}</td></tr>
-                    <tr><td style="vertical-align: top;">详情：</td><td><div v-html="scope.row.introduction"></div></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </el-card>
-            <el-card style="margin-top: 20px;">
-              <template #header>
-                <div class="clearfix">
-                  <span>章节</span>
-                </div>
-              </template>
-              <div>
-                <el-table class="custom-table" :data="scope.row.chapterList" :show-header="false" style="width: 100%;">
-                  <el-table-column type="expand">
-                    <template #default="props">
-                      <el-table class="custom-table" :data="props.row.chapterSectionList" :show-header="false" style="width: 100%;">
-                        <el-table-column prop="title" label="标题"></el-table-column>
-                        <!--                          <el-table-column prop="phrase" label="简介"></el-table-column>-->
-                      </el-table>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="title" label="标题"></el-table-column>
-                  <!--                    <el-table-column prop="phrase" label="简介"></el-table-column>-->
-                </el-table>
-              </div>
-            </el-card>
-          </template>
-        </el-table-column>
-        <el-table-column>
-          <template #default="scope">
-            <div class="content-item-warp">
-              <a class="image" v-if="scope.row.image && scope.row.image.trim()">
-                <img :src="scope.row.image">
-              </a>
-              <div class="article-card-bone">
-                <div class="title-wrap">
-                  <a class="title">{{scope.row.name}}</a>
-                  <span class="label create-time">{{scope.row.createTime}}</span>
-                </div>
-                <div class="abstruct">
-                  <div class="status">{{statusMap[scope.row.status]}}</div>
-                </div>
-                <div class="count-wrapper">
-                  <ul class="count">
-                    <li>考试人次 {{scope.row.signUpNum || 0}}</li>
-                    <li>点赞 {{scope.row.likeNum || 0}}</li>
-                    <li>收藏 {{scope.row.favoriteNum || 0}}</li>
-                    <li>评论 {{scope.row.commentNum || 0}}</li>
-                  </ul>
-                  <div class="article-action-list">
-                    <span class="icon-label" @click="showSignUpListDrawer(scope.row)">报名记录</span>
-                    <span class="icon-label" @click="commentView(scope.row)">查看评论</span>
-                    <span class="icon-label" @click="edit(scope.row.id)">编辑</span>
-                    <span class="icon-label" @click="remove(scope.row)">删除</span>
+      <div v-if="dataLoading" class="loading-text">加载中...</div>
+      <Table v-show="!dataLoading" class="custom-table w-full">
+        <TableBody>
+          <template v-for="(row, index) in list" :key="row.id ?? index">
+            <TableRow>
+              <TableCell>
+                <button @click="toggleExpand(index)">{{ expandedRows.has(index) ? '▼' : '▶' }}</button>
+              </TableCell>
+              <TableCell>
+                <div class="content-item-warp">
+                  <a class="image" v-if="row.image && row.image.trim()">
+                    <img :src="row.image">
+                  </a>
+                  <div class="article-card-bone">
+                    <div class="title-wrap">
+                      <a class="title">{{row.name}}</a>
+                      <span class="label create-time">{{row.createTime}}</span>
+                    </div>
+                    <div class="abstruct">
+                      <div class="status">{{statusMap[row.status]}}</div>
+                    </div>
+                    <div class="count-wrapper">
+                      <ul class="count">
+                        <li>考试人次 {{row.signUpNum || 0}}</li>
+                        <li>点赞 {{row.likeNum || 0}}</li>
+                        <li>收藏 {{row.favoriteNum || 0}}</li>
+                        <li>评论 {{row.commentNum || 0}}</li>
+                      </ul>
+                      <div class="article-action-list">
+                        <span class="icon-label" @click="showSignUpListDrawer(row)">报名记录</span>
+                        <span class="icon-label" @click="commentView(row)">查看评论</span>
+                        <span class="icon-label" @click="edit(row.id)">编辑</span>
+                        <span class="icon-label" @click="remove(row)">删除</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </TableCell>
+            </TableRow>
+            <tr v-if="expandedRows.has(index)">
+              <td colspan="99">
+                <Card class="box-card">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>基础信息</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div class="table-wrapper">
+                    <table class="fl-table" style="width: 100%;">
+                      <tbody>
+                        <tr><td style="width: 120px;">编号：</td><td>{{row.code}}</td></tr>
+                        <tr><td>名称：</td><td>{{row.name}}</td></tr>
+                        <tr><td>开始时间：</td><td>{{row.startTime}}</td></tr>
+                        <tr><td>结束时间：</td><td>{{row.endTime}}</td></tr>
+                        <tr><td style="vertical-align: top;">详情：</td><td><div v-html="row.introduction"></div></td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+                </Card>
+                <Card style="margin-top: 20px;">
+                  <CardHeader>
+                    <div class="clearfix">
+                      <span>章节</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                  <div>
+                    <Table class="custom-table w-full">
+                      <TableBody>
+                        <template v-for="(chapter, cIndex) in row.chapterList" :key="chapter.id ?? cIndex">
+                          <TableRow>
+                            <TableCell>
+                              <button @click="toggleExpand(`${index}-${cIndex}`)">{{ expandedRows.has(`${index}-${cIndex}`) ? '▼' : '▶' }}</button>
+                            </TableCell>
+                            <TableCell>{{chapter.title}}</TableCell>
+                          </TableRow>
+                          <tr v-if="expandedRows.has(`${index}-${cIndex}`)">
+                            <td colspan="99">
+                              <Table class="custom-table w-full">
+                                <TableBody>
+                                  <TableRow v-for="(section, sIndex) in chapter.chapterSectionList" :key="section.id ?? sIndex">
+                                    <TableCell>{{section.title}}</TableCell>
+                                  </TableRow>
+                                </TableBody>
+                              </Table>
+                            </td>
+                          </tr>
+                        </template>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+                </Card>
+              </td>
+            </tr>
           </template>
-        </el-table-column>
-      </el-table>
+        </TableBody>
+      </Table>
     </div>
     <el-drawer class="sign-up-drawer" v-model="signUpDrawer" direction="rtl" :before-close="signUpDrawerClose" destroy-on-close>
       <template #header>
@@ -118,24 +147,25 @@
         </div>
       </template>
       <div class="topic-list-wrapper">
-        <el-table v-loading="signUpLoading" :data="signUpList" style="width: 100%">
-          <el-table-column label="姓名">
-            <template #default="scope">
-              {{scope.row.member && scope.row.member.name}}
-            </template>
-          </el-table-column>
-          <el-table-column label="报名时间" prop="createTime"></el-table-column>
-          <el-table-column label="完成时间" prop="completedTime">
-            <template #default="scope">
-              {{scope.row.completedTime || "--"}}
-            </template>
-          </el-table-column>
-          <el-table-column label="状态">
-            <template #default="scope">
-              {{signUpStatusMap[scope.row.status]}}
-            </template>
-          </el-table-column>
-        </el-table>
+        <div v-if="signUpLoading" class="loading-text">加载中...</div>
+        <Table v-show="!signUpLoading" class="w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead>姓名</TableHead>
+              <TableHead>报名时间</TableHead>
+              <TableHead>完成时间</TableHead>
+              <TableHead>状态</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, index) in signUpList" :key="row.id ?? index">
+              <TableCell>{{ row.member && row.member.name }}</TableCell>
+              <TableCell>{{ row.createTime }}</TableCell>
+              <TableCell>{{ row.completedTime || "--" }}</TableCell>
+              <TableCell>{{ signUpStatusMap[row.status] }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
         <page :total="signUpTotal" :current-change="signUpCurrentChange" :size-change="signUpSizeChange" :page-size="signUpParam.size"></page>
       </div>
     </el-drawer>
@@ -158,14 +188,40 @@ const { getSignUpList } = examApi;
 import {confirm, success} from "@/util/tipsUtils";
 import {Plus} from '@/lib/lucide-fallback';
 
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "ExamListIndex",
   components: {
+    Card,
+    CardHeader,
+    CardContent,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
     CommentDrawer,
     Page,
-    Plus
+    Plus,
+    Button,
+    Input,
+    Select,
+    SelectOption
   },
   setup() {
+    const expandedRows = ref(new Set())
+    const toggleExpand = (key) => {
+      if (expandedRows.value.has(key)) {
+        expandedRows.value.delete(key)
+      } else {
+        expandedRows.value.add(key)
+      }
+    }
     const list = ref([])
     const total = ref(0)
     const dataLoading = ref(true)
@@ -334,7 +390,9 @@ export default {
       signUpCurrentChange,
       signUpSizeChange,
       showSignUpListDrawer,
-      signUpStatusMap
+      signUpStatusMap,
+      expandedRows,
+      toggleExpand
     }
   }
 };
@@ -493,25 +551,12 @@ export default {
       }
     }
   }
-  .el-table th.is-leaf, .el-table td {
-    border: 0;
-  }
-  .el-table th.is-leaf, .el-table td:nth-child(1) {
-    min-width: 100px;
-  }
   .image {
     height: 60px;
     display: inline-block;
   }
   .search-input {
     width: 242px;
-  }
-  .el-table-column--selection .cell{
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  :deep(.el-table tbody tr:hover > td){
-    background-color: transparent;
   }
 }
 :deep(.sign-up-drawer){
@@ -522,12 +567,9 @@ export default {
 }
 </style>
 <style lang="scss">
-  .el-table.custom-table table tr:last-child {
+  .custom-table table tr:last-child {
     td {
       border: 0;
     }
-  }
-  .el-table::before {
-    height: 0;
   }
 </style>

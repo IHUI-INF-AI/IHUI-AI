@@ -1,97 +1,93 @@
 <template>
   <div class="performance-dashboard">
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card class="stat-card">
+    <div class="flex flex-wrap gap-5 stats-row">
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value" :class="getScoreClass(lcpScore)">{{ lcpScore }}ms</div>
             <div class="stat-label">{{ t('performance.lcp') }}</div>
           </div>
           <el-progress :percentage="getScorePercentage(lcpScore, 'LCP')" :color="getScoreColor(lcpScore, 'LCP')" :show-text="false" />
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value" :class="getScoreClass(fidScore)">{{ fidScore }}ms</div>
             <div class="stat-label">{{ t('performance.fid') }}</div>
           </div>
           <el-progress :percentage="getScorePercentage(fidScore, 'FID')" :color="getScoreColor(fidScore, 'FID')" :show-text="false" />
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value" :class="getScoreClass(clsScore)">{{ clsScore.toFixed(3) }}</div>
             <div class="stat-label">{{ t('performance.cls') }}</div>
           </div>
           <el-progress :percentage="getScorePercentage(clsScore, 'CLS')" :color="getScoreColor(clsScore, 'CLS')" :show-text="false" />
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
+        </Card>
+      </div>
+      <div class="w-1/4">
+        <Card class="stat-card p-5">
           <div class="stat-content">
             <div class="stat-value" :class="getScoreClass(ttfbScore)">{{ ttfbScore }}ms</div>
             <div class="stat-label">{{ t('performance.ttfb') }}</div>
           </div>
           <el-progress :percentage="getScorePercentage(ttfbScore, 'TTFB')" :color="getScoreColor(ttfbScore, 'TTFB')" :show-text="false" />
-        </el-card>
-      </el-col>
-    </el-row>
+        </Card>
+      </div>
+    </div>
 
-    <el-row :gutter="20">
-      <el-col :span="24">
-        <el-card class="chart-card">
-          <template #header>
+    <div class="flex flex-wrap gap-5">
+      <div class="w-full">
+        <Card class="chart-card"><CardHeader>
             <div class="card-header">
               <span>{{ t('performance.trend') }}</span>
-              <el-radio-group v-model="timeRange" size="small">
-                <el-radio-button label="1h">{{ t('performance.h1') }}</el-radio-button>
-                <el-radio-button label="24h">{{ t('performance.h24') }}</el-radio-button>
-                <el-radio-button label="7d">{{ t('performance.d7') }}</el-radio-button>
-              </el-radio-group>
+              <div class="flex gap-4">
+                <Radio v-model="timeRange" value="1h">{{ t('performance.h1') }}</Radio>
+                <Radio v-model="timeRange" value="24h">{{ t('performance.h24') }}</Radio>
+                <Radio v-model="timeRange" value="7d">{{ t('performance.d7') }}</Radio>
+              </div>
             </div>
-          </template>
-          <div ref="trendChartRef" class="chart-container"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="trendChartRef" class="chart-container"></div>
+        </CardContent></Card>
+      </div>
+    </div>
 
-    <el-row :gutter="20">
-      <el-col :span="12">
-        <el-card class="chart-card">
-          <template #header>
+    <div class="flex flex-wrap gap-5">
+      <div class="w-1/2">
+        <Card class="chart-card"><CardHeader>
             <span>{{ t('performance.loadDist') }}</span>
-          </template>
-          <div ref="distributionChartRef" class="chart-container-small"></div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card class="chart-card">
-          <template #header>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="distributionChartRef" class="chart-container-small"></div>
+        </CardContent></Card>
+      </div>
+      <div class="w-1/2">
+        <Card class="chart-card"><CardHeader>
             <span>{{ t('performance.scoreDist') }}</span>
-          </template>
-          <div ref="scoreChartRef" class="chart-container-small"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+          </CardHeader><CardContent class="p-5">
+                    <div ref="scoreChartRef" class="chart-container-small"></div>
+        </CardContent></Card>
+      </div>
+    </div>
 
-    <el-card class="alert-card">
-      <template #header>
+    <Card class="alert-card"><CardHeader>
         <div class="card-header">
           <span>{{ t('performance.alerts') }}</span>
-          <el-badge :value="alertCount" :max="99" class="alert-badge" />
+          <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs text-white alert-badge">{{ alertCount > 99 ? '99+' : alertCount }}</span>
         </div>
-      </template>
-      <el-timeline>
+      </CardHeader><CardContent class="p-5">
+            <el-timeline>
         <el-timeline-item v-for="alert in alerts" :key="alert.id" :type="alert.level === 'critical' ? 'danger' : 'warning'" :timestamp="formatTime(alert.timestamp)">
           <div class="alert-content">
             <strong>{{ alert.metric }}</strong>: {{ alert.value }}ms
-            <el-tag :type="alert.level === 'critical' ? 'danger' : 'warning'" size="small">{{ alert.level === 'critical' ? '严重' : '警告' }}</el-tag>
+            <Tag :type="alert.level === 'critical' ? 'danger' : 'warning'" size="small">{{ alert.level === 'critical' ? '严重' : '警告' }}</Tag>
           </div>
         </el-timeline-item>
       </el-timeline>
-    </el-card>
+    </CardContent></Card>
   </div>
 </template>
 
@@ -100,6 +96,9 @@ import { ref, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Radio } from '@/components/ui/radio'
+import { Tag } from '@/components/ui/tag'
 
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 

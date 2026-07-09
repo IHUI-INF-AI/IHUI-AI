@@ -1,20 +1,26 @@
 <template>
-  <el-button size="small" link @click="to">授权</el-button>
-  <el-dialog v-model="dialog" :title="'选择角色'" append-to-body width="90%">
-    <el-form ref="form" :inline="true" size="small" label-width="66px">
-      <el-form-item style="margin-bottom: 0;" label="角色">
-        <el-select size="small" v-model="roleId" style="width: 450px;" placeholder="请选择">
-          <el-option v-for="(item, index) in roleList" :key="item.name + index" :label="item.name" :value="item.id"/>
-        </el-select>
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button size="small" link @click="cancel">取消</el-button>
-        <el-button size="small" :loading="loading" type="primary" @click="submit">确认</el-button>
+  <Button variant="link" size="sm" @click="to">授权</Button>
+  <Dialog v-model="dialog" width="90%">
+    <DialogHeader>
+      <DialogTitle>选择角色</DialogTitle>
+    </DialogHeader>
+    <form ref="form" @submit.prevent class="flex flex-wrap items-center gap-4">
+      <div class="mb-4 flex items-center gap-4" style="margin-bottom: 0;">
+        <label class="w-16 shrink-0 text-sm">角色</label>
+        <div class="flex-1">
+          <Select size="small" v-model="roleId" style="width: 450px;" placeholder="请选择">
+            <SelectOption v-for="(item, index) in roleList" :key="item.name + index" :label="item.name" :value="item.id"/>
+          </Select>
+        </div>
       </div>
-    </template>
-  </el-dialog>
+    </form>
+    <DialogFooter>
+      <div class="dialog-footer">
+        <Button variant="link" size="sm" @click="cancel">取消</Button>
+        <Button variant="default" size="sm" @click="submit">确认</Button>
+      </div>
+    </DialogFooter>
+  </Dialog>
 </template>
 <script>
 // @ts-nocheck
@@ -22,8 +28,20 @@ import {ref} from "vue"
 import {success, warning} from "@/util/tipsUtils";
 import { roleApi } from '@/api/edu/admin-api'
 const { getRoleList, getUserRoleList, updateUserRole } = roleApi;
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import Button from '@/components/ui/Button.vue'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "UserEdit",
+  components: {
+    Button,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Select,
+    SelectOption
+  },
   props: {
     data: {
       type: Object,

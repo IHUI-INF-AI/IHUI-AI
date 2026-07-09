@@ -1,80 +1,97 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="form-inline">
-        <el-form-item label="">
-          <el-input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字（订单号/公司名称）" clearable></el-input>
-        </el-form-item>
-        <el-form-item label="状态" class="select">
-          <el-select v-model="searchParam.invoiceStatus" @change="search" clearable placeholder="全部">
-            <el-option v-for="(item, key) in invoiceStatusMap" :label="item" :value="key" :key="key"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="抬头类型" class="select">
-          <el-select v-model="searchParam.titleType" @change="search" clearable placeholder="全部">
-            <el-option label="企业单位" :value="1"></el-option>
-            <el-option label="个人/非企业单位" :value="2"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="search">搜索</el-button>
-        </el-form-item>
-      </el-form>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <Input class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字（订单号/公司名称）" clearable />
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
+          <div>
+            <Select v-model="searchParam.invoiceStatus" @change="search" clearable placeholder="全部">
+              <SelectOption v-for="(item, key) in invoiceStatusMap" :label="item" :value="key" :key="key"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">抬头类型</label>
+          <div>
+            <Select v-model="searchParam.titleType" @change="search" clearable placeholder="全部">
+              <SelectOption label="企业单位" :value="1"></SelectOption>
+              <SelectOption label="个人/非企业单位" :value="2"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button variant="default" @click="search">搜索</Button>
+        </div>
+      </form>
     </div>
     <div class="content">
-      <el-table :data="list" v-loading="dataLoading" style="width: 100%">
-        <el-table-column prop="orderNo" label="订单号" width="180"></el-table-column>
-        <el-table-column label="抬头类型" width="120">
-          <template #default="scope">
-            <el-tag :type="scope.row.titleType === 1 ? 'primary' : 'success'" size="small">
-              {{ scope.row.titleType === 1 ? '企业单位' : '个人/非企业' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="companyName" label="发票抬头" min-width="180"></el-table-column>
-        <el-table-column prop="companyTaxNumber" label="税号" width="180"></el-table-column>
-        <el-table-column label="开票金额" width="120">
-          <template #default="scope">
-            <span class="price">￥{{ scope.row.invoiceAmount || 0 }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="email" label="接收邮箱" width="180"></el-table-column>
-        <el-table-column label="状态" width="100">
-          <template #default="scope">
-            <el-tag :type="getStatusTagType(scope.row.invoiceStatus)" size="small">
-              {{ invoiceStatusMap[scope.row.invoiceStatus] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="申请时间" width="180"></el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click="viewDetail(scope.row)">详情</el-button>
-            <template v-if="scope.row.invoiceStatus === 0">
-              <el-button link type="success" @click="handleApprove(scope.row)">通过</el-button>
-              <el-button link type="danger" @click="handleReject(scope.row)">驳回</el-button>
-            </template>
-            <template v-else-if="scope.row.invoiceStatus === 1">
-              <el-button link type="warning" @click="handleInvoicing(scope.row)">开票中</el-button>
-            </template>
-            <template v-else-if="scope.row.invoiceStatus === 3">
-              <el-button link type="success" @click="handleInvoiced(scope.row)">已开票</el-button>
-            </template>
-            <el-button link type="danger" v-if="scope.row.invoiceStatus !== 5" @click="handleCancel(scope.row)">作废</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="dataLoading" class="loading">加载中...</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="w-[180px]">订单号</TableHead>
+            <TableHead class="w-[120px]">抬头类型</TableHead>
+            <TableHead class="min-w-[180px]">发票抬头</TableHead>
+            <TableHead class="w-[180px]">税号</TableHead>
+            <TableHead class="w-[120px]">开票金额</TableHead>
+            <TableHead class="w-[180px]">接收邮箱</TableHead>
+            <TableHead class="w-[100px]">状态</TableHead>
+            <TableHead class="w-[180px]">申请时间</TableHead>
+            <TableHead class="w-[200px]">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+            <TableCell>{{ row.orderNo }}</TableCell>
+            <TableCell>
+              <Tag :type="row.titleType === 1 ? 'primary' : 'success'" size="small">
+                {{ row.titleType === 1 ? '企业单位' : '个人/非企业' }}
+              </Tag>
+            </TableCell>
+            <TableCell>{{ row.companyName }}</TableCell>
+            <TableCell>{{ row.companyTaxNumber }}</TableCell>
+            <TableCell><span class="price">￥{{ row.invoiceAmount || 0 }}</span></TableCell>
+            <TableCell>{{ row.email }}</TableCell>
+            <TableCell>
+              <Tag :type="getStatusTagType(row.invoiceStatus)" size="small">
+                {{ invoiceStatusMap[row.invoiceStatus] }}
+              </Tag>
+            </TableCell>
+            <TableCell>{{ row.createTime }}</TableCell>
+            <TableCell>
+              <Button variant="link" @click="viewDetail(row)">详情</Button>
+              <template v-if="row.invoiceStatus === 0">
+                <Button variant="link" @click="handleApprove(row)">通过</Button>
+                <Button variant="link" @click="handleReject(row)">驳回</Button>
+              </template>
+              <template v-else-if="row.invoiceStatus === 1">
+                <Button variant="link" @click="handleInvoicing(row)">开票中</Button>
+              </template>
+              <template v-else-if="row.invoiceStatus === 3">
+                <Button variant="link" @click="handleInvoiced(row)">已开票</Button>
+              </template>
+              <Button variant="link" v-if="row.invoiceStatus !== 5" @click="handleCancel(row)">作废</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="发票申请详情" width="600px">
+    <Dialog v-model="detailVisible" width="600px">
+      <DialogHeader>
+        <DialogTitle>发票申请详情</DialogTitle>
+      </DialogHeader>
       <el-descriptions :column="2" border v-if="currentItem">
         <el-descriptions-item label="订单号">{{ currentItem.orderNo }}</el-descriptions-item>
         <el-descriptions-item label="申请状态">
-          <el-tag :type="getStatusTagType(currentItem.invoiceStatus)" size="small">
+          <Tag :type="getStatusTagType(currentItem.invoiceStatus)" size="small">
             {{ invoiceStatusMap[currentItem.invoiceStatus] }}
-          </el-tag>
+          </Tag>
         </el-descriptions-item>
         <el-descriptions-item label="抬头类型">{{ currentItem.titleType === 1 ? '企业单位' : '个人/非企业单位' }}</el-descriptions-item>
         <el-descriptions-item label="开票金额"><span class="price">￥{{ currentItem.invoiceAmount }}</span></el-descriptions-item>
@@ -90,23 +107,29 @@
         <el-descriptions-item label="申请时间">{{ currentItem.createTime }}</el-descriptions-item>
         <el-descriptions-item label="更新时间">{{ currentItem.updateTime }}</el-descriptions-item>
       </el-descriptions>
-      <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+      <DialogFooter>
+        <Button variant="outline" @click="detailVisible = false">关闭</Button>
+      </DialogFooter>
+    </Dialog>
 
     <!-- 驳回原因弹窗 -->
-    <el-dialog v-model="rejectVisible" title="驳回原因" width="400px">
-      <el-form :model="rejectForm">
-        <el-form-item label="驳回原因" required>
-          <el-input v-model="rejectForm.reason" type="textarea" :rows="4" placeholder="请输入驳回原因"></el-input>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="rejectVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmReject">确认驳回</el-button>
-      </template>
-    </el-dialog>
+    <Dialog v-model="rejectVisible" width="400px">
+      <DialogHeader>
+        <DialogTitle>驳回原因</DialogTitle>
+      </DialogHeader>
+      <form @submit.prevent>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">驳回原因</label>
+          <div>
+            <Textarea v-model="rejectForm.reason" :rows="4" placeholder="请输入驳回原因" />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="rejectVisible = false">取消</Button>
+        <Button variant="default" @click="confirmReject">确认驳回</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -114,6 +137,12 @@
 // @ts-nocheck
 import Page from "@/components/Page/index.vue"
 import { ref } from "vue"
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Textarea } from '@/components/ui/textarea'
+import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
 import { learnApi } from '@/api/edu/admin-api'
 const { getInvoiceApplicationList, approvedInvoiceApplication, rejectedInvoiceApplication, invoicingInvoiceApplication, invoicedInvoiceApplication, canceledInvoiceApplication } = learnApi
 import { success as successMsg, warning } from "@/util/tipsUtils"
@@ -122,7 +151,22 @@ import { ElMessageBox } from "element-plus"
 export default {
   name: "InvoiceApplication",
   components: {
-    Page
+    Page,
+    Button,
+    Dialog,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+    Textarea,
+    Select,
+    SelectOption,
+    Tag
   },
   setup() {
     const list = ref([])

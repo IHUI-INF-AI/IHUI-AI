@@ -6,76 +6,78 @@
       </template>
     </el-page-header>
 
-    <el-card shadow="never" class="main-card">
-      <template #header>
+    <Card class="main-card shadow-none"><CardHeader>
         <div class="card-header">
           <span>{{ t('agentCategory.configList') }}</span>
           <div style="display: flex; gap: 10px">
-            <el-input
+            <Input
               v-model="searchKeyword"
               :placeholder="t('agentCategory.searchPlaceholder')"
               style="width: 240px"
               clearable
               @input="debouncedLoadCategories"
             />
-            <el-select v-model="filterType" @change="loadCategories" style="width: 120px" clearable>
-              <el-option :label="t('agentCategory.allTypes')" value="" />
-              <el-option :label="t('agentCategory.free')" value="1" />
-              <el-option :label="t('agentCategory.limitFree')" value="2" />
-              <el-option :label="t('agentCategory.paid')" value="3" />
-            </el-select>
-            <el-button type="primary" @click="showCreateDialog = true">
-              <el-icon><Plus /></el-icon>
+            <Select v-model="filterType" @change="loadCategories" style="width: 120px" clearable>
+              <SelectOption :label="t('agentCategory.allTypes')" value="" />
+              <SelectOption :label="t('agentCategory.free')" value="1" />
+              <SelectOption :label="t('agentCategory.limitFree')" value="2" />
+              <SelectOption :label="t('agentCategory.paid')" value="3" />
+            </Select>
+            <Button variant="default" @click="showCreateDialog = true">
+              <Plus class="h-4 w-4" />
               {{ t('agentCategory.addConfig') }}
-            </el-button>
+            </Button>
           </div>
         </div>
-      </template>
+      </CardHeader><CardContent class="p-5">
+      
+      <div v-if="loading" class="flex justify-center py-8 text-muted-foreground">Loading...</div>
+      <Table v-else>
+        <TableHeader>
+          <TableRow>
+            <TableHead class="min-w-[150px]">{{ t('agentCategory.agentName') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('agentCategory.agentId') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('agentCategory.mainCategory') }}</TableHead>
+            <TableHead class="w-[100px]">{{ t('agentCategory.type') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('agentCategory.price') }}</TableHead>
+            <TableHead class="w-[120px]">{{ t('agentCategory.creator') }}</TableHead>
+            <TableHead class="w-[180px]">{{ t('agentCategory.createTime') }}</TableHead>
+            <TableHead class="w-[150px]">{{ t('agentCategory.editConfig') }}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in categoryList" :key="row.id ?? index">
+            <TableCell>{{ row.agent_name }}</TableCell>
+            <TableCell>{{ row.agent_id }}</TableCell>
+            <TableCell>{{ getMainCategoryText(row.agent_main_category) }}</TableCell>
+            <TableCell>
+              <Tag :type="getTypeTagType(row.type)">
+                {{ getTypeText(row.type) }}
+              </Tag>
+            </TableCell>
+            <TableCell>
+              <span v-if="row.account"
+                >¥{{ (row.account / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
+              >
+              <span v-else style="color: var(--el-text-color-placeholder)">-</span>
+            </TableCell>
+            <TableCell>{{ row.create_name }}</TableCell>
+            <TableCell>{{ formatTime(row.create_time) }}</TableCell>
+            <TableCell>
+              <Button variant="link" @click="handleEdit(row)">{{
+                t('agentCategory.edit')
+              }}</Button>
+              <Button variant="link" @click="handleDelete(row)">{{
+                t('agentCategory.delete')
+              }}</Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
 
-      <el-table :data="categoryList" stripe v-loading="loading">
-        <el-table-column prop="agent_name" :label="t('agentCategory.agentName')" min-width="150" />
-        <el-table-column prop="agent_id" :label="t('agentCategory.agentId')" width="120" />
-        <el-table-column :label="t('agentCategory.mainCategory')" width="100">
-          <template #default="{ row }">
-            {{ getMainCategoryText(row.agent_main_category) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('agentCategory.type')" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getTypeTagType(row.type)">
-              {{ getTypeText(row.type) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('agentCategory.price')" width="120">
-          <template #default="{ row }">
-            <span v-if="row.account"
-              >¥{{ (row.account / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
-            >
-            <span v-else style="color: var(--el-text-color-placeholder)">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="create_name" :label="t('agentCategory.creator')" width="120" />
-        <el-table-column prop="create_time" :label="t('agentCategory.createTime')" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.create_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('agentCategory.editConfig')" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="handleEdit(row)">{{
-              t('agentCategory.edit')
-            }}</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">{{
-              t('agentCategory.delete')
-            }}</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-pagination
+      <Pagination
         v-if="pagination.total > 0"
-        v-model:current-page="pagination.page"
+        v-model:page="pagination.page"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         layout="prev, pager, next, sizes, jumper, total"
@@ -83,93 +85,109 @@
         @current-change="loadCategories"
         style="margin-top: 20px"
       />
-    </el-card>
+    </CardContent></Card>
 
     <!-- 创建/编辑对话框 -->
-    <el-dialog
+    <Dialog
       v-model="showCreateDialog"
-      :title="editingCategory ? t('agentCategory.editConfig') : t('agentCategory.addConfig')"
       width="600px"
     >
-      <el-form
-        :model="categoryForm"
-        :rules="categoryRules"
+      <DialogHeader>
+        <DialogTitle>{{ editingCategory ? t('agentCategory.editConfig') : t('agentCategory.addConfig') }}</DialogTitle>
+      </DialogHeader>
+      <form
         ref="categoryFormRef"
-        label-width="120px"
+        @submit.prevent
       >
-        <el-form-item :label="t('agentCategory.agentId')" prop="agent_id" required>
-          <el-input
-            v-model="categoryForm.agent_id"
-            :placeholder="t('agentCategory.agentIdPlaceholder')"
-          />
-        </el-form-item>
-        <el-form-item :label="t('agentCategory.agentName')" prop="agent_name" required>
-          <el-input
-            v-model="categoryForm.agent_name"
-            :placeholder="t('agentCategory.agentNamePlaceholder')"
-          />
-        </el-form-item>
-        <el-form-item :label="t('agentCategory.mainCategory')" prop="agent_main_category" required>
-          <el-select v-model="categoryForm.agent_main_category" style="width: 100%">
-            <el-option :label="t('agentCategory.text')" value="1" />
-            <el-option :label="t('agentCategory.image')" value="2" />
-            <el-option :label="t('agentCategory.video')" value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('agentCategory.type')" prop="type" required>
-          <el-radio-group v-model="categoryForm.type">
-            <el-radio value="1">{{ t('agentCategory.free') }}</el-radio>
-            <el-radio value="2">{{ t('agentCategory.limitFree') }}</el-radio>
-            <el-radio value="3">{{ t('agentCategory.paid') }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.agentId') }}</label>
+          <div class="flex-1">
+            <Input
+              v-model="categoryForm.agent_id"
+              :placeholder="t('agentCategory.agentIdPlaceholder')"
+            />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.agentName') }}</label>
+          <div class="flex-1">
+            <Input
+              v-model="categoryForm.agent_name"
+              :placeholder="t('agentCategory.agentNamePlaceholder')"
+            />
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.mainCategory') }}</label>
+          <div class="flex-1">
+            <Select v-model="categoryForm.agent_main_category" style="width: 100%">
+              <SelectOption :label="t('agentCategory.text')" value="1" />
+              <SelectOption :label="t('agentCategory.image')" value="2" />
+              <SelectOption :label="t('agentCategory.video')" value="3" />
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.type') }}</label>
+          <div class="flex-1">
+            <Radio v-model="categoryForm.type" value="1">{{ t('agentCategory.free') }}</Radio>
+            <Radio v-model="categoryForm.type" value="2">{{ t('agentCategory.limitFree') }}</Radio>
+            <Radio v-model="categoryForm.type" value="3">{{ t('agentCategory.paid') }}</Radio>
+          </div>
+        </div>
+        <div
           v-if="categoryForm.type === '3'"
-          :label="t('agentCategory.pricePerMonthPlaceholder')"
-          prop="account"
-          required
+          class="mb-4 flex items-center gap-4"
         >
-          <el-input-number
-            v-model="categoryForm.account"
-            :min="0"
-            :precision="0"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.pricePerMonthPlaceholder') }}</label>
+          <div class="flex-1">
+            <el-input-number
+              v-model="categoryForm.account"
+              :min="0"
+              :precision="0"
+              style="width: 100%"
+            />
+          </div>
+        </div>
+        <div
           v-if="categoryForm.type === '2'"
-          :label="t('agentCategory.limitFreeDuration')"
-          prop="limit_free"
+          class="mb-4 flex items-center gap-4"
         >
-          <el-select v-model="categoryForm.limit_free" style="width: 100%">
-            <el-option :label="t('agentCategory.oneMonth')" value="1" />
-            <el-option :label="t('agentCategory.threeMonths')" value="2" />
-            <el-option :label="t('agentCategory.sixMonths')" value="3" />
-            <el-option :label="t('agentCategory.oneYear')" value="4" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="t('agentCategory.group')" prop="group">
-          <el-radio-group v-model="categoryForm.group">
-            <el-radio value="1">{{ t('agentCategory.member') }}</el-radio>
-            <el-radio value="2">{{ t('agentCategory.all') }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item :label="t('agentCategory.description')" prop="prologue">
-          <el-input
-            v-model="categoryForm.prologue"
-            type="textarea"
-            :rows="3"
-            :placeholder="t('agentCategory.descriptionPlaceholder')"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showCreateDialog = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">{{
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.limitFreeDuration') }}</label>
+          <div class="flex-1">
+            <Select v-model="categoryForm.limit_free" style="width: 100%">
+              <SelectOption :label="t('agentCategory.oneMonth')" value="1" />
+              <SelectOption :label="t('agentCategory.threeMonths')" value="2" />
+              <SelectOption :label="t('agentCategory.sixMonths')" value="3" />
+              <SelectOption :label="t('agentCategory.oneYear')" value="4" />
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.group') }}</label>
+          <div class="flex-1">
+            <Radio v-model="categoryForm.group" value="1">{{ t('agentCategory.member') }}</Radio>
+            <Radio v-model="categoryForm.group" value="2">{{ t('agentCategory.all') }}</Radio>
+          </div>
+        </div>
+        <div class="mb-4 flex items-center gap-4">
+          <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.description') }}</label>
+          <div class="flex-1">
+            <Textarea
+              v-model="categoryForm.prologue"
+              :rows="3"
+              :placeholder="t('agentCategory.descriptionPlaceholder')"
+            />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="showCreateDialog = false">{{ t('common.cancel') }}</Button>
+        <Button variant="default" @click="handleSubmit">{{
           t('common.confirm')
-        }}</el-button>
-      </template>
-    </el-dialog>
+        }}</Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -195,6 +213,16 @@ import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { usePageState } from '@/composables/usePageState'
 import { ApiErrorType } from '@/utils/errorHandler'
 import { formatDateTime as _formatTime } from '@/utils/format'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Radio } from '@/components/ui/radio'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Pagination } from '@/components/ui/pagination'
+import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { t } = useI18n()
 const { showSuccess, showWarning, showError: showErrorMsg } = useOperationFeedback()

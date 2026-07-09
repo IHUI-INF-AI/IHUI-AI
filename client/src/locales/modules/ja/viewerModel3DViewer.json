@@ -1,8 +1,0 @@
-{
-  "viewerModel3DViewer": {
-    "model3dFile": "3Dモデルファイル",
-    "format": "形式",
-    "supportedFormat": "対応形式",
-    "useBlenderHint": "Blenderまたはオンライン閲覧ツールを使用"
-  }
-}

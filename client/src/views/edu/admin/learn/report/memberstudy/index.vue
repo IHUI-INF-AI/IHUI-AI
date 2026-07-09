@@ -1,64 +1,76 @@
 <template>
   <div class="report">
     <div class="header">
-      <el-form :inline="true" :model="params" class="form-inline">
-        <el-form-item label="课程名称">
-          <el-input size="small" @keydown.enter="search" class="search-input" v-model="params.name" placeholder="请输入关键字">
-            <template #suffix>
-              <el-icon class="el-input__icon search-btn" @click="search"><Search /></el-icon>
-            </template>
-          </el-input>
-        </el-form-item>
-        <el-form-item label="课程状态" class="select">
-          <el-select size="small" v-model="params.status" @change="search">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="未发布" value="unpublished"></el-option>
-            <el-option label="已发布" value="published"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="课程分类" class="select">
-          <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-        </el-form-item>
-        <el-form-item>
-          <el-button size="small" type="primary" @click="search()">
-            <el-icon style="vertical-align: middle">
-              <Search />
-            </el-icon>
+      <form @submit.prevent class="form-inline">
+        <div class="mb-4">
+          <label class="mb-1 block text-sm font-medium text-foreground">课程名称</label>
+          <div>
+            <Input size="small" @keydown.enter="search" class="search-input" v-model="params.name" placeholder="请输入关键字" />
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">课程状态</label>
+          <div>
+            <Select size="small" v-model="params.status" @change="search">
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption label="未发布" value="unpublished"></SelectOption>
+              <SelectOption label="已发布" value="published"></SelectOption>
+            </Select>
+          </div>
+        </div>
+        <div class="mb-4 select">
+          <label class="mb-1 block text-sm font-medium text-foreground">课程分类</label>
+          <div>
+            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+          </div>
+        </div>
+        <div class="mb-4">
+          <Button size="sm" variant="default" @click="search()">
+            <Search class="h-4 w-4" style="vertical-align: middle" />
             <span style="vertical-align: middle">搜索</span>
-          </el-button>
-          <el-button size="small" @click="resetParams()">
+          </Button>
+          <Button size="sm" variant="outline" @click="resetParams()">
             <span style="vertical-align: middle">重置</span>
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </Button>
+        </div>
+      </form>
     </div>
     <div class="report-main">
-      <el-table :data="dataList" v-loading="loading">
-        <el-table-column label="序号" type="index" :index="customIndexFn"></el-table-column>
-        <el-table-column label="名字" prop="member.name"></el-table-column>
-        <el-table-column label="真实姓名" prop="member.realname"></el-table-column>
-        <el-table-column label="公司">
-          <template #default="scope">
-            {{scope.row.member && scope.row.member.memberCompanyList && scope.row.member.memberCompanyList[0].name}}
-          </template>
-        </el-table-column>
-        <el-table-column label="报名课程数" prop="totalSignLessonQty"></el-table-column>
-        <el-table-column label="报名次数" prop="totalSignQty"></el-table-column>
-        <el-table-column label="平均报名次数" prop="avgSignQty"></el-table-column>
-        <el-table-column label="已完成数量" prop="completedSignQty"></el-table-column>
-        <el-table-column label="进行中数量" prop="progressSignQty"></el-table-column>
-        <el-table-column label="已取消数量" prop="cancelSignQty"></el-table-column>
-        <el-table-column label="学习时长" prop="totalLearnTime">
-          <template #default="scope">
-            {{formatSeconds(scope.row.totalLearnTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="平均学习时长" prop="avgLearnTime">
-          <template #default="scope">
-            {{formatSeconds(scope.row.avgLearnTime) }}
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-if="loading">加载中...</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>序号</TableHead>
+            <TableHead>名字</TableHead>
+            <TableHead>真实姓名</TableHead>
+            <TableHead>公司</TableHead>
+            <TableHead>报名课程数</TableHead>
+            <TableHead>报名次数</TableHead>
+            <TableHead>平均报名次数</TableHead>
+            <TableHead>已完成数量</TableHead>
+            <TableHead>进行中数量</TableHead>
+            <TableHead>已取消数量</TableHead>
+            <TableHead>学习时长</TableHead>
+            <TableHead>平均学习时长</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="(row, index) in dataList" :key="index">
+            <TableCell>{{ customIndexFn(index) }}</TableCell>
+            <TableCell>{{ row.member?.name }}</TableCell>
+            <TableCell>{{ row.member?.realname }}</TableCell>
+            <TableCell>{{ row.member && row.member.memberCompanyList && row.member.memberCompanyList[0].name }}</TableCell>
+            <TableCell>{{ row.totalSignLessonQty }}</TableCell>
+            <TableCell>{{ row.totalSignQty }}</TableCell>
+            <TableCell>{{ row.avgSignQty }}</TableCell>
+            <TableCell>{{ row.completedSignQty }}</TableCell>
+            <TableCell>{{ row.progressSignQty }}</TableCell>
+            <TableCell>{{ row.cancelSignQty }}</TableCell>
+            <TableCell>{{ formatSeconds(row.totalLearnTime) }}</TableCell>
+            <TableCell>{{ formatSeconds(row.avgLearnTime) }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
       <page :total="total" :size-change="sizeChange" :current-change="currentChange" :page-size="params.size"/>
     </div>
   </div>
@@ -73,10 +85,14 @@ import { learnApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = learnApi;
 const { getMemberStudyReport } = learnApi;
 import {formatSeconds} from "@/util/dateUtils";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "LearnReportIndex",
   methods: {formatSeconds},
-  components: {Search, Page},
+  components: {Search, Page, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Select, SelectOption},
   setup() {
     const loading = ref(true)
     const total = ref(0)

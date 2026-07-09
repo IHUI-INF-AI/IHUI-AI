@@ -3,54 +3,53 @@
     <div class="file-manager-header">
       <h2>{{ $t('file.manager.title') }}</h2>
       <div class="header-actions">
-        <el-button type="primary" @click="showUpload = true">
-          <el-icon><Upload /></el-icon>
+        <Button variant="default" @click="showUpload = true">
+          <Upload class="h-4 w-4" />
           {{ $t('file.upload.title') }}
-        </el-button>
-        <el-button @click="refreshFiles">
-          <el-icon><Refresh /></el-icon>
+        </Button>
+        <Button variant="outline" @click="refreshFiles">
+          <Refresh class="h-4 w-4" />
           {{ $t('common.refresh') }}
-        </el-button>
+        </Button>
       </div>
     </div>
 
     <div class="file-stats">
-      <el-card v-for="stat in stats" :key="stat.label" class="stat-card">
+      <Card v-for="stat in stats" :key="stat.label" class="stat-card p-5">
         <div class="stat-value">{{ stat.value }}</div>
         <div class="stat-label">{{ stat.label }}</div>
-      </el-card>
+      </Card>
     </div>
 
     <div class="file-toolbar">
-      <el-input
+      <Input
         v-model="searchQuery"
         :placeholder="$t('file.search')"
-        prefix-icon="Search"
         clearable
         class="search-input"
       />
-      <el-select v-model="sortBy" :placeholder="$t('file.sortBy')" class="sort-select">
-        <el-option :label="$t('file.sort.name')" value="name" />
-        <el-option :label="$t('file.sort.size')" value="size" />
-        <el-option :label="$t('file.sort.date')" value="date" />
-      </el-select>
-      <el-radio-group v-model="viewMode" class="view-mode">
-        <el-radio-button value="grid">
-          <el-icon><Grid /></el-icon>
-        </el-radio-button>
-        <el-radio-button value="list">
-          <el-icon><List /></el-icon>
-        </el-radio-button>
-      </el-radio-group>
+      <Select v-model="sortBy" :placeholder="$t('file.sortBy')" class="sort-select">
+        <SelectOption :label="$t('file.sort.name')" value="name" />
+        <SelectOption :label="$t('file.sort.size')" value="size" />
+        <SelectOption :label="$t('file.sort.date')" value="date" />
+      </Select>
+      <div class="view-mode">
+        <Radio v-model="viewMode" value="grid">
+          <Grid class="h-4 w-4" />
+        </Radio>
+        <Radio v-model="viewMode" value="list">
+          <List class="h-4 w-4" />
+        </Radio>
+      </div>
     </div>
     
     <div v-if="loading" class="loading-container">
-      <el-icon class="is-loading"><Loading /></el-icon>
+      <Loading class="h-4 w-4 is-loading" />
       <span>{{ $t('common.loading') }}</span>
     </div>
 
     <div v-else-if="filteredFiles.length === 0" class="empty-container">
-      <el-empty :description="$t('file.empty')" />
+      <Empty :description="$t('file.empty')" />
     </div>
     
     <div v-else :class="['file-container', viewMode]">
@@ -62,11 +61,11 @@
         @dblclick="openFile(file)"
       >
         <div class="file-checkbox">
-          <el-checkbox :model-value="selectedFiles.includes(file.id)" @click.stop />
+          <Checkbox :model-value="selectedFiles.includes(file.id)" @click.stop />
         </div>
         <div class="file-preview">
           <img v-if="file.thumbnail" :src="file.thumbnail" alt="" loading="lazy" />
-          <el-icon v-else-if="getFileIcon(file.type)"><component :is="getFileIcon(file.type)" /></el-icon>
+          <component v-else-if="getFileIcon(file.type)" :is="getFileIcon(file.type)" class="h-4 w-4" />
         </div>
         <div class="file-info">
           <span class="file-name">{{ file.name }}</span>
@@ -75,30 +74,31 @@
           </span>
         </div>
         <div class="file-actions" @click.stop>
-          <el-dropdown trigger="click">
-            <el-button size="small" circle>
-              <el-icon><More /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="previewFile(file)">
-                  <el-icon><View /></el-icon> {{ $t('file.preview') }}
-                </el-dropdown-item>
-                <el-dropdown-item @click="downloadFile(file)">
-                  <el-icon><Download /></el-icon> {{ $t('file.download') }}
-                </el-dropdown-item>
-                <el-dropdown-item @click="shareFile(file)">
-                  <el-icon><Share /></el-icon> {{ $t('common.share') }}
-                </el-dropdown-item>
-                <el-dropdown-item @click="showVersionHistory(file)">
-                  <el-icon><Clock /></el-icon> {{ $t('file.versions.title') }}
-                </el-dropdown-item>
-                <el-dropdown-item divided @click="deleteFile(file)">
-                  <el-icon><Delete /></el-icon> {{ $t('file.delete') }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <details class="relative">
+            <summary class="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              <Button size="icon" variant="outline">
+                <More class="h-4 w-4" />
+              </Button>
+            </summary>
+            <div class="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border bg-popover p-1 shadow-md" @click="$event.target.closest('details').open = false">
+              <button class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent" @click="previewFile(file)">
+                <View class="h-4 w-4" /> {{ $t('file.preview') }}
+              </button>
+              <button class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent" @click="downloadFile(file)">
+                <Download class="h-4 w-4" /> {{ $t('file.download') }}
+              </button>
+              <button class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent" @click="shareFile(file)">
+                <Share class="h-4 w-4" /> {{ $t('common.share') }}
+              </button>
+              <button class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent" @click="showVersionHistory(file)">
+                <Clock class="h-4 w-4" /> {{ $t('file.versions.title') }}
+              </button>
+              <div class="my-1 h-px bg-border"></div>
+              <button class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent" @click="deleteFile(file)">
+                <Delete class="h-4 w-4" /> {{ $t('file.delete') }}
+              </button>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -107,68 +107,81 @@
       <span class="selected-count">
         {{ $t('file.selected', { count: selectedFiles.length }) }}
       </span>
-      <el-button size="small" @click="downloadSelectedFiles">
-        <el-icon><Download /></el-icon> {{ $t('file.batchDownload') }}
-      </el-button>
-      <el-button size="small" @click="batchShare">
-        <el-icon><Share /></el-icon> {{ $t('file.batchShare') }}
-      </el-button>
-      <el-button size="small" type="danger" @click="batchDelete">
-        <el-icon><Delete /></el-icon> {{ $t('file.batchDelete') }}
-      </el-button>
-      <el-button size="small" @click="clearSelection">
+      <Button size="sm" variant="outline" @click="downloadSelectedFiles">
+        <Download class="h-4 w-4" /> {{ $t('file.batchDownload') }}
+      </Button>
+      <Button size="sm" variant="outline" @click="batchShare">
+        <Share class="h-4 w-4" /> {{ $t('file.batchShare') }}
+      </Button>
+      <Button size="sm" variant="destructive" @click="batchDelete">
+        <Delete class="h-4 w-4" /> {{ $t('file.batchDelete') }}
+      </Button>
+      <Button size="sm" variant="outline" @click="clearSelection">
         {{ $t('file.clearSelection') }}
-      </el-button>
+      </Button>
     </div>
     
-    <el-dialog v-model="showUpload" :title="$t('file.upload.title')" width="800px">
+    <Dialog v-model="showUpload" width="800px">
+      <DialogHeader>
+        <DialogTitle>{{ $t('file.upload.title') }}</DialogTitle>
+      </DialogHeader>
       <EnhancedFileUpload
         ref="uploadRef"
         :upload-url="uploadUrl"
         @success="onUploadSuccess"
       />
-    </el-dialog>
+    </Dialog>
     
-    <el-dialog v-model="showPreview" :title="previewFile?.name" width="80%" top="5vh">
+    <Dialog v-model="showPreview" width="80%" top="5vh">
+      <DialogHeader>
+        <DialogTitle>{{ previewFile?.name }}</DialogTitle>
+      </DialogHeader>
       <UnifiedViewer v-if="previewData" :url="previewData.url" :file-name="previewData.name" />
-    </el-dialog>
+    </Dialog>
     
-    <el-dialog v-model="showShare" :title="$t('file.share.title')" width="400px">
+    <Dialog v-model="showShare" width="400px">
+      <DialogHeader>
+        <DialogTitle>{{ $t('file.share.title') }}</DialogTitle>
+      </DialogHeader>
       <div v-if="shareData" class="share-dialog">
-        <el-input v-model="shareData.url" readonly>
-          <template #append>
-            <el-button @click="copyShareUrl">{{ $t('common.copy') }}</el-button>
-          </template>
-        </el-input>
+        <div class="flex">
+          <Input v-model="shareData.url" readonly />
+          <Button variant="outline" @click="copyShareUrl">{{ $t('common.copy') }}</Button>
+        </div>
         <div class="share-options">
-          <el-form-item :label="$t('file.share.expires')">
-            <el-select v-model="shareData.expiresIn" style="width: 100%">
-              <el-option :label="$t('file.share.1hour')" :value="1" />
-              <el-option :label="$t('file.share.1day')" :value="24" />
-              <el-option :label="$t('file.share.7days')" :value="168" />
-              <el-option :label="$t('file.share.forever')" :value="null" />
-            </el-select>
-          </el-form-item>
-          <el-form-item :label="$t('file.share.password')">
-            <el-input v-model="shareData.password" :placeholder="$t('file.share.passwordHint')" />
-          </el-form-item>
+          <div class="mb-4">
+            <label class="mb-1 block text-sm font-medium text-foreground">{{ $t('file.share.expires') }}</label>
+            <Select v-model="shareData.expiresIn" style="width: 100%">
+              <SelectOption :label="$t('file.share.1hour')" :value="1" />
+              <SelectOption :label="$t('file.share.1day')" :value="24" />
+              <SelectOption :label="$t('file.share.7days')" :value="168" />
+              <SelectOption :label="$t('file.share.forever')" :value="null" />
+            </Select>
+          </div>
+          <div class="mb-4">
+            <label class="mb-1 block text-sm font-medium text-foreground">{{ $t('file.share.password') }}</label>
+            <Input v-model="shareData.password" :placeholder="$t('file.share.passwordHint')" />
+          </div>
         </div>
       </div>
-    </el-dialog>
+    </Dialog>
     
-    <el-dialog v-model="showVersions" :title="$t('file.versions.title')" width="700px">
+    <Dialog v-model="showVersions" width="700px">
+      <DialogHeader>
+        <DialogTitle>{{ $t('file.versions.title') }}</DialogTitle>
+      </DialogHeader>
       <div v-if="versionLoading" class="loading-container">
-        <el-icon class="is-loading"><Loading /></el-icon>
+        <Loading class="h-4 w-4 is-loading" />
       </div>
       <div v-else-if="versions.length === 0" class="empty-state">
         {{ $t('file.versions.empty') }}
       </div>
       <div v-else>
         <div class="version-toolbar">
-          <el-button size="small" @click="showDiffDialog = true">
-            <el-icon><Switch /></el-icon>
+          <Button size="sm" variant="outline" @click="showDiffDialog = true">
+            <Switch class="h-4 w-4" />
             {{ $t('file.versions.compare') }}
-          </el-button>
+          </Button>
         </div>
         <div class="version-list">
           <div v-for="v in versions" :key="v.version_id" class="version-item">
@@ -181,43 +194,49 @@
               <span v-if="v.change_summary" class="version-summary">{{ v.change_summary }}</span>
             </div>
             <div class="version-actions">
-              <el-button size="small" @click="downloadVersion(v.version_id, v.version_number)">
+              <Button size="sm" variant="outline" @click="downloadVersion(v.version_id, v.version_number)">
                 {{ $t('file.download') }}
-              </el-button>
-              <el-button v-if="!v.is_current" size="small" type="warning" @click="rollbackVersion(v.version_id)">
+              </Button>
+              <Button v-if="!v.is_current" size="sm" variant="secondary" @click="rollbackVersion(v.version_id)">
                 {{ $t('file.versions.rollback') }}
-              </el-button>
+              </Button>
             </div>
           </div>
         </div>
       </div>
-      <template #footer>
-        <el-button @click="showNewVersion = true">{{ $t('file.versions.new') }}</el-button>
-      </template>
-    </el-dialog>
+      <DialogFooter>
+        <Button variant="outline" @click="showNewVersion = true">{{ $t('file.versions.new') }}</Button>
+      </DialogFooter>
+    </Dialog>
 
-    <el-dialog v-model="showDiffDialog" :title="$t('file.versions.diff')" width="900px">
+    <Dialog v-model="showDiffDialog" width="900px">
+      <DialogHeader>
+        <DialogTitle>{{ $t('file.versions.diff') }}</DialogTitle>
+      </DialogHeader>
       <VersionDiff v-if="currentVersionFile" :file-id="currentVersionFile.id" :versions="versions" />
-    </el-dialog>
+    </Dialog>
 
-    <el-dialog v-model="showNewVersion" :title="$t('file.versions.new')" width="500px">
+    <Dialog v-model="showNewVersion" width="500px">
+      <DialogHeader>
+        <DialogTitle>{{ $t('file.versions.new') }}</DialogTitle>
+      </DialogHeader>
       <el-upload
         drag
         :auto-upload="false"
         :on-change="handleNewVersionFile"
         :limit="1"
       >
-        <el-icon class="el-icon--upload"><Upload /></el-icon>
+        <Upload class="h-4 w-4 el-icon--upload" />
         <div>{{ t('fileManager.dropUpload') }}</div>
       </el-upload>
-      <el-input v-model="newVersionSummary" :placeholder="$t('file.versions.summary')" style="margin-top: 16px" />
-      <template #footer>
-        <el-button @click="showNewVersion = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="uploadNewVersion" :loading="uploadingVersion">
+      <Input v-model="newVersionSummary" :placeholder="$t('file.versions.summary')" style="margin-top: 16px" />
+      <DialogFooter>
+        <Button variant="outline" @click="showNewVersion = false">{{ $t('common.cancel') }}</Button>
+        <Button variant="default" @click="uploadNewVersion">
           {{ $t('common.upload') }}
-        </el-button>
-      </template>
-    </el-dialog>
+        </Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>
 
@@ -241,6 +260,14 @@ import { useBatchDownload } from '@/utils/batchOperations'
 import { formatFileSize } from '@/utils/fileValidation'
 import { useFileVersion, type VersionInfo } from '@/utils/fileVersion'
 import { formatTime } from '@/utils/format'
+import { Card } from '@/components/ui/card'
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import Button from '@/components/ui/Button.vue'
+import { Radio } from '@/components/ui/radio'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Empty } from '@/components/ui/empty'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const formatDate = (date: string | number | Date) => formatTime(date, 'YYYY-MM-DD')
 

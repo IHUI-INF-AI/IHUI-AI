@@ -1,8 +1,0 @@
-{
-  "adminClassicindex": {
-    "timeExpr": "Time Expression",
-    "cronExpr": "Cron Expression",
-    "minute": "Minute",
-    "hour": "Hour"
-  }
-}

@@ -1,7 +1,7 @@
 <template>
   <div class="circle-container">
     <div class="head">
-      <el-input
+      <Input
         v-model="searchParam.keyword"
         clearable
         size="small"
@@ -9,44 +9,46 @@
         class="search-input"
         @keyup.enter="search"
       />
-      <el-button class="search-btn" size="small" type="primary" :icon="Search" @click="search">搜索</el-button>
+      <Button className="search-btn" size="sm" variant="default" @click="search"><Search />搜索</Button>
     </div>
-    <el-table v-loading="dataLoading" :data="list" size="small" style="width: 100%;">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column label="圈子名称" min-width="180">
-        <template #default="scope">
-          {{ scope.row.name || scope.row.title || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="description" label="描述" min-width="220" :show-overflow-tooltip="true" />
-      <el-table-column label="创建人" width="120">
-        <template #default="scope">
-          {{ scope.row.memberName || scope.row.member?.name || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="memberNum" label="成员数" width="90" align="center">
-        <template #default="scope">{{ scope.row.memberNum || 0 }}</template>
-      </el-table-column>
-      <el-table-column prop="dynamicNum" label="动态数" width="90" align="center">
-        <template #default="scope">{{ scope.row.dynamicNum || 0 }}</template>
-      </el-table-column>
-      <el-table-column label="显示状态" width="100" align="center">
-        <template #default="scope">
-          <el-tag :type="scope.row.isShow === 1 || scope.row.isShow === true ? 'success' : 'info'" size="small">
-            {{ scope.row.isShow === 1 || scope.row.isShow === true ? '显示中' : '已隐藏' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" align="center" width="200" fixed="right">
-        <template #default="scope">
-          <el-button link size="small" @click="toggleShow(scope.row)">
-            {{ scope.row.isShow === 1 || scope.row.isShow === true ? '隐藏' : '显示' }}
-          </el-button>
-          <el-button link size="small" style="color: red;" @click="remove(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div v-if="dataLoading" class="loading-div">加载中...</div>
+    <Table class="text-sm" style="width: 100%">
+      <TableHeader>
+        <TableRow>
+          <TableHead class="w-[70px]">ID</TableHead>
+          <TableHead class="min-w-[180px]">圈子名称</TableHead>
+          <TableHead class="min-w-[220px]">描述</TableHead>
+          <TableHead class="w-[120px]">创建人</TableHead>
+          <TableHead class="w-[90px] text-center">成员数</TableHead>
+          <TableHead class="w-[90px] text-center">动态数</TableHead>
+          <TableHead class="w-[100px] text-center">显示状态</TableHead>
+          <TableHead class="w-[160px]">创建时间</TableHead>
+          <TableHead class="w-[200px] text-center">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow v-for="(row, index) in list" :key="row.id ?? index">
+          <TableCell>{{ row.id }}</TableCell>
+          <TableCell>{{ row.name || row.title || '-' }}</TableCell>
+          <TableCell>{{ row.description }}</TableCell>
+          <TableCell>{{ row.memberName || row.member?.name || '-' }}</TableCell>
+          <TableCell class="text-center">{{ row.memberNum || 0 }}</TableCell>
+          <TableCell class="text-center">{{ row.dynamicNum || 0 }}</TableCell>
+          <TableCell class="text-center">
+            <Tag :type="row.isShow === 1 || row.isShow === true ? 'success' : 'info'" size="small">
+              {{ row.isShow === 1 || row.isShow === true ? '显示中' : '已隐藏' }}
+            </Tag>
+          </TableCell>
+          <TableCell>{{ row.createTime }}</TableCell>
+          <TableCell class="text-center">
+            <Button variant="link" size="sm" @click="toggleShow(row)">
+              {{ row.isShow === 1 || row.isShow === true ? '隐藏' : '显示' }}
+            </Button>
+            <Button variant="link" size="sm" style="color: red;" @click="remove(row)">删除</Button>
+          </TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size" />
   </div>
 </template>
@@ -58,6 +60,10 @@ import Page from '@/components/Page/index.vue'
 import { circleApi } from '@/api/edu/admin-api'
 import { confirm, success } from '@/util/tipsUtils'
 import { Search } from '@/lib/lucide-fallback'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Tag } from '@/components/ui/tag'
 
 const { findCircleList, deleteCircleAdmin, updateCircleShow } = circleApi
 
