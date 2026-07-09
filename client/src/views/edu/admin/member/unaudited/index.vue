@@ -199,7 +199,7 @@ export default {
       }
       .custom-btn {
         &:hover {
-          color: var(--el-color-primary);
+          color: hsl(var(--primary));
         }
       }
     }

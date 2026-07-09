@@ -1,3 +1,4 @@
+<!-- MIGRATION-TEST-MARKER -->
 <template>
   <div class="member-notes" role="region" :aria-label="t('edu.profile.notesTitle')">
     <header class="page-header">
@@ -120,13 +121,13 @@ onMounted(loadAll)
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .page-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .error-alert {
@@ -141,7 +142,7 @@ onMounted(loadAll)
 .notes-skeleton {
   width: 100%;
   padding: 16px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
 }

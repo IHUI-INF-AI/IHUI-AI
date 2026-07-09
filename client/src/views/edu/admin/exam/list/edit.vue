@@ -828,7 +828,7 @@ export default {
     line-height: 34px;
     cursor: pointer;
     &:hover {
-      color: var(--el-color-primary);
+      color: hsl(var(--primary));
     }
   }
   :deep(.el-form-item__label){
@@ -837,7 +837,7 @@ export default {
   :deep(.el-button--text){
     color: #303133;
     &:hover {
-      color: var(--el-color-primary);
+      color: hsl(var(--primary));
     }
   }
   :deep(.el-cascader:not(.is-disabled):hover .el-input__inner){

@@ -387,7 +387,7 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
     line-height: 34px;
     cursor: pointer;
     &:hover {
-      color: var(--el-color-primary);
+      color: hsl(var(--primary));
     }
   }
   :deep(.el-form-item__label){
@@ -408,7 +408,7 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
   :deep(.el-button--text){
     color: #303133;
     &:hover {
-      color: var(--el-color-primary);
+      color: hsl(var(--primary));
     }
   }
   :deep(.el-button){

@@ -410,7 +410,7 @@ onMounted(loadAll)
   padding: 20px 24px;
   border: 1px solid var(--color-white-30);
   border-radius: 12px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   flex-wrap: wrap;
 }
 
@@ -430,7 +430,7 @@ onMounted(loadAll)
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .hero-meta {
@@ -447,11 +447,11 @@ onMounted(loadAll)
 }
 
 .meta-label {
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .meta-value {
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
@@ -478,7 +478,7 @@ onMounted(loadAll)
   flex-direction: column;
   gap: 24px;
   padding: 24px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
 }
@@ -503,13 +503,13 @@ onMounted(loadAll)
   padding: 12px 16px;
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
 }
 
 .weak-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--el-text-color-regular);
+  color: hsl(var(--foreground));
 }
 
 .weak-tag {
@@ -540,11 +540,11 @@ onMounted(loadAll)
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .section-title .el-icon {
-  color: var(--el-color-primary);
+  color: hsl(var(--primary));
 }
 
 @media (width <= 1024px) {

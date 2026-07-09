@@ -59,7 +59,7 @@
               <span v-if="row.account"
                 >¥{{ (row.account / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
               >
-              <span v-else style="color: var(--el-text-color-placeholder)">-</span>
+              <span v-else style="color: hsl(var(--muted-foreground))">-</span>
             </TableCell>
             <TableCell>{{ row.create_name }}</TableCell>
             <TableCell>{{ formatTime(row.create_time) }}</TableCell>

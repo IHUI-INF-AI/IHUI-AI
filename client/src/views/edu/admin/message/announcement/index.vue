@@ -218,7 +218,7 @@ const { getAnnouncementList, removeAnnouncement, saveAnnouncement, updateAnnounc
       .custom-btn {
         color: #606266;
         &:hover {
-          color: var(--el-color-primary);
+          color: hsl(var(--primary));
         }
       }
     }

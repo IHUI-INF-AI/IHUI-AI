@@ -282,12 +282,12 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 .stat-value {
   font-size: 28px;
   font-weight: bold;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .stat-label {
   font-size: 14px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin-top: 4px;
 }
 
@@ -328,7 +328,7 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 }
 
 .stack-content {
-  background: var(--el-fill-color-light);
+  background: hsl(var(--muted));
   padding: 12px;
   border-radius: var(--global-border-radius);
   font-size: 12px;

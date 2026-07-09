@@ -273,7 +273,7 @@ onMounted(() => {
     }
 
     .page-subtitle {
-      color: var(--el-text-color-secondary);
+      color: hsl(var(--muted-foreground));
       margin: 0;
     }
   }

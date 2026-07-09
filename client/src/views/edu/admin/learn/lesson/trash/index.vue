@@ -398,7 +398,7 @@ export default {
             line-height: 34px;
             cursor: pointer;
             &:hover {
-              color: var(--el-color-primary);
+              color: hsl(var(--primary));
             }
           }
         }
@@ -579,7 +579,7 @@ export default {
                     margin-left: 0;
                   }
                   &:hover {
-                    color: var(--el-color-primary);
+                    color: hsl(var(--primary));
                   }
                 }
               }

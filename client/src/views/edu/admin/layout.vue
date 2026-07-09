@@ -59,14 +59,14 @@ const navModules = [
 <style scoped lang="scss">
 .edu-admin-layout {
   min-height: 100vh;
-  background: var(--el-bg-color-page);
+  background: hsl(var(--background));
 }
 
 .admin-nav-bar {
   display: flex;
   align-items: center;
   height: 52px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   border-bottom: 1px solid var(--border-unified-color);
   padding: 0 20px;
   gap: 20px;
@@ -79,7 +79,7 @@ const navModules = [
   gap: 8px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -108,18 +108,18 @@ const navModules = [
   height: 36px;
   border-radius: var(--global-border-radius, 8px);
   font-size: 14px;
-  color: var(--el-text-color-regular);
+  color: hsl(var(--foreground));
   text-decoration: none;
   white-space: nowrap;
   transition: background 0.2s, color 0.2s;
 
   &:hover {
-    background: var(--el-fill-color-light);
-    color: var(--el-text-color-primary);
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
   }
 
   &.active {
-    background: var(--el-color-primary);
+    background: hsl(var(--primary));
     color: var(--app-button-text-on-primary);
   }
 }

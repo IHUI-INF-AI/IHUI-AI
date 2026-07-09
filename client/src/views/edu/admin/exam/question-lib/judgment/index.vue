@@ -236,7 +236,7 @@ export default {
     display: none;
   }
   .option-delete:hover {
-    color: var(--el-color-primary);
+    color: hsl(var(--primary));
   }
   :deep(.el-card__header){
     padding: 0;

@@ -272,7 +272,7 @@ onMounted(() => {
   font-size: 22px;
   font-weight: 600;
   margin-bottom: 20px;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .health-card,
@@ -290,7 +290,7 @@ onMounted(() => {
 .progress-text {
   display: block;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin-top: 4px;
 }
 </style>

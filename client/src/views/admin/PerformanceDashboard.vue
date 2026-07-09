@@ -274,7 +274,7 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 
 .stat-label {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin-bottom: 8px;
 }
 

@@ -176,14 +176,14 @@ onMounted(() => {
 
       .stat-label {
         font-size: 14px;
-        color: var(--el-text-color-placeholder);
+        color: hsl(var(--muted-foreground));
         margin-bottom: 10px;
       }
 
       .stat-value {
         font-size: 24px;
         font-weight: 600;
-        color: var(--el-text-color-primary);
+        color: hsl(var(--foreground));
       }
     }
   }

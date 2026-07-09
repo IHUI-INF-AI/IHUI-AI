@@ -270,7 +270,7 @@ onMounted(() => {
 
   .page-subtitle {
     font-size: 16px;
-    color: var(--el-text-color-regular);
+    color: hsl(var(--foreground));
   }
 }
 </style>

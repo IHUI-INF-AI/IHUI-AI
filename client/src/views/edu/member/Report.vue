@@ -249,13 +249,13 @@ onMounted(loadAll)
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .page-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .error-alert {
@@ -263,7 +263,7 @@ onMounted(loadAll)
 }
 
 .report-paper {
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
   padding: 32px;
@@ -285,9 +285,9 @@ onMounted(loadAll)
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--el-color-primary);
+  border-bottom: 2px solid hsl(var(--primary));
 }
 
 .info-grid {
@@ -301,19 +301,19 @@ onMounted(loadAll)
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  background: var(--el-fill-color-light);
+  background: hsl(var(--muted));
   border-radius: 6px;
 }
 
 .info-label {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .info-value {
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .weak-tags {
@@ -328,7 +328,7 @@ onMounted(loadAll)
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: var(--el-fill-color-light);
+  background: hsl(var(--muted));
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
 }
@@ -345,12 +345,12 @@ onMounted(loadAll)
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .metadata-time {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .metadata-grid {
@@ -367,13 +367,13 @@ onMounted(loadAll)
 
 .metadata-label {
   font-size: 11px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .metadata-value {
   font-size: 14px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 /* C4 新增：打印样式 */

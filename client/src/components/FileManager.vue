@@ -610,7 +610,7 @@ onMounted(() => {
 }
 
 .stat-label {
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   font-size: 14px;
 }
 
@@ -646,17 +646,17 @@ onMounted(() => {
   align-items: center;
   padding: 12px;
   border-radius: var(--global-border-radius);
-  background: var(--el-fill-color-light);
+  background: hsl(var(--muted));
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .file-item:hover {
-  background: var(--el-fill-color);
+  background: hsl(var(--muted));
 }
 
 .file-item.selected {
-  background: var(--el-color-primary-light-9);
+  background: hsl(var(--primary));
   border: var(--unified-border);
 }
 
@@ -671,7 +671,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   margin-right: 12px;
-  background: var(--el-fill-color);
+  background: hsl(var(--muted));
   border-radius: var(--global-border-radius);
 }
 
@@ -684,7 +684,7 @@ onMounted(() => {
 
 .file-preview .el-icon {
   font-size: 24px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .file-info {
@@ -703,7 +703,7 @@ onMounted(() => {
 .file-meta {
   display: block;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .file-actions {
@@ -719,9 +719,9 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   border-radius: var(--global-border-radius);
-  box-shadow: var(--el-box-shadow-light);
+  box-shadow: hsl(var(--border));
 }
 
 .selected-count {
@@ -762,7 +762,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: var(--el-fill-color-light);
+  background: hsl(var(--muted));
   border-radius: var(--global-border-radius);
 }
 
@@ -778,18 +778,18 @@ onMounted(() => {
 
 .version-current {
   font-size: 12px;
-  color: var(--el-color-primary);
+  color: hsl(var(--primary));
   margin-left: 8px;
 }
 
 .version-meta {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .version-summary {
   font-size: 12px;
-  color: var(--el-text-color-regular);
+  color: hsl(var(--foreground));
 }
 
 .version-actions {
@@ -800,6 +800,6 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 24px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 </style>

@@ -255,18 +255,18 @@ const onClick = (key: string) => {
 .showcase-title {
   font-size: 32px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
   margin: 0 0 8px;
 }
 
 .showcase-subtitle {
   font-size: 16px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin: 0;
 }
 
 .showcase-tabs {
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
 }
 
 .showcase-card {

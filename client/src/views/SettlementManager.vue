@@ -98,7 +98,7 @@
             <TableCell>{{ row.agent_name }}</TableCell>
             <TableCell>{{ row.order_no }}</TableCell>
             <TableCell>
-              <span style="color: var(--el-color-primary); font-weight: bold">
+              <span style="color: hsl(var(--primary)); font-weight: bold">
                 ¥{{ ((row.amount || 0) / 100).toFixed(2) }}
               </span>
             </TableCell>
@@ -522,20 +522,20 @@ onMounted(() => {
         margin-bottom: 8px;
 
         &.primary {
-          color: var(--el-color-primary);
+          color: hsl(var(--primary));
         }
 
         &.success {
-          color: var(--el-color-success);
+          color: hsl(var(--success));
         }
 
         &.warning {
-          color: var(--el-color-warning);
+          color: hsl(var(--warning));
         }
       }
 
       .stat-label {
-        color: var(--el-text-color-secondary);
+        color: hsl(var(--muted-foreground));
         font-size: 14px;
       }
     }

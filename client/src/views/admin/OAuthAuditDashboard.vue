@@ -321,12 +321,12 @@ watch(daysRange, () => loadStats())
 .stat-value {
   font-size: 28px;
   font-weight: bold;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .stat-label {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin-top: 4px;
 }
 
@@ -339,10 +339,10 @@ watch(daysRange, () => loadStats())
   opacity: 0.2;
 }
 
-.stat-icon.primary { color: var(--el-color-primary); }
-.stat-icon.success { color: var(--el-color-success); }
-.stat-icon.danger { color: var(--el-color-danger); }
-.stat-icon.warning { color: var(--el-color-warning); }
+.stat-icon.primary { color: hsl(var(--primary)); }
+.stat-icon.success { color: hsl(var(--success)); }
+.stat-icon.danger { color: hsl(var(--destructive)); }
+.stat-icon.warning { color: hsl(var(--warning)); }
 
 .toolbar {
   display: flex;
@@ -354,7 +354,7 @@ watch(daysRange, () => loadStats())
 .toolbar .title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .toolbar .range-group {

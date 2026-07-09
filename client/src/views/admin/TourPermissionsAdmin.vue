@@ -135,7 +135,7 @@ const roleRows = computed(() => Object.entries(rolePermissions).map(([role, perm
 .tour-perm-page {
   padding: 16px;
   .page-title { margin: 0 0 16px; font-size: 22px; }
-  .stats-row { margin-bottom: 16px; .stat-card { text-align: center; .stat-label { font-size: 14px; color: var(--el-text-color-secondary); } .stat-value { font-size: 24px; font-weight: 600; color: var(--el-color-primary); margin-top: 8px; } } }
+  .stats-row { margin-bottom: 16px; .stat-card { text-align: center; .stat-label { font-size: 14px; color: hsl(var(--muted-foreground)); } .stat-value { font-size: 24px; font-weight: 600; color: hsl(var(--primary)); margin-top: 8px; } } }
   .perm-section, .role-section { margin-bottom: 16px; }
 }
 </style>

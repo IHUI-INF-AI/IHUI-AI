@@ -225,7 +225,7 @@ const { findList, updateChannel, saveChannel } = pointApi
           line-height: 28px;
           .search-btn {
             &:hover {
-              color: var(--el-color-primary);
+              color: hsl(var(--primary));
             }
           }
         }

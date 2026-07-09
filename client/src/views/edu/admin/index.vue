@@ -134,12 +134,12 @@ onMounted(async () => {
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .stat-label {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin-top: 4px;
 }
 
@@ -162,6 +162,6 @@ onMounted(async () => {
 .menu-label {
   margin-top: 12px;
   font-size: 14px;
-  color: var(--el-text-color-regular);
+  color: hsl(var(--foreground));
 }
 </style>

@@ -201,7 +201,7 @@ export default {
             color: #606266;
             font-weight: normal;
             &:hover {
-              color: var(--el-color-primary);
+              color: hsl(var(--primary));
             }
           }
         }

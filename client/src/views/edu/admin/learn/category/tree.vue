@@ -103,7 +103,7 @@ export default {
     }
 
     .node-count {
-      color: var(--el-color-primary);
+      color: hsl(var(--primary));
       margin-left: 8px;
       font-size: 12px;
     }
@@ -119,7 +119,7 @@ export default {
 
   :deep(.el-tree-node.is-current > .el-tree-node__content) {
     background-color: rgba(144, 125, 255, 0.12);
-    color: var(--el-color-primary);
+    color: hsl(var(--primary));
   }
 }
 </style>

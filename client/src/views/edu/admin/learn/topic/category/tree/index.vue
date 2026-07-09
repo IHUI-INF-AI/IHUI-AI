@@ -138,7 +138,7 @@ export default {
         height: 30px;
         &:hover {
           background-color: #FFFFFF;
-          color: var(--el-color-primary);
+          color: hsl(var(--primary));
         }
         .el-tree-node__expand-icon {
           font-size: 16px;
@@ -151,7 +151,7 @@ export default {
   }
   :deep(.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content){
     background-color: #FFFFFF;
-    color: var(--el-color-primary);
+    color: hsl(var(--primary));
   }
 }
 </style>

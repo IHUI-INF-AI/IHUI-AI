@@ -208,7 +208,7 @@ const { findCategoryList, toTree, getAllParent } = examApi
     cursor: pointer;
   }
   .option-delete:hover {
-    color: var(--el-color-primary);
+    color: hsl(var(--primary));
   }
   :deep(.el-card__header){
     padding: 0;

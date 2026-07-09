@@ -280,7 +280,7 @@ export default {
           line-height: 34px;
           cursor: pointer;
           &:hover {
-            color: var(--el-color-primary);
+            color: hsl(var(--primary));
           }
         }
       }
@@ -430,7 +430,7 @@ export default {
             color: #be3838;
           }
           .shipped {
-            color: var(--el-color-primary);
+            color: hsl(var(--primary));
           }
           .some_shipped {
 

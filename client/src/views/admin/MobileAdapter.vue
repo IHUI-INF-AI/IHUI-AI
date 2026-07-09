@@ -261,7 +261,7 @@ const showRuleDialog = ref(false)
 
 const themeConfig = ref({
   primaryColor: 'var(--color-primary)',
-  backgroundColor: 'var(--el-bg-color)',
+  backgroundColor: 'hsl(var(--background))',
   textColor: 'var(--color-gray-303133)',
   borderRadius: 4,
   shadowEnabled: true,
@@ -280,7 +280,7 @@ const previewStyle = computed(() => ({
   backgroundColor: themeConfig.value.backgroundColor,
   color: themeConfig.value.textColor,
   borderRadius: `${themeConfig.value.borderRadius}px`,
-  boxShadow: themeConfig.value.shadowEnabled ? '0 2px 12px color-mix(in srgb, var(--el-color-primary) 10%, transparent)' : 'none',
+  boxShadow: themeConfig.value.shadowEnabled ? '0 2px 12px color-mix(in srgb, hsl(var(--primary)) 10%, transparent)' : 'none',
   padding: themeConfig.value.compactMode ? '10px' : '20px'
 }))
 
@@ -370,7 +370,7 @@ onMounted(() => {
 }
 
 .info-item .label {
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .info-item .value {

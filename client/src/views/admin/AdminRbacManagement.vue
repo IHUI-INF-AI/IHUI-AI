@@ -558,13 +558,13 @@ onMounted(() => {
 .admin-rbac-page {
   padding: 16px;
   .page-title { margin: 0 0 16px; font-size: 22px; }
-  .rbac-tabs { background: var(--el-bg-color); padding: 16px; border-radius: var(--global-border-radius); }
+  .rbac-tabs { background: hsl(var(--background)); padding: 16px; border-radius: var(--global-border-radius); }
   .tab-actions { margin-bottom: 12px; }
 
   .dashboard-card {
     margin-bottom: 12px;
-    .card-label { font-size: 14px; color: var(--el-text-color-secondary); }
-    .card-value { font-size: 28px; font-weight: 600; color: var(--el-color-primary); margin-top: 8px; }
+    .card-label { font-size: 14px; color: hsl(var(--muted-foreground)); }
+    .card-value { font-size: 28px; font-weight: 600; color: hsl(var(--primary)); margin-top: 8px; }
   }
 }
 </style>

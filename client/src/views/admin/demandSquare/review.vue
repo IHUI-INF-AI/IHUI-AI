@@ -150,17 +150,17 @@ onMounted(loadDetail)
   align-items: center;
   gap: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--el-border-color);
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .review-header__title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .review-card {
-  border: 1px solid var(--el-border-color);
+  border: 1px solid hsl(var(--border));
 }
 
 .review-card__head {
@@ -173,6 +173,6 @@ onMounted(loadDetail)
 .review-card__title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 </style>

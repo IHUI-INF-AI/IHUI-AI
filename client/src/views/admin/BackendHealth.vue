@@ -339,20 +339,20 @@ cleanup.add(() => window.removeEventListener('resize', handleResize))
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .stat-item { text-align: center; }
-.stat-label { font-size: 14px; color: var(--el-text-color-primary); margin-bottom: 10px; }
+.stat-label { font-size: 14px; color: hsl(var(--foreground)); margin-bottom: 10px; }
 .stat-value { font-size: 24px; font-weight: bold; }
 .engine-list { display: flex; flex-direction: column; gap: 12px; }
 .engine-item { display: flex; align-items: center; gap: 12px; }
 .engine-name { font-weight: bold; min-width: 70px; }
-.engine-msg { color: var(--el-text-color-secondary); font-size: 13px; }
+.engine-msg { color: hsl(var(--muted-foreground)); font-size: 13px; }
 .redis-info { display: flex; flex-direction: column; gap: 12px; }
 .info-row { display: flex; align-items: center; gap: 12px; }
-.info-label { min-width: 70px; color: var(--el-text-color-secondary); }
-.info-value { color: var(--el-text-color-primary); }
+.info-label { min-width: 70px; color: hsl(var(--muted-foreground)); }
+.info-value { color: hsl(var(--foreground)); }
 .trend-chart { width: 100%; height: 320px; }
-.empty-history { padding: 60px 0; text-align: center; color: var(--el-text-color-secondary); }
-.history-tip { font-size: 13px; color: var(--el-text-color-secondary); }
-.last-update { padding-top: 10px; font-size: 12px; color: var(--el-text-color-secondary); }
-.raw-data { background: var(--el-fill-color-light); padding: 12px; border-radius: var(--global-border-radius); font-size: 13px; overflow-x: auto; }
+.empty-history { padding: 60px 0; text-align: center; color: hsl(var(--muted-foreground)); }
+.history-tip { font-size: 13px; color: hsl(var(--muted-foreground)); }
+.last-update { padding-top: 10px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.raw-data { background: hsl(var(--muted)); padding: 12px; border-radius: var(--global-border-radius); font-size: 13px; overflow-x: auto; }
 .mt-20 { margin-top: 20px; }
 </style>

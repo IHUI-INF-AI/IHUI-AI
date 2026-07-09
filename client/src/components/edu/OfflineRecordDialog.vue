@@ -343,13 +343,13 @@ async function handleSubmit() {
 <style scoped lang="scss">
 .upload-hint {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
   margin-top: 4px;
 }
 
 .unit-suffix {
   margin-left: 8px;
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 </style>

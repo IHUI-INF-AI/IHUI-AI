@@ -212,7 +212,7 @@ const { findList, updateLevel, saveLevel, deleteLevel } = memberApi
           line-height: 28px;
           .search-btn {
             &:hover {
-              color: var(--el-color-primary);
+              color: hsl(var(--primary));
             }
           }
         }

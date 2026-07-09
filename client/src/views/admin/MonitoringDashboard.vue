@@ -413,7 +413,7 @@ cleanup.add(() => chart?.dispose())
 
 .stat-title {
   font-size: 14px;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .stat-value {

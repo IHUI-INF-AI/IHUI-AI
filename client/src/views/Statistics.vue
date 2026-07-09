@@ -311,12 +311,12 @@ onMounted(() => {
       margin: 0 0 10px;
       font-size: 24px;
       font-weight: 600;
-      color: var(--el-text-color-primary);
+      color: hsl(var(--foreground));
     }
 
     .page-description {
       margin: 0;
-      color: var(--el-text-color-secondary);
+      color: hsl(var(--muted-foreground));
       font-size: 14px;
     }
   }
@@ -348,8 +348,8 @@ onMounted(() => {
           &.duration,
           &.conversation,
           &.share {
-            background: var(--el-bg-color);
-            color: var(--el-text-color-primary);
+            background: hsl(var(--background));
+            color: hsl(var(--foreground));
           }
         }
 
@@ -359,14 +359,14 @@ onMounted(() => {
           .stat-value {
             font-size: 28px;
             font-weight: 600;
-            color: var(--el-text-color-primary);
+            color: hsl(var(--foreground));
             line-height: 1;
             margin-bottom: 8px;
           }
 
           .stat-label {
             font-size: 14px;
-            color: var(--el-text-color-secondary);
+            color: hsl(var(--muted-foreground));
           }
         }
       }
@@ -380,7 +380,7 @@ onMounted(() => {
       margin: 0 0 16px;
       font-size: 18px;
       font-weight: 600;
-      color: var(--el-text-color-primary);
+      color: hsl(var(--foreground));
     }
 
     .detail-list {
@@ -402,12 +402,12 @@ onMounted(() => {
 
     .detail-label {
       font-size: 14px;
-      color: var(--el-text-color-secondary);
+      color: hsl(var(--muted-foreground));
     }
 
     .detail-value {
       font-size: 14px;
-      color: var(--el-text-color-primary);
+      color: hsl(var(--foreground));
       font-weight: 500;
     }
   }

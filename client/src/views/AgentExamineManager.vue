@@ -572,20 +572,20 @@ onMounted(() => {
         margin-bottom: 8px;
 
         &.warning {
-          color: var(--el-color-warning);
+          color: hsl(var(--warning));
         }
 
         &.success {
-          color: var(--el-color-success);
+          color: hsl(var(--success));
         }
 
         &.danger {
-          color: var(--el-color-danger);
+          color: hsl(var(--destructive));
         }
       }
 
       .stat-label {
-        color: var(--el-text-color-secondary);
+        color: hsl(var(--muted-foreground));
         font-size: 14px;
       }
     }

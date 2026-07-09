@@ -264,7 +264,7 @@ const { deleteResource, findList, publishedResource } = resourceApi
                 display: block;
                 color: #222;
                 &:hover {
-                  color: var(--el-color-primary);
+                  color: hsl(var(--primary));
                 }
               }
               .create-time {
@@ -354,7 +354,7 @@ const { deleteResource, findList, publishedResource } = resourceApi
                     margin-left: 0;
                   }
                   &:hover {
-                    color: var(--el-color-primary);
+                    color: hsl(var(--primary));
                   }
                 }
               }

@@ -276,7 +276,7 @@ export default {
         cursor: pointer;
         color: #ffffff;
         &:not(.countdown):hover {
-          background: var(--el-color-primary);
+          background: hsl(var(--primary));
         }
       }
       .countdown {

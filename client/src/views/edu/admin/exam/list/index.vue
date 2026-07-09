@@ -543,7 +543,7 @@ export default {
                 margin-left: 0;
               }
               &:hover {
-                color: var(--el-color-primary);
+                color: hsl(var(--primary));
               }
             }
           }
