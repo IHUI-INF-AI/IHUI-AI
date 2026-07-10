@@ -10,6 +10,7 @@ import {
   deleteOssDriver,
   findDefaultOssDriver,
 } from '../db/oss-queries.js';
+import { createUploadPreHandler } from '../plugins/upload-scanner.js';
 import { success, error, emptyToUndefined } from '../utils/response.js';
 
 const ADMIN_ROLE_ID = 1;
@@ -154,6 +155,7 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/oss/upload',
     {
+      preHandler: [createUploadPreHandler({ maxSize: 50 * 1024 * 1024 })],
       schema: {
         summary: '上传代理(预校验驱动)',
         tags: ['oss'],

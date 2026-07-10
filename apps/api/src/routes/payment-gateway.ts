@@ -139,10 +139,30 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     }
     const resource = (body as { resource?: { ciphertext: string; nonce: string; associated_data: string } }).resource;
     if (!resource) return reply.send({ code: 'SUCCESS', message: 'No resource' });
-    const decrypted = decryptCallback(resource.ciphertext, resource.nonce, resource.associated_data);
-    const { out_trade_no, trade_state } = decrypted as { out_trade_no: string; trade_state: string };
+    const decrypted = decryptCallback(resource.ciphertext, resource.nonce, resource.associated_data) as {
+      out_trade_no: string;
+      trade_state: string;
+      transaction_id?: string;
+    };
+    const { out_trade_no, trade_state, transaction_id } = decrypted;
     if (trade_state === 'SUCCESS') {
-      await updateOrderStatus(out_trade_no, 'paid');
+      // 支付幂等：用 transaction_id 作幂等键，防止微信重复回调导致重复处理
+      const idemKey = transaction_id ?? out_trade_no;
+      const idem = await server.paymentIdempotency.acquire(out_trade_no, idemKey);
+      if (idem.status === 'completed') {
+        return reply.send({ code: 'SUCCESS', message: 'OK (duplicate)' });
+      }
+      if (idem.status === 'processing') {
+        // 上次回调仍在处理，ack SUCCESS 让微信停止重试
+        return reply.send({ code: 'SUCCESS', message: 'OK (processing)' });
+      }
+      try {
+        await updateOrderStatus(out_trade_no, 'paid');
+        await server.paymentIdempotency.complete(out_trade_no, idemKey, { out_trade_no, trade_state });
+      } catch (e) {
+        await server.paymentIdempotency.fail(out_trade_no, idemKey, (e as Error).message);
+        return reply.code(500).send({ code: 'FAIL', message: '处理失败' });
+      }
     }
     return reply.send({ code: 'SUCCESS', message: 'OK' });
   });
@@ -287,7 +307,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     const tradeStatus = params.trade_status ?? '';
     const outTradeNo = params.out_trade_no ?? '';
     if (['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(tradeStatus)) {
-      await updateOrderStatus(outTradeNo, 'paid');
+      // 支付幂等：用支付宝 trade_no 作幂等键，防止重复回调
+      const idemKey = params.trade_no ?? outTradeNo;
+      const idem = await server.paymentIdempotency.acquire(outTradeNo, idemKey);
+      if (idem.status === 'completed' || idem.status === 'processing') {
+        return reply.type('text/plain').send('success');
+      }
+      try {
+        await updateOrderStatus(outTradeNo, 'paid');
+        await server.paymentIdempotency.complete(outTradeNo, idemKey, { outTradeNo, tradeStatus });
+      } catch (e) {
+        await server.paymentIdempotency.fail(outTradeNo, idemKey, (e as Error).message);
+        return reply.type('text/plain').send('fail');
+      }
     }
     return reply.type('text/plain').send('success');
   });

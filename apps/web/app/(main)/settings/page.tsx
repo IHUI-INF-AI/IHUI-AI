@@ -7,6 +7,15 @@ import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import {
+  DeviceManager,
+  IpWhitelist,
+  LoginHistory,
+  SecurityScore,
+  SessionManager,
+  TwoFactorAuth,
+  ThemeBackupSync,
+} from '@/components/settings'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
 
@@ -149,6 +158,20 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 主题备份 / 同步 / 平滑过渡 */}
+      <ThemeBackupSync />
+
+      {/* 安全中心 */}
+      <div className="space-y-2 pt-2">
+        <h2 className="text-lg font-semibold tracking-tight">{t('securityCenter')}</h2>
+      </div>
+      <SecurityScore />
+      <TwoFactorAuth />
+      <DeviceManager />
+      <SessionManager />
+      <IpWhitelist />
+      <LoginHistory />
     </div>
   )
 }
