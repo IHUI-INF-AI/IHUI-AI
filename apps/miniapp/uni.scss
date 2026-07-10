@@ -1,0 +1,46 @@
+/**
+ * uni.scss 全局样式变量
+ * uni-app 内置组件会自动引用此文件，勿删除
+ */
+
+/* 颜色变量 */
+$uni-color-primary: #007aff;
+$uni-color-success: #4cd964;
+$uni-color-warning: #f0ad4e;
+$uni-color-error: #dd524d;
+
+/* 文字颜色 */
+$uni-text-color: #333333;
+$uni-text-color-inverse: #ffffff;
+$uni-text-color-grey: #999999;
+$uni-text-color-placeholder: #808080;
+$uni-text-color-disable: #c0c0c0;
+
+/* 背景颜色 */
+$uni-bg-color: #f7f8fa;
+$uni-bg-color-grey: #f0f0f0;
+$uni-bg-color-hover: #f1f1f1;
+$uni-bg-color-mask: rgba(0, 0, 0, 0.4);
+
+/* 边框颜色 */
+$uni-border-color: #e5e5e5;
+
+/* 字号 */
+$uni-font-size-sm: 24rpx;
+$uni-font-size-base: 28rpx;
+$uni-font-size-lg: 32rpx;
+
+/* 圆角 */
+$uni-border-radius-sm: 4rpx;
+$uni-border-radius-base: 8rpx;
+$uni-border-radius-lg: 16rpx;
+$uni-border-radius-circle: 50%;
+
+/* 间距 */
+$uni-spacing-row-sm: 10rpx;
+$uni-spacing-row-base: 20rpx;
+$uni-spacing-col-sm: 8rpx;
+$uni-spacing-col-base: 16rpx;
+
+/* 透明度 */
+$uni-opacity-disabled: 0.3;

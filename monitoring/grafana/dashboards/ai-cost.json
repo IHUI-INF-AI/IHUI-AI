@@ -1,0 +1,104 @@
+{
+  "annotations": { "list": [] },
+  "description": "IHUI-AI AI 调用成本与用量监控",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "AI 总成本 (USD)",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "sum(business_ai_cost_usd_total)", "legendFormat": "总成本", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "AI 调用总量",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0},
+      "targets": [
+        {"expr": "sum(business_ai_calls_total)", "legendFormat": "调用数", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "AI Token 总量",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0},
+      "targets": [
+        {"expr": "sum(business_ai_tokens_total)", "legendFormat": "Token", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "各厂商成本 (USD)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {"expr": "sum by (vendor) (business_ai_cost_usd_total)", "legendFormat": "{{vendor}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+    },
+    {
+      "title": "各厂商调用趋势 (QPS)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {"expr": "sum(rate(business_ai_calls_total[5m])) by (vendor)", "legendFormat": "{{vendor}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "title": "Token 消耗趋势",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "targets": [
+        {"expr": "sum(rate(business_ai_tokens_total[5m])) by (vendor)", "legendFormat": "{{vendor}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "title": "各模型调用分布",
+      "type": "piechart",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "targets": [
+        {"expr": "sum by (model) (business_ai_calls_total)", "legendFormat": "{{model}}", "refId": "A"}
+      ]
+    },
+    {
+      "title": "单次调用成本 (USD/call)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
+      "targets": [
+        {"expr": "sum by (vendor) (business_ai_cost_usd_total) / sum by (vendor) (business_ai_calls_total)", "legendFormat": "{{vendor}} 单次成本", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ihui-ai", "ai", "cost"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "IHUI-AI AI 成本监控",
+  "uid": "ihui-ai-ai-cost",
+  "version": 1,
+  "weekStart": ""
+}

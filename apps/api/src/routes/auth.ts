@@ -2,20 +2,18 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import {
-  signAccessToken,
-  signRefreshToken,
   verifyRefreshToken,
   createFamilyId,
   type JWTPayload,
 } from '@ihui/auth';
 import { authenticate } from '../plugins/auth.js';
+import { issueTokenPair } from '../services/token-service.js';
 import {
   findUserByPhone,
   findUserByAccount,
   findUserById,
   createUser,
   updateUser,
-  saveRefreshToken,
   findRefreshToken,
   revokeRefreshToken,
 } from '../db/queries.js';
@@ -69,7 +67,6 @@ const resetPasswordSchema = z.object({
 // Token 签发辅助
 // =============================================================================
 
-const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7d
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30d
 
 async function buildTokenPair(user: {
@@ -90,18 +87,10 @@ async function buildTokenPair(user: {
     roleId: user.roleId ?? 0,
   };
 
-  const [accessToken, refreshToken] = await Promise.all([
-    signAccessToken(payload),
-    signRefreshToken(payload),
-  ]);
-
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000);
-  await saveRefreshToken(refreshToken, user.id, user.familyId, expiresAt);
+  const tokens = await issueTokenPair(payload);
 
   return {
-    accessToken,
-    refreshToken,
-    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    ...tokens,
     refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
   };
 }
