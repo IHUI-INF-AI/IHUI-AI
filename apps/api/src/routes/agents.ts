@@ -335,7 +335,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /settlement/cache/info - 缓存信息
   server.get('/settlement/cache/info', async (request, reply) => {
-    const redis = (request.server as any).redis;
+    const redis = request.server.redis;
     const key = 'settlement:summary';
     const exists = await redis.exists(key);
     const ttl = exists ? await redis.ttl(key) : -2;
@@ -348,7 +348,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/cache/force-check - 强制检查缓存
   server.post('/settlement/cache/force-check', async (request, reply) => {
-    const redis = (request.server as any).redis;
+    const redis = request.server.redis;
     const key = 'settlement:summary';
     const exists = await redis.exists(key);
     return reply.send(success({ cached: exists === 1, checked: true }));
@@ -356,7 +356,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/cache/force-refresh - 强制刷新缓存
   server.post('/settlement/cache/force-refresh', async (request, reply) => {
-    const redis = (request.server as any).redis;
+    const redis = request.server.redis;
     const summary = await findSettlementSummary();
     const key = 'settlement:summary';
     await redis.set(key, JSON.stringify(summary), 'EX', 300);
