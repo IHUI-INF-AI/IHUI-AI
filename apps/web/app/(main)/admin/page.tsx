@@ -15,7 +15,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { StatCard } from '@/components/dashboard/stat-card'
+import { StatCard } from '@/components/data'
+import { PageHeader } from '@/components/layout'
 import { MiniChart } from '@/components/dashboard/mini-chart'
 
 interface DetailedStats {
@@ -171,22 +172,20 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
-        </div>
-        {isError && (
+      <PageHeader
+        title={t('title')}
+        subtitle={t('subtitle')}
+        actions={isError ? (
           <span className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-500">
             <AlertCircle className="h-3 w-3" />
             {t('loadFailed')}
           </span>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <StatCard key={c.title} title={c.title} value={c.value} icon={c.icon} trend={c.trend} loading={isLoading} locale={locale} />
+          <StatCard key={c.title} title={c.title} value={numFmt.format(c.value)} icon={c.icon} trend={c.trend} loading={isLoading} />
         ))}
       </div>
 

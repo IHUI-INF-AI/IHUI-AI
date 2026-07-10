@@ -9,6 +9,7 @@ import { Search, Loader2, Bot, Sparkles, ChevronLeft, ChevronRight } from 'lucid
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Input, Button, Card, CardContent } from '@ihui/ui'
+import { Grid } from '@/components/layout'
 
 interface Agent {
   agentId: string
@@ -185,7 +186,7 @@ export default function AgentsMarketPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Grid cols={1} smCols={2} lgCols={3} gap="md">
           {agents.map((a) => (
             <Link key={a.agentId} href={`/agents/${a.agentId}`} className="group">
               <Card className="flex h-full flex-col overflow-hidden transition-colors hover:border-primary/40">
@@ -237,7 +238,7 @@ export default function AgentsMarketPage() {
               </Card>
             </Link>
           ))}
-        </div>
+        </Grid>
       )}
 
       <div className="flex items-center justify-between">
