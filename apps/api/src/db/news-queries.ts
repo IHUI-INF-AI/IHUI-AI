@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm';
 import { db } from './index.js';
 import {
   newsCategories,
@@ -240,4 +240,13 @@ export async function incrementArticleViewCount(id: string): Promise<void> {
     .update(newsArticles)
     .set({ viewCount: sql<number>`${newsArticles.viewCount} + 1` })
     .where(eq(newsArticles.id, id));
+}
+
+export async function findArticlesByIds(ids: string[]): Promise<NewsArticle[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select()
+    .from(newsArticles)
+    .where(and(inArray(newsArticles.id, ids), eq(newsArticles.isPublished, true)))
+    .orderBy(desc(newsArticles.publishedAt));
 }
