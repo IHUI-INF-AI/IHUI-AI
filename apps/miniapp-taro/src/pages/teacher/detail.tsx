@@ -1,64 +1,70 @@
 import { View, Text, Image, Button } from '@tarojs/components'
-import Taro, { useRouter } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import { useState, useCallback } from 'react'
 import { getTeacherDetail, type Teacher } from '@/api'
 
 export default function TeacherDetail() {
   const router = useRouter()
-  const [teacher, setTeacher] = useState<Teacher>({} as Teacher)
-  const [loading, setLoading] = useState(true)
+  const [teacher, setTeacher] = useState<Teacher | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     const id = router.params.id
     if (!id) return
-    getTeacherDetail(id)
-      .then(res => setTeacher(res))
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    try {
+      setTeacher(await getTeacherDetail(id))
+    } catch (e) {}
   }, [router.params.id])
 
-  const onFollow = useCallback(() => {
-    Taro.showToast({ title: '关注成功', icon: 'success' })
-  }, [])
+  useDidShow(() => { load() })
+
+  const onViewCourses = useCallback(() => {
+    if (!teacher) return
+    Taro.navigateTo({ url: `/pages/course/list?teacherId=${teacher.id}` })
+  }, [teacher])
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      {teacher.name && (
-        <View className="flex items-center p-4 bg-white">
-          <Image
-            className="w-[70px] h-[70px] rounded-full bg-[#f5f5f5]"
-            src={teacher.avatar || '/static/default-avatar.png'}
-            mode="aspectFill"
-          />
-          <View className="flex-1 ml-3">
-            <View className="flex items-center gap-2">
-              <Text className="text-lg text-[#333] font-bold">{teacher.name}</Text>
+      {teacher && (
+        <View className="mx-[12px] my-[12px] bg-white rounded-[8px] p-[16px]">
+          <View className="flex items-center">
+            <Image
+              className="w-[80px] h-[80px] rounded-full bg-[#f5f5f5]"
+              src={teacher.avatar || '/static/default-avatar.png'}
+              mode="aspectFill"
+            />
+            <View className="ml-[12px] flex-1">
+              <Text className="text-[18px] text-[#333] font-bold">{teacher.name}</Text>
               {teacher.title && (
-                <Text className="text-xs text-[#007aff] bg-[#e6f0ff] px-1.5 py-0.5 rounded">{teacher.title}</Text>
+                <Text className="block text-[13px] text-[#007aff] mt-[4px]">{teacher.title}</Text>
               )}
             </View>
-            <View className="flex gap-3 mt-2">
-              <Text className="text-xs text-[#666]">{teacher.courses || 0}课程</Text>
-              <Text className="text-xs text-[#666]">{teacher.students || 0}学员</Text>
+          </View>
+          <View className="flex mt-[16px]">
+            <View className="flex-1 flex flex-col items-center">
+              <Text className="text-[20px] text-[#333] font-bold">{teacher.courses || 0}</Text>
+              <Text className="text-[12px] text-[#999] mt-[4px]">课程数</Text>
+            </View>
+            <View className="flex-1 flex flex-col items-center">
+              <Text className="text-[20px] text-[#333] font-bold">{teacher.students || 0}</Text>
+              <Text className="text-[12px] text-[#999] mt-[4px]">学员数</Text>
             </View>
           </View>
-          <Button size="mini" className="bg-[#007aff] text-white text-xs" onClick={onFollow}>关注</Button>
         </View>
       )}
-      {teacher.intro && (
-        <View className="m-3 p-4 bg-white rounded-2xl">
-          <Text className="text-sm text-[#333] font-semibold mb-3 block">讲师简介</Text>
-          <Text className="text-sm text-[#666] leading-relaxed">{teacher.intro}</Text>
+      {teacher?.intro && (
+        <View className="mx-[12px] mb-[12px] bg-[#f5f5f5] rounded-[8px] p-[16px]">
+          <Text className="text-[14px] text-[#333] font-semibold mb-[8px] block">简介</Text>
+          <Text className="text-[14px] text-[#666] leading-[22px]">{teacher.intro}</Text>
         </View>
       )}
-      <View className="m-3 p-4 bg-white rounded-2xl">
-        <Text className="text-sm text-[#333] font-semibold mb-3 block">讲师课程</Text>
-        {!loading && (
-          <View className="text-center py-5 text-[#999]">
-            <Text>暂无课程</Text>
-          </View>
-        )}
-      </View>
+      {teacher && (
+        <View className="mx-[12px] my-[12px]">
+          <Button
+            className="w-full bg-[#007aff] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
+            onClick={onViewCourses}
+          >查看课程</Button>
+        </View>
+      )}
     </View>
   )
 }

@@ -1,8 +1,7 @@
 import { View, Text } from '@tarojs/components'
-import { useState, useCallback, useEffect } from 'react'
-import { useReachBottom } from '@tarojs/taro'
-import { getIntegral } from '@/api'
-import './integral.css'
+import { useDidShow, useReachBottom } from '@tarojs/taro'
+import { useState, useRef } from 'react'
+import { getIntegral, getMemberInfo } from '@/api'
 
 interface IntegralItem {
   id: string
@@ -11,64 +10,86 @@ interface IntegralItem {
   time: string
 }
 
+const PAGE_SIZE = 20
+
 export default function IntegralPage() {
   const [list, setList] = useState<IntegralItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [type, setType] = useState<'all' | 'in' | 'out'>('all')
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
+  const pageRef = useRef(1)
+  const hasMoreRef = useRef(true)
+  const loadingRef = useRef(false)
 
-  const load = useCallback(async (reset = false) => {
-    if (loading) return
-    let curPage = page
-    if (reset) { curPage = 1; setHasMore(true); setList([]); setPage(1) }
-    if (!hasMore && !reset) return
+  const load = async (reset = false) => {
+    if (loadingRef.current) return
+    if (reset) {
+      pageRef.current = 1
+      hasMoreRef.current = true
+      setList([])
+    }
+    if (!hasMoreRef.current) return
+    loadingRef.current = true
     setLoading(true)
     try {
-      const res = await getIntegral({ page: curPage, pageSize: 20 })
-      setList(prev => reset ? (res.list || []) : [...prev, ...(res.list || [])])
-      setTotal(res.total)
-      setHasMore((reset ? (res.list || []).length : list.length + (res.list || []).length) < res.total)
-      setPage(curPage + 1)
-    } finally { setLoading(false) }
-  }, [loading, page, hasMore, list.length])
+      const res = await getIntegral({ page: pageRef.current, pageSize: PAGE_SIZE })
+      const items = res.list || []
+      setList(prev => (reset ? items : [...prev, ...items]))
+      hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
+      pageRef.current++
+    } catch (e) {
+      // ignore
+    } finally {
+      loadingRef.current = false
+      setLoading(false)
+    }
+  }
 
-  const switchType = useCallback((t: 'all' | 'in' | 'out') => {
-    setType(t)
+  const loadTotal = async () => {
+    try {
+      const info = await getMemberInfo()
+      setTotal(info.integral || 0)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  useDidShow(() => {
+    loadTotal()
     load(true)
-  }, [load])
-
-  useReachBottom(() => load())
-  useEffect(() => { load(true) }, [])
+  })
+  useReachBottom(() => {
+    load()
+  })
 
   return (
-    <View className="page">
-      <View className="summary">
-        <Text className="sum-num">{total}</Text>
-        <Text className="sum-label">当前积分</Text>
+    <View className="min-h-screen bg-[#f7f8fa]">
+      <View className="bg-gradient-to-b from-[#2c2c2c] to-[#1a1a1a] px-[24px] py-[40px] text-center">
+        <Text className="block text-white text-[60px] font-bold">{total}</Text>
+        <Text className="block text-[#d4af6a] text-[26px] mt-[8px]">当前积分</Text>
       </View>
-      <View className="tabs">
-        <Text className={`tab${type === 'all' ? ' active' : ''}`} onClick={() => switchType('all')}>全部</Text>
-        <Text className={`tab${type === 'in' ? ' active' : ''}`} onClick={() => switchType('in')}>收入</Text>
-        <Text className={`tab${type === 'out' ? ' active' : ''}`} onClick={() => switchType('out')}>支出</Text>
-      </View>
-      {list.length ? (
-        <View className="list">
-          {list.map(it => (
-            <View key={it.id} className="item">
-              <View className="item-body">
-                <Text className="item-title">{it.type}</Text>
-                <Text className="item-time">{it.time}</Text>
-              </View>
-              <Text className={`item-amt${it.amount > 0 ? ' in' : ''}`}>{it.amount > 0 ? '+' : ''}{it.amount}</Text>
+      <View className="p-[12px]">
+        {list.map(it => (
+          <View key={it.id} className="bg-white rounded-[8px] p-[16px] mb-[12px] flex justify-between items-center">
+            <View>
+              <Text className="block text-[30px] text-[#333]">{it.type}</Text>
+              <Text className="block text-[24px] text-[#999] mt-[8px]">{it.time}</Text>
             </View>
-          ))}
-        </View>
-      ) : null}
-      {!loading && !list.length ? (
-        <View className="empty"><Text>暂无记录</Text></View>
-      ) : null}
+            <Text className={`text-[36px] font-semibold ${it.amount > 0 ? 'text-[#4caf50]' : 'text-[#f44336]'}`}>
+              {it.amount > 0 ? '+' : ''}{it.amount}
+            </Text>
+          </View>
+        ))}
+        {!loading && !list.length ? (
+          <View className="text-center py-[120px] text-[#999]">
+            <Text>暂无记录</Text>
+          </View>
+        ) : null}
+        {loading ? (
+          <View className="text-center py-[40px] text-[#999]">
+            <Text>加载中...</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   )
 }
