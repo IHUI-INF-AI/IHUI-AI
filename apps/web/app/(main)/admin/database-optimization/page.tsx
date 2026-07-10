@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Database, Table2, Clock, Lightbulb, Loader2 } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -63,15 +64,27 @@ export default function DatabaseOptimizationPage() {
 
   const { data: tables = MOCK_TABLES, isLoading } = useQuery({
     queryKey: ['admin', 'db-opt', 'tables'],
-    queryFn: () => Promise.resolve(MOCK_TABLES),
+    queryFn: async () => {
+      const r = await fetchApi<TableInfo[]>('/api/admin/db-opt/tables')
+      if (r.success && r.data) return r.data
+      return MOCK_TABLES
+    },
   })
   const { data: slowQueries = MOCK_SLOW_QUERIES } = useQuery({
     queryKey: ['admin', 'db-opt', 'slow-queries'],
-    queryFn: () => Promise.resolve(MOCK_SLOW_QUERIES),
+    queryFn: async () => {
+      const r = await fetchApi<SlowQuery[]>('/api/admin/db-opt/slow-queries')
+      if (r.success && r.data) return r.data
+      return MOCK_SLOW_QUERIES
+    },
   })
   const { data: suggestions = MOCK_SUGGESTIONS } = useQuery({
     queryKey: ['admin', 'db-opt', 'suggestions'],
-    queryFn: () => Promise.resolve(MOCK_SUGGESTIONS),
+    queryFn: async () => {
+      const r = await fetchApi<Suggestion[]>('/api/admin/db-opt/suggestions')
+      if (r.success && r.data) return r.data
+      return MOCK_SUGGESTIONS
+    },
   })
 
   return (

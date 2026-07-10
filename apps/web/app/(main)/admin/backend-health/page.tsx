@@ -68,7 +68,11 @@ export default function BackendHealthPage() {
   })
   const { data: events = MOCK_EVENTS } = useQuery({
     queryKey: ['admin', 'backend-health', 'events'],
-    queryFn: () => Promise.resolve(MOCK_EVENTS),
+    queryFn: async () => {
+      const r = await fetchApi<HealthEvent[]>('/api/admin/backend-health/events')
+      if (r.success && r.data) return r.data
+      return MOCK_EVENTS
+    },
   })
 
   const healthyCount = services.filter((s) => s.status === 'healthy').length

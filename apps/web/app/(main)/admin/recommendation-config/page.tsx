@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { LayoutGrid, Plus, Edit, Power, Loader2 } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -55,15 +56,19 @@ export default function RecommendationConfigPage() {
 
   const { data: list = MOCK_SLOTS, isLoading } = useQuery({
     queryKey: ['admin', 'recommendation-config'],
-    queryFn: () => Promise.resolve(MOCK_SLOTS),
+    queryFn: async () => {
+      const r = await fetchApi<RecommendSlot[]>('/api/admin/recommendation-config')
+      if (r.success && r.data) return r.data
+      return MOCK_SLOTS
+    },
   })
 
   const saveMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'recommendation-config'] }); close(); toast.success(t('rec.saveSuccess')) },
   })
   const toggleMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(),
+    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'recommendation-config'] }); toast.success(t('rec.toggleSuccess')) },
   })
 

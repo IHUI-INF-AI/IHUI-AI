@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Smartphone, Loader2, Check } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -49,11 +50,15 @@ export default function MobileAdapterPage() {
 
   const { data: devices = MOCK_DEVICES, isLoading } = useQuery({
     queryKey: ['admin', 'mobile-adapter'],
-    queryFn: () => Promise.resolve(MOCK_DEVICES),
+    queryFn: async () => {
+      const r = await fetchApi<DeviceConfig[]>('/api/admin/mobile-adapter')
+      if (r.success && r.data) return r.data
+      return MOCK_DEVICES
+    },
   })
 
   const setModeMut = useMutation({
-    mutationFn: (_mode: string) => Promise.resolve(),
+    mutationFn: (_mode: string) => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'mobile-adapter'] }); toast.success(t('mobile.modeSaved')) },
   })
 

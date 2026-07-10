@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Webhook, Activity, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -46,11 +47,19 @@ export default function EventBusMonitorPage() {
 
   const { data: stats = MOCK_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'event-bus', 'stats'],
-    queryFn: () => Promise.resolve(MOCK_STATS),
+    queryFn: async () => {
+      const r = await fetchApi<EventStats>('/api/admin/event-bus/stats')
+      if (r.success && r.data) return r.data
+      return MOCK_STATS
+    },
   })
   const { data: events = MOCK_EVENTS } = useQuery({
     queryKey: ['admin', 'event-bus', 'events'],
-    queryFn: () => Promise.resolve(MOCK_EVENTS),
+    queryFn: async () => {
+      const r = await fetchApi<EventItem[]>('/api/admin/event-bus/events')
+      if (r.success && r.data) return r.data
+      return MOCK_EVENTS
+    },
   })
 
   const cards = [
