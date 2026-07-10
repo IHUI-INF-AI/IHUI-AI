@@ -62,3 +62,4 @@ export * from './ask-extra.js';
 export * from './search-extra.js';
 export * from './learn-extra-extended.js';
 export * from './user-auth-info.js';
+export * from './tbox-extended.js';

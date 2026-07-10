@@ -72,6 +72,8 @@ import { customerServiceRoutes, adminCustomerServiceRoutes } from './routes/cust
 import { gdprRoutes } from './routes/gdpr.js'
 import { clawdbotRoutes } from './routes/clawdbot.js'
 import { tenantRoutes } from './routes/tenant.js'
+import canaryRoutes from './routes/canary.js'
+import tboxRoutes from './routes/tbox.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -98,6 +100,10 @@ import compressionPlugin from './plugins/compression.js'
 import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
 import aiCostPlugin from './plugins/ai-cost.js'
 import tenantPlugin from './plugins/tenant.js'
+import { slowSqlKiller } from './plugins/slow-sql-killer.js'
+import { dbKeepalive } from './plugins/db-keepalive.js'
+import { n1Detector } from './plugins/n1-detector.js'
+import { promptInjectionGuard } from './plugins/prompt-injection-guard.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -240,6 +246,12 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(aiCostPlugin)
   // 响应压缩（最后注册，压缩已脱敏的最终响应体）
   await server.register(compressionPlugin)
+  // 数据库基础设施：慢 SQL 检测 + 连接保活
+  await server.register(slowSqlKiller)
+  await server.register(dbKeepalive)
+  // 运维能力：N+1 查询检测 + Prompt 注入防护
+  await server.register(n1Detector)
+  await server.register(promptInjectionGuard)
 }
 
 function registerRoutes(server: FastifyInstance) {
@@ -382,4 +394,10 @@ function registerRoutes(server: FastifyInstance) {
 
   // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
   server.register(tenantRoutes, { prefix: '/api/tenants' })
+
+  // Canary 阶段化门控部署：/api/canary/configs /api/canary/audit /api/canary/traffic
+  server.register(canaryRoutes, { prefix: '/api/canary' })
+
+  // TBox IoT 设备管理：设备注册/查询/指令下发/事件通知接收
+  server.register(tboxRoutes, { prefix: '/api/tbox' })
 }

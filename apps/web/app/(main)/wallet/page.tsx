@@ -7,8 +7,9 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Wallet, Plus, ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { StatCard } from '@/components/data'
 
 interface BalanceData {
   balance: number
@@ -83,18 +84,19 @@ export default function WalletPage() {
         </h1>
       </header>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-6">
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">{t('balance')}</div>
-            {balanceQ.isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            ) : balanceQ.error ? (
-              <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
-            ) : (
-              <div className="text-3xl font-bold tracking-tight">{balanceQ.data?.balance ?? 0}</div>
-            )}
-          </div>
+      {balanceQ.error ? (
+        <div className="rounded-lg border bg-destructive/10 p-4 text-sm text-destructive">
+          {(balanceQ.error as Error).message}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <StatCard
+            title={t('balance')}
+            value={balanceQ.data?.balance ?? 0}
+            icon={Wallet}
+            loading={balanceQ.isLoading}
+            className="min-w-[200px] flex-1"
+          />
           <div className="flex gap-2">
             <Link href="/wallet/recharge">
               <Button>
@@ -109,8 +111,8 @@ export default function WalletPage() {
               </Button>
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t('flows')}</h2>

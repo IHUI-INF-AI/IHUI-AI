@@ -12,6 +12,7 @@ import { ModelSelector } from '@/components/chat/model-selector'
 import { ChatHeader } from '@/components/chat/chat-header'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { getConversation, getMessages } from '@/lib/chat-api'
+import { Loading } from '@/components/common'
 
 function ChatContent() {
   const t = useTranslations('chat')
@@ -197,7 +198,7 @@ function ChatContent() {
 export default function ChatPage() {
   // Next.js 15 要求 useSearchParams 必须被 Suspense 包裹
   return (
-    <React.Suspense fallback={null}>
+    <React.Suspense fallback={<div className="flex h-[calc(100dvh-3.5rem)] items-center justify-center"><Loading /></div>}>
       <ChatContent />
     </React.Suspense>
   )

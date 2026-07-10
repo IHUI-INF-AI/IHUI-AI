@@ -43,9 +43,33 @@ export async function aggregateHeatStats(): Promise<HeatStatsResult> {
   const aggregatedAgents = statsResult[0]?.agentCount ?? 0;
   const totalHits = statsResult[0]?.totalHits ?? 0;
 
+  // 同步 usage_count：将 agent_heat_stats 的日聚合命中数累加到 agents.usage_count
+  // 迁移自旧架构 tasks/agent_sync.py
+  await syncAgentUsageCount(dateStr);
+
   return {
     dateStr,
     aggregatedAgents,
     totalHits,
   };
+}
+
+/**
+ * 将当日 agent_heat_stats 的命中数同步到 agents.usage_count 字段。
+ * 使用 SQL UPSERT 语义：usage_count = usage_count + 当日 hit_count。
+ */
+async function syncAgentUsageCount(dateStr: string): Promise<void> {
+  await db.execute(sql`
+    UPDATE "agents" SET "usage_count" = "usage_count" + (
+      SELECT coalesce(sum(${agentHeatStats.hitCount}), 0)
+      FROM ${agentHeatStats}
+      WHERE ${agentHeatStats.dateStr} = ${dateStr}
+        AND ${agentHeatStats.agentId} = "agents"."id"
+    )
+    WHERE "id" IN (
+      SELECT DISTINCT ${agentHeatStats.agentId}
+      FROM ${agentHeatStats}
+      WHERE ${agentHeatStats.dateStr} = ${dateStr}
+    )
+  `);
 }

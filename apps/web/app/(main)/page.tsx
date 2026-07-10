@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { fetchApi } from '@/lib/api'
+import { PageSkeleton } from '@/components/common'
 
 interface HomeStats {
   projects: number
@@ -115,6 +116,8 @@ export default function HomePage() {
     { title: t('stats.notifications'), value: data?.notifications ?? 0, icon: Bell },
     { title: t('stats.conversations'), value: data?.conversations ?? 0, icon: MessageSquare },
   ]
+
+  if (isLoading) return <PageSkeleton />
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
