@@ -107,7 +107,7 @@ export interface ConversationRow {
 
 /**
  * 查询当前用户的会话列表：每个对话对方取最近一条消息，按最后消息时间倒序。
- * 使用 DISTINCT ON 子查询取每个会话最近一条，再 join users 取对方信息。
+ * 使用 ROW_NUMBER() 窗口函数取每个会话最近一条，再 join users 取对方信息。
  */
 export async function findConversations(
   userId: string,
@@ -116,20 +116,21 @@ export async function findConversations(
 ): Promise<{ list: ConversationRow[]; total: number }> {
   const otherExpr = sql<string>`CASE WHEN ${messages.senderId} = ${userId} THEN ${messages.receiverId} ELSE ${messages.senderId} END`;
 
-  // 子查询：每个 other_id 取最近一条消息
+  // 子查询：用 ROW_NUMBER() 窗口函数取每个会话最近一条消息
+  // raw SQL 字段必须用 .as() 声明别名，否则 Drizzle 子查询引用时会报错
   const latest = db
-    .selectDistinctOn([otherExpr], {
+    .select({
       id: messages.id,
       senderId: messages.senderId,
       receiverId: messages.receiverId,
       content: messages.content,
       isRead: messages.isRead,
       createdAt: messages.createdAt,
-      otherUserId: otherExpr,
+      otherUserId: otherExpr.as('otherUserId'),
+      rn: sql<number>`row_number() over (partition by ${otherExpr} order by ${messages.createdAt} desc)`.as('rn'),
     })
     .from(messages)
     .where(or(eq(messages.senderId, userId), eq(messages.receiverId, userId)))
-    .orderBy(otherExpr, desc(messages.createdAt))
     .as('latest');
 
   const involvedWhere = or(eq(messages.senderId, userId), eq(messages.receiverId, userId));
@@ -149,6 +150,7 @@ export async function findConversations(
       })
       .from(latest)
       .leftJoin(users, eq(users.id, latest.otherUserId))
+      .where(eq(latest.rn, 1))
       .orderBy(desc(latest.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
