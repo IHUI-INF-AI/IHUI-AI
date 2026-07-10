@@ -2,12 +2,15 @@ import type { FastifyPluginAsync } from 'fastify';
 import { env } from 'node:process';
 import { authenticate } from '../plugins/auth.js';
 import { success, error } from '../utils/response.js';
+import { queryPendingOrders } from '../db/payment-queries.js';
 import {
-  createOrder,
-  findOrderByNo,
-  updateOrderStatus,
-  queryPendingOrders,
-} from '../db/payment-queries.js';
+  placeOrder,
+  getOrder,
+  completeOrder,
+  cancelOrder,
+  refundOrder,
+} from '../services/order-service.js';
+import { feedbackInvite } from '../services/commission-service.js';
 import {
   isWechatPayConfigured,
   jsapiPrepay,
@@ -30,7 +33,7 @@ import {
   closeOrder as aliCloseOrder,
   downloadBillUrl as aliDownloadBillUrl,
 } from '../services/alipay.js';
-import { applyWithdrawal } from '../db/commission-queries.js';
+import { applyWithdrawal, getBalance } from '../db/commission-queries.js';
 
 const notifyUrl = (type?: string): string => {
   if (type === 'course') return env.WX_PAY_COURSE_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? '';
@@ -57,7 +60,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!;
     const amountCents = parseInt(amount, 10);
     if (!amountCents || amountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'));
-    const order = await createOrder({
+    const order = await placeOrder({
       userId,
       amount: amountCents,
       orderType: parseInt(orderType, 10),
@@ -89,7 +92,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     };
     const userId = request.userId!;
     const amountCents = parseInt(amount, 10);
-    const order = await createOrder({
+    const order = await placeOrder({
       userId,
       amount: amountCents,
       orderType: parseInt(orderType, 10),
@@ -111,7 +114,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     const { amount, courseId } = request.query as { amount: string; courseId: string };
     const userId = request.userId!;
     const amountCents = parseInt(amount, 10);
-    const order = await createOrder({
+    const order = await placeOrder({
       userId,
       amount: amountCents,
       orderType: 1,
@@ -157,7 +160,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send({ code: 'SUCCESS', message: 'OK (processing)' });
       }
       try {
-        await updateOrderStatus(out_trade_no, 'paid');
+        const result = await completeOrder(out_trade_no, transaction_id);
+        // 支付成功后触发返佣（失败不阻塞支付完成）
+        if (result.success && result.order) {
+          try {
+            const tokenQuantity = await getBalance(result.order.userId);
+            await feedbackInvite(
+              { id: result.order.userId, tokenQuantity },
+              { id: result.order.id, amount: result.order.amount, orderType: 0, productId: null },
+            );
+          } catch (ce) {
+            request.log.warn({ err: ce, orderNo: out_trade_no }, 'commission feedback failed');
+          }
+        }
         await server.paymentIdempotency.complete(out_trade_no, idemKey, { out_trade_no, trade_state });
       } catch (e) {
         await server.paymentIdempotency.fail(out_trade_no, idemKey, (e as Error).message);
@@ -182,7 +197,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         refund_status: string;
       };
       if (['SUCCESS', 'CHANGE'].includes(decrypted.refund_status)) {
-        await updateOrderStatus(decrypted.out_trade_no, 'refunded');
+        await refundOrder(decrypted.out_trade_no);
       }
     }
     return reply.send({ code: 'SUCCESS', message: 'OK' });
@@ -191,7 +206,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   server.post('/payments/wechat/query', async (request, reply) => {
     const payload = await authenticate(request);
     const { outTradeNo } = request.query as { outTradeNo: string };
-    const local = await findOrderByNo(outTradeNo);
+    const local = await getOrder(outTradeNo);
     if (!local) return reply.status(404).send(error(404, '订单不存在'));
     if (payload.roleId < ADMIN_ROLE_ID && local.userId !== request.userId) {
       return reply.status(403).send(error(403, '无权操作此订单'));
@@ -204,13 +219,13 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   server.post('/payments/wechat/close', async (request, reply) => {
     const payload = await authenticate(request);
     const { outTradeNo } = request.query as { outTradeNo: string };
-    const order = await findOrderByNo(outTradeNo);
+    const order = await getOrder(outTradeNo);
     if (!order) return reply.status(404).send(error(404, '订单不存在'));
     if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
       return reply.status(403).send(error(403, '无权操作此订单'));
     }
     if (isWechatPayConfigured()) await wxCloseOrder(outTradeNo);
-    await updateOrderStatus(outTradeNo, 'cancelled');
+    await cancelOrder(outTradeNo);
     return reply.send(success({ outTradeNo }));
   });
 
@@ -221,7 +236,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       refundAmount: string;
       reason?: string;
     };
-    const order = await findOrderByNo(outTradeNo);
+    const order = await getOrder(outTradeNo);
     if (!order) return reply.status(404).send(error(404, '订单不存在'));
     if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
       return reply.status(403).send(error(403, '无权操作此订单'));
@@ -239,13 +254,13 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         notifyUrl: env.WX_PAY_NOTIFY_URL ?? '',
       });
     }
-    await updateOrderStatus(outTradeNo, 'refunded');
+    await refundOrder(outTradeNo);
     return reply.send(success({ outTradeNo, refundNo }));
   });
 
   server.get('/payments/wechat/status/:outTradeNo', async (request, reply) => {
     const { outTradeNo } = request.params as { outTradeNo: string };
-    const order = await findOrderByNo(outTradeNo);
+    const order = await getOrder(outTradeNo);
     return reply.send(success(order));
   });
 
@@ -263,7 +278,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!;
     const amountYuan = parseFloat(amount);
     const amountCents = Math.round(amountYuan * 100);
-    const order = await createOrder({
+    const order = await placeOrder({
       userId,
       amount: amountCents,
       orderType: parseInt(orderType, 10),
@@ -290,7 +305,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!;
     const amountYuan = parseFloat(amount);
     const amountCents = Math.round(amountYuan * 100);
-    const order = await createOrder({
+    const order = await placeOrder({
       userId,
       amount: amountCents,
       orderType: parseInt(orderType, 10),
@@ -314,7 +329,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.type('text/plain').send('success');
       }
       try {
-        await updateOrderStatus(outTradeNo, 'paid');
+        const result = await completeOrder(outTradeNo, params.trade_no);
+        // 支付成功后触发返佣（失败不阻塞支付完成）
+        if (result.success && result.order) {
+          try {
+            const tokenQuantity = await getBalance(result.order.userId);
+            await feedbackInvite(
+              { id: result.order.userId, tokenQuantity },
+              { id: result.order.id, amount: result.order.amount, orderType: 0, productId: null },
+            );
+          } catch (ce) {
+            request.log.warn({ err: ce, orderNo: outTradeNo }, 'commission feedback failed');
+          }
+        }
         await server.paymentIdempotency.complete(outTradeNo, idemKey, { outTradeNo, tradeStatus });
       } catch (e) {
         await server.paymentIdempotency.fail(outTradeNo, idemKey, (e as Error).message);
@@ -327,7 +354,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   server.post('/payments/alipay/query', async (request, reply) => {
     const payload = await authenticate(request);
     const { outTradeNo } = request.query as { outTradeNo: string };
-    const local = await findOrderByNo(outTradeNo);
+    const local = await getOrder(outTradeNo);
     if (!local) return reply.status(404).send(error(404, '订单不存在'));
     if (payload.roleId < ADMIN_ROLE_ID && local.userId !== request.userId) {
       return reply.status(403).send(error(403, '无权操作此订单'));
@@ -344,7 +371,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       refundAmount: string;
       reason?: string;
     };
-    const order = await findOrderByNo(outTradeNo);
+    const order = await getOrder(outTradeNo);
     if (!order) return reply.status(404).send(error(404, '订单不存在'));
     if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
       return reply.status(403).send(error(403, '无权操作此订单'));
@@ -355,7 +382,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason });
       if (!result.success) return reply.status(500).send(error(500, '退款失败'));
     }
-    await updateOrderStatus(outTradeNo, 'refunded');
+    await refundOrder(outTradeNo);
     return reply.send(success({ outTradeNo }));
   });
 
@@ -373,7 +400,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!;
     const amountYuan = parseFloat(amount);
     const amountCents = Math.round(amountYuan * 100);
-    const order = await createOrder({
+    const order = await placeOrder({
       userId,
       amount: amountCents,
       orderType: parseInt(orderType, 10),
@@ -456,7 +483,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         } else if (payType.startsWith('wechat') && isWechatPayConfigured()) {
           await wxCloseOrder(order.orderNo);
         }
-        await updateOrderStatus(order.orderNo, 'cancelled');
+        await cancelOrder(order.orderNo);
         closed.push(order.orderNo);
       } catch (e) {
         failed.push({ outTradeNo: order.orderNo, error: (e as Error).message });
