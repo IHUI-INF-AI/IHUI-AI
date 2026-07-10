@@ -321,22 +321,17 @@ async function requireAdmin(
 }
 
 // =============================================================================
-// 公共路由（前缀 /api，需登录）
+// 公共路由（前缀 /api，浏览类匿名可访问，操作类需登录）
 // =============================================================================
 
 export const learnRoutes: FastifyPluginAsync = async (server) => {
-  // 统一登录校验
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return;
-  });
-
-  // GET /learn/categories - 启用的分类列表
+  // GET /learn/categories - 启用的分类列表（公开）
   server.get('/learn/categories', async (_request, reply) => {
     const list = await findPublishedCategories();
     return reply.send(success({ list }));
   });
 
-  // GET /learn/lessons - 已发布课程列表（分页）
+  // GET /learn/lessons - 已发布课程列表（分页，公开）
   server.get('/learn/lessons', async (request, reply) => {
     const parsed = lessonsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
@@ -346,7 +341,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result));
   });
 
-  // GET /learn/lessons/:id - 课程详情（含章节+小节）
+  // GET /learn/lessons/:id - 课程详情（含章节+小节，公开）
   server.get('/learn/lessons/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params);
     if (!parsed.success) {
@@ -369,8 +364,9 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ lesson, chapters: chaptersWithSections }));
   });
 
-  // GET /learn/my-lessons - 我报名的课程
+  // GET /learn/my-lessons - 我报名的课程（需登录）
   server.get('/learn/my-lessons', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
     const parsed = myLessonsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -380,8 +376,9 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result));
   });
 
-  // POST /learn/lessons/:id/sign-up - 报名课程
+  // POST /learn/lessons/:id/sign-up - 报名课程（需登录）
   server.post('/learn/lessons/:id/sign-up', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
     const parsed = idParamSchema.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -395,8 +392,9 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ ok: true }));
   });
 
-  // GET /learn/lessons/:id/progress - 获取学习进度
+  // GET /learn/lessons/:id/progress - 获取学习进度（需登录）
   server.get('/learn/lessons/:id/progress', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
     const parsed = idParamSchema.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -409,8 +407,9 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ progress: signup.progress, status: signup.status }));
   });
 
-  // POST /learn/lessons/:id/progress - 更新学习进度
+  // POST /learn/lessons/:id/progress - 更新学习进度（需登录）
   server.post('/learn/lessons/:id/progress', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
     const parsed = idParamSchema.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));

@@ -72,22 +72,24 @@ describe('learn routes', () => {
     await server.close();
   });
 
-  // ----- 公共端点（需登录，未登录返回 401） -----
+  // ----- 公共浏览端点（匿名可访问，返回 200） -----
 
-  it('GET /api/learn/categories 未登录返回 401', async () => {
+  it('GET /api/learn/categories 未登录返回 200（公开）', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/learn/categories' });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
   });
 
-  it('GET /api/learn/lessons 未登录返回 401', async () => {
+  it('GET /api/learn/lessons 未登录返回 200（公开）', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/learn/lessons' });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
   });
 
-  it('GET /api/learn/lessons/:id 未登录返回 401', async () => {
+  it('GET /api/learn/lessons/:id 未登录返回 404（公开，课程不存在）', async () => {
     const res = await server.inject({ method: 'GET', url: `/api/learn/lessons/${DUMMY_UUID}` });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(404);
   });
+
+  // ----- 需登录端点（未登录返回 401） -----
 
   it('GET /api/learn/my-lessons 未登录返回 401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/learn/my-lessons' });
