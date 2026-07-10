@@ -1,0 +1,41 @@
+# 告警降噪抑制规则 — 迁移自旧架构 server/noise-rules.yml
+# 当上游告警触发时,自动抑制下游衍生告警,避免告警风暴
+# 用法: 在 Alertmanager 配置中 include 本文件,或将其内容合并到 alertmanager.yml 的 inhibit_rules 段
+
+inhibit_rules:
+  # PG 实例宕机时,抑制该实例的所有衍生告警
+  - source_match: { alertname: 'PGInstanceDown' }
+    target_match: { alertname: 'PGConnectionsHigh' }
+    equal: ['instance', 'severity']
+
+  - source_match: { alertname: 'PGInstanceDown' }
+    target_match: { alertname: 'PGReplicationLagHigh' }
+    equal: ['instance', 'severity']
+
+  - source_match: { alertname: 'PGInstanceDown' }
+    target_match: { alertname: 'PGRollbackHigh' }
+    equal: ['instance', 'severity']
+
+  - source_match: { alertname: 'PGInstanceDown' }
+    target_match: { alertname: 'PGBloatHigh' }
+    equal: ['instance', 'severity']
+
+  # 连接耗尽时,抑制连接数高告警(根因已覆盖)
+  - source_match: { alertname: 'PGConnectionsExhausted' }
+    target_match: { alertname: 'PGConnectionsHigh' }
+    equal: ['instance', 'severity']
+
+  # 死锁检测时,抑制回滚率告警(死锁是回滚的根因)
+  - source_match: { alertname: 'PGDeadlockDetected' }
+    target_match: { alertname: 'PGRollbackHigh' }
+    equal: ['instance', 'severity']
+
+  # 长事务 Critical 级别时,抑制 Warning 级别
+  - source_match: { alertname: 'PGLongTransactionCritical' }
+    target_match: { alertname: 'PGLongTransaction' }
+    equal: ['instance', 'severity']
+
+  # 缓存命中率低时,抑制连接数高告警(缓存问题是根因)
+  - source_match: { alertname: 'PGCacheHitLow' }
+    target_match: { alertname: 'PGConnectionsHigh' }
+    equal: ['instance', 'severity']
