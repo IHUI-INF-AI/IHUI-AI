@@ -18,7 +18,7 @@ export default function Feedback() {
       await submitFeedback({ content: content.trim(), contact: contact.trim() || undefined })
       Taro.showToast({ title: '提交成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch (e) {}
+    } catch {}
   }
 
   return (

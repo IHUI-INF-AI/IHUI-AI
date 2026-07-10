@@ -11,7 +11,7 @@ export default function CourseDetail() {
     try {
       const res = await getCourseDetail(id)
       setCourse(res)
-    } catch (e) {
+    } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' })
     }
   }, [])

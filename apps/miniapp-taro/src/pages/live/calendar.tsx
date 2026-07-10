@@ -23,7 +23,7 @@ export default function LiveCalendar() {
       const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
       const res = await getLiveCalendar({ month })
       setList(res.list || [])
-    } catch (e) {}
+    } catch {}
   }, [])
 
   useDidShow(() => { load() })
@@ -45,7 +45,7 @@ export default function LiveCalendar() {
             <Text className="text-[14px] text-[#333] font-semibold">{group.date}</Text>
           </View>
           {group.lives.map(l => {
-            const st = statusMap[l.status] || statusMap.ended
+            const st = statusMap[l.status] || { text: '已结束', bg: 'bg-[#f5f5f5]', color: 'text-[#999]' }
             return (
               <View
                 key={l.id}

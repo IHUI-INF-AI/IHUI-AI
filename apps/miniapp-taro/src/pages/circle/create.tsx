@@ -39,7 +39,7 @@ export default function CircleCreatePage() {
       await createCircle(form)
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
-    } catch (e) {}
+    } catch {}
   }, [form])
 
   useDidShow(() => {

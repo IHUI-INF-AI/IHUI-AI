@@ -29,7 +29,7 @@ export default function LiveHistory() {
       setList(prev => reset ? more : [...prev, ...more])
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
-    } catch (e) {
+    } catch {
       // 统一提示
     } finally {
       loadingRef.current = false

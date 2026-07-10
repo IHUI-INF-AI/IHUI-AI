@@ -9,7 +9,7 @@ export default function MemberIndexPage() {
   const [info, setInfo] = useState<MemberInfo>({} as MemberInfo)
 
   const load = useCallback(async () => {
-    try { setInfo(await getMemberInfo()) } catch (e) {}
+    try { setInfo(await getMemberInfo()) } catch {}
   }, [])
 
   const navigate = useCallback((url: string) => { Taro.navigateTo({ url }) }, [])

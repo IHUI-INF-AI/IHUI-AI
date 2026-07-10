@@ -28,6 +28,6 @@ export const useUserStore = create<UserState>((set) => ({
       const user = await api.getProfile()
       persistUserInfo(user)
       set({ user })
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }
 }))

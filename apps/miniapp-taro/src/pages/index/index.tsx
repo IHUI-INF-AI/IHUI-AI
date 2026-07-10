@@ -49,7 +49,7 @@ export default function Index() {
       ])
       setBannerList(home.banner || [])
       setCourseList(courses.list || [])
-    } catch (e) {
+    } catch {
       // 静默处理，首页可离线展示
     }
   }

@@ -8,7 +8,7 @@ export default function CachePage() {
   const [size, setSize] = useState('0KB')
 
   const load = useCallback(async () => {
-    try { setSize((await clearCacheSize()).size) } catch (e) {}
+    try { setSize((await clearCacheSize()).size) } catch {}
   }, [])
 
   const onClear = useCallback(async () => {
@@ -16,7 +16,7 @@ export default function CachePage() {
       await clearCache()
       Taro.showToast({ title: '清理成功', icon: 'success' })
       load()
-    } catch (e) {}
+    } catch {}
   }, [load])
 
   const onClearAll = useCallback(() => {

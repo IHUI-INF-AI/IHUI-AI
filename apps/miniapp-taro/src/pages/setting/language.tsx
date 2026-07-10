@@ -25,7 +25,7 @@ export default function LanguagePage() {
       await setLanguage(v)
       Taro.setStorageSync('lang', v)
       Taro.showToast({ title: '设置成功', icon: 'success' })
-    } catch (e) {}
+    } catch {}
   }, [])
 
   return (

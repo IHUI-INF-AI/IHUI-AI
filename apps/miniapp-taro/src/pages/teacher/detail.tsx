@@ -12,7 +12,7 @@ export default function TeacherDetail() {
     if (!id) return
     try {
       setTeacher(await getTeacherDetail(id))
-    } catch (e) {}
+    } catch {}
   }, [router.params.id])
 
   useDidShow(() => { load() })

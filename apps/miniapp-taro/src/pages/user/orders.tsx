@@ -46,7 +46,7 @@ export default function Orders() {
       setList(newList)
       setHasMore(newList.length < res.total)
       setPage(curPage + 1)
-    } catch (e) {
+    } catch {
       // 统一提示
     } finally {
       setLoading(false)

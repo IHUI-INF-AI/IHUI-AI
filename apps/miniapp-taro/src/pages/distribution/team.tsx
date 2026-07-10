@@ -36,7 +36,7 @@ export default function DistributionTeam() {
       setList(prev => (reset ? items : [...prev, ...items]))
       hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
       pageRef.current++
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       loadingRef.current = false

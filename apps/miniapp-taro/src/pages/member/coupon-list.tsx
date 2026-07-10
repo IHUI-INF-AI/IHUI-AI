@@ -28,7 +28,7 @@ export default function CouponListPage() {
 
   useDidShow(() => load())
 
-  const onReceive = (id: string) => {
+  const onReceive = (_id: string) => {
     Taro.showToast({ title: '领取成功', icon: 'success' })
     load()
   }

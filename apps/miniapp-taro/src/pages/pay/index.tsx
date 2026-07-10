@@ -34,7 +34,7 @@ export default function PayIndex() {
           window.location.href = res.payUrl
         }
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
