@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 import { getAgents, type Agent } from '@/lib/agent-api'
 
@@ -14,31 +15,49 @@ interface AgentState {
   fetchAgents: () => Promise<void>
 }
 
-export const useAgentStore = create<AgentState>((set) => ({
-  agents: [],
-  currentAgent: null,
-  favorites: [],
-  loading: false,
-  error: null,
+/** SSR 安全的 localStorage 替代存储 */
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+}
 
-  setAgents: (agents) => set({ agents }),
+export const useAgentStore = create<AgentState>()(
+  persist(
+    (set) => ({
+      agents: [],
+      currentAgent: null,
+      favorites: [],
+      loading: false,
+      error: null,
 
-  setCurrentAgent: (currentAgent) => set({ currentAgent }),
+      setAgents: (agents) => set({ agents }),
 
-  toggleFavorite: (id) =>
-    set((s) => ({
-      favorites: s.favorites.includes(id)
-        ? s.favorites.filter((f) => f !== id)
-        : [...s.favorites, id],
-    })),
+      setCurrentAgent: (currentAgent) => set({ currentAgent }),
 
-  fetchAgents: async () => {
-    set({ loading: true, error: null })
-    const res = await getAgents({ pageSize: 100 })
-    if (!res.success) {
-      set({ loading: false, error: res.error })
-      return
-    }
-    set({ agents: res.data.list, loading: false })
-  },
-}))
+      toggleFavorite: (id) =>
+        set((s) => ({
+          favorites: s.favorites.includes(id)
+            ? s.favorites.filter((f) => f !== id)
+            : [...s.favorites, id],
+        })),
+
+      fetchAgents: async () => {
+        set({ loading: true, error: null })
+        const res = await getAgents({ pageSize: 100 })
+        if (!res.success) {
+          set({ loading: false, error: res.error })
+          return
+        }
+        set({ agents: res.data.list, loading: false })
+      },
+    }),
+    {
+      name: 'ihui-agent-favorites',
+      storage: createJSONStorage(() =>
+        typeof window !== 'undefined' ? window.localStorage : noopStorage,
+      ),
+      partialize: (s) => ({ favorites: s.favorites }),
+    },
+  ),
+)

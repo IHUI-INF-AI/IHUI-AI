@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import DOMPurify from 'dompurify'
 
 export interface SafeHtmlProps {
   html: string
@@ -14,56 +15,32 @@ const DEFAULT_ALLOWED_TAGS = [
   'blockquote', 'img', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
 ]
 
-const DANGEROUS_ATTRS = [
-  'onerror',
-  'onload',
-  'onclick',
-  'ondblclick',
-  'onmouseover',
-  'onmouseout',
-  'onmousemove',
-  'onmousedown',
-  'onmouseup',
-  'onfocus',
-  'onblur',
-  'onchange',
-  'oninput',
-  'onsubmit',
-  'onkeydown',
-  'onkeyup',
-  'onkeypress',
+const DEFAULT_ALLOWED_ATTR = [
+  'href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel',
+  'width', 'height', 'colspan', 'rowspan',
 ]
 
 function sanitize(html: string, allowedTags: string[]): string {
-  let result = html
-  // 移除 script/style 标签及其内容
-  result = result.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-  result = result.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-  // 构建白名单:移除不在 allowedTags 中的标签
-  const tagPattern = new RegExp(`</?(?!/?(?:${allowedTags.join('|')})\\b)[^>]*>`, 'gi')
-  result = result.replace(tagPattern, '')
-  // 移除事件处理器属性
-  for (const attr of DANGEROUS_ATTRS) {
-    const attrPattern = new RegExp(`\\s${attr}\\s*=\\s*"[^"]*"`, 'gi')
-    result = result.replace(attrPattern, '')
-    const attrPattern2 = new RegExp(`\\s${attr}\\s*=\\s*'[^']*'`, 'gi')
-    result = result.replace(attrPattern2, '')
+  // SSR 安全:dompurify 依赖 DOM,只能在客户端运行
+  if (typeof window === 'undefined') {
+    return ''
   }
-  // 移除 javascript: 协议
-  result = result.replace(/(href|src)\s*=\s*(['"])javascript:[^'"]*\2/gi, '$1=$2$2')
-  return result
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: allowedTags,
+    ALLOWED_ATTR: DEFAULT_ALLOWED_ATTR,
+  })
 }
 
 /**
  * 安全 HTML 渲染组件。
  *
- * 项目未安装 dompurify,这里使用简单正则替代方案:
- * - 移除 script/style 标签及其内容
+ * 使用 dompurify 对 HTML 进行消毒,防止 XSS 攻击:
  * - 仅保留 allowedTags 白名单中的标签
- * - 移除事件处理器(onerror/onclick 等)
- * - 移除 javascript: 协议
+ * - 仅保留安全的属性白名单
+ * - 自动移除 script/style 标签、事件处理器、javascript: 协议等危险内容
  *
- * 注意:正则方案不能覆盖所有 XSS 攻击场景,如需更强防护请安装 dompurify。
+ * SSR 安全:dompurify 依赖 DOM,只能在客户端运行。服务端渲染时返回空内容,
+ * 客户端水合后渲染消毒后的 HTML。
  */
 export function SafeHtml({
   html,
