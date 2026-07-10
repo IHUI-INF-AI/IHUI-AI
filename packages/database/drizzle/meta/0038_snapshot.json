@@ -1654,7 +1654,7 @@
           "type": "varchar(10)",
           "primaryKey": false,
           "notNull": true,
-          "default": "'element-ui'"
+          "default": "'tailwind'"
         },
         "package_name": {
           "name": "package_name",

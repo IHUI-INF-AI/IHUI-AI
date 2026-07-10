@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS "gen_table" (
   "sub_table_fk_name" varchar(200),
   "class_name" varchar(200) DEFAULT '' NOT NULL,
   "tpl_category" varchar(10) DEFAULT 'crud' NOT NULL,
-  "tpl_web_type" varchar(10) DEFAULT 'element-ui' NOT NULL,
+  "tpl_web_type" varchar(10) DEFAULT 'tailwind' NOT NULL,
   "package_name" varchar(100) DEFAULT '' NOT NULL,
   "module_name" varchar(100) DEFAULT '' NOT NULL,
   "business_name" varchar(100) DEFAULT '' NOT NULL,
