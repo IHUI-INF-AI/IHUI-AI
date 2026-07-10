@@ -1,0 +1,194 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {}
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "智汇社区",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/course/list",
+      "style": {
+        "navigationBarTitleText": "课程列表",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/course/detail",
+      "style": {
+        "navigationBarTitleText": "课程详情",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/live/list",
+      "style": {
+        "navigationBarTitleText": "直播列表",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/live/detail",
+      "style": {
+        "navigationBarTitleText": "直播详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/user/index",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/user/settings",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/user/orders",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationBarBackgroundColor": "#fff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/ai/chat",
+      "style": {
+        "navigationBarTitleText": "AI 对话",
+        "navigationStyle": "custom",
+        "app-plus": {
+          "softinputMode": "adjustPan"
+        }
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages-todo",
+      "pages": [
+        { "path": "aicircle/index", "style": { "navigationBarTitleText": "【待迁移】AI圈子" } },
+        { "path": "agent-dialogue/index", "style": { "navigationBarTitleText": "【待迁移】Agent对话" } },
+        { "path": "confirm-purchase/index", "style": { "navigationBarTitleText": "【待迁移】确认购买" } },
+        { "path": "agreement/index", "style": { "navigationBarTitleText": "【待迁移】用户协议" } },
+        { "path": "ai/chat-detail", "style": { "navigationBarTitleText": "【待迁移】AI对话详情" } },
+        { "path": "ai-career/index", "style": { "navigationBarTitleText": "【待迁移】AI职业" } },
+        { "path": "assistant/index", "style": { "navigationBarTitleText": "【待迁移】助手" } },
+        { "path": "business-card/index", "style": { "navigationBarTitleText": "【待迁移】名片" } },
+        { "path": "carte/index", "style": { "navigationBarTitleText": "【待迁移】菜单" } },
+        { "path": "chat-history/index", "style": { "navigationBarTitleText": "【待迁移】对话历史" } },
+        { "path": "commission-plan/index", "style": { "navigationBarTitleText": "【待迁移】佣金计划" } },
+        { "path": "course/more-course", "style": { "navigationBarTitleText": "【待迁移】更多课程" } },
+        { "path": "course-planet/index", "style": { "navigationBarTitleText": "【待迁移】课程星球" } },
+        { "path": "dev-enter/index", "style": { "navigationBarTitleText": "【待迁移】开发者入口" } },
+        { "path": "distribution/index", "style": { "navigationBarTitleText": "【待迁移】分销" } },
+        { "path": "earn-commission/index", "style": { "navigationBarTitleText": "【待迁移】赚取佣金" } },
+        { "path": "fankui/index", "style": { "navigationBarTitleText": "【待迁移】反馈" } },
+        { "path": "learn-develop/index", "style": { "navigationBarTitleText": "【待迁移】学习开发" } },
+        { "path": "message/index", "style": { "navigationBarTitleText": "【待迁移】消息" } },
+        { "path": "my-ai-model/index", "style": { "navigationBarTitleText": "【待迁移】我的AI模型" } },
+        { "path": "news/index", "style": { "navigationBarTitleText": "【待迁移】资讯" } },
+        { "path": "pay/index", "style": { "navigationBarTitleText": "【待迁移】支付" } },
+        { "path": "payment/index", "style": { "navigationBarTitleText": "【待迁移】收银台" } },
+        { "path": "phone-login/index", "style": { "navigationBarTitleText": "【待迁移】手机登录" } },
+        { "path": "plaza/index", "style": { "navigationBarTitleText": "【待迁移】广场" } },
+        { "path": "recruitment/index", "style": { "navigationBarTitleText": "【待迁移】招聘" } },
+        { "path": "set/index", "style": { "navigationBarTitleText": "【待迁移】设置(旧)" } },
+        { "path": "settings/index", "style": { "navigationBarTitleText": "【待迁移】设置入口" } },
+        { "path": "statistics/index", "style": { "navigationBarTitleText": "【待迁移】统计" } },
+        { "path": "study/index", "style": { "navigationBarTitleText": "【待迁移】学习" } },
+        { "path": "studyindex/index", "style": { "navigationBarTitleText": "【待迁移】学习首页" } },
+        { "path": "test/index", "style": { "navigationBarTitleText": "【待迁移】测试" } },
+        { "path": "top-up/index", "style": { "navigationBarTitleText": "【待迁移】充值" } },
+        { "path": "topup-fail/index", "style": { "navigationBarTitleText": "【待迁移】充值失败" } },
+        { "path": "topup-success/index", "style": { "navigationBarTitleText": "【待迁移】充值成功" } },
+        { "path": "vip/index", "style": { "navigationBarTitleText": "【待迁移】VIP会员" } },
+        { "path": "vip/trader", "style": { "navigationBarTitleText": "【待迁移】VIP经销商" } },
+        { "path": "vip-info/index", "style": { "navigationBarTitleText": "【待迁移】VIP信息" } },
+        { "path": "webview/index", "style": { "navigationBarTitleText": "【待迁移】网页" } },
+        { "path": "withdraw-records/index", "style": { "navigationBarTitleText": "【待迁移】提现记录" } },
+        { "path": "withdrawal/index", "style": { "navigationBarTitleText": "【待迁移】提现" } },
+        { "path": "news/detail", "style": { "navigationBarTitleText": "【待迁移】资讯详情" } },
+        { "path": "message/detail", "style": { "navigationBarTitleText": "【待迁移】消息详情" } },
+        { "path": "study/notes", "style": { "navigationBarTitleText": "【待迁移】学习笔记" } },
+        { "path": "study/report", "style": { "navigationBarTitleText": "【待迁移】学习报告" } },
+        { "path": "login-app/login-app", "style": { "navigationBarTitleText": "【待迁移】App登录" } },
+        { "path": "login-app/login-app-other", "style": { "navigationBarTitleText": "【待迁移】其他登录" } },
+        { "path": "login-app/change-phone", "style": { "navigationBarTitleText": "【待迁移】更换手机号" } },
+        { "path": "login-app/register", "style": { "navigationBarTitleText": "【待迁移】注册" } },
+        { "path": "table/ai-index", "style": { "navigationBarTitleText": "【待迁移】AI首页" } },
+        { "path": "table/tools/index", "style": { "navigationBarTitleText": "【待迁移】AI工具" } },
+        { "path": "table/tools/category-detail", "style": { "navigationBarTitleText": "【待迁移】分类详情" } },
+        { "path": "table/square/index", "style": { "navigationBarTitleText": "【待迁移】开发者广场" } },
+        { "path": "table/user/index", "style": { "navigationBarTitleText": "【待迁移】我的(旧)" } },
+        { "path": "table/share/index", "style": { "navigationBarTitleText": "【待迁移】分享星球" } },
+        { "path": "tools/ai-index2", "style": { "navigationBarTitleText": "【待迁移】AI首页2" } },
+        { "path": "tools/ai-index3", "style": { "navigationBarTitleText": "【待迁移】AI首页3" } },
+        { "path": "distribution/index2", "style": { "navigationBarTitleText": "【待迁移】分销中心" } },
+        { "path": "distribution/order-list", "style": { "navigationBarTitleText": "【待迁移】分销订单" } },
+        { "path": "distribution/personnel-list", "style": { "navigationBarTitleText": "【待迁移】分销人员" } },
+        { "path": "income/index", "style": { "navigationBarTitleText": "【待迁移】收益" } },
+        { "path": "learn/index", "style": { "navigationBarTitleText": "【待迁移】学习中心" } },
+        { "path": "member/index", "style": { "navigationBarTitleText": "【待迁移】会员" } },
+        { "path": "user-order-list/index", "style": { "navigationBarTitleText": "【待迁移】订单列表(旧)" } },
+        { "path": "agreement/privacy", "style": { "navigationBarTitleText": "【待迁移】隐私政策" } }
+      ]
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智汇AI",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f7f8fa"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#007aff",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/course/list",
+        "text": "课程"
+      },
+      {
+        "pagePath": "pages/live/list",
+        "text": "直播"
+      },
+      {
+        "pagePath": "pages/ai/chat",
+        "text": "AI"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "text": "我的"
+      }
+    ]
+  }
+}

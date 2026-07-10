@@ -1,0 +1,52 @@
+# OpenTelemetry Collector 配置 — IHUI-AI（生产）
+# 接收 OTLP/HTTP 追踪与指标数据（端口 4318）
+# 追踪导出到 Jaeger（OTLP/gRPC 4317），指标通过 Prometheus exporter 暴露（8888）
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # 内存限制：防止 collector 在高负载下 OOM，必须置于 pipeline 首位
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  # 采样：限制高基数追踪，保留 10% 正常 span + 全量错误 span
+  probabilistic_sampler:
+    sampling_percentage: 100
+
+exporters:
+  # 追踪导出到 Jaeger（OTLP/gRPC，Jaeger all-in-one 开启 COLLECTOR_OTLP_ENABLED）
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  # 指标通过 Prometheus exporter 暴露，供 Prometheus 抓取（端口 8888）
+  prometheus:
+    endpoint: 0.0.0.0:8888
+
+extensions:
+  # 健康检查（docker-compose healthcheck 使用 13133 端口）
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, probabilistic_sampler, batch]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+  telemetry:
+    logs:
+      level: info

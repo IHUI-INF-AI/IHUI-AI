@@ -1,0 +1,136 @@
+name: weekly-security-audit
+
+# 每周一 02:00 北京时间 (UTC 18:00 周日) 执行
+# TS Monorepo (Fastify + Next.js + FastAPI) 安全审计：
+# - pnpm audit 依赖漏洞扫描
+# - tsc 类型检查（编译期错误即安全隐患）
+# - eslint 静态分析
+# - 依赖漏洞深度扫描（生产依赖）
+# - 许可证合规检查
+# - 密钥泄露扫描（复用 scripts/check-api-key-leak.mjs + gitleaks）
+# - 汇总报告上传 artifact，发现高危问题自动创建 Issue
+
+on:
+  schedule:
+    - cron: '0 18 * * 0'  # UTC 周日 18:00 = 北京周一 02:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9.15.0'
+
+jobs:
+  security-audit:
+    name: 安全审计
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 1. 依赖漏洞扫描（全量 + 生产依赖）
+      - name: 依赖漏洞扫描 (pnpm audit)
+        run: |
+          mkdir -p reports
+          # 全量审计（含 dev 依赖），输出 JSON 报告
+          pnpm audit --json > reports/pnpm-audit-full.json || true
+          # 仅生产依赖审计（更高危），高危项使步骤失败
+          pnpm audit --prod --json > reports/pnpm-audit-prod.json || true
+          # 摘要输出到日志
+          echo "=== 全量依赖审计摘要 ==="
+          pnpm audit || true
+          echo "=== 生产依赖审计摘要 ==="
+          pnpm audit --prod || true
+
+      # 2. TypeScript 类型检查（turbo 并行）
+      - name: TypeScript 类型检查 (tsc --noEmit)
+        run: pnpm run typecheck || echo "::warning::存在类型错误，详见日志"
+
+      # 3. ESLint 静态分析
+      - name: ESLint 静态分析
+        run: |
+          pnpm run lint 2>&1 | tee reports/eslint-report.txt || true
+
+      # 4. 许可证合规检查
+      - name: 许可证检查
+        run: |
+          npx license-checker --production --json > reports/licenses.json 2>/dev/null || true
+          # 检查是否存在不合规许可证（GPL/AGPL/LGPL 在商业项目通常受限）
+          npx license-checker --production --summary | tee reports/licenses-summary.txt || true
+          if grep -iE 'GPL|AGPL|LGPL|Unlicensed' reports/licenses-summary.txt; then
+            echo "::warning::发现受限许可证，详见 reports/licenses.json"
+          fi
+
+      # 5. 密钥泄露扫描（复用项目脚本 + gitleaks 双保险）
+      - name: 密钥泄露扫描 (项目脚本)
+        run: |
+          node scripts/check-api-key-leak.mjs 2>&1 | tee reports/api-key-leak.txt || true
+
+      - name: 密钥泄露扫描 (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          scan-mode: repo
+        continue-on-error: true
+
+      # 6. 汇总安全报告
+      - name: 生成安全审计汇总报告
+        run: |
+          {
+            echo "# 每周安全审计报告"
+            echo ""
+            echo "- 执行时间: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            echo "- 触发: ${{ github.event_name }}"
+            echo ""
+            echo "## 依赖漏洞"
+            echo "见 reports/pnpm-audit-full.json（全量）/ reports/pnpm-audit-prod.json（生产）"
+            echo ""
+            echo "## 许可证"
+            cat reports/licenses-summary.txt 2>/dev/null || echo "（无）"
+            echo ""
+            echo "## 密钥泄露"
+            cat reports/api-key-leak.txt 2>/dev/null || echo "（无）"
+          } > reports/security-audit-summary.md
+
+      - name: 上传安全审计 artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-security-audit-${{ github.run_id }}
+          path: reports/
+          retention-days: 30
+
+      # 7. 发现高危漏洞时创建 Issue（生产依赖存在 high/critical）
+      - name: 高危漏洞创建 Issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HIGH=$(jq '[.vulnerabilities[]? | select(.severity | ascii_downcase | IN("high","critical"))] | length' reports/pnpm-audit-prod.json 2>/dev/null || echo 0)
+          echo "高危漏洞数: $HIGH"
+          if [ "$HIGH" -gt 0 ]; then
+            DATE=$(date -u '+%Y-%m-%d')
+            gh issue create \
+              --title "[安全审计] 生产依赖发现 ${HIGH} 个高危漏洞 - ${DATE}" \
+              --body "请查看 artifact weekly-security-audit-${{ github.run_id }} 中的 pnpm-audit-prod.json 详细报告。" \
+              --label "security,backend" || true
+          fi

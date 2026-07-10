@@ -1,0 +1,122 @@
+{
+  "annotations": { "list": [] },
+  "description": "IHUI-AI 业务转化漏斗与 API 健康度",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "注册用户数",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "sum(business_funnel_total{stage=\"register\"})", "legendFormat": "注册", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "激活用户数",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0},
+      "targets": [
+        {"expr": "sum(business_funnel_total{stage=\"activate\"})", "legendFormat": "激活", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "付费用户数",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0},
+      "targets": [
+        {"expr": "sum(business_funnel_total{stage=\"paid\"})", "legendFormat": "付费", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "转化漏斗（注册→激活→付费）",
+      "type": "bargauge",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {"expr": "sum(business_funnel_total{stage=\"register\"})", "legendFormat": "注册", "refId": "A"},
+        {"expr": "sum(business_funnel_total{stage=\"activate\"})", "legendFormat": "激活", "refId": "B"},
+        {"expr": "sum(business_funnel_total{stage=\"paid\"})", "legendFormat": "付费", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"orientation": "horizontal", "displayMode": "gradient"}
+    },
+    {
+      "title": "转化率",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {"expr": "sum(business_funnel_total{stage=\"activate\"}) / sum(business_funnel_total{stage=\"register\"})", "legendFormat": "注册→激活", "refId": "A"},
+        {"expr": "sum(business_funnel_total{stage=\"paid\"}) / sum(business_funnel_total{stage=\"activate\"})", "legendFormat": "激活→付费", "refId": "B"},
+        {"expr": "sum(business_funnel_total{stage=\"paid\"}) / sum(business_funnel_total{stage=\"register\"})", "legendFormat": "注册→付费", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 0.1}, {"color": "green", "value": 0.3}]}}},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "title": "API 调用成功率",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "targets": [
+        {"expr": "sum(rate(business_api_call_total{status=~\"2..\"}[5m])) / sum(rate(business_api_call_total[5m]))", "legendFormat": "成功率", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}}
+    },
+    {
+      "title": "API 延迟分位数 (p50/p95/p99)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum(rate(business_api_call_duration_ms_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(business_api_call_duration_ms_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum(rate(business_api_call_duration_ms_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    },
+    {
+      "title": "订单量趋势",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+      "targets": [
+        {"expr": "sum(rate(business_orders_total[5m])) by (type)", "legendFormat": "{{type}}", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "title": "支付状态分布",
+      "type": "piechart",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+      "targets": [
+        {"expr": "sum by (status) (business_payments_total)", "legendFormat": "{{status}}", "refId": "A"}
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ihui-ai", "business", "funnel"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "IHUI-AI 业务漏斗",
+  "uid": "ihui-ai-business-funnel",
+  "version": 1,
+  "weekStart": ""
+}
