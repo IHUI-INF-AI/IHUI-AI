@@ -30,6 +30,10 @@ services:
       - SMTP_ENABLED=${SMTP_ENABLED:-false}
       # BullMQ Worker 开关(多实例部署可设为 false 仅做生产者)
       - ENABLE_WORKER=${ENABLE_WORKER:-true}
+      # OpenTelemetry 分布式追踪(OTLP 导出到 otel-collector)
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=ihui-api
     depends_on:
       db:
         condition: service_healthy
@@ -161,6 +165,51 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Jaeger(分布式追踪 UI + OTLP 收集器，接收 otel-collector 导出的追踪)
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    container_name: ihui-jaeger
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # OpenTelemetry Collector(接收 OTLP 追踪/指标，导出到 Jaeger + Prometheus exporter)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: ihui-otel-collector
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/otel-collector/config.yaml:/etc/otelcol/config.yaml
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "${OTEL_COLLECTOR_PORT:-4318}:4318"
+    networks:
+      - ihui-net
+    depends_on:
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
 
   # Prometheus 监控(抓取 api + ai-service 的 /metrics)
   prometheus:

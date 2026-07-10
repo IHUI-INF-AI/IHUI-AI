@@ -10,9 +10,6 @@ import {
   listTokenFlows,
   listCommissionFlows,
   commissionSummary,
-  createCommissionFlow,
-  getParentUsers,
-  getActiveProportion,
   applyWithdrawal,
   listWithdrawals,
   withdrawalSummary,
@@ -20,6 +17,7 @@ import {
   listSubordinates,
   teamCenter,
 } from '../db/commission-queries.js';
+import { feedbackInvite } from '../services/commission-service.js';
 import { orders } from '@ihui/database';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
@@ -210,32 +208,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
 // 佣金自动分账（支付成功后调用）
 export async function feedbackInviteByOrder(orderId: string, orderAmount: number, buyerId: string): Promise<void> {
-  const parents = await getParentUsers(buyerId);
-  if (parents.length === 0) return;
-  const proportion = await getActiveProportion();
-  if (!proportion) return;
-  for (const parent of parents) {
-    let amount = 0;
-    if (parent.level === 1) {
-      if (parent.isVip >= 1) {
-        amount = Math.floor((orderAmount * proportion.routineProportion) / 100);
-      } else {
-        amount = 0; // 普通用户无现金佣金，仅 token
-      }
-    } else if (parent.level === 2) {
-      amount = Math.floor((orderAmount * proportion.grandRoutineProportion) / 100);
-    }
-    if (amount > 0 || parent.isVip < 1) {
-      const token = parent.isVip < 1 ? Math.floor((orderAmount * proportion.tokenProportion) / 100) : 0;
-      await createCommissionFlow({
-        beneficiaryId: parent.userId,
-        invitedUserId: buyerId,
-        orderId,
-        amount,
-        token,
-        type: parent.isVip === 2 ? 2 : parent.isVip === 1 ? 1 : 0,
-        remark: parent.level === 2 ? '祖父级佣金' : '推荐佣金',
-      });
-    }
-  }
+  const tokenQuantity = await getBalance(buyerId);
+  await feedbackInvite(
+    { id: buyerId, tokenQuantity },
+    { id: orderId, amount: orderAmount, orderType: 0, productId: null },
+  );
 }

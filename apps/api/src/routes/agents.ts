@@ -2,11 +2,13 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { authenticate } from '../plugins/auth.js';
 import { success, error } from '../utils/response.js';
 import {
-  findAgentsList,
-  findAgentById,
+  getAgentDetail,
+  listAgents,
   createAgent,
   updateAgent,
   deleteAgent,
+} from '../services/agent-service.js';
+import {
   findCategoryList,
   findCategoryById,
   findCategoriesByIds,
@@ -84,7 +86,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       userId?: string;
       keyword?: string;
     };
-    const result = await findAgentsList({
+    const result = await listAgents({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       status: q.status,
@@ -98,9 +100,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {
     const { agentId } = request.params as { agentId: string };
-    const agent = await findAgentById(agentId);
-    if (!agent) return reply.status(404).send(error(404, '智能体不存在'));
-    return reply.send(success(agent));
+    const detail = await getAgentDetail(agentId);
+    if (!detail) return reply.status(404).send(error(404, '智能体不存在'));
+    return reply.send(success(detail.agent));
   });
 
   // POST /agents/create - 创建代理
