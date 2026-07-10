@@ -95,7 +95,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '@/utils/message'
 import echarts from '@/utils/echarts'
 import { useCleanup } from '@/composables/useCleanup'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

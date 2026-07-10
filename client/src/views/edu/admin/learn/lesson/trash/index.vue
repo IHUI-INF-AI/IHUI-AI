@@ -5,7 +5,7 @@
         <div class="mb-4">
           <div class="flex">
             <Input size="small" @keydown.enter="search" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字" />
-            <Search class="h-4 w-4 cursor-pointer el-input__icon search-btn" @click="search" />
+            <Search class="h-4 w-4 cursor-pointer search-btn" @click="search" />
           </div>
         </div>
 <!--        <div class="mb-4 select">-->
@@ -22,7 +22,9 @@
         <div class="mb-4 select">
           <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
           <div>
-            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+            <Select size="small" v-model="selectedCid" @change="search" clearable>
+              <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </Select>
           </div>
         </div>
 <!--        <div class="mb-4" v-if="!isComponent">-->
@@ -151,11 +153,10 @@
 </template>
 
 <script>
-// @ts-nocheck
 import router from "@/router"
 import Page from "@/components/Page/index.vue"
 import CommentDrawer from "@/views/edu/admin/comment/commentDrawer.vue";
-import {ref} from "vue"
+import {ref, computed} from "vue"
 import {confirm, error, info, success} from "@/util/tipsUtils";
 import { learnApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = learnApi
@@ -210,6 +211,22 @@ export default {
     const selectCidList = ref([])
     const categoryOptions = ref([])
     const lessonIdList = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     const searchParam = ref({
       keyword: "",
       cid: "",
@@ -306,9 +323,8 @@ export default {
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true
@@ -333,9 +349,8 @@ export default {
       })
     }
     const signUpDrawer = ref(false)
-    const signUpDrawerClose = (done) => {
+    const signUpDrawerClose = () => {
       signUpDrawer.value = false
-      done()
     }
     const showSignUpListDrawer = (item) => {
       signUpDrawer.value = true
@@ -385,35 +400,8 @@ export default {
       .form-inline {
         .search-input {
           width: 242px;
-          :deep(.el-input__inner){
-            height: 34px;
-            line-height: 34px;
-            border-color: #f3f5f8;
-            &:focus, &:hover {
-              border-color: #f3f5f8;
-            }
-          }
-          :deep(.el-input__icon){
-            height: 34px;
-            line-height: 34px;
-            cursor: pointer;
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
         }
         .select {
-          :deep(.el-form-item__label){
-            font-size: 12px;
-          }
-          :deep(.el-input__inner){
-            height: 34px;
-            line-height: 34px;
-            border-color: #f3f5f8;
-          }
-        }
-        :deep(.el-form-item){
-          margin-bottom: 10px;
         }
       }
     }
@@ -588,28 +576,9 @@ export default {
         }
       }
     }
-    .el-table th.is-leaf, .el-table td {
-      border: 0;
-    }
-    .el-table th.is-leaf, .el-table td:nth-child(1) {
-      min-width: 100px;
-    }
     .image {
       height: 60px;
       display: inline-block;
-    }
-    .el-table-column--selection .cell{
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-    :deep(.el-table tbody tr:hover > td){
-      background-color: transparent;
-    }
-    :deep(.el-table__empty-block){
-      line-height: 400px;
-      .el-table__empty-text {
-        line-height: 400px;
-      }
     }
   }
   :deep(.sign-up-drawer){
@@ -617,10 +586,5 @@ export default {
     .topic-list-wrapper {
       padding: 10px;
     }
-  }
-</style>
-<style lang="scss">
-  .el-table::before {
-    height: 0;
   }
 </style>

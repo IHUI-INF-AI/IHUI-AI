@@ -1,38 +1,33 @@
 <template>
   <div class="tree-wrap">
     <Input v-model="searchName" placeholder="输入关键字进行过滤" />
-    <el-tree
-      ref="treeRef"
-      :data="dataList"
-      node-key="id"
-      :props="defaultProps"
-      :filter-node-method="filterNode"
-      :expand-on-click-node="false"
-      default-expand-all
-      :highlight-current="true"
-      @node-click="handleNodeClick"
-    >
-      <template #default="{ node, data }">
-        <span class="custom-tree-node">
-          <span class="node-label">{{ node.label }}</span>
-          <span class="node-count" v-if="data.courseCount !== undefined">({{ data.courseCount }})</span>
-        </span>
-      </template>
-    </el-tree>
+    <ul class="mt-2 space-y-0.5">
+      <CategoryTreeNode
+        v-for="node in dataList"
+        :key="node.id"
+        :node="node"
+        :default-props="defaultProps"
+        :filter-text="searchName"
+        count-key="courseCount"
+        :default-expanded="true"
+        @node-click="handleNodeClick"
+      />
+    </ul>
   </div>
 </template>
 
 <script>
-// @ts-nocheck
-import { ref, watch } from "vue"
+import { ref } from "vue"
 import { learnApi } from '@/api/edu/admin-api'
 import { Input } from '@/components/ui/input'
+import CategoryTreeNode from '@/components/CategoryTreeNode.vue'
 const { findCategoryList, toTree } = learnApi
 
 export default {
   name: "LearnCategoryTree",
   components: {
-    Input
+    Input,
+    CategoryTreeNode
   },
   props: {
     pid: {
@@ -44,7 +39,6 @@ export default {
     }
   },
   setup(props) {
-    const treeRef = ref(null)
     const searchName = ref("")
     const dataList = ref([])
     const defaultProps = {
@@ -62,64 +56,17 @@ export default {
 
     loadData()
 
-    const filterNode = (value, data) => {
-      if (!value) return true
-      return data.name.indexOf(value) !== -1
-    }
-
-    watch(searchName, (val) => {
-      treeRef.value && treeRef.value.filter(val)
-    })
-
     const handleNodeClick = (data) => {
       props.onNodeClick && props.onNodeClick(data)
     }
 
     return {
-      treeRef,
       searchName,
       dataList,
       defaultProps,
-      filterNode,
       handleNodeClick,
       loadData
     }
   }
 }
 </script>
-
-<style scoped lang="scss">
-.tree-wrap {
-  .custom-tree-node {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-right: 8px;
-    font-size: 14px;
-
-    .node-label {
-      flex: 1;
-    }
-
-    .node-count {
-      color: hsl(var(--primary));
-      margin-left: 8px;
-      font-size: 12px;
-    }
-  }
-
-  :deep(.el-tree-node__content) {
-    height: 36px;
-  }
-
-  :deep(.el-tree-node__content:hover) {
-    background-color: rgba(144, 125, 255, 0.08);
-  }
-
-  :deep(.el-tree-node.is-current > .el-tree-node__content) {
-    background-color: rgba(144, 125, 255, 0.12);
-    color: hsl(var(--primary));
-  }
-}
-</style>

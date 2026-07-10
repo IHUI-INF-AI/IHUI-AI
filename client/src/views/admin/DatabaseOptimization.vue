@@ -12,20 +12,29 @@
       
       <div class="flex flex-wrap gap-5">
         <div class="w-1/3">
-          <el-statistic :title="t('adminCommon.stat.tableCount')" :value="stats.tableCount" />
+          <div class="flex flex-col gap-1">
+            <span class="text-2xl font-bold">{{ stats.tableCount }}</span>
+            <span class="text-xs text-muted-foreground">{{ t('adminCommon.stat.tableCount') }}</span>
+          </div>
         </div>
         <div class="w-1/3">
-          <el-statistic :title="t('adminCommon.stat.recordCount')" :value="stats.recordCount" />
+          <div class="flex flex-col gap-1">
+            <span class="text-2xl font-bold">{{ stats.recordCount }}</span>
+            <span class="text-xs text-muted-foreground">{{ t('adminCommon.stat.recordCount') }}</span>
+          </div>
         </div>
         <div class="w-1/3">
-          <el-statistic :title="t('adminCommon.stat.dbSize')" :value="stats.dbSize" suffix="MB" />
+          <div class="flex flex-col gap-1">
+            <span class="text-2xl font-bold">{{ stats.dbSize }}MB</span>
+            <span class="text-xs text-muted-foreground">{{ t('adminCommon.stat.dbSize') }}</span>
+          </div>
         </div>
       </div>
 
       <Divider />
 
       <h3>{{ t('adminComponents.databaseOptimization.operations') }}</h3>
-      <el-space>
+      <div class="flex items-center gap-2">
         <Button variant="default" @click="optimizeTables">
           <MagicStick class="h-4 w-4" />
           优化表结�?
@@ -38,7 +47,7 @@
           <FirstAidKit class="h-4 w-4" />
           压缩数据�?
         </Button>
-      </el-space>
+      </div>
 
       <Divider />
 
@@ -76,8 +85,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, MagicStick, Delete, FirstAidKit } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from '@/utils/message'
+import { Refresh, MagicStick, Delete, FirstAidKit } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
 import { useCleanup } from '@/composables/useCleanup'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'

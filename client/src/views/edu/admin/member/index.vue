@@ -195,7 +195,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { User, Plus, Clock, Warning } from '@/lib/lucide-fallback';

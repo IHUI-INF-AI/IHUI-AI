@@ -42,7 +42,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref} from "vue";
   import router from "@/router";
   import { useRoute } from "vue-router"
@@ -208,10 +207,5 @@ export default {
   .fl-table td img {
     max-width: 500px;
     max-height: 500px
-  }
-</style>
-<style>
-  .el-card__header {
-    padding: 10px 20px;
   }
 </style>

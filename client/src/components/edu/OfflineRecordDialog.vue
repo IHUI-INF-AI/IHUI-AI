@@ -1,26 +1,23 @@
 <template>
-  <el-dialog
+  <Dialog
     ref="dialogRef"
     :model-value="visible"
-    :title="isEdit ? t('edu.profile.editOffline') : t('edu.profile.createOffline')"
     width="560px"
-    :close-on-click-modal="false"
-    append-to-body
-    :before-close="handleBeforeClose"
+    :close-on-click-overlay="false"
     @update:model-value="emit('update:visible', $event)"
-    role="dialog"
-    :aria-label="isEdit ? t('edu.profile.editOffline') : t('edu.profile.createOffline')"
-    aria-modal="true"
   >
-    <form ref="formRef" @submit.prevent>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{{ isEdit ? t('edu.profile.editOffline') : t('edu.profile.createOffline') }}</DialogTitle>
+      </DialogHeader>
+      <form ref="formRef" @submit.prevent>
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineTitleField') }}</label>
         <div class="flex-1">
-          <el-input
+          <Input
             v-model="form.title"
             :placeholder="t('edu.profile.offlineTitleField')"
             maxlength="100"
-            show-word-limit
           />
         </div>
       </div>
@@ -28,10 +25,9 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineDate') }}</label>
         <div class="flex-1">
-          <el-date-picker
-            v-model="form.record_date"
+          <Input
             type="date"
-            value-format="YYYY-MM-DD"
+            v-model="form.record_date"
             :placeholder="t('edu.profile.offlineDate')"
             style="width: 100%"
           />
@@ -41,7 +37,8 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineDuration') }}</label>
         <div class="flex-1">
-          <el-input-number
+          <Input
+            type="number"
             v-model="form.duration_minutes"
             :min="1"
             :max="1440"
@@ -68,13 +65,11 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineDescription') }}</label>
         <div class="flex-1">
-          <el-input
+          <Textarea
             v-model="form.description"
-            type="textarea"
             :rows="3"
             :placeholder="t('edu.profile.offlineDescription')"
             maxlength="500"
-            show-word-limit
           />
         </div>
       </div>
@@ -82,19 +77,23 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.offlineProof') }}</label>
         <div class="flex-1">
-          <el-upload
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleFileChange"
-            :on-remove="handleFileRemove"
-            :file-list="fileList"
-            accept="image/*"
-          >
-            <Button variant="outline" className=""><Paperclip />{{ t('edu.profile.selectFile') }}</Button>
-            <template #tip>
-              <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
-            </template>
-          </el-upload>
+          <div class="space-y-2">
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onFileInputChange"
+            />
+            <Button variant="outline" className="" @click="fileInputRef?.click()"><Paperclip />{{ t('edu.profile.selectFile') }}</Button>
+            <div v-if="fileList.length" class="space-y-1">
+              <div v-for="(file, index) in fileList" :key="index" class="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                <span class="truncate">{{ file.name }}</span>
+                <button type="button" class="text-muted-foreground hover:text-foreground" @click="handleFileRemove">×</button>
+              </div>
+            </div>
+            <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
+          </div>
         </div>
       </div>
     </form>
@@ -111,9 +110,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
+import { useFormRef } from '@/composables/useFormRef'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
-import { Paperclip } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from '@/utils/message'
+import { Paperclip } from '@/lib/lucide-fallback'
 import {
   offlineRecordsApi,
   type OfflineRecord,
@@ -124,6 +124,8 @@ import { validateFile } from '@/utils/fileValidation'
 import { Select, SelectOption } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 const { t } = useI18n()
 
@@ -137,17 +139,17 @@ const emit = defineEmits<{
   (e: 'success'): void
 }>()
 
-const formRef = ref<FormInstance | null>(null)
+const formRef = useFormRef()
 const submitting = ref(false)
-const fileList = ref<UploadFile[]>([])
+const fileList = ref<any[]>([])
 const proofUrl = ref('')
 
 // PR-F F7：焦点陷阱（Dialog 打开记录触发元素、Tab 循环、关闭还原焦点）
 const triggerEl = ref<HTMLElement | null>(null)
-const dialogRef = ref<InstanceType<typeof import('element-plus')['ElDialog']> | null>(null)
+const dialogRef = ref<{ $el?: HTMLElement } | null>(null)
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Tab' || !dialogRef.value?.$el) return
-  const focusable = dialogRef.value.$el.querySelectorAll<HTMLElement>(
+  const focusable = dialogRef.value!.$el!.querySelectorAll<HTMLElement>(
     'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
   )
   if (focusable.length === 0) return
@@ -194,7 +196,7 @@ const form = reactive<OfflineForm>({
   description: '',
 })
 
-const rules: FormRules = {
+const rules: Record<string, any> = {
   title: [{ required: true, message: t('edu.profile.offlineTitleField'), trigger: 'blur' }],
   record_date: [{ required: true, message: t('edu.profile.offlineDate'), trigger: 'change' }],
   duration_minutes: [{ required: true, message: t('edu.profile.offlineDuration'), trigger: 'change' }],
@@ -216,7 +218,7 @@ watch(
         form.description = props.record.description || ''
         proofUrl.value = props.record.proof_url || ''
         fileList.value = proofUrl.value
-          ? [{ name: 'proof', url: proofUrl.value, uid: Date.now() } as UploadFile]
+          ? [{ name: 'proof', url: proofUrl.value, uid: Date.now() } as any]
           : []
       } else {
         resetForm()
@@ -251,10 +253,10 @@ function resetForm() {
   form.description = ''
   proofUrl.value = ''
   fileList.value = []
-  formRef.value?.clearValidate()
+  formRef.value?.clearValidate?.()
 }
 
-function handleFileChange(file: UploadFile) {
+function handleFileChange(file: any) {
   // PR-F F5：接入 utils/fileValidation.ts 统一校验
   const raw = file.raw
   if (raw) {
@@ -274,6 +276,16 @@ function handleFileChange(file: UploadFile) {
 function handleFileRemove() {
   fileList.value = []
   proofUrl.value = ''
+}
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+function onFileInputChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = target.files ? Array.from(target.files) : []
+  target.value = ''
+  if (!files.length) return
+  const f = files[0]
+  handleFileChange({ raw: f, name: f.name, url: '', uid: Date.now() } as any)
 }
 
 function handleCancel() {
@@ -308,7 +320,7 @@ function confirmClose(close: () => void) {
 
 async function handleSubmit() {
   if (!formRef.value || submitting.value) return
-  await formRef.value.validate(async (valid: boolean) => {
+  await formRef.value?.validate?.(async (valid: boolean) => {
     if (!valid) return
     submitting.value = true
     try {
@@ -322,7 +334,7 @@ async function handleSubmit() {
       }
 
       if (isEdit.value && props.record) {
-        await offlineRecordsApi.update(props.record.id, payload)
+        await offlineRecordsApi.update(props.record.id!, payload)
         ElMessage.success(t('edu.profile.submit') + ' ✓')
       } else {
         await offlineRecordsApi.create(payload)

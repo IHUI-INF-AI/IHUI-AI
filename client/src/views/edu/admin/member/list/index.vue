@@ -1,7 +1,7 @@
 <template>
   <div class="member-container">
     <div class="head">
-      <div class="el-form-item-wrap">
+      <div class="form-item-wrap">
         <div class="mb-4" v-if="memberCompanyList && memberCompanyList.length">
           <label class="mb-1 block text-sm font-medium text-foreground">会员公司</label>
           <div>
@@ -165,7 +165,7 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">出生日期：</label>
           <div>
-            <el-date-picker style="width: 100%;" v-model="member.birthday" type="date" placeholder="选择出生日期"></el-date-picker>
+            <Input type="date" style="width: 100%;" v-model="member.birthday" placeholder="选择出生日期" />
           </div>
         </div>
         <div class="mb-4">
@@ -184,7 +184,7 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">过期时间：</label>
           <div>
-            <el-date-picker style="width: 100%;" v-model="member.expireTime" type="date" placeholder="过期时间" format="YYYY-MM-DD HH:mm:ss" value-format="YYYY-MM-DD HH:mm:ss"></el-date-picker>
+            <Input type="date" style="width: 100%;" v-model="member.expireTime" placeholder="过期时间" />
           </div>
         </div>
         <div class="mb-4">
@@ -347,7 +347,7 @@
 </template>
 
 <script>
-// @ts-nocheck
+  import { useFormRef } from '@/composables/useFormRef'
   import {ref, markRaw, computed} from "vue"
   import Page from "@/components/Page/index.vue"
   import { memberApi } from '@/api/edu/admin-api'
@@ -496,7 +496,7 @@ export default {
       const hideUserDialog = function () {
         showUserDialogFlag.value = false
       }
-      const userRef = ref(null)
+      const userRef = useFormRef()
       const userRules = ref({
         name: [{ required: true, message: "请输入名字", trigger: "blur" }],
         username: [{ required: true, message: "请输入账号", trigger: "blur" }],
@@ -692,9 +692,8 @@ export default {
       }
 
       const batchSignUpDrawer = ref(false)
-      const batchSignUpDrawerClose = (done) => {
+      const batchSignUpDrawerClose = () => {
         batchSignUpDrawer.value = false
-        done()
       }
       const selectTopic = ref(null)
       const batchShowSignUpListDrawer = (item) => {
@@ -895,10 +894,6 @@ export default {
   }
   .user-form {
     display: inline-block;
-    .el-form-item {
-      width: 50%;
-      float: left;
-    }
   }
   .delete-btn {
     cursor: pointer;
@@ -909,7 +904,7 @@ export default {
       padding: 10px;
     }
   }
-  .el-form-item-wrap {
+  .form-item-wrap {
     display: inline-block;
   }
 

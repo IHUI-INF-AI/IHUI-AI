@@ -60,7 +60,9 @@
                     <div class="table-wrapper">
                       <table class="fl-table" style="width: 100%;" v-if="row.paper">
                         <tr><td>试卷名称：</td><td>{{row.paper.title}}</td></tr>
-                        <tr><td>难度：</td><td><el-rate :disabled="true" v-model="row.paper.difficulty" :colors="colors"></el-rate></td></tr>
+                        <tr><td>难度：</td><td><div class="flex gap-1">
+                          <svg v-for="i in 5" :key="i" :class="['h-4 w-4', i <= row.paper.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                        </div></td></tr>
                         <tr><td width="120">答题开始时间：</td><td>{{row.startTime}}</td></tr>
                         <tr><td width="120">答题结束时间：</td><td>{{row.endTime}}</td></tr>
                         <tr><td>状态：</td><td>{{statusMap[row.status]}}</td></tr>
@@ -118,7 +120,9 @@
               <div class="answer-item">
                 <div class="answer-info-label">难度：</div>
                 <div class="answer-info-value">
-                  <el-rate :disabled="true" v-model="item.difficulty" :colors="colors"></el-rate>
+                  <div class="flex gap-1">
+                    <svg v-for="i in 5" :key="i" :class="['h-4 w-4', i <= item.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                  </div>
                 </div>
               </div>
               <div class="answer-item">
@@ -147,7 +151,7 @@
               <div class="answer-item" v-else>
                 <div class="answer-info-label" style="color: #e6a23c;">评分：</div>
                 <div class="answer-info-value">
-                  <el-input-number :precision="1" :step="1" :min="0" :max="item.score" size="small" v-model="answerMap[item.type + '_' + item.id]"/>
+                  <Input type="number" :precision="1" :step="1" :min="0" :max="item.score" size="small" v-model="answerMap[item.type + '_' + item.id]"/>
                 </div>
               </div>
             </div>
@@ -163,7 +167,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import {ref} from "vue"
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = examApi
@@ -385,11 +388,8 @@ export default {
             display: inline-block;
           }
           .answer-info-value {
-            display: inline-block;
-            :deep(.el-rate){
-              line-height: 16px;
-            }
-          }
+                display: inline-block;
+              }
         }
       }
     }

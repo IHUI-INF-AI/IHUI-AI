@@ -20,7 +20,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { Setting, InfoFilled } from '@/lib/lucide-fallback';
 import Button from '@/components/ui/Button.vue';
 

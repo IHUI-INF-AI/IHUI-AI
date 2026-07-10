@@ -1,6 +1,5 @@
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { defineConfig, loadEnv } from 'vite'
 import type { ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -1041,12 +1040,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
             pinia: ['defineStore', 'storeToRefs'],
           },
         ],
-        resolvers: [
-          ElementPlusResolver({
-            importStyle: false,
-            exclude: /^ElMessage2/,
-          }),
-        ],
         eslintrc: {
           enabled: true,
           filepath: './.eslintrc-auto-import.json',
@@ -1078,11 +1071,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           'src/components/mcp',
           'src/components/statistics',
           'src/components/user',
-        ],
-        resolvers: [
-          ElementPlusResolver({
-            importStyle: false,
-          }),
         ],
         exclude: [
           /ElLoadingSpinner/,
@@ -1158,7 +1146,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
       alias: {
         '@': resolve(__dirname, 'src'),
         open: resolve(__dirname, 'src/open-platform'),
-        'lucide-vue-next': resolve(__dirname, 'src/lib/lucide-fallback.ts'),
         '~projects': resolve(__dirname, 'projects'),
         // ?? Vue ????????
         vue: 'vue/dist/vue.esm-bundler.js',
@@ -1898,7 +1885,7 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
           const filtered = deps.filter((dep) => !exclude.some((k) => dep.includes(k)))
           // 关键 chunk 排在前面，其他自动按依赖顺序
           return filtered.sort((a, b) => {
-            const priority = ['vue-vendor', 'vue-i18n', 'locales', 'element-plus', 'pinia', 'vueuse', 'axios', 'vue-router']
+            const priority = ['vue-vendor', 'vue-i18n', 'locales', 'pinia', 'vueuse', 'axios', 'vue-router']
             const ai = priority.indexOf(a)
             const bi = priority.indexOf(b)
             if (ai !== -1 && bi !== -1) return ai - bi
@@ -1948,10 +1935,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
               if (id.includes('pinia')) return 'pinia'
               if (id.includes('vue-router')) return 'vue-router'
               if (id.includes('vue-i18n')) return 'vue-i18n'
-              if (id.includes('element-plus')) {
-                if (id.includes('@element-plus/icons-vue')) return 'element-plus-icons'
-                return 'element-plus'
-              }
               if (id.includes('echarts') || id.includes('zrender')) return 'echarts'
               if (id.includes('axios')) return 'axios'
               if (id.includes('pdfjs-dist')) return 'pdf'
@@ -2070,7 +2053,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         'vue-router',
         'pinia',
         'axios',
-        'element-plus',
         '@vueuse/core',
         'dayjs',
         'crypto-js',
@@ -2091,7 +2073,6 @@ export default defineConfig(async ({ mode, command }): Promise<import('vite').Us
         'prettier',
         'typescript',
         'vue-tsc',
-        'lucide-vue-next',
       ],
       force: false,
     },

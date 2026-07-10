@@ -86,27 +86,72 @@
       <DialogHeader>
         <DialogTitle>发票申请详情</DialogTitle>
       </DialogHeader>
-      <el-descriptions :column="2" border v-if="currentItem">
-        <el-descriptions-item label="订单号">{{ currentItem.orderNo }}</el-descriptions-item>
-        <el-descriptions-item label="申请状态">
+      <div class="grid grid-cols-2 gap-px bg-border rounded-md overflow-hidden border border-border" v-if="currentItem">
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">订单号</span>
+          <span class="text-sm">{{ currentItem.orderNo }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">申请状态</span>
+          <span class="text-sm">
           <Tag :type="getStatusTagType(currentItem.invoiceStatus)" size="small">
             {{ invoiceStatusMap[currentItem.invoiceStatus] }}
           </Tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="抬头类型">{{ currentItem.titleType === 1 ? '企业单位' : '个人/非企业单位' }}</el-descriptions-item>
-        <el-descriptions-item label="开票金额"><span class="price">￥{{ currentItem.invoiceAmount }}</span></el-descriptions-item>
-        <el-descriptions-item label="发票抬头" :span="2">{{ currentItem.companyName }}</el-descriptions-item>
-        <el-descriptions-item label="税号" :span="2">{{ currentItem.companyTaxNumber || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="公司地址" :span="2">{{ currentItem.companyAddress || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="公司电话">{{ currentItem.companyPhone || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="手机号码">{{ currentItem.mobilePhone || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="开户银行" :span="2">{{ currentItem.bankName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="银行账号" :span="2">{{ currentItem.bankAccount || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="接收邮箱" :span="2">{{ currentItem.email || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="发票内容" :span="2">{{ currentItem.invoiceContent || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="申请时间">{{ currentItem.createTime }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间">{{ currentItem.updateTime }}</el-descriptions-item>
-      </el-descriptions>
+          </span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">抬头类型</span>
+          <span class="text-sm">{{ currentItem.titleType === 1 ? '企业单位' : '个人/非企业单位' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">开票金额</span>
+          <span class="text-sm"><span class="price">￥{{ currentItem.invoiceAmount }}</span></span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">发票抬头</span>
+          <span class="text-sm">{{ currentItem.companyName }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">税号</span>
+          <span class="text-sm">{{ currentItem.companyTaxNumber || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">公司地址</span>
+          <span class="text-sm">{{ currentItem.companyAddress || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">公司电话</span>
+          <span class="text-sm">{{ currentItem.companyPhone || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">手机号码</span>
+          <span class="text-sm">{{ currentItem.mobilePhone || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">开户银行</span>
+          <span class="text-sm">{{ currentItem.bankName || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">银行账号</span>
+          <span class="text-sm">{{ currentItem.bankAccount || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">接收邮箱</span>
+          <span class="text-sm">{{ currentItem.email || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">发票内容</span>
+          <span class="text-sm">{{ currentItem.invoiceContent || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">申请时间</span>
+          <span class="text-sm">{{ currentItem.createTime }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">更新时间</span>
+          <span class="text-sm">{{ currentItem.updateTime }}</span>
+        </div>
+      </div>
       <DialogFooter>
         <Button variant="outline" @click="detailVisible = false">关闭</Button>
       </DialogFooter>
@@ -134,7 +179,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import Page from "@/components/Page/index.vue"
 import { ref } from "vue"
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -146,7 +190,7 @@ import { Select, SelectOption } from '@/components/ui/select'
 import { learnApi } from '@/api/edu/admin-api'
 const { getInvoiceApplicationList, approvedInvoiceApplication, rejectedInvoiceApplication, invoicingInvoiceApplication, invoicedInvoiceApplication, canceledInvoiceApplication } = learnApi
 import { success as successMsg, warning } from "@/util/tipsUtils"
-import { ElMessageBox } from "element-plus"
+import { ElMessageBox } from '@/utils/message'
 
 export default {
   name: "InvoiceApplication",

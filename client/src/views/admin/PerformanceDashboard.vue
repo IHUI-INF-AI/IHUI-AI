@@ -79,20 +79,25 @@
           <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs text-white alert-badge">{{ alertCount > 99 ? '99+' : alertCount }}</span>
         </div>
       </CardHeader><CardContent class="p-5">
-            <el-timeline>
-        <el-timeline-item v-for="alert in alerts" :key="alert.id" :type="alert.level === 'critical' ? 'danger' : 'warning'" :timestamp="formatTime(alert.timestamp)">
-          <div class="alert-content">
-            <strong>{{ alert.metric }}</strong>: {{ alert.value }}ms
-            <Tag :type="alert.level === 'critical' ? 'danger' : 'warning'" size="small">{{ alert.level === 'critical' ? '严重' : '警告' }}</Tag>
+            <div class="space-y-4">
+        <div v-for="alert in alerts" :key="alert.id" class="flex gap-3">
+          <div class="flex-shrink-0 mt-1 h-2 w-2 rounded-full" :class="alert.level === 'critical' ? 'bg-red-500' : 'bg-yellow-500'"></div>
+          <div class="flex-1">
+            <div class="alert-content">
+              <strong>{{ alert.metric }}</strong>: {{ alert.value }}ms
+              <Tag :type="alert.level === 'critical' ? 'danger' : 'warning'" size="small">{{ alert.level === 'critical' ? '严重' : '警告' }}</Tag>
+            </div>
+            <div class="text-xs text-muted-foreground">{{ formatTime(alert.timestamp) }}</div>
           </div>
-        </el-timeline-item>
-      </el-timeline>
+        </div>
+      </div>
     </CardContent></Card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useCleanup } from '@/composables/useCleanup'
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
@@ -100,7 +105,9 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Radio } from '@/components/ui/radio'
 import { Tag } from '@/components/ui/tag'
 
+const { t } = useI18n()
 const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+const formatTime = (ts: number): string => new Date(ts).toLocaleString('zh-CN')
 
 interface PerformanceAlert {
   id: string

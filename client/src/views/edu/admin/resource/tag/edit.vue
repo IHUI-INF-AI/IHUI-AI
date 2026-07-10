@@ -1,13 +1,6 @@
 <template>
   <div class="app-container">
     <form ref="categoryRef" @submit.prevent>
-<!--      <div class="mb-4">-->
-<!--        <label class="mb-1 block text-sm font-medium text-foreground">上级分类</label>-->
-<!--        <div>-->
-<!--          <Input size="small" v-if="parentCategory.name" type="text" class="input-text" disabled v-model="parentCategory.name"></Input>-->
-<!--          <el-cascader v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="categoryOptions" placeholder="请选择上级分类" @change="changeParentCategory"></el-cascader>-->
-<!--        </div>-->
-<!--      </div>-->
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-foreground">分类名称</label>
         <div>
@@ -26,12 +19,6 @@
 <!--          <Input size="small"  class="input-text" v-model="category.sortOrder" placeholder="数据越大显示越前"></Input>-->
 <!--        </div>-->
 <!--      </div>-->
-<!--      <div class="mb-4">-->
-<!--        <label class="mb-1 block text-sm font-medium text-foreground">是否显示</label>-->
-<!--        <div>-->
-<!--          <el-switch size="small"  id="isShow" active-color="#13ce66" v-model="category.isShow"></el-switch>-->
-<!--        </div>-->
-<!--      </div>-->
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-foreground">状态</label>
         <div>
@@ -47,8 +34,8 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref, watch} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import router from "@/router"
   import Button from '@/components/ui/Button.vue';
   import { Input } from '@/components/ui/input'
@@ -154,7 +141,7 @@ const { toTree } = resourceApi
         category.value.image = "";
         uploadData.value.files = [];
       }
-      const categoryRef = ref(null)
+      const categoryRef = useFormRef()
       const submit = () => {
         categoryRef.value.validate(valid => {
           if (!valid) {

@@ -18,30 +18,30 @@
         <div class="mb-4 select">
           <label class="mb-1 block text-sm font-medium text-foreground">课程状态：</label>
           <div>
-            <el-select
+            <Select
                 size="small"
                 v-model="params.status"
                 @change="search"
                 style="width: 300px;"
             >
-              <el-option label="全部" value=""></el-option>
-              <el-option label="未发布" value="unpublished"></el-option>
-              <el-option label="已发布" value="published"></el-option>
-            </el-select>
+              <SelectOption label="全部" value=""></SelectOption>
+              <SelectOption label="未发布" value="unpublished"></SelectOption>
+              <SelectOption label="已发布" value="published"></SelectOption>
+            </Select>
           </div>
         </div>
         <div class="mb-4 select">
           <label class="mb-1 block text-sm font-medium text-foreground">课程分类：</label>
           <div>
-            <el-cascader
+            <Select
                 size="small"
-                v-model="selectCidList"
-                :options="categoryOptions"
-                :props="{ checkStrictly: true }"
+                v-model="selectedCid"
                 @change="search"
                 clearable
                 style="width: 300px;"
-            ></el-cascader>
+            >
+              <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </Select>
           </div>
         </div>
         <div class="mb-4">
@@ -85,19 +85,19 @@
 </template>
 
 <script>
-// @ts-nocheck
-import { ref } from "vue"
+import { ref, computed } from "vue"
 import Page from "@/components/Page/index.vue";
 import { Search } from '@/lib/lucide-fallback';
 import { learnApi } from '@/api/edu/admin-api'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import Button from '@/components/ui/Button.vue'
 import { Input } from '@/components/ui/input'
+import { Select, SelectOption } from '@/components/ui/select'
 const { findCategoryList, toTree } = learnApi;
 const { getLessonSignReport } = learnApi;
 export default {
   name: "LearnSignUpReport",
-  components: { Search, Page, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell },
+  components: { Search, Page, Button, Input, Select, SelectOption, Table, TableHeader, TableBody, TableRow, TableHead, TableCell },
   setup() {
     const loading = ref(true)
     const total = ref(0)
@@ -109,6 +109,22 @@ export default {
     const params = ref(c)
     const selectCidList = ref([])
     const categoryOptions = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
 
     // 加载分类
     const loadCategory = () => {
@@ -163,6 +179,8 @@ export default {
       loading,
       dataList,
       selectCidList,
+      flatCategoryOptions,
+      selectedCid,
       categoryOptions,
       params,
       total,
@@ -192,40 +210,9 @@ export default {
       padding-bottom: 10px; // 滚动条预留空间
     }
 
-    // 统一表单项内部组件样式，确保垂直对齐
-    :deep(.el-form-item){
-      margin: 0; // 清除默认 margin 干扰
-      white-space: nowrap; // 防止标签和组件换行
-
-      .el-input,
-      .el-select,
-      .el-cascader {
-        height: 32px; // 统一高度（small 尺寸默认高度）
-        vertical-align: middle;
-      }
-    }
   }
 
   .report-main {
-    :deep(.el-table){
-      font-size: 12px;
-      // 斑马纹样式
-      tbody tr:nth-child(even) {
-        background-color: #D9DBFE;
-      }
-      tbody tr:nth-child(odd) {
-        background-color: #ffffff;
-      }
-      .el-table__empty-block {
-        line-height: 400px;
-        .el-table__empty-text {
-          line-height: 400px;
-        }
-      }
-      th, td {
-        padding: 6px 0;
-      }
-    }
   }
 }
 </style>

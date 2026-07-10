@@ -132,8 +132,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { useFormRef } from '@/composables/useFormRef'
+import { ElMessage, ElMessageBox } from '@/utils/message'
+import { Plus } from '@/lib/lucide-fallback'
 import SearchIcon from '@/components/common/SearchIcon.vue'
 import { useI18n } from 'vue-i18n'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -163,7 +164,7 @@ const userList = ref<User[]>([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
-const formRef = ref<{ validate: () => Promise<boolean> }>()
+const formRef = useFormRef()
 
 const searchForm = reactive({
   username: '',
@@ -280,7 +281,7 @@ const handleToggleStatus = async (row: User) => {
 }
 
 const handleSubmit = async () => {
-  const valid = await formRef.value?.validate().catch(() => false)
+  const valid = await formRef.value?.validate?.().catch(() => false)
   if (!valid) return
 
   ElMessage.success(isEdit.value ? t('adminComponents.userManagement.editSuccess') : t('adminComponents.userManagement.addSuccess'))

@@ -26,7 +26,9 @@
 
     <!-- PR-F F6：骨架屏替换 v-loading -->
     <div v-if="loading && !offlineRecords.length" class="offline-skeleton">
-      <el-skeleton v-for="i in 3" :key="i" :rows="3" animated style="margin-bottom: 16px" />
+      <div v-for="i in 3" :key="i" class="space-y-2" style="margin-bottom: 16px">
+        <div v-for="j in 3" :key="j" class="h-4 bg-muted rounded animate-pulse"></div>
+      </div>
     </div>
     <div v-else v-loading="loading" class="offline-body">
       <OfflineRecordsList
@@ -46,8 +48,8 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
 import Button from '@/components/ui/Button.vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from '@/utils/message'
+import { Refresh, Plus } from '@/lib/lucide-fallback'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { offlineRecordsApi } from '@/api/edu/offline-records'
 import type { OfflineRecord } from '@/api/edu/offline-records'
@@ -77,7 +79,7 @@ async function handleDelete(record: OfflineRecord) {
       confirmButtonText: t('edu.common.submit'),
       cancelButtonText: t('edu.common.cancel'),
     })
-    await offlineRecordsApi.delete(record.id)
+    await offlineRecordsApi.delete(record.id!)
     ElMessage.success(t('edu.profile.deleteSuccess'))
     await reload()
   } catch {

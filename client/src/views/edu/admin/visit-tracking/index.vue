@@ -3,17 +3,23 @@
     <!-- 日期范围筛选 -->
     <div class="head">
       <span class="filter-label">日期范围：</span>
-      <el-date-picker
-        v-model="dateRange"
-        size="small"
-        type="daterange"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        value-format="YYYY-MM-DD"
-        :clearable="false"
-        @change="onDateChange"
-      />
+      <div class="flex items-center gap-2">
+        <Input
+          type="date"
+          size="small"
+          v-model="dateRange[0]"
+          placeholder="开始日期"
+          @change="onDateChange"
+        />
+        <span class="text-muted-foreground">至</span>
+        <Input
+          type="date"
+          size="small"
+          v-model="dateRange[1]"
+          placeholder="结束日期"
+          @change="onDateChange"
+        />
+      </div>
       <Button variant="default" size="sm" @click="refreshAll">查询</Button>
       <Button variant="outline" size="sm" @click="setRecentDays(7)">近7天</Button>
       <Button variant="outline" size="sm" @click="setRecentDays(30)">近30天</Button>
@@ -110,7 +116,6 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import Page from '@/components/Page/index.vue'

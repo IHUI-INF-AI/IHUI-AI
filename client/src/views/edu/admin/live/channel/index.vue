@@ -21,7 +21,9 @@
           <div class="mb-4">
             <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
             <div>
-              <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+              <Select size="small" v-model="selectedCid" @change="search" clearable>
+                <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </Select>
             </div>
           </div>
           <div class="mb-4 text-left">
@@ -117,8 +119,7 @@
 </template>
 
 <script>
-// @ts-nocheck
-import {ref, watch} from "vue"
+import {ref, watch, computed} from "vue"
 import {useRoute} from "vue-router"
 import router from "@/router"
 import { liveApi } from '@/api/edu/admin-api'
@@ -170,6 +171,22 @@ export default {
     }
     const selectCidList = ref([])
     const categoryOptions = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     const searchParam = ref({
       keyword: "",
       cid: "",
@@ -236,9 +253,8 @@ export default {
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true
@@ -251,6 +267,8 @@ export default {
       searchParam,
       selectCidList,
       categoryOptions,
+      flatCategoryOptions,
+      selectedCid,
       statusMap,
       search,
       edit,
@@ -422,13 +440,6 @@ export default {
         }
       }
     }
-    .el-table th.is-leaf, .el-table td {
-      border: 0;
-    }
-    .el-table th.is-leaf, .el-table td:nth-child(1) {
-      text-align: right;
-      min-width: 100px;
-    }
     .image {
       height: 60px;
       display: inline-block;
@@ -437,46 +448,5 @@ export default {
       width: 242px;
     }
     
-    .header {
-      :deep(.demo-form-inline) {
-        // 给搜索按钮添加左边距（与输入框分开）
-        .el-form-item.search-form-item,
-        .el-form-item.text-left:first-child {
-          .el-form-item__content {
-            display: flex;
-            align-items: center;
-            
-            // 给按钮添加左边距，确保与输入框分开
-            .el-button.search-btn {
-              margin-left: 20px;
-            }
-          }
-        }
-        
-        // 给新增按钮添加左边距
-        .el-form-item.text-left:last-child {
-          .el-form-item__content {
-            margin-left: 20px;
-          }
-        }
-      }
-    }
-    .el-table-column--selection .cell{
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-    :deep(.el-table tbody tr:hover > td){
-      background-color: transparent;
-    }
-  }
-</style>
-<style lang="scss">
-  .el-table.custom-table table tr:last-child {
-    td {
-      border: 0;
-    }
-  }
-  .el-table::before {
-    height: 0;
   }
 </style>

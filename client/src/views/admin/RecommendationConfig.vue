@@ -91,7 +91,7 @@
               <TableRow v-for="(row, index) in segments" :key="row.id ?? index">
                 <TableCell>{{ row.name }}</TableCell>
                 <TableCell>{{ row.userCount }}</TableCell>
-                <TableCell>{{ new Date(row.createdAt).toLocaleString() }}</TableCell>
+                <TableCell>{{ new Date(row.createdAt ?? '').toLocaleString() }}</TableCell>
                 <TableCell>
                   <Button v-if="canConfigRecommendation" size="sm" variant="ghost" @click="editSegment(row)">{{ t('mobileAdapter.edit') }}</Button>
                   <Button v-if="canConfigRecommendation" size="sm" variant="ghost" @click="deleteSegment(row.id)">{{ t('mobileAdapter.delete') }}</Button>
@@ -124,7 +124,7 @@
                 <TableCell>{{ row.name }}</TableCell>
                 <TableCell>{{ row.trafficAllocation }}%</TableCell>
                 <TableCell>
-                  <Tag :type="getABTestStatusTag(row.status)">{{ t(`recommendation.testStatus.${row.status}`) }}</Tag>
+                  <Tag :type="getABTestStatusTag(row.status ?? '')">{{ t(`recommendation.testStatus.${row.status ?? ''}`) }}</Tag>
                 </TableCell>
                 <TableCell>
                   <Button v-if="row.status === 'completed'" size="sm" variant="ghost" @click="viewResults(row)">{{ t('recommendation.results') }}</Button>
@@ -151,13 +151,28 @@
               <Button variant="default" @click="searchBehavior">{{ t('recommendation.search') }}</Button>
             </div>
           </form>
-          <el-descriptions v-if="currentBehavior" :column="3" border>
-            <el-descriptions-item :label="t('recommendation.sessions')">{{ currentBehavior.totalSessions }}</el-descriptions-item>
-            <el-descriptions-item :label="t('recommendation.pageViews')">{{ currentBehavior.pageViews.length }}</el-descriptions-item>
-            <el-descriptions-item :label="t('recommendation.tourInteractions')">{{ currentBehavior.tourInteractions.length }}</el-descriptions-item>
-            <el-descriptions-item :label="t('recommendation.lastActive')">{{ new Date(currentBehavior.lastActive).toLocaleString() }}</el-descriptions-item>
-            <el-descriptions-item :label="t('recommendation.avgDuration')">{{ currentBehavior.avgSessionDuration.toFixed(0) }}s</el-descriptions-item>
-          </el-descriptions>
+          <div v-if="currentBehavior" class="grid grid-cols-3 gap-px bg-border rounded-md overflow-hidden border border-border">
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('recommendation.sessions') }}</span>
+              <span class="text-sm">{{ currentBehavior.totalSessions }}</span>
+            </div>
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('recommendation.pageViews') }}</span>
+              <span class="text-sm">{{ currentBehavior.pageViews?.length ?? 0 }}</span>
+            </div>
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('recommendation.tourInteractions') }}</span>
+              <span class="text-sm">{{ currentBehavior.tourInteractions?.length ?? 0 }}</span>
+            </div>
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('recommendation.lastActive') }}</span>
+              <span class="text-sm">{{ new Date(currentBehavior.lastActive ?? '').toLocaleString() }}</span>
+            </div>
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('recommendation.avgDuration') }}</span>
+              <span class="text-sm">{{ (currentBehavior.avgSessionDuration ?? 0).toFixed(0) }}s</span>
+            </div>
+          </div>
           <div v-if="recommendations.length > 0" class="mt-20">
             <h4>{{ t('recommendation.recommendationResults') }}</h4>
             <Table>
@@ -174,7 +189,7 @@
                   <TableCell>{{ row.tourId }}</TableCell>
                   <TableCell>{{ row.score }}</TableCell>
                   <TableCell>{{ row.reason }}</TableCell>
-                  <TableCell>{{ (row.confidence * 100).toFixed(0) }}%</TableCell>
+                  <TableCell>{{ ((row.confidence ?? 0) * 100).toFixed(0) }}%</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -208,7 +223,7 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('recommendation.priority') }}</label>
           <div class="flex-1">
-            <el-input-number v-model="newRule.priority" :min="1" :max="100" />
+            <Input type="number" v-model="newRule.priority" :min="1" :max="100" />
           </div>
         </div>
         <div class="mb-4 flex items-center gap-4">
@@ -228,7 +243,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '@/utils/message'
 import { tourRecommendationService, type RecommendationRule, type UserSegment, type ABTestConfig } from '@/services/tourRecommendationService'
 import { useTourPermissions } from '@/composables/useTourPermissions'
 import { tourRecommendationI18n } from '@/locales/tour-i18n'

@@ -111,7 +111,7 @@ import {
   CircleCheckFilled,
   CircleCloseFilled,
   WarningFilled,
-} from '@element-plus/icons-vue'
+} from '@/lib/lucide-fallback'
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
 import { getOAuthAuditLogStats, type AuditLogStats } from '@/api/admin-oauth-audit-stats'

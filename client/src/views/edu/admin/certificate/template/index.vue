@@ -26,7 +26,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { ref, onMounted } from 'vue'
 import { certificateApi } from '@/api/edu/admin-api'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'

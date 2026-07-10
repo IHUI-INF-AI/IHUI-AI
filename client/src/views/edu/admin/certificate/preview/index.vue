@@ -16,7 +16,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Empty } from '@/components/ui/empty'
 export default {

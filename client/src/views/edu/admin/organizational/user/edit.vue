@@ -23,7 +23,6 @@
   </Dialog>
 </template>
 <script>
-// @ts-nocheck
 import {ref} from "vue"
 import {success, warning} from "@/util/tipsUtils";
 import { roleApi } from '@/api/edu/admin-api'
@@ -74,7 +73,7 @@ export default {
     }
     const cancel = () => {
       dialog.value = false
-      form.value.resetFields()
+      form.value?.reset()
     }
     const submit = () => {
       if (!roleId.value) {

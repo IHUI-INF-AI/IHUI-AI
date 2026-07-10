@@ -5,7 +5,7 @@
         <div class="mb-4">
           <div class="flex">
             <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字" />
-            <Search class="h-4 w-4 cursor-pointer el-input__icon search-btn" @click="search" />
+            <Search class="h-4 w-4 cursor-pointer search-btn" @click="search" />
           </div>
         </div>
         <div class="mb-4 select">
@@ -115,7 +115,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import router from "@/router"
 import Page from "@/components/Page/index.vue"
 import CommentDrawer from "@/views/edu/admin/comment/commentDrawer.vue";
@@ -231,9 +230,8 @@ export default {
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true
@@ -273,35 +271,8 @@ export default {
     .form-inline {
       .search-input {
         width: 242px;
-        :deep(.el-input__inner){
-          height: 34px;
-          line-height: 34px;
-          border-color: #f3f5f8;
-          &:focus, &:hover {
-            border-color: #f3f5f8;
-          }
-        }
-        :deep(.el-input__icon){
-          height: 34px;
-          line-height: 34px;
-          cursor: pointer;
-          &:hover {
-            color: hsl(var(--primary));
-          }
-        }
       }
       .select {
-        :deep(.el-form-item__label){
-          font-size: 12px;
-        }
-        :deep(.el-input__inner){
-          height: 34px;
-          line-height: 34px;
-          border-color: #f3f5f8;
-        }
-      }
-      :deep(.el-form-item){
-        margin-bottom: 20px;
       }
     }
   }
@@ -475,34 +446,10 @@ export default {
         }
       }
     }
-    :deep(.el-table__empty-block){
-      line-height: 400px;
-      .el-table__empty-text {
-        line-height: 400px;
-      }
-    }
-  }
-  .el-table th.is-leaf, .el-table td {
-    border: 0;
-  }
-  .el-table th.is-leaf, .el-table td:nth-child(1) {
-    min-width: 100px;
   }
   .image {
     height: 60px;
     display: inline-block;
   }
-  .el-table-column--selection .cell{
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  :deep(.el-table tbody tr:hover > td){
-    background-color: transparent;
-  }
 }
-</style>
-<style lang="scss">
-  .el-table::before {
-    height: 0;
-  }
 </style>

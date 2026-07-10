@@ -5,7 +5,9 @@
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">上级分类</label>
         <div class="flex-1">
           <Input size="small" v-if="parentCategory.name" type="text" class="input-text" disabled v-model="parentCategory.name"></Input>
-          <el-cascader size="small" v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="categoryOptions" placeholder="请选择上级分类" @change="changeParentCategory"></el-cascader>
+          <Select size="small" v-else class="input-text" v-model="selectedPid" @change="changeParentCategory" placeholder="请选择上级分类" clearable>
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4 flex items-center gap-4">
@@ -47,8 +49,8 @@
 </template>
 
 <script>
-// @ts-nocheck
-  import {ref, watch} from "vue"
+  import {ref, watch, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import router from "@/router"
   import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = examApi
@@ -57,13 +59,16 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
   import Button from '@/components/ui/Button.vue'
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
+  import { Select, SelectOption } from '@/components/ui/select'
   export default {
     name: "ExamCategoryEdit",
     components: {
       uploadImage,
       Button,
       Input,
-      Switch
+      Switch,
+      Select,
+      SelectOption
     },
     props: {
       data: {
@@ -159,7 +164,7 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
         category.value.image = "";
         uploadData.value.files = [];
       }
-      const categoryRef = ref(null)
+      const categoryRef = useFormRef()
       const submit = () => {
         categoryRef.value.validate(valid => {
           if (!valid) {
@@ -184,9 +189,32 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
           }
         });
       }
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) {
+              flatten(node.children, label)
+            }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
+      const selectedPid = computed({
+        get: () => {
+          const arr = selectedPidList.value
+          return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : ''
+        },
+        set: (val) => { selectedPidList.value = [val] }
+      })
       return {
         selectedPidList,
+        selectedPid,
         categoryOptions,
+        flatCategoryOptions,
         parentCategory,
         category,
         rules,

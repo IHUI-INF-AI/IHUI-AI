@@ -91,7 +91,7 @@
             <div class="mb-4 flex items-center gap-4">
               <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('showcase.forms.date') }}</label>
               <div class="flex-1">
-                <el-date-picker v-model="formData.date" type="date" :placeholder="t('showcase.forms.datePlaceholder')" />
+                <Input type="date" v-model="formData.date" :placeholder="t('showcase.forms.datePlaceholder')" />
               </div>
             </div>
           </form>
@@ -158,24 +158,30 @@
         <Card class="showcase-card transition-shadow hover:shadow-md"><CardHeader>
             <span>{{ t('showcase.navigation.title') }}</span>
           </CardHeader><CardContent class="p-5">
-                    <el-menu mode="horizontal" class="demo-menu" :default-active="'home'">
-            <el-menu-item index="home">{{ t('showcase.navigation.menuHome') }}</el-menu-item>
-            <el-menu-item index="agents">{{ t('showcase.navigation.menuAgents') }}</el-menu-item>
-            <el-menu-item index="docs">{{ t('showcase.navigation.menuDocs') }}</el-menu-item>
-            <el-menu-item index="about">{{ t('showcase.navigation.menuAbout') }}</el-menu-item>
-          </el-menu>
+                    <nav class="flex flex-row items-center gap-1 demo-menu">
+            <button class="px-3 py-2 text-sm rounded text-left bg-primary/10 text-primary font-medium">{{ t('showcase.navigation.menuHome') }}</button>
+            <button class="px-3 py-2 text-sm rounded text-left hover:bg-muted text-foreground">{{ t('showcase.navigation.menuAgents') }}</button>
+            <button class="px-3 py-2 text-sm rounded text-left hover:bg-muted text-foreground">{{ t('showcase.navigation.menuDocs') }}</button>
+            <button class="px-3 py-2 text-sm rounded text-left hover:bg-muted text-foreground">{{ t('showcase.navigation.menuAbout') }}</button>
+          </nav>
           <Divider />
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item>{{ t('showcase.navigation.breadcrumbHome') }}</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ t('showcase.navigation.breadcrumbDocs') }}</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ t('showcase.navigation.breadcrumbCurrent') }}</el-breadcrumb-item>
-          </el-breadcrumb>
+          <nav class="flex items-center gap-2 text-sm">
+            <a href="#" class="text-muted-foreground hover:text-foreground">{{ t('showcase.navigation.breadcrumbHome') }}</a>
+            <span class="text-muted-foreground">/</span>
+            <a href="#" class="text-muted-foreground hover:text-foreground">{{ t('showcase.navigation.breadcrumbDocs') }}</a>
+            <span class="text-muted-foreground">/</span>
+            <a href="#" class="text-muted-foreground hover:text-foreground">{{ t('showcase.navigation.breadcrumbCurrent') }}</a>
+          </nav>
           <Divider />
-          <el-steps :active="stepValue" finish-status="success" class="demo-steps">
-            <el-step :title="t('showcase.navigation.step1')" />
-            <el-step :title="t('showcase.navigation.step2')" />
-            <el-step :title="t('showcase.navigation.step3')" />
-          </el-steps>
+          <div class="flex items-center demo-steps">
+            <template v-for="(title, i) in [t('showcase.navigation.step1'), t('showcase.navigation.step2'), t('showcase.navigation.step3')]" :key="i">
+              <div class="flex items-center">
+                <div :class="['flex h-8 w-8 items-center justify-center rounded-full text-sm', i <= stepValue ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground']">{{ i + 1 }}</div>
+                <span class="ml-2 text-sm">{{ title }}</span>
+                <div v-if="i < 2" class="mx-4 h-px w-12 bg-border" />
+              </div>
+            </template>
+          </div>
           <div class="flex gap-2 demo-row">
             <Button variant="outline" @click="stepValue = Math.max(1, stepValue - 1)">
               {{ t('showcase.navigation.prev') }}
@@ -203,7 +209,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Tag } from '@/components/ui/tag'
 import { Select, SelectOption } from '@/components/ui/select'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus } from '@/lib/lucide-fallback'
 
 const { t } = useI18n()
 const activeTab = ref('buttons')

@@ -4,12 +4,12 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
         <div class="flex-1">
-          <el-cascader size="small" style="width: 100%;"
-                       v-model="selectCidList"
-                       :props="{ multiple: true, checkStrictly: true }"
-                       :options="categoryOptions"
-                       @change="changeCategory">
-          </el-cascader>
+          <Select size="small" style="width: 100%;"
+                  multiple
+                  v-model="selectCidList"
+                  @change="changeCategory">
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4 flex items-center gap-4">
@@ -68,7 +68,9 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">难度：</label>
         <div class="flex-1">
-          <el-rate style="line-height: 48px;" v-model="question.difficulty" :colors="colors"></el-rate>
+          <div class="flex gap-1" style="line-height: 48px;">
+            <svg v-for="i in 5" :key="i" @click="question.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= question.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+          </div>
         </div>
       </div>
     </form>
@@ -76,8 +78,8 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
-import {ref} from "vue"
+import {ref, computed} from "vue"
+import { useFormRef } from '@/composables/useFormRef'
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree, getAllParent } = examApi
 const { saveBaseInfo, updateBaseInfo, getBaseInfo } = examApi
@@ -91,6 +93,7 @@ import Button from '@/components/ui/Button.vue'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectOption } from '@/components/ui/select'
 export default {
   name: "ExamQuestionLibMultiChoice",
   components: {
@@ -102,7 +105,9 @@ export default {
     Delete,
     Button,
     Input,
-    Textarea
+    Textarea,
+    Select,
+    SelectOption
   },
   setup() {
     const route = useRoute()
@@ -132,6 +137,18 @@ export default {
     const optionList = ref([])
     const categoryOptions = ref([])
     const selectCidList = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
     // 获取分类
     findCategoryList(0, true, (res) => {
       if (res && res.length) {
@@ -142,11 +159,7 @@ export default {
           getBaseInfo(route.query.id, function (res) {
             question.value = res;
             optionList.value = JSON.parse(res.options);
-            selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-            question.value.cidList = []
-            for (const valElement of selectCidList.value) {
-              question.value.cidList.push(valElement[valElement.length - 1])
-            }
+            selectCidList.value = res.cidList || []
             if (res.referenceAnswer) {
               question.value.referenceAnswerList = res.referenceAnswer.split(",")
             }
@@ -156,10 +169,7 @@ export default {
     })
     // 选择分类
     const changeCategory = (val) => {
-      question.value.cidList = []
-      for (const valElement of val) {
-        question.value.cidList.push(valElement[valElement.length - 1])
-      }
+      question.value.cidList = val || []
     }
     let optionIndex = -1;
     const option = ref("")
@@ -208,7 +218,7 @@ export default {
         question.value.options = ""
       }
     }
-    const questionRef = ref();
+    const questionRef = useFormRef();
     const submitBaseInfo = () => {
       if (question.value.referenceAnswerList && question.value.referenceAnswerList.length) {
         if (question.value.referenceAnswerList.length < 2) {
@@ -237,6 +247,7 @@ export default {
       question,
       questionRules,
       categoryOptions,
+      flatCategoryOptions,
       selectCidList,
       serialNumber,
       option,
@@ -262,9 +273,6 @@ export default {
   }
   .option-delete:hover {
     color: hsl(var(--primary));
-  }
-  :deep(.el-card__header){
-    padding: 0;
   }
 }
 </style>

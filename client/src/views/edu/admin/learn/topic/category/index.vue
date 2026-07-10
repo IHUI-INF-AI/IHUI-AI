@@ -48,7 +48,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import router from "@/router";
   import CategoryEdit from "@/views/edu/admin/learn/topic/category/edit/index.vue";
   import CategoryTree from "@/views/edu/admin/learn/topic/category/tree/index.vue";
@@ -185,76 +184,6 @@ export default {
     padding: 0 10px 0 0;
   }
   .box-card {
-    :deep(.el-card){
-      box-shadow: none;
-      border: 0;
-      border-radius: 0;
-      .el-card__header {
-        padding: 2px 10px;
-        font-size: 12px;
-        border-bottom: 1px solid #f7f7f7;
-        .category-head {
-          line-height: 28px;
-          .category-btn {
-            float: right;
-            margin-left: 10px;
-            color: #606266;
-            font-weight: normal;
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-      .el-card__body {
-        .fl-table {
-          border-radius: 5px;
-          font-size: 14px;
-          font-weight: normal;
-          border: none;
-          border-collapse: collapse;
-          width: 100%;
-          background-color: white;
-          tr {
-            td {
-              font-size: 12px;
-              padding: 10px;
-              img {
-                max-width: 500px;
-                max-height: 500px
-              }
-            }
-            td:nth-child(1) {
-              text-align: right;
-              vertical-align: top;
-            }
-          }
-        }
-      }
-    }
-    :deep(.el-form-item){
-      margin-bottom: 10px;
-      .el-form-item__label {
-        font-size: 12px;
-      }
-    }
-    :deep(.el-input__inner), :deep(.el-input-number){
-      height: 34px;
-      line-height: 34px;
-      font-size: 12px;
-      border-color: #f3f5f8;
-      &:focus, &:hover {
-        border-color: #f3f5f8;
-      }
-      .el-input-number__decrease, .el-input-number__increase {
-        background: #FFFFFF;
-        line-height: 32px;
-        border: none;
-        &:focus, &:hover {
-          border-color: #f3f5f8;
-        }
-      }
-    }
   }
 }
 </style>

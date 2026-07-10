@@ -75,7 +75,7 @@
                 <TableRow v-for="(row, index) in data.favoriteAgents" :key="row.botId ?? index">
                   <TableCell>{{ row.botId }}</TableCell>
                   <TableCell>{{ row.usageCount }}</TableCell>
-                  <TableCell>{{ formatNumber(row.totalTokens) }}</TableCell>
+                  <TableCell>{{ formatNumber(row.totalTokens || 0) }}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -125,7 +125,7 @@ const formatNumber = (num: number): string => {
   return num.toString()
 }
 
-const formatDate = (date: string | null): string => {
+const formatDate = (date: string | null | undefined): string => {
   if (!date) return t('statistics.behavior.notLoggedIn')
   return new Date(date).toLocaleString('zh-CN')
 }

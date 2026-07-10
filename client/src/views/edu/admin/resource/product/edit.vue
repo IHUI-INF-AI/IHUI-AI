@@ -28,8 +28,8 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref, watch} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import router from "@/router"
   import { resourceApi } from '@/api/edu/admin-api'
 const { toTree } = resourceApi
@@ -138,7 +138,7 @@ const { toTree } = resourceApi
         category.value.image = "";
         uploadData.value.files = [];
       }
-      const categoryRef = ref(null)
+      const categoryRef = useFormRef()
       const submit = () => {
         categoryRef.value.validate(valid => {
           if (!valid) {

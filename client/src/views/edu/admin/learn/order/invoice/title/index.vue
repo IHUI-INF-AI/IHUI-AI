@@ -169,9 +169,9 @@
 </template>
 
 <script>
-// @ts-nocheck
 import Page from "@/components/Page/index.vue"
 import { ref, reactive } from "vue"
+import { useFormRef } from '@/composables/useFormRef'
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import Button from '@/components/ui/Button.vue'
@@ -185,7 +185,7 @@ const { getInvoiceTitleList, createInvoiceTitle, updateInvoiceTitle, removeInvoi
 import { memberApi } from '@/api/edu/admin-api'
 const { getMemberList } = memberApi
 import { success as successMsg } from "@/util/tipsUtils"
-import { ElMessageBox } from "element-plus"
+import { ElMessageBox } from '@/utils/message'
 import { Plus } from '@/lib/lucide-fallback'
 
 export default {
@@ -218,7 +218,7 @@ export default {
     const dialogVisible = ref(false)
     const isEdit = ref(false)
     const submitting = ref(false)
-    const formRef = ref(null)
+    const formRef = useFormRef()
     
     const searchParam = ref({
       keyword: "",

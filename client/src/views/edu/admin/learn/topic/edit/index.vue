@@ -17,7 +17,7 @@
                 <template v-for="(item, index) in selectLessonList" :key="item.id">
                   <div class="flex">
                     <Input size="small" placeholder="请选择课程" v-model="item.name" readonly />
-                    <Delete @click="deleteSelectLesson(item, index)" class="h-4 w-4 cursor-pointer el-input__icon search-btn" />
+                    <Delete @click="deleteSelectLesson(item, index)" class="h-4 w-4 cursor-pointer search-btn" />
                   </div>
                 </template>
               </div>
@@ -25,20 +25,20 @@
             <div class="mb-4">
               <label class="mb-1 block text-sm font-medium text-foreground">分类：</label>
               <div>
-                <el-cascader style="width: 100%;"
-                             size="small"
-                             v-model="selectCidList"
-                             :props="{ multiple: true, checkStrictly: true }"
-                             :options="categoryOptions"
-                             @change="changeCategory">
-                </el-cascader>
+                <Select style="width: 100%;"
+                        size="small"
+                        multiple
+                        v-model="selectCidList"
+                        @change="changeCategory">
+                  <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </Select>
               </div>
             </div>
             <div class="mb-4">
               <label class="mb-1 block text-sm font-medium text-foreground">价格：</label>
               <div>
-                <el-input-number class="input-number" v-model="topic.price" placeholder="请输入价格" :precision="2" :step="1" :min="0"></el-input-number>
-                <el-input-number class="input-number" v-model="topic.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0"></el-input-number>
+                <Input type="number" class="input-number" v-model="topic.price" placeholder="请输入价格" :precision="2" :step="1" :min="0" />
+                <Input type="number" class="input-number" v-model="topic.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0" />
               </div>
             </div>
             <div class="mb-4">
@@ -80,16 +80,22 @@
         </div>
       </div>
       <div class="w-1/6" style="position: relative;">
-        <el-affix :offset="160" class="affix">
+        <div class="affix" style="position: sticky; top: 160px; z-index: 10">
           <div class="step-list">
             <div class="title">
               步骤导航
             </div>
-            <el-steps class="steps" finish-status="success" direction="vertical" :active="stepActive">
-              <el-step v-for="(step) in steps" :key="step.key" @click="stepClick(step.key)" :class="{'step-active': showStep === step.key}" :title="step.name"></el-step>
-            </el-steps>
+            <div class="steps flex flex-col">
+              <template v-for="(step, i) in steps" :key="step.key">
+                <div @click="stepClick(step.key)" :class="['flex items-center cursor-pointer', {'step-active': showStep === step.key}]">
+                  <div :class="['flex h-8 w-8 items-center justify-center rounded-full text-sm flex-shrink-0', i <= stepActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground']">{{ i + 1 }}</div>
+                  <span class="ml-2 text-sm">{{ step.name }}</span>
+                </div>
+                <div v-if="i < steps.length - 1" class="ml-4 h-4 w-px bg-border"></div>
+              </template>
+            </div>
           </div>
-        </el-affix>
+        </div>
       </div>
     </div>
     <Dialog class="custom-dialog" v-model="showLessonDialog" width="80%" @close="hideLesson">
@@ -101,7 +107,6 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
   import router from "@/router"
   import {Delete} from '@/lib/lucide-fallback'
   import Upload from "@/components/Uplaod/index.vue"
@@ -110,7 +115,9 @@
   import Button from '@/components/ui/Button.vue'
   import { Alert } from '@/components/ui/alert'
   import { Input } from '@/components/ui/input'
-  import {ref} from "vue"
+  import { Select, SelectOption } from '@/components/ui/select'
+  import {ref, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import {useRoute} from "vue-router"
   import {success} from "@/util/tipsUtils";
   import { learnApi } from '@/api/edu/admin-api'
@@ -129,7 +136,9 @@ const { findCategoryList, toTree, getAllParent } = learnApi
       Dialog,
       DialogHeader,
       DialogTitle,
-      Input
+      Input,
+      Select,
+      SelectOption
     },
     setup() {
       const loadWangEditorFlag = ref(false)
@@ -163,6 +172,18 @@ const { findCategoryList, toTree, getAllParent } = learnApi
       })
       const categoryOptions = ref([])
       const selectCidList = ref([])
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
       const selectLessonList = ref([])
       const topic = ref({
         id: "",
@@ -190,17 +211,13 @@ const { findCategoryList, toTree, getAllParent } = learnApi
         }
         getBaseInfo(id, function (res) {
           topic.value = res;
-          selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-          topic.value.cidList = []
+          selectCidList.value = res.cidList || []
           uploadData.value.files = [
               {
                 name: "海报",
                 url: topic.value.image
               }
             ]
-          for (const valElement of selectCidList.value) {
-            topic.value.cidList.push(valElement[valElement.length - 1])
-          }
           selectLessonList.value = res.lessonList;
           loadWangEditorFlag.value = true;
         })
@@ -216,10 +233,7 @@ const { findCategoryList, toTree, getAllParent } = learnApi
       }
       // 选择分类
       const changeCategory = (val) => {
-        topic.value.cidList = []
-        for (const valElement of val) {
-          topic.value.cidList.push(valElement[valElement.length - 1])
-        }
+        topic.value.cidList = val || []
       }
       // 上传图片成功
       const onUploadImageSuccess = (res) => {
@@ -231,7 +245,7 @@ const { findCategoryList, toTree, getAllParent } = learnApi
         uploadData.value.files = []
       }
       // 提交基本信息
-      const topicRef = ref(null)
+      const topicRef = useFormRef()
       const submitBaseInfo = () => {
         topicRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -325,6 +339,7 @@ const { findCategoryList, toTree, getAllParent } = learnApi
         // 基本信息
         uploadData,
         categoryOptions,
+        flatCategoryOptions,
         topic,
         selectCidList,
         topicRules,
@@ -361,24 +376,7 @@ const { findCategoryList, toTree, getAllParent } = learnApi
         font-size: 12px;
         color: #999999;
       }
-      :deep(.el-upload--picture-card),
-      :deep(.el-upload-list--picture-card .el-upload-list__item){
-        max-width: 400px;
-        height: 62.5%;
-        border: none;
-        display: flex;
-        margin: 0;
-        min-height: 146px;
-        justify-content: center;
-        flex-direction: column;
-      }
       .no-plus {
-        :deep(.el-upload--picture-card){
-          min-height: inherit;
-          justify-content: inherit;
-          flex-direction: inherit;
-          display: none;
-        }
         img {
           max-height: 460px;
         }
@@ -399,74 +397,9 @@ const { findCategoryList, toTree, getAllParent } = learnApi
           margin: 0 auto;
           width: 180px;
           text-align: left;
-          :deep(.el-button){
-            width: 100%;
-          }
         }
       }
     }
-  }
-  :deep(.el-input__inner), :deep(.el-input-number){
-    height: 34px;
-    line-height: 34px;
-    font-size: 12px;
-    border-color: #f3f5f8;
-    //border: none;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-    .el-input-number__decrease, .el-input-number__increase {
-      background: #FFFFFF;
-      line-height: 32px;
-      border: none;
-      &:focus, &:hover {
-        border-color: #f3f5f8;
-      }
-    }
-  }
-  :deep(.el-textarea__inner){
-    border-color: #f3f5f8;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-  }
-  :deep(.el-cascader .el-input .el-input__inner:focus){
-    border-color: #f3f5f8;
-  }
-  :deep(.el-input__icon){
-    line-height: 34px;
-    cursor: pointer;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-form-item__label){
-    font-size: 12px;
-  }
-  :deep(.el-table th),
-  :deep(.el-table td){
-    padding: 5px 0;
-    font-size: 12px;
-    color: #000000;
-  }
-  :deep(.el-table--enable-row-hover .el-table__body tr:hover > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-table__body tr.current-row > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-button--text){
-    color: #303133;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-button){
-    border-color: #f3f5f8;
-  }
-  :deep(.el-cascader:not(.is-disabled):hover .el-input__inner){
-    cursor: pointer;
-    border-color: #f3f5f8;
   }
   .affix {
     .step-list {
@@ -478,42 +411,11 @@ const { findCategoryList, toTree, getAllParent } = learnApi
       .steps {
         height: 80px;
         padding-left: 10px;
-        :deep(.el-step__title){
-          font-size: 14px;
-        }
-        :deep(.el-step__icon){
-          width: 20px;
-          height: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__head){
-          width: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__title){
-          cursor:pointer;
-        }
-        :deep(.el-step.is-vertical .el-step__line){
-          width: 1px;
-          left: 10px;
-          top: 2px;
-        }
-        :deep(.el-step__icon.is-text){
-          border-width: 1px;
-          cursor:pointer;
-        }
-        :deep(.step-active .el-step__head.is-finish){
-          color: red;
-        }
       }
     }
-  }
-  :deep(.el-affix--fixed){
-    z-index: 98;
   }
   :deep(.custom-dialog){
     max-height: 700px;
     overflow-y: auto;
-    .el-dialog__body {
-      padding: 0;
-    }
   }
 </style>

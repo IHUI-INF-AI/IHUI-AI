@@ -119,7 +119,7 @@ const loadData = async () => {
     type: props.timeRange,
   }
 
-  if (props.customDateRange) {
+  if (props.customDateRange && props.customDateRange[0] && props.customDateRange[1]) {
     params.startDate = props.customDateRange[0]
     params.endDate = props.customDateRange[1]
   }

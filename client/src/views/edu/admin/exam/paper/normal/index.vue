@@ -4,12 +4,12 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
         <div class="flex-1">
-          <el-cascader size="small" style="width: 100%;"
-                       v-model="selectCidList"
-                       :props="{ multiple: true, checkStrictly: true }"
-                       :options="categoryOptions"
-                       @change="changeCategory">
-          </el-cascader>
+          <Select size="small" style="width: 100%;"
+                  multiple
+                  v-model="selectCidList"
+                  @change="changeCategory">
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4 flex items-center gap-4">
@@ -89,7 +89,9 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷难度：</label>
         <div class="flex-1">
-          <el-rate style="line-height: 48px;" v-model="paper.difficulty" :colors="colors"></el-rate>
+          <div class="flex gap-1" style="line-height: 48px;">
+            <svg v-for="i in 5" :key="i" @click="paper.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= paper.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+          </div>
         </div>
       </div>
     </form>
@@ -97,8 +99,8 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
-  import {ref} from "vue"
+  import {ref, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree, getAllParent } = examApi
   const { saveBaseInfo, updateBaseInfo, getBaseInfo } = examApi
@@ -115,9 +117,12 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
   import { Textarea } from '@/components/ui/textarea'
+  import { Select, SelectOption } from '@/components/ui/select'
 export default {
     name: "ExamPaperNormalIndex",
     components: {
+    Select,
+    SelectOption,
     Card,
     CardHeader,
     CardContent,
@@ -163,6 +168,18 @@ export default {
       }
       const categoryOptions = ref([])
       const selectCidList = ref([])
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
       const questionList = ref([])
       // 获取分类
       findCategoryList(0, true, (res) => {
@@ -174,11 +191,8 @@ export default {
             getBaseInfo(route.query.id, (res) => {
               res.limitTime = res.limitTime / 60;
               paper.value = res;
-              selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-              paper.value.cidList = []
-              for (const valElement of selectCidList.value) {
-                paper.value.cidList.push(valElement[valElement.length - 1])
-              }
+              selectCidList.value = res.cidList || []
+              paper.value.cidList = res.cidList || []
               paper.value.questionIdList = []
               for (const valElement of res.questionList) {
                 paper.value.questionIdList.push(valElement.id)
@@ -190,12 +204,9 @@ export default {
       })
       // 选择分类
       const changeCategory = (val) => {
-        paper.value.cidList = []
-        for (const valElement of val) {
-          paper.value.cidList.push(valElement[valElement.length - 1])
-        }
+        paper.value.cidList = val || []
       }
-      const paperRef = ref();
+      const paperRef = useFormRef()
       const submitBaseInfo = () => {
         paperRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -245,6 +256,7 @@ export default {
         paperRules,
         categoryOptions,
         selectCidList,
+        flatCategoryOptions,
         paperRef,
         changeCategory,
         submitBaseInfo,
@@ -266,9 +278,6 @@ export default {
   }
   .option-delete:hover {
     color: hsl(var(--primary));
-  }
-  :deep(.el-card__header){
-    padding: 0;
   }
 }
 </style>

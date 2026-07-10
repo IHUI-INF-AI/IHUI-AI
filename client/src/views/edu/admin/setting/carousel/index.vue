@@ -3,7 +3,7 @@
     <div class="content">
       <div class="interval-box">
         <span>轮播间隔({{interval}}S)</span>
-        <el-slider v-model="interval" :min="2" :max="10"/>
+        <input type="range" v-model="interval" min="2" max="10" class="w-full" />
       </div>
       <!--      <draggable v-model="carouselList" tag="ul" class="image-list" :animation="200" group="people" @start="drag = true" @end="drag = false">-->
       <ul class="image-list">
@@ -33,7 +33,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import {ref, reactive} from "vue";
 import ChoiceImage from "./choiceImage.vue";
 import ChoiceLink from "./choiceLink.vue";
@@ -170,9 +169,6 @@ export default {
     span {
       margin-right: 20px;
     }
-    .el-slider {
-      width: calc(100% - 108px);
-    }
   }
   .add-btn {
     width: 100%;
@@ -217,8 +213,5 @@ export default {
 }
 .choice-link {
   margin-bottom: 10px;
-}
-.el-dialog__wrapper :deep(.el-dialog__body){
-  padding: 10px 20px;
 }
 </style>

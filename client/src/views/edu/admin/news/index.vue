@@ -12,7 +12,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { Notebook, View } from '@/lib/lucide-fallback';
 import * as echarts from "echarts";

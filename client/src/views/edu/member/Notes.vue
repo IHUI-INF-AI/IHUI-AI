@@ -26,7 +26,9 @@
 
     <!-- PR-F F6：骨架屏替换 v-loading -->
     <div v-if="loading && !notes.length" class="notes-skeleton">
-      <el-skeleton v-for="i in 3" :key="i" :rows="3" animated style="margin-bottom: 16px" />
+      <div v-for="i in 3" :key="i" class="space-y-2" style="margin-bottom: 16px">
+        <div v-for="j in 3" :key="j" class="h-4 bg-muted rounded animate-pulse"></div>
+      </div>
     </div>
     <div v-else v-loading="loading" class="notes-body">
       <NotesList
@@ -46,8 +48,8 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
 import Button from '@/components/ui/Button.vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from '@/utils/message'
+import { Refresh, Plus } from '@/lib/lucide-fallback'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { notesApi } from '@/api/edu/notes'
 import type { LearningNote } from '@/api/edu/notes'
@@ -77,7 +79,7 @@ async function handleDelete(note: LearningNote) {
       confirmButtonText: t('edu.common.submit'),
       cancelButtonText: t('edu.common.cancel'),
     })
-    await notesApi.delete(note.id)
+    await notesApi.delete(note.id!)
     ElMessage.success(t('edu.profile.deleteSuccess'))
     await reload()
   } catch {
@@ -121,13 +123,13 @@ onMounted(loadAll)
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: hsl(var(--foreground));
 }
 
 .page-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: hsl(var(--muted-foreground));
 }
 
 .error-alert {
@@ -142,7 +144,7 @@ onMounted(loadAll)
 .notes-skeleton {
   width: 100%;
   padding: 16px;
-  background: var(--el-bg-color);
+  background: hsl(var(--background));
   border: 1px solid var(--color-white-30);
   border-radius: 8px;
 }

@@ -1,12 +1,12 @@
 <template>
   <div class="edu-admin-layout">
-    <el-affix :offset="0">
+    <div style="position: sticky; top: 0px; z-index: 10">
       <div class="admin-nav-bar">
         <div class="nav-brand">
           <School class="h-5 w-5" />
           <span class="brand-text">{{ t('edu.admin.title') }}</span>
         </div>
-        <el-scrollbar class="nav-scroll">
+        <div class="nav-scroll overflow-y-auto">
           <div class="nav-links">
             <router-link
               v-for="m in navModules"
@@ -19,9 +19,9 @@
               <span>{{ t(m.labelKey) }}</span>
             </router-link>
           </div>
-        </el-scrollbar>
+        </div>
       </div>
-    </el-affix>
+    </div>
     <div class="admin-content">
       <router-view />
     </div>

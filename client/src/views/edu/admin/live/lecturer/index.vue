@@ -53,7 +53,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref} from "vue"
   import router from "@/router"
   import { lecturerApi } from '@/api/edu/admin-api'

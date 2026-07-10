@@ -39,8 +39,7 @@
 </template>
 
 <script>
-// @ts-nocheck
-  import {ref, onMounted, nextTick} from "vue";
+  import {ref} from "vue";
   import router from "@/router";
   import { useRoute } from "vue-router"
   import { organizationalApi } from '@/api/edu/admin-api'
@@ -151,16 +150,7 @@ export default {
         cardTitle.value = "基础信息";
       }
       
-      // 移除el-card的阴影类
-      onMounted(() => {
-        nextTick(() => {
-          const cards = document.querySelectorAll('.box-card .el-card')
-          cards.forEach(card => {
-            card.classList.remove('is-always-shadow', 'is-hover-shadow')
-          })
-        })
-      })
-      
+
       return {
         cardTitle,
         type,
@@ -185,23 +175,6 @@ export default {
       padding: 0 10px 0 0;
     }
     .box-card {
-      :deep(.el-card),
-      :deep(.el-card.is-always-shadow),
-      :deep(.el-card.is-hover-shadow) {
-        box-shadow: unset;
-        -webkit-box-shadow: unset;
-        -moz-box-shadow: unset;
-        border: 1px solid transparent;
-        transition: all 0.3s ease;
-      }
-      
-      :deep(.el-card:hover),
-      :deep(.el-card.is-always-shadow:hover),
-      :deep(.el-card.is-hover-shadow:hover) {
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-        border: 1px solid #f0f0f0;
-      }
-      
       .category-head {
         line-height: 28px;
       }
@@ -231,10 +204,5 @@ export default {
   .fl-table td img {
     max-width: 500px;
     max-height: 500px
-  }
-</style>
-<style>
-  .el-card__header {
-    padding: 10px 20px;
   }
 </style>

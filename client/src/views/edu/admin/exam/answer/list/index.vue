@@ -19,7 +19,9 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
           <div>
-            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+            <Select size="small" v-model="selectedCid" @change="search" clearable>
+              <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </Select>
           </div>
         </div>
       </form>
@@ -199,8 +201,7 @@
 </template>
 
 <script>
-// @ts-nocheck
-import {ref} from "vue"
+import {ref, computed} from "vue"
 import router from "@/router"
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = examApi
@@ -249,6 +250,22 @@ export default {
     const selectCidList = ref([])
     const categoryOptions = ref([])
     const examIdList = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     const searchParam = ref({
       keyword: "",
       cid: "",
@@ -323,9 +340,8 @@ export default {
     // 查看评论
     const selectTopic = ref({})
     const recordListDrawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       recordListDrawer.value = false
-      done()
     }
     const paperRecordLoading = ref(false)
     const paperRecordList = ref([])
@@ -546,19 +562,8 @@ export default {
   }
   :deep(.custom-drawer){
     width: calc(100% - 210px);
-    .el-drawer__header {
-      align-items: end;
-    }
     &:focus {
       outline: none;
-    }
-    .el-drawer__close-btn {
-      &:focus {
-        outline: none;
-      }
-      &:hover {
-        color: hsl(var(--primary));
-      }
     }
     .work-item-box {
       margin: 0;
@@ -628,9 +633,6 @@ export default {
               }
               .answer-info-value {
                 display: inline-block;
-                :deep(.el-rate){
-                  line-height: 16px;
-                }
               }
             }
           }

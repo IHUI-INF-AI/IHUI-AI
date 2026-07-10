@@ -1,10 +1,11 @@
 <template>
   <div class="agent-category-manager">
-    <el-page-header @back="goBack" class="page-header">
-      <template #content>
-        <h2>{{ t('agentCategory.title') }}</h2>
-      </template>
-    </el-page-header>
+    <div class="page-header flex items-center gap-2">
+      <button type="button" class="inline-flex items-center justify-center rounded-md p-1 hover:bg-muted" @click="goBack">
+        <ArrowLeft class="h-4 w-4" />
+      </button>
+      <h2>{{ t('agentCategory.title') }}</h2>
+    </div>
 
     <Card class="main-card shadow-none"><CardHeader>
         <div class="card-header">
@@ -57,7 +58,7 @@
             </TableCell>
             <TableCell>
               <span v-if="row.account"
-                >¥{{ (row.account / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
+                >¥{{ (Number(row.account) / 100).toFixed(2) }}/{{ t('agentCategory.pricePerMonth') }}</span
               >
               <span v-else style="color: hsl(var(--muted-foreground))">-</span>
             </TableCell>
@@ -141,7 +142,8 @@
         >
           <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('agentCategory.pricePerMonthPlaceholder') }}</label>
           <div class="flex-1">
-            <el-input-number
+            <Input
+              type="number"
               v-model="categoryForm.account"
               :min="0"
               :precision="0"
@@ -196,7 +198,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Plus } from '@/lib/lucide-fallback'
+import { Plus, ArrowLeft } from '@/lib/lucide-fallback'
 import {
   getAgentCategoryList,
   createAgentCategory,
@@ -206,12 +208,10 @@ import {
 } from '@/api/agent-category'
 import { useAuthStore } from '@/stores/auth'
 import { validateForm, commonRules } from '@/shared'
-import type { FormInstance } from 'element-plus'
 import { handleApiError } from '@/utils/error-handler'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { usePageState } from '@/composables/usePageState'
-import { ApiErrorType } from '@/utils/errorHandler'
 import { formatDateTime as _formatTime } from '@/utils/format'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -260,7 +260,7 @@ const pagination = reactive({
 const showCreateDialog = ref(false)
 const editingCategory = ref<AgentCategory | null>(null)
 const submitting = ref(false)
-const categoryFormRef = ref<FormInstance | null>(null)
+const categoryFormRef = ref<any>(null)
 
 const categoryForm = reactive({
   agent_id: '',
@@ -329,22 +329,13 @@ const loadCategories = async () => {
       pagination.total = response.data?.pagination?.total || 0
     } else {
       const errorMsg = response.message || t('agentCategory.loadFailed')
-      pageError.value = {
-        type: ApiErrorType.BUSINESS,
-        code: response.code,
-        message: errorMsg,
-      }
+      pageError.value = errorMsg
       showErrorMsg(errorMsg)
     }
   } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('agentCategory.loadFailed')
-    pageError.value = {
-      type: ApiErrorType.UNKNOWN,
-      code: 500,
-      message: errorMsg,
-      originalError: error,
-    }
+    pageError.value = errorMsg
     showErrorMsg(errorMsg)
   } finally {
     loading.value = false
@@ -376,7 +367,7 @@ const handleDelete = async (category: AgentCategory) => {
   )
   if (!confirmed) return
   try {
-    const response = await deleteAgentCategory(category.id)
+    const response = await deleteAgentCategory(category.id!)
     if (response.code === 200 || response.success) {
       showSuccess(t('agentCategory.deleteSuccess'))
       loadCategories()

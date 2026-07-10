@@ -46,7 +46,7 @@
             <div class="mb-4 flex items-center gap-4">
               <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('agenticAI.maxIterations') }}</label>
               <div class="flex-1">
-                <el-input-number v-model="swarmForm.maxIterations" :min="1" :max="20" />
+                <Input type="number" v-model="swarmForm.maxIterations" :min="1" :max="20" />
               </div>
             </div>
 
@@ -131,6 +131,7 @@ import { Empty } from '@/components/ui/empty'
 import { Checkbox } from '@/components/ui/checkbox'
 import Button from '@/components/ui/Button.vue'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Tag } from '@/components/ui/tag'
 import { Select, SelectOption } from '@/components/ui/select'
 

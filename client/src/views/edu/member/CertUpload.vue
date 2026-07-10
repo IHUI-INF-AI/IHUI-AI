@@ -21,11 +21,10 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certTitleLabel') }}</label>
           <div class="flex-1">
-            <el-input
+            <Input
               v-model="form.title"
               :placeholder="t('edu.profile.certTitleLabel')"
               maxlength="100"
-              show-word-limit
             />
           </div>
         </div>
@@ -33,7 +32,7 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certIssuerLabel') }}</label>
           <div class="flex-1">
-            <el-input
+            <Input
               v-model="form.issuer"
               :placeholder="t('edu.profile.certIssuerLabel')"
               maxlength="100"
@@ -44,10 +43,9 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.certIssueDateLabel') }}</label>
           <div class="flex-1">
-            <el-date-picker
-              v-model="form.issue_date"
+            <Input
               type="date"
-              value-format="YYYY-MM-DD"
+              v-model="form.issue_date"
               :placeholder="t('edu.profile.certIssueDateLabel')"
               style="width: 100%"
             />
@@ -69,21 +67,23 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-28 shrink-0 text-sm">{{ t('edu.profile.selectFile') }}</label>
           <div class="flex-1">
-            <el-upload
-              :auto-upload="false"
-              :limit="1"
-              :on-change="handleFileChange"
-              :on-exceed="handleExceed"
-              :on-remove="handleFileRemove"
-              :file-list="fileList"
-              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp"
-              class="cert-uploader"
-            >
-              <Button variant="outline" className=""><UploadFilled />{{ t('edu.profile.selectFile') }}</Button>
-              <template #tip>
-                <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
-              </template>
-            </el-upload>
+            <div class="space-y-2 cert-uploader">
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp"
+                class="hidden"
+                @change="onFileInputChange"
+              />
+              <Button variant="outline" className="" @click="fileInputRef?.click()"><UploadFilled />{{ t('edu.profile.selectFile') }}</Button>
+              <div v-if="fileList.length" class="space-y-1">
+                <div v-for="(file, index) in fileList" :key="index" class="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                  <span class="truncate">{{ file.name }}</span>
+                  <button type="button" class="text-muted-foreground hover:text-foreground" @click="handleFileRemove">×</button>
+                </div>
+              </div>
+              <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
+            </div>
           </div>
         </div>
 
@@ -110,22 +110,25 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
+import { useFormRef } from '@/composables/useFormRef'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
-import { ElMessage, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import Button from '@/components/ui/Button.vue'
+import { ElMessage } from '@/utils/message'
+import { UploadFilled } from '@/lib/lucide-fallback'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { uploadedCertsApi, type UploadedCertCreate, type UploadedCertType } from '@/api/edu/uploaded-certs'
 import CertificateList from '@/components/edu/CertificateList.vue'
 import { validateFile } from '@/utils/fileValidation'
 import { Select, SelectOption } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 
 const { t } = useI18n()
 const { loading, error, certificates, uploadedCerts, loadAll, refresh } = useStudentProfile()
 
-const formRef = ref<FormInstance | null>(null)
+const formRef = useFormRef()
 const submitting = ref(false)
-const fileList = ref<UploadFile[]>([])
+const fileList = ref<any[]>([])
 const fileUrl = ref('')
 
 interface UploadForm {
@@ -144,7 +147,7 @@ const form = reactive<UploadForm>({
   file_url: '',
 })
 
-const rules: FormRules = {
+const rules: Record<string, any> = {
   title: [{ required: true, message: t('edu.profile.certTitleLabel'), trigger: 'blur' }],
   issuer: [{ required: true, message: t('edu.profile.certIssuerLabel'), trigger: 'blur' }],
   issue_date: [{ required: true, message: t('edu.profile.certIssueDateLabel'), trigger: 'change' }],
@@ -161,7 +164,7 @@ const canSubmit = computed(() => {
   )
 })
 
-function handleFileChange(file: UploadFile) {
+function handleFileChange(file: any) {
   // PR-F F5：接入 utils/fileValidation.ts 统一校验
   const raw = file.raw
   if (raw) {
@@ -190,9 +193,23 @@ function handleFileRemove() {
   form.file_url = ''
 }
 
+const fileInputRef = ref<HTMLInputElement | null>(null)
+function onFileInputChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = target.files ? Array.from(target.files) : []
+  target.value = ''
+  if (!files.length) return
+  if (fileList.value.length >= 1) {
+    handleExceed()
+    return
+  }
+  const f = files[0]
+  handleFileChange({ raw: f, name: f.name, url: '', uid: Date.now() } as any)
+}
+
 async function handleSubmit() {
   if (!formRef.value || submitting.value) return
-  await formRef.value.validate(async (valid: boolean) => {
+  await formRef.value?.validate?.(async (valid: boolean) => {
     if (!valid) return
     submitting.value = true
     try {
@@ -224,7 +241,7 @@ function handleReset() {
   form.file_url = ''
   fileUrl.value = ''
   fileList.value = []
-  formRef.value?.clearValidate()
+  formRef.value?.clearValidate?.()
 }
 
 onMounted(loadAll)

@@ -11,7 +11,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import {computed} from "vue";
 import { Input } from '@/components/ui/input'
 import { Radio } from '@/components/ui/radio'

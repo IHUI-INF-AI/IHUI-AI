@@ -6,7 +6,7 @@ import { SELECT_KEY } from './selectContext'
 
 const props = withDefaults(
   defineProps<{
-    modelValue?: string | number | boolean | Array<string | number | boolean>
+    modelValue?: string | number | boolean | Array<string | number | boolean> | null
     placeholder?: string
     disabled?: boolean
     clearable?: boolean

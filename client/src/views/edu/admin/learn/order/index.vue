@@ -18,22 +18,20 @@
           <label class="mb-1 block text-sm font-medium text-foreground">日期</label>
           <div>
             <div style="display: flex;">
-              <el-date-picker
+              <Input
+                type="datetime-local"
                 v-model="searchParam.startTime"
-                type="datetime"
                 placeholder="订单开始时间"
                 class="input-text"
-                :default-time="new Date(2000, 0, 1, 0, 0, 0)"
                 @change="changeStartTime"
-                style="width: 100%;"></el-date-picker>
-              <el-date-picker
+                style="width: 100%;" />
+              <Input
+                type="datetime-local"
                 v-model="searchParam.endTime"
-                type="datetime"
                 placeholder="订单结束时间"
                 class="input-text"
-                :default-time="new Date(2000, 0, 1, 22, 0, 0)"
                 @change="changeEndTime"
-                style="width: 100%;"></el-date-picker>
+                style="width: 100%;" />
             </div>
           </div>
         </div>
@@ -99,7 +97,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import Page from "@/components/Page/index.vue"
 import {ref} from "vue"
 import { learnApi } from '@/api/edu/admin-api'
@@ -213,9 +210,8 @@ export default {
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true
@@ -267,35 +263,8 @@ export default {
     .form-inline {
       .search-input {
         width: 242px;
-        :deep(.el-input__inner){
-          height: 34px;
-          line-height: 34px;
-          border-color: #f3f5f8;
-          &:focus, &:hover {
-            border-color: #f3f5f8;
-          }
-        }
-        :deep(.el-input__icon){
-          height: 34px;
-          line-height: 34px;
-          cursor: pointer;
-          &:hover {
-            color: hsl(var(--primary));
-          }
-        }
       }
       .select {
-        :deep(.el-form-item__label){
-          font-size: 12px;
-        }
-        :deep(.el-input__inner){
-          height: 34px;
-          line-height: 34px;
-          border-color: #f3f5f8;
-        }
-      }
-      :deep(.el-form-item){
-        margin-bottom: 20px;
       }
     }
   }

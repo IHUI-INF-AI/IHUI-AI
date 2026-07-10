@@ -1,21 +1,32 @@
 <template>
   <div>
     <Input size="small" placeholder="输入关键字进行过滤" v-model="filterText"></Input>
-    <el-tree size="small" ref="treeRef" v-if="treeFlag" :current-node-key="nodeKey" node-key="id" :filter-node-method="filterNode" :highlight-current="true" :data="treeData" :props="defaultProps" :expand-on-click-node="false" @node-click="handleNodeClick" class="el-tree"></el-tree>
+    <ul v-if="treeFlag" class="mt-2.5 space-y-0.5 min-h-[102px]">
+      <CategoryTreeNode
+        v-for="node in treeData"
+        :key="node.id"
+        :node="node"
+        :default-props="defaultProps"
+        :current-key="nodeKey"
+        :filter-text="filterText"
+        @node-click="handleNodeClick"
+      />
+    </ul>
   </div>
 </template>
 
 <script>
-// @ts-nocheck
 // 目录API
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList } = examApi
 import {ref, watch, nextTick} from "vue";
 import { Input } from '@/components/ui/input'
+import CategoryTreeNode from '@/components/CategoryTreeNode.vue'
 export default {
   name: "categoryTree",
   components: {
-    Input
+    Input,
+    CategoryTreeNode
   },
   props: {
     currentNodeKey: Number
@@ -27,10 +38,6 @@ export default {
       label: "name"
     }
     const treeData = ref([])
-    let treeRef = ref(null);
-    watch([filterText], (nv) => {
-      treeRef.value.filter(nv);
-    })
     const loadCategoryList = () => {
       findCategoryList(0, true, res => {
         // 获取部门列表中的根节点（父节点id为0的）（获取的根节点包含孩子）
@@ -79,12 +86,6 @@ export default {
       })
       loadCategoryList()
     })
-    const filterNode = function(value, data, node) {
-      if (!value) {
-        return true;
-      }
-      return data.name.indexOf(value) !== -1;
-    }
     const handleNodeClick = (data) => {
       context.emit("node-click", data, this);
     }
@@ -94,16 +95,8 @@ export default {
       filterText,
       defaultProps,
       treeData,
-      treeRef,
-      filterNode,
       handleNodeClick
     }
   }
 }
 </script>
-<style scoped>
-  .el-tree {
-    margin-top: 10px;
-    min-height: 102px;
-  }
-</style>

@@ -64,15 +64,15 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">类型：</label>
           <div>
-            <el-select
+            <Select
               v-model="memberCompany.companyTypeId" placeholder="请选择公司类型" style="width: 100%">
-              <el-option
+              <SelectOption
                 v-for="item in companyTypeList"
                 :key="item.value"
                 :label="item.label"
                 :value="item.value"
               />
-            </el-select>
+            </Select>
           </div>
         </div>
         <div class="mb-4">
@@ -84,7 +84,14 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">状态：</label>
           <div>
-            <el-switch active-color="#13ce66" :active-value="'normal'" :inactive-value="'invalid'"  v-model="memberCompany.status"></el-switch>
+            <div class="inline-flex items-center gap-1">
+              <button type="button"
+                :class="['px-2 py-1 text-xs rounded', memberCompany.status === 'normal' ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80']"
+                @click="memberCompany.status = 'normal'">正常</button>
+              <button type="button"
+                :class="['px-2 py-1 text-xs rounded', memberCompany.status === 'invalid' ? 'bg-red-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80']"
+                @click="memberCompany.status = 'invalid'">失效</button>
+            </div>
           </div>
         </div>
       </form>
@@ -105,8 +112,8 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import { memberApi } from '@/api/edu/admin-api'
 const { findList, updateCompany, saveCompany, findTypeList, deleteCompany, enableCompany, disableCompany } = memberApi
   import Page from "@/components/Page/index.vue"
@@ -115,6 +122,7 @@ const { findList, updateCompany, saveCompany, findTypeList, deleteCompany, enabl
   import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
   import Button from '@/components/ui/Button.vue'
   import { Input } from '@/components/ui/input'
+  import { Select, SelectOption } from '@/components/ui/select'
 
   export default {
     name: "MemberCompany",
@@ -127,7 +135,9 @@ const { findList, updateCompany, saveCompany, findTypeList, deleteCompany, enabl
       TableHead,
       TableCell,
       Button,
-      Input
+      Input,
+      Select,
+      SelectOption
     },
     props: {
       cancelCallback: {
@@ -192,7 +202,7 @@ const { findList, updateCompany, saveCompany, findTypeList, deleteCompany, enabl
         name: [{ required: true, message: "请输入名称", trigger: "blur" }],
       }
       const memberCompany = ref({})
-      const memberCompanyRef = ref(null)
+      const memberCompanyRef = useFormRef()
       const showMemberCompanyFormDialog = ref(false)
       const hideMemberCompanyForm = () => {
         showMemberCompanyFormDialog.value = false;
@@ -314,22 +324,6 @@ const { findList, updateCompany, saveCompany, findTypeList, deleteCompany, enabl
     }
   };
 </script>
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

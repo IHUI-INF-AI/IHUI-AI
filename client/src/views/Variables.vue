@@ -18,14 +18,14 @@
       <Card class="transition-shadow hover:shadow-md"><CardHeader>
           <div class="card-header">
             <span>{{ t('variables.selectBot') }}</span>
-            <el-select
+            <Select
               v-model="selectedBotId"
               :placeholder="t('variables.selectBotPlaceholder')"
               style="width: 300px"
               @change="loadVariables"
             >
-              <el-option v-for="bot in bots" :key="bot.id" :label="bot.name" :value="bot.id" />
-            </el-select>
+              <SelectOption v-for="bot in bots" :key="bot.id" :label="bot.name" :value="bot.id" />
+            </Select>
           </div>
         </CardHeader><CardContent class="p-5">
         
@@ -109,9 +109,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { Setting, Plus } from '@element-plus/icons-vue'
+import { useFormRef } from '@/composables/useFormRef'
+import { Setting, Plus } from '@/lib/lucide-fallback'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox, FormInstance } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/utils/message'
 import {
   listVariables,
   createVariable,
@@ -128,6 +129,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import Button from '@/components/ui/Button.vue'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { t } = useI18n()
 const { loading, execute: executeApi } = useApiError({ showMessage: true })
@@ -137,7 +139,7 @@ const bots = ref<Array<{ id: string; name: string }>>([])
 const variables = ref<Variable[]>([])
 const showCreateDialog = ref(false)
 const editingVariable = ref<Variable | null>(null)
-const variableFormRef = ref<FormInstance | null>(null)
+const variableFormRef = useFormRef()
 
 const variableForm = reactive({
   name: '',
@@ -174,7 +176,7 @@ const loadVariables = async () => {
 
 const handleEdit = (variable: Variable) => {
   editingVariable.value = variable
-  variableForm.name = variable.name
+  variableForm.name = variable.name ?? ''
   variableForm.value = String(variable.value || '')
   variableForm.description = variable.description || ''
   showCreateDialog.value = true
@@ -204,7 +206,7 @@ const handleDelete = async (variable: Variable) => {
 
 const handleSave = async () => {
   if (!variableFormRef.value) return
-  await variableFormRef.value.validate(async (valid: boolean) => {
+  await variableFormRef.value.validate?.(async (valid: boolean) => {
     if (valid && selectedBotId.value) {
       saving.value = true
       try {

@@ -144,12 +144,13 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">部门：</label>
           <div>
-            <el-cascader style="width: 100%;"
-                         size="small"
-                         v-model="selectDepartmentList"
-                         :props="{ checkStrictly: true }"
-                         :options="departmentOptionList"
-                         @change="changeDepartment"></el-cascader>
+            <Select style="width: 100%;"
+                    size="small"
+                    v-model="selectedDepartment"
+                    @change="changeDepartment"
+                    clearable>
+              <SelectOption v-for="item in flatDepartmentOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </Select>
           </div>
         </div>
         <div class="mb-4">
@@ -161,7 +162,7 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">出生日期：</label>
           <div>
-            <el-date-picker style="width: 100%;" size="small" v-model="user.birthday" type="date" placeholder="选择出生日期"></el-date-picker>
+            <Input type="date" style="width: 100%;" size="small" v-model="user.birthday" placeholder="选择出生日期" />
           </div>
         </div>
         <div class="mb-4">
@@ -216,13 +217,13 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">合约开始时间：</label>
           <div>
-            <el-date-picker style="width: 100%;" size="small" v-model="user.contractStartDate" type="date" placeholder="选择合约开始时间"></el-date-picker>
+            <Input type="date" style="width: 100%;" size="small" v-model="user.contractStartDate" placeholder="选择合约开始时间" />
           </div>
         </div>
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">合约结束时间：</label>
           <div>
-            <el-date-picker style="width: 100%;" size="small" v-model="user.contractEndDate" type="date" placeholder="选择合约结束时间"></el-date-picker>
+            <Input type="date" style="width: 100%;" size="small" v-model="user.contractEndDate" placeholder="选择合约结束时间" />
           </div>
         </div>
       </form>
@@ -242,8 +243,8 @@
 </template>
 
 <script>
-// @ts-nocheck
-  import {ref, onMounted, nextTick, markRaw, computed} from "vue"
+  import {ref, markRaw, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import Edit from "./edit.vue"
   import DepartmentTree from "./tree.vue"
   import Page from "@/components/Page/index.vue"
@@ -258,6 +259,7 @@ const { getUserList, updateUser, saveUser, resetPwd, deleteUser } = organization
   import Button from '@/components/ui/Button.vue'
   import { Input } from '@/components/ui/input'
   import { Radio } from '@/components/ui/radio'
+  import { Select, SelectOption } from '@/components/ui/select'
 export default {
     name: "UserList",
     props: {
@@ -295,7 +297,9 @@ export default {
     TableCell,
       Edit,
       Page,
-      DepartmentTree
+      DepartmentTree,
+      Select,
+      SelectOption
     },
     setup(props) {
       const stateMap = {"trial": "试用", "trial_extension": "试用延期", "official": "正式", "dismissal": "解聘", "separation": "离职"}
@@ -332,7 +336,7 @@ export default {
       const search = () => {
         loadUserList()
       }
-      const userRef = ref()
+      const userRef = useFormRef()
       const showUserDialog = ref(false)
       let user = ref({
         id: "",
@@ -369,6 +373,22 @@ export default {
       }
       const departmentOptionList = ref()
       const selectDepartmentList = ref([])
+      const flatDepartmentOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(departmentOptionList.value || [])
+        return result
+      })
+      const selectedDepartment = computed({
+        get: () => { const arr = selectDepartmentList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+        set: (val) => { selectDepartmentList.value = [val] }
+      })
       findDepartmentList(0, true, res => {
         departmentOptionList.value = toTree(res)
         departmentOptionList.value.splice(0, 1)
@@ -388,7 +408,7 @@ export default {
       }
       // 选择分类
       const changeDepartment = (val) => {
-        user.value.departmentId = val[val.length - 1] || ""
+        user.value.departmentId = val || ""
       }
       const submit = () => {
         userRef.value.validate((valid) => {
@@ -464,16 +484,7 @@ export default {
           });
         })
       }
-      // 移除el-card的阴影类
-      onMounted(() => {
-        nextTick(() => {
-          const cards = document.querySelectorAll('.box-card .el-card')
-          cards.forEach(card => {
-            card.classList.remove('is-always-shadow', 'is-hover-shadow')
-          })
-        })
-      })
-      
+
       const remove = (item) => {
         confirm("确认永久删除当前用户？",  "删除用户",() => {
           deleteUser(item.id, () => {
@@ -502,6 +513,8 @@ export default {
         userRules,
         departmentOptionList,
         selectDepartmentList,
+        flatDepartmentOptions,
+        selectedDepartment,
         changeDepartment,
         handleSelectionChange,
         submitSelectionChange,
@@ -541,23 +554,6 @@ export default {
   }
   .box-card {
     max-width: 500px;
-    
-    :deep(.el-card),
-    :deep(.el-card.is-always-shadow),
-    :deep(.el-card.is-hover-shadow) {
-      box-shadow: unset;
-      -webkit-box-shadow: unset;
-      -moz-box-shadow: unset;
-      border: 1px solid transparent;
-      transition: all 0.3s ease;
-    }
-    
-    :deep(.el-card:hover),
-    :deep(.el-card.is-always-shadow:hover),
-    :deep(.el-card.is-hover-shadow:hover) {
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-      border: 1px solid #f0f0f0;
-    }
   }
   .fl-table {
     border-radius: 5px;
@@ -580,9 +576,5 @@ export default {
   }
   .user-form {
     display: inline-block;
-    .el-form-item {
-      width: 50%;
-      float: left;
-    }
   }
 </style>

@@ -1,12 +1,12 @@
 <template>
   <div class="exam-paper" v-loading="paperLoading">
-    <el-container :style="'height: ' + clientHeight + 'px'">
-      <el-header class="exam-paper-header" height="auto" ref="headerRef">
+    <div class="flex flex-col" :style="'height: ' + clientHeight + 'px'">
+      <header class="exam-paper-header" ref="headerRef">
         <div class="question-menu-list" v-if="paper.questionList && paper.questionList.length">
           <span class="question-menu" v-for="(i, index) in paper.questionList.length" :key="i" @click="position(index)" :ref="el => { if (el) questionNavBtnList[index] = el }">{{i}}</span>
         </div>
-      </el-header>
-      <el-main ref="mainRef" v-if="paper && paper.questionList && paper.questionList.length">
+      </header>
+      <main ref="mainRef" class="flex-1" v-if="paper && paper.questionList && paper.questionList.length">
         <div class="paper-title">
           {{paper.title}}
         </div>
@@ -59,7 +59,9 @@
                 <div class="answer-item">
                   <div class="answer-info-label">难度：</div>
                   <div class="answer-info-value">
-                    <el-rate :disabled="true" v-model="item.difficulty" :colors="colors"></el-rate>
+                    <div class="flex gap-1">
+                      <svg v-for="i in 5" :key="i" :class="['h-4 w-4', i <= item.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                    </div>
                   </div>
                 </div>
                 <div class="answer-item">
@@ -85,13 +87,12 @@
             </div>
           </div>
         </div>
-      </el-main>
-    </el-container>
+      </main>
+    </div>
   </div>
 </template>
 
 <script>
-// @ts-nocheck
 import {nextTick, ref} from "vue"
 import { examApi } from '@/api/edu/admin-api'
 const { getPaper, getRecord } = examApi
@@ -133,9 +134,9 @@ export default {
     const headerRef = ref(null)
     const position = (i) => {
       const anchor = questionNavList.value[i]
-      const scrollTop = anchor.offsetTop - headerRef.value.$el.offsetHeight
+      const scrollTop = anchor.offsetTop - headerRef.value.offsetHeight
       nextTick(() => {
-        mainRef.value.$el.scrollTop = scrollTop
+        mainRef.value.scrollTop = scrollTop
       })
     }
     const paper = ref({})
@@ -288,7 +289,7 @@ export default {
       }
     }
   }
-  .el-main {
+  main {
     background: #ffffff;
     .paper-title {
       font-size: 30px;
@@ -314,9 +315,6 @@ export default {
             }
             .answer-info-value {
               display: inline-block;
-              :deep(.el-rate){
-                line-height: 16px;
-              }
             }
           }
         }

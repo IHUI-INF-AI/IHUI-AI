@@ -20,43 +20,41 @@
             <div class="mb-4" v-if="lesson.timeType !== 'infinite'">
               <label class="mb-1 block text-sm font-medium text-foreground">开始时间：</label>
               <div>
-                <el-date-picker
+                <Input
                   v-if="showdatepicker"
+                  type="datetime-local"
                   v-model="lesson.startTime"
-                  type="datetime"
                   placeholder="选择开始时间"
                   class="input-text"
-                  :default-time="new Date(2000, 0, 1, 0, 0, 0)"
                   size="small"
                   @change="changeStartTime"
-                  style="width: 100%;"></el-date-picker>
+                  style="width: 100%;" />
               </div>
             </div>
             <div class="mb-4" v-if="lesson.timeType !== 'infinite'">
               <label class="mb-1 block text-sm font-medium text-foreground">结束时间：</label>
               <div>
-                <el-date-picker
+                <Input
                   v-if="showdatepicker"
+                  type="datetime-local"
                   v-model="lesson.endTime"
-                  type="datetime"
                   placeholder="选择结束时间"
                   class="input-text"
-                  :default-time="new Date(2000, 0, 1, 22, 0, 0)"
                   size="small"
                   @change="changeEndTime"
-                  style="width: 100%;"></el-date-picker>
+                  style="width: 100%;" />
               </div>
             </div>
             <div class="mb-4">
               <label class="mb-1 block text-sm font-medium text-foreground">分类：</label>
               <div>
-                <el-cascader style="width: 100%;"
-                             size="small"
-                             v-model="selectCidList"
-                             :props="{ multiple: true, checkStrictly: true }"
-                             :options="categoryOptions"
-                             @change="changeCategory">
-                </el-cascader>
+                <Select style="width: 100%;"
+                        size="small"
+                        multiple
+                        v-model="selectCidList"
+                        @change="changeCategory">
+                  <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </Select>
               </div>
             </div>
             <div class="mb-4">
@@ -68,8 +66,8 @@
             <div class="mb-4">
               <label class="mb-1 block text-sm font-medium text-foreground">价格：</label>
               <div>
-                <el-input-number class="input-number" v-model="lesson.price" placeholder="请输入价格" :precision="2" :step="1" :min="0"></el-input-number>
-                <el-input-number class="input-number" v-model="lesson.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0"></el-input-number>
+                <Input type="number" class="input-number" v-model="lesson.price" placeholder="请输入价格" :precision="2" :step="1" :min="0" />
+                <Input type="number" class="input-number" v-model="lesson.originalPrice" placeholder="请输入原价" :precision="2" :step="1" :min="0" />
               </div>
             </div>
             <div class="mb-4">
@@ -272,14 +270,20 @@
         </div>
       </div>
       <div class="w-1/6" style="position: relative;">
-        <el-affix :offset="60" class="affix">
+        <div class="affix" style="position: sticky; top: 60px; z-index: 10">
           <div class="step-list">
             <div class="title">
               步骤导航
             </div>
-              <el-steps class="steps" finish-status="success" direction="vertical" :active="stepActive">
-                <el-step v-for="(step) in steps" :key="step.key" @click="stepClick(step.key)" :class="{'step-active': showStep === step.key}" :title="step.name"></el-step>
-              </el-steps>
+              <div class="steps flex flex-col">
+                <template v-for="(step, i) in steps" :key="step.key">
+                  <div @click="stepClick(step.key)" :class="['flex items-center cursor-pointer', {'step-active': showStep === step.key}]">
+                    <div :class="['flex h-8 w-8 items-center justify-center rounded-full text-sm flex-shrink-0', i <= stepActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground']">{{ i + 1 }}</div>
+                    <span class="ml-2 text-sm">{{ step.name }}</span>
+                  </div>
+                  <div v-if="i < steps.length - 1" class="ml-4 h-4 w-px bg-border"></div>
+                </template>
+              </div>
           </div>
           <div class="draggable" v-if="showStep === 'content'">
             <div class="title">
@@ -298,7 +302,7 @@
               </transition-group>
             </draggable>
           </div>
-        </el-affix>
+        </div>
       </div>
     </div>
     <Dialog v-model="showChapterDialog" @close="hideChapter">
@@ -401,11 +405,11 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
 import router from "@/router"
 import WangEditor from "@/components/WangEditor/index.vue"
 import Upload from "@/components/Uplaod/index.vue"
-import {ref} from "vue"
+import {ref, computed} from "vue"
+import { useFormRef } from '@/composables/useFormRef'
 import {useRoute} from "vue-router"
 import {VueDraggableNext} from "vue-draggable-next"
 import {success, confirm, error} from "@/util/tipsUtils"
@@ -511,6 +515,18 @@ export default {
       const infiniteDate = "2037-12-31 23:59:59";
       const categoryOptions = ref([])
       const selectCidList = ref([])
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
       const lesson = ref({
         id: "",
         name: "",
@@ -552,17 +568,14 @@ export default {
               lesson.value.timeType = 'customize'
             }
           }
-          selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-          lesson.value.cidList = []
+          selectCidList.value = res.cidList || []
+          lesson.value.cidList = res.cidList || []
           uploadData.value.files = [
             {
               name: "海报",
               url: lesson.value.image
             }
           ]
-          for (const valElement of selectCidList.value) {
-            lesson.value.cidList.push(valElement[valElement.length - 1])
-          }
           loadWangEditorFlag.value = true;
 
           // 获取证书
@@ -594,10 +607,7 @@ export default {
       }
       // 选择分类
       const changeCategory = (val) => {
-        lesson.value.cidList = []
-        for (const valElement of val) {
-          lesson.value.cidList.push(valElement[valElement.length - 1])
-        }
+        lesson.value.cidList = val || []
       }
       // 选择时间
       const changeStartTime = (val) => {
@@ -633,7 +643,7 @@ export default {
       }
       const showdatepicker = ref(true)
       // 提交基本信息
-      const lessonRef = ref(null)
+      const lessonRef = useFormRef()
       const submitBaseInfo = () => {
         lessonRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -812,7 +822,7 @@ export default {
           })
         })
       }
-      const lessonChapterRef = ref(null)
+      const lessonChapterRef = useFormRef()
       const submitChapter = () => {
         lessonChapterRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -843,7 +853,7 @@ export default {
           });
         }
       }
-      const lessonChapterSectionRef = ref(null)
+      const lessonChapterSectionRef = useFormRef()
       const submitChapterSection = () => {
         if (lessonChapterSection.value.type === "link") {
           if (!lessonChapterSection.value.id && !videoLoaded) {
@@ -908,7 +918,7 @@ export default {
         })
       }
       // 作业
-      const homeworkRef = ref(null)
+      const homeworkRef = useFormRef()
       const homeworkRules = ref({
         content: [{ required: true, message: "请输入作业内容", trigger: "blur" }],
       })
@@ -1159,11 +1169,6 @@ export default {
   }
 </script>
 <style scoped lang="scss">
-/* 使用 :deep() 穿透组件作用域 */
-:deep(.custom-input .el-input__inner){
-  background-color: rgba(206, 203, 241, 0.25);
-  border-radius: 4px;
-}
   .app-container {
     background-image: linear-gradient(to top right, #fdfdff, rgba(245, 240, 255, 0.99), #fdfdff);
     margin: 20px;
@@ -1172,26 +1177,7 @@ export default {
         font-size: 12px;
         color: #999999;
       }
-      :deep(.el-upload--picture-card),
-      :deep(.el-upload-list--picture-card .el-upload-list__item){
-        //width: 100%;
-        height: 62.5%;
-        border: none;
-        display: flex;
-        margin: 0;
-        min-height: 146px;
-        justify-content: center;
-        flex-direction: column;
-        max-height: 400px;
-        background-color: #ffffff;
-      }
       .no-plus {
-        :deep(.el-upload--picture-card){
-          min-height: inherit;
-          justify-content: inherit;
-          flex-direction: inherit;
-          display: none;
-        }
         img {
           max-height: 460px;
         }
@@ -1205,9 +1191,6 @@ export default {
       min-height: 500px;
       .content-header {
         text-align: right;
-        :deep(.el-button){
-          border-color: #f3f5f8;
-        }
       }
       .tips {
         font-size: 12px;
@@ -1231,102 +1214,11 @@ export default {
       }
     }
   }
-  :deep(.el-input__inner), :deep(.el-input-number){
-    height: 34px;
-    line-height: 34px;
-    font-size: 12px;
-    border-color: #f3f5f8;
-    //border: none;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-    .el-input-number__decrease, .el-input-number__increase {
-      background: #FFFFFF;
-      line-height: 32px;
-      border: none;
-      &:focus, &:hover {
-        border-color: #f3f5f8;
-      }
-    }
-  }
-  :deep(.el-textarea__inner){
-    border-color: #f3f5f8;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-  }
-  :deep(.el-cascader .el-input .el-input__inner:focus){
-    border-color: #f3f5f8;
-  }
-  :deep(.el-input__icon){
-    line-height: 34px;
-    cursor: pointer;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-form-item__label){
-    font-size: 12px;
-  }
-  :deep(.el-table th),
-  :deep(.el-table td){
-    padding: 5px 0;
-    font-size: 12px;
-    color: #000000;
-  }
-  :deep(.el-table--enable-row-hover .el-table__body tr:hover > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-table__body tr.current-row > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-button--text){
-    color: #999999;
-    font-size: 12px;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-cascader:not(.is-disabled):hover .el-input__inner){
-    cursor: pointer;
-    border-color: #f3f5f8;
-  }
   .box-card {
     padding: 0 30px 10px;
-    .el-card {
-      box-shadow: none;
-    }
-    :deep(.el-card__header){
-      padding: 5px 20px;
-      font-size: 12px;
-      border: 0;
-    }
-    :deep(.el-card__body){
-      padding: 0;
-      .table-wrapper {
-        display: none;
-        .video-box {
-          padding: 0 20px 15px;
-          display: flex;
-          justify-content: center;
-          video {
-            background: #000;
-            width: 320px;
-            height: 240px;
-          }
-        }
-      }
-      .show {
-        display: block;
-      }
-    }
   }
   .opt-btn {
     float: right;
-    :deep(.el-button){
-      margin: 0;
-      padding: 5px;
-    }
   }
   .affix {
     min-width: 140px;
@@ -1340,31 +1232,6 @@ export default {
       .steps {
         min-height: 160px;
         padding-left: 10px;
-        :deep(.el-step__title){
-          font-size: 14px;
-        }
-        :deep(.el-step__icon){
-          width: 20px;
-          height: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__head){
-          width: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__title){
-          cursor:pointer;
-        }
-        :deep(.el-step.is-vertical .el-step__line){
-          width: 1px;
-          left: 10px;
-          top: 2px;
-        }
-        :deep(.el-step__icon.is-text){
-          border-width: 1px;
-          cursor:pointer;
-        }
-        :deep(.step-active .el-step__head.is-finish){
-          color: red;
-        }
       }
     }
     .draggable {
@@ -1398,18 +1265,6 @@ export default {
           }
         }
       }
-    }
-  }
-  :deep(.el-upload--text){
-    font-size: 12px;
-  }
-  :deep(.el-affix--fixed){
-    z-index: 98;
-  }
-  :deep(.el-table__empty-block){
-    line-height: 400px;
-    .el-table__empty-text {
-      line-height: 400px;
     }
   }
   .certificate {
@@ -1454,18 +1309,6 @@ export default {
     }
   }
 
-//穿透改颜色
-:deep(.el-input__wrapper) {
-  //background-color: #f2e9fb;
-  background: rgba(255, 255, 255, 0.283);
-  box-shadow: inset 6.64px -6.64px 6.64px 0px rgba(214, 214, 214, 0.326),inset -6.64px 6.64px 6.64px 0px rgba(255, 255, 255, 0.326);
-}
-//el-upload--picture-card
-:deep(.el-upload) {
-  //background-color: #f2e9fb;
-  background: rgba(206, 203, 241, 0.25);
-  border: 1px solid #B7B5CA;
-}
 .ql_bu{
   width: 130px;
   height: 45px;
@@ -1482,23 +1325,9 @@ export default {
   box-shadow: inset 0px -6px 20px 0px rgba(255, 255, 255, 0.8);
 }
 
-//+-颜色
-:deep(.el-input-number__increase) {
-  background: rgba(206, 203, 241, 0.25);
-}
-:deep(.el-input-number__decrease) {
-  //background-color: #f2e9fb;
-  background: rgba(206, 203, 241, 0.25);
-}
-
 //右侧完成文字颜色
 :deep(.is-process) {
   color: #8B91FF;
-  .el-step__icon {
-    color: #8B91FF;
-    border: 1px solid #948cff;
-    box-shadow:0 0 10px rgba(143, 135, 250, 0.5);
-  }
 }
 
 

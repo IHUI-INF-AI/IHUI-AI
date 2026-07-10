@@ -47,7 +47,6 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
 import { ref } from 'vue'
 import Page from '@/components/Page/index.vue'
 import { commentApi } from '@/api/edu/admin-api'

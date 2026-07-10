@@ -72,7 +72,14 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">状态：</label>
           <div>
-            <el-switch active-color="#13ce66" :active-value="'enable'" :inactive-value="'disable'"  v-model="memberCompanyType.status"></el-switch>
+            <div class="inline-flex items-center gap-1">
+              <button type="button"
+                :class="['px-2 py-1 text-xs rounded', memberCompanyType.status === 'enable' ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80']"
+                @click="memberCompanyType.status = 'enable'">启用</button>
+              <button type="button"
+                :class="['px-2 py-1 text-xs rounded', memberCompanyType.status === 'disable' ? 'bg-red-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80']"
+                @click="memberCompanyType.status = 'disable'">禁用</button>
+            </div>
           </div>
         </div>
       </form>
@@ -93,7 +100,7 @@
 </template>
 
 <script>
-// @ts-nocheck
+  import { useFormRef } from '@/composables/useFormRef'
   import {ref, computed} from "vue"
   import { memberApi } from '@/api/edu/admin-api'
 const { findTypeList, updateCompanyType, saveCompanyType, deleteCompanyType, enableCompanyType, disableCompanyType } = memberApi
@@ -169,7 +176,7 @@ const { findTypeList, updateCompanyType, saveCompanyType, deleteCompanyType, ena
         name: [{ required: true, message: "请输入名称", trigger: "blur" }],
       }
       const memberCompanyType = ref({})
-      const memberCompanyTypeRef = ref(null)
+      const memberCompanyTypeRef = useFormRef()
       const showMemberCompanyFormDialog = ref(false)
       const hideMemberCompanyForm = () => {
         showMemberCompanyFormDialog.value = false;
@@ -290,22 +297,6 @@ const { findTypeList, updateCompanyType, saveCompanyType, deleteCompanyType, ena
     }
   };
 </script>
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

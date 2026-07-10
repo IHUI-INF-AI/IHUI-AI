@@ -5,7 +5,9 @@
         <label class="mb-1 block text-sm font-medium text-foreground">上级分类</label>
         <div>
           <Input size="small" v-if="parentCategory.name" type="text" class="input-text" disabled v-model="parentCategory.name"></Input>
-          <el-cascader v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="categoryOptions" placeholder="请选择上级分类" @change="changeParentCategory"></el-cascader>
+          <Select v-else class="input-text" v-model="selectedPid" @change="changeParentCategory" placeholder="请选择上级分类" clearable>
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4">
@@ -47,8 +49,8 @@
 </template>
 
 <script>
-// @ts-nocheck
-  import {ref, watch} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
+  import {ref, watch, computed} from "vue"
   import router from "@/router"
   import { resourceApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = resourceApi
@@ -56,6 +58,7 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
   import Button from '@/components/ui/Button.vue';
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
+  import { Select, SelectOption } from '@/components/ui/select'
   import {success, error} from "@/util/tipsUtils";
   export default {
     name: "ResourceCategoryEdit",
@@ -63,7 +66,9 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
       uploadImage,
       Button,
       Input,
-      Switch
+      Switch,
+      Select,
+      SelectOption
     },
     props: {
       data: {
@@ -136,6 +141,22 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
         });
       }
       loadCategory();
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
+      const selectedPid = computed({
+        get: () => { const arr = selectedPidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+        set: (val) => { selectedPidList.value = [val] }
+      })
       const changeParentCategory = () => {
         if (category.value.selectedPidList && category.value.selectedPidList.length > 0) {
           let id = selectedPidList.value[selectedPidList.value.length - 1];
@@ -159,7 +180,7 @@ const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = 
         category.value.image = "";
         uploadData.value.files = [];
       }
-      const categoryRef = ref(null)
+      const categoryRef = useFormRef()
       const submit = () => {
         categoryRef.value.validate(valid => {
           if (!valid) {

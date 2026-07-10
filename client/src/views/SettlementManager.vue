@@ -1,10 +1,11 @@
 <template>
   <div class="settlement-manager">
-    <el-page-header @back="goBack" class="page-header">
-      <template #content>
-        <h2>{{ t('settlement.title') }}</h2>
-      </template>
-    </el-page-header>
+    <div class="page-header flex items-center gap-2">
+      <button type="button" class="inline-flex items-center justify-center rounded-md p-1 hover:bg-muted" @click="goBack">
+        <ArrowLeft class="h-4 w-4" />
+      </button>
+      <h2>{{ t('settlement.title') }}</h2>
+    </div>
 
     <!-- 统计卡片 -->
     <div class="flex flex-wrap gap-5 stats-cards" v-if="overview">
@@ -55,16 +56,16 @@
               clearable
               @input="debouncedLoadSettlements"
             />
-            <el-select
+            <Select
               v-model="filterSettlement"
               @change="loadSettlements"
               style="width: 120px"
               clearable
             >
-              <el-option :label="t('settlement.allStatus')" value="" />
-              <el-option :label="t('settlement.unsettled')" value="0" />
-              <el-option :label="t('settlement.settled')" value="1" />
-            </el-select>
+              <SelectOption :label="t('settlement.allStatus')" value="" />
+              <SelectOption :label="t('settlement.unsettled')" value="0" />
+              <SelectOption :label="t('settlement.settled')" value="1" />
+            </Select>
             <Button variant="outline" @click="loadSettlements">
               <RefreshCw class="h-4 w-4" />
               {{ t('common.refresh') }}
@@ -153,20 +154,34 @@
         <DialogTitle>{{ t('settlement.settlementDetail') }}</DialogTitle>
       </DialogHeader>
       <div v-if="currentSettlement" class="settlement-detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item :label="t('settlement.agentName')">
+        <div class="grid grid-cols-2 gap-px bg-border rounded-md overflow-hidden border border-border">
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.agentName') }}</span>
+            <span class="text-sm">
             {{ currentSettlement.agent_name }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('settlement.orderNo')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.orderNo') }}</span>
+            <span class="text-sm">
             {{ currentSettlement.order_no }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('settlement.amount')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.amount') }}</span>
+            <span class="text-sm">
             ¥{{ ((currentSettlement.amount || 0) / 100).toFixed(2) }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('settlement.chargeType')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.chargeType') }}</span>
+            <span class="text-sm">
             {{ currentSettlement.accountType || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('settlement.settlementStatus')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.settlementStatus') }}</span>
+            <span class="text-sm">
             <Tag :type="currentSettlement.settlement === '1' ? 'success' : 'warning'">
               {{
                 currentSettlement.settlement === '1'
@@ -174,8 +189,11 @@
                   : t('settlement.unsettled')
               }}
             </Tag>
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('settlement.withdrawalStatus')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.withdrawalStatus') }}</span>
+            <span class="text-sm">
             <Tag :type="currentSettlement.withdrawal === '1' ? 'success' : 'info'">
               {{
                 currentSettlement.withdrawal === '1'
@@ -183,11 +201,15 @@
                   : t('settlement.notWithdrawn')
               }}
             </Tag>
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('settlement.createTime')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('settlement.createTime') }}</span>
+            <span class="text-sm">
             {{ formatTime(currentSettlement.create_time) }}
-          </el-descriptions-item>
-        </el-descriptions>
+            </span>
+          </div>
+        </div>
       </div>
     </Dialog>
 
@@ -200,12 +222,10 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('settlement.startDate') }}</label>
           <div class="flex-1">
-            <el-date-picker
-              v-model="syncForm.start_date"
+            <Input
               type="date"
+              v-model="syncForm.start_date"
               :placeholder="t('settlement.selectStartDate')"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
               style="width: 100%"
             />
           </div>
@@ -213,12 +233,10 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-28 shrink-0 text-sm font-medium text-foreground">{{ t('settlement.endDate') }}</label>
           <div class="flex-1">
-            <el-date-picker
-              v-model="syncForm.end_date"
+            <Input
               type="date"
+              v-model="syncForm.end_date"
               :placeholder="t('settlement.selectEndDate')"
-              format="YYYY-MM-DD"
-              value-format="YYYY-MM-DD"
               style="width: 100%"
             />
           </div>
@@ -251,8 +269,7 @@ import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { usePageState } from '@/composables/usePageState'
-import { ApiErrorType } from '@/utils/errorHandler'
-import { RefreshCw } from '@/lib/lucide-fallback'
+import { RefreshCw, ArrowLeft } from '@/lib/lucide-fallback'
 import {
   getSettlementList,
   getSettlementDetail,
@@ -272,6 +289,7 @@ import Button from '@/components/ui/Button.vue'
 import { Pagination } from '@/components/ui/pagination'
 import { Input } from '@/components/ui/input'
 import { Tag } from '@/components/ui/tag'
+import { Select, SelectOption } from '@/components/ui/select'
 
 const { t } = useI18n()
 
@@ -361,22 +379,13 @@ const loadSettlements = async () => {
       pagination.total = response.data?.pagination?.total || 0
     } else {
       const errorMsg = response.message || t('settlement.loadFailed')
-      pageError.value = {
-        type: ApiErrorType.BUSINESS,
-        code: response.code,
-        message: errorMsg,
-      }
+      pageError.value = errorMsg
       showErrorMsg(errorMsg)
     }
   } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('settlement.loadFailed')
-    pageError.value = {
-      type: ApiErrorType.UNKNOWN,
-      code: 500,
-      message: errorMsg,
-      originalError: error,
-    }
+    pageError.value = errorMsg
     showErrorMsg(errorMsg)
   } finally {
     loading.value = false

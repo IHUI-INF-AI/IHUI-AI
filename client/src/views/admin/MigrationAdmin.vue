@@ -9,15 +9,36 @@
           <Button variant="outline" size="sm" @click="loadHealth">{{ t('common.refresh') }}</Button>
         </div>
       </CardHeader><CardContent class="p-5">
-            <el-descriptions v-if="health" :column="2" border>
-        <el-descriptions-item label="G 盘 zhs_ai_project">{{ health.g_disk?.engines?.ai }}</el-descriptions-item>
-        <el-descriptions-item label="G 盘 zhs_center_project">{{ health.g_disk?.engines?.center }}</el-descriptions-item>
-        <el-descriptions-item label="G 盘 zhs_educational_training">{{ health.g_disk?.engines?.course }}</el-descriptions-item>
-        <el-descriptions-item label="H 盘 member-service">{{ health.h_disk?.['ihui-ai-edu-member-service'] }}</el-descriptions-item>
-        <el-descriptions-item label="H 盘 learn-service">{{ health.h_disk?.['ihui-ai-edu-learn-service'] }}</el-descriptions-item>
-        <el-descriptions-item label="id_mapping 总数">{{ health.id_mapping_count }}</el-descriptions-item>
-        <el-descriptions-item label="checkpoint 总数">{{ health.checkpoint_count }}</el-descriptions-item>
-      </el-descriptions>
+            <div v-if="health" class="grid grid-cols-2 gap-px bg-border rounded-md overflow-hidden border border-border">
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">G 盘 zhs_ai_project</span>
+          <span class="text-sm">{{ health.g_disk?.engines?.ai }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">G 盘 zhs_center_project</span>
+          <span class="text-sm">{{ health.g_disk?.engines?.center }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">G 盘 zhs_educational_training</span>
+          <span class="text-sm">{{ health.g_disk?.engines?.course }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">H 盘 member-service</span>
+          <span class="text-sm">{{ health.h_disk?.['ihui-ai-edu-member-service'] }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">H 盘 learn-service</span>
+          <span class="text-sm">{{ health.h_disk?.['ihui-ai-edu-learn-service'] }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">id_mapping 总数</span>
+          <span class="text-sm">{{ health.id_mapping_count }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">checkpoint 总数</span>
+          <span class="text-sm">{{ health.checkpoint_count }}</span>
+        </div>
+      </div>
     </CardContent></Card>
 
     <!-- 批次列表 -->
@@ -124,7 +145,7 @@
             <TableCell>{{ row.source_table }}</TableCell>
             <TableCell>{{ row.target_table }}</TableCell>
             <TableCell>
-              <Tag :type="statusTagType(row.status)">{{ row.status }}</Tag>
+              <Tag :type="statusTagType(row.status ?? '')">{{ row.status }}</Tag>
             </TableCell>
             <TableCell>{{ row.migrated_rows }}</TableCell>
             <TableCell>{{ row.total_rows }}</TableCell>
@@ -141,13 +162,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import {
+import { ElMessage, ElMessageBox } from '@/utils/message'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import Button from '@/components/ui/Button.vue'
 import { Tag } from '@/components/ui/tag'
+import {
   type BatchInfo,
   type CheckpointInfo,
   type TableVerifyInfo,
@@ -247,7 +268,7 @@ const confirmRollback = async (batchId: string) => {
       type: 'error',
       confirmButtonText: '我已确认',
     })
-    await rollbackBatch(batchId, true)
+    await rollbackBatch(batchId)
     ElMessage.success('回滚已启动')
     setTimeout(loadBatches, 2000)
   } catch (e) {

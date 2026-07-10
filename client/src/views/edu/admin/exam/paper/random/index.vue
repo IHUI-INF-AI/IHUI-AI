@@ -4,12 +4,12 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
         <div class="flex-1">
-          <el-cascader size="small" style="width: 100%;"
-                       v-model="selectCidList"
-                       :props="{ multiple: true, checkStrictly: true }"
-                       :options="categoryOptions"
-                       @change="changeCategory">
-          </el-cascader>
+          <Select size="small" style="width: 100%;"
+                  multiple
+                  v-model="selectCidList"
+                  @change="changeCategory">
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4 flex items-center gap-4">
@@ -36,11 +36,12 @@
                 <div class="question-rule-item">
                   <div class="title">题目分类</div>
                   <div class="content">
-                    <el-cascader size="small" style="width: 100%;"
-                                 v-model="selectQuestionCidList"
-                                 :props="{ multiple: true, checkStrictly: true }"
-                                 :options="questionCategoryOptions"
-                                 @change="changeQuestionCategory"></el-cascader>
+                    <Select size="small" style="width: 100%;"
+                            multiple
+                            v-model="selectQuestionCidList"
+                            @change="changeQuestionCategory">
+                      <SelectOption v-for="item in flatQuestionCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </Select>
                   </div>
                 </div>
                 <div class="question-rule-item">
@@ -56,7 +57,9 @@
                     </div>
                     <div class="content-item">
                       <span>题目难度：</span>
-                      <el-rate v-model="questionRule.singleChoice.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                      <div class="inline-flex gap-1" style="width: 150px;">
+                        <svg v-for="i in 5" :key="i" @click="questionRule.singleChoice.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= questionRule.singleChoice.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -73,7 +76,9 @@
                     </div>
                     <div class="content-item">
                       <span>题目难度：</span>
-                      <el-rate v-model="questionRule.multiChoice.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                      <div class="inline-flex gap-1" style="width: 150px;">
+                        <svg v-for="i in 5" :key="i" @click="questionRule.multiChoice.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= questionRule.multiChoice.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -90,7 +95,9 @@
                     </div>
                     <div class="content-item">
                       <span>题目难度：</span>
-                      <el-rate v-model="questionRule.judgment.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                      <div class="inline-flex gap-1" style="width: 150px;">
+                        <svg v-for="i in 5" :key="i" @click="questionRule.judgment.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= questionRule.judgment.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -107,7 +114,9 @@
                     </div>
                     <div class="content-item">
                       <span>题目难度：</span>
-                      <el-rate v-model="questionRule.fillBlank.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                      <div class="inline-flex gap-1" style="width: 150px;">
+                        <svg v-for="i in 5" :key="i" @click="questionRule.fillBlank.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= questionRule.fillBlank.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -124,7 +133,9 @@
                     </div>
                     <div class="content-item">
                       <span>题目难度：</span>
-                      <el-rate v-model="questionRule.subjective.difficulty" style="display: inline-block;width: 150px;" :colors="colors"></el-rate>
+                      <div class="inline-flex gap-1" style="width: 150px;">
+                        <svg v-for="i in 5" :key="i" @click="questionRule.subjective.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= questionRule.subjective.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -166,7 +177,9 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-28 shrink-0 text-sm font-medium text-foreground">试卷难度：</label>
         <div class="flex-1">
-          <el-rate style="line-height: 48px;" v-model="paper.difficulty" :colors="colors"></el-rate>
+          <div class="flex gap-1" style="line-height: 48px;">
+            <svg v-for="i in 5" :key="i" @click="paper.difficulty = i" :class="['h-4 w-4 cursor-pointer', i <= paper.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+          </div>
         </div>
       </div>
     </form>
@@ -174,8 +187,8 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
-  import {ref} from "vue"
+  import {ref, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import { examApi as questionCategoryApi } from '@/api/edu/admin-api'
   import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree, getAllParent } = examApi
@@ -190,9 +203,12 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
   import { Textarea } from '@/components/ui/textarea'
+  import { Select, SelectOption } from '@/components/ui/select'
 export default {
     name: "ExamPaperRandomIndex",
     components: {
+      Select,
+      SelectOption,
       Button,
       Input,
       Textarea,
@@ -225,6 +241,18 @@ export default {
       }
       const categoryOptions = ref([])
       const selectCidList = ref([])
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
       const questionList = ref([])
       const questionRule = ref({
         cidList: [],
@@ -256,6 +284,18 @@ export default {
       })
       const selectQuestionCidList = ref([])
       const questionCategoryOptions = ref([])
+      const flatQuestionCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(questionCategoryOptions.value || [])
+        return result
+      })
       // 获取分类
       findCategoryList(0, true, (res) => {
         if (res && res.length) {
@@ -265,11 +305,7 @@ export default {
             // 获取试卷信息
             getBaseInfo(route.query.id, (res) => {
               paper.value = res;
-              selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-              paper.value.cidList = []
-              for (const valElement of selectCidList.value) {
-                paper.value.cidList.push(valElement[valElement.length - 1])
-              }
+              selectCidList.value = res.cidList || []
               paper.value.questionIdList = []
               if (res.questionList && res.questionList.length) {
                 for (const valElement of res.questionList) {
@@ -281,7 +317,7 @@ export default {
                 questionRule.value = JSON.parse(res.ruleJson);
               }
               if (questionCategoryOptions.value && questionCategoryOptions.value.length) {
-                selectQuestionCidList.value = getAllParent(questionCategoryOptions.value, questionRule.value.cidList);
+                selectQuestionCidList.value = questionRule.value.cidList || []
               }
             })
           }
@@ -289,25 +325,19 @@ export default {
       })
       // 选择分类
       const changeCategory = (val) => {
-        paper.value.cidList = []
-        for (const valElement of val) {
-          paper.value.cidList.push(valElement[valElement.length - 1])
-        }
+        paper.value.cidList = val || []
       }
       questionCategoryApi.findCategoryList(0, true, (res) => {
         if (res && res.length) {
           questionCategoryOptions.value = toTree(res);
           questionCategoryOptions.value.splice(0, 1);
           if (questionRule.value && questionRule.value.cidList && questionRule.value.cidList.length) {
-            selectQuestionCidList.value = getAllParent(questionCategoryOptions.value, questionRule.value.cidList);
+            selectQuestionCidList.value = questionRule.value.cidList || []
           }
         }
       })
       const changeQuestionCategory = (val) => {
-        questionRule.value.cidList = []
-        for (const valElement of val) {
-          questionRule.value.cidList.push(valElement[valElement.length - 1])
-        }
+        questionRule.value.cidList = val || []
       }
       const changeRule = () => {
         paper.value.score = 0;
@@ -317,7 +347,7 @@ export default {
         paper.value.score += (questionRule.value.fillBlank.number || 0) * (questionRule.value.fillBlank.score || 0);
         paper.value.score += (questionRule.value.subjective.number || 0) * (questionRule.value.subjective.score || 0);
       }
-      const paperRef = ref();
+      const paperRef = useFormRef()
       const submitBaseInfo = () => {
         if (!(questionRule.value.singleChoice.number && questionRule.value.singleChoice.score) &&
             !(questionRule.value.singleChoice.number && questionRule.value.singleChoice.score) &&
@@ -376,6 +406,8 @@ export default {
         paperRules,
         categoryOptions,
         selectCidList,
+        flatCategoryOptions,
+        flatQuestionCategoryOptions,
         paperRef,
         changeCategory,
         submitBaseInfo,
@@ -403,12 +435,6 @@ export default {
   .option-delete:hover {
     color: hsl(var(--primary));
   }
-  :deep(.el-card__header){
-    padding: 0;
-  }
-  :deep(.el-card .el-table__row:last-child td){
-    border: 0;
-  }
   .question-rule {
     .question-rule-item {
       background: #f7f7f7;
@@ -422,9 +448,6 @@ export default {
       }
       .content {
         padding: 10px 20px;
-        :deep(.el-input){
-          width: 150px;
-        }
         .content-item {
           display: inline-block;
           width: 33.3333%;
@@ -432,9 +455,6 @@ export default {
       }
       &:first-child {
         .content {
-          :deep(.el-input){
-            width: 100%;
-          }
         }
       }
     }

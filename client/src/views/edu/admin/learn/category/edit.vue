@@ -5,7 +5,9 @@
         <label class="mb-1 block text-sm font-medium text-foreground">上级分类：</label>
         <div>
           <Input size="small" v-if="parentCategory.name" type="text" class="input-text" disabled v-model="parentCategory.name" />
-          <el-cascader  v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="categoryOptions" placeholder="请选择上级分类" @change="changeParentCategory"></el-cascader>
+          <Select v-else class="input-text" v-model="selectedPid" @change="changeParentCategory" placeholder="请选择上级分类" clearable>
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4">
@@ -47,23 +49,26 @@
 </template>
 
 <script>
-// @ts-nocheck
   import router from "@/router"
   import uploadImage from "@/components/Uplaod/index.vue"
-  import {ref, watch} from "vue"
+  import {ref, watch, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import {success, error} from "@/util/tipsUtils"
   import { learnApi } from '@/api/edu/admin-api'
   const { findCategoryList, toTree, getCategory, saveCategory, updateCategory } = learnApi
   import Button from '@/components/ui/Button.vue'
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
+  import { Select, SelectOption } from '@/components/ui/select'
   export default {
     name: "LearnCategoryEdit",
     components: {
       uploadImage,
       Button,
       Input,
-      Switch
+      Switch,
+      Select,
+      SelectOption
     },
     props: {
       data: {
@@ -159,7 +164,7 @@
         category.value.image = "";
         uploadData.value.files = [];
       }
-      const categoryRef = ref(null)
+      const categoryRef = useFormRef()
       const submit = () => {
         categoryRef.value.validate(valid => {
           if (!valid) {
@@ -184,9 +189,32 @@
           }
         });
       }
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) {
+              flatten(node.children, label)
+            }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
+      const selectedPid = computed({
+        get: () => {
+          const arr = selectedPidList.value
+          return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : ''
+        },
+        set: (val) => { selectedPidList.value = [val] }
+      })
       return {
         selectedPidList,
+        selectedPid,
         categoryOptions,
+        flatCategoryOptions,
         parentCategory,
         category,
         rules,
@@ -204,32 +232,12 @@
 </script>
 <style scoped lang="scss">
 .category-edit {
-  :deep(.el-upload-list--picture-card .el-upload-list__item){
-    width: 260px;
-    height: 160px;
-  }
   .dialog-footer {
     padding-top: 20px;
     text-align: center;
-    :deep(.el-button){
-      border-color: #f3f5f8;
-    }
   }
 }
 
-//穿透改颜色
-:deep(.el-input__wrapper) {
-  //background-color: #f2e9fb;
-  background: rgba(255, 255, 255, 0.283);
-  box-shadow: inset 6.64px -6.64px 6.64px 0px rgba(214, 214, 214, 0.326),inset -6.64px 6.64px 6.64px 0px rgba(255, 255, 255, 0.326);
-  border: 1px solid #B7B5CA;
-}
-//el-upload--picture-card
-:deep(.el-upload) {
-  //background-color: #f2e9fb;
-  background: rgba(206, 203, 241, 0.25);
-  border: 1px solid #B7B5CA;
-}
 .ql_bu{
   width: 130px;
   height: 45px;

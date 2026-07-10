@@ -65,7 +65,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import { VideoCamera, User, CircleCheck, Timer } from '@/lib/lucide-fallback';
 import * as echarts from "echarts";

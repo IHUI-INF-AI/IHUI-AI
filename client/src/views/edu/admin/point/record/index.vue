@@ -1,15 +1,19 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item>
-          <el-date-picker size="small" v-model="datetime" @change="datetimeChange" type="datetimerange" :shortcuts="shortcuts" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" align="right"></el-date-picker>
-        </el-form-item>
-        <el-form-item>
+      <form class="flex flex-wrap items-end gap-4" @submit.prevent>
+        <div>
+          <div class="flex items-center gap-2">
+            <Input type="datetime-local" size="small" v-model="datetime[0]" placeholder="开始日期" @change="datetimeChange" />
+            <span class="text-muted-foreground">至</span>
+            <Input type="datetime-local" size="small" v-model="datetime[1]" placeholder="结束日期" @change="datetimeChange" />
+          </div>
+        </div>
+        <div>
           <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
           <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
-        </el-form-item>
-        <el-form-item>
+        </div>
+        <div>
           <Select size="small" v-model="searchParam.type" @change="search" placeholder="请选择类型">
             <SelectOption label="全部" value=""></SelectOption>
             <SelectOption label="增加积分" value="increase"></SelectOption>
@@ -17,8 +21,8 @@
             <SelectOption label="回退积分" value="fallback"></SelectOption>
             <SelectOption label="回收积分" value="recycle"></SelectOption>
           </Select>
-        </el-form-item>
-      </el-form>
+        </div>
+      </form>
     </div>
     <div class="content">
       <div class="content-list">
@@ -54,7 +58,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref} from "vue"
   import { pointApi } from '@/api/edu/admin-api'
 const { findList } = pointApi
@@ -82,34 +85,9 @@ const { findList } = pointApi
         fallback: "回退积分",
         recycle: "回收积分"
       }
-      const shortcuts = [{
-        text: "最近一周",
-        value: (() => {
-          const end = new Date();
-          const start = new Date();
-          start.setTime(start.getTime() - 3600 * 1000 * 24 * 7);
-          return [start, end]
-        })()
-      }, {
-        text: "最近一个月",
-        value: (() => {
-          const end = new Date();
-          const start = new Date();
-          start.setTime(start.getTime() - 3600 * 1000 * 24 * 30);
-          return [start, end]
-        })()
-      }, {
-        text: "最近三个月",
-        value: (() => {
-          const end = new Date();
-          const start = new Date();
-          start.setTime(start.getTime() - 3600 * 1000 * 24 * 90);
-          return [start, end]
-        })()
-      }]
       const list = ref([])
       const total = ref(0)
-      const datetime = ref(null)
+      const datetime = ref([null, null])
       const dataLoading = ref(true)
       const searchParam = ref({
         startDate: "",
@@ -119,12 +97,15 @@ const { findList } = pointApi
         size: 20,
         current: 1
       })
-      const datetimeChange = (value) => {
-        if (value && value.length) {
-          searchParam.value.startDate = formatDate(value[0])
-          searchParam.value.endDate = formatDate(value[1])
+      const datetimeChange = () => {
+        if (datetime.value[0]) {
+          searchParam.value.startDate = formatDate(datetime.value[0])
         } else {
           searchParam.value.startDate = null
+        }
+        if (datetime.value[1]) {
+          searchParam.value.endDate = formatDate(datetime.value[1])
+        } else {
           searchParam.value.endDate = null
         }
         loadList();
@@ -162,29 +143,12 @@ const { findList } = pointApi
         typeMap,
         dataLoading,
         datetime,
-        shortcuts,
         datetimeChange
       };
     }
   };
 </script>
 
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

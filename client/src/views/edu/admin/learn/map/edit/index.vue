@@ -17,7 +17,7 @@
                 <template v-for="(item, index) in selectTopicList" :key="item.id">
                   <div class="flex">
                     <Input size="small" placeholder="请选择专题" v-model="item.title" readonly />
-                    <Delete @click="deleteSelectTopic(item, index)" class="h-4 w-4 cursor-pointer el-input__icon search-btn" />
+                    <Delete @click="deleteSelectTopic(item, index)" class="h-4 w-4 cursor-pointer search-btn" />
                   </div>
                 </template>
               </div>
@@ -61,16 +61,22 @@
         </div>
       </div>
       <div class="w-1/6" style="position: relative;">
-        <el-affix :offset="160" class="affix">
+        <div class="affix" style="position: sticky; top: 160px; z-index: 10">
           <div class="step-list">
             <div class="title">
               步骤导航
             </div>
-            <el-steps class="steps" finish-status="success" direction="vertical" :active="stepActive">
-              <el-step v-for="(step) in steps" :key="step.key" @click="stepClick(step.key)" :class="{'step-active': showStep === step.key}" :title="step.name"></el-step>
-            </el-steps>
+            <div class="steps flex flex-col">
+              <template v-for="(step, i) in steps" :key="step.key">
+                <div @click="stepClick(step.key)" :class="['flex items-center cursor-pointer', {'step-active': showStep === step.key}]">
+                  <div :class="['flex h-8 w-8 items-center justify-center rounded-full text-sm flex-shrink-0', i <= stepActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground']">{{ i + 1 }}</div>
+                  <span class="ml-2 text-sm">{{ step.name }}</span>
+                </div>
+                <div v-if="i < steps.length - 1" class="ml-4 h-4 w-px bg-border"></div>
+              </template>
+            </div>
           </div>
-        </el-affix>
+        </div>
       </div>
     </div>
     <Dialog class="custom-dialog" v-model="showTopicDialog" width="80%" @close="hideTopic">
@@ -82,7 +88,6 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
   import router from "@/router"
   import {Delete} from '@/lib/lucide-fallback'
   import Upload from "@/components/Uplaod/index.vue"
@@ -93,6 +98,7 @@
   import { Alert } from '@/components/ui/alert'
   import { Input } from '@/components/ui/input'
   import {ref} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import {useRoute} from "vue-router"
   import {success} from "@/util/tipsUtils"
   import { learnApi } from '@/api/edu/admin-api'
@@ -184,7 +190,7 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
         uploadData.value.files = []
       }
       // 提交基本信息
-      const learnMapRef = ref(null)
+      const learnMapRef = useFormRef()
       const submitBaseInfo = () => {
         learnMapRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -311,24 +317,7 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
         font-size: 12px;
         color: #999999;
       }
-      :deep(.el-upload--picture-card),
-      :deep(.el-upload-list--picture-card .el-upload-list__item){
-        width: 100%;
-        height: 62.5%;
-        border: none;
-        display: flex;
-        margin: 0;
-        min-height: 146px;
-        justify-content: center;
-        flex-direction: column;
-      }
       .no-plus {
-        :deep(.el-upload--picture-card){
-          min-height: inherit;
-          justify-content: inherit;
-          flex-direction: inherit;
-          display: none;
-        }
         img {
           max-height: 460px;
         }
@@ -349,74 +338,9 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
           margin: 0 auto;
           width: 180px;
           text-align: left;
-          :deep(.el-button){
-            width: 100%;
-          }
         }
       }
     }
-  }
-  :deep(.el-input__inner), :deep(.el-input-number){
-    height: 34px;
-    line-height: 34px;
-    font-size: 12px;
-    border-color: #f3f5f8;
-    //border: none;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-    .el-input-number__decrease, .el-input-number__increase {
-      background: #FFFFFF;
-      line-height: 32px;
-      border: none;
-      &:focus, &:hover {
-        border-color: #f3f5f8;
-      }
-    }
-  }
-  :deep(.el-textarea__inner){
-    border-color: #f3f5f8;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-  }
-  :deep(.el-cascader .el-input .el-input__inner:focus){
-    border-color: #f3f5f8;
-  }
-  :deep(.el-input__icon){
-    line-height: 34px;
-    cursor: pointer;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-form-item__label){
-    font-size: 12px;
-  }
-  :deep(.el-table th),
-  :deep(.el-table td){
-    padding: 5px 0;
-    font-size: 12px;
-    color: #000000;
-  }
-  :deep(.el-table--enable-row-hover .el-table__body tr:hover > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-table__body tr.current-row > td){
-    background-color: #FFFFFF;
-  }
-  :deep(.el-button--text){
-    color: #303133;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-button){
-    border-color: #f3f5f8;
-  }
-  :deep(.el-cascader:not(.is-disabled):hover .el-input__inner){
-    cursor: pointer;
-    border-color: #f3f5f8;
   }
   .affix {
     .step-list {
@@ -428,42 +352,11 @@ const { saveBaseInfo, updateBaseInfo, getBaseInfo, publishLearnMap, unPublishLea
       .steps {
         height: 80px;
         padding-left: 10px;
-        :deep(.el-step__title){
-          font-size: 14px;
-        }
-        :deep(.el-step__icon){
-          width: 20px;
-          height: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__head){
-          width: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__title){
-          cursor:pointer;
-        }
-        :deep(.el-step.is-vertical .el-step__line){
-          width: 1px;
-          left: 10px;
-          top: 2px;
-        }
-        :deep(.el-step__icon.is-text){
-          border-width: 1px;
-          cursor:pointer;
-        }
-        :deep(.step-active .el-step__head.is-finish){
-          color: red;
-        }
       }
     }
-  }
-  :deep(.el-affix--fixed){
-    z-index: 98;
   }
   :deep(.custom-dialog){
     max-height: 700px;
     overflow-y: auto;
-    .el-dialog__body {
-      padding: 0;
-    }
   }
 </style>

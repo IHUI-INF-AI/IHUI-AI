@@ -61,7 +61,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref, markRaw} from "vue"
   import Page from "@/components/Page/index.vue"
   import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'

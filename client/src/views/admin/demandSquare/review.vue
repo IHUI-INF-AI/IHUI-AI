@@ -11,21 +11,60 @@
           <Tag :type="statusTagType" size="small">{{ statusLabel }}</Tag>
         </div>
       </CardHeader><CardContent class="p-5">
-            <el-descriptions :column="2" border>
-        <el-descriptions-item label="需求 ID">{{ detail.id }}</el-descriptions-item>
-        <el-descriptions-item label="提交人">{{ detail.user_name || detail.user_id || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="关联 Agent">{{ detail.agent_name || detail.agent_id || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="类型">{{ detail.type || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="优先级">{{ priorityLabel }}</el-descriptions-item>
-        <el-descriptions-item label="预算">{{ detail.budget != null ? `¥${(detail.budget / 100).toFixed(2)}` : '-' }}</el-descriptions-item>
-        <el-descriptions-item label="截止时间">{{ formatTime(detail.deadline) }}</el-descriptions-item>
-        <el-descriptions-item label="提交时间">{{ formatTime(detail.create_time) }}</el-descriptions-item>
-        <el-descriptions-item label="认领开发者">{{ detail.developer_name || detail.developer_id || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="认领时间">{{ formatTime(detail.accept_time) }}</el-descriptions-item>
-        <el-descriptions-item label="需求描述" :span="2">{{ detail.description || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="交付物" :span="2">{{ detail.deliverable || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ detail.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
+            <div class="grid grid-cols-2 gap-px bg-border rounded-md overflow-hidden border border-border">
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">需求 ID</span>
+          <span class="text-sm">{{ detail.id }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">提交人</span>
+          <span class="text-sm">{{ detail.user_name || detail.user_id || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">关联 Agent</span>
+          <span class="text-sm">{{ detail.agent_name || detail.agent_id || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">类型</span>
+          <span class="text-sm">{{ detail.type || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">优先级</span>
+          <span class="text-sm">{{ priorityLabel }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">预算</span>
+          <span class="text-sm">{{ detail.budget != null ? `¥${((detail.budget as number) / 100).toFixed(2)}` : '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">截止时间</span>
+          <span class="text-sm">{{ formatTime(detail.deadline as string) }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">提交时间</span>
+          <span class="text-sm">{{ formatTime(detail.create_time as string) }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">认领开发者</span>
+          <span class="text-sm">{{ detail.developer_name || detail.developer_id || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">认领时间</span>
+          <span class="text-sm">{{ formatTime(detail.accept_time as string) }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">需求描述</span>
+          <span class="text-sm">{{ detail.description || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">交付物</span>
+          <span class="text-sm">{{ detail.deliverable || '-' }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3 col-span-2">
+          <span class="text-xs text-muted-foreground mb-1">备注</span>
+          <span class="text-sm">{{ detail.remark || '-' }}</span>
+        </div>
+      </div>
     </CardContent></Card>
 
     <Card class="review-card" v-if="detail"><CardHeader><CardTitle>审核操作</CardTitle></CardHeader><CardContent class="p-5">
@@ -55,8 +94,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@/lib/lucide-fallback'
+import { ElMessage } from '@/utils/message'
 import { demandApi, type DemandItem } from '@/api/admin/admin-demand-square'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Button from '@/components/ui/Button.vue'
@@ -123,7 +162,7 @@ const doReview = async (pass: boolean) => {
   if (!detail.value) return
   submitting.value = true
   try {
-    await demandApi.demandReview({ tid: detail.value.id, pass, remark: reviewForm.value.remark || undefined })
+    await demandApi.demandReview({ tid: detail.value.id!, pass, remark: reviewForm.value.remark || undefined })
     ElMessage.success(pass ? '审核通过' : '已拒绝')
     router.push('/admin/demandSquare')
   } catch {

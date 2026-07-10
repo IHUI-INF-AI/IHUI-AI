@@ -19,7 +19,9 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
           <div>
-            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+            <Select size="small" v-model="selectedCid" @change="search" clearable>
+              <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </Select>
           </div>
         </div>
         <div class="mb-4">
@@ -132,21 +134,25 @@
         </TableBody>
       </Table>
     </div>
-    <el-drawer class="sign-up-drawer" v-model="signUpDrawer" direction="rtl" :before-close="signUpDrawerClose" destroy-on-close>
-      <template #header>
-        <div class="work-item-box">
-          <div class="item-content">
-            <div class="content-main">
-              <div class="main-title">
-                <div class="title-box two-line">
-                  <span class="title-text">{{selectTopic.name || selectTopic.title || selectTopic.content}}</span>
+    <Teleport to="body">
+      <Transition name="drawer-slide">
+        <div v-if="signUpDrawer" class="drawer-mask" @click.self="signUpDrawerClose">
+          <div class="drawer-panel sign-up-drawer">
+            <div class="drawer-header">
+              <div class="work-item-box">
+                <div class="item-content">
+                  <div class="content-main">
+                    <div class="main-title">
+                      <div class="title-box two-line">
+                        <span class="title-text">{{selectTopic.name || selectTopic.title || selectTopic.content}}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </template>
-      <div class="topic-list-wrapper">
+            <div class="drawer-body">
+              <div class="topic-list-wrapper">
         <div v-if="signUpLoading" class="loading-text">加载中...</div>
         <Table v-show="!signUpLoading" class="w-full">
           <TableHeader>
@@ -167,16 +173,19 @@
           </TableBody>
         </Table>
         <page :total="signUpTotal" :current-change="signUpCurrentChange" :size-change="signUpSizeChange" :page-size="signUpParam.size"></page>
-      </div>
-    </el-drawer>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     <comment-drawer topic-type="exam" :drawer-close="drawerClose" :show-drawer="drawer" :topic="selectTopic"/>
     <page :total="total" :current-change="currentChange" :size-change="sizeChange" :page-size="searchParam.size"></page>
   </div>
 </template>
 
 <script>
-// @ts-nocheck
-import {ref} from "vue"
+import {ref, computed} from "vue"
 import router from "@/router"
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = examApi
@@ -228,6 +237,22 @@ export default {
     const selectCidList = ref([])
     const categoryOptions = ref([])
     const examIdList = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     const searchParam = ref({
       keyword: "",
       cid: "",
@@ -304,9 +329,8 @@ export default {
     // 查看评论
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true
@@ -314,9 +338,8 @@ export default {
     }
     // 查看报名记录
     const signUpDrawer = ref(false)
-    const signUpDrawerClose = (done) => {
+    const signUpDrawerClose = () => {
       signUpDrawer.value = false
-      done()
     }
     const signUpLoading = ref(false)
     const signUpList = ref([])
@@ -368,6 +391,8 @@ export default {
       searchParam,
       selectCidList,
       categoryOptions,
+      flatCategoryOptions,
+      selectedCid,
       examIdList,
       search,
       selectItem,
@@ -559,11 +584,41 @@ export default {
     width: 242px;
   }
 }
-:deep(.sign-up-drawer){
+.drawer-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer-panel.sign-up-drawer {
   width: calc(100% - 210px);
-  .topic-list-wrapper {
-    padding: 10px;
-  }
+  height: 100%;
+  background: hsl(var(--background));
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.drawer-header {
+  flex-shrink: 0;
+}
+.drawer-body {
+  flex: 1;
+  overflow: auto;
+}
+.drawer-slide-enter-active, .drawer-slide-leave-active {
+  transition: opacity 0.3s ease;
+}
+.drawer-slide-enter-active .drawer-panel, .drawer-slide-leave-active .drawer-panel {
+  transition: transform 0.3s ease;
+}
+.drawer-slide-enter-from, .drawer-slide-leave-to {
+  opacity: 0;
+}
+.drawer-slide-enter-from .drawer-panel, .drawer-slide-leave-to .drawer-panel {
+  transform: translateX(100%);
 }
 </style>
 <style lang="scss">

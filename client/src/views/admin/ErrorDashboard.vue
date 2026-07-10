@@ -99,14 +99,32 @@
       <DialogHeader>
         <DialogTitle>{{ t('adminCommon.title.errorDetail') }}</DialogTitle>
       </DialogHeader>
-      <el-descriptions :column="1" border>
-        <el-descriptions-item :label="t('adminCommon.label.errorId')">{{ currentError?.id }}</el-descriptions-item>
-        <el-descriptions-item :label="t('adminCommon.label.errorType')">{{ currentError?.name }}</el-descriptions-item>
-        <el-descriptions-item :label="t('adminCommon.label.errorMessage')">{{ currentError?.message }}</el-descriptions-item>
-        <el-descriptions-item :label="t('adminCommon.label.pageUrl')">{{ currentError?.url }}</el-descriptions-item>
-        <el-descriptions-item :label="t('adminCommon.label.occurrenceTime')">{{ formatTime(currentError?.timestamp) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('adminCommon.label.userAgent')">{{ currentError?.userAgent }}</el-descriptions-item>
-      </el-descriptions>
+      <div class="grid grid-cols-1 gap-px bg-border rounded-md overflow-hidden border border-border">
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">{{ t('adminCommon.label.errorId') }}</span>
+          <span class="text-sm">{{ currentError?.id }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">{{ t('adminCommon.label.errorType') }}</span>
+          <span class="text-sm">{{ currentError?.name }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">{{ t('adminCommon.label.errorMessage') }}</span>
+          <span class="text-sm">{{ currentError?.message }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">{{ t('adminCommon.label.pageUrl') }}</span>
+          <span class="text-sm">{{ currentError?.url }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">{{ t('adminCommon.label.occurrenceTime') }}</span>
+          <span class="text-sm">{{ formatTime(currentError?.timestamp) }}</span>
+        </div>
+        <div class="flex flex-col bg-background p-3">
+          <span class="text-xs text-muted-foreground mb-1">{{ t('adminCommon.label.userAgent') }}</span>
+          <span class="text-sm">{{ currentError?.userAgent }}</span>
+        </div>
+      </div>
       <div v-if="currentError?.stack" class="stack-section">
         <h4>{{ t('errorDashboard.stackInfo') }}</h4>
         <pre class="stack-content">{{ currentError.stack }}</pre>
@@ -120,7 +138,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, onMounted, watch } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
-import { WarningFilled, CircleCloseFilled, CircleCheckFilled, DataAnalysis } from '@element-plus/icons-vue'
+import { WarningFilled, CircleCloseFilled, CircleCheckFilled, DataAnalysis } from '@/lib/lucide-fallback'
 import echarts from '@/utils/echarts'
 import type { ECharts } from 'echarts'
 import { formatDateTime as _formatTime } from '@/utils/format'

@@ -28,7 +28,9 @@
           <div class="mb-4" v-if="!isComponent">
             <label class="mb-1 block text-sm font-medium text-foreground">分类</label>
             <div>
-              <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+              <Select size="small" v-model="selectedCid" @change="search" clearable>
+                <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </Select>
             </div>
           </div>
         </form>
@@ -61,7 +63,9 @@
                 <TableCell>{{ row.title }}</TableCell>
                 <TableCell>{{ row.score }}</TableCell>
                 <TableCell>{{ row.passScore }}</TableCell>
-                <TableCell><el-rate :disabled="true" v-model="row.difficulty" :colors="colors"></el-rate></TableCell>
+                <TableCell><div class="flex gap-1">
+                  <svg v-for="i in 5" :key="i" :class="['h-4 w-4', i <= row.difficulty ? 'text-yellow-400' : 'text-muted-foreground']" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.783 1.401 8.168L12 18.896l-7.335 3.865 1.401-8.168L.132 9.21l8.2-1.192z"/></svg>
+                </div></TableCell>
                 <TableCell>{{ statusMap[row.status] }}</TableCell>
                 <TableCell v-if="!isComponent">
                   <Button className="right-btn" variant="link" @click="edit(row)" size="sm">编辑</Button>
@@ -126,7 +130,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import {ref, computed} from "vue"
 import { examApi } from '@/api/edu/admin-api'
 const { findCategoryList, toTree } = examApi
@@ -182,6 +185,22 @@ export default {
     const selectCidList = ref([])
     const commodityIdList = ref([])
     const categoryOptions = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     const list = ref([])
     const total = ref(0)
     const expandedRows = ref(new Set())
@@ -297,6 +316,8 @@ export default {
       paperTypeMap,
       statusMap,
       selectCidList,
+      flatCategoryOptions,
+      selectedCid,
       commodityIdList,
       categoryOptions,
       list,

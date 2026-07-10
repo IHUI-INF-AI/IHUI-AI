@@ -1,12 +1,17 @@
 <template>
-  <ElCheckbox v-model="checked" @change="handleChange">
+  <label class="inline-flex items-center gap-2 cursor-pointer">
+    <input
+      type="checkbox"
+      v-model="checked"
+      @change="handleChange"
+      class="h-4 w-4 rounded border-border text-primary focus:ring-ring"
+    />
     <slot></slot>
-  </ElCheckbox>
+  </label>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ElCheckbox } from 'element-plus'
 
 const props = defineProps<{
   modelValue?: boolean
@@ -28,12 +33,9 @@ watch(
   }
 )
 
-const handleChange = (val: boolean) => {
+const handleChange = (e: Event) => {
+  const val = (e.target as HTMLInputElement).checked
   emit('update:modelValue', val)
   emit('change', val)
 }
 </script>
-
-<style scoped>
-/* 可以根据需要添加自定义样式 */
-</style>

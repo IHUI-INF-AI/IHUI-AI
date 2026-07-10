@@ -409,7 +409,7 @@
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/utils/message'
 
 // 14 个 admin/* 零引用 API 集中接入
 import {
@@ -458,7 +458,7 @@ import {
 const activeTab = ref('user')
 const loading = ref(false)
 
-const lists: Record<string, unknown[]> = reactive({
+const lists: Record<string, any[]> = reactive({
   user: [], role: [], menu: [], dept: [], post: [], config: [],
   orders: [], products: [], faq: [], jobLog: [], loginInfo: [], notice: [], agents: [],
 })

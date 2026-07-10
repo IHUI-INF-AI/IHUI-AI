@@ -124,12 +124,10 @@
     "check:dark-overlay-bg-color-unified:staged": "node scripts/check-dark-overlay-bg-color-unified.mjs --staged",
     "check:primary-button-contrast": "node scripts/check-primary-button-contrast.mjs",
     "check:primary-button-contrast:staged": "node scripts/check-primary-button-contrast.mjs --staged",
-    "check:button-text-contrast": "node scripts/check-button-text-contrast.mjs",
-    "check:button-text-contrast:staged": "node scripts/check-button-text-contrast.mjs --staged",
+    "check:no-hsl-primary-border": "node scripts/check-no-hsl-primary-border.mjs --all",
+    "check:no-hsl-primary-border:staged": "node scripts/check-no-hsl-primary-border.mjs",
     "check:color-contrast:systemic": "node scripts/check-color-contrast-systemic.mjs",
     "check:color-contrast:systemic:staged": "node scripts/check-color-contrast-systemic.mjs --staged",
-    "check:sidebar-header": "node scripts/check-sidebar-header.mjs",
-    "check:sidebar-header:staged": "node scripts/check-sidebar-header.mjs --staged",
     "check:sidebar-login-row:alignment": "node scripts/check-sidebar-login-row-alignment.mjs",
     "check:sidebar-login-row:alignment:staged": "node scripts/check-sidebar-login-row-alignment.mjs --staged",
     "check:pre-commit-hook-content": "node scripts/check-pre-commit-hook-content.mjs",
@@ -170,8 +168,8 @@
     "check:keep-build-archive:fix": "node scripts/check-keep-build-archive.mjs --fix"
   },
   "simple-git-hooks": {
-    "pre-commit": "cd client && npx lint-staged --no-stash && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent && npm run check:sidebar:dark-tier:staged --silent && npm run check:sidebar-login-row:alignment:staged --silent && npm run check:ai-header:style-scope:staged --silent && npm run check:ai-customer-service-status:staged --silent && npm run check:session-expired-button:no-double-border:staged --silent && npm run check:dark-overlay-primary-button:no-double-border:staged --silent && npm run check:dark-overlay-bg-color-unified:staged --silent && npm run check:primary-button-contrast:staged --silent && npm run check:button-text-contrast:staged --silent && npm run check:color-contrast:systemic:staged --silent && npm run check:sidebar-header:staged --silent && npm run check:popper-backdrop-leak --silent && node scripts/check-pre-commit-hook-content.mjs",
-    "pre-push": "cd client && npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent && npm run check:keep-build-archive --silent"
+    "pre-commit": "cd client && npx lint-staged --no-stash && npm run check:no-important --silent && node scripts/check-nul.mjs && node scripts/check-markraw-staged.mjs && HIGH_SPECIFICITY_THRESHOLD=0 node scripts/check-high-specificity-staged.mjs && npm run check:i18n:keys --silent && npm run check:agents-md --silent && npm run check:becomesupplier:join-us:staged --silent && npm run check:sidebar:dark-tier:staged --silent && npm run check:sidebar-login-row:alignment:staged --silent && npm run check:ai-header:style-scope:staged --silent && npm run check:ai-customer-service-status:staged --silent && npm run check:session-expired-button:no-double-border:staged --silent && npm run check:dark-overlay-primary-button:no-double-border:staged --silent && npm run check:dark-overlay-bg-color-unified:staged --silent && npm run check:primary-button-contrast:staged --silent && npm run check:no-hsl-primary-border:staged --silent && npm run check:button-text-contrast:staged --silent && npm run check:color-contrast:systemic:staged --silent && npm run check:sidebar-header:staged --silent && npm run check:popper-backdrop-leak --silent && node scripts/check-pre-commit-hook-content.mjs",
+    "pre-push": "cd client && npm run typecheck --silent && HIGH_SPECIFICITY_THRESHOLD=0 npm run check:high-specificity --silent && npm run check:no-hsl-primary-border --silent && npm run check:keep-build-archive --silent"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -227,7 +225,6 @@
   "dependencies": {
     "@aizhs/shared-api": "1.0.0",
     "@aizhs/shared-services": "^1.0.0",
-    "@element-plus/icons-vue": "^2.3.2",
     "@vue-office/docx": "^1.6.3",
     "@vue-office/excel": "^1.7.14",
     "@vue-office/pptx": "^1.0.1",
@@ -245,6 +242,7 @@
     "js-cookie": "^3.0.8",
     "jspdf": "^2.5.2",
     "jszip": "^3.10.1",
+    "lucide-vue-next": "0.577.0",
     "marked": "^17.0.6",
     "markstream-vue": "0.0.3-beta.4",
     "pdfjs-dist": "^5.7.284",
@@ -284,7 +282,6 @@
     "cross-env": "^10.1.0",
     "electron": "^42.4.1",
     "electron-builder": "^26.15.3",
-    "element-plus": "^2.14.2",
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.9.2",
     "jsdom": "^27.4.0",

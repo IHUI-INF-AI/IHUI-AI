@@ -1,23 +1,23 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
+      <form class="flex flex-wrap items-end gap-4" @submit.prevent>
+        <div>
           <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
           <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
-        </el-form-item>
-        <el-form-item class="status">
+        </div>
+        <div class="status">
           <Select size="small" v-model="searchParam.status" @change="search" placeholder="请选择状态">
             <SelectOption label="全部" value=""></SelectOption>
             <SelectOption label="未生效" value="not_effect"></SelectOption>
             <SelectOption label="生效中" value="effect"></SelectOption>
             <SelectOption label="已失效" value="expired"></SelectOption>
           </Select>
-        </el-form-item>
-        <el-form-item>
+        </div>
+        <div>
           <Button size="sm" className="search-btn" variant="default" @click="add">创建积分</Button>
-        </el-form-item>
-      </el-form>
+        </div>
+      </form>
     </div>
     <div class="content">
       <div class="content-list">
@@ -59,17 +59,24 @@
       <DialogHeader>
         <DialogTitle>新增/编辑积分</DialogTitle>
       </DialogHeader>
-      <el-form :model="point" :rules="pointRules" ref="pointRef">
-        <el-form-item label="名称：" label-width="120px" prop="name">
+      <form ref="pointRef" @submit.prevent class="space-y-4">
+        <div class="flex items-center gap-2">
+          <label class="w-28 text-sm text-right">名称：</label>
           <Input size="small" v-model="point.name" placeholder="请输入名称" autocomplete="off"></Input>
-        </el-form-item>
-        <el-form-item label="有效期：" label-width="120px" prop="startDate">
-          <el-date-picker size="small" v-model="datetime" @change="datetimeChange" type="datetimerange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期"></el-date-picker>
-        </el-form-item>
-        <el-form-item label="兑换比例：" label-width="120px" prop="redemptionRatio">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-28 text-sm text-right">有效期：</label>
+          <div class="flex items-center gap-2">
+            <Input type="datetime-local" size="small" v-model="datetime[0]" placeholder="开始日期" @change="datetimeChange" />
+            <span class="text-muted-foreground">至</span>
+            <Input type="datetime-local" size="small" v-model="datetime[1]" placeholder="结束日期" @change="datetimeChange" />
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-28 text-sm text-right">兑换比例：</label>
           <Input size="small" v-model="point.redemptionRatio" placeholder="请输入兑换比例，1元可以兑换多少积分"></Input>
-        </el-form-item>
-      </el-form>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
           <Button size="sm" variant="outline" @click="hidePointForm">取 消</Button>
@@ -81,11 +88,14 @@
       <DialogHeader>
         <DialogTitle>管理积分渠道</DialogTitle>
       </DialogHeader>
-      <el-form :model="pointChannel" ref="pointChannelRef">
-        <el-form-item label="积分渠道：" label-width="120px" prop="name">
-          <el-cascader size="small" v-model="pointChannel.channelIdList" :options="channelOptions" :props="{ checkStrictly: true, multiple: true }" clearable></el-cascader>
-        </el-form-item>
-      </el-form>
+      <form ref="pointChannelRef" @submit.prevent class="space-y-4">
+        <div class="flex items-center gap-2">
+          <label class="w-28 text-sm text-right">积分渠道：</label>
+          <Select size="small" v-model="pointChannel.channelIdList" multiple clearable placeholder="请选择积分渠道">
+            <SelectOption v-for="item in channelOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
           <Button size="sm" variant="outline" @click="hidePointChannelForm">取 消</Button>
@@ -97,7 +107,7 @@
 </template>
 
 <script>
-// @ts-nocheck
+  import { useFormRef } from '@/composables/useFormRef'
   import {ref} from "vue"
   import { pointApi } from '@/api/edu/admin-api'
 const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePointChannel, findPointChannelList } = pointApi
@@ -129,7 +139,7 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
     const list = ref([])
     const total = ref(0)
     const dataLoading = ref(true)
-    const datetime = ref(null)
+    const datetime = ref([null, null])
     const searchParam = ref({
       keyword: "",
       status: "",
@@ -165,18 +175,20 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
       redemptionRatio: [{ required: true, message: "请输入兑换比例", trigger: "blur" }],
     }
     const point = ref({})
-    const pointRef = ref(null)
+    const pointRef = useFormRef()
     const showPointFormDialog = ref(false)
-    const datetimeChange = (value) => {
-      if (value && value.length) {
-        point.value.startDate = value[0]
-        point.value.endDate = value[1]
+    const datetimeChange = () => {
+      if (datetime.value[0]) {
+        point.value.startDate = datetime.value[0]
+      }
+      if (datetime.value[1]) {
+        point.value.endDate = datetime.value[1]
       }
     }
     const hidePointForm = () => {
       showPointFormDialog.value = false;
       point.value = {}
-      datetime.value = null
+      datetime.value = [null, null]
     }
     const add = () => {
       showPointFormDialog.value = true;
@@ -215,7 +227,7 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
     // 管理积分渠道
     const showPointChannelFormDialog = ref(false)
     const pointChannel = ref({})
-    const pointChannelRef = ref(null)
+    const pointChannelRef = useFormRef()
     const hidePointChannelForm = () => {
       showPointChannelFormDialog.value = false;
       pointChannel.value = {}
@@ -236,7 +248,7 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
             if (!pointChannel.value.channelIdList) {
               pointChannel.value.channelIdList = []
             }
-            pointChannel.value.channelIdList.push([listElement.channelId])
+            pointChannel.value.channelIdList.push(listElement.channelId)
           }
         }
       })
@@ -253,11 +265,6 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
           error("积分渠道为必填项")
           return;
         }
-        const idList = []
-        for (const channelIdListElement of pointChannel.value.channelIdList) {
-          idList.push(channelIdListElement[0])
-        }
-        pointChannel.value.channelIdList = idList
         updatePointChannel(pointChannel.value, () => {
           success("管理积分渠道成功")
           hidePointChannelForm()
@@ -299,25 +306,6 @@ const { findList, updatePoint, savePoint, findPointChannelRelationList, updatePo
 }
 </script>
 
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__label {
-          line-height: 28px;
-        }
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

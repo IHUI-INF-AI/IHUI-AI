@@ -1,21 +1,33 @@
 <template>
   <div class="category-tree">
     <Input size="small" placeholder="输入关键字进行搜索" v-model="filterText" />
-    <el-tree v-loading="dataLoading" size="small" ref="treeRef" v-if="treeFlag" :current-node-key="nodeKey" node-key="id" :filter-node-method="filterNode" :highlight-current="true" :data="treeData" :props="defaultProps" :expand-on-click-node="false" @node-click="handleNodeClick" class="el-tree"></el-tree>
+    <div v-if="dataLoading" class="mt-2 text-xs text-muted-foreground">加载中...</div>
+    <ul v-else-if="treeFlag" class="mt-2 space-y-0.5 min-h-[102px]">
+      <CategoryTreeNode
+        v-for="node in treeData"
+        :key="node.id"
+        :node="node"
+        :default-props="defaultProps"
+        :current-key="nodeKey"
+        :filter-text="filterText"
+        @node-click="handleNodeClick"
+      />
+    </ul>
   </div>
 </template>
 
 <script>
-// @ts-nocheck
 // 目录API
 import { learnApi } from '@/api/edu/admin-api'
 const { findCategoryList } = learnApi
 import {ref, watch, nextTick} from "vue";
 import { Input } from '@/components/ui/input'
+import CategoryTreeNode from '@/components/CategoryTreeNode.vue'
 export default {
   name: "LearnTopicCategoryTree",
   components: {
-    Input
+    Input,
+    CategoryTreeNode
   },
   props: {
     currentNodeKey: Number
@@ -27,10 +39,6 @@ export default {
       label: "name"
     }
     const treeData = ref([])
-    let treeRef = ref(null);
-    watch([filterText], (nv) => {
-      treeRef.value.filter(nv);
-    })
     const dataLoading = ref(true)
     const loadCategoryList = () => {
       findCategoryList(0, true, res => {
@@ -84,12 +92,6 @@ export default {
       })
       loadCategoryList()
     })
-    const filterNode = function(value, data, node) {
-      if (!value) {
-        return true;
-      }
-      return data.name.indexOf(value) !== -1;
-    }
     const handleNodeClick = (data) => {
       context.emit("node-click", data, this);
     }
@@ -99,59 +101,9 @@ export default {
       filterText,
       defaultProps,
       treeData,
-      treeRef,
-      filterNode,
       handleNodeClick,
       dataLoading
     }
   }
 }
 </script>
-<style scoped lang="scss">
-.category-tree {
-  :deep(.el-input__inner), :deep(.el-input-number){
-    height: 34px;
-    line-height: 34px;
-    font-size: 12px;
-    border: none;
-    border-radius: 0;
-    border-bottom: 1px solid #f7f7f7;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-    .el-input-number__decrease, .el-input-number__increase {
-      background: #FFFFFF;
-      line-height: 32px;
-      border: none;
-      &:focus, &:hover {
-        border-color: #f3f5f8;
-      }
-    }
-  }
-  :deep(.el-tree){
-    min-height: 102px;
-    .el-tree-node {
-      &:focus, &:focus > .el-tree-node__content {
-        background-color: #FFFFFF;
-      }
-      .el-tree-node__content {
-        height: 30px;
-        &:hover {
-          background-color: #FFFFFF;
-          color: hsl(var(--primary));
-        }
-        .el-tree-node__expand-icon {
-          font-size: 16px;
-        }
-        .el-tree-node__label {
-          font-size: 12px;
-        }
-      }
-    }
-  }
-  :deep(.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content){
-    background-color: #FFFFFF;
-    color: hsl(var(--primary));
-  }
-}
-</style>

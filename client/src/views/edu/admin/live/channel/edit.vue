@@ -10,26 +10,25 @@
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-foreground">时间：</label>
         <div>
-          <el-date-picker
+          <Input
+            type="datetime-local"
             v-model="channel.startTime"
-            type="datetime"
             placeholder="选择直播时间"
             class="input-text"
-            :default-time="new Date(2000, 0, 1, 19, 0, 0)"
             size="small"
             @change="changeStartTime"
-            style="width: 100%;"></el-date-picker>
+            style="width: 100%;" />
         </div>
       </div>
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-foreground">分类：</label>
         <div>
-          <el-cascader style="width: 100%;"
-                       v-model="selectCidList"
-                       :props="{ multiple: true, checkStrictly: true }"
-                       :options="categoryOptions"
-                       @change="changeCategory">
-          </el-cascader>
+          <Select style="width: 100%;"
+                  v-model="selectCidList"
+                  multiple
+                  @change="changeCategory">
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4">
@@ -104,8 +103,8 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
-  import {ref} from "vue"
+  import {ref, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import {useRoute} from "vue-router"
   import router from "@/router"
   import Upload from "@/components/Uplaod/index.vue"
@@ -122,6 +121,7 @@ const { findList } = lecturerApi
   import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
+  import { Select, SelectOption } from '@/components/ui/select'
 
   export default {
     name: "LiveChannelEdit",
@@ -132,7 +132,9 @@ const { findList } = lecturerApi
       WangEditor,
       Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
       Input,
-      Switch
+      Switch,
+      Select,
+      SelectOption
     },
     setup() {
       const loadWangEditorFlag = ref(false)
@@ -145,6 +147,18 @@ const { findList } = lecturerApi
       })
       const categoryOptions = ref([])
       const selectCidList = ref([])
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
       const channel = ref({
         id: "",
         name: "",
@@ -175,14 +189,8 @@ const { findList } = lecturerApi
         getChannel(id, function (res) {
           channel.value = res;
           lecturerSelection.value = res.lecturer;
-          selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-          channel.value.cidList = []
+          selectCidList.value = res.cidList || []
           uploadData.value.files = [{name: "海报", url: channel.value.image}]
-          for (const valElement of selectCidList.value) {
-            if (valElement) {
-              channel.value.cidList.push(valElement[valElement.length - 1])
-            }
-          }
           loadWangEditorFlag.value = true;
         })
       }
@@ -198,10 +206,7 @@ const { findList } = lecturerApi
       loadCategory();
       // 选择分类
       const changeCategory = (val) => {
-        channel.value.cidList = []
-        for (const valElement of val) {
-          channel.value.cidList.push(valElement[valElement.length - 1])
-        }
+        channel.value.cidList = val || []
       }
       // 选择时间
       const changeStartTime = (val) => {
@@ -217,7 +222,7 @@ const { findList } = lecturerApi
         uploadData.value.files = []
       }
       // 提交基本信息
-      const channelRef = ref(null)
+      const channelRef = useFormRef()
       const submitChannel = () => {
         if (lecturerSelection.value && lecturerSelection.value.id) {
           channel.value.lecturerId = lecturerSelection.value.id;
@@ -313,6 +318,7 @@ const { findList } = lecturerApi
       return {
         uploadData,
         categoryOptions,
+        flatCategoryOptions,
         channel,
         selectCidList,
         channelRules,
@@ -346,27 +352,11 @@ const { findList } = lecturerApi
     font-size: 12px;
     color: #999999;
   }
-  .el-form-item {
-    width: 96%;
-  }
-  .el-input--mini .el-input__inner {
-    height: 40px;
-  }
   .lecturer-selected {
     background: #fff;
     border: 1px solid #DCDFE6;
     border-radius: 4px;
     padding: 0 10px;
     line-height: 32px;
-  }
-</style>
-<style lang="scss">
-  .el-upload-list--picture-card .el-upload-list__item {
-    width: 100%;
-    height: 62.5%;
-    max-width: 400px;
-    img {
-      max-width: 400px;
-    }
   }
 </style>

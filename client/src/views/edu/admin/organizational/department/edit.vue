@@ -5,7 +5,9 @@
         <label class="w-28 shrink-0 text-sm">上级组织</label>
         <div class="flex-1">
           <Input size="small" v-if="parentDepartment.name" type="text" class="input-text" disabled v-model="parentDepartment.name"></Input>
-          <el-cascader size="small" v-else class="input-text" :props="{checkStrictly: true}" v-model="selectedPidList" :options="departmentOptions" placeholder="请选择上级组织" @change="changeParentDepartment"></el-cascader>
+          <Select size="small" v-else class="input-text" v-model="selectedPid" @change="changeParentDepartment" placeholder="请选择上级组织" clearable>
+            <SelectOption v-for="item in flatDepartmentOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
         </div>
       </div>
       <div class="mb-4 flex items-center gap-4">
@@ -29,12 +31,13 @@
 </template>
 
 <script>
-// @ts-nocheck
-  import {ref, watch} from "vue"
+  import {ref, watch, computed} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import router from "@/router"
   import Button from '@/components/ui/Button.vue';
   import { Input } from '@/components/ui/input'
   import { Switch } from '@/components/ui/switch'
+  import { Select, SelectOption } from '@/components/ui/select'
   import { organizationalApi } from '@/api/edu/admin-api'
 const { findDepartmentList, toTree, getDepartment, saveDepartment, updateDepartment } = organizationalApi
   import {success, error} from "@/util/tipsUtils";
@@ -43,7 +46,9 @@ const { findDepartmentList, toTree, getDepartment, saveDepartment, updateDepartm
     components: {
       Button,
       Input,
-      Switch
+      Switch,
+      Select,
+      SelectOption
     },
     props: {
       data: {
@@ -106,6 +111,22 @@ const { findDepartmentList, toTree, getDepartment, saveDepartment, updateDepartm
         });
       }
       loadDepartment();
+      const flatDepartmentOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(departmentOptions.value || [])
+        return result
+      })
+      const selectedPid = computed({
+        get: () => { const arr = selectedPidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+        set: (val) => { selectedPidList.value = [val] }
+      })
       const changeParentDepartment = () => {
         if (department.value.selectedPidList && department.value.selectedPidList.length > 0) {
           let id = selectedPidList.value[selectedPidList.value.length - 1];
@@ -119,7 +140,7 @@ const { findDepartmentList, toTree, getDepartment, saveDepartment, updateDepartm
       const cancel = () => {
         props.editCancel && props.editCancel()
       }
-      const departmentRef = ref(null)
+      const departmentRef = useFormRef()
       const submit = () => {
         departmentRef.value.validate(valid => {
           if (!valid) {

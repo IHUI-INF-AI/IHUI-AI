@@ -30,9 +30,9 @@
           <TableCell>{{ row.id }}</TableCell>
           <TableCell>{{ row.name || row.fileName || row.originalName || '-' }}</TableCell>
           <TableCell>
-            <el-link type="primary" :href="row.url || row.path" target="_blank" :underline="false">
+            <a :href="row.url || row.path" target="_blank" class="text-primary">
               {{ row.url || row.path || '-' }}
-            </el-link>
+            </a>
           </TableCell>
           <TableCell class="text-center">
             <Tag size="small" type="info">{{ row.fileType || row.type || getFileType(row) }}</Tag>
@@ -57,20 +57,23 @@
         <div class="mb-4">
           <label class="mb-1 block text-sm font-medium text-foreground">选择文件</label>
           <div>
-            <el-upload
-              ref="uploadRef"
-              :auto-upload="false"
-              :limit="1"
-              :on-change="handleFileChange"
-              :on-exceed="handleExceed"
-              drag
-            >
-              <UploadFilled class="h-4 w-4 el-icon--upload" />
-              <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
-              <template #tip>
-                <div class="el-upload__tip">支持上传任意类型文件，单次上传一个</div>
-              </template>
-            </el-upload>
+            <div class="space-y-2">
+              <div
+                class="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border p-6 text-center cursor-pointer hover:bg-accent/50"
+                @click="fileInputRef?.click()"
+                @drop.prevent="onFileDrop"
+                @dragover.prevent
+              >
+                <UploadFilled class="h-4 w-4" />
+                <div class="text-sm text-muted-foreground">将文件拖到此处，或<em>点击上传</em></div>
+                <input ref="fileInputRef" type="file" class="hidden" @change="onFileInputChange" />
+              </div>
+              <div v-if="currentFile" class="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                <span class="truncate">{{ currentFile.name }}</span>
+                <button type="button" class="text-muted-foreground hover:text-foreground" @click="removeSelectedFile">×</button>
+              </div>
+              <div class="text-xs text-muted-foreground mt-1">支持上传任意类型文件，单次上传一个</div>
+            </div>
           </div>
         </div>
       </form>
@@ -85,13 +88,12 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
 import { ref } from 'vue'
 import Page from '@/components/Page/index.vue'
 import { ossApi } from '@/api/edu/admin-api'
 import { confirm, success, error } from '@/util/tipsUtils'
 import { Search, Upload, UploadFilled } from '@/lib/lucide-fallback'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '@/utils/message'
 import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import Button from '@/components/ui/Button.vue'
@@ -174,7 +176,7 @@ const copyUrl = (row: any) => {
 // 上传
 const uploadDialogVisible = ref(false)
 const uploading = ref(false)
-const uploadRef = ref<any>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const currentFile = ref<any>(null)
 
 const showUploadDialog = () => {
@@ -184,13 +186,34 @@ const showUploadDialog = () => {
 const hideUploadDialog = () => {
   uploadDialogVisible.value = false
   currentFile.value = null
-  uploadRef.value && uploadRef.value.clearFiles()
 }
 const handleFileChange = (file: any) => {
   currentFile.value = file.raw
 }
 const handleExceed = () => {
   error('一次只能上传一个文件，请先移除已选文件')
+}
+const applyFile = (f: File) => {
+  if (currentFile.value) {
+    handleExceed()
+    return
+  }
+  handleFileChange({ raw: f, name: f.name })
+}
+const onFileInputChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const files = target.files ? Array.from(target.files) : []
+  target.value = ''
+  if (!files.length) return
+  applyFile(files[0] as File)
+}
+const onFileDrop = (e: DragEvent) => {
+  const files = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : []
+  if (!files.length) return
+  applyFile(files[0] as File)
+}
+const removeSelectedFile = () => {
+  currentFile.value = null
 }
 const submitUpload = () => {
   if (!currentFile.value) {

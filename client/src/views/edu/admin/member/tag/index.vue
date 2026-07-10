@@ -75,7 +75,7 @@
 </template>
 
 <script>
-// @ts-nocheck
+  import { useFormRef } from '@/composables/useFormRef'
   import {ref, computed} from "vue"
   import { memberApi } from '@/api/edu/admin-api'
 const { findList, updateTag, saveTag, deleteTag } = memberApi
@@ -155,7 +155,7 @@ const { findList, updateTag, saveTag, deleteTag } = memberApi
         name: [{ required: true, message: "请输入名称", trigger: "blur" }],
       }
       const memberTag = ref({})
-      const memberTagRef = ref(null)
+      const memberTagRef = useFormRef()
       const showMemberTagFormDialog = ref(false)
       const hideMemberTagForm = () => {
         showMemberTagFormDialog.value = false;
@@ -254,22 +254,6 @@ const { findList, updateTag, saveTag, deleteTag } = memberApi
     }
   };
 </script>
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

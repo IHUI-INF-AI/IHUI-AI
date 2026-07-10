@@ -21,7 +21,9 @@
         <div class="mb-4 select">
           <label class="mb-1 block text-sm font-medium text-foreground">课程分类</label>
           <div>
-            <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
+            <Select size="small" v-model="selectedCid" @change="search" clearable>
+              <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </Select>
           </div>
         </div>
         <div class="mb-4">
@@ -73,8 +75,7 @@
 </template>
 
 <script>
-// @ts-nocheck
-import {ref} from "vue"
+import {ref, computed} from "vue"
 import Page from "@/components/Page/index.vue";
 import {Search} from '@/lib/lucide-fallback';
 import { learnApi } from '@/api/edu/admin-api'
@@ -100,6 +101,22 @@ export default {
     const params = ref(c)
     const selectCidList = ref([])
     const categoryOptions = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     // 加载分类
     const loadCategory = () => {
       findCategoryList(0, true, (res) => {if (res) { categoryOptions.value = toTree(res);}})
@@ -143,6 +160,8 @@ export default {
       loading,
       dataList,
       selectCidList,
+      flatCategoryOptions,
+      selectedCid,
       categoryOptions,
       params,
       total,
@@ -160,18 +179,6 @@ export default {
   margin: 20px;
   font-size: 12px;
   .report-main {
-    :deep(.el-table){
-      font-size: 12px;
-      .el-table__empty-block {
-        line-height: 400px;
-        .el-table__empty-text {
-          line-height: 400px;
-        }
-      }
-      th, td {
-        padding: 6px 0;
-      }
-    }
   }
 }
 </style>

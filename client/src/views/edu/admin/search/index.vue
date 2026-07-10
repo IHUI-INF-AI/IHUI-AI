@@ -19,7 +19,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { Search, TrendCharts } from '@/lib/lucide-fallback';
 import Button from '@/components/ui/Button.vue';
 

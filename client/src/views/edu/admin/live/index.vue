@@ -13,7 +13,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { VideoPlay, VideoPause, Bell } from '@/lib/lucide-fallback';
 import * as echarts from "echarts";

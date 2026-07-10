@@ -134,7 +134,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import * as echarts from "echarts";
 import { ref, onMounted, onUnmounted } from "vue";
 import { indexApi } from '@/api/edu/admin-api'

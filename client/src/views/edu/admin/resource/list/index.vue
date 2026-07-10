@@ -1,22 +1,26 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
+      <form class="flex flex-wrap items-end gap-4" @submit.prevent>
+        <div>
           <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
           <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
-        </el-form-item>
-        <el-form-item label="状态" class="status">
+        </div>
+        <div class="flex items-center gap-2 status">
+          <label class="w-20 text-sm text-right">状态</label>
           <Select size="small" v-model="searchParam.status" @change="search">
             <SelectOption label="全部" value=""></SelectOption>
             <SelectOption label="草稿" value="draft"></SelectOption>
             <SelectOption label="已发布" value="published"></SelectOption>
           </Select>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-cascader size="small" v-model="selectCidList" :options="categoryOptions" :props="{ checkStrictly: true }" @change="search" clearable></el-cascader>
-        </el-form-item>
-      </el-form>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-20 text-sm text-right">分类</label>
+          <Select size="small" v-model="selectedCid" @change="search" clearable>
+            <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </Select>
+        </div>
+      </form>
     </div>
     <div class="content" v-loading="dataLoading">
       <div class="content-list">
@@ -67,8 +71,7 @@
 </template>
 
 <script>
-// @ts-nocheck
-  import {ref} from "vue"
+  import {ref, computed} from "vue"
   import { resourceApi } from '@/api/edu/admin-api'
 const { deleteResource, findList, publishedResource } = resourceApi
   import Page from "@/components/Page/index.vue"
@@ -108,6 +111,22 @@ const { deleteResource, findList, publishedResource } = resourceApi
     })
     const selectCidList = ref([])
     const categoryOptions = ref([])
+    const flatCategoryOptions = computed(() => {
+      const result = []
+      const flatten = (nodes, parentPath = '') => {
+        for (const node of nodes) {
+          const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+          result.push({ label, value: node.value || node.id })
+          if (node.children && node.children.length) { flatten(node.children, label) }
+        }
+      }
+      flatten(categoryOptions.value || [])
+      return result
+    })
+    const selectedCid = computed({
+      get: () => { const arr = selectCidList.value; return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : '' },
+      set: (val) => { selectCidList.value = [val] }
+    })
     // 加载列表
     const loadList = () => {
       dataLoading.value = true
@@ -154,9 +173,8 @@ const { deleteResource, findList, publishedResource } = resourceApi
     }
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true
@@ -189,6 +207,8 @@ const { deleteResource, findList, publishedResource } = resourceApi
       drawerClose,
       statusMap,
       selectCidList,
+      flatCategoryOptions,
+      selectedCid,
       categoryOptions,
       published,
       downloadView,

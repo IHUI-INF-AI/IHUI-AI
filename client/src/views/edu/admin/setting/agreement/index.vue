@@ -64,8 +64,8 @@
 </template>
 
 <script>
-// @ts-nocheck
 import {ref} from "vue";
+import { useFormRef } from '@/composables/useFormRef'
 import WangEditor from "@/components/WangEditor/index.vue"
 import Page from "@/components/Page/index.vue";
 import { settingApi } from '@/api/edu/admin-api'
@@ -132,7 +132,7 @@ export default {
     const showAgreement = function() {
       showAgreementVisible.value = true
     }
-    const agreementRef = ref(null)
+    const agreementRef = useFormRef()
     // 隐藏编辑框
     const hideAgreement = function() {
       showAgreementVisible.value = false
@@ -214,8 +214,5 @@ export default {
   .header {
     margin-bottom: 20px;
     text-align: right;
-  }
-  .el-dialog__wrapper :deep(.el-dialog__body){
-    padding: 10px 20px;
   }
 </style>

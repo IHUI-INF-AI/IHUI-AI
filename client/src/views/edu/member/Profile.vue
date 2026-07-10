@@ -47,28 +47,14 @@
     <!-- PR-F F6：骨架屏替换 v-loading（首次加载体验更佳） -->
     <div v-if="loading && !profile" class="profile-skeleton">
       <div class="skeleton-row">
-        <el-skeleton :rows="0" animated>
-          <template #template>
-            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
-          </template>
-        </el-skeleton>
-        <el-skeleton :rows="0" animated>
-          <template #template>
-            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
-          </template>
-        </el-skeleton>
-        <el-skeleton :rows="0" animated>
-          <template #template>
-            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
-          </template>
-        </el-skeleton>
-        <el-skeleton :rows="0" animated>
-          <template #template>
-            <el-skeleton-item variant="rect" style="width: 100%; height: 96px; border-radius: 8px" />
-          </template>
-        </el-skeleton>
+        <div class="bg-muted animate-pulse" style="width: 100%; height: 96px; border-radius: 8px"></div>
+        <div class="bg-muted animate-pulse" style="width: 100%; height: 96px; border-radius: 8px"></div>
+        <div class="bg-muted animate-pulse" style="width: 100%; height: 96px; border-radius: 8px"></div>
+        <div class="bg-muted animate-pulse" style="width: 100%; height: 96px; border-radius: 8px"></div>
       </div>
-      <el-skeleton :rows="8" animated style="margin-top: 24px" />
+      <div class="space-y-2" style="margin-top: 24px">
+        <div v-for="i in 8" :key="i" class="h-4 bg-muted rounded animate-pulse"></div>
+      </div>
     </div>
 
     <div v-else ref="reportRef" v-loading="loading" class="profile-body">
@@ -103,7 +89,7 @@
       <!-- ④ 薄弱科目条 -->
       <section v-if="weakSubjects.length" class="weak-subjects-bar">
         <span class="weak-label">{{ t('edu.profile.weakSubjects') }}:</span>
-        <el-tag
+        <Tag
           v-for="subject in weakSubjects"
           :key="subject"
           type="danger"
@@ -112,7 +98,7 @@
           class="weak-tag"
         >
           {{ subject }}
-        </el-tag>
+        </Tag>
       </section>
 
       <!-- ⑤ 图表行 -->
@@ -201,7 +187,7 @@ import Button from '@/components/ui/Button.vue'
 import { useRouter } from 'vue-router'
 import {
   Refresh, Document, Download, Printer, MagicStick, User,
-} from '@element-plus/icons-vue'
+} from '@/lib/lucide-fallback'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkModeStore } from '@/stores/darkMode'
@@ -227,8 +213,9 @@ import type { UploadedPaper } from '@/api/edu/uploaded-papers'
 import { offlineRecordsApi } from '@/api/edu/offline-records'
 import type { LearningNote } from '@/api/edu/notes'
 import type { OfflineRecord } from '@/api/edu/offline-records'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/utils/message'
 import { Avatar } from '@/components/ui/avatar'
+import { Tag } from '@/components/ui/tag'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -283,7 +270,7 @@ async function handleDeleteNote(note: LearningNote) {
       confirmButtonText: t('edu.common.submit'),
       cancelButtonText: t('edu.common.cancel'),
     })
-    await notesApi.delete(note.id)
+    await notesApi.delete(note.id!)
     ElMessage.success(t('edu.profile.deleteSuccess'))
     await refresh('notes')
   } catch {
@@ -303,7 +290,7 @@ async function handleDeleteRecord(record: OfflineRecord) {
       confirmButtonText: t('edu.common.submit'),
       cancelButtonText: t('edu.common.cancel'),
     })
-    await offlineRecordsApi.delete(record.id)
+    await offlineRecordsApi.delete(record.id!)
     ElMessage.success(t('edu.profile.deleteSuccess'))
     await refresh('offline')
   } catch {
@@ -327,8 +314,8 @@ const displayName = computed(() => {
 
 const learnTrend = computed(() => {
   if (!dailyStats.value || dailyStats.value.length < 14) return undefined
-  const recent = dailyStats.value.slice(-7).reduce((s, d) => s + d.minutes, 0)
-  const previous = dailyStats.value.slice(-14, -7).reduce((s, d) => s + d.minutes, 0)
+  const recent = dailyStats.value.slice(-7).reduce((s, d) => s + (d.minutes ?? 0), 0)
+  const previous = dailyStats.value.slice(-14, -7).reduce((s, d) => s + (d.minutes ?? 0), 0)
   if (previous === 0) return recent > 0 ? 100 : 0
   return Math.round(((recent - previous) / previous) * 100)
 })
@@ -359,7 +346,7 @@ async function handleDeletePaper(paper: UploadedPaper) {
       confirmButtonText: t('edu.common.submit'),
       cancelButtonText: t('edu.common.cancel'),
     })
-    await uploadedPapersApi.delete(paper.id)
+    await uploadedPapersApi.delete(paper.id!)
     ElMessage.success(t('edu.profile.deleteSuccess'))
     await refresh('papers')
   } catch {
@@ -541,10 +528,6 @@ onMounted(loadAll)
   font-size: 16px;
   font-weight: 600;
   color: hsl(var(--foreground));
-}
-
-.section-title .el-icon {
-  color: hsl(var(--primary));
 }
 
 @media (width <= 1024px) {

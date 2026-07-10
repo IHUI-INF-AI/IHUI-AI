@@ -1,10 +1,11 @@
 <template>
   <div class="edu-admin">
-    <el-page-header :icon="ArrowLeft" content="返回" @back="goBack">
-      <template #content>
-        <span class="page-title">{{ t('edu.admin.title') }}</span>
-      </template>
-    </el-page-header>
+    <div class="page-header flex items-center gap-2">
+      <button type="button" class="inline-flex items-center justify-center rounded-md p-1 hover:bg-muted" @click="goBack">
+        <ArrowLeft class="h-4 w-4" />
+      </button>
+      <span class="page-title">{{ t('edu.admin.title') }}</span>
+    </div>
 
     <div class="flex flex-wrap gap-[16px] stats-row" v-loading="loading">
       <div class="w-full sm:w-1/2 md:w-1/4" v-for="stat in stats" :key="stat.label">
@@ -33,14 +34,14 @@
 
 <script setup lang="ts">
 import { Card } from '@/components/ui/card'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft } from '@/lib/lucide-fallback'
 import {
   Reading, EditPen, ChatLineRound, Connection,
   VideoCamera, User, Coin, List, ChatDotRound, Folder, Search, Setting, Bell, Document
-} from '@element-plus/icons-vue'
+} from '@/lib/lucide-fallback'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -80,7 +81,6 @@ function goMenu(path: string) {
 
 onMounted(async () => {
   loading.value = true
-  // TODO: load real stats from backend
   // For now, show placeholders to demonstrate the layout
   await new Promise((r) => setTimeout(r, 300))
   stats.value[0].value = 124
@@ -111,13 +111,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   padding: 16px;
-
-  :deep(.el-card__body) {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 16px;
-  }
 }
 
 .stat-icon {

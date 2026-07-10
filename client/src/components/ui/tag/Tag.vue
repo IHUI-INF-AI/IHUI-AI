@@ -5,8 +5,8 @@ import { cn } from '@/lib/utils'
 
 const props = withDefaults(
   defineProps<{
-    type?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
-    effect?: 'dark' | 'light' | 'plain'
+    type?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | (string & {})
+    effect?: 'dark' | 'light' | 'plain' | (string & {})
     closable?: boolean
     size?: 'default' | 'small' | 'large'
     class?: HTMLAttributes['class']
@@ -63,7 +63,7 @@ const sizeClass = computed(() => {
   return 'text-xs px-2 py-0.5'
 })
 
-const colorClass = computed(() => typeColorMap[props.type]?.[props.effect] || typeColorMap.default.light)
+const colorClass = computed(() => typeColorMap[props.type]?.[props.effect as 'light' | 'dark' | 'plain'] || typeColorMap.default.light)
 </script>
 
 <template>

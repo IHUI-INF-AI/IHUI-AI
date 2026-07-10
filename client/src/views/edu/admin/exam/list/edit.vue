@@ -13,41 +13,39 @@
             <div class="mb-4 flex items-center gap-4">
               <label class="w-28 shrink-0 text-sm font-medium text-foreground">开始时间：</label>
               <div class="flex-1">
-                <el-date-picker
+                <Input
+                  type="datetime-local"
                   v-model="exam.startTime"
-                  type="datetime"
                   placeholder="选择开始时间"
                   class="input-text"
-                  :default-time="new Date(2000, 0, 1, 0, 0, 0)"
                   size="small"
                   @change="changeStartTime"
-                  style="width: 100%;"></el-date-picker>
+                  style="width: 100%;" />
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
               <label class="w-28 shrink-0 text-sm font-medium text-foreground">结束时间：</label>
               <div class="flex-1">
-                <el-date-picker
+                <Input
+                  type="datetime-local"
                   v-model="exam.endTime"
-                  type="datetime"
                   placeholder="选择结束时间"
                   class="input-text"
-                  :default-time="new Date(2000, 0, 1, 22, 0, 0)"
                   size="small"
                   @change="changeEndTime"
-                  style="width: 100%;"></el-date-picker>
+                  style="width: 100%;" />
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
               <label class="w-28 shrink-0 text-sm font-medium text-foreground">分类：</label>
               <div class="flex-1">
-                <el-cascader style="width: 100%;"
-                             size="small"
-                             v-model="selectCidList"
-                             :props="{ multiple: true, checkStrictly: true }"
-                             :options="categoryOptions"
-                             @change="changeCategory">
-                </el-cascader>
+                <Select style="width: 100%;"
+                        size="small"
+                        multiple
+                        v-model="selectCidList"
+                        @change="changeCategory">
+                  <SelectOption v-for="item in flatCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </Select>
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
@@ -148,14 +146,20 @@
         </div>
       </div>
       <div class="w-1/6" style="position: relative;">
-        <el-affix :offset="160" class="affix">
+        <div class="affix" style="position: sticky; top: 160px; z-index: 10">
           <div class="step-list">
             <div class="title">
               步骤导航
             </div>
-            <el-steps class="steps" finish-status="success" direction="vertical" :active="stepActive">
-              <el-step v-for="(step) in steps" :key="step.key" @click="stepClick(step.key)" :class="{'step-active': showStep === step.key}" :title="step.name"></el-step>
-            </el-steps>
+            <div class="steps flex flex-col">
+              <template v-for="(step, i) in steps" :key="step.key">
+                <div @click="stepClick(step.key)" :class="['flex items-center cursor-pointer', {'step-active': showStep === step.key}]">
+                  <div :class="['flex h-8 w-8 items-center justify-center rounded-full text-sm flex-shrink-0', i <= stepActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground']">{{ i + 1 }}</div>
+                  <span class="ml-2 text-sm">{{ step.name }}</span>
+                </div>
+                <div v-if="i < steps.length - 1" class="ml-4 h-4 w-px bg-border"></div>
+              </template>
+            </div>
           </div>
           <div class="draggable" v-if="showStep === 'content'">
             <div class="title">
@@ -174,7 +178,7 @@
               </transition-group>
             </draggable>
           </div>
-        </el-affix>
+        </div>
       </div>
     </div>
     <Dialog v-model="showChapterDialog" @close="hideChapter">
@@ -243,8 +247,8 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
-  import {ref} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
+  import {ref, computed} from "vue"
   import {useRoute} from "vue-router"
   import router from "@/router"
   import { examApi } from '@/api/edu/admin-api'
@@ -264,6 +268,7 @@ const { findCategoryList, toTree, getAllParent } = examApi
   import { Alert } from '@/components/ui/alert'
   import { Input } from '@/components/ui/input'
   import { Textarea } from '@/components/ui/textarea'
+  import { Select, SelectOption } from '@/components/ui/select'
 export default {
     name: "ExamListEditIndex",
     components:{
@@ -280,6 +285,8 @@ export default {
     Button,
     Input,
     Textarea,
+    Select,
+    SelectOption,
       draggable: VueDraggableNext,
       PaperList,
       Upload,
@@ -307,6 +314,18 @@ export default {
       })
       const categoryOptions = ref([])
       const selectCidList = ref([])
+      const flatCategoryOptions = computed(() => {
+        const result = []
+        const flatten = (nodes, parentPath = '') => {
+          for (const node of nodes) {
+            const label = parentPath ? `${parentPath} / ${node.label || node.name}` : (node.label || node.name)
+            result.push({ label, value: node.value || node.id })
+            if (node.children && node.children.length) { flatten(node.children, label) }
+          }
+        }
+        flatten(categoryOptions.value || [])
+        return result
+      })
       const exam = ref({
         id: "",
         name: "",
@@ -336,12 +355,8 @@ export default {
         }
         getBaseInfo(id, function (res) {
           exam.value = res;
-          selectCidList.value = getAllParent(categoryOptions.value, res.cidList);
-          exam.value.cidList = []
+          selectCidList.value = res.cidList || []
           uploadData.value.files = [{name: "海报", url: exam.value.image}]
-          for (const valElement of selectCidList.value) {
-            exam.value.cidList.push(valElement[valElement.length - 1])
-          }
           loadWangEditorFlag.value = true;
         })
       }
@@ -357,10 +372,7 @@ export default {
       }
       // 选择分类
       const changeCategory = (val) => {
-        exam.value.cidList = []
-        for (const valElement of val) {
-          exam.value.cidList.push(valElement[valElement.length - 1])
-        }
+        exam.value.cidList = val || []
       }
       // 选择时间
       const changeStartTime = (val) => {
@@ -380,7 +392,7 @@ export default {
         uploadData.value.files = []
       }
       // 提交基本信息
-      const examRef = ref(null)
+      const examRef = useFormRef()
       const submitBaseInfo = () => {
         examRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -476,7 +488,7 @@ export default {
           })
         })
       }
-      const examChapterRef = ref(null)
+      const examChapterRef = useFormRef()
       const submitChapter = () => {
         examChapterRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -533,7 +545,7 @@ export default {
           })
         })
       }
-      const examChapterSectionRef = ref(null)
+      const examChapterSectionRef = useFormRef()
       const submitChapterSection = () => {
         examChapterSection.value.paperId = paper.value.id || examChapterSection.value.paperId;
         examChapterSectionRef.value.validate((valid) => {
@@ -653,6 +665,7 @@ export default {
         // 基本信息
         uploadData,
         categoryOptions,
+        flatCategoryOptions,
         exam,
         selectCidList,
         examRules,
@@ -711,25 +724,6 @@ export default {
     font-size: 12px;
     color: #999999;
   }
-  .el-form-item {
-    width: 96%;
-  }
-  :deep(.el-input--mini .el-input__inner){
-    height: 40px;
-  }
-  :deep(.el-step.is-vertical .el-step__title){
-    cursor:pointer;
-  }
-  :deep(.el-step.is-vertical .el-step__line){
-    width: 1px;
-  }
-  :deep(.el-step__icon.is-text){
-    border-width: 1px;
-    cursor:pointer;
-  }
-  :deep(.step-active .el-step__head.is-finish){
-    color: red;
-  }
   .tips {
     font-size: 12px;
     color: #999999;
@@ -739,26 +733,7 @@ export default {
       font-size: 12px;
       color: #999999;
     }
-    :deep(.el-upload--picture-card),
-    :deep(.el-upload-list--picture-card .el-upload-list__item){
-      //width: 100%;
-      height: 62.5%;
-      border: none;
-      display: flex;
-      margin: 0;
-      min-height: 146px;
-      justify-content: center;
-      flex-direction: column;
-      max-height: 400px;
-      background-color: #ffffff;
-    }
     .no-plus {
-      :deep(.el-upload--picture-card){
-        min-height: inherit;
-        justify-content: inherit;
-        flex-direction: inherit;
-        display: none;
-      }
       img {
         max-height: 460px;
       }
@@ -772,9 +747,6 @@ export default {
     min-height: 500px;
     .content-header {
       text-align: right;
-      :deep(.el-button){
-        border-color: #f3f5f8;
-      }
     }
     .tips {
       font-size: 12px;
@@ -797,81 +769,8 @@ export default {
       }
     }
   }
-  :deep(.el-input__inner), :deep(.el-input-number){
-    height: 34px;
-    line-height: 34px;
-    font-size: 12px;
-    border-color: #f3f5f8;
-    //border: none;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-    .el-input-number__decrease, .el-input-number__increase {
-      background: #FFFFFF;
-      line-height: 32px;
-      border: none;
-      &:focus, &:hover {
-        border-color: #f3f5f8;
-      }
-    }
-  }
-  :deep(.el-textarea__inner){
-    border-color: #f3f5f8;
-    &:focus, &:hover {
-      border-color: #f3f5f8;
-    }
-  }
-  :deep(.el-cascader .el-input .el-input__inner:focus){
-    border-color: #f3f5f8;
-  }
-  :deep(.el-input__icon){
-    line-height: 34px;
-    cursor: pointer;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-form-item__label){
-    font-size: 12px;
-  }
-  :deep(.el-button--text){
-    color: #303133;
-    &:hover {
-      color: hsl(var(--primary));
-    }
-  }
-  :deep(.el-cascader:not(.is-disabled):hover .el-input__inner){
-    cursor: pointer;
-    border-color: #f3f5f8;
-  }
   .box-card {
     padding: 0 30px 10px;
-    .el-card {
-      box-shadow: none;
-    }
-    :deep(.el-card__header){
-      padding: 5px 20px;
-      font-size: 12px;
-    }
-    :deep(.el-card__body){
-      padding: 0;
-      .table-wrapper {
-        //display: none;
-        .video-box {
-          padding: 0 20px 15px;
-          display: flex;
-          justify-content: center;
-          video {
-            background: #000;
-            width: 320px;
-            height: 240px;
-          }
-        }
-      }
-      .show {
-        display: block;
-      }
-    }
   }
   .affix {
     .step-list {
@@ -883,31 +782,6 @@ export default {
       .steps {
         height: 120px;
         padding-left: 10px;
-        :deep(.el-step__title){
-          font-size: 14px;
-        }
-        :deep(.el-step__icon){
-          width: 20px;
-          height: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__head){
-          width: 20px;
-        }
-        :deep(.el-step.is-vertical .el-step__title){
-          cursor:pointer;
-        }
-        :deep(.el-step.is-vertical .el-step__line){
-          width: 1px;
-          left: 10px;
-          top: 2px;
-        }
-        :deep(.el-step__icon.is-text){
-          border-width: 1px;
-          cursor:pointer;
-        }
-        :deep(.step-active .el-step__head.is-finish){
-          color: red;
-        }
       }
     }
     .draggable {
@@ -942,11 +816,5 @@ export default {
         }
       }
     }
-  }
-  :deep(.el-upload--text){
-    font-size: 12px;
-  }
-  :deep(.el-affix--fixed){
-    z-index: 98;
   }
 </style>

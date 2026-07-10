@@ -80,8 +80,8 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
 import { ref } from 'vue'
+import { useFormRef } from '@/composables/useFormRef'
 import Page from '@/components/Page/index.vue'
 import { roleApi } from '@/api/edu/admin-api'
 import { confirm, success } from '@/util/tipsUtils'
@@ -138,7 +138,7 @@ const search = () => {
 
 // 新增/编辑
 const dialogVisible = ref(false)
-const roleRef = ref<any>(null)
+const roleRef = useFormRef()
 const role = ref<any>({})
 const roleRules = {
   name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
@@ -158,7 +158,8 @@ const hideDialog = () => {
   role.value = {}
 }
 const submit = () => {
-  roleRef.value.validate((valid: boolean) => {
+  if (!roleRef.value) return
+  roleRef.value.validate?.((valid: boolean) => {
     if (!valid) return false
     if (role.value.id) {
       updateRole(role.value, () => {

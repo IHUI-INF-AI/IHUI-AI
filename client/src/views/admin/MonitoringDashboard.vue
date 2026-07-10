@@ -87,7 +87,7 @@
                   <Tag :type="getAnomalyTypeTag(row.type)">{{ t(`monitoring.anomalyTypes.${row.type}`) }}</Tag>
                 </TableCell>
                 <TableCell>
-                  <Tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity}`) }}</Tag>
+                  <Tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity ?? ''}`) }}</Tag>
                 </TableCell>
                 <TableCell>{{ row.value.toFixed(2) }}</TableCell>
                 <TableCell>{{ row.expectedValue.toFixed(2) }}</TableCell>
@@ -120,7 +120,7 @@
                 <TableCell>{{ row.name }}</TableCell>
                 <TableCell>{{ row.metric }}</TableCell>
                 <TableCell>
-                  <Tag :type="getSeverityTag(row.severity)">{{ t(`monitoring.severityLevels.${row.severity}`) }}</Tag>
+                  <Tag :type="getSeverityTag(row.severity ?? '')">{{ t(`monitoring.severityLevels.${row.severity ?? ''}`) }}</Tag>
                 </TableCell>
                 <TableCell>
                   <Switch v-model="row.enabled" @change="toggleRule(row)" />
@@ -163,7 +163,7 @@
               <SelectOption :label="t('monitoring.operators.lt')" value="lt" />
               <SelectOption :label="t('monitoring.operators.eq')" value="eq" />
             </Select>
-            <el-input-number v-model="newRule.threshold" style="width: 150px" />
+            <Input type="number" v-model="newRule.threshold" style="width: 150px" />
           </div>
         </div>
         <div class="mb-4 flex items-center gap-4">
@@ -179,7 +179,7 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-20 shrink-0 text-sm font-medium text-foreground">{{ t('monitoring.cooldownTime') }}</label>
           <div class="flex-1">
-            <el-input-number v-model="newRule.cooldown" :min="60" :step="60" />
+            <Input type="number" v-model="newRule.cooldown" :min="60" :step="60" />
             <span class="ml-10">{{ t('monitoring.seconds') }}</span>
           </div>
         </div>
@@ -195,7 +195,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '@/utils/message'
 import echarts from '@/utils/echarts'
 import { tourMonitoringService, type AnomalyDetection } from '@/services/tourMonitoringService'
 import { tourAlertService, type AlertRule } from '@/services/tourAlertService'

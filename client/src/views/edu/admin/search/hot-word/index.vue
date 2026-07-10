@@ -56,7 +56,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref, markRaw} from "vue"
   import Page from "@/components/Page/index.vue"
   import { searchApi } from '@/api/edu/admin-api'

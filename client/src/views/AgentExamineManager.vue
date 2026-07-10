@@ -1,10 +1,11 @@
 <template>
   <div class="agent-examine-manager">
-    <el-page-header @back="goBack" class="page-header">
-      <template #content>
-        <h2>{{ t('agentExamine.title') }}</h2>
-      </template>
-    </el-page-header>
+    <div class="page-header flex items-center gap-2">
+      <button type="button" class="inline-flex items-center justify-center rounded-md p-1 hover:bg-muted" @click="goBack">
+        <ArrowLeft class="h-4 w-4" />
+      </button>
+      <h2>{{ t('agentExamine.title') }}</h2>
+    </div>
 
     <!-- 统计卡片 -->
     <div class="flex flex-wrap gap-5 stats-cards" v-if="stats">
@@ -151,49 +152,79 @@
         <DialogTitle>{{ t('agentExamine.examineDetail') }}</DialogTitle>
       </DialogHeader>
       <div v-if="currentExamine" class="examine-detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item :label="t('agentCategory.agentName')">
+        <div class="grid grid-cols-2 gap-px bg-border rounded-md overflow-hidden border border-border">
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentCategory.agentName') }}</span>
+            <span class="text-sm">
             {{ currentExamine.agent_name }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentCategory.agentId')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentCategory.agentId') }}</span>
+            <span class="text-sm">
             {{ currentExamine.agent_id }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentExamine.initiator')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentExamine.initiator') }}</span>
+            <span class="text-sm">
             {{ currentExamine.start_name }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentExamine.startTime')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentExamine.startTime') }}</span>
+            <span class="text-sm">
             {{ formatTime(currentExamine.start_time) }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentExamine.status')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentExamine.status') }}</span>
+            <span class="text-sm">
             <Tag :type="getStatusTagType(currentExamine.status)">
               {{ getStatusText(currentExamine.status) }}
             </Tag>
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentExamine.examiner')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentExamine.examiner') }}</span>
+            <span class="text-sm">
             {{ currentExamine.examine_user || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentExamine.examineTime')">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentExamine.examineTime') }}</span>
+            <span class="text-sm">
             {{ currentExamine.examine_time ? formatTime(currentExamine.examine_time) : '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item :label="t('agentExamine.description')" :span="2">
+            </span>
+          </div>
+          <div class="flex flex-col bg-background p-3 col-span-2">
+            <span class="text-xs text-muted-foreground mb-1">{{ t('agentExamine.description') }}</span>
+            <span class="text-sm">
             {{ currentExamine.desc || '-' }}
-          </el-descriptions-item>
-        </el-descriptions>
+            </span>
+          </div>
+        </div>
         <div v-if="currentExamine.category_info" style="margin-top: 20px">
           <h4>{{ t('agentExamine.categoryInfo') }}</h4>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item :label="t('agentCategory.type')">
+          <div class="grid grid-cols-2 gap-px bg-border rounded-md overflow-hidden border border-border">
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('agentCategory.type') }}</span>
+              <span class="text-sm">
               {{ getTypeText(currentExamine.category_info.type) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('agentCategory.price')">
+              </span>
+            </div>
+            <div class="flex flex-col bg-background p-3">
+              <span class="text-xs text-muted-foreground mb-1">{{ t('agentCategory.price') }}</span>
+              <span class="text-sm">
               <span v-if="currentExamine.category_info.account">
-                ¥{{ (currentExamine.category_info.account / 100).toFixed(2) }}/{{
+                ¥{{ (Number(currentExamine.category_info.account) / 100).toFixed(2) }}/{{
                   t('agentCategory.pricePerMonth')
                 }}
               </span>
               <span v-else>-</span>
-            </el-descriptions-item>
-          </el-descriptions>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </Dialog>
@@ -243,8 +274,7 @@ import { useI18n } from 'vue-i18n'
 import { useOperationFeedback } from '@/composables/useOperationFeedback'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { usePageState } from '@/composables/usePageState'
-import { ApiErrorType } from '@/utils/errorHandler'
-import { RefreshCw } from '@/lib/lucide-fallback'
+import { RefreshCw, ArrowLeft } from '@/lib/lucide-fallback'
 import {
   getAgentExamineList,
   getAgentExamineDetail,
@@ -360,22 +390,13 @@ const loadExamines = async () => {
       pagination.total = response.data?.pagination?.total || 0
     } else {
       const errorMsg = response.message || t('agentExamine.loadFailed')
-      pageError.value = {
-        type: ApiErrorType.BUSINESS,
-        code: response.code,
-        message: errorMsg,
-      }
+      pageError.value = errorMsg
       showErrorMsg(errorMsg)
     }
   } catch (error: unknown) {
     const errorMsg =
       (error instanceof Error ? error.message : String(error)) || t('agentExamine.loadFailed')
-    pageError.value = {
-      type: ApiErrorType.UNKNOWN,
-      code: 500,
-      message: errorMsg,
-      originalError: error,
-    }
+    pageError.value = errorMsg
     showErrorMsg(errorMsg)
   } finally {
     loading.value = false
@@ -397,7 +418,7 @@ const loadStats = async () => {
 
 const handleViewDetail = async (examine: AgentExamine) => {
   try {
-    const response = await getAgentExamineDetail(examine.id)
+    const response = await getAgentExamineDetail(examine.id!)
     if (response.code === 200 || response.success) {
       currentExamine.value = response.data as AgentExamine
       showDetailDialog.value = true
@@ -425,9 +446,9 @@ const handleReject = (examine: AgentExamine) => {
 
 // 同步单个智能体头像
 const handleSyncAvatar = async (examine: AgentExamine) => {
-  syncingAvatar.value = examine.id
+  syncingAvatar.value = String(examine.id)
   try {
-    await handleResult(syncAgentAvatar(examine.agent_id), {
+    await handleResult(syncAgentAvatar(examine.agent_id!), {
       successMessage: t('agentExamine.avatarSyncSuccess'),
       errorMessage: t('agentExamine.avatarSyncFailed'),
       onSuccess: () => {
@@ -450,7 +471,7 @@ const _handleBatchSyncAvatar = async () => {
     return
   }
   try {
-    const agentIds = selectedRows.value.map(r => r.agent_id)
+    const agentIds = selectedRows.value.map(r => r.agent_id!).filter(Boolean)
     await handleResult(batchSyncAgentAvatar(agentIds), {
       successMessage: t('agentExamine.batchSyncSuccess'),
       errorMessage: t('agentExamine.batchSyncFailed'),
@@ -484,8 +505,8 @@ const handleSubmitReview = async () => {
     }
     const apiCall =
       reviewAction.value === 'approve'
-        ? approveAgentExamine(currentExamine.value.id, data)
-        : rejectAgentExamine(currentExamine.value.id, data)
+        ? approveAgentExamine(currentExamine.value.id!, data)
+        : rejectAgentExamine(currentExamine.value.id!, data.desc)
 
     await handleResult(apiCall, {
       successMessage:

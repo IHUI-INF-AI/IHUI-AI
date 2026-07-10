@@ -1,26 +1,23 @@
 <template>
-  <el-dialog
+  <Dialog
     ref="dialogRef"
     :model-value="visible"
-    :title="isEdit ? t('edu.profile.editNote') : t('edu.profile.createNote')"
     width="640px"
-    :close-on-click-modal="false"
-    append-to-body
-    :before-close="handleBeforeClose"
+    :close-on-click-overlay="false"
     @update:model-value="emit('update:visible', $event)"
-    role="dialog"
-    :aria-label="isEdit ? t('edu.profile.editNote') : t('edu.profile.createNote')"
-    aria-modal="true"
   >
-    <form ref="formRef" @submit.prevent>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{{ isEdit ? t('edu.profile.editNote') : t('edu.profile.createNote') }}</DialogTitle>
+      </DialogHeader>
+      <form ref="formRef" @submit.prevent>
       <div class="mb-4 flex items-center gap-4">
         <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteTitle') }}</label>
         <div class="flex-1">
-          <el-input
+          <Input
             v-model="form.title"
             :placeholder="t('edu.profile.noteTitle')"
             maxlength="100"
-            show-word-limit
           />
         </div>
       </div>
@@ -28,13 +25,11 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteContent') }}</label>
         <div class="flex-1">
-          <el-input
+          <Textarea
             v-model="form.content"
-            type="textarea"
             :rows="6"
             :placeholder="t('edu.profile.noteContent')"
             maxlength="2000"
-            show-word-limit
           />
         </div>
       </div>
@@ -42,7 +37,7 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteTags') }}</label>
         <div class="flex-1">
-          <el-input
+          <Input
             v-model="tagsInput"
             :placeholder="t('edu.profile.noteTagsHint')"
           />
@@ -52,50 +47,61 @@
       <div class="mb-4 flex items-center gap-4">
         <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteVisibility') }}</label>
         <div class="flex-1">
-          <el-switch
-            v-model="form.is_public"
-            :active-text="t('edu.profile.public')"
-            :inactive-text="t('edu.profile.private')"
-          />
+          <Switch v-model="form.is_public" />
+          <span class="text-sm text-muted-foreground">
+            {{ form.is_public ? t('edu.profile.public') : t('edu.profile.private') }}
+          </span>
         </div>
       </div>
 
       <div class="mb-4 flex items-center gap-4">
         <label class="w-24 shrink-0 text-sm">{{ t('edu.profile.noteAttachments') }}</label>
         <div class="flex-1">
-          <el-upload
-            :auto-upload="false"
-            :limit="3"
-            :on-change="handleFileChange"
-            :on-remove="handleFileRemove"
-            :file-list="fileList"
-            accept="image/*,.pdf,.doc,.docx"
-          >
-            <el-button :icon="Paperclip">{{ t('edu.profile.selectFile') }}</el-button>
-            <template #tip>
-              <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
-            </template>
-          </el-upload>
+          <div class="space-y-2">
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*,.pdf,.doc,.docx"
+              multiple
+              class="hidden"
+              @change="onFileInputChange"
+            />
+            <Button variant="outline" className="" @click="fileInputRef?.click()"><Paperclip />{{ t('edu.profile.selectFile') }}</Button>
+            <div v-if="fileList.length" class="space-y-1">
+              <div v-for="(file, index) in fileList" :key="index" class="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+                <span class="truncate">{{ file.name }}</span>
+                <button type="button" class="text-muted-foreground hover:text-foreground" @click="handleFileRemove(file)">×</button>
+              </div>
+            </div>
+            <div class="upload-hint">{{ t('edu.profile.fileTypeHint') }}</div>
+          </div>
         </div>
       </div>
     </form>
 
-    <template #footer>
-      <el-button @click="handleCancel">{{ t('edu.profile.cancel') }}</el-button>
-      <el-button type="primary" :loading="submitting" @click="handleSubmit">
-        {{ t('edu.profile.submit') }}
-      </el-button>
-    </template>
-  </el-dialog>
+      <DialogFooter>
+        <Button variant="outline" className="" @click="handleCancel">{{ t('edu.profile.cancel') }}</Button>
+        <Button variant="default" className="" :disabled="submitting" @click="handleSubmit">
+          {{ t('edu.profile.submit') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue'
+import { useFormRef } from '@/composables/useFormRef'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadFile } from 'element-plus'
-import { Paperclip } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from '@/utils/message'
+import { Paperclip } from '@/lib/lucide-fallback'
 import { notesApi, type LearningNote, type LearningNoteCreate } from '@/api/edu/notes'
 import { validateFile } from '@/utils/fileValidation'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import Button from '@/components/ui/Button.vue'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 
 const { t } = useI18n()
 
@@ -109,17 +115,17 @@ const emit = defineEmits<{
   (e: 'success'): void
 }>()
 
-const formRef = ref<FormInstance | null>(null)
+const formRef = useFormRef()
 const submitting = ref(false)
-const fileList = ref<UploadFile[]>([])
+const fileList = ref<any[]>([])
 const attachments = ref<Array<{ url: string; name: string; type: 'image' | 'file' }>>([])
 
 // PR-F F7：焦点陷阱（Dialog 打开记录触发元素、关闭还原焦点）
 const triggerEl = ref<HTMLElement | null>(null)
-const dialogRef = ref<InstanceType<typeof import('element-plus')['ElDialog']> | null>(null)
+const dialogRef = ref<{ $el?: HTMLElement } | null>(null)
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Tab' || !dialogRef.value?.$el) return
-  const focusable = dialogRef.value.$el.querySelectorAll<HTMLElement>(
+  const focusable = dialogRef.value!.$el!.querySelectorAll<HTMLElement>(
     'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
   )
   if (focusable.length === 0) return
@@ -163,7 +169,7 @@ const form = reactive<NoteForm>({
 
 const tagsInput = ref('')
 
-const rules: FormRules = {
+const rules: Record<string, any> = {
   title: [{ required: true, message: t('edu.profile.noteTitle'), trigger: 'blur' }],
   content: [{ required: true, message: t('edu.profile.noteContent'), trigger: 'blur' }],
 }
@@ -185,7 +191,7 @@ watch(
           name: a.name,
           url: a.url,
           uid: Date.now() + i,
-        } as UploadFile))
+        } as any))
       } else {
         resetForm()
       }
@@ -217,10 +223,10 @@ function resetForm() {
   tagsInput.value = ''
   attachments.value = []
   fileList.value = []
-  formRef.value?.clearValidate()
+  formRef.value?.clearValidate?.()
 }
 
-function handleFileChange(file: UploadFile) {
+function handleFileChange(file: any) {
   // PR-F F5：接入 utils/fileValidation.ts 统一校验
   const raw = file.raw
   if (raw) {
@@ -241,11 +247,26 @@ function handleFileChange(file: UploadFile) {
   })
 }
 
-function handleFileRemove(file: UploadFile) {
+function handleFileRemove(file: any) {
   const idx = fileList.value.findIndex((f) => f.uid === file.uid)
   if (idx >= 0) fileList.value.splice(idx, 1)
   const aIdx = attachments.value.findIndex((a) => a.name === file.name)
   if (aIdx >= 0) attachments.value.splice(aIdx, 1)
+}
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+function onFileInputChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = target.files ? Array.from(target.files) : []
+  target.value = ''
+  if (!files.length) return
+  if (fileList.value.length + files.length > 3) {
+    ElMessage.warning(t('edu.profile.fileTypeHint'))
+    return
+  }
+  for (const f of files) {
+    handleFileChange({ raw: f, name: f.name, url: '', uid: Date.now() + Math.random() } as any)
+  }
 }
 
 function handleCancel() {
@@ -281,7 +302,7 @@ function confirmClose(close: () => void) {
 
 async function handleSubmit() {
   if (!formRef.value || submitting.value) return
-  await formRef.value.validate(async (valid: boolean) => {
+  await formRef.value?.validate?.(async (valid: boolean) => {
     if (!valid) return
     submitting.value = true
     try {
@@ -291,7 +312,7 @@ async function handleSubmit() {
         .filter(Boolean)
 
       if (isEdit.value && props.note) {
-        await notesApi.update(props.note.id, {
+        await notesApi.update(props.note.id!, {
           title: form.title.trim(),
           content: form.content.trim(),
           is_public: form.is_public,

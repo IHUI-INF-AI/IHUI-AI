@@ -9,7 +9,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import UploadImage from "@/components/Uplaod/index.vue"
   import { ossApi } from '@/api/edu/admin-api'
 const { deleteFile } = ossApi
@@ -103,16 +102,5 @@ const { deleteFile } = ossApi
   display: flex;
   font-size: 12px;
   justify-content: space-between;
-}
-:deep(.el-upload-list.el-upload-list--picture-card .is-success){
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  border: 0;
-  display: flex;
-}
-:deep(.el-upload-list.el-upload-list--picture-card img){
-  min-height: 180px;
-  min-width: 320px;
 }
 </style>

@@ -116,25 +116,25 @@
             <div class="mb-4 flex items-center gap-4">
               <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('mobileAdapter.primaryColor') }}</label>
               <div class="flex-1">
-                <el-color-picker v-model="themeConfig.primaryColor" :disabled="!canConfigPlatform" />
+                <input type="color" v-model="themeConfig.primaryColor" :disabled="!canConfigPlatform" class="h-10 w-10 rounded border border-input" />
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
               <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('mobileAdapter.backgroundColor') }}</label>
               <div class="flex-1">
-                <el-color-picker v-model="themeConfig.backgroundColor" :disabled="!canConfigPlatform" />
+                <input type="color" v-model="themeConfig.backgroundColor" :disabled="!canConfigPlatform" class="h-10 w-10 rounded border border-input" />
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
               <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('mobileAdapter.textColor') }}</label>
               <div class="flex-1">
-                <el-color-picker v-model="themeConfig.textColor" :disabled="!canConfigPlatform" />
+                <input type="color" v-model="themeConfig.textColor" :disabled="!canConfigPlatform" class="h-10 w-10 rounded border border-input" />
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
               <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('mobileAdapter.borderRadius') }}</label>
               <div class="flex-1">
-                <el-slider v-model="themeConfig.borderRadius" :min="0" :max="20" :disabled="!canConfigPlatform" />
+                <input type="range" v-model="themeConfig.borderRadius" min="0" max="20" :disabled="!canConfigPlatform" class="w-full" />
               </div>
             </div>
             <div class="mb-4 flex items-center gap-4">
@@ -189,7 +189,7 @@
         <div class="mb-4 flex items-center gap-4">
           <label class="w-24 shrink-0 text-sm font-medium text-foreground">{{ t('mobileAdapter.priority') }}</label>
           <div class="flex-1">
-            <el-input-number v-model="newRule.priority" :min="1" :max="100" />
+            <Input type="number" v-model="newRule.priority" :min="1" :max="100" />
           </div>
         </div>
         <div class="mb-4 flex items-center gap-4">
@@ -231,7 +231,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '@/utils/message'
 import { tourMultiPlatformService, type DeviceInfo, type PlatformConfig, type AdaptationRule } from '@/services/tourMultiPlatformService'
 import { useTourPermissions } from '@/composables/useTourPermissions'
 import { tourMobileAdapterI18n } from '@/locales/tour-i18n'

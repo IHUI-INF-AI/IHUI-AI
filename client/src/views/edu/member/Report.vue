@@ -26,7 +26,9 @@
 
     <div ref="reportRef" class="report-paper">
       <div class="report-body">
-        <el-skeleton v-if="loading" :rows="10" animated />
+        <div v-if="loading" class="space-y-2">
+          <div v-for="i in 10" :key="i" class="h-4 bg-muted rounded animate-pulse"></div>
+        </div>
         <template v-else>
           <!-- 报告元数据区（C4 新增） -->
           <section class="report-metadata">
@@ -97,7 +99,7 @@
           <section v-if="weakSubjects.length" class="report-section">
             <h2 class="section-heading">{{ t('edu.profile.weakSubjects') }}</h2>
             <div class="weak-tags">
-              <el-tag
+              <Tag
                 v-for="subject in weakSubjects"
                 :key="subject"
                 type="danger"
@@ -105,7 +107,7 @@
                 size="small"
               >
                 {{ subject }}
-              </el-tag>
+              </Tag>
             </div>
           </section>
 
@@ -151,7 +153,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Alert } from '@/components/ui/alert'
 import Button from '@/components/ui/Button.vue'
-import { Download, Printer } from '@element-plus/icons-vue'
+import { Tag } from '@/components/ui/tag'
+import { Download, Printer } from '@/lib/lucide-fallback'
 import { useStudentProfile } from '@/composables/useStudentProfile'
 import { useReportGenerator } from '@/composables/useReportGenerator'
 import { exportElementToPDF, printElement } from '@/utils/exportService'
@@ -200,8 +203,8 @@ async function handleDownload() {
   if (!reportRef.value || exporting.value) return
   exporting.value = true
   try {
-    await generateReport()
-    reportGeneratedAt.value = metadata.value.generatedAt
+    await generateReport({})
+    reportGeneratedAt.value = metadata.value.generatedAt as string
     // C4: PDF 文件名国际化 + 非法字符清洗
     const baseName = t('edu.profile.reportFileName').replace(/[\\/:*?"<>|]/g, '_')
     const date = new Date().toISOString().slice(0, 10)
@@ -287,7 +290,7 @@ onMounted(loadAll)
   font-weight: 600;
   color: hsl(var(--foreground));
   padding-bottom: 8px;
-  border-bottom: 2px solid hsl(var(--primary));
+  border-bottom: 2px solid var(--el-color-primary-light-3);
 }
 
 .info-grid {
@@ -379,7 +382,7 @@ onMounted(loadAll)
 /* C4 新增：打印样式 */
 @media print {
   .page-header .header-actions {
-    display: none !important;
+    display: none;
   }
 
   .report-paper {
@@ -388,7 +391,7 @@ onMounted(loadAll)
   }
 
   .report-metadata {
-    background: transparent !important;
+    background: transparent;
     border: none;
   }
 }

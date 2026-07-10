@@ -81,7 +81,6 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref} from "vue"
   import router from "@/router"
   import { contentApi } from '@/api/edu/admin-api'
@@ -161,9 +160,8 @@ const { deleteNews, findList, saveNewsTop, deleteNewsTop, saveNewsRecommend, del
     }
     const selectTopic = ref({})
     const drawer = ref(false)
-    const drawerClose = (done) => {
+    const drawerClose = () => {
       drawer.value = false
-      done()
     }
     const commentView = (item) => {
       drawer.value = true

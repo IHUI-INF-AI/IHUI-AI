@@ -77,7 +77,7 @@
 </template>
 
 <script>
-// @ts-nocheck
+  import { useFormRef } from '@/composables/useFormRef'
   import {ref} from "vue"
   import { memberApi } from '@/api/edu/admin-api'
 const { findList, updateLevel, saveLevel, deleteLevel } = memberApi
@@ -139,7 +139,7 @@ const { findList, updateLevel, saveLevel, deleteLevel } = memberApi
         conditions: [{ required: true, message: "请输入达成条件", trigger: "blur" }],
       }
       const memberLevel = ref({})
-      const memberLevelRef = ref(null)
+      const memberLevelRef = useFormRef()
       const showMemberLevelFormDialog = ref(false)
       const hideMemberLevelForm = () => {
         showMemberLevelFormDialog.value = false;
@@ -204,22 +204,6 @@ const { findList, updateLevel, saveLevel, deleteLevel } = memberApi
     }
   };
 </script>
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

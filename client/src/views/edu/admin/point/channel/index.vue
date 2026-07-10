@@ -1,21 +1,21 @@
 <template>
   <div class="app-container">
     <div class="header">
-      <el-form :inline="true" :model="searchParam" class="demo-form-inline">
-        <el-form-item label="">
+      <form class="flex flex-wrap items-end gap-4" @submit.prevent>
+        <div>
           <Input size="small" class="search-input" v-model="searchParam.keyword" placeholder="请输入关键字"></Input>
           <Button size="sm" className="search-btn" variant="default" @click="search">搜索</Button>
-        </el-form-item>
-        <el-form-item>
+        </div>
+        <div>
           <Button size="sm" variant="default" @click="add">创建积分渠道</Button>
-        </el-form-item>
-        <el-form-item>
+        </div>
+        <div>
           <p style="font-size: 10px;padding: 6px;line-height: 14px;background: #e2f7fe;border-radius: 5px;border: 1px solid #d5daf7;">
             <WarningFilled class="h-4 w-4" />
             温馨提示：建议针对积分渠道设置阈值，不限制将导致损失风险
           </p>
-        </el-form-item>
-      </el-form>
+        </div>
+      </form>
     </div>
     <div class="content">
       <div class="content-list">
@@ -53,32 +53,40 @@
       <DialogHeader>
         <DialogTitle>新增/编辑积分</DialogTitle>
       </DialogHeader>
-      <el-form :model="pointChannel" :rules="pointChannelRules" ref="pointChannelRef">
-        <el-form-item label="名称：" label-width="150px" prop="name">
+      <form ref="pointChannelRef" @submit.prevent class="space-y-4">
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">名称：</label>
           <Input size="small" v-model="pointChannel.name" placeholder="请输入名称" autocomplete="off"></Input>
-        </el-form-item>
-        <el-form-item label="会员每次发放积分数：" label-width="150px" prop="memberReceiveNum">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">会员每次发放积分数：</label>
           <Input size="small" v-model="pointChannel.memberReceiveNum" placeholder="请输入大于0的整数" autocomplete="off"></Input>
-        </el-form-item>
-        <el-form-item label="日发放积分数：" label-width="150px" prop="dayIssuedNum">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">日发放积分数：</label>
           <Input size="small" v-model="pointChannel.dayIssuedNum" placeholder="请输入大于0的整数，等于0则不限制" autocomplete="off"></Input>
-        </el-form-item>
-        <el-form-item label="单用户日领取数：" label-width="150px" prop="dayMemberReceiveNum">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">单用户日领取数：</label>
           <Input size="small" v-model="pointChannel.dayMemberReceiveNum" placeholder="请输入大于0的整数，等于0则不限制" autocomplete="off"></Input>
-        </el-form-item>
-        <el-form-item label="总发放积分数：" label-width="150px" prop="issuedNum">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">总发放积分数：</label>
           <Input size="small" v-model="pointChannel.issuedNum" placeholder="请输入大于0的整数，等于0则不限制" autocomplete="off"></Input>
-        </el-form-item>
-        <el-form-item label="积分变动提醒：" label-width="150px" prop="changeRemind">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">积分变动提醒：</label>
           <Switch v-model="pointChannel.changeRemind" />
-        </el-form-item>
-        <el-form-item label="增加积分提醒：" label-width="150px" prop="increaseRemindTips">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">增加积分提醒：</label>
           <Input size="small" v-model="pointChannel.increaseRemindTips" placeholder="积分个数用{coin}表示"></Input>
-        </el-form-item>
-        <el-form-item label="减少积分提醒：" label-width="150px" prop="decreaseRemindTips">
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="w-36 text-sm text-right">减少积分提醒：</label>
           <Input size="small" v-model="pointChannel.decreaseRemindTips" placeholder="积分个数用{coin}表示"></Input>
-        </el-form-item>
-      </el-form>
+        </div>
+      </form>
       <template #footer>
         <div class="dialog-footer">
           <Button size="sm" variant="outline" @click="hideChannelForm">取 消</Button>
@@ -90,8 +98,8 @@
 </template>
 
 <script>
-// @ts-nocheck
   import {ref, markRaw} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import { pointApi } from '@/api/edu/admin-api'
 const { findList, updateChannel, saveChannel } = pointApi
   import Page from "@/components/Page/index.vue"
@@ -161,7 +169,7 @@ const { findList, updateChannel, saveChannel } = pointApi
         decreaseRemindTips: [{ required: true, message: "请输入减少积分提醒", trigger: "blur" }],
       }
       const pointChannel = ref({})
-      const pointChannelRef = ref(null)
+      const pointChannelRef = useFormRef()
       const showChannelFormDialog = ref(false)
       const hideChannelForm = () => {
         showChannelFormDialog.value = false;
@@ -217,22 +225,6 @@ const { findList, updateChannel, saveChannel } = pointApi
     }
   };
 </script>
-<style lang="scss">
-  .header {
-    .el-form {
-      .el-form-item {
-        .el-form-item__content {
-          line-height: 28px;
-          .search-btn {
-            &:hover {
-              color: hsl(var(--primary));
-            }
-          }
-        }
-      }
-    }
-  }
-</style>
 <style scoped lang="scss">
   .app-container {
     margin: 20px;

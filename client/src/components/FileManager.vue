@@ -80,7 +80,7 @@
                 <More class="h-4 w-4" />
               </Button>
             </summary>
-            <div class="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border bg-popover p-1 shadow-md" @click="$event.target.closest('details').open = false">
+            <div class="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border bg-popover p-1 shadow-md" @click="($event.target as HTMLElement).closest('details')!.open = false">
               <button class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent" @click="previewFile(file)">
                 <View class="h-4 w-4" /> {{ $t('file.preview') }}
               </button>
@@ -189,15 +189,15 @@
               <span class="version-number">v{{ v.version_number }}</span>
               <span v-if="v.is_current" class="version-current">{{ $t('file.versions.current') }}</span>
               <span class="version-meta">
-                {{ formatSize(v.file_size) }} · {{ formatDate(v.created_at) }}
+                {{ formatSize(v.file_size ?? 0) }} · {{ formatDate(v.created_at ?? '') }}
               </span>
               <span v-if="v.change_summary" class="version-summary">{{ v.change_summary }}</span>
             </div>
             <div class="version-actions">
-              <Button size="sm" variant="outline" @click="downloadVersion(v.version_id, v.version_number)">
+              <Button size="sm" variant="outline" @click="downloadVersion(v.version_id!, v.version_number!)">
                 {{ $t('file.download') }}
               </Button>
-              <Button v-if="!v.is_current" size="sm" variant="secondary" @click="rollbackVersion(v.version_id)">
+              <Button v-if="!v.is_current" size="sm" variant="secondary" @click="rollbackVersion(v.version_id!)">
                 {{ $t('file.versions.rollback') }}
               </Button>
             </div>
@@ -220,15 +220,22 @@
       <DialogHeader>
         <DialogTitle>{{ $t('file.versions.new') }}</DialogTitle>
       </DialogHeader>
-      <el-upload
-        drag
-        :auto-upload="false"
-        :on-change="handleNewVersionFile"
-        :limit="1"
-      >
-        <Upload class="h-4 w-4 el-icon--upload" />
-        <div>{{ t('fileManager.dropUpload') }}</div>
-      </el-upload>
+      <div class="space-y-2">
+        <div
+          class="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border p-6 text-center cursor-pointer hover:bg-accent/50"
+          @click="versionFileInputRef?.click()"
+          @drop.prevent="onVersionFileDrop"
+          @dragover.prevent
+        >
+          <Upload class="h-4 w-4" />
+          <div class="text-sm text-muted-foreground">{{ t('fileManager.dropUpload') }}</div>
+          <input ref="versionFileInputRef" type="file" class="hidden" @change="onVersionInputChange" />
+        </div>
+        <div v-if="newVersionFile" class="flex items-center justify-between rounded-md border border-border p-2 text-sm">
+          <span class="truncate">{{ newVersionFile.name }}</span>
+          <button type="button" class="text-muted-foreground hover:text-foreground" @click="removeVersionFile">×</button>
+        </div>
+      </div>
       <Input v-model="newVersionSummary" :placeholder="$t('file.versions.summary')" style="margin-top: 16px" />
       <DialogFooter>
         <Button variant="outline" @click="showNewVersion = false">{{ $t('common.cancel') }}</Button>
@@ -247,11 +254,11 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 import { ref, computed, onMounted } from 'vue'
 import { useCleanup } from '@/composables/useCleanup'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '@/utils/message'
 import {
   Upload, Refresh, Grid, List, More, View, Download, Share, Delete,
   Document, Picture, VideoPlay, Headset, Clock, Loading, Switch
-} from '@element-plus/icons-vue'
+} from '@/lib/lucide-fallback'
 import EnhancedFileUpload from './EnhancedFileUpload.vue'
 import UnifiedViewer from './viewers/UnifiedViewer.vue'
 import VersionDiff from './VersionDiff.vue'
@@ -479,6 +486,23 @@ function handleNewVersionFile(uploadFile: { raw: File }) {
   newVersionFile.value = uploadFile.raw
 }
 
+const versionFileInputRef = ref<HTMLInputElement | null>(null)
+function onVersionInputChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = target.files ? Array.from(target.files) : []
+  target.value = ''
+  if (!files.length) return
+  handleNewVersionFile({ raw: files[0] })
+}
+function onVersionFileDrop(e: DragEvent) {
+  const files = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : []
+  if (!files.length) return
+  handleNewVersionFile({ raw: files[0] })
+}
+function removeVersionFile() {
+  newVersionFile.value = null
+}
+
 async function uploadNewVersion() {
   if (!newVersionFile.value || !currentVersionFile.value) return
   
@@ -680,11 +704,6 @@ onMounted(() => {
   height: 100%;
   object-fit: cover;
   border-radius: var(--global-border-radius);
-}
-
-.file-preview .el-icon {
-  font-size: 24px;
-  color: hsl(var(--muted-foreground));
 }
 
 .file-info {

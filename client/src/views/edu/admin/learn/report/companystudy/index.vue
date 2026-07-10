@@ -60,7 +60,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import {ref} from "vue"
 import Page from "@/components/Page/index.vue";
 import {Search} from '@/lib/lucide-fallback';
@@ -156,18 +155,6 @@ export default {
   margin: 20px;
   font-size: 12px;
   .report-main {
-    :deep(.el-table){
-      font-size: 12px;
-      .el-table__empty-block {
-        line-height: 400px;
-        .el-table__empty-text {
-          line-height: 400px;
-        }
-      }
-      th, td {
-        padding: 6px 0;
-      }
-    }
   }
 }
 </style>

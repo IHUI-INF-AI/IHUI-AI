@@ -8,28 +8,33 @@
     <Card class="filter-card radius-auto transition-shadow hover:shadow-md p-5">
       <div class="flex flex-wrap gap-4">
         <div class="w-full sm:w-1/3 md:w-1/4">
-          <el-select
+          <Select
             v-model="timeRange"
             :placeholder="t('statistics.selectTimeRange')"
             @change="handleTimeRangeChange"
           >
-            <el-option :label="t('statistics.timeRanges.today')" value="today" />
-            <el-option :label="t('statistics.timeRanges.week')" value="week" />
-            <el-option :label="t('statistics.timeRanges.month')" value="month" />
-            <el-option :label="t('statistics.timeRanges.all')" value="all" />
-          </el-select>
+            <SelectOption :label="t('statistics.timeRanges.today')" value="today" />
+            <SelectOption :label="t('statistics.timeRanges.week')" value="week" />
+            <SelectOption :label="t('statistics.timeRanges.month')" value="month" />
+            <SelectOption :label="t('statistics.timeRanges.all')" value="all" />
+          </Select>
         </div>
         <div class="w-full sm:w-1/3 md:w-1/4">
-          <el-date-picker
-            v-model="customDateRange"
-            type="daterange"
-            :range-separator="t('common.rangeSeparator')"
-            :start-placeholder="t('statistics.startDate')"
-            :end-placeholder="t('statistics.endDate')"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            @change="handleCustomDateChange"
-          />
+          <div class="flex items-center gap-2">
+            <Input
+              type="date"
+              v-model="customDateRange[0]"
+              :placeholder="t('statistics.startDate')"
+              @change="handleCustomDateChange"
+            />
+            <span class="text-muted-foreground">{{ t('common.rangeSeparator') }}</span>
+            <Input
+              type="date"
+              v-model="customDateRange[1]"
+              :placeholder="t('statistics.endDate')"
+              @change="handleCustomDateChange"
+            />
+          </div>
         </div>
       </div>
     </Card>
@@ -154,6 +159,8 @@ import OrderStatistics from '@/components/statistics/OrderStatistics.vue'
 import AgentStatistics from '@/components/statistics/AgentStatistics.vue'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Select, SelectOption } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 
 const { t } = useI18n()
 const _authStore = useAuthStore()
@@ -185,7 +192,7 @@ type TabName = 'usage' | 'behavior' | 'orders' | 'agents'
 const usageStatsPageState = usePageState<UsageStats>({ autoShowError: false })
 
 const timeRange = ref<TimeRange>('month')
-const customDateRange = ref<[string, string] | null>(null)
+const customDateRange = ref<[string, string]>(['', ''])
 const activeTab = ref<TabName>('usage')
 const loadingStats = computed(() => apiLoading.value || usageStatsPageState.loading.value)
 
@@ -213,12 +220,12 @@ const formatNumber = (num: number): string => {
 }
 
 const handleTimeRangeChange = (): void => {
-  customDateRange.value = null
+  customDateRange.value = ['', '']
   loadStatistics()
 }
 
 const handleCustomDateChange = (): void => {
-  if (customDateRange.value) {
+  if (customDateRange.value[0] && customDateRange.value[1]) {
     timeRange.value = 'all'
   }
   loadStatistics()
@@ -236,7 +243,7 @@ const loadStatistics = async (): Promise<void> => {
       type: timeRange.value,
     }
 
-    if (customDateRange.value) {
+    if (customDateRange.value[0] && customDateRange.value[1]) {
       params.startDate = customDateRange.value[0]
       params.endDate = customDateRange.value[1]
     }

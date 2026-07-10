@@ -57,8 +57,8 @@
   </div>
 </template>
 <script>
-// @ts-nocheck
   import {ref} from "vue"
+  import { useFormRef } from '@/composables/useFormRef'
   import {useRoute} from "vue-router"
   import router from "@/router"
   import { contentApi } from '@/api/edu/admin-api'
@@ -168,7 +168,7 @@ const { saveNews, updateNews, getNews } = contentApi
         uploadData.value.files = []
       }
       // 提交基本信息
-      const newsRef = ref(null)
+      const newsRef = useFormRef()
       const submitNews = () => {
         newsRef.value.validate((valid) => {
           if (!valid) { return false }
@@ -241,16 +241,6 @@ const { saveNews, updateNews, getNews } = contentApi
   .upload-image-tips {
     font-size: 12px;
     color: #999999;
-  }
-  .el-form-item {
-    width: 96%;
-  }
-  .el-tag {
-    margin-right: 10px;
-  }
-  .el-upload--picture-card, .el-upload-list--picture-card .el-upload-list__item {
-    width: 100%;
-    height: 62.5%;
   }
   .tips {
     font-size: 12px;

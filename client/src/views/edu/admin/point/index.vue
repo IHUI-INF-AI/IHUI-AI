@@ -13,7 +13,6 @@
 </template>
 
 <script>
-// @ts-nocheck
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { Coin, Top, Bottom } from '@/lib/lucide-fallback';
 import * as echarts from "echarts";
