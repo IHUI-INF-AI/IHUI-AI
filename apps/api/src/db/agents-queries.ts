@@ -1,5 +1,5 @@
-import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
+import { db, dbRead } from './index.js'
 import {
   agents,
   agentCategories,
@@ -9,66 +9,69 @@ import {
   type AgentCategory,
   type AgentSettlement,
   type AgentExamine,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // =============================================================================
 // Agents 智能体
 // =============================================================================
 
 export interface AgentListQuery {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  categoryId?: string;
-  userId?: string;
-  keyword?: string;
+  page?: number
+  pageSize?: number
+  status?: string
+  categoryId?: string
+  userId?: string
+  keyword?: string
 }
 
 export async function findAgentsList(
   query: AgentListQuery,
 ): Promise<{ list: Agent[]; total: number; page: number; pageSize: number }> {
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 20;
-  const conds = [];
-  if (query.status) conds.push(eq(agents.status, query.status));
-  if (query.categoryId) conds.push(eq(agents.categoryId, query.categoryId));
-  if (query.userId) conds.push(eq(agents.userId, query.userId));
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 20
+  const conds = []
+  if (query.status) conds.push(eq(agents.status, query.status))
+  if (query.categoryId) conds.push(eq(agents.categoryId, query.categoryId))
+  if (query.userId) conds.push(eq(agents.userId, query.userId))
   if (query.keyword) {
-    conds.push(ilike(agents.name, `%${query.keyword}%`));
+    conds.push(ilike(agents.name, `%${query.keyword}%`))
   }
-  const where = conds.length ? and(...conds) : undefined;
+  const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select()
       .from(agents)
       .where(where)
       .orderBy(asc(agents.sort), desc(agents.updatedAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(agents).where(where),
-  ]);
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+    dbRead
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agents)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 export async function findAgentById(agentId: string): Promise<Agent | undefined> {
-  const rows = await db.select().from(agents).where(eq(agents.agentId, agentId)).limit(1);
-  return rows[0];
+  const rows = await dbRead.select().from(agents).where(eq(agents.agentId, agentId)).limit(1)
+  return rows[0]
 }
 
 export interface CreateAgentInput {
-  name: string;
-  description?: string | null;
-  avatar?: string | null;
-  cover?: string | null;
-  categoryId?: string | null;
-  userId?: string | null;
-  workspaceId?: string | null;
-  status?: string;
-  price?: number;
-  isFree?: boolean;
-  sort?: number;
-  publishedAt?: Date | null;
-  remark?: string | null;
+  name: string
+  description?: string | null
+  avatar?: string | null
+  cover?: string | null
+  categoryId?: string | null
+  userId?: string | null
+  workspaceId?: string | null
+  status?: string
+  price?: number
+  isFree?: boolean
+  sort?: number
+  publishedAt?: Date | null
+  remark?: string | null
 }
 
 export async function createAgent(data: CreateAgentInput): Promise<Agent | undefined> {
@@ -89,24 +92,24 @@ export async function createAgent(data: CreateAgentInput): Promise<Agent | undef
       publishedAt: data.publishedAt,
       remark: data.remark,
     })
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export interface UpdateAgentInput {
-  name?: string;
-  description?: string | null;
-  avatar?: string | null;
-  cover?: string | null;
-  categoryId?: string | null;
-  userId?: string | null;
-  workspaceId?: string | null;
-  status?: string;
-  price?: number;
-  isFree?: boolean;
-  sort?: number;
-  publishedAt?: Date | null;
-  remark?: string | null;
+  name?: string
+  description?: string | null
+  avatar?: string | null
+  cover?: string | null
+  categoryId?: string | null
+  userId?: string | null
+  workspaceId?: string | null
+  status?: string
+  price?: number
+  isFree?: boolean
+  sort?: number
+  publishedAt?: Date | null
+  remark?: string | null
 }
 
 export async function updateAgent(
@@ -114,21 +117,21 @@ export async function updateAgent(
   patch: UpdateAgentInput,
 ): Promise<Agent | undefined> {
   // 发布时若未显式提供 publishedAt，则自动填充当前时间
-  const extra: Partial<UpdateAgentInput> = {};
+  const extra: Partial<UpdateAgentInput> = {}
   if (patch.status === 'published' && patch.publishedAt === undefined) {
-    extra.publishedAt = new Date();
+    extra.publishedAt = new Date()
   }
   const rows = await db
     .update(agents)
     .set({ ...patch, ...extra, updatedAt: new Date() })
     .where(eq(agents.agentId, agentId))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteAgent(agentId: string): Promise<Agent | undefined> {
-  const rows = await db.delete(agents).where(eq(agents.agentId, agentId)).returning();
-  return rows[0];
+  const rows = await db.delete(agents).where(eq(agents.agentId, agentId)).returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -136,74 +139,76 @@ export async function deleteAgent(agentId: string): Promise<Agent | undefined> {
 // =============================================================================
 
 export interface CategoryListQuery {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  isPaid?: boolean;
-  keyword?: string;
+  page?: number
+  pageSize?: number
+  status?: string
+  isPaid?: boolean
+  keyword?: string
 }
 
 export async function findCategoryList(
   query: CategoryListQuery,
 ): Promise<{ list: AgentCategory[]; total: number; page: number; pageSize: number }> {
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 50;
-  const conds = [];
-  if (query.status) conds.push(eq(agentCategories.status, query.status));
-  if (query.isPaid !== undefined) conds.push(eq(agentCategories.isPaid, query.isPaid));
-  if (query.keyword) conds.push(ilike(agentCategories.name, `%${query.keyword}%`));
-  const where = conds.length ? and(...conds) : undefined;
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 50
+  const conds = []
+  if (query.status) conds.push(eq(agentCategories.status, query.status))
+  if (query.isPaid !== undefined) conds.push(eq(agentCategories.isPaid, query.isPaid))
+  if (query.keyword) conds.push(ilike(agentCategories.name, `%${query.keyword}%`))
+  const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select()
       .from(agentCategories)
       .where(where)
       .orderBy(asc(agentCategories.sort), desc(agentCategories.updatedAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(agentCategories).where(where),
-  ]);
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+    dbRead
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agentCategories)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 export async function findCategoryById(categoryId: string): Promise<AgentCategory | undefined> {
-  const rows = await db
+  const rows = await dbRead
     .select()
     .from(agentCategories)
     .where(eq(agentCategories.categoryId, categoryId))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export async function findCategoriesByIds(ids: string[]): Promise<AgentCategory[]> {
-  if (ids.length === 0) return [];
-  return db
-    .select()
-    .from(agentCategories)
-    .where(inArray(agentCategories.categoryId, ids));
+  if (ids.length === 0) return []
+  return dbRead.select().from(agentCategories).where(inArray(agentCategories.categoryId, ids))
 }
 
 /** 按智能体 ID 查其所属分类（基于 agents.categoryId）。 */
 export async function findCategoryByAgentId(agentId: string): Promise<AgentCategory | undefined> {
-  const rows = await db
+  const rows = await dbRead
     .select({ category: agentCategories })
     .from(agentCategories)
     .innerJoin(agents, eq(agents.categoryId, agentCategories.categoryId))
     .where(eq(agents.agentId, agentId))
-    .limit(1);
-  return rows[0]?.category;
+    .limit(1)
+  return rows[0]?.category
 }
 
 export interface CreateCategoryInput {
-  name: string;
-  description?: string | null;
-  icon?: string | null;
-  sort?: number;
-  status?: string;
-  isPaid?: boolean;
+  name: string
+  description?: string | null
+  icon?: string | null
+  sort?: number
+  status?: string
+  isPaid?: boolean
 }
 
-export async function createCategory(data: CreateCategoryInput): Promise<AgentCategory | undefined> {
+export async function createCategory(
+  data: CreateCategoryInput,
+): Promise<AgentCategory | undefined> {
   const rows = await db
     .insert(agentCategories)
     .values({
@@ -214,17 +219,17 @@ export async function createCategory(data: CreateCategoryInput): Promise<AgentCa
       status: data.status,
       isPaid: data.isPaid,
     })
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export interface UpdateCategoryInput {
-  name?: string;
-  description?: string | null;
-  icon?: string | null;
-  sort?: number;
-  status?: string;
-  isPaid?: boolean;
+  name?: string
+  description?: string | null
+  icon?: string | null
+  sort?: number
+  status?: string
+  isPaid?: boolean
 }
 
 export async function updateCategory(
@@ -235,16 +240,16 @@ export async function updateCategory(
     .update(agentCategories)
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(agentCategories.categoryId, categoryId))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteCategory(categoryId: string): Promise<AgentCategory | undefined> {
   const rows = await db
     .delete(agentCategories)
     .where(eq(agentCategories.categoryId, categoryId))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -252,46 +257,49 @@ export async function deleteCategory(categoryId: string): Promise<AgentCategory 
 // =============================================================================
 
 export interface SettlementListQuery {
-  page?: number;
-  pageSize?: number;
-  agentId?: string;
-  status?: string;
-  orderNo?: string;
+  page?: number
+  pageSize?: number
+  agentId?: string
+  status?: string
+  orderNo?: string
 }
 
 export async function findSettlementList(
   query: SettlementListQuery,
 ): Promise<{ list: AgentSettlement[]; total: number; page: number; pageSize: number }> {
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 20;
-  const conds = [];
-  if (query.agentId) conds.push(eq(agentSettlements.agentId, query.agentId));
-  if (query.status) conds.push(eq(agentSettlements.status, query.status));
-  if (query.orderNo) conds.push(eq(agentSettlements.orderNo, query.orderNo));
-  const where = conds.length ? and(...conds) : undefined;
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 20
+  const conds = []
+  if (query.agentId) conds.push(eq(agentSettlements.agentId, query.agentId))
+  if (query.status) conds.push(eq(agentSettlements.status, query.status))
+  if (query.orderNo) conds.push(eq(agentSettlements.orderNo, query.orderNo))
+  const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select()
       .from(agentSettlements)
       .where(where)
       .orderBy(desc(agentSettlements.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(agentSettlements).where(where),
-  ]);
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+    dbRead
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agentSettlements)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 /** 结算汇总：总金额、已结算金额、未结算金额、记录数。 */
 export async function findSettlementSummary(): Promise<{
-  totalAmount: number;
-  settledAmount: number;
-  unsettledAmount: number;
-  totalCount: number;
-  settledCount: number;
-  unsettledCount: number;
+  totalAmount: number
+  settledAmount: number
+  unsettledAmount: number
+  totalCount: number
+  settledCount: number
+  unsettledCount: number
 }> {
-  const rows = await db
+  const rows = await dbRead
     .select({
       totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::int`,
       settledAmount: sql<number>`coalesce(sum(${agentSettlements.amount}) filter (where ${agentSettlements.status} = 'settled'), 0)::int`,
@@ -300,8 +308,8 @@ export async function findSettlementSummary(): Promise<{
       settledCount: sql<number>`count(*) filter (where ${agentSettlements.status} = 'settled')::int`,
       unsettledCount: sql<number>`count(*) filter (where ${agentSettlements.status} = 'unsettled')::int`,
     })
-    .from(agentSettlements);
-  const r = rows[0];
+    .from(agentSettlements)
+  const r = rows[0]
   return {
     totalAmount: r?.totalAmount ?? 0,
     settledAmount: r?.settledAmount ?? 0,
@@ -309,41 +317,41 @@ export async function findSettlementSummary(): Promise<{
     totalCount: r?.totalCount ?? 0,
     settledCount: r?.settledCount ?? 0,
     unsettledCount: r?.unsettledCount ?? 0,
-  };
+  }
 }
 
 /** 按订单号汇总结算。 */
 export async function findSettlementByOrder(orderNo: string): Promise<{
-  orderNo: string;
-  totalAmount: number;
-  commissionAmount: number;
-  count: number;
+  orderNo: string
+  totalAmount: number
+  commissionAmount: number
+  count: number
 }> {
-  const rows = await db
+  const rows = await dbRead
     .select({
       totalAmount: sql<number>`coalesce(sum(${agentSettlements.amount}), 0)::int`,
       commissionAmount: sql<number>`coalesce(sum(${agentSettlements.commissionAmount}), 0)::int`,
       count: sql<number>`count(*)::int`,
     })
     .from(agentSettlements)
-    .where(eq(agentSettlements.orderNo, orderNo));
-  const r = rows[0];
+    .where(eq(agentSettlements.orderNo, orderNo))
+  const r = rows[0]
   return {
     orderNo,
     totalAmount: r?.totalAmount ?? 0,
     commissionAmount: r?.commissionAmount ?? 0,
     count: r?.count ?? 0,
-  };
+  }
 }
 
 export interface CreateSettlementInput {
-  agentId?: string | null;
-  buyRecordId?: string | null;
-  orderNo?: string | null;
-  amount?: number;
-  commissionRate?: number;
-  commissionAmount?: number;
-  status?: string;
+  agentId?: string | null
+  buyRecordId?: string | null
+  orderNo?: string | null
+  amount?: number
+  commissionRate?: number
+  commissionAmount?: number
+  status?: string
 }
 
 export async function createSettlement(
@@ -360,8 +368,8 @@ export async function createSettlement(
       commissionAmount: data.commissionAmount,
       status: data.status,
     })
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 /** 将指定结算记录置为已结算。 */
@@ -370,17 +378,17 @@ export async function settleSettlement(id: string): Promise<AgentSettlement | un
     .update(agentSettlements)
     .set({ status: 'settled', settledAt: new Date(), updatedAt: new Date() })
     .where(eq(agentSettlements.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteSettlements(ids: string[]): Promise<number> {
-  if (ids.length === 0) return 0;
+  if (ids.length === 0) return 0
   const rows = await db
     .delete(agentSettlements)
     .where(inArray(agentSettlements.id, ids))
-    .returning();
-  return rows.length;
+    .returning()
+  return rows.length
 }
 
 // =============================================================================
@@ -388,70 +396,73 @@ export async function deleteSettlements(ids: string[]): Promise<number> {
 // =============================================================================
 
 export interface ExamineListQuery {
-  page?: number;
-  pageSize?: number;
-  agentId?: string;
-  userId?: string;
-  status?: string;
+  page?: number
+  pageSize?: number
+  agentId?: string
+  userId?: string
+  status?: string
 }
 
 export async function findExamineList(
   query: ExamineListQuery,
 ): Promise<{ list: AgentExamine[]; total: number; page: number; pageSize: number }> {
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 20;
-  const conds = [];
-  if (query.agentId) conds.push(eq(agentExamines.agentId, query.agentId));
-  if (query.userId) conds.push(eq(agentExamines.userId, query.userId));
-  if (query.status) conds.push(eq(agentExamines.status, query.status));
-  const where = conds.length ? and(...conds) : undefined;
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 20
+  const conds = []
+  if (query.agentId) conds.push(eq(agentExamines.agentId, query.agentId))
+  if (query.userId) conds.push(eq(agentExamines.userId, query.userId))
+  if (query.status) conds.push(eq(agentExamines.status, query.status))
+  const where = conds.length ? and(...conds) : undefined
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select()
       .from(agentExamines)
       .where(where)
       .orderBy(desc(agentExamines.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(agentExamines).where(where),
-  ]);
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+    dbRead
+      .select({ count: sql<number>`count(*)::int` })
+      .from(agentExamines)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 /** 审核统计：各状态记录数。 */
 export async function findExamineStats(): Promise<{
-  totalCount: number;
-  pendingCount: number;
-  approvedCount: number;
-  rejectedCount: number;
+  totalCount: number
+  pendingCount: number
+  approvedCount: number
+  rejectedCount: number
 }> {
-  const rows = await db
+  const rows = await dbRead
     .select({
       totalCount: sql<number>`count(*)::int`,
       pendingCount: sql<number>`count(*) filter (where ${agentExamines.status} = 'pending')::int`,
       approvedCount: sql<number>`count(*) filter (where ${agentExamines.status} = 'approved')::int`,
       rejectedCount: sql<number>`count(*) filter (where ${agentExamines.status} = 'rejected')::int`,
     })
-    .from(agentExamines);
-  const r = rows[0];
+    .from(agentExamines)
+  const r = rows[0]
   return {
     totalCount: r?.totalCount ?? 0,
     pendingCount: r?.pendingCount ?? 0,
     approvedCount: r?.approvedCount ?? 0,
     rejectedCount: r?.rejectedCount ?? 0,
-  };
+  }
 }
 
 export async function findExamineById(id: string): Promise<AgentExamine | undefined> {
-  const rows = await db.select().from(agentExamines).where(eq(agentExamines.id, id)).limit(1);
-  return rows[0];
+  const rows = await dbRead.select().from(agentExamines).where(eq(agentExamines.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreateExamineInput {
-  agentId?: string | null;
-  userId?: string | null;
-  status?: string;
-  reason?: string | null;
+  agentId?: string | null
+  userId?: string | null
+  status?: string
+  reason?: string | null
 }
 
 export async function createExamine(data: CreateExamineInput): Promise<AgentExamine | undefined> {
@@ -463,15 +474,15 @@ export async function createExamine(data: CreateExamineInput): Promise<AgentExam
       status: data.status,
       reason: data.reason,
     })
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export interface UpdateExamineInput {
-  agentId?: string | null;
-  userId?: string | null;
-  status?: string;
-  reason?: string | null;
+  agentId?: string | null
+  userId?: string | null
+  status?: string
+  reason?: string | null
 }
 
 export async function updateExamine(
@@ -482,13 +493,13 @@ export async function updateExamine(
     .update(agentExamines)
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(agentExamines.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 export async function deleteExamine(id: string): Promise<AgentExamine | undefined> {
-  const rows = await db.delete(agentExamines).where(eq(agentExamines.id, id)).returning();
-  return rows[0];
+  const rows = await db.delete(agentExamines).where(eq(agentExamines.id, id)).returning()
+  return rows[0]
 }
 
 /** 批准审核：置为 approved 并记录审核人。 */
@@ -505,8 +516,8 @@ export async function approveExamine(
       updatedAt: new Date(),
     })
     .where(eq(agentExamines.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 /** 驳回审核：置为 rejected 并记录审核人与原因。 */
@@ -525,6 +536,6 @@ export async function rejectExamine(
       updatedAt: new Date(),
     })
     .where(eq(agentExamines.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }

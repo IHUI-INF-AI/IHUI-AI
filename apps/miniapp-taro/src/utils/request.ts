@@ -14,20 +14,20 @@ const TIMEOUT = 15000
 export interface RequestOptions {
   url: string
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  data?: Record<string, any> | string
+  data?: unknown
   header?: Record<string, string>
   /** 是否跳过自动 token 注入 */
   skipAuth?: boolean
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number
   msg: string
   data: T
 }
 
 /** 统一请求函数 */
-export function request<T = any>(options: RequestOptions): Promise<T> {
+export function request<T = unknown>(options: RequestOptions): Promise<T> {
   const { url, method = 'GET', data, header = {}, skipAuth = false } = options
 
   if (!skipAuth) {
@@ -91,17 +91,17 @@ export function request<T = any>(options: RequestOptions): Promise<T> {
 }
 
 /** GET 请求 */
-export const get = <T = any>(url: string, data?: Record<string, any>, header?: Record<string, string>) =>
+export const get = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>
   request<T>({ url, method: 'GET', data, header })
 
 /** POST 请求 */
-export const post = <T = any>(url: string, data?: Record<string, any>, header?: Record<string, string>) =>
+export const post = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>
   request<T>({ url, method: 'POST', data, header })
 
 /** PUT 请求 */
-export const put = <T = any>(url: string, data?: Record<string, any>, header?: Record<string, string>) =>
+export const put = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>
   request<T>({ url, method: 'PUT', data, header })
 
 /** DELETE 请求 */
-export const del = <T = any>(url: string, data?: Record<string, any>, header?: Record<string, string>) =>
+export const del = <T = unknown>(url: string, data?: unknown, header?: Record<string, string>) =>
   request<T>({ url, method: 'DELETE', data, header })
