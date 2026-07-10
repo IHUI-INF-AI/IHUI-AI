@@ -1,0 +1,19 @@
+.page { min-height: 100vh; background: #f7f8fa; padding-bottom: 120rpx; }
+.head { background: #fff; padding: 32rpx; margin-bottom: 24rpx; }
+.title { font-size: 36rpx; color: #333; font-weight: 700; line-height: 1.4; }
+.meta { display: flex; align-items: center; margin-top: 24rpx; }
+.avatar { width: 50rpx; height: 50rpx; border-radius: 50%; background: #f5f5f5; }
+.author { margin-left: 16rpx; font-size: 24rpx; color: #666; }
+.time { margin-left: auto; font-size: 22rpx; color: #999; }
+.content { margin-top: 24rpx; font-size: 28rpx; color: #333; line-height: 1.8; }
+.answers { background: #fff; padding: 32rpx; }
+.answers-title { font-size: 28rpx; color: #333; font-weight: 600; margin-bottom: 24rpx; }
+.answer { padding: 24rpx 0; border-bottom: 2rpx solid #f5f5f5; }
+.a-head { display: flex; align-items: center; }
+.a-author { margin-left: 16rpx; font-size: 24rpx; color: #666; }
+.a-time { margin-left: auto; font-size: 22rpx; color: #999; }
+.a-content { margin-top: 16rpx; font-size: 28rpx; color: #333; line-height: 1.6; }
+.footer { position: fixed; bottom: 0; left: 0; right: 0; display: flex; align-items: center; padding: 16rpx 24rpx; background: #fff; border-top: 2rpx solid #f5f5f5; }
+.input { flex: 1; height: 72rpx; padding: 0 24rpx; background: #f7f8fa; border-radius: 36rpx; font-size: 26rpx; }
+.btn { margin-left: 16rpx; background: #007aff; color: #fff; font-size: 24rpx; }
+.btn[disabled] { background: #ccc; }
