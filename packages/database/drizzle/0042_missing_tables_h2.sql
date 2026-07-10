@@ -1,4 +1,4 @@
--- 0040: 补齐 H-2 缺失的 14 张表 (learn_record/learn_topic/exam_wrong_question/agent_heat_stats/user_auth_info 等)
+-- 0042: 补齐 H-2 缺失的 14 张表 (learn_record/learn_topic/exam_wrong_question/agent_heat_stats/user_auth_info 等)
 
 -- ========== 学习记录相关 ==========
 

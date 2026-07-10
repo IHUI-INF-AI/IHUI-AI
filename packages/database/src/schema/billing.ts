@@ -23,6 +23,7 @@ export const plans = pgTable('plans', {
  * 订单表。
  * amount 以分为单位。status: pending|paid|cancelled|refunded。
  * user_id 级联删除；plan_id 默认 NO ACTION（有订单时禁止删除方案）。
+ * orderType: 1=membership 2=token 3=activity 4=identity（0=未分类）。
  */
 export const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -35,6 +36,8 @@ export const orders = pgTable('orders', {
   currency: varchar('currency', { length: 8 }).default('CNY').notNull(),
   status: varchar('status', { length: 16 }).default('pending').notNull(),
   paymentMethod: varchar('payment_method', { length: 16 }),
+  orderType: integer('order_type').default(0).notNull(),
+  productId: varchar('product_id', { length: 64 }),
   paidAt: timestamp('paid_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
