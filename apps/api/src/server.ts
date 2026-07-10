@@ -74,6 +74,13 @@ import { clawdbotRoutes } from './routes/clawdbot.js'
 import { tenantRoutes } from './routes/tenant.js'
 import canaryRoutes from './routes/canary.js'
 import tboxRoutes from './routes/tbox.js'
+import stockRoutes from './routes/stock.js'
+import agentExtendedRoutes from './routes/agent-extended.js'
+import contentExtendedRoutes from './routes/content-extended.js'
+import eduExtendedRoutes from './routes/edu-extended.js'
+import systemExtendedRoutes from './routes/system-extended.js'
+import aiExtendedRoutes from './routes/ai-extended.js'
+import miscExtendedRoutes from './routes/misc-extended.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -400,4 +407,20 @@ function registerRoutes(server: FastifyInstance) {
 
   // TBox IoT 设备管理：设备注册/查询/指令下发/事件通知接收
   server.register(tboxRoutes, { prefix: '/api/tbox' })
+
+  // Stock 股票分析：Token 余额/分析/历史记录（迁移自旧架构 stock_analyse_service）
+  server.register(stockRoutes, { prefix: '/api/stock' })
+
+  // 旧架构补建模块：Agent 扩展（need_task/upload/usedetail）
+  server.register(agentExtendedRoutes, { prefix: '/api/agent-ext' })
+  // 内容/媒体扩展（advertise/video/video_preload/user_video_comment/user_video_log/user_agent_image）
+  server.register(contentExtendedRoutes, { prefix: '/api/content-ext' })
+  // 教育扩展（course_audit 课程审核）
+  server.register(eduExtendedRoutes, { prefix: '/api/edu-ext' })
+  // 管理/系统扩展（category_dictionary/bot_sites/ws_admin/compat_routes）
+  server.register(systemExtendedRoutes, { prefix: '/api/system-ext' })
+  // AI 扩展（capabilities/model_info/outbound_routes/video_routes/developer model_test）
+  server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
+  // 其他扩展（remote/user_agent_context/docs）
+  server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
 }
