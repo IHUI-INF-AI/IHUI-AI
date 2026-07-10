@@ -87,7 +87,8 @@ function AnswerOnlineContent() {
       toast.warning('考试时间已到，自动交卷')
       submitMut.mutate()
     }
-  }, [remaining, recordId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, recordId, questions.length])
 
   const mins = Math.floor(remaining / 60)
   const secs = remaining % 60
