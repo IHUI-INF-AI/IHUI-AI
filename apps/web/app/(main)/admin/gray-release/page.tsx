@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { FlaskConical, Plus, Power, Loader2 } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -38,18 +39,22 @@ export default function GrayReleasePage() {
 
   const { data: rules = MOCK_RULES, isLoading } = useQuery({
     queryKey: ['admin', 'gray-release'],
-    queryFn: () => Promise.resolve(MOCK_RULES),
+    queryFn: async () => {
+      const r = await fetchApi<GrayRule[]>('/api/admin/gray-release')
+      if (r.success && r.data) return r.data
+      return MOCK_RULES
+    },
   })
 
   const toggleMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(),
+    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'gray-release'] })
       toast.success(t('grayRelease.toggleSuccess'))
     },
   })
   const createMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'gray-release'] })
       setOpen(false)

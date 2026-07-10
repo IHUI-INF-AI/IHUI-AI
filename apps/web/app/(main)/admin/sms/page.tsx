@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { MessageSquare, Plus, Loader2 } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -69,15 +70,23 @@ export default function SmsPage() {
 
   const { data: templates = MOCK_TEMPLATES, isLoading } = useQuery({
     queryKey: ['admin', 'sms', 'templates'],
-    queryFn: () => Promise.resolve(MOCK_TEMPLATES),
+    queryFn: async () => {
+      const r = await fetchApi<SmsTemplate[]>('/api/admin/sms/templates')
+      if (r.success && r.data) return r.data
+      return MOCK_TEMPLATES
+    },
   })
   const { data: records = MOCK_RECORDS } = useQuery({
     queryKey: ['admin', 'sms', 'records'],
-    queryFn: () => Promise.resolve(MOCK_RECORDS),
+    queryFn: async () => {
+      const r = await fetchApi<SmsRecord[]>('/api/admin/sms/records')
+      if (r.success && r.data) return r.data
+      return MOCK_RECORDS
+    },
   })
 
   const createMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'sms', 'templates'] }); setOpen(false); setForm(EMPTY); toast.success(t('sms.createSuccess')) },
   })
 

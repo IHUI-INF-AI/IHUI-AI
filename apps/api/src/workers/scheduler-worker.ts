@@ -3,6 +3,9 @@ import type { Worker } from 'bullmq'
 import { createWorker } from '../plugins/queue.js'
 import { SCHEDULER_QUEUE_NAME, SCHEDULED_JOBS, type ScheduledJobName } from '../plugins/scheduler.js'
 import { autoCloseExpiredOrders, autoReconcileYesterday } from '../services/reconciliation-service.js'
+import { aggregateHeatStats } from '../services/heat-stats-service.js'
+import { checkDailyAlerts } from '../services/alert-check-service.js'
+import { archiveDailyData } from '../services/data-archive-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -13,8 +16,9 @@ import { autoCloseExpiredOrders, autoReconcileYesterday } from '../services/reco
  * 任务分发：
  * - expired-order-cleanup: 调 autoCloseExpiredOrders 关闭超时未支付订单
  * - reconciliation-daily: 调 autoReconcileYesterday 做昨日支付对账
- * - heat-stats-hourly / alert-check-daily / data-archive-daily: backing service 未迁移，
- *   暂记日志跳过，待对应 TS service 落地后接入。
+ * - heat-stats-hourly: 调 aggregateHeatStats 聚合 Agent 热度统计
+ * - alert-check-daily: 调 checkDailyAlerts 扫描告警噪音与升级
+ * - data-archive-daily: 调 archiveDailyData 归档过期历史数据
  */
 export function startSchedulerWorker(server: FastifyInstance): Worker {
   const worker = createWorker<Record<string, unknown>>(
@@ -42,16 +46,33 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
           return result
         }
         case 'heat-stats-hourly': {
-          server.log.info('heat stats aggregation skipped (backing service not migrated)')
-          return { skipped: true, reason: 'heat_stats_service not migrated' }
+          const result = await aggregateHeatStats()
+          server.log.info(
+            { dateStr: result.dateStr, agents: result.aggregatedAgents, hits: result.totalHits },
+            'heat stats aggregated',
+          )
+          return result
         }
         case 'alert-check-daily': {
-          server.log.info('alert noise check skipped (backing service not migrated)')
-          return { skipped: true, reason: 'alert service not migrated' }
+          const result = await checkDailyAlerts()
+          server.log.info(
+            { checked: result.checked, resolved: result.resolved, escalated: result.escalated },
+            'daily alert check done',
+          )
+          return result
         }
         case 'data-archive-daily': {
-          server.log.info('data archive skipped (backing tables not migrated)')
-          return { skipped: true, reason: 'archive tables not migrated' }
+          const result = await archiveDailyData()
+          server.log.info(
+            {
+              auditLogs: result.auditLogsArchived,
+              messages: result.messagesArchived,
+              notifications: result.notificationsArchived,
+              errors: result.errors.length,
+            },
+            'daily data archive done',
+          )
+          return result
         }
         default:
           server.log.warn({ jobName: name }, 'unknown scheduled job')

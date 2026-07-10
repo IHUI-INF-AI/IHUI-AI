@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { BarChart3, Activity, AlertTriangle, Timer, Loader2, TrendingUp } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -59,15 +60,27 @@ export default function ApiUsagePage() {
 
   const { data: stats = MOCK_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'api-usage', 'stats'],
-    queryFn: () => Promise.resolve(MOCK_STATS),
+    queryFn: async () => {
+      const r = await fetchApi<UsageStats>('/api/admin/api-usage/stats')
+      if (r.success && r.data) return r.data
+      return MOCK_STATS
+    },
   })
   const { data: dayUsage = MOCK_DAY_USAGE } = useQuery({
     queryKey: ['admin', 'api-usage', 'day'],
-    queryFn: () => Promise.resolve(MOCK_DAY_USAGE),
+    queryFn: async () => {
+      const r = await fetchApi<DayUsage[]>('/api/admin/api-usage/day')
+      if (r.success && r.data) return r.data
+      return MOCK_DAY_USAGE
+    },
   })
   const { data: top = MOCK_TOP } = useQuery({
     queryKey: ['admin', 'api-usage', 'top'],
-    queryFn: () => Promise.resolve(MOCK_TOP),
+    queryFn: async () => {
+      const r = await fetchApi<TopEndpoint[]>('/api/admin/api-usage/top')
+      if (r.success && r.data) return r.data
+      return MOCK_TOP
+    },
   })
 
   const cards = [

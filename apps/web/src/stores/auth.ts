@@ -8,6 +8,15 @@ export interface AuthUser {
   roleId?: number
 }
 
+function setAuthCookie(token: string | null) {
+  if (typeof document === 'undefined') return
+  if (token) {
+    document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`
+  } else {
+    document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax'
+  }
+}
+
 interface AuthState {
   token: string | null
   isAuthenticated: boolean
@@ -21,7 +30,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   isAuthenticated: false,
   user: null,
-  setToken: (token) => set({ token, isAuthenticated: !!token }),
+  setToken: (token) => {
+    setAuthCookie(token)
+    set({ token, isAuthenticated: !!token })
+  },
   setUser: (user) => set({ user }),
-  logout: () => set({ token: null, isAuthenticated: false, user: null }),
+  logout: () => {
+    setAuthCookie(null)
+    set({ token: null, isAuthenticated: false, user: null })
+  },
 }))

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Bug, AlertTriangle, AlertOctagon, CheckCircle2, Loader2, Filter } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -58,11 +59,19 @@ export default function ErrorDashboardPage() {
 
   const { data: stats = MOCK_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'error-dashboard', 'stats'],
-    queryFn: () => Promise.resolve(MOCK_STATS),
+    queryFn: async () => {
+      const r = await fetchApi<ErrorStats>('/api/admin/error-dashboard/stats')
+      if (r.success && r.data) return r.data
+      return MOCK_STATS
+    },
   })
   const { data: errors = MOCK_ERRORS } = useQuery({
     queryKey: ['admin', 'error-dashboard', 'errors'],
-    queryFn: () => Promise.resolve(MOCK_ERRORS),
+    queryFn: async () => {
+      const r = await fetchApi<ErrorItem[]>('/api/admin/error-dashboard/errors')
+      if (r.success && r.data) return r.data
+      return MOCK_ERRORS
+    },
   })
 
   const filtered = errors.filter((e) => {
