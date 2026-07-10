@@ -20,7 +20,7 @@ export default function OrderRefund() {
       await refund({ orderNo, reason })
       Taro.showToast({ title: '提交成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setSubmitting(false)

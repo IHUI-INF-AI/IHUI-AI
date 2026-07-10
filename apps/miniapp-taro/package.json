@@ -1,20 +1,25 @@
 {
   "name": "@ihui/miniapp-taro",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "description": "IHUI-AI 小程序端 (Taro 4 + React + TypeScript + Tailwind)",
   "scripts": {
+    "dev": "taro build --type weapp --watch",
     "dev:weapp": "taro build --type weapp --watch",
     "dev:alipay": "taro build --type alipay --watch",
     "dev:swan": "taro build --type swan --watch",
     "dev:tt": "taro build --type tt --watch",
     "dev:h5": "taro build --type h5 --watch",
+    "build": "taro build --type weapp",
     "build:weapp": "taro build --type weapp",
     "build:alipay": "taro build --type alipay",
     "build:swan": "taro build --type swan",
     "build:tt": "taro build --type tt",
     "build:h5": "taro build --type h5",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist .swc .turbo node_modules"
   },
   "dependencies": {
     "@babel/runtime": "^7.21.5",
@@ -43,15 +48,19 @@
     "@babel/plugin-transform-runtime": "^7.29.7",
     "@babel/preset-env": "^7.29.7",
     "@babel/preset-react": "^7.29.7",
+    "@ihui/eslint-config": "workspace:*",
     "@tarojs/cli": "4.0.9",
     "@tarojs/taro-loader": "4.0.9",
     "@tarojs/webpack5-runner": "4.0.9",
     "@types/react": "^18.3.0",
     "@types/webpack-env": "^1.13.18",
     "babel-preset-taro": "4.0.9",
+    "eslint": "^9.16.0",
     "react-refresh": "^0.14.0",
+    "rimraf": "^6.0.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
     "webpack": "^5.91.0"
   }
 }

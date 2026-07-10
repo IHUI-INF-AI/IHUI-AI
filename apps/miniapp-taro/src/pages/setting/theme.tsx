@@ -18,15 +18,15 @@ export default function ThemePage() {
     try {
       await setTheme(v)
       Taro.showToast({ title: '设置成功', icon: 'success' })
-    } catch (e) {}
+    } catch {}
   }, [])
 
   return (
     <View className="page">
       <View className="preview">
         <View className={`phone ${current}`}>
-          <View className="status-bar"></View>
-          <View className="content-area"></View>
+          <View className="status-bar" />
+          <View className="content-area" />
         </View>
       </View>
 
@@ -37,7 +37,7 @@ export default function ThemePage() {
             className={`item${current === t.value ? ' active' : ''}`}
             onClick={() => onSelect(t.value)}
           >
-            <View className="color" style={{ background: t.color }}></View>
+            <View className="color" style={{ background: t.color }} />
             <Text className="name">{t.name}</Text>
             {current === t.value ? <Text className="check">✓</Text> : null}
           </View>

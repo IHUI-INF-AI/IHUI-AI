@@ -16,7 +16,7 @@ export default function NotificationPage() {
     try {
       const res = await getNotificationSettings()
       setList(res.list || [])
-    } catch (e) {}
+    } catch {}
   }, [])
 
   useDidShow(() => { load() })

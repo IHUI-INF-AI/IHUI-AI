@@ -7,7 +7,7 @@ export default function Avatar() {
   const [avatar, setAvatar] = useState('')
 
   useDidShow(async () => {
-    try { setAvatar((await getProfile()).avatar || '') } catch (e) {}
+    try { setAvatar((await getProfile()).avatar || '') } catch {}
   })
 
   function chooseImg() {
@@ -15,12 +15,12 @@ export default function Avatar() {
       count: 1,
       sizeType: ['compressed'],
       success: async (res) => {
-        const path = res.tempFilePaths[0]
+        const path = res.tempFilePaths[0]!
         try {
           setAvatar(path)
           await updateUserAvatar(path)
           Taro.showToast({ title: '更新成功', icon: 'success' })
-        } catch (e) {}
+        } catch {}
       },
     })
   }

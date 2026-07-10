@@ -11,7 +11,7 @@ export default function CircleDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return
-    try { setData(await getCircleDetail(id)) } catch (e) {}
+    try { setData(await getCircleDetail(id)) } catch {}
   }, [id])
 
   useDidShow(() => {

@@ -11,7 +11,7 @@ export default function LiveDetail() {
     try {
       const res = await getLiveDetail(id)
       setLive(res)
-    } catch (e) {
+    } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' })
     }
   }, [])

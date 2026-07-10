@@ -22,7 +22,7 @@ export default function ImagePage() {
     try {
       const res = await generateImage({ prompt, size })
       setResult(res.url)
-    } catch (e) {} finally { setLoading(false) }
+    } catch {} finally { setLoading(false) }
   }, [prompt, size, loading])
 
   return (

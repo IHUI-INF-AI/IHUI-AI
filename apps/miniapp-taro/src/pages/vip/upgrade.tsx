@@ -18,7 +18,7 @@ export default function UpgradePage() {
     try {
       const res = await upgradeVip(selected + 1)
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
-    } catch (e) {}
+    } catch {}
   }, [selected])
 
   return (
@@ -47,7 +47,7 @@ export default function UpgradePage() {
           <View key={i} className="rights-item">· {r}</View>
         ))}
       </View>
-      <Button className="btn" onClick={onUpgrade}>立即升级 ¥{plans[selected].price}</Button>
+      <Button className="btn" onClick={onUpgrade}>立即升级 ¥{plans[selected]!.price}</Button>
     </View>
   )
 }

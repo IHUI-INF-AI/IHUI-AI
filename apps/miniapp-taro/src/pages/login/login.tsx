@@ -38,7 +38,7 @@ export default function Login() {
           return prev <= 1 ? 0 : prev - 1
         })
       }, 1000)
-    } catch (e) {
+    } catch {
       // 错误已由 request 统一提示
     }
   }
@@ -58,7 +58,7 @@ export default function Login() {
       setAuth(res.token, res.user)
       Taro.showToast({ title: '登录成功', icon: 'success' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
-    } catch (e) {
+    } catch {
       // 错误已统一提示
     } finally {
       setIsLogging(false)
@@ -73,7 +73,7 @@ export default function Login() {
             const data = await loginByWechat(res.code)
             setAuth(data.token, data.user)
             Taro.reLaunch({ url: '/pages/index/index' })
-          } catch (e) {
+          } catch {
             Taro.showToast({ title: '微信登录失败', icon: 'none' })
           }
         },

@@ -11,7 +11,7 @@ export default function Email() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useDidShow(async () => {
-    try { setEmail((await getProfile()).email || '') } catch (e) {}
+    try { setEmail((await getProfile()).email || '') } catch {}
   })
 
   function sendCode() {
@@ -38,7 +38,7 @@ export default function Email() {
       await bindEmail(email, code)
       Taro.showToast({ title: '绑定成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch (e) {}
+    } catch {}
   }
 
   return (

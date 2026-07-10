@@ -38,7 +38,7 @@ export default function ChatPage() {
       const res = await chat([...messages, userMsg], sessionId)
       setSessionId(res.sessionId)
       setMessages(prev => [...prev, { role: 'assistant', content: res.reply, timestamp: Date.now() }])
-    } catch (e) {
+    } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: '抱歉，服务暂时不可用，请稍后再试。',
@@ -50,7 +50,7 @@ export default function ChatPage() {
     }
   }, [inputText, thinking, sessionId, messages, scrollToBottom])
 
-  const useSuggestion = useCallback((text: string) => {
+  const handleSuggestion = useCallback((text: string) => {
     setInputText(text)
     sendMessage(text)
   }, [sendMessage])
@@ -82,7 +82,7 @@ export default function ChatPage() {
             <Text className="welcome-desc">有什么问题请尽管问我</Text>
             <View className="suggest-list">
               {suggestions.map((s, i) => (
-                <View key={i} className="suggest-item" onClick={() => useSuggestion(s)}>
+                <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)}>
                   <Text>{s}</Text>
                 </View>
               ))}

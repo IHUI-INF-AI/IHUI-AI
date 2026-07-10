@@ -22,7 +22,7 @@ export default function Password() {
       await updatePassword(oldPwd, newPwd)
       Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch (e) {}
+    } catch {}
   }
 
   return (

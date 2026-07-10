@@ -15,7 +15,7 @@ export default function AboutIndexPage() {
   const [info, setInfo] = useState<AboutInfo>({ name: '', version: '', intro: '' })
 
   const load = useCallback(async () => {
-    try { setInfo(await getAbout()) } catch (e) {}
+    try { setInfo(await getAbout()) } catch {}
   }, [])
 
   const navigate = useCallback((url: string) => {
