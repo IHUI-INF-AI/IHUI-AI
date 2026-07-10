@@ -52,6 +52,7 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={result.data} alt={prompt} className="max-w-full rounded-md" />
             <a
               href={result.data}

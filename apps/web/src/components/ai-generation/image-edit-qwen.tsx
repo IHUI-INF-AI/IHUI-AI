@@ -108,6 +108,7 @@ export function ImageEditQwen() {
           <div className="space-y-2">
             {images.map((url) => (
               <div key={url} className="space-y-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt={prompt} className="w-full rounded-md border" />
                 <a
                   href={url}
