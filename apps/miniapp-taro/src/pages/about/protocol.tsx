@@ -10,7 +10,7 @@ export default function ProtocolPage() {
     try {
       const res = await getProtocol()
       setContent(res.content)
-    } catch (e) {}
+    } catch {}
   }, [])
 
   useDidShow(() => { load() })

@@ -16,7 +16,7 @@ export default function Realname() {
         setAuthenticated(true)
         setAuthName(profile.realName)
       }
-    } catch (e) {}
+    } catch {}
   }, [])
 
   useDidShow(() => { load() })
@@ -32,7 +32,7 @@ export default function Realname() {
       await realNameAuth({ realName: realName.trim(), idCard })
       Taro.showToast({ title: '认证成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch (e) {}
+    } catch {}
   }
 
   if (authenticated) {

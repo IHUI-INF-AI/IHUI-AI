@@ -11,7 +11,7 @@ export default function LiveSubscribe() {
     try {
       const res = await getLiveList({ status: 'upcoming' })
       setList(res.list || [])
-    } catch (e) {}
+    } catch {}
   }, [])
 
   useDidShow(() => { load() })
@@ -25,7 +25,7 @@ export default function LiveSubscribe() {
         return next
       })
       Taro.showToast({ title: '订阅成功', icon: 'success' })
-    } catch (e) {}
+    } catch {}
   }, [])
 
   return (

@@ -40,7 +40,7 @@ export default function PayResult() {
       const res = await getPayResult(orderNoRef.current)
       setStatus(res.status)
       setAmount(res.amount)
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

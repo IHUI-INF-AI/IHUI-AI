@@ -8,7 +8,7 @@ export default function SettingIndexPage() {
   const [user, setUser] = useState<Partial<UserInfo>>({})
 
   const load = useCallback(async () => {
-    try { setUser(await getProfile()) } catch (e) {}
+    try { setUser(await getProfile()) } catch {}
   }, [])
 
   const navigate = useCallback((url: string) => {
@@ -21,7 +21,7 @@ export default function SettingIndexPage() {
       content: '确定退出登录吗？',
       success: async (res) => {
         if (res.confirm) {
-          try { await logout() } catch (e) {}
+          try { await logout() } catch {}
           Taro.reLaunch({ url: '/pages/login/login' })
         }
       }

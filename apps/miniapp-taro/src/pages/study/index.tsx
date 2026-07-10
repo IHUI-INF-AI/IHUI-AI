@@ -18,7 +18,7 @@ export default function StudyIndex() {
     try {
       const res = await getStudyInfo()
       setInfo(res)
-    } catch (e) {
+    } catch {
       // 统一提示
     } finally {
       setLoading(false)

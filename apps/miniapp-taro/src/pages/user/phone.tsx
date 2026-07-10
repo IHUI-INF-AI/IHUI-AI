@@ -11,7 +11,7 @@ export default function Phone() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useDidShow(async () => {
-    try { setPhone((await getProfile()).phone || '') } catch (e) {}
+    try { setPhone((await getProfile()).phone || '') } catch {}
   })
 
   function sendCode() {
@@ -39,7 +39,7 @@ export default function Phone() {
       await bindPhone(phone, code)
       Taro.showToast({ title: '绑定成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch (e) {}
+    } catch {}
   }
 
   return (

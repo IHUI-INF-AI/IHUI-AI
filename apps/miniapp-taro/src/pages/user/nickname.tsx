@@ -13,7 +13,7 @@ export default function Nickname() {
       const name = profile.nickname || ''
       setNickname(name)
       setOriginal(name)
-    } catch (e) {}
+    } catch {}
   }, [])
 
   useDidShow(() => { load() })
@@ -26,7 +26,7 @@ export default function Nickname() {
       await updateUserNickname(nickname.trim())
       Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch (e) {}
+    } catch {}
   }
 
   return (

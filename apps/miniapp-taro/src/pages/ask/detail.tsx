@@ -19,7 +19,7 @@ export default function AskDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return
-    try { setData(await getAskDetail(id)) } catch (e) {}
+    try { setData(await getAskDetail(id)) } catch {}
   }, [id])
 
   useDidShow(() => {

@@ -35,7 +35,8 @@
   },
   "pnpm": {
     "overrides": {
-      "ioredis": "5.4.2"
+      "ioredis": "5.4.2",
+      "webpack": "5.91.0"
     }
   }
 }

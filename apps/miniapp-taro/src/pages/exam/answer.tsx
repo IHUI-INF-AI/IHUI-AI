@@ -37,7 +37,7 @@ export default function ExamAnswer() {
     try {
       const res = await submitExam({ examId: examIdRef.current, answers })
       Taro.redirectTo({ url: `/pages/exam/result?id=${examIdRef.current}&score=${res.score}&pass=${res.pass}` })
-    } catch (e) {
+    } catch {
       submittedRef.current = false
     }
   }, [answers])

@@ -30,7 +30,7 @@ export default function DistributionRank() {
     try {
       const res = await getDistributionRank()
       setList(res.list || [])
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setLoading(false)
@@ -55,33 +55,33 @@ export default function DistributionRank() {
           <View className="flex flex-col items-center mx-[12px] relative">
             <Image
               className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 ${RANK_BORDER['2']}"
-              src={top3[1].avatar || '/static/default-avatar.png'}
+              src={top3[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[1].nickname}</Text>
-            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">¥{top3[1].commission}</Text>
+            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[1]!.nickname}</Text>
+            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">¥{top3[1]!.commission}</Text>
             <Text className={`absolute -top-[12px] w-[24px] h-[24px] leading-[24px] text-center rounded-full text-white text-[12px] ${RANK_BG['2']}`}>2</Text>
           </View>
           {/* 1st */}
           <View className="flex flex-col items-center mx-[12px] relative">
             <Image
               className="w-[70px] h-[70px] rounded-full bg-[#f5f5f5] border-2 ${RANK_BORDER['1']}"
-              src={top3[0].avatar || '/static/default-avatar.png'}
+              src={top3[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[0].nickname}</Text>
-            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">¥{top3[0].commission}</Text>
+            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[0]!.nickname}</Text>
+            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">¥{top3[0]!.commission}</Text>
             <Text className={`absolute -top-[12px] w-[24px] h-[24px] leading-[24px] text-center rounded-full text-white text-[12px] ${RANK_BG['1']}`}>1</Text>
           </View>
           {/* 3rd */}
           <View className="flex flex-col items-center mx-[12px] relative">
             <Image
               className={`w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 ${RANK_BORDER['3']}`}
-              src={top3[2].avatar || '/static/default-avatar.png'}
+              src={top3[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[2].nickname}</Text>
-            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">¥{top3[2].commission}</Text>
+            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[2]!.nickname}</Text>
+            <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">¥{top3[2]!.commission}</Text>
             <Text className={`absolute -top-[12px] w-[24px] h-[24px] leading-[24px] text-center rounded-full text-white text-[12px] ${RANK_BG['3']}`}>3</Text>
           </View>
         </View>
