@@ -111,6 +111,8 @@ import { slowSqlKiller } from './plugins/slow-sql-killer.js'
 import { dbKeepalive } from './plugins/db-keepalive.js'
 import { n1Detector } from './plugins/n1-detector.js'
 import { promptInjectionGuard } from './plugins/prompt-injection-guard.js'
+import { tenantDbIsolation } from './plugins/tenant-db-isolation.js'
+import { tokenBalanceService } from './plugins/token-balance-service.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -259,6 +261,10 @@ async function registerPlugins(server: FastifyInstance) {
   // 运维能力：N+1 查询检测 + Prompt 注入防护
   await server.register(n1Detector)
   await server.register(promptInjectionGuard)
+  // 多租户 DB 级隔离：per-tenant schema + AsyncLocalStorage 上下文传递
+  await server.register(tenantDbIsolation)
+  // Token 余额服务：用户 credit 余额管理（查询/扣减/缓存）
+  await server.register(tokenBalanceService)
 }
 
 function registerRoutes(server: FastifyInstance) {

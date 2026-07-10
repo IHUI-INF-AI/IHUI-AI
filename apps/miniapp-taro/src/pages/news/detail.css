@@ -1,0 +1,6 @@
+.page { min-height: 100vh; background: #fff; padding: 32rpx; }
+.head { padding-bottom: 32rpx; border-bottom: 2rpx solid #f5f5f5; }
+.title { font-size: 40rpx; color: #333; font-weight: 700; line-height: 1.4; }
+.meta { display: flex; gap: 24rpx; margin-top: 24rpx; font-size: 22rpx; color: #999; }
+.content { padding: 32rpx 0; font-size: 30rpx; color: #333; line-height: 1.8; }
+.loading { text-align: center; padding: 120rpx 0; color: #999; }
