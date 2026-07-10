@@ -71,6 +71,7 @@ import { aiAudioRoutes } from './routes/ai-audio.js'
 import { customerServiceRoutes, adminCustomerServiceRoutes } from './routes/customer-service.js'
 import { gdprRoutes } from './routes/gdpr.js'
 import { clawdbotRoutes } from './routes/clawdbot.js'
+import { tenantRoutes } from './routes/tenant.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -89,6 +90,14 @@ import { wsNotifications } from './plugins/ws-notifications.js'
 import { wsAi } from './plugins/ws-ai.js'
 import { wsChat } from './plugins/ws-chat.js'
 import { wsCustomerService } from './plugins/ws-customer-service.js'
+import otelPlugin from './plugins/otel.js'
+import businessMetricsPlugin from './plugins/business-metrics.js'
+import xssProtectionPlugin from './plugins/xss-protection.js'
+import apiVersioningPlugin from './plugins/api-versioning.js'
+import compressionPlugin from './plugins/compression.js'
+import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
+import aiCostPlugin from './plugins/ai-cost.js'
+import tenantPlugin from './plugins/tenant.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -137,6 +146,8 @@ export async function buildServer(): Promise<FastifyInstance> {
 }
 
 async function registerPlugins(server: FastifyInstance) {
+  // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
+  await server.register(otelPlugin)
   await server.register(helmet, { contentSecurityPolicy: false })
   await server.register(cors, {
     origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(','),
@@ -166,6 +177,9 @@ async function registerPlugins(server: FastifyInstance) {
 
   // auth 插件：注册 @fastify/jwt + request.userId 装饰器
   await server.register(authPlugin)
+
+  // 多租户中间件：从 header/subdomain 解析租户, 装饰 request.tenantId
+  await server.register(tenantPlugin)
 
   // Redis 客户端：server.redis + server.redisForQueue 装饰器（供 BullMQ / Pub/Sub 使用）
   await server.register(redis)
@@ -203,9 +217,13 @@ async function registerPlugins(server: FastifyInstance) {
 
   // 请求指标收集插件：onRequest/onResponse 收集计数/响应时间，暴露 /metrics 端点
   await server.register(metricsPlugin)
+  // 业务漏斗与自定义业务指标（暴露 /business-metrics 端点）
+  await server.register(businessMetricsPlugin)
 
   // API 日志插件：onResponse 异步记录所有 /api 请求到 api_logs
   await server.register(apiLoggerPlugin)
+  // ELK 结构化日志管线：请求 ID 追踪 + 敏感字段脱敏（ELK_LOG_ENABLED 控制）
+  await server.register(apiLoggerExtendedPlugin)
 
   // 全局安全插件（必须在路由注册前注册，Fastify 在路由注册时捕获钩子链）：
   // - 日志脱敏：onRequest 包装 request.log，自动脱敏敏感字段
@@ -214,6 +232,14 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(logSanitizerPlugin)
   await server.register(csrfPlugin)
   await server.register(responseSanitizerPlugin)
+  // XSS 防护：onRequest 净化输入 + onSend 安全头
+  await server.register(xssProtectionPlugin)
+  // API 版本控制：URL 路径 /api/v1/ + Header Accept-Version
+  await server.register(apiVersioningPlugin)
+  // AI 成本治理：token 预算控制 + prompt 缓存 + 成本记录 + 看板 API
+  await server.register(aiCostPlugin)
+  // 响应压缩（最后注册，压缩已脱敏的最终响应体）
+  await server.register(compressionPlugin)
 }
 
 function registerRoutes(server: FastifyInstance) {
@@ -353,4 +379,7 @@ function registerRoutes(server: FastifyInstance) {
 
   // Clawdbot AI Bot 服务：/api/clawdbot/*
   server.register(clawdbotRoutes, { prefix: '/api' })
+
+  // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
+  server.register(tenantRoutes, { prefix: '/api/tenants' })
 }

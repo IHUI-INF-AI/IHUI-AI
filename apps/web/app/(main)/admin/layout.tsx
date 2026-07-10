@@ -49,6 +49,12 @@ import {
   AlertTriangle,
   MonitorCog,
   Receipt,
+  Banknote,
+  Ban,
+  CreditCard,
+  Filter,
+  KeyRound,
+  ShoppingBag,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -104,6 +110,28 @@ interface AdminNavItem {
     | 'errorDashboard'
     | 'monitoringDashboard'
     | 'refund'
+    | 'apiPlatformApps'
+    | 'apiPlatformPackages'
+    | 'apiPlatformBilling'
+    | 'apiPlatformUsage'
+    | 'shopProducts'
+    | 'shopPayments'
+    | 'shopWithdrawals'
+    | 'shopFunds'
+    | 'oauthApps'
+    | 'oauthAudit'
+    | 'oauthTokens'
+    | 'monitorDashboard'
+    | 'monitorFunnel'
+    | 'monitorAlerts'
+    | 'memberUsers'
+    | 'memberRoles'
+    | 'memberPermissions'
+    | 'memberLogs'
+    | 'memberBlacklist'
+    | 'systemMonitor'
+    | 'systemConfig'
+    | 'systemTasks'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -161,6 +189,34 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/logs', labelKey: 'logs', icon: ScrollText },
   { href: '/admin/events', labelKey: 'events', icon: Activity },
   { href: '/admin/settings', labelKey: 'settings', icon: Settings },
+  // API 平台管理
+  { href: '/admin/api-platform/apps', labelKey: 'apiPlatformApps', icon: Plug },
+  { href: '/admin/api-platform/packages', labelKey: 'apiPlatformPackages', icon: Package },
+  { href: '/admin/api-platform/billing', labelKey: 'apiPlatformBilling', icon: CreditCard },
+  { href: '/admin/api-platform/usage', labelKey: 'apiPlatformUsage', icon: BarChart3 },
+  // 商品管理
+  { href: '/admin/shop/products', labelKey: 'shopProducts', icon: ShoppingBag },
+  { href: '/admin/shop/payments', labelKey: 'shopPayments', icon: CreditCard },
+  { href: '/admin/shop/withdrawals', labelKey: 'shopWithdrawals', icon: Banknote },
+  { href: '/admin/shop/funds', labelKey: 'shopFunds', icon: Wallet },
+  // OAuth 开放平台
+  { href: '/admin/oauth/apps', labelKey: 'oauthApps', icon: Plug },
+  { href: '/admin/oauth/audit', labelKey: 'oauthAudit', icon: Shield },
+  { href: '/admin/oauth/tokens', labelKey: 'oauthTokens', icon: KeyRound },
+  // 监控总仪表盘
+  { href: '/admin/monitor/dashboard', labelKey: 'monitorDashboard', icon: MonitorCog },
+  { href: '/admin/monitor/funnel', labelKey: 'monitorFunnel', icon: Filter },
+  { href: '/admin/monitor/alerts', labelKey: 'monitorAlerts', icon: AlertTriangle },
+  // 会员管理
+  { href: '/admin/member/users', labelKey: 'memberUsers', icon: Users },
+  { href: '/admin/member/roles', labelKey: 'memberRoles', icon: ShieldCheck },
+  { href: '/admin/member/permissions', labelKey: 'memberPermissions', icon: Lock },
+  { href: '/admin/member/logs', labelKey: 'memberLogs', icon: ScrollText },
+  { href: '/admin/member/blacklist', labelKey: 'memberBlacklist', icon: Ban },
+  // 系统管理
+  { href: '/admin/system/monitor', labelKey: 'systemMonitor', icon: Activity },
+  { href: '/admin/system/config', labelKey: 'systemConfig', icon: SlidersHorizontal },
+  { href: '/admin/system/tasks', labelKey: 'systemTasks', icon: ListChecks },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
