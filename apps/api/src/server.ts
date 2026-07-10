@@ -62,6 +62,7 @@ import { adminEduExtendedRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
 import { adminSysRoutes } from './routes/admin-sys.js'
 import { eduPublicRoutes } from './routes/edu-public.js'
+import { aiVendorRoutes, adminAiVendorRoutes } from './routes/ai-vendors.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
@@ -280,4 +281,8 @@ function registerRoutes(server: FastifyInstance) {
 
   // 学员中心：我的课程/笔记/证书/报告/错题/线下记录/论文（R2 补完）
   server.register(eduPublicRoutes, { prefix: '/api' })
+
+  // AI 厂商专属多模态：dashscope/doubao/gemini/suno/sora2/coze + 通用工具（R4 补完）
+  server.register(aiVendorRoutes, { prefix: '/api/ai' })
+  server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
 }
