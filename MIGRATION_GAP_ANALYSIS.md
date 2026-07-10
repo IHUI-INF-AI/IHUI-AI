@@ -1,20 +1,20 @@
-# 架构重构完整性深度比对报告（最终验证版 v18 — R21 全量修复确认）
+# 架构重构完整性深度比对报告（最终验证版 v22 — R25 剩余 client/src/ 目录全量验证+pricing 计算引擎缺失发现）
 
 > **目标条件**：深度比对当前项目代码与架构重构前最新提交(3ee96cf0)的差异，找出所有未完整迁移到新架构(TS Monorepo)的地方
-> **基准**：旧架构 `3ee96cf0`（Python FastAPI + Vue 3）→ 新架构当前 HEAD `0e9b5f58`（TS Monorepo，旧 client/ 已清理）
-> **分析方法**：4 个并行代理初步分析 → 主线代码级验证 → 21 轮深度验证（含 R10-R16 新增提交验证+功能映射+旧 Python 后端全量扫描+逐模块交叉比对+前端页面逐一验证+R17 服务/核心/任务/ORM/中间件全量验证+R18 utils/ 204 文件全量验证+R19 未提交工作区改动全量验证+R20 客户端服务层/workers/composables 全量验证+R21 全量修复确认）
+> **基准**：旧架构 `3ee96cf0`（Python FastAPI + Vue 3）→ 新架构当前 HEAD `0e9b5f58` + 未提交工作区改动（TS Monorepo，旧 client/ 已清理）
+> **分析方法**：4 个并行代理初步分析 → 主线代码级验证 → 25 轮深度验证（含 R10-R16 新增提交验证+功能映射+旧 Python 后端全量扫描+逐模块交叉比对+前端页面逐一验证+R17 服务/核心/任务/ORM/中间件全量验证+R18 utils/ 204 文件全量验证+R19 未提交工作区改动全量验证+R20 客户端服务层/workers/composables 全量验证+R21 路由补建+R22 STUB 实现纠正+旧 52 模型 vs 新 65 schema 全量比对+旧 80+ composables vs 新 27 hooks 全量比对+R23 旧 200+ 客户端 API 模块 vs 新 67 路由全量交叉比对+开放平台/Feature Center 模块验证+R24 API 子目录散点+数据/配置文件验证+R25 剩余 client/src/ 目录(constants/features/lib/router/scripts/shared/stores/templates)全量验证+pricing 计算引擎缺失发现）
 > **分析日期**：2026-07-11
-> **验证轮次**：20 轮
+> **验证轮次**：25 轮
 
 ---
 
 ## 重要说明
 
-本报告经过 **20 轮代码级验证**。R13 对旧架构 Python 后端（`server/app/`）做了深度对比，发现 3 项新缺失（M-10 韧性模式不完整 / M-11 多租户 DB 级隔离缺失 / M-9 扩充数据回填+告警降噪）。R14 对旧架构 `server/app/` 全量 769 个 Python 文件做了最终扫描，发现 3 项新缺失（M-12 Canary 部署后端系统 / M-13 TBox/IoT 设备管理 / M-14 Stock 分析系统）。R15 对旧架构 `api/v1/` 全量 ~200 个路由文件与新架构 59 个路由 .ts 文件做了系统性逐模块交叉比对，发现 M-15（22 个业务模块无对应）。R13 还确认 `client/` 目录已在 `a0ffa456` 中完全删除（784 文件，127049 行）。**R16 对 M-3 的 11 个用户端页面做了逐一文件级验证，发现 R12 分析存在严重误报：7 个被标记"❌ 缺失"的页面中 6 个实际已存在完整实现**。**R17 对旧架构 `server/app/` 的 services/ + middleware/ + tasks/ + core/ + orm/ + schemas/ + security/ + cli/ + _archived/ 做了全量验证**。**R18 对旧架构 utils/ 204 个工具文件做了全量验证，发现 audit_chain / bloom_guard / IDOR guard / API key quota 等安全基础设施缺失，同时纠正 OpenPlatform / VipTrader / TopUpFail / TopUpSuccess 4 个页面误报**。**R19 对未提交工作区改动做了全量验证，发现 AiWorld 页面已存在（M-3 全部解决）+ server.ts 已注册 M-6/M-9 插件 + heat-stats-service.ts 已修复 usage_count 同步 + resilience-extended.ts / tenant-db-isolation.ts 已建但未注册/未集成**。**R20 对旧架构客户端服务层（`client/src/services/` 40+ 文件）+ workers/ + directives/ + composables/（80+ 文件）做了全量验证，发现 M-16（Web Worker fileWorker.ts 缺失）+ M-17（25 个客户端服务无对应：旅游模块 7 文件 / A/B 测试 2 文件 / AI 辅助服务 5 文件 / AI 能力服务 6 文件 / 其他 5 文件），同时确认 cozeApiService / clawdbot / rewardService / unifiedAuthService / agentic-ai / unified-ai-orchestrator 已由服务端覆盖，Vue 指令 safeHtml + lazyLoad 已由 React 组件/hook 覆盖**。
+本报告经过 **25 轮代码级验证**。R13 对旧架构 Python 后端（`server/app/`）做了深度对比，发现 3 项新缺失（M-10 韧性模式不完整 / M-11 多租户 DB 级隔离缺失 / M-9 扩充数据回填+告警降噪）。R14 对旧架构 `server/app/` 全量 769 个 Python 文件做了最终扫描，发现 3 项新缺失（M-12 Canary 部署后端系统 / M-13 TBox/IoT 设备管理 / M-14 Stock 分析系统）。R15 对旧架构 `api/v1/` 全量 ~200 个路由文件与新架构 59 个路由 .ts 文件做了系统性逐模块交叉比对，发现 M-15（22 个业务模块无对应）。R13 还确认 `client/` 目录已在 `a0ffa456` 中完全删除（784 文件，127049 行）。**R16 对 M-3 的 11 个用户端页面做了逐一文件级验证，发现 R12 分析存在严重误报：7 个被标记"❌ 缺失"的页面中 6 个实际已存在完整实现**。**R17 对旧架构 `server/app/` 的 services/ + middleware/ + tasks/ + core/ + orm/ + schemas/ + security/ + cli/ + _archived/ 做了全量验证**。**R18 对旧架构 utils/ 204 个工具文件做了全量验证，发现 audit_chain / bloom_guard / IDOR guard / API key quota 等安全基础设施缺失，同时纠正 OpenPlatform / VipTrader / TopUpFail / TopUpSuccess 4 个页面误报**。**R19 对未提交工作区改动做了全量验证，发现 AiWorld 页面已存在（M-3 全部解决）+ server.ts 已注册 M-6/M-9 插件 + heat-stats-service.ts 已修复 usage_count 同步 + resilience-extended.ts / tenant-db-isolation.ts 已建但未注册/未集成**。**R20 对旧架构客户端服务层（`client/src/services/` 40+ 文件）+ workers/ + directives/ + composables/（80+ 文件）做了全量验证，发现 M-16（Web Worker fileWorker.ts 缺失）+ M-17（25 个客户端服务无对应），同时确认 cozeApiService / clawdbot / rewardService / unifiedAuthService / agentic-ai / unified-ai-orchestrator 已由服务端覆盖**。**R21 补建了 canary/tbox/stock 路由 + 6 个扩展路由文件覆盖 M-15 的 22 个模块**。**R22 对 R21 补建代码做了代码级深读，发现严重质量问题：M-11 tenantDbIsolation 插件仍未在 server.ts 注册（R21 误标"已修复"）；M-12 canary-service.ts 使用内存 Map 无 DB 持久化；M-14 stock-service.ts 为 STUB 实现（硬编码分析结果+TODO 注释）；M-15 的 6 个扩展路由中 5 个为 STUB（registerCrud 工厂返回空列表，仅 edu-extended.ts 有真实 DB 查询）；同时 R22 对旧 52 个 Python 模型 vs 新 65 个 Drizzle schema 做了全量比对，发现 M-18（3 组模型 7 张表完全缺失：ai_feed 4 表 / ai_gc 2 表 / agent_rule 1 表）；对旧 80+ composables vs 新 27 hooks 做了全量比对，发现 M-19（35+ composables 无对应：AI 相关 11 / PDF 工具 4 / 业务逻辑 20+）**。**R23 对旧架构 `client/src/api/` 200+ 客户端 API 模块与新架构 67 个路由文件做了全量交叉比对，发现 M-20（17 个 API 模块无新路由对应：tools/ranking/checkin/developer API keys/app-version/monitor alerts/webhooks/packages/fund/trader/sdks/miniprogram/token-value/product-identity/luyala-proxy/groups/help），同时确认 wallet→finance.ts / ali-pay→payment-gateway.ts / top-up→payment-gateway.ts+finance.ts / feedback→comments.ts / ask→community.ts / favorites→social.ts / tickets→customer-service.ts / sso→auth-extended.ts(部分) / commission→finance.ts(部分) 已通过路由合并覆盖；同时发现 M-21（开放平台/Feature Center 模块完全缺失：Dashboard + APIs/Agents/Documents/Models/SDKs Hub + NotificationCenter + DocumentCenter 在新架构零匹配，仅 i18n 字符串引用）**。**R24 对旧架构 `client/src/api/` 子目录（admin/ 24 文件 + ai/ 15 文件 + edu/ 9 文件 + payment/ 13 文件等）+ `client/src/data/` 4 文件 + `client/src/config/` 10 文件 + `client/src/plugins/` 4 文件做了散点验证，纠正 admin API 模块覆盖评估（admin-sys.ts 实际覆盖 11 个 admin 模块：menu/notice/job/dept/post/dict/config/logininfo/online 等，R23 因 grep 未匹配 Fastify prefix 注册模式而低估），发现 M-22（4 个 API 子目录散点缺失：user-model-chat/admin-faq/admin-zone/admin-demand-square + 3 个数据文件：customer-service-faq/documentation/mcp-curated + 3 个配置文件：owner-agent-policy/openclaw.config/monitoring-dashboard）**。**R25 对旧架构 `client/src/` 剩余 8 个未验证目录（constants/ 7 文件 + features/ 11 文件 + lib/ 6 文件 + router/ 39 文件 + scripts/ 1 文件 + shared/ 14 文件 + stores/ 23 文件 + templates/ 5 文件）做了全量验证，确认 constants/(平台常量→oauth-providers 服务) / features/third-party-login(→ThirdPartyLoginButtons.tsx) / lib/(→lib/ 工具库) / router/(→Next.js App Router) / stores/(→9 个 Zustand store+hooks) / templates/(开发脚手架无需迁移) 均已覆盖或自然替代，发现 M-23（shared/pricing.ts 的 calculateCost() AI 定价计算引擎未迁移：input/output token 单价+regionPricing 区域差价+discount 折扣计算逻辑在新架构零匹配；新架构有 ai-cost.ts 插件做成本记录/治理但无成本计算引擎；shared/ 5 个验证工具 apiValidation/mcpValidation/modelValidation/pluginValidation/form-validation 改用 zod 但业务特定验证规则未直接迁移）+ scripts/news-crawler/config.ts 新闻爬虫配置未迁移（低优先级）**。
 
 1. **miniapp 从 15 页扩展到 75 页**（commit `a30b5705`，真实完整迁移）
 2. **部分提交消息严重夸大**：`f24d0be3` 声称"补齐后端迁移"实际仅改 2 文件 5 行；`6ed35c14` 声称"所有34项缺失已100%修复完成"实际 6 项中严重度缺失仍全部存在
-3. **R20 验证后状态（含未提交工作区改动）**：M-1/M-2/M-3/M-5 已修复（4 项）；M-6/M-9 已注册但部分未集成（2 项部分修复）；M-10/M-11 文件已建但未注册/未集成（2 项部分修复）；M-12/M-13/M-14/M-15 仍未修复（4 项）；R17 usage_count 缺陷已修复；R18 安全基础设施缺失仍未修复；**R20 新发现 M-16（Web Worker 缺失）+ M-17（25 个客户端服务无对应）**；共 6 项未修复 + 4 项部分修复 + 2 项新发现
+3. **R25 验证后状态（含未提交工作区改动）**：M-1/M-2/M-3/M-5 已修复（4 项）；M-6/M-9 已注册但部分未集成（2 项部分修复）；M-10 函数未集成到业务代码（1 项部分修复，R21 误标已修复）；M-11 插件仍未注册（1 项部分修复，R21 误标已修复）；M-12 服务为内存实现无 DB 持久化（1 项部分修复，R21 误标已修复）；M-13 ✅ 真实修复（1 项）；M-14 服务为 STUB 实现（1 项部分修复，R21 误标已修复）；M-15 的 6 个路由中 5 个为 STUB（1 项部分修复，R21 误标已修复）；M-16/M-17 未修复（2 项）；**R22 新发现 M-18（3 组模型 7 张表缺失）+ M-19（35+ composables 无对应）**；**R23 新发现 M-20（17 个客户端 API 模块无新路由对应）+ M-21（开放平台/Feature Center 模块完全缺失）**；**R24 新发现 M-22（4 个 API 子目录散点+3 数据文件+3 配置文件缺失）**；**R25 新发现 M-23（shared/pricing.ts AI 定价计算引擎 calculateCost 未迁移+5 个 shared/ 验证工具改用 zod 但业务规则未直接迁移）**；共 2 项未修复 + 7 项部分修复 + 6 项新发现 + 1 项真实修复
 
 ### v9→v10 新增提交追踪（6 个提交）
 
@@ -29,15 +29,15 @@
 
 ---
 
-## 一、规模总览（R19 最终验证）
+## 一、规模总览（R22 最终验证）
 
-| 维度 | 旧架构 | 新架构（R19 验证后） | 状态 |
+| 维度 | 旧架构 | 新架构（R22 验证后） | 状态 |
 |------|--------|--------|------|
-| 后端路由文件 | ~90 模块 | 54 个路由文件 | ✅ 全部注册 |
-| 后端路由端点 | ~600+ | ~700+ | ✅ 超旧架构 |
-| 后端插件 | ~10 中间件 | 39 个 register（R19 +4） | ✅ 含安全/WS/监控/调度/幂等/OTel/AI成本/多租户/缓存韧性/CSRF/限流/XSS/慢SQL/保活/N+1检测/Prompt注入防护 |
-| 后端服务层 | 37 个 | 17 service + 50 queries + clawdbot 20 + workspace-ai | ✅ 双层设计 |
-| WebSocket | 16 文件 | 4 WS 插件 + 3 WS 端点 | ⚠️ 通知/AI流式/聊天室/客服/PCM 已覆盖；room_policy 权限校验 + auto_recovery 自动恢复缺失（见五.低严重度） |
+| 后端路由文件 | ~90 模块 | 67 个路由文件（含 R21 新增 9 个） | ✅ 全部注册 |
+| 后端路由端点 | ~600+ | ~700+ | ⚠️ R22 纠正：含 5 个 STUB 路由（M-15） |
+| 后端插件 | ~10 中间件 | 39 个 register（R19 +4） | ⚠️ R22 纠正：tenantDbIsolation 未注册（M-11） |
+| 后端服务层 | 37 个 | 17 service + 50 queries + clawdbot 20 + workspace-ai + canary-service + stock-service | ⚠️ R22：canary-service 内存实现 / stock-service STUB |
+| WebSocket | 16 文件 | 4 WS 插件 + 3 WS 端点 | ⚠️ 通知/AI流式/聊天室/客服/PCM 已覆盖；room_policy + auto_recovery 缺失；stock WS 未迁移（M-14） |
 | 定时任务 | 13 个 APScheduler | 5 个 BullMQ cron | ✅ **R17 修复**（5/5 接入 backing service + R19 修复 usage_count 同步，M-1 已修复） |
 | 支付幂等性 | ✅ | ✅ 167 行 | ✅ 完整迁移 |
 | AI 成本治理 | ✅ | ✅ 384 行 + 仪表盘 | ✅ 完整迁移 |
@@ -46,15 +46,16 @@
 | 可观测性 | OTel+ELK+Grafana | OTel+Grafana+Prometheus | ⚠️ 仅 ELK 缺失 |
 | 安全审计 CI | ✅ | ✅ | ✅ 完整迁移 |
 | CLI 工具 | 5 命令 | 6 文件 | ✅ 完整迁移 |
-| 多租户 | ✅ | ✅ 插件+路由+3表 | ✅ 完整迁移（应用级；DB 级隔离 M-11 已建但未注册） |
+| 多租户 | ✅ | ✅ 插件+路由+3表 | ⚠️ 应用级完整；DB 级隔离 M-11 插件未注册 |
 | OpenAPI SDK | Python 672 文件 | generate-sdk.ts | ✅ 完整迁移 |
-| Schema 模块 | 53 个 | 65 个（含 4 个 -extended 新文件） | ✅ **v9 补齐 14 张表** |
+| Schema 模块 | 53 个 | 65 个 | ⚠️ R22 新发现：ai_feed 4 表 / ai_gc 2 表 / agent_rule 1 表缺失（M-18） |
 | 前端页面 | 579 .vue | ~200+ page.tsx（(main) 下 51 页 + admin 子页 + 其他） | ✅ **R19 验证**（M-3 全部 11 项已映射，AiWorld 已存在） |
 | AI 前端组件 | 65+ | 50 个 .tsx | ✅ 完整迁移 |
 | 登录组件 | 25 | 8 个 .tsx | ✅ 完整迁移 |
 | 设置组件 | 20 | 7 个 .tsx | ✅ 完整迁移 |
 | i18n 语言 | 5 种 | 5 种 | ✅ **v9 补齐**（zh-CN/zh-TW/en/ja/ko） |
 | 小程序端 | 1217 文件 | 75 页面（~90 文件） | ✅ **v10 完整** apps/miniapp/（R11 从 15 页扩展到 75 页） |
+| React Hooks | 80+ composables | 27 hooks | ⚠️ R22 新发现：35+ composables 无对应（M-19） |
 | plaza.ts/billing.ts | ✅ | ✅ 真实 DB 查询 | ✅ **v9 修复**（不再是 stub） |
 
 ---
@@ -103,7 +104,7 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 
 ---
 
-## 四、中严重度缺失（R20 验证：M-1/M-2/M-3/M-5 已修复；M-6/M-9 已注册但部分未集成；M-10/M-11 文件已建但未注册/未集成；M-12/M-13/M-14/M-15/M-16/M-17 未修复或新发现）
+## 四、中严重度缺失（R25 验证：M-1/M-2/M-3/M-5/M-13 已修复；M-6/M-9/M-10 部分修复；M-11 插件未注册；M-12 内存实现；M-14 STUB 实现；M-15 的 5/6 路由为 STUB；M-16/M-17 未修复；M-18/M-19 R22 新发现；M-20/M-21 R23 新发现；M-22 R24 新发现；M-23 R25 新发现）
 
 ### M-1. ~~定时任务 3/5 backing service 未迁移~~ — ✅ 已修复
 - **R17 修复**：新建 3 个 backing service 文件并接入 scheduler-worker.ts
@@ -186,28 +187,28 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 - **未迁移**：数据回填系统 / 告警抑制与降噪（低优先级，旧架构独立模块）
 - **严重程度**：低（N+1 检测 + Prompt 注入防护已生效；Saga 需业务接入）
 
-### M-10. ~~韧性模式不完整~~ — ✅ 已修复（R21）
+### M-10. ~~韧性模式不完整~~ — ⚠️ R22 纠正：函数仍未集成到业务代码（R21 误标"已修复"）
 - **R13 验证**：读取旧架构 `server/app/resilience.py`，含 4 种韧性模式；新架构仅有 2 种
 - **旧架构 4 种模式**：
   1. CircuitBreaker（熔断器）→ ✅ 已迁移至 [cache-resilience.ts](file:///g:/IHUI-AI/apps/api/src/plugins/cache-resilience.ts)
   2. TokenBucketRateLimit（令牌桶限流）→ ✅ 已迁移至 distributed-rate-limit.ts
   3. degraded_mode（降级兜底装饰器）→ ⚠️ R19 文件已建：[resilience-extended.ts](file:///g:/IHUI-AI/apps/api/src/plugins/resilience-extended.ts) 导出 `degradedMode` 函数，但无业务代码调用
   4. bulkhead（信号量隔离）→ ⚠️ R19 文件已建：[resilience-extended.ts](file:///g:/IHUI-AI/apps/api/src/plugins/resilience-extended.ts) 导出 `Bulkhead` 类 + `getBulkhead` 工厂，但无业务代码使用
-- **R19 验证**：grep `degradedMode|getBulkhead|Bulkhead` 在 `apps/api/src/` 中仅在 `resilience-extended.ts` 自身有匹配——**工具函数已定义但未集成到业务代码**
+- **R22 验证**：❌ grep `resilienceExtended|resilience-extended|degradedMode|getBulkhead` 在 [server.ts](file:///g:/IHUI-AI/apps/api/src/server.ts) 中零匹配——**函数已定义但未在 server.ts 注册，也无任何业务路由/服务调用**。与 R19 验证结果一致，R21 的"✅ 已修复"标记为误报
 - **严重程度**：低（模式已实现，需在关键服务路径调用 degradedMode + Bulkhead）
 
-### M-11. ~~多租户 DB 级隔离缺失~~ — ✅ 已修复（R21）
+### M-11. ~~多租户 DB 级隔离缺失~~ — ⚠️ R22 纠正：插件仍未注册（R21 误标"已修复"）
 - **R13 验证**：旧架构 `server/app/db_per_tenant.py` 实现了数据库级租户隔离（schema_translate_map + LRU 引擎缓存 + ContextVar + 影子流量 + 优雅降级）
 - **R19 修复**：新建 [tenant-db-isolation.ts](file:///g:/IHUI-AI/apps/api/src/plugins/tenant-db-isolation.ts)（76 行），实现：
   - `AsyncLocalStorage<TenantContext>`（等价 Python ContextVar）维护租户上下文
   - `getTenantSchema` + LRU 缓存（1000 上限，等价旧架构 LRU 引擎缓存）
   - `withTenant` 函数：设置 `SET LOCAL search_path TO ${schema}, public`，执行后恢复
   - `tenantDbIsolation` Fastify 插件：onRequest 从 `x-tenant-id` header 提取租户 ID，decorate `withTenant` / `getCurrentTenant`
-- **R19 遗留**：⚠️ grep `tenantDbIsolation|withTenant` 在 server.ts 中零匹配——**插件已定义但未在 server.ts `registerPlugins` 中注册，运行时不生效**
+- **R22 验证**：❌ grep `tenantDbIsolation|tenant-db-isolation|withTenant` 在 [server.ts](file:///g:/IHUI-AI/apps/api/src/server.ts) 中零匹配——**插件已定义但未在 server.ts `registerPlugins` 中注册，运行时不生效**。server.ts 仅有 `tenantPlugin`（应用级租户解析）和 `tenantRoutes`（租户管理 CRUD），均非 DB 级隔离插件
 - **影响**：如需 SaaS 级租户数据物理隔离（不同租户数据 schema 隔离），当前需手动调用 `withTenant` 或注册插件
 - **严重程度**：低（插件已实现，仅需在 server.ts 添加一行 `await server.register(tenantDbIsolation)`）
 
-### M-12. ~~Canary 部署后端系统完全缺失~~ — ✅ 已修复（R21）
+### M-12. ~~Canary 部署后端系统完全缺失~~ — ⚠️ R22 纠正：服务为内存实现，无 DB 持久化（R21 误标"已修复"）
 - **R14 验证**：旧架构 `server/app/` 有完整的 Canary 阶段化门控部署系统（~20 个文件），新架构 API 源码零匹配（grep `canary|灰度|gray.?release|shadow.?traffic` 无命中）
 - **旧架构文件清单**（20 个）：
   - 根模块 6 个：[canary.py](file:///g:/IHUI-AI/server/app/canary.py) / canary_audit_store.py / canary_auto_promoter.py / canary_metrics.py / canary_metrics_source.py / canary_stages.py
@@ -216,28 +217,35 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
   - 工具 4 个：utils/canary_rule_snapshot.py / utils/config_canary_push.py / utils/gradual_rollout.py / utils/rollout_sampling.py
   - 归档 6 个：_archived/canary_shadow_link.py + 5 个测试文件
 - **旧架构功能**：CanaryStageController（1%→5%→25%→100% 四阶段门控）、自动提升、手动回滚、冷却期管理、失败阈值自动回滚、流量审计、影子流量比对、状态持久化
-- **新架构**：仅有 [gray-release/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/admin/gray-release/page.tsx) admin 页面使用 `Promise.resolve(MOCK_RULES)` 纯 MOCK 数据（见 M-2），无任何后端 canary API
-- **严重程度**：中（影响渐进式发布能力，如需灰度上线则不足）
+- **R21 补建**：新建 [canary.ts](file:///g:/IHUI-AI/apps/api/src/routes/canary.ts) 路由 + [canary-service.ts](file:///g:/IHUI-AI/apps/api/src/services/canary-service.ts) 服务，已注册到 server.ts
+- **R22 验证**：⚠️ canary-service.ts 使用 `const configs = new Map<string, CanaryConfig>()` + `const auditLog: CanaryAuditEntry[] = []` 内存存储——**业务逻辑真实（阶段门控/冷却/失败阈值），但无 DB 持久化，服务重启数据丢失**。旧架构的影子流量比对、自动提升器、指标采集源均未迁移
+- **严重程度**：中（核心逻辑已实现，但持久化+自动提升+影子流量缺失）
 
-### M-13. ~~TBox/IoT 设备管理完全缺失~~ — ✅ 已修复（R21）
+### M-13. ~~TBox/IoT 设备管理完全缺失~~ — ✅ R22 验证：真实修复
 - **R14 验证**：旧架构有完整的 TBox（百宝箱/IoT 设备）管理系统，新架构 API 源码零匹配（grep `tbox_device|iot.?device|device_no|TBoxDevice` 无命中）
 - **旧架构文件**：
   - [api/v1/tbox/tbox.py](file:///g:/IHUI-AI/server/app/api/v1/tbox/tbox.py)：TboxDevice 模型（tbox_device 表）+ TboxCommand 模型（tbox_command 表），设备管理 API（设备注册/绑定/在线状态/信号/电量/位置/固件/指令下发 reboot/lock/unlock/upgrade）
   - [api/v1/mcp/tbox.py](file:///g:/IHUI-AI/server/app/api/v1/mcp/tbox.py)：TBox 事件通知接收 API（X-Signature 签名验证 + 事件日志 + 查询）
   - models/tbox_models.py + schemas/tbox_schemas.py
-- **新架构**：[gen-table.ts](file:///g:/IHUI-AI/packages/database/src/schema/gen-table.ts) 第 99 行定义了 `tbox_bean` 表，但 grep `tboxBean|tbox_bean|TboxBean` 在 `apps/api/src/` 零匹配——表已定义但无任何路由使用；`tbox_device` 和 `tbox_command` 表完全缺失
-- **严重程度**：中（如项目含 IoT 设备管理需求则不足）
+- **R21 补建**：新建 [tbox-extended.ts](file:///g:/IHUI-AI/packages/database/src/schema/tbox-extended.ts) schema（tboxDevice + tboxCommand 两表）+ [tbox.ts](file:///g:/IHUI-AI/apps/api/src/routes/tbox.ts) 路由，已注册到 server.ts `/api/tbox`
+- **R22 验证**：✅ 真实实现——tbox.ts 路由使用 `db.select().from(tboxDevice)` 真实 DB 查询，tbox-extended.ts schema 定义了 tboxDevice（deviceNo/deviceName/deviceType/status/signal/battery/latitude/longitude/firmwareVersion）+ tboxCommand（deviceId/command/status/payload）两表，指令支持 reboot/lock/unlock/upgrade
+- **严重程度**：低（核心设备管理+指令下发已迁移；旧架构的 X-Signature 签名验证事件通知 API 未迁移，属增强功能）
 
-### M-14. ~~Stock 分析系统完全缺失~~ — ✅ 已修复（R21）
+### M-14. ~~Stock 分析系统完全缺失~~ — ⚠️ R22 纠正：服务为 STUB 实现（R21 误标"已修复"）
 - **R14 验证**：旧架构有完整的 Stock（股票分析）系统，新架构 API 源码零匹配（grep `stock|股票|stock_analyse` 无命中）
 - **旧架构文件**：
   - [api/v1/stock/analyse.py](file:///g:/IHUI-AI/server/app/api/v1/stock/analyse.py)：Stock 分析 API（WebSocket + POST），含 token 余额检查 + 对话保存 + 分页
   - services/stock_analyse_service.py：stock_analyse_client + check_token_balance
   - ws/stock_manager.py：STOCK_MODEL_ID + stock_ws_manager（WebSocket 股票管理器）
-- **新架构**：完全缺失，无对应路由/服务/WebSocket 管理
-- **严重程度**：中（如项目含股票分析功能需求则不足）
+- **R21 补建**：新建 [stock.ts](file:///g:/IHUI-AI/apps/api/src/routes/stock.ts) 路由 + [stock-service.ts](file:///g:/IHUI-AI/apps/api/src/services/stock-service.ts) 服务，已注册到 server.ts
+- **R22 验证**：⚠️ stock-service.ts 为 STUB 实现：
+  - `tokenBalance` 使用内存变量（`const tokenBalance: TokenBalance = { total: 10000, used: 0, remaining: 10000 }`），注释明确标注"模拟 Token 余额（实际应从 DB 读取）"
+  - `executeStockAnalysis` 返回硬编码分析字符串，注释标注"TODO: 实际调用 AI 模型"——**未调用任何 AI 模型**
+  - `getStockHistory` 返回空列表，注释标注"TODO: 从 DB 读取历史记录"
+  - 旧架构的 WebSocket 股票管理器（ws/stock_manager.py）完全未迁移
+- **严重程度**：中（路由框架已建，但核心分析功能为占位实现）
 
-### M-15. ~~旧架构 22 个业务模块在新架构中无对应~~ — ✅ 已修复（R21）
+### M-15. ~~旧架构 22 个业务模块在新架构中无对应~~ — ⚠️ R22 纠正：6 路由中 5 个为 STUB 实现（R21 误标"已修复"）
 - **R15 验证方法**：对旧架构 `server/app/api/v1/` 全量 ~200 个路由文件与新架构 59 个路由 .ts 文件做系统性逐模块交叉比对
 - **R15 发现**：以下 22 个旧模块在新架构 API 源码中零匹配（grep 中英文关键词均无命中）
 
@@ -289,6 +297,26 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 
 - **严重程度**：中（单个模块影响有限，但 22 个模块累计代表显著的功能覆盖差距）
 - **说明**：部分模块可能是业务裁剪（有意删除），需产品确认是"未迁移"还是"已废弃"
+- **R21 补建**：新建 6 个扩展路由文件覆盖 22 个模块，已注册到 server.ts：
+  - [agent-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/agent-extended.ts) → /api/agent-ext（need_task/upload/usedetail）
+  - [content-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/content-extended.ts) → /api/content-ext（advertise/video/video_preload/user_video_comment/user_video_log/user_agent_image）
+  - [edu-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/edu-extended.ts) → /api/edu-ext（course_audit 等）
+  - [system-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/system-extended.ts) → /api/system-ext（category_dictionary/bot_sites/ws_admin/compat_routes）
+  - [ai-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/ai-extended.ts) → /api/ai-ext（capabilities/model_info/outbound_routes/video_routes/model_test）
+  - [misc-extended.ts](file:///g:/IHUI-AI/apps/api/src/routes/misc-extended.ts) → /api/misc-ext（remote/user_agent_context/docs）
+- **R22 STUB 验证**：⚠️ 代码级深读发现 6 个路由文件中 **5 个为 STUB 实现**：
+
+| 路由文件 | 实现方式 | R22 验证 |
+|---------|---------|---------|
+| agent-extended.ts | 手写 CRUD，返回 `success({ list: [], total: 0 })` | ❌ STUB：无 DB 查询，5 个端点全部返回空列表 |
+| content-extended.ts | `registerCrud` 工厂函数，6 个模块共享同一 STUB 模板 | ❌ STUB：无 DB 查询，所有端点返回空列表/echo |
+| edu-extended.ts | 从 `../db/edu-extended-queries.js` 导入真实查询函数 | ✅ 真实：notes/offline-records/uploaded-certs/uploaded-papers 有 DB CRUD |
+| system-extended.ts | `registerCrud` 工厂函数，4 个模块共享同一 STUB 模板 | ❌ STUB：无 DB 查询 |
+| ai-extended.ts | capabilities/model_info 硬编码数组 + registerCrud 工厂 | ❌ STUB：硬编码 mock 数据，无 DB 查询 |
+| misc-extended.ts | `registerCrud` 工厂函数，3 个模块共享同一 STUB 模板 | ❌ STUB：无 DB 查询 |
+
+- **R22 结论**：仅 edu-extended.ts（1/6）有真实 DB 查询实现，其余 5 个路由文件（5/6）为 STUB 占位——**22 个模块中仅 course_audit 等教育模块有真实实现，其余 18+ 个模块仍为空壳路由**
+- **严重程度**：中（路由框架已建，但 5/6 为 STUB，需逐模块补建真实 DB 查询+业务逻辑）
 
 ### M-16. 客户端 Web Worker 缺失（R20 新发现）
 - **R20 验证**：旧架构 `client/src/workers/fileWorker.ts` 是客户端 Web Worker，处理文件压缩/缩略图/哈希/分块上传，新架构无 Web Worker
@@ -351,6 +379,231 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 - **已覆盖**（非缺失）：cozeApiService→[coze.ts](file:///g:/IHUI-AI/apps/api/src/routes/coze.ts)（873 行 46 端点）；clawdbot/→[clawdbot/](file:///g:/IHUI-AI/apps/api/src/services/clawdbot/)（20 服务文件）；rewardService→[gamification.ts](file:///g:/IHUI-AI/apps/api/src/routes/gamification.ts)；unifiedAuthService→[token-service.ts](file:///g:/IHUI-AI/apps/api/src/services/token-service.ts)；agentic-ai→[workspace-ai-service.ts](file:///g:/IHUI-AI/apps/api/src/services/workspace-ai-service.ts)；unified-ai-orchestrator→workspace-ai-service.ts
 - **严重程度**：中（25 个客户端服务文件无对应，但部分可能是业务裁剪——旅游模块、A/B 测试、AI 能力市场等可能是有意删除，需产品确认）
 - **Vue 指令**：✅ safeHtml.ts→[SafeHtml.tsx](file:///g:/IHUI-AI/apps/web/src/components/common/SafeHtml.tsx) 组件；lazyLoad.ts→[use-lazy-image.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-lazy-image.ts) hook——已覆盖
+
+### M-18. 3 组数据库模型 7 张表完全缺失（R22 新发现）
+- **R22 验证方法**：对旧架构 `server/app/models/` 52 个 Python 模型文件与新架构 `packages/database/src/schema/` 65 个 Drizzle schema 文件做全量交叉比对
+- **R22 发现**：以下 3 组模型（共 7 张表）在新架构 schema 中零匹配（grep 中英文关键词均无命中）
+
+| 旧模型文件 | 表名 | 功能 | 新架构状态 |
+|-----------|------|------|-----------|
+| ai_feed_models.py | ai_feed_source | AI 资讯数据源配置（40+ 平台热榜+RSS+arXiv/HF Papers/HN） | ❌ 缺失 |
+| ai_feed_models.py | ai_feed_hot_item | AI 热门条目主表（去重聚合+LLM 分类/摘要） | ❌ 缺失 |
+| ai_feed_models.py | ai_feed_snapshot | 每日快照（排名/热度值，趋势计算原料） | ❌ 缺失 |
+| ai_feed_models.py | ai_feed_trend_signal | 预计算趋势（7/14 天窗口，rising/stable/cooling） | ❌ 缺失 |
+| ai_gc_models.py | ai_gc | AI 生成内容记录（text/image/audio/video 生成历史） | ❌ 缺失 |
+| ai_gc_models.py | ai_gc_user_log | AI 生成内容用户日志 | ❌ 缺失 |
+| agent_rule_models.py | zhs_agent_rule | Agent 执行规则（text/regex/llm 类型+优先级+状态） | ❌ 缺失 |
+
+- **已覆盖**（非缺失）：
+  - developer_models.py（ai_model_config）→ [ai-config.ts](file:///g:/IHUI-AI/packages/database/src/schema/ai-config.ts) ✅
+  - invoice_models.py（t_invoice_title 等）→ [order.ts](file:///g:/IHUI-AI/packages/database/src/schema/order.ts)（eduInvoiceTitles）+ [learn-extended.ts](file:///g:/IHUI-AI/packages/database/src/schema/learn-extended.ts)（learnInvoiceTitles）✅
+  - tbox_models.py（Pydantic DTO 非 DB 表）→ [tbox-extended.ts](file:///g:/IHUI-AI/packages/database/src/schema/tbox-extended.ts)（tboxDevice + tboxCommand）✅
+- **关联**：ai_feed 与 M-17 的 news-crawler/scheduler/storage 服务+useAiHotNews/useAiFeed composables 相关——整个 AI 资讯聚合系统（数据源+爬虫+趋势分析+前端展示）在新架构中完全缺失
+- **严重程度**：中（ai_feed 是完整 AI 资讯聚合系统；ai_gc 是 AI 生成历史记录；agent_rule 是 Agent 规则引擎——均为业务功能缺失）
+
+### M-19. 35+ Vue composables 无 React hook 对应（R22 新发现）
+- **R22 验证方法**：对旧架构 `client/src/composables/` 80+ 文件（含子目录 distribution/home/login/settings/shared-logic/user/vip/xuqiu）与新架构 `apps/web/src/hooks/` 27 个 React hooks 做全量交叉比对
+- **R22 分类**：
+
+**已迁移（25 个，直接映射）：**
+useToast→use-toast / useLazyImage→use-lazy-image / useWebSocket→use-websocket / useCustomerServiceWebSocket→use-customer-service / useGlobalChat→use-chat / useGlobalNotification→use-notification / useAuthBootstrap+useUserAuth→use-auth / useDebounceSearch→use-debounce / useGlobalShortcuts→use-keyboard-shortcut / useElementVisibility→use-intersection-observer / useEducation→use-education / useDistribution*(5)→use-distribution / usePagination→use-pagination / useAsync→use-async / useCountdown→use-countdown / useClipboard→use-clipboard / useDownload→use-download / useLocalStorage→use-local-storage / useClickOutside→use-click-outside / useMediaQuery→use-media-query / useScrollPosition→use-scroll-position / useForm→use-form / useLoading→use-loading / useTheme+useFirstDarkHint→use-theme / useAgent+useWorkspaceAgent→use-agent
+
+**模式替换（17 个，非缺失）：**
+useApiCache→@tanstack/react-query / useAuthedApi→fetchApi 工具 / useI18nV2+useLang→next-intl / useSEO→Next.js metadata API / useApiError→fetchApi 错误处理 / useOperationFeedback→use-toast / useNews→news API+react-query / useOpenClaw→openclaw API / useSkills→skills API / useUnifiedAI→workspace-ai / useUnifiedAIChat→use-chat+workspace-ai / useFormatTime→工具函数 / useCleanup→useEffect cleanup / useAppLifecycle→Next.js app lifecycle / usePageState→useState / useSafeNavigation→next/navigation / useDropdownPosition+useSubViewDropdown→UI 组件逻辑
+
+**TRUE GAPS（35+ 个，无对应）——按类别：**
+
+**AI 相关（11 个）：**
+| 旧 composable | 功能 | 新架构状态 |
+|--------------|------|-----------|
+| useAICapabilityCache.ts | AI 能力缓存 | ❌ 缺失 |
+| useAICapabilityDiscovery.ts | AI 能力发现 | ❌ 缺失（与 M-17 ai-capability-discovery 相关） |
+| useAiFeed.ts | AI 资讯流 | ❌ 缺失（与 M-18 ai_feed 相关） |
+| useAiHotNews.ts | AI 热门新闻 | ❌ 缺失（与 M-18 ai_feed 相关） |
+| useAiPanel.ts | AI 面板 | ❌ 缺失 |
+| useAiReportEngine.ts | AI 报告引擎 | ❌ 缺失 |
+| useAiWorldNav.ts | AI 世界导航 | ❌ 缺失 |
+| useAgentic.ts | Agentic AI | ❌ 缺失 |
+| useAgenticComponentGenerator.ts | Agentic 组件生成 | ❌ 缺失 |
+| useModelTest.ts | 模型测试 | ❌ 缺失 |
+| useMCP.ts / useMCPIntegration.ts / useMCPPerformance.ts / useMCPUse.ts | MCP 4 个 composables | ❌ 缺失 |
+
+**PDF 工具（4 个）：**
+| 旧 composable | 功能 | 新架构状态 |
+|--------------|------|-----------|
+| usePdfMergeSplit.ts | PDF 合并/拆分 | ❌ 缺失 |
+| usePdfPrint.ts | PDF 打印 | ❌ 缺失 |
+| usePdfSignature.ts | PDF 签名 | ❌ 缺失 |
+| usePdfWatermark.ts | PDF 水印 | ❌ 缺失 |
+
+**业务逻辑（20+ 个）：**
+| 旧 composable | 功能 | 新架构状态 |
+|--------------|------|-----------|
+| useA11y.ts | 无障碍辅助 | ❌ 缺失 |
+| useAdminCrud.ts / useAdminTable.ts | Admin CRUD/表格通用逻辑 | ❌ 缺失 |
+| useAnalytics.ts / useBi.ts | 分析/商业智能 | ❌ 缺失（与 M-3 BiDashboard 简化版相关） |
+| useChartConfig.ts | 图表配置 | ❌ 缺失 |
+| useCommunityPublish.ts | 社区发布 | ❌ 缺失 |
+| useConfirmDialog.ts | 确认对话框 | ❌ 缺失 |
+| useContextManager.ts | 上下文管理 | ❌ 缺失 |
+| useDramaScriptEnhancement.ts | 剧本增强 | ❌ 缺失 |
+| useEduPlatformNav.ts | 教育平台导航 | ❌ 缺失 |
+| useFileUpload.ts | 文件上传 | ❌ 缺失（与 M-16 fileWorker 相关） |
+| useFloatingChatEnhancement.ts | 浮动聊天增强 | ❌ 缺失 |
+| useFontLoader.ts | 字体加载 | ❌ 缺失 |
+| useLegalDocContent.ts | 法律文档内容 | ❌ 缺失 |
+| useLoginDialog.ts | 登录对话框 | ❌ 缺失 |
+| useMouseGlow.ts | 鼠标光效 | ❌ 缺失 |
+| useNotifyBadge.ts | 通知徽章 | ❌ 缺失 |
+| usePWA.ts | PWA 支持 | ❌ 缺失 |
+| useReportGenerator.ts | 报告生成 | ❌ 缺失 |
+| useSecurityAudit.ts | 安全审计 | ❌ 缺失 |
+| useSidebar.ts | 侧边栏 | ❌ 缺失 |
+| useSpeechConfig.ts | 语音配置 | ❌ 缺失 |
+| useStudentProfile.ts | 学生档案 | ❌ 缺失 |
+| useTaskWebSocket.ts | 任务 WebSocket | ❌ 缺失 |
+| useTour.ts / useTourPermissions.ts | 旅游导览/权限 | ❌ 缺失（与 M-17 旅游模块相关） |
+| useSettings*(6) / useLoginAuth / useLoginProject / useFullPageScroll / useHomeNavigation / useStatusFormatter / useUserMenu / useUserStatistics / useVip*(5) / useXuqiu*(3) | 设置/登录/首页/用户/VIP/需求子页面 composables | ❌ 缺失（可能由 React 组件内联实现） |
+
+- **严重程度**：中（35+ composables 无对应，但部分可能由 React 组件模式替代——如 useSidebar 可能内联在 layout 组件中；AI 相关 11 个是业务功能缺失，需重点评估）
+
+### M-20. 旧客户端 API 模块 17 个无新路由对应 — ⚠️ R23 新发现
+
+**R23 验证方法**：列出旧架构 `client/src/api/` 全部 200+ 客户端 API 模块（含 27 个子目录），逐一 grep 新架构 67 个路由文件，区分"无对应"、"已通过路由合并覆盖"、"STUB 覆盖"三种情况
+
+**17 个 API 模块无新路由对应**（旧客户端 API 调用的后端端点在新架构不存在）：
+
+| 旧 API 模块 | 调用端点 | 功能描述 | 新架构状态 |
+|------------|---------|---------|-----------|
+| tools.ts | `/tools/*` | 用户端工具目录列表（分类/搜索/评分/收藏） | ❌ 无路由（前端 `/tools` 页使用 FALLBACK_DATA） |
+| ranking.ts | `/ranking/*` | 排行榜系统（用户积分榜/智能体热度榜/课程人气榜/榜单列表） | ❌ 无路由（前端 `/ranking` 页使用 fallback） |
+| checkin.ts | `/api/v1/checkin/*` | 签到体系（签到/签到记录/连续签到天数） | ❌ 无路由 |
+| developer.ts | `/developer/api-keys/*` | 开发者 API 密钥管理（创建/列表/删除/权限） | ❌ 无路由（仅 `/developer/model-test` STUB 在 ai-extended.ts） |
+| app-version.ts | `/appVersion` | 应用版本管理（版本检查/强制更新/下载链接） | ❌ 无路由 |
+| monitor.ts | `/api/v1/monitor/*` | 监控系统（告警历史/回填状态/抑制规则/金丝雀审计） | ❌ 无路由（canary.ts 仅覆盖金丝雀，STUB） |
+| webhooks.ts | `/developer/webhooks/*` | Webhook 管理（配置/事件日志/测试/重试） | ❌ 无路由 |
+| packages.ts | `/packages/*` | 套餐管理 | ❌ 无路由 |
+| fund.ts | `/fund/*` | 资金管理 | ❌ 无路由 |
+| trader.ts | `/trader/*` | 交易员管理 | ❌ 无路由 |
+| sdks.ts | `/sdks/*` | SDK 管理 | ❌ 无路由 |
+| miniprogram.ts | miniprogram 管理 | 小程序后台管理 | ❌ 无路由 |
+| token-value.ts | `/token-value/*` | Token 价值评估 | ❌ 无路由 |
+| product-identity.ts | `/product-identity/*` | 产品标识管理 | ❌ 无路由 |
+| luyala-proxy.ts | luyala 代理 | 律阿拉代理服务 | ❌ 无路由 |
+| groups.ts | `/groups/*` | 用户组管理 | ❌ 无路由 |
+| help.ts | `/help/*` | 帮助系统 | ❌ 无路由 |
+
+**已通过路由合并覆盖**（非缺失，R23 确认）：
+
+| 旧 API 模块 | 新架构对应 | 覆盖方式 |
+|------------|-----------|---------|
+| wallet.ts | finance.ts | `/finance/margin/balance` + `/finance/margin/recharge` + 提现 ✅ |
+| ali-pay.ts | payment-gateway.ts | `/payments/alipay/create` + `/notify` + `/query` + `/refund` ✅ |
+| top-up.ts | payment-gateway.ts + finance.ts | 支付创建 + Token 充值 ✅ |
+| feedback.ts | comments.ts | `/feedbacks` CRUD ✅ |
+| ask.ts | community.ts | `/asks` + `/asks/:id/answers` ✅ |
+| favorites.ts | social.ts + chat.ts | `/favorites` ✅ |
+| tickets.ts | customer-service.ts | `/tickets` ✅ |
+| sso.ts | auth-extended.ts | `/auth/oauth/authorize` 部分覆盖 ⚠️ |
+| commission.ts | finance.ts | `/finance/margin/commission` 部分覆盖 ⚠️ |
+| article.ts | content.ts | 内容管理覆盖 ⚠️ |
+| share.ts | social.ts | 分享功能 ✅ |
+| circle.ts | community.ts | 社区圈子 ✅ |
+| business-card.ts | misc-extended.ts | `/remote` STUB ⚠️ |
+
+- **严重程度**：中（17 个 API 模块无后端路由，前端页面调用会失败/回退 MOCK；部分可能为业务裁剪，需产品确认"未迁移"还是"已废弃"）
+- **R23 教训**：子代理在 R22 尝试做此比对但失败（仅找到 6 个路由文件），R23 由主线用 Glob 列出全部 67 个路由文件 + Grep 逐一搜索关键词完成
+
+### M-21. 开放平台/Feature Center 模块完全缺失 — ⚠️ R23 新发现
+
+**R23 验证方法**：通过 `git ls-tree 3ee96cf0:client/src/open-platform --name-only -r` 列出旧架构开放平台模块全部文件，再用 Grep 搜索新架构 `apps/web/` 中 `feature-center|FeatureCenter|open-platform|OpenPlatform` 关键词
+
+**旧架构 `client/src/open-platform/` 模块结构**（17 文件）：
+- `components/NotificationCenter.vue` — 通知中心
+- `components/common/VirtualList.vue` — 虚拟列表组件
+- `components/feature-center/Dashboard.vue` — Feature Center 仪表盘
+- `components/feature-center/APIsHub.vue` — API 集市
+- `components/feature-center/AgentsHub.vue` — Agent 集市
+- `components/feature-center/DocumentsHub.vue` — 文档集市
+- `components/feature-center/FeatureCard.vue` — 功能卡片
+- `components/feature-center/FeatureCenterHeader.vue` — Feature Center 头部
+- `components/feature-center/FeatureCenterNav.vue` — Feature Center 导航
+- `components/feature-center/ModelsHub.vue` — 模型集市
+- `components/feature-center/SDKsHub.vue` — SDK 集市
+- `constants/icons.ts` — 图标常量
+- `utils/format.ts` — 格式化工具
+- `utils/logger.ts` — 日志工具
+- `views/DocumentCenter.vue` — 文档中心
+
+**新架构验证结果**：
+- Grep `feature-center|FeatureCenter|open-platform|OpenPlatform` in `apps/web/` → 仅 5 个 i18n 消息文件（zh-CN/zh-TW/en/ja/ko）有匹配，**无任何 .tsx/.ts 页面或组件**
+- Glob `apps/web/app/**/open*/**` → 零匹配
+- Glob `apps/web/app/**/feature*/**` → 零匹配
+- **结论**：开放平台/Feature Center 模块（API/Agent/Document/Model/SDK 集市 + 仪表盘 + 通知中心 + 文档中心）在新架构中**完全缺失**，仅 i18n 字符串保留了引用
+
+- **严重程度**：中（完整的开放平台功能模块缺失，但可能是产品决策有意删除——需产品确认）
+- **关联**：旧架构 `client/src/data/open-platform.ts` 数据文件 + `client/src/plugins/ai-platform.ts` 插件也无对应
+
+### M-22. 旧客户端数据/配置文件+API子目录散点缺失 — ⚠️ R24 新发现
+
+**R24 验证方法**：对旧架构 `client/src/api/` 子目录（admin/ 24 文件 + ai/ 15 文件 + edu/ 9 文件 + payment/ 13 文件 + finance/ 2 文件 + developer/ 2 文件 + oauth/ 2 文件等）逐一 grep 新架构路由，同时验证 `client/src/data/` 4 文件 + `client/src/config/` 10 文件 + `client/src/plugins/` 4 文件的迁移状态
+
+**R24 纠正：admin API 模块大部分已覆盖**（R23 未深查 admin-sys.ts 导致低估）：
+- ✅ admin-sys.ts 覆盖：menu(`/menu/*`) / notice(`/notice/*`) / job(`/job/*`) / job-log(`/job/log/*`) / online(`/online/*`) / dept(`/dept/*`) / post(`/post/*`) / dict-type(`/dict/type/*`) / dict-data(`/dict/data/*`) / config(`findConfigList`) / logininfo(`findLogininforList`) — 共 11 个 admin 模块已覆盖
+- ✅ rbac.ts 覆盖：role(`/roles/*`) + permission check
+- ✅ system.ts 覆盖：configs / integrations / logs / events
+- ❌ 仍缺失：admin-faq / admin-zone / admin-demand-square / admin-migration（4 个 admin 模块无对应）
+
+**R24 新增散点缺失**：
+
+| 类别 | 旧文件 | 功能描述 | 新架构状态 |
+|------|--------|---------|-----------|
+| API 子目录 | api/ai/user-model-chat.ts | 用户自定义模型对话 | ❌ 无路由 |
+| API 子目录 | api/admin/admin-faq.ts | FAQ 管理 | ❌ 无路由 |
+| API 子目录 | api/admin/admin-zone.ts | 区域/分区管理 | ❌ 无路由 |
+| API 子目录 | api/admin/admin-demand-square.ts | 需求广场管理 | ❌ 无路由 |
+| 数据文件 | data/customer-service-faq.ts | 客服 FAQ 数据 | ❌ 无对应 |
+| 数据文件 | data/documentation.ts | 文档数据 | ❌ 无对应 |
+| 数据文件 | data/mcp-curated.ts | 精选 MCP 列表数据 | ❌ 无对应 |
+| 配置文件 | config/owner-agent-policy.ts | Agent 归属策略配置 | ❌ 无对应 |
+| 配置文件 | config/openclaw.config.ts | OpenClaw 配置 | ❌ 无对应 |
+| 配置文件 | config/monitoring-dashboard.ts | 监控仪表盘配置 | ❌ 无对应 |
+
+- **严重程度**：低-中（4 个 API 模块散点缺失 + 3 个数据文件 + 3 个配置文件；admin-migration 为一次性数据迁移工具，新架构不需要；部分可能为业务裁剪，需产品确认）
+- **R24 教训**：R23 的 grep 搜索 `/(admin/dept|admin/dict|...)` 未匹配到 admin-sys.ts 的路由，因为该文件使用 Fastify 的 `{ prefix: '/dict/type' }` 前缀注册模式而非直接 `server.get('/admin/dict/type/list')`。R24 通过直接读取 admin-sys.ts 源码才发现 11 个 admin 模块已覆盖
+
+### M-23. shared/pricing.ts AI 定价计算引擎+验证工具未迁移 — ⚠️ R25 新发现
+
+**R25 验证方法**：对旧架构 `client/src/` 剩余 8 个未验证目录（constants/ + features/ + lib/ + router/ + scripts/ + shared/ + stores/ + templates/）逐一做新架构 grep + 内容比对
+
+**R25 目录覆盖确认**（7/8 目录已覆盖或自然替代）：
+- ✅ constants/（7 文件）：dingtalk/feishu/wecom 平台常量 → 服务端 [oauth-providers.ts](file:///g:/IHUI-AI/apps/api/src/services/oauth-providers.ts) + oauth schema；i18nLanguages → 5 个 locale 文件；style-variables → theme-provider
+- ✅ features/third-party-login（11 文件）：Apple/Google OAuth → [ThirdPartyLoginButtons.tsx](file:///g:/IHUI-AI/apps/web/src/components/login/ThirdPartyLoginButtons.tsx)
+- ✅ lib/（6 文件）：utils.ts(cn 函数) → 新架构 lib/ 目录（admin-api/agent-api/api/auth-utils 等 10+ 文件）；icons/lucide-fallback → 新图标系统
+- ✅ router/（39 文件）：Vue Router → Next.js App Router（文件路由）
+- ✅ stores/（23 文件）：auth→auth.ts / darkMode→theme.ts+use-theme.ts / edu/(6 文件)→education.ts / loading→use-loading.ts / chatMode→chat.ts / user→user.ts / wallet→wallet.ts（9 个 Zustand store 覆盖）；font.ts→CSS 设置；language.ts→next-intl i18n
+- ✅ templates/（5 文件）：开发脚手架（CardTemplate/ComponentTemplate/FormTemplate/ListTemplate），生产架构无需迁移
+- ⚠️ scripts/（1 文件）：news-crawler/config.ts 新闻爬虫配置 → ❌ 未迁移（低优先级，可能为废弃功能）
+
+**M-23 核心缺失**：
+
+| 旧文件 | 功能描述 | 新架构状态 |
+|--------|---------|-----------|
+| shared/pricing.ts | `calculateCost()` AI 定价计算引擎：input/output token 单价 + regionPricing 区域差价 + discount 折扣 → 最终成本 | ❌ 零匹配（grep `calculateCost\|inputTokenPrice\|outputTokenPrice\|PricingConfig\|regionPricing` 在 apps/+packages/ 全零匹配） |
+| shared/apiValidation.ts | DeveloperAPI 配置验证（name/path/method/version/description 规则） | ⚠️ 改用 zod，但 DeveloperAPI 功能本身缺失（M-20），验证规则未迁移 |
+| shared/mcpValidation.ts | MCP 配置验证 | ⚠️ 改用 zod，业务特定规则未直接迁移 |
+| shared/modelValidation.ts | AI 模型配置验证 | ⚠️ 改用 zod，业务特定规则未直接迁移 |
+| shared/pluginValidation.ts | 插件配置验证 | ⚠️ 改用 zod，业务特定规则未直接迁移 |
+| shared/form-validation.ts | 通用表单验证 | ✅ 由 [use-form.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-form.ts) hook + zod 替代 |
+| shared/gateway.ts | 网关工具 | ✅ 由 [clawdbot/gateway.ts](file:///g:/IHUI-AI/apps/api/src/services/clawdbot/gateway.ts) 服务端覆盖 |
+| shared/api.ts/common.ts/config.ts/format.ts/types.ts/user.ts | 通用工具+类型 | ✅ 由 lib/ + packages/types/ 覆盖 |
+
+**M-23 核心问题分析**：
+- **pricing.ts 是业务逻辑而非基础设施**：新架构有 [ai-cost.ts](file:///g:/IHUI-AI/apps/api/src/plugins/ai-cost.ts) 插件（384 行）做成本**记录/治理**（aiCostRecords 表 + aiBudgets 表 + LRU prompt 缓存），但**无成本计算引擎**——即给定 input/output token 数量 + 模型定价 + 区域 + 折扣 → 计算最终成本的函数。旧架构 `calculateCost()` 支持：inputTokenPrice/outputTokenPrice 基础单价 + regionPricing 区域差价 + discount 折扣计算。新架构 billing schema 仅有 `price` 字段（整数分），无 inputTokenPrice/outputTokenPrice/regionPricing 字段
+- **验证工具是设计模式迁移**：旧架构使用自定义验证函数（返回 `{ valid, errors[] }`），新架构统一使用 zod schema 验证。这是设计改进而非功能缺失，但业务特定验证规则（如 API 路径格式、MCP 配置约束、模型参数范围）需确认是否已在对应路由的 zod schema 中重现
+
+- **严重程度**：中（pricing 计算引擎缺失影响 AI 成本核算准确性；验证工具改用 zod 是设计改进但需确认业务规则覆盖）
+- **R25 教训**：`shared/` 目录看起来是通用工具库，但可能包含关键业务逻辑（如 pricing.ts 的成本计算）。不能仅凭目录名判断是否为"通用工具无需迁移"，必须逐文件检查内容
 
 ---
 
@@ -447,7 +700,7 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 2. ~~agents Coze 字段~~ → 已在 `e6af19a8` 补齐 14 个字段
 3. ~~缓存韧性~~ → 已在 `30ba633a` 新增 cache-resilience.ts
 
-### P2（中，按业务需要）— R20 验证后剩余 6 项未修复 + 4 项部分修复 + 2 项新发现
+### P2（中，按业务需要）— R25 验证后剩余 3 项未修复 + 7 项部分修复 + 6 项新发现
 1. ~~**定时任务 3/5 backing service**（M-1）~~ → ✅ R17 已修复
 2. ~~**admin MOCK 页面**（M-2）~~ → ✅ R17 已修复
 3. ~~**用户端页面**（M-3）~~ → ✅ R19 已修复（AiWorld 已存在于工作区，M-3 全部 11 项已映射）；BiDashboard 可按需增强指标/维度/范围配置+异常检测（当前仅 4 统计卡片简化版）
@@ -455,14 +708,20 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 5. **数据库基础设施**（M-6 R19 部分修复）：✅ slow-sql-killer + db-keepalive 已在 server.ts 注册；⚠️ read-replica 的 `createReadWriteDb` 已从 `@ihui/database` 导出但 `apps/api/src/db/index.ts` 未使用——读写分离需业务接入
 6. **运维能力**（M-9 R19 部分修复）：✅ n1-detector + prompt-injection-guard 已在 server.ts 注册；⚠️ distributed-transaction.ts 的 `executeSaga` 需业务代码主动调用；数据回填系统 / 告警抑制与降噪仍缺失
 7. **韧性模式**（M-10 R19 部分修复）：⚠️ `resilience-extended.ts` 已实现 `degradedMode` + `Bulkhead`，但无业务代码调用——需在关键服务路径（AI 调用 / 支付 / 外部 API）集成
-8. **多租户 DB 级隔离**（M-11 R19 部分修复）：⚠️ `tenant-db-isolation.ts` 已实现 `withTenant` + `tenantDbIsolation` 插件，但未在 server.ts 注册——仅需添加 `await server.register(tenantDbIsolation)`
-9. **Canary 部署后端系统**（M-12）：补建 CanaryStageController + 阶段门控 API + 自动提升/回滚 + 影子流量比对（当前仅 gray-release admin MOCK 页面）
-10. **TBox/IoT 设备管理**（M-13）：补建 tbox_device / tbox_command 表 + 设备管理 API + MCP 事件通知（当前 tbox_bean 表已定义但无路由使用）
-11. **Stock 分析系统**（M-14）：补建 stock 分析 API + 服务 + WebSocket 管理器（如项目仍需股票分析功能）
-12. **22 个业务模块无对应**（M-15）：需产品确认每个模块是"未迁移"还是"已废弃"，对"未迁移"的模块按业务优先级补建（重点：advertise 广告管理 / agent_usedetail 用量计费 / course_audit 课程审核 / developer model_test）
-13. ~~**Agent usage_count 同步缺失**（R17 新发现）~~ → ✅ R19 已修复（heat-stats-service.ts 新增 syncAgentUsageCount 函数）；⚠️ agent-service.ts:92 注释"agents 表无 usage_count"仍为错误描述，建议修正注释
-14. **客户端 Web Worker**（M-16 R20 新发现）：⚠️ fileWorker.ts 的文件哈希+大文件分块上传功能缺失（压缩+缩略图已由服务端覆盖）；如需客户端大文件上传支持则需补建
-15. **客户端服务层 25 文件无对应**（M-17 R20 新发现）：⚠️ 需产品确认每个服务是"未迁移"还是"已废弃"——旅游模块 7 文件 / A/B 测试 2 文件 / AI 辅助服务 5 文件 / AI 能力服务 6 文件 / 其他 5 文件；重点评估 AI 能力市场（ai-capability-marketplace）和 AI 生成队列（GenerationQueueService）是否需要补建
+8. **多租户 DB 级隔离**（M-11 R22 纠正：未修复）：⚠️ `tenant-db-isolation.ts` 已实现 `withTenant` + `tenantDbIsolation` 插件，但**仍未在 server.ts 注册**（R21 误标"已修复"）——仅需添加 `await server.register(tenantDbIsolation)`
+9. **Canary 部署后端系统**（M-12 R22 纠正：部分修复）：⚠️ canary.ts + canary-service.ts 已建并注册，但**服务使用内存 Map 无 DB 持久化**（R21 误标"已修复"）；需补建 DB schema + 持久化层 + 自动提升器 + 影子流量比对
+10. ~~**TBox/IoT 设备管理**（M-13）~~ → ✅ R21 已真实修复（tbox-extended.ts schema + tbox.ts 路由 + 真实 DB 查询）
+11. **Stock 分析系统**（M-14 R22 纠正：部分修复）：⚠️ stock.ts + stock-service.ts 已建并注册，但**服务为 STUB 实现**（硬编码分析+内存 Token+TODO 注释）（R21 误标"已修复"）；需接入真实 AI 模型 + DB 历史记录 + WebSocket 管理器
+12. **22 个业务模块无对应**（M-15 R22 纠正：5/6 STUB）：⚠️ 6 个扩展路由已建并注册，但**仅 edu-extended.ts 有真实 DB 查询，其余 5 个为 STUB**（registerCrud 工厂返回空列表）（R21 误标"已修复"）；需逐模块补建真实 DB schema + 查询层 + 业务逻辑
+13. ~~**Agent usage_count 同步缺失**（R17 新发现）~~ → ✅ R19 已修复
+14. **客户端 Web Worker**（M-16 R20 新发现）：⚠️ fileWorker.ts 的文件哈希+大文件分块上传功能缺失
+15. **客户端服务层 25 文件无对应**（M-17 R20 新发现）：⚠️ 需产品确认"未迁移"还是"已废弃"
+16. **3 组数据库模型 7 张表缺失**（M-18 R22 新发现）：⚠️ ai_feed（4 表 AI 资讯聚合系统）/ ai_gc（2 表 AI 生成历史）/ agent_rule（1 表 Agent 规则引擎）——需补建 Drizzle schema + 路由 + 服务
+17. **35+ composables 无对应**（M-19 R22 新发现）：⚠️ AI 相关 11 个 / PDF 工具 4 个 / 业务逻辑 20+——需重点评估 AI 相关 composables 是否需补建为 React hooks
+18. **17 个客户端 API 模块无新路由对应**（M-20 R23 新发现）：⚠️ tools/ranking/checkin/developer API keys/app-version/monitor alerts/webhooks/packages/fund/trader/sdks/miniprogram/token-value/product-identity/luyala-proxy/groups/help——需产品确认"未迁移"还是"已废弃"
+19. **开放平台/Feature Center 模块完全缺失**（M-21 R23 新发现）：⚠️ Dashboard + APIs/Agents/Documents/Models/SDKs Hub + NotificationCenter + DocumentCenter 在新架构零匹配——需产品确认是否有意删除
+20. **API 子目录散点+数据/配置文件缺失**（M-22 R24 新发现）：⚠️ 4 个 API 散点（user-model-chat/admin-faq/admin-zone/admin-demand-square）+ 3 个数据文件（customer-service-faq/documentation/mcp-curated）+ 3 个配置文件（owner-agent-policy/openclaw.config/monitoring-dashboard）——低优先级，需产品确认
+21. **shared/pricing.ts AI 定价计算引擎+验证工具未迁移**（M-23 R25 新发现）：⚠️ `calculateCost()` 定价引擎（token 单价+区域差价+折扣）在新架构零匹配——影响 AI 成本核算准确性；5 个验证工具改用 zod 但业务规则需确认覆盖——需补建定价计算引擎+确认 zod schema 覆盖
 
 ### P3（低，可选）
 - ELK 日志管线
@@ -499,7 +758,7 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 
 ## 九、方法论与教训
 
-### 19 轮验证共纠正 39 个误报
+### 24 轮验证共纠正 44 个误报
 
 | 轮次 | 误报数 | 关键纠正 |
 |------|--------|---------|
@@ -510,6 +769,7 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 | R16 | 6 | M-3 的 Tools/Share/Ranking/MCPUseProject/SecurityAuditDashboard/ApiTestPage 全部存在（R12 路由命名误报） |
 | R18 | 4 | OpenPlatform→/oauth/platform/、VipTrader→/vip/trader/、TopUpFail→/wallet/recharge/fail/、TopUpSuccess→/wallet/recharge/success/ 全部存在（R16 页面误报） |
 | R19 | 1 | AiWorld→/ai-world/ 已存在（R16 grep 未跟踪文件漏检误报） |
+| R22 | 5 | M-10/M-11/M-12/M-14/M-15 的 R21"✅ 已修复"标记全部为误报——M-10 函数未集成/M-11 插件未注册/M-12 内存无 DB/M-14 STUB 实现/M-15 的 5/6 路由为 STUB（R21 未做代码级深读） |
 
 ### R10 教训
 
@@ -567,6 +827,28 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 
 22. **客户端→服务端架构转移需识别**（R20 教训）：R20 发现部分旧客户端服务（cozeApiService / clawdbot / agentic-ai / unifiedAuthService）在新架构中已由服务端覆盖——这是架构改进（业务逻辑从客户端移到服务端），而非迁移缺失。但旅游模块 / A/B 测试 / AI 能力市场等服务在服务端也无对应，是真正的功能缺失。**教训**：验证客户端服务迁移时，必须同时检查新架构的服务端是否有对应实现，区分"架构转移"和"功能丢失"。
 
+23. **"已修复"标记必须代码级深读验证**（R22 教训）：R21 将 M-11/M-12/M-14/M-15 全部标记为"✅ 已修复（R21）"，但 R22 代码级深读发现 4 项全部为误报——M-11 插件未在 server.ts 注册、M-12 服务使用内存 Map 无 DB 持久化、M-14 服务为 STUB（硬编码+TODO 注释）、M-15 的 6 个路由中 5 个使用 `registerCrud` 工厂返回空列表。**教训**：不能仅凭"文件存在+路由已注册"就标记"已修复"，必须深读服务层代码验证：(1) 是否有真实 DB 查询（非空列表/echo）；(2) 是否有 TODO/STUB 注释；(3) 是否使用内存变量而非 DB；(4) 工厂函数是否只是模板复用。
+
+24. **STUB 实现是迁移完成度的最危险假象**（R22 教训）：R21 的 `registerCrud` 工厂函数为 6 个模块（advertise/video/video_preload 等）生成了完整 CRUD 端点（list/detail/create/update/delete），从路由数量看"已覆盖"，但所有端点返回 `success({ list: [], total: 0 })` 或 `success({ id: parsed.data.id })`——**无 DB schema、无查询层、无业务逻辑**。**教训**：验证路由迁移时，必须读取端点实现代码，检查是否调用 `db.select()` / `db.insert()` 等真实 DB 操作，而非仅看路由数量和 HTTP 方法覆盖。
+
+25. **数据模型层比对不可省略**（R22 教训）：R1-R21 主要验证了路由/插件/服务/前端/composables/utils，但未对旧架构 `server/app/models/` 52 个 Python 模型与新架构 `packages/database/src/schema/` 65 个 Drizzle schema 做表级交叉比对。R22 通过逐一比对才发现 M-18（ai_feed 4 表 / ai_gc 2 表 / agent_rule 1 表完全缺失）。**教训**：架构迁移分析必须覆盖数据模型层，逐表比对旧 ORM 模型与新 Drizzle schema，特别是业务功能表（非基础设施表）。
+
+26. **子代理分析结果必须主线验证**（R22 教训）：R22 启动 2 个并行子代理验证 composables 和 API 模块，但子代理 1 将 12 个已存在的 hooks 误报为"TRUE GAPS"（未正确扫描新 hooks 目录），子代理 2 仅找到 6 个路由文件（实际 67 个）并给出 shallow 分析。**教训**：子代理适合初步探索但不适合做精确的逐项比对，关键验证必须由主线直接用 Glob/Grep/Read 工具完成，不能委托给子代理后直接采用其结论。
+
+27. **客户端 API 模块交叉比对必须覆盖全量**（R23 教训）：R22 子代理尝试做旧 `client/src/api/` 200+ 模块与新路由的比对但失败（仅找到 6 个路由文件），R23 由主线用 Glob 列出全部 67 个路由文件后逐一 Grep 关键词，才发现 M-20（17 个 API 模块无新路由对应）+ M-21（开放平台/Feature Center 模块完全缺失）。同时 R23 纠正了 13 个旧 API 模块的"缺失"误判——wallet/ali-pay/top-up/feedback/ask/favorites/tickets/share/circle 已通过路由合并覆盖。**教训**：客户端 API 模块比对必须：(1) 用 Glob 列出全部新路由文件；(2) 逐一搜索每个旧模块的关键端点；(3) 区分"无对应"和"已通过路由合并覆盖"和"STUB 覆盖"三种情况。
+
+28. **路由合并是架构改进而非迁移缺失**（R23 教训）：旧架构 200+ 客户端 API 模块在新架构合并为 67 个路由文件——这是 Fastify 路由组织的改进（按业务域聚合），而非功能丢失。R23 确认 wallet→finance.ts / ali-pay→payment-gateway.ts / feedback→comments.ts / ask→community.ts / favorites→social.ts 等均通过路由合并覆盖。**教训**：验证客户端 API 模块迁移时，不能仅做 1:1 文件名匹配，必须理解新架构的路由组织方式（按业务域聚合 vs 旧架构按功能拆分），通过搜索端点 URL 而非文件名来判断覆盖。
+
+29. **完整功能模块缺失比散点缺失更易识别**（R23 教训）：M-21（开放平台/Feature Center 模块）是整个功能模块的缺失，通过 Grep 关键词在 `apps/web/` 搜索（仅 i18n 匹配，无 .tsx/.ts 文件）即可识别。而 M-20 的 17 个散点 API 模块缺失需要逐一比对才能发现。**教训**：架构迁移分析应先识别"完整功能模块缺失"（高信号），再做"散点 API 端点比对"（高噪声），两者策略不同。
+
+30. **Fastify prefix 注册模式导致 grep 漏检**（R24 教训）：R23 用 grep 搜索 `/(admin/dept|admin/dict|...)` 在新路由中零匹配，就断定 admin 模块缺失。但 R24 读取 admin-sys.ts 源码后发现该文件使用 Fastify 的 `{ prefix: '/dict/type' }` 前缀注册模式（内层 `server.get('/list')` 而非 `server.get('/admin/dict/type/list')`），实际覆盖了 11 个 admin 模块。**教训**：Fastify 路由可能使用 prefix 注册模式，grep 搜索 URL 路径时必须同时搜索：(1) 完整路径 `server.get('/admin/dict/type/list')`；(2) prefix 片段 `prefix: '/dict/type'`；(3) 直接读取路由文件源码确认注册方式。不能仅凭 URL 路径 grep 零匹配就断定缺失。
+
+31. **API 子目录验证不可省略**（R24 教训）：R23 只验证了 `client/src/api/` 的顶层 .ts 文件（200+），未深入 27 个子目录（admin/ 24 文件、ai/ 15 文件、edu/ 9 文件等）。R24 补验子目录后发现 M-22（4 个散点缺失：user-model-chat/admin-faq/admin-zone/admin-demand-square）+ 3 个数据文件 + 3 个配置文件缺失。**教训**：客户端 API 模块比对必须同时覆盖顶层文件和子目录，子目录通常按业务域分组包含更细粒度的模块。
+
+32. **"通用工具"目录可能含关键业务逻辑**（R25 教训）：`shared/` 目录看起来是通用工具库（api/common/config/format/types 等通用文件），容易判定为"无需迁移，由新架构 lib/ 替代"。但 R25 逐文件检查发现 `pricing.ts` 含 AI 定价计算引擎 `calculateCost()`（token 单价+区域差价+折扣），是核心业务逻辑而非通用工具。新架构有 ai-cost.ts 做成本记录但无计算引擎。**教训**：不能仅凭目录名或文件名前缀判断是否为"通用工具"，必须逐文件检查内容，特别是 `shared/`、`lib/`、`utils/` 等目录可能混杂通用工具和业务逻辑。
+
+33. **成本记录≠成本计算**（R25 教训）：新架构 ai-cost.ts 插件（384 行）有 aiCostRecords 表 + aiBudgets 表 + LRU prompt 缓存，看起来"AI 成本治理已完整迁移"。但 R25 比对发现该插件只做成本**记录**（记录每次调用的 token 数和费用）和**治理**（预算超限告警），无成本**计算**引擎（给定 token 数+模型定价+区域+折扣 → 最终费用）。旧架构的 `calculateCost()` 在客户端计算，新架构缺失。**教训**：验证"成本治理"迁移时，必须区分三个能力：(1) 成本计算（pricing engine）；(2) 成本记录（audit trail）；(3) 成本治理（budget/quota）。三者可能分散在不同文件，不能仅因看到"ai-cost"就认为全部覆盖。
+
 ---
 
-**结论**：经过 20 轮代码级验证（含 R14 对旧架构 769 个 Python 文件全量扫描 + R15 对 ~200 个路由文件逐模块交叉比对 + R16 对 M-3 的 11 个用户端页面逐一文件级验证 + R17 对 services/middleware/tasks/core/orm/schemas/security/cli/_archived 全量验证 + R18 对 utils/ 204 文件全量验证 + R19 对未提交工作区改动全量验证 + R20 对客户端服务层/workers/directives/composables 全量验证），新架构的迁移完整度**较高但非完整**。全部阻断级和高严重度缺失已修复；miniapp 75 页完整迁移；旧 client/ 已清理；middleware 7 项全覆盖。**R19 纠正**：M-3 全部 11 项已映射（AiWorld 页面已存在于工作区）。**R19 修复确认**：server.ts 已注册 M-6/M-9 的 4 个插件；heat-stats-service.ts 已修复 Agent usage_count 同步。**R19 部分修复**：M-10（resilience-extended.ts 已建但未集成）+ M-11（tenant-db-isolation.ts 已建但未注册）。**R18 发现**：utils/ 安全基础设施缺失（audit_chain / bloom_guard / IDOR guard / API key quota / outbox / dist_lock）。**R20 新发现**：M-16（Web Worker fileWorker.ts 缺失——文件哈希+分块上传）+ M-17（25 个客户端服务无对应——旅游模块 7 文件 / A/B 测试 2 文件 / AI 辅助服务 5 文件 / AI 能力服务 6 文件 / 其他 5 文件）。**剩余 6 项未修复（M-12/M-13/M-14/M-15/M-16/M-17）+ 4 项部分修复（M-6 read-replica / M-9 Saga / M-10 未集成 / M-11 未注册）+ R18 安全基础设施缺失**，均为非阻断项。M-15 的 22 个子项 + M-17 的 25 个子项累计代表显著的功能覆盖差距，需产品确认是"未迁移"还是"已废弃"。⚠️ 注意：commit `6ed35c14` 声称"100%修复完成"经 R11 代码级验证为**不实**；agent-service.ts:92 的 usage_count 注释为**代码 BUG**（字段存在但注释称不存在，功能已通过 heat-stats-service.ts 修复但注释未更正）；R19 验证基于工作区未提交改动，需 commit 后生效。
+**结论**：经过 23 轮代码级验证（含 R14 对旧架构 769 个 Python 文件全量扫描 + R15 对 ~200 个路由文件逐模块交叉比对 + R16 对 M-3 的 11 个用户端页面逐一文件级验证 + R17 对 services/middleware/tasks/core/orm/schemas/security/cli/_archived 全量验证 + R18 对 utils/ 204 文件全量验证 + R19 对未提交工作区改动全量验证 + R20 对客户端服务层/workers/directives/composables 全量验证 + R21 路由补建 + R22 STUB 实现纠正+旧 52 模型 vs 新 65 schema 全量比对+旧 80+ composables vs 新 27 hooks 全量比对+R23 旧 200+ 客户端 API 模块 vs 新 67 路由全量交叉比对+开放平台/Feature Center 模块验证），新架构的迁移完整度**较高但非完整**。全部阻断级和高严重度缺失已修复；miniapp 75 页完整迁移；旧 client/ 已清理；middleware 7 项全覆盖。**R22 重大纠正**：R21 标记的 M-11/M-12/M-14/M-15"✅ 已修复"全部为误报——M-11 插件仍未注册、M-12 服务为内存实现无 DB 持久化、M-14 服务为 STUB（硬编码+TODO）、M-15 的 6 个路由中 5 个为 STUB（registerCrud 工厂返回空列表，仅 edu-extended.ts 有真实 DB 查询）。**R22 新发现**：M-18（3 组模型 7 张表完全缺失：ai_feed 4 表 AI 资讯聚合系统 / ai_gc 2 表 AI 生成历史 / agent_rule 1 表 Agent 规则引擎）+ M-19（35+ composables 无对应：AI 相关 11 / PDF 工具 4 / 业务逻辑 20+）。**R23 新发现**：M-20（17 个客户端 API 模块无新路由对应：tools/ranking/checkin/developer API keys/app-version/monitor alerts/webhooks/packages/fund/trader/sdks/miniprogram/token-value/product-identity/luyala-proxy/groups/help）+ M-21（开放平台/Feature Center 模块完全缺失：Dashboard + APIs/Agents/Documents/Models/SDKs Hub + NotificationCenter + DocumentCenter 在新架构零匹配）；同时 R23 确认 13 个旧 API 模块已通过路由合并覆盖（wallet→finance.ts / ali-pay→payment-gateway.ts / feedback→comments.ts / ask→community.ts / favorites→social.ts / tickets→customer-service.ts 等）。**R23 真实验证状态**：M-1/M-2/M-3/M-5/M-13 已修复（5 项）；M-6/M-9/M-10/M-11/M-12/M-14/M-15 部分修复/未集成/STUB（7 项）；M-16/M-17/M-18/M-19/M-20/M-21 未修复/新发现（6 项）；R18 安全基础设施缺失仍未修复。**共 5 项已修复 + 7 项部分修复 + 6 项未修复 + R18 安全基础设施缺失**，均为非阻断项。M-15 的 22 个子项（仅 1/6 有真实实现）+ M-17 的 25 个子项 + M-18 的 7 张缺失表 + M-19 的 35+ composables + M-20 的 17 个无路由 API 模块 + M-21 的开放平台完整模块 累计代表显著的功能覆盖差距，需产品确认是"未迁移"还是"已废弃"。⚠️ 注意：commit `6ed35c14` 声称"100%修复完成"经 R11 代码级验证为**不实**；R21 的"全量修复确认"经 R22 代码级深读验证为**部分不实**（4 项误标"已修复"）；R19 验证基于工作区未提交改动，需 commit 后生效。
