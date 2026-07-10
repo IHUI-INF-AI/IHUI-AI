@@ -1,21 +1,27 @@
-#!/bin/sh
-# Pre-commit 守门钩子
-# 防止 API key 泄露 + i18n 键完整性 + 其他质量检查
+#!/usr/bin/env node
+// Pre-commit 守门钩子（跨平台兼容 Windows）
+// 防止 API key 泄露 + i18n 键完整性
+const { execSync } = require('child_process')
 
-# 1. API key 泄露检查(最高优先级,防止真实 key 被提交)
-echo "🔐 检查 API key 泄露..."
-node scripts/check-api-key-leak.mjs --staged
-if [ $? -ne 0 ]; then
-  echo "❌ API key 泄露检查失败,提交已阻止"
-  exit 1
-fi
+function run(label, cmd) {
+  console.log(label)
+  try {
+    execSync(cmd, { stdio: 'inherit', cwd: process.cwd() })
+    return true
+  } catch (e) {
+    console.error(`❌ ${label}失败，提交已阻止`)
+    return false
+  }
+}
 
-# 2. i18n 键完整性检查(防止 t('key') 调用了 messages 未定义的键)
-echo "🌐 检查 i18n 键完整性..."
-node scripts/check-i18n-keys.mjs --staged
-if [ $? -ne 0 ]; then
-  echo "❌ i18n 键检查失败,提交已阻止"
-  exit 1
-fi
+// 1. API key 泄露检查
+if (!run('🔐 检查 API key 泄露...', 'node scripts/check-api-key-leak.mjs --staged')) {
+  process.exit(1)
+}
 
-echo "✅ Pre-commit 检查通过"
+// 2. i18n 键完整性检查
+if (!run('🌐 检查 i18n 键完整性...', 'node scripts/check-i18n-keys.mjs --staged')) {
+  process.exit(1)
+}
+
+console.log('✅ Pre-commit 检查通过')

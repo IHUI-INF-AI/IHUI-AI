@@ -89,11 +89,11 @@ export default defineAppConfig({
     borderStyle: 'black',
     backgroundColor: '#ffffff',
     list: [
-      { pagePath: 'pages/index/index', text: '首页' },
-      { pagePath: 'pages/course/list', text: '课程' },
-      { pagePath: 'pages/live/list', text: '直播' },
-      { pagePath: 'pages/ai/chat', text: 'AI' },
-      { pagePath: 'pages/user/index', text: '我的' }
+      { pagePath: 'pages/index/index', text: '首页', iconPath: 'assets/tabbar/home.png', selectedIconPath: 'assets/tabbar/home-active.png' },
+      { pagePath: 'pages/course/list', text: '课程', iconPath: 'assets/tabbar/course.png', selectedIconPath: 'assets/tabbar/course-active.png' },
+      { pagePath: 'pages/live/list', text: '直播', iconPath: 'assets/tabbar/live.png', selectedIconPath: 'assets/tabbar/live-active.png' },
+      { pagePath: 'pages/ai/chat', text: 'AI', iconPath: 'assets/tabbar/ai.png', selectedIconPath: 'assets/tabbar/ai-active.png' },
+      { pagePath: 'pages/user/index', text: '我的', iconPath: 'assets/tabbar/user.png', selectedIconPath: 'assets/tabbar/user-active.png' }
     ]
   }
 })
