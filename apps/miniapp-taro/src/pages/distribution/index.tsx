@@ -24,7 +24,7 @@ export default function DistributionIndex() {
   const load = useCallback(async () => {
     try {
       setInfo(await getDistributionInfo())
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [])

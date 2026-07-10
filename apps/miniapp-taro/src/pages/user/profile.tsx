@@ -1,18 +1,14 @@
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getProfile, updateProfile, type UserInfo } from '@/api'
+import { getProfile, type UserInfo } from '@/api'
 
 export default function Profile() {
   const [form, setForm] = useState<Partial<UserInfo>>({})
 
   const load = useCallback(async () => {
-    try { setForm(await getProfile()) } catch (e) {}
+    try { setForm(await getProfile()) } catch {}
   }, [])
-
-  async function onSaveGender(g: string) {
-    try { await updateProfile({ gender: g } as any); load() } catch (e) {}
-  }
 
   function navigate(url: string) {
     Taro.navigateTo({ url })

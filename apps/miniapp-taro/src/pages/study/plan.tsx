@@ -18,7 +18,7 @@ export default function StudyPlan() {
     try {
       const res = await getStudyPlan()
       setList(res.list || [])
-    } catch (e) {
+    } catch {
       // 统一提示
     } finally {
       setLoading(false)

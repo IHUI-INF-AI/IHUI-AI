@@ -41,7 +41,7 @@ export default function UserIndex() {
         if (res.confirm) {
           try {
             await logout()
-          } catch (e) {
+          } catch {
             // 忽略退出接口错误
           }
           clearAuth()
