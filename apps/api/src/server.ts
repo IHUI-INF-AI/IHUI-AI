@@ -61,6 +61,7 @@ import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
 import { adminSysRoutes } from './routes/admin-sys.js'
+import { eduPublicRoutes } from './routes/edu-public.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
@@ -276,4 +277,7 @@ function registerRoutes(server: FastifyInstance) {
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
+
+  // 学员中心：我的课程/笔记/证书/报告/错题/线下记录/论文（R2 补完）
+  server.register(eduPublicRoutes, { prefix: '/api' })
 }

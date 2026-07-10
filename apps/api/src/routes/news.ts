@@ -15,15 +15,18 @@ import {
   updateArticle,
   deleteArticle,
   incrementArticleViewCount,
+  findArticlesByIds,
 } from '../db/news-queries.js';
 import {
   createNewsTop,
   deleteNewsTop,
   findNewsTopByNewsId,
+  findNewsTopList,
   updateNewsTopSort,
   createNewsRecommend,
   deleteNewsRecommend,
   findNewsRecommendByNewsId,
+  findNewsRecommendList,
   updateNewsRecommendSort,
 } from '../db/misc-extended-queries.js';
 import { success, error } from '../utils/response.js';
@@ -95,18 +98,6 @@ const topOrRecommendSchema = z.object({
 // 鉴权辅助
 // =============================================================================
 
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request);
-    return true;
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
-  }
-}
-
 async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
     await authenticate(request);
@@ -125,21 +116,17 @@ async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promi
 }
 
 // =============================================================================
-// 公共路由（前缀 /api，需登录）
+// 公共路由（前缀 /api，匿名可访问）
 // =============================================================================
 
 export const newsRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return;
-  });
-
-  // GET /news/categories - 启用的分类列表
+  // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
     const list = await findPublishedNewsCategories();
     return reply.send(success({ list }));
   });
 
-  // GET /news/articles - 已发布资讯列表
+  // GET /news/articles - 已发布资讯列表（公开）
   server.get('/news/articles', async (request, reply) => {
     const parsed = articlesQuerySchema.safeParse(request.query);
     if (!parsed.success) {
@@ -149,7 +136,23 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result));
   });
 
-  // GET /news/articles/:id - 资讯详情
+  // GET /news/articles/pinned - 置顶资讯列表（公开）
+  server.get('/news/articles/pinned', async (_request, reply) => {
+    const tops = await findNewsTopList();
+    if (tops.length === 0) return reply.send(success({ list: [] }));
+    const articles = await findArticlesByIds(tops.map((t) => t.newsId));
+    return reply.send(success({ list: articles }));
+  });
+
+  // GET /news/articles/recommended - 推荐资讯列表（公开）
+  server.get('/news/articles/recommended', async (_request, reply) => {
+    const recs = await findNewsRecommendList();
+    if (recs.length === 0) return reply.send(success({ list: [] }));
+    const articles = await findArticlesByIds(recs.map((r) => r.newsId));
+    return reply.send(success({ list: articles }));
+  });
+
+  // GET /news/articles/:id - 资讯详情（公开）
   server.get('/news/articles/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params);
     if (!parsed.success) {

@@ -41,6 +41,8 @@ import {
   Crown,
   Wallet,
   KeyRound,
+  Newspaper,
+  GraduationCap,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -91,6 +93,9 @@ interface NavItem {
     | 'adminLogs'
     | 'wallet'
     | 'oauthMyAuthorized'
+    | 'news'
+    | 'lecturers'
+    | 'student'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
 }
@@ -113,6 +118,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/circles', labelKey: 'circles', icon: Users },
   { href: '/asks', labelKey: 'asks', icon: HelpCircle },
   { href: '/live', labelKey: 'live', icon: Video },
+  { href: '/lecturers', labelKey: 'lecturers', icon: Users },
+  { href: '/news', labelKey: 'news', icon: Newspaper },
   { href: '/resources', labelKey: 'resources', icon: Package },
   { href: '/topics', labelKey: 'topics', icon: BookOpen },
   { href: '/messages', labelKey: 'messages', icon: MessageSquare },
@@ -126,6 +133,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/activities', labelKey: 'activities', icon: Gift },
   { href: '/points', labelKey: 'points', icon: Star },
   { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
+  { href: '/student', labelKey: 'student', icon: GraduationCap },
   { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
   { href: '/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
   { href: '/user/profile', labelKey: 'user', icon: User },
