@@ -6,7 +6,7 @@ import { generateOutTradeNo } from '../services/wechat-pay.js';
 export interface CreateOrderInput {
   userId: string;
   amount: number; // 分
-  orderType: number; // 0=token 1=activity 2=identity 3=agent
+  orderType: number; // 1=membership 2=token 3=activity 4=identity（0=未分类）
   productId?: string;
   payType: string; // wechat/alipay/wechat_android/fund
   openId?: string;
@@ -24,6 +24,8 @@ export async function createOrder(input: CreateOrderInput) {
       currency: 'CNY',
       status: 'pending',
       paymentMethod: input.payType,
+      orderType: input.orderType,
+      productId: input.productId,
     })
     .returning();
   return order!;
