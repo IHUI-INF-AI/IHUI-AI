@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { db } from './index.js';
 import {
   lessons,
@@ -10,7 +10,14 @@ import {
   helpArticles,
   users,
   statisticsSnapshots,
+  eduMessages,
+  liveChannels,
+  userPoints,
+  resources,
+  visitLogs,
+  eduMembers,
   type StatisticsSnapshot,
+  type VisitLog,
 } from '@ihui/database';
 
 // =============================================================================
@@ -219,4 +226,167 @@ export async function createStatisticsSnapshot(
 
 export async function deleteStatisticsSnapshot(id: string): Promise<void> {
   await db.delete(statisticsSnapshots).where(eq(statisticsSnapshots.id, id));
+}
+
+// =============================================================================
+// 扩展统计（消息 / 直播 / 积分 / 资源 / 用户中心 / 访问明细）
+// =============================================================================
+
+export interface MessageStatistics {
+  total: number;
+  unread: number;
+}
+
+/** 消息统计：消息总数 + 未读数。 */
+export async function getMessageStatistics(): Promise<MessageStatistics> {
+  const [totalRows, unreadRows] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(eduMessages),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(eduMessages)
+      .where(eq(eduMessages.isRead, false)),
+  ]);
+  return {
+    total: totalRows[0]?.count ?? 0,
+    unread: unreadRows[0]?.count ?? 0,
+  };
+}
+
+export interface LiveStatistics {
+  total: number;
+  living: number;
+  published: number;
+}
+
+/** 直播统计：频道总数 + 正在直播数 + 已发布数。 */
+export async function getLiveStatistics(): Promise<LiveStatistics> {
+  const [totalRows, liveRows, pubRows] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(liveChannels),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(liveChannels)
+      .where(eq(liveChannels.isLive, true)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(liveChannels)
+      .where(eq(liveChannels.isPublished, true)),
+  ]);
+  return {
+    total: totalRows[0]?.count ?? 0,
+    living: liveRows[0]?.count ?? 0,
+    published: pubRows[0]?.count ?? 0,
+  };
+}
+
+export interface PointStatistics {
+  userCount: number;
+  totalPoints: number;
+  totalEarned: number;
+  totalSpent: number;
+}
+
+/** 积分统计：有积分记录的用户数 + 积分总和 + 累计获得 + 累计消费。 */
+export async function getPointStatistics(): Promise<PointStatistics> {
+  const rows = await db
+    .select({
+      userCount: sql<number>`count(*)::int`,
+      totalPoints: sql<number>`coalesce(sum(${userPoints.points}), 0)::int`,
+      totalEarned: sql<number>`coalesce(sum(${userPoints.totalEarned}), 0)::int`,
+      totalSpent: sql<number>`coalesce(sum(${userPoints.totalSpent}), 0)::int`,
+    })
+    .from(userPoints);
+  return {
+    userCount: rows[0]?.userCount ?? 0,
+    totalPoints: rows[0]?.totalPoints ?? 0,
+    totalEarned: rows[0]?.totalEarned ?? 0,
+    totalSpent: rows[0]?.totalSpent ?? 0,
+  };
+}
+
+export interface ResourceStatistics {
+  total: number;
+  published: number;
+  viewSum: number;
+  downloadSum: number;
+}
+
+/** 资源统计：资源总数 + 已发布数 + 总浏览量 + 总下载量。 */
+export async function getResourceStatistics(): Promise<ResourceStatistics> {
+  const rows = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      published: sql<number>`count(*) filter (where ${resources.isPublished} = true)::int`,
+      viewSum: sql<number>`coalesce(sum(${resources.viewCount}), 0)::int`,
+      downloadSum: sql<number>`coalesce(sum(${resources.downloadCount}), 0)::int`,
+    })
+    .from(resources);
+  return {
+    total: rows[0]?.total ?? 0,
+    published: rows[0]?.published ?? 0,
+    viewSum: rows[0]?.viewSum ?? 0,
+    downloadSum: rows[0]?.downloadSum ?? 0,
+  };
+}
+
+export interface UserCenterStatistics {
+  userTotal: number;
+  memberTotal: number;
+  vipTotal: number;
+  normalTotal: number;
+  disabledTotal: number;
+}
+
+/** 用户中心统计：平台用户数 + 教育会员数 + VIP 数 + 普通用户数 + 禁用用户数。 */
+export async function getUserCenterStatistics(): Promise<UserCenterStatistics> {
+  const [userRows, memberRows, vipRows, normalRows, disabledRows] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(users),
+    db.select({ count: sql<number>`count(*)::int` }).from(eduMembers),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.isVip, 1)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.isVip, 0)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.status, 0)),
+  ]);
+  return {
+    userTotal: userRows[0]?.count ?? 0,
+    memberTotal: memberRows[0]?.count ?? 0,
+    vipTotal: vipRows[0]?.count ?? 0,
+    normalTotal: normalRows[0]?.count ?? 0,
+    disabledTotal: disabledRows[0]?.count ?? 0,
+  };
+}
+
+export interface FindVisitLogsOpts {
+  page: number;
+  pageSize: number;
+  startTime?: string;
+  endTime?: string;
+}
+
+/** 访问明细列表（分页），按创建时间降序。 */
+export async function findVisitLogList(
+  opts: FindVisitLogsOpts,
+): Promise<{ list: VisitLog[]; total: number; page: number; pageSize: number }> {
+  const conds = [];
+  if (opts.startTime) conds.push(gte(visitLogs.visitDate, opts.startTime.slice(0, 10)));
+  if (opts.endTime) conds.push(lte(visitLogs.visitDate, opts.endTime.slice(0, 10)));
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(visitLogs)
+      .where(where)
+      .orderBy(desc(visitLogs.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db.select({ count: sql<number>`count(*)::int` }).from(visitLogs).where(where),
+  ]);
+  return { list, total: totalRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize };
 }
