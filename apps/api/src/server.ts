@@ -15,6 +15,7 @@ import { healthRoutes } from './routes/health.js'
 import { authRoutes } from './routes/auth.js'
 import { usersRoutes } from './routes/users.js'
 import { workspaceRoutes } from './routes/workspace.js'
+import { workspaceAiRoutes } from './routes/workspace-ai.js'
 import { fileRoutes } from './routes/files.js'
 import { adminRoutes } from './routes/admin.js'
 import { notificationRoutes } from './routes/notifications.js'
@@ -22,6 +23,7 @@ import { billingRoutes } from './routes/billing.js'
 import { searchRoutes } from './routes/search.js'
 import { auditRoutes } from './routes/audit.js'
 import { chatRoutes } from './routes/chat.js'
+import { chatModelRoutes } from './routes/chat-models.js'
 import { teamRoutes } from './routes/teams.js'
 import { rbacRoutes } from './routes/rbac.js'
 import { workflowRoutes } from './routes/workflows.js'
@@ -51,25 +53,42 @@ import { settingRoutes, adminSettingRoutes } from './routes/setting.js'
 import { newsRoutes, adminNewsRoutes } from './routes/news.js'
 import { certificateRoutes, adminCertificateRoutes } from './routes/certificate.js'
 import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from './routes/payment-gateway.js'
+import { refundAuditRoutes, adminRefundAuditRoutes } from './routes/refund-audit.js'
 import { financeRoutes } from './routes/finance.js'
 import { authExtendedRoutes } from './routes/auth-extended.js'
 import { vipRoutes, adminVipRoutes } from './routes/vip.js'
 import { agentsRoutes } from './routes/agents.js'
 import { plazaRoutes } from './routes/plaza.js'
 import { cozeVariablesRoutes } from './routes/coze-variables.js'
+import { cozeRoutes } from './routes/coze.js'
 import { agenticServiceRoutes } from './routes/agentic-service.js'
 import { adminEduExtendedRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
 import { adminSysRoutes } from './routes/admin-sys.js'
 import { eduPublicRoutes } from './routes/edu-public.js'
 import { aiVendorRoutes, adminAiVendorRoutes } from './routes/ai-vendors.js'
+import { aiAudioRoutes } from './routes/ai-audio.js'
+import { customerServiceRoutes, adminCustomerServiceRoutes } from './routes/customer-service.js'
+import { gdprRoutes } from './routes/gdpr.js'
+import { clawdbotRoutes } from './routes/clawdbot.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
+import uploadScannerPlugin from './plugins/upload-scanner.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
+import csrfPlugin from './plugins/csrf.js'
+import responseSanitizerPlugin from './plugins/response-sanitizer.js'
+import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
 import { redis } from './plugins/redis.js'
 import { queue } from './plugins/queue.js'
+import { scheduler } from './plugins/scheduler.js'
+import { distributedRateLimit } from './plugins/distributed-rate-limit.js'
+import { paymentIdempotency } from './plugins/payment-idempotency.js'
+import { cacheResilience } from './plugins/cache-resilience.js'
 import { wsNotifications } from './plugins/ws-notifications.js'
+import { wsAi } from './plugins/ws-ai.js'
+import { wsChat } from './plugins/ws-chat.js'
+import { wsCustomerService } from './plugins/ws-customer-service.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -154,19 +173,47 @@ async function registerPlugins(server: FastifyInstance) {
   // BullMQ 队列：server.emailQueue / notificationQueue / aiCallbackQueue 装饰器
   await server.register(queue)
 
+  // 定时任务调度器：BullMQ repeatable jobs（cron），由 scheduler-worker 消费
+  await server.register(scheduler)
+
+  // 分布式限流：Redis 滑动窗口 + 公平权重 + 自适应负载（多实例生效）
+  await server.register(distributedRateLimit)
+
+  // 支付幂等性：Redis SETNX 锁，防止支付回调重复处理
+  await server.register(paymentIdempotency)
+
+  // 缓存韧性：熔断器 + singleflight + 双删一致性
+  await server.register(cacheResilience)
+
   // WebSocket 实时通知推送：/ws/notifications + server.pushNotification 装饰器
   // 内部使用 Redis Pub/Sub 支持多实例横向扩展
   await server.register(websocket)
   await server.register(wsNotifications)
+  // WebSocket AI 能力:agent_stream / tts_stream / realtime_pcm(1:1 流式连接)
+  await server.register(wsAi)
+  // WebSocket 聊天室:房间维度实时广播(Redis Pub/Sub 多实例)
+  await server.register(wsChat)
+  await server.register(wsCustomerService)
 
   // 审计日志插件：onResponse 异步记录所有 POST/PATCH/PUT/DELETE 写请求
   await server.register(auditPlugin)
+
+  // 上传内容安全扫描：装饰 server.createUploadPreHandler + request.scannedFile
+  await server.register(uploadScannerPlugin)
 
   // 请求指标收集插件：onRequest/onResponse 收集计数/响应时间，暴露 /metrics 端点
   await server.register(metricsPlugin)
 
   // API 日志插件：onResponse 异步记录所有 /api 请求到 api_logs
   await server.register(apiLoggerPlugin)
+
+  // 全局安全插件（必须在路由注册前注册，Fastify 在路由注册时捕获钩子链）：
+  // - 日志脱敏：onRequest 包装 request.log，自动脱敏敏感字段
+  // - CSRF 防护：双提交 Cookie + GET /api/csrf-token 签发，写请求校验 X-CSRF-Token
+  // - 响应脱敏管线：onSend 递归脱敏 JSON 响应敏感字段
+  await server.register(logSanitizerPlugin)
+  await server.register(csrfPlugin)
+  await server.register(responseSanitizerPlugin)
 }
 
 function registerRoutes(server: FastifyInstance) {
@@ -174,6 +221,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(authRoutes, { prefix: '/api/auth' })
   server.register(usersRoutes, { prefix: '/api/users' })
   server.register(workspaceRoutes, { prefix: '/api/workspace' })
+  // Workspace AI 能力：swarm/subagents/agent_loop/sandbox/computer_use/codebase_index/permissions 等 15 个子模块
+  server.register(workspaceAiRoutes, { prefix: '/api/workspace' })
   // 文件管理增强 API：/api/files/*（/api/tags 已迁至 socialRoutes）
   server.register(fileRoutes, { prefix: '/api' })
   server.register(adminRoutes, { prefix: '/api/admin' })
@@ -183,6 +232,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(auditRoutes, { prefix: '/api/admin' })
   server.register(teamRoutes, { prefix: '/api/teams' })
   server.register(chatRoutes, { prefix: '/api/chat' })
+  // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/coze
+  server.register(chatModelRoutes, { prefix: '/api/chat' })
   // RBAC: /api/roles /api/permissions /api/users/:id/roles /api/admin/rbac/check
   server.register(rbacRoutes, { prefix: '/api' })
   server.register(workflowRoutes, { prefix: '/api' })
@@ -263,6 +314,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(agentsRoutes, { prefix: '/api' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
   server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
+  // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
+  server.register(cozeRoutes, { prefix: '/api/coze' })
   server.register(agenticServiceRoutes, { prefix: '/api/agent' })
 
   // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)
@@ -271,6 +324,9 @@ function registerRoutes(server: FastifyInstance) {
   // 支付网关：微信/支付宝/基金/对账（R1 补完）
   server.register(paymentGatewayRoutes, { prefix: '/api' })
   server.register(adminPaymentGatewayRoutes, { prefix: '/api/admin' })
+  // 退款审核管理：退款列表/审核/驳回/详情/统计
+  server.register(refundAuditRoutes, { prefix: '/api' })
+  server.register(adminRefundAuditRoutes, { prefix: '/api/admin' })
   // 财务模块：佣金/分销/Token/提现（R1 补完）
   server.register(financeRoutes, { prefix: '/api' })
   // 多登录扩展：密码/邮箱/用户名/OAuth2/Google/微信/企微/验证码/绑定/SK（R1 补完）
@@ -285,4 +341,16 @@ function registerRoutes(server: FastifyInstance) {
   // AI 厂商专属多模态：dashscope/doubao/gemini/suno/sora2/coze + 通用工具（R4 补完）
   server.register(aiVendorRoutes, { prefix: '/api/ai' })
   server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
+  // AI audio 子模块：TTS/ASR/声纹/实时语音 WebSocket（R4 补完）
+  server.register(aiAudioRoutes, { prefix: '/api/ai' })
+
+  // 客服系统：工单 + 实时会话（工单流程：提交→分配→处理→评级→关闭）
+  server.register(customerServiceRoutes, { prefix: '/api/customer-service' })
+  server.register(adminCustomerServiceRoutes, { prefix: '/api/admin/customer-service' })
+
+  // GDPR 数据擦除：/api/gdpr/export /api/gdpr/erase /api/gdpr/portability
+  server.register(gdprRoutes, { prefix: '/api/gdpr' })
+
+  // Clawdbot AI Bot 服务：/api/clawdbot/*
+  server.register(clawdbotRoutes, { prefix: '/api' })
 }

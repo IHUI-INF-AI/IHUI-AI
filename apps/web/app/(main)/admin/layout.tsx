@@ -48,6 +48,7 @@ import {
   Smartphone,
   AlertTriangle,
   MonitorCog,
+  Receipt,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -102,6 +103,7 @@ interface AdminNavItem {
     | 'oauthAuditDashboard'
     | 'errorDashboard'
     | 'monitoringDashboard'
+    | 'refund'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -111,6 +113,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/members', labelKey: 'members', icon: UserCheck },
   { href: '/admin/projects', labelKey: 'projects', icon: FolderCog },
   { href: '/admin/orders', labelKey: 'orders', icon: ShoppingCart },
+  { href: '/admin/refund', labelKey: 'refund', icon: Receipt },
   { href: '/admin/exam', labelKey: 'exam', icon: GraduationCap },
   { href: '/admin/learn', labelKey: 'learn', icon: BookOpen },
   { href: '/admin/resources', labelKey: 'resources', icon: Package },

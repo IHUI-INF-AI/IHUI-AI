@@ -1,0 +1,137 @@
+'use client'
+
+import * as React from 'react'
+import { Mic } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+interface VoiceInputProps {
+  onTranscript: (text: string) => void
+  disabled?: boolean
+}
+
+interface SpeechRecognitionLike {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  start: () => void
+  stop: () => void
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+}
+
+function getRecognitionConstructor(): (new () => SpeechRecognitionLike) | null {
+  if (typeof window === 'undefined') return null
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike
+  }
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
+}
+
+export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
+  const [recording, setRecording] = React.useState(false)
+  const [supported, setSupported] = React.useState(true)
+  const recognitionRef = React.useRef<SpeechRecognitionLike | null>(null)
+  const transcriptRef = React.useRef('')
+
+  React.useEffect(() => {
+    const Ctor = getRecognitionConstructor()
+    if (!Ctor) {
+      setSupported(false)
+      return
+    }
+    const recognition = new Ctor()
+    recognition.lang = 'zh-CN'
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.onresult = (event) => {
+      let text = ''
+      for (let i = 0; i < event.results.length; i++) {
+        text += event.results[i]?.[0]?.transcript ?? ''
+      }
+      transcriptRef.current = text
+    }
+    recognition.onerror = () => {
+      setRecording(false)
+    }
+    recognition.onend = () => {
+      setRecording(false)
+      if (transcriptRef.current) {
+        onTranscript(transcriptRef.current)
+        transcriptRef.current = ''
+      }
+    }
+    recognitionRef.current = recognition
+    return () => {
+      recognition.onresult = null
+      recognition.onerror = null
+      recognition.onend = null
+      try {
+        recognition.stop()
+      } catch {
+        // ignore
+      }
+    }
+  }, [onTranscript])
+
+  const toggle = () => {
+    const recognition = recognitionRef.current
+    if (!recognition) return
+    if (recording) {
+      recognition.stop()
+      setRecording(false)
+    } else {
+      transcriptRef.current = ''
+      recognition.start()
+      setRecording(true)
+    }
+  }
+
+  if (!supported) return null
+
+  return (
+    <>
+      <style>{`
+        @keyframes voice-wave {
+          from { transform: scaleY(0.3); }
+          to { transform: scaleY(1); }
+        }
+      `}</style>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={disabled}
+        aria-label={recording ? '停止录音' : '开始录音'}
+        title={recording ? '停止录音' : '开始录音'}
+        className={cn(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+          recording
+            ? 'bg-red-500 text-white hover:bg-red-500/90'
+            : 'bg-muted text-muted-foreground hover:bg-accent',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+      >
+        {recording ? (
+          <span className="flex h-4 items-center gap-0.5">
+            {[0, 1, 2, 3].map((i) => (
+              <span
+                key={i}
+                className="w-0.5 rounded-full bg-white"
+                style={{
+                  height: '100%',
+                  transformOrigin: 'center',
+                  animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                }}
+              />
+            ))}
+          </span>
+        ) : (
+          <Mic className="h-4 w-4" />
+        )}
+      </button>
+    </>
+  )
+}
+
+export default VoiceInput

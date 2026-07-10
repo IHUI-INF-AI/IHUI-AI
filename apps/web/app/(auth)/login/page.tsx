@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
+import { ThirdPartyLoginButtons, CaptchaCanvas, QrCodeLogin } from '@/components/login'
 
 const phoneSchema = z
   .string()
@@ -36,7 +37,9 @@ export default function LoginPage() {
   const setUser = useAuthStore((s) => s.setUser)
 
   const [serverError, setServerError] = React.useState<string | null>(null)
-  const [tab, setTab] = React.useState<'password' | 'email' | 'username'>('password')
+  const [tab, setTab] = React.useState<'password' | 'email' | 'username' | 'qr'>('password')
+  const [captchaValue, setCaptchaValue] = React.useState('')
+  const [captchaOk, setCaptchaOk] = React.useState(false)
 
   // ===== Tab 1: 手机号 + 密码 (现有) =====
   const [submitting, setSubmitting] = React.useState(false)
@@ -57,6 +60,10 @@ export default function LoginPage() {
 
   const onPasswordSubmit = async (values: LoginValues) => {
     setServerError(null)
+    if (!captchaOk) {
+      setServerError(t('captchaPlaceholder'))
+      return
+    }
     setSubmitting(true)
     try {
       const res = await fetch('/api/auth/login', {
@@ -203,28 +210,7 @@ export default function LoginPage() {
     }
   }
 
-  // ===== 第三方登录 =====
-  const [googleConfigured, setGoogleConfigured] = React.useState<boolean | null>(null)
-
-  React.useEffect(() => {
-    void fetch('/api/auth/google/config')
-      .then((r) => r.json())
-      .then((j: { code: number; data?: { configured: boolean } }) => {
-        if (j.code === 0 && j.data) setGoogleConfigured(j.data.configured)
-        else setGoogleConfigured(false)
-      })
-      .catch(() => setGoogleConfigured(false))
-  }, [])
-
-  const redirect = (url: string) => {
-    if (typeof window !== 'undefined') window.location.href = url
-  }
-
-  const onGoogle = () => {
-    if (googleConfigured) redirect('/api/auth/google')
-  }
-  const onWechat = () => redirect('/api/auth/wechat/mini/login')
-  const onEnterprise = () => redirect('/api/auth/login/enterprise/pc/wxCode')
+  // ===== 第三方登录（由 ThirdPartyLoginButtons 组件处理） =====
 
   return (
     <div className="space-y-4 p-6">
@@ -234,10 +220,11 @@ export default function LoginPage() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => { setTab(v as typeof tab); setServerError(null); setUsernameErr(null); setEmailErr(null) }}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="password">{t('passwordLogin')}</TabsTrigger>
           <TabsTrigger value="email">{t('emailLogin')}</TabsTrigger>
           <TabsTrigger value="username">{t('usernameLogin')}</TabsTrigger>
+          <TabsTrigger value="qr">{t('qrLogin')}</TabsTrigger>
         </TabsList>
 
         {/* 手机号 + 密码 */}
@@ -260,6 +247,19 @@ export default function LoginPage() {
               </div>
               <Input id="password" type="password" autoComplete="current-password" placeholder={t('passwordPlaceholder')} {...register('password')} />
               {errors.password && <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="captcha">{t('captcha')}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="captcha"
+                  placeholder={t('captchaPlaceholder')}
+                  autoComplete="off"
+                  value={captchaValue}
+                  onChange={(e) => setCaptchaValue(e.target.value)}
+                />
+                <CaptchaCanvas value={captchaValue} onVerify={setCaptchaOk} />
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -310,28 +310,14 @@ export default function LoginPage() {
             </Button>
           </form>
         </TabsContent>
+
+        {/* 扫码登录 */}
+        <TabsContent value="qr">
+          <QrCodeLogin onSwitchMethod={() => setTab('password')} />
+        </TabsContent>
       </Tabs>
 
-      <div className="relative my-2">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-2 text-muted-foreground">{t('thirdPartyLogin')}</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <Button type="button" variant="outline" disabled={googleConfigured === false} onClick={onGoogle} title={googleConfigured === false ? t('googleNotConfigured') : undefined}>
-          {t('googleLogin')}
-        </Button>
-        <Button type="button" variant="outline" onClick={onWechat}>
-          {t('wechatLogin')}
-        </Button>
-        <Button type="button" variant="outline" onClick={onEnterprise}>
-          {t('enterpriseWechat')}
-        </Button>
-      </div>
+      <ThirdPartyLoginButtons />
 
       <p className="text-center text-sm text-muted-foreground">
         {t('noAccount')}{' '}
