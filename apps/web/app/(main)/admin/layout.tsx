@@ -31,6 +31,23 @@ import {
   Newspaper,
   Award,
   Coins,
+  Bot,
+  Wallet,
+  LayoutGrid,
+  Server,
+  Gauge,
+  Database,
+  GitBranch,
+  Terminal,
+  FolderTree,
+  ListChecks,
+  BarChart3,
+  Code2,
+  BookMarked,
+  MessageSquareReply,
+  Smartphone,
+  AlertTriangle,
+  MonitorCog,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -63,6 +80,28 @@ interface AdminNavItem {
     | 'news'
     | 'certificate'
     | 'point'
+    | 'agents'
+    | 'agentCategories'
+    | 'agentExamine'
+    | 'agentSettlement'
+    | 'demandSquare'
+    | 'backendHealth'
+    | 'performanceDashboard'
+    | 'databaseOptimization'
+    | 'eventBusMonitor'
+    | 'grayRelease'
+    | 'apiDebug'
+    | 'apiGroups'
+    | 'apiLogs'
+    | 'apiUsage'
+    | 'developer'
+    | 'dict'
+    | 'sms'
+    | 'recommendationConfig'
+    | 'mobileAdapter'
+    | 'oauthAuditDashboard'
+    | 'errorDashboard'
+    | 'monitoringDashboard'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -79,6 +118,33 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/point', labelKey: 'point', icon: Coins },
   { href: '/admin/news', labelKey: 'news', icon: Newspaper },
   { href: '/admin/certificate', labelKey: 'certificate', icon: Award },
+  // R3: 智能体市场
+  { href: '/admin/agents', labelKey: 'agents', icon: Bot },
+  { href: '/admin/agents/categories', labelKey: 'agentCategories', icon: Tag },
+  { href: '/admin/agents/examine', labelKey: 'agentExamine', icon: ShieldCheck },
+  { href: '/admin/agents/settlement', labelKey: 'agentSettlement', icon: Wallet },
+  { href: '/admin/demand-square', labelKey: 'demandSquare', icon: LayoutGrid },
+  // R6: 运维监控
+  { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
+  { href: '/admin/backend-health', labelKey: 'backendHealth', icon: Server },
+  { href: '/admin/performance-dashboard', labelKey: 'performanceDashboard', icon: Gauge },
+  { href: '/admin/error-dashboard', labelKey: 'errorDashboard', icon: AlertTriangle },
+  { href: '/admin/database-optimization', labelKey: 'databaseOptimization', icon: Database },
+  { href: '/admin/event-bus-monitor', labelKey: 'eventBusMonitor', icon: Activity },
+  { href: '/admin/gray-release', labelKey: 'grayRelease', icon: GitBranch },
+  // R6: API 管理
+  { href: '/admin/api-debug', labelKey: 'apiDebug', icon: Terminal },
+  { href: '/admin/api-groups', labelKey: 'apiGroups', icon: FolderTree },
+  { href: '/admin/api-logs', labelKey: 'apiLogs', icon: ListChecks },
+  { href: '/admin/api-usage', labelKey: 'apiUsage', icon: BarChart3 },
+  // R6: 开发者工具
+  { href: '/admin/developer', labelKey: 'developer', icon: Code2 },
+  { href: '/admin/dict', labelKey: 'dict', icon: BookMarked },
+  { href: '/admin/sms', labelKey: 'sms', icon: MessageSquareReply },
+  { href: '/admin/recommendation-config', labelKey: 'recommendationConfig', icon: SlidersHorizontal },
+  // R6: 其他工具
+  { href: '/admin/mobile-adapter', labelKey: 'mobileAdapter', icon: Smartphone },
+  { href: '/admin/oauth-audit-dashboard', labelKey: 'oauthAuditDashboard', icon: Shield },
   { href: '/admin/feedbacks', labelKey: 'feedbacks', icon: MessageSquare },
   { href: '/admin/announcements', labelKey: 'announcements', icon: Megaphone },
   { href: '/admin/docs', labelKey: 'docs', icon: FileText },
