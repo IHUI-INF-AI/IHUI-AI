@@ -81,6 +81,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
     if (!url) return <p className="text-sm text-muted-foreground">{t('noResult')}</p>
     switch (record.type) {
       case 'image':
+        // eslint-disable-next-line @next/next/no-img-element
         return <img src={url} alt={record.prompt} className="max-h-[70vh] w-full rounded-md border" />
       case 'video':
         return <video src={url} controls className="w-full rounded-md border" />
@@ -169,6 +170,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                 >
                   <div className="flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
                     {record.type === 'image' && record.resultUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={record.resultUrl}
                         alt={record.prompt}
