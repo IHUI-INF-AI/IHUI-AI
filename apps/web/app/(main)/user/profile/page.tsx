@@ -53,7 +53,7 @@ export default function ProfilePage() {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ProfileForm>({
-    resolver: zodResolver(profileSchema),
+    resolver: zodResolver(profileSchema as never),
     defaultValues: {
       nickname: user?.nickname ?? '',
       email: '',

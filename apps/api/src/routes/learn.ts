@@ -37,6 +37,27 @@ import {
   findSignupReport,
   findMemberStudyReport,
 } from '../db/learn-queries.js';
+import {
+  findHomeworkList,
+  findHomeworkById,
+  createHomework,
+  updateHomework,
+  findMapById,
+  deleteMap,
+  publishMap,
+  findInvoiceApplicationList,
+  updateInvoiceApplicationStatus,
+  findInvoiceTitleList,
+  findInvoiceTitleById,
+  createInvoiceTitle,
+  updateInvoiceTitle,
+  deleteInvoiceTitle,
+  findCompanyStudyReport,
+  publishTopic,
+  getLessonExamPaperId,
+  setLessonExamPaperId,
+  setLessonCertificateId,
+} from '../db/learn-extended-queries.js';
 import { success, error } from '../utils/response.js';
 
 const ADMIN_ROLE_ID = 1;
@@ -174,6 +195,90 @@ const reportQuerySchema = z.object({
   search: z.string().max(200).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+});
+
+// 扩展模块 Zod schemas
+
+const homeworkParamSchema = z.object({
+  id: z.string().uuid('无效的 ID'),
+  hwId: z.string().uuid('无效的作业 ID'),
+});
+
+const createHomeworkSchema = z.object({
+  chapterId: z.string().uuid().nullable().optional(),
+  title: z.string().min(1).max(200),
+  description: z.string().nullable().optional(),
+  content: z.unknown().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.string().max(20).optional(),
+});
+
+const updateHomeworkSchema = z.object({
+  chapterId: z.string().uuid().nullable().optional(),
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().nullable().optional(),
+  content: z.unknown().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.string().max(20).optional(),
+});
+
+const examPaperSchema = z.object({
+  examPaperId: z.string().uuid().nullable(),
+});
+
+const certificateSchema = z.object({
+  certificateTemplateId: z.string().uuid().nullable(),
+});
+
+const invoiceListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.string().max(20).optional(),
+  search: z.string().max(200).optional(),
+});
+
+const invoiceTitleParamSchema = z.object({ id: z.string().uuid('无效的 ID') });
+
+const createInvoiceTitleSchema = z.object({
+  title: z.string().min(1).max(200),
+  type: z.string().min(1).max(50),
+  taxNo: z.string().min(1).max(50),
+  bank: z.string().max(100).nullable().optional(),
+  bankAccount: z.string().max(100).nullable().optional(),
+  address: z.string().max(200).nullable().optional(),
+  phone: z.string().max(50).nullable().optional(),
+  isDefault: z.boolean().optional(),
+});
+
+const updateInvoiceTitleSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  type: z.string().min(1).max(50).optional(),
+  taxNo: z.string().min(1).max(50).optional(),
+  bank: z.string().max(100).nullable().optional(),
+  bankAccount: z.string().max(100).nullable().optional(),
+  address: z.string().max(200).nullable().optional(),
+  phone: z.string().max(50).nullable().optional(),
+  isDefault: z.boolean().optional(),
+});
+
+const companyStudyReportQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  search: z.string().max(200).optional(),
+});
+
+const lessonSortOrderSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        sort: z.number().int().min(0),
+      }),
+    )
+    .min(1)
+    .max(500),
 });
 
 // =============================================================================
@@ -671,6 +776,357 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       pageSize: parsed.data.pageSize,
       search: parsed.data.search,
     });
+    return reply.send(success(result));
+  });
+
+  // ----- Homework (课程作业) -----
+
+  // GET /learn/lessons/:id/homework - 作业列表
+  server.get('/learn/lessons/:id/homework', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const lesson = await findLessonByIdAdmin(idParsed.data.id);
+    if (!lesson) {
+      return reply.status(404).send(error(404, '课程不存在'));
+    }
+    const list = await findHomeworkList(idParsed.data.id);
+    return reply.send(success({ list }));
+  });
+
+  // POST /learn/lessons/:id/homework - 创建作业
+  server.post('/learn/lessons/:id/homework', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = createHomeworkSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const lesson = await findLessonByIdAdmin(idParsed.data.id);
+    if (!lesson) {
+      return reply.status(404).send(error(404, '课程不存在'));
+    }
+    const homework = await createHomework({
+      lessonId: idParsed.data.id,
+      chapterId: parsed.data.chapterId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      content: parsed.data.content,
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+      sort: parsed.data.sort,
+      status: parsed.data.status,
+    });
+    return reply.status(201).send(success({ homework }));
+  });
+
+  // PUT /learn/lessons/:id/homework/:hwId - 更新作业
+  server.put('/learn/lessons/:id/homework/:hwId', async (request, reply) => {
+    const paramParsed = homeworkParamSchema.safeParse(request.params);
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = updateHomeworkSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findHomeworkById(paramParsed.data.hwId);
+    if (!existing || existing.lessonId !== paramParsed.data.id) {
+      return reply.status(404).send(error(404, '作业不存在'));
+    }
+    const homework = await updateHomework(paramParsed.data.hwId, {
+      chapterId: parsed.data.chapterId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      content: parsed.data.content,
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
+      sort: parsed.data.sort,
+      status: parsed.data.status,
+    });
+    return reply.send(success({ homework }));
+  });
+
+  // GET /learn/lessons/:id/exam-paper - 获取课程关联试卷
+  server.get('/learn/lessons/:id/exam-paper', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    // lessons 表无 examPaperId 字段,从哨兵作业记录的 content 中读取关联
+    const examPaperId = await getLessonExamPaperId(idParsed.data.id);
+    return reply.send(success({ examPaperId }));
+  });
+
+  // PUT /learn/lessons/:id/exam-paper - 更新课程关联试卷
+  server.put('/learn/lessons/:id/exam-paper', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = examPaperSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    // lessons 表无 examPaperId 字段,存储到 learn_homework 的 jsonb content 中
+    await setLessonExamPaperId(idParsed.data.id, parsed.data.examPaperId);
+    return reply.send(success({ updated: true }));
+  });
+
+  // PUT /learn/lessons/:id/certificate - 更新课程关联证书
+  server.put('/learn/lessons/:id/certificate', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = certificateSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    // lessons 表无 certificate 字段,存储到 learn_homework 的 jsonb content 中
+    await setLessonCertificateId(idParsed.data.id, parsed.data.certificateTemplateId);
+    return reply.send(success({ updated: true }));
+  });
+
+  // ----- Learn Maps (学习地图) -----
+
+  // DELETE /learn/maps/:id - 删除学习地图
+  server.delete('/learn/maps/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMapById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '学习地图不存在'));
+    }
+    await deleteMap(parsed.data.id);
+    return reply.send(success({ ok: true }));
+  });
+
+  // PUT /learn/maps/:id/publish - 发布学习地图
+  server.put('/learn/maps/:id/publish', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMapById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '学习地图不存在'));
+    }
+    const map = await publishMap(parsed.data.id, true);
+    return reply.send(success({ map }));
+  });
+
+  // PUT /learn/maps/:id/unpublish - 取消发布
+  server.put('/learn/maps/:id/unpublish', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMapById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '学习地图不存在'));
+    }
+    const map = await publishMap(parsed.data.id, false);
+    return reply.send(success({ map }));
+  });
+
+  // ----- Topics (话题发布) -----
+
+  // PUT /learn/topics/:id/publish - 发布话题
+  server.put('/learn/topics/:id/publish', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    await publishTopic(parsed.data.id, true);
+    return reply.send(success({ ok: true }));
+  });
+
+  // PUT /learn/topics/:id/unpublish - 取消发布话题
+  server.put('/learn/topics/:id/unpublish', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    await publishTopic(parsed.data.id, false);
+    return reply.send(success({ ok: true }));
+  });
+
+  // PUT /learn/lessons/sort-order - 更新排序
+  server.put('/learn/lessons/sort-order', async (request, reply) => {
+    const parsed = lessonSortOrderSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    await Promise.all(
+      parsed.data.items.map((item) => updateLesson(item.id, { sort: item.sort })),
+    );
+    return reply.send(success({ updated: true }));
+  });
+
+  // ----- Invoice Applications (发票申请) -----
+
+  // GET /learn/invoices - 发票申请列表
+  server.get('/learn/invoices', async (request, reply) => {
+    const parsed = invoiceListQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findInvoiceApplicationList(parsed.data);
+    return reply.send(success(result));
+  });
+
+  // PUT /learn/invoices/:id/approved - 审批通过
+  server.put('/learn/invoices/:id/approved', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const updated = await updateInvoiceApplicationStatus(parsed.data.id, 'approved');
+    if (!updated) {
+      return reply.status(404).send(error(404, '发票申请不存在'));
+    }
+    return reply.send(success({ application: updated }));
+  });
+
+  // PUT /learn/invoices/:id/rejected - 审批拒绝
+  server.put('/learn/invoices/:id/rejected', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const updated = await updateInvoiceApplicationStatus(parsed.data.id, 'rejected');
+    if (!updated) {
+      return reply.status(404).send(error(404, '发票申请不存在'));
+    }
+    return reply.send(success({ application: updated }));
+  });
+
+  // PUT /learn/invoices/:id/invoicing - 开票中
+  server.put('/learn/invoices/:id/invoicing', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const updated = await updateInvoiceApplicationStatus(parsed.data.id, 'invoicing');
+    if (!updated) {
+      return reply.status(404).send(error(404, '发票申请不存在'));
+    }
+    return reply.send(success({ application: updated }));
+  });
+
+  // PUT /learn/invoices/:id/invoiced - 已开票
+  server.put('/learn/invoices/:id/invoiced', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const updated = await updateInvoiceApplicationStatus(parsed.data.id, 'invoiced');
+    if (!updated) {
+      return reply.status(404).send(error(404, '发票申请不存在'));
+    }
+    return reply.send(success({ application: updated }));
+  });
+
+  // PUT /learn/invoices/:id/canceled - 已取消
+  server.put('/learn/invoices/:id/canceled', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const updated = await updateInvoiceApplicationStatus(parsed.data.id, 'canceled');
+    if (!updated) {
+      return reply.status(404).send(error(404, '发票申请不存在'));
+    }
+    return reply.send(success({ application: updated }));
+  });
+
+  // ----- Invoice Titles (发票抬头) -----
+
+  // GET /learn/invoice-titles - 发票抬头列表(按 userId 筛选)
+  server.get('/learn/invoice-titles', async (request, reply) => {
+    const userId = (request.query as { userId?: string }).userId;
+    if (!userId) {
+      return reply.status(400).send(error(400, '缺少 userId 参数'));
+    }
+    const list = await findInvoiceTitleList(userId);
+    return reply.send(success({ list }));
+  });
+
+  // POST /learn/invoice-titles - 创建抬头
+  server.post('/learn/invoice-titles', async (request, reply) => {
+    const parsed = createInvoiceTitleSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const userId = request.userId!;
+    const title = await createInvoiceTitle({
+      userId,
+      title: parsed.data.title,
+      type: parsed.data.type,
+      taxNo: parsed.data.taxNo,
+      bank: parsed.data.bank,
+      bankAccount: parsed.data.bankAccount,
+      address: parsed.data.address,
+      phone: parsed.data.phone,
+      isDefault: parsed.data.isDefault,
+    });
+    return reply.status(201).send(success({ title }));
+  });
+
+  // PUT /learn/invoice-titles/:id - 更新抬头
+  server.put('/learn/invoice-titles/:id', async (request, reply) => {
+    const idParsed = invoiceTitleParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = updateInvoiceTitleSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findInvoiceTitleById(idParsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '发票抬头不存在'));
+    }
+    const title = await updateInvoiceTitle(idParsed.data.id, {
+      title: parsed.data.title,
+      type: parsed.data.type,
+      taxNo: parsed.data.taxNo,
+      bank: parsed.data.bank,
+      bankAccount: parsed.data.bankAccount,
+      address: parsed.data.address,
+      phone: parsed.data.phone,
+      isDefault: parsed.data.isDefault,
+    });
+    return reply.send(success({ title }));
+  });
+
+  // DELETE /learn/invoice-titles/:id - 删除抬头
+  server.delete('/learn/invoice-titles/:id', async (request, reply) => {
+    const parsed = invoiceTitleParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findInvoiceTitleById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '发票抬头不存在'));
+    }
+    await deleteInvoiceTitle(parsed.data.id);
+    return reply.send(success({ ok: true }));
+  });
+
+  // ----- Reports (扩展报表) -----
+
+  // GET /learn/reports/company-study - 企业学习报表
+  server.get('/learn/reports/company-study', async (request, reply) => {
+    const parsed = companyStudyReportQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findCompanyStudyReport(parsed.data);
     return reply.send(success(result));
   });
 };

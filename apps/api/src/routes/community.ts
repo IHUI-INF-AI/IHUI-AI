@@ -4,6 +4,9 @@ import { authenticate } from '../plugins/auth.js';
 import {
   findCircles,
   findCircleByIdOrSlug,
+  findCircleById,
+  deleteCircle,
+  updateCircleShowStatus,
   findCirclePosts,
   findPostById,
   createPost,
@@ -19,6 +22,8 @@ import {
   acceptAnswer,
 } from '../db/community-queries.js';
 import { success, error, emptyToUndefined } from '../utils/response.js';
+
+const ADMIN_ROLE_ID = 1;
 
 // =============================================================================
 // Zod schemas
@@ -78,6 +83,24 @@ const updateAskSchema = z.object({
 const createAnswerSchema = z.object({
   content: z.string().min(1, '内容不能为空').max(20000, '内容过长'),
 });
+
+const circleShowSchema = z.object({
+  isPublished: z.boolean(),
+});
+
+// =============================================================================
+// 鉴权辅助
+// =============================================================================
+
+/** 校验管理员权限，失败时写入响应并返回 false。 */
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  const roleId = request.jwtPayload?.roleId ?? 0;
+  if (roleId < ADMIN_ROLE_ID) {
+    reply.status(403).send(error(403, '需要管理员权限'));
+    return false;
+  }
+  return true;
+}
 
 // =============================================================================
 // 路由
@@ -678,5 +701,41 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '答案不存在或无权采纳'));
     }
     return reply.send(success({ answer: accepted }));
+  });
+
+  // ===== 圈子管理（管理员） =====
+
+  // DELETE /admin/circles/:id - 管理员删除圈子
+  server.delete('/admin/circles/:id', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return;
+    const parsed = uuidParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findCircleById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '圈子不存在'));
+    }
+    await deleteCircle(parsed.data.id);
+    return reply.send(success({ id: parsed.data.id, deleted: true }));
+  });
+
+  // PUT /admin/circles/:id/show - 更新圈子显示状态
+  server.put('/admin/circles/:id/show', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return;
+    const idParsed = uuidParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = circleShowSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findCircleById(idParsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '圈子不存在'));
+    }
+    const circle = await updateCircleShowStatus(idParsed.data.id, parsed.data.isPublished);
+    return reply.send(success({ circle }));
   });
 };

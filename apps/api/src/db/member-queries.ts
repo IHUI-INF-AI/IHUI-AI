@@ -6,10 +6,13 @@ import {
   eduMemberLevels,
   eduCompanies,
   eduDepartments,
+  users,
+  userProfiles,
   type EduMember,
   type EduMemberLevel,
   type EduCompany,
   type EduDepartment,
+  type User,
 } from '@ihui/database';
 
 /** SHA256 哈希密码（兼容旧 Java 项目数据，与 Python hashlib.sha256 一致）。 */
@@ -637,4 +640,144 @@ export async function updateDepartment(
 
 export async function deleteDepartment(id: string): Promise<void> {
   await db.delete(eduDepartments).where(eq(eduDepartments.id, id));
+}
+
+// =============================================================================
+// 系统用户管理（users 表）
+// =============================================================================
+
+/** 按部门查询用户列表（关联 userProfiles.departmentId）。 */
+export async function findUsersByDepartment(
+  departmentId: string,
+  opts: { page: number; pageSize: number },
+): Promise<{ list: User[]; total: number; page: number; pageSize: number }> {
+  const where = eq(userProfiles.departmentId, departmentId);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        phone: users.phone,
+        email: users.email,
+        username: users.username,
+        passwordHash: users.passwordHash,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        bio: users.bio,
+        gender: users.gender,
+        birthday: users.birthday,
+        familyId: users.familyId,
+        roleId: users.roleId,
+        status: users.status,
+        isVip: users.isVip,
+        inviteCode: users.inviteCode,
+        parentId: users.parentId,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(where),
+  ]);
+  return { list: rows, total: totalRows[0]?.count ?? 0, page: opts.page, pageSize: opts.pageSize };
+}
+
+/** 按 ID 查询系统用户。 */
+export async function findSystemUserById(id: string): Promise<User | undefined> {
+  const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return rows[0];
+}
+
+export interface CreateSystemUserInput {
+  phone?: string;
+  email?: string;
+  username?: string;
+  passwordHash?: string;
+  nickname?: string;
+  avatar?: string;
+  gender?: number;
+  roleId?: number;
+  status?: number;
+  isVip?: number;
+}
+
+/** 创建系统用户。 */
+export async function createSystemUser(data: CreateSystemUserInput): Promise<User> {
+  const rows = await db
+    .insert(users)
+    .values({
+      phone: data.phone,
+      email: data.email,
+      username: data.username,
+      passwordHash: data.passwordHash,
+      nickname: data.nickname,
+      avatar: data.avatar,
+      gender: data.gender,
+      roleId: data.roleId ?? 0,
+      status: data.status ?? 1,
+      isVip: data.isVip ?? 0,
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('创建用户失败');
+  return row;
+}
+
+export interface UpdateSystemUserInput {
+  phone?: string | null;
+  email?: string | null;
+  username?: string | null;
+  nickname?: string | null;
+  avatar?: string | null;
+  bio?: string | null;
+  gender?: number;
+  roleId?: number;
+  status?: number;
+  isVip?: number;
+}
+
+/** 更新系统用户。 */
+export async function updateSystemUser(
+  id: string,
+  data: UpdateSystemUserInput,
+): Promise<User | undefined> {
+  const set: Record<string, unknown> = {};
+  if (data.phone !== undefined) set.phone = data.phone;
+  if (data.email !== undefined) set.email = data.email;
+  if (data.username !== undefined) set.username = data.username;
+  if (data.nickname !== undefined) set.nickname = data.nickname;
+  if (data.avatar !== undefined) set.avatar = data.avatar;
+  if (data.bio !== undefined) set.bio = data.bio;
+  if (data.gender !== undefined) set.gender = data.gender;
+  if (data.roleId !== undefined) set.roleId = data.roleId;
+  if (data.status !== undefined) set.status = data.status;
+  if (data.isVip !== undefined) set.isVip = data.isVip;
+  set.updatedAt = new Date();
+  const rows = await db.update(users).set(set).where(eq(users.id, id)).returning();
+  return rows[0];
+}
+
+/** 重置系统用户密码。 */
+export async function resetSystemUserPassword(
+  id: string,
+  passwordHash: string,
+): Promise<User | undefined> {
+  const rows = await db
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, id))
+    .returning();
+  return rows[0];
+}
+
+/** 删除系统用户（硬删除）。 */
+export async function deleteSystemUser(id: string): Promise<void> {
+  await db.delete(users).where(eq(users.id, id));
 }
