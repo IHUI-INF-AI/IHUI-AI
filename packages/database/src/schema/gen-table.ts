@@ -27,7 +27,7 @@ export const genTable = pgTable(
     subTableFkName: varchar('sub_table_fk_name', { length: 200 }),
     className: varchar('class_name', { length: 200 }).default('').notNull(),
     tplCategory: varchar('tpl_category', { length: 10 }).default('crud').notNull(),
-    tplWebType: varchar('tpl_web_type', { length: 10 }).default('element-ui').notNull(),
+    tplWebType: varchar('tpl_web_type', { length: 10 }).default('tailwind').notNull(),
     packageName: varchar('package_name', { length: 100 }).default('').notNull(),
     moduleName: varchar('module_name', { length: 100 }).default('').notNull(),
     businessName: varchar('business_name', { length: 100 }).default('').notNull(),
