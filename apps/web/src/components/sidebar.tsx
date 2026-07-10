@@ -39,6 +39,8 @@ import {
   ScrollText,
   LayoutGrid,
   Crown,
+  Wallet,
+  KeyRound,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -87,6 +89,8 @@ interface NavItem {
     | 'adminWorkflows'
     | 'adminTags'
     | 'adminLogs'
+    | 'wallet'
+    | 'oauthMyAuthorized'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
 }
@@ -115,6 +119,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/schedule', labelKey: 'schedule', icon: Calendar },
   { href: '/docs', labelKey: 'docs', icon: FileText },
   { href: '/vip-membership', labelKey: 'vip', icon: Crown },
+  { href: '/wallet', labelKey: 'wallet', icon: Wallet },
+  { href: '/oauth/my-authorized', labelKey: 'oauthMyAuthorized', icon: KeyRound },
   { href: '/payment', labelKey: 'payment', icon: CreditCard },
   { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
   { href: '/activities', labelKey: 'activities', icon: Gift },

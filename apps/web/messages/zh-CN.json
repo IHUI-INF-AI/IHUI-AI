@@ -72,7 +72,12 @@
     "adminTags": "标签管理",
     "adminLogs": "API 日志",
     "expand": "展开",
-    "collapse": "收起"
+    "collapse": "收起",
+    "wallet": "钱包",
+    "walletRecharge": "充值",
+    "walletWithdraw": "提现",
+    "oauthMyAuthorized": "我的授权",
+    "oauthApps": "OAuth 应用"
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -113,7 +118,31 @@
     "backToLogin": "返回登录",
     "enterPhone": "请输入手机号",
     "enterCode": "请输入验证码",
-    "enterNewPassword": "请输入新密码"
+    "enterNewPassword": "请输入新密码",
+    "loginMethod": "登录方式",
+    "phoneLogin": "手机号登录",
+    "emailLogin": "邮箱登录",
+    "usernameLogin": "用户名登录",
+    "username": "用户名",
+    "usernamePlaceholder": "请输入用户名",
+    "email": "邮箱",
+    "emailPlaceholder": "请输入邮箱",
+    "enterpriseWechat": "企业微信",
+    "captcha": "图形验证码",
+    "captchaPlaceholder": "请输入验证码",
+    "captchaImage": "点击刷新验证码",
+    "phoneCodeLogin": "验证码登录",
+    "passwordLogin": "密码登录",
+    "sendEmailCode": "发送邮箱验证码",
+    "emailCodeSent": "邮箱验证码已发送",
+    "invalidEmail": "请输入正确的邮箱",
+    "invalidUsername": "用户名至少 3 位",
+    "googleNotConfigured": "Google 登录未配置",
+    "wechatNotConfigured": "微信登录未配置",
+    "enterpriseNotConfigured": "企业微信登录未配置",
+    "accountNotFound": "账号不存在",
+    "invalidCredentials": "账号或密码错误",
+    "usernameExists": "用户名已存在"
   },
   "home": {
     "welcome": "欢迎使用 IHUI AI",
@@ -292,10 +321,28 @@
     "perYear": "/年",
     "subscribe": "立即订阅",
     "startFree": "免费开始",
-    "faqHint": "所有方案均支持随时取消，到期后自动失效。如有疑问请联系客服。"
+    "faqHint": "所有方案均支持随时取消，到期后自动失效。如有疑问请联系客服。",
+    "details": "VIP 详情",
+    "trader": "操盘手",
+    "monthly": "月度",
+    "yearly": "年度",
+    "traderPlan": "操盘手方案",
+    "currentLevel": "当前等级",
+    "expired": "已过期",
+    "active": "生效中",
+    "expireAt": "到期时间",
+    "benefits": "权益",
+    "purchaseSuccess": "购买成功",
+    "purchaseFail": "购买失败",
+    "myVip": "我的 VIP",
+    "upgradeNow": "立即升级",
+    "renewNow": "立即续费",
+    "notVip": "您还不是 VIP",
+    "choosePlan": "选择方案",
+    "durationDays": "{days} 天"
   },
   "asks": {
-    "title": "问答",
+    "title": "标题",
     "subtitle": "提问与解答，互帮互助",
     "loading": "加载中...",
     "empty": "暂无问答",
@@ -304,7 +351,6 @@
     "resolved": "已解决",
     "unresolved": "未解决",
     "askQuestion": "提问",
-    "title": "标题",
     "content": "内容",
     "titlePlaceholder": "请输入问题标题",
     "contentPlaceholder": "请详细描述您的问题",
@@ -322,18 +368,35 @@
       "free": {
         "name": "免费版",
         "cta": "开始使用",
-        "features": ["每日 10 次 AI 对话", "基础模型", "1 个项目", "社区支持"]
+        "features": [
+          "每日 10 次 AI 对话",
+          "基础模型",
+          "1 个项目",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
         "cta": "立即升级",
-        "features": ["无限 AI 对话", "高级模型", "无限项目", "优先支持", "API 接入"]
+        "features": [
+          "无限 AI 对话",
+          "高级模型",
+          "无限项目",
+          "优先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企业版",
         "cta": "联系我们",
         "contactSales": "联系销售",
-        "features": ["专属部署", "团队管理", "SLA 保障", "定制开发", "培训支持"]
+        "features": [
+          "专属部署",
+          "团队管理",
+          "SLA 保障",
+          "定制开发",
+          "培训支持"
+        ]
       }
     },
     "checkout": {
@@ -1912,20 +1975,19 @@
       "orderNo": "订单号",
       "plan": "方案",
       "amount": "金额",
-      "status": "状态",
-      "createdAt": "创建时间",
-      "actions": "操作",
-      "loading": "加载中...",
-      "noData": "暂无订单",
-      "pay": "去支付",
-      "view": "查看",
       "status": {
         "all": "全部",
         "pending": "待支付",
         "paid": "已支付",
         "cancelled": "已取消",
         "refunded": "已退款"
-      }
+      },
+      "createdAt": "创建时间",
+      "actions": "操作",
+      "loading": "加载中...",
+      "noData": "暂无订单",
+      "pay": "去支付",
+      "view": "查看"
     },
     "public": {
       "title": "用户主页",
@@ -1980,29 +2042,74 @@
     },
     "faq": {
       "account": [
-        { "q": "忘记密码怎么办？", "a": "在登录页点击“忘记密码”，通过手机号验证码重置密码。" },
-        { "q": "如何修改个人信息？", "a": "进入设置页面，可修改昵称、头像等个人信息。" },
-        { "q": "如何注销账号？", "a": "请联系客服提交注销申请，我们将在 3 个工作日内处理。" }
+        {
+          "q": "忘记密码怎么办？",
+          "a": "在登录页点击“忘记密码”，通过手机号验证码重置密码。"
+        },
+        {
+          "q": "如何修改个人信息？",
+          "a": "进入设置页面，可修改昵称、头像等个人信息。"
+        },
+        {
+          "q": "如何注销账号？",
+          "a": "请联系客服提交注销申请，我们将在 3 个工作日内处理。"
+        }
       ],
       "payment": [
-        { "q": "支持哪些支付方式？", "a": "目前支持微信支付、支付宝、Stripe 信用卡和 USDC。" },
-        { "q": "如何申请退款？", "a": "订阅 7 天内可联系客服申请全额退款，逾期不予受理。" },
-        { "q": "如何取消订阅？", "a": "在支付页面点击“取消订阅”，下个计费周期停止扣费。" }
+        {
+          "q": "支持哪些支付方式？",
+          "a": "目前支持微信支付、支付宝、Stripe 信用卡和 USDC。"
+        },
+        {
+          "q": "如何申请退款？",
+          "a": "订阅 7 天内可联系客服申请全额退款，逾期不予受理。"
+        },
+        {
+          "q": "如何取消订阅？",
+          "a": "在支付页面点击“取消订阅”，下个计费周期停止扣费。"
+        }
       ],
       "project": [
-        { "q": "如何创建项目？", "a": "在工作空间点击“新建项目”，填写名称即可创建。" },
-        { "q": "项目数量有限制吗？", "a": "免费版限 1 个项目，专业版及以上无限制。" },
-        { "q": "如何分享项目？", "a": "进入项目详情，点击“分享”生成链接发送给协作者。" }
+        {
+          "q": "如何创建项目？",
+          "a": "在工作空间点击“新建项目”，填写名称即可创建。"
+        },
+        {
+          "q": "项目数量有限制吗？",
+          "a": "免费版限 1 个项目，专业版及以上无限制。"
+        },
+        {
+          "q": "如何分享项目？",
+          "a": "进入项目详情，点击“分享”生成链接发送给协作者。"
+        }
       ],
       "ai": [
-        { "q": "支持哪些 AI 模型？", "a": "提供 GPT-4、Claude 3.5、Gemini 等主流模型，专业版解锁全部。" },
-        { "q": "每日对话次数限制？", "a": "免费版每日 10 次，专业版无限制。" },
-        { "q": "如何切换模型？", "a": "在对话页面顶部点击模型选择器即可切换。" }
+        {
+          "q": "支持哪些 AI 模型？",
+          "a": "提供 GPT-4、Claude 3.5、Gemini 等主流模型，专业版解锁全部。"
+        },
+        {
+          "q": "每日对话次数限制？",
+          "a": "免费版每日 10 次，专业版无限制。"
+        },
+        {
+          "q": "如何切换模型？",
+          "a": "在对话页面顶部点击模型选择器即可切换。"
+        }
       ],
       "tech": [
-        { "q": "如何获取 API Key？", "a": "进入开发者平台创建应用，即可获取 API Key。" },
-        { "q": "API 调用频率限制？", "a": "默认每分钟 60 次，企业版可申请提升。" },
-        { "q": "提供哪些 SDK？", "a": "官方提供 Python、Node.js、Go 三种语言 SDK。" }
+        {
+          "q": "如何获取 API Key？",
+          "a": "进入开发者平台创建应用，即可获取 API Key。"
+        },
+        {
+          "q": "API 调用频率限制？",
+          "a": "默认每分钟 60 次，企业版可申请提升。"
+        },
+        {
+          "q": "提供哪些 SDK？",
+          "a": "官方提供 Python、Node.js、Go 三种语言 SDK。"
+        }
       ]
     }
   },
@@ -2122,12 +2229,30 @@
       "faq": "FAQ"
     },
     "items": {
-      "apiQuickstart": { "title": "API 快速开始", "summary": "几分钟内完成首次 API 调用，获取 API Key 并发送请求。" },
-      "apiAuth": { "title": "API 鉴权", "summary": "了解 Bearer Token、签名机制与权限范围的最佳实践。" },
-      "guideStart": { "title": "新手入门指南", "summary": "从注册到创建第一个项目，快速上手平台核心功能。" },
-      "devArchitecture": { "title": "系统架构概览", "summary": "前端、后端与 AI 推理服务的整体架构与数据流说明。" },
-      "devContribution": { "title": "贡献指南", "summary": "如何参与项目开发、提交 PR 与代码规范要求。" },
-      "faqGeneral": { "title": "常见问题", "summary": "汇总账户、计费、使用限制等高频问题的解答。" }
+      "apiQuickstart": {
+        "title": "API 快速开始",
+        "summary": "几分钟内完成首次 API 调用，获取 API Key 并发送请求。"
+      },
+      "apiAuth": {
+        "title": "API 鉴权",
+        "summary": "了解 Bearer Token、签名机制与权限范围的最佳实践。"
+      },
+      "guideStart": {
+        "title": "新手入门指南",
+        "summary": "从注册到创建第一个项目，快速上手平台核心功能。"
+      },
+      "devArchitecture": {
+        "title": "系统架构概览",
+        "summary": "前端、后端与 AI 推理服务的整体架构与数据流说明。"
+      },
+      "devContribution": {
+        "title": "贡献指南",
+        "summary": "如何参与项目开发、提交 PR 与代码规范要求。"
+      },
+      "faqGeneral": {
+        "title": "常见问题",
+        "summary": "汇总账户、计费、使用限制等高频问题的解答。"
+      }
     }
   },
   "teams": {
@@ -2485,7 +2610,10 @@
     "level": "等级",
     "nextLevel": "距离 {name} 还需 {points} 积分",
     "maxLevel": "已达最高等级",
-    "tab": { "tx": "积分流水", "lb": "排行榜" },
+    "tab": {
+      "tx": "积分流水",
+      "lb": "排行榜"
+    },
     "source": "来源",
     "amount": "变动",
     "balance": "余额",
@@ -2796,5 +2924,85 @@
     "dayUv": "每日 UV",
     "ipCity": "IP 城市分布",
     "noData": "暂无数据"
+  },
+  "wallet": {
+    "title": "我的钱包",
+    "balance": "Token 余额",
+    "flows": "交易流水",
+    "recharge": "充值",
+    "withdraw": "提现",
+    "rechargeTitle": "充值 Token",
+    "rechargeAmount": "充值数量",
+    "rechargeMethod": "支付方式",
+    "rechargeBtn": "立即充值",
+    "rechargeSuccess": "充值成功",
+    "rechargeFail": "充值失败",
+    "rechargeSuccessDesc": "您的充值已到账",
+    "rechargeFailDesc": "充值未完成，请重试",
+    "withdrawTitle": "提现申请",
+    "withdrawAmount": "提现金额",
+    "withdrawMethod": "提现方式",
+    "withdrawBtn": "提交申请",
+    "withdrawRecords": "提现记录",
+    "withdrawSuccess": "提现申请已提交",
+    "availableAmount": "可提现金额",
+    "processingAmount": "处理中",
+    "completedAmount": "已到账",
+    "flowType": "类型",
+    "flowAmount": "数量",
+    "flowBalance": "余额",
+    "flowTime": "时间",
+    "flowRemark": "备注",
+    "flowRecharge": "充值",
+    "flowDeduct": "扣除",
+    "flowExpire": "过期",
+    "flowRefund": "退款",
+    "flowCommission": "佣金",
+    "statusPending": "待处理",
+    "statusProcessing": "处理中",
+    "statusCompleted": "已到账",
+    "statusFailed": "失败",
+    "methodWechat": "微信",
+    "methodAlipay": "支付宝",
+    "methodBank": "银行卡",
+    "backToWallet": "返回钱包",
+    "empty": "暂无记录",
+    "loading": "加载中..."
+  },
+  "oauth": {
+    "title": "OAuth 授权",
+    "authorizeTitle": "授权确认",
+    "authorizeDesc": "{app} 请求访问您的账号",
+    "scopes": "权限范围",
+    "approve": "授权",
+    "deny": "拒绝",
+    "myAuthorized": "我的授权",
+    "myAuthorizedDesc": "您已授权以下应用",
+    "revoke": "撤销授权",
+    "revokeSuccess": "已撤销授权",
+    "noAuthorizations": "暂无授权记录",
+    "apps": "OAuth 应用管理",
+    "appsDesc": "管理您的 OAuth 应用",
+    "createApp": "创建应用",
+    "appName": "应用名称",
+    "clientId": "Client ID",
+    "clientSecret": "Client Secret",
+    "redirectUris": "回调地址",
+    "status": "状态",
+    "active": "启用",
+    "inactive": "禁用",
+    "createdAt": "创建时间",
+    "deleteApp": "删除",
+    "deleteAppConfirm": "确定删除此应用？",
+    "appNamePlaceholder": "请输入应用名称",
+    "redirectUrisPlaceholder": "请输入回调地址，多个用逗号分隔",
+    "scopeMeta": "可用权限",
+    "authorizedAt": "授权时间",
+    "lastUsedAt": "最后使用",
+    "createSuccess": "应用创建成功",
+    "deleteSuccess": "应用已删除",
+    "copyClientId": "复制 Client ID",
+    "copyClientSecret": "复制 Secret",
+    "secretWarning": "请妥善保管 Client Secret，关闭后不再显示"
   }
 }

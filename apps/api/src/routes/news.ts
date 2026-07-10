@@ -16,6 +16,16 @@ import {
   deleteArticle,
   incrementArticleViewCount,
 } from '../db/news-queries.js';
+import {
+  createNewsTop,
+  deleteNewsTop,
+  findNewsTopByNewsId,
+  updateNewsTopSort,
+  createNewsRecommend,
+  deleteNewsRecommend,
+  findNewsRecommendByNewsId,
+  updateNewsRecommendSort,
+} from '../db/misc-extended-queries.js';
 import { success, error } from '../utils/response.js';
 
 const ADMIN_ROLE_ID = 1;
@@ -75,6 +85,10 @@ const updateArticleSchema = z.object({
   isPinned: z.boolean().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
+});
+
+const topOrRecommendSchema = z.object({
+  sort: z.number().int().min(0).optional(),
 });
 
 // =============================================================================
@@ -258,5 +272,69 @@ export const adminNewsRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '资讯不存在'));
     await deleteArticle(parsed.data.id);
     return reply.send(success({ ok: true }));
+  });
+
+  // ----- 置顶 / 推荐 -----
+
+  // PUT /news/articles/:id/top - 置顶（已有则更新 sort）
+  server.put('/news/articles/:id/top', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = topOrRecommendSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const article = await findArticleById(idParsed.data.id);
+    if (!article) return reply.status(404).send(error(404, '资讯不存在'));
+    const existing = await findNewsTopByNewsId(idParsed.data.id);
+    if (existing) {
+      const updated = await updateNewsTopSort(idParsed.data.id, parsed.data.sort ?? existing.sort);
+      return reply.send(success({ newsTop: updated }));
+    }
+    const newsTop = await createNewsTop({ newsId: idParsed.data.id, sort: parsed.data.sort });
+    return reply.send(success({ newsTop }));
+  });
+
+  // DELETE /news/articles/:id/top - 取消置顶
+  server.delete('/news/articles/:id/top', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    await deleteNewsTop(idParsed.data.id);
+    return reply.send(success({ id: idParsed.data.id, deleted: true }));
+  });
+
+  // PUT /news/articles/:id/recommend - 推荐（已有则更新 sort）
+  server.put('/news/articles/:id/recommend', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = topOrRecommendSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const article = await findArticleById(idParsed.data.id);
+    if (!article) return reply.status(404).send(error(404, '资讯不存在'));
+    const existing = await findNewsRecommendByNewsId(idParsed.data.id);
+    if (existing) {
+      const updated = await updateNewsRecommendSort(idParsed.data.id, parsed.data.sort ?? existing.sort);
+      return reply.send(success({ newsRecommend: updated }));
+    }
+    const newsRecommend = await createNewsRecommend({ newsId: idParsed.data.id, sort: parsed.data.sort });
+    return reply.send(success({ newsRecommend }));
+  });
+
+  // DELETE /news/articles/:id/recommend - 取消推荐
+  server.delete('/news/articles/:id/recommend', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    await deleteNewsRecommend(idParsed.data.id);
+    return reply.send(success({ id: idParsed.data.id, deleted: true }));
   });
 };

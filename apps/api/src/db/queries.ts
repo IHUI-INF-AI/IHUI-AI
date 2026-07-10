@@ -39,13 +39,13 @@ export async function findUserById(id: string): Promise<User | undefined> {
 }
 
 /**
- * 按账号查询用户（phone 或 email）。
+ * 按账号查询用户（username / phone / email 三选一）。
  */
 export async function findUserByAccount(account: string): Promise<User | undefined> {
   const rows = await db
     .select()
     .from(users)
-    .where(or(eq(users.phone, account), eq(users.email, account)))
+    .where(or(eq(users.username, account), eq(users.phone, account), eq(users.email, account)))
     .limit(1);
   return rows[0];
 }
@@ -56,6 +56,29 @@ export async function findUserByAccount(account: string): Promise<User | undefin
 export async function findUserByEmail(email: string): Promise<User | undefined> {
   const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
   return rows[0];
+}
+
+/**
+ * 按用户名查询用户（用户名密码登录）。
+ */
+export async function findUserByUsername(username: string): Promise<User | undefined> {
+  const rows = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  return rows[0];
+}
+
+/**
+ * 检查手机号是否已注册。
+ */
+export async function checkPhoneExists(phone: string): Promise<boolean> {
+  const rows = await db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * 软注销账户（status=3）。
+ */
+export async function cancelUserAccount(id: string): Promise<void> {
+  await db.update(users).set({ status: 3, updatedAt: new Date() }).where(eq(users.id, id));
 }
 
 /**
