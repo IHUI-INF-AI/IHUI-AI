@@ -29,16 +29,16 @@
 
 ---
 
-## 一、规模总览（R11 最终验证）
+## 一、规模总览（R19 最终验证）
 
-| 维度 | 旧架构 | 新架构（R11 验证后） | 状态 |
+| 维度 | 旧架构 | 新架构（R19 验证后） | 状态 |
 |------|--------|--------|------|
 | 后端路由文件 | ~90 模块 | 54 个路由文件 | ✅ 全部注册 |
 | 后端路由端点 | ~600+ | ~700+ | ✅ 超旧架构 |
-| 后端插件 | ~10 中间件 | 35 个 register | ✅ 含安全/WS/监控/调度/幂等/OTel/AI成本/多租户/缓存韧性/CSRF/限流/XSS |
+| 后端插件 | ~10 中间件 | 39 个 register（R19 +4） | ✅ 含安全/WS/监控/调度/幂等/OTel/AI成本/多租户/缓存韧性/CSRF/限流/XSS/慢SQL/保活/N+1检测/Prompt注入防护 |
 | 后端服务层 | 37 个 | 17 service + 50 queries + clawdbot 20 + workspace-ai | ✅ 双层设计 |
 | WebSocket | 16 文件 | 4 WS 插件 + 3 WS 端点 | ⚠️ 通知/AI流式/聊天室/客服/PCM 已覆盖；room_policy 权限校验 + auto_recovery 自动恢复缺失（见五.低严重度） |
-| 定时任务 | 13 个 APScheduler | 5 个 BullMQ cron | ✅ **R17 修复**（5/5 接入 backing service，M-1 已修复） |
+| 定时任务 | 13 个 APScheduler | 5 个 BullMQ cron | ✅ **R17 修复**（5/5 接入 backing service + R19 修复 usage_count 同步，M-1 已修复） |
 | 支付幂等性 | ✅ | ✅ 167 行 | ✅ 完整迁移 |
 | AI 成本治理 | ✅ | ✅ 384 行 + 仪表盘 | ✅ 完整迁移 |
 | 缓存韧性 | ✅ | ✅ 163 行 | ✅ **v9 新增**（熔断器+双删+singleflight） |
@@ -46,10 +46,10 @@
 | 可观测性 | OTel+ELK+Grafana | OTel+Grafana+Prometheus | ⚠️ 仅 ELK 缺失 |
 | 安全审计 CI | ✅ | ✅ | ✅ 完整迁移 |
 | CLI 工具 | 5 命令 | 6 文件 | ✅ 完整迁移 |
-| 多租户 | ✅ | ✅ 插件+路由+3表 | ✅ 完整迁移 |
+| 多租户 | ✅ | ✅ 插件+路由+3表 | ✅ 完整迁移（应用级；DB 级隔离 M-11 已建但未注册） |
 | OpenAPI SDK | Python 672 文件 | generate-sdk.ts | ✅ 完整迁移 |
 | Schema 模块 | 53 个 | 65 个（含 4 个 -extended 新文件） | ✅ **v9 补齐 14 张表** |
-| 前端页面 | 579 .vue | ~200+ page.tsx（(main) 下 51 页 + admin 子页 + 其他） | ✅ **R16 验证**（M-3 仅 AiWorld 缺失） |
+| 前端页面 | 579 .vue | ~200+ page.tsx（(main) 下 51 页 + admin 子页 + 其他） | ✅ **R19 验证**（M-3 全部 11 项已映射，AiWorld 已存在） |
 | AI 前端组件 | 65+ | 50 个 .tsx | ✅ 完整迁移 |
 | 登录组件 | 25 | 8 个 .tsx | ✅ 完整迁移 |
 | 设置组件 | 20 | 7 个 .tsx | ✅ 完整迁移 |
@@ -494,4 +494,4 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 
 ---
 
-**结论**：经过 17 轮代码级验证（含 R14 对旧架构 769 个 Python 文件全量扫描 + R15 对 ~200 个路由文件逐模块交叉比对 + R16 对 M-3 的 11 个用户端页面逐一文件级验证 + R17 对 services/middleware/tasks/core/orm/schemas/security/cli/_archived 全量验证），新架构的迁移完整度**较高但非完整**。全部阻断级和高严重度缺失已修复；miniapp 75 页完整迁移；旧 client/ 已清理；middleware 7 项全覆盖。**R16 纠正 R12 误报**：M-3 仅 AiWorld 真正缺失。**R17 修复 M-1/M-2/M-5**（定时任务 backing service / admin MOCK 页面 / CI 能力），但 **M-6/M-9 文件已建但插件未在 server.ts 注册**（运行时不生效）。**R17 新发现**：Agent usage_count 同步缺失（功能缺陷，字段存在但从未更新）+ Agent 分类字典缓存缺失 + 集中式错误码系统缺失（设计差异）。R13 发现 M-10/M-11（韧性模式/多租户隔离）。R14 发现 M-12/M-13/M-14（Canary 部署/TBox 设备/Stock 分析）。R15 发现 M-15（22 个业务模块无对应）。**剩余 9 项未修复 + 2 项部分修复 + 1 项仅 AiWorld 缺失 + R17 新发现 3 项**，均为非阻断项，但 M-15 的 22 个子项累计代表显著的功能覆盖差距，需产品确认是"未迁移"还是"已废弃"。⚠️ 注意：commit `6ed35c14` 声称"100%修复完成"经 R11 代码级验证为**不实**；R17 创建的 M-6/M-9 插件文件未在 server.ts 注册，运行时不会生效；agent-service.ts 的 usage_count 注释为**代码 BUG**（字段存在但注释称不存在）。
+**结论**：经过 19 轮代码级验证（含 R14 对旧架构 769 个 Python 文件全量扫描 + R15 对 ~200 个路由文件逐模块交叉比对 + R16 对 M-3 的 11 个用户端页面逐一文件级验证 + R17 对 services/middleware/tasks/core/orm/schemas/security/cli/_archived 全量验证 + R18 对 utils/ 204 文件全量验证 + R19 对未提交工作区改动全量验证），新架构的迁移完整度**较高但非完整**。全部阻断级和高严重度缺失已修复；miniapp 75 页完整迁移；旧 client/ 已清理；middleware 7 项全覆盖。**R19 纠正**：M-3 全部 11 项已映射（AiWorld 页面已存在于工作区）。**R19 修复确认**：server.ts 已注册 M-6/M-9 的 4 个插件（slow-sql-killer / db-keepalive / n1-detector / prompt-injection-guard）；heat-stats-service.ts 已修复 Agent usage_count 同步。**R19 部分修复**：M-10（resilience-extended.ts 已建但未集成到业务代码）+ M-11（tenant-db-isolation.ts 已建但未在 server.ts 注册）。**R18 发现**：utils/ 安全基础设施缺失（audit_chain / bloom_guard / IDOR guard / API key quota / outbox / dist_lock）。R13 发现 M-10/M-11。R14 发现 M-12/M-13/M-14。R15 发现 M-15（22 个业务模块无对应）。**剩余 4 项未修复（M-12/M-13/M-14/M-15）+ 4 项部分修复（M-6 read-replica / M-9 Saga / M-10 未集成 / M-11 未注册）+ R18 安全基础设施缺失**，均为非阻断项，但 M-15 的 22 个子项累计代表显著的功能覆盖差距，需产品确认是"未迁移"还是"已废弃"。⚠️ 注意：commit `6ed35c14` 声称"100%修复完成"经 R11 代码级验证为**不实**；agent-service.ts:92 的 usage_count 注释为**代码 BUG**（字段存在但注释称不存在，功能已通过 heat-stats-service.ts 修复但注释未更正）；R19 验证基于工作区未提交改动，需 commit 后生效。
