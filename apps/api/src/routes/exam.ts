@@ -27,6 +27,22 @@ import {
   gradeSubjectiveAnswers,
   deleteExamRecord,
 } from '../db/exam-queries.js';
+import {
+  findChapterList,
+  findChapterById,
+  createChapter,
+  updateChapter,
+  deleteChapter,
+  findSectionList,
+  findSectionById,
+  createSection,
+  updateSection,
+  deleteSection,
+  updateChapterSortOrder,
+  updateSectionSortOrder,
+  findSignupList,
+  findMarkRecordList,
+} from '../db/exam-extended-queries.js';
 import { success, error } from '../utils/response.js';
 
 const ADMIN_ROLE_ID = 1;
@@ -150,6 +166,69 @@ const submitExamSchema = z.object({
       }),
     )
     .min(1, '答案不能为空'),
+});
+
+// ----- 章节/小节/排序/报名/待评分 schemas -----
+
+const chapterIdParamSchema = z.object({
+  id: z.string().uuid('无效的 ID'),
+  chapterId: z.string().uuid('无效的章节 ID'),
+});
+
+const sectionParamSchema = z.object({
+  id: z.string().uuid('无效的 ID'),
+  chapterId: z.string().uuid('无效的章节 ID'),
+  sectionId: z.string().uuid('无效的小节 ID'),
+});
+
+const createChapterSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().optional(),
+  sort: z.number().int().min(0).optional(),
+});
+
+const updateChapterSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+});
+
+const createSectionSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().optional(),
+  questionIds: z.array(z.string().uuid()).optional(),
+  sort: z.number().int().min(0).optional(),
+});
+
+const updateSectionSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().nullable().optional(),
+  questionIds: z.array(z.string().uuid()).nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+});
+
+const sortOrderSchema = z.object({
+  type: z.enum(['chapter', 'section']),
+  items: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        sort: z.number().int().min(0),
+      }),
+    )
+    .min(1, '排序项不能为空'),
+});
+
+const signupsQuerySchema = z.object({
+  paperId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional(),
+});
+
+const pendingMarksQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  paperId: z.string().uuid().optional(),
+  search: z.string().max(200).optional(),
 });
 
 // =============================================================================
@@ -614,6 +693,192 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       await deleteExamCategory(parsed.data.id);
       return reply.send(success({ ok: true }));
+    });
+
+    // ----- Chapters 章节管理 -----
+
+    // GET /exam/papers/:id/chapters - 章节列表
+    child.get('/exam/papers/:id/chapters', async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const list = await findChapterList(parsed.data.id);
+      return reply.send(success({ list }));
+    });
+
+    // POST /exam/papers/:id/chapters - 创建章节
+    child.post('/exam/papers/:id/chapters', async (request, reply) => {
+      const idParsed = idParamSchema.safeParse(request.params);
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const parsed = createChapterSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const chapter = await createChapter({
+        paperId: idParsed.data.id,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        sort: parsed.data.sort,
+      });
+      return reply.status(201).send(success({ chapter }));
+    });
+
+    // PUT /exam/papers/:id/chapters/:chapterId - 更新章节
+    child.put('/exam/papers/:id/chapters/:chapterId', async (request, reply) => {
+      const paramsParsed = chapterIdParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const parsed = updateChapterSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const existing = await findChapterById(paramsParsed.data.chapterId);
+      if (!existing) {
+        return reply.status(404).send(error(404, '章节不存在'));
+      }
+      const chapter = await updateChapter(paramsParsed.data.chapterId, parsed.data);
+      return reply.send(success({ chapter }));
+    });
+
+    // DELETE /exam/papers/:id/chapters/:chapterId - 删除章节
+    child.delete('/exam/papers/:id/chapters/:chapterId', async (request, reply) => {
+      const paramsParsed = chapterIdParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const existing = await findChapterById(paramsParsed.data.chapterId);
+      if (!existing) {
+        return reply.status(404).send(error(404, '章节不存在'));
+      }
+      await deleteChapter(paramsParsed.data.chapterId);
+      return reply.send(success({ ok: true }));
+    });
+
+    // ----- Sections 小节管理 -----
+
+    // GET /exam/papers/:id/chapters/:chapterId/sections - 小节列表
+    child.get('/exam/papers/:id/chapters/:chapterId/sections', async (request, reply) => {
+      const paramsParsed = chapterIdParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const list = await findSectionList(paramsParsed.data.chapterId);
+      return reply.send(success({ list }));
+    });
+
+    // POST /exam/papers/:id/chapters/:chapterId/sections - 创建小节
+    child.post('/exam/papers/:id/chapters/:chapterId/sections', async (request, reply) => {
+      const paramsParsed = chapterIdParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const parsed = createSectionSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const existingChapter = await findChapterById(paramsParsed.data.chapterId);
+      if (!existingChapter) {
+        return reply.status(404).send(error(404, '章节不存在'));
+      }
+      const section = await createSection({
+        chapterId: paramsParsed.data.chapterId,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        questionIds: parsed.data.questionIds,
+        sort: parsed.data.sort,
+      });
+      return reply.status(201).send(success({ section }));
+    });
+
+    // PUT /exam/papers/:id/chapters/:chapterId/sections/:sectionId - 更新小节
+    child.put('/exam/papers/:id/chapters/:chapterId/sections/:sectionId', async (request, reply) => {
+      const paramsParsed = sectionParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const parsed = updateSectionSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const existing = await findSectionById(paramsParsed.data.sectionId);
+      if (!existing) {
+        return reply.status(404).send(error(404, '小节不存在'));
+      }
+      const section = await updateSection(paramsParsed.data.sectionId, parsed.data);
+      return reply.send(success({ section }));
+    });
+
+    // DELETE /exam/papers/:id/chapters/:chapterId/sections/:sectionId - 删除小节
+    child.delete('/exam/papers/:id/chapters/:chapterId/sections/:sectionId', async (request, reply) => {
+      const paramsParsed = sectionParamSchema.safeParse(request.params);
+      if (!paramsParsed.success) {
+        return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const existing = await findSectionById(paramsParsed.data.sectionId);
+      if (!existing) {
+        return reply.status(404).send(error(404, '小节不存在'));
+      }
+      await deleteSection(paramsParsed.data.sectionId);
+      return reply.send(success({ ok: true }));
+    });
+
+    // ----- Sort Order 排序 -----
+
+    // PUT /exam/sort-order - 批量更新排序(body: { type, items: [{id, sort}] })
+    child.put('/exam/sort-order', async (request, reply) => {
+      const parsed = sortOrderSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      if (parsed.data.type === 'chapter') {
+        await updateChapterSortOrder(parsed.data.items);
+      } else {
+        await updateSectionSortOrder(parsed.data.items);
+      }
+      return reply.send(success({ ok: true }));
+    });
+
+    // ----- Signups 报名 -----
+
+    // GET /exam/signups - 报名列表(支持 paperId/userId 筛选)
+    child.get('/exam/signups', async (request, reply) => {
+      const parsed = signupsQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const list = await findSignupList({
+        paperId: parsed.data.paperId,
+        userId: parsed.data.userId,
+      });
+      return reply.send(success({ list }));
+    });
+
+    // ----- Mark Records 待评分记录 -----
+
+    // GET /exam/records/pending-marks - 待评分答题记录列表
+    child.get('/exam/records/pending-marks', async (request, reply) => {
+      const parsed = pendingMarksQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      }
+      const { list, total } = await findMarkRecordList({
+        page: parsed.data.page,
+        pageSize: parsed.data.pageSize,
+        paperId: parsed.data.paperId,
+        search: parsed.data.search,
+      });
+      return reply.send(
+        success({
+          list,
+          total,
+          page: parsed.data.page,
+          pageSize: parsed.data.pageSize,
+        }),
+      );
     });
   });
 };

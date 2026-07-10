@@ -10,6 +10,12 @@ import {
   findStatisticsSnapshotById,
   createStatisticsSnapshot,
   deleteStatisticsSnapshot,
+  getMessageStatistics,
+  getLiveStatistics,
+  getPointStatistics,
+  getResourceStatistics,
+  getUserCenterStatistics,
+  findVisitLogList,
 } from '../db/statistics-queries.js';
 import { success, error, emptyToUndefined } from '../utils/response.js';
 
@@ -30,6 +36,13 @@ const listSnapshotsQuery = z.object({
 const createSnapshotSchema = z.object({
   type: z.enum(['overview', 'learn', 'exam', 'content']),
   data: z.record(z.unknown()).optional(),
+});
+
+const visitLogsQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 });
 
 // =============================================================================
@@ -313,5 +326,47 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
     }
     await deleteStatisticsSnapshot(parsed.data.id);
     return reply.send(success({ id: parsed.data.id, deleted: true }));
+  });
+
+  // ----- 扩展统计端点 -----
+
+  // GET /statistics/message - 消息统计
+  server.get('/statistics/message', async (_request, reply) => {
+    const statistics = await getMessageStatistics();
+    return reply.send(success({ statistics }));
+  });
+
+  // GET /statistics/live - 直播统计
+  server.get('/statistics/live', async (_request, reply) => {
+    const statistics = await getLiveStatistics();
+    return reply.send(success({ statistics }));
+  });
+
+  // GET /statistics/point - 积分统计
+  server.get('/statistics/point', async (_request, reply) => {
+    const statistics = await getPointStatistics();
+    return reply.send(success({ statistics }));
+  });
+
+  // GET /statistics/resource - 资源统计
+  server.get('/statistics/resource', async (_request, reply) => {
+    const statistics = await getResourceStatistics();
+    return reply.send(success({ statistics }));
+  });
+
+  // GET /statistics/user-center - 用户中心统计
+  server.get('/statistics/user-center', async (_request, reply) => {
+    const statistics = await getUserCenterStatistics();
+    return reply.send(success({ statistics }));
+  });
+
+  // GET /visit-tracking/visits - 访问明细列表
+  server.get('/visit-tracking/visits', async (request, reply) => {
+    const parsed = visitLogsQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findVisitLogList(parsed.data);
+    return reply.send(success(result));
   });
 };

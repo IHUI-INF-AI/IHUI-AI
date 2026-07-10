@@ -73,6 +73,24 @@ export async function findCircleByIdOrSlug(
   return findCircleBySlug(idOrSlug);
 }
 
+/** 管理员删除圈子（硬删除）。 */
+export async function deleteCircle(id: string): Promise<void> {
+  await db.delete(circles).where(eq(circles.id, id));
+}
+
+/** 管理员更新圈子显示状态。 */
+export async function updateCircleShowStatus(
+  id: string,
+  isPublished: boolean,
+): Promise<Circle | undefined> {
+  const rows = await db
+    .update(circles)
+    .set({ isPublished, updatedAt: new Date() })
+    .where(eq(circles.id, id))
+    .returning();
+  return rows[0];
+}
+
 // =============================================================================
 // Circle Posts
 // =============================================================================
