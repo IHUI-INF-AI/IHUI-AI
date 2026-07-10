@@ -96,6 +96,9 @@ interface NavItem {
     | 'news'
     | 'lecturers'
     | 'student'
+    | 'agents'
+    | 'distribution'
+    | 'oauthPlatform'
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
 }
@@ -120,6 +123,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/live', labelKey: 'live', icon: Video },
   { href: '/lecturers', labelKey: 'lecturers', icon: Users },
   { href: '/news', labelKey: 'news', icon: Newspaper },
+  { href: '/agents', labelKey: 'agents', icon: Bot },
+  { href: '/distribution', labelKey: 'distribution', icon: Gift },
+  { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
   { href: '/resources', labelKey: 'resources', icon: Package },
   { href: '/topics', labelKey: 'topics', icon: BookOpen },
   { href: '/messages', labelKey: 'messages', icon: MessageSquare },
