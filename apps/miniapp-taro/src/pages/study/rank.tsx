@@ -18,7 +18,7 @@ export default function StudyRank() {
     try {
       const res = await getStudyRank()
       setList(res.list || [])
-    } catch (e) {
+    } catch {
       // 统一提示
     } finally {
       setLoading(false)
@@ -42,33 +42,33 @@ export default function StudyRank() {
           <View className="flex flex-col items-center mx-2 relative">
             <Image
               className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 border-[#c0c0c0]"
-              src={list[1].avatar || '/static/default-avatar.png'}
+              src={list[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-xs text-[#333] mt-1">{list[1].nickname}</Text>
-            <Text className="text-xs text-[#007aff] mt-0.5">{list[1].minutes}分钟</Text>
+            <Text className="text-xs text-[#333] mt-1">{list[1]!.nickname}</Text>
+            <Text className="text-xs text-[#007aff] mt-0.5">{list[1]!.minutes}分钟</Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#c0c0c0]">2</Text>
           </View>
           {/* 第1名 */}
           <View className="flex flex-col items-center mx-2 relative">
             <Image
               className="w-[70px] h-[70px] rounded-full bg-[#f5f5f5] border-2 border-[#ffd700]"
-              src={list[0].avatar || '/static/default-avatar.png'}
+              src={list[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-xs text-[#333] mt-1">{list[0].nickname}</Text>
-            <Text className="text-xs text-[#007aff] mt-0.5">{list[0].minutes}分钟</Text>
+            <Text className="text-xs text-[#333] mt-1">{list[0]!.nickname}</Text>
+            <Text className="text-xs text-[#007aff] mt-0.5">{list[0]!.minutes}分钟</Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#ffd700]">1</Text>
           </View>
           {/* 第3名 */}
           <View className="flex flex-col items-center mx-2 relative">
             <Image
               className="w-[55px] h-[55px] rounded-full bg-[#f5f5f5] border-2 border-[#cd7f32]"
-              src={list[2].avatar || '/static/default-avatar.png'}
+              src={list[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-xs text-[#333] mt-1">{list[2].nickname}</Text>
-            <Text className="text-xs text-[#007aff] mt-0.5">{list[2].minutes}分钟</Text>
+            <Text className="text-xs text-[#333] mt-1">{list[2]!.nickname}</Text>
+            <Text className="text-xs text-[#007aff] mt-0.5">{list[2]!.minutes}分钟</Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-full text-white text-xs bg-[#cd7f32]">3</Text>
           </View>
         </View>

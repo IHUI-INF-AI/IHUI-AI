@@ -20,7 +20,7 @@ export default function AskCreatePage() {
       await createAsk({ title: form.title, content: form.content })
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
-    } catch (e) {}
+    } catch {}
   }, [form.title, form.content])
 
   return (

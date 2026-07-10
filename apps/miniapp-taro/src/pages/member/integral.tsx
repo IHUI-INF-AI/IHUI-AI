@@ -36,7 +36,7 @@ export default function IntegralPage() {
       setList(prev => (reset ? items : [...prev, ...items]))
       hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
       pageRef.current++
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       loadingRef.current = false
@@ -48,7 +48,7 @@ export default function IntegralPage() {
     try {
       const info = await getMemberInfo()
       setTotal(info.integral || 0)
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

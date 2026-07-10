@@ -21,7 +21,7 @@ export default function AgentDetailPage() {
     if (!id) return
     try {
       setAgent(await getAgentDetail(id))
-    } catch (e) {}
+    } catch {}
   }, [router.params.id])
 
   useDidShow(() => { load() })

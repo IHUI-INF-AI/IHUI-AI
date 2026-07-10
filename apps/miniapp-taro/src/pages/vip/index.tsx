@@ -17,7 +17,7 @@ export default function VipIndexPage() {
       const [i, p] = await Promise.all([getVipInfo(), getVipPrivilege()])
       setInfo(i)
       setPrivileges(p.list || [])
-    } catch (e) {}
+    } catch {}
   }, [])
 
   const goPrivilege = useCallback(() => {
@@ -28,7 +28,7 @@ export default function VipIndexPage() {
     try {
       const res = await upgradeVip(selected)
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
-    } catch (e) {}
+    } catch {}
   }, [selected])
 
   useDidShow(load)

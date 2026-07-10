@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [web, api]
+        app: [web, api, miniapp-taro]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

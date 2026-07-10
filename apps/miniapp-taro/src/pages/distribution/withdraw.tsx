@@ -20,7 +20,7 @@ export default function DistributionWithdraw() {
       const info = await getDistributionInfo()
       setAvailable(info.available)
       availableRef.current = info.available
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -46,7 +46,7 @@ export default function DistributionWithdraw() {
       setTimeout(() => {
         Taro.navigateBack()
       }, 800)
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setSubmitting(false)

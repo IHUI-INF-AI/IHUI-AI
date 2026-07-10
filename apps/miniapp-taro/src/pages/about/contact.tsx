@@ -15,7 +15,7 @@ export default function ContactPage() {
   const [info, setInfo] = useState<ContactInfo>({ phone: '', email: '', address: '' })
 
   const load = useCallback(async () => {
-    try { setInfo(await getContact()) } catch (e) {}
+    try { setInfo(await getContact()) } catch {}
   }, [])
 
   const call = useCallback((phone: string) => {
