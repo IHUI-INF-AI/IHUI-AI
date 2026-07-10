@@ -230,14 +230,77 @@
       "idx": 32,
       "version": "7",
       "when": 1783574425000,
-      "tag": "0038_missing_tables",
+      "tag": "0032_exam_categories",
       "breakpoints": true
     },
     {
       "idx": 33,
       "version": "7",
       "when": 1783574426000,
+      "tag": "0033_member_companies_departments",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1783574427000,
+      "tag": "0034_news_certificate_modules",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783574428000,
+      "tag": "0035_wallet_commission",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1783574429000,
+      "tag": "0036_oauth_third_party",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783574430000,
+      "tag": "0037_vip_captcha",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783574431000,
+      "tag": "0038_missing_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1783574432000,
       "tag": "0039_circle_ask_search_extra",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1783574433000,
+      "tag": "0040_orders_type_product",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1783574434000,
+      "tag": "0041_agents_coze_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1783574435000,
+      "tag": "0042_missing_tables_h2",
       "breakpoints": true
     }
   ]
