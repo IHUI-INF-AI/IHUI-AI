@@ -1,42 +1,58 @@
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState } from 'react'
-import { getProfile, updateUserNickname } from '@/api'
+import { useState, useCallback } from 'react'
+import { updateUserNickname, getProfile } from '@/api'
 
 export default function Nickname() {
   const [nickname, setNickname] = useState('')
+  const [original, setOriginal] = useState('')
 
-  useDidShow(async () => {
-    try { setNickname((await getProfile()).nickname || '') } catch (e) {}
-  })
-
-  async function onSave() {
-    if (!nickname) return
+  const load = useCallback(async () => {
     try {
-      await updateUserNickname(nickname)
-      Taro.showToast({ title: '保存成功', icon: 'success' })
+      const profile = await getProfile()
+      const name = profile.nickname || ''
+      setNickname(name)
+      setOriginal(name)
+    } catch (e) {}
+  }, [])
+
+  useDidShow(() => { load() })
+
+  async function onSubmit() {
+    if (!nickname.trim()) {
+      return Taro.showToast({ title: '请输入昵称', icon: 'none' })
+    }
+    try {
+      await updateUserNickname(nickname.trim())
+      Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {}
   }
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] px-[16px] py-[16px] bg-white rounded-[8px]">
-        <Text className="text-[13px] text-[#999]">新昵称</Text>
-        <Input
-          className="w-full mt-[8px] py-[8px] text-[15px] border-b-[1px] border-solid border-[#f5f5f5]"
-          placeholder="请输入新昵称"
-          maxlength={20}
-          value={nickname}
-          onInput={e => setNickname(e.detail.value)}
-        />
+      <View className="mx-[12px] mt-[12px] px-[16px] bg-white rounded-[8px]">
+        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
+          <Text className="w-[80px] text-[14px] text-[#333]">当前昵称</Text>
+          <Text className="flex-1 text-[14px] text-[#999]">{original || '未设置'}</Text>
+        </View>
+        <View className="flex items-center py-[16px]">
+          <Text className="w-[80px] text-[14px] text-[#333]">新昵称</Text>
+          <Input
+            className="flex-1 text-[14px]"
+            type="text"
+            placeholder="请输入昵称"
+            value={nickname}
+            onInput={e => setNickname(e.detail.value)}
+          />
+        </View>
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          nickname ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          nickname.trim() ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
         }`}
-        disabled={!nickname}
-        onClick={onSave}
+        disabled={!nickname.trim()}
+        onClick={onSubmit}
       >
         保存
       </Button>

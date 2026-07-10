@@ -1,9 +1,7 @@
-import { View, Text, Button, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { View, Text, Image, Button } from '@tarojs/components'
+import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { useReady } from '@tarojs/taro'
 import { getAgentDetail } from '@/api'
-import './agent-detail.css'
 
 interface AgentDetail {
   id: string
@@ -15,47 +13,55 @@ interface AgentDetail {
 }
 
 export default function AgentDetailPage() {
-  const [agent, setAgent] = useState<AgentDetail>({} as AgentDetail)
+  const router = useRouter()
+  const [agent, setAgent] = useState<AgentDetail | null>(null)
 
-  useReady(async () => {
-    const params = Taro.getCurrentInstance().router?.params
-    if (!params?.id) return
-    try { setAgent(await getAgentDetail(params.id)) } catch (e) {}
-  })
+  const load = useCallback(async () => {
+    const id = router.params.id
+    if (!id) return
+    try {
+      setAgent(await getAgentDetail(id))
+    } catch (e) {}
+  }, [router.params.id])
+
+  useDidShow(() => { load() })
 
   const onChat = useCallback(() => {
+    if (!agent) return
     Taro.navigateTo({ url: `/pages/ai/chat?agentId=${agent.id}` })
-  }, [agent.id])
+  }, [agent])
 
   return (
-    <View className="page">
-      {agent.name ? (
-        <View className="head">
-          <Image className="avatar" src={agent.avatar || '/static/default-agent.png'} mode="aspectFill" />
-          <View className="info">
-            <Text className="name">{agent.name}</Text>
-            <Text className="desc">{agent.desc}</Text>
+    <View className="min-h-screen bg-[#f7f8fa]">
+      {agent && (
+        <View className="mx-[12px] my-[12px] bg-white rounded-[8px] p-[16px]">
+          <View className="flex items-center">
+            <Image
+              className="w-[80px] h-[80px] rounded-full bg-[#f5f5f5]"
+              src={agent.avatar || '/static/default-agent.png'}
+              mode="aspectFill"
+            />
+            <View className="ml-[12px] flex-1">
+              <Text className="text-[18px] text-[#333] font-bold">{agent.name}</Text>
+              <Text className="block text-[14px] text-[#666] mt-[4px]">{agent.desc}</Text>
+            </View>
           </View>
         </View>
-      ) : null}
-      {agent.prompt ? (
-        <View className="card">
-          <View className="card-title">Agent提示词</View>
-          <Text className="prompt">{agent.prompt}</Text>
+      )}
+      {agent?.prompt && (
+        <View className="mx-[12px] mb-[12px] bg-[#f5f5f5] rounded-[8px] p-[16px]">
+          <Text className="text-[14px] text-[#333] font-semibold mb-[8px] block">Agent提示词</Text>
+          <Text className="text-[14px] text-[#666] leading-[22px]">{agent.prompt}</Text>
         </View>
-      ) : null}
-      {agent.config ? (
-        <View className="card">
-          <View className="card-title">配置信息</View>
-          {Object.entries(agent.config).map(([k, v]) => (
-            <View key={k} className="row">
-              <Text className="label">{k}</Text>
-              <Text className="value">{String(v)}</Text>
-            </View>
-          ))}
+      )}
+      {agent && (
+        <View className="mx-[12px] my-[12px]">
+          <Button
+            className="w-full bg-[#007aff] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
+            onClick={onChat}
+          >开始对话</Button>
         </View>
-      ) : null}
-      {agent.name ? <Button className="btn" onClick={onChat}>开始对话</Button> : null}
+      )}
     </View>
   )
 }

@@ -1,13 +1,16 @@
 import { View, Text } from '@tarojs/components'
-import { useDidShow, useReachBottom } from '@tarojs/taro'
+import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getRefundList, type Order } from '@/api'
 
 const STATUS_TEXT: Record<string, string> = {
   pending: '处理中',
-  paid: '已支付',
-  cancelled: '已取消',
   refunded: '已退款',
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: 'text-[#ff9a3c]',
+  refunded: 'text-[#f44336]',
 }
 
 const PAGE_SIZE = 10
@@ -43,6 +46,10 @@ export default function RefundList() {
     }
   }
 
+  const goRefund = (o: Order) => {
+    Taro.navigateTo({ url: `/pages/order/refund?id=${o.id}` })
+  }
+
   useDidShow(() => {
     load(true)
   })
@@ -55,10 +62,14 @@ export default function RefundList() {
       {list.length > 0 && (
         <View className="p-[24rpx]">
           {list.map(o => (
-            <View key={o.id} className="bg-white rounded-[16rpx] p-[32rpx] mb-[24rpx]">
+            <View
+              key={o.id}
+              className="bg-white rounded-[16rpx] p-[32rpx] mb-[24rpx]"
+              onClick={() => goRefund(o)}
+            >
               <View className="flex justify-between items-center">
                 <Text className="text-[30rpx] text-[#333] font-semibold">{o.title}</Text>
-                <Text className="text-[24rpx] text-[#999]">
+                <Text className={`text-[24rpx] ${STATUS_COLOR[o.status] || 'text-[#999]'}`}>
                   {STATUS_TEXT[o.status] || o.status}
                 </Text>
               </View>
