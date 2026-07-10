@@ -2817,5 +2817,168 @@ Time:    1m21.28s
 | R1 验证(22/22 turbo) | ✅ 全绿 |
 | R1 提交 | ✅ 本轮提交(无 --no-verify) |
 | client/ el-原生化(42+ 文件) | ⚠️ 未验证遗留,保留工作区 |
-| R2-R6 后续批次 | ⏳ 待推进 |
+| R2-R6 后续批次 | ✅ 全部完成(详见第二十三/二十四章) |
+
+---
+
+## 第二十三章 R2 批次实施完成报告(edu/web 学员公开门户)
+
+> 生成时间:2026-07-10
+> 范围:第二十一章丢失清单中 🔴 优先级 2(edu/web 学员公开门户)
+> 提交:fd778de5(22 files, +3309/-46)
+
+### 23.1 R2 批次范围与完成状态
+
+| 模块 | 端点数 | 前端页面 | 状态 |
+|------|--------|----------|------|
+| C 端课程浏览(公开) | 3 解除鉴权 | — | ✅ 完成 |
+| C 端资讯浏览(公开) | 2 新增 + 解除鉴权 | — | ✅ 完成 |
+| 学员中心(需登录) | 18 新建 | 7 页面 | ✅ 完成 |
+| 直播详情/讲师/资讯前端 | — | 6 页面 | ✅ 完成 |
+
+### 23.2 后端实现
+
+- `learn.ts`: 移除全局 requireAuth 钩子,categories/lessons/lessons/:id 改为公开访问
+- `news.ts`: 移除全局 requireAuth 钩子 + 新增 pinned/recommended 公开端点
+- `news-queries.ts`: 新增 findArticlesByIds(inArray 查询)
+- `edu-public.ts`(新建): 18 端点学员中心(my-lessons/notes/certificates/wrong-book/report/offline-records/papers/uploaded-certs)
+- `server.ts`: 注册 eduPublicRoutes
+- `learn.test.ts`: 3 个测试适配新公开访问策略
+
+### 23.3 前端实现(13 新页)
+
+| 页面 | 路径 | 功能 |
+|------|------|------|
+| 直播详情 | live/[id]/page.tsx | 直播频道详情(封面/讲师/观看数/状态) |
+| 讲师列表 | lecturers/page.tsx | 讲师卡片网格 + 搜索 |
+| 讲师详情 | lecturers/[id]/page.tsx | 讲师信息 + 直播课程列表 |
+| 资讯列表 | news/page.tsx | 文章列表 + 分类筛选 + 置顶 |
+| 资讯详情 | news/[id]/page.tsx | 文章内容渲染 |
+| 分类资讯 | news/category/[id]/page.tsx | 按分类筛选资讯 |
+| 学员中心首页 | student/page.tsx | 学习报告仪表盘(3组统计 + 6快捷入口) |
+| 我的课程 | student/my-lessons/page.tsx | 报名课程列表 + 进度 |
+| 我的笔记 | student/notes/page.tsx | 笔记 CRUD(Dialog) |
+| 我的证书 | student/certificates/page.tsx | 证书列表 |
+| 错题本 | student/wrong-book/page.tsx | 错题聚合展示 |
+| 线下记录 | student/offline-records/page.tsx | 线下学习记录 CRUD(Dialog) |
+| 我的论文 | student/papers/page.tsx | 论文列表 |
+
+### 23.4 i18n + 导航
+
+- 6 新命名空间:lecturer/student/notes/offlineRecords/papers + live 扩展
+- nav 扩展:news/lecturers/student
+- sidebar 新增 3 导航项
+
+### 23.5 验证
+
+22/22 turbo 全绿(typecheck+lint+test), 297+112 tests passed
+
+---
+
+## 第二十四章 R3-R6 批次实施完成报告(智能体市场+AI多模态+分销+进阶admin)
+
+> 生成时间:2026-07-10
+> 范围:第二十一章丢失清单中 🔴🟡 优先级 3-6
+> 提交:28011362(39 files, +10238/-4)
+
+### 24.1 R3 智能体市场前端(8 页)
+
+| 页面 | 路径 | 对接端点 |
+|------|------|----------|
+| 智能体市场列表 | agents/page.tsx | GET /api/agents/list + /api/categories/list |
+| 智能体详情 | agents/[id]/page.tsx | GET /api/agents/:agentId |
+| 创建智能体 | agents/create/page.tsx | POST /api/agents/create |
+| 智能体管理 | admin/agents/page.tsx | GET /api/agents/list + DELETE |
+| 分类管理 | admin/agents/categories/page.tsx | GET/POST/PUT/DELETE /api/categories/* |
+| 审核管理 | admin/agents/examine/page.tsx | GET /api/examine/* + approve/reject |
+| 结算管理 | admin/agents/settlement/page.tsx | GET /api/settlement/* + settle |
+| 需求广场审核 | admin/demand-square/page.tsx | GET /api/examine/* + approve/reject |
+
+### 24.2 R4 AI 厂商专属多模态(65 端点)
+
+**新增文件**: `apps/api/src/routes/ai-vendors.ts`(1044 行)
+
+| 厂商 | 端点数 | 能力 |
+|------|--------|------|
+| Dashscope(阿里通义) | 10 | 对话/文生图/图片编辑/TTS/ASR/模型/视频/向量化/多模态/Agent |
+| Doubao(豆包/字节) | 8 | 对话/文生图/TTS/ASR/模型/视频/向量化/多模态 |
+| Gemini(Google) | 8 | 对话/文生图/TTS/ASR/模型/视频/向量化/多模态 |
+| Suno(音乐) | 5 | 生成/任务列表/任务详情/歌词/模型 |
+| Sora2(视频) | 4 | 生成/任务列表/任务详情/模型 |
+| Coze(扣子) | 8 | 对话/Bot创建/Bot列表/工作流/知识库 |
+| 通用工具 | 17 | 厂商列表/代理/任务/音色/水印/用量/AIGC记录 |
+| admin | 5 | 厂商管理/测试/任务/用量 |
+
+**server.ts**: 注册 aiVendorRoutes(/api/ai) + adminAiVendorRoutes(/api/admin/ai)
+
+### 24.3 R5 分销前端(8 页)
+
+| 页面 | 路径 | 对接端点 |
+|------|------|----------|
+| 分销中心 | distribution/page.tsx | /finance/distribution/* + /finance/commission/summary |
+| 我的佣金 | distribution/commission/page.tsx | GET /finance/commission/list + summary |
+| 佣金订单 | distribution/orders/page.tsx | GET /finance/commission/orders |
+| 分销团队 | distribution/team/page.tsx | GET /finance/distribution/subordinates + team/center |
+| 提现 | distribution/withdraw/page.tsx | POST /finance/withdrawal/apply + available |
+| 提现记录 | distribution/withdraw/records/page.tsx | GET /finance/withdrawal/list |
+| Token 钱包 | distribution/token/page.tsx | GET /finance/margin/balance + flows |
+| OAuth 营销主页 | oauth/platform/page.tsx | 纯展示页(Hero/特性/流程/CTA) |
+
+### 24.4 R6 进阶 admin 工具(17 页)
+
+| 分类 | 页面 | 路径 |
+|------|------|------|
+| 运维监控 | 后端健康检查 | admin/backend-health/ |
+| 运维监控 | 性能仪表盘 | admin/performance-dashboard/ |
+| 运维监控 | 数据库优化 | admin/database-optimization/ |
+| 运维监控 | 事件总线监控 | admin/event-bus-monitor/ |
+| 运维监控 | 灰度发布 | admin/gray-release/ |
+| API管理 | API调试器 | admin/api-debug/ |
+| API管理 | API分组管理 | admin/api-groups/ |
+| API管理 | API日志 | admin/api-logs/ |
+| API管理 | API用量统计 | admin/api-usage/ |
+| 开发者 | 开发者中心 | admin/developer/ |
+| 开发者 | 字典管理 | admin/dict/ |
+| 开发者 | 短信管理 | admin/sms/ |
+| 开发者 | 推荐配置 | admin/recommendation-config/ |
+| 其他 | 移动端适配 | admin/mobile-adapter/ |
+| 其他 | OAuth审计仪表盘 | admin/oauth-audit-dashboard/ |
+| 其他 | 错误监控 | admin/error-dashboard/ |
+| 其他 | 监控仪表盘 | admin/monitoring-dashboard/ |
+
+### 24.5 i18n + 导航扩展
+
+- 568 新 i18n 键(agents/distribution/oauthPlatform/adminTools + admin.agents/demandSquare)
+- zh-CN.json + en.json 完全 parity(3782 行/文件,3330 键)
+- 主 sidebar 新增 3 导航(agents/distribution/oauthPlatform)
+- admin layout 新增 22 导航(R3 5 + R6 17)
+
+### 24.6 验证
+
+22/22 turbo 全绿(typecheck+lint+test), 297+112 tests passed
+
+### 24.7 R1-R6 总体完成状态
+
+| 批次 | 范围 | 端点 | 页面 | 状态 |
+|------|------|------|------|------|
+| R1 | 支付网关+多登录+VIP+钱包+OAuth | 77 | 15 | ✅ |
+| R2 | edu/web 学员公开门户 | 23 | 13 | ✅ |
+| R3 | 智能体市场前端 | (对接 44) | 8 | ✅ |
+| R4 | AI 厂商专属多模态 | 65 | — | ✅ |
+| R5 | 分销前端+OAuth 营销 | (对接 18) | 8 | ✅ |
+| R6 | 进阶 admin 工具 | — | 17 | ✅ |
+| **合计** | | **165+** | **61** | ✅ |
+
+### 24.8 本轮诚实最终状态
+
+| 维度 | 状态 |
+|------|------|
+| R1-R6 后端(支付/多登录/edu/AI多模态) | ✅ 165+ 端点,297 测试通过 |
+| R1-R6 前端(61 新页面) | ✅ typecheck+lint 0 错误 |
+| R1-R6 i18n(568+ 新键) | ✅ zh/en parity OK |
+| R1-R6 导航(sidebar+admin) | ✅ 25+ 新导航项 |
+| R1-R6 验证(22/22 turbo) | ✅ 全绿 |
+| R1-R6 提交 | ✅ 3 次 commit(R1/R2/R3-R6) |
+| client/ el-原生化(42+ 文件) | ⚠️ 未验证遗留,保留工作区 |
+| 第二十一章丢失清单 | ✅ R1-R6 全部补完 |
 
