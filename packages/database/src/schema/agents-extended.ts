@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   boolean,
+  bigint,
   integer,
   timestamp,
   index,
@@ -117,6 +118,66 @@ export const agentExamines = pgTable(
   }),
 );
 
+/**
+ * 智能体热度统计表 (历史 agent_heat_stats)。
+ * hitCount: 命中次数。dateStr: 日期字符串 YYYY-MM-DD。
+ */
+export const agentHeatStats = pgTable(
+  'agent_heat_stats',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id').notNull(),
+    hitCount: bigint('hit_count', { mode: 'number' }).default(0).notNull(),
+    dateStr: varchar('date_str', { length: 10 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentIdx: index('agent_heat_stats_agent_idx').on(t.agentId),
+  }),
+);
+
+/**
+ * 智能体回调配置表 (历史 agent_callbacks)。
+ * callbackUrl: 回调地址。callbackData1/2/3: 回调扩展数据。
+ */
+export const agentCallbacks = pgTable(
+  'agent_callbacks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id').notNull(),
+    callbackUrl: text('callback_url'),
+    callbackData1: varchar('callback_data_1', { length: 500 }),
+    callbackData2: varchar('callback_data_2', { length: 500 }),
+    callbackData3: varchar('callback_data_3', { length: 500 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentIdx: index('agent_callbacks_agent_idx').on(t.agentId),
+  }),
+);
+
+/**
+ * 智能体配置表 (历史 agent_configs)。
+ * configKey/configValue: 键值对配置。isDeleted: 软删除标记。
+ */
+export const agentConfigs = pgTable(
+  'agent_configs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id').notNull(),
+    configKey: varchar('config_key', { length: 100 }).notNull(),
+    configValue: text('config_value'),
+    isDeleted: integer('is_deleted').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentIdx: index('agent_configs_agent_idx').on(t.agentId),
+  }),
+);
+
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
 export type AgentCategory = typeof agentCategories.$inferSelect;
@@ -125,3 +186,9 @@ export type AgentSettlement = typeof agentSettlements.$inferSelect;
 export type NewAgentSettlement = typeof agentSettlements.$inferInsert;
 export type AgentExamine = typeof agentExamines.$inferSelect;
 export type NewAgentExamine = typeof agentExamines.$inferInsert;
+export type AgentHeatStats = typeof agentHeatStats.$inferSelect;
+export type NewAgentHeatStats = typeof agentHeatStats.$inferInsert;
+export type AgentCallback = typeof agentCallbacks.$inferSelect;
+export type NewAgentCallback = typeof agentCallbacks.$inferInsert;
+export type AgentConfig = typeof agentConfigs.$inferSelect;
+export type NewAgentConfig = typeof agentConfigs.$inferInsert;

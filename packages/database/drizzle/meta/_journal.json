@@ -225,6 +225,20 @@
       "when": 1783574424000,
       "tag": "0031_users_bio",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783574425000,
+      "tag": "0038_missing_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783574426000,
+      "tag": "0039_circle_ask_search_extra",
+      "breakpoints": true
     }
   ]
 }
