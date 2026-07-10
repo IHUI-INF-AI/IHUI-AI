@@ -1,6 +1,8 @@
 import 'dotenv/config'
+import type { Worker } from 'bullmq'
 import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
+import { startSchedulerWorker } from './workers/scheduler-worker.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -10,7 +12,9 @@ async function start() {
 
   // 启动 BullMQ Worker（异步消费者）
   // 通过 ENABLE_WORKER=false 可禁用（用于纯生产者实例）
-  const workers = process.env.ENABLE_WORKER === 'false' ? null : startWorkers(server)
+  const enableWorker = process.env.ENABLE_WORKER !== 'false'
+  const workers = enableWorker ? startWorkers(server) : null
+  const schedulerWorker: Worker | null = enableWorker ? startSchedulerWorker(server) : null
 
   try {
     await server.listen({ port: PORT, host: HOST })
@@ -24,6 +28,9 @@ async function start() {
     server.log.info({ signal }, 'Shutting down...')
     if (workers) {
       await Promise.allSettled(workers.map((w) => w.close()))
+    }
+    if (schedulerWorker) {
+      await schedulerWorker.close()
     }
     await server.close()
     process.exit(0)
