@@ -167,7 +167,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             const tokenQuantity = await getBalance(result.order.userId);
             await feedbackInvite(
               { id: result.order.userId, tokenQuantity },
-              { id: result.order.id, amount: result.order.amount, orderType: 0, productId: null },
+              { id: result.order.id, amount: result.order.amount, orderType: result.order.orderType, productId: result.order.productId ?? null },
             );
           } catch (ce) {
             request.log.warn({ err: ce, orderNo: out_trade_no }, 'commission feedback failed');
@@ -336,7 +336,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             const tokenQuantity = await getBalance(result.order.userId);
             await feedbackInvite(
               { id: result.order.userId, tokenQuantity },
-              { id: result.order.id, amount: result.order.amount, orderType: 0, productId: null },
+              { id: result.order.id, amount: result.order.amount, orderType: result.order.orderType, productId: result.order.productId ?? null },
             );
           } catch (ce) {
             request.log.warn({ err: ce, orderNo: outTradeNo }, 'commission feedback failed');
