@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { BookMarked, Plus, Edit, Trash2, Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -75,23 +76,38 @@ export default function DictPage() {
 
   const { data: list = MOCK_DICTS, isLoading } = useQuery({
     queryKey: ['admin', 'dict'],
-    queryFn: () => Promise.resolve(MOCK_DICTS),
+    queryFn: async () => {
+      const r = await fetchApi<{ list: { dictId: number; dictName: string; dictType: string; remark?: string | null }[] }>('/api/admin/dict/type/list')
+      if (r.success && r.data?.list) {
+        const result: DictType[] = await Promise.all(
+          r.data.list.map(async (t) => {
+            const dr = await fetchApi<{ list: { dictCode: number; dictLabel: string; dictValue: string; dictSort?: number }[] }>(`/api/admin/dict/data/type/${t.dictType}`)
+            const items: DictItem[] = dr.success && dr.data?.list
+              ? dr.data.list.map((d) => ({ id: String(d.dictCode), label: d.dictLabel, value: d.dictValue, sort: d.dictSort ?? 0 }))
+              : []
+            return { id: String(t.dictId), name: t.dictName, code: t.dictType, description: t.remark ?? '', itemCount: items.length, items }
+          }),
+        )
+        return result
+      }
+      return MOCK_DICTS
+    },
   })
 
   const saveTypeMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); closeType(); toast.success(t('dict.saveSuccess')) },
   })
   const delTypeMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(),
+    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); toast.success(t('dict.deleteSuccess')) },
   })
   const saveItemMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); closeItem(); toast.success(t('dict.saveSuccess')) },
   })
   const delItemMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(),
+    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); toast.success(t('dict.deleteSuccess')) },
   })
 

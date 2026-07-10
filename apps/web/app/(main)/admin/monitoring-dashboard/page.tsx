@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { LayoutDashboard, Server, Database, Cpu, Brain, Activity, AlertTriangle, CheckCircle2, XCircle, Loader2, ScrollText } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -78,19 +79,35 @@ export default function MonitoringDashboardPage() {
 
   const { data: services = MOCK_SERVICES, isLoading } = useQuery({
     queryKey: ['admin', 'monitoring', 'services'],
-    queryFn: () => Promise.resolve(MOCK_SERVICES),
+    queryFn: async () => {
+      const r = await fetchApi<ServiceItem[]>('/api/admin/monitoring/services')
+      if (r.success && r.data) return r.data
+      return MOCK_SERVICES
+    },
   })
   const { data: perf = MOCK_PERF } = useQuery({
     queryKey: ['admin', 'monitoring', 'perf'],
-    queryFn: () => Promise.resolve(MOCK_PERF),
+    queryFn: async () => {
+      const r = await fetchApi<PerfItem>('/api/admin/monitoring/perf')
+      if (r.success && r.data) return r.data
+      return MOCK_PERF
+    },
   })
   const { data: alerts = MOCK_ALERTS } = useQuery({
     queryKey: ['admin', 'monitoring', 'alerts'],
-    queryFn: () => Promise.resolve(MOCK_ALERTS),
+    queryFn: async () => {
+      const r = await fetchApi<AlertItem[]>('/api/admin/monitoring/alerts')
+      if (r.success && r.data) return r.data
+      return MOCK_ALERTS
+    },
   })
   const { data: logs = MOCK_LOGS } = useQuery({
     queryKey: ['admin', 'monitoring', 'logs'],
-    queryFn: () => Promise.resolve(MOCK_LOGS),
+    queryFn: async () => {
+      const r = await fetchApi<LogSummary>('/api/admin/monitoring/logs')
+      if (r.success && r.data) return r.data
+      return MOCK_LOGS
+    },
   })
 
   const healthyCount = services.filter((s) => s.status === 'healthy').length

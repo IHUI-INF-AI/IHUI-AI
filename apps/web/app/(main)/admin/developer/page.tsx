@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Code2, KeyRound, Webhook, Download, Plus, Trash2, Loader2, Copy, Package } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -60,19 +61,31 @@ export default function DeveloperPage() {
 
   const { data: keys = MOCK_KEYS, isLoading } = useQuery({
     queryKey: ['admin', 'developer', 'keys'],
-    queryFn: () => Promise.resolve(MOCK_KEYS),
+    queryFn: async () => {
+      const r = await fetchApi<ApiKey[]>('/api/admin/developer/keys')
+      if (r.success && r.data) return r.data
+      return MOCK_KEYS
+    },
   })
   const { data: webhooks = MOCK_WEBHOOKS } = useQuery({
     queryKey: ['admin', 'developer', 'webhooks'],
-    queryFn: () => Promise.resolve(MOCK_WEBHOOKS),
+    queryFn: async () => {
+      const r = await fetchApi<WebhookConfig[]>('/api/admin/developer/webhooks')
+      if (r.success && r.data) return r.data
+      return MOCK_WEBHOOKS
+    },
   })
   const { data: sdks = MOCK_SDKS } = useQuery({
     queryKey: ['admin', 'developer', 'sdks'],
-    queryFn: () => Promise.resolve(MOCK_SDKS),
+    queryFn: async () => {
+      const r = await fetchApi<SdkItem[]>('/api/admin/developer/sdks')
+      if (r.success && r.data) return r.data
+      return MOCK_SDKS
+    },
   })
 
   const createKeyMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'developer', 'keys'] })
       setKeyOpen(false); setKeyName('')
@@ -80,14 +93,14 @@ export default function DeveloperPage() {
     },
   })
   const delKeyMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(),
+    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'developer', 'keys'] })
       toast.success(t('developer.keyDeleteSuccess'))
     },
   })
   const createWhMut = useMutation({
-    mutationFn: () => Promise.resolve(),
+    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'developer', 'webhooks'] })
       setWhOpen(false); setWhForm({ url: '', events: '' })

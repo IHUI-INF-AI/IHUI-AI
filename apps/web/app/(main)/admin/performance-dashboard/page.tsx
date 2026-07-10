@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Gauge, Cpu, MemoryStick, Activity, Timer, Loader2 } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -47,11 +48,19 @@ export default function PerformanceDashboardPage() {
 
   const { data: stats = MOCK_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'performance-dashboard', 'stats'],
-    queryFn: () => Promise.resolve(MOCK_STATS),
+    queryFn: async () => {
+      const r = await fetchApi<Stats>('/api/admin/performance-dashboard/stats')
+      if (r.success && r.data) return r.data
+      return MOCK_STATS
+    },
   })
   const { data: endpoints = MOCK_ENDPOINTS } = useQuery({
     queryKey: ['admin', 'performance-dashboard', 'endpoints'],
-    queryFn: () => Promise.resolve(MOCK_ENDPOINTS),
+    queryFn: async () => {
+      const r = await fetchApi<EndpointPerf[]>('/api/admin/performance-dashboard/endpoints')
+      if (r.success && r.data) return r.data
+      return MOCK_ENDPOINTS
+    },
   })
 
   const cards = [
