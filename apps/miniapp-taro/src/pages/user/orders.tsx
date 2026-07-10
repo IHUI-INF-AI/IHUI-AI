@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOrderList, type Order } from '@/api'
 
 const statusColors: Record<Order['status'], string> = {
@@ -28,30 +28,33 @@ export default function Orders() {
   const [hasMore, setHasMore] = useState(true)
   const pageSize = 10
 
-  const load = useCallback(async (reset = false) => {
-    if (loading) return
-    let curPage = page
-    let curList = list
-    if (reset) {
-      curPage = 1
-      curList = []
-      setList([])
-      setHasMore(true)
-    }
-    if (!hasMore && !reset) return
-    setLoading(true)
-    try {
-      const res = await getOrderList({ page: curPage, pageSize, status })
-      const newList = [...curList, ...(res.list || [])]
-      setList(newList)
-      setHasMore(newList.length < res.total)
-      setPage(curPage + 1)
-    } catch {
-      // 统一提示
-    } finally {
-      setLoading(false)
-    }
-  }, [loading, page, hasMore, status, list, pageSize])
+  const load = useCallback(
+    async (reset = false) => {
+      if (loading) return
+      let curPage = page
+      let curList = list
+      if (reset) {
+        curPage = 1
+        curList = []
+        setList([])
+        setHasMore(true)
+      }
+      if (!hasMore && !reset) return
+      setLoading(true)
+      try {
+        const res = await getOrderList({ page: curPage, pageSize, status })
+        const newList = [...curList, ...(res.list || [])]
+        setList(newList)
+        setHasMore(newList.length < res.total)
+        setPage(curPage + 1)
+      } catch {
+        // 统一提示
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loading, page, hasMore, status, list, pageSize],
+  )
 
   function switchStatus(s: string) {
     setStatus(s)
@@ -62,13 +65,20 @@ export default function Orders() {
     Taro.showToast({ title: `支付订单 ${item.orderNo}`, icon: 'none' })
   }
 
-  useEffect(() => { load(true) }, [])
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    if (mountedRef.current) return
+    mountedRef.current = true
+    load(true)
+  }, [load])
 
   usePullDownRefresh(() => {
     load(true).finally(() => Taro.stopPullDownRefresh())
   })
 
-  useReachBottom(() => { load() })
+  useReachBottom(() => {
+    load()
+  })
 
   const tabs = [
     { key: '', label: '全部' },
@@ -81,7 +91,7 @@ export default function Orders() {
     <View className="min-h-screen px-[16px] py-[12px]">
       {/* 状态筛选 */}
       <View className="flex mb-[12px] bg-white rounded-[6px]">
-        {tabs.map(tab => (
+        {tabs.map((tab) => (
           <View
             key={tab.key}
             className={`flex-1 text-center py-[10px] text-[13px] ${
@@ -97,7 +107,7 @@ export default function Orders() {
       {/* 订单列表 */}
       {list.length > 0 ? (
         <View>
-          {list.map(item => (
+          {list.map((item) => (
             <View key={item.id} className="bg-white rounded-[8px] px-[12px] py-[12px] mb-[12px]">
               <View className="flex justify-between items-center">
                 <Text className="text-[12px] text-[#999]">订单号：{item.orderNo}</Text>

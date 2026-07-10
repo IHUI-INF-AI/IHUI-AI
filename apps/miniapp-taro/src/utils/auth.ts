@@ -14,8 +14,10 @@ export interface UserInfo {
   nickname?: string
   avatar?: string
   phone?: string
+  email?: string
+  realName?: string
   isVip?: boolean
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /** 获取 Token */

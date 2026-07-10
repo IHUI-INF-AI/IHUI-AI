@@ -1,0 +1,76 @@
+name: Visual Regression
+
+# =============================================================================
+# 视觉回归测试 workflow
+#
+# 当 PR 修改 apps/web/** 时触发，使用 Playwright 运行视觉回归测试。
+# 配置文件: apps/web/playwright.visual.config.ts
+# 脚本: pnpm --filter @ihui/web test:visual
+# =============================================================================
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - '.github/workflows/visual-regression.yml'
+
+concurrency:
+  group: visual-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  visual:
+    name: Playwright 视觉回归
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run visual regression tests
+        run: pnpm --filter @ihui/web test:visual
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -2125,11 +2125,7 @@
       "compositePrimaryKeys": {
         "admin_user_post_user_id_post_id_pk": {
           "name": "admin_user_post_user_id_post_id_pk",
-          "columns": [
-            "user_id",
-            "post_id"
-          ],
-          "schema": ""
+          "columns": ["user_id", "post_id"]
         }
       },
       "uniqueConstraints": {},

@@ -1,5 +1,5 @@
-import { eq, and, desc, asc, sql, ilike, or } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, asc, sql, ilike, or } from 'drizzle-orm'
+import { db, dbRead } from './index.js'
 import {
   circles,
   circlePosts,
@@ -10,16 +10,16 @@ import {
   type CirclePost,
   type Ask,
   type AskAnswer,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // =============================================================================
 // Circles
 // =============================================================================
 
 interface ListCirclesOpts {
-  page: number;
-  pageSize: number;
-  search?: string;
+  page: number
+  pageSize: number
+  search?: string
 }
 
 /**
@@ -28,54 +28,55 @@ interface ListCirclesOpts {
 export async function findCircles(
   opts: ListCirclesOpts,
 ): Promise<{ list: Circle[]; total: number }> {
-  const conds = [eq(circles.isPublished, true)];
+  const conds = [eq(circles.isPublished, true)]
   if (opts.search) {
-    const kw = `%${opts.search}%`;
-    conds.push(or(ilike(circles.name, kw), ilike(circles.description, kw))!);
+    const kw = `%${opts.search}%`
+    conds.push(or(ilike(circles.name, kw), ilike(circles.description, kw))!)
   }
-  const where = and(...conds);
+  const where = and(...conds)
 
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select()
       .from(circles)
       .where(where)
       .orderBy(desc(circles.postCount), desc(circles.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(circles).where(where),
-  ]);
+    dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(circles)
+      .where(where),
+  ])
 
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findCircleById(id: string): Promise<Circle | undefined> {
-  const rows = await db.select().from(circles).where(eq(circles.id, id)).limit(1);
-  return rows[0];
+  const rows = await dbRead.select().from(circles).where(eq(circles.id, id)).limit(1)
+  return rows[0]
 }
 
 export async function findCircleBySlug(slug: string): Promise<Circle | undefined> {
-  const rows = await db.select().from(circles).where(eq(circles.slug, slug)).limit(1);
-  return rows[0];
+  const rows = await dbRead.select().from(circles).where(eq(circles.slug, slug)).limit(1)
+  return rows[0]
 }
 
 /**
  * 根据 id 或 slug 查询圈子。优先按 UUID 查找，再按 slug 查找。
  */
-export async function findCircleByIdOrSlug(
-  idOrSlug: string,
-): Promise<Circle | undefined> {
+export async function findCircleByIdOrSlug(idOrSlug: string): Promise<Circle | undefined> {
   // UUID 格式：直接按 id 查
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (uuidRe.test(idOrSlug)) {
-    return findCircleById(idOrSlug);
+    return findCircleById(idOrSlug)
   }
-  return findCircleBySlug(idOrSlug);
+  return findCircleBySlug(idOrSlug)
 }
 
 /** 管理员删除圈子（硬删除）。 */
 export async function deleteCircle(id: string): Promise<void> {
-  await db.delete(circles).where(eq(circles.id, id));
+  await db.delete(circles).where(eq(circles.id, id))
 }
 
 /** 管理员更新圈子显示状态。 */
@@ -87,8 +88,8 @@ export async function updateCircleShowStatus(
     .update(circles)
     .set({ isPublished, updatedAt: new Date() })
     .where(eq(circles.id, id))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 // =============================================================================
@@ -96,8 +97,8 @@ export async function updateCircleShowStatus(
 // =============================================================================
 
 interface ListCirclePostsOpts {
-  page: number;
-  pageSize: number;
+  page: number
+  pageSize: number
 }
 
 /**
@@ -107,7 +108,7 @@ export async function findCirclePosts(
   circleId: string,
   opts: ListCirclePostsOpts,
 ): Promise<{ list: (CirclePost & { authorName: string | null })[]; total: number }> {
-  const where = and(eq(circlePosts.circleId, circleId), eq(circlePosts.status, 1));
+  const where = and(eq(circlePosts.circleId, circleId), eq(circlePosts.status, 1))
   const cols = {
     id: circlePosts.id,
     circleId: circlePosts.circleId,
@@ -123,9 +124,9 @@ export async function findCirclePosts(
     createdAt: circlePosts.createdAt,
     updatedAt: circlePosts.updatedAt,
     authorName: users.nickname,
-  };
+  }
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select(cols)
       .from(circlePosts)
       .leftJoin(users, eq(users.id, circlePosts.userId))
@@ -133,24 +134,23 @@ export async function findCirclePosts(
       .orderBy(desc(circlePosts.isPinned), desc(circlePosts.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(circlePosts).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(circlePosts)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findPostById(id: string): Promise<CirclePost | undefined> {
-  const rows = await db
-    .select()
-    .from(circlePosts)
-    .where(eq(circlePosts.id, id))
-    .limit(1);
-  return rows[0];
+  const rows = await dbRead.select().from(circlePosts).where(eq(circlePosts.id, id)).limit(1)
+  return rows[0]
 }
 
 export interface CreatePostInput {
-  title: string;
-  content: string;
-  images?: string[] | null;
+  title: string
+  content: string
+  images?: string[] | null
 }
 
 export async function createPost(
@@ -167,21 +167,21 @@ export async function createPost(
       content: data.content,
       images: data.images ?? null,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建帖子失败');
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建帖子失败')
   // 冗余计数 +1
   await db
     .update(circles)
     .set({ postCount: sql`${circles.postCount} + 1`, updatedAt: new Date() })
-    .where(eq(circles.id, circleId));
-  return row;
+    .where(eq(circles.id, circleId))
+  return row
 }
 
 export interface UpdatePostInput {
-  title?: string;
-  content?: string;
-  images?: string[] | null;
+  title?: string
+  content?: string
+  images?: string[] | null
 }
 
 /**
@@ -192,16 +192,16 @@ export async function updatePost(
   userId: string,
   data: UpdatePostInput,
 ): Promise<CirclePost | undefined> {
-  const set: Record<string, unknown> = { updatedAt: new Date() };
-  if (data.title !== undefined) set.title = data.title;
-  if (data.content !== undefined) set.content = data.content;
-  if (data.images !== undefined) set.images = data.images;
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (data.title !== undefined) set.title = data.title
+  if (data.content !== undefined) set.content = data.content
+  if (data.images !== undefined) set.images = data.images
   const rows = await db
     .update(circlePosts)
     .set(set)
     .where(and(eq(circlePosts.id, id), eq(circlePosts.userId, userId)))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 /**
@@ -209,19 +209,19 @@ export async function updatePost(
  */
 export async function deletePost(id: string, userId: string): Promise<boolean> {
   // 先查出帖子，用于回写圈子计数
-  const existing = await findPostById(id);
-  if (!existing || existing.userId !== userId) return false;
+  const existing = await findPostById(id)
+  if (!existing || existing.userId !== userId) return false
   const rows = await db
     .delete(circlePosts)
     .where(and(eq(circlePosts.id, id), eq(circlePosts.userId, userId)))
-    .returning({ id: circlePosts.id });
+    .returning({ id: circlePosts.id })
   if (rows.length > 0 && existing.circleId) {
     await db
       .update(circles)
       .set({ postCount: sql`GREATEST(${circles.postCount} - 1, 0)`, updatedAt: new Date() })
-      .where(eq(circles.id, existing.circleId));
+      .where(eq(circles.id, existing.circleId))
   }
-  return rows.length > 0;
+  return rows.length > 0
 }
 
 // =============================================================================
@@ -229,10 +229,10 @@ export async function deletePost(id: string, userId: string): Promise<boolean> {
 // =============================================================================
 
 interface ListAsksOpts {
-  page: number;
-  pageSize: number;
-  search?: string;
-  resolved?: boolean;
+  page: number
+  pageSize: number
+  search?: string
+  resolved?: boolean
 }
 
 /**
@@ -241,15 +241,15 @@ interface ListAsksOpts {
 export async function findAsks(
   opts: ListAsksOpts,
 ): Promise<{ list: (Ask & { authorName: string | null })[]; total: number }> {
-  const conds = [eq(asks.status, 1)];
+  const conds = [eq(asks.status, 1)]
   if (opts.search) {
-    const kw = `%${opts.search}%`;
-    conds.push(or(ilike(asks.title, kw), ilike(asks.content, kw))!);
+    const kw = `%${opts.search}%`
+    conds.push(or(ilike(asks.title, kw), ilike(asks.content, kw))!)
   }
   if (opts.resolved !== undefined) {
-    conds.push(eq(asks.isResolved, opts.resolved));
+    conds.push(eq(asks.isResolved, opts.resolved))
   }
-  const where = and(...conds);
+  const where = and(...conds)
   const cols = {
     id: asks.id,
     userId: asks.userId,
@@ -264,10 +264,10 @@ export async function findAsks(
     createdAt: asks.createdAt,
     updatedAt: asks.updatedAt,
     authorName: users.nickname,
-  };
+  }
 
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select(cols)
       .from(asks)
       .leftJoin(users, eq(users.id, asks.userId))
@@ -275,12 +275,17 @@ export async function findAsks(
       .orderBy(desc(asks.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(asks).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(asks)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
-export async function findAskById(id: string): Promise<(Ask & { authorName: string | null }) | undefined> {
+export async function findAskById(
+  id: string,
+): Promise<(Ask & { authorName: string | null }) | undefined> {
   const cols = {
     id: asks.id,
     userId: asks.userId,
@@ -295,15 +300,20 @@ export async function findAskById(id: string): Promise<(Ask & { authorName: stri
     createdAt: asks.createdAt,
     updatedAt: asks.updatedAt,
     authorName: users.nickname,
-  };
-  const rows = await db.select(cols).from(asks).leftJoin(users, eq(users.id, asks.userId)).where(eq(asks.id, id)).limit(1);
-  return rows[0];
+  }
+  const rows = await dbRead
+    .select(cols)
+    .from(asks)
+    .leftJoin(users, eq(users.id, asks.userId))
+    .where(eq(asks.id, id))
+    .limit(1)
+  return rows[0]
 }
 
 export interface CreateAskInput {
-  title: string;
-  content: string;
-  tags?: string[] | null;
+  title: string
+  content: string
+  tags?: string[] | null
 }
 
 export async function createAsk(userId: string, data: CreateAskInput): Promise<Ask> {
@@ -315,16 +325,16 @@ export async function createAsk(userId: string, data: CreateAskInput): Promise<A
       content: data.content,
       tags: data.tags ?? null,
     })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建问答失败');
-  return row;
+    .returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建问答失败')
+  return row
 }
 
 export interface UpdateAskInput {
-  title?: string;
-  content?: string;
-  tags?: string[] | null;
+  title?: string
+  content?: string
+  tags?: string[] | null
 }
 
 /**
@@ -335,16 +345,16 @@ export async function updateAsk(
   userId: string,
   data: UpdateAskInput,
 ): Promise<Ask | undefined> {
-  const set: Record<string, unknown> = { updatedAt: new Date() };
-  if (data.title !== undefined) set.title = data.title;
-  if (data.content !== undefined) set.content = data.content;
-  if (data.tags !== undefined) set.tags = data.tags;
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (data.title !== undefined) set.title = data.title
+  if (data.content !== undefined) set.content = data.content
+  if (data.tags !== undefined) set.tags = data.tags
   const rows = await db
     .update(asks)
     .set(set)
     .where(and(eq(asks.id, id), eq(asks.userId, userId)))
-    .returning();
-  return rows[0];
+    .returning()
+  return rows[0]
 }
 
 /**
@@ -354,8 +364,8 @@ export async function deleteAsk(id: string, userId: string): Promise<boolean> {
   const rows = await db
     .delete(asks)
     .where(and(eq(asks.id, id), eq(asks.userId, userId)))
-    .returning({ id: asks.id });
-  return rows.length > 0;
+    .returning({ id: asks.id })
+  return rows.length > 0
 }
 
 // =============================================================================
@@ -363,8 +373,8 @@ export async function deleteAsk(id: string, userId: string): Promise<boolean> {
 // =============================================================================
 
 interface ListAskAnswersOpts {
-  page: number;
-  pageSize: number;
+  page: number
+  pageSize: number
 }
 
 /**
@@ -374,7 +384,7 @@ export async function findAskAnswers(
   askId: string,
   opts: ListAskAnswersOpts,
 ): Promise<{ list: (AskAnswer & { authorName: string | null })[]; total: number }> {
-  const where = and(eq(askAnswers.askId, askId), eq(askAnswers.status, 1));
+  const where = and(eq(askAnswers.askId, askId), eq(askAnswers.status, 1))
   const cols = {
     id: askAnswers.id,
     askId: askAnswers.askId,
@@ -385,9 +395,9 @@ export async function findAskAnswers(
     status: askAnswers.status,
     createdAt: askAnswers.createdAt,
     authorName: users.nickname,
-  };
+  }
   const [list, totalRows] = await Promise.all([
-    db
+    dbRead
       .select(cols)
       .from(askAnswers)
       .leftJoin(users, eq(users.id, askAnswers.userId))
@@ -395,18 +405,17 @@ export async function findAskAnswers(
       .orderBy(desc(askAnswers.isAccepted), desc(askAnswers.likeCount), asc(askAnswers.createdAt))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(askAnswers).where(where),
-  ]);
-  return { list, total: Number(totalRows[0]?.count ?? 0) };
+    dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(askAnswers)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findAnswerById(id: string): Promise<AskAnswer | undefined> {
-  const rows = await db
-    .select()
-    .from(askAnswers)
-    .where(eq(askAnswers.id, id))
-    .limit(1);
-  return rows[0];
+  const rows = await dbRead.select().from(askAnswers).where(eq(askAnswers.id, id)).limit(1)
+  return rows[0]
 }
 
 export async function createAnswer(
@@ -414,18 +423,15 @@ export async function createAnswer(
   userId: string,
   content: string,
 ): Promise<AskAnswer> {
-  const rows = await db
-    .insert(askAnswers)
-    .values({ askId, userId, content })
-    .returning();
-  const row = rows[0];
-  if (!row) throw new Error('创建回答失败');
+  const rows = await db.insert(askAnswers).values({ askId, userId, content }).returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建回答失败')
   // 冗余计数 +1
   await db
     .update(asks)
     .set({ answerCount: sql`${asks.answerCount} + 1`, updatedAt: new Date() })
-    .where(eq(asks.id, askId));
-  return row;
+    .where(eq(asks.id, askId))
+  return row
 }
 
 /**
@@ -439,29 +445,26 @@ export async function acceptAnswer(
   answerId: string,
   userId: string,
 ): Promise<AskAnswer | undefined> {
-  const answer = await findAnswerById(answerId);
-  if (!answer) return undefined;
-  const ask = await findAskById(answer.askId);
-  if (!ask || ask.userId !== userId) return undefined;
+  const answer = await findAnswerById(answerId)
+  if (!answer) return undefined
+  const ask = await findAskById(answer.askId)
+  if (!ask || ask.userId !== userId) return undefined
 
   // 清除同 ask 下其它答案的 accepted
   await db
     .update(askAnswers)
     .set({ isAccepted: false })
-    .where(and(eq(askAnswers.askId, ask.id), eq(askAnswers.isAccepted, true)));
+    .where(and(eq(askAnswers.askId, ask.id), eq(askAnswers.isAccepted, true)))
 
   // 置当前答案为 accepted
   const rows = await db
     .update(askAnswers)
     .set({ isAccepted: true })
     .where(eq(askAnswers.id, answerId))
-    .returning();
+    .returning()
 
   // 标记问题已解决
-  await db
-    .update(asks)
-    .set({ isResolved: true, updatedAt: new Date() })
-    .where(eq(asks.id, ask.id));
+  await db.update(asks).set({ isResolved: true, updatedAt: new Date() }).where(eq(asks.id, ask.id))
 
-  return rows[0];
+  return rows[0]
 }
