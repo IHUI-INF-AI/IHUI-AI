@@ -1,10 +1,10 @@
-# 架构重构完整性深度比对报告（最终验证版 v16）
+# 架构重构完整性深度比对报告（最终验证版 v17）
 
 > **目标条件**：深度比对当前项目代码与架构重构前最新提交(3ee96cf0)的差异，找出所有未完整迁移到新架构(TS Monorepo)的地方
 > **基准**：旧架构 `3ee96cf0`（Python FastAPI + Vue 3）→ 新架构当前 HEAD `f6100be6` + 未提交工作区改动（TS Monorepo，旧 client/ 已清理）
-> **分析方法**：4 个并行代理初步分析 → 主线代码级验证 → 19 轮深度验证（含 R10-R16 新增提交验证+功能映射+旧 Python 后端全量扫描+逐模块交叉比对+前端页面逐一验证+R17 服务/核心/任务/ORM/中间件全量验证+R18 utils/ 204 文件全量验证+R19 未提交工作区改动全量验证）
+> **分析方法**：4 个并行代理初步分析 → 主线代码级验证 → 20 轮深度验证（含 R10-R16 新增提交验证+功能映射+旧 Python 后端全量扫描+逐模块交叉比对+前端页面逐一验证+R17 服务/核心/任务/ORM/中间件全量验证+R18 utils/ 204 文件全量验证+R19 未提交工作区改动全量验证+R20 客户端服务层/workers/composables 全量验证）
 > **分析日期**：2026-07-11
-> **验证轮次**：19 轮
+> **验证轮次**：20 轮
 
 ---
 
@@ -14,7 +14,7 @@
 
 1. **miniapp 从 15 页扩展到 75 页**（commit `a30b5705`，真实完整迁移）
 2. **部分提交消息严重夸大**：`f24d0be3` 声称"补齐后端迁移"实际仅改 2 文件 5 行；`6ed35c14` 声称"所有34项缺失已100%修复完成"实际 6 项中严重度缺失仍全部存在
-3. **R19 验证后状态（含未提交工作区改动）**：M-1/M-2/M-3/M-5 已修复（4 项）；M-6/M-9 已注册但部分未集成（2 项部分修复）；M-10/M-11 文件已建但未注册/未集成（2 项部分修复）；M-12/M-13/M-14/M-15 仍未修复（4 项）；R17 usage_count 缺陷已修复；R18 安全基础设施缺失仍未修复；共 4 项未修复 + 4 项部分修复
+3. **R20 验证后状态（含未提交工作区改动）**：M-1/M-2/M-3/M-5 已修复（4 项）；M-6/M-9 已注册但部分未集成（2 项部分修复）；M-10/M-11 文件已建但未注册/未集成（2 项部分修复）；M-12/M-13/M-14/M-15 仍未修复（4 项）；R17 usage_count 缺陷已修复；R18 安全基础设施缺失仍未修复；**R20 新发现 M-16（Web Worker 缺失）+ M-17（25 个客户端服务无对应）**；共 6 项未修复 + 4 项部分修复 + 2 项新发现
 
 ### v9→v10 新增提交追踪（6 个提交）
 
@@ -290,6 +290,68 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 - **严重程度**：中（单个模块影响有限，但 22 个模块累计代表显著的功能覆盖差距）
 - **说明**：部分模块可能是业务裁剪（有意删除），需产品确认是"未迁移"还是"已废弃"
 
+### M-16. 客户端 Web Worker 缺失（R20 新发现）
+- **R20 验证**：旧架构 `client/src/workers/fileWorker.ts` 是客户端 Web Worker，处理文件压缩/缩略图/哈希/分块上传，新架构无 Web Worker
+- **旧架构功能**：`fileWorker.ts` 支持 4 种操作：compress（图片压缩）/ thumbnail（缩略图生成）/ hash（文件哈希）/ chunk（大文件分块上传），在后台线程执行避免阻塞 UI
+- **新架构状态**：
+  - ✅ 图片压缩 + 缩略图：已由服务端 [compression.ts](file:///g:/IHUI-AI/apps/api/src/plugins/compression.ts) + [storage-service.ts](file:///g:/IHUI-AI/apps/api/src/services/storage-service.ts) 覆盖
+  - ❌ 文件哈希（客户端校验）：无对应
+  - ❌ 大文件分块上传：无对应（新架构 files.ts 路由无分块上传支持）
+- **严重程度**：低-中（压缩已迁移到服务端；哈希+分块上传如需客户端大文件支持则不足）
+
+### M-17. 客户端服务层 20+ 文件无对应（R20 新发现）
+- **R20 验证方法**：列出旧架构 `client/src/services/` 40+ 文件，grep 新架构 `apps/` 确认是否有对应
+- **R20 发现**：以下客户端服务在新架构中无对应（grep 关键词在 `apps/api/src/` + `apps/web/src/` 零匹配或仅 i18n 引用）
+
+**旅游业务模块（7 文件，全部无服务端对应）：**
+| 旧服务 | 功能 | 新架构状态 |
+|--------|------|-----------|
+| tourGrayReleaseService.ts | 旅游内容灰度发布（策略/百分比/目标群体/自动提升/监控） | ❌ 缺失（gray-release admin 页为 MOCK） |
+| tourMonitoringService.ts | 旅游内容监控 | ❌ 缺失 |
+| tourAlertService.ts | 旅游告警 | ❌ 缺失 |
+| tourDependencyService.ts | 旅游依赖管理 | ❌ 缺失 |
+| tourEventBus.ts | 旅游事件总线 | ❌ 缺失 |
+| tourMultiPlatformService.ts | 旅游多平台 | ❌ 缺失 |
+| tourRecommendationService.ts | 旅游推荐 | ❌ 缺失 |
+
+**A/B 测试（2 文件）：**
+| 旧服务 | 功能 | 新架构状态 |
+|--------|------|-----------|
+| abTestService.ts | 客户端 A/B 测试（tour_content / tour_flow / reward_display） | ❌ 缺失 |
+| abTestAutomationService.ts | A/B 测试自动化 | ❌ 缺失 |
+
+**AI 辅助服务（5 文件）：**
+| 旧服务 | 功能 | 新架构状态 |
+|--------|------|-----------|
+| GenerationQueueService.ts | AI 生成队列 | ❌ 缺失 |
+| PromptOptimizerService.ts | Prompt 优化器 | ❌ 缺失 |
+| PlotAdvisorService.ts | 剧情顾问 | ❌ 缺失 |
+| VideoQualityAnalyzer.ts | 视频质量分析 | ❌ 缺失 |
+| cognitive-intelligence.ts | 认知智能 | ❌ 缺失 |
+
+**AI 能力服务（6 文件）：**
+| 旧服务 | 功能 | 新架构状态 |
+|--------|------|-----------|
+| ai-capability-discovery.ts | AI 能力发现 | ❌ 缺失（新架构 ai-vendors.ts 有 /models 但无能力发现） |
+| ai-capability-analytics.ts | AI 能力分析 | ❌ 缺失 |
+| ai-capability-marketplace.ts | AI 能力市场 | ❌ 缺失 |
+| ai-capability-documentation.ts | AI 能力文档 | ❌ 缺失 |
+| ai-capability-templates.ts | AI 能力模板 | ❌ 缺失 |
+| ai-capability-testing.ts | AI 能力测试 | ❌ 缺失 |
+
+**其他服务（5 文件）：**
+| 旧服务 | 功能 | 新架构状态 |
+|--------|------|-----------|
+| CacheKeyAnalyzer.ts | 缓存键分析 | ❌ 缺失（@tanstack/react-query 有缓存但无分析） |
+| CacheWarmupService.ts | 缓存预热 | ❌ 缺失 |
+| skills-manager.ts | 技能管理 | ❌ 缺失 |
+| news-crawler.ts / news-scheduler.ts / news-storage.ts | 新闻爬虫/调度/存储 | ❌ 缺失（新架构 news.ts 路由仅有 CRUD） |
+| soundService.ts / user-memory.ts | 音效服务/用户记忆 | ❌ 缺失 |
+
+- **已覆盖**（非缺失）：cozeApiService→[coze.ts](file:///g:/IHUI-AI/apps/api/src/routes/coze.ts)（873 行 46 端点）；clawdbot/→[clawdbot/](file:///g:/IHUI-AI/apps/api/src/services/clawdbot/)（20 服务文件）；rewardService→[gamification.ts](file:///g:/IHUI-AI/apps/api/src/routes/gamification.ts)；unifiedAuthService→[token-service.ts](file:///g:/IHUI-AI/apps/api/src/services/token-service.ts)；agentic-ai→[workspace-ai-service.ts](file:///g:/IHUI-AI/apps/api/src/services/workspace-ai-service.ts)；unified-ai-orchestrator→workspace-ai-service.ts
+- **严重程度**：中（25 个客户端服务文件无对应，但部分可能是业务裁剪——旅游模块、A/B 测试、AI 能力市场等可能是有意删除，需产品确认）
+- **Vue 指令**：✅ safeHtml.ts→[SafeHtml.tsx](file:///g:/IHUI-AI/apps/web/src/components/common/SafeHtml.tsx) 组件；lazyLoad.ts→[use-lazy-image.ts](file:///g:/IHUI-AI/apps/web/src/hooks/use-lazy-image.ts) hook——已覆盖
+
 ---
 
 ## 五、低严重度/实验性（可暂缓）
@@ -364,11 +426,18 @@ agentVersion / botId / botIdStr / botName / agentPrompt / agentModel / agentTemp
 - 上传扫描：upload-scanner.ts
 
 ### 其他完整迁移
-- CLI（6 文件）/ 多租户（插件+路由+3表）/ OpenAPI SDK（generate-sdk.ts）/ i18n（5 语言）/ 定时任务（5 cron，5/5 接入 backing service，M-1 R17 已修复）
+- CLI（6 文件）/ 多租户（插件+路由+3表）/ OpenAPI SDK（generate-sdk.ts）/ i18n（5 语言）/ 定时任务（5 cron，5/5 接入 backing service，M-1 R17 已修复，R19 修复 usage_count 同步）
+
+### R19 新增确认（未提交工作区改动）
+- [ai-world/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/ai-world/page.tsx) — AiWorld 页面（M-3 全部解决）
+- [resilience-extended.ts](file:///g:/IHUI-AI/apps/api/src/plugins/resilience-extended.ts) — degradedMode + Bulkhead（M-10 文件已建，待业务集成）
+- [tenant-db-isolation.ts](file:///g:/IHUI-AI/apps/api/src/plugins/tenant-db-isolation.ts) — withTenant + tenantDbIsolation 插件（M-11 文件已建，待 server.ts 注册）
+- server.ts +4 插件注册（slow-sql-killer / db-keepalive / n1-detector / prompt-injection-guard）——M-6/M-9 运行时生效
+- heat-stats-service.ts +syncAgentUsageCount 函数——R17 usage_count 同步缺陷已修复
 
 ---
 
-## 七、修复优先级建议（v14 更新）
+## 七、修复优先级建议（v16 更新）
 
 ### P0（阻断）— ✅ 全部已修复
 ~~小程序端~~ → 已在 `0ad7afd7` 新增 apps/miniapp/

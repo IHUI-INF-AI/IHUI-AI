@@ -785,3 +785,117 @@ export const adminEduExtendedRoutes: FastifyPluginAsync = async (server) => {
     }));
   });
 };
+
+// =============================================================================
+// course_audit — 课程审核（占位实现，挂载于 /api/edu-ext）
+// =============================================================================
+
+const courseAuditListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  search: z.string().max(200).optional(),
+});
+
+const createCourseAuditBodySchema = z.object({
+  courseId: z.string().min(1),
+  title: z.string().min(1).max(200).optional(),
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  reason: z.string().max(500).optional(),
+});
+
+const updateCourseAuditBodySchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  reason: z.string().max(500).optional(),
+});
+
+const courseAuditStore = new Map<string, {
+  id: string;
+  courseId: string;
+  title: string | null;
+  status: string;
+  reason: string | null;
+  createdAt: string;
+}>();
+
+const eduExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // GET /course-audit/list — 课程审核列表
+  server.get('/course-audit/list', async (request, reply) => {
+    const parsed = courseAuditListQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const { page, pageSize, status, search } = parsed.data;
+    let list = Array.from(courseAuditStore.values());
+    if (status) list = list.filter((c) => c.status === status);
+    if (search) list = list.filter((c) => (c.title ?? '').includes(search));
+    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const total = list.length;
+    const start = (page - 1) * pageSize;
+    const paged = list.slice(start, start + pageSize);
+    return reply.send(success({ list: paged, total, page, pageSize }));
+  });
+
+  // GET /course-audit/:id — 审核详情
+  server.get('/course-audit/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const record = courseAuditStore.get(parsed.data.id);
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'));
+    return reply.send(success(record));
+  });
+
+  // POST /course-audit — 创建审核记录
+  server.post('/course-audit', async (request, reply) => {
+    const parsed = createCourseAuditBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const id = crypto.randomUUID();
+    const record = {
+      id,
+      courseId: parsed.data.courseId,
+      title: parsed.data.title ?? null,
+      status: parsed.data.status ?? 'pending',
+      reason: parsed.data.reason ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    courseAuditStore.set(id, record);
+    return reply.status(201).send(success(record));
+  });
+
+  // PUT /course-audit/:id — 更新审核记录
+  server.put('/course-audit/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params);
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const parsed = updateCourseAuditBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = courseAuditStore.get(idParsed.data.id);
+    if (!existing) return reply.status(404).send(error(404, '审核记录不存在'));
+    const updated = {
+      ...existing,
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+      ...(parsed.data.reason !== undefined ? { reason: parsed.data.reason } : {}),
+    };
+    courseAuditStore.set(idParsed.data.id, updated);
+    return reply.send(success(updated));
+  });
+
+  // DELETE /course-audit/:id — 删除审核记录
+  server.delete('/course-audit/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    courseAuditStore.delete(parsed.data.id);
+    return reply.send(success({ id: parsed.data.id }));
+  });
+};
+
+export default eduExtendedRoutes;
