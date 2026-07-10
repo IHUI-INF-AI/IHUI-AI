@@ -71,6 +71,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
+  source-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for .js/.jsx files in apps/*/src/
+        run: |
+          set -e
+          FILES=$(find apps -path 'apps/*/src/*' -type f \( -name '*.js' -o -name '*.jsx' \) || true)
+          if [ -n "$FILES" ]; then
+            echo "::error::Found .js/.jsx files in apps/*/src/. Use .ts/.tsx instead."
+            echo "$FILES"
+            exit 1
+          fi
+          echo "OK: No .js/.jsx files found in apps/*/src/"
+
   test:
     needs: setup
     runs-on: ubuntu-latest
