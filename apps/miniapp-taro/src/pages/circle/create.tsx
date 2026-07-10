@@ -2,9 +2,8 @@ import { View, Text, Input, Textarea, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { createCircle } from '@/api'
+import { TOPIC_EVENT } from '@/constants/events'
 import './create.css'
-
-export const TOPIC_EVENT = 'circle:topic-selected'
 
 interface FormState {
   title: string
