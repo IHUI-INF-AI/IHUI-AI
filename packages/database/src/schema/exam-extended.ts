@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, integer, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
 import { examPapers } from './exam.js';
 
 /**
@@ -68,9 +68,38 @@ export const examSignups = pgTable(
   }),
 );
 
+/**
+ * 错题本表 (历史 exam_wrong_question)。
+ * wrongCount: 错误次数。lastWrongTime: 最后错误时间。
+ * isMastered: 是否已掌握。
+ */
+export const examWrongQuestion = pgTable(
+  'exam_wrong_question',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull(),
+    questionId: uuid('question_id').notNull(),
+    paperId: uuid('paper_id').notNull(),
+    paperTitle: varchar('paper_title', { length: 200 }),
+    userAnswer: text('user_answer'),
+    rightAnswer: text('right_answer'),
+    wrongCount: integer('wrong_count').default(1).notNull(),
+    lastWrongTime: timestamp('last_wrong_time', { withTimezone: true }),
+    isMastered: boolean('is_mastered').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index('exam_wrong_question_user_idx').on(t.userId),
+    questionIdx: index('exam_wrong_question_question_idx').on(t.questionId),
+  }),
+);
+
 export type ExamChapter = typeof examChapters.$inferSelect;
 export type NewExamChapter = typeof examChapters.$inferInsert;
 export type ExamChapterSection = typeof examChapterSections.$inferSelect;
 export type NewExamChapterSection = typeof examChapterSections.$inferInsert;
 export type ExamSignup = typeof examSignups.$inferSelect;
 export type NewExamSignup = typeof examSignups.$inferInsert;
+export type ExamWrongQuestion = typeof examWrongQuestion.$inferSelect;
+export type NewExamWrongQuestion = typeof examWrongQuestion.$inferInsert;
