@@ -72,7 +72,12 @@
     "adminTags": "Tags",
     "adminLogs": "API Logs",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "wallet": "Wallet",
+    "walletRecharge": "Recharge",
+    "walletWithdraw": "Withdraw",
+    "oauthMyAuthorized": "Authorizations",
+    "oauthApps": "OAuth Apps"
   },
   "auth": {
     "loginTitle": "Welcome Back",
@@ -113,7 +118,31 @@
     "backToLogin": "Back to Login",
     "enterPhone": "Enter your phone number",
     "enterCode": "Enter verification code",
-    "enterNewPassword": "Enter new password"
+    "enterNewPassword": "Enter new password",
+    "loginMethod": "Login Method",
+    "phoneLogin": "Phone",
+    "emailLogin": "Email",
+    "usernameLogin": "Username",
+    "username": "Username",
+    "usernamePlaceholder": "Enter username",
+    "email": "Email",
+    "emailPlaceholder": "Enter email",
+    "enterpriseWechat": "Enterprise WeChat",
+    "captcha": "Captcha",
+    "captchaPlaceholder": "Enter captcha",
+    "captchaImage": "Click to refresh",
+    "phoneCodeLogin": "Code Login",
+    "passwordLogin": "Password Login",
+    "sendEmailCode": "Send Email Code",
+    "emailCodeSent": "Email code sent",
+    "invalidEmail": "Invalid email",
+    "invalidUsername": "Username must be at least 3 characters",
+    "googleNotConfigured": "Google login not configured",
+    "wechatNotConfigured": "WeChat login not configured",
+    "enterpriseNotConfigured": "Enterprise WeChat login not configured",
+    "accountNotFound": "Account not found",
+    "invalidCredentials": "Invalid account or password",
+    "usernameExists": "Username already exists"
   },
   "home": {
     "welcome": "Welcome to IHUI AI",
@@ -292,10 +321,28 @@
     "perYear": "/yr",
     "subscribe": "Subscribe",
     "startFree": "Get Started",
-    "faqHint": "All plans can be canceled at any time. Contact support if you have questions."
+    "faqHint": "All plans can be canceled at any time. Contact support if you have questions.",
+    "details": "VIP Details",
+    "trader": "Trader",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "traderPlan": "Trader Plan",
+    "currentLevel": "Current Level",
+    "expired": "Expired",
+    "active": "Active",
+    "expireAt": "Expires",
+    "benefits": "Benefits",
+    "purchaseSuccess": "Purchase successful",
+    "purchaseFail": "Purchase failed",
+    "myVip": "My VIP",
+    "upgradeNow": "Upgrade Now",
+    "renewNow": "Renew Now",
+    "notVip": "You are not VIP",
+    "choosePlan": "Choose a Plan",
+    "durationDays": "{days} days"
   },
   "asks": {
-    "title": "Q&A",
+    "title": "Title",
     "subtitle": "Ask and answer, help each other",
     "loading": "Loading...",
     "empty": "No questions",
@@ -304,7 +351,6 @@
     "resolved": "Resolved",
     "unresolved": "Unresolved",
     "askQuestion": "Ask",
-    "title": "Title",
     "content": "Content",
     "titlePlaceholder": "Enter question title",
     "contentPlaceholder": "Describe your question in detail",
@@ -322,18 +368,35 @@
       "free": {
         "name": "Free",
         "cta": "Get Started",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "Pro",
         "cta": "Upgrade Now",
-        "features": ["Unlimited AI chats", "Advanced models", "Unlimited projects", "Priority support", "API access"]
+        "features": [
+          "Unlimited AI chats",
+          "Advanced models",
+          "Unlimited projects",
+          "Priority support",
+          "API access"
+        ]
       },
       "enterprise": {
         "name": "Enterprise",
         "cta": "Contact Us",
         "contactSales": "Contact Sales",
-        "features": ["Dedicated deployment", "Team management", "SLA guarantee", "Custom development", "Training support"]
+        "features": [
+          "Dedicated deployment",
+          "Team management",
+          "SLA guarantee",
+          "Custom development",
+          "Training support"
+        ]
       }
     },
     "checkout": {
@@ -1912,20 +1975,19 @@
       "orderNo": "Order No.",
       "plan": "Plan",
       "amount": "Amount",
-      "status": "Status",
-      "createdAt": "Created",
-      "actions": "Actions",
-      "loading": "Loading...",
-      "noData": "No orders found",
-      "pay": "Pay",
-      "view": "View",
       "status": {
         "all": "All",
         "pending": "Pending",
         "paid": "Paid",
         "cancelled": "Cancelled",
         "refunded": "Refunded"
-      }
+      },
+      "createdAt": "Created",
+      "actions": "Actions",
+      "loading": "Loading...",
+      "noData": "No orders found",
+      "pay": "Pay",
+      "view": "View"
     },
     "public": {
       "title": "User Profile",
@@ -1980,29 +2042,74 @@
     },
     "faq": {
       "account": [
-        { "q": "Forgot your password?", "a": "Click “Forgot password” on the login page to reset via phone verification." },
-        { "q": "How to edit profile?", "a": "Go to Settings to update your nickname, avatar and other info." },
-        { "q": "How to delete account?", "a": "Contact support to submit a deletion request, processed within 3 business days." }
+        {
+          "q": "Forgot your password?",
+          "a": "Click “Forgot password” on the login page to reset via phone verification."
+        },
+        {
+          "q": "How to edit profile?",
+          "a": "Go to Settings to update your nickname, avatar and other info."
+        },
+        {
+          "q": "How to delete account?",
+          "a": "Contact support to submit a deletion request, processed within 3 business days."
+        }
       ],
       "payment": [
-        { "q": "What payment methods are supported?", "a": "WeChat Pay, Alipay, Stripe credit card and USDC." },
-        { "q": "How to request a refund?", "a": "Contact support within 7 days of subscription for a full refund." },
-        { "q": "How to cancel subscription?", "a": "Click “Cancel subscription” on the pricing page. Billing stops next cycle." }
+        {
+          "q": "What payment methods are supported?",
+          "a": "WeChat Pay, Alipay, Stripe credit card and USDC."
+        },
+        {
+          "q": "How to request a refund?",
+          "a": "Contact support within 7 days of subscription for a full refund."
+        },
+        {
+          "q": "How to cancel subscription?",
+          "a": "Click “Cancel subscription” on the pricing page. Billing stops next cycle."
+        }
       ],
       "project": [
-        { "q": "How to create a project?", "a": "Click “New Project” in the workspace and enter a name." },
-        { "q": "Is there a project limit?", "a": "Free plan: 1 project. Pro and above: unlimited." },
-        { "q": "How to share a project?", "a": "Open project details and click “Share” to generate a link." }
+        {
+          "q": "How to create a project?",
+          "a": "Click “New Project” in the workspace and enter a name."
+        },
+        {
+          "q": "Is there a project limit?",
+          "a": "Free plan: 1 project. Pro and above: unlimited."
+        },
+        {
+          "q": "How to share a project?",
+          "a": "Open project details and click “Share” to generate a link."
+        }
       ],
       "ai": [
-        { "q": "Which AI models are supported?", "a": "GPT-4, Claude 3.5, Gemini and more. Pro unlocks all models." },
-        { "q": "Daily chat limits?", "a": "Free: 10/day. Pro: unlimited." },
-        { "q": "How to switch models?", "a": "Use the model selector at the top of the chat page." }
+        {
+          "q": "Which AI models are supported?",
+          "a": "GPT-4, Claude 3.5, Gemini and more. Pro unlocks all models."
+        },
+        {
+          "q": "Daily chat limits?",
+          "a": "Free: 10/day. Pro: unlimited."
+        },
+        {
+          "q": "How to switch models?",
+          "a": "Use the model selector at the top of the chat page."
+        }
       ],
       "tech": [
-        { "q": "How to get an API Key?", "a": "Create an app on the Developer platform to get an API Key." },
-        { "q": "API rate limits?", "a": "Default 60 requests/min. Enterprise can request higher limits." },
-        { "q": "Which SDKs are available?", "a": "Official SDKs for Python, Node.js and Go." }
+        {
+          "q": "How to get an API Key?",
+          "a": "Create an app on the Developer platform to get an API Key."
+        },
+        {
+          "q": "API rate limits?",
+          "a": "Default 60 requests/min. Enterprise can request higher limits."
+        },
+        {
+          "q": "Which SDKs are available?",
+          "a": "Official SDKs for Python, Node.js and Go."
+        }
       ]
     }
   },
@@ -2122,12 +2229,30 @@
       "faq": "FAQ"
     },
     "items": {
-      "apiQuickstart": { "title": "API Quickstart", "summary": "Make your first API call in minutes: get an API key and send a request." },
-      "apiAuth": { "title": "API Authentication", "summary": "Learn Bearer tokens, request signing, and scope best practices." },
-      "guideStart": { "title": "Getting Started Guide", "summary": "From sign-up to your first project, learn the platform essentials." },
-      "devArchitecture": { "title": "System Architecture", "summary": "Overview of the frontend, backend, and AI inference data flow." },
-      "devContribution": { "title": "Contribution Guide", "summary": "How to contribute, submit PRs, and follow code standards." },
-      "faqGeneral": { "title": "FAQ", "summary": "Answers to common questions about billing, limits, and accounts." }
+      "apiQuickstart": {
+        "title": "API Quickstart",
+        "summary": "Make your first API call in minutes: get an API key and send a request."
+      },
+      "apiAuth": {
+        "title": "API Authentication",
+        "summary": "Learn Bearer tokens, request signing, and scope best practices."
+      },
+      "guideStart": {
+        "title": "Getting Started Guide",
+        "summary": "From sign-up to your first project, learn the platform essentials."
+      },
+      "devArchitecture": {
+        "title": "System Architecture",
+        "summary": "Overview of the frontend, backend, and AI inference data flow."
+      },
+      "devContribution": {
+        "title": "Contribution Guide",
+        "summary": "How to contribute, submit PRs, and follow code standards."
+      },
+      "faqGeneral": {
+        "title": "FAQ",
+        "summary": "Answers to common questions about billing, limits, and accounts."
+      }
     }
   },
   "teams": {
@@ -2485,7 +2610,10 @@
     "level": "Level",
     "nextLevel": "{points} points to {name}",
     "maxLevel": "Max level reached",
-    "tab": { "tx": "Transactions", "lb": "Leaderboard" },
+    "tab": {
+      "tx": "Transactions",
+      "lb": "Leaderboard"
+    },
     "source": "Source",
     "amount": "Change",
     "balance": "Balance",
@@ -2796,5 +2924,85 @@
     "dayUv": "Daily UV",
     "ipCity": "IP City Distribution",
     "noData": "No data"
+  },
+  "wallet": {
+    "title": "My Wallet",
+    "balance": "Token Balance",
+    "flows": "Transactions",
+    "recharge": "Recharge",
+    "withdraw": "Withdraw",
+    "rechargeTitle": "Recharge Tokens",
+    "rechargeAmount": "Amount",
+    "rechargeMethod": "Payment Method",
+    "rechargeBtn": "Recharge Now",
+    "rechargeSuccess": "Recharge Successful",
+    "rechargeFail": "Recharge Failed",
+    "rechargeSuccessDesc": "Your recharge has been credited",
+    "rechargeFailDesc": "Recharge incomplete, please retry",
+    "withdrawTitle": "Withdrawal Request",
+    "withdrawAmount": "Amount",
+    "withdrawMethod": "Method",
+    "withdrawBtn": "Submit",
+    "withdrawRecords": "Withdrawal Records",
+    "withdrawSuccess": "Withdrawal request submitted",
+    "availableAmount": "Available",
+    "processingAmount": "Processing",
+    "completedAmount": "Completed",
+    "flowType": "Type",
+    "flowAmount": "Amount",
+    "flowBalance": "Balance",
+    "flowTime": "Time",
+    "flowRemark": "Remark",
+    "flowRecharge": "Recharge",
+    "flowDeduct": "Deduct",
+    "flowExpire": "Expire",
+    "flowRefund": "Refund",
+    "flowCommission": "Commission",
+    "statusPending": "Pending",
+    "statusProcessing": "Processing",
+    "statusCompleted": "Completed",
+    "statusFailed": "Failed",
+    "methodWechat": "WeChat",
+    "methodAlipay": "Alipay",
+    "methodBank": "Bank Card",
+    "backToWallet": "Back to Wallet",
+    "empty": "No records",
+    "loading": "Loading..."
+  },
+  "oauth": {
+    "title": "OAuth Authorization",
+    "authorizeTitle": "Authorize",
+    "authorizeDesc": "{app} is requesting access to your account",
+    "scopes": "Scopes",
+    "approve": "Approve",
+    "deny": "Deny",
+    "myAuthorized": "My Authorizations",
+    "myAuthorizedDesc": "Applications you have authorized",
+    "revoke": "Revoke",
+    "revokeSuccess": "Authorization revoked",
+    "noAuthorizations": "No authorizations",
+    "apps": "OAuth Apps",
+    "appsDesc": "Manage your OAuth applications",
+    "createApp": "Create App",
+    "appName": "App Name",
+    "clientId": "Client ID",
+    "clientSecret": "Client Secret",
+    "redirectUris": "Redirect URIs",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "createdAt": "Created",
+    "deleteApp": "Delete",
+    "deleteAppConfirm": "Delete this application?",
+    "appNamePlaceholder": "Enter app name",
+    "redirectUrisPlaceholder": "Enter redirect URIs, comma-separated",
+    "scopeMeta": "Available Scopes",
+    "authorizedAt": "Authorized",
+    "lastUsedAt": "Last Used",
+    "createSuccess": "App created",
+    "deleteSuccess": "App deleted",
+    "copyClientId": "Copy Client ID",
+    "copyClientSecret": "Copy Secret",
+    "secretWarning": "Keep your Client Secret safe, it will not be shown again"
   }
 }

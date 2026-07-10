@@ -42,7 +42,7 @@ export default function RegisterPage() {
     getValues,
     formState: { errors },
   } = useForm<RegisterValues>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema as never),
     defaultValues: { phone: '', code: '', password: '', confirmPassword: '' },
   })
 

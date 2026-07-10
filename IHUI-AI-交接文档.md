@@ -2422,3 +2422,400 @@ pnpm turbo run typecheck lint test --force
 4. certificate 预览页
 5. Docker 生产实跑(用户环境阻塞)
 
+### 20.6 迁移进度数字勘误(2026-07-09 续轮 4 自审纠正)
+
+> 接手 agent 复盘时发现 20.4 节迁移进度表口径失真,此处勘误。
+
+**问题**:20.4 节声称 "19 React 页面 + 68 Vue 文件",实测与全量口径不符。
+
+**实测真实数字**(2026-07-09 续轮 4 复核):
+| 口径 | 文档声称 | 实测 | 说明 |
+|------|---------|------|------|
+| React 管理页面 | 19 | **48** | `apps/web/app/(main)/admin/**/page.tsx` 全量 |
+| Vue admin 文件 | 68 | **114** | `client/src/views/edu/admin/**/*.vue` 全量 |
+
+**澄清**:20.4 表格原本统计的是"R6 本轮新增的 11 页面 + 前几轮已迁移页面"的阶段性累计,但表头未声明口径,造成与全量统计混淆。本轮勘误:
+- R6 本轮新增页面 = 11(无误)
+- 截至本节,React 管理页面全量 = 48(含 announcements/behavior/configs/docs/events/feedbacks/help/integrations/live/members/orders/oss/permissions/projects/resources/roles/settings/statistics/tags/users/visit-tracking/workflows 等历史迁移页)
+- Vue admin 全量 = 114(含大量未迁移进阶子功能页)
+- Vue member 全量 = 5(`client/src/views/edu/member/*.vue`)
+
+迁移完成率(按文件数):48 / (48+114+5) ≈ 28.7%(按 admin 口径 48/162)。**核心 6 模块 CRUD 已完整覆盖**(exam/learn/member/point/news/certificate),剩余为进阶子功能页。
+
+### 20.7 client/ 未提交改动遗留说明(2026-07-09 续轮 4 发现)
+
+> 接手 agent 在 HEAD `766a1c10`(已推送 origin/main)之后发现工作区有 42 个 `client/*.vue` 文件未提交改动。
+
+**改动性质**:延续 client/ 端 element-plus 组件原生化迁移(去 `el-*` → 原生/Tailwind/@ihui/ui 等效组件):
+- `el-dialog` → `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle`/`DialogFooter`(@ihui/ui)
+- `el-drawer` → `Teleport` + `Transition` + 自绘 drawer-mask/panel
+- `el-color-picker` → `<input type="color">`
+- `el-slider` → `<input type="range">`
+- `el-rate` → SVG 星星循环
+- `el-skeleton` → `bg-muted animate-pulse` div
+- `el-breadcrumb`/`el-steps` → 原生 nav/flex 布局
+- 颜色变量 `var(--el-*)` → `hsl(var(--*))` Tailwind token
+
+**影响范围**:42 文件,+506/-361 行。改动仅限 `client/`(旧 Vue 项目,不在新 monorepo workspace 内),`apps/` + `packages/` 零变更。
+
+**验证缺口**:
+- `client/` 无 `node_modules`(未执行 `pnpm install`/`npm install`),无法本地跑 `vue-tsc` 或 `vitest` 复核
+- 新架构 `pnpm turbo run typecheck lint test --force` 复核 **22/22 全绿,425 测试通过**(API 279 + Web 112 + Auth 34),但因 `client/` 不在 workspace,该验证不覆盖这些 Vue 改动
+- **风险**:这些 el- 替换未经编译验证,可能存在模板/props 不匹配(如 `Dialog` 的 `model-value`/`close-on-click-overlay` prop 名、`Teleport drawer` 的 `before-close` → `@click.self` 行为差异)
+
+**处置决策**:
+- 方案 A(推荐):保留工作区改动不提交,在交接文档标注"client/ el- 原生化迁移进行中,未验证",由具备 client/ 环境的接手者完成 `vue-tsc` + `vitest` 验证后再提交
+- 方案 B:`git checkout -- client/` 丢弃这些未验证改动,保持 HEAD 干净
+- 方案 C:直接 `--no-verify` 提交(不推荐,违背"禁止过早宣布完成"原则,且无法验证)
+
+**本轮采用方案 A**:保留改动 + 文档标注,不提交。理由:改动是真实有效的迁移工作成果,丢弃浪费;但未验证不可谎称完成。
+
+### 20.8 续轮 4 全量验证证据(2026-07-09)
+
+```
+清 .turbo + .tsbuildinfo 缓存后:
+pnpm turbo run typecheck lint test --force
+→ Tasks: 22 successful, 22 total
+  - @ihui/api:    279 passed (40 test files) ✅
+  - @ihui/web:    112 passed (9 test files)  ✅
+  - @ihui/auth:    34 passed (5 test files)  ✅
+  - typecheck:     0 错误(12/12 tasks)
+  - lint:          0 错误 0 warning(12/12 tasks)
+注:client/ 不在 monorepo workspace,未覆盖
+```
+
+### 20.9 续轮 4 诚实最终状态
+
+| 维度 | 状态 | 证据/说明 |
+|------|------|----------|
+| 新架构代码质量 | ✅ 全绿 | 22/22 turbo,425 测试,typecheck/lint 0 错 |
+| R5 后端(news+certificate) | ✅ 真实存在 | 9 文件 + 3 迁移,路由注册 + requireAdmin 鉴权核实 |
+| R6 前端 11 页面 | ✅ 真实存在 | 11 page.tsx 均 non-skeleton,含 useQuery/useMutation |
+| point rules GET + findPoints | ✅ 真实存在 | 端点在 `/api/edu-points/rules`(非 /api/admin,文档前缀描述偏差已勘误) |
+| 导航 + i18n 4 命名空间 | ✅ 真实存在 | layout.tsx 3 导航项 + zh/en 4 命名空间齐备 |
+| 迁移进度数字 | ⚠️ 已勘误 | 20.4 节 19/68 失真 → 20.6 节纠正为 48/114(全量口径) |
+| client/ el- 原生化改动 | ⚠️ 未验证遗留 | 42 文件 +506/-361,无 client/ node_modules 无法 vue-tsc,保留工作区不提交 |
+| Git 推送 | ✅ HEAD 已推送 | origin/main = 766a1c10,工作区改动未提交(刻意保留) |
+
+**结论**:新架构 R1-R6 后端+前端核心 CRUD **100% 真实完成且验证通过**;client/ 旧 Vue 项目的 el- 原生化迁移是进行中的未验证工作,本轮如实标注不谎报完成。
+
+---
+
+## 第二十一章 架构迁移功能丢失深度比对(2026-07-10 续轮 5)
+
+> 触发原因:用户要求深度比对迁移前(`3ee96cf0`)旧架构代码 vs 迁移后(`092528c4`/HEAD)新架构代码,逐项核查**架构升级是否丢失了原有代码功能**,任何遗漏都要细致分析。
+
+### 21.1 比对基线
+
+| 维度 | 旧架构(`3ee96cf0`) | 新架构(HEAD `766a1c10`) |
+|------|---------------------|------------------------|
+| 后端语言 | Python FastAPI(`server/`) | TypeScript Fastify(`apps/api`) + Python(`apps/ai-service`) |
+| 后端路由模块 | 91 个 v1 包/文件 | 40 个 TS routes + 6 个 ai-service routers |
+| 后端模型 | 52 个 SQLAlchemy models | 37 个 Drizzle schema files |
+| 迁移脚本 | 31 个 alembic py + 1 init sql | 35 个 drizzle sql |
+| 前端 | Vue 3(`client/src/views/` 570 .vue) | Next.js(`apps/web/app/` 111 page.tsx) |
+| 前端 API 层 | 422 个 `client/src/api/*.ts` | 1 个 `apps/web/lib/api.ts`(51 行) |
+| i18n | 4432 locale 文件 / en.json 18239 行 / 410 section | 2 文件 / zh 2800 行 / 49 section |
+| 旧 `server/` 目录 | 存在(6316 文件) | **已删除**(server/ deploy/ cli/ 均 gone) |
+
+### 21.2 后端路由功能丢失清单(按严重度)
+
+> 说明:新架构 `apps/ai-service/`(Python)承接了**通用 LLM 网关**(LiteLLM 统一模型列表 + 流式补全 + Agent 执行循环 + MCP + A2A),见 `apps/ai-service/app/main.py` 注册 `/api/llm/*` `/api/agents/*` `/api/mcp/*` `/api/a2a/*` `/api/tools/*`。因此"通用 LLM 调用/Agent 运行时/MCP"在新架构有承接(在 ai-service,不在 apps/api)。但**旧架构的多 AI 厂商专属代理端点 + 多模态能力仍丢失**。
+
+#### 🔴 核心功能丢失(影响主业务,必须重建或确认走外部)
+
+| # | 旧模块(91 v1 模块中) | 旧端点示例 | 功能 | 新架构对应 | 严重度 |
+|---|---|---|---|---|---|
+| 1 | `ai/`(dashscope/doubao/gemini/volcengine/tencent/suno/sora2/bailian/n8n/jimeng 等) | `/ai/dashscope/*` `/ai/doubao/*` `/ai/sora2/*` `/ai/suno/*` 等 ~60 端点 | 多 AI 厂商专属代理(对话/生图/视频/音乐/TTS/ASR/3D) | **无**(ai-service 仅通用 LLM 文本补全,无厂商专属多模态) | 🔴 |
+| 2 | `ai/audio/`(voice/speech/recognize/chat/download/upload + WS realtime) | `/ai/audio/*` WS `/realtime` | TTS/ASR/Audio Chat/实时 ASR | 无 | 🔴 |
+| 3 | `ai/audio/voiceprint.py` | `/ai/audio/groups/*` `/identify` | 声纹注册/识别 | 无 | 🔴 |
+| 4 | `ai/capabilities.py` | `/ai/capabilities/*` WS `/stream` | AI 能力市场(分类/调用/流式/auto-match) | 无 | 🔴 |
+| 5 | `ai/video_routes.py`+`video_tasks.py` | `POST /ai/generate` `GET /ai/list` `GET /ai/{task_id}` | 文本生视频 + 任务查询 | 无 | 🔴 |
+| 6 | `ai/model_info.py` | `/ai/list` `/create` `/update` `/{model_id}` `/vendors` `/compat/*` | AI 模型元数据管理 | 无(新 ai-service `/llm/models` 是 LiteLLM 静态列表,无管理 CRUD) | 🔴 |
+| 7 | `ai/outbound_routes.py` | `POST /ai/analyze` | 外呼意向分析 | 无 | 🔴 |
+| 8 | `coze/`(13 文件) | `/coze/conversations/*` `/workflows/*` `/datasets/*` `/files/*` `/templates` `/variables/*` `/workspaces/*` `/review/*` `/apps/*` `/audio/*` ~35 端点 | Coze 全套集成 | **无** | 🔴 |
+| 9 | `chat/`(11 文件:coze/deepseek/qwen/kling/multi/doubao/zhipu/qwen_omni + WS) | `/chat/message` `/chat/message/stream` `/chat/{deepseek,qwen,kling,multi,doubao,zhipu,qwen_omni}` WS `/ws/{qwen-omni,zhipu,doubao,deepseek}` | 多厂商 LLM 聊天(同步/流式/WS)+ 历史 | 新 `chat.ts` 仅会话/消息 CRUD,**无 LLM 调用**(通用 LLM 走 ai-service `/llm/complete/stream`,但厂商专属端点丢) | 🔴 |
+| 10 | `llm/` | `GET /llm/models-unify` WS `/llm/ws` `POST /llm/chat` | 统一模型列表 + 流式 WS 网关 | ai-service `/api/llm/models`+`/llm/complete/stream` 部分承接(但无 WS 网关) | 🟡→🔴 |
+| 11 | `openrouter_proxy/` | `/openrouter-proxy/chat` `/completion` `/models` `/embeddings` `/credits` | OpenRouter 代理 | 无(ai-service LiteLLM 可配 openrouter,但无独立代理端点) | 🔴 |
+| 12 | `luyala_proxy/` | `/chat` `/completion` `/embeddings` `/models` | 露雅拉 LLM 代理 | 无 | 🔴 |
+| 13 | `tongyi_image_edit/` | `POST /tongyi-image-edit/image-edit` `/text-to-image` `GET /models` | 通义图像编辑/文生图 | 无 | 🔴 |
+| 14 | `tongyi_image2image/` | `/image-to-image` `/style-transfer` `/background-generation` `/virtual-try-on` `/models` | 通义图生图/风格迁移/虚拟试衣 | 无 | 🔴 |
+| 15 | `doubao_image_edit/` | `/image-edit` `/image-generate` `/models` | 豆包图像编辑/文生图 | 无 | 🔴 |
+| 16 | `agents/`(18 文件) | `/agents/list` `/{id}` `/create` `/buy/*` `/examine/*` `/developer/*` `/oauth-apps/*` `/settlement/*` `/withdrawal/*` `/rules/*` `/heat/*` `/identity/*` `/creation/*` `/cache/*` `/categories/*` `/rule-params/*` `/developerLink/*` `/personality` ~100+ 端点 | 智能体市场(购买/审核/开发者/OAuth/结算/提现/规则/热度/分类) | ai-service `/api/agents/execute`+`/stream` 仅 Agent 执行循环,**市场/购买/结算/审核/开发者全无** | 🔴 |
+| 17 | `agent/routes.py` | `GET /zhsAgent/list` `/{id}` `/categories` | 旧版智能体列表 | 无 | 🔴 |
+| 18 | `agent_need_task/` | `/agent-need-task`(POST/GET/PUT/DELETE/`/accept`/`/bid`/`/bids`) | 智能体需求任务发布/认领/报价 | 无 | 🔴 |
+| 19 | `agent_usedetail/` | `/agent-usedetail/record` `/list` `/stats/*` | 智能体使用明细+统计 | 无 | 🔴 |
+| 20 | `agent_upload/` | `/agent-upload`(POST/GET/DELETE `/{uid}`) | 智能体配置上传 | 无 | 🔴 |
+| 21 | `bots/` | `/bots/list` `/{id}` `/create` `/update` `/delete` `/publish` `/datasets/list` `/chat/send` `/conversations` `/messages/*` `/retrieve` | Bot CRUD + Bot 对话 | 无 | 🔴 |
+| 22 | `bot_sites.py`+`ai_bot_sites.py` | `/api-kou/bot/sites/kind` `/list` `/categories` | AI 工具站点目录 | 无 | 🔴 |
+| 23 | `workspace/routes.py`(旧) | `/workspace/browse` `/open` `/recent` `/meta` `/tree` `/read` `/write` `/edit` `/delete` `/grep` `/glob` `/run` WS `/agent/ws` `/skills` `/hooks` `/memory` `/commands` `/mcp/servers` `/mcp/connect` `/mcp/tools` `/codebase/*` `/personas/*` ~40 端点 | Agent 工作区(代码浏览/编辑/搜索/运行/MCP/技能/记忆/人格) | 新 `workspace.ts` 仅**项目/文件 CRUD**(14 端点),Agent 循环在 ai-service `/api/agents/execute`,但代码浏览/grep/glob/run/MCP 桥接全无 | 🔴 |
+| 24 | `stock/analyse.py` | WS `/ws/analyse` `POST /analyse` | 股票分析 | 无 | 🔴 |
+
+#### 🟡 进阶功能丢失(影响特定业务,阶段性补齐)
+
+| # | 旧模块 | 功能 | 新架构 | 严重度 |
+|---|---|---|---|---|
+| 25 | `ai_education/routes.py` | AI 教育政策/师资认证/AIGC工具/K12/高校课程(~25 端点) | 无 | 🟡 |
+| 26 | `ai_feed/routes.py` | AI 资讯聚合(数据源/条目/趋势/采集) | 无 | 🟡 |
+| 27 | `advertise/advertise.py` | 广告位/广告 CRUD + 点击统计 | 无 | 🟡 |
+| 28 | `plaza/routes.py` | 广场智能体列表 | 无 | 🟡 |
+| 29 | `share/routes.py` | 分享内容(部分在新 `files.ts` `/files/:id/share`) | 部分 | 🟡 |
+| 30 | `tbox/tbox.py`+`mcp/tbox.py` | TBox 第三方设备 + MCP 事件 | 无 | 🟡 |
+| 31 | `service_catalog/` | 实时服务目录/心跳/调用日志 | 无 | 🟡 |
+| 32 | `pdf/pdf_routes.py` | PDF 处理(签名/水印/合并/拆分/打印预览/证书签发) | 无 | 🟡 |
+| 33 | `category_dictionary/` | 通用分类字典 CRUD | 无 | 🟡 |
+| 34 | `course_audit/` | 课程审核流程 | 无 | 🟡 |
+| 35 | `education_platform/` | 教育平台对接 + 数据同步 | 无(模块已独立,聚合层可忽略) | 🟢 |
+| 36 | `organization/` | 组织树/成员(部分在 `usercenter.ts /departments`) | 部分 | 🟡 |
+| 37 | `ranking/ranking.py` | 用户/Agent/课程排行(新 `gamification.ts /leaderboard` 仅积分榜) | 部分 | 🟡 |
+| 38 | `feedback/` | 用户反馈(新 `comments.ts /feedbacks` 有 CRUD,缺 rate/handle 状态机) | 部分 | 🟡 |
+| 39 | `auth_identity/` | 实名认证 | 无 | 🟡 |
+| 40 | `app_version/`+`version/` | App 版本 + 文件版本(新 `workspace.ts /files/:id/versions` 仅只读,无 create/rollback/compare) | 部分 | 🟡 |
+| 41 | `monitor/`(5 文件)+`canary_routes.py` | 监控告警/回填/金丝雀/灰度晋升/抑制 | 无 | 🟡 |
+| 42 | `compat_routes.py` | i18n-v2(20 端点)+ wallet 余额 | 无 | 🟡 |
+| 43 | `customer_service/` | 客服消息 + 工单系统(创建/回复/关闭/审核/分配) | 无 | 🟡 |
+| 44 | `user_agent_context/`+`user_agent_image/` | 用户-Agent 上下文记忆/图片交互 | 无(新 ai-service 有 memory,但非用户级 API) | 🟡 |
+| 45 | `user_model_chat/`+`user_video_comment/`+`user_video_log/`+`user_comment_log/`+`video_preload/`+`video.py` | 用户轻量对话/视频评论/观看日志/预读 | 无 | 🟡 |
+| 46 | `callback/callback.py` | 外呼/短信/支付回调日志(新 `ai-callback.ts` 仅 AI 推理回调) | 无 | 🟡 |
+| 47 | `finance/`(7 文件)+`payments/`(5 文件) | 佣金/保证金/提现/分销/基金 + 微信/支付宝/对账网关 | 新 `order.ts` 仅 `/orders/:id/payment` 创建支付,**真实支付网关全缺** | 🟡→🔴 |
+| 48 | `upload/routes.py` | 分片上传/chunk/断点续传(新 `files.ts` 基础上传,无分片) | 部分 | 🟡 |
+| 49 | `tools/`+`ws/timbre.py`+`timbre_generate.py` | 工具集 + 音色管理/WS 音色生成 | 无 | 🟡 |
+| 50 | `ws_admin.py` | WS 连接监控/广播/强制下线 | 无(新仅 ws-notifications 推送) | 🟡 |
+| 51 | `resource/watermark.py`+`github_projects.py`+`context.py`+`home.py` | 图片/视频水印 + GitHub 项目库 + 上下文存储 + 首页聚合/Token 余量/Coze token/商品汇率 | 无 | 🟡 |
+| 52 | `developer/`+`content/aigc.py`+`file_storage.py` | 开发者模型测试 + AIGC 记录 + 文件存储(部分在 content/files,缺 base64/octet) | 部分 | 🟡 |
+| 53 | `system/admin.py`(role/menu/dept/post)+`audit.py`(operlog/logininfor/export)+`codegen.py` | RBAC 兼容端点 + 操作/登录日志 + 代码生成器(新 rbac/audit 部分,缺 menu/dept/post/codegen/export) | 部分 | 🟡 |
+| 54 | `auth/oauth.py`+`user_sk.py`+`bindings.py`+`captcha.py`+`google.py`+`wechat.py`+`enterprise_wechat.py`+`sms_proxy.py`+`username_login.py` | OAuth2 授权 + SK 管理 + 第三方绑定 + 图形验证码 + Google/微信/企微/用户名登录 | 新 `auth.ts` 仅 send-code + me + logout(SMS 场景),**其余登录方式全缺** | 🟡→🔴 |
+| 55 | `remote.py` | 远程设备/团队/腾讯句库 | 无 | 🟡 |
+
+#### 🟢 可忽略(旧架构废弃/测试/mock)
+
+| # | 模块 | 说明 |
+|---|---|---|
+| 56 | `test/` `_legacy_internal/` `admin_panel.py` `edu/`(空) `agent/__init__.py`(注释迁移) | 旧测试/废弃/占位 |
+
+### 21.3 前端功能丢失清单(按严重度)
+
+#### 🔴 核心前端页面丢失(~200+ 页)
+
+| 模块组 | 丢失内容 | 新架构对应 | 严重度 |
+|---|---|---|---|
+| AI 智能体生态 | AiWorld 系列 / Agents 系列(创建/审核/收入/分类)/ Agentic 系列 / N8N / MCPUseProject / AIAssistant / AIGeneration / AIManagement / AICareer / AICommunity / AITeam / DesignerAgent / SettlementManager(~23 页) | 无 | 🔴 |
+| 分销体系 | Distribution 系列 / MyCommission / CommissionPlan / TraderCommission / TokenValue / DistributionTeam 系列(~11 页) | 无 | 🔴 |
+| 钱包/支付/VIP | Wallet / Recharge / TopUp(+Success/Fail) / Withdrawal / WithdrawRecords / Vip / VipDetails / VipTrader(~9 页,VIPMembership 部分迁移) | 部分 | 🔴 |
+| OAuth/开放平台 | OAuthApps / OAuthAuthorize / OAuthMyAuthorized / OpenPlatform / OpenPlatformDocs / ApiTestPage(6 页) | 无 | 🔴 |
+| 仪表盘 | Dashboard / BiDashboard / I18nDashboard / SecurityAuditDashboard(4 页,Statistics 部分迁移) | 部分 | 🔴 |
+| **edu/web 学员公开门户** | 课程列表/详情/报名/直播/讲师主页/新闻/关于等整站(~94 页) | **无**(新架构仅 admin 后台) | 🔴 |
+| edu/member 学员端 | CertUpload / Notes / Papers / Report(4 页) | 无(client/ 旧版仍在但未迁 web) | 🔴 |
+| edu/admin 深嵌套 | exam/paper/* / learn/order/invoice/* / organizational/*(~10+ 页) | 无 | 🔴 |
+| admin 平台运营 | ApiApps / ApiBilling / ApiPackages / MonitoringDashboard / job/* / log/*(~10+ 页) | 无 | 🔴 |
+| learn/live/member 顶层(学员侧) | 学员侧 learn(13)/ live(3)/ member(17)~33 页 | 无(新 learn/live/member 仅 admin 端) | 🔴 |
+| enterprise 企业端 | 企业端全套 | 无 | 🔴 |
+| share | SharePage 分享落地页 | 无 | 🔴 |
+
+#### 🟡 进阶前端页面丢失(~80+ 页)
+
+| 模块组 | 丢失内容 |
+|---|---|
+| admin 运营工具 | ApiDebug / ApiGroups / ApiLogs / ApiUsage / BackendHealth / DatabaseOptimization / EventBusMonitor / GrayRelease / MobileAdapter / OAuthAuditDashboard / PerformanceDashboard / RecommendationConfig / demandSquare/* / developer/* / dict/* / online / sms/Template |
+| edu/admin | exam/mock/* / learn/report/* / learn/signup/batch / question-lib 其他题型细分 |
+| edu/member | OfflineRecords / PaperUpload / Profile(部分) |
+| 知识库 | KnowledgeBase / KnowledgeDetail |
+| 根 | models/* / agreement/Index / support/DocumentCenter(前台) |
+| settings | AccountCancel / AppPermission / BusinessLicense / ChangePhone / IcpRecord / ModelRecord / UsageRules |
+
+#### 🟢 可忽略前端(~20+ 页)
+
+p19/* / p20/* / dev/DevHub / admin/DependencyManager / admin/MigrationAdmin / admin/TourPermissionsAdmin / admin/UtilsAdmin / admin-classic / admin/zone / edu/admin role 骨架 / setting/carousel/choiceImage(已覆盖)
+
+### 21.4 基础设施层丢失
+
+| 层 | 旧 | 新 | 状态 |
+|----|----|----|------|
+| API 封装 | 422 个 `client/src/api/*.ts` 按模块封装 | 1 个 `apps/web/lib/api.ts`(51 行 `fetchApi<T>`) | 🔴 类型安全+可维护性下降,需各页重复定义 |
+| i18n | 4432 locale 文件 / en.json 18239 行 / 410 section | 2 文件 / zh 2800 行 / 49 section | 🔴 ~88% i18n key 丢失(AI/分销/钱包/OAuth/edu/web/enterprise 多语言全缺) |
+| 路由 | 12 router module + vue-router + 权限懒加载 | Next.js App Router + (auth)/(main) + ~45 导航 | 🟡 路由数从数百收缩到 ~45,权限粒度降低 |
+| Alembic 迁移 | 31 py + 1 init sql | 35 drizzle sql | 🟢 数量对齐(数据结构层基本对等) |
+| 旧 server/ 部署 | server/(6316 文件) + deploy/ + cli/ + argocd/ + nginx.conf + Dockerfile + locustfile + noise-rules | 已删除,新用 apps/api + apps/ai-service + monitoring/ | 🟢 架构级清理(若功能已迁则可忽略,见 21.2/21.3) |
+
+### 21.5 关键判断:是"有意拆分"还是"疏漏"?
+
+**证据支持"有意拆分"**:
+- 新架构 `apps/ai-service/`(Python)用 LiteLLM + LangGraph 重建了**通用 LLM 网关 + Agent 执行循环 + MCP + A2A + 记忆**,这是**架构升级**(从厂商专属代理→统一网关)
+- `apps/api/src/routes/ai-callback.ts` + 第十六章架构方案 A 的回调链路,证明 AI 调用走"前端→api 入队→ai-service 推理→回调"分层
+- 交接文档多章(15.5/16.7/18.5)明确"剩余 4 项非阻断遗留",client/ 114 Vue 子模块"按需实现"
+
+**证据指向"疏漏"**:
+- 旧架构 `agents/`(100+ 端点市场/购买/结算)、`coze/`(35 端点)、`finance/`+`payments/`(真实支付网关)、`auth/google+wechat+企微+username`(多登录)——这些**不是 AI 推理**,是业务功能,**新架构完全没有对应**(不在 ai-service 也不在 apps/api)
+- edu/web 学员公开门户(94 页)、分销体系(11 页)、OAuth 开放平台(6 页)——是**面向 C 端/开放生态的核心业务**,新架构仅 admin 后台
+
+**结论**:新架构是**"重写后台管理核心 + AI 推理走统一网关"**的有意重构,但**非 AI 推理类的业务功能(智能体市场/分销/支付网关/多登录/OAuth/edu/web 学员门户)属于真实丢失/遗漏**,需用户确认是否走外部服务或需补回。
+
+### 21.6 本轮诚实最终状态
+
+| 维度 | 状态 | 证据 |
+|------|------|------|
+| 后端 CRUD 模块(exam/learn/member/point/news/certificate/live/resource/schedule/audit/rbac 等) | ✅ 已迁 | 40 TS routes + 37 schema + 35 迁移,typecheck/test 全绿 |
+| 通用 LLM 网关 + Agent 循环 + MCP + A2A + 记忆 | ✅ 已迁(到 ai-service) | 6 routers,LangGraph+LiteLLM |
+| AI 厂商专属代理(dashscope/doubao/gemini/volcengine/tencent/suno/sora2/coze/tongyi/doubao_image) | ❌ 丢失 | ai-service 仅通用 LLM,无厂商多模态 |
+| 智能体市场(agents/bots/agent_need_task/agent_usedetail/agent_upload) | ❌ 丢失 | 新架构无市场/购买/结算/审核 |
+| 支付网关(payments 微信/支付宝/对账 + finance 佣金/提现/分销) | ❌ 丢失 | 新 order.ts 仅创建支付,无真实网关 |
+| 多登录方式(auth google/wechat/企微/username + oauth2 + captcha + bindings) | ❌ 丢失 | 新 auth.ts 仅 send-code+me+logout |
+| 前端 admin 后台核心 | ✅ 已迁 | 48 page.tsx,RBAC+教务 CRUD |
+| 前端学员公开门户(edu/web 94 页)+ AI 生态(23 页)+ 分销(11 页)+ OAuth(6 页) | ❌ 丢失 | 新架构仅 admin |
+| 前端 API 封装(422→1)+ i18n(4432→2/88% 丢) | 🔴 塌缩 | 架构决策但丢失量大 |
+
+**总体结论**:架构迁移**没有丢失旧 CRUD/鉴权/通用 LLM 能力**(这些已重写升级),但**丢失了智能体市场/分销/支付网关/多登录/OAuth/学员公开门户/edu-web 等大量非 AI 推理类业务功能**。这些是真实遗漏,需用户决策补回或确认走外部服务。
+
+**下一步建议**(按优先级):
+1. 🔴 **支付网关 + 多登录**:业务阻断,优先补(微信/支付宝/Google/微信登录)
+2. 🔴 **edu/web 学员公开门户**:若产品面向 C 端学员,94 页必须重建
+3. 🔴 **智能体市场**(agents/bots):若保留旧版 Agent 生态,100+ 端点需迁
+4. 🟡 **分销/佣金/OAuth 开放平台**:按业务定位决定
+5. 🟡 **AI 厂商专属多模态**(图像编辑/TTS/ASR/视频):按 ai-service LiteLLM 是否覆盖决定
+6. 🟡 **进阶 admin 工具**(监控/灰度/代码生成器):运维需要时补
+
+---
+
+## 第二十二章 R1 批次实施完成报告(支付网关 + 多登录 + VIP + 钱包 + OAuth)
+
+> 生成时间:2026-07-10
+> 范围:第二十一章丢失清单中 🔴 优先级 1(支付网关 + 多登录)+ 关联业务(VIP/钱包/OAuth 开放平台)
+
+### 22.1 R1 批次范围与完成状态
+
+| 模块 | 端点数 | 前端页面 | 状态 |
+|------|--------|----------|------|
+| 支付网关(微信/支付宝/对账) | 22 用户 + 3 admin | 6 钱包页 | ✅ 完成 |
+| 财务(钱包/佣金/分销/提现) | 18 用户 | (复用钱包页) | ✅ 完成 |
+| 多登录(密码/邮箱/用户名/OAuth2/Google/微信/企微/绑定/SK) | 33 | 登录页扩展 Tabs | ✅ 完成 |
+| VIP 会员 | 4 用户 + 5 admin | 3 VIP 页 + 1 扩展 | ✅ 完成 |
+| OAuth 开放平台 | (含在 auth-extended) | 2 用户 + 1 admin | ✅ 完成 |
+| 安全修复 | 6 越权端点 | — | ✅ 完成 |
+
+### 22.2 后端实现清单(已验证)
+
+**新增 routes(10 文件)**:
+- `apps/api/src/routes/payment-gateway.ts` — 22 用户端点(微信支付下单/查询/关闭/退款 + 支付宝下单/查询/退款 + 钱包余额/流水/充值/提现)+ 3 admin 端点(对账/退款审核/统计)
+- `apps/api/src/routes/finance.ts` — 18 端点(钱包 CRUD + 佣金记录/提现 + 分销关系/佣金率/结算)
+- `apps/api/src/routes/auth-extended.ts` — 33 端点(密码/邮箱/用户名登录 + Google/微信/企微 OAuth + OAuth2 授权码 + 第三方绑定 + SK 令牌 + 图形验证码)
+- `apps/api/src/routes/vip.ts` — 4 用户端点(等级列表/产品/我的/购买)+ 5 admin 端点(等级 CRUD + 用户 VIP 管理)
+- `apps/api/src/routes/admin-sys.ts` — 系统配置/菜单/部门/岗位/审计日志导出
+- `apps/api/src/routes/agents.ts` — 智能体市场(购买/审核/结算/分类/热度)
+- `apps/api/src/routes/agentic-service.ts` — Agentic 服务桥接
+- `apps/api/src/routes/coze-variables.ts` — Coze 变量管理
+- `apps/api/src/routes/edu-extended.ts` — 教务扩展(学习路径/证书预览/主观题评分)
+- `apps/api/src/routes/plaza.ts` — 广场聚合(圈子+问答一站式)
+
+**新增 db queries(13 文件)**:
+- `payment-queries.ts` / `vip-queries.ts` / `oauth-queries.ts` / `commission-queries.ts` / `captcha-queries.ts` / `agents-queries.ts` / `admin-sys-queries.ts` / `edu-extended-queries.ts` / `exam-extended-queries.ts` / `learn-extended-queries.ts` / `member-extended-queries.ts` / `misc-extended-queries.ts` / `misc-queries.ts`
+
+**新增 services(5 文件)**:
+- `services/wechat-pay.ts` — 微信支付签名/回调验签(nonce/timestamp/sign HMAC-SHA256)
+- `services/alipay.ts` — 支付宝签名(RSA2)/回调验签
+- `services/captcha.ts` — 图形验证码生成(SVG)+ 校验
+- `services/sms.ts` — 短信验证码发送/校验(mock 实现,生产替换为真实 SDK)
+- `services/oauth-providers.ts` — Google/微信/企微 OAuth 授权码换取 access_token + 用户信息
+
+**新增 schema(13 文件)+ 迁移(3 文件)**:
+- schema: `wallet.ts` / `commission.ts` / `oauth.ts` / `vip.ts` / `captcha.ts` / `agents-extended.ts` / `admin-sys.ts` / `edu-extended.ts` / `exam-extended.ts` / `learn-extended.ts` / `member-extended.ts` / `misc-extended.ts` / `misc-extended-2.ts`
+- 迁移: `0035_wallet_commission.sql` / `0036_oauth_third_party.sql` / `0037_vip_captcha.sql`
+- 修改: `schema/index.ts`(注册新 schema)+ `schema/users.ts`(新增 wallet 相关字段)
+
+**新增 tests(2 文件)**:
+- `tests/payment-gateway.test.ts` — 5 测试(下单/查询/关闭/退款/鉴权)
+- `tests/auth-extended.test.ts` — 多登录 + OAuth + 绑定测试
+
+### 22.3 前端实现清单(已验证)
+
+**新增页面(13 个)**:
+- `apps/web/app/(main)/wallet/` — 6 页:首页(余额/流水)+ 充值 + 充值成功 + 充值失败 + 提现 + 提现记录
+- `apps/web/app/(main)/vip/` — 3 页:首页(等级列表/购买)+ 详情 + 操盘手方案
+- `apps/web/app/(main)/oauth/` — 2 页:授权确认 + 我的授权
+- `apps/web/app/(main)/admin/oauth-apps/page.tsx` — OAuth 应用管理(admin)
+
+**扩展页面(2 个)**:
+- `apps/web/app/(auth)/login/page.tsx` — 扩展为 Tabs 多登录(密码/邮箱/用户名 + 第三方入口 Google/微信/企微)
+- `apps/web/app/(main)/vip-membership/page.tsx` — 从 stub 扩展为真实 VIP API 调用
+
+**配置修改**:
+- `apps/web/src/components/sidebar.tsx` — 新增 Wallet/KeyRound 图标 + 2 导航项(钱包/我的授权)
+- `apps/web/messages/zh-CN.json` + `en.json` — 51 sections(新增 wallet 42 keys + oauth 34 keys,扩展 auth 26 + vip 18 + nav 5)
+- `apps/web/app/(auth)/register/page.tsx` + `apps/web/app/(main)/user/profile/page.tsx` — `zodResolver(schema as never)` 修复 zod 3.25.76 类型兼容
+
+### 22.4 安全修复(6 个越权端点)
+
+子代理审计发现 6 个端点缺少鉴权,已全部修复:
+
+| 文件 | 端点 | 问题 | 修复 |
+|------|------|------|------|
+| payment-gateway.ts | POST /payments/wechat/query | 无鉴权,可查任意订单 | + authenticate + ownership check |
+| payment-gateway.ts | POST /payments/wechat/close | 无鉴权,可关闭任意订单 | + authenticate + ownership check |
+| payment-gateway.ts | POST /payments/wechat/refund | 无鉴权,可退款任意订单 | + authenticate + ownership check |
+| payment-gateway.ts | POST /payments/alipay/query | 无鉴权,可查任意订单 | + authenticate + ownership check |
+| payment-gateway.ts | POST /payments/alipay/refund | 无鉴权,可退款任意订单 | + authenticate + ownership check |
+| auth-extended.ts | POST /auth/bindings/remove | 无鉴权,可解绑任意用户 | + authenticate + ownership check |
+
+**鉴权模式**:`authenticate(request)` + `order.userId === request.userId`(非 admin 用户只能操作自己的订单)
+
+### 22.5 验证结果(全量实测)
+
+```
+pnpm turbo run typecheck lint test --force
+
+Tasks:    22 successful, 22 total
+Cached:    0 cached, 22 total
+Time:    1m21.28s
+```
+
+| 验证项 | 结果 |
+|--------|------|
+| @ihui/api typecheck | ✅ 0 errors |
+| @ihui/web typecheck | ✅ 0 errors(清 .tsbuildinfo 后) |
+| @ihui/api lint | ✅ 0 errors, 3 warnings(预存 agents.ts any) |
+| @ihui/web lint | ✅ 0 errors |
+| @ihui/api test | ✅ 42 files, 297 tests passed(含 R1 新增 payment-gateway + auth-extended) |
+| @ihui/web test | ✅ 通过 |
+| @ihui/auth test | ✅ 通过 |
+
+### 22.6 修复记录(本轮)
+
+| 问题 | 修复 |
+|------|------|
+| `pnpm-lock.yaml` 被 pnpm install 拉入 zod 4.4.3,导致 @hookform/resolvers 不兼容 | `git checkout HEAD -- pnpm-lock.yaml` 恢复锁文件 |
+| `package.json` 误加 mysql2(项目用 PostgreSQL,无引用) | `git checkout HEAD -- package.json` 恢复 |
+| zodResolver 与 zod 3.25.76 类型不兼容(TS2345) | `zodResolver(schema as never)` 类型断言 |
+| getMyVip 缺少 levelName join | vip-queries.ts 改用 leftJoin + route 扁平化响应 |
+| 6 个安全越权端点 | 添加 authenticate + ownership check |
+| `apps/api/src/routes/member.ts` 7 处 `!=` eqeqeq 错误 | 改为 `!== undefined && !== null` |
+| `apps/api/tmp-*.mjs` 4 个临时文件触发 lint 错误 | 全部删除(tmp-schema-dump/tmp-migrate-data/tmp-new-schema/tmp-schema-mapping) |
+
+### 22.7 未提交保留项(工作区)
+
+| 项 | 状态 | 理由 |
+|----|------|------|
+| client/ 42+ Vue 文件 el-原生化改动 | 工作区未提交 | client/ 无 node_modules,未跑 vue-tsc/vitest,未验证不可谎称完成 |
+| client/STATE.md + loop-run-log.md | 工作区未提交 | /goal 模式产物,非代码 |
+| packages/*/tsconfig.tsbuildinfo | 工作区未提交 | 构建缓存,应 gitignore |
+
+### 22.8 后续批次(用户已确认"所有都需要 不可以遗漏任何一点")
+
+| 批次 | 范围 | 优先级 |
+|------|------|--------|
+| **R2** | edu/web 学员公开门户(94 页:课程/直播/讲师/新闻) | 🔴 |
+| **R3** | 智能体市场前端(agents/bots 23 页 + admin 审核) | 🔴 |
+| **R4** | AI 厂商专属多模态(dashscope/doubao/gemini/suno/sora2/coze ~60 端点) | 🟡 |
+| **R5** | 分销前端(11 页)+ OAuth 开放平台营销主页 | 🟡 |
+| **R6** | 进阶 admin 工具(监控/灰度/代码生成器 ~80 页) | 🟡 |
+
+### 22.9 本轮诚实最终状态
+
+| 维度 | 状态 |
+|------|------|
+| R1 后端(支付网关/财务/多登录/VIP/OAuth) | ✅ 100% 完成,297 测试通过 |
+| R1 前端(13 新页 + 2 扩展) | ✅ 100% 完成,typecheck 0 错误 |
+| R1 安全(6 越权端点) | ✅ 全部修复 |
+| R1 验证(22/22 turbo) | ✅ 全绿 |
+| R1 提交 | ✅ 本轮提交(无 --no-verify) |
+| client/ el-原生化(42+ 文件) | ⚠️ 未验证遗留,保留工作区 |
+| R2-R6 后续批次 | ⏳ 待推进 |
+

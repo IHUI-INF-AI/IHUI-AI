@@ -50,7 +50,17 @@ import { ossRoutes, adminOssRoutes } from './routes/oss.js'
 import { settingRoutes, adminSettingRoutes } from './routes/setting.js'
 import { newsRoutes, adminNewsRoutes } from './routes/news.js'
 import { certificateRoutes, adminCertificateRoutes } from './routes/certificate.js'
+import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from './routes/payment-gateway.js'
+import { financeRoutes } from './routes/finance.js'
+import { authExtendedRoutes } from './routes/auth-extended.js'
+import { vipRoutes, adminVipRoutes } from './routes/vip.js'
+import { agentsRoutes } from './routes/agents.js'
+import { plazaRoutes } from './routes/plaza.js'
+import { cozeVariablesRoutes } from './routes/coze-variables.js'
+import { agenticServiceRoutes } from './routes/agentic-service.js'
+import { adminEduExtendedRoutes } from './routes/edu-extended.js'
 import aiCallbackRoutes from './routes/ai-callback.js'
+import { adminSysRoutes } from './routes/admin-sys.js'
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
@@ -243,7 +253,27 @@ function registerRoutes(server: FastifyInstance) {
   // 证书模块：/api/certificates/* + /api/admin/certificates/*
   server.register(certificateRoutes, { prefix: '/api' })
   server.register(adminCertificateRoutes, { prefix: '/api/admin' })
+  // 教育扩展模块：/api/admin/edu/notes /api/admin/edu/offline-records /api/admin/edu/uploaded-certs /api/admin/edu/uploaded-papers
+  server.register(adminEduExtendedRoutes, { prefix: '/api' })
+  // 系统管理后端(迁移自 admin_panel.py):/api/admin/menu /api/admin/logininfor /api/admin/notice /api/admin/job /api/admin/online /api/admin/dept /api/admin/post /api/admin/config /api/admin/dict
+  server.register(adminSysRoutes, { prefix: '/api/admin' })
+  // 代理 / 广场 / Coze 变量 / Agent 服务
+  server.register(agentsRoutes, { prefix: '/api' })
+  server.register(plazaRoutes, { prefix: '/api/plaza' })
+  server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
+  server.register(agenticServiceRoutes, { prefix: '/api/agent' })
 
   // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)
   server.register(aiCallbackRoutes)
+
+  // 支付网关：微信/支付宝/基金/对账（R1 补完）
+  server.register(paymentGatewayRoutes, { prefix: '/api' })
+  server.register(adminPaymentGatewayRoutes, { prefix: '/api/admin' })
+  // 财务模块：佣金/分销/Token/提现（R1 补完）
+  server.register(financeRoutes, { prefix: '/api' })
+  // 多登录扩展：密码/邮箱/用户名/OAuth2/Google/微信/企微/验证码/绑定/SK（R1 补完）
+  server.register(authExtendedRoutes, { prefix: '/api' })
+  // VIP 会员：等级/购买/我的 + admin（R1 补完）
+  server.register(vipRoutes, { prefix: '/api' })
+  server.register(adminVipRoutes, { prefix: '/api/admin' })
 }
