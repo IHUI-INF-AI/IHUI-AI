@@ -1,19 +1,26 @@
 /**
  * R4 AI 厂商专属多模态后端路由。
  *
- * 代理层:将请求转发到外部 AI 厂商 API(通义/豆包/Gemini/Suno/Sora2/Coze 等)。
+ * 代理层:将请求转发到外部 AI 厂商 API(通义/豆包/Gemini/Suno/Sora2/Coze/百炼/即梦/n8n/腾讯/火山引擎 等)。
  * 不依赖本地数据库表;异步任务、AIGC 记录、音色、用量统计使用进程内内存存储。
  *
  * 环境变量:
  * - DASHSCOPE_API_KEY / DOUBAO_API_KEY / GEMINI_API_KEY
  * - SUNO_API_KEY / SORA2_API_KEY / COZE_API_KEY
+ * - BAILIAN_API_KEY / BAILIAN_APP_ID
+ * - JIMENG4_API_KEY / JIMENG4_SECRET_KEY
+ * - N8N_API_KEY / N8N_BASE_URL
+ * - TENCENT_SECRET_ID / TENCENT_SECRET_KEY
+ * - VOLCENGINE_API_KEY / VOLCENGINE_SECRET_KEY
  *
  * 注册(server.ts):
  *   server.register(aiVendorRoutes, { prefix: '/api/ai' })
  *   server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
  */
+import { createHmac, createHash } from 'node:crypto';
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { authenticate } from '../plugins/auth.js';
+import { verifyAccessToken } from '@ihui/auth';
 import { success, error } from '../utils/response.js';
 
 // ============================================================================
@@ -57,6 +64,7 @@ async function fetchWithTimeout(
 interface VendorConfig {
   name: string;
   keyEnv: string;
+  secretKeyEnv?: string;
   baseUrl: string;
   authHeader: (key: string) => Record<string, string>;
 }
@@ -99,6 +107,39 @@ const VENDORS: Record<string, VendorConfig> = {
     baseUrl: 'https://api.coze.cn',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
+  bailian: {
+    name: 'Bailian(百炼/阿里云)',
+    keyEnv: 'BAILIAN_API_KEY',
+    baseUrl: 'https://dashscope.aliyuncs.com',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  jimeng4: {
+    name: 'JiMeng4(即梦/字节AI绘画)',
+    keyEnv: 'JIMENG4_API_KEY',
+    secretKeyEnv: 'JIMENG4_SECRET_KEY',
+    baseUrl: 'https://visual.volcengineapi.com',
+    authHeader: () => ({}),
+  },
+  n8n: {
+    name: 'N8N(工作流平台)',
+    keyEnv: 'N8N_API_KEY',
+    baseUrl: '',
+    authHeader: (key) => ({ 'X-N8N-API-KEY': key }),
+  },
+  tencent: {
+    name: 'Tencent(腾讯混元/ARC)',
+    keyEnv: 'TENCENT_SECRET_ID',
+    secretKeyEnv: 'TENCENT_SECRET_KEY',
+    baseUrl: 'https://ai3d.tencentcloudapi.com',
+    authHeader: () => ({}),
+  },
+  volcengine: {
+    name: 'Volcengine(火山引擎/字节豆包企业版)',
+    keyEnv: 'VOLCENGINE_API_KEY',
+    secretKeyEnv: 'VOLCENGINE_SECRET_KEY',
+    baseUrl: 'https://visual.volcengineapi.com',
+    authHeader: () => ({}),
+  },
 };
 
 /**
@@ -120,6 +161,114 @@ function requireVendorKey(
     return null;
   }
   return key;
+}
+
+/** 校验双密钥厂商(AK/SK)是否已配置。 */
+function requireVendorKeys(
+  vendor: string,
+  reply: FastifyReply,
+): { key: string; secret: string } | null {
+  const cfg = VENDORS[vendor];
+  if (!cfg || !cfg.secretKeyEnv) {
+    reply.status(400).send(error(400, `不支持的厂商: ${vendor}`));
+    return null;
+  }
+  const key = process.env[cfg.keyEnv];
+  const secret = process.env[cfg.secretKeyEnv];
+  if (!key || !secret) {
+    reply.status(503).send(error(503, `${cfg.name} 服务未配置`));
+    return null;
+  }
+  return { key, secret };
+}
+
+/** Tencent Cloud TC3-HMAC-SHA256 签名。 */
+function buildTencentHeaders(
+  action: string,
+  payload: string,
+  secretId: string,
+  secretKey: string,
+): Record<string, string> {
+  const service = 'ai3d';
+  const algorithm = 'TC3-HMAC-SHA256';
+  const timestamp = Math.floor(Date.now() / 1000);
+  const date = new Date(timestamp * 1000).toISOString().slice(0, 10);
+  const host = 'ai3d.tencentcloudapi.com';
+  const contentType = 'application/json; charset=utf-8';
+  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\nx-tc-action:${action.toLowerCase()}\n`;
+  const signedHeaders = 'content-type;host;x-tc-action';
+  const hashedPayload = createHash('sha256').update(payload).digest('hex');
+  const canonicalRequest = `POST\n/\n\n${canonicalHeaders}\n${signedHeaders}\n${hashedPayload}`;
+  const credentialScope = `${date}/${service}/tc3_request`;
+  const hashedRequest = createHash('sha256').update(canonicalRequest).digest('hex');
+  const stringToSign = `${algorithm}\n${timestamp}\n${credentialScope}\n${hashedRequest}`;
+  const secretDate = createHmac('sha256', `TC3${secretKey}`).update(date).digest();
+  const secretService = createHmac('sha256', secretDate).update(service).digest();
+  const secretSigning = createHmac('sha256', secretService).update('tc3_request').digest();
+  const signature = createHmac('sha256', secretSigning).update(stringToSign).digest('hex');
+  const authorization = `${algorithm} Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  return {
+    'Content-Type': contentType,
+    'X-TC-Action': action,
+    'X-TC-Version': '2025-05-13',
+    'X-TC-Timestamp': String(timestamp),
+    'X-TC-Region': 'ap-guangzhou',
+    Authorization: authorization,
+  };
+}
+
+/** Volcengine HMAC-SHA256 V4 签名。 */
+function volcengineSign(
+  queryParams: Record<string, string>,
+  body: unknown,
+  accessKey: string,
+  secretKey: string,
+): { url: string; headers: Record<string, string>; body: string } {
+  const host = 'visual.volcengineapi.com';
+  const ts = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const datestamp = ts.slice(0, 8);
+  const payloadStr = JSON.stringify(body);
+  const payloadHash = createHash('sha256').update(payloadStr).digest('hex');
+  const canonicalQs = Object.keys(queryParams).sort().map((k) => `${k}=${queryParams[k]}`).join('&');
+  const signedHeaders = 'content-type;host;x-content-sha256;x-date';
+  const canonicalHeaders = `content-type:application/json\nhost:${host}\nx-content-sha256:${payloadHash}\nx-date:${ts}\n`;
+  const canonicalRequest = `POST\n/\n${canonicalQs}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+  const algorithm = 'HMAC-SHA256';
+  const credentialScope = `${datestamp}/cn-north-1/cv/request`;
+  const stringToSign = `${algorithm}\n${ts}\n${credentialScope}\n${createHash('sha256').update(canonicalRequest).digest('hex')}`;
+  const kDate = createHmac('sha256', secretKey).update(datestamp).digest();
+  const kRegion = createHmac('sha256', kDate).update('cn-north-1').digest();
+  const kService = createHmac('sha256', kRegion).update('cv').digest();
+  const kSigning = createHmac('sha256', kService).update('request').digest();
+  const signature = createHmac('sha256', kSigning).update(stringToSign).digest('hex');
+  const authorization = `${algorithm} Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  return {
+    url: `https://${host}?${canonicalQs}`,
+    headers: { 'X-Date': ts, Authorization: authorization, 'X-Content-Sha256': payloadHash, 'Content-Type': 'application/json' },
+    body: payloadStr,
+  };
+}
+
+/** 轮询 Volcengine 异步任务直到完成。 */
+async function pollVolcengineTask(
+  accessKey: string,
+  secretKey: string,
+  reqKey: string,
+  taskId: string,
+  maxPolls = 60,
+  intervalMs = 5000,
+): Promise<Record<string, unknown>> {
+  const pollParams = { Action: 'CVSync2AsyncGetResult', Version: '2022-08-31' };
+  const pollBody = { req_key: reqKey, task_id: taskId };
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    const signed = volcengineSign(pollParams, pollBody, accessKey, secretKey);
+    const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 60_000);
+    const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+    const dataBlock = data.data as Record<string, unknown> | undefined;
+    if (dataBlock?.status === 'done') return data;
+  }
+  throw new Error('异步任务轮询超时');
 }
 
 /** 通用:调用外部同步 API 并返回 JSON。失败时发送 502。 */
@@ -198,6 +347,8 @@ const taskStore = new Map<string, AsyncTask>();
 const aigcStore = new Map<string, AigcRecord>();
 const timbreStore = new Map<string, Timbre>();
 const usageStore = new Map<string, UsageStat>();
+const n8nAgentStore = new Map<string, Record<string, unknown>>();
+const tencentActiveJobs = new Map<string, Record<string, unknown>>();
 
 function genId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -237,6 +388,8 @@ function createTask(userId: string, vendor: string, type: string, payload?: unkn
 
 export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    // WebSocket 路由在 handler 内部通过 query token 鉴权
+    if (request.headers.upgrade === 'websocket') return;
     if (!(await requireAuth(request, reply))) return;
   });
 
@@ -731,7 +884,375 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
   });
 
   // ==========================================================================
-  // 7. 通用工具端点 — 17 端点
+  // 7. Bailian(百炼/阿里云)— 2 端点
+  // ==========================================================================
+
+  // POST /bailian/chat — 百炼应用对话(HTTP,支持流式收集)
+  server.post('/bailian/chat', async (request, reply) => {
+    const body = request.body as { prompt?: string; appId?: string; sessionId?: string; stream?: boolean };
+    if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'));
+    const key = requireVendorKey('bailian', reply);
+    if (!key) return;
+    const appId = body.appId ?? process.env.BAILIAN_APP_ID;
+    if (!appId) return reply.status(400).send(error(400, '百炼应用ID 未配置(BAILIAN_APP_ID)'));
+    const input: Record<string, unknown> = { prompt: body.prompt };
+    if (body.sessionId) input.session_id = body.sessionId;
+    const payload: Record<string, unknown> = { model: appId, input, parameters: { incremental_output: true } };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
+    if (body.stream) { headers['X-DashScope-SSE'] = 'enable'; payload.stream = true; }
+    try {
+      const resp = await fetchWithTimeout(
+        'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+        { method: 'POST', headers, body: JSON.stringify(payload) }, 120_000);
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        return reply.status(502).send(error(502, `百炼调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`));
+      }
+      if (body.stream && resp.headers.get('content-type')?.includes('text/event-stream')) {
+        const text = await resp.text();
+        const chunks: string[] = [];
+        for (const line of text.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          try { const chunk = (JSON.parse(line.slice(5).trim())?.output?.text) ?? ''; if (chunk) chunks.push(chunk); } catch { /* skip */ }
+        }
+        recordUsage(request.userId!, 'bailian');
+        return reply.send(success({ reply: chunks.join(''), chunks, appId }));
+      }
+      const data = await resp.json() as Record<string, unknown>;
+      const output = data.output as Record<string, unknown> | undefined;
+      recordUsage(request.userId!, 'bailian');
+      return reply.send(success({ reply: output?.text ?? '', sessionId: output?.session_id ?? body.sessionId, appId, usage: data.usage ?? {} }));
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message;
+      return reply.status(502).send(error(502, `百炼调用异常: ${msg}`));
+    }
+  });
+
+  // WS /bailian/ws — 百炼应用流式对话(WebSocket)
+  server.get('/bailian/ws', { websocket: true }, (socket, request) => {
+    const token = (request.query as { token?: string }).token;
+    if (!token) { socket.close(4001, '缺少 token'); return; }
+    void (async () => {
+      let userId: string;
+      try { userId = (await verifyAccessToken(token)).userId; } catch { socket.close(4003, 'token 无效'); return; }
+      socket.on('message', async (data: Buffer) => {
+        try {
+          const req = JSON.parse(data.toString()) as { app_id?: string; prompt?: string; session_id?: string };
+          const appId = req.app_id ?? process.env.BAILIAN_APP_ID;
+          if (!appId) { socket.send(JSON.stringify({ event: 'error', message: '缺少 app_id' })); return; }
+          if (!req.prompt) { socket.send(JSON.stringify({ event: 'error', message: '缺少 prompt' })); return; }
+          const key = process.env.BAILIAN_API_KEY ?? process.env.DASHSCOPE_API_KEY;
+          if (!key) { socket.send(JSON.stringify({ event: 'error', message: 'API Key 未配置' })); return; }
+          const input: Record<string, unknown> = { prompt: req.prompt };
+          if (req.session_id) input.session_id = req.session_id;
+          const resp = await fetchWithTimeout(
+            'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+            { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, 'X-DashScope-SSE': 'enable' },
+              body: JSON.stringify({ model: appId, input, parameters: { incremental_output: true }, stream: true }) },
+            120_000);
+          if (!resp.ok) { socket.send(JSON.stringify({ event: 'error', message: `百炼调用失败: ${resp.status}` })); return; }
+          const text = await resp.text();
+          let fullText = '';
+          let sessionId = req.session_id;
+          for (const line of text.split('\n')) {
+            if (!line.startsWith('data:')) continue;
+            try {
+              const obj = JSON.parse(line.slice(5).trim());
+              const chunk = obj?.output?.text ?? '';
+              if (chunk) { fullText += chunk; socket.send(JSON.stringify({ event: 'chunk', data: chunk })); }
+              if (obj?.output?.session_id) sessionId = obj.output.session_id;
+            } catch { /* skip */ }
+          }
+          recordUsage(userId, 'bailian');
+          socket.send(JSON.stringify({ event: 'completed', full_text: fullText, session_id: sessionId }));
+        } catch (e) {
+          socket.send(JSON.stringify({ event: 'error', message: (e as Error).message }));
+        }
+      });
+    })();
+  });
+
+  // ==========================================================================
+  // 8. JiMeng4(即梦/字节AI绘画)— 1 端点
+  // ==========================================================================
+
+  // POST /jimeng4/image — 即梦4.0 文生图(异步提交+轮询)
+  server.post('/jimeng4/image', async (request, reply) => {
+    const body = request.body as { prompt?: string; width?: number; height?: number; seed?: number };
+    if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'));
+    const keys = requireVendorKeys('jimeng4', reply);
+    if (!keys) return;
+    const submitBody: Record<string, unknown> = { req_key: 'jimeng_t2i_v40', prompt: body.prompt, return_url: true };
+    if (body.width) submitBody.width = body.width;
+    if (body.height) submitBody.height = body.height;
+    if (body.seed !== null && body.seed !== undefined) submitBody.seed = body.seed;
+    try {
+      const signed = volcengineSign({ Action: 'CVSync2AsyncSubmitTask', Version: '2022-08-31' }, submitBody, keys.key, keys.secret);
+      const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 120_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `即梦调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 500)}`));
+      const dataBlock = data.data as Record<string, unknown> | undefined;
+      const taskId = dataBlock?.task_id as string | undefined;
+      if (!taskId) return reply.status(502).send(error(502, '即梦未返回 task_id'));
+      const final = await pollVolcengineTask(keys.key, keys.secret, 'jimeng_t2i_v40', taskId);
+      const finalData = final.data as Record<string, unknown> | undefined;
+      const imageUrls: string[] = Array.isArray(finalData?.image_urls) ? finalData!.image_urls as string[] : [];
+      recordUsage(request.userId!, 'jimeng4');
+      return reply.send(success({ image_urls: imageUrls, request_id: data.request_id }));
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message;
+      return reply.status(502).send(error(502, `即梦调用异常: ${msg}`));
+    }
+  });
+
+  // ==========================================================================
+  // 9. N8N(工作流平台)— 3 端点
+  // ==========================================================================
+
+  // POST /n8n/workflows — 查询N8N工作流列表(凭据从请求体传入)
+  server.post('/n8n/workflows', async (request, reply) => {
+    const body = request.body as { n8nDomain?: string; apiKey?: string };
+    if (!body.n8nDomain || !body.apiKey) return reply.status(400).send(error(400, 'n8nDomain 和 apiKey 为必填'));
+    try {
+      const resp = await fetchWithTimeout(
+        `https://${body.n8nDomain}/api/v1/workflows?active=true`,
+        { method: 'GET', headers: { 'X-N8N-API-KEY': body.apiKey } }, 30_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `N8N 调用失败: ${resp.status}`));
+      const items = Array.isArray(data.data) ? data.data as Record<string, unknown>[] : [];
+      const formatted = items.map((item) => ({
+        id: item.id, name: item.name, createdAt: item.createdAt ?? null, updatedAt: item.updatedAt ?? null,
+      }));
+      return reply.send(success(formatted));
+    } catch (e) {
+      return reply.status(502).send(error(502, `N8N 调用异常: ${(e as Error).message}`));
+    }
+  });
+
+  // POST /n8n/workflow/run — 运行N8N工作流
+  server.post('/n8n/workflow/run', async (request, reply) => {
+    const body = request.body as { workflowId?: string; webhookPath?: string; inputData?: Record<string, unknown> };
+    const baseUrl = process.env.N8N_BASE_URL;
+    if (!baseUrl) return reply.status(503).send(error(503, 'N8N_BASE_URL 未配置'));
+    const key = requireVendorKey('n8n', reply);
+    if (!key) return;
+    const url = body.workflowId
+      ? `${baseUrl.replace(/\/$/, '')}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
+      : `${baseUrl.replace(/\/$/, '')}${body.webhookPath ?? '/webhook'}`;
+    try {
+      const resp = await fetchWithTimeout(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-N8N-API-KEY': key },
+        body: JSON.stringify(body.inputData ?? {}),
+      }, 120_000);
+      const data = await resp.json().catch(() => ({ raw_response: '' })) as unknown;
+      if (!resp.ok) return reply.status(502).send(error(502, `N8N 调用失败: ${resp.status}`));
+      recordUsage(request.userId!, 'n8n');
+      return reply.send(success(data));
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message;
+      return reply.status(502).send(error(502, `N8N 调用异常: ${msg}`));
+    }
+  });
+
+  // POST /n8n/addAgent — 通过N8N新增智能体(内存存储)
+  server.post('/n8n/addAgent', async (request, reply) => {
+    const body = request.body as { agentName?: string; agentDescription?: string; connectorUserId?: string; agentVariables?: Record<string, unknown>; agentModel?: string; agentAvatar?: string };
+    if (!body.agentName || !body.connectorUserId) return reply.status(400).send(error(400, 'agentName 和 connectorUserId 为必填'));
+    const agentId = `n8n_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const agent: Record<string, unknown> = {
+      agentId, agentName: body.agentName, agentDescription: body.agentDescription ?? '',
+      connectorUserId: body.connectorUserId, agentVariables: body.agentVariables ?? {},
+      agentModel: body.agentModel ?? '', agentAvatar: body.agentAvatar ?? '',
+      source: 'n8n', publishStatus: 'pending', createdAt: Date.now(),
+    };
+    n8nAgentStore.set(agentId, agent);
+    recordUsage(request.userId!, 'n8n');
+    return reply.send(success({ agent_id: agentId }));
+  });
+
+  // ==========================================================================
+  // 10. Tencent(腾讯混元/ARC)— 4 端点
+  // ==========================================================================
+
+  // POST /tencent/hunyuan3d/submit — 提交混元3D任务
+  server.post('/tencent/hunyuan3d/submit', async (request, reply) => {
+    const body = request.body as { Prompt?: string; ImageBase64?: string; ImageUrl?: string; ResultFormat?: string; EnablePBR?: boolean };
+    if (!body.Prompt && !body.ImageBase64 && !body.ImageUrl) return reply.status(400).send(error(400, 'Prompt / ImageBase64 / ImageUrl 至少提供一个'));
+    const keys = requireVendorKeys('tencent', reply);
+    if (!keys) return;
+    const params: Record<string, unknown> = {};
+    if (body.Prompt) params.Prompt = body.Prompt;
+    if (body.ImageBase64) params.ImageBase64 = body.ImageBase64;
+    if (body.ImageUrl) params.ImageUrl = body.ImageUrl;
+    if (body.ResultFormat) params.ResultFormat = body.ResultFormat;
+    if (body.EnablePBR !== null && body.EnablePBR !== undefined) params.EnablePBR = body.EnablePBR;
+    try {
+      const payloadStr = JSON.stringify(params);
+      const headers = buildTencentHeaders('SubmitHunyuanTo3DJob', payloadStr, keys.key, keys.secret);
+      const resp = await fetchWithTimeout('https://ai3d.tencentcloudapi.com', { method: 'POST', headers, body: payloadStr }, 60_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `腾讯云调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 500)}`));
+      const respData = (data.Response ?? {}) as Record<string, unknown>;
+      const jobId = respData.JobId as string | undefined;
+      if (!jobId) return reply.status(502).send(error(502, `提交任务失败: ${((respData.Error as Record<string, unknown>)?.Message) ?? '未知错误'}`));
+      const task = createTask(request.userId!, 'tencent', 'hunyuan3d', { jobId });
+      tencentActiveJobs.set(jobId, { userId: request.userId, prompt: body.Prompt ?? '', imageUrl: body.ImageUrl ?? '', submitTime: Date.now(), status: 'PENDING' });
+      recordUsage(request.userId!, 'tencent');
+      return reply.send(success({ JobId: jobId, taskId: task.taskId }));
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message;
+      return reply.status(502).send(error(502, `腾讯云调用异常: ${msg}`));
+    }
+  });
+
+  // POST /tencent/hunyuan3d/query — 查询混元3D任务状态
+  server.post('/tencent/hunyuan3d/query', async (request, reply) => {
+    const body = request.body as { JobId?: string };
+    if (!body.JobId) return reply.status(400).send(error(400, 'JobId 为必填'));
+    const keys = requireVendorKeys('tencent', reply);
+    if (!keys) return;
+    try {
+      const payloadStr = JSON.stringify({ JobId: body.JobId });
+      const headers = buildTencentHeaders('QueryHunyuanTo3DJob', payloadStr, keys.key, keys.secret);
+      const resp = await fetchWithTimeout('https://ai3d.tencentcloudapi.com', { method: 'POST', headers, body: payloadStr }, 60_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `腾讯云调用失败: ${resp.status}`));
+      return reply.send(success(data.Response ?? data));
+    } catch (e) {
+      return reply.status(502).send(error(502, `腾讯云调用异常: ${(e as Error).message}`));
+    }
+  });
+
+  // GET /tencent/hunyuan3d/task/:taskId — 按路径参数查询任务
+  server.get('/tencent/hunyuan3d/task/:taskId', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string };
+    const keys = requireVendorKeys('tencent', reply);
+    if (!keys) return;
+    try {
+      const payloadStr = JSON.stringify({ JobId: taskId });
+      const headers = buildTencentHeaders('QueryHunyuanTo3DJob', payloadStr, keys.key, keys.secret);
+      const resp = await fetchWithTimeout('https://ai3d.tencentcloudapi.com', { method: 'POST', headers, body: payloadStr }, 60_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `腾讯云调用失败: ${resp.status}`));
+      return reply.send(success(data.Response ?? data));
+    } catch (e) {
+      return reply.status(502).send(error(502, `腾讯云调用异常: ${(e as Error).message}`));
+    }
+  });
+
+  // GET /tencent/hunyuan3d/active-jobs — 查看活跃任务
+  server.get('/tencent/hunyuan3d/active-jobs', async (_request, reply) => {
+    const jobs: Record<string, unknown> = {};
+    for (const [jid, info] of tencentActiveJobs) {
+      jobs[jid] = { ...info, waitMinutes: Math.round((Date.now() - (info.submitTime as number)) / 60000) };
+    }
+    return reply.send(success({ activeCount: tencentActiveJobs.size, jobs }));
+  });
+
+  // ==========================================================================
+  // 11. Volcengine(火山引擎)— 5 端点
+  // ==========================================================================
+
+  // GET /volcengine/ping — 健康检查
+  server.get('/volcengine/ping', async (_request, reply) => {
+    return reply.send(success({ ok: true, module: 'volcengine' }));
+  });
+
+  // POST /volcengine/jimeng/image — 即梦4.0 文生图(异步提交+轮询)
+  server.post('/volcengine/jimeng/image', async (request, reply) => {
+    const body = request.body as { prompt?: string; width?: number; height?: number; seed?: number };
+    if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'));
+    const keys = requireVendorKeys('volcengine', reply);
+    if (!keys) return;
+    const submitBody: Record<string, unknown> = { req_key: 'jimeng_t2i_v40', prompt: body.prompt, return_url: true };
+    if (body.width) submitBody.width = body.width;
+    if (body.height) submitBody.height = body.height;
+    if (body.seed !== null && body.seed !== undefined) submitBody.seed = body.seed;
+    try {
+      const signed = volcengineSign({ Action: 'CVSync2AsyncSubmitTask', Version: '2022-08-31' }, submitBody, keys.key, keys.secret);
+      const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 120_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `火山引擎调用失败: ${resp.status} ${JSON.stringify(data).slice(0, 500)}`));
+      const dataBlock = data.data as Record<string, unknown> | undefined;
+      const taskId = dataBlock?.task_id as string | undefined;
+      if (!taskId) return reply.status(502).send(error(502, '未返回 task_id'));
+      const final = await pollVolcengineTask(keys.key, keys.secret, 'jimeng_t2i_v40', taskId);
+      const finalData = final.data as Record<string, unknown> | undefined;
+      const imageUrls: string[] = Array.isArray(finalData?.image_urls) ? finalData!.image_urls as string[] : [];
+      recordUsage(request.userId!, 'volcengine');
+      return reply.send(success({ image_urls: imageUrls, request_id: data.request_id }));
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message;
+      return reply.status(502).send(error(502, `火山引擎调用异常: ${msg}`));
+    }
+  });
+
+  // POST /volcengine/jimeng/generate — 即梦3.1 生成
+  server.post('/volcengine/jimeng/generate', async (request, reply) => {
+    const body = request.body as { prompt?: string };
+    if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'));
+    const keys = requireVendorKeys('volcengine', reply);
+    if (!keys) return;
+    try {
+      const signed = volcengineSign({ Action: 'CVProcess', Version: '2022-08-31' }, { req_key: 'jimeng_t2i_v31', prompt: body.prompt }, keys.key, keys.secret);
+      const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 120_000);
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) return reply.status(502).send(error(502, `火山引擎调用失败: ${resp.status}`));
+      recordUsage(request.userId!, 'volcengine');
+      return reply.send(success(data));
+    } catch (e) {
+      return reply.status(502).send(error(502, `火山引擎调用异常: ${(e as Error).message}`));
+    }
+  });
+
+  // POST /volcengine/visual/:reqKey — 火山视觉通用代理(异步提交+轮询)
+  server.post('/volcengine/visual/:reqKey', async (request, reply) => {
+    const { reqKey } = request.params as { reqKey: string };
+    const body = request.body as { prompt?: string; images?: string[]; [key: string]: unknown };
+    const keys = requireVendorKeys('volcengine', reply);
+    if (!keys) return;
+    const submitBody: Record<string, unknown> = { req_key: reqKey, prompt: body.prompt ?? '', image_urls: body.images ?? [] };
+    for (const [k, v] of Object.entries(body)) {
+      if (!['prompt', 'images'].includes(k)) submitBody[k] = v;
+    }
+    try {
+      const signed = volcengineSign({ Action: 'CVSync2AsyncSubmitTask', Version: '2022-08-31' }, submitBody, keys.key, keys.secret);
+      const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 120_000);
+      const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+      if (!resp.ok) return reply.status(502).send(error(502, `火山引擎调用失败: ${resp.status}`));
+      const dataBlock = data.data as Record<string, unknown> | undefined;
+      const taskId = dataBlock?.task_id as string | undefined;
+      if (!taskId) return reply.status(502).send(error(502, '未返回 task_id'));
+      const final = await pollVolcengineTask(keys.key, keys.secret, reqKey, taskId);
+      const finalData = final.data as Record<string, unknown> | undefined;
+      recordUsage(request.userId!, 'volcengine');
+      return reply.send(success({ video_url: finalData?.video_url ?? '', request_id: data.request_id }));
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message;
+      return reply.status(502).send(error(502, `火山引擎调用异常: ${msg}`));
+    }
+  });
+
+  // POST /volcengine/jimeng4/process — 即梦4.0 CVProcess 通用转发
+  server.post('/volcengine/jimeng4/process', async (request, reply) => {
+    const body = request.body as { req_key?: string; [key: string]: unknown };
+    if (!body.req_key) return reply.status(400).send(error(400, 'req_key 为必填'));
+    const keys = requireVendorKeys('volcengine', reply);
+    if (!keys) return;
+    try {
+      const signed = volcengineSign({ Action: 'CVProcess', Version: '2022-08-31' }, body, keys.key, keys.secret);
+      const resp = await fetchWithTimeout(signed.url, { method: 'POST', headers: signed.headers, body: signed.body }, 120_000);
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) return reply.status(502).send(error(502, `火山引擎调用失败: ${resp.status}`));
+      recordUsage(request.userId!, 'volcengine');
+      return reply.send(success(data));
+    } catch (e) {
+      return reply.status(502).send(error(502, `火山引擎调用异常: ${(e as Error).message}`));
+    }
+  });
+
+  // ==========================================================================
+  // 12. 通用工具端点 — 17 端点
   // ==========================================================================
 
   // GET /vendors — 支持的厂商列表
@@ -757,6 +1278,8 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       suno: 'https://api.suno.ai/v1/models',
       sora2: 'https://api.openai.com/v1/models',
       coze: 'https://api.coze.cn/v1/models',
+      volcengine: 'https://visual.volcengineapi.com/',
+      jimeng4: 'https://visual.volcengineapi.com/',
     };
     const data = await callVendor(vendor, modelEndpoints[vendor] ?? cfg.baseUrl, reply, { method: 'GET' });
     if (data === null) return;
