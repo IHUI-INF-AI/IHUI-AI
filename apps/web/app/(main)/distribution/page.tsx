@@ -8,6 +8,7 @@ import { Users, TrendingUp, Wallet, Gift, Loader2, ArrowRight, DollarSign, Check
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
+import { StatCard } from '@/components/data'
 
 interface TeamCenterData {
   totalInvitees: number
@@ -109,24 +110,15 @@ export default function DistributionHomePage() {
       </header>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {stats.map((s) => {
-          const Icon = s.icon
-          return (
-            <Card key={s.label}>
-              <CardContent className="space-y-2 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{s.label}</span>
-                  <Icon className={`h-4 w-4 ${s.tone}`} />
-                </div>
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  <div className="text-xl font-bold tracking-tight md:text-2xl">{s.value}</div>
-                )}
-              </CardContent>
-            </Card>
-          )
-        })}
+        {stats.map((s) => (
+          <StatCard
+            key={s.label}
+            title={s.label}
+            value={s.value}
+            icon={s.icon}
+            loading={loading}
+          />
+        ))}
       </div>
 
       <div className="space-y-3">

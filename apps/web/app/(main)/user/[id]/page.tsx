@@ -9,6 +9,7 @@ import { UserPlus, UserMinus, Loader2, AlertCircle } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui'
+import { Avatar } from '@/components/data'
 
 interface PublicUser {
   id: string
@@ -98,14 +99,7 @@ export default function PublicUserProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-start gap-4">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium">
-          {user.avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.avatar} alt={user.nickname} className="h-20 w-20 rounded-full" />
-          ) : (
-            initial
-          )}
-        </div>
+        <Avatar src={user.avatar} name={user.nickname} fallback={initial} size="xl" className="h-20 w-20 text-2xl" />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-2xl font-bold tracking-tight">{user.nickname || 'User'}</h1>
