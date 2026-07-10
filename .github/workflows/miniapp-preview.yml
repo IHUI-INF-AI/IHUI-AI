@@ -1,0 +1,66 @@
+name: Miniapp Preview
+
+# =============================================================================
+# 小程序预览 workflow
+#
+# 当 PR 修改 apps/miniapp/** 时触发，启动 H5 预览服务器并上传预览产物。
+# 脚本: scripts/miniapp-preview.mjs
+# =============================================================================
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/miniapp/**'
+      - 'scripts/miniapp-preview.mjs'
+      - '.github/workflows/miniapp-preview.yml'
+
+concurrency:
+  group: miniapp-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  preview:
+    name: 小程序 H5 预览
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run miniapp preview
+        run: node scripts/miniapp-preview.mjs
+        timeout-minutes: 5
+
+      - name: Upload preview artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniapp-preview
+          path: |
+            apps/miniapp/dist
+            apps/miniapp/.vite
+          if-no-files-found: ignore
+          retention-days: 7

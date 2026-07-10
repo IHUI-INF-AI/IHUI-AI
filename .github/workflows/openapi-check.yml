@@ -1,0 +1,61 @@
+name: OpenAPI Check
+
+# =============================================================================
+# OpenAPI 规范校验 workflow
+#
+# 当 push 到 main/develop 或 PR 修改 apps/api/** 时触发，
+# 校验后端路由与 OpenAPI spec 的一致性。
+# 脚本: scripts/openapi-check.mjs
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/api/**'
+      - 'scripts/openapi-check.mjs'
+      - '.github/workflows/openapi-check.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/api/**'
+      - 'scripts/openapi-check.mjs'
+      - '.github/workflows/openapi-check.yml'
+
+concurrency:
+  group: openapi-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  openapi-check:
+    name: OpenAPI 规范校验
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run OpenAPI check
+        run: node scripts/openapi-check.mjs
