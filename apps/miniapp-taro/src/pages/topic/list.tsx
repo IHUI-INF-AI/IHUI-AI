@@ -2,7 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTopicList } from '@/api'
-import { TOPIC_EVENT } from '../circle/create'
+import { TOPIC_EVENT } from '@/constants/events'
 import './list.css'
 
 interface TopicItem {
