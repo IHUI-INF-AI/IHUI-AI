@@ -15,6 +15,10 @@ import {
  * status: pending(待审核) / published(已发布) / rejected(已驳回) / offline(已下架)。
  * isFree=true 时为免费智能体，price 字段忽略。
  * workspaceId 关联工作空间（外部约定，非 DB 外键）。
+ *
+ * Coze 配置字段（H-3 补齐）：agentVersion/botId/botName/agentPrompt/agentModel/
+ * agentTemperature/agentMaxTokens/agentVariables/publishChannel/usageCount/
+ * likeCount/shareCount/cozeAccountId 等，用于本地缓存 Coze 配置与离线管理。
  */
 export const agents = pgTable(
   'agents',
@@ -35,6 +39,21 @@ export const agents = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     remark: text('remark'),
+    // Coze 配置字段（H-3 补齐，迁移自旧架构 agent_models.py）
+    agentVersion: varchar('agent_version', { length: 32 }),
+    botId: varchar('bot_id', { length: 64 }),
+    botIdStr: varchar('bot_id_str', { length: 64 }),
+    botName: varchar('bot_name', { length: 200 }),
+    agentPrompt: text('agent_prompt'),
+    agentModel: varchar('agent_model', { length: 100 }),
+    agentTemperature: integer('agent_temperature'),
+    agentMaxTokens: integer('agent_max_tokens'),
+    agentVariables: text('agent_variables'),
+    publishChannel: varchar('publish_channel', { length: 50 }),
+    usageCount: bigint('usage_count', { mode: 'number' }).default(0).notNull(),
+    likeCount: bigint('like_count', { mode: 'number' }).default(0).notNull(),
+    shareCount: bigint('share_count', { mode: 'number' }).default(0).notNull(),
+    cozeAccountId: varchar('coze_account_id', { length: 64 }),
   },
   (t) => ({
     userIdx: index('agents_user_idx').on(t.userId),
