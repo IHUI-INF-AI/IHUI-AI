@@ -54,7 +54,11 @@ export default function OauthAuditDashboardPage() {
 
   const { data: stats = MOCK_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'oauth-audit', 'stats'],
-    queryFn: () => Promise.resolve(MOCK_STATS),
+    queryFn: async () => {
+      const r = await fetchApi<AuditStats>('/api/admin/oauth-audit/stats')
+      if (r.success && r.data) return r.data
+      return MOCK_STATS
+    },
   })
   const { data: logs = MOCK_LOGS } = useQuery({
     queryKey: ['admin', 'oauth-audit', 'logs'],

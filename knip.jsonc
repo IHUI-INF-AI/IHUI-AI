@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignore": ["dist/**", "node_modules/**", "coverage/**", ".turbo/**", ".next/**", "client/**"],
+  "ignoreBinaries": ["turbo", "pnpm"],
+  "workspaces": {
+    "apps/api": {
+      "entry": ["src/index.ts", "src/server.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": ["app/**/page.tsx", "app/**/layout.tsx", "app/layout.tsx"],
+      "project": ["**/*.{ts,tsx}"]
+    },
+    "apps/miniapp": {
+      "entry": ["main.ts", "App.vue"],
+      "project": ["**/*.{ts,vue}"]
+    },
+    "apps/cli": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/database": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ui": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/sdk": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}
