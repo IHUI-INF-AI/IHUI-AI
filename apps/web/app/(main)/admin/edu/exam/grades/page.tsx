@@ -57,7 +57,10 @@ export default function EduExamGradesPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const records = data?.list ?? []
-  const subjectiveQs = (detail?.questions ?? []).filter((q) => q.type === 'subjective')
+  const subjectiveQs = React.useMemo(
+    () => (detail?.questions ?? []).filter((q) => q.type === 'subjective'),
+    [detail]
+  )
 
   React.useEffect(() => {
     if (gradeId && detail) {
@@ -65,7 +68,7 @@ export default function EduExamGradesPage() {
       for (const q of subjectiveQs) init[q.id] = ''
       setGrades(init)
     }
-  }, [gradeId, detail])
+  }, [gradeId, detail, subjectiveQs])
 
   return (
     <div className="space-y-4">
