@@ -1,53 +1,47 @@
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useMemo } from 'react'
-import { getProfile, realNameAuth } from '@/api'
+import { useState, useCallback } from 'react'
+import { realNameAuth, getProfile } from '@/api'
 
 export default function Realname() {
-  const [form, setForm] = useState<{ realName: string; idCard: string }>({ realName: '', idCard: '' })
-  const [verified, setVerified] = useState(false)
+  const [realName, setRealName] = useState('')
+  const [idCard, setIdCard] = useState('')
+  const [authenticated, setAuthenticated] = useState(false)
+  const [authName, setAuthName] = useState('')
 
-  const maskedId = useMemo(() => {
-    if (!form.idCard) return ''
-    return form.idCard.slice(0, 4) + '**********' + form.idCard.slice(-4)
-  }, [form.idCard])
-
-  useDidShow(async () => {
+  const load = useCallback(async () => {
     try {
-      const p = await getProfile() as any
-      if (p.realName) {
-        setForm({ realName: p.realName, idCard: p.idCard || '' })
-        setVerified(true)
+      const profile = await getProfile()
+      if (profile.realName) {
+        setAuthenticated(true)
+        setAuthName(profile.realName)
       }
     } catch (e) {}
-  })
+  }, [])
+
+  useDidShow(() => { load() })
 
   async function onSubmit() {
-    if (!/^[\u4e00-\u9fa5]{2,10}$/.test(form.realName)) {
-      return Taro.showToast({ title: '姓名格式错误', icon: 'none' })
+    if (!realName.trim()) {
+      return Taro.showToast({ title: '请输入真实姓名', icon: 'none' })
     }
-    if (!/^\d{17}[\dXx]$/.test(form.idCard)) {
-      return Taro.showToast({ title: '身份证号格式错误', icon: 'none' })
+    if (idCard.length !== 18) {
+      return Taro.showToast({ title: '身份证号需18位', icon: 'none' })
     }
     try {
-      await realNameAuth(form)
+      await realNameAuth({ realName: realName.trim(), idCard })
       Taro.showToast({ title: '认证成功', icon: 'success' })
-      setVerified(true)
+      setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {}
   }
 
-  if (verified) {
+  if (authenticated) {
     return (
       <View className="min-h-screen bg-[#f7f8fa]">
-        <View className="pt-[60px] pb-[60px] text-center bg-white">
-          <View
-            className="w-[70px] h-[70px] leading-[70px] mx-auto rounded-full bg-[#4caf50] text-white text-[35px]"
-          >
-            ✓
-          </View>
-          <Text className="block text-[16px] text-[#333] mt-[16px]">已实名认证</Text>
-          <Text className="block text-[14px] text-[#666] mt-[8px]">{form.realName}</Text>
-          <Text className="block text-[13px] text-[#999] mt-[4px]">{maskedId}</Text>
+        <View className="mx-[12px] mt-[30px] py-[40px] bg-white rounded-[8px] flex flex-col items-center">
+          <Text className="text-[48px]">✓</Text>
+          <Text className="mt-[12px] text-[16px] text-[#333]">已完成实名认证</Text>
+          <Text className="mt-[8px] text-[13px] text-[#999]">{authName}</Text>
         </View>
       </View>
     )
@@ -55,39 +49,37 @@ export default function Realname() {
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] px-[16px] bg-white rounded-[8px]">
+      <View className="mx-[12px] mt-[12px] px-[16px] bg-white rounded-[8px]">
         <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
           <Text className="w-[80px] text-[14px] text-[#333]">真实姓名</Text>
           <Input
             className="flex-1 text-[14px]"
+            type="text"
             placeholder="请输入真实姓名"
-            value={form.realName}
-            onInput={e => setForm(prev => ({ ...prev, realName: e.detail.value }))}
+            value={realName}
+            onInput={e => setRealName(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
           <Text className="w-[80px] text-[14px] text-[#333]">身份证号</Text>
           <Input
             className="flex-1 text-[14px]"
-            placeholder="请输入身份证号"
+            type="idcard"
             maxlength={18}
-            value={form.idCard}
-            onInput={e => setForm(prev => ({ ...prev, idCard: e.detail.value }))}
+            placeholder="请输入身份证号"
+            value={idCard}
+            onInput={e => setIdCard(e.detail.value)}
           />
         </View>
       </View>
-      <View className="px-[16px] py-[12px]">
-        <Text className="block text-[11px] text-[#999] leading-[1.8]">实名信息一经认证不可修改</Text>
-        <Text className="block text-[11px] text-[#999] leading-[1.8]">请确保信息与身份证一致</Text>
-      </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          form.realName && form.idCard ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
+          realName.trim() && idCard ? 'bg-[#007aff] text-white' : 'bg-[#ccc] text-white'
         }`}
-        disabled={!form.realName || !form.idCard}
+        disabled={!realName.trim() || !idCard}
         onClick={onSubmit}
       >
-        立即认证
+        提交认证
       </Button>
     </View>
   )

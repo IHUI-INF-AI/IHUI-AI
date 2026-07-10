@@ -2,7 +2,6 @@ import { View, Text, Switch } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
-import './notification.css'
 
 interface NotificationItem {
   key: string
@@ -12,43 +11,39 @@ interface NotificationItem {
 
 export default function NotificationPage() {
   const [list, setList] = useState<NotificationItem[]>([])
-  const [form, setForm] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     try {
       const res = await getNotificationSettings()
-      const newList = res.list || []
-      setList(newList)
-      const newForm: Record<string, boolean> = {}
-      newList.forEach(n => { newForm[n.key] = n.enabled })
-      setForm(newForm)
+      setList(res.list || [])
     } catch (e) {}
   }, [])
 
-  const onChange = useCallback((key: string, e: { detail: { value: boolean } }) => {
-    const value = e.detail.value
-    setForm(prev => ({ ...prev, [key]: value }))
+  useDidShow(() => { load() })
+
+  const onToggle = useCallback((key: string, value: boolean) => {
+    setList(prev => prev.map(item => item.key === key ? { ...item, enabled: value } : item))
     updateNotificationSettings({ [key]: value }).catch(() => {})
   }, [])
 
-  useDidShow(() => load())
-
   return (
-    <View className="page">
-      {list.length ? (
-        <View className="list">
-          {list.map(n => (
-            <View key={n.key} className="item">
-              <Text className="title">{n.title}</Text>
-              <Switch
-                checked={form[n.key]}
-                color="#007aff"
-                onChange={e => onChange(n.key, e)}
-              />
-            </View>
-          ))}
-        </View>
-      ) : null}
+    <View className="min-h-screen bg-[#f7f8fa]">
+      <View className="mx-[12px] my-[12px] bg-white rounded-[8px] overflow-hidden">
+        {list.map((item, idx) => (
+          <View
+            key={item.key}
+            className={`flex items-center justify-between px-[16px] py-[14px] ${
+              idx < list.length - 1 ? 'border-b border-[#f0f0f0]' : ''
+            }`}
+          >
+            <Text className="text-[15px] text-[#333]">{item.title}</Text>
+            <Switch
+              checked={item.enabled}
+              onChange={e => onToggle(item.key, e.detail.value)}
+            />
+          </View>
+        ))}
+      </View>
     </View>
   )
 }

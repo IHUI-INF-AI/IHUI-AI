@@ -16,7 +16,6 @@ const PAGE_SIZE = 20
 export default function DistributionTeam() {
   const [list, setList] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(false)
-  const [total, setTotal] = useState(0)
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const loadingRef = useRef(false)
@@ -35,7 +34,6 @@ export default function DistributionTeam() {
       const res = await getDistributionTeam({ page: pageRef.current, pageSize: PAGE_SIZE })
       const items = res.list || []
       setList(prev => (reset ? items : [...prev, ...items]))
-      setTotal(res.total)
       hasMoreRef.current = pageRef.current * PAGE_SIZE < res.total
       pageRef.current++
     } catch (e) {
@@ -56,32 +54,34 @@ export default function DistributionTeam() {
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="px-[32rpx] py-[24rpx] text-[26rpx] text-[#666]">团队总人数：{total}</View>
       {list.length > 0 && (
-        <View className="px-[24rpx]">
+        <View className="p-[12px]">
           {list.map(m => (
-            <View key={m.id} className="flex items-center bg-white p-[24rpx] mb-[24rpx] rounded-[16rpx]">
+            <View
+              key={m.id}
+              className="flex items-center bg-white p-[12px] mb-[12px] rounded-[8px]"
+            >
               <Image
-                className="w-[80rpx] h-[80rpx] rounded-full bg-[#f5f5f5]"
+                className="w-[40px] h-[40px] rounded-full bg-[#f5f5f5]"
                 src={m.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
-              <View className="flex-1 ml-[24rpx]">
-                <Text className="block text-[28rpx] text-[#333]">{m.nickname}</Text>
-                <Text className="block text-[22rpx] text-[#999] mt-[8rpx]">加入时间：{m.joinTime}</Text>
+              <View className="flex-1 ml-[12px]">
+                <Text className="block text-[14px] text-[#333]">{m.nickname}</Text>
+                <Text className="block text-[12px] text-[#999] mt-[4px]">加入时间：{m.joinTime}</Text>
               </View>
-              <Text className="text-[24rpx] text-[#ff6e3c]">L{m.level}</Text>
+              <Text className="text-[14px] text-[#ff6b35] font-semibold">V{m.level}</Text>
             </View>
           ))}
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-[#999]">
+        <View className="text-center py-[60px] text-[#999]">
           <Text>暂无团队成员</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[120rpx] text-[#999]">
+        <View className="text-center py-[20px] text-[#999]">
           <Text>加载中...</Text>
         </View>
       )}
