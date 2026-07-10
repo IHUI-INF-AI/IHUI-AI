@@ -3,17 +3,9 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 
-const TYPES = [
-  { value: 'wechat', name: '微信' },
-  { value: 'alipay', name: '支付宝' },
-  { value: 'bank', name: '银行卡' },
-]
-
-const TIPS = [
-  '提现说明：',
-  '1. 最低提现金额 ¥10',
-  '2. 提现申请将在1-3个工作日内审核',
-  '3. 工作日17:00前申请当日到账',
+const PAY_TYPES = [
+  { value: 'wechat', label: '微信' },
+  { value: 'alipay', label: '支付宝' },
 ]
 
 export default function DistributionWithdraw() {
@@ -33,10 +25,14 @@ export default function DistributionWithdraw() {
     }
   }
 
+  const fillAll = () => {
+    setAmount(String(availableRef.current))
+  }
+
   const onSubmit = async () => {
     const amt = Number(amount)
-    if (!amt || amt < 10) {
-      Taro.showToast({ title: '最低提现¥10', icon: 'none' })
+    if (!amt || amt <= 0) {
+      Taro.showToast({ title: '请输入有效金额', icon: 'none' })
       return
     }
     if (amt > availableRef.current) {
@@ -47,8 +43,9 @@ export default function DistributionWithdraw() {
     try {
       await withdraw({ amount: amt, type: payType })
       Taro.showToast({ title: '提现申请已提交', icon: 'success' })
-      setAmount('')
-      load()
+      setTimeout(() => {
+        Taro.navigateBack()
+      }, 800)
     } catch (e) {
       // ignore
     } finally {
@@ -61,49 +58,48 @@ export default function DistributionWithdraw() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa] pb-[40rpx]">
-      <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
-        <Text className="text-[26rpx] text-[#999]">可提现金额</Text>
-        <Text className="block text-[60rpx] text-[#333] font-bold my-[16rpx]">¥{available}</Text>
-        <View className="flex items-center py-[24rpx] border-t-[2rpx] border-[#f5f5f5]">
-          <Text className="text-[40rpx] text-[#333] font-semibold">¥</Text>
+    <View className="min-h-screen bg-[#f7f8fa]">
+      <View className="mx-[12px] mt-[12px] bg-white rounded-[8px] p-[16px]">
+        <Text className="text-[12px] text-[#999]">可提现余额</Text>
+        <Text className="block text-[40px] text-[#333] font-bold mt-[4px]">¥{available}</Text>
+        <View className="flex items-center py-[12px] mt-[8px] border-t-[1px] border-[#f5f5f5]">
+          <Text className="text-[24px] text-[#333] font-semibold">¥</Text>
           <Input
-            className="flex-1 ml-[16rpx] text-[40rpx]"
+            className="flex-1 ml-[8px] text-[24px]"
             type="digit"
             value={amount}
             onInput={e => setAmount(e.detail.value)}
             placeholder="请输入提现金额"
           />
+          <Button
+            className="text-[12px] text-[#ff6b35] bg-transparent border-none leading-[24px]"
+            onClick={fillAll}
+          >
+            全部提现
+          </Button>
         </View>
-        <View className="mt-[32rpx]">
-          <Text className="text-[26rpx] text-[#999]">提现方式</Text>
-          <View className="flex mt-[16rpx] gap-[16rpx]">
-            {TYPES.map(t => (
+        <View className="mt-[16px]">
+          <Text className="text-[12px] text-[#999]">提现方式</Text>
+          <View className="flex mt-[8px] gap-[12px]">
+            {PAY_TYPES.map(t => (
               <View
                 key={t.value}
-                className={`flex-1 py-[20rpx] text-center border-[2rpx] rounded-[12rpx] text-[26rpx] ${payType === t.value ? 'border-[#ff6e3c] text-[#ff6e3c]' : 'border-[#eee] text-[#333]'}`}
+                className={`flex-1 py-[10px] text-center rounded-[8px] text-[14px] ${payType === t.value ? 'bg-[#ff6b35] text-white' : 'bg-[#f5f5f5] text-[#333]'}`}
                 onClick={() => setPayType(t.value)}
               >
-                <Text>{t.name}</Text>
+                <Text>{t.label}</Text>
               </View>
             ))}
           </View>
         </View>
       </View>
       <Button
-        className="mx-[32rpx] my-[32rpx] bg-[#ff6e3c] text-white rounded-[40rpx] text-[32rpx]"
+        className="mx-[12px] mt-[24px] bg-[#ff6b35] text-white rounded-[8px] text-[16px]"
         disabled={submitting}
         onClick={onSubmit}
       >
         立即提现
       </Button>
-      <View className="px-[32rpx]">
-        {TIPS.map((tip, idx) => (
-          <Text key={idx} className="block text-[22rpx] text-[#999] leading-[1.8]">
-            {tip}
-          </Text>
-        ))}
-      </View>
     </View>
   )
 }
