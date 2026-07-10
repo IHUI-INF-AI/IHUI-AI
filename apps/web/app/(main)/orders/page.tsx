@@ -3,11 +3,13 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { ShoppingCart, Loader2, Clock, CheckCircle, XCircle, Wallet, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ShoppingCart, Clock, CheckCircle, XCircle, Wallet, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { DataTable, type Column } from '@/components/data'
+import { Empty, Loading } from '@/components/common'
 
 type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -19,6 +21,7 @@ interface OrderItem {
   payAmount: string
   status: OrderStatus
   createdAt: string
+  [key: string]: unknown
 }
 
 interface OrdersData {
@@ -91,6 +94,48 @@ export default function OrdersPage() {
     minute: '2-digit',
   })
 
+  const columns: Column<OrderItem>[] = [
+    {
+      key: 'orderNo',
+      title: t('orderNo'),
+      render: (o) => <span className="font-mono text-xs">{o.orderNo}</span>,
+    },
+    {
+      key: 'targetTitle',
+      title: t('target'),
+      render: (o) => (
+        <div>
+          <div className="font-medium">{o.targetTitle ?? '-'}</div>
+          <div className="text-xs text-muted-foreground">{t(`type.${o.orderType === 'course' ? 'course' : 'card'}`)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'payAmount',
+      title: t('amount'),
+      render: (o) => <span className="font-medium">{currencyFmt.format(Number(o.payAmount))}</span>,
+    },
+    {
+      key: 'status',
+      title: t('statusLabel'),
+      render: (o) => {
+        const sc = STATUS_CONFIG[o.status]
+        const StatusIcon = sc.icon
+        return (
+          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
+            <StatusIcon className="h-3 w-3" />
+            {t(`status.${o.status}`)}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'createdAt',
+      title: t('createdAt'),
+      render: (o) => <span className="text-muted-foreground">{dateFmt.format(new Date(o.createdAt))}</span>,
+    },
+  ]
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <header className="space-y-1">
@@ -130,64 +175,23 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2.5 font-medium">{t('orderNo')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('target')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('amount')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('statusLabel')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('createdAt')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </td>
-              </tr>
-            ) : orders.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('empty')}
-                </td>
-              </tr>
-            ) : (
-              orders.map((o) => {
-                const sc = STATUS_CONFIG[o.status]
-                const StatusIcon = sc.icon
-                return (
-                  <tr key={o.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-mono text-xs">{o.orderNo}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium">{o.targetTitle ?? '-'}</div>
-                      <div className="text-xs text-muted-foreground">{t(`type.${o.orderType === 'course' ? 'course' : 'card'}`)}</div>
-                    </td>
-                    <td className="px-4 py-2.5 font-medium">{currencyFmt.format(Number(o.payAmount))}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
-                        <StatusIcon className="h-3 w-3" />
-                        {t(`status.${o.status}`)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{dateFmt.format(new Date(o.createdAt))}</td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <Loading size="sm" text={t('loading')} />
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {(error as Error).message}
+        </div>
+      ) : orders.length === 0 ? (
+        <Empty icon={ShoppingCart} title={t('empty')} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={orders}
+          rowKey={(o) => o.id}
+        />
+      )}
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">

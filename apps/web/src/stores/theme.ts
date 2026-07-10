@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type FontSize = 'small' | 'medium' | 'large'
@@ -28,26 +29,46 @@ function applyTheme(theme: ThemeMode, accentColor: string, fontSize: FontSize) {
   root.setAttribute('data-font-size', fontSize)
 }
 
-export const useThemeStore = create<ThemeState>((set) => ({
-  theme: 'system',
-  accentColor: 'blue',
-  fontSize: 'medium',
+/** SSR 安全的 localStorage 替代存储 */
+const noopStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+}
 
-  setTheme: (theme) => {
-    set({ theme })
-    const s = useThemeStore.getState()
-    applyTheme(theme, s.accentColor, s.fontSize)
-  },
+export const useThemeStore = create<ThemeState>()(
+  persist(
+    (set) => ({
+      theme: 'system',
+      accentColor: 'blue',
+      fontSize: 'medium',
 
-  setAccentColor: (accentColor) => {
-    set({ accentColor })
-    const s = useThemeStore.getState()
-    applyTheme(s.theme, accentColor, s.fontSize)
-  },
+      setTheme: (theme) => {
+        set({ theme })
+        const s = useThemeStore.getState()
+        applyTheme(theme, s.accentColor, s.fontSize)
+      },
 
-  setFontSize: (fontSize) => {
-    set({ fontSize })
-    const s = useThemeStore.getState()
-    applyTheme(s.theme, s.accentColor, fontSize)
-  },
-}))
+      setAccentColor: (accentColor) => {
+        set({ accentColor })
+        const s = useThemeStore.getState()
+        applyTheme(s.theme, accentColor, s.fontSize)
+      },
+
+      setFontSize: (fontSize) => {
+        set({ fontSize })
+        const s = useThemeStore.getState()
+        applyTheme(s.theme, s.accentColor, fontSize)
+      },
+    }),
+    {
+      name: 'ihui-theme',
+      storage: createJSONStorage(() =>
+        typeof window !== 'undefined' ? window.localStorage : noopStorage,
+      ),
+      onRehydrateStorage: () => (state) => {
+        if (state) applyTheme(state.theme, state.accentColor, state.fontSize)
+      },
+    },
+  ),
+)
