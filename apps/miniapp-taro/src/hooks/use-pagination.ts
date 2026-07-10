@@ -1,6 +1,9 @@
 import { useState } from 'react'
 
-interface PaginationOptions { initialPage?: number; initialPageSize?: number }
+interface PaginationOptions {
+  initialPage?: number
+  initialPageSize?: number
+}
 interface PaginationResult<T> {
   page: number
   pageSize: number
@@ -18,7 +21,7 @@ interface PaginationResult<T> {
   prev: () => void
 }
 
-export function usePagination<T = any>(opts: PaginationOptions = {}): PaginationResult<T> {
+export function usePagination<T = unknown>(opts: PaginationOptions = {}): PaginationResult<T> {
   const { initialPage = 1, initialPageSize = 10 } = opts
   const [page, setPage] = useState(initialPage)
   const [pageSize, setPageSize] = useState(initialPageSize)
@@ -27,12 +30,26 @@ export function usePagination<T = any>(opts: PaginationOptions = {}): Pagination
   const [loading, setLoading] = useState(false)
   const hasNext = page * pageSize < total
   return {
-    page, pageSize, total, list, loading, hasNext,
-    setPage, setPageSize,
-    setList: (newList, newTotal) => { setList(newList); setTotal(newTotal) },
-    appendList: (more) => setList(prev => [...prev, ...more]),
-    setLoading, reset: () => { setPage(1); setList([]); setTotal(0) },
-    next: () => hasNext && setPage(p => p + 1),
-    prev: () => page > 1 && setPage(p => p - 1)
+    page,
+    pageSize,
+    total,
+    list,
+    loading,
+    hasNext,
+    setPage,
+    setPageSize,
+    setList: (newList, newTotal) => {
+      setList(newList)
+      setTotal(newTotal)
+    },
+    appendList: (more) => setList((prev) => [...prev, ...more]),
+    setLoading,
+    reset: () => {
+      setPage(1)
+      setList([])
+      setTotal(0)
+    },
+    next: () => hasNext && setPage((p) => p + 1),
+    prev: () => page > 1 && setPage((p) => p - 1),
   }
 }

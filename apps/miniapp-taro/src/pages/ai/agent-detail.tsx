@@ -9,7 +9,7 @@ interface AgentDetail {
   desc: string
   avatar?: string
   prompt: string
-  config?: Record<string, any>
+  config?: Record<string, unknown>
 }
 
 export default function AgentDetailPage() {
@@ -24,7 +24,9 @@ export default function AgentDetailPage() {
     } catch {}
   }, [router.params.id])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   const onChat = useCallback(() => {
     if (!agent) return
@@ -59,7 +61,9 @@ export default function AgentDetailPage() {
           <Button
             className="w-full bg-[#007aff] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
             onClick={onChat}
-          >开始对话</Button>
+          >
+            开始对话
+          </Button>
         </View>
       )}
     </View>
