@@ -222,6 +222,7 @@
     "descriptionPlaceholder": "请输入项目描述（可选）",
     "files": "文件",
     "fileCount": "{count} 个文件",
+    "processedFiles": "已处理文件",
     "upload": "上传文件",
     "noProjects": "暂无项目，点击右上角创建一个吧",
     "emptyFiles": "暂无文件，拖拽或点击上方区域上传",
