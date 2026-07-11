@@ -190,6 +190,35 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // -------------------------------------------------------------------------
+  // ai/outbound_routes/callback — 外呼回调
+  // NOTE: 旧架构 outbound_routes.py 的 POST /callback 接收外呼平台回调；
+  // 此处返回动作指令（action: continue/transfer/end, intent: high/normal/low）。
+  // 简化实现：根据通话时长推断意向，返回固定结构。
+  // -------------------------------------------------------------------------
+  server.post('/outbound-routes/callback', async (req, reply) => {
+    const body = req.body as {
+      phone?: string
+      callId?: string
+      duration?: number
+      recordingUrl?: string
+    }
+    const duration = typeof body?.duration === 'number' ? body.duration : 0
+    const intent = duration > 60 ? 'high' : duration > 15 ? 'normal' : 'low'
+    const action = intent === 'high' ? 'transfer' : intent === 'normal' ? 'continue' : 'end'
+    return reply.send(
+      success({
+        action,
+        intent,
+        phone: body?.phone ?? '',
+        callId: body?.callId ?? '',
+        duration,
+        recordingUrl: body?.recordingUrl ?? '',
+        message: '回调已接收',
+      }),
+    )
+  })
+
+  // -------------------------------------------------------------------------
   // ai/video_routes — AI 视频路由 + 任务
   // NOTE: /video-routes CRUD 无独立 DB 表（旧架构 video_routes.py 仅 POST /generate）；
   // 任务端点对接 Drizzle schema: video_generation_tasks。

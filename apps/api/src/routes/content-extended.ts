@@ -1,15 +1,21 @@
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { zhsUserAgentImage } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { authenticate } from '../plugins/auth.js'
+import { carousels, aiGcContent } from '@ihui/database'
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
-// =============================================================================
-// 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
-// =============================================================================
+const paginationQuery = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+}
 
 function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
   const page = Math.max(1, Math.floor(Number(q.page) || 1))
@@ -17,612 +23,492 @@ function parsePaging(q: { page?: string; pageSize?: string }): { page: number; p
   return { page, pageSize }
 }
 
-async function rawList(
-  table: string,
-  opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
-) {
-  const where =
-    opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
-  const order = opts.orderBy ?? '"id" DESC'
-  const offset = (opts.page - 1) * opts.pageSize
-  const rows = await db.execute(
-    sql`SELECT * FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${opts.pageSize} OFFSET ${offset}`,
-  )
-  const countRows = await db.execute(
-    sql`SELECT count(*)::int AS count FROM ${sql.raw(`"${table}"`)} ${where}`,
-  )
-  const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
-  return {
-    list: rows as Record<string, unknown>[],
-    total,
-    page: opts.page,
-    pageSize: opts.pageSize,
-  }
-}
+const createActivitySchema = z.object({
+  title: z.string().min(1, '标题不能为空').max(255),
+  description: z.string().max(5000).optional(),
+  cover: z.string().max(512).optional(),
+  content: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  status: z.number().int().min(0).max(2).optional(),
+  sort: z.number().int().optional(),
+})
 
-async function rawById(table: string, id: string) {
-  const rows = await db.execute(
-    sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} LIMIT 1`,
-  )
-  return (rows as Record<string, unknown>[])[0]
-}
+const updateActivitySchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().max(5000).optional(),
+  cover: z.string().max(512).optional(),
+  content: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  status: z.number().int().min(0).max(2).optional(),
+  sort: z.number().int().optional(),
+})
 
-async function rawInsert(table: string, columns: string[], body: Record<string, unknown>) {
-  const cols: string[] = []
-  const vals: unknown[] = []
-  for (const c of columns) {
-    if (body[c] !== undefined) {
-      cols.push(c)
-      vals.push(body[c])
-    }
-  }
-  if (cols.length === 0) throw new Error('无可写入字段')
-  const colList = sql.join(
-    cols.map((c) => sql.raw(`"${c}"`)),
-    sql`, `,
-  )
-  const valList = sql.join(
-    vals.map((v) => sql`${v}`),
-    sql`, `,
-  )
-  const rows = await db.execute(
-    sql`INSERT INTO ${sql.raw(`"${table}"`)} (${colList}) VALUES (${valList}) RETURNING *`,
-  )
-  return (rows as Record<string, unknown>[])[0]
-}
+const updateContactSchema = z.object({
+  type: z.string().max(32).optional(),
+  label: z.string().max(100).optional(),
+  value: z.string().max(500).optional(),
+  icon: z.string().max(255).optional(),
+  sort: z.number().int().optional(),
+  status: z.number().int().optional(),
+})
 
-async function rawUpdate(
-  table: string,
-  columns: string[],
-  id: string,
-  body: Record<string, unknown>,
-) {
-  const sets: SQL[] = []
-  for (const c of columns) {
-    if (body[c] !== undefined) sets.push(sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
-  }
-  if (sets.length === 0) return undefined
-  const rows = await db.execute(
-    sql`UPDATE ${sql.raw(`"${table}"`)} SET ${sql.join(sets, sql`, `)} WHERE "id"::text = ${id} RETURNING *`,
-  )
-  return (rows as Record<string, unknown>[])[0]
-}
+const createAigcSchema = z.object({
+  agentId: z.string().max(64).optional(),
+  gcType: z.string().max(32).default('text'),
+  content: z.string().optional(),
+  status: z.number().int().optional(),
+})
 
-async function rawDelete(table: string, id: string) {
-  await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
-}
+const updateBannerSchema = z.object({
+  title: z.string().max(255).optional(),
+  imageUrl: z.string().max(512).optional(),
+  linkUrl: z.string().max(512).optional(),
+  position: z.string().max(64).optional(),
+  description: z.string().optional(),
+  sort: z.number().int().optional(),
+  status: z.number().int().optional(),
+  startAt: z.string().optional(),
+  endAt: z.string().optional(),
+})
 
-const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  // -------------------------------------------------------------------------
-  // advertise — 广告管理（表 advertise，尚未迁移为 Drizzle schema）
-  // -------------------------------------------------------------------------
-  // 广告位列表（静态路由须先于 /advertise/:id 注册）
-  server.get('/advertise/position/list', async (_req, reply) => {
-    try {
-      const rows = await db.execute(
-        sql`SELECT id, name, code, description, width, height FROM advertise_position WHERE status = 1 ORDER BY id ASC`,
-      )
-      return reply.send(success(rows as Record<string, unknown>[]))
-    } catch (e) {
-      _req.log.error(e)
-      return reply.status(500).send(error(500, '查询广告位失败'))
-    }
-  })
+// =============================================================================
+// 路由
+// =============================================================================
 
-  // 新增广告位
-  server.post('/advertise/position', async (req, reply) => {
-    const body = req.body as {
-      name?: string
-      code?: string
-      description?: string
-      width?: number
-      height?: number
-    }
-    if (!body.name || !body.code) {
-      return reply.status(400).send(error(400, 'name 和 code 不能为空'))
-    }
-    try {
-      const rows = await db.execute(
-        sql`INSERT INTO advertise_position (name, code, description, width, height, status) VALUES (${body.name}, ${body.code}, ${body.description ?? null}, ${body.width ?? 0}, ${body.height ?? 0}, 1) RETURNING id`,
-      )
-      const row = (rows as Record<string, unknown>[])[0]
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建广告位失败'))
-    }
-  })
+export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // ==========================================================================
+  // activities — 活动管理（表 activities，尚未迁移为 Drizzle schema）
+  // ==========================================================================
 
-  const advertiseCols = [
-    'title',
-    'image',
-    'url',
-    'position_id',
-    'type',
-    'content',
-    'start_time',
-    'end_time',
-    'status',
-    'sort_order',
-    'click_num',
-    'view_num',
-    'target_user',
-  ]
-  server.get('/advertise/list', async (req, reply) => {
-    const q = req.query as {
+  // GET /content/activities/list - 活动列表
+  server.get('/content/activities/list', async (request, reply) => {
+    await authenticate(request)
+    const q = request.query as {
       page?: string
       pageSize?: string
-      position_id?: string
       status?: string
+      keyword?: string
     }
     const { page, pageSize } = parsePaging(q)
+    const offset = (page - 1) * pageSize
     const conds: SQL[] = []
-    if (q.position_id) conds.push(sql`"position_id" = ${Number(q.position_id)}`)
     if (q.status !== undefined) conds.push(sql`"status" = ${Number(q.status)}`)
-    try {
-      const result = await rawList('advertise', {
-        page,
-        pageSize,
-        conds,
-        orderBy: '"sort_order" ASC, "id" DESC',
-      })
-      return reply.send(success(result))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询广告失败'))
-    }
-  })
-  server.get('/advertise/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawById('advertise', parsed.data.id)
-      if (!row) return reply.status(404).send(error(404, '广告不存在'))
-      return reply.send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询广告失败'))
-    }
-  })
-  server.post('/advertise', async (req, reply) => {
-    try {
-      const row = await rawInsert('advertise', advertiseCols, req.body as Record<string, unknown>)
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建广告失败'))
-    }
-  })
-  server.put('/advertise/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawUpdate(
-        'advertise',
-        advertiseCols,
-        parsed.data.id,
-        req.body as Record<string, unknown>,
-      )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '更新广告失败'))
-    }
-  })
-  server.delete('/advertise/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      await rawDelete('advertise', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '删除广告失败'))
-    }
-  })
-
-  // 广告点击记录（click_num + 1）
-  server.post('/advertise/:id/click', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    if (q.keyword) conds.push(sql`"title" ILIKE ${`%${q.keyword}%`}`)
+    const where = conds.length > 0 ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``
     try {
       const rows = await db.execute(
-        sql`UPDATE advertise SET click_num = click_num + 1 WHERE "id"::text = ${parsed.data.id} RETURNING id, click_num`,
+        sql`SELECT id, title, description, cover, content, start_time, end_time, status, sort, created_at, updated_at
+            FROM activities
+            ${where}
+            ORDER BY "sort" ASC, "created_at" DESC
+            LIMIT ${pageSize} OFFSET ${offset}`,
+      )
+      const countRows = await db.execute(
+        sql`SELECT count(*)::int AS count FROM activities ${where}`,
+      )
+      const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+      return reply.send(
+        success({
+          list: rows as Record<string, unknown>[],
+          total,
+          page,
+          pageSize,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询活动列表失败'))
+    }
+  })
+
+  // POST /content/activities - 创建活动
+  server.post('/content/activities', async (request, reply) => {
+    await authenticate(request)
+    const parsed = createActivitySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { title, description, cover, content, startTime, endTime, status, sort } = parsed.data
+    try {
+      const rows = await db.execute(
+        sql`INSERT INTO activities (title, description, cover, content, start_time, end_time, status, sort, created_at, updated_at)
+            VALUES (${title}, ${description ?? null}, ${cover ?? null}, ${content ?? null},
+                    ${startTime ?? null}, ${endTime ?? null}, ${status ?? 0}, ${sort ?? 0}, NOW(), NOW())
+            RETURNING id, title, description, cover, content, start_time, end_time, status, sort, created_at, updated_at`,
       )
       const row = (rows as Record<string, unknown>[])[0]
-      if (!row) return reply.status(404).send(error(404, '广告不存在'))
-      return reply.send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '记录广告点击失败'))
-    }
-  })
-
-  // -------------------------------------------------------------------------
-  // video — 视频管理
-  // NOTE: 旧架构 video.py 为基于文件/Redis 的 HLS 预读与转码，无独立 DB 表；
-  // 视频管理尚未迁移，此处保持合理默认值。
-  // -------------------------------------------------------------------------
-  server.get('/video/list', async (_req, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
-  })
-  server.get('/video/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id }))
-  })
-  server.post('/video', async (req, reply) => {
-    return reply.status(201).send(success({ created: true, body: req.body }))
-  })
-  server.put('/video/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, updated: true }))
-  })
-  server.delete('/video/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
-  })
-
-  // -------------------------------------------------------------------------
-  // video_preload — 视频预加载（表 video_preload，尚未迁移为 Drizzle schema）
-  // -------------------------------------------------------------------------
-  const videoPreloadCols = [
-    'user_id',
-    'video_id',
-    'video_url',
-    'start_time',
-    'end_time',
-    'preload_size',
-    'completed',
-    'is_chunked',
-  ]
-  server.get('/video-preload/list', async (req, reply) => {
-    const q = req.query as {
-      page?: string
-      pageSize?: string
-      user_id?: string
-      video_id?: string
-    }
-    const { page, pageSize } = parsePaging(q)
-    const conds: SQL[] = []
-    if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
-    if (q.video_id) conds.push(sql`"video_id" = ${Number(q.video_id)}`)
-    try {
-      const result = await rawList('video_preload', { page, pageSize, conds })
-      return reply.send(success(result))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询视频预加载记录失败'))
-    }
-  })
-  server.get('/video-preload/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawById('video_preload', parsed.data.id)
-      if (!row) return reply.status(404).send(error(404, '视频预加载记录不存在'))
-      return reply.send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询视频预加载记录失败'))
-    }
-  })
-  server.post('/video-preload', async (req, reply) => {
-    try {
-      const row = await rawInsert(
-        'video_preload',
-        videoPreloadCols,
-        req.body as Record<string, unknown>,
-      )
       return reply.status(201).send(success(row))
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建视频预加载记录失败'))
-    }
-  })
-  server.put('/video-preload/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawUpdate(
-        'video_preload',
-        videoPreloadCols,
-        parsed.data.id,
-        req.body as Record<string, unknown>,
-      )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '更新视频预加载记录失败'))
-    }
-  })
-  server.delete('/video-preload/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      await rawDelete('video_preload', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '删除视频预加载记录失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建活动失败'))
     }
   })
 
-  // -------------------------------------------------------------------------
-  // user_video_comment — 视频评论追踪（表 user_video_comment，尚未迁移为 Drizzle schema）
-  // -------------------------------------------------------------------------
-  const userVideoCommentCols = [
-    'user_id',
-    'user_name',
-    'user_avatar',
-    'video_id',
-    'content',
-    'pid',
-    'reply_user_id',
-    'reply_user_name',
-    'like_num',
-    'status',
-  ]
-  server.get('/user-video-comment/list', async (req, reply) => {
-    const q = req.query as {
+  // PUT /content/activities/:id - 修改活动
+  server.put('/content/activities/:id', async (request, reply) => {
+    await authenticate(request)
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
+    }
+    const parsed = updateActivitySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { id } = paramParsed.data
+    const body = parsed.data
+    const sets: SQL[] = []
+    if (body.title !== undefined) sets.push(sql`"title" = ${body.title}`)
+    if (body.description !== undefined) sets.push(sql`"description" = ${body.description}`)
+    if (body.cover !== undefined) sets.push(sql`"cover" = ${body.cover}`)
+    if (body.content !== undefined) sets.push(sql`"content" = ${body.content}`)
+    if (body.startTime !== undefined) sets.push(sql`"start_time" = ${body.startTime}`)
+    if (body.endTime !== undefined) sets.push(sql`"end_time" = ${body.endTime}`)
+    if (body.status !== undefined) sets.push(sql`"status" = ${body.status}`)
+    if (body.sort !== undefined) sets.push(sql`"sort" = ${body.sort}`)
+    if (sets.length === 0) return reply.status(400).send(error(400, '无更新字段'))
+    sets.push(sql`"updated_at" = NOW()`)
+    try {
+      const rows = await db.execute(
+        sql`UPDATE activities
+            SET ${sql.join(sets, sql`, `)}
+            WHERE "id"::text = ${id}
+            RETURNING id, title, description, cover, content, start_time, end_time, status, sort, created_at, updated_at`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(404).send(error(404, '活动不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新活动失败'))
+    }
+  })
+
+  // DELETE /content/activities/:id - 删除活动
+  server.delete('/content/activities/:id', async (request, reply) => {
+    await authenticate(request)
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
+    }
+    const { id } = parsed.data
+    try {
+      const rows = await db.execute(
+        sql`DELETE FROM activities WHERE "id"::text = ${id} RETURNING id`,
+      )
+      if ((rows as Record<string, unknown>[]).length === 0) {
+        return reply.status(404).send(error(404, '活动不存在'))
+      }
+      return reply.send(success({ id, deleted: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除活动失败'))
+    }
+  })
+
+  // ==========================================================================
+  // contacts — 联系方式管理（表 content_contacts，尚未迁移为 Drizzle schema）
+  // ==========================================================================
+
+  // GET /content/contacts/list - 联系方式列表
+  server.get('/content/contacts/list', async (request, reply) => {
+    await authenticate(request)
+    const q = request.query as {
       page?: string
       pageSize?: string
-      video_id?: string
+      type?: string
       status?: string
     }
     const { page, pageSize } = parsePaging(q)
+    const offset = (page - 1) * pageSize
     const conds: SQL[] = []
-    if (q.video_id) conds.push(sql`"video_id" = ${Number(q.video_id)}`)
-    conds.push(sql`"status" = ${q.status !== undefined ? Number(q.status) : 1}`)
+    if (q.type) conds.push(sql`"type" = ${q.type}`)
+    if (q.status !== undefined) conds.push(sql`"status" = ${Number(q.status)}`)
+    const where = conds.length > 0 ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``
     try {
-      const result = await rawList('user_video_comment', { page, pageSize, conds })
-      return reply.send(success(result))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询视频评论失败'))
-    }
-  })
-  server.get('/user-video-comment/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawById('user_video_comment', parsed.data.id)
-      if (!row) return reply.status(404).send(error(404, '视频评论不存在'))
-      return reply.send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询视频评论失败'))
-    }
-  })
-  server.post('/user-video-comment', async (req, reply) => {
-    try {
-      const body = req.body as Record<string, unknown>
-      if (body.status === undefined) body.status = 1
-      const row = await rawInsert('user_video_comment', userVideoCommentCols, body)
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建视频评论失败'))
-    }
-  })
-  server.put('/user-video-comment/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawUpdate(
-        'user_video_comment',
-        userVideoCommentCols,
-        parsed.data.id,
-        req.body as Record<string, unknown>,
+      const rows = await db.execute(
+        sql`SELECT id, type, label, value, icon, sort, status, created_at, updated_at
+            FROM content_contacts
+            ${where}
+            ORDER BY "sort" ASC, "id" ASC
+            LIMIT ${pageSize} OFFSET ${offset}`,
       )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
+      const countRows = await db.execute(
+        sql`SELECT count(*)::int AS count FROM content_contacts ${where}`,
+      )
+      const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+      return reply.send(
+        success({
+          list: rows as Record<string, unknown>[],
+          total,
+          page,
+          pageSize,
+        }),
+      )
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '更新视频评论失败'))
-    }
-  })
-  server.delete('/user-video-comment/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      await rawDelete('user_video_comment', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '删除视频评论失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询联系方式列表失败'))
     }
   })
 
-  // -------------------------------------------------------------------------
-  // user_video_log — 视频日志追踪（表 user_video_log，尚未迁移为 Drizzle schema）
-  // -------------------------------------------------------------------------
-  const userVideoLogCols = [
-    'user_id',
-    'user_name',
-    'video_id',
-    'video_title',
-    'duration',
-    'watched',
-    'progress',
-    'device',
-    'ip',
-    'is_completed',
-    'is_finished',
-  ]
-  server.get('/user-video-log/list', async (req, reply) => {
-    const q = req.query as {
-      page?: string
-      pageSize?: string
-      user_id?: string
-      video_id?: string
+  // PUT /content/contacts/:id - 修改联系方式
+  server.put('/content/contacts/:id', async (request, reply) => {
+    await authenticate(request)
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
     }
-    const { page, pageSize } = parsePaging(q)
-    const conds: SQL[] = []
-    if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
-    if (q.video_id) conds.push(sql`"video_id" = ${Number(q.video_id)}`)
-    try {
-      const result = await rawList('user_video_log', { page, pageSize, conds })
-      return reply.send(success(result))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询视频日志失败'))
+    const parsed = updateContactSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-  })
-  server.get('/user-video-log/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const { id } = paramParsed.data
+    const body = parsed.data
+    const sets: SQL[] = []
+    if (body.type !== undefined) sets.push(sql`"type" = ${body.type}`)
+    if (body.label !== undefined) sets.push(sql`"label" = ${body.label}`)
+    if (body.value !== undefined) sets.push(sql`"value" = ${body.value}`)
+    if (body.icon !== undefined) sets.push(sql`"icon" = ${body.icon}`)
+    if (body.sort !== undefined) sets.push(sql`"sort" = ${body.sort}`)
+    if (body.status !== undefined) sets.push(sql`"status" = ${body.status}`)
+    if (sets.length === 0) return reply.status(400).send(error(400, '无更新字段'))
+    sets.push(sql`"updated_at" = NOW()`)
     try {
-      const row = await rawById('user_video_log', parsed.data.id)
-      if (!row) return reply.status(404).send(error(404, '视频日志不存在'))
+      const rows = await db.execute(
+        sql`UPDATE content_contacts
+            SET ${sql.join(sets, sql`, `)}
+            WHERE "id"::text = ${id}
+            RETURNING id, type, label, value, icon, sort, status, created_at, updated_at`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(404).send(error(404, '联系方式不存在'))
       return reply.send(success(row))
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询视频日志失败'))
-    }
-  })
-  server.post('/user-video-log', async (req, reply) => {
-    try {
-      const row = await rawInsert(
-        'user_video_log',
-        userVideoLogCols,
-        req.body as Record<string, unknown>,
-      )
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建视频日志失败'))
-    }
-  })
-  server.put('/user-video-log/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawUpdate(
-        'user_video_log',
-        userVideoLogCols,
-        parsed.data.id,
-        req.body as Record<string, unknown>,
-      )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '更新视频日志失败'))
-    }
-  })
-  server.delete('/user-video-log/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      await rawDelete('user_video_log', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '删除视频日志失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新联系方式失败'))
     }
   })
 
-  // -------------------------------------------------------------------------
-  // user_agent_image — 用户 Agent 图片（Drizzle schema: zhs_user_agent_image）
-  // -------------------------------------------------------------------------
-  server.get('/user-agent-image/list', async (req, reply) => {
-    const q = req.query as {
+  // ==========================================================================
+  // file-storage — 文件存储管理（表 content_file_storage，尚未迁移为 Drizzle schema）
+  // ==========================================================================
+
+  // GET /content/file-storage/list - 文件存储列表
+  server.get('/content/file-storage/list', async (request, reply) => {
+    await authenticate(request)
+    const q = request.query as {
       page?: string
       pageSize?: string
-      userUuid?: string
+      type?: string
       userId?: string
-      agentId?: string
-      imageType?: string
     }
     const { page, pageSize } = parsePaging(q)
-    const conds = []
-    if (q.userUuid) conds.push(eq(zhsUserAgentImage.userUuid, q.userUuid))
-    if (q.userId) conds.push(eq(zhsUserAgentImage.userId, q.userId))
-    if (q.agentId) conds.push(eq(zhsUserAgentImage.agentId, q.agentId))
-    if (q.imageType) conds.push(eq(zhsUserAgentImage.imageType, q.imageType))
-    const where = conds.length ? and(...conds) : undefined
+    const offset = (page - 1) * pageSize
+    const conds: SQL[] = []
+    if (q.type) conds.push(sql`"type" = ${q.type}`)
+    if (q.userId) conds.push(sql`"user_id" = ${q.userId}`)
+    const where = conds.length > 0 ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``
     try {
-      const [list, totalRows] = await Promise.all([
-        db
-          .select()
-          .from(zhsUserAgentImage)
-          .where(where)
-          .orderBy(desc(zhsUserAgentImage.id))
-          .limit(pageSize)
-          .offset((page - 1) * pageSize),
-        db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(zhsUserAgentImage)
-          .where(where),
-      ])
-      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      const rows = await db.execute(
+        sql`SELECT id, user_id, filename, original_name, file_path, file_url, file_size, mime_type, type, created_at
+            FROM content_file_storage
+            ${where}
+            ORDER BY "created_at" DESC
+            LIMIT ${pageSize} OFFSET ${offset}`,
+      )
+      const countRows = await db.execute(
+        sql`SELECT count(*)::int AS count FROM content_file_storage ${where}`,
+      )
+      const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+      return reply.send(
+        success({
+          list: rows as Record<string, unknown>[],
+          total,
+          page,
+          pageSize,
+        }),
+      )
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询用户 Agent 图片失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询文件存储列表失败'))
     }
   })
-  server.get('/user-agent-image/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const numId = Number(parsed.data.id)
-    if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
+
+  // DELETE /content/file-storage/:id - 删除文件
+  server.delete('/content/file-storage/:id', async (request, reply) => {
+    await authenticate(request)
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
+    }
+    const { id } = parsed.data
     try {
-      const rows = await db
+      const rows = await db.execute(
+        sql`DELETE FROM content_file_storage WHERE "id"::text = ${id} RETURNING id, file_path, file_url`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(404).send(error(404, '文件不存在'))
+      return reply.send(success({ id, deleted: true, ...row }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除文件失败'))
+    }
+  })
+
+  // ==========================================================================
+  // aigc — AIGC 内容管理（使用 Drizzle schema: aiGcContent）
+  // ==========================================================================
+
+  // GET /content/aigc/list - AIGC 内容列表
+  server.get('/content/aigc/list', async (request, reply) => {
+    await authenticate(request)
+    const parsed = z.object(paginationQuery).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize } = parsed.data
+    const offset = (page - 1) * pageSize
+    try {
+      const list = await db
         .select()
-        .from(zhsUserAgentImage)
-        .where(eq(zhsUserAgentImage.id, numId))
-        .limit(1)
-      if (!rows[0]) return reply.status(404).send(error(404, '图片记录不存在'))
-      return reply.send(success(rows[0]))
+        .from(aiGcContent)
+        .where(eq(aiGcContent.userUuid, request.userId!))
+        .orderBy(desc(aiGcContent.createdAt))
+        .limit(pageSize)
+        .offset(offset)
+
+      const countResult = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(aiGcContent)
+        .where(eq(aiGcContent.userUuid, request.userId!))
+
+      const total = countResult[0]?.count ?? 0
+      return reply.send(
+        success({
+          list,
+          total,
+          page,
+          pageSize,
+        }),
+      )
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询用户 Agent 图片失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询 AIGC 内容列表失败'))
     }
   })
-  server.post('/user-agent-image', async (req, reply) => {
+
+  // POST /content/aigc - 创建 AIGC 内容
+  server.post('/content/aigc', async (request, reply) => {
+    await authenticate(request)
+    const parsed = createAigcSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { agentId, gcType, content, status } = parsed.data
     try {
-      const rows = await db
-        .insert(zhsUserAgentImage)
-        .values(req.body as typeof zhsUserAgentImage.$inferInsert)
+      const [row] = await db
+        .insert(aiGcContent)
+        .values({
+          userUuid: request.userId!,
+          agentId: agentId ?? null,
+          gcType: gcType ?? 'text',
+          content: content ?? null,
+          status: status ?? 1,
+        })
         .returning()
-      return reply.status(201).send(success(rows[0]))
+      return reply.status(201).send(success(row))
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建用户 Agent 图片失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建 AIGC 内容失败'))
     }
   })
-  server.put('/user-agent-image/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const numId = Number(parsed.data.id)
-    if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
+
+  // ==========================================================================
+  // banners — 横幅管理（使用 Drizzle schema: carousels）
+  // ==========================================================================
+
+  // GET /content/banners/list - 横幅列表
+  server.get('/content/banners/list', async (request, reply) => {
+    await authenticate(request)
+    const q = request.query as {
+      page?: string
+      pageSize?: string
+      position?: string
+      status?: string
+    }
+    const { page, pageSize } = parsePaging(q)
+    const offset = (page - 1) * pageSize
+    const conditions = []
+    if (q.position) conditions.push(eq(carousels.position, q.position))
+    if (q.status !== undefined) conditions.push(eq(carousels.status, Number(q.status)))
     try {
-      const rows = await db
-        .update(zhsUserAgentImage)
-        .set(req.body as Partial<typeof zhsUserAgentImage.$inferInsert>)
-        .where(eq(zhsUserAgentImage.id, numId))
+      const list = await db
+        .select()
+        .from(carousels)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(carousels.sort), desc(carousels.createdAt))
+        .limit(pageSize)
+        .offset(offset)
+
+      const countResult = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(carousels)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+
+      const total = countResult[0]?.count ?? 0
+      return reply.send(
+        success({
+          list,
+          total,
+          page,
+          pageSize,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询横幅列表失败'))
+    }
+  })
+
+  // PUT /content/banners/:id - 修改横幅
+  server.put('/content/banners/:id', async (request, reply) => {
+    await authenticate(request)
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, '无效的 ID'))
+    }
+    const parsed = updateBannerSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { id } = paramParsed.data
+    const body = parsed.data
+    const updateData: Record<string, unknown> = {}
+    if (body.title !== undefined) updateData.title = body.title
+    if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl
+    if (body.linkUrl !== undefined) updateData.linkUrl = body.linkUrl
+    if (body.position !== undefined) updateData.position = body.position
+    if (body.description !== undefined) updateData.description = body.description
+    if (body.sort !== undefined) updateData.sort = body.sort
+    if (body.status !== undefined) updateData.status = body.status
+    if (body.startAt !== undefined) updateData.startAt = new Date(body.startAt)
+    if (body.endAt !== undefined) updateData.endAt = new Date(body.endAt)
+    if (Object.keys(updateData).length === 0) {
+      return reply.status(400).send(error(400, '无更新字段'))
+    }
+    try {
+      const [row] = await db
+        .update(carousels)
+        .set(updateData)
+        .where(eq(carousels.id, id))
         .returning()
-      if (!rows[0]) return reply.status(404).send(error(404, '图片记录不存在'))
-      return reply.send(success(rows[0]))
+      if (!row) return reply.status(404).send(error(404, '横幅不存在'))
+      return reply.send(success(row))
     } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '更新用户 Agent 图片失败'))
-    }
-  })
-  server.delete('/user-agent-image/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const numId = Number(parsed.data.id)
-    if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      await db.delete(zhsUserAgentImage).where(eq(zhsUserAgentImage.id, numId))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '删除用户 Agent 图片失败'))
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新横幅失败'))
     }
   })
 }
-
-export default plugin
