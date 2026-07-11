@@ -18,6 +18,18 @@
 - [x] ✅(2026-07-11) TypeScript 前后端零错误验证
 - [x] ✅(2026-07-11) vitest 441 个测试全部通过
 - [x] ✅(2026-07-11) 10 个路由模块注册验证（R65×4 + R66×5 + R67×1）
+- [x] ✅(2026-07-11) P0: 数据库迁移日志缺口修复（0047/0048 注册到 _journal.json）
+- [x] ✅(2026-07-11) P0: 3 处 Raw SQL 表名不匹配修复（agent_uploads / zhs_developer_link / zhs_category_dictionary）
+- [x] ✅(2026-07-11) P0: VIP 购买 mock 模式修复（改为仅开发环境激活）
+- [x] ✅(2026-07-11) P0: SMTP 变量名不匹配修复（SMTP_PASSWORD → SMTP_PASS）
+- [x] ✅(2026-07-11) P0: 4 个内存数据存储路由改为 DB 持久化（admin-demand-square / admin-faq / admin-zone / ai-user-model-chat）
+- [x] ✅(2026-07-11) P1: 创建 apps/web/.env.example（25 个 NEXT_PUBLIC_* + 2 个服务端变量）
+- [x] ✅(2026-07-11) P1: Grafana 弱密码修复（ihui-admin → change-me-grafana-password）
+- [x] ✅(2026-07-11) P1: 蓝绿部署工作流实现（echo 占位替换为完整蓝绿切换逻辑）
+- [x] ✅(2026-07-11) P1: 18 个 stub 管理页面修复（类型安全 + queryKey 统一 + i18n 接入）
+- [x] ✅(2026-07-11) P1: 13 处 TODO mutation 修复（Promise.resolve() → 真实 API 调用）
+- [x] ✅(2026-07-11) P2: 清理 14 个路由文件中未使用的 `export const prefix` 导出
+- [x] ✅(2026-07-11) P2: 补全 apps/api/.env.example 缺失的 48 个环境变量
 
 ---
 
@@ -27,6 +39,10 @@
 - [ ] hardcoded-texts.json (1MB+) 管理后台文本迁移（M-82，纳入 i18n 第二阶段）
 - [ ] html2canvas 依赖安装（证书下载页可选增强，当前已有 HTML 打印降级方案）
 - [ ] R66 新增 48 端点的带认证集成测试（当前仅 401 未授权测试）
+- [ ] 18 个 stub 页面对应的后端 API 路由实现验证
+- [ ] 4 个新 DB 持久化路由的 Drizzle schema 定义（当前使用 raw SQL CREATE TABLE）
+- [ ] GitHub Secrets 配置（DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_PRIVATE_KEY）
+- [ ] Nginx upstream 配置文件创建（蓝绿部署依赖）
 
 ---
 
@@ -37,8 +53,10 @@
 - [ ] stock-service.ts STUB 实现真实化（M-14）
 - [ ] 17 个已建未注册的客户端服务文件集成到前端页面（M-17）
 - [ ] file-worker.ts 在前端文件上传组件中引用启用（M-16）
-- [x] ✅(2026-07-11) 清理 14 个路由文件中未使用的 `export const prefix` 导出
-- [x] ✅(2026-07-11) 补全 apps/api/.env.example 缺失的 48 个环境变量（AI 密钥/N8N/腾讯云/短信/股票/GitHub/上传/OTel/ELK/DB 监控/告警/Computer Use）
+- [ ] 9 张死表清理或集成（sensitive_words / agreements / app_content / exchange_rate / admin_oper_log / private_letter_sessions/messages / search_index / search_hot_keywords）
+- [ ] 4 处 throw new Error() 改为 error() 包装函数（agent-extended / ai-vendors / chat-models / system-extended）
+- [ ] 42 个未推送的 git commit 需 push
+- [ ] 工作区未跟踪文件需审查（git add 或 .gitignore）
 
 ---
 

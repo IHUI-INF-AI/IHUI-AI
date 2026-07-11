@@ -11,6 +11,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app import __version__
 from app.core.config import settings
 from app.routers import a2a, agents, health, llm, mcp, tools
+from app.routers.legacy import router as legacy_router
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
+    app.include_router(legacy_router)
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)
     Instrumentator(
