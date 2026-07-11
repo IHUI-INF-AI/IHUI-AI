@@ -1,4 +1,9 @@
-import Fastify, { type FastifyInstance, type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
+import Fastify, {
+  type FastifyInstance,
+  type FastifyError,
+  type FastifyReply,
+  type FastifyRequest,
+} from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import multipart from '@fastify/multipart'
@@ -81,6 +86,44 @@ import eduExtendedRoutes from './routes/edu-extended.js'
 import systemExtendedRoutes from './routes/system-extended.js'
 import aiExtendedRoutes from './routes/ai-extended.js'
 import miscExtendedRoutes from './routes/misc-extended.js'
+// M-20 补建：14 个 API 模块路由
+import toolsRoutes from './routes/tools.js'
+import rankingRoutes from './routes/ranking.js'
+import checkinRoutes, { adminCheckinRoutes } from './routes/checkin.js'
+import developerRoutes from './routes/developer.js'
+import appVersionRoutes from './routes/app-version.js'
+import monitorRoutes from './routes/monitor.js'
+import webhooksRoutes from './routes/webhooks.js'
+import packagesRoutes from './routes/packages.js'
+import fundRoutes from './routes/fund.js'
+import traderRoutes from './routes/trader.js'
+import sdksRoutes from './routes/sdks.js'
+import miniprogramRoutes from './routes/miniprogram.js'
+import productIdentityRoutes from './routes/product-identity.js'
+import groupsRoutes from './routes/groups.js'
+// M-23 补建：AI 定价引擎路由
+import { pricingRoutes } from './routes/pricing.js'
+// M-22 补建：散点缺失路由
+import { aiUserModelChatRoutes } from './routes/ai-user-model-chat.js'
+import { adminFaqRoutes } from './routes/admin-faq.js'
+import { adminZoneRoutes } from './routes/admin-zone.js'
+import { adminDemandSquareRoutes } from './routes/admin-demand-square.js'
+import { zhsCourseRoutes } from './routes/zhs-course.js'
+import { shareContentRoutes } from './routes/share-content.js'
+// 历史项目缺失端点补齐（集中实现）
+import { legacyCompletionRoutes } from './routes/legacy-completion.js'
+// P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块
+import aiFeedRoutes from './routes/ai-feed.js'
+import aiEducationRoutes from './routes/ai-education.js'
+import { fileVersionRoutes } from './routes/file-version.js'
+import { callbackLogRoutes } from './routes/callback-log.js'
+
+// R65 补建：M-52 分片上传 + M-54 财务扩展 + M-56 支付扩展 + M-67 实名认证
+import { chunkedUploadRoutes } from './routes/chunked-upload.js'
+import { financeExtendedRoutes } from './routes/finance-extended.js'
+import { paymentExtendedRoutes } from './routes/payment-extended.js'
+import { authIdentityRoutes } from './routes/auth-identity.js'
+
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -113,6 +156,7 @@ import { n1Detector } from './plugins/n1-detector.js'
 import { promptInjectionGuard } from './plugins/prompt-injection-guard.js'
 import { tenantDbIsolation } from './plugins/tenant-db-isolation.js'
 import { tokenBalanceService } from './plugins/token-balance-service.js'
+import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -128,9 +172,8 @@ const logger = pino(loggerConfig)
  * 将抛出的带 statusCode 的错误转换为 { code, message } 格式。
  */
 function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
-  const statusCode = error.statusCode && error.statusCode >= 400 && error.statusCode < 600
-    ? error.statusCode
-    : 500
+  const statusCode =
+    error.statusCode && error.statusCode >= 400 && error.statusCode < 600 ? error.statusCode : 500
 
   if (statusCode >= 500) {
     // 仅 5xx 打详细日志
@@ -265,6 +308,9 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(tenantDbIsolation)
   // Token 余额服务：用户 credit 余额管理（查询/扣减/缓存）
   await server.register(tokenBalanceService)
+
+  // 韧性工具集：分布式锁 / 风控引擎 / 热配置 / DLQ / 退款DLQ / 租户审计
+  await server.register(resilienceToolkit)
 }
 
 function registerRoutes(server: FastifyInstance) {
@@ -429,4 +475,80 @@ function registerRoutes(server: FastifyInstance) {
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
   // 其他扩展（remote/user_agent_context/docs）
   server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
+
+  // ===== M-20 补建：14 个 API 模块路由 =====
+  // 用户端工具目录：/api/tools/*
+  server.register(toolsRoutes, { prefix: '/api/tools' })
+  // 排行榜系统：/api/ranking/*
+  server.register(rankingRoutes, { prefix: '/api/ranking' })
+  // 签到体系：/api/checkin/* + /api/admin/checkin/*
+  server.register(checkinRoutes, { prefix: '/api/checkin' })
+  server.register(adminCheckinRoutes, { prefix: '/api/admin/checkin' })
+  // 开发者 API 密钥管理：/api/developer/*
+  server.register(developerRoutes, { prefix: '/api/developer' })
+  // 应用版本管理：/api/app-version/*
+  server.register(appVersionRoutes, { prefix: '/api/app-version' })
+  // 监控系统：/api/monitor/*
+  server.register(monitorRoutes, { prefix: '/api/monitor' })
+  // Webhook 管理：/api/developer/webhooks/*
+  server.register(webhooksRoutes, { prefix: '/api/developer/webhooks' })
+  // 套餐管理：/api/packages/*
+  server.register(packagesRoutes, { prefix: '/api/packages' })
+  // 资金管理：/api/fund/*
+  server.register(fundRoutes, { prefix: '/api/fund' })
+  // 交易员管理：/api/trader/*
+  server.register(traderRoutes, { prefix: '/api/trader' })
+  // SDK 管理：/api/sdks/*
+  server.register(sdksRoutes, { prefix: '/api/sdks' })
+  // 小程序后台管理：/api/miniprogram/*
+  server.register(miniprogramRoutes, { prefix: '/api/miniprogram' })
+  // 产品标识管理：/api/product-identity/*
+  server.register(productIdentityRoutes, { prefix: '/api/product-identity' })
+  // 用户组管理：/api/groups/*
+  server.register(groupsRoutes, { prefix: '/api/groups' })
+
+  // ===== M-23 补建：AI 定价引擎 =====
+  // 定价管理：/api/pricing/*
+  server.register(pricingRoutes, { prefix: '/api' })
+
+  // ===== M-22 补建：散点缺失路由 =====
+  // 用户自定义模型对话：/api/ai/user-model-chat/*
+  server.register(aiUserModelChatRoutes, { prefix: '/api/ai' })
+  // FAQ 管理：/api/admin/faq/*
+  server.register(adminFaqRoutes, { prefix: '/api/admin/faq' })
+  // 区域/分区管理：/api/admin/zones/*
+  server.register(adminZoneRoutes, { prefix: '/api/admin/zones' })
+  // 需求广场管理：/api/admin/demand-square/*
+  server.register(adminDemandSquareRoutes, { prefix: '/api/admin/demand-square' })
+
+  // ZHS 课程模块 CRUD：/api/course/*（迁移自 ZHS_Server_java 历史项目）
+  server.register(zhsCourseRoutes, { prefix: '/api/course' })
+
+  // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
+  server.register(shareContentRoutes, { prefix: '/api/share' })
+
+  // ===== 历史项目缺失端点补齐（集中实现）=====
+  // 考试报名/收藏/学习统计/专题/直播订阅/问答/OSS/错题等散点端点
+  server.register(legacyCompletionRoutes, { prefix: '/api/legacy' })
+
+  // ===== P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块 =====
+  // AI 资讯聚合：/api/ai-feed/sources /items /trends /stats + collect/summarize/translate（管理）
+  server.register(aiFeedRoutes, { prefix: '/api/ai-feed' })
+  // AI 教育模块：5 张表 CRUD（policy/teacher-certification/aigc-tool/k12-curriculum/university-course）
+  server.register(aiEducationRoutes, { prefix: '/api/ai-education' })
+
+  // 文件版本管理：版本创建/列表/详情/回滚/删除/对比
+  server.register(fileVersionRoutes, { prefix: '/api' })
+  // 通用回调日志：外呼/短信/支付回调记录 + 列表/详情/删除
+  server.register(callbackLogRoutes, { prefix: '/api/callback-log' })
+
+  // ===== R65 补建：M-52/M-54/M-56/M-67 =====
+  // M-52: 分片上传（大文件上传核心功能）: init/upload/merge/cancel/status
+  server.register(chunkedUploadRoutes, { prefix: '/api' })
+  // M-54: 财务扩展（分销统计/Agent提现/管理员工具）
+  server.register(financeExtendedRoutes, { prefix: '/api' })
+  // M-56: 支付扩展（提现回调/同步返回/连续订阅）
+  server.register(paymentExtendedRoutes, { prefix: '/api' })
+  // M-67: 实名认证（提交/查询/列表/审核）
+  server.register(authIdentityRoutes, { prefix: '/api' })
 }
