@@ -37,7 +37,6 @@ import {
   Server,
   Gauge,
   Database,
-  GitBranch,
   Terminal,
   FolderTree,
   ListChecks,
@@ -163,10 +162,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
   { href: '/admin/backend-health', labelKey: 'backendHealth', icon: Server },
   { href: '/admin/performance-dashboard', labelKey: 'performanceDashboard', icon: Gauge },
-  { href: '/admin/error-dashboard', labelKey: 'errorDashboard', icon: AlertTriangle },
   { href: '/admin/database-optimization', labelKey: 'databaseOptimization', icon: Database },
   { href: '/admin/event-bus-monitor', labelKey: 'eventBusMonitor', icon: Activity },
-  { href: '/admin/gray-release', labelKey: 'grayRelease', icon: GitBranch },
   // R6: API 管理
   { href: '/admin/api-debug', labelKey: 'apiDebug', icon: Terminal },
   { href: '/admin/api-groups', labelKey: 'apiGroups', icon: FolderTree },
@@ -197,11 +194,6 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/logs', labelKey: 'logs', icon: ScrollText },
   { href: '/admin/events', labelKey: 'events', icon: Activity },
   { href: '/admin/settings', labelKey: 'settings', icon: Settings },
-  // API 平台管理
-  { href: '/admin/api-platform/apps', labelKey: 'apiPlatformApps', icon: Plug },
-  { href: '/admin/api-platform/packages', labelKey: 'apiPlatformPackages', icon: Package },
-  { href: '/admin/api-platform/billing', labelKey: 'apiPlatformBilling', icon: CreditCard },
-  { href: '/admin/api-platform/usage', labelKey: 'apiPlatformUsage', icon: BarChart3 },
   // 商品管理
   { href: '/admin/shop/products', labelKey: 'shopProducts', icon: ShoppingBag },
   { href: '/admin/shop/payments', labelKey: 'shopPayments', icon: CreditCard },
