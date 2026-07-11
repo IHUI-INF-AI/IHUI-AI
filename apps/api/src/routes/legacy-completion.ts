@@ -12,6 +12,7 @@ import {
   asks,
   askAnswers,
 } from '@ihui/database'
+import { deleteFile } from '../services/storage-service.js'
 
 /**
  * 历史项目缺失端点补齐（集中实现）。
@@ -285,10 +286,19 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D10: OSS 文件删除 + URL转Base64 (2端点) ==========
   fastify.delete('/oss/file', async (request) => {
-    const { fileUrl } = request.query as any
-    // 从 OSS 删除文件
-    // TODO: 集成实际 OSS 删除逻辑
-    return { deleted: true, fileUrl }
+    const { fileUrl } = request.query as { fileUrl?: string }
+    if (!fileUrl) return { deleted: false, error: 'fileUrl 为必填项' }
+
+    // 从 URL 中提取文件 ID（UUID 格式或最后一段路径）
+    const uuidMatch = fileUrl.match(
+      /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+    )
+    const fileId = uuidMatch ? uuidMatch[1] : (fileUrl.split('/').filter(Boolean).pop() ?? null)
+
+    if (!fileId) return { deleted: false, error: '无法从 URL 提取文件 ID' }
+
+    const deleted = deleteFile(fileId)
+    return { deleted, fileUrl }
   })
 
   fastify.get('/oss/to-base64', async (request, reply) => {

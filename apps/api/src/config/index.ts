@@ -22,6 +22,9 @@ const envSchema = z.object({
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)
   AI_CALLBACK_SECRET: z.string().default(''),
 
+  // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
+  TBOX_WEBHOOK_SECRET: z.string().default(''),
+
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(''),
