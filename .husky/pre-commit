@@ -29,4 +29,9 @@ if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
   process.exit(1)
 }
 
+// 4. 依赖版本碎片化检查（仅当 pnpm-lock.yaml 变更时）
+if (!run('📦 检查依赖碎片化...', 'node scripts/check-dedupe.mjs --staged')) {
+  process.exit(1)
+}
+
 console.log('✅ Pre-commit 检查通过')

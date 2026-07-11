@@ -1,0 +1,84 @@
+# S3 存储生命周期分层规则 — 迁移自旧架构 server/config/s3-lifecycle.yml
+# 策略：Standard 0-30d → Glacier Instant 30-180d → Deep Archive 180d+
+# 按前缀分级：logs 90d / metrics 365d / audit 永久 / canary-reports 365d / backups 730d
+# 用法：通过 `aws s3api put-bucket-lifecycle-configuration --bucket <bucket> --lifecycle-configuration file://s3-lifecycle.yml` 应用
+# 漂移检测：见 .github/workflows/s3-lifecycle-drift.yml
+
+Rules:
+  # ===== 通用对象分层（按时间冷却降级存储）=====
+  - ID: GeneralLifecycleTiering
+    Status: Enabled
+    Filter:
+      Prefix: ''
+    Transitions:
+      - StorageClass: STANDARD
+        Days: 0
+      - StorageClass: GLACIER_IR
+        Days: 30
+      - StorageClass: DEEP_ARCHIVE
+        Days: 180
+    AbortIncompleteMultipartUpload:
+      DaysAfterInitiation: 7
+    NoncurrentVersionExpiration:
+      NoncurrentDays: 30
+
+  # ===== logs 前缀：保留 90 天后过期 =====
+  - ID: LogsPrefixPolicy
+    Status: Enabled
+    Filter:
+      Prefix: logs/
+    Expiration:
+      Days: 90
+    AbortIncompleteMultipartUpload:
+      DaysAfterInitiation: 1
+
+  # ===== metrics 前缀：保留 365 天后过期 =====
+  - ID: MetricsPrefixPolicy
+    Status: Enabled
+    Filter:
+      Prefix: metrics/
+    Expiration:
+      Days: 365
+    Transitions:
+      - StorageClass: GLACIER_IR
+        Days: 30
+    AbortIncompleteMultipartUpload:
+      DaysAfterInitiation: 1
+
+  # ===== audit 前缀：永久保留，仅做存储降级，不过期 =====
+  - ID: AuditPrefixPolicy
+    Status: Enabled
+    Filter:
+      Prefix: audit/
+    Transitions:
+      - StorageClass: GLACIER_IR
+        Days: 90
+      - StorageClass: DEEP_ARCHIVE
+        Days: 365
+    # 不设置 Expiration —— 审计日志永久保留
+
+  # ===== canary-reports 前缀：金丝雀发布报告，保留 365 天 =====
+  - ID: CanaryReportsPrefixPolicy
+    Status: Enabled
+    Filter:
+      Prefix: canary-reports/
+    Expiration:
+      Days: 365
+    Transitions:
+      - StorageClass: GLACIER_IR
+        Days: 30
+
+  # ===== backups 前缀：备份文件，保留 730 天 =====
+  - ID: BackupsPrefixPolicy
+    Status: Enabled
+    Filter:
+      Prefix: backups/
+    Expiration:
+      Days: 730
+    Transitions:
+      - StorageClass: GLACIER_IR
+        Days: 30
+      - StorageClass: DEEP_ARCHIVE
+        Days: 180
+    NoncurrentVersionExpiration:
+      NoncurrentDays: 90
