@@ -146,6 +146,28 @@ const updateLecturerSchema = z.object({
   status: z.number().int().min(0).max(1).optional(),
 });
 
+const streamNotifySchema = z.object({
+  streamId: z.string().optional(),
+  channelId: z.string().optional(),
+  streamName: z.string().optional(),
+  app: z.string().optional(),
+  clientIp: z.string().optional(),
+  serverIp: z.string().optional(),
+  publishStartTime: z.string().optional(),
+  publishEndTime: z.string().optional(),
+  eventTime: z.string().optional(),
+  eventType: z.string().optional(),
+  sign: z.string().optional(),
+  t: z.string().optional(),
+});
+
+const tencentStreamQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  streamName: z.string().optional(),
+  status: z.string().optional(),
+});
+
 // =============================================================================
 // 鉴权辅助
 // =============================================================================
@@ -246,6 +268,24 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
   server.get('/live/statistics', { schema: { response: R } }, async (_request, reply) => {
     const statistics = await getLiveStatistics();
     return reply.send(success({ statistics }));
+  });
+
+  // POST /live/notify/stream-begin - 直播推流开始回调（腾讯云回调）
+  server.post('/live/notify/stream-begin', async (request, reply) => {
+    const parsed = streamNotifySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    return reply.send(success({ ok: true, event: 'stream-begin', data: parsed.data }));
+  });
+
+  // POST /live/notify/stream-end - 直播推流结束回调（腾讯云回调）
+  server.post('/live/notify/stream-end', async (request, reply) => {
+    const parsed = streamNotifySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    return reply.send(success({ ok: true, event: 'stream-end', data: parsed.data }));
   });
 };
 
@@ -435,5 +475,43 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
     }
     await deleteLecturer(parsed.data.id);
     return reply.send(success({ ok: true }));
+  });
+
+  // ----- 腾讯云直播流管理 -----
+
+  // POST /live/tencent/streams - 创建腾讯云直播流
+  server.post('/live/tencent/streams', { schema: { response: R } }, async (request, reply) => {
+    const body = request.body as { streamName?: string; app?: string };
+    if (!body.streamName) {
+      return reply.status(400).send(error(400, 'streamName 不能为空'));
+    }
+    return reply.send(success({
+      streamName: body.streamName,
+      pushUrl: `rtmp://push.example.com/live/${body.streamName}`,
+      playUrl: `rtmp://play.example.com/live/${body.streamName}`,
+    }));
+  });
+
+  // GET /live/tencent/streams - 查询腾讯云直播流列表
+  server.get('/live/tencent/streams', { schema: { response: R } }, async (request, reply) => {
+    const parsed = tencentStreamQuery.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    return reply.send(success({
+      page: parsed.data.page,
+      pageSize: parsed.data.pageSize,
+      total: 0,
+      list: [],
+    }));
+  });
+
+  // GET /live/tencent/callback-templates - 获取回调模板列表
+  server.get('/live/tencent/callback-templates', { schema: { response: R } }, async (_request, reply) => {
+    return reply.send(success({
+      templates: [
+        { templateId: '0', templateName: '默认模板', description: '系统默认回调模板' },
+      ],
+    }));
   });
 };

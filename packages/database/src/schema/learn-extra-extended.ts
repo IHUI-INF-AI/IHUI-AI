@@ -216,3 +216,67 @@ export type LearnLearnMapTopic = typeof learnLearnMapTopic.$inferSelect
 export type NewLearnLearnMapTopic = typeof learnLearnMapTopic.$inferInsert
 export type LearnHomeworkRecord = typeof learnHomeworkRecord.$inferSelect
 export type NewLearnHomeworkRecord = typeof learnHomeworkRecord.$inferInsert
+
+export const lessonTask = pgTable(
+  'lesson_task',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    lessonId: uuid('lesson_id').notNull(),
+    lessonChapterId: uuid('lesson_chapter_id'),
+    lessonChapterSectionId: uuid('lesson_chapter_section_id'),
+    title: varchar('title', { length: 200 }).notNull(),
+    contentType: varchar('content_type', { length: 50 }),
+    conditions: text('conditions'),
+    status: varchar('status', { length: 20 }).default('enable').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    lessonIdx: index('lesson_task_lesson_idx').on(t.lessonId),
+    chapterIdx: index('lesson_task_chapter_idx').on(t.lessonChapterId),
+  }),
+)
+
+export const lessonRate = pgTable(
+  'lesson_rate',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    lessonId: uuid('lesson_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    signId: uuid('sign_id'),
+    content: text('content'),
+    contentUtilityScore: integer('content_utility_score'),
+    teacherScore: integer('teacher_score'),
+    serviceScore: integer('service_score'),
+    isAnonymous: boolean('is_anonymous').default(false).notNull(),
+    status: varchar('status', { length: 20 }).default('published').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    lessonIdx: index('lesson_rate_lesson_idx').on(t.lessonId),
+    userIdx: index('lesson_rate_user_idx').on(t.userId),
+  }),
+)
+
+export const lessonAccess = pgTable(
+  'lesson_access',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    lessonId: uuid('lesson_id').notNull(),
+    accessType: varchar('access_type', { length: 20 }).default('all').notNull(),
+    accessValues: text('access_values').default('[]').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    lessonIdx: index('lesson_access_lesson_idx').on(t.lessonId),
+  }),
+)
+
+export type LessonTask = typeof lessonTask.$inferSelect
+export type NewLessonTask = typeof lessonTask.$inferInsert
+export type LessonRate = typeof lessonRate.$inferSelect
+export type NewLessonRate = typeof lessonRate.$inferInsert
+export type LessonAccess = typeof lessonAccess.$inferSelect
+export type NewLessonAccess = typeof lessonAccess.$inferInsert
