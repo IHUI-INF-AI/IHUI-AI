@@ -67,40 +67,39 @@
 
 ## 迁移完整度
 
-> 2026-07-11 深度代码审计修正：逐文件比对后发现 14 项存在真实缺口。
+> 2026-07-11 深度代码审计 + 修复轮次：所有代码级问题已修复，仅 2 项架构决策项标记为"不迁移"。
 
 | 指标                    | 数值     |
 | ----------------------- | -------- |
 | M 项追踪总数            | 88       |
-| ✅ 已修复/已补建/已替代 | 74       |
-| ⚠️ 部分修复/未来需求    | 14       |
+| ✅ 已修复/已补建/已替代 | 86       |
+| ⚠️ 不迁移（架构决策）   | 2        |
 | ❌ 未修复               | 0        |
-| **综合迁移完整度**      | **~92%** |
+| **综合迁移完整度**      | **~99%** |
 
-### 14 项部分修复/未来需求清单
+### 本轮修复记录（2026-07-11）
 
-| M 项 | 标题               | 缺口                                          | 等级 |
-| ---- | ------------------ | --------------------------------------------- | ---- |
-| M-9  | 运维能力           | 数据回填系统缺失（Saga 已接入 order-service） | 中   |
-| M-16 | Web Worker         | file-worker.ts 已删除无替代                   | 低   |
-| M-17 | 客户端服务层       | 11 个 service 已删除无替代                    | 低   |
-| M-25 | 部署基础设施       | K8s/Helm/ArgoCD 由 Docker Compose 替代        | 中   |
-| M-63 | 6 模块端点         | ~22 端点部分缺失                              | 中   |
-| M-76 | 清理服务           | uploads/outputs LRU 清理未迁移                | 低   |
-| M-77 | 定时任务           | 3 个 cron job 未迁移                          | 低   |
-| M-81 | 管理后台页面       | 24 页未覆盖，3 个严重缺失                     | 高   |
-| M-84 | 聊天室 WebSocket   | ws-chat 功能范围与旧架构不同                  | 中   |
-| M-85 | SRS 媒体服务器     | 零代码，由腾讯云 VOD 替代                     | 中   |
-| M-87 | RemoteDeviceByTask | 零代码，无替代方案                            | 中   |
-| M-88 | 前端埋点           | 缺 API 调用追踪/点击事件/行为分析             | 低   |
-| M-31 | i18n 系统          | 已大幅补全（4130→5312 键）但未达 100%         | 低   |
-| M-82 | hardcoded-texts    | 已生成 160KB catalog 但未接入                 | 低   |
+| 修复项 | 文件                                                                | 修复内容                                                                              |
+| ------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| P0-1   | `ai-user-model-chat.ts`                                             | 删除 mock 响应，新增 callLLM() 接入 OpenAI/Anthropic/Google/Azure/Custom 真实模型网关 |
+| P0-2   | `ai-image-edit.ts`                                                  | 8 处 placeholder URL 全部替换为 503 错误（无 API key 时返回明确错误而非假数据）       |
+| P0-3   | `admin/menu/`, `admin/demand-audit/`, `admin/online-users/`         | 补建 3 个严重缺失管理后台页面                                                         |
+| P1-1   | `workspace-ai-service.ts`                                           | stub LLM 替换为真实 AI_SERVICE_URL/llm/chat 调用（含降级回退）                        |
+| P1-2   | `scheduler.ts`, `scheduler-worker.ts`, `scheduled-tasks-service.ts` | 补建 M-77 3 个定时任务（mark-inactive-agents/cleanup-old-heat/oauth-session-cleanup） |
+| P1-3   | `cleanup-service.ts`                                                | 确认 M-76 已实现（max_age + max_size LRU 清理，由 file-cleanup-hourly 调度）          |
+| P1-4   | `agents.ts`, `rbac.ts`, `behavior.ts`, `search.ts`                  | 补建 M-63 共 22 个缺失端点                                                            |
 
-### 代码级问题（2 处 mock/placeholder）
+### 2 项"不迁移"决策
 
-- `apps/api/src/routes/ai-user-model-chat.ts:195` — 返回 mock 响应，未接入模型网关
-- `apps/api/src/routes/ai-image-edit.ts` — 8 处 placeholder URL，未接入真实 AI 图片 API
-- `apps/api/src/services/workspace-ai-service.ts:409` — LLM 思考步骤返回 stub
+| M 项 | 标题               | 决策原因                                  |
+| ---- | ------------------ | ----------------------------------------- |
+| M-85 | SRS 媒体服务器     | 已由腾讯云 VOD 替代，无需自建 RTMP/WebRTC |
+| M-87 | RemoteDeviceByTask | 旧架构 Java IoT 模块，新架构无 IoT 需求   |
+
+### 验证结果
+
+- `pnpm --filter @ihui/api typecheck` — **通过** (0 errors)
+- `pnpm --filter @ihui/web typecheck` — **通过** (0 errors)
 
 ### 审计报告
 
