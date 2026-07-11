@@ -5,7 +5,17 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Loader2, ChevronLeft, ChevronRight, Eye, Pin, FileText, Newspaper, FolderOpen } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Pin,
+  FileText,
+  Newspaper,
+  FolderOpen,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
@@ -54,10 +64,7 @@ export default function NewsCategoryPage() {
     queryFn: () => api<{ list: NewsCategory[] }>(`/api/news/categories`).then((d) => d.list ?? []),
   })
 
-  const category = React.useMemo(
-    () => categories.find((c) => c.id === id),
-    [categories, id],
-  )
+  const category = React.useMemo(() => categories.find((c) => c.id === id), [categories, id])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['news', 'articles', 'category', id, page],
@@ -123,7 +130,6 @@ export default function NewsCategoryPage() {
                 <CardContent className="flex gap-4 p-4">
                   <div className="h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                     {item.coverImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.coverImage}
                         alt={item.title}

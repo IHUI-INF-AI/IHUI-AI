@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -31,8 +31,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const { data: announcements = [] } = useQuery({
     queryKey: ['announcements'],
-    queryFn: () =>
-      api<{ list: Announcement[] }>('/api/announcements').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: Announcement[] }>('/api/announcements').then((d) => d.list ?? []),
     staleTime: 5 * 60 * 1000,
   })
   const hasUnread = announcements.some((a) => !a.isRead)
@@ -84,12 +83,13 @@ export function Header({ onMenuClick }: HeaderProps) {
           </Link>
         </Button>
 
-        <Button variant="ghost" size="icon" aria-label={t('toggleTheme')} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-          {mounted && theme === 'dark' ? (
-            <Sun className="h-5 w-5" />
-          ) : (
-            <Moon className="h-5 w-5" />
-          )}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={t('toggleTheme')}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {mounted && theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
 
         <Button variant="ghost" size="icon" aria-label={t('notifications')}>
@@ -104,7 +104,6 @@ export function Header({ onMenuClick }: HeaderProps) {
                 aria-label={t('profile')}
               >
                 {user?.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.avatar} alt={user.nickname} className="h-8 w-8 rounded-full" />
                 ) : (
                   (user?.nickname?.[0] ?? 'U').toUpperCase()
@@ -119,14 +118,14 @@ export function Header({ onMenuClick }: HeaderProps) {
               >
                 <div className="px-2 py-1.5 text-sm">
                   <div className="font-medium">{user?.nickname ?? 'User'}</div>
-                  {user?.phone && (
-                    <div className="text-xs text-muted-foreground">{user.phone}</div>
-                  )}
+                  {user?.phone && <div className="text-xs text-muted-foreground">{user.phone}</div>}
                 </div>
                 <DropdownMenu.Separator className="my-1 h-px bg-muted" />
                 <DropdownMenu.Item className="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground">
                   <UserIcon className="h-4 w-4" />
-                  <Link href="/settings" className="flex-1">{t('profile')}</Link>
+                  <Link href="/settings" className="flex-1">
+                    {t('profile')}
+                  </Link>
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="my-1 h-px bg-muted" />
                 <DropdownMenu.Item

@@ -6,7 +6,26 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@ihui/ui', '@ihui/types', '@ihui/config', '@ihui/auth'],
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-label',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-select',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-checkbox',
+      '@tanstack/react-query',
+      '@tanstack/react-table',
+      'react-hook-form',
+      'react-markdown',
+      'react-syntax-highlighter',
+      'sonner',
+      'next-themes',
+      'dompurify',
+    ],
   },
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -26,6 +45,20 @@ const nextConfig: NextConfig = {
       { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
       // 静态资源(头像等)转发到 Fastify 后端
       { source: '/uploads/:path*', destination: `${apiUrl}/uploads/:path*` },
+    ]
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
     ]
   },
 }

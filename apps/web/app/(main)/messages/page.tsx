@@ -1,41 +1,44 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Loader2, Send, MessageSquare } from 'lucide-react'
+import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import {
-  MessageSquare,
-  Megaphone,
-  Check,
-  Loader2,
-  Pin,
-} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
-interface Announcement {
+interface ChatMessage {
   id: string
-  title: string
-  content: string | null
-  isTop: boolean
-  publishTime: string | null
+  conversationId: string
+  senderId: string
+  content: string
   createdAt: string
+  isMine: boolean
 }
-interface EduMessage {
+
+interface Conversation {
   id: string
-  title: string | null
-  content: string | null
-  msgType: string
-  isRead: boolean
-  createdAt: string
+  peerId: string
+  peerName: string
+  peerAvatar: string | null
+  lastMessage: string
+  lastTime: string
+  unread: number
+  messages: ChatMessage[]
 }
-interface ListData<T> {
-  list: T[]
+
+interface ListData {
+  list: Conversation[]
   total: number
   page: number
   pageSize: number
+}
+
+interface SendResult {
+  message: ChatMessage
 }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -44,173 +47,247 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: ReturnType<typeof useTranslations>): string {
   const diff = Date.now() - new Date(iso).getTime()
+  if (diff < 0) return t('justNow')
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return '刚刚'
+  if (sec < 60) return t('justNow')
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} 分钟前`
+  if (min < 60) return t('minutesAgo', { min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} 小时前`
+  if (hr < 24) return t('hoursAgo', { hr })
   const day = Math.floor(hr / 24)
-  if (day < 30) return `${day} 天前`
-  return new Date(iso).toLocaleDateString()
+  if (day < 30) return t('daysAgo', { day })
+  return new Date(iso).toLocaleDateString('zh-CN')
 }
 
 export default function MessagesPage() {
-  const t = useTranslations('messages')
+  const t = useTranslations('privateMessages')
   const qc = useQueryClient()
-  const [tab, setTab] = React.useState<'announcements' | 'messages'>('messages')
+  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [draft, setDraft] = React.useState('')
+  const scrollRef = React.useRef<HTMLDivElement>(null)
 
-  const { data: annData, isLoading: annLoading, error: annError } = useQuery({
-    queryKey: ['messages', 'announcements'],
-    queryFn: () =>
-      api<ListData<Announcement>>(
-        `/api/messages/announcements?page=1&pageSize=20`,
-      ),
-    enabled: tab === 'announcements',
-  })
-
-  const { data: msgData, isLoading: msgLoading, error: msgError } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['messages', 'list'],
-    queryFn: () => api<ListData<EduMessage>>(`/api/messages?page=1&pageSize=50`),
-    enabled: tab === 'messages',
+    queryFn: () => api<ListData>(`/api/messages/list?page=1&pageSize=20`),
   })
 
-  const { data: unreadData } = useQuery({
-    queryKey: ['messages', 'unread-count'],
-    queryFn: () => api<{ count: number }>(`/api/messages/unread-count`),
+  const conversations = data?.list ?? []
+
+  // 选中会话发生变化时，确保存在选中项
+  React.useEffect(() => {
+    if (!selectedId && conversations.length > 0) {
+      setSelectedId(conversations[0]?.id ?? null)
+    }
+  }, [selectedId, conversations])
+
+  // 选中会话切换或新消息到达时，滚动到底部
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [selectedId, conversations])
+
+  const selected = conversations.find((c) => c.id === selectedId) ?? null
+
+  const sendMut = useMutation({
+    mutationFn: (input: { conversationId: string; content: string }) =>
+      api<SendResult>(`/api/messages/send`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['messages', 'list'] })
+      setDraft('')
+      // 乐观滚动
+      requestAnimationFrame(() => {
+        const el = scrollRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      })
+      void res
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 
-  const readMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/messages/${id}/read`, { method: 'PUT' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['messages'] }),
-  })
+  const handleSend = () => {
+    const content = draft.trim()
+    if (!content || !selected) return
+    sendMut.mutate({ conversationId: selected.id, content })
+  }
 
-  const announcements = annData?.list ?? []
-  const messages = msgData?.list ?? []
-  const unread = unreadData?.count ?? 0
-  const loading = tab === 'announcements' ? annLoading : msgLoading
-  const error = tab === 'announcements' ? annError : msgError
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <MessageSquare className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {unread > 0 ? t('unreadCount', { count: unread }) : t('allRead')}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
-        <button
-          onClick={() => setTab('messages')}
-          className={cn(
-            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            tab === 'messages'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          {t('tab.messages')}
-          {unread > 0 && (
-            <span className="rounded-full bg-red-500 px-1.5 text-xs text-white">
-              {unread}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setTab('announcements')}
-          className={cn(
-            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            tab === 'announcements'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Megaphone className="h-3.5 w-3.5" />
-          {t('tab.announcements')}
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="py-10 text-center text-muted-foreground">
-          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
-      ) : tab === 'announcements' ? (
-        announcements.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-            <Megaphone className="h-8 w-8 opacity-40" />
-            <p className="text-sm">{t('noAnnouncements')}</p>
-          </div>
-        ) : (
-          <ul className="divide-y rounded-lg border">
-            {announcements.map((a) => (
-              <li key={a.id} className="px-4 py-3 transition-colors hover:bg-muted/30">
-                <div className="flex items-center gap-2">
-                  {a.isTop && <Pin className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
-                  <p className="truncate text-sm font-medium">{a.title}</p>
-                </div>
-                {a.content && (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.content}</p>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {relativeTime(a.publishTime ?? a.createdAt)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )
-      ) : messages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-          <MessageSquare className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('noData')}</p>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {(error as Error).message}
+        </div>
+      ) : conversations.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
+          <MessageSquare className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">{t('noConversations')}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
-          {messages.map((m) => (
-            <li
-              key={m.id}
-              className={cn(
-                'flex gap-3 px-4 py-3 transition-colors hover:bg-muted/30',
-                !m.isRead && 'bg-primary/[0.03]',
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium">{m.title ?? m.msgType}</p>
-                  {!m.isRead && (
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-label="unread" />
+        <div className="flex h-[calc(100vh-200px)] overflow-hidden rounded-lg border bg-card">
+          {/* 左侧会话列表 */}
+          <div className="flex w-80 shrink-0 flex-col border-r">
+            <div className="border-b px-4 py-3">
+              <p className="text-sm font-medium">{t('conversations')}</p>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {conversations.map((conv) => {
+                const isActive = conv.id === selectedId
+                return (
+                  <button
+                    key={conv.id}
+                    type="button"
+                    onClick={() => setSelectedId(conv.id)}
+                    className={cn(
+                      'flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-colors',
+                      isActive ? 'bg-accent' : 'hover:bg-muted/50',
+                    )}
+                  >
+                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                      {conv.peerAvatar ? (
+                        <img
+                          src={conv.peerAvatar}
+                          alt={conv.peerName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {conv.peerName?.slice(0, 1) ?? '?'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium">{conv.peerName}</p>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {conv.lastTime ? relativeTime(conv.lastTime, t) : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-xs text-muted-foreground">
+                          {conv.lastMessage || t('noMessages')}
+                        </p>
+                        {conv.unread > 0 && (
+                          <span className="shrink-0 rounded-full bg-red-500 px-1.5 text-xs text-white">
+                            {conv.unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 右侧聊天区域 */}
+          <div className="flex flex-1 flex-col">
+            {selected ? (
+              <>
+                <div className="flex items-center gap-2 border-b px-4 py-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                    {selected.peerAvatar ? (
+                      <img
+                        src={selected.peerAvatar}
+                        alt={selected.peerName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {selected.peerName?.slice(0, 1) ?? '?'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-sm font-medium">{selected.peerName}</p>
+                </div>
+
+                {/* 消息气泡列表 */}
+                <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+                  {(selected.messages ?? []).length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      {t('noMessagesHint')}
+                    </div>
+                  ) : (
+                    selected.messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={cn('flex', msg.isMine ? 'justify-end' : 'justify-start')}
+                      >
+                        <div
+                          className={cn(
+                            'max-w-[70%] rounded-2xl px-3 py-2 text-sm',
+                            msg.isMine ? 'bg-primary text-primary-foreground' : 'bg-muted',
+                          )}
+                        >
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          <p
+                            className={cn(
+                              'mt-1 text-right text-xs',
+                              msg.isMine ? 'text-primary-foreground/70' : 'text-muted-foreground',
+                            )}
+                          >
+                            {msg.createdAt ? relativeTime(msg.createdAt, t) : ''}
+                          </p>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
-                {m.content && (
-                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{m.content}</p>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">{relativeTime(m.createdAt)}</p>
+
+                {/* 输入区域 */}
+                <div className="flex items-center gap-2 border-t p-3">
+                  <Input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={t('input.placeholder')}
+                    disabled={sendMut.isPending}
+                    maxLength={1000}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={handleSend}
+                    disabled={sendMut.isPending || !draft.trim()}
+                  >
+                    {sendMut.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                {t('selectHint')}
               </div>
-              {!m.isRead && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0 self-center"
-                  onClick={() => readMut.mutate(m.id)}
-                  disabled={readMut.isPending}
-                >
-                  <Check className="mr-1 h-3.5 w-3.5" />
-                  {t('markRead')}
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

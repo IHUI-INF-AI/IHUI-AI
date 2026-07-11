@@ -26,7 +26,9 @@ interface ChannelDetail {
   viewCount: number
   status: number
 }
-interface ChannelResp { channel: ChannelDetail | null }
+interface ChannelResp {
+  channel: ChannelDetail | null
+}
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -136,7 +138,6 @@ export default function LiveDetailPage() {
       <Card className="overflow-hidden">
         <div className="relative flex h-56 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
           {channel.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={channel.coverImage}
               alt={channel.title}
@@ -170,7 +171,9 @@ export default function LiveDetailPage() {
             </span>
           </div>
           {channel.intro ? (
-            <p className="whitespace-pre-line text-sm leading-6 text-foreground/90">{channel.intro}</p>
+            <p className="whitespace-pre-line text-sm leading-6 text-foreground/90">
+              {channel.intro}
+            </p>
           ) : null}
         </CardContent>
       </Card>

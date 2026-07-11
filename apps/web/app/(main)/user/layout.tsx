@@ -1,17 +1,17 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { User, Shield, Bell, ShoppingBag } from 'lucide-react'
+import { User, Shield, Bell, ShoppingBag, CreditCard, BadgeCheck } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 
 interface UserNavItem {
   href: string
-  labelKey: 'profile' | 'security' | 'notifications' | 'orders'
+  labelKey: 'profile' | 'security' | 'notifications' | 'orders' | 'realname' | 'subscription'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -20,6 +20,8 @@ const USER_NAV: UserNavItem[] = [
   { href: '/user/security', labelKey: 'security', icon: Shield },
   { href: '/user/notifications', labelKey: 'notifications', icon: Bell },
   { href: '/user/orders', labelKey: 'orders', icon: ShoppingBag },
+  { href: '/user/realname', labelKey: 'realname', icon: BadgeCheck },
+  { href: '/user/subscription', labelKey: 'subscription', icon: CreditCard },
 ]
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
@@ -56,7 +58,6 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-4 flex items-center gap-3 rounded-lg border bg-card p-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-medium">
             {user?.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatar} alt={user.nickname} className="h-10 w-10 rounded-full" />
             ) : (
               initial

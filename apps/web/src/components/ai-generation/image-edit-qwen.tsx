@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Download, Loader2 } from 'lucide-react'
@@ -6,15 +6,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-} from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
 
@@ -28,11 +20,7 @@ export function ImageEditQwen() {
   const [maskUrl, setMaskUrl] = React.useState('')
 
   const mutation = useMutation({
-    mutationFn: async (payload: {
-      prompt: string
-      imageUrl: string
-      maskUrl?: string
-    }) => {
+    mutationFn: async (payload: { prompt: string; imageUrl: string; maskUrl?: string }) => {
       const res = await fetchApi<unknown>('/api/ai/dashscope/image-edit', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -100,15 +88,12 @@ export function ImageEditQwen() {
           {mutation.isPending ? t('generating') : t('generate')}
         </Button>
 
-        {mutation.isPending ? (
-          <div className="h-64 animate-pulse rounded-md bg-muted" />
-        ) : null}
+        {mutation.isPending ? <div className="h-64 animate-pulse rounded-md bg-muted" /> : null}
 
         {images.length > 0 ? (
           <div className="space-y-2">
             {images.map((url) => (
               <div key={url} className="space-y-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt={prompt} className="w-full rounded-md border" />
                 <a
                   href={url}

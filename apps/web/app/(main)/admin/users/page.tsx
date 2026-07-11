@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,7 +6,15 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Search, Loader2, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Input,
+  Button,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface AdminUser {
@@ -86,7 +94,11 @@ export default function AdminUsersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const users = data?.list ?? []
   const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 
   return (
@@ -110,26 +122,38 @@ export default function AdminUsersPage() {
             aria-label={t('search')}
           />
         </div>
-        <Select value={role} onValueChange={(v) => { setRole(v); setPage(1) }}>
-  <SelectTrigger className={selectClass} aria-label={t('role')}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="all">{t('allRoles')}</SelectItem>
-    <SelectItem value="1">{t('roleAdmin')}</SelectItem>
-    <SelectItem value="0">{t('roleUser')}</SelectItem>
-  </SelectContent>
-</Select>
-        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-  <SelectTrigger className={selectClass} aria-label={t('status')}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="all">{t('allStatus')}</SelectItem>
-    <SelectItem value="1">{t('statusActive')}</SelectItem>
-    <SelectItem value="0">{t('statusDisabled')}</SelectItem>
-  </SelectContent>
-</Select>
+        <Select
+          value={role}
+          onValueChange={(v) => {
+            setRole(v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className={selectClass} aria-label={t('role')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('allRoles')}</SelectItem>
+            <SelectItem value="1">{t('roleAdmin')}</SelectItem>
+            <SelectItem value="0">{t('roleUser')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className={selectClass} aria-label={t('status')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('allStatus')}</SelectItem>
+            <SelectItem value="1">{t('statusActive')}</SelectItem>
+            <SelectItem value="0">{t('statusDisabled')}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -137,7 +161,9 @@ export default function AdminUsersPage() {
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">{t('nickname')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('phone')} / {t('email')}</th>
+              <th className="px-4 py-2.5 font-medium">
+                {t('phone')} / {t('email')}
+              </th>
               <th className="px-4 py-2.5 font-medium">{t('role')}</th>
               <th className="px-4 py-2.5 font-medium">{t('status')}</th>
               <th className="px-4 py-2.5 font-medium">{t('createdAt')}</th>
@@ -146,15 +172,25 @@ export default function AdminUsersPage() {
           </thead>
           <tbody className="divide-y">
             {isLoading ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('loading')}
-              </td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  {t('loading')}
+                </td>
+              </tr>
             ) : error ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-destructive">{(error as Error).message}</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-destructive">
+                  {(error as Error).message}
+                </td>
+              </tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />{t('noData')}
-              </td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <Users className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                  {t('noData')}
+                </td>
+              </tr>
             ) : (
               users.map((u) => {
                 const isAdmin = (u.roleId ?? 0) >= 1
@@ -166,7 +202,6 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
                           {u.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={u.avatar} alt={name} className="h-8 w-8 rounded-full" />
                           ) : (
                             (name?.[0] ?? 'U').toUpperCase()
@@ -180,20 +215,27 @@ export default function AdminUsersPage() {
                       <div className="text-xs text-muted-foreground/80">{u.email || '-'}</div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <Select value={isAdmin ? '1' : '0'} onValueChange={(v) =>
+                      <Select
+                        value={isAdmin ? '1' : '0'}
+                        onValueChange={(v) =>
                           patchMut.mutate({ id: u.id, body: { role: Number(v) } })
-                        }>
-  <SelectTrigger className={cn(
-                          selectClass,
-                          isAdmin ? 'border-primary/30 text-primary' : 'text-muted-foreground',
-                        )} aria-label={t('setRole')} disabled={patchMut.isPending}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="0">{t('roleUser')}</SelectItem>
-    <SelectItem value="1">{t('roleAdmin')}</SelectItem>
-  </SelectContent>
-</Select>
+                        }
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            selectClass,
+                            isAdmin ? 'border-primary/30 text-primary' : 'text-muted-foreground',
+                          )}
+                          aria-label={t('setRole')}
+                          disabled={patchMut.isPending}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">{t('roleUser')}</SelectItem>
+                          <SelectItem value="1">{t('roleAdmin')}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="px-4 py-2.5">
                       <span
@@ -204,7 +246,12 @@ export default function AdminUsersPage() {
                             : 'bg-muted text-muted-foreground',
                         )}
                       >
-                        <span className={cn('h-1.5 w-1.5 rounded-full', isActive ? 'bg-emerald-500' : 'bg-muted-foreground')} />
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            isActive ? 'bg-emerald-500' : 'bg-muted-foreground',
+                          )}
+                        />
                         {isActive ? t('statusActive') : t('statusDisabled')}
                       </span>
                     </td>
@@ -234,12 +281,26 @@ export default function AdminUsersPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            <ChevronLeft className="h-4 w-4" />{t('prev')}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('page', { page, total: totalPages })}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            {t('next')}<ChevronRight className="h-4 w-4" />
+          <span className="text-sm text-muted-foreground">
+            {t('page', { page, total: totalPages })}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            {t('next')}
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>

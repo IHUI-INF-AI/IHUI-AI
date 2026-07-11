@@ -55,7 +55,11 @@ export default function AgentDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
 
-  const { data: agent, isLoading, error } = useQuery({
+  const {
+    data: agent,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['agents', 'detail', id],
     queryFn: () => api<Agent>(`/api/agents/${id}`),
     enabled: !!id,
@@ -70,8 +74,8 @@ export default function AgentDetailPage() {
     minute: '2-digit',
   })
 
-  const statusKey = agent ? STATUS_KEY[agent.status] ?? 'statusPending' : ''
-  const statusClass = agent ? STATUS_CLASS[agent.status] ?? STATUS_CLASS.pending : ''
+  const statusKey = agent ? (STATUS_KEY[agent.status] ?? 'statusPending') : ''
+  const statusClass = agent ? (STATUS_CLASS[agent.status] ?? STATUS_CLASS.pending) : ''
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -106,7 +110,6 @@ export default function AgentDetailPage() {
         <div className="overflow-hidden rounded-lg border">
           <div className="relative h-48 w-full bg-muted">
             {agent.cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={agent.cover} alt={agent.name} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground/40">
@@ -119,7 +122,6 @@ export default function AgentDetailPage() {
             <div className="flex items-start gap-4">
               <div className="-mt-12 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-4 border-background bg-muted text-2xl font-medium">
                 {agent.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={agent.avatar} alt={agent.name} className="h-full w-full object-cover" />
                 ) : (
                   (agent.name?.[0] ?? 'A').toUpperCase()

@@ -1,20 +1,11 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Bot,
-} from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Loader2, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -258,7 +249,7 @@ export default function AdminAgentsPage() {
   const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
 
   const catName = (id: string | null) =>
-    id ? categories.find((c) => c.categoryId === id)?.name ?? '-' : '-'
+    id ? (categories.find((c) => c.categoryId === id)?.name ?? '-') : '-'
 
   return (
     <div className="space-y-4">
@@ -289,7 +280,13 @@ export default function AdminAgentsPage() {
             aria-label={tc('search')}
           />
         </div>
-        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('fieldStatus')}>
             <SelectValue />
           </SelectTrigger>
@@ -345,7 +342,6 @@ export default function AdminAgentsPage() {
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
                         {a.avatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={a.avatar} alt={a.name} className="h-8 w-8 rounded-full" />
                         ) : (
                           (a.name?.[0] ?? 'A').toUpperCase()
@@ -567,7 +563,12 @@ export default function AdminAgentsPage() {
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

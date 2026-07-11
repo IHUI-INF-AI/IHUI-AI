@@ -1,20 +1,22 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Newspaper, Search, Loader2, ChevronLeft, ChevronRight, Eye, Pin, FileText } from 'lucide-react'
+import {
+  Newspaper,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Pin,
+  FileText,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface NewsCategory {
@@ -87,7 +89,8 @@ export default function NewsPage() {
 
   const { data: pinned = [] } = useQuery({
     queryKey: ['news', 'pinned'],
-    queryFn: () => api<{ list: NewsArticle[] }>(`/api/news/articles/pinned`).then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: NewsArticle[] }>(`/api/news/articles/pinned`).then((d) => d.list ?? []),
   })
 
   const total = data?.total ?? 0
@@ -145,7 +148,6 @@ export default function NewsPage() {
                     <CardContent className="flex gap-4 p-4">
                       <div className="h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                         {item.coverImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={item.coverImage}
                             alt={item.title}

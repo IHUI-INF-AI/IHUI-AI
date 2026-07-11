@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,14 @@ const sizeMap: Record<AvatarSize, string> = {
   xl: 'h-16 w-16 text-xl',
 }
 
-export function Avatar({ src, fallback, name, size = 'md', shape = 'circle', className }: AvatarProps) {
+export function Avatar({
+  src,
+  fallback,
+  name,
+  size = 'md',
+  shape = 'circle',
+  className,
+}: AvatarProps) {
   const [error, setError] = React.useState(false)
   const initials = fallback ?? (name ? name.slice(0, 2) : '?')
 
@@ -37,8 +44,12 @@ export function Avatar({ src, fallback, name, size = 'md', shape = 'circle', cla
       )}
     >
       {src && !error ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={name ?? 'avatar'} className="h-full w-full object-cover" onError={() => setError(true)} />
+        <img
+          src={src}
+          alt={name ?? 'avatar'}
+          className="h-full w-full object-cover"
+          onError={() => setError(true)}
+        />
       ) : (
         initials
       )}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Loader2, Search } from 'lucide-react'
@@ -69,10 +69,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pageItems = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  )
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const formatDate = (ts: number): string => new Date(ts).toLocaleString()
 
@@ -81,8 +78,9 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
     if (!url) return <p className="text-sm text-muted-foreground">{t('noResult')}</p>
     switch (record.type) {
       case 'image':
-        // eslint-disable-next-line @next/next/no-img-element
-        return <img src={url} alt={record.prompt} className="max-h-[70vh] w-full rounded-md border" />
+        return (
+          <img src={url} alt={record.prompt} className="max-h-[70vh] w-full rounded-md border" />
+        )
       case 'video':
         return <video src={url} controls className="w-full rounded-md border" />
       case 'audio':
@@ -123,7 +121,13 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-2">
             <Label>{t('type')}</Label>
-            <Select value={activeType} onValueChange={(v) => { setActiveType(v); setPage(1) }}>
+            <Select
+              value={activeType}
+              onValueChange={(v) => {
+                setActiveType(v)
+                setPage(1)
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
@@ -143,7 +147,10 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
               <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
                 placeholder={t('searchPlaceholder')}
                 className="pl-8"
               />
@@ -170,19 +177,18 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                 >
                   <div className="flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
                     {record.type === 'image' && record.resultUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={record.resultUrl}
                         alt={record.prompt}
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span className="text-xs uppercase text-muted-foreground">
-                        {record.type}
-                      </span>
+                      <span className="text-xs uppercase text-muted-foreground">{record.type}</span>
                     )}
                   </div>
-                  <p className="line-clamp-1 text-xs text-foreground">{record.prompt || t('noResult')}</p>
+                  <p className="line-clamp-1 text-xs text-foreground">
+                    {record.prompt || t('noResult')}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {record.vendor} · {formatDate(record.createdAt)}
                   </p>
@@ -216,7 +222,12 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
           </>
         )}
 
-        <Dialog open={!!preview} onOpenChange={(open) => { if (!open) setPreview(null) }}>
+        <Dialog
+          open={!!preview}
+          onOpenChange={(open) => {
+            if (!open) setPreview(null)
+          }}
+        >
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{t('preview')}</DialogTitle>
@@ -225,10 +236,18 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
               <div className="space-y-3">
                 {renderPreview(preview)}
                 <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>{t('type')}: {preview.type}</p>
-                  <p>{t('vendor')}: {preview.vendor}</p>
-                  <p>{t('prompt')}: {preview.prompt || t('noResult')}</p>
-                  <p>{t('createdAt')}: {formatDate(preview.createdAt)}</p>
+                  <p>
+                    {t('type')}: {preview.type}
+                  </p>
+                  <p>
+                    {t('vendor')}: {preview.vendor}
+                  </p>
+                  <p>
+                    {t('prompt')}: {preview.prompt || t('noResult')}
+                  </p>
+                  <p>
+                    {t('createdAt')}: {formatDate(preview.createdAt)}
+                  </p>
                 </div>
               </div>
             ) : null}

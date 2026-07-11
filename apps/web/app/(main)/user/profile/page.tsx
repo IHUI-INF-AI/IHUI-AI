@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -138,7 +138,6 @@ export default function ProfilePage() {
         <div className="relative h-20 w-20 shrink-0">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium">
             {user?.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatar} alt={user.nickname} className="h-20 w-20 rounded-full" />
             ) : (
               initial
@@ -195,25 +194,22 @@ export default function ProfilePage() {
         <div className="space-y-1.5">
           <Label htmlFor="nickname">{t('nickname')}</Label>
           <Input id="nickname" {...register('nickname')} placeholder={t('nicknamePlaceholder')} />
-          {errors.nickname && (
-            <p className="text-xs text-destructive">{t('nicknameError')}</p>
-          )}
+          {errors.nickname && <p className="text-xs text-destructive">{t('nicknameError')}</p>}
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="phone">{t('phone')}</Label>
-          <Input
-            id="phone"
-            value={user?.phone ?? ''}
-            readOnly
-            disabled
-            className="bg-muted/50"
-          />
+          <Input id="phone" value={user?.phone ?? ''} readOnly disabled className="bg-muted/50" />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="email">{t('email')}</Label>
-          <Input id="email" type="email" {...register('email')} placeholder={t('emailPlaceholder')} />
+          <Input
+            id="email"
+            type="email"
+            {...register('email')}
+            placeholder={t('emailPlaceholder')}
+          />
           {errors.email && <p className="text-xs text-destructive">{t('emailError')}</p>}
         </div>
 

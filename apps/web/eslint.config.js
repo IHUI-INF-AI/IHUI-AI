@@ -3,7 +3,16 @@ import nextConfig from '@ihui/eslint-config/next'
 export default [
   ...nextConfig,
   {
-    ignores: ['.next/**', 'out/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'e2e/**'],
+    ignores: [
+      '.next/**',
+      'out/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      'e2e/**',
+      'public/**',
+      'next-env.d.ts',
+    ],
   },
   {
     files: ['src/**/*.js'],
