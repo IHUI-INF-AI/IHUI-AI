@@ -6,10 +6,22 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./user": { "types": "./dist/user.d.ts", "import": "./dist/user.js" },
-    "./api": { "types": "./dist/api.d.ts", "import": "./dist/api.js" },
-    "./ai": { "types": "./dist/ai.d.ts", "import": "./dist/ai.js" }
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./user": {
+      "types": "./src/user.ts",
+      "import": "./dist/user.js"
+    },
+    "./api": {
+      "types": "./src/api.ts",
+      "import": "./dist/api.js"
+    },
+    "./ai": {
+      "types": "./src/ai.ts",
+      "import": "./dist/ai.js"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -17,5 +29,10 @@
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist .turbo node_modules"
   },
-  "devDependencies": { "@ihui/eslint-config": "workspace:*", "eslint": "^9.16.0", "typescript": "^5.7.2", "rimraf": "^6.0.1" }
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2",
+    "rimraf": "^6.0.1"
+  }
 }

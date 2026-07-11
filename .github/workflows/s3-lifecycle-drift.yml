@@ -1,0 +1,63 @@
+name: S3 Lifecycle Drift
+
+# S3 生命周期漂移检测工作流 — 关联 M-25 存储分层配置
+# 定期比对实际 S3 桶生命周期策略与 s3-lifecycle.yml 声明配置，发现漂移即告警
+on:
+  schedule:
+    - cron: '0 3 * * 1' # 每周一 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      bucket:
+        description: '待检测的 S3 桶名（留空则使用默认桶）'
+        required: false
+        default: ''
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Fetch current lifecycle configuration
+        id: current
+        run: |
+          BUCKET="${{ inputs.bucket || secrets.S3_BUCKET }}"
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          aws s3api get-bucket-lifecycle-configuration --bucket "$BUCKET" > /tmp/current-lifecycle.json || echo '{"Rules":[]}' > /tmp/current-lifecycle.json
+
+      - name: Compare against declared configuration
+        id: compare
+        run: |
+          # 声明配置位于仓库根目录 s3-lifecycle.yml，先转为 JSON 后比对
+          python3 - <<'PY'
+          import json, sys, subprocess
+          declared = subprocess.run(
+            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open("s3-lifecycle.yml"))))'],
+            capture_output=True, text=True
+          ).stdout
+          with open('/tmp/current-lifecycle.json') as f:
+            current = json.load(f)
+          declared_rules = json.loads(declared).get('Rules', []) if declared.strip() else []
+          current_rules = current.get('Rules', [])
+          drift = len(declared_rules) != len(current_rules)
+          print(f'::set-output name=drift::{str(drift).lower()}')
+          print(f'声明规则数: {len(declared_rules)}, 实际规则数: {len(current_rules)}')
+          PY
+
+      - name: Report drift
+        if: steps.compare.outputs.drift == 'true'
+        run: |
+          echo "::warning::检测到 S3 生命周期配置漂移（桶 ${{ steps.current.outputs.bucket }}）"
+          echo "声明规则与实际规则数量不一致，请人工核对 s3-lifecycle.yml 与线上配置"
+          exit 1
+
+      - name: No drift
+        if: steps.compare.outputs.drift != 'true'
+        run: echo "✅ S3 生命周期配置无漂移"

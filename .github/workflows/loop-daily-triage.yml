@@ -1,0 +1,216 @@
+name: loop-daily-triage
+
+# Loop Engineering L1 daily-triage (report-only, 严格只读)
+# - cron 北京时间 08:00 (UTC 00:00), 工作日
+# - 代码卫生: TODO/FIXME/XXX 计数
+# - 静态分析: eslint 告警
+# - 依赖健康: npm audit
+# - 写 STATE.md (commit 回分支, 不触发完整 CI)
+
+on:
+  schedule:
+    # 北京时间 08:00 = UTC 00:00, 周一至周五
+    - cron: '0 0 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只扫描不 commit (debug 用)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  NODE_VERSION: '20.10'
+  PNPM_VERSION: '9.15'
+  TZ: 'Asia/Shanghai'
+
+jobs:
+  loop-triage:
+    name: Loop L1 daily-triage (report-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # ============================================================
+      # loop-triage: 代码卫生 + 静态分析 + 依赖健康 (容错)
+      # ============================================================
+      - name: loop-triage (代码卫生 + 静态分析 + 依赖健康)
+        id: triage
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p .loop-tmp
+          ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
+
+          # 1. 代码卫生: TODO/FIXME/XXX 计数 (ts/tsx/js/py)
+          todo=$(grep -rE --include='*.ts' --include='*.tsx' --include='*.js' --include='*.py' -c '(TODO|FIXME|XXX)' apps/ packages/ 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
+          echo "todo_fixme_count=$todo" | tee -a .loop-tmp/env
+
+          # 2. 代码卫生: 禁用文件被追踪
+          forbidden_dirs="pw-output screenshots test-results storybook-static audit .ruff_cache"
+          forbidden_files="dev-server.log gen-out.log eslint-report.json"
+          forbidden_match=$(git ls-files | grep -E "^([^/]+/)?($(echo $forbidden_dirs | tr ' ' '|'))/" || true)
+          forbidden_match="$forbidden_match$(git ls-files | grep -E "(^|/)($(echo $forbidden_files | tr ' ' '|'))$" || true)"
+          forbidden_count=$(echo "$forbidden_match" | grep -c . || echo 0)
+          echo "forbidden_files_tracked=$forbidden_count" | tee -a .loop-tmp/env
+
+          # 3. 代码卫生: .env.backup / .env.bak 泄漏
+          env_bak=$(git ls-files | grep -E '\.env\.backup$|\.env\.bak$' || true)
+          env_bak_count=$(echo "$env_bak" | grep -c . || echo 0)
+          echo "env_backup_leak=$env_bak_count" | tee -a .loop-tmp/env
+
+          # 4. 静态分析: eslint 告警条数 (apps/api + apps/web, 容错)
+          eslint_warn=$(pnpm -r exec eslint --format json src/ 2>/dev/null | node -e "
+            let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+              try{const arr=JSON.parse(d);let n=0;for(const f of arr)n+=(f.messages||[]).length;console.log(n)}catch{console.log(0)}
+            })
+          " 2>/dev/null || echo "未采集")
+          echo "eslint_warnings=$eslint_warn" | tee -a .loop-tmp/env
+
+          # 5. 依赖健康: npm high/critical 告警数量
+          npm_audit=$(pnpm audit --prod --json 2>/dev/null | node -e "
+            let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+              try{const v=JSON.parse(d).metadata?.vulnerabilities||{};console.log((v.high||0)+(v.critical||0))}catch{console.log('未采集')}
+            })
+          " 2>/dev/null || echo "未采集")
+          echo "npm_high_critical=$npm_audit" | tee -a .loop-tmp/env
+
+          # 6. 类型检查: tsc 错误数 (容错)
+          tsc_err=$(pnpm -r exec tsc --noEmit 2>&1 | grep -c 'error TS' || echo 0)
+          echo "tsc_errors=$tsc_err" | tee -a .loop-tmp/env
+
+          # 打包信号 JSON
+          node -e "
+            const fs=require('fs');const env={};
+            const t=fs.readFileSync('.loop-tmp/env','utf8');
+            for(const line of t.split('\n')){const i=line.indexOf('=');if(i>0)env[line.slice(0,i)]=line.slice(i+1)}
+            console.log(JSON.stringify(env))
+          " > .loop-tmp/env.json
+          cat .loop-tmp/env.json
+
+      # ============================================================
+      # loop-verifier: 落盘 STATE.md
+      # ============================================================
+      - name: loop-verifier (落盘 STATE.md)
+        id: verifier
+        run: |
+          set -e
+          ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
+          trigger="${{ github.event_name }}"
+
+          # 解析信号
+          signals=$(cat .loop-tmp/env.json 2>/dev/null || echo '{}')
+
+          # 初始化 STATE.md (若不存在)
+          if [ ! -f STATE.md ]; then
+            cat > STATE.md <<'EOF'
+          # STATE.md (loop-daily-triage 自动维护)
+          last_run: init
+          last_status: init
+          next_run: 下一个工作日 08:00 (Asia/Shanghai)
+          consecutive_degraded: 0
+          EOF
+          fi
+
+          # 更新 STATE.md 字段
+          node -e "
+            const fs=require('fs');
+            const ts='$ts';const signals=JSON.parse('$signals');
+            let t=fs.readFileSync('STATE.md','utf8');
+            t=t.replace(/last_run:\s*.*/, 'last_run: '+ts);
+            // 判定状态: eslint/tsc/npm 任一非零则 degraded
+            const bad=(+signals.eslint_warnings||0)+(+(signals.tsc_errors||0))+(+(signals.npm_high_critical||0));
+            const status=bad>0?'degraded':'ok';
+            t=t.replace(/last_status:\s*.*/, 'last_status: '+status);
+            t=t.replace(/next_run:\s*.*/, 'next_run: 下一个工作日 08:00 (Asia/Shanghai)');
+            if(status==='degraded'){
+              const m=/consecutive_degraded:\s*(\d+)/.exec(t);const n=m?+m[1]:0;
+              t=t.replace(/consecutive_degraded:\s*\d+/, 'consecutive_degraded: '+(n+1));
+            } else {
+              t=t.replace(/consecutive_degraded:\s*\d+/, 'consecutive_degraded: 0');
+            }
+            fs.writeFileSync('STATE.md', t);
+            console.log('status='+status);
+          " | tee -a $GITHUB_OUTPUT
+
+          # 追加到 loop-run-log.md
+          if [ ! -f loop-run-log.md ]; then echo "# loop-run-log.md" > loop-run-log.md; fi
+          {
+            echo ""
+            echo "## Run $ts (Asia/Shanghai)"
+            echo ""
+            echo "- trigger: $trigger"
+            echo "- level: L1"
+            cat .loop-tmp/env | sed 's/^/- /'
+            echo ""
+          } >> loop-run-log.md
+
+      # ============================================================
+      # 提交 STATE.md / loop-run-log.md
+      # ============================================================
+      - name: commit & push (仅 *.md)
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add STATE.md loop-run-log.md 2>/dev/null || true
+          ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
+          git commit -m "loop: L1 daily-triage @ $ts (report-only)" || echo "nothing to commit"
+          git push || echo "push skipped (可能无变更)"
+
+      - name: 上传 loop 产物 (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-triage-run
+          path: |
+            loop-run-log.md
+            STATE.md
+            .loop-tmp/
+          if-no-files-found: ignore
+
+      - name: 通知钉钉
+        if: failure()
+        env:
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+        run: |
+          if [ -z "$DINGTALK_WEBHOOK" ]; then
+            echo "DINGTALK_WEBHOOK 未配置, 跳过"
+            exit 0
+          fi
+          curl -X POST "$DINGTALK_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{\"msgtype\":\"markdown\",\"markdown\":{\"title\":\"Loop L1 失败\",\"text\":\"## Loop L1 daily-triage 失败\n- 仓库: ${{ github.repository }}\n- 详情: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}}"
+
+      - name: 通知飞书
+        if: failure()
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: |
+          if [ -z "$FEISHU_WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK 未配置, 跳过"
+            exit 0
+          fi
+          curl -X POST "$FEISHU_WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -d "{\"msg_type\":\"interactive\",\"card\":{\"header\":{\"title\":{\"tag\":\"plain_text\",\"content\":\"Loop L1 失败\"},\"template\":\"red\"},\"elements\":[{\"tag\":\"div\",\"text\":{\"tag\":\"lark_md\",\"content\":\"**仓库:** ${{ github.repository }}\"}}]}}"
