@@ -133,12 +133,27 @@
 | 数据库迁移 | `drizzle/0052_lesson_task_rate_access.sql` | 新建 3 张表（lesson_task/lesson_rate/lesson_access）的 SQL migration + _journal.json 注册 |
 | 集成测试 | `__tests__/learn-extended.test.ts` | 新建 27 个测试用例，覆盖 21 个 learn 端点（路由注册/公开/鉴权/Zod校验） |
 | 集成测试 | `__tests__/live-extended.test.ts` | 新建 8 个测试用例，覆盖 5 个 live 端点（回调/管理/鉴权） |
-| ESLint 修复 | `node_modules/ajv` | 诊断 ajv draft-04 schema 缺失为 TRAE VM pnpm junction 损坏导致（168 文件受影响），需非 TRAE 环境 `pnpm install` 修复 |
+| TRAE VM 修复 | `scripts/fix-trae-workspace.ps1` | 一键修复 TRAE VM pnpm junction 损坏（@ihui/* + @types/node + @types/minimatch） |
 
-#### 环境已知问题（非代码问题）
+#### TRAE VM 环境修复（2026-07-11 完成）
 
-1. TRAE VM pnpm junction 损坏 — 影响所有 `@ihui/*` 工作区包解析 + ESLint ajv 模块，需在非 TRAE 环境运行 `pnpm install` 修复
-2. drizzle-kit db:generate 快照损坏 — 0046_snapshot.json 格式异常，已手动编写 0052 migration SQL 替代
+**根因**：TRAE VM 路径虚拟化将 `G:\` 映射到 VM 内部路径 `\device\harddiskvolume8\...`，导致 pnpm 创建的 junction target 存储为 VM 内部路径而非 `G:\` 路径，junction 解析失败。
+
+**解决方案**：
+1. `node_modules/@ihui/*` — 12 个工作区包，用 `robocopy` 从源目录复制（排除 node_modules/.turbo）
+2. `node_modules/@types/node` — 从 pnpm store `@types+node@22.20.0` 复制
+3. `node_modules/@types/minimatch` — 空壳包，创建 `index.d.ts` 填充类型声明
+
+**验证结果**：
+- TypeScript 类型检查：`pnpm --filter @ihui/api typecheck` — 0 错误
+- 集成测试：`npx vitest run apps/api/src/routes/__tests__/` — 10 文件 95 测试全绿
+- ESM 模块解析：`@ihui/database` 440 exports，全部 6 个核心包导入成功
+
+**使用方法**：TRAE VM 重启后如 junction 再次损坏，运行 `powershell -File scripts/fix-trae-workspace.ps1`
+
+#### 其他已知问题
+
+1. drizzle-kit db:generate 快照损坏 — 0046_snapshot.json 格式异常，已手动编写 0052 migration SQL 替代
 
 ---
 
