@@ -2,6 +2,16 @@ import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db/index.js'
 import { sql } from 'drizzle-orm'
 import { config } from '../config/index.js'
+import { resetBulkhead } from '../plugins/resilience-extended.js'
+
+interface HealthHistoryEntry {
+  timestamp: string
+  status: string
+  checks: Record<string, { status: string; latency?: number }>
+}
+
+const MAX_HISTORY = 100
+const healthHistory: HealthHistoryEntry[] = []
 
 export const healthRoutes: FastifyPluginAsync = async (server) => {
   server.get('/health', async () => {
@@ -73,6 +83,8 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const status = allOk ? 'ready' : 'degraded'
+    healthHistory.push({ timestamp: new Date().toISOString(), status, checks })
+    if (healthHistory.length > MAX_HISTORY) healthHistory.shift()
     reply.code(allOk ? 200 : 503)
     return { status, checks }
   })
@@ -92,4 +104,74 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
       uptime: process.uptime(),
     }
   })
+
+  // 健康检查历史（最近 MAX_HISTORY 次 /health/ready 结果）
+  server.get('/health/history', async () => {
+    return {
+      total: healthHistory.length,
+      list: healthHistory,
+    }
+  })
+
+  // OpenAPI tag 列表（按 tag 统计端点数）
+  server.get('/openapi/tags', async () => {
+    const schema = server.swagger()
+    const tagCounts: Record<string, number> = {}
+    const paths = schema.paths ?? {}
+    for (const path of Object.values(paths)) {
+      if (!path) continue
+      for (const methodData of Object.values(path)) {
+        if (!methodData) continue
+        for (const tag of (methodData as { tags?: string[] }).tags ?? []) {
+          tagCounts[tag] = (tagCounts[tag] ?? 0) + 1
+        }
+      }
+    }
+    return {
+      totalTags: Object.keys(tagCounts).length,
+      tags: tagCounts,
+    }
+  })
+
+  // OpenAPI 指定 tag 的端点子文档
+  server.get<{ Params: { tagName: string } }>('/openapi/tag/:tagName', async (request, reply) => {
+    const { tagName } = request.params
+    const schema = server.swagger()
+    const filteredPaths: NonNullable<typeof schema.paths> = {}
+    const paths = schema.paths ?? {}
+    for (const [path, methods] of Object.entries(paths)) {
+      if (!methods) continue
+      const filteredMethods: Record<string, unknown> = {}
+      let matched = false
+      for (const [method, methodData] of Object.entries(methods)) {
+        if (!methodData) continue
+        if ((methodData as { tags?: string[] }).tags?.includes(tagName)) {
+          filteredMethods[method] = methodData
+          matched = true
+        }
+      }
+      if (matched) filteredPaths[path] = filteredMethods as never
+    }
+    if (Object.keys(filteredPaths).length === 0) {
+      return reply.status(404).send({ code: 404, message: `tag "${tagName}" 不存在` })
+    }
+    return {
+      openapi: (schema as { openapi?: string }).openapi ?? '3.0.0',
+      info: schema.info,
+      paths: filteredPaths,
+    }
+  })
+
+  // 重置指定 Bulkhead 隔离器（新架构用 Bulkhead 替代旧架构 CircuitBreaker）
+  server.post<{ Params: { circuitName: string } }>(
+    '/resilience/reset/:circuitName',
+    async (request, reply) => {
+      const { circuitName } = request.params
+      const ok = resetBulkhead(circuitName)
+      if (!ok) {
+        return reply.status(404).send({ code: 404, message: `隔离器 "${circuitName}" 不存在` })
+      }
+      return { code: 0, message: 'ok', data: { circuitName, reset: true } }
+    },
+  )
 }

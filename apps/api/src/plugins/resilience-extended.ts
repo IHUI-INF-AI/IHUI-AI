@@ -18,10 +18,10 @@ export async function degradedMode<T>(
   onError?: (err: Error) => void,
 ): Promise<T> {
   try {
-    return await fn();
+    return await fn()
   } catch (err) {
-    if (onError) onError(err instanceof Error ? err : new Error(String(err)));
-    return fallback;
+    if (onError) onError(err instanceof Error ? err : new Error(String(err)))
+    return fallback
   }
 }
 
@@ -31,31 +31,31 @@ export async function degradedMode<T>(
  * 防止单一服务耗尽整个连接池/线程池。
  */
 export class Bulkhead {
-  private active = 0;
-  private readonly maxConcurrency: number;
-  private readonly maxQueueSize: number;
-  private queue: Array<() => void> = [];
+  private active = 0
+  private readonly maxConcurrency: number
+  private readonly maxQueueSize: number
+  private queue: Array<() => void> = []
 
   constructor(maxConcurrency = 10, maxQueueSize = 100) {
-    this.maxConcurrency = maxConcurrency;
-    this.maxQueueSize = maxQueueSize;
+    this.maxConcurrency = maxConcurrency
+    this.maxQueueSize = maxQueueSize
   }
 
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     if (this.active >= this.maxConcurrency) {
       if (this.queue.length >= this.maxQueueSize) {
-        throw new Error(`Bulkhead rejected: max queue size (${this.maxQueueSize}) exceeded`);
+        throw new Error(`Bulkhead rejected: max queue size (${this.maxQueueSize}) exceeded`)
       }
-      await new Promise<void>((resolve) => this.queue.push(resolve));
+      await new Promise<void>((resolve) => this.queue.push(resolve))
     }
 
-    this.active++;
+    this.active++
     try {
-      return await fn();
+      return await fn()
     } finally {
-      this.active--;
-      const next = this.queue.shift();
-      if (next) next();
+      this.active--
+      const next = this.queue.shift()
+      if (next) next()
     }
   }
 
@@ -65,18 +65,31 @@ export class Bulkhead {
       queued: this.queue.length,
       maxConcurrency: this.maxConcurrency,
       maxQueueSize: this.maxQueueSize,
-    };
+    }
+  }
+
+  /** 重置：清空等待队列（active 计数由执行中的任务自然释放）。 */
+  reset(): void {
+    this.queue = []
   }
 }
 
 /** 全局 Bulkhead 实例池（按名称索引） */
-const bulkheads = new Map<string, Bulkhead>();
+const bulkheads = new Map<string, Bulkhead>()
 
 export function getBulkhead(name: string, maxConcurrency = 10, maxQueueSize = 100): Bulkhead {
-  let b = bulkheads.get(name);
+  let b = bulkheads.get(name)
   if (!b) {
-    b = new Bulkhead(maxConcurrency, maxQueueSize);
-    bulkheads.set(name, b);
+    b = new Bulkhead(maxConcurrency, maxQueueSize)
+    bulkheads.set(name, b)
   }
-  return b;
+  return b
+}
+
+/** 重置指定 Bulkhead：清空等待队列（active 计数由执行中的任务自然释放）。 */
+export function resetBulkhead(name: string): boolean {
+  const b = bulkheads.get(name)
+  if (!b) return false
+  b.reset()
+  return true
 }
