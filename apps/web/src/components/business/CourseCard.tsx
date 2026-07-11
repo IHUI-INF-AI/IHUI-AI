@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { User, Clock, Star } from 'lucide-react'
@@ -43,8 +43,11 @@ export function CourseCard({
     >
       <div className="relative aspect-video overflow-hidden bg-muted">
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt={title} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+          <img
+            src={cover}
+            alt={title}
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             <Star className="h-10 w-10" />
@@ -53,7 +56,9 @@ export function CourseCard({
         {tags && tags.length > 0 && (
           <div className="absolute top-2 left-2 flex gap-1">
             {tags.map((tag, i) => (
-              <span key={i} className="rounded bg-black/60 px-2 py-0.5 text-xs text-white">{tag}</span>
+              <span key={i} className="rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+                {tag}
+              </span>
             ))}
           </div>
         )}
@@ -80,9 +85,7 @@ export function CourseCard({
             </span>
           )}
         </div>
-        {progress !== undefined && (
-          <ProgressBar value={progress} showLabel size="sm" />
-        )}
+        {progress !== undefined && <ProgressBar value={progress} showLabel size="sm" />}
         {(price !== undefined || originalPrice !== undefined) && (
           <div className="flex items-baseline gap-2">
             {price !== undefined && (

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Share2, QrCode, Link as LinkIcon } from 'lucide-react'
@@ -55,12 +55,13 @@ export default function SharePage() {
             <Card key={item.id}>
               <CardHeader className="space-y-2 p-4">
                 <CardTitle className="text-base">{item.title}</CardTitle>
-                <CardDescription className="line-clamp-2 text-sm">{item.description}</CardDescription>
+                <CardDescription className="line-clamp-2 text-sm">
+                  {item.description}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex items-center justify-between gap-3 p-4 pt-0">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
                   {item.qrcode ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.qrcode} alt="二维码" className="h-16 w-16 rounded-md" />
                   ) : (
                     <QrCode className="h-8 w-8 text-muted-foreground" />
