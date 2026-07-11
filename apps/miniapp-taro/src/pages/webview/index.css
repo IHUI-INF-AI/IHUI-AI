@@ -1,0 +1,20 @@
+.webview-page {
+  min-height: 100vh;
+  background: #fff;
+}
+.page-header {
+  padding: 20rpx 30rpx;
+  background: #fff;
+}
+.page-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+}
+.empty-text {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  display: block;
+  padding: 60rpx 0;
+}
