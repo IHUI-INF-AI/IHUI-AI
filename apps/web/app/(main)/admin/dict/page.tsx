@@ -4,9 +4,21 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { BookMarked, Plus, Edit, Trash2, Loader2, ChevronRight, ChevronDown } from 'lucide-react'
+import {
+  BookMarked,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  ChevronRight,
+  ChevronDown,
+  Search,
+  Download,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { exportToExcel } from '@/lib/export-utils'
+import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Button,
   Input,
@@ -95,6 +107,7 @@ export default function DictPage() {
   const [itemParent, setItemParent] = React.useState<DictType | null>(null)
   const [editingItem, setEditingItem] = React.useState<DictItem | null>(null)
   const [itemForm, setItemForm] = React.useState(EMPTY_ITEM)
+  const [search, setSearch] = React.useState('')
 
   const { data: list = MOCK_DICTS, isLoading } = useQuery({
     queryKey: ['admin', 'dict'],
@@ -256,6 +269,43 @@ export default function DictPage() {
     }
     saveItemMut.mutate()
   }
+  function handleExport() {
+    const rows: Record<string, unknown>[] = []
+    filteredList.forEach((d) => {
+      if (d.items.length === 0) {
+        rows.push({ typeName: d.name, typeCode: d.code, label: '', value: '', sort: '' })
+      } else {
+        d.items.forEach((it) => {
+          rows.push({
+            typeName: d.name,
+            typeCode: d.code,
+            label: it.label,
+            value: it.value,
+            sort: it.sort,
+          })
+        })
+      }
+    })
+    exportToExcel(
+      '字典数据',
+      [
+        { key: 'typeName', title: '字典名称' },
+        { key: 'typeCode', title: '字典编码' },
+        { key: 'label', title: '字典标签' },
+        { key: 'value', title: '字典值' },
+        { key: 'sort', title: '排序' },
+      ],
+      rows,
+    )
+  }
+
+  const filteredList = search.trim()
+    ? list.filter(
+        (d) =>
+          d.name.toLowerCase().includes(search.toLowerCase()) ||
+          d.code.toLowerCase().includes(search.toLowerCase()),
+      )
+    : list
 
   return (
     <div className="space-y-6">
@@ -267,10 +317,30 @@ export default function DictPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('dict.subtitle')}</p>
         </div>
-        <Button size="sm" onClick={openCreateType}>
-          <Plus className="h-4 w-4" />
-          {t('dict.createType')}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            {tc('export')}
+          </Button>
+          <HasPermi code="ai:dictionary:add">
+            <Button size="sm" onClick={openCreateType}>
+              <Plus className="h-4 w-4" />
+              {t('dict.createType')}
+            </Button>
+          </HasPermi>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索字典名称 / 编码..."
+            className="h-9 pl-8"
+          />
+        </div>
       </div>
 
       {isLoading ? (
@@ -278,13 +348,13 @@ export default function DictPage() {
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}
         </div>
-      ) : list.length === 0 ? (
+      ) : filteredList.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
           {t('dict.noData')}
         </div>
       ) : (
         <div className="space-y-2">
-          {list.map((d) => {
+          {filteredList.map((d) => {
             const isOpen = expanded.has(d.id)
             return (
               <div key={d.id} className="overflow-hidden rounded-lg border">
@@ -307,25 +377,31 @@ export default function DictPage() {
                     </span>
                   </button>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => openEditType(d)}>
-                      <Edit className="h-4 w-4" />
-                      {tc('edit')}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => openCreateItem(d)}>
-                      <Plus className="h-4 w-4" />
-                      {t('dict.addItem')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      disabled={delTypeMut.isPending}
-                      onClick={() => {
-                        if (confirm(t('dict.deleteConfirm'))) delTypeMut.mutate(d.id)
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <HasPermi code="ai:dictionary:edit">
+                      <Button size="sm" variant="ghost" onClick={() => openEditType(d)}>
+                        <Edit className="h-4 w-4" />
+                        {tc('edit')}
+                      </Button>
+                    </HasPermi>
+                    <HasPermi code="ai:dictionary:add">
+                      <Button size="sm" variant="ghost" onClick={() => openCreateItem(d)}>
+                        <Plus className="h-4 w-4" />
+                        {t('dict.addItem')}
+                      </Button>
+                    </HasPermi>
+                    <HasPermi code="ai:dictionary:remove">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        disabled={delTypeMut.isPending}
+                        onClick={() => {
+                          if (confirm(t('dict.deleteConfirm'))) delTypeMut.mutate(d.id)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </HasPermi>
                   </div>
                 </div>
                 {d.description && (
@@ -359,20 +435,28 @@ export default function DictPage() {
                             </td>
                             <td className="px-4 py-2.5 text-muted-foreground">{it.sort}</td>
                             <td className="px-4 py-2.5 text-right">
-                              <Button size="sm" variant="ghost" onClick={() => openEditItem(d, it)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                disabled={delItemMut.isPending}
-                                onClick={() => {
-                                  if (confirm(t('dict.deleteConfirm'))) delItemMut.mutate(it.id)
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <HasPermi code="ai:dictionary:edit">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => openEditItem(d, it)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </HasPermi>
+                              <HasPermi code="ai:dictionary:remove">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  disabled={delItemMut.isPending}
+                                  onClick={() => {
+                                    if (confirm(t('dict.deleteConfirm'))) delItemMut.mutate(it.id)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </HasPermi>
                             </td>
                           </tr>
                         ))
