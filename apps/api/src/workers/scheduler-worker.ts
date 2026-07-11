@@ -18,6 +18,11 @@ import { runFileCleanup } from '../services/cleanup-service.js'
 import { expireVipMembers } from '../services/vip-expire-service.js'
 import { autoCloseExpiredActivities } from '../services/activity-status-service.js'
 import { calibrateCommissionSettlement } from '../services/commission-settle-service.js'
+import {
+  markInactiveAgents,
+  cleanupOldHeatStats,
+  cleanupOauthSessions,
+} from '../services/scheduled-tasks-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -211,6 +216,39 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               },
               'commission settle daily done',
             )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'mark-inactive-agents': {
+            const result = await markInactiveAgents()
+            server.log.info(
+              { scanned: result.scanned, updated: result.updated },
+              'mark inactive agents done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'cleanup-old-heat': {
+            const result = await cleanupOldHeatStats()
+            server.log.info({ deleted: result.deleted }, 'old heat stats cleaned')
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'oauth-session-cleanup': {
+            const result = await cleanupOauthSessions()
+            server.log.info({ deleted: result.deleted }, 'expired oauth sessions cleaned')
             try {
               server.recordJobExecution(name, 'success')
             } catch {
