@@ -55,8 +55,11 @@
 - [x] ✅(2026-07-11) stock-service.ts 评估确认已完全实现（M-14，无 STUB/TODO）
 - [x] ✅(2026-07-11) 17 个客户端服务文件处理（评估为死代码，按"做减法"原则删除 11 个 service + file-worker + 4 个上传组件）
 - [x] ✅(2026-07-11) file-worker.ts 处理（评估为死代码已删除，workspace 页面已简化移除未工作的文件处理逻辑）
-- [x] ✅(2026-07-11) 9 张死表清理（5 张保留 schema 加注释 / 4 张已删 schema + 0049 迁移 DROP TABLE + tenant-audit 过期引用清理）
-- [x] ✅(2026-07-11) 4 处 throw new Error() 改为 error() 包装函数（已确认 0 处残留，之前会话已修复）
+- [x] ✅(2026-07-11) 9 张死表彻底清理完成：
+  - 3 张补建后端路由激活（sensitive-words: CRUD+内容过滤 / agreements: CRUD+当前协议查询 / exchange-rate: CRUD+汇率换算）
+  - 2 张旧 schema 删除+DROP TABLE 迁移（search_hot_keywords→hot_words 替代 / private_letter_sessions+messages→message_private_letter 替代）
+  - 4 张之前已 DROP TABLE（app_content→carousels / exchange_rate→zhsExchangeRate / admin_oper_log→audit_logs / search_index→globalSearch 跨表聚合）
+- [x] ✅(2026-07-11) 4 处 throw new Error() 改为 error() 包装函数（已确认 0 处残留）
 - [x] ✅(2026-07-11) 工作区未跟踪文件审查完成（全部已提交或 .gitignore）
 - [x] ✅(2026-07-11) git push 到远程仓库（42 个 commit 全部推送）
 
@@ -64,13 +67,44 @@
 
 ## 迁移完整度
 
+> 2026-07-11 深度代码审计修正：逐文件比对后发现 14 项存在真实缺口。
+
 | 指标                    | 数值     |
 | ----------------------- | -------- |
 | M 项追踪总数            | 88       |
-| ✅ 已修复/已补建/已替代 | 88       |
-| ⚠️ 部分修复/未来需求    | 0        |
+| ✅ 已修复/已补建/已替代 | 74       |
+| ⚠️ 部分修复/未来需求    | 14       |
 | ❌ 未修复               | 0        |
-| **综合迁移完整度**      | **100%** |
+| **综合迁移完整度**      | **~92%** |
+
+### 14 项部分修复/未来需求清单
+
+| M 项 | 标题               | 缺口                                          | 等级 |
+| ---- | ------------------ | --------------------------------------------- | ---- |
+| M-9  | 运维能力           | 数据回填系统缺失（Saga 已接入 order-service） | 中   |
+| M-16 | Web Worker         | file-worker.ts 已删除无替代                   | 低   |
+| M-17 | 客户端服务层       | 11 个 service 已删除无替代                    | 低   |
+| M-25 | 部署基础设施       | K8s/Helm/ArgoCD 由 Docker Compose 替代        | 中   |
+| M-63 | 6 模块端点         | ~22 端点部分缺失                              | 中   |
+| M-76 | 清理服务           | uploads/outputs LRU 清理未迁移                | 低   |
+| M-77 | 定时任务           | 3 个 cron job 未迁移                          | 低   |
+| M-81 | 管理后台页面       | 24 页未覆盖，3 个严重缺失                     | 高   |
+| M-84 | 聊天室 WebSocket   | ws-chat 功能范围与旧架构不同                  | 中   |
+| M-85 | SRS 媒体服务器     | 零代码，由腾讯云 VOD 替代                     | 中   |
+| M-87 | RemoteDeviceByTask | 零代码，无替代方案                            | 中   |
+| M-88 | 前端埋点           | 缺 API 调用追踪/点击事件/行为分析             | 低   |
+| M-31 | i18n 系统          | 已大幅补全（4130→5312 键）但未达 100%         | 低   |
+| M-82 | hardcoded-texts    | 已生成 160KB catalog 但未接入                 | 低   |
+
+### 代码级问题（2 处 mock/placeholder）
+
+- `apps/api/src/routes/ai-user-model-chat.ts:195` — 返回 mock 响应，未接入模型网关
+- `apps/api/src/routes/ai-image-edit.ts` — 8 处 placeholder URL，未接入真实 AI 图片 API
+- `apps/api/src/services/workspace-ai-service.ts:409` — LLM 思考步骤返回 stub
+
+### 审计报告
+
+- `migration-audit/migration-audit.html` — 可视化深度审计报告（含 M-1~M-88 逐项验证）
 
 ---
 
