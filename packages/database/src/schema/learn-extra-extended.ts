@@ -1,3 +1,4 @@
+// 注意：该文件中的表当前无 API 引用，保留以备未来学习模块扩展需求
 import {
   pgTable,
   uuid,
@@ -9,7 +10,7 @@ import {
   timestamp,
   bigint,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * 学习记录表 (历史 learn_record)。
@@ -37,7 +38,7 @@ export const learnRecord = pgTable(
     lessonIdx: index('learn_record_lesson_idx').on(t.lessonId),
     signupIdx: index('learn_record_signup_idx').on(t.signUpId),
   }),
-);
+)
 
 /**
  * 学习记录日志表 (历史 learn_record_log)。
@@ -58,7 +59,7 @@ export const learnRecordLog = pgTable(
     memberIdx: index('learn_record_log_member_idx').on(t.memberId),
     lessonIdx: index('learn_record_log_lesson_idx').on(t.lessonId),
   }),
-);
+)
 
 /**
  * 专题表 (历史 learn_topic)。
@@ -84,7 +85,7 @@ export const learnTopic = pgTable(
   (t) => ({
     statusIdx: index('learn_topic_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 专题分类表 (历史 learn_topic_category)。
@@ -103,7 +104,7 @@ export const learnTopicCategory = pgTable('learn_topic_category', {
   createUserId: bigint('create_user_id', { mode: 'number' }).default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 专题分类关系表 (历史 learn_topic_category_relation)。
@@ -118,7 +119,7 @@ export const learnTopicCategoryRelation = pgTable('learn_topic_category_relation
   isSub: boolean('is_sub').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 专题与课程关系表 (历史 learn_topic_lesson)。
@@ -136,7 +137,7 @@ export const learnTopicLesson = pgTable(
     topicIdx: index('learn_topic_lesson_topic_idx').on(t.topicId),
     lessonIdx: index('learn_topic_lesson_lesson_idx').on(t.lessonId),
   }),
-);
+)
 
 /**
  * 专题与分类关系表 (历史 learn_topic_topic_category_relation)。
@@ -154,7 +155,7 @@ export const learnTopicTopicCategoryRelation = pgTable(
     categoryIdx: index('learn_topic_topic_category_relation_category_idx').on(t.categoryId),
     topicIdx: index('learn_topic_topic_category_relation_topic_idx').on(t.topicId),
   }),
-);
+)
 
 /**
  * 学习地图与专题关系表 (历史 learn_learn_map_topic)。
@@ -172,7 +173,7 @@ export const learnLearnMapTopic = pgTable(
     mapIdx: index('learn_learn_map_topic_map_idx').on(t.learnMapId),
     topicIdx: index('learn_learn_map_topic_topic_idx').on(t.topicId),
   }),
-);
+)
 
 /**
  * 作业提交记录表 (历史 learn_homework_record)。
@@ -195,23 +196,23 @@ export const learnHomeworkRecord = pgTable(
     lessonIdx: index('learn_homework_record_lesson_idx').on(t.lessonId),
     signupIdx: index('learn_homework_record_signup_idx').on(t.signUpId),
   }),
-);
+)
 
-export type LearnRecord = typeof learnRecord.$inferSelect;
-export type NewLearnRecord = typeof learnRecord.$inferInsert;
-export type LearnRecordLog = typeof learnRecordLog.$inferSelect;
-export type NewLearnRecordLog = typeof learnRecordLog.$inferInsert;
-export type LearnTopic = typeof learnTopic.$inferSelect;
-export type NewLearnTopic = typeof learnTopic.$inferInsert;
-export type LearnTopicCategory = typeof learnTopicCategory.$inferSelect;
-export type NewLearnTopicCategory = typeof learnTopicCategory.$inferInsert;
-export type LearnTopicCategoryRelation = typeof learnTopicCategoryRelation.$inferSelect;
-export type NewLearnTopicCategoryRelation = typeof learnTopicCategoryRelation.$inferInsert;
-export type LearnTopicLesson = typeof learnTopicLesson.$inferSelect;
-export type NewLearnTopicLesson = typeof learnTopicLesson.$inferInsert;
-export type LearnTopicTopicCategoryRelation = typeof learnTopicTopicCategoryRelation.$inferSelect;
-export type NewLearnTopicTopicCategoryRelation = typeof learnTopicTopicCategoryRelation.$inferInsert;
-export type LearnLearnMapTopic = typeof learnLearnMapTopic.$inferSelect;
-export type NewLearnLearnMapTopic = typeof learnLearnMapTopic.$inferInsert;
-export type LearnHomeworkRecord = typeof learnHomeworkRecord.$inferSelect;
-export type NewLearnHomeworkRecord = typeof learnHomeworkRecord.$inferInsert;
+export type LearnRecord = typeof learnRecord.$inferSelect
+export type NewLearnRecord = typeof learnRecord.$inferInsert
+export type LearnRecordLog = typeof learnRecordLog.$inferSelect
+export type NewLearnRecordLog = typeof learnRecordLog.$inferInsert
+export type LearnTopic = typeof learnTopic.$inferSelect
+export type NewLearnTopic = typeof learnTopic.$inferInsert
+export type LearnTopicCategory = typeof learnTopicCategory.$inferSelect
+export type NewLearnTopicCategory = typeof learnTopicCategory.$inferInsert
+export type LearnTopicCategoryRelation = typeof learnTopicCategoryRelation.$inferSelect
+export type NewLearnTopicCategoryRelation = typeof learnTopicCategoryRelation.$inferInsert
+export type LearnTopicLesson = typeof learnTopicLesson.$inferSelect
+export type NewLearnTopicLesson = typeof learnTopicLesson.$inferInsert
+export type LearnTopicTopicCategoryRelation = typeof learnTopicTopicCategoryRelation.$inferSelect
+export type NewLearnTopicTopicCategoryRelation = typeof learnTopicTopicCategoryRelation.$inferInsert
+export type LearnLearnMapTopic = typeof learnLearnMapTopic.$inferSelect
+export type NewLearnLearnMapTopic = typeof learnLearnMapTopic.$inferInsert
+export type LearnHomeworkRecord = typeof learnHomeworkRecord.$inferSelect
+export type NewLearnHomeworkRecord = typeof learnHomeworkRecord.$inferInsert
