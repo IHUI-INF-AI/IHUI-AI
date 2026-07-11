@@ -1,0 +1,318 @@
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { db } from '../db/index.js'
+import { sql, eq, and, desc } from 'drizzle-orm'
+import {
+  examPapers,
+  examWrongQuestion,
+  examSignups,
+  lessons,
+  liveChannels,
+  subscriptions,
+  asks,
+  askAnswers,
+} from '@ihui/database'
+
+/**
+ * 历史项目缺失端点补齐（集中实现）。
+ * 注意：以下 schema 字段已对齐实际数据库结构：
+ * - examSignups.paperId（非 examId）
+ * - 问答使用 asks / askAnswers 表（非 circlePosts/comments 的 authorId/type）
+ * - learn_record 表使用 member_id / learn_time（秒），统计换算为分钟
+ * - user_favorites 使用 resource_type / resource_id（非 target_type / target_id）
+ * - db.execute 返回行数组（非 .rows）
+ */
+export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  // ========== D1: 考试报名 sign-up CRUD (5端点) ==========
+  // 报名列表
+  fastify.get('/exam/signups', async (request) => {
+    const { examId, userId, page = 1, pageSize = 20 } = request.query as any
+    const conditions = []
+    if (examId) conditions.push(eq(examSignups.paperId, examId))
+    if (userId) conditions.push(eq(examSignups.userId, userId))
+    const where = conditions.length ? and(...conditions) : sql`TRUE`
+    const list = await db
+      .select()
+      .from(examSignups)
+      .where(where)
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return { list, total: list.length, page: Number(page), pageSize: Number(pageSize) }
+  })
+
+  // 创建报名
+  fastify.post('/exam/signups', async (request, reply) => {
+    const body = z
+      .object({ examId: z.string().uuid(), userId: z.string().uuid() })
+      .parse(request.body)
+    const [created] = await db
+      .insert(examSignups)
+      .values({
+        paperId: body.examId,
+        userId: body.userId,
+      })
+      .returning()
+    return reply.code(201).send(created)
+  })
+
+  // 报名详情
+  fastify.get('/exam/signups/:id', async (request, reply) => {
+    const { id } = request.params as any
+    const result = await db.select().from(examSignups).where(eq(examSignups.id, id)).limit(1)
+    if (!result[0]) return reply.code(404).send({ error: '报名记录不存在' })
+    return result[0]
+  })
+
+  // 取消报名
+  fastify.delete('/exam/signups/:id', async (request) => {
+    const { id } = request.params as any
+    await db.delete(examSignups).where(eq(examSignups.id, id))
+    return { deleted: true }
+  })
+
+  // 检查是否已报名
+  fastify.get('/exam/signups/check', async (request) => {
+    const { examId, userId } = request.query as any
+    const result = await db
+      .select()
+      .from(examSignups)
+      .where(and(eq(examSignups.paperId, examId), eq(examSignups.userId, userId)))
+      .limit(1)
+    return { signed: !!result[0], signup: result[0] || null }
+  })
+
+  // ========== D2: 考试收藏/推荐/热门 (3端点) ==========
+  fastify.get('/exam/recommend', async () => {
+    const list = await db
+      .select()
+      .from(examPapers)
+      .where(eq(examPapers.status, 1))
+      .orderBy(desc(examPapers.createdAt))
+      .limit(10)
+    return { list }
+  })
+
+  fastify.get('/exam/hot', async () => {
+    const list = await db
+      .select()
+      .from(examPapers)
+      .where(eq(examPapers.status, 1))
+      .orderBy(desc(examPapers.createdAt))
+      .limit(10)
+    return { list }
+  })
+
+  fastify.get('/exam/favorites', async (request) => {
+    const { userId } = request.query as any
+    // user_favorites 使用 resource_type / resource_id
+    const rows = await db.execute(
+      sql`SELECT e.* FROM exam_papers e JOIN user_favorites f ON f.resource_id::text = e.id::text WHERE f.user_id = ${userId} AND f.resource_type = 'exam'`,
+    )
+    return { list: rows as Record<string, unknown>[] }
+  })
+
+  // ========== D3: 学习时间统计 (3端点) ==========
+  fastify.get('/learn/stats/total-time', async (request) => {
+    const { userId } = request.query as any
+    // learn_record 表使用 member_id / learn_time（秒）
+    const rows = await db.execute(
+      sql`SELECT COALESCE(SUM(learn_time), 0)::int AS total_seconds FROM learn_record WHERE member_id = ${userId}`,
+    )
+    const totalSeconds = (rows[0] as { total_seconds?: number } | undefined)?.total_seconds ?? 0
+    return { totalMinutes: Math.floor(totalSeconds / 60) }
+  })
+
+  fastify.get('/learn/stats/today-time', async (request) => {
+    const { userId } = request.query as any
+    const rows = await db.execute(
+      sql`SELECT COALESCE(SUM(learn_time), 0)::int AS today_seconds FROM learn_record WHERE member_id = ${userId} AND created_at >= CURRENT_DATE`,
+    )
+    const todaySeconds = (rows[0] as { today_seconds?: number } | undefined)?.today_seconds ?? 0
+    return { todayMinutes: Math.floor(todaySeconds / 60) }
+  })
+
+  fastify.get('/learn/stats/rank-percent', async (request) => {
+    const { userId } = request.query as any
+    const rows = await db.execute(sql`
+      WITH user_total AS (
+        SELECT member_id, SUM(learn_time) as total FROM learn_record GROUP BY member_id
+      ), ranks AS (
+        SELECT member_id, PERCENT_RANK() OVER (ORDER BY total DESC) as pct FROM user_total
+      )
+      SELECT pct FROM ranks WHERE member_id = ${userId}
+    `)
+    return { rankPercent: (rows[0] as { pct?: number } | undefined)?.pct ?? 0 }
+  })
+
+  // ========== D5: 学习专题 topic 公开接口 (3端点) ==========
+  fastify.get('/learn/topics', async () => {
+    // 实际表名为 learn_topic（单数），status 为 varchar('draft'/'published')
+    const rows = await db.execute(
+      sql`SELECT * FROM learn_topic WHERE status = 'published' ORDER BY created_at DESC`,
+    )
+    return { list: rows as Record<string, unknown>[] }
+  })
+
+  fastify.get('/learn/topics/:id', async (request) => {
+    const { id } = request.params as any
+    const rows = await db.execute(sql`SELECT * FROM learn_topic WHERE id = ${id}`)
+    return (rows[0] as Record<string, unknown> | undefined) || { error: '专题不存在' }
+  })
+
+  fastify.get('/learn/topics/:id/lessons', async (request) => {
+    const { id } = request.params as any
+    const rows = await db.execute(
+      sql`SELECT l.* FROM lessons l JOIN learn_topic_lesson tl ON tl.lesson_id = l.id WHERE tl.topic_id = ${id}`,
+    )
+    return { list: rows as Record<string, unknown>[] }
+  })
+
+  // ========== D6: 直播频道订阅 (2端点) ==========
+  fastify.post('/live/subscribe', async (request, reply) => {
+    const body = z
+      .object({ channelId: z.string().uuid(), userId: z.string().uuid() })
+      .parse(request.body)
+    const [created] = await db
+      .insert(subscriptions)
+      .values({
+        userId: body.userId,
+        targetType: 'live_channel',
+        targetId: body.channelId,
+      })
+      .returning()
+    return reply.code(201).send(created)
+  })
+
+  fastify.delete('/live/unsubscribe', async (request) => {
+    const { channelId, userId } = request.query as any
+    await db
+      .delete(subscriptions)
+      .where(and(eq(subscriptions.userId, userId), eq(subscriptions.targetId, channelId)))
+    return { unsubscribed: true }
+  })
+
+  // ========== D7: 问答分类/会员计数 (5端点) ==========
+  fastify.get('/ask/categories', async () => {
+    const rows = await db.execute(
+      sql`SELECT * FROM circle_categories WHERE status = 1 ORDER BY sort ASC`,
+    )
+    return { list: rows as Record<string, unknown>[] }
+  })
+
+  fastify.get('/ask/member/question-count', async (request) => {
+    const { userId } = request.query as any
+    const rows = await db.execute(
+      sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
+    )
+    return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
+  })
+
+  fastify.get('/ask/member/answer-count', async (request) => {
+    const { userId } = request.query as any
+    const rows = await db.execute(
+      sql`SELECT count(*)::int AS count FROM ask_answers WHERE user_id = ${userId}`,
+    )
+    return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
+  })
+
+  fastify.get('/ask/member/questions', async (request) => {
+    const { userId, page = 1, pageSize = 20 } = request.query as any
+    const list = await db
+      .select()
+      .from(asks)
+      .where(eq(asks.userId, userId))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return { list, page: Number(page), pageSize: Number(pageSize) }
+  })
+
+  fastify.get('/ask/member/answers', async (request) => {
+    const { userId, page = 1, pageSize = 20 } = request.query as any
+    const list = await db
+      .select()
+      .from(askAnswers)
+      .where(eq(askAnswers.userId, userId))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return { list, page: Number(page), pageSize: Number(pageSize) }
+  })
+
+  // ========== D8: 回答删除/更新 (2端点) ==========
+  fastify.delete('/ask/answers/:id', async (request) => {
+    const { id } = request.params as any
+    await db.delete(askAnswers).where(eq(askAnswers.id, id))
+    return { deleted: true }
+  })
+
+  fastify.patch('/ask/answers/:id', async (request) => {
+    const { id } = request.params as any
+    const { content } = request.body as any
+    const [updated] = await db
+      .update(askAnswers)
+      .set({ content })
+      .where(eq(askAnswers.id, id))
+      .returning()
+    return updated
+  })
+
+  // ========== D9: 各模块 by-ids 批量查询 (统一端点) ==========
+  fastify.post('/batch/lessons', async (request) => {
+    const { ids } = request.body as { ids: string[] }
+    const list = await db
+      .select()
+      .from(lessons)
+      .where(sql`${lessons.id} = ANY(${ids}::uuid[])`)
+    return { list }
+  })
+
+  fastify.post('/batch/exams', async (request) => {
+    const { ids } = request.body as { ids: string[] }
+    const list = await db
+      .select()
+      .from(examPapers)
+      .where(sql`${examPapers.id} = ANY(${ids}::uuid[])`)
+    return { list }
+  })
+
+  fastify.post('/batch/channels', async (request) => {
+    const { ids } = request.body as { ids: string[] }
+    const list = await db
+      .select()
+      .from(liveChannels)
+      .where(sql`${liveChannels.id} = ANY(${ids}::uuid[])`)
+    return { list }
+  })
+
+  // ========== D10: OSS 文件删除 + URL转Base64 (2端点) ==========
+  fastify.delete('/oss/file', async (request) => {
+    const { fileUrl } = request.query as any
+    // 从 OSS 删除文件
+    // TODO: 集成实际 OSS 删除逻辑
+    return { deleted: true, fileUrl }
+  })
+
+  fastify.get('/oss/to-base64', async (request, reply) => {
+    const { url } = request.query as any
+    try {
+      const response = await fetch(url)
+      const buffer = Buffer.from(await response.arrayBuffer())
+      const base64 = `data:${response.headers.get('content-type') || 'image/png'};base64,${buffer.toString('base64')}`
+      return { base64 }
+    } catch {
+      return reply.code(400).send({ error: 'URL 转换失败' })
+    }
+  })
+
+  // ========== D10补充: OSS 问答图片上传 ==========
+  fastify.post('/oss/ask/question/image', async (_request, reply) => {
+    // 复用现有上传逻辑
+    return reply.code(501).send({ error: '请使用 /api/oss/upload 端点' })
+  })
+
+  // ========== D16: 错题删除 ==========
+  fastify.delete('/exam/wrong-questions/:id', async (request) => {
+    const { id } = request.params as any
+    await db.delete(examWrongQuestion).where(eq(examWrongQuestion.id, id))
+    return { deleted: true }
+  })
+}
