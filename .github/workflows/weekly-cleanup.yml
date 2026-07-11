@@ -1,0 +1,88 @@
+name: weekly-cleanup
+
+# 每周一定期清理运行时产物
+# 北京时间周一 03:00 (UTC 周日 19:00)
+
+on:
+  schedule:
+    - cron: '0 19 * * 0' # 周日 UTC 19:00 = 周一北京时间 03:00
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: 工作区清理
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 清理前端运行时产物
+        run: |
+          echo "清理前端运行时产物..."
+          # Next.js 构建产物 / 缓存
+          rm -rf apps/web/.next apps/web/out apps/web/.turbo 2>/dev/null || true
+          # Storybook 产物
+          rm -rf apps/web/storybook-static apps/web/.storybook-static 2>/dev/null || true
+          # Playwright 报告
+          rm -rf apps/web/playwright-report apps/web/test-results 2>/dev/null || true
+          # 节点缓存
+          rm -rf apps/web/node_modules/.cache 2>/dev/null || true
+          echo "前端清理完成"
+
+      - name: 清理后端缓存
+        run: |
+          echo "清理后端缓存..."
+          # TypeScript 增量构建缓存
+          rm -rf apps/api/dist apps/api/.turbo apps/api/tsconfig.tsbuildinfo 2>/dev/null || true
+          # 日志文件
+          find . -name '*.log' -not -path './node_modules/*' -not -path './.git/*' -delete 2>/dev/null || true
+          # Python 缓存 (ai-service)
+          find apps/ai-service -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+          rm -rf apps/ai-service/.pytest_cache apps/ai-service/.ruff_cache apps/ai-service/.mypy_cache 2>/dev/null || true
+          # 根级 .turbo 缓存
+          rm -rf .turbo 2>/dev/null || true
+          echo "后端清理完成"
+
+      - name: 清理根级临时产物
+        run: |
+          echo "清理根级临时产物..."
+          rm -rf pw-output screenshots coverage .ruff_cache 2>/dev/null || true
+          # 孤立的 dist 目录 (packages)
+          find packages -name 'dist' -type d -not -path '*/node_modules/*' -exec rm -rf {} + 2>/dev/null || true
+          find packages -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete 2>/dev/null || true
+          echo "根级清理完成"
+
+      - name: 检查是否有变更
+        id: changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "检测到需要清理的文件"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "工作区已干净，无需清理"
+          fi
+
+      - name: 提交清理
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: 周定期清理运行时产物
+
+          由 weekly-cleanup workflow 自动生成。
+          清理内容: .next/ dist/ .turbo/ __pycache__/ *.log 等"
+          git push
+
+      - name: 清理总结
+        run: |
+          echo "### 周清理总结" >> $GITHUB_STEP_SUMMARY
+          echo "- 前端清理: .next/ out/ storybook-static/ playwright-report/" >> $GITHUB_STEP_SUMMARY
+          echo "- 后端清理: dist/ .turbo/ __pycache__/ .pytest_cache/ *.log" >> $GITHUB_STEP_SUMMARY
+          echo "- 根级清理: pw-output/ screenshots/ coverage/ packages/*/dist/" >> $GITHUB_STEP_SUMMARY
+          echo "- 提交变更: ${{ steps.changes.outputs.has_changes }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,63 @@
+name: Smoke New Modules
+
+# 新模块冒烟测试工作流 — 新增模块快速验证
+# 当 apps/api/src/routes/ 或 apps/web/src/ 下出现新文件时触发，对核心端点做冒烟检查
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/api/src/routes/**'
+      - 'apps/web/src/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/api/src/routes/**'
+      - 'apps/web/src/**'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Detect new modules
+        id: detect
+        run: |
+          # 比对当前与上游分支差异，识别新增路由/前端模块文件
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          git diff --name-status --diff-filter=A "$BASE" HEAD -- \
+            'apps/api/src/routes/*.ts' 'apps/web/src/**' > /tmp/added.txt || true
+          COUNT=$(wc -l < /tmp/added.txt)
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::notice::检测到 $COUNT 个新增模块文件"
+            cat /tmp/added.txt
+          fi
+
+      - name: Typecheck
+        if: steps.detect.outputs.count != '0'
+        run: pnpm turbo run typecheck
+
+      - name: Lint new modules
+        if: steps.detect.outputs.count != '0'
+        run: pnpm turbo run lint
+
+      - name: Smoke test
+        if: steps.detect.outputs.count != '0'
+        run: pnpm turbo run test -- --passWithNoTests

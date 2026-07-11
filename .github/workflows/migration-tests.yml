@@ -1,0 +1,57 @@
+name: Migration Tests
+
+# 数据库迁移测试工作流 — 验证 Drizzle migration 迁移正确性
+# 当 database 包 schema 或 migrations 变更时触发
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/database/src/**'
+      - 'packages/database/migrations/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'packages/database/src/**'
+      - 'packages/database/migrations/**'
+
+jobs:
+  migration-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        run: cd packages/database && pnpm drizzle-kit push
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+
+      - name: Verify schema
+        run: cd packages/database && npx tsc --noEmit
