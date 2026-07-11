@@ -240,7 +240,8 @@
     "deleteProject": "删除項目",
     "uploadFailed": "上傳失敗",
     "downloadFailed": "下載失敗",
-    "deleteConfirm": "確定要刪除這個變量吗？"
+    "deleteConfirm": "確定要刪除這個變量吗？",
+    "processedFiles": "已處理檔案"
   },
   "chat": {
     "title": "AI對話",
