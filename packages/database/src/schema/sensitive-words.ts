@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, integer, timestamp, index } from 'drizzle-orm/pg-core'
 
 // 敏感词表 - 用于 UGC 内容审核
-// 注意：该表当前无 API 引用，保留以备未来需求
+// API: /api/admin/sensitive-words (CRUD + 内容过滤)
 export const sensitiveWords = pgTable(
   'sensitive_words',
   {

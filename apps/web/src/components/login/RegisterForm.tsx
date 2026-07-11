@@ -44,7 +44,12 @@ export function RegisterForm() {
     formState: { errors },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema as never),
-    defaultValues: { username: '', password: '', confirmPassword: '', agreement: false as unknown as true },
+    defaultValues: {
+      username: '',
+      password: '',
+      confirmPassword: '',
+      agreement: false as unknown as true,
+    },
   })
 
   const password = watch('password')
@@ -86,7 +91,9 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {serverError && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{serverError}</div>
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {serverError}
+        </div>
       )}
       {serverInfo && (
         <div className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{serverInfo}</div>
@@ -94,8 +101,15 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <Label htmlFor="reg-username">{t('username')}</Label>
-        <Input id="reg-username" autoComplete="username" placeholder={t('usernamePlaceholder')} {...register('username')} />
-        {errors.username && <p className="text-xs text-destructive">{resolveError(errors.username.message!)}</p>}
+        <Input
+          id="reg-username"
+          autoComplete="username"
+          placeholder={t('usernamePlaceholder')}
+          {...register('username')}
+        />
+        {errors.username && (
+          <p className="text-xs text-destructive">{resolveError(errors.username.message!)}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -108,7 +122,9 @@ export function RegisterForm() {
           {...register('password')}
         />
         <PasswordStrengthIndicator password={password} />
-        {errors.password && <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>}
+        {errors.password && (
+          <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -121,7 +137,9 @@ export function RegisterForm() {
           {...register('confirmPassword')}
         />
         {errors.confirmPassword && (
-          <p className="text-xs text-destructive">{resolveError(errors.confirmPassword.message!)}</p>
+          <p className="text-xs text-destructive">
+            {resolveError(errors.confirmPassword.message!)}
+          </p>
         )}
       </div>
 
@@ -139,16 +157,26 @@ export function RegisterForm() {
         />
         <span>
           {t('agreePrefix')}{' '}
-          <Link href="/terms-of-service" className="text-primary hover:underline" target="_blank">
+          <Link
+            href="/agreement?type=user"
+            className="text-primary hover:underline"
+            target="_blank"
+          >
             {t('termsOfService')}
           </Link>{' '}
           {t('and')}{' '}
-          <Link href="/privacy-policy" className="text-primary hover:underline" target="_blank">
+          <Link
+            href="/agreement?type=privacy"
+            className="text-primary hover:underline"
+            target="_blank"
+          >
             {t('privacyPolicy')}
           </Link>
         </span>
       </div>
-      {errors.agreement && <p className="text-xs text-destructive">{resolveError(errors.agreement.message!)}</p>}
+      {errors.agreement && (
+        <p className="text-xs text-destructive">{resolveError(errors.agreement.message!)}</p>
+      )}
 
       <Button type="submit" className="w-full" disabled={submitting}>
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
