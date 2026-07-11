@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button, Input } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { api, type Announcement } from '@/lib/content'
+import { Avatar } from '@/components/data/Avatar'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -100,14 +101,10 @@ export function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button
-                className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="ml-1 rounded-full ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={t('profile')}
               >
-                {user?.avatar ? (
-                  <img src={user.avatar} alt={user.nickname} className="h-8 w-8 rounded-full" />
-                ) : (
-                  (user?.nickname?.[0] ?? 'U').toUpperCase()
-                )}
+                <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>

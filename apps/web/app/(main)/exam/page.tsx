@@ -18,7 +18,12 @@ interface Paper {
   passScore: number
   duration: number
 }
-interface PapersData { list: Paper[]; total: number; page: number; pageSize: number }
+interface PapersData {
+  list: Paper[]
+  total: number
+  page: number
+  pageSize: number
+}
 
 const PAGE_SIZE = 20
 
@@ -34,8 +39,7 @@ export default function ExamPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'papers', page],
-    queryFn: () =>
-      api<PapersData>(`/api/exam/papers?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => api<PapersData>(`/api/exam/papers?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const papers = data?.list ?? []
@@ -67,11 +71,11 @@ export default function ExamPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {papers.map((paper) => (
-            <Card key={paper.id} className="flex h-full flex-col transition-colors hover:border-primary/40">
+            <Card key={paper.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader className="p-4 pb-2">
-                <CardTitle className="line-clamp-1 text-base">{paper.title}</CardTitle>
+                <CardTitle className="text-base">{paper.title}</CardTitle>
                 {paper.description && (
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{paper.description}</p>
+                  <p className="text-xs text-muted-foreground">{paper.description}</p>
                 )}
               </CardHeader>
               <CardContent className="flex-1 space-y-3 p-4 pt-0">

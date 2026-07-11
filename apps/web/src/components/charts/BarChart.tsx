@@ -12,17 +12,29 @@ interface BarChartProps {
   className?: string
 }
 
-export function BarChart({ data, xAxis, horizontal = false, height = 200, color = 'var(--primary)', className }: BarChartProps) {
+export const BarChart = React.memo(function BarChart({
+  data,
+  xAxis,
+  horizontal = false,
+  height = 200,
+  color = 'var(--primary)',
+  className,
+}: BarChartProps) {
   const max = Math.max(...data, 1)
 
   if (horizontal) {
     return (
       <div className={cn('w-full space-y-2', className)}>
         {data.map((v, i) => (
-          <div key={i} className="flex items-center gap-2">
-            {xAxis && <span className="w-16 shrink-0 text-xs text-muted-foreground">{xAxis[i]}</span>}
+          <div key={`bar-${i}`} className="flex items-center gap-2">
+            {xAxis && (
+              <span className="w-16 shrink-0 text-xs text-muted-foreground">{xAxis[i]}</span>
+            )}
             <div className="h-6 flex-1 overflow-hidden rounded bg-muted">
-              <div className="flex h-full items-center justify-end rounded px-2 text-xs text-white transition-all" style={{ width: `${(v / max) * 100}%`, backgroundColor: color }}>
+              <div
+                className="flex h-full items-center justify-end rounded px-2 text-xs text-white transition-all"
+                style={{ width: `${(v / max) * 100}%`, backgroundColor: color }}
+              >
                 {v}
               </div>
             </div>
@@ -41,19 +53,47 @@ export function BarChart({ data, xAxis, horizontal = false, height = 200, color 
 
   return (
     <div className={cn('w-full', className)}>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height }}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full"
+        style={{ height }}
+        role="img"
+        aria-label="柱状图"
+      >
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <line key={t} x1={padding.left} y1={padding.top + chartH * t} x2={width - padding.right} y2={padding.top + chartH * t} stroke="currentColor" strokeWidth={0.5} className="text-muted-foreground/20" />
+          <line
+            key={t}
+            x1={padding.left}
+            y1={padding.top + chartH * t}
+            x2={width - padding.right}
+            y2={padding.top + chartH * t}
+            stroke="currentColor"
+            strokeWidth={0.5}
+            className="text-muted-foreground/20"
+          />
         ))}
         {data.map((v, i) => {
           const h = (v / max) * chartH
           const x = padding.left + i * (barW + gap) + gap / 2
           const y = padding.top + chartH - h
           return (
-            <g key={i}>
-              <rect x={x} y={y} width={barW} height={h} fill={color} rx={2} className="transition-all hover:opacity-80" />
+            <g key={`bar-${i}`}>
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={h}
+                fill={color}
+                rx={2}
+                className="transition-all hover:opacity-80"
+              />
               {xAxis && (
-                <text x={x + barW / 2} y={height - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                <text
+                  x={x + barW / 2}
+                  y={height - 6}
+                  textAnchor="middle"
+                  className="fill-muted-foreground text-[10px]"
+                >
                   {xAxis[i]}
                 </text>
               )}
@@ -63,4 +103,4 @@ export function BarChart({ data, xAxis, horizontal = false, height = 200, color 
       </svg>
     </div>
   )
-}
+})

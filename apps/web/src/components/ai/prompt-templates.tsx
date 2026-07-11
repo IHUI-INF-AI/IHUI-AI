@@ -48,15 +48,13 @@ export function PromptTemplates({ templates, onSelect }: PromptTemplatesProps) {
                   onClick={() => onSelect(tpl.content)}
                   className={cn(
                     'group flex items-start gap-2 rounded-lg border bg-card p-3 text-left transition-colors',
-                    'hover:border-primary/40 hover:bg-primary/5',
+                    'hover:bg-accent',
                   )}
                 >
                   <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{tpl.name}</p>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {tpl.content}
-                    </p>
+                    <p className="break-words text-sm font-medium">{tpl.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{tpl.content}</p>
                   </div>
                 </button>
               ))}

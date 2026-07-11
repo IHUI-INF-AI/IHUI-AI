@@ -80,7 +80,7 @@ export default function PrivateLettersPage() {
                 <tr key={item.id} className="hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{item.senderName ?? '-'}</td>
                   <td className="px-4 py-2.5">{item.receiverName ?? '-'}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground max-w-xs truncate">
+                  <td className="px-4 py-2.5 text-muted-foreground max-w-xs break-words">
                     {item.content}
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{item.createdAt}</td>

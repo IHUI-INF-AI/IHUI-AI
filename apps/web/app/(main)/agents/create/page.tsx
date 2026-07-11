@@ -8,7 +8,17 @@ import { toast } from 'sonner'
 import { Loader2, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Switch } from '@ihui/ui'
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+  Switch,
+} from '@ihui/ui'
 
 interface Category {
   categoryId: string
@@ -145,7 +155,6 @@ export default function CreateAgentPage() {
             onChange={(e) => update('name', e.target.value)}
             placeholder={t('fieldNamePlaceholder')}
             maxLength={100}
-            autoFocus
           />
         </div>
 
@@ -263,7 +272,9 @@ export default function CreateAgentPage() {
         </div>
 
         {err && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {err}
+          </div>
         )}
 
         <div className="flex justify-end gap-2 border-t pt-4">

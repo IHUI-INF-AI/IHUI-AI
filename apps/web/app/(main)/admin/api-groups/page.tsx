@@ -7,7 +7,16 @@ import { toast } from 'sonner'
 import { FolderTree, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import {
+  Button,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface ApiGroup {
@@ -25,15 +34,40 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 const MOCK_GROUPS: ApiGroup[] = [
-  { id: '1', name: '用户与认证', description: '登录、注册、用户信息相关接口', apiCount: 18, createdAt: '2026-06-01' },
-  { id: '2', name: '订单与支付', description: '订单创建、支付、退款相关接口', apiCount: 24, createdAt: '2026-06-02' },
-  { id: '3', name: '内容管理', description: '文章、公告、资源相关接口', apiCount: 32, createdAt: '2026-06-05' },
-  { id: '4', name: 'AI 服务', description: '对话、模型调用、Agent 相关接口', apiCount: 16, createdAt: '2026-06-10' },
+  {
+    id: '1',
+    name: '用户与认证',
+    description: '登录、注册、用户信息相关接口',
+    apiCount: 18,
+    createdAt: '2026-06-01',
+  },
+  {
+    id: '2',
+    name: '订单与支付',
+    description: '订单创建、支付、退款相关接口',
+    apiCount: 24,
+    createdAt: '2026-06-02',
+  },
+  {
+    id: '3',
+    name: '内容管理',
+    description: '文章、公告、资源相关接口',
+    apiCount: 32,
+    createdAt: '2026-06-05',
+  },
+  {
+    id: '4',
+    name: 'AI 服务',
+    description: '对话、模型调用、Agent 相关接口',
+    apiCount: 16,
+    createdAt: '2026-06-10',
+  },
 ]
 
 const EMPTY = { name: '', description: '' }
 const th = 'px-4 py-2.5 font-medium'
-const textareaClass = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function ApiGroupsPage() {
   const t = useTranslations('adminTools')
@@ -71,12 +105,28 @@ export default function ApiGroupsPage() {
     },
   })
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setOpen(true) }
-  function openEdit(g: ApiGroup) { setEditing(g); setForm({ name: g.name, description: g.description }); setOpen(true) }
-  function close() { if (saveMut.isPending) return; setOpen(false); setEditing(null); setForm(EMPTY) }
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY)
+    setOpen(true)
+  }
+  function openEdit(g: ApiGroup) {
+    setEditing(g)
+    setForm({ name: g.name, description: g.description })
+    setOpen(true)
+  }
+  function close() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+    setForm(EMPTY)
+  }
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) { toast.error(t('apiGroups.nameRequired')); return }
+    if (!form.name.trim()) {
+      toast.error(t('apiGroups.nameRequired'))
+      return
+    }
     saveMut.mutate()
   }
 
@@ -90,12 +140,16 @@ export default function ApiGroupsPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('apiGroups.subtitle')}</p>
         </div>
-        <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />{t('apiGroups.create')}</Button>
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          {t('apiGroups.create')}
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {tc('search')}
         </div>
       ) : list.length === 0 ? (
         <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
@@ -117,7 +171,12 @@ export default function ApiGroupsPage() {
               {list.map((g) => (
                 <tr key={g.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{g.name}</td>
-                  <td className="max-w-[280px] truncate px-4 py-2.5 text-muted-foreground" title={g.description}>{g.description}</td>
+                  <td
+                    className="max-w-[280px] break-words px-4 py-2.5 text-muted-foreground"
+                    title={g.description}
+                  >
+                    {g.description}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                       {g.apiCount}
@@ -126,9 +185,21 @@ export default function ApiGroupsPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">{g.createdAt}</td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(g)}><Edit className="h-4 w-4" />{tc('edit')}</Button>
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={delMut.isPending} onClick={() => { if (confirm(t('apiGroups.deleteConfirm'))) delMut.mutate(g.id) }}>
-                        <Trash2 className="h-4 w-4" />{tc('delete')}
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(g)}>
+                        <Edit className="h-4 w-4" />
+                        {tc('edit')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        disabled={delMut.isPending}
+                        onClick={() => {
+                          if (confirm(t('apiGroups.deleteConfirm'))) delMut.mutate(g.id)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {tc('delete')}
                       </Button>
                     </div>
                   </td>
@@ -143,19 +214,38 @@ export default function ApiGroupsPage() {
         <DialogContent>
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>{editing ? t('apiGroups.editTitle') : t('apiGroups.createTitle')}</DialogTitle>
+              <DialogTitle>
+                {editing ? t('apiGroups.editTitle') : t('apiGroups.createTitle')}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
               <Label htmlFor="ag-name">{t('apiGroups.fieldName')}</Label>
-              <Input id="ag-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('apiGroups.namePlaceholder')} autoFocus />
+              <Input
+                id="ag-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder={t('apiGroups.namePlaceholder')}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ag-desc">{t('apiGroups.fieldDescription')}</Label>
-              <textarea id="ag-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className={textareaClass} placeholder={t('apiGroups.descriptionPlaceholder')} />
+              <textarea
+                id="ag-desc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={3}
+                className={textareaClass}
+                placeholder={t('apiGroups.descriptionPlaceholder')}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>{tc('cancel')}</Button>
-              <Button type="submit" disabled={saveMut.isPending}>{saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{tc('save')}</Button>
+              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
+                {tc('cancel')}
+              </Button>
+              <Button type="submit" disabled={saveMut.isPending}>
+                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {tc('save')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -17,7 +17,13 @@ interface Plan {
 const PLANS: Plan[] = [
   { id: 'free', icon: Check, highlighted: false, price: 0, ctaKey: 'plans.free.cta' },
   { id: 'pro', icon: Zap, highlighted: true, price: 99, ctaKey: 'plans.pro.cta' },
-  { id: 'enterprise', icon: Building2, highlighted: false, price: 0, ctaKey: 'plans.enterprise.cta' },
+  {
+    id: 'enterprise',
+    icon: Building2,
+    highlighted: false,
+    price: 0,
+    ctaKey: 'plans.enterprise.cta',
+  },
 ]
 
 const formatCNY = (n: number) =>
@@ -38,16 +44,16 @@ export default function PaymentPage() {
           const Icon = plan.icon
           const features = t.raw(`plans.${plan.id}.features`) as string[]
           const isEnterprise = plan.id === 'enterprise'
-          const priceLabel = isEnterprise ? t('plans.enterprise.contactSales') : formatCNY(plan.price)
+          const priceLabel = isEnterprise
+            ? t('plans.enterprise.contactSales')
+            : formatCNY(plan.price)
 
           return (
             <Card
               key={plan.id}
               className={cn(
                 'relative flex flex-col transition-colors',
-                plan.highlighted
-                  ? 'border-primary shadow-md lg:scale-105'
-                  : 'hover:border-primary/40',
+                plan.highlighted ? 'border-primary shadow-md lg:scale-105' : 'hover:bg-accent',
               )}
             >
               {plan.highlighted && (
@@ -70,7 +76,7 @@ export default function PaymentPage() {
               <CardContent className="flex flex-1 flex-col gap-4">
                 <ul className="flex-1 space-y-2">
                   {features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
+                    <li key={`feature-${i}`} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                       <span>{feature}</span>
                     </li>
@@ -80,10 +86,7 @@ export default function PaymentPage() {
                   href={isEnterprise ? '/payment/checkout' : `/payment/checkout?plan=${plan.id}`}
                   className="block"
                 >
-                  <Button
-                    variant={plan.highlighted ? 'default' : 'outline'}
-                    className="w-full"
-                  >
+                  <Button variant={plan.highlighted ? 'default' : 'outline'} className="w-full">
                     {t(plan.ctaKey)}
                   </Button>
                 </Link>

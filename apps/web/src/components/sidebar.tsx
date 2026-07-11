@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -48,6 +48,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
+import { Avatar } from '@/components/data/Avatar'
 
 interface NavItem {
   href: string
@@ -222,16 +223,10 @@ export function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
             collapsed && 'justify-center',
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-            {user?.avatar ? (
-              <img src={user.avatar} alt={user.nickname} className="h-8 w-8 rounded-full" />
-            ) : (
-              (user?.nickname?.[0] ?? 'U').toUpperCase()
-            )}
-          </div>
+          <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
           {!collapsed && (
             <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium">{user?.nickname ?? 'User'}</span>
+              <span className="break-words text-sm font-medium">{user?.nickname ?? 'User'}</span>
               <Button
                 variant="ghost"
                 size="icon"

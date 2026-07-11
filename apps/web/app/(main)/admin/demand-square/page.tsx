@@ -110,8 +110,7 @@ export default function AdminDemandSquarePage() {
   })
 
   const approveMut = useMutation({
-    mutationFn: (id: string) =>
-      api<Examine>(`/api/examine/${id}/approve`, { method: 'PUT' }),
+    mutationFn: (id: string) => api<Examine>(`/api/examine/${id}/approve`, { method: 'PUT' }),
     onSuccess: () => {
       toast.success(t('approveSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'demandSquare'] })
@@ -200,7 +199,13 @@ export default function AdminDemandSquarePage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setStatus(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('colStatus')}>
             <SelectValue />
           </SelectTrigger>
@@ -268,7 +273,7 @@ export default function AdminDemandSquarePage() {
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    <span className="line-clamp-1">{r.reason || '-'}</span>
+                    <span className="break-words">{r.reason || '-'}</span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
                     {dateFmt.format(new Date(r.createdAt))}
@@ -346,7 +351,6 @@ export default function AdminDemandSquarePage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
-                autoFocus
                 className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
@@ -356,7 +360,12 @@ export default function AdminDemandSquarePage() {
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeReject} disabled={rejectMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeReject}
+                disabled={rejectMut.isPending}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="submit" variant="destructive" disabled={rejectMut.isPending}>

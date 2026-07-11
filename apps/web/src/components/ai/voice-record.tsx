@@ -39,10 +39,13 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
     streamRef.current = null
   }, [])
 
-  React.useEffect(() => () => {
-    cleanup()
-    if (audioUrl) URL.revokeObjectURL(audioUrl)
-  }, [cleanup, audioUrl])
+  React.useEffect(
+    () => () => {
+      cleanup()
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
+    },
+    [cleanup, audioUrl],
+  )
 
   const startRecording = async () => {
     setError(null)
@@ -182,12 +185,26 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
             onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
             className="hidden"
-          />
+          >
+            <track kind="captions" />
+          </audio>
           <div className="ml-auto flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={downloadRecording} title="下载">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={downloadRecording}
+              title="下载"
+            >
               <Download className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={deleteRecording} title="删除">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={deleteRecording}
+              title="删除"
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>

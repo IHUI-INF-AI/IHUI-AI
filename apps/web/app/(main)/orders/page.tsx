@@ -3,7 +3,15 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { ShoppingCart, Clock, CheckCircle, XCircle, Wallet, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  ShoppingCart,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Wallet,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
@@ -39,21 +47,31 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-function fetchOrders(params: { page: number; status: string; orderType: string }): Promise<OrdersData> {
+function fetchOrders(params: {
+  page: number
+  status: string
+  orderType: string
+}): Promise<OrdersData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.status !== 'all') qs.set('status', params.status)
   if (params.orderType !== 'all') qs.set('orderType', params.orderType)
   return api<OrdersData>(`/api/orders/me?${qs.toString()}`)
 }
 
-const STATUS_CONFIG: Record<OrderStatus, { icon: React.ComponentType<{ className?: string }>; cls: string }> = {
+const STATUS_CONFIG: Record<
+  OrderStatus,
+  { icon: React.ComponentType<{ className?: string }>; cls: string }
+> = {
   pending: { icon: Clock, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
   paid: { icon: CheckCircle, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
   cancelled: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
-  refunded: { icon: Wallet, cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-500' },
+  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
 }
 
-const STATUS_TABS: { value: string; labelKey: 'all' | 'pending' | 'paid' | 'cancelled' | 'refunded' }[] = [
+const STATUS_TABS: {
+  value: string
+  labelKey: 'all' | 'pending' | 'paid' | 'cancelled' | 'refunded'
+}[] = [
   { value: 'all', labelKey: 'all' },
   { value: 'pending', labelKey: 'pending' },
   { value: 'paid', labelKey: 'paid' },
@@ -106,7 +124,9 @@ export default function OrdersPage() {
       render: (o) => (
         <div>
           <div className="font-medium">{o.targetTitle ?? '-'}</div>
-          <div className="text-xs text-muted-foreground">{t(`type.${o.orderType === 'course' ? 'course' : 'card'}`)}</div>
+          <div className="text-xs text-muted-foreground">
+            {t(`type.${o.orderType === 'course' ? 'course' : 'card'}`)}
+          </div>
         </div>
       ),
     },
@@ -122,7 +142,12 @@ export default function OrdersPage() {
         const sc = STATUS_CONFIG[o.status]
         const StatusIcon = sc.icon
         return (
-          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+              sc.cls,
+            )}
+          >
             <StatusIcon className="h-3 w-3" />
             {t(`status.${o.status}`)}
           </span>
@@ -132,7 +157,9 @@ export default function OrdersPage() {
     {
       key: 'createdAt',
       title: t('createdAt'),
-      render: (o) => <span className="text-muted-foreground">{dateFmt.format(new Date(o.createdAt))}</span>,
+      render: (o) => (
+        <span className="text-muted-foreground">{dateFmt.format(new Date(o.createdAt))}</span>
+      ),
     },
   ]
 
@@ -147,13 +174,21 @@ export default function OrdersPage() {
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={orderType} onValueChange={(v) => { setOrderType(v); setPage(1) }}>
+        <Select
+          value={orderType}
+          onValueChange={(v) => {
+            setOrderType(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('orderType')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {TYPE_TABS.map((tab) => (
-              <SelectItem key={tab.value} value={tab.value}>{t(`type.${tab.labelKey}`)}</SelectItem>
+              <SelectItem key={tab.value} value={tab.value}>
+                {t(`type.${tab.labelKey}`)}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -161,7 +196,10 @@ export default function OrdersPage() {
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => { setStatus(tab.value); setPage(1) }}
+              onClick={() => {
+                setStatus(tab.value)
+                setPage(1)
+              }}
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 status === tab.value
@@ -186,22 +224,30 @@ export default function OrdersPage() {
       ) : orders.length === 0 ? (
         <Empty icon={ShoppingCart} title={t('empty')} />
       ) : (
-        <DataTable
-          columns={columns}
-          data={orders}
-          rowKey={(o) => o.id}
-        />
+        <DataTable columns={columns} data={orders} rowKey={(o) => o.id} />
       )}
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

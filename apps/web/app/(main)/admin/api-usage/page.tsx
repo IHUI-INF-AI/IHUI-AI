@@ -29,7 +29,12 @@ interface TopEndpoint {
   errorRate: number
 }
 
-const MOCK_STATS: UsageStats = { totalCalls: 1280420, todayCalls: 32104, errorRate: 0.42, avgLatency: 86 }
+const MOCK_STATS: UsageStats = {
+  totalCalls: 1280420,
+  todayCalls: 32104,
+  errorRate: 0.42,
+  avgLatency: 86,
+}
 const MOCK_DAY_USAGE: DayUsage[] = [
   { date: '2026-07-04', calls: 28410 },
   { date: '2026-07-05', calls: 31200 },
@@ -48,7 +53,7 @@ const MOCK_TOP: TopEndpoint[] = [
 ]
 
 const METHOD_COLOR: Record<string, string> = {
-  GET: 'bg-blue-500/10 text-blue-600',
+  GET: 'bg-primary/10 text-primary',
   POST: 'bg-emerald-500/10 text-emerald-600',
   PATCH: 'bg-amber-500/10 text-amber-600',
   DELETE: 'bg-red-500/10 text-red-600',
@@ -84,10 +89,30 @@ export default function ApiUsagePage() {
   })
 
   const cards = [
-    { label: t('apiUsage.totalCalls'), value: stats.totalCalls.toLocaleString(), icon: BarChart3, color: 'text-primary' },
-    { label: t('apiUsage.todayCalls'), value: stats.todayCalls.toLocaleString(), icon: Activity, color: 'text-blue-600' },
-    { label: t('apiUsage.errorRate'), value: `${stats.errorRate}%`, icon: AlertTriangle, color: 'text-amber-600' },
-    { label: t('apiUsage.avgLatency'), value: `${stats.avgLatency}ms`, icon: Timer, color: 'text-purple-600' },
+    {
+      label: t('apiUsage.totalCalls'),
+      value: stats.totalCalls.toLocaleString(),
+      icon: BarChart3,
+      color: 'text-primary',
+    },
+    {
+      label: t('apiUsage.todayCalls'),
+      value: stats.todayCalls.toLocaleString(),
+      icon: Activity,
+      color: 'text-primary',
+    },
+    {
+      label: t('apiUsage.errorRate'),
+      value: `${stats.errorRate}%`,
+      icon: AlertTriangle,
+      color: 'text-amber-600',
+    },
+    {
+      label: t('apiUsage.avgLatency'),
+      value: `${stats.avgLatency}ms`,
+      icon: Timer,
+      color: 'text-purple-600',
+    },
   ]
 
   const maxCalls = Math.max(...dayUsage.map((d) => d.calls))
@@ -106,14 +131,17 @@ export default function ApiUsagePage() {
       <section>
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {tc('search')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {c.label}
+                  </CardTitle>
                   <c.icon className={cn('h-4 w-4', c.color)} />
                 </CardHeader>
                 <CardContent>
@@ -134,7 +162,9 @@ export default function ApiUsagePage() {
         <Card>
           <CardContent className="pt-4">
             {dayUsage.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('apiUsage.noData')}</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t('apiUsage.noData')}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -152,7 +182,10 @@ export default function ApiUsagePage() {
                         <td className="px-3 py-2 font-medium">{d.calls.toLocaleString()}</td>
                         <td className="px-3 py-2">
                           <div className="h-2 w-40 overflow-hidden rounded-full bg-muted">
-                            <div className="h-full rounded-full bg-primary" style={{ width: `${(d.calls / maxCalls) * 100}%` }} />
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${(d.calls / maxCalls) * 100}%` }}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -190,13 +223,27 @@ export default function ApiUsagePage() {
                     <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-2.5 font-mono text-xs">{e.endpoint}</td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex rounded px-2 py-0.5 text-xs font-medium', METHOD_COLOR[e.method] ?? 'bg-muted text-muted-foreground')}>
+                      <span
+                        className={cn(
+                          'inline-flex rounded px-2 py-0.5 text-xs font-medium',
+                          METHOD_COLOR[e.method] ?? 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         {e.method}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 font-medium">{e.calls.toLocaleString()}</td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('font-medium', e.errorRate > 1 ? 'text-red-600' : e.errorRate > 0.3 ? 'text-amber-600' : 'text-emerald-600')}>
+                      <span
+                        className={cn(
+                          'font-medium',
+                          e.errorRate > 1
+                            ? 'text-red-600'
+                            : e.errorRate > 0.3
+                              ? 'text-amber-600'
+                              : 'text-emerald-600',
+                        )}
+                      >
                         {e.errorRate.toFixed(2)}%
                       </span>
                     </td>

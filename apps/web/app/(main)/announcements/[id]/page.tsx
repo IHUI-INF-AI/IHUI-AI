@@ -30,8 +30,7 @@ export default function AnnouncementDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['announcements', id],
-    queryFn: () =>
-      api<AnnouncementDetail>(`/api/announcements/${id}`).then((d) => d.announcement),
+    queryFn: () => api<AnnouncementDetail>(`/api/announcements/${id}`).then((d) => d.announcement),
   })
 
   // 复用列表缓存，推断上一篇/下一篇
@@ -84,12 +83,10 @@ export default function AnnouncementDetailPage() {
   const a = data
 
   // 列表按置顶 + 发布时间倒序排列，定位当前条目
-  const sorted = (list ?? [])
-    .slice()
-    .sort((x, y) => {
-      if (!!x.isPinned !== !!y.isPinned) return x.isPinned ? -1 : 1
-      return new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime()
-    })
+  const sorted = (list ?? []).slice().sort((x, y) => {
+    if (!!x.isPinned !== !!y.isPinned) return x.isPinned ? -1 : 1
+    return new Date(y.publishedAt).getTime() - new Date(x.publishedAt).getTime()
+  })
   const idx = sorted.findIndex((x) => x.id === a.id)
   const prev = idx > 0 ? sorted[idx - 1] : undefined
   const next = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : undefined
@@ -108,17 +105,12 @@ export default function AnnouncementDetailPage() {
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs font-medium',
-              ANN_TYPE_BADGE[a.type],
-            )}
+            className={cn('rounded-full px-2 py-0.5 text-xs font-medium', ANN_TYPE_BADGE[a.type])}
           >
             {t(`types.${a.type}`)}
           </span>
           <Megaphone className="h-4 w-4 text-muted-foreground" />
-          {a.isPinned && (
-            <span className="text-xs text-primary">{t('pinned')}</span>
-          )}
+          {a.isPinned && <span className="text-xs text-primary">{t('pinned')}</span>}
           <Button
             size="sm"
             variant="ghost"
@@ -134,9 +126,7 @@ export default function AnnouncementDetailPage() {
             {isRead ? t('markedRead') : t('markRead')}
           </Button>
           {readMut.isError && (
-            <span className="text-xs text-destructive">
-              {(readMut.error as Error)?.message}
-            </span>
+            <span className="text-xs text-destructive">{(readMut.error as Error)?.message}</span>
           )}
         </div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{a.title}</h1>
@@ -163,7 +153,7 @@ export default function AnnouncementDetailPage() {
               <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0">
                 <span className="block text-xs text-muted-foreground">{t('prev')}</span>
-                <span className="block truncate text-sm font-medium group-hover:text-primary">
+                <span className="block break-words text-sm font-medium group-hover:text-primary">
                   {prev.title}
                 </span>
               </span>
@@ -178,7 +168,7 @@ export default function AnnouncementDetailPage() {
             >
               <span className="min-w-0">
                 <span className="block text-xs text-muted-foreground">{t('next')}</span>
-                <span className="block truncate text-sm font-medium group-hover:text-primary">
+                <span className="block break-words text-sm font-medium group-hover:text-primary">
                   {next.title}
                 </span>
               </span>

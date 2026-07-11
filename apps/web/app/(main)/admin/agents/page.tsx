@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -9,6 +9,7 @@ import { Plus, Pencil, Trash2, Search, Loader2, ChevronLeft, ChevronRight, Bot }
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/data/Avatar'
 import {
   Table,
   TableHeader,
@@ -340,13 +341,7 @@ export default function AdminAgentsPage() {
                 <TableRow key={a.agentId} className="transition-colors hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
-                        {a.avatar ? (
-                          <img src={a.avatar} alt={a.name} className="h-8 w-8 rounded-full" />
-                        ) : (
-                          (a.name?.[0] ?? 'A').toUpperCase()
-                        )}
-                      </div>
+                      <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
                       <span className="font-medium">{a.name}</span>
                     </div>
                   </TableCell>

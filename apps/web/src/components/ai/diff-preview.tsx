@@ -88,23 +88,29 @@ export function DiffPreview({ oldContent, newContent, language, filename }: Diff
         <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
           {filename && <span className="text-xs font-medium text-zinc-300">{filename}</span>}
           {language && (
-            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">{language}</span>
+            <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
+              {language}
+            </span>
           )}
         </div>
       )}
       <div className="grid grid-cols-2 text-xs">
         <div className="border-r border-zinc-800">
-          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">旧版本</div>
+          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">
+            旧版本
+          </div>
           <div className="font-mono">
             {rows.map((row, idx) => (
               <div
-                key={idx}
+                key={`old-${idx}`}
                 className={cn(
                   'flex px-2',
                   row.op === 'delete' ? 'bg-red-500/15' : row.op === 'equal' ? '' : 'opacity-40',
                 )}
               >
-                <span className="w-10 shrink-0 select-none text-right text-zinc-600">{row.oldNum ?? ''}</span>
+                <span className="w-10 shrink-0 select-none text-right text-zinc-600">
+                  {row.oldNum ?? ''}
+                </span>
                 <span className="whitespace-pre px-2 text-zinc-300">
                   {row.op === 'insert' ? '' : (row.oldLine ?? '')}
                 </span>
@@ -113,17 +119,21 @@ export function DiffPreview({ oldContent, newContent, language, filename }: Diff
           </div>
         </div>
         <div>
-          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">新版本</div>
+          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">
+            新版本
+          </div>
           <div className="font-mono">
             {rows.map((row, idx) => (
               <div
-                key={idx}
+                key={`new-${idx}`}
                 className={cn(
                   'flex px-2',
                   row.op === 'insert' ? 'bg-green-500/15' : row.op === 'equal' ? '' : 'opacity-40',
                 )}
               >
-                <span className="w-10 shrink-0 select-none text-right text-zinc-600">{row.newNum ?? ''}</span>
+                <span className="w-10 shrink-0 select-none text-right text-zinc-600">
+                  {row.newNum ?? ''}
+                </span>
                 <span className="whitespace-pre px-2 text-zinc-300">
                   {row.op === 'delete' ? '' : (row.newLine ?? '')}
                 </span>

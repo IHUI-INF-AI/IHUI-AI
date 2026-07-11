@@ -141,7 +141,6 @@ export default function ArticleEditPage() {
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder={t('titlePlaceholder')}
-                autoFocus
               />
             </div>
 

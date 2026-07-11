@@ -394,7 +394,6 @@ export default function DeveloperPage() {
                 value={keyName}
                 onChange={(e) => setKeyName(e.target.value)}
                 placeholder={t('developer.namePlaceholder')}
-                autoFocus
               />
             </div>
             <DialogFooter>
@@ -442,7 +441,6 @@ export default function DeveloperPage() {
                 value={whForm.url}
                 onChange={(e) => setWhForm({ ...whForm, url: e.target.value })}
                 placeholder="https://example.com/hooks/..."
-                autoFocus
               />
             </div>
             <div className="space-y-2">

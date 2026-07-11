@@ -292,6 +292,18 @@ function supportsImageFormat(format: string): boolean {
   return canvas.toDataURL(`image/${format}`).indexOf(`image/${format}`) === 0
 }
 
+interface NetworkInformation {
+  effectiveType?: string
+  downlink?: number
+  rtt?: number
+  saveData?: boolean
+}
+
+interface NavigatorExtended extends Navigator {
+  connection?: NetworkInformation
+  deviceMemory?: number
+}
+
 /** 检测连接质量 */
 export function detectConnectionQuality(): {
   effectiveType: 'slow-2g' | '2g' | '3g' | '4g' | 'unknown'
@@ -299,10 +311,8 @@ export function detectConnectionQuality(): {
   rtt: number
   saveData: boolean
 } {
-  if (
-    typeof navigator === 'undefined' ||
-    !(navigator as unknown as { connection?: unknown }).connection
-  ) {
+  const nav = typeof navigator !== 'undefined' ? (navigator as NavigatorExtended) : undefined
+  if (!nav?.connection) {
     return {
       effectiveType: 'unknown',
       downlink: 0,
@@ -310,21 +320,12 @@ export function detectConnectionQuality(): {
       saveData: false,
     }
   }
-  const conn = (
-    navigator as unknown as {
-      connection?: Partial<{
-        effectiveType: string
-        downlink: number
-        rtt: number
-        saveData: boolean
-      }>
-    }
-  ).connection
+  const conn = nav.connection
   return {
-    effectiveType: (conn?.effectiveType as 'slow-2g' | '2g' | '3g' | '4g') ?? 'unknown',
-    downlink: conn?.downlink ?? 0,
-    rtt: conn?.rtt ?? 0,
-    saveData: conn?.saveData ?? false,
+    effectiveType: (conn.effectiveType as 'slow-2g' | '2g' | '3g' | '4g') ?? 'unknown',
+    downlink: conn.downlink ?? 0,
+    rtt: conn.rtt ?? 0,
+    saveData: conn.saveData ?? false,
   }
 }
 
@@ -337,7 +338,7 @@ export function isLowEndDevice(): boolean {
   if (conn.saveData) return true
   // 内存小于 2GB
   if (typeof navigator !== 'undefined') {
-    const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory
+    const mem = (navigator as NavigatorExtended).deviceMemory
     if (typeof mem === 'number' && mem <= 2) return true
   }
   return false

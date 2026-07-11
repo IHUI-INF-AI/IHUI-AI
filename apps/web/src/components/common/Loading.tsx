@@ -35,7 +35,7 @@ export function Loading({ variant = 'spinner', size = 'md', className, text }: L
         <div className="flex items-center gap-1">
           {[0, 1, 2].map((i) => (
             <span
-              key={i}
+              key={`dot-${i}`}
               className={cn('animate-bounce rounded-full bg-current', dotSize)}
               style={{ animationDelay: `${i * 0.15}s` }}
             />

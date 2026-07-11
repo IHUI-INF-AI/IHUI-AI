@@ -26,7 +26,8 @@
     "discountAmount": "折扣",
     "errorTitle": "發生錯誤",
     "errorDescription": "頁麵加载時發生错誤，请重試。",
-    "retry": "重試登錄",
+    "unknownError": "頁面發生了未知錯誤",
+    "retry": "重試",
     "notFoundTitle": "頁面不存在",
     "notFoundDescription": "您访問的頁麵不存在或已被移除。",
     "backHome": "返回首頁"
@@ -3213,7 +3214,7 @@
       "completedAt": "已完成",
       "viewInstance": "查看",
       "cancel": "取消",
-      "retry": "重試登錄"
+      "retry": "重試"
     },
     "instanceDetail": {
       "backToWorkflow": "返回工作流",

@@ -118,7 +118,7 @@ export default function FavoritesPage() {
                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   {item.resourceType}
                 </span>
-                <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium">
+                <span className="min-w-0 flex-1 break-words font-mono text-sm font-medium">
                   {item.resourceId}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">

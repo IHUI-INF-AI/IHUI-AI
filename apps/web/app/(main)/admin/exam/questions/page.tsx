@@ -5,14 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  ListChecks,
-  ChevronLeft,
-} from 'lucide-react'
+import { Plus, Edit, Trash2, Loader2, ListChecks, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 
 import { fetchApi } from '@/lib/api'
@@ -39,15 +32,10 @@ import {
   SelectValue,
 } from '@ihui/ui'
 
-type QuestionType =
-  | 'single_choice'
-  | 'multi_choice'
-  | 'judgment'
-  | 'fill_blank'
-  | 'subjective'
+type QuestionType = 'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
 
 const TYPE_BADGE: Record<QuestionType, string> = {
-  single_choice: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  single_choice: 'bg-primary/10 text-primary',
   multi_choice: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
   judgment: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   fill_blank: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -159,8 +147,7 @@ function QuestionsContent() {
 
   const { data: papersData } = useQuery({
     queryKey: ['admin', 'exam', 'papers', 'all'],
-    queryFn: () =>
-      api<PapersData>(`/api/admin/exam/papers?page=1&pageSize=100`).then((d) => d),
+    queryFn: () => api<PapersData>(`/api/admin/exam/papers?page=1&pageSize=100`).then((d) => d),
   })
   const papers = papersData?.list ?? []
 
@@ -389,7 +376,7 @@ function QuestionsContent() {
                       {typeLabel[q.type]}
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-md truncate px-4 py-2.5">{q.title}</TableCell>
+                  <TableCell className="max-w-md break-words px-4 py-2.5">{q.title}</TableCell>
                   <TableCell className="px-4 py-2.5">{Number(q.score)}</TableCell>
                   <TableCell className="px-4 py-2.5">{q.sortOrder}</TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

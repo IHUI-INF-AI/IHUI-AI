@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Terminal, Send, Loader2, History, Trash2 } from 'lucide-react'
 
@@ -21,14 +21,16 @@ interface HistoryItem {
 
 const METHODS: Method[] = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
 const METHOD_COLOR: Record<Method, string> = {
-  GET: 'bg-blue-500/10 text-blue-600',
+  GET: 'bg-primary/10 text-primary',
   POST: 'bg-emerald-500/10 text-emerald-600',
   PATCH: 'bg-amber-500/10 text-amber-600',
   PUT: 'bg-amber-500/10 text-amber-600',
   DELETE: 'bg-red-500/10 text-red-600',
 }
-const selectClass = 'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const textareaClass = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface ResponseState {
   status: number
@@ -41,6 +43,7 @@ interface ResponseState {
 export default function ApiDebugPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const locale = useLocale()
 
   const [method, setMethod] = React.useState<Method>('GET')
   const [url, setUrl] = React.useState('/api/health')
@@ -53,16 +56,26 @@ export default function ApiDebugPage() {
     mutationFn: async () => {
       const start = performance.now()
       let parsedHeaders: Record<string, string> = {}
-      try { parsedHeaders = JSON.parse(headers) } catch { /* keep empty */ }
+      try {
+        parsedHeaders = JSON.parse(headers)
+      } catch {
+        /* keep empty */
+      }
       const opts: RequestInit = { method, headers: parsedHeaders }
       if (method !== 'GET' && body.trim()) opts.body = body
       const res = await fetch(url, opts)
       const text = await res.text()
       const latency = Math.round(performance.now() - start)
       const respHeaders: Record<string, string> = {}
-      res.headers.forEach((v, k) => { respHeaders[k] = v })
+      res.headers.forEach((v, k) => {
+        respHeaders[k] = v
+      })
       let formatted = text
-      try { formatted = JSON.stringify(JSON.parse(text), null, 2) } catch { /* keep raw */ }
+      try {
+        formatted = JSON.stringify(JSON.parse(text), null, 2)
+      } catch {
+        /* keep raw */
+      }
       return {
         status: res.status,
         statusText: res.statusText,
@@ -73,10 +86,18 @@ export default function ApiDebugPage() {
     },
     onSuccess: (data) => {
       setResponse(data)
-      setHistory((prev) => [
-        { id: Date.now().toString(), method, url, status: data.status, time: new Date().toLocaleTimeString() },
-        ...prev,
-      ].slice(0, 20))
+      setHistory((prev) =>
+        [
+          {
+            id: Date.now().toString(),
+            method,
+            url,
+            status: data.status,
+            time: new Intl.DateTimeFormat(locale, { timeStyle: 'medium' }).format(new Date()),
+          },
+          ...prev,
+        ].slice(0, 20),
+      )
       toast.success(t('apiDebug.sendSuccess'))
     },
     onError: (e: Error) => {
@@ -111,9 +132,15 @@ export default function ApiDebugPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
-              <select value={method} onChange={(e) => setMethod(e.target.value as Method)} className={selectClass}>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value as Method)}
+                className={selectClass}
+              >
                 {METHODS.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
               <Input
@@ -123,7 +150,11 @@ export default function ApiDebugPage() {
                 className="flex-1"
               />
               <Button onClick={send} disabled={sendMut.isPending}>
-                {sendMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sendMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 {t('apiDebug.send')}
               </Button>
             </div>
@@ -188,12 +219,20 @@ export default function ApiDebugPage() {
                   <span className="text-xs text-muted-foreground">{response.latency}ms</span>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">{t('apiDebug.respHeaders')}</div>
-                  <pre className="max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-xs">{JSON.stringify(response.headers, null, 2)}</pre>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t('apiDebug.respHeaders')}
+                  </div>
+                  <pre className="max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-xs">
+                    {JSON.stringify(response.headers, null, 2)}
+                  </pre>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">{t('apiDebug.respBody')}</div>
-                  <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-2 text-xs">{response.body}</pre>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t('apiDebug.respBody')}
+                  </div>
+                  <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-2 text-xs">
+                    {response.body}
+                  </pre>
                 </div>
               </>
             )}
@@ -234,13 +273,28 @@ export default function ApiDebugPage() {
                 {history.map((h) => (
                   <tr key={h.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2">
-                      <span className={cn('inline-flex rounded px-2 py-0.5 text-xs font-medium', METHOD_COLOR[h.method])}>
+                      <span
+                        className={cn(
+                          'inline-flex rounded px-2 py-0.5 text-xs font-medium',
+                          METHOD_COLOR[h.method],
+                        )}
+                      >
                         {h.method}
                       </span>
                     </td>
-                    <td className="max-w-[320px] truncate px-4 py-2 font-mono text-xs" title={h.url}>{h.url}</td>
+                    <td
+                      className="max-w-[320px] break-words px-4 py-2 font-mono text-xs"
+                      title={h.url}
+                    >
+                      {h.url}
+                    </td>
                     <td className="px-4 py-2">
-                      <span className={cn('font-medium', h.status >= 400 ? 'text-red-600' : 'text-emerald-600')}>
+                      <span
+                        className={cn(
+                          'font-medium',
+                          h.status >= 400 ? 'text-red-600' : 'text-emerald-600',
+                        )}
+                      >
                         {h.status}
                       </span>
                     </td>

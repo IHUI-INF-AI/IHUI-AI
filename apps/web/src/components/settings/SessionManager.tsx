@@ -71,7 +71,7 @@ export function SessionManager() {
             <div key={s.sessionId} className="flex items-center gap-3 rounded-lg border p-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <span className="truncate">{s.device}</span>
+                  <span className="break-words">{s.device}</span>
                   {s.isCurrent && (
                     <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
                       {t('session.current')}

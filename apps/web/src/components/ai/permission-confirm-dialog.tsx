@@ -2,13 +2,7 @@
 
 import * as React from 'react'
 import { Edit, Monitor, FileText, AlertTriangle, X, Check } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui'
 import { Button, Checkbox } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
@@ -102,7 +96,7 @@ export function PermissionConfirmDialog({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-muted-foreground">工具</div>
-                <div className="truncate font-medium">{toolCall.name}</div>
+                <div className="break-words font-medium">{toolCall.name}</div>
               </div>
               {toolCall.iteration !== null && toolCall.iteration !== undefined && (
                 <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -127,10 +121,10 @@ export function PermissionConfirmDialog({
               </div>
             )}
 
-            <label className="flex items-center gap-2 text-sm">
+            <span className="flex items-center gap-2 text-sm">
               <Checkbox checked={allowAll} onCheckedChange={(v) => setAllowAll(v === true)} />
               <span>本次会话全部允许（后续不再弹窗）</span>
-            </label>
+            </span>
           </div>
         )}
 

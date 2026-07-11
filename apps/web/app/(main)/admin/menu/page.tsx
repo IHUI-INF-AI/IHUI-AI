@@ -280,7 +280,6 @@ export default function MenuPage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="请输入菜单名称"
-                autoFocus
               />
             </div>
             <div className="grid grid-cols-2 gap-4">

@@ -3,14 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import {
-  Loader2,
-  ShoppingCart,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Wallet,
-} from 'lucide-react'
+import { Loader2, ShoppingCart, CheckCircle, XCircle, Clock, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui'
@@ -49,7 +42,7 @@ const STATUS_CONFIG: Record<
   pending: { icon: Clock, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
   paid: { icon: CheckCircle, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
   cancelled: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
-  refunded: { icon: Wallet, cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-500' },
+  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
 }
 
 const TABS: { value: string; labelKey: 'all' | 'pending' | 'paid' | 'cancelled' | 'refunded' }[] = [
@@ -148,21 +141,40 @@ export default function OrdersPage() {
                   <tr key={o.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs">{o.orderNo}</td>
                     <td className="px-4 py-2.5 font-medium">{o.targetTitle ?? o.orderType}</td>
-                    <td className="px-4 py-2.5 font-medium">{currencyFmt.format(Number(o.payAmount))}</td>
+                    <td className="px-4 py-2.5 font-medium">
+                      {currencyFmt.format(Number(o.payAmount))}
+                    </td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          sc.cls,
+                        )}
+                      >
                         <StatusIcon className="h-3 w-3" />
                         {t(`status.${o.status}`)}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{dateFmt.format(new Date(o.createdAt))}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {dateFmt.format(new Date(o.createdAt))}
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       {o.status === 'pending' ? (
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/payment/checkout?order=${o.id}`)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/payment/checkout?order=${o.id}`)}
+                        >
                           {t('pay')}
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={() => router.push(`/orders/${o.id}`)}>{t('view')}</Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/orders/${o.id}`)}
+                        >
+                          {t('view')}
+                        </Button>
                       )}
                     </td>
                   </tr>

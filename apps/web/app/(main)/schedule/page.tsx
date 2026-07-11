@@ -3,7 +3,17 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Clock, CalendarClock, Search, Loader2, ChevronLeft, ChevronRight, PlayCircle, CheckCircle2, XCircle } from 'lucide-react'
+import {
+  Clock,
+  CalendarClock,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  PlayCircle,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui'
@@ -44,7 +54,10 @@ export default function SchedulePage() {
   const [page, setPage] = React.useState(1)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [search])
 
@@ -64,8 +77,9 @@ export default function SchedulePage() {
   const statusIcon = (status: string | null) => {
     if (!status) return <Clock className="h-3.5 w-3.5 text-muted-foreground" />
     if (status === 'success') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-    if (status === 'failed' || status === 'timeout') return <XCircle className="h-3.5 w-3.5 text-destructive" />
-    return <PlayCircle className="h-3.5 w-3.5 text-blue-600" />
+    if (status === 'failed' || status === 'timeout')
+      return <XCircle className="h-3.5 w-3.5 text-destructive" />
+    return <PlayCircle className="h-3.5 w-3.5 text-primary" />
   }
 
   return (
@@ -112,7 +126,7 @@ export default function SchedulePage() {
             <Card key={task.id} className="flex flex-col">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="line-clamp-1 text-base">{task.name}</CardTitle>
+                  <CardTitle className="text-base">{task.name}</CardTitle>
                   <span
                     className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs ${
                       task.enabled
@@ -125,16 +139,15 @@ export default function SchedulePage() {
                 </div>
               </CardHeader>
               <CardContent className="flex-1 space-y-2 text-sm">
-                {task.description && (
-                  <p className="line-clamp-2 text-muted-foreground">{task.description}</p>
-                )}
+                {task.description && <p className="text-muted-foreground">{task.description}</p>}
                 <div className="flex items-center gap-1.5 font-mono text-xs">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>{task.cronExpression}</span>
                 </div>
                 {task.targetService && (
                   <p className="text-xs text-muted-foreground">
-                    {task.targetService}{task.targetMethod ? `.${task.targetMethod}` : ''}
+                    {task.targetService}
+                    {task.targetMethod ? `.${task.targetMethod}` : ''}
                   </p>
                 )}
                 <div className="flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
@@ -159,11 +172,23 @@ export default function SchedulePage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

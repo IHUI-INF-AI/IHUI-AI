@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -7,8 +7,8 @@ import { useTranslations } from 'next-intl'
 import { GraduationCap, Search, Loader2, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
+import { Avatar } from '@/components/data/Avatar'
 
 interface Lecturer {
   id: string
@@ -27,32 +27,6 @@ async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function Avatar({
-  name,
-  avatar,
-  className,
-}: {
-  name: string
-  avatar: string | null
-  className?: string
-}) {
-  const initial = (name?.trim()?.[0] ?? '?').toUpperCase()
-  return (
-    <div
-      className={cn(
-        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 font-medium text-primary',
-        className,
-      )}
-    >
-      {avatar ? (
-        <img src={avatar} alt={name} className="h-full w-full object-cover" />
-      ) : (
-        <span>{initial}</span>
-      )}
-    </div>
-  )
 }
 
 export default function LecturersPage() {
@@ -111,18 +85,23 @@ export default function LecturersPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((l) => (
             <Link key={l.id} href={`/lecturers/${l.id}`} className="group block">
-              <Card className="h-full transition-colors hover:border-primary/40">
+              <Card className="h-full transition-colors hover:bg-accent">
                 <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">
-                  <Avatar name={l.name} avatar={l.avatar} className="h-12 w-12 text-base" />
+                  <Avatar
+                    src={l.avatar ?? undefined}
+                    name={l.name}
+                    size="lg"
+                    className="h-12 w-12 text-base"
+                  />
                   <div className="min-w-0">
-                    <CardTitle className="truncate text-base">{l.name}</CardTitle>
+                    <CardTitle className="break-words text-base">{l.name}</CardTitle>
                     {l.title ? (
-                      <p className="truncate text-xs text-muted-foreground">{l.title}</p>
+                      <p className="break-words text-xs text-muted-foreground">{l.title}</p>
                     ) : null}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-4 pt-0">
-                  <p className="line-clamp-2 text-sm text-muted-foreground">{l.intro ?? ''}</p>
+                  <p className="text-sm text-muted-foreground">{l.intro ?? ''}</p>
                   <span className="inline-flex items-center gap-1 text-xs text-primary transition-colors group-hover:underline">
                     {t('viewDetail')}
                     <ArrowRight className="h-3.5 w-3.5" />

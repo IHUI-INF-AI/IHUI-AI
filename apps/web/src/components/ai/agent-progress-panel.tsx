@@ -22,7 +22,7 @@ const STEP_META: Record<
   { icon: React.ComponentType<{ className?: string }>; cls: string; ring: string }
 > = {
   pending: { icon: Circle, cls: 'text-muted-foreground', ring: 'border-muted' },
-  running: { icon: Loader2, cls: 'text-blue-500', ring: 'border-blue-500' },
+  running: { icon: Loader2, cls: 'text-primary', ring: 'border-primary' },
   done: { icon: CheckCircle2, cls: 'text-emerald-500', ring: 'border-emerald-500' },
   error: { icon: AlertCircle, cls: 'text-destructive', ring: 'border-destructive' },
 }
@@ -70,7 +70,9 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
                   meta.ring,
                 )}
               >
-                <Icon className={cn('h-3 w-3', meta.cls, step.status === 'running' && 'animate-spin')} />
+                <Icon
+                  className={cn('h-3 w-3', meta.cls, step.status === 'running' && 'animate-spin')}
+                />
               </span>
               <div className="min-w-0 flex-1 pt-0.5">
                 <div className="flex items-center justify-between gap-2">
@@ -82,7 +84,7 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
                       hasDetail && 'cursor-pointer hover:text-primary',
                     )}
                   >
-                    <span className="truncate">{step.title}</span>
+                    <span className="break-words">{step.title}</span>
                     {hasDetail && (
                       <ChevronDown
                         className={cn(

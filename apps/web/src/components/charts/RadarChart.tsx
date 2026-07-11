@@ -10,7 +10,12 @@ interface RadarChartProps {
   className?: string
 }
 
-export function RadarChart({ data, size = 240, color = 'var(--primary)', className }: RadarChartProps) {
+export const RadarChart = React.memo(function RadarChart({
+  data,
+  size = 240,
+  color = 'var(--primary)',
+  className,
+}: RadarChartProps) {
   const cx = size / 2
   const cy = size / 2
   const r = size / 2 - 30
@@ -31,11 +36,22 @@ export function RadarChart({ data, size = 240, color = 'var(--primary)', classNa
 
   return (
     <div className={cn('w-full', className)}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label="雷达图"
+      >
         {[0.25, 0.5, 0.75, 1].map((t) => (
           <polygon
             key={t}
-            points={data.map((_, i) => { const p = getPoint(i, r * t); return `${p.x},${p.y}` }).join(' ')}
+            points={data
+              .map((_, i) => {
+                const p = getPoint(i, r * t)
+                return `${p.x},${p.y}`
+              })
+              .join(' ')}
             fill="none"
             stroke="currentColor"
             strokeWidth={0.5}
@@ -44,16 +60,34 @@ export function RadarChart({ data, size = 240, color = 'var(--primary)', classNa
         ))}
         {data.map((_, i) => {
           const p = getPoint(i, r)
-          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="currentColor" strokeWidth={0.5} className="text-muted-foreground/20" />
+          return (
+            <line
+              key={`axis-${i}`}
+              x1={cx}
+              y1={cy}
+              x2={p.x}
+              y2={p.y}
+              stroke="currentColor"
+              strokeWidth={0.5}
+              className="text-muted-foreground/20"
+            />
+          )
         })}
         <path d={dataPath} fill={color} fillOpacity={0.2} stroke={color} strokeWidth={2} />
         {dataPoints.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill={color} />
+          <circle key={`point-${i}`} cx={p.x} cy={p.y} r={3} fill={color} />
         ))}
         {data.map((d, i) => {
           const p = getPoint(i, r + 16)
           return (
-            <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[10px]">
+            <text
+              key={`label-${i}`}
+              x={p.x}
+              y={p.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-muted-foreground text-[10px]"
+            >
               {d.label}
             </text>
           )
@@ -61,4 +95,4 @@ export function RadarChart({ data, size = 240, color = 'var(--primary)', classNa
       </svg>
     </div>
   )
-}
+})

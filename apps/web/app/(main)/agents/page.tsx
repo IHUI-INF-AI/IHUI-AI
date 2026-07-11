@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Input, Button, Card, CardContent } from '@ihui/ui'
 import { Grid } from '@/components/layout'
+import { Avatar } from '@/components/data/Avatar'
 
 interface Agent {
   agentId: string
@@ -189,9 +190,10 @@ export default function AgentsMarketPage() {
         <Grid cols={1} smCols={2} lgCols={3} gap="md">
           {agents.map((a) => (
             <Link key={a.agentId} href={`/agents/${a.agentId}`} className="group">
-              <Card className="flex h-full flex-col overflow-hidden transition-colors hover:border-primary/40">
+              <Card className="flex h-full flex-col overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative h-32 w-full overflow-hidden bg-muted">
                   {a.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={a.cover}
                       alt={a.name}
@@ -205,16 +207,10 @@ export default function AgentsMarketPage() {
                 </div>
                 <CardContent className="flex flex-1 flex-col gap-2 p-4">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
-                      {a.avatar ? (
-                        <img src={a.avatar} alt={a.name} className="h-8 w-8 rounded-full" />
-                      ) : (
-                        (a.name?.[0] ?? 'A').toUpperCase()
-                      )}
-                    </div>
-                    <span className="truncate font-medium">{a.name}</span>
+                    <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
+                    <span className="break-words font-medium">{a.name}</span>
                   </div>
-                  <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
+                  <p className="flex-1 text-sm text-muted-foreground">
                     {a.description || t('noDescription')}
                   </p>
                   <div className="flex items-center justify-between pt-1">

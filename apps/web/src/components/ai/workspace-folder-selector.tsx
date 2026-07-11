@@ -65,7 +65,10 @@ function FolderTreeItem({
             aria-label={expanded ? '折叠' : '展开'}
           >
             <ChevronRight
-              className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', expanded && 'rotate-90')}
+              className={cn(
+                'h-3.5 w-3.5 text-muted-foreground transition-transform',
+                expanded && 'rotate-90',
+              )}
             />
           </button>
         ) : (
@@ -76,7 +79,7 @@ function FolderTreeItem({
         ) : (
           <Folder className="h-4 w-4 shrink-0 text-amber-500" />
         )}
-        <span className="truncate">{node.name}</span>
+        <span className="break-words">{node.name}</span>
       </div>
       {hasChildren && expanded && (
         <ul>

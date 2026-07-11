@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Search, X, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useClickOutside } from '@/hooks/use-click-outside'
 
 interface SearchBarProps {
   placeholder?: string
@@ -12,7 +13,6 @@ interface SearchBarProps {
   onHistoryClick?: (item: string) => void
   onClearHistory?: () => void
   className?: string
-  autoFocus?: boolean
 }
 
 export function SearchBar({
@@ -23,19 +23,12 @@ export function SearchBar({
   onHistoryClick,
   onClearHistory,
   className,
-  autoFocus = false,
 }: SearchBarProps) {
   const [value, setValue] = React.useState('')
   const [focused, setFocused] = React.useState(false)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setFocused(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  const containerRef = useClickOutside<HTMLDivElement>(
+    React.useCallback(() => setFocused(false), []),
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,7 +50,6 @@ export function SearchBar({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onFocus={() => setFocused(true)}
-            autoFocus={autoFocus}
             placeholder={placeholder}
             className="h-10 w-full rounded-full border border-input bg-background pl-9 pr-9 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
@@ -79,15 +71,22 @@ export function SearchBar({
               <div className="flex items-center justify-between px-2 py-1">
                 <span className="text-xs text-muted-foreground">搜索历史</span>
                 {onClearHistory && (
-                  <button onClick={onClearHistory} className="text-xs text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={onClearHistory}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
                     清除
                   </button>
                 )}
               </div>
-              {history.map((item, i) => (
+              {history.map((item) => (
                 <button
-                  key={i}
-                  onClick={() => { onHistoryClick?.(item); setValue(item); setFocused(false) }}
+                  key={item}
+                  onClick={() => {
+                    onHistoryClick?.(item)
+                    setValue(item)
+                    setFocused(false)
+                  }}
                   className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
                 >
                   <Clock className="h-3 w-3 text-muted-foreground" />
@@ -101,10 +100,14 @@ export function SearchBar({
               {suggestions
                 .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
                 .slice(0, 8)
-                .map((s, i) => (
+                .map((s) => (
                   <button
-                    key={i}
-                    onClick={() => { setValue(s); onSearch?.(s); setFocused(false) }}
+                    key={s}
+                    onClick={() => {
+                      setValue(s)
+                      onSearch?.(s)
+                      setFocused(false)
+                    }}
                     className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
                   >
                     <Search className="h-3 w-3 text-muted-foreground" />

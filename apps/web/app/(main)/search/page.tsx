@@ -8,13 +8,48 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Search, User, FolderOpen, FileText, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Card, CardHeader, CardTitle, CardContent, CardDescription, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Input,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
-interface UserResult { id: string; nickname: string; avatar?: string; bio?: string }
-interface ProjectResult { id: string; name: string; description: string; fileCount: number; updatedAt: string }
-interface FileResult { id: string; name: string; size: number; mimeType: string; projectId: string; createdAt: string; projectName?: string | null }
-interface SearchResults { users: UserResult[]; projects: ProjectResult[]; files: FileResult[] }
+interface UserResult {
+  id: string
+  nickname: string
+  avatar?: string
+  bio?: string
+}
+interface ProjectResult {
+  id: string
+  name: string
+  description: string
+  fileCount: number
+  updatedAt: string
+}
+interface FileResult {
+  id: string
+  name: string
+  size: number
+  mimeType: string
+  projectId: string
+  createdAt: string
+  projectName?: string | null
+}
+interface SearchResults {
+  users: UserResult[]
+  projects: ProjectResult[]
+  files: FileResult[]
+}
 
 type TabKey = 'all' | 'user' | 'project' | 'file'
 type SortKey = 'relevance' | 'time' | 'name' | 'size'
@@ -38,9 +73,11 @@ function Highlight({ text, keyword }: { text: string; keyword: string }) {
     <>
       {parts.map((part, i) =>
         part.toLowerCase() === kw.toLowerCase() ? (
-          <mark key={i} className="rounded bg-primary/20 px-0.5 text-inherit">{part}</mark>
+          <mark key={`part-${i}`} className="rounded bg-primary/20 px-0.5 text-inherit">
+            {part}
+          </mark>
         ) : (
-          <React.Fragment key={i}>{part}</React.Fragment>
+          <React.Fragment key={`part-${i}`}>{part}</React.Fragment>
         ),
       )}
     </>
@@ -73,8 +110,16 @@ function EmptyState({ icon: Icon, text }: { icon: IconType; text: string }) {
 }
 
 function ResultGroup({
-  icon: Icon, title, count, children,
-}: { icon: IconType; title: string; count: number; children: React.ReactNode }) {
+  icon: Icon,
+  title,
+  count,
+  children,
+}: {
+  icon: IconType
+  title: string
+  count: number
+  children: React.ReactNode
+}) {
   return (
     <section className="space-y-2">
       <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -90,14 +135,26 @@ function ResultGroup({
 function sortResults(data: SearchResults | undefined, sort: SortKey): SearchResults {
   if (!data) return { users: [], projects: [], files: [] }
   if (sort === 'relevance') return data
-  const byProjectTime = (a: ProjectResult, b: ProjectResult) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  const byFileTime = (a: FileResult, b: FileResult) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  const users = sort === 'name' ? [...data.users].sort((a, b) => a.nickname.localeCompare(b.nickname)) : data.users
+  const byProjectTime = (a: ProjectResult, b: ProjectResult) =>
+    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  const byFileTime = (a: FileResult, b: FileResult) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const users =
+    sort === 'name'
+      ? [...data.users].sort((a, b) => a.nickname.localeCompare(b.nickname))
+      : data.users
   const projects = [...data.projects]
   const files = [...data.files]
-  if (sort === 'time') { projects.sort(byProjectTime); files.sort(byFileTime) }
-  else if (sort === 'name') { projects.sort((a, b) => a.name.localeCompare(b.name)); files.sort((a, b) => a.name.localeCompare(b.name)) }
-  else if (sort === 'size') { projects.sort((a, b) => b.fileCount - a.fileCount); files.sort((a, b) => b.size - a.size) }
+  if (sort === 'time') {
+    projects.sort(byProjectTime)
+    files.sort(byFileTime)
+  } else if (sort === 'name') {
+    projects.sort((a, b) => a.name.localeCompare(b.name))
+    files.sort((a, b) => a.name.localeCompare(b.name))
+  } else if (sort === 'size') {
+    projects.sort((a, b) => b.fileCount - a.fileCount)
+    files.sort((a, b) => b.size - a.size)
+  }
   return { users, projects, files }
 }
 
@@ -114,7 +171,9 @@ function SearchContent() {
   const initTab = searchParams.get('tab') as TabKey
   const initSort = searchParams.get('sort') as SortKey
   const [tab, setTab] = React.useState<TabKey>(validTabs.includes(initTab) ? initTab : 'all')
-  const [sort, setSort] = React.useState<SortKey>(validSorts.includes(initSort) ? initSort : 'relevance')
+  const [sort, setSort] = React.useState<SortKey>(
+    validSorts.includes(initSort) ? initSort : 'relevance',
+  )
 
   React.useEffect(() => setInput(q), [q])
 
@@ -135,7 +194,12 @@ function SearchContent() {
     enabled: q.trim().length > 0,
   })
 
-  const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,11 +215,24 @@ function SearchContent() {
     <div className="mx-auto w-full max-w-5xl space-y-5">
       <form onSubmit={handleSubmit} className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input type="search" value={input} onChange={(e) => setInput(e.target.value)} placeholder={tc('search')} className="pl-9" autoFocus />
+        <Input
+          type="search"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={tc('search')}
+          className="pl-9"
+        />
       </form>
 
       {data && total > 0 && (
-        <p className="text-xs text-muted-foreground">{t('resultsCount', { total, users: users.length, projects: projects.length, files: files.length })}</p>
+        <p className="text-xs text-muted-foreground">
+          {t('resultsCount', {
+            total,
+            users: users.length,
+            projects: projects.length,
+            files: files.length,
+          })}
+        </p>
       )}
 
       <div className="flex items-center justify-between gap-3">
@@ -166,7 +243,9 @@ function SearchContent() {
               onClick={() => setTab(tabItem.value)}
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                tab === tabItem.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                tab === tabItem.value
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {t(`tabs.${tabItem.labelKey}`)}
@@ -201,21 +280,23 @@ function SearchContent() {
       ) : total === 0 ? (
         <EmptyState icon={Search} text={t('emptyResult')} />
       ) : (
-        <div className="space-y-6">
+        <div key={tab} className="space-y-6 animate-in fade-in-0 duration-200">
           {showGroup('user') && users.length > 0 && (
             <ResultGroup icon={User} title={t('tabs.users')} count={users.length}>
               <div className="grid gap-3 sm:grid-cols-2">
                 {users.map((u) => (
                   <Link key={u.id} href={`/user/${u.id}`} className="group block">
-                    <Card className="transition-colors hover:border-primary/40">
+                    <Card className="transition-colors hover:bg-accent">
                       <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                           <User className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <CardTitle className="text-sm"><Highlight text={u.nickname} keyword={q} /></CardTitle>
+                          <CardTitle className="text-sm">
+                            <Highlight text={u.nickname} keyword={q} />
+                          </CardTitle>
                           {u.bio && (
-                            <CardDescription className="line-clamp-1 text-xs">
+                            <CardDescription className="text-xs">
                               <Highlight text={u.bio} keyword={q} />
                             </CardDescription>
                           )}
@@ -233,10 +314,12 @@ function SearchContent() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {projects.map((p) => (
                   <Link key={p.id} href={`/workspace/${p.id}`} className="group block">
-                    <Card className="transition-colors hover:border-primary/40">
+                    <Card className="transition-colors hover:bg-accent">
                       <CardHeader className="p-4">
-                        <CardTitle className="text-sm"><Highlight text={p.name} keyword={q} /></CardTitle>
-                        <CardDescription className="line-clamp-2 text-xs">
+                        <CardTitle className="text-sm">
+                          <Highlight text={p.name} keyword={q} />
+                        </CardTitle>
+                        <CardDescription className="text-xs">
                           <Highlight text={p.description} keyword={q} />
                         </CardDescription>
                       </CardHeader>
@@ -254,13 +337,23 @@ function SearchContent() {
             <ResultGroup icon={FileText} title={t('tabs.files')} count={files.length}>
               <ul className="divide-y rounded-lg border">
                 {files.map((f) => (
-                  <li key={f.id} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30">
+                  <li
+                    key={f.id}
+                    className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
+                  >
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium"><Highlight text={f.name} keyword={q} /></p>
-                      <p className="text-xs text-muted-foreground">{formatSize(f.size)} · {dateFmt.format(new Date(f.createdAt))}</p>
+                      <p className="break-words text-sm font-medium">
+                        <Highlight text={f.name} keyword={q} />
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatSize(f.size)} · {dateFmt.format(new Date(f.createdAt))}
+                      </p>
                     </div>
-                    <Link href={`/workspace/${f.projectId}?file=${f.id}`} className="shrink-0 text-xs text-primary hover:underline">
+                    <Link
+                      href={`/workspace/${f.projectId}?file=${f.id}`}
+                      className="shrink-0 text-xs text-primary hover:underline"
+                    >
                       {t('open')}
                     </Link>
                   </li>
@@ -276,7 +369,13 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <React.Suspense fallback={<div className="py-10 text-center text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin" /></div>}>
+    <React.Suspense
+      fallback={
+        <div className="py-10 text-center text-muted-foreground">
+          <Loader2 className="inline h-4 w-4 animate-spin" />
+        </div>
+      }
+    >
       <SearchContent />
     </React.Suspense>
   )

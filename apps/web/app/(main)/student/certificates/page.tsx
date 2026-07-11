@@ -43,8 +43,7 @@ export default function MyCertificatesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-certificates'],
-    queryFn: () =>
-      api<CertsData>(`/api/edu/my-certificates?page=1&pageSize=${PAGE_SIZE}`),
+    queryFn: () => api<CertsData>(`/api/edu/my-certificates?page=1&pageSize=${PAGE_SIZE}`),
   })
 
   const list = data?.list ?? []
@@ -77,7 +76,7 @@ export default function MyCertificatesPage() {
           {list.map((cert) => {
             const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
             return (
-              <Card key={cert.id} className="transition-colors hover:border-primary/40">
+              <Card key={cert.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
@@ -99,14 +98,12 @@ export default function MyCertificatesPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">{t('template')}</span>
-                      <span className="line-clamp-1 font-medium">{cert.templateName}</span>
+                      <span className="font-medium">{cert.templateName}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">{t('issuedAt')}</span>
                       <span className="font-medium">
-                        {cert.issuedAt
-                          ? new Date(cert.issuedAt).toLocaleDateString('zh-CN')
-                          : '-'}
+                        {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString('zh-CN') : '-'}
                       </span>
                     </div>
                   </div>

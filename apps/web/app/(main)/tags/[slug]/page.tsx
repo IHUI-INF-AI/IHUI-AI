@@ -5,7 +5,16 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { ArrowLeft, Tag, FileText, FolderOpen, User, MessageSquare, FileCode, Loader2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Tag,
+  FileText,
+  FolderOpen,
+  User,
+  MessageSquare,
+  FileCode,
+  Loader2,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 
@@ -61,7 +70,11 @@ export default function TagDetailPage() {
   const t = useTranslations('tags')
   const locale = useLocale()
 
-  const { data: tag, isLoading, error } = useQuery({
+  const {
+    data: tag,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['tags', slug],
     queryFn: () => api<{ tag: TagDetail }>(`/api/tags/${slug}`).then((d) => d.tag),
   })
@@ -120,9 +133,7 @@ export default function TagDetailPage() {
               {t('resourceCount', { count: list.length })}
               <span className="ml-2">· {t('usageCount', { count: tag.usageCount })}</span>
             </p>
-            {tag.description && (
-              <p className="text-sm text-muted-foreground">{tag.description}</p>
-            )}
+            {tag.description && <p className="text-sm text-muted-foreground">{tag.description}</p>}
           </div>
 
           <div className="space-y-4">
@@ -149,7 +160,7 @@ export default function TagDetailPage() {
                           const inner = (
                             <>
                               <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              <span className="min-w-0 flex-1 truncate font-mono text-sm">
+                              <span className="min-w-0 flex-1 break-words font-mono text-sm">
                                 {label}
                               </span>
                               <span className="shrink-0 text-xs text-muted-foreground">

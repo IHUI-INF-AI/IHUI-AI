@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Eye, Users, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -31,21 +31,38 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export default function BehaviorPage() {
   const t = useTranslations('behavior')
+  const locale = useLocale()
   const [page, setPage] = React.useState(1)
   const pageSize = 20
 
   const { data: statistics, isLoading: loadingStats } = useQuery({
     queryKey: ['behavior', 'statistics'],
-    queryFn: () => api<{ statistics: BehaviorStatistics }>(`/api/admin/behavior/statistics`).then((d) => d.statistics),
+    queryFn: () =>
+      api<{ statistics: BehaviorStatistics }>(`/api/admin/behavior/statistics`).then(
+        (d) => d.statistics,
+      ),
   })
   const { data: watchData, isLoading: loadingList } = useQuery({
     queryKey: ['behavior', 'watch-list', page],
-    queryFn: () => api<{ list: WatchRecord[]; total: number }>(`/api/admin/behavior/watch/list?page=${page}&pageSize=${pageSize}`),
+    queryFn: () =>
+      api<{ list: WatchRecord[]; total: number }>(
+        `/api/admin/behavior/watch/list?page=${page}&pageSize=${pageSize}`,
+      ),
   })
 
   const cards = [
-    { label: t('watchTotal'), value: statistics?.watchTotal ?? 0, icon: Eye, color: 'text-primary' },
-    { label: t('userTotal'), value: statistics?.userTotal ?? 0, icon: Users, color: 'text-blue-600' },
+    {
+      label: t('watchTotal'),
+      value: statistics?.watchTotal ?? 0,
+      icon: Eye,
+      color: 'text-primary',
+    },
+    {
+      label: t('userTotal'),
+      value: statistics?.userTotal ?? 0,
+      icon: Users,
+      color: 'text-primary',
+    },
   ]
 
   const total = watchData?.total ?? 0
@@ -74,7 +91,9 @@ export default function BehaviorPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {c.label}
+                  </CardTitle>
                   <c.icon className={`h-4 w-4 ${c.color}`} />
                 </CardHeader>
                 <CardContent>
@@ -121,7 +140,7 @@ export default function BehaviorPage() {
                     <td className="px-4 py-2 text-muted-foreground">{w.topicTitle ?? w.topicId}</td>
                     <td className="px-4 py-2">{w.watchDuration}s</td>
                     <td className="px-4 py-2 text-muted-foreground">
-                      {new Date(w.createdAt).toLocaleString()}
+                      {new Intl.DateTimeFormat(locale).format(new Date(w.createdAt))}
                     </td>
                   </tr>
                 ))}
@@ -138,7 +157,9 @@ export default function BehaviorPage() {
             >
               {t('prev')}
             </button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
             <button
               className="rounded border px-3 py-1 text-sm disabled:opacity-50"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

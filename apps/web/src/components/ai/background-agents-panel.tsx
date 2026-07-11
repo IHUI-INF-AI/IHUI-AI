@@ -1,15 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Cpu,
-  RefreshCw,
-  X,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  MinusCircle,
-} from 'lucide-react'
+import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle } from 'lucide-react'
 import { Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
@@ -27,7 +19,7 @@ interface BackgroundAgentsPanelProps {
 }
 
 const STATUS_ICON: Partial<Record<AgentStatus, React.ReactNode>> = {
-  running: <Loader2 className="h-4 w-4 animate-spin text-blue-500" />,
+  running: <Loader2 className="h-4 w-4 animate-spin text-primary" />,
   completed: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
   failed: <XCircle className="h-4 w-4 text-red-500" />,
   cancelled: <MinusCircle className="h-4 w-4 text-zinc-400" />,
@@ -87,14 +79,20 @@ export function BackgroundAgentsPanel({
           <Cpu className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">后台 Agent</span>
           {stats.running > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-600">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
               {stats.running} 运行中
             </span>
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh} disabled={loading}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onRefresh}
+            disabled={loading}
+          >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           </Button>
           {closable && (
@@ -119,13 +117,13 @@ export function BackgroundAgentsPanel({
                 <span className="mt-0.5 shrink-0">{STATUS_ICON[agent.status]}</span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-mono text-xs text-muted-foreground">
+                    <span className="break-words font-mono text-xs text-muted-foreground">
                       {agent.agent_id}
                     </span>
                     <span
                       className={cn(
                         'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                        agent.status === 'running' && 'bg-blue-500/10 text-blue-600',
+                        agent.status === 'running' && 'bg-amber-500/10 text-amber-600',
                         agent.status === 'completed' && 'bg-emerald-500/10 text-emerald-600',
                         agent.status === 'failed' && 'bg-red-500/10 text-red-600',
                         agent.status === 'cancelled' && 'bg-zinc-500/10 text-zinc-600',
@@ -133,31 +131,32 @@ export function BackgroundAgentsPanel({
                     >
                       {STATUS_LABEL[agent.status] ?? agent.status}
                     </span>
-                    {agent.progress?.tool_calls !== null && agent.progress?.tool_calls !== undefined && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {agent.progress.tool_calls} 次调用
-                      </span>
-                    )}
+                    {agent.progress?.tool_calls !== null &&
+                      agent.progress?.tool_calls !== undefined && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {agent.progress.tool_calls} 次调用
+                        </span>
+                      )}
                   </div>
 
-                  <p className="mt-0.5 truncate text-sm" title={agent.prompt}>
+                  <p className="mt-0.5 break-words text-sm" title={agent.prompt}>
                     {truncate(agent.prompt, 80)}
                   </p>
 
                   {agent.status === 'running' && agent.progress?.text_preview && (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    <p className="mt-0.5 break-words text-xs text-muted-foreground">
                       {truncate(agent.progress.text_preview, 100)}
                     </p>
                   )}
 
                   {agent.result?.output && agent.status === 'completed' && (
-                    <p className="mt-0.5 truncate text-xs text-emerald-600">
+                    <p className="mt-0.5 break-words text-xs text-emerald-600">
                       {truncate(agent.result.output, 100)}
                     </p>
                   )}
 
                   {agent.error && (
-                    <p className="mt-0.5 truncate text-xs text-red-600">{agent.error}</p>
+                    <p className="mt-0.5 break-words text-xs text-red-600">{agent.error}</p>
                   )}
 
                   <div className="mt-1 flex items-center gap-2">

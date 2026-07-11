@@ -8,6 +8,7 @@ import { Loader2, UserPlus, Copy, Gift, Clock, Check, Users } from 'lucide-react
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/data/Avatar'
 
 interface Invitation {
   id: string
@@ -48,13 +49,11 @@ export default function InvitationsPage() {
 
   const codesQ = useQuery({
     queryKey: ['invitations'],
-    queryFn: () =>
-      api<{ list: Invitation[] }>('/api/invitations').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: Invitation[] }>('/api/invitations').then((d) => d.list ?? []),
   })
   const inviteesQ = useQuery({
     queryKey: ['invitations', 'invitees'],
-    queryFn: () =>
-      api<{ list: Invitee[] }>('/api/invitations/invitees').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: Invitee[] }>('/api/invitations/invitees').then((d) => d.list ?? []),
   })
 
   const genMut = useMutation({
@@ -130,7 +129,7 @@ export default function InvitationsPage() {
         ) : codes.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {codes.map((c) => (
-              <Card key={c.id} className="transition-colors hover:border-primary/40">
+              <Card key={c.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <code className="rounded bg-muted/50 px-2 py-0.5 font-mono text-sm">
@@ -210,13 +209,13 @@ export default function InvitationsPage() {
                     <tr key={u.invitationId} className="transition-colors hover:bg-accent/50">
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                            {(name?.[0] ?? 'U').toUpperCase()}
-                          </div>
+                          <Avatar name={name ?? 'U'} size="xs" />
                           <span className="font-medium">{name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-muted-foreground">{fmt(u.usedAt ?? u.createdAt)}</td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {fmt(u.usedAt ?? u.createdAt)}
+                      </td>
                       <td className="px-4 py-2 text-muted-foreground">{u.rewardInvitee}</td>
                     </tr>
                   )

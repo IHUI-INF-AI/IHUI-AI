@@ -18,7 +18,12 @@ interface SlashCommandPaletteProps {
   onClose: () => void
 }
 
-export function SlashCommandPalette({ commands, onSelect, open, onClose }: SlashCommandPaletteProps) {
+export function SlashCommandPalette({
+  commands,
+  onSelect,
+  open,
+  onClose,
+}: SlashCommandPaletteProps) {
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -28,8 +33,7 @@ export function SlashCommandPalette({ commands, onSelect, open, onClose }: Slash
     if (!q) return commands
     return commands.filter(
       (c) =>
-        c.label.toLowerCase().includes(q) ||
-        (c.description?.toLowerCase().includes(q) ?? false),
+        c.label.toLowerCase().includes(q) || (c.description?.toLowerCase().includes(q) ?? false),
     )
   }, [commands, query])
 
@@ -96,11 +100,17 @@ export function SlashCommandPalette({ commands, onSelect, open, onClose }: Slash
                   idx === activeIndex ? 'bg-accent text-accent-foreground' : 'text-foreground',
                 )}
               >
-                {cmd.icon && <span className="flex h-4 w-4 shrink-0 items-center justify-center">{cmd.icon}</span>}
+                {cmd.icon && (
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {cmd.icon}
+                  </span>
+                )}
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">{cmd.label}</span>
+                  <span className="break-words text-sm font-medium">{cmd.label}</span>
                   {cmd.description && (
-                    <span className="truncate text-xs text-muted-foreground">{cmd.description}</span>
+                    <span className="break-words text-xs text-muted-foreground">
+                      {cmd.description}
+                    </span>
                   )}
                 </div>
               </button>

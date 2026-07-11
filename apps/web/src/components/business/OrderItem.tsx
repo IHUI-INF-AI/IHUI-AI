@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/data'
 
@@ -29,7 +30,7 @@ const statusMap: Record<
   refunded: { label: '已退款', variant: 'danger' },
 }
 
-export function OrderItem({
+function OrderItemImpl({
   orderNo,
   product,
   amount,
@@ -42,7 +43,15 @@ export function OrderItem({
   const statusInfo = statusMap[status]
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
       className={cn(
         'rounded-xl border bg-card p-4 text-card-foreground shadow',
         onClick && 'cursor-pointer hover:shadow-md',
@@ -58,12 +67,12 @@ export function OrderItem({
       </div>
       <div className="flex items-center gap-3 py-3">
         {product.image && (
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-            <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+            <Image src={product.image} alt={product.name} fill className="object-cover" />
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{product.name}</p>
+          <p className="break-words font-medium">{product.name}</p>
           {product.spec && <p className="text-sm text-muted-foreground">{product.spec}</p>}
           {product.quantity && <p className="text-sm text-muted-foreground">x{product.quantity}</p>}
         </div>
@@ -77,3 +86,5 @@ export function OrderItem({
     </div>
   )
 }
+
+export const OrderItem = React.memo(OrderItemImpl)

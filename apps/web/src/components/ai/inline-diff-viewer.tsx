@@ -42,14 +42,16 @@ export function InlineDiffViewer({ content, filename }: InlineDiffViewerProps) {
       <div className="overflow-x-auto font-mono text-xs">
         {lines.map((line, idx) => (
           <div
-            key={idx}
+            key={`line-${idx}`}
             className={cn(
               'flex',
               line.type === 'add' && 'bg-green-500/15',
               line.type === 'del' && 'bg-red-500/15',
             )}
           >
-            <span className="w-10 shrink-0 select-none px-2 text-right text-zinc-600">{line.num}</span>
+            <span className="w-10 shrink-0 select-none px-2 text-right text-zinc-600">
+              {line.num}
+            </span>
             <span
               className={cn(
                 'w-4 shrink-0 text-center',

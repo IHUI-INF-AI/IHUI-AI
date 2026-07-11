@@ -54,9 +54,7 @@ export function UploadZone({ uploading = false, onFiles }: UploadZoneProps) {
       onDragLeave={onDragLeave}
       className={cn(
         'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors',
-        dragging
-          ? 'border-primary bg-primary/5'
-          : 'border-input hover:border-primary/50 hover:bg-muted/30',
+        dragging ? 'border-primary bg-primary/5' : 'border-input hover:bg-accent',
         uploading && 'pointer-events-none opacity-60',
       )}
     >

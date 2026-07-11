@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label, Checkbox } from '@ihui/ui'
+import { fetchApi } from '@/lib/api'
 import { PasswordStrengthIndicator } from './PasswordStrengthIndicator'
 
 const registerSchema = z
@@ -17,7 +18,7 @@ const registerSchema = z
     username: z.string().min(3, 'auth.invalidUsername'),
     password: z.string().min(6, 'auth.invalidPassword'),
     confirmPassword: z.string().min(6, 'auth.invalidPassword'),
-    agreement: z.literal(true, { errorMap: () => ({ message: 'auth.agreeRequired' }) }),
+    agreement: z.boolean().refine((v) => v === true, { message: 'auth.agreeRequired' }),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: 'auth.passwordMismatch',
@@ -43,12 +44,12 @@ export function RegisterForm() {
     control,
     formState: { errors },
   } = useForm<RegisterValues>({
-    resolver: zodResolver(registerSchema as never),
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       username: '',
       password: '',
       confirmPassword: '',
-      agreement: false as unknown as true,
+      agreement: false,
     },
   })
 
@@ -69,14 +70,12 @@ export function RegisterForm() {
     setServerInfo(null)
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetchApi('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: values.username, password: values.password }),
       })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setServerError(json.message || t('registerFailed'))
+      if (!res.success) {
+        setServerError(res.error || t('registerFailed'))
         return
       }
       setServerInfo(t('registerSuccess'))

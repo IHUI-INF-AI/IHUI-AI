@@ -8,7 +8,8 @@ interface MarkdownStreamProps {
   isStreaming?: boolean
 }
 
-const INLINE_REGEX = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|(\[[^\]]+\]\[[^\]]*\))/g
+const INLINE_REGEX =
+  /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|(\[[^\]]+\]\[[^\]]*\))/g
 
 function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = []
@@ -31,23 +32,33 @@ function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
         </code>,
       )
     } else if (token.startsWith('**')) {
-      nodes.push(<strong key={k} className="font-semibold">{token.slice(2, -2)}</strong>)
+      nodes.push(
+        <strong key={k} className="font-semibold">
+          {token.slice(2, -2)}
+        </strong>,
+      )
     } else if (token.startsWith('*')) {
       nodes.push(<em key={k}>{token.slice(1, -1)}</em>)
     } else if (token.startsWith('[')) {
       const linkMatch = /\[([^\]]+)\]\(([^)]+)\)/.exec(token)
       if (linkMatch && linkMatch[1] && linkMatch[2]) {
-        nodes.push(
-          <a
-            key={k}
-            href={linkMatch[2]}
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline underline-offset-2"
-          >
-            {linkMatch[1]}
-          </a>,
-        )
+        const href = linkMatch[2]
+        const isSafeUrl = /^(https?:|mailto:|\/|#)/.test(href)
+        if (!isSafeUrl) {
+          nodes.push(token)
+        } else {
+          nodes.push(
+            <a
+              key={k}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2"
+            >
+              {linkMatch[1]}
+            </a>,
+          )
+        }
       } else {
         nodes.push(token)
       }
@@ -64,7 +75,9 @@ function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
 function CodeBlock({ language, code }: { language?: string; code: string }) {
   return (
     <pre className="my-2 overflow-x-auto rounded-lg bg-zinc-950 p-3 text-sm">
-      <code className={cn('font-mono text-zinc-100', language && `language-${language}`)}>{code}</code>
+      <code className={cn('font-mono text-zinc-100', language && `language-${language}`)}>
+        {code}
+      </code>
     </pre>
   )
 }
@@ -124,7 +137,11 @@ function parseLineBlocks(segment: string, keyBase: string): React.ReactNode[] {
       continue
     }
 
-    if (/^\||^\|.*\|$/.test(trimmed) && i + 1 < lines.length && /^\|?[\s-:]+\|/.test((lines[i + 1] ?? '').trim())) {
+    if (
+      /^\||^\|.*\|$/.test(trimmed) &&
+      i + 1 < lines.length &&
+      /^\|?[\s-:]+\|/.test((lines[i + 1] ?? '').trim())
+    ) {
       const headerCells = parseTableRow(trimmed)
       i += 2
       const rows: string[][] = []
@@ -138,7 +155,10 @@ function parseLineBlocks(segment: string, keyBase: string): React.ReactNode[] {
             <thead>
               <tr>
                 {headerCells.map((c, ci) => (
-                  <th key={ci} className="border border-border bg-muted px-3 py-1.5 text-left font-medium">
+                  <th
+                    key={ci}
+                    className="border border-border bg-muted px-3 py-1.5 text-left font-medium"
+                  >
                     {parseInline(c, `${keyBase}-th-${ci}`)}
                   </th>
                 ))}
@@ -248,7 +268,10 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
     <div className="text-sm">
       {nodes}
       {isStreaming && (
-        <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle" aria-hidden />
+        <span
+          className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle"
+          aria-hidden
+        />
       )}
     </div>
   )

@@ -2,7 +2,7 @@
  * R4 AI audio 子模块路由:TTS / ASR / 声纹识别 / 实时语音 WebSocket。
  *
  * 基于 DashScope CosyVoice(语音合成)、Paraformer / qwen3-asr(语音识别)、
- * 内存声纹组管理(mock 实现,实际声纹比对需集成第三方服务)。
+ * Speaker Recognition(声纹注册/比对/列表/删除)。
  *
  * 环境变量:
  * - DASHSCOPE_API_KEY(阿里通义 DashScope API Key)
@@ -14,10 +14,6 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
-import { getVoiceService } from '../services/clawdbot/voice.js'
-
-// 声纹识别服务实例
-const voiceService = getVoiceService()
 
 // ============================================================================
 // 鉴权
@@ -145,41 +141,10 @@ const COSYVOICE_VOICES = [
 ]
 
 // ============================================================================
-// 内存存储:声纹组 / 声纹特征
+// DashScope 声纹识别 API（Speaker Recognition）
 // ============================================================================
 
-interface VoiceprintGroup {
-  groupId: string
-  name: string
-  desc: string
-  featureCount: number
-  createdBy: string
-}
-
-interface VoiceprintFeature {
-  featureId: string
-  groupId: string
-  name: string
-  desc: string
-  audioUrl?: string
-  hasAudio: boolean
-  createdBy: string
-}
-
-const voiceprintGroups = new Map<string, VoiceprintGroup>()
-const voiceprintFeatures = new Map<string, VoiceprintFeature[]>()
-let groupCounter = 0
-let featureCounter = 0
-
-function nextGroupId(): string {
-  groupCounter += 1
-  return `vpg_${groupCounter}`
-}
-
-function nextFeatureId(): string {
-  featureCounter += 1
-  return `vpf_${featureCounter}`
-}
+const DS_SPEAKER_URL = `${DASHSCOPE_BASE}/services/audio/asr/speaker-recognition`
 
 // ============================================================================
 // 路由
@@ -668,150 +633,164 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // 声纹管理:6 端点
+  // 声纹管理:4 端点（DashScope Speaker Recognition API）
   // ==========================================================================
 
-  // 7. POST /audio/voiceprint/groups/create — 创建声纹组
-  server.post('/audio/voiceprint/groups/create', async (request, reply) => {
-    const body = request.body as { name?: string; desc?: string }
-    if (!body?.name) {
-      reply.status(400).send(error(400, '请提供 name'))
-      return
-    }
-    const groupId = nextGroupId()
-    const group: VoiceprintGroup = {
-      groupId,
-      name: body.name,
-      desc: body.desc ?? '',
-      featureCount: 0,
-      createdBy: request.userId!,
-    }
-    voiceprintGroups.set(groupId, group)
-    voiceprintFeatures.set(groupId, [])
-    reply.send(success(group))
-  })
-
-  // 8. GET /audio/voiceprint/groups/list — 声纹组列表
-  server.get('/audio/voiceprint/groups/list', async (_request, reply) => {
-    const groups = Array.from(voiceprintGroups.values())
-    reply.send(success({ groups, count: groups.length }))
-  })
-
-  // 9. POST /audio/voiceprint/groups/:groupId/users — 添加声纹
-  server.post('/audio/voiceprint/groups/:groupId/users', async (request, reply) => {
-    const { groupId } = request.params as { groupId: string }
-    const group = voiceprintGroups.get(groupId)
-    if (!group) {
-      reply.status(404).send(error(404, `声纹组 ${groupId} 不存在`))
-      return
-    }
+  // 7. POST /speaker/register — 注册声纹
+  server.post('/speaker/register', async (request, reply) => {
+    if (!requireDsKey(reply)) return
     const body = request.body as {
-      name?: string
-      desc?: string
+      voice_id?: string
       audio_url?: string
       audio_base64?: string
+      sample_rate?: number
     }
-    if (!body?.name) {
-      reply.status(400).send(error(400, '请提供 name'))
+    if (!body?.voice_id) {
+      reply.status(400).send(error(400, '请提供 voice_id'))
       return
     }
     if (!body.audio_url && !body.audio_base64) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
       return
     }
-    const feature: VoiceprintFeature = {
-      featureId: nextFeatureId(),
-      groupId,
-      name: body.name,
-      desc: body.desc ?? '',
-      audioUrl: body.audio_url,
-      hasAudio: true,
-      createdBy: request.userId!,
+    const audioUrl = body.audio_url ?? `data:audio/wav;base64,${body.audio_base64}`
+    const payload = {
+      model: 'speaker-recognition',
+      input: {
+        action: 'register',
+        voice_id: body.voice_id,
+        audio_url: audioUrl,
+        sample_rate: body.sample_rate ?? 16000,
+      },
     }
-    voiceprintFeatures.get(groupId)!.push(feature)
-    group.featureCount = voiceprintFeatures.get(groupId)!.length
-    reply.send(success(feature))
-  })
-
-  // 10. DELETE /audio/voiceprint/groups/:groupId/users/:featureId — 删除声纹
-  server.delete('/audio/voiceprint/groups/:groupId/users/:featureId', async (request, reply) => {
-    const { groupId, featureId } = request.params as { groupId: string; featureId: string }
-    const group = voiceprintGroups.get(groupId)
-    if (!group) {
-      reply.status(404).send(error(404, `声纹组 ${groupId} 不存在`))
-      return
-    }
-    const features = voiceprintFeatures.get(groupId) ?? []
-    const idx = features.findIndex((f) => f.featureId === featureId)
-    if (idx < 0) {
-      reply.status(404).send(error(404, `声纹特征 ${featureId} 不存在`))
-      return
-    }
-    features.splice(idx, 1)
-    group.featureCount = features.length
-    reply.send(success({ feature_id: featureId, group_id: groupId }))
-  })
-
-  // 11. GET /audio/voiceprint/groups/:groupId/users — 声纹组内声纹列表
-  server.get('/audio/voiceprint/groups/:groupId/users', async (request, reply) => {
-    const { groupId } = request.params as { groupId: string }
-    if (!voiceprintGroups.has(groupId)) {
-      reply.status(404).send(error(404, `声纹组 ${groupId} 不存在`))
-      return
-    }
-    const features = voiceprintFeatures.get(groupId) ?? []
-    reply.send(success({ features, count: features.length }))
-  })
-
-  // 12. POST /audio/voiceprint/identify — 声纹识别（集成 VoiceService）
-  server.post('/audio/voiceprint/identify', async (request, reply) => {
-    const body = request.body as {
-      group_id?: string
-      audio_url?: string
-      audio_base64?: string
-      user_id?: string
-    }
-    if (!body?.group_id || !voiceprintGroups.has(body.group_id)) {
-      reply.status(404).send(error(404, '声纹组不存在'))
-      return
-    }
-    if (!body.audio_url && !body.audio_base64) {
-      reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
-      return
-    }
-    const features = voiceprintFeatures.get(body.group_id!) ?? []
-    if (features.length === 0) {
-      reply.status(400).send(error(400, '声纹组中没有注册的声纹'))
-      return
-    }
-    // 集成 VoiceService 做声纹比对
-    const audioBuffer = body.audio_base64
-      ? Buffer.from(body.audio_base64, 'base64')
-      : Buffer.alloc(0)
-    let matchedFeatureId: string | null = null
-    let maxConfidence = 0
-    // 遍历组内所有已注册声纹，取置信度最高的匹配
-    for (const feature of features) {
-      const userId = body.user_id ?? feature.name
-      const result = await voiceService.verifyVoiceprint(userId, audioBuffer)
-      if (result.matched && result.confidence > maxConfidence) {
-        maxConfidence = result.confidence
-        matchedFeatureId = feature.featureId
+    try {
+      const resp = await fetchWithTimeout(
+        DS_SPEAKER_URL,
+        { method: 'POST', headers: dsHeaders(), body: JSON.stringify(payload) },
+        60_000,
+      )
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        const msg = (data as { message?: string }).message ?? `注册失败 ${resp.status}`
+        reply.status(502).send(error(502, `声纹注册失败: ${msg}`))
+        return
       }
+      const output = (data as { output?: { voice_id?: string; status?: string } }).output ?? {}
+      reply.send(
+        success({
+          voice_id: output.voice_id ?? body.voice_id,
+          status: output.status ?? 'registered',
+        }),
+      )
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '声纹注册超时' : (e as Error).message
+      reply.status(502).send(error(502, `声纹注册异常: ${msg}`))
     }
-    reply.send(
-      success({
-        group_id: body.group_id,
-        registered_speakers: features.map((f) => ({ feature_id: f.featureId, name: f.name })),
-        matched_speaker: matchedFeatureId
-          ? (features.find((f) => f.featureId === matchedFeatureId) ?? null)
-          : null,
-        confidence: maxConfidence,
-        msg: matchedFeatureId
-          ? `声纹匹配成功，置信度 ${(maxConfidence * 100).toFixed(1)}%`
-          : '未匹配到已注册声纹',
-      }),
-    )
+  })
+
+  // 8. POST /speaker/compare — 声纹比对
+  server.post('/speaker/compare', async (request, reply) => {
+    if (!requireDsKey(reply)) return
+    const body = request.body as {
+      voice_id?: string
+      audio_url?: string
+      audio_base64?: string
+      sample_rate?: number
+    }
+    if (!body?.voice_id) {
+      reply.status(400).send(error(400, '请提供 voice_id'))
+      return
+    }
+    if (!body.audio_url && !body.audio_base64) {
+      reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
+      return
+    }
+    const audioUrl = body.audio_url ?? `data:audio/wav;base64,${body.audio_base64}`
+    const payload = {
+      model: 'speaker-recognition',
+      input: {
+        action: 'compare',
+        voice_id: body.voice_id,
+        audio_url: audioUrl,
+        sample_rate: body.sample_rate ?? 16000,
+      },
+    }
+    try {
+      const resp = await fetchWithTimeout(
+        DS_SPEAKER_URL,
+        { method: 'POST', headers: dsHeaders(), body: JSON.stringify(payload) },
+        60_000,
+      )
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        const msg = (data as { message?: string }).message ?? `比对失败 ${resp.status}`
+        reply.status(502).send(error(502, `声纹比对失败: ${msg}`))
+        return
+      }
+      const output =
+        (data as { output?: { matched?: boolean; confidence?: number; score?: number } }).output ??
+        {}
+      reply.send(
+        success({
+          voice_id: body.voice_id,
+          matched: output.matched ?? false,
+          confidence: output.confidence ?? output.score ?? 0,
+        }),
+      )
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '声纹比对超时' : (e as Error).message
+      reply.status(502).send(error(502, `声纹比对异常: ${msg}`))
+    }
+  })
+
+  // 9. GET /speaker/list — 声纹组列表
+  server.get('/speaker/list', async (_request, reply) => {
+    if (!requireDsKey(reply)) return
+    try {
+      const resp = await fetchWithTimeout(
+        `${DS_SPEAKER_URL}?action=list`,
+        { method: 'GET', headers: dsHeaders() },
+        30_000,
+      )
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        const msg = (data as { message?: string }).message ?? `查询失败 ${resp.status}`
+        reply.status(502).send(error(502, `声纹列表查询失败: ${msg}`))
+        return
+      }
+      const output = (data as { output?: { voices?: unknown[] } }).output ?? {}
+      reply.send(success({ voices: output.voices ?? [], count: (output.voices ?? []).length }))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '查询超时' : (e as Error).message
+      reply.status(502).send(error(502, `声纹列表查询异常: ${msg}`))
+    }
+  })
+
+  // 10. DELETE /speaker/:voiceId — 删除声纹
+  server.delete('/speaker/:voiceId', async (request, reply) => {
+    if (!requireDsKey(reply)) return
+    const { voiceId } = request.params as { voiceId: string }
+    if (!voiceId) {
+      reply.status(400).send(error(400, '请提供 voiceId'))
+      return
+    }
+    try {
+      const resp = await fetchWithTimeout(
+        `${DS_SPEAKER_URL}?action=delete&voice_id=${encodeURIComponent(voiceId)}`,
+        { method: 'DELETE', headers: dsHeaders() },
+        30_000,
+      )
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        const msg = (data as { message?: string }).message ?? `删除失败 ${resp.status}`
+        reply.status(502).send(error(502, `声纹删除失败: ${msg}`))
+        return
+      }
+      reply.send(success({ voice_id: voiceId, deleted: true }))
+    } catch (e) {
+      const msg = (e as Error).name === 'AbortError' ? '删除超时' : (e as Error).message
+      reply.status(502).send(error(502, `声纹删除异常: ${msg}`))
+    }
   })
 
   // ==========================================================================

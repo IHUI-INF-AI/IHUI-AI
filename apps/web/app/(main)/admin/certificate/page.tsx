@@ -3,17 +3,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Award,
-  FileText,
-} from 'lucide-react'
+import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Award, FileText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -105,6 +97,7 @@ const EMPTY_FORM: CertForm = {
 
 export default function AdminCertificatePage() {
   const t = useTranslations('admin.certificate')
+  const locale = useLocale()
   const qc = useQueryClient()
 
   const [status, setStatus] = React.useState('all')
@@ -315,7 +308,9 @@ export default function AdminCertificatePage() {
                     </TableCell>
                     <TableCell className="px-4 py-2.5">{sourceLabel(cert.source)}</TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {cert.issuedAt ? new Date(cert.issuedAt).toLocaleString() : '—'}
+                      {cert.issuedAt
+                        ? new Intl.DateTimeFormat(locale).format(new Date(cert.issuedAt))
+                        : '—'}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <span
@@ -336,7 +331,7 @@ export default function AdminCertificatePage() {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(cert.createdAt).toLocaleString()}
+                      {new Intl.DateTimeFormat(locale).format(new Date(cert.createdAt))}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -344,10 +339,7 @@ export default function AdminCertificatePage() {
                           value={String(cert.status)}
                           onValueChange={(v) => handleStatusChange(cert, v)}
                         >
-                          <SelectTrigger
-                            className="h-8 w-[110px]"
-                            aria-label={t('fieldStatus')}
-                          >
+                          <SelectTrigger className="h-8 w-[110px]" aria-label={t('fieldStatus')}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -443,10 +435,7 @@ export default function AdminCertificatePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cert-source">{t('fieldSource')}</Label>
-                <Select
-                  value={form.source}
-                  onValueChange={(v) => setForm({ ...form, source: v })}
-                >
+                <Select value={form.source} onValueChange={(v) => setForm({ ...form, source: v })}>
                   <SelectTrigger className={selectClass} id="cert-source">
                     <SelectValue />
                   </SelectTrigger>
@@ -463,9 +452,7 @@ export default function AdminCertificatePage() {
                 <Label htmlFor="cert-template">{t('templatesTitle')}</Label>
                 <Select
                   value={form.templateId || 'none'}
-                  onValueChange={(v) =>
-                    setForm({ ...form, templateId: v === 'none' ? '' : v })
-                  }
+                  onValueChange={(v) => setForm({ ...form, templateId: v === 'none' ? '' : v })}
                 >
                   <SelectTrigger className={selectClass} id="cert-template">
                     <SelectValue />
@@ -491,7 +478,12 @@ export default function AdminCertificatePage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={createMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={createMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={createMut.isPending}>

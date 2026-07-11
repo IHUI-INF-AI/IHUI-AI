@@ -28,9 +28,7 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return files
-    return files.filter(
-      (f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q),
-    )
+    return files.filter((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
   }, [files, query])
 
   React.useEffect(() => {
@@ -106,8 +104,8 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
               >
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{file.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{file.path}</p>
+                  <p className="break-words font-medium">{file.name}</p>
+                  <p className="break-words text-xs text-muted-foreground">{file.path}</p>
                 </div>
               </button>
             </li>
