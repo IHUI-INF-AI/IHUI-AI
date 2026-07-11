@@ -3,6 +3,7 @@ import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import { verifyAccessToken } from '@ihui/auth'
 import { config } from '../config/index.js'
+import { cloneTimbre } from '../routes/ai-vendors.js'
 
 /** WebSocket query-token 鉴权,返回 userId 或关闭连接. */
 async function wsAuth(socket: WebSocket, token: string | undefined): Promise<string | null> {
@@ -27,7 +28,8 @@ const send = (socket: WebSocket, obj: unknown): void => {
   }
 }
 
-const DASHSCOPE_TTS = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2audio/audio-synthesis'
+const DASHSCOPE_TTS =
+  'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2audio/audio-synthesis'
 
 /** 调用 DashScope CosyVoice 合成音频,返回二进制 Buffer. */
 async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal): Promise<Buffer> {
@@ -303,7 +305,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           ttsController?.abort()
           ttsController = new AbortController()
           try {
-            const audio = await synthesizeTTS(text, (msg.voice as string) ?? 'longxiaochun', ttsController.signal)
+            const audio = await synthesizeTTS(
+              text,
+              (msg.voice as string) ?? 'longxiaochun',
+              ttsController.signal,
+            )
             const CHUNK = 4096
             for (let i = 0; i < audio.length; i += CHUNK) {
               if (ttsController.signal.aborted) return
@@ -327,6 +333,125 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       })
 
       socket.on('close', () => ttsController?.abort())
+    })()
+  })
+
+  // ==========================================================================
+  // 4. /ws/stock/stream — Stock 流式分析
+  //    客户端发送: {"symbol":"600519","question":"最近走势如何?"}
+  //    服务端推送: ready / start / delta(分段分析文本) / done / error
+  // ==========================================================================
+  server.get('/ws/stock/stream', { websocket: true }, (socket, request) => {
+    const query = request.query as { token?: string }
+    ;(async () => {
+      const userId = await wsAuth(socket, query.token)
+      if (!userId) return
+      send(socket, { event: 'ready', user: userId })
+
+      socket.on('message', async (data: Buffer) => {
+        const raw = data.toString()
+        if (raw === 'ping') {
+          socket.send('pong')
+          return
+        }
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(raw) as Record<string, unknown>
+        } catch {
+          return
+        }
+
+        const symbol = msg.symbol as string | undefined
+        const question = msg.question as string | undefined
+        if (!symbol || !question) {
+          send(socket, { event: 'error', msg: '缺少 symbol 或 question' })
+          return
+        }
+
+        send(socket, { event: 'start', symbol, ts: Date.now() })
+
+        // 简化实现：返回固定分析结果，分段流式推送
+        const sections = [
+          `【${symbol}】分析报告\n\n`,
+          `问题：${question}\n\n`,
+          '1. 技术指标分析\n' +
+            '   - 建议关注均线系统、MACD、RSI 等关键技术指标\n' +
+            '   - 重点观察近期成交量变化与价格突破/跌破关键位\n\n',
+          '2. 基本面评估\n' +
+            '   - 留意最新财报数据、营收与利润增长趋势\n' +
+            '   - 关注行业景气度与公司在行业中的竞争地位\n\n',
+          '3. 市场情绪判断\n' +
+            '   - 观察主力资金流向与北向/南向资金动向\n' +
+            '   - 留意市场热点轮动与板块效应\n\n',
+          '4. 风险提示\n' +
+            '   - 以上为框架性分析，具体操作请结合实时数据\n' +
+            '   - 股市有风险，投资需谨慎\n',
+        ]
+
+        for (const section of sections) {
+          send(socket, { event: 'delta', content: section })
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+
+        send(socket, { event: 'done', symbol, ts: Date.now() })
+      })
+    })()
+  })
+
+  // ==========================================================================
+  // 5. /ws/timbre/generate — 实时音色生成（迁移自旧架构 ws/timbre_generate.py）
+  //    客户端发送: {"action":"auth","token":"..."} 完成认证
+  //                {"action":"generate","voiceName":"...","audioUrl":"...","vendor":"doubao"}
+  //    服务端推送: auth.ok / auth.fail / task.start / task.done / task.error
+  // ==========================================================================
+  server.get('/ws/timbre/generate', { websocket: true }, (socket, request) => {
+    const query = request.query as { token?: string }
+    ;(async () => {
+      const userId = await wsAuth(socket, query.token)
+      if (!userId) return
+      send(socket, { code: 0, event: 'auth.ok', user: userId })
+
+      socket.on('message', async (data: Buffer) => {
+        const raw = data.toString()
+        if (raw === 'ping') {
+          send(socket, { code: 0, event: 'pong', ts: Date.now() })
+          return
+        }
+        let msg: Record<string, unknown>
+        try {
+          msg = JSON.parse(raw) as Record<string, unknown>
+        } catch {
+          send(socket, { code: 400, event: 'error', message: 'JSON 格式错误' })
+          return
+        }
+
+        const action = msg.action as string | undefined
+        if (action === 'auth') {
+          send(socket, { code: 0, event: 'auth.ok', user: userId })
+          return
+        }
+        if (action !== 'generate') {
+          send(socket, { code: 400, event: 'error', message: `未知 action: ${action}` })
+          return
+        }
+
+        const voiceName = msg.voiceName as string | undefined
+        const audioUrl = msg.audioUrl as string | undefined
+        if (!voiceName || !audioUrl) {
+          send(socket, { code: 400, event: 'error', message: '缺少 voiceName 或 audioUrl' })
+          return
+        }
+        const vendor = (msg.vendor as string) ?? 'doubao'
+        const taskId = `timbre_${Date.now()}_${userId.slice(0, 8)}`
+        send(socket, { code: 0, event: 'task.start', taskId })
+
+        const result = await cloneTimbre(userId, voiceName, audioUrl, vendor)
+        if (result.error) {
+          send(socket, { code: 500, event: 'task.error', taskId, message: result.error })
+        } else {
+          send(socket, { code: 0, event: 'task.done', taskId, data: result.timbre })
+        }
+      })
     })()
   })
 }
