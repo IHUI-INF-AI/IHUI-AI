@@ -1,15 +1,10 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { sql, type SQL } from 'drizzle-orm'
+import { eq, and, asc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-
-// =============================================================================
-// 区域/分区管理路由 — 迁移自旧架构 api/admin/admin-zone.ts
-// 挂载前缀：/api/admin/zone（由 server.ts 统一注册）
-// 管理员维护地理区域与分区层级（用于按区域聚合内容/统计/资源）
-// =============================================================================
+import { zhsZone } from '@ihui/database'
 
 const ADMIN_ROLE_ID = 1
 
@@ -46,10 +41,6 @@ const updateZoneSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
 async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
     await authenticate(request)
@@ -67,66 +58,30 @@ async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promi
   return true
 }
 
-// =============================================================================
-// 数据库表初始化 & 查询辅助
-// =============================================================================
-
-const ZONE_COLS = sql`
-  id, name, code, parent_id AS "parentId", level,
-  sort_order AS "sortOrder", enabled, metadata,
-  created_at AS "createdAt", updated_at AS "updatedAt"
-`
-
-async function ensureZoneTable() {
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS zhs_zone (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      name varchar(64) NOT NULL,
-      code varchar(32) NOT NULL UNIQUE,
-      parent_id uuid,
-      level integer NOT NULL DEFAULT 0,
-      sort_order integer NOT NULL DEFAULT 0,
-      enabled boolean NOT NULL DEFAULT true,
-      metadata jsonb NOT NULL DEFAULT '{}',
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
-  `)
+function buildZoneWhere(parentId?: string, level?: number, enabled?: boolean) {
+  const conditions = []
+  if (parentId !== undefined) conditions.push(eq(zhsZone.parentId, parentId))
+  if (level !== undefined) conditions.push(eq(zhsZone.level, level))
+  if (enabled !== undefined) conditions.push(eq(zhsZone.enabled, enabled))
+  return conditions.length > 0 ? and(...conditions) : undefined
 }
 
-function buildZoneWhereClause(parentId?: string, level?: number, enabled?: boolean): SQL {
-  const conditions: SQL[] = []
-  if (parentId !== undefined) conditions.push(sql`parent_id = ${parentId}`)
-  if (level !== undefined) conditions.push(sql`level = ${level}`)
-  if (enabled !== undefined) conditions.push(sql`enabled = ${enabled}`)
-  return conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``
-}
+type ZoneRow = typeof zhsZone.$inferSelect
 
-interface ZoneRow {
-  id: string
-  name: string
-  code: string
-  parentId: string | null
-  level: number
-  sortOrder: number
-  enabled: boolean
-  metadata: Record<string, unknown>
-  createdAt: string
-  updatedAt: string
+function buildTree(
+  all: ZoneRow[],
+  parentId: string | null,
+): Array<ZoneRow & { children: unknown[] }> {
+  return all
+    .filter((z) => z.parentId === parentId)
+    .map((z) => ({ ...z, children: buildTree(all, z.id) }))
 }
-
-// =============================================================================
-// 路由
-// =============================================================================
 
 export const adminZoneRoutes: FastifyPluginAsync = async (server) => {
-  await ensureZoneTable()
-
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await requireAdmin(request, reply))) return
   })
 
-  // GET / - 区域列表（支持按 parent/level/enabled 筛选）
   server.get('/', async (request, reply) => {
     const parsed = listQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -134,83 +89,64 @@ export const adminZoneRoutes: FastifyPluginAsync = async (server) => {
     }
     const { page, pageSize, parentId, level, enabled } = parsed.data
     const offset = (page - 1) * pageSize
-    const where = buildZoneWhereClause(parentId, level, enabled)
+    const where = buildZoneWhere(parentId, level, enabled)
 
-    const listRows = await db.execute(sql`
-      SELECT ${ZONE_COLS} FROM zhs_zone ${where}
-      ORDER BY level ASC, sort_order ASC
-      LIMIT ${pageSize} OFFSET ${offset}
-    `)
-    const countRows = await db.execute(sql`
-      SELECT count(*)::int AS count FROM zhs_zone ${where}
-    `)
-    const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
-    return reply.send(
-      success({ list: listRows as Record<string, unknown>[], total, page, pageSize }),
-    )
+    const list = await db
+      .select()
+      .from(zhsZone)
+      .where(where)
+      .orderBy(asc(zhsZone.level), asc(zhsZone.sortOrder))
+      .limit(pageSize)
+      .offset(offset)
+    const countRows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(zhsZone)
+      .where(where)
+    const total = countRows[0]?.count ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
   })
 
-  // GET /tree - 区域树（递归构建父子层级）
   server.get('/tree', async (_request, reply) => {
-    const rows = await db.execute(sql`
-      SELECT ${ZONE_COLS} FROM zhs_zone
-      ORDER BY level ASC, sort_order ASC
-    `)
-    const all = rows as unknown as ZoneRow[]
-
-    const buildTree = (
-      parentId: string | null,
-    ): Array<ZoneRow & { children: Array<ZoneRow & { children: unknown[] }> }> =>
-      all.filter((z) => z.parentId === parentId).map((z) => ({ ...z, children: buildTree(z.id) }))
-
-    return reply.send(success({ tree: buildTree(null) }))
+    const all = await db.select().from(zhsZone).orderBy(asc(zhsZone.level), asc(zhsZone.sortOrder))
+    return reply.send(success({ tree: buildTree(all, null) }))
   })
 
-  // POST / - 创建区域
   server.post('/', async (request, reply) => {
     const parsed = createZoneSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const codeRows = await db.execute(sql`
-      SELECT id FROM zhs_zone WHERE code = ${parsed.data.code} LIMIT 1
-    `)
-    if (codeRows[0]) return reply.status(400).send(error(400, '区域 code 已存在'))
+    const [codeExist] = await db
+      .select({ id: zhsZone.id })
+      .from(zhsZone)
+      .where(eq(zhsZone.code, parsed.data.code))
+      .limit(1)
+    if (codeExist) return reply.status(400).send(error(400, '区域 code 已存在'))
 
     if (parsed.data.parentId) {
-      const parentRows = await db.execute(sql`
-        SELECT id FROM zhs_zone WHERE id = ${parsed.data.parentId}
-      `)
-      if (!parentRows[0]) return reply.status(400).send(error(400, '父区域不存在'))
+      const [parent] = await db
+        .select({ id: zhsZone.id })
+        .from(zhsZone)
+        .where(eq(zhsZone.id, parsed.data.parentId))
+        .limit(1)
+      if (!parent) return reply.status(400).send(error(400, '父区域不存在'))
     }
 
-    const id = crypto.randomUUID()
-    const now = new Date().toISOString()
-    const parentId = parsed.data.parentId ?? null
-    const sortOrder = parsed.data.sortOrder ?? 0
-    const enabled = parsed.data.enabled ?? true
-    const metadata = parsed.data.metadata ?? {}
-    await db.execute(sql`
-      INSERT INTO zhs_zone (id, name, code, parent_id, level, sort_order, enabled, metadata, created_at, updated_at)
-      VALUES (${id}, ${parsed.data.name}, ${parsed.data.code}, ${parentId}, ${parsed.data.level},
-              ${sortOrder}, ${enabled}, ${JSON.stringify(metadata)}::jsonb, ${now}, ${now})
-    `)
-    const zone = {
-      id,
-      name: parsed.data.name,
-      code: parsed.data.code,
-      parentId,
-      level: parsed.data.level,
-      sortOrder,
-      enabled,
-      metadata,
-      createdAt: now,
-      updatedAt: now,
-    }
+    const [zone] = await db
+      .insert(zhsZone)
+      .values({
+        name: parsed.data.name,
+        code: parsed.data.code,
+        parentId: parsed.data.parentId ?? null,
+        level: parsed.data.level,
+        sortOrder: parsed.data.sortOrder ?? 0,
+        enabled: parsed.data.enabled ?? true,
+        metadata: parsed.data.metadata ?? {},
+      })
+      .returning()
     return reply.status(201).send(success({ zone }))
   })
 
-  // PUT /:id - 更新区域
   server.put('/:id', async (request, reply) => {
     const paramParsed = idParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
@@ -220,56 +156,61 @@ export const adminZoneRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
-    const rows = await db.execute(sql`
-      SELECT ${ZONE_COLS} FROM zhs_zone WHERE id = ${paramParsed.data.id}
-    `)
-    const existing = rows[0] as Record<string, unknown> | undefined
+    const [existing] = await db
+      .select()
+      .from(zhsZone)
+      .where(eq(zhsZone.id, paramParsed.data.id))
+      .limit(1)
     if (!existing) return reply.status(404).send(error(404, '区域不存在'))
 
     if (body.data.parentId === paramParsed.data.id) {
       return reply.status(400).send(error(400, '父区域不能是自身'))
     }
     if (body.data.parentId) {
-      const parentRows = await db.execute(sql`
-        SELECT id FROM zhs_zone WHERE id = ${body.data.parentId}
-      `)
-      if (!parentRows[0]) return reply.status(400).send(error(400, '父区域不存在'))
+      const [parent] = await db
+        .select({ id: zhsZone.id })
+        .from(zhsZone)
+        .where(eq(zhsZone.id, body.data.parentId))
+        .limit(1)
+      if (!parent) return reply.status(400).send(error(400, '父区域不存在'))
     }
 
-    const now = new Date().toISOString()
-    const sets: SQL[] = [sql`updated_at = ${now}`]
-    if (body.data.name !== undefined) sets.push(sql`name = ${body.data.name}`)
-    if (body.data.parentId !== undefined) sets.push(sql`parent_id = ${body.data.parentId}`)
-    if (body.data.level !== undefined) sets.push(sql`level = ${body.data.level}`)
-    if (body.data.sortOrder !== undefined) sets.push(sql`sort_order = ${body.data.sortOrder}`)
-    if (body.data.enabled !== undefined) sets.push(sql`enabled = ${body.data.enabled}`)
-    if (body.data.metadata !== undefined)
-      sets.push(sql`metadata = ${JSON.stringify(body.data.metadata)}::jsonb`)
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.data.name !== undefined) updateData.name = body.data.name
+    if (body.data.parentId !== undefined) updateData.parentId = body.data.parentId
+    if (body.data.level !== undefined) updateData.level = body.data.level
+    if (body.data.sortOrder !== undefined) updateData.sortOrder = body.data.sortOrder
+    if (body.data.enabled !== undefined) updateData.enabled = body.data.enabled
+    if (body.data.metadata !== undefined) updateData.metadata = body.data.metadata
 
-    await db.execute(sql`
-      UPDATE zhs_zone SET ${sql.join(sets, sql`, `)} WHERE id = ${paramParsed.data.id}
-    `)
-    const updated = { ...existing, ...body.data, updatedAt: now }
+    const [updated] = await db
+      .update(zhsZone)
+      .set(updateData)
+      .where(eq(zhsZone.id, paramParsed.data.id))
+      .returning()
     return reply.send(success({ zone: updated }))
   })
 
-  // DELETE /:id - 删除区域（需无子区域）
   server.delete('/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const rows = await db.execute(sql`
-      SELECT id FROM zhs_zone WHERE id = ${parsed.data.id}
-    `)
-    if (!rows[0]) return reply.status(404).send(error(404, '区域不存在'))
+    const [existing] = await db
+      .select({ id: zhsZone.id })
+      .from(zhsZone)
+      .where(eq(zhsZone.id, parsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '区域不存在'))
 
-    const childRows = await db.execute(sql`
-      SELECT id FROM zhs_zone WHERE parent_id = ${parsed.data.id} LIMIT 1
-    `)
-    if (childRows[0]) return reply.status(400).send(error(400, '该区域下有子区域，无法删除'))
+    const [child] = await db
+      .select({ id: zhsZone.id })
+      .from(zhsZone)
+      .where(eq(zhsZone.parentId, parsed.data.id))
+      .limit(1)
+    if (child) return reply.status(400).send(error(400, '该区域下有子区域，无法删除'))
 
-    await db.execute(sql`DELETE FROM zhs_zone WHERE id = ${parsed.data.id}`)
+    await db.delete(zhsZone).where(eq(zhsZone.id, parsed.data.id))
     return reply.send(success({ id: parsed.data.id, deleted: true }))
   })
 }

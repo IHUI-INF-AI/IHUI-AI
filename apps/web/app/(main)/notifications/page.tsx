@@ -16,7 +16,12 @@ import {
   Loader2,
 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import {
+  getNotifications,
+  getUnreadCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '@/lib/notification-api'
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -29,11 +34,6 @@ interface Notification {
   content: string | null
   isRead: boolean
   createdAt: string
-}
-
-interface ListData {
-  list: Notification[]
-  total: number
 }
 
 const TYPE_ICON: Record<NotificationType, React.ComponentType<{ className?: string }>> = {
@@ -54,7 +54,10 @@ const TYPE_CLS: Record<NotificationType, string> = {
   follow: 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
 }
 
-const TABS: { value: 'all' | NotificationType; labelKey: 'all' | 'system' | 'order' | 'project' | 'comment' | 'follow' }[] = [
+const TABS: {
+  value: 'all' | NotificationType
+  labelKey: 'all' | 'system' | 'order' | 'project' | 'comment' | 'follow'
+}[] = [
   { value: 'all', labelKey: 'all' },
   { value: 'follow', labelKey: 'follow' },
   { value: 'system', labelKey: 'system' },
@@ -76,10 +79,10 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString()
 }
 
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
+async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string }>): Promise<T> {
+  const r = await p
   if (!r.success) throw new Error(r.error)
-  return r.data
+  return r.data as T
 }
 
 export default function NotificationsPage() {
@@ -90,29 +93,28 @@ export default function NotificationsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['notifications', tab],
     queryFn: () => {
-      const qs = new URLSearchParams({ page: '1', pageSize: '50' })
-      if (tab !== 'all') qs.set('type', tab)
-      return api<ListData>(`/api/notifications?${qs.toString()}`)
+      const query: Record<string, string | number> = { page: 1, pageSize: 50 }
+      if (tab !== 'all') query.type = tab
+      return unwrap(getNotifications(query))
     },
   })
 
   const { data: unreadData } = useQuery({
     queryKey: ['notifications', 'unread-count'],
-    queryFn: () => api<{ count: number }>(`/api/notifications/unread-count`),
+    queryFn: () => unwrap(getUnreadCount()),
   })
 
   const readMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/notifications/${id}/read`, { method: 'PATCH' }),
+    mutationFn: (id: string) => unwrap(markNotificationRead(id)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
   const readAllMut = useMutation({
-    mutationFn: () => api(`/api/notifications/read-all`, { method: 'POST' }),
+    mutationFn: () => unwrap(markAllNotificationsRead()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
-  const notifications = data?.list ?? []
+  const notifications = (data?.list ?? []) as unknown as Notification[]
   const unread = unreadData?.count ?? 0
 
   return (
@@ -179,14 +181,22 @@ export default function NotificationsPage() {
                   !n.isRead && 'bg-primary/[0.03]',
                 )}
               >
-                <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', TYPE_CLS[n.type])}>
+                <div
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                    TYPE_CLS[n.type],
+                  )}
+                >
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-medium">{n.title}</p>
                     {!n.isRead && (
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-label="unread" />
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
+                        aria-label="unread"
+                      />
                     )}
                   </div>
                   {n.content && (
