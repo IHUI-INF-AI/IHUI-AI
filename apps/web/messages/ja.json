@@ -240,7 +240,8 @@
     "deleteProject": "プロジェクトを削除",
     "uploadFailed": "アップロード失敗",
     "downloadFailed": "ダウンロードに失敗",
-    "deleteConfirm": "確定要削除これ件変数吗？"
+    "deleteConfirm": "確定要削除これ件変数吗？",
+    "processedFiles": "処理済みファイル"
   },
   "chat": {
     "title": "AI会話",
