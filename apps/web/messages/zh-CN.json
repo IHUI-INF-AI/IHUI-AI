@@ -240,7 +240,8 @@
     "deleteProject": "删除项目",
     "deleteConfirm": "确定要删除 {name} 吗？此操作不可恢复。",
     "uploadFailed": "上传失败",
-    "downloadFailed": "下载失败"
+    "downloadFailed": "下载失败",
+    "processedFiles": "已处理文件"
   },
   "chat": {
     "title": "AI 对话",
