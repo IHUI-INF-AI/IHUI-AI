@@ -2,8 +2,10 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Info, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Info, Plus, Edit, Trash2, Loader2, Download, Search } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Button,
   Input,
@@ -35,6 +37,8 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
+const RESOURCE = '/api/admin/about-us'
+const PERM = 'system:us'
 const EMPTY: AboutUsItem = {
   id: '',
   network: '',
@@ -43,6 +47,10 @@ const EMPTY: AboutUsItem = {
   experience: '',
   description: '',
 }
+const th = 'px-4 py-2.5 font-medium'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const SEARCH_KEYS = ['network', 'phone', 'socialMedia', 'experience'] as const
 const FIELDS: { key: keyof AboutUsItem; label: string; type?: 'textarea' }[] = [
   { key: 'network', label: '网络' },
   { key: 'phone', label: '电话' },
@@ -50,35 +58,46 @@ const FIELDS: { key: keyof AboutUsItem; label: string; type?: 'textarea' }[] = [
   { key: 'experience', label: '经验' },
   { key: 'description', label: '描述', type: 'textarea' },
 ]
-const th = 'px-4 py-2.5 font-medium'
-const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const COLS: { key: keyof AboutUsItem; label: string }[] = [
+  { key: 'id', label: 'ID' },
+  ...FIELDS.map((f) => ({ key: f.key, label: f.label })),
+]
+const EXPORT_COLS: ExportColumn[] = COLS.map((c) => ({ key: c.key, title: c.label }))
 
 export default function AboutUsPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AboutUsItem | null>(null)
   const [form, setForm] = React.useState<AboutUsItem>(EMPTY)
+  const [search, setSearch] = React.useState<Record<string, string>>({
+    network: '',
+    phone: '',
+    socialMedia: '',
+    experience: '',
+  })
   const [page, setPage] = React.useState(1)
   const pageSize = 10
 
+  const params = React.useMemo(() => {
+    const p: Record<string, string> = { page: String(page), pageSize: String(pageSize) }
+    SEARCH_KEYS.forEach((k) => {
+      const v = search[k]?.trim()
+      if (v) p[k] = v
+    })
+    return p
+  }, [search, page])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'about-us', page],
-    queryFn: () => api<AboutUsList>(`/api/admin/about-us?page=${page}&pageSize=${pageSize}`),
+    queryKey: ['admin', 'about-us', params],
+    queryFn: () => api<AboutUsList>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
-      const body = {
-        network: form.network,
-        phone: form.phone,
-        socialMedia: form.socialMedia,
-        experience: form.experience,
-        description: form.description,
-      }
+      const body = JSON.stringify(Object.fromEntries(FIELDS.map((f) => [f.key, form[f.key]])))
       return editing?.id
-        ? api(`/api/admin/about-us/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api('/api/admin/about-us', { method: 'POST', body: JSON.stringify(body) })
+        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body })
+        : api(RESOURCE, { method: 'POST', body })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'about-us'] })
@@ -86,7 +105,7 @@ export default function AboutUsPage() {
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/about-us/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'about-us'] }),
   })
 
@@ -109,17 +128,21 @@ export default function AboutUsPage() {
     e.preventDefault()
     saveMut.mutate()
   }
+  function handleReset() {
+    setSearch({ network: '', phone: '', socialMedia: '', experience: '' })
+    setPage(1)
+  }
+  async function handleExport() {
+    const ok = await exportFromApi(
+      `${RESOURCE}?${new URLSearchParams(params)}`,
+      '关于我们',
+      EXPORT_COLS,
+    )
+    if (!ok) alert('导出失败')
+  }
 
   const list = data?.list ?? []
   const total = data?.total ?? 0
-  const COLS: { key: keyof AboutUsItem; label: string }[] = [
-    { key: 'id', label: 'ID' },
-    { key: 'network', label: '网络' },
-    { key: 'phone', label: '电话' },
-    { key: 'socialMedia', label: '社交媒体' },
-    { key: 'experience', label: '经验' },
-    { key: 'description', label: '描述' },
-  ]
 
   return (
     <div className="space-y-4">
@@ -131,9 +154,43 @@ export default function AboutUsPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">管理关于我们内容</p>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          新增
+        <div className="flex gap-2">
+          <HasPermi code={`${PERM}:export`}>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              导出
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}:add`}>
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              新增
+            </Button>
+          </HasPermi>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+        {SEARCH_KEYS.map((k) => {
+          const label = FIELDS.find((f) => f.key === k)!.label
+          return (
+            <div key={k} className="space-y-1">
+              <Label className="text-xs">{label}</Label>
+              <Input
+                className="h-9 w-40"
+                value={search[k]}
+                onChange={(e) => setSearch({ ...search, [k]: e.target.value })}
+                placeholder={`搜索${label}`}
+              />
+            </div>
+          )
+        })}
+        <Button size="sm" onClick={() => setPage(1)}>
+          <Search className="h-4 w-4" />
+          搜索
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleReset}>
+          重置
         </Button>
       </div>
 
@@ -179,22 +236,24 @@ export default function AboutUsPage() {
                   ))}
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
-                        <Edit className="h-4 w-4" />
-                        编辑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        disabled={delMut.isPending}
-                        onClick={() => {
-                          if (confirm('确认删除?')) delMut.mutate(item.id)
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        删除
-                      </Button>
+                      <HasPermi code={`${PERM}:edit`}>
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
+                          <Edit className="h-4 w-4" />
+                          编辑
+                        </Button>
+                      </HasPermi>
+                      <HasPermi code={`${PERM}:remove`}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={delMut.isPending}
+                          onClick={() => confirm('确认删除?') && delMut.mutate(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          删除
+                        </Button>
+                      </HasPermi>
                     </div>
                   </td>
                 </tr>

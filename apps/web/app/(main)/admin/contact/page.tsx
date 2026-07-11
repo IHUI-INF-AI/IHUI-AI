@@ -2,10 +2,13 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Phone, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Phone, Plus, Edit, Trash2, Loader2, Download, Search } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Button,
+  Input,
   Label,
   Dialog,
   DialogContent,
@@ -32,28 +35,57 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
+const RESOURCE = '/api/admin/contact'
+const PERM = 'system:contact'
 const EMPTY: ContactItem = { id: '', introduction: '', corporateCulture: '' }
 const th = 'px-4 py-2.5 font-medium'
+const FIELDS: {
+  key: keyof Pick<ContactItem, 'introduction' | 'corporateCulture'>
+  label: string
+}[] = [
+  { key: 'introduction', label: '公司简介' },
+  { key: 'corporateCulture', label: '企业文化' },
+]
+const EXPORT_COLS: ExportColumn[] = [
+  { key: 'id', title: 'ID' },
+  ...FIELDS.map((f) => ({ key: f.key, title: f.label })),
+]
 
 export default function ContactPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<ContactItem | null>(null)
   const [form, setForm] = React.useState<ContactItem>(EMPTY)
+  const [search, setSearch] = React.useState<Record<string, string>>({
+    introduction: '',
+    corporateCulture: '',
+  })
   const [page, setPage] = React.useState(1)
   const pageSize = 10
 
+  const params = React.useMemo(() => {
+    const p: Record<string, string> = { page: String(page), pageSize: String(pageSize) }
+    FIELDS.forEach((f) => {
+      const v = (search[f.key] || '').trim()
+      if (v) p[f.key] = v
+    })
+    return p
+  }, [search, page])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'contact', page],
-    queryFn: () => api<ContactList>(`/api/admin/contact?page=${page}&pageSize=${pageSize}`),
+    queryKey: ['admin', 'contact', params],
+    queryFn: () => api<ContactList>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
-      const body = { introduction: form.introduction, corporateCulture: form.corporateCulture }
+      const body = JSON.stringify({
+        introduction: form.introduction,
+        corporateCulture: form.corporateCulture,
+      })
       return editing?.id
-        ? api(`/api/admin/contact/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api('/api/admin/contact', { method: 'POST', body: JSON.stringify(body) })
+        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body })
+        : api(RESOURCE, { method: 'POST', body })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'contact'] })
@@ -61,7 +93,7 @@ export default function ContactPage() {
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/contact/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'contact'] }),
   })
 
@@ -84,10 +116,21 @@ export default function ContactPage() {
     e.preventDefault()
     saveMut.mutate()
   }
+  function handleReset() {
+    setSearch({ introduction: '', corporateCulture: '' })
+    setPage(1)
+  }
+  async function handleExport() {
+    const ok = await exportFromApi(
+      `${RESOURCE}?${new URLSearchParams(params)}`,
+      '联系我们',
+      EXPORT_COLS,
+    )
+    if (!ok) alert('导出失败')
+  }
 
   const list = data?.list ?? []
   const total = data?.total ?? 0
-
   const stripHtml = (s: string) => s.replace(/<[^>]+>/g, '').slice(0, 50) || '-'
 
   return (
@@ -100,9 +143,40 @@ export default function ContactPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">管理联系我们与企业文化内容</p>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          新增
+        <div className="flex gap-2">
+          <HasPermi code={`${PERM}:export`}>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              导出
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}:add`}>
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              新增
+            </Button>
+          </HasPermi>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+        {FIELDS.map((f) => (
+          <div key={f.key} className="space-y-1">
+            <Label className="text-xs">{f.label}</Label>
+            <Input
+              className="h-9 w-48"
+              value={search[f.key]}
+              onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
+              placeholder={`搜索${f.label}`}
+            />
+          </div>
+        ))}
+        <Button size="sm" onClick={() => setPage(1)}>
+          <Search className="h-4 w-4" />
+          搜索
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleReset}>
+          重置
         </Button>
       </div>
 
@@ -142,22 +216,24 @@ export default function ContactPage() {
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
-                        <Edit className="h-4 w-4" />
-                        编辑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        disabled={delMut.isPending}
-                        onClick={() => {
-                          if (confirm('确认删除?')) delMut.mutate(item.id)
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        删除
-                      </Button>
+                      <HasPermi code={`${PERM}:edit`}>
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
+                          <Edit className="h-4 w-4" />
+                          编辑
+                        </Button>
+                      </HasPermi>
+                      <HasPermi code={`${PERM}:remove`}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={delMut.isPending}
+                          onClick={() => confirm('确认删除?') && delMut.mutate(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          删除
+                        </Button>
+                      </HasPermi>
                     </div>
                   </td>
                 </tr>
@@ -194,22 +270,16 @@ export default function ContactPage() {
             <DialogHeader>
               <DialogTitle>{editing ? '编辑联系我们' : '新增联系我们'}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-2">
-              <Label>公司简介</Label>
-              <RichTextEditor
-                value={form.introduction}
-                onChange={(html) => setForm({ ...form, introduction: html })}
-                placeholder="请输入公司简介..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>企业文化</Label>
-              <RichTextEditor
-                value={form.corporateCulture}
-                onChange={(html) => setForm({ ...form, corporateCulture: html })}
-                placeholder="请输入企业文化..."
-              />
-            </div>
+            {FIELDS.map((f) => (
+              <div key={f.key} className="space-y-2">
+                <Label>{f.label}</Label>
+                <RichTextEditor
+                  value={form[f.key]}
+                  onChange={(html) => setForm({ ...form, [f.key]: html })}
+                  placeholder={`请输入${f.label}...`}
+                />
+              </div>
+            ))}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
                 取消
