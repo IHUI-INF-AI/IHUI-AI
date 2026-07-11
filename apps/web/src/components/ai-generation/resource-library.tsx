@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Loader2, Search } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -79,12 +80,27 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
     switch (record.type) {
       case 'image':
         return (
-          <img src={url} alt={record.prompt} className="max-h-[70vh] w-full rounded-md border" />
+          <Image
+            src={url}
+            alt={record.prompt}
+            width={800}
+            height={600}
+            unoptimized
+            className="h-auto max-h-[70vh] w-full rounded-md border"
+          />
         )
       case 'video':
-        return <video src={url} controls className="w-full rounded-md border" />
+        return (
+          <video src={url} controls className="w-full rounded-md border">
+            <track kind="captions" />
+          </video>
+        )
       case 'audio':
-        return <audio src={url} controls className="w-full" />
+        return (
+          <audio src={url} controls className="w-full">
+            <track kind="captions" />
+          </audio>
+        )
       case '3d':
         return (
           <a
@@ -175,20 +191,20 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
                   onClick={() => setPreview(record)}
                   className="space-y-1 rounded-md border p-2 text-left transition-colors hover:bg-accent"
                 >
-                  <div className="flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
+                  <div className="relative flex h-24 items-center justify-center overflow-hidden rounded bg-muted">
                     {record.type === 'image' && record.resultUrl ? (
-                      <img
+                      <Image
                         src={record.resultUrl}
                         alt={record.prompt}
-                        className="h-full w-full object-cover"
+                        fill
+                        unoptimized
+                        className="object-cover"
                       />
                     ) : (
                       <span className="text-xs uppercase text-muted-foreground">{record.type}</span>
                     )}
                   </div>
-                  <p className="line-clamp-1 text-xs text-foreground">
-                    {record.prompt || t('noResult')}
-                  </p>
+                  <p className="text-xs text-foreground">{record.prompt || t('noResult')}</p>
                   <p className="text-xs text-muted-foreground">
                     {record.vendor} · {formatDate(record.createdAt)}
                   </p>

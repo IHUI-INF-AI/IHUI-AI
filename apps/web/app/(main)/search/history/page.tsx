@@ -107,7 +107,7 @@ export default function HistoryPage() {
                 onClick={() => router.push(`/search?q=${encodeURIComponent(item.query)}`)}
                 className="min-w-0 flex-1 text-left"
               >
-                <p className="truncate text-sm font-medium">{item.query}</p>
+                <p className="break-words text-sm font-medium">{item.query}</p>
                 <p className="text-xs text-muted-foreground">
                   {dateFmt.format(new Date(item.createdAt))} ·{' '}
                   {t('resultCount', { count: item.resultsCount })}

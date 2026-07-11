@@ -31,15 +31,69 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const MOCK_STATS: AuditStats = { totalAuth: 84210, todayAuth: 1240, activeApps: 24, anomalyEvents: 8 }
+const MOCK_STATS: AuditStats = {
+  totalAuth: 84210,
+  todayAuth: 1240,
+  activeApps: 24,
+  anomalyEvents: 8,
+}
 const MOCK_LOGS: AuditLog[] = [
-  { id: '1', time: '2026-07-10 09:12:30', app: '协作工具', event: 'authorization.granted', status: 'success', ip: '203.0.113.42' },
-  { id: '2', time: '2026-07-10 09:10:18', app: '数据分析平台', event: 'token.refresh', status: 'success', ip: '198.51.100.7' },
-  { id: '3', time: '2026-07-10 09:05:42', app: '未知应用', event: 'authorization.denied', status: 'failed', ip: '198.51.100.99' },
-  { id: '4', time: '2026-07-10 08:58:55', app: 'CRM 系统', event: 'token.revoked', status: 'warning', ip: '203.0.113.18' },
-  { id: '5', time: '2026-07-10 08:40:00', app: '协作工具', event: 'authorization.granted', status: 'success', ip: '203.0.113.42' },
-  { id: '6', time: '2026-07-10 08:22:14', app: '客服系统', event: 'authorization.granted', status: 'success', ip: '192.0.2.88' },
-  { id: '7', time: '2026-07-10 08:08:33', app: '数据分析平台', event: 'login.failed', status: 'failed', ip: '198.51.100.7' },
+  {
+    id: '1',
+    time: '2026-07-10 09:12:30',
+    app: '协作工具',
+    event: 'authorization.granted',
+    status: 'success',
+    ip: '203.0.113.42',
+  },
+  {
+    id: '2',
+    time: '2026-07-10 09:10:18',
+    app: '数据分析平台',
+    event: 'token.refresh',
+    status: 'success',
+    ip: '198.51.100.7',
+  },
+  {
+    id: '3',
+    time: '2026-07-10 09:05:42',
+    app: '未知应用',
+    event: 'authorization.denied',
+    status: 'failed',
+    ip: '198.51.100.99',
+  },
+  {
+    id: '4',
+    time: '2026-07-10 08:58:55',
+    app: 'CRM 系统',
+    event: 'token.revoked',
+    status: 'warning',
+    ip: '203.0.113.18',
+  },
+  {
+    id: '5',
+    time: '2026-07-10 08:40:00',
+    app: '协作工具',
+    event: 'authorization.granted',
+    status: 'success',
+    ip: '203.0.113.42',
+  },
+  {
+    id: '6',
+    time: '2026-07-10 08:22:14',
+    app: '客服系统',
+    event: 'authorization.granted',
+    status: 'success',
+    ip: '192.0.2.88',
+  },
+  {
+    id: '7',
+    time: '2026-07-10 08:08:33',
+    app: '数据分析平台',
+    event: 'login.failed',
+    status: 'failed',
+    ip: '198.51.100.7',
+  },
 ]
 
 const STATUS_STYLE: Record<AuditLog['status'], { bg: string; text: string; label: string }> = {
@@ -73,10 +127,30 @@ export default function OauthAuditDashboardPage() {
   })
 
   const cards = [
-    { label: t('oauthAudit.totalAuth'), value: stats.totalAuth.toLocaleString(), icon: KeyRound, color: 'text-primary' },
-    { label: t('oauthAudit.todayAuth'), value: stats.todayAuth.toLocaleString(), icon: Activity, color: 'text-blue-600' },
-    { label: t('oauthAudit.activeApps'), value: stats.activeApps, icon: ShieldCheck, color: 'text-emerald-600' },
-    { label: t('oauthAudit.anomalyEvents'), value: stats.anomalyEvents, icon: AlertTriangle, color: 'text-red-600' },
+    {
+      label: t('oauthAudit.totalAuth'),
+      value: stats.totalAuth.toLocaleString(),
+      icon: KeyRound,
+      color: 'text-primary',
+    },
+    {
+      label: t('oauthAudit.todayAuth'),
+      value: stats.todayAuth.toLocaleString(),
+      icon: Activity,
+      color: 'text-primary',
+    },
+    {
+      label: t('oauthAudit.activeApps'),
+      value: stats.activeApps,
+      icon: ShieldCheck,
+      color: 'text-emerald-600',
+    },
+    {
+      label: t('oauthAudit.anomalyEvents'),
+      value: stats.anomalyEvents,
+      icon: AlertTriangle,
+      color: 'text-red-600',
+    },
   ]
 
   return (
@@ -93,14 +167,17 @@ export default function OauthAuditDashboardPage() {
       <section>
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {tc('search')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {c.label}
+                  </CardTitle>
                   <c.icon className={cn('h-4 w-4', c.color)} />
                 </CardHeader>
                 <CardContent>
@@ -136,13 +213,27 @@ export default function OauthAuditDashboardPage() {
                   const st = STATUS_STYLE[l.status]
                   return (
                     <tr key={l.id} className="transition-colors hover:bg-muted/30">
-                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">{l.time}</td>
-                      <td className="px-4 py-2.5 font-medium">{l.app}</td>
-                      <td className="px-4 py-2.5"><code className="font-mono text-xs text-muted-foreground">{l.event}</code></td>
-                      <td className="px-4 py-2.5">
-                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', st.bg, st.text)}>{st.label}</span>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                        {l.time}
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{l.ip}</td>
+                      <td className="px-4 py-2.5 font-medium">{l.app}</td>
+                      <td className="px-4 py-2.5">
+                        <code className="font-mono text-xs text-muted-foreground">{l.event}</code>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            st.bg,
+                            st.text,
+                          )}
+                        >
+                          {st.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                        {l.ip}
+                      </td>
                     </tr>
                   )
                 })}

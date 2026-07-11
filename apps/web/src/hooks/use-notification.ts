@@ -21,28 +21,29 @@ export interface UseNotificationReturn {
   clearAll: () => Promise<void>
 }
 
-/** 通知管理 Hook，集成 useWebSocket 实时推送 */
+const NON_NOTIFICATION_TYPES = ['ai_response', 'chat_message']
+
 export function useNotification(): UseNotificationReturn {
   const [notifications, setNotifications] = React.useState<NotificationItem[]>([])
+  const notificationsRef = React.useRef(notifications)
+  notificationsRef.current = notifications
   const { lastMessage } = useWebSocket()
 
-  // 接收 WebSocket 推送的通知
   React.useEffect(() => {
     if (!lastMessage) return
     const data: WSNotification['data'] = lastMessage.data
-    if (data.type === 'notification') {
-      setNotifications((prev) => [
-        {
-          id: String(data.id ?? Date.now()),
-          type: data.type,
-          title: String(data.title ?? '新通知'),
-          content: data.content ? String(data.content) : undefined,
-          read: false,
-          createdAt: String(data.createdAt ?? new Date().toISOString()),
-        },
-        ...prev,
-      ])
-    }
+    if (NON_NOTIFICATION_TYPES.includes(data.type)) return
+    setNotifications((prev) => [
+      {
+        id: String(data.id ?? Date.now()),
+        type: data.type,
+        title: String(data.title ?? '新通知'),
+        content: data.content ? String(data.content) : undefined,
+        read: false,
+        createdAt: String(data.createdAt ?? new Date().toISOString()),
+      },
+      ...prev,
+    ])
   }, [lastMessage])
 
   const unreadCount = React.useMemo(
@@ -51,13 +52,17 @@ export function useNotification(): UseNotificationReturn {
   )
 
   const markAsRead = React.useCallback(async (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    await fetchApi(`/api/notifications/${id}/read`, { method: 'POST' })
+    const prev = notificationsRef.current
+    setNotifications((p) => p.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    const res = await fetchApi(`/api/notifications/${id}/read`, { method: 'POST' })
+    if (!res.success) setNotifications(prev)
   }, [])
 
   const clearAll = React.useCallback(async () => {
+    const prev = notificationsRef.current
     setNotifications([])
-    await fetchApi('/api/notifications', { method: 'DELETE' })
+    const res = await fetchApi('/api/notifications', { method: 'DELETE' })
+    if (!res.success) setNotifications(prev)
   }, [])
 
   return { notifications, unreadCount, markAsRead, clearAll }

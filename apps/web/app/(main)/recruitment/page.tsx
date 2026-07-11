@@ -92,7 +92,7 @@ export default function RecruitmentPage() {
             const Icon = statIcons[i] ?? TrendingUp
             const color = statColors[i] ?? 'text-primary'
             return (
-              <Card key={i}>
+              <Card key={s.label}>
                 <CardContent className="flex items-center gap-3 p-5">
                   <div
                     className={cn(
@@ -125,7 +125,7 @@ export default function RecruitmentPage() {
             {requirements.length > 0 ? (
               <ul className="space-y-3">
                 {requirements.map((r, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
+                  <li key={r.title} className="flex items-start gap-2 text-sm">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
                       {i + 1}
                     </span>
@@ -152,8 +152,8 @@ export default function RecruitmentPage() {
           <CardContent>
             {benefits.length > 0 ? (
               <ul className="space-y-3">
-                {benefits.map((b, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
+                {benefits.map((b) => (
+                  <li key={b.title} className="flex items-start gap-2 text-sm">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                     <div>
                       <div className="font-medium">{b.title}</div>

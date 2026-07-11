@@ -8,7 +8,7 @@ import {
   integer,
   timestamp,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * 智能体（Agent）主表。
@@ -60,7 +60,7 @@ export const agents = pgTable(
     categoryIdx: index('agents_category_idx').on(t.categoryId),
     statusIdx: index('agents_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 智能体分类表。
@@ -83,7 +83,7 @@ export const agentCategories = pgTable(
   (t) => ({
     statusIdx: index('agent_categories_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 智能体结算记录表。
@@ -110,7 +110,7 @@ export const agentSettlements = pgTable(
     statusIdx: index('agent_settlements_status_idx').on(t.status),
     orderNoIdx: index('agent_settlements_order_no_idx').on(t.orderNo),
   }),
-);
+)
 
 /**
  * 智能体审核记录表。
@@ -135,7 +135,7 @@ export const agentExamines = pgTable(
     statusIdx: index('agent_examines_status_idx').on(t.status),
     userIdx: index('agent_examines_user_idx').on(t.userId),
   }),
-);
+)
 
 /**
  * 智能体热度统计表 (历史 agent_heat_stats)。
@@ -154,7 +154,7 @@ export const agentHeatStats = pgTable(
   (t) => ({
     agentIdx: index('agent_heat_stats_agent_idx').on(t.agentId),
   }),
-);
+)
 
 /**
  * 智能体回调配置表 (历史 agent_callbacks)。
@@ -175,7 +175,7 @@ export const agentCallbacks = pgTable(
   (t) => ({
     agentIdx: index('agent_callbacks_agent_idx').on(t.agentId),
   }),
-);
+)
 
 /**
  * 智能体配置表 (历史 agent_configs)。
@@ -195,19 +195,45 @@ export const agentConfigs = pgTable(
   (t) => ({
     agentIdx: index('agent_configs_agent_idx').on(t.agentId),
   }),
-);
+)
 
-export type Agent = typeof agents.$inferSelect;
-export type NewAgent = typeof agents.$inferInsert;
-export type AgentCategory = typeof agentCategories.$inferSelect;
-export type NewAgentCategory = typeof agentCategories.$inferInsert;
-export type AgentSettlement = typeof agentSettlements.$inferSelect;
-export type NewAgentSettlement = typeof agentSettlements.$inferInsert;
-export type AgentExamine = typeof agentExamines.$inferSelect;
-export type NewAgentExamine = typeof agentExamines.$inferInsert;
-export type AgentHeatStats = typeof agentHeatStats.$inferSelect;
-export type NewAgentHeatStats = typeof agentHeatStats.$inferInsert;
-export type AgentCallback = typeof agentCallbacks.$inferSelect;
-export type NewAgentCallback = typeof agentCallbacks.$inferInsert;
-export type AgentConfig = typeof agentConfigs.$inferSelect;
-export type NewAgentConfig = typeof agentConfigs.$inferInsert;
+export type Agent = typeof agents.$inferSelect
+export type NewAgent = typeof agents.$inferInsert
+export type AgentCategory = typeof agentCategories.$inferSelect
+export type NewAgentCategory = typeof agentCategories.$inferInsert
+export type AgentSettlement = typeof agentSettlements.$inferSelect
+export type NewAgentSettlement = typeof agentSettlements.$inferInsert
+export type AgentExamine = typeof agentExamines.$inferSelect
+export type NewAgentExamine = typeof agentExamines.$inferInsert
+export type AgentHeatStats = typeof agentHeatStats.$inferSelect
+export type NewAgentHeatStats = typeof agentHeatStats.$inferInsert
+export type AgentCallback = typeof agentCallbacks.$inferSelect
+export type NewAgentCallback = typeof agentCallbacks.$inferInsert
+export type AgentConfig = typeof agentConfigs.$inferSelect
+export type NewAgentConfig = typeof agentConfigs.$inferInsert
+
+/**
+ * 智能体分类关联表 (agent_category_links)。
+ * Agent 与分类的多对多关联。
+ * isPrimary=true 表示为主分类。
+ */
+export const agentCategoryLink = pgTable(
+  'agent_category_links',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id').references(() => agents.agentId, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').references(() => agentCategories.categoryId, {
+      onDelete: 'cascade',
+    }),
+    isPrimary: boolean('is_primary').default(false),
+    sort: integer('sort').default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentIdIdx: index('agent_category_links_agent_idx').on(t.agentId),
+    categoryIdIdx: index('agent_category_links_category_idx').on(t.categoryId),
+  }),
+)
+
+export type AgentCategoryLink = typeof agentCategoryLink.$inferSelect
+export type NewAgentCategoryLink = typeof agentCategoryLink.$inferInsert

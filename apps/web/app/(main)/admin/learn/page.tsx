@@ -91,7 +91,11 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-function fetchLessons(params: { page: number; search: string; categoryId: string }): Promise<LessonsData> {
+function fetchLessons(params: {
+  page: number
+  search: string
+  categoryId: string
+}): Promise<LessonsData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.search) qs.set('search', params.search)
   if (params.categoryId && params.categoryId !== 'all') qs.set('categoryId', params.categoryId)
@@ -179,7 +183,8 @@ export default function AdminLearnPage() {
 
   const { data: categoriesData } = useQuery({
     queryKey: ['admin', 'learn', 'categories', 'all'],
-    queryFn: () => api<{ list: Category[] }>(`/api/admin/learn/categories`).then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: Category[] }>(`/api/admin/learn/categories`).then((d) => d.list ?? []),
   })
   const categories = categoriesData ?? []
 
@@ -384,15 +389,13 @@ export default function AdminLearnPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="font-medium">{lesson.title}</div>
                       {lesson.intro ? (
-                        <div className="max-w-xs truncate text-xs text-muted-foreground">
+                        <div className="max-w-xs break-words text-xs text-muted-foreground">
                           {lesson.intro}
                         </div>
                       ) : null}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      {lesson.categoryName ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      {lesson.categoryName ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <div className="flex flex-col gap-1">
@@ -589,7 +592,12 @@ export default function AdminLearnPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

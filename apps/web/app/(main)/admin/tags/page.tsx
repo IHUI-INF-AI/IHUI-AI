@@ -7,7 +7,14 @@ import { Loader2, Tag, Hash, Plus, Edit, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface TagItem {
@@ -84,24 +91,45 @@ export default function AdminTagsPage() {
         ? api(`/api/tags/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
         : api('/api/tags', { method: 'POST', body: JSON.stringify(body) })
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'tags'] }); close() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tags'] })
+      close()
+    },
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
     mutationFn: (id: string) => api(`/api/tags/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'tags'] }); setDelId(null) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'tags'] })
+      setDelId(null)
+    },
   })
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setErr(null); setOpen(true) }
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY)
+    setErr(null)
+    setOpen(true)
+  }
   function openEdit(tag: TagItem) {
     setEditing(tag)
     setForm({ name: tag.name, description: tag.description ?? '', color: tag.color ?? '' })
-    setErr(null); setOpen(true)
+    setErr(null)
+    setOpen(true)
   }
-  function close() { if (saveMut.isPending) return; setOpen(false); setEditing(null); setErr(null) }
+  function close() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+    setErr(null)
+  }
   function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(null)
-    if (!form.name.trim()) { setErr(t('nameRequired')); return }
+    e.preventDefault()
+    setErr(null)
+    if (!form.name.trim()) {
+      setErr(t('nameRequired'))
+      return
+    }
     saveMut.mutate()
   }
 
@@ -181,7 +209,9 @@ export default function AdminTagsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{tag.slug}</code>
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                        {tag.slug}
+                      </code>
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
@@ -197,7 +227,12 @@ export default function AdminTagsPage() {
                           <Edit className="mr-1 h-3.5 w-3.5" />
                           {tc('edit')}
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDelId(tag.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDelId(tag.id)}
+                        >
                           <Trash2 className="mr-1 h-3.5 w-3.5" />
                           {tc('delete')}
                         </Button>
@@ -214,7 +249,13 @@ export default function AdminTagsPage() {
       )}
 
       {/* 创建/编辑对话框 */}
-      <Dialog open={open} onOpenChange={(v) => { if (!v) close(); else setOpen(true) }}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) close()
+          else setOpen(true)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
@@ -229,7 +270,6 @@ export default function AdminTagsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder={t('namePlaceholder')}
                 maxLength={64}
-                autoFocus
               />
             </div>
             <div className="space-y-1.5">
@@ -253,7 +293,10 @@ export default function AdminTagsPage() {
                   className="flex-1"
                 />
                 {form.color ? (
-                  <span className="h-9 w-9 shrink-0 rounded-md border" style={{ backgroundColor: form.color }} />
+                  <span
+                    className="h-9 w-9 shrink-0 rounded-md border"
+                    style={{ backgroundColor: form.color }}
+                  />
                 ) : null}
               </div>
             </div>
@@ -272,21 +315,33 @@ export default function AdminTagsPage() {
       </Dialog>
 
       {/* 删除确认对话框 */}
-      <Dialog open={delId !== null} onOpenChange={(v) => { if (!v) setDelId(null) }}>
+      <Dialog
+        open={delId !== null}
+        onOpenChange={(v) => {
+          if (!v) setDelId(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('deleteTitle')}</DialogTitle>
             <DialogDescription>{t('deleteConfirm')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDelId(null)} disabled={delMut.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDelId(null)}
+              disabled={delMut.isPending}
+            >
               {tc('cancel')}
             </Button>
             <Button
               type="button"
               variant="destructive"
               disabled={delMut.isPending}
-              onClick={() => { if (delId) delMut.mutate(delId) }}
+              onClick={() => {
+                if (delId) delMut.mutate(delId)
+              }}
             >
               {delMut.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               {tc('delete')}

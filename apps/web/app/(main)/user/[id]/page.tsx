@@ -88,7 +88,6 @@ export default function PublicUserProfilePage() {
   }
 
   const { user, stats } = data
-  const initial = (user.nickname?.[0] ?? 'U').toUpperCase()
   const following = statusData?.following ?? false
   const statsItems: { label: string; value: number }[] = [
     { label: t('statsFollowing'), value: stats.followingCount },
@@ -99,22 +98,27 @@ export default function PublicUserProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-start gap-4">
-        <Avatar src={user.avatar} name={user.nickname} fallback={initial} size="xl" className="h-20 w-20 text-2xl" />
+        <Avatar
+          src={user.avatar ?? undefined}
+          name={user.nickname}
+          size="xl"
+          className="h-20 w-20 text-2xl"
+        />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-2xl font-bold tracking-tight">{user.nickname || 'User'}</h1>
+            <h1 className="break-words text-2xl font-bold tracking-tight">
+              {user.nickname || 'User'}
+            </h1>
             {isSelf && (
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 {t('isYou')}
               </span>
             )}
           </div>
-          {user.bio ? (
-            <p className="text-sm text-muted-foreground">{user.bio}</p>
-          ) : null}
+          {user.bio ? <p className="text-sm text-muted-foreground">{user.bio}</p> : null}
         </div>
-        {canFollow && (
-          following ? (
+        {canFollow &&
+          (following ? (
             <Button
               variant="outline"
               size="sm"
@@ -135,8 +139,7 @@ export default function PublicUserProfilePage() {
               <UserPlus className="mr-1.5 h-4 w-4" />
               {t('follow')}
             </Button>
-          )
-        )}
+          ))}
       </div>
 
       <div className="grid grid-cols-3 gap-3">

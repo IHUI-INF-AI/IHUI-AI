@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -13,6 +13,7 @@ import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button, Input, Label } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/data/Avatar'
 
 const profileSchema = z.object({
   nickname: z.string().min(2).max(20),
@@ -118,7 +119,6 @@ export default function ProfilePage() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const initial = (user?.nickname?.[0] ?? 'U').toUpperCase()
   const stats = data?.stats
   const statsItems: { label: string; value: number | undefined; href: string }[] = [
     { label: t('following'), value: stats?.followingCount, href: '/following?tab=following' },
@@ -136,13 +136,12 @@ export default function ProfilePage() {
       {/* 头像 */}
       <div className="flex items-center gap-4">
         <div className="relative h-20 w-20 shrink-0">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-muted text-2xl font-medium">
-            {user?.avatar ? (
-              <img src={user.avatar} alt={user.nickname} className="h-20 w-20 rounded-full" />
-            ) : (
-              initial
-            )}
-          </div>
+          <Avatar
+            src={user?.avatar ?? undefined}
+            name={user?.nickname ?? 'U'}
+            size="xl"
+            className="h-20 w-20 text-2xl"
+          />
           <input
             ref={fileInputRef}
             type="file"

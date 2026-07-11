@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -35,7 +35,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 const STATUS_STYLE: Record<number, string> = {
-  1: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  1: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   2: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   3: 'bg-muted text-muted-foreground',
 }
@@ -89,9 +89,10 @@ export default function MyLessonsPage() {
               const progress = Math.max(0, Math.min(100, item.progress ?? 0))
               return (
                 <Link key={item.id} href={`/learn/${item.lessonId}`}>
-                  <Card className="overflow-hidden transition-colors hover:border-primary/40">
+                  <Card className="overflow-hidden transition-colors hover:bg-accent">
                     <div className="aspect-video w-full overflow-hidden bg-muted">
                       {item.coverImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={item.coverImage}
                           alt={item.title}
@@ -104,7 +105,7 @@ export default function MyLessonsPage() {
                       )}
                     </div>
                     <CardContent className="space-y-3 p-4">
-                      <h3 className="line-clamp-1 font-medium">{item.title}</h3>
+                      <h3 className="font-medium">{item.title}</h3>
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{t('progress', { value: progress })}</span>

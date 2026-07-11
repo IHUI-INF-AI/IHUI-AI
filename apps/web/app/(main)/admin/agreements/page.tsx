@@ -259,7 +259,6 @@ export default function AgreementsPage() {
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="请输入协议标题"
-                autoFocus
               />
             </div>
             <div className="space-y-2">

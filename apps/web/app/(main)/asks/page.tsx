@@ -8,7 +8,15 @@ import { HelpCircle, Search, Loader2, Plus, MessageSquare, Eye, CheckCircle2 } f
 
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui'
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface AskItem {
@@ -20,7 +28,12 @@ interface AskItem {
   isResolved: boolean
   createdAt: string
 }
-interface AsksData { list: AskItem[]; total: number; page: number; pageSize: number }
+interface AsksData {
+  list: AskItem[]
+  total: number
+  page: number
+  pageSize: number
+}
 
 const PAGE_SIZE = 20
 type Filter = 'all' | 'unresolved' | 'resolved'
@@ -52,7 +65,9 @@ export default function AsksPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['asks', debounced],
     queryFn: () =>
-      api<AsksData>(`/api/asks?page=1&pageSize=${PAGE_SIZE}&search=${encodeURIComponent(debounced)}`),
+      api<AsksData>(
+        `/api/asks?page=1&pageSize=${PAGE_SIZE}&search=${encodeURIComponent(debounced)}`,
+      ),
   })
 
   const createMut = useMutation({
@@ -92,9 +107,19 @@ export default function AsksPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { if (!o && createMut.isPending) return; setOpen(o); if (!o) setFormError(null) }}>
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            if (!o && createMut.isPending) return
+            setOpen(o)
+            if (!o) setFormError(null)
+          }}
+        >
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4" />{t('askQuestion')}</Button>
+            <Button>
+              <Plus className="h-4 w-4" />
+              {t('askQuestion')}
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,17 +127,41 @@ export default function AsksPage() {
                 <DialogTitle>{t('askQuestion')}</DialogTitle>
                 <DialogDescription>{t('subtitle')}</DialogDescription>
               </DialogHeader>
-              {formError && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{formError}</div>}
+              {formError && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {formError}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="ask-title">{t('title')}</Label>
-                <Input id="ask-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('titlePlaceholder')} autoFocus maxLength={120} />
+                <Input
+                  id="ask-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={t('titlePlaceholder')}
+                  maxLength={120}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ask-content">{t('content')}</Label>
-                <textarea id="ask-content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={t('contentPlaceholder')} rows={4} className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                <textarea
+                  id="ask-content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder={t('contentPlaceholder')}
+                  rows={4}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={createMut.isPending}>{tc('cancel')}</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  disabled={createMut.isPending}
+                >
+                  {tc('cancel')}
+                </Button>
                 <Button type="submit" disabled={createMut.isPending}>
                   {createMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   {t('askQuestion')}
@@ -126,11 +175,25 @@ export default function AsksPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('searchPlaceholder')} className="h-9 pl-8" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('searchPlaceholder')}
+            className="h-9 pl-8"
+          />
         </div>
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
           {(['all', 'unresolved', 'resolved'] as Filter[]).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition-colors', filter === f ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                filter === f
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
               {t(f === 'all' ? 'all' : f === 'resolved' ? 'resolved' : 'unresolved')}
             </button>
           ))}
@@ -155,11 +218,18 @@ export default function AsksPage() {
         <div className="space-y-3">
           {list.map((a) => (
             <Link key={a.id} href={`/asks/${a.id}`}>
-              <Card className="transition-colors hover:border-primary/40">
+              <Card className="transition-colors hover:bg-accent">
                 <CardHeader className="p-4 pb-2">
                   <div className="flex items-start justify-between gap-3">
                     <CardTitle className="text-base">{a.title}</CardTitle>
-                    <span className={cn('flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', a.isResolved ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>
+                    <span
+                      className={cn(
+                        'flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        a.isResolved
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-amber-500/10 text-amber-600',
+                      )}
+                    >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       {a.isResolved ? t('resolved') : t('unresolved')}
                     </span>
@@ -167,14 +237,25 @@ export default function AsksPage() {
                   {a.tags && a.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {a.tags.map((tag) => (
-                        <span key={tag} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{tag}</span>
+                        <span
+                          key={tag}
+                          className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
                       ))}
                     </div>
                   )}
                 </CardHeader>
                 <CardContent className="flex items-center gap-4 p-4 pt-0 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />{t('answerCount', { count: a.answerCount })}</span>
-                  <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{t('viewCount', { count: a.viewCount })}</span>
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    {t('answerCount', { count: a.answerCount })}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-3.5 w-3.5" />
+                    {t('viewCount', { count: a.viewCount })}
+                  </span>
                 </CardContent>
               </Card>
             </Link>

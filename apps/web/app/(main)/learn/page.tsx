@@ -4,13 +4,36 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { GraduationCap, PlayCircle, Users, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  GraduationCap,
+  PlayCircle,
+  Users,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
-interface Category { id: string; name: string }
+interface Category {
+  id: string
+  name: string
+}
 interface LessonItem {
   id: string
   title: string
@@ -19,7 +42,12 @@ interface LessonItem {
   price: number
   signupCount: number
 }
-interface LessonsData { list: LessonItem[]; total: number; page: number; pageSize: number }
+interface LessonsData {
+  list: LessonItem[]
+  total: number
+  page: number
+  pageSize: number
+}
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -31,7 +59,11 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-function fetchLessons(params: { page: number; categoryId: string; search: string }): Promise<LessonsData> {
+function fetchLessons(params: {
+  page: number
+  categoryId: string
+  search: string
+}): Promise<LessonsData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.categoryId !== 'all') qs.set('categoryId', params.categoryId)
   if (params.search) qs.set('search', params.search)
@@ -47,7 +79,10 @@ export default function LearnPage() {
   const [page, setPage] = React.useState(1)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [search])
 
@@ -86,14 +121,22 @@ export default function LearnPage() {
             aria-label={t('search')}
           />
         </div>
-        <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1) }}>
+        <Select
+          value={categoryId}
+          onValueChange={(v) => {
+            setCategoryId(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('category')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
             {(categories ?? []).map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -117,12 +160,12 @@ export default function LearnPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {lessons.map((lesson) => (
             <Link key={lesson.id} href={`/learn/${lesson.id}`} className="group block">
-              <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+              <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                   <PlayCircle className="h-10 w-10 text-primary/40" />
                 </div>
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="line-clamp-1 text-base">{lesson.title}</CardTitle>
+                  <CardTitle className="text-base">{lesson.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
                   <p className="text-muted-foreground">{lesson.instructor}</p>
@@ -131,7 +174,12 @@ export default function LearnPage() {
                       <Users className="h-3.5 w-3.5" />
                       {t('signupCount', { count: lesson.signupCount })}
                     </span>
-                    <span className={cn('font-medium', lesson.price > 0 ? 'text-primary' : 'text-emerald-600')}>
+                    <span
+                      className={cn(
+                        'font-medium',
+                        lesson.price > 0 ? 'text-primary' : 'text-emerald-600',
+                      )}
+                    >
                       {lesson.price > 0 ? t('price', { price: lesson.price }) : t('free')}
                     </span>
                   </div>
@@ -146,11 +194,23 @@ export default function LearnPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

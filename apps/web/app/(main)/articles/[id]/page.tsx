@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -36,6 +36,7 @@ async function api<T>(url: string): Promise<T> {
 export default function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('articles')
+  const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'detail', id],
@@ -45,7 +46,7 @@ export default function ArticleDetailPage() {
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
   }
 
   if (isLoading)
@@ -100,6 +101,7 @@ export default function ArticleDetailPage() {
 
       {article.coverImage && (
         <div className="overflow-hidden rounded-lg border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={article.coverImage}
             alt={article.title}

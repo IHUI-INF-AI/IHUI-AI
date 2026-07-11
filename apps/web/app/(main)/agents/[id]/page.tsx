@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft, Pencil, Sparkles, Tag } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui'
+import { Avatar } from '@/components/data/Avatar'
 
 interface Agent {
   agentId: string
@@ -110,6 +111,7 @@ export default function AgentDetailPage() {
         <div className="overflow-hidden rounded-lg border">
           <div className="relative h-48 w-full bg-muted">
             {agent.cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={agent.cover} alt={agent.name} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground/40">
@@ -120,15 +122,15 @@ export default function AgentDetailPage() {
 
           <div className="space-y-4 p-6">
             <div className="flex items-start gap-4">
-              <div className="-mt-12 flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-4 border-background bg-muted text-2xl font-medium">
-                {agent.avatar ? (
-                  <img src={agent.avatar} alt={agent.name} className="h-full w-full object-cover" />
-                ) : (
-                  (agent.name?.[0] ?? 'A').toUpperCase()
-                )}
-              </div>
+              <Avatar
+                src={agent.avatar ?? undefined}
+                name={agent.name ?? 'A'}
+                size="xl"
+                shape="square"
+                className="-mt-12 h-20 w-20 text-2xl border-4 border-background rounded-xl"
+              />
               <div className="min-w-0 flex-1 space-y-1">
-                <h1 className="truncate text-2xl font-bold tracking-tight">{agent.name}</h1>
+                <h1 className="break-words text-2xl font-bold tracking-tight">{agent.name}</h1>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(

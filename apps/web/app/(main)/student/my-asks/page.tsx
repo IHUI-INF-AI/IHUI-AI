@@ -114,11 +114,11 @@ export default function MyAsksPage() {
                     ? 'statusClosed'
                     : 'statusPending'
               return (
-                <Card key={ask.id} className="transition-colors hover:border-primary/40">
+                <Card key={ask.id} className="transition-colors hover:bg-accent">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <Link href={`/asks/${ask.id}`} className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 font-medium hover:text-primary">{ask.title}</h3>
+                        <h3 className="font-medium hover:text-primary">{ask.title}</h3>
                       </Link>
                       <Button
                         size="sm"
@@ -131,9 +131,7 @@ export default function MyAsksPage() {
                         {ta('delete')}
                       </Button>
                     </div>
-                    {ask.content && (
-                      <p className="line-clamp-2 text-sm text-muted-foreground">{ask.content}</p>
-                    )}
+                    {ask.content && <p className="text-sm text-muted-foreground">{ask.content}</p>}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1">

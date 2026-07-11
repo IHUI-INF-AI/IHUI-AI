@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +25,17 @@ const sizeMap = {
   full: 'max-w-[90vw]',
 }
 
-export function Modal({ open, onClose, title, description, children, footer, size = 'md', className }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  size = 'md',
+  className,
+}: ModalProps) {
+  const t = useTranslations('common')
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogPrimitive.Portal>
@@ -40,15 +51,23 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         >
           {(title || description) && (
             <div className="flex flex-col gap-1.5">
-              {title && <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">{title}</DialogPrimitive.Title>}
-              {description && <DialogPrimitive.Description className="text-sm text-muted-foreground">{description}</DialogPrimitive.Description>}
+              {title && (
+                <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">
+                  {title}
+                </DialogPrimitive.Title>
+              )}
+              {description && (
+                <DialogPrimitive.Description className="text-sm text-muted-foreground">
+                  {description}
+                </DialogPrimitive.Description>
+              )}
             </div>
           )}
           <div className="flex-1">{children}</div>
           {footer && <div className="flex justify-end gap-2">{footer}</div>}
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100">
             <X className="h-4 w-4" />
-            <span className="sr-only">关闭</span>
+            <span className="sr-only">{t('close')}</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

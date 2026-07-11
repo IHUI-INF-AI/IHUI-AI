@@ -1,12 +1,11 @@
 import type { NextRequest } from 'next/server'
+import type { JWTPayload } from '@ihui/auth'
 
 /**
  * JWT payload 中与前端鉴权相关的字段。
- * 与后端 @ihui/auth 的 JWTPayload 对应（sub=userId, roleId, exp 等）。
+ * 复用 @ihui/auth 的 JWTPayload（userId/phone/familyId/roleId），并补充前端守卫所需的标准 JWT 声明（exp/iat）与兼容字段（role/type）。
  */
-export interface AuthTokenUser {
-  userId?: string
-  roleId?: number
+export interface AuthTokenUser extends Partial<JWTPayload> {
   role?: string
   exp?: number
   iat?: number

@@ -31,7 +31,7 @@ export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps)
           routines.map((routine) => (
             <li key={routine.id} className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{routine.name}</p>
+                <p className="break-words text-sm font-medium">{routine.name}</p>
                 <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-0.5">
                     <Calendar className="h-3 w-3" />
@@ -54,10 +54,7 @@ export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps)
                 <Play className="h-3 w-3" />
                 运行
               </Button>
-              <Switch
-                checked={routine.enabled}
-                onCheckedChange={() => onToggle?.(routine.id)}
-              />
+              <Switch checked={routine.enabled} onCheckedChange={() => onToggle?.(routine.id)} />
             </li>
           ))
         )}

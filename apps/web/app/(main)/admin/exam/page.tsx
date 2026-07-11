@@ -360,7 +360,7 @@ export default function AdminExamPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="font-medium">{paper.title}</div>
                       {paper.description ? (
-                        <div className="max-w-xs truncate text-xs text-muted-foreground">
+                        <div className="max-w-xs break-words text-xs text-muted-foreground">
                           {paper.description}
                         </div>
                       ) : null}
@@ -388,12 +388,7 @@ export default function AdminExamPage() {
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          asChild
-                          variant="ghost"
-                          size="sm"
-                          title={t('questions')}
-                        >
+                        <Button asChild variant="ghost" size="sm" title={t('questions')}>
                           <Link href={`/admin/exam/questions?paperId=${paper.id}`}>
                             <ListChecks className="h-4 w-4" />
                           </Link>
@@ -531,7 +526,12 @@ export default function AdminExamPage() {
               </Select>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>
