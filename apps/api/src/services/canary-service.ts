@@ -1,6 +1,5 @@
-import { eq, desc } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { canaryConfigs, canaryAuditLogs } from '@ihui/database'
 
 export type CanaryStage = 'off' | 'canary_1pct' | 'canary_5pct' | 'canary_25pct' | 'full'
 
@@ -35,10 +34,79 @@ const STAGE_PERCENT: Record<CanaryStage, number> = {
   full: 100,
 }
 
+interface CanaryConfigRow extends CanaryConfig {
+  id: string
+  target: string | null
+  autoRollback: boolean
+  status: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+const CANARY_SELECT_COLS = sql`
+  id, name, target,
+  current_stage AS "currentStage",
+  target_stage AS "targetStage",
+  failure_threshold AS "failureThreshold",
+  cooldown_minutes AS "cooldownMinutes",
+  auto_rollback AS "autoRollback",
+  status,
+  started_at AS "startedAt",
+  last_promoted_at AS "lastPromotedAt",
+  failure_count AS "failureCount",
+  is_active AS "isActive",
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`
+
+let initPromise: Promise<void> | null = null
+
+async function ensureTables(): Promise<void> {
+  if (!initPromise) {
+    initPromise = (async () => {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS canary_configs (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          name varchar(100) NOT NULL UNIQUE,
+          target varchar(200),
+          current_stage varchar(50) NOT NULL,
+          target_stage varchar(50) NOT NULL,
+          failure_threshold integer NOT NULL,
+          cooldown_minutes integer NOT NULL,
+          auto_rollback boolean NOT NULL DEFAULT true,
+          status varchar(50) NOT NULL DEFAULT 'active',
+          started_at timestamptz,
+          last_promoted_at timestamptz,
+          failure_count integer NOT NULL DEFAULT 0,
+          is_active boolean NOT NULL DEFAULT true,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        )
+      `)
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS canary_audit_logs (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          config_id uuid NOT NULL REFERENCES canary_configs(id) ON DELETE CASCADE,
+          action varchar(50) NOT NULL,
+          from_stage varchar(50),
+          to_stage varchar(50),
+          reason text,
+          operator_id uuid,
+          created_at timestamptz NOT NULL DEFAULT now()
+        )
+      `)
+    })()
+  }
+  return initPromise
+}
+
 /** 根据名称从 DB 读取单条配置的原始行。 */
-async function fetchConfigRow(name: string) {
-  const [row] = await db.select().from(canaryConfigs).where(eq(canaryConfigs.name, name))
-  return row ?? null
+async function fetchConfigRow(name: string): Promise<CanaryConfigRow | null> {
+  await ensureTables()
+  const rows = await db.execute(sql`
+    SELECT ${CANARY_SELECT_COLS} FROM canary_configs WHERE name = ${name}
+  `)
+  return (rows[0] as CanaryConfigRow | undefined) ?? null
 }
 
 export async function getCanaryConfig(name: string): Promise<CanaryConfig | null> {
@@ -52,8 +120,11 @@ export async function getCanaryConfig(name: string): Promise<CanaryConfig | null
 
 export async function listCanaryConfigs(): Promise<CanaryConfig[]> {
   try {
-    const rows = await db.select().from(canaryConfigs)
-    return rows
+    await ensureTables()
+    const rows = await db.execute(sql`
+      SELECT ${CANARY_SELECT_COLS} FROM canary_configs ORDER BY created_at DESC
+    `)
+    return rows as unknown as CanaryConfig[]
   } catch (err) {
     console.error('[canary] listCanaryConfigs failed:', err)
     return []
@@ -68,39 +139,27 @@ export async function createCanary(
 ): Promise<CanaryConfig> {
   const now = new Date()
   try {
-    const [row] = await db
-      .insert(canaryConfigs)
-      .values({
-        name,
-        currentStage: 'canary_1pct',
-        targetStage,
-        failureThreshold,
-        cooldownMinutes,
-        autoRollback: true,
-        status: 'active',
-        startedAt: now,
-        lastPromotedAt: null,
-        failureCount: 0,
-        isActive: true,
-      })
-      .onConflictDoUpdate({
-        target: canaryConfigs.name,
-        set: {
-          currentStage: 'canary_1pct',
-          targetStage,
-          failureThreshold,
-          cooldownMinutes,
-          autoRollback: true,
-          status: 'active',
-          startedAt: now,
-          lastPromotedAt: null,
-          failureCount: 0,
-          isActive: true,
-          updatedAt: now,
-        },
-      })
-      .returning()
-
+    await ensureTables()
+    const rows = await db.execute(sql`
+      INSERT INTO canary_configs
+        (name, current_stage, target_stage, failure_threshold, cooldown_minutes, auto_rollback, status, started_at, last_promoted_at, failure_count, is_active)
+      VALUES
+        (${name}, 'canary_1pct', ${targetStage}, ${failureThreshold}, ${cooldownMinutes}, true, 'active', ${now}, NULL, 0, true)
+      ON CONFLICT (name) DO UPDATE SET
+        current_stage = 'canary_1pct',
+        target_stage = ${targetStage},
+        failure_threshold = ${failureThreshold},
+        cooldown_minutes = ${cooldownMinutes},
+        auto_rollback = true,
+        status = 'active',
+        started_at = ${now},
+        last_promoted_at = NULL,
+        failure_count = 0,
+        is_active = true,
+        updated_at = ${now}
+      RETURNING ${CANARY_SELECT_COLS}
+    `)
+    const row = rows[0] as CanaryConfigRow | undefined
     if (!row) throw new Error('failed to create canary config')
 
     await addAudit(row.id, 'promote', 'off', 'canary_1pct', 'canary started')
@@ -116,7 +175,6 @@ export async function promoteCanary(name: string): Promise<CanaryConfig> {
   if (!config) throw new Error(`canary config "${name}" not found`)
   if (!config.isActive) throw new Error('canary is not active')
 
-  // 冷却期检查
   if (config.lastPromotedAt) {
     const elapsed = Date.now() - config.lastPromotedAt.getTime()
     const cooldownMs = config.cooldownMinutes * 60 * 1000
@@ -136,17 +194,16 @@ export async function promoteCanary(name: string): Promise<CanaryConfig> {
   const reachedTarget = nextStage === config.targetStage
 
   try {
-    await db
-      .update(canaryConfigs)
-      .set({
-        currentStage: nextStage,
-        lastPromotedAt: now,
-        failureCount: 0,
-        isActive: !reachedTarget,
-        status: reachedTarget ? 'completed' : 'active',
-        updatedAt: now,
-      })
-      .where(eq(canaryConfigs.name, name))
+    await db.execute(sql`
+      UPDATE canary_configs
+      SET current_stage = ${nextStage},
+          last_promoted_at = ${now},
+          failure_count = 0,
+          is_active = ${!reachedTarget},
+          status = ${reachedTarget ? 'completed' : 'active'},
+          updated_at = ${now}
+      WHERE name = ${name}
+    `)
   } catch (err) {
     console.error('[canary] promoteCanary DB update failed:', err)
     throw err
@@ -169,16 +226,15 @@ export async function rollbackCanary(name: string, reason: string): Promise<Cana
 
   const now = new Date()
   try {
-    await db
-      .update(canaryConfigs)
-      .set({
-        currentStage: 'off',
-        isActive: false,
-        failureCount: 0,
-        status: 'rolled_back',
-        updatedAt: now,
-      })
-      .where(eq(canaryConfigs.name, name))
+    await db.execute(sql`
+      UPDATE canary_configs
+      SET current_stage = 'off',
+          is_active = false,
+          failure_count = 0,
+          status = 'rolled_back',
+          updated_at = ${now}
+      WHERE name = ${name}
+    `)
   } catch (err) {
     console.error('[canary] rollbackCanary DB update failed:', err)
     throw err
@@ -201,13 +257,12 @@ export async function recordFailure(name: string, reason: string): Promise<Canar
   const newFailureCount = config.failureCount + 1
   const now = new Date()
   try {
-    await db
-      .update(canaryConfigs)
-      .set({
-        failureCount: newFailureCount,
-        updatedAt: now,
-      })
-      .where(eq(canaryConfigs.name, name))
+    await db.execute(sql`
+      UPDATE canary_configs
+      SET failure_count = ${newFailureCount},
+          updated_at = ${now}
+      WHERE name = ${name}
+    `)
   } catch (err) {
     console.error('[canary] recordFailure DB update failed:', err)
     throw err
@@ -230,24 +285,22 @@ export async function resetCanary(name: string): Promise<CanaryConfig> {
 
   const now = new Date()
   try {
-    await db
-      .update(canaryConfigs)
-      .set({
-        currentStage: 'off',
-        failureCount: 0,
-        isActive: false,
-        status: 'paused',
-        startedAt: null,
-        lastPromotedAt: null,
-        updatedAt: now,
-      })
-      .where(eq(canaryConfigs.name, name))
+    await db.execute(sql`
+      UPDATE canary_configs
+      SET current_stage = 'off',
+          failure_count = 0,
+          is_active = false,
+          status = 'paused',
+          started_at = NULL,
+          last_promoted_at = NULL,
+          updated_at = ${now}
+      WHERE name = ${name}
+    `)
   } catch (err) {
     console.error('[canary] resetCanary DB update failed:', err)
     throw err
   }
 
-  // 保留原始行为：reset 后 currentStage 已为 'off'，审计 fromStage 记录为 'off'
   await addAudit(config.id, 'reset', 'off', 'off', 'manual reset')
 
   return {
@@ -262,23 +315,39 @@ export async function resetCanary(name: string): Promise<CanaryConfig> {
 
 export async function getAuditLog(configName?: string): Promise<CanaryAuditEntry[]> {
   try {
-    const rows = await db
-      .select({
-        id: canaryAuditLogs.id,
-        configName: canaryConfigs.name,
-        action: canaryAuditLogs.action,
-        fromStage: canaryAuditLogs.fromStage,
-        toStage: canaryAuditLogs.toStage,
-        timestamp: canaryAuditLogs.createdAt,
-        reason: canaryAuditLogs.reason,
-      })
-      .from(canaryAuditLogs)
-      .leftJoin(canaryConfigs, eq(canaryAuditLogs.configId, canaryConfigs.id))
-      .where(configName ? eq(canaryConfigs.name, configName) : undefined)
-      .orderBy(desc(canaryAuditLogs.createdAt))
-      .limit(1000)
+    await ensureTables()
+    const rows = configName
+      ? await db.execute(sql`
+          SELECT al.id, cc.name AS "configName", al.action,
+                 al.from_stage AS "fromStage", al.to_stage AS "toStage",
+                 al.created_at AS "timestamp", al.reason
+          FROM canary_audit_logs al
+          LEFT JOIN canary_configs cc ON al.config_id = cc.id
+          WHERE cc.name = ${configName}
+          ORDER BY al.created_at DESC
+          LIMIT 1000
+        `)
+      : await db.execute(sql`
+          SELECT al.id, cc.name AS "configName", al.action,
+                 al.from_stage AS "fromStage", al.to_stage AS "toStage",
+                 al.created_at AS "timestamp", al.reason
+          FROM canary_audit_logs al
+          LEFT JOIN canary_configs cc ON al.config_id = cc.id
+          ORDER BY al.created_at DESC
+          LIMIT 1000
+        `)
 
-    return rows.map((r) => ({
+    return (
+      rows as unknown as Array<{
+        id: string
+        configName: string | null
+        action: string
+        fromStage: string | null
+        toStage: string | null
+        timestamp: Date
+        reason: string | null
+      }>
+    ).map((r) => ({
       id: r.id,
       configName: r.configName ?? '',
       action: r.action as CanaryAuditEntry['action'],
@@ -305,15 +374,12 @@ async function addAudit(
   reason: string,
 ): Promise<void> {
   try {
-    await db.insert(canaryAuditLogs).values({
-      configId,
-      action,
-      fromStage,
-      toStage,
-      reason,
-    })
+    await ensureTables()
+    await db.execute(sql`
+      INSERT INTO canary_audit_logs (config_id, action, from_stage, to_stage, reason)
+      VALUES (${configId}, ${action}, ${fromStage}, ${toStage}, ${reason})
+    `)
   } catch (err) {
-    // 审计日志写入失败不应影响主流程
     console.error('[canary] failed to write audit log:', err)
   }
 }

@@ -1,13 +1,16 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { authenticate } from '../plugins/auth.js';
-import { success, error } from '../utils/response.js';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { eq, sql } from 'drizzle-orm'
+import { authenticate } from '../plugins/auth.js'
+import { success, error } from '../utils/response.js'
+import { db, dbRead } from '../db/index.js'
+import { zhsAgentBuy, agentSettlements } from '@ihui/database'
 import {
   getAgentDetail,
   listAgents,
   createAgent,
   updateAgent,
   deleteAgent,
-} from '../services/agent-service.js';
+} from '../services/agent-service.js'
 import {
   findCategoryList,
   findCategoryById,
@@ -34,32 +37,29 @@ import {
   type UpdateCategoryInput,
   type CreateSettlementInput,
   type UpdateExamineInput,
-} from '../db/agents-queries.js';
-import { listOAuthApps, findAuditLogList, findAuditLogStats } from '../db/oauth-queries.js';
+} from '../db/agents-queries.js'
+import { listOAuthApps, findAuditLogList, findAuditLogStats } from '../db/oauth-queries.js'
 
 // =============================================================================
 // 鉴权辅助
 // =============================================================================
 
-async function requireAuth(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<boolean> {
+async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
-    await authenticate(request);
-    return true;
+    await authenticate(request)
+    return true
   } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+    const message = (e as Error).message || 'Authentication required'
+    reply.status(statusCode).send(error(statusCode, message))
+    return false
   }
 }
 
 function toInt(v: string | undefined): number | undefined {
-  if (v === undefined || v === '') return undefined;
-  const n = parseInt(v, 10);
-  return Number.isNaN(n) ? undefined : n;
+  if (v === undefined || v === '') return undefined
+  const n = parseInt(v, 10)
+  return Number.isNaN(n) ? undefined : n
 }
 
 // =============================================================================
@@ -69,8 +69,8 @@ function toInt(v: string | undefined): number | undefined {
 
 export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return;
-  });
+    if (!(await requireAuth(request, reply))) return
+  })
 
   // -------------------------------------------------------------------------
   // agents CRUD
@@ -79,13 +79,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /agents/list - 代理列表
   server.get('/agents/list', async (request, reply) => {
     const q = request.query as {
-      page?: string;
-      pageSize?: string;
-      status?: string;
-      categoryId?: string;
-      userId?: string;
-      keyword?: string;
-    };
+      page?: string
+      pageSize?: string
+      status?: string
+      categoryId?: string
+      userId?: string
+      keyword?: string
+    }
     const result = await listAgents({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
@@ -93,34 +93,34 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       categoryId: q.categoryId,
       userId: q.userId,
       keyword: q.keyword,
-    });
-    return reply.send(success(result));
-  });
+    })
+    return reply.send(success(result))
+  })
 
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string };
-    const detail = await getAgentDetail(agentId);
-    if (!detail) return reply.status(404).send(error(404, '智能体不存在'));
-    return reply.send(success(detail.agent));
-  });
+    const { agentId } = request.params as { agentId: string }
+    const detail = await getAgentDetail(agentId)
+    if (!detail) return reply.status(404).send(error(404, '智能体不存在'))
+    return reply.send(success(detail.agent))
+  })
 
   // POST /agents/create - 创建代理
   server.post('/agents/create', async (request, reply) => {
     const body = request.body as {
-      name?: string;
-      description?: string | null;
-      avatar?: string | null;
-      cover?: string | null;
-      categoryId?: string | null;
-      workspaceId?: string | null;
-      status?: string;
-      price?: number;
-      isFree?: boolean;
-      sort?: number;
-      remark?: string | null;
-    };
-    if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'));
+      name?: string
+      description?: string | null
+      avatar?: string | null
+      cover?: string | null
+      categoryId?: string | null
+      workspaceId?: string | null
+      status?: string
+      price?: number
+      isFree?: boolean
+      sort?: number
+      remark?: string | null
+    }
+    if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'))
     const agent = await createAgent({
       name: body.name,
       description: body.description,
@@ -134,26 +134,26 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       isFree: body.isFree,
       sort: body.sort,
       remark: body.remark,
-    });
-    return reply.send(success(agent));
-  });
+    })
+    return reply.send(success(agent))
+  })
 
   // PUT /agents/:agentId - 更新代理
   server.put('/agents/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string };
-    const body = request.body as UpdateAgentInput;
-    const agent = await updateAgent(agentId, body);
-    if (!agent) return reply.status(404).send(error(404, '智能体不存在'));
-    return reply.send(success(agent));
-  });
+    const { agentId } = request.params as { agentId: string }
+    const body = request.body as UpdateAgentInput
+    const agent = await updateAgent(agentId, body)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    return reply.send(success(agent))
+  })
 
   // DELETE /agents/:agentId - 删除代理
   server.delete('/agents/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string };
-    const agent = await deleteAgent(agentId);
-    if (!agent) return reply.status(404).send(error(404, '智能体不存在'));
-    return reply.send(success({ deleted: true }));
-  });
+    const { agentId } = request.params as { agentId: string }
+    const agent = await deleteAgent(agentId)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    return reply.send(success({ deleted: true }))
+  })
 
   // -------------------------------------------------------------------------
   // categories 代理分类
@@ -162,33 +162,33 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /categories/list - 分类列表
   server.get('/categories/list', async (request, reply) => {
     const q = request.query as {
-      page?: string;
-      pageSize?: string;
-      status?: string;
-      isPaid?: string;
-      keyword?: string;
-    };
+      page?: string
+      pageSize?: string
+      status?: string
+      isPaid?: string
+      keyword?: string
+    }
     const result = await findCategoryList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       status: q.status,
       isPaid: q.isPaid !== undefined ? q.isPaid === 'true' : undefined,
       keyword: q.keyword,
-    });
-    return reply.send(success(result));
-  });
+    })
+    return reply.send(success(result))
+  })
 
   // POST /categories/create - 创建分类
   server.post('/categories/create', async (request, reply) => {
     const body = request.body as {
-      name?: string;
-      description?: string | null;
-      icon?: string | null;
-      sort?: number;
-      status?: string;
-      isPaid?: boolean;
-    };
-    if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'));
+      name?: string
+      description?: string | null
+      icon?: string | null
+      sort?: number
+      status?: string
+      isPaid?: boolean
+    }
+    if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'))
     const category = await createCategory({
       name: body.name,
       description: body.description,
@@ -196,88 +196,88 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       sort: body.sort,
       status: body.status,
       isPaid: body.isPaid,
-    });
-    return reply.send(success(category));
-  });
+    })
+    return reply.send(success(category))
+  })
 
   // POST /categories/batch-query - 批量查询
   server.post('/categories/batch-query', async (request, reply) => {
-    const body = request.body as { ids?: string[] };
-    const ids = body?.ids ?? [];
-    const list = await findCategoriesByIds(ids);
-    return reply.send(success({ list, total: list.length }));
-  });
+    const body = request.body as { ids?: string[] }
+    const ids = body?.ids ?? []
+    const list = await findCategoriesByIds(ids)
+    return reply.send(success({ list, total: list.length }))
+  })
 
   // GET /categories/ids/:idList - 按 ID 列表查询
   server.get('/categories/ids/:idList', async (request, reply) => {
-    const { idList } = request.params as { idList: string };
+    const { idList } = request.params as { idList: string }
     const ids = idList
       .split(',')
       .map((s) => s.trim())
-      .filter(Boolean);
-    const list = await findCategoriesByIds(ids);
-    return reply.send(success({ list, total: list.length }));
-  });
+      .filter(Boolean)
+    const list = await findCategoriesByIds(ids)
+    return reply.send(success({ list, total: list.length }))
+  })
 
   // GET /categories/stats/summary - 分类统计
   server.get('/categories/stats/summary', async (_request, reply) => {
-    const { list } = await findCategoryList({ page: 1, pageSize: 1000 });
+    const { list } = await findCategoryList({ page: 1, pageSize: 1000 })
     const summary = {
       total: list.length,
       enabled: list.filter((c) => c.status === '1').length,
       paid: list.filter((c) => c.isPaid).length,
-    };
-    return reply.send(success(summary));
-  });
+    }
+    return reply.send(success(summary))
+  })
 
   // GET /categories/agent/:agentId - 按智能体 ID 查分类
   server.get('/categories/agent/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string };
-    const category = await findCategoryByAgentId(agentId);
-    const list = category ? [category] : [];
-    return reply.send(success({ list, total: list.length }));
-  });
+    const { agentId } = request.params as { agentId: string }
+    const category = await findCategoryByAgentId(agentId)
+    const list = category ? [category] : []
+    return reply.send(success({ list, total: list.length }))
+  })
 
   // GET /categories/:categoryId - 分类详情
   server.get('/categories/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string };
-    const category = await findCategoryById(categoryId);
-    if (!category) return reply.status(404).send(error(404, '分类不存在'));
-    return reply.send(success(category));
-  });
+    const { categoryId } = request.params as { categoryId: string }
+    const category = await findCategoryById(categoryId)
+    if (!category) return reply.status(404).send(error(404, '分类不存在'))
+    return reply.send(success(category))
+  })
 
   // PUT /categories/:categoryId - 更新分类
   server.put('/categories/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string };
-    const body = request.body as UpdateCategoryInput;
-    const category = await updateCategory(categoryId, body);
-    if (!category) return reply.status(404).send(error(404, '分类不存在'));
-    return reply.send(success(category));
-  });
+    const { categoryId } = request.params as { categoryId: string }
+    const body = request.body as UpdateCategoryInput
+    const category = await updateCategory(categoryId, body)
+    if (!category) return reply.status(404).send(error(404, '分类不存在'))
+    return reply.send(success(category))
+  })
 
   // DELETE /categories/:categoryId - 删除分类
   server.delete('/categories/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string };
-    const category = await deleteCategory(categoryId);
-    if (!category) return reply.status(404).send(error(404, '分类不存在'));
-    return reply.send(success({ deleted: true }));
-  });
+    const { categoryId } = request.params as { categoryId: string }
+    const category = await deleteCategory(categoryId)
+    if (!category) return reply.status(404).send(error(404, '分类不存在'))
+    return reply.send(success({ deleted: true }))
+  })
 
   // POST /categories/:categoryId/enable - 启用付费
   server.post('/categories/:categoryId/enable', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string };
-    const category = await updateCategory(categoryId, { isPaid: true });
-    if (!category) return reply.status(404).send(error(404, '分类不存在'));
-    return reply.send(success(category));
-  });
+    const { categoryId } = request.params as { categoryId: string }
+    const category = await updateCategory(categoryId, { isPaid: true })
+    if (!category) return reply.status(404).send(error(404, '分类不存在'))
+    return reply.send(success(category))
+  })
 
   // POST /categories/:categoryId/disable - 禁用付费
   server.post('/categories/:categoryId/disable', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string };
-    const category = await updateCategory(categoryId, { isPaid: false });
-    if (!category) return reply.status(404).send(error(404, '分类不存在'));
-    return reply.send(success(category));
-  });
+    const { categoryId } = request.params as { categoryId: string }
+    const category = await updateCategory(categoryId, { isPaid: false })
+    if (!category) return reply.status(404).send(error(404, '分类不存在'))
+    return reply.send(success(category))
+  })
 
   // -------------------------------------------------------------------------
   // settlement 结算
@@ -286,120 +286,173 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /settlement/list - 结算列表
   server.get('/settlement/list', async (request, reply) => {
     const q = request.query as {
-      page?: string;
-      pageSize?: string;
-      agentId?: string;
-      status?: string;
-      orderNo?: string;
-    };
+      page?: string
+      pageSize?: string
+      agentId?: string
+      status?: string
+      orderNo?: string
+    }
     const result = await findSettlementList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       agentId: q.agentId,
       status: q.status,
       orderNo: q.orderNo,
-    });
-    return reply.send(success(result));
-  });
+    })
+    return reply.send(success(result))
+  })
 
   // GET /settlement/summary - 结算汇总
   server.get('/settlement/summary', async (_request, reply) => {
-    const summary = await findSettlementSummary();
-    return reply.send(success(summary));
-  });
+    const summary = await findSettlementSummary()
+    return reply.send(success(summary))
+  })
 
   // POST /settlement/settle - 触发结算
   server.post('/settlement/settle', async (request, reply) => {
-    const body = request.body as { id?: string };
-    if (!body?.id) return reply.status(400).send(error(400, 'id 为必填项'));
-    const record = await settleSettlement(body.id);
-    if (!record) return reply.status(404).send(error(404, '结算记录不存在'));
-    return reply.send(success(record));
-  });
+    const body = request.body as { id?: string }
+    if (!body?.id) return reply.status(400).send(error(400, 'id 为必填项'))
+    const record = await settleSettlement(body.id)
+    if (!record) return reply.status(404).send(error(404, '结算记录不存在'))
+    return reply.send(success(record))
+  })
 
   // GET /settlement/unsettled - 未结算记录
   server.get('/settlement/unsettled', async (request, reply) => {
     const q = request.query as {
-      page?: string;
-      pageSize?: string;
-      agentId?: string;
-    };
+      page?: string
+      pageSize?: string
+      agentId?: string
+    }
     const result = await findSettlementList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       agentId: q.agentId,
       status: 'unsettled',
-    });
-    return reply.send(success(result));
-  });
+    })
+    return reply.send(success(result))
+  })
 
   // GET /settlement/cache/info - 缓存信息
   server.get('/settlement/cache/info', async (request, reply) => {
-    const redis = request.server.redis;
-    const key = 'settlement:summary';
-    const exists = await redis.exists(key);
-    const ttl = exists ? await redis.ttl(key) : -2;
-    return reply.send(success({
-      cached: exists === 1,
-      ttlSeconds: ttl,
-      key,
-    }));
-  });
+    const redis = request.server.redis
+    const key = 'settlement:summary'
+    const exists = await redis.exists(key)
+    const ttl = exists ? await redis.ttl(key) : -2
+    return reply.send(
+      success({
+        cached: exists === 1,
+        ttlSeconds: ttl,
+        key,
+      }),
+    )
+  })
 
   // POST /settlement/cache/force-check - 强制检查缓存
   server.post('/settlement/cache/force-check', async (request, reply) => {
-    const redis = request.server.redis;
-    const key = 'settlement:summary';
-    const exists = await redis.exists(key);
-    return reply.send(success({ cached: exists === 1, checked: true }));
-  });
+    const redis = request.server.redis
+    const key = 'settlement:summary'
+    const exists = await redis.exists(key)
+    return reply.send(success({ cached: exists === 1, checked: true }))
+  })
 
   // POST /settlement/cache/force-refresh - 强制刷新缓存
   server.post('/settlement/cache/force-refresh', async (request, reply) => {
-    const redis = request.server.redis;
-    const summary = await findSettlementSummary();
-    const key = 'settlement:summary';
-    await redis.set(key, JSON.stringify(summary), 'EX', 300);
-    return reply.send(success({ refreshed: true, summary }));
-  });
+    const redis = request.server.redis
+    const summary = await findSettlementSummary()
+    const key = 'settlement:summary'
+    await redis.set(key, JSON.stringify(summary), 'EX', 300)
+    return reply.send(success({ refreshed: true, summary }))
+  })
 
   // POST /settlement/create - 创建结算记录
   server.post('/settlement/create', async (request, reply) => {
-    const body = request.body as CreateSettlementInput;
-    const record = await createSettlement(body);
-    return reply.send(success(record));
-  });
+    const body = request.body as CreateSettlementInput
+    const record = await createSettlement(body)
+    return reply.send(success(record))
+  })
 
-  // POST /settlement/sync-existing - 批量同步（依赖外部购买记录，保持 stub）
+  // POST /settlement/sync-existing - 批量同步购买记录到结算表
   server.post('/settlement/sync-existing', async (_request, reply) => {
-    return reply.send(success({ synced: 0, message: '同步逻辑依赖外部购买记录表' }));
-  });
+    const activeBuys = await dbRead
+      .select({ id: zhsAgentBuy.id, agentId: zhsAgentBuy.agentId, price: zhsAgentBuy.price })
+      .from(zhsAgentBuy)
+      .where(eq(zhsAgentBuy.status, 'active'))
 
-  // POST /settlement/sync-single/:buyRecordId - 同步单条（依赖外部购买记录，保持 stub）
-  server.post('/settlement/sync-single/:buyRecordId', async (_request, reply) => {
-    return reply.send(success({ synced: false, message: '同步逻辑依赖外部购买记录表' }));
-  });
+    const existing = await dbRead
+      .select({ buyRecordId: agentSettlements.buyRecordId })
+      .from(agentSettlements)
+      .where(sql`${agentSettlements.buyRecordId} IS NOT NULL`)
+
+    const existingIds = new Set(existing.map((s) => s.buyRecordId))
+    const missing = activeBuys.filter((b) => !existingIds.has(b.id))
+
+    if (missing.length === 0) {
+      return reply.send(success({ synced: 0 }))
+    }
+
+    await db.insert(agentSettlements).values(
+      missing.map((b) => ({
+        agentId: b.agentId,
+        buyRecordId: b.id,
+        amount: Math.round(parseFloat(b.price) * 100),
+        status: 'unsettled',
+      })),
+    )
+    return reply.send(success({ synced: missing.length }))
+  })
+
+  // POST /settlement/sync-single/:buyRecordId - 同步单条购买记录到结算表
+  server.post('/settlement/sync-single/:buyRecordId', async (request, reply) => {
+    const { buyRecordId } = request.params as { buyRecordId: string }
+
+    const already = await dbRead
+      .select({ id: agentSettlements.id })
+      .from(agentSettlements)
+      .where(eq(agentSettlements.buyRecordId, buyRecordId))
+      .limit(1)
+    if (already.length > 0) {
+      return reply.send(success({ synced: false, message: '结算记录已存在' }))
+    }
+
+    const buyRecord = await dbRead
+      .select()
+      .from(zhsAgentBuy)
+      .where(eq(zhsAgentBuy.id, buyRecordId))
+      .limit(1)
+    if (!buyRecord[0]) {
+      return reply.status(404).send(error(404, '购买记录不存在'))
+    }
+
+    await db.insert(agentSettlements).values({
+      agentId: buyRecord[0].agentId,
+      buyRecordId: buyRecord[0].id,
+      amount: Math.round(parseFloat(buyRecord[0].price) * 100),
+      status: 'unsettled',
+    })
+    return reply.send(success({ synced: true }))
+  })
 
   // POST /settlement/batch-delete - 批量删除
   server.post('/settlement/batch-delete', async (request, reply) => {
-    const body = request.body as { ids?: string[] };
-    const ids = body?.ids ?? [];
-    const deleted = await deleteSettlements(ids);
-    return reply.send(success({ deleted }));
-  });
+    const body = request.body as { ids?: string[] }
+    const ids = body?.ids ?? []
+    const deleted = await deleteSettlements(ids)
+    return reply.send(success({ deleted }))
+  })
 
   // GET /settlement/order/:orderNo/summary - 订单结算汇总
   server.get('/settlement/order/:orderNo/summary', async (request, reply) => {
-    const { orderNo } = request.params as { orderNo: string };
-    const summary = await findSettlementByOrder(orderNo);
-    return reply.send(success(summary));
-  });
+    const { orderNo } = request.params as { orderNo: string }
+    const summary = await findSettlementByOrder(orderNo)
+    return reply.send(success(summary))
+  })
 
   // GET /settlement/stats/income-overview - 收入概览
   server.get('/settlement/stats/income-overview', async (_request, reply) => {
-    const summary = await findSettlementSummary();
-    return reply.send(success(summary));
-  });
+    const summary = await findSettlementSummary()
+    return reply.send(success(summary))
+  })
 
   // -------------------------------------------------------------------------
   // examine 审核
@@ -408,140 +461,148 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /examine/list - 审核列表
   server.get('/examine/list', async (request, reply) => {
     const q = request.query as {
-      page?: string;
-      pageSize?: string;
-      agentId?: string;
-      userId?: string;
-      status?: string;
-    };
+      page?: string
+      pageSize?: string
+      agentId?: string
+      userId?: string
+      status?: string
+    }
     const result = await findExamineList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       agentId: q.agentId,
       userId: q.userId,
       status: q.status,
-    });
-    return reply.send(success(result));
-  });
+    })
+    return reply.send(success(result))
+  })
 
   // GET /examine/stats/summary - 审核统计
   server.get('/examine/stats/summary', async (_request, reply) => {
-    const stats = await findExamineStats();
-    return reply.send(success(stats));
-  });
+    const stats = await findExamineStats()
+    return reply.send(success(stats))
+  })
 
   // POST /examine/submit - 提交审核
   server.post('/examine/submit', async (request, reply) => {
     const body = request.body as {
-      agentId?: string;
-      reason?: string | null;
-      status?: string;
-    };
-    if (!body?.agentId) return reply.status(400).send(error(400, 'agentId 为必填项'));
+      agentId?: string
+      reason?: string | null
+      status?: string
+    }
+    if (!body?.agentId) return reply.status(400).send(error(400, 'agentId 为必填项'))
     const record = await createExamine({
       agentId: body.agentId,
       userId: request.userId,
       status: body.status ?? 'pending',
       reason: body.reason,
-    });
-    return reply.send(success(record));
-  });
-
-  // POST /examine/batch-sync-avatar - 批量同步头像（依赖外部存储，保持 stub）
-  server.post('/examine/batch-sync-avatar', async (_request, reply) => {
-    return reply.send(success({ synced: 0, message: '头像同步依赖外部存储服务' }));
-  });
-
-  // POST /examine/sync-avatar/:agentId - 同步单个头像（依赖外部存储，保持 stub）
-  server.post('/examine/sync-avatar/:agentId', async (_request, reply) => {
-    return reply.send(success({ synced: false, message: '头像同步依赖外部存储服务' }));
-  });
+    })
+    return reply.send(success(record))
+  })
 
   // GET /examine/:recordId - 审核详情
   server.get('/examine/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string };
-    const record = await findExamineById(recordId);
-    if (!record) return reply.status(404).send(error(404, '审核记录不存在'));
-    return reply.send(success(record));
-  });
+    const { recordId } = request.params as { recordId: string }
+    const record = await findExamineById(recordId)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
 
   // PUT /examine/:recordId - 更新审核记录
   server.put('/examine/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string };
-    const body = request.body as UpdateExamineInput;
-    const record = await updateExamine(recordId, body);
-    if (!record) return reply.status(404).send(error(404, '审核记录不存在'));
-    return reply.send(success(record));
-  });
+    const { recordId } = request.params as { recordId: string }
+    const body = request.body as UpdateExamineInput
+    const record = await updateExamine(recordId, body)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
 
   // DELETE /examine/:recordId - 删除审核记录
   server.delete('/examine/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string };
-    const record = await deleteExamine(recordId);
-    if (!record) return reply.status(404).send(error(404, '审核记录不存在'));
-    return reply.send(success({ deleted: true }));
-  });
+    const { recordId } = request.params as { recordId: string }
+    const record = await deleteExamine(recordId)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success({ deleted: true }))
+  })
 
   // PUT /examine/:recordId/approve - 批准
   server.put('/examine/:recordId/approve', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string };
-    const record = await approveExamine(recordId, request.userId!);
-    if (!record) return reply.status(404).send(error(404, '审核记录不存在'));
-    return reply.send(success(record));
-  });
+    const { recordId } = request.params as { recordId: string }
+    const record = await approveExamine(recordId, request.userId!)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
 
   // PUT /examine/:recordId/reject - 拒绝
   server.put('/examine/:recordId/reject', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string };
-    const body = request.body as { reason?: string };
-    if (!body?.reason) return reply.status(400).send(error(400, 'reason 为必填项'));
-    const record = await rejectExamine(recordId, request.userId!, body.reason);
-    if (!record) return reply.status(404).send(error(404, '审核记录不存在'));
-    return reply.send(success(record));
-  });
+    const { recordId } = request.params as { recordId: string }
+    const body = request.body as { reason?: string }
+    if (!body?.reason) return reply.status(400).send(error(400, 'reason 为必填项'))
+    const record = await rejectExamine(recordId, request.userId!, body.reason)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
 
   // -------------------------------------------------------------------------
   // oauth-apps OAuth 应用
   // -------------------------------------------------------------------------
 
-  // POST /oauth-apps/create - 创建 OAuth 应用
-  // （依赖 clientId/clientSecret 生成与哈希逻辑，保持 stub，详见 /auth/oauth/apps/create）
-  server.post('/oauth-apps/create', async (_request, reply) => {
-    return reply.send(
-      success({ message: '请使用 POST /auth/oauth/apps/create 创建 OAuth 应用' }),
-    );
-  });
-
   // GET /oauth-apps/list - OAuth 应用列表
   server.get('/oauth-apps/list', async (request, reply) => {
-    const q = request.query as { page?: string; limit?: string };
-    const page = toInt(q.page) ?? 1;
-    const limit = toInt(q.limit) ?? 20;
-    const result = await listOAuthApps(request.userId!, page, limit);
-    return reply.send(success({ list: result.items, total: result.total }));
-  });
+    const q = request.query as { page?: string; limit?: string }
+    const page = toInt(q.page) ?? 1
+    const limit = toInt(q.limit) ?? 20
+    const result = await listOAuthApps(request.userId!, page, limit)
+    return reply.send(success({ list: result.items, total: result.total }))
+  })
 
   // GET /oauth-apps/audit-logs/stats - 聚合统计
   server.get('/oauth-apps/audit-logs/stats', async (_request, reply) => {
-    const stats = await findAuditLogStats();
-    return reply.send(success(stats));
-  });
+    const stats = await findAuditLogStats()
+    return reply.send(success(stats))
+  })
 
-  // GET /oauth-apps/audit-logs/export - CSV 导出（保持 stub，依赖文件生成管线）
+  // GET /oauth-apps/audit-logs/export - CSV 导出
   server.get('/oauth-apps/audit-logs/export', async (_request, reply) => {
-    return reply.send(success({ url: null, message: '导出功能暂未实现' }));
-  });
+    const { items } = await findAuditLogList({ page: 1, limit: 10000 })
+    const headers = ['id', 'event', 'clientId', 'userId', 'ip', 'status', 'detail', 'createdAt']
+    const escapeCsv = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+    const rows = items.map((item) =>
+      [
+        item.id,
+        item.event,
+        item.clientId ?? '',
+        item.userId ?? '',
+        item.ip ?? '',
+        item.status ?? '',
+        item.detail ?? '',
+        item.createdAt.toISOString(),
+      ]
+        .map((v) => escapeCsv(String(v)))
+        .join(','),
+    )
+    const csv = [headers.join(','), ...rows].join('\n')
+    reply.header('Content-Type', 'text/csv; charset=utf-8')
+    reply.header('Content-Disposition', `attachment; filename="oauth-audit-logs-${Date.now()}.csv"`)
+    return reply.send(csv)
+  })
 
   // GET /oauth-apps/audit-logs - 审计日志查询
   server.get('/oauth-apps/audit-logs', async (request, reply) => {
-    const q = request.query as { page?: string; limit?: string; clientId?: string; event?: string; status?: string };
+    const q = request.query as {
+      page?: string
+      limit?: string
+      clientId?: string
+      event?: string
+      status?: string
+    }
     const { items, total } = await findAuditLogList({
       page: toInt(q.page) ?? 1,
       limit: toInt(q.limit) ?? 20,
       clientId: q.clientId,
       event: q.event,
       status: q.status,
-    });
-    return reply.send(success({ list: items, total }));
-  });
-};
+    })
+    return reply.send(success({ list: items, total }))
+  })
+}

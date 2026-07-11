@@ -884,32 +884,6 @@ export const resourceResourceSearchRecord = pgTable(
 // 9. Admin 域缺失表（迁移自 admin_models.py）
 // ===========================================================================
 
-/** 操作日志记录表（历史 admin_oper_log，无 BaseEntity 公共字段） */
-export const adminOperLog = pgTable(
-  'admin_oper_log',
-  {
-    operId: serial('oper_id').primaryKey(),
-    title: varchar('title', { length: 50 }).default(''),
-    businessType: integer('business_type').default(0),
-    method: varchar('method', { length: 200 }).default(''),
-    requestMethod: integer('request_method').default(0),
-    operatorType: integer('operator_type').default(0),
-    operName: varchar('oper_name', { length: 50 }).default(''),
-    deptName: varchar('dept_name', { length: 50 }).default(''),
-    operUrl: varchar('oper_url', { length: 255 }).default(''),
-    operIp: varchar('oper_ip', { length: 128 }).default(''),
-    operParam: varchar('oper_param', { length: 2000 }).default(''),
-    jsonResult: varchar('json_result', { length: 2000 }).default(''),
-    status: integer('status').default(0),
-    errorMsg: varchar('error_msg', { length: 2000 }).default(''),
-    operTime: timestamp('oper_time', { withTimezone: true }).defaultNow(),
-    costTime: integer('cost_time').default(0),
-  },
-  (t) => ({
-    statusIdx: index('ix_admin_oper_log_status').on(t.status),
-  }),
-)
-
 /** 角色表（历史 admin_role） */
 export const adminRole = pgTable('admin_role', {
   roleId: serial('role_id').primaryKey(),
@@ -997,43 +971,6 @@ export const adminUserRole = pgTable(
 // ===========================================================================
 // 10. 其他缺失表
 // ===========================================================================
-
-/** App 内容管理（历史 app_content） */
-export const appContent = pgTable(
-  'app_content',
-  {
-    id: serial('id').primaryKey(),
-    title: varchar('title', { length: 200 }),
-    imageUrl: varchar('image_url', { length: 500 }),
-    linkUrl: varchar('link_url', { length: 500 }),
-    type: varchar('type', { length: 50 }),
-    status: integer('status').default(1),
-    sort: integer('sort').default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    statusIdx: index('ix_app_content_status').on(t.status),
-  }),
-)
-
-/** 汇率表（历史 exchange_rate） */
-export const exchangeRate = pgTable(
-  'exchange_rate',
-  {
-    id: serial('id').primaryKey(),
-    currencyCode: varchar('currency_code', { length: 20 }),
-    currencyName: varchar('currency_name', { length: 50 }),
-    rate: real('rate'),
-    status: integer('status').default(1),
-    sort: integer('sort').default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    statusIdx: index('ix_exchange_rate_status').on(t.status),
-  }),
-)
 
 /** 搜索日志（历史 search_log） */
 export const searchLog = pgTable(

@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -47,7 +47,12 @@ async function rawById(table: string, id: string) {
   return (rows as Record<string, unknown>[])[0]
 }
 
-async function rawInsert(table: string, columns: string[], body: Record<string, unknown>) {
+async function rawInsert(
+  table: string,
+  columns: string[],
+  body: Record<string, unknown>,
+  reply: FastifyReply,
+): Promise<Record<string, unknown> | null> {
   const cols: string[] = []
   const vals: unknown[] = []
   for (const c of columns) {
@@ -56,7 +61,10 @@ async function rawInsert(table: string, columns: string[], body: Record<string, 
       vals.push(body[c])
     }
   }
-  if (cols.length === 0) throw new Error('无可写入字段')
+  if (cols.length === 0) {
+    reply.status(400).send(error(400, '无可写入字段'))
+    return null
+  }
   const colList = sql.join(
     cols.map((c) => sql.raw(`"${c}"`)),
     sql`, `,
@@ -68,7 +76,7 @@ async function rawInsert(table: string, columns: string[], body: Record<string, 
   const rows = await db.execute(
     sql`INSERT INTO ${sql.raw(`"${table}"`)} (${colList}) VALUES (${valList}) RETURNING *`,
   )
-  return (rows as Record<string, unknown>[])[0]
+  return (rows as Record<string, unknown>[])[0] ?? null
 }
 
 async function rawUpdate(
@@ -161,7 +169,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const body = req.body as Record<string, unknown>
       if (body.status === undefined) body.status = 0
-      const row = await rawInsert('zhs_agent_need_task', needTaskCols, body)
+      const row = await rawInsert('zhs_agent_need_task', needTaskCols, body, reply)
+      if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -253,7 +262,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const body = req.body as Record<string, unknown>
       if (body.status === undefined) body.status = 1
-      const row = await rawInsert('agent_uploads', uploadCols, body)
+      const row = await rawInsert('agent_uploads', uploadCols, body, reply)
+      if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -350,7 +360,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const body = req.body as Record<string, unknown>
       if (body.status === undefined) body.status = 1
-      const row = await rawInsert('zhs_agent_usedetail', usedetailCols, body)
+      const row = await rawInsert('zhs_agent_usedetail', usedetailCols, body, reply)
+      if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -860,7 +871,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const body = req.body as Record<string, unknown>
       if (body.status === undefined) body.status = 1
-      const row = await rawInsert('agent_rule_param', ruleParamCols, body)
+      const row = await rawInsert('agent_rule_param', ruleParamCols, body, reply)
+      if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -1067,7 +1079,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
           .padStart(6, '0')
         body.order_no = `DEV${ts}${random}`
       }
-      const row = await rawInsert('zhs_developer_link', developerLinkCols, body)
+      const row = await rawInsert('zhs_developer_link', developerLinkCols, body, reply)
+      if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
       req.log.error(e)

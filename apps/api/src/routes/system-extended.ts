@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, asc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -44,10 +44,15 @@ async function rawById(table: string, id: string) {
   const rows = await db.execute(
     sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} LIMIT 1`,
   )
-  return (rows as Record<string, unknown>[])[0]
+  return (rows as Record<string, unknown>[])[0] ?? null
 }
 
-async function rawInsert(table: string, columns: string[], body: Record<string, unknown>) {
+async function rawInsert(
+  table: string,
+  columns: string[],
+  body: Record<string, unknown>,
+  reply: FastifyReply,
+): Promise<Record<string, unknown> | null> {
   const cols: string[] = []
   const vals: unknown[] = []
   for (const c of columns) {
@@ -56,7 +61,10 @@ async function rawInsert(table: string, columns: string[], body: Record<string, 
       vals.push(body[c])
     }
   }
-  if (cols.length === 0) throw new Error('无可写入字段')
+  if (cols.length === 0) {
+    reply.status(400).send(error(400, '无可写入字段'))
+    return null
+  }
   const colList = sql.join(
     cols.map((c) => sql.raw(`"${c}"`)),
     sql`, `,
@@ -68,7 +76,7 @@ async function rawInsert(table: string, columns: string[], body: Record<string, 
   const rows = await db.execute(
     sql`INSERT INTO ${sql.raw(`"${table}"`)} (${colList}) VALUES (${valList}) RETURNING *`,
   )
-  return (rows as Record<string, unknown>[])[0]
+  return (rows as Record<string, unknown>[])[0] ?? null
 }
 
 async function rawUpdate(
@@ -85,7 +93,7 @@ async function rawUpdate(
   const rows = await db.execute(
     sql`UPDATE ${sql.raw(`"${table}"`)} SET ${sql.join(sets, sql`, `)} WHERE "id"::text = ${id} RETURNING *`,
   )
-  return (rows as Record<string, unknown>[])[0]
+  return (rows as Record<string, unknown>[])[0] ?? null
 }
 
 async function rawDelete(table: string, id: string) {
@@ -150,7 +158,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         'zhs_category_dictionary',
         categoryDictCols,
         req.body as Record<string, unknown>,
+        reply,
       )
+      if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -280,24 +290,25 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // -------------------------------------------------------------------------
   // ws_admin — WebSocket 管理
-  // NOTE: 连接信息来自内存中的 WS connection_manager（非持久化），无 DB 表；
+  // 连接信息来自内存中的 WS connection_manager（非持久化），无 DB 表；
   // 待接入 WS 插件后由其提供实时连接列表。
   // -------------------------------------------------------------------------
   server.get('/ws-admin/connections', async (_req, reply) => {
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ list: [], total: 0 }))
+    return reply.send(
+      success({ list: [], total: 0, mock: true, reason: 'WS 连接管理器未接入，返回空列表' }),
+    )
   })
   server.get('/ws-admin/connections/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ id: parsed.data.id }))
+    return reply.send(success({ id: parsed.data.id, mock: true, reason: 'WS 连接管理器未接入' }))
   })
   server.delete('/ws-admin/connections/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    // NOTE: 表尚未迁移，使用合理默认值
-    return reply.send(success({ id: parsed.data.id, closed: true }))
+    return reply.send(
+      success({ id: parsed.data.id, closed: true, mock: true, reason: 'WS 连接管理器未接入' }),
+    )
   })
 
   // -------------------------------------------------------------------------
