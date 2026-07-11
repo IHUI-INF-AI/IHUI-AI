@@ -49,7 +49,7 @@ export default function RechargePage() {
     try {
       const url =
         values.method === 'wechat'
-          ? `/api/payments/wechat/create?amount=${values.amount}&openId=mock`
+          ? `/api/payments/wechat/create?amount=${values.amount}`
           : `/api/payments/alipay/create?amount=${values.amount}`
       const r = await fetchApi<PaymentCreateData>(url, { method: 'POST' })
       if (r.success) {
