@@ -7,7 +7,16 @@ import { toast } from 'sonner'
 import { FlaskConical, Plus, Power, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import {
+  Button,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface GrayRule {
@@ -19,15 +28,9 @@ interface GrayRule {
   target: string
 }
 
-const MOCK_RULES: GrayRule[] = [
-  { id: '1', name: '新版聊天界面', description: '渐进式发布新聊天 UI,先开放给 10% 用户', percentage: 10, isEnabled: true, target: 'chat-ui-v2' },
-  { id: '2', name: 'AI 推荐算法 v3', description: '新版推荐算法灰度,验证点击率提升', percentage: 25, isEnabled: true, target: 'recommend-v3' },
-  { id: '3', name: '订单结算流程改版', description: '精简结算步骤,降低放弃率', percentage: 0, isEnabled: false, target: 'checkout-v2' },
-  { id: '4', name: '会员体系升级', description: '新会员等级与权益体系', percentage: 50, isEnabled: true, target: 'membership-v2' },
-]
-
 const EMPTY = { name: '', description: '', percentage: 10, target: '' }
-const textareaClass = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const th = 'px-4 py-2.5 font-medium'
 
 export default function GrayReleasePage() {
@@ -37,24 +40,29 @@ export default function GrayReleasePage() {
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState(EMPTY)
 
-  const { data: rules = MOCK_RULES, isLoading } = useQuery({
+  const { data: rules = [], isLoading } = useQuery({
     queryKey: ['admin', 'gray-release'],
     queryFn: async () => {
       const r = await fetchApi<GrayRule[]>('/api/admin/gray-release')
       if (r.success && r.data) return r.data
-      return MOCK_RULES
+      return []
     },
   })
 
   const toggleMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
+    mutationFn: (id: string) =>
+      fetchApi(`/api/admin/gray-release/${id}/toggle`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'gray-release'] })
       toast.success(t('grayRelease.toggleSuccess'))
     },
   })
   const createMut = useMutation({
-    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
+    mutationFn: () =>
+      fetchApi('/api/admin/gray-release', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'gray-release'] })
       setOpen(false)
@@ -116,13 +124,19 @@ export default function GrayReleasePage() {
                     <div className="font-medium">{r.name}</div>
                     <div className="text-xs text-muted-foreground">{r.target}</div>
                   </td>
-                  <td className="max-w-[280px] truncate px-4 py-2.5 text-muted-foreground" title={r.description}>
+                  <td
+                    className="max-w-[280px] truncate px-4 py-2.5 text-muted-foreground"
+                    title={r.description}
+                  >
                     {r.description}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${r.percentage}%` }} />
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${r.percentage}%` }}
+                        />
                       </div>
                       <span className="text-xs font-medium">{r.percentage}%</span>
                     </div>
@@ -131,10 +145,17 @@ export default function GrayReleasePage() {
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                        r.isEnabled ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground',
+                        r.isEnabled
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      <span className={cn('h-1.5 w-1.5 rounded-full', r.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          r.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/50',
+                        )}
+                      />
                       {r.isEnabled ? t('grayRelease.enabled') : t('grayRelease.disabled')}
                     </span>
                   </td>
@@ -156,7 +177,10 @@ export default function GrayReleasePage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : !createMut.isPending && setOpen(false))}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => (o ? setOpen(true) : !createMut.isPending && setOpen(false))}
+      >
         <DialogContent>
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
@@ -204,7 +228,12 @@ export default function GrayReleasePage() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={createMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={createMut.isPending}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="submit" disabled={createMut.isPending}>

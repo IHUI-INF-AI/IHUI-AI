@@ -50,7 +50,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
-      "eslint --fix --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
+      "eslint --fix --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
     ],
     "*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}": "prettier --write"
   }
