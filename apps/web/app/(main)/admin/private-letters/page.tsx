@@ -8,11 +8,14 @@ import { Loader2, Mail } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 
 interface PrivateLetter {
-  id: string
-  senderName: string
-  receiverName: string
-  lastMessage: string
-  updatedAt: string
+  id: number
+  senderId: string
+  senderName: string | null
+  receiverId: string
+  receiverName: string | null
+  content: string
+  isRead: boolean
+  createdAt: string
 }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -66,10 +69,10 @@ export default function PrivateLettersPage() {
             ) : (
               list.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-2.5 font-medium">{item.senderName}</td>
-                  <td className="px-4 py-2.5">{item.receiverName}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{item.lastMessage}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{item.updatedAt}</td>
+                  <td className="px-4 py-2.5 font-medium">{item.senderName ?? '-'}</td>
+                  <td className="px-4 py-2.5">{item.receiverName ?? '-'}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{item.content}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{item.createdAt}</td>
                   <td className="px-4 py-2.5">
                     <button className="text-primary hover:underline">{t('view')}</button>
                   </td>
