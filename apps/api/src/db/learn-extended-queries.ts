@@ -9,10 +9,17 @@ import {
   lessonSignUps,
   users,
   eduLessonTopics,
+  learnLearnMapTopic,
+  lessonTask,
+  lessonRate,
+  lessonAccess,
   type LearnHomework,
   type LearnMap,
   type LearnInvoiceApplication,
   type LearnInvoiceTitle,
+  type LessonTask,
+  type LessonRate,
+  type LessonAccess,
 } from '@ihui/database';
 
 // =============================================================================
@@ -159,6 +166,7 @@ export interface UpdateMapInput {
   cover?: string | null;
   content?: unknown;
   sort?: number;
+  isPublished?: boolean;
 }
 
 export async function updateMap(
@@ -173,6 +181,7 @@ export async function updateMap(
       ...(data.cover !== undefined ? { cover: data.cover } : {}),
       ...(data.content !== undefined ? { content: data.content } : {}),
       ...(data.sort !== undefined ? { sort: data.sort } : {}),
+      ...(data.isPublished !== undefined ? { isPublished: data.isPublished } : {}),
       updatedAt: new Date(),
     })
     .where(eq(learnMaps.id, id))
@@ -551,4 +560,299 @@ async function upsertLessonAssociation(
       status: 'draft',
     });
   }
+}
+
+// =============================================================================
+// Learn Map Extensions (学习地图扩展)
+// =============================================================================
+
+export async function findPublishedMaps(limit?: number): Promise<LearnMap[]> {
+  const q = db
+    .select()
+    .from(learnMaps)
+    .where(eq(learnMaps.isPublished, true))
+    .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt));
+  if (limit) return q.limit(limit);
+  return q;
+}
+
+export interface MapListPagedOpts {
+  page: number;
+  pageSize: number;
+  search?: string;
+  isPublished?: boolean;
+}
+
+export async function findMapListPaged(
+  opts: MapListPagedOpts,
+): Promise<{ list: LearnMap[]; total: number; page: number; pageSize: number }> {
+  const { page, pageSize, search, isPublished } = opts;
+  const conds: ReturnType<typeof eq>[] = [];
+  if (isPublished !== undefined) conds.push(eq(learnMaps.isPublished, isPublished));
+  let searchCond: ReturnType<typeof ilike> | undefined;
+  if (search) searchCond = ilike(learnMaps.title, `%${search}%`);
+  const baseConds = conds.length ? and(...conds) : undefined;
+  const whereCond = searchCond ? and(baseConds, searchCond) : baseConds;
+
+  const list = await db
+    .select()
+    .from(learnMaps)
+    .where(whereCond)
+    .orderBy(asc(learnMaps.sort), desc(learnMaps.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  const countRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(learnMaps)
+    .where(whereCond);
+  const total = countRows[0]?.count ?? 0;
+  return { list, total, page, pageSize };
+}
+
+export async function insertMap(data: {
+  title: string;
+  description?: string | null;
+  cover?: string | null;
+  content?: unknown;
+  isPublished?: boolean;
+}): Promise<LearnMap> {
+  const rows = await db
+    .insert(learnMaps)
+    .values({
+      title: data.title,
+      description: data.description,
+      cover: data.cover,
+      content: data.content,
+      isPublished: data.isPublished,
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('创建学习地图失败');
+  return row;
+}
+
+export async function findMapTopics(learnMapId: string): Promise<string[]> {
+  const rows = await db
+    .select({ topicId: learnLearnMapTopic.topicId })
+    .from(learnLearnMapTopic)
+    .where(eq(learnLearnMapTopic.learnMapId, learnMapId));
+  return rows.map((r) => r.topicId);
+}
+
+export async function setMapTopics(learnMapId: string, topicIds: string[]): Promise<void> {
+  await db.delete(learnLearnMapTopic).where(eq(learnLearnMapTopic.learnMapId, learnMapId));
+  if (topicIds.length > 0) {
+    await db.insert(learnLearnMapTopic).values(
+      topicIds.map((topicId) => ({ learnMapId, topicId })),
+    );
+  }
+}
+
+// =============================================================================
+// Lesson Task (课程任务)
+// =============================================================================
+
+export async function findTasksByLesson(lessonId: string): Promise<LessonTask[]> {
+  return db
+    .select()
+    .from(lessonTask)
+    .where(eq(lessonTask.lessonId, lessonId))
+    .orderBy(asc(lessonTask.createdAt));
+}
+
+export async function findTaskById(id: string): Promise<LessonTask | undefined> {
+  const rows = await db.select().from(lessonTask).where(eq(lessonTask.id, id)).limit(1);
+  return rows[0];
+}
+
+export interface CreateTaskInput {
+  lessonId: string;
+  lessonChapterId?: string | null;
+  lessonChapterSectionId?: string | null;
+  title: string;
+  contentType?: string | null;
+  conditions?: string | null;
+  status?: string;
+}
+
+export async function createTask(data: CreateTaskInput): Promise<LessonTask> {
+  const rows = await db
+    .insert(lessonTask)
+    .values({
+      lessonId: data.lessonId,
+      lessonChapterId: data.lessonChapterId,
+      lessonChapterSectionId: data.lessonChapterSectionId,
+      title: data.title,
+      contentType: data.contentType,
+      conditions: data.conditions,
+      status: data.status,
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('创建任务失败');
+  return row;
+}
+
+export interface UpdateTaskInput {
+  lessonChapterId?: string | null;
+  lessonChapterSectionId?: string | null;
+  title?: string;
+  contentType?: string | null;
+  conditions?: string | null;
+  status?: string;
+}
+
+export async function updateTask(
+  id: string,
+  data: UpdateTaskInput,
+): Promise<LessonTask | undefined> {
+  const rows = await db
+    .update(lessonTask)
+    .set({
+      ...(data.lessonChapterId !== undefined ? { lessonChapterId: data.lessonChapterId } : {}),
+      ...(data.lessonChapterSectionId !== undefined
+        ? { lessonChapterSectionId: data.lessonChapterSectionId }
+        : {}),
+      ...(data.title !== undefined ? { title: data.title } : {}),
+      ...(data.contentType !== undefined ? { contentType: data.contentType } : {}),
+      ...(data.conditions !== undefined ? { conditions: data.conditions } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(lessonTask.id, id))
+    .returning();
+  return rows[0];
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  await db.delete(lessonTask).where(eq(lessonTask.id, id));
+}
+
+export async function setTaskStatus(
+  id: string,
+  status: string,
+): Promise<LessonTask | undefined> {
+  const rows = await db
+    .update(lessonTask)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(lessonTask.id, id))
+    .returning();
+  return rows[0];
+}
+
+// =============================================================================
+// Lesson Rate (课程评价)
+// =============================================================================
+
+export interface RateListOpts {
+  lessonId: string;
+  page: number;
+  pageSize: number;
+}
+
+export async function findRateList(
+  opts: RateListOpts,
+): Promise<{ list: LessonRate[]; total: number; page: number; pageSize: number }> {
+  const { lessonId, page, pageSize } = opts;
+  const list = await db
+    .select()
+    .from(lessonRate)
+    .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')))
+    .orderBy(desc(lessonRate.createdAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  const countRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(lessonRate)
+    .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')));
+  const total = countRows[0]?.count ?? 0;
+  return { list, total, page, pageSize };
+}
+
+export async function findRateById(id: string): Promise<LessonRate | undefined> {
+  const rows = await db.select().from(lessonRate).where(eq(lessonRate.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function findRateByUserLesson(
+  userId: string,
+  lessonId: string,
+  signId?: string,
+): Promise<LessonRate | undefined> {
+  const conds = [eq(lessonRate.userId, userId), eq(lessonRate.lessonId, lessonId)];
+  if (signId) conds.push(eq(lessonRate.signId, signId));
+  const rows = await db
+    .select()
+    .from(lessonRate)
+    .where(and(...conds))
+    .limit(1);
+  return rows[0];
+}
+
+export interface CreateRateInput {
+  lessonId: string;
+  userId: string;
+  signId?: string | null;
+  content?: string | null;
+  contentUtilityScore?: number | null;
+  teacherScore?: number | null;
+  serviceScore?: number | null;
+  isAnonymous?: boolean;
+}
+
+export async function createRate(data: CreateRateInput): Promise<LessonRate> {
+  const rows = await db
+    .insert(lessonRate)
+    .values({
+      lessonId: data.lessonId,
+      userId: data.userId,
+      signId: data.signId,
+      content: data.content,
+      contentUtilityScore: data.contentUtilityScore,
+      teacherScore: data.teacherScore,
+      serviceScore: data.serviceScore,
+      isAnonymous: data.isAnonymous,
+    })
+    .returning();
+  const row = rows[0];
+  if (!row) throw new Error('创建评价失败');
+  return row;
+}
+
+export async function deleteRate(id: string): Promise<void> {
+  await db.delete(lessonRate).where(eq(lessonRate.id, id));
+}
+
+// =============================================================================
+// Lesson Access (课程访问权限)
+// =============================================================================
+
+export async function findAccessByLesson(lessonId: string): Promise<LessonAccess[]> {
+  return db.select().from(lessonAccess).where(eq(lessonAccess.lessonId, lessonId));
+}
+
+export async function updateLessonAccess(
+  lessonId: string,
+  accessType: string,
+  accessValues: string[],
+): Promise<number> {
+  await db.delete(lessonAccess).where(eq(lessonAccess.lessonId, lessonId));
+  if (accessValues.length > 0 || accessType !== 'all') {
+    const rows = await db
+      .insert(lessonAccess)
+      .values({
+        lessonId,
+        accessType,
+        accessValues: JSON.stringify(accessValues),
+      })
+      .returning();
+    return rows.length;
+  }
+  const rows = await db
+    .insert(lessonAccess)
+    .values({ lessonId, accessType: 'all', accessValues: '[]' })
+    .returning();
+  return rows.length;
 }
