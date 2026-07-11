@@ -1,340 +1,359 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  Crown,
-  ArrowLeft,
-} from 'lucide-react'
-
+import { Loader2, Plus, Download, Search, Crown } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { HasPermi } from '@/components/auth/HasPermi'
+import { DatePicker } from '@/components/form/DatePicker'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+  Button,
+  Input,
+  Label,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
-  Button,
-  Input,
-  Label,
-  Card,
-  CardContent,
 } from '@ihui/ui'
 
-interface MemberLevel {
+interface Item {
   id: string
-  name: string
-  growthValue: number
-  discount: string
-  sort: number
-  createdAt: string
+  [k: string]: unknown
 }
-
-const DISCOUNT_RE = /^\d+(\.\d{1,2})?$/
-
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
 
-interface LevelForm {
-  name: string
-  growthValue: string
-  discount: string
-  sort: string
-}
+const RESOURCE = '/api/admin/auth-vip-level'
+const PERM = 'auth:auth_vip_level'
+const PAGE_SIZE = 10
+type FormState = Record<string, string>
+const FIELDS: { key: string; label: string; required?: boolean }[] = [
+  { key: 'title', label: '标题' },
+  { key: 'level', label: '等级' },
+  { key: 'remark', label: '备注' },
+  { key: 'progress', label: '进度' },
+  { key: 'model1', label: '模型1' },
+  { key: 'model2', label: '模型2' },
+  { key: 'creator', label: '创建人' },
+]
+const SEARCH_FIELDS: { key: string; label: string }[] = [
+  { key: 'title', label: '标题' },
+  { key: 'model1', label: '模型1' },
+]
+const DATE_FIELDS: { key: string; label: string; required?: boolean }[] = [
+  { key: 'createdTime', label: '创建时间' },
+]
+const ALL_KEYS = [...FIELDS.map((f) => f.key), ...DATE_FIELDS.map((d) => d.key)]
+const LABELS: Record<string, string> = Object.fromEntries(
+  [...FIELDS, ...DATE_FIELDS].map((f) => [f.key, f.label]),
+)
+const EMPTY: FormState = Object.fromEntries(ALL_KEYS.map((k) => [k, '']))
+const EXPORT_COLS: ExportColumn[] = [
+  { key: 'id', title: 'ID' },
+  ...ALL_KEYS.map((k) => ({ key: k, title: LABELS[k] ?? '' })),
+]
+const th = 'px-4 py-2.5 font-medium'
+const colCount = 1 + ALL_KEYS.length + 1
 
-const EMPTY_FORM: LevelForm = {
-  name: '',
-  growthValue: '0',
-  discount: '1.00',
-  sort: '0',
-}
-
-export default function AdminMemberLevelsPage() {
-  const t = useTranslations('admin.members')
+export default function VipLevelPage() {
   const qc = useQueryClient()
-
+  const [search, setSearch] = React.useState<FormState>(
+    Object.fromEntries(SEARCH_FIELDS.map((f) => [f.key, ''])),
+  )
+  const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
-  const [editing, setEditing] = React.useState<MemberLevel | null>(null)
-  const [form, setForm] = React.useState<LevelForm>(EMPTY_FORM)
-  const [err, setErr] = React.useState<string | null>(null)
+  const [editing, setEditing] = React.useState<Item | null>(null)
+  const [form, setForm] = React.useState<FormState>(EMPTY)
+  const [delId, setDelId] = React.useState<string | null>(null)
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'members', 'levels', 'all'],
-    queryFn: () => api<{ list: MemberLevel[] }>(`/api/admin/members/levels`).then((d) => d.list ?? []),
+  const params = React.useMemo(() => {
+    const p: Record<string, string> = { pageNum: String(page), pageSize: String(PAGE_SIZE) }
+    for (const f of SEARCH_FIELDS) {
+      const v = search[f.key]?.trim()
+      if (v) p[f.key] = v
+    }
+    return p
+  }, [search, page])
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', PERM, params],
+    queryFn: () =>
+      api<{ list: Item[]; total: number }>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
+  const list = data?.list ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const saveMut = useMutation({
-    mutationFn: () => {
-      const body = {
-        name: form.name.trim(),
-        growthValue: Number(form.growthValue) || 0,
-        discount: form.discount,
-        sort: Number(form.sort) || 0,
-      }
-      if (editing) {
-        return api<{ id: string }>(`/api/admin/members/levels`, {
-          method: 'PUT',
-          body: JSON.stringify({ id: editing.id, ...body }),
-        })
-      }
-      return api<{ id: string }>(`/api/admin/members/levels`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
-    },
+    mutationFn: () =>
+      editing
+        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
+        : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
-      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
-      qc.invalidateQueries({ queryKey: ['admin', 'members', 'levels'] })
-      closeDialog()
+      qc.invalidateQueries({ queryKey: ['admin', PERM] })
+      toast.success(editing ? '更新成功' : '创建成功')
+      close()
     },
-    onError: (e: Error) => setErr(e.message),
+    onError: (e: Error) => toast.error(e.message),
   })
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/admin/members/levels?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  const delMut = useMutation({
+    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success(t('deleteSuccess'))
-      qc.invalidateQueries({ queryKey: ['admin', 'members', 'levels'] })
+      qc.invalidateQueries({ queryKey: ['admin', PERM] })
+      toast.success('删除成功')
+      setDelId(null)
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY_FORM)
-    setErr(null)
+    setForm(EMPTY)
     setOpen(true)
   }
-
-  function openEdit(level: MemberLevel) {
-    setEditing(level)
-    setForm({
-      name: level.name,
-      growthValue: String(level.growthValue),
-      discount: level.discount,
-      sort: String(level.sort),
-    })
-    setErr(null)
+  function openEdit(item: Item) {
+    setEditing(item)
+    const next: FormState = { ...EMPTY }
+    for (const k of ALL_KEYS) next[k] = String(item[k] ?? '')
+    setForm(next)
     setOpen(true)
   }
-
-  function closeDialog() {
+  function close() {
     if (saveMut.isPending) return
     setOpen(false)
     setEditing(null)
-    setErr(null)
   }
-
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    setErr(null)
-    if (!form.name.trim()) {
-      setErr(t('nameRequired'))
-      return
-    }
-    if (!DISCOUNT_RE.test(form.discount)) {
-      setErr(t('discountInvalid'))
-      return
-    }
+    for (const f of FIELDS)
+      if (f.required && !form[f.key]?.trim()) {
+        toast.error(`${f.label}为必填项`)
+        return
+      }
     saveMut.mutate()
   }
-
-  function handleDelete(level: MemberLevel) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(level.id)
+  function handleReset() {
+    setSearch(Object.fromEntries(SEARCH_FIELDS.map((f) => [f.key, ''])))
+    setPage(1)
   }
-
-  const levels = data ?? []
-  const total = levels.length
+  async function handleExport() {
+    const ok = await exportFromApi(
+      `${RESOURCE}?${new URLSearchParams(params)}`,
+      'VIP等级',
+      EXPORT_COLS,
+    )
+    if (!ok) toast.error('导出失败')
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('levelsTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('levelsSubtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admin/members">
-              <ArrowLeft className="h-4 w-4" />
-              {t('back')}
-            </Link>
-          </Button>
-          <Button onClick={openCreate} size="sm">
-            <Plus className="h-4 w-4" />
-            {t('create')}
-          </Button>
+      <div className="flex items-center justify-between">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Crown className="h-6 w-6 text-primary" />
+          VIP等级
+        </h1>
+        <div className="flex gap-2">
+          <HasPermi code={`${PERM}:export`}>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              导出
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}:add`}>
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              新增
+            </Button>
+          </HasPermi>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 text-white">
-            <Crown className="h-7 w-7" />
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+        {SEARCH_FIELDS.map((f) => (
+          <div key={f.key} className="space-y-1">
+            <Label className="text-xs">{f.label}</Label>
+            <Input
+              className="h-9 w-48"
+              value={search[f.key] ?? ''}
+              onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
+              placeholder={`搜索${f.label}`}
+            />
           </div>
-          <div>
-            <div className="text-sm text-muted-foreground">{t('statTotal')}</div>
-            <div className="mt-1 text-2xl font-semibold tracking-tight">{total}</div>
-          </div>
-        </CardContent>
-      </Card>
+        ))}
+        <Button size="sm" onClick={() => setPage(1)}>
+          <Search className="h-4 w-4" />
+          搜索
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleReset}>
+          重置
+        </Button>
+      </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colMinPoints')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colDiscount')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colSort')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className={th}>ID</th>
+              {ALL_KEYS.map((k) => (
+                <th key={k} className={th}>
+                  {LABELS[k]}
+                </th>
+              ))}
+              <th className={th}>操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+              <tr>
+                <td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : levels.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                  加载中…
+                </td>
+              </tr>
+            ) : list.length === 0 ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">
                   <Crown className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('noData')}
-                </TableCell>
-              </TableRow>
+                  暂无数据
+                </td>
+              </tr>
             ) : (
-              levels.map((level) => (
-                <TableRow key={level.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5">
-                    <span className="inline-flex items-center rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
-                      {level.name}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{level.growthValue}</TableCell>
-                  <TableCell className="px-4 py-2.5">{level.discount}</TableCell>
-                  <TableCell className="px-4 py-2.5">{level.sort}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(level)}
-                        title={t('edit')}
+              list.map((item) => (
+                <tr key={String(item.id)} className="hover:bg-muted/30">
+                  <td className="px-4 py-2.5">{String(item.id)}</td>
+                  {ALL_KEYS.map((k) => (
+                    <td key={k} className="px-4 py-2.5">
+                      {String(item[k] ?? '-')}
+                    </td>
+                  ))}
+                  <td className="px-4 py-2.5 space-x-2">
+                    <HasPermi code={`${PERM}:edit`}>
+                      <button
+                        className="text-primary hover:underline"
+                        onClick={() => openEdit(item)}
                       >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(level)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
+                        编辑
+                      </button>
+                    </HasPermi>
+                    <HasPermi code={`${PERM}:remove`}>
+                      <button
+                        className="text-destructive hover:underline"
+                        onClick={() => setDelId(String(item.id))}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                        删除
+                      </button>
+                    </HasPermi>
+                  </td>
+                </tr>
               ))
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-      </div>
+      {total > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            共 {total} 条 · {page}/{totalPages}
+          </span>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
+              上一页
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
+      )}
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
+      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
         <DialogContent>
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+              <DialogTitle>{editing ? '编辑VIP等级' : '新增VIP等级'}</DialogTitle>
+              <DialogDescription>{editing ? '修改VIP等级' : '添加新的VIP等级'}</DialogDescription>
             </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="level-name">{t('fieldName')}</Label>
-              <Input
-                id="level-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder={t('namePlaceholder')}
-              />
+            <div className="space-y-3">
+              {FIELDS.map((f) => (
+                <div key={f.key} className="space-y-1.5">
+                  <Label>
+                    {f.label}
+                    {f.required ? ' *' : ''}
+                  </Label>
+                  <Input
+                    value={form[f.key]}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                  />
+                </div>
+              ))}
+              {DATE_FIELDS.map((d) => (
+                <DatePicker
+                  key={d.key}
+                  label={d.label}
+                  value={form[d.key]}
+                  onChange={(v) => setForm({ ...form, [d.key]: v })}
+                />
+              ))}
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="level-points">{t('fieldMinPoints')}</Label>
-                <Input
-                  id="level-points"
-                  type="number"
-                  min="0"
-                  value={form.growthValue}
-                  onChange={(e) => setForm({ ...form, growthValue: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="level-discount">{t('fieldDiscount')}</Label>
-                <Input
-                  id="level-discount"
-                  value={form.discount}
-                  onChange={(e) => setForm({ ...form, discount: e.target.value })}
-                  placeholder="0.90"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="level-sort">{t('fieldSort')}</Label>
-                <Input
-                  id="level-sort"
-                  type="number"
-                  min="0"
-                  value={form.sort}
-                  onChange={(e) => setForm({ ...form, sort: e.target.value })}
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">{t('discountHint')}</p>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
-                {t('cancel')}
+              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
+                取消
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('save')}
+                {saveMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={delId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDelId(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>确定要删除该记录吗？此操作不可撤销。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDelId(null)}
+              disabled={delMut.isPending}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={delMut.isPending}
+              onClick={() => delId && delMut.mutate(delId)}
+            >
+              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
