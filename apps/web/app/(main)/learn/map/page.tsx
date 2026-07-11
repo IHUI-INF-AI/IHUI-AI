@@ -103,10 +103,7 @@ export default function LearnMapPage() {
             return (
               <Card
                 key={node.id}
-                className={cn(
-                  'transition-colors',
-                  isLocked ? 'opacity-60' : 'hover:border-primary/40',
-                )}
+                className={cn('transition-colors', isLocked ? 'opacity-60' : 'hover:bg-accent')}
               >
                 <CardHeader className="flex flex-row items-start gap-3 p-4 pb-2">
                   <div

@@ -38,7 +38,7 @@ function genId(): string {
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
-  currentModel: 'gpt-4o-mini',
+  currentModel: 'stepfun/step-3.7-flash',
   isStreaming: false,
   error: null,
   conversationId: null,
@@ -60,17 +60,13 @@ export const useChatStore = create<ChatState>((set) => ({
 
   appendToMessage: (id, delta) =>
     set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, content: m.content + delta } : m,
-      ),
+      messages: s.messages.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)),
     })),
 
   setMessageError: (id, error) =>
     set((s) => ({
       messages: s.messages.map((m) =>
-        m.id === id
-          ? { ...m, error: true, content: m.content || error }
-          : m,
+        m.id === id ? { ...m, error: true, content: m.content || error } : m,
       ),
       error,
     })),

@@ -8,15 +8,7 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-} from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 import { extractText } from '@/lib/ai-media'
 
@@ -94,11 +86,7 @@ export function VisionAnalysis() {
             className="hidden"
             onChange={(e) => onFile(e.target.files?.[0])}
           />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4" />
             {t('uploadImage')}
           </Button>
@@ -122,7 +110,7 @@ export function VisionAnalysis() {
         {mutation.isPending ? (
           <div className="space-y-2">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-4 animate-pulse rounded bg-muted" />
+              <div key={`skel-${i}`} className="h-4 animate-pulse rounded bg-muted" />
             ))}
           </div>
         ) : null}

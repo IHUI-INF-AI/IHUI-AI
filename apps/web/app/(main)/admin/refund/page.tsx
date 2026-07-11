@@ -4,17 +4,19 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Check,
-  X,
-} from 'lucide-react'
+import { Loader2, ChevronLeft, ChevronRight, RotateCcw, Check, X } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Label } from '@ihui/ui'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  Label,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 // =============================================================================
@@ -73,10 +75,19 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 const REFUND_STATUS_CFG: Record<RefundStatus, { cls: string; dot: string }> = {
   pending: { cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500', dot: 'bg-amber-500' },
-  approved: { cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-500', dot: 'bg-blue-500' },
+  approved: {
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    dot: 'bg-emerald-500',
+  },
   rejected: { cls: 'bg-red-500/10 text-red-600 dark:text-red-500', dot: 'bg-red-500' },
-  processing: { cls: 'bg-purple-500/10 text-purple-600 dark:text-purple-500', dot: 'bg-purple-500' },
-  completed: { cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500', dot: 'bg-emerald-500' },
+  processing: {
+    cls: 'bg-purple-500/10 text-purple-600 dark:text-purple-500',
+    dot: 'bg-purple-500',
+  },
+  completed: {
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    dot: 'bg-emerald-500',
+  },
   failed: { cls: 'bg-red-500/10 text-red-600 dark:text-red-500', dot: 'bg-red-500' },
 }
 
@@ -90,7 +101,8 @@ const STATUS_TABS: { value: string; labelKey: 'all' | RefundStatus }[] = [
   { value: 'failed', labelKey: 'failed' },
 ]
 
-const textareaClass = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 // =============================================================================
 // 主组件
@@ -141,11 +153,31 @@ function StatsCards({
 
   const cards = [
     { label: t('statsTotal'), value: data?.totalCount ?? 0, cls: 'text-foreground' },
-    { label: t('statsAmount'), value: currencyFmt.format(Number(data?.totalAmount ?? 0)), cls: 'text-foreground' },
-    { label: t('statsPending'), value: data?.pendingCount ?? 0, cls: 'text-amber-600 dark:text-amber-500' },
-    { label: t('statsApproved'), value: data?.approvedCount ?? 0, cls: 'text-blue-600 dark:text-blue-500' },
-    { label: t('statsRejected'), value: data?.rejectedCount ?? 0, cls: 'text-red-600 dark:text-red-500' },
-    { label: t('statsCompleted'), value: data?.completedCount ?? 0, cls: 'text-emerald-600 dark:text-emerald-500' },
+    {
+      label: t('statsAmount'),
+      value: currencyFmt.format(Number(data?.totalAmount ?? 0)),
+      cls: 'text-foreground',
+    },
+    {
+      label: t('statsPending'),
+      value: data?.pendingCount ?? 0,
+      cls: 'text-amber-600 dark:text-amber-500',
+    },
+    {
+      label: t('statsApproved'),
+      value: data?.approvedCount ?? 0,
+      cls: 'text-emerald-600 dark:text-emerald-500',
+    },
+    {
+      label: t('statsRejected'),
+      value: data?.rejectedCount ?? 0,
+      cls: 'text-red-600 dark:text-red-500',
+    },
+    {
+      label: t('statsCompleted'),
+      value: data?.completedCount ?? 0,
+      cls: 'text-emerald-600 dark:text-emerald-500',
+    },
   ]
 
   return (
@@ -182,7 +214,10 @@ function RefundList({
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [searchInput, setSearchInput] = React.useState('')
-  const [action, setAction] = React.useState<{ refund: EduRefund; mode: 'audit' | 'reject' } | null>(null)
+  const [action, setAction] = React.useState<{
+    refund: EduRefund
+    mode: 'audit' | 'reject'
+  } | null>(null)
   const [reason, setReason] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
 
@@ -225,8 +260,16 @@ function RefundList({
     setReason('')
     setErr(null)
   }
-  function close() { if (mut.isPending) return; setAction(null); setErr(null) }
-  function submit(e: React.FormEvent) { e.preventDefault(); setErr(null); mut.mutate() }
+  function close() {
+    if (mut.isPending) return
+    setAction(null)
+    setErr(null)
+  }
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErr(null)
+    mut.mutate()
+  }
 
   function doSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -259,7 +302,10 @@ function RefundList({
         {STATUS_TABS.map((tb) => (
           <button
             key={tb.value}
-            onClick={() => { setStatus(tb.value); setPage(1) }}
+            onClick={() => {
+              setStatus(tb.value)
+              setPage(1)
+            }}
             className={cn(
               'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
               status === tb.value
@@ -281,7 +327,9 @@ function RefundList({
           placeholder={t('searchPlaceholder')}
           className="h-9 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
-        <Button type="submit" variant="outline" size="sm">{t('search')}</Button>
+        <Button type="submit" variant="outline" size="sm">
+          {t('search')}
+        </Button>
       </form>
 
       {/* 列表表格 */}
@@ -300,43 +348,76 @@ function RefundList({
           </thead>
           <tbody className="divide-y">
             {isLoading ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('loading')}</td></tr>
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  {t('loading')}
+                </td>
+              </tr>
             ) : error ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-destructive">{(error as Error).message}</td></tr>
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-destructive">
+                  {(error as Error).message}
+                </td>
+              </tr>
             ) : refunds.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground"><RotateCcw className="mx-auto mb-2 h-8 w-8 opacity-40" />{t('noData')}</td></tr>
+              <tr>
+                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                  <RotateCcw className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                  {t('noData')}
+                </td>
+              </tr>
             ) : (
               refunds.map((r) => {
                 const sc = REFUND_STATUS_CFG[r.status]
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs">
-                      <Link href={`/admin/refund/${r.id}`} className="hover:underline">{r.orderNo}</Link>
+                      <Link href={`/admin/refund/${r.id}`} className="hover:underline">
+                        {r.orderNo}
+                      </Link>
                     </td>
-                    <td className="px-4 py-2.5 font-medium">{currencyFmt.format(Number(r.refundAmount))}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{t(`refundType_${r.refundType}`)}</td>
-                    <td className="max-w-xs truncate px-4 py-2.5 text-muted-foreground">{r.reason ?? '-'}</td>
+                    <td className="px-4 py-2.5 font-medium">
+                      {currencyFmt.format(Number(r.refundAmount))}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {t(`refundType_${r.refundType}`)}
+                    </td>
+                    <td className="max-w-xs break-words px-4 py-2.5 text-muted-foreground">
+                      {r.reason ?? '-'}
+                    </td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          sc.cls,
+                        )}
+                      >
                         <span className={cn('h-1.5 w-1.5 rounded-full', sc.dot)} />
                         {t(`status_${r.status}`)}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{r.applyTime ? dateFmt.format(new Date(r.applyTime)) : '-'}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {r.applyTime ? dateFmt.format(new Date(r.applyTime)) : '-'}
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         {r.status === 'pending' && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => openAudit(r)}>
-                              <Check className="mr-1 h-3.5 w-3.5" />{t('approve')}
+                              <Check className="mr-1 h-3.5 w-3.5" />
+                              {t('approve')}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openReject(r)}>
-                              <X className="mr-1 h-3.5 w-3.5" />{t('reject')}
+                              <X className="mr-1 h-3.5 w-3.5" />
+                              {t('reject')}
                             </Button>
                           </>
                         )}
                         <Link href={`/admin/refund/${r.id}`}>
-                          <Button size="sm" variant="ghost">{t('view')}</Button>
+                          <Button size="sm" variant="ghost">
+                            {t('view')}
+                          </Button>
                         </Link>
                       </div>
                     </td>
@@ -352,12 +433,24 @@ function RefundList({
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(Math.max(1, page - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage(Math.max(1, page - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('page', { page, total: totalPages })}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {t('page', { page, total: totalPages })}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage(page + 1)}
+          >
             {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -365,19 +458,31 @@ function RefundList({
       </div>
 
       {/* 审核/驳回弹窗 */}
-      <Dialog open={!!action} onOpenChange={(o) => (!o && !mut.isPending && !approveMut.isPending ? close() : null)}>
+      <Dialog
+        open={!!action}
+        onOpenChange={(o) => (!o && !mut.isPending && !approveMut.isPending ? close() : null)}
+      >
         <DialogContent>
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>{action?.mode === 'audit' ? t('auditTitle') : t('rejectTitle')}</DialogTitle>
-              <DialogDescription>{action?.mode === 'audit' ? t('auditDesc') : t('rejectDesc')}</DialogDescription>
+              <DialogTitle>
+                {action?.mode === 'audit' ? t('auditTitle') : t('rejectTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {action?.mode === 'audit' ? t('auditDesc') : t('rejectDesc')}
+              </DialogDescription>
             </DialogHeader>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {err}
+              </div>
+            )}
             {action && (
               <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
                 <div className="font-mono text-xs">{action.refund.orderNo}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {currencyFmt.format(Number(action.refund.refundAmount))} · {t(`status_${action.refund.status}`)}
+                  {currencyFmt.format(Number(action.refund.refundAmount))} ·{' '}
+                  {t(`status_${action.refund.status}`)}
                 </div>
               </div>
             )}
@@ -393,22 +498,33 @@ function RefundList({
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={mut.isPending || approveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={close}
+                disabled={mut.isPending || approveMut.isPending}
+              >
                 {tc('cancel')}
               </Button>
               {action?.mode === 'audit' ? (
                 <>
                   <Button
                     type="button"
-                    onClick={(e) => { e.preventDefault(); setErr(null); approveMut.mutate() }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setErr(null)
+                      approveMut.mutate()
+                    }}
                     disabled={approveMut.isPending}
                   >
                     {approveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    <Check className="mr-1 h-4 w-4" />{t('approve')}
+                    <Check className="mr-1 h-4 w-4" />
+                    {t('approve')}
                   </Button>
                   <Button type="submit" variant="destructive" disabled={mut.isPending}>
                     {mut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    <X className="mr-1 h-4 w-4" />{t('reject')}
+                    <X className="mr-1 h-4 w-4" />
+                    {t('reject')}
                   </Button>
                 </>
               ) : (

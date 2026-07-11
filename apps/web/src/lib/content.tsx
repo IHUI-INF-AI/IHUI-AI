@@ -38,7 +38,7 @@ export const ANN_TYPE_ICON: Record<AnnouncementType, ComponentType<{ className?:
 }
 
 export const ANN_TYPE_BADGE: Record<AnnouncementType, string> = {
-  info: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  info: 'bg-primary/10 text-primary',
   warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   maintenance: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
   update: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -119,7 +119,7 @@ export function slugify(text: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/^-|-$/g, '')
 }
 
 export interface TocItem {

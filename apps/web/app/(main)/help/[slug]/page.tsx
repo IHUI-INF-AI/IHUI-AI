@@ -149,7 +149,7 @@ export default function HelpArticlePage() {
                         <Link
                           key={r.slug}
                           href={`/help/${r.slug}`}
-                          className="line-clamp-1 block rounded px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                          className="block rounded px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                         >
                           {r.title}
                         </Link>

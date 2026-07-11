@@ -1,25 +1,16 @@
-'use client'
-
 import * as React from 'react'
-import { Sidebar } from '@/components/sidebar'
-import { Header } from '@/components/header'
+import { MainShell } from '@/components/layout/MainShell'
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = React.useState(false)
-  const [mobileOpen, setMobileOpen] = React.useState(false)
-
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed((c) => !c)}
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header onMenuClick={() => setMobileOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
-      </div>
-    </div>
+    <>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:px-4 focus:py-2 focus:shadow"
+      >
+        跳到主内容
+      </a>
+      <MainShell>{children}</MainShell>
+    </>
   )
 }

@@ -22,6 +22,11 @@ const latestQuerySchema = z.object({
   platform: z.preprocess(emptyToUndefined, platformSchema.optional()),
 })
 
+const checkUpdateSchema = z.object({
+  platform: platformSchema,
+  version: z.string().min(1).max(32),
+})
+
 const createVersionSchema = z.object({
   version: z.string().min(1).max(32),
   platform: platformSchema,
@@ -166,6 +171,68 @@ const appVersionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '版本不存在'))
     }
     return reply.send(success({ deleted: true }))
+  })
+
+  // GET /check-update — 检查更新（公开，对比当前版本与最新版本）
+  server.get('/check-update', async (request, reply) => {
+    const parsed = checkUpdateSchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { platform, version } = parsed.data
+    // 查找当前版本记录以获取 buildNumber
+    const [current] = await db
+      .select()
+      .from(appVersions)
+      .where(and(eq(appVersions.platform, platform), eq(appVersions.version, version)))
+      .limit(1)
+    // 查找该平台最新版本（status=latest）
+    const [latest] = await db
+      .select()
+      .from(appVersions)
+      .where(and(eq(appVersions.platform, platform), eq(appVersions.status, 'latest')))
+      .orderBy(desc(appVersions.buildNumber))
+      .limit(1)
+
+    if (!latest) {
+      return reply.send(
+        success({
+          hasUpdate: false,
+          latestVersion: version,
+          forceUpdate: false,
+          downloadUrl: null,
+        }),
+      )
+    }
+
+    const currentBuild = current?.buildNumber ?? 0
+    const hasUpdate = latest.buildNumber > currentBuild
+    return reply.send(
+      success({
+        hasUpdate,
+        latestVersion: latest.version,
+        forceUpdate: hasUpdate ? latest.forceUpdate : false,
+        downloadUrl: latest.downloadUrl ?? null,
+        releaseNotes: latest.releaseNotes ?? null,
+      }),
+    )
+  })
+
+  // POST /:id/disable — 禁用版本（admin，将 status 设为 disabled）
+  server.post('/:id/disable', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsedP = idParamSchema.safeParse(request.params)
+    if (!parsedP.success) {
+      return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [version] = await db
+      .update(appVersions)
+      .set({ status: 'disabled', updatedAt: new Date() })
+      .where(eq(appVersions.id, parsedP.data.id))
+      .returning()
+    if (!version) {
+      return reply.status(404).send(error(404, '版本不存在'))
+    }
+    return reply.send(success({ version }))
   })
 }
 

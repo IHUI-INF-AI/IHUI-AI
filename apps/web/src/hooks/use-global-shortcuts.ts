@@ -101,14 +101,29 @@ function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
 export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
   const [scope, setScopeState] = React.useState('global')
   const [showHelpPanel, setHelpPanel] = React.useState(false)
-  const [tick, setTick] = React.useState(0)
 
   const shortcutsRef = React.useRef<Map<string, ShortcutEntry>>(new Map())
   const toggleHelpPanelRef = React.useRef<() => void>(() => {})
+  const listenersRef = React.useRef(new Set<() => void>())
+  const versionRef = React.useRef(0)
 
-  const forceUpdate = React.useCallback(() => {
-    setTick((t) => t + 1)
+  const subscribe = React.useCallback((cb: () => void) => {
+    listenersRef.current.add(cb)
+    return () => {
+      listenersRef.current.delete(cb)
+    }
   }, [])
+
+  const emitChange = React.useCallback(() => {
+    versionRef.current++
+    listenersRef.current.forEach((l) => l())
+  }, [])
+
+  const version = React.useSyncExternalStore(
+    subscribe,
+    () => versionRef.current,
+    () => versionRef.current,
+  )
 
   const toggleHelpPanel = React.useCallback(() => {
     setHelpPanel((v) => !v)
@@ -122,21 +137,21 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
   const registerShortcut = React.useCallback(
     (key: string, handler: () => void, sc?: string): (() => void) => {
       shortcutsRef.current.set(key, { handler, scope: sc ?? 'global' })
-      forceUpdate()
+      emitChange()
       return () => {
         shortcutsRef.current.delete(key)
-        forceUpdate()
+        emitChange()
       }
     },
-    [forceUpdate],
+    [emitChange],
   )
 
   const unregisterShortcut = React.useCallback(
     (key: string) => {
       shortcutsRef.current.delete(key)
-      forceUpdate()
+      emitChange()
     },
-    [forceUpdate],
+    [emitChange],
   )
 
   // 注册默认快捷键
@@ -155,9 +170,9 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         description: def.description,
       })
     }
-    forceUpdate()
+    emitChange()
     // 默认快捷键在组件卸载时由 GC 回收，无需手动清理
-  }, [forceUpdate])
+  }, [emitChange])
 
   // 全局 keydown 监听
   React.useEffect(() => {
@@ -187,7 +202,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         description: entry.description,
         active: entry.scope === 'global' || entry.scope === scope,
       })),
-    [tick, scope],
+    [version, scope],
   )
 
   return {

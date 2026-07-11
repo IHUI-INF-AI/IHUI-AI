@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -166,6 +166,7 @@ export default function DistributionTeamPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         {it.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={it.avatar} alt="" className="h-6 w-6 rounded-full" />
                         ) : (
                           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">

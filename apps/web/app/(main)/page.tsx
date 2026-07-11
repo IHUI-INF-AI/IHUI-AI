@@ -46,7 +46,8 @@ async function fetchHomeStats(): Promise<HomeStats> {
   }
 }
 
-type ActivityType = 'createdProject' | 'uploadedFile' | 'startedChat' | 'updatedProfile' | 'completedOrder'
+type ActivityType =
+  'createdProject' | 'uploadedFile' | 'startedChat' | 'updatedProfile' | 'completedOrder'
 
 interface Activity {
   icon: React.ComponentType<{ className?: string }>
@@ -127,17 +128,13 @@ export default function HomePage() {
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{greeting}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <span className="text-sm text-muted-foreground">
-          {now ? timeFmt.format(now) : ''}
-        </span>
+        <span className="text-sm text-muted-foreground">{now ? timeFmt.format(now) : ''}</span>
       </section>
 
       {/* 统计卡片 */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {error ? (
-          <p className="text-sm text-destructive col-span-full">
-            {(error as Error).message}
-          </p>
+          <p className="text-sm text-destructive col-span-full">{(error as Error).message}</p>
         ) : (
           stats.map((s) => (
             <StatCard
@@ -161,12 +158,7 @@ export default function HomePage() {
           {QUICK_ACTIONS.map((a) => {
             const Icon = a.icon
             return (
-              <Button
-                key={a.key}
-                asChild
-                variant="outline"
-                className="h-auto justify-start py-4"
-              >
+              <Button key={a.key} asChild variant="outline" className="h-auto justify-start py-4">
                 <Link href={a.href}>
                   <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Icon className="h-4 w-4" />
@@ -191,7 +183,7 @@ export default function HomePage() {
               {ACTIVITIES.map((a, i) => {
                 const Icon = a.icon
                 return (
-                  <div key={i} className="relative">
+                  <div key={`activity-${i}`} className="relative">
                     <span className="absolute -left-[1.5625rem] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full border-2 border-background bg-primary" />
                     <div className="flex items-start gap-3">
                       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />

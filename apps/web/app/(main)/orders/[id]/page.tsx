@@ -34,11 +34,14 @@ interface OrderDetailData {
   order: Order
 }
 
-const STATUS_CONFIG: Record<OrderStatus, { icon: React.ComponentType<{ className?: string }>; cls: string }> = {
+const STATUS_CONFIG: Record<
+  OrderStatus,
+  { icon: React.ComponentType<{ className?: string }>; cls: string }
+> = {
   pending: { icon: Clock, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
   paid: { icon: CheckCircle, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
   cancelled: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
-  refunded: { icon: Wallet, cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-500' },
+  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
 }
 
 async function fetchOrder(id: string): Promise<Order> {
@@ -55,7 +58,11 @@ export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const qc = useQueryClient()
 
-  const { data: order, isLoading, error } = useQuery({
+  const {
+    data: order,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['order', params.id],
     queryFn: () => fetchOrder(params.id),
     enabled: !!params.id,
@@ -71,7 +78,11 @@ export default function OrderDetailPage() {
 
   const currencyFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
   const dateFmt = new Intl.DateTimeFormat(locale, {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 
   if (isLoading) {
@@ -112,7 +123,12 @@ export default function OrderDetailPage() {
         <p className="text-sm text-muted-foreground">{order.orderNo}</p>
       </div>
 
-      <div className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium', sc.cls)}>
+      <div
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+          sc.cls,
+        )}
+      >
         <StatusIcon className="h-4 w-4" />
         {t(`status.${order.status}`)}
       </div>
@@ -167,7 +183,9 @@ export default function OrderDetailPage() {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">{tc('discountAmount')}</span>
-          <span className="text-emerald-600 dark:text-emerald-500">-{currencyFmt.format(Number(order.discountAmount))}</span>
+          <span className="text-emerald-600 dark:text-emerald-500">
+            -{currencyFmt.format(Number(order.discountAmount))}
+          </span>
         </div>
         <div className="flex justify-between border-t pt-2 text-base font-bold">
           <span>{t('amount')}</span>
@@ -177,7 +195,10 @@ export default function OrderDetailPage() {
 
       {order.status === 'pending' && (
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.push(`/payment/checkout?order=${order.id}`)}>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/payment/checkout?order=${order.id}`)}
+          >
             {t('pay')}
           </Button>
           <Button

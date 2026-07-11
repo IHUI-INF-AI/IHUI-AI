@@ -20,13 +20,16 @@ interface SpeechRecognitionLike {
   onend: (() => void) | null
 }
 
-function getRecognitionConstructor(): (new () => SpeechRecognitionLike) | null {
-  if (typeof window === 'undefined') return null
-  const w = window as unknown as {
+declare global {
+  interface Window {
     SpeechRecognition?: new () => SpeechRecognitionLike
     webkitSpeechRecognition?: new () => SpeechRecognitionLike
   }
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
+}
+
+function getRecognitionConstructor(): (new () => SpeechRecognitionLike) | null {
+  if (typeof window === 'undefined') return null
+  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
 }
 
 export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
@@ -116,7 +119,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           <span className="flex h-4 items-center gap-0.5">
             {[0, 1, 2, 3].map((i) => (
               <span
-                key={i}
+                key={`bar-${i}`}
                 className="w-0.5 rounded-full bg-white"
                 style={{
                   height: '100%',
