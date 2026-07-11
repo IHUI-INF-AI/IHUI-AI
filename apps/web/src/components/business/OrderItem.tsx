@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
@@ -17,7 +17,10 @@ interface OrderItemProps {
   className?: string
 }
 
-const statusMap: Record<OrderStatus, { label: string; variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' }> = {
+const statusMap: Record<
+  OrderStatus,
+  { label: string; variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' }
+> = {
   pending: { label: '待付款', variant: 'warning' },
   paid: { label: '已付款', variant: 'primary' },
   shipped: { label: '已发货', variant: 'primary' },
@@ -56,7 +59,6 @@ export function OrderItem({
       <div className="flex items-center gap-3 py-3">
         {product.image && (
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
           </div>
         )}

@@ -15,7 +15,9 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:install": "playwright install chromium",
-    "clean": "rimraf .next .turbo node_modules"
+    "clean": "rimraf .next .turbo node_modules",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.0.0",
@@ -35,8 +37,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.11",
-    "lucide-react": "^0.468.0",
-    "next": "15.1.0",
+    "lucide-react": "^1.24.0",
+    "next": "15.5.20",
     "next-intl": "^3.25.0",
     "next-themes": "^0.4.4",
     "react": "19.0.0",
@@ -48,7 +50,9 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.5",
     "zod": "^3.25.76",
-    "zustand": "^5.0.2"
+    "zustand": "^5.0.2",
+    "fuse.js": "^7.0.0",
+    "spark-md5": "^3.0.2"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
@@ -57,18 +61,26 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.10.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.16.0",
-    "eslint-config-next": "15.1.0",
+    "eslint-config-next": "15.5.20",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
     "rimraf": "^6.0.1",
     "source-map-js": "1.2.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "@storybook/nextjs": "8.6.18",
+    "@storybook/react": "8.6.18",
+    "@storybook/addon-essentials": "8.6.18",
+    "@storybook/addon-interactions": "8.6.18",
+    "@storybook/blocks": "8.6.18",
+    "@storybook/test": "8.6.18",
+    "@storybook/theming": "8.6.18",
+    "storybook": "8.6.18"
   }
 }

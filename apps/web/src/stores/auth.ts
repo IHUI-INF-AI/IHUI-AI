@@ -6,6 +6,7 @@ export interface AuthUser {
   avatar?: string
   phone?: string
   roleId?: number
+  role?: string
 }
 
 function setAuthCookie(token: string | null) {

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Code2, Copy, Check } from 'lucide-react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
@@ -52,7 +52,9 @@ export function CodeGenerator({ onGenerate }: CodeGeneratorProps) {
       onGenerate={handleGenerate}
       canGenerate={!!prompt.trim()}
       generateLabel="生成代码"
-      options={<OptionSelect label="语言" value={language} onChange={setLanguage} options={LANGUAGES} />}
+      options={
+        <OptionSelect label="语言" value={language} onChange={setLanguage} options={LANGUAGES} />
+      }
       result={
         result.status === 'success' && result.data ? (
           <div className="relative">

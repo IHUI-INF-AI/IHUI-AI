@@ -1,0 +1,433 @@
+/**
+ * 支付相关 API
+ * 合并迁移自旧架构：ali-pay, payment, refund, top-up, withdrawal, invoice
+ */
+import type { ApiResult } from '@ihui/types'
+
+import { fetchApi } from '@/lib/api'
+import { buildQs, type PageData } from '@/lib/edu'
+
+// ===================== 类型定义 =====================
+
+export interface PageQuery {
+  page?: number
+  pageSize?: number
+  [key: string]: string | number | undefined | null
+}
+
+/** 支付订单状态 */
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded'
+
+/** 支付方式 */
+export type PaymentMethod = 'wechat' | 'alipay'
+
+/** 支付订单 */
+export interface PaymentOrder {
+  orderNo: string
+  amount: number
+  subject?: string
+  body?: string
+  status: PaymentStatus
+  paymentMethod?: PaymentMethod
+  qrCode?: string
+  paymentUrl?: string
+  paidAt?: string
+  createdAt: string
+  [key: string]: unknown
+}
+
+/** 支付宝创建参数 */
+export interface AliPayCreateParams {
+  orderNo?: string
+  amount?: number
+  subject?: string
+  body?: string
+  returnUrl?: string
+  notifyUrl?: string
+}
+
+/** 支付宝支付响应 */
+export interface AlipayPayResponse {
+  orderNo?: string
+  status?: string
+  message?: string
+  code?: number
+  success?: boolean
+}
+
+/** 支付宝通知参数 */
+export interface AlipayNotifyParams {
+  outTradeNo: string
+  tradeNo: string
+  tradeStatus: string
+  totalAmount: number
+  [key: string]: unknown
+}
+
+/** 退款申请请求 */
+export interface RefundRequest {
+  orderNo: string
+  reason: string
+  amount?: number
+  description?: string
+}
+
+/** 退款状态 */
+export type RefundStatus =
+  'pending' | 'processing' | 'approved' | 'rejected' | 'completed' | 'failed'
+
+/** 退款记录 */
+export interface RefundRecord {
+  id: string
+  orderNo: string
+  refundNo: string
+  amount: number
+  reason: string
+  description?: string
+  status: RefundStatus
+  statusText?: string
+  rejectReason?: string
+  approvedAt?: string
+  completedAt?: string
+  createTime: string
+  updatedAt: string
+  orderInfo?: {
+    productName?: string
+    totalAmount?: number
+    paymentMethod?: string
+  }
+}
+
+/** 退款申请响应 */
+export interface RefundResponse {
+  refundNo: string
+  orderNo: string
+  amount: number
+  status: RefundStatus
+  message?: string
+}
+
+/** 退款审核请求 */
+export interface RefundAuditRequest {
+  refundNo: string
+  action: 'approve' | 'reject'
+  comment?: string
+}
+
+/** 充值订单 */
+export interface TopUpOrder {
+  orderId: string
+  amount: number
+  paymentMethod: PaymentMethod
+  qrCode?: string
+  paymentUrl?: string
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  createdAt: string
+}
+
+/** 充值状态 */
+export interface TopUpStatus {
+  orderId: string
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  amount: number
+  paidAt?: string
+}
+
+/** 提现记录 */
+export interface WithdrawalRecord {
+  id: string
+  amount: number
+  status: string
+  createTime?: string
+  updateTime?: string
+  nickname?: string
+  openId?: string
+  reason?: string
+  [key: string]: unknown
+}
+
+/** 发票信息 */
+export interface InvoiceInfo {
+  invoiceId: string
+  downloadUrl: string
+}
+
+/** 发票请求参数 */
+export interface InvoiceParams {
+  type: 'personal' | 'company'
+  title?: string
+  taxNumber?: string
+  address?: string
+  phone?: string
+  email?: string
+}
+
+// ===================== payment（支付订单统一入口） =====================
+
+/** 查询支付订单状态 */
+export async function checkPaymentStatus(
+  orderNo: string,
+): Promise<ApiResult<{ status?: string; paid?: boolean }>> {
+  return fetchApi<{ status?: string; paid?: boolean }>(`/api/payment/order/${orderNo}/status`)
+}
+
+/** 关闭/取消支付订单 */
+export async function cancelPaymentOrder(
+  orderNo: string,
+): Promise<ApiResult<{ success: boolean }>> {
+  return fetchApi<{ success: boolean }>(`/api/payment/order/${orderNo}/close`, { method: 'POST' })
+}
+
+/** 同步支付状态（主动校验回调结果） */
+export async function syncPaymentStatus(
+  orderNo: string,
+): Promise<ApiResult<{ verified?: boolean }>> {
+  return fetchApi<{ verified?: boolean }>(`/api/payment/order/${orderNo}/sync`, { method: 'POST' })
+}
+
+/** 验证支付回调签名 */
+export async function verifyPaymentCallback(
+  params: Record<string, unknown>,
+): Promise<ApiResult<{ valid?: boolean }>> {
+  return fetchApi<{ valid?: boolean }>('/api/payment/callback/verify', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 获取支付订单列表 */
+export async function getPaymentOrders(
+  query: PageQuery = {},
+): Promise<ApiResult<PageData<PaymentOrder>>> {
+  return fetchApi<PageData<PaymentOrder>>(`/api/payment/orders${buildQs(query)}`)
+}
+
+/** 获取支付订单详情 */
+export async function getPaymentOrderDetail(orderNo: string): Promise<ApiResult<PaymentOrder>> {
+  return fetchApi<PaymentOrder>(`/api/payment/orders/${orderNo}`)
+}
+
+// ===================== ali-pay（支付宝） =====================
+
+/** 创建支付宝支付 */
+export async function createAliPay(data: AliPayCreateParams): Promise<ApiResult<string>> {
+  return fetchApi<string>('/api/fund/ali/pay/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 创建支付宝支付（v2） */
+export async function createAliPay2(data: AliPayCreateParams): Promise<ApiResult<string>> {
+  return fetchApi<string>('/api/fund/ali/pay/create2', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 支付宝异步通知 */
+export async function aliPayNotify(data: AlipayNotifyParams): Promise<ApiResult<void>> {
+  return fetchApi<void>('/api/fund/ali/pay/alipay/notify', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+/** 查询支付宝支付成功状态 */
+export async function getAliPaySuccess(orderNo?: string): Promise<ApiResult<AlipayPayResponse>> {
+  return fetchApi<AlipayPayResponse>(
+    `/api/fund/ali/pay/success${buildQs(orderNo ? { orderNo } : {})}`,
+  )
+}
+
+/** 查询支付宝支付失败状态 */
+export async function getAliPayFail(orderNo?: string): Promise<ApiResult<AlipayPayResponse>> {
+  return fetchApi<AlipayPayResponse>(`/api/fund/ali/pay/fail${buildQs(orderNo ? { orderNo } : {})}`)
+}
+
+/** 支付宝同步返回 */
+export async function aliPayReturn(orderNo?: string): Promise<ApiResult<AlipayPayResponse>> {
+  return fetchApi<AlipayPayResponse>(
+    `/api/fund/ali/pay/alipay/return${buildQs(orderNo ? { orderNo } : {})}`,
+  )
+}
+
+// ===================== refund（退款） =====================
+
+/** 申请退款 */
+export async function applyRefund(data: RefundRequest): Promise<ApiResult<RefundResponse>> {
+  return fetchApi<RefundResponse>('/api/payment/refund/apply', {
+    method: 'POST',
+    body: JSON.stringify({
+      order_no: data.orderNo,
+      reason: data.reason,
+      amount: data.amount,
+      description: data.description,
+    }),
+  })
+}
+
+/** 获取退款记录列表 */
+export async function getRefundList(
+  query: PageQuery & {
+    orderNo?: string
+    refundNo?: string
+    status?: RefundStatus
+    startDate?: string
+    endDate?: string
+  } = {},
+): Promise<ApiResult<PageData<RefundRecord>>> {
+  return fetchApi<PageData<RefundRecord>>(`/api/payment/refund/list${buildQs(query)}`)
+}
+
+/** 获取退款记录详情 */
+export async function getRefundDetail(refundNo: string): Promise<ApiResult<RefundRecord>> {
+  return fetchApi<RefundRecord>(`/api/payment/refund/${refundNo}`)
+}
+
+/** 取消退款申请 */
+export async function cancelRefund(
+  refundNo: string,
+): Promise<ApiResult<{ refundNo: string; status: string }>> {
+  return fetchApi<{ refundNo: string; status: string }>(`/api/payment/refund/${refundNo}/cancel`, {
+    method: 'POST',
+  })
+}
+
+/** 查询退款状态 */
+export async function checkRefundStatus(refundNo: string): Promise<ApiResult<RefundRecord>> {
+  return fetchApi<RefundRecord>(`/api/payment/refund/${refundNo}/status`)
+}
+
+/** 审核退款申请（管理员） */
+export async function auditRefund(data: RefundAuditRequest): Promise<ApiResult<RefundRecord>> {
+  return fetchApi<RefundRecord>(`/api/payment/refund/${data.refundNo}/audit`, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: data.action,
+      comment: data.comment,
+    }),
+  })
+}
+
+/** 处理退款（管理员） */
+export async function processRefund(refundNo: string): Promise<ApiResult<RefundRecord>> {
+  return fetchApi<RefundRecord>(`/api/payment/refund/${refundNo}/process`, { method: 'POST' })
+}
+
+// ===================== top-up（充值） =====================
+
+/** 创建充值订单 */
+export async function createTopUpOrder(input: {
+  amount: number
+  paymentMethod: PaymentMethod
+}): Promise<ApiResult<TopUpOrder>> {
+  return fetchApi<TopUpOrder>('/api/top-up/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: input.amount,
+      payment_method: input.paymentMethod,
+    }),
+  })
+}
+
+/** 查询充值状态 */
+export async function getTopUpStatus(orderId: string): Promise<ApiResult<TopUpStatus>> {
+  return fetchApi<TopUpStatus>(`/api/top-up/status/${orderId}`)
+}
+
+/** 获取充值记录列表 */
+export async function getTopUpRecords(
+  query: PageQuery = {},
+): Promise<ApiResult<PageData<TopUpOrder>>> {
+  return fetchApi<PageData<TopUpOrder>>(`/api/top-up/records${buildQs(query)}`)
+}
+
+// ===================== withdrawal（提现） =====================
+
+/** 申请提现 */
+export async function requestWithdrawal(input: {
+  amount: number
+  method?: string
+  wechatAccount?: string
+  alipayAccount?: string
+  realName?: string
+  bankName?: string
+  bankAccount?: string
+  remark?: string
+}): Promise<ApiResult<WithdrawalRecord>> {
+  return fetchApi<WithdrawalRecord>('/api/zhsWithdrawal/withdrawal', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 获取提现审批状态 */
+export async function getWithdrawalStatus(
+  nickname: string,
+  openId: string,
+): Promise<ApiResult<WithdrawalRecord>> {
+  return fetchApi<WithdrawalRecord>('/api/zhsWithdrawal/getWithdrawal', {
+    method: 'POST',
+    body: JSON.stringify({ nickname, openId }),
+  })
+}
+
+/** 获取当前用户自己的提现记录 */
+export async function getMyWithdrawalRecords(
+  query: PageQuery = {},
+): Promise<ApiResult<PageData<WithdrawalRecord>>> {
+  return fetchApi<PageData<WithdrawalRecord>>(`/api/zhsWithdrawal/my-records${buildQs(query)}`)
+}
+
+/** 获取提现列表（管理员） */
+export async function getWithdrawals(
+  query: PageQuery & { status?: string } = {},
+): Promise<ApiResult<PageData<WithdrawalRecord>>> {
+  return fetchApi<PageData<WithdrawalRecord>>(`/api/zhs-withdrawal-flow/list${buildQs(query)}`)
+}
+
+/** 获取提现详情（管理员） */
+export async function getWithdrawalDetail(id: string): Promise<ApiResult<WithdrawalRecord>> {
+  return fetchApi<WithdrawalRecord>(`/api/zhs-withdrawal-flow/${id}`)
+}
+
+/** 审批提现（管理员） */
+export async function approveWithdrawal(
+  id: string,
+  params?: Record<string, unknown>,
+): Promise<ApiResult<WithdrawalRecord>> {
+  return fetchApi<WithdrawalRecord>(`/api/zhs-withdrawal-flow/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(params || {}),
+  })
+}
+
+/** 拒绝提现（管理员） */
+export async function rejectWithdrawal(
+  id: string,
+  reason?: string,
+): Promise<ApiResult<WithdrawalRecord>> {
+  return fetchApi<WithdrawalRecord>(`/api/zhs-withdrawal-flow/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || '审核未通过' }),
+  })
+}
+
+// ===================== invoice（发票） =====================
+
+/** 生成订单发票 */
+export async function generateInvoice(
+  orderId: string,
+  invoiceData: InvoiceParams,
+): Promise<ApiResult<InvoiceInfo>> {
+  return fetchApi<InvoiceInfo>(`/api/orders/${orderId}/invoice`, {
+    method: 'POST',
+    body: JSON.stringify(invoiceData),
+  })
+}
+
+/** 获取发票信息 */
+export async function getInvoice(orderId: string): Promise<ApiResult<InvoiceInfo>> {
+  return fetchApi<InvoiceInfo>(`/api/orders/${orderId}/invoice`)
+}
