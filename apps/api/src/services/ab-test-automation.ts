@@ -8,9 +8,15 @@
  */
 
 import { eq } from 'drizzle-orm'
+import { pino } from 'pino'
 import { db } from '../db/index.js'
 import { abTests, type AbTest } from '@ihui/database'
 import { getTestStats, endTest, type VariantStat } from './ab-test-service.js'
+
+const logger = pino({
+  name: 'ab-test-automation',
+  transport: process.env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+})
 
 export interface SignificanceResult {
   variantId: string
@@ -130,7 +136,10 @@ export async function evaluateAllRunningTests(): Promise<
       const shouldPromote = evalResult.winnerVariantId !== null && test.autoPromote
       if (shouldPromote) {
         await endTest(test.id, evalResult.winnerVariantId ?? undefined)
-        console.log(`[ab-test-automation] 自动推广 ${test.name} → ${evalResult.winnerVariantId}`)
+        logger.info(
+          { testId: test.id, winner: evalResult.winnerVariantId },
+          `自动推广 ${test.name}`,
+        )
       }
       out.push({
         testId: test.id,
