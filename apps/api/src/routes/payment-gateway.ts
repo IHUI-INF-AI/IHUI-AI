@@ -58,6 +58,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       description?: string;
     };
     const userId = request.userId!;
+    const resolvedOpenId = openId || userId;
     const amountCents = parseInt(amount, 10);
     if (!amountCents || amountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'));
     const order = await placeOrder({
@@ -66,7 +67,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       orderType: parseInt(orderType, 10),
       productId,
       payType: 'wechat',
-      openId,
+      openId: resolvedOpenId,
       description,
     });
     if (!isWechatPayConfigured()) {
@@ -76,7 +77,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       outTradeNo: order.orderNo,
       amount: amountCents,
       description,
-      openId,
+      openId: resolvedOpenId,
       notifyUrl: notifyUrl(),
     });
     const sign = buildJsapiSign(prepayId);

@@ -31,7 +31,7 @@ export default function AboutPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['about'],
-    queryFn: () => api<AboutInfo>(`/api/setting/about`),
+    queryFn: () => api<AboutInfo>(`/api/settings/about`),
     retry: false,
   })
 
