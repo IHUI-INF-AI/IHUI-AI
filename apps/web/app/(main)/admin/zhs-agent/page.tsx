@@ -282,6 +282,7 @@ export default function ZhsAgentPage() {
                   {}
                   <TableCell className="px-4 py-2.5">
                     {item.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={item.image} alt="" className="h-10 w-10 rounded object-cover" />
                     ) : (
                       <span className="text-muted-foreground">-</span>
