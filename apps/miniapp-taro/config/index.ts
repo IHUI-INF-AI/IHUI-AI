@@ -15,30 +15,46 @@ export default defineConfig(async (merge) => {
     defineConstants: {},
     copy: { patterns: [], options: {} },
     framework: 'react',
-    compiler: 'webpack5',
-    cache: { enable: false },
+    compiler: 'vite',
+    cache: { enable: true },
     alias: {
-      '@': path.resolve(__dirname, '..', 'src')
+      '@': path.resolve(__dirname, '..', 'src'),
     },
     mini: {
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
-        cssModules: { enable: false, config: { namingPattern: 'module', generateScopedName: '[name]__[local]___[hash:base64:5]' } }
-      }
+        cssModules: {
+          enable: false,
+          config: {
+            namingPattern: 'module',
+            generateScopedName: '[name]__[local]___[hash:base64:5]',
+          },
+        },
+      },
     },
     h5: {
       publicPath: '/',
       staticDirectory: 'static',
       output: { filename: 'js/[name].[hash:8].js', chunkFilename: 'js/[name].[chunkhash:8].js' },
-      miniCssExtractPluginOption: { ignoreOrder: true, filename: 'css/[name].[hash].css', chunkFilename: 'css/[name].[chunkhash].css' },
+      miniCssExtractPluginOption: {
+        ignoreOrder: true,
+        filename: 'css/[name].[hash].css',
+        chunkFilename: 'css/[name].[chunkhash].css',
+      },
       postcss: {
         autoprefixer: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
-        cssModules: { enable: false, config: { namingPattern: 'module', generateScopedName: '[name]__[local]___[hash:base64:5]' } }
-      }
+        cssModules: {
+          enable: false,
+          config: {
+            namingPattern: 'module',
+            generateScopedName: '[name]__[local]___[hash:base64:5]',
+          },
+        },
+      },
     },
-    rn: { appName: 'taroDemo', postcss: { cssModules: { enable: false } } }
+    rn: { appName: 'taroDemo', postcss: { cssModules: { enable: false } } },
   }
   return merge({}, base, process.env.NODE_ENV === 'development' ? devConfig : prodConfig)
 })
