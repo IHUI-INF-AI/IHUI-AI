@@ -70,6 +70,23 @@ const likeListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
+const favoriteBodySchema = z.object({
+  topicId: z.string().min(1).max(128),
+  topicType: z.string().min(1).max(50),
+  topicTitle: z.string().max(200).optional(),
+})
+
+const favoriteQuerySchema = z.object({
+  topicId: z.string().min(1).max(128),
+  topicType: z.string().min(1).max(50),
+})
+
+const favoriteListQuerySchema = z.object({
+  topicType: z.preprocess(emptyToUndefined, z.string().min(1).max(50).optional()),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+})
+
 // =============================================================================
 // 鉴权辅助
 // =============================================================================
@@ -552,6 +569,224 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       } catch (e) {
         request.log.error(e)
         return reply.status(500).send(error(500, '查询点赞计数失败'))
+      }
+    },
+  )
+
+  // ===========================================================================
+  // 通用收藏（behavior_favorite 表，raw SQL）
+  // ===========================================================================
+
+  // POST /behavior/favorite - 通用收藏
+  server.post(
+    '/behavior/favorite',
+    {
+      schema: {
+        summary: '通用收藏',
+        tags: ['behavior'],
+        body: {
+          type: 'object',
+          properties: {
+            topicId: { type: 'string', description: '目标 ID' },
+            topicType: { type: 'string', description: '目标类型: lesson/article/exam/resource 等' },
+            topicTitle: { type: 'string', description: '目标标题' },
+          },
+        },
+        response: {
+          200: dataObjSchema,
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = favoriteBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { topicId, topicType } = parsed.data
+      const userId = request.userId!
+      try {
+        const existing = await db.execute(sql`
+        SELECT id FROM behavior_favorite
+        WHERE user_id = ${userId} AND target_type = ${topicType} AND target_id = ${parseInt(topicId, 10)}
+        LIMIT 1
+      `)
+        if (existing.length > 0) {
+          return reply.send(
+            success({ topicId, topicType, favorited: true, alreadyFavorited: true }),
+          )
+        }
+        await db.execute(sql`
+        INSERT INTO behavior_favorite (user_id, target_type, target_id)
+        VALUES (${userId}, ${topicType}, ${parseInt(topicId, 10)})
+      `)
+        return reply.send(success({ topicId, topicType, favorited: true }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '收藏失败'))
+      }
+    },
+  )
+
+  // DELETE /behavior/favorite - 取消收藏
+  server.delete(
+    '/behavior/favorite',
+    {
+      schema: {
+        summary: '取消收藏',
+        tags: ['behavior'],
+        querystring: {
+          type: 'object',
+          properties: {
+            topicId: { type: 'string', description: '目标 ID' },
+            topicType: { type: 'string', description: '目标类型' },
+          },
+        },
+        response: {
+          200: dataObjSchema,
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = favoriteQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { topicId, topicType } = parsed.data
+      const userId = request.userId!
+      try {
+        await db.execute(sql`
+        DELETE FROM behavior_favorite
+        WHERE user_id = ${userId} AND target_type = ${topicType} AND target_id = ${parseInt(topicId, 10)}
+      `)
+        return reply.send(success({ topicId, topicType, favorited: false }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '取消收藏失败'))
+      }
+    },
+  )
+
+  // GET /behavior/favorite/check - 检查是否已收藏
+  server.get(
+    '/behavior/favorite/check',
+    {
+      schema: {
+        summary: '检查是否已收藏',
+        tags: ['behavior'],
+        querystring: {
+          type: 'object',
+          properties: {
+            topicId: { type: 'string', description: '目标 ID' },
+            topicType: { type: 'string', description: '目标类型' },
+          },
+        },
+        response: {
+          200: dataObjSchema,
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = favoriteQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { topicId, topicType } = parsed.data
+      const userId = request.userId!
+      try {
+        const rows = await db.execute(sql`
+        SELECT id FROM behavior_favorite
+        WHERE user_id = ${userId} AND target_type = ${topicType} AND target_id = ${parseInt(topicId, 10)}
+        LIMIT 1
+      `)
+        const favorited = rows.length > 0
+        return reply.send(success({ topicId, topicType, favorited }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '检查收藏状态失败'))
+      }
+    },
+  )
+
+  // GET /behavior/favorite/list - 用户收藏列表
+  server.get(
+    '/behavior/favorite/list',
+    {
+      schema: {
+        summary: '用户收藏列表',
+        tags: ['behavior'],
+        querystring: {
+          type: 'object',
+          properties: {
+            topicType: { type: 'string', description: '目标类型筛选' },
+            page: { type: 'integer', minimum: 1, default: 1 },
+            pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        },
+        response: {
+          200: dataObjSchema,
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = favoriteListQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { topicType, page, pageSize } = parsed.data
+      const userId = request.userId!
+      const offset = (page - 1) * pageSize
+      try {
+        const whereClause = topicType
+          ? sql`WHERE user_id = ${userId} AND target_type = ${topicType}`
+          : sql`WHERE user_id = ${userId}`
+        const listRows = await db.execute(sql`
+        SELECT id, target_type, target_id, created_at
+        FROM behavior_favorite ${whereClause}
+        ORDER BY created_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `)
+        const countRows = await db.execute(sql`
+        SELECT count(*)::int AS count FROM behavior_favorite ${whereClause}
+      `)
+        const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+        return reply.send(
+          success({ list: listRows as Array<Record<string, unknown>>, total, page, pageSize }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '查询收藏列表失败'))
       }
     },
   )

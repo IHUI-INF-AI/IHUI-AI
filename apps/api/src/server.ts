@@ -145,6 +145,9 @@ import { agreementPublicRoutes, adminAgreementsRoutes } from './routes/admin-agr
 import { exchangeRatePublicRoutes, adminExchangeRateRoutes } from './routes/admin-exchange-rate.js'
 import { adminPrivateLettersRoutes } from './routes/admin-private-letters.js'
 
+// P0-3 补建：M-81 管理后台页面后端 API（菜单管理 + 需求审核 + 在线用户）
+import { adminExtendedRoutes } from './routes/admin-extended.js'
+
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -609,4 +612,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminExchangeRateRoutes, { prefix: '/api/admin' })
   // 私信管理：/api/admin/private-letters 列表
   server.register(adminPrivateLettersRoutes, { prefix: '/api/admin' })
+
+  // ===== P0-3 补建：M-81 管理后台页面后端 API =====
+  // 菜单管理 + 需求审核 + 在线用户
+  server.register(adminExtendedRoutes, { prefix: '/api/admin' })
 }

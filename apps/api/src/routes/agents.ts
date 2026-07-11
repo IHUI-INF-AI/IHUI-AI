@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { eq, sql } from 'drizzle-orm'
+import { z } from 'zod'
+import { randomUUID, randomBytes } from 'crypto'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
-import { zhsAgentBuy, agentSettlements } from '@ihui/database'
+import { zhsAgentBuy, agentSettlements, zhsAgentNeedTask } from '@ihui/database'
 import {
   getAgentDetail,
   listAgents,
@@ -39,6 +41,14 @@ import {
   type UpdateExamineInput,
 } from '../db/agents-queries.js'
 import { listOAuthApps, findAuditLogList, findAuditLogStats } from '../db/oauth-queries.js'
+import {
+  findOAuthAppByClientId,
+  createOAuthApp,
+  updateOAuthApp,
+  deleteOAuthApp,
+  regenerateOAuthAppSecret,
+  listActiveScopeMeta,
+} from '../db/oauth-queries.js'
 
 // =============================================================================
 // 鉴权辅助
@@ -61,6 +71,50 @@ function toInt(v: string | undefined): number | undefined {
   const n = parseInt(v, 10)
   return Number.isNaN(n) ? undefined : n
 }
+
+// =============================================================================
+// Zod schemas（M-63 补建端点）
+// =============================================================================
+
+const createOAuthAppSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  description: z.string().max(2000).optional(),
+  redirectUris: z.array(z.string().url()).min(1).max(20),
+  scopes: z.array(z.string().max(64)).optional(),
+  icon: z.string().max(512).optional(),
+})
+
+const updateOAuthAppSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  description: z.string().max(2000).optional(),
+  redirectUris: z.array(z.string().url()).min(1).max(20).optional(),
+  scopes: z.array(z.string().max(64)).optional(),
+  icon: z.string().max(512).optional(),
+  isActive: z.number().int().min(0).max(1).optional(),
+})
+
+const updateSettlementSchema = z.object({
+  status: z.string().max(20).optional(),
+  commissionRate: z.number().min(0).optional(),
+  commissionAmount: z.number().int().min(0).optional(),
+})
+
+const createNeedTaskSchema = z.object({
+  agentId: z.string().max(64).default(''),
+  taskName: z.string().trim().min(1).max(128),
+  taskDesc: z.string().max(5000).optional(),
+  rewardTokens: z.number().int().min(0).default(0),
+  deadline: z.string().datetime().optional(),
+})
+
+const updateNeedTaskSchema = z.object({
+  taskName: z.string().trim().min(1).max(128).optional(),
+  taskDesc: z.string().max(5000).optional(),
+  rewardTokens: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).optional(),
+  deadline: z.string().datetime().optional(),
+  acceptUserId: z.string().max(64).optional(),
+})
 
 // =============================================================================
 // 代理管理路由（挂载于 /api）
@@ -604,5 +658,229 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       status: q.status,
     })
     return reply.send(success({ list: items, total }))
+  })
+
+  // -------------------------------------------------------------------------
+  // oauth-apps CRUD（M-63 补建）
+  // -------------------------------------------------------------------------
+
+  // GET /oauth-apps/scopes - 可用 scope 列表
+  server.get('/oauth-apps/scopes', async (_request, reply) => {
+    const list = await listActiveScopeMeta()
+    return reply.send(success({ list }))
+  })
+
+  // GET /oauth-apps/:clientId - OAuth 应用详情
+  server.get('/oauth-apps/:clientId', async (request, reply) => {
+    const { clientId } = request.params as { clientId: string }
+    const app = await findOAuthAppByClientId(clientId)
+    if (!app) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
+    if (app.ownerUuid !== request.userId) {
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '无权查看此应用'))
+    }
+    return reply.send(success(app))
+  })
+
+  // POST /oauth-apps - 创建 OAuth 应用
+  server.post('/oauth-apps', async (request, reply) => {
+    const parsed = createOAuthAppSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const clientId = randomUUID().replace(/-/g, '')
+    const clientSecret = randomBytes(32).toString('hex')
+    const app = await createOAuthApp({
+      clientId,
+      clientSecret,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      redirectUris: parsed.data.redirectUris,
+      scopes: parsed.data.scopes,
+      icon: parsed.data.icon,
+      ownerUuid: request.userId!,
+    })
+    return reply.status(201).send(success(app))
+  })
+
+  // PUT /oauth-apps/:clientId - 更新 OAuth 应用
+  server.put('/oauth-apps/:clientId', async (request, reply) => {
+    const { clientId } = request.params as { clientId: string }
+    const parsed = updateOAuthAppSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findOAuthAppByClientId(clientId)
+    if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
+    if (existing.ownerUuid !== request.userId) {
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '无权修改此应用'))
+    }
+    const app = await updateOAuthApp(clientId, existing.ownerUuid!, parsed.data)
+    return reply.send(success(app))
+  })
+
+  // DELETE /oauth-apps/:clientId - 删除 OAuth 应用
+  server.delete('/oauth-apps/:clientId', async (request, reply) => {
+    const { clientId } = request.params as { clientId: string }
+    const existing = await findOAuthAppByClientId(clientId)
+    if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
+    if (existing.ownerUuid !== request.userId) {
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '无权删除此应用'))
+    }
+    await deleteOAuthApp(clientId, existing.ownerUuid!)
+    return reply.send(success({ clientId, deleted: true }))
+  })
+
+  // POST /oauth-apps/:clientId/regenerate-secret - 重新生成密钥
+  server.post('/oauth-apps/:clientId/regenerate-secret', async (request, reply) => {
+    const { clientId } = request.params as { clientId: string }
+    const existing = await findOAuthAppByClientId(clientId)
+    if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
+    if (existing.ownerUuid !== request.userId) {
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '无权操作此应用'))
+    }
+    const newSecret = randomBytes(32).toString('hex')
+    const app = await regenerateOAuthAppSecret(clientId, existing.ownerUuid!, newSecret)
+    return reply.send(success(app))
+  })
+
+  // -------------------------------------------------------------------------
+  // settlement 补建（M-63）
+  // -------------------------------------------------------------------------
+
+  // GET /settlement/:id - 结算详情
+  server.get('/settlement/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const rows = await dbRead
+      .select()
+      .from(agentSettlements)
+      .where(eq(agentSettlements.id, id))
+      .limit(1)
+    if (!rows[0]) return reply.status(404).send(error(404, '结算记录不存在'))
+    return reply.send(success(rows[0]))
+  })
+
+  // PUT /settlement/:id - 更新结算记录
+  server.put('/settlement/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const parsed = updateSettlementSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const rows = await db
+      .update(agentSettlements)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(agentSettlements.id, id))
+      .returning()
+    if (!rows[0]) return reply.status(404).send(error(404, '结算记录不存在'))
+    return reply.send(success(rows[0]))
+  })
+
+  // -------------------------------------------------------------------------
+  // agent need task 需求任务（M-63 补建）
+  // -------------------------------------------------------------------------
+
+  // GET /agents/need-tasks - 需求任务列表
+  server.get('/agents/need-tasks', async (request, reply) => {
+    const q = request.query as {
+      page?: string
+      pageSize?: string
+      agentId?: string
+      status?: string
+    }
+    const page = toInt(q.page) ?? 1
+    const pageSize = toInt(q.pageSize) ?? 20
+    const conds = []
+    if (q.agentId) conds.push(eq(zhsAgentNeedTask.agentId, q.agentId))
+    if (q.status !== undefined) {
+      const statusNum = toInt(q.status)
+      if (statusNum !== undefined) conds.push(eq(zhsAgentNeedTask.status, statusNum))
+    }
+    const where = conds.length ? and(...conds) : undefined
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(zhsAgentNeedTask)
+        .where(where)
+        .orderBy(desc(zhsAgentNeedTask.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(zhsAgentNeedTask)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+  })
+
+  // GET /agents/need-tasks/:id - 需求任务详情
+  server.get('/agents/need-tasks/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const rows = await dbRead
+      .select()
+      .from(zhsAgentNeedTask)
+      .where(eq(zhsAgentNeedTask.id, parseInt(id, 10)))
+      .limit(1)
+    if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
+    return reply.send(success(rows[0]))
+  })
+
+  // POST /agents/need-tasks - 创建需求任务
+  server.post('/agents/need-tasks', async (request, reply) => {
+    const parsed = createNeedTaskSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const rows = await db
+      .insert(zhsAgentNeedTask)
+      .values({
+        userId: request.userId!,
+        agentId: parsed.data.agentId,
+        taskName: parsed.data.taskName,
+        taskDesc: parsed.data.taskDesc,
+        rewardTokens: parsed.data.rewardTokens,
+        deadline: parsed.data.deadline ? new Date(parsed.data.deadline) : null,
+      })
+      .returning()
+    return reply.status(201).send(success(rows[0]))
+  })
+
+  // PUT /agents/need-tasks/:id - 更新需求任务
+  server.put('/agents/need-tasks/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const parsed = updateNeedTaskSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    if (parsed.data.taskName !== undefined) updateData.taskName = parsed.data.taskName
+    if (parsed.data.taskDesc !== undefined) updateData.taskDesc = parsed.data.taskDesc
+    if (parsed.data.rewardTokens !== undefined) updateData.rewardTokens = parsed.data.rewardTokens
+    if (parsed.data.status !== undefined) updateData.status = parsed.data.status
+    if (parsed.data.acceptUserId !== undefined) updateData.acceptUserId = parsed.data.acceptUserId
+    if (parsed.data.deadline !== undefined) {
+      updateData.deadline = new Date(parsed.data.deadline)
+    }
+    const rows = await db
+      .update(zhsAgentNeedTask)
+      .set(updateData)
+      .where(eq(zhsAgentNeedTask.id, parseInt(id, 10)))
+      .returning()
+    if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
+    return reply.send(success(rows[0]))
+  })
+
+  // DELETE /agents/need-tasks/:id - 删除需求任务
+  server.delete('/agents/need-tasks/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const rows = await db
+      .delete(zhsAgentNeedTask)
+      .where(eq(zhsAgentNeedTask.id, parseInt(id, 10)))
+      .returning()
+    if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
+    return reply.send(success({ id, deleted: true }))
   })
 }
