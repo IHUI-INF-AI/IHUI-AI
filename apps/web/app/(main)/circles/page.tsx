@@ -16,7 +16,12 @@ interface CircleItem {
   memberCount: number
   postCount: number
 }
-interface CirclesData { list: CircleItem[]; total: number; page: number; pageSize: number }
+interface CirclesData {
+  list: CircleItem[]
+  total: number
+  page: number
+  pageSize: number
+}
 
 const PAGE_SIZE = 20
 
@@ -65,14 +70,14 @@ export default function CirclesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {circles.map((c) => (
             <Link key={c.id} href={`/circles/${c.id}`}>
-              <Card className="h-full transition-colors hover:border-primary/40">
+              <Card className="h-full transition-colors hover:bg-accent">
                 <CardHeader className="p-4 pb-2">
                   <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Circle className="h-5 w-5" />
                   </div>
-                  <CardTitle className="line-clamp-1 text-base">{c.name}</CardTitle>
+                  <CardTitle className="text-base">{c.name}</CardTitle>
                   {c.description && (
-                    <CardDescription className="line-clamp-2 text-xs">{c.description}</CardDescription>
+                    <CardDescription className="text-xs">{c.description}</CardDescription>
                   )}
                 </CardHeader>
                 <CardContent className="p-4 pt-0">

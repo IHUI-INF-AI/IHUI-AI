@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   MessageSquare,
   Loader2,
@@ -70,6 +70,7 @@ function targetHref(comment: MyComment): string {
 export default function MyCommentsPage() {
   const t = useTranslations('comments')
   const tc = useTranslations('student')
+  const locale = useLocale()
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
 
@@ -95,7 +96,7 @@ export default function MyCommentsPage() {
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
   }
 
   return (
@@ -128,7 +129,7 @@ export default function MyCommentsPage() {
             {list.map((comment) => {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
-                <Card key={comment.id} className="transition-colors hover:border-primary/40">
+                <Card key={comment.id} className="transition-colors hover:bg-accent">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <Link
@@ -136,7 +137,7 @@ export default function MyCommentsPage() {
                         className="flex min-w-0 flex-1 items-center gap-2"
                       >
                         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="line-clamp-1 text-sm font-medium hover:text-primary">
+                        <span className="text-sm font-medium hover:text-primary">
                           {comment.targetTitle ?? comment.targetType}
                         </span>
                       </Link>
@@ -151,7 +152,7 @@ export default function MyCommentsPage() {
                         {t('delete')}
                       </Button>
                     </div>
-                    <p className="line-clamp-3 text-sm text-muted-foreground">{comment.content}</p>
+                    <p className="text-sm text-muted-foreground">{comment.content}</p>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>
                         {t('targetType')}: {comment.targetType}

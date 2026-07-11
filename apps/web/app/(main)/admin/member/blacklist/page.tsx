@@ -5,7 +5,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Ban, Search, Trash2, RotateCcw } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Input,
+  Button,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +34,8 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const selectClass = 'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const TYPE_LABEL: Record<BlacklistItem['type'], string> = { user: '用户', ip: 'IP', device: '设备' }
 
 export default function AdminMemberBlacklistPage() {
@@ -40,7 +49,9 @@ export default function AdminMemberBlacklistPage() {
       const qs = new URLSearchParams()
       if (search) qs.set('search', search)
       if (type !== 'all') qs.set('type', type)
-      return api<{ list: BlacklistItem[] }>(`/api/admin/member/blacklist?${qs.toString()}`).then((d) => d.list ?? [])
+      return api<{ list: BlacklistItem[] }>(`/api/admin/member/blacklist?${qs.toString()}`).then(
+        (d) => d.list ?? [],
+      )
     },
   })
 
@@ -67,10 +78,17 @@ export default function AdminMemberBlacklistPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索用户/标识" className="h-9 pl-8" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索用户/标识"
+            className="h-9 pl-8"
+          />
         </div>
         <Select value={type} onValueChange={setType}>
-          <SelectTrigger className={selectClass} aria-label="类型"><SelectValue /></SelectTrigger>
+          <SelectTrigger className={selectClass} aria-label="类型">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部类型</SelectItem>
             <SelectItem value="user">用户</SelectItem>
@@ -96,33 +114,73 @@ export default function AdminMemberBlacklistPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                </TableCell>
+              </TableRow>
             ) : list.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">暂无黑名单记录</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  暂无黑名单记录
+                </TableCell>
+              </TableRow>
             ) : (
               list.map((b) => (
                 <TableRow key={b.id}>
                   <TableCell>
-                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs">{TYPE_LABEL[b.type]}</span>
+                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {TYPE_LABEL[b.type]}
+                    </span>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{b.identifier}</TableCell>
                   <TableCell className="text-muted-foreground">{b.user || '-'}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">{b.reason}</TableCell>
+                  <TableCell className="max-w-[200px] break-words text-xs text-muted-foreground">
+                    {b.reason}
+                  </TableCell>
                   <TableCell>
-                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs', b.status === 'active' ? 'bg-red-500/10 text-red-600' : 'bg-muted text-muted-foreground')}>
-                      <span className={cn('h-1.5 w-1.5 rounded-full', b.status === 'active' ? 'bg-red-500' : 'bg-muted-foreground')} />
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                        b.status === 'active'
+                          ? 'bg-red-500/10 text-red-600'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          b.status === 'active' ? 'bg-red-500' : 'bg-muted-foreground',
+                        )}
+                      />
                       {b.status === 'active' ? '封禁中' : '已解除'}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{new Date(b.createdAt).toLocaleString()}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{b.expiresAt ? new Date(b.expiresAt).toLocaleString() : '永久'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(b.createdAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {b.expiresAt ? new Date(b.expiresAt).toLocaleString() : '永久'}
+                  </TableCell>
                   <TableCell className="text-right">
                     {b.status === 'active' && (
-                      <Button size="sm" variant="ghost" disabled={removeMut.isPending} onClick={() => removeMut.mutate(b.id)}>
-                        <RotateCcw className="h-3.5 w-3.5" />解除
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={removeMut.isPending}
+                        onClick={() => removeMut.mutate(b.id)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        解除
                       </Button>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => { if (confirm('确认删除记录？')) delMut.mutate(b.id) }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        if (confirm('确认删除记录？')) delMut.mutate(b.id)
+                      }}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>

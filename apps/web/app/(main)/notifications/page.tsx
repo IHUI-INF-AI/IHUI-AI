@@ -191,7 +191,7 @@ export default function NotificationsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{n.title}</p>
+                    <p className="break-words text-sm font-medium">{n.title}</p>
                     {!n.isRead && (
                       <span
                         className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"
@@ -199,9 +199,7 @@ export default function NotificationsPage() {
                       />
                     )}
                   </div>
-                  {n.content && (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.content}</p>
-                  )}
+                  {n.content && <p className="mt-0.5 text-xs text-muted-foreground">{n.content}</p>}
                   <p className="mt-1 text-xs text-muted-foreground">{relativeTime(n.createdAt)}</p>
                 </div>
                 {!n.isRead && (

@@ -40,26 +40,37 @@ export default function VisitTrackingPage() {
 
   const { data: summary, isLoading: loadingSummary } = useQuery({
     queryKey: ['visit-tracking', 'summary'],
-    queryFn: () => api<{ summary: VisitSummary }>(`/api/admin/visit-tracking/summary`).then((d) => d.summary),
+    queryFn: () =>
+      api<{ summary: VisitSummary }>(`/api/admin/visit-tracking/summary`).then((d) => d.summary),
   })
   const { data: pvData } = useQuery({
     queryKey: ['visit-tracking', 'day-pv'],
-    queryFn: () => api<{ list: DayPvItem[] }>(`/api/admin/visit-tracking/day/pv/list`).then((d) => d.list),
+    queryFn: () =>
+      api<{ list: DayPvItem[] }>(`/api/admin/visit-tracking/day/pv/list`).then((d) => d.list),
   })
   const { data: uvData } = useQuery({
     queryKey: ['visit-tracking', 'day-uv'],
-    queryFn: () => api<{ list: DayUvItem[] }>(`/api/admin/visit-tracking/day/uv/list`).then((d) => d.list),
+    queryFn: () =>
+      api<{ list: DayUvItem[] }>(`/api/admin/visit-tracking/day/uv/list`).then((d) => d.list),
   })
   const { data: ipCityData, isLoading: loadingIpCity } = useQuery({
     queryKey: ['visit-tracking', 'ip-city'],
-    queryFn: () => api<{ list: IpCityItem[]; total: number }>(`/api/admin/visit-tracking/ip-city/summary/list?pageSize=20`),
+    queryFn: () =>
+      api<{ list: IpCityItem[]; total: number }>(
+        `/api/admin/visit-tracking/ip-city/summary/list?pageSize=20`,
+      ),
   })
 
   const cards = [
     { label: t('pv'), value: summary?.pv ?? 0, icon: Eye, color: 'text-primary' },
-    { label: t('uv'), value: summary?.uv ?? 0, icon: Users, color: 'text-blue-600' },
+    { label: t('uv'), value: summary?.uv ?? 0, icon: Users, color: 'text-primary' },
     { label: t('ipCount'), value: summary?.ipCount ?? 0, icon: Globe, color: 'text-emerald-600' },
-    { label: t('memberCount'), value: summary?.memberCount ?? 0, icon: BarChart3, color: 'text-purple-600' },
+    {
+      label: t('memberCount'),
+      value: summary?.memberCount ?? 0,
+      icon: BarChart3,
+      color: 'text-purple-600',
+    },
   ]
 
   return (
@@ -85,7 +96,9 @@ export default function VisitTrackingPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {c.label}
+                  </CardTitle>
                   <c.icon className={`h-4 w-4 ${c.color}`} />
                 </CardHeader>
                 <CardContent>

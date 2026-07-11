@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { User, Clock, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProgressBar } from '@/components/common'
@@ -19,7 +20,7 @@ interface CourseCardProps {
   className?: string
 }
 
-export function CourseCard({
+function CourseCardImpl({
   title,
   cover,
   instructor,
@@ -34,7 +35,15 @@ export function CourseCard({
 }: CourseCardProps) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
       className={cn(
         'group overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-lg',
         onClick && 'cursor-pointer',
@@ -43,10 +52,11 @@ export function CourseCard({
     >
       <div className="relative aspect-video overflow-hidden bg-muted">
         {cover ? (
-          <img
+          <Image
             src={cover}
             alt={title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            fill
+            className="object-cover transition-transform group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
@@ -55,8 +65,8 @@ export function CourseCard({
         )}
         {tags && tags.length > 0 && (
           <div className="absolute top-2 left-2 flex gap-1">
-            {tags.map((tag, i) => (
-              <span key={i} className="rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+            {tags.map((tag) => (
+              <span key={tag} className="rounded bg-black/60 px-2 py-0.5 text-xs text-white">
                 {tag}
               </span>
             ))}
@@ -64,7 +74,7 @@ export function CourseCard({
         )}
       </div>
       <div className="space-y-2 p-4">
-        <h3 className="line-clamp-2 font-medium">{title}</h3>
+        <h3 className="font-medium">{title}</h3>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {instructor && (
             <span className="flex items-center gap-1">
@@ -104,3 +114,5 @@ export function CourseCard({
     </div>
   )
 }
+
+export const CourseCard = React.memo(CourseCardImpl)

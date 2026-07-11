@@ -6,7 +6,20 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Key, Lock, Search, Shield, Boxes, Zap, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Input,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface Permission {
@@ -82,7 +95,11 @@ export default function AdminPermissionsPage() {
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]))
   }, [filtered])
 
-  const dateFmt = new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 
   function copyCode(p: Permission) {
     navigator.clipboard?.writeText(p.name).then(() => {
@@ -125,32 +142,45 @@ export default function AdminPermissionsPage() {
           />
         </div>
         <Select value={resourceFilter} onValueChange={(v) => setResourceFilter(v)}>
-  <SelectTrigger className={inputClass} aria-label={t('resource')}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="all">{t('allResources')}</SelectItem>
-    {resources.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-  </SelectContent>
-</Select>
+          <SelectTrigger className={inputClass} aria-label={t('resource')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('allResources')}</SelectItem>
+            {resources.map((r) => (
+              <SelectItem key={r} value={r}>
+                {r}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={actionFilter} onValueChange={(v) => setActionFilter(v)}>
-  <SelectTrigger className={cn(inputClass, 'w-32')} aria-label={t('action')}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="all">{t('allActions')}</SelectItem>
-    {actions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-  </SelectContent>
-</Select>
-        <span className="text-sm text-muted-foreground">{t('filteredCount', { count: filteredCount })}</span>
+          <SelectTrigger className={cn(inputClass, 'w-32')} aria-label={t('action')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('allActions')}</SelectItem>
+            {actions.map((a) => (
+              <SelectItem key={a} value={a}>
+                {a}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">
+          {t('filteredCount', { count: filteredCount })}
+        </span>
       </div>
 
       {/* 列表 */}
       {permsQ.isError ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{t('noData')}</div>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {t('noData')}
+        </div>
       ) : permsQ.isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />{t('loading')}
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('loading')}
         </div>
       ) : grouped.length === 0 ? (
         <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
@@ -205,7 +235,7 @@ export default function AdminPermissionsPage() {
                             {p.action}
                           </span>
                         </TableCell>
-                        <TableCell className="max-w-[260px] truncate px-4 py-2 text-muted-foreground">
+                        <TableCell className="max-w-[260px] break-words px-4 py-2 text-muted-foreground">
                           {p.description || '-'}
                         </TableCell>
                         <TableCell className="whitespace-nowrap px-4 py-2 text-xs text-muted-foreground">

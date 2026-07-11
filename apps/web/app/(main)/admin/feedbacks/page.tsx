@@ -8,8 +8,23 @@ import { Loader2, MessageSquare, Edit } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { Button, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui'
+import {
+  Button,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui'
 import {
   api as fbApi,
   TYPE_ICON,
@@ -38,8 +53,10 @@ const STATUS_TABS: { value: string; labelKey: 'all' | FeedbackStatus }[] = [
 ]
 const STATUS_OPTIONS: FeedbackStatus[] = ['pending', 'reviewing', 'resolved', 'closed']
 const PRIORITY_OPTIONS: Priority[] = ['low', 'medium', 'high']
-const selectClass = 'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const textareaClass = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminFeedbacksPage() {
   const t = useTranslations('admin.feedbacks')
@@ -53,7 +70,11 @@ export default function AdminFeedbacksPage() {
   const [status, setStatus] = React.useState('all')
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<FeedbackItem | null>(null)
-  const [form, setForm] = React.useState({ status: 'pending' as FeedbackStatus, priority: 'low' as Priority, adminReply: '' })
+  const [form, setForm] = React.useState({
+    status: 'pending' as FeedbackStatus,
+    priority: 'low' as Priority,
+    adminReply: '',
+  })
   const [err, setErr] = React.useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -63,7 +84,9 @@ export default function AdminFeedbacksPage() {
       if (type !== 'all') qs.set('type', type)
       if (status !== 'all') qs.set('status', status)
       const suffix = qs.toString() ? `?${qs.toString()}` : ''
-      return fbApi<{ list: FeedbackItem[] }>(`/api/admin/feedbacks${suffix}`).then((d) => d.list ?? [])
+      return fbApi<{ list: FeedbackItem[] }>(`/api/admin/feedbacks${suffix}`).then(
+        (d) => d.list ?? [],
+      )
     },
   })
 
@@ -71,9 +94,15 @@ export default function AdminFeedbacksPage() {
     mutationFn: () => {
       const body: Record<string, unknown> = { status: form.status, priority: form.priority }
       if (form.adminReply.trim()) body.adminReply = form.adminReply.trim()
-      return fetchApi(`/api/admin/feedbacks/${editing?.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      return fetchApi(`/api/admin/feedbacks/${editing?.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'feedbacks'] }); close() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'feedbacks'] })
+      close()
+    },
     onError: (e: Error) => setErr(e.message),
   })
 
@@ -83,8 +112,17 @@ export default function AdminFeedbacksPage() {
     setErr(null)
     setOpen(true)
   }
-  function close() { if (saveMut.isPending) return; setOpen(false); setEditing(null); setErr(null) }
-  function submit(e: React.FormEvent) { e.preventDefault(); setErr(null); saveMut.mutate() }
+  function close() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+    setErr(null)
+  }
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErr(null)
+    saveMut.mutate()
+  }
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -187,7 +225,7 @@ export default function AdminFeedbacksPage() {
                         {tf(`type_${fb.type}`)}
                       </span>
                     </td>
-                    <td className="max-w-xs truncate px-4 py-2.5">{fb.title}</td>
+                    <td className="max-w-xs break-words px-4 py-2.5">{fb.title}</td>
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(
@@ -215,9 +253,13 @@ export default function AdminFeedbacksPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={(e) => { e.stopPropagation(); openEdit(fb) }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openEdit(fb)
+                        }}
                       >
-                        <Edit className="h-4 w-4" />{t('edit')}
+                        <Edit className="h-4 w-4" />
+                        {t('edit')}
                       </Button>
                     </td>
                   </tr>
@@ -235,42 +277,74 @@ export default function AdminFeedbacksPage() {
               <DialogTitle>{t('editTitle')}</DialogTitle>
               <DialogDescription>{t('editDesc')}</DialogDescription>
             </DialogHeader>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {err}
+              </div>
+            )}
             {editing && (
               <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
                 <div className="font-medium">{editing.title}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{editing.user ?? '-'} · {tf(`type_${editing.type}`)}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {editing.user ?? '-'} · {tf(`type_${editing.type}`)}
+                </div>
               </div>
             )}
             <div className="space-y-2">
               <Label htmlFor="fb-status">{tf('field_status')}</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as FeedbackStatus })}>
-  <SelectTrigger className={selectClass}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{tf(`status_${s}`)}</SelectItem>)}
-  </SelectContent>
-</Select>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm({ ...form, status: v as FeedbackStatus })}
+              >
+                <SelectTrigger className={selectClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {tf(`status_${s}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="fb-priority">{tf('field_priority')}</Label>
-              <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v as Priority })}>
-  <SelectTrigger className={selectClass}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    {PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{tf(`priority_${p}`)}</SelectItem>)}
-  </SelectContent>
-</Select>
+              <Select
+                value={form.priority}
+                onValueChange={(v) => setForm({ ...form, priority: v as Priority })}
+              >
+                <SelectTrigger className={selectClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {tf(`priority_${p}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="fb-reply">{t('fieldReply')}</Label>
-              <textarea id="fb-reply" value={form.adminReply} onChange={(e) => setForm({ ...form, adminReply: e.target.value })} placeholder={t('replyPlaceholder')} rows={4} className={textareaClass} />
+              <textarea
+                id="fb-reply"
+                value={form.adminReply}
+                onChange={(e) => setForm({ ...form, adminReply: e.target.value })}
+                placeholder={t('replyPlaceholder')}
+                rows={4}
+                className={textareaClass}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>{tc('cancel')}</Button>
-              <Button type="submit" disabled={saveMut.isPending}>{saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{tc('save')}</Button>
+              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
+                {tc('cancel')}
+              </Button>
+              <Button type="submit" disabled={saveMut.isPending}>
+                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {tc('save')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

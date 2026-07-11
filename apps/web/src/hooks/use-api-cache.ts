@@ -26,6 +26,16 @@ interface CacheEntry {
 
 const cacheMap = new Map<string, CacheEntry>()
 
+const MAX_CACHE_SIZE = 100
+
+function setCacheEntry(key: string, data: unknown) {
+  if (cacheMap.size >= MAX_CACHE_SIZE) {
+    const firstKey = cacheMap.keys().next().value
+    if (firstKey) cacheMap.delete(firstKey)
+  }
+  cacheMap.set(key, { data, ts: Date.now() })
+}
+
 /**
  * API 缓存 Hook
  *
@@ -55,7 +65,7 @@ export function useApiCache(
       setError(null)
       const res = await fetchApi<unknown>(url)
       if (res.success) {
-        cacheMap.set(url, { data: res.data, ts: Date.now() })
+        setCacheEntry(url, res.data)
         setDataState(res.data)
       } else {
         setError(res.error)
@@ -74,7 +84,7 @@ export function useApiCache(
   const refresh = React.useCallback(async () => fetchData(true), [fetchData])
   const setData = React.useCallback(
     (d: unknown) => {
-      cacheMap.set(url, { data: d, ts: Date.now() })
+      setCacheEntry(url, d)
       setDataState(d)
     },
     [url],

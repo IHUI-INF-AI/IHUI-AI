@@ -165,7 +165,7 @@ export default function ProjectDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className="break-words text-2xl font-bold tracking-tight md:text-3xl">
             {projectError ? (
               <span className="text-destructive">{(projectErr as Error)?.message}</span>
             ) : projectLoading ? (
@@ -174,7 +174,7 @@ export default function ProjectDetailPage() {
               (project?.name ?? '')
             )}
           </h1>
-          <p className="mt-0.5 truncate text-sm text-muted-foreground">
+          <p className="mt-0.5 break-words text-sm text-muted-foreground">
             {project?.description || t('description')}
           </p>
         </div>

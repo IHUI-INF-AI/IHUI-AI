@@ -128,7 +128,7 @@ export default function MyCommentsPage() {
             {list.map((comment) => {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
-                <Card key={comment.id} className="transition-colors hover:border-primary/40">
+                <Card key={comment.id} className="transition-colors hover:bg-accent">
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <Link
@@ -136,7 +136,7 @@ export default function MyCommentsPage() {
                         className="flex min-w-0 flex-1 items-center gap-2"
                       >
                         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="line-clamp-1 text-sm font-medium hover:text-primary">
+                        <span className="text-sm font-medium hover:text-primary">
                           {comment.targetTitle ?? comment.targetType}
                         </span>
                       </Link>
@@ -151,7 +151,7 @@ export default function MyCommentsPage() {
                         {tc('delete')}
                       </Button>
                     </div>
-                    <p className="line-clamp-3 text-sm text-muted-foreground">{comment.content}</p>
+                    <p className="text-sm text-muted-foreground">{comment.content}</p>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>
                         {tc('targetType')}: {comment.targetType}

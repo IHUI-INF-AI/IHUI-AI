@@ -7,12 +7,7 @@ import { Loader2, Megaphone, Pin } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import {
-  api,
-  type Announcement,
-  ANN_TYPE_ICON,
-  ANN_TYPE_BADGE,
-} from '@/lib/content'
+import { api, type Announcement, ANN_TYPE_ICON, ANN_TYPE_BADGE } from '@/lib/content'
 
 export default function AnnouncementsPage() {
   const t = useTranslations('announcements')
@@ -20,8 +15,7 @@ export default function AnnouncementsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['announcements'],
-    queryFn: () =>
-      api<{ list: Announcement[] }>('/api/announcements').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: Announcement[] }>('/api/announcements').then((d) => d.list ?? []),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -36,12 +30,10 @@ export default function AnnouncementsPage() {
   }
 
   // Pinned first, then by publishedAt desc (defensive sort)
-  const list = (data ?? [])
-    .slice()
-    .sort((a, b) => {
-      if (!!a.isPinned !== !!b.isPinned) return a.isPinned ? -1 : 1
-      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-    })
+  const list = (data ?? []).slice().sort((a, b) => {
+    if (!!a.isPinned !== !!b.isPinned) return a.isPinned ? -1 : 1
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  })
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -68,7 +60,7 @@ export default function AnnouncementsPage() {
             const Icon = ANN_TYPE_ICON[a.type] ?? Megaphone
             return (
               <Link key={a.id} href={`/announcements/${a.id}`} className="block">
-                <Card className="transition-colors hover:border-primary/40 hover:bg-accent/30">
+                <Card className="transition-colors hover:bg-accent">
                   <CardContent className="flex items-start gap-3 p-4">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
@@ -93,8 +85,8 @@ export default function AnnouncementsPage() {
                           {fmt(a.publishedAt)}
                         </span>
                       </div>
-                      <h2 className="line-clamp-1 text-sm font-semibold">{a.title}</h2>
-                      <p className="line-clamp-2 text-sm text-muted-foreground">{a.summary}</p>
+                      <h2 className="text-sm font-semibold">{a.title}</h2>
+                      <p className="text-sm text-muted-foreground">{a.summary}</p>
                     </div>
                   </CardContent>
                 </Card>

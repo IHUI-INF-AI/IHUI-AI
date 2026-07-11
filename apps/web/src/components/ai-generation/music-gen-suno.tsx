@@ -54,10 +54,10 @@ export function MusicGenSuno() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; duration: number }) => {
-      const res = await fetchApi<{ taskId: string; status: string }>(
-        '/api/ai/suno/generate',
-        { method: 'POST', body: JSON.stringify(payload) },
-      )
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/suno/generate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -195,7 +195,9 @@ export function MusicGenSuno() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {audios.map((url) => (
-              <audio key={url} src={url} controls className="w-full" />
+              <audio key={url} src={url} controls className="w-full">
+                <track kind="captions" />
+              </audio>
             ))}
           </div>
         )}

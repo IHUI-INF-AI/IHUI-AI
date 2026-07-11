@@ -158,7 +158,7 @@ export default function AdminDocsPage() {
             {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
             <div className="space-y-2">
               <Label htmlFor="d-title">{t('fieldTitle')}</Label>
-              <Input id="d-title" value={form.title} onChange={(e) => { const title = e.target.value; setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) }) }} placeholder={t('titlePlaceholder')} autoFocus />
+              <Input id="d-title" value={form.title} onChange={(e) => { const title = e.target.value; setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) }) }} placeholder={t('titlePlaceholder')} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

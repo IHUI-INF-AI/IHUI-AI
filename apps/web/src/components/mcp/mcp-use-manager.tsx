@@ -81,10 +81,7 @@ function getMockStats(range: Range): UsageStats {
   ]
   const totalCalls = byServer.reduce((s, u) => s + u.calls, 0)
   const successCount = byServer.reduce((s, u) => s + u.successCount, 0)
-  const totalDuration = byServer.reduce(
-    (s, u) => s + u.avgDuration * u.calls,
-    0,
-  )
+  const totalDuration = byServer.reduce((s, u) => s + u.avgDuration * u.calls, 0)
   return {
     totalCalls,
     successRate: totalCalls > 0 ? (successCount / totalCalls) * 100 : 0,
@@ -101,14 +98,14 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon: Icon }: StatCardProps) {
   return (
-    <Card className="transition-colors hover:border-primary/30">
+    <Card className="transition-colors hover:bg-accent">
       <CardContent className="flex items-center gap-4 p-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-2xl font-bold tracking-tight">{value}</div>
-          <div className="truncate text-xs text-muted-foreground">{title}</div>
+          <div className="break-words text-xs text-muted-foreground">{title}</div>
         </div>
       </CardContent>
     </Card>
@@ -122,9 +119,7 @@ export function McpUseManager() {
   const { data, isLoading } = useQuery({
     queryKey: ['mcp', 'usage', range],
     queryFn: async () => {
-      const res = await fetchApi<UsageStats>(
-        `/api/ai/mcp/usage?range=${range}`,
-      )
+      const res = await fetchApi<UsageStats>(`/api/ai/mcp/usage?range=${range}`)
       if (res.success) return res.data
       // 后端暂无统计端点，回退到 mock 数据
       return getMockStats(range)
@@ -154,11 +149,7 @@ export function McpUseManager() {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard
-              title={t('totalCalls')}
-              value={String(data.totalCalls)}
-              icon={Activity}
-            />
+            <StatCard title={t('totalCalls')} value={String(data.totalCalls)} icon={Activity} />
             <StatCard
               title={t('overallSuccessRate')}
               value={`${data.successRate.toFixed(1)}%`}
@@ -184,14 +175,11 @@ export function McpUseManager() {
               </TableHeader>
               <TableBody>
                 {data.byServer.map((u) => {
-                  const rate =
-                    u.calls > 0 ? (u.successCount / u.calls) * 100 : 0
+                  const rate = u.calls > 0 ? (u.successCount / u.calls) * 100 : 0
                   return (
                     <TableRow key={`${u.server}-${u.tool}`}>
                       <TableCell className="font-medium">{u.server}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {u.tool}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs">{u.tool}</TableCell>
                       <TableCell className="text-right">{u.calls}</TableCell>
                       <TableCell className="text-right">
                         <span

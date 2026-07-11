@@ -4,12 +4,36 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { BookOpen, FileText, Search, Loader2, ChevronLeft, ChevronRight, Eye, Download } from 'lucide-react'
+import {
+  BookOpen,
+  FileText,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Download,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 
-interface Category { id: string; name: string }
+interface Category {
+  id: string
+  name: string
+}
 interface ResourceItem {
   id: string
   title: string
@@ -19,7 +43,12 @@ interface ResourceItem {
   viewCount: number
   downloadCount: number
 }
-interface ResourcesData { list: ResourceItem[]; total: number; page: number; pageSize: number }
+interface ResourcesData {
+  list: ResourceItem[]
+  total: number
+  page: number
+  pageSize: number
+}
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -31,7 +60,11 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-function fetchResources(params: { page: number; categoryId: string; search: string }): Promise<ResourcesData> {
+function fetchResources(params: {
+  page: number
+  categoryId: string
+  search: string
+}): Promise<ResourcesData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.categoryId !== 'all') qs.set('categoryId', params.categoryId)
   if (params.search) qs.set('title', params.search)
@@ -47,7 +80,10 @@ export default function ResourcesPage() {
   const [page, setPage] = React.useState(1)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [search])
 
@@ -86,14 +122,22 @@ export default function ResourcesPage() {
             aria-label={t('search')}
           />
         </div>
-        <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1) }}>
+        <Select
+          value={categoryId}
+          onValueChange={(v) => {
+            setCategoryId(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('category')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
             {(categories ?? []).map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -117,12 +161,12 @@ export default function ResourcesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
             <Link key={item.id} href={`/resources/${item.id}`} className="group block">
-              <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+              <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                   <FileText className="h-10 w-10 text-primary/40" />
                 </div>
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="line-clamp-1 text-base">{item.title}</CardTitle>
+                  <CardTitle className="text-base">{item.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-4 pt-0 text-xs text-muted-foreground">
                   {item.fileType && <p>{item.fileType}</p>}
@@ -147,11 +191,23 @@ export default function ResourcesPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

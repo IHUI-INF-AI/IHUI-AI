@@ -1,5 +1,15 @@
-import { pgTable, uuid, varchar, text, boolean, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  integer,
+  timestamp,
+  jsonb,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 系统配置表。
@@ -17,7 +27,7 @@ export const systemConfigs = pgTable('system_configs', {
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 集成配置表。
@@ -33,7 +43,7 @@ export const integrationConfigs = pgTable('integration_configs', {
   config: jsonb('config'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * API 访问日志表。
@@ -54,7 +64,7 @@ export const apiLogs = pgTable('api_logs', {
   responseBody: jsonb('response_body'),
   error: text('error'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 系统事件表。
@@ -68,13 +78,39 @@ export const systemEvents = pgTable('system_events', {
   message: text('message').notNull(),
   data: jsonb('data'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type SystemConfig = typeof systemConfigs.$inferSelect;
-export type NewSystemConfig = typeof systemConfigs.$inferInsert;
-export type IntegrationConfig = typeof integrationConfigs.$inferSelect;
-export type NewIntegrationConfig = typeof integrationConfigs.$inferInsert;
-export type ApiLog = typeof apiLogs.$inferSelect;
-export type NewApiLog = typeof apiLogs.$inferInsert;
-export type SystemEvent = typeof systemEvents.$inferSelect;
-export type NewSystemEvent = typeof systemEvents.$inferInsert;
+export type SystemConfig = typeof systemConfigs.$inferSelect
+export type NewSystemConfig = typeof systemConfigs.$inferInsert
+export type IntegrationConfig = typeof integrationConfigs.$inferSelect
+export type NewIntegrationConfig = typeof integrationConfigs.$inferInsert
+export type ApiLog = typeof apiLogs.$inferSelect
+export type NewApiLog = typeof apiLogs.$inferInsert
+export type SystemEvent = typeof systemEvents.$inferSelect
+export type NewSystemEvent = typeof systemEvents.$inferInsert
+
+/**
+ * 支付配置表 (payment_configs)。
+ * 存储各支付渠道(微信/支付宝等)的配置键值对。
+ * provider: wechat(微信) / alipay(支付宝) / stripe / other。
+ * environment: production(生产) / sandbox(沙箱) / test(测试)。
+ */
+export const paymentConfig = pgTable(
+  'payment_configs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    provider: varchar('provider', { length: 32 }).notNull(),
+    configKey: varchar('config_key', { length: 100 }).notNull(),
+    configValue: text('config_value'),
+    isEnabled: boolean('is_enabled').default(true),
+    environment: varchar('environment', { length: 20 }).default('production'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerIdx: index('payment_configs_provider_idx').on(t.provider),
+  }),
+)
+
+export type PaymentConfig = typeof paymentConfig.$inferSelect
+export type NewPaymentConfig = typeof paymentConfig.$inferInsert

@@ -147,7 +147,7 @@ export default function EduCourseTrashPage() {
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{c.title}</div>
                     {c.intro && (
-                      <div className="max-w-xs truncate text-xs text-muted-foreground">
+                      <div className="max-w-xs break-words text-xs text-muted-foreground">
                         {c.intro}
                       </div>
                     )}

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { FileText, Loader2, Calendar, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -40,6 +40,7 @@ const TABS: { key: AgreementType; labelKey: string }[] = [
 
 export default function AgreementPage() {
   const t = useTranslations('agreement')
+  const locale = useLocale()
   const searchParams = useSearchParams()
 
   const typeParam = (searchParams.get('type') as AgreementType | null) ?? 'user'
@@ -62,7 +63,7 @@ export default function AgreementPage() {
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
   }
 
   const agreement = data

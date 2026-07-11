@@ -1,8 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
+import { z } from 'zod'
 import { verifyAccessToken } from '@ihui/auth'
+import { authenticate } from './auth.js'
+import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 
 declare module 'fastify' {
@@ -126,6 +129,159 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     publish(roomId, payload)
   })
 
+  // 持久化聊天消息到 Redis（最近 200 条），供 HTTP 历史查询
+  const persistMessage = (roomId: string, payload: Record<string, unknown>): void => {
+    const publisher = (server as unknown as { redis?: Redis }).redis
+    if (!publisher) return
+    const key = `chatroom:messages:${roomId}`
+    void publisher.lpush(key, JSON.stringify(payload))
+    void publisher.ltrim(key, 0, 199)
+  }
+
+  // HTTP 鉴权辅助
+  const httpAuth = async (request: FastifyRequest, reply: FastifyReply): Promise<string | null> => {
+    try {
+      await authenticate(request)
+      return request.userId ?? null
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
+      return null
+    }
+  }
+
+  // Redis 客户端获取（HTTP 端点用）
+  const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
+
+  // ===== 聊天室 HTTP 端点（房间 CRUD + 消息历史 + 成员）=====
+
+  const createRoomSchema = z.object({
+    name: z.string().min(1).max(100),
+    description: z.string().max(500).optional(),
+  })
+
+  // POST /chat-room/rooms — 创建房间
+  server.post('/chat-room/rooms', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const parsed = createRoomSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const redis = getRedis()
+    if (!redis) return reply.status(503).send(error(503, 'Redis 未配置,无法创建房间'))
+    const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const meta = {
+      roomId,
+      name: parsed.data.name,
+      description: parsed.data.description ?? '',
+      createdBy: userId,
+      createdAt: new Date().toISOString(),
+    }
+    await redis.hset(`chatroom:meta:${roomId}`, meta)
+    await redis.sadd('chatroom:list', roomId)
+    return reply.send(success(meta))
+  })
+
+  // GET /chat-room/rooms — 房间列表
+  server.get('/chat-room/rooms', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const redis = getRedis()
+    if (!redis) {
+      // Redis 不可用时返回本机内存中的房间
+      const localRooms = Array.from(rooms.keys()).map((r) => ({ roomId: r, name: r, local: true }))
+      return reply.send(success({ items: localRooms, total: localRooms.length }))
+    }
+    const roomIds = await redis.smembers('chatroom:list')
+    const items: Record<string, unknown>[] = []
+    for (const roomId of roomIds) {
+      const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+      if (meta && Object.keys(meta).length > 0) {
+        items.push({
+          roomId: meta.roomId ?? roomId,
+          name: meta.name,
+          description: meta.description,
+          createdBy: meta.createdBy,
+          createdAt: meta.createdAt,
+        })
+      }
+    }
+    return reply.send(success({ items, total: items.length }))
+  })
+
+  // GET /chat-room/rooms/:roomId — 房间详情
+  server.get('/chat-room/rooms/:roomId', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { roomId } = request.params as { roomId: string }
+    const redis = getRedis()
+    if (!redis) return reply.send(success({ roomId, name: roomId, local: true }))
+    const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+    if (!meta || Object.keys(meta).length === 0)
+      return reply.status(404).send(error(404, '房间不存在'))
+    const onlineCount = rooms.get(roomId)?.size ?? 0
+    return reply.send(success({ ...meta, onlineCount }))
+  })
+
+  // DELETE /chat-room/rooms/:roomId — 删除房间
+  server.delete('/chat-room/rooms/:roomId', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { roomId } = request.params as { roomId: string }
+    const redis = getRedis()
+    if (!redis) return reply.status(503).send(error(503, 'Redis 未配置'))
+    const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+    if (!meta || Object.keys(meta).length === 0)
+      return reply.status(404).send(error(404, '房间不存在'))
+    if (meta.createdBy && meta.createdBy !== userId)
+      return reply.status(403).send(error(403, '仅创建者可删除房间'))
+    await redis.del(`chatroom:meta:${roomId}`)
+    await redis.del(`chatroom:messages:${roomId}`)
+    await redis.srem('chatroom:list', roomId)
+    // 通知房间内成员房间已关闭
+    publish(roomId, { type: 'system', event: 'room_closed', roomId, ts: Date.now() })
+    return reply.send(success({ deleted: true, roomId }))
+  })
+
+  // GET /chat-room/rooms/:roomId/messages — 房间消息历史
+  server.get('/chat-room/rooms/:roomId/messages', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { roomId } = request.params as { roomId: string }
+    const { limit = '50', before } = request.query as { limit?: string; before?: string }
+    const redis = getRedis()
+    if (!redis) return reply.send(success({ items: [], message: 'Redis 未配置,无历史消息' }))
+    const count = Math.min(parseInt(limit, 10) || 50, 200)
+    const rawMessages = await redis.lrange(`chatroom:messages:${roomId}`, 0, count - 1)
+    const items = rawMessages
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as Record<string, unknown>
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
+      .reverse() as Record<string, unknown>[]
+    const filtered = before ? items.filter((m) => Number(m.ts ?? 0) < parseInt(before, 10)) : items
+    return reply.send(success({ items: filtered, total: filtered.length }))
+  })
+
+  // GET /chat-room/rooms/:roomId/members — 房间成员（当前在线）
+  server.get('/chat-room/rooms/:roomId/members', async (request, reply) => {
+    const userId = await httpAuth(request, reply)
+    if (!userId) return
+    const { roomId } = request.params as { roomId: string }
+    const members = rooms.get(roomId)
+    if (!members || members.size === 0)
+      return reply.send(success({ items: [], total: 0, message: '当前无在线成员(可能其他实例有)' }))
+    const items = Array.from(members).map((m) => ({
+      userId: m.userId,
+      nickname: m.nickname,
+    }))
+    return reply.send(success({ items, total: items.length }))
+  })
+
   server.get('/ws/room/:roomId', { websocket: true }, (socket, request) => {
     const query = request.query as { token?: string; nickname?: string }
     const roomId = (request.params as { roomId: string }).roomId
@@ -216,7 +372,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         }
         if (!ALLOWED_MSG_TYPES.has(mtype)) return
         // 业务消息广播(跨实例)
-        publish(roomId, {
+        const messagePayload = {
           type: mtype,
           from: userId,
           nickname,
@@ -224,7 +380,10 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           url: msg.url as string | undefined,
           filename: msg.filename as string | undefined,
           ts: Date.now(),
-        })
+        }
+        publish(roomId, messagePayload)
+        // 持久化到 Redis 供 HTTP 历史查询（system 类型不存）
+        if (mtype !== 'system') persistMessage(roomId, messagePayload)
       })
 
       socket.on('close', () => {

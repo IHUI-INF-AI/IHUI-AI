@@ -16,7 +16,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
     return (
       <div className={cn('space-y-3', className)}>
         {items.map((i) => (
-          <div key={i} className="rounded-xl border p-4 shadow">
+          <div key={`skeleton-${i}`} className="rounded-xl border p-4 shadow">
             <div className="mb-3 h-4 w-1/3 animate-pulse rounded bg-muted" />
             <div className="space-y-2">
               <div className="h-4 w-full animate-pulse rounded bg-muted" />
@@ -36,7 +36,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
     return (
       <div className={cn('space-y-3', className)}>
         {items.map((i) => (
-          <div key={i} className="flex items-center gap-3">
+          <div key={`skeleton-${i}`} className="flex items-center gap-3">
             <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted" />
             <div className="flex-1 space-y-2">
               <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
@@ -52,7 +52,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
     return (
       <div className={cn('flex gap-2', className)}>
         {items.map((i) => (
-          <div key={i} className="h-10 w-10 animate-pulse rounded-full bg-muted" />
+          <div key={`skeleton-${i}`} className="h-10 w-10 animate-pulse rounded-full bg-muted" />
         ))}
       </div>
     )
@@ -61,7 +61,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
   return (
     <div className={cn('space-y-2', className)}>
       {items.map((i) => (
-        <div key={i} className="h-4 w-full animate-pulse rounded bg-muted" />
+        <div key={`skeleton-${i}`} className="h-4 w-full animate-pulse rounded bg-muted" />
       ))}
     </div>
   )

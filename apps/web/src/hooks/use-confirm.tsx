@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
 
 interface ConfirmState {
   open: boolean
@@ -13,7 +14,6 @@ export interface UseConfirmReturn {
   ConfirmDialog: React.FC
 }
 
-/** 确认对话框内部组件，props 驱动，避免组件身份变化导致重挂载 */
 function ConfirmDialogInner({
   open,
   message,
@@ -25,29 +25,22 @@ function ConfirmDialogInner({
   onConfirm: () => void
   onCancel: () => void
 }) {
-  if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="max-w-sm rounded-lg bg-white p-6 shadow-lg dark:bg-gray-800">
-        <p className="mb-4 text-sm text-gray-900 dark:text-gray-100">{message}</p>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
+    <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{message}</DialogTitle>
+        </DialogHeader>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={onCancel}>
             取消
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-          >
+          </Button>
+          <Button size="sm" onClick={onConfirm}>
             确认
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -73,7 +66,6 @@ export function useConfirm(): UseConfirmReturn {
     })
   }, [])
 
-  // 稳定的组件引用，通过 ref 读取最新 state，避免重挂载
   const ConfirmDialog = React.useMemo<React.FC>(
     () =>
       function ConfirmDialog() {

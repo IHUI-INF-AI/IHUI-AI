@@ -7,9 +7,24 @@ import { useTranslations } from 'next-intl'
 import { Radio, PlayCircle, Eye, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 
-interface Category { id: string; name: string }
+interface Category {
+  id: string
+  name: string
+}
 interface ChannelItem {
   id: string
   title: string
@@ -19,7 +34,12 @@ interface ChannelItem {
   viewCount: number
   intro: string | null
 }
-interface ChannelsData { list: ChannelItem[]; total: number; page: number; pageSize: number }
+interface ChannelsData {
+  list: ChannelItem[]
+  total: number
+  page: number
+  pageSize: number
+}
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -31,7 +51,11 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-function fetchChannels(params: { page: number; categoryId: string; search: string }): Promise<ChannelsData> {
+function fetchChannels(params: {
+  page: number
+  categoryId: string
+  search: string
+}): Promise<ChannelsData> {
   const qs = new URLSearchParams({ page: String(params.page), pageSize: String(PAGE_SIZE) })
   if (params.categoryId !== 'all') qs.set('categoryId', params.categoryId)
   if (params.search) qs.set('search', params.search)
@@ -47,7 +71,10 @@ export default function LivePage() {
   const [page, setPage] = React.useState(1)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [search])
 
@@ -86,14 +113,22 @@ export default function LivePage() {
             aria-label={t('search')}
           />
         </div>
-        <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1) }}>
+        <Select
+          value={categoryId}
+          onValueChange={(v) => {
+            setCategoryId(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('category')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allCategories')}</SelectItem>
             {(categories ?? []).map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -117,7 +152,7 @@ export default function LivePage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {channels.map((channel) => (
             <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
-              <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+              <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                   <PlayCircle className="h-10 w-10 text-primary/40" />
                   {channel.isLive && (
@@ -128,10 +163,12 @@ export default function LivePage() {
                   )}
                 </div>
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="line-clamp-1 text-base">{channel.title}</CardTitle>
+                  <CardTitle className="text-base">{channel.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
-                  <p className="text-muted-foreground">{channel.lecturerName ?? t('unknownLecturer')}</p>
+                  <p className="text-muted-foreground">
+                    {channel.lecturerName ?? t('unknownLecturer')}
+                  </p>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Eye className="h-3.5 w-3.5" />
                     {t('viewCount', { count: channel.viewCount })}
@@ -147,11 +184,23 @@ export default function LivePage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

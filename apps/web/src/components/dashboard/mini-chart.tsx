@@ -16,7 +16,7 @@ export function MiniChart({ data, labels, height = 120, className }: MiniChartPr
       <div className="flex items-end gap-1" style={{ height }}>
         {data.map((v, i) => (
           <div
-            key={i}
+            key={`bar-${i}`}
             className="group relative flex-1"
             title={labels?.[i] ? `${labels[i]}: ${v}` : String(v)}
           >
@@ -31,8 +31,8 @@ export function MiniChart({ data, labels, height = 120, className }: MiniChartPr
         <div className="mt-1.5 flex gap-1">
           {labels.map((l, i) => (
             <span
-              key={i}
-              className="flex-1 truncate text-center text-[10px] text-muted-foreground"
+              key={`label-${i}`}
+              className="flex-1 break-words text-center text-[10px] text-muted-foreground"
             >
               {l}
             </span>

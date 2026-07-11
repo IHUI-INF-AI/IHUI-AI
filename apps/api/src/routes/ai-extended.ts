@@ -191,9 +191,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // -------------------------------------------------------------------------
   // ai/outbound_routes/callback — 外呼回调
-  // NOTE: 旧架构 outbound_routes.py 的 POST /callback 接收外呼平台回调；
-  // 此处返回动作指令（action: continue/transfer/end, intent: high/normal/low）。
-  // 简化实现：根据通话时长推断意向，返回固定结构。
+  // 接收外呼平台回调,若有通话转录文本则调用 AI_SERVICE_URL/llm/complete 分析意向;
+  // 仅有录音 URL 时返回 202 待转录;无 AI_SERVICE_URL 时返回 503。
   // -------------------------------------------------------------------------
   server.post('/outbound-routes/callback', async (req, reply) => {
     const body = req.body as {
@@ -201,8 +200,88 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       callId?: string
       duration?: number
       recordingUrl?: string
+      transcript?: string
     }
     const duration = typeof body?.duration === 'number' ? body.duration : 0
+    const aiServiceUrl = process.env.AI_SERVICE_URL
+    if (!aiServiceUrl) {
+      return reply.status(503).send(error(503, 'AI 服务未配置(AI_SERVICE_URL)'))
+    }
+
+    // 有转录文本:调用 LLM 分析意向
+    if (body?.transcript && body.transcript.trim().length > 0) {
+      try {
+        const llmResp = await fetch(`${aiServiceUrl}/llm/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt:
+              '分析以下外呼通话转录文本,判断客户意向。只返回一个 JSON: {"intent":"high|normal|low","reason":"简要原因"}。high=高意向(积极询问/愿意了解),normal=中等意向(态度中立/未明确拒绝),low=低意向(拒绝/挂断/无兴趣)。',
+            text: body.transcript,
+          }),
+        })
+        if (!llmResp.ok) {
+          req.log.error({ status: llmResp.status }, 'LLM 意向分析失败')
+          return reply.status(502).send(error(502, `LLM 意向分析失败: ${llmResp.status}`))
+        }
+        const llmData = (await llmResp.json().catch(() => ({}))) as {
+          text?: string
+          content?: string
+          result?: string
+        }
+        const rawText = llmData.text ?? llmData.content ?? llmData.result ?? ''
+        let intent = 'normal'
+        let reason = ''
+        // 尝试从 LLM 输出中解析 JSON
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]) as { intent?: string; reason?: string }
+            if (['high', 'normal', 'low'].includes(parsed.intent ?? '')) {
+              intent = parsed.intent!
+            }
+            reason = parsed.reason ?? ''
+          } catch {
+            /* JSON 解析失败,使用默认值 */
+          }
+        }
+        // duration 作为辅助判断
+        if (intent === 'normal' && duration < 15) intent = 'low'
+        const action = intent === 'high' ? 'transfer' : intent === 'normal' ? 'continue' : 'end'
+        return reply.send(
+          success({
+            action,
+            intent,
+            reason,
+            phone: body?.phone ?? '',
+            callId: body?.callId ?? '',
+            duration,
+            recordingUrl: body?.recordingUrl ?? '',
+            message: '意向分析完成',
+          }),
+        )
+      } catch (e) {
+        req.log.error(e)
+        return reply.status(502).send(error(502, `LLM 意向分析异常: ${(e as Error).message}`))
+      }
+    }
+
+    // 仅有录音 URL,无转录:返回 202 待处理
+    if (body?.recordingUrl) {
+      return reply.status(202).send(
+        success({
+          action: 'pending',
+          intent: 'unknown',
+          phone: body?.phone ?? '',
+          callId: body?.callId ?? '',
+          duration,
+          recordingUrl: body.recordingUrl,
+          message: '需先转录录音,请补充 transcript 字段后重新提交',
+        }),
+      )
+    }
+
+    // 无转录也无录音:以 duration 做辅助判断
     const intent = duration > 60 ? 'high' : duration > 15 ? 'normal' : 'low'
     const action = intent === 'high' ? 'transfer' : intent === 'normal' ? 'continue' : 'end'
     return reply.send(
@@ -213,7 +292,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         callId: body?.callId ?? '',
         duration,
         recordingUrl: body?.recordingUrl ?? '',
-        message: '回调已接收',
+        message: '回调已接收(无转录文本,按时长辅助判断)',
       }),
     )
   })

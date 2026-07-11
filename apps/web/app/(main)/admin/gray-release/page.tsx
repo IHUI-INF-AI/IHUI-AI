@@ -125,7 +125,7 @@ export default function GrayReleasePage() {
                     <div className="text-xs text-muted-foreground">{r.target}</div>
                   </td>
                   <td
-                    className="max-w-[280px] truncate px-4 py-2.5 text-muted-foreground"
+                    className="max-w-[280px] break-words px-4 py-2.5 text-muted-foreground"
                     title={r.description}
                   >
                     {r.description}
@@ -193,7 +193,6 @@ export default function GrayReleasePage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder={t('grayRelease.namePlaceholder')}
-                autoFocus
               />
             </div>
             <div className="space-y-2">

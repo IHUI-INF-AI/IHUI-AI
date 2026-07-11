@@ -3,7 +3,18 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { BarChart3, Users, GraduationCap, FileText, BookOpen, Award, TrendingUp, Loader2, Save, Trash2 } from 'lucide-react'
+import {
+  BarChart3,
+  Users,
+  GraduationCap,
+  FileText,
+  BookOpen,
+  Award,
+  TrendingUp,
+  Loader2,
+  Save,
+  Trash2,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
@@ -56,23 +67,28 @@ export default function StatisticsPage() {
 
   const { data: overview, isLoading: loadingOverview } = useQuery({
     queryKey: ['statistics', 'overview'],
-    queryFn: () => api<{ statistics: OverviewStatistics }>(`/api/statistics/overview`).then((d) => d.statistics),
+    queryFn: () =>
+      api<{ statistics: OverviewStatistics }>(`/api/statistics/overview`).then((d) => d.statistics),
   })
   const { data: learn } = useQuery({
     queryKey: ['statistics', 'learn'],
-    queryFn: () => api<{ statistics: LearnStatistics }>(`/api/statistics/learn`).then((d) => d.statistics),
+    queryFn: () =>
+      api<{ statistics: LearnStatistics }>(`/api/statistics/learn`).then((d) => d.statistics),
   })
   const { data: exam } = useQuery({
     queryKey: ['statistics', 'exam'],
-    queryFn: () => api<{ statistics: ExamStatistics }>(`/api/statistics/exam`).then((d) => d.statistics),
+    queryFn: () =>
+      api<{ statistics: ExamStatistics }>(`/api/statistics/exam`).then((d) => d.statistics),
   })
   const { data: content } = useQuery({
     queryKey: ['statistics', 'content'],
-    queryFn: () => api<{ statistics: ContentStatistics }>(`/api/statistics/content`).then((d) => d.statistics),
+    queryFn: () =>
+      api<{ statistics: ContentStatistics }>(`/api/statistics/content`).then((d) => d.statistics),
   })
   const { data: snapshotsData } = useQuery({
     queryKey: ['statistics', 'snapshots'],
-    queryFn: () => api<{ list: Snapshot[]; total: number }>(`/api/admin/statistics/snapshots?pageSize=10`),
+    queryFn: () =>
+      api<{ list: Snapshot[]; total: number }>(`/api/admin/statistics/snapshots?pageSize=10`),
   })
 
   const createSnapshot = useMutation({
@@ -86,13 +102,48 @@ export default function StatisticsPage() {
 
   const overviewCards = [
     { label: t('members'), value: overview?.memberTotal ?? 0, icon: Users, color: 'text-primary' },
-    { label: t('lessons'), value: overview?.lessonTotal ?? 0, icon: GraduationCap, color: 'text-blue-600' },
-    { label: t('exams'), value: overview?.examTotal ?? 0, icon: FileText, color: 'text-purple-600' },
-    { label: t('signups'), value: overview?.signupTotal ?? 0, icon: BookOpen, color: 'text-emerald-600' },
-    { label: t('examRecords'), value: overview?.examRecordTotal ?? 0, icon: Award, color: 'text-orange-600' },
-    { label: t('posts'), value: overview?.postTotal ?? 0, icon: TrendingUp, color: 'text-pink-600' },
-    { label: t('announcements'), value: overview?.announcementTotal ?? 0, icon: BarChart3, color: 'text-cyan-600' },
-    { label: t('articles'), value: overview?.articleTotal ?? 0, icon: BookOpen, color: 'text-indigo-600' },
+    {
+      label: t('lessons'),
+      value: overview?.lessonTotal ?? 0,
+      icon: GraduationCap,
+      color: 'text-primary',
+    },
+    {
+      label: t('exams'),
+      value: overview?.examTotal ?? 0,
+      icon: FileText,
+      color: 'text-purple-600',
+    },
+    {
+      label: t('signups'),
+      value: overview?.signupTotal ?? 0,
+      icon: BookOpen,
+      color: 'text-emerald-600',
+    },
+    {
+      label: t('examRecords'),
+      value: overview?.examRecordTotal ?? 0,
+      icon: Award,
+      color: 'text-orange-600',
+    },
+    {
+      label: t('posts'),
+      value: overview?.postTotal ?? 0,
+      icon: TrendingUp,
+      color: 'text-pink-600',
+    },
+    {
+      label: t('announcements'),
+      value: overview?.announcementTotal ?? 0,
+      icon: BarChart3,
+      color: 'text-cyan-600',
+    },
+    {
+      label: t('articles'),
+      value: overview?.articleTotal ?? 0,
+      icon: BookOpen,
+      color: 'text-indigo-600',
+    },
   ]
 
   return (
@@ -129,7 +180,9 @@ export default function StatisticsPage() {
             {overviewCards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {c.label}
+                  </CardTitle>
                   <c.icon className={`h-4 w-4 ${c.color}`} />
                 </CardHeader>
                 <CardContent>
@@ -147,7 +200,7 @@ export default function StatisticsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <GraduationCap className="h-4 w-4 text-blue-600" />
+              <GraduationCap className="h-4 w-4 text-primary" />
               {t('learnStats')}
             </CardTitle>
           </CardHeader>

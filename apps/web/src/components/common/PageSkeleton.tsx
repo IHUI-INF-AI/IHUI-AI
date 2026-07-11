@@ -23,7 +23,7 @@ export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps)
       )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border p-4 shadow">
+          <div key={`skel-${i}`} className="rounded-xl border p-4 shadow">
             <div className="mb-3 h-10 w-10 animate-pulse rounded-lg bg-muted" />
             <div className="h-6 w-24 animate-pulse rounded bg-muted" />
             <div className="mt-2 h-4 w-16 animate-pulse rounded bg-muted" />
@@ -34,7 +34,7 @@ export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps)
         <div className="mb-4 h-5 w-32 animate-pulse rounded bg-muted" />
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
+            <div key={`skel-${i}`} className="flex items-center gap-3">
               <div className="h-4 w-4 animate-pulse rounded bg-muted" />
               <div className="flex-1 space-y-1">
                 <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
