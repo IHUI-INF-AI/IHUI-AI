@@ -267,7 +267,7 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
       const tencentSecretKey = process.env.TENCENT_SECRET_KEY
 
       if (!tencentSecretId || !tencentSecretKey) {
-        // 无密钥时返回占位数据
+        // 无密钥时返回 mock 数据
         return reply.send(
           success({
             audioUrl,
@@ -275,7 +275,8 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
             model: model ?? '16k_zh',
             text: '',
             status: 'no_credentials',
-            message: '未配置腾讯云密钥，返回空结果',
+            mock: true,
+            reason: '未配置腾讯云密钥（TENCENT_SECRET_ID / TENCENT_SECRET_KEY）',
           }),
         )
       }
