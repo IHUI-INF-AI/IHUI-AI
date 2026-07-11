@@ -21,10 +21,18 @@ export type ScheduledJobName =
   | 'alert-check-daily'
   | 'data-archive-daily'
   | 'reconciliation-daily'
+  | 'expiration-monitor'
+  | 'file-cleanup-hourly'
+  | 'vip-expire-daily'
+  | 'activity-status-hourly'
+  | 'commission-settle-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
-  pattern: string
+  /** cron 表达式（5 字段：分 时 日 月 周），与 every 二选一。 */
+  pattern?: string
+  /** 固定间隔（毫秒），用于秒级任务（如 30s），与 pattern 二选一。 */
+  every?: number
   description: string
 }
 
@@ -33,11 +41,33 @@ export interface ScheduledJobDef {
  * 迁移自旧架构 server/app/tasks/scheduler.py，保留 5 类核心任务。
  */
 export const SCHEDULED_JOBS: ScheduledJobDef[] = [
-  { name: 'expired-order-cleanup', pattern: '*/10 * * * *', description: '过期订单清理（每10分钟）' },
+  {
+    name: 'expired-order-cleanup',
+    pattern: '*/10 * * * *',
+    description: '过期订单清理（每10分钟）',
+  },
   { name: 'heat-stats-hourly', pattern: '0 * * * *', description: '热度统计聚合（每小时）' },
   { name: 'alert-check-daily', pattern: '0 4 * * *', description: '告警噪音检查（每日04:00）' },
   { name: 'data-archive-daily', pattern: '30 4 * * *', description: '历史数据归档（每日04:30）' },
   { name: 'reconciliation-daily', pattern: '30 3 * * *', description: '支付对账（每日03:30）' },
+  { name: 'expiration-monitor', every: 30_000, description: '过期监听+Canary联动（每30秒）' },
+  { name: 'file-cleanup-hourly', pattern: '0 * * * *', description: '文件清理（每小时）' },
+  // 以下3项迁移自旧架构 ai-smart-society-java/ruoyi-modules/ruoyi-job/ Java Quartz 定时任务 (M-86)
+  {
+    name: 'vip-expire-daily',
+    pattern: '0 5 * * *',
+    description: 'VIP会员过期自动降级（每日05:00）',
+  },
+  {
+    name: 'activity-status-hourly',
+    pattern: '0 * * * *',
+    description: '活动到期自动关闭（每小时）',
+  },
+  {
+    name: 'commission-settle-daily',
+    pattern: '0 6 * * *',
+    description: '佣金结算校准+遗漏补建（每日06:00）',
+  },
 ]
 
 interface SchedulerJobData {
@@ -62,11 +92,13 @@ const schedulerPlugin: FastifyPluginAsync = async (server) => {
   // 注册 repeatable jobs。BullMQ 按 (name + repeat pattern) 生成 repeat key 幂等去重，
   // 多次启动 / 多实例注册同一 pattern 不会重复触发。
   for (const job of SCHEDULED_JOBS) {
+    // every（毫秒）与 pattern（cron）二选一；秒级任务用 every
+    const repeat = job.every ? { every: job.every } : { pattern: job.pattern ?? '' }
     await schedulerQueue.add(
       job.name,
       { description: job.description },
       {
-        repeat: { pattern: job.pattern },
+        repeat,
         removeOnComplete: { count: 200 },
         removeOnFail: { count: 500 },
       },
