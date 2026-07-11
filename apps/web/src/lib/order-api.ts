@@ -4,13 +4,7 @@ import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 
 export type OrderStatus =
-  | 'pending'
-  | 'paid'
-  | 'cancelled'
-  | 'refunding'
-  | 'refunded'
-  | 'completed'
-  | 'failed'
+  'pending' | 'paid' | 'cancelled' | 'refunding' | 'refunded' | 'completed' | 'failed'
 
 export type OrderType = 'course' | 'vip' | 'live' | 'product' | 'recharge'
 
@@ -40,14 +34,12 @@ export type OrderListQuery = {
   type?: OrderType
 }
 
-export async function getOrders(
-  query: OrderListQuery = {},
-): Promise<ApiResult<PageData<Order>>> {
-  return fetchApi<PageData<Order>>(`/orders${buildQs(query)}`)
+export async function getOrders(query: OrderListQuery = {}): Promise<ApiResult<PageData<Order>>> {
+  return fetchApi<PageData<Order>>(`/api/orders/me${buildQs(query)}`)
 }
 
 export async function getOrderById(orderNo: string): Promise<ApiResult<Order>> {
-  return fetchApi<Order>(`/orders/${encodeURIComponent(orderNo)}`)
+  return fetchApi<Order>(`/api/orders/${encodeURIComponent(orderNo)}`)
 }
 
 export async function createOrder(input: {
@@ -56,7 +48,7 @@ export async function createOrder(input: {
   couponId?: string
   remark?: string
 }): Promise<ApiResult<{ orderNo: string; payAmount: number }>> {
-  return fetchApi<{ orderNo: string; payAmount: number }>('/orders', {
+  return fetchApi<{ orderNo: string; payAmount: number }>('/api/orders', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -66,18 +58,18 @@ export async function cancelOrder(
   orderNo: string,
   reason?: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(
-    `/orders/${encodeURIComponent(orderNo)}/cancel`,
-    { method: 'POST', body: JSON.stringify({ reason }) },
-  )
+  return fetchApi<{ success: boolean }>(`/api/orders/${encodeURIComponent(orderNo)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
 }
 
 export async function refundOrder(
   orderNo: string,
   reason: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(
-    `/orders/${encodeURIComponent(orderNo)}/refund`,
-    { method: 'POST', body: JSON.stringify({ reason }) },
-  )
+  return fetchApi<{ success: boolean }>(`/api/orders/${encodeURIComponent(orderNo)}/refund`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
 }
