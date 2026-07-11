@@ -100,6 +100,18 @@
 
 - `pnpm --filter @ihui/api typecheck` — **通过** (0 errors)
 - `pnpm --filter @ihui/web typecheck` — **通过** (0 errors)
+- `pnpm --filter @ihui/api test` — **588/588 全部通过** (61 test files, 0 failures)
+- Git commit `69c63daa5` — Pre-commit 钩子全部通过（API key 检查 + i18n + lint + prettier）
+- 全局扫描 `placeholder.(doubao|dashscope)` — **零匹配**
+- 21 files changed, 1862 insertions(+), 559 deletions(-)
+
+### 收尾轮次补充（2026-07-11）
+
+| 修复项   | 文件                                                                             | 修复内容                                                                       |
+| -------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 测试覆盖 | `admin-extended.test.ts`, `agents-extended.test.ts`, `behavior-extended.test.ts` | 新增 3 个测试文件，覆盖 M-63 全部 22 端点 + M-81 9 端点                        |
+| 测试扩展 | `rbac.test.ts`, `search.test.ts`                                                 | 扩展现有测试，新增 5 个 permission + 1 个 suggestions 测试                     |
+| 后端 API | `admin-extended.ts`, `server.ts`                                                 | 为 3 个 admin 页面创建后端 API 路由（菜单管理 CRUD + 需求审核 + 在线用户管理） |
 
 ### 审计报告
 
