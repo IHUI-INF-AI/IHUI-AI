@@ -11,6 +11,7 @@ import {
 import { users } from './users.js'
 
 // 私信会话表
+// 注意：该表当前无 API 引用，保留以备未来需求
 export const privateLetterSessions = pgTable(
   'private_letter_sessions',
   {
@@ -36,6 +37,7 @@ export const privateLetterSessions = pgTable(
 )
 
 // 私信消息表
+// 注意：该表当前无 API 引用，保留以备未来需求
 export const privateLetterMessages = pgTable(
   'private_letter_messages',
   {
