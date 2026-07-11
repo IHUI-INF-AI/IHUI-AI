@@ -14,6 +14,7 @@ from typing import Any
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 from .memory import memory_store
+from .project_memory import build_system_prompt
 
 
 class AgentExecutor:
@@ -105,7 +106,7 @@ class AgentExecutor:
                 # 取出会话历史作为上下文
                 history = await memory_store.get(sid)
                 messages = [
-                    {"role": "system", "content": "你是 IHUI AI Service 的 agent,请协助用户完成任务。"}
+                    {"role": "system", "content": build_system_prompt(sid)}
                 ]
                 messages.extend(
                     {"role": m["role"], "content": m["content"]} for m in history
