@@ -7,7 +7,16 @@ import { toast } from 'sonner'
 import { BookMarked, Plus, Edit, Trash2, Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import {
+  Button,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface DictItem {
@@ -28,7 +37,11 @@ interface DictType {
 
 const MOCK_DICTS: DictType[] = [
   {
-    id: '1', name: '订单状态', code: 'order_status', description: '订单的流转状态', itemCount: 5,
+    id: '1',
+    name: '订单状态',
+    code: 'order_status',
+    description: '订单的流转状态',
+    itemCount: 5,
     items: [
       { id: '11', label: '待支付', value: 'pending', sort: 1 },
       { id: '12', label: '已支付', value: 'paid', sort: 2 },
@@ -38,7 +51,11 @@ const MOCK_DICTS: DictType[] = [
     ],
   },
   {
-    id: '2', name: '用户角色', code: 'user_role', description: '系统用户角色类型', itemCount: 4,
+    id: '2',
+    name: '用户角色',
+    code: 'user_role',
+    description: '系统用户角色类型',
+    itemCount: 4,
     items: [
       { id: '21', label: '管理员', value: 'admin', sort: 1 },
       { id: '22', label: '普通用户', value: 'user', sort: 2 },
@@ -47,7 +64,11 @@ const MOCK_DICTS: DictType[] = [
     ],
   },
   {
-    id: '3', name: '支付方式', code: 'payment_method', description: '支持的支付方式', itemCount: 3,
+    id: '3',
+    name: '支付方式',
+    code: 'payment_method',
+    description: '支持的支付方式',
+    itemCount: 3,
     items: [
       { id: '31', label: '微信支付', value: 'wechat', sort: 1 },
       { id: '32', label: '支付宝', value: 'alipay', sort: 2 },
@@ -59,7 +80,8 @@ const MOCK_DICTS: DictType[] = [
 const EMPTY_TYPE = { name: '', code: '', description: '' }
 const EMPTY_ITEM = { label: '', value: '', sort: 0 }
 const th = 'px-4 py-2.5 font-medium'
-const textareaClass = 'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function DictPage() {
   const t = useTranslations('adminTools')
@@ -77,15 +99,32 @@ export default function DictPage() {
   const { data: list = MOCK_DICTS, isLoading } = useQuery({
     queryKey: ['admin', 'dict'],
     queryFn: async () => {
-      const r = await fetchApi<{ list: { dictId: number; dictName: string; dictType: string; remark?: string | null }[] }>('/api/admin/dict/type/list')
+      const r = await fetchApi<{
+        list: { dictId: number; dictName: string; dictType: string; remark?: string | null }[]
+      }>('/api/admin/dict/type/list')
       if (r.success && r.data?.list) {
         const result: DictType[] = await Promise.all(
           r.data.list.map(async (t) => {
-            const dr = await fetchApi<{ list: { dictCode: number; dictLabel: string; dictValue: string; dictSort?: number }[] }>(`/api/admin/dict/data/type/${t.dictType}`)
-            const items: DictItem[] = dr.success && dr.data?.list
-              ? dr.data.list.map((d) => ({ id: String(d.dictCode), label: d.dictLabel, value: d.dictValue, sort: d.dictSort ?? 0 }))
-              : []
-            return { id: String(t.dictId), name: t.dictName, code: t.dictType, description: t.remark ?? '', itemCount: items.length, items }
+            const dr = await fetchApi<{
+              list: { dictCode: number; dictLabel: string; dictValue: string; dictSort?: number }[]
+            }>(`/api/admin/dict/data/type/${t.dictType}`)
+            const items: DictItem[] =
+              dr.success && dr.data?.list
+                ? dr.data.list.map((d) => ({
+                    id: String(d.dictCode),
+                    label: d.dictLabel,
+                    value: d.dictValue,
+                    sort: d.dictSort ?? 0,
+                  }))
+                : []
+            return {
+              id: String(t.dictId),
+              name: t.dictName,
+              code: t.dictType,
+              description: t.remark ?? '',
+              itemCount: items.length,
+              items,
+            }
           }),
         )
         return result
@@ -95,43 +134,126 @@ export default function DictPage() {
   })
 
   const saveTypeMut = useMutation({
-    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); closeType(); toast.success(t('dict.saveSuccess')) },
+    mutationFn: async () => {
+      const body = {
+        dictName: typeForm.name,
+        dictType: typeForm.code,
+        remark: typeForm.description,
+      }
+      const r = editingType
+        ? await fetchApi(`/api/admin/dict/type/${editingType.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          })
+        : await fetchApi('/api/admin/dict/type', { method: 'POST', body: JSON.stringify(body) })
+      if (!r.success) throw new Error(r.error)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'dict'] })
+      closeType()
+      toast.success(t('dict.saveSuccess'))
+    },
   })
   const delTypeMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); toast.success(t('dict.deleteSuccess')) },
+    mutationFn: async (id: string) => {
+      const r = await fetchApi(`/api/admin/dict/type/${id}`, { method: 'DELETE' })
+      if (!r.success) throw new Error(r.error)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'dict'] })
+      toast.success(t('dict.deleteSuccess'))
+    },
   })
   const saveItemMut = useMutation({
-    mutationFn: () => Promise.resolve(), // TODO: 后端 API 待实现
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); closeItem(); toast.success(t('dict.saveSuccess')) },
+    mutationFn: async () => {
+      const body = {
+        dictLabel: itemForm.label,
+        dictValue: itemForm.value,
+        dictSort: itemForm.sort,
+        dictType: itemParent?.code,
+      }
+      const r = editingItem
+        ? await fetchApi(`/api/admin/dict/data/${editingItem.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          })
+        : await fetchApi('/api/admin/dict/data', { method: 'POST', body: JSON.stringify(body) })
+      if (!r.success) throw new Error(r.error)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'dict'] })
+      closeItem()
+      toast.success(t('dict.saveSuccess'))
+    },
   })
   const delItemMut = useMutation({
-    mutationFn: (_id: string) => Promise.resolve(), // TODO: 后端 API 待实现
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'dict'] }); toast.success(t('dict.deleteSuccess')) },
+    mutationFn: async (id: string) => {
+      const r = await fetchApi(`/api/admin/dict/data/${id}`, { method: 'DELETE' })
+      if (!r.success) throw new Error(r.error)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'dict'] })
+      toast.success(t('dict.deleteSuccess'))
+    },
   })
 
   function toggle(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
-  function openCreateType() { setEditingType(null); setTypeForm(EMPTY_TYPE); setTypeOpen(true) }
-  function openEditType(d: DictType) { setEditingType(d); setTypeForm({ name: d.name, code: d.code, description: d.description }); setTypeOpen(true) }
-  function closeType() { if (saveTypeMut.isPending) return; setTypeOpen(false); setEditingType(null); setTypeForm(EMPTY_TYPE) }
+  function openCreateType() {
+    setEditingType(null)
+    setTypeForm(EMPTY_TYPE)
+    setTypeOpen(true)
+  }
+  function openEditType(d: DictType) {
+    setEditingType(d)
+    setTypeForm({ name: d.name, code: d.code, description: d.description })
+    setTypeOpen(true)
+  }
+  function closeType() {
+    if (saveTypeMut.isPending) return
+    setTypeOpen(false)
+    setEditingType(null)
+    setTypeForm(EMPTY_TYPE)
+  }
   function submitType(e: React.FormEvent) {
     e.preventDefault()
-    if (!typeForm.name.trim() || !typeForm.code.trim()) { toast.error(t('dict.nameRequired')); return }
+    if (!typeForm.name.trim() || !typeForm.code.trim()) {
+      toast.error(t('dict.nameRequired'))
+      return
+    }
     saveTypeMut.mutate()
   }
-  function openCreateItem(d: DictType) { setItemParent(d); setEditingItem(null); setItemForm(EMPTY_ITEM); setItemOpen(true) }
-  function openEditItem(d: DictType, it: DictItem) { setItemParent(d); setEditingItem(it); setItemForm({ label: it.label, value: it.value, sort: it.sort }); setItemOpen(true) }
-  function closeItem() { if (saveItemMut.isPending) return; setItemOpen(false); setItemParent(null); setEditingItem(null); setItemForm(EMPTY_ITEM) }
+  function openCreateItem(d: DictType) {
+    setItemParent(d)
+    setEditingItem(null)
+    setItemForm(EMPTY_ITEM)
+    setItemOpen(true)
+  }
+  function openEditItem(d: DictType, it: DictItem) {
+    setItemParent(d)
+    setEditingItem(it)
+    setItemForm({ label: it.label, value: it.value, sort: it.sort })
+    setItemOpen(true)
+  }
+  function closeItem() {
+    if (saveItemMut.isPending) return
+    setItemOpen(false)
+    setItemParent(null)
+    setEditingItem(null)
+    setItemForm(EMPTY_ITEM)
+  }
   function submitItem(e: React.FormEvent) {
     e.preventDefault()
-    if (!itemForm.label.trim() || !itemForm.value.trim()) { toast.error(t('dict.itemRequired')); return }
+    if (!itemForm.label.trim() || !itemForm.value.trim()) {
+      toast.error(t('dict.itemRequired'))
+      return
+    }
     saveItemMut.mutate()
   }
 
@@ -145,15 +267,21 @@ export default function DictPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('dict.subtitle')}</p>
         </div>
-        <Button size="sm" onClick={openCreateType}><Plus className="h-4 w-4" />{t('dict.createType')}</Button>
+        <Button size="sm" onClick={openCreateType}>
+          <Plus className="h-4 w-4" />
+          {t('dict.createType')}
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {tc('search')}
         </div>
       ) : list.length === 0 ? (
-        <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">{t('dict.noData')}</div>
+        <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+          {t('dict.noData')}
+        </div>
       ) : (
         <div className="space-y-2">
           {list.map((d) => {
@@ -161,21 +289,48 @@ export default function DictPage() {
             return (
               <div key={d.id} className="overflow-hidden rounded-lg border">
                 <div className="flex items-center justify-between bg-muted/30 px-4 py-3">
-                  <button onClick={() => toggle(d.id)} className="flex flex-1 items-center gap-2 text-left">
-                    {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  <button
+                    onClick={() => toggle(d.id)}
+                    className="flex flex-1 items-center gap-2 text-left"
+                  >
+                    {isOpen ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
                     <span className="font-medium">{d.name}</span>
-                    <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">{d.code}</code>
-                    <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{d.itemCount}</span>
+                    <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                      {d.code}
+                    </code>
+                    <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                      {d.itemCount}
+                    </span>
                   </button>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => openEditType(d)}><Edit className="h-4 w-4" />{tc('edit')}</Button>
-                    <Button size="sm" variant="ghost" onClick={() => openCreateItem(d)}><Plus className="h-4 w-4" />{t('dict.addItem')}</Button>
-                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={delTypeMut.isPending} onClick={() => { if (confirm(t('dict.deleteConfirm'))) delTypeMut.mutate(d.id) }}>
+                    <Button size="sm" variant="ghost" onClick={() => openEditType(d)}>
+                      <Edit className="h-4 w-4" />
+                      {tc('edit')}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => openCreateItem(d)}>
+                      <Plus className="h-4 w-4" />
+                      {t('dict.addItem')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      disabled={delTypeMut.isPending}
+                      onClick={() => {
+                        if (confirm(t('dict.deleteConfirm'))) delTypeMut.mutate(d.id)
+                      }}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-                {d.description && <div className="px-4 py-2 text-xs text-muted-foreground">{d.description}</div>}
+                {d.description && (
+                  <div className="px-4 py-2 text-xs text-muted-foreground">{d.description}</div>
+                )}
                 {isOpen && (
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
@@ -188,16 +343,34 @@ export default function DictPage() {
                     </thead>
                     <tbody className="divide-y">
                       {d.items.length === 0 ? (
-                        <tr><td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">{t('dict.noItems')}</td></tr>
+                        <tr>
+                          <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                            {t('dict.noItems')}
+                          </td>
+                        </tr>
                       ) : (
                         d.items.map((it) => (
                           <tr key={it.id} className="transition-colors hover:bg-muted/30">
                             <td className="px-4 py-2.5 font-medium">{it.label}</td>
-                            <td className="px-4 py-2.5"><code className="font-mono text-xs text-muted-foreground">{it.value}</code></td>
+                            <td className="px-4 py-2.5">
+                              <code className="font-mono text-xs text-muted-foreground">
+                                {it.value}
+                              </code>
+                            </td>
                             <td className="px-4 py-2.5 text-muted-foreground">{it.sort}</td>
                             <td className="px-4 py-2.5 text-right">
-                              <Button size="sm" variant="ghost" onClick={() => openEditItem(d, it)}><Edit className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={delItemMut.isPending} onClick={() => { if (confirm(t('dict.deleteConfirm'))) delItemMut.mutate(it.id) }}>
+                              <Button size="sm" variant="ghost" onClick={() => openEditItem(d, it)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                disabled={delItemMut.isPending}
+                                onClick={() => {
+                                  if (confirm(t('dict.deleteConfirm'))) delItemMut.mutate(it.id)
+                                }}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </td>
@@ -217,22 +390,54 @@ export default function DictPage() {
       <Dialog open={typeOpen} onOpenChange={(o) => (o ? setTypeOpen(true) : closeType())}>
         <DialogContent>
           <form onSubmit={submitType} className="space-y-4">
-            <DialogHeader><DialogTitle>{editingType ? t('dict.editTypeTitle') : t('dict.createTypeTitle')}</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>
+                {editingType ? t('dict.editTypeTitle') : t('dict.createTypeTitle')}
+              </DialogTitle>
+            </DialogHeader>
             <div className="space-y-2">
               <Label htmlFor="dt-name">{t('dict.fieldName')}</Label>
-              <Input id="dt-name" value={typeForm.name} onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })} placeholder={t('dict.namePlaceholder')} autoFocus />
+              <Input
+                id="dt-name"
+                value={typeForm.name}
+                onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })}
+                placeholder={t('dict.namePlaceholder')}
+                autoFocus
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="dt-code">{t('dict.fieldCode')}</Label>
-              <Input id="dt-code" value={typeForm.code} onChange={(e) => setTypeForm({ ...typeForm, code: e.target.value })} placeholder="order_status" />
+              <Input
+                id="dt-code"
+                value={typeForm.code}
+                onChange={(e) => setTypeForm({ ...typeForm, code: e.target.value })}
+                placeholder="order_status"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="dt-desc">{t('dict.fieldDescription')}</Label>
-              <textarea id="dt-desc" value={typeForm.description} onChange={(e) => setTypeForm({ ...typeForm, description: e.target.value })} rows={2} className={textareaClass} placeholder={t('dict.descriptionPlaceholder')} />
+              <textarea
+                id="dt-desc"
+                value={typeForm.description}
+                onChange={(e) => setTypeForm({ ...typeForm, description: e.target.value })}
+                rows={2}
+                className={textareaClass}
+                placeholder={t('dict.descriptionPlaceholder')}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeType} disabled={saveTypeMut.isPending}>{tc('cancel')}</Button>
-              <Button type="submit" disabled={saveTypeMut.isPending}>{saveTypeMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{tc('save')}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeType}
+                disabled={saveTypeMut.isPending}
+              >
+                {tc('cancel')}
+              </Button>
+              <Button type="submit" disabled={saveTypeMut.isPending}>
+                {saveTypeMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {tc('save')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -245,24 +450,54 @@ export default function DictPage() {
             <DialogHeader>
               <DialogTitle>
                 {editingItem ? t('dict.editItemTitle') : t('dict.createItemTitle')}
-                {itemParent && <span className="ml-2 text-sm font-normal text-muted-foreground">({itemParent.name})</span>}
+                {itemParent && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    ({itemParent.name})
+                  </span>
+                )}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
               <Label htmlFor="di-label">{t('dict.fieldLabel')}</Label>
-              <Input id="di-label" value={itemForm.label} onChange={(e) => setItemForm({ ...itemForm, label: e.target.value })} placeholder={t('dict.labelPlaceholder')} autoFocus />
+              <Input
+                id="di-label"
+                value={itemForm.label}
+                onChange={(e) => setItemForm({ ...itemForm, label: e.target.value })}
+                placeholder={t('dict.labelPlaceholder')}
+                autoFocus
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="di-value">{t('dict.fieldValue')}</Label>
-              <Input id="di-value" value={itemForm.value} onChange={(e) => setItemForm({ ...itemForm, value: e.target.value })} placeholder="pending" />
+              <Input
+                id="di-value"
+                value={itemForm.value}
+                onChange={(e) => setItemForm({ ...itemForm, value: e.target.value })}
+                placeholder="pending"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="di-sort">{t('dict.fieldSort')}</Label>
-              <Input id="di-sort" type="number" value={itemForm.sort} onChange={(e) => setItemForm({ ...itemForm, sort: Number(e.target.value) })} />
+              <Input
+                id="di-sort"
+                type="number"
+                value={itemForm.sort}
+                onChange={(e) => setItemForm({ ...itemForm, sort: Number(e.target.value) })}
+              />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeItem} disabled={saveItemMut.isPending}>{tc('cancel')}</Button>
-              <Button type="submit" disabled={saveItemMut.isPending}>{saveItemMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{tc('save')}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeItem}
+                disabled={saveItemMut.isPending}
+              >
+                {tc('cancel')}
+              </Button>
+              <Button type="submit" disabled={saveItemMut.isPending}>
+                {saveItemMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {tc('save')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

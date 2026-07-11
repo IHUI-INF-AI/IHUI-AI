@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { UploadCloud, X, File as FileIcon } from 'lucide-react'
@@ -56,9 +56,16 @@ export function FileUpload({
       {label && <label className="text-sm font-medium leading-none">{label}</label>}
       <div
         onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          addFiles(e.dataTransfer.files)
+        }}
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors',
           dragging ? 'border-primary bg-primary/5' : 'border-input hover:border-primary/50',
@@ -81,16 +88,20 @@ export function FileUpload({
           {items.map((item, idx) => (
             <div key={idx} className="group relative h-20 w-20 overflow-hidden rounded-md border">
               {showPreview && item.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.url} alt={item.file.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-1">
                   <FileIcon className="h-5 w-5 text-muted-foreground" />
-                  <span className="w-full truncate text-[10px] text-muted-foreground">{item.file.name}</span>
+                  <span className="w-full truncate text-[10px] text-muted-foreground">
+                    {item.file.name}
+                  </span>
                 </div>
               )}
               <button
-                onClick={(e) => { e.stopPropagation(); removeFile(idx) }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  removeFile(idx)
+                }}
                 className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
               >
                 <X className="h-3 w-3" />

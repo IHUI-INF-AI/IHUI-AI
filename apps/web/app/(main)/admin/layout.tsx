@@ -55,6 +55,7 @@ import {
   Filter,
   KeyRound,
   ShoppingBag,
+  BadgeCheck,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -132,6 +133,8 @@ interface AdminNavItem {
     | 'systemMonitor'
     | 'systemConfig'
     | 'systemTasks'
+    | 'realnameAudit'
+    | 'agentRules'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -154,6 +157,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/agents/categories', labelKey: 'agentCategories', icon: Tag },
   { href: '/admin/agents/examine', labelKey: 'agentExamine', icon: ShieldCheck },
   { href: '/admin/agents/settlement', labelKey: 'agentSettlement', icon: Wallet },
+  { href: '/admin/agent-rules', labelKey: 'agentRules', icon: Shield },
   { href: '/admin/demand-square', labelKey: 'demandSquare', icon: LayoutGrid },
   // R6: 运维监控
   { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
@@ -172,7 +176,11 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/developer', labelKey: 'developer', icon: Code2 },
   { href: '/admin/dict', labelKey: 'dict', icon: BookMarked },
   { href: '/admin/sms', labelKey: 'sms', icon: MessageSquareReply },
-  { href: '/admin/recommendation-config', labelKey: 'recommendationConfig', icon: SlidersHorizontal },
+  {
+    href: '/admin/recommendation-config',
+    labelKey: 'recommendationConfig',
+    icon: SlidersHorizontal,
+  },
   // R6: 其他工具
   { href: '/admin/mobile-adapter', labelKey: 'mobileAdapter', icon: Smartphone },
   { href: '/admin/oauth-audit-dashboard', labelKey: 'oauthAuditDashboard', icon: Shield },
@@ -217,6 +225,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/system/monitor', labelKey: 'systemMonitor', icon: Activity },
   { href: '/admin/system/config', labelKey: 'systemConfig', icon: SlidersHorizontal },
   { href: '/admin/system/tasks', labelKey: 'systemTasks', icon: ListChecks },
+  // R65: 实名认证审核
+  { href: '/admin/realname-audit', labelKey: 'realnameAudit', icon: BadgeCheck },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
