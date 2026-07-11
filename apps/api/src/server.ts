@@ -147,6 +147,9 @@ import { adminPrivateLettersRoutes } from './routes/admin-private-letters.js'
 
 // P0-3 补建：M-81 管理后台页面后端 API（菜单管理 + 需求审核 + 在线用户）
 import { adminExtendedRoutes } from './routes/admin-extended.js'
+// M-85/M-87 补建：SRS 媒体服务器 + 远程设备任务管理
+import { srsRoutes } from './routes/srs.js'
+import { remoteDeviceRoutes } from './routes/remote-device.js'
 
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
@@ -616,4 +619,12 @@ function registerRoutes(server: FastifyInstance) {
   // ===== P0-3 补建：M-81 管理后台页面后端 API =====
   // 菜单管理 + 需求审核 + 在线用户
   server.register(adminExtendedRoutes, { prefix: '/api/admin' })
+
+  // ===== M-85 补建：SRS 媒体服务器管理 =====
+  // RTMP 推流 / WebRTC 拉流 / HLS / FLV 流管理
+  server.register(srsRoutes, { prefix: '/api/srs' })
+
+  // ===== M-87 补建：远程设备任务管理 =====
+  // IoT 设备注册 + 任务下发 + 心跳 + 状态管理
+  server.register(remoteDeviceRoutes, { prefix: '/api' })
 }
