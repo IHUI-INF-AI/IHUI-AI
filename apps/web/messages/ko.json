@@ -222,6 +222,7 @@
     "descriptionPlaceholder": "요청입력에이전트단순소개",
     "files": "Files",
     "fileCount": "{count}개 파일",
+    "processedFiles": "처리된 파일",
     "upload": "파일 업로드",
     "noProjects": "프로젝트가 없습니다. 우측 상단을 클릭하여 만들어 보세요",
     "emptyFiles": "파일이 없습니다. 위 영역을 드래그하거나 클릭하여 업로드하세요",

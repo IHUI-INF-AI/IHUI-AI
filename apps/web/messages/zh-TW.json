@@ -222,6 +222,7 @@
     "descriptionPlaceholder": "請輸入智能體簡介",
     "files": "Files",
     "fileCount": "{count} 個文件",
+    "processedFiles": "已處理文件",
     "upload": "上傳文件",
     "noProjects": "暂無項目，點擊右上角创建一個吧",
     "emptyFiles": "暂無文件，拖拽或點擊上方區域上传",
