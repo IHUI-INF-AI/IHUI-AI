@@ -26,6 +26,9 @@ export type ScheduledJobName =
   | 'vip-expire-daily'
   | 'activity-status-hourly'
   | 'commission-settle-daily'
+  | 'mark-inactive-agents'
+  | 'cleanup-old-heat'
+  | 'oauth-session-cleanup'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -67,6 +70,22 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'commission-settle-daily',
     pattern: '0 6 * * *',
     description: '佣金结算校准+遗漏补建（每日06:00）',
+  },
+  // 以下3项迁移自旧架构 tasks/ 定时任务 (M-77)
+  {
+    name: 'mark-inactive-agents',
+    pattern: '0 2 * * *',
+    description: '标记180天未公开Agent为 inactive（每日02:00）',
+  },
+  {
+    name: 'cleanup-old-heat',
+    pattern: '0 3 * * 1',
+    description: '清理90天前热度统计数据（每周一03:00）',
+  },
+  {
+    name: 'oauth-session-cleanup',
+    pattern: '*/30 * * * *',
+    description: '清理过期OAuth会话（每30分钟）',
   },
 ]
 
