@@ -3,299 +3,361 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
-import {
-  Loader2,
-  ShieldCheck,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  UserCheck,
-  UserX,
-} from 'lucide-react'
-
+import { Loader2, Plus, Download, Search, ShieldCheck } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { HasPermi } from '@/components/auth/HasPermi'
+import { DatePicker } from '@/components/form/DatePicker'
 import {
-  Card,
-  CardContent,
   Button,
   Input,
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@ihui/ui'
-import { cn } from '@/lib/utils'
 
-type AuditStatus = 'pending' | 'approved' | 'rejected' | 'unverified'
-
-interface RealnameItem {
-  userUuid: string
-  realName: string
-  idCard: string
-  status: AuditStatus
-  auditTime?: string | null
-  createdAt?: string | null
-  rejectReason?: string | null
+interface Item {
+  id: string
+  [k: string]: unknown
 }
-
-interface ListData {
-  list: RealnameItem[]
-  total: number
-  page: number
-  pageSize: number
-}
-
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
 
-const PAGE_SIZE = 20
+const RESOURCE = '/api/admin/auth-info'
+const PERM = 'auth:auth_info'
+const PAGE_SIZE = 10
+type FormState = Record<string, string>
+const FIELDS: { key: string; label: string; required?: boolean }[] = [
+  { key: 'userUuid', label: '用户UUID', required: true },
+  { key: 'username', label: '用户名' },
+  { key: 'phone', label: '手机号' },
+  { key: 'certificate', label: '证件号', required: true },
+  { key: 'email', label: '邮箱' },
+  { key: 'country', label: '国家' },
+  { key: 'province', label: '省份' },
+  { key: 'city', label: '城市' },
+]
+const SEARCH_FIELDS: { key: string; label: string }[] = [
+  { key: 'username', label: '用户名' },
+  { key: 'phone', label: '手机号' },
+  { key: 'certificate', label: '证件号' },
+]
+const DATE_FIELDS: { key: string; label: string; required?: boolean }[] = [
+  { key: 'createdAt', label: '创建时间' },
+]
+const ALL_KEYS = [...FIELDS.map((f) => f.key), ...DATE_FIELDS.map((d) => d.key)]
+const LABELS: Record<string, string> = Object.fromEntries(
+  [...FIELDS, ...DATE_FIELDS].map((f) => [f.key, f.label]),
+)
+const EMPTY: FormState = Object.fromEntries(ALL_KEYS.map((k) => [k, '']))
+const EXPORT_COLS: ExportColumn[] = [
+  { key: 'id', title: 'ID' },
+  ...ALL_KEYS.map((k) => ({ key: k, title: LABELS[k] ?? '' })),
+]
+const th = 'px-4 py-2.5 font-medium'
+const colCount = 1 + ALL_KEYS.length + 1
 
-function maskIdCard(idCard: string): string {
-  if (!idCard || idCard.length < 8) return idCard ?? '-'
-  return idCard.slice(0, 4) + '****' + idCard.slice(-4)
-}
-
-function formatDate(v?: string | null): string {
-  if (!v) return '-'
-  const d = new Date(v)
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString()
-}
-
-export default function AdminRealnameAuditPage() {
-  const t = useTranslations('admin.realnameAudit')
+export default function AuthInfoPage() {
   const qc = useQueryClient()
-  const [search, setSearch] = React.useState('')
-  const [debounced, setDebounced] = React.useState('')
+  const [search, setSearch] = React.useState<FormState>(
+    Object.fromEntries(SEARCH_FIELDS.map((f) => [f.key, ''])),
+  )
   const [page, setPage] = React.useState(1)
+  const [open, setOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<Item | null>(null)
+  const [form, setForm] = React.useState<FormState>(EMPTY)
+  const [delId, setDelId] = React.useState<string | null>(null)
 
-  const STATUS_BADGE: Record<AuditStatus, { label: string; cls: string }> = {
-    pending: {
-      label: t('statusPending'),
-      cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-    },
-    approved: {
-      label: t('statusApproved'),
-      cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-    },
-    rejected: {
-      label: t('statusRejected'),
-      cls: 'bg-red-500/10 text-red-600 dark:text-red-500',
-    },
-    unverified: {
-      label: t('statusUnverified'),
-      cls: 'bg-muted text-muted-foreground',
-    },
-  }
+  const params = React.useMemo(() => {
+    const p: Record<string, string> = { pageNum: String(page), pageSize: String(PAGE_SIZE) }
+    for (const f of SEARCH_FIELDS) {
+      const v = search[f.key]?.trim()
+      if (v) p[f.key] = v
+    }
+    return p
+  }, [search, page])
 
-  React.useEffect(() => {
-    const tm = setTimeout(() => {
-      setDebounced(search)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(tm)
-  }, [search])
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'realname', 'list', debounced, page],
-    queryFn: () => {
-      const qs = new URLSearchParams({
-        page: String(page),
-        pageSize: String(PAGE_SIZE),
-      })
-      if (debounced) qs.set('keyword', debounced)
-      return api<ListData>(`/api/auth/realname/list?${qs.toString()}`)
-    },
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', PERM, params],
+    queryFn: () =>
+      api<{ list: Item[]; total: number }>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
-
-  const auditMut = useMutation({
-    mutationFn: (p: { userUuid: string; action: 'approve' | 'reject'; rejectReason?: string }) =>
-      api(`/api/auth/realname/${p.userUuid}/audit`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          action: p.action,
-          rejectReason: p.rejectReason,
-        }),
-      }),
-    onSuccess: (_data, vars) => {
-      toast.success(vars.action === 'approve' ? t('approveSuccess') : t('rejectSuccess'))
-      qc.invalidateQueries({ queryKey: ['admin', 'realname', 'list'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const handleReject = (userUuid: string) => {
-    const reason = window.prompt(t('rejectPrompt'))
-    if (reason === null) return
-    auditMut.mutate({
-      userUuid,
-      action: 'reject',
-      rejectReason: reason || undefined,
-    })
-  }
-
   const list = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const saveMut = useMutation({
+    mutationFn: () =>
+      editing
+        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
+        : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', PERM] })
+      toast.success(editing ? '更新成功' : '创建成功')
+      close()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  const delMut = useMutation({
+    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', PERM] })
+      toast.success('删除成功')
+      setDelId(null)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY)
+    setOpen(true)
+  }
+  function openEdit(item: Item) {
+    setEditing(item)
+    const next: FormState = { ...EMPTY }
+    for (const k of ALL_KEYS) next[k] = String(item[k] ?? '')
+    setForm(next)
+    setOpen(true)
+  }
+  function close() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+  }
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    for (const f of FIELDS)
+      if (f.required && !form[f.key]?.trim()) {
+        toast.error(`${f.label}为必填项`)
+        return
+      }
+    saveMut.mutate()
+  }
+  function handleReset() {
+    setSearch(Object.fromEntries(SEARCH_FIELDS.map((f) => [f.key, ''])))
+    setPage(1)
+  }
+  async function handleExport() {
+    const ok = await exportFromApi(
+      `${RESOURCE}?${new URLSearchParams(params)}`,
+      '实名信息',
+      EXPORT_COLS,
+    )
+    if (!ok) toast.error('导出失败')
+  }
+
   return (
     <div className="space-y-4">
-      <div>
+      <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldCheck className="h-6 w-6 text-primary" />
-          {t('title')}
+          实名信息
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
+        <div className="flex gap-2">
+          <HasPermi code={`${PERM}:export`}>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              导出
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}:add`}>
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              新增
+            </Button>
+          </HasPermi>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="px-4 py-2.5">{t('userId')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('realName')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('idCard')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('status')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('auditTime')}</TableHead>
-                  <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                      {t('loading')}
-                    </TableCell>
-                  </TableRow>
-                ) : error ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-10 text-center text-destructive">
-                      {(error as Error).message}
-                    </TableCell>
-                  </TableRow>
-                ) : list.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                      <ShieldCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                      {t('noData')}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  list.map((item) => {
-                    const badge = STATUS_BADGE[item.status]
-                    return (
-                      <TableRow key={item.userUuid} className="transition-colors hover:bg-muted/30">
-                        <TableCell className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                          {item.userUuid}
-                        </TableCell>
-                        <TableCell className="px-4 py-2.5 font-medium">
-                          {item.realName || '-'}
-                        </TableCell>
-                        <TableCell className="px-4 py-2.5 font-mono text-xs">
-                          {maskIdCard(item.idCard)}
-                        </TableCell>
-                        <TableCell className="px-4 py-2.5">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                              badge.cls,
-                            )}
-                          >
-                            {badge.label}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                          {formatDate(item.auditTime ?? item.createdAt)}
-                        </TableCell>
-                        <TableCell className="px-4 py-2.5 text-right">
-                          {item.status === 'pending' ? (
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={auditMut.isPending}
-                                onClick={() =>
-                                  auditMut.mutate({
-                                    userUuid: item.userUuid,
-                                    action: 'approve',
-                                  })
-                                }
-                                className="text-emerald-600 hover:text-emerald-600"
-                              >
-                                <UserCheck className="h-4 w-4" />
-                                {t('approve')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={auditMut.isPending}
-                                onClick={() => handleReject(item.userUuid)}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <UserX className="h-4 w-4" />
-                                {t('reject')}
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+        {SEARCH_FIELDS.map((f) => (
+          <div key={f.key} className="space-y-1">
+            <Label className="text-xs">{f.label}</Label>
+            <Input
+              className="h-9 w-48"
+              value={search[f.key] ?? ''}
+              onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
+              placeholder={`搜索${f.label}`}
+            />
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {t('prev')}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('next')}
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        ))}
+        <Button size="sm" onClick={() => setPage(1)}>
+          <Search className="h-4 w-4" />
+          搜索
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleReset}>
+          重置
+        </Button>
       </div>
+
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className={th}>ID</th>
+              {ALL_KEYS.map((k) => (
+                <th key={k} className={th}>
+                  {LABELS[k]}
+                </th>
+              ))}
+              <th className={th}>操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {isLoading ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  加载中…
+                </td>
+              </tr>
+            ) : list.length === 0 ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">
+                  <ShieldCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                  暂无数据
+                </td>
+              </tr>
+            ) : (
+              list.map((item) => (
+                <tr key={String(item.id)} className="hover:bg-muted/30">
+                  <td className="px-4 py-2.5">{String(item.id)}</td>
+                  {ALL_KEYS.map((k) => (
+                    <td key={k} className="px-4 py-2.5">
+                      {String(item[k] ?? '-')}
+                    </td>
+                  ))}
+                  <td className="px-4 py-2.5 space-x-2">
+                    <HasPermi code={`${PERM}:edit`}>
+                      <button
+                        className="text-primary hover:underline"
+                        onClick={() => openEdit(item)}
+                      >
+                        编辑
+                      </button>
+                    </HasPermi>
+                    <HasPermi code={`${PERM}:remove`}>
+                      <button
+                        className="text-destructive hover:underline"
+                        onClick={() => setDelId(String(item.id))}
+                      >
+                        删除
+                      </button>
+                    </HasPermi>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {total > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            共 {total} 条 · {page}/{totalPages}
+          </span>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
+              上一页
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              下一页
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
+        <DialogContent>
+          <form onSubmit={submit} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>{editing ? '编辑实名信息' : '新增实名信息'}</DialogTitle>
+              <DialogDescription>{editing ? '修改实名信息' : '添加新的实名信息'}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {FIELDS.map((f) => (
+                <div key={f.key} className="space-y-1.5">
+                  <Label>
+                    {f.label}
+                    {f.required ? ' *' : ''}
+                  </Label>
+                  <Input
+                    value={form[f.key]}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                  />
+                </div>
+              ))}
+              {DATE_FIELDS.map((d) => (
+                <DatePicker
+                  key={d.key}
+                  label={d.label}
+                  value={form[d.key]}
+                  onChange={(v) => setForm({ ...form, [d.key]: v })}
+                />
+              ))}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
+                取消
+              </Button>
+              <Button type="submit" disabled={saveMut.isPending}>
+                {saveMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={delId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDelId(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>确定要删除该记录吗？此操作不可撤销。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDelId(null)}
+              disabled={delMut.isPending}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={delMut.isPending}
+              onClick={() => delId && delMut.mutate(delId)}
+            >
+              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
