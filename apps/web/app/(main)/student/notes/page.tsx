@@ -182,31 +182,23 @@ export default function MyNotesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {list.map((note) => (
-            <Card key={note.id} className="transition-colors hover:border-primary/40">
+            <Card key={note.id} className="transition-colors hover:bg-accent">
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="line-clamp-1 font-medium">
-                    {note.title || t('titleField')}
-                  </h3>
+                  <h3 className="font-medium">{note.title || t('titleField')}</h3>
                   <span
                     className={cn(
                       'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
                       note.isPublic
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                         : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    {note.isPublic ? (
-                      <Globe className="h-3 w-3" />
-                    ) : (
-                      <Lock className="h-3 w-3" />
-                    )}
+                    {note.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                     {t('isPublic')}
                   </span>
                 </div>
-                <p className="line-clamp-3 text-sm text-muted-foreground">
-                  {note.content}
-                </p>
+                <p className="text-sm text-muted-foreground">{note.content}</p>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{new Date(note.createdAt).toLocaleDateString('zh-CN')}</span>
                   <div className="flex gap-1">
@@ -250,7 +242,6 @@ export default function MyNotesPage() {
                 id="n-title"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                autoFocus
               />
             </div>
             <div className="space-y-2">
@@ -273,7 +264,12 @@ export default function MyNotesPage() {
               {t('isPublic')}
             </label>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

@@ -26,12 +26,48 @@ interface EventItem {
 
 const MOCK_STATS: EventStats = { total: 128420, today: 3210, processing: 12, failed: 24 }
 const MOCK_EVENTS: EventItem[] = [
-  { id: '1', name: 'order.created', source: 'orders-service', status: 'success', time: '2026-07-10 09:12:30' },
-  { id: '2', name: 'user.registered', source: 'auth-service', status: 'success', time: '2026-07-10 09:11:18' },
-  { id: '3', name: 'message.sent', source: 'chat-service', status: 'processing', time: '2026-07-10 09:10:42' },
-  { id: '4', name: 'payment.refunded', source: 'payment-service', status: 'failed', time: '2026-07-10 09:08:55' },
-  { id: '5', name: 'agent.published', source: 'agent-service', status: 'success', time: '2026-07-10 09:05:12' },
-  { id: '6', name: 'email.queued', source: 'notification-service', status: 'pending', time: '2026-07-10 09:02:00' },
+  {
+    id: '1',
+    name: 'order.created',
+    source: 'orders-service',
+    status: 'success',
+    time: '2026-07-10 09:12:30',
+  },
+  {
+    id: '2',
+    name: 'user.registered',
+    source: 'auth-service',
+    status: 'success',
+    time: '2026-07-10 09:11:18',
+  },
+  {
+    id: '3',
+    name: 'message.sent',
+    source: 'chat-service',
+    status: 'processing',
+    time: '2026-07-10 09:10:42',
+  },
+  {
+    id: '4',
+    name: 'payment.refunded',
+    source: 'payment-service',
+    status: 'failed',
+    time: '2026-07-10 09:08:55',
+  },
+  {
+    id: '5',
+    name: 'agent.published',
+    source: 'agent-service',
+    status: 'success',
+    time: '2026-07-10 09:05:12',
+  },
+  {
+    id: '6',
+    name: 'email.queued',
+    source: 'notification-service',
+    status: 'pending',
+    time: '2026-07-10 09:02:00',
+  },
 ]
 
 const STATUS_STYLE: Record<EventItem['status'], { bg: string; text: string; label: string }> = {
@@ -64,8 +100,13 @@ export default function EventBusMonitorPage() {
 
   const cards = [
     { label: t('eventBus.total'), value: stats.total, icon: Webhook, color: 'text-primary' },
-    { label: t('eventBus.today'), value: stats.today, icon: Activity, color: 'text-blue-600' },
-    { label: t('eventBus.processing'), value: stats.processing, icon: Clock, color: 'text-amber-600' },
+    { label: t('eventBus.today'), value: stats.today, icon: Activity, color: 'text-primary' },
+    {
+      label: t('eventBus.processing'),
+      value: stats.processing,
+      icon: Clock,
+      color: 'text-amber-600',
+    },
     { label: t('eventBus.failed'), value: stats.failed, icon: XCircle, color: 'text-red-600' },
   ]
 
@@ -91,7 +132,9 @@ export default function EventBusMonitorPage() {
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{c.label}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {c.label}
+                  </CardTitle>
                   <c.icon className={cn('h-4 w-4', c.color)} />
                 </CardHeader>
                 <CardContent>
@@ -140,7 +183,13 @@ export default function EventBusMonitorPage() {
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">{e.source}</td>
                       <td className="px-4 py-2.5">
-                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', st.bg, st.text)}>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            st.bg,
+                            st.text,
+                          )}
+                        >
                           {st.label}
                         </span>
                       </td>

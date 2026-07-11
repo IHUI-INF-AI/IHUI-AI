@@ -4,14 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Search,
-  Loader2,
-  Tag,
-} from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Loader2, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -143,10 +136,9 @@ export default function AdminCategoriesPage() {
 
   const togglePaidMut = useMutation({
     mutationFn: (p: { cat: Category; enable: boolean }) =>
-      api<Category>(
-        `/api/categories/${p.cat.categoryId}/${p.enable ? 'enable' : 'disable'}`,
-        { method: 'POST' },
-      ),
+      api<Category>(`/api/categories/${p.cat.categoryId}/${p.enable ? 'enable' : 'disable'}`, {
+        method: 'POST',
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'agents', 'categories'] })
     },
@@ -287,7 +279,7 @@ export default function AdminCategoriesPage() {
                   <TableRow key={c.categoryId} className="transition-colors hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-medium">{c.name}</TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      <span className="line-clamp-1">{c.description || '-'}</span>
+                      <span className="break-words">{c.description || '-'}</span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
                       {c.icon || '-'}
@@ -315,9 +307,7 @@ export default function AdminCategoriesPage() {
                       <Switch
                         checked={c.isPaid}
                         disabled={togglePaidMut.isPending}
-                        onCheckedChange={(v) =>
-                          togglePaidMut.mutate({ cat: c, enable: v })
-                        }
+                        onCheckedChange={(v) => togglePaidMut.mutate({ cat: c, enable: v })}
                         aria-label={t('colPaid')}
                       />
                     </TableCell>
@@ -393,7 +383,6 @@ export default function AdminCategoriesPage() {
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 maxLength={100}
-                autoFocus
               />
             </div>
             <div className="space-y-2">
@@ -455,7 +444,12 @@ export default function AdminCategoriesPage() {
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

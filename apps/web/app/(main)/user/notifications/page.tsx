@@ -53,10 +53,13 @@ const TYPE_CLS: Record<NotificationType, string> = {
   system: 'bg-primary/10 text-primary',
   order: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   project: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-  comment: 'bg-blue-500/10 text-blue-600 dark:text-blue-500',
+  comment: 'bg-primary/10 text-primary',
 }
 
-const TABS: { value: 'all' | NotificationType; labelKey: 'all' | 'system' | 'order' | 'project' | 'comment' }[] = [
+const TABS: {
+  value: 'all' | NotificationType
+  labelKey: 'all' | 'system' | 'order' | 'project' | 'comment'
+}[] = [
   { value: 'all', labelKey: 'all' },
   { value: 'system', labelKey: 'system' },
   { value: 'order', labelKey: 'order' },
@@ -152,19 +155,31 @@ export default function NotificationsPage() {
                   !n.read && 'bg-primary/[0.03]',
                 )}
               >
-                <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', TYPE_CLS[n.type])}>
+                <div
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                    TYPE_CLS[n.type],
+                  )}
+                >
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{n.title}</p>
+                    <p className="break-words text-sm font-medium">{n.title}</p>
                     {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
                   </div>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.content}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{dateFmt.format(new Date(n.createdAt))}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{n.content}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {dateFmt.format(new Date(n.createdAt))}
+                  </p>
                 </div>
                 {!n.read && (
-                  <Button variant="ghost" size="sm" className="shrink-0 self-center" onClick={() => markRead(n.id)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 self-center"
+                    onClick={() => markRead(n.id)}
+                  >
                     <Check className="mr-1 h-3.5 w-3.5" />
                     {t('markRead')}
                   </Button>

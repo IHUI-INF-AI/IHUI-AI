@@ -135,6 +135,7 @@ export default function ResourceDetailPage() {
 
       {resource.coverImage && (
         <div className="overflow-hidden rounded-lg border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={resource.coverImage}
             alt={resource.title}
@@ -173,12 +174,12 @@ export default function ResourceDetailPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((item) => (
               <Link key={item.id} href={`/resources/${item.id}`} className="group block">
-                <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+                <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                   <div className="flex h-24 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                     <FileText className="h-8 w-8 text-primary/40" />
                   </div>
                   <CardContent className="space-y-1.5 p-4 text-xs text-muted-foreground">
-                    <p className="line-clamp-1 font-medium text-foreground">{item.title}</p>
+                    <p className="font-medium text-foreground">{item.title}</p>
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" />

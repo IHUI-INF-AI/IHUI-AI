@@ -7,7 +7,17 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowDownToLine, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface WithdrawalItem {
@@ -37,7 +47,7 @@ const STATUS_KEY: Record<number, string> = {
 
 const STATUS_CLS: Record<number, string> = {
   0: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-  1: 'bg-blue-500/10 text-blue-600 dark:text-blue-500',
+  1: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   2: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   3: 'bg-red-500/10 text-red-600 dark:text-red-500',
 }
@@ -140,12 +150,18 @@ export default function WithdrawRecordsPage() {
             ) : (
               items.map((it) => (
                 <TableRow key={it.id}>
-                  <TableCell className="px-4 py-2.5 text-right font-medium">{fmtYuan(it.originalAmount)}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-right font-medium">
+                    {fmtYuan(it.originalAmount)}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5 text-right text-emerald-600 dark:text-emerald-400">
                     {fmtYuan(it.amount)}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right text-muted-foreground">{fmtYuan(it.fee)}</TableCell>
-                  <TableCell className="px-4 py-2.5">{t(METHOD_KEY[it.method] ?? 'methodWechat')}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                    {fmtYuan(it.fee)}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    {t(METHOD_KEY[it.method] ?? 'methodWechat')}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
@@ -156,8 +172,12 @@ export default function WithdrawRecordsPage() {
                       {t(STATUS_KEY[it.status] ?? 'withdrawStatusPending')}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">{fmtDate(it.createdAt)}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">{fmtDate(it.processedAt)}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    {fmtDate(it.createdAt)}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    {fmtDate(it.processedAt)}
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -169,11 +189,23 @@ export default function WithdrawRecordsPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

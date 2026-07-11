@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 import { StatCard } from '@/components/data'
 import { PageHeader } from '@/components/layout'
 import { MiniChart } from '@/components/dashboard/mini-chart'
+import { RadarChart } from '@/components/charts/RadarChart'
+import { LineChart } from '@/components/charts/LineChart'
 
 interface DetailedStats {
   totals: {
@@ -67,7 +69,8 @@ function projectStatusKey(status: number): string {
 function fileTypeKey(mimeType: string): string {
   if (mimeType.startsWith('image/')) return 'image'
   if (mimeType.startsWith('video/')) return 'video'
-  if (/^(text\/|application\/(pdf|msword|vnd\.openxmlformats-officedocument))/.test(mimeType)) return 'document'
+  if (/^(text\/|application\/(pdf|msword|vnd\.openxmlformats-officedocument))/.test(mimeType))
+    return 'document'
   return 'other'
 }
 
@@ -120,7 +123,16 @@ async function fetchDetailedStats(): Promise<DetailedStats> {
 
 // 接口失败时的空兜底（不再使用伪造数值）
 const EMPTY_STATS: DetailedStats = {
-  totals: { users: 0, projects: 0, files: 0, orders: 0, usersChange: 0, projectsChange: 0, filesChange: 0, ordersChange: 0 },
+  totals: {
+    users: 0,
+    projects: 0,
+    files: 0,
+    orders: 0,
+    usersChange: 0,
+    projectsChange: 0,
+    filesChange: 0,
+    ordersChange: 0,
+  },
   userGrowth: [],
   projectStatus: [],
   fileTypes: [],
@@ -128,7 +140,23 @@ const EMPTY_STATS: DetailedStats = {
 }
 
 // 环形图配色:emerald 高亮 + primary + muted,取自 Tailwind 主题变量
-const RING_COLORS = ['var(--color-emerald-500)', 'var(--color-primary)', 'var(--color-muted-foreground)']
+const RING_COLORS = [
+  'var(--color-emerald-500)',
+  'var(--color-primary)',
+  'var(--color-muted-foreground)',
+]
+
+const RADAR_DATA = [
+  { label: 'Sales', value: 5000, max: 10000 },
+  { label: 'Administration', value: 7000, max: 20000 },
+  { label: 'Information Techology', value: 12000, max: 20000 },
+  { label: 'Customer Support', value: 11000, max: 20000 },
+  { label: 'Development', value: 15000, max: 20000 },
+  { label: 'Marketing', value: 14000, max: 20000 },
+]
+const LINE_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const EXPECTED_DATA = [120, 82, 91, 154, 162, 140, 145]
+const ACTUAL_DATA = [100, 90, 85, 120, 110, 130, 135]
 
 function buildConic(segments: { value: number }[]): string {
   const total = segments.reduce((s, x) => s + x.value, 0) || 1
@@ -152,22 +180,59 @@ export default function AdminDashboardPage() {
 
   const stats = data ?? EMPTY_STATS
   const numFmt = new Intl.NumberFormat(locale)
-  const curFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY', maximumFractionDigits: 0 })
+  const curFmt = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'CNY',
+    maximumFractionDigits: 0,
+  })
 
   const cards = [
-    { title: t('totalUsers'), value: stats.totals.users, icon: Users, trend: stats.totals.usersChange },
-    { title: t('totalProjects'), value: stats.totals.projects, icon: Folder, trend: stats.totals.projectsChange },
-    { title: t('totalFiles'), value: stats.totals.files, icon: FileText, trend: stats.totals.filesChange },
-    { title: t('totalOrders'), value: stats.totals.orders, icon: ShoppingCart, trend: stats.totals.ordersChange },
+    {
+      title: t('totalUsers'),
+      value: stats.totals.users,
+      icon: Users,
+      trend: stats.totals.usersChange,
+    },
+    {
+      title: t('totalProjects'),
+      value: stats.totals.projects,
+      icon: Folder,
+      trend: stats.totals.projectsChange,
+    },
+    {
+      title: t('totalFiles'),
+      value: stats.totals.files,
+      icon: FileText,
+      trend: stats.totals.filesChange,
+    },
+    {
+      title: t('totalOrders'),
+      value: stats.totals.orders,
+      icon: ShoppingCart,
+      trend: stats.totals.ordersChange,
+    },
   ]
-  const statusItems = stats.projectStatus.map((s) => ({ label: t(`projectStatus.${s.key}`), value: s.value }))
+  const statusItems = stats.projectStatus.map((s) => ({
+    label: t(`projectStatus.${s.key}`),
+    value: s.value,
+  }))
   const fileItems = stats.fileTypes.map((f) => ({ label: t(`fileTypes.${f.key}`), value: f.value }))
   const fileMax = Math.max(...fileItems.map((f) => f.value), 1)
   const statusTotal = statusItems.reduce((s, x) => s + x.value, 0)
   const orderItems = [
     { icon: ShoppingCart, label: t('orderCount'), value: stats.orderStats.totalCount, cls: '' },
-    { icon: TrendingUp, label: t('paidCount'), value: stats.orderStats.paidCount, cls: 'text-emerald-600 dark:text-emerald-500' },
-    { icon: TrendingDown, label: t('pendingCount'), value: stats.orderStats.pendingCount, cls: 'text-amber-600 dark:text-amber-500' },
+    {
+      icon: TrendingUp,
+      label: t('paidCount'),
+      value: stats.orderStats.paidCount,
+      cls: 'text-emerald-600 dark:text-emerald-500',
+    },
+    {
+      icon: TrendingDown,
+      label: t('pendingCount'),
+      value: stats.orderStats.pendingCount,
+      cls: 'text-amber-600 dark:text-amber-500',
+    },
   ]
 
   return (
@@ -175,17 +240,26 @@ export default function AdminDashboardPage() {
       <PageHeader
         title={t('title')}
         subtitle={t('subtitle')}
-        actions={isError ? (
-          <span className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-500">
-            <AlertCircle className="h-3 w-3" />
-            {t('loadFailed')}
-          </span>
-        ) : undefined}
+        actions={
+          isError ? (
+            <span className="flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-600 dark:text-amber-500">
+              <AlertCircle className="h-3 w-3" />
+              {t('loadFailed')}
+            </span>
+          ) : undefined
+        }
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <StatCard key={c.title} title={c.title} value={numFmt.format(c.value)} icon={c.icon} trend={c.trend} loading={isLoading} />
+          <StatCard
+            key={c.title}
+            title={c.title}
+            value={numFmt.format(c.value)}
+            icon={c.icon}
+            trend={c.trend}
+            loading={isLoading}
+          />
         ))}
       </div>
 
@@ -212,7 +286,10 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-6">
-              <div className="relative h-28 w-28 shrink-0 rounded-full" style={{ background: buildConic(statusItems) }}>
+              <div
+                className="relative h-28 w-28 shrink-0 rounded-full"
+                style={{ background: buildConic(statusItems) }}
+              >
                 <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-card">
                   <span className="text-lg font-bold">{numFmt.format(statusTotal)}</span>
                   <span className="text-[10px] text-muted-foreground">{t('totalLabel')}</span>
@@ -222,7 +299,10 @@ export default function AdminDashboardPage() {
                 {statusItems.map((s, i) => (
                   <li key={s.label} className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: RING_COLORS[i % RING_COLORS.length] }} />
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: RING_COLORS[i % RING_COLORS.length] }}
+                      />
                       {s.label}
                     </span>
                     <span className="font-medium">{numFmt.format(s.value)}</span>
@@ -250,7 +330,10 @@ export default function AdminDashboardPage() {
                   <span className="text-muted-foreground">{numFmt.format(f.value)}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary/70 transition-colors hover:bg-primary" style={{ width: `${(f.value / fileMax) * 100}%` }} />
+                  <div
+                    className="h-full rounded-full bg-primary/70 transition-colors hover:bg-primary"
+                    style={{ width: `${(f.value / fileMax) * 100}%` }}
+                  />
                 </div>
               </div>
             ))}
@@ -267,7 +350,9 @@ export default function AdminDashboardPage() {
           <CardContent>
             <div className="flex items-baseline gap-2">
               <TrendingUp className="h-5 w-5 text-emerald-500" />
-              <span className="text-3xl font-bold tracking-tight">{curFmt.format(stats.orderStats.totalAmount)}</span>
+              <span className="text-3xl font-bold tracking-tight">
+                {curFmt.format(stats.orderStats.totalAmount)}
+              </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{t('totalAmountLabel')}</p>
             <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-4">
@@ -279,10 +364,52 @@ export default function AdminDashboardPage() {
                       <Icon className="h-3 w-3" />
                       {o.label}
                     </div>
-                    <div className={cn('mt-1 text-lg font-semibold', o.cls)}>{numFmt.format(o.value)}</div>
+                    <div className={cn('mt-1 text-lg font-semibold', o.cls)}>
+                      {numFmt.format(o.value)}
+                    </div>
                   </div>
                 )
               })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              能力雷达图
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <RadarChart data={RADAR_DATA} size={260} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              周度趋势对比
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">Expected</p>
+                <LineChart
+                  data={EXPECTED_DATA}
+                  xAxis={LINE_DAYS}
+                  color="var(--color-rose-500)"
+                  height={160}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">Actual</p>
+                <LineChart data={ACTUAL_DATA} xAxis={LINE_DAYS} height={160} />
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -35,8 +35,7 @@ export default function WrongBookPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'wrong-book', page],
-    queryFn: () =>
-      api<WrongBookData>(`/api/edu/wrong-book?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => api<WrongBookData>(`/api/edu/wrong-book?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const list = data?.list ?? []
@@ -71,7 +70,7 @@ export default function WrongBookPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {list.map((item) => (
-              <Card key={item.recordId} className="transition-colors hover:border-primary/40">
+              <Card key={item.recordId} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10">
@@ -93,7 +92,7 @@ export default function WrongBookPage() {
                     </div>
                     <div className="space-y-1">
                       <span className="text-muted-foreground">{t('myAnswer')}</span>
-                      <p className="line-clamp-2 rounded-md bg-muted/50 px-2 py-1.5 text-foreground">
+                      <p className="rounded-md bg-muted/50 px-2 py-1.5 text-foreground">
                         {item.answer || '-'}
                       </p>
                     </div>

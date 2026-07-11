@@ -36,7 +36,7 @@ export function TokenUsagePanel({
       </div>
       {(cost !== undefined || model) && (
         <div className="mt-2 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
-          {model && <span className="truncate">{model}</span>}
+          {model && <span className="break-words">{model}</span>}
           {cost !== undefined && (
             <span className={cn('tabular-nums', cost > 0 && 'text-foreground font-medium')}>
               ${cost.toFixed(4)}

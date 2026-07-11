@@ -3,14 +3,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  Loader2,
-  Plug,
-  PlugZap,
-  Plus,
-  Server,
-  Trash2,
-} from 'lucide-react'
+import { Loader2, Plug, PlugZap, Plus, Server, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -54,18 +47,11 @@ interface AddServerDialogProps {
   submitting: boolean
 }
 
-function AddServerDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-  submitting,
-}: AddServerDialogProps) {
+function AddServerDialog({ open, onOpenChange, onSubmit, submitting }: AddServerDialogProps) {
   const t = useTranslations('mcp')
   const [name, setName] = React.useState('')
   const [url, setUrl] = React.useState('')
-  const [transport, setTransport] = React.useState<
-    'stdio' | 'sse' | 'http'
-  >('sse')
+  const [transport, setTransport] = React.useState<'stdio' | 'sse' | 'http'>('sse')
 
   React.useEffect(() => {
     if (!open) {
@@ -111,9 +97,7 @@ function AddServerDialog({
             <Label htmlFor="mcp-server-transport">{t('transport')}</Label>
             <Select
               value={transport}
-              onValueChange={(v) =>
-                setTransport(v as 'stdio' | 'sse' | 'http')
-              }
+              onValueChange={(v) => setTransport(v as 'stdio' | 'sse' | 'http')}
             >
               <SelectTrigger id="mcp-server-transport">
                 <SelectValue />
@@ -126,11 +110,7 @@ function AddServerDialog({
             </Select>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -177,17 +157,14 @@ export function McpManager() {
 
   const toggleMutation = useMutation({
     mutationFn: async (server: McpServer) => {
-      const action =
-        server.status === 'connected' ? 'disconnect' : 'connect'
-      const res = await fetchApi<McpServer>(
-        `/api/ai/mcp/servers/${server.id}/${action}`,
-        { method: 'POST' },
-      )
+      const action = server.status === 'connected' ? 'disconnect' : 'connect'
+      const res = await fetchApi<McpServer>(`/api/ai/mcp/servers/${server.id}/${action}`, {
+        method: 'POST',
+      })
       if (!res.success) throw new Error(res.error)
       return res.data
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['mcp', 'servers'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mcp', 'servers'] }),
     onError: (err: Error) => toast.error(err.message),
   })
 
@@ -234,21 +211,14 @@ export function McpManager() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {servers.map((server) => {
             const connected = server.status === 'connected'
-            const toggling =
-              toggleMutation.isPending &&
-              toggleMutation.variables?.id === server.id
+            const toggling = toggleMutation.isPending && toggleMutation.variables?.id === server.id
             return (
-              <Card
-                key={server.id}
-                className="transition-colors hover:border-primary/30"
-              >
+              <Card key={server.id} className="transition-colors hover:bg-accent">
                 <CardContent className="p-4">
                   <div className="mb-2 flex items-start justify-between">
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{server.name}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {server.url}
-                      </div>
+                      <div className="break-words font-medium">{server.name}</div>
+                      <div className="break-words text-xs text-muted-foreground">{server.url}</div>
                     </div>
                     <span
                       className={cn(

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -64,9 +64,10 @@ export default function LearnTopicPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((topic) => (
             <Link key={topic.id} href={`/learn/topic/${topic.id}`} className="group block">
-              <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+              <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                 <div className="flex h-36 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                   {topic.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={topic.cover}
                       alt={topic.title}
@@ -77,10 +78,10 @@ export default function LearnTopicPage() {
                   )}
                 </div>
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="line-clamp-1 text-base">{topic.title}</CardTitle>
+                  <CardTitle className="text-base">{topic.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-4 pt-0 text-xs text-muted-foreground">
-                  {topic.description && <p className="line-clamp-2">{topic.description}</p>}
+                  {topic.description && <p className="break-words">{topic.description}</p>}
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                       <BookOpen className="h-3.5 w-3.5" />

@@ -48,7 +48,8 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const selectClass = 'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminApiPlatformUsagePage() {
   const [range, setRange] = React.useState('7d')
@@ -60,15 +61,19 @@ export default function AdminApiPlatformUsagePage() {
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['admin', 'api-platform', 'usage', range],
-    queryFn: () => api<{ list: UsageRow[] }>(`/api/admin/api-platform/usage?range=${range}`).then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: UsageRow[] }>(`/api/admin/api-platform/usage?range=${range}`).then(
+        (d) => d.list ?? [],
+      ),
   })
 
-  const successRate = summary && summary.totalCalls > 0 ? (summary.totalSuccess / summary.totalCalls) * 100 : 0
+  const successRate =
+    summary && summary.totalCalls > 0 ? (summary.totalSuccess / summary.totalCalls) * 100 : 0
   const cards = [
     { label: '总调用', value: summary?.totalCalls ?? 0, icon: BarChart3, cls: 'text-primary' },
     { label: '成功', value: summary?.totalSuccess ?? 0, icon: TrendingUp, cls: 'text-emerald-600' },
     { label: '失败', value: summary?.totalFail ?? 0, icon: Zap, cls: 'text-red-600' },
-    { label: '平均耗时', value: `${summary?.avgLatency ?? 0}ms`, icon: Clock, cls: 'text-blue-600' },
+    { label: '平均耗时', value: `${summary?.avgLatency ?? 0}ms`, icon: Clock, cls: 'text-primary' },
   ]
 
   return (
@@ -82,7 +87,9 @@ export default function AdminApiPlatformUsagePage() {
           <p className="mt-1 text-sm text-muted-foreground">API 调用量与性能统计</p>
         </div>
         <Select value={range} onValueChange={setRange}>
-          <SelectTrigger className={selectClass} aria-label="时间范围"><SelectValue /></SelectTrigger>
+          <SelectTrigger className={selectClass} aria-label="时间范围">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="24h">近 24 小时</SelectItem>
             <SelectItem value="7d">近 7 天</SelectItem>
@@ -107,7 +114,9 @@ export default function AdminApiPlatformUsagePage() {
                   {typeof c.value === 'number' ? c.value.toLocaleString() : c.value}
                 </div>
                 {c.label === '成功' && (
-                  <div className="mt-1 text-xs text-muted-foreground">成功率 {successRate.toFixed(1)}%</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    成功率 {successRate.toFixed(1)}%
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -136,7 +145,9 @@ export default function AdminApiPlatformUsagePage() {
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">暂无数据</TableCell>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  暂无数据
+                </TableCell>
               </TableRow>
             ) : (
               rows.map((r) => {
@@ -146,19 +157,33 @@ export default function AdminApiPlatformUsagePage() {
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.appName}</TableCell>
                     <TableCell>{r.callCount.toLocaleString()}</TableCell>
-                    <TableCell className="text-emerald-600">{r.successCount.toLocaleString()}</TableCell>
+                    <TableCell className="text-emerald-600">
+                      {r.successCount.toLocaleString()}
+                    </TableCell>
                     <TableCell className="text-red-600">{r.failCount.toLocaleString()}</TableCell>
                     <TableCell>{r.avgLatency}ms</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                          <div className={cn('h-full rounded-full', rate > 90 ? 'bg-red-500' : rate > 70 ? 'bg-amber-500' : 'bg-emerald-500')} style={{ width: `${Math.min(rate, 100)}%` }} />
+                          <div
+                            className={cn(
+                              'h-full rounded-full',
+                              rate > 90
+                                ? 'bg-red-500'
+                                : rate > 70
+                                  ? 'bg-amber-500'
+                                  : 'bg-emerald-500',
+                            )}
+                            style={{ width: `${Math.min(rate, 100)}%` }}
+                          />
                         </div>
                         <span className="text-xs text-muted-foreground">
                           {r.quotaUsed}/{r.quotaTotal} ({rate.toFixed(0)}%)
                         </span>
                       </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">成功率 {rowSuccessRate.toFixed(1)}%</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        成功率 {rowSuccessRate.toFixed(1)}%
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
