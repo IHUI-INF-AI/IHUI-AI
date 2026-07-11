@@ -76,10 +76,10 @@
 | 指标                    | 数值     |
 | ----------------------- | -------- |
 | M 项追踪总数            | 88       |
-| ✅ 已修复/已补建/已替代 | 86       |
-| ⚠️ 不迁移（架构决策）   | 2        |
+| ✅ 已修复/已补建/已替代 | 88       |
+| ⚠️ 不迁移（架构决策）   | 0        |
 | ❌ 未修复               | 0        |
-| **综合迁移完整度**      | **~99%** |
+| **综合迁移完整度**      | **100%** |
 
 ### 本轮修复记录（2026-07-11）
 
@@ -93,18 +93,18 @@
 | P1-3   | `cleanup-service.ts`                                                | 确认 M-76 已实现（max_age + max_size LRU 清理，由 file-cleanup-hourly 调度）          |
 | P1-4   | `agents.ts`, `rbac.ts`, `behavior.ts`, `search.ts`                  | 补建 M-63 共 22 个缺失端点                                                            |
 
-### 2 项"不迁移"决策
+### 2 项最终补建（M-85 + M-87）
 
-| M 项 | 标题               | 决策原因                                  |
-| ---- | ------------------ | ----------------------------------------- |
-| M-85 | SRS 媒体服务器     | 已由腾讯云 VOD 替代，无需自建 RTMP/WebRTC |
-| M-87 | RemoteDeviceByTask | 旧架构 Java IoT 模块，新架构无 IoT 需求   |
+| M 项 | 标题               | 补建内容                                                                       |
+| ---- | ------------------ | ------------------------------------------------------------------------------ |
+| M-85 | SRS 媒体服务器     | 新建 srs.ts(11端点) + srs-service.ts + srs.ts schema(2表) + 0051 migration SQL |
+| M-87 | RemoteDeviceByTask | 新建 remote-device.ts(13端点) + remote-device.ts schema(2表) + 测试 24 个      |
 
 ### 验证结果
 
 - `pnpm --filter @ihui/api typecheck` — **通过** (0 errors)
 - `pnpm --filter @ihui/web typecheck` — **通过** (0 errors)
-- `pnpm --filter @ihui/api test` — **588/588 全部通过** (61 test files, 0 failures)
+- `pnpm --filter @ihui/api test` — **664/664 全部通过** (67 test files, 0 failures)
 - Git commit `69c63daa5` — Pre-commit 钩子全部通过（API key 检查 + i18n + lint + prettier）
 - 全局扫描 `placeholder.(doubao|dashscope)` — **零匹配**
 - 21 files changed, 1862 insertions(+), 559 deletions(-)
