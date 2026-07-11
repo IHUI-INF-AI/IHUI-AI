@@ -96,6 +96,43 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
   // advertise — 广告管理（表 advertise，尚未迁移为 Drizzle schema）
   // -------------------------------------------------------------------------
+  // 广告位列表（静态路由须先于 /advertise/:id 注册）
+  server.get('/advertise/position/list', async (_req, reply) => {
+    try {
+      const rows = await db.execute(
+        sql`SELECT id, name, code, description, width, height FROM advertise_position WHERE status = 1 ORDER BY id ASC`,
+      )
+      return reply.send(success(rows as Record<string, unknown>[]))
+    } catch (e) {
+      _req.log.error(e)
+      return reply.status(500).send(error(500, '查询广告位失败'))
+    }
+  })
+
+  // 新增广告位
+  server.post('/advertise/position', async (req, reply) => {
+    const body = req.body as {
+      name?: string
+      code?: string
+      description?: string
+      width?: number
+      height?: number
+    }
+    if (!body.name || !body.code) {
+      return reply.status(400).send(error(400, 'name 和 code 不能为空'))
+    }
+    try {
+      const rows = await db.execute(
+        sql`INSERT INTO advertise_position (name, code, description, width, height, status) VALUES (${body.name}, ${body.code}, ${body.description ?? null}, ${body.width ?? 0}, ${body.height ?? 0}, 1) RETURNING id`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建广告位失败'))
+    }
+  })
+
   const advertiseCols = [
     'title',
     'image',
@@ -181,6 +218,23 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除广告失败'))
+    }
+  })
+
+  // 广告点击记录（click_num + 1）
+  server.post('/advertise/:id/click', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const rows = await db.execute(
+        sql`UPDATE advertise SET click_num = click_num + 1 WHERE "id"::text = ${parsed.data.id} RETURNING id, click_num`,
+      )
+      const row = (rows as Record<string, unknown>[])[0]
+      if (!row) return reply.status(404).send(error(404, '广告不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '记录广告点击失败'))
     }
   })
 
