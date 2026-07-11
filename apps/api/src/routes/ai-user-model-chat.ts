@@ -66,6 +66,152 @@ function maskKey(key: string): string {
   return `${key.slice(0, 4)}****${key.slice(-4)}`
 }
 
+interface LLMCallParams {
+  vendor: string
+  modelId: string
+  baseUrl?: string | null
+  apiKey: string
+  messages: { role: string; content: string }[]
+  temperature?: number
+  maxTokens?: number
+}
+
+async function callLLM(params: LLMCallParams): Promise<{
+  content: string
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number }
+}> {
+  const { vendor, modelId, baseUrl, apiKey, messages, temperature, maxTokens } = params
+
+  let endpoint: string
+  let headers: Record<string, string>
+
+  if (vendor === 'openai' || vendor === 'custom') {
+    endpoint = (baseUrl ?? 'https://api.openai.com') + '/v1/chat/completions'
+    headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
+  } else if (vendor === 'azure') {
+    endpoint = (baseUrl ?? 'https://api.openai.com') + '/v1/chat/completions'
+    headers = { 'Content-Type': 'application/json', 'api-key': apiKey }
+  } else if (vendor === 'anthropic') {
+    endpoint = (baseUrl ?? 'https://api.anthropic.com') + '/v1/messages'
+    headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    }
+  } else if (vendor === 'google') {
+    endpoint = `${baseUrl ?? 'https://generativelanguage.googleapis.com'}/v1beta/models/${modelId}:generateContent?key=${apiKey}`
+    headers = { 'Content-Type': 'application/json' }
+  } else {
+    endpoint = (baseUrl ?? 'https://api.openai.com') + '/v1/chat/completions'
+    headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
+  }
+
+  if (vendor === 'anthropic') {
+    const body: Record<string, unknown> = {
+      model: modelId,
+      messages: messages.map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      })),
+      max_tokens: maxTokens ?? 4096,
+    }
+    if (temperature !== undefined) body.temperature = temperature
+    const systemMsg = messages.find((m) => m.role === 'system')
+    if (systemMsg) body.system = systemMsg.content
+    const userMessages = messages.filter((m) => m.role !== 'system')
+    body.messages = userMessages.map((m) => ({ role: m.role, content: m.content }))
+
+    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
+    if (!resp.ok) {
+      const errText = await resp.text()
+      throw new Error(`Anthropic API ${resp.status}: ${errText}`)
+    }
+    const data = (await resp.json()) as Record<string, unknown>
+    const contentBlocks = (data.content as { text?: string }[]) ?? []
+    const content = contentBlocks.map((b) => b.text ?? '').join('')
+    const u = (data.usage as { input_tokens?: number; output_tokens?: number }) ?? {}
+    return {
+      content,
+      usage: {
+        promptTokens: u.input_tokens ?? 0,
+        completionTokens: u.output_tokens ?? 0,
+        totalTokens: (u.input_tokens ?? 0) + (u.output_tokens ?? 0),
+      },
+    }
+  }
+
+  if (vendor === 'google') {
+    const body = {
+      contents: messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        })),
+      generationConfig: {
+        temperature: temperature ?? 0.7,
+        maxOutputTokens: maxTokens ?? 4096,
+      },
+    }
+    const systemMsg = messages.find((m) => m.role === 'system')
+    if (systemMsg)
+      (body as Record<string, unknown>).systemInstruction = { parts: [{ text: systemMsg.content }] }
+
+    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
+    if (!resp.ok) {
+      const errText = await resp.text()
+      throw new Error(`Google AI API ${resp.status}: ${errText}`)
+    }
+    const data = (await resp.json()) as Record<string, unknown>
+    const candidates = (data.candidates as { content?: { parts?: { text?: string }[] } }[]) ?? []
+    const content = candidates
+      .flatMap((c) => c.content?.parts ?? [])
+      .map((p) => p.text ?? '')
+      .join('')
+    const u =
+      (data.usageMetadata as {
+        promptTokenCount?: number
+        candidatesTokenCount?: number
+        totalTokenCount?: number
+      }) ?? {}
+    return {
+      content,
+      usage: {
+        promptTokens: u.promptTokenCount ?? 0,
+        completionTokens: u.candidatesTokenCount ?? 0,
+        totalTokens: u.totalTokenCount ?? 0,
+      },
+    }
+  }
+
+  const body: Record<string, unknown> = {
+    model: modelId,
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+  }
+  if (temperature !== undefined) body.temperature = temperature
+  if (maxTokens !== undefined) body.max_tokens = maxTokens
+
+  const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) })
+  if (!resp.ok) {
+    const errText = await resp.text()
+    throw new Error(`LLM API ${resp.status}: ${errText}`)
+  }
+  const data = (await resp.json()) as Record<string, unknown>
+  const choices = (data.choices as { message?: { content?: string } }[]) ?? []
+  const content = choices[0]?.message?.content ?? ''
+  const u =
+    (data.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }) ??
+    {}
+  return {
+    content,
+    usage: {
+      promptTokens: u.prompt_tokens ?? 0,
+      completionTokens: u.completion_tokens ?? 0,
+      totalTokens: u.total_tokens ?? 0,
+    },
+  }
+}
+
 export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await requireAuth(request, reply))) return
@@ -192,7 +338,26 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '无权使用该配置'))
     if (!config.enabled) return reply.status(400).send(error(400, '该模型配置已禁用'))
 
-    const reply_content = `[mock 响应] 已通过 ${config.vendor}/${config.modelId} 处理 ${parsed.data.messages.length} 条消息。请接入真实模型网关。`
+    let replyContent: string
+    let usage: { promptTokens: number; completionTokens: number; totalTokens: number }
+
+    try {
+      const llmResult = await callLLM({
+        vendor: config.vendor,
+        modelId: config.modelId,
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        messages: parsed.data.messages,
+        temperature: parsed.data.temperature ?? config.temperature ?? undefined,
+        maxTokens: parsed.data.maxTokens ?? config.maxTokens ?? undefined,
+      })
+      replyContent = llmResult.content
+      usage = llmResult.usage
+    } catch (e) {
+      request.log.error({ err: e, vendor: config.vendor, model: config.modelId }, 'LLM 调用失败')
+      return reply.status(502).send(error(502, `模型调用失败: ${(e as Error).message}`))
+    }
+
     const now = new Date()
     const [history] = await db
       .insert(zhsAiUserModelChatHistory)
@@ -200,10 +365,10 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
         userId: request.userId!,
         configId: parsed.data.configId,
         model: config.modelId,
-        content: reply_content,
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
+        content: replyContent,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
       })
       .returning({
         id: zhsAiUserModelChatHistory.id,
@@ -214,10 +379,8 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       success({
         configId: config.id,
         model: config.modelId,
-        content: reply_content,
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        mock: true,
-        reason: '模型网关未接入，返回 mock 响应',
+        content: replyContent,
+        usage,
         createdAt: history?.createdAt ?? now,
       }),
     )
