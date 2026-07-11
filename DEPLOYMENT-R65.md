@@ -153,3 +153,29 @@ CORS_ORIGIN=https://yourdomain.com
 - [ ] 支付宝 return URL 已配置
 - [ ] 前端导航已注册（user: realname/subscription, admin: realnameAudit/agentRules）
 - [ ] i18n 翻译已添加
+
+## GitHub Secrets 配置
+
+蓝绿部署工作流 `.github/workflows/blue-green-deploy.yml` 需要在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 中配置以下 Secrets。建议按环境（staging / production）分别配置，使用 Environment Secrets 绑定到对应 environment。
+
+| Secret 名称              | 用途                                   | 配置说明                                                                                                                                                                                 |
+| ------------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEPLOY_HOST`            | 部署服务器的 SSH 主机地址（IP 或域名） | 生产服务器的公网 IP 或域名，例如 `203.0.113.10`。workflow 通过此地址建立 SSH 连接并执行远程部署命令。                                                                                    |
+| `DEPLOY_USER`            | 部署服务器的 SSH 登录用户名            | 拥有 `/opt/ihui` 目录读写权限及 Docker 操作权限的用户，例如 `deploy` 或 `root`。建议使用专用部署账号而非 root。                                                                          |
+| `DEPLOY_SSH_PRIVATE_KEY` | 用于免密 SSH 登录的私钥内容            | 对应部署用户公钥的 PEM 格式 RSA/ED25519 私钥**完整内容**（包含 `-----BEGIN ... PRIVATE KEY-----` 头尾）。workflow 将其写入 `~/.ssh/deploy_key` 并设为 600 权限。切勿配置对应公钥或密码。 |
+
+### 配置步骤
+
+1. 在部署服务器上为部署用户生成 SSH 密钥对（如已有可跳过）：
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/ihui_deploy
+   ```
+2. 将公钥追加到部署用户的 `~/.ssh/authorized_keys`：
+   ```bash
+   cat ~/.ssh/ihui_deploy.pub >> ~/.ssh/authorized_keys
+   ```
+3. 复制私钥**完整内容**，在 GitHub 仓库 **Settings → Secrets → Actions → New repository secret** 中添加：
+   - Name: `DEPLOY_SSH_PRIVATE_KEY`
+   - Value: 私钥全文
+4. 同理添加 `DEPLOY_HOST` 和 `DEPLOY_USER`。
+5. 如需区分 staging / production，在 **Settings → Environments** 中创建对应环境，将 Secrets 配置为 Environment Secrets（workflow 通过 `environment: ${{ inputs.environment }}` 自动绑定）。
