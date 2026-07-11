@@ -28,6 +28,8 @@ export interface StockAnalysisResult {
   conversationId: string
   tokensUsed: number
   createdAt: Date
+  error?: string
+  mock?: boolean
 }
 
 export interface TokenBalance {
@@ -228,6 +230,21 @@ export async function executeStockAnalysis(
   tokenBalance?: TokenBalanceService,
 ): Promise<StockAnalysisResult> {
   const cfg = getStockAIConfig()
+  const isConfigured = !!cfg.apiKey && !!process.env.STOCK_API_BASE
+
+  // API 未配置时返回明确的 mock 响应（而非假装返回真实数据）
+  if (!isConfigured) {
+    return {
+      symbol: req.symbol,
+      analysis: '',
+      conversationId: req.conversationId ?? `stock-${Date.now()}`,
+      tokensUsed: 0,
+      createdAt: new Date(),
+      error: 'Stock API not configured',
+      mock: true,
+    }
+  }
+
   const estimatedTokens = Math.ceil(req.question.length / 4) + 800 // 输入 + 输出估算
 
   // 1. Token 余额校验 + 扣减
@@ -247,29 +264,18 @@ export async function executeStockAnalysis(
     }
   }
 
-  // 2. 调用 AI 模型（未配置 key 或调用失败时降级；Bulkhead 限制并发）
-  let analysis: string
-  let tokensUsed = estimatedTokens
-  if (cfg.apiKey) {
-    const ai = await degradedMode(
-      () =>
-        getBulkhead('stock-ai', 5, 20).execute(() => callStockAIModel(req.symbol, req.question)),
-      fallbackAnalysis(req.symbol, req.question),
-      (err) => console.error('[stock-service] AI 模型调用失败, 降级为本地分析:', err.message),
-    )
-    analysis = ai.content
-    tokensUsed = ai.tokensUsed
-  } else {
-    const fb = fallbackAnalysis(req.symbol, req.question)
-    analysis = fb.content
-    tokensUsed = fb.tokensUsed
-  }
+  // 2. 调用真实 AI 模型（调用失败时降级为本地分析；Bulkhead 限制并发）
+  const ai = await degradedMode(
+    () => getBulkhead('stock-ai', 5, 20).execute(() => callStockAIModel(req.symbol, req.question)),
+    fallbackAnalysis(req.symbol, req.question),
+    (err) => console.error('[stock-service] AI 模型调用失败, 降级为本地分析:', err.message),
+  )
 
   const result: StockAnalysisResult = {
     symbol: req.symbol,
-    analysis,
+    analysis: ai.content,
     conversationId: req.conversationId ?? `stock-${Date.now()}`,
-    tokensUsed,
+    tokensUsed: ai.tokensUsed,
     createdAt: new Date(),
   }
 

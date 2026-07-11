@@ -148,7 +148,7 @@ export async function createNotification(input: {
 
 /** 标记通知已读 */
 export async function markNotificationRead(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/notifications/${id}/read`, { method: 'POST' })
+  return fetchApi<{ success: boolean }>(`/api/notifications/${id}/read`, { method: 'PATCH' })
 }
 
 /** 批量标记通知已读 */

@@ -2,7 +2,7 @@
  * R4 AI audio 子模块路由:TTS / ASR / 声纹识别 / 实时语音 WebSocket。
  *
  * 基于 DashScope CosyVoice(语音合成)、Paraformer / qwen3-asr(语音识别)、
- * 内存声纹组管理(占位实现,实际声纹比对需集成第三方服务)。
+ * 内存声纹组管理(mock 实现,实际声纹比对需集成第三方服务)。
  *
  * 环境变量:
  * - DASHSCOPE_API_KEY(阿里通义 DashScope API Key)
