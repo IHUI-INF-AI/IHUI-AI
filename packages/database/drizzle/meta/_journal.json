@@ -344,6 +344,13 @@
       "when": 1783751041000,
       "tag": "0048_r66_certificate_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1783751042000,
+      "tag": "0049_dead_tables_cleanup",
+      "breakpoints": true
     }
   ]
 }
