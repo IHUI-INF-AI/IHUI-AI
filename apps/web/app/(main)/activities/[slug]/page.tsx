@@ -56,8 +56,7 @@ export default function ActivityDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['activities', slug],
-    queryFn: () =>
-      api<{ activity: Activity }>(`/api/activities/${slug}`).then((d) => d.activity),
+    queryFn: () => api<{ activity: Activity }>(`/api/activities/${slug}`).then((d) => d.activity),
   })
 
   const joinMut = useMutation({
@@ -125,7 +124,6 @@ export default function ActivityDetailPage() {
 
       <div className="overflow-hidden rounded-lg border bg-card">
         {a.banner ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={a.banner} alt={a.title} className="h-48 w-full object-cover sm:h-64" />
         ) : (
           <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 sm:h-64">
@@ -197,13 +195,13 @@ export default function ActivityDetailPage() {
           )}
           {a.joined ? t('leave') : t('join')}
         </Button>
-        {ended && (
-          <span className="text-xs text-muted-foreground">{t('endedHint')}</span>
-        )}
+        {ended && <span className="text-xs text-muted-foreground">{t('endedHint')}</span>}
       </div>
 
       {(joinMut.isError || leaveMut.isError) && (
-        <div className="text-xs text-destructive">{((joinMut.error ?? leaveMut.error) as Error)?.message}</div>
+        <div className="text-xs text-destructive">
+          {((joinMut.error ?? leaveMut.error) as Error)?.message}
+        </div>
       )}
     </div>
   )

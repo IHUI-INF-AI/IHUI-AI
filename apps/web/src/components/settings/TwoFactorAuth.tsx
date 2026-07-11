@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -93,12 +93,17 @@ export function TwoFactorAuth() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       })
-      const json = (await res.json()) as { code: number; data?: { backupCodes: string[] }; message?: string }
+      const json = (await res.json()) as {
+        code: number
+        data?: { backupCodes: string[] }
+        message?: string
+      }
       if (json.code !== 0) {
         setError(json.message || t('twofa.codeInvalid'))
         return
       }
-      if (json.data?.backupCodes) setSetup((prev) => (prev ? { ...prev, backupCodes: json.data!.backupCodes } : prev))
+      if (json.data?.backupCodes)
+        setSetup((prev) => (prev ? { ...prev, backupCodes: json.data!.backupCodes } : prev))
       setStep('backup')
     } finally {
       setSubmitting(false)
@@ -177,7 +182,6 @@ export function TwoFactorAuth() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{t('twofa.scanQR')}</p>
             <div className="flex justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={setup.qrCodeUrl} alt="2FA QR" className="h-40 w-40 rounded-lg border" />
             </div>
             <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs">
@@ -188,7 +192,8 @@ export function TwoFactorAuth() {
             </div>
             {previewCode && (
               <p className="text-center text-xs text-muted-foreground">
-                {t('twofa.previewCode')}: <code className="font-mono font-bold text-primary">{previewCode}</code>
+                {t('twofa.previewCode')}:{' '}
+                <code className="font-mono font-bold text-primary">{previewCode}</code>
               </p>
             )}
             <div className="space-y-2">
@@ -203,7 +208,11 @@ export function TwoFactorAuth() {
               />
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
-            <Button className="w-full" disabled={submitting || code.length !== 6} onClick={handleVerify}>
+            <Button
+              className="w-full"
+              disabled={submitting || code.length !== 6}
+              onClick={handleVerify}
+            >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {t('twofa.verify')}
             </Button>

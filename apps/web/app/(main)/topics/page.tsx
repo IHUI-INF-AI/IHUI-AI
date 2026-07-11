@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -101,7 +101,6 @@ export default function TopicsPage() {
               <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
                 <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                   {topic.coverImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={topic.coverImage}
                       alt={topic.title}

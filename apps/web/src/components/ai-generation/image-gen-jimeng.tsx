@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Download, Loader2 } from 'lucide-react'
@@ -125,15 +125,12 @@ export function ImageGenJimeng() {
           {mutation.isPending ? t('generating') : t('generate')}
         </Button>
 
-        {mutation.isPending ? (
-          <div className="h-64 animate-pulse rounded-md bg-muted" />
-        ) : null}
+        {mutation.isPending ? <div className="h-64 animate-pulse rounded-md bg-muted" /> : null}
 
         {images.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {images.map((url) => (
               <div key={url} className="space-y-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt={prompt} className="w-full rounded-md border" />
                 <a
                   href={url}

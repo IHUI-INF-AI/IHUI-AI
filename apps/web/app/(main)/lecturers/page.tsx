@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -19,7 +19,9 @@ interface Lecturer {
   sort: number
   status: number
 }
-interface LecturersResp { list: Lecturer[] }
+interface LecturersResp {
+  list: Lecturer[]
+}
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -45,7 +47,6 @@ function Avatar({
       )}
     >
       {avatar ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={avatar} alt={name} className="h-full w-full object-cover" />
       ) : (
         <span>{initial}</span>

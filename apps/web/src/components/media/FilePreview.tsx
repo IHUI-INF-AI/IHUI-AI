@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { FileText, File } from 'lucide-react'
@@ -24,13 +24,22 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
 
   if (detectedType === 'image') {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={url} alt={name ?? 'preview'} className={cn('max-h-full max-w-full object-contain', className)} />
+      <img
+        src={url}
+        alt={name ?? 'preview'}
+        className={cn('max-h-full max-w-full object-contain', className)}
+      />
     )
   }
 
   if (detectedType === 'pdf') {
-    return <iframe src={url} title={name ?? 'PDF preview'} className={cn('h-full w-full border-0', className)} />
+    return (
+      <iframe
+        src={url}
+        title={name ?? 'PDF preview'}
+        className={cn('h-full w-full border-0', className)}
+      />
+    )
   }
 
   if (detectedType === 'office') {
@@ -55,18 +64,25 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
   React.useEffect(() => {
     fetch(url)
       .then((res) => res.text())
-      .then((text) => { setContent(text); setLoading(false) })
-      .catch(() => { setError(true); setLoading(false) })
+      .then((text) => {
+        setContent(text)
+        setLoading(false)
+      })
+      .catch(() => {
+        setError(true)
+        setLoading(false)
+      })
   }, [url])
 
   if (loading) return <div className="p-4 text-sm text-muted-foreground">加载中...</div>
-  if (error) return (
-    <div className="flex flex-col items-center gap-2 p-8 text-muted-foreground">
-      <File className="h-10 w-10" />
-      <p className="text-sm">无法预览此文件</p>
-      {name && <FileText className="h-4 w-4" />}
-    </div>
-  )
+  if (error)
+    return (
+      <div className="flex flex-col items-center gap-2 p-8 text-muted-foreground">
+        <File className="h-10 w-10" />
+        <p className="text-sm">无法预览此文件</p>
+        {name && <FileText className="h-4 w-4" />}
+      </div>
+    )
 
   return (
     <pre className={cn('overflow-auto rounded-md bg-muted p-4 text-sm', className)}>

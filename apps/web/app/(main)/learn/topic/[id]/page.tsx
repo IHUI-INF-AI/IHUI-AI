@@ -1,0 +1,176 @@
+'use client'
+
+import * as React from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { ArrowLeft, Layers, BookOpen, Users, Loader2, PlayCircle } from 'lucide-react'
+
+import { fetchApi } from '@/lib/api'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+
+interface TopicLesson {
+  id: string
+  title: string
+  name?: string
+  image?: string
+  cover?: string
+  instructor?: string
+  price?: number
+}
+interface TopicDetail {
+  id: string
+  title: string
+  cover?: string
+  description?: string
+  lessonCount?: number
+  learnNum?: number
+  price?: number
+  originalPrice?: number
+  lessonList?: TopicLesson[]
+  lessons?: TopicLesson[]
+}
+
+async function api<T>(url: string): Promise<T> {
+  const r = await fetchApi<T>(url)
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
+
+export default function LearnTopicDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['learn', 'topic', id],
+    queryFn: () => api<TopicDetail>(`/api/learn/topics/${id}`),
+  })
+
+  if (isLoading)
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        加载中...
+      </div>
+    )
+
+  if (error || !data)
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-4">
+        <button
+          type="button"
+          onClick={() => router.push('/learn/topic')}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回专题列表
+        </button>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {(error as Error)?.message ?? '专题不存在'}
+        </div>
+      </div>
+    )
+
+  const topic = data
+  const lessons = topic.lessonList ?? topic.lessons ?? []
+
+  return (
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <Link
+        href="/learn/topic"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        返回专题列表
+      </Link>
+
+      {/* 专题信息 */}
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
+          <div className="flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
+            {topic.cover ? (
+              <img
+                src={topic.cover}
+                alt={topic.title}
+                className="h-full w-full rounded-lg object-cover"
+              />
+            ) : (
+              <Layers className="h-12 w-12 text-primary/40" />
+            )}
+          </div>
+          <div className="flex-1 space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">{topic.title}</h1>
+            {topic.description && (
+              <p className="text-sm text-muted-foreground">{topic.description}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <BookOpen className="h-4 w-4" />
+                {topic.lessonCount ?? lessons.length} 门课程
+              </span>
+              {typeof topic.learnNum === 'number' && (
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  {topic.learnNum} 人学
+                </span>
+              )}
+              {typeof topic.price === 'number' && (
+                <span className="font-medium text-primary">
+                  {topic.price > 0 ? `￥${topic.price}` : '免费'}
+                </span>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 包含的课程列表 */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">包含课程</h2>
+        {lessons.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+            <PlayCircle className="h-8 w-8 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">暂无课程</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {lessons.map((lesson) => {
+              const title = lesson.title ?? lesson.name ?? ''
+              const cover = lesson.image ?? lesson.cover
+              return (
+                <Link key={lesson.id} href={`/learn/${lesson.id}`} className="group block">
+                  <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+                    <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                      {cover ? (
+                        <img src={cover} alt={title} className="h-full w-full object-cover" />
+                      ) : (
+                        <PlayCircle className="h-10 w-10 text-primary/40" />
+                      )}
+                    </div>
+                    <CardHeader className="p-4 pb-2">
+                      <CardTitle className="line-clamp-1 text-base">{title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-1 p-4 pt-0 text-sm">
+                      {lesson.instructor && (
+                        <p className="text-muted-foreground">{lesson.instructor}</p>
+                      )}
+                      {typeof lesson.price === 'number' && (
+                        <span
+                          className={
+                            lesson.price > 0 ? 'font-medium text-primary' : 'text-emerald-600'
+                          }
+                        >
+                          {lesson.price > 0 ? `￥${lesson.price}` : '免费'}
+                        </span>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}

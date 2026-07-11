@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Download, Loader2 } from 'lucide-react'
@@ -37,10 +37,10 @@ export function ImageGenQwen() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string; size: string; n: number }) => {
-      const res = await fetchApi<{ taskId: string; status: string }>(
-        '/api/ai/dashscope/image',
-        { method: 'POST', body: JSON.stringify(payload) },
-      )
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/dashscope/image', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -166,7 +166,6 @@ export function ImageGenQwen() {
             <div className="grid grid-cols-2 gap-3">
               {images.map((url) => (
                 <div key={url} className="space-y-1">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt={prompt} className="w-full rounded-md border" />
                   <a
                     href={url}

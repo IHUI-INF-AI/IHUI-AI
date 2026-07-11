@@ -24,6 +24,15 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // 登录态 setup：仅匹配 *.setup.ts，预先登录并写入 e2e/.auth/*.json
+    // 不挂 dependencies 到 chromium，避免后端不可用时拖垮现有 34 个 spec
+    // 需要 storageState 的测试通过 fixtures.ts 的 authenticatedPage/adminPage 使用，
+    // 它们在文件缺失时会自动 API 登录兜底
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: {
     // 本地用 dev(CI 用 build+start 更接近生产)

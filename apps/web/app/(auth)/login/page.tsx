@@ -30,6 +30,24 @@ const usernameSchema = z.string().min(3, 'auth.invalidUsername')
 
 type TokenResult = { userId: string; accessToken: string; refreshToken: string; tokenType: string }
 
+declare global {
+  interface Window {
+    DDLogin?: {
+      init: (options: { gotoUrl?: string; width?: number; height?: number }) => void
+    }
+    WWLogin?: {
+      init: (options: {
+        id: string
+        appid: string
+        agentid: string
+        redirect_uri: string
+        state: string
+        href?: string
+      }) => void
+    }
+  }
+}
+
 export default function LoginPage() {
   const t = useTranslations('auth')
   const router = useRouter()
@@ -212,6 +230,66 @@ export default function LoginPage() {
 
   // ===== 第三方登录（由 ThirdPartyLoginButtons 组件处理） =====
 
+  // ===== 钉钉 / 企业微信 SDK 扫码登录（补充入口，不影响现有 OAuth 重定向） =====
+  const [showDingtalkQr, setShowDingtalkQr] = React.useState(false)
+  const [showEnterpriseQr, setShowEnterpriseQr] = React.useState(false)
+
+  // 钉钉：动态加载 /ddLogin.js 并调用 window.DDLogin.init 渲染二维码
+  React.useEffect(() => {
+    if (!showDingtalkQr) return
+    const initDd = () => {
+      if (window.DDLogin) {
+        window.DDLogin.init({
+          gotoUrl: window.location.origin + '/api/auth/dingtalk',
+          width: 280,
+          height: 280,
+        })
+      }
+    }
+    const existing = document.querySelector('script[src="/ddLogin.js"]')
+    if (existing) {
+      initDd()
+      return
+    }
+    const script = document.createElement('script')
+    script.src = '/ddLogin.js'
+    script.async = true
+    script.onload = initDd
+    document.body.appendChild(script)
+  }, [showDingtalkQr])
+
+  // 企业微信：动态加载 /wwLogin-1.0.0.js，加载失败则回退到 OAuth 重定向
+  React.useEffect(() => {
+    if (!showEnterpriseQr) return
+    const initWw = () => {
+      if (window.WWLogin) {
+        window.WWLogin.init({
+          id: 'ww-login-container',
+          appid: '',
+          agentid: '',
+          redirect_uri: encodeURIComponent(
+            window.location.origin + '/api/auth/login/enterprise/pc/wxCode',
+          ),
+          state: 'enterprise_login',
+        })
+      }
+    }
+    const existing = document.querySelector('script[src="/wwLogin-1.0.0.js"]')
+    if (existing) {
+      initWw()
+      return
+    }
+    const script = document.createElement('script')
+    script.src = '/wwLogin-1.0.0.js'
+    script.async = true
+    script.onload = initWw
+    script.onerror = () => {
+      // 脚本不可用时回退到 OAuth 重定向，不破坏现有登录逻辑
+      window.location.href = '/api/auth/login/enterprise/pc/wxCode'
+    }
+    document.body.appendChild(script)
+  }, [showEnterpriseQr])
+
   return (
     <div className="space-y-4 p-6">
       <div className="space-y-1.5 text-center">
@@ -219,7 +297,15 @@ export default function LoginPage() {
         <p className="text-sm text-muted-foreground">{t('loginSubtitle')}</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => { setTab(v as typeof tab); setServerError(null); setUsernameErr(null); setEmailErr(null) }}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => {
+          setTab(v as typeof tab)
+          setServerError(null)
+          setUsernameErr(null)
+          setEmailErr(null)
+        }}
+      >
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="password">{t('passwordLogin')}</TabsTrigger>
           <TabsTrigger value="email">{t('emailLogin')}</TabsTrigger>
@@ -231,22 +317,43 @@ export default function LoginPage() {
         <TabsContent value="password">
           <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4 pt-2">
             {serverError && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{serverError}</div>
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {serverError}
+              </div>
             )}
             <div className="space-y-2">
               <Label htmlFor="phone">{t('phone')}</Label>
-              <Input id="phone" type="tel" autoComplete="tel" placeholder={t('phonePlaceholder')} {...register('phone')} />
-              {errors.phone && <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>}
+              <Input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                placeholder={t('phonePlaceholder')}
+                {...register('phone')}
+              />
+              {errors.phone && (
+                <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">{t('password')}</Label>
-                <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary"
+                >
                   {t('forgotPassword')}
                 </Link>
               </div>
-              <Input id="password" type="password" autoComplete="current-password" placeholder={t('passwordPlaceholder')} {...register('password')} />
-              {errors.password && <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>}
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder={t('passwordPlaceholder')}
+                {...register('password')}
+              />
+              {errors.password && (
+                <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="captcha">{t('captcha')}</Label>
@@ -271,17 +378,41 @@ export default function LoginPage() {
         {/* 邮箱 + 验证码 */}
         <TabsContent value="email">
           <form onSubmit={onEmailSubmit} className="space-y-4 pt-2">
-            {emailErr && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{emailErr}</div>}
+            {emailErr && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {emailErr}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">{t('email')}</Label>
-              <Input id="email" type="email" autoComplete="email" placeholder={t('emailPlaceholder')} value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder={t('emailPlaceholder')}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email-code">{t('code')}</Label>
               <div className="flex gap-2">
-                <Input id="email-code" placeholder={t('codePlaceholder')} value={emailCode} onChange={(e) => setEmailCode(e.target.value)} />
-                <Button type="button" variant="outline" className="shrink-0" disabled={sendingEmail || emailCountdown > 0} onClick={onSendEmailCode}>
-                  {emailCountdown > 0 ? t('resendCode', { seconds: emailCountdown }) : t('sendEmailCode')}
+                <Input
+                  id="email-code"
+                  placeholder={t('codePlaceholder')}
+                  value={emailCode}
+                  onChange={(e) => setEmailCode(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={sendingEmail || emailCountdown > 0}
+                  onClick={onSendEmailCode}
+                >
+                  {emailCountdown > 0
+                    ? t('resendCode', { seconds: emailCountdown })
+                    : t('sendEmailCode')}
                 </Button>
               </div>
             </div>
@@ -295,14 +426,31 @@ export default function LoginPage() {
         {/* 用户名 + 密码 */}
         <TabsContent value="username">
           <form onSubmit={onUsernameSubmit} className="space-y-4 pt-2">
-            {usernameErr && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{usernameErr}</div>}
+            {usernameErr && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {usernameErr}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="username">{t('username')}</Label>
-              <Input id="username" autoComplete="username" placeholder={t('usernamePlaceholder')} value={username} onChange={(e) => setUsername(e.target.value)} />
+              <Input
+                id="username"
+                autoComplete="username"
+                placeholder={t('usernamePlaceholder')}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="username-password">{t('password')}</Label>
-              <Input id="username-password" type="password" autoComplete="current-password" placeholder={t('passwordPlaceholder')} value={usernamePassword} onChange={(e) => setUsernamePassword(e.target.value)} />
+              <Input
+                id="username-password"
+                type="password"
+                autoComplete="current-password"
+                placeholder={t('passwordPlaceholder')}
+                value={usernamePassword}
+                onChange={(e) => setUsernamePassword(e.target.value)}
+              />
             </div>
             <Button type="submit" className="w-full" disabled={usernameSubmitting}>
               {usernameSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -318,6 +466,42 @@ export default function LoginPage() {
       </Tabs>
 
       <ThirdPartyLoginButtons />
+
+      {/* 钉钉 / 企业微信 SDK 扫码登录入口（按钮样式与第三方登录一致） */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setShowDingtalkQr((v) => !v)
+            setShowEnterpriseQr(false)
+          }}
+        >
+          {t('dingtalkLogin')}扫码
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setShowEnterpriseQr((v) => !v)
+            setShowDingtalkQr(false)
+          }}
+        >
+          {t('enterpriseWechat')}扫码
+        </Button>
+      </div>
+      {showDingtalkQr && (
+        <div className="flex flex-col items-center gap-2">
+          <div id="dd-login-container" className="flex items-center justify-center" />
+          <p className="text-xs text-muted-foreground">请使用钉钉 App 扫码登录</p>
+        </div>
+      )}
+      {showEnterpriseQr && (
+        <div className="flex flex-col items-center gap-2">
+          <div id="ww-login-container" className="flex items-center justify-center" />
+          <p className="text-xs text-muted-foreground">请使用企业微信扫码登录</p>
+        </div>
+      )}
 
       <p className="text-center text-sm text-muted-foreground">
         {t('noAccount')}{' '}

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Sparkles, AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -48,17 +48,19 @@ function AssistantContent({ content }: { content: string }) {
               return <CodeBlock language={match[1]} value={value} />
             }
             return (
-              <code
-                className="rounded bg-muted px-1.5 py-0.5 text-[0.85em] font-mono"
-                {...props}
-              >
+              <code className="rounded bg-muted px-1.5 py-0.5 text-[0.85em] font-mono" {...props}>
                 {children}
               </code>
             )
           },
           a({ children, ...props }) {
             return (
-              <a className="text-primary underline underline-offset-2" target="_blank" rel="noreferrer" {...props}>
+              <a
+                className="text-primary underline underline-offset-2"
+                target="_blank"
+                rel="noreferrer"
+                {...props}
+              >
                 {children}
               </a>
             )
