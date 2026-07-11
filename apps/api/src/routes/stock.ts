@@ -75,8 +75,8 @@ const stockRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // Stock WebSocket 端点（流式分析）
-  // 注：实际 WS 流式实现需要在 ws-ai.ts 或独立插件中注册
-  // 这里仅注册 REST 端点
+  // 注：WS 流式实现已注册在 plugins/ws-ai.ts 中，端点为 /ws/stock/stream
+  //     客户端发送 { symbol, question }，服务端流式推送分析结果
 }
 
 export default stockRoutes

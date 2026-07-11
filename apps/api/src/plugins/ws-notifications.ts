@@ -34,6 +34,18 @@ declare module 'fastify' {
 const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
   // 维护 userId -> WebSocket 连接集合的映射（同一用户可多端在线）
   const connections = new Map<string, Set<WebSocket>>()
+  // 当前 WebSocket 连接总数（用于指标上报）
+  let wsConnectionCount = 0
+
+  /** 更新 WebSocket 连接数 Gauge（同时更新 business 和 infra 两套指标） */
+  function updateWsConnectionGauges(): void {
+    try {
+      server.recordWsConnections(wsConnectionCount)
+      server.setWebsocketConnections(wsConnectionCount)
+    } catch {
+      /* 指标采集失败不影响业务 */
+    }
+  }
 
   // Pub/Sub 频道命名：notify:<userId>
   const channelFor = (userId: string) => `notify:${userId}`
@@ -51,7 +63,32 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     subscriber.on('error', (err) => {
       server.log.warn({ err }, 'ws pubsub subscriber error (degraded mode)')
     })
+    // 上报 pub/sub 重连事件（区分首次连接与重连）
+    let subscriberInitialConnected = false
+    subscriber.on('connect', () => {
+      if (subscriberInitialConnected) {
+        try {
+          server.recordWsPubsubReconnect('success')
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
+      }
+      subscriberInitialConnected = true
+    })
+    subscriber.on('reconnecting', () => {
+      try {
+        server.recordWsPubsubReconnect('attempt')
+      } catch {
+        /* 指标采集失败不影响业务 */
+      }
+    })
     subscriber.on('pmessage', (_pattern, channel, message) => {
+      // 上报 pub/sub 消息接收
+      try {
+        server.recordWsPubsubMessage(channel)
+      } catch {
+        /* 指标采集失败不影响业务 */
+      }
       // channel 格式: notify:<userId>
       const userId = channel.startsWith('notify:') ? channel.slice('notify:'.length) : null
       if (!userId) return
@@ -64,9 +101,21 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
       const conns = connections.get(userId)
       if (!conns || conns.size === 0) return
       const msg = JSON.stringify({ type: 'notification', data: payload })
+      // 上报房间广播（向用户所有连接广播）
+      try {
+        server.recordWsRoomBroadcast(userId)
+      } catch {
+        /* 指标采集失败不影响业务 */
+      }
       for (const ws of conns) {
         try {
           ws.send(msg)
+          // 上报通知送达
+          try {
+            server.recordNoticeDelivered(userId)
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
         } catch {
           conns.delete(ws)
         }
@@ -75,13 +124,22 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     await subscriber.psubscribe('notify:*')
     server.log.info('ws pubsub subscriber ready (multi-instance mode)')
   } catch (e) {
-    server.log.warn({ err: e }, 'ws pubsub subscriber init failed, fallback to single-instance mode')
+    server.log.warn(
+      { err: e },
+      'ws pubsub subscriber init failed, fallback to single-instance mode',
+    )
   }
 
   // 暴露给其他模块的推送函数
   // 修复重复推送 Bug:多实例模式下只 publish,由 subscriber 统一推送(含本机);
   // 单实例降级模式(subscriber 不可用)下直接本机推送。
   server.decorate('pushNotification', (userId: string, payload: unknown) => {
+    // 上报通知推送（fire-and-forget）
+    try {
+      server.recordNoticePushed(userId, 'user')
+    } catch {
+      /* 指标采集失败不影响业务 */
+    }
     if (subscriber) {
       // 多实例模式:只 publish,subscriber 会推送到所有实例(含本机)
       try {
@@ -98,9 +156,21 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     const conns = connections.get(userId)
     if (conns && conns.size > 0) {
       const msg = JSON.stringify({ type: 'notification', data: payload })
+      // 上报房间广播（单实例降级模式）
+      try {
+        server.recordWsRoomBroadcast(userId)
+      } catch {
+        /* 指标采集失败不影响业务 */
+      }
       for (const ws of conns) {
         try {
           ws.send(msg)
+          // 上报通知送达（单实例降级模式）
+          try {
+            server.recordNoticeDelivered(userId)
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
         } catch {
           conns.delete(ws)
         }
@@ -112,6 +182,12 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     // 从 query 提取 token
     const token = (request.query as { token?: string }).token
     if (!token) {
+      // 上报鉴权失败
+      try {
+        server.recordWsAuthFailure('missing_token')
+      } catch {
+        /* 指标采集失败不影响业务 */
+      }
       socket.close(4001, '缺少 token')
       return
     }
@@ -123,6 +199,12 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         const payload = await verifyAccessToken(token)
         userId = payload.userId
       } catch {
+        // 上报鉴权失败
+        try {
+          server.recordWsAuthFailure('invalid_token')
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
         socket.close(4003, 'token 无效')
         return
       }
@@ -130,6 +212,9 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
       // 注册连接
       if (!connections.has(userId)) connections.set(userId, new Set())
       connections.get(userId)!.add(socket)
+      // 连接数递增并上报 Gauge
+      wsConnectionCount++
+      updateWsConnectionGauges()
 
       // 心跳：客户端发 ping，服务端回 pong
       socket.on('message', (data: Buffer) => {
@@ -143,6 +228,9 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
           conns.delete(socket)
           if (conns.size === 0) connections.delete(userId)
         }
+        // 连接数递减并上报 Gauge
+        wsConnectionCount--
+        updateWsConnectionGauges()
       })
     })()
   })
