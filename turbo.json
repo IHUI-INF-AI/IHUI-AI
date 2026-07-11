@@ -6,7 +6,14 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "public/**", "package.json", "tsconfig.json", "next.config.*", "vite.config.*"],
+      "inputs": [
+        "src/**",
+        "public/**",
+        "package.json",
+        "tsconfig.json",
+        "next.config.*",
+        "vite.config.*"
+      ],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**"],
       "env": ["NODE_ENV", "DATABASE_URL", "REDIS_URL", "JWT_SECRET"]
     },
@@ -15,12 +22,19 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"],
+      "dependsOn": [],
       "inputs": ["src/**", "*.config.*", "package.json"]
     },
     "test": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**", "test/**", "tests/**", "vitest.config.*", "jest.config.*", "package.json"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "vitest.config.*",
+        "jest.config.*",
+        "package.json"
+      ],
       "outputs": ["coverage/**"]
     },
     "test:e2e": {
@@ -29,7 +43,7 @@
       "outputs": ["playwright-report/**", "test-results/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build"],
+      "dependsOn": [],
       "inputs": ["src/**", "tsconfig.json", "package.json"]
     },
     "db:generate": {

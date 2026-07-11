@@ -1,0 +1,112 @@
+name: style-spec
+
+# 样式规范检查
+# - 高特异性选择器检测 (4 层以上嵌套)
+# - !important 禁用检查
+
+on:
+  push:
+    branches: [main, develop, release/*]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/style-spec.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/style-spec.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+env:
+  NODE_VERSION: '20.10'
+  PNPM_VERSION: '9.15'
+
+jobs:
+  high-specificity-check:
+    # 用户规则: 禁止使用 4 类以上嵌套的高特异性选择器
+    # 用户规则: 禁止使用 !important
+    name: 高特异性选择器检测
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 跑 no-important 检查
+        run: |
+          set -e
+          echo "检查 !important 使用..."
+          # 在 css/tsx 中检测 !important (排除 node_modules / .next / dist)
+          important_hits=$(grep -rnE '!important' \
+            --include='*.css' --include='*.scss' --include='*.tsx' --include='*.ts' \
+            apps/web/app apps/web/src apps/web/components 2>/dev/null || true)
+          if [ -n "$important_hits" ]; then
+            echo "::error::检测到 !important 使用, 请移除:"
+            echo "$important_hits" | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
+          echo "✓ 未检测到 !important"
+
+      - name: 跑高特异性选择器检测
+        env:
+          HIGH_SPECIFICITY_THRESHOLD: '4'
+        run: |
+          set -e
+          echo "检测高特异性选择器 (嵌套 > $HIGH_SPECIFICITY_THRESHOLD 层)..."
+          # 检测 CSS 中 4+ 层嵌套选择器 (简化: 以空格分隔的选择器组合)
+          # 模式: .a .b .c .d {  或  .a > .b > .c > .d {
+          high_spec_hits=$(grep -rnE '\.[a-zA-Z][a-zA-Z0-9_-]*(\s+[.#>][a-zA-Z][a-zA-Z0-9_-]*){3,}\s*\{' \
+            --include='*.css' --include='*.scss' \
+            apps/web/app apps/web/src 2>/dev/null || true)
+          if [ -n "$high_spec_hits" ]; then
+            echo "::error::检测到高特异性选择器 (> 4 层嵌套), 请用 :where() 包裹:"
+            echo "$high_spec_hits" | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
+          echo "✓ 未检测到高特异性选择器违规"
+
+      - name: 阻断提示
+        if: failure()
+        run: |
+          echo "::error::样式规范检查未通过，请用 :where() 包裹高特异性选择器，并移除 !important"
+
+  css-lint:
+    # CSS/SCSS lint: 检测内联样式中的 !important
+    name: CSS Lint
+    runs-on: ubuntu-latest
+    needs: [high-specificity-check]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+      - name: Stylelint 检查 (若配置存在)
+        run: |
+          if [ -f apps/web/.stylelintrc* ] || grep -q '"stylelint"' apps/web/package.json 2>/dev/null; then
+            cd apps/web && npx stylelint "**/*.{css,scss}" --max-warnings 0
+          else
+            echo "未配置 stylelint, 跳过"
+          fi

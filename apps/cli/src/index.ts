@@ -33,6 +33,7 @@ import {
   removeMcpServer,
   getMcpConfigPath,
 } from './commands/mcp-config.js';
+import { registerCapabilitiesCommand } from './commands/capabilities.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -248,5 +249,8 @@ mcpCmd
       process.exit(1);
     }
   });
+
+// capabilities 子命令组
+registerCapabilitiesCommand(program);
 
 program.parse();
