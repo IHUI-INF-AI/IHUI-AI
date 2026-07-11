@@ -290,25 +290,79 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // -------------------------------------------------------------------------
   // ws_admin — WebSocket 管理
-  // 连接信息来自内存中的 WS connection_manager（非持久化），无 DB 表；
-  // 待接入 WS 插件后由其提供实时连接列表。
+  // 连接信息来自 Redis（key 模式 ws:connections:*），由 WS 插件在连接/断开时写入。
+  // 多实例部署下可聚合所有实例的在线连接。
   // -------------------------------------------------------------------------
-  server.get('/ws-admin/connections', async (_req, reply) => {
-    return reply.send(
-      success({ list: [], total: 0, mock: true, reason: 'WS 连接管理器未接入，返回空列表' }),
-    )
+  const WS_CONN_PREFIX = 'ws:connections:'
+
+  server.get('/ws-admin/connections', async (req, reply) => {
+    const redis = req.server.redis
+    try {
+      const keys = await redis.keys(`${WS_CONN_PREFIX}*`)
+      if (keys.length === 0) {
+        return reply.send(success({ list: [], total: 0 }))
+      }
+      const values = await redis.mget(...keys)
+      const list: Record<string, unknown>[] = []
+      for (let i = 0; i < keys.length; i++) {
+        const raw = values[i]
+        const key = keys[i]
+        if (!raw || !key) continue
+        try {
+          const conn = JSON.parse(raw) as Record<string, unknown>
+          conn.socketId = key.slice(WS_CONN_PREFIX.length)
+          list.push(conn)
+        } catch {
+          /* 跳过无法解析的记录 */
+        }
+      }
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询 WS 连接列表失败'))
+    }
   })
+
   server.get('/ws-admin/connections/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(success({ id: parsed.data.id, mock: true, reason: 'WS 连接管理器未接入' }))
+    const redis = req.server.redis
+    try {
+      const raw = await redis.get(`${WS_CONN_PREFIX}${parsed.data.id}`)
+      if (!raw) return reply.status(404).send(error(404, '连接不存在'))
+      const conn = JSON.parse(raw) as Record<string, unknown>
+      conn.socketId = parsed.data.id
+      return reply.send(success(conn))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询 WS 连接详情失败'))
+    }
   })
+
   server.delete('/ws-admin/connections/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    return reply.send(
-      success({ id: parsed.data.id, closed: true, mock: true, reason: 'WS 连接管理器未接入' }),
-    )
+    const redis = req.server.redis
+    const key = `${WS_CONN_PREFIX}${parsed.data.id}`
+    try {
+      const raw = await redis.get(key)
+      if (!raw) return reply.status(404).send(error(404, '连接不存在'))
+      const conn = JSON.parse(raw) as Record<string, unknown>
+      const deleted = await redis.del(key)
+      // 通过 Redis Pub/Sub 通知 WS 插件关闭对应 socket（频道 ws:admin:close）
+      if (deleted > 0) {
+        await redis.publish(
+          'ws:admin:close',
+          JSON.stringify({ socketId: parsed.data.id, userId: conn.userId ?? null }),
+        )
+      }
+      return reply.send(
+        success({ id: parsed.data.id, closed: deleted > 0, userId: conn.userId ?? null }),
+      )
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '关闭 WS 连接失败'))
+    }
   })
 
   // -------------------------------------------------------------------------

@@ -63,7 +63,11 @@ export default function AdminOAuthAppsPage() {
   const [form, setForm] = React.useState(EMPTY)
   const [formErr, setFormErr] = React.useState<string | null>(null)
   const [creating, setCreating] = React.useState(false)
-  const [createdSecret, setCreatedSecret] = React.useState<{ name: string; clientId: string; clientSecret: string } | null>(null)
+  const [createdSecret, setCreatedSecret] = React.useState<{
+    name: string
+    clientId: string
+    clientSecret: string
+  } | null>(null)
 
   const [delTarget, setDelTarget] = React.useState<OAuthApp | null>(null)
   const [deleting, setDeleting] = React.useState(false)
@@ -168,13 +172,24 @@ export default function AdminOAuthAppsPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">{t('appsDesc')}</p>
           </div>
-          <Button size="sm" onClick={() => { setForm(EMPTY); setFormErr(null); setCreateOpen(true) }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setForm(EMPTY)
+              setFormErr(null)
+              setCreateOpen(true)
+            }}
+          >
             <Plus className="h-4 w-4" />
             {t('createApp')}
           </Button>
         </div>
 
-        {error && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
+        {error && (
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
         <div className="overflow-x-auto rounded-lg border">
           <Table>
@@ -210,7 +225,12 @@ export default function AdminOAuthAppsPage() {
                         <span className="font-mono text-xs">{a.clientId}</span>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copyText(a.clientId)}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={() => copyText(a.clientId)}
+                            >
                               <Copy className="h-3 w-3" />
                             </Button>
                           </TooltipTrigger>
@@ -221,7 +241,9 @@ export default function AdminOAuthAppsPage() {
                     <TableCell className="max-w-[220px]">
                       <div className="space-y-0.5 text-xs text-muted-foreground">
                         {(a.redirectUris ?? []).map((u) => (
-                          <div key={u} className="truncate">{u}</div>
+                          <div key={u} className="break-words">
+                            {u}
+                          </div>
                         ))}
                       </div>
                     </TableCell>
@@ -242,7 +264,10 @@ export default function AdminOAuthAppsPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => { setFormErr(null); setDelTarget(a) }}
+                        onClick={() => {
+                          setFormErr(null)
+                          setDelTarget(a)
+                        }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {t('deleteApp')}
@@ -260,7 +285,11 @@ export default function AdminOAuthAppsPage() {
             <h2 className="mb-2 text-sm font-medium">{t('scopeMeta')}</h2>
             <div className="flex flex-wrap gap-2">
               {scopeMeta.map((s) => (
-                <span key={s.scope} className="inline-flex rounded bg-muted px-2 py-1 text-xs" title={s.description}>
+                <span
+                  key={s.scope}
+                  className="inline-flex rounded bg-muted px-2 py-1 text-xs"
+                  title={s.description}
+                >
                   {s.name}
                   <span className="ml-1 text-muted-foreground">({s.scope})</span>
                 </span>
@@ -278,7 +307,9 @@ export default function AdminOAuthAppsPage() {
                 <DialogDescription>{t('appsDesc')}</DialogDescription>
               </DialogHeader>
               {formErr && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{formErr}</div>
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {formErr}
+                </div>
               )}
               <div className="space-y-2">
                 <Label htmlFor="oa-name">{t('appName')}</Label>
@@ -338,15 +369,21 @@ export default function AdminOAuthAppsPage() {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label>{t('appName')}</Label>
-                  <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">{createdSecret.name}</div>
+                  <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+                    {createdSecret.name}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label>{t('clientId')}</Label>
                   <div className="flex items-center gap-1">
-                    <code className="flex-1 truncate rounded-md bg-muted/50 px-3 py-2 text-xs">
+                    <code className="flex-1 break-words rounded-md bg-muted/50 px-3 py-2 text-xs">
                       {createdSecret.clientId}
                     </code>
-                    <Button size="icon" variant="outline" onClick={() => copyText(createdSecret.clientId)}>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => copyText(createdSecret.clientId)}
+                    >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -354,10 +391,14 @@ export default function AdminOAuthAppsPage() {
                 <div className="space-y-1">
                   <Label>{t('clientSecret')}</Label>
                   <div className="flex items-center gap-1">
-                    <code className="flex-1 truncate rounded-md bg-amber-500/10 px-3 py-2 text-xs">
+                    <code className="flex-1 break-words rounded-md bg-amber-500/10 px-3 py-2 text-xs">
                       {createdSecret.clientSecret}
                     </code>
-                    <Button size="icon" variant="outline" onClick={() => copyText(createdSecret.clientSecret)}>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => copyText(createdSecret.clientSecret)}
+                    >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -373,13 +414,20 @@ export default function AdminOAuthAppsPage() {
         </Dialog>
 
         {/* 删除确认 */}
-        <Dialog open={!!delTarget} onOpenChange={(o) => (o ? null : (setDelTarget(null), setFormErr(null)))}>
+        <Dialog
+          open={!!delTarget}
+          onOpenChange={(o) => (o ? null : (setDelTarget(null), setFormErr(null)))}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t('deleteApp')}</DialogTitle>
               <DialogDescription>{t('deleteAppConfirm')}</DialogDescription>
             </DialogHeader>
-            {formErr && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{formErr}</div>}
+            {formErr && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formErr}
+              </div>
+            )}
             {delTarget && (
               <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
                 <span className="font-medium">{delTarget.name}</span>
@@ -387,7 +435,12 @@ export default function AdminOAuthAppsPage() {
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDelTarget(null)} disabled={deleting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDelTarget(null)}
+                disabled={deleting}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="button" variant="destructive" disabled={deleting} onClick={onDelete}>

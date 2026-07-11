@@ -14,7 +14,15 @@ interface VideoPlayerProps {
   className?: string
 }
 
-export function VideoPlayer({ src, poster, autoPlay = false, controls = true, loop = false, muted = false, className }: VideoPlayerProps) {
+export function VideoPlayer({
+  src,
+  poster,
+  autoPlay = false,
+  controls = true,
+  loop = false,
+  muted = false,
+  className,
+}: VideoPlayerProps) {
   const ref = React.useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = React.useState(autoPlay)
   const [mutedState, setMutedState] = React.useState(muted)
@@ -24,8 +32,13 @@ export function VideoPlayer({ src, poster, autoPlay = false, controls = true, lo
   const togglePlay = () => {
     const v = ref.current
     if (!v) return
-    if (v.paused) { v.play(); setPlaying(true) }
-    else { v.pause(); setPlaying(false) }
+    if (v.paused) {
+      v.play()
+      setPlaying(true)
+    } else {
+      v.pause()
+      setPlaying(false)
+    }
   }
 
   const toggleMute = () => {
@@ -76,7 +89,9 @@ export function VideoPlayer({ src, poster, autoPlay = false, controls = true, lo
         onLoadedMetadata={() => setDuration(ref.current?.duration ?? 0)}
         onClick={togglePlay}
         className="h-full w-full"
-      />
+      >
+        <track kind="captions" />
+      </video>
       {controls && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
           <input

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Award, Loader2, Download, Printer } from 'lucide-react'
 import { toast } from 'sonner'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -32,14 +32,15 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-function formatDate(v?: string): string {
+function formatDate(v?: string, locale: string = 'zh-CN'): string {
   if (!v) return '-'
   const d = new Date(v)
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+  return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
 }
 
 export default function CertificateDownloadPage() {
   const t = useTranslations('certificate')
+  const locale = useLocale()
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null)
   const [printingId, setPrintingId] = React.useState<string | null>(null)
 
@@ -125,7 +126,7 @@ export default function CertificateDownloadPage() {
           <p style="color:#666;margin:0 0 24px;">${t('download.certNo')}：${cert.certificateNo ?? '-'}</p>
           <div style="font-size:16px;line-height:2;">
             <p>${t('download.holder')}：${cert.nickname ?? '-'}</p>
-            <p>${t('download.issueTime')}：${formatDate(cert.issuedAt)}</p>
+            <p>${t('download.issueTime')}：${formatDate(cert.issuedAt, locale)}</p>
             <p>${STATUS_TEXT[cert.status] ?? t('download.statusValid')}</p>
           </div>
         </div>`
@@ -185,7 +186,7 @@ export default function CertificateDownloadPage() {
             const isPrinting = printingId === cert.id
             const isRevoked = cert.status === 2
             return (
-              <Card key={cert.id} className="transition-colors hover:border-primary/40">
+              <Card key={cert.id} className="transition-colors hover:bg-accent">
                 <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
@@ -211,12 +212,12 @@ export default function CertificateDownloadPage() {
                   <div className="space-y-1.5 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">{t('download.issueTime')}</span>
-                      <span className="font-medium">{formatDate(cert.issuedAt)}</span>
+                      <span className="font-medium">{formatDate(cert.issuedAt, locale)}</span>
                     </div>
                     {cert.templateName && (
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">{t('download.template')}</span>
-                        <span className="line-clamp-1 font-medium">{cert.templateName}</span>
+                        <span className="font-medium">{cert.templateName}</span>
                       </div>
                     )}
                   </div>
@@ -281,7 +282,7 @@ export default function CertificateDownloadPage() {
             <div style={{ fontSize: '16px', lineHeight: '2.2', color: '#374151' }}>
               <p>{t('download.certText', { name: cert.nickname ?? '-' })}</p>
               <p>
-                {t('download.issueTime')}：{formatDate(cert.issuedAt)}
+                {t('download.issueTime')}：{formatDate(cert.issuedAt, locale)}
               </p>
               <p>
                 {t('download.status')}: {STATUS_TEXT[cert.status] ?? t('download.statusValid')}
@@ -297,7 +298,7 @@ export default function CertificateDownloadPage() {
               }}
             >
               <span>{t('download.issuingOrg')}</span>
-              <span>{formatDate(cert.issuedAt)}</span>
+              <span>{formatDate(cert.issuedAt, locale)}</span>
             </div>
           </div>
         ))}

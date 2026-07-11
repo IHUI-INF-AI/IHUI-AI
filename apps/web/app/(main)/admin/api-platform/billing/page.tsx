@@ -23,6 +23,7 @@ import {
   TableCell,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { useLocale } from 'next-intl'
 
 interface BillingRecord {
   id: string
@@ -46,11 +47,21 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const selectClass = 'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const TYPE_LABEL: Record<BillingRecord['type'], string> = { recharge: '充值', consume: '消费', refund: '退款' }
-const STATUS_LABEL: Record<BillingRecord['status'], string> = { pending: '处理中', success: '成功', failed: '失败' }
+const selectClass =
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const TYPE_LABEL: Record<BillingRecord['type'], string> = {
+  recharge: '充值',
+  consume: '消费',
+  refund: '退款',
+}
+const STATUS_LABEL: Record<BillingRecord['status'], string> = {
+  pending: '处理中',
+  success: '成功',
+  failed: '失败',
+}
 
 export default function AdminApiPlatformBillingPage() {
+  const locale = useLocale()
   const [type, setType] = React.useState('all')
   const [status, setStatus] = React.useState('all')
 
@@ -65,13 +76,25 @@ export default function AdminApiPlatformBillingPage() {
       const qs = new URLSearchParams()
       if (type !== 'all') qs.set('type', type)
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: BillingRecord[] }>(`/api/admin/api-platform/billing?${qs.toString()}`).then((d) => d.list ?? [])
+      return api<{ list: BillingRecord[] }>(
+        `/api/admin/api-platform/billing?${qs.toString()}`,
+      ).then((d) => d.list ?? [])
     },
   })
 
   const cards = [
-    { label: '累计充值', value: summary?.totalRecharge ?? 0, icon: TrendingUp, cls: 'text-emerald-600' },
-    { label: '累计消费', value: summary?.totalConsume ?? 0, icon: TrendingDown, cls: 'text-amber-600' },
+    {
+      label: '累计充值',
+      value: summary?.totalRecharge ?? 0,
+      icon: TrendingUp,
+      cls: 'text-emerald-600',
+    },
+    {
+      label: '累计消费',
+      value: summary?.totalConsume ?? 0,
+      icon: TrendingDown,
+      cls: 'text-amber-600',
+    },
     { label: '累计退款', value: summary?.totalRefund ?? 0, icon: Receipt, cls: 'text-red-600' },
     { label: '当前余额', value: summary?.balance ?? 0, icon: Wallet, cls: 'text-primary' },
   ]
@@ -98,7 +121,9 @@ export default function AdminApiPlatformBillingPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={cn('text-2xl font-bold', c.cls)}>¥{(c.value / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                <div className={cn('text-2xl font-bold', c.cls)}>
+                  ¥{(c.value / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
               </CardContent>
             </Card>
           )
@@ -107,7 +132,9 @@ export default function AdminApiPlatformBillingPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={type} onValueChange={setType}>
-          <SelectTrigger className={selectClass} aria-label="类型"><SelectValue /></SelectTrigger>
+          <SelectTrigger className={selectClass} aria-label="类型">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部类型</SelectItem>
             <SelectItem value="recharge">充值</SelectItem>
@@ -116,7 +143,9 @@ export default function AdminApiPlatformBillingPage() {
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className={selectClass} aria-label="状态"><SelectValue /></SelectTrigger>
+          <SelectTrigger className={selectClass} aria-label="状态">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部状态</SelectItem>
             <SelectItem value="pending">处理中</SelectItem>
@@ -146,38 +175,62 @@ export default function AdminApiPlatformBillingPage() {
               </TableRow>
             ) : records.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">暂无记录</TableCell>
+                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  暂无记录
+                </TableCell>
               </TableRow>
             ) : (
               records.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.appName}</TableCell>
                   <TableCell>
-                    <span className={cn(
-                      'inline-flex rounded px-1.5 py-0.5 text-xs',
-                      r.type === 'recharge' && 'bg-emerald-500/10 text-emerald-600',
-                      r.type === 'consume' && 'bg-amber-500/10 text-amber-600',
-                      r.type === 'refund' && 'bg-red-500/10 text-red-600',
-                    )}>
+                    <span
+                      className={cn(
+                        'inline-flex rounded px-1.5 py-0.5 text-xs',
+                        r.type === 'recharge' && 'bg-emerald-500/10 text-emerald-600',
+                        r.type === 'consume' && 'bg-amber-500/10 text-amber-600',
+                        r.type === 'refund' && 'bg-red-500/10 text-red-600',
+                      )}
+                    >
                       {TYPE_LABEL[r.type]}
                     </span>
                   </TableCell>
-                  <TableCell className={cn('font-medium', r.type === 'consume' ? 'text-amber-600' : r.type === 'refund' ? 'text-red-600' : 'text-emerald-600')}>
+                  <TableCell
+                    className={cn(
+                      'font-medium',
+                      r.type === 'consume'
+                        ? 'text-amber-600'
+                        : r.type === 'refund'
+                          ? 'text-red-600'
+                          : 'text-emerald-600',
+                    )}
+                  >
                     {r.type === 'consume' ? '-' : '+'}¥{(r.amount / 100).toFixed(2)}
                   </TableCell>
                   <TableCell>
-                    <span className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
-                      r.status === 'success' && 'bg-emerald-500/10 text-emerald-600',
-                      r.status === 'pending' && 'bg-amber-500/10 text-amber-600',
-                      r.status === 'failed' && 'bg-red-500/10 text-red-600',
-                    )}>
-                      <span className={cn('h-1.5 w-1.5 rounded-full', r.status === 'success' ? 'bg-emerald-500' : r.status === 'pending' ? 'bg-amber-500' : 'bg-red-500')} />
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                        r.status === 'success' && 'bg-emerald-500/10 text-emerald-600',
+                        r.status === 'pending' && 'bg-amber-500/10 text-amber-600',
+                        r.status === 'failed' && 'bg-red-500/10 text-red-600',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          r.status === 'success'
+                            ? 'bg-emerald-500'
+                            : r.status === 'pending'
+                              ? 'bg-amber-500'
+                              : 'bg-red-500',
+                        )}
+                      />
                       {STATUS_LABEL[r.status]}
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(r.createdAt).toLocaleString()}
+                    {new Intl.DateTimeFormat(locale).format(new Date(r.createdAt))}
                   </TableCell>
                 </TableRow>
               ))

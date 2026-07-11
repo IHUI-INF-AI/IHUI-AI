@@ -39,8 +39,11 @@ const TOOL_BTN_CLASS =
  * 基于 contentEditable 的轻量富文本编辑器（不依赖第三方编辑器库）。
  * 工具栏使用 document.execCommand 控制格式，图片插入走上传接口。
  */
-export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEditorProps>(
-  function RichTextEditor({ value, onChange, placeholder, className }, ref) {
+export const RichTextEditor = React.memo(
+  React.forwardRef<RichTextEditorHandle, RichTextEditorProps>(function RichTextEditor(
+    { value, onChange, placeholder, className },
+    ref,
+  ) {
     const t = useTranslations('richTextEditor')
     const editorRef = React.useRef<HTMLDivElement>(null)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -210,7 +213,7 @@ export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEdi
         />
       </div>
     )
-  },
+  }),
 )
 
 export default RichTextEditor

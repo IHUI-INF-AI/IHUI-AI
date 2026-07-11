@@ -3,10 +3,31 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, ShieldCheck, ShieldAlert, Clock } from 'lucide-react'
+import {
+  Users,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 
 interface MemberItem {
   id: string
@@ -21,9 +42,17 @@ interface MemberItem {
   growthValue: number
   createdAt: string | null
 }
-interface MembersData { list: MemberItem[]; total: number; page: number; pageSize: number }
+interface MembersData {
+  list: MemberItem[]
+  total: number
+  page: number
+  pageSize: number
+}
 
-interface LevelItem { id: string; name: string }
+interface LevelItem {
+  id: string
+  name: string
+}
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -70,13 +99,17 @@ export default function MembersPage() {
   const [page, setPage] = React.useState(1)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [search])
 
   const { data: levels } = useQuery({
     queryKey: ['members', 'levels'],
-    queryFn: () => api<{ list: LevelItem[] }>(`/api/admin/members/levels`).then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: LevelItem[] }>(`/api/admin/members/levels`).then((d) => d.list ?? []),
   })
 
   const { data, isLoading, error } = useQuery({
@@ -120,7 +153,13 @@ export default function MembersPage() {
             aria-label={t('search')}
           />
         </div>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('status')}>
             <SelectValue />
           </SelectTrigger>
@@ -131,14 +170,22 @@ export default function MembersPage() {
             <SelectItem value="2">{t('statusSealed')}</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={levelFilter} onValueChange={(v) => { setLevelFilter(v); setPage(1) }}>
+        <Select
+          value={levelFilter}
+          onValueChange={(v) => {
+            setLevelFilter(v)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className={selectClass} aria-label={t('level')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allLevels')}</SelectItem>
             {(levels ?? []).map((l) => (
-              <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+              <SelectItem key={l.id} value={l.id}>
+                {l.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -161,7 +208,7 @@ export default function MembersPage() {
       ) : (
         <div className="grid gap-3">
           {members.map((member) => (
-            <Card key={member.id} className="transition-colors hover:border-primary/40">
+            <Card key={member.id} className="transition-colors hover:bg-accent">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
                 <CardTitle className="text-base">
                   {member.nickname ?? member.username ?? t('unnamed')}
@@ -171,19 +218,21 @@ export default function MembersPage() {
               <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0 text-sm sm:grid-cols-4">
                 <div>
                   <p className="text-xs text-muted-foreground">{t('username')}</p>
-                  <p className="truncate">{member.username ?? '-'}</p>
+                  <p className="break-words">{member.username ?? '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('mobile')}</p>
-                  <p className="truncate">{member.mobile ?? '-'}</p>
+                  <p className="break-words">{member.mobile ?? '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('level')}</p>
-                  <p className="truncate">{member.levelId ? (levelMap.get(member.levelId) ?? '-') : '-'}</p>
+                  <p className="break-words">
+                    {member.levelId ? (levelMap.get(member.levelId) ?? '-') : '-'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('growthValue')}</p>
-                  <p className="truncate">{member.growthValue}</p>
+                  <p className="break-words">{member.growthValue}</p>
                 </div>
               </CardContent>
             </Card>
@@ -195,11 +244,23 @@ export default function MembersPage() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

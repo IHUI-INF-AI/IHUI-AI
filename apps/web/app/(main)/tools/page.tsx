@@ -65,14 +65,14 @@ export default function ToolsPage() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {items.map((tool) => (
                     <Link key={tool.id} href={tool.url} className="group block">
-                      <Card className="transition-colors hover:border-primary/40">
+                      <Card className="transition-colors hover:bg-accent">
                         <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <CardTitle className="text-sm">{tool.name}</CardTitle>
-                            <CardDescription className="line-clamp-2 text-xs">
+                            <CardDescription className="text-xs">
                               {tool.description}
                             </CardDescription>
                           </div>

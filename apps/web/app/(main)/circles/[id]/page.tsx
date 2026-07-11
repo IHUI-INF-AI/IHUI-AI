@@ -49,7 +49,11 @@ export default function CircleDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
 
-  const { data: circleData, isLoading: circleLoading, error: circleError } = useQuery({
+  const {
+    data: circleData,
+    isLoading: circleLoading,
+    error: circleError,
+  } = useQuery({
     queryKey: ['circle', params.id],
     queryFn: () => api<{ circle: CircleDetail }>(`/api/circles/${params.id}`),
     enabled: !!params.id,
@@ -61,7 +65,12 @@ export default function CircleDetailPage() {
     enabled: !!params.id,
   })
 
-  const dateFmt = new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
   const circle = circleData?.circle
   const posts = postsData?.list ?? []
 
@@ -131,13 +140,13 @@ export default function CircleDetailPage() {
         ) : (
           <div className="space-y-2">
             {posts.map((p) => (
-              <Card key={p.id} className="transition-colors hover:border-primary/40">
+              <Card key={p.id} className="transition-colors hover:bg-accent">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{p.title}</p>
+                      <p className="break-words text-sm font-medium">{p.title}</p>
                       {p.content && (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.content}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{p.content}</p>
                       )}
                       <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
                         {p.authorName && <span>{p.authorName}</span>}

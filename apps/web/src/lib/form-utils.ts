@@ -219,7 +219,13 @@ export interface CacheEntry<T = unknown> {
 
 const cacheStore = new Map<string, CacheEntry>()
 
+const MAX_CACHE_SIZE = 100
+
 export function setCache<T>(key: string, value: T, ttlMs: number): CacheEntry<T> {
+  if (cacheStore.size >= MAX_CACHE_SIZE) {
+    const firstKey = cacheStore.keys().next().value
+    if (firstKey) cacheStore.delete(firstKey)
+  }
   const entry: CacheEntry<T> = {
     key,
     value,

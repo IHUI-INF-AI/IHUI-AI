@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { ZoomIn, ZoomOut, RotateCw, Maximize, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,7 +26,7 @@ export function ImageViewer({
   const [current, setCurrent] = React.useState(index)
 
   const list = images ?? [src]
-  const currentSrc = images ? images[current] : src
+  const currentSrc = list[current] ?? src
 
   const reset = () => {
     setZoom(1)
@@ -80,10 +81,13 @@ export function ImageViewer({
           className,
         )}
       >
-        <img
+        <Image
           src={currentSrc}
           alt={alt}
-          className="max-h-full max-w-full object-contain transition-transform"
+          width={1200}
+          height={800}
+          unoptimized
+          className="h-auto w-auto max-h-full max-w-full object-contain transition-transform"
           style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
         />
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -108,16 +112,38 @@ export function ImageViewer({
       </div>
       {fullscreen && (
         <div
+          role="button"
+          tabIndex={0}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={() => setFullscreen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setFullscreen(false)
+            }
+          }}
         >
-          <img
+          <Image
             src={currentSrc}
             alt={alt}
-            className="max-h-[90vh] max-w-[90vw] object-contain"
+            width={1200}
+            height={800}
+            unoptimized
+            className="h-auto w-auto max-h-[90vh] max-w-[90vw] object-contain"
             style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
           />
-          <div className="absolute top-4 right-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            role="button"
+            tabIndex={0}
+            className="absolute top-4 right-4"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            }}
+          >
             {controls}
           </div>
           <button

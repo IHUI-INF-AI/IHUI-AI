@@ -28,10 +28,10 @@ interface DataTableProps<T> {
 
 type SortState = { key: string; dir: 'asc' | 'desc' } | null
 
-export function DataTable<T extends Record<string, unknown>>({
+function DataTableImpl<T extends Record<string, unknown>>({
   columns,
   data,
-  rowKey = (_, i) => i,
+  rowKey = (_, i) => `row-${i}`,
   pagination,
   onPageChange,
   selectable = false,
@@ -66,7 +66,11 @@ export function DataTable<T extends Record<string, unknown>>({
   const toggleAll = () => {
     const next = allChecked ? new Set<number>() : new Set(data.map((_, i) => i))
     setSelected(next)
-    onSelect?.(Array.from(next).map((i) => data[i]!).filter(Boolean) as T[])
+    onSelect?.(
+      Array.from(next)
+        .map((i) => data[i]!)
+        .filter(Boolean) as T[],
+    )
   }
 
   const toggleRow = (idx: number) => {
@@ -74,7 +78,11 @@ export function DataTable<T extends Record<string, unknown>>({
     if (next.has(idx)) next.delete(idx)
     else next.add(idx)
     setSelected(next)
-    onSelect?.(Array.from(next).map((i) => data[i]!).filter(Boolean) as T[])
+    onSelect?.(
+      Array.from(next)
+        .map((i) => data[i]!)
+        .filter(Boolean) as T[],
+    )
   }
 
   const alignMap = { left: 'text-left', center: 'text-center', right: 'text-right' }
@@ -93,7 +101,11 @@ export function DataTable<T extends Record<string, unknown>>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={cn('px-3 py-2.5 font-medium', alignMap[col.align ?? 'left'], col.width)}
+                  className={cn(
+                    'px-3 py-2.5 font-medium',
+                    alignMap[col.align ?? 'left'],
+                    col.width,
+                  )}
                 >
                   {col.sortable ? (
                     <button
@@ -102,7 +114,11 @@ export function DataTable<T extends Record<string, unknown>>({
                     >
                       {col.title}
                       {sort?.key === col.key ? (
-                        sort.dir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+                        sort.dir === 'asc' ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )
                       ) : (
                         <ChevronsUpDown className="h-3 w-3 opacity-40" />
                       )}
@@ -117,13 +133,19 @@ export function DataTable<T extends Record<string, unknown>>({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length + (selectable ? 1 : 0)} className="px-3 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={columns.length + (selectable ? 1 : 0)}
+                  className="px-3 py-8 text-center text-muted-foreground"
+                >
                   加载中...
                 </td>
               </tr>
             ) : sortedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (selectable ? 1 : 0)} className="px-3 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={columns.length + (selectable ? 1 : 0)}
+                  className="px-3 py-8 text-center text-muted-foreground"
+                >
                   暂无数据
                 </td>
               </tr>
@@ -149,7 +171,8 @@ export function DataTable<T extends Record<string, unknown>>({
       {pagination && (
         <div className="mt-3 flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            共 {pagination.total} 条,第 {pagination.page}/{Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
+            共 {pagination.total} 条,第 {pagination.page}/
+            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -172,3 +195,5 @@ export function DataTable<T extends Record<string, unknown>>({
     </div>
   )
 }
+
+export const DataTable = React.memo(DataTableImpl) as typeof DataTableImpl

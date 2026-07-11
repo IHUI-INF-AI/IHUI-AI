@@ -183,7 +183,9 @@ export function VideoGenKling() {
               <p className="text-sm text-destructive">{task.error}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border" />
+              <video key={url} src={url} controls className="w-full rounded-md border">
+                <track kind="captions" />
+              </video>
             ))}
           </div>
         )}

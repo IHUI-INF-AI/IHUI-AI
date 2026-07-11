@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
-import { eq, desc } from 'drizzle-orm'
-import { db } from '../db/index.js'
-import { developerApiKeys } from '@ihui/database'
+import { eq, desc, sql } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
+import { developerApiKeys, apiLogs } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
@@ -130,6 +130,58 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(developerApiKeys.id, idParsed.data.id))
       .returning()
     return reply.send(success({ apiKey: updated }))
+  })
+
+  // GET /api-keys/:id/usage — 查询 API 密钥使用量（从 api_logs 统计）
+  server.get('/api-keys/:id/usage', async (request, reply) => {
+    const userId = request.userId!
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 校验归属权
+    const [existing] = await dbRead
+      .select()
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, 'API 密钥不存在'))
+    if (existing.userId !== userId) {
+      return reply.status(403).send(error(403, '无权查看此 API 密钥'))
+    }
+    // api_logs 通过 userId 关联（密钥使用时以密钥所有者身份记录）
+    const [countRow] = await dbRead
+      .select({ callCount: sql<number>`count(*)::int` })
+      .from(apiLogs)
+      .where(eq(apiLogs.userId, userId))
+
+    const [lastRow] = await dbRead
+      .select({ lastUsedAt: apiLogs.createdAt })
+      .from(apiLogs)
+      .where(eq(apiLogs.userId, userId))
+      .orderBy(desc(apiLogs.createdAt))
+      .limit(1)
+
+    // Top 5 端点
+    const topEndpoints = await dbRead
+      .select({
+        path: apiLogs.path,
+        method: apiLogs.method,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(apiLogs)
+      .where(eq(apiLogs.userId, userId))
+      .groupBy(apiLogs.path, apiLogs.method)
+      .orderBy(desc(sql`count(*)::int`))
+      .limit(5)
+
+    return reply.send(
+      success({
+        callCount: countRow?.callCount ?? 0,
+        lastUsedAt: lastRow?.lastUsedAt ?? existing.lastUsedAt,
+        topEndpoints,
+      }),
+    )
   })
 }
 

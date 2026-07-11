@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   FileText,
   Search,
@@ -55,6 +55,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function ArticlesPage() {
   const t = useTranslations('articles')
+  const locale = useLocale()
 
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -97,7 +98,7 @@ export default function ArticlesPage() {
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
   }
 
   return (
@@ -141,10 +142,11 @@ export default function ArticlesPage() {
             <div className="space-y-3">
               {items.map((item) => (
                 <Link key={item.id} href={`/articles/${item.id}`} className="block">
-                  <Card className="overflow-hidden transition-colors hover:border-primary/40">
+                  <Card className="overflow-hidden transition-colors hover:bg-accent">
                     <CardContent className="flex gap-4 p-4">
                       <div className="h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                         {item.coverImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={item.coverImage}
                             alt={item.title}
@@ -164,14 +166,12 @@ export default function ArticlesPage() {
                               {t('pinned')}
                             </span>
                           )}
-                          <h2 className="line-clamp-1 font-medium transition-colors group-hover:text-primary">
+                          <h2 className="font-medium transition-colors group-hover:text-primary">
                             {item.title}
                           </h2>
                         </div>
                         {item.summary && (
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                            {item.summary}
-                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
                         )}
                         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
                           {item.authorName && <span>{item.authorName}</span>}

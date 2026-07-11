@@ -40,10 +40,10 @@ export function VideoGenOneClick() {
 
   const mutation = useMutation({
     mutationFn: async (payload: { prompt: string; model: string }) => {
-      const res = await fetchApi<{ taskId: string; status: string }>(
-        '/api/ai/dashscope/video',
-        { method: 'POST', body: JSON.stringify(payload) },
-      )
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/dashscope/video', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -149,7 +149,9 @@ export function VideoGenOneClick() {
               <p className="text-sm text-destructive">{task.error}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border" />
+              <video key={url} src={url} controls className="w-full rounded-md border">
+                <track kind="captions" />
+              </video>
             ))}
           </div>
         )}

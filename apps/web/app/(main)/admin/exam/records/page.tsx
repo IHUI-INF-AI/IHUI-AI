@@ -33,12 +33,7 @@ import {
   Input,
 } from '@ihui/ui'
 
-type QuestionType =
-  | 'single_choice'
-  | 'multi_choice'
-  | 'judgment'
-  | 'fill_blank'
-  | 'subjective'
+type QuestionType = 'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
 
 interface ExamPaper {
   id: string
@@ -111,13 +106,27 @@ function formatAnswer(ans: unknown): string {
 function StatusBadge({ status }: { status: string }) {
   const t = useTranslations('admin.exam')
   const map: Record<string, { label: string; cls: string }> = {
-    pending: { label: t('statusPending'), cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-    submitted: { label: t('statusSubmitted'), cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-    graded: { label: t('statusGraded'), cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+    pending: {
+      label: t('statusPending'),
+      cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    },
+    submitted: {
+      label: t('statusSubmitted'),
+      cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    },
+    graded: {
+      label: t('statusGraded'),
+      cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    },
   }
   const item = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground' }
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', item.cls)}>
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        item.cls,
+      )}
+    >
       {item.label}
     </span>
   )
@@ -152,8 +161,7 @@ function RecordsContent() {
   // 拉取试卷列表用于 paperId -> title 映射
   const { data: papersData } = useQuery({
     queryKey: ['admin', 'exam', 'papers', 'all'],
-    queryFn: () =>
-      api<{ list: ExamPaper[] }>(`/api/admin/exam/papers?page=1&pageSize=100`),
+    queryFn: () => api<{ list: ExamPaper[] }>(`/api/admin/exam/papers?page=1&pageSize=100`),
   })
   const paperMap = React.useMemo(() => {
     const m = new Map<string, string>()
@@ -255,7 +263,7 @@ function RecordsContent() {
                         {r.userId.slice(0, 8)}…
                       </span>
                     </TableCell>
-                    <TableCell className="max-w-xs truncate px-4 py-2.5">
+                    <TableCell className="max-w-xs break-words px-4 py-2.5">
                       {paperMap.get(r.paperId) ?? t('unknownPaper')}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 font-medium">{Number(r.score)}</TableCell>
@@ -268,7 +276,11 @@ function RecordsContent() {
                             : 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
                         )}
                       >
-                        {passed ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {passed ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
                         {passed ? t('passed') : t('failed')}
                       </span>
                     </TableCell>
@@ -298,9 +310,7 @@ function RecordsContent() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {t('total', { total })}
-        </span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -371,20 +381,25 @@ function RecordsContent() {
                 <div>
                   <div className="text-xs text-muted-foreground">{t('fieldDuration')}</div>
                   <div className="mt-0.5 font-medium">
-                    {Math.floor(detailRecord.duration / 60)}{t('minutes')} {detailRecord.duration % 60}s
+                    {Math.floor(detailRecord.duration / 60)}
+                    {t('minutes')} {detailRecord.duration % 60}s
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">{t('colSubmittedAt')}</div>
                   <div className="mt-0.5 font-medium">
-                    {detailRecord.submittedAt ? dateFmt.format(new Date(detailRecord.submittedAt)) : '-'}
+                    {detailRecord.submittedAt
+                      ? dateFmt.format(new Date(detailRecord.submittedAt))
+                      : '-'}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
                 {detailQuestions.length === 0 ? (
-                  <div className="py-6 text-center text-sm text-muted-foreground">{t('noData')}</div>
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    {t('noData')}
+                  </div>
                 ) : (
                   detailQuestions.map((q, idx) => {
                     const ans = answerMap.get(q.id)
@@ -407,7 +422,11 @@ function RecordsContent() {
                                   : 'bg-rose-500/10 text-rose-600 dark:text-rose-500',
                               )}
                             >
-                              {ans.isCorrect ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                              {ans.isCorrect ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
                               {ans.isCorrect ? t('correct') : t('incorrect')}
                             </span>
                           ) : null}

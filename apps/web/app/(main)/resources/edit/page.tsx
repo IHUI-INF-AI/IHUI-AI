@@ -226,7 +226,7 @@ export default function ResourceEditPage() {
                 </button>
               </div>
             ) : (
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-3 py-6 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-3 py-6 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
                 <Upload className="h-5 w-5" />
                 {uploadMut.isPending ? '上传中...' : '点击上传文件'}
                 <input

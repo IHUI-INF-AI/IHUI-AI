@@ -100,15 +100,33 @@ const FALLBACK_MODELS: Model[] = [
 
 // 描述映射(AI service 只返回基础字段,描述/features 在前端补充)
 const MODEL_DESCRIPTIONS: Record<string, { description: string; features: string[] }> = {
-  'stepfun/step-3.7-flash': { description: 'StepFun 阶跃星辰最新模型,已配置 plan 套餐', features: ['Plan', 'Fast', 'Chinese-Optimized'] },
+  'stepfun/step-3.7-flash': {
+    description: 'StepFun 阶跃星辰最新模型,已配置 plan 套餐',
+    features: ['Plan', 'Fast', 'Chinese-Optimized'],
+  },
   'stepfun/step-3.5-flash': { description: 'StepFun 3.5 快速版', features: ['Plan', 'Fast'] },
-  'stepfun/step-router-v1': { description: 'StepFun 智能路由,自动选择最优模型', features: ['Plan', 'Auto-Route'] },
+  'stepfun/step-router-v1': {
+    description: 'StepFun 智能路由,自动选择最优模型',
+    features: ['Plan', 'Auto-Route'],
+  },
   'agnes/gpt-4o': { description: 'Agnes AI 代理的 GPT-4o', features: ['Plan', 'Multimodal'] },
-  'groq/llama-3.3-70b-versatile': { description: '免费 30 RPM,速度极快', features: ['Free', 'Fast', 'Open Source'] },
-  'gemini/gemini-1.5-flash': { description: '免费 15 RPM,100 万 token 上下文', features: ['Free', 'Long Context', 'Multimodal'] },
-  'gpt-4o': { description: '均衡的多模态旗舰模型', features: ['Vision', 'Function Calling', 'Multimodal'] },
+  'groq/llama-3.3-70b-versatile': {
+    description: '免费 30 RPM,速度极快',
+    features: ['Free', 'Fast', 'Open Source'],
+  },
+  'gemini/gemini-1.5-flash': {
+    description: '免费 15 RPM,100 万 token 上下文',
+    features: ['Free', 'Long Context', 'Multimodal'],
+  },
+  'gpt-4o': {
+    description: '均衡的多模态旗舰模型',
+    features: ['Vision', 'Function Calling', 'Multimodal'],
+  },
   'gpt-4o-mini': { description: '快速经济的轻量模型', features: ['Fast', 'Affordable'] },
-  'claude-3-5-sonnet': { description: '强推理与长文写作', features: ['Reasoning', 'Writing', 'Vision'] },
+  'claude-3-5-sonnet': {
+    description: '强推理与长文写作',
+    features: ['Reasoning', 'Writing', 'Vision'],
+  },
   'gemini-2-flash': { description: '超长上下文多模态', features: ['Long Context', 'Multimodal'] },
 }
 
@@ -119,12 +137,21 @@ const MODEL_DESCRIPTIONS: Record<string, { description: string; features: string
 async function fetchModels(): Promise<Model[]> {
   try {
     // 服务端 fetch,直接请求 AI service(运行时读取 AI_SERVICE_URL 环境变量)
-    const res = await fetch(`${process.env.AI_SERVICE_URL ?? 'http://localhost:8000'}/api/llm/models`, {
-      next: { revalidate: 300 }, // 缓存 5 分钟
-    })
+    const res = await fetch(
+      `${process.env.AI_SERVICE_URL ?? 'http://localhost:8000'}/api/llm/models`,
+      {
+        next: { revalidate: 300 }, // 缓存 5 分钟
+      },
+    )
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = (await res.json()) as {
-      models: Array<{ id: string; name: string; provider: Provider; context_length: number; input_price: number }>
+      models: Array<{
+        id: string
+        name: string
+        provider: Provider
+        context_length: number
+        input_price: number
+      }>
     }
     return data.models.map((m) => {
       const desc = MODEL_DESCRIPTIONS[m.id] ?? { description: '', features: [] }
@@ -206,13 +233,15 @@ export default async function ModelsPage({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((m) => (
-          <Card key={m.id} className="flex flex-col transition-colors hover:border-primary/40">
+          <Card key={m.id} className="flex flex-col transition-colors hover:bg-accent">
             <CardHeader>
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Sparkles className="h-4 w-4" />
                 </div>
-                <span className="text-xs text-muted-foreground">{t(`providers.${m.provider}`)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t(`providers.${m.provider}`)}
+                </span>
               </div>
               <CardTitle className="text-base">{m.name}</CardTitle>
               <CardDescription>{m.description}</CardDescription>
@@ -223,7 +252,9 @@ export default async function ModelsPage({
                   <Cpu className="h-3.5 w-3.5" />
                   {t('contextLength')}
                 </span>
-                <span className="font-medium text-foreground">{ctxFmt.format(m.contextLength)}</span>
+                <span className="font-medium text-foreground">
+                  {ctxFmt.format(m.contextLength)}
+                </span>
               </div>
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -231,7 +262,9 @@ export default async function ModelsPage({
                   {t('price')}
                 </span>
                 <span className="font-medium text-foreground">
-                  {m.inputPrice === 0 ? t('free') : `${priceFmt.format(m.inputPrice)}${t('perMillion')}`}
+                  {m.inputPrice === 0
+                    ? t('free')
+                    : `${priceFmt.format(m.inputPrice)}${t('perMillion')}`}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">

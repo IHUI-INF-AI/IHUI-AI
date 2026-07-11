@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -99,9 +99,10 @@ export default function ActivitiesPage() {
             return (
               <Card
                 key={a.id}
-                className="group flex flex-col overflow-hidden transition-colors hover:border-primary/40"
+                className="group flex flex-col overflow-hidden transition-colors hover:bg-accent"
               >
                 {a.banner ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={a.banner} alt={a.title} className="h-36 w-full object-cover" />
                 ) : (
                   <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
@@ -110,7 +111,7 @@ export default function ActivitiesPage() {
                 )}
                 <CardContent className="flex flex-1 flex-col gap-3 p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="line-clamp-1 text-base font-semibold">{a.title}</h2>
+                    <h2 className="text-base font-semibold">{a.title}</h2>
                     <span
                       className={cn(
                         'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
@@ -120,9 +121,7 @@ export default function ActivitiesPage() {
                       {t(`status.${displayStatus}`)}
                     </span>
                   </div>
-                  <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
-                    {a.description ?? ''}
-                  </p>
+                  <p className="flex-1 text-sm text-muted-foreground">{a.description ?? ''}</p>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     <span>

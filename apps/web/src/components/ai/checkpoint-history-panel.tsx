@@ -18,10 +18,7 @@ interface CheckpointHistoryPanelProps {
   onRestore?: (id: string) => void
 }
 
-export function CheckpointHistoryPanel({
-  checkpoints,
-  onRestore,
-}: CheckpointHistoryPanelProps) {
+export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHistoryPanelProps) {
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
   const toggle = (id: string) => {
@@ -64,7 +61,7 @@ export function CheckpointHistoryPanel({
                           hasDiff && 'cursor-pointer hover:text-primary',
                         )}
                       >
-                        <span className="truncate">{cp.label}</span>
+                        <span className="break-words">{cp.label}</span>
                         {hasDiff && (
                           <ChevronDown
                             className={cn(
@@ -74,9 +71,7 @@ export function CheckpointHistoryPanel({
                           />
                         )}
                       </button>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {cp.timestamp}
-                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{cp.timestamp}</span>
                     </div>
                     {hasDiff && isOpen && (
                       <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">

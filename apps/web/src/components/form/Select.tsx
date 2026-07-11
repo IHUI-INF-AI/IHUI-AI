@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { ChevronDown, Check, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useClickOutside } from '@/hooks/use-click-outside'
 
 export interface Option {
   label: string
@@ -37,7 +38,10 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
-  const ref = React.useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = React.useState(0)
+  const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const listboxId = React.useId()
 
   const selected = React.useMemo(() => {
     if (multiple) {
@@ -55,13 +59,13 @@ export function Select({
     if (multiple) {
       const arr = selected as (string | number)[]
       if (!arr.length) return placeholder
-      const labels = arr
-        .map((v) => options.find((o) => o.value === v)?.label)
-        .filter(Boolean)
+      const labels = arr.map((v) => options.find((o) => o.value === v)?.label).filter(Boolean)
       return labels.length > 2 ? `已选 ${labels.length} 项` : labels.join(', ')
     }
     const v = selected as string | number | undefined
-    return v !== undefined ? options.find((o) => o.value === v)?.label ?? placeholder : placeholder
+    return v !== undefined
+      ? (options.find((o) => o.value === v)?.label ?? placeholder)
+      : placeholder
   }, [selected, options, multiple, placeholder])
 
   const handleSelect = (val: string | number) => {
@@ -75,25 +79,69 @@ export function Select({
     }
   }
 
-  React.useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
   const isSelected = (val: string | number) =>
     multiple ? (selected as (string | number)[]).includes(val) : selected === val
 
+  const focusOption = (idx: number) => {
+    const clamped = Math.max(0, Math.min(idx, filtered.length - 1))
+    setActiveIndex(clamped)
+    const el = ref.current?.querySelector(`[data-idx="${clamped}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  }
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setActiveIndex(0)
+    }
+  }
+
+  const handleListKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      focusOption(activeIndex + 1)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      focusOption(activeIndex - 1)
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      focusOption(0)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      focusOption(filtered.length - 1)
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      const opt = filtered[activeIndex]
+      if (opt && !opt.disabled) handleSelect(opt.value)
+    }
+  }
+
+  React.useEffect(() => {
+    if (open && filtered.length > 0) setActiveIndex(0)
+  }, [open, filtered.length])
+
   return (
     <div className={cn('w-full space-y-1.5', className)}>
-      {label && <label className="text-sm font-medium leading-none">{label}</label>}
+      {label && (
+        <label id={`${listboxId}-label`} className="text-sm font-medium leading-none">
+          {label}
+        </label>
+      )}
       <div ref={ref} className="relative">
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-labelledby={label ? `${listboxId}-label` : undefined}
           onClick={() => setOpen(!open)}
+          onKeyDown={handleTriggerKeyDown}
           className={cn(
             'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
@@ -101,17 +149,35 @@ export function Select({
             error && 'border-destructive',
           )}
         >
-          <span className={cn('truncate', !selected || (multiple && !(selected as []).length) ? 'text-muted-foreground' : '')}>
+          <span
+            className={cn(
+              'break-words',
+              !selected || (multiple && !(selected as []).length) ? 'text-muted-foreground' : '',
+            )}
+          >
             {displayLabel}
           </span>
-          <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180',
+            )}
+          />
         </button>
         {open && (
-          <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+          <div
+            role="listbox"
+            id={listboxId}
+            tabIndex={-1}
+            onKeyDown={handleListKeyDown}
+            className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none"
+          >
             {searchable && (
               <div className="relative mb-1">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
+                  role="searchbox"
+                  aria-label="搜索选项"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="搜索..."
@@ -122,21 +188,32 @@ export function Select({
             {filtered.length === 0 ? (
               <div className="py-4 text-center text-sm text-muted-foreground">无匹配项</div>
             ) : (
-              filtered.map((opt) => (
-                <button
+              filtered.map((opt, idx) => (
+                <div
                   key={opt.value}
-                  type="button"
-                  disabled={opt.disabled}
-                  onClick={() => handleSelect(opt.value)}
+                  role="option"
+                  tabIndex={-1}
+                  data-idx={idx}
+                  aria-selected={isSelected(opt.value)}
+                  aria-disabled={opt.disabled || undefined}
+                  onClick={() => !opt.disabled && handleSelect(opt.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      if (!opt.disabled) handleSelect(opt.value)
+                    }
+                  }}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm',
+                    'flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm',
+                    idx === activeIndex && 'bg-accent text-accent-foreground',
                     'hover:bg-accent hover:text-accent-foreground',
                     opt.disabled && 'cursor-not-allowed opacity-50',
                   )}
+                  onMouseEnter={() => setActiveIndex(idx)}
                 >
                   {opt.label}
                   {isSelected(opt.value) && <Check className="h-4 w-4 text-primary" />}
-                </button>
+                </div>
               ))
             )}
           </div>

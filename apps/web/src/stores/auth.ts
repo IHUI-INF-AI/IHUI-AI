@@ -7,14 +7,18 @@ export interface AuthUser {
   phone?: string
   roleId?: number
   role?: string
+  permissions?: string[]
+  roles?: string[]
 }
 
 function setAuthCookie(token: string | null) {
   if (typeof document === 'undefined') return
+  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+  const secureFlag = isSecure ? '; Secure' : ''
   if (token) {
-    document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`
+    document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax${secureFlag}`
   } else {
-    document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax'
+    document.cookie = `auth_token=; path=/; max-age=0; SameSite=Lax${secureFlag}`
   }
 }
 

@@ -22,7 +22,7 @@ export interface NotificationCenterProps {
 }
 
 const TYPE_COLORS: Record<NoticeItem['type'], string> = {
-  info: 'bg-blue-500',
+  info: 'bg-primary',
   success: 'bg-green-500',
   warning: 'bg-yellow-500',
   error: 'bg-red-500',
@@ -69,11 +69,19 @@ export function NotificationCenter({
             暂无通知
           </div>
         ) : (
-          <ul className="divide-y">
+          <div className="divide-y">
             {items.map((item) => (
-              <li
+              <div
                 key={item.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => onItemClick?.(item)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onItemClick?.(item)
+                  }
+                }}
                 className={
                   'flex gap-3 p-3 transition-colors hover:bg-muted/50 ' +
                   (onItemClick ? 'cursor-pointer' : '') +
@@ -84,18 +92,18 @@ export function NotificationCenter({
                   className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + TYPE_COLORS[item.type]}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.title}</p>
+                  <p className="break-words text-sm font-medium">{item.title}</p>
                   {item.description && (
-                    <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+                    <p className="break-words text-xs text-muted-foreground">{item.description}</p>
                   )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {new Date(item.createdAt).toLocaleString()}
                   </p>
                 </div>
                 {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

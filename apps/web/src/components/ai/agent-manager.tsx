@@ -26,7 +26,7 @@ const STATUS_META: Record<
   { label: string; icon: React.ComponentType<{ className?: string }>; cls: string }
 > = {
   idle: { label: '空闲', icon: Circle, cls: 'text-muted-foreground' },
-  running: { label: '运行中', icon: Loader2, cls: 'text-blue-500' },
+  running: { label: '运行中', icon: Loader2, cls: 'text-primary' },
   done: { label: '已完成', icon: CheckCircle2, cls: 'text-emerald-500' },
   error: { label: '错误', icon: AlertCircle, cls: 'text-destructive' },
 }
@@ -48,7 +48,7 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
       </div>
       <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5 text-xs">
         <span className="text-muted-foreground">
-          活跃 <span className="font-semibold text-blue-500">{active}</span>
+          活跃 <span className="font-semibold text-primary">{active}</span>
         </span>
         <span className="text-muted-foreground">
           总计 <span className="font-semibold text-foreground">{agents.length}</span>
@@ -81,8 +81,8 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
                       )}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{agent.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{agent.role}</p>
+                      <p className="break-words text-sm font-medium">{agent.name}</p>
+                      <p className="break-words text-xs text-muted-foreground">{agent.role}</p>
                     </div>
                     {agent.model && (
                       <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">

@@ -32,14 +32,14 @@ export const TYPE_ICON: Record<FeedbackType, IconType> = {
 
 export const TYPE_BADGE: Record<FeedbackType, string> = {
   bug: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  feature: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  feature: 'bg-primary/10 text-primary',
   improvement: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   other: 'bg-muted text-muted-foreground',
 }
 
 export const STATUS_BADGE: Record<FeedbackStatus, string> = {
   pending: 'bg-muted text-muted-foreground',
-  reviewing: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  reviewing: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   resolved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   closed: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
 }

@@ -402,7 +402,6 @@ export default function DictPage() {
                 value={typeForm.name}
                 onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })}
                 placeholder={t('dict.namePlaceholder')}
-                autoFocus
               />
             </div>
             <div className="space-y-2">
@@ -464,7 +463,6 @@ export default function DictPage() {
                 value={itemForm.label}
                 onChange={(e) => setItemForm({ ...itemForm, label: e.target.value })}
                 placeholder={t('dict.labelPlaceholder')}
-                autoFocus
               />
             </div>
             <div className="space-y-2">

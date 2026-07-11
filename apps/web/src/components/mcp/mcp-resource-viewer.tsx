@@ -1,5 +1,6 @@
-﻿'use client'
+'use client'
 
+import Image from 'next/image'
 import { Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
@@ -60,7 +61,14 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
 
       {isImage && content ? (
         <div className="flex justify-center rounded-lg border p-4">
-          <img src={content} alt={name} className="max-h-[400px] object-contain" />
+          <Image
+            src={content}
+            alt={name}
+            width={800}
+            height={600}
+            unoptimized
+            className="h-auto w-auto max-h-[400px] object-contain"
+          />
         </div>
       ) : isJson && jsonValid ? (
         <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-xs">
