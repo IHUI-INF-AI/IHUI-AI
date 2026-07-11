@@ -40,7 +40,11 @@ async function uploadFile(projectId: string, file: File, errorMsg: string): Prom
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
-  const json = (await response.json()) as { code: number; message: string; data?: { file: FileItem } }
+  const json = (await response.json()) as {
+    code: number
+    message: string
+    data?: { file: FileItem }
+  }
   if (!response.ok || json.code !== 0) {
     throw new Error(json.message || errorMsg)
   }
@@ -79,13 +83,23 @@ export default function ProjectDetailPage() {
 
   const projectId = params.id
 
-  const { data: project, isLoading: projectLoading, isError: projectError, error: projectErr } = useQuery({
+  const {
+    data: project,
+    isLoading: projectLoading,
+    isError: projectError,
+    error: projectErr,
+  } = useQuery({
     queryKey: ['workspace', 'project', projectId],
     queryFn: () => fetchProject(projectId),
     enabled: !!projectId,
   })
 
-  const { data: files, isLoading: filesLoading, isError: filesError, error: filesErr } = useQuery({
+  const {
+    data: files,
+    isLoading: filesLoading,
+    isError: filesError,
+    error: filesErr,
+  } = useQuery({
     queryKey: ['workspace', 'files', projectId],
     queryFn: () => fetchFiles(projectId),
     enabled: !!projectId,
@@ -113,7 +127,6 @@ export default function ProjectDetailPage() {
   const handleFiles = async (fileList: File[]) => {
     setUploading(true)
     try {
-      // 顺序上传，避免并发过多
       for (const file of fileList) {
         await uploadMutation.mutateAsync(file)
       }
@@ -143,7 +156,12 @@ export default function ProjectDetailPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/workspace')} title={t('back')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push('/workspace')}
+          title={t('back')}
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="min-w-0">
@@ -153,7 +171,7 @@ export default function ProjectDetailPage() {
             ) : projectLoading ? (
               t('loading')
             ) : (
-              project?.name ?? ''
+              (project?.name ?? '')
             )}
           </h1>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">
@@ -166,9 +184,7 @@ export default function ProjectDetailPage() {
         <div className="flex items-center gap-2">
           <FolderOpen className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-base font-semibold">{t('files')}</h2>
-          {files && (
-            <span className="text-sm text-muted-foreground">({files.length})</span>
-          )}
+          {files && <span className="text-sm text-muted-foreground">({files.length})</span>}
         </div>
 
         <UploadZone uploading={uploading} onFiles={handleFiles} />
@@ -181,7 +197,9 @@ export default function ProjectDetailPage() {
         )}
 
         {filesError ? (
-          <div className="py-8 text-center text-sm text-destructive">{(filesErr as Error)?.message}</div>
+          <div className="py-8 text-center text-sm text-destructive">
+            {(filesErr as Error)?.message}
+          </div>
         ) : filesLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />

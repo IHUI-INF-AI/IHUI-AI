@@ -240,7 +240,8 @@
     "deleteProject": "프로젝트 삭제",
     "uploadFailed": "업로드실패",
     "downloadFailed": "다운로드 실패",
-    "deleteConfirm": "확인필요삭제이개변화수량까？"
+    "deleteConfirm": "확인필요삭제이개변화수량까？",
+    "processedFiles": "처리된 파일"
   },
   "chat": {
     "title": "AI대화",
