@@ -240,7 +240,8 @@
     "deleteProject": "Delete project",
     "uploadFailed": "Upload failed",
     "downloadFailed": "Download failed",
-    "deleteConfirm": "Are you sure you want to delete {name}? This cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete {name}? This cannot be undone.",
+    "processedFiles": "Processed Files"
   },
   "chat": {
     "title": "AI Chat",
