@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
@@ -23,10 +24,6 @@ interface Certificate {
 interface CertsData {
   list: Certificate[]
   total: number
-}
-
-interface DownloadResult {
-  url: string
 }
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -63,15 +60,15 @@ export default function CertificateDownloadPage() {
 
   const list = data?.list ?? []
 
-  /** 调用接口获取下载链接，再以 fetch 拉取文件并触发浏览器下载 */
+  /** 调用接口获取 PDF 文件并触发浏览器下载 */
   const handleDownload = async (cert: Certificate) => {
     setDownloadingId(cert.id)
     try {
-      const result = await api<DownloadResult>(`/api/certificates/${cert.id}/download`, {
+      const token = useAuthStore.getState().token
+      const res = await fetch(`/api/certificates/${cert.id}/download`, {
         method: 'POST',
+        headers: { Authorization: token ? `Bearer ${token}` : '' },
       })
-
-      const res = await fetch(result.url)
       if (!res.ok) throw new Error(`${t('download.error')}（${res.status}）`)
 
       const blob = await res.blob()
