@@ -372,6 +372,13 @@
       "when": 1783776001000,
       "tag": "0052_lesson_task_rate_access",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1783776002000,
+      "tag": "0053_audit_gap_fixes",
+      "breakpoints": true
     }
   ]
 }

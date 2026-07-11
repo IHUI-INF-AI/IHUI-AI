@@ -5,6 +5,7 @@ import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useClipboard } from '@/hooks/use-clipboard'
 
 interface CodeViewerProps {
   code: string
@@ -21,16 +22,10 @@ export function CodeViewer({
   showCopyButton = true,
   className,
 }: CodeViewerProps) {
-  const [copied, setCopied] = React.useState(false)
+  const { copied, copy } = useClipboard()
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // ignore
-    }
+  const handleCopy = () => {
+    void copy(code)
   }
 
   return (

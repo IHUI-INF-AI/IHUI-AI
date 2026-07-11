@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -10,6 +10,7 @@ import { Users, UserPlus, UserMinus, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/data/Avatar'
 
 interface FollowUser {
   id: string
@@ -90,78 +91,77 @@ function FollowingContent() {
         ))}
       </div>
 
-      {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">
-          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-          {tab === 'following' ? (
-            <UserPlus className="h-8 w-8 opacity-40" />
-          ) : (
-            <UserMinus className="h-8 w-8 opacity-40" />
-          )}
-          <p className="text-sm">{t(`empty.${tab}`)}</p>
-        </div>
-      ) : (
-        <ul className="divide-y rounded-lg border">
-          {items.map((u) => {
-            const isFollowing = followedIds.has(u.userId)
-            const initial = (u.nickname?.[0] ?? 'U').toUpperCase()
-            return (
-              <li
-                key={u.id}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
-              >
-                <Link
-                  href={`/user/${u.userId}`}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-medium"
+      <div key={tab} className="animate-in fade-in-0 duration-200">
+        {isLoading ? (
+          <div className="py-10 text-center text-muted-foreground">
+            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+            {t('loading')}
+          </div>
+        ) : error ? (
+          <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+            {tab === 'following' ? (
+              <UserPlus className="h-8 w-8 opacity-40" />
+            ) : (
+              <UserMinus className="h-8 w-8 opacity-40" />
+            )}
+            <p className="text-sm">{t(`empty.${tab}`)}</p>
+          </div>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {items.map((u) => {
+              const isFollowing = followedIds.has(u.userId)
+              return (
+                <li
+                  key={u.id}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
                 >
-                  {u.avatar ? (
-                    <img src={u.avatar} alt={u.nickname ?? ''} className="h-9 w-9 rounded-full" />
-                  ) : (
-                    initial
-                  )}
-                </Link>
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/user/${u.userId}`}
-                    className="truncate text-sm font-medium hover:underline"
-                  >
-                    {u.nickname || 'User'}
+                  <Link href={`/user/${u.userId}`} className="shrink-0">
+                    <Avatar
+                      src={u.avatar ?? undefined}
+                      name={u.nickname ?? 'U'}
+                      size="sm"
+                      className="h-9 w-9 text-sm"
+                    />
                   </Link>
-                </div>
-                {isFollowing ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => unfollowMut.mutate(u.userId)}
-                    disabled={unfollowMut.isPending}
-                  >
-                    <UserMinus className="mr-1 h-3.5 w-3.5" />
-                    {t('unfollow')}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => followMut.mutate(u.userId)}
-                    disabled={followMut.isPending}
-                  >
-                    <UserPlus className="mr-1 h-3.5 w-3.5" />
-                    {t('follow')}
-                  </Button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/user/${u.userId}`}
+                      className="break-words text-sm font-medium hover:underline"
+                    >
+                      {u.nickname || 'User'}
+                    </Link>
+                  </div>
+                  {isFollowing ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => unfollowMut.mutate(u.userId)}
+                      disabled={unfollowMut.isPending}
+                    >
+                      <UserMinus className="mr-1 h-3.5 w-3.5" />
+                      {t('unfollow')}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => followMut.mutate(u.userId)}
+                      disabled={followMut.isPending}
+                    >
+                      <UserPlus className="mr-1 h-3.5 w-3.5" />
+                      {t('follow')}
+                    </Button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }

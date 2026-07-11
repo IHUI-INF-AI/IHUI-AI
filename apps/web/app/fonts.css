@@ -1,0 +1,36 @@
+/* ============ 自定义字体（迁移自历史项目 styles/fonts.scss） ============ */
+
+/* HarmonyOS Sans SC */
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/harmonyos-fonts/HarmonyOS-Sans-SC@main/HarmonyOS_Sans_SC_Regular.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/harmonyos-fonts/HarmonyOS-Sans-SC@main/HarmonyOS_Sans_SC_Medium.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/harmonyos-fonts/HarmonyOS-Sans-SC@main/HarmonyOS_Sans_SC_Bold.woff2')
+    format('woff2');
+}
+
+/* EDIX 英文标题字体 */
+@font-face {
+  font-family: 'EDIX';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/edix-fonts/EDIX@main/EDIX.woff2') format('woff2');
+}

@@ -138,6 +138,7 @@ export default function LiveDetailPage() {
       <Card className="overflow-hidden">
         <div className="relative flex h-56 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
           {channel.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={channel.coverImage}
               alt={channel.title}

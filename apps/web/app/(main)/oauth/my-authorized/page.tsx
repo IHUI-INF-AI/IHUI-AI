@@ -68,7 +68,11 @@ export default function MyAuthorizedPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('myAuthorizedDesc')}</p>
       </div>
 
-      {error && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
+      {error && (
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -88,7 +92,7 @@ export default function MyAuthorizedPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <CardTitle className="truncate text-base">{it.appName}</CardTitle>
+                    <CardTitle className="break-words text-base">{it.appName}</CardTitle>
                     <CardDescription className="text-xs">{it.clientId}</CardDescription>
                   </div>
                   <Button
@@ -109,8 +113,7 @@ export default function MyAuthorizedPage() {
               <CardContent className="space-y-1 text-xs text-muted-foreground">
                 {it.scope && (
                   <div>
-                    <span className="font-medium text-foreground">{t('scopes')}:</span>{' '}
-                    {it.scope}
+                    <span className="font-medium text-foreground">{t('scopes')}:</span> {it.scope}
                   </div>
                 )}
                 <div>

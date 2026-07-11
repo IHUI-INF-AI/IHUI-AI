@@ -84,6 +84,7 @@ function ShareContent({ shareData, copy, copied }: ShareContentProps) {
       {/* 头部：模型信息 */}
       <header className="flex items-center border-b border-gray-100 px-5 py-3.5">
         {modelIcon ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={modelIcon} alt="模型图标" className="mr-2.5 h-8 w-8 rounded object-cover" />
         ) : (
           <div className="mr-2.5 flex h-8 w-8 items-center justify-center rounded bg-gray-100">
@@ -215,7 +216,9 @@ function VideoPlayer({ video }: { video: NonNullable<ShareContent['answer']['vid
           controls
           className="block rounded-lg"
           style={{ width: '118px', height: '210px' }}
-        />
+        >
+          <track kind="captions" />
+        </video>
       </div>
     )
   }
@@ -231,7 +234,9 @@ function VideoPlayer({ video }: { video: NonNullable<ShareContent['answer']['vid
         controls
         className="block w-full rounded-lg"
         style={{ aspectRatio }}
-      />
+      >
+        <track kind="captions" />
+      </video>
     </div>
   )
 }
@@ -248,10 +253,11 @@ function ImageGrid({ images }: { images: string[] }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {images.map((url, idx) => (
           <button
-            key={idx}
+            key={url}
             onClick={() => setPreviewIndex(idx)}
             className="overflow-hidden rounded-2xl"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
               alt={`图片${idx + 1}`}
@@ -281,8 +287,16 @@ function ImagePreview({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClose()
+        }
+      }}
     >
       <button
         onClick={onClose}
@@ -292,6 +306,7 @@ function ImagePreview({
         <X className="h-5 w-5" />
       </button>
 
+      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <img
         src={images[current]}
         alt={`预览图片 ${current + 1}`}
@@ -383,7 +398,9 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
           setPlaying(false)
           toast.error('音频播放失败')
         }}
-      />
+      >
+        <track kind="captions" />
+      </audio>
       <button
         onClick={toggle}
         className="flex h-10 w-10 shrink-0 items-center justify-center text-xl text-[#9A99F3]"
@@ -416,7 +433,7 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
         if (item.type === 'text' && item.content) {
           return (
             <p
-              key={idx}
+              key={`list-${idx}`}
               className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-700"
             >
               {item.content}
@@ -426,10 +443,11 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
         if (item.type === 'image' && item.content) {
           return (
             <button
-              key={idx}
+              key={`list-${idx}`}
               onClick={() => window.open(item.content, '_blank')}
               className="block overflow-hidden rounded-2xl"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.content}
                 alt={`图片${idx + 1}`}

@@ -47,7 +47,9 @@ export default function SignInPage() {
 
   const signMut = useMutation({
     mutationFn: () =>
-      api<{ record: { consecutiveDays: number }; points: { points: number } }>('/api/sign-in', { method: 'POST' }).then((d) => ({ points: d.points.points, consecutiveDays: d.record.consecutiveDays })),
+      api<{ record: { consecutiveDays: number }; points: { points: number } }>('/api/sign-in', {
+        method: 'POST',
+      }).then((d) => ({ points: d.points.points, consecutiveDays: d.record.consecutiveDays })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sign-in'] })
       qc.invalidateQueries({ queryKey: ['points'] })
@@ -135,10 +137,7 @@ export default function SignInPage() {
                 {t('todayReward')}:{' '}
                 <span className="font-semibold text-foreground">+{today?.todayReward ?? 0}</span>
               </div>
-              <Button
-                onClick={() => signMut.mutate()}
-                disabled={signedIn || signMut.isPending}
-              >
+              <Button onClick={() => signMut.mutate()} disabled={signedIn || signMut.isPending}>
                 {signMut.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : signedIn ? (
@@ -146,11 +145,7 @@ export default function SignInPage() {
                 ) : (
                   <Calendar className="h-4 w-4" />
                 )}
-                {signedIn
-                  ? t('signedInBtn')
-                  : signMut.isPending
-                    ? t('signing')
-                    : t('signInBtn')}
+                {signedIn ? t('signedInBtn') : signMut.isPending ? t('signing') : t('signInBtn')}
               </Button>
             </div>
           </CardContent>
@@ -230,8 +225,8 @@ export default function SignInPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {historyQ.data.map((h, i) => (
-                  <tr key={i} className="transition-colors hover:bg-accent/50">
+                {historyQ.data.map((h) => (
+                  <tr key={h.signInDate} className="transition-colors hover:bg-accent/50">
                     <td className="px-4 py-2 text-muted-foreground">{fmtFull(h.signInDate)}</td>
                     <td className="px-4 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">
                       +{h.rewardPoints}

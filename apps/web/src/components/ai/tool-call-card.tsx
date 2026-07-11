@@ -15,12 +15,19 @@ interface ToolCallCardProps {
 }
 
 const STATUS_CONFIG = {
-  running: { icon: Loader2, className: 'animate-spin text-blue-500', label: '执行中' },
+  running: { icon: Loader2, className: 'animate-spin text-primary', label: '执行中' },
   success: { icon: Check, className: 'text-green-500', label: '成功' },
   error: { icon: AlertCircle, className: 'text-red-500', label: '失败' },
 } as const
 
-export function ToolCallCard({ toolName, args, result, status, duration, error }: ToolCallCardProps) {
+export function ToolCallCard({
+  toolName,
+  args,
+  result,
+  status,
+  duration,
+  error,
+}: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const config = STATUS_CONFIG[status]
   const StatusIcon = config.icon
@@ -33,11 +40,18 @@ export function ToolCallCard({ toolName, args, result, status, duration, error }
           onClick={() => setExpanded((v) => !v)}
           className="flex w-full items-center gap-2 text-left"
         >
-          <ChevronRight className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+          <ChevronRight
+            className={cn(
+              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              expanded && 'rotate-90',
+            )}
+          />
           <StatusIcon className={cn('h-4 w-4 shrink-0', config.className)} />
-          <CardTitle className="flex-1 truncate text-sm font-medium">{toolName}</CardTitle>
+          <CardTitle className="flex-1 break-words text-sm font-medium">{toolName}</CardTitle>
           {duration !== undefined && (
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{duration}ms</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {duration}ms
+            </span>
           )}
           <span className={cn('shrink-0 text-xs', config.className)}>{config.label}</span>
         </button>
@@ -53,7 +67,9 @@ export function ToolCallCard({ toolName, args, result, status, duration, error }
           {error && (
             <div>
               <p className="mb-1 font-medium text-red-500">错误</p>
-              <pre className="overflow-x-auto rounded-md bg-red-500/10 p-2 font-mono text-red-500">{error}</pre>
+              <pre className="overflow-x-auto rounded-md bg-red-500/10 p-2 font-mono text-red-500">
+                {error}
+              </pre>
             </div>
           )}
           {result !== undefined && (

@@ -91,13 +91,13 @@ export default function DocsPage() {
             const CatIcon = CATS.find((c) => c.key === d.category)?.icon ?? FileText
             return (
               <Link key={d.slug} href={`/docs/${d.slug}`} className="block">
-                <Card className="h-full transition-colors hover:border-primary/40 hover:shadow-md">
+                <Card className="h-full transition-colors hover:bg-accent hover:shadow-md">
                   <CardHeader>
                     <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <CatIcon className="h-4 w-4" />
                     </div>
                     <CardTitle className="text-base">{d.title}</CardTitle>
-                    <CardDescription className="line-clamp-2 min-h-[2.5rem]">
+                    <CardDescription className="min-h-[2.5rem]">
                       {d.summary || excerptFromContent(d.content)}
                     </CardDescription>
                   </CardHeader>

@@ -79,7 +79,7 @@ const CONTENT_TYPE_LABEL: Record<RecommendSlot['contentType'], string> = {
   live: 'Live',
 }
 const CONTENT_TYPE_STYLE: Record<RecommendSlot['contentType'], string> = {
-  agent: 'bg-blue-500/10 text-blue-600',
+  agent: 'bg-primary/10 text-primary',
   article: 'bg-emerald-500/10 text-emerald-600',
   course: 'bg-purple-500/10 text-purple-600',
   activity: 'bg-amber-500/10 text-amber-600',
@@ -279,7 +279,6 @@ export default function RecommendationConfigPage() {
                 value={form.position}
                 onChange={(e) => setForm({ ...form, position: e.target.value })}
                 placeholder="home_banner"
-                autoFocus
               />
             </div>
             <div className="space-y-2">

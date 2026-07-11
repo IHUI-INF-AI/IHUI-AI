@@ -93,7 +93,12 @@ function StatCard({
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-5">
-        <div className={cn('flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white', gradient)}>
+        <div
+          className={cn(
+            'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white',
+            gradient,
+          )}
+        >
           <Icon className="h-7 w-7" />
         </div>
         <div className="min-w-0">
@@ -125,7 +130,10 @@ export default function EduExamPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', 'papers', debounced, page],
-    queryFn: () => eduApi<PageData<Paper>>(`/api/admin/exam/papers${buildQs({ page, pageSize: PAGE_SIZE, search: debounced })}`),
+    queryFn: () =>
+      eduApi<PageData<Paper>>(
+        `/api/admin/exam/papers${buildQs({ page, pageSize: PAGE_SIZE, search: debounced })}`,
+      ),
   })
 
   const saveMut = useMutation({
@@ -139,7 +147,11 @@ export default function EduExamPage() {
         isPublished: form.isPublished,
         isRandom: form.isRandom,
       }
-      if (editing) return eduApi(`/api/admin/exam/papers/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      if (editing)
+        return eduApi(`/api/admin/exam/papers/${editing.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        })
       return eduApi(`/api/admin/exam/papers`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
@@ -208,16 +220,41 @@ export default function EduExamPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={FileText} label="试卷总数" value={total} gradient="bg-gradient-to-br from-indigo-500 to-purple-700" />
-        <StatCard icon={ListChecks} label="已发布" value={papers.filter((p) => p.isPublished).length} gradient="bg-gradient-to-br from-emerald-500 to-green-400" />
-        <StatCard icon={Settings2} label="随机组卷" value={papers.filter((p) => p.isRandom).length} gradient="bg-gradient-to-br from-sky-500 to-blue-500" />
-        <StatCard icon={FileText} label="当前页" value={papers.length} gradient="bg-gradient-to-br from-pink-500 to-rose-500" />
+        <StatCard
+          icon={FileText}
+          label="试卷总数"
+          value={total}
+          gradient="bg-gradient-to-br from-indigo-500 to-purple-700"
+        />
+        <StatCard
+          icon={ListChecks}
+          label="已发布"
+          value={papers.filter((p) => p.isPublished).length}
+          gradient="bg-gradient-to-br from-emerald-500 to-green-400"
+        />
+        <StatCard
+          icon={Settings2}
+          label="随机组卷"
+          value={papers.filter((p) => p.isRandom).length}
+          gradient="bg-gradient-to-br from-sky-500 to-blue-500"
+        />
+        <StatCard
+          icon={FileText}
+          label="当前页"
+          value={papers.length}
+          gradient="bg-gradient-to-br from-pink-500 to-rose-500"
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索试卷标题..." className="h-9 pl-8" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索试卷标题..."
+            className="h-9 pl-8"
+          />
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
@@ -271,14 +308,30 @@ export default function EduExamPage() {
                 <TableRow key={p.id} className="hover:bg-muted/30">
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{p.title}</div>
-                    {p.description ? <div className="max-w-xs truncate text-xs text-muted-foreground">{p.description}</div> : null}
+                    {p.description ? (
+                      <div className="max-w-xs break-words text-xs text-muted-foreground">
+                        {p.description}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">{Number(p.totalScore)}</TableCell>
                   <TableCell className="px-4 py-2.5">{Number(p.passScore)}</TableCell>
                   <TableCell className="px-4 py-2.5">{p.duration}分钟</TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', p.isPublished ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-muted text-muted-foreground')}>
-                      <span className={cn('h-1.5 w-1.5 rounded-full', p.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground')} />
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                        p.isPublished
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full',
+                          p.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
+                        )}
+                      />
                       {p.isPublished ? '已发布' : '未发布'}
                     </span>
                   </TableCell>
@@ -292,7 +345,14 @@ export default function EduExamPage() {
                       <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="编辑">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(p)} title="删除" className="text-destructive hover:text-destructive" disabled={deleteMut.isPending}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(p)}
+                        title="删除"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deleteMut.isPending}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -307,12 +367,24 @@ export default function EduExamPage() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 份试卷</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">第 {page} / {totalPages} 页</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            第 {page} / {totalPages} 页
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -325,33 +397,69 @@ export default function EduExamPage() {
             <DialogHeader>
               <DialogTitle>{editing ? '编辑试卷' : '新建试卷'}</DialogTitle>
             </DialogHeader>
-            {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+            {err && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {err}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="p-title">标题</Label>
-              <Input id="p-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="请输入试卷标题" />
+              <Input
+                id="p-title"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="请输入试卷标题"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-desc">描述</Label>
-              <Input id="p-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="试卷描述(选填)" />
+              <Input
+                id="p-desc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="试卷描述(选填)"
+              />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="p-total">总分</Label>
-                <Input id="p-total" type="number" min="0" value={form.totalScore} onChange={(e) => setForm({ ...form, totalScore: e.target.value })} />
+                <Input
+                  id="p-total"
+                  type="number"
+                  min="0"
+                  value={form.totalScore}
+                  onChange={(e) => setForm({ ...form, totalScore: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-pass">及格分</Label>
-                <Input id="p-pass" type="number" min="0" value={form.passScore} onChange={(e) => setForm({ ...form, passScore: e.target.value })} />
+                <Input
+                  id="p-pass"
+                  type="number"
+                  min="0"
+                  value={form.passScore}
+                  onChange={(e) => setForm({ ...form, passScore: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-dur">时长(分钟)</Label>
-                <Input id="p-dur" type="number" min="1" max="600" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} />
+                <Input
+                  id="p-dur"
+                  type="number"
+                  min="1"
+                  max="600"
+                  value={form.duration}
+                  onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="p-pub">发布状态</Label>
-                <Select value={form.isPublished ? 'true' : 'false'} onValueChange={(v) => setForm({ ...form, isPublished: v === 'true' })}>
+                <Select
+                  value={form.isPublished ? 'true' : 'false'}
+                  onValueChange={(v) => setForm({ ...form, isPublished: v === 'true' })}
+                >
                   <SelectTrigger className={selectClass} id="p-pub">
                     <SelectValue />
                   </SelectTrigger>
@@ -363,7 +471,10 @@ export default function EduExamPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-rand">随机组卷</Label>
-                <Select value={form.isRandom ? 'true' : 'false'} onValueChange={(v) => setForm({ ...form, isRandom: v === 'true' })}>
+                <Select
+                  value={form.isRandom ? 'true' : 'false'}
+                  onValueChange={(v) => setForm({ ...form, isRandom: v === 'true' })}
+                >
                   <SelectTrigger className={selectClass} id="p-rand">
                     <SelectValue />
                   </SelectTrigger>
@@ -375,7 +486,12 @@ export default function EduExamPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

@@ -75,14 +75,11 @@ export function DeviceManager() {
           devices.map((d) => {
             const Icon = iconFor(d.deviceName)
             return (
-              <div
-                key={d.deviceId}
-                className="flex items-center gap-3 rounded-lg border p-3"
-              >
+              <div key={d.deviceId} className="flex items-center gap-3 rounded-lg border p-3">
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
-                    <span className="truncate">{d.deviceName}</span>
+                    <span className="break-words">{d.deviceName}</span>
                     {d.isCurrent && (
                       <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
                         {t('device.current')}
@@ -90,8 +87,12 @@ export function DeviceManager() {
                     )}
                   </div>
                   <div className="mt-0.5 flex gap-3 text-xs text-muted-foreground">
-                    <span>{t('device.loginTime')}: {d.loginTime}</span>
-                    <span>{t('device.lastActive')}: {d.lastActiveTime}</span>
+                    <span>
+                      {t('device.loginTime')}: {d.loginTime}
+                    </span>
+                    <span>
+                      {t('device.lastActive')}: {d.lastActiveTime}
+                    </span>
                   </div>
                 </div>
                 {!d.isCurrent && (

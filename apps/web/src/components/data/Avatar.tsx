@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
@@ -37,17 +38,18 @@ export function Avatar({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden bg-muted font-medium text-muted-foreground',
+        'relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-muted font-medium text-muted-foreground',
         sizeMap[size],
         shape === 'circle' ? 'rounded-full' : 'rounded-lg',
         className,
       )}
     >
       {src && !error ? (
-        <img
+        <Image
           src={src}
           alt={name ?? 'avatar'}
-          className="h-full w-full object-cover"
+          fill
+          className="object-cover"
           onError={() => setError(true)}
         />
       ) : (

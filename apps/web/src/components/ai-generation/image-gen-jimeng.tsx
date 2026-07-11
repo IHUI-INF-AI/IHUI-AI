@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Download, Loader2 } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -38,7 +39,7 @@ const RATIOS = [
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-export function ImageGenJimeng() {
+export const ImageGenJimeng = React.memo(function ImageGenJimeng() {
   const t = useTranslations('aiGeneration')
   const [prompt, setPrompt] = React.useState('')
   const [style, setStyle] = React.useState<string>(STYLES[0].value)
@@ -131,7 +132,14 @@ export function ImageGenJimeng() {
           <div className="grid grid-cols-2 gap-3">
             {images.map((url) => (
               <div key={url} className="space-y-1">
-                <img src={url} alt={prompt} className="w-full rounded-md border" />
+                <Image
+                  src={url}
+                  alt={prompt}
+                  width={800}
+                  height={600}
+                  unoptimized
+                  className="h-auto w-full rounded-md border"
+                />
                 <a
                   href={url}
                   download
@@ -149,6 +157,6 @@ export function ImageGenJimeng() {
       </CardContent>
     </Card>
   )
-}
+})
 
 export default ImageGenJimeng

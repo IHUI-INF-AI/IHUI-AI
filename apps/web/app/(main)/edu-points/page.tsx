@@ -25,7 +25,11 @@ async function api<T>(url: string): Promise<T> {
 export default function EduPointsPage() {
   const t = useTranslations('eduPoints')
 
-  const { data: channels, isLoading, error } = useQuery({
+  const {
+    data: channels,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['edu-points', 'channels'],
     queryFn: () => api<{ list: Channel[] }>(`/api/edu-points/channels`).then((d) => d.list ?? []),
   })
@@ -98,16 +102,14 @@ export default function EduPointsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {list.map((channel) => (
-              <Card key={channel.id} className="transition-colors hover:border-primary/40">
+              <Card key={channel.id} className="transition-colors hover:bg-accent">
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="line-clamp-1 text-base">{channel.name}</CardTitle>
+                  <CardTitle className="text-base">{channel.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
-                  {channel.code && (
-                    <p className="text-xs text-muted-foreground">{channel.code}</p>
-                  )}
+                  {channel.code && <p className="text-xs text-muted-foreground">{channel.code}</p>}
                   {channel.description && (
-                    <p className="line-clamp-2 text-muted-foreground">{channel.description}</p>
+                    <p className="text-muted-foreground">{channel.description}</p>
                   )}
                 </CardContent>
               </Card>

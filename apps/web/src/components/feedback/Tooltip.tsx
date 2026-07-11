@@ -25,11 +25,16 @@ export function Tooltip({
   delayDuration,
   className,
 }: TooltipProps) {
+  const tipId = React.useId()
   return (
     <TooltipPrimitive.Root delayDuration={delayDuration}>
-      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Trigger asChild aria-describedby={tipId}>
+        {children}
+      </TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
+          id={tipId}
+          role="tooltip"
           side={side}
           align={align}
           sideOffset={4}

@@ -1,11 +1,14 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { ShieldCheck, Loader2, Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui'
+import { fetchApi } from '@/lib/api'
+import { useClipboard } from '@/hooks/use-clipboard'
 import { generateTotp } from './totp'
 
 interface TwoFactorStatus {
@@ -20,10 +23,6 @@ interface SetupData {
 
 type Step = 'status' | 'qr' | 'verify' | 'backup'
 
-/**
- * 双因素认证：TOTP 绑定 / 验证码校验 / 恢复码展示。
- * 后端负责生成 secret、QR、备份码与最终校验；前端含本地 TOTP 演示生成。
- */
 export function TwoFactorAuth() {
   const t = useTranslations('settings')
   const [step, setStep] = React.useState<Step>('status')
@@ -33,20 +32,21 @@ export function TwoFactorAuth() {
   const [code, setCode] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
-  const [copied, setCopied] = React.useState(false)
+  const { copied, copy } = useClipboard()
   const [previewCode, setPreviewCode] = React.useState('')
 
   React.useEffect(() => {
-    void fetch('/api/auth/2fa/status')
-      .then((r) => r.json())
-      .then((j: { code: number; data?: TwoFactorStatus }) => {
-        if (j.code === 0 && j.data) setEnabled(j.data.enabled)
+    let active = true
+    fetchApi<TwoFactorStatus>('/api/auth/2fa/status')
+      .then((res) => {
+        if (active && res.success && res.data) setEnabled(res.data.enabled)
       })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => active && setLoading(false))
+    return () => {
+      active = false
+    }
   }, [])
 
-  // 演示：本地生成当前 30s 窗口的 TOTP（便于无 authenticator 时测试）
   React.useEffect(() => {
     if (step !== 'qr' || !setup) return
     let active = true
@@ -69,12 +69,17 @@ export function TwoFactorAuth() {
   const startSetup = async () => {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/2fa/setup', { method: 'POST' })
-      const json = (await res.json()) as { code: number; data?: SetupData }
-      if (json.code === 0 && json.data) {
-        setSetup(json.data)
+      const res = await fetchApi<SetupData>('/api/auth/2fa/setup', { method: 'POST' })
+      if (!res.success) {
+        toast.error(res.error || t('twofa.codeInvalid'))
+        return
+      }
+      if (res.data) {
+        setSetup(res.data)
         setStep('qr')
       }
+    } catch {
+      toast.error(t('twofa.codeInvalid'))
     } finally {
       setSubmitting(false)
     }
@@ -88,23 +93,20 @@ export function TwoFactorAuth() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/2fa/verify', {
+      const res = await fetchApi<{ backupCodes: string[] }>('/api/auth/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       })
-      const json = (await res.json()) as {
-        code: number
-        data?: { backupCodes: string[] }
-        message?: string
-      }
-      if (json.code !== 0) {
-        setError(json.message || t('twofa.codeInvalid'))
+      if (!res.success) {
+        setError(res.error || t('twofa.codeInvalid'))
         return
       }
-      if (json.data?.backupCodes)
-        setSetup((prev) => (prev ? { ...prev, backupCodes: json.data!.backupCodes } : prev))
+      if (res.data?.backupCodes)
+        setSetup((prev) => (prev ? { ...prev, backupCodes: res.data!.backupCodes } : prev))
       setStep('backup')
+    } catch {
+      setError(t('twofa.codeInvalid'))
     } finally {
       setSubmitting(false)
     }
@@ -113,12 +115,15 @@ export function TwoFactorAuth() {
   const handleDisable = async () => {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/2fa/disable', { method: 'POST' })
-      const json = (await res.json()) as { code: number }
-      if (json.code === 0) {
-        setEnabled(false)
-        setStep('status')
+      const res = await fetchApi('/api/auth/2fa/disable', { method: 'POST' })
+      if (!res.success) {
+        toast.error(res.error || t('twofa.codeInvalid'))
+        return
       }
+      setEnabled(false)
+      setStep('status')
+    } catch {
+      toast.error(t('twofa.codeInvalid'))
     } finally {
       setSubmitting(false)
     }
@@ -126,15 +131,13 @@ export function TwoFactorAuth() {
 
   const copySecret = () => {
     if (setup?.secret) {
-      navigator.clipboard.writeText(setup.secret)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      void copy(setup.secret)
     }
   }
 
   const copyCodes = () => {
     if (setup?.backupCodes.length) {
-      navigator.clipboard.writeText(setup.backupCodes.join('\n'))
+      void copy(setup.backupCodes.join('\n'))
       toast.success(t('twofa.codesCopied'))
     }
   }
@@ -182,7 +185,14 @@ export function TwoFactorAuth() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{t('twofa.scanQR')}</p>
             <div className="flex justify-center">
-              <img src={setup.qrCodeUrl} alt="2FA QR" className="h-40 w-40 rounded-lg border" />
+              <Image
+                src={setup.qrCodeUrl}
+                alt="2FA QR"
+                width={160}
+                height={160}
+                unoptimized
+                className="h-40 w-40 rounded-lg border"
+              />
             </div>
             <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs">
               <span className="font-mono break-all">{setup.secret}</span>

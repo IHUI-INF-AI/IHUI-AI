@@ -23,7 +23,7 @@ function typeColor(type: string): string {
     case 'string':
       return 'text-emerald-600 dark:text-emerald-400'
     case 'number':
-      return 'text-blue-600 dark:text-blue-400'
+      return 'text-primary'
     case 'boolean':
       return 'text-amber-600 dark:text-amber-400'
     case 'null':
@@ -49,10 +49,8 @@ function TreeNode({ name, value, depth }: TreeNodeProps) {
   const isContainer = type === 'object' || type === 'array'
 
   const entries: [string, unknown][] = React.useMemo(() => {
-    if (type === 'array')
-      return (value as unknown[]).map((v, i) => [String(i), v])
-    if (type === 'object')
-      return Object.entries(value as Record<string, unknown>)
+    if (type === 'array') return (value as unknown[]).map((v, i) => [String(i), v])
+    if (type === 'object') return Object.entries(value as Record<string, unknown>)
     return []
   }, [value, type])
 
@@ -74,9 +72,7 @@ function TreeNode({ name, value, depth }: TreeNodeProps) {
         ) : (
           <span className="inline-block w-[14px]" />
         )}
-        {name !== undefined && (
-          <span className="font-medium text-foreground">{name}:</span>
-        )}
+        {name !== undefined && <span className="font-medium text-foreground">{name}:</span>}
         {isContainer ? (
           <span className={cn('text-xs', typeColor(type))}>
             {type}

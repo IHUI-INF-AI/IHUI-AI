@@ -124,6 +124,7 @@ export default function ActivityDetailPage() {
 
       <div className="overflow-hidden rounded-lg border bg-card">
         {a.banner ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={a.banner} alt={a.title} className="h-48 w-full object-cover sm:h-64" />
         ) : (
           <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 sm:h-64">

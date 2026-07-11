@@ -2,7 +2,16 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, ListChecks, Play, Pause, RotateCw, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import {
+  Loader2,
+  ListChecks,
+  Play,
+  Pause,
+  RotateCw,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -39,15 +48,21 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const selectClass = 'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const TYPE_LABEL: Record<Task['type'], string> = { cron: '定时', interval: '周期', once: '单次' }
 const STATUS_STYLE: Record<Task['status'], string> = {
   running: 'bg-emerald-500/10 text-emerald-600',
   paused: 'bg-muted text-muted-foreground',
-  idle: 'bg-blue-500/10 text-blue-600',
+  idle: 'bg-amber-500/10 text-amber-600',
   failed: 'bg-red-500/10 text-red-600',
 }
-const STATUS_LABEL: Record<Task['status'], string> = { running: '运行中', paused: '已暂停', idle: '空闲', failed: '失败' }
+const STATUS_LABEL: Record<Task['status'], string> = {
+  running: '运行中',
+  paused: '已暂停',
+  idle: '空闲',
+  failed: '失败',
+}
 
 export default function AdminSystemTasksPage() {
   const qc = useQueryClient()
@@ -58,12 +73,17 @@ export default function AdminSystemTasksPage() {
     queryFn: () => {
       const qs = new URLSearchParams()
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: Task[] }>(`/api/admin/system/tasks?${qs.toString()}`).then((d) => d.list ?? [])
+      return api<{ list: Task[] }>(`/api/admin/system/tasks?${qs.toString()}`).then(
+        (d) => d.list ?? [],
+      )
     },
   })
 
   const toggleMut = useMutation({
-    mutationFn: (t: Task) => api(`/api/admin/system/tasks/${t.id}/${t.status === 'paused' ? 'resume' : 'pause'}`, { method: 'POST' }),
+    mutationFn: (t: Task) =>
+      api(`/api/admin/system/tasks/${t.id}/${t.status === 'paused' ? 'resume' : 'pause'}`, {
+        method: 'POST',
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'system', 'tasks'] }),
   })
 
@@ -99,10 +119,16 @@ export default function AdminSystemTasksPage() {
 
       <div className="flex items-center gap-2">
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className={selectClass} aria-label="状态"><SelectValue /></SelectTrigger>
+          <SelectTrigger className={selectClass} aria-label="状态">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部状态</SelectItem>
-            {Object.entries(STATUS_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            {Object.entries(STATUS_LABEL).map(([k, v]) => (
+              <SelectItem key={k} value={k}>
+                {v}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -123,25 +149,46 @@ export default function AdminSystemTasksPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                </TableCell>
+              </TableRow>
             ) : list.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">暂无任务</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  暂无任务
+                </TableCell>
+              </TableRow>
             ) : (
               list.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      {t.lastStatus === 'success' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-                      {t.lastStatus === 'failed' && <XCircle className="h-3.5 w-3.5 text-red-500" />}
+                      {t.lastStatus === 'success' && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      )}
+                      {t.lastStatus === 'failed' && (
+                        <XCircle className="h-3.5 w-3.5 text-red-500" />
+                      )}
                       {t.name}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs">{TYPE_LABEL[t.type]}</span>
+                    <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {TYPE_LABEL[t.type]}
+                    </span>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{t.schedule}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {t.schedule}
+                  </TableCell>
                   <TableCell>
-                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs', STATUS_STYLE[t.status])}>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+                        STATUS_STYLE[t.status],
+                      )}
+                    >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
                       {STATUS_LABEL[t.status]}
                     </span>
@@ -152,17 +199,40 @@ export default function AdminSystemTasksPage() {
                         <Clock className="h-3 w-3" />
                         {new Date(t.lastRunAt).toLocaleString()}
                       </span>
-                    ) : '-'}
+                    ) : (
+                      '-'
+                    )}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{t.nextRunAt ? new Date(t.nextRunAt).toLocaleString() : '-'}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{t.lastDuration !== null && t.lastDuration !== undefined ? `${t.lastDuration}ms` : '-'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {t.nextRunAt ? new Date(t.nextRunAt).toLocaleString() : '-'}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {t.lastDuration !== null && t.lastDuration !== undefined
+                      ? `${t.lastDuration}ms`
+                      : '-'}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" disabled={runMut.isPending} onClick={() => runMut.mutate(t.id)}>
-                        <RotateCw className="h-3.5 w-3.5" />执行
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={runMut.isPending}
+                        onClick={() => runMut.mutate(t.id)}
+                      >
+                        <RotateCw className="h-3.5 w-3.5" />
+                        执行
                       </Button>
-                      <Button size="sm" variant="ghost" disabled={toggleMut.isPending} onClick={() => toggleMut.mutate(t)}>
-                        {t.status === 'paused' ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={toggleMut.isPending}
+                        onClick={() => toggleMut.mutate(t)}
+                      >
+                        {t.status === 'paused' ? (
+                          <Play className="h-3.5 w-3.5" />
+                        ) : (
+                          <Pause className="h-3.5 w-3.5" />
+                        )}
                         {t.status === 'paused' ? '启动' : '暂停'}
                       </Button>
                     </div>

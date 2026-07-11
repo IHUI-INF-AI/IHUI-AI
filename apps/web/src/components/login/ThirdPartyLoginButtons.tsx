@@ -73,7 +73,7 @@ export function ThirdPartyLoginButtons() {
 
     setHandlingCallback(true)
     void handleCallback(platform, code, state).finally(() => setHandlingCallback(false))
-  }, [searchParams])
+  }, [searchParams, handleCallback])
 
   const providers: Provider[] = [
     {

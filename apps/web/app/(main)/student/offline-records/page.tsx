@@ -3,14 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  CalendarClock,
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  Clock,
-} from 'lucide-react'
+import { CalendarClock, Plus, Edit, Trash2, Loader2, Clock } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -69,12 +62,16 @@ export default function OfflineRecordsPage() {
   const [form, setForm] = React.useState<RecordForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
 
-  const { data: list = [], isLoading, error } = useQuery({
+  const {
+    data: list = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['student', 'offline-records'],
     queryFn: () =>
-      api<OfflineRecord[] | { list: OfflineRecord[] }>(
-        '/api/edu/my-offline-records',
-      ).then((d) => (Array.isArray(d) ? d : d.list ?? [])),
+      api<OfflineRecord[] | { list: OfflineRecord[] }>('/api/edu/my-offline-records').then((d) =>
+        Array.isArray(d) ? d : (d.list ?? []),
+      ),
   })
 
   const saveMut = useMutation({
@@ -149,7 +146,7 @@ export default function OfflineRecordsPage() {
   }
 
   const TYPE_COLORS = [
-    'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    'bg-primary/10 text-primary',
     'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     'bg-amber-500/10 text-amber-600 dark:text-amber-400',
     'bg-purple-500/10 text-purple-600 dark:text-purple-400',
@@ -188,7 +185,7 @@ export default function OfflineRecordsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {list.map((record, idx) => (
-            <Card key={record.id} className="transition-colors hover:border-primary/40">
+            <Card key={record.id} className="transition-colors hover:bg-accent">
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -226,9 +223,7 @@ export default function OfflineRecordsPage() {
                 </div>
                 <h3 className="font-medium">{record.title}</h3>
                 {record.description && (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {record.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{record.description}</p>
                 )}
                 {record.occurredAt && (
                   <p className="text-xs text-muted-foreground">
@@ -303,7 +298,12 @@ export default function OfflineRecordsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

@@ -6,7 +6,9 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
+import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useCountdown } from '@/hooks/use-countdown'
 
 const phoneRegex = /^1[3-9]\d{9}$/
 
@@ -23,15 +25,9 @@ export function PhoneCodeLogin() {
   const [phone, setPhone] = React.useState('')
   const [code, setCode] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
-  const [countdown, setCountdown] = React.useState(0)
+  const { count: countdown, start: startCountdown, reset: resetCountdown } = useCountdown(0)
   const [sending, setSending] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
-
-  React.useEffect(() => {
-    if (countdown <= 0) return
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [countdown])
 
   const handleSendCode = async () => {
     setError(null)
@@ -41,17 +37,16 @@ export function PhoneCodeLogin() {
     }
     setSending(true)
     try {
-      const res = await fetch('/api/auth/send-code', {
+      const res = await fetchApi('/api/auth/send-code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, scene: 'login' }),
       })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setError(json.message || t('loginFailed'))
+      if (!res.success) {
+        setError(res.error || t('loginFailed'))
         return
       }
-      setCountdown(60)
+      resetCountdown(60)
+      startCountdown()
     } catch {
       setError(t('loginFailed'))
     } finally {
@@ -72,17 +67,19 @@ export function PhoneCodeLogin() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/login/phone-code', {
+      const res = await fetchApi<TokenResult>('/api/auth/login/phone-code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, code }),
       })
-      const json = (await res.json()) as { code: number; message: string; data?: TokenResult }
-      if (!res.ok || json.code !== 0 || !json.data?.accessToken) {
-        setError(json.message || t('loginFailed'))
+      if (!res.success) {
+        setError(res.error || t('loginFailed'))
         return
       }
-      setToken(json.data.accessToken)
+      if (!res.data?.accessToken) {
+        setError(t('loginFailed'))
+        return
+      }
+      setToken(res.data.accessToken)
       router.push('/')
     } catch {
       setError(t('loginFailed'))
@@ -94,7 +91,9 @@ export function PhoneCodeLogin() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
       {error && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
       )}
       <div className="space-y-2">
         <Label htmlFor="phone-code-phone">{t('phone')}</Label>

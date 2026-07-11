@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { randomUUID, randomBytes } from 'crypto'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, inArray } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
-import { zhsAgentBuy, agentSettlements, zhsAgentNeedTask } from '@ihui/database'
+import { zhsAgentBuy, agentSettlements, zhsAgentNeedTask, agentExamines } from '@ihui/database'
 import {
   getAgentDetail,
   listAgents,
@@ -334,6 +334,185 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // -------------------------------------------------------------------------
+  // categories/cache 分类缓存(Redis,key 前缀:agent:category:cache:*)
+  // 对应 coze_zhs_py agent_category_cache_api.py 的 9 个端点
+  // -------------------------------------------------------------------------
+
+  const CACHE_PREFIX = 'agent:category:cache:'
+  const CACHE_TTL_SECONDS = 3600
+
+  // GET /categories/cache/info - 缓存信息
+  server.get('/categories/cache/info', async (request, reply) => {
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const keys = await redis.keys(`${CACHE_PREFIX}*`)
+    const details = await Promise.all(
+      keys.map(async (k: string) => ({
+        key: k,
+        ttl: await redis.ttl(k),
+        type: await redis.type(k),
+      })),
+    )
+    return reply.send(success({ keys: details, count: keys.length, prefix: CACHE_PREFIX }))
+  })
+
+  // POST /categories/cache/reload - 重载缓存(从 DB 读取写入 Redis)
+  server.post('/categories/cache/reload', async (request, reply) => {
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const { list } = await findCategoryList({ page: 1, pageSize: 1000 })
+    await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
+    for (const cat of list) {
+      await redis.set(
+        `${CACHE_PREFIX}category:${cat.categoryId}`,
+        JSON.stringify(cat),
+        'EX',
+        CACHE_TTL_SECONDS,
+      )
+    }
+    return reply.send(success({ reloaded: true, count: list.length }))
+  })
+
+  // GET /categories/cache/convert - 转换分类为精简格式 {categoryId, name}
+  server.get('/categories/cache/convert', async (request, reply) => {
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const raw = await redis.get(`${CACHE_PREFIX}all`)
+    let list: any[] = []
+    if (raw) {
+      try {
+        list = JSON.parse(raw)
+      } catch {
+        list = []
+      }
+    } else {
+      const result = await findCategoryList({ page: 1, pageSize: 1000 })
+      list = result.list
+      await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
+    }
+    const converted = list.map((c: any) => ({ categoryId: c.categoryId, name: c.name }))
+    return reply.send(success({ list: converted, total: converted.length }))
+  })
+
+  // GET /categories/cache/categories - 所有分类(缓存优先)
+  server.get('/categories/cache/categories', async (request, reply) => {
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const raw = await redis.get(`${CACHE_PREFIX}all`)
+    if (raw) {
+      try {
+        const list = JSON.parse(raw)
+        return reply.send(success({ list, total: list.length, cached: true }))
+      } catch {
+        // 缓存损坏,继续从 DB 读取
+      }
+    }
+    const { list } = await findCategoryList({ page: 1, pageSize: 1000 })
+    await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
+    return reply.send(success({ list, total: list.length, cached: false }))
+  })
+
+  // GET /categories/cache/agent/:agentId - Agent 分类(缓存优先)
+  server.get('/categories/cache/agent/:agentId', async (request, reply) => {
+    const { agentId } = request.params as { agentId: string }
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const key = `${CACHE_PREFIX}agent:${agentId}`
+    const raw = await redis.get(key)
+    if (raw) {
+      try {
+        return reply.send(success({ category: JSON.parse(raw), cached: true }))
+      } catch {
+        // 缓存损坏,继续从 DB 读取
+      }
+    }
+    const category = await findCategoryByAgentId(agentId)
+    if (category) {
+      await redis.set(key, JSON.stringify(category), 'EX', CACHE_TTL_SECONDS)
+    }
+    return reply.send(success({ category, cached: false }))
+  })
+
+  // GET /categories/cache/category/:categoryId - 分类详情(缓存优先)
+  server.get('/categories/cache/category/:categoryId', async (request, reply) => {
+    const { categoryId } = request.params as { categoryId: string }
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const key = `${CACHE_PREFIX}category:${categoryId}`
+    const raw = await redis.get(key)
+    if (raw) {
+      try {
+        return reply.send(success({ category: JSON.parse(raw), cached: true }))
+      } catch {
+        // 缓存损坏,继续从 DB 读取
+      }
+    }
+    const category = await findCategoryById(categoryId)
+    if (!category) return reply.status(404).send(error(404, '分类不存在'))
+    await redis.set(key, JSON.stringify(category), 'EX', CACHE_TTL_SECONDS)
+    return reply.send(success({ category, cached: false }))
+  })
+
+  // GET /categories/cache/all - 全部缓存(key 列表 + 内容)
+  server.get('/categories/cache/all', async (request, reply) => {
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const keys = await redis.keys(`${CACHE_PREFIX}*`)
+    const entries: Record<string, unknown> = {}
+    for (const k of keys) {
+      const raw = await redis.get(k)
+      try {
+        entries[k] = raw ? JSON.parse(raw) : null
+      } catch {
+        entries[k] = raw
+      }
+    }
+    return reply.send(success({ entries, count: keys.length }))
+  })
+
+  // DELETE /categories/cache/clear - 清空缓存
+  server.delete('/categories/cache/clear', async (request, reply) => {
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const keys = await redis.keys(`${CACHE_PREFIX}*`)
+    let deleted = 0
+    if (keys.length > 0) {
+      deleted = await redis.del(...keys)
+    }
+    return reply.send(success({ cleared: true, deleted, prefix: CACHE_PREFIX }))
+  })
+
+  // GET /categories/cache/search - 搜索分类(keyword 模糊匹配)
+  server.get('/categories/cache/search', async (request, reply) => {
+    const q = request.query as { keyword?: string }
+    const redis = request.server.redis
+    if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
+    const keyword = (q.keyword ?? '').trim().toLowerCase()
+    const raw = await redis.get(`${CACHE_PREFIX}all`)
+    let list: any[] = []
+    if (raw) {
+      try {
+        list = JSON.parse(raw)
+      } catch {
+        list = []
+      }
+    }
+    if (list.length === 0) {
+      const result = await findCategoryList({ page: 1, pageSize: 1000, keyword: q.keyword })
+      list = result.list
+      await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
+    }
+    const filtered = keyword
+      ? list.filter((c: any) =>
+          String(c.name ?? '')
+            .toLowerCase()
+            .includes(keyword),
+        )
+      : list
+    return reply.send(success({ list: filtered, total: filtered.length }))
+  })
+
+  // -------------------------------------------------------------------------
   // settlement 结算
   // -------------------------------------------------------------------------
 
@@ -595,6 +774,68 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const record = await rejectExamine(recordId, request.userId!, body.reason)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
+  })
+
+  // POST /examine/:recordId/return - 退回审核(状态改为 pending,记录退回原因)
+  server.post('/examine/:recordId/return', async (request, reply) => {
+    const { recordId } = request.params as { recordId: string }
+    const body = request.body as { reason?: string }
+    const rows = await db
+      .update(agentExamines)
+      .set({
+        status: 'pending',
+        reason: body?.reason ?? null,
+        reviewerId: request.userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(agentExamines.id, recordId))
+      .returning()
+    if (!rows[0]) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(rows[0]))
+  })
+
+  // POST /examine/batch-approve - 批量批准
+  server.post('/examine/batch-approve', async (request, reply) => {
+    const body = request.body as { recordIds?: string[] }
+    const recordIds = body?.recordIds ?? []
+    if (recordIds.length === 0) {
+      return reply.status(400).send(error(400, 'recordIds 为必填项'))
+    }
+    const rows = await db
+      .update(agentExamines)
+      .set({
+        status: 'approved',
+        reviewerId: request.userId,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(inArray(agentExamines.id, recordIds))
+      .returning()
+    return reply.send(success({ approved: rows.length, records: rows }))
+  })
+
+  // POST /examine/batch-reject - 批量拒绝
+  server.post('/examine/batch-reject', async (request, reply) => {
+    const body = request.body as { recordIds?: string[]; reason?: string }
+    const recordIds = body?.recordIds ?? []
+    if (recordIds.length === 0) {
+      return reply.status(400).send(error(400, 'recordIds 为必填项'))
+    }
+    if (!body?.reason) {
+      return reply.status(400).send(error(400, 'reason 为必填项'))
+    }
+    const rows = await db
+      .update(agentExamines)
+      .set({
+        status: 'rejected',
+        reason: body.reason,
+        reviewerId: request.userId,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(inArray(agentExamines.id, recordIds))
+      .returning()
+    return reply.send(success({ rejected: rows.length, records: rows }))
   })
 
   // -------------------------------------------------------------------------

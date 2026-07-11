@@ -53,7 +53,9 @@ export function MusicGenerator({ onGenerate }: MusicGeneratorProps) {
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            <audio src={result.data} controls className="w-full" />
+            <audio src={result.data} controls className="w-full">
+              <track kind="captions" />
+            </audio>
             <a
               href={result.data}
               download="generated-music"

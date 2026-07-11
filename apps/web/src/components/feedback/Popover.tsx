@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { useClickOutside } from '@/hooks/use-click-outside'
 
 interface PopoverProps {
   content: React.ReactNode
@@ -11,19 +12,15 @@ interface PopoverProps {
   className?: string
 }
 
-export function Popover({ content, children, position = 'bottom', trigger = 'click', className }: PopoverProps) {
+export function Popover({
+  content,
+  children,
+  position = 'bottom',
+  trigger = 'click',
+  className,
+}: PopoverProps) {
   const [open, setOpen] = React.useState(false)
-  const ref = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    if (open && trigger === 'click') {
-      document.addEventListener('mousedown', handler)
-      return () => document.removeEventListener('mousedown', handler)
-    }
-  }, [open, trigger])
+  const ref = useClickOutside<HTMLDivElement>(React.useCallback(() => setOpen(false), []))
 
   const posClass = {
     top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
@@ -41,7 +38,13 @@ export function Popover({ content, children, position = 'bottom', trigger = 'cli
     <div ref={ref} className="relative inline-block" {...triggerProps}>
       {children}
       {open && (
-        <div className={cn('absolute z-50 rounded-md border bg-popover p-3 text-popover-foreground shadow-md', posClass[position], className)}>
+        <div
+          className={cn(
+            'absolute z-50 rounded-md border bg-popover p-3 text-popover-foreground shadow-md',
+            posClass[position],
+            className,
+          )}
+        >
           {content}
         </div>
       )}
