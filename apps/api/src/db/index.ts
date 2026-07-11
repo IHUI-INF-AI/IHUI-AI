@@ -3,7 +3,7 @@ import { config } from '../config/index.js'
 
 // 使用读写分离工厂创建主库(写)与读副本(读)
 // 无 DATABASE_READ_REPLICA_URL 时,dbReader 自动回退到主库
-const { dbWriter, dbReader } = createReadWriteDb({
+const { dbWriter, dbReader, writerClient } = createReadWriteDb({
   url: config.DATABASE_URL,
   readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
 })
@@ -12,5 +12,7 @@ const { dbWriter, dbReader } = createReadWriteDb({
 export const db: Database = dbWriter
 // 读副本(读) — 仅用于 SELECT 查询;无读副本时回退到主库
 export const dbRead: Database = dbReader
+// 原始 postgres.js 客户端，用于连接池指标采样
+export const dbClient = writerClient
 
 export type { Database }
