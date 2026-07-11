@@ -26,16 +26,7 @@ interface ErrorItem {
   status: 'open' | 'resolved' | 'ignored'
 }
 
-const MOCK_STATS: ErrorStats = { total: 482, today: 18, critical: 4, resolved: 421 }
-const MOCK_ERRORS: ErrorItem[] = [
-  { id: '1', type: 'DatabaseError', message: 'Connection pool exhausted', endpoint: '/api/agents', time: '2026-07-10 09:12:30', level: 'critical', status: 'open' },
-  { id: '2', type: 'TimeoutError', message: 'AI service request timeout (5000ms)', endpoint: '/api/chat/messages', time: '2026-07-10 09:08:18', level: 'error', status: 'open' },
-  { id: '3', type: 'ValidationError', message: 'Invalid email format', endpoint: '/api/auth/register', time: '2026-07-10 08:55:42', level: 'warning', status: 'resolved' },
-  { id: '4', type: 'UnauthorizedError', message: 'Token expired', endpoint: '/api/admin/users', time: '2026-07-10 08:40:55', level: 'warning', status: 'resolved' },
-  { id: '5', type: 'NotFoundError', message: 'Resource not found: agent-12345', endpoint: '/api/agents/12345', time: '2026-07-10 08:22:00', level: 'warning', status: 'ignored' },
-  { id: '6', type: 'InternalServerError', message: 'Unexpected token in JSON', endpoint: '/api/orders', time: '2026-07-10 08:08:33', level: 'error', status: 'open' },
-  { id: '7', type: 'RateLimitError', message: 'Too many requests (429)', endpoint: '/api/upload', time: '2026-07-10 07:58:14', level: 'warning', status: 'resolved' },
-]
+const DEFAULT_STATS: ErrorStats = { total: 0, today: 0, critical: 0, resolved: 0 }
 
 const LEVEL_STYLE: Record<ErrorItem['level'], { bg: string; text: string; label: string }> = {
   critical: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Critical' },
@@ -49,7 +40,8 @@ const STATUS_STYLE: Record<ErrorItem['status'], { bg: string; text: string; labe
 }
 
 const th = 'px-4 py-2.5 font-medium'
-const selectClass = 'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function ErrorDashboardPage() {
   const t = useTranslations('adminTools')
@@ -57,20 +49,20 @@ export default function ErrorDashboardPage() {
   const [levelFilter, setLevelFilter] = React.useState<'all' | ErrorItem['level']>('all')
   const [statusFilter, setStatusFilter] = React.useState<'all' | ErrorItem['status']>('all')
 
-  const { data: stats = MOCK_STATS, isLoading } = useQuery({
+  const { data: stats = DEFAULT_STATS, isLoading } = useQuery({
     queryKey: ['admin', 'error-dashboard', 'stats'],
     queryFn: async () => {
       const r = await fetchApi<ErrorStats>('/api/admin/error-dashboard/stats')
       if (r.success && r.data) return r.data
-      return MOCK_STATS
+      return DEFAULT_STATS
     },
   })
-  const { data: errors = MOCK_ERRORS } = useQuery({
+  const { data: errors = [] } = useQuery({
     queryKey: ['admin', 'error-dashboard', 'errors'],
     queryFn: async () => {
       const r = await fetchApi<ErrorItem[]>('/api/admin/error-dashboard/errors')
       if (r.success && r.data) return r.data
-      return MOCK_ERRORS
+      return []
     },
   })
 
@@ -82,9 +74,24 @@ export default function ErrorDashboardPage() {
 
   const cards = [
     { label: t('errorDash.total'), value: stats.total, icon: Bug, color: 'text-primary' },
-    { label: t('errorDash.today'), value: stats.today, icon: AlertTriangle, color: 'text-amber-600' },
-    { label: t('errorDash.critical'), value: stats.critical, icon: AlertOctagon, color: 'text-red-600' },
-    { label: t('errorDash.resolved'), value: stats.resolved, icon: CheckCircle2, color: 'text-emerald-600' },
+    {
+      label: t('errorDash.today'),
+      value: stats.today,
+      icon: AlertTriangle,
+      color: 'text-amber-600',
+    },
+    {
+      label: t('errorDash.critical'),
+      value: stats.critical,
+      icon: AlertOctagon,
+      color: 'text-red-600',
+    },
+    {
+      label: t('errorDash.resolved'),
+      value: stats.resolved,
+      icon: CheckCircle2,
+      color: 'text-emerald-600',
+    },
   ]
 
   return (
@@ -101,7 +108,8 @@ export default function ErrorDashboardPage() {
       <section>
         {isLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {tc('search')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -126,7 +134,11 @@ export default function ErrorDashboardPage() {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('errorDash.filterLevel')}</span>
-              <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value as 'all' | ErrorItem['level'])} className={selectClass}>
+              <select
+                value={levelFilter}
+                onChange={(e) => setLevelFilter(e.target.value as 'all' | ErrorItem['level'])}
+                className={selectClass}
+              >
                 <option value="all">{t('errorDash.all')}</option>
                 <option value="critical">Critical</option>
                 <option value="error">Error</option>
@@ -135,14 +147,25 @@ export default function ErrorDashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('errorDash.filterStatus')}</span>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | ErrorItem['status'])} className={selectClass}>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | ErrorItem['status'])}
+                className={selectClass}
+              >
                 <option value="all">{t('errorDash.all')}</option>
                 <option value="open">Open</option>
                 <option value="resolved">Resolved</option>
                 <option value="ignored">Ignored</option>
               </select>
             </div>
-            <Button variant="outline" size="sm" onClick={() => { setLevelFilter('all'); setStatusFilter('all') }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLevelFilter('all')
+                setStatusFilter('all')
+              }}
+            >
               <Filter className="h-4 w-4" />
               {t('errorDash.reset')}
             </Button>
@@ -176,16 +199,40 @@ export default function ErrorDashboardPage() {
                   const st = STATUS_STYLE[e.status]
                   return (
                     <tr key={e.id} className="transition-colors hover:bg-muted/30">
-                      <td className="px-4 py-2.5"><code className="font-mono text-xs">{e.type}</code></td>
-                      <td className="max-w-[260px] truncate px-4 py-2.5" title={e.message}>{e.message}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{e.endpoint}</td>
                       <td className="px-4 py-2.5">
-                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', lv.bg, lv.text)}>{lv.label}</span>
+                        <code className="font-mono text-xs">{e.type}</code>
+                      </td>
+                      <td className="max-w-[260px] truncate px-4 py-2.5" title={e.message}>
+                        {e.message}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                        {e.endpoint}
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', st.bg, st.text)}>{st.label}</span>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            lv.bg,
+                            lv.text,
+                          )}
+                        >
+                          {lv.label}
+                        </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">{e.time}</td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            st.bg,
+                            st.text,
+                          )}
+                        >
+                          {st.label}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                        {e.time}
+                      </td>
                     </tr>
                   )
                 })}

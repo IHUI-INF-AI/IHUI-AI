@@ -151,6 +151,15 @@ import { adminExtendedRoutes } from './routes/admin-extended.js'
 import { srsRoutes } from './routes/srs.js'
 import { remoteDeviceRoutes } from './routes/remote-device.js'
 
+// 前端页面后端路由补齐
+import { aiWorldRoutes } from './routes/ai-world.js'
+import { biDashboardRoutes } from './routes/bi-dashboard.js'
+import { dramaRoutes } from './routes/drama.js'
+import { distributionRoutes } from './routes/distribution.js'
+import { adminGrayReleaseRoutes } from './routes/admin-gray-release.js'
+import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
+import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
+
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -627,4 +636,13 @@ function registerRoutes(server: FastifyInstance) {
   // ===== M-87 补建：远程设备任务管理 =====
   // IoT 设备注册 + 任务下发 + 心跳 + 状态管理
   server.register(remoteDeviceRoutes, { prefix: '/api' })
+
+  // ===== 前端页面后端路由补齐 =====
+  server.register(aiWorldRoutes, { prefix: '/api' })
+  server.register(biDashboardRoutes, { prefix: '/api' })
+  server.register(dramaRoutes, { prefix: '/api' })
+  server.register(distributionRoutes, { prefix: '/api' })
+  server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
+  server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
+  server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
 }
