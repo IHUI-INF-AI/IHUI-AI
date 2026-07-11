@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
-import { authenticate } from '../plugins/auth.js';
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { authenticate } from '../plugins/auth.js'
 import {
   findCircles,
   findCircleByIdOrSlug,
@@ -20,10 +20,27 @@ import {
   findAskAnswers,
   createAnswer,
   acceptAnswer,
-} from '../db/community-queries.js';
-import { success, error, emptyToUndefined } from '../utils/response.js';
+} from '../db/community-queries.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
+import { sql, eq, and, desc } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import {
+  circles,
+  circlePosts,
+  circlePostLikes,
+  circlePostComments,
+  circleDynamic,
+  circleCategoryRelation,
+  circleCircleCategoryRelation,
+} from '@ihui/database'
 
-const ADMIN_ROLE_ID = 1;
+const ADMIN_ROLE_ID = 1
+
+/** 通用错误响应 schema（400/401/404/500 共用） */
+const errRespSchema = {
+  type: 'object' as const,
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
 
 // =============================================================================
 // Zod schemas
@@ -32,61 +49,61 @@ const ADMIN_ROLE_ID = 1;
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-};
+}
 
 const listCirclesQuery = z.object({
   ...paginationQuery,
   search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-});
+})
 
-const listCirclePostsQuery = z.object(paginationQuery);
+const listCirclePostsQuery = z.object(paginationQuery)
 
 const listAsksQuery = z.object({
   ...paginationQuery,
   search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
   resolved: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-});
+})
 
-const listAskAnswersQuery = z.object(paginationQuery);
+const listAskAnswersQuery = z.object(paginationQuery)
 
 // 圈子 id 支持 UUID 或 slug
 const circleIdParamSchema = z.object({
   id: z.string().min(1).max(120, '无效的 ID'),
-});
+})
 
-const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') });
+const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
 
 const createPostSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长'),
   content: z.string().min(1, '内容不能为空').max(50000, '内容过长'),
   images: z.array(z.string().max(512)).max(20).optional().nullable(),
-});
+})
 
 const updatePostSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长').optional(),
   content: z.string().min(1, '内容不能为空').max(50000, '内容过长').optional(),
   images: z.array(z.string().max(512)).max(20).optional().nullable(),
-});
+})
 
 const createAskSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长'),
   content: z.string().min(1, '内容不能为空').max(50000, '内容过长'),
   tags: z.array(z.string().max(64)).max(20).optional().nullable(),
-});
+})
 
 const updateAskSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长').optional(),
   content: z.string().min(1, '内容不能为空').max(50000, '内容过长').optional(),
   tags: z.array(z.string().max(64)).max(20).optional().nullable(),
-});
+})
 
 const createAnswerSchema = z.object({
   content: z.string().min(1, '内容不能为空').max(20000, '内容过长'),
-});
+})
 
 const circleShowSchema = z.object({
   isPublished: z.boolean(),
-});
+})
 
 // =============================================================================
 // 鉴权辅助
@@ -94,12 +111,12 @@ const circleShowSchema = z.object({
 
 /** 校验管理员权限，失败时写入响应并返回 false。 */
 async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  const roleId = request.jwtPayload?.roleId ?? 0;
+  const roleId = request.jwtPayload?.roleId ?? 0
   if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'));
-    return false;
+    reply.status(403).send(error(403, '需要管理员权限'))
+    return false
   }
-  return true;
+  return true
 }
 
 // =============================================================================
@@ -110,632 +127,1355 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 circles / asks 路由均需登录
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      await authenticate(request);
+      await authenticate(request)
     } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-      const message = (e as Error).message || 'Authentication required';
-      return reply.status(statusCode).send(error(statusCode, message));
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || 'Authentication required'
+      return reply.status(statusCode).send(error(statusCode, message))
     }
-  });
+  })
 
   // ===== Circles =====
 
   // GET /circles - 圈子列表(?page&pageSize&search)
-  server.get('/circles', {
-    schema: {
-      summary: '圈子列表',
-      tags: ['community'],
-      querystring: {
-        type: 'object',
-        properties: {
-          page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-          pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '每页数量(1-100,默认 20)' },
-          search: { type: 'string', description: '名称/描述模糊搜索(可选)' },
-        },
-      },
-      response: {
-        200: {
+  server.get(
+    '/circles',
+    {
+      schema: {
+        summary: '圈子列表',
+        tags: ['community'],
+        querystring: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
+            pageSize: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 20,
+              description: '每页数量(1-100,默认 20)',
+            },
+            search: { type: 'string', description: '名称/描述模糊搜索(可选)' },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
-  }, async (request, reply) => {
-    const parsed = listCirclesQuery.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
-    const { page, pageSize, search } = parsed.data;
-    const { list, total } = await findCircles({ page, pageSize, search });
-    return reply.send(success({ list, total, page, pageSize }));
-  });
+    async (request, reply) => {
+      const parsed = listCirclesQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize, search } = parsed.data
+      const { list, total } = await findCircles({ page, pageSize, search })
+      return reply.send(success({ list, total, page, pageSize }))
+    },
+  )
 
   // GET /circles/:id - 圈子详情(支持 UUID 或 slug)
-  server.get('/circles/:id', {
-    schema: {
-      summary: '圈子详情',
-      tags: ['community'],
-      params: {
-        type: 'object',
-        properties: { id: { type: 'string', description: '圈子 ID 或 slug' } },
-      },
-      response: {
-        200: {
+  server.get(
+    '/circles/:id',
+    {
+      schema: {
+        summary: '圈子详情',
+        tags: ['community'],
+        params: {
           type: 'object',
-          properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+          properties: { id: { type: 'string', description: '圈子 ID 或 slug' } },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
           },
-        },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsed = circleIdParamSchema.safeParse(request.params);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
-    const circle = await findCircleByIdOrSlug(parsed.data.id);
-    if (!circle) {
-      return reply.status(404).send(error(404, '圈子不存在'));
-    }
-    return reply.send(success({ circle }));
-  });
+    async (request, reply) => {
+      const parsed = circleIdParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const circle = await findCircleByIdOrSlug(parsed.data.id)
+      if (!circle) {
+        return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      return reply.send(success({ circle }))
+    },
+  )
+
+  // GET /circles/categories - 圈子分类树
+  server.get(
+    '/circles/categories',
+    {
+      schema: {
+        summary: '圈子分类树',
+        tags: ['community'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          401: errRespSchema,
+          500: errRespSchema,
+        },
+      },
+    },
+    async (_request, reply) => {
+      try {
+        const rows = await db.execute(sql`
+        SELECT id, pid, name, sort_order, is_show, icon
+        FROM circle_categories
+        WHERE is_show = true
+        ORDER BY sort_order ASC, name ASC
+      `)
+        const categories = rows as unknown as Array<{
+          id: string
+          pid: string | null
+          name: string
+          sort_order: number
+          is_show: boolean
+          icon: string | null
+        }>
+        // 构建分类树
+        const buildTree = (parentId: string | null): Array<Record<string, unknown>> => {
+          return categories
+            .filter((c) => (parentId === null ? c.pid === null : c.pid === parentId))
+            .map((c) => ({
+              id: c.id,
+              name: c.name,
+              icon: c.icon,
+              sortOrder: c.sort_order,
+              children: buildTree(c.id),
+            }))
+        }
+        const tree = buildTree(null)
+        return reply.send(success({ categories: tree }))
+      } catch (e) {
+        _request.log.error(e)
+        return reply.status(500).send(error(500, '查询圈子分类失败'))
+      }
+    },
+  )
+
+  // GET /circles/:id/members - 圈子成员列表
+  server.get(
+    '/circles/:id/members',
+    {
+      schema: {
+        summary: '圈子成员列表',
+        tags: ['community'],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: { type: 'integer', minimum: 1, default: 1 },
+            pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsedP = circleIdParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsedQ = listCirclePostsQuery.safeParse(request.query)
+      if (!parsedQ.success) {
+        return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
+      }
+      const circle = await findCircleByIdOrSlug(parsedP.data.id)
+      if (!circle) {
+        return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      const { page, pageSize } = parsedQ.data
+      const offset = (page - 1) * pageSize
+      try {
+        const listRows = await db.execute(sql`
+        SELECT cm.id, cm.user_id, cm.role, cm.status, cm.created_at,
+               u.nickname, u.avatar
+        FROM circle_members cm
+        LEFT JOIN users u ON u.id = cm.user_id
+        WHERE cm.circle_id = ${circle.id} AND cm.status = 1
+        ORDER BY cm.created_at ASC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `)
+        const countRows = await db.execute(sql`
+        SELECT count(*)::int AS count FROM circle_members
+        WHERE circle_id = ${circle.id} AND status = 1
+      `)
+        const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+        return reply.send(
+          success({ list: listRows as Array<Record<string, unknown>>, total, page, pageSize }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '查询圈子成员失败'))
+      }
+    },
+  )
+
+  // POST /circles/:id/members - 加入圈子
+  server.post(
+    '/circles/:id/members',
+    {
+      schema: {
+        summary: '加入圈子',
+        tags: ['community'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsedP = circleIdParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const circle = await findCircleByIdOrSlug(parsedP.data.id)
+      if (!circle) {
+        return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      const userId = request.userId!
+      try {
+        await db.execute(sql`
+        INSERT INTO circle_members (circle_id, user_id, role, status)
+        VALUES (${circle.id}, ${userId}, 'member', 1)
+        ON CONFLICT (circle_id, user_id) DO UPDATE SET status = 1, updated_at = now()
+      `)
+        return reply.status(201).send(success({ circleId: circle.id, userId, joined: true }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '加入圈子失败'))
+      }
+    },
+  )
+
+  // DELETE /circles/:id/members - 退出圈子
+  server.delete(
+    '/circles/:id/members',
+    {
+      schema: {
+        summary: '退出圈子',
+        tags: ['community'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsedP = circleIdParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const circle = await findCircleByIdOrSlug(parsedP.data.id)
+      if (!circle) {
+        return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      const userId = request.userId!
+      try {
+        await db.execute(sql`
+        UPDATE circle_members SET status = 0, updated_at = now()
+        WHERE circle_id = ${circle.id} AND user_id = ${userId}
+      `)
+        return reply.send(success({ circleId: circle.id, userId, left: true }))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '退出圈子失败'))
+      }
+    },
+  )
 
   // GET /circles/:id/posts - 圈子帖子列表
-  server.get('/circles/:id/posts', {
-    schema: {
-      summary: '圈子帖子列表',
-      tags: ['community'],
-      querystring: {
-        type: 'object',
-        properties: {
-          page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-          pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '每页数量(1-100,默认 20)' },
-        },
-      },
-      response: {
-        200: {
+  server.get(
+    '/circles/:id/posts',
+    {
+      schema: {
+        summary: '圈子帖子列表',
+        tags: ['community'],
+        querystring: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
+            pageSize: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 20,
+              description: '每页数量(1-100,默认 20)',
+            },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsedP = circleIdParamSchema.safeParse(request.params);
-    if (!parsedP.success) {
-      return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'));
-    }
-    const parsedQ = listCirclePostsQuery.safeParse(request.query);
-    if (!parsedQ.success) {
-      return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'));
-    }
-    const circle = await findCircleByIdOrSlug(parsedP.data.id);
-    if (!circle) {
-      return reply.status(404).send(error(404, '圈子不存在'));
-    }
-    const { page, pageSize } = parsedQ.data;
-    const { list, total } = await findCirclePosts(circle.id, { page, pageSize });
-    return reply.send(success({ list, total, page, pageSize }));
-  });
+    async (request, reply) => {
+      const parsedP = circleIdParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsedQ = listCirclePostsQuery.safeParse(request.query)
+      if (!parsedQ.success) {
+        return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
+      }
+      const circle = await findCircleByIdOrSlug(parsedP.data.id)
+      if (!circle) {
+        return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      const { page, pageSize } = parsedQ.data
+      const { list, total } = await findCirclePosts(circle.id, { page, pageSize })
+      return reply.send(success({ list, total, page, pageSize }))
+    },
+  )
 
   // POST /circles/:id/posts - 发帖
-  server.post('/circles/:id/posts', {
-    schema: {
-      summary: '在圈子发帖',
-      tags: ['community'],
-      body: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: '帖子标题' },
-          content: { type: 'string', description: '帖子内容' },
-          images: { type: 'array', items: { type: 'string' }, description: '图片 URL 数组(可选)' },
-        },
-      },
-      response: {
-        201: {
+  server.post(
+    '/circles/:id/posts',
+    {
+      schema: {
+        summary: '在圈子发帖',
+        tags: ['community'],
+        body: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            title: { type: 'string', description: '帖子标题' },
+            content: { type: 'string', description: '帖子内容' },
+            images: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '图片 URL 数组(可选)',
+            },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsedP = circleIdParamSchema.safeParse(request.params);
-    if (!parsedP.success) {
-      return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'));
-    }
-    const body = createPostSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'));
-    }
-    const circle = await findCircleByIdOrSlug(parsedP.data.id);
-    if (!circle) {
-      return reply.status(404).send(error(404, '圈子不存在'));
-    }
-    const post = await createPost(circle.id, request.userId!, body.data);
-    return reply.status(201).send(success({ post }));
-  });
+    async (request, reply) => {
+      const parsedP = circleIdParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const body = createPostSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const circle = await findCircleByIdOrSlug(parsedP.data.id)
+      if (!circle) {
+        return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      const post = await createPost(circle.id, request.userId!, body.data)
+      return reply.status(201).send(success({ post }))
+    },
+  )
 
   // GET /circles/posts/:id - 帖子详情
-  server.get('/circles/posts/:id', {
-    schema: {
-      summary: '帖子详情',
-      tags: ['community'],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+  server.get(
+    '/circles/posts/:id',
+    {
+      schema: {
+        summary: '帖子详情',
+        tags: ['community'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
           },
-        },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
-    const post = await findPostById(parsed.data.id);
-    if (!post) {
-      return reply.status(404).send(error(404, '帖子不存在'));
-    }
-    return reply.send(success({ post }));
-  });
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const post = await findPostById(parsed.data.id)
+      if (!post) {
+        return reply.status(404).send(error(404, '帖子不存在'))
+      }
+      return reply.send(success({ post }))
+    },
+  )
 
   // PATCH /circles/posts/:id - 编辑帖子(仅本人)
   server.patch('/circles/posts/:id', async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
+    const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const body = updatePostSchema.safeParse(request.body);
+    const body = updatePostSchema.safeParse(request.body)
     if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findPostById(parsed.data.id);
+    const existing = await findPostById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '帖子不存在'));
+      return reply.status(404).send(error(404, '帖子不存在'))
     }
     if (existing.userId !== request.userId) {
-      return reply.status(403).send(error(403, '只能编辑自己的帖子'));
+      return reply.status(403).send(error(403, '只能编辑自己的帖子'))
     }
-    const updated = await updatePost(parsed.data.id, request.userId!, body.data);
-    return reply.send(success({ post: updated }));
-  });
+    const updated = await updatePost(parsed.data.id, request.userId!, body.data)
+    return reply.send(success({ post: updated }))
+  })
 
   // DELETE /circles/posts/:id - 删除帖子(仅本人)
   server.delete('/circles/posts/:id', async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
+    const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findPostById(parsed.data.id);
+    const existing = await findPostById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '帖子不存在'));
+      return reply.status(404).send(error(404, '帖子不存在'))
     }
     if (existing.userId !== request.userId) {
-      return reply.status(403).send(error(403, '只能删除自己的帖子'));
+      return reply.status(403).send(error(403, '只能删除自己的帖子'))
     }
-    await deletePost(parsed.data.id, request.userId!);
-    return reply.send(success({ id: parsed.data.id, deleted: true }));
-  });
+    await deletePost(parsed.data.id, request.userId!)
+    return reply.send(success({ id: parsed.data.id, deleted: true }))
+  })
+
+  // POST /circles - 创建圈子
+  server.post('/circles', async (request, reply) => {
+    const body = z
+      .object({
+        name: z.string().min(1).max(100),
+        description: z.string().max(2000).optional().nullable(),
+        coverImage: z.string().max(512).optional().nullable(),
+        categoryId: z.string().uuid().optional().nullable(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const userId = request.userId!
+    const slug = `${body.data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`
+    const [created] = await db
+      .insert(circles)
+      .values({
+        name: body.data.name,
+        slug,
+        description: body.data.description ?? null,
+        coverImage: body.data.coverImage ?? null,
+        categoryId: body.data.categoryId ?? null,
+        isPublished: body.data.isPublished ?? true,
+        createdBy: userId,
+        memberCount: 1,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '创建圈子失败'))
+    return reply.status(201).send(success({ circle: created }))
+  })
+
+  // PUT /circles/:id - 修改圈子(仅创建者或管理员)
+  server.put('/circles/:id', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z
+      .object({
+        name: z.string().min(1).max(100).optional(),
+        description: z.string().max(2000).nullable().optional(),
+        coverImage: z.string().max(512).nullable().optional(),
+        categoryId: z.string().uuid().nullable().optional(),
+        isPublished: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findCircleById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '圈子不存在'))
+    }
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (existing.createdBy !== request.userId && roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '只能修改自己创建的圈子'))
+    }
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.data.name !== undefined) updateData.name = body.data.name
+    if (body.data.description !== undefined) updateData.description = body.data.description
+    if (body.data.coverImage !== undefined) updateData.coverImage = body.data.coverImage
+    if (body.data.categoryId !== undefined) updateData.categoryId = body.data.categoryId
+    if (body.data.isPublished !== undefined) updateData.isPublished = body.data.isPublished
+    const [updated] = await db
+      .update(circles)
+      .set(updateData)
+      .where(eq(circles.id, parsed.data.id))
+      .returning()
+    if (!updated) return reply.status(500).send(error(500, '修改圈子失败'))
+    return reply.send(success({ circle: updated }))
+  })
+
+  // POST /circles/posts/:id/like - 点赞/取消点赞
+  server.post('/circles/posts/:id/like', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const post = await findPostById(parsed.data.id)
+    if (!post) {
+      return reply.status(404).send(error(404, '帖子不存在'))
+    }
+    const userId = request.userId!
+    const [existing] = await db
+      .select()
+      .from(circlePostLikes)
+      .where(and(eq(circlePostLikes.postId, parsed.data.id), eq(circlePostLikes.userId, userId)))
+      .limit(1)
+    if (existing) {
+      await db.delete(circlePostLikes).where(eq(circlePostLikes.id, existing.id))
+      const [updated] = await db
+        .update(circlePosts)
+        .set({ likeCount: Math.max(0, post.likeCount - 1), updatedAt: new Date() })
+        .where(eq(circlePosts.id, parsed.data.id))
+        .returning()
+      return reply.send(success({ liked: false, likeCount: updated?.likeCount ?? 0 }))
+    }
+    await db.insert(circlePostLikes).values({ postId: parsed.data.id, userId })
+    const [updated] = await db
+      .update(circlePosts)
+      .set({ likeCount: post.likeCount + 1, updatedAt: new Date() })
+      .where(eq(circlePosts.id, parsed.data.id))
+      .returning()
+    return reply.send(success({ liked: true, likeCount: updated?.likeCount ?? post.likeCount + 1 }))
+  })
+
+  // GET /circles/posts/:id/comments - 帖子评论列表
+  server.get('/circles/posts/:id/comments', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page = 1, pageSize = 20 } = request.query as any
+    const list = await db
+      .select()
+      .from(circlePostComments)
+      .where(eq(circlePostComments.postId, parsed.data.id))
+      .orderBy(desc(circlePostComments.createdAt))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return reply.send(success({ list, page: Number(page), pageSize: Number(pageSize) }))
+  })
+
+  // POST /circles/posts/:id/comment - 发表评论
+  server.post('/circles/posts/:id/comment', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = z
+      .object({
+        content: z.string().min(1).max(20000),
+        pid: z.string().uuid().optional().nullable(),
+        replyUserId: z.string().uuid().optional().nullable(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const post = await findPostById(parsed.data.id)
+    if (!post) {
+      return reply.status(404).send(error(404, '帖子不存在'))
+    }
+    const userId = request.userId!
+    const [created] = await db
+      .insert(circlePostComments)
+      .values({
+        postId: parsed.data.id,
+        userId,
+        content: body.data.content,
+        pid: body.data.pid ?? null,
+        replyUserId: body.data.replyUserId ?? null,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '发表评论失败'))
+    await db
+      .update(circlePosts)
+      .set({ replyCount: post.replyCount + 1, updatedAt: new Date() })
+      .where(eq(circlePosts.id, parsed.data.id))
+    return reply.status(201).send(success({ comment: created }))
+  })
+
+  // ===== 话题/动态（历史 circle_dynamic，integer id） =====
+
+  // GET /circles/topic/list - 话题列表
+  server.get('/circles/topic/list', async (request, reply) => {
+    const { page = 1, pageSize = 20, circleId, memberId, status } = request.query as any
+    const conditions: Array<ReturnType<typeof eq>> = []
+    if (circleId) conditions.push(eq(circleDynamic.circleId, Number(circleId)))
+    if (memberId) conditions.push(eq(circleDynamic.memberId, Number(memberId)))
+    if (status) conditions.push(eq(circleDynamic.status, String(status)))
+    const baseQuery =
+      conditions.length > 0
+        ? db
+            .select()
+            .from(circleDynamic)
+            .where(and(...conditions))
+        : db.select().from(circleDynamic)
+    const list = await baseQuery
+      .orderBy(desc(circleDynamic.id))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return reply.send(success({ list, page: Number(page), pageSize: Number(pageSize) }))
+  })
+
+  // GET /circles/topic/:tid - 话题详情
+  server.get('/circles/topic/:tid', async (request, reply) => {
+    const { tid } = request.params as { tid: string }
+    const tidNum = Number(tid)
+    if (!Number.isInteger(tidNum) || tidNum <= 0) {
+      return reply.status(400).send(error(400, '无效的话题 ID'))
+    }
+    const [item] = await db
+      .select()
+      .from(circleDynamic)
+      .where(eq(circleDynamic.id, tidNum))
+      .limit(1)
+    if (!item) return reply.status(404).send(error(404, '话题不存在'))
+    return reply.send(success({ topic: item }))
+  })
+
+  // POST /circles/topic - 创建话题
+  server.post('/circles/topic', async (request, reply) => {
+    const body = z
+      .object({
+        content: z.string().min(1),
+        circleId: z.number().int().positive(),
+        memberId: z.number().int().positive(),
+        image: z.string().max(3000).optional().default(''),
+        status: z.string().max(100).optional().default('published'),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [created] = await db
+      .insert(circleDynamic)
+      .values({
+        content: body.data.content,
+        circleId: body.data.circleId,
+        memberId: body.data.memberId,
+        image: body.data.image,
+        status: body.data.status,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '创建话题失败'))
+    return reply.status(201).send(success({ topic: created }))
+  })
+
+  // PUT /circles/topic/:tid - 修改话题
+  server.put('/circles/topic/:tid', async (request, reply) => {
+    const { tid } = request.params as { tid: string }
+    const tidNum = Number(tid)
+    if (!Number.isInteger(tidNum) || tidNum <= 0) {
+      return reply.status(400).send(error(400, '无效的话题 ID'))
+    }
+    const body = z
+      .object({
+        content: z.string().min(1).optional(),
+        image: z.string().max(3000).optional(),
+        status: z.string().max(100).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+    if (body.data.content !== undefined) updateData.content = body.data.content
+    if (body.data.image !== undefined) updateData.image = body.data.image
+    if (body.data.status !== undefined) updateData.status = body.data.status
+    const [updated] = await db
+      .update(circleDynamic)
+      .set(updateData)
+      .where(eq(circleDynamic.id, tidNum))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '话题不存在'))
+    return reply.send(success({ topic: updated }))
+  })
+
+  // DELETE /circles/topic/:tid - 删除话题
+  server.delete('/circles/topic/:tid', async (request, reply) => {
+    const { tid } = request.params as { tid: string }
+    const tidNum = Number(tid)
+    if (!Number.isInteger(tidNum) || tidNum <= 0) {
+      return reply.status(400).send(error(400, '无效的话题 ID'))
+    }
+    const [deleted] = await db.delete(circleDynamic).where(eq(circleDynamic.id, tidNum)).returning()
+    if (!deleted) return reply.status(404).send(error(404, '话题不存在'))
+    return reply.send(success({ id: tidNum, deleted: true }))
+  })
+
+  // ===== 圈子分类关系（历史 circle_category_relation，integer id） =====
+
+  // GET /circles/category-relation/list - 分类关系列表
+  server.get('/circles/category-relation/list', async (request, reply) => {
+    const { fatherCategoryId, childCategoryId } = request.query as any
+    const conditions: Array<ReturnType<typeof eq>> = []
+    if (fatherCategoryId)
+      conditions.push(eq(circleCategoryRelation.fatherCategoryId, Number(fatherCategoryId)))
+    if (childCategoryId)
+      conditions.push(eq(circleCategoryRelation.childCategoryId, Number(childCategoryId)))
+    const list =
+      conditions.length > 0
+        ? await db
+            .select()
+            .from(circleCategoryRelation)
+            .where(and(...conditions))
+        : await db.select().from(circleCategoryRelation)
+    return reply.send(success({ list, total: list.length }))
+  })
+
+  // POST /circles/category-relation - 创建分类关系
+  server.post('/circles/category-relation', async (request, reply) => {
+    const body = z
+      .object({
+        childCategoryId: z.number().int().positive(),
+        fatherCategoryId: z.number().int().positive(),
+        directFatherCategoryId: z.number().int().positive(),
+        isSub: z.boolean().default(false),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [created] = await db
+      .insert(circleCategoryRelation)
+      .values({
+        childCategoryId: body.data.childCategoryId,
+        fatherCategoryId: body.data.fatherCategoryId,
+        directFatherCategoryId: body.data.directFatherCategoryId,
+        isSub: body.data.isSub,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '创建分类关系失败'))
+    return reply.status(201).send(success({ relation: created }))
+  })
+
+  // DELETE /circles/category-relation/:rid - 删除分类关系
+  server.delete('/circles/category-relation/:rid', async (request, reply) => {
+    const { rid } = request.params as { rid: string }
+    const ridNum = Number(rid)
+    if (!Number.isInteger(ridNum) || ridNum <= 0) {
+      return reply.status(400).send(error(400, '无效的关系 ID'))
+    }
+    const [deleted] = await db
+      .delete(circleCategoryRelation)
+      .where(eq(circleCategoryRelation.id, ridNum))
+      .returning()
+    if (!deleted) return reply.status(404).send(error(404, '分类关系不存在'))
+    return reply.send(success({ id: ridNum, deleted: true }))
+  })
+
+  // ===== 圈子类目关系（历史 circle_circle_category_relation，integer id） =====
+
+  // GET /circles/circle-category-relation/list - 类目关系列表
+  server.get('/circles/circle-category-relation/list', async (request, reply) => {
+    const { categoryId, circleId } = request.query as any
+    const conditions: Array<ReturnType<typeof eq>> = []
+    if (categoryId) conditions.push(eq(circleCircleCategoryRelation.categoryId, Number(categoryId)))
+    if (circleId) conditions.push(eq(circleCircleCategoryRelation.circleId, Number(circleId)))
+    const list =
+      conditions.length > 0
+        ? await db
+            .select()
+            .from(circleCircleCategoryRelation)
+            .where(and(...conditions))
+        : await db.select().from(circleCircleCategoryRelation)
+    return reply.send(success({ list, total: list.length }))
+  })
+
+  // POST /circles/circle-category-relation - 创建类目关系
+  server.post('/circles/circle-category-relation', async (request, reply) => {
+    const body = z
+      .object({
+        categoryId: z.number().int().positive(),
+        circleId: z.number().int().positive(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [created] = await db
+      .insert(circleCircleCategoryRelation)
+      .values({
+        categoryId: body.data.categoryId,
+        circleId: body.data.circleId,
+      })
+      .returning()
+    if (!created) return reply.status(500).send(error(500, '创建类目关系失败'))
+    return reply.status(201).send(success({ relation: created }))
+  })
+
+  // DELETE /circles/circle-category-relation/:rid - 删除类目关系
+  server.delete('/circles/circle-category-relation/:rid', async (request, reply) => {
+    const { rid } = request.params as { rid: string }
+    const ridNum = Number(rid)
+    if (!Number.isInteger(ridNum) || ridNum <= 0) {
+      return reply.status(400).send(error(400, '无效的关系 ID'))
+    }
+    const [deleted] = await db
+      .delete(circleCircleCategoryRelation)
+      .where(eq(circleCircleCategoryRelation.id, ridNum))
+      .returning()
+    if (!deleted) return reply.status(404).send(error(404, '类目关系不存在'))
+    return reply.send(success({ id: ridNum, deleted: true }))
+  })
 
   // ===== Asks =====
 
   // GET /asks - 问答列表(?page&pageSize&search&resolved)
-  server.get('/asks', {
-    schema: {
-      summary: '问答列表',
-      tags: ['community'],
-      querystring: {
-        type: 'object',
-        properties: {
-          page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-          pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '每页数量(1-100,默认 20)' },
-          search: { type: 'string', description: '标题/内容模糊搜索(可选)' },
-          resolved: { type: 'boolean', description: '是否已解决筛选(可选)' },
-        },
-      },
-      response: {
-        200: {
+  server.get(
+    '/asks',
+    {
+      schema: {
+        summary: '问答列表',
+        tags: ['community'],
+        querystring: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
+            pageSize: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 20,
+              description: '每页数量(1-100,默认 20)',
+            },
+            search: { type: 'string', description: '标题/内容模糊搜索(可选)' },
+            resolved: { type: 'boolean', description: '是否已解决筛选(可选)' },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
-  }, async (request, reply) => {
-    const parsed = listAsksQuery.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
-    const { page, pageSize, search, resolved } = parsed.data;
-    const { list, total } = await findAsks({ page, pageSize, search, resolved });
-    return reply.send(success({ list, total, page, pageSize }));
-  });
+    async (request, reply) => {
+      const parsed = listAsksQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize, search, resolved } = parsed.data
+      const { list, total } = await findAsks({ page, pageSize, search, resolved })
+      return reply.send(success({ list, total, page, pageSize }))
+    },
+  )
 
   // GET /asks/:id - 问答详情
-  server.get('/asks/:id', {
-    schema: {
-      summary: '问答详情',
-      tags: ['community'],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+  server.get(
+    '/asks/:id',
+    {
+      schema: {
+        summary: '问答详情',
+        tags: ['community'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
           },
-        },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
-    const ask = await findAskById(parsed.data.id);
-    if (!ask) {
-      return reply.status(404).send(error(404, '问答不存在'));
-    }
-    return reply.send(success({ ask }));
-  });
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const ask = await findAskById(parsed.data.id)
+      if (!ask) {
+        return reply.status(404).send(error(404, '问答不存在'))
+      }
+      return reply.send(success({ ask }))
+    },
+  )
 
   // POST /asks - 提问
-  server.post('/asks', {
-    schema: {
-      summary: '创建问答',
-      tags: ['community'],
-      body: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: '问题标题' },
-          content: { type: 'string', description: '问题内容' },
-          tags: { type: 'array', items: { type: 'string' }, description: '标签数组(可选)' },
-        },
-      },
-      response: {
-        201: {
+  server.post(
+    '/asks',
+    {
+      schema: {
+        summary: '创建问答',
+        tags: ['community'],
+        body: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            title: { type: 'string', description: '问题标题' },
+            content: { type: 'string', description: '问题内容' },
+            tags: { type: 'array', items: { type: 'string' }, description: '标签数组(可选)' },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
-  }, async (request, reply) => {
-    const body = createAskSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'));
-    }
-    const ask = await createAsk(request.userId!, body.data);
-    return reply.status(201).send(success({ ask }));
-  });
+    async (request, reply) => {
+      const body = createAskSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const ask = await createAsk(request.userId!, body.data)
+      return reply.status(201).send(success({ ask }))
+    },
+  )
 
   // PATCH /asks/:id - 编辑问题(仅本人)
   server.patch('/asks/:id', async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
+    const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const body = updateAskSchema.safeParse(request.body);
+    const body = updateAskSchema.safeParse(request.body)
     if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findAskById(parsed.data.id);
+    const existing = await findAskById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '问答不存在'));
+      return reply.status(404).send(error(404, '问答不存在'))
     }
     if (existing.userId !== request.userId) {
-      return reply.status(403).send(error(403, '只能编辑自己的问题'));
+      return reply.status(403).send(error(403, '只能编辑自己的问题'))
     }
-    const updated = await updateAsk(parsed.data.id, request.userId!, body.data);
-    return reply.send(success({ ask: updated }));
-  });
+    const updated = await updateAsk(parsed.data.id, request.userId!, body.data)
+    return reply.send(success({ ask: updated }))
+  })
 
   // DELETE /asks/:id - 删除问题(仅本人)
   server.delete('/asks/:id', async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
+    const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findAskById(parsed.data.id);
+    const existing = await findAskById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '问答不存在'));
+      return reply.status(404).send(error(404, '问答不存在'))
     }
     if (existing.userId !== request.userId) {
-      return reply.status(403).send(error(403, '只能删除自己的问题'));
+      return reply.status(403).send(error(403, '只能删除自己的问题'))
     }
-    await deleteAsk(parsed.data.id, request.userId!);
-    return reply.send(success({ id: parsed.data.id, deleted: true }));
-  });
+    await deleteAsk(parsed.data.id, request.userId!)
+    return reply.send(success({ id: parsed.data.id, deleted: true }))
+  })
 
   // GET /asks/:id/answers - 回答列表
-  server.get('/asks/:id/answers', {
-    schema: {
-      summary: '问答回答列表',
-      tags: ['community'],
-      querystring: {
-        type: 'object',
-        properties: {
-          page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
-          pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '每页数量(1-100,默认 20)' },
-        },
-      },
-      response: {
-        200: {
+  server.get(
+    '/asks/:id/answers',
+    {
+      schema: {
+        summary: '问答回答列表',
+        tags: ['community'],
+        querystring: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            page: { type: 'integer', minimum: 1, default: 1, description: '页码(默认 1)' },
+            pageSize: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 20,
+              description: '每页数量(1-100,默认 20)',
+            },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsedP = uuidParamSchema.safeParse(request.params);
-    if (!parsedP.success) {
-      return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'));
-    }
-    const parsedQ = listAskAnswersQuery.safeParse(request.query);
-    if (!parsedQ.success) {
-      return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'));
-    }
-    const ask = await findAskById(parsedP.data.id);
-    if (!ask) {
-      return reply.status(404).send(error(404, '问答不存在'));
-    }
-    const { page, pageSize } = parsedQ.data;
-    const { list, total } = await findAskAnswers(ask.id, { page, pageSize });
-    return reply.send(success({ list, total, page, pageSize }));
-  });
+    async (request, reply) => {
+      const parsedP = uuidParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsedQ = listAskAnswersQuery.safeParse(request.query)
+      if (!parsedQ.success) {
+        return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
+      }
+      const ask = await findAskById(parsedP.data.id)
+      if (!ask) {
+        return reply.status(404).send(error(404, '问答不存在'))
+      }
+      const { page, pageSize } = parsedQ.data
+      const { list, total } = await findAskAnswers(ask.id, { page, pageSize })
+      return reply.send(success({ list, total, page, pageSize }))
+    },
+  )
 
   // POST /asks/:id/answers - 回答
-  server.post('/asks/:id/answers', {
-    schema: {
-      summary: '创建回答',
-      tags: ['community'],
-      body: {
-        type: 'object',
-        properties: {
-          content: { type: 'string', description: '回答内容' },
-        },
-      },
-      response: {
-        201: {
+  server.post(
+    '/asks/:id/answers',
+    {
+      schema: {
+        summary: '创建回答',
+        tags: ['community'],
+        body: {
           type: 'object',
           properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+            content: { type: 'string', description: '回答内容' },
           },
         },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsedP = uuidParamSchema.safeParse(request.params);
-    if (!parsedP.success) {
-      return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'));
-    }
-    const body = createAnswerSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'));
-    }
-    const ask = await findAskById(parsedP.data.id);
-    if (!ask) {
-      return reply.status(404).send(error(404, '问答不存在'));
-    }
-    const answer = await createAnswer(ask.id, request.userId!, body.data.content);
-    return reply.status(201).send(success({ answer }));
-  });
+    async (request, reply) => {
+      const parsedP = uuidParamSchema.safeParse(request.params)
+      if (!parsedP.success) {
+        return reply.status(400).send(error(400, parsedP.error.issues[0]?.message ?? '参数错误'))
+      }
+      const body = createAnswerSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const ask = await findAskById(parsedP.data.id)
+      if (!ask) {
+        return reply.status(404).send(error(404, '问答不存在'))
+      }
+      const answer = await createAnswer(ask.id, request.userId!, body.data.content)
+      return reply.status(201).send(success({ answer }))
+    },
+  )
 
   // POST /asks/answers/:id/accept - 采纳答案(仅提问者)
-  server.post('/asks/answers/:id/accept', {
-    schema: {
-      summary: '采纳答案',
-      tags: ['community'],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            code: { type: 'number' },
-            message: { type: 'string' },
-            data: { type: 'object', additionalProperties: true },
+  server.post(
+    '/asks/answers/:id/accept',
+    {
+      schema: {
+        summary: '采纳答案',
+        tags: ['community'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
           },
-        },
-        400: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        401: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        403: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
-        },
-        404: {
-          type: 'object',
-          properties: { code: { type: 'number' }, message: { type: 'string' } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: errRespSchema,
         },
       },
     },
-  }, async (request, reply) => {
-    const parsed = uuidParamSchema.safeParse(request.params);
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
-    }
-    const accepted = await acceptAnswer(parsed.data.id, request.userId!);
-    if (!accepted) {
-      // 答案不存在或当前用户不是提问者，统一返回 404 避免泄露存在性
-      return reply.status(404).send(error(404, '答案不存在或无权采纳'));
-    }
-    return reply.send(success({ answer: accepted }));
-  });
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const accepted = await acceptAnswer(parsed.data.id, request.userId!)
+      if (!accepted) {
+        // 答案不存在或当前用户不是提问者，统一返回 404 避免泄露存在性
+        return reply.status(404).send(error(404, '答案不存在或无权采纳'))
+      }
+      return reply.send(success({ answer: accepted }))
+    },
+  )
 
   // ===== 圈子管理（管理员） =====
 
   // DELETE /admin/circles/:id - 管理员删除圈子
   server.delete('/admin/circles/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return;
-    const parsed = uuidParamSchema.safeParse(request.params);
+    if (!(await requireAdmin(request, reply))) return
+    const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findCircleById(parsed.data.id);
+    const existing = await findCircleById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '圈子不存在'));
+      return reply.status(404).send(error(404, '圈子不存在'))
     }
-    await deleteCircle(parsed.data.id);
-    return reply.send(success({ id: parsed.data.id, deleted: true }));
-  });
+    await deleteCircle(parsed.data.id)
+    return reply.send(success({ id: parsed.data.id, deleted: true }))
+  })
 
   // PUT /admin/circles/:id/show - 更新圈子显示状态
   server.put('/admin/circles/:id/show', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return;
-    const idParsed = uuidParamSchema.safeParse(request.params);
+    if (!(await requireAdmin(request, reply))) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success) {
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const parsed = circleShowSchema.safeParse(request.body);
+    const parsed = circleShowSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findCircleById(idParsed.data.id);
+    const existing = await findCircleById(idParsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '圈子不存在'));
+      return reply.status(404).send(error(404, '圈子不存在'))
     }
-    const circle = await updateCircleShowStatus(idParsed.data.id, parsed.data.isPublished);
-    return reply.send(success({ circle }));
-  });
-};
+    const circle = await updateCircleShowStatus(idParsed.data.id, parsed.data.isPublished)
+    return reply.send(success({ circle }))
+  })
+}
