@@ -49,7 +49,9 @@
     }
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,mjs,cjs}": "eslint --fix",
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "eslint --fix --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
+    ],
     "*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}": "prettier --write"
   }
 }
