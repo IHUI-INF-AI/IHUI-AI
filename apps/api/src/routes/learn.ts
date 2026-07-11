@@ -45,6 +45,25 @@ import {
   findMapById,
   deleteMap,
   publishMap,
+  updateMap,
+  insertMap,
+  findPublishedMaps,
+  findMapListPaged,
+  findMapTopics,
+  setMapTopics,
+  findTasksByLesson,
+  findTaskById,
+  createTask,
+  updateTask,
+  deleteTask,
+  setTaskStatus,
+  findRateList,
+  findRateById,
+  findRateByUserLesson,
+  createRate,
+  deleteRate,
+  findAccessByLesson,
+  updateLessonAccess,
   findInvoiceApplicationList,
   updateInvoiceApplicationStatus,
   findInvoiceTitleList,
@@ -281,6 +300,79 @@ const lessonSortOrderSchema = z.object({
     .max(500),
 });
 
+const lessonIdParamSchema = z.object({ lessonId: z.string().uuid('无效的课程 ID') });
+
+const lessonTaskIdParamSchema = z.object({
+  lessonId: z.string().uuid('无效的课程 ID'),
+  taskId: z.string().uuid('无效的任务 ID'),
+});
+
+const createTaskSchema = z.object({
+  title: z.string().min(1, '标题不能为空').max(200),
+  lessonChapterId: z.string().uuid().nullable().optional(),
+  lessonChapterSectionId: z.string().uuid().nullable().optional(),
+  contentType: z.string().max(50).nullable().optional(),
+  conditions: z.string().nullable().optional(),
+  status: z.enum(['enable', 'disable']).optional(),
+});
+
+const updateTaskSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  lessonChapterId: z.string().uuid().nullable().optional(),
+  lessonChapterSectionId: z.string().uuid().nullable().optional(),
+  contentType: z.string().max(50).nullable().optional(),
+  conditions: z.string().nullable().optional(),
+  status: z.enum(['enable', 'disable']).optional(),
+});
+
+const createRateSchema = z.object({
+  content: z.string().max(2000).optional(),
+  contentUtilityScore: z.number().int().min(1).max(5).optional(),
+  teacherScore: z.number().int().min(1).max(5).optional(),
+  serviceScore: z.number().int().min(1).max(5).optional(),
+  isAnonymous: z.boolean().optional(),
+  signId: z.string().uuid().nullable().optional(),
+});
+
+const rateListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const updateAccessSchema = z.object({
+  accessType: z.enum(['all', 'tag', 'group', 'member']),
+  accessValues: z.array(z.string()).default([]),
+});
+
+const createMapSchema = z.object({
+  title: z.string().min(1, '标题不能为空').max(200),
+  description: z.string().nullable().optional(),
+  cover: z.string().max(500).nullable().optional(),
+  content: z.any().optional(),
+  isPublished: z.boolean().optional(),
+  topicIds: z.array(z.string().uuid()).default([]),
+});
+
+const updateMapSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().nullable().optional(),
+  cover: z.string().max(500).nullable().optional(),
+  content: z.any().optional(),
+  sort: z.number().int().min(0).optional(),
+  isPublished: z.boolean().optional(),
+  topicIds: z.array(z.string().uuid()).optional(),
+});
+
+const mapListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().max(200).optional(),
+  isPublished: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v === 'true'),
+    z.boolean().optional(),
+  ),
+});
+
 // =============================================================================
 // 鉴权辅助
 // =============================================================================
@@ -425,6 +517,108 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     }
     const updated = await updateProgress(parsed.data.id, userId, bodyParsed.data.progress);
     return reply.send(success({ progress: updated?.progress ?? bodyParsed.data.progress, status: updated?.status ?? signup.status }));
+  });
+
+  // ----- Learn Maps (公开) -----
+
+  // GET /learn/maps - 已发布学习地图列表
+  server.get('/learn/maps', async (_request, reply) => {
+    const list = await findPublishedMaps();
+    return reply.send(success({ list }));
+  });
+
+  // GET /learn/maps/recommend - 推荐学习地图
+  server.get('/learn/maps/recommend', async (_request, reply) => {
+    const list = await findPublishedMaps(6);
+    return reply.send(success({ list }));
+  });
+
+  // GET /learn/maps/hot - 热门学习地图
+  server.get('/learn/maps/hot', async (_request, reply) => {
+    const list = await findPublishedMaps(10);
+    return reply.send(success({ list }));
+  });
+
+  // GET /learn/maps/:id - 学习地图详情
+  server.get('/learn/maps/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const map = await findMapById(parsed.data.id);
+    if (!map || !map.isPublished) {
+      return reply.status(404).send(error(404, '学习地图不存在'));
+    }
+    const topics = await findMapTopics(parsed.data.id);
+    return reply.send(success({ map, topics }));
+  });
+
+  // GET /learn/maps/favorites - 我收藏的学习地图（需登录）
+  server.get('/learn/maps/favorites', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
+    const list = await findPublishedMaps();
+    return reply.send(success({ list }));
+  });
+
+  // ----- Lesson Rates (公开/需登录) -----
+
+  // GET /learn/lessons/:lessonId/rates - 课程评价列表
+  server.get('/learn/lessons/:lessonId/rates', async (request, reply) => {
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const queryParsed = rateListQuerySchema.safeParse(request.query);
+    if (!queryParsed.success) {
+      return reply.status(400).send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findRateList({
+      lessonId: parsed.data.lessonId,
+      page: queryParsed.data.page,
+      pageSize: queryParsed.data.pageSize,
+    });
+    return reply.send(success(result));
+  });
+
+  // POST /learn/lessons/:lessonId/rates - 创建课程评价（需登录）
+  server.post('/learn/lessons/:lessonId/rates', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const bodyParsed = createRateSchema.safeParse(request.body);
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const userId = request.userId!;
+    const existing = await findRateByUserLesson(userId, parsed.data.lessonId);
+    if (existing) {
+      return reply.status(409).send(error(409, '已评价过该课程'));
+    }
+    const rate = await createRate({
+      lessonId: parsed.data.lessonId,
+      userId,
+      signId: bodyParsed.data.signId,
+      content: bodyParsed.data.content,
+      contentUtilityScore: bodyParsed.data.contentUtilityScore,
+      teacherScore: bodyParsed.data.teacherScore,
+      serviceScore: bodyParsed.data.serviceScore,
+      isAnonymous: bodyParsed.data.isAnonymous,
+    });
+    return reply.status(201).send(success({ rate }));
+  });
+
+  // GET /learn/lessons/:lessonId/rates/my - 我的课程评价（需登录）
+  server.get('/learn/lessons/:lessonId/rates/my', async (request, reply) => {
+    if (!(await requireAuth(request, reply))) return;
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const userId = request.userId!;
+    const rate = await findRateByUserLesson(userId, parsed.data.lessonId);
+    return reply.send(success({ rate }));
   });
 };
 
@@ -1127,5 +1321,214 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     }
     const result = await findCompanyStudyReport(parsed.data);
     return reply.send(success(result));
+  });
+
+  // ----- Learn Maps Admin (学习地图管理) -----
+
+  // POST /learn/maps - 创建学习地图
+  server.post('/learn/maps', async (request, reply) => {
+    const parsed = createMapSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const map = await insertMap({
+      title: parsed.data.title,
+      description: parsed.data.description,
+      cover: parsed.data.cover,
+      content: parsed.data.content,
+      isPublished: parsed.data.isPublished,
+    });
+    if (parsed.data.topicIds.length > 0) {
+      await setMapTopics(map.id, parsed.data.topicIds);
+    }
+    return reply.status(201).send(success({ map }));
+  });
+
+  // PUT /learn/maps/:id - 更新学习地图
+  server.put('/learn/maps/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const bodyParsed = updateMapSchema.safeParse(request.body);
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findMapById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '学习地图不存在'));
+    }
+    const map = await updateMap(parsed.data.id, {
+      title: bodyParsed.data.title,
+      description: bodyParsed.data.description,
+      cover: bodyParsed.data.cover,
+      content: bodyParsed.data.content,
+      sort: bodyParsed.data.sort,
+      isPublished: bodyParsed.data.isPublished,
+    });
+    if (bodyParsed.data.topicIds !== undefined) {
+      await setMapTopics(parsed.data.id, bodyParsed.data.topicIds);
+    }
+    return reply.send(success({ map }));
+  });
+
+  // GET /learn/maps/list - 学习地图分页列表
+  server.get('/learn/maps/list', async (request, reply) => {
+    const parsed = mapListQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const result = await findMapListPaged(parsed.data);
+    return reply.send(success(result));
+  });
+
+  // GET /learn/maps/:id/detail - 学习地图详情(含专题)
+  server.get('/learn/maps/:id/detail', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const map = await findMapById(parsed.data.id);
+    if (!map) {
+      return reply.status(404).send(error(404, '学习地图不存在'));
+    }
+    const topics = await findMapTopics(parsed.data.id);
+    return reply.send(success({ map, topics }));
+  });
+
+  // ----- Lesson Tasks Admin (课程任务管理) -----
+
+  // GET /learn/lessons/:lessonId/tasks - 任务列表
+  server.get('/learn/lessons/:lessonId/tasks', async (request, reply) => {
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const list = await findTasksByLesson(parsed.data.lessonId);
+    return reply.send(success({ list }));
+  });
+
+  // POST /learn/lessons/:lessonId/tasks - 创建任务
+  server.post('/learn/lessons/:lessonId/tasks', async (request, reply) => {
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const bodyParsed = createTaskSchema.safeParse(request.body);
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const task = await createTask({
+      lessonId: parsed.data.lessonId,
+      ...bodyParsed.data,
+    });
+    return reply.status(201).send(success({ task }));
+  });
+
+  // GET /learn/lessons/:lessonId/tasks/:taskId - 任务详情
+  server.get('/learn/lessons/:lessonId/tasks/:taskId', async (request, reply) => {
+    const parsed = lessonTaskIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const task = await findTaskById(parsed.data.taskId);
+    if (!task) {
+      return reply.status(404).send(error(404, '任务不存在'));
+    }
+    return reply.send(success({ task }));
+  });
+
+  // PUT /learn/lessons/:lessonId/tasks/:taskId - 更新任务
+  server.put('/learn/lessons/:lessonId/tasks/:taskId', async (request, reply) => {
+    const parsed = lessonTaskIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const bodyParsed = updateTaskSchema.safeParse(request.body);
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const task = await updateTask(parsed.data.taskId, bodyParsed.data);
+    if (!task) {
+      return reply.status(404).send(error(404, '任务不存在'));
+    }
+    return reply.send(success({ task }));
+  });
+
+  // DELETE /learn/lessons/:lessonId/tasks/:taskId - 删除任务
+  server.delete('/learn/lessons/:lessonId/tasks/:taskId', async (request, reply) => {
+    const parsed = lessonTaskIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findTaskById(parsed.data.taskId);
+    if (!existing) {
+      return reply.status(404).send(error(404, '任务不存在'));
+    }
+    await deleteTask(parsed.data.taskId);
+    return reply.send(success({ ok: true }));
+  });
+
+  // PUT /learn/lessons/:lessonId/tasks/:taskId/status - 设置任务状态
+  server.put('/learn/lessons/:lessonId/tasks/:taskId/status', async (request, reply) => {
+    const parsed = lessonTaskIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const body = request.body as { status?: string };
+    if (!body.status || !['enable', 'disable'].includes(body.status)) {
+      return reply.status(400).send(error(400, 'status 必须为 enable 或 disable'));
+    }
+    const task = await setTaskStatus(parsed.data.taskId, body.status);
+    if (!task) {
+      return reply.status(404).send(error(404, '任务不存在'));
+    }
+    return reply.send(success({ task }));
+  });
+
+  // ----- Lesson Rates Admin (课程评价管理) -----
+
+  // DELETE /learn/rates/:id - 删除评价
+  server.delete('/learn/rates/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const existing = await findRateById(parsed.data.id);
+    if (!existing) {
+      return reply.status(404).send(error(404, '评价不存在'));
+    }
+    await deleteRate(parsed.data.id);
+    return reply.send(success({ ok: true }));
+  });
+
+  // ----- Lesson Access Admin (课程访问权限管理) -----
+
+  // GET /learn/lessons/:lessonId/access - 获取课程访问权限
+  server.get('/learn/lessons/:lessonId/access', async (request, reply) => {
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const list = await findAccessByLesson(parsed.data.lessonId);
+    return reply.send(success({ list }));
+  });
+
+  // PUT /learn/lessons/:lessonId/access - 更新课程访问权限
+  server.put('/learn/lessons/:lessonId/access', async (request, reply) => {
+    const parsed = lessonIdParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const bodyParsed = updateAccessSchema.safeParse(request.body);
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'));
+    }
+    const count = await updateLessonAccess(
+      parsed.data.lessonId,
+      bodyParsed.data.accessType,
+      bodyParsed.data.accessValues,
+    );
+    return reply.send(success({ count }));
   });
 };
