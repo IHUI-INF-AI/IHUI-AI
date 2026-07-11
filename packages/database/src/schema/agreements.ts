@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, integer, timestamp, index } from 'drizzle
 import { users } from './users.js'
 
 // 用户协议表 - 动态管理注册/登录协议
+// 注意：该表当前无 API 引用，保留以备未来需求
 export const agreements = pgTable(
   'agreements',
   {

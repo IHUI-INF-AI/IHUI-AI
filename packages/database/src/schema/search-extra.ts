@@ -4,6 +4,7 @@ import { pgTable, uuid, varchar, integer, boolean, timestamp, index } from 'driz
  * 热搜词表。
  * - status: 0=下线 1=上线。
  * - isHot: 是否热门（前台红标展示）。
+ * 注意：该表当前无 API 引用，保留以备未来需求。
  */
 export const searchHotKeywords = pgTable(
   'search_hot_keywords',

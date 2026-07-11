@@ -222,6 +222,7 @@
     "descriptionPlaceholder": "ご入力エージェント簡体字介",
     "files": "Files",
     "fileCount": "{count}個のファイル",
+    "processedFiles": "処理済みファイル",
     "upload": "ファイルをアップロード",
     "noProjects": "プロジェクトがありません。右上をクリックして作成してください",
     "emptyFiles": "ファイルがありません。上のエリアをドラッグまたはクリックしてアップロード",
