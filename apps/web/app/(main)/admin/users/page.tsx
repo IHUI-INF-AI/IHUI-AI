@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Search, Loader2, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { Avatar } from '@/components/data/Avatar'
 import {
   Input,
   Button,
@@ -200,13 +201,7 @@ export default function AdminUsersPage() {
                   <tr key={u.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
-                          {u.avatar ? (
-                            <img src={u.avatar} alt={name} className="h-8 w-8 rounded-full" />
-                          ) : (
-                            (name?.[0] ?? 'U').toUpperCase()
-                          )}
-                        </div>
+                        <Avatar src={u.avatar ?? undefined} name={name ?? 'U'} size="sm" />
                         <span className="font-medium">{name}</span>
                       </div>
                     </td>

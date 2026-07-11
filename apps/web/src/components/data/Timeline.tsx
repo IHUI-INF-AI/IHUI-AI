@@ -26,15 +26,12 @@ export function Timeline({ items, mode = 'left', className }: TimelineProps) {
         )}
       />
       <div className="space-y-4">
-        {items.map((item, i) => {
+        {items.map((item) => {
           const Icon = item.icon
           return (
             <div
-              key={i}
-              className={cn(
-                'relative flex gap-3',
-                mode === 'right' && 'flex-row-reverse',
-              )}
+              key={item.title}
+              className={cn('relative flex gap-3', mode === 'right' && 'flex-row-reverse')}
             >
               <div
                 className={cn(
@@ -49,7 +46,9 @@ export function Timeline({ items, mode = 'left', className }: TimelineProps) {
                   <span className="text-sm font-medium">{item.title}</span>
                   {item.time && <span className="text-xs text-muted-foreground">{item.time}</span>}
                 </div>
-                {item.description && <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>}
+                {item.description && (
+                  <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>
+                )}
               </div>
             </div>
           )

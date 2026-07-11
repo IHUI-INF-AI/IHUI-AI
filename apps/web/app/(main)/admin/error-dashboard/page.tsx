@@ -202,7 +202,7 @@ export default function ErrorDashboardPage() {
                       <td className="px-4 py-2.5">
                         <code className="font-mono text-xs">{e.type}</code>
                       </td>
-                      <td className="max-w-[260px] truncate px-4 py-2.5" title={e.message}>
+                      <td className="max-w-[260px] break-words px-4 py-2.5" title={e.message}>
                         {e.message}
                       </td>
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">

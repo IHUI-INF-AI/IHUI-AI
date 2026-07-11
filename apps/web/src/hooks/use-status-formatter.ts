@@ -41,7 +41,7 @@ export function useStatusFormatter(): UseStatusFormatterReturn {
       success: 'text-green-600 bg-green-100',
       warning: 'text-yellow-600 bg-yellow-100',
       danger: 'text-red-600 bg-red-100',
-      info: 'text-blue-600 bg-blue-100',
+      info: 'text-amber-600 bg-amber-100',
     }
     return map[tone]
   }, [])

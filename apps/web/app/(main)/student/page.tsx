@@ -34,7 +34,11 @@ async function api<T>(url: string): Promise<T> {
 export default function StudentCenterPage() {
   const t = useTranslations('student')
 
-  const { data: report, isLoading, error } = useQuery({
+  const {
+    data: report,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['student', 'report'],
     queryFn: () => api<Report>('/api/edu/my-report'),
   })
@@ -106,9 +110,7 @@ export default function StudentCenterPage() {
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {lessons?.inProgress ?? 0}
-                  </div>
+                  <div className="text-2xl font-bold text-primary">{lessons?.inProgress ?? 0}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -190,7 +192,7 @@ export default function StudentCenterPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {quickLinks.map(({ href, key, icon: Icon }) => (
                 <Link key={href} href={href}>
-                  <Card className="transition-colors hover:border-primary/40">
+                  <Card className="transition-colors hover:bg-accent">
                     <CardContent className="flex items-center gap-3 p-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
                         <Icon className="h-5 w-5 text-primary" />

@@ -25,7 +25,7 @@ interface CommentItemProps {
   className?: string
 }
 
-export function CommentItem({
+function CommentItemImpl({
   avatar,
   name,
   content,
@@ -60,7 +60,10 @@ export function CommentItem({
         <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
           <button
             onClick={handleLike}
-            className={cn('flex items-center gap-1 hover:text-foreground', isLiked && 'text-primary')}
+            className={cn(
+              'flex items-center gap-1 hover:text-foreground',
+              isLiked && 'text-primary',
+            )}
           >
             <ThumbsUp className={cn('h-3.5 w-3.5', isLiked && 'fill-current')} />
             {likeCount > 0 && likeCount}
@@ -73,7 +76,7 @@ export function CommentItem({
         {replies && replies.length > 0 && (
           <div className="mt-3 space-y-3 border-l-2 pl-3">
             {replies.map((reply, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={`reply-${i}`} className="flex gap-2">
                 <Avatar src={reply.avatar} name={reply.name} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="rounded-lg bg-muted p-2">
@@ -92,3 +95,5 @@ export function CommentItem({
     </div>
   )
 }
+
+export const CommentItem = React.memo(CommentItemImpl)

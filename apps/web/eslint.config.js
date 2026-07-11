@@ -1,4 +1,5 @@
 import nextConfig from '@ihui/eslint-config/next'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
 
 export default [
   ...nextConfig,
@@ -25,5 +26,10 @@ export default [
         },
       ],
     },
+  },
+  {
+    files: ['**/*.{tsx,jsx}'],
+    plugins: { 'jsx-a11y': jsxA11y },
+    rules: { ...jsxA11y.configs.recommended.rules },
   },
 ]

@@ -501,6 +501,9 @@ importers:
       eslint-config-next:
         specifier: 15.5.20
         version: 15.5.20(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      eslint-plugin-jsx-a11y:
+        specifier: ^6.10.0
+        version: 6.10.2(eslint@9.39.4(jiti@2.7.0))
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@1.8.0)

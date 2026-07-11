@@ -13,7 +13,15 @@ interface LineChartProps {
   className?: string
 }
 
-export function LineChart({ data, xAxis, labels, smooth = false, height = 200, color = 'var(--primary)', className }: LineChartProps) {
+export const LineChart = React.memo(function LineChart({
+  data,
+  xAxis,
+  labels,
+  smooth = false,
+  height = 200,
+  color = 'var(--primary)',
+  className,
+}: LineChartProps) {
   const width = 400
   const padding = { top: 10, right: 10, bottom: xAxis ? 24 : 10, left: 30 }
   const chartW = width - padding.left - padding.right
@@ -46,7 +54,13 @@ export function LineChart({ data, xAxis, labels, smooth = false, height = 200, c
 
   return (
     <div className={cn('w-full', className)}>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height }}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full"
+        style={{ height }}
+        role="img"
+        aria-label="折线图"
+      >
         <defs>
           <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.2} />
@@ -54,15 +68,37 @@ export function LineChart({ data, xAxis, labels, smooth = false, height = 200, c
           </linearGradient>
         </defs>
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <line key={t} x1={padding.left} y1={padding.top + chartH * t} x2={width - padding.right} y2={padding.top + chartH * t} stroke="currentColor" strokeWidth={0.5} className="text-muted-foreground/20" />
+          <line
+            key={t}
+            x1={padding.left}
+            y1={padding.top + chartH * t}
+            x2={width - padding.right}
+            y2={padding.top + chartH * t}
+            stroke="currentColor"
+            strokeWidth={0.5}
+            className="text-muted-foreground/20"
+          />
         ))}
         <path d={areaPath} fill="url(#lineGrad)" />
         <path d={path} fill="none" stroke={color} strokeWidth={2} />
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill={color} className="opacity-0 hover:opacity-100" />
+          <circle
+            key={`point-${i}`}
+            cx={p.x}
+            cy={p.y}
+            r={3}
+            fill={color}
+            className="opacity-0 hover:opacity-100"
+          />
         ))}
         {xAxis?.map((label, i) => (
-          <text key={i} x={points[i]?.x} y={height - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+          <text
+            key={`xaxis-${i}`}
+            x={points[i]?.x}
+            y={height - 6}
+            textAnchor="middle"
+            className="fill-muted-foreground text-[10px]"
+          >
             {label}
           </text>
         ))}
@@ -70,7 +106,10 @@ export function LineChart({ data, xAxis, labels, smooth = false, height = 200, c
       {labels && (
         <div className="mt-2 flex flex-wrap gap-3">
           {labels.map((label, i) => (
-            <span key={i} className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span
+              key={`label-${i}`}
+              className="flex items-center gap-1 text-xs text-muted-foreground"
+            >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
               {label}
             </span>
@@ -79,4 +118,4 @@ export function LineChart({ data, xAxis, labels, smooth = false, height = 200, c
       )}
     </div>
   )
-}
+})

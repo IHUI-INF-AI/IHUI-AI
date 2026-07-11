@@ -10,8 +10,17 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
-interface Section { id: string; title: string; duration?: string; completed?: boolean }
-interface Chapter { id: string; title: string; sections: Section[] }
+interface Section {
+  id: string
+  title: string
+  duration?: string
+  completed?: boolean
+}
+interface Chapter {
+  id: string
+  title: string
+  sections: Section[]
+}
 interface LessonDetail {
   id: string
   title: string
@@ -121,7 +130,7 @@ export default function CourseDetailPage() {
               <h2 className="text-lg font-semibold">{t('detail.objectives')}</h2>
               <ul className="space-y-2">
                 {lesson.objectives.map((obj, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
+                  <li key={`obj-${i}`} className="flex items-start gap-2 text-sm">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <span>{obj}</span>
                   </li>
@@ -143,7 +152,9 @@ export default function CourseDetailPage() {
                   <details key={chapter.id} className="group rounded-lg border">
                     <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-accent">
                       <span>{chapter.title}</span>
-                      <span className="text-xs text-muted-foreground">{chapter.sections.length}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {chapter.sections.length}
+                      </span>
                     </summary>
                     <div className="border-t">
                       {chapter.sections.map((sec) => (
@@ -208,7 +219,10 @@ export default function CourseDetailPage() {
                     <span>{progress}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
                 </div>
               )}

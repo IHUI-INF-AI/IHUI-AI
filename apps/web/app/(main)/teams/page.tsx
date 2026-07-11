@@ -7,8 +7,26 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Users, UserPlus, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@ihui/ui'
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui'
+import {
+  Button,
+  Input,
+  Label,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@ihui/ui'
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui'
 
 interface TeamItem {
   id: string
@@ -139,7 +157,6 @@ export default function TeamsPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t('namePlaceholder')}
-                  autoFocus
                   maxLength={64}
                 />
               </div>
@@ -201,14 +218,14 @@ export default function TeamsPage() {
           {data.map((team) => (
             <Card
               key={team.id}
-              className="flex h-full flex-col transition-colors hover:border-primary/40 hover:shadow-md"
+              className="flex h-full flex-col transition-colors hover:bg-accent hover:shadow-md"
             >
               <CardHeader>
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Users className="h-5 w-5" />
                 </div>
                 <CardTitle className="text-base">{team.name}</CardTitle>
-                <CardDescription className="line-clamp-2 min-h-[2.5rem]">
+                <CardDescription className="min-h-[2.5rem]">
                   {team.description || team.slug}
                 </CardDescription>
               </CardHeader>

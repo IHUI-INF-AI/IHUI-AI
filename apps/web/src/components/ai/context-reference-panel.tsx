@@ -22,7 +22,7 @@ const TYPE_META: Record<
   ReferenceItem['type'],
   { icon: React.ComponentType<{ className?: string }>; cls: string }
 > = {
-  file: { icon: FileText, cls: 'text-blue-500' },
+  file: { icon: FileText, cls: 'text-primary' },
   url: { icon: LinkIcon, cls: 'text-purple-500' },
   text: { icon: Type, cls: 'text-emerald-500' },
   image: { icon: ImageIcon, cls: 'text-amber-500' },
@@ -66,7 +66,7 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                       hasPreview && 'cursor-pointer hover:text-primary',
                     )}
                   >
-                    <span className="truncate">{ref.label}</span>
+                    <span className="break-words">{ref.label}</span>
                   </button>
                   {hasPreview && (
                     <ChevronDown

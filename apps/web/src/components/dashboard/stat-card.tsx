@@ -30,7 +30,7 @@ export function StatCard({
   const display = typeof value === 'number' ? fmt.format(value) : value
 
   return (
-    <Card className="transition-colors hover:border-primary/30">
+    <Card className="transition-colors hover:bg-accent">
       <CardContent className="flex items-center gap-4 p-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
@@ -41,7 +41,7 @@ export function StatCard({
           ) : (
             <div className="text-2xl font-bold tracking-tight">{display}</div>
           )}
-          <div className="truncate text-xs text-muted-foreground">{title}</div>
+          <div className="break-words text-xs text-muted-foreground">{title}</div>
         </div>
         {trend !== undefined && !loading && (
           <span

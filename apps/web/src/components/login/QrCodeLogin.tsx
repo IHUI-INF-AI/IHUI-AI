@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock } from 'lucide-react'
@@ -101,7 +102,7 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
         ) : (
           <div className="relative h-[160px] w-[160px] overflow-hidden rounded-lg border">
             {qr?.qrCodeUrl ? (
-              <img src={qr.qrCodeUrl} alt="QR" className="h-full w-full object-contain" />
+              <Image src={qr.qrCodeUrl} alt="QR" fill unoptimized className="object-contain" />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 {t('qrLoadFailed')}

@@ -45,14 +45,21 @@ export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
       generateLabel="生成视频"
       options={
         <div className="flex flex-wrap items-center gap-3">
-          <OptionSelect label="服务商" value={provider} onChange={setProvider} options={PROVIDERS} />
+          <OptionSelect
+            label="服务商"
+            value={provider}
+            onChange={setProvider}
+            options={PROVIDERS}
+          />
           <OptionSelect label="时长" value={duration} onChange={setDuration} options={DURATIONS} />
         </div>
       }
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            <video src={result.data} controls className="max-w-full rounded-md" />
+            <video src={result.data} controls className="max-w-full rounded-md">
+              <track kind="captions" />
+            </video>
             <a
               href={result.data}
               download="generated-video"

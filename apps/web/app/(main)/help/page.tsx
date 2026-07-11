@@ -18,11 +18,14 @@ export default function HelpPage() {
 
   const { data: cats = [] } = useQuery({
     queryKey: ['help-categories'],
-    queryFn: () =>
-      api<{ list: HelpCategory[] }>('/api/help/categories').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: HelpCategory[] }>('/api/help/categories').then((d) => d.list ?? []),
   })
 
-  const { data: articles = [], isLoading, error } = useQuery({
+  const {
+    data: articles = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['help-articles'],
     queryFn: () =>
       api<{ list: HelpArticleSummary[] }>('/api/help/articles').then((d) => d.list ?? []),
@@ -76,7 +79,11 @@ export default function HelpPage() {
 
       <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
         <nav className="space-y-1">
-          <button type="button" onClick={() => setActive('all')} className={catCls(active === 'all')}>
+          <button
+            type="button"
+            onClick={() => setActive('all')}
+            className={catCls(active === 'all')}
+          >
             <BookOpen className="h-4 w-4" />
             {t('allArticles')}
             <span className="ml-auto text-xs text-muted-foreground">{articles.length}</span>
@@ -111,15 +118,17 @@ export default function HelpPage() {
             <div className="space-y-2">
               {filtered.map((a) => (
                 <Link key={a.slug} href={`/help/${a.slug}`} className="block">
-                  <Card className="transition-colors hover:border-primary/40 hover:bg-accent/30">
+                  <Card className="transition-colors hover:bg-accent">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-2">
-                        <h2 className="line-clamp-1 text-sm font-semibold">{a.title}</h2>
+                        <h2 className="text-sm font-semibold">{a.title}</h2>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {fmt(a.updatedAt)}
                         </span>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{a.summary || excerptFromContent(a.content)}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {a.summary || excerptFromContent(a.content)}
+                      </p>
                     </CardContent>
                   </Card>
                 </Link>

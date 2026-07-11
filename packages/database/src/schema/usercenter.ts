@@ -86,3 +86,26 @@ export const userJobs = pgTable('user_jobs', {
 
 export type UserJob = typeof userJobs.$inferSelect
 export type NewUserJob = typeof userJobs.$inferInsert
+
+/**
+ * 部门层级关系表 (department_relations)。
+ * 记录部门间的层级关系(如父-子)。
+ * relationType: 'parent-child'(父子) / 'virtual'(虚拟归属)。
+ */
+export const departmentRelation = pgTable(
+  'department_relations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    parentDeptId: uuid('parent_dept_id').references(() => departments.id, { onDelete: 'cascade' }),
+    childDeptId: uuid('child_dept_id').references(() => departments.id, { onDelete: 'cascade' }),
+    relationType: varchar('relation_type', { length: 20 }).default('parent-child'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    parentDeptIdIdx: index('department_relations_parent_idx').on(t.parentDeptId),
+    childDeptIdIdx: index('department_relations_child_idx').on(t.childDeptId),
+  }),
+)
+
+export type DepartmentRelation = typeof departmentRelation.$inferSelect
+export type NewDepartmentRelation = typeof departmentRelation.$inferInsert

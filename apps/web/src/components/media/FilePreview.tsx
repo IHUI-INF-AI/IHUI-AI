@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { FileText, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -24,10 +25,13 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
 
   if (detectedType === 'image') {
     return (
-      <img
+      <Image
         src={url}
         alt={name ?? 'preview'}
-        className={cn('max-h-full max-w-full object-contain', className)}
+        width={800}
+        height={600}
+        unoptimized
+        className={cn('h-auto w-auto max-h-full max-w-full object-contain', className)}
       />
     )
   }
@@ -45,11 +49,16 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
   if (detectedType === 'office') {
     const encoded = encodeURIComponent(url)
     return (
-      <iframe
-        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encoded}`}
-        title={name ?? 'Office preview'}
-        className={cn('h-full w-full border-0', className)}
-      />
+      <div className="flex flex-col h-full">
+        <div className="px-3 py-1.5 text-xs text-muted-foreground bg-muted border-b">
+          Office 文件预览由微软在线服务提供，文件 URL 将发送至 view.officeapps.live.com
+        </div>
+        <iframe
+          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encoded}`}
+          title={name ?? 'Office preview'}
+          className={cn('h-full w-full border-0 flex-1', className)}
+        />
+      </div>
     )
   }
 
@@ -62,16 +71,21 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
   const [error, setError] = React.useState(false)
 
   React.useEffect(() => {
-    fetch(url)
+    const controller = new AbortController()
+    setLoading(true)
+    setError(false)
+    fetch(url, { signal: controller.signal })
       .then((res) => res.text())
       .then((text) => {
         setContent(text)
         setLoading(false)
       })
       .catch(() => {
+        if (controller.signal.aborted) return
         setError(true)
         setLoading(false)
       })
+    return () => controller.abort()
   }, [url])
 
   if (loading) return <div className="p-4 text-sm text-muted-foreground">加载中...</div>

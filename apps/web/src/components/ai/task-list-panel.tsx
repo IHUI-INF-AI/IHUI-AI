@@ -20,7 +20,7 @@ interface TaskListPanelProps {
 
 const STATUS_CLS: Record<TaskItem['status'], string> = {
   todo: 'text-muted-foreground',
-  'in-progress': 'text-blue-500',
+  'in-progress': 'text-primary',
   done: 'text-emerald-500',
   blocked: 'text-destructive',
 }
@@ -59,7 +59,7 @@ export function TaskListPanel({ tasks, onToggle }: TaskListPanelProps) {
                 <div className="min-w-0 flex-1">
                   <p
                     className={cn(
-                      'truncate text-sm',
+                      'break-words text-sm',
                       isDone && 'text-muted-foreground line-through',
                     )}
                   >

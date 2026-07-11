@@ -40,20 +40,51 @@ const MOCK_TABLES: TableInfo[] = [
 ]
 
 const MOCK_SLOW_QUERIES: SlowQuery[] = [
-  { id: '1', query: 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC', latency: 1240, calls: 8420 },
-  { id: '2', query: 'SELECT COUNT(*) FROM audit_logs WHERE created_at > NOW() - INTERVAL 7 DAY', latency: 880, calls: 1240 },
-  { id: '3', query: 'SELECT * FROM orders JOIN users ON orders.user_id = users.id WHERE orders.status = ?', latency: 620, calls: 3210 },
+  {
+    id: '1',
+    query: 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC',
+    latency: 1240,
+    calls: 8420,
+  },
+  {
+    id: '2',
+    query: 'SELECT COUNT(*) FROM audit_logs WHERE created_at > NOW() - INTERVAL 7 DAY',
+    latency: 880,
+    calls: 1240,
+  },
+  {
+    id: '3',
+    query: 'SELECT * FROM orders JOIN users ON orders.user_id = users.id WHERE orders.status = ?',
+    latency: 620,
+    calls: 3210,
+  },
   { id: '4', query: 'UPDATE sessions SET data = ? WHERE token = ?', latency: 410, calls: 12450 },
 ]
 
 const MOCK_SUGGESTIONS: Suggestion[] = [
-  { id: '1', type: 'index', title: '为 messages.conversation_id 添加索引', description: '该列频繁出现在 WHERE 与 ORDER BY 中,添加复合索引 (conversation_id, created_at) 可显著降低延迟。' },
-  { id: '2', type: 'archive', title: '归档 audit_logs 历史数据', description: 'audit_logs 表已超过 500 万行,建议将 90 天前数据归档至冷存储。' },
-  { id: '3', type: 'rewrite', title: '优化 orders 联表查询', description: '建议为 orders.status 添加索引,并限制返回字段避免 SELECT *。' },
+  {
+    id: '1',
+    type: 'index',
+    title: '为 messages.conversation_id 添加索引',
+    description:
+      '该列频繁出现在 WHERE 与 ORDER BY 中,添加复合索引 (conversation_id, created_at) 可显著降低延迟。',
+  },
+  {
+    id: '2',
+    type: 'archive',
+    title: '归档 audit_logs 历史数据',
+    description: 'audit_logs 表已超过 500 万行,建议将 90 天前数据归档至冷存储。',
+  },
+  {
+    id: '3',
+    type: 'rewrite',
+    title: '优化 orders 联表查询',
+    description: '建议为 orders.status 添加索引,并限制返回字段避免 SELECT *。',
+  },
 ]
 
 const SUGGESTION_STYLE: Record<Suggestion['type'], { bg: string; text: string; label: string }> = {
-  index: { bg: 'bg-blue-500/10', text: 'text-blue-600', label: 'Index' },
+  index: { bg: 'bg-primary/10', text: 'text-primary', label: 'Index' },
   rewrite: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Rewrite' },
   archive: { bg: 'bg-purple-500/10', text: 'text-purple-600', label: 'Archive' },
 }
@@ -157,10 +188,17 @@ export default function DatabaseOptimizationPage() {
                     {q.query}
                   </code>
                   <div className="flex shrink-0 items-center gap-3 text-xs">
-                    <span className={cn('font-medium', q.latency > 1000 ? 'text-red-600' : 'text-amber-600')}>
+                    <span
+                      className={cn(
+                        'font-medium',
+                        q.latency > 1000 ? 'text-red-600' : 'text-amber-600',
+                      )}
+                    >
                       {q.latency}ms
                     </span>
-                    <span className="text-muted-foreground">{q.calls.toLocaleString()} {t('dbOpt.calls')}</span>
+                    <span className="text-muted-foreground">
+                      {q.calls.toLocaleString()} {t('dbOpt.calls')}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -188,7 +226,13 @@ export default function DatabaseOptimizationPage() {
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">{s.title}</CardTitle>
-                      <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', style.bg, style.text)}>
+                      <span
+                        className={cn(
+                          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                          style.bg,
+                          style.text,
+                        )}
+                      >
                         {style.label}
                       </span>
                     </div>

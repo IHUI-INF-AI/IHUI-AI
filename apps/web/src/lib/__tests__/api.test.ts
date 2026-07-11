@@ -132,4 +132,56 @@ describe('fetchApi', () => {
     const headers = opts.headers as Record<string, string>
     expect(headers['Content-Type']).toBeUndefined()
   })
+
+  it('传入 AbortSignal 并中止时返回请求已取消', async () => {
+    const controller = new AbortController()
+    global.fetch = vi.fn().mockImplementation((_url, opts) => {
+      return new Promise((_resolve, reject) => {
+        const signal = (opts as RequestInit).signal as AbortSignal
+        if (signal?.aborted) {
+          reject(new DOMException('aborted', 'AbortError'))
+          return
+        }
+        signal?.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'))
+        })
+      })
+    }) as unknown as typeof fetch
+
+    const promise = fetchApi('/api/test', { signal: controller.signal })
+    controller.abort()
+    const r = await promise
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error).toBe('请求已取消')
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('首次请求网络失败时重试一次', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ code: 0, message: 'ok', data: { v: 1 } }),
+      })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const r = await fetchApi('/api/test')
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data).toEqual({ v: 1 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('连续两次网络失败时返回错误(重试耗尽)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockRejectedValueOnce(new Error('network down'))
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const r = await fetchApi('/api/test')
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error).toBe('network down')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })

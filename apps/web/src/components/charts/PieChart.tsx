@@ -10,9 +10,23 @@ interface PieChartProps {
   className?: string
 }
 
-const defaultColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+const defaultColors = [
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#84cc16',
+]
 
-export function PieChart({ data, donut = false, size = 200, className }: PieChartProps) {
+export const PieChart = React.memo(function PieChart({
+  data,
+  donut = false,
+  size = 200,
+  className,
+}: PieChartProps) {
   const total = data.reduce((sum, d) => sum + d.value, 0) || 1
   const cx = size / 2
   const cy = size / 2
@@ -42,19 +56,30 @@ export function PieChart({ data, donut = false, size = 200, className }: PieChar
       path = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix1} ${iy1} Z`
     }
 
-    return { path, color: d.color ?? defaultColors[i % defaultColors.length], label: d.label, value: d.value, percentage: (d.value / total) * 100 }
+    return {
+      path,
+      color: d.color ?? defaultColors[i % defaultColors.length],
+      label: d.label,
+      value: d.value,
+      percentage: (d.value / total) * 100,
+    }
   })
 
   return (
     <div className={cn('flex items-center gap-4', className)}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {slices.map((s, i) => (
-          <path key={i} d={s.path} fill={s.color} className="transition-opacity hover:opacity-80" />
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="饼图">
+        {slices.map((s) => (
+          <path
+            key={s.label}
+            d={s.path}
+            fill={s.color}
+            className="transition-opacity hover:opacity-80"
+          />
         ))}
       </svg>
       <div className="space-y-1">
-        {slices.map((s, i) => (
-          <div key={i} className="flex items-center gap-2 text-xs">
+        {slices.map((s) => (
+          <div key={s.label} className="flex items-center gap-2 text-xs">
             <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: s.color }} />
             <span className="text-muted-foreground">{s.label}</span>
             <span className="font-medium">{s.percentage.toFixed(1)}%</span>
@@ -63,4 +88,4 @@ export function PieChart({ data, donut = false, size = 200, className }: PieChar
       </div>
     </div>
   )
-}
+})

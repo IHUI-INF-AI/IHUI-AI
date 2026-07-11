@@ -1,7 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { signAccessToken, signRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
+import { randomBytes } from 'node:crypto'
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  createFamilyId,
+  type JWTPayload,
+} from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -14,6 +21,8 @@ import {
   checkPhoneExists,
   cancelUserAccount,
   saveRefreshToken,
+  findRefreshToken,
+  revokeRefreshToken,
 } from '../db/queries.js'
 import {
   findOAuthAppByClientId,
@@ -677,4 +686,580 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 注：实名认证端点已迁移到独立路由文件 auth-identity.ts（M-67）
+
+  // ============================================================================
+  // OAuth 核心端点（迁移自 coze_zhs_py oauth_auth.py，共 20 端点）
+  // 已有: GET /auth/oauth/authorize（授权页面）、POST /auth/oauth/token（令牌交换）
+  // 以下补齐缺失的 18 个端点
+  // ============================================================================
+
+  // --- 设备码流程（device_code → user_code → 授权 → token）---
+  // 设备码映射存储（内存,带 TTL。单实例足够；多实例可改 Redis）
+  const DEVICE_CODE_TTL_MS = 15 * 60 * 1000
+  const deviceCodeStore = new Map<
+    string,
+    {
+      userCode: string
+      clientId: string
+      userId: string | null
+      expiresAt: number
+    }
+  >()
+
+  const oauthDeviceSchema = z.object({
+    client_id: z.string().min(1),
+    client_secret: z.string().optional(),
+    scope: z.string().optional(),
+  })
+
+  // POST /oauth/device — 设备码授权
+  server.post('/oauth/device', async (request, reply) => {
+    const parsed = oauthDeviceSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const deviceCode = randomBytes(16).toString('hex')
+    const userCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+    deviceCodeStore.set(deviceCode, {
+      userCode,
+      clientId: parsed.data.client_id,
+      userId: null,
+      expiresAt: Date.now() + DEVICE_CODE_TTL_MS,
+    })
+    return reply.send(
+      success({
+        device_code: deviceCode,
+        user_code: userCode,
+        verification_uri: '/oauth/sms-login',
+        expires_in: DEVICE_CODE_TTL_MS / 1000,
+        interval: 5,
+      }),
+    )
+  })
+
+  const oauthDeviceTokenSchema = z.object({
+    device_code: z.string().min(1),
+    client_id: z.string().min(1),
+  })
+
+  // POST /oauth/device/token — 设备码换 token（轮询）
+  server.post('/oauth/device/token', async (request, reply) => {
+    const parsed = oauthDeviceTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const entry = deviceCodeStore.get(parsed.data.device_code)
+    if (!entry) return reply.status(400).send(error(400, 'device_code 无效'))
+    if (Date.now() > entry.expiresAt) {
+      deviceCodeStore.delete(parsed.data.device_code)
+      return reply.status(400).send(error(400, 'device_code 已过期'))
+    }
+    if (!entry.userId) return reply.status(428).send(error(428, 'authorization_pending'))
+    const user = await findUserById(entry.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    deviceCodeStore.delete(parsed.data.device_code)
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+    await createAuditLog({
+      event: 'device_token',
+      clientId: entry.clientId,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: expiresIn,
+      }),
+    )
+  })
+
+  const oauthRefreshSchema = z.object({
+    refresh_token: z.string().min(1),
+    client_id: z.string().optional(),
+  })
+
+  // POST /oauth/device/refresh — 刷新设备 token
+  server.post('/oauth/device/refresh', async (request, reply) => {
+    const parsed = oauthRefreshSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const payload = await verifyRefreshToken(parsed.data.refresh_token)
+      const stored = await findRefreshToken(parsed.data.refresh_token)
+      if (!stored || stored.revokedAt)
+        return reply.status(400).send(error(400, 'refresh_token 无效'))
+      const user = await findUserById(payload.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      await revokeRefreshToken(parsed.data.refresh_token)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    } catch {
+      return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
+    }
+  })
+
+  // --- Web 授权流程（POST 版本，与已有 GET /auth/oauth/authorize 互补）---
+
+  const oauthWebAuthorizeSchema = z.object({
+    client_id: z.string().min(1),
+    redirect_uri: z.string().url(),
+    state: z.string().min(1),
+    scope: z.string().optional(),
+  })
+
+  // POST /oauth/web/authorize — Web 授权
+  server.post('/oauth/web/authorize', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthWebAuthorizeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const redirectUris = (app.redirectUris as string[]) ?? []
+    if (!redirectUris.includes(parsed.data.redirect_uri))
+      return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: parsed.data.client_id,
+      userId: request.userId!,
+      state: parsed.data.state,
+      scope: parsed.data.scope,
+    })
+    const sep = parsed.data.redirect_uri.includes('?') ? '&' : '?'
+    return reply.send(
+      success({
+        code,
+        state: parsed.data.state,
+        redirect_uri: `${parsed.data.redirect_uri}${sep}code=${code}&state=${parsed.data.state}`,
+      }),
+    )
+  })
+
+  const oauthTokenExchangeSchema = z.object({
+    code: z.string().min(1),
+    client_id: z.string().min(1),
+    client_secret: z.string().min(1),
+    state: z.string().optional(),
+  })
+
+  // POST /oauth/web/token — Web 换 token
+  server.post('/oauth/web/token', async (request, reply) => {
+    const parsed = oauthTokenExchangeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.clientSecret !== parsed.data.client_secret)
+      return reply.status(401).send(error(401, '应用凭证错误'))
+    const session = await findSessionByCode(parsed.data.code)
+    if (!session || session.isUsed || session.expiresAt < new Date())
+      return reply.status(400).send(error(400, '授权码无效或已过期'))
+    await markSessionUsed(parsed.data.code)
+    const user = await findUserById(session.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+    await createAuditLog({
+      event: 'web_token',
+      clientId: parsed.data.client_id,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: expiresIn,
+      }),
+    )
+  })
+
+  // POST /oauth/web/refresh — 刷新 Web token
+  server.post('/oauth/web/refresh', async (request, reply) => {
+    const parsed = oauthRefreshSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const payload = await verifyRefreshToken(parsed.data.refresh_token)
+      const stored = await findRefreshToken(parsed.data.refresh_token)
+      if (!stored || stored.revokedAt)
+        return reply.status(400).send(error(400, 'refresh_token 无效'))
+      const user = await findUserById(payload.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      await revokeRefreshToken(parsed.data.refresh_token)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    } catch {
+      return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
+    }
+  })
+
+  // --- PKCE 授权流程 ---
+
+  const oauthPkceAuthorizeSchema = z.object({
+    client_id: z.string().min(1),
+    redirect_uri: z.string().url(),
+    state: z.string().min(1),
+    scope: z.string().optional(),
+    code_challenge: z.string().min(1),
+    code_challenge_method: z.literal('S256'),
+  })
+
+  // POST /oauth/pkce/authorize — PKCE 授权
+  server.post('/oauth/pkce/authorize', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthPkceAuthorizeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const redirectUris = (app.redirectUris as string[]) ?? []
+    if (!redirectUris.includes(parsed.data.redirect_uri))
+      return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: parsed.data.client_id,
+      userId: request.userId!,
+      state: parsed.data.state,
+      scope: parsed.data.scope,
+      codeChallenge: parsed.data.code_challenge,
+      codeChallengeMethod: parsed.data.code_challenge_method,
+    })
+    const sep = parsed.data.redirect_uri.includes('?') ? '&' : '?'
+    return reply.send(
+      success({
+        code,
+        state: parsed.data.state,
+        redirect_uri: `${parsed.data.redirect_uri}${sep}code=${code}&state=${parsed.data.state}`,
+      }),
+    )
+  })
+
+  const oauthPkceTokenSchema = z.object({
+    code: z.string().min(1),
+    client_id: z.string().min(1),
+    code_verifier: z.string().min(1),
+  })
+
+  // POST /oauth/pkce/token — PKCE 换 token
+  server.post('/oauth/pkce/token', async (request, reply) => {
+    const parsed = oauthPkceTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const session = await findSessionByCode(parsed.data.code)
+    if (!session || session.isUsed || session.expiresAt < new Date())
+      return reply.status(400).send(error(400, '授权码无效或已过期'))
+    if (!session.codeChallenge || !session.codeChallengeMethod)
+      return reply.status(400).send(error(400, '该授权码非 PKCE 流程'))
+    // S256: base64url(sha256(code_verifier)) === code_challenge
+    const { createHash } = await import('node:crypto')
+    const computed = createHash('sha256').update(parsed.data.code_verifier).digest('base64url')
+    if (computed !== session.codeChallenge)
+      return reply.status(400).send(error(400, 'code_verifier 校验失败'))
+    await markSessionUsed(parsed.data.code)
+    const user = await findUserById(session.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+    await createAuditLog({
+      event: 'pkce_token',
+      clientId: parsed.data.client_id,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: expiresIn,
+      }),
+    )
+  })
+
+  // POST /oauth/pkce/refresh — 刷新 PKCE token
+  server.post('/oauth/pkce/refresh', async (request, reply) => {
+    const parsed = oauthRefreshSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const payload = await verifyRefreshToken(parsed.data.refresh_token)
+      const stored = await findRefreshToken(parsed.data.refresh_token)
+      if (!stored || stored.revokedAt)
+        return reply.status(400).send(error(400, 'refresh_token 无效'))
+      const user = await findUserById(payload.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      await revokeRefreshToken(parsed.data.refresh_token)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    } catch {
+      return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
+    }
+  })
+
+  // --- JWT 授权 ---
+
+  const oauthJwtTokenSchema = z.object({
+    client_id: z.string().min(1),
+    client_secret: z.string().optional(),
+    assertion: z.string().min(1),
+    grant_type: z.literal('urn:ietf:params:oauth:grant-type:jwt-bearer'),
+  })
+
+  // POST /oauth/jwt/token — JWT 授权（private_key_jwt）
+  server.post('/oauth/jwt/token', async (request, reply) => {
+    const parsed = oauthJwtTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    if (parsed.data.client_secret && app.clientSecret !== parsed.data.client_secret)
+      return reply.status(401).send(error(401, '应用凭证错误'))
+    // 校验 assertion（JWT格式: header.payload.signature）
+    const parts = parsed.data.assertion.split('.')
+    if (parts.length !== 3) return reply.status(400).send(error(400, 'assertion 格式无效'))
+    try {
+      const payloadJson = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString()) as {
+        sub?: string
+        exp?: number
+      }
+      if (payloadJson.exp && payloadJson.exp * 1000 < Date.now())
+        return reply.status(400).send(error(400, 'assertion 已过期'))
+      const userId = payloadJson.sub
+      if (!userId) return reply.status(400).send(error(400, 'assertion 缺少 sub'))
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      await createAuditLog({
+        event: 'jwt_token',
+        clientId: parsed.data.client_id,
+        userId: user.id,
+        status: 'success',
+      })
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    } catch {
+      return reply.status(400).send(error(400, 'assertion 解析失败'))
+    }
+  })
+
+  // --- 确认授权 / 多路径兼容 / 调试 ---
+
+  const oauthConfirmSchema = z.object({
+    user_code: z.string().min(1),
+  })
+
+  // POST /oauth/authorize/confirm — 确认授权（设备码流程用户确认）
+  server.post('/oauth/authorize/confirm', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthConfirmSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    let deviceEntry: {
+      key: string
+      value: { userCode: string; clientId: string; userId: string | null; expiresAt: number }
+    } | null = null
+    for (const [key, value] of deviceCodeStore) {
+      if (value.userCode === parsed.data.user_code) {
+        deviceEntry = { key, value }
+        break
+      }
+    }
+    if (!deviceEntry) return reply.status(404).send(error(404, 'user_code 无效'))
+    if (Date.now() > deviceEntry.value.expiresAt) {
+      deviceCodeStore.delete(deviceEntry.key)
+      return reply.status(400).send(error(400, 'user_code 已过期'))
+    }
+    deviceEntry.value.userId = request.userId!
+    return reply.send(success({ confirmed: true, user_code: parsed.data.user_code }))
+  })
+
+  const oauthAccessTokenSchema = z.object({
+    client_id: z.string().min(1),
+    client_secret: z.string().min(1),
+    code: z.string().min(1),
+  })
+
+  // POST /oauth/access_token — 访问令牌（多路径兼容，同 /auth/oauth/token）
+  server.post('/oauth/access_token', async (request, reply) => {
+    const parsed = oauthAccessTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.clientSecret !== parsed.data.client_secret)
+      return reply.status(401).send(error(401, '应用凭证错误'))
+    const session = await findSessionByCode(parsed.data.code)
+    if (!session || session.isUsed || session.expiresAt < new Date())
+      return reply.status(400).send(error(400, '授权码无效或已过期'))
+    await markSessionUsed(parsed.data.code)
+    const user = await findUserById(session.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const { accessToken, expiresIn } = await buildTokenPair(user)
+    await createAuditLog({
+      event: 'access_token',
+      clientId: parsed.data.client_id,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({ access_token: accessToken, token_type: 'Bearer', expires_in: expiresIn }),
+    )
+  })
+
+  // POST /oauth/token/exchange — 令牌交换（多路径兼容）
+  server.post('/oauth/token/exchange', async (request, reply) => {
+    const body = request.body as Record<string, string | undefined>
+    const grantType = body.grant_type
+    // authorization_code 流程
+    if (grantType === 'authorization_code' || body.code) {
+      const parsed = oauthTokenExchangeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const app = await findOAuthAppByClientId(parsed.data.client_id)
+      if (!app || app.clientSecret !== parsed.data.client_secret)
+        return reply.status(401).send(error(401, '应用凭证错误'))
+      const session = await findSessionByCode(parsed.data.code)
+      if (!session || session.isUsed || session.expiresAt < new Date())
+        return reply.status(400).send(error(400, '授权码无效或已过期'))
+      await markSessionUsed(parsed.data.code)
+      const user = await findUserById(session.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    }
+    // refresh_token 流程
+    if (grantType === 'refresh_token' || body.refresh_token) {
+      const parsed = oauthRefreshSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      try {
+        const payload = await verifyRefreshToken(parsed.data.refresh_token)
+        const stored = await findRefreshToken(parsed.data.refresh_token)
+        if (!stored || stored.revokedAt)
+          return reply.status(400).send(error(400, 'refresh_token 无效'))
+        const user = await findUserById(payload.userId)
+        if (!user) return reply.status(404).send(error(404, '用户不存在'))
+        await revokeRefreshToken(parsed.data.refresh_token)
+        const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user)
+        return reply.send(
+          success({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            token_type: 'Bearer',
+            expires_in: expiresIn,
+          }),
+        )
+      } catch {
+        return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
+      }
+    }
+    return reply.status(400).send(error(400, '不支持的 grant_type'))
+  })
+
+  // GET /oauth/token/test — 测试令牌
+  server.get('/oauth/token/test', async (request, reply) => {
+    const authHeader = request.headers.authorization
+    if (!authHeader?.startsWith('Bearer '))
+      return reply.status(401).send(error(401, '缺少 Bearer token'))
+    const token = authHeader.slice(7)
+    try {
+      const { verifyAccessToken } = await import('@ihui/auth')
+      const payload = await verifyAccessToken(token)
+      return reply.send(success({ valid: true, userId: payload.userId, roleId: payload.roleId }))
+    } catch {
+      return reply.status(401).send(error(401, 'token 无效或已过期'))
+    }
+  })
+
+  // POST /oauth/debug/callback — 调试回调
+  server.post('/oauth/debug/callback', async (request, reply) => {
+    const body = request.body as Record<string, unknown>
+    await createAuditLog({
+      event: 'debug_callback',
+      status: 'success',
+      detail: JSON.stringify(body),
+    })
+    return reply.send(success({ received: true, echoed: body }))
+  })
+
+  // GET /oauth/sms-config — 短信配置（同 /sms-proxy/config，多路径兼容）
+  server.get('/oauth/sms-config', async (_request, reply) => {
+    const provider =
+      process.env.ALI_SMS_ACCESS_KEY_ID && process.env.ALI_SMS_ACCESS_KEY_SECRET
+        ? 'aliyun'
+        : process.env.SMS_API_BASE_URL
+          ? 'proxy'
+          : 'dev'
+    return reply.send(
+      success({
+        configured: isSmsConfigured(),
+        provider,
+        apiBaseUrlSet: Boolean(process.env.SMS_API_BASE_URL),
+      }),
+    )
+  })
+
+  // POST /oauth/debug/create-test-session — 创建测试会话
+  server.post('/oauth/debug/create-test-session', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production')
+      return reply.status(403).send(error(403, '生产环境禁止调试端点'))
+    await authenticate(request)
+    const { client_id } = request.body as { client_id?: string }
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: client_id ?? 'test_client',
+      userId: request.userId!,
+      state: 'test_state',
+    })
+    return reply.send(success({ code, state: 'test_state', message: '测试会话已创建,5分钟内有效' }))
+  })
+
+  // GET /oauth/sms-login — 短信登录页（返回页面配置信息,前端渲染）
+  server.get('/oauth/sms-login', async (_request, reply) => {
+    return reply.send(
+      success({
+        page: 'sms-login',
+        smsConfigured: isSmsConfigured(),
+        sendCodeEndpoint: '/api/auth/sms/code',
+        verifyEndpoint: '/api/sms-proxy/verify',
+      }),
+    )
+  })
 }

@@ -58,11 +58,15 @@ export default function MyPapersPage() {
   const [form, setForm] = React.useState<PaperForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
 
-  const { data: list = [], isLoading, error } = useQuery({
+  const {
+    data: list = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['student', 'papers'],
     queryFn: () =>
       api<Paper[] | { list: Paper[] }>('/api/edu/my-papers').then((d) =>
-        Array.isArray(d) ? d : d.list ?? [],
+        Array.isArray(d) ? d : (d.list ?? []),
       ),
   })
 
@@ -149,7 +153,7 @@ export default function MyPapersPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((paper) => (
-            <Card key={paper.id} className="transition-colors hover:border-primary/40">
+            <Card key={paper.id} className="transition-colors hover:bg-accent">
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
@@ -164,7 +168,7 @@ export default function MyPapersPage() {
                     {t(statusKey(paper.status))}
                   </span>
                 </div>
-                <h3 className="line-clamp-2 font-medium">{paper.paperTitle}</h3>
+                <h3 className="font-medium">{paper.paperTitle}</h3>
                 <div className="space-y-1.5 text-xs text-muted-foreground">
                   {paper.paperUrl && (
                     <a
@@ -217,7 +221,6 @@ export default function MyPapersPage() {
                 id="p-title"
                 value={form.paperTitle}
                 onChange={(e) => setForm({ ...form, paperTitle: e.target.value })}
-                autoFocus
               />
             </div>
             <div className="space-y-2">
@@ -230,7 +233,12 @@ export default function MyPapersPage() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={createMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={createMut.isPending}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="submit" disabled={createMut.isPending}>

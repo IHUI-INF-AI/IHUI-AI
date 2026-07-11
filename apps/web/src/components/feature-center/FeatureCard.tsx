@@ -33,7 +33,7 @@ export function FeatureCard({ title, description, badge, footer, onClick }: Feat
             </span>
           )}
         </div>
-        <CardDescription className="line-clamp-2">{description}</CardDescription>
+        <CardDescription className="break-words">{description}</CardDescription>
       </CardHeader>
       {footer && <CardContent className="mt-auto text-sm">{footer}</CardContent>}
     </Card>

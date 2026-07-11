@@ -4,7 +4,16 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Users, TrendingUp, Wallet, Gift, Loader2, ArrowRight, DollarSign, CheckCircle2 } from 'lucide-react'
+import {
+  Users,
+  TrendingUp,
+  Wallet,
+  Gift,
+  Loader2,
+  ArrowRight,
+  DollarSign,
+  CheckCircle2,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui'
@@ -67,7 +76,7 @@ export default function DistributionHomePage() {
       label: t('teamSize'),
       value: teamQ.data?.totalInvitees ?? 0,
       icon: Users,
-      tone: 'text-blue-600 dark:text-blue-400',
+      tone: 'text-primary',
     },
     {
       label: t('totalCommission'),
@@ -111,13 +120,7 @@ export default function DistributionHomePage() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
-          <StatCard
-            key={s.label}
-            title={s.label}
-            value={s.value}
-            icon={s.icon}
-            loading={loading}
-          />
+          <StatCard key={s.label} title={s.label} value={s.value} icon={s.icon} loading={loading} />
         ))}
       </div>
 
@@ -128,7 +131,7 @@ export default function DistributionHomePage() {
             const Icon = e.icon
             return (
               <Link key={e.href} href={e.href}>
-                <Card className="transition-colors hover:border-primary/50">
+                <Card className="transition-colors hover:bg-accent">
                   <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
                     <Icon className="h-6 w-6 text-primary" />
                     <span className="text-sm font-medium">{e.label}</span>

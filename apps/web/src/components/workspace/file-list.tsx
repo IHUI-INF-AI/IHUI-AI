@@ -70,7 +70,7 @@ export function FileList({ files, downloadingId, onDownload, onDelete }: FileLis
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="max-w-[12rem] truncate sm:max-w-xs">{file.name}</span>
+                    <span className="max-w-[12rem] break-words sm:max-w-xs">{file.name}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{formatSize(file.size)}</td>

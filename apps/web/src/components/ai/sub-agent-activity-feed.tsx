@@ -1,14 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Zap,
-} from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Loader2, Zap } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import type { SubAgentActivity, AgentStatus } from './types'
@@ -23,11 +16,11 @@ interface SubAgentActivityFeedProps {
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
   idle: 'bg-zinc-400',
   pending: 'bg-amber-400',
-  thinking: 'bg-blue-500',
+  thinking: 'bg-amber-500',
   acting: 'bg-violet-500',
   reflecting: 'bg-cyan-500',
   waiting: 'bg-amber-400',
-  running: 'bg-blue-500',
+  running: 'bg-amber-500',
   completed: 'bg-emerald-500',
   failed: 'bg-red-500',
   cancelled: 'bg-zinc-400',
@@ -59,9 +52,7 @@ export function SubAgentActivityFeed({
   const hasRunning = activities.some(
     (a) => a.status !== 'completed' && a.status !== 'failed' && a.status !== 'cancelled',
   )
-  const [expanded, setExpanded] = React.useState(
-    initiallyExpanded ?? (hasRunning && !completed),
-  )
+  const [expanded, setExpanded] = React.useState(initiallyExpanded ?? (hasRunning && !completed))
 
   const totalSteps = activities.reduce((sum, a) => sum + a.completedSteps.length, 0)
 
@@ -80,7 +71,7 @@ export function SubAgentActivityFeed({
       >
         <div className="flex items-center gap-2">
           {!completed && hasRunning ? (
-            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
           ) : completed ? (
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           ) : (
@@ -121,15 +112,16 @@ export function SubAgentActivityFeed({
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                   subagent
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {STATUS_TEXT[agent.status]}
-                </span>
+                <span className="text-xs text-muted-foreground">{STATUS_TEXT[agent.status]}</span>
               </div>
 
               {(agent.completedSteps.length > 0 || agent.currentStep) && (
                 <div className="ml-4 mt-1 space-y-0.5 border-l pl-3">
                   {agent.completedSteps.map((step, i) => (
-                    <div key={`${agent.agentId}-${i}-${step.createdAt}`} className="flex items-center gap-1.5 text-xs">
+                    <div
+                      key={`${agent.agentId}-${i}-${step.createdAt}`}
+                      className="flex items-center gap-1.5 text-xs"
+                    >
                       <Check className="h-3 w-3 shrink-0 text-emerald-500" />
                       <span className="text-muted-foreground">{step.stepAction}</span>
                     </div>
@@ -138,7 +130,7 @@ export function SubAgentActivityFeed({
                     agent.status !== 'completed' &&
                     agent.status !== 'failed' && (
                       <div className="flex items-center gap-1.5 text-xs">
-                        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-blue-500" />
+                        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />
                         <span>{agent.currentStep}</span>
                       </div>
                     )}

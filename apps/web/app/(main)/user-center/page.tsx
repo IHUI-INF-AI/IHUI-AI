@@ -3,7 +3,16 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { UserCog, Building2, UserCheck, UserX, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  UserCog,
+  Building2,
+  UserCheck,
+  UserX,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
@@ -46,13 +55,19 @@ export default function UserCenterPage() {
   const [page, setPage] = React.useState(1)
 
   React.useEffect(() => {
-    const tm = setTimeout(() => { setDebounced(search); setPage(1) }, 300)
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(tm)
   }, [search])
 
   const { data: stats } = useQuery({
     queryKey: ['userCenter', 'statistics'],
-    queryFn: () => api<{ statistics: UserStatistics }>(`/api/admin/usercenter/statistics`).then((d) => d.statistics),
+    queryFn: () =>
+      api<{ statistics: UserStatistics }>(`/api/admin/usercenter/statistics`).then(
+        (d) => d.statistics,
+      ),
   })
 
   const { data, isLoading, error } = useQuery({
@@ -70,9 +85,24 @@ export default function UserCenterPage() {
 
   const cards = [
     { label: t('totalUsers'), value: stats?.total ?? 0, icon: UserCog, color: 'text-primary' },
-    { label: t('activeUsers'), value: stats?.active ?? 0, icon: UserCheck, color: 'text-emerald-600' },
-    { label: t('disabledUsers'), value: stats?.disabled ?? 0, icon: UserX, color: 'text-destructive' },
-    { label: t('totalDepts'), value: stats?.deptTotal ?? 0, icon: Building2, color: 'text-blue-600' },
+    {
+      label: t('activeUsers'),
+      value: stats?.active ?? 0,
+      icon: UserCheck,
+      color: 'text-emerald-600',
+    },
+    {
+      label: t('disabledUsers'),
+      value: stats?.disabled ?? 0,
+      icon: UserX,
+      color: 'text-destructive',
+    },
+    {
+      label: t('totalDepts'),
+      value: stats?.deptTotal ?? 0,
+      icon: Building2,
+      color: 'text-primary',
+    },
   ]
 
   return (
@@ -180,7 +210,9 @@ export default function UserCenterPage() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
               <button
                 className="inline-flex h-8 items-center justify-center rounded-md border px-2 text-sm disabled:opacity-50"
                 disabled={page >= totalPages}

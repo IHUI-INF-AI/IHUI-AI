@@ -30,14 +30,12 @@ export function TextGenerator({ onGenerate }: TextGeneratorProps) {
   return (
     <GenerationFrame
       title="文本生成"
-      icon={<FileText className="h-4 w-4 text-blue-500" />}
+      icon={<FileText className="h-4 w-4 text-primary" />}
       status={result.status}
       error={result.error}
       onGenerate={handleGenerate}
       canGenerate={!!prompt.trim()}
-      options={
-        <OptionSelect label="风格" value={style} onChange={setStyle} options={STYLES} />
-      }
+      options={<OptionSelect label="风格" value={style} onChange={setStyle} options={STYLES} />}
       result={
         result.status === 'success' && result.data ? (
           <p className="whitespace-pre-wrap text-sm">{result.data}</p>

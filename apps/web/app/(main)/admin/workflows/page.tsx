@@ -6,8 +6,24 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Workflow, Zap, Plus, Edit, Trash2, Eye } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui'
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 type TriggerType = 'manual' | 'schedule' | 'event' | 'webhook'
@@ -35,7 +51,10 @@ async function fetchWorkflows(): Promise<WorkflowItem[]> {
 }
 
 const STATUS_BADGE: Record<WfStatus, { cls: string; dot: string }> = {
-  active: { cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500', dot: 'bg-emerald-500' },
+  active: {
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    dot: 'bg-emerald-500',
+  },
   draft: { cls: 'bg-muted text-muted-foreground', dot: 'bg-muted-foreground' },
   archived: { cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500', dot: 'bg-amber-500' },
 }
@@ -48,8 +67,10 @@ const TRIGGER_BADGE: Record<TriggerType, string> = {
 }
 
 const TRIGGER_OPTIONS: TriggerType[] = ['manual', 'schedule', 'event', 'webhook']
-const selectClass = 'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const textareaClass = 'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const selectClass =
+  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+const textareaClass =
+  'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 const EMPTY = { name: '', description: '', triggerType: 'manual' as TriggerType, stepsText: '' }
 
@@ -97,29 +118,64 @@ export default function AdminWorkflowsPage() {
         ? api(`/api/workflows/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
         : api('/api/workflows', { method: 'POST', body: JSON.stringify(body) })
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'workflows'] }); close() },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'workflows'] })
+      close()
+    },
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
     mutationFn: (id: string) => api(`/api/workflows/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'workflows'] }); setDelId(null) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'workflows'] })
+      setDelId(null)
+    },
   })
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setErr(null); setOpen(true) }
+  function openCreate() {
+    setEditing(null)
+    setForm(EMPTY)
+    setErr(null)
+    setOpen(true)
+  }
   function openEdit(w: WorkflowItem) {
     setEditing(w)
     const steps = Array.isArray(w.steps)
-      ? w.steps.map((s) => (typeof s === 'object' && s !== null && 'name' in s ? String((s as { name: unknown }).name) : JSON.stringify(s))).join('\n')
+      ? w.steps
+          .map((s) =>
+            typeof s === 'object' && s !== null && 'name' in s
+              ? String((s as { name: unknown }).name)
+              : JSON.stringify(s),
+          )
+          .join('\n')
       : ''
-    setForm({ name: w.name, description: w.description ?? '', triggerType: w.triggerType, stepsText: steps })
-    setErr(null); setOpen(true)
+    setForm({
+      name: w.name,
+      description: w.description ?? '',
+      triggerType: w.triggerType,
+      stepsText: steps,
+    })
+    setErr(null)
+    setOpen(true)
   }
-  function close() { if (saveMut.isPending) return; setOpen(false); setEditing(null); setErr(null) }
+  function close() {
+    if (saveMut.isPending) return
+    setOpen(false)
+    setEditing(null)
+    setErr(null)
+  }
   function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(null)
-    if (!form.name.trim()) { setErr(t('nameRequired')); return }
+    e.preventDefault()
+    setErr(null)
+    if (!form.name.trim()) {
+      setErr(t('nameRequired'))
+      return
+    }
     const stepCount = form.stepsText.split('\n').filter((s) => s.trim()).length
-    if (stepCount === 0) { setErr(t('stepsRequired')); return }
+    if (stepCount === 0) {
+      setErr(t('stepsRequired'))
+      return
+    }
     saveMut.mutate()
   }
 
@@ -188,27 +244,41 @@ export default function AdminWorkflowsPage() {
                         <div className="min-w-0">
                           <div className="font-medium">{w.name}</div>
                           {w.description ? (
-                            <div className="line-clamp-1 text-xs text-muted-foreground">{w.description}</div>
+                            <div className="text-xs text-muted-foreground">{w.description}</div>
                           ) : null}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium', TRIGGER_BADGE[w.triggerType] ?? TRIGGER_BADGE.manual)}>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                          TRIGGER_BADGE[w.triggerType] ?? TRIGGER_BADGE.manual,
+                        )}
+                      >
                         <Zap className="h-3 w-3" />
                         {t(`trigger_${w.triggerType}`)}
                       </span>
                       {stepCount > 0 ? (
-                        <span className="ml-2 text-xs text-muted-foreground">{t('stepsCount', { count: stepCount })}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {t('stepsCount', { count: stepCount })}
+                        </span>
                       ) : null}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', sc.cls)}>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                          sc.cls,
+                        )}
+                      >
                         <span className={cn('h-1.5 w-1.5 rounded-full', sc.dot)} />
                         {t(`status_${status}`)}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{dateFmt.format(new Date(w.createdAt))}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {dateFmt.format(new Date(w.createdAt))}
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="inline-flex items-center gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setViewItem(w)}>
@@ -219,7 +289,12 @@ export default function AdminWorkflowsPage() {
                           <Edit className="mr-1 h-3.5 w-3.5" />
                           {tc('edit')}
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDelId(w.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDelId(w.id)}
+                        >
                           <Trash2 className="mr-1 h-3.5 w-3.5" />
                           {tc('delete')}
                         </Button>
@@ -236,7 +311,13 @@ export default function AdminWorkflowsPage() {
       <div className="text-sm text-muted-foreground">{t('total', { total })}</div>
 
       {/* 创建/编辑对话框 */}
-      <Dialog open={open} onOpenChange={(v) => { if (!v) close(); else setOpen(true) }}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) close()
+          else setOpen(true)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
@@ -251,7 +332,6 @@ export default function AdminWorkflowsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder={t('namePlaceholder')}
                 maxLength={128}
-                autoFocus
               />
             </div>
             <div className="space-y-1.5">
@@ -266,16 +346,21 @@ export default function AdminWorkflowsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="wf-trigger">{t('triggerType')}</Label>
-              <Select value={form.triggerType} onValueChange={(v) => setForm((f) => ({ ...f, triggerType: v as TriggerType }))}>
-  <SelectTrigger className={selectClass}>
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    {TRIGGER_OPTIONS.map((tt) => (
-      <SelectItem key={tt} value={tt}>{t(`trigger_${tt}`)}</SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+              <Select
+                value={form.triggerType}
+                onValueChange={(v) => setForm((f) => ({ ...f, triggerType: v as TriggerType }))}
+              >
+                <SelectTrigger className={selectClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRIGGER_OPTIONS.map((tt) => (
+                    <SelectItem key={tt} value={tt}>
+                      {t(`trigger_${tt}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="wf-steps">{t('steps')}</Label>
@@ -303,7 +388,12 @@ export default function AdminWorkflowsPage() {
       </Dialog>
 
       {/* 查看详情对话框 */}
-      <Dialog open={viewItem !== null} onOpenChange={(v) => { if (!v) setViewItem(null) }}>
+      <Dialog
+        open={viewItem !== null}
+        onOpenChange={(v) => {
+          if (!v) setViewItem(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('viewTitle')}</DialogTitle>
@@ -315,11 +405,19 @@ export default function AdminWorkflowsPage() {
                   <Workflow className="h-4 w-4" />
                 </div>
                 <span className="font-medium">{viewItem.name}</span>
-                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', (STATUS_BADGE[viewItem.isActive ? 'active' : 'archived'] ?? STATUS_BADGE.draft).cls)}>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                    (STATUS_BADGE[viewItem.isActive ? 'active' : 'archived'] ?? STATUS_BADGE.draft)
+                      .cls,
+                  )}
+                >
                   {t(`status_${viewItem.isActive ? 'active' : 'archived'}`)}
                 </span>
               </div>
-              {viewItem.description ? <p className="text-muted-foreground">{viewItem.description}</p> : null}
+              {viewItem.description ? (
+                <p className="text-muted-foreground">{viewItem.description}</p>
+              ) : null}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Zap className="h-3 w-3" />
                 {t(`trigger_${viewItem.triggerType}`)}
@@ -328,11 +426,20 @@ export default function AdminWorkflowsPage() {
               </div>
               {Array.isArray(viewItem.steps) && viewItem.steps.length > 0 ? (
                 <div className="rounded-md border p-3">
-                  <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">{t('steps')}</div>
+                  <div className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                    {t('steps')}
+                  </div>
                   <ol className="ml-4 list-decimal space-y-1">
                     {viewItem.steps.map((s, i) => {
-                      const name = typeof s === 'object' && s !== null && 'name' in s ? String((s as { name: unknown }).name) : JSON.stringify(s)
-                      return <li key={i} className="text-sm">{name}</li>
+                      const name =
+                        typeof s === 'object' && s !== null && 'name' in s
+                          ? String((s as { name: unknown }).name)
+                          : JSON.stringify(s)
+                      return (
+                        <li key={`step-${i}`} className="text-sm">
+                          {name}
+                        </li>
+                      )
                     })}
                   </ol>
                 </div>
@@ -348,21 +455,33 @@ export default function AdminWorkflowsPage() {
       </Dialog>
 
       {/* 删除确认对话框 */}
-      <Dialog open={delId !== null} onOpenChange={(v) => { if (!v) setDelId(null) }}>
+      <Dialog
+        open={delId !== null}
+        onOpenChange={(v) => {
+          if (!v) setDelId(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('deleteTitle')}</DialogTitle>
             <DialogDescription>{t('deleteConfirm')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDelId(null)} disabled={delMut.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDelId(null)}
+              disabled={delMut.isPending}
+            >
               {tc('cancel')}
             </Button>
             <Button
               type="button"
               variant="destructive"
               disabled={delMut.isPending}
-              onClick={() => { if (delId) delMut.mutate(delId) }}
+              onClick={() => {
+                if (delId) delMut.mutate(delId)
+              }}
             >
               {delMut.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               {tc('delete')}

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -73,7 +73,7 @@ export default function MessagesPage() {
     queryFn: () => api<ListData>(`/api/messages/list?page=1&pageSize=20`),
   })
 
-  const conversations = data?.list ?? []
+  const conversations = React.useMemo(() => data?.list ?? [], [data])
 
   // 选中会话发生变化时，确保存在选中项
   React.useEffect(() => {
@@ -168,6 +168,7 @@ export default function MessagesPage() {
                   >
                     <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                       {conv.peerAvatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={conv.peerAvatar}
                           alt={conv.peerName}
@@ -181,13 +182,13 @@ export default function MessagesPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-medium">{conv.peerName}</p>
+                        <p className="break-words text-sm font-medium">{conv.peerName}</p>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {conv.lastTime ? relativeTime(conv.lastTime, t) : ''}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="break-words text-xs text-muted-foreground">
                           {conv.lastMessage || t('noMessages')}
                         </p>
                         {conv.unread > 0 && (
@@ -210,6 +211,7 @@ export default function MessagesPage() {
                 <div className="flex items-center gap-2 border-b px-4 py-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                     {selected.peerAvatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={selected.peerAvatar}
                         alt={selected.peerName}
@@ -221,7 +223,7 @@ export default function MessagesPage() {
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-sm font-medium">{selected.peerName}</p>
+                  <p className="break-words text-sm font-medium">{selected.peerName}</p>
                 </div>
 
                 {/* 消息气泡列表 */}

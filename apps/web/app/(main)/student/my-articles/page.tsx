@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -119,10 +119,11 @@ export default function MyArticlesPage() {
                       ? 'statusRejected'
                       : 'statusDraft'
               return (
-                <Card key={article.id} className="transition-colors hover:border-primary/40">
+                <Card key={article.id} className="transition-colors hover:bg-accent">
                   <CardContent className="flex gap-4 p-4">
                     <div className="h-20 w-32 shrink-0 overflow-hidden rounded-md bg-muted">
                       {article.coverImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={article.coverImage}
                           alt={article.title}
@@ -137,9 +138,7 @@ export default function MyArticlesPage() {
                     <div className="flex min-w-0 flex-1 flex-col">
                       <div className="flex items-start justify-between gap-2">
                         <Link href={`/articles/${article.id}`} className="min-w-0 flex-1">
-                          <h3 className="line-clamp-1 font-medium hover:text-primary">
-                            {article.title}
-                          </h3>
+                          <h3 className="font-medium hover:text-primary">{article.title}</h3>
                         </Link>
                         <div className="flex shrink-0 gap-1">
                           <Button size="sm" variant="ghost" asChild>
@@ -161,9 +160,7 @@ export default function MyArticlesPage() {
                         </div>
                       </div>
                       {article.summary && (
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                          {article.summary}
-                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{article.summary}</p>
                       )}
                       <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">

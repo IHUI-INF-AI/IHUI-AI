@@ -21,9 +21,16 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       {children}
       {showHelpPanel && (
         <div
-          role="dialog"
+          role="button"
           aria-label="快捷键帮助"
+          tabIndex={0}
           onClick={toggleHelpPanel}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              toggleHelpPanel()
+            }
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -35,7 +42,15 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
           }}
         >
           <div
+            role="button"
+            tabIndex={0}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            }}
             style={{
               background: 'var(--background, #fff)',
               color: 'var(--foreground, #000)',

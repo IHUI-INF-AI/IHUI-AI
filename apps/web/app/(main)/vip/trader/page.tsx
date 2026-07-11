@@ -132,7 +132,7 @@ export default function VipTraderPage() {
             {benefits.length > 0 ? (
               <ul className="space-y-2 text-sm">
                 {benefits.map((b, i) => (
-                  <li key={i} className="flex items-start gap-2">
+                  <li key={`benefit-${i}`} className="flex items-start gap-2">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                     <span>{b}</span>
                   </li>

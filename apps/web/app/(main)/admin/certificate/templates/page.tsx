@@ -3,17 +3,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Award,
-} from 'lucide-react'
+import { Plus, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Award } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -84,6 +76,7 @@ const EMPTY_FORM: TemplateForm = {
 
 export default function AdminCertificateTemplatesPage() {
   const t = useTranslations('admin.certificate')
+  const locale = useLocale()
   const qc = useQueryClient()
 
   const [page, setPage] = React.useState(1)
@@ -136,7 +129,8 @@ export default function AdminCertificateTemplatesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/certificates/templates/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      api(`/api/admin/certificates/templates/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'certificates', 'templates'] })
@@ -250,7 +244,7 @@ export default function AdminCertificateTemplatesPage() {
                     <TableCell className="px-4 py-2.5 font-medium">{tpl.name}</TableCell>
                     <TableCell className="px-4 py-2.5">
                       {tpl.description ? (
-                        <span className="max-w-xs truncate text-sm text-muted-foreground">
+                        <span className="max-w-xs break-words text-sm text-muted-foreground">
                           {tpl.description}
                         </span>
                       ) : (
@@ -276,7 +270,7 @@ export default function AdminCertificateTemplatesPage() {
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(tpl.createdAt).toLocaleString()}
+                      {new Intl.DateTimeFormat(locale).format(new Date(tpl.createdAt))}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -397,7 +391,12 @@ export default function AdminCertificateTemplatesPage() {
               </span>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

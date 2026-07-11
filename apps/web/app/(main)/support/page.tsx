@@ -92,7 +92,7 @@ const STATUS_LABEL: Record<TicketStatus, string> = {
 
 const STATUS_BADGE: Record<TicketStatus, string> = {
   pending: 'bg-muted text-muted-foreground',
-  open: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  open: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
   resolved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   closed: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
   rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
@@ -132,7 +132,9 @@ export default function SupportPage() {
             onClick={() => setTab(v)}
             className={cn(
               'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              tab === v ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              tab === v
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {v === 'list' ? '我的工单' : '提交工单'}
@@ -140,7 +142,13 @@ export default function SupportPage() {
         ))}
       </div>
 
-      {tab === 'list' ? <TicketList onSwitchToNew={() => setTab('new')} /> : <NewTicketForm onDone={() => setTab('list')} />}
+      <div key={tab} className="animate-in fade-in-0 duration-200">
+        {tab === 'list' ? (
+          <TicketList onSwitchToNew={() => setTab('new')} />
+        ) : (
+          <NewTicketForm onDone={() => setTab('list')} />
+        )}
+      </div>
     </div>
   )
 }
@@ -196,12 +204,17 @@ function TicketList({ onSwitchToNew }: { onSwitchToNew: () => void }) {
                 <Ticket className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{t.title}</p>
+                <p className="break-words text-sm font-medium">{t.title}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {t.ticketNo} · {new Date(t.createdAt).toLocaleString()}
                 </p>
               </div>
-              <span className={cn('inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[t.status])}>
+              <span
+                className={cn(
+                  'inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+                  STATUS_BADGE[t.status],
+                )}
+              >
                 {STATUS_LABEL[t.status]}
               </span>
             </button>
@@ -291,7 +304,12 @@ function TicketDetailDialog({
           </DialogTitle>
           <DialogDescription>
             状态：
-            <span className={cn('ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium', STATUS_BADGE[ticket.status])}>
+            <span
+              className={cn(
+                'ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                STATUS_BADGE[ticket.status],
+              )}
+            >
               {STATUS_LABEL[ticket.status]}
             </span>
             <span className="ml-2">优先级：{PRIORITY_LABEL[ticket.priority]}</span>
@@ -299,7 +317,11 @@ function TicketDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+          {err && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {err}
+            </div>
+          )}
 
           {/* 工单描述 */}
           <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
@@ -315,7 +337,13 @@ function TicketDetailDialog({
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
                 {comments.map((c) => (
-                  <div key={c.id} className={cn('rounded px-2 py-1.5 text-sm', c.isAdmin ? 'bg-blue-500/5' : 'bg-muted/40')}>
+                  <div
+                    key={c.id}
+                    className={cn(
+                      'rounded px-2 py-1.5 text-sm',
+                      c.isAdmin ? 'bg-primary/5' : 'bg-muted/40',
+                    )}
+                  >
                     <div className="mb-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="font-medium">{c.isAdmin ? '客服' : '我'}</span>
                       <span>{new Date(c.createdAt).toLocaleString()}</span>
@@ -339,8 +367,19 @@ function TicketDetailDialog({
               placeholder="输入补充内容..."
             />
             <div className="flex justify-end">
-              <Button size="sm" disabled={!reply.trim() || replyMut.isPending} onClick={() => { setErr(null); replyMut.mutate() }}>
-                {replyMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+              <Button
+                size="sm"
+                disabled={!reply.trim() || replyMut.isPending}
+                onClick={() => {
+                  setErr(null)
+                  replyMut.mutate()
+                }}
+              >
+                {replyMut.isPending ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-1 h-4 w-4" />
+                )}
                 发送
               </Button>
             </div>
@@ -357,11 +396,18 @@ function TicketDetailDialog({
                 {[1, 2, 3, 4, 5].map((n) => (
                   <Star
                     key={n}
-                    className={cn('h-4 w-4', n <= existingRating.rating ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground/40')}
+                    className={cn(
+                      'h-4 w-4',
+                      n <= existingRating.rating
+                        ? 'fill-amber-500 text-amber-500'
+                        : 'text-muted-foreground/40',
+                    )}
                   />
                 ))}
               </div>
-              {existingRating.comment && <p className="mt-1 text-sm text-muted-foreground">{existingRating.comment}</p>}
+              {existingRating.comment && (
+                <p className="mt-1 text-sm text-muted-foreground">{existingRating.comment}</p>
+              )}
             </div>
           ) : canRate ? (
             <div className="space-y-2 rounded-md border px-3 py-2">
@@ -373,7 +419,12 @@ function TicketDetailDialog({
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button key={n} type="button" onClick={() => setRating(n)}>
                     <Star
-                      className={cn('h-6 w-6 transition-colors', n <= rating ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground/40 hover:text-amber-400')}
+                      className={cn(
+                        'h-6 w-6 transition-colors',
+                        n <= rating
+                          ? 'fill-amber-500 text-amber-500'
+                          : 'text-muted-foreground/40 hover:text-amber-400',
+                      )}
                     />
                   </button>
                 ))}
@@ -386,7 +437,14 @@ function TicketDetailDialog({
                 placeholder="评价备注（可选）"
               />
               <div className="flex justify-end">
-                <Button size="sm" disabled={ratingMut.isPending} onClick={() => { setErr(null); ratingMut.mutate() }}>
+                <Button
+                  size="sm"
+                  disabled={ratingMut.isPending}
+                  onClick={() => {
+                    setErr(null)
+                    ratingMut.mutate()
+                  }}
+                >
                   {ratingMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   提交评价
                 </Button>
@@ -468,7 +526,6 @@ function NewTicketForm({ onDone }: { onDone: () => void }) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="简述您的问题"
               maxLength={200}
-              autoFocus
             />
           </div>
 
@@ -519,7 +576,11 @@ function NewTicketForm({ onDone }: { onDone: () => void }) {
             />
           </div>
 
-          {err && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>}
+          {err && (
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {err}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onDone} disabled={createMut.isPending}>

@@ -16,6 +16,7 @@ import {
   TableHead,
   TableCell,
 } from '@ihui/ui'
+import { fetchApi } from '@/lib/api'
 
 interface LoginRecord {
   id: string
@@ -35,10 +36,9 @@ export function LoginHistory() {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    void fetch('/api/user/login-history')
-      .then((r) => r.json())
-      .then((j: { code: number; data?: LoginRecord[] }) => {
-        if (j.code === 0 && j.data) setRecords(j.data)
+    void fetchApi<LoginRecord[]>('/api/user/login-history')
+      .then((res) => {
+        if (res.success && res.data) setRecords(res.data)
       })
       .catch(() => {})
       .finally(() => setLoading(false))

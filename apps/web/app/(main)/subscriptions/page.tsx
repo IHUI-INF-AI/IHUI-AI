@@ -111,8 +111,10 @@ export default function SubscriptionsPage() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{t(`types.${s.targetType}`)}</p>
-                  <p className="truncate font-mono text-xs text-muted-foreground">{s.targetId}</p>
+                  <p className="break-words text-sm font-medium">{t(`types.${s.targetType}`)}</p>
+                  <p className="break-words font-mono text-xs text-muted-foreground">
+                    {s.targetId}
+                  </p>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {dateFmt.format(new Date(s.createdAt))}
@@ -121,7 +123,9 @@ export default function SubscriptionsPage() {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() => cancelMut.mutate({ targetType: s.targetType, targetId: s.targetId })}
+                  onClick={() =>
+                    cancelMut.mutate({ targetType: s.targetType, targetId: s.targetId })
+                  }
                   disabled={cancelMut.isPending}
                   title={t('cancel')}
                 >

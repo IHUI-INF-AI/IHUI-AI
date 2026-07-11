@@ -7,8 +7,8 @@ import { useTranslations } from 'next-intl'
 import { GraduationCap, PlayCircle, Eye, Loader2, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Avatar } from '@/components/data/Avatar'
 
 interface Lecturer {
   id: string
@@ -43,32 +43,6 @@ async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function Avatar({
-  name,
-  avatar,
-  className,
-}: {
-  name: string
-  avatar: string | null
-  className?: string
-}) {
-  const initial = (name?.trim()?.[0] ?? '?').toUpperCase()
-  return (
-    <div
-      className={cn(
-        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 font-medium text-primary',
-        className,
-      )}
-    >
-      {avatar ? (
-        <img src={avatar} alt={name} className="h-full w-full object-cover" />
-      ) : (
-        <span>{initial}</span>
-      )}
-    </div>
-  )
 }
 
 export default function LecturerDetailPage() {
@@ -138,7 +112,12 @@ export default function LecturerDetailPage() {
 
       <Card>
         <CardContent className="flex flex-col items-center gap-4 p-6 text-center sm:flex-row sm:text-left">
-          <Avatar name={lecturer.name} avatar={lecturer.avatar} className="h-20 w-20 text-2xl" />
+          <Avatar
+            src={lecturer.avatar ?? undefined}
+            name={lecturer.name}
+            size="xl"
+            className="h-20 w-20 text-2xl"
+          />
           <div className="min-w-0 space-y-1">
             <h1 className="text-2xl font-bold tracking-tight">{lecturer.name}</h1>
             {lecturer.title ? <p className="text-sm text-primary">{lecturer.title}</p> : null}
@@ -167,7 +146,7 @@ export default function LecturerDetailPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {channels.map((channel) => (
               <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
-                <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+                <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                   <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                     <PlayCircle className="h-10 w-10 text-primary/40" />
                     {channel.isLive && (
@@ -178,7 +157,7 @@ export default function LecturerDetailPage() {
                     )}
                   </div>
                   <CardHeader className="p-4 pb-2">
-                    <CardTitle className="line-clamp-1 text-base">{channel.title}</CardTitle>
+                    <CardTitle className="text-base">{channel.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
                     <p className="text-muted-foreground">

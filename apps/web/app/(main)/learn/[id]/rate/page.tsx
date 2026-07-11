@@ -8,6 +8,7 @@ import { ArrowLeft, Star, Loader2, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Avatar } from '@/components/data/Avatar'
 
 interface RateItem {
   id: string
@@ -123,7 +124,7 @@ export default function CourseRatePage() {
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">评分</label>
+              <span className="text-sm font-medium">评分</span>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -148,8 +149,11 @@ export default function CourseRatePage() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">评价内容</label>
+              <label htmlFor="rate-content" className="text-sm font-medium">
+                评价内容
+              </label>
               <textarea
+                id="rate-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="请输入您对本课程的评价..."
@@ -185,15 +189,7 @@ export default function CourseRatePage() {
               return (
                 <Card key={item.id}>
                   <CardContent className="flex items-start gap-3 p-4">
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-primary/15 to-primary/5">
-                      {avatar ? (
-                        <img src={avatar} alt={name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-sm font-medium text-primary">
-                          {name.charAt(0)}
-                        </div>
-                      )}
-                    </div>
+                    <Avatar src={avatar ?? undefined} name={name} size="md" />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium">{name}</span>

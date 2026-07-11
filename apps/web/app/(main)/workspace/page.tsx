@@ -122,7 +122,6 @@ export default function WorkspacePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t('namePlaceholder')}
-                  autoFocus
                   maxLength={128}
                 />
               </div>

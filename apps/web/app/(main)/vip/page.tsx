@@ -43,7 +43,11 @@ export default function VipPage() {
   const tc = useTranslations('common')
   const locale = useLocale()
 
-  const { data: levelsData, isLoading, error } = useQuery({
+  const {
+    data: levelsData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['vip-levels'],
     queryFn: () => api<{ items: VipLevel[] }>('/api/vip/levels'),
   })
@@ -54,7 +58,11 @@ export default function VipPage() {
 
   const levels = levelsData?.items ?? []
   const myVip = myData?.vip ?? null
-  const dateFmt = new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
   const popularIdx = levels.length > 1 ? Math.floor(levels.length / 2) : 0
 
   return (
@@ -143,7 +151,7 @@ export default function VipPage() {
                   {benefits.length > 0 && (
                     <ul className="mb-6 space-y-2 text-sm">
                       {benefits.map((b, i) => (
-                        <li key={i} className="flex items-start gap-2">
+                        <li key={`benefit-${i}`} className="flex items-start gap-2">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                           <span>{b}</span>
                         </li>
@@ -167,7 +175,10 @@ export default function VipPage() {
         {t('faqHint')}
       </div>
       <div className="text-center">
-        <Link href="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <Link
+          href="/"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
           {tc('backHome')}
         </Link>
       </div>

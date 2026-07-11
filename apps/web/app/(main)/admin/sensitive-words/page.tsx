@@ -208,7 +208,6 @@ export default function SensitiveWordsPage() {
                 value={form.word}
                 onChange={(e) => setForm({ ...form, word: e.target.value })}
                 placeholder="请输入敏感词"
-                autoFocus
               />
             </div>
             <div className="grid grid-cols-2 gap-4">

@@ -2,20 +2,10 @@
 
 import * as React from 'react'
 import { RefreshCw, AlertCircle } from 'lucide-react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Button,
-} from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
-import type {
-  SwarmData,
-  SwarmPerformanceMetrics,
-  AgentStatus,
-} from './types'
+import type { SwarmData, SwarmPerformanceMetrics, AgentStatus } from './types'
 
 interface AgentSwarmMonitorProps {
   swarmId?: string
@@ -29,11 +19,11 @@ interface AgentSwarmMonitorProps {
 const STATUS_TAG: Record<AgentStatus, { label: string; cls: string }> = {
   idle: { label: '空闲', cls: 'bg-zinc-500/10 text-zinc-600' },
   pending: { label: '等待', cls: 'bg-amber-500/10 text-amber-600' },
-  thinking: { label: '思考中', cls: 'bg-blue-500/10 text-blue-600' },
+  thinking: { label: '思考中', cls: 'bg-amber-500/10 text-amber-600' },
   acting: { label: '执行中', cls: 'bg-violet-500/10 text-violet-600' },
   reflecting: { label: '反思中', cls: 'bg-cyan-500/10 text-cyan-600' },
   waiting: { label: '等待中', cls: 'bg-amber-500/10 text-amber-600' },
-  running: { label: '运行中', cls: 'bg-blue-500/10 text-blue-600' },
+  running: { label: '运行中', cls: 'bg-amber-500/10 text-amber-600' },
   completed: { label: '已完成', cls: 'bg-emerald-500/10 text-emerald-600' },
   failed: { label: '失败', cls: 'bg-red-500/10 text-red-600' },
   cancelled: { label: '已取消', cls: 'bg-zinc-500/10 text-zinc-600' },
@@ -127,7 +117,7 @@ export function AgentSwarmMonitor({
                               {STATUS_TAG[a.status]?.label ?? a.status}
                             </span>
                           </td>
-                          <td className="max-w-xs truncate px-3 py-2 text-muted-foreground">
+                          <td className="max-w-xs break-words px-3 py-2 text-muted-foreground">
                             {a.currentStep || '-'}
                           </td>
                         </tr>
@@ -143,9 +133,15 @@ export function AgentSwarmMonitor({
               <div>
                 <h4 className="mb-2 text-sm font-medium">性能指标</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
-                  <Metric label="成功率" value={`${(performanceMetrics.successRate * 100).toFixed(1)}%`} />
+                  <Metric
+                    label="成功率"
+                    value={`${(performanceMetrics.successRate * 100).toFixed(1)}%`}
+                  />
                   <Metric label="平均耗时" value={`${performanceMetrics.averageStepTime}ms`} />
-                  <Metric label="平均 Token" value={String(performanceMetrics.averageTokensPerStep)} />
+                  <Metric
+                    label="平均 Token"
+                    value={String(performanceMetrics.averageTokensPerStep)}
+                  />
                   <Metric label="总步骤" value={String(performanceMetrics.totalSteps)} />
                   <Metric label="已完成" value={String(performanceMetrics.completedSteps)} />
                   <Metric label="失败" value={String(performanceMetrics.failedSteps)} />
@@ -156,10 +152,10 @@ export function AgentSwarmMonitor({
                     <h5 className="text-xs font-medium text-muted-foreground">优化建议</h5>
                     {optimizationSuggestions.map((s, i) => (
                       <div
-                        key={i}
-                        className="flex items-start gap-2 rounded-md bg-blue-500/5 p-2 text-xs"
+                        key={`suggestion-${i}`}
+                        className="flex items-start gap-2 rounded-md bg-primary/5 p-2 text-xs"
                       >
-                        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-blue-500" />
+                        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
                         <span>{s}</span>
                       </div>
                     ))}
@@ -181,9 +177,7 @@ export function AgentSwarmMonitor({
                           {new Date(r.created_at).toLocaleTimeString()}
                         </span>
                       </div>
-                      {r.result && (
-                        <p className="mt-1 text-xs text-muted-foreground">{r.result}</p>
-                      )}
+                      {r.result && <p className="mt-1 text-xs text-muted-foreground">{r.result}</p>}
                       {r.error_message && (
                         <p className="mt-1 text-xs text-red-600">{r.error_message}</p>
                       )}
@@ -193,8 +187,8 @@ export function AgentSwarmMonitor({
                             工具结果 ({r.tool_results.length})
                           </summary>
                           <div className="mt-1 space-y-1">
-                            {r.tool_results.map((t, idx) => (
-                              <div key={idx} className="rounded bg-muted/30 p-1.5 text-xs">
+                            {r.tool_results.map((t) => (
+                              <div key={t.toolId} className="rounded bg-muted/30 p-1.5 text-xs">
                                 <span className="font-mono">{t.toolId}</span>
                                 {t.result !== null && t.result !== undefined && (
                                   <pre className="mt-1 overflow-auto text-muted-foreground">
@@ -235,7 +229,9 @@ function InfoItem({
   return (
     <div className={cn('rounded-md border bg-muted/20 px-2.5 py-1.5', fullWidth && 'col-span-2')}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn('mt-0.5 truncate text-sm font-medium', mono && 'font-mono')}>{value}</div>
+      <div className={cn('mt-0.5 break-words text-sm font-medium', mono && 'font-mono')}>
+        {value}
+      </div>
     </div>
   )
 }

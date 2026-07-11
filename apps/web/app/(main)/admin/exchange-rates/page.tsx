@@ -224,7 +224,6 @@ export default function ExchangeRatesPage() {
                   value={form.fromCurrency}
                   onChange={(e) => setForm({ ...form, fromCurrency: e.target.value })}
                   placeholder="如 USD"
-                  autoFocus
                 />
               </div>
               <div className="space-y-2">

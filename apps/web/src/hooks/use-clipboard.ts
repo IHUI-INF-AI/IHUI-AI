@@ -10,6 +10,13 @@ export interface UseClipboardReturn {
 /** 剪贴板 Hook，含 execCommand 降级方案 */
 export function useClipboard(): UseClipboardReturn {
   const [copied, setCopied] = React.useState(false)
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   const copy = React.useCallback(async (text: string): Promise<boolean> => {
     if (typeof window === 'undefined') return false
@@ -19,7 +26,8 @@ export function useClipboard(): UseClipboardReturn {
       try {
         await navigator.clipboard.writeText(text)
         setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => setCopied(false), 2000)
         return true
       } catch {
         /* fall through to legacy */
@@ -38,7 +46,8 @@ export function useClipboard(): UseClipboardReturn {
       document.body.removeChild(textarea)
       if (ok) {
         setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+        if (timerRef.current) clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => setCopied(false), 2000)
       }
       return ok
     } catch {

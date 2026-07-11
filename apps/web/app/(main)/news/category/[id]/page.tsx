@@ -126,10 +126,11 @@ export default function NewsCategoryPage() {
         <div className="space-y-3">
           {items.map((item) => (
             <Link key={item.id} href={`/news/${item.id}`} className="block">
-              <Card className="overflow-hidden transition-colors hover:border-primary/40">
+              <Card className="overflow-hidden transition-colors hover:bg-accent">
                 <CardContent className="flex gap-4 p-4">
                   <div className="h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                     {item.coverImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.coverImage}
                         alt={item.title}
@@ -149,14 +150,12 @@ export default function NewsCategoryPage() {
                           {t('pinned')}
                         </span>
                       )}
-                      <h2 className="line-clamp-1 font-medium transition-colors group-hover:text-primary">
+                      <h2 className="font-medium transition-colors group-hover:text-primary">
                         {item.title}
                       </h2>
                     </div>
                     {item.summary && (
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                        {item.summary}
-                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">{item.summary}</p>
                     )}
                     <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
                       {item.authorName && <span>{item.authorName}</span>}

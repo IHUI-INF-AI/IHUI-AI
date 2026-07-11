@@ -19,8 +19,20 @@ interface Device {
 }
 
 const MOCK_DEVICES: Device[] = [
-  { id: '1', name: 'Chrome · macOS', ip: '192.168.1.1', lastActive: '2026-07-08T10:00:00Z', current: true },
-  { id: '2', name: 'Safari · iPhone', ip: '10.0.0.2', lastActive: '2026-07-07T22:30:00Z', current: false },
+  {
+    id: '1',
+    name: 'Chrome · macOS',
+    ip: '192.168.1.1',
+    lastActive: '2026-07-08T10:00:00Z',
+    current: true,
+  },
+  {
+    id: '2',
+    name: 'Safari · iPhone',
+    ip: '10.0.0.2',
+    lastActive: '2026-07-07T22:30:00Z',
+    current: false,
+  },
 ]
 
 export default function SecurityPage() {
@@ -114,13 +126,10 @@ export default function SecurityPage() {
       return
     }
     setPhoneLoading(true)
-    const res = await fetchApi<{ user: { id: string; phone: string } }>(
-      '/api/users/change-phone',
-      {
-        method: 'POST',
-        body: JSON.stringify({ newPhone, code: phoneCode }),
-      },
-    )
+    const res = await fetchApi<{ user: { id: string; phone: string } }>('/api/users/change-phone', {
+      method: 'POST',
+      body: JSON.stringify({ newPhone, code: phoneCode }),
+    })
     setPhoneLoading(false)
     if (!res.success) {
       setPhoneMsg({ type: 'err', text: res.error })
@@ -174,7 +183,12 @@ export default function SecurityPage() {
             <Input id="confirm" name="confirm" type="password" required />
           </div>
           {pwMsg && (
-            <p className={cn('text-xs', pwMsg.type === 'ok' ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive')}>
+            <p
+              className={cn(
+                'text-xs',
+                pwMsg.type === 'ok' ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive',
+              )}
+            >
               {pwMsg.text}
             </p>
           )}
@@ -232,7 +246,14 @@ export default function SecurityPage() {
             </Button>
           </div>
           {phoneMsg && (
-            <p className={cn('text-xs', phoneMsg.type === 'ok' ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive')}>
+            <p
+              className={cn(
+                'text-xs',
+                phoneMsg.type === 'ok'
+                  ? 'text-emerald-600 dark:text-emerald-500'
+                  : 'text-destructive',
+              )}
+            >
               {phoneMsg.text}
             </p>
           )}
@@ -254,15 +275,20 @@ export default function SecurityPage() {
             <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
               <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{d.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{d.ip} · {dateFmt.format(new Date(d.lastActive))}</p>
+                <p className="break-words text-sm font-medium">{d.name}</p>
+                <p className="break-words text-xs text-muted-foreground">
+                  {d.ip} · {dateFmt.format(new Date(d.lastActive))}
+                </p>
               </div>
               {d.current ? (
                 <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-500">
-                  <Check className="h-3 w-3" />{t('currentDevice')}
+                  <Check className="h-3 w-3" />
+                  {t('currentDevice')}
                 </span>
               ) : (
-                <Button variant="ghost" size="sm">{t('logout')}</Button>
+                <Button variant="ghost" size="sm">
+                  {t('logout')}
+                </Button>
               )}
             </li>
           ))}

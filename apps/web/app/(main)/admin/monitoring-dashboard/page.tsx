@@ -3,7 +3,19 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Server, Database, Cpu, Brain, Activity, AlertTriangle, CheckCircle2, XCircle, Loader2, ScrollText } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Server,
+  Database,
+  Cpu,
+  Brain,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ScrollText,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
@@ -70,7 +82,7 @@ const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>>
 const ALERT_STYLE: Record<AlertItem['level'], { bg: string; text: string }> = {
   critical: { bg: 'bg-red-500/10', text: 'text-red-600' },
   warning: { bg: 'bg-amber-500/10', text: 'text-amber-600' },
-  info: { bg: 'bg-blue-500/10', text: 'text-blue-600' },
+  info: { bg: 'bg-primary/10', text: 'text-primary' },
 }
 
 export default function MonitoringDashboardPage() {
@@ -113,7 +125,7 @@ export default function MonitoringDashboardPage() {
   const healthyCount = services.filter((s) => s.status === 'healthy').length
   const perfCards = [
     { label: t('monitor.cpu'), value: `${perf.cpu}%`, color: 'text-primary' },
-    { label: t('monitor.memory'), value: `${perf.memory}%`, color: 'text-blue-600' },
+    { label: t('monitor.memory'), value: `${perf.memory}%`, color: 'text-primary' },
     { label: t('monitor.qps'), value: perf.qps, color: 'text-emerald-600' },
     { label: t('monitor.avgResponse'), value: `${perf.avgResponse}ms`, color: 'text-purple-600' },
   ]
@@ -130,7 +142,8 @@ export default function MonitoringDashboardPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {tc('search')}
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -138,7 +151,10 @@ export default function MonitoringDashboardPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center justify-between text-base">
-                <span className="flex items-center gap-2"><Server className="h-4 w-4" />{t('monitor.services')}</span>
+                <span className="flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  {t('monitor.services')}
+                </span>
                 <span className="text-xs font-normal text-muted-foreground">
                   {t('monitor.healthyCount', { healthy: healthyCount, total: services.length })}
                 </span>
@@ -150,14 +166,23 @@ export default function MonitoringDashboardPage() {
                   const Icon = SERVICE_ICONS[s.name] ?? Server
                   const ok = s.status === 'healthy'
                   return (
-                    <div key={s.name} className="flex items-center justify-between rounded-md border p-2.5">
+                    <div
+                      key={s.name}
+                      className="flex items-center justify-between rounded-md border p-2.5"
+                    >
                       <div className="flex items-center gap-2">
                         <Icon className={cn('h-4 w-4', ok ? 'text-emerald-600' : 'text-red-600')} />
                         <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : <XCircle className="h-3.5 w-3.5 text-red-600" />}
-                        <span className={cn('text-xs', ok ? 'text-emerald-600' : 'text-red-600')}>{s.latency}ms</span>
+                        {ok ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 text-red-600" />
+                        )}
+                        <span className={cn('text-xs', ok ? 'text-emerald-600' : 'text-red-600')}>
+                          {s.latency}ms
+                        </span>
                       </div>
                     </div>
                   )
@@ -201,14 +226,29 @@ export default function MonitoringDashboardPage() {
             </CardHeader>
             <CardContent>
               {alerts.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">{t('monitor.noAlerts')}</p>
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {t('monitor.noAlerts')}
+                </p>
               ) : (
                 <div className="space-y-2">
                   {alerts.map((a) => {
                     const st = ALERT_STYLE[a.level]
                     return (
-                      <div key={a.id} className={cn('flex items-start gap-2 rounded-md px-3 py-2 text-sm', st.bg, st.text)}>
-                        {a.level === 'critical' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : a.level === 'warning' ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+                      <div
+                        key={a.id}
+                        className={cn(
+                          'flex items-start gap-2 rounded-md px-3 py-2 text-sm',
+                          st.bg,
+                          st.text,
+                        )}
+                      >
+                        {a.level === 'critical' ? (
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        ) : a.level === 'warning' ? (
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        )}
                         <span className="flex-1">{a.message}</span>
                         <span className="shrink-0 text-xs opacity-70">{a.time}</span>
                       </div>
@@ -244,16 +284,23 @@ export default function MonitoringDashboardPage() {
               </div>
               <div className="space-y-1">
                 {logs.recent.map((l) => (
-                  <div key={l.id} className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30">
+                  <div
+                    key={l.id}
+                    className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30"
+                  >
                     <span
                       className={cn(
                         'inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
-                        l.level === 'error' ? 'bg-red-500/10 text-red-600' : l.level === 'warn' ? 'bg-amber-500/10 text-amber-600' : 'bg-blue-500/10 text-blue-600',
+                        l.level === 'error'
+                          ? 'bg-red-500/10 text-red-600'
+                          : l.level === 'warn'
+                            ? 'bg-amber-500/10 text-amber-600'
+                            : 'bg-primary/10 text-primary',
                       )}
                     >
                       {l.level}
                     </span>
-                    <span className="flex-1 truncate text-muted-foreground">{l.message}</span>
+                    <span className="flex-1 break-words text-muted-foreground">{l.message}</span>
                     <span className="shrink-0 font-mono text-muted-foreground">{l.time}</span>
                   </div>
                 ))}

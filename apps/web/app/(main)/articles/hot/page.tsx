@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Flame, Loader2, Eye, ChevronLeft, ChevronRight, Newspaper, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -37,6 +37,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function HotArticlesPage() {
   const t = useTranslations('articles')
+  const locale = useLocale()
   const [page, setPage] = React.useState(1)
 
   const { data, isLoading, error } = useQuery({
@@ -52,7 +53,7 @@ export default function HotArticlesPage() {
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+    return Number.isNaN(d.getTime()) ? '-' : new Intl.DateTimeFormat(locale).format(d)
   }
 
   return (
@@ -92,7 +93,7 @@ export default function HotArticlesPage() {
           <div className="space-y-3">
             {items.map((item, idx) => (
               <Link key={item.id} href={`/articles/${item.id}`} className="block">
-                <Card className="overflow-hidden transition-colors hover:border-primary/40">
+                <Card className="overflow-hidden transition-colors hover:bg-accent">
                   <CardContent className="flex items-center gap-4 p-4">
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
@@ -104,13 +105,11 @@ export default function HotArticlesPage() {
                       {idx + 1}
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <h2 className="line-clamp-1 font-medium transition-colors group-hover:text-primary">
+                      <h2 className="font-medium transition-colors group-hover:text-primary">
                         {item.title}
                       </h2>
                       {item.summary && (
-                        <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
-                          {item.summary}
-                        </p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{item.summary}</p>
                       )}
                       <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
                         {item.authorName && <span>{item.authorName}</span>}
@@ -123,6 +122,7 @@ export default function HotArticlesPage() {
                     </div>
                     {item.coverImage && (
                       <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={item.coverImage}
                           alt={item.title}

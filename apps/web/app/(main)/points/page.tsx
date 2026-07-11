@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
+import { Avatar } from '@/components/data/Avatar'
 
 interface Transaction {
   id: string
@@ -89,7 +90,7 @@ function StatCard({
   primary?: boolean
 }) {
   return (
-    <Card className="transition-colors hover:border-primary/40">
+    <Card className="transition-colors hover:bg-accent">
       <CardContent className="space-y-1.5 p-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Icon className={cn('h-3.5 w-3.5', primary && 'text-primary')} />
@@ -254,128 +255,124 @@ export default function PointsPage() {
         ))}
       </div>
 
-      {tab === 'tx' ? (
-        txQ.isLoading ? (
+      <div key={tab} className="animate-in fade-in-0 duration-200">
+        {tab === 'tx' ? (
+          txQ.isLoading ? (
+            <State kind="loading" text={t('loading')} />
+          ) : txQ.error ? (
+            <State kind="error" text={(txQ.error as Error).message} />
+          ) : txQ.data && txQ.data.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium">{t('source')}</th>
+                    <th className="px-4 py-2 text-right font-medium">{t('amount')}</th>
+                    <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">
+                      {t('balance')}
+                    </th>
+                    <th className="hidden px-4 py-2 text-left font-medium md:table-cell">
+                      {t('description')}
+                    </th>
+                    <th className="px-4 py-2 text-right font-medium">{t('time')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {txQ.data.map((tx) => {
+                    const Icon = TX_ICON[tx.type] ?? Star
+                    const positive = tx.amount >= 0
+                    return (
+                      <tr key={tx.id} className="transition-colors hover:bg-accent/50">
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className="font-medium">{tx.source}</span>
+                          </div>
+                        </td>
+                        <td
+                          className={cn(
+                            'px-4 py-2 text-right font-medium',
+                            positive
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-red-600 dark:text-red-400',
+                          )}
+                        >
+                          {positive ? '+' : ''}
+                          {tx.amount}
+                        </td>
+                        <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
+                          {tx.balanceAfter}
+                        </td>
+                        <td className="hidden px-4 py-2 text-muted-foreground md:table-cell">
+                          {tx.description ?? '-'}
+                        </td>
+                        <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                          {fmt(tx.createdAt)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <State kind="empty" icon={Coins} text={t('empty')} />
+          )
+        ) : lbQ.isLoading ? (
           <State kind="loading" text={t('loading')} />
-        ) : txQ.error ? (
-          <State kind="error" text={(txQ.error as Error).message} />
-        ) : txQ.data && txQ.data.length > 0 ? (
+        ) : lbQ.error ? (
+          <State kind="error" text={(lbQ.error as Error).message} />
+        ) : lbQ.data && lbQ.data.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium">{t('source')}</th>
-                  <th className="px-4 py-2 text-right font-medium">{t('amount')}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('rank')}</th>
+                  <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
+                  <th className="px-4 py-2 text-right font-medium">{t('pointsLabel')}</th>
                   <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">
-                    {t('balance')}
+                    {t('levelLabel')}
                   </th>
-                  <th className="hidden px-4 py-2 text-left font-medium md:table-cell">
-                    {t('description')}
-                  </th>
-                  <th className="px-4 py-2 text-right font-medium">{t('time')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {txQ.data.map((tx) => {
-                  const Icon = TX_ICON[tx.type] ?? Star
-                  const positive = tx.amount >= 0
-                  return (
-                    <tr key={tx.id} className="transition-colors hover:bg-accent/50">
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="font-medium">{tx.source}</span>
-                        </div>
-                      </td>
-                      <td
+                {lbQ.data.map((u, i) => (
+                  <tr
+                    key={u.userId}
+                    className={cn('transition-colors hover:bg-accent/50', u.isMe && 'bg-primary/5')}
+                  >
+                    <td className="px-4 py-2">
+                      <span
                         className={cn(
-                          'px-4 py-2 text-right font-medium',
-                          positive
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-red-600 dark:text-red-400',
+                          'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
+                          i < 3
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            : 'bg-muted text-muted-foreground',
                         )}
                       >
-                        {positive ? '+' : ''}
-                        {tx.amount}
-                      </td>
-                      <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
-                        {tx.balanceAfter}
-                      </td>
-                      <td className="hidden px-4 py-2 text-muted-foreground md:table-cell">
-                        {tx.description ?? '-'}
-                      </td>
-                      <td className="px-4 py-2 text-right text-xs text-muted-foreground">
-                        {fmt(tx.createdAt)}
-                      </td>
-                    </tr>
-                  )
-                })}
+                        {i + 1}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar src={u.avatar ?? undefined} name={u.nickname ?? 'U'} size="xs" />
+                        <span className="font-medium">{u.nickname}</span>
+                        {u.isMe && <span className="text-xs text-primary">({t('you')})</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right font-medium">{u.points}</td>
+                    <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
+                      Lv.{u.level}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <State kind="empty" icon={Coins} text={t('empty')} />
-        )
-      ) : lbQ.isLoading ? (
-        <State kind="loading" text={t('loading')} />
-      ) : lbQ.error ? (
-        <State kind="error" text={(lbQ.error as Error).message} />
-      ) : lbQ.data && lbQ.data.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium">{t('rank')}</th>
-                <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
-                <th className="px-4 py-2 text-right font-medium">{t('pointsLabel')}</th>
-                <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">
-                  {t('levelLabel')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {lbQ.data.map((u, i) => (
-                <tr
-                  key={u.userId}
-                  className={cn('transition-colors hover:bg-accent/50', u.isMe && 'bg-primary/5')}
-                >
-                  <td className="px-4 py-2">
-                    <span
-                      className={cn(
-                        'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
-                        i < 3
-                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                          : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {i + 1}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                        {u.avatar ? (
-                          <img src={u.avatar} alt={u.nickname} className="h-6 w-6 rounded-full" />
-                        ) : (
-                          (u.nickname?.[0] ?? 'U').toUpperCase()
-                        )}
-                      </div>
-                      <span className="font-medium">{u.nickname}</span>
-                      {u.isMe && <span className="text-xs text-primary">({t('you')})</span>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-right font-medium">{u.points}</td>
-                  <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
-                    Lv.{u.level}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <State kind="empty" icon={Award} text={t('empty')} />
-      )}
+          <State kind="empty" icon={Award} text={t('empty')} />
+        )}
+      </div>
     </div>
   )
 }

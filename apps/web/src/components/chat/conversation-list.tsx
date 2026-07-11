@@ -63,9 +63,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
             onClick={() => router.push(`/chat?conversationId=${encodeURIComponent(item.id)}`)}
             className="min-w-0 flex-1 text-left"
           >
-            <p className="truncate text-sm font-medium">{item.title}</p>
+            <p className="break-words text-sm font-medium">{item.title}</p>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="truncate">{item.model}</span>
+              <span className="break-words">{item.model}</span>
               <span className="flex items-center gap-0.5">
                 <Clock className="h-3 w-3" />
                 {dateFmt.format(new Date(item.lastMessageAt))}
@@ -82,7 +82,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               disabled={favMutation.isPending}
               title={item.favorite ? t('unfavorite') : t('favorite')}
             >
-              <Star className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')} />
+              <Star
+                className={cn('h-3.5 w-3.5', item.favorite && 'fill-amber-400 text-amber-400')}
+              />
             </Button>
             <Button
               variant="ghost"
