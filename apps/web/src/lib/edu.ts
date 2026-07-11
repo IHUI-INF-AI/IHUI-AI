@@ -20,7 +20,7 @@ export interface PageData<T> {
   pageSize?: number
 }
 
-export function buildQs(params: Record<string, string | number | undefined | null>): string {
+export function buildQs(params: object): string {
   const qs = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== '') qs.set(k, String(v))

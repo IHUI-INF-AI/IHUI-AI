@@ -19,7 +19,9 @@ interface Lecturer {
   sort: number
   status: number
 }
-interface LecturerResp { lecturer: Lecturer | null }
+interface LecturerResp {
+  lecturer: Lecturer | null
+}
 
 interface ChannelItem {
   id: string
@@ -61,7 +63,6 @@ function Avatar({
       )}
     >
       {avatar ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={avatar} alt={name} className="h-full w-full object-cover" />
       ) : (
         <span>{initial}</span>
@@ -84,8 +85,7 @@ export default function LecturerDetailPage() {
 
   const { data: channelsData, isLoading: channelsLoading } = useQuery({
     queryKey: ['live', 'channels', 'lecturer', id],
-    queryFn: () =>
-      api<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
+    queryFn: () => api<ChannelsResp>(`/api/live/channels?lecturerId=${encodeURIComponent(id)}`),
     enabled: !!lecturer,
   })
 

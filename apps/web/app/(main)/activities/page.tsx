@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -97,46 +97,47 @@ export default function ActivitiesPage() {
           {data.map((a) => {
             const displayStatus = computeStatus(a.startAt, a.endAt)
             return (
-            <Card
-              key={a.id}
-              className="group flex flex-col overflow-hidden transition-colors hover:border-primary/40"
-            >
-              {a.banner ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.banner} alt={a.title} className="h-36 w-full object-cover" />
-              ) : (
-                <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                  <Sparkles className="h-10 w-10 text-primary/40" />
-                </div>
-              )}
-              <CardContent className="flex flex-1 flex-col gap-3 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="line-clamp-1 text-base font-semibold">{a.title}</h2>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
-                      STATUS_STYLE[displayStatus],
-                    )}
-                  >
-                    {t(`status.${displayStatus}`)}
-                  </span>
-                </div>
-                <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">{a.description ?? ''}</p>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>
-                    {fmt(a.startAt)} - {fmt(a.endAt)}
-                  </span>
-                </div>
-                <Link href={`/activities/${a.slug}`} className="block">
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Calendar className="h-4 w-4" />
-                    {t('viewDetail')}
-                    <ArrowRight className="ml-auto h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+              <Card
+                key={a.id}
+                className="group flex flex-col overflow-hidden transition-colors hover:border-primary/40"
+              >
+                {a.banner ? (
+                  <img src={a.banner} alt={a.title} className="h-36 w-full object-cover" />
+                ) : (
+                  <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                    <Sparkles className="h-10 w-10 text-primary/40" />
+                  </div>
+                )}
+                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="line-clamp-1 text-base font-semibold">{a.title}</h2>
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
+                        STATUS_STYLE[displayStatus],
+                      )}
+                    >
+                      {t(`status.${displayStatus}`)}
+                    </span>
+                  </div>
+                  <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
+                    {a.description ?? ''}
+                  </p>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>
+                      {fmt(a.startAt)} - {fmt(a.endAt)}
+                    </span>
+                  </div>
+                  <Link href={`/activities/${a.slug}`} className="block">
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Calendar className="h-4 w-4" />
+                      {t('viewDetail')}
+                      <ArrowRight className="ml-auto h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             )
           })}
         </div>

@@ -1,0 +1,2 @@
+# Playwright 登录态缓存（含 token，勿提交）
+.auth/

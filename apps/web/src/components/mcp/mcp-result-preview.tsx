@@ -1,13 +1,6 @@
-'use client'
+﻿'use client'
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@ihui/ui'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui'
 
 import { McpDataStructure } from './mcp-data-structure'
 
@@ -20,12 +13,7 @@ function isTableLike(v: unknown): v is Record<string, unknown>[] {
   return (
     Array.isArray(v) &&
     v.length > 0 &&
-    v.every(
-      (item) =>
-        item !== null &&
-        typeof item === 'object' &&
-        !Array.isArray(item),
-    )
+    v.every((item) => item !== null && typeof item === 'object' && !Array.isArray(item))
   )
 }
 
@@ -36,20 +24,15 @@ function formatCell(v: unknown): string {
   return String(v)
 }
 
-const IMAGE_RE =
-  /^(data:image\/|https?:\/\/.+\.(png|jpe?g|gif|webp|svg))/i
+const IMAGE_RE = /^(data:image\/|https?:\/\/.+\.(png|jpe?g|gif|webp|svg))/i
 
 export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
   const type = (mimeType ?? '').toLowerCase()
 
-  if (
-    type.startsWith('image/') ||
-    (typeof result === 'string' && IMAGE_RE.test(result))
-  ) {
+  if (type.startsWith('image/') || (typeof result === 'string' && IMAGE_RE.test(result))) {
     const src = typeof result === 'string' ? result : ''
     return (
       <div className="flex justify-center rounded-lg border p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="result" className="max-h-[400px] object-contain" />
       </div>
     )
@@ -70,9 +53,7 @@ export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
 
   if (isTableLike(result)) {
     const rows = result
-    const headers = Array.from(
-      new Set(rows.flatMap((r) => Object.keys(r))),
-    )
+    const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))))
     return (
       <div className="overflow-auto rounded-lg border">
         <Table>

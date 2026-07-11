@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -52,14 +52,12 @@ function FollowingContent() {
   )
 
   const followMut = useMutation({
-    mutationFn: (userId: string) =>
-      api(`/api/follows/${userId}`, { method: 'POST' }),
+    mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows'] }),
   })
 
   const unfollowMut = useMutation({
-    mutationFn: (userId: string) =>
-      api(`/api/follows/${userId}`, { method: 'DELETE' }),
+    mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['follows'] }),
   })
 
@@ -123,7 +121,6 @@ function FollowingContent() {
                   className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-medium"
                 >
                   {u.avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={u.avatar} alt={u.nickname ?? ''} className="h-9 w-9 rounded-full" />
                   ) : (
                     initial
@@ -171,7 +168,13 @@ function FollowingContent() {
 
 export default function FollowingPage() {
   return (
-    <React.Suspense fallback={<div className="py-10 text-center text-muted-foreground"><Loader2 className="inline h-4 w-4 animate-spin" /></div>}>
+    <React.Suspense
+      fallback={
+        <div className="py-10 text-center text-muted-foreground">
+          <Loader2 className="inline h-4 w-4 animate-spin" />
+        </div>
+      }
+    >
       <FollowingContent />
     </React.Suspense>
   )
