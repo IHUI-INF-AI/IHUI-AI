@@ -22,7 +22,7 @@ export interface WalletRecord {
 }
 
 export async function getBalance(): Promise<ApiResult<WalletBalance>> {
-  return fetchApi<WalletBalance>('/wallet/balance')
+  return fetchApi<WalletBalance>('/api/wallet/balance')
 }
 
 export async function recharge(input: {
@@ -30,7 +30,7 @@ export async function recharge(input: {
   payMethod: string
   couponId?: string
 }): Promise<ApiResult<{ orderNo: string; payUrl?: string }>> {
-  return fetchApi<{ orderNo: string; payUrl?: string }>('/wallet/recharge', {
+  return fetchApi<{ orderNo: string; payUrl?: string }>('/api/wallet/recharge', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -41,7 +41,7 @@ export async function withdraw(input: {
   account: string
   accountType: string
 }): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>('/wallet/withdraw', {
+  return fetchApi<{ success: boolean }>('/api/wallet/withdraw', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -50,11 +50,11 @@ export async function withdraw(input: {
 export async function getWithdrawRecords(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<WalletRecord>>> {
-  return fetchApi<PageData<WalletRecord>>(`/wallet/withdraw/records${buildQs(query)}`)
+  return fetchApi<PageData<WalletRecord>>(`/api/wallet/withdraw/records${buildQs(query)}`)
 }
 
 export async function getRechargeRecords(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<WalletRecord>>> {
-  return fetchApi<PageData<WalletRecord>>(`/wallet/recharge/records${buildQs(query)}`)
+  return fetchApi<PageData<WalletRecord>>(`/api/wallet/recharge/records${buildQs(query)}`)
 }

@@ -70,10 +70,13 @@ export function isDemoMode(): boolean {
   return false
 }
 
-/** 构造演示模式下的本地回退登录数据 */
+/** 构造演示模式下的本地回退登录数据（仅开发环境） */
 function buildFallbackLoginData(platform: ThirdPartyPlatform): ThirdPartyLoginResponse {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('第三方登录在未配置时不可用')
+  }
   return {
-    token: `local_fallback_${platform}_token_${Date.now()}`,
+    token: `dev_${platform}_${Date.now()}`,
     user: {
       id: `${platform}_local_user`,
       username: `${platform}_local_user`,
