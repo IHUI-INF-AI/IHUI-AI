@@ -95,3 +95,4 @@ i18n-report*.json
 openapi.json
 openapi_problems.json
 report.json
+.trae-html-share-packages/
