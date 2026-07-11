@@ -166,25 +166,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'doubao-image-edit-2.0'
 
     if (!apiKey) {
-      // 无密钥时返回 mock 数据
-      const mockResult = {
-        imageUrl: `https://placeholder.doubao.com/edit/${Date.now()}.png`,
-        prompt,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'doubao',
-        action: 'edit',
-        inputImageUrl: imageUrl,
-        outputImageUrl: mockResult.imageUrl,
-        prompt,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '豆包图片编辑服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
     }
 
     try {
@@ -250,24 +234,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'doubao-image-edit-2.0'
 
     if (!apiKey) {
-      const mockResult = {
-        imageUrl: `https://placeholder.doubao.com/inpaint/${Date.now()}.png`,
-        prompt,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'doubao',
-        action: 'inpaint',
-        inputImageUrl: imageUrl,
-        outputImageUrl: mockResult.imageUrl,
-        prompt,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '豆包图片修复服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
     }
 
     try {
@@ -332,24 +301,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'wanx-v1'
 
     if (!apiKey) {
-      const mockResult = {
-        images: [`https://placeholder.dashscope.com/edit/${Date.now()}.png`],
-        prompt,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'edit',
-        inputImageUrl: imageUrl,
-        outputImageUrl: mockResult.images[0] ?? null,
-        prompt,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '通义图片编辑服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
 
     try {
@@ -425,24 +379,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'wanx-v1'
 
     if (!apiKey) {
-      const mockResult = {
-        images: [`https://placeholder.dashscope.com/t2i/${Date.now()}.png`],
-        prompt,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'text-to-image',
-        inputImageUrl: null,
-        outputImageUrl: mockResult.images[0] ?? null,
-        prompt,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '通义文生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
 
     try {
@@ -519,24 +458,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'wanx-v1'
 
     if (!apiKey) {
-      const mockResult = {
-        images: [`https://placeholder.dashscope.com/i2i/${Date.now()}.png`],
-        prompt,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'image-to-image',
-        inputImageUrl: imageUrl,
-        outputImageUrl: mockResult.images[0] ?? null,
-        prompt,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '通义图生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
 
     try {
@@ -788,23 +712,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'wanx-style-transfer'
 
     if (!apiKey) {
-      const mockResult = {
-        imageUrl: `https://placeholder.dashscope.com/style-transfer/${Date.now()}.png`,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'style-transfer',
-        inputImageUrl: imageUrl,
-        outputImageUrl: mockResult.imageUrl,
-        prompt: `style-ref: ${styleRefUrl}`,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '通义风格迁移服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
 
     try {
@@ -872,23 +782,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'wanx-background-generation-v2'
 
     if (!apiKey) {
-      const mockResult = {
-        imageUrl: `https://placeholder.dashscope.com/bg-gen/${Date.now()}.png`,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'background-generation',
-        inputImageUrl: imageUrl,
-        outputImageUrl: mockResult.imageUrl,
-        prompt: prompt ?? '',
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '通义背景生成服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
 
     try {
@@ -956,23 +852,9 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const useModel = model ?? 'wanx-virtual-try-on-v1'
 
     if (!apiKey) {
-      const mockResult = {
-        imageUrl: `https://placeholder.dashscope.com/try-on/${Date.now()}.png`,
-        model: useModel,
-        status: 'mock',
-      }
-      const historyId = await saveHistory({
-        userId: request.userId!,
-        vendor: 'tongyi',
-        action: 'virtual-try-on',
-        inputImageUrl: personImageUrl,
-        outputImageUrl: mockResult.imageUrl,
-        prompt: `top: ${topGarmentUrl ?? ''}; bottom: ${bottomGarmentUrl ?? ''}`,
-        model: useModel,
-        status: 'mock',
-        rawData: mockResult,
-      })
-      return reply.send(success({ ...mockResult, historyId }))
+      return reply
+        .status(503)
+        .send(error(503, '通义虚拟试衣服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
 
     try {
