@@ -94,7 +94,7 @@ async function rawDelete(table: string, id: string) {
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
-  // category_dictionary — 分类字典管理（表 category_dictionary，尚未迁移为 Drizzle schema）
+  // category_dictionary — 分类字典管理（表 zhs_category_dictionary）
   // 旧逻辑：列表仅返回 is_show=true，按 sort_order 升序
   // -------------------------------------------------------------------------
   const categoryDictCols = [
@@ -120,7 +120,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (q.dict_type) conds.push(sql`"dict_type" = ${q.dict_type}`)
     if (q.showAll !== '1' && q.showAll !== 'true') conds.push(sql`"is_show" = true`)
     try {
-      const result = await rawList('category_dictionary', {
+      const result = await rawList('zhs_category_dictionary', {
         page,
         pageSize,
         conds,
@@ -136,7 +136,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const row = await rawById('category_dictionary', parsed.data.id)
+      const row = await rawById('zhs_category_dictionary', parsed.data.id)
       if (!row) return reply.status(404).send(error(404, '字典项不存在'))
       return reply.send(success(row))
     } catch (e) {
@@ -147,7 +147,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.post('/category-dictionary', async (req, reply) => {
     try {
       const row = await rawInsert(
-        'category_dictionary',
+        'zhs_category_dictionary',
         categoryDictCols,
         req.body as Record<string, unknown>,
       )
@@ -162,7 +162,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
       const row = await rawUpdate(
-        'category_dictionary',
+        'zhs_category_dictionary',
         categoryDictCols,
         parsed.data.id,
         req.body as Record<string, unknown>,
@@ -177,7 +177,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await rawDelete('category_dictionary', parsed.data.id)
+      await rawDelete('zhs_category_dictionary', parsed.data.id)
       return reply.send(success({ id: parsed.data.id, deleted: true }))
     } catch (e) {
       req.log.error(e)

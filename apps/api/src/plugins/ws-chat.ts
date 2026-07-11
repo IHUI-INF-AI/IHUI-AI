@@ -16,6 +16,8 @@ interface RoomMember {
   socket: WebSocket
   userId: string
   nickname: string
+  /** 该成员当前已加入的所有房间(支持中途切换/加入多个房间) */
+  rooms: Set<string>
 }
 
 const ALLOWED_MSG_TYPES = new Set(['text', 'image', 'file', 'system'])
@@ -131,15 +133,53 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
       const nickname = query.nickname || userId.slice(0, 8)
-      const member: RoomMember = { socket, userId, nickname }
+      const member: RoomMember = { socket, userId, nickname, rooms: new Set<string>() }
 
-      if (!rooms.has(roomId)) rooms.set(roomId, new Set())
-      rooms.get(roomId)!.add(member)
+      // 加入指定房间(辅助函数, 可在中途切换时复用)
+      const joinRoom = (targetRoom: string): void => {
+        if (member.rooms.has(targetRoom)) {
+          // 已在房间: 仅回执
+          send(socket, { type: 'room', event: 'joined', room: targetRoom, you: userId })
+          return
+        }
+        member.rooms.add(targetRoom)
+        if (!rooms.has(targetRoom)) rooms.set(targetRoom, new Set())
+        rooms.get(targetRoom)!.add(member)
+        // 通知房间其他成员有新人加入(跨实例广播,排除自己)
+        publish(
+          targetRoom,
+          { type: 'room', event: 'member_join', user: userId, nickname, ts: Date.now() },
+          socket,
+        )
+        // 回执加入者
+        send(socket, { type: 'room', event: 'joined', room: targetRoom, you: userId })
+      }
 
-      // 通知房间其他成员有新人加入(跨实例广播,排除自己)
-      publish(roomId, { type: 'room', event: 'member_join', user: userId, nickname, ts: Date.now() }, socket)
-      // 回执加入者
-      send(socket, { type: 'room', event: 'joined', room: roomId, you: userId })
+      // 离开指定房间(辅助函数)
+      const leaveRoom = (targetRoom: string): void => {
+        if (!member.rooms.has(targetRoom)) {
+          send(socket, { type: 'room', event: 'not_joined', room: targetRoom })
+          return
+        }
+        member.rooms.delete(targetRoom)
+        const members = rooms.get(targetRoom)
+        if (members) {
+          members.delete(member)
+          if (members.size === 0) rooms.delete(targetRoom)
+        }
+        // 通知房间其他成员有人离开
+        publish(targetRoom, {
+          type: 'room',
+          event: 'member_leave',
+          user: userId,
+          nickname,
+          ts: Date.now(),
+        })
+        send(socket, { type: 'room', event: 'left', room: targetRoom })
+      }
+
+      // 初始加入 URL 中的房间
+      joinRoom(roomId)
 
       socket.on('message', (data: Buffer) => {
         const raw = data.toString()
@@ -154,6 +194,21 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           return
         }
         const mtype = (msg.type as string) || 'text'
+
+        // 中途切换房间: {"type":"room","action":"join|leave","room":"..."}
+        if (mtype === 'room' && typeof msg.action === 'string' && typeof msg.room === 'string') {
+          const action = msg.action as string
+          const targetRoom = msg.room as string
+          if (action === 'join') {
+            joinRoom(targetRoom)
+          } else if (action === 'leave') {
+            leaveRoom(targetRoom)
+          } else {
+            send(socket, { type: 'room', event: 'error', message: `unknown action: ${action}` })
+          }
+          return
+        }
+
         // typing 事件:仅广播给他人,不回声自己
         if (mtype === 'typing') {
           publish(roomId, { type: 'typing', user: userId, nickname }, socket)
@@ -173,12 +228,16 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       })
 
       socket.on('close', () => {
-        const members = rooms.get(roomId)
-        if (members) {
-          members.delete(member)
-          if (members.size === 0) rooms.delete(roomId)
+        // 清理该成员所在的所有房间(支持中途加入的多个房间)
+        for (const targetRoom of member.rooms) {
+          const members = rooms.get(targetRoom)
+          if (members) {
+            members.delete(member)
+            if (members.size === 0) rooms.delete(targetRoom)
+          }
+          publish(targetRoom, { type: 'room', event: 'member_leave', user: userId, nickname })
         }
-        publish(roomId, { type: 'room', event: 'member_leave', user: userId, nickname })
+        member.rooms.clear()
       })
     })()
   })
