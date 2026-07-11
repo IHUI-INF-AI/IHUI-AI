@@ -70,7 +70,7 @@ export default function McpProjectsPage() {
                     {STATUS_LABEL[p.status] ?? p.status}
                   </span>
                 </div>
-                <CardDescription className="line-clamp-2 text-sm">{p.description}</CardDescription>
+                <CardDescription className="text-sm">{p.description}</CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">

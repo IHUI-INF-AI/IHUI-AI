@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { ShieldCheck, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { fetchApi } from '@/lib/api'
 
 interface ScoreItem {
   id: string
@@ -42,10 +43,9 @@ export function SecurityScore() {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    void fetch('/api/user/security-score')
-      .then((r) => r.json())
-      .then((j: { code: number; data?: ScoreData }) => {
-        if (j.code === 0 && j.data) setData(j.data)
+    void fetchApi<ScoreData>('/api/user/security-score')
+      .then((res) => {
+        if (res.success && res.data) setData(res.data)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -83,7 +83,15 @@ export function SecurityScore() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="relative h-32 w-32 shrink-0">
               <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="8" className="text-muted" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  className="text-muted"
+                />
                 <circle
                   cx="50"
                   cy="50"
@@ -123,7 +131,11 @@ export function SecurityScore() {
                       style={{
                         width: `${(item.score / item.maxScore) * 100}%`,
                         backgroundColor:
-                          item.status === 'good' ? '#16a34a' : item.status === 'warning' ? '#f59e0b' : '#ef4444',
+                          item.status === 'good'
+                            ? '#16a34a'
+                            : item.status === 'warning'
+                              ? '#f59e0b'
+                              : '#ef4444',
                       }}
                     />
                   </div>

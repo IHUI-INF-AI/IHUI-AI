@@ -42,10 +42,10 @@ export function ChatHeader({
         <Sparkles className="h-4 w-4" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold">{title}</span>
+        <span className="break-words text-sm font-semibold">{title}</span>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           <Cpu className="h-3 w-3" />
-          <span className="truncate">{currentModel}</span>
+          <span className="break-words">{currentModel}</span>
           {isStreaming && (
             <span className="ml-1 inline-flex items-center gap-1 text-primary">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />

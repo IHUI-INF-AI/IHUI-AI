@@ -89,6 +89,7 @@ export default function LearnTopicDetailPage() {
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
           <div className="flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
             {topic.cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={topic.cover}
                 alt={topic.title}
@@ -139,16 +140,17 @@ export default function LearnTopicDetailPage() {
               const cover = lesson.image ?? lesson.cover
               return (
                 <Link key={lesson.id} href={`/learn/${lesson.id}`} className="group block">
-                  <Card className="h-full overflow-hidden transition-colors hover:border-primary/40">
+                  <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
                     <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                       {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={cover} alt={title} className="h-full w-full object-cover" />
                       ) : (
                         <PlayCircle className="h-10 w-10 text-primary/40" />
                       )}
                     </div>
                     <CardHeader className="p-4 pb-2">
-                      <CardTitle className="line-clamp-1 text-base">{title}</CardTitle>
+                      <CardTitle className="text-base">{title}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 p-4 pt-0 text-sm">
                       {lesson.instructor && (

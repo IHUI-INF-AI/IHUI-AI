@@ -121,7 +121,7 @@ export default function MyResourcesPage() {
               return (
                 <Card
                   key={resource.id}
-                  className="overflow-hidden transition-colors hover:border-primary/40"
+                  className="overflow-hidden transition-colors hover:bg-accent"
                 >
                   <Link href={`/resources/${resource.id}`}>
                     <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
@@ -131,9 +131,7 @@ export default function MyResourcesPage() {
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <Link href={`/resources/${resource.id}`} className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 font-medium hover:text-primary">
-                          {resource.title}
-                        </h3>
+                        <h3 className="font-medium hover:text-primary">{resource.title}</h3>
                       </Link>
                       <Button
                         size="sm"
@@ -146,9 +144,7 @@ export default function MyResourcesPage() {
                       </Button>
                     </div>
                     {resource.description && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {resource.description}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{resource.description}</p>
                     )}
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">

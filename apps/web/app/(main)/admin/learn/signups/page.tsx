@@ -5,13 +5,7 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-} from 'lucide-react'
+import { Search, Loader2, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -74,7 +68,7 @@ function statusBadgeClass(status: number): string {
     case 2:
       return 'bg-rose-500/10 text-rose-600 dark:text-rose-500'
     case 3:
-      return 'bg-blue-500/10 text-blue-600 dark:text-blue-500'
+      return 'bg-primary/10 text-primary'
     default:
       return 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
   }
@@ -87,7 +81,7 @@ function statusDotClass(status: number): string {
     case 2:
       return 'bg-rose-500'
     case 3:
-      return 'bg-blue-500'
+      return 'bg-primary'
     default:
       return 'bg-amber-500'
   }
@@ -167,7 +161,13 @@ export default function AdminLearnSignupsPage() {
           />
         </div>
         <div className="w-40">
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v)
+              setPage(1)
+            }}
+          >
             <SelectTrigger className={selectClass}>
               <SelectValue />
             </SelectTrigger>
@@ -221,7 +221,9 @@ export default function AdminLearnSignupsPage() {
                 const status = row.status
                 return (
                   <TableRow key={row.id} className="hover:bg-muted/30">
-                    <TableCell className="px-4 py-2.5 font-medium">{row.lessonTitle ?? row.lessonId}</TableCell>
+                    <TableCell className="px-4 py-2.5 font-medium">
+                      {row.lessonTitle ?? row.lessonId}
+                    </TableCell>
                     <TableCell className="px-4 py-2.5">{row.nickname ?? row.userId}</TableCell>
                     <TableCell className="px-4 py-2.5">{row.phone ?? '—'}</TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -232,7 +234,10 @@ export default function AdminLearnSignupsPage() {
                         )}
                       >
                         <span className={cn('h-1.5 w-1.5 rounded-full', statusDotClass(status))} />
-                        {t(STATUS_OPTIONS.find((o) => Number(o.value) === status)?.key ?? 'statusPending')}
+                        {t(
+                          STATUS_OPTIONS.find((o) => Number(o.value) === status)?.key ??
+                            'statusPending',
+                        )}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-muted-foreground">
@@ -243,7 +248,10 @@ export default function AdminLearnSignupsPage() {
                         value={String(status)}
                         onValueChange={(v) => updateMut.mutate({ id: row.id, status: Number(v) })}
                       >
-                        <SelectTrigger className={cn(selectClass, 'ml-auto w-32 text-left')} disabled={updateMut.isPending}>
+                        <SelectTrigger
+                          className={cn(selectClass, 'ml-auto w-32 text-left')}
+                          disabled={updateMut.isPending}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

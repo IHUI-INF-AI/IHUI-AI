@@ -1,5 +1,6 @@
-﻿'use client'
+'use client'
 
+import Image from 'next/image'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui'
 
 import { McpDataStructure } from './mcp-data-structure'
@@ -33,7 +34,14 @@ export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
     const src = typeof result === 'string' ? result : ''
     return (
       <div className="flex justify-center rounded-lg border p-4">
-        <img src={src} alt="result" className="max-h-[400px] object-contain" />
+        <Image
+          src={src}
+          alt="result"
+          width={800}
+          height={600}
+          unoptimized
+          className="h-auto w-auto max-h-[400px] object-contain"
+        />
       </div>
     )
   }
@@ -66,7 +74,7 @@ export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
           </TableHeader>
           <TableBody>
             {rows.map((row, i) => (
-              <TableRow key={i}>
+              <TableRow key={`row-${i}`}>
                 {headers.map((h) => (
                   <TableCell key={h}>{formatCell(row[h])}</TableCell>
                 ))}

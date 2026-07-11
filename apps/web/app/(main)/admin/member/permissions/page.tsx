@@ -30,13 +30,16 @@ export default function AdminMemberPermissionsPage() {
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'member', 'permissions'],
-    queryFn: () => api<{ list: MemberPermission[] }>('/api/admin/member/permissions').then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: MemberPermission[] }>('/api/admin/member/permissions').then((d) => d.list ?? []),
   })
 
   const filtered = React.useMemo(() => {
     const kw = keyword.trim().toLowerCase()
     if (!kw) return list
-    return list.filter((p) => `${p.name} ${p.displayName} ${p.resource} ${p.action}`.toLowerCase().includes(kw))
+    return list.filter((p) =>
+      `${p.name} ${p.displayName} ${p.resource} ${p.action}`.toLowerCase().includes(kw),
+    )
   }, [list, keyword])
 
   const grouped = React.useMemo(() => {
@@ -68,7 +71,12 @@ export default function AdminMemberPermissionsPage() {
 
       <div className="relative w-full max-w-xs">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索权限" className="h-9 pl-8" />
+        <Input
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="搜索权限"
+          className="h-9 pl-8"
+        />
       </div>
 
       {isLoading ? (
@@ -87,7 +95,9 @@ export default function AdminMemberPermissionsPage() {
               <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-semibold">{resource}</span>
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{items.length}</span>
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                  {items.length}
+                </span>
               </header>
               <div className="overflow-x-auto">
                 <Table className="text-sm">
@@ -111,18 +121,30 @@ export default function AdminMemberPermissionsPage() {
                             className="group inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs hover:bg-muted/70"
                           >
                             <code>{p.name}</code>
-                            {copiedId === p.id ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground group-hover:text-foreground" />}
+                            {copiedId === p.id ? (
+                              <Check className="h-3 w-3 text-emerald-500" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-muted-foreground group-hover:text-foreground" />
+                            )}
                           </button>
                         </TableCell>
                         <TableCell className="px-4 py-2">
-                          <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">{p.action}</span>
+                          <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                            {p.action}
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-2">
                           <div className="flex flex-wrap gap-1">
-                            {(p.roles ?? []).map((r) => <span key={r} className="rounded bg-muted px-1.5 py-0.5 text-xs">{r}</span>)}
+                            {(p.roles ?? []).map((r) => (
+                              <span key={r} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                {r}
+                              </span>
+                            ))}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[220px] truncate px-4 py-2 text-muted-foreground">{p.description || '-'}</TableCell>
+                        <TableCell className="max-w-[220px] break-words px-4 py-2 text-muted-foreground">
+                          {p.description || '-'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

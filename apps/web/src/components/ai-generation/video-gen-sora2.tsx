@@ -42,15 +42,11 @@ export function VideoGenSora2() {
   const [taskId, setTaskId] = React.useState<string | null>(null)
 
   const mutation = useMutation({
-    mutationFn: async (payload: {
-      prompt: string
-      duration: number
-      size: string
-    }) => {
-      const res = await fetchApi<{ taskId: string; status: string }>(
-        '/api/ai/sora2/generate',
-        { method: 'POST', body: JSON.stringify(payload) },
-      )
+    mutationFn: async (payload: { prompt: string; duration: number; size: string }) => {
+      const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/sora2/generate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -178,7 +174,9 @@ export function VideoGenSora2() {
               <p className="text-sm text-muted-foreground">{t('noResult')}</p>
             ) : null}
             {videos.map((url) => (
-              <video key={url} src={url} controls className="w-full rounded-md border" />
+              <video key={url} src={url} controls className="w-full rounded-md border">
+                <track kind="captions" />
+              </video>
             ))}
           </div>
         )}

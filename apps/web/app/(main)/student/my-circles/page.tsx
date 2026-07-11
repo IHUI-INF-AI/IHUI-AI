@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -95,13 +95,11 @@ export default function MyCirclesPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {list.map((circle) => (
-              <Card
-                key={circle.id}
-                className="overflow-hidden transition-colors hover:border-primary/40"
-              >
+              <Card key={circle.id} className="overflow-hidden transition-colors hover:bg-accent">
                 <Link href={`/circles/${circle.id}`}>
                   <div className="aspect-video w-full overflow-hidden bg-muted">
                     {circle.coverImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={circle.coverImage}
                         alt={circle.name}
@@ -117,7 +115,7 @@ export default function MyCirclesPage() {
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/circles/${circle.id}`} className="min-w-0 flex-1">
-                      <h3 className="line-clamp-1 font-medium hover:text-primary">{circle.name}</h3>
+                      <h3 className="font-medium hover:text-primary">{circle.name}</h3>
                     </Link>
                     <Button
                       size="sm"
@@ -131,9 +129,7 @@ export default function MyCirclesPage() {
                     </Button>
                   </div>
                   {circle.description && (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
-                      {circle.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{circle.description}</p>
                   )}
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">

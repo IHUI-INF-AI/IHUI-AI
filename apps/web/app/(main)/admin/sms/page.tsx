@@ -39,74 +39,13 @@ interface SmsRecord {
   time: string
 }
 
-const MOCK_TEMPLATES: SmsTemplate[] = [
-  {
-    id: '1',
-    name: '验证码',
-    content: '您的验证码是 {code},5 分钟内有效,请勿泄露。',
-    type: 'verify',
-    status: 'approved',
-  },
-  {
-    id: '2',
-    name: '订单通知',
-    content: '您的订单 {orderNo} 已支付成功,我们将尽快发货。',
-    type: 'notice',
-    status: 'approved',
-  },
-  {
-    id: '3',
-    name: '活动通知',
-    content: '【IHUI】{activity} 将于 {time} 开始,期待您的参与!',
-    type: 'notice',
-    status: 'pending',
-  },
-  {
-    id: '4',
-    name: '优惠促销',
-    content: '【IHUI】限时优惠,会员尊享 8 折,详情见官网。',
-    type: 'marketing',
-    status: 'rejected',
-  },
-]
-const MOCK_RECORDS: SmsRecord[] = [
-  {
-    id: '1',
-    phone: '138****8888',
-    content: '您的验证码是 836421...',
-    status: 'success',
-    time: '2026-07-10 09:12:30',
-  },
-  {
-    id: '2',
-    phone: '139****6666',
-    content: '您的订单 IH20260710001 已支付成功...',
-    status: 'success',
-    time: '2026-07-10 09:08:12',
-  },
-  {
-    id: '3',
-    phone: '137****2222',
-    content: '您的验证码是 294857...',
-    status: 'failed',
-    time: '2026-07-10 08:58:44',
-  },
-  {
-    id: '4',
-    phone: '135****9999',
-    content: '您的验证码是 102938...',
-    status: 'sending',
-    time: '2026-07-10 08:40:00',
-  },
-]
-
 const TYPE_LABEL: Record<SmsTemplate['type'], string> = {
   verify: 'Verify',
   notice: 'Notice',
   marketing: 'Marketing',
 }
 const TYPE_STYLE: Record<SmsTemplate['type'], string> = {
-  verify: 'bg-blue-500/10 text-blue-600',
+  verify: 'bg-emerald-500/10 text-emerald-600',
   notice: 'bg-amber-500/10 text-amber-600',
   marketing: 'bg-purple-500/10 text-purple-600',
 }
@@ -135,20 +74,24 @@ export default function SmsPage() {
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState(EMPTY)
 
-  const { data: templates = MOCK_TEMPLATES, isLoading } = useQuery({
+  const { data: templates = [], isLoading } = useQuery({
     queryKey: ['admin', 'sms', 'templates'],
     queryFn: async () => {
-      const r = await fetchApi<SmsTemplate[]>('/api/admin/sms/templates')
-      if (r.success && r.data) return r.data
-      return MOCK_TEMPLATES
+      const r = await fetchApi<{ list: SmsTemplate[] } | SmsTemplate[]>('/api/admin/sms/templates')
+      if (r.success && r.data) {
+        return Array.isArray(r.data) ? r.data : (r.data.list ?? [])
+      }
+      return []
     },
   })
-  const { data: records = MOCK_RECORDS } = useQuery({
+  const { data: records = [] } = useQuery({
     queryKey: ['admin', 'sms', 'records'],
     queryFn: async () => {
-      const r = await fetchApi<SmsRecord[]>('/api/admin/sms/records')
-      if (r.success && r.data) return r.data
-      return MOCK_RECORDS
+      const r = await fetchApi<{ list: SmsRecord[] } | SmsRecord[]>('/api/admin/sms/records')
+      if (r.success && r.data) {
+        return Array.isArray(r.data) ? r.data : (r.data.list ?? [])
+      }
+      return []
     },
   })
 
@@ -224,7 +167,7 @@ export default function SmsPage() {
                             <td className="px-4 py-2.5">
                               <div className="font-medium">{tp.name}</div>
                               <div
-                                className="max-w-[200px] truncate text-xs text-muted-foreground"
+                                className="max-w-[200px] break-words text-xs text-muted-foreground"
                                 title={tp.content}
                               >
                                 {tp.content}
@@ -289,7 +232,7 @@ export default function SmsPage() {
                               {r.phone}
                             </td>
                             <td
-                              className="max-w-[180px] truncate px-4 py-2.5 text-muted-foreground"
+                              className="max-w-[180px] break-words px-4 py-2.5 text-muted-foreground"
                               title={r.content}
                             >
                               {r.content}
@@ -336,7 +279,6 @@ export default function SmsPage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder={t('sms.namePlaceholder')}
-                autoFocus
               />
             </div>
             <div className="space-y-2">

@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { Image as ImageIcon, Download } from 'lucide-react'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
@@ -57,7 +58,14 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            <img src={result.data} alt={prompt} className="max-w-full rounded-md" />
+            <Image
+              src={result.data}
+              alt={prompt}
+              width={800}
+              height={600}
+              unoptimized
+              className="h-auto max-w-full rounded-md"
+            />
             <a
               href={result.data}
               download="generated-image"

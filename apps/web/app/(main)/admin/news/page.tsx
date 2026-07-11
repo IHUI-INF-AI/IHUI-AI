@@ -154,7 +154,8 @@ export default function AdminNewsPage() {
 
   const { data: categoriesData } = useQuery({
     queryKey: ['admin', 'news', 'categories', 'all'],
-    queryFn: () => api<{ list: Category[] }>(`/api/admin/news/categories`).then((d) => d.list ?? []),
+    queryFn: () =>
+      api<{ list: Category[] }>(`/api/admin/news/categories`).then((d) => d.list ?? []),
   })
   const categories = categoriesData ?? []
 
@@ -361,23 +362,19 @@ export default function AdminNewsPage() {
                             {t('pinned')}
                           </span>
                         ) : null}
-                        <span className="max-w-xs truncate">{article.title}</span>
+                        <span className="max-w-xs break-words">{article.title}</span>
                       </div>
                       {article.summary ? (
-                        <div className="max-w-xs truncate text-xs text-muted-foreground">
+                        <div className="max-w-xs break-words text-xs text-muted-foreground">
                           {article.summary}
                         </div>
                       ) : null}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      {article.categoryName ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      {article.categoryName ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      {article.authorName ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      {article.authorName ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">{article.viewCount}</TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -576,7 +573,12 @@ export default function AdminNewsPage() {
               </span>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

@@ -134,8 +134,7 @@ export default function AdminResourceProductsPage() {
 
   const { data: resourcesData } = useQuery({
     queryKey: ['admin', 'resources', 'list', 'all'],
-    queryFn: () =>
-      api<ResourcesData>(`/api/admin/resources?page=1&pageSize=100`).then((d) => d),
+    queryFn: () => api<ResourcesData>(`/api/admin/resources?page=1&pageSize=100`).then((d) => d),
   })
   const resources = resourcesData?.list ?? []
 
@@ -309,15 +308,13 @@ export default function AdminResourceProductsPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="font-medium">{p.name}</div>
                       {p.description ? (
-                        <div className="max-w-xs truncate text-xs text-muted-foreground">
+                        <div className="max-w-xs break-words text-xs text-muted-foreground">
                           {p.description}
                         </div>
                       ) : null}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      {p.resourceName ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      {p.resourceName ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">¥{Number(p.price)}</TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -495,7 +492,12 @@ export default function AdminResourceProductsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>

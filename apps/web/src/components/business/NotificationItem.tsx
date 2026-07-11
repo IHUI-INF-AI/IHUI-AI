@@ -24,7 +24,15 @@ export function NotificationItem({
 }: NotificationItemProps) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
       className={cn(
         'flex items-start gap-3 rounded-lg p-3 transition-colors',
         onClick && 'cursor-pointer hover:bg-muted/50',
@@ -42,7 +50,7 @@ export function NotificationItem({
           <span className={cn('text-sm font-medium', !read && 'text-primary')}>{title}</span>
           {!read && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
         </div>
-        {content && <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{content}</p>}
+        {content && <p className="mt-0.5 text-sm text-muted-foreground">{content}</p>}
         <span className="mt-0.5 text-xs text-muted-foreground">{time}</span>
       </div>
     </div>
