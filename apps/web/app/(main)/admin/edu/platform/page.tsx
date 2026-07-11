@@ -300,6 +300,7 @@ export default function EduPlatformPage() {
                   {}
                   <TableCell className="px-4 py-2.5">
                     {r.binding ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={r.binding} alt="" className="h-10 w-10 rounded object-cover" />
                     ) : (
                       '-'

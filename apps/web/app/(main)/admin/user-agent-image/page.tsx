@@ -274,6 +274,7 @@ export default function UserAgentImagePage() {
                   {}
                   <TableCell className="px-4 py-2.5">
                     {item.imagePath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={item.imagePath} alt="" className="h-10 w-10 rounded object-cover" />
                     ) : (
                       <span className="text-muted-foreground">-</span>
