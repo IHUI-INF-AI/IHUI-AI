@@ -1,0 +1,189 @@
+.recruitment-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 140rpx;
+}
+.recruit-empty {
+  text-align: center;
+  color: #999;
+  padding: 120rpx 0;
+  font-size: 28rpx;
+}
+.recruit-header {
+  position: relative;
+  width: 100%;
+  height: 320rpx;
+  background: linear-gradient(135deg, #007aff, #00c6ff);
+  overflow: hidden;
+}
+.recruit-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.recruit-header-mask {
+  position: relative;
+  z-index: 1;
+  padding: 80rpx 30rpx;
+  display: flex;
+  flex-direction: column;
+}
+.recruit-title {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #fff;
+}
+.recruit-subtitle {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+.recruit-section {
+  margin: 20rpx;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+}
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+.req-list {
+  display: flex;
+  flex-direction: column;
+}
+.req-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16rpx 0;
+}
+.req-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #007aff;
+  margin-top: 12rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.req-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.req-item-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+}
+.req-item-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.5;
+}
+.priv-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+.priv-item {
+  width: 50%;
+  padding: 16rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.priv-icon {
+  width: 64rpx;
+  height: 64rpx;
+}
+.priv-icon-default {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #fff5e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.priv-icon-text {
+  font-size: 32rpx;
+  color: #f2b04a;
+}
+.priv-item-title {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #333;
+  text-align: center;
+}
+.priv-item-desc {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #999;
+  text-align: center;
+}
+.income-list {
+  display: flex;
+  flex-direction: column;
+}
+.income-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.income-item:last-child {
+  border-bottom: none;
+}
+.income-level {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #007aff;
+}
+.income-detail {
+  margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+}
+.income-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 0;
+}
+.income-label {
+  font-size: 26rpx;
+  color: #666;
+}
+.income-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #f2b04a;
+}
+.recruit-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 20rpx 30rpx;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+.apply-btn {
+  height: 88rpx;
+  background: #007aff;
+  color: #fff;
+  font-size: 32rpx;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.apply-btn.disabled {
+  opacity: 0.6;
+}
