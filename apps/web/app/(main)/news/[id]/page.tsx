@@ -85,9 +85,7 @@ export default function NewsDetailPage() {
 
       <header className="space-y-3">
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{article.title}</h1>
-        {article.summary && (
-          <p className="text-sm text-muted-foreground">{article.summary}</p>
-        )}
+        {article.summary && <p className="text-sm text-muted-foreground">{article.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
           <span>{t('publishedAt', { date: fmtDate(article.publishedAt) })}</span>
@@ -100,7 +98,6 @@ export default function NewsDetailPage() {
 
       {article.coverImage && (
         <div className="overflow-hidden rounded-lg border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={article.coverImage}
             alt={article.title}

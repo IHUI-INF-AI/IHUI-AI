@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -101,7 +101,6 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
         ) : (
           <div className="relative h-[160px] w-[160px] overflow-hidden rounded-lg border">
             {qr?.qrCodeUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={qr.qrCodeUrl} alt="QR" className="h-full w-full object-contain" />
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -119,8 +118,16 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
             {(status === 'expired' || status === 'failed') && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 text-white">
                 <XCircle className="h-8 w-8" />
-                <span className="text-xs">{status === 'expired' ? t('qrExpired') : t('loginFailed')}</span>
-                <Button type="button" size="sm" variant="secondary" onClick={generate} className="mt-1">
+                <span className="text-xs">
+                  {status === 'expired' ? t('qrExpired') : t('loginFailed')}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={generate}
+                  className="mt-1"
+                >
                   <RefreshCw className="mr-1 h-3 w-3" />
                   {t('qrRefresh')}
                 </Button>

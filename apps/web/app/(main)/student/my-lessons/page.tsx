@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -46,10 +46,7 @@ export default function MyLessonsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-lessons', page],
-    queryFn: () =>
-      api<LessonsData>(
-        `/api/edu/my-lessons?page=${page}&pageSize=${PAGE_SIZE}`,
-      ),
+    queryFn: () => api<LessonsData>(`/api/edu/my-lessons?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const list = data?.list ?? []
@@ -95,7 +92,6 @@ export default function MyLessonsPage() {
                   <Card className="overflow-hidden transition-colors hover:border-primary/40">
                     <div className="aspect-video w-full overflow-hidden bg-muted">
                       {item.coverImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={item.coverImage}
                           alt={item.title}

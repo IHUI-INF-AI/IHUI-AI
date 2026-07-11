@@ -1,0 +1,183 @@
+﻿'use client'
+
+import * as React from 'react'
+import Link from 'next/link'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { Users, Loader2, Trash2, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
+
+import { fetchApi } from '@/lib/api'
+import { Button, Card, CardContent } from '@ihui/ui'
+
+interface MyCircle {
+  id: string
+  name: string
+  description?: string | null
+  coverImage?: string | null
+  memberCount: number
+  postCount: number
+  viewCount: number
+  role?: string | null
+  createdAt: string
+}
+
+interface CirclesData {
+  list: MyCircle[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+const PAGE_SIZE = 20
+
+async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  const r = await fetchApi<T>(url, options)
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
+
+export default function MyCirclesPage() {
+  const t = useTranslations('student')
+  const tc = useTranslations('myCircles')
+  const qc = useQueryClient()
+  const [page, setPage] = React.useState(1)
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['student', 'my-circles', page],
+    queryFn: () => api<CirclesData>(`/api/circles/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+  })
+
+  const delMut = useMutation({
+    mutationFn: (id: string) => api(`/api/circles/${id}/leave`, { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'my-circles'] }),
+  })
+
+  function handleLeave(circle: MyCircle) {
+    if (!window.confirm(tc('leaveConfirm'))) return
+    delMut.mutate(circle.id)
+  }
+
+  const list = data?.list ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const fmtDate = (v?: string | null) => {
+    if (!v) return '-'
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('zh-CN')
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      <header className="space-y-1">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+          <Users className="h-7 w-7 text-primary" />
+          {tc('title')}
+        </h1>
+        <p className="text-sm text-muted-foreground">{tc('subtitle')}</p>
+      </header>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {(error as Error).message}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
+          <Users className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {list.map((circle) => (
+              <Card
+                key={circle.id}
+                className="overflow-hidden transition-colors hover:border-primary/40"
+              >
+                <Link href={`/circles/${circle.id}`}>
+                  <div className="aspect-video w-full overflow-hidden bg-muted">
+                    {circle.coverImage ? (
+                      <img
+                        src={circle.coverImage}
+                        alt={circle.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Users className="h-8 w-8 text-muted-foreground/40" />
+                      </div>
+                    )}
+                  </div>
+                </Link>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link href={`/circles/${circle.id}`} className="min-w-0 flex-1">
+                      <h3 className="line-clamp-1 font-medium hover:text-primary">{circle.name}</h3>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      disabled={delMut.isPending}
+                      onClick={() => handleLeave(circle)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {tc('leave')}
+                    </Button>
+                  </div>
+                  {circle.description && (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {circle.description}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {circle.memberCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-3.5 w-3.5" />
+                      {circle.viewCount}
+                    </span>
+                    <span>{fmtDate(circle.createdAt)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t('prev')}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {t('page', { page, total: totalPages })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t('next')}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -192,7 +192,6 @@ export default function AgentsMarketPage() {
               <Card className="flex h-full flex-col overflow-hidden transition-colors hover:border-primary/40">
                 <div className="relative h-32 w-full overflow-hidden bg-muted">
                   {a.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={a.cover}
                       alt={a.name}
@@ -208,7 +207,6 @@ export default function AgentsMarketPage() {
                   <div className="flex items-center gap-2">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-medium">
                       {a.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={a.avatar} alt={a.name} className="h-8 w-8 rounded-full" />
                       ) : (
                         (a.name?.[0] ?? 'A').toUpperCase()

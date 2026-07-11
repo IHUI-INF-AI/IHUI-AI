@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -60,12 +60,7 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
 
       {isImage && content ? (
         <div className="flex justify-center rounded-lg border p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={content}
-            alt={name}
-            className="max-h-[400px] object-contain"
-          />
+          <img src={content} alt={name} className="max-h-[400px] object-contain" />
         </div>
       ) : isJson && jsonValid ? (
         <pre className="max-h-[400px] overflow-auto rounded-lg border bg-muted/30 p-3 text-xs">
@@ -82,11 +77,7 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
       ) : downloadHref ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border p-8">
           <Download className="h-8 w-8 text-muted-foreground" />
-          <a
-            href={downloadHref}
-            download={name}
-            className="text-sm text-primary hover:underline"
-          >
+          <a href={downloadHref} download={name} className="text-sm text-primary hover:underline">
             {t('download')} {name}
           </a>
         </div>

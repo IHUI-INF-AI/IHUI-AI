@@ -58,8 +58,17 @@ export default function MobileAdapterPage() {
   })
 
   const setModeMut = useMutation({
-    mutationFn: (_mode: string) => Promise.resolve(), // TODO: 后端 API 待实现
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'mobile-adapter'] }); toast.success(t('mobile.modeSaved')) },
+    mutationFn: async (mode: string) => {
+      const r = await fetchApi('/api/admin/mobile-adapter/mode', {
+        method: 'PUT',
+        body: JSON.stringify({ mode }),
+      })
+      if (!r.success) throw new Error(r.error)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'mobile-adapter'] })
+      toast.success(t('mobile.modeSaved'))
+    },
   })
 
   return (
@@ -78,10 +87,13 @@ export default function MobileAdapterPage() {
           <h2 className="text-lg font-semibold">{t('mobile.deviceConfig')}</h2>
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />{tc('search')}
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {tc('search')}
             </div>
           ) : devices.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">{t('mobile.noData')}</div>
+            <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
+              {t('mobile.noData')}
+            </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
@@ -99,10 +111,20 @@ export default function MobileAdapterPage() {
                     return (
                       <tr key={d.id} className="transition-colors hover:bg-muted/30">
                         <td className="px-4 py-2.5 font-medium">{d.model}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{d.resolution}</td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                          {d.resolution}
+                        </td>
                         <td className="px-4 py-2.5">{d.dpr}x</td>
                         <td className="px-4 py-2.5">
-                          <span className={cn('inline-flex rounded-full px-2 py-0.5 text-xs font-medium', st.bg, st.text)}>{st.label}</span>
+                          <span
+                            className={cn(
+                              'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                              st.bg,
+                              st.text,
+                            )}
+                          >
+                            {st.label}
+                          </span>
                         </td>
                       </tr>
                     )
@@ -121,10 +143,15 @@ export default function MobileAdapterPage() {
               {PREVIEW_MODES.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => { setPreviewMode(m.id); setModeMut.mutate(m.id) }}
+                  onClick={() => {
+                    setPreviewMode(m.id)
+                    setModeMut.mutate(m.id)
+                  }}
                   className={cn(
                     'flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors',
-                    previewMode === m.id ? 'border-primary bg-primary/5 text-primary' : 'hover:bg-muted/30',
+                    previewMode === m.id
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'hover:bg-muted/30',
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -146,9 +173,18 @@ export default function MobileAdapterPage() {
               <div className="flex justify-center rounded-md border bg-muted/30 p-4">
                 <div
                   className="rounded-md border-2 border-primary/30 bg-background shadow-sm transition-all"
-                  style={{ width: Math.min(previewMode === 'mobile' ? 280 : previewMode === 'tablet' ? 380 : 520, 520), height: 200 }}
+                  style={{
+                    width: Math.min(
+                      previewMode === 'mobile' ? 280 : previewMode === 'tablet' ? 380 : 520,
+                      520,
+                    ),
+                    height: 200,
+                  }}
                 >
-                  <div className="border-b border-primary/20 px-2 py-1 text-[10px] text-muted-foreground">{PREVIEW_MODES.find((m) => m.id === previewMode)?.label} · {PREVIEW_MODES.find((m) => m.id === previewMode)?.width}px</div>
+                  <div className="border-b border-primary/20 px-2 py-1 text-[10px] text-muted-foreground">
+                    {PREVIEW_MODES.find((m) => m.id === previewMode)?.label} ·{' '}
+                    {PREVIEW_MODES.find((m) => m.id === previewMode)?.width}px
+                  </div>
                 </div>
               </div>
             </CardContent>
