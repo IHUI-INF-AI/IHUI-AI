@@ -1,5 +1,5 @@
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { db } from './index.js';
+import { eq, and, desc, sql } from 'drizzle-orm'
+import { db } from './index.js'
 import {
   oauthApps,
   oauthSessions,
@@ -8,26 +8,26 @@ import {
   oauthScopeMeta,
   userThirdPartyAccounts,
   userSk,
-} from '@ihui/database';
+} from '@ihui/database'
 
 // ============================================================================
 // OAuth Apps
 // ============================================================================
 
 export async function findOAuthAppByClientId(clientId: string) {
-  const rows = await db.select().from(oauthApps).where(eq(oauthApps.clientId, clientId)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(oauthApps).where(eq(oauthApps.clientId, clientId)).limit(1)
+  return rows[0]
 }
 
 export async function createOAuthApp(input: {
-  clientId: string;
-  clientSecret: string;
-  name: string;
-  description?: string;
-  redirectUris: string[];
-  scopes?: string[];
-  icon?: string;
-  ownerUuid: string;
+  clientId: string
+  clientSecret: string
+  name: string
+  description?: string
+  redirectUris: string[]
+  scopes?: string[]
+  icon?: string
+  ownerUuid: string
 }) {
   const [app] = await db
     .insert(oauthApps)
@@ -42,28 +42,64 @@ export async function createOAuthApp(input: {
       ownerUuid: input.ownerUuid,
       isActive: 1,
     })
-    .returning();
-  return app;
+    .returning()
+  return app
 }
 
 export async function listOAuthApps(ownerUuid: string, page: number, limit: number) {
-  const where = eq(oauthApps.ownerUuid, ownerUuid);
+  const where = eq(oauthApps.ownerUuid, ownerUuid)
   const rows = await db
     .select()
     .from(oauthApps)
     .where(where)
     .orderBy(desc(oauthApps.createdAt))
     .limit(limit)
-    .offset((page - 1) * limit);
-  const countRows = await db.select({ count: sql<number>`count(*)::int` }).from(oauthApps).where(where);
-  const count = countRows[0]?.count ?? 0;
-  return { items: rows, total: count };
+    .offset((page - 1) * limit)
+  const countRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(oauthApps)
+    .where(where)
+  const count = countRows[0]?.count ?? 0
+  return { items: rows, total: count }
 }
 
 export async function deleteOAuthApp(clientId: string, ownerUuid: string) {
   await db
     .delete(oauthApps)
-    .where(and(eq(oauthApps.clientId, clientId), eq(oauthApps.ownerUuid, ownerUuid)));
+    .where(and(eq(oauthApps.clientId, clientId), eq(oauthApps.ownerUuid, ownerUuid)))
+}
+
+export async function updateOAuthApp(
+  clientId: string,
+  ownerUuid: string,
+  input: {
+    name?: string
+    description?: string
+    redirectUris?: string[]
+    scopes?: string[]
+    icon?: string
+    isActive?: number
+  },
+) {
+  const rows = await db
+    .update(oauthApps)
+    .set({ ...input, updatedAt: new Date() })
+    .where(and(eq(oauthApps.clientId, clientId), eq(oauthApps.ownerUuid, ownerUuid)))
+    .returning()
+  return rows[0]
+}
+
+export async function regenerateOAuthAppSecret(
+  clientId: string,
+  ownerUuid: string,
+  newSecret: string,
+) {
+  const rows = await db
+    .update(oauthApps)
+    .set({ clientSecret: newSecret, updatedAt: new Date() })
+    .where(and(eq(oauthApps.clientId, clientId), eq(oauthApps.ownerUuid, ownerUuid)))
+    .returning()
+  return rows[0]
 }
 
 // ============================================================================
@@ -71,13 +107,13 @@ export async function deleteOAuthApp(clientId: string, ownerUuid: string) {
 // ============================================================================
 
 export async function createOAuthSession(input: {
-  code: string;
-  clientId: string;
-  userId: string;
-  state: string;
-  scope?: string;
-  codeChallenge?: string;
-  codeChallengeMethod?: string;
+  code: string
+  clientId: string
+  userId: string
+  state: string
+  scope?: string
+  codeChallenge?: string
+  codeChallengeMethod?: string
 }) {
   const [session] = await db
     .insert(oauthSessions)
@@ -91,17 +127,17 @@ export async function createOAuthSession(input: {
       codeChallengeMethod: input.codeChallengeMethod,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     })
-    .returning();
-  return session;
+    .returning()
+  return session
 }
 
 export async function findSessionByCode(code: string) {
-  const rows = await db.select().from(oauthSessions).where(eq(oauthSessions.code, code)).limit(1);
-  return rows[0];
+  const rows = await db.select().from(oauthSessions).where(eq(oauthSessions.code, code)).limit(1)
+  return rows[0]
 }
 
 export async function markSessionUsed(code: string) {
-  await db.update(oauthSessions).set({ isUsed: true }).where(eq(oauthSessions.code, code));
+  await db.update(oauthSessions).set({ isUsed: true }).where(eq(oauthSessions.code, code))
 }
 
 export async function listUserSessions(userId: string) {
@@ -109,11 +145,11 @@ export async function listUserSessions(userId: string) {
     .select()
     .from(oauthSessions)
     .where(and(eq(oauthSessions.userId, userId), eq(oauthSessions.isUsed, false)))
-    .orderBy(desc(oauthSessions.createdAt));
+    .orderBy(desc(oauthSessions.createdAt))
 }
 
 export async function deleteSession(id: string) {
-  await db.delete(oauthSessions).where(eq(oauthSessions.id, id));
+  await db.delete(oauthSessions).where(eq(oauthSessions.id, id))
 }
 
 // ============================================================================
@@ -125,12 +161,12 @@ export async function findOAuthUser(provider: string, providerUserId: string) {
     .select()
     .from(oauthUsers)
     .where(and(eq(oauthUsers.provider, provider), eq(oauthUsers.providerUserId, providerUserId)))
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export async function listOAuthUsers(userId: string) {
-  return db.select().from(oauthUsers).where(eq(oauthUsers.userId, userId));
+  return db.select().from(oauthUsers).where(eq(oauthUsers.userId, userId))
 }
 
 // ============================================================================
@@ -142,7 +178,7 @@ export async function listActiveScopeMeta() {
     .select()
     .from(oauthScopeMeta)
     .where(eq(oauthScopeMeta.isActive, 1))
-    .orderBy(oauthScopeMeta.sortOrder);
+    .orderBy(oauthScopeMeta.sortOrder)
 }
 
 // ============================================================================
@@ -154,13 +190,10 @@ export async function findThirdPartyAccount(platform: string, openId: string) {
     .select()
     .from(userThirdPartyAccounts)
     .where(
-      and(
-        eq(userThirdPartyAccounts.platform, platform),
-        eq(userThirdPartyAccounts.openId, openId),
-      ),
+      and(eq(userThirdPartyAccounts.platform, platform), eq(userThirdPartyAccounts.openId, openId)),
     )
-    .limit(1);
-  return rows[0];
+    .limit(1)
+  return rows[0]
 }
 
 export async function listUserBindings(userId: string) {
@@ -172,16 +205,16 @@ export async function listUserBindings(userId: string) {
         eq(userThirdPartyAccounts.userId, userId),
         sql`${userThirdPartyAccounts.deletedAt} IS NULL`,
       ),
-    );
+    )
 }
 
 export async function createThirdPartyBinding(input: {
-  userId: string;
-  openId: string;
-  unionId?: string;
-  platform: string;
-  accessToken?: string;
-  refreshToken?: string;
+  userId: string
+  openId: string
+  unionId?: string
+  platform: string
+  accessToken?: string
+  refreshToken?: string
 }) {
   const [binding] = await db
     .insert(userThirdPartyAccounts)
@@ -193,20 +226,15 @@ export async function createThirdPartyBinding(input: {
       accessToken: input.accessToken,
       refreshToken: input.refreshToken,
     })
-    .returning();
-  return binding;
+    .returning()
+  return binding
 }
 
 export async function removeBinding(id: string, userId: string) {
   await db
     .update(userThirdPartyAccounts)
     .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(userThirdPartyAccounts.id, id),
-        eq(userThirdPartyAccounts.userId, userId),
-      ),
-    );
+    .where(and(eq(userThirdPartyAccounts.id, id), eq(userThirdPartyAccounts.userId, userId)))
 }
 
 export async function removeBindingByPlatform(userId: string, platform: string) {
@@ -214,11 +242,8 @@ export async function removeBindingByPlatform(userId: string, platform: string) 
     .update(userThirdPartyAccounts)
     .set({ deletedAt: new Date() })
     .where(
-      and(
-        eq(userThirdPartyAccounts.userId, userId),
-        eq(userThirdPartyAccounts.platform, platform),
-      ),
-    );
+      and(eq(userThirdPartyAccounts.userId, userId), eq(userThirdPartyAccounts.platform, platform)),
+    )
 }
 
 // ============================================================================
@@ -226,33 +251,36 @@ export async function removeBindingByPlatform(userId: string, platform: string) 
 // ============================================================================
 
 export async function createUserSk(userId: string, key: string) {
-  const [sk] = await db.insert(userSk).values({ userId, key, status: 1 }).returning();
-  return sk;
+  const [sk] = await db.insert(userSk).values({ userId, key, status: 1 }).returning()
+  return sk
 }
 
 export async function listUserSk(userId: string, page: number, limit: number) {
-  const where = eq(userSk.userId, userId);
+  const where = eq(userSk.userId, userId)
   const rows = await db
     .select()
     .from(userSk)
     .where(where)
     .orderBy(desc(userSk.createdAt))
     .limit(limit)
-    .offset((page - 1) * limit);
-  const countRows = await db.select({ count: sql<number>`count(*)::int` }).from(userSk).where(where);
-  const count = countRows[0]?.count ?? 0;
-  return { items: rows, total: count };
+    .offset((page - 1) * limit)
+  const countRows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userSk)
+    .where(where)
+  const count = countRows[0]?.count ?? 0
+  return { items: rows, total: count }
 }
 
 export async function updateUserSk(id: string, userId: string, status: number) {
   await db
     .update(userSk)
     .set({ status, updatedAt: new Date() })
-    .where(and(eq(userSk.id, id), eq(userSk.userId, userId)));
+    .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
 }
 
 export async function deleteUserSk(id: string, userId: string) {
-  await db.delete(userSk).where(and(eq(userSk.id, id), eq(userSk.userId, userId)));
+  await db.delete(userSk).where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
 }
 
 // ============================================================================
@@ -260,32 +288,32 @@ export async function deleteUserSk(id: string, userId: string) {
 // ============================================================================
 
 export async function createAuditLog(input: {
-  event: string;
-  clientId?: string;
-  userId?: string;
-  ip?: string;
-  status?: string;
-  detail?: string;
+  event: string
+  clientId?: string
+  userId?: string
+  ip?: string
+  status?: string
+  detail?: string
 }) {
-  await db.insert(oauthAuditLogs).values(input);
+  await db.insert(oauthAuditLogs).values(input)
 }
 
 export async function findAuditLogList(params: {
-  page?: number;
-  limit?: number;
-  clientId?: string;
-  event?: string;
-  status?: string;
-  userId?: string;
-}): Promise<{ items: typeof oauthAuditLogs.$inferSelect[]; total: number }> {
-  const page = params.page ?? 1;
-  const limit = params.limit ?? 20;
-  const conds = [];
-  if (params.clientId) conds.push(eq(oauthAuditLogs.clientId, params.clientId));
-  if (params.event) conds.push(eq(oauthAuditLogs.event, params.event));
-  if (params.status) conds.push(eq(oauthAuditLogs.status, params.status));
-  if (params.userId) conds.push(eq(oauthAuditLogs.userId, params.userId));
-  const where = conds.length ? and(...conds) : undefined;
+  page?: number
+  limit?: number
+  clientId?: string
+  event?: string
+  status?: string
+  userId?: string
+}): Promise<{ items: (typeof oauthAuditLogs.$inferSelect)[]; total: number }> {
+  const page = params.page ?? 1
+  const limit = params.limit ?? 20
+  const conds = []
+  if (params.clientId) conds.push(eq(oauthAuditLogs.clientId, params.clientId))
+  if (params.event) conds.push(eq(oauthAuditLogs.event, params.event))
+  if (params.status) conds.push(eq(oauthAuditLogs.status, params.status))
+  if (params.userId) conds.push(eq(oauthAuditLogs.userId, params.userId))
+  const where = conds.length ? and(...conds) : undefined
   const [items, totalRows] = await Promise.all([
     db
       .select()
@@ -294,15 +322,18 @@ export async function findAuditLogList(params: {
       .orderBy(desc(oauthAuditLogs.createdAt))
       .limit(limit)
       .offset((page - 1) * limit),
-    db.select({ count: sql<number>`count(*)::int` }).from(oauthAuditLogs).where(where),
-  ]);
-  return { items, total: totalRows[0]?.count ?? 0 };
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(oauthAuditLogs)
+      .where(where),
+  ])
+  return { items, total: totalRows[0]?.count ?? 0 }
 }
 
 export async function findAuditLogStats(): Promise<{
-  total: number;
-  successCount: number;
-  failCount: number;
+  total: number
+  successCount: number
+  failCount: number
 }> {
   const rows = await db
     .select({
@@ -310,11 +341,11 @@ export async function findAuditLogStats(): Promise<{
       successCount: sql<number>`count(*) filter (where ${oauthAuditLogs.status} = 'success')::int`,
       failCount: sql<number>`count(*) filter (where ${oauthAuditLogs.status} != 'success')::int`,
     })
-    .from(oauthAuditLogs);
-  const r = rows[0];
+    .from(oauthAuditLogs)
+  const r = rows[0]
   return {
     total: r?.total ?? 0,
     successCount: r?.successCount ?? 0,
     failCount: r?.failCount ?? 0,
-  };
+  }
 }

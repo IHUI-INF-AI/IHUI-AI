@@ -351,6 +351,13 @@
       "when": 1783751042000,
       "tag": "0049_dead_tables_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1783766400000,
+      "tag": "0050_drop_search_hot_keywords_private_letters",
+      "breakpoints": true
     }
   ]
 }
