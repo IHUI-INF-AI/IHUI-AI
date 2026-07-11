@@ -120,6 +120,25 @@
 ### 审计报告
 
 - `migration-audit/migration-audit.html` — 可视化深度审计报告（含 M-1~M-88 逐项验证）
+- `migration-audit-report/migration-audit-report.html` — D盘历史项目 vs G盘新项目 逐文件深度比对审计报告（2026-07-11）
+
+### D盘旧项目审计补齐收尾（2026-07-11）
+
+> 对 D:\历史项目存档与新项目逐文件比对，发现 19 项缺口，已全部补齐。本轮为收尾轮次。
+
+#### 收尾轮次补充内容
+
+| 修复项 | 文件 | 修复内容 |
+| ------ | ---- | -------- |
+| 数据库迁移 | `drizzle/0052_lesson_task_rate_access.sql` | 新建 3 张表（lesson_task/lesson_rate/lesson_access）的 SQL migration + _journal.json 注册 |
+| 集成测试 | `__tests__/learn-extended.test.ts` | 新建 27 个测试用例，覆盖 21 个 learn 端点（路由注册/公开/鉴权/Zod校验） |
+| 集成测试 | `__tests__/live-extended.test.ts` | 新建 8 个测试用例，覆盖 5 个 live 端点（回调/管理/鉴权） |
+| ESLint 修复 | `node_modules/ajv` | 诊断 ajv draft-04 schema 缺失为 TRAE VM pnpm junction 损坏导致（168 文件受影响），需非 TRAE 环境 `pnpm install` 修复 |
+
+#### 环境已知问题（非代码问题）
+
+1. TRAE VM pnpm junction 损坏 — 影响所有 `@ihui/*` 工作区包解析 + ESLint ajv 模块，需在非 TRAE 环境运行 `pnpm install` 修复
+2. drizzle-kit db:generate 快照损坏 — 0046_snapshot.json 格式异常，已手动编写 0052 migration SQL 替代
 
 ---
 
