@@ -139,6 +139,12 @@ import { featureCenterRoutes } from './routes/feature-center.js'
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './routes/ask-extended.js'
 
+// 死表激活：敏感词 / 协议 / 汇率 / 私信管理
+import { adminSensitiveWordsRoutes } from './routes/admin-sensitive-words.js'
+import { agreementPublicRoutes, adminAgreementsRoutes } from './routes/admin-agreements.js'
+import { exchangeRatePublicRoutes, adminExchangeRateRoutes } from './routes/admin-exchange-rate.js'
+import { adminPrivateLettersRoutes } from './routes/admin-private-letters.js'
+
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -591,4 +597,16 @@ function registerRoutes(server: FastifyInstance) {
   // ===== R67 补建：M-66 教育平台 + M-72 支付状态 WS =====
   // M-66: 教育平台同步管理（6端点）
   server.register(educationPlatformRoutes, { prefix: '/api/education-platform' })
+
+  // ===== 死表激活：敏感词 / 协议 / 汇率 / 私信管理 =====
+  // 敏感词管理：/api/admin/sensitive-words CRUD + 内容过滤
+  server.register(adminSensitiveWordsRoutes, { prefix: '/api/admin' })
+  // 协议管理：/api/agreements/current（公共）+ /api/admin/agreements CRUD
+  server.register(agreementPublicRoutes, { prefix: '/api' })
+  server.register(adminAgreementsRoutes, { prefix: '/api/admin' })
+  // 汇率管理：/api/exchange-rates/rate + convert（公共）+ /api/admin/exchange-rates CRUD
+  server.register(exchangeRatePublicRoutes, { prefix: '/api' })
+  server.register(adminExchangeRateRoutes, { prefix: '/api/admin' })
+  // 私信管理：/api/admin/private-letters 列表
+  server.register(adminPrivateLettersRoutes, { prefix: '/api/admin' })
 }
