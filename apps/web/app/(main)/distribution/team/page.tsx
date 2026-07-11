@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -7,7 +7,17 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Users, Loader2, ChevronLeft, ChevronRight, ArrowLeft, Crown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 
 interface TeamCenterData {
@@ -53,7 +63,8 @@ export default function DistributionTeamPage() {
   })
   const listQ = useQuery({
     queryKey: ['distribution', 'subordinates', page],
-    queryFn: () => api<ListData>(`/api/finance/distribution/subordinates?page=${page}&limit=${PAGE_SIZE}`),
+    queryFn: () =>
+      api<ListData>(`/api/finance/distribution/subordinates?page=${page}&limit=${PAGE_SIZE}`),
   })
 
   const total = listQ.data?.total ?? 0
@@ -155,7 +166,6 @@ export default function DistributionTeamPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         {it.avatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={it.avatar} alt="" className="h-6 w-6 rounded-full" />
                         ) : (
                           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
@@ -177,7 +187,9 @@ export default function DistributionTeamPage() {
                         {it.isVip >= 1 ? t('levelVip') : t('levelNormal')}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">{fmtDate(it.createdAt)}</TableCell>
+                    <TableCell className="px-4 py-2.5 text-muted-foreground">
+                      {fmtDate(it.createdAt)}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -189,11 +201,23 @@ export default function DistributionTeamPage() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

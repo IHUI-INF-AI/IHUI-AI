@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Image as ImageIcon, Download } from 'lucide-react'
@@ -45,14 +45,18 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
       generateLabel="生成图像"
       options={
         <div className="flex flex-wrap items-center gap-3">
-          <OptionSelect label="服务商" value={provider} onChange={setProvider} options={PROVIDERS} />
+          <OptionSelect
+            label="服务商"
+            value={provider}
+            onChange={setProvider}
+            options={PROVIDERS}
+          />
           <OptionSelect label="尺寸" value={size} onChange={setSize} options={SIZES} />
         </div>
       }
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={result.data} alt={prompt} className="max-w-full rounded-md" />
             <a
               href={result.data}

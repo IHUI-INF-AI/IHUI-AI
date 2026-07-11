@@ -1,20 +1,11 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-} from 'lucide-react'
+import { Plus, Edit, Trash2, Search, Loader2, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -271,7 +262,6 @@ export default function AdminLiveLecturersPage() {
                     <TableCell className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         {l.avatar ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={l.avatar}
                             alt={l.name}
@@ -282,9 +272,7 @@ export default function AdminLiveLecturersPage() {
                       </div>
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      {l.title ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      {l.title ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="px-4 py-2.5">{l.sort}</TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -437,7 +425,12 @@ export default function AdminLiveLecturersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saveMut.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                disabled={saveMut.isPending}
+              >
                 {t('cancel')}
               </Button>
               <Button type="submit" disabled={saveMut.isPending}>
