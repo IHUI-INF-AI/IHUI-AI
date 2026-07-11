@@ -1,3 +1,4 @@
+// 注意：该文件中的表当前无 API 引用，保留以备未来代码生成模块需求
 import {
   pgTable,
   bigserial,
@@ -8,7 +9,7 @@ import {
   bigint,
   index,
   primaryKey,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * 代码生成业务表（gen_table）。
@@ -48,7 +49,7 @@ export const genTable = pgTable(
     createByIdx: index('ix_gen_table_create_by').on(t.createBy),
     updateByIdx: index('ix_gen_table_update_by').on(t.updateBy),
   }),
-);
+)
 
 /**
  * 代码生成业务字段表（gen_table_column）。
@@ -89,7 +90,7 @@ export const genTableColumn = pgTable(
     createByIdx: index('ix_gen_table_column_create_by').on(t.createBy),
     updateByIdx: index('ix_gen_table_column_update_by').on(t.updateBy),
   }),
-);
+)
 
 /**
  * Tbox 系统 Bean/配置表（tbox_bean）。
@@ -110,7 +111,7 @@ export const tboxBean = pgTable(
   (t) => ({
     statusIdx: index('ix_tbox_bean_status').on(t.status),
   }),
-);
+)
 
 /**
  * 管理员-岗位关联表（admin_user_post）。
@@ -127,13 +128,13 @@ export const adminUserPost = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.postId] }),
   }),
-);
+)
 
-export type GenTable = typeof genTable.$inferSelect;
-export type NewGenTable = typeof genTable.$inferInsert;
-export type GenTableColumn = typeof genTableColumn.$inferSelect;
-export type NewGenTableColumn = typeof genTableColumn.$inferInsert;
-export type TboxBean = typeof tboxBean.$inferSelect;
-export type NewTboxBean = typeof tboxBean.$inferInsert;
-export type AdminUserPost = typeof adminUserPost.$inferSelect;
-export type NewAdminUserPost = typeof adminUserPost.$inferInsert;
+export type GenTable = typeof genTable.$inferSelect
+export type NewGenTable = typeof genTable.$inferInsert
+export type GenTableColumn = typeof genTableColumn.$inferSelect
+export type NewGenTableColumn = typeof genTableColumn.$inferInsert
+export type TboxBean = typeof tboxBean.$inferSelect
+export type NewTboxBean = typeof tboxBean.$inferInsert
+export type AdminUserPost = typeof adminUserPost.$inferSelect
+export type NewAdminUserPost = typeof adminUserPost.$inferInsert
