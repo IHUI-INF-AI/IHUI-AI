@@ -1,0 +1,201 @@
+.vip-trader-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 40rpx;
+}
+.trader-empty {
+  text-align: center;
+  color: #999;
+  padding: 120rpx 0;
+  font-size: 28rpx;
+}
+.trader-header {
+  padding: 60rpx 30rpx;
+  background: linear-gradient(135deg, #f8d486, #f2b04a);
+  display: flex;
+  flex-direction: column;
+}
+.trader-title {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #fff;
+}
+.trader-subtitle {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.9);
+}
+.trader-section {
+  margin: 20rpx;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+}
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+.level-list {
+  display: flex;
+  flex-direction: column;
+}
+.level-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  border: 2rpx solid #f0f0f0;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+.level-item.active {
+  border-color: #f2b04a;
+  background: #fff9ef;
+}
+.level-icon {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.level-icon-default {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f8d486, #f2b04a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.level-icon-text {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #fff;
+}
+.level-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.level-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+.level-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #999;
+}
+.level-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid #ddd;
+  flex-shrink: 0;
+}
+.level-radio.checked {
+  border-color: #f2b04a;
+  background: #f2b04a;
+  position: relative;
+}
+.level-radio.checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+.priv-list {
+  display: flex;
+  flex-direction: column;
+}
+.priv-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.priv-item:last-child {
+  border-bottom: none;
+}
+.priv-icon {
+  width: 56rpx;
+  height: 56rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.priv-icon-default {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: #fff5e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.priv-icon-text {
+  font-size: 28rpx;
+  color: #f2b04a;
+}
+.priv-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.priv-item-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+}
+.priv-item-desc {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.5;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+}
+.form-item {
+  background: #f7f8fa;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+}
+.form-label {
+  font-size: 26rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 12rpx;
+}
+.form-input {
+  height: 72rpx;
+  background: #fff;
+  border-radius: 8rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+.submit-btn {
+  width: 100%;
+  background: #f2b04a;
+  color: #fff;
+  font-size: 32rpx;
+  border-radius: 44rpx;
+  margin-top: 24rpx;
+}
+.submit-btn[disabled] {
+  opacity: 0.6;
+}
