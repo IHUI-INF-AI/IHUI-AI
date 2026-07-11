@@ -6,9 +6,6 @@ import { appVersions } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
-// 路由前缀：由主线统一注册
-export const prefix = '/api/app-version'
-
 // =============================================================================
 // Zod schemas
 // =============================================================================

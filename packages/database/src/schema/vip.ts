@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { orders } from './billing.js';
+import { pgTable, uuid, varchar, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+import { orders } from './billing.js'
 
 /**
  * VIP 等级表。
@@ -24,11 +24,12 @@ export const vipLevels = pgTable(
   (t) => ({
     statusIdx: index('vip_levels_status_idx').on(t.status),
   }),
-);
+)
 
 /**
  * 用户 VIP 订阅记录表。
  * status: 0=过期 1=生效 2=已取消
+ * autoRenew: 是否自动续费（0=否 1=是）
  */
 export const userVips = pgTable(
   'user_vips',
@@ -37,12 +38,12 @@ export const userVips = pgTable(
     userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    vipLevelId: uuid('vip_level_id')
-      .references(() => vipLevels.id, { onDelete: 'set null' }),
+    vipLevelId: uuid('vip_level_id').references(() => vipLevels.id, { onDelete: 'set null' }),
     levelValue: integer('level_value').default(0).notNull(),
     startTime: timestamp('start_time', { withTimezone: true }).notNull(),
     endTime: timestamp('end_time', { withTimezone: true }).notNull(),
     status: integer('status').default(1).notNull(),
+    autoRenew: integer('auto_renew').default(0).notNull(),
     orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -51,9 +52,9 @@ export const userVips = pgTable(
     userIdx: index('user_vips_user_idx').on(t.userId),
     statusIdx: index('user_vips_status_idx').on(t.status),
   }),
-);
+)
 
-export type VipLevel = typeof vipLevels.$inferSelect;
-export type NewVipLevel = typeof vipLevels.$inferInsert;
-export type UserVip = typeof userVips.$inferSelect;
-export type NewUserVip = typeof userVips.$inferInsert;
+export type VipLevel = typeof vipLevels.$inferSelect
+export type NewVipLevel = typeof vipLevels.$inferInsert
+export type UserVip = typeof userVips.$inferSelect
+export type NewUserVip = typeof userVips.$inferInsert

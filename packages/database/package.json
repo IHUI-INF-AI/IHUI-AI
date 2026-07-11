@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     }
   },
@@ -19,6 +19,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "seed": "tsx seed/index.ts",
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "drizzle-kit": "^0.31.10",
     "rimraf": "^6.0.1",
     "eslint": "^9.16.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }
