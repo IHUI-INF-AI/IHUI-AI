@@ -5,10 +5,12 @@ import {
   integer,
   timestamp,
   numeric,
+  decimal,
+  serial,
   index,
   unique,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 教育平台订单表（与 billing.orders 区分：本表承载课程/会员卡等教育订单）。
@@ -46,7 +48,7 @@ export const eduOrders = pgTable(
     statusIdx: index('edu_orders_status_idx').on(t.status),
     typeIdx: index('edu_orders_type_idx').on(t.orderType),
   }),
-);
+)
 
 /**
  * 支付记录表。
@@ -78,7 +80,7 @@ export const eduPayments = pgTable(
     userIdx: index('edu_payments_user_idx').on(t.userId),
     orderIdx: index('edu_payments_order_idx').on(t.orderId),
   }),
-);
+)
 
 /**
  * 退款记录表。
@@ -113,7 +115,7 @@ export const eduRefunds = pgTable(
     userIdx: index('edu_refunds_user_idx').on(t.userId),
     orderIdx: index('edu_refunds_order_idx').on(t.orderId),
   }),
-);
+)
 
 /**
  * 发票抬头表。
@@ -139,7 +141,7 @@ export const eduInvoiceTitles = pgTable(
   (t) => ({
     userIdx: index('edu_invoice_titles_user_idx').on(t.userId),
   }),
-);
+)
 
 /**
  * 发票申请表。
@@ -169,15 +171,34 @@ export const eduInvoiceApplications = pgTable(
     statusIdx: index('edu_invoice_applications_status_idx').on(t.status),
     uniq: unique('edu_invoice_applications_order_unique').on(t.orderId),
   }),
-);
+)
 
-export type EduOrder = typeof eduOrders.$inferSelect;
-export type NewEduOrder = typeof eduOrders.$inferInsert;
-export type EduPayment = typeof eduPayments.$inferSelect;
-export type NewEduPayment = typeof eduPayments.$inferInsert;
-export type EduRefund = typeof eduRefunds.$inferSelect;
-export type NewEduRefund = typeof eduRefunds.$inferInsert;
-export type EduInvoiceTitle = typeof eduInvoiceTitles.$inferSelect;
-export type NewEduInvoiceTitle = typeof eduInvoiceTitles.$inferInsert;
-export type EduInvoiceApplication = typeof eduInvoiceApplications.$inferSelect;
-export type NewEduInvoiceApplication = typeof eduInvoiceApplications.$inferInsert;
+export type EduOrder = typeof eduOrders.$inferSelect
+export type NewEduOrder = typeof eduOrders.$inferInsert
+export type EduPayment = typeof eduPayments.$inferSelect
+export type NewEduPayment = typeof eduPayments.$inferInsert
+export type EduRefund = typeof eduRefunds.$inferSelect
+export type NewEduRefund = typeof eduRefunds.$inferInsert
+export type EduInvoiceTitle = typeof eduInvoiceTitles.$inferSelect
+export type NewEduInvoiceTitle = typeof eduInvoiceTitles.$inferInsert
+export type EduInvoiceApplication = typeof eduInvoiceApplications.$inferSelect
+export type NewEduInvoiceApplication = typeof eduInvoiceApplications.$inferInsert
+
+/**
+ * 订单明细表 - 订单包含的具体商品行项。
+ * - orderId: 关联 edu_orders（逻辑关联，未做物理外键）。
+ * - price/subtotal: decimal(10,2)。
+ */
+export const eduOrderItems = pgTable('edu_order_items', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id').notNull(),
+  productId: integer('product_id'),
+  productName: varchar('product_name', { length: 255 }),
+  quantity: integer('quantity').default(1),
+  price: decimal('price', { precision: 10, scale: 2 }),
+  subtotal: decimal('subtotal', { precision: 10, scale: 2 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type EduOrderItem = typeof eduOrderItems.$inferSelect
+export type NewEduOrderItem = typeof eduOrderItems.$inferInsert
