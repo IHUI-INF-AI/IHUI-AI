@@ -1,0 +1,53 @@
+.model-plaza-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+.page-header {
+  padding: 20rpx 30rpx;
+  background: #fff;
+}
+.page-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+}
+.model-list {
+  padding: 20rpx;
+}
+.model-item {
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+.model-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+.model-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+.model-tag {
+  font-size: 22rpx;
+  color: #007aff;
+  background: rgba(0, 122, 255, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+.model-desc {
+  font-size: 26rpx;
+  color: #999;
+  display: block;
+}
+.loading-text,
+.empty-text {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  display: block;
+  padding: 60rpx 0;
+}
