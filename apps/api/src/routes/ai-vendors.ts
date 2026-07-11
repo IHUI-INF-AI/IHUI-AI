@@ -257,9 +257,10 @@ async function pollVolcengineTask(
   secretKey: string,
   reqKey: string,
   taskId: string,
+  reply: FastifyReply,
   maxPolls = 60,
   intervalMs = 5000,
-): Promise<Record<string, unknown>> {
+): Promise<Record<string, unknown> | null> {
   const pollParams = { Action: 'CVSync2AsyncGetResult', Version: '2022-08-31' }
   const pollBody = { req_key: reqKey, task_id: taskId }
   for (let i = 0; i < maxPolls; i++) {
@@ -274,7 +275,8 @@ async function pollVolcengineTask(
     const dataBlock = data.data as Record<string, unknown> | undefined
     if (dataBlock?.status === 'done') return data
   }
-  throw new Error('异步任务轮询超时')
+  reply.status(504).send(error(504, '异步任务轮询超时'))
+  return null
 }
 
 /** 通用:调用外部同步 API 并返回 JSON。失败时发送 502。 */
@@ -1306,7 +1308,8 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       const dataBlock = data.data as Record<string, unknown> | undefined
       const taskId = dataBlock?.task_id as string | undefined
       if (!taskId) return reply.status(502).send(error(502, '即梦未返回 task_id'))
-      const final = await pollVolcengineTask(keys.key, keys.secret, 'jimeng_t2i_v40', taskId)
+      const final = await pollVolcengineTask(keys.key, keys.secret, 'jimeng_t2i_v40', taskId, reply)
+      if (!final) return
       const finalData = final.data as Record<string, unknown> | undefined
       const imageUrls: string[] = Array.isArray(finalData?.image_urls)
         ? (finalData!.image_urls as string[])
@@ -1576,7 +1579,8 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       const dataBlock = data.data as Record<string, unknown> | undefined
       const taskId = dataBlock?.task_id as string | undefined
       if (!taskId) return reply.status(502).send(error(502, '未返回 task_id'))
-      const final = await pollVolcengineTask(keys.key, keys.secret, 'jimeng_t2i_v40', taskId)
+      const final = await pollVolcengineTask(keys.key, keys.secret, 'jimeng_t2i_v40', taskId, reply)
+      if (!final) return
       const finalData = final.data as Record<string, unknown> | undefined
       const imageUrls: string[] = Array.isArray(finalData?.image_urls)
         ? (finalData!.image_urls as string[])
@@ -1647,7 +1651,8 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
       const dataBlock = data.data as Record<string, unknown> | undefined
       const taskId = dataBlock?.task_id as string | undefined
       if (!taskId) return reply.status(502).send(error(502, '未返回 task_id'))
-      const final = await pollVolcengineTask(keys.key, keys.secret, reqKey, taskId)
+      const final = await pollVolcengineTask(keys.key, keys.secret, reqKey, taskId, reply)
+      if (!final) return
       const finalData = final.data as Record<string, unknown> | undefined
       recordUsage(request.userId!, 'volcengine')
       return reply.send(
