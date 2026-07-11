@@ -133,6 +133,12 @@ import { contentExtendedRoutes } from './routes/content-extended.js'
 import { organizationRoutes } from './routes/organization.js'
 import { aiImageEditRoutes } from './routes/ai-image-edit.js'
 
+// R68 补建：M-21 开放平台 Feature Center 后端路由
+import { featureCenterRoutes } from './routes/feature-center.js'
+
+// R68 补建：M-64 ask 模块扩展端点
+import { askExtendedRoutes } from './routes/ask-extended.js'
+
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -573,6 +579,14 @@ function registerRoutes(server: FastifyInstance) {
   server.register(organizationRoutes, { prefix: '/api' })
   // M-61: AI图片编辑（8端点）
   server.register(aiImageEditRoutes, { prefix: '/api' })
+
+  // ===== R68 补建：M-21 开放平台 Feature Center =====
+  // M-21: Feature Center 后端路由（6端点）
+  server.register(featureCenterRoutes, { prefix: '/api/feature-center' })
+
+  // ===== R68 补建：M-64 ask 模块扩展端点 =====
+  // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）
+  server.register(askExtendedRoutes, { prefix: '/api' })
 
   // ===== R67 补建：M-66 教育平台 + M-72 支付状态 WS =====
   // M-66: 教育平台同步管理（6端点）
