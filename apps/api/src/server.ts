@@ -81,7 +81,6 @@ import canaryRoutes from './routes/canary.js'
 import tboxRoutes from './routes/tbox.js'
 import stockRoutes from './routes/stock.js'
 import agentExtendedRoutes from './routes/agent-extended.js'
-import contentExtendedRoutes from './routes/content-extended.js'
 import eduExtendedRoutes from './routes/edu-extended.js'
 import systemExtendedRoutes from './routes/system-extended.js'
 import aiExtendedRoutes from './routes/ai-extended.js'
@@ -124,6 +123,16 @@ import { financeExtendedRoutes } from './routes/finance-extended.js'
 import { paymentExtendedRoutes } from './routes/payment-extended.js'
 import { authIdentityRoutes } from './routes/auth-identity.js'
 
+// R67 补建：M-55 通知扩展 + M-66 教育平台 + M-72 支付状态 WS
+import { educationPlatformRoutes } from './routes/education-platform.js'
+
+// R66 补建：M-44 remote + M-55 notification + M-57 content + M-60 org + M-61 AI图片编辑
+import { remoteExtendedRoutes } from './routes/remote-extended.js'
+import { notificationExtendedRoutes } from './routes/notification-extended.js'
+import { contentExtendedRoutes } from './routes/content-extended.js'
+import { organizationRoutes } from './routes/organization.js'
+import { aiImageEditRoutes } from './routes/ai-image-edit.js'
+
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -142,6 +151,7 @@ import { wsNotifications } from './plugins/ws-notifications.js'
 import { wsAi } from './plugins/ws-ai.js'
 import { wsChat } from './plugins/ws-chat.js'
 import { wsCustomerService } from './plugins/ws-customer-service.js'
+import wsPayment from './plugins/ws-payment.js'
 import otelPlugin from './plugins/otel.js'
 import businessMetricsPlugin from './plugins/business-metrics.js'
 import xssProtectionPlugin from './plugins/xss-protection.js'
@@ -266,6 +276,8 @@ async function registerPlugins(server: FastifyInstance) {
   // WebSocket 聊天室:房间维度实时广播(Redis Pub/Sub 多实例)
   await server.register(wsChat)
   await server.register(wsCustomerService)
+  // WebSocket 支付状态实时推送:/ws/payment/status/:orderNo
+  await server.register(wsPayment)
 
   // 审计日志插件：onResponse 异步记录所有 POST/PATCH/PUT/DELETE 写请求
   await server.register(auditPlugin)
@@ -465,8 +477,6 @@ function registerRoutes(server: FastifyInstance) {
 
   // 旧架构补建模块：Agent 扩展（need_task/upload/usedetail）
   server.register(agentExtendedRoutes, { prefix: '/api/agent-ext' })
-  // 内容/媒体扩展（advertise/video/video_preload/user_video_comment/user_video_log/user_agent_image）
-  server.register(contentExtendedRoutes, { prefix: '/api/content-ext' })
   // 教育扩展（course_audit 课程审核）
   server.register(eduExtendedRoutes, { prefix: '/api/edu-ext' })
   // 管理/系统扩展（category_dictionary/bot_sites/ws_admin/compat_routes）
@@ -551,4 +561,20 @@ function registerRoutes(server: FastifyInstance) {
   server.register(paymentExtendedRoutes, { prefix: '/api' })
   // M-67: 实名认证（提交/查询/列表/审核）
   server.register(authIdentityRoutes, { prefix: '/api' })
+
+  // ===== R66 补建：M-44/M-55/M-57/M-60/M-61 =====
+  // M-44: 远程设备/三方请求模块（12端点）
+  server.register(remoteExtendedRoutes, { prefix: '/api' })
+  // M-55: 通知渠道管理扩展（7端点）
+  server.register(notificationExtendedRoutes, { prefix: '/api' })
+  // M-57: 内容管理扩展（12端点）
+  server.register(contentExtendedRoutes, { prefix: '/api' })
+  // M-60: 组织管理（9端点）
+  server.register(organizationRoutes, { prefix: '/api' })
+  // M-61: AI图片编辑（8端点）
+  server.register(aiImageEditRoutes, { prefix: '/api' })
+
+  // ===== R67 补建：M-66 教育平台 + M-72 支付状态 WS =====
+  // M-66: 教育平台同步管理（6端点）
+  server.register(educationPlatformRoutes, { prefix: '/api/education-platform' })
 }
