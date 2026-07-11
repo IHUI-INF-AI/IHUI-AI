@@ -16,9 +16,11 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "typecheck": "turbo run typecheck",
+    "typecheck:full": "node scripts/typecheck-full.mjs",
     "generate:sdk": "tsx scripts/generate-sdk.ts",
     "check:api-key-leak": "node scripts/check-api-key-leak.mjs",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
+    "check:dedupe": "node scripts/check-dedupe.mjs",
     "knip": "knip",
     "openapi-check": "node scripts/openapi-check.mjs",
     "miniapp:preview": "node scripts/miniapp-preview.mjs",
@@ -41,7 +43,9 @@
   "pnpm": {
     "overrides": {
       "ioredis": "5.4.2",
-      "webpack": "5.91.0"
+      "webpack": "5.91.0",
+      "@types/react": "19.2.17",
+      "@types/react-dom": "19.2.3"
     }
   },
   "lint-staged": {

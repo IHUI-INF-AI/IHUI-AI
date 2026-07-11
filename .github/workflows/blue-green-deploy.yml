@@ -1,0 +1,212 @@
+name: Blue-Green Deploy
+
+# 蓝绿部署工作流 — 零停机部署策略
+# 手动触发，可选 staging / production 环境
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署目标环境'
+        type: choice
+        options:
+          - staging
+          - production
+      rollback:
+        description: '回滚到上一个环境(跳过部署,直接切换)'
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      COMPOSE_FILE: docker-compose.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 配置 SSH 连接
+        run: |
+          mkdir -p ~/.ssh
+          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+        env:
+          SSH_PRIVATE_KEY: ${{ env.SSH_PRIVATE_KEY }}
+
+      - name: 检查当前活跃环境
+        id: active-env
+        run: |
+          # 通过 nginx upstream 标记文件判断当前活跃环境
+          ACTIVE=$(ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cat /opt/ihui/active-env 2>/dev/null || echo blue")
+          echo "active=$ACTIVE" >> "$GITHUB_OUTPUT"
+          echo "当前活跃环境: $ACTIVE"
+
+      - name: 计算目标环境
+        id: target-env
+        run: |
+          ACTIVE=${{ steps.active-env.outputs.active }}
+          if [ "$ACTIVE" = "blue" ]; then
+            echo "target=green" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=blue" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 回滚模式 — 直接切换到非活跃环境
+        if: ${{ inputs.rollback == true }}
+        run: |
+          TARGET=${{ steps.target-env.outputs.target }}
+          echo "=== 回滚: 切换流量到 $TARGET 环境 ==="
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<EOF
+            set -euo pipefail
+            cd /opt/ihui
+
+            # 确认目标环境容器在运行
+            if ! docker compose -p ihui-${TARGET} ps | grep -q "Up"; then
+              echo "错误: $TARGET 环境未运行,无法回滚"
+              exit 1
+            fi
+
+            # 切换 nginx upstream 指向目标环境
+            echo "${TARGET}" > /opt/ihui/active-env
+            nginx -s reload
+            echo "已回滚到 $TARGET 环境"
+          EOF
+
+      - name: 构建新镜像
+        if: ${{ inputs.rollback != true }}
+        run: |
+          echo "=== 在部署服务器上构建镜像 ==="
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'EOF'
+            set -euo pipefail
+            cd /opt/ihui
+            git pull origin main
+            docker compose build api web ai-service
+          EOF
+
+      - name: 部署到非活跃环境
+        if: ${{ inputs.rollback != true }}
+        run: |
+          TARGET=${{ steps.target-env.outputs.target }}
+          echo "=== 部署到 $TARGET 环境 ==="
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<EOF
+            set -euo pipefail
+            cd /opt/ihui
+
+            # 使用 docker compose project 隔离 blue/green
+            export COMPOSE_PROJECT_NAME=ihui-${TARGET}
+
+            # 设置端口: blue=3000/8080, green=3001/8081
+            if [ "${TARGET}" = "blue" ]; then
+              export WEB_PORT=3000 API_PORT=8080
+            else
+              export WEB_PORT=3001 API_PORT=8081
+            fi
+
+            # 启动目标环境(仅 api + web + ai-service, 复用 db/redis)
+            docker compose -p ihui-${TARGET} up -d api web ai-service
+
+            echo "$TARGET 环境已启动,等待健康检查..."
+          EOF
+
+      - name: 健康检查
+        if: ${{ inputs.rollback != true }}
+        run: |
+          TARGET=${{ steps.target-env.outputs.target }}
+          if [ "$TARGET" = "blue" ]; then
+            WEB_PORT=3000; API_PORT=8080
+          else
+            WEB_PORT=3001; API_PORT=8081
+          fi
+
+          echo "=== 健康检查 $TARGET 环境 (web:$WEB_PORT, api:$API_PORT) ==="
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<EOF
+            set -euo pipefail
+            MAX_RETRIES=30
+            RETRY=0
+
+            # API 健康检查
+            while [ \$RETRY -lt \$MAX_RETRIES ]; do
+              if curl -sf "http://localhost:${API_PORT}/api/health" > /dev/null 2>&1; then
+                echo "API 健康检查通过"
+                break
+              fi
+              echo "等待 API 就绪... (\$RETRY/\$MAX_RETRIES)"
+              sleep 5
+              RETRY=\$((RETRY + 1))
+            done
+
+            if [ \$RETRY -eq \$MAX_RETRIES ]; then
+              echo "错误: API 健康检查超时, 部署失败"
+              docker compose -p ihui-${TARGET} logs --tail 50 api
+              exit 1
+            fi
+
+            # Web 健康检查
+            RETRY=0
+            while [ \$RETRY -lt \$MAX_RETRIES ]; do
+              if curl -sf "http://localhost:${WEB_PORT}" > /dev/null 2>&1; then
+                echo "Web 健康检查通过"
+                break
+              fi
+              echo "等待 Web 就绪... (\$RETRY/\$MAX_RETRIES)"
+              sleep 5
+              RETRY=\$((RETRY + 1))
+            done
+
+            if [ \$RETRY -eq \$MAX_RETRIES ]; then
+              echo "错误: Web 健康检查超时, 部署失败"
+              docker compose -p ihui-${TARGET} logs --tail 50 web
+              exit 1
+            fi
+
+            echo "=== $TARGET 环境健康检查全部通过 ==="
+          EOF
+
+      - name: 切换流量
+        if: ${{ inputs.rollback != true }}
+        run: |
+          TARGET=${{ steps.target-env.outputs.target }}
+          ACTIVE=${{ steps.active-env.outputs.active }}
+          echo "=== 切换流量: $ACTIVE → $TARGET ==="
+
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<EOF
+            set -euo pipefail
+
+            # 更新 nginx upstream 配置指向目标环境
+            if [ "${TARGET}" = "blue" ]; then
+              cp /opt/ihui/nginx/upstream-blue.conf /etc/nginx/conf.d/ihui-upstream.conf
+            else
+              cp /opt/ihui/nginx/upstream-green.conf /etc/nginx/conf.d/ihui-upstream.conf
+            fi
+
+            nginx -t && nginx -s reload
+
+            # 更新活跃环境标记
+            echo "${TARGET}" > /opt/ihui/active-env
+            echo "流量已切换到 ${TARGET} 环境"
+          EOF
+
+      - name: 清理旧环境(保留用于回滚)
+        if: ${{ inputs.rollback != true }}
+        run: |
+          ACTIVE=${{ steps.active-env.outputs.active }}
+          echo "=== 保留 $ACTIVE 环境用于回滚(不停止) ==="
+          echo "如需回滚, 重新运行此 workflow 并勾选 rollback=true"
+          echo "旧环境 $ACTIVE 仍以独立端口运行, 可随时切换回去"
+
+      - name: 部署摘要
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "  蓝绿部署摘要"
+          echo "=========================================="
+          echo "目标环境: ${{ inputs.environment }}"
+          echo "回滚模式: ${{ inputs.rollback }}"
+          echo "原活跃环境: ${{ steps.active-env.outputs.active }}"
+          echo "新活跃环境: ${{ steps.target-env.outputs.target }}"
+          echo "=========================================="
