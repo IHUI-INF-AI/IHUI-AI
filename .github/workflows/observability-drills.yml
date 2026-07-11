@@ -1,0 +1,23 @@
+name: Observability Drills
+
+# 可观测性演练工作流 — 定期验证监控告警链路可用性
+# 每周一 06:00 UTC 自动执行
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check metrics endpoint
+        run: curl -f http://localhost:3000/api/health/metrics
+
+      - name: Check Prometheus targets
+        run: curl -f http://localhost:9090/api/v1/targets
+
+      - name: Check Grafana health
+        run: curl -f http://localhost:3000/api/health

@@ -6,7 +6,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -14,6 +17,13 @@
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist .turbo node_modules"
   },
-  "dependencies": { "zod": "^3.24.1" },
-  "devDependencies": { "@ihui/eslint-config": "workspace:*", "eslint": "^9.16.0", "typescript": "^5.7.2", "rimraf": "^6.0.1" }
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "eslint": "^9.16.0",
+    "typescript": "^5.7.2",
+    "rimraf": "^6.0.1"
+  }
 }

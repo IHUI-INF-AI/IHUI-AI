@@ -1,0 +1,52 @@
+name: WebSocket Load Test
+
+# WebSocket 负载测试工作流 — 关联 M-24/M-25
+# 对 WebSocket 端点进行连接压力测试，验证 WS 连接承载能力
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'WebSocket 目标地址（如 ws://localhost:3000/ws）'
+        required: false
+        default: 'ws://localhost:3000/ws'
+      users:
+        description: '并发连接数'
+        required: false
+        default: '100'
+      duration:
+        description: '压测时长（秒）'
+        required: false
+        default: '60'
+  schedule:
+    - cron: '0 4 * * 1' # 每周一 04:00 UTC 回归压测
+
+jobs:
+  loadtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install autocannon
+        run: npm install -g autocannon
+
+      - name: Run WebSocket load test
+        run: |
+          autocannon --connections ${{ inputs.users || 100 }} \
+            --duration ${{ inputs.duration || 60 }} \
+            --render-status-code \
+            --ws \
+            --ws-config '{"url":"${{ inputs.target_url || 'ws://localhost:3000/ws' }}"}' \
+            | tee ws-loadtest-report.txt
+
+      - name: Upload load test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws-loadtest-report
+          path: ws-loadtest-report.txt
+          retention-days: 14

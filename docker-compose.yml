@@ -44,7 +44,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8080/api/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -64,7 +64,7 @@ services:
       - AI_SERVICE_URL=http://ai-service:8000
       - NEXT_TELEMETRY_DISABLED=1
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - '${WEB_PORT:-3000}:3000'
     depends_on:
       api:
         condition: service_healthy
@@ -107,7 +107,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8000/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -127,7 +127,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ihui}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-ihui}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -147,7 +147,7 @@ services:
         condition: service_healthy
     networks:
       - ihui-net
-    restart: "no"
+    restart: 'no'
     # 迁移失败时 docker compose up 会因依赖条件不满足而停止,避免 api 启动到空库
 
   # Redis 缓存
@@ -161,7 +161,7 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -174,11 +174,11 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "${JAEGER_UI_PORT:-16686}:16686"
+      - '${JAEGER_UI_PORT:-16686}:16686'
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:14269/']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -190,16 +190,16 @@ services:
     restart: unless-stopped
     volumes:
       - ./monitoring/otel-collector/config.yaml:/etc/otelcol/config.yaml
-    command: ["--config=/etc/otelcol/config.yaml"]
+    command: ['--config=/etc/otelcol/config.yaml']
     ports:
-      - "${OTEL_COLLECTOR_PORT:-4318}:4318"
+      - '${OTEL_COLLECTOR_PORT:-4318}:4318'
     networks:
       - ihui-net
     depends_on:
       jaeger:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:13133/']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -227,11 +227,11 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     ports:
-      - "${PROMETHEUS_PORT:-9091}:9090"
+      - '${PROMETHEUS_PORT:-9091}:9090'
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9090/-/healthy']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -250,14 +250,14 @@ services:
       - grafanadata:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-ihui-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-change-me-grafana-password}
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
-      - "${GRAFANA_PORT:-3001}:3000"
+      - '${GRAFANA_PORT:-3001}:3000'
     networks:
       - ihui-net
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:3000/api/health || exit 1']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -274,7 +274,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
     ports:
-      - "${NODE_EXPORTER_PORT:-9100}:9100"
+      - '${NODE_EXPORTER_PORT:-9100}:9100'
     networks:
       - ihui-net
 
