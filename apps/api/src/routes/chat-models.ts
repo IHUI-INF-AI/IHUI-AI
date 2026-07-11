@@ -218,10 +218,13 @@ function mergeQueryBody(request: FastifyRequest): Record<string, unknown> {
 // Kling JWT 辅助
 // ============================================================================
 
-async function klingJWT(): Promise<string> {
+async function klingJWT(reply: FastifyReply): Promise<string | null> {
   const ak = process.env.KLING_ACCESS_KEY
   const sk = process.env.KLING_SECRET_KEY
-  if (!ak || !sk) throw new Error('KLING_ACCESS_KEY/KLING_SECRET_KEY not configured')
+  if (!ak || !sk) {
+    reply.status(503).send(error(503, 'KLING_ACCESS_KEY/KLING_SECRET_KEY not configured'))
+    return null
+  }
   const now = Math.floor(Date.now() / 1000)
   return new SignJWT({})
     .setProtectedHeader({ alg: 'HS256', kid: ak })
@@ -233,7 +236,8 @@ async function klingJWT(): Promise<string> {
 
 async function klingHeaders(reply: FastifyReply): Promise<Record<string, string> | null> {
   try {
-    const token = await klingJWT()
+    const token = await klingJWT(reply)
+    if (!token) return null
     return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
   } catch {
     reply.status(503).send(error(503, 'Kling 服务未配置'))
