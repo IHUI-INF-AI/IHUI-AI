@@ -6,9 +6,6 @@ import { signInRecords, signInRules } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
-// 路由前缀：由主线统一注册
-export const prefix = '/api/checkin'
-
 // =============================================================================
 // 签到奖励：第1天10分，逐日+5，第7天起50分封顶
 // =============================================================================

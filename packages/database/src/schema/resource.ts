@@ -7,8 +7,9 @@ import {
   boolean,
   timestamp,
   numeric,
+  serial,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 /**
  * 资源分类表 - 树形结构(pid 指向父分类)。
@@ -27,7 +28,7 @@ export const resourceCategories = pgTable(
   (t) => ({
     pidIdx: index('resource_categories_pid_idx').on(t.pid),
   }),
-);
+)
 
 /**
  * 资源表 - 支持发布/浏览量/下载量统计。
@@ -39,7 +40,9 @@ export const resources = pgTable(
     title: varchar('title', { length: 200 }).notNull(),
     coverImage: varchar('cover_image', { length: 500 }),
     intro: text('intro'),
-    categoryId: uuid('category_id').references(() => resourceCategories.id, { onDelete: 'set null' }),
+    categoryId: uuid('category_id').references(() => resourceCategories.id, {
+      onDelete: 'set null',
+    }),
     fileUrl: varchar('file_url', { length: 500 }),
     fileType: varchar('file_type', { length: 50 }),
     fileSize: integer('file_size').default(0).notNull(),
@@ -55,7 +58,7 @@ export const resources = pgTable(
     catIdx: index('resources_category_idx').on(t.categoryId),
     pubIdx: index('resources_published_idx').on(t.isPublished),
   }),
-);
+)
 
 /**
  * 资源产品表 - 资源可关联多个付费产品。
@@ -80,7 +83,7 @@ export const resourceProducts = pgTable(
   (t) => ({
     resIdx: index('resource_products_resource_idx').on(t.resourceId),
   }),
-);
+)
 
 /**
  * 资源标签表。
@@ -92,13 +95,43 @@ export const resourceTags = pgTable('resource_tags', {
   status: integer('status').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type ResourceCategory = typeof resourceCategories.$inferSelect;
-export type NewResourceCategory = typeof resourceCategories.$inferInsert;
-export type Resource = typeof resources.$inferSelect;
-export type NewResource = typeof resources.$inferInsert;
-export type ResourceProduct = typeof resourceProducts.$inferSelect;
-export type NewResourceProduct = typeof resourceProducts.$inferInsert;
-export type ResourceTag = typeof resourceTags.$inferSelect;
-export type NewResourceTag = typeof resourceTags.$inferInsert;
+export type ResourceCategory = typeof resourceCategories.$inferSelect
+export type NewResourceCategory = typeof resourceCategories.$inferInsert
+export type Resource = typeof resources.$inferSelect
+export type NewResource = typeof resources.$inferInsert
+export type ResourceProduct = typeof resourceProducts.$inferSelect
+export type NewResourceProduct = typeof resourceProducts.$inferInsert
+export type ResourceTag = typeof resourceTags.$inferSelect
+export type NewResourceTag = typeof resourceTags.$inferInsert
+
+/**
+ * 资源下载记录表 - 记录用户下载资源的行为。
+ * - resourceId: 关联 resources（逻辑关联，未做物理外键）。
+ * - userId: 关联 users（逻辑关联）。
+ */
+export const resourceDownloads = pgTable('resource_downloads', {
+  id: serial('id').primaryKey(),
+  resourceId: integer('resource_id').notNull(),
+  userId: integer('user_id').notNull(),
+  ip: varchar('ip', { length: 45 }),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+/**
+ * 资源搜索记录表 - 记录用户的搜索行为用于分析。
+ */
+export const resourceSearchLogs = pgTable('resource_search_logs', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id'),
+  keyword: varchar('keyword', { length: 255 }),
+  resultCount: integer('result_count').default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type ResourceDownload = typeof resourceDownloads.$inferSelect
+export type NewResourceDownload = typeof resourceDownloads.$inferInsert
+export type ResourceSearchLog = typeof resourceSearchLogs.$inferSelect
+export type NewResourceSearchLog = typeof resourceSearchLogs.$inferInsert

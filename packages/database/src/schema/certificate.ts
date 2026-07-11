@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 证书模板表。
@@ -19,7 +19,7 @@ export const certificateTemplates = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({ statusIdx: index('certificate_templates_status_idx').on(t.status) }),
-);
+)
 
 /**
  * 证书发放记录表。
@@ -31,13 +31,21 @@ export const certificates = pgTable(
   'certificates',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    templateId: uuid('template_id').references(() => certificateTemplates.id, { onDelete: 'set null' }),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    templateId: uuid('template_id').references(() => certificateTemplates.id, {
+      onDelete: 'set null',
+    }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     certificateNo: varchar('certificate_no', { length: 100 }).notNull(), // 证书编号(唯一)
     title: varchar('title', { length: 200 }).notNull(),
     recipientName: varchar('recipient_name', { length: 100 }),
     source: varchar('source', { length: 20 }).default('manual').notNull(),
     sourceId: uuid('source_id'),
+    // 旧架构有的额外字段
+    issuer: varchar('issuer', { length: 100 }), // 颁发机构
+    score: varchar('score', { length: 20 }), // 成绩
+    validDays: integer('valid_days'), // 有效天数
     issuedAt: timestamp('issued_at', { withTimezone: true }).defaultNow().notNull(),
     status: integer('status').default(1).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -47,9 +55,9 @@ export const certificates = pgTable(
     templateIdx: index('certificates_template_idx').on(t.templateId),
     noIdx: index('certificates_no_idx').on(t.certificateNo),
   }),
-);
+)
 
-export type CertificateTemplate = typeof certificateTemplates.$inferSelect;
-export type NewCertificateTemplate = typeof certificateTemplates.$inferInsert;
-export type Certificate = typeof certificates.$inferSelect;
-export type NewCertificate = typeof certificates.$inferInsert;
+export type CertificateTemplate = typeof certificateTemplates.$inferSelect
+export type NewCertificateTemplate = typeof certificateTemplates.$inferInsert
+export type Certificate = typeof certificates.$inferSelect
+export type NewCertificate = typeof certificates.$inferInsert
