@@ -1,5 +1,15 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  text,
+  boolean,
+  jsonb,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 订阅方案表。
@@ -17,7 +27,7 @@ export const plans = pgTable('plans', {
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 订单表。
@@ -42,7 +52,7 @@ export const orders = pgTable('orders', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 支付记录表。
@@ -60,11 +70,44 @@ export const payments = pgTable('payments', {
   status: varchar('status', { length: 16 }).default('pending').notNull(),
   rawResponse: jsonb('raw_response'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Plan = typeof plans.$inferSelect;
-export type NewPlan = typeof plans.$inferInsert;
-export type Order = typeof orders.$inferSelect;
-export type NewOrder = typeof orders.$inferInsert;
-export type Payment = typeof payments.$inferSelect;
-export type NewPayment = typeof payments.$inferInsert;
+export type Plan = typeof plans.$inferSelect
+export type NewPlan = typeof plans.$inferInsert
+export type Order = typeof orders.$inferSelect
+export type NewOrder = typeof orders.$inferInsert
+export type Payment = typeof payments.$inferSelect
+export type NewPayment = typeof payments.$inferInsert
+
+/**
+ * AI 模型定价表（ai_pricing）。
+ * - modelId: 模型标识（对应 ai_model_config.name 与 ai_cost_records.model，按模型名匹配定价）。
+ * - inputTokenPrice/outputTokenPrice: 输入/输出 token 单价，单位"分/千 token"（整数，避免浮点误差）。
+ * - regionPricing: 区域差价系数 JSON，如 { "cn": 1.0, "us": 1.2, "eu": 1.15 }。
+ * - discount: 折扣规则 JSON，如 { "type": "percentage", "value": 0.8, "minTokens": 100000 }。
+ * - currency: 货币类型，默认 CNY。
+ * - effectiveAt/expiresAt: 生效/过期时间，用于支持定价版本管理。
+ */
+export const aiPricing = pgTable(
+  'ai_pricing',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    modelId: varchar('model_id', { length: 128 }).notNull(),
+    inputTokenPrice: integer('input_token_price').notNull(),
+    outputTokenPrice: integer('output_token_price').notNull(),
+    regionPricing: jsonb('region_pricing').notNull().default({ cn: 1.0 }),
+    discount: jsonb('discount'),
+    currency: varchar('currency', { length: 8 }).default('CNY').notNull(),
+    effectiveAt: timestamp('effective_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    modelIdx: index('ai_pricing_model_idx').on(t.modelId),
+    effectiveIdx: index('ai_pricing_effective_idx').on(t.effectiveAt),
+  }),
+)
+
+export type AiPricing = typeof aiPricing.$inferSelect
+export type NewAiPricing = typeof aiPricing.$inferInsert

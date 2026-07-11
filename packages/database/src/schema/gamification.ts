@@ -1,5 +1,14 @@
-import { pgTable, uuid, varchar, integer, timestamp, date, jsonb, unique } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  timestamp,
+  date,
+  jsonb,
+  unique,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 用户积分表。
@@ -18,7 +27,7 @@ export const userPoints = pgTable('user_points', {
   level: integer('level').default(1).notNull(),
   experience: integer('experience').default(0).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 积分流水表。
@@ -37,7 +46,7 @@ export const pointTransactions = pgTable('point_transactions', {
   description: varchar('description', { length: 255 }),
   referenceId: varchar('reference_id', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 签到记录表。
@@ -59,7 +68,7 @@ export const signInRecords = pgTable(
   (t) => ({
     userDateUnique: unique().on(t.userId, t.signInDate),
   }),
-);
+)
 
 /**
  * 等级定义表。
@@ -75,13 +84,30 @@ export const levels = pgTable('levels', {
   icon: varchar('icon', { length: 512 }),
   benefits: jsonb('benefits').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type UserPoints = typeof userPoints.$inferSelect;
-export type NewUserPoints = typeof userPoints.$inferInsert;
-export type PointTransaction = typeof pointTransactions.$inferSelect;
-export type NewPointTransaction = typeof pointTransactions.$inferInsert;
-export type SignInRecord = typeof signInRecords.$inferSelect;
-export type NewSignInRecord = typeof signInRecords.$inferInsert;
-export type Level = typeof levels.$inferSelect;
-export type NewLevel = typeof levels.$inferInsert;
+/**
+ * 签到规则配置表。
+ * 定义签到奖励规则：连续天数阈值 + 奖励积分 + 额外奖励。
+ */
+export const signInRules = pgTable('sign_in_rules', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: varchar('name', { length: 128 }).notNull(),
+  consecutiveDays: integer('consecutive_days').notNull(), // 连续签到天数阈值
+  rewardPoints: integer('reward_points').notNull(), // 奖励积分
+  extraReward: jsonb('extra_reward').default({}), // 额外奖励（如优惠券、勋章）
+  status: integer('status').default(1).notNull(), // 1-启用 0-禁用
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type UserPoints = typeof userPoints.$inferSelect
+export type NewUserPoints = typeof userPoints.$inferInsert
+export type PointTransaction = typeof pointTransactions.$inferSelect
+export type NewPointTransaction = typeof pointTransactions.$inferInsert
+export type SignInRecord = typeof signInRecords.$inferSelect
+export type NewSignInRecord = typeof signInRecords.$inferInsert
+export type Level = typeof levels.$inferSelect
+export type NewLevel = typeof levels.$inferInsert
+export type SignInRule = typeof signInRules.$inferSelect
+export type NewSignInRule = typeof signInRules.$inferInsert
