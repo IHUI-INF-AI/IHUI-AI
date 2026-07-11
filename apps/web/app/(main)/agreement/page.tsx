@@ -12,6 +12,12 @@ import { cn } from '@/lib/utils'
 
 type AgreementType = 'user' | 'privacy'
 
+// 前端短名 → 后端完整 type
+const TYPE_MAP: Record<AgreementType, string> = {
+  user: 'user-agreement',
+  privacy: 'privacy-policy',
+}
+
 interface Agreement {
   id: string
   title: string
@@ -49,10 +55,7 @@ export default function AgreementPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['agreement', activeType],
-    queryFn: () =>
-      api<Agreement>(`/api/setting/agreement?type=${activeType}`).catch(() =>
-        api<Agreement>(`/api/agreements/current?type=${activeType}`),
-      ),
+    queryFn: () => api<Agreement>(`/api/agreements/current?type=${TYPE_MAP[activeType]}`),
     retry: false,
   })
 
