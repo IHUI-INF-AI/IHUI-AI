@@ -59,6 +59,10 @@
   - 3 张补建后端路由激活（sensitive-words: CRUD+内容过滤 / agreements: CRUD+当前协议查询 / exchange-rate: CRUD+汇率换算）
   - 2 张旧 schema 删除+DROP TABLE 迁移（search_hot_keywords→hot_words 替代 / private_letter_sessions+messages→message_private_letter 替代）
   - 4 张之前已 DROP TABLE（app_content→carousels / exchange_rate→zhsExchangeRate / admin_oper_log→audit_logs / search_index→globalSearch 跨表聚合）
+- [x] ✅(2026-07-11) 死表后续深度完善（13 项缺口全部修复）：
+  - P1 功能断裂修复：agreement/page.tsx type 映射 / 移除 /api/setting/agreement / 删除死代码 use-legal-doc.ts / RegisterForm 链接修复 / 迁移纳入 drizzle 系统
+  - P2 功能补建：敏感词管理 CRUD UI / 协议管理 CRUD UI / 私信详情 Dialog / 汇率管理页面(全新) / 4 路由 51 个集成测试(API 总 639)
+  - P3 清理：schema 注释更新 / dist 残留清理
 - [x] ✅(2026-07-11) 4 处 throw new Error() 改为 error() 包装函数（已确认 0 处残留）
 - [x] ✅(2026-07-11) 工作区未跟踪文件审查完成（全部已提交或 .gitignore）
 - [x] ✅(2026-07-11) git push 到远程仓库（42 个 commit 全部推送）
