@@ -1,6 +1,7 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findCircles,
   findCircleByIdOrSlug,
@@ -104,20 +105,6 @@ const createAnswerSchema = z.object({
 const circleShowSchema = z.object({
   isPublished: z.boolean(),
 })
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-/** 校验管理员权限，失败时写入响应并返回 false。 */
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // 路由
@@ -1447,7 +1434,8 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /admin/circles/:id - 管理员删除圈子
   server.delete('/admin/circles/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1462,7 +1450,8 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /admin/circles/:id/show - 更新圈子显示状态
   server.put('/admin/circles/:id/show', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))

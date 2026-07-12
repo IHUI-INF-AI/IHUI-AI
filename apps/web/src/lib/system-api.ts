@@ -179,10 +179,7 @@ export async function checkAppVersion(input: {
   version: string
   platform: AppVersion['platform']
 }): Promise<ApiResult<VersionCheckResult>> {
-  return fetchApi<VersionCheckResult>('/api/app-version/check', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  return fetchApi<VersionCheckResult>(`/api/app-version/check-update${buildQs(input)}`)
 }
 
 /** 获取应用版本列表 */
@@ -251,22 +248,22 @@ export async function getBehaviors(
 export async function getCategories(
   query: { type?: string; parentId?: string | number } = {},
 ): Promise<ApiResult<Category[]>> {
-  return fetchApi<Category[]>(`/api/category${buildQs(query)}`)
+  return fetchApi<Category[]>(`/api/categories${buildQs(query)}`)
 }
 
 /** 获取分类树 */
 export async function getCategoryTree(type?: string): Promise<ApiResult<Category[]>> {
-  return fetchApi<Category[]>(`/api/category/tree${buildQs(type ? { type } : {})}`)
+  return fetchApi<Category[]>(`/api/categories/tree${buildQs(type ? { type } : {})}`)
 }
 
 /** 获取分类详情 */
 export async function getCategoryDetail(id: string | number): Promise<ApiResult<Category>> {
-  return fetchApi<Category>(`/api/category/${id}`)
+  return fetchApi<Category>(`/api/categories/${id}`)
 }
 
 /** 创建分类 */
 export async function createCategory(input: Partial<Category>): Promise<ApiResult<Category>> {
-  return fetchApi<Category>('/api/category', {
+  return fetchApi<Category>('/api/categories', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -277,7 +274,7 @@ export async function updateCategory(
   id: string | number,
   input: Partial<Category>,
 ): Promise<ApiResult<Category>> {
-  return fetchApi<Category>(`/api/category/${id}`, {
+  return fetchApi<Category>(`/api/categories/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -287,7 +284,7 @@ export async function updateCategory(
 export async function deleteCategory(
   id: string | number,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/category/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/categories/${id}`, { method: 'DELETE' })
 }
 
 // ===================== monitor（监控） =====================
@@ -451,7 +448,7 @@ export async function recordVisit(input: {
   referrer?: string
   duration?: number
 }): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>('/api/visit', {
+  return fetchApi<{ success: boolean }>('/api/visit-tracking/page/record', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -461,12 +458,12 @@ export async function recordVisit(input: {
 export async function getVisits(
   query: PageQuery & { userId?: string; page_path?: string } = {},
 ): Promise<ApiResult<PageData<VisitRecord>>> {
-  return fetchApi<PageData<VisitRecord>>(`/api/visit${buildQs(query)}`)
+  return fetchApi<PageData<VisitRecord>>(`/api/visit-tracking/page/record${buildQs(query)}`)
 }
 
 /** 获取访问统计 */
 export async function getVisitStats(
   query: { start?: string; end?: string } = {},
 ): Promise<ApiResult<StatisticsData>> {
-  return fetchApi<StatisticsData>(`/api/visit/stats${buildQs(query)}`)
+  return fetchApi<StatisticsData>(`/api/visit-tracking/stats${buildQs(query)}`)
 }

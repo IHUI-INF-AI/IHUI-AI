@@ -16,7 +16,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, or, ilike, desc, asc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
   carousels,
@@ -33,26 +33,6 @@ import {
   zhsUserAgentAudio,
   zhsUserAgentImage,
 } from '@ihui/database'
-
-const ADMIN_ROLE_ID = 1
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -94,9 +74,7 @@ function registerEmptyStub(server: ReturnType<any>, basePath: string) {
 }
 
 export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAdmin(request, reply))) return
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // ===========================================================================
   // 1. 内容运营模块 — 有表路由（真实 CRUD）

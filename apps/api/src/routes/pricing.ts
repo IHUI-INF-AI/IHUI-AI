@@ -1,38 +1,14 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync } from 'fastify'
 import {
   calculateCost,
   listPricing,
   listSupportedRegions,
   upsertPricing,
 } from '../services/pricing-service.js'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
 // 系统管理员角色 ID（与 admin 路由保持一致）
-const ADMIN_ROLE_ID = 1
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-/** 校验登录 + 管理员权限，失败时已写响应并返回 false。 */
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // 定价路由（前缀 /api，由 server.ts 统一注册）
@@ -47,7 +23,8 @@ export const pricingRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /pricing/models — 创建/更新模型定价（admin only）
   server.post('/pricing/models', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
 
     const body = request.body as {
       modelId: string

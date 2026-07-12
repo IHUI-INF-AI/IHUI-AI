@@ -29,6 +29,8 @@ interface ChatState {
   error: string | null
   /** 当前绑定的会话 ID；为 null 表示新会话尚未持久化 */
   conversationId: string | null
+  /** 模板选择等外部输入填充值；MessageInput 消费后置 null */
+  draftInput: string | null
 
   setModel: (model: string) => void
   addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
@@ -53,6 +55,7 @@ export const useChatStore = create<ChatState>((set) => ({
   isStreaming: false,
   error: null,
   conversationId: null,
+  draftInput: null,
 
   setModel: (model) => set({ currentModel: model }),
 

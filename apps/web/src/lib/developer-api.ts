@@ -202,7 +202,7 @@ export async function createSdk(input: Partial<SdkInfo>): Promise<ApiResult<SdkI
 /** 更新 SDK */
 export async function updateSdk(id: string, input: Partial<SdkInfo>): Promise<ApiResult<SdkInfo>> {
   return fetchApi<SdkInfo>(`/api/sdks/${id}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }
@@ -240,7 +240,7 @@ export async function updatePackage(
   input: Partial<PackageInfo>,
 ): Promise<ApiResult<PackageInfo>> {
   return fetchApi<PackageInfo>(`/api/packages/${id}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }
@@ -254,12 +254,12 @@ export async function deletePackage(id: string): Promise<ApiResult<{ success: bo
 
 /** 获取 Webhook 列表 */
 export async function getWebhooks(query: PageQuery = {}): Promise<ApiResult<PageData<Webhook>>> {
-  return fetchApi<PageData<Webhook>>(`/api/webhooks${buildQs(query)}`)
+  return fetchApi<PageData<Webhook>>(`/api/developer/webhooks${buildQs(query)}`)
 }
 
 /** 获取 Webhook 详情 */
 export async function getWebhookDetail(id: string): Promise<ApiResult<Webhook>> {
-  return fetchApi<Webhook>(`/api/webhooks/${id}`)
+  return fetchApi<Webhook>(`/api/developer/webhooks/${id}`)
 }
 
 /** 创建 Webhook */
@@ -268,7 +268,7 @@ export async function createWebhook(input: {
   events: string[]
   description?: string
 }): Promise<ApiResult<Webhook>> {
-  return fetchApi<Webhook>('/api/webhooks', {
+  return fetchApi<Webhook>('/api/developer/webhooks', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -279,7 +279,7 @@ export async function updateWebhook(
   id: string,
   input: Partial<Webhook>,
 ): Promise<ApiResult<Webhook>> {
-  return fetchApi<Webhook>(`/api/webhooks/${id}`, {
+  return fetchApi<Webhook>(`/api/developer/webhooks/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -287,14 +287,14 @@ export async function updateWebhook(
 
 /** 删除 Webhook */
 export async function deleteWebhook(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/webhooks/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/developer/webhooks/${id}`, { method: 'DELETE' })
 }
 
 /** 测试 Webhook */
 export async function testWebhook(
   id: string,
 ): Promise<ApiResult<{ success: boolean; response?: string }>> {
-  return fetchApi<{ success: boolean; response?: string }>(`/api/webhooks/${id}/test`, {
+  return fetchApi<{ success: boolean; response?: string }>(`/api/developer/webhooks/${id}/test`, {
     method: 'POST',
   })
 }
@@ -304,7 +304,7 @@ export async function getWebhookDeliveries(
   id: string,
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<WebhookDelivery>>> {
-  return fetchApi<PageData<WebhookDelivery>>(`/api/webhooks/${id}/deliveries${buildQs(query)}`)
+  return fetchApi<PageData<WebhookDelivery>>(`/api/developer/webhooks/${id}/logs${buildQs(query)}`)
 }
 
 /** 重投 Webhook */
@@ -312,12 +312,10 @@ export async function redeliverWebhook(
   webhookId: string,
   deliveryId: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(
-    `/api/webhooks/${webhookId}/deliveries/${deliveryId}/redeliver`,
-    {
-      method: 'POST',
-    },
-  )
+  return fetchApi<{ success: boolean }>(`/api/developer/webhooks/${webhookId}/retry`, {
+    method: 'POST',
+    body: JSON.stringify({ deliveryId }),
+  })
 }
 
 // ===================== oauth-apps =====================

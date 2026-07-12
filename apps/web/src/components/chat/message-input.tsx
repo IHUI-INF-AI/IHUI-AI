@@ -1,13 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, Paperclip } from 'lucide-react'
+import { Send, Square, Paperclip, FileText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
+import { PromptTemplates } from '@/components/ai/prompt-templates'
 
 const MAX_LENGTH = 2000
 
@@ -34,6 +35,15 @@ const COMMAND_TEMPLATES: Record<string, string> = {
   polish: '请润色以下文本，使其更专业流畅：',
 }
 
+const PROMPT_TEMPLATES = [
+  { id: 'email', name: '邮件起草', content: '请帮我起草一封邮件，主题为：', category: '写作' },
+  { id: 'report', name: '报告大纲', content: '请为以下主题生成报告大纲：', category: '写作' },
+  { id: 'review', name: '代码审查', content: '请审查以下代码，指出潜在问题：', category: '代码' },
+  { id: 'refactor', name: '代码重构', content: '请重构以下代码，提升可读性：', category: '代码' },
+  { id: 'translate', name: '中英互译', content: '请将以下内容翻译：', category: '翻译' },
+  { id: 'summary', name: '内容总结', content: '请总结以下内容的关键信息：', category: '总结' },
+]
+
 interface MessageInputProps {
   onSend: (content: string) => void
   onStop: () => void
@@ -54,6 +64,7 @@ export function MessageInput({
   const t = useTranslations('chat')
   const [value, setValue] = React.useState('')
   const [slashOpen, setSlashOpen] = React.useState(false)
+  const [templateOpen, setTemplateOpen] = React.useState(false)
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
@@ -78,17 +89,25 @@ export function MessageInput({
     }
   }
 
-  const handleCommandSelect = (id: string) => {
-    const template = COMMAND_TEMPLATES[id] ?? ''
-    setValue(template)
+  const fillInput = (text: string) => {
+    setValue(text)
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
       const el = textareaRef.current
       if (el) {
-        el.setSelectionRange(template.length, template.length)
+        el.setSelectionRange(text.length, text.length)
         resize()
       }
     })
+  }
+
+  const handleCommandSelect = (id: string) => {
+    fillInput(COMMAND_TEMPLATES[id] ?? '')
+  }
+
+  const handleTemplateSelect = (content: string) => {
+    fillInput(content)
+    setTemplateOpen(false)
   }
 
   const handleVoiceTranscript = (text: string) => {
@@ -150,6 +169,11 @@ export function MessageInput({
           open={slashOpen}
           onClose={() => setSlashOpen(false)}
         />
+        {templateOpen && (
+          <div className="mb-2 rounded-xl border bg-card p-3 shadow-sm">
+            <PromptTemplates templates={PROMPT_TEMPLATES} onSelect={handleTemplateSelect} />
+          </div>
+        )}
         <div className="flex items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
           <textarea
             ref={textareaRef}
@@ -166,6 +190,22 @@ export function MessageInput({
               'disabled:cursor-not-allowed disabled:opacity-60',
             )}
           />
+          <button
+            type="button"
+            onClick={() => setTemplateOpen((v) => !v)}
+            disabled={isStreaming}
+            aria-label="提示词模板"
+            title="提示词模板"
+            className={cn(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              templateOpen
+                ? 'bg-accent text-primary'
+                : 'bg-muted text-muted-foreground hover:bg-accent',
+            )}
+          >
+            <FileText className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={addTextReference}

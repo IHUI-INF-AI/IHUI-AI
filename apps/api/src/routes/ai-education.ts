@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, ilike, sql, isNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -9,31 +9,8 @@ import {
   k12AiCurriculum,
   universityAiCourse,
 } from '@ihui/database'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-
-const ADMIN_ROLE_ID = 1
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // 通用 Zod schemas
@@ -248,7 +225,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/policy', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createPolicySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -258,7 +236,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put<{ Params: { id: string } }>('/policy/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -282,7 +261,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete<{ Params: { id: string } }>('/policy/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -350,7 +330,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/teacher-certification', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createCertSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -360,7 +341,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put<{ Params: { id: string } }>('/teacher-certification/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -391,7 +373,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   server.delete<{ Params: { id: string } }>(
     '/teacher-certification/:id',
     async (request, reply) => {
-      if (!(await requireAdmin(request, reply))) return
+      await requireAdmin(request, reply)
+      if (reply.sent) return
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -460,7 +443,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/aigc-tool', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createToolSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -470,7 +454,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put<{ Params: { id: string } }>('/aigc-tool/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -494,7 +479,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete<{ Params: { id: string } }>('/aigc-tool/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -557,7 +543,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/k12-curriculum', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createK12Schema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -567,7 +554,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put<{ Params: { id: string } }>('/k12-curriculum/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -591,7 +579,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete<{ Params: { id: string } }>('/k12-curriculum/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -655,7 +644,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/university-course', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createUniSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -665,7 +655,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put<{ Params: { id: string } }>('/university-course/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -689,7 +680,8 @@ const aiEducationRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete<{ Params: { id: string } }>('/university-course/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
