@@ -6,9 +6,10 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ShoppingCart, CheckCircle, XCircle, Clock, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { Timeline } from '@/components/data/Timeline'
 
 type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -37,12 +38,24 @@ async function fetchOrders(status: string): Promise<OrdersData> {
 
 const STATUS_CONFIG: Record<
   OrderStatus,
-  { icon: React.ComponentType<{ className?: string }>; cls: string }
+  { icon: React.ComponentType<{ className?: string }>; cls: string; color: string }
 > = {
-  pending: { icon: Clock, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
-  paid: { icon: CheckCircle, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
-  cancelled: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
-  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
+  pending: {
+    icon: Clock,
+    cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+    color: '#f59e0b',
+  },
+  paid: {
+    icon: CheckCircle,
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    color: '#10b981',
+  },
+  cancelled: {
+    icon: XCircle,
+    cls: 'bg-red-500/10 text-red-600 dark:text-red-500',
+    color: '#ef4444',
+  },
+  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary', color: '#3b82f6' },
 }
 
 const TABS: { value: string; labelKey: 'all' | 'pending' | 'paid' | 'cancelled' | 'refunded' }[] = [
@@ -184,6 +197,29 @@ export default function OrdersPage() {
           </tbody>
         </table>
       </div>
+
+      {orders.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t('timelineTitle')}</CardTitle>
+            <p className="text-xs text-muted-foreground">{t('timelineHint')}</p>
+          </CardHeader>
+          <CardContent>
+            <Timeline
+              items={orders.slice(0, 5).map((o) => {
+                const sc = STATUS_CONFIG[o.status]
+                return {
+                  title: `${o.orderNo} · ${o.targetTitle ?? o.orderType}`,
+                  description: `${currencyFmt.format(Number(o.payAmount))} · ${t(`status.${o.status}`)}`,
+                  time: dateFmt.format(new Date(o.createdAt)),
+                  icon: sc.icon,
+                  color: sc.color,
+                }
+              })}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

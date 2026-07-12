@@ -10,6 +10,8 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
+import { Alert } from '@/components/feedback'
+import { PasswordStrengthIndicator } from '@/components/login'
 
 const registerSchema = z
   .object({
@@ -40,11 +42,14 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     getValues,
+    watch,
     formState: { errors },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema as never),
     defaultValues: { phone: '', code: '', password: '', confirmPassword: '' },
   })
+
+  const password = watch('password')
 
   const resolveError = (key: string) => {
     const map: Record<string, string> = {
@@ -120,14 +125,8 @@ export default function RegisterPage() {
         <p className="text-sm text-muted-foreground">{t('registerSubtitle')}</p>
       </div>
 
-      {serverError && (
-        <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {serverError}
-        </div>
-      )}
-      {serverInfo && (
-        <div className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{serverInfo}</div>
-      )}
+      {serverError && <Alert variant="danger" description={serverError} />}
+      {serverInfo && <Alert variant="success" description={serverInfo} />}
 
       <div className="space-y-2">
         <Label htmlFor="phone">{t('phone')}</Label>
@@ -177,6 +176,7 @@ export default function RegisterPage() {
           placeholder={t('passwordPlaceholder')}
           {...register('password')}
         />
+        <PasswordStrengthIndicator password={password} />
         {errors.password && (
           <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
         )}
@@ -192,7 +192,9 @@ export default function RegisterPage() {
           {...register('confirmPassword')}
         />
         {errors.confirmPassword && (
-          <p className="text-xs text-destructive">{resolveError(errors.confirmPassword.message!)}</p>
+          <p className="text-xs text-destructive">
+            {resolveError(errors.confirmPassword.message!)}
+          </p>
         )}
       </div>
 

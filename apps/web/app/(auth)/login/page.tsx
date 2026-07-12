@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react'
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { ThirdPartyLoginButtons, CaptchaCanvas, QrCodeLogin } from '@/components/login'
+import { Alert } from '@/components/feedback'
 
 const phoneSchema = z
   .string()
@@ -316,11 +317,7 @@ export default function LoginPage() {
         {/* 手机号 + 密码 */}
         <TabsContent value="password">
           <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4 pt-2">
-            {serverError && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {serverError}
-              </div>
-            )}
+            {serverError && <Alert variant="danger" description={serverError} />}
             <div className="space-y-2">
               <Label htmlFor="phone">{t('phone')}</Label>
               <Input
@@ -378,11 +375,7 @@ export default function LoginPage() {
         {/* 邮箱 + 验证码 */}
         <TabsContent value="email">
           <form onSubmit={onEmailSubmit} className="space-y-4 pt-2">
-            {emailErr && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {emailErr}
-              </div>
-            )}
+            {emailErr && <Alert variant="danger" description={emailErr} />}
             <div className="space-y-2">
               <Label htmlFor="email">{t('email')}</Label>
               <Input
@@ -426,11 +419,7 @@ export default function LoginPage() {
         {/* 用户名 + 密码 */}
         <TabsContent value="username">
           <form onSubmit={onUsernameSubmit} className="space-y-4 pt-2">
-            {usernameErr && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {usernameErr}
-              </div>
-            )}
+            {usernameErr && <Alert variant="danger" description={usernameErr} />}
             <div className="space-y-2">
               <Label htmlFor="username">{t('username')}</Label>
               <Input

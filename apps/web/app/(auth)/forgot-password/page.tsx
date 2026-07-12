@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button, Input, Label } from '@ihui/ui'
+import { PasswordStrengthIndicator } from '@/components/login'
 
 const phoneRegex = /^1[3-9]\d{9}$/
 
@@ -152,6 +153,7 @@ export default function ForgotPasswordPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
+            <PasswordStrengthIndicator password={newPassword} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>

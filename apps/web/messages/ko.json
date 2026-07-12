@@ -235,7 +235,8 @@
     "toggleTheme": "테마 전환",
     "profile": "个人资料",
     "menu": "메뉴",
-    "announcements": "공지관리"
+    "announcements": "공지관리",
+    "viewAll": "모두 보기"
   },
   "announcements": {
     "title": "공지관리",
@@ -1236,7 +1237,9 @@
       "page": "{page}페이지, 총 {total}페이지",
       "total": "총계: {n}",
       "noData": "없음데이마음",
-      "loading": "로딩 중..."
+      "loading": "로딩 중...",
+      "userDetail": "사용자 상세",
+      "confirmStatusChange": "이 사용자의 상태를 변경하시겠습니까?"
     },
     "roles": {
       "title": "역할관리",
@@ -2685,7 +2688,9 @@
       "following": "완료팔로우",
       "followers": "팔로워",
       "favorites": "즐겨찾기",
-      "statsLoading": "통계 로딩 중..."
+      "statsLoading": "통계 로딩 중...",
+      "accountInfo": "계정 정보",
+      "userId": "사용자 ID"
     },
     "security": {
       "title": "보안",
@@ -2731,7 +2736,9 @@
         "project": "프로젝트",
         "comment": "댓글관리",
         "follow": "팔로우"
-      }
+      },
+      "viewList": "목록 보기",
+      "viewTimeline": "타임라인 보기"
     },
     "orders": {
       "title": "내주의문",
@@ -2751,7 +2758,9 @@
       "loading": "로딩 중...",
       "noData": "없음주의문",
       "pay": "송금",
-      "view": "보기"
+      "view": "보기",
+      "timelineTitle": "주문 타임라인",
+      "timelineHint": "주문 상태 변경 이력 보기"
     },
     "public": {
       "title": "AI인마음페이스테스트",
@@ -3096,7 +3105,8 @@
     "groupDoc": "개문서",
     "groupPost": "게시물",
     "groupComment": "댓글관리",
-    "groupOther": "기타"
+    "groupOther": "기타",
+    "popular": "인기 태그"
   },
   "docs": {
     "title": "문서",
@@ -3299,7 +3309,10 @@
       "paidCount": "수입계산",
       "pendingCount": "대기 중",
       "totalLabel": "총의",
-      "loadFailed": "불러오기문서실패"
+      "loadFailed": "불러오기문서실패",
+      "orderStatusDistribution": "주문 상태 분포",
+      "orderStatusDistributionHint": "상태별 주문 수 통계",
+      "otherOrders": "기타 주문"
     }
   },
   "rbac": {
@@ -3815,7 +3828,10 @@
     "noRecords": "없음스마트값사용소모기이것은",
     "topicType": "contentType",
     "prev": "이전 페이지",
-    "next": "다음"
+    "next": "다음",
+    "heatmapTitle": "히트맵",
+    "heatmapCardTitle": "행동 히트맵",
+    "heatmapHint": "사용자 행동 분포 히트맵 보기"
   },
   "visitTracking": {
     "title": "AI인마음페이스테스트",
@@ -4078,7 +4094,10 @@
     "fieldStatus": "상태",
     "fieldSort": "정렬",
     "fieldIsFree": "무료",
-    "submitting": "제출 중..."
+    "submitting": "제출 중...",
+    "fieldAgentId": "에이전트 ID",
+    "fieldWorkspace": "워크스페이스",
+    "fieldRemark": "비고"
   },
   "distribution": {
     "title": "유통 센터",

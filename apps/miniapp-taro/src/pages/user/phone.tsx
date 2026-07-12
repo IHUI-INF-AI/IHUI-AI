@@ -11,7 +11,9 @@ export default function Phone() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useDidShow(async () => {
-    try { setPhone((await getProfile()).phone || '') } catch {}
+    try {
+      setPhone((await getProfile()).phone || '')
+    } catch {}
   })
 
   function sendCode() {
@@ -19,19 +21,24 @@ export default function Phone() {
     if (!/^1\d{10}$/.test(phone)) {
       return Taro.showToast({ title: '手机号格式错误', icon: 'none' })
     }
-    sendSmsCode(phone).then(() => {
-      setCounting(true)
-      timerRef.current = setInterval(() => {
-        setCount(prev => {
-          if (prev <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current)
-            setCounting(false)
-            return 60
-          }
-          return prev - 1
-        })
-      }, 1000)
-    }).catch(() => {})
+    sendSmsCode(phone)
+      .then(() => {
+        setCounting(true)
+        timerRef.current = setInterval(() => {
+          setCount((prev) => {
+            if (prev <= 1) {
+              if (timerRef.current) clearInterval(timerRef.current)
+              setCounting(false)
+              return 60
+            }
+            return prev - 1
+          })
+        }, 1000)
+      })
+      .catch((e) => {
+        console.error('验证码发送 failed:', e)
+        Taro.showToast({ title: '验证码发送失败', icon: 'none' })
+      })
   }
 
   async function onSubmit() {
@@ -53,7 +60,7 @@ export default function Phone() {
             placeholder="请输入手机号"
             maxlength={11}
             value={phone}
-            onInput={e => setPhone(e.detail.value)}
+            onInput={(e) => setPhone(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
@@ -65,7 +72,7 @@ export default function Phone() {
               placeholder="请输入验证码"
               maxlength={6}
               value={code}
-              onInput={e => setCode(e.detail.value)}
+              onInput={(e) => setCode(e.detail.value)}
             />
             <Text
               className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#007aff]'}`}

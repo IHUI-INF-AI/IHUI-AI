@@ -8,72 +8,17 @@ import { Loader2, ArrowLeft, Pencil, Sparkles, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
+import { DescriptionList } from '@/components/data/DescriptionList'
 import { AgentProgressPanel } from '@/components/ai/agent-progress-panel'
 import { PlanReviewPanel } from '@/components/ai/plan-review-panel'
 import { TaskListPanel } from '@/components/ai/task-list-panel'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
-import { BackgroundAgentsPanel, AgentSwarmMonitor, PermissionConfirmDialog } from '@/components/ai'
-import type { PendingToolCall, SubAgentActivity } from '@/components/ai/types'
-
-const MOCK_STEPS = [
-  { id: 's1', title: '分析需求', status: 'done' as const, duration: 320 },
-  {
-    id: 's2',
-    title: '生成方案',
-    status: 'running' as const,
-    detail: '正在调用工具检索相关文档...',
-  },
-  { id: 's3', title: '执行修改', status: 'pending' as const },
-]
-
-const MOCK_PLAN = {
-  summary: '重构用户认证模块，拆分为独立服务',
-  steps: [
-    { id: 'p1', description: '梳理现有认证逻辑', tools: ['grep', 'read_file'] },
-    { id: 'p2', description: '抽取 AuthService', tools: ['edit_file'] },
-    { id: 'p3', description: '补充单元测试', tools: ['run_test'] },
-  ],
-}
-
-const MOCK_TASKS = [
-  {
-    id: 't1',
-    title: '编写接口文档',
-    status: 'in-progress' as const,
-    priority: 'high' as const,
-    assignee: 'Agent',
-  },
-  { id: 't2', title: '回归测试', status: 'todo' as const, priority: 'medium' as const },
-]
-
-const MOCK_ACTIVITIES: SubAgentActivity[] = [
-  {
-    agentId: 'a1',
-    name: '检索 Agent',
-    type: 'researcher',
-    status: 'completed',
-    currentStep: '',
-    completedSteps: [{ stepAction: '搜索相关代码', createdAt: '', status: 'completed' }],
-  },
-  {
-    agentId: 'a2',
-    name: '编码 Agent',
-    type: 'coder',
-    status: 'running',
-    currentStep: '编辑 auth.ts',
-    completedSteps: [],
-  },
-]
-
-const MOCK_TOOL_CALL: PendingToolCall = {
-  id: 'tc1',
-  name: 'edit_file',
-  input: { path: 'src/auth.ts', action: 'overwrite' },
-  reason: '需要修改认证逻辑',
-  iteration: 1,
-}
+import { BackgroundAgentsPanel } from '@/components/ai/background-agents-panel'
+import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
+import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dialog'
+import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 
 interface Agent {
   agentId: string
@@ -139,7 +84,6 @@ export default function AgentDetailPage() {
     hour: '2-digit',
     minute: '2-digit',
   })
-
   const statusKey = agent ? (STATUS_KEY[agent.status] ?? 'statusPending') : ''
   const statusClass = agent ? (STATUS_CLASS[agent.status] ?? STATUS_CLASS.pending) : ''
 
@@ -175,28 +119,27 @@ export default function AgentDetailPage() {
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border">
-            <div className="relative h-48 w-full bg-muted">
+            <div className="relative h-32 w-full bg-muted">
               {agent.cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={agent.cover} alt={agent.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground/40">
-                  <Sparkles className="h-12 w-12" />
+                  <Sparkles className="h-10 w-10" />
                 </div>
               )}
             </div>
-
-            <div className="space-y-4 p-6">
-              <div className="flex items-start gap-4">
+            <div className="space-y-3 p-4">
+              <div className="flex items-start gap-3">
                 <Avatar
                   src={agent.avatar ?? undefined}
                   name={agent.name ?? 'A'}
-                  size="xl"
+                  size="lg"
                   shape="square"
-                  className="-mt-12 h-20 w-20 text-2xl border-4 border-background rounded-xl"
+                  className="-mt-8 h-16 w-16 text-xl border-4 border-background rounded-xl"
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <h1 className="break-words text-2xl font-bold tracking-tight">{agent.name}</h1>
+                  <h1 className="break-words text-xl font-bold tracking-tight">{agent.name}</h1>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={cn(
@@ -212,77 +155,84 @@ export default function AgentDetailPage() {
                         {t('category')}
                       </span>
                     )}
+                    <span
+                      className={cn(
+                        'text-sm font-semibold',
+                        agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
+                      )}
+                    >
+                      {agent.isFree ? t('free') : priceFmt.format(agent.price)}
+                    </span>
                   </div>
                 </div>
               </div>
-
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{t('fieldPrice')}</span>
-                  <span
-                    className={cn(
-                      'text-lg font-semibold',
-                      agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
-                    )}
-                  >
-                    {agent.isFree ? t('free') : priceFmt.format(agent.price)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h2 className="text-sm font-medium text-muted-foreground">
-                  {t('fieldDescription')}
-                </h2>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {agent.description || t('noDescription')}
-                </p>
-              </div>
-
-              {agent.remark && (
-                <div className="space-y-2">
-                  <h2 className="text-sm font-medium text-muted-foreground">{tc('remark')}</h2>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                    {agent.remark}
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4 border-t pt-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">{t('fieldCreatedAt')}</span>
-                  <p className="mt-0.5 font-medium">{dateFmt.format(new Date(agent.createdAt))}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('fieldUpdatedAt')}</span>
-                  <p className="mt-0.5 font-medium">{dateFmt.format(new Date(agent.updatedAt))}</p>
-                </div>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                {agent.description || t('noDescription')}
+              </p>
+              <div className="border-t pt-3">
+                <DescriptionList
+                  column={3}
+                  items={[
+                    { label: t('fieldAgentId'), value: agent.agentId },
+                    { label: t('fieldCategory'), value: agent.categoryId ?? '—' },
+                    { label: t('fieldWorkspace'), value: agent.workspaceId ?? '—' },
+                    { label: t('fieldStatus'), value: t(statusKey) },
+                    {
+                      label: t('fieldPrice'),
+                      value: agent.isFree ? t('free') : priceFmt.format(agent.price),
+                    },
+                    { label: t('fieldSort'), value: agent.sort },
+                    {
+                      label: t('fieldCreatedAt'),
+                      value: dateFmt.format(new Date(agent.createdAt)),
+                    },
+                    {
+                      label: t('fieldUpdatedAt'),
+                      value: dateFmt.format(new Date(agent.updatedAt)),
+                    },
+                    { label: t('fieldRemark'), value: agent.remark ?? '—' },
+                  ]}
+                />
               </div>
             </div>
           </div>
 
-          {/* 运行时预览（示例数据） */}
-          <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground">运行时预览</h2>
-            <AgentProgressPanel steps={MOCK_STEPS} />
-            <PlanReviewPanel plan={MOCK_PLAN} />
-            <SubAgentActivityFeed swarmId={agent.agentId} activities={MOCK_ACTIVITIES} />
-            <TaskListPanel tasks={MOCK_TASKS} />
-            <div className="grid gap-4 md:grid-cols-2">
+          <Tabs defaultValue="progress" className="w-full">
+            <TabsList className="flex w-full flex-wrap">
+              <TabsTrigger value="progress">进度</TabsTrigger>
+              <TabsTrigger value="swarm">群体监控</TabsTrigger>
+              <TabsTrigger value="checkpoint">检查点</TabsTrigger>
+              <TabsTrigger value="plan">计划</TabsTrigger>
+              <TabsTrigger value="activity">活动流</TabsTrigger>
+              <TabsTrigger value="background">后台</TabsTrigger>
+              <TabsTrigger value="permission">权限</TabsTrigger>
+            </TabsList>
+            <TabsContent value="progress" className="space-y-4">
+              <AgentProgressPanel steps={[]} />
+              <TaskListPanel tasks={[]} />
+            </TabsContent>
+            <TabsContent value="swarm">
+              <AgentSwarmMonitor swarmId={agent.agentId} swarmData={null} />
+            </TabsContent>
+            <TabsContent value="checkpoint">
+              <CheckpointHistoryPanel checkpoints={[]} />
+            </TabsContent>
+            <TabsContent value="plan">
+              <PlanReviewPanel plan={{ steps: [] }} />
+            </TabsContent>
+            <TabsContent value="activity">
+              <SubAgentActivityFeed swarmId={agent.agentId} activities={[]} />
+            </TabsContent>
+            <TabsContent value="background">
               <BackgroundAgentsPanel agents={[]} />
-              <AgentSwarmMonitor swarmData={null} />
-            </div>
-            <div>
+            </TabsContent>
+            <TabsContent value="permission" className="space-y-3">
               <Button variant="outline" size="sm" onClick={() => setPermOpen(true)}>
                 查看权限确认示例
               </Button>
-              <PermissionConfirmDialog
-                open={permOpen}
-                onOpenChange={setPermOpen}
-                toolCall={MOCK_TOOL_CALL}
-              />
-            </div>
-          </section>
+              <PermissionConfirmDialog open={permOpen} onOpenChange={setPermOpen} toolCall={null} />
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
