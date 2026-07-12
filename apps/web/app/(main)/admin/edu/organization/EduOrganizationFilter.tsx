@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Plus, Download } from 'lucide-react'
 import { Input, Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -21,34 +22,35 @@ export function EduOrganizationFilter({
   onCreate,
   onExport,
 }: Props) {
+  const t = useTranslations('admin.edu.organization')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Input
-        placeholder="平台ID"
+        placeholder={t('platformId')}
         value={search.platformId}
         onChange={(e) => onSearchChange({ platformId: e.target.value })}
         className="h-9 w-40"
       />
       <Input
-        placeholder="名称"
+        placeholder={t('name')}
         value={search.name}
         onChange={(e) => onSearchChange({ name: e.target.value })}
         className="h-9 w-40"
       />
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
       <div className="ml-auto flex gap-2">
         <HasPermi code={`${PERM}add`}>
           <Button onClick={onCreate} size="sm">
             <Plus className="h-4 w-4" />
-            新建
+            {t('create')}
           </Button>
         </HasPermi>
         <HasPermi code={`${PERM}export`}>
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('export')}
           </Button>
         </HasPermi>
       </div>
