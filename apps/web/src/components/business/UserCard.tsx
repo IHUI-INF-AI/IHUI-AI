@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { UserPlus, UserCheck } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui'
@@ -28,6 +29,7 @@ function UserCardImpl({
   className,
 }: UserCardProps) {
   const [isFollowed, setIsFollowed] = React.useState(followed)
+  const t = useTranslations('common')
 
   const handleFollow = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -70,7 +72,7 @@ function UserCardImpl({
       {onFollow && (
         <Button variant={isFollowed ? 'outline' : 'default'} size="sm" onClick={handleFollow}>
           {isFollowed ? <UserCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-          {isFollowed ? '已关注' : '关注'}
+          {isFollowed ? t('followed') : t('follow')}
         </Button>
       )}
     </div>

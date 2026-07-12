@@ -32,6 +32,21 @@
     "notFoundTitle": "페이지를 찾을 수 없습니다",
     "notFoundDescription": "방문하신 페이지가 존재하지 않거나 삭제되었습니다.",
     "backHome": "백엔드로홈",
+    "reply": "답글",
+    "searchHistory": "검색 기록",
+    "clear": "지우기",
+    "follow": "팔로우",
+    "followed": "팔로잉",
+    "orderNoLabel": "주문 번호",
+    "searchPlaceholder": "검색...",
+    "orderStatus": {
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "shipped": "배송 중",
+      "completed": "완료",
+      "cancelled": "취소됨",
+      "refunded": "환불됨"
+    },
     "tools": {
       "title": "도구 센터",
       "subtitle": "플랫폼에서 제공하는 다양한 도구를 탐색하고 사용",
@@ -292,7 +307,9 @@
     "uploadFailed": "업로드실패",
     "downloadFailed": "다운로드 실패",
     "deleteConfirm": "확인필요삭제이개변화수량까？",
-    "processedFiles": "처리된 파일"
+    "processedFiles": "처리된 파일",
+    "developerTools": "개발자 도구",
+    "mentionFile": "파일 멘션"
   },
   "chat": {
     "title": "AI대화",
@@ -320,7 +337,59 @@
     "loading": "로딩 중...",
     "enterToSend": "Enter 키로 전송, Shift+Enter로 줄바꿈",
     "generating": "생성 중...",
-    "me": "나"
+    "me": "나",
+    "promptTemplate": "프롬프트 템플릿",
+    "addContextReference": "컨텍스트 참조로 추가",
+    "voiceRecord": "음성 녹음",
+    "voiceRecordLabel": "녹음 {duration}초",
+    "modelDescGpt4oMini": "빠름 · 경제적",
+    "modelDescGpt4o": "균형 · 고품질",
+    "modelDescClaude35Sonnet": "강력한 추론 · 작성",
+    "modelDescClaude35Haiku": "빠름 · 경량",
+    "slashCmd": {
+      "summary": "현재 대화 요약",
+      "translate": "텍스트 번역",
+      "explain": "개념 설명",
+      "code": "코드 생성",
+      "polish": "텍스트 다듬기"
+    },
+    "cmdSummary": "위 대화를 요약하고 핵심 정보를 추출해 주세요",
+    "cmdTranslate": "다음 내용을 영어로 번역해 주세요:",
+    "cmdExplain": "다음 개념을 자세히 설명해 주세요:",
+    "cmdCode": "다음 기능을 코드로 구현하고 주석을 추가해 주세요:",
+    "cmdPolish": "다음 텍스트를 다듬어 더 전문적이고 유창하게 만들어 주세요:",
+    "tpl": {
+      "email": {
+        "name": "이메일 작성",
+        "content": "이메일 초안을 작성해 주세요. 주제:",
+        "category": "작성"
+      },
+      "report": {
+        "name": "보고서 개요",
+        "content": "다음 주제에 대한 보고서 개요를 작성해 주세요:",
+        "category": "작성"
+      },
+      "review": {
+        "name": "코드 리뷰",
+        "content": "다음 코드를 리뷰하고 잠재적인 문제를 지적해 주세요:",
+        "category": "코드"
+      },
+      "refactor": {
+        "name": "코드 리팩터링",
+        "content": "다음 코드를 리팩터링하여 가독성을 높여주세요:",
+        "category": "코드"
+      },
+      "translate": {
+        "name": "중영 상호 번역",
+        "content": "다음 내용을 번역해 주세요:",
+        "category": "번역"
+      },
+      "summary": {
+        "name": "콘텐츠 요약",
+        "content": "다음 내용의 핵심 정보를 요약해 주세요:",
+        "category": "요약"
+      }
+    }
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -2690,7 +2759,10 @@
       "favorites": "즐겨찾기",
       "statsLoading": "통계 로딩 중...",
       "accountInfo": "계정 정보",
-      "userId": "사용자 ID"
+      "userId": "사용자 ID",
+      "aiUsage": "AI 사용량 통계",
+      "routines": "루틴",
+      "voiceRecord": "음성 녹음"
     },
     "security": {
       "title": "보안",
@@ -4097,7 +4169,9 @@
     "submitting": "제출 중...",
     "fieldAgentId": "에이전트 ID",
     "fieldWorkspace": "워크스페이스",
-    "fieldRemark": "비고"
+    "fieldRemark": "비고",
+    "marketTab": "Agent 마켓",
+    "mineTab": "나의 Agent"
   },
   "distribution": {
     "title": "유통 센터",

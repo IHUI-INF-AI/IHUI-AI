@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/data'
 
@@ -18,16 +19,16 @@ interface OrderItemProps {
   className?: string
 }
 
-const statusMap: Record<
+const statusVariantMap: Record<
   OrderStatus,
-  { label: string; variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' }
+  { variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' }
 > = {
-  pending: { label: '待付款', variant: 'warning' },
-  paid: { label: '已付款', variant: 'primary' },
-  shipped: { label: '已发货', variant: 'primary' },
-  completed: { label: '已完成', variant: 'success' },
-  cancelled: { label: '已取消', variant: 'default' },
-  refunded: { label: '已退款', variant: 'danger' },
+  pending: { variant: 'warning' },
+  paid: { variant: 'primary' },
+  shipped: { variant: 'primary' },
+  completed: { variant: 'success' },
+  cancelled: { variant: 'default' },
+  refunded: { variant: 'danger' },
 }
 
 function OrderItemImpl({
@@ -40,7 +41,8 @@ function OrderItemImpl({
   onClick,
   className,
 }: OrderItemProps) {
-  const statusInfo = statusMap[status]
+  const t = useTranslations('common')
+  const statusInfo = statusVariantMap[status]
   return (
     <div
       role="button"
@@ -59,10 +61,12 @@ function OrderItemImpl({
       )}
     >
       <div className="flex items-center justify-between border-b pb-2 text-sm text-muted-foreground">
-        <span>订单号: {orderNo}</span>
+        <span>
+          {t('orderNoLabel')}: {orderNo}
+        </span>
         <div className="flex items-center gap-2">
           {createdAt && <span className="text-xs">{createdAt}</span>}
-          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+          <Badge variant={statusInfo.variant}>{t(`orderStatus.${status}`)}</Badge>
         </div>
       </div>
       <div className="flex items-center gap-3 py-3">
