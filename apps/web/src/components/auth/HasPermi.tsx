@@ -10,7 +10,8 @@ export interface HasPermiProps {
 }
 
 function checkPermission(userPermissions: string[] | undefined, code: string | string[]): boolean {
-  if (!userPermissions || userPermissions.length === 0) return true
+  if (userPermissions === undefined) return true
+  if (userPermissions.length === 0) return false
   if (userPermissions.includes('*:*:*') || userPermissions.includes('*')) return true
   const codes = Array.isArray(code) ? code : [code]
   return codes.some((c) => userPermissions.includes(c))
@@ -31,7 +32,8 @@ export function useHasPermi(code: string | string[]): boolean {
 export function useHasRole(role: string | string[]): boolean {
   const user = useAuthStore((s) => s.user)
   const userRoles = user?.roles
-  if (!userRoles || userRoles.length === 0) return true
+  if (userRoles === undefined) return true
+  if (userRoles.length === 0) return false
   if (userRoles.includes('admin') || userRoles.includes('superadmin')) return true
   const roles = Array.isArray(role) ? role : [role]
   return roles.some((r) => userRoles.includes(r))

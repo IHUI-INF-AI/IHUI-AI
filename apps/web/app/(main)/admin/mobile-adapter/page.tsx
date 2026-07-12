@@ -18,16 +18,6 @@ interface DeviceConfig {
   status: 'adapted' | 'partial' | 'pending'
 }
 
-const MOCK_DEVICES: DeviceConfig[] = [
-  { id: '1', model: 'iPhone 15 Pro', resolution: '1179x2556', dpr: 3, status: 'adapted' },
-  { id: '2', model: 'iPhone 14', resolution: '1170x2532', dpr: 3, status: 'adapted' },
-  { id: '3', model: 'Samsung Galaxy S24', resolution: '1080x2340', dpr: 3, status: 'adapted' },
-  { id: '4', model: 'Xiaomi 14', resolution: '1200x2670', dpr: 3, status: 'partial' },
-  { id: '5', model: 'Huawei Mate 60', resolution: '1260x2688', dpr: 3, status: 'partial' },
-  { id: '6', model: 'iPad Pro 12.9', resolution: '2048x2732', dpr: 2, status: 'adapted' },
-  { id: '7', model: 'Google Pixel 8', resolution: '1080x2400', dpr: 3, status: 'pending' },
-]
-
 const PREVIEW_MODES = [
   { id: 'mobile', label: 'Mobile', width: 375 },
   { id: 'tablet', label: 'Tablet', width: 768 },
@@ -48,14 +38,16 @@ export default function MobileAdapterPage() {
   const qc = useQueryClient()
   const [previewMode, setPreviewMode] = React.useState<'mobile' | 'tablet' | 'desktop'>('mobile')
 
-  const { data: devices = MOCK_DEVICES, isLoading } = useQuery({
+  const { data: devices, isLoading } = useQuery({
     queryKey: ['admin', 'mobile-adapter'],
     queryFn: async () => {
       const r = await fetchApi<DeviceConfig[]>('/api/admin/mobile-adapter')
-      if (r.success && r.data) return r.data
-      return MOCK_DEVICES
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
+
+  const devicesList = devices ?? []
 
   const setModeMut = useMutation({
     mutationFn: async (mode: string) => {
@@ -90,7 +82,7 @@ export default function MobileAdapterPage() {
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               {tc('search')}
             </div>
-          ) : devices.length === 0 ? (
+          ) : devicesList.length === 0 ? (
             <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
               {t('mobile.noData')}
             </div>
@@ -106,7 +98,7 @@ export default function MobileAdapterPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {devices.map((d) => {
+                  {devicesList.map((d) => {
                     const st = STATUS_STYLE[d.status]
                     return (
                       <tr key={d.id} className="transition-colors hover:bg-muted/30">
