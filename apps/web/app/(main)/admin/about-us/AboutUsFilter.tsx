@@ -26,17 +26,17 @@ export function AboutUsFilter({ search, setSearch, onSearch, onReset }: Props) {
               className="h-9 w-40"
               value={search[k]}
               onChange={(e) => setSearch({ ...search, [k]: e.target.value })}
-              placeholder={`搜索${label}`}
+              placeholder={t('searchPlaceholder', { field: label })}
             />
           </div>
         )
       })}
       <Button size="sm" onClick={onSearch}>
         <Search className="h-4 w-4" />
-        搜索
+        {t('search')}
       </Button>
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
     </div>
   )

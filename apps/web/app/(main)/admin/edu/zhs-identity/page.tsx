@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -16,6 +17,7 @@ import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLUMNS, zhsIdentityToForm
 import type { ZhsIdentity, CForm, Search } from './types'
 
 export default function EduZhsIdentityPage() {
+  const t = useTranslations('admin.eduZhsIdentity')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [q, setQ] = React.useState<Search>(EMPTY_SEARCH)
@@ -49,7 +51,7 @@ export default function EduZhsIdentityPage() {
         : eduApi(`/api/admin/zhs-identity`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'zhs-identity'] })
       closeDialog()
     },
@@ -58,7 +60,7 @@ export default function EduZhsIdentityPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/zhs-identity/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'zhs-identity'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -85,12 +87,12 @@ export default function EduZhsIdentityPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.uuid.trim()) return setErr('UUID不能为空')
-    if (!form.platformId.trim()) return setErr('平台ID不能为空')
+    if (!form.uuid.trim()) return setErr(t('uuidRequired'))
+    if (!form.platformId.trim()) return setErr(t('platformIdRequired'))
     saveMut.mutate()
   }
   function handleDelete(r: ZhsIdentity) {
-    if (!window.confirm('确定删除？')) return
+    if (!window.confirm(t('deleteConfirm'))) return
     deleteMut.mutate(r.id)
   }
   function handleExport() {
@@ -98,7 +100,7 @@ export default function EduZhsIdentityPage() {
       `/api/admin/zhs-identity${buildQs({ ...q, pageSize: 10000 })}`,
       `zhsIdentity_${Date.now()}`,
       EXPORT_COLUMNS,
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFail')))
   }
 
   const total = data?.total ?? 0
@@ -116,20 +118,20 @@ export default function EduZhsIdentityPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">平台身份</h1>
-          <p className="mt-1 text-sm text-muted-foreground">教育平台身份标识管理</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}add`}>
             <Button onClick={openCreate} size="sm">
               <Plus className="h-4 w-4" />
-              新建
+              {t('create')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
         </div>
@@ -149,7 +151,7 @@ export default function EduZhsIdentityPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -158,18 +160,16 @@ export default function EduZhsIdentityPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
-          </span>
+          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

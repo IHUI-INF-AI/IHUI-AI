@@ -18,6 +18,7 @@ import type { ApiKey, WebhookConfig, SdkItem } from './types'
 
 export default function DeveloperPage() {
   const t = useTranslations('adminTools')
+  const td = useTranslations('admin.developer')
   const qc = useQueryClient()
   const [keyOpen, setKeyOpen] = React.useState(false)
   const [keyName, setKeyName] = React.useState('')
@@ -116,7 +117,7 @@ export default function DeveloperPage() {
         <HasPermi code="ai:developer:export">
           <Button variant="outline" size="sm" onClick={coze.handleCozeExport}>
             <Download className="h-4 w-4" />
-            导出 Coze 账号
+            {td('cozeExport')}
           </Button>
         </HasPermi>
       </div>
