@@ -13,7 +13,10 @@ export default function Phone() {
   useDidShow(async () => {
     try {
       setPhone((await getProfile()).phone || '')
-    } catch {}
+    } catch (e) {
+      console.error('[user/phone] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   })
 
   function sendCode() {
@@ -46,7 +49,10 @@ export default function Phone() {
       await bindPhone(phone, code)
       Taro.showToast({ title: '绑定成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch {}
+    } catch (e) {
+      console.error('[user/phone] 绑定手机号 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }
 
   return (

@@ -24,10 +24,25 @@ import { deleteFile } from '../services/storage-service.js'
  * - db.execute 返回行数组（非 .rows）
  */
 export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  const idParam = z.object({ id: z.string() })
+  const userIdQuery = z.object({ userId: z.string() })
+  const paginatedUserIdQuery = z.object({
+    userId: z.string(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+
   // ========== D1: 考试报名 sign-up CRUD (5端点) ==========
   // 报名列表
   fastify.get('/exam/signups', async (request) => {
-    const { examId, userId, page = 1, pageSize = 20 } = request.query as any
+    const { examId, userId, page, pageSize } = z
+      .object({
+        examId: z.string().optional(),
+        userId: z.string().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const conditions = []
     if (examId) conditions.push(eq(examSignups.paperId, examId))
     if (userId) conditions.push(eq(examSignups.userId, userId))
@@ -58,7 +73,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // 报名详情
   fastify.get('/exam/signups/:id', async (request, reply) => {
-    const { id } = request.params as any
+    const { id } = idParam.parse(request.params)
     const result = await db.select().from(examSignups).where(eq(examSignups.id, id)).limit(1)
     if (!result[0]) return reply.code(404).send({ error: '报名记录不存在' })
     return result[0]
@@ -66,14 +81,16 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // 取消报名
   fastify.delete('/exam/signups/:id', async (request) => {
-    const { id } = request.params as any
+    const { id } = idParam.parse(request.params)
     await db.delete(examSignups).where(eq(examSignups.id, id))
     return { deleted: true }
   })
 
   // 检查是否已报名
   fastify.get('/exam/signups/check', async (request) => {
-    const { examId, userId } = request.query as any
+    const { examId, userId } = z
+      .object({ examId: z.string(), userId: z.string() })
+      .parse(request.query)
     const result = await db
       .select()
       .from(examSignups)
@@ -104,7 +121,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/exam/favorites', async (request) => {
-    const { userId } = request.query as any
+    const { userId } = userIdQuery.parse(request.query)
     // user_favorites 使用 resource_type / resource_id
     const rows = await db.execute(
       sql`SELECT e.* FROM exam_papers e JOIN user_favorites f ON f.resource_id::text = e.id::text WHERE f.user_id = ${userId} AND f.resource_type = 'exam'`,
@@ -114,7 +131,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D3: 学习时间统计 (3端点) ==========
   fastify.get('/learn/stats/total-time', async (request) => {
-    const { userId } = request.query as any
+    const { userId } = userIdQuery.parse(request.query)
     // learn_record 表使用 member_id / learn_time（秒）
     const rows = await db.execute(
       sql`SELECT COALESCE(SUM(learn_time), 0)::int AS total_seconds FROM learn_record WHERE member_id = ${userId}`,
@@ -124,7 +141,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/learn/stats/today-time', async (request) => {
-    const { userId } = request.query as any
+    const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT COALESCE(SUM(learn_time), 0)::int AS today_seconds FROM learn_record WHERE member_id = ${userId} AND created_at >= CURRENT_DATE`,
     )
@@ -133,7 +150,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/learn/stats/rank-percent', async (request) => {
-    const { userId } = request.query as any
+    const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(sql`
       WITH user_total AS (
         SELECT member_id, SUM(learn_time) as total FROM learn_record GROUP BY member_id
@@ -155,13 +172,13 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/learn/topics/:id', async (request) => {
-    const { id } = request.params as any
+    const { id } = idParam.parse(request.params)
     const rows = await db.execute(sql`SELECT * FROM learn_topic WHERE id = ${id}`)
     return (rows[0] as Record<string, unknown> | undefined) || { error: '专题不存在' }
   })
 
   fastify.get('/learn/topics/:id/lessons', async (request) => {
-    const { id } = request.params as any
+    const { id } = idParam.parse(request.params)
     const rows = await db.execute(
       sql`SELECT l.* FROM lessons l JOIN learn_topic_lesson tl ON tl.lesson_id = l.id WHERE tl.topic_id = ${id}`,
     )
@@ -185,7 +202,9 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.delete('/live/unsubscribe', async (request) => {
-    const { channelId, userId } = request.query as any
+    const { channelId, userId } = z
+      .object({ channelId: z.string(), userId: z.string() })
+      .parse(request.query)
     await db
       .delete(subscriptions)
       .where(and(eq(subscriptions.userId, userId), eq(subscriptions.targetId, channelId)))
@@ -201,7 +220,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/ask/member/question-count', async (request) => {
-    const { userId } = request.query as any
+    const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
     )
@@ -209,7 +228,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/ask/member/answer-count', async (request) => {
-    const { userId } = request.query as any
+    const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM ask_answers WHERE user_id = ${userId}`,
     )
@@ -217,7 +236,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/ask/member/questions', async (request) => {
-    const { userId, page = 1, pageSize = 20 } = request.query as any
+    const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
     const list = await db
       .select()
       .from(asks)
@@ -228,7 +247,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/ask/member/answers', async (request) => {
-    const { userId, page = 1, pageSize = 20 } = request.query as any
+    const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
     const list = await db
       .select()
       .from(askAnswers)
@@ -240,14 +259,14 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D8: 回答删除/更新 (2端点) ==========
   fastify.delete('/ask/answers/:id', async (request) => {
-    const { id } = request.params as any
+    const { id } = idParam.parse(request.params)
     await db.delete(askAnswers).where(eq(askAnswers.id, id))
     return { deleted: true }
   })
 
   fastify.patch('/ask/answers/:id', async (request) => {
-    const { id } = request.params as any
-    const { content } = request.body as any
+    const { id } = idParam.parse(request.params)
+    const { content } = z.object({ content: z.string() }).parse(request.body)
     const [updated] = await db
       .update(askAnswers)
       .set({ content })
@@ -302,7 +321,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.get('/oss/to-base64', async (request, reply) => {
-    const { url } = request.query as any
+    const { url } = z.object({ url: z.string().url() }).parse(request.query)
     try {
       const response = await fetch(url)
       const buffer = Buffer.from(await response.arrayBuffer())
@@ -321,7 +340,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D16: 错题删除 ==========
   fastify.delete('/exam/wrong-questions/:id', async (request) => {
-    const { id } = request.params as any
+    const { id } = idParam.parse(request.params)
     await db.delete(examWrongQuestion).where(eq(examWrongQuestion.id, id))
     return { deleted: true }
   })

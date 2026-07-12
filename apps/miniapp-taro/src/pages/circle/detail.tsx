@@ -11,7 +11,12 @@ export default function CircleDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return
-    try { setData(await getCircleDetail(id)) } catch {}
+    try {
+      setData(await getCircleDetail(id))
+    } catch (e) {
+      console.error('[circle/detail] 获取动态详情 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [id])
 
   useDidShow(() => {
@@ -23,18 +28,21 @@ export default function CircleDetailPage() {
     }
   })
 
-  const previewImg = useCallback((i: number) => {
-    Taro.previewImage({ urls: data.images || [], current: data.images?.[i] || '' })
-  }, [data.images])
+  const previewImg = useCallback(
+    (i: number) => {
+      Taro.previewImage({ urls: data.images || [], current: data.images?.[i] || '' })
+    },
+    [data.images],
+  )
 
   const onFollow = useCallback(() => {
     Taro.showToast({ title: '关注成功', icon: 'success' })
   }, [])
 
   const onLike = useCallback(() => {
-    setLiked(prev => {
+    setLiked((prev) => {
       const next = !prev
-      setData(d => ({ ...d, likes: (d.likes || 0) + (next ? 1 : -1) }))
+      setData((d) => ({ ...d, likes: (d.likes || 0) + (next ? 1 : -1) }))
       return next
     })
   }, [])
@@ -47,12 +55,18 @@ export default function CircleDetailPage() {
     <View className="page">
       {data.author ? (
         <View className="head">
-          <Image className="avatar" src={data.avatar || '/static/default-avatar.png'} mode="aspectFill" />
+          <Image
+            className="avatar"
+            src={data.avatar || '/static/default-avatar.png'}
+            mode="aspectFill"
+          />
           <View className="user-info">
             <Text className="name">{data.author}</Text>
             <Text className="time">{data.createTime}</Text>
           </View>
-          <Button className="follow" size="mini" onClick={onFollow}>关注</Button>
+          <Button className="follow" size="mini" onClick={onFollow}>
+            关注
+          </Button>
         </View>
       ) : null}
 
@@ -63,7 +77,13 @@ export default function CircleDetailPage() {
           {data.images?.length ? (
             <View className="images">
               {data.images.map((img, i) => (
-                <Image key={i} className="img" src={img} mode="aspectFill" onClick={() => previewImg(i)} />
+                <Image
+                  key={i}
+                  className="img"
+                  src={img}
+                  mode="aspectFill"
+                  onClick={() => previewImg(i)}
+                />
               ))}
             </View>
           ) : null}
@@ -72,10 +92,17 @@ export default function CircleDetailPage() {
 
       <View className="actions">
         <View className={`action${liked ? ' active' : ''}`} onClick={onLike}>
-          <Text>♡</Text><Text>{data.likes || 0}</Text>
+          <Text>♡</Text>
+          <Text>{data.likes || 0}</Text>
         </View>
-        <View className="action"><Text>💬</Text><Text>{data.comments || 0}</Text></View>
-        <View className="action" onClick={onShare}><Text>↗</Text><Text>分享</Text></View>
+        <View className="action">
+          <Text>💬</Text>
+          <Text>{data.comments || 0}</Text>
+        </View>
+        <View className="action" onClick={onShare}>
+          <Text>↗</Text>
+          <Text>分享</Text>
+        </View>
       </View>
     </View>
   )
