@@ -31,10 +31,22 @@ const courseSchema = z.object({
 
 const updateSchema = courseSchema.partial().extend({ id: z.string().uuid() })
 
+const pageQuery = {
+  page: z.coerce.number().optional().default(1),
+  pageSize: z.coerce.number().optional().default(20),
+}
+
 export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // 课程列表
   fastify.get('/list', async (request) => {
-    const { page = 1, pageSize = 20, keyword, status, categoryId } = request.query as any
+    const { page, pageSize, keyword, status, categoryId } = z
+      .object({
+        ...pageQuery,
+        keyword: z.string().optional(),
+        status: z.coerce.number().optional(),
+        categoryId: z.string().optional(),
+      })
+      .parse(request.query)
     const offset = (Number(page) - 1) * Number(pageSize)
     const conditions = []
     if (keyword) conditions.push(sql`${lessons.title} ILIKE ${`%${keyword}%`}`)
@@ -137,7 +149,14 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== 课程视频 CRUD (9端点) ==========
   // 视频列表
   fastify.get('/videos', async (request) => {
-    const { courseId, page = 1, pageSize = 20, status, keyword } = request.query as any
+    const { courseId, page, pageSize, status, keyword } = z
+      .object({
+        ...pageQuery,
+        courseId: z.coerce.number().optional(),
+        status: z.coerce.number().optional(),
+        keyword: z.string().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (courseId) conditions.push(eq(zhsCourseVideo.courseId, Number(courseId)))
     if (status !== undefined) conditions.push(eq(zhsCourseVideo.status, Number(status)))
@@ -159,7 +178,13 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 我的视频（静态路由，须在 /:video_id 之前注册）
   fastify.get('/videos/my', async (request) => {
-    const { userUuid, courseId, page = 1, pageSize = 20 } = request.query as any
+    const { userUuid, courseId, page, pageSize } = z
+      .object({
+        ...pageQuery,
+        userUuid: z.string(),
+        courseId: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions = [eq(zhsCourseVideo.creator, userUuid)]
     if (courseId) conditions.push(eq(zhsCourseVideo.courseId, Number(courseId)))
     const list = await db
@@ -328,7 +353,13 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== 课程分类 (2端点) ==========
   // 分类列表
   fastify.get('/categories', async (request) => {
-    const { type, parentId, status } = request.query as any
+    const { type, parentId, status } = z
+      .object({
+        type: z.string().optional(),
+        parentId: z.coerce.number().optional(),
+        status: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (type) conditions.push(eq(zhsCategoryDictionary.type, type))
     if (parentId !== undefined)
@@ -364,7 +395,9 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== 教育平台 (5端点) ==========
   // 平台列表
   fastify.get('/platforms', async (request) => {
-    const { status, keyword } = request.query as any
+    const { status, keyword } = z
+      .object({ status: z.coerce.number().optional(), keyword: z.string().optional() })
+      .parse(request.query)
     const conditions = []
     if (status !== undefined) conditions.push(eq(zhsEducationPlatform.status, Number(status)))
     if (keyword) conditions.push(sql`${zhsEducationPlatform.name} ILIKE ${`%${keyword}%`}`)
@@ -496,7 +529,12 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 支付日志
   fastify.get('/pay-logs', async (request) => {
-    const { payId, page = 1, pageSize = 20 } = request.query as any
+    const { payId, page, pageSize } = z
+      .object({
+        ...pageQuery,
+        payId: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (payId) conditions.push(eq(zhsCoursePayLog.payId, Number(payId)))
     const where = conditions.length ? and(...conditions) : sql`TRUE`
@@ -513,7 +551,13 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== 课程评论 (4端点) ==========
   // 评论列表
   fastify.get('/comments', async (request) => {
-    const { videoId, page = 1, pageSize = 20, status } = request.query as any
+    const { videoId, page, pageSize, status } = z
+      .object({
+        ...pageQuery,
+        videoId: z.coerce.number().optional(),
+        status: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (videoId) conditions.push(eq(zhsUserVideoComment.videoId, Number(videoId)))
     if (status !== undefined) conditions.push(eq(zhsUserVideoComment.status, Number(status)))
@@ -552,7 +596,12 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 父评论列表
   fastify.get('/comments/parent', async (request) => {
-    const { videoId, page = 1, pageSize = 20 } = request.query as any
+    const { videoId, page, pageSize } = z
+      .object({
+        ...pageQuery,
+        videoId: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const list = await db
       .select()
       .from(zhsUserVideoComment)
@@ -602,7 +651,14 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 视频日志列表
   fastify.get('/video-log/list', async (request) => {
-    const { videoId, userUuid, action, page = 1, pageSize = 20 } = request.query as any
+    const { videoId, userUuid, action, page, pageSize } = z
+      .object({
+        ...pageQuery,
+        videoId: z.coerce.number().optional(),
+        userUuid: z.string().optional(),
+        action: z.string().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (videoId) conditions.push(eq(zhsUserVideoLog.videoId, Number(videoId)))
     if (userUuid) conditions.push(eq(zhsUserVideoLog.userUuid, userUuid))
@@ -621,7 +677,13 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== 操作日志 (2端点) ==========
   // Token 操作日志列表
   fastify.get('/operate/list', async (request) => {
-    const { userId, type, page = 1, pageSize = 20 } = request.query as any
+    const { userId, type, page, pageSize } = z
+      .object({
+        ...pageQuery,
+        userId: z.string().optional(),
+        type: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (userId) conditions.push(eq(zhsOperateTokenFlow.userId, userId))
     if (type !== undefined) conditions.push(eq(zhsOperateTokenFlow.type, Number(type)))
@@ -638,7 +700,13 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 平台操作日志列表
   fastify.get('/platform-logs', async (request) => {
-    const { courseId, platformId, page = 1, pageSize = 20 } = request.query as any
+    const { courseId, platformId, page, pageSize } = z
+      .object({
+        ...pageQuery,
+        courseId: z.coerce.number().optional(),
+        platformId: z.coerce.number().optional(),
+      })
+      .parse(request.query)
     const conditions = []
     if (courseId) conditions.push(eq(zhsCoursePlatformLog.courseId, Number(courseId)))
     if (platformId) conditions.push(eq(zhsCoursePlatformLog.platformId, Number(platformId)))
@@ -674,7 +742,9 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 解绑用户平台
   fastify.delete('/user-platform/unbind', async (request) => {
-    const { userUuid, platformId } = request.query as any
+    const { userUuid, platformId } = z
+      .object({ userUuid: z.string(), platformId: z.coerce.number().optional() })
+      .parse(request.query)
     await db
       .delete(zhsUserPlatform)
       .where(
@@ -688,7 +758,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 我的平台
   fastify.get('/user-platform/my', async (request) => {
-    const { userUuid } = request.query as any
+    const { userUuid } = z.object({ userUuid: z.string() }).parse(request.query)
     const list = await db
       .select()
       .from(zhsUserPlatform)
