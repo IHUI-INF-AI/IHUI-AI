@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -12,8 +12,9 @@ import {
   findAllWatchList,
 } from '../db/behavior-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { sql } from 'drizzle-orm'
+import { sql, eq, and, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { behaviorFavorite } from '@ihui/database'
 
 // =============================================================================
 // Zod schemas
@@ -595,20 +596,27 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       const { topicId, topicType } = parsed.data
       const userId = request.userId!
       try {
-        const existing = await db.execute(sql`
-        SELECT id FROM behavior_favorite
-        WHERE user_id = ${userId} AND target_type = ${topicType} AND target_id = ${parseInt(topicId, 10)}
-        LIMIT 1
-      `)
+        const existing = await db
+          .select({ id: behaviorFavorite.id })
+          .from(behaviorFavorite)
+          .where(
+            and(
+              eq(behaviorFavorite.userId, userId),
+              eq(behaviorFavorite.targetType, topicType),
+              eq(behaviorFavorite.targetId, parseInt(topicId, 10)),
+            ),
+          )
+          .limit(1)
         if (existing.length > 0) {
           return reply.send(
             success({ topicId, topicType, favorited: true, alreadyFavorited: true }),
           )
         }
-        await db.execute(sql`
-        INSERT INTO behavior_favorite (user_id, target_type, target_id)
-        VALUES (${userId}, ${topicType}, ${parseInt(topicId, 10)})
-      `)
+        await db.insert(behaviorFavorite).values({
+          userId,
+          targetType: topicType,
+          targetId: parseInt(topicId, 10),
+        })
         return reply.send(success({ topicId, topicType, favorited: true }))
       } catch (e) {
         request.log.error(e)
@@ -652,10 +660,15 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       const { topicId, topicType } = parsed.data
       const userId = request.userId!
       try {
-        await db.execute(sql`
-        DELETE FROM behavior_favorite
-        WHERE user_id = ${userId} AND target_type = ${topicType} AND target_id = ${parseInt(topicId, 10)}
-      `)
+        await db
+          .delete(behaviorFavorite)
+          .where(
+            and(
+              eq(behaviorFavorite.userId, userId),
+              eq(behaviorFavorite.targetType, topicType),
+              eq(behaviorFavorite.targetId, parseInt(topicId, 10)),
+            ),
+          )
         return reply.send(success({ topicId, topicType, favorited: false }))
       } catch (e) {
         request.log.error(e)
@@ -699,11 +712,17 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       const { topicId, topicType } = parsed.data
       const userId = request.userId!
       try {
-        const rows = await db.execute(sql`
-        SELECT id FROM behavior_favorite
-        WHERE user_id = ${userId} AND target_type = ${topicType} AND target_id = ${parseInt(topicId, 10)}
-        LIMIT 1
-      `)
+        const rows = await db
+          .select({ id: behaviorFavorite.id })
+          .from(behaviorFavorite)
+          .where(
+            and(
+              eq(behaviorFavorite.userId, userId),
+              eq(behaviorFavorite.targetType, topicType),
+              eq(behaviorFavorite.targetId, parseInt(topicId, 10)),
+            ),
+          )
+          .limit(1)
         const favorited = rows.length > 0
         return reply.send(success({ topicId, topicType, favorited }))
       } catch (e) {
@@ -753,12 +772,22 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
         const whereClause = topicType
           ? sql`WHERE user_id = ${userId} AND target_type = ${topicType}`
           : sql`WHERE user_id = ${userId}`
-        const listRows = await db.execute(sql`
-        SELECT id, target_type, target_id, created_at
-        FROM behavior_favorite ${whereClause}
-        ORDER BY created_at DESC
-        LIMIT ${pageSize} OFFSET ${offset}
-      `)
+        const listRows = await db
+          .select({
+            id: behaviorFavorite.id,
+            target_type: behaviorFavorite.targetType,
+            target_id: behaviorFavorite.targetId,
+            created_at: behaviorFavorite.createdAt,
+          })
+          .from(behaviorFavorite)
+          .where(
+            topicType
+              ? and(eq(behaviorFavorite.userId, userId), eq(behaviorFavorite.targetType, topicType))
+              : eq(behaviorFavorite.userId, userId),
+          )
+          .orderBy(desc(behaviorFavorite.createdAt))
+          .limit(pageSize)
+          .offset(offset)
         const countRows = await db.execute(sql`
         SELECT count(*)::int AS count FROM behavior_favorite ${whereClause}
       `)

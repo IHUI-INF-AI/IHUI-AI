@@ -23,7 +23,7 @@ import {
   acceptAnswer,
 } from '../db/community-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { sql, eq, and, desc } from 'drizzle-orm'
+import { sql, eq, and, desc, asc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
   circles,
@@ -33,6 +33,8 @@ import {
   circleDynamic,
   circleCategoryRelation,
   circleCircleCategoryRelation,
+  circleCategories,
+  circleMembers,
 } from '@ihui/database'
 
 const ADMIN_ROLE_ID = 1
@@ -248,12 +250,18 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
     },
     async (_request, reply) => {
       try {
-        const rows = await db.execute(sql`
-        SELECT id, pid, name, sort_order, is_show, icon
-        FROM circle_categories
-        WHERE is_show = true
-        ORDER BY sort_order ASC, name ASC
-      `)
+        const rows = await db
+          .select({
+            id: circleCategories.id,
+            pid: circleCategories.pid,
+            name: circleCategories.name,
+            sort_order: circleCategories.sortOrder,
+            is_show: circleCategories.isShow,
+            icon: circleCategories.icon,
+          })
+          .from(circleCategories)
+          .where(eq(circleCategories.isShow, true))
+          .orderBy(asc(circleCategories.sortOrder), asc(circleCategories.name))
         const categories = rows as unknown as Array<{
           id: string
           pid: string | null
@@ -408,11 +416,18 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
       }
       const userId = request.userId!
       try {
-        await db.execute(sql`
-        INSERT INTO circle_members (circle_id, user_id, role, status)
-        VALUES (${circle.id}, ${userId}, 'member', 1)
-        ON CONFLICT (circle_id, user_id) DO UPDATE SET status = 1, updated_at = now()
-      `)
+        await db
+          .insert(circleMembers)
+          .values({
+            circleId: circle.id,
+            userId,
+            role: 'member',
+            status: 1,
+          })
+          .onConflictDoUpdate({
+            target: [circleMembers.circleId, circleMembers.userId],
+            set: { status: 1, updatedAt: new Date() },
+          })
         return reply.status(201).send(success({ circleId: circle.id, userId, joined: true }))
       } catch (e) {
         request.log.error(e)
@@ -467,10 +482,10 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
       }
       const userId = request.userId!
       try {
-        await db.execute(sql`
-        UPDATE circle_members SET status = 0, updated_at = now()
-        WHERE circle_id = ${circle.id} AND user_id = ${userId}
-      `)
+        await db
+          .update(circleMembers)
+          .set({ status: 0, updatedAt: new Date() })
+          .where(and(eq(circleMembers.circleId, circle.id), eq(circleMembers.userId, userId)))
         return reply.send(success({ circleId: circle.id, userId, left: true }))
       } catch (e) {
         request.log.error(e)
