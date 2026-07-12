@@ -1,4 +1,5 @@
 import { View, Text, Textarea, Button, Image } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
 import './image.css'
@@ -22,7 +23,12 @@ export default function ImagePage() {
     try {
       const res = await generateImage({ prompt, size })
       setResult(res.url)
-    } catch {} finally { setLoading(false) }
+    } catch (e) {
+      console.error('[ai/image] 生成图片 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } finally {
+      setLoading(false)
+    }
   }, [prompt, size, loading])
 
   return (
@@ -41,8 +47,10 @@ export default function ImagePage() {
         <View className="examples">
           <Text className="ex-title">试试这些：</Text>
           <View className="ex-list">
-            {examples.map(ex => (
-              <Text key={ex} className="ex-item" onClick={() => setPrompt(ex)}>{ex}</Text>
+            {examples.map((ex) => (
+              <Text key={ex} className="ex-item" onClick={() => setPrompt(ex)}>
+                {ex}
+              </Text>
             ))}
           </View>
         </View>
@@ -53,23 +61,23 @@ export default function ImagePage() {
           value={prompt}
           placeholder="描述你想要生成的图片..."
           maxlength={500}
-          onInput={e => setPrompt(e.detail.value)}
+          onInput={(e) => setPrompt(e.detail.value)}
         />
         <View className="form-row">
           <View className="size-selector">
-            {sizes.map(s => (
+            {sizes.map((s) => (
               <Text
                 key={s.value}
                 className={`size${size === s.value ? ' active' : ''}`}
                 onClick={() => setSize(s.value)}
-              >{s.label}</Text>
+              >
+                {s.label}
+              </Text>
             ))}
           </View>
-          <Button
-            className="btn"
-            onClick={onGenerate}
-            disabled={!prompt || loading}
-          >{loading ? '生成中' : '生成'}</Button>
+          <Button className="btn" onClick={onGenerate} disabled={!prompt || loading}>
+            {loading ? '生成中' : '生成'}
+          </Button>
         </View>
       </View>
     </View>

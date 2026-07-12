@@ -21,7 +21,10 @@ export default function AgentDetailPage() {
     if (!id) return
     try {
       setAgent(await getAgentDetail(id))
-    } catch {}
+    } catch (e) {
+      console.error('[ai/agent-detail] 获取Agent详情 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [router.params.id])
 
   useDidShow(() => {

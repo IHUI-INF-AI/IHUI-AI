@@ -13,10 +13,15 @@ export default function Nickname() {
       const name = profile.nickname || ''
       setNickname(name)
       setOriginal(name)
-    } catch {}
+    } catch (e) {
+      console.error('[user/nickname] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   async function onSubmit() {
     if (!nickname.trim()) {
@@ -26,7 +31,10 @@ export default function Nickname() {
       await updateUserNickname(nickname.trim())
       Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch {}
+    } catch (e) {
+      console.error('[user/nickname] 修改昵称 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }
 
   return (
@@ -43,7 +51,7 @@ export default function Nickname() {
             type="text"
             placeholder="请输入昵称"
             value={nickname}
-            onInput={e => setNickname(e.detail.value)}
+            onInput={(e) => setNickname(e.detail.value)}
           />
         </View>
       </View>
