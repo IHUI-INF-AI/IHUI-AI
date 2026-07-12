@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { Plus, Trash2, Download, ChevronLeft } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button, Input } from '@ihui/ui'
 import { PERM } from './helpers'
@@ -30,53 +31,54 @@ export function CategoryFilter({
   onExport,
   hasSelection,
 }: Props) {
+  const t = useTranslations('admin.edu.course.categories')
   const inputCls = 'h-9 w-36'
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button asChild variant="ghost" size="sm">
         <Link href="/admin/edu/course">
           <ChevronLeft className="h-4 w-4" />
-          返回课程管理
+          {t('backToCourse')}
         </Link>
       </Button>
       <Input
-        placeholder="编码"
+        placeholder={t('filter.codePlaceholder')}
         value={q.code}
         onChange={(e) => onQChange({ code: e.target.value })}
         className={inputCls}
       />
       <Input
-        placeholder="名称"
+        placeholder={t('filter.namePlaceholder')}
         value={q.name}
         onChange={(e) => onQChange({ name: e.target.value })}
         className={inputCls}
       />
       <Input
-        placeholder="父ID"
+        placeholder={t('filter.prentIdPlaceholder')}
         value={q.prentId}
         onChange={(e) => onQChange({ prentId: e.target.value })}
         className={inputCls}
       />
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
       <div className="ml-auto flex gap-2">
         <HasPermi code={`${PERM}add`}>
           <Button onClick={onCreate} size="sm">
             <Plus className="h-4 w-4" />
-            新建
+            {t('create')}
           </Button>
         </HasPermi>
         <HasPermi code={`${PERM}remove`}>
           <Button variant="outline" size="sm" disabled={!hasSelection} onClick={onBatchDelete}>
             <Trash2 className="h-4 w-4" />
-            批量删除
+            {t('batchDelete')}
           </Button>
         </HasPermi>
         <HasPermi code={`${PERM}export`}>
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('export')}
           </Button>
         </HasPermi>
       </div>
