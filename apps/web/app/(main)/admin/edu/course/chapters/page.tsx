@@ -16,6 +16,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { eduApi, buildQs, selectClass } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
 import {
   Dialog,
   DialogContent,
@@ -151,7 +152,7 @@ export default function EduCourseChaptersPage() {
   }
 
   const rows = chapters ?? []
-  const noEndpoint = !!(error as Error) && (error as Error).message.includes('请求失败')
+  const noEndpoint = isNotFound(error)
 
   return (
     <div className="space-y-4">
