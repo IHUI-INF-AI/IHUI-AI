@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -523,7 +523,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /help/articles - 列出全部帮助文章(含未发布)
   server.get('/help/articles', async (request, reply) => {
-    const category = (request.query as { category?: string })?.category
+    const { category } = z.object({ category: z.string().optional() }).parse(request.query)
     const list = await findHelpArticles(category)
     return reply.send(success({ list }))
   })
@@ -590,7 +590,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /docs - 列出全部文档(含未发布)
   server.get('/docs', async (request, reply) => {
-    const category = (request.query as { category?: string })?.category
+    const { category } = z.object({ category: z.string().optional() }).parse(request.query)
     const list = await findAllDocs(category)
     return reply.send(success({ list }))
   })
