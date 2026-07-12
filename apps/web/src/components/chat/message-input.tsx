@@ -22,30 +22,15 @@ interface ReferenceItem {
   preview?: string
 }
 
-const SLASH_COMMANDS = [
-  { id: 'summary', label: '/summary', description: '总结当前对话' },
-  { id: 'translate', label: '/translate', description: '翻译文本' },
-  { id: 'explain', label: '/explain', description: '解释概念' },
-  { id: 'code', label: '/code', description: '生成代码' },
-  { id: 'polish', label: '/polish', description: '润色文本' },
-]
-
-const COMMAND_TEMPLATES: Record<string, string> = {
-  summary: '请总结以上对话内容，提炼关键信息',
-  translate: '请将以下内容翻译为英文：',
-  explain: '请详细解释以下概念：',
-  code: '请用代码实现以下功能，并添加注释：',
-  polish: '请润色以下文本，使其更专业流畅：',
-}
-
-const PROMPT_TEMPLATES = [
-  { id: 'email', name: '邮件起草', content: '请帮我起草一封邮件，主题为：', category: '写作' },
-  { id: 'report', name: '报告大纲', content: '请为以下主题生成报告大纲：', category: '写作' },
-  { id: 'review', name: '代码审查', content: '请审查以下代码，指出潜在问题：', category: '代码' },
-  { id: 'refactor', name: '代码重构', content: '请重构以下代码，提升可读性：', category: '代码' },
-  { id: 'translate', name: '中英互译', content: '请将以下内容翻译：', category: '翻译' },
-  { id: 'summary', name: '内容总结', content: '请总结以下内容的关键信息：', category: '总结' },
-]
+const SLASH_COMMAND_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
+const PROMPT_TEMPLATE_IDS = [
+  'email',
+  'report',
+  'review',
+  'refactor',
+  'translate',
+  'summary',
+] as const
 
 const MENTION_FILES = [
   { id: 'f1', name: 'auth.ts', path: 'src/auth.ts' },
@@ -78,6 +63,27 @@ export function MessageInput({
   const [voiceOpen, setVoiceOpen] = React.useState(false)
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+
+  const slashCommands = SLASH_COMMAND_IDS.map((id) => ({
+    id,
+    label: `/${id}`,
+    description: t(`slashCmd.${id}`),
+  }))
+
+  const commandTemplates: Record<string, string> = {
+    summary: t('cmdSummary'),
+    translate: t('cmdTranslate'),
+    explain: t('cmdExplain'),
+    code: t('cmdCode'),
+    polish: t('cmdPolish'),
+  }
+
+  const promptTemplates = PROMPT_TEMPLATE_IDS.map((id) => ({
+    id,
+    name: t(`tpl.${id}.name`),
+    content: t(`tpl.${id}.content`),
+    category: t(`tpl.${id}.category`),
+  }))
 
   // 自动调整高度
   const resize = React.useCallback(() => {
@@ -119,7 +125,7 @@ export function MessageInput({
     const ref: ReferenceItem = {
       id: `voice-${Date.now()}`,
       type: 'file',
-      label: `录音 ${duration}s`,
+      label: t('voiceRecordLabel', { duration }),
       preview: URL.createObjectURL(blob),
     }
     setReferences((prev) => [...prev, ref])
@@ -139,7 +145,7 @@ export function MessageInput({
   }
 
   const handleCommandSelect = (id: string) => {
-    fillInput(COMMAND_TEMPLATES[id] ?? '')
+    fillInput(commandTemplates[id] ?? '')
   }
 
   const handleTemplateSelect = (content: string) => {
@@ -200,7 +206,7 @@ export function MessageInput({
           </div>
         )}
         <SlashCommandPalette
-          commands={SLASH_COMMANDS}
+          commands={slashCommands}
           onSelect={handleCommandSelect}
           open={slashOpen}
           onClose={() => setSlashOpen(false)}
@@ -237,8 +243,8 @@ export function MessageInput({
               <button
                 type="button"
                 disabled
-                aria-label="提示词模板"
-                title="提示词模板"
+                aria-label={t('promptTemplate')}
+                title={t('promptTemplate')}
                 className="flex h-9 w-9 shrink-0 cursor-not-allowed items-center justify-center rounded-lg bg-muted text-muted-foreground/50"
               >
                 <FileText className="h-4 w-4" />
@@ -247,7 +253,7 @@ export function MessageInput({
               <Popover
                 content={
                   <div className="w-72">
-                    <PromptTemplates templates={PROMPT_TEMPLATES} onSelect={handleTemplateSelect} />
+                    <PromptTemplates templates={promptTemplates} onSelect={handleTemplateSelect} />
                   </div>
                 }
                 position="top"
@@ -255,8 +261,8 @@ export function MessageInput({
               >
                 <button
                   type="button"
-                  aria-label="提示词模板"
-                  title="提示词模板"
+                  aria-label={t('promptTemplate')}
+                  title={t('promptTemplate')}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors hover:bg-accent"
                 >
                   <FileText className="h-4 w-4" />
@@ -267,8 +273,8 @@ export function MessageInput({
               type="button"
               onClick={addTextReference}
               disabled={isStreaming || value.trim().length === 0}
-              aria-label="添加为上下文引用"
-              title="添加为上下文引用"
+              aria-label={t('addContextReference')}
+              title={t('addContextReference')}
               className={cn(
                 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
                 'bg-muted text-muted-foreground hover:bg-accent',
@@ -281,8 +287,8 @@ export function MessageInput({
               type="button"
               onClick={() => setVoiceOpen((v) => !v)}
               disabled={isStreaming}
-              aria-label="语音录制"
-              title="语音录制"
+              aria-label={t('voiceRecord')}
+              title={t('voiceRecord')}
               className={cn(
                 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
                 'disabled:cursor-not-allowed disabled:opacity-50',

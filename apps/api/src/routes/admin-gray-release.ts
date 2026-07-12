@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { sql } from 'drizzle-orm'
+import { sql, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { canaryConfigs } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -62,7 +63,7 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
               : 'canary_1pct'
       const config = await createCanary(name, stage as 'full', 5, 30)
       if (target) {
-        await db.execute(sql`UPDATE canary_configs SET target = ${target} WHERE name = ${name}`)
+        await db.update(canaryConfigs).set({ target }).where(eq(canaryConfigs.name, name))
       }
       return reply.send(
         success(
@@ -80,29 +81,24 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
   server.post('/gray-release/:id/toggle', async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
     try {
-      const rows = await db.execute(sql`
-        UPDATE canary_configs
-        SET is_active = NOT is_active, updated_at = now()
-        WHERE name = ${id}
-        RETURNING name, current_stage, target_stage, failure_threshold, cooldown_minutes,
-                  auto_rollback, status, started_at, last_promoted_at, failure_count,
-                  is_active, target
-      `)
-      const row = rows[0] as Record<string, unknown> | undefined
+      const rows = await db
+        .update(canaryConfigs)
+        .set({ isActive: sql`NOT ${canaryConfigs.isActive}`, updatedAt: new Date() })
+        .where(eq(canaryConfigs.name, id))
+        .returning()
+      const row = rows[0]
       if (!row) {
         return reply.status(404).send(error(404, '灰度规则不存在'))
       }
       return reply.send(
         success({
-          id: row['name'],
-          name: row['name'],
-          percentage: getCanaryPercentage(
-            row['current_stage'] as 'off' | 'canary_1pct' | 'canary_5pct' | 'canary_25pct' | 'full',
-          ),
-          target: row['target'] ?? null,
-          isEnabled: row['is_active'],
-          currentStage: row['current_stage'],
-          status: row['status'],
+          id: row.name,
+          name: row.name,
+          percentage: getCanaryPercentage(row.currentStage),
+          target: row.target ?? null,
+          isEnabled: row.isActive,
+          currentStage: row.currentStage,
+          status: row.status,
         }),
       )
     } catch (e) {

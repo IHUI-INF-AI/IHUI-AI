@@ -11,6 +11,7 @@ import {
   subscriptions,
   asks,
   askAnswers,
+  learnTopic,
 } from '@ihui/database'
 import { deleteFile } from '../services/storage-service.js'
 
@@ -165,15 +166,46 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   // ========== D5: 学习专题 topic 公开接口 (3端点) ==========
   fastify.get('/learn/topics', async () => {
     // 实际表名为 learn_topic（单数），status 为 varchar('draft'/'published')
-    const rows = await db.execute(
-      sql`SELECT * FROM learn_topic WHERE status = 'published' ORDER BY created_at DESC`,
-    )
+    const rows = await db
+      .select({
+        id: learnTopic.id,
+        title: learnTopic.title,
+        image: learnTopic.image,
+        status: learnTopic.status,
+        description: learnTopic.description,
+        company_id: learnTopic.companyId,
+        department_id: learnTopic.departmentId,
+        create_user_id: learnTopic.createUserId,
+        price: learnTopic.price,
+        original_price: learnTopic.originalPrice,
+        created_at: learnTopic.createdAt,
+        updated_at: learnTopic.updatedAt,
+      })
+      .from(learnTopic)
+      .where(eq(learnTopic.status, 'published'))
+      .orderBy(desc(learnTopic.createdAt))
     return { list: rows as Record<string, unknown>[] }
   })
 
   fastify.get('/learn/topics/:id', async (request) => {
     const { id } = idParam.parse(request.params)
-    const rows = await db.execute(sql`SELECT * FROM learn_topic WHERE id = ${id}`)
+    const rows = await db
+      .select({
+        id: learnTopic.id,
+        title: learnTopic.title,
+        image: learnTopic.image,
+        status: learnTopic.status,
+        description: learnTopic.description,
+        company_id: learnTopic.companyId,
+        department_id: learnTopic.departmentId,
+        create_user_id: learnTopic.createUserId,
+        price: learnTopic.price,
+        original_price: learnTopic.originalPrice,
+        created_at: learnTopic.createdAt,
+        updated_at: learnTopic.updatedAt,
+      })
+      .from(learnTopic)
+      .where(eq(learnTopic.id, id))
     return (rows[0] as Record<string, unknown> | undefined) || { error: '专题不存在' }
   })
 

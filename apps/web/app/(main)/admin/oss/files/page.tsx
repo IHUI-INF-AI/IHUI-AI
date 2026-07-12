@@ -4,50 +4,18 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { HardDrive, Download, Trash2, Loader2, Search, Eye } from 'lucide-react'
+import { HardDrive, Download } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { UploadZone } from '@/components/workspace/upload-zone'
-import {
-  Button,
-  Input,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@ihui/ui'
-import { FilePreview } from '@/components/media'
+import { Button } from '@ihui/ui'
 
-interface OssFile {
-  id: string
-  fileName: string
-  size: number
-  mimeType: string
-  url: string | null
-  uploadedBy: string
-  createdAt: string
-}
-
-interface FileListData {
-  list: OssFile[]
-  total: number
-}
-
-const PAGE_SIZE = 20
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-}
+import { OssFileFilter } from './OssFileFilter'
+import { OssFileTable } from './OssFileTable'
+import { OssFileDialog } from './OssFileDialog'
+import { PAGE_SIZE, api, EXPORT_COLUMNS } from './helpers'
+import type { OssFile, FileListData } from './types'
 
 export default function AdminOssFilesPage() {
   const t = useTranslations('common')
@@ -69,13 +37,11 @@ export default function AdminOssFilesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'oss', 'files', debounced, uploadDate, page],
-    queryFn: async () => {
+    queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('fileName', debounced)
       if (uploadDate) qs.set('uploadDate', uploadDate)
-      const r = await fetchApi<FileListData>(`/api/admin/oss/files?${qs.toString()}`)
-      if (!r.success) throw new Error(r.error)
-      return r.data
+      return api<FileListData>(`/api/admin/oss/files?${qs.toString()}`)
     },
   })
 
@@ -84,8 +50,7 @@ export default function AdminOssFilesPage() {
       for (const file of files) {
         const fd = new FormData()
         fd.append('file', file)
-        const r = await fetchApi<OssFile>('/api/admin/oss/files', { method: 'POST', body: fd })
-        if (!r.success) throw new Error(r.error)
+        await api<OssFile>('/api/admin/oss/files', { method: 'POST', body: fd })
       }
     },
     onSuccess: () => {
@@ -96,10 +61,7 @@ export default function AdminOssFilesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await fetchApi(`/api/admin/oss/files/${id}`, { method: 'DELETE' })
-      if (!r.success) throw new Error(r.error)
-    },
+    mutationFn: (id: string) => api(`/api/admin/oss/files/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'oss', 'files'] })
@@ -121,16 +83,14 @@ export default function AdminOssFilesPage() {
   function handleExport() {
     exportToExcel(
       'OSS文件',
-      [
-        { key: 'id', title: 'ID' },
-        { key: 'fileName', title: '文件名' },
-        { key: 'size', title: '大小', formatter: (v) => formatSize(Number(v)) },
-        { key: 'mimeType', title: '类型' },
-        { key: 'uploadedBy', title: '上传者' },
-        { key: 'createdAt', title: '上传时间' },
-      ],
-      files as unknown as Record<string, unknown>[],
+      EXPORT_COLUMNS,
+      (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
+  }
+
+  function handleDelete(f: OssFile) {
+    if (!window.confirm(`确认删除文件 "${f.fileName}" ?`)) return
+    deleteMut.mutate(f.id)
   }
 
   const files = data?.list ?? []
@@ -166,99 +126,20 @@ export default function AdminOssFilesPage() {
         <UploadZone uploading={uploading} onFiles={handleFiles} />
       </HasPermi>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            placeholder="搜索文件名..."
-            className="h-9 pl-8"
-          />
-        </div>
-        <Input
-          type="date"
-          value={uploadDate}
-          onChange={(e) => setUploadDate(e.target.value)}
-          className="h-9 w-40"
-          aria-label="上传日期"
-        />
-      </div>
+      <OssFileFilter
+        fileName={fileName}
+        setFileName={setFileName}
+        uploadDate={uploadDate}
+        setUploadDate={setUploadDate}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">文件名</TableHead>
-              <TableHead className="px-4 py-2.5">大小</TableHead>
-              <TableHead className="px-4 py-2.5">类型</TableHead>
-              <TableHead className="px-4 py-2.5">上传时间</TableHead>
-              <TableHead className="px-4 py-2.5">上传者</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
-                </TableCell>
-              </TableRow>
-            ) : files.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无文件
-                </TableCell>
-              </TableRow>
-            ) : (
-              files.map((f) => (
-                <TableRow key={f.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{f.fileName}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {formatSize(f.size)}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {f.mimeType}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {f.createdAt}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{f.uploadedBy}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
-                      {f.url && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPreviewFile(f)}
-                          title="预览"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <HasPermi code="system:oss:remove">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          disabled={deleteMut.isPending}
-                          onClick={() => {
-                            if (confirm(`确认删除文件 "${f.fileName}" ?`)) deleteMut.mutate(f.id)
-                          }}
-                          title="删除"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </HasPermi>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <OssFileTable
+        list={files}
+        isLoading={isLoading}
+        deletePending={deleteMut.isPending}
+        onPreview={setPreviewFile}
+        onDelete={handleDelete}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
@@ -285,29 +166,7 @@ export default function AdminOssFilesPage() {
         </div>
       </div>
 
-      <Dialog
-        open={!!previewFile}
-        onOpenChange={(open) => {
-          if (!open) setPreviewFile(null)
-        }}
-      >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="break-words">{previewFile?.fileName ?? '预览'}</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-[300px]">
-            {previewFile?.url ? (
-              <FilePreview
-                url={previewFile.url}
-                name={previewFile.fileName}
-                className="max-h-[60vh]"
-              />
-            ) : (
-              <p className="py-16 text-center text-sm text-muted-foreground">文件无可用预览地址</p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <OssFileDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </div>
   )
 }

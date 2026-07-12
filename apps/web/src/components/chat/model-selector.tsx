@@ -3,20 +3,29 @@
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Check, ChevronDown, Cpu } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 
 export interface ModelOption {
   value: string
   label: string
-  description?: string
+  descriptionKey?: string
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
-  { value: 'gpt-4o-mini', label: 'GPT-4o mini', description: '快速 · 经济' },
-  { value: 'gpt-4o', label: 'GPT-4o', description: '均衡 · 高质量' },
-  { value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet', description: '强推理 · 写作' },
-  { value: 'claude-3-5-haiku', label: 'Claude 3.5 Haiku', description: '快速 · 轻量' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o mini', descriptionKey: 'modelDescGpt4oMini' },
+  { value: 'gpt-4o', label: 'GPT-4o', descriptionKey: 'modelDescGpt4o' },
+  {
+    value: 'claude-3-5-sonnet',
+    label: 'Claude 3.5 Sonnet',
+    descriptionKey: 'modelDescClaude35Sonnet',
+  },
+  {
+    value: 'claude-3-5-haiku',
+    label: 'Claude 3.5 Haiku',
+    descriptionKey: 'modelDescClaude35Haiku',
+  },
 ]
 
 interface ModelSelectorProps {
@@ -27,6 +36,7 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
+  const t = useTranslations('chat')
   const current = MODEL_OPTIONS.find((m) => m.value === value)
 
   return (
@@ -61,13 +71,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 onSelect={() => onChange(opt.value)}
                 className="flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
               >
-                <Check
-                  className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')}
-                />
+                <Check className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="font-medium">{opt.label}</span>
-                  {opt.description && (
-                    <span className="text-xs text-muted-foreground">{opt.description}</span>
+                  {opt.descriptionKey && (
+                    <span className="text-xs text-muted-foreground">{t(opt.descriptionKey)}</span>
                   )}
                 </div>
               </DropdownMenu.Item>
