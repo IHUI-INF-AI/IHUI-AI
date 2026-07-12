@@ -40,7 +40,7 @@ export class ConsoleArchiveWriter implements ArchiveWriter {
   async write(batch: AuditLog[]): Promise<string> {
     const key = `audit-archive-${Date.now()}-${batch.length}.json`
     // 生产环境应替换为 S3/OSS 上传；此处仅占位输出
-    console.log(`[audit-archive] write ${batch.length} records to ${key}`)
+    console.info(`[audit-archive] write ${batch.length} records to ${key}`)
     return key
   }
 }

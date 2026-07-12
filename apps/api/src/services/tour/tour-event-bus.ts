@@ -109,7 +109,7 @@ export async function processEvents(
 /** 简单控制台 dispatcher（开发期占位实现）。 */
 export const consoleDispatcher: TourEventDispatcher = {
   async dispatch(event) {
-    console.log(`[tour-event-bus] ${event.type}:`, JSON.stringify(event.payload).slice(0, 200))
+    console.info(`[tour-event-bus] ${event.type}:`, JSON.stringify(event.payload).slice(0, 200))
   },
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Crown, Users } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -39,7 +40,7 @@ const levelConfig: VipCrudConfig = {
   labels: LEVEL_LABELS,
   empty: LEVEL_EMPTY,
   exportColumns: LEVEL_EXPORT,
-  exportName: 'VIP等级',
+  exportName: '',
   exportMode: 'api',
 }
 
@@ -53,14 +54,19 @@ const userConfig: VipCrudConfig = {
   labels: USER_LABELS,
   empty: USER_EMPTY,
   exportColumns: USER_EXPORT,
-  exportName: '用户VIP',
+  exportName: '',
   exportMode: 'list',
 }
 
 export default function VipLevelPage() {
+  const t = useTranslations('admin.membersLevels')
   const [tab, setTab] = React.useState<'level' | 'user'>('level')
-  const level = useVipCrud(levelConfig)
-  const user = useVipCrud({ ...userConfig, enabled: tab === 'user' })
+  const level = useVipCrud({ ...levelConfig, exportName: t('exportNameLevel') })
+  const user = useVipCrud({
+    ...userConfig,
+    exportName: t('exportNameUser'),
+    enabled: tab === 'user',
+  })
 
   const tabCls = (active: boolean) =>
     cn(
@@ -75,18 +81,18 @@ export default function VipLevelPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Crown className="h-6 w-6 text-primary" />
-          VIP管理
+          {t('title')}
         </h1>
       </div>
 
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
         <button onClick={() => setTab('level')} className={tabCls(tab === 'level')}>
           <Crown className="mr-1 inline h-4 w-4" />
-          VIP等级
+          {t('tabLevel')}
         </button>
         <button onClick={() => setTab('user')} className={tabCls(tab === 'user')}>
           <Users className="mr-1 inline h-4 w-4" />
-          用户VIP
+          {t('tabUser')}
         </button>
       </div>
 
@@ -119,10 +125,10 @@ export default function VipLevelPage() {
             form={level.form}
             fields={LEVEL_FIELDS}
             dateFields={LEVEL_DATE_FIELDS}
-            titleCreate="新增VIP等级"
-            titleEdit="编辑VIP等级"
-            descCreate="添加新的VIP等级"
-            descEdit="修改VIP等级"
+            titleCreate={t('titleCreateLevel')}
+            titleEdit={t('titleEditLevel')}
+            descCreate={t('descCreateLevel')}
+            descEdit={t('descEditLevel')}
             isPending={level.saveMut.isPending}
             onFormChange={level.setForm}
             onClose={level.closeDialog}
@@ -166,10 +172,10 @@ export default function VipLevelPage() {
             form={user.form}
             fields={USER_FIELDS}
             dateFields={USER_DATE_FIELDS}
-            titleCreate="新增用户VIP"
-            titleEdit="编辑用户VIP"
-            descCreate="添加新的用户VIP"
-            descEdit="修改用户VIP进度"
+            titleCreate={t('titleCreateUser')}
+            titleEdit={t('titleEditUser')}
+            descCreate={t('descCreateUser')}
+            descEdit={t('descEditUser')}
             isPending={user.saveMut.isPending}
             onFormChange={user.setForm}
             onClose={user.closeDialog}

@@ -13,6 +13,7 @@ import { api, EMPTY } from './helpers'
 import type { ExchangeRate } from './types'
 
 export default function ExchangeRatesPage() {
+  const t = useTranslations('admin.exchangeRates')
   const tc = useTranslations('common')
   const qc = useQueryClient()
   const [currentPage] = React.useState(1)
@@ -46,7 +47,7 @@ export default function ExchangeRatesPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'exchange-rates'] })
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       close()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -56,7 +57,7 @@ export default function ExchangeRatesPage() {
     mutationFn: (id: number) => api<void>(`/api/admin/exchange-rates/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'exchange-rates'] })
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -84,16 +85,16 @@ export default function ExchangeRatesPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.fromCurrency.trim()) {
-      toast.error('请输入源货币')
+      toast.error(t('fromCurrencyRequired'))
       return
     }
     if (!form.toCurrency.trim()) {
-      toast.error('请输入目标货币')
+      toast.error(t('toCurrencyRequired'))
       return
     }
     const rateNum = Number(form.rate)
     if (!form.rate || isNaN(rateNum) || rateNum <= 0) {
-      toast.error('请输入有效的汇率')
+      toast.error(t('rateInvalid'))
       return
     }
     saveMut.mutate()
@@ -106,7 +107,7 @@ export default function ExchangeRatesPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ArrowLeftRight className="h-6 w-6 text-primary" />
-          汇率管理
+          {t('title')}
         </h1>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -119,7 +120,7 @@ export default function ExchangeRatesPage() {
         isLoading={isLoading}
         onEdit={openEdit}
         onDelete={(item) => {
-          if (confirm('确认删除该汇率记录？')) deleteMut.mutate(item.id)
+          if (confirm(t('deleteConfirm'))) deleteMut.mutate(item.id)
         }}
         deletePending={deleteMut.isPending}
       />

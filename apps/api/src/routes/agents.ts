@@ -5,7 +5,13 @@ import { eq, and, desc, sql, inArray } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
-import { zhsAgentBuy, agentSettlements, zhsAgentNeedTask, agentExamines } from '@ihui/database'
+import {
+  zhsAgentBuy,
+  agentSettlements,
+  zhsAgentNeedTask,
+  agentExamines,
+  type AgentCategory,
+} from '@ihui/database'
 import {
   getAgentDetail,
   listAgents,
@@ -393,7 +399,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const raw = await redis.get(`${CACHE_PREFIX}all`)
-    let list: any[] = []
+    let list: AgentCategory[] = []
     if (raw) {
       try {
         list = JSON.parse(raw)
@@ -405,7 +411,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       list = result.list
       await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
     }
-    const converted = list.map((c: any) => ({ categoryId: c.categoryId, name: c.name }))
+    const converted = list.map((c) => ({ categoryId: c.categoryId, name: c.name }))
     return reply.send(success({ list: converted, total: converted.length }))
   })
 
@@ -504,7 +510,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const keyword = (q.keyword ?? '').trim().toLowerCase()
     const raw = await redis.get(`${CACHE_PREFIX}all`)
-    let list: any[] = []
+    let list: AgentCategory[] = []
     if (raw) {
       try {
         list = JSON.parse(raw)
@@ -518,7 +524,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
     }
     const filtered = keyword
-      ? list.filter((c: any) =>
+      ? list.filter((c) =>
           String(c.name ?? '')
             .toLowerCase()
             .includes(keyword),

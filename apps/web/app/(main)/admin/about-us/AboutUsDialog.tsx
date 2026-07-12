@@ -46,7 +46,7 @@ export function AboutUsDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑关于我们' : '新增关于我们'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {FIELDS.map((f) => (
             <div key={f.key} className="space-y-2">
@@ -58,24 +58,25 @@ export function AboutUsDialog({
                   onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                   className={TEXTAREA_CLASS}
                   rows={3}
-                  placeholder={`请输入${t(f.label)}`}
+                  placeholder={t('placeholderEnter', { field: t(f.label) })}
                 />
               ) : (
                 <Input
                   id={`f-${f.key}`}
                   value={form[f.key]}
                   onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  placeholder={`请输入${t(f.label)}`}
+                  placeholder={t('placeholderEnter', { field: t(f.label) })}
                 />
               )}
             </div>
           ))}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
