@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { logger } from '../utils/logger.js'
 
 export type CanaryStage = 'off' | 'canary_1pct' | 'canary_5pct' | 'canary_25pct' | 'full'
 
@@ -113,7 +114,7 @@ export async function getCanaryConfig(name: string): Promise<CanaryConfig | null
   try {
     return await fetchConfigRow(name)
   } catch (err) {
-    console.error('[canary] getCanaryConfig failed:', err)
+    logger.error('[canary] getCanaryConfig failed', { error: err })
     return null
   }
 }
@@ -126,7 +127,7 @@ export async function listCanaryConfigs(): Promise<CanaryConfig[]> {
     `)
     return rows as unknown as CanaryConfig[]
   } catch (err) {
-    console.error('[canary] listCanaryConfigs failed:', err)
+    logger.error('[canary] listCanaryConfigs failed', { error: err })
     return []
   }
 }
@@ -165,7 +166,7 @@ export async function createCanary(
     await addAudit(row.id, 'promote', 'off', 'canary_1pct', 'canary started')
     return row
   } catch (err) {
-    console.error('[canary] createCanary failed:', err)
+    logger.error('[canary] createCanary failed', { error: err })
     throw err
   }
 }
@@ -205,7 +206,7 @@ export async function promoteCanary(name: string): Promise<CanaryConfig> {
       WHERE name = ${name}
     `)
   } catch (err) {
-    console.error('[canary] promoteCanary DB update failed:', err)
+    logger.error('[canary] promoteCanary DB update failed', { error: err })
     throw err
   }
 
@@ -236,7 +237,7 @@ export async function rollbackCanary(name: string, reason: string): Promise<Cana
       WHERE name = ${name}
     `)
   } catch (err) {
-    console.error('[canary] rollbackCanary DB update failed:', err)
+    logger.error('[canary] rollbackCanary DB update failed', { error: err })
     throw err
   }
 
@@ -264,7 +265,7 @@ export async function recordFailure(name: string, reason: string): Promise<Canar
       WHERE name = ${name}
     `)
   } catch (err) {
-    console.error('[canary] recordFailure DB update failed:', err)
+    logger.error('[canary] recordFailure DB update failed', { error: err })
     throw err
   }
 
@@ -297,7 +298,7 @@ export async function resetCanary(name: string): Promise<CanaryConfig> {
       WHERE name = ${name}
     `)
   } catch (err) {
-    console.error('[canary] resetCanary DB update failed:', err)
+    logger.error('[canary] resetCanary DB update failed', { error: err })
     throw err
   }
 
@@ -357,7 +358,7 @@ export async function getAuditLog(configName?: string): Promise<CanaryAuditEntry
       reason: r.reason ?? '',
     }))
   } catch (err) {
-    console.error('[canary] getAuditLog failed:', err)
+    logger.error('[canary] getAuditLog failed', { error: err })
     return []
   }
 }
@@ -380,6 +381,6 @@ async function addAudit(
       VALUES (${configId}, ${action}, ${fromStage}, ${toStage}, ${reason})
     `)
   } catch (err) {
-    console.error('[canary] failed to write audit log:', err)
+    logger.error('[canary] failed to write audit log', { error: err })
   }
 }

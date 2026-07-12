@@ -11,6 +11,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { aiCapabilities } from '@ihui/database'
+import { logger } from '../../utils/logger.js'
 
 export type DocLanguage = 'zh' | 'en'
 
@@ -171,7 +172,9 @@ export async function generateAllDocs(language: DocLanguage = 'zh'): Promise<Cap
     try {
       docs.push(await generateDoc(row.id, language))
     } catch (err) {
-      console.error(`[ai-capability-docs] generate ${row.id} failed:`, (err as Error).message)
+      logger.error(`[ai-capability-docs] generate ${row.id} failed`, {
+        error: (err as Error).message,
+      })
     }
   }
   return docs

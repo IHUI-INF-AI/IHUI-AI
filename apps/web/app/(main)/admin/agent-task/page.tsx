@@ -3,97 +3,17 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  CheckCircle,
-  XCircle,
-  ClipboardList,
-} from 'lucide-react'
+import { Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { DatePicker } from '@/components/form/DatePicker'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 
-interface AgentTask {
-  id: string
-  title: string | null
-  context: string | null
-  createdName: string | null
-  closingTime: string | null
-  cycle: string | null
-  cycleUnit: string | null
-  lowestPrice: string | null
-  peakPrice: string | null
-  status: number
-  remark: string | null
-  createdAt: string | null
-}
-
-interface ListData {
-  list: AgentTask[]
-  total: number
-}
-
-const PAGE_SIZE = 10
-
-const STATUS_MAP: Record<number, string> = {
-  0: '待审批',
-  1: '已拒绝',
-  2: '已审批',
-  3: '沟通中',
-  4: '开发中',
-  5: '交付中',
-  6: '已完成',
-}
-const STATUS_STYLE: Record<number, string> = {
-  0: 'bg-amber-500/10 text-amber-600',
-  1: 'bg-red-500/10 text-red-600',
-  2: 'bg-emerald-500/10 text-emerald-600',
-  3: 'bg-blue-500/10 text-blue-600',
-  4: 'bg-purple-500/10 text-purple-600',
-  5: 'bg-cyan-500/10 text-cyan-600',
-  6: 'bg-muted text-muted-foreground',
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const EMPTY = {
-  title: '',
-  context: '',
-  lowestPrice: '',
-  peakPrice: '',
-  cycle: '',
-  cycleUnit: '',
-  closingTime: '',
-}
+import { AgentTaskFilter } from './AgentTaskFilter'
+import { AgentTaskTable } from './AgentTaskTable'
+import { AgentTaskDialog } from './AgentTaskDialog'
+import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, agentTaskToForm } from './helpers'
+import type { AgentTask, AgentTaskForm, ListData } from './types'
 
 export default function AgentTaskPage() {
   const qc = useQueryClient()
@@ -104,7 +24,7 @@ export default function AgentTaskPage() {
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AgentTask | null>(null)
-  const [form, setForm] = React.useState(EMPTY)
+  const [form, setForm] = React.useState<AgentTaskForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -170,21 +90,13 @@ export default function AgentTaskPage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY)
+    setForm(EMPTY_FORM)
     setErr(null)
     setOpen(true)
   }
   function openEdit(item: AgentTask) {
     setEditing(item)
-    setForm({
-      title: item.title ?? '',
-      context: item.context ?? '',
-      lowestPrice: item.lowestPrice ?? '',
-      peakPrice: item.peakPrice ?? '',
-      cycle: item.cycle ?? '',
-      cycleUnit: item.cycleUnit ?? '',
-      closingTime: item.closingTime ?? '',
-    })
+    setForm(agentTaskToForm(item))
     setErr(null)
     setOpen(true)
   }
@@ -210,18 +122,7 @@ export default function AgentTaskPage() {
   function handleExport() {
     exportToExcel(
       'Agent任务',
-      [
-        { key: 'id', title: 'ID' },
-        { key: 'title', title: '需求标题' },
-        { key: 'context', title: '需求描述' },
-        { key: 'createdName', title: '发布者' },
-        { key: 'closingTime', title: '截止时间' },
-        { key: 'cycle', title: '项目周期' },
-        { key: 'lowestPrice', title: '最低价' },
-        { key: 'peakPrice', title: '最高价' },
-        { key: 'status', title: '状态', formatter: (v) => STATUS_MAP[v as number] ?? '-' },
-        { key: 'createdAt', title: '创建时间' },
-      ],
+      EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
   }
@@ -248,142 +149,23 @@ export default function AgentTaskPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchTitle}
-            onChange={(e) => setSearchTitle(e.target.value)}
-            placeholder="搜索需求标题"
-            className="h-9 pl-8"
-          />
-        </div>
-        <Input
-          value={searchCreator}
-          onChange={(e) => setSearchCreator(e.target.value)}
-          placeholder="发布者"
-          className="h-9 w-32"
-        />
-        <DatePicker
-          value={searchClosing}
-          onChange={(v) => {
-            setSearchClosing(v as string)
-            setPage(1)
-          }}
-          placeholder="截止时间"
-        />
-      </div>
+      <AgentTaskFilter
+        searchTitle={searchTitle}
+        setSearchTitle={setSearchTitle}
+        searchCreator={searchCreator}
+        setSearchCreator={setSearchCreator}
+        searchClosing={searchClosing}
+        setSearchClosing={setSearchClosing}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">需求标题</TableHead>
-              <TableHead className="px-4 py-2.5">发布者</TableHead>
-              <TableHead className="px-4 py-2.5">截止时间</TableHead>
-              <TableHead className="px-4 py-2.5">周期</TableHead>
-              <TableHead className="px-4 py-2.5">价格范围</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中…
-                </TableCell>
-              </TableRow>
-            ) : list.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  <ClipboardList className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无数据
-                </TableCell>
-              </TableRow>
-            ) : (
-              list.map((item) => (
-                <TableRow key={item.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium max-w-[200px] truncate">
-                    {item.title || '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{item.createdName || '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
-                    {item.closingTime || '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    {item.cycle ? `${item.cycle}${item.cycleUnit || ''}` : '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    {item.lowestPrice || item.peakPrice
-                      ? `${item.lowestPrice || '-'} - ${item.peakPrice || '-'}`
-                      : '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[item.status] ?? 'bg-muted text-muted-foreground'}`}
-                    >
-                      {STATUS_MAP[item.status] ?? '-'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
-                      {item.status === 0 && (
-                        <>
-                          <HasPermi code="ai:agenttask:edit">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => statusMut.mutate({ id: item.id, status: 2 })}
-                              title="审批"
-                              className="text-emerald-600"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          </HasPermi>
-                          <HasPermi code="ai:agenttask:edit">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => statusMut.mutate({ id: item.id, status: 1 })}
-                              title="拒绝"
-                              className="text-amber-600"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </HasPermi>
-                        </>
-                      )}
-                      <HasPermi code="ai:agenttask:edit">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(item)}
-                          title="编辑"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </HasPermi>
-                      <HasPermi code="ai:agenttask:remove">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(item)}
-                          title="删除"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </HasPermi>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <AgentTaskTable
+        list={list}
+        isLoading={isLoading}
+        onApprove={(id) => statusMut.mutate({ id, status: 2 })}
+        onReject={(id) => statusMut.mutate({ id, status: 1 })}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
@@ -412,84 +194,16 @@ export default function AgentTaskPage() {
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-lg">
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑Agent任务' : '新增Agent任务'}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>需求标题 *</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>需求描述</Label>
-              <Input
-                value={form.context}
-                onChange={(e) => setForm({ ...form, context: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>最低价</Label>
-                <Input
-                  value={form.lowestPrice}
-                  onChange={(e) => setForm({ ...form, lowestPrice: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>最高价</Label>
-                <Input
-                  value={form.peakPrice}
-                  onChange={(e) => setForm({ ...form, peakPrice: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>周期</Label>
-                <Input
-                  value={form.cycle}
-                  onChange={(e) => setForm({ ...form, cycle: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>周期单位</Label>
-                <Input
-                  value={form.cycleUnit}
-                  onChange={(e) => setForm({ ...form, cycleUnit: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>截止时间</Label>
-              <DatePicker
-                value={form.closingTime}
-                onChange={(v) => setForm({ ...form, closingTime: v as string })}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AgentTaskDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }

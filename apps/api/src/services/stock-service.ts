@@ -13,6 +13,7 @@ import { db } from '../db/index.js'
 import { stockAnalyses } from '@ihui/database'
 import type { TokenBalanceService } from '../plugins/token-balance-service.js'
 import { degradedMode, getBulkhead } from '../plugins/resilience-extended.js'
+import { logger } from '../utils/logger.js'
 
 export interface StockAnalysisRequest {
   symbol: string
@@ -211,7 +212,7 @@ async function persistAnalysis(
     })
   } catch (err) {
     // 表不存在或其他 DB 异常时不影响主流程
-    console.error('[stock-service] 持久化分析记录失败:', (err as Error).message)
+    logger.error('[stock-service] 持久化分析记录失败', { error: (err as Error).message })
   }
 }
 
@@ -268,7 +269,8 @@ export async function executeStockAnalysis(
   const ai = await degradedMode(
     () => getBulkhead('stock-ai', 5, 20).execute(() => callStockAIModel(req.symbol, req.question)),
     fallbackAnalysis(req.symbol, req.question),
-    (err) => console.error('[stock-service] AI 模型调用失败, 降级为本地分析:', err.message),
+    (err) =>
+      logger.error('[stock-service] AI 模型调用失败, 降级为本地分析', { error: err.message }),
   )
 
   const result: StockAnalysisResult = {
@@ -322,7 +324,7 @@ export async function getStockHistory(
 
     return { list, total: totalRows[0]?.c ?? 0 }
   } catch (err) {
-    console.error('[stock-service] 查询历史记录失败:', (err as Error).message)
+    logger.error('[stock-service] 查询历史记录失败', { error: (err as Error).message })
     return { list: [], total: 0 }
   }
 }
