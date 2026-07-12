@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ShieldCheck, Check, X } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
@@ -22,6 +23,7 @@ interface Applicant {
 const PAGE_SIZE = 10
 
 export default function EduTeacherReviewPage() {
+  const t = useTranslations('admin.edu.teacher.review')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
 
@@ -41,7 +43,7 @@ export default function EduTeacherReviewPage() {
         body: JSON.stringify({ approved }),
       }),
     onSuccess: (_d, vars) => {
-      toast.success(vars.approved ? '已通过审核' : '已拒绝')
+      toast.success(vars.approved ? t('approveSuccess') : t('rejectSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'teacher', 'review'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -55,14 +57,14 @@ export default function EduTeacherReviewPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">讲师审核</h1>
-        <p className="mt-1 text-sm text-muted-foreground">审核讲师入驻申请</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/teacher">
             <ChevronLeft className="h-4 w-4" />
-            返回讲师管理
+            {t('backToTeacher')}
           </Link>
         </Button>
       </div>
@@ -70,11 +72,11 @@ export default function EduTeacherReviewPage() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-4 py-2.5">申请人</TableHead>
-              <TableHead className="px-4 py-2.5">头衔</TableHead>
-              <TableHead className="px-4 py-2.5">简介</TableHead>
-              <TableHead className="px-4 py-2.5">申请时间</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colApplicant')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colIntro')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colAppliedAt')}</TableHead>
+              <TableHead className="px-4 py-2.5 text-right">{t('colAction')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
@@ -82,21 +84,21 @@ export default function EduTeacherReviewPage() {
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : noEndpoint ? (
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <ShieldCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  审核端点未配置
+                  {t('endpointNotConfigured')}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <ShieldCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无待审核申请
+                  {t('noApplicants')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -125,7 +127,7 @@ export default function EduTeacherReviewPage() {
                         className="text-emerald-600 hover:text-emerald-700"
                       >
                         <Check className="h-4 w-4" />
-                        通过
+                        {t('approve')}
                       </Button>
                       <Button
                         variant="outline"
@@ -135,7 +137,7 @@ export default function EduTeacherReviewPage() {
                         className="text-destructive hover:text-destructive"
                       >
                         <X className="h-4 w-4" />
-                        拒绝
+                        {t('reject')}
                       </Button>
                     </div>
                   </TableCell>
@@ -146,7 +148,7 @@ export default function EduTeacherReviewPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -154,10 +156,10 @@ export default function EduTeacherReviewPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -165,7 +167,7 @@ export default function EduTeacherReviewPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
           </Button>
         </div>
       </div>
