@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { ChevronLeft, Plus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { selectClass } from '@/lib/edu'
 import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
 import { TYPES } from './helpers'
@@ -23,24 +24,25 @@ export function QuestionsFilter({
   papers,
   onCreate,
 }: Props) {
+  const tc = useTranslations('admin.edu.exam.questions')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button asChild variant="ghost" size="sm">
         <Link href="/admin/edu/exam">
           <ChevronLeft className="h-4 w-4" />
-          返回考试管理
+          {tc('backToExam')}
         </Link>
       </Button>
       <div className="w-full max-w-sm">
         <Select value={paperId} onValueChange={onPaperChange}>
-          <SelectTrigger className={selectClass} aria-label="选择试卷">
-            <SelectValue placeholder="请选择试卷" />
+          <SelectTrigger className={selectClass} aria-label={tc('selectPaper')}>
+            <SelectValue placeholder={tc('selectPaperPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {papers.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.title}
-                {!p.isPublished ? '（未发布）' : ''}
+                {!p.isPublished ? tc('unpublishedSuffix') : ''}
               </SelectItem>
             ))}
           </SelectContent>
@@ -48,14 +50,14 @@ export function QuestionsFilter({
       </div>
       <div className="w-full max-w-[160px]">
         <Select value={typeFilter} onValueChange={onTypeFilterChange}>
-          <SelectTrigger className={selectClass} aria-label="题型筛选">
+          <SelectTrigger className={selectClass} aria-label={tc('typeFilterLabel')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部题型</SelectItem>
+            <SelectItem value="all">{tc('allTypes')}</SelectItem>
             {TYPES.map((t) => (
               <SelectItem key={t.value} value={t.value}>
-                {t.label}
+                {tc(`type.${t.value}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -63,7 +65,7 @@ export function QuestionsFilter({
       </div>
       <Button onClick={onCreate} size="sm" className="ml-auto" disabled={!paperId}>
         <Plus className="h-4 w-4" />
-        新建题目
+        {tc('createTitle')}
       </Button>
     </div>
   )

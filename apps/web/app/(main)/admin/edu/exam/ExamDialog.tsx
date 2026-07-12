@@ -17,6 +17,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
+import { useTranslations } from 'next-intl'
 import type { Paper, PaperForm } from './types'
 
 interface Props {
@@ -40,6 +41,7 @@ export function ExamDialog({
   pending,
   err,
 }: Props) {
+  const t = useTranslations('admin.edu.exam.index')
   return (
     <Dialog
       open={open}
@@ -50,7 +52,7 @@ export function ExamDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑试卷' : '新建试卷'}</DialogTitle>
+            <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -58,26 +60,26 @@ export function ExamDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="p-title">标题</Label>
+            <Label htmlFor="p-title">{t('fieldTitle')}</Label>
             <Input
               id="p-title"
               value={form.title}
               onChange={(e) => onFormChange({ title: e.target.value })}
-              placeholder="请输入试卷标题"
+              placeholder={t('titlePlaceholder')}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="p-desc">描述</Label>
+            <Label htmlFor="p-desc">{t('fieldDescription')}</Label>
             <Input
               id="p-desc"
               value={form.description}
               onChange={(e) => onFormChange({ description: e.target.value })}
-              placeholder="试卷描述(选填)"
+              placeholder={t('descriptionPlaceholder')}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="p-total">总分</Label>
+              <Label htmlFor="p-total">{t('fieldTotalScore')}</Label>
               <Input
                 id="p-total"
                 type="number"
@@ -87,7 +89,7 @@ export function ExamDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="p-pass">及格分</Label>
+              <Label htmlFor="p-pass">{t('fieldPassScore')}</Label>
               <Input
                 id="p-pass"
                 type="number"
@@ -97,7 +99,7 @@ export function ExamDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="p-dur">时长(分钟)</Label>
+              <Label htmlFor="p-dur">{t('fieldDuration')}</Label>
               <Input
                 id="p-dur"
                 type="number"
@@ -110,7 +112,7 @@ export function ExamDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="p-pub">发布状态</Label>
+              <Label htmlFor="p-pub">{t('fieldPublishStatus')}</Label>
               <Select
                 value={form.isPublished ? 'true' : 'false'}
                 onValueChange={(v) => onFormChange({ isPublished: v === 'true' })}
@@ -119,13 +121,13 @@ export function ExamDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="false">未发布</SelectItem>
-                  <SelectItem value="true">已发布</SelectItem>
+                  <SelectItem value="false">{t('status.unpublished')}</SelectItem>
+                  <SelectItem value="true">{t('status.published')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="p-rand">随机组卷</Label>
+              <Label htmlFor="p-rand">{t('random')}</Label>
               <Select
                 value={form.isRandom ? 'true' : 'false'}
                 onValueChange={(v) => onFormChange({ isRandom: v === 'true' })}
@@ -134,19 +136,19 @@ export function ExamDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="false">否</SelectItem>
-                  <SelectItem value="true">是</SelectItem>
+                  <SelectItem value="false">{t('no')}</SelectItem>
+                  <SelectItem value="true">{t('yes')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
               {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-              保存
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

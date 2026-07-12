@@ -1,10 +1,11 @@
 'use client'
 
 import { Loader2, Edit, Trash2, CreditCard } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { PERM, payTypeText, payCrowdText } from './helpers'
+import { PERM } from './helpers'
 import type { CoursePay } from './types'
 
 interface Props {
@@ -17,18 +18,19 @@ interface Props {
 }
 
 export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, onDelete }: Props) {
+  const t = useTranslations('admin.edu.course.pay')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="px-4 py-2.5">ID</TableHead>
-            <TableHead className="px-4 py-2.5">课程名称</TableHead>
-            <TableHead className="px-4 py-2.5">付费类型</TableHead>
-            <TableHead className="px-4 py-2.5">付费人群</TableHead>
-            <TableHead className="px-4 py-2.5">金额</TableHead>
-            <TableHead className="px-4 py-2.5">创建人</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('courseTitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('payTypeLabel')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('payCrowdLabel')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('amount')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('creator')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -36,7 +38,7 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -49,7 +51,7 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <CreditCard className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -68,16 +70,16 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
                           : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
                     )}
                   >
-                    {payTypeText(r.payType)}
+                    {t(`payType.${r.payType}`)}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5">{payCrowdText(r.payCrowd)}</TableCell>
+                <TableCell className="px-4 py-2.5">{t(`payCrowd.${r.payCrowd}`)}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.amount}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.nickname ?? r.creator ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title={t('edit')}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -86,7 +88,7 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(r)}
-                        title="删除"
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
                       >
