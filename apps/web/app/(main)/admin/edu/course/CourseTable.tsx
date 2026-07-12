@@ -13,7 +13,8 @@ import {
   Button,
   Checkbox,
 } from '@ihui/ui'
-import { PERM, STAGE_TEXT, AUDIT_TEXT, badgeCls } from './helpers'
+import { useTranslations } from 'next-intl'
+import { PERM, badgeCls } from './helpers'
 import type { Course } from './types'
 
 interface Props {
@@ -43,6 +44,7 @@ export function CourseTable({
   onDelete,
   deletePending,
 }: Props) {
+  const t = useTranslations('admin.edu.course.index')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -51,18 +53,18 @@ export function CourseTable({
             <TableHead className="px-3 py-2.5 w-10">
               <Checkbox checked={allChecked} onCheckedChange={onToggleAll} />
             </TableHead>
-            <TableHead className="px-4 py-2.5">ID</TableHead>
-            <TableHead className="px-4 py-2.5">标题</TableHead>
-            <TableHead className="px-4 py-2.5">副标题</TableHead>
-            <TableHead className="px-4 py-2.5">内容</TableHead>
-            <TableHead className="px-4 py-2.5">备注</TableHead>
-            <TableHead className="px-4 py-2.5">备注文件</TableHead>
-            <TableHead className="px-4 py-2.5">封面</TableHead>
-            <TableHead className="px-4 py-2.5">阶段</TableHead>
-            <TableHead className="px-4 py-2.5">标签</TableHead>
-            <TableHead className="px-4 py-2.5">审核</TableHead>
-            <TableHead className="px-4 py-2.5">创建人</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colSubtitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colContent')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colRemark')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colRemarkFile')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCover')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStage')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colLabel')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colAudit')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCreator')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -70,7 +72,7 @@ export function CourseTable({
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -83,7 +85,7 @@ export function CourseTable({
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无课程
+                {t('emptyCourses')}
               </TableCell>
             </TableRow>
           ) : (
@@ -129,14 +131,12 @@ export function CourseTable({
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className={badgeCls(r.stage === 2)}>
-                    {STAGE_TEXT[r.stage ?? 0] ?? String(r.stage)}
-                  </span>
+                  <span className={badgeCls(r.stage === 2)}>{t(`stage.${r.stage ?? 0}`)}</span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className={badgeCls(r.auditStatus === 4)}>
-                    {AUDIT_TEXT[r.auditStatus ?? 0] ?? String(r.auditStatus)}
+                    {t(`audit.${r.auditStatus ?? 0}`)}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">
@@ -145,7 +145,12 @@ export function CourseTable({
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(r)}
+                        title={t('editTitle')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -154,19 +159,19 @@ export function CourseTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(r)}
-                        title="删除"
+                        title={t('deleteTitle')}
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </HasPermi>
-                    <Button asChild variant="ghost" size="sm" title="视频管理">
+                    <Button asChild variant="ghost" size="sm" title={t('videoManageTitle')}>
                       <Link href={`/admin/edu/learn/recorded?courseId=${r.id}`}>
                         <Video className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button asChild variant="ghost" size="sm" title="价格管理">
+                    <Button asChild variant="ghost" size="sm" title={t('priceManageTitle')}>
                       <Link href={`/admin/edu/course/pay?courseId=${r.id}`}>
                         <CreditCard className="h-4 w-4" />
                       </Link>
