@@ -2606,7 +2606,26 @@
           "subtitleWithType": "管理试卷中的{type}",
           "backToQuestions": "返回题库",
           "createWithType": "新建{type}",
-          "loading": "加载中..."
+          "loading": "加载中...",
+          "stem": "题干",
+          "score": "分值",
+          "sort": "排序",
+          "actions": "操作",
+          "noDataWithType": "暂无{type}",
+          "edit": "编辑",
+          "delete": "删除",
+          "editWithType": "编辑{type}",
+          "stemPlaceholder": "请输入题干内容",
+          "optionsJson": "选项 (JSON)",
+          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"选项一\"}]",
+          "answerJson": "答案 (JSON)",
+          "analysis": "解析",
+          "analysisPlaceholder": "解析(选填)",
+          "cancel": "取消",
+          "save": "保存",
+          "selectPaper": "选择试卷",
+          "selectPaperPlaceholder": "请选择试卷",
+          "unpublished": "（未发布）"
         }
       },
       "learn": {

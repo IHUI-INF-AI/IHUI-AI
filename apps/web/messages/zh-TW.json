@@ -2618,7 +2618,26 @@
           "subtitleWithType": "管理試卷中的{type}",
           "backToQuestions": "返回題庫",
           "createWithType": "新建{type}",
-          "loading": "載入中..."
+          "loading": "載入中...",
+          "stem": "題幹",
+          "score": "分值",
+          "sort": "排序",
+          "actions": "操作",
+          "noDataWithType": "暫無{type}",
+          "edit": "編輯",
+          "delete": "刪除",
+          "editWithType": "編輯{type}",
+          "stemPlaceholder": "請輸入題幹內容",
+          "optionsJson": "選項 (JSON)",
+          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"選項一\"}]",
+          "answerJson": "答案 (JSON)",
+          "analysis": "解析",
+          "analysisPlaceholder": "解析(選填)",
+          "cancel": "取消",
+          "save": "保存",
+          "selectPaper": "選擇試卷",
+          "selectPaperPlaceholder": "請選擇試卷",
+          "unpublished": "（未發布）"
         }
       },
       "learn": {
