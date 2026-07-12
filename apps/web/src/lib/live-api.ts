@@ -46,14 +46,12 @@ export type LiveListQuery = {
   keyword?: string
 }
 
-export async function getLiveList(
-  query: LiveListQuery = {},
-): Promise<ApiResult<PageData<Live>>> {
-  return fetchApi<PageData<Live>>(`/live${buildQs(query)}`)
+export async function getLiveList(query: LiveListQuery = {}): Promise<ApiResult<PageData<Live>>> {
+  return fetchApi<PageData<Live>>(`/api/live/channels${buildQs(query)}`)
 }
 
 export async function getLiveById(id: string): Promise<ApiResult<Live>> {
-  return fetchApi<Live>(`/live/${encodeURIComponent(id)}`)
+  return fetchApi<Live>(`/api/live/channels/${encodeURIComponent(id)}`)
 }
 
 export async function getLiveCalendar(
@@ -62,11 +60,9 @@ export async function getLiveCalendar(
   return fetchApi<LiveCalendarItem[]>(`/live/calendar${buildQs(query)}`)
 }
 
-export async function subscribeLive(
-  id: string,
-): Promise<ApiResult<{ subscribed: boolean }>> {
-  return fetchApi<{ subscribed: boolean }>(
-    `/live/${encodeURIComponent(id)}/subscribe`,
-    { method: 'POST' },
-  )
+export async function subscribeLive(id: string): Promise<ApiResult<{ subscribed: boolean }>> {
+  return fetchApi<{ subscribed: boolean }>('/api/legacy/live/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  })
 }

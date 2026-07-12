@@ -232,19 +232,19 @@ export async function deleteOpenclawResource(id: string): Promise<ApiResult<{ su
 export async function getN8nWorkflows(
   query: PageQuery & { active?: boolean; tag?: string } = {},
 ): Promise<ApiResult<PageData<N8nWorkflow>>> {
-  return fetchApi<PageData<N8nWorkflow>>(`/api/n8n/workflows${buildQs(query)}`)
+  return fetchApi<PageData<N8nWorkflow>>(`/api/ai/n8n/workflows${buildQs(query)}`)
 }
 
 /** 获取 N8n 工作流详情 */
 export async function getN8nWorkflowDetail(id: string): Promise<ApiResult<N8nWorkflow>> {
-  return fetchApi<N8nWorkflow>(`/api/n8n/workflows/${id}`)
+  return fetchApi<N8nWorkflow>(`/api/ai/n8n/workflows/${id}`)
 }
 
 /** 创建 N8n 工作流 */
 export async function createN8nWorkflow(
   input: Partial<N8nWorkflow>,
 ): Promise<ApiResult<N8nWorkflow>> {
-  return fetchApi<N8nWorkflow>('/api/n8n/workflows', {
+  return fetchApi<N8nWorkflow>('/api/ai/n8n/workflows', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -255,7 +255,7 @@ export async function updateN8nWorkflow(
   id: string,
   input: Partial<N8nWorkflow>,
 ): Promise<ApiResult<N8nWorkflow>> {
-  return fetchApi<N8nWorkflow>(`/api/n8n/workflows/${id}`, {
+  return fetchApi<N8nWorkflow>(`/api/ai/n8n/workflows/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -263,7 +263,7 @@ export async function updateN8nWorkflow(
 
 /** 删除 N8n 工作流 */
 export async function deleteN8nWorkflow(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/n8n/workflows/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/ai/n8n/workflows/${id}`, { method: 'DELETE' })
 }
 
 /** 激活/停用 N8n 工作流 */
@@ -271,7 +271,7 @@ export async function toggleN8nWorkflow(
   id: string,
   active: boolean,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/n8n/workflows/${id}/toggle`, {
+  return fetchApi<{ success: boolean }>(`/api/ai/n8n/workflows/${id}/toggle`, {
     method: 'POST',
     body: JSON.stringify({ active }),
   })
@@ -282,7 +282,7 @@ export async function executeN8nWorkflow(
   id: string,
   input?: Record<string, unknown>,
 ): Promise<ApiResult<{ executionId: string }>> {
-  return fetchApi<{ executionId: string }>(`/api/n8n/workflows/${id}/execute`, {
+  return fetchApi<{ executionId: string }>(`/api/ai/n8n/workflows/${id}/execute`, {
     method: 'POST',
     body: JSON.stringify(input || {}),
   })
@@ -292,12 +292,12 @@ export async function executeN8nWorkflow(
 export async function getN8nExecutions(
   query: PageQuery & { workflowId?: string; status?: N8nExecution['status'] } = {},
 ): Promise<ApiResult<PageData<N8nExecution>>> {
-  return fetchApi<PageData<N8nExecution>>(`/api/n8n/executions${buildQs(query)}`)
+  return fetchApi<PageData<N8nExecution>>(`/api/ai/n8n/executions${buildQs(query)}`)
 }
 
 /** 获取 N8n 执行记录详情 */
 export async function getN8nExecutionDetail(id: string): Promise<ApiResult<N8nExecution>> {
-  return fetchApi<N8nExecution>(`/api/n8n/executions/${id}`)
+  return fetchApi<N8nExecution>(`/api/ai/n8n/executions/${id}`)
 }
 
 // ===================== tbox =====================
@@ -388,17 +388,17 @@ export async function getOpenRouterModels(): Promise<ApiResult<OpenRouterModel[]
 export async function getCozeAgents(
   query: PageQuery & { category?: string; isPublic?: boolean } = {},
 ): Promise<ApiResult<PageData<CozeAgent>>> {
-  return fetchApi<PageData<CozeAgent>>(`/api/coze/agents${buildQs(query)}`)
+  return fetchApi<PageData<CozeAgent>>(`/api/coze/bot/list${buildQs(query)}`)
 }
 
 /** 获取 Coze 智能体详情 */
 export async function getCozeAgentDetail(id: string): Promise<ApiResult<CozeAgent>> {
-  return fetchApi<CozeAgent>(`/api/coze/agents/${id}`)
+  return fetchApi<CozeAgent>(`/api/coze/bot/get/${id}`)
 }
 
 /** 创建 Coze 智能体 */
 export async function createCozeAgent(input: Partial<CozeAgent>): Promise<ApiResult<CozeAgent>> {
-  return fetchApi<CozeAgent>('/api/coze/agents', {
+  return fetchApi<CozeAgent>('/api/coze/bot/list', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -409,7 +409,7 @@ export async function updateCozeAgent(
   id: string,
   input: Partial<CozeAgent>,
 ): Promise<ApiResult<CozeAgent>> {
-  return fetchApi<CozeAgent>(`/api/coze/agents/${id}`, {
+  return fetchApi<CozeAgent>(`/api/coze/bot/get/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -417,7 +417,7 @@ export async function updateCozeAgent(
 
 /** 删除 Coze 智能体 */
 export async function deleteCozeAgent(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/coze/agents/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/coze/bot/get/${id}`, { method: 'DELETE' })
 }
 
 /** Coze 对话 */
