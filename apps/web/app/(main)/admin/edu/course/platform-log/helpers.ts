@@ -1,3 +1,4 @@
+import type { ExportColumn } from '@/lib/export-utils'
 import type { PlatformLog, CForm, Search } from './types'
 
 export const PAGE_SIZE = 10
@@ -22,15 +23,15 @@ export const EMPTY_SEARCH: Search = {
   createdAt: '',
 }
 
-export const EXPORT_COLUMNS = [
+export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
-  { key: 'platformId', title: '平台ID' },
-  { key: 'courseId', title: '课程ID' },
-  { key: 'videoId', title: '视频ID' },
-  { key: 'type', title: '类型' },
-  { key: 'creator', title: '创建人' },
-  { key: 'sysCreator', title: '系统创建人' },
-  { key: 'createdAt', title: '创建时间' },
+  { key: 'platformId', title: 'col.platformId' },
+  { key: 'courseId', title: 'col.courseId' },
+  { key: 'videoId', title: 'col.videoId' },
+  { key: 'type', title: 'col.type' },
+  { key: 'creator', title: 'col.creator' },
+  { key: 'sysCreator', title: 'col.systemCreator' },
+  { key: 'createdAt', title: 'col.createdAt' },
 ]
 
 export const fmt = (s?: string | null) =>

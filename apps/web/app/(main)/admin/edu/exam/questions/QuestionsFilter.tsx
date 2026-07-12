@@ -57,7 +57,7 @@ export function QuestionsFilter({
             <SelectItem value="all">{tc('allTypes')}</SelectItem>
             {TYPES.map((t) => (
               <SelectItem key={t.value} value={t.value}>
-                {tc(`type.${t.value}`)}
+                {tc(t.label)}
               </SelectItem>
             ))}
           </SelectContent>

@@ -4,8 +4,8 @@ import type { CForm, Video } from './types'
 export const PAGE_SIZE = 10
 export const PERM = 'course:coursevideo:'
 export const API = '/api/admin/course-video'
-export const LEVEL_TEXT = ['初级', '中级', '高级']
-export const AUDIT_TEXT = ['待审核', '审核中', '待整改', '已驳回', '已通过']
+export const LEVEL_TEXT = ['level.0', 'level.1', 'level.2']
+export const AUDIT_TEXT = ['audit.0', 'audit.1', 'audit.2', 'audit.3', 'audit.4']
 
 export const EMPTY_FORM: CForm = {
   courseId: '',
@@ -31,20 +31,20 @@ export const EMPTY_FORM: CForm = {
 }
 
 export const TEXT_FIELDS: { key: keyof CForm; label: string }[] = [
-  { key: 'courseId', label: '课程ID' },
-  { key: 'videoPath', label: '视频路径' },
-  { key: 'title', label: '标题' },
-  { key: 'subtitle', label: '副标题' },
-  { key: 'lecturer', label: '讲师' },
-  { key: 'duration', label: '时长' },
-  { key: 'adjunctUrl', label: '附件URL' },
-  { key: 'amount', label: '金额' },
-  { key: 'label', label: '标签' },
-  { key: 'agentIds', label: '代理IDs' },
-  { key: 'hot', label: '热度' },
-  { key: 'collect', label: '收藏' },
-  { key: 'sort', label: '排序' },
-  { key: 'creator', label: '创建人' },
+  { key: 'courseId', label: 'field.courseId' },
+  { key: 'videoPath', label: 'field.videoPath' },
+  { key: 'title', label: 'field.title' },
+  { key: 'subtitle', label: 'field.subtitle' },
+  { key: 'lecturer', label: 'field.lecturer' },
+  { key: 'duration', label: 'field.duration' },
+  { key: 'adjunctUrl', label: 'field.attachmentUrl' },
+  { key: 'amount', label: 'field.amount' },
+  { key: 'label', label: 'field.label' },
+  { key: 'agentIds', label: 'field.agentIds' },
+  { key: 'hot', label: 'field.popularity' },
+  { key: 'collect', label: 'field.favorites' },
+  { key: 'sort', label: 'field.sort' },
+  { key: 'creator', label: 'field.creator' },
 ]
 
 export function badgeCls(ok: boolean) {

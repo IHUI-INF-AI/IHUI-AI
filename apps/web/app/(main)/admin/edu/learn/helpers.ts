@@ -26,16 +26,16 @@ export const EMPTY: LForm = {
 }
 
 export const SUB_LINKS = [
-  { href: '/admin/edu/learn/live', label: '直播学习', icon: Radio },
-  { href: '/admin/edu/learn/recorded', label: '录播学习', icon: FileStack },
-  { href: '/admin/edu/learn/materials', label: '资料学习', icon: FolderTree },
-  { href: '/admin/edu/learn/homework', label: '作业学习', icon: ClipboardList },
-  { href: '/admin/edu/learn/records', label: '学习记录', icon: ListOrdered },
-  { href: '/admin/edu/learn/progress', label: '学习进度', icon: TrendingUp },
-  { href: '/admin/edu/learn/plan', label: '学习计划', icon: CalendarDays },
-  { href: '/admin/edu/learn/remind', label: '学习提醒', icon: Bell },
-  { href: '/admin/edu/learn/community', label: '学习社区', icon: Users },
-  { href: '/admin/edu/learn/ranking', label: '学习排行', icon: Trophy },
+  { href: '/admin/edu/learn/live', label: 'subLink.live', icon: Radio },
+  { href: '/admin/edu/learn/recorded', label: 'subLink.recorded', icon: FileStack },
+  { href: '/admin/edu/learn/materials', label: 'subLink.materials', icon: FolderTree },
+  { href: '/admin/edu/learn/homework', label: 'subLink.homework', icon: ClipboardList },
+  { href: '/admin/edu/learn/records', label: 'subLink.records', icon: ListOrdered },
+  { href: '/admin/edu/learn/progress', label: 'subLink.progress', icon: TrendingUp },
+  { href: '/admin/edu/learn/plan', label: 'subLink.plan', icon: CalendarDays },
+  { href: '/admin/edu/learn/remind', label: 'subLink.remind', icon: Bell },
+  { href: '/admin/edu/learn/community', label: 'subLink.community', icon: Users },
+  { href: '/admin/edu/learn/ranking', label: 'subLink.ranking', icon: Trophy },
 ]
 
 export function lessonToForm(l: Lesson): LForm {
