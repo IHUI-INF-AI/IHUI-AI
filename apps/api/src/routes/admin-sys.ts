@@ -209,7 +209,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /menu/roleMenuTreeselect/:roleId - 角色分配菜单树
       s.get('/roleMenuTreeselect/:roleId', async (request, reply) => {
-        const { roleId } = request.params as { roleId: string }
+        const { roleId } = z.object({ roleId: z.string() }).parse(request.params)
         const list = await findMenuList()
         return reply.send(success({ roleId, menus: list, checkedKeys: [] }))
       })
@@ -266,7 +266,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // PUT /logininfor/unlock/:userName - 解锁用户
       s.put('/unlock/:userName', async (request, reply) => {
-        const { userName } = request.params as { userName: string }
+        const { userName } = z.object({ userName: z.string() }).parse(request.params)
         return reply.send(success({ userName, unlocked: true }))
       })
     },
@@ -293,7 +293,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /notice/:noticeId - 公告详情
       s.get('/:noticeId', async (request, reply) => {
-        const { noticeId } = request.params as { noticeId: string }
+        const { noticeId } = z.object({ noticeId: z.string() }).parse(request.params)
         const id = Number(noticeId)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -335,7 +335,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /notice/:noticeIds - 删除公告(逗号分隔)
       s.delete('/:noticeIds', async (request, reply) => {
-        const { noticeIds } = request.params as { noticeIds: string }
+        const { noticeIds } = z.object({ noticeIds: z.string() }).parse(request.params)
         const ids = noticeIds
           .split(',')
           .filter(Boolean)
@@ -368,7 +368,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /job/:jobId - 任务详情
       s.get('/:jobId', async (request, reply) => {
-        const { jobId } = request.params as { jobId: string }
+        const { jobId } = z.object({ jobId: z.string() }).parse(request.params)
         const id = Number(jobId)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -436,7 +436,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /job/:jobIds - 删除(逗号分隔)
       s.delete('/:jobIds', async (request, reply) => {
-        const { jobIds } = request.params as { jobIds: string }
+        const { jobIds } = z.object({ jobIds: z.string() }).parse(request.params)
         const ids = jobIds
           .split(',')
           .filter(Boolean)
@@ -488,7 +488,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /online/:tokenId - 强制下线
       s.delete('/:tokenId', async (request, reply) => {
-        const { tokenId } = request.params as { tokenId: string }
+        const { tokenId } = z.object({ tokenId: z.string() }).parse(request.params)
         return reply.send(success({ tokenId, forced: true }))
       })
     },
@@ -512,7 +512,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /dept/list/exclude/:deptId - 排除某部门的树
       s.get('/list/exclude/:deptId', async (request, reply) => {
-        const { deptId } = request.params as { deptId: string }
+        const { deptId } = z.object({ deptId: z.string() }).parse(request.params)
         const excludeId = Number(deptId)
         const list = await findDeptList()
         return reply.send(
@@ -522,7 +522,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /dept/:deptId - 部门详情
       s.get('/:deptId', async (request, reply) => {
-        const { deptId } = request.params as { deptId: string }
+        const { deptId } = z.object({ deptId: z.string() }).parse(request.params)
         const id = Number(deptId)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -574,7 +574,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /post/:postId - 岗位详情
       s.get('/:postId', async (request, reply) => {
-        const { postId } = request.params as { postId: string }
+        const { postId } = z.object({ postId: z.string() }).parse(request.params)
         const id = Number(postId)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -605,7 +605,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /post/:postIds - 删除岗位(逗号分隔)
       s.delete('/:postIds', async (request, reply) => {
-        const { postIds } = request.params as { postIds: string }
+        const { postIds } = z.object({ postIds: z.string() }).parse(request.params)
         const ids = postIds
           .split(',')
           .filter(Boolean)
@@ -638,7 +638,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /config/configKey/:configKey - 按 key 取参数
       s.get('/configKey/:configKey', async (request, reply) => {
-        const { configKey } = request.params as { configKey: string }
+        const { configKey } = z.object({ configKey: z.string() }).parse(request.params)
         const data = await findConfigByKey(configKey)
         if (!data) {
           return reply.status(404).send(error(404, '参数配置不存在'))
@@ -648,7 +648,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /config/:configId - 配置详情
       s.get('/:configId', async (request, reply) => {
-        const { configId } = request.params as { configId: string }
+        const { configId } = z.object({ configId: z.string() }).parse(request.params)
         const id = Number(configId)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -689,7 +689,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /config/:configIds - 删除配置(逗号分隔)
       s.delete('/:configIds', async (request, reply) => {
-        const { configIds } = request.params as { configIds: string }
+        const { configIds } = z.object({ configIds: z.string() }).parse(request.params)
         const ids = configIds
           .split(',')
           .filter(Boolean)
@@ -728,7 +728,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /dict/type/:dictId - 字典类型详情
       s.get('/:dictId', async (request, reply) => {
-        const { dictId } = request.params as { dictId: string }
+        const { dictId } = z.object({ dictId: z.string() }).parse(request.params)
         const id = Number(dictId)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -759,7 +759,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /dict/type/:dictIds - 删除字典类型(逗号分隔)
       s.delete('/:dictIds', async (request, reply) => {
-        const { dictIds } = request.params as { dictIds: string }
+        const { dictIds } = z.object({ dictIds: z.string() }).parse(request.params)
         const ids = dictIds
           .split(',')
           .filter(Boolean)
@@ -792,7 +792,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /dict/data/type/:dictType - 按 type 取字典数据
       s.get('/type/:dictType', async (request, reply) => {
-        const { dictType } = request.params as { dictType: string }
+        const { dictType } = z.object({ dictType: z.string() }).parse(request.params)
         const list = await findDictDataByType(dictType)
         return reply.send(success({ dictType, list }))
       })
@@ -809,7 +809,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // GET /dict/data/:dictCode - 字典数据详情
       s.get('/:dictCode', async (request, reply) => {
-        const { dictCode } = request.params as { dictCode: string }
+        const { dictCode } = z.object({ dictCode: z.string() }).parse(request.params)
         const id = Number(dictCode)
         if (Number.isNaN(id)) {
           return reply.status(400).send(error(400, '无效的 ID'))
@@ -840,7 +840,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
 
       // DELETE /dict/data/:dictCodes - 删除字典数据(逗号分隔)
       s.delete('/:dictCodes', async (request, reply) => {
-        const { dictCodes } = request.params as { dictCodes: string }
+        const { dictCodes } = z.object({ dictCodes: z.string() }).parse(request.params)
         const ids = dictCodes
           .split(',')
           .filter(Boolean)
