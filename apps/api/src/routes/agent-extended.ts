@@ -101,6 +101,35 @@ async function rawDelete(table: string, id: string) {
 }
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  const buyListQuery = z.object({
+    userId: z.string().optional(),
+    agentId: z.string().optional(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+  const renewBody = z.object({
+    agentId: z.string(),
+    userId: z.string(),
+    duration: z.number(),
+  })
+  const withdrawalListQuery = z.object({
+    userId: z.string().optional(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+  const optionalUserIdQuery = z.object({ userId: z.string().optional() })
+  const optionalUserIdAgentIdQuery = z.object({
+    userId: z.string().optional(),
+    agentId: z.string().optional(),
+  })
+  const optionalAgentIdUserIdQuery = z.object({
+    agentId: z.string().optional(),
+    userId: z.string().optional(),
+  })
+  const validateOrderBody = z.object({
+    orderNo: z.string().optional(),
+    id: z.string().optional(),
+  })
   // -------------------------------------------------------------------------
   // agent_need_task — Agent 需求任务市场（表 zhs_agent_need_task，尚未迁移为 Drizzle schema）
   // -------------------------------------------------------------------------
@@ -427,38 +456,23 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 购买记录列表
   server.get('/buy/list', async (request) => {
-    const {
-      userId,
-      agentId,
-      page = 1,
-      pageSize = 20,
-    } = request.query as {
-      userId?: string
-      agentId?: string
-      page?: string
-      pageSize?: string
-    }
-    const offset = (Number(page) - 1) * Number(pageSize)
+    const { userId, agentId, page, pageSize } = buyListQuery.parse(request.query)
+    const offset = (page - 1) * pageSize
     const conditions: SQL[] = []
     if (userId) conditions.push(eq(zhsAgentBuy.userId, userId))
     if (agentId) conditions.push(eq(zhsAgentBuy.agentId, agentId))
     const where = conditions.length ? sql.join(conditions, sql` AND `) : sql`TRUE`
-    const list = await db
-      .select()
-      .from(zhsAgentBuy)
-      .where(where)
-      .limit(Number(pageSize))
-      .offset(offset)
+    const list = await db.select().from(zhsAgentBuy).where(where).limit(pageSize).offset(offset)
     const total = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(zhsAgentBuy)
       .where(where)
-    return { list, total: total[0]?.count ?? 0, page: Number(page), pageSize: Number(pageSize) }
+    return { list, total: total[0]?.count ?? 0, page, pageSize }
   })
 
   // 购买记录详情
   server.get('/buy/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParamSchema.parse(request.params)
     const result = await db.select().from(zhsAgentBuy).where(eq(zhsAgentBuy.id, id)).limit(1)
     if (!result[0]) return reply.code(404).send({ error: '购买记录不存在' })
     return result[0]
@@ -466,11 +480,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 续费
   server.post('/developer/renew', async (request, reply) => {
-    const { agentId, userId, duration } = request.body as {
-      agentId: string
-      userId: string
-      duration: number
-    }
+    const { agentId, userId, duration } = renewBody.parse(request.body)
     const existing = await db
       .select()
       .from(zhsAgentBuy)
@@ -481,13 +491,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const existingRow = existing[0]
     if (!existingRow) return reply.code(404).send({ error: '无有效订阅记录' })
     const newExpires = new Date(
-      Math.max(existingRow.expiresAt.getTime(), Date.now()) + Number(duration) * 86400000,
+      Math.max(existingRow.expiresAt.getTime(), Date.now()) + duration * 86400000,
     )
     const [updated] = await db
       .update(zhsAgentBuy)
       .set({
         expiresAt: newExpires,
-        duration: existingRow.duration + Number(duration),
+        duration: existingRow.duration + duration,
         updatedAt: new Date(),
       })
       .where(eq(zhsAgentBuy.id, existingRow.id))
@@ -497,16 +507,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 提现明细列表
   server.get('/withdrawal/list', async (request) => {
-    const {
-      userId,
-      page = 1,
-      pageSize = 20,
-    } = request.query as {
-      userId?: string
-      page?: string
-      pageSize?: string
-    }
-    const offset = (Number(page) - 1) * Number(pageSize)
+    const { userId, page, pageSize } = withdrawalListQuery.parse(request.query)
+    const offset = (page - 1) * pageSize
     const conditions: SQL[] = []
     if (userId) conditions.push(eq(zhsAgentWithdrawalDetail.userId, userId))
     const where = conditions.length ? sql.join(conditions, sql` AND `) : sql`TRUE`
@@ -514,18 +516,18 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .select()
       .from(zhsAgentWithdrawalDetail)
       .where(where)
-      .limit(Number(pageSize))
+      .limit(pageSize)
       .offset(offset)
     const total = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(zhsAgentWithdrawalDetail)
       .where(where)
-    return { list, total: total[0]?.count ?? 0, page: Number(page), pageSize: Number(pageSize) }
+    return { list, total: total[0]?.count ?? 0, page, pageSize }
   })
 
   // 提现明细统计
   server.get('/withdrawal/summary', async (request) => {
-    const { userId } = request.query as { userId?: string }
+    const { userId } = optionalUserIdQuery.parse(request.query)
     const result = await db
       .select({
         totalAmount: sql<number>`COALESCE(SUM(${zhsAgentWithdrawalDetail.amount}::numeric), 0)::float8`,
@@ -558,7 +560,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
    * @returns { total_count, total_amount, active_count, pending_count, expired_count, cancelled_count }
    */
   server.get('/buy/stats/summary', async (request, reply) => {
-    const { userId, agentId } = request.query as { userId?: string; agentId?: string }
+    const { userId, agentId } = optionalUserIdAgentIdQuery.parse(request.query)
     try {
       const conds: SQL[] = []
       if (userId) conds.push(sql`"user_id" = ${userId}`)
@@ -588,7 +590,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
    * @returns { orderNo, generatedAt }
    */
   server.get('/buy/order/generate', async (request, reply) => {
-    const { agentId, userId } = request.query as { agentId?: string; userId?: string }
+    const { agentId, userId } = optionalAgentIdUserIdQuery.parse(request.query)
     const now = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
     const ts =
@@ -607,7 +609,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
    * @returns { valid, order }
    */
   server.post('/buy/order/validate', async (request, reply) => {
-    const { orderNo, id } = request.body as { orderNo?: string; id?: string }
+    const { orderNo, id } = validateOrderBody.parse(request.body)
     if (!orderNo && !id) return reply.status(400).send(error(400, '需要提供 orderNo 或 id'))
     try {
       let row: Record<string, unknown> | undefined

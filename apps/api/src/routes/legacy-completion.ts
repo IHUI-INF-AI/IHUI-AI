@@ -277,7 +277,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D9: 各模块 by-ids 批量查询 (统一端点) ==========
   fastify.post('/batch/lessons', async (request) => {
-    const { ids } = request.body as { ids: string[] }
+    const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
     const list = await db
       .select()
       .from(lessons)
@@ -286,7 +286,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.post('/batch/exams', async (request) => {
-    const { ids } = request.body as { ids: string[] }
+    const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
     const list = await db
       .select()
       .from(examPapers)
@@ -295,7 +295,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.post('/batch/channels', async (request) => {
-    const { ids } = request.body as { ids: string[] }
+    const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
     const list = await db
       .select()
       .from(liveChannels)
@@ -305,7 +305,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D10: OSS 文件删除 + URL转Base64 (2端点) ==========
   fastify.delete('/oss/file', async (request) => {
-    const { fileUrl } = request.query as { fileUrl?: string }
+    const { fileUrl } = z.object({ fileUrl: z.string().optional() }).parse(request.query)
     if (!fileUrl) return { deleted: false, error: 'fileUrl 为必填项' }
 
     // 从 URL 中提取文件 ID（UUID 格式或最后一段路径）

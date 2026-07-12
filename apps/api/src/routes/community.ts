@@ -890,7 +890,7 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /circles/topic/:tid - 话题详情
   server.get('/circles/topic/:tid', async (request, reply) => {
-    const { tid } = request.params as { tid: string }
+    const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
       return reply.status(400).send(error(400, '无效的话题 ID'))
@@ -934,7 +934,7 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /circles/topic/:tid - 修改话题
   server.put('/circles/topic/:tid', async (request, reply) => {
-    const { tid } = request.params as { tid: string }
+    const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
       return reply.status(400).send(error(400, '无效的话题 ID'))
@@ -964,7 +964,7 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /circles/topic/:tid - 删除话题
   server.delete('/circles/topic/:tid', async (request, reply) => {
-    const { tid } = request.params as { tid: string }
+    const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
       return reply.status(400).send(error(400, '无效的话题 ID'))
@@ -1027,7 +1027,7 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /circles/category-relation/:rid - 删除分类关系
   server.delete('/circles/category-relation/:rid', async (request, reply) => {
-    const { rid } = request.params as { rid: string }
+    const { rid } = z.object({ rid: z.string() }).parse(request.params)
     const ridNum = Number(rid)
     if (!Number.isInteger(ridNum) || ridNum <= 0) {
       return reply.status(400).send(error(400, '无效的关系 ID'))
@@ -1087,7 +1087,7 @@ export const communityRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /circles/circle-category-relation/:rid - 删除类目关系
   server.delete('/circles/circle-category-relation/:rid', async (request, reply) => {
-    const { rid } = request.params as { rid: string }
+    const { rid } = z.object({ rid: z.string() }).parse(request.params)
     const ridNum = Number(rid)
     if (!Number.isInteger(ridNum) || ridNum <= 0) {
       return reply.status(400).send(error(400, '无效的关系 ID'))

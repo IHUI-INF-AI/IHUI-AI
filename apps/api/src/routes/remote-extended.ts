@@ -153,7 +153,9 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.get('/remote/agent/favorites', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as { page?: string; pageSize?: string }
+    const q = z
+      .object({ page: z.string().optional(), pageSize: z.string().optional() })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     try {
@@ -425,7 +427,9 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.get('/remote/agent/hot', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as { page?: string; pageSize?: string }
+    const q = z
+      .object({ page: z.string().optional(), pageSize: z.string().optional() })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     try {
@@ -485,7 +489,7 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.get('/remote/config', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as { keys?: string }
+    const q = z.object({ keys: z.string().optional() }).parse(request.query)
     const keys = q.keys
     try {
       let rows: Record<string, unknown>[]
