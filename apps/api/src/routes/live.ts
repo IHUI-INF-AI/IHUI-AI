@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
-import { authenticate } from '../plugins/auth.js';
+﻿import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findPublishedLiveCategories,
   findAllLiveCategories,
@@ -21,10 +21,8 @@ import {
   updateLecturer,
   deleteLecturer,
   getLiveStatistics,
-} from '../db/live-queries.js';
-import { success, error, emptyToUndefined } from '../utils/response.js';
-
-const ADMIN_ROLE_ID = 1;
+} from '../db/live-queries.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
 
 /** 复用响应 schema：data 字段允许任意附加属性。 */
 const R = {
@@ -48,18 +46,18 @@ const R = {
   401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-};
+}
 
 // =============================================================================
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') });
+const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-};
+}
 
 const listChannelsQuery = z.object({
   ...paginationQuery,
@@ -68,31 +66,31 @@ const listChannelsQuery = z.object({
   lecturerId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   isLive: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-});
+})
 
 const listLecturersQuery = z.object({
   ...paginationQuery,
   name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-});
+})
 
 const byIdsQuery = z.object({
   ids: z.string().min(1, 'ids 不能为空'),
-});
+})
 
 const createLiveCategorySchema = z.object({
   name: z.string().min(1, '名称不能为空').max(100),
   pid: z.string().uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
-});
+})
 
 const updateLiveCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
   pid: z.string().uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
-});
+})
 
 const createChannelSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200),
@@ -109,7 +107,7 @@ const createChannelSchema = z.object({
   isPublished: z.boolean().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
-});
+})
 
 const updateChannelSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -126,7 +124,7 @@ const updateChannelSchema = z.object({
   isPublished: z.boolean().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
-});
+})
 
 const createLecturerSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(100),
@@ -135,7 +133,7 @@ const createLecturerSchema = z.object({
   intro: z.string().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
-});
+})
 
 const updateLecturerSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -144,7 +142,7 @@ const updateLecturerSchema = z.object({
   intro: z.string().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
-});
+})
 
 const streamNotifySchema = z.object({
   streamId: z.string().optional(),
@@ -159,40 +157,23 @@ const streamNotifySchema = z.object({
   eventType: z.string().optional(),
   sign: z.string().optional(),
   t: z.string().optional(),
-});
+})
 
 const tencentStreamQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   streamName: z.string().optional(),
   status: z.string().optional(),
-});
+})
 
 // =============================================================================
 // 鉴权辅助
 // =============================================================================
 
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request);
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0;
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'));
-    return false;
-  }
-  return true;
-}
-
 /** 解析可选 ISO 时间字符串为 Date，空值返回 null。 */
 function parseTime(v: string | null | undefined): Date | null {
-  if (!v) return null;
-  return new Date(v);
+  if (!v) return null
+  return new Date(v)
 }
 
 // =============================================================================
@@ -202,316 +183,327 @@ function parseTime(v: string | null | undefined): Date | null {
 export const liveRoutes: FastifyPluginAsync = async (server) => {
   // GET /live/categories - 启用的分类列表（公开）
   server.get('/live/categories', { schema: { response: R } }, async (_request, reply) => {
-    const list = await findPublishedLiveCategories();
-    return reply.send(success({ list }));
-  });
+    const list = await findPublishedLiveCategories()
+    return reply.send(success({ list }))
+  })
 
   // GET /live/channels - 已发布频道列表（分页）
   server.get('/live/channels', { schema: { response: R } }, async (request, reply) => {
-    const parsed = listChannelsQuery.safeParse(request.query);
+    const parsed = listChannelsQuery.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findLiveChannels({ ...parsed.data, publishedOnly: true });
-    return reply.send(success(result));
-  });
+    const result = await findLiveChannels({ ...parsed.data, publishedOnly: true })
+    return reply.send(success(result))
+  })
 
   // GET /live/channels/by-ids - 批量获取频道
   server.get('/live/channels/by-ids', { schema: { response: R } }, async (request, reply) => {
-    const parsed = byIdsQuery.safeParse(request.query);
+    const parsed = byIdsQuery.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const ids = parsed.data.ids.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-    const list = await findLiveChannelsByIds(ids);
-    return reply.send(success({ list }));
-  });
+    const ids = parsed.data.ids
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    const list = await findLiveChannelsByIds(ids)
+    return reply.send(success({ list }))
+  })
 
   // GET /live/channels/:id - 频道详情
   server.get('/live/channels/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const channel = await findLiveChannelById(parsed.data.id);
+    const channel = await findLiveChannelById(parsed.data.id)
     if (!channel || !channel.isPublished || channel.status !== 1) {
-      return reply.status(404).send(error(404, '频道不存在'));
+      return reply.status(404).send(error(404, '频道不存在'))
     }
-    await incrementLiveViewCount(parsed.data.id);
-    return reply.send(success({ channel }));
-  });
+    await incrementLiveViewCount(parsed.data.id)
+    return reply.send(success({ channel }))
+  })
 
   // GET /live/lecturers - 讲师列表
   server.get('/live/lecturers', { schema: { response: R } }, async (request, reply) => {
-    const parsed = listLecturersQuery.safeParse(request.query);
+    const parsed = listLecturersQuery.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findLecturers({ ...parsed.data, status: parsed.data.status ?? 1 });
-    return reply.send(success(result));
-  });
+    const result = await findLecturers({ ...parsed.data, status: parsed.data.status ?? 1 })
+    return reply.send(success(result))
+  })
 
   // GET /live/lecturers/:id - 讲师详情
   server.get('/live/lecturers/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const lecturer = await findLecturerById(parsed.data.id);
+    const lecturer = await findLecturerById(parsed.data.id)
     if (!lecturer) {
-      return reply.status(404).send(error(404, '讲师不存在'));
+      return reply.status(404).send(error(404, '讲师不存在'))
     }
-    return reply.send(success({ lecturer }));
-  });
+    return reply.send(success({ lecturer }))
+  })
 
   // GET /live/statistics - 直播统计
   server.get('/live/statistics', { schema: { response: R } }, async (_request, reply) => {
-    const statistics = await getLiveStatistics();
-    return reply.send(success({ statistics }));
-  });
+    const statistics = await getLiveStatistics()
+    return reply.send(success({ statistics }))
+  })
 
   // POST /live/notify/stream-begin - 直播推流开始回调（腾讯云回调）
   server.post('/live/notify/stream-begin', async (request, reply) => {
-    const parsed = streamNotifySchema.safeParse(request.body);
+    const parsed = streamNotifySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    return reply.send(success({ ok: true, event: 'stream-begin', data: parsed.data }));
-  });
+    return reply.send(success({ ok: true, event: 'stream-begin', data: parsed.data }))
+  })
 
   // POST /live/notify/stream-end - 直播推流结束回调（腾讯云回调）
   server.post('/live/notify/stream-end', async (request, reply) => {
-    const parsed = streamNotifySchema.safeParse(request.body);
+    const parsed = streamNotifySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    return reply.send(success({ ok: true, event: 'stream-end', data: parsed.data }));
-  });
-};
+    return reply.send(success({ ok: true, event: 'stream-end', data: parsed.data }))
+  })
+}
 
 // =============================================================================
 // 管理员路由（前缀 /api/admin）
 // =============================================================================
 
 export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAdmin(request, reply))) return;
-  });
+  server.addHook('preHandler', requireAdmin)
 
   // ----- 分类管理 -----
 
   server.get('/live/categories', { schema: { response: R } }, async (_request, reply) => {
-    const list = await findAllLiveCategories();
-    return reply.send(success({ list }));
-  });
+    const list = await findAllLiveCategories()
+    return reply.send(success({ list }))
+  })
 
   server.get('/live/categories/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const category = await findLiveCategoryById(parsed.data.id);
+    const category = await findLiveCategoryById(parsed.data.id)
     if (!category) {
-      return reply.status(404).send(error(404, '分类不存在'));
+      return reply.status(404).send(error(404, '分类不存在'))
     }
-    return reply.send(success({ category }));
-  });
+    return reply.send(success({ category }))
+  })
 
   server.post('/live/categories', { schema: { response: R } }, async (request, reply) => {
-    const parsed = createLiveCategorySchema.safeParse(request.body);
+    const parsed = createLiveCategorySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const category = await createLiveCategory(parsed.data);
-    return reply.status(201).send(success({ category }));
-  });
+    const category = await createLiveCategory(parsed.data)
+    return reply.status(201).send(success({ category }))
+  })
 
   server.put('/live/categories/:id', { schema: { response: R } }, async (request, reply) => {
-    const idParsed = idParamSchema.safeParse(request.params);
+    const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const parsed = updateLiveCategorySchema.safeParse(request.body);
+    const parsed = updateLiveCategorySchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findLiveCategoryById(idParsed.data.id);
+    const existing = await findLiveCategoryById(idParsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '分类不存在'));
+      return reply.status(404).send(error(404, '分类不存在'))
     }
-    const category = await updateLiveCategory(idParsed.data.id, parsed.data);
-    return reply.send(success({ category }));
-  });
+    const category = await updateLiveCategory(idParsed.data.id, parsed.data)
+    return reply.send(success({ category }))
+  })
 
   server.delete('/live/categories/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findLiveCategoryById(parsed.data.id);
+    const existing = await findLiveCategoryById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '分类不存在'));
+      return reply.status(404).send(error(404, '分类不存在'))
     }
-    await deleteLiveCategory(parsed.data.id);
-    return reply.send(success({ ok: true }));
-  });
+    await deleteLiveCategory(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
 
   // ----- 频道管理 -----
 
   server.get('/live/channels', { schema: { response: R } }, async (request, reply) => {
-    const parsed = listChannelsQuery.safeParse(request.query);
+    const parsed = listChannelsQuery.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findLiveChannels(parsed.data);
-    return reply.send(success(result));
-  });
+    const result = await findLiveChannels(parsed.data)
+    return reply.send(success(result))
+  })
 
   server.get('/live/channels/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const channel = await findLiveChannelById(parsed.data.id);
+    const channel = await findLiveChannelById(parsed.data.id)
     if (!channel) {
-      return reply.status(404).send(error(404, '频道不存在'));
+      return reply.status(404).send(error(404, '频道不存在'))
     }
-    return reply.send(success({ channel }));
-  });
+    return reply.send(success({ channel }))
+  })
 
   server.post('/live/channels', { schema: { response: R } }, async (request, reply) => {
-    const parsed = createChannelSchema.safeParse(request.body);
+    const parsed = createChannelSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const channel = await createLiveChannel({
       ...parsed.data,
       startTime: parseTime(parsed.data.startTime),
       endTime: parseTime(parsed.data.endTime),
-    });
-    return reply.status(201).send(success({ channel }));
-  });
+    })
+    return reply.status(201).send(success({ channel }))
+  })
 
   server.put('/live/channels/:id', { schema: { response: R } }, async (request, reply) => {
-    const idParsed = idParamSchema.safeParse(request.params);
+    const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const parsed = updateChannelSchema.safeParse(request.body);
+    const parsed = updateChannelSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findLiveChannelById(idParsed.data.id);
+    const existing = await findLiveChannelById(idParsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '频道不存在'));
+      return reply.status(404).send(error(404, '频道不存在'))
     }
     const channel = await updateLiveChannel(idParsed.data.id, {
       ...parsed.data,
       startTime: parseTime(parsed.data.startTime),
       endTime: parseTime(parsed.data.endTime),
-    });
-    return reply.send(success({ channel }));
-  });
+    })
+    return reply.send(success({ channel }))
+  })
 
   server.delete('/live/channels/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findLiveChannelById(parsed.data.id);
+    const existing = await findLiveChannelById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '频道不存在'));
+      return reply.status(404).send(error(404, '频道不存在'))
     }
-    await deleteLiveChannel(parsed.data.id);
-    return reply.send(success({ ok: true }));
-  });
+    await deleteLiveChannel(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
 
   // ----- 讲师管理 -----
 
   // GET /live/lecturers - 讲师列表(含禁用,管理员用)
   server.get('/live/lecturers', { schema: { response: R } }, async (request, reply) => {
-    const parsed = listLecturersQuery.safeParse(request.query);
+    const parsed = listLecturersQuery.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findLecturers(parsed.data);
-    return reply.send(success(result));
-  });
+    const result = await findLecturers(parsed.data)
+    return reply.send(success(result))
+  })
 
   server.post('/live/lecturers', { schema: { response: R } }, async (request, reply) => {
-    const parsed = createLecturerSchema.safeParse(request.body);
+    const parsed = createLecturerSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const lecturer = await createLecturer(parsed.data);
-    return reply.status(201).send(success({ lecturer }));
-  });
+    const lecturer = await createLecturer(parsed.data)
+    return reply.status(201).send(success({ lecturer }))
+  })
 
   server.put('/live/lecturers/:id', { schema: { response: R } }, async (request, reply) => {
-    const idParsed = idParamSchema.safeParse(request.params);
+    const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const parsed = updateLecturerSchema.safeParse(request.body);
+    const parsed = updateLecturerSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findLecturerById(idParsed.data.id);
+    const existing = await findLecturerById(idParsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '讲师不存在'));
+      return reply.status(404).send(error(404, '讲师不存在'))
     }
-    const lecturer = await updateLecturer(idParsed.data.id, parsed.data);
-    return reply.send(success({ lecturer }));
-  });
+    const lecturer = await updateLecturer(idParsed.data.id, parsed.data)
+    return reply.send(success({ lecturer }))
+  })
 
   server.delete('/live/lecturers/:id', { schema: { response: R } }, async (request, reply) => {
-    const parsed = idParamSchema.safeParse(request.params);
+    const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const existing = await findLecturerById(parsed.data.id);
+    const existing = await findLecturerById(parsed.data.id)
     if (!existing) {
-      return reply.status(404).send(error(404, '讲师不存在'));
+      return reply.status(404).send(error(404, '讲师不存在'))
     }
-    await deleteLecturer(parsed.data.id);
-    return reply.send(success({ ok: true }));
-  });
+    await deleteLecturer(parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
 
   // ----- 腾讯云直播流管理 -----
 
   // POST /live/tencent/streams - 创建腾讯云直播流
   server.post('/live/tencent/streams', { schema: { response: R } }, async (request, reply) => {
-    const body = request.body as { streamName?: string; app?: string };
+    const body = request.body as { streamName?: string; app?: string }
     if (!body.streamName) {
-      return reply.status(400).send(error(400, 'streamName 不能为空'));
+      return reply.status(400).send(error(400, 'streamName 不能为空'))
     }
-    return reply.send(success({
-      streamName: body.streamName,
-      pushUrl: `rtmp://push.example.com/live/${body.streamName}`,
-      playUrl: `rtmp://play.example.com/live/${body.streamName}`,
-    }));
-  });
+    return reply.send(
+      success({
+        streamName: body.streamName,
+        pushUrl: `rtmp://push.example.com/live/${body.streamName}`,
+        playUrl: `rtmp://play.example.com/live/${body.streamName}`,
+      }),
+    )
+  })
 
   // GET /live/tencent/streams - 查询腾讯云直播流列表
   server.get('/live/tencent/streams', { schema: { response: R } }, async (request, reply) => {
-    const parsed = tencentStreamQuery.safeParse(request.query);
+    const parsed = tencentStreamQuery.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    return reply.send(success({
-      page: parsed.data.page,
-      pageSize: parsed.data.pageSize,
-      total: 0,
-      list: [],
-    }));
-  });
+    return reply.send(
+      success({
+        page: parsed.data.page,
+        pageSize: parsed.data.pageSize,
+        total: 0,
+        list: [],
+      }),
+    )
+  })
 
   // GET /live/tencent/callback-templates - 获取回调模板列表
-  server.get('/live/tencent/callback-templates', { schema: { response: R } }, async (_request, reply) => {
-    return reply.send(success({
-      templates: [
-        { templateId: '0', templateName: '默认模板', description: '系统默认回调模板' },
-      ],
-    }));
-  });
-};
+  server.get(
+    '/live/tencent/callback-templates',
+    { schema: { response: R } },
+    async (_request, reply) => {
+      return reply.send(
+        success({
+          templates: [
+            { templateId: '0', templateName: '默认模板', description: '系统默认回调模板' },
+          ],
+        }),
+      )
+    },
+  )
+}
