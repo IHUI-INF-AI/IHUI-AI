@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function AiCircle() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getCircleList({ page: 1, pageSize: 20 })) as any
-      setList(res?.list || [])
+      const res = (await api.getCircleList({ page: 1, pageSize: 20 })) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
       console.error('加载AI圈失败:', e)
     } finally {
