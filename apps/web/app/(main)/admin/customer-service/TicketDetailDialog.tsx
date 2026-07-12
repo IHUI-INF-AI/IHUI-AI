@@ -18,7 +18,7 @@ import {
   DialogDescription,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   type Ticket,
   type Comment,
@@ -45,6 +45,7 @@ export function TicketDetailDialog({
 }) {
   const qc = useQueryClient()
   const locale = useLocale()
+  const t = useTranslations('adminTicketDetail')
   const [reply, setReply] = React.useState('')
   const [assignAgentId, setAssignAgentId] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
@@ -111,7 +112,7 @@ export function TicketDetailDialog({
             <span className="font-mono text-xs text-muted-foreground">{ticket.ticketNo}</span>
           </DialogTitle>
           <DialogDescription>
-            状态：
+            {t('status')}
             <span
               className={cn(
                 'ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
@@ -120,7 +121,7 @@ export function TicketDetailDialog({
             >
               {STATUS_LABEL[ticket.status]}
             </span>
-            <span className="ml-2">优先级：</span>
+            <span className="ml-2">{t('priority')}</span>
             <span
               className={cn(
                 'ml-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
@@ -141,15 +142,17 @@ export function TicketDetailDialog({
 
           {/* 工单描述 */}
           <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-            <div className="mb-1 text-xs font-medium text-muted-foreground">问题描述</div>
+            <div className="mb-1 text-xs font-medium text-muted-foreground">
+              {t('issueDescription')}
+            </div>
             <p className="whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
           {/* 状态流转 */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium">状态流转：</span>
+            <span className="text-sm font-medium">{t('statusTransition')}</span>
             {allowedNext.length === 0 ? (
-              <span className="text-sm text-muted-foreground">无可流转状态</span>
+              <span className="text-sm text-muted-foreground">{t('noTransitions')}</span>
             ) : (
               allowedNext.map((s) => (
                 <Button key={s} size="sm" variant="outline" onClick={() => doTransition(s)}>
@@ -161,10 +164,10 @@ export function TicketDetailDialog({
 
           {/* 分配坐席 */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium">分配坐席：</span>
+            <span className="text-sm font-medium">{t('assignAgent')}</span>
             <Select value={assignAgentId} onValueChange={setAssignAgentId}>
               <SelectTrigger className="h-9 w-[180px]">
-                <SelectValue placeholder="选择坐席" />
+                <SelectValue placeholder={t('selectAgent')} />
               </SelectTrigger>
               <SelectContent>
                 {agents.map((a) => (
@@ -184,15 +187,15 @@ export function TicketDetailDialog({
               }}
             >
               {assignMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              分配
+              {t('assign')}
             </Button>
           </div>
 
           {/* 评论列表 */}
           <div className="space-y-2">
-            <div className="text-sm font-medium">回复记录</div>
+            <div className="text-sm font-medium">{t('replyRecords')}</div>
             {comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">暂无回复</p>
+              <p className="text-sm text-muted-foreground">{t('noReply')}</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
                 {comments.map((c) => (
@@ -204,7 +207,9 @@ export function TicketDetailDialog({
                     )}
                   >
                     <div className="mb-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium">{c.isAdmin ? '客服' : '用户'}</span>
+                      <span className="font-medium">
+                        {c.isAdmin ? t('roleAgent') : t('roleUser')}
+                      </span>
                       <span>{new Intl.DateTimeFormat(locale).format(new Date(c.createdAt))}</span>
                     </div>
                     <p className="whitespace-pre-wrap">{c.content}</p>
@@ -216,14 +221,14 @@ export function TicketDetailDialog({
 
           {/* 客服回复 */}
           <div className="space-y-2">
-            <Label htmlFor="reply">客服回复</Label>
+            <Label htmlFor="reply">{t('customerReply')}</Label>
             <textarea
               id="reply"
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               rows={3}
               className={textareaClass}
-              placeholder="输入回复内容..."
+              placeholder={t('replyPlaceholder')}
             />
             <div className="flex justify-end">
               <Button
@@ -235,7 +240,7 @@ export function TicketDetailDialog({
                 }}
               >
                 {replyMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                发送回复
+                {t('sendReply')}
               </Button>
             </div>
           </div>

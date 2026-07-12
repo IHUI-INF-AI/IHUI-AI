@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Plus, Download, Crown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -34,6 +35,7 @@ import {
 import type { AuthUserVip, AuthUserVipForm, AuthUserVipSearch, ListData } from './types'
 
 export default function AuthUserVipPage() {
+  const t = useTranslations('adminAuthUserVip')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState<AuthUserVipSearch>(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
@@ -60,7 +62,7 @@ export default function AuthUserVipPage() {
         : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'auth-user-vip'] })
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       close()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -69,7 +71,7 @@ export default function AuthUserVipPage() {
     mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'auth-user-vip'] })
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       setDelId(null)
     },
     onError: (e: Error) => toast.error(e.message),
@@ -93,7 +95,7 @@ export default function AuthUserVipPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.vipId.trim() || !form.progress.trim()) {
-      toast.error('VIP ID 和 进度 为必填项')
+      toast.error(t('validateRequired'))
       return
     }
     saveMut.mutate()
@@ -108,10 +110,10 @@ export default function AuthUserVipPage() {
   async function handleExport() {
     const ok = await exportFromApi(
       `${RESOURCE}?${new URLSearchParams(params)}`,
-      '用户VIP进度',
+      t('exportName'),
       EXPORT_COLS,
     )
-    if (!ok) toast.error('导出失败')
+    if (!ok) toast.error(t('exportFailed'))
   }
 
   return (
@@ -119,19 +121,19 @@ export default function AuthUserVipPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Crown className="h-6 w-6 text-primary" />
-          用户VIP进度
+          {t('title')}
         </h1>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}:export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}:add`}>
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('add')}
             </Button>
           </HasPermi>
         </div>
@@ -173,8 +175,8 @@ export default function AuthUserVipPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>确定要删除该用户VIP进度记录吗？此操作不可撤销。</DialogDescription>
+            <DialogTitle>{t('deleteTitle')}</DialogTitle>
+            <DialogDescription>{t('deleteDesc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -183,7 +185,7 @@ export default function AuthUserVipPage() {
               onClick={() => setDelId(null)}
               disabled={delMut.isPending}
             >
-              取消
+              {t('cancel')}
             </Button>
             <Button
               type="button"
@@ -191,7 +193,8 @@ export default function AuthUserVipPage() {
               disabled={delMut.isPending}
               onClick={() => delId && delMut.mutate(delId)}
             >
-              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
