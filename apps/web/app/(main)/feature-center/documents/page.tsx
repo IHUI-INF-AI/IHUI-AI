@@ -35,7 +35,7 @@ const CATEGORIES = [
 ] as const
 
 export default function DocumentsPage() {
-  const t = useTranslations('featureCenterDocuments')
+  const t = useTranslations('featureCenter.documents')
   const { data, isLoading } = useQuery({
     queryKey: ['feature-center-docs'],
     queryFn: fetchDocs,

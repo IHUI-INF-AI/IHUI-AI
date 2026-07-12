@@ -26,7 +26,7 @@ export function AiGenerationPreview({ lastImage, lastVideo, onClear }: Props) {
             onClick={onClear}
             className="text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            清除
+            {t('clear')}
           </button>
         </div>
         {lastImage && (

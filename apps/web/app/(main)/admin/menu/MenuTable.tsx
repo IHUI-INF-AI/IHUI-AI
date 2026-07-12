@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Plus, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { DataTable, type Column } from '@/components/data'
@@ -32,42 +33,43 @@ export function MenuTable({
   onDelete,
   onPageChange,
 }: Props) {
+  const t = useTranslations('admin.menu')
   const columns: Column<MenuItem>[] = [
     {
       key: 'name',
-      title: '菜单名称',
+      title: t('colName'),
       render: (m) => <span className="font-medium">{m.name}</span>,
     },
     {
       key: 'icon',
-      title: '图标',
+      title: t('colIcon'),
       render: (m) => (
         <code className="font-mono text-xs text-muted-foreground">{m.icon || '-'}</code>
       ),
     },
     {
       key: 'path',
-      title: '路由路径',
+      title: t('colPath'),
       render: (m) => (
         <code className="font-mono text-xs text-muted-foreground">{m.path || '-'}</code>
       ),
     },
     {
       key: 'sort',
-      title: '排序',
+      title: t('colSort'),
       render: (m) => <span className="text-muted-foreground">{m.sort}</span>,
     },
     {
       key: 'parentId',
-      title: '父菜单',
+      title: t('colParent'),
       render: (m) => {
         const parent = list.find((p) => p.id === m.parentId)
-        return <span className="text-muted-foreground">{parent?.name ?? '顶级菜单'}</span>
+        return <span className="text-muted-foreground">{parent?.name ?? t('topMenu')}</span>
       },
     },
     {
       key: 'visible',
-      title: '显示',
+      title: t('colVisible'),
       render: (m) => (
         <button onClick={() => onToggleVisible(m)} className="inline-flex items-center gap-1">
           {m.visible ? (
@@ -76,14 +78,14 @@ export function MenuTable({
             <EyeOff className="h-4 w-4 text-muted-foreground" />
           )}
           <span className={cn('text-xs', m.visible ? 'text-emerald-600' : 'text-muted-foreground')}>
-            {m.visible ? '显示' : '隐藏'}
+            {m.visible ? t('visible') : t('hidden')}
           </span>
         </button>
       ),
     },
     {
       key: 'actions',
-      title: '操作',
+      title: t('colActions'),
       align: 'right',
       render: (m) => (
         <div className="flex justify-end gap-1">
@@ -99,7 +101,7 @@ export function MenuTable({
             className="text-destructive hover:text-destructive"
             disabled={delPending}
             onClick={() => {
-              if (confirm('确认删除该菜单?')) onDelete(m)
+              if (confirm(t('confirmDelete'))) onDelete(m)
             }}
           >
             <Trash2 className="h-4 w-4" />

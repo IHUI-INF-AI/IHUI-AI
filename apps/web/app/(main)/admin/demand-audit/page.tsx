@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ClipboardCheck, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui'
@@ -12,6 +13,7 @@ import { api } from './helpers'
 import type { DemandRow, ListData } from './types'
 
 export default function DemandAuditPage() {
+  const t = useTranslations('admin.demandAudit')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState<Record<string, string>>({})
   const [page, setPage] = React.useState(1)
@@ -63,15 +65,13 @@ export default function DemandAuditPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <ClipboardCheck className="h-6 w-6 text-primary" />
-            需求审核
+            {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            审核需求,支持WebSocket聊天、编辑、审批
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={() => openEdit()}>
           <Plus className="h-4 w-4" />
-          新增
+          {t('create')}
         </Button>
       </div>
 

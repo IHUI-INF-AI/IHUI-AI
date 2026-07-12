@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Menu as MenuIcon, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +14,7 @@ import { PAGE_SIZE, api, EMPTY_FORM, menuToForm } from './helpers'
 import type { MenuItem, MenuForm, ListData } from './types'
 
 export default function MenuPage() {
+  const t = useTranslations('admin.menu')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
@@ -45,7 +47,7 @@ export default function MenuPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'menu'] })
       close()
-      toast.success('保存成功')
+      toast.success(t('saveSuccess'))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -54,7 +56,7 @@ export default function MenuPage() {
     mutationFn: (id: string) => api(`/api/admin/menu/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'menu'] })
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
     },
   })
 
@@ -86,7 +88,7 @@ export default function MenuPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) {
-      toast.error('请输入菜单名称')
+      toast.error(t('nameRequired'))
       return
     }
     saveMut.mutate()
@@ -101,15 +103,13 @@ export default function MenuPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <MenuIcon className="h-6 w-6 text-primary" />
-            菜单管理
+            {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            管理后台侧边栏菜单的增删改查与层级关系
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={() => openCreate()}>
           <Plus className="h-4 w-4" />
-          新建菜单
+          {t('create')}
         </Button>
       </div>
 
