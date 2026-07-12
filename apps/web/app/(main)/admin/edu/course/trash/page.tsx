@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import {
   RotateCcw,
   Trash2,
@@ -40,6 +41,7 @@ interface Course {
 const PAGE_SIZE = 10
 
 export default function EduCourseTrashPage() {
+  const t = useTranslations('admin.edu.course.trash')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
@@ -64,7 +66,7 @@ export default function EduCourseTrashPage() {
   const restoreMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/courses/${id}/restore`, { method: 'POST' }),
     onSuccess: () => {
-      toast.success('已恢复')
+      toast.success(t('restoreSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course', 'trash'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -73,7 +75,7 @@ export default function EduCourseTrashPage() {
   const destroyMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/courses/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('已彻底删除')
+      toast.success(t('destroySuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course', 'trash'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -86,15 +88,15 @@ export default function EduCourseTrashPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">课程回收站</h1>
-        <p className="mt-1 text-sm text-muted-foreground">恢复已删除的课程或彻底清除</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/course">
             <ChevronLeft className="h-4 w-4" />
-            返回课程管理
+            {t('backToCourse')}
           </Link>
         </Button>
         <div className="relative w-full max-w-xs">
@@ -102,7 +104,7 @@ export default function EduCourseTrashPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索已删除课程..."
+            placeholder={t('searchPlaceholder')}
             className="h-9 pl-8"
           />
         </div>
@@ -112,12 +114,12 @@ export default function EduCourseTrashPage() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-4 py-2.5">标题</TableHead>
-              <TableHead className="px-4 py-2.5">分类</TableHead>
-              <TableHead className="px-4 py-2.5">讲师</TableHead>
-              <TableHead className="px-4 py-2.5">价格</TableHead>
-              <TableHead className="px-4 py-2.5">删除时间</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colCategory')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colLecturer')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colPrice')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colDeletedAt')}</TableHead>
+              <TableHead className="px-4 py-2.5 text-right">{t('colAction')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
@@ -125,7 +127,7 @@ export default function EduCourseTrashPage() {
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : error ? (
@@ -138,7 +140,7 @@ export default function EduCourseTrashPage() {
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  回收站为空
+                  {t('empty')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -163,7 +165,7 @@ export default function EduCourseTrashPage() {
                           : 'text-amber-600 dark:text-amber-400',
                       )}
                     >
-                      {c.isFree ? '免费' : c.price}
+                      {c.isFree ? t('free') : c.price}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
@@ -175,24 +177,24 @@ export default function EduCourseTrashPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => restoreMut.mutate(c.id)}
-                        title="恢复"
+                        title={t('restore')}
                         disabled={restoreMut.isPending}
                       >
                         <RotateCcw className="h-4 w-4" />
-                        恢复
+                        {t('restore')}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          if (window.confirm('彻底删除后无法恢复，确定？')) destroyMut.mutate(c.id)
+                          if (window.confirm(t('confirmDestroy'))) destroyMut.mutate(c.id)
                         }}
-                        title="彻底删除"
+                        title={t('destroy')}
                         className="text-destructive hover:text-destructive"
                         disabled={destroyMut.isPending}
                       >
                         <Trash2 className="h-4 w-4" />
-                        彻底删除
+                        {t('destroy')}
                       </Button>
                     </div>
                   </TableCell>
@@ -204,7 +206,7 @@ export default function EduCourseTrashPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -213,10 +215,10 @@ export default function EduCourseTrashPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -224,7 +226,7 @@ export default function EduCourseTrashPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

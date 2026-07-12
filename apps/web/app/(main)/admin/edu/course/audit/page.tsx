@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
@@ -15,6 +16,7 @@ import { PAGE_SIZE, EXPORT_COLS, EMPTY_SEARCH } from './helpers'
 import type { Audit, CompareData, CourseAuditSearch, Snapshot } from './types'
 
 export default function EduCourseAuditPage() {
+  const t = useTranslations('admin.edu.course.audit')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [q, setQ] = React.useState<CourseAuditSearch>(EMPTY_SEARCH)
@@ -37,7 +39,7 @@ export default function EduCourseAuditPage() {
         body: JSON.stringify({ status: args.status, remark: args.remark }),
       }),
     onSuccess: (_d, vars) => {
-      toast.success(vars.status === 3 ? '已通过审核' : '已提交整改')
+      toast.success(vars.status === 3 ? t('approveSuccess') : t('rectifySuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-audit'] })
       closeCompare()
     },
@@ -63,7 +65,7 @@ export default function EduCourseAuditPage() {
       }
       setCompareData({ before, after })
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '加载对比数据失败')
+      toast.error(e instanceof Error ? e.message : t('loadCompareFailed'))
     } finally {
       setLoadingCompare(false)
     }
@@ -79,7 +81,7 @@ export default function EduCourseAuditPage() {
     if (currentId) auditMut.mutate({ id: currentId, status: 3, remark: compareRemark })
   }
   function rectify() {
-    if (!compareRemark.trim()) return toast.warning('请填写整改意见')
+    if (!compareRemark.trim()) return toast.warning(t('remarkRequired'))
     if (currentId) auditMut.mutate({ id: currentId, status: 1, remark: compareRemark })
   }
   function handleExport() {
@@ -87,7 +89,7 @@ export default function EduCourseAuditPage() {
       `/api/admin/course-audit${buildQs({ ...q, pageSize: 10000 })}`,
       `courseAudit_${Date.now()}`,
       EXPORT_COLS,
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function patchQ(patch: Partial<CourseAuditSearch>) {
     setQ((s) => ({ ...s, ...patch }))
@@ -101,10 +103,8 @@ export default function EduCourseAuditPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">课程审核</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          审核课程/视频修改，对比 before/after 数据
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <CourseAuditFilter
         q={q}
@@ -117,7 +117,7 @@ export default function EduCourseAuditPage() {
       />
       <CourseAuditTable list={rows} isLoading={isLoading} error={error} onAudit={openCompare} />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -126,10 +126,10 @@ export default function EduCourseAuditPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -137,7 +137,7 @@ export default function EduCourseAuditPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

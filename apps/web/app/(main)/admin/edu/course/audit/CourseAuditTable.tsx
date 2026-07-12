@@ -1,10 +1,11 @@
 'use client'
 
 import { Loader2, ClipboardCheck, Eye } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { PERM, fmt, statusText, statusClass } from './helpers'
+import { PERM, fmt, statusClass } from './helpers'
 import type { Audit } from './types'
 
 interface Props {
@@ -15,21 +16,22 @@ interface Props {
 }
 
 export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
+  const t = useTranslations('admin.edu.course.audit')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="px-4 py-2.5">ID</TableHead>
-            <TableHead className="px-4 py-2.5">类型</TableHead>
-            <TableHead className="px-4 py-2.5">操作</TableHead>
-            <TableHead className="px-4 py-2.5">源ID</TableHead>
-            <TableHead className="px-4 py-2.5">目标ID</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5">创建人</TableHead>
-            <TableHead className="px-4 py-2.5">创建时间</TableHead>
-            <TableHead className="px-4 py-2.5">更新人</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.type')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.operate')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.sourceId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.targetId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.status')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.creator')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.createdAt')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.updator')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('column.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -37,7 +39,7 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
             <TableRow>
               <TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -50,14 +52,14 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
             <TableRow>
               <TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
                 <ClipboardCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
             list.map((r) => (
               <TableRow key={r.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5">{r.id}</TableCell>
-                <TableCell className="px-4 py-2.5">{r.type === 0 ? '课程' : '视频'}</TableCell>
+                <TableCell className="px-4 py-2.5">{t(`type.${r.type}`)}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.operate}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.sourceId}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.targetId}</TableCell>
@@ -78,7 +80,7 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
                             : 'bg-muted-foreground',
                       )}
                     />
-                    {statusText(r.status)}
+                    {t(`status.${r.status}`)}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{r.creator ?? '-'}</TableCell>
@@ -86,7 +88,12 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
                 <TableCell className="px-4 py-2.5">{r.updator ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <HasPermi code={`${PERM}edit`}>
-                    <Button variant="ghost" size="sm" onClick={() => onAudit(r)} title="审核对比">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onAudit(r)}
+                      title={t('auditCompare')}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                   </HasPermi>

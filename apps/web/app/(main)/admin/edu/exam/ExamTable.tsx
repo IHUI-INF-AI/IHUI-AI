@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Edit, Trash2, Loader2, FileText, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { useTranslations } from 'next-intl'
 import type { Paper } from './types'
 
 interface Props {
@@ -17,17 +18,18 @@ interface Props {
 const COLSPAN = 6
 
 export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePending }: Props) {
+  const t = useTranslations('admin.edu.exam.index')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">标题</TableHead>
-            <TableHead className="px-4 py-2.5">总分</TableHead>
-            <TableHead className="px-4 py-2.5">及格分</TableHead>
-            <TableHead className="px-4 py-2.5">时长</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colTotalScore')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colPassScore')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colDuration')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -35,7 +37,7 @@ export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePend
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -48,7 +50,7 @@ export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePend
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无试卷
+                {t('emptyExams')}
               </TableCell>
             </TableRow>
           ) : (
@@ -64,7 +66,9 @@ export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePend
                 </TableCell>
                 <TableCell className="px-4 py-2.5">{Number(p.totalScore)}</TableCell>
                 <TableCell className="px-4 py-2.5">{Number(p.passScore)}</TableCell>
-                <TableCell className="px-4 py-2.5">{p.duration}分钟</TableCell>
+                <TableCell className="px-4 py-2.5">
+                  {t('durationMinutes', { minutes: p.duration })}
+                </TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
@@ -80,24 +84,29 @@ export function ExamTable({ rows, isLoading, error, onEdit, onDelete, deletePend
                         p.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
                       )}
                     />
-                    {p.isPublished ? '已发布' : '未发布'}
+                    {t(`status.${p.isPublished ? 'published' : 'unpublished'}`)}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button asChild variant="ghost" size="sm" title="题目">
+                    <Button asChild variant="ghost" size="sm" title={t('questionsTitle')}>
                       <Link href={`/admin/edu/exam/questions?paperId=${p.id}`}>
                         <ListChecks className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(p)} title="编辑">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit(p)}
+                      title={t('editTitle')}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDelete(p)}
-                      title="删除"
+                      title={t('deleteTitle')}
                       className="text-destructive hover:text-destructive"
                       disabled={deletePending}
                     >

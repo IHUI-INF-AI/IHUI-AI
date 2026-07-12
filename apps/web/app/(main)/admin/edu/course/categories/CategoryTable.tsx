@@ -1,6 +1,7 @@
 'use client'
 import Image from 'next/image'
 import { Edit, Trash2, Loader2, FolderTree } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Table,
@@ -42,6 +43,7 @@ export function CategoryTable({
   onDelete,
   deletePending,
 }: Props) {
+  const t = useTranslations('admin.edu.course.categories')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -51,15 +53,15 @@ export function CategoryTable({
               <Checkbox checked={allChecked} onCheckedChange={onToggleAll} />
             </TableHead>
             <TableHead className="px-4 py-2.5">ID</TableHead>
-            <TableHead className="px-4 py-2.5">编码</TableHead>
-            <TableHead className="px-4 py-2.5">名称</TableHead>
-            <TableHead className="px-4 py-2.5">父ID</TableHead>
-            <TableHead className="px-4 py-2.5">类型ID</TableHead>
-            <TableHead className="px-4 py-2.5">图片</TableHead>
-            <TableHead className="px-4 py-2.5">按钮图</TableHead>
-            <TableHead className="px-4 py-2.5">排序</TableHead>
-            <TableHead className="px-4 py-2.5">创建人</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.code')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.name')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.prentId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.typeId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.image')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.buttonImage')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.sort')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('column.creator')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('column.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -67,7 +69,7 @@ export function CategoryTable({
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -80,7 +82,7 @@ export function CategoryTable({
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <FolderTree className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -128,7 +130,7 @@ export function CategoryTable({
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title={t('edit')}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -137,7 +139,7 @@ export function CategoryTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(r)}
-                        title="删除"
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
                       >

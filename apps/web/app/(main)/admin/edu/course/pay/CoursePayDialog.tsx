@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function CoursePayDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.course.pay')
   return (
     <Dialog
       open={open}
@@ -51,7 +53,7 @@ export function CoursePayDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑课程付费' : '新建课程付费'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -59,7 +61,7 @@ export function CoursePayDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="cp-course">课程ID</Label>
+            <Label htmlFor="cp-course">{t('courseId')}</Label>
             <Input
               id="cp-course"
               value={form.courseId}
@@ -68,20 +70,20 @@ export function CoursePayDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="cp-type">付费类型</Label>
+              <Label htmlFor="cp-type">{t('payTypeLabel')}</Label>
               <Select value={form.payType} onValueChange={(v) => setForm({ ...form, payType: v })}>
                 <SelectTrigger className={selectClass} id="cp-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">免费</SelectItem>
-                  <SelectItem value="1">限免</SelectItem>
-                  <SelectItem value="2">付费</SelectItem>
+                  <SelectItem value="0">{t('payType.0')}</SelectItem>
+                  <SelectItem value="1">{t('payType.1')}</SelectItem>
+                  <SelectItem value="2">{t('payType.2')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cp-crowd">付费人群</Label>
+              <Label htmlFor="cp-crowd">{t('payCrowdLabel')}</Label>
               <Select
                 value={form.payCrowd}
                 onValueChange={(v) => setForm({ ...form, payCrowd: v })}
@@ -90,14 +92,14 @@ export function CoursePayDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">全部</SelectItem>
-                  <SelectItem value="1">会员</SelectItem>
+                  <SelectItem value="0">{t('payCrowd.0')}</SelectItem>
+                  <SelectItem value="1">{t('payCrowd.1')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cp-amount">金额</Label>
+            <Label htmlFor="cp-amount">{t('amount')}</Label>
             <Input
               id="cp-amount"
               type="number"
@@ -109,10 +111,11 @@ export function CoursePayDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
