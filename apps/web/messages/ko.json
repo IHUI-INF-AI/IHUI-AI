@@ -2618,7 +2618,26 @@
           "subtitleWithType": "시험지의 {type} 관리",
           "backToQuestions": "문제집으로 돌아가기",
           "createWithType": "{type} 생성",
-          "loading": "로딩 중..."
+          "loading": "로딩 중...",
+          "stem": "문제",
+          "score": "배점",
+          "sort": "정렬",
+          "actions": "작업",
+          "noDataWithType": "{type} 없음",
+          "edit": "편집",
+          "delete": "삭제",
+          "editWithType": "{type} 편집",
+          "stemPlaceholder": "문제 내용 입력",
+          "optionsJson": "선택지 (JSON)",
+          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"선택지 1\"}]",
+          "answerJson": "정답 (JSON)",
+          "analysis": "해설",
+          "analysisPlaceholder": "해설(선택)",
+          "cancel": "취소",
+          "save": "저장",
+          "selectPaper": "시험지 선택",
+          "selectPaperPlaceholder": "시험지를 선택하세요",
+          "unpublished": " (미발행)"
         }
       },
       "learn": {
