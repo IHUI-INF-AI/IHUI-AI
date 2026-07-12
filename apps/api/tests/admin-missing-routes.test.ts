@@ -19,9 +19,14 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 // Mock @ihui/auth：默认返回 admin（roleId=1），具体测试可覆盖
-const { mockVerifyAccessToken } = vi.hoisted(() => ({
-  mockVerifyAccessToken: vi.fn(),
-}))
+// 同时暴露 db 写操作的 returning/where mock，便于 404 场景用 mockResolvedValueOnce 覆盖
+const { mockVerifyAccessToken, mockInsertReturning, mockUpdateReturning, mockDeleteWhere } =
+  vi.hoisted(() => ({
+    mockVerifyAccessToken: vi.fn(),
+    mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+    mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+    mockDeleteWhere: vi.fn().mockResolvedValue(undefined),
+  }))
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
@@ -51,21 +56,11 @@ vi.mock('../src/db/index.js', () => ({
     select: vi.fn((args) =>
       args && typeof args === 'object' && 'c' in (args as any) ? mockCountSelect() : mockSelect(),
     ),
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        returning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-      }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-        }),
-      }),
-    }),
-    delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue(undefined),
-    }),
+    insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: mockInsertReturning })) })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({ where: vi.fn(() => ({ returning: mockUpdateReturning })) })),
+    })),
+    delete: vi.fn(() => ({ where: mockDeleteWhere })),
   },
   dbRead: {},
   dbClient: {},
@@ -484,6 +479,467 @@ describe('admin-missing-routes', () => {
         expect(res.statusCode).toBe(200)
         const body = res.json()
         expect(body.code).toBe(0)
+      })
+    })
+  })
+
+  // ===========================================================================
+  // 7. 11 条升级路由的 POST/PUT/DELETE 覆盖
+  //    每个写方法至少 1 成功 + 1 失败（POST/DELETE 失败=403 非 admin；PUT 失败=404 资源不存在）
+  // ===========================================================================
+  describe('升级路由 POST/PUT/DELETE 覆盖', () => {
+    // 1. /auth-accounts — DELETE
+    describe('/auth-accounts', () => {
+      it('should delete account successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-accounts/acc-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-accounts/acc-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 2. /auth-info — PUT
+    describe('/auth-info', () => {
+      it('should update auth info successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-info/user-uuid-1',
+          body: { phone: '13900000001', authStatus: 'verified' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 404 when record not found', async () => {
+        mockAdmin()
+        mockUpdateReturning.mockResolvedValueOnce([])
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-info/missing-uuid',
+          body: { phone: '13900000001' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(404)
+        expect(res.json().code).toBe(404)
+      })
+    })
+
+    // 3. /auth-role — POST + PUT + DELETE
+    describe('/auth-role', () => {
+      it('should create role successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/auth-role',
+          body: { name: 'editor', displayName: '编辑', scope: 'self' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(201)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 403 for non-admin user on POST', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/auth-role',
+          body: { name: 'editor' },
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+      it('should update role successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-role/role-1',
+          body: { displayName: '编辑者' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 404 when role not found on PUT', async () => {
+        mockAdmin()
+        mockUpdateReturning.mockResolvedValueOnce([])
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-role/missing',
+          body: { displayName: 'x' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(404)
+      })
+      it('should delete role successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-role/role-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user on DELETE', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-role/role-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 4. /auth-tokens — DELETE
+    describe('/auth-tokens', () => {
+      it('should delete token successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-tokens/sk-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-tokens/sk-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 5. /auth-user-vip — DELETE
+    describe('/auth-user-vip', () => {
+      it('should delete user vip record successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-user-vip/vip-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-user-vip/vip-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 6. /auth-vip-level — POST + PUT + DELETE
+    describe('/auth-vip-level', () => {
+      it('should create vip level successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/auth-vip-level',
+          body: { levelName: '黄金', levelValue: 2, price: 30, durationDays: 30 },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(201)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 403 for non-admin user on POST', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/auth-vip-level',
+          body: { levelName: '黄金' },
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+      it('should update vip level successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-vip-level/lvl-1',
+          body: { price: 50, status: 1 },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 404 when vip level not found on PUT', async () => {
+        mockAdmin()
+        mockUpdateReturning.mockResolvedValueOnce([])
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-vip-level/missing',
+          body: { price: 50 },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(404)
+      })
+      it('should delete vip level successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-vip-level/lvl-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user on DELETE', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-vip-level/lvl-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 7. /auth-sms-temp — POST + PUT + DELETE
+    describe('/auth-sms-temp', () => {
+      it('should create sms template successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/auth-sms-temp',
+          body: { code: 'LOGIN_CODE', title: '登录验证码', content: '您的验证码是 {code}' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(201)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 403 for non-admin user on POST', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/auth-sms-temp',
+          body: { code: 'X' },
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+      it('should update sms template successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-sms-temp/tpl-1',
+          body: { content: '新内容 {code}', status: 0 },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 404 when sms template not found on PUT', async () => {
+        mockAdmin()
+        mockUpdateReturning.mockResolvedValueOnce([])
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/auth-sms-temp/missing',
+          body: { status: 0 },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(404)
+      })
+      it('should delete sms template successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-sms-temp/tpl-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user on DELETE', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/auth-sms-temp/tpl-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 8. /user-roles — POST + DELETE
+    describe('/user-roles', () => {
+      it('should create user-role binding successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/user-roles',
+          body: { userId: 'u-1', roleId: 'r-1' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(201)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 403 for non-admin user on POST', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/user-roles',
+          body: { userId: 'u-1', roleId: 'r-1' },
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+      it('should delete user-role binding successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/user-roles/ur-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user on DELETE', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/user-roles/ur-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 9. /member/permissions — POST + PUT + DELETE
+    describe('/member/permissions', () => {
+      it('should create permission successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/member/permissions',
+          body: {
+            name: 'rbac:manage',
+            displayName: 'RBAC 管理',
+            resource: 'rbac',
+            action: 'manage',
+          },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(201)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 403 for non-admin user on POST', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'POST',
+          url: '/api/admin/member/permissions',
+          body: { name: 'x', displayName: 'x', resource: 'x', action: 'x' },
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+      it('should update permission successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/member/permissions/perm-1',
+          body: { displayName: '权限管理' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().code).toBe(0)
+      })
+      it('should return 404 when permission not found on PUT', async () => {
+        mockAdmin()
+        mockUpdateReturning.mockResolvedValueOnce([])
+        const res = await server.inject({
+          method: 'PUT',
+          url: '/api/admin/member/permissions/missing',
+          body: { displayName: 'x' },
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(404)
+      })
+      it('should delete permission successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/member/permissions/perm-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user on DELETE', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/member/permissions/perm-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 10. /system/operation-logs — DELETE
+    describe('/system/operation-logs', () => {
+      it('should delete operation log successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/system/operation-logs/log-1',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/system/operation-logs/log-1',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
+      })
+    })
+
+    // 11. /system/login-logs — DELETE
+    describe('/system/login-logs', () => {
+      it('should delete login log successfully (admin)', async () => {
+        mockAdmin()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/system/login-logs/123',
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().data.deleted).toBe(true)
+      })
+      it('should return 403 for non-admin user', async () => {
+        mockRegularUser()
+        const res = await server.inject({
+          method: 'DELETE',
+          url: '/api/admin/system/login-logs/123',
+          headers: { authorization: USER_TOKEN },
+        })
+        expect(res.statusCode).toBe(403)
       })
     })
   })
