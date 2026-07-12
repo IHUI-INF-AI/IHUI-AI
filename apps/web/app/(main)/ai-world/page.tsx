@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import {
   Loader2,
@@ -32,25 +33,6 @@ interface AiWorldData {
   hotApps: Array<{ id: string; name: string; href: string }>
 }
 
-const FALLBACK_DATA: AiWorldData = {
-  categories: [
-    { id: 'chat', name: 'AI 对话', description: '智能对话助手，解答各类问题', icon: 'Bot', href: '/chat' },
-    { id: 'image', name: 'AI 绘画', description: '文本生成图像，释放创意', icon: 'Image', href: '/tools' },
-    { id: 'video', name: 'AI 视频', description: '一键生成创意短视频', icon: 'Video', href: '/tools' },
-    { id: 'music', name: 'AI 音乐', description: 'AI 作曲编曲，灵感无限', icon: 'Music', href: '/tools' },
-    { id: 'code', name: 'AI 代码', description: '代码生成与补全，提升效率', icon: 'Code', href: '/tools' },
-    { id: 'office', name: 'AI 办公', description: '文档、表格、PPT 智能生成', icon: 'Briefcase', href: '/workspace' },
-    { id: 'education', name: 'AI 教育', description: '个性化学习与智能辅导', icon: 'GraduationCap', href: '/learn' },
-    { id: 'marketing', name: 'AI 营销', description: '文案、海报、投放一站式', icon: 'Megaphone', href: '/tools' },
-  ],
-  hotApps: [
-    { id: 'h1', name: '智能写作', href: '/tools' },
-    { id: 'h2', name: 'AI 绘图', href: '/tools' },
-    { id: 'h3', name: '语音转文字', href: '/tools' },
-    { id: 'h4', name: '代码助手', href: '/tools' },
-  ],
-}
-
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bot,
   Image,
@@ -70,26 +52,97 @@ async function fetchAiWorld(): Promise<AiWorldData> {
 }
 
 export default function AiWorldPage() {
+  const t = useTranslations('common.aiWorld')
   const router = useRouter()
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai-world'],
     queryFn: fetchAiWorld,
   })
 
-  const { categories, hotApps } = data ?? FALLBACK_DATA
+  const fallbackData = React.useMemo<AiWorldData>(
+    () => ({
+      categories: [
+        {
+          id: 'chat',
+          name: t('categoryChat'),
+          description: t('categoryChatDesc'),
+          icon: 'Bot',
+          href: '/chat',
+        },
+        {
+          id: 'image',
+          name: t('categoryImage'),
+          description: t('categoryImageDesc'),
+          icon: 'Image',
+          href: '/tools',
+        },
+        {
+          id: 'video',
+          name: t('categoryVideo'),
+          description: t('categoryVideoDesc'),
+          icon: 'Video',
+          href: '/tools',
+        },
+        {
+          id: 'music',
+          name: t('categoryMusic'),
+          description: t('categoryMusicDesc'),
+          icon: 'Music',
+          href: '/tools',
+        },
+        {
+          id: 'code',
+          name: t('categoryCode'),
+          description: t('categoryCodeDesc'),
+          icon: 'Code',
+          href: '/tools',
+        },
+        {
+          id: 'office',
+          name: t('categoryOffice'),
+          description: t('categoryOfficeDesc'),
+          icon: 'Briefcase',
+          href: '/workspace',
+        },
+        {
+          id: 'education',
+          name: t('categoryEducation'),
+          description: t('categoryEducationDesc'),
+          icon: 'GraduationCap',
+          href: '/learn',
+        },
+        {
+          id: 'marketing',
+          name: t('categoryMarketing'),
+          description: t('categoryMarketingDesc'),
+          icon: 'Megaphone',
+          href: '/tools',
+        },
+      ],
+      hotApps: [
+        { id: 'h1', name: t('hotAppNameH1'), href: '/tools' },
+        { id: 'h2', name: t('hotAppNameH2'), href: '/tools' },
+        { id: 'h3', name: t('hotAppNameH3'), href: '/tools' },
+        { id: 'h4', name: t('hotAppNameH4'), href: '/tools' },
+      ],
+    }),
+    [t],
+  )
+
+  const { categories, hotApps } = data ?? fallbackData
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">AI 世界</h1>
-        <p className="mt-1 text-sm text-muted-foreground">探索 AI 应用，开启智能创作之旅</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            热门 AI 应用
+            {t('hotApps')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -111,7 +164,7 @@ export default function AiWorldPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
