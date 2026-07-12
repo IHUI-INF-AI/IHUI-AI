@@ -2618,7 +2618,26 @@
           "subtitleWithType": "Manage {type} in papers",
           "backToQuestions": "Back to Questions",
           "createWithType": "New {type}",
-          "loading": "Loading..."
+          "loading": "Loading...",
+          "stem": "Stem",
+          "score": "Score",
+          "sort": "Sort",
+          "actions": "Actions",
+          "noDataWithType": "No {type} yet",
+          "edit": "Edit",
+          "delete": "Delete",
+          "editWithType": "Edit {type}",
+          "stemPlaceholder": "Enter question stem",
+          "optionsJson": "Options (JSON)",
+          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"Option A\"}]",
+          "answerJson": "Answer (JSON)",
+          "analysis": "Analysis",
+          "analysisPlaceholder": "Analysis (optional)",
+          "cancel": "Cancel",
+          "save": "Save",
+          "selectPaper": "Select paper",
+          "selectPaperPlaceholder": "Please select paper",
+          "unpublished": " (Unpublished)"
         }
       },
       "learn": {
