@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard } from '@/components/ai/tool-call-card'
+import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { cn } from '@/lib/utils'
 
 function TypingIndicator() {
@@ -27,6 +28,7 @@ interface MessageListProps {
   emptyHint: string
   assistantLabel: string
   loadingLabel?: string
+  onTemplateSelect?: (content: string) => void
 }
 
 export function MessageList({
@@ -37,6 +39,7 @@ export function MessageList({
   emptyHint,
   assistantLabel,
   loadingLabel,
+  onTemplateSelect,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -50,8 +53,42 @@ export function MessageList({
   }, [messages.length, lastContent, isStreaming])
 
   if (messages.length === 0) {
+    const templates = onTemplateSelect
+      ? [
+          {
+            id: 'summary',
+            name: t('tplSummary'),
+            content: t('tplSummaryContent'),
+            category: t('promptTemplates'),
+          },
+          {
+            id: 'translate',
+            name: t('tplTranslate'),
+            content: t('tplTranslateContent'),
+            category: t('promptTemplates'),
+          },
+          {
+            id: 'explain',
+            name: t('tplExplain'),
+            content: t('tplExplainContent'),
+            category: t('promptTemplates'),
+          },
+          {
+            id: 'code',
+            name: t('tplCode'),
+            content: t('tplCodeContent'),
+            category: t('promptTemplates'),
+          },
+          {
+            id: 'polish',
+            name: t('tplPolish'),
+            content: t('tplPolishContent'),
+            category: t('promptTemplates'),
+          },
+        ]
+      : []
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
           {isLoading ? (
             <Loader2 className="h-7 w-7 animate-spin" />
@@ -65,6 +102,11 @@ export function MessageList({
           <div className="space-y-1">
             <p className="text-base font-medium">{emptyTitle}</p>
             <p className="max-w-xs text-sm text-muted-foreground">{emptyHint}</p>
+          </div>
+        )}
+        {!isLoading && templates.length > 0 && (
+          <div className="w-full max-w-2xl">
+            <PromptTemplates templates={templates} onSelect={onTemplateSelect!} />
           </div>
         )}
       </div>

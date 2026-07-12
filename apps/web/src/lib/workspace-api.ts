@@ -78,36 +78,32 @@ export type FileListQuery = {
 export async function getWorkspaces(
   query: WorkspaceListQuery = {},
 ): Promise<ApiResult<PageData<Workspace>>> {
-  return fetchApi<PageData<Workspace>>(`/workspaces${buildQs(query)}`)
+  return fetchApi<PageData<Workspace>>(`/api/workspace/projects${buildQs(query)}`)
 }
 
-export async function createWorkspace(
-  input: WorkspaceInput,
-): Promise<ApiResult<Workspace>> {
-  return fetchApi<Workspace>('/workspaces', {
+export async function createWorkspace(input: WorkspaceInput): Promise<ApiResult<Workspace>> {
+  return fetchApi<Workspace>('/api/workspace/projects', {
     method: 'POST',
     body: JSON.stringify(input),
   })
 }
 
 export async function getWorkspaceById(id: string): Promise<ApiResult<Workspace>> {
-  return fetchApi<Workspace>(`/workspaces/${encodeURIComponent(id)}`)
+  return fetchApi<Workspace>(`/api/workspace/projects/${encodeURIComponent(id)}`)
 }
 
 export async function updateWorkspace(
   id: string,
   input: Partial<WorkspaceInput>,
 ): Promise<ApiResult<Workspace>> {
-  return fetchApi<Workspace>(`/workspaces/${encodeURIComponent(id)}`, {
+  return fetchApi<Workspace>(`/api/workspace/projects/${encodeURIComponent(id)}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
 }
 
-export async function deleteWorkspace(
-  id: string,
-): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/workspaces/${encodeURIComponent(id)}`, {
+export async function deleteWorkspace(id: string): Promise<ApiResult<{ success: boolean }>> {
+  return fetchApi<{ success: boolean }>(`/api/workspace/projects/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }
@@ -116,19 +112,17 @@ export async function getSwarm(
   workspaceId: string,
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<Swarm>>> {
-  return fetchApi<PageData<Swarm>>(
-    `/workspaces/${encodeURIComponent(workspaceId)}/swarms${buildQs(query)}`,
-  )
+  return fetchApi<PageData<Swarm>>(`/api/workspace/swarms${buildQs({ ...query, workspaceId })}`)
 }
 
 export async function createSwarm(
   workspaceId: string,
   input: SwarmInput,
 ): Promise<ApiResult<Swarm>> {
-  return fetchApi<Swarm>(
-    `/workspaces/${encodeURIComponent(workspaceId)}/swarms`,
-    { method: 'POST', body: JSON.stringify(input) },
-  )
+  return fetchApi<Swarm>(`/api/workspace/swarms`, {
+    method: 'POST',
+    body: JSON.stringify({ ...input, workspaceId }),
+  })
 }
 
 export async function getFiles(
@@ -136,7 +130,7 @@ export async function getFiles(
   query: FileListQuery = {},
 ): Promise<ApiResult<PageData<WorkspaceFile>>> {
   return fetchApi<PageData<WorkspaceFile>>(
-    `/workspaces/${encodeURIComponent(workspaceId)}/files${buildQs(query)}`,
+    `/api/workspace/projects/${encodeURIComponent(workspaceId)}/files${buildQs(query)}`,
   )
 }
 
@@ -149,7 +143,7 @@ export async function uploadFile(
   formData.append('file', file)
   if (parentId) formData.append('parentId', parentId)
   return fetchApi<WorkspaceFile>(
-    `/workspaces/${encodeURIComponent(workspaceId)}/files`,
+    `/api/workspace/projects/${encodeURIComponent(workspaceId)}/files`,
     { method: 'POST', body: formData },
   )
 }

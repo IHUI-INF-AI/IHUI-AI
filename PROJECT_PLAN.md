@@ -1100,6 +1100,80 @@
 | P2     | ai 增强 agents/profile（3 个组件） | 1.5-2 天 | 需产品决策 + 后端数据支持                                                                 |
 | P3     | C 类超前开发（15-16 个组件）       | 待评估   | Agent 编排功能，需产品决策 + 后端 API                                                     |
 | P3     | 空桩路由升级（24 条建议升级）      | 待评估   | P0 8条 + P1 7条 + P2 9条，需产品决策                                                      |
-| P3     | requireAdmin 实现统一              | 1 天     | 39 个本地定义改为从插件导入                                                               |
+| P3     | requireAdmin 实现统一              | 1 天     | 39 个本地定义改为从插件导入 — ✅(2026-07-12) R69 完成                                     |
 
 **以上均为新功能开发/增强任务，不属于迁移收尾范畴。迁移架构更改已 100% 完整收尾。**
+
+---
+
+## R69 requireAdmin 实现统一（2026-07-12）✅
+
+> 将路由文件中本地重复定义的 `requireAdmin` 函数统一改为从 `apps/api/src/plugins/require-permission.ts` 导入。对应 R68 P3 待办。
+
+### 任务范围
+
+- **目标**：删除路由文件中本地重复定义的 `requireAdmin`，统一从插件导入
+- **背景**：R68 收尾轮次记录的 P3 待办"requireAdmin 实现统一（39 个本地定义改为从插件导入）"
+
+### 修改统计
+
+- **共修改 35 个文件**（34 个路由文件 + 1 个插件文件类型调整）
+- **保留本地版本 3 个文件**（逻辑不同，使用 `request.roleId` 而非 `jwtPayload.roleId`）
+
+### 1. 插件类型调整（1 文件）
+
+`apps/api/src/plugins/require-permission.ts`：
+
+- `requireAdmin` 类型从 `preHandlerAsyncHookHandler` 改为显式参数类型 `async (request: FastifyRequest, reply: FastifyReply): Promise<void>`
+- **原因**：`preHandlerAsyncHookHandler` 类型绑定了 `this: FastifyInstance`，在路由处理器内部直接调用时 TS2684 报错
+- **行为不变**：authenticate 校验 → roleId < 1 返回 403
+
+### 2. 路由文件修改（34 个）
+
+**Pattern A — `server.addHook('preHandler', ...)` 模式（5 个）**：
+
+- `admin-demand-square.ts` / `admin-faq.ts` / `admin-missing-routes.ts` / `admin-sys.ts` / `admin-zone.ts`
+- 修改：导入替换 + 删除本地定义 + 简化 addHook 为 `server.addHook('preHandler', requireAdmin)`
+
+**Pattern B — 内联调用 `if (!(await requireAdmin(...))) return` 模式（2 个）**：
+
+- `ai-feed.ts` / `ai-education.ts`
+- 修改：导入替换 + 删除本地定义 + 调用点改为 `await requireAdmin(request, reply); if (reply.sent) return`（适配 void 返回值）
+
+**脚本批量处理（27 个）**：
+
+`behavior.ts`、`certificate.ts`、`content.ts`、`customer-service.ts`、`edu-extended.ts`、`exam.ts`、`learn.ts`、`live.ts`、`member.ts`、`message.ts`、`news.ts`、`order.ts`、`oss.ts`、`point.ts`、`refund-audit.ts`、`resource.ts`、`schedule.ts`、`setting.ts`、`statistics.ts`、`system.ts`、`topic.ts`、`usercenter.ts`、`visit-tracking.ts`、`auth-identity.ts`、`community.ts`、`pricing.ts`、`search.ts`
+
+修改类型：
+
+- 删除本地 `requireAdmin` 函数定义（含 JSDoc 注释）
+- 删除冗余 `const ADMIN_ROLE_ID = 1`（仅当无其他引用）
+- 添加 `import { requireAdmin } from '../plugins/require-permission.js'`
+- 简化 `server.addHook('preHandler', async (req, reply) => { if (!(await requireAdmin(req, reply))) return })` 为 `server.addHook('preHandler', requireAdmin)`
+- 修改内联调用点（Pattern B 文件）：`if (!(await requireAdmin(request, reply))) return` → `await requireAdmin(request, reply); if (reply.sent) return`
+- 清理未使用的 `FastifyRequest`/`FastifyReply` 类型导入
+
+### 3. 保留本地版本（3 个文件）
+
+| 文件                | 行号  | 原因                                                                                         |
+| ------------------- | ----- | -------------------------------------------------------------------------------------------- |
+| `srs.ts`            | 49-57 | 使用 `(request as unknown as { roleId?: number }).roleId` 而非 `jwtPayload.roleId`，逻辑不同 |
+| `remote-device.ts`  | 43-51 | 同上                                                                                         |
+| `admin-extended.ts` | 10-28 | 同上                                                                                         |
+
+### 4. 修复过程中的问题
+
+1. **脚本 bug 修复**：批量处理脚本 `handleImports` 正则导致 9 个文件丢失 `authenticate` 导入（behavior/certificate/exam/message/order/search/statistics/auth-identity/community），已逐文件补回
+2. **TS2684 类型不兼容**：插件类型从 `preHandlerAsyncHookHandler` 改为普通函数类型，同时支持 `addHook` 传参和直接调用两种用法
+3. **TS6196 未使用导入**：16 个文件删除本地 `requireAdmin` 后 `FastifyRequest`/`FastifyReply` 不再使用，已清理类型导入
+
+### 5. 验证结果
+
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误（exit code 0）
+- `pnpm --filter @ihui/api test` — ✅ 770/770 全部通过（70 test files，0 failures）
+
+### 6. R68 P3 待办完成
+
+R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39 个本地定义改为从插件导入）"已完成。
+
+**以上为代码统一性优化，不属于业务功能范畴。迁移架构更改保持 100% 完整。**

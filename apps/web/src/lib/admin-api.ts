@@ -112,21 +112,21 @@ export type AdminProductQuery = {
 export async function adminGetUsers(
   query: AdminUserQuery = {},
 ): Promise<ApiResult<PageData<AdminUser>>> {
-  return fetchApi<PageData<AdminUser>>(`/admin/users${buildQs(query)}`)
+  return fetchApi<PageData<AdminUser>>(`/admin/usercenter/users${buildQs(query)}`)
 }
 
 export async function adminUpdateUser(
   id: string,
   input: Partial<Pick<AdminUser, 'nickname' | 'status' | 'role' | 'vipLevel' | 'balance'>>,
 ): Promise<ApiResult<AdminUser>> {
-  return fetchApi<AdminUser>(`/admin/users/${encodeURIComponent(id)}`, {
+  return fetchApi<AdminUser>(`/admin/usercenter/users/${encodeURIComponent(id)}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
 }
 
 export async function adminDeleteUser(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/admin/users/${encodeURIComponent(id)}`, {
+  return fetchApi<{ success: boolean }>(`/admin/usercenter/users/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }
@@ -194,14 +194,12 @@ export async function adminGetLogs(
 }
 
 export async function adminGetConfig(): Promise<ApiResult<AdminConfig>> {
-  return fetchApi<AdminConfig>('/admin/config')
+  return fetchApi<AdminConfig>('/admin/configs')
 }
 
-export async function adminUpdateConfig(
-  input: AdminConfig,
-): Promise<ApiResult<AdminConfig>> {
-  return fetchApi<AdminConfig>('/admin/config', {
-    method: 'PUT',
+export async function adminUpdateConfig(input: AdminConfig): Promise<ApiResult<AdminConfig>> {
+  return fetchApi<AdminConfig>('/admin/configs', {
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }

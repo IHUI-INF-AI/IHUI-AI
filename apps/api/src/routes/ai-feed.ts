@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
   listSources,
@@ -12,29 +12,6 @@ import {
   processLlmBatch,
   translateTitles,
 } from '../services/ai-feed-service.js'
-
-const ADMIN_ROLE_ID = 1
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // Zod schemas
@@ -123,14 +100,16 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /collect — 手动触发采集
   server.post('/collect', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const result = await collectAllSources()
     return reply.send(success(result))
   })
 
   // POST /summarize — LLM 分类摘要批处理
   server.post('/summarize', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = summarizeBodySchema.safeParse(request.body ?? {})
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -141,7 +120,8 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /translate — 标题翻译批处理
   server.post('/translate', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = translateBodySchema.safeParse(request.body ?? {})
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

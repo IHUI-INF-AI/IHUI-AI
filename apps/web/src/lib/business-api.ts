@@ -424,7 +424,7 @@ export async function createGroup(input: Partial<Group>): Promise<ApiResult<Grou
 /** 更新群组 */
 export async function updateGroup(id: string, input: Partial<Group>): Promise<ApiResult<Group>> {
   return fetchApi<Group>(`/api/groups/${id}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }
@@ -514,7 +514,7 @@ export async function updateProductIdentity(
   input: Partial<ProductIdentity>,
 ): Promise<ApiResult<ProductIdentity>> {
   return fetchApi<ProductIdentity>(`/api/product-identity/${id}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }

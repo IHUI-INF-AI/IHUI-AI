@@ -1,12 +1,11 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql, or, ilike } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { userAuthInfo } from '@ihui/database'
-
-const ADMIN_ROLE_ID = 1
 
 // =============================================================================
 // 鉴权辅助
@@ -19,16 +18,6 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
     const message = (e as Error).message || 'Authentication required'
     reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  return true
-}
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  if (!(await requireAuth(request, reply))) return false
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
     return false
   }
   return true
@@ -161,7 +150,8 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /auth/realname/list - 管理员列表（分页）
   server.get('/auth/realname/list', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
 
     const parsed = listQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -199,7 +189,8 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /auth/realname/:userUuid/audit - 管理员审核
   server.put('/auth/realname/:userUuid/audit', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
 
     const paramParsed = userUuidParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
