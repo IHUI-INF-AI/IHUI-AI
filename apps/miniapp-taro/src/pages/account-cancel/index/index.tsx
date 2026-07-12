@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function AccountCancel() {
-  const [info, setInfo] = useState<any>(null)
+  const [info, setInfo] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getProfile()) as any
+      const res = (await api.getProfile()) as Record<string, unknown>
       setInfo(res)
     } catch (e) {
       console.error('加载用户信息失败:', e)

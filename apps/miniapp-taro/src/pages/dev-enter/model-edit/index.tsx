@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function ModelEdit() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getDeveloperAgents()) as any
-      setList(Array.isArray(res) ? res : res?.list || [])
+      const res = (await api.getDeveloperAgents()) as Record<string, unknown>
+      setList((Array.isArray(res) ? res : res?.list || []) as Record<string, unknown>[])
     } catch (e) {
       console.error('加载模型失败:', e)
     } finally {
