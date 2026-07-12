@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, Crown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th, PERM } from './helpers'
@@ -27,6 +28,7 @@ export function AuthUserVipTable({
   onDelete,
   onPageChange,
 }: Props) {
+  const t = useTranslations('adminAuthUserVip')
   return (
     <>
       <div className="overflow-x-auto rounded-lg border">
@@ -34,13 +36,13 @@ export function AuthUserVipTable({
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className={th}>ID</th>
-              <th className={th}>用户UUID</th>
-              <th className={th}>VIP ID</th>
-              <th className={th}>进度</th>
-              <th className={th}>创建者</th>
-              <th className={th}>创建时间</th>
-              <th className={th}>有效</th>
-              <th className={th}>操作</th>
+              <th className={th}>{t('colUserUuid')}</th>
+              <th className={th}>{t('colVipId')}</th>
+              <th className={th}>{t('colProgress')}</th>
+              <th className={th}>{t('colCreator')}</th>
+              <th className={th}>{t('colCreatedTime')}</th>
+              <th className={th}>{t('colValid')}</th>
+              <th className={th}>{t('colActions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -48,14 +50,14 @@ export function AuthUserVipTable({
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中…
+                  {t('loading')}
                 </td>
               </tr>
             ) : list.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                   <Crown className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无数据
+                  {t('noData')}
                 </td>
               </tr>
             ) : (
@@ -69,15 +71,15 @@ export function AuthUserVipTable({
                   <td className="px-4 py-2.5 text-muted-foreground">{item.createdTime ?? '-'}</td>
                   <td className="px-4 py-2.5">
                     {String(item.isValid ?? '-') === '1' ? (
-                      <span className="text-emerald-600">是</span>
+                      <span className="text-emerald-600">{t('yes')}</span>
                     ) : (
-                      <span className="text-muted-foreground">否</span>
+                      <span className="text-muted-foreground">{t('no')}</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 space-x-2">
                     <HasPermi code={`${PERM}:edit`}>
                       <button className="text-primary hover:underline" onClick={() => onEdit(item)}>
-                        编辑
+                        {t('edit')}
                       </button>
                     </HasPermi>
                     <HasPermi code={`${PERM}:remove`}>
@@ -85,7 +87,7 @@ export function AuthUserVipTable({
                         className="text-destructive hover:underline"
                         onClick={() => onDelete(item.id)}
                       >
-                        删除
+                        {t('delete')}
                       </button>
                     </HasPermi>
                   </td>
@@ -98,9 +100,7 @@ export function AuthUserVipTable({
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
-          </span>
+          <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button
               size="sm"
@@ -108,7 +108,7 @@ export function AuthUserVipTable({
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
             >
-              上一页
+              {t('prev')}
             </Button>
             <Button
               size="sm"
@@ -116,7 +116,7 @@ export function AuthUserVipTable({
               disabled={page >= totalPages}
               onClick={() => onPageChange(page + 1)}
             >
-              下一页
+              {t('next')}
             </Button>
           </div>
         </div>

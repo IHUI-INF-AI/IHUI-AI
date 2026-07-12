@@ -151,6 +151,7 @@ export function FeedbackCreateDialog({
   onClose,
   onSubmit,
 }: FeedbackCreateDialogProps) {
+  const t = useTranslations('admin.feedbacks')
   const tc = useTranslations('common')
 
   return (
@@ -158,8 +159,8 @@ export function FeedbackCreateDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>新增反馈</DialogTitle>
-            <DialogDescription>填写反馈信息</DialogDescription>
+            <DialogTitle>{t('createTitle')}</DialogTitle>
+            <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -167,26 +168,26 @@ export function FeedbackCreateDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>标题 *</Label>
+            <Label>{t('fieldTitle')} *</Label>
             <Input
               value={form.title}
               onChange={(e) => onFormChange({ ...form, title: e.target.value })}
-              placeholder="请输入标题"
+              placeholder={t('titlePlaceholder')}
               className={inputSm}
             />
           </div>
           <div className="space-y-2">
-            <Label>内容</Label>
+            <Label>{t('fieldContent')}</Label>
             <textarea
               value={form.context}
               onChange={(e) => onFormChange({ ...form, context: e.target.value })}
-              placeholder="请输入内容"
+              placeholder={t('contentPlaceholder')}
               rows={3}
               className={textareaClass}
             />
           </div>
           <div className="space-y-2">
-            <Label>反馈图片</Label>
+            <Label>{t('fieldImage')}</Label>
             <ImageUpload
               value={form.filePath}
               onChange={(v) =>
@@ -195,29 +196,29 @@ export function FeedbackCreateDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>是否删除</Label>
+            <Label>{t('fieldIsDel')}</Label>
             <Select value={form.isDel} onValueChange={(v) => onFormChange({ ...form, isDel: v })}>
               <SelectTrigger className={selectClass}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">正常</SelectItem>
-                <SelectItem value="1">已删除</SelectItem>
+                <SelectItem value="0">{t('isDelNormal')}</SelectItem>
+                <SelectItem value="1">{t('isDelDeleted')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>反馈内容</Label>
+            <Label>{t('fieldFeedback')}</Label>
             <textarea
               value={form.feedback}
               onChange={(e) => onFormChange({ ...form, feedback: e.target.value })}
-              placeholder="请输入反馈内容"
+              placeholder={t('feedbackPlaceholder')}
               rows={3}
               className={textareaClass}
             />
           </div>
           <div className="space-y-2">
-            <Label>反馈图片</Label>
+            <Label>{t('fieldFeedbackImage')}</Label>
             <ImageUpload
               value={form.feedbackPath}
               onChange={(v) =>

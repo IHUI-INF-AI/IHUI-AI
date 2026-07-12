@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function CarouselDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.carousel')
   return (
     <Dialog
       open={open}
@@ -47,7 +49,7 @@ export function CarouselDialog({
       <DialogContent className="max-w-lg">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑轮播图' : '新增轮播图'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -55,31 +57,31 @@ export function CarouselDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>标题</Label>
+            <Label>{t('colTitle')}</Label>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="请输入标题"
+              placeholder={t('titlePlaceholder')}
             />
           </div>
           <div className="space-y-2">
-            <Label>图片</Label>
+            <Label>{t('colImage')}</Label>
             <ImageUpload
               value={form.imageUrl}
               onChange={(v) => setForm({ ...form, imageUrl: v as string })}
             />
           </div>
           <div className="space-y-2">
-            <Label>链接</Label>
+            <Label>{t('colLink')}</Label>
             <Input
               value={form.linkUrl}
               onChange={(e) => setForm({ ...form, linkUrl: e.target.value })}
-              placeholder="请输入链接"
+              placeholder={t('linkPlaceholder')}
             />
           </div>
           <div className="flex items-center gap-4">
             <div className="space-y-2">
-              <Label>排序</Label>
+              <Label>{t('colSort')}</Label>
               <Input
                 type="number"
                 value={form.sort}
@@ -91,15 +93,16 @@ export function CarouselDialog({
                 checked={form.status}
                 onCheckedChange={(v) => setForm({ ...form, status: v })}
               />
-              <Label>启用</Label>
+              <Label>{t('enabled')}</Label>
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

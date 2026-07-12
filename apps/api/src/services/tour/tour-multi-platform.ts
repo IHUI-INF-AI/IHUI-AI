@@ -95,7 +95,7 @@ export const consoleAdapter: PlatformAdapter = {
   platform: 'web',
   enabled: true,
   async distribute(content) {
-    console.log(`[tour-multi-platform] distribute to web: ${content.title}`)
+    console.info(`[tour-multi-platform] distribute to web: ${content.title}`)
     return { ok: true, externalId: `web-${content.id}` }
   },
 }

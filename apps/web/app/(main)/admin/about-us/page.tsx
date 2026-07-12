@@ -85,10 +85,10 @@ export default function AboutUsPage() {
   async function handleExport() {
     const ok = await exportFromApi(
       `${RESOURCE}?${new URLSearchParams(params)}`,
-      '关于我们',
+      t('title'),
       COLS.map((c) => ({ key: c.key, title: t(c.label) })),
     )
-    if (!ok) alert('导出失败')
+    if (!ok) alert(t('exportFailed'))
   }
 
   const list = data?.list ?? []
@@ -100,21 +100,21 @@ export default function AboutUsPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Info className="h-6 w-6 text-primary" />
-            关于我们
+            {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理关于我们内容</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('pageDescription')}</p>
         </div>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}:export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}:add`}>
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('add')}
             </Button>
           </HasPermi>
         </div>
@@ -137,21 +137,21 @@ export default function AboutUsPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">共 {total} 条</span>
+          <span className="text-muted-foreground">{t('total', { total })}</span>
           <div className="flex gap-1">
             <button
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              上一页
+              {t('prevPage')}
             </button>
             <button
               disabled={page * PAGE_SIZE >= total}
               onClick={() => setPage(page + 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              下一页
+              {t('nextPage')}
             </button>
           </div>
         </div>
