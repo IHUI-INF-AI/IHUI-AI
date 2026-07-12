@@ -66,19 +66,29 @@ const updateTaskStatusSchema = z.object({
 })
 
 export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
+  const idParam = z.object({ id: z.string() })
+  const taskIdParam = z.object({ taskId: z.string() })
+  const deviceListQuery = z.object({
+    status: z.string().optional(),
+    keyword: z.string().optional(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+  const heartbeatBody = z.object({
+    batteryLevel: z.number().optional(),
+    signalStrength: z.number().optional(),
+    ipAddress: z.string().optional(),
+  })
+  const taskStatusQuery = z.object({ status: z.string().optional() })
+
   // ===== 设备管理 =====
 
   server.get('/remote-devices', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const query = request.query as {
-      status?: string
-      keyword?: string
-      page?: string
-      pageSize?: string
-    }
-    const page = parseInt(query.page ?? '1', 10)
-    const pageSize = parseInt(query.pageSize ?? '20', 10)
+    const query = deviceListQuery.parse(request.query)
+    const page = query.page
+    const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
     const conditions = []
     if (query.status) conditions.push(eq(remoteDevices.status, query.status))
@@ -95,7 +105,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.get('/remote-devices/:id', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const [device] = await db.select().from(remoteDevices).where(eq(remoteDevices.id, id)).limit(1)
     if (!device) return reply.status(404).send(error(404, '设备不存在'))
     return reply.send(success(device))
@@ -121,7 +131,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.put('/remote-devices/:id', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = updateDeviceSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -138,7 +148,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/remote-devices/:id', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     await db.delete(remoteDevices).where(eq(remoteDevices.id, id))
     return reply.send(success({ deleted: true }))
   })
@@ -146,12 +156,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.post('/remote-devices/:id/heartbeat', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
-    const body = request.body as {
-      batteryLevel?: number
-      signalStrength?: number
-      ipAddress?: string
-    }
+    const { id } = idParam.parse(request.params)
+    const body = heartbeatBody.parse(request.body)
     const [device] = await db
       .update(remoteDevices)
       .set({
@@ -173,8 +179,8 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.get('/remote-devices/:id/tasks', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
-    const query = request.query as { status?: string }
+    const { id } = idParam.parse(request.params)
+    const query = taskStatusQuery.parse(request.query)
     const conditions = [eq(remoteDeviceTasks.deviceId, id)]
     if (query.status) conditions.push(eq(remoteDeviceTasks.status, query.status))
     const list = await db
@@ -188,7 +194,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.post('/remote-devices/:id/tasks', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = createTaskSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -209,7 +215,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.get('/remote-device-tasks/:taskId', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const [task] = await db
       .select()
       .from(remoteDeviceTasks)
@@ -222,7 +228,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.put('/remote-device-tasks/:taskId/status', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const parsed = updateTaskStatusSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -247,7 +253,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/remote-device-tasks/:taskId', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     await db.delete(remoteDeviceTasks).where(eq(remoteDeviceTasks.id, taskId))
     return reply.send(success({ deleted: true }))
   })
@@ -255,7 +261,7 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.post('/remote-device-tasks/:taskId/retry', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const [task] = await db
       .select()
       .from(remoteDeviceTasks)
@@ -284,9 +290,14 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
   server.get('/remote-device-tasks/pending', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const query = request.query as { page?: string; pageSize?: string }
-    const page = parseInt(query.page ?? '1', 10)
-    const pageSize = parseInt(query.pageSize ?? '50', 10)
+    const query = z
+      .object({
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(50),
+      })
+      .parse(request.query)
+    const page = query.page
+    const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
     const list = await db
       .select()

@@ -529,13 +529,15 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   server.get('/ai-image/history', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      vendor?: string
-      action?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        vendor: z.string().optional(),
+        action: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds = [sql`"user_id" = ${request.userId!}`]

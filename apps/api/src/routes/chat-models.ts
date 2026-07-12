@@ -510,6 +510,12 @@ const QWEN_KEY = () => process.env.DASHSCOPE_API_KEY ?? process.env.QWEN_API_KEY
 // ============================================================================
 
 export const chatModelRoutes: FastifyPluginAsync = async (server) => {
+  const taskIdParam = z.object({ taskId: z.string() })
+  const vendorParam = z.object({ vendor: z.string() })
+  const chatIdParam = z.object({ chatId: z.coerce.number().int() })
+  const taskTypeQuery = z.object({ task_type: z.string().optional().default('video') })
+  const cozeCreateBody = z.object({ bot_id: z.string() })
+  const cozeRetrieveBody = z.object({ conversation_id: z.string() })
   // ==========================================================================
   // 1. DeepSeek — POST /deepseek/chat, POST /deepseek/chat/stream
   // ==========================================================================
@@ -722,8 +728,8 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/kling/task/:taskId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { taskId } = request.params as { taskId: string }
-    const { task_type: taskType = 'video' } = request.query as { task_type?: string }
+    const { taskId } = taskIdParam.parse(request.params)
+    const { task_type: taskType } = taskTypeQuery.parse(request.query)
     const base = taskType === 'image' ? KLING_T2I : KLING_T2V
     const data = await klingCall(`${base}/${taskId}`, undefined, reply, 'GET', 30_000)
     if (data === null) return
@@ -742,7 +748,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/multi/:vendor/chat', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { vendor } = request.params as { vendor: string }
+    const { vendor } = vendorParam.parse(request.params)
     const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -764,7 +770,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/multi/:vendor/chat/stream', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { vendor } = request.params as { vendor: string }
+    const { vendor } = vendorParam.parse(request.params)
     const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1099,10 +1105,11 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/history/:chatId/mark', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const chatId = Number((request.params as { chatId: string }).chatId)
-    if (!Number.isInteger(chatId)) {
+    const parsedParams = chatIdParam.safeParse(request.params)
+    if (!parsedParams.success) {
       return reply.status(400).send(error(400, 'chatId must be integer'))
     }
+    const chatId = parsedParams.data.chatId
     const parsed = historyMarkSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1125,10 +1132,11 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/history/:chatId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const chatId = Number((request.params as { chatId: string }).chatId)
-    if (!Number.isInteger(chatId)) {
+    const parsedParams = chatIdParam.safeParse(request.params)
+    if (!parsedParams.success) {
       return reply.status(400).send(error(400, 'chatId must be integer'))
     }
+    const chatId = parsedParams.data.chatId
     const record = historyStore.get(chatId)
     if (!record || record.userId !== request.userId) {
       return reply.status(404).send(error(404, 'Chat record not found'))
@@ -1198,8 +1206,9 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/coze/conversation/create', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { bot_id } = request.body as { bot_id?: string }
-    if (!bot_id) return reply.status(400).send(error(400, 'bot_id is required'))
+    const parsedBody = cozeCreateBody.safeParse(request.body)
+    if (!parsedBody.success) return reply.status(400).send(error(400, 'bot_id is required'))
+    const { bot_id } = parsedBody.data
     if (!COZE_KEY()) return reply.status(503).send(error(503, 'Coze 服务未配置'))
     const data = await proxyJSON(
       `${COZE_BASE()}/v1/conversation/create`,
@@ -1339,8 +1348,10 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/coze/conversations/retrieve', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { conversation_id } = request.body as { conversation_id?: string }
-    if (!conversation_id) return reply.status(400).send(error(400, 'conversation_id is required'))
+    const parsedBody = cozeRetrieveBody.safeParse(request.body)
+    if (!parsedBody.success)
+      return reply.status(400).send(error(400, 'conversation_id is required'))
+    const { conversation_id } = parsedBody.data
     if (!COZE_KEY()) return reply.status(503).send(error(503, 'Coze 服务未配置'))
     const data = await proxyGetJSON(
       `${COZE_BASE()}/v1/conversation/retrieve?conversation_id=${encodeURIComponent(conversation_id)}`,

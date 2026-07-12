@@ -85,12 +85,14 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // GET /content/activities/list - 活动列表
   server.get('/content/activities/list', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      status?: string
-      keyword?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        status: z.string().optional(),
+        keyword: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds: SQL[] = []
@@ -215,12 +217,14 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // GET /content/contacts/list - 联系方式列表
   server.get('/content/contacts/list', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      type?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        type: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds: SQL[] = []
@@ -298,12 +302,14 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // GET /content/file-storage/list - 文件存储列表
   server.get('/content/file-storage/list', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      type?: string
-      userId?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        type: z.string().optional(),
+        userId: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conds: SQL[] = []
@@ -432,12 +438,14 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // GET /content/banners/list - 横幅列表
   server.get('/content/banners/list', async (request, reply) => {
     await authenticate(request)
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      position?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        position: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const { page, pageSize } = parsePaging(q)
     const offset = (page - 1) * pageSize
     const conditions = []

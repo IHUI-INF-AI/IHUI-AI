@@ -123,6 +123,7 @@ function serializeFile(f: {
 // =============================================================================
 
 export const workspaceRoutes: FastifyPluginAsync = async (server) => {
+  const idParam = z.object({ id: z.string() })
   // 鉴权失败统一处理
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -232,7 +233,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const project = await findProjectById(id)
     if (!project) {
       return reply.status(404).send(error(404, '项目不存在'))
@@ -250,7 +251,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = updateProjectSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -274,7 +275,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const existing = await findProjectById(id)
     if (!existing) {
       return reply.status(404).send(error(404, '项目不存在'))
@@ -303,7 +304,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const project = await findProjectById(id)
     if (!project) {
       return reply.status(404).send(error(404, '项目不存在'))
@@ -322,7 +323,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const project = await findProjectById(id)
     if (!project) {
       return reply.status(404).send(error(404, '项目不存在'))
@@ -405,7 +406,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const file = await findFileByIdIncludeTrashed(id)
     if (!file) {
       return reply.status(404).send(error(404, '文件不存在'))
@@ -562,7 +563,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       if (!request.userId) return
       const userId = request.userId
 
-      const { id } = request.params as { id: string }
+      const { id } = idParam.parse(request.params)
       const file = await findFileById(id)
       if (!file) {
         return reply.status(404).send(error(404, '文件不存在'))
@@ -633,7 +634,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       if (!request.userId) return
       const userId = request.userId
 
-      const { id } = request.params as { id: string }
+      const { id } = idParam.parse(request.params)
       const file = await findFileById(id)
       if (!file) {
         return reply.status(404).send(error(404, '文件不存在'))
@@ -656,7 +657,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
 
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const file = await findFileByIdIncludeTrashed(id)
     if (!file) {
       return reply.status(404).send(error(404, '文件不存在'))

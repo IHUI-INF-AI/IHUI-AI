@@ -96,7 +96,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.patch('/api-platform/apps/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     const parsed = updateAppSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -111,7 +111,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/api-platform/apps/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     const [deleted] = await db
       .delete(developerApiKeys)
       .where(eq(developerApiKeys.id, id))
@@ -137,7 +137,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.patch('/api-platform/packages/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     const parsed = updatePackageSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -148,7 +148,7 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/api-platform/packages/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     const [deleted] = await db.delete(plans).where(eq(plans.id, id)).returning()
     if (!deleted) return reply.status(404).send(error(404, '套餐不存在'))
     return reply.send(success({ deleted: true }))

@@ -153,7 +153,7 @@ function registerEmptyStub(server: FastifyInstance, basePath: string) {
     return reply.send(success({ id: parsed.data.id, deleted: true }))
   })
   server.delete(basePath, async (request: FastifyRequest, reply: FastifyReply) => {
-    const ids = (request.body as { ids?: string })?.ids ?? ''
+    const { ids } = z.object({ ids: z.string().optional().default('') }).parse(request.body ?? {})
     return reply.send(success({ deleted: ids.split(',').filter(Boolean).length }))
   })
 }

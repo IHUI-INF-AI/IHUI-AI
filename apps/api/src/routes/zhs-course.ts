@@ -37,6 +37,14 @@ const pageQuery = {
 }
 
 export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  const idParam = z.object({ id: z.string() })
+  const idsParam = z.object({ ids: z.string() })
+  const videoIdParam = z.object({ video_id: z.string() })
+  const categoryIdParam = z.object({ category_id: z.string() })
+  const codeParam = z.object({ code: z.string() })
+  const platformIdParam = z.object({ platform_id: z.string() })
+  const commentIdParam = z.object({ comment_id: z.string() })
+
   // 课程列表
   fastify.get('/list', async (request) => {
     const { page, pageSize, keyword, status, categoryId } = z
@@ -73,7 +81,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 课程详情
   fastify.get('/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const result = await db.select().from(lessons).where(eq(lessons.id, id)).limit(1)
     if (!result[0]) return reply.code(404).send({ error: '课程不存在' })
     return result[0]
@@ -129,7 +137,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 批量删除课程
   fastify.delete('/:ids', async (request) => {
-    const { ids } = request.params as { ids: string }
+    const { ids } = idsParam.parse(request.params)
     const idList = ids.split(',').filter(Boolean)
     await db.delete(lessons).where(sql`${lessons.id} = ANY(${idList}::uuid[])`)
     return { deleted: idList.length }
@@ -137,7 +145,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 课程下架
   fastify.post('/delist/:ids', async (request) => {
-    const { ids } = request.params as { ids: string }
+    const { ids } = idsParam.parse(request.params)
     const idList = ids.split(',').filter(Boolean)
     await db
       .update(lessons)
@@ -199,7 +207,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 视频详情
   fastify.get('/videos/:video_id', async (request, reply) => {
-    const { video_id } = request.params as { video_id: string }
+    const { video_id } = videoIdParam.parse(request.params)
     const result = await db
       .select()
       .from(zhsCourseVideo)
@@ -274,7 +282,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 更新视频
   fastify.put('/videos/:video_id', async (request, reply) => {
-    const { video_id } = request.params as { video_id: string }
+    const { video_id } = videoIdParam.parse(request.params)
     const body = z
       .object({
         title: z.string().max(200).optional(),
@@ -320,14 +328,14 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 删除视频
   fastify.delete('/videos/:video_id', async (request) => {
-    const { video_id } = request.params as { video_id: string }
+    const { video_id } = videoIdParam.parse(request.params)
     await db.delete(zhsCourseVideo).where(eq(zhsCourseVideo.id, Number(video_id)))
     return { deleted: true }
   })
 
   // 移动视频（调整课程归属）
   fastify.post('/videos/:video_id/move', async (request, reply) => {
-    const { video_id } = request.params as { video_id: string }
+    const { video_id } = videoIdParam.parse(request.params)
     const { courseId } = z.object({ courseId: z.number().int() }).parse(request.body)
     const [updated] = await db
       .update(zhsCourseVideo)
@@ -340,7 +348,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 发布视频
   fastify.post('/videos/:video_id/issue', async (request, reply) => {
-    const { video_id } = request.params as { video_id: string }
+    const { video_id } = videoIdParam.parse(request.params)
     const [updated] = await db
       .update(zhsCourseVideo)
       .set({ status: 1, auditStatus: 1, updatedAt: new Date() })
@@ -376,7 +384,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 父级分类链
   fastify.get('/categories/:category_id/parent', async (request) => {
-    const { category_id } = request.params as { category_id: string }
+    const { category_id } = categoryIdParam.parse(request.params)
     const chain: (typeof zhsCategoryDictionary.$inferSelect)[] = []
     let currentId = Number(category_id)
     for (let i = 0; i < 10 && currentId > 0; i++) {
@@ -412,7 +420,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 平台详情（按 code）
   fastify.get('/platforms/:code', async (request, reply) => {
-    const { code } = request.params as { code: string }
+    const { code } = codeParam.parse(request.params)
     const result = await db
       .select()
       .from(zhsEducationPlatform)
@@ -454,7 +462,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 更新平台
   fastify.put('/platforms/:platform_id', async (request, reply) => {
-    const { platform_id } = request.params as { platform_id: string }
+    const { platform_id } = platformIdParam.parse(request.params)
     const body = z
       .object({
         name: z.string().max(100).optional(),
@@ -490,7 +498,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 删除平台（软删除）
   fastify.delete('/platforms/:platform_id', async (request) => {
-    const { platform_id } = request.params as { platform_id: string }
+    const { platform_id } = platformIdParam.parse(request.params)
     await db
       .update(zhsEducationPlatform)
       .set({ isDel: 1, updatedAt: new Date() })
@@ -620,7 +628,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
 
   // 删除评论（软删除）
   fastify.delete('/comments/:comment_id', async (request) => {
-    const { comment_id } = request.params as { comment_id: string }
+    const { comment_id } = commentIdParam.parse(request.params)
     await db
       .update(zhsUserVideoComment)
       .set({ status: 0, updatedAt: new Date() })

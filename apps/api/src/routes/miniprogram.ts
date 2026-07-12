@@ -58,7 +58,7 @@ const miniprogramRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     // 需要 body 中提供 appId 以定位配置（upsert）
-    const body = request.body as { appId?: string }
+    const body = z.object({ appId: z.string().optional() }).parse(request.body)
     if (!body.appId) {
       return reply.status(400).send(error(400, 'appId 为必填项'))
     }

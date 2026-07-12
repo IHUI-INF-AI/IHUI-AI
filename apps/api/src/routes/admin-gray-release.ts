@@ -78,7 +78,7 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gray-release/:id/toggle — 切换启用状态
   server.post('/gray-release/:id/toggle', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     try {
       const rows = await db.execute(sql`
         UPDATE canary_configs

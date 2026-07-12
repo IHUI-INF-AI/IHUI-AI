@@ -281,7 +281,7 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const { agentId } = request.params as { agentId: string }
+      const { agentId } = z.object({ agentId: z.string() }).parse(request.params)
       const { startDate, endDate } =
         agentHeatQuery.pick({ startDate: true, endDate: true }).safeParse(request.query).data ?? {}
       const end = endDate ?? new Date().toISOString().slice(0, 10)

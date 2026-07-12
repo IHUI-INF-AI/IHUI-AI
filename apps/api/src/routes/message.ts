@@ -247,7 +247,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /messages/private/:pid/read - 标记私信已读
   server.post('/messages/private/:pid/read', async (request, reply) => {
-    const { pid } = request.params as { pid: string }
+    const { pid } = z.object({ pid: z.string() }).parse(request.params)
     const userId = request.userId!
     const [updated] = await db
       .update(messagePrivateLetter)
@@ -266,7 +266,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /messages/private/:pid - 删除私信
   server.delete('/messages/private/:pid', async (request, reply) => {
-    const { pid } = request.params as { pid: string }
+    const { pid } = z.object({ pid: z.string() }).parse(request.params)
     const userId = request.userId!
     await db
       .delete(messagePrivateLetter)
@@ -411,7 +411,7 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /messages/system-notice/:nid - 删除系统通知
   server.delete('/messages/system-notice/:nid', async (request, reply) => {
-    const { nid } = request.params as { nid: string }
+    const { nid } = z.object({ nid: z.string() }).parse(request.params)
     await db.delete(messageSystemNotice).where(eq(messageSystemNotice.id, Number(nid)))
     return reply.send(success({ ok: true }))
   })
