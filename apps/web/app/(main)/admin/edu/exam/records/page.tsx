@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import {
   Loader2,
@@ -45,13 +46,14 @@ interface Paper {
 
 const PAGE_SIZE = 10
 
-const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  pending: { label: '答题中', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-  submitted: { label: '已提交', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-  graded: { label: '已评分', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+const STATUS_CLS: Record<string, string> = {
+  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  submitted: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  graded: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
 }
 
 function RecordsContent() {
+  const t = useTranslations('admin.edu.exam.records')
   const router = useRouter()
   const sp = useSearchParams()
   const search = sp.get('search') ?? ''
@@ -89,21 +91,21 @@ function RecordsContent() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">答题记录</h1>
-        <p className="mt-1 text-sm text-muted-foreground">查看全部答题记录与成绩</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/exam">
             <ChevronLeft className="h-4 w-4" />
-            返回考试管理
+            {t('backToExam')}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm">
-          <Link href="/admin/edu/exam/grades">成绩批阅</Link>
+          <Link href="/admin/edu/exam/grades">{t('gradesReview')}</Link>
         </Button>
         <Button asChild variant="outline" size="sm">
-          <Link href="/admin/edu/exam/ranking">成绩排名</Link>
+          <Link href="/admin/edu/exam/ranking">{t('ranking')}</Link>
         </Button>
       </div>
 
@@ -111,12 +113,12 @@ function RecordsContent() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-4 py-2.5">用户</TableHead>
-              <TableHead className="px-4 py-2.5">试卷</TableHead>
-              <TableHead className="px-4 py-2.5">分数</TableHead>
-              <TableHead className="px-4 py-2.5">通过</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
-              <TableHead className="px-4 py-2.5">提交时间</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colUser')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colPaper')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colScore')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colPassed')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colSubmittedAt')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
@@ -124,7 +126,7 @@ function RecordsContent() {
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : error ? (
@@ -137,22 +139,19 @@ function RecordsContent() {
               <TableRow>
                 <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                   <ClipboardList className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无记录
+                  {t('noRecords')}
                 </TableCell>
               </TableRow>
             ) : (
               records.map((r) => {
-                const st = STATUS_MAP[r.status] ?? {
-                  label: r.status,
-                  cls: 'bg-muted text-muted-foreground',
-                }
+                const cls = STATUS_CLS[r.status] ?? 'bg-muted text-muted-foreground'
                 return (
                   <TableRow key={r.id} className="hover:bg-muted/30">
                     <TableCell className="px-4 py-2.5 font-mono text-xs">
                       {r.userId.slice(0, 8)}…
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
-                      {paperMap.get(r.paperId) ?? '未知试卷'}
+                      {paperMap.get(r.paperId) ?? t('unknownPaper')}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 font-medium">{Number(r.score)}</TableCell>
                     <TableCell className="px-4 py-2.5">
@@ -169,17 +168,17 @@ function RecordsContent() {
                         ) : (
                           <XCircle className="h-3 w-3" />
                         )}
-                        {r.isPassed ? '通过' : '未通过'}
+                        {r.isPassed ? t('passed') : t('notPassed')}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
                           'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          st.cls,
+                          cls,
                         )}
                       >
-                        {st.label}
+                        {t(`status.${r.status}`)}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
@@ -194,12 +193,12 @@ function RecordsContent() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="按用户搜索"
+            placeholder={t('searchPlaceholder')}
             className="h-9 w-48"
           />
           <Button
@@ -209,10 +208,10 @@ function RecordsContent() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -220,7 +219,7 @@ function RecordsContent() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -230,12 +229,13 @@ function RecordsContent() {
 }
 
 export default function EduExamRecordsPage() {
+  const t = useTranslations('admin.edu.exam.records')
   return (
     <React.Suspense
       fallback={
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       }
     >
