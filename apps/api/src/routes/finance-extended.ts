@@ -14,6 +14,8 @@ import {
 } from '@ihui/database'
 
 export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
+  const idParam = z.object({ id: z.string() })
+
   // ==========================================================================
   // 分销统计
   // ==========================================================================
@@ -21,7 +23,9 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 团队业绩统计（查询 commissionFlows 按 beneficiaryId 汇总 totalAmount/count）
   server.get('/finance/distribution/team-stats', async (request, reply) => {
     await authenticate(request)
-    const { beneficiaryId } = request.query as { beneficiaryId?: string }
+    const { beneficiaryId } = z
+      .object({ beneficiaryId: z.string().optional() })
+      .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
     try {
       const rows = await db
@@ -58,17 +62,15 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 下级统计（查询 commissionFlows 按 invitedUserId 汇总）
   server.get('/finance/distribution/subordinate-stats', async (request, reply) => {
     await authenticate(request)
-    const {
-      beneficiaryId,
-      page = '1',
-      pageSize = '20',
-    } = request.query as {
-      beneficiaryId?: string
-      page?: string
-      pageSize?: string
-    }
+    const { beneficiaryId, page, pageSize } = z
+      .object({
+        beneficiaryId: z.string().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
-    const offset = (Number(page) - 1) * Number(pageSize)
+    const offset = (page - 1) * pageSize
     try {
       const list = await db
         .select({
@@ -79,7 +81,7 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         .from(commissionFlows)
         .where(and(eq(commissionFlows.beneficiaryId, targetId), eq(commissionFlows.status, 1)))
         .groupBy(commissionFlows.invitedUserId)
-        .limit(Number(pageSize))
+        .limit(pageSize)
         .offset(offset)
       const countRows = await db
         .select({ count: sql<number>`count(DISTINCT ${commissionFlows.invitedUserId})::int` })
@@ -89,8 +91,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         success({
           list,
           total: countRows[0]?.count ?? 0,
-          page: Number(page),
-          pageSize: Number(pageSize),
+          page,
+          pageSize,
         }),
       )
     } catch (e) {
@@ -102,11 +104,13 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 邀请汇总（查询 commissionFlows 按日期分组统计）
   server.get('/finance/distribution/invitation-summary', async (request, reply) => {
     await authenticate(request)
-    const { beneficiaryId, startDate, endDate } = request.query as {
-      beneficiaryId?: string
-      startDate?: string
-      endDate?: string
-    }
+    const { beneficiaryId, startDate, endDate } = z
+      .object({
+        beneficiaryId: z.string().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+      .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
     const conditions: SQL[] = [
       eq(commissionFlows.beneficiaryId, targetId),
@@ -189,29 +193,26 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 提现列表（分页，支持 userId/status 筛选）
   server.get('/finance/agent-withdrawal/list', async (request, reply) => {
     await authenticate(request)
-    const {
-      userId,
-      status,
-      page = '1',
-      pageSize = '20',
-    } = request.query as {
-      userId?: string
-      status?: string
-      page?: string
-      pageSize?: string
-    }
+    const { userId, status, page, pageSize } = z
+      .object({
+        userId: z.string().optional(),
+        status: z.coerce.number().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const targetUserId = userId ?? request.userId!
     const conditions: SQL[] = [eq(withdrawalFlows.userId, targetUserId)]
-    if (status !== undefined) conditions.push(eq(withdrawalFlows.status, Number(status)))
+    if (status !== undefined) conditions.push(eq(withdrawalFlows.status, status))
     const where = and(...conditions)
-    const offset = (Number(page) - 1) * Number(pageSize)
+    const offset = (page - 1) * pageSize
     try {
       const list = await db
         .select()
         .from(withdrawalFlows)
         .where(where)
         .orderBy(desc(withdrawalFlows.createdAt))
-        .limit(Number(pageSize))
+        .limit(pageSize)
         .offset(offset)
       const totalRows = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -221,8 +222,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         success({
           list,
           total: totalRows[0]?.count ?? 0,
-          page: Number(page),
-          pageSize: Number(pageSize),
+          page,
+          pageSize,
         }),
       )
     } catch (e) {
@@ -235,7 +236,7 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.post('/finance/agent-withdrawal/:id/approve', async (request, reply) => {
     const payload = await authenticate(request)
     if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     try {
       const existing = await db
         .select()
@@ -264,8 +265,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.post('/finance/agent-withdrawal/:id/reject', async (request, reply) => {
     const payload = await authenticate(request)
     if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
-    const { id } = request.params as { id: string }
-    const { rejectReason } = request.body as { rejectReason?: string }
+    const { id } = idParam.parse(request.params)
+    const { rejectReason } = z.object({ rejectReason: z.string().optional() }).parse(request.body)
     try {
       const existing = await db
         .select()
@@ -351,26 +352,24 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/admin/finance/fund/audit/list', async (request, reply) => {
     const payload = await authenticate(request)
     if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
-    const {
-      status,
-      page = '1',
-      pageSize = '20',
-    } = request.query as {
-      status?: string
-      page?: string
-      pageSize?: string
-    }
+    const { status, page, pageSize } = z
+      .object({
+        status: z.coerce.number().optional(),
+        page: z.coerce.number().optional().default(1),
+        pageSize: z.coerce.number().optional().default(20),
+      })
+      .parse(request.query)
     const conditions: SQL[] = []
-    if (status !== undefined) conditions.push(eq(withdrawalFlows.status, Number(status)))
+    if (status !== undefined) conditions.push(eq(withdrawalFlows.status, status))
     const where = conditions.length ? and(...conditions) : sql`TRUE`
-    const offset = (Number(page) - 1) * Number(pageSize)
+    const offset = (page - 1) * pageSize
     try {
       const list = await db
         .select()
         .from(withdrawalFlows)
         .where(where)
         .orderBy(desc(withdrawalFlows.createdAt))
-        .limit(Number(pageSize))
+        .limit(pageSize)
         .offset(offset)
       const totalRows = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -406,8 +405,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
         success({
           list,
           total: totalRows[0]?.count ?? 0,
-          page: Number(page),
-          pageSize: Number(pageSize),
+          page,
+          pageSize,
           stats: {
             withdrawal: withdrawalStats[0] ?? {},
             commission: commissionStats[0] ?? {},
@@ -425,8 +424,10 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/finance/fund/audit/:id', async (request, reply) => {
     const payload = await authenticate(request)
     if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
-    const { id } = request.params as { id: string }
-    const { action, remark } = request.body as { action: string; remark?: string }
+    const { id } = idParam.parse(request.params)
+    const { action, remark } = z
+      .object({ action: z.string(), remark: z.string().optional() })
+      .parse(request.body)
     if (action !== 'approve' && action !== 'reject') {
       return reply.status(400).send(error(400, 'action 必须为 approve 或 reject'))
     }
