@@ -302,13 +302,13 @@ export default function AdminFeedbacksPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <HasPermi code="ai:userFeedback:export">
+          <HasPermi code="ai:userfeedback:export">
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
               {tc('export')}
             </Button>
           </HasPermi>
-          <HasPermi code="ai:userFeedback:add">
+          <HasPermi code="ai:userfeedback:add">
             <Button size="sm" onClick={openCreateDialog}>
               <Plus className="h-4 w-4" />
               {tc('add')}
@@ -472,7 +472,7 @@ export default function AdminFeedbacksPage() {
                           <Edit className="h-4 w-4" />
                           {t('edit')}
                         </Button>
-                        <HasPermi code="ai:userFeedback:remove">
+                        <HasPermi code="ai:userfeedback:remove">
                           <Button
                             size="sm"
                             variant="ghost"

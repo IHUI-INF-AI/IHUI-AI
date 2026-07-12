@@ -1,77 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Sparkles, AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import type { ChatMessage } from '@/stores/chat'
+import { MarkdownStream } from '@/components/ai/markdown-stream'
+import { ToolCallCard } from '@/components/ai/tool-call-card'
 import { cn } from '@/lib/utils'
-
-function CodeBlock({ language, value }: { language?: string; value: string }) {
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
-
-  if (!mounted) {
-    return (
-      <pre className="my-2 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-sm text-zinc-100">
-        <code>{value}</code>
-      </pre>
-    )
-  }
-
-  return (
-    <SyntaxHighlighter
-      language={language || 'text'}
-      style={oneDark}
-      PreTag="div"
-      customStyle={{ margin: '0.5rem 0', borderRadius: '0.5rem', fontSize: '0.875rem' }}
-    >
-      {value}
-    </SyntaxHighlighter>
-  )
-}
-
-function AssistantContent({ content }: { content: string }) {
-  return (
-    <div className="chat-markdown text-sm leading-relaxed">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '')
-            const value = String(children).replace(/\n$/, '')
-            if (match) {
-              return <CodeBlock language={match[1]} value={value} />
-            }
-            return (
-              <code className="rounded bg-muted px-1.5 py-0.5 text-[0.85em] font-mono" {...props}>
-                {children}
-              </code>
-            )
-          },
-          a({ children, ...props }) {
-            return (
-              <a
-                className="text-primary underline underline-offset-2"
-                target="_blank"
-                rel="noreferrer"
-                {...props}
-              >
-                {children}
-              </a>
-            )
-          },
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  )
-}
 
 function TypingIndicator() {
   return (
@@ -138,9 +74,11 @@ export function MessageList({
   return (
     <div ref={containerRef} className="h-full overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-        {messages.map((m) => {
+        {messages.map((m, idx) => {
           const isUser = m.role === 'user'
+          const isLast = idx === messages.length - 1
           const showTyping = !isUser && m.content === '' && isStreaming
+          const streamingThis = !isUser && isStreaming && isLast
           return (
             <div
               key={m.id}
@@ -190,7 +128,20 @@ export function MessageList({
                       {m.content}
                     </p>
                   ) : (
-                    <AssistantContent content={m.content} />
+                    <div className="space-y-2">
+                      {m.toolCalls?.map((tc) => (
+                        <ToolCallCard
+                          key={tc.id}
+                          toolName={tc.toolName}
+                          args={tc.args}
+                          result={tc.result}
+                          status={tc.status}
+                          duration={tc.duration}
+                          error={tc.error}
+                        />
+                      ))}
+                      <MarkdownStream content={m.content} isStreaming={streamingThis} />
+                    </div>
                   )}
                 </div>
               </div>

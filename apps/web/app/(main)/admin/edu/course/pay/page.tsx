@@ -57,7 +57,7 @@ interface CForm {
 }
 const EMPTY: CForm = { courseId: '', payType: '0', payCrowd: '0', amount: '0' }
 const PAGE_SIZE = 10
-const PERM = 'course:coursePay:'
+const PERM = 'course:coursepay:'
 const payTypeText = (n: number) =>
   n === 0 ? '免费' : n === 1 ? '限免' : n === 2 ? '付费' : String(n)
 const payCrowdText = (n: number) => (n === 0 ? '全部' : n === 1 ? '会员' : String(n))

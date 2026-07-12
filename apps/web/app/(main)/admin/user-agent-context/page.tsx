@@ -208,7 +208,7 @@ export default function UserAgentContextPage() {
             <Download className="h-4 w-4" />
             导出
           </Button>
-          <HasPermi code="ai:userAgentContext:add">
+          <HasPermi code="ai:useragentcontext:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               新增
@@ -274,7 +274,7 @@ export default function UserAgentContextPage() {
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <HasPermi code="ai:userAgentContext:edit">
+                      <HasPermi code="ai:useragentcontext:edit">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -284,7 +284,7 @@ export default function UserAgentContextPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </HasPermi>
-                      <HasPermi code="ai:userAgentContext:remove">
+                      <HasPermi code="ai:useragentcontext:remove">
                         <Button
                           variant="ghost"
                           size="sm"

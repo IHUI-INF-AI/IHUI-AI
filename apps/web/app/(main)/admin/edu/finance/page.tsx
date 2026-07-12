@@ -66,7 +66,7 @@ const EMPTY: CForm = {
   realAmount: '0',
 }
 const PAGE_SIZE = 10
-const PERM = 'course:coursePayLog:'
+const PERM = 'course:coursepaylog:'
 const API = '/api/admin/course-pay-log'
 
 export default function EduFinancePage() {

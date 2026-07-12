@@ -237,7 +237,7 @@ export default function AdminDemandSquarePage() {
             ))}
           </SelectContent>
         </Select>
-        <HasPermi code="demandSquare:export">
+        <HasPermi code="demandsquare:export">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
             {tc('export')}
@@ -306,7 +306,7 @@ export default function AdminDemandSquarePage() {
                   <TableCell className="px-4 py-2.5 text-right">
                     {r.status === 'pending' ? (
                       <div className="flex justify-end gap-1">
-                        <HasPermi code="demandSquare:approve">
+                        <HasPermi code="demandsquare:approve">
                           <Button
                             size="sm"
                             variant="ghost"
@@ -317,7 +317,7 @@ export default function AdminDemandSquarePage() {
                             <Check className="h-4 w-4 text-emerald-600" />
                           </Button>
                         </HasPermi>
-                        <HasPermi code="demandSquare:reject">
+                        <HasPermi code="demandsquare:reject">
                           <Button
                             size="sm"
                             variant="ghost"

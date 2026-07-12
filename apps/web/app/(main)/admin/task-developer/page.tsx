@@ -42,7 +42,7 @@ interface PageData {
 }
 
 const RESOURCE = '/api/admin/task-developer'
-const PERM = 'ai:taskDeveloper'
+const PERM = 'ai:taskdeveloper'
 const PERMS = {
   add: `${PERM}:add`,
   edit: `${PERM}:edit`,
