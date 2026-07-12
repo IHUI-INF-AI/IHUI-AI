@@ -32,6 +32,21 @@
     "notFoundTitle": "Page Not Found",
     "notFoundDescription": "The page you are looking for does not exist or has been removed.",
     "backHome": "Back to Home",
+    "reply": "Reply",
+    "searchHistory": "Search History",
+    "clear": "Clear",
+    "follow": "Follow",
+    "followed": "Following",
+    "orderNoLabel": "Order No.",
+    "searchPlaceholder": "Search...",
+    "orderStatus": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "shipped": "Shipped",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    },
     "tools": {
       "title": "Tools",
       "subtitle": "Browse and use various tools provided by the platform",
@@ -292,7 +307,9 @@
     "uploadFailed": "Upload failed",
     "downloadFailed": "Download failed",
     "deleteConfirm": "Are you sure you want to delete {name}? This cannot be undone.",
-    "processedFiles": "Processed Files"
+    "processedFiles": "Processed Files",
+    "developerTools": "Developer Tools",
+    "mentionFile": "Mention File"
   },
   "chat": {
     "title": "AI Chat",
@@ -320,7 +337,59 @@
     "loading": "Loading conversation...",
     "enterToSend": "Enter to send · Shift+Enter for new line",
     "generating": "Generating",
-    "me": "Me"
+    "me": "Me",
+    "promptTemplate": "Prompt Template",
+    "addContextReference": "Add as Context Reference",
+    "voiceRecord": "Voice Recording",
+    "voiceRecordLabel": "Recording {duration}s",
+    "modelDescGpt4oMini": "Fast · Economical",
+    "modelDescGpt4o": "Balanced · High Quality",
+    "modelDescClaude35Sonnet": "Strong Reasoning · Writing",
+    "modelDescClaude35Haiku": "Fast · Lightweight",
+    "slashCmd": {
+      "summary": "Summarize current conversation",
+      "translate": "Translate text",
+      "explain": "Explain concept",
+      "code": "Generate code",
+      "polish": "Polish text"
+    },
+    "cmdSummary": "Please summarize the above conversation and extract key information",
+    "cmdTranslate": "Please translate the following content to English:",
+    "cmdExplain": "Please explain the following concept in detail:",
+    "cmdCode": "Please implement the following feature with code and comments:",
+    "cmdPolish": "Please polish the following text to make it more professional and fluent:",
+    "tpl": {
+      "email": {
+        "name": "Email Draft",
+        "content": "Please help me draft an email with the subject:",
+        "category": "Writing"
+      },
+      "report": {
+        "name": "Report Outline",
+        "content": "Please generate a report outline for the following topic:",
+        "category": "Writing"
+      },
+      "review": {
+        "name": "Code Review",
+        "content": "Please review the following code and identify potential issues:",
+        "category": "Code"
+      },
+      "refactor": {
+        "name": "Code Refactor",
+        "content": "Please refactor the following code to improve readability:",
+        "category": "Code"
+      },
+      "translate": {
+        "name": "CN-EN Translate",
+        "content": "Please translate the following content:",
+        "category": "Translate"
+      },
+      "summary": {
+        "name": "Content Summary",
+        "content": "Please summarize the key information of the following content:",
+        "category": "Summary"
+      }
+    }
   },
   "learn": {
     "title": "Learning Center",
@@ -2690,7 +2759,10 @@
       "favorites": "Favorites",
       "statsLoading": "Loading stats...",
       "accountInfo": "Account Info",
-      "userId": "User ID"
+      "userId": "User ID",
+      "aiUsage": "AI Usage Stats",
+      "routines": "Routines",
+      "voiceRecord": "Voice Recording"
     },
     "security": {
       "title": "Security",
@@ -4097,7 +4169,9 @@
     "submitting": "Submitting...",
     "fieldAgentId": "Agent ID",
     "fieldWorkspace": "Workspace",
-    "fieldRemark": "Remark"
+    "fieldRemark": "Remark",
+    "marketTab": "Agent Market",
+    "mineTab": "My Agents"
   },
   "distribution": {
     "title": "Distribution Center",

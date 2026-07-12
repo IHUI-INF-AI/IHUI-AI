@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Search, X, Clock } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { useClickOutside } from '@/hooks/use-click-outside'
 
@@ -16,7 +17,7 @@ interface SearchBarProps {
 }
 
 export function SearchBar({
-  placeholder = '搜索...',
+  placeholder,
   onSearch,
   suggestions = [],
   history = [],
@@ -24,6 +25,8 @@ export function SearchBar({
   onClearHistory,
   className,
 }: SearchBarProps) {
+  const t = useTranslations('common')
+  const resolvedPlaceholder = placeholder ?? t('searchPlaceholder')
   const [value, setValue] = React.useState('')
   const [focused, setFocused] = React.useState(false)
   const containerRef = useClickOutside<HTMLDivElement>(
@@ -50,7 +53,7 @@ export function SearchBar({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onFocus={() => setFocused(true)}
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             className="h-10 w-full rounded-full border border-input bg-background pl-9 pr-9 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {value && (
@@ -69,13 +72,13 @@ export function SearchBar({
           {!value && history.length > 0 && (
             <div className="mb-1">
               <div className="flex items-center justify-between px-2 py-1">
-                <span className="text-xs text-muted-foreground">搜索历史</span>
+                <span className="text-xs text-muted-foreground">{t('searchHistory')}</span>
                 {onClearHistory && (
                   <button
                     onClick={onClearHistory}
                     className="text-xs text-muted-foreground hover:text-foreground"
                   >
-                    清除
+                    {t('clear')}
                   </button>
                 )}
               </div>

@@ -32,6 +32,21 @@
     "notFoundTitle": "頁面不存在",
     "notFoundDescription": "您访問的頁麵不存在或已被移除。",
     "backHome": "返回首頁",
+    "reply": "回覆",
+    "searchHistory": "搜索歷史",
+    "clear": "清除",
+    "follow": "關注",
+    "followed": "已關注",
+    "orderNoLabel": "訂單號",
+    "searchPlaceholder": "搜索...",
+    "orderStatus": {
+      "pending": "待付款",
+      "paid": "已付款",
+      "shipped": "已出貨",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    },
     "tools": {
       "title": "工具中心",
       "subtitle": "瀏覽並使用平台提供的各類工具",
@@ -292,7 +307,9 @@
     "uploadFailed": "上傳失敗",
     "downloadFailed": "下載失敗",
     "deleteConfirm": "確定要刪除這個變量吗？",
-    "processedFiles": "已處理檔案"
+    "processedFiles": "已處理檔案",
+    "developerTools": "開發者工具",
+    "mentionFile": "提及檔案"
   },
   "chat": {
     "title": "AI對話",
@@ -320,7 +337,59 @@
     "loading": "加載中...",
     "enterToSend": "按 Enter 發送，Shift+Enter 換行",
     "generating": "生成中...",
-    "me": "我"
+    "me": "我",
+    "promptTemplate": "提示詞模板",
+    "addContextReference": "新增為上下文參照",
+    "voiceRecord": "語音錄製",
+    "voiceRecordLabel": "錄音 {duration}秒",
+    "modelDescGpt4oMini": "快速 · 經濟",
+    "modelDescGpt4o": "均衡 · 高品質",
+    "modelDescClaude35Sonnet": "強推理 · 寫作",
+    "modelDescClaude35Haiku": "快速 · 輕量",
+    "slashCmd": {
+      "summary": "總結當前對話",
+      "translate": "翻譯文本",
+      "explain": "解釋概念",
+      "code": "生成代碼",
+      "polish": "潤色文本"
+    },
+    "cmdSummary": "請總結以上對話內容，提煉關鍵信息",
+    "cmdTranslate": "請將以下內容翻譯為英文：",
+    "cmdExplain": "請詳細解釋以下概念：",
+    "cmdCode": "請用代碼實現以下功能，並添加註釋：",
+    "cmdPolish": "請潤色以下文本，使其更專業流暢：",
+    "tpl": {
+      "email": {
+        "name": "郵件起草",
+        "content": "請幫我起草一封郵件，主題為：",
+        "category": "寫作"
+      },
+      "report": {
+        "name": "報告大綱",
+        "content": "請為以下主題生成報告大綱：",
+        "category": "寫作"
+      },
+      "review": {
+        "name": "代碼審查",
+        "content": "請審查以下代碼，指出潛在問題：",
+        "category": "代碼"
+      },
+      "refactor": {
+        "name": "代碼重構",
+        "content": "請重構以下代碼，提升可讀性：",
+        "category": "代碼"
+      },
+      "translate": {
+        "name": "中英互譯",
+        "content": "請將以下內容翻譯：",
+        "category": "翻譯"
+      },
+      "summary": {
+        "name": "內容總結",
+        "content": "請總結以下內容的關鍵信息：",
+        "category": "總結"
+      }
+    }
   },
   "learn": {
     "title": "AI接口測試",
@@ -2690,7 +2759,10 @@
       "favorites": "我的收藏",
       "statsLoading": "統計加载中...",
       "accountInfo": "帳號資訊",
-      "userId": "使用者 ID"
+      "userId": "使用者 ID",
+      "aiUsage": "AI 用量統計",
+      "routines": "例行程序",
+      "voiceRecord": "語音錄製"
     },
     "security": {
       "title": "安全",
@@ -4097,7 +4169,9 @@
     "submitting": "提交中...",
     "fieldAgentId": "Agent ID",
     "fieldWorkspace": "工作區",
-    "fieldRemark": "備註"
+    "fieldRemark": "備註",
+    "marketTab": "Agent 市場",
+    "mineTab": "我的 Agent"
   },
   "distribution": {
     "title": "分銷中心",

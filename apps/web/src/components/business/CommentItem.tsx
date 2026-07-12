@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { ThumbsUp, MessageCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data'
 
@@ -39,6 +40,7 @@ function CommentItemImpl({
 }: CommentItemProps) {
   const [isLiked, setIsLiked] = React.useState(liked)
   const [likeCount, setLikeCount] = React.useState(likes)
+  const t = useTranslations('common')
 
   const handleLike = () => {
     setIsLiked(!isLiked)
@@ -70,7 +72,7 @@ function CommentItemImpl({
           </button>
           <button onClick={onReply} className="flex items-center gap-1 hover:text-foreground">
             <MessageCircle className="h-3.5 w-3.5" />
-            回复
+            {t('reply')}
           </button>
         </div>
         {replies && replies.length > 0 && (
