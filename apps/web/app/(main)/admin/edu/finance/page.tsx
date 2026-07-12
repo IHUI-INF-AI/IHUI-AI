@@ -115,6 +115,7 @@ export default function EduFinancePage() {
       `${API}${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePayLog_${Date.now()}`,
       EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
 

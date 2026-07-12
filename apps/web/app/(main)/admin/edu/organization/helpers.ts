@@ -1,3 +1,4 @@
+import type { ExportColumn } from '@/lib/export-utils'
 import type { Organization, OrganizationForm, OrganizationSearch } from './types'
 
 export const PAGE_SIZE = 10
@@ -17,15 +18,15 @@ export const EMPTY_SEARCH: OrganizationSearch = {
   name: '',
 }
 
-export const EXPORT_COLUMNS = [
+export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
   { key: 'uuid', title: 'UUID' },
-  { key: 'platformId', title: '平台ID' },
-  { key: 'name', title: '名称' },
-  { key: 'remark', title: '备注' },
-  { key: 'filePath', title: '文件路径' },
-  { key: 'creator', title: '创建人' },
-  { key: 'createdAt', title: '创建时间' },
+  { key: 'platformId', title: 'col.platformId' },
+  { key: 'name', title: 'col.name' },
+  { key: 'remark', title: 'col.remark' },
+  { key: 'filePath', title: 'col.filePath' },
+  { key: 'creator', title: 'col.creator' },
+  { key: 'createdAt', title: 'col.createdAt' },
 ]
 
 export const textareaCls =

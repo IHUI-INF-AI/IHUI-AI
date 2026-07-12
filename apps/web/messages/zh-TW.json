@@ -2575,7 +2575,15 @@
           "fieldAnalysis": "解析",
           "analysisPlaceholder": "解析(選填)",
           "cancel": "取消",
-          "save": "儲存"
+          "save": "儲存",
+          "typeLabel": {
+            "single_choice": "單選題",
+            "multi_choice": "多選題",
+            "judgment": "判斷題",
+            "fill_blank": "填空題",
+            "subjective": "簡答題",
+            "programming": "程式設計題"
+          }
         },
         "records": {
           "title": "答題記錄",
@@ -2637,7 +2645,15 @@
           "save": "保存",
           "selectPaper": "選擇試卷",
           "selectPaperPlaceholder": "請選擇試卷",
-          "unpublished": "（未發布）"
+          "unpublished": "（未發布）",
+          "typeLabel": {
+            "single": "單選題",
+            "multi": "多選題",
+            "judgment": "判斷題",
+            "fill": "填空題",
+            "subjective": "簡答題",
+            "programming": "程式設計題"
+          }
         }
       },
       "learn": {
@@ -2899,7 +2915,19 @@
           "labelFree": "免費",
           "labelPublish": "上架",
           "cancel": "取消",
-          "save": "儲存"
+          "save": "儲存",
+          "subLink": {
+            "live": "直播學習",
+            "recorded": "錄播學習",
+            "materials": "資料學習",
+            "homework": "作業學習",
+            "records": "學習記錄",
+            "progress": "學習進度",
+            "plan": "學習計畫",
+            "remind": "學習提醒",
+            "community": "學習社區",
+            "ranking": "學習排行"
+          }
         },
         "records": {
           "title": "學習記錄",
@@ -3010,7 +3038,11 @@
             "hot": "熱度",
             "collect": "收藏",
             "sort": "排序",
-            "creator": "建立人"
+            "creator": "建立人",
+            "attachmentUrl": "附件URL",
+            "popularity": "熱度",
+            "favorites": "收藏",
+            "teacher": "講師"
           },
           "fieldPay": "付費",
           "fieldStatus": "狀態",
@@ -3167,7 +3199,18 @@
           "amountLabel": "金額",
           "realAmountLabel": "實付金額",
           "cancel": "取消",
-          "save": "儲存"
+          "save": "儲存",
+          "col": {
+            "userUuid": "使用者UUID",
+            "courseId": "課程ID",
+            "videoId": "影片ID",
+            "billDate": "帳單日期",
+            "payMethod": "支付方式",
+            "amount": "金額",
+            "paidAmount": "實付金額",
+            "type": "類型",
+            "createdAt": "建立時間"
+          }
         },
         "statistics": {
           "title": "財務統計",
@@ -3265,6 +3308,14 @@
           "payCrowd": {
             "0": "全部",
             "1": "會員"
+          },
+          "col": {
+            "courseId": "課程ID",
+            "courseName": "課程名稱",
+            "payType": "付費類型",
+            "payCrowd": "付費人群",
+            "amount": "金額",
+            "creator": "建立人"
           }
         },
         "platformLog": {
@@ -3299,7 +3350,16 @@
           "creator": "建立者",
           "sysCreator": "系統建立者",
           "createdAt": "建立時間",
-          "actions": "操作"
+          "actions": "操作",
+          "col": {
+            "platformId": "平台ID",
+            "courseId": "課程ID",
+            "videoId": "影片ID",
+            "type": "類型",
+            "creator": "建立者",
+            "systemCreator": "系統建立者",
+            "createdAt": "建立時間"
+          }
         },
         "trash": {
           "title": "課程回收站",
@@ -3394,6 +3454,21 @@
             "2": "待整改",
             "3": "已駁回",
             "4": "已通過"
+          },
+          "auditStatus": {
+            "0": "待審核",
+            "1": "審核中",
+            "2": "待整改",
+            "3": "已駁回",
+            "4": "已通過"
+          },
+          "col": {
+            "title": "標題",
+            "subtitle": "副標題",
+            "stage": "階段",
+            "label": "標籤",
+            "auditStatus": "審核狀態",
+            "creator": "建立人"
           }
         },
         "audit": {
@@ -3450,6 +3525,36 @@
             "close": "關閉",
             "rectify": "提交整改",
             "approve": "通過審核"
+          },
+          "col": {
+            "type": "類型",
+            "action": "操作",
+            "sourceId": "來源ID",
+            "targetId": "目標ID",
+            "status": "狀態",
+            "creator": "建立人",
+            "createdAt": "建立時間",
+            "updater": "更新人"
+          },
+          "field": {
+            "title": "標題",
+            "subtitle": "副標題",
+            "content": "內容",
+            "remark": "備註",
+            "remarkFile": "備註檔案",
+            "binding": "綁定",
+            "stage": "階段",
+            "isHidden": "是否隱藏",
+            "sort": "排序",
+            "createdAt": "建立時間",
+            "updatedAt": "更新時間",
+            "courseId": "課程ID",
+            "videoPath": "影片路徑",
+            "duration": "時長",
+            "attachment": "附件",
+            "isPaid": "是否付費",
+            "amount": "金額",
+            "status": "狀態"
           }
         },
         "categories": {
@@ -3509,6 +3614,14 @@
             "buttonImage": "按鈕圖",
             "cancel": "取消",
             "save": "儲存"
+          },
+          "col": {
+            "code": "編碼",
+            "name": "名稱",
+            "parentId": "父ID",
+            "typeId": "類型ID",
+            "sort": "排序",
+            "creator": "建立人"
           }
         }
       },
@@ -3653,7 +3766,17 @@
         "extField1": "擴展欄位1",
         "extField2": "擴展欄位2",
         "cancel": "取消",
-        "save": "儲存"
+        "save": "儲存",
+        "col": {
+          "code": "編碼",
+          "name": "名稱",
+          "domain": "網域",
+          "type": "類型",
+          "status": "狀態",
+          "sort": "排序",
+          "creator": "建立人",
+          "createdAt": "建立時間"
+        }
       },
       "organization": {
         "title": "平台組織",
@@ -3692,7 +3815,15 @@
         "totalItems": "共 {count} 條",
         "prevPage": "上一頁",
         "nextPage": "下一頁",
-        "pageInfo": "第 {page} / {totalPages} 頁"
+        "pageInfo": "第 {page} / {totalPages} 頁",
+        "col": {
+          "platformId": "平台ID",
+          "name": "名稱",
+          "remark": "備註",
+          "filePath": "檔案路徑",
+          "creator": "建立人",
+          "createdAt": "建立時間"
+        }
       }
     },
     "eduSettings": {
@@ -4952,7 +5083,16 @@
       "fieldRemark": "備註",
       "fieldImage": "圖片",
       "cancel": "取消",
-      "save": "儲存"
+      "save": "儲存",
+      "col": {
+        "name": "名稱",
+        "platformId": "平台ID",
+        "orgId": "組織ID",
+        "parentId": "父級ID",
+        "crossOrg": "是否跨組織",
+        "creator": "建立人",
+        "createdAt": "建立時間"
+      }
     },
     "eduClassSchedule": {
       "title": "班級排課",
@@ -5756,6 +5896,40 @@
       "google": "Google登錄",
       "meta": "Meta",
       "local": "本地數據"
+    },
+    "model": {
+      "stepfun-3-7-flash": {
+        "description": "StepFun 階躍星辰最新模型,已配置 plan 套餐"
+      },
+      "stepfun-3-5-flash": {
+        "description": "StepFun 3.5 快速版"
+      },
+      "stepfun-router-v1": {
+        "description": "StepFun 智能路由,自動選擇最優模型"
+      },
+      "agnes-gpt-4o": {
+        "description": "Agnes AI 代理的 GPT-4o"
+      },
+      "groq-llama-3-3-70b": {
+        "name": "Llama 3.3 70B (Groq 免費)",
+        "description": "免費 30 RPM,速度極快,只需 Groq API key"
+      },
+      "gemini-1-5-flash": {
+        "name": "Gemini 1.5 Flash (免費)",
+        "description": "免費 15 RPM,100 萬 token 上下文"
+      },
+      "gpt-4o": {
+        "description": "均衡的多模態旗艦模型"
+      },
+      "gpt-4o-mini": {
+        "description": "快速經濟的輕量模型"
+      },
+      "claude-3-5-sonnet": {
+        "description": "強推理與長文寫作"
+      },
+      "gemini-2-flash": {
+        "description": "超長上下文多模態"
+      }
     }
   },
   "dashboard": {

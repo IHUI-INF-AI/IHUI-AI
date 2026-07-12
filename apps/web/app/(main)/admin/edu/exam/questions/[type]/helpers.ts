@@ -1,12 +1,12 @@
 import type { Question, QForm } from './types'
 
 export const TYPE_LABEL: Record<string, string> = {
-  single: '单选题',
-  multi: '多选题',
-  judgment: '判断题',
-  fill: '填空题',
-  subjective: '简答题',
-  programming: '编程题',
+  single: 'typeLabel.single',
+  multi: 'typeLabel.multi',
+  judgment: 'typeLabel.judgment',
+  fill: 'typeLabel.fill',
+  subjective: 'typeLabel.subjective',
+  programming: 'typeLabel.programming',
 }
 
 export const TYPE_API: Record<string, string> = {

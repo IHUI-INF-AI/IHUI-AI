@@ -111,6 +111,7 @@ export default function EduCourseCategoriesPage() {
       `${API}${buildQs({ ...q, pageSize: 10000 })}`,
       `categoryDictionary_${Date.now()}`,
       EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
 

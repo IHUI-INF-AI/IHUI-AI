@@ -93,6 +93,7 @@ export default function EduCoursePayPage() {
       `/api/admin/course-pay${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePay_${Date.now()}`,
       EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function patchQ(patch: Partial<CoursePaySearch>) {

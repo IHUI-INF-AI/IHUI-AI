@@ -2575,7 +2575,15 @@
           "fieldAnalysis": "Analysis",
           "analysisPlaceholder": "Analysis (optional)",
           "cancel": "Cancel",
-          "save": "Save"
+          "save": "Save",
+          "typeLabel": {
+            "single_choice": "Single Choice",
+            "multi_choice": "Multiple Choice",
+            "judgment": "Judgment",
+            "fill_blank": "Fill Blank",
+            "subjective": "Subjective",
+            "programming": "Programming"
+          }
         },
         "records": {
           "title": "Exam Records",
@@ -2637,7 +2645,15 @@
           "save": "Save",
           "selectPaper": "Select paper",
           "selectPaperPlaceholder": "Please select paper",
-          "unpublished": " (Unpublished)"
+          "unpublished": " (Unpublished)",
+          "typeLabel": {
+            "single": "Single Choice",
+            "multi": "Multiple Choice",
+            "judgment": "Judgment",
+            "fill": "Fill Blank",
+            "subjective": "Subjective",
+            "programming": "Programming"
+          }
         }
       },
       "learn": {
@@ -2899,7 +2915,19 @@
           "labelFree": "Free",
           "labelPublish": "Publish",
           "cancel": "Cancel",
-          "save": "Save"
+          "save": "Save",
+          "subLink": {
+            "live": "Live Learning",
+            "recorded": "Recorded Learning",
+            "materials": "Materials Learning",
+            "homework": "Homework Learning",
+            "records": "Learning Records",
+            "progress": "Learning Progress",
+            "plan": "Learning Plan",
+            "remind": "Learning Reminder",
+            "community": "Learning Community",
+            "ranking": "Learning Ranking"
+          }
         },
         "records": {
           "title": "Learning Records",
@@ -3010,7 +3038,11 @@
             "hot": "Popularity",
             "collect": "Favorites",
             "sort": "Sort",
-            "creator": "Creator"
+            "creator": "Creator",
+            "attachmentUrl": "Attachment URL",
+            "popularity": "Popularity",
+            "favorites": "Favorites",
+            "teacher": "Teacher"
           },
           "fieldPay": "Payment",
           "fieldStatus": "Status",
@@ -3167,7 +3199,18 @@
           "amountLabel": "Amount",
           "realAmountLabel": "Paid Amount",
           "cancel": "Cancel",
-          "save": "Save"
+          "save": "Save",
+          "col": {
+            "userUuid": "User UUID",
+            "courseId": "Course ID",
+            "videoId": "Video ID",
+            "billDate": "Bill Date",
+            "payMethod": "Pay Method",
+            "amount": "Amount",
+            "paidAmount": "Paid Amount",
+            "type": "Type",
+            "createdAt": "Created At"
+          }
         },
         "statistics": {
           "title": "Finance Statistics",
@@ -3265,6 +3308,14 @@
           "payCrowd": {
             "0": "All",
             "1": "Member"
+          },
+          "col": {
+            "courseId": "Course ID",
+            "courseName": "Course Name",
+            "payType": "Pay Type",
+            "payCrowd": "Pay Crowd",
+            "amount": "Amount",
+            "creator": "Creator"
           }
         },
         "platformLog": {
@@ -3299,7 +3350,16 @@
           "creator": "Creator",
           "sysCreator": "System Creator",
           "createdAt": "Created At",
-          "actions": "Actions"
+          "actions": "Actions",
+          "col": {
+            "platformId": "Platform ID",
+            "courseId": "Course ID",
+            "videoId": "Video ID",
+            "type": "Type",
+            "creator": "Creator",
+            "systemCreator": "System Creator",
+            "createdAt": "Created At"
+          }
         },
         "trash": {
           "title": "Course Recycle Bin",
@@ -3394,6 +3454,21 @@
             "2": "Needs Revision",
             "3": "Rejected",
             "4": "Approved"
+          },
+          "auditStatus": {
+            "0": "Pending Review",
+            "1": "Under Review",
+            "2": "Pending Rectification",
+            "3": "Rejected",
+            "4": "Approved"
+          },
+          "col": {
+            "title": "Title",
+            "subtitle": "Subtitle",
+            "stage": "Stage",
+            "label": "Label",
+            "auditStatus": "Audit Status",
+            "creator": "Creator"
           }
         },
         "audit": {
@@ -3450,6 +3525,36 @@
             "close": "Close",
             "rectify": "Submit Rectification",
             "approve": "Approve"
+          },
+          "col": {
+            "type": "Type",
+            "action": "Action",
+            "sourceId": "Source ID",
+            "targetId": "Target ID",
+            "status": "Status",
+            "creator": "Creator",
+            "createdAt": "Created At",
+            "updater": "Updater"
+          },
+          "field": {
+            "title": "Title",
+            "subtitle": "Subtitle",
+            "content": "Content",
+            "remark": "Remark",
+            "remarkFile": "Remark File",
+            "binding": "Binding",
+            "stage": "Stage",
+            "isHidden": "Is Hidden",
+            "sort": "Sort",
+            "createdAt": "Created At",
+            "updatedAt": "Updated At",
+            "courseId": "Course ID",
+            "videoPath": "Video Path",
+            "duration": "Duration",
+            "attachment": "Attachment",
+            "isPaid": "Is Paid",
+            "amount": "Amount",
+            "status": "Status"
           }
         },
         "categories": {
@@ -3509,6 +3614,14 @@
             "buttonImage": "Button Image",
             "cancel": "Cancel",
             "save": "Save"
+          },
+          "col": {
+            "code": "Code",
+            "name": "Name",
+            "parentId": "Parent ID",
+            "typeId": "Type ID",
+            "sort": "Sort",
+            "creator": "Creator"
           }
         }
       },
@@ -3653,7 +3766,17 @@
         "extField1": "Extension Field 1",
         "extField2": "Extension Field 2",
         "cancel": "Cancel",
-        "save": "Save"
+        "save": "Save",
+        "col": {
+          "code": "Code",
+          "name": "Name",
+          "domain": "Domain",
+          "type": "Type",
+          "status": "Status",
+          "sort": "Sort",
+          "creator": "Creator",
+          "createdAt": "Created At"
+        }
       },
       "organization": {
         "title": "Platform Organizations",
@@ -3692,7 +3815,15 @@
         "totalItems": "{count} items in total",
         "prevPage": "Previous",
         "nextPage": "Next",
-        "pageInfo": "Page {page} / {totalPages}"
+        "pageInfo": "Page {page} / {totalPages}",
+        "col": {
+          "platformId": "Platform ID",
+          "name": "Name",
+          "remark": "Remark",
+          "filePath": "File Path",
+          "creator": "Creator",
+          "createdAt": "Created At"
+        }
       }
     },
     "eduSettings": {
@@ -4952,7 +5083,16 @@
       "fieldRemark": "Remark",
       "fieldImage": "Image",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "col": {
+        "name": "Name",
+        "platformId": "Platform ID",
+        "orgId": "Organization ID",
+        "parentId": "Parent ID",
+        "crossOrg": "Cross Organization",
+        "creator": "Creator",
+        "createdAt": "Created At"
+      }
     },
     "eduClassSchedule": {
       "title": "Class Schedule",
@@ -5756,6 +5896,40 @@
       "google": "Google",
       "meta": "Meta",
       "local": "Local"
+    },
+    "model": {
+      "stepfun-3-7-flash": {
+        "description": "StepFun latest model with plan subscription"
+      },
+      "stepfun-3-5-flash": {
+        "description": "StepFun 3.5 Fast Edition"
+      },
+      "stepfun-router-v1": {
+        "description": "StepFun smart routing, automatically selects the best model"
+      },
+      "agnes-gpt-4o": {
+        "description": "GPT-4o proxied by Agnes AI"
+      },
+      "groq-llama-3-3-70b": {
+        "name": "Llama 3.3 70B (Groq Free)",
+        "description": "Free 30 RPM, ultra-fast, only requires Groq API key"
+      },
+      "gemini-1-5-flash": {
+        "name": "Gemini 1.5 Flash (Free)",
+        "description": "Free 15 RPM, 1M token context"
+      },
+      "gpt-4o": {
+        "description": "Balanced multimodal flagship model"
+      },
+      "gpt-4o-mini": {
+        "description": "Fast and affordable lightweight model"
+      },
+      "claude-3-5-sonnet": {
+        "description": "Strong reasoning and long-form writing"
+      },
+      "gemini-2-flash": {
+        "description": "Ultra-long context multimodal"
+      }
     }
   },
   "dashboard": {
