@@ -5,12 +5,12 @@ import { getDeveloperIncome } from '@/api'
 import './income.css'
 
 export default function DeveloperIncome() {
-  const [info, setInfo] = useState<any>(null)
+  const [info, setInfo] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res: any = await getDeveloperIncome()
+      const res = (await getDeveloperIncome()) as Record<string, unknown>
       setInfo(res)
     } catch {
       // ignore
@@ -43,7 +43,7 @@ export default function DeveloperIncome() {
       {info?.list?.length ? (
         <View className="record-section">
           <Text className="section-title">收入明细</Text>
-          {info.list.map((r: any) => (
+          {info.list.map((r: Record<string, unknown>) => (
             <View key={r.id} className="record-item">
               <View className="record-info">
                 <Text className="record-title">{r.title || '收入'}</Text>

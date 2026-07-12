@@ -35,7 +35,7 @@ export default function CoursePlanet() {
         {loading ? (
           <Text>加载中...</Text>
         ) : list.length ? (
-          list.map((item: any, idx: number) => (
+          list.map((item: Record<string, unknown>, idx: number) => (
             <View key={item.id || idx} className="list-item">
               <Text>{item.title || item.name || '课程'}</Text>
             </View>
