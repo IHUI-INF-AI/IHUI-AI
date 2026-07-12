@@ -44,7 +44,6 @@ const HEATMAP_X_LABELS = [
   '20-22',
   '22-24',
 ]
-const HEATMAP_Y_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 // 用户活跃度热力图空数据桩：工作日白天偏高，周末晚间偏高
 const HEATMAP_DATA: number[][] = [
   [1, 0, 0, 1, 3, 6, 8, 9, 7, 5, 4, 2],
@@ -58,9 +57,20 @@ const HEATMAP_DATA: number[][] = [
 
 export default function BehaviorPage() {
   const t = useTranslations('behavior')
+  const tb = useTranslations('admin.behavior')
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
   const pageSize = 20
+
+  const HEATMAP_Y_LABELS = [
+    tb('weekday.mon'),
+    tb('weekday.tue'),
+    tb('weekday.wed'),
+    tb('weekday.thu'),
+    tb('weekday.fri'),
+    tb('weekday.sat'),
+    tb('weekday.sun'),
+  ]
 
   const { data: statistics, isLoading: loadingStats } = useQuery({
     queryKey: ['behavior', 'statistics'],
