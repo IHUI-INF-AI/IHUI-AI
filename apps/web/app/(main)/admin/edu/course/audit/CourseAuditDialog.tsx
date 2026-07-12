@@ -95,7 +95,7 @@ export function CourseAuditDialog({
             {fields.map(([key, label]) => (
               <CompareRow
                 key={key}
-                label={label}
+                label={t(label)}
                 before={compareData.before[key]}
                 after={compareData.after[key]}
               />

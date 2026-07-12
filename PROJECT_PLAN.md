@@ -45,6 +45,18 @@
 - [x] ✅(2026-07-11) 前端-FE-P0-10: 重写 `src/components/form/Checkbox.tsx` 和 `Radio.tsx`，当前用 `<span onClick>` 完全不可键盘访问，改用 Radix 原语或原生 `<input>` + 样式 + 正确 ARIA
 - [x] ✅(2026-07-11) 前端-FE-P0-11: 重写 `src/components/form/Select.tsx`，补 `role="combobox/listbox/option"`、`aria-expanded/selected`、键盘箭头导航 + Home/End + Escape 关闭
 
+### 历史项目迁移 100% 补齐（2026-07-12 深度审计 + 补齐）
+
+- [x] ✅(2026-07-12) P0: 小程序组件层补建 6 个高频组件（NavBar/Loading/InputArea/ModelList/DrawerComponent/Ranking），消除 `components/index.ts` 空占位
+- [x] ✅(2026-07-12) P0: 小程序关键工具迁移 5 个（websocket/voice-recorder/upload-image/file-utils/share）
+- [x] ✅(2026-07-12) P0: 小程序缺失页面补建 5 个（share/category-detail/distribution-company/study-video-detail/carte）+ app.config.ts 注册
+- [x] ✅(2026-07-12) P1: 小程序状态管理补齐（vip.ts + invite.ts）
+- [x] ✅(2026-07-12) P1: 小程序辅助工具迁移 7 个（keyboard-height/save-album/push/time/streaming-recognizer/doubao-voice-api/index）
+- [x] ✅(2026-07-12) P1: 数据库 3 张缺失关联表补建（member_group_member_relations / resource_tag_relations / agent_buy_scheduled_tasks）+ migration 0054
+- [x] ✅(2026-07-12) P2: Java 辅助端点补齐 3 个（D17 /circles/hot、D18 /circles/member-count、D19 /work-wechat/token）
+- [x] ✅(2026-07-12) P2: Vue tool/gen 代码生成器 + Crontab 评估完成 — 新架构用 Drizzle ORM 替代，按"做减法"原则不迁移（开发期工具非业务功能）
+- [x] ✅(2026-07-12) 验证: database typecheck 0 错误 / api typecheck 0 错误 / miniapp-taro typecheck 0 错误
+
 ---
 
 ## P1 — 未来需求
