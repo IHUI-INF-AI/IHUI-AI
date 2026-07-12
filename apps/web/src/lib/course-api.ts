@@ -61,35 +61,32 @@ export type CourseListQuery = {
 export async function getCourses(
   query: CourseListQuery = {},
 ): Promise<ApiResult<PageData<Course>>> {
-  return fetchApi<PageData<Course>>(`/api/v1/courses${buildQs(query)}`)
+  return fetchApi<PageData<Course>>(`/api/course${buildQs(query)}`)
 }
 
 export async function getCourseById(id: string): Promise<ApiResult<Course>> {
-  return fetchApi<Course>(`/api/v1/courses/${encodeURIComponent(id)}`)
+  return fetchApi<Course>(`/api/course/${encodeURIComponent(id)}`)
 }
 
 export async function getCategories(): Promise<ApiResult<CourseCategory[]>> {
-  return fetchApi<CourseCategory[]>('/api/v1/courses/categories')
+  return fetchApi<CourseCategory[]>('/api/course/categories')
 }
 
-export async function enrollCourse(
-  id: string,
-): Promise<ApiResult<{ enrolled: boolean }>> {
-  return fetchApi<{ enrolled: boolean }>(
-    `/api/v1/courses/${encodeURIComponent(id)}/enroll`,
-    { method: 'POST' },
-  )
+export async function enrollCourse(id: string): Promise<ApiResult<{ enrolled: boolean }>> {
+  return fetchApi<{ enrolled: boolean }>(`/api/course/${encodeURIComponent(id)}/enroll`, {
+    method: 'POST',
+  })
 }
 
 export async function getProgress(id: string): Promise<ApiResult<CourseProgress>> {
-  return fetchApi<CourseProgress>(`/api/v1/courses/${encodeURIComponent(id)}/progress`)
+  return fetchApi<CourseProgress>(`/api/course/${encodeURIComponent(id)}/progress`)
 }
 
 export async function completeLesson(input: {
   courseId: string
   lessonId: string
 }): Promise<ApiResult<{ completed: boolean }>> {
-  return fetchApi<{ completed: boolean }>('/api/v1/courses/lesson-complete', {
+  return fetchApi<{ completed: boolean }>('/api/course/lesson-complete', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -98,5 +95,5 @@ export async function completeLesson(input: {
 export async function getMyCourses(
   query: { page?: number; pageSize?: number; status?: string } = {},
 ): Promise<ApiResult<PageData<Course>>> {
-  return fetchApi<PageData<Course>>(`/api/v1/courses/my${buildQs(query)}`)
+  return fetchApi<PageData<Course>>(`/api/course/my${buildQs(query)}`)
 }

@@ -460,6 +460,26 @@ export default function AdminNewsPage() {
     deleteInfoMut.mutate(info.id)
   }
 
+  function handleArticleExport() {
+    const list = (articles as unknown as Record<string, unknown>[]).map((r) => ({
+      ...r,
+      published: (r as { isPublished?: boolean }).isPublished ? '已发布' : '未发布',
+    }))
+    exportToExcel(
+      '新闻文章',
+      [
+        { key: 'id', title: 'ID' },
+        { key: 'title', title: '标题' },
+        { key: 'categoryName', title: '分类' },
+        { key: 'authorName', title: '作者' },
+        { key: 'viewCount', title: '浏览量' },
+        { key: 'published', title: '状态' },
+        { key: 'createdAt', title: '创建时间' },
+      ],
+      list,
+    )
+  }
+
   function handleInfoExport() {
     const list = (infoData?.list ?? []) as unknown as Record<string, unknown>[]
     exportToExcel(
@@ -574,10 +594,18 @@ export default function AdminNewsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={openCreate} size="sm" className="ml-auto">
-              <Plus className="h-4 w-4" />
-              {t('create')}
-            </Button>
+            <HasPermi code="system:news:export">
+              <Button variant="outline" size="sm" onClick={handleArticleExport}>
+                <Download className="h-4 w-4" />
+                导出
+              </Button>
+            </HasPermi>
+            <HasPermi code="system:news:add">
+              <Button onClick={openCreate} size="sm" className="ml-auto">
+                <Plus className="h-4 w-4" />
+                {t('create')}
+              </Button>
+            </HasPermi>
           </div>
 
           <div className="overflow-x-auto rounded-lg border">
@@ -664,24 +692,28 @@ export default function AdminNewsPage() {
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEdit(article)}
-                              title={t('edit')}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(article)}
-                              title={t('delete')}
-                              className="text-destructive hover:text-destructive"
-                              disabled={deleteMut.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <HasPermi code="system:news:edit">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEdit(article)}
+                                title={t('edit')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </HasPermi>
+                            <HasPermi code="system:news:remove">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(article)}
+                                title={t('delete')}
+                                className="text-destructive hover:text-destructive"
+                                disabled={deleteMut.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </HasPermi>
                           </div>
                         </TableCell>
                       </TableRow>
