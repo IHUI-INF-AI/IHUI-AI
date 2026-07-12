@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Loader2, Edit, Trash2, FileStack } from 'lucide-react'
 import {
   Button,
@@ -99,7 +100,13 @@ export function RecordedTable({
                 <TableCell className="px-4 py-2.5 text-xs">{r.courseId ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.binding ? (
-                    <img src={r.binding} alt="" className="h-10 w-10 rounded object-cover" />
+                    <Image
+                      src={r.binding}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded object-cover"
+                    />
                   ) : (
                     '-'
                   )}

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Input } from '@ihui/ui'
 import { DatePicker } from '@/components/form/DatePicker'
@@ -21,6 +22,7 @@ export function AgentTaskFilter({
   searchClosing,
   setSearchClosing,
 }: Props) {
+  const t = useTranslations('admin.agentTask')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">
@@ -28,20 +30,20 @@ export function AgentTaskFilter({
         <Input
           value={searchTitle}
           onChange={(e) => setSearchTitle(e.target.value)}
-          placeholder="搜索需求标题"
+          placeholder={t('searchTitlePlaceholder')}
           className="h-9 pl-8"
         />
       </div>
       <Input
         value={searchCreator}
         onChange={(e) => setSearchCreator(e.target.value)}
-        placeholder="发布者"
+        placeholder={t('searchCreatorPlaceholder')}
         className="h-9 w-32"
       />
       <DatePicker
         value={searchClosing}
         onChange={(v) => setSearchClosing(v as string)}
-        placeholder="截止时间"
+        placeholder={t('searchClosingPlaceholder')}
       />
     </div>
   )
