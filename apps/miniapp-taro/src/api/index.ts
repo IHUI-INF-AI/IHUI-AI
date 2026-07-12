@@ -507,7 +507,7 @@ export const courseDelete = (id: string) => del(`/learn/course/${id}`)
 /** 新增视频 */
 export const addVideo = (data: unknown) => post('/learn/video', data)
 /** 更新视频 */
-export const videoPut = (id: string, data: any) => put(`/learn/video/${id}`, data)
+export const videoPut = (id: string, data: unknown) => put(`/learn/video/${id}`, data)
 /** 删除视频 */
 export const videoDelete = (id: string) => del(`/learn/video/${id}`)
 /** 发布课程 */

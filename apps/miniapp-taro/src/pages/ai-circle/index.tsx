@@ -38,8 +38,12 @@ export default function AiCircle() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item" onClick={() => onItemClick(item.id)}>
-              <Text>{item.title || '动态'}</Text>
+            <View
+              key={item.id as string}
+              className="list-item"
+              onClick={() => onItemClick(item.id as string)}
+            >
+              <Text>{(item.title as string) || '动态'}</Text>
             </View>
           ))
         ) : (
