@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { DatePicker } from '@/components/form/DatePicker'
 
 interface Props {
@@ -15,17 +16,18 @@ export function IdentityProportionFilter({
   searchEnd,
   setSearchEnd,
 }: Props) {
+  const t = useTranslations('admin.identityProportion')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <DatePicker
         value={searchBegin}
         onChange={(v) => setSearchBegin(v as string)}
-        placeholder="开始时间"
+        placeholder={t('beginTime')}
       />
       <DatePicker
         value={searchEnd}
         onChange={(v) => setSearchEnd(v as string)}
-        placeholder="结束时间"
+        placeholder={t('endTime')}
       />
     </div>
   )

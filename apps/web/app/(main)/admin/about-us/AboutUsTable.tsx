@@ -27,7 +27,7 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
                 {t(c.label)}
               </th>
             ))}
-            <th className={`${TH_CLASS} text-right`}>操作</th>
+            <th className={`${TH_CLASS} text-right`}>{t('colActions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -38,7 +38,7 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
                 className="px-4 py-10 text-center text-muted-foreground"
               >
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </td>
             </tr>
           ) : list.length === 0 ? (
@@ -47,7 +47,7 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
                 colSpan={COLS.length + 1}
                 className="px-4 py-10 text-center text-muted-foreground"
               >
-                暂无数据
+                {t('noData')}
               </td>
             </tr>
           ) : (
@@ -63,7 +63,7 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
                     <HasPermi code={`${PERM}:edit`}>
                       <Button size="sm" variant="ghost" onClick={() => onEdit(item)}>
                         <Edit className="h-4 w-4" />
-                        编辑
+                        {t('edit')}
                       </Button>
                     </HasPermi>
                     <HasPermi code={`${PERM}:remove`}>
@@ -72,10 +72,10 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
-                        onClick={() => confirm('确认删除?') && onDelete(item.id)}
+                        onClick={() => confirm(t('confirmDelete')) && onDelete(item.id)}
                       >
                         <Trash2 className="h-4 w-4" />
-                        删除
+                        {t('delete')}
                       </Button>
                     </HasPermi>
                   </div>

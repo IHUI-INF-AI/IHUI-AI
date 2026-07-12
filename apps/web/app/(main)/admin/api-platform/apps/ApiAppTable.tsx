@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, Trash2, Copy, Power } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { copyText } from './helpers'
 import type { ApiApp } from './types'
@@ -15,17 +16,18 @@ interface Props {
 }
 
 export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, onDelete }: Props) {
+  const t = useTranslations('adminApiApps')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">应用名称</TableHead>
-            <TableHead className="text-xs uppercase">AppID</TableHead>
-            <TableHead className="text-xs uppercase">权限</TableHead>
-            <TableHead className="text-xs uppercase">状态</TableHead>
-            <TableHead className="text-xs uppercase">创建时间</TableHead>
-            <TableHead className="text-right text-xs uppercase">操作</TableHead>
+            <TableHead className="text-xs uppercase">{t('colName')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('colAppId')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('colPermissions')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('colStatus')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('colCreatedAt')}</TableHead>
+            <TableHead className="text-right text-xs uppercase">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -38,7 +40,7 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
           ) : apps.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                暂无应用
+                {t('noData')}
               </TableCell>
             </TableRow>
           ) : (
@@ -70,11 +72,11 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
                 <TableCell>
                   {a.status === 1 ? (
                     <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
-                      启用
+                      {t('statusOn')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      停用
+                      {t('statusOff')}
                     </span>
                   )}
                 </TableCell>
@@ -90,7 +92,7 @@ export function ApiAppTable({ apps, isLoading, locale, togglePending, onToggle, 
                       disabled={togglePending}
                     >
                       <Power className="h-3.5 w-3.5" />
-                      {a.status === 1 ? '停用' : '启用'}
+                      {a.status === 1 ? t('toggleOff') : t('toggleOn')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => onDelete(a)}>
                       <Trash2 className="h-3.5 w-3.5" />

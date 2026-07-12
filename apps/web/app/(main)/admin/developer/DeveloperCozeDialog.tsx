@@ -42,14 +42,14 @@ export function DeveloperCozeDialog({
   onClose,
   onSubmit,
 }: DeveloperCozeDialogProps) {
-  const tc = useTranslations('common')
+  const t = useTranslations('admin.developer')
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent className="max-w-lg">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑 Coze 账号' : '新增 Coze 账号'}</DialogTitle>
+            <DialogTitle>{editing ? t('cozeEditTitle') : t('cozeCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -58,7 +58,7 @@ export function DeveloperCozeDialog({
           )}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="cz-id">Coze ID *</Label>
+              <Label htmlFor="cz-id">{t('fieldCozeId')}</Label>
               <Input
                 id="cz-id"
                 value={form.cozeId}
@@ -66,7 +66,7 @@ export function DeveloperCozeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cz-account">签权账号 *</Label>
+              <Label htmlFor="cz-account">{t('fieldSignAccount')}</Label>
               <Input
                 id="cz-account"
                 value={form.signAccount}
@@ -74,7 +74,7 @@ export function DeveloperCozeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cz-pwd">签权密码</Label>
+              <Label htmlFor="cz-pwd">{t('fieldSignPassword')}</Label>
               <Input
                 id="cz-pwd"
                 value={form.signPassword}
@@ -82,7 +82,7 @@ export function DeveloperCozeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cz-nick">签权昵称</Label>
+              <Label htmlFor="cz-nick">{t('fieldSignNickname')}</Label>
               <Input
                 id="cz-nick"
                 value={form.signNickname}
@@ -90,7 +90,7 @@ export function DeveloperCozeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cz-platform">平台</Label>
+              <Label htmlFor="cz-platform">{t('fieldPlatform')}</Label>
               <Input
                 id="cz-platform"
                 value={form.platform}
@@ -98,7 +98,7 @@ export function DeveloperCozeDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cz-status">状态</Label>
+              <Label htmlFor="cz-status">{t('fieldStatus')}</Label>
               <Select
                 value={form.status}
                 onValueChange={(v) => onFormChange({ ...form, status: v })}
@@ -107,15 +107,15 @@ export function DeveloperCozeDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">未使用</SelectItem>
-                  <SelectItem value="1">使用中</SelectItem>
-                  <SelectItem value="2">已过期</SelectItem>
+                  <SelectItem value="0">{t('statusUnused')}</SelectItem>
+                  <SelectItem value="1">{t('statusInUse')}</SelectItem>
+                  <SelectItem value="2">{t('statusExpired')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cz-addr">地址</Label>
+            <Label htmlFor="cz-addr">{t('fieldAddress')}</Label>
             <Input
               id="cz-addr"
               value={form.address}
@@ -124,11 +124,11 @@ export function DeveloperCozeDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              {tc('cancel')}
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {tc('save')}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

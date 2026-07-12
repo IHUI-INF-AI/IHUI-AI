@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Settings, FileText } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import type { AgentRule } from './types'
@@ -14,18 +15,19 @@ interface Props {
 }
 
 export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: Props) {
+  const t = useTranslations('admin.agentRule')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">AgentID</TableHead>
-            <TableHead className="px-4 py-2.5">规则名称</TableHead>
-            <TableHead className="px-4 py-2.5">规则编码</TableHead>
-            <TableHead className="px-4 py-2.5">类型</TableHead>
-            <TableHead className="px-4 py-2.5">优先级</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colAgentId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colRuleCode')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colPriority')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -33,14 +35,14 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中…
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('noData')}
               </TableCell>
             </TableRow>
           ) : (
@@ -65,7 +67,7 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                         : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
                     }
                   >
-                    {item.status === 1 ? '启用' : '禁用'}
+                    {item.status === 1 ? t('enabled') : t('disabled')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
@@ -74,12 +76,17 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                       variant="ghost"
                       size="sm"
                       onClick={() => onParams(item)}
-                      title="规则参数"
+                      title={t('titleParams')}
                     >
                       <Settings className="h-4 w-4" />
                     </Button>
                     <HasPermi code="ai:agentrule:edit">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(item)}
+                        title={t('edit')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -88,7 +95,7 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(item)}
-                        title="删除"
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Headphones } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Input,
@@ -23,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { type Agent, type AgentStatus, api, AGENT_STATUS_LABEL, AGENT_STATUS_BADGE } from './types'
 
 export function AgentsPanel() {
+  const t = useTranslations('admin.customerService')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState({ userId: '', nickname: '', maxConcurrent: 5 })
@@ -66,7 +68,7 @@ export function AgentsPanel() {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}>+ 添加坐席</Button>
+        <Button onClick={() => setOpen(true)}>+ {t('addAgent')}</Button>
       </div>
 
       {err && (
@@ -77,11 +79,11 @@ export function AgentsPanel() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-2.5 font-medium">昵称</th>
-              <th className="px-4 py-2.5 font-medium">状态</th>
-              <th className="px-4 py-2.5 font-medium">负载</th>
-              <th className="px-4 py-2.5 font-medium">技能</th>
-              <th className="px-4 py-2.5 text-right font-medium">操作</th>
+              <th className="px-4 py-2.5 font-medium">{t('colNickname')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('colStatus')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('colLoad')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('colSkills')}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t('colActions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -89,7 +91,7 @@ export function AgentsPanel() {
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </td>
               </tr>
             ) : error ? (
@@ -102,7 +104,7 @@ export function AgentsPanel() {
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <Headphones className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无坐席
+                  {t('noAgents')}
                 </td>
               </tr>
             ) : (
@@ -131,7 +133,7 @@ export function AgentsPanel() {
                       onValueChange={(v) => v && updateStatus(a.id, v as AgentStatus)}
                     >
                       <SelectTrigger className="h-8 w-[100px]">
-                        <SelectValue placeholder="切换状态" />
+                        <SelectValue placeholder={t('switchStatus')} />
                       </SelectTrigger>
                       <SelectContent>
                         {(Object.keys(AGENT_STATUS_LABEL) as AgentStatus[]).map((s) => (
@@ -160,8 +162,8 @@ export function AgentsPanel() {
             className="space-y-4"
           >
             <DialogHeader>
-              <DialogTitle>添加坐席</DialogTitle>
-              <DialogDescription>将用户指定为客服坐席</DialogDescription>
+              <DialogTitle>{t('addAgentTitle')}</DialogTitle>
+              <DialogDescription>{t('addAgentDesc')}</DialogDescription>
             </DialogHeader>
             {err && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -169,17 +171,17 @@ export function AgentsPanel() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="agent-userId">用户 ID</Label>
+              <Label htmlFor="agent-userId">{t('fieldUserId')}</Label>
               <Input
                 id="agent-userId"
                 value={form.userId}
                 onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                placeholder="UUID 格式的用户 ID"
+                placeholder={t('userIdPlaceholder')}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="agent-nickname">坐席昵称</Label>
+              <Label htmlFor="agent-nickname">{t('fieldAgentNickname')}</Label>
               <Input
                 id="agent-nickname"
                 value={form.nickname}
@@ -188,7 +190,7 @@ export function AgentsPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="agent-max">最大并发会话数</Label>
+              <Label htmlFor="agent-max">{t('fieldMaxConcurrent')}</Label>
               <Input
                 id="agent-max"
                 type="number"
@@ -205,11 +207,11 @@ export function AgentsPanel() {
                 onClick={() => setOpen(false)}
                 disabled={createMut.isPending}
               >
-                取消
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={createMut.isPending}>
                 {createMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                创建
+                {t('create')}
               </Button>
             </DialogFooter>
           </form>
