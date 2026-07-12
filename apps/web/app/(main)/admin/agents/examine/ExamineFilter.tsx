@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input } from '@ihui/ui'
 
 interface ExamineFilterProps {
@@ -8,12 +9,13 @@ interface ExamineFilterProps {
 }
 
 export function ExamineFilter({ value, onChange }: ExamineFilterProps) {
+  const t = useTranslations('admin.agents.examine')
   return (
     <div className="relative w-full max-w-xs">
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="搜索Agent名称"
+        placeholder={t('searchAgentPlaceholder')}
         className="h-9"
       />
     </div>

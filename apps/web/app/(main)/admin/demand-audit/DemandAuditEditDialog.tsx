@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -32,6 +33,8 @@ export function DemandAuditEditDialog({
   onClose,
   onSubmit,
 }: DemandAuditEditDialogProps) {
+  const t = useTranslations('admin.demandAudit')
+  const tc = useTranslations('common')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : !isPending && onClose())}>
       <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
@@ -43,7 +46,7 @@ export function DemandAuditEditDialog({
           className="space-y-3"
         >
           <DialogHeader>
-            <DialogTitle>{editId ? '编辑需求' : '新增需求'}</DialogTitle>
+            <DialogTitle>{editId ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {EDIT_FIELDS.map((f) => (
@@ -69,10 +72,11 @@ export function DemandAuditEditDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              取消
+              {tc('cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {tc('save')}
             </Button>
           </DialogFooter>
         </form>

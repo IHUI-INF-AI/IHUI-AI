@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
 import { DiffPreview } from '@/components/ai/diff-preview'
 import { InlineDiffViewer } from '@/components/ai/inline-diff-viewer'
@@ -14,15 +15,16 @@ interface Props {
 }
 
 export function AIWorkspaceTabs({ selectedFolder, onSelectFolder }: Props) {
+  const t = useTranslations('workspace.tabs')
   return (
     <section className="space-y-3">
-      <h2 className="text-base font-semibold">AI 工作区</h2>
+      <h2 className="text-base font-semibold">{t('title')}</h2>
       <Tabs defaultValue="diff">
         <TabsList>
-          <TabsTrigger value="diff">Diff 对比</TabsTrigger>
-          <TabsTrigger value="tasks">任务清单</TabsTrigger>
-          <TabsTrigger value="routines">例行程序</TabsTrigger>
-          <TabsTrigger value="folders">文件夹</TabsTrigger>
+          <TabsTrigger value="diff">{t('diff')}</TabsTrigger>
+          <TabsTrigger value="tasks">{t('tasks')}</TabsTrigger>
+          <TabsTrigger value="routines">{t('routines')}</TabsTrigger>
+          <TabsTrigger value="folders">{t('folders')}</TabsTrigger>
         </TabsList>
         <TabsContent value="diff" className="space-y-4">
           <DiffPreview

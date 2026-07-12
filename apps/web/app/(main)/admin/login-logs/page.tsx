@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, Download, LogIn, Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -34,6 +35,7 @@ import {
 import type { LoginLog, LoginLogForm, LoginLogSearch, ListData } from './types'
 
 export default function LoginLogsPage() {
+  const t = useTranslations('admin.loginLogs')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
@@ -59,7 +61,7 @@ export default function LoginLogsPage() {
         : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'login-logs'] })
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       close()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -68,7 +70,7 @@ export default function LoginLogsPage() {
     mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'login-logs'] })
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       setDelId(null)
     },
     onError: (e: Error) => toast.error(e.message),
@@ -92,7 +94,7 @@ export default function LoginLogsPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.userUuid.trim() || !form.loginType.trim()) {
-      toast.error('用户UUID 和 登录类型 为必填项')
+      toast.error(t('validateRequired'))
       return
     }
     saveMut.mutate()
@@ -107,10 +109,10 @@ export default function LoginLogsPage() {
   async function handleExport() {
     const ok = await exportFromApi(
       `${RESOURCE}?${new URLSearchParams(params)}`,
-      '登录日志',
+      t('exportName'),
       EXPORT_COLS,
     )
-    if (!ok) toast.error('导出失败')
+    if (!ok) toast.error(t('exportFailed'))
   }
 
   return (
@@ -118,19 +120,19 @@ export default function LoginLogsPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LogIn className="h-6 w-6 text-primary" />
-          登录日志
+          {t('title')}
         </h1>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}:export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}:add`}>
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('add')}
             </Button>
           </HasPermi>
         </div>
@@ -147,9 +149,7 @@ export default function LoginLogsPage() {
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
-          </span>
+          <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button
               size="sm"
@@ -157,7 +157,7 @@ export default function LoginLogsPage() {
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              上一页
+              {t('prev')}
             </Button>
             <Button
               size="sm"
@@ -165,7 +165,7 @@ export default function LoginLogsPage() {
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
             >
-              下一页
+              {t('next')}
             </Button>
           </div>
         </div>
@@ -189,8 +189,8 @@ export default function LoginLogsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>确定要删除该登录日志记录吗？此操作不可撤销。</DialogDescription>
+            <DialogTitle>{t('confirmDeleteTitle')}</DialogTitle>
+            <DialogDescription>{t('confirmDeleteDesc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -199,7 +199,7 @@ export default function LoginLogsPage() {
               onClick={() => setDelId(null)}
               disabled={delMut.isPending}
             >
-              取消
+              {t('cancel')}
             </Button>
             <Button
               type="button"
@@ -207,7 +207,8 @@ export default function LoginLogsPage() {
               disabled={delMut.isPending}
               onClick={() => delId && delMut.mutate(delId)}
             >
-              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

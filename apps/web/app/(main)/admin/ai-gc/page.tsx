@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui'
@@ -11,6 +12,7 @@ import { PAGE_SIZE, api, EMPTY } from './helpers'
 import type { AiGcItem, AiGcList } from './types'
 
 export default function AiGcPage() {
+  const t = useTranslations('admin.aiGc')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AiGcItem | null>(null)
@@ -69,7 +71,7 @@ export default function AiGcPage() {
     saveMut.mutate()
   }
   function handleDelete(id: string) {
-    if (window.confirm('确认删除?')) delMut.mutate(id)
+    if (window.confirm(t('deleteConfirm'))) delMut.mutate(id)
   }
 
   const list = data?.list ?? []
@@ -81,13 +83,13 @@ export default function AiGcPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Sparkles className="h-6 w-6 text-primary" />
-            AIGC管理
+            {t('pageHeader')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理AI生成内容</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
-          新增
+          {t('create')}
         </Button>
       </div>
 
@@ -101,21 +103,21 @@ export default function AiGcPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">共 {total} 条</span>
+          <span className="text-muted-foreground">{t('total', { total })}</span>
           <div className="flex gap-1">
             <button
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              上一页
+              {t('prev')}
             </button>
             <button
               disabled={page * PAGE_SIZE >= total}
               onClick={() => setPage(page + 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              下一页
+              {t('next')}
             </button>
           </div>
         </div>

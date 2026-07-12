@@ -19,6 +19,7 @@ export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const t = useTranslations('workspace')
+  const td = useTranslations('workspace.detail')
   const queryClient = useQueryClient()
 
   const projectId = params.id
@@ -100,7 +101,7 @@ export default function ProjectDetailPage() {
       const res = await fetch(`/api/workspace/files/${file.id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!res.ok) throw new Error('预览失败')
+      if (!res.ok) throw new Error(td('previewFailed'))
       setPreview({ file, url: window.URL.createObjectURL(await res.blob()), loading: false })
     } catch {
       setPreview({ file, url: null, loading: false })

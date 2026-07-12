@@ -15,6 +15,7 @@ interface Props {
 
 export function AdminExtraCharts({ stats }: Props) {
   const t = useTranslations('dashboard.admin')
+  const te = useTranslations('admin.extraCharts')
 
   return (
     <>
@@ -23,7 +24,7 @@ export function AdminExtraCharts({ stats }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <TrendingUp className="h-4 w-4 text-primary" />
-              能力雷达图
+              {te('abilityRadar')}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center">
@@ -35,7 +36,7 @@ export function AdminExtraCharts({ stats }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <TrendingUp className="h-4 w-4 text-primary" />
-              周度趋势对比
+              {te('weeklyTrend')}
             </CardTitle>
           </CardHeader>
           <CardContent>
