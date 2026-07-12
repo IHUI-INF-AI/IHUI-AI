@@ -2,15 +2,27 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Search, Loader2, Bot, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Input, Button, Card, CardContent } from '@ihui/ui'
+import {
+  Input,
+  Button,
+  Card,
+  CardContent,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@ihui/ui'
 import { Grid } from '@/components/layout'
 import { Avatar } from '@/components/data/Avatar'
+import { AgentManager, type AgentItem } from '@/components/ai/agent-manager'
+import { useAgent } from '@/hooks/use-agent'
 
 interface Agent {
   agentId: string
@@ -80,6 +92,47 @@ function fetchCategories(): Promise<CategoriesData> {
   return api<CategoriesData>(`/api/categories/list?page=1&pageSize=100&status=1`)
 }
 
+function MyAgentsTab() {
+  const router = useRouter()
+  const { agents, loading, fetchAgents } = useAgent()
+  const [selectedId, setSelectedId] = React.useState<string | undefined>()
+
+  React.useEffect(() => {
+    void fetchAgents()
+  }, [fetchAgents])
+
+  const items: AgentItem[] = agents.map((a) => ({
+    id: a.id,
+    name: a.name,
+    role: a.description || a.systemPrompt || '—',
+    status: 'idle',
+    model: a.model,
+  }))
+
+  if (loading && items.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        加载中...
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-md">
+      <AgentManager
+        agents={items}
+        selectedId={selectedId}
+        onCreate={() => router.push('/agents/create')}
+        onSelect={(id) => {
+          setSelectedId(id)
+          router.push(`/agents/${id}`)
+        }}
+      />
+    </div>
+  )
+}
+
 export default function AgentsMarketPage() {
   const t = useTranslations('agents')
   const tc = useTranslations('common')
@@ -124,143 +177,154 @@ export default function AgentsMarketPage() {
         <p className="text-sm text-muted-foreground">{t('marketSubtitle')}</p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-            aria-label={tc('search')}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setCategoryId('all')
-              setPage(1)
-            }}
-            className={cn(
-              'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-              categoryId === 'all'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t('allCategories')}
-          </button>
-          {categories.map((c) => (
-            <button
-              key={c.categoryId}
-              type="button"
-              onClick={() => {
-                setCategoryId(c.categoryId)
-                setPage(1)
-              }}
-              className={cn(
-                'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-                categoryId === c.categoryId
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error).message}
-        </div>
-      ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-20 text-center">
-          <Bot className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
-        </div>
-      ) : (
-        <Grid cols={1} smCols={2} lgCols={3} gap="md">
-          {agents.map((a) => (
-            <Link key={a.agentId} href={`/agents/${a.agentId}`} className="group">
-              <Card className="flex h-full flex-col overflow-hidden transition-colors hover:bg-accent">
-                <div className="relative h-32 w-full overflow-hidden bg-muted">
-                  {a.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={a.cover}
-                      alt={a.name}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground/40">
-                      <Sparkles className="h-8 w-8" />
-                    </div>
+      <Tabs defaultValue="market" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="market">Agent 市场</TabsTrigger>
+          <TabsTrigger value="mine">我的 Agent</TabsTrigger>
+        </TabsList>
+        <TabsContent value="market" className="space-y-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder={t('searchPlaceholder')}
+                className="h-9 pl-8"
+                aria-label={tc('search')}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryId('all')
+                  setPage(1)
+                }}
+                className={cn(
+                  'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                  categoryId === 'all'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t('allCategories')}
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.categoryId}
+                  type="button"
+                  onClick={() => {
+                    setCategoryId(c.categoryId)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                    categoryId === c.categoryId
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground',
                   )}
-                </div>
-                <CardContent className="flex flex-1 flex-col gap-2 p-4">
-                  <div className="flex items-center gap-2">
-                    <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
-                    <span className="break-words font-medium">{a.name}</span>
-                  </div>
-                  <p className="flex-1 text-sm text-muted-foreground">
-                    {a.description || t('noDescription')}
-                  </p>
-                  <div className="flex items-center justify-between pt-1">
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        a.isFree
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                          : 'bg-primary/10 text-primary',
-                      )}
-                    >
-                      {a.isFree ? t('free') : priceFmt.format(a.price)}
-                    </span>
-                    <span className="text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                      {t('viewDetail')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </Grid>
-      )}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {t('prev')}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {t('page', { page, total: totalPages })}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('next')}
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {t('loading')}
+            </div>
+          ) : error ? (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+              {(error as Error).message}
+            </div>
+          ) : agents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-20 text-center">
+              <Bot className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            </div>
+          ) : (
+            <Grid cols={1} smCols={2} lgCols={3} gap="md">
+              {agents.map((a) => (
+                <Link key={a.agentId} href={`/agents/${a.agentId}`} className="group">
+                  <Card className="flex h-full flex-col overflow-hidden transition-colors hover:bg-accent">
+                    <div className="relative h-32 w-full overflow-hidden bg-muted">
+                      {a.cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={a.cover}
+                          alt={a.name}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground/40">
+                          <Sparkles className="h-8 w-8" />
+                        </div>
+                      )}
+                    </div>
+                    <CardContent className="flex flex-1 flex-col gap-2 p-4">
+                      <div className="flex items-center gap-2">
+                        <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
+                        <span className="break-words font-medium">{a.name}</span>
+                      </div>
+                      <p className="flex-1 text-sm text-muted-foreground">
+                        {a.description || t('noDescription')}
+                      </p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                            a.isFree
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                              : 'bg-primary/10 text-primary',
+                          )}
+                        >
+                          {a.isFree ? t('free') : priceFmt.format(a.price)}
+                        </span>
+                        <span className="text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                          {t('viewDetail')}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </Grid>
+          )}
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t('prev')}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {t('page', { page, total: totalPages })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t('next')}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="mine">
+          <MyAgentsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -67,7 +67,7 @@ const EMPTY: CForm = {
   field1: '',
 }
 const PAGE_SIZE = 10
-const PERM = 'course:userPlatform:'
+const PERM = 'course:userplatform:'
 const fmt = (s?: string | null) =>
   s
     ? new Intl.DateTimeFormat('zh-CN', {

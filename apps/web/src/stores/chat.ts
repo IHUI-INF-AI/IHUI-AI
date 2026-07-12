@@ -2,6 +2,16 @@ import { create } from 'zustand'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
+export interface ToolCall {
+  id: string
+  toolName: string
+  args: Record<string, unknown>
+  result?: unknown
+  status: 'running' | 'success' | 'error'
+  duration?: number
+  error?: string
+}
+
 export interface ChatMessage {
   id: string
   role: ChatRole
@@ -9,6 +19,7 @@ export interface ChatMessage {
   createdAt: number
   model?: string
   error?: boolean
+  toolCalls?: ToolCall[]
 }
 
 interface ChatState {
