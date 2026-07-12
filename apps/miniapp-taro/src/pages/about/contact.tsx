@@ -15,7 +15,12 @@ export default function ContactPage() {
   const [info, setInfo] = useState<ContactInfo>({ phone: '', email: '', address: '' })
 
   const load = useCallback(async () => {
-    try { setInfo(await getContact()) } catch {}
+    try {
+      setInfo(await getContact())
+    } catch (e) {
+      console.error('[about/contact] 获取联系方式 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   const call = useCallback((phone: string) => {

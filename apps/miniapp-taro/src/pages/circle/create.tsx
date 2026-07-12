@@ -20,13 +20,13 @@ export default function CircleCreatePage() {
       count: 9 - form.images.length,
       sizeType: ['compressed'],
       success: (res) => {
-        setForm(f => ({ ...f, images: [...f.images, ...res.tempFilePaths] }))
-      }
+        setForm((f) => ({ ...f, images: [...f.images, ...res.tempFilePaths] }))
+      },
     })
   }, [form.images.length])
 
   const removeImg = useCallback((i: number) => {
-    setForm(f => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }))
+    setForm((f) => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }))
   }, [])
 
   const chooseTopic = useCallback(() => {
@@ -39,7 +39,10 @@ export default function CircleCreatePage() {
       await createCircle(form)
       Taro.showToast({ title: '发布成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
-    } catch {}
+    } catch (e) {
+      console.error('[circle/create] 发布动态 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [form])
 
   useDidShow(() => {
@@ -63,24 +66,28 @@ export default function CircleCreatePage() {
           value={form.title}
           placeholder="标题（必填）"
           maxlength={30}
-          onInput={e => setForm(f => ({ ...f, title: e.detail.value }))}
+          onInput={(e) => setForm((f) => ({ ...f, title: e.detail.value }))}
         />
         <Textarea
           className="content-input"
           value={form.content}
           placeholder="分享你的想法..."
           maxlength={1000}
-          onInput={e => setForm(f => ({ ...f, content: e.detail.value }))}
+          onInput={(e) => setForm((f) => ({ ...f, content: e.detail.value }))}
         />
         <View className="images">
           {form.images.map((img, i) => (
             <View key={i} className="img-item">
               <Image className="img" src={img} mode="aspectFill" />
-              <View className="del" onClick={() => removeImg(i)}>×</View>
+              <View className="del" onClick={() => removeImg(i)}>
+                ×
+              </View>
             </View>
           ))}
           {form.images.length < 9 ? (
-            <View className="add-img" onClick={addImg}>+</View>
+            <View className="add-img" onClick={addImg}>
+              +
+            </View>
           ) : null}
         </View>
       </View>
@@ -92,11 +99,9 @@ export default function CircleCreatePage() {
         </View>
       </View>
 
-      <Button
-        className="btn"
-        onClick={onSubmit}
-        disabled={!form.title || !form.content}
-      >发布</Button>
+      <Button className="btn" onClick={onSubmit} disabled={!form.title || !form.content}>
+        发布
+      </Button>
     </View>
   )
 }

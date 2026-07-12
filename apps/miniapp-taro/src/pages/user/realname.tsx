@@ -16,10 +16,15 @@ export default function Realname() {
         setAuthenticated(true)
         setAuthName(profile.realName)
       }
-    } catch {}
+    } catch (e) {
+      console.error('[user/realname] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   async function onSubmit() {
     if (!realName.trim()) {
@@ -32,7 +37,10 @@ export default function Realname() {
       await realNameAuth({ realName: realName.trim(), idCard })
       Taro.showToast({ title: '认证成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch {}
+    } catch (e) {
+      console.error('[user/realname] 提交实名认证 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }
 
   if (authenticated) {
@@ -57,7 +65,7 @@ export default function Realname() {
             type="text"
             placeholder="请输入真实姓名"
             value={realName}
-            onInput={e => setRealName(e.detail.value)}
+            onInput={(e) => setRealName(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
@@ -68,7 +76,7 @@ export default function Realname() {
             maxlength={18}
             placeholder="请输入身份证号"
             value={idCard}
-            onInput={e => setIdCard(e.detail.value)}
+            onInput={(e) => setIdCard(e.detail.value)}
           />
         </View>
       </View>
