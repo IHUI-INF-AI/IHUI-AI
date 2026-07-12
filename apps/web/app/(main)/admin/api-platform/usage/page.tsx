@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, BarChart3, TrendingUp, Zap, Clock } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -52,6 +53,7 @@ const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function AdminApiPlatformUsagePage() {
+  const t = useTranslations('adminApiUsage')
   const [range, setRange] = React.useState('7d')
 
   const { data: summary } = useQuery({
@@ -70,10 +72,34 @@ export default function AdminApiPlatformUsagePage() {
   const successRate =
     summary && summary.totalCalls > 0 ? (summary.totalSuccess / summary.totalCalls) * 100 : 0
   const cards = [
-    { label: '总调用', value: summary?.totalCalls ?? 0, icon: BarChart3, cls: 'text-primary' },
-    { label: '成功', value: summary?.totalSuccess ?? 0, icon: TrendingUp, cls: 'text-emerald-600' },
-    { label: '失败', value: summary?.totalFail ?? 0, icon: Zap, cls: 'text-red-600' },
-    { label: '平均耗时', value: `${summary?.avgLatency ?? 0}ms`, icon: Clock, cls: 'text-primary' },
+    {
+      key: 'totalCalls',
+      label: t('totalCalls'),
+      value: summary?.totalCalls ?? 0,
+      icon: BarChart3,
+      cls: 'text-primary',
+    },
+    {
+      key: 'success',
+      label: t('success'),
+      value: summary?.totalSuccess ?? 0,
+      icon: TrendingUp,
+      cls: 'text-emerald-600',
+    },
+    {
+      key: 'fail',
+      label: t('fail'),
+      value: summary?.totalFail ?? 0,
+      icon: Zap,
+      cls: 'text-red-600',
+    },
+    {
+      key: 'avgLatency',
+      label: t('avgLatency'),
+      value: `${summary?.avgLatency ?? 0}ms`,
+      icon: Clock,
+      cls: 'text-primary',
+    },
   ]
 
   return (
@@ -82,18 +108,18 @@ export default function AdminApiPlatformUsagePage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <BarChart3 className="h-6 w-6 text-primary" />
-            API 用量统计
+            {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">API 调用量与性能统计</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Select value={range} onValueChange={setRange}>
-          <SelectTrigger className={selectClass} aria-label="时间范围">
+          <SelectTrigger className={selectClass} aria-label={t('rangeAriaLabel')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="24h">近 24 小时</SelectItem>
-            <SelectItem value="7d">近 7 天</SelectItem>
-            <SelectItem value="30d">近 30 天</SelectItem>
+            <SelectItem value="24h">{t('range24h')}</SelectItem>
+            <SelectItem value="7d">{t('range7d')}</SelectItem>
+            <SelectItem value="30d">{t('range30d')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -102,7 +128,7 @@ export default function AdminApiPlatformUsagePage() {
         {cards.map((c) => {
           const Icon = c.icon
           return (
-            <Card key={c.label}>
+            <Card key={c.key}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   <Icon className="h-3.5 w-3.5" />
@@ -113,9 +139,9 @@ export default function AdminApiPlatformUsagePage() {
                 <div className={cn('text-2xl font-bold', c.cls)}>
                   {typeof c.value === 'number' ? c.value.toLocaleString() : c.value}
                 </div>
-                {c.label === '成功' && (
+                {c.key === 'success' && (
                   <div className="mt-1 text-xs text-muted-foreground">
-                    成功率 {successRate.toFixed(1)}%
+                    {t('successRate')} {successRate.toFixed(1)}%
                   </div>
                 )}
               </CardContent>
@@ -128,12 +154,12 @@ export default function AdminApiPlatformUsagePage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">应用</TableHead>
-              <TableHead className="text-xs uppercase">调用次数</TableHead>
-              <TableHead className="text-xs uppercase">成功</TableHead>
-              <TableHead className="text-xs uppercase">失败</TableHead>
-              <TableHead className="text-xs uppercase">平均耗时</TableHead>
-              <TableHead className="text-xs uppercase">配额使用</TableHead>
+              <TableHead className="text-xs uppercase">{t('colApp')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colCallCount')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colSuccess')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colFail')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colAvgLatency')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('colQuotaUsage')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -146,7 +172,7 @@ export default function AdminApiPlatformUsagePage() {
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  暂无数据
+                  {t('noData')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -182,7 +208,7 @@ export default function AdminApiPlatformUsagePage() {
                         </span>
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
-                        成功率 {rowSuccessRate.toFixed(1)}%
+                        {t('successRate')} {rowSuccessRate.toFixed(1)}%
                       </div>
                     </TableCell>
                   </TableRow>

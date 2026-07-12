@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export function AuthVeriCodeDialog({
   onSubmit,
   onClose,
 }: DialogProps) {
+  const t = useTranslations('adminAuthVeriCode')
   return (
     <Dialog
       open={open}
@@ -45,29 +47,27 @@ export function AuthVeriCodeDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑验证码记录' : '新增验证码记录'}</DialogTitle>
-            <DialogDescription>
-              {editing ? '修改验证码记录信息' : '添加新的验证码记录'}
-            </DialogDescription>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
+            <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>用户ID *</Label>
+              <Label>{t('userId')}</Label>
               <Input
                 value={form.userId}
                 onChange={(e) => onFormChange({ userId: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>手机号 *</Label>
+              <Label>{t('phone')}</Label>
               <Input value={form.phone} onChange={(e) => onFormChange({ phone: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>验证码 *</Label>
+              <Label>{t('code')}</Label>
               <Input value={form.code} onChange={(e) => onFormChange({ code: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>类型 *</Label>
+              <Label>{t('type')}</Label>
               <Input
                 value={form.type}
                 onChange={(e) => onFormChange({ type: e.target.value })}
@@ -75,18 +75,18 @@ export function AuthVeriCodeDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>平台</Label>
+              <Label>{t('platform')}</Label>
               <Input
                 value={form.platform}
                 onChange={(e) => onFormChange({ platform: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>IP</Label>
+              <Label>{t('ip')}</Label>
               <Input value={form.ip} onChange={(e) => onFormChange({ ip: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>是否已用</Label>
+              <Label>{t('used')}</Label>
               <Input
                 value={form.used}
                 onChange={(e) => onFormChange({ used: e.target.value })}
@@ -94,27 +94,28 @@ export function AuthVeriCodeDialog({
               />
             </div>
             <DatePicker
-              label="过期时间"
+              label={t('expiresAt')}
               value={form.expiresAt}
               onChange={(v) => onFormChange({ expiresAt: v })}
             />
             <DatePicker
-              label="使用时间"
+              label={t('usedAt')}
               value={form.usedAt}
               onChange={(v) => onFormChange({ usedAt: v })}
             />
             <DatePicker
-              label="创建时间"
+              label={t('createdAt')}
               value={form.createdAt}
               onChange={(v) => onFormChange({ createdAt: v })}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
@@ -131,6 +132,7 @@ interface DeleteProps {
 }
 
 export function AuthVeriCodeDeleteDialog({ open, onClose, onConfirm, pending }: DeleteProps) {
+  const t = useTranslations('adminAuthVeriCode')
   return (
     <Dialog
       open={open}
@@ -140,15 +142,16 @@ export function AuthVeriCodeDeleteDialog({ open, onClose, onConfirm, pending }: 
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>确认删除</DialogTitle>
-          <DialogDescription>确定要删除该验证码记录吗？此操作不可撤销。</DialogDescription>
+          <DialogTitle>{t('deleteTitle')}</DialogTitle>
+          <DialogDescription>{t('deleteDesc')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-            取消
+            {t('cancel')}
           </Button>
           <Button type="button" variant="destructive" disabled={pending} onClick={onConfirm}>
-            {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+            {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {t('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>
