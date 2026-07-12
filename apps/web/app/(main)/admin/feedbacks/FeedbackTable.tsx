@@ -41,11 +41,11 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
             <th className="px-4 py-2.5 font-medium">{t('user')}</th>
             <th className="px-4 py-2.5 font-medium">{t('type')}</th>
             <th className="px-4 py-2.5 font-medium">{t('title_col')}</th>
-            <th className="px-4 py-2.5 font-medium">图片</th>
+            <th className="px-4 py-2.5 font-medium">{t('image')}</th>
             <th className="px-4 py-2.5 font-medium">{t('status')}</th>
             <th className="px-4 py-2.5 font-medium">{t('priority')}</th>
-            <th className="px-4 py-2.5 font-medium">反馈</th>
-            <th className="px-4 py-2.5 font-medium">反馈图片</th>
+            <th className="px-4 py-2.5 font-medium">{t('feedback')}</th>
+            <th className="px-4 py-2.5 font-medium">{t('feedbackImage')}</th>
             <th className="px-4 py-2.5 font-medium">{t('createdAt')}</th>
             <th className="px-4 py-2.5 text-right font-medium">{t('actions')}</th>
           </tr>

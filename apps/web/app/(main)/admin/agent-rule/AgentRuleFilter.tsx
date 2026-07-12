@@ -1,6 +1,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Input } from '@ihui/ui'
 
 interface Props {
@@ -16,6 +17,7 @@ export function AgentRuleFilter({
   searchName,
   setSearchName,
 }: Props) {
+  const t = useTranslations('admin.agentRule')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">
@@ -23,7 +25,7 @@ export function AgentRuleFilter({
         <Input
           value={searchAgentId}
           onChange={(e) => setSearchAgentId(e.target.value)}
-          placeholder="搜索 AgentID"
+          placeholder={t('searchAgentId')}
           className="h-9 pl-8"
         />
       </div>
@@ -32,7 +34,7 @@ export function AgentRuleFilter({
         <Input
           value={searchName}
           onChange={(e) => setSearchName(e.target.value)}
-          placeholder="搜索规则名称"
+          placeholder={t('searchRuleName')}
           className="h-9 pl-8"
         />
       </div>

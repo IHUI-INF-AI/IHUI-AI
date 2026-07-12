@@ -26,8 +26,11 @@ vi.mock('@ihui/auth', () => ({
 
 vi.mock('../src/db/index.js', () => {
   function createChain(result: unknown[] = [{ id: 'mock-id' }]) {
-    const chain: any = {
-      then: (resolve: any) => Promise.resolve(result).then(resolve),
+    const chain: {
+      then: (resolve: (value: unknown[]) => unknown) => Promise<unknown>
+      [m: string]: unknown
+    } = {
+      then: (resolve) => Promise.resolve(result).then(resolve),
     }
     for (const m of ['from', 'where', 'orderBy', 'limit', 'offset', 'values', 'set', 'returning']) {
       chain[m] = () => chain

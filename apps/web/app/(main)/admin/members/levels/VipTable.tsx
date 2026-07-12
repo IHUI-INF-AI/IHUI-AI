@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Download, Search } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -51,19 +52,20 @@ export function VipTable({
   onPageChange,
   emptyIcon,
 }: VipTableProps) {
+  const t = useTranslations('admin.membersLevels')
   return (
     <>
       <div className="flex gap-2">
         <HasPermi code={`${perm}:export`}>
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('export')}
           </Button>
         </HasPermi>
         <HasPermi code={`${perm}:add`}>
           <Button size="sm" onClick={onCreate} className="ml-auto">
             <Plus className="h-4 w-4" />
-            新增
+            {t('create')}
           </Button>
         </HasPermi>
       </div>
@@ -76,16 +78,16 @@ export function VipTable({
               className="h-9 w-36"
               value={search[f.key] ?? ''}
               onChange={(e) => onSearchChange({ ...search, [f.key]: e.target.value })}
-              placeholder={`搜索${f.label}`}
+              placeholder={t('searchPlaceholder', { label: f.label })}
             />
           </div>
         ))}
         <Button size="sm" onClick={onSearch}>
           <Search className="h-4 w-4" />
-          搜索
+          {t('search')}
         </Button>
         <Button variant="outline" size="sm" onClick={onReset}>
-          重置
+          {t('reset')}
         </Button>
       </div>
 
@@ -99,7 +101,7 @@ export function VipTable({
                   {labels[k]}
                 </th>
               ))}
-              <th className={th}>操作</th>
+              <th className={th}>{t('colActions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -110,7 +112,7 @@ export function VipTable({
                   className="px-4 py-10 text-center text-muted-foreground"
                 >
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中…
+                  {t('loading')}
                 </td>
               </tr>
             ) : list.length === 0 ? (
@@ -120,7 +122,7 @@ export function VipTable({
                   className="px-4 py-10 text-center text-muted-foreground"
                 >
                   {emptyIcon}
-                  暂无数据
+                  {t('empty')}
                 </td>
               </tr>
             ) : (
@@ -135,7 +137,7 @@ export function VipTable({
                   <td className="px-4 py-2.5 space-x-2">
                     <HasPermi code={`${perm}:edit`}>
                       <button className="text-primary hover:underline" onClick={() => onEdit(item)}>
-                        编辑
+                        {t('edit')}
                       </button>
                     </HasPermi>
                     <HasPermi code={`${perm}:remove`}>
@@ -143,7 +145,7 @@ export function VipTable({
                         className="text-destructive hover:underline"
                         onClick={() => onDelete(String(item.id))}
                       >
-                        删除
+                        {t('delete')}
                       </button>
                     </HasPermi>
                   </td>
@@ -156,9 +158,7 @@ export function VipTable({
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
-          </span>
+          <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button
               size="sm"
@@ -166,7 +166,7 @@ export function VipTable({
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
             >
-              上一页
+              {t('prev')}
             </Button>
             <Button
               size="sm"
@@ -174,7 +174,7 @@ export function VipTable({
               disabled={page >= totalPages}
               onClick={() => onPageChange(page + 1)}
             >
-              下一页
+              {t('next')}
             </Button>
           </div>
         </div>

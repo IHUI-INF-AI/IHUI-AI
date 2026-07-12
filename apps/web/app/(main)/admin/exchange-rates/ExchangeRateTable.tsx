@@ -14,17 +14,18 @@ interface Props {
 }
 
 export function ExchangeRateTable({ list, isLoading, onEdit, onDelete, deletePending }: Props) {
+  const t = useTranslations('admin.exchangeRates')
   const tc = useTranslations('common')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
           <tr>
-            <th className={th}>源货币</th>
-            <th className={th}>目标货币</th>
-            <th className={th}>汇率</th>
-            <th className={th}>状态</th>
-            <th className={th}>创建时间</th>
+            <th className={th}>{t('fromCurrency')}</th>
+            <th className={th}>{t('toCurrency')}</th>
+            <th className={th}>{t('rate')}</th>
+            <th className={th}>{t('status')}</th>
+            <th className={th}>{t('createdAt')}</th>
             <th className={th}>{tc('edit')}</th>
           </tr>
         </thead>
@@ -33,14 +34,14 @@ export function ExchangeRateTable({ list, isLoading, onEdit, onDelete, deletePen
             <tr>
               <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </td>
             </tr>
           ) : list.length === 0 ? (
             <tr>
               <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                 <ArrowLeftRight className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('noData')}
               </td>
             </tr>
           ) : (
@@ -53,7 +54,7 @@ export function ExchangeRateTable({ list, isLoading, onEdit, onDelete, deletePen
                   <span
                     className={item.status === 1 ? 'text-emerald-600' : 'text-muted-foreground'}
                   >
-                    {item.status === 1 ? '启用' : '禁用'}
+                    {item.status === 1 ? t('statusEnabled') : t('statusDisabled')}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">{item.createdAt}</td>

@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Percent } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
 import type { IdentityProportion } from './types'
@@ -13,20 +14,22 @@ interface Props {
 }
 
 export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: Props) {
+  const t = useTranslations('admin.identityProportion')
+  const tc = useTranslations('common')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">身份类型</TableHead>
-            <TableHead className="px-4 py-2.5">赠送</TableHead>
-            <TableHead className="px-4 py-2.5">Token比例</TableHead>
-            <TableHead className="px-4 py-2.5">VIP赠送</TableHead>
-            <TableHead className="px-4 py-2.5">常规比例</TableHead>
-            <TableHead className="px-4 py-2.5">开始时间</TableHead>
-            <TableHead className="px-4 py-2.5">结束时间</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('identityType')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('gift')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('tokenProportion')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('vipGift')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('routineProportion')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('beginTime')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('endTime')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('status')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -34,14 +37,14 @@ export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: P
             <TableRow>
               <TableCell colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中…
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                 <Percent className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('noData')}
               </TableCell>
             </TableRow>
           ) : (
@@ -66,13 +69,18 @@ export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: P
                         : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
                     }
                   >
-                    {item.status === 1 ? '启用' : '禁用'}
+                    {item.status === 1 ? t('statusEnabled') : t('statusDisabled')}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <HasPermi code="ai:identity_proportion:edit">
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(item)} title="编辑">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(item)}
+                        title={tc('edit')}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -81,7 +89,7 @@ export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: P
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(item)}
-                        title="删除"
+                        title={tc('delete')}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />

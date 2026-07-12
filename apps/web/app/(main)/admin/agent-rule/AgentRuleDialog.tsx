@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ export function AgentRuleDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.agentRule')
   return (
     <Dialog
       open={open}
@@ -52,7 +54,7 @@ export function AgentRuleDialog({
       <DialogContent className="max-w-lg">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑规则' : '新增规则'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -60,32 +62,32 @@ export function AgentRuleDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label>Agent ID</Label>
+            <Label>{t('labelAgentId')}</Label>
             <Input
               value={form.agentId}
               onChange={(e) => setForm({ ...form, agentId: e.target.value })}
-              placeholder="请输入 Agent ID"
+              placeholder={t('placeholderAgentId')}
             />
           </div>
           <div className="space-y-2">
-            <Label>规则名称</Label>
+            <Label>{t('labelRuleName')}</Label>
             <Input
               value={form.ruleName}
               onChange={(e) => setForm({ ...form, ruleName: e.target.value })}
-              placeholder="请输入规则名称"
+              placeholder={t('placeholderRuleName')}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>规则编码</Label>
+              <Label>{t('labelRuleCode')}</Label>
               <Input
                 value={form.ruleCode}
                 onChange={(e) => setForm({ ...form, ruleCode: e.target.value })}
-                placeholder="请输入规则编码"
+                placeholder={t('placeholderRuleCode')}
               />
             </div>
             <div className="space-y-2">
-              <Label>规则类型</Label>
+              <Label>{t('labelRuleType')}</Label>
               <Select
                 value={form.ruleType}
                 onValueChange={(v) => setForm({ ...form, ruleType: v })}
@@ -94,16 +96,16 @@ export function AgentRuleDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="filter">过滤</SelectItem>
-                  <SelectItem value="replace">替换</SelectItem>
-                  <SelectItem value="limit">限制</SelectItem>
+                  <SelectItem value="filter">{t('ruleTypeFilter')}</SelectItem>
+                  <SelectItem value="replace">{t('ruleTypeReplace')}</SelectItem>
+                  <SelectItem value="limit">{t('ruleTypeLimit')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="space-y-2">
-              <Label>优先级</Label>
+              <Label>{t('labelPriority')}</Label>
               <Input
                 type="number"
                 value={form.priority}
@@ -115,24 +117,25 @@ export function AgentRuleDialog({
                 checked={form.status}
                 onCheckedChange={(v) => setForm({ ...form, status: v })}
               />
-              <Label>启用</Label>
+              <Label>{t('labelEnabled')}</Label>
             </div>
           </div>
           <div className="space-y-2">
-            <Label>描述</Label>
+            <Label>{t('labelDescription')}</Label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="请输入描述"
+              placeholder={t('placeholderDescription')}
               className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

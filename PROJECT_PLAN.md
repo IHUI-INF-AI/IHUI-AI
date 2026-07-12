@@ -1819,3 +1819,54 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 - `pnpm --filter @ihui/web typecheck` — exit code 0（零错误）✅
 - 全量扫描 `apps/web` 下所有 page.tsx，无任何文件 > 250 行 ✅
 - 无越权文件创建（子代理红线约束生效，第 13 批后无测试文件越权）✅
+
+---
+
+## R82 i18n 迁移批次9 — admin D 组文件（2026-07-12）✅
+
+> 将 admin D 组 11 个文件中的硬编码中文提取为 i18n 键，接入 `useTranslations` + `t()` 模式，5 个语言文件同步翻译。其中 `admin/edu/class/page.tsx` 已在先前轮次迁移完成（使用 `admin.edu.class` 命名空间），跳过处理。
+
+### 迁移文件（10 个修改 + 1 个跳过）
+
+| 文件                                           | 命名空间                 | 说明                                 |
+| ---------------------------------------------- | ------------------------ | ------------------------------------ |
+| `admin/members/levels/page.tsx`                | `admin.membersLevels`    | VIP 管理主页（level/user 双 Tab）    |
+| `admin/members/levels/VipTable.tsx`            | `admin.membersLevels`    | VIP 表格组件（搜索/分页/操作）       |
+| `admin/members/levels/VipDialogs.tsx`          | `admin.membersLevels`    | VIP 表单 + 删除确认弹窗              |
+| `admin/login-logs/LoginLogDialog.tsx`          | `admin.loginLogs`        | 登录日志编辑弹窗                     |
+| `admin/login-logs/LoginLogFilter.tsx`          | `admin.loginLogs`        | 登录日志筛选器                       |
+| `admin/edu/zhs-identity/ZhsIdentityTable.tsx`  | `admin.eduZhsIdentity`   | 平台身份表格组件                     |
+| `admin/edu/zhs-identity/ZhsIdentityFilter.tsx` | `admin.eduZhsIdentity`   | 平台身份筛选器                       |
+| `admin/edu/zhs-identity/ZhsIdentityDialog.tsx` | `admin.eduZhsIdentity`   | 平台身份编辑弹窗                     |
+| `admin/edu/zhs-identity/page.tsx`              | `admin.eduZhsIdentity`   | 平台身份管理主页                     |
+| `admin/edu/class/schedule/page.tsx`            | `admin.eduClassSchedule` | 班级排课管理（最大文件，127 处中文） |
+| `admin/edu/class/page.tsx`                     | `admin.edu.class`        | ⏭️ 跳过（已迁移）                    |
+
+### 新增 i18n 命名空间（4 个）
+
+| 命名空间                 | 键数 | 典型键                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin.membersLevels`    | 20+  | title / vipLevel / userVip / create / export / exportNameLevel / exportNameUser / searchPlaceholder / total / prev / next / cancel / save / edit / delete / confirmDelete / loading / noData                                                                                                                                                                                                      |
+| `admin.loginLogs`        | 15+  | dialogEditTitle / dialogCreateTitle / descEdit / descCreate / fieldUserUuid / fieldLoginType / fieldPlatform / fieldLocation / fieldLoginTime / fieldMessage / labelUserUuid / labelPlatform / labelLocation / labelLoginTime / search / reset / cancel / save                                                                                                                                    |
+| `admin.eduZhsIdentity`   | 25+  | title / subtitle / create / export / fieldName / fieldPlatformId / fieldOrganizationId / fieldParentId / fieldIsCross / fieldRemark / fieldImage / yes / no / loading / noData / edit / delete / updateSuccess / createSuccess / deleteSuccess / deleteConfirm / exportSuccess / exportFail / uuidRequired / platformIdRequired / total / prev / pageOf / next / cancel / save                    |
+| `admin.eduClassSchedule` | 30+  | title / subtitle / backToClass / create / fieldClassId / fieldCourseTitle / fieldStartTime / fieldEndTime / fieldInstructor / fieldLocation / loading / endpointNotConfigured / noSchedule / edit / delete / total / pageOf / prev / next / dialogEditTitle / dialogCreateTitle / cancel / save / updateSuccess / createSuccess / deleteSuccess / titleRequired / classIdRequired / confirmDelete |
+
+### 语言文件更新（5 个）
+
+- `messages/zh-CN.json` — 源语言，4 个命名空间键值对
+- `messages/en.json` — 英文翻译（VIP Management / Loading… / No data / Search / Reset / Cancel / Save / Edit / Delete）
+- `messages/zh-TW.json` — 繁体中文（VIP管理 / 載入中 / 暫無資料 / 搜尋 / 重置 / 取消 / 儲存 / 編輯 / 刪除）
+- `messages/ja.json` — 日文（VIP管理 / 読み込み中 / データなし / 検索 / リセット / キャンセル / 保存 / 編集 / 削除）
+- `messages/ko.json` — 韩文（VIP 관리 / 로딩 중 / 데이터 없음 / 검색 / 재설정 / 취소 / 저장 / 편집 / 삭제）
+
+### 特殊处理
+
+1. **ICU 占位符**：`VipTable.tsx` 中 `搜索${f.label}` 改为 `t('searchPlaceholder', { label: f.label })`，语言文件 `"searchPlaceholder": "搜索{label}"`
+2. **动态 exportName**：`page.tsx` 中 levelConfig/userConfig 的 exportName 改为组件内部 `t('exportNameLevel')` / `t('exportNameUser')` 覆盖
+3. **条件渲染文本**：`ZhsIdentityTable.tsx` 中 `r.isCross === 1 ? t('yes') : t('no')`
+4. **跳过项**：`admin/edu/class/page.tsx` 已使用 `admin.edu.class` 命名空间完成迁移，无需重复处理
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ exit code 0（零错误）
+- `cd apps/web; npx vitest run` — ✅ 21 test files / 192 tests 全部通过（0 failures）
