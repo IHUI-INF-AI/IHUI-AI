@@ -5,13 +5,13 @@ import * as api from '@/api'
 import './index.css'
 
 export default function CoursePlanet() {
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getCoursePlanet()) as any
+      const res = (await api.getCoursePlanet()) as Record<string, unknown>
       setData(res)
     } catch (e) {
       console.error('加载课程星球失败:', e)
@@ -24,7 +24,10 @@ export default function CoursePlanet() {
     loadData()
   })
 
-  const list = (data && (data.list || (Array.isArray(data) ? data : []))) || []
+  const list = ((data && (data.list || (Array.isArray(data) ? data : []))) || []) as Record<
+    string,
+    unknown
+  >[]
 
   return (
     <View className="page-container">
@@ -36,8 +39,8 @@ export default function CoursePlanet() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item: Record<string, unknown>, idx: number) => (
-            <View key={item.id || idx} className="list-item">
-              <Text>{item.title || item.name || '课程'}</Text>
+            <View key={(item.id as string) || idx} className="list-item">
+              <Text>{(item.title as string) || (item.name as string) || '课程'}</Text>
             </View>
           ))
         ) : (

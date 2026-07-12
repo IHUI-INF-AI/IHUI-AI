@@ -5,13 +5,13 @@ import { getRankingList } from '@/api'
 import './index.css'
 
 export default function RankingIndex() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res: any = await getRankingList()
-      setList(res?.list || [])
+      const res = (await getRankingList()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch {
       // ignore
     } finally {
@@ -30,12 +30,16 @@ export default function RankingIndex() {
         {loading ? (
           <Text className="loading-text">加载中...</Text>
         ) : list.length ? (
-          list.map((item: any, idx: number) => (
-            <View key={item.id} className="ranking-item">
+          list.map((item, idx: number) => (
+            <View key={item.id as string} className="ranking-item">
               <Text className={`rank-no ${idx < 3 ? 'rank-top' : ''}`}>{idx + 1}</Text>
               <View className="rank-info">
-                <Text className="rank-name">{item.nickname || item.name || '匿名'}</Text>
-                <Text className="rank-score">{item.score || item.value || 0}</Text>
+                <Text className="rank-name">
+                  {(item.nickname as string) || (item.name as string) || '匿名'}
+                </Text>
+                <Text className="rank-score">
+                  {(item.score as number) || (item.value as number) || 0}
+                </Text>
               </View>
             </View>
           ))

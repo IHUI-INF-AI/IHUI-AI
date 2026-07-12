@@ -5,15 +5,18 @@ import { getTokenBalance, getTokenRecords } from '@/api'
 import './balance.css'
 
 export default function TokenBalance() {
-  const [balance, setBalance] = useState<any>(null)
-  const [records, setRecords] = useState<any[]>([])
+  const [balance, setBalance] = useState<Record<string, unknown> | null>(null)
+  const [records, setRecords] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const [bal, rec]: any = await Promise.all([getTokenBalance(), getTokenRecords(1)])
-      setBalance(bal)
-      setRecords(rec?.list || [])
+      const result = (await Promise.all([getTokenBalance(), getTokenRecords(1)])) as [
+        Record<string, unknown>,
+        Record<string, unknown>,
+      ]
+      setBalance(result[0])
+      setRecords((result[1]?.list as Record<string, unknown>[]) || [])
     } catch {
       // ignore
     } finally {
@@ -28,7 +31,7 @@ export default function TokenBalance() {
       <View className="balance-card">
         <Text className="balance-label">智汇值余额</Text>
         <Text className="balance-value">
-          {loading ? '--' : (balance?.amount ?? balance?.balance ?? 0)}
+          {loading ? '--' : ((balance?.amount as number) ?? (balance?.balance as number) ?? 0)}
         </Text>
       </View>
       <View className="records-section">
@@ -37,18 +40,23 @@ export default function TokenBalance() {
           {loading ? (
             <Text className="loading-text">加载中...</Text>
           ) : records.length ? (
-            records.map((r: any) => (
-              <View key={r.id} className="record-item">
-                <View className="record-info">
-                  <Text className="record-title">{r.title || r.type || '变动'}</Text>
-                  <Text className="record-time">{r.time || ''}</Text>
+            records.map((r) => {
+              const amount = r.amount as number
+              return (
+                <View key={r.id as string} className="record-item">
+                  <View className="record-info">
+                    <Text className="record-title">
+                      {(r.title as string) || (r.type as string) || '变动'}
+                    </Text>
+                    <Text className="record-time">{(r.time as string) || ''}</Text>
+                  </View>
+                  <Text className={`record-amount ${amount >= 0 ? 'plus' : 'minus'}`}>
+                    {amount >= 0 ? '+' : ''}
+                    {amount}
+                  </Text>
                 </View>
-                <Text className={`record-amount ${r.amount >= 0 ? 'plus' : 'minus'}`}>
-                  {r.amount >= 0 ? '+' : ''}
-                  {r.amount}
-                </Text>
-              </View>
-            ))
+              )
+            })
           ) : (
             <Text className="empty-text">暂无记录</Text>
           )}
