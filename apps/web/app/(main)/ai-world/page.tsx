@@ -33,7 +33,7 @@ export default function AiWorldPage() {
     setMessages((prev) => [...prev, userMsg])
     setIsStreaming(true)
     setStreamingContent('')
-    const response = `已收到你的消息："${text}"。\n\n这是来自统一 AI 面板的示例回复。在实际场景中，这里会接入真实的 AI 模型流式输出。`
+    const response = t('sampleResponse', { text })
     let i = 0
     timerRef.current = setInterval(() => {
       i += 3

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input } from '@ihui/ui'
@@ -27,9 +28,17 @@ async function fetchAgents(): Promise<AgentItem[]> {
   return res.data
 }
 
-const CATEGORIES = ['全部', '对话', '编程', '写作', '分析', '工具']
+const CATEGORIES = [
+  { value: '全部', key: 'catAll' },
+  { value: '对话', key: 'catChat' },
+  { value: '编程', key: 'catCoding' },
+  { value: '写作', key: 'catWriting' },
+  { value: '分析', key: 'catAnalysis' },
+  { value: '工具', key: 'catTool' },
+] as const
 
 export default function AgentsPage() {
+  const t = useTranslations('featureCenter.agents')
   const { data, isLoading } = useQuery({
     queryKey: ['feature-center-agents'],
     queryFn: fetchAgents,
@@ -51,14 +60,14 @@ export default function AgentsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <FeatureCenterHeader title="Agent 集市" description="发现可复用的 AI Agent" />
+      <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="搜索 Agent 名称或描述..."
+            placeholder={t('searchPlaceholder')}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             className="pl-9"
@@ -67,17 +76,17 @@ export default function AgentsPage() {
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
             <button
-              key={c}
+              key={c.value}
               type="button"
-              onClick={() => setCategory(c)}
+              onClick={() => setCategory(c.value)}
               className={
                 'rounded-full border px-3 py-1 text-sm transition-colors ' +
-                (category === c
+                (category === c.value
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border hover:bg-muted')
               }
             >
-              {c}
+              {t(c.key)}
             </button>
           ))}
         </div>
@@ -86,12 +95,12 @@ export default function AgentsPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : list.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-sm text-muted-foreground">
-            暂无匹配的 Agent
+            {t('noMatch')}
           </CardContent>
         </Card>
       ) : (
