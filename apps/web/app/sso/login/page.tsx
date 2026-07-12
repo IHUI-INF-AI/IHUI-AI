@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui'
@@ -9,6 +10,7 @@ import { Loader2, ShieldCheck, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SsoLoginPage() {
+  const t = useTranslations('sso')
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
@@ -23,7 +25,7 @@ export default function SsoLoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     if (!account.trim() || !password) {
-      toast.error('请输入账号和密码')
+      toast.error(t('enterAccountAndPassword'))
       return
     }
     setLoading(true)
@@ -47,13 +49,13 @@ export default function SsoLoginPage() {
           ...r.data.user,
           permissions: r.data.user.permissions ?? [],
         })
-        toast.success('登录成功')
+        toast.success(t('loginSuccess'))
         await generateCodeAndRedirect()
       } else {
-        toast.error(!r.success ? r.error : '登录失败')
+        toast.error(!r.success ? r.error : t('loginFailed'))
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '登录失败')
+      toast.error(err instanceof Error ? err.message : t('loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -72,10 +74,10 @@ export default function SsoLoginPage() {
         const separator = redirectUrl.includes('?') ? '&' : '?'
         router.push(`${redirectUrl}${separator}sso_code=${r.data.code}`)
       } else {
-        toast.error(!r.success ? r.error : '生成授权码失败')
+        toast.error(!r.success ? r.error : t('generateCodeFailed'))
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '生成授权码失败')
+      toast.error(err instanceof Error ? err.message : t('generateCodeFailed'))
     } finally {
       setExchanging(false)
     }
@@ -89,10 +91,8 @@ export default function SsoLoginPage() {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <ShieldCheck className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-xl font-semibold">已登录</h1>
-            <p className="text-sm text-muted-foreground">
-              正在为 <span className="font-medium text-foreground">{clientId}</span> 授权…
-            </p>
+            <h1 className="text-xl font-semibold">{t('alreadyLoggedIn')}</h1>
+            <p className="text-sm text-muted-foreground">{t('authorizing', { clientId })}</p>
           </div>
           <Button
             className="w-full"
@@ -104,7 +104,7 @@ export default function SsoLoginPage() {
             ) : (
               <ArrowRight className="mr-2 h-4 w-4" />
             )}
-            授权并跳转
+            {t('authorizeAndRedirect')}
           </Button>
         </div>
       </div>
@@ -118,41 +118,37 @@ export default function SsoLoginPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-xl font-semibold">统一登录</h1>
-          <p className="text-sm text-muted-foreground">
-            登录后将为 <span className="font-medium text-foreground">{clientId}</span> 授权并跳转
-          </p>
+          <h1 className="text-xl font-semibold">{t('title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('subtitle', { clientId })}</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>账号</Label>
+            <Label>{t('account')}</Label>
             <Input
               value={account}
               onChange={(e) => setAccount(e.target.value)}
-              placeholder="手机号 / 邮箱 / 用户名"
+              placeholder={t('accountPlaceholder')}
               autoComplete="username"
             />
           </div>
           <div className="space-y-1.5">
-            <Label>密码</Label>
+            <Label>{t('password')}</Label>
             <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="请输入密码"
+              placeholder={t('passwordPlaceholder')}
               autoComplete="current-password"
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading || exchanging}>
             {loading || exchanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            登录并授权
+            {t('loginBtn')}
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground">
-          授权后将自动跳转回目标应用，登录态将在各子项目间共享。
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{t('footerHint')}</p>
       </div>
     </div>
   )
