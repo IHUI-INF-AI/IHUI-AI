@@ -1242,7 +1242,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/invoice-titles - 发票抬头列表(按 userId 筛选)
   server.get('/learn/invoice-titles', async (request, reply) => {
-    const userId = (request.query as { userId?: string }).userId
+    const { userId } = z.object({ userId: z.string().optional() }).parse(request.query)
     if (!userId) {
       return reply.status(400).send(error(400, '缺少 userId 参数'))
     }
@@ -1476,7 +1476,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const body = request.body as { status?: string }
+    const body = z.object({ status: z.string().optional() }).parse(request.body)
     if (!body.status || !['enable', 'disable'].includes(body.status)) {
       return reply.status(400).send(error(400, 'status 必须为 enable 或 disable'))
     }

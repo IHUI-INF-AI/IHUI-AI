@@ -32,7 +32,7 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /drama/scripts/:id/enhance — 整体增强（角色一致性 + 节奏分析 + 章节大纲建议）
   server.post('/drama/scripts/:id/enhance', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = z.object({ id: z.string() }).parse(request.params)
     const parsed = enhanceBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -49,7 +49,9 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/drama/scripts/:id/scenes/:sceneIndex/lines/:lineIndex/enhance',
     async (request, reply) => {
-      const { sceneIndex, lineIndex } = request.params as { sceneIndex: string; lineIndex: string }
+      const { sceneIndex, lineIndex } = z
+        .object({ sceneIndex: z.string(), lineIndex: z.string() })
+        .parse(request.params)
       const parsed = enhanceLineBodySchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

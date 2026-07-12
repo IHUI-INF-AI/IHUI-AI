@@ -11,6 +11,7 @@
  */
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import { pipeline } from 'node:stream/promises'
 import { createWriteStream } from 'node:fs'
 import { existsSync, mkdirSync, unlinkSync, copyFileSync, statSync } from 'node:fs'
@@ -57,6 +58,10 @@ function serializeVersion(v: typeof fileVersions.$inferSelect) {
 }
 
 export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
+  const fileIdParam = z.object({ fileId: z.string() })
+  const versionIdParam = z.object({ versionId: z.string() })
+  const compareQuery = z.object({ v1: z.coerce.number(), v2: z.coerce.number() })
+
   // POST /file-versions/create — 上传新版本（multipart: file + 表单字段 fileId/changeLog）
   server.post('/file-versions/create', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
@@ -124,7 +129,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   // GET /file-versions/list/:fileId — 版本列表（按版本号倒序）
   server.get('/file-versions/list/:fileId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { fileId } = request.params as { fileId: string }
+    const { fileId } = fileIdParam.parse(request.params)
 
     const list = await db
       .select()
@@ -138,7 +143,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   // GET /file-versions/current/:fileId — 当前（最新）版本
   server.get('/file-versions/current/:fileId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { fileId } = request.params as { fileId: string }
+    const { fileId } = fileIdParam.parse(request.params)
 
     const list = await db
       .select()
@@ -156,7 +161,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   // GET /file-versions/:versionId — 版本详情
   server.get('/file-versions/:versionId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { versionId } = request.params as { versionId: string }
+    const { versionId } = versionIdParam.parse(request.params)
 
     const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
 
@@ -174,7 +179,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   server.post('/file-versions/rollback/:versionId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
     const userId = request.userId!
-    const { versionId } = request.params as { versionId: string }
+    const { versionId } = versionIdParam.parse(request.params)
 
     const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
 
@@ -219,7 +224,7 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /file-versions/:versionId — 删除指定版本（当前最新版本不可删）
   server.delete('/file-versions/:versionId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { versionId } = request.params as { versionId: string }
+    const { versionId } = versionIdParam.parse(request.params)
 
     const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
 
@@ -252,13 +257,12 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   // GET /file-versions/compare/:fileId?v1=&v2= — 对比两个版本
   server.get('/file-versions/compare/:fileId', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { fileId } = request.params as { fileId: string }
-    const query = request.query as { v1?: string; v2?: string }
-    const v1 = Number(query.v1)
-    const v2 = Number(query.v2)
-    if (!Number.isFinite(v1) || !Number.isFinite(v2)) {
+    const { fileId } = fileIdParam.parse(request.params)
+    const parsed = compareQuery.safeParse(request.query)
+    if (!parsed.success) {
       return reply.status(400).send(error(400, 'v1 和 v2 为必填且须为数字'))
     }
+    const { v1, v2 } = parsed.data
 
     const versions = await db
       .select()

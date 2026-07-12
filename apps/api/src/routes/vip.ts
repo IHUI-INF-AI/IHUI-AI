@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -15,6 +16,30 @@ import {
 import { createOrder } from '../db/payment-queries.js'
 
 const ADMIN_ROLE_ID = 1
+
+const idParam = z.object({ id: z.string() })
+const purchaseBody = z.object({
+  vipLevelId: z.string(),
+  paymentMethod: z.string().optional().default('wechat'),
+})
+const createLevelBody = z.object({
+  levelName: z.string(),
+  levelValue: z.number().optional().default(1),
+  price: z.number(),
+  durationDays: z.number().optional().default(30),
+  benefits: z.array(z.unknown()).optional().default([]),
+})
+const updateLevelBody = z.object({
+  levelName: z.string().optional(),
+  price: z.number().optional(),
+  durationDays: z.number().optional(),
+  status: z.number().optional(),
+})
+const listUsersQuery = z.object({
+  page: z.coerce.number().optional().default(1),
+  limit: z.coerce.number().optional().default(20),
+  userId: z.string().optional(),
+})
 
 export const vipRoutes: FastifyPluginAsync = async (server) => {
   // 公开：VIP 等级列表
@@ -39,10 +64,7 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
   // 购买 VIP
   server.post('/vip/purchase', async (request, reply) => {
     await authenticate(request)
-    const { vipLevelId, paymentMethod = 'wechat' } = request.body as {
-      vipLevelId: string
-      paymentMethod?: string
-    }
+    const { vipLevelId, paymentMethod } = purchaseBody.parse(request.body)
     const level = await findVipLevel(vipLevelId)
     if (!level || level.status !== 1) return reply.status(404).send(error(404, 'VIP 等级不存在'))
     // 创建订单
@@ -80,64 +102,41 @@ export const adminVipRoutes: FastifyPluginAsync = async (server) => {
 
   // VIP 等级管理
   server.post('/vip/levels', async (request, reply) => {
-    const {
-      levelName,
-      levelValue = 1,
-      price,
-      durationDays = 30,
-      benefits = [],
-    } = request.body as {
-      levelName: string
-      levelValue?: number
-      price: number
-      durationDays?: number
-      benefits?: unknown[]
-    }
+    const { levelName, levelValue, price, durationDays, benefits } = createLevelBody.parse(
+      request.body,
+    )
     const level = await createVipLevel({
       levelName,
       levelValue,
       price,
       durationDays,
-      benefits: benefits as unknown[],
+      benefits,
     })
     return reply.send(success(level))
   })
 
   server.put('/vip/levels/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const body = request.body as {
-      levelName?: string
-      price?: number
-      durationDays?: number
-      status?: number
-    }
+    const { id } = idParam.parse(request.params)
+    const body = updateLevelBody.parse(request.body)
     await updateVipLevel(id, body)
     return reply.send(success({ updated: true }))
   })
 
   server.delete('/vip/levels/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     await deleteVipLevel(id)
     return reply.send(success({ deleted: true }))
   })
 
   // 用户 VIP 管理
   server.get('/vip/users', async (request, reply) => {
-    const {
-      page = '1',
-      limit = '20',
-      userId,
-    } = request.query as {
-      page: string
-      limit: string
-      userId?: string
-    }
-    const result = await listUserVips(parseInt(page, 10), parseInt(limit, 10), userId)
+    const { page, limit, userId } = listUsersQuery.parse(request.query)
+    const result = await listUserVips(page, limit, userId)
     return reply.send(success(result))
   })
 
   server.put('/vip/users/:id/cancel', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     await cancelUserVip(id)
     return reply.send(success({ cancelled: true }))
   })

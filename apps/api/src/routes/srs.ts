@@ -57,14 +57,22 @@ const createServerSchema = z.object({
 const updateServerSchema = createServerSchema.partial()
 
 export const srsRoutes: FastifyPluginAsync = async (server) => {
+  const idParam = z.object({ id: z.string() })
+  const keyParam = z.object({ key: z.string() })
+  const streamListQuery = z.object({
+    status: z.string().optional(),
+    page: z.coerce.number().optional().default(1),
+    pageSize: z.coerce.number().optional().default(20),
+  })
+
   // ===== 流管理 =====
 
   server.get('/streams', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const query = request.query as { status?: string; page?: string; pageSize?: string }
-    const page = parseInt(query.page ?? '1', 10)
-    const pageSize = parseInt(query.pageSize ?? '20', 10)
+    const query = streamListQuery.parse(request.query)
+    const page = query.page
+    const pageSize = query.pageSize
     const offset = (page - 1) * pageSize
     const condition = query.status ? eq(srsStreams.status, query.status) : undefined
     const list = await db
@@ -80,7 +88,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/streams/:key', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { key } = request.params as { key: string }
+    const { key } = keyParam.parse(request.params)
     const [stream] = await db
       .select()
       .from(srsStreams)
@@ -104,7 +112,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.put('/streams/:id', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = updateStreamSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -121,7 +129,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/streams/:id', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     await db.delete(srsStreams).where(eq(srsStreams.id, id))
     return reply.send(success({ deleted: true }))
   })
@@ -129,7 +137,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/streams/:key/kick', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { key } = request.params as { key: string }
+    const { key } = keyParam.parse(request.params)
     const srv = await getActiveServer()
     if (!srv) return reply.status(503).send(error(503, '无可用 SRS 服务器'))
     const kicked = await kickStream(srv, key)
@@ -145,7 +153,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/streams/:key/status', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { key } = request.params as { key: string }
+    const { key } = keyParam.parse(request.params)
     const srv = await getActiveServer()
     if (!srv) return reply.status(503).send(error(503, '无可用 SRS 服务器'))
     const status = await getStreamStatusFromSRS(srv, key)
@@ -175,7 +183,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.put('/servers/:id', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = updateServerSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -192,7 +200,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/servers/:id', async (request, reply) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     await db.delete(srsServers).where(eq(srsServers.id, id))
     return reply.send(success({ deleted: true }))
   })
@@ -200,7 +208,7 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/servers/:id/health', async (request, reply) => {
     await requireAuth(request, reply)
     if (reply.sent) return
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const [srv] = await db.select().from(srsServers).where(eq(srsServers.id, id)).limit(1)
     if (!srv) return reply.status(404).send(error(404, '服务器不存在'))
     const result = await healthCheckServer(srv)
