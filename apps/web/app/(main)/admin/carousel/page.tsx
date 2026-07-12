@@ -3,64 +3,17 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Image as ImageIcon,
-} from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { ImageUpload } from '@/components/form/ImageUpload'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Switch,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 
-interface Carousel {
-  id: string
-  title: string
-  imageUrl: string | null
-  linkUrl: string | null
-  sort: number
-  status: number
-  createdAt: string
-}
-
-interface ListData {
-  list: Carousel[]
-  total: number
-}
-
-const PAGE_SIZE = 10
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const EMPTY = { title: '', imageUrl: '', linkUrl: '', sort: '0', status: true }
+import { CarouselFilter } from './CarouselFilter'
+import { CarouselTable } from './CarouselTable'
+import { CarouselDialog } from './CarouselDialog'
+import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, carouselToForm } from './helpers'
+import type { Carousel, CarouselForm, ListData } from './types'
 
 export default function CarouselPage() {
   const qc = useQueryClient()
@@ -69,7 +22,7 @@ export default function CarouselPage() {
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Carousel | null>(null)
-  const [form, setForm] = React.useState(EMPTY)
+  const [form, setForm] = React.useState<CarouselForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -121,19 +74,13 @@ export default function CarouselPage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY)
+    setForm(EMPTY_FORM)
     setErr(null)
     setOpen(true)
   }
   function openEdit(item: Carousel) {
     setEditing(item)
-    setForm({
-      title: item.title,
-      imageUrl: item.imageUrl ?? '',
-      linkUrl: item.linkUrl ?? '',
-      sort: String(item.sort),
-      status: item.status === 1,
-    })
+    setForm(carouselToForm(item))
     setErr(null)
     setOpen(true)
   }
@@ -159,15 +106,7 @@ export default function CarouselPage() {
   function handleExport() {
     exportToExcel(
       '轮播图管理',
-      [
-        { key: 'id', title: 'ID' },
-        { key: 'title', title: '标题' },
-        { key: 'imageUrl', title: '图片' },
-        { key: 'linkUrl', title: '链接' },
-        { key: 'sort', title: '排序' },
-        { key: 'status', title: '状态', formatter: (v) => (v === 1 ? '启用' : '禁用') },
-        { key: 'createdAt', title: '创建时间' },
-      ],
+      EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
   }
@@ -194,102 +133,9 @@ export default function CarouselPage() {
         </div>
       </div>
 
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索标题"
-          className="h-9 pl-8"
-        />
-      </div>
+      <CarouselFilter search={search} setSearch={setSearch} />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">标题</TableHead>
-              <TableHead className="px-4 py-2.5">图片</TableHead>
-              <TableHead className="px-4 py-2.5">链接</TableHead>
-              <TableHead className="px-4 py-2.5">排序</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中…
-                </TableCell>
-              </TableRow>
-            ) : list.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无数据
-                </TableCell>
-              </TableRow>
-            ) : (
-              list.map((item) => (
-                <TableRow key={item.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{item.title}</TableCell>
-                  {}
-                  <TableCell className="px-4 py-2.5">
-                    {item.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.imageUrl} alt="" className="h-10 w-16 rounded object-cover" />
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground max-w-[200px] truncate">
-                    {item.linkUrl || '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{item.sort}</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={
-                        item.status === 1
-                          ? 'inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600'
-                          : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-                      }
-                    >
-                      {item.status === 1 ? '启用' : '禁用'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
-                      <HasPermi code="ai:carousel:edit">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(item)}
-                          title="编辑"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </HasPermi>
-                      <HasPermi code="ai:carousel:remove">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(item)}
-                          title="删除"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </HasPermi>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <CarouselTable list={list} isLoading={isLoading} onEdit={openEdit} onDelete={handleDelete} />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
@@ -318,73 +164,16 @@ export default function CarouselPage() {
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-lg">
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑轮播图' : '新增轮播图'}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>标题</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="请输入标题"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>图片</Label>
-              <ImageUpload
-                value={form.imageUrl}
-                onChange={(v) => setForm({ ...form, imageUrl: v as string })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>链接</Label>
-              <Input
-                value={form.linkUrl}
-                onChange={(e) => setForm({ ...form, linkUrl: e.target.value })}
-                placeholder="请输入链接"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="space-y-2">
-                <Label>排序</Label>
-                <Input
-                  type="number"
-                  value={form.sort}
-                  onChange={(e) => setForm({ ...form, sort: e.target.value })}
-                />
-              </div>
-              <div className="flex items-center gap-2 pt-7">
-                <Switch
-                  checked={form.status}
-                  onCheckedChange={(v) => setForm({ ...form, status: v })}
-                />
-                <Label>启用</Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CarouselDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }

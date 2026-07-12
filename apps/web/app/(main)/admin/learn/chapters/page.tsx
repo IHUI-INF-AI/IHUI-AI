@@ -1,84 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  ListOrdered,
-  ChevronLeft,
-} from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
-
-interface Lesson {
-  id: string
-  title: string
-  isPublished: boolean
-}
-
-interface Chapter {
-  id: string
-  lessonId: string
-  title: string
-  sortOrder: number
-  createdAt: string
-}
-
-interface LessonsData {
-  list: Lesson[]
-  total: number
-}
-
-interface ChaptersData {
-  list: Chapter[]
-}
-
-const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-interface ChapterForm {
-  title: string
-  sortOrder: string
-}
-
-const EMPTY_FORM: ChapterForm = {
-  title: '',
-  sortOrder: '0',
-}
+import { ChapterFilter } from './ChapterFilter'
+import { ChapterTable } from './ChapterTable'
+import { ChapterDialog } from './ChapterDialog'
+import { api, EMPTY_FORM } from './helpers'
+import type { Chapter, ChapterForm, ChaptersData, LessonsData } from './types'
 
 function ChaptersContent() {
   const t = useTranslations('admin.learn')
@@ -96,8 +29,7 @@ function ChaptersContent() {
 
   const { data: lessonsData } = useQuery({
     queryKey: ['admin', 'learn', 'lessons', 'all'],
-    queryFn: () =>
-      api<LessonsData>(`/api/admin/learn/lessons?page=1&pageSize=100`).then((d) => d),
+    queryFn: () => api<LessonsData>(`/api/admin/learn/lessons?page=1&pageSize=100`),
   })
   const lessons = lessonsData?.list ?? []
 
@@ -110,10 +42,7 @@ function ChaptersContent() {
 
   const createMut = useMutation({
     mutationFn: () => {
-      const body = {
-        title: form.title.trim(),
-        sortOrder: Number(form.sortOrder) || 0,
-      }
+      const body = { title: form.title.trim(), sortOrder: Number(form.sortOrder) || 0 }
       return api(`/api/admin/learn/lessons/${lessonId}/chapters`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -129,17 +58,11 @@ function ChaptersContent() {
 
   const updateMut = useMutation({
     mutationFn: () => {
-      const body = {
-        title: form.title.trim(),
-        sortOrder: Number(form.sortOrder) || 0,
-      }
-      return api(
-        `/api/admin/learn/lessons/${lessonId}/chapters/${editing?.id}`,
-        {
-          method: 'PUT',
-          body: JSON.stringify(body),
-        },
-      )
+      const body = { title: form.title.trim(), sortOrder: Number(form.sortOrder) || 0 }
+      return api(`/api/admin/learn/lessons/${lessonId}/chapters/${editing?.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      })
     },
     onSuccess: () => {
       toast.success(t('updateSuccess'))
@@ -168,10 +91,7 @@ function ChaptersContent() {
 
   function openEdit(ch: Chapter) {
     setEditing(ch)
-    setForm({
-      title: ch.title,
-      sortOrder: String(ch.sortOrder),
-    })
+    setForm({ title: ch.title, sortOrder: String(ch.sortOrder) })
     setErr(null)
     setOpen(true)
   }
@@ -221,147 +141,33 @@ function ChaptersContent() {
         <p className="mt-1 text-sm text-muted-foreground">{t('chaptersSubtitle')}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/admin/learn">
-            <ChevronLeft className="h-4 w-4" />
-            {t('backToLearn')}
-          </Link>
-        </Button>
-        <div className="w-full max-w-sm">
-          <Select value={lessonId} onValueChange={onLessonChange}>
-            <SelectTrigger className={selectClass} aria-label={t('selectLesson')}>
-              <SelectValue placeholder={t('selectLessonPlaceholder')} />
-            </SelectTrigger>
-            <SelectContent>
-              {lessons.map((l) => (
-                <SelectItem key={l.id} value={l.id}>
-                  {l.title}
-                  {!l.isPublished ? `（${t('unpublished')}）` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button onClick={openCreate} size="sm" className="ml-auto" disabled={!lessonId}>
-          <Plus className="h-4 w-4" />
-          {t('create')}
-        </Button>
-      </div>
+      <ChapterFilter
+        lessonId={lessonId}
+        onLessonChange={onLessonChange}
+        lessons={lessons}
+        onCreate={openCreate}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
-              <TableHead className="px-4 py-2.5">{t('colSort')}</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {!lessonId ? (
-              <TableRow>
-                <TableCell colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
-                  <ListOrdered className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('noLessonSelected')}
-                </TableCell>
-              </TableRow>
-            ) : isLoading ? (
-              <TableRow>
-                <TableCell colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={3} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : chapters.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
-                  <ListOrdered className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {t('noData')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              chapters.map((ch) => (
-                <TableRow key={ch.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{ch.title}</TableCell>
-                  <TableCell className="px-4 py-2.5">{ch.sortOrder}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(ch)}
-                        title={t('edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(ch)}
-                        title={t('delete')}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ChapterTable
+        list={chapters}
+        isLoading={isLoading}
+        error={error as Error | null}
+        lessonId={lessonId}
+        deletePending={deleteMut.isPending}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="ch-title">{t('fieldTitle')}</Label>
-              <Input
-                id="ch-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder={t('titlePlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ch-sort">{t('fieldSort')}</Label>
-              <Input
-                id="ch-sort"
-                type="number"
-                min="0"
-                value={form.sortOrder}
-                onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={saving}>
-                {t('cancel')}
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('saveBtn')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ChapterDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        saving={saving}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }
