@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Users, ShoppingCart, DollarSign, Activity } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { BarChart } from '@/components/charts/BarChart'
 
 interface BiStats {
   totalUsers: number
@@ -71,6 +72,23 @@ export default function BiDashboardPage() {
           ))}
         </div>
       )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">核心指标对比</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            用户 / 订单 / 收入 / 活跃用户 数值横向对比
+          </p>
+        </CardHeader>
+        <CardContent>
+          <BarChart
+            data={[stats.totalUsers, stats.totalOrders, stats.totalRevenue, stats.activeUsers]}
+            xAxis={['用户', '订单', '收入', '活跃']}
+            horizontal
+            color="var(--primary)"
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }

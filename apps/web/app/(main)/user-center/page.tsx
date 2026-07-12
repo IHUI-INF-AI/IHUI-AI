@@ -16,6 +16,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
+import { Container } from '@/components/layout'
 
 interface UserStatistics {
   total: number
@@ -106,7 +107,7 @@ export default function UserCenterPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
           <UserCog className="h-7 w-7 text-primary" />
@@ -224,6 +225,6 @@ export default function UserCenterPage() {
           </div>
         )}
       </div>
-    </div>
+    </Container>
   )
 }

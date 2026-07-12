@@ -393,12 +393,12 @@ export async function getCozeAgents(
 
 /** 获取 Coze 智能体详情 */
 export async function getCozeAgentDetail(id: string): Promise<ApiResult<CozeAgent>> {
-  return fetchApi<CozeAgent>(`/api/coze/bot/get/${id}`)
+  return fetchApi<CozeAgent>(`/api/coze/bot/get?bot_id=${encodeURIComponent(id)}`)
 }
 
 /** 创建 Coze 智能体 */
 export async function createCozeAgent(input: Partial<CozeAgent>): Promise<ApiResult<CozeAgent>> {
-  return fetchApi<CozeAgent>('/api/coze/bot/list', {
+  return fetchApi<CozeAgent>('/api/coze/bot/create', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -409,20 +409,23 @@ export async function updateCozeAgent(
   id: string,
   input: Partial<CozeAgent>,
 ): Promise<ApiResult<CozeAgent>> {
-  return fetchApi<CozeAgent>(`/api/coze/bot/get/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
+  return fetchApi<CozeAgent>('/api/coze/bot/update', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, bot_id: id }),
   })
 }
 
 /** 删除 Coze 智能体 */
 export async function deleteCozeAgent(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/coze/bot/get/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>('/api/coze/bot/delete', {
+    method: 'POST',
+    body: JSON.stringify({ bot_id: id }),
+  })
 }
 
 /** Coze 对话 */
 export async function cozeChat(params: CozeChatParams): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>('/api/coze/chat', {
+  return fetchApi<unknown>('/api/ai/coze/chat', {
     method: 'POST',
     body: JSON.stringify(params),
   })

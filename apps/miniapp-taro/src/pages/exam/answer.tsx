@@ -36,7 +36,9 @@ export default function ExamAnswer() {
     }
     try {
       const res = await submitExam({ examId: examIdRef.current, answers })
-      Taro.redirectTo({ url: `/pages/exam/result?id=${examIdRef.current}&score=${res.score}&pass=${res.pass}` })
+      Taro.redirectTo({
+        url: `/pages/exam/result?id=${examIdRef.current}&score=${res.score}&pass=${res.pass}`,
+      })
     } catch {
       submittedRef.current = false
     }
@@ -47,11 +49,11 @@ export default function ExamAnswer() {
     if (!id) return
     examIdRef.current = id
     getExamDetail(id)
-      .then(exam => {
+      .then((exam) => {
         setQuestions(exam.questions || [])
         setRemain(exam.duration * 60)
         timerRef.current = setInterval(() => {
-          setRemain(prev => {
+          setRemain((prev) => {
             if (prev <= 1) {
               onSubmit()
               return 0
@@ -60,34 +62,41 @@ export default function ExamAnswer() {
           })
         }, 1000)
       })
-      .catch(() => {})
+      .catch((e) => {
+        console.error('考试加载 failed:', e)
+        Taro.showToast({ title: '考试加载失败', icon: 'none' })
+      })
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.params.id])
 
-  const select = useCallback((i: number) => {
-    if (!current) return
-    setAnswers(prev => ({ ...prev, [current.id]: i }))
-  }, [current])
+  const select = useCallback(
+    (i: number) => {
+      if (!current) return
+      setAnswers((prev) => ({ ...prev, [current.id]: i }))
+    },
+    [current],
+  )
 
   const prev = useCallback(() => {
-    setCurrentIdx(idx => (idx > 0 ? idx - 1 : idx))
+    setCurrentIdx((idx) => (idx > 0 ? idx - 1 : idx))
   }, [])
 
   const next = useCallback(() => {
-    setCurrentIdx(idx => (idx < questions.length - 1 ? idx + 1 : idx))
+    setCurrentIdx((idx) => (idx < questions.length - 1 ? idx + 1 : idx))
   }, [questions.length])
 
   return (
     <View className="min-h-screen bg-[#f7f8fa]">
       <View className="flex justify-between p-3 bg-white">
         <Text className="text-base text-[#dd524d] font-bold">{formatTime(remain)}</Text>
-        <Text className="text-sm text-[#666]">{currentIdx + 1}/{questions.length}</Text>
+        <Text className="text-sm text-[#666]">
+          {currentIdx + 1}/{questions.length}
+        </Text>
       </View>
 
       {current && (
@@ -106,7 +115,9 @@ export default function ExamAnswer() {
               >
                 <View
                   className={`w-7 h-7 leading-7 text-center border rounded-full text-sm ${
-                    answers[current.id] === i ? 'border-[#007aff] bg-[#007aff] text-white' : 'border-[#ccc] text-[#666]'
+                    answers[current.id] === i
+                      ? 'border-[#007aff] bg-[#007aff] text-white'
+                      : 'border-[#ccc] text-[#666]'
                   }`}
                 >
                   {['A', 'B', 'C', 'D'][i]}
@@ -129,7 +140,10 @@ export default function ExamAnswer() {
             下一题
           </Button>
         ) : (
-          <Button className="flex-1 bg-[#007aff] text-white rounded-full text-sm" onClick={onSubmit}>
+          <Button
+            className="flex-1 bg-[#007aff] text-white rounded-full text-sm"
+            onClick={onSubmit}
+          >
             交卷
           </Button>
         )}

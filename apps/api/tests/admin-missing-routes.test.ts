@@ -20,13 +20,19 @@ vi.mock('../src/config/index.js', () => ({
 
 // Mock @ihui/auth：默认返回 admin（roleId=1），具体测试可覆盖
 // 同时暴露 db 写操作的 returning/where mock，便于 404 场景用 mockResolvedValueOnce 覆盖
-const { mockVerifyAccessToken, mockInsertReturning, mockUpdateReturning, mockDeleteWhere } =
-  vi.hoisted(() => ({
-    mockVerifyAccessToken: vi.fn(),
-    mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-    mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-    mockDeleteWhere: vi.fn().mockResolvedValue(undefined),
-  }))
+const {
+  mockVerifyAccessToken,
+  mockInsertReturning,
+  mockUpdateReturning,
+  mockDeleteWhere,
+  mockSelectLimit,
+} = vi.hoisted(() => ({
+  mockVerifyAccessToken: vi.fn(),
+  mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+  mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+  mockDeleteWhere: vi.fn().mockResolvedValue(undefined),
+  mockSelectLimit: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+}))
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
@@ -35,6 +41,7 @@ vi.mock('@ihui/auth', () => ({
 }))
 
 // Mock db：有表路由的 CRUD 查询链式调用
+// mockSelectLimit 用于 DELETE 存在性检查：select().from().where().limit(1)
 const mockSelect = vi.fn().mockReturnValue({
   from: vi.fn().mockReturnValue({
     where: vi.fn().mockReturnValue({
@@ -43,6 +50,7 @@ const mockSelect = vi.fn().mockReturnValue({
           offset: vi.fn().mockResolvedValue([]),
         }),
       }),
+      limit: mockSelectLimit,
     }),
   }),
 })
@@ -54,7 +62,9 @@ const mockCountSelect = vi.fn().mockReturnValue({
 vi.mock('../src/db/index.js', () => ({
   db: {
     select: vi.fn((args) =>
-      args && typeof args === 'object' && 'c' in (args as any) ? mockCountSelect() : mockSelect(),
+      args && typeof args === 'object' && 'c' in (args as Record<string, unknown>)
+        ? mockCountSelect()
+        : mockSelect(),
     ),
     insert: vi.fn(() => ({ values: vi.fn(() => ({ returning: mockInsertReturning })) })),
     update: vi.fn(() => ({
@@ -941,6 +951,271 @@ describe('admin-missing-routes', () => {
         })
         expect(res.statusCode).toBe(403)
       })
+    })
+  })
+
+  // ===========================================================================
+  // 8. Zod body 校验失败测试（POST/PUT 缺少必填字段 → 400）
+  // ===========================================================================
+  describe('Zod body 校验失败', () => {
+    it('POST /auth-role 缺少 name 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/auth-role',
+        body: { displayName: '编辑' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().code).toBe(400)
+    })
+
+    it('POST /auth-role 缺少 displayName 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/auth-role',
+        body: { name: 'editor' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('PUT /auth-info body 非法字段返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'PUT',
+        url: '/api/admin/auth-info/user-uuid-1',
+        body: { phone: 12345 },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /auth-vip-level 缺少 levelName 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/auth-vip-level',
+        body: { price: 30 },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('PUT /auth-vip-level levelName 空字符串返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'PUT',
+        url: '/api/admin/auth-vip-level/lvl-1',
+        body: { levelName: '' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /auth-sms-temp 缺少 code 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/auth-sms-temp',
+        body: { title: '验证码', content: '内容' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /auth-sms-temp 缺少 content 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/auth-sms-temp',
+        body: { code: 'LOGIN', title: '验证码' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /user-roles 缺少 userId 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/user-roles',
+        body: { roleId: 'r-1' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /user-roles 缺少 roleId 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/user-roles',
+        body: { userId: 'u-1' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /member/permissions 缺少 name 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/member/permissions',
+        body: { displayName: '权限', resource: 'rbac', action: 'manage' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST /member/permissions 缺少 resource 返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/admin/member/permissions',
+        body: { name: 'rbac:manage', displayName: '权限', action: 'manage' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('PUT /member/permissions name 空字符串返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'PUT',
+        url: '/api/admin/member/permissions/perm-1',
+        body: { name: '' },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('PUT /auth-role name 类型错误返回 400', async () => {
+      mockAdmin()
+      const res = await server.inject({
+        method: 'PUT',
+        url: '/api/admin/auth-role/role-1',
+        body: { name: 12345 },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+  })
+
+  // ===========================================================================
+  // 9. DELETE 404 测试（资源不存在 → 404）
+  // ===========================================================================
+  describe('DELETE 404 覆盖', () => {
+    it('DELETE /auth-accounts/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/auth-accounts/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+      expect(res.json().code).toBe(404)
+    })
+
+    it('DELETE /auth-role/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/auth-role/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /auth-tokens/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/auth-tokens/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /auth-user-vip/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/auth-user-vip/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /auth-vip-level/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/auth-vip-level/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /auth-sms-temp/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/auth-sms-temp/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /user-roles/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/user-roles/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /member/permissions/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/member/permissions/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /system/operation-logs/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/system/operation-logs/missing-id',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('DELETE /system/login-logs/:id 不存在返回 404', async () => {
+      mockAdmin()
+      mockSelectLimit.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'DELETE',
+        url: '/api/admin/system/login-logs/999999',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
     })
   })
 })

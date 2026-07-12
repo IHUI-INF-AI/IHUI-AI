@@ -4,9 +4,10 @@ import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { Loader2, Users, CheckCircle2, XCircle, Ban, Unlock, KeyRound, Trash2 } from 'lucide-react'
+import { Users, CheckCircle2, XCircle, Ban, Unlock, KeyRound, Trash2 } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/common'
 import { type Member, type MemberAction, api, statusBadgeClass, statusDotClass } from './types'
 
 export function MembersTable({
@@ -82,9 +83,8 @@ export function MembersTable({
         <TableBody className="divide-y">
           {isLoading ? (
             <TableRow>
-              <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                {t('loading')}
+              <TableCell colSpan={6} className="px-4 py-4">
+                <Skeleton variant="list" count={5} />
               </TableCell>
             </TableRow>
           ) : error ? (

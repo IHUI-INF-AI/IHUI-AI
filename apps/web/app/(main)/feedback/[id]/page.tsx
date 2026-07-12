@@ -5,10 +5,18 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import ReactMarkdown from 'react-markdown'
 import { Loader2, ArrowLeft, MessageSquare } from 'lucide-react'
 
-import { Button, Card, CardContent, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -21,6 +29,7 @@ import {
   type Priority,
   type FeedbackStatus,
 } from '@/lib/feedback'
+import { MarkdownViewer } from '@/components/media'
 
 const STATUSES: FeedbackStatus[] = ['pending', 'reviewing', 'resolved', 'closed']
 const PRIORITIES: Priority[] = ['low', 'medium', 'high']
@@ -49,7 +58,11 @@ export default function FeedbackDetailPage() {
   const user = useAuthStore((s) => s.user)
   const isAdmin = (user?.roleId ?? 0) >= 1
 
-  const { data: fb, isLoading, error } = useQuery({
+  const {
+    data: fb,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['feedbacks', id],
     queryFn: () => api<{ feedback: FeedbackItem }>(`/api/feedbacks/${id}`).then((d) => d.feedback),
   })
@@ -149,9 +162,7 @@ export default function FeedbackDetailPage() {
 
       <Card>
         <CardContent className="p-4 md:p-6">
-          <article className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown>{fb.content}</ReactMarkdown>
-          </article>
+          <MarkdownViewer content={fb.content} />
         </CardContent>
       </Card>
 
@@ -161,9 +172,7 @@ export default function FeedbackDetailPage() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {tc('adminReply')}
             </p>
-            <article className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown>{fb.adminReply}</ReactMarkdown>
-            </article>
+            <MarkdownViewer content={fb.adminReply} />
           </CardContent>
         </Card>
       )}

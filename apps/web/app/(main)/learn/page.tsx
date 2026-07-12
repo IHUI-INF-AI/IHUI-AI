@@ -1,26 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  GraduationCap,
-  PlayCircle,
-  Users,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
-
+import { GraduationCap, PlayCircle, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Input,
   Select,
   SelectTrigger,
@@ -28,7 +15,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
-import { cn } from '@/lib/utils'
+import { CourseCard } from '@/components/business'
 
 interface Category {
   id: string
@@ -72,7 +59,7 @@ function fetchLessons(params: {
 
 export default function LearnPage() {
   const t = useTranslations('learn')
-
+  const router = useRouter()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState('all')
@@ -159,33 +146,14 @@ export default function LearnPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {lessons.map((lesson) => (
-            <Link key={lesson.id} href={`/learn/${lesson.id}`} className="group block">
-              <Card className="h-full overflow-hidden transition-colors hover:bg-accent">
-                <div className="flex h-28 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                  <PlayCircle className="h-10 w-10 text-primary/40" />
-                </div>
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-base">{lesson.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
-                  <p className="text-muted-foreground">{lesson.instructor}</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {t('signupCount', { count: lesson.signupCount })}
-                    </span>
-                    <span
-                      className={cn(
-                        'font-medium',
-                        lesson.price > 0 ? 'text-primary' : 'text-emerald-600',
-                      )}
-                    >
-                      {lesson.price > 0 ? t('price', { price: lesson.price }) : t('free')}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+            <CourseCard
+              key={lesson.id}
+              title={lesson.title}
+              cover={lesson.cover}
+              instructor={lesson.instructor}
+              price={lesson.price > 0 ? `¥${lesson.price}` : t('free')}
+              onClick={() => router.push(`/learn/${lesson.id}`)}
+            />
           ))}
         </div>
       )}

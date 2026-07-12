@@ -6,13 +6,37 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { Menu, Bell, Search, Sun, Moon, User as UserIcon, LogOut, Megaphone } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button, Input } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { api, type Announcement } from '@/lib/content'
+import {
+  getNotifications,
+  getUnreadCount,
+  markAllNotificationsRead,
+  type NotificationItem,
+} from '@/lib/notification-api'
 import { Avatar } from '@/components/data/Avatar'
+import { Tooltip, TooltipProvider, Dropdown, Popover } from '@/components/feedback'
+import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
+
+function mapNotifType(type: string): NoticeItem['type'] {
+  switch (type) {
+    case 'order':
+      return 'success'
+    case 'mention':
+      return 'warning'
+    default:
+      return 'info'
+  }
+}
+
+async function unwrap<T>(p: Promise<{ success: boolean; data?: T; error?: string }>): Promise<T> {
+  const r = await p
+  if (!r.success) throw new Error(r.error)
+  return r.data as T
+}
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -36,6 +60,36 @@ export function Header({ onMenuClick }: HeaderProps) {
     staleTime: 5 * 60 * 1000,
   })
   const hasUnread = announcements.some((a) => !a.isRead)
+
+  const qc = useQueryClient()
+  const { data: notifData } = useQuery({
+    queryKey: ['header', 'notifications'],
+    queryFn: () => unwrap(getNotifications({ page: 1, pageSize: 10 })),
+    staleTime: 30 * 1000,
+  })
+  const { data: unreadData } = useQuery({
+    queryKey: ['header', 'unread-count'],
+    queryFn: () => unwrap(getUnreadCount()),
+    staleTime: 30 * 1000,
+  })
+  const headerNotices: NoticeItem[] = (
+    (notifData?.list ?? []) as unknown as NotificationItem[]
+  ).map((n) => ({
+    id: n.id,
+    title: n.title,
+    description: n.content || undefined,
+    type: mapNotifType(n.type),
+    read: n.isRead,
+    createdAt: n.createdAt,
+  }))
+  const headerUnread = unreadData?.notification ?? 0
+  const markAllHeaderMut = useMutation({
+    mutationFn: () => unwrap(markAllNotificationsRead()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['header', 'unread-count'] })
+      qc.invalidateQueries({ queryKey: ['header', 'notifications'] })
+    },
+  })
 
   React.useEffect(() => setMounted(true), [])
 
@@ -74,73 +128,115 @@ export function Header({ onMenuClick }: HeaderProps) {
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="icon" asChild aria-label={t('announcements')}>
-          <Link href="/announcements" className="relative">
-            <Megaphone className="h-5 w-5" />
-            {hasUnread && (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-            )}
-          </Link>
-        </Button>
+      <TooltipProvider>
+        <div className="ml-auto flex items-center gap-1">
+          <Tooltip content={t('announcements')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('announcements')}
+              onClick={() => router.push('/announcements')}
+              className="relative"
+            >
+              <Megaphone className="h-5 w-5" />
+              {hasUnread && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </Button>
+          </Tooltip>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t('toggleTheme')}
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        >
-          {mounted && theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
+          <Tooltip content={t('toggleTheme')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('toggleTheme')}
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            >
+              {mounted && theme === 'dark' ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
+          </Tooltip>
 
-        <Button variant="ghost" size="icon" aria-label={t('notifications')}>
-          <Bell className="h-5 w-5" />
-        </Button>
-
-        {isAuthenticated ? (
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button
-                className="ml-1 rounded-full ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={t('profile')}
-              >
-                <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                align="end"
-                sideOffset={8}
-                className="z-50 min-w-[10rem] overflow-hidden rounded-md border bg-card p-1 text-card-foreground shadow-md"
-              >
-                <div className="px-2 py-1.5 text-sm">
-                  <div className="font-medium">{user?.nickname ?? 'User'}</div>
-                  {user?.phone && <div className="text-xs text-muted-foreground">{user.phone}</div>}
-                </div>
-                <DropdownMenu.Separator className="my-1 h-px bg-muted" />
-                <DropdownMenu.Item className="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground">
-                  <UserIcon className="h-4 w-4" />
-                  <Link href="/settings" className="flex-1">
-                    {t('profile')}
+          <Popover
+            position="bottom"
+            content={
+              <div className="w-80">
+                <NotificationCenter
+                  items={headerNotices}
+                  onMarkAllRead={headerUnread > 0 ? () => markAllHeaderMut.mutate() : undefined}
+                  onItemClick={() => router.push('/notifications')}
+                />
+                <div className="border-t p-2 text-center">
+                  <Link href="/notifications" className="text-xs text-primary hover:underline">
+                    {t('viewAll')}
                   </Link>
-                </DropdownMenu.Item>
-                <DropdownMenu.Separator className="my-1 h-px bg-muted" />
-                <DropdownMenu.Item
-                  className="flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none focus:bg-accent"
-                  onClick={handleLogout}
+                </div>
+              </div>
+            }
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('notifications')}
+              className="relative"
+            >
+              <Bell className="h-5 w-5" />
+              {headerUnread > 0 && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </Button>
+          </Popover>
+
+          {isAuthenticated ? (
+            <Dropdown
+              align="end"
+              items={[
+                {
+                  key: 'info',
+                  label: (
+                    <div className="px-2 py-0.5 text-sm">
+                      <div className="font-medium">{user?.nickname ?? 'User'}</div>
+                      {user?.phone && (
+                        <div className="text-xs text-muted-foreground">{user.phone}</div>
+                      )}
+                    </div>
+                  ),
+                },
+                { key: 'div1', divider: true },
+                {
+                  key: 'profile',
+                  label: t('profile'),
+                  icon: UserIcon,
+                  onSelect: () => router.push('/settings'),
+                },
+                { key: 'div2', divider: true },
+                {
+                  key: 'logout',
+                  label: tc('logout'),
+                  icon: LogOut,
+                  danger: true,
+                  onSelect: handleLogout,
+                },
+              ]}
+              trigger={
+                <button
+                  className="ml-1 rounded-full ring-offset-background transition-colors hover:ring-2 hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={t('profile')}
                 >
-                  <LogOut className="h-4 w-4" />
-                  {tc('logout')}
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        ) : (
-          <Button asChild variant="ghost" size="sm" className="ml-1">
-            <Link href="/login">{tc('login')}</Link>
-          </Button>
-        )}
-      </div>
+                  <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
+                </button>
+              }
+            />
+          ) : (
+            <Button asChild variant="ghost" size="sm" className="ml-1">
+              <Link href="/login">{tc('login')}</Link>
+            </Button>
+          )}
+        </div>
+      </TooltipProvider>
     </header>
   )
 }

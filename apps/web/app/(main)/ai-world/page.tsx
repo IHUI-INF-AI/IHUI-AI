@@ -19,6 +19,13 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui'
+import { UnifiedAIPanel } from '@/components/ai/unified-ai-panel'
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
 
 interface AiCategory {
   id: string
@@ -58,6 +65,44 @@ export default function AiWorldPage() {
     queryKey: ['ai-world'],
     queryFn: fetchAiWorld,
   })
+
+  const [messages, setMessages] = React.useState<ChatMessage[]>([])
+  const [isStreaming, setIsStreaming] = React.useState(false)
+  const [streamingContent, setStreamingContent] = React.useState('')
+  const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const handleSend = (text: string) => {
+    if (!text) {
+      setIsStreaming(false)
+      return
+    }
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: text }
+    setMessages((prev) => [...prev, userMsg])
+    setIsStreaming(true)
+    setStreamingContent('')
+    const response = `已收到你的消息："${text}"。\n\n这是来自统一 AI 面板的示例回复。在实际场景中，这里会接入真实的 AI 模型流式输出。`
+    let i = 0
+    timerRef.current = setInterval(() => {
+      i += 3
+      setStreamingContent(response.slice(0, i))
+      if (i >= response.length) {
+        if (timerRef.current) clearInterval(timerRef.current)
+        setMessages((prev) => [
+          ...prev,
+          { id: `a-${Date.now()}`, role: 'assistant', content: response },
+        ])
+        setIsStreaming(false)
+        setStreamingContent('')
+      }
+    }, 40)
+  }
+
+  React.useEffect(
+    () => () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    },
+    [],
+  )
 
   const fallbackData = React.useMemo<AiWorldData>(
     () => ({
@@ -194,6 +239,27 @@ export default function AiWorldPage() {
           })}
         </div>
       )}
+
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            统一 AI 面板
+          </CardTitle>
+          <CardDescription>整合 chat + agent + generation 的统一交互面板</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="h-[480px] border-t">
+            <UnifiedAIPanel
+              messages={messages}
+              onSend={handleSend}
+              isStreaming={isStreaming}
+              streamingContent={streamingContent}
+              placeholder="输入消息体验统一 AI 面板..."
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
