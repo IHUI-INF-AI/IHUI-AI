@@ -16,13 +16,12 @@
  * - GET    /srs/servers/:id/health — 健康检查
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { srsStreams, srsServers } from '@ihui/database'
-import { authenticate } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   createStream,
@@ -31,19 +30,6 @@ import {
   kickStream,
   healthCheckServer,
 } from '../services/srs-service.js'
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
 
 const createStreamSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200),
@@ -74,7 +60,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 流管理 =====
 
   server.get('/streams', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const query = request.query as { status?: string; page?: string; pageSize?: string }
     const page = parseInt(query.page ?? '1', 10)
     const pageSize = parseInt(query.pageSize ?? '20', 10)
@@ -91,7 +78,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/streams/:key', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { key } = request.params as { key: string }
     const [stream] = await db
       .select()
@@ -103,7 +91,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/streams', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const parsed = createStreamSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -154,7 +143,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/streams/:key/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { key } = request.params as { key: string }
     const srv = await getActiveServer()
     if (!srv) return reply.status(503).send(error(503, '无可用 SRS 服务器'))
@@ -165,7 +155,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   // ===== SRS 服务器管理 =====
 
   server.get('/servers', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const list = await db.select().from(srsServers).orderBy(desc(srsServers.createdAt))
     return reply.send(success(list))
   })
@@ -207,7 +198,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/servers/:id/health', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    await requireAuth(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const [srv] = await db.select().from(srsServers).where(eq(srsServers.id, id)).limit(1)
     if (!srv) return reply.status(404).send(error(404, '服务器不存在'))
