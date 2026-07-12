@@ -22,6 +22,53 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
+import { z } from 'zod'
+
+// ============================================================================
+// Zod Schemas(可复用)
+// ============================================================================
+
+const taskIdParam = z.object({ taskId: z.string() })
+const vendorParam = z.object({ vendor: z.string() })
+const botIdParam = z.object({ botId: z.string() })
+const reqKeyParam = z.object({ reqKey: z.string() })
+const timbreIdParam = z.object({ timbreId: z.string() })
+const recordIdParam = z.object({ recordId: z.string() })
+
+const pageSizeQuery = z.object({ page_size: z.string().optional() })
+const tasksQuery = z.object({ vendor: z.string().optional(), status: z.string().optional() })
+const aigcRecordsQuery = z.object({ type: z.string().optional(), vendor: z.string().optional() })
+const tokenQuery = z.object({ token: z.string().optional() })
+
+const chatBody = z.object({
+  messages: z.array(z.unknown()).optional(),
+  model: z.string().optional(),
+  temperature: z.number().optional(),
+})
+const imageBody = z.object({
+  prompt: z.string().optional(),
+  model: z.string().optional(),
+  size: z.string().optional(),
+})
+const ttsBody = z.object({
+  text: z.string().optional(),
+  model: z.string().optional(),
+  voice: z.string().optional(),
+})
+const asrBody = z.object({ audioUrl: z.string().optional(), model: z.string().optional() })
+const promptModelBody = z.object({ prompt: z.string().optional(), model: z.string().optional() })
+const textModelBody = z.object({ text: z.string().optional(), model: z.string().optional() })
+const multimodalBody = z.object({
+  messages: z.array(z.unknown()).optional(),
+  model: z.string().optional(),
+})
+const promptOnlyBody = z.object({ prompt: z.string().optional() })
+const jimengBody = z.object({
+  prompt: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  seed: z.number().optional(),
+})
 
 // ============================================================================
 // 鉴权
@@ -461,7 +508,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/chat — 通义千问对话
   server.post('/dashscope/chat', async (request, reply) => {
-    const body = request.body as { messages?: unknown[]; model?: string; temperature?: number }
+    const body = chatBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
@@ -475,7 +522,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/image — 通义万相文生图(异步)
   server.post('/dashscope/image', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string; size?: string }
+    const body = imageBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
@@ -490,7 +537,9 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/image-edit — 图片编辑
   server.post('/dashscope/image-edit', async (request, reply) => {
-    const body = request.body as { prompt?: string; imageUrl?: string }
+    const body = z
+      .object({ prompt: z.string().optional(), imageUrl: z.string().optional() })
+      .parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
@@ -504,7 +553,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/tts — 语音合成
   server.post('/dashscope/tts', async (request, reply) => {
-    const body = request.body as { text?: string; model?: string; voice?: string }
+    const body = ttsBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/text-to-audio',
@@ -518,7 +567,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/asr — 语音识别
   server.post('/dashscope/asr', async (request, reply) => {
-    const body = request.body as { audioUrl?: string; model?: string }
+    const body = asrBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/audio/asr/transcription',
@@ -544,7 +593,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/video — 视频生成(异步)
   server.post('/dashscope/video', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string }
+    const body = promptModelBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis',
@@ -559,7 +608,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/embedding — 文本向量化
   server.post('/dashscope/embedding', async (request, reply) => {
-    const body = request.body as { text?: string; model?: string }
+    const body = textModelBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',
@@ -573,7 +622,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/multimodal — 多模态对话
   server.post('/dashscope/multimodal', async (request, reply) => {
-    const body = request.body as { messages?: unknown[]; model?: string }
+    const body = multimodalBody.parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
@@ -587,7 +636,9 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /dashscope/agent — 智能体调用
   server.post('/dashscope/agent', async (request, reply) => {
-    const body = request.body as { agentId?: string; messages?: unknown[] }
+    const body = z
+      .object({ agentId: z.string().optional(), messages: z.array(z.unknown()).optional() })
+      .parse(request.body)
     const data = await callVendor(
       'dashscope',
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/agents/generation',
@@ -605,7 +656,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/chat — 对话
   server.post('/doubao/chat', async (request, reply) => {
-    const body = request.body as { messages?: unknown[]; model?: string; temperature?: number }
+    const body = chatBody.parse(request.body)
     const data = await callVendor(
       'doubao',
       'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
@@ -619,7 +670,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/image — 文生图
   server.post('/doubao/image', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string; size?: string }
+    const body = imageBody.parse(request.body)
     const data = await callVendor(
       'doubao',
       'https://ark.cn-beijing.volces.com/api/v3/images/generations',
@@ -633,13 +684,15 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/image-edit — 豆包图片编辑（图生图，doubao-seededit-3-0-i2i）
   server.post('/doubao/image-edit', async (request, reply) => {
-    const body = request.body as {
-      prompt?: string
-      image?: string
-      model?: string
-      size?: string
-      strength?: number
-    }
+    const body = z
+      .object({
+        prompt: z.string().optional(),
+        image: z.string().optional(),
+        model: z.string().optional(),
+        size: z.string().optional(),
+        strength: z.number().optional(),
+      })
+      .parse(request.body)
     if (!body.prompt || !body.image) {
       return reply.status(400).send(error(400, 'prompt 和 image 为必填'))
     }
@@ -664,7 +717,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/tts — 语音合成
   server.post('/doubao/tts', async (request, reply) => {
-    const body = request.body as { text?: string; model?: string; voice?: string }
+    const body = ttsBody.parse(request.body)
     const data = await callVendor('doubao', 'https://openspeech.bytedance.com/api/v1/tts', reply, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -676,7 +729,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/asr — 语音识别
   server.post('/doubao/asr', async (request, reply) => {
-    const body = request.body as { audioUrl?: string; model?: string }
+    const body = asrBody.parse(request.body)
     const data = await callVendor('doubao', 'https://openspeech.bytedance.com/api/v1/asr', reply, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -700,7 +753,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/video — 视频生成(异步)
   server.post('/doubao/video', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string }
+    const body = promptModelBody.parse(request.body)
     const data = await callVendor(
       'doubao',
       'https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks',
@@ -715,7 +768,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/embedding — 向量化
   server.post('/doubao/embedding', async (request, reply) => {
-    const body = request.body as { text?: string; model?: string }
+    const body = textModelBody.parse(request.body)
     const data = await callVendor(
       'doubao',
       'https://ark.cn-beijing.volces.com/api/v3/embeddings',
@@ -729,7 +782,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /doubao/multimodal — 多模态
   server.post('/doubao/multimodal', async (request, reply) => {
-    const body = request.body as { messages?: unknown[]; model?: string }
+    const body = multimodalBody.parse(request.body)
     const data = await callVendor(
       'doubao',
       'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
@@ -747,7 +800,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/chat — 对话
   server.post('/gemini/chat', async (request, reply) => {
-    const body = request.body as { messages?: unknown[]; model?: string }
+    const body = multimodalBody.parse(request.body)
     const model = body.model ?? 'gemini-2.0-flash'
     const data = await callVendor(
       'gemini',
@@ -762,7 +815,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/image — 文生图(Imagen)
   server.post('/gemini/image', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string; size?: string }
+    const body = imageBody.parse(request.body)
     const model = body.model ?? 'imagen-3.0-generate-002'
     const data = await callVendor(
       'gemini',
@@ -783,7 +836,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/tts — 语音合成
   server.post('/gemini/tts', async (request, reply) => {
-    const body = request.body as { text?: string; model?: string; voice?: string }
+    const body = ttsBody.parse(request.body)
     const data = await callVendor(
       'gemini',
       'https://texttospeech.googleapis.com/v1/text:synthesize',
@@ -804,7 +857,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/asr — 语音识别
   server.post('/gemini/asr', async (request, reply) => {
-    const body = request.body as { audioUrl?: string; model?: string }
+    const body = asrBody.parse(request.body)
     const data = await callVendor(
       'gemini',
       'https://speech.googleapis.com/v1/speech:recognize',
@@ -830,7 +883,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/video — 视频生成(Veo,异步)
   server.post('/gemini/video', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string }
+    const body = promptModelBody.parse(request.body)
     const model = body.model ?? 'veo-3.0-generate-preview'
     const data = await callVendor(
       'gemini',
@@ -852,7 +905,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/embedding — 向量化
   server.post('/gemini/embedding', async (request, reply) => {
-    const body = request.body as { text?: string; model?: string }
+    const body = textModelBody.parse(request.body)
     const model = body.model ?? 'text-embedding-004'
     const data = await callVendor(
       'gemini',
@@ -867,7 +920,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /gemini/multimodal — 多模态
   server.post('/gemini/multimodal', async (request, reply) => {
-    const body = request.body as { messages?: unknown[]; model?: string }
+    const body = multimodalBody.parse(request.body)
     const model = body.model ?? 'gemini-2.0-flash'
     const data = await callVendor(
       'gemini',
@@ -886,7 +939,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /suno/generate — 生成音乐(异步)
   server.post('/suno/generate', async (request, reply) => {
-    const body = request.body as { prompt?: string; model?: string; duration?: number }
+    const body = z
+      .object({
+        prompt: z.string().optional(),
+        model: z.string().optional(),
+        duration: z.number().optional(),
+      })
+      .parse(request.body)
     const data = await callVendor('suno', 'https://api.suno.ai/v1/music/generations', reply, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -910,7 +969,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /suno/tasks/:taskId — 任务详情
   server.get('/suno/tasks/:taskId', async (request, reply) => {
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const task = taskStore.get(taskId)
     if (!task || task.vendor !== 'suno') {
       return reply.status(404).send(error(404, '任务不存在'))
@@ -929,7 +988,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /suno/lyrics — 歌词生成
   server.post('/suno/lyrics', async (request, reply) => {
-    const body = request.body as { prompt?: string }
+    const body = promptOnlyBody.parse(request.body)
     const data = await callVendor('suno', 'https://api.suno.ai/v1/lyrics/generations', reply, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -952,12 +1011,14 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /sora2/generate — 生成视频(异步)
   server.post('/sora2/generate', async (request, reply) => {
-    const body = request.body as {
-      prompt?: string
-      model?: string
-      duration?: number
-      size?: string
-    }
+    const body = z
+      .object({
+        prompt: z.string().optional(),
+        model: z.string().optional(),
+        duration: z.number().optional(),
+        size: z.string().optional(),
+      })
+      .parse(request.body)
     const data = await callVendor(
       'sora2',
       `${VENDORS.sora2!.baseUrl}/v1/videos/generations`,
@@ -984,7 +1045,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /sora2/tasks/:taskId — 任务详情
   server.get('/sora2/tasks/:taskId', async (request, reply) => {
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const task = taskStore.get(taskId)
     if (!task || task.vendor !== 'sora2') {
       return reply.status(404).send(error(404, '任务不存在'))
@@ -1015,7 +1076,9 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /coze/chat — 对话
   server.post('/coze/chat', async (request, reply) => {
-    const body = request.body as { botId?: string; messages?: unknown[] }
+    const body = z
+      .object({ botId: z.string().optional(), messages: z.array(z.unknown()).optional() })
+      .parse(request.body)
     const data = await callVendor('coze', 'https://api.coze.cn/v1/chat', reply, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -1039,7 +1102,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /coze/bots — 机器人列表
   server.get('/coze/bots', async (request, reply) => {
-    const query = request.query as { page_size?: string }
+    const query = pageSizeQuery.parse(request.query)
     const data = await callVendor(
       'coze',
       `https://api.coze.cn/v1/bots/list?${new URLSearchParams({ page_size: query.page_size ?? '20' })}`,
@@ -1052,7 +1115,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /coze/bots/:botId — 机器人详情
   server.get('/coze/bots/:botId', async (request, reply) => {
-    const { botId } = request.params as { botId: string }
+    const { botId } = botIdParam.parse(request.params)
     const data = await callVendor(
       'coze',
       `https://api.coze.cn/v1/bot/get_online_info?bot_id=${encodeURIComponent(botId)}`,
@@ -1065,7 +1128,9 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /coze/workflow/run — 运行工作流
   server.post('/coze/workflow/run', async (request, reply) => {
-    const body = request.body as { workflowId?: string; parameters?: Record<string, unknown> }
+    const body = z
+      .object({ workflowId: z.string().optional(), parameters: z.record(z.unknown()).optional() })
+      .parse(request.body)
     const data = await callVendor('coze', 'https://api.coze.cn/v1/workflow/run', reply, {
       method: 'POST',
       body: JSON.stringify({ workflow_id: body.workflowId, parameters: body.parameters }),
@@ -1100,7 +1165,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /coze/knowledge/list — 知识库列表
   server.get('/coze/knowledge/list', async (request, reply) => {
-    const query = request.query as { page_size?: string }
+    const query = pageSizeQuery.parse(request.query)
     const data = await callVendor(
       'coze',
       `https://api.coze.cn/v1/knowledge/list?${new URLSearchParams({ page_size: query.page_size ?? '20' })}`,
@@ -1117,12 +1182,14 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /bailian/chat — 百炼应用对话(HTTP,支持流式收集)
   server.post('/bailian/chat', async (request, reply) => {
-    const body = request.body as {
-      prompt?: string
-      appId?: string
-      sessionId?: string
-      stream?: boolean
-    }
+    const body = z
+      .object({
+        prompt: z.string().optional(),
+        appId: z.string().optional(),
+        sessionId: z.string().optional(),
+        stream: z.boolean().optional(),
+      })
+      .parse(request.body)
     if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
     const key = requireVendorKey('bailian', reply)
     if (!key) return
@@ -1189,7 +1256,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // WS /bailian/ws — 百炼应用流式对话(WebSocket)
   server.get('/bailian/ws', { websocket: true }, (socket, request) => {
-    const token = (request.query as { token?: string }).token
+    const { token } = tokenQuery.parse(request.query)
     if (!token) {
       socket.close(4001, '缺少 token')
       return
@@ -1281,7 +1348,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /jimeng4/image — 即梦4.0 文生图(异步提交+轮询)
   server.post('/jimeng4/image', async (request, reply) => {
-    const body = request.body as { prompt?: string; width?: number; height?: number; seed?: number }
+    const body = jimengBody.parse(request.body)
     if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
     const keys = requireVendorKeys('jimeng4', reply)
     if (!keys) return
@@ -1333,7 +1400,9 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /n8n/workflows — 查询N8N工作流列表(凭据从请求体传入)
   server.post('/n8n/workflows', async (request, reply) => {
-    const body = request.body as { n8nDomain?: string; apiKey?: string }
+    const body = z
+      .object({ n8nDomain: z.string().optional(), apiKey: z.string().optional() })
+      .parse(request.body)
     if (!body.n8nDomain || !body.apiKey)
       return reply.status(400).send(error(400, 'n8nDomain 和 apiKey 为必填'))
     try {
@@ -1359,11 +1428,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /n8n/workflow/run — 运行N8N工作流
   server.post('/n8n/workflow/run', async (request, reply) => {
-    const body = request.body as {
-      workflowId?: string
-      webhookPath?: string
-      inputData?: Record<string, unknown>
-    }
+    const body = z
+      .object({
+        workflowId: z.string().optional(),
+        webhookPath: z.string().optional(),
+        inputData: z.record(z.unknown()).optional(),
+      })
+      .parse(request.body)
     const baseUrl = process.env.N8N_BASE_URL
     if (!baseUrl) return reply.status(503).send(error(503, 'N8N_BASE_URL 未配置'))
     const key = requireVendorKey('n8n', reply)
@@ -1393,14 +1464,16 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /n8n/addAgent — 通过N8N新增智能体(内存存储)
   server.post('/n8n/addAgent', async (request, reply) => {
-    const body = request.body as {
-      agentName?: string
-      agentDescription?: string
-      connectorUserId?: string
-      agentVariables?: Record<string, unknown>
-      agentModel?: string
-      agentAvatar?: string
-    }
+    const body = z
+      .object({
+        agentName: z.string().optional(),
+        agentDescription: z.string().optional(),
+        connectorUserId: z.string().optional(),
+        agentVariables: z.record(z.unknown()).optional(),
+        agentModel: z.string().optional(),
+        agentAvatar: z.string().optional(),
+      })
+      .parse(request.body)
     if (!body.agentName || !body.connectorUserId)
       return reply.status(400).send(error(400, 'agentName 和 connectorUserId 为必填'))
     const agentId = `n8n_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
@@ -1427,13 +1500,15 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /tencent/hunyuan3d/submit — 提交混元3D任务
   server.post('/tencent/hunyuan3d/submit', async (request, reply) => {
-    const body = request.body as {
-      Prompt?: string
-      ImageBase64?: string
-      ImageUrl?: string
-      ResultFormat?: string
-      EnablePBR?: boolean
-    }
+    const body = z
+      .object({
+        Prompt: z.string().optional(),
+        ImageBase64: z.string().optional(),
+        ImageUrl: z.string().optional(),
+        ResultFormat: z.string().optional(),
+        EnablePBR: z.boolean().optional(),
+      })
+      .parse(request.body)
     if (!body.Prompt && !body.ImageBase64 && !body.ImageUrl)
       return reply.status(400).send(error(400, 'Prompt / ImageBase64 / ImageUrl 至少提供一个'))
     const keys = requireVendorKeys('tencent', reply)
@@ -1486,7 +1561,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /tencent/hunyuan3d/query — 查询混元3D任务状态
   server.post('/tencent/hunyuan3d/query', async (request, reply) => {
-    const body = request.body as { JobId?: string }
+    const body = z.object({ JobId: z.string().optional() }).parse(request.body)
     if (!body.JobId) return reply.status(400).send(error(400, 'JobId 为必填'))
     const keys = requireVendorKeys('tencent', reply)
     if (!keys) return
@@ -1508,7 +1583,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /tencent/hunyuan3d/task/:taskId — 按路径参数查询任务
   server.get('/tencent/hunyuan3d/task/:taskId', async (request, reply) => {
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const keys = requireVendorKeys('tencent', reply)
     if (!keys) return
     try {
@@ -1550,7 +1625,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /volcengine/jimeng/image — 即梦4.0 文生图(异步提交+轮询)
   server.post('/volcengine/jimeng/image', async (request, reply) => {
-    const body = request.body as { prompt?: string; width?: number; height?: number; seed?: number }
+    const body = jimengBody.parse(request.body)
     if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
     const keys = requireVendorKeys('volcengine', reply)
     if (!keys) return
@@ -1600,7 +1675,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /volcengine/jimeng/generate — 即梦3.1 生成
   server.post('/volcengine/jimeng/generate', async (request, reply) => {
-    const body = request.body as { prompt?: string }
+    const body = promptOnlyBody.parse(request.body)
     if (!body.prompt) return reply.status(400).send(error(400, 'prompt 为必填'))
     const keys = requireVendorKeys('volcengine', reply)
     if (!keys) return
@@ -1627,8 +1702,11 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /volcengine/visual/:reqKey — 火山视觉通用代理(异步提交+轮询)
   server.post('/volcengine/visual/:reqKey', async (request, reply) => {
-    const { reqKey } = request.params as { reqKey: string }
-    const body = request.body as { prompt?: string; images?: string[]; [key: string]: unknown }
+    const { reqKey } = reqKeyParam.parse(request.params)
+    const body = z
+      .object({ prompt: z.string().optional(), images: z.array(z.string()).optional() })
+      .passthrough()
+      .parse(request.body)
     const keys = requireVendorKeys('volcengine', reply)
     if (!keys) return
     const submitBody: Record<string, unknown> = {
@@ -1671,7 +1749,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /volcengine/jimeng4/process — 即梦4.0 CVProcess 通用转发
   server.post('/volcengine/jimeng4/process', async (request, reply) => {
-    const body = request.body as { req_key?: string; [key: string]: unknown }
+    const body = z.object({ req_key: z.string().optional() }).passthrough().parse(request.body)
     if (!body.req_key) return reply.status(400).send(error(400, 'req_key 为必填'))
     const keys = requireVendorKeys('volcengine', reply)
     if (!keys) return
@@ -1712,7 +1790,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /vendors/:vendor/models — 指定厂商模型列表
   server.get('/vendors/:vendor/models', async (request, reply) => {
-    const { vendor } = request.params as { vendor: string }
+    const { vendor } = vendorParam.parse(request.params)
     const cfg = VENDORS[vendor]
     if (!cfg) return reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
     // 复用各厂商的 models 端点
@@ -1735,7 +1813,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /proxy — 通用代理
   server.post('/proxy', async (request, reply) => {
-    const body = request.body as { vendor?: string; endpoint?: string; payload?: unknown }
+    const body = z
+      .object({
+        vendor: z.string().optional(),
+        endpoint: z.string().optional(),
+        payload: z.unknown().optional(),
+      })
+      .parse(request.body)
     if (!body.vendor || !body.endpoint) {
       return reply.status(400).send(error(400, 'vendor 和 endpoint 为必填'))
     }
@@ -1753,7 +1837,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /tasks — 异步任务列表(跨厂商,当前用户)
   server.get('/tasks', async (request, reply) => {
-    const query = request.query as { vendor?: string; status?: string }
+    const query = tasksQuery.parse(request.query)
     const list: AsyncTask[] = []
     for (const t of taskStore.values()) {
       if (t.userId !== request.userId) continue
@@ -1767,7 +1851,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /tasks/:taskId — 异步任务详情
   server.get('/tasks/:taskId', async (request, reply) => {
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const task = taskStore.get(taskId)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     if (task.userId !== request.userId) return reply.status(403).send(error(403, '无权访问该任务'))
@@ -1776,7 +1860,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /tasks/:taskId — 取消任务
   server.delete('/tasks/:taskId', async (request, reply) => {
-    const { taskId } = request.params as { taskId: string }
+    const { taskId } = taskIdParam.parse(request.params)
     const task = taskStore.get(taskId)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     if (task.userId !== request.userId) return reply.status(403).send(error(403, '无权访问该任务'))
@@ -1791,7 +1875,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /timbre/clone — 音色克隆
   server.post('/timbre/clone', async (request, reply) => {
-    const body = request.body as { voiceName?: string; audioUrl?: string; vendor?: string }
+    const body = z
+      .object({
+        voiceName: z.string().optional(),
+        audioUrl: z.string().optional(),
+        vendor: z.string().optional(),
+      })
+      .parse(request.body)
     if (!body.voiceName || !body.audioUrl) {
       return reply.status(400).send(error(400, 'voiceName 和 audioUrl 为必填'))
     }
@@ -1828,7 +1918,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /timbre/:timbreId — 删除音色
   server.delete('/timbre/:timbreId', async (request, reply) => {
-    const { timbreId } = request.params as { timbreId: string }
+    const { timbreId } = timbreIdParam.parse(request.params)
     const timbre = timbreStore.get(timbreId)
     if (!timbre) return reply.status(404).send(error(404, '音色不存在'))
     if (timbre.userId !== request.userId)
@@ -1839,12 +1929,14 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /timbre/:timbreId — 更新音色（voiceName / audioUrl / status）
   server.put('/timbre/:timbreId', async (request, reply) => {
-    const { timbreId } = request.params as { timbreId: string }
-    const body = request.body as {
-      voiceName?: string
-      audioUrl?: string
-      status?: Timbre['status']
-    }
+    const { timbreId } = timbreIdParam.parse(request.params)
+    const body = z
+      .object({
+        voiceName: z.string().optional(),
+        audioUrl: z.string().optional(),
+        status: z.enum(['training', 'ready', 'failed']).optional(),
+      })
+      .parse(request.body)
     const timbre = timbreStore.get(timbreId)
     if (!timbre) return reply.status(404).send(error(404, '音色不存在'))
     if (timbre.userId !== request.userId)
@@ -1857,7 +1949,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /watermark/image — 图片水印
   server.post('/watermark/image', async (request, reply) => {
-    const body = request.body as { imageUrl?: string; text?: string; position?: string }
+    const body = z
+      .object({
+        imageUrl: z.string().optional(),
+        text: z.string().optional(),
+        position: z.string().optional(),
+      })
+      .parse(request.body)
     if (!body.imageUrl) return reply.status(400).send(error(400, 'imageUrl 为必填'))
     // 委托给通义图片编辑(若无配置则返回提示)
     const data = await callVendor(
@@ -1879,7 +1977,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /watermark/video — 视频水印
   server.post('/watermark/video', async (request, reply) => {
-    const body = request.body as { videoUrl?: string; text?: string; position?: string }
+    const body = z
+      .object({
+        videoUrl: z.string().optional(),
+        text: z.string().optional(),
+        position: z.string().optional(),
+      })
+      .parse(request.body)
     if (!body.videoUrl) return reply.status(400).send(error(400, 'videoUrl 为必填'))
     const data = await callVendor(
       'dashscope',
@@ -1911,7 +2015,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /usage/:vendor — 指定厂商用量
   server.get('/usage/:vendor', async (request, reply) => {
-    const { vendor } = request.params as { vendor: string }
+    const { vendor } = vendorParam.parse(request.params)
     const u = usageStore.get(`${request.userId}:${vendor}`)
     if (!u) return reply.send(success({ userId: request.userId, vendor, calls: 0 }))
     return reply.send(success(u))
@@ -1919,12 +2023,14 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /aigc/record — 记录 AIGC 生成
   server.post('/aigc/record', async (request, reply) => {
-    const body = request.body as {
-      type?: string
-      vendor?: string
-      prompt?: string
-      resultUrl?: string
-    }
+    const body = z
+      .object({
+        type: z.string().optional(),
+        vendor: z.string().optional(),
+        prompt: z.string().optional(),
+        resultUrl: z.string().optional(),
+      })
+      .parse(request.body)
     if (!body.type || !body.vendor) {
       return reply.status(400).send(error(400, 'type 和 vendor 为必填'))
     }
@@ -1943,7 +2049,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /aigc/records — AIGC 记录列表
   server.get('/aigc/records', async (request, reply) => {
-    const query = request.query as { type?: string; vendor?: string }
+    const query = aigcRecordsQuery.parse(request.query)
     const list: AigcRecord[] = []
     for (const r of aigcStore.values()) {
       if (r.userId !== request.userId) continue
@@ -1957,7 +2063,7 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /aigc/records/:recordId — 删除 AIGC 记录
   server.delete('/aigc/records/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
+    const { recordId } = recordIdParam.parse(request.params)
     const record = aigcStore.get(recordId)
     if (!record) return reply.status(404).send(error(404, '记录不存在'))
     if (record.userId !== request.userId)
@@ -2003,7 +2109,7 @@ export const adminAiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /vendors/:vendor — 厂商详情
   server.get('/vendors/:vendor', async (request, reply) => {
-    const { vendor } = request.params as { vendor: string }
+    const { vendor } = vendorParam.parse(request.params)
     const cfg = VENDORS[vendor]
     if (!cfg) return reply.status(404).send(error(404, '厂商不存在'))
     return reply.send(
@@ -2019,7 +2125,7 @@ export const adminAiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /vendors/:vendor/test — 测试厂商连通性
   server.post('/vendors/:vendor/test', async (request, reply) => {
-    const { vendor } = request.params as { vendor: string }
+    const { vendor } = vendorParam.parse(request.params)
     const cfg = VENDORS[vendor]
     if (!cfg) return reply.status(404).send(error(404, '厂商不存在'))
     const key = process.env[cfg.keyEnv]
@@ -2047,7 +2153,7 @@ export const adminAiVendorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /tasks — 全部异步任务(管理视角)
   server.get('/tasks', async (request, reply) => {
-    const query = request.query as { vendor?: string; status?: string }
+    const query = tasksQuery.parse(request.query)
     const list: AsyncTask[] = []
     for (const t of taskStore.values()) {
       if (query.vendor && t.vendor !== query.vendor) continue
