@@ -18,7 +18,10 @@ export default function ThemePage() {
     try {
       await setTheme(v)
       Taro.showToast({ title: '设置成功', icon: 'success' })
-    } catch {}
+    } catch (e) {
+      console.error('[setting/theme] 设置主题 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   return (
@@ -31,7 +34,7 @@ export default function ThemePage() {
       </View>
 
       <View className="list">
-        {THEMES.map(t => (
+        {THEMES.map((t) => (
           <View
             key={t.value}
             className={`item${current === t.value ? ' active' : ''}`}

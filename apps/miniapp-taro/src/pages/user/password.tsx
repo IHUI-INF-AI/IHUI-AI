@@ -22,7 +22,10 @@ export default function Password() {
       await updatePassword(oldPwd, newPwd)
       Taro.showToast({ title: '修改成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch {}
+    } catch (e) {
+      console.error('[user/password] 修改密码 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }
 
   return (
@@ -35,7 +38,7 @@ export default function Password() {
             password
             placeholder="请输入旧密码"
             value={oldPwd}
-            onInput={e => setOldPwd(e.detail.value)}
+            onInput={(e) => setOldPwd(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
@@ -45,7 +48,7 @@ export default function Password() {
             password
             placeholder="请输入新密码"
             value={newPwd}
-            onInput={e => setNewPwd(e.detail.value)}
+            onInput={(e) => setNewPwd(e.detail.value)}
           />
         </View>
         <View className="flex items-center py-[16px]">
@@ -55,7 +58,7 @@ export default function Password() {
             password
             placeholder="请再次输入新密码"
             value={confirmPwd}
-            onInput={e => setConfirmPwd(e.detail.value)}
+            onInput={(e) => setConfirmPwd(e.detail.value)}
           />
         </View>
       </View>

@@ -8,7 +8,12 @@ export default function SettingIndexPage() {
   const [user, setUser] = useState<Partial<UserInfo>>({})
 
   const load = useCallback(async () => {
-    try { setUser(await getProfile()) } catch {}
+    try {
+      setUser(await getProfile())
+    } catch (e) {
+      console.error('[setting/index] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   const navigate = useCallback((url: string) => {
@@ -21,10 +26,15 @@ export default function SettingIndexPage() {
       content: '确定退出登录吗？',
       success: async (res) => {
         if (res.confirm) {
-          try { await logout() } catch {}
+          try {
+            await logout()
+          } catch (e) {
+            console.error('[setting/index] 退出登录 failed:', e)
+            Taro.showToast({ title: '操作失败', icon: 'none' })
+          }
           Taro.reLaunch({ url: '/pages/login/login' })
         }
-      }
+      },
     })
   }, [])
 
@@ -34,7 +44,11 @@ export default function SettingIndexPage() {
     <View className="page">
       {user.nickname ? (
         <View className="user-info">
-          <Image className="avatar" src={user.avatar || '/static/default-avatar.png'} mode="aspectFill" />
+          <Image
+            className="avatar"
+            src={user.avatar || '/static/default-avatar.png'}
+            mode="aspectFill"
+          />
           <View className="info">
             <Text className="name">{user.nickname}</Text>
             <Text className="phone">{user.phone || '未绑定手机'}</Text>
@@ -46,13 +60,16 @@ export default function SettingIndexPage() {
         <Text className="group-title">账号</Text>
         <View className="menu">
           <View className="menu-item" onClick={() => navigate('/pages/user/profile')}>
-            <Text>个人资料</Text><Text className="arrow">›</Text>
+            <Text>个人资料</Text>
+            <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/setting/notification')}>
-            <Text>通知设置</Text><Text className="arrow">›</Text>
+            <Text>通知设置</Text>
+            <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/setting/cache')}>
-            <Text>清除缓存</Text><Text className="arrow">›</Text>
+            <Text>清除缓存</Text>
+            <Text className="arrow">›</Text>
           </View>
         </View>
       </View>
@@ -61,18 +78,23 @@ export default function SettingIndexPage() {
         <Text className="group-title">通用</Text>
         <View className="menu">
           <View className="menu-item" onClick={() => navigate('/pages/setting/language')}>
-            <Text>语言设置</Text><Text className="arrow">›</Text>
+            <Text>语言设置</Text>
+            <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/setting/theme')}>
-            <Text>主题设置</Text><Text className="arrow">›</Text>
+            <Text>主题设置</Text>
+            <Text className="arrow">›</Text>
           </View>
           <View className="menu-item" onClick={() => navigate('/pages/about/index')}>
-            <Text>关于我们</Text><Text className="arrow">›</Text>
+            <Text>关于我们</Text>
+            <Text className="arrow">›</Text>
           </View>
         </View>
       </View>
 
-      <Button className="logout" onClick={onLogout}>退出登录</Button>
+      <Button className="logout" onClick={onLogout}>
+        退出登录
+      </Button>
     </View>
   )
 }

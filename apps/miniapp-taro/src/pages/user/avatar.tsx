@@ -7,7 +7,12 @@ export default function Avatar() {
   const [avatar, setAvatar] = useState('')
 
   useDidShow(async () => {
-    try { setAvatar((await getProfile()).avatar || '') } catch {}
+    try {
+      setAvatar((await getProfile()).avatar || '')
+    } catch (e) {
+      console.error('[user/avatar] 获取用户信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   })
 
   function chooseImg() {
@@ -20,7 +25,10 @@ export default function Avatar() {
           setAvatar(path)
           await updateUserAvatar(path)
           Taro.showToast({ title: '更新成功', icon: 'success' })
-        } catch {}
+        } catch (e) {
+          console.error('[user/avatar] 更新头像 failed:', e)
+          Taro.showToast({ title: '操作失败', icon: 'none' })
+        }
       },
     })
   }
