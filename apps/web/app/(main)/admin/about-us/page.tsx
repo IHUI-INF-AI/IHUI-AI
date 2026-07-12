@@ -1,10 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Info, Plus, Edit, Trash2, Loader2, Download, Search } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
-import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Button,
@@ -52,19 +53,19 @@ const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const SEARCH_KEYS = ['network', 'phone', 'socialMedia', 'experience'] as const
 const FIELDS: { key: keyof AboutUsItem; label: string; type?: 'textarea' }[] = [
-  { key: 'network', label: '网络' },
-  { key: 'phone', label: '电话' },
-  { key: 'socialMedia', label: '社交媒体' },
-  { key: 'experience', label: '经验' },
-  { key: 'description', label: '描述', type: 'textarea' },
+  { key: 'network', label: 'fieldNetwork' },
+  { key: 'phone', label: 'fieldPhone' },
+  { key: 'socialMedia', label: 'fieldSocialMedia' },
+  { key: 'experience', label: 'fieldExperience' },
+  { key: 'description', label: 'fieldDescription', type: 'textarea' },
 ]
 const COLS: { key: keyof AboutUsItem; label: string }[] = [
-  { key: 'id', label: 'ID' },
+  { key: 'id', label: 'colId' },
   ...FIELDS.map((f) => ({ key: f.key, label: f.label })),
 ]
-const EXPORT_COLS: ExportColumn[] = COLS.map((c) => ({ key: c.key, title: c.label }))
 
 export default function AboutUsPage() {
+  const t = useTranslations('admin.aboutUs')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AboutUsItem | null>(null)
@@ -136,7 +137,7 @@ export default function AboutUsPage() {
     const ok = await exportFromApi(
       `${RESOURCE}?${new URLSearchParams(params)}`,
       '关于我们',
-      EXPORT_COLS,
+      COLS.map((c) => ({ key: c.key, title: t(c.label) })),
     )
     if (!ok) alert('导出失败')
   }
@@ -172,7 +173,7 @@ export default function AboutUsPage() {
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
         {SEARCH_KEYS.map((k) => {
-          const label = FIELDS.find((f) => f.key === k)!.label
+          const label = t(FIELDS.find((f) => f.key === k)!.label)
           return (
             <div key={k} className="space-y-1">
               <Label className="text-xs">{label}</Label>
@@ -200,7 +201,7 @@ export default function AboutUsPage() {
             <tr>
               {COLS.map((c) => (
                 <th key={c.key} className={th}>
-                  {c.label}
+                  {t(c.label)}
                 </th>
               ))}
               <th className={`${th} text-right`}>操作</th>
@@ -292,7 +293,7 @@ export default function AboutUsPage() {
             </DialogHeader>
             {FIELDS.map((f) => (
               <div key={f.key} className="space-y-2">
-                <Label htmlFor={`f-${f.key}`}>{f.label}</Label>
+                <Label htmlFor={`f-${f.key}`}>{t(f.label)}</Label>
                 {f.type === 'textarea' ? (
                   <textarea
                     id={`f-${f.key}`}
@@ -300,14 +301,14 @@ export default function AboutUsPage() {
                     onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                     className={textareaClass}
                     rows={3}
-                    placeholder={`请输入${f.label}`}
+                    placeholder={`请输入${t(f.label)}`}
                   />
                 ) : (
                   <Input
                     id={`f-${f.key}`}
                     value={form[f.key]}
                     onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                    placeholder={`请输入${f.label}`}
+                    placeholder={`请输入${t(f.label)}`}
                   />
                 )}
               </div>

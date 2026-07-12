@@ -477,7 +477,8 @@ export default function LoginPage() {
             setShowEnterpriseQr(false)
           }}
         >
-          {t('dingtalkLogin')}扫码
+          {t('dingtalkLogin')}
+          {t('scan')}
         </Button>
         <Button
           type="button"
@@ -487,19 +488,20 @@ export default function LoginPage() {
             setShowDingtalkQr(false)
           }}
         >
-          {t('enterpriseWechat')}扫码
+          {t('enterpriseWechat')}
+          {t('scan')}
         </Button>
       </div>
       {showDingtalkQr && (
         <div className="flex flex-col items-center gap-2">
           <div id="dd-login-container" className="flex items-center justify-center" />
-          <p className="text-xs text-muted-foreground">请使用钉钉 App 扫码登录</p>
+          <p className="text-xs text-muted-foreground">{t('dingtalkScanTip')}</p>
         </div>
       )}
       {showEnterpriseQr && (
         <div className="flex flex-col items-center gap-2">
           <div id="ww-login-container" className="flex items-center justify-center" />
-          <p className="text-xs text-muted-foreground">请使用企业微信扫码登录</p>
+          <p className="text-xs text-muted-foreground">{t('enterpriseScanTip')}</p>
         </div>
       )}
 

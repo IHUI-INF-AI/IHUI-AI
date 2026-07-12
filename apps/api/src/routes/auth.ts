@@ -13,6 +13,7 @@ import {
   findRefreshToken,
   revokeRefreshToken,
 } from '../db/queries.js'
+import { getUserPermissions } from '../db/rbac-queries.js'
 import { findInvitationByCode, markInvitationUsed } from '../db/promotion-queries.js'
 import { earnPoints } from '../services/points-service.js'
 import { success, error } from '../utils/response.js'
@@ -70,6 +71,8 @@ const resetPasswordSchema = z.object({
 // =============================================================================
 
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60 // 30d
+const ADMIN_ROLE_ID = 1 // 与 require-permission.ts 保持一致
+const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
 
 async function buildTokenPair(user: {
   id: string
@@ -97,16 +100,29 @@ async function buildTokenPair(user: {
   }
 }
 
-function publicUser(user: {
-  id: string
-  phone: string | null
-  email: string | null
-  nickname: string | null
-  avatar: string | null
-  bio: string | null
-  roleId: number | null
-  status: number | null
-}) {
+/**
+ * 解析用户权限码数组。
+ * - admin（roleId >= 1）返回通配符 ['*:*:*']，前端 HasPermi 直接放行所有
+ * - 其他用户查 RBAC 表，无记录返回 []（前端 HasPermi 将拒绝）
+ */
+async function resolveUserPermissions(userId: string, roleId: number | null): Promise<string[]> {
+  if (roleId !== null && roleId >= ADMIN_ROLE_ID) return ADMIN_WILDCARD_PERMISSIONS
+  return getUserPermissions(userId)
+}
+
+function publicUser(
+  user: {
+    id: string
+    phone: string | null
+    email: string | null
+    nickname: string | null
+    avatar: string | null
+    bio: string | null
+    roleId: number | null
+    status: number | null
+  },
+  permissions: string[] = [],
+) {
   return {
     id: user.id,
     phone: user.phone ?? '',
@@ -116,6 +132,7 @@ function publicUser(user: {
     bio: user.bio ?? '',
     roleId: user.roleId ?? 0,
     status: user.status ?? 1,
+    permissions,
   }
 }
 
@@ -391,10 +408,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId,
       })
 
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
       return reply.send(
         success({
           ...tokens,
-          user: publicUser(user),
+          user: publicUser(user, permissions),
         }),
       )
     },
@@ -488,10 +506,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         familyId,
       })
 
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
       return reply.send(
         success({
           ...tokens,
-          user: publicUser(user),
+          user: publicUser(user, permissions),
         }),
       )
     },
@@ -590,7 +609,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '用户不存在'))
     }
 
-    return reply.send(success({ user: publicUser(user) }))
+    const permissions = await resolveUserPermissions(user.id, user.roleId)
+    return reply.send(success({ user: publicUser(user, permissions) }))
   })
 
   // POST /api/auth/logout

@@ -33,37 +33,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const MOCK_GROUPS: ApiGroup[] = [
-  {
-    id: '1',
-    name: '用户与认证',
-    description: '登录、注册、用户信息相关接口',
-    apiCount: 18,
-    createdAt: '2026-06-01',
-  },
-  {
-    id: '2',
-    name: '订单与支付',
-    description: '订单创建、支付、退款相关接口',
-    apiCount: 24,
-    createdAt: '2026-06-02',
-  },
-  {
-    id: '3',
-    name: '内容管理',
-    description: '文章、公告、资源相关接口',
-    apiCount: 32,
-    createdAt: '2026-06-05',
-  },
-  {
-    id: '4',
-    name: 'AI 服务',
-    description: '对话、模型调用、Agent 相关接口',
-    apiCount: 16,
-    createdAt: '2026-06-10',
-  },
-]
-
 const EMPTY = { name: '', description: '' }
 const th = 'px-4 py-2.5 font-medium'
 const textareaClass =
@@ -77,15 +46,12 @@ export default function ApiGroupsPage() {
   const [editing, setEditing] = React.useState<ApiGroup | null>(null)
   const [form, setForm] = React.useState(EMPTY)
 
-  const { data: list = MOCK_GROUPS, isLoading } = useQuery({
+  const { data: list, isLoading } = useQuery({
     queryKey: ['admin', 'api-groups'],
     queryFn: async () => {
-      try {
-        const d = await api<{ list?: ApiGroup[] } | ApiGroup[]>('/api/admin/api-groups')
-        return Array.isArray(d) ? d : (d.list ?? MOCK_GROUPS)
-      } catch {
-        return MOCK_GROUPS
-      }
+      const d = await api<{ list?: ApiGroup[] } | ApiGroup[]>('/api/admin/api-groups')
+      const arr = Array.isArray(d) ? d : (d.list ?? [])
+      return arr
     },
   })
 
@@ -151,7 +117,7 @@ export default function ApiGroupsPage() {
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}
         </div>
-      ) : list.length === 0 ? (
+      ) : !list?.length ? (
         <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
           {t('apiGroups.noData')}
         </div>

@@ -56,6 +56,29 @@ import {
   KeyRound,
   ShoppingBag,
   BadgeCheck,
+  Images,
+  Sparkles,
+  Megaphone as AdIcon,
+  Link2,
+  Percent,
+  Box,
+  AudioLines,
+  FileImage,
+  Building2,
+  School,
+  UserSquare,
+  IdCard,
+  ClipboardCheck,
+  CreditCard as PayIcon,
+  ScrollText as LogIcon,
+  UserCog,
+  History,
+  Hash,
+  CalendarClock,
+  Network,
+  FileSearch,
+  UserPlus,
+  Files,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -135,6 +158,44 @@ interface AdminNavItem {
     | 'systemTasks'
     | 'realnameAudit'
     | 'agentRules'
+    | 'taskDeveloper'
+    | 'contact'
+    | 'aboutUs'
+    | 'aiGc'
+    | 'advertise'
+    | 'carousel'
+    | 'zhsAgent'
+    | 'zhsUser'
+    | 'zhsActivity'
+    | 'agentTask'
+    | 'agentRule'
+    | 'developerLink'
+    | 'identityProportion'
+    | 'productIdentity'
+    | 'userAgentAudio'
+    | 'userAgentContext'
+    | 'userAgentImage'
+    | 'authAccounts'
+    | 'authDept'
+    | 'authFindInfo'
+    | 'authRole'
+    | 'authUserVip'
+    | 'authVeriCodes'
+    | 'loginLogs'
+    | 'userCenter'
+    | 'eduOrganization'
+    | 'eduPlatform'
+    | 'eduUserPlatform'
+    | 'eduZhsIdentity'
+    | 'eduCourseAudit'
+    | 'eduCoursePay'
+    | 'eduCoursePlatformLog'
+    | 'systemLoginLogs'
+    | 'systemOperationLogs'
+    | 'systemTasksLog'
+    | 'rolesAuthUser'
+    | 'rolesSelectUser'
+    | 'ossFiles'
   icon: React.ComponentType<{ className?: string }>
 }
 
@@ -145,13 +206,13 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/projects', labelKey: 'projects', icon: FolderCog },
   { href: '/admin/orders', labelKey: 'orders', icon: ShoppingCart },
   { href: '/admin/refund', labelKey: 'refund', icon: Receipt },
-  { href: '/admin/exam', labelKey: 'exam', icon: GraduationCap },
-  { href: '/admin/learn', labelKey: 'learn', icon: BookOpen },
+  { href: '/admin/edu/exam', labelKey: 'exam', icon: GraduationCap },
+  { href: '/admin/edu/learn', labelKey: 'learn', icon: BookOpen },
   { href: '/admin/resources', labelKey: 'resources', icon: Package },
   { href: '/admin/live', labelKey: 'live', icon: Radio },
   { href: '/admin/point', labelKey: 'point', icon: Coins },
   { href: '/admin/news', labelKey: 'news', icon: Newspaper },
-  { href: '/admin/certificate', labelKey: 'certificate', icon: Award },
+  { href: '/admin/edu/certificate', labelKey: 'certificate', icon: Award },
   // R3: 智能体市场
   { href: '/admin/agents', labelKey: 'agents', icon: Bot },
   { href: '/admin/agents/categories', labelKey: 'agentCategories', icon: Tag },
@@ -227,6 +288,51 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/system/tasks', labelKey: 'systemTasks', icon: ListChecks },
   // R65: 实名认证审核
   { href: '/admin/realname-audit', labelKey: 'realnameAudit', icon: BadgeCheck },
+  // P0/P1 补齐页面（2026-07-12）
+  // AI 模块扩展
+  { href: '/admin/task-developer', labelKey: 'taskDeveloper', icon: Terminal },
+  { href: '/admin/agent-rule', labelKey: 'agentRule', icon: Shield },
+  { href: '/admin/agent-task', labelKey: 'agentTask', icon: ClipboardCheck },
+  { href: '/admin/advertise', labelKey: 'advertise', icon: AdIcon },
+  { href: '/admin/carousel', labelKey: 'carousel', icon: Images },
+  { href: '/admin/ai-gc', labelKey: 'aiGc', icon: Sparkles },
+  { href: '/admin/developer-link', labelKey: 'developerLink', icon: Link2 },
+  { href: '/admin/identity-proportion', labelKey: 'identityProportion', icon: Percent },
+  { href: '/admin/product-identity', labelKey: 'productIdentity', icon: Box },
+  { href: '/admin/user-agent-audio', labelKey: 'userAgentAudio', icon: AudioLines },
+  { href: '/admin/user-agent-context', labelKey: 'userAgentContext', icon: FileText },
+  { href: '/admin/user-agent-image', labelKey: 'userAgentImage', icon: FileImage },
+  { href: '/admin/zhs-activity', labelKey: 'zhsActivity', icon: CalendarClock },
+  { href: '/admin/zhs-agent', labelKey: 'zhsAgent', icon: Bot },
+  { href: '/admin/zhs-user', labelKey: 'zhsUser', icon: Users },
+  // Auth 模块扩展
+  { href: '/admin/auth-accounts', labelKey: 'authAccounts', icon: Link2 },
+  { href: '/admin/auth-dept', labelKey: 'authDept', icon: Network },
+  { href: '/admin/auth-find-info', labelKey: 'authFindInfo', icon: HelpCircle },
+  { href: '/admin/auth-role', labelKey: 'authRole', icon: Shield },
+  { href: '/admin/auth-user-vip', labelKey: 'authUserVip', icon: BadgeCheck },
+  { href: '/admin/auth-veri-codes', labelKey: 'authVeriCodes', icon: Hash },
+  { href: '/admin/login-logs', labelKey: 'loginLogs', icon: History },
+  { href: '/admin/user-center', labelKey: 'userCenter', icon: UserCog },
+  // 教育模块扩展
+  { href: '/admin/edu/organization', labelKey: 'eduOrganization', icon: Building2 },
+  { href: '/admin/edu/platform', labelKey: 'eduPlatform', icon: School },
+  { href: '/admin/edu/user-platform', labelKey: 'eduUserPlatform', icon: UserSquare },
+  { href: '/admin/edu/zhs-identity', labelKey: 'eduZhsIdentity', icon: IdCard },
+  { href: '/admin/edu/course/audit', labelKey: 'eduCourseAudit', icon: ClipboardCheck },
+  { href: '/admin/edu/course/pay', labelKey: 'eduCoursePay', icon: PayIcon },
+  { href: '/admin/edu/course/platform-log', labelKey: 'eduCoursePlatformLog', icon: LogIcon },
+  // System 模块扩展
+  { href: '/admin/system/login-logs', labelKey: 'systemLoginLogs', icon: History },
+  { href: '/admin/system/operation-logs', labelKey: 'systemOperationLogs', icon: FileSearch },
+  { href: '/admin/system/tasks/log', labelKey: 'systemTasksLog', icon: LogIcon },
+  { href: '/admin/roles/auth-user', labelKey: 'rolesAuthUser', icon: UserCheck },
+  { href: '/admin/roles/select-user', labelKey: 'rolesSelectUser', icon: UserPlus },
+  // 文件管理
+  { href: '/admin/oss/files', labelKey: 'ossFiles', icon: Files },
+  // 官方页面
+  { href: '/admin/contact', labelKey: 'contact', icon: MessageSquare },
+  { href: '/admin/about-us', labelKey: 'aboutUs', icon: FileText },
 ]
 
 export function AdminNav({ children }: { children: React.ReactNode }) {
