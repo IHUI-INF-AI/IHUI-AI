@@ -115,6 +115,16 @@ vi.mock('../src/db/content-queries.js', () => ({
 }))
 
 // =============================================================================
+// Mock db/rbac-queries.js（auth register/login 解析用户权限）
+// =============================================================================
+vi.mock('../src/db/rbac-queries.js', () => ({
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+  checkPermission: vi.fn().mockResolvedValue(false),
+  checkAnyPermission: vi.fn().mockResolvedValue(false),
+  findUserRoles: vi.fn().mockResolvedValue([]),
+}))
+
+// =============================================================================
 // Mock db/promotion-queries.js（auth register 邀请码 + billing 优惠券）
 // =============================================================================
 vi.mock('../src/db/promotion-queries.js', () => ({

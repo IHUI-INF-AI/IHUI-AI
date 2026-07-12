@@ -13,9 +13,12 @@ import {
   CheckCircle2,
   XCircle,
   ClipboardList,
+  Download,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { exportToExcel } from '@/lib/export-utils'
+import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -166,6 +169,22 @@ export default function AdminDemandSquarePage() {
     minute: '2-digit',
   })
 
+  function handleExport() {
+    exportToExcel(
+      '需求广场审核',
+      [
+        { key: 'id', title: 'ID' },
+        { key: 'agentId', title: 'Agent ID' },
+        { key: 'userId', title: '用户 ID' },
+        { key: 'status', title: '状态' },
+        { key: 'reason', title: '原因' },
+        { key: 'createdAt', title: '创建时间' },
+        { key: 'updatedAt', title: '更新时间' },
+      ],
+      records as unknown as Record<string, unknown>[],
+    )
+  }
+
   const statCards = [
     { key: 'total', value: stats?.total ?? 0, icon: ClipboardList, cls: 'text-primary' },
     { key: 'pending', value: stats?.pending ?? 0, icon: Hourglass, cls: 'text-amber-500' },
@@ -218,6 +237,12 @@ export default function AdminDemandSquarePage() {
             ))}
           </SelectContent>
         </Select>
+        <HasPermi code="demandSquare:export">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            {tc('export')}
+          </Button>
+        </HasPermi>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -281,24 +306,28 @@ export default function AdminDemandSquarePage() {
                   <TableCell className="px-4 py-2.5 text-right">
                     {r.status === 'pending' ? (
                       <div className="flex justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => approveMut.mutate(r.id)}
-                          disabled={approveMut.isPending}
-                          title={t('approve')}
-                        >
-                          <Check className="h-4 w-4 text-emerald-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openReject(r)}
-                          disabled={rejectMut.isPending}
-                          title={t('reject')}
-                        >
-                          <X className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <HasPermi code="demandSquare:approve">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => approveMut.mutate(r.id)}
+                            disabled={approveMut.isPending}
+                            title={t('approve')}
+                          >
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        </HasPermi>
+                        <HasPermi code="demandSquare:reject">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openReject(r)}
+                            disabled={rejectMut.isPending}
+                            title={t('reject')}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </HasPermi>
                       </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>

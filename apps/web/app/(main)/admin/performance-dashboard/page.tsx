@@ -25,44 +25,6 @@ interface EndpointPerf {
   errorRate: number
 }
 
-const MOCK_STATS: Stats = { cpu: 42, memory: 68, qps: 1280, avgResponse: 86 }
-const MOCK_ENDPOINTS: EndpointPerf[] = [
-  {
-    id: '1',
-    endpoint: '/api/chat/messages',
-    method: 'POST',
-    avgLatency: 320,
-    calls: 12842,
-    errorRate: 0.4,
-  },
-  { id: '2', endpoint: '/api/agents', method: 'GET', avgLatency: 48, calls: 9821, errorRate: 0.1 },
-  {
-    id: '3',
-    endpoint: '/api/admin/users',
-    method: 'GET',
-    avgLatency: 62,
-    calls: 5410,
-    errorRate: 0.0,
-  },
-  {
-    id: '4',
-    endpoint: '/api/orders',
-    method: 'POST',
-    avgLatency: 210,
-    calls: 3210,
-    errorRate: 1.2,
-  },
-  {
-    id: '5',
-    endpoint: '/api/upload',
-    method: 'POST',
-    avgLatency: 880,
-    calls: 1240,
-    errorRate: 2.5,
-  },
-  { id: '6', endpoint: '/api/health', method: 'GET', avgLatency: 12, calls: 86400, errorRate: 0.0 },
-]
-
 const METHOD_COLOR: Record<string, string> = {
   GET: 'bg-primary/10 text-primary',
   POST: 'bg-emerald-500/10 text-emerald-600',
@@ -74,53 +36,56 @@ export default function PerformanceDashboardPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
 
-  const { data: stats = MOCK_STATS, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'performance-dashboard', 'stats'],
     queryFn: async () => {
       const r = await fetchApi<Stats>('/api/admin/performance-dashboard/stats')
-      if (r.success && r.data) return r.data
-      return MOCK_STATS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: endpoints = MOCK_ENDPOINTS } = useQuery({
+  const { data: endpoints } = useQuery({
     queryKey: ['admin', 'performance-dashboard', 'endpoints'],
     queryFn: async () => {
       const r = await fetchApi<EndpointPerf[]>('/api/admin/performance-dashboard/endpoints')
-      if (r.success && r.data) return r.data
-      return MOCK_ENDPOINTS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
-  const cards = [
-    {
-      label: t('performance.cpu'),
-      value: `${stats.cpu}%`,
-      icon: Cpu,
-      color: 'text-primary',
-      progress: stats.cpu,
-    },
-    {
-      label: t('performance.memory'),
-      value: `${stats.memory}%`,
-      icon: MemoryStick,
-      color: 'text-primary',
-      progress: stats.memory,
-    },
-    {
-      label: t('performance.qps'),
-      value: stats.qps,
-      icon: Activity,
-      color: 'text-emerald-600',
-      progress: Math.min(100, (stats.qps / 2000) * 100),
-    },
-    {
-      label: t('performance.avgResponse'),
-      value: `${stats.avgResponse}ms`,
-      icon: Timer,
-      color: 'text-purple-600',
-      progress: Math.min(100, (stats.avgResponse / 500) * 100),
-    },
-  ]
+  const endpointsList = endpoints ?? []
+  const cards = stats
+    ? [
+        {
+          label: t('performance.cpu'),
+          value: `${stats.cpu}%`,
+          icon: Cpu,
+          color: 'text-primary',
+          progress: stats.cpu,
+        },
+        {
+          label: t('performance.memory'),
+          value: `${stats.memory}%`,
+          icon: MemoryStick,
+          color: 'text-primary',
+          progress: stats.memory,
+        },
+        {
+          label: t('performance.qps'),
+          value: stats.qps,
+          icon: Activity,
+          color: 'text-emerald-600',
+          progress: Math.min(100, (stats.qps / 2000) * 100),
+        },
+        {
+          label: t('performance.avgResponse'),
+          value: `${stats.avgResponse}ms`,
+          icon: Timer,
+          color: 'text-purple-600',
+          progress: Math.min(100, (stats.avgResponse / 500) * 100),
+        },
+      ]
+    : []
 
   return (
     <div className="space-y-6">
@@ -138,6 +103,10 @@ export default function PerformanceDashboardPage() {
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
+          </div>
+        ) : !stats ? (
+          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+            {t('performance.noData')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,7 +136,7 @@ export default function PerformanceDashboardPage() {
       {/* 接口性能列表 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('performance.endpointPerf')}</h2>
-        {endpoints.length === 0 ? (
+        {endpointsList.length === 0 ? (
           <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
             {t('performance.noData')}
           </div>
@@ -184,7 +153,7 @@ export default function PerformanceDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {endpoints.map((e) => (
+                {endpointsList.map((e) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs">{e.endpoint}</td>
                     <td className="px-4 py-2.5">

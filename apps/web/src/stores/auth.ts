@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setAuthCookie } from '@/lib/cookie-utils'
 
 export interface AuthUser {
   id: string
@@ -9,17 +10,6 @@ export interface AuthUser {
   role?: string
   permissions?: string[]
   roles?: string[]
-}
-
-function setAuthCookie(token: string | null) {
-  if (typeof document === 'undefined') return
-  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
-  const secureFlag = isSecure ? '; Secure' : ''
-  if (token) {
-    document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax${secureFlag}`
-  } else {
-    document.cookie = `auth_token=; path=/; max-age=0; SameSite=Lax${secureFlag}`
-  }
 }
 
 interface AuthState {

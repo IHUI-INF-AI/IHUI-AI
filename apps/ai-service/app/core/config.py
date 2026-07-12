@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # AI 回调共享密钥(可选,与后端 AI_CALLBACK_SECRET 一致;为空则不发送 X-Internal-Secret 头)
     ai_callback_secret: str = ""
 
+    # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
+    jwt_secret: str = ""
+    jwt_issuer: str = "ihui-ai"
+    # 不验签的白名单路径(正则匹配)
+    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

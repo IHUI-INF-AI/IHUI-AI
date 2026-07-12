@@ -61,6 +61,7 @@ import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from './routes/paymen
 import { refundAuditRoutes, adminRefundAuditRoutes } from './routes/refund-audit.js'
 import { financeRoutes } from './routes/finance.js'
 import { authExtendedRoutes } from './routes/auth-extended.js'
+import { authSsoRoutes } from './routes/auth-sso.js'
 import { vipRoutes, adminVipRoutes } from './routes/vip.js'
 import { agentsRoutes } from './routes/agents.js'
 import { plazaRoutes } from './routes/plaza.js'
@@ -160,6 +161,8 @@ import { distributionRoutes } from './routes/distribution.js'
 import { adminGrayReleaseRoutes } from './routes/admin-gray-release.js'
 import { adminErrorDashboardRoutes } from './routes/admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './routes/admin-api-platform.js'
+// 前端管理端缺失路由补建（75 个路由：24 真实 CRUD + 51 空数据桩）
+import { adminMissingRoutes } from './routes/admin-missing-routes.js'
 
 import authPlugin from './plugins/auth.js'
 import auditPlugin from './plugins/audit.js'
@@ -468,6 +471,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(financeRoutes, { prefix: '/api' })
   // 多登录扩展：密码/邮箱/用户名/OAuth2/Google/微信/企微/验证码/绑定/SK（R1 补完）
   server.register(authExtendedRoutes, { prefix: '/api' })
+  // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
+  server.register(authSsoRoutes, { prefix: '/api/auth' })
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
@@ -648,4 +653,9 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
   server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
   server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
+
+  // ===== 前端管理端缺失路由补建（75 个路由）=====
+  // 24 条有表路由（真实 CRUD）+ 51 条无表路由（空数据桩）
+  // 覆盖：内容运营 / 鉴权 / 教务 / 平台 / 监控 / 商城 等模块
+  server.register(adminMissingRoutes, { prefix: '/api/admin' })
 }

@@ -24,6 +24,7 @@ dependencies = [
     "tiktoken>=0.8.0",
     "numpy>=2.1.0",
     "prometheus-fastapi-instrumentator>=7.0.0",
+    "pyjwt>=2.10.0",
 ]
 
 [build-system]
