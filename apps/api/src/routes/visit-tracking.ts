@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+﻿import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   saveVisitLog,
   getVisitSummary,
@@ -12,8 +12,6 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { visitLogs } from '@ihui/database'
 import { eq, desc, and, gte, lte, sql, like, isNotNull } from 'drizzle-orm'
-
-const ADMIN_ROLE_ID = 1
 
 // =============================================================================
 // Zod schemas
@@ -90,23 +88,6 @@ const pageRecordSchema = z.object({
 // =============================================================================
 // 鉴权辅助
 // =============================================================================
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 const dataObjSchema = {
   type: 'object',
@@ -226,9 +207,7 @@ export const visitTrackingRoutes: FastifyPluginAsync = async (server) => {
 // =============================================================================
 
 export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAdmin(request, reply))) return
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // GET /visit-tracking/summary - 访问概览
   server.get(

@@ -174,19 +174,19 @@ export async function deleteAiModel(id: string): Promise<ApiResult<{ success: bo
 export async function getAiModelInfoList(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<AiModelInfo>>> {
-  return fetchApi<PageData<AiModelInfo>>(`/api/ai/model-info${buildQs(query)}`)
+  return fetchApi<PageData<AiModelInfo>>(`/api/ai-ext/model-info${buildQs(query)}`)
 }
 
 /** 获取 AI 模型信息详情 */
 export async function getAiModelInfoDetail(id: string): Promise<ApiResult<AiModelInfo>> {
-  return fetchApi<AiModelInfo>(`/api/ai/model-info/${id}`)
+  return fetchApi<AiModelInfo>(`/api/ai-ext/model-info/${id}`)
 }
 
 /** 创建 AI 模型信息 */
 export async function createAiModelInfo(
   input: Partial<AiModelInfo>,
 ): Promise<ApiResult<AiModelInfo>> {
-  return fetchApi<AiModelInfo>('/api/ai/model-info', {
+  return fetchApi<AiModelInfo>('/api/ai-ext/model-info', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -197,7 +197,7 @@ export async function updateAiModelInfo(
   id: string,
   input: Partial<AiModelInfo>,
 ): Promise<ApiResult<AiModelInfo>> {
-  return fetchApi<AiModelInfo>(`/api/ai/model-info/${id}`, {
+  return fetchApi<AiModelInfo>(`/api/ai-ext/model-info/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -205,7 +205,7 @@ export async function updateAiModelInfo(
 
 /** 删除 AI 模型信息 */
 export async function deleteAiModelInfo(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/ai/model-info/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/ai-ext/model-info/${id}`, { method: 'DELETE' })
 }
 
 // ===================== ai-bot-sites =====================
@@ -214,17 +214,17 @@ export async function deleteAiModelInfo(id: string): Promise<ApiResult<{ success
 export async function getAiBotSites(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<AiBotSite>>> {
-  return fetchApi<PageData<AiBotSite>>(`/api/ai/bot-sites${buildQs(query)}`)
+  return fetchApi<PageData<AiBotSite>>(`/api/system-ext/bot-sites${buildQs(query)}`)
 }
 
 /** 获取 AI 站点详情 */
 export async function getAiBotSiteDetail(id: string): Promise<ApiResult<AiBotSite>> {
-  return fetchApi<AiBotSite>(`/api/ai/bot-sites/${id}`)
+  return fetchApi<AiBotSite>(`/api/system-ext/bot-sites/${id}`)
 }
 
 /** 创建 AI 站点 */
 export async function createAiBotSite(input: Partial<AiBotSite>): Promise<ApiResult<AiBotSite>> {
-  return fetchApi<AiBotSite>('/api/ai/bot-sites', {
+  return fetchApi<AiBotSite>('/api/system-ext/bot-sites', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -235,7 +235,7 @@ export async function updateAiBotSite(
   id: string,
   input: Partial<AiBotSite>,
 ): Promise<ApiResult<AiBotSite>> {
-  return fetchApi<AiBotSite>(`/api/ai/bot-sites/${id}`, {
+  return fetchApi<AiBotSite>(`/api/system-ext/bot-sites/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -243,7 +243,7 @@ export async function updateAiBotSite(
 
 /** 删除 AI 站点 */
 export async function deleteAiBotSite(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/ai/bot-sites/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/system-ext/bot-sites/${id}`, { method: 'DELETE' })
 }
 
 // ===================== ai-career =====================
@@ -323,24 +323,24 @@ export async function createAiCommunity(
 export async function getAiEducations(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<AiEducationItem>>> {
-  return fetchApi<PageData<AiEducationItem>>(`/api/ai/education${buildQs(query)}`)
+  return fetchApi<PageData<AiEducationItem>>(`/api/ai-education${buildQs(query)}`)
 }
 
 /** 获取 AI 教育详情 */
 export async function getAiEducationDetail(id: string): Promise<ApiResult<AiEducationItem>> {
-  return fetchApi<AiEducationItem>(`/api/ai/education/${id}`)
+  return fetchApi<AiEducationItem>(`/api/ai-education/${id}`)
 }
 
 // ===================== ai-feed =====================
 
 /** 获取 AI Feed 列表 */
 export async function getAiFeeds(query: PageQuery = {}): Promise<ApiResult<PageData<AiFeedItem>>> {
-  return fetchApi<PageData<AiFeedItem>>(`/api/ai/feed${buildQs(query)}`)
+  return fetchApi<PageData<AiFeedItem>>(`/api/ai-feed${buildQs(query)}`)
 }
 
 /** 获取 AI Feed 详情 */
 export async function getAiFeedDetail(id: string): Promise<ApiResult<AiFeedItem>> {
-  return fetchApi<AiFeedItem>(`/api/ai/feed/${id}`)
+  return fetchApi<AiFeedItem>(`/api/ai-feed/${id}`)
 }
 
 // ===================== ai-index =====================
@@ -356,12 +356,12 @@ export async function getAiIndex(): Promise<ApiResult<unknown>> {
 export async function getAiWorlds(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<AiWorldItem>>> {
-  return fetchApi<PageData<AiWorldItem>>(`/api/ai/world${buildQs(query)}`)
+  return fetchApi<PageData<AiWorldItem>>(`/api/ai-world${buildQs(query)}`)
 }
 
 /** 获取 AI 世界详情 */
 export async function getAiWorldDetail(id: string): Promise<ApiResult<AiWorldItem>> {
-  return fetchApi<AiWorldItem>(`/api/ai/world/${id}`)
+  return fetchApi<AiWorldItem>(`/api/ai-world/${id}`)
 }
 
 // ===================== ai-team =====================
@@ -430,7 +430,7 @@ export async function getAiChatHistory(
   conversationId: string,
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<unknown>>> {
-  return fetchApi<PageData<unknown>>(`/api/ai/chat/${conversationId}/history${buildQs(query)}`)
+  return fetchApi<PageData<unknown>>(`/api/ai/history${buildQs({ ...query, conversationId })}`)
 }
 
 /** 创建 AI 会话 */
@@ -471,7 +471,7 @@ export async function createAigcTask(input: {
   params?: Record<string, unknown>
   [key: string]: unknown
 }): Promise<ApiResult<AigcTask>> {
-  return fetchApi<AigcTask>('/api/ai/aigc/tasks', {
+  return fetchApi<AigcTask>('/api/ai/aigc/records', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -479,15 +479,16 @@ export async function createAigcTask(input: {
 
 /** 查询 AIGC 任务状态 */
 export async function getAigcTask(taskId: string): Promise<ApiResult<AigcTask>> {
-  return fetchApi<AigcTask>(`/api/ai/aigc/tasks/${taskId}`)
+  return fetchApi<AigcTask>(`/api/ai/aigc/records/${taskId}`)
 }
 
 /** 获取 AIGC 任务列表 */
 export async function getAigcTasks(query: PageQuery = {}): Promise<ApiResult<PageData<AigcTask>>> {
-  return fetchApi<PageData<AigcTask>>(`/api/ai/aigc/tasks${buildQs(query)}`)
+  return fetchApi<PageData<AigcTask>>(`/api/ai/aigc/records${buildQs(query)}`)
 }
 
 /** 取消 AIGC 任务 */
+// 后端缺失
 export async function cancelAigcTask(taskId: string): Promise<ApiResult<{ success: boolean }>> {
   return fetchApi<{ success: boolean }>(`/api/ai/aigc/tasks/${taskId}/cancel`, { method: 'POST' })
 }
