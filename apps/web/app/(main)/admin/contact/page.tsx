@@ -2,51 +2,17 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Phone, Plus, Edit, Trash2, Loader2, Download, Search } from 'lucide-react'
+import { Phone, Plus, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { fetchApi } from '@/lib/api'
 import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import {
-  Button,
-  Input,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@ihui/ui'
-import { RichTextEditor } from '@/components/editor/RichTextEditor'
+import { Button } from '@ihui/ui'
 
-interface ContactItem {
-  id: string
-  introduction: string
-  corporateCulture: string
-}
-
-interface ContactList {
-  list: ContactItem[]
-  total: number
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const RESOURCE = '/api/admin/contact'
-const PERM = 'system:contact'
-const EMPTY: ContactItem = { id: '', introduction: '', corporateCulture: '' }
-const th = 'px-4 py-2.5 font-medium'
-const FIELDS: {
-  key: keyof Pick<ContactItem, 'introduction' | 'corporateCulture'>
-  label: string
-}[] = [
-  { key: 'introduction', label: 'fieldIntroduction' },
-  { key: 'corporateCulture', label: 'fieldCorporateCulture' },
-]
+import { ContactFilter } from './ContactFilter'
+import { ContactTable } from './ContactTable'
+import { ContactDialog } from './ContactDialog'
+import { RESOURCE, PERM, EMPTY, FIELDS, api } from './helpers'
+import type { ContactItem, ContactList } from './types'
 
 export default function ContactPage() {
   const t = useTranslations('adminContact')
@@ -87,7 +53,7 @@ export default function ContactPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'contact'] })
-      close()
+      closeDialog()
     },
   })
   const delMut = useMutation({
@@ -105,7 +71,7 @@ export default function ContactPage() {
     setForm(item)
     setOpen(true)
   }
-  function close() {
+  function closeDialog() {
     if (saveMut.isPending) return
     setOpen(false)
     setEditing(null)
@@ -133,7 +99,6 @@ export default function ContactPage() {
 
   const list = data?.list ?? []
   const total = data?.total ?? 0
-  const stripHtml = (s: string) => s.replace(/<[^>]+>/g, '').slice(0, 50) || '-'
 
   return (
     <div className="space-y-4">
@@ -161,89 +126,21 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        {FIELDS.map((f) => (
-          <div key={f.key} className="space-y-1">
-            <Label className="text-xs">{t(f.label)}</Label>
-            <Input
-              className="h-9 w-48"
-              value={search[f.key]}
-              onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
-              placeholder={t('searchPlaceholder', { label: t(f.label) })}
-            />
-          </div>
-        ))}
-        <Button size="sm" onClick={() => setPage(1)}>
-          <Search className="h-4 w-4" />
-          {t('search')}
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleReset}>
-          {t('reset')}
-        </Button>
-      </div>
+      <ContactFilter
+        search={search}
+        setSearch={setSearch}
+        onSearch={() => setPage(1)}
+        onReset={handleReset}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className={th}>{t('colId')}</th>
-              <th className={th}>{t('colIntroduction')}</th>
-              <th className={th}>{t('colCorporateCulture')}</th>
-              <th className={`${th} text-right`}>{t('colActions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  {t('loading')}
-                </td>
-              </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  {t('noData')}
-                </td>
-              </tr>
-            ) : (
-              list.map((item) => (
-                <tr key={item.id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-2.5 font-medium">{item.id}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {stripHtml(item.introduction)}
-                  </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {stripHtml(item.corporateCulture)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
-                      <HasPermi code={`${PERM}:edit`}>
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
-                          <Edit className="h-4 w-4" />
-                          {t('edit')}
-                        </Button>
-                      </HasPermi>
-                      <HasPermi code={`${PERM}:remove`}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          disabled={delMut.isPending}
-                          onClick={() => confirm(t('confirmDelete')) && delMut.mutate(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {t('delete')}
-                        </Button>
-                      </HasPermi>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ContactTable
+        list={list}
+        isLoading={isLoading}
+        delPending={delMut.isPending}
+        onEdit={openEdit}
+        onDelete={(id) => delMut.mutate(id)}
+      />
+
       {total > pageSize && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">{t('total', { total })}</span>
@@ -266,34 +163,15 @@ export default function ContactPage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
-        <DialogContent className="max-w-2xl">
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
-            </DialogHeader>
-            {FIELDS.map((f) => (
-              <div key={f.key} className="space-y-2">
-                <Label>{t(f.label)}</Label>
-                <RichTextEditor
-                  value={form[f.key]}
-                  onChange={(html) => setForm({ ...form, [f.key]: html })}
-                  placeholder={t('inputPlaceholder', { label: t(f.label) })}
-                />
-              </div>
-            ))}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
-                {t('cancel')}
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ContactDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }

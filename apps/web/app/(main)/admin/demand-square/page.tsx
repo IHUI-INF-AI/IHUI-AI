@@ -81,7 +81,7 @@ export default function AdminDemandSquarePage() {
   }
   function handleExport() {
     exportToExcel(
-      '需求广场审核',
+      t('exportFilename'),
       EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )

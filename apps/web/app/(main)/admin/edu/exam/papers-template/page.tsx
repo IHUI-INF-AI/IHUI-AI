@@ -4,55 +4,21 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit, Trash2, Loader2, ChevronLeft, LayoutTemplate } from 'lucide-react'
-import { eduApi, buildQs, textareaClass } from '@/lib/edu'
-import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-} from '@ihui/ui'
+import { Plus, ChevronLeft } from 'lucide-react'
+import { eduApi, buildQs } from '@/lib/edu'
+import { Button } from '@ihui/ui'
 
-interface Template {
-  id: string
-  name: string
-  description: string | null
-  config: unknown
-  createdAt: string
-}
-interface PageData<T> {
-  list: T[]
-  total: number
-}
-
-interface TForm {
-  name: string
-  description: string
-  config: string
-}
-const EMPTY: TForm = {
-  name: '',
-  description: '',
-  config: '{\n  "single": 5,\n  "multi": 3,\n  "scorePerQuestion": 5\n}',
-}
+import { PapersTemplateTable } from './PapersTemplateTable'
+import { PapersTemplateDialog } from './PapersTemplateDialog'
+import { EMPTY_FORM, templateToForm } from './helpers'
+import type { Template, PageData, TForm } from './types'
 
 export default function EduExamPapersTemplatePage() {
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Template | null>(null)
-  const [form, setForm] = React.useState<TForm>(EMPTY)
+  const [form, setForm] = React.useState<TForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -95,17 +61,13 @@ export default function EduExamPapersTemplatePage() {
 
   function openCreate() {
     setEditing(null)
-    setForm(EMPTY)
+    setForm(EMPTY_FORM)
     setErr(null)
     setOpen(true)
   }
   function openEdit(t: Template) {
     setEditing(t)
-    setForm({
-      name: t.name,
-      description: t.description ?? '',
-      config: t.config ? JSON.stringify(t.config, null, 2) : EMPTY.config,
-    })
+    setForm(templateToForm(t))
     setErr(null)
     setOpen(true)
   }
@@ -120,6 +82,10 @@ export default function EduExamPapersTemplatePage() {
     setErr(null)
     if (!form.name.trim()) return setErr('名称不能为空')
     saveMut.mutate()
+  }
+  function handleDelete(t: Template) {
+    if (!window.confirm('确定删除？')) return
+    deleteMut.mutate(t.id)
   }
 
   const total = data?.total ?? 0
@@ -144,71 +110,16 @@ export default function EduExamPapersTemplatePage() {
           新建模板
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">名称</TableHead>
-              <TableHead className="px-4 py-2.5">描述</TableHead>
-              <TableHead className="px-4 py-2.5">创建时间</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  <LayoutTemplate className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无模板（需后端端点）
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                  <LayoutTemplate className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无模板
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((t) => (
-                <TableRow key={t.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{t.name}</TableCell>
-                  <TableCell className="max-w-xs break-words px-4 py-2.5 text-muted-foreground">
-                    {t.description ?? '-'}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs">{t.createdAt}</TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(t)} title="编辑">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm('确定删除？')) deleteMut.mutate(t.id)
-                        }}
-                        title="删除"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+
+      <PapersTemplateTable
+        list={rows}
+        isLoading={isLoading}
+        error={error}
+        deletePending={deleteMut.isPending}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
+
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
@@ -234,59 +145,16 @@ export default function EduExamPapersTemplatePage() {
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-xl">
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑模板' : '新建模板'}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="t-name">名称</Label>
-              <Input
-                id="t-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="t-desc">描述</Label>
-              <Input
-                id="t-desc"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="t-config">配置 (JSON)</Label>
-              <textarea
-                id="t-config"
-                value={form.config}
-                onChange={(e) => setForm({ ...form, config: e.target.value })}
-                rows={6}
-                className={cn(textareaClass)}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <PapersTemplateDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        err={err}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={closeDialog}
+      />
     </div>
   )
 }

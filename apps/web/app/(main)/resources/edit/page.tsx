@@ -4,45 +4,12 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Upload, FileText, X } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui'
-
-interface Category {
-  id: string
-  name: string
-}
-interface ResourceDetail {
-  id?: string
-  title: string
-  description: string
-  categoryId: string
-  url?: string
-  fileName?: string
-}
-
-const selectClass =
-  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-full'
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+import { ResourceForm } from './ResourceForm'
+import { api } from './helpers'
+import type { Category, ResourceDetail } from './types'
 
 export default function ResourceEditPage() {
   const router = useRouter()
@@ -62,7 +29,6 @@ export default function ResourceEditPage() {
     queryFn: () => api<{ list: Category[] }>(`/api/resources/categories`).then((d) => d.list ?? []),
   })
 
-  // 编辑模式：加载已有资源
   const { isLoading: loadingDetail } = useQuery({
     queryKey: ['resource', 'edit', id],
     queryFn: async () => {
@@ -165,99 +131,28 @@ export default function ResourceEditPage() {
 
       <h1 className="text-2xl font-bold tracking-tight">{id ? '编辑资源' : '发布资源'}</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">资源信息</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">标题</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="请输入资源标题"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">描述</Label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="请输入资源描述"
-              rows={4}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>分类</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger className={selectClass} aria-label="分类">
-                <SelectValue placeholder="请选择分类" />
-              </SelectTrigger>
-              <SelectContent>
-                {(categories ?? []).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>文件上传</Label>
-            {fileName ? (
-              <div className="flex items-center justify-between rounded-md border border-input px-3 py-2">
-                <span className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-primary" />
-                  {fileName}
-                </span>
-                <button
-                  type="button"
-                  onClick={onRemoveFile}
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label="移除文件"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-3 py-6 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
-                <Upload className="h-5 w-5" />
-                {uploadMut.isPending ? '上传中...' : '点击上传文件'}
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={onFileChange}
-                  disabled={uploadMut.isPending}
-                />
-              </label>
-            )}
-            {uploadMut.isError && (
-              <p className="text-xs text-destructive">{(uploadMut.error as Error)?.message}</p>
-            )}
-          </div>
-
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-          {saveMut.isError && !formError && (
-            <p className="text-sm text-destructive">{(saveMut.error as Error)?.message}</p>
-          )}
-
-          <div className="flex items-center gap-3 pt-2">
-            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-              {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {id ? '保存修改' : '发布资源'}
-            </Button>
-            <Button variant="outline" onClick={() => router.push('/resources')}>
-              取消
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <ResourceForm
+        title={title}
+        setTitle={setTitle}
+        description={description}
+        setDescription={setDescription}
+        categoryId={categoryId}
+        setCategoryId={setCategoryId}
+        categories={categories ?? []}
+        fileName={fileName}
+        uploadPending={uploadMut.isPending}
+        uploadIsError={uploadMut.isError}
+        uploadError={uploadMut.error}
+        formError={formError}
+        savePending={saveMut.isPending}
+        saveIsError={saveMut.isError}
+        saveError={saveMut.error}
+        onFileChange={onFileChange}
+        onRemoveFile={onRemoveFile}
+        onSubmit={() => saveMut.mutate()}
+        onCancel={() => router.push('/resources')}
+        isEdit={!!id}
+      />
     </div>
   )
 }
