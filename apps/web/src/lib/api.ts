@@ -52,13 +52,14 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
         return {
           success: false,
           error: text || `请求失败（${response.status}）`,
+          status: response.status,
         }
       }
 
       const json = (await response.json()) as ApiResponse<T>
 
       if (json.code !== 0) {
-        return { success: false, error: json.message || '请求失败' }
+        return { success: false, error: json.message || '请求失败', status: response.status }
       }
 
       return { success: true, data: json.data }
