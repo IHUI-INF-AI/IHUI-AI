@@ -24,8 +24,8 @@ export async function runAgent(opts: AgentOptions): Promise<void> {
   const wsUrl =
     opts.apiUrl.replace(/^http/, 'ws').replace(/\/$/, '') + '/api/v1/workspace/agent/ws';
 
-  console.log(chalk.dim(`\n🤖 IHUI Agent — ${opts.workspacePath}\n`));
-  console.log(chalk.dim(`任务: ${opts.prompt}\n`));
+  console.info(chalk.dim(`\n🤖 IHUI Agent — ${opts.workspacePath}\n`));
+  console.info(chalk.dim(`任务: ${opts.prompt}\n`));
 
   const spinner = ora({ text: '连接中...', color: 'cyan' }).start();
   const ctx: AgentContext = { currentTool: '' };
@@ -62,7 +62,7 @@ export async function runAgent(opts: AgentOptions): Promise<void> {
 
     ws.on('close', () => {
       spinner.stop();
-      console.log(chalk.dim('\n--- 会话结束 ---\n'));
+      console.info(chalk.dim('\n--- 会话结束 ---\n'));
       resolve();
     });
   });
@@ -77,8 +77,8 @@ function handleEvent(
   switch (type) {
     case 'agent.context':
       spinner.stop();
-      console.log(chalk.dim(`📁 工作区: ${event.workspace}`));
-      console.log(chalk.dim(`🧠 模型: ${event.model}`));
+      console.info(chalk.dim(`📁 工作区: ${event.workspace}`));
+      console.info(chalk.dim(`🧠 模型: ${event.model}`));
       break;
 
     case 'agent.text.delta':
@@ -86,20 +86,20 @@ function handleEvent(
       break;
 
     case 'agent.tool.call':
-      console.log('');
+      console.info('');
       ctx.currentTool = event.name as string;
-      console.log(chalk.cyan(`🔧 调用工具: ${ctx.currentTool}`));
+      console.info(chalk.cyan(`🔧 调用工具: ${ctx.currentTool}`));
       spinner.start(`执行 ${ctx.currentTool}...`);
       break;
 
     case 'agent.tool.result':
       spinner.stop();
       if (event.success) {
-        console.log(chalk.green(`✅ ${ctx.currentTool} 完成`));
+        console.info(chalk.green(`✅ ${ctx.currentTool} 完成`));
       } else {
-        console.log(chalk.red(`❌ ${ctx.currentTool} 失败: ${event.error}`));
+        console.info(chalk.red(`❌ ${ctx.currentTool} 失败: ${event.error}`));
       }
-      console.log('');
+      console.info('');
       break;
 
     case 'agent.error':
@@ -108,7 +108,7 @@ function handleEvent(
       break;
 
     case 'agent.done':
-      console.log(chalk.green(`\n\n✨ 完成 (${event.iterations} 次迭代)`));
+      console.info(chalk.green(`\n\n✨ 完成 (${event.iterations} 次迭代)`));
       break;
   }
 }
