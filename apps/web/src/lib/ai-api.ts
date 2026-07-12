@@ -174,7 +174,7 @@ export async function deleteAiModel(id: string): Promise<ApiResult<{ success: bo
 export async function getAiModelInfoList(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<AiModelInfo>>> {
-  return fetchApi<PageData<AiModelInfo>>(`/api/ai-ext/model-info${buildQs(query)}`)
+  return fetchApi<PageData<AiModelInfo>>(`/api/ai-ext/model-info/list${buildQs(query)}`)
 }
 
 /** 获取 AI 模型信息详情 */
@@ -214,7 +214,7 @@ export async function deleteAiModelInfo(id: string): Promise<ApiResult<{ success
 export async function getAiBotSites(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<AiBotSite>>> {
-  return fetchApi<PageData<AiBotSite>>(`/api/system-ext/bot-sites${buildQs(query)}`)
+  return fetchApi<PageData<AiBotSite>>(`/api/system-ext/bot-sites/list${buildQs(query)}`)
 }
 
 /** 获取 AI 站点详情 */

@@ -7,6 +7,7 @@ import { Tag, Hash, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Tag as TagChip } from '@/components/data/Tag'
 
 interface TagItem {
   id: string
@@ -30,6 +31,8 @@ const TAG_COLORS = [
   'text-violet-600 dark:text-violet-400',
   'text-cyan-600 dark:text-cyan-400',
 ]
+
+const TAG_CHIP_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
 export default function TagsPage() {
   const t = useTranslations('tags')
@@ -71,23 +74,48 @@ export default function TagsPage() {
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-6">
-          {tags.map((tag, i) => (
-            <Link
-              key={tag.id}
-              href={`/tags/${tag.slug}`}
-              className={cn(
-                'inline-flex items-center gap-1 font-medium transition-colors hover:underline',
-                TAG_COLORS[i % TAG_COLORS.length],
-              )}
-              style={{ fontSize: `${fontSize(tag.usageCount)}px` }}
-              title={t('usageCount', { count: tag.usageCount })}
-            >
-              <Tag className="h-3 w-3" />
-              {tag.name}
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-6">
+            {tags.map((tag, i) => (
+              <Link
+                key={tag.id}
+                href={`/tags/${tag.slug}`}
+                className={cn(
+                  'inline-flex items-center gap-1 font-medium transition-colors hover:underline',
+                  TAG_COLORS[i % TAG_COLORS.length],
+                )}
+                style={{ fontSize: `${fontSize(tag.usageCount)}px` }}
+                title={t('usageCount', { count: tag.usageCount })}
+              >
+                <Tag className="h-3 w-3" />
+                {tag.name}
+              </Link>
+            ))}
+          </div>
+
+          {tags.length > 0 && (
+            <div className="rounded-lg border p-4">
+              <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
+                <Hash className="h-4 w-4 text-primary" />
+                {t('popular')}
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {tags.slice(0, 5).map((tag, i) => (
+                  <Link key={tag.id} href={`/tags/${tag.slug}`}>
+                    <TagChip
+                      size="md"
+                      color={TAG_CHIP_COLORS[i % TAG_CHIP_COLORS.length]}
+                      className="transition-opacity hover:opacity-80"
+                    >
+                      {tag.name}
+                      <span className="ml-1 text-xs opacity-70">{tag.usageCount}</span>
+                    </TagChip>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

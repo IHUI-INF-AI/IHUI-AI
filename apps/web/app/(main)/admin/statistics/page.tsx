@@ -18,6 +18,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
+import { BarChart } from '@/components/charts/BarChart'
 
 interface OverviewStatistics {
   memberTotal: number
@@ -193,6 +194,24 @@ export default function StatisticsPage() {
           </div>
         )}
       </section>
+
+      {/* 总览数据对比柱状图 */}
+      {!loadingOverview && overview && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">总览数据对比</CardTitle>
+            <p className="text-xs text-muted-foreground">各维度核心指标横向对比</p>
+          </CardHeader>
+          <CardContent>
+            <BarChart
+              data={overviewCards.map((c) => c.value)}
+              xAxis={overviewCards.map((c) => c.label)}
+              horizontal
+              color="var(--primary)"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* 分类统计 */}
       <div className="grid gap-4 lg:grid-cols-3">

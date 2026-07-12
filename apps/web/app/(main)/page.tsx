@@ -16,9 +16,8 @@ import {
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
-import { StatCard } from '@/components/dashboard/stat-card'
+import { AnimatedNumber, PageSkeleton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
-import { PageSkeleton } from '@/components/common'
 
 interface HomeStats {
   projects: number
@@ -136,16 +135,24 @@ export default function HomePage() {
         {error ? (
           <p className="text-sm text-destructive col-span-full">{(error as Error).message}</p>
         ) : (
-          stats.map((s) => (
-            <StatCard
-              key={s.title}
-              title={s.title}
-              value={s.value}
-              icon={s.icon}
-              loading={isLoading}
-              locale={locale}
-            />
-          ))
+          stats.map((s) => {
+            const Icon = s.icon
+            return (
+              <Card key={s.title} className="transition-colors hover:bg-accent">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-2xl font-bold tracking-tight">
+                      <AnimatedNumber value={s.value} />
+                    </div>
+                    <div className="break-words text-xs text-muted-foreground">{s.title}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
         )}
       </section>
 

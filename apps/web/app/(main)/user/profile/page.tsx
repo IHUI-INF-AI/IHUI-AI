@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Button, Input, Label } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
+import { DescriptionList } from '@/components/data/DescriptionList'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
 import { VoiceRecord } from '@/components/ai/voice-record'
@@ -227,6 +228,21 @@ export default function ProfilePage() {
             <span className="mt-0.5 text-xs text-muted-foreground">{item.label}</span>
           </Link>
         ))}
+      </div>
+
+      {/* 账号信息描述列表 */}
+      <div className="rounded-lg border p-4">
+        <h2 className="mb-3 text-sm font-semibold">{t('accountInfo')}</h2>
+        <DescriptionList
+          column={2}
+          items={[
+            { label: t('userId'), value: user?.id ?? '—' },
+            { label: t('nickname'), value: user?.nickname ?? '—' },
+            { label: t('phone'), value: user?.phone ?? '—' },
+            { label: t('email'), value: data?.user?.email ?? '—' },
+            { label: t('bio'), value: data?.user?.bio || '—' },
+          ]}
+        />
       </div>
 
       {/* AI 用量 */}

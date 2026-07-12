@@ -2,13 +2,14 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { User, Shield, Bell, ShoppingBag, CreditCard, BadgeCheck } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { Avatar } from '@/components/data/Avatar'
+import { TabBar, type Tab } from './TabBar'
 
 interface UserNavItem {
   href: string
@@ -28,9 +29,15 @@ const USER_NAV: UserNavItem[] = [
 export function UserNav({ children }: { children: React.ReactNode }) {
   const t = useTranslations('user')
   const pathname = usePathname()
+  const router = useRouter()
   const user = useAuthStore((s) => s.user)
 
   const isActive = (href: string) => pathname === href
+
+  const mobileTabs: Tab[] = USER_NAV.map((item) => ({
+    key: item.href,
+    label: t(`nav.${item.labelKey}`),
+  }))
 
   const renderItem = (item: UserNavItem, active: boolean, compact = false) => {
     const Icon = item.icon
@@ -67,9 +74,9 @@ export function UserNav({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
 
-      <nav className="flex flex-wrap gap-1 border-b pb-2 lg:hidden">
-        {USER_NAV.map((item) => renderItem(item, isActive(item.href), true))}
-      </nav>
+      <div className="lg:hidden">
+        <TabBar tabs={mobileTabs} activeTab={pathname} onChange={(key) => router.push(key)} />
+      </div>
 
       <div className="min-w-0 flex-1">{children}</div>
     </div>

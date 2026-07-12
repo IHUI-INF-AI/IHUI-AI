@@ -7,6 +7,7 @@ import { Info, Mail, Phone, MapPin, Globe, Loader2, Shield, Users, Target } from
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Container } from '@/components/layout'
 
 interface AboutInfo {
   siteName?: string | null
@@ -38,7 +39,7 @@ export default function AboutPage() {
   const info: AboutInfo = data ?? {}
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <Container maxWidth="lg" padding={false} className="space-y-6 py-6">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
           <Info className="h-7 w-7 text-primary" />
@@ -228,6 +229,6 @@ export default function AboutPage() {
           </Card>
         </div>
       )}
-    </div>
+    </Container>
   )
 }

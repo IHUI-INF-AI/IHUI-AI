@@ -24,6 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@ihui/ui'
+import { Radio, Switch, Textarea } from '@/components/form'
 import { cn } from '@/lib/utils'
 
 type Category = 'general' | 'mail' | 'storage' | 'security' | 'payment' | 'ai'
@@ -54,8 +55,6 @@ const selectClass =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const th = 'px-4 py-2.5 font-medium'
 const tabBase = 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors'
-const textareaClass =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -296,33 +295,24 @@ export default function AdminConfigsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="c-value">{t('fieldValue')}</Label>
-              <textarea
+              <Textarea
                 id="c-value"
                 value={form.value}
                 onChange={(e) => setForm({ ...form, value: e.target.value })}
                 placeholder={t('valuePlaceholder')}
                 rows={4}
-                className={cn(textareaClass, 'font-mono')}
+                className="font-mono"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="c-type">{t('fieldType')}</Label>
-                <Select
+                <Radio
+                  inline
+                  options={TYPES.map((tp) => ({ label: tp, value: tp }))}
                   value={form.type}
-                  onValueChange={(v) => setForm({ ...form, type: v as CfgType })}
-                >
-                  <SelectTrigger className={selectClass}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPES.map((tp) => (
-                      <SelectItem key={tp} value={tp}>
-                        {tp}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setForm({ ...form, type: v as CfgType })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="c-cat">{t('fieldCategory')}</Label>
@@ -352,15 +342,10 @@ export default function AdminConfigsPage() {
                 placeholder={t('descriptionPlaceholder')}
               />
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.isPublic}
-                onChange={(e) => setForm({ ...form, isPublic: e.target.checked })}
-                className="h-4 w-4 accent-primary"
-              />
-              {t('fieldPublic')}
-            </label>
+            <div className="flex items-center gap-2">
+              <Switch checked={form.isPublic} onChange={(v) => setForm({ ...form, isPublic: v })} />
+              <span className="text-sm">{t('fieldPublic')}</span>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
                 {tc('cancel')}

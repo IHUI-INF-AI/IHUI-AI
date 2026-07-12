@@ -12,7 +12,7 @@
  * - 响应格式统一 { code, message, data }
  * - 列表接口支持分页（page/pageSize）+ 模糊搜索（search）
  */
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, or, ilike, desc, asc, sql, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -53,13 +53,87 @@ const paginationSchema = z.object({
 
 const idParamSchema = z.object({ id: z.string() })
 
+// --- 11 条升级路由的 body 校验 schema ---
+const updateAuthInfoSchema = z.object({
+  phone: z.string().nullable().optional(),
+  authStatus: z.string().optional(),
+  realName: z.string().nullable().optional(),
+})
+
+const createRoleSchema = z.object({
+  name: z.string().min(1),
+  displayName: z.string().min(1),
+  description: z.string().nullable().optional(),
+  scope: z.string().optional(),
+})
+
+const updateRoleSchema = z.object({
+  name: z.string().min(1).optional(),
+  displayName: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  scope: z.string().optional(),
+})
+
+const createVipLevelSchema = z.object({
+  levelName: z.string().min(1),
+  levelValue: z.number().int().optional(),
+  price: z.number().int().optional(),
+  durationDays: z.number().int().optional(),
+  status: z.number().int().optional(),
+  sortOrder: z.number().int().optional(),
+})
+
+const updateVipLevelSchema = z.object({
+  levelName: z.string().min(1).optional(),
+  levelValue: z.number().int().optional(),
+  price: z.number().int().optional(),
+  durationDays: z.number().int().optional(),
+  status: z.number().int().optional(),
+  sortOrder: z.number().int().optional(),
+})
+
+const createSmsTemplateSchema = z.object({
+  code: z.string().min(1),
+  title: z.string().min(1),
+  content: z.string().min(1),
+  status: z.number().int().optional(),
+})
+
+const updateSmsTemplateSchema = z.object({
+  title: z.string().min(1).optional(),
+  content: z.string().min(1).optional(),
+  status: z.number().int().optional(),
+})
+
+const createUserRoleSchema = z.object({
+  userId: z.string().min(1),
+  roleId: z.string().min(1),
+  scopeResourceId: z.string().nullable().optional(),
+})
+
+const createPermissionSchema = z.object({
+  name: z.string().min(1),
+  displayName: z.string().min(1),
+  resource: z.string().min(1),
+  action: z.string().min(1),
+  description: z.string().nullable().optional(),
+})
+
+const updatePermissionSchema = z.object({
+  name: z.string().min(1).optional(),
+  displayName: z.string().min(1).optional(),
+  resource: z.string().min(1).optional(),
+  action: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+})
+
 /** 空列表响应（用于无对应表的路由） */
 function emptyList(page: number, pageSize: number) {
   return success({ list: [], total: 0, page, pageSize })
 }
 
 /** 通用空桩路由注册（用于无对应 DB 表的路由） */
-function registerEmptyStub(server: ReturnType<any>, basePath: string) {
+function registerEmptyStub(server: FastifyInstance, basePath: string) {
   server.get(basePath, async (request: FastifyRequest, reply: FastifyReply) => {
     const parsed = paginationSchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
@@ -687,6 +761,12 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-accounts/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db
+      .select()
+      .from(userThirdPartyAccounts)
+      .where(eq(userThirdPartyAccounts.id, p.data.id))
+      .limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(userThirdPartyAccounts).where(eq(userThirdPartyAccounts.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -718,15 +798,14 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const b = updateAuthInfoSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .update(userAuthInfo)
       .set({
-        ...(body.phone !== undefined && { phone: body.phone ? String(body.phone) : null }),
-        ...(body.authStatus !== undefined && { authStatus: String(body.authStatus) }),
-        ...(body.realName !== undefined && {
-          realName: body.realName ? String(body.realName) : null,
-        }),
+        ...(b.data.phone !== undefined && { phone: b.data.phone }),
+        ...(b.data.authStatus !== undefined && { authStatus: b.data.authStatus }),
+        ...(b.data.realName !== undefined && { realName: b.data.realName }),
         updatedAt: new Date(),
       })
       .where(eq(userAuthInfo.userUuid, p.data.id))
@@ -760,14 +839,15 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/auth-role', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const b = createRoleSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .insert(roles)
       .values({
-        name: String(body.name ?? ''),
-        displayName: String(body.displayName ?? ''),
-        description: body.description ? String(body.description) : null,
-        scope: body.scope ? String(body.scope) : 'self',
+        name: b.data.name,
+        displayName: b.data.displayName,
+        description: b.data.description ?? null,
+        scope: b.data.scope ?? 'self',
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -775,16 +855,15 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-role/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const b = updateRoleSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .update(roles)
       .set({
-        ...(body.name !== undefined && { name: String(body.name) }),
-        ...(body.displayName !== undefined && { displayName: String(body.displayName) }),
-        ...(body.description !== undefined && {
-          description: body.description ? String(body.description) : null,
-        }),
-        ...(body.scope !== undefined && { scope: String(body.scope) }),
+        ...(b.data.name !== undefined && { name: b.data.name }),
+        ...(b.data.displayName !== undefined && { displayName: b.data.displayName }),
+        ...(b.data.description !== undefined && { description: b.data.description }),
+        ...(b.data.scope !== undefined && { scope: b.data.scope }),
         updatedAt: new Date(),
       })
       .where(eq(roles.id, p.data.id))
@@ -795,6 +874,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-role/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db.select().from(roles).where(eq(roles.id, p.data.id)).limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(roles).where(eq(roles.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -826,6 +907,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-tokens/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db.select().from(userSk).where(eq(userSk.id, p.data.id)).limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(userSk).where(eq(userSk.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -855,6 +938,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-user-vip/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db.select().from(userVips).where(eq(userVips.id, p.data.id)).limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(userVips).where(eq(userVips.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -882,16 +967,17 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/auth-vip-level', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const b = createVipLevelSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .insert(vipLevels)
       .values({
-        levelName: String(body.levelName ?? ''),
-        levelValue: Number(body.levelValue ?? 0),
-        price: Number(body.price ?? 0),
-        durationDays: Number(body.durationDays ?? 30),
-        status: Number(body.status ?? 1),
-        sortOrder: Number(body.sortOrder ?? 0),
+        levelName: b.data.levelName,
+        levelValue: b.data.levelValue ?? 0,
+        price: b.data.price ?? 0,
+        durationDays: b.data.durationDays ?? 30,
+        status: b.data.status ?? 1,
+        sortOrder: b.data.sortOrder ?? 0,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -899,16 +985,17 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-vip-level/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const b = updateVipLevelSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .update(vipLevels)
       .set({
-        ...(body.levelName !== undefined && { levelName: String(body.levelName) }),
-        ...(body.levelValue !== undefined && { levelValue: Number(body.levelValue) }),
-        ...(body.price !== undefined && { price: Number(body.price) }),
-        ...(body.durationDays !== undefined && { durationDays: Number(body.durationDays) }),
-        ...(body.status !== undefined && { status: Number(body.status) }),
-        ...(body.sortOrder !== undefined && { sortOrder: Number(body.sortOrder) }),
+        ...(b.data.levelName !== undefined && { levelName: b.data.levelName }),
+        ...(b.data.levelValue !== undefined && { levelValue: b.data.levelValue }),
+        ...(b.data.price !== undefined && { price: b.data.price }),
+        ...(b.data.durationDays !== undefined && { durationDays: b.data.durationDays }),
+        ...(b.data.status !== undefined && { status: b.data.status }),
+        ...(b.data.sortOrder !== undefined && { sortOrder: b.data.sortOrder }),
         updatedAt: new Date(),
       })
       .where(eq(vipLevels.id, p.data.id))
@@ -919,6 +1006,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-vip-level/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db.select().from(vipLevels).where(eq(vipLevels.id, p.data.id)).limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(vipLevels).where(eq(vipLevels.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -954,15 +1043,16 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/auth-sms-temp', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const b = createSmsTemplateSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .insert(messageTemplates)
       .values({
-        code: String(body.code ?? ''),
+        code: b.data.code,
         channel: 'sms',
-        title: String(body.title ?? ''),
-        content: String(body.content ?? ''),
-        status: Number(body.status ?? 1),
+        title: b.data.title,
+        content: b.data.content,
+        status: b.data.status ?? 1,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -970,13 +1060,14 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-sms-temp/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const b = updateSmsTemplateSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .update(messageTemplates)
       .set({
-        ...(body.title !== undefined && { title: String(body.title) }),
-        ...(body.content !== undefined && { content: String(body.content) }),
-        ...(body.status !== undefined && { status: Number(body.status) }),
+        ...(b.data.title !== undefined && { title: b.data.title }),
+        ...(b.data.content !== undefined && { content: b.data.content }),
+        ...(b.data.status !== undefined && { status: b.data.status }),
         updatedAt: new Date(),
       })
       .where(eq(messageTemplates.id, p.data.id))
@@ -987,6 +1078,12 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-sms-temp/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db
+      .select()
+      .from(messageTemplates)
+      .where(eq(messageTemplates.id, p.data.id))
+      .limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(messageTemplates).where(eq(messageTemplates.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -1016,13 +1113,14 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/user-roles', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const b = createUserRoleSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .insert(userRoles)
       .values({
-        userId: String(body.userId ?? ''),
-        roleId: String(body.roleId ?? ''),
-        scopeResourceId: body.scopeResourceId ? String(body.scopeResourceId) : null,
+        userId: b.data.userId,
+        roleId: b.data.roleId,
+        scopeResourceId: b.data.scopeResourceId ?? null,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -1030,6 +1128,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/user-roles/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db.select().from(userRoles).where(eq(userRoles.id, p.data.id)).limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(userRoles).where(eq(userRoles.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -1059,15 +1159,16 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/member/permissions', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const b = createPermissionSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .insert(permissions)
       .values({
-        name: String(body.name ?? ''),
-        displayName: String(body.displayName ?? ''),
-        resource: String(body.resource ?? ''),
-        action: String(body.action ?? ''),
-        description: body.description ? String(body.description) : null,
+        name: b.data.name,
+        displayName: b.data.displayName,
+        resource: b.data.resource,
+        action: b.data.action,
+        description: b.data.description ?? null,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -1075,17 +1176,16 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.put('/member/permissions/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const b = updatePermissionSchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, b.error.message))
     const [row] = await db
       .update(permissions)
       .set({
-        ...(body.name !== undefined && { name: String(body.name) }),
-        ...(body.displayName !== undefined && { displayName: String(body.displayName) }),
-        ...(body.resource !== undefined && { resource: String(body.resource) }),
-        ...(body.action !== undefined && { action: String(body.action) }),
-        ...(body.description !== undefined && {
-          description: body.description ? String(body.description) : null,
-        }),
+        ...(b.data.name !== undefined && { name: b.data.name }),
+        ...(b.data.displayName !== undefined && { displayName: b.data.displayName }),
+        ...(b.data.resource !== undefined && { resource: b.data.resource }),
+        ...(b.data.action !== undefined && { action: b.data.action }),
+        ...(b.data.description !== undefined && { description: b.data.description }),
       })
       .where(eq(permissions.id, p.data.id))
       .returning()
@@ -1095,6 +1195,12 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/member/permissions/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db
+      .select()
+      .from(permissions)
+      .where(eq(permissions.id, p.data.id))
+      .limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(permissions).where(eq(permissions.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -1126,6 +1232,8 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/system/operation-logs/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db.select().from(auditLogs).where(eq(auditLogs.id, p.data.id)).limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(auditLogs).where(eq(auditLogs.id, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
@@ -1160,6 +1268,12 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/system/login-logs/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const existing = await db
+      .select()
+      .from(sysLogininfor)
+      .where(eq(sysLogininfor.infoId, Number(p.data.id)))
+      .limit(1)
+    if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
     await db.delete(sysLogininfor).where(eq(sysLogininfor.infoId, Number(p.data.id)))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
