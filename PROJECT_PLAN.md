@@ -1958,3 +1958,34 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 - `npx tsc --noEmit` — ✅ 零错误
 - `npx vitest run` — ✅ 21 test files / 192 tests 全部通过
 - i18n 键完整性 — ✅ pre-commit zh/en parity 检查通过
+
+---
+
+## R85 i18n 批次17 — admin/edu 第2批迁移（2026-07-12）✅
+
+> admin/edu 系列 10 个页面迁移至 `useTranslations`，新增 `admin.edu.*` 子命名空间约 250+ 键 × 5 语言。
+
+### 迁移文件清单
+
+| 文件                                      | 命名空间                        | 说明                               |
+| ----------------------------------------- | ------------------------------- | ---------------------------------- |
+| `admin/edu/student/levels/page.tsx`       | `admin.edu.student.levels`      | 学员等级管理                       |
+| `admin/edu/finance/invoices/page.tsx`     | `admin.edu.finance.invoices`    | 发票管理（status 键冲突修复）      |
+| `admin/edu/exam/papers-random/page.tsx`   | `admin.edu.exam.papersRandom`   | 随机组卷                           |
+| `admin/edu/exam/ranking/page.tsx`         | `admin.edu.exam.ranking`        | 成绩排名                           |
+| `admin/edu/learn/progress/page.tsx`       | `admin.edu.learn.progress`      | 学习进度                           |
+| `admin/edu/exam/categories/page.tsx`      | `admin.edu.exam.categories`     | 考试分类                           |
+| `admin/edu/course/chapters/page.tsx`      | `admin.edu.course.chapters`     | 课程章节                           |
+| `admin/edu/teacher/review/page.tsx`       | `admin.edu.teacher.review`      | 讲师审核                           |
+| `admin/edu/teacher/detail/page.tsx`       | `admin.edu.teacher.detail`      | 讲师详情                           |
+| `admin/edu/exam/papers-template/page.tsx` | `admin.edu.exam.papersTemplate` | 模板组卷（参数 `t` 重命名为 `tc`） |
+
+### 修复要点
+
+- `finance/invoices`: `status` 键同时用作字符串和对象导致冲突，将 aria-label 的 `t('status')` 改为 `t('statusLabel')`
+- `exam/papers-template`: `openEdit(t: Template)` 参数 `t` 与翻译函数冲突，重命名为 `tc`
+
+### 验证结果
+
+- `npx tsc --noEmit` — ✅ 零错误
+- pre-commit i18n 键完整性 — ✅ 538 个文件 zh/en parity OK
