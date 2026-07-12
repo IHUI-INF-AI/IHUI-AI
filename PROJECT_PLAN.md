@@ -1989,3 +1989,77 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 
 - `npx tsc --noEmit` — ✅ 零错误
 - pre-commit i18n 键完整性 — ✅ 538 个文件 zh/en parity OK
+
+## R86 i18n 批次3A — admin/edu 12主页面+21子组件迁移（2026-07-12）✅
+
+> commit `78b2697b2`，38 files changed, +3385/-498。12 个主页面 page.tsx + 21 个子组件 .tsx + 5 个 messages.json。
+
+### 迁移文件清单
+
+| 模块               | 主页面 page.tsx              | 子组件                                                   |
+| ------------------ | ---------------------------- | -------------------------------------------------------- |
+| answer             | online / programming / card  | —                                                        |
+| course.index       | course/page.tsx              | CourseFilter / CourseTable / CourseDialog                |
+| course.audit       | course/audit/page.tsx        | CourseAuditFilter / CourseAuditTable / CourseAuditDialog |
+| course.categories  | course/categories/page.tsx   | CategoryFilter / CategoryTable / CategoryDialog          |
+| course.pay         | course/pay/page.tsx          | CoursePayFilter / CoursePayTable / CoursePayDialog       |
+| course.platformLog | course/platform-log/page.tsx | PlatformLogFilter / PlatformLogTable / PlatformLogDialog |
+| course.trash       | course/trash/page.tsx        | —                                                        |
+| exam.index         | exam/page.tsx                | ExamFilter / ExamTable / ExamDialog                      |
+| exam.papersManual  | exam/papersManual/page.tsx   | —                                                        |
+| exam.questions     | exam/questions/page.tsx      | —                                                        |
+
+### 技术要点
+
+- 子组件共享父页面命名空间（如 `CourseFilter` 使用 `admin.edu.course.index`）
+- 合并脚本 `deepMerge` 函数只追加缺失键不覆盖已有键
+- pre-commit i18n 键完整性检查全绿
+
+## R87 i18n 批次3B — admin/edu 剩余32文件迁移（2026-07-12）✅
+
+> commit `4cf2824ed`，37 files changed, +2925/-452。32 个 .tsx + 5 个 messages.json，4 个并行子代理完成。
+
+### 迁移文件清单
+
+| 子代理 | 文件                                                                                                                                                                                                                          | 命名空间                                                                                    |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1      | learn/page + LearnFilter + LearnTable + LearnDialog + learn/records/page + learn/ranking/page                                                                                                                                 | admin.edu.learn.{index,records,ranking}                                                     |
+| 2      | learn/recorded/{page,RecordedFilter,RecordedTable,RecordedDialog} + learn/remind/{page,LearnRemindFilter,LearnRemindTable,LearnRemindDialog}                                                                                  | admin.edu.learn.{recorded,remind}                                                           |
+| 3      | finance/{page,statistics/page,PayLogFilter,PayLogTable,PayLogDialog} + platform/{page,PlatformFilter,PlatformTable,PlatformDialog}                                                                                            | admin.edu.{finance.index,finance.statistics,platform}                                       |
+| 4      | organization/{page,EduOrganizationFilter,EduOrganizationTable,EduOrganizationDialog} + exam/records/page + exam/questions/[type]/page + exam/papers-template/{PapersTemplateTable,PapersTemplateDialog} + student/detail/page | admin.edu.{organization,exam.records,exam.questionsType,exam.papersTemplate,student.detail} |
+
+### 技术要点
+
+- `TYPE_MAP`/`LEVEL_TEXT`/`AUDIT_TEXT` 等常量映射改为 `TYPES`/`PERIODS` 数组 + `t('type.${k}')` 模式
+- `STATUS_MAP` 拆为 `STATUS_CLS`（className 映射）+ `t('status.${r.status}')`（文本翻译）
+- 变量名冲突处理：`stats.byType.map((t) => ...)` 和 `list.map((t) => ...)` 占用 `t` 时，翻译函数改用 `tc`
+- 修复 `LearnRemindTable.tsx` 缺失 `edit`/`delete` 键（pre-commit 拦截后补充）
+- pre-commit i18n 键完整性检查全绿
+
+## R88 i18n 批次3C — exam/questions/[type] 子组件修复（2026-07-12）✅
+
+> commit `971ffaf6f`，8 files changed, +133/-29。深度扫描发现批次3B遗漏了同目录3个子组件。
+
+### 迁移文件清单
+
+| 文件                                       | 命名空间                       | 说明                                                  |
+| ------------------------------------------ | ------------------------------ | ----------------------------------------------------- |
+| `exam/questions/[type]/QuestionTable.tsx`  | `admin.edu.exam.questionsType` | 表头（题干/分值/排序/操作）+ 空状态 + 编辑/删除 title |
+| `exam/questions/[type]/QuestionDialog.tsx` | `admin.edu.exam.questionsType` | 对话框标题 + 表单标签 + placeholder + 取消/保存       |
+| `exam/questions/[type]/QuestionFilter.tsx` | `admin.edu.exam.questionsType` | aria-label + 下拉占位 + 未发布标记                    |
+
+### 新增 i18n 键（19 键 × 5 语言）
+
+`stem` / `score` / `sort` / `actions` / `noDataWithType` / `edit` / `delete` / `editWithType` / `stemPlaceholder` / `optionsJson` / `optionsPlaceholder` / `answerJson` / `analysis` / `analysisPlaceholder` / `cancel` / `save` / `selectPaper` / `selectPaperPlaceholder` / `unpublished`
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 零错误
+- pre-commit i18n 键完整性 — ✅ 602 个文件 zh/en parity OK
+- 5 语言文件 `admin.edu.exam.questionsType` 命名空间各 32 键完全一致
+
+### 剩余可接受技术债
+
+- 14 处 `.includes('请求失败')`：API 错误检测逻辑（非用户可见文本），需后端错误码系统改造才能迁移
+- `helpers.ts` 中 `EXPORT_COLS` 中文表头 / `SUB_LINKS` label / `TYPE_LABEL` 等：需调整 `exportFromApi` 接受翻译后的列标题
+- `models/helpers.ts` 156 处中文：产品数据描述，建议保留
