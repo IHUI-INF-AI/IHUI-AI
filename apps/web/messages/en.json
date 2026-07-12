@@ -4601,6 +4601,8 @@
     "pageTitle": "AI Content Generation",
     "pageSubtitle": "Select a type to generate text, images, videos, audio, 3D models and more",
     "tabGeneric": "Generic",
+    "tabText": "Text",
+    "tabCode": "Code",
     "tabQwen": "Qwen",
     "tabDoubao": "Doubao",
     "tabJimeng": "JiMeng",

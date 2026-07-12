@@ -219,7 +219,7 @@ export default function ZhsAgentPage() {
             <Download className="h-4 w-4" />
             导出
           </Button>
-          <HasPermi code="ai:zhsAgent:add">
+          <HasPermi code="ai:zhsagent:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               新增
@@ -295,7 +295,7 @@ export default function ZhsAgentPage() {
                   <TableCell className="px-4 py-2.5">{item.heat || '-'}</TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <HasPermi code="ai:zhsAgent:edit">
+                      <HasPermi code="ai:zhsagent:edit">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -305,7 +305,7 @@ export default function ZhsAgentPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </HasPermi>
-                      <HasPermi code="ai:zhsAgent:remove">
+                      <HasPermi code="ai:zhsagent:remove">
                         <Button
                           variant="ghost"
                           size="sm"

@@ -4601,6 +4601,8 @@
     "pageTitle": "AI コンテンツ生成",
     "pageSubtitle": "タイプを選択して、テキスト、画像、動画、音声、3Dモデルなどを生成",
     "tabGeneric": "汎用",
+    "tabText": "テキスト",
+    "tabCode": "コード",
     "tabQwen": "Qwen",
     "tabDoubao": "Doubao",
     "tabJimeng": "JiMeng",

@@ -559,13 +559,13 @@ export default function AdminShopWithdrawalsPage() {
               重置
             </Button>
             <div className="flex-1" />
-            <HasPermi code="ai:Withdrawaldetail:export">
+            <HasPermi code="ai:withdrawaldetail:export">
               <Button variant="outline" size="sm" onClick={handleExportDetail}>
                 <Download className="h-4 w-4" />
                 导出
               </Button>
             </HasPermi>
-            <HasPermi code="ai:Withdrawaldetail:add">
+            <HasPermi code="ai:withdrawaldetail:add">
               <Button size="sm" onClick={openCreateDetail}>
                 <Plus className="h-4 w-4" />
                 新增
@@ -646,19 +646,19 @@ export default function AdminShopWithdrawalsPage() {
                                 <X className="h-3.5 w-3.5 text-red-600" />
                                 驳回
                               </Button>
-                              <HasPermi code="ai:Withdrawaldetail:edit">
+                              <HasPermi code="ai:withdrawaldetail:edit">
                                 <Button size="sm" variant="ghost" onClick={() => openReview(w)}>
                                   审核
                                 </Button>
                               </HasPermi>
                             </>
                           )}
-                          <HasPermi code="ai:Withdrawaldetail:edit">
+                          <HasPermi code="ai:withdrawaldetail:edit">
                             <Button size="sm" variant="ghost" onClick={() => openEditDetail(w)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                           </HasPermi>
-                          <HasPermi code="ai:Withdrawaldetail:remove">
+                          <HasPermi code="ai:withdrawaldetail:remove">
                             <Button
                               size="sm"
                               variant="ghost"

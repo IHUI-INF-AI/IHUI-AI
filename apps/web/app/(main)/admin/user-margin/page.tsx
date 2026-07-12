@@ -31,7 +31,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 const RESOURCE = '/api/admin/auth-user-margin'
-const PERM = 'auth:AuthuserMargin'
+const PERM = 'auth:authusermargin'
 const PAGE_SIZE = 10
 type FormState = Record<string, string>
 const FIELDS: { key: string; label: string; required?: boolean }[] = [

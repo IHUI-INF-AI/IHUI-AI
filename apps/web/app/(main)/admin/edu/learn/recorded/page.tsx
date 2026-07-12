@@ -128,7 +128,7 @@ const TEXT_FIELDS: { key: keyof CForm; label: string }[] = [
   { key: 'creator', label: '创建人' },
 ]
 const PAGE_SIZE = 10
-const PERM = 'course:courseVideo:'
+const PERM = 'course:coursevideo:'
 const API = '/api/admin/course-video'
 const LEVEL_TEXT = ['初级', '中级', '高级']
 const AUDIT_TEXT = ['待审核', '审核中', '待整改', '已驳回', '已通过']

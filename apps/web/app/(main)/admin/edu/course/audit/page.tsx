@@ -39,7 +39,7 @@ interface Audit {
 }
 type Snapshot = Record<string, unknown>
 const PAGE_SIZE = 10
-const PERM = 'course:courseAudit:'
+const PERM = 'course:courseaudit:'
 const fmt = (s?: string | null) =>
   s
     ? new Intl.DateTimeFormat('zh-CN', {
