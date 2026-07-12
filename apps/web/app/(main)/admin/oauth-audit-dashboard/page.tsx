@@ -31,71 +31,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const MOCK_STATS: AuditStats = {
-  totalAuth: 84210,
-  todayAuth: 1240,
-  activeApps: 24,
-  anomalyEvents: 8,
-}
-const MOCK_LOGS: AuditLog[] = [
-  {
-    id: '1',
-    time: '2026-07-10 09:12:30',
-    app: '协作工具',
-    event: 'authorization.granted',
-    status: 'success',
-    ip: '203.0.113.42',
-  },
-  {
-    id: '2',
-    time: '2026-07-10 09:10:18',
-    app: '数据分析平台',
-    event: 'token.refresh',
-    status: 'success',
-    ip: '198.51.100.7',
-  },
-  {
-    id: '3',
-    time: '2026-07-10 09:05:42',
-    app: '未知应用',
-    event: 'authorization.denied',
-    status: 'failed',
-    ip: '198.51.100.99',
-  },
-  {
-    id: '4',
-    time: '2026-07-10 08:58:55',
-    app: 'CRM 系统',
-    event: 'token.revoked',
-    status: 'warning',
-    ip: '203.0.113.18',
-  },
-  {
-    id: '5',
-    time: '2026-07-10 08:40:00',
-    app: '协作工具',
-    event: 'authorization.granted',
-    status: 'success',
-    ip: '203.0.113.42',
-  },
-  {
-    id: '6',
-    time: '2026-07-10 08:22:14',
-    app: '客服系统',
-    event: 'authorization.granted',
-    status: 'success',
-    ip: '192.0.2.88',
-  },
-  {
-    id: '7',
-    time: '2026-07-10 08:08:33',
-    app: '数据分析平台',
-    event: 'login.failed',
-    status: 'failed',
-    ip: '198.51.100.7',
-  },
-]
-
 const STATUS_STYLE: Record<AuditLog['status'], { bg: string; text: string; label: string }> = {
   success: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', label: 'Success' },
   failed: { bg: 'bg-red-500/10', text: 'text-red-600', label: 'Failed' },
@@ -106,52 +41,51 @@ export default function OauthAuditDashboardPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
 
-  const { data: stats = MOCK_STATS, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'oauth-audit', 'stats'],
     queryFn: async () => {
       const r = await fetchApi<AuditStats>('/api/admin/oauth-audit/stats')
-      if (r.success && r.data) return r.data
-      return MOCK_STATS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: logs = MOCK_LOGS } = useQuery({
+  const { data: logs } = useQuery({
     queryKey: ['admin', 'oauth-audit', 'logs'],
     queryFn: async () => {
-      try {
-        const d = await api<{ list?: AuditLog[] } | AuditLog[]>('/api/agents/oauth-apps/audit-logs')
-        return Array.isArray(d) ? d : (d.list ?? MOCK_LOGS)
-      } catch {
-        return MOCK_LOGS
-      }
+      const d = await api<{ list?: AuditLog[] } | AuditLog[]>('/api/agents/oauth-apps/audit-logs')
+      return Array.isArray(d) ? d : (d.list ?? [])
     },
   })
 
-  const cards = [
-    {
-      label: t('oauthAudit.totalAuth'),
-      value: stats.totalAuth.toLocaleString(),
-      icon: KeyRound,
-      color: 'text-primary',
-    },
-    {
-      label: t('oauthAudit.todayAuth'),
-      value: stats.todayAuth.toLocaleString(),
-      icon: Activity,
-      color: 'text-primary',
-    },
-    {
-      label: t('oauthAudit.activeApps'),
-      value: stats.activeApps,
-      icon: ShieldCheck,
-      color: 'text-emerald-600',
-    },
-    {
-      label: t('oauthAudit.anomalyEvents'),
-      value: stats.anomalyEvents,
-      icon: AlertTriangle,
-      color: 'text-red-600',
-    },
-  ]
+  const logsList = logs ?? []
+  const cards = stats
+    ? [
+        {
+          label: t('oauthAudit.totalAuth'),
+          value: stats.totalAuth.toLocaleString(),
+          icon: KeyRound,
+          color: 'text-primary',
+        },
+        {
+          label: t('oauthAudit.todayAuth'),
+          value: stats.todayAuth.toLocaleString(),
+          icon: Activity,
+          color: 'text-primary',
+        },
+        {
+          label: t('oauthAudit.activeApps'),
+          value: stats.activeApps,
+          icon: ShieldCheck,
+          color: 'text-emerald-600',
+        },
+        {
+          label: t('oauthAudit.anomalyEvents'),
+          value: stats.anomalyEvents,
+          icon: AlertTriangle,
+          color: 'text-red-600',
+        },
+      ]
+    : []
 
   return (
     <div className="space-y-6">
@@ -169,6 +103,10 @@ export default function OauthAuditDashboardPage() {
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
+          </div>
+        ) : !stats ? (
+          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+            {t('oauthAudit.noData')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -192,7 +130,7 @@ export default function OauthAuditDashboardPage() {
       {/* 审计日志 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('oauthAudit.auditLogs')}</h2>
-        {logs.length === 0 ? (
+        {logsList.length === 0 ? (
           <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
             {t('oauthAudit.noData')}
           </div>
@@ -209,7 +147,7 @@ export default function OauthAuditDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {logs.map((l) => {
+                {logsList.map((l) => {
                   const st = STATUS_STYLE[l.status]
                   return (
                     <tr key={l.id} className="transition-colors hover:bg-muted/30">

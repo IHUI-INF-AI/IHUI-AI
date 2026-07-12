@@ -158,12 +158,12 @@ export interface ProductIdentity {
 export async function getCheckinList(
   query: PageQuery & { memberId?: string } = {},
 ): Promise<ApiResult<PageData<Checkin>>> {
-  return fetchApi<PageData<Checkin>>(`/api/v1/checkin/list${buildQs(query)}`)
+  return fetchApi<PageData<Checkin>>(`/api/checkin/list${buildQs(query)}`)
 }
 
 /** 签到详情 */
 export async function getCheckinDetail(cid: number): Promise<ApiResult<Checkin>> {
-  return fetchApi<Checkin>(`/api/v1/checkin/${cid}`)
+  return fetchApi<Checkin>(`/api/checkin/${cid}`)
 }
 
 /** 创建签到 */
@@ -171,7 +171,7 @@ export async function createCheckin(input: {
   continuousNum: number
   memberId?: string
 }): Promise<ApiResult<Checkin>> {
-  return fetchApi<Checkin>('/api/v1/checkin', {
+  return fetchApi<Checkin>('/api/checkin', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -182,7 +182,7 @@ export async function updateCheckin(
   cid: number,
   input: { continuousNum?: number },
 ): Promise<ApiResult<Checkin>> {
-  return fetchApi<Checkin>(`/api/v1/checkin/${cid}`, {
+  return fetchApi<Checkin>(`/api/checkin/${cid}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -190,26 +190,26 @@ export async function updateCheckin(
 
 /** 删除签到 */
 export async function deleteCheckin(cid: number): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/v1/checkin/${cid}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/checkin/${cid}`, { method: 'DELETE' })
 }
 
 /** 签到记录列表 */
 export async function getCheckinRecords(
   query: PageQuery & { memberId?: string; type?: string } = {},
 ): Promise<ApiResult<PageData<CheckinRecord>>> {
-  return fetchApi<PageData<CheckinRecord>>(`/api/v1/checkin/record/list${buildQs(query)}`)
+  return fetchApi<PageData<CheckinRecord>>(`/api/checkin/record/list${buildQs(query)}`)
 }
 
 /** 签到记录详情 */
 export async function getCheckinRecordDetail(rid: number): Promise<ApiResult<CheckinRecord>> {
-  return fetchApi<CheckinRecord>(`/api/v1/checkin/record/${rid}`)
+  return fetchApi<CheckinRecord>(`/api/checkin/record/${rid}`)
 }
 
 /** 创建签到记录 */
 export async function createCheckinRecord(input: {
   type: string
 }): Promise<ApiResult<CheckinRecord>> {
-  return fetchApi<CheckinRecord>('/api/v1/checkin/record', {
+  return fetchApi<CheckinRecord>('/api/checkin/record', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -220,7 +220,7 @@ export async function updateCheckinRecord(
   rid: number,
   input: { type?: string },
 ): Promise<ApiResult<CheckinRecord>> {
-  return fetchApi<CheckinRecord>(`/api/v1/checkin/record/${rid}`, {
+  return fetchApi<CheckinRecord>(`/api/checkin/record/${rid}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -228,7 +228,7 @@ export async function updateCheckinRecord(
 
 /** 删除签到记录 */
 export async function deleteCheckinRecord(rid: number): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/v1/checkin/record/${rid}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/checkin/record/${rid}`, { method: 'DELETE' })
 }
 
 // ===================== ranking（排行榜） =====================

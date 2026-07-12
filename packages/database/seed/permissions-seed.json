@@ -1,0 +1,1274 @@
+[
+  {
+    "name": "ai:advertise:add",
+    "resource": "ai:advertise",
+    "action": "add",
+    "displayName": "广告-新增"
+  },
+  {
+    "name": "ai:advertise:edit",
+    "resource": "ai:advertise",
+    "action": "edit",
+    "displayName": "广告-编辑"
+  },
+  {
+    "name": "ai:advertise:remove",
+    "resource": "ai:advertise",
+    "action": "remove",
+    "displayName": "广告-删除"
+  },
+  {
+    "name": "ai:agentrule:add",
+    "resource": "ai:agentrule",
+    "action": "add",
+    "displayName": "代理规则-新增"
+  },
+  {
+    "name": "ai:agentrule:edit",
+    "resource": "ai:agentrule",
+    "action": "edit",
+    "displayName": "代理规则-编辑"
+  },
+  {
+    "name": "ai:agentrule:remove",
+    "resource": "ai:agentrule",
+    "action": "remove",
+    "displayName": "代理规则-删除"
+  },
+  {
+    "name": "ai:agenttask:add",
+    "resource": "ai:agenttask",
+    "action": "add",
+    "displayName": "代理任务-新增"
+  },
+  {
+    "name": "ai:agenttask:edit",
+    "resource": "ai:agenttask",
+    "action": "edit",
+    "displayName": "代理任务-编辑"
+  },
+  {
+    "name": "ai:agenttask:remove",
+    "resource": "ai:agenttask",
+    "action": "remove",
+    "displayName": "代理任务-删除"
+  },
+  {
+    "name": "ai:carousel:add",
+    "resource": "ai:carousel",
+    "action": "add",
+    "displayName": "轮播图-新增"
+  },
+  {
+    "name": "ai:carousel:edit",
+    "resource": "ai:carousel",
+    "action": "edit",
+    "displayName": "轮播图-编辑"
+  },
+  {
+    "name": "ai:carousel:remove",
+    "resource": "ai:carousel",
+    "action": "remove",
+    "displayName": "轮播图-删除"
+  },
+  {
+    "name": "ai:developer:add",
+    "resource": "ai:developer",
+    "action": "add",
+    "displayName": "开发者-新增"
+  },
+  {
+    "name": "ai:developer:edit",
+    "resource": "ai:developer",
+    "action": "edit",
+    "displayName": "开发者-编辑"
+  },
+  {
+    "name": "ai:developer:export",
+    "resource": "ai:developer",
+    "action": "export",
+    "displayName": "开发者-导出"
+  },
+  {
+    "name": "ai:developer:remove",
+    "resource": "ai:developer",
+    "action": "remove",
+    "displayName": "开发者-删除"
+  },
+  {
+    "name": "ai:developerlink:add",
+    "resource": "ai:developerlink",
+    "action": "add",
+    "displayName": "开发者链接-新增"
+  },
+  {
+    "name": "ai:developerlink:edit",
+    "resource": "ai:developerlink",
+    "action": "edit",
+    "displayName": "开发者链接-编辑"
+  },
+  {
+    "name": "ai:developerlink:remove",
+    "resource": "ai:developerlink",
+    "action": "remove",
+    "displayName": "开发者链接-删除"
+  },
+  {
+    "name": "ai:dictionary:add",
+    "resource": "ai:dictionary",
+    "action": "add",
+    "displayName": "字典-新增"
+  },
+  {
+    "name": "ai:dictionary:edit",
+    "resource": "ai:dictionary",
+    "action": "edit",
+    "displayName": "字典-编辑"
+  },
+  {
+    "name": "ai:dictionary:remove",
+    "resource": "ai:dictionary",
+    "action": "remove",
+    "displayName": "字典-删除"
+  },
+  {
+    "name": "ai:examine:add",
+    "resource": "ai:examine",
+    "action": "add",
+    "displayName": "代理审核-新增"
+  },
+  {
+    "name": "ai:examine:edit",
+    "resource": "ai:examine",
+    "action": "edit",
+    "displayName": "代理审核-编辑"
+  },
+  {
+    "name": "ai:examine:remove",
+    "resource": "ai:examine",
+    "action": "remove",
+    "displayName": "代理审核-删除"
+  },
+  {
+    "name": "ai:identity_proportion:add",
+    "resource": "ai:identity_proportion",
+    "action": "add",
+    "displayName": "身份占比-新增"
+  },
+  {
+    "name": "ai:identity_proportion:edit",
+    "resource": "ai:identity_proportion",
+    "action": "edit",
+    "displayName": "身份占比-编辑"
+  },
+  {
+    "name": "ai:identity_proportion:remove",
+    "resource": "ai:identity_proportion",
+    "action": "remove",
+    "displayName": "身份占比-删除"
+  },
+  {
+    "name": "ai:information:add",
+    "resource": "ai:information",
+    "action": "add",
+    "displayName": "资讯-新增"
+  },
+  {
+    "name": "ai:information:edit",
+    "resource": "ai:information",
+    "action": "edit",
+    "displayName": "资讯-编辑"
+  },
+  {
+    "name": "ai:information:export",
+    "resource": "ai:information",
+    "action": "export",
+    "displayName": "资讯-导出"
+  },
+  {
+    "name": "ai:information:remove",
+    "resource": "ai:information",
+    "action": "remove",
+    "displayName": "资讯-删除"
+  },
+  {
+    "name": "ai:order:add",
+    "resource": "ai:order",
+    "action": "add",
+    "displayName": "订单-新增"
+  },
+  {
+    "name": "ai:order:edit",
+    "resource": "ai:order",
+    "action": "edit",
+    "displayName": "订单-编辑"
+  },
+  {
+    "name": "ai:order:export",
+    "resource": "ai:order",
+    "action": "export",
+    "displayName": "订单-导出"
+  },
+  {
+    "name": "ai:order:remove",
+    "resource": "ai:order",
+    "action": "remove",
+    "displayName": "订单-删除"
+  },
+  {
+    "name": "ai:product_identity:add",
+    "resource": "ai:product_identity",
+    "action": "add",
+    "displayName": "产品身份-新增"
+  },
+  {
+    "name": "ai:product_identity:edit",
+    "resource": "ai:product_identity",
+    "action": "edit",
+    "displayName": "产品身份-编辑"
+  },
+  {
+    "name": "ai:product_identity:remove",
+    "resource": "ai:product_identity",
+    "action": "remove",
+    "displayName": "产品身份-删除"
+  },
+  {
+    "name": "ai:taskdeveloper:add",
+    "resource": "ai:taskdeveloper",
+    "action": "add",
+    "displayName": "任务开发者-新增"
+  },
+  {
+    "name": "ai:taskdeveloper:edit",
+    "resource": "ai:taskdeveloper",
+    "action": "edit",
+    "displayName": "任务开发者-编辑"
+  },
+  {
+    "name": "ai:taskdeveloper:export",
+    "resource": "ai:taskdeveloper",
+    "action": "export",
+    "displayName": "任务开发者-导出"
+  },
+  {
+    "name": "ai:taskdeveloper:remove",
+    "resource": "ai:taskdeveloper",
+    "action": "remove",
+    "displayName": "任务开发者-删除"
+  },
+  {
+    "name": "ai:user_vip:add",
+    "resource": "ai:user_vip",
+    "action": "add",
+    "displayName": "用户VIP-新增"
+  },
+  {
+    "name": "ai:user_vip:edit",
+    "resource": "ai:user_vip",
+    "action": "edit",
+    "displayName": "用户VIP-编辑"
+  },
+  {
+    "name": "ai:user_vip:export",
+    "resource": "ai:user_vip",
+    "action": "export",
+    "displayName": "用户VIP-导出"
+  },
+  {
+    "name": "ai:user_vip:remove",
+    "resource": "ai:user_vip",
+    "action": "remove",
+    "displayName": "用户VIP-删除"
+  },
+  {
+    "name": "ai:useragentcontext:add",
+    "resource": "ai:useragentcontext",
+    "action": "add",
+    "displayName": "用户代理上下文-新增"
+  },
+  {
+    "name": "ai:useragentcontext:edit",
+    "resource": "ai:useragentcontext",
+    "action": "edit",
+    "displayName": "用户代理上下文-编辑"
+  },
+  {
+    "name": "ai:useragentcontext:remove",
+    "resource": "ai:useragentcontext",
+    "action": "remove",
+    "displayName": "用户代理上下文-删除"
+  },
+  {
+    "name": "ai:useragentimage:add",
+    "resource": "ai:useragentimage",
+    "action": "add",
+    "displayName": "用户代理形象-新增"
+  },
+  {
+    "name": "ai:useragentimage:edit",
+    "resource": "ai:useragentimage",
+    "action": "edit",
+    "displayName": "用户代理形象-编辑"
+  },
+  {
+    "name": "ai:useragentimage:remove",
+    "resource": "ai:useragentimage",
+    "action": "remove",
+    "displayName": "用户代理形象-删除"
+  },
+  {
+    "name": "ai:userfeedback:add",
+    "resource": "ai:userfeedback",
+    "action": "add",
+    "displayName": "用户反馈-新增"
+  },
+  {
+    "name": "ai:userfeedback:export",
+    "resource": "ai:userfeedback",
+    "action": "export",
+    "displayName": "用户反馈-导出"
+  },
+  {
+    "name": "ai:userfeedback:remove",
+    "resource": "ai:userfeedback",
+    "action": "remove",
+    "displayName": "用户反馈-删除"
+  },
+  {
+    "name": "ai:vip_level:add",
+    "resource": "ai:vip_level",
+    "action": "add",
+    "displayName": "VIP等级-新增"
+  },
+  {
+    "name": "ai:vip_level:edit",
+    "resource": "ai:vip_level",
+    "action": "edit",
+    "displayName": "VIP等级-编辑"
+  },
+  {
+    "name": "ai:vip_level:export",
+    "resource": "ai:vip_level",
+    "action": "export",
+    "displayName": "VIP等级-导出"
+  },
+  {
+    "name": "ai:vip_level:remove",
+    "resource": "ai:vip_level",
+    "action": "remove",
+    "displayName": "VIP等级-删除"
+  },
+  {
+    "name": "ai:withdrawal_flow:add",
+    "resource": "ai:withdrawal_flow",
+    "action": "add",
+    "displayName": "提现流程-新增"
+  },
+  {
+    "name": "ai:withdrawal_flow:edit",
+    "resource": "ai:withdrawal_flow",
+    "action": "edit",
+    "displayName": "提现流程-编辑"
+  },
+  {
+    "name": "ai:withdrawal_flow:export",
+    "resource": "ai:withdrawal_flow",
+    "action": "export",
+    "displayName": "提现流程-导出"
+  },
+  {
+    "name": "ai:withdrawal_flow:remove",
+    "resource": "ai:withdrawal_flow",
+    "action": "remove",
+    "displayName": "提现流程-删除"
+  },
+  {
+    "name": "ai:withdrawaldetail:add",
+    "resource": "ai:withdrawaldetail",
+    "action": "add",
+    "displayName": "提现详情-新增"
+  },
+  {
+    "name": "ai:withdrawaldetail:edit",
+    "resource": "ai:withdrawaldetail",
+    "action": "edit",
+    "displayName": "提现详情-编辑"
+  },
+  {
+    "name": "ai:withdrawaldetail:export",
+    "resource": "ai:withdrawaldetail",
+    "action": "export",
+    "displayName": "提现详情-导出"
+  },
+  {
+    "name": "ai:withdrawaldetail:remove",
+    "resource": "ai:withdrawaldetail",
+    "action": "remove",
+    "displayName": "提现详情-删除"
+  },
+  {
+    "name": "ai:zhs_activity:add",
+    "resource": "ai:zhs_activity",
+    "action": "add",
+    "displayName": "智慧树活动-新增"
+  },
+  {
+    "name": "ai:zhs_activity:edit",
+    "resource": "ai:zhs_activity",
+    "action": "edit",
+    "displayName": "智慧树活动-编辑"
+  },
+  {
+    "name": "ai:zhs_activity:remove",
+    "resource": "ai:zhs_activity",
+    "action": "remove",
+    "displayName": "智慧树活动-删除"
+  },
+  {
+    "name": "ai:zhs_product:add",
+    "resource": "ai:zhs_product",
+    "action": "add",
+    "displayName": "智慧树商品-新增"
+  },
+  {
+    "name": "ai:zhs_product:edit",
+    "resource": "ai:zhs_product",
+    "action": "edit",
+    "displayName": "智慧树商品-编辑"
+  },
+  {
+    "name": "ai:zhs_product:remove",
+    "resource": "ai:zhs_product",
+    "action": "remove",
+    "displayName": "智慧树商品-删除"
+  },
+  {
+    "name": "ai:zhs_user:add",
+    "resource": "ai:zhs_user",
+    "action": "add",
+    "displayName": "智慧树用户-新增"
+  },
+  {
+    "name": "ai:zhs_user:edit",
+    "resource": "ai:zhs_user",
+    "action": "edit",
+    "displayName": "智慧树用户-编辑"
+  },
+  {
+    "name": "ai:zhs_user:remove",
+    "resource": "ai:zhs_user",
+    "action": "remove",
+    "displayName": "智慧树用户-删除"
+  },
+  {
+    "name": "ai:zhsagent:add",
+    "resource": "ai:zhsagent",
+    "action": "add",
+    "displayName": "智慧树代理-新增"
+  },
+  {
+    "name": "ai:zhsagent:edit",
+    "resource": "ai:zhsagent",
+    "action": "edit",
+    "displayName": "智慧树代理-编辑"
+  },
+  {
+    "name": "ai:zhsagent:remove",
+    "resource": "ai:zhsagent",
+    "action": "remove",
+    "displayName": "智慧树代理-删除"
+  },
+  {
+    "name": "auth:auth_accounts:add",
+    "resource": "auth:auth_accounts",
+    "action": "add",
+    "displayName": "账号管理-新增"
+  },
+  {
+    "name": "auth:auth_accounts:edit",
+    "resource": "auth:auth_accounts",
+    "action": "edit",
+    "displayName": "账号管理-编辑"
+  },
+  {
+    "name": "auth:auth_accounts:export",
+    "resource": "auth:auth_accounts",
+    "action": "export",
+    "displayName": "账号管理-导出"
+  },
+  {
+    "name": "auth:auth_accounts:remove",
+    "resource": "auth:auth_accounts",
+    "action": "remove",
+    "displayName": "账号管理-删除"
+  },
+  {
+    "name": "auth:auth_dept:add",
+    "resource": "auth:auth_dept",
+    "action": "add",
+    "displayName": "部门管理-新增"
+  },
+  {
+    "name": "auth:auth_dept:edit",
+    "resource": "auth:auth_dept",
+    "action": "edit",
+    "displayName": "部门管理-编辑"
+  },
+  {
+    "name": "auth:auth_dept:export",
+    "resource": "auth:auth_dept",
+    "action": "export",
+    "displayName": "部门管理-导出"
+  },
+  {
+    "name": "auth:auth_dept:remove",
+    "resource": "auth:auth_dept",
+    "action": "remove",
+    "displayName": "部门管理-删除"
+  },
+  {
+    "name": "auth:auth_find_info:add",
+    "resource": "auth:auth_find_info",
+    "action": "add",
+    "displayName": "找回信息-新增"
+  },
+  {
+    "name": "auth:auth_find_info:edit",
+    "resource": "auth:auth_find_info",
+    "action": "edit",
+    "displayName": "找回信息-编辑"
+  },
+  {
+    "name": "auth:auth_find_info:export",
+    "resource": "auth:auth_find_info",
+    "action": "export",
+    "displayName": "找回信息-导出"
+  },
+  {
+    "name": "auth:auth_find_info:remove",
+    "resource": "auth:auth_find_info",
+    "action": "remove",
+    "displayName": "找回信息-删除"
+  },
+  {
+    "name": "auth:auth_info:add",
+    "resource": "auth:auth_info",
+    "action": "add",
+    "displayName": "实名信息-新增"
+  },
+  {
+    "name": "auth:auth_info:edit",
+    "resource": "auth:auth_info",
+    "action": "edit",
+    "displayName": "实名信息-编辑"
+  },
+  {
+    "name": "auth:auth_info:export",
+    "resource": "auth:auth_info",
+    "action": "export",
+    "displayName": "实名信息-导出"
+  },
+  {
+    "name": "auth:auth_info:remove",
+    "resource": "auth:auth_info",
+    "action": "remove",
+    "displayName": "实名信息-删除"
+  },
+  {
+    "name": "auth:auth_role:add",
+    "resource": "auth:auth_role",
+    "action": "add",
+    "displayName": "角色管理-新增"
+  },
+  {
+    "name": "auth:auth_role:edit",
+    "resource": "auth:auth_role",
+    "action": "edit",
+    "displayName": "角色管理-编辑"
+  },
+  {
+    "name": "auth:auth_role:export",
+    "resource": "auth:auth_role",
+    "action": "export",
+    "displayName": "角色管理-导出"
+  },
+  {
+    "name": "auth:auth_role:remove",
+    "resource": "auth:auth_role",
+    "action": "remove",
+    "displayName": "角色管理-删除"
+  },
+  {
+    "name": "auth:auth_sms_temp:add",
+    "resource": "auth:auth_sms_temp",
+    "action": "add",
+    "displayName": "短信模板-新增"
+  },
+  {
+    "name": "auth:auth_sms_temp:edit",
+    "resource": "auth:auth_sms_temp",
+    "action": "edit",
+    "displayName": "短信模板-编辑"
+  },
+  {
+    "name": "auth:auth_sms_temp:export",
+    "resource": "auth:auth_sms_temp",
+    "action": "export",
+    "displayName": "短信模板-导出"
+  },
+  {
+    "name": "auth:auth_sms_temp:remove",
+    "resource": "auth:auth_sms_temp",
+    "action": "remove",
+    "displayName": "短信模板-删除"
+  },
+  {
+    "name": "auth:auth_tokens:add",
+    "resource": "auth:auth_tokens",
+    "action": "add",
+    "displayName": "OAuth令牌-新增"
+  },
+  {
+    "name": "auth:auth_tokens:edit",
+    "resource": "auth:auth_tokens",
+    "action": "edit",
+    "displayName": "OAuth令牌-编辑"
+  },
+  {
+    "name": "auth:auth_tokens:export",
+    "resource": "auth:auth_tokens",
+    "action": "export",
+    "displayName": "OAuth令牌-导出"
+  },
+  {
+    "name": "auth:auth_tokens:remove",
+    "resource": "auth:auth_tokens",
+    "action": "remove",
+    "displayName": "OAuth令牌-删除"
+  },
+  {
+    "name": "auth:auth_user_vip:add",
+    "resource": "auth:auth_user_vip",
+    "action": "add",
+    "displayName": "用户VIP-新增"
+  },
+  {
+    "name": "auth:auth_user_vip:edit",
+    "resource": "auth:auth_user_vip",
+    "action": "edit",
+    "displayName": "用户VIP-编辑"
+  },
+  {
+    "name": "auth:auth_user_vip:export",
+    "resource": "auth:auth_user_vip",
+    "action": "export",
+    "displayName": "用户VIP-导出"
+  },
+  {
+    "name": "auth:auth_user_vip:remove",
+    "resource": "auth:auth_user_vip",
+    "action": "remove",
+    "displayName": "用户VIP-删除"
+  },
+  {
+    "name": "auth:auth_veri_codes:add",
+    "resource": "auth:auth_veri_codes",
+    "action": "add",
+    "displayName": "验证码-新增"
+  },
+  {
+    "name": "auth:auth_veri_codes:edit",
+    "resource": "auth:auth_veri_codes",
+    "action": "edit",
+    "displayName": "验证码-编辑"
+  },
+  {
+    "name": "auth:auth_veri_codes:export",
+    "resource": "auth:auth_veri_codes",
+    "action": "export",
+    "displayName": "验证码-导出"
+  },
+  {
+    "name": "auth:auth_veri_codes:remove",
+    "resource": "auth:auth_veri_codes",
+    "action": "remove",
+    "displayName": "验证码-删除"
+  },
+  {
+    "name": "auth:authusermargin:add",
+    "resource": "auth:authusermargin",
+    "action": "add",
+    "displayName": "用户保证金-新增"
+  },
+  {
+    "name": "auth:authusermargin:edit",
+    "resource": "auth:authusermargin",
+    "action": "edit",
+    "displayName": "用户保证金-编辑"
+  },
+  {
+    "name": "auth:authusermargin:export",
+    "resource": "auth:authusermargin",
+    "action": "export",
+    "displayName": "用户保证金-导出"
+  },
+  {
+    "name": "auth:authusermargin:remove",
+    "resource": "auth:authusermargin",
+    "action": "remove",
+    "displayName": "用户保证金-删除"
+  },
+  {
+    "name": "auth:login_logs:add",
+    "resource": "auth:login_logs",
+    "action": "add",
+    "displayName": "登录日志-新增"
+  },
+  {
+    "name": "auth:login_logs:edit",
+    "resource": "auth:login_logs",
+    "action": "edit",
+    "displayName": "登录日志-编辑"
+  },
+  {
+    "name": "auth:login_logs:export",
+    "resource": "auth:login_logs",
+    "action": "export",
+    "displayName": "登录日志-导出"
+  },
+  {
+    "name": "auth:login_logs:remove",
+    "resource": "auth:login_logs",
+    "action": "remove",
+    "displayName": "登录日志-删除"
+  },
+  {
+    "name": "auth:users:add",
+    "resource": "auth:users",
+    "action": "add",
+    "displayName": "用户中心-新增"
+  },
+  {
+    "name": "auth:users:edit",
+    "resource": "auth:users",
+    "action": "edit",
+    "displayName": "用户中心-编辑"
+  },
+  {
+    "name": "auth:users:export",
+    "resource": "auth:users",
+    "action": "export",
+    "displayName": "用户中心-导出"
+  },
+  {
+    "name": "auth:users:remove",
+    "resource": "auth:users",
+    "action": "remove",
+    "displayName": "用户中心-删除"
+  },
+  {
+    "name": "course:categorydictionary:add",
+    "resource": "course:categorydictionary",
+    "action": "add",
+    "displayName": "课程分类字典-新增"
+  },
+  {
+    "name": "course:categorydictionary:edit",
+    "resource": "course:categorydictionary",
+    "action": "edit",
+    "displayName": "课程分类字典-编辑"
+  },
+  {
+    "name": "course:categorydictionary:export",
+    "resource": "course:categorydictionary",
+    "action": "export",
+    "displayName": "课程分类字典-导出"
+  },
+  {
+    "name": "course:categorydictionary:remove",
+    "resource": "course:categorydictionary",
+    "action": "remove",
+    "displayName": "课程分类字典-删除"
+  },
+  {
+    "name": "course:course:add",
+    "resource": "course:course",
+    "action": "add",
+    "displayName": "课程-新增"
+  },
+  {
+    "name": "course:course:edit",
+    "resource": "course:course",
+    "action": "edit",
+    "displayName": "课程-编辑"
+  },
+  {
+    "name": "course:course:export",
+    "resource": "course:course",
+    "action": "export",
+    "displayName": "课程-导出"
+  },
+  {
+    "name": "course:course:remove",
+    "resource": "course:course",
+    "action": "remove",
+    "displayName": "课程-删除"
+  },
+  {
+    "name": "course:courseaudit:edit",
+    "resource": "course:courseaudit",
+    "action": "edit",
+    "displayName": "课程审核-编辑"
+  },
+  {
+    "name": "course:courseaudit:export",
+    "resource": "course:courseaudit",
+    "action": "export",
+    "displayName": "课程审核-导出"
+  },
+  {
+    "name": "course:coursepay:add",
+    "resource": "course:coursepay",
+    "action": "add",
+    "displayName": "课程支付-新增"
+  },
+  {
+    "name": "course:coursepay:edit",
+    "resource": "course:coursepay",
+    "action": "edit",
+    "displayName": "课程支付-编辑"
+  },
+  {
+    "name": "course:coursepay:export",
+    "resource": "course:coursepay",
+    "action": "export",
+    "displayName": "课程支付-导出"
+  },
+  {
+    "name": "course:coursepay:remove",
+    "resource": "course:coursepay",
+    "action": "remove",
+    "displayName": "课程支付-删除"
+  },
+  {
+    "name": "course:coursepaylog:add",
+    "resource": "course:coursepaylog",
+    "action": "add",
+    "displayName": "课程支付日志-新增"
+  },
+  {
+    "name": "course:coursepaylog:edit",
+    "resource": "course:coursepaylog",
+    "action": "edit",
+    "displayName": "课程支付日志-编辑"
+  },
+  {
+    "name": "course:coursepaylog:export",
+    "resource": "course:coursepaylog",
+    "action": "export",
+    "displayName": "课程支付日志-导出"
+  },
+  {
+    "name": "course:coursepaylog:remove",
+    "resource": "course:coursepaylog",
+    "action": "remove",
+    "displayName": "课程支付日志-删除"
+  },
+  {
+    "name": "course:courseplatformlog:add",
+    "resource": "course:courseplatformlog",
+    "action": "add",
+    "displayName": "课程平台日志-新增"
+  },
+  {
+    "name": "course:courseplatformlog:edit",
+    "resource": "course:courseplatformlog",
+    "action": "edit",
+    "displayName": "课程平台日志-编辑"
+  },
+  {
+    "name": "course:courseplatformlog:export",
+    "resource": "course:courseplatformlog",
+    "action": "export",
+    "displayName": "课程平台日志-导出"
+  },
+  {
+    "name": "course:courseplatformlog:remove",
+    "resource": "course:courseplatformlog",
+    "action": "remove",
+    "displayName": "课程平台日志-删除"
+  },
+  {
+    "name": "course:coursevideo:add",
+    "resource": "course:coursevideo",
+    "action": "add",
+    "displayName": "课程视频-新增"
+  },
+  {
+    "name": "course:coursevideo:edit",
+    "resource": "course:coursevideo",
+    "action": "edit",
+    "displayName": "课程视频-编辑"
+  },
+  {
+    "name": "course:coursevideo:export",
+    "resource": "course:coursevideo",
+    "action": "export",
+    "displayName": "课程视频-导出"
+  },
+  {
+    "name": "course:coursevideo:remove",
+    "resource": "course:coursevideo",
+    "action": "remove",
+    "displayName": "课程视频-删除"
+  },
+  {
+    "name": "course:educationplatform:add",
+    "resource": "course:educationplatform",
+    "action": "add",
+    "displayName": "教育平台-新增"
+  },
+  {
+    "name": "course:educationplatform:edit",
+    "resource": "course:educationplatform",
+    "action": "edit",
+    "displayName": "教育平台-编辑"
+  },
+  {
+    "name": "course:educationplatform:export",
+    "resource": "course:educationplatform",
+    "action": "export",
+    "displayName": "教育平台-导出"
+  },
+  {
+    "name": "course:educationplatform:remove",
+    "resource": "course:educationplatform",
+    "action": "remove",
+    "displayName": "教育平台-删除"
+  },
+  {
+    "name": "course:organization:add",
+    "resource": "course:organization",
+    "action": "add",
+    "displayName": "教育机构-新增"
+  },
+  {
+    "name": "course:organization:edit",
+    "resource": "course:organization",
+    "action": "edit",
+    "displayName": "教育机构-编辑"
+  },
+  {
+    "name": "course:organization:export",
+    "resource": "course:organization",
+    "action": "export",
+    "displayName": "教育机构-导出"
+  },
+  {
+    "name": "course:organization:remove",
+    "resource": "course:organization",
+    "action": "remove",
+    "displayName": "教育机构-删除"
+  },
+  {
+    "name": "course:userplatform:add",
+    "resource": "course:userplatform",
+    "action": "add",
+    "displayName": "用户平台-新增"
+  },
+  {
+    "name": "course:userplatform:edit",
+    "resource": "course:userplatform",
+    "action": "edit",
+    "displayName": "用户平台-编辑"
+  },
+  {
+    "name": "course:userplatform:export",
+    "resource": "course:userplatform",
+    "action": "export",
+    "displayName": "用户平台-导出"
+  },
+  {
+    "name": "course:userplatform:remove",
+    "resource": "course:userplatform",
+    "action": "remove",
+    "displayName": "用户平台-删除"
+  },
+  {
+    "name": "course:zhsidentity:add",
+    "resource": "course:zhsidentity",
+    "action": "add",
+    "displayName": "智慧树身份-新增"
+  },
+  {
+    "name": "course:zhsidentity:edit",
+    "resource": "course:zhsidentity",
+    "action": "edit",
+    "displayName": "智慧树身份-编辑"
+  },
+  {
+    "name": "course:zhsidentity:export",
+    "resource": "course:zhsidentity",
+    "action": "export",
+    "displayName": "智慧树身份-导出"
+  },
+  {
+    "name": "course:zhsidentity:remove",
+    "resource": "course:zhsidentity",
+    "action": "remove",
+    "displayName": "智慧树身份-删除"
+  },
+  {
+    "name": "demandsquare:approve",
+    "resource": "demandsquare",
+    "action": "approve",
+    "displayName": "需求广场-审批通过"
+  },
+  {
+    "name": "demandsquare:export",
+    "resource": "demandsquare",
+    "action": "export",
+    "displayName": "需求广场-导出"
+  },
+  {
+    "name": "demandsquare:reject",
+    "resource": "demandsquare",
+    "action": "reject",
+    "displayName": "需求广场-驳回"
+  },
+  {
+    "name": "monitor:job:export",
+    "resource": "monitor:job",
+    "action": "export",
+    "displayName": "定时任务-导出"
+  },
+  {
+    "name": "monitor:job:query",
+    "resource": "monitor:job",
+    "action": "query",
+    "displayName": "定时任务-查询"
+  },
+  {
+    "name": "monitor:job:remove",
+    "resource": "monitor:job",
+    "action": "remove",
+    "displayName": "定时任务-删除"
+  },
+  {
+    "name": "slave:useragentaudit:add",
+    "resource": "slave:useragentaudit",
+    "action": "add",
+    "displayName": "用户代理审核-新增"
+  },
+  {
+    "name": "slave:useragentaudit:edit",
+    "resource": "slave:useragentaudit",
+    "action": "edit",
+    "displayName": "用户代理审核-编辑"
+  },
+  {
+    "name": "slave:useragentaudit:remove",
+    "resource": "slave:useragentaudit",
+    "action": "remove",
+    "displayName": "用户代理审核-删除"
+  },
+  {
+    "name": "system:contact:add",
+    "resource": "system:contact",
+    "action": "add",
+    "displayName": "联系我们-新增"
+  },
+  {
+    "name": "system:contact:edit",
+    "resource": "system:contact",
+    "action": "edit",
+    "displayName": "联系我们-编辑"
+  },
+  {
+    "name": "system:contact:export",
+    "resource": "system:contact",
+    "action": "export",
+    "displayName": "联系我们-导出"
+  },
+  {
+    "name": "system:contact:remove",
+    "resource": "system:contact",
+    "action": "remove",
+    "displayName": "联系我们-删除"
+  },
+  {
+    "name": "system:logininfor:export",
+    "resource": "system:logininfor",
+    "action": "export",
+    "displayName": "登录日志-导出"
+  },
+  {
+    "name": "system:logininfor:remove",
+    "resource": "system:logininfor",
+    "action": "remove",
+    "displayName": "登录日志-删除"
+  },
+  {
+    "name": "system:news:add",
+    "resource": "system:news",
+    "action": "add",
+    "displayName": "新闻-新增"
+  },
+  {
+    "name": "system:news:edit",
+    "resource": "system:news",
+    "action": "edit",
+    "displayName": "新闻-编辑"
+  },
+  {
+    "name": "system:news:export",
+    "resource": "system:news",
+    "action": "export",
+    "displayName": "新闻-导出"
+  },
+  {
+    "name": "system:news:remove",
+    "resource": "system:news",
+    "action": "remove",
+    "displayName": "新闻-删除"
+  },
+  {
+    "name": "system:operlog:export",
+    "resource": "system:operlog",
+    "action": "export",
+    "displayName": "操作日志-导出"
+  },
+  {
+    "name": "system:operlog:query",
+    "resource": "system:operlog",
+    "action": "query",
+    "displayName": "操作日志-查询"
+  },
+  {
+    "name": "system:operlog:remove",
+    "resource": "system:operlog",
+    "action": "remove",
+    "displayName": "操作日志-删除"
+  },
+  {
+    "name": "system:oss:add",
+    "resource": "system:oss",
+    "action": "add",
+    "displayName": "对象存储-新增"
+  },
+  {
+    "name": "system:oss:export",
+    "resource": "system:oss",
+    "action": "export",
+    "displayName": "对象存储-导出"
+  },
+  {
+    "name": "system:oss:remove",
+    "resource": "system:oss",
+    "action": "remove",
+    "displayName": "对象存储-删除"
+  },
+  {
+    "name": "system:post:add",
+    "resource": "system:post",
+    "action": "add",
+    "displayName": "文章-新增"
+  },
+  {
+    "name": "system:post:edit",
+    "resource": "system:post",
+    "action": "edit",
+    "displayName": "文章-编辑"
+  },
+  {
+    "name": "system:post:export",
+    "resource": "system:post",
+    "action": "export",
+    "displayName": "文章-导出"
+  },
+  {
+    "name": "system:post:remove",
+    "resource": "system:post",
+    "action": "remove",
+    "displayName": "文章-删除"
+  },
+  {
+    "name": "system:role:edit",
+    "resource": "system:role",
+    "action": "edit",
+    "displayName": "系统角色-编辑"
+  },
+  {
+    "name": "system:us:add",
+    "resource": "system:us",
+    "action": "add",
+    "displayName": "关于我们-新增"
+  },
+  {
+    "name": "system:us:edit",
+    "resource": "system:us",
+    "action": "edit",
+    "displayName": "关于我们-编辑"
+  },
+  {
+    "name": "system:us:export",
+    "resource": "system:us",
+    "action": "export",
+    "displayName": "关于我们-导出"
+  },
+  {
+    "name": "system:us:remove",
+    "resource": "system:us",
+    "action": "remove",
+    "displayName": "关于我们-删除"
+  },
+  {
+    "name": "usercenter:user_dept:add",
+    "resource": "usercenter:user_dept",
+    "action": "add",
+    "displayName": "用户部门-新增"
+  },
+  {
+    "name": "usercenter:user_dept:edit",
+    "resource": "usercenter:user_dept",
+    "action": "edit",
+    "displayName": "用户部门-编辑"
+  },
+  {
+    "name": "usercenter:user_dept:export",
+    "resource": "usercenter:user_dept",
+    "action": "export",
+    "displayName": "用户部门-导出"
+  },
+  {
+    "name": "usercenter:user_dept:remove",
+    "resource": "usercenter:user_dept",
+    "action": "remove",
+    "displayName": "用户部门-删除"
+  },
+  {
+    "name": "usercenter:user_roles:add",
+    "resource": "usercenter:user_roles",
+    "action": "add",
+    "displayName": "用户角色-新增"
+  },
+  {
+    "name": "usercenter:user_roles:edit",
+    "resource": "usercenter:user_roles",
+    "action": "edit",
+    "displayName": "用户角色-编辑"
+  },
+  {
+    "name": "usercenter:user_roles:export",
+    "resource": "usercenter:user_roles",
+    "action": "export",
+    "displayName": "用户角色-导出"
+  },
+  {
+    "name": "usercenter:user_roles:remove",
+    "resource": "usercenter:user_roles",
+    "action": "remove",
+    "displayName": "用户角色-删除"
+  }
+]

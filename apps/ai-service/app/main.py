@@ -10,6 +10,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app import __version__
 from app.core.config import settings
+from app.core.jwt_auth import JWTAuthMiddleware
 from app.routers import a2a, agents, health, llm, mcp, tools
 from app.routers.legacy import router as legacy_router
 
@@ -32,6 +33,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # JWT 认证中间件（与 apps/api 共享 JWT_SECRET，SSO 跨服务认证）
+    app.add_middleware(JWTAuthMiddleware)
 
     # 注册路由(路由器自带 /llm /mcp /agents /a2a /tools 前缀,统一加 /api)
     app.include_router(health.router, tags=["health"])

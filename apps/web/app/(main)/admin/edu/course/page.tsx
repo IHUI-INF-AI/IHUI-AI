@@ -8,14 +8,20 @@ import {
   Plus,
   Edit,
   Trash2,
-  Search,
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Download,
   BookOpen,
+  Video,
+  CreditCard,
 } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
+import { HasPermi } from '@/components/auth/HasPermi'
+import { ImageUpload } from '@/components/form/ImageUpload'
+import { RichTextEditor } from '@/components/editor/RichTextEditor'
+import { exportFromApi } from '@/lib/export-utils'
 import {
   Table,
   TableHeader,
@@ -31,106 +37,94 @@ import {
   Button,
   Input,
   Label,
+  Checkbox,
   Select,
   SelectTrigger,
   SelectContent,
   SelectItem,
   SelectValue,
-  Switch,
-  Card,
-  CardContent,
 } from '@ihui/ui'
 
 interface Course {
   id: string
   title: string
-  intro: string | null
-  categoryName: string | null
-  lecturerName: string | null
-  price: string
-  isFree: boolean
-  isPublished: boolean
-  signupCount: number
-  viewCount: number
-}
-interface Category {
-  id: string
-  name: string
+  subtitle?: string
+  content?: string
+  remark?: string
+  remarkFile?: string
+  binding?: string
+  stage?: number
+  label?: string
+  auditStatus?: number
+  creator?: string
+  nickname?: string
 }
 interface CForm {
   title: string
-  categoryId: string
-  intro: string
-  lecturerName: string
-  price: string
-  isFree: boolean
-  isPublished: boolean
+  subtitle: string
+  content: string
+  remark: string
+  remarkFile: string
+  binding: string
+  stage: string
+  label: string
+  creator: string
 }
 const EMPTY: CForm = {
   title: '',
-  categoryId: '',
-  intro: '',
-  lecturerName: '',
-  price: '0',
-  isFree: false,
-  isPublished: false,
+  subtitle: '',
+  content: '',
+  remark: '',
+  remarkFile: '',
+  binding: '',
+  stage: '0',
+  label: '',
+  creator: '',
 }
 const PAGE_SIZE = 10
+const PERM = 'course:course:'
+const API = '/api/admin/course'
+const STAGE_TEXT = ['初级', '中级', '高级']
+const AUDIT_TEXT = ['待审核', '审核中', '待整改', '已驳回', '已通过']
+const badgeCls = (ok: boolean) =>
+  cn(
+    'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+    ok
+      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+      : 'bg-muted text-muted-foreground',
+  )
 
 export default function EduCoursePage() {
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
-  const [search, setSearch] = React.useState('')
-  const [debounced, setDebounced] = React.useState('')
-  const [categoryId, setCategoryId] = React.useState('all')
+  const [q, setQ] = React.useState({ title: '', stage: '', label: '', creator: '' })
+  const [ids, setIds] = React.useState<string[]>([])
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Course | null>(null)
   const [form, setForm] = React.useState<CForm>(EMPTY)
   const [err, setErr] = React.useState<string | null>(null)
 
-  React.useEffect(() => {
-    const tm = setTimeout(() => {
-      setDebounced(search)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(tm)
-  }, [search])
-  React.useEffect(() => {
-    setPage(1)
-  }, [categoryId])
-
-  const { data: catData } = useQuery({
-    queryKey: ['edu', 'course', 'categories'],
-    queryFn: () =>
-      eduApi<{ list: Category[] }>(`/api/admin/learn/categories`).then((d) => d.list ?? []),
-  })
-  const categories = catData ?? []
-
+  const params = { page, pageSize: PAGE_SIZE, ...q }
   const { data, isLoading, error } = useQuery({
-    queryKey: ['edu', 'course', debounced, categoryId, page],
-    queryFn: () =>
-      eduApi<PageData<Course>>(
-        `/api/admin/learn/lessons${buildQs({ page, pageSize: PAGE_SIZE, search: debounced, categoryId: categoryId === 'all' ? '' : categoryId })}`,
-      ),
+    queryKey: ['edu', 'course', params],
+    queryFn: () => eduApi<PageData<Course>>(`${API}${buildQs(params)}`),
   })
-
   const saveMut = useMutation({
     mutationFn: () => {
       const body = {
         title: form.title.trim(),
-        categoryId: form.categoryId || null,
-        intro: form.intro.trim() || null,
-        lecturerName: form.lecturerName.trim() || null,
-        price: form.price,
-        isFree: form.isFree,
-        isPublished: form.isPublished,
+        subtitle: form.subtitle.trim() || null,
+        content: form.content,
+        remark: form.remark.trim() || null,
+        remarkFile: form.remarkFile.trim() || null,
+        binding: form.binding || null,
+        stage: Number(form.stage),
+        label: form.label.trim() || null,
+        creator: form.creator.trim() || null,
       }
-      if (editing)
-        return eduApi(`/api/admin/learn/lessons/${editing.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(body),
-        })
-      return eduApi(`/api/admin/learn/lessons`, { method: 'POST', body: JSON.stringify(body) })
+      return editing
+        ? eduApi(`${API}/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+        : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? '更新成功' : '创建成功')
@@ -140,9 +134,18 @@ export default function EduCoursePage() {
     onError: (e: Error) => setErr(e.message),
   })
   const deleteMut = useMutation({
-    mutationFn: (id: string) => eduApi(`/api/admin/learn/lessons/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
+      qc.invalidateQueries({ queryKey: ['edu', 'course'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  const batchDeleteMut = useMutation({
+    mutationFn: (ids: string[]) => eduApi(`${API}/${ids.join(',')}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('批量删除成功')
+      setIds([])
       qc.invalidateQueries({ queryKey: ['edu', 'course'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -154,16 +157,18 @@ export default function EduCoursePage() {
     setErr(null)
     setOpen(true)
   }
-  function openEdit(c: Course) {
-    setEditing(c)
+  function openEdit(r: Course) {
+    setEditing(r)
     setForm({
-      title: c.title,
-      categoryId: '',
-      intro: c.intro ?? '',
-      lecturerName: c.lecturerName ?? '',
-      price: c.price,
-      isFree: c.isFree,
-      isPublished: c.isPublished,
+      title: r.title ?? '',
+      subtitle: r.subtitle ?? '',
+      content: r.content ?? '',
+      remark: r.remark ?? '',
+      remarkFile: r.remarkFile ?? '',
+      binding: r.binding ?? '',
+      stage: String(r.stage ?? 0),
+      label: r.label ?? '',
+      creator: r.creator ?? '',
     })
     setErr(null)
     setOpen(true)
@@ -180,38 +185,40 @@ export default function EduCoursePage() {
     if (!form.title.trim()) return setErr('标题不能为空')
     saveMut.mutate()
   }
+  function handleExport() {
+    exportFromApi(`${API}${buildQs({ ...q, pageSize: 10000 })}`, `course_${Date.now()}`, [
+      { key: 'id', title: 'ID' },
+      { key: 'title', title: '标题' },
+      { key: 'subtitle', title: '副标题' },
+      { key: 'stage', title: '阶段', formatter: (v) => STAGE_TEXT[Number(v)] ?? String(v) },
+      { key: 'label', title: '标签' },
+      {
+        key: 'auditStatus',
+        title: '审核状态',
+        formatter: (v) => AUDIT_TEXT[Number(v)] ?? String(v),
+      },
+      { key: 'creator', title: '创建人' },
+    ]).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+  }
 
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rows = data?.list ?? []
+  const allChecked = rows.length > 0 && rows.every((r) => ids.includes(r.id))
+  function toggleAll() {
+    setIds(allChecked ? [] : rows.map((r) => r.id))
+  }
+  function toggleOne(id: string) {
+    setIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  }
+  const inputCls = 'h-9 w-32'
+  const COLSPAN = 13
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">课程管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">课程 CRUD、分类与章节管理</p>
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-5">
-            <div className="text-sm text-muted-foreground">课程总数</div>
-            <div className="mt-1 text-2xl font-semibold">{total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="text-sm text-muted-foreground">已上架</div>
-            <div className="mt-1 text-2xl font-semibold">
-              {rows.filter((c) => c.isPublished).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="text-sm text-muted-foreground">免费课程</div>
-            <div className="mt-1 text-2xl font-semibold">{rows.filter((c) => c.isFree).length}</div>
-          </CardContent>
-        </Card>
+        <p className="mt-1 text-sm text-muted-foreground">课程 CRUD、视频与价格管理</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -220,128 +227,220 @@ export default function EduCoursePage() {
             返回教育后台
           </Link>
         </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索课程..."
-            className="h-9 pl-8"
-          />
-        </div>
-        <div className="w-full max-w-[180px]">
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className={selectClass} aria-label="分类">
-              <SelectValue />
+        <Input
+          placeholder="标题"
+          value={q.title}
+          onChange={(e) => {
+            setQ({ ...q, title: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <div className="w-28">
+          <Select
+            value={q.stage || 'all'}
+            onValueChange={(v) => {
+              setQ({ ...q, stage: v === 'all' ? '' : v })
+              setPage(1)
+            }}
+          >
+            <SelectTrigger className={selectClass}>
+              <SelectValue placeholder="阶段" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部分类</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
+              <SelectItem value="all">全部阶段</SelectItem>
+              <SelectItem value="0">初级</SelectItem>
+              <SelectItem value="1">中级</SelectItem>
+              <SelectItem value="2">高级</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={openCreate} size="sm" className="ml-auto">
-          <Plus className="h-4 w-4" />
-          新建课程
+        <Input
+          placeholder="标签"
+          value={q.label}
+          onChange={(e) => {
+            setQ({ ...q, label: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Input
+          placeholder="创建人"
+          value={q.creator}
+          onChange={(e) => {
+            setQ({ ...q, creator: e.target.value })
+            setPage(1)
+          }}
+          className={inputCls}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setQ({ title: '', stage: '', label: '', creator: '' })
+            setPage(1)
+          }}
+        >
+          重置
         </Button>
+        <div className="ml-auto flex gap-2">
+          <HasPermi code={`${PERM}add`}>
+            <Button onClick={openCreate} size="sm">
+              <Plus className="h-4 w-4" />
+              新建
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}remove`}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={ids.length === 0}
+              onClick={() => {
+                if (window.confirm(`确定删除选中的 ${ids.length} 项？`)) batchDeleteMut.mutate(ids)
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              批量删除
+            </Button>
+          </HasPermi>
+          <HasPermi code={`${PERM}export`}>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              导出
+            </Button>
+          </HasPermi>
+        </div>
       </div>
       <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
+              <TableHead className="px-3 py-2.5 w-10">
+                <Checkbox checked={allChecked} onCheckedChange={toggleAll} />
+              </TableHead>
+              <TableHead className="px-4 py-2.5">ID</TableHead>
               <TableHead className="px-4 py-2.5">标题</TableHead>
-              <TableHead className="px-4 py-2.5">分类</TableHead>
-              <TableHead className="px-4 py-2.5">讲师</TableHead>
-              <TableHead className="px-4 py-2.5">报名</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
+              <TableHead className="px-4 py-2.5">副标题</TableHead>
+              <TableHead className="px-4 py-2.5">内容</TableHead>
+              <TableHead className="px-4 py-2.5">备注</TableHead>
+              <TableHead className="px-4 py-2.5">备注文件</TableHead>
+              <TableHead className="px-4 py-2.5">封面</TableHead>
+              <TableHead className="px-4 py-2.5">阶段</TableHead>
+              <TableHead className="px-4 py-2.5">标签</TableHead>
+              <TableHead className="px-4 py-2.5">审核</TableHead>
+              <TableHead className="px-4 py-2.5">创建人</TableHead>
               <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={COLSPAN}
+                  className="px-4 py-10 text-center text-muted-foreground"
+                >
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                   加载中...
                 </TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-destructive">
+                <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-destructive">
                   {(error as Error).message}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={COLSPAN}
+                  className="px-4 py-10 text-center text-muted-foreground"
+                >
                   <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-40" />
                   暂无课程
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((c) => (
-                <TableRow key={c.id} className="hover:bg-muted/30">
+              rows.map((r) => (
+                <TableRow key={r.id} className="hover:bg-muted/30">
+                  <TableCell className="px-3 py-2.5">
+                    <Checkbox
+                      checked={ids.includes(r.id)}
+                      onCheckedChange={() => toggleOne(r.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {r.id}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 font-medium">{r.title}</TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.subtitle ?? '-'}</TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <div className="font-medium">{c.title}</div>
-                    {c.intro && (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
-                        {c.intro}
-                      </div>
+                    <div
+                      className="max-w-[120px] truncate text-xs text-muted-foreground"
+                      title={r.content}
+                    >
+                      {r.content ?? '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    <div
+                      className="max-w-[120px] truncate text-xs text-muted-foreground"
+                      title={r.remark}
+                    >
+                      {r.remark ?? '-'}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.remarkFile ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    {r.binding ? (
+                      <img src={r.binding} alt="" className="h-10 w-10 rounded object-cover" />
+                    ) : (
+                      '-'
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5">{c.categoryName ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5">{c.lecturerName ?? '-'}</TableCell>
-                  <TableCell className="px-4 py-2.5">{c.signupCount}</TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <div className="flex flex-col gap-1">
-                      <span
-                        className={cn(
-                          'inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                          c.isPublished
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'h-1.5 w-1.5 rounded-full',
-                            c.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
-                          )}
-                        />
-                        {c.isPublished ? '已上架' : '未上架'}
-                      </span>
-                      <span
-                        className={cn(
-                          'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                          c.isFree
-                            ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
-                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                        )}
-                      >
-                        {c.isFree ? '免费' : '付费'}
-                      </span>
-                    </div>
+                    <span className={badgeCls(r.stage === 2)}>
+                      {STAGE_TEXT[r.stage ?? 0] ?? String(r.stage)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    <span className={badgeCls(r.auditStatus === 4)}>
+                      {AUDIT_TEXT[r.auditStatus ?? 0] ?? String(r.auditStatus)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs">
+                    {r.nickname ?? r.creator ?? '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(c)} title="编辑">
-                        <Edit className="h-4 w-4" />
+                      <HasPermi code={`${PERM}edit`}>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(r)} title="编辑">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </HasPermi>
+                      <HasPermi code={`${PERM}remove`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm('确定删除？')) deleteMut.mutate(r.id)
+                          }}
+                          title="删除"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deleteMut.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </HasPermi>
+                      <Button asChild variant="ghost" size="sm" title="视频管理">
+                        <Link href={`/admin/edu/learn/recorded?courseId=${r.id}`}>
+                          <Video className="h-4 w-4" />
+                        </Link>
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (window.confirm('确定删除？')) deleteMut.mutate(c.id)
-                        }}
-                        title="删除"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
+                      <Button asChild variant="ghost" size="sm" title="价格管理">
+                        <Link href={`/admin/edu/course/pay?courseId=${r.id}`}>
+                          <CreditCard className="h-4 w-4" />
+                        </Link>
                       </Button>
                     </div>
                   </TableCell>
@@ -378,7 +477,7 @@ export default function EduCoursePage() {
         </div>
       </div>
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
               <DialogTitle>{editing ? '编辑课程' : '新建课程'}</DialogTitle>
@@ -388,79 +487,84 @@ export default function EduCoursePage() {
                 {err}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="c-title">标题</Label>
-              <Input
-                id="c-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="c-cat">分类</Label>
-                <Select
-                  value={form.categoryId || 'none'}
-                  onValueChange={(v) => setForm({ ...form, categoryId: v === 'none' ? '' : v })}
-                >
-                  <SelectTrigger className={selectClass} id="c-cat">
+                <Label htmlFor="c-title">标题 *</Label>
+                <Input
+                  id="c-title"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-subtitle">副标题</Label>
+                <Input
+                  id="c-subtitle"
+                  value={form.subtitle}
+                  onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-stage">阶段</Label>
+                <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v })}>
+                  <SelectTrigger className={selectClass} id="c-stage">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">无分类</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="0">初级</SelectItem>
+                    <SelectItem value="1">中级</SelectItem>
+                    <SelectItem value="2">高级</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="c-lec">讲师</Label>
+                <Label htmlFor="c-label">标签</Label>
                 <Input
-                  id="c-lec"
-                  value={form.lecturerName}
-                  onChange={(e) => setForm({ ...form, lecturerName: e.target.value })}
+                  id="c-label"
+                  value={form.label}
+                  onChange={(e) => setForm({ ...form, label: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-remarkFile">备注文件</Label>
+                <Input
+                  id="c-remarkFile"
+                  value={form.remarkFile}
+                  onChange={(e) => setForm({ ...form, remarkFile: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-creator">创建人</Label>
+                <Input
+                  id="c-creator"
+                  value={form.creator}
+                  onChange={(e) => setForm({ ...form, creator: e.target.value })}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-intro">简介</Label>
-              <Input
-                id="c-intro"
-                value={form.intro}
-                onChange={(e) => setForm({ ...form, intro: e.target.value })}
+              <Label htmlFor="c-remark">备注</Label>
+              <textarea
+                id="c-remark"
+                value={form.remark}
+                onChange={(e) => setForm({ ...form, remark: e.target.value })}
+                className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-price">价格</Label>
-              <Input
-                id="c-price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
+              <Label>封面图</Label>
+              <ImageUpload
+                value={form.binding}
+                onChange={(v) => setForm({ ...form, binding: v as string })}
               />
             </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="c-free"
-                  checked={form.isFree}
-                  onCheckedChange={(v) => setForm({ ...form, isFree: v })}
-                />
-                <Label htmlFor="c-free">免费</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="c-pub"
-                  checked={form.isPublished}
-                  onCheckedChange={(v) => setForm({ ...form, isPublished: v })}
-                />
-                <Label htmlFor="c-pub">上架</Label>
-              </div>
+            <div className="space-y-2">
+              <Label>内容</Label>
+              <RichTextEditor
+                value={form.content}
+                onChange={(html) => setForm({ ...form, content: html })}
+                placeholder="请输入课程内容"
+              />
             </div>
             <DialogFooter>
               <Button

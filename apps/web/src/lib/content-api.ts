@@ -351,7 +351,7 @@ export async function submitFeedback(input: {
   contact?: string
   images?: string[]
 }): Promise<ApiResult<Feedback>> {
-  return fetchApi<Feedback>('/api/feedback/submit', {
+  return fetchApi<Feedback>('/api/feedbacks/submit', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -361,12 +361,12 @@ export async function submitFeedback(input: {
 export async function getFeedbacks(
   query: PageQuery & { type?: FeedbackType; status?: FeedbackStatus } = {},
 ): Promise<ApiResult<PageData<Feedback>>> {
-  return fetchApi<PageData<Feedback>>(`/api/feedback/list${buildQs(query)}`)
+  return fetchApi<PageData<Feedback>>(`/api/feedbacks/list${buildQs(query)}`)
 }
 
 /** 获取反馈详情 */
 export async function getFeedbackDetail(feedbackId: string): Promise<ApiResult<Feedback>> {
-  return fetchApi<Feedback>(`/api/feedback/${feedbackId}`)
+  return fetchApi<Feedback>(`/api/feedbacks/${feedbackId}`)
 }
 
 /** 回复反馈 */
@@ -374,7 +374,7 @@ export async function replyFeedback(
   feedbackId: string,
   reply: string,
 ): Promise<ApiResult<Feedback>> {
-  return fetchApi<Feedback>(`/api/feedback/${feedbackId}/reply`, {
+  return fetchApi<Feedback>(`/api/feedbacks/${feedbackId}/reply`, {
     method: 'POST',
     body: JSON.stringify({ reply }),
   })
@@ -385,7 +385,7 @@ export async function updateFeedbackStatus(
   feedbackId: string,
   status: FeedbackStatus,
 ): Promise<ApiResult<Feedback>> {
-  return fetchApi<Feedback>(`/api/feedback/${feedbackId}/status`, {
+  return fetchApi<Feedback>(`/api/feedbacks/${feedbackId}/status`, {
     method: 'PUT',
     body: JSON.stringify({ status }),
   })

@@ -24,52 +24,6 @@ interface EventItem {
   time: string
 }
 
-const MOCK_STATS: EventStats = { total: 128420, today: 3210, processing: 12, failed: 24 }
-const MOCK_EVENTS: EventItem[] = [
-  {
-    id: '1',
-    name: 'order.created',
-    source: 'orders-service',
-    status: 'success',
-    time: '2026-07-10 09:12:30',
-  },
-  {
-    id: '2',
-    name: 'user.registered',
-    source: 'auth-service',
-    status: 'success',
-    time: '2026-07-10 09:11:18',
-  },
-  {
-    id: '3',
-    name: 'message.sent',
-    source: 'chat-service',
-    status: 'processing',
-    time: '2026-07-10 09:10:42',
-  },
-  {
-    id: '4',
-    name: 'payment.refunded',
-    source: 'payment-service',
-    status: 'failed',
-    time: '2026-07-10 09:08:55',
-  },
-  {
-    id: '5',
-    name: 'agent.published',
-    source: 'agent-service',
-    status: 'success',
-    time: '2026-07-10 09:05:12',
-  },
-  {
-    id: '6',
-    name: 'email.queued',
-    source: 'notification-service',
-    status: 'pending',
-    time: '2026-07-10 09:02:00',
-  },
-]
-
 const STATUS_STYLE: Record<EventItem['status'], { bg: string; text: string; label: string }> = {
   pending: { bg: 'bg-muted', text: 'text-muted-foreground', label: 'Pending' },
   processing: { bg: 'bg-amber-500/10', text: 'text-amber-600', label: 'Processing' },
@@ -81,34 +35,37 @@ export default function EventBusMonitorPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
 
-  const { data: stats = MOCK_STATS, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'event-bus', 'stats'],
     queryFn: async () => {
       const r = await fetchApi<EventStats>('/api/admin/event-bus/stats')
-      if (r.success && r.data) return r.data
-      return MOCK_STATS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: events = MOCK_EVENTS } = useQuery({
+  const { data: events } = useQuery({
     queryKey: ['admin', 'event-bus', 'events'],
     queryFn: async () => {
       const r = await fetchApi<EventItem[]>('/api/admin/event-bus/events')
-      if (r.success && r.data) return r.data
-      return MOCK_EVENTS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
-  const cards = [
-    { label: t('eventBus.total'), value: stats.total, icon: Webhook, color: 'text-primary' },
-    { label: t('eventBus.today'), value: stats.today, icon: Activity, color: 'text-primary' },
-    {
-      label: t('eventBus.processing'),
-      value: stats.processing,
-      icon: Clock,
-      color: 'text-amber-600',
-    },
-    { label: t('eventBus.failed'), value: stats.failed, icon: XCircle, color: 'text-red-600' },
-  ]
+  const eventsList = events ?? []
+  const cards = stats
+    ? [
+        { label: t('eventBus.total'), value: stats.total, icon: Webhook, color: 'text-primary' },
+        { label: t('eventBus.today'), value: stats.today, icon: Activity, color: 'text-primary' },
+        {
+          label: t('eventBus.processing'),
+          value: stats.processing,
+          icon: Clock,
+          color: 'text-amber-600',
+        },
+        { label: t('eventBus.failed'), value: stats.failed, icon: XCircle, color: 'text-red-600' },
+      ]
+    : []
 
   return (
     <div className="space-y-6">
@@ -126,6 +83,10 @@ export default function EventBusMonitorPage() {
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
+          </div>
+        ) : !stats ? (
+          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+            {t('eventBus.noData')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -149,7 +110,7 @@ export default function EventBusMonitorPage() {
       {/* 事件列表 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('eventBus.eventList')}</h2>
-        {events.length === 0 ? (
+        {eventsList.length === 0 ? (
           <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
             {t('eventBus.noData')}
           </div>
@@ -165,7 +126,7 @@ export default function EventBusMonitorPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {events.map((e) => {
+                {eventsList.map((e) => {
                   const st = STATUS_STYLE[e.status]
                   return (
                     <tr key={e.id} className="transition-colors hover:bg-muted/30">

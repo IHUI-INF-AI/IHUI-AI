@@ -1,24 +1,30 @@
 import { seedAiTutorials } from './ai-tutorials.js'
 import { seedLessons } from './lessons.js'
 import { seedAiCategories } from './ai-categories.js'
+import { seedPermissions } from './permissions.js'
 
 async function main() {
   console.log('=== 开始种子数据导入 ===')
   console.log('')
 
   // 1. AI 行业分类（先导入分类，后续资源/课程可关联）
-  console.log('[1/3] 导入 AI 行业分类...')
+  console.log('[1/4] 导入 AI 行业分类...')
   await seedAiCategories()
   console.log('')
 
   // 2. 课程数据
-  console.log('[2/3] 导入课程数据...')
+  console.log('[2/4] 导入课程数据...')
   await seedLessons()
   console.log('')
 
   // 3. AI 教学资源
-  console.log('[3/3] 导入 AI 教学资源...')
+  console.log('[3/4] 导入 AI 教学资源...')
   await seedAiTutorials()
+  console.log('')
+
+  // 4. RBAC 权限点（212 条权限码 + admin 角色绑定）
+  console.log('[4/4] 导入 RBAC 权限点...')
+  await seedPermissions()
   console.log('')
 
   console.log('=== 种子数据导入完成 ===')

@@ -109,7 +109,7 @@ export async function getResources(
 
 /** 获取资源详情 */
 export async function getResourceDetail(id: string): Promise<ApiResult<Resource>> {
-  return fetchApi<Resource>(`/api/resource/${id}`)
+  return fetchApi<Resource>(`/api/resources/${id}`)
 }
 
 /** 创建资源 */
@@ -125,7 +125,7 @@ export async function updateResource(
   id: string,
   input: Partial<Resource>,
 ): Promise<ApiResult<Resource>> {
-  return fetchApi<Resource>(`/api/resource/${id}`, {
+  return fetchApi<Resource>(`/api/resources/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -133,21 +133,21 @@ export async function updateResource(
 
 /** 删除资源 */
 export async function deleteResource(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/resource/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/resources/${id}`, { method: 'DELETE' })
 }
 
 /** 下载资源 */
 export async function downloadResource(
   id: string,
 ): Promise<ApiResult<{ url: string; expiresAt?: string }>> {
-  return fetchApi<{ url: string; expiresAt?: string }>(`/api/resource/${id}/download`, {
+  return fetchApi<{ url: string; expiresAt?: string }>(`/api/resources/${id}/download`, {
     method: 'POST',
   })
 }
 
 /** 点赞资源 */
 export async function likeResource(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/resource/${id}/like`, { method: 'POST' })
+  return fetchApi<{ success: boolean }>(`/api/resources/${id}/like`, { method: 'POST' })
 }
 
 // ===================== certificate（证书） =====================
@@ -161,14 +161,14 @@ export async function getCertificates(
 
 /** 获取证书详情 */
 export async function getCertificateDetail(id: string): Promise<ApiResult<Certificate>> {
-  return fetchApi<Certificate>(`/api/certificate/${id}`)
+  return fetchApi<Certificate>(`/api/certificates/${id}`)
 }
 
 /** 获取我的证书 */
 export async function getMyCertificates(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<Certificate>>> {
-  return fetchApi<PageData<Certificate>>(`/api/certificate/my${buildQs(query)}`)
+  return fetchApi<PageData<Certificate>>(`/api/certificates/my${buildQs(query)}`)
 }
 
 /** 颁发证书 */
@@ -181,7 +181,7 @@ export async function issueCertificate(input: {
   issueDate?: string
   expiryDate?: string
 }): Promise<ApiResult<Certificate>> {
-  return fetchApi<Certificate>('/api/certificate/issue', {
+  return fetchApi<Certificate>('/api/certificates/issue', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -192,7 +192,7 @@ export async function revokeCertificate(
   id: string,
   reason?: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/certificate/${id}/revoke`, {
+  return fetchApi<{ success: boolean }>(`/api/certificates/${id}/revoke`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   })
@@ -203,7 +203,7 @@ export async function verifyCertificate(
   certificateNo: string,
 ): Promise<ApiResult<{ valid: boolean; certificate?: Certificate }>> {
   return fetchApi<{ valid: boolean; certificate?: Certificate }>(
-    `/api/certificate/verify${buildQs({ certificateNo })}`,
+    `/api/certificates/verify${buildQs({ certificateNo })}`,
   )
 }
 
@@ -213,21 +213,21 @@ export async function verifyCertificate(
 export async function getCertificateTemplates(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<CertificateTemplate>>> {
-  return fetchApi<PageData<CertificateTemplate>>(`/api/certificate/templates${buildQs(query)}`)
+  return fetchApi<PageData<CertificateTemplate>>(`/api/certificates/templates${buildQs(query)}`)
 }
 
 /** 获取证书模板详情 */
 export async function getCertificateTemplateDetail(
   id: string,
 ): Promise<ApiResult<CertificateTemplate>> {
-  return fetchApi<CertificateTemplate>(`/api/certificate/templates/${id}`)
+  return fetchApi<CertificateTemplate>(`/api/certificates/templates/${id}`)
 }
 
 /** 创建证书模板 */
 export async function createCertificateTemplate(
   input: Partial<CertificateTemplate>,
 ): Promise<ApiResult<CertificateTemplate>> {
-  return fetchApi<CertificateTemplate>('/api/certificate/templates', {
+  return fetchApi<CertificateTemplate>('/api/certificates/templates', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -238,7 +238,7 @@ export async function updateCertificateTemplate(
   id: string,
   input: Partial<CertificateTemplate>,
 ): Promise<ApiResult<CertificateTemplate>> {
-  return fetchApi<CertificateTemplate>(`/api/certificate/templates/${id}`, {
+  return fetchApi<CertificateTemplate>(`/api/certificates/templates/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -248,7 +248,7 @@ export async function updateCertificateTemplate(
 export async function deleteCertificateTemplate(
   id: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/certificate/templates/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/certificates/templates/${id}`, { method: 'DELETE' })
 }
 
 // ===================== knowledge（知识库） =====================

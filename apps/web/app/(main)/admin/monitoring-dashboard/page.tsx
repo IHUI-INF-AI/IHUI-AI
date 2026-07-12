@@ -48,31 +48,6 @@ interface LogSummary {
   recent: { id: string; level: string; message: string; time: string }[]
 }
 
-const MOCK_SERVICES: ServiceItem[] = [
-  { name: 'API', status: 'healthy', latency: 32 },
-  { name: 'DB', status: 'healthy', latency: 8 },
-  { name: 'Redis', status: 'healthy', latency: 2 },
-  { name: 'AI-Service', status: 'unhealthy', latency: 1200 },
-]
-const MOCK_PERF: PerfItem = { cpu: 42, memory: 68, qps: 1280, avgResponse: 86 }
-const MOCK_ALERTS: AlertItem[] = [
-  { id: '1', level: 'critical', message: 'AI-Service 响应超时 (1200ms)', time: '2026-07-10 09:12' },
-  { id: '2', level: 'warning', message: 'Redis 内存使用率 78%', time: '2026-07-10 08:58' },
-  { id: '3', level: 'warning', message: 'DB 连接数接近上限 (80/100)', time: '2026-07-10 08:30' },
-  { id: '4', level: 'info', message: '每日健康检查完成', time: '2026-07-10 08:00' },
-]
-const MOCK_LOGS: LogSummary = {
-  total: 128420,
-  errors: 18,
-  warnings: 42,
-  recent: [
-    { id: '1', level: 'error', message: 'AI service timeout', time: '09:12:30' },
-    { id: '2', level: 'info', message: 'Health check passed', time: '09:10:00' },
-    { id: '3', level: 'warn', message: 'High memory usage', time: '08:58:44' },
-    { id: '4', level: 'info', message: 'Order created #20260710001', time: '08:40:12' },
-  ],
-}
-
 const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   API: Server,
   DB: Database,
@@ -89,46 +64,55 @@ export default function MonitoringDashboardPage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
 
-  const { data: services = MOCK_SERVICES, isLoading } = useQuery({
+  const { data: services, isLoading } = useQuery({
     queryKey: ['admin', 'monitoring', 'services'],
     queryFn: async () => {
       const r = await fetchApi<ServiceItem[]>('/api/admin/monitoring/services')
-      if (r.success && r.data) return r.data
-      return MOCK_SERVICES
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: perf = MOCK_PERF } = useQuery({
+  const { data: perf } = useQuery({
     queryKey: ['admin', 'monitoring', 'perf'],
     queryFn: async () => {
       const r = await fetchApi<PerfItem>('/api/admin/monitoring/perf')
-      if (r.success && r.data) return r.data
-      return MOCK_PERF
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: alerts = MOCK_ALERTS } = useQuery({
+  const { data: alerts } = useQuery({
     queryKey: ['admin', 'monitoring', 'alerts'],
     queryFn: async () => {
       const r = await fetchApi<AlertItem[]>('/api/admin/monitoring/alerts')
-      if (r.success && r.data) return r.data
-      return MOCK_ALERTS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: logs = MOCK_LOGS } = useQuery({
+  const { data: logs } = useQuery({
     queryKey: ['admin', 'monitoring', 'logs'],
     queryFn: async () => {
       const r = await fetchApi<LogSummary>('/api/admin/monitoring/logs')
-      if (r.success && r.data) return r.data
-      return MOCK_LOGS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
-  const healthyCount = services.filter((s) => s.status === 'healthy').length
-  const perfCards = [
-    { label: t('monitor.cpu'), value: `${perf.cpu}%`, color: 'text-primary' },
-    { label: t('monitor.memory'), value: `${perf.memory}%`, color: 'text-primary' },
-    { label: t('monitor.qps'), value: perf.qps, color: 'text-emerald-600' },
-    { label: t('monitor.avgResponse'), value: `${perf.avgResponse}ms`, color: 'text-purple-600' },
-  ]
+  const servicesList = services ?? []
+  const alertsList = alerts ?? []
+  const logsRecent = logs?.recent ?? []
+  const healthyCount = servicesList.filter((s) => s.status === 'healthy').length
+  const perfCards = perf
+    ? [
+        { label: t('monitor.cpu'), value: `${perf.cpu}%`, color: 'text-primary' },
+        { label: t('monitor.memory'), value: `${perf.memory}%`, color: 'text-primary' },
+        { label: t('monitor.qps'), value: perf.qps, color: 'text-emerald-600' },
+        {
+          label: t('monitor.avgResponse'),
+          value: `${perf.avgResponse}ms`,
+          color: 'text-purple-600',
+        },
+      ]
+    : []
 
   return (
     <div className="space-y-6">
@@ -156,13 +140,13 @@ export default function MonitoringDashboardPage() {
                   {t('monitor.services')}
                 </span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  {t('monitor.healthyCount', { healthy: healthyCount, total: services.length })}
+                  {t('monitor.healthyCount', { healthy: healthyCount, total: servicesList.length })}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
-                {services.map((s) => {
+                {servicesList.map((s) => {
                   const Icon = SERVICE_ICONS[s.name] ?? Server
                   const ok = s.status === 'healthy'
                   return (
@@ -217,21 +201,21 @@ export default function MonitoringDashboardPage() {
               <CardTitle className="flex items-center gap-2 text-base">
                 <AlertTriangle className="h-4 w-4" />
                 {t('monitor.alerts')}
-                {alerts.filter((a) => a.level === 'critical').length > 0 && (
+                {alertsList.filter((a) => a.level === 'critical').length > 0 && (
                   <span className="inline-flex rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-600">
-                    {alerts.filter((a) => a.level === 'critical').length} critical
+                    {alertsList.filter((a) => a.level === 'critical').length} critical
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {alerts.length === 0 ? (
+              {alertsList.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                   {t('monitor.noAlerts')}
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {alerts.map((a) => {
+                  {alertsList.map((a) => {
                     const st = ALERT_STYLE[a.level]
                     return (
                       <div
@@ -271,19 +255,23 @@ export default function MonitoringDashboardPage() {
               <div className="mb-3 grid grid-cols-3 gap-2">
                 <div className="rounded-md border p-2 text-center">
                   <div className="text-xs text-muted-foreground">{t('monitor.logTotal')}</div>
-                  <div className="mt-0.5 text-lg font-bold">{logs.total.toLocaleString()}</div>
+                  <div className="mt-0.5 text-lg font-bold">
+                    {(logs?.total ?? 0).toLocaleString()}
+                  </div>
                 </div>
                 <div className="rounded-md border p-2 text-center">
                   <div className="text-xs text-muted-foreground">{t('monitor.logErrors')}</div>
-                  <div className="mt-0.5 text-lg font-bold text-red-600">{logs.errors}</div>
+                  <div className="mt-0.5 text-lg font-bold text-red-600">{logs?.errors ?? 0}</div>
                 </div>
                 <div className="rounded-md border p-2 text-center">
                   <div className="text-xs text-muted-foreground">{t('monitor.logWarnings')}</div>
-                  <div className="mt-0.5 text-lg font-bold text-amber-600">{logs.warnings}</div>
+                  <div className="mt-0.5 text-lg font-bold text-amber-600">
+                    {logs?.warnings ?? 0}
+                  </div>
                 </div>
               </div>
               <div className="space-y-1">
-                {logs.recent.map((l) => (
+                {logsRecent.map((l) => (
                   <div
                     key={l.id}
                     className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30"

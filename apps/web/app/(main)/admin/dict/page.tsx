@@ -47,48 +47,6 @@ interface DictType {
   items: DictItem[]
 }
 
-const MOCK_DICTS: DictType[] = [
-  {
-    id: '1',
-    name: '订单状态',
-    code: 'order_status',
-    description: '订单的流转状态',
-    itemCount: 5,
-    items: [
-      { id: '11', label: '待支付', value: 'pending', sort: 1 },
-      { id: '12', label: '已支付', value: 'paid', sort: 2 },
-      { id: '13', label: '已完成', value: 'completed', sort: 3 },
-      { id: '14', label: '已取消', value: 'cancelled', sort: 4 },
-      { id: '15', label: '已退款', value: 'refunded', sort: 5 },
-    ],
-  },
-  {
-    id: '2',
-    name: '用户角色',
-    code: 'user_role',
-    description: '系统用户角色类型',
-    itemCount: 4,
-    items: [
-      { id: '21', label: '管理员', value: 'admin', sort: 1 },
-      { id: '22', label: '普通用户', value: 'user', sort: 2 },
-      { id: '23', label: '讲师', value: 'lecturer', sort: 3 },
-      { id: '24', label: '访客', value: 'guest', sort: 4 },
-    ],
-  },
-  {
-    id: '3',
-    name: '支付方式',
-    code: 'payment_method',
-    description: '支持的支付方式',
-    itemCount: 3,
-    items: [
-      { id: '31', label: '微信支付', value: 'wechat', sort: 1 },
-      { id: '32', label: '支付宝', value: 'alipay', sort: 2 },
-      { id: '33', label: '余额支付', value: 'balance', sort: 3 },
-    ],
-  },
-]
-
 const EMPTY_TYPE = { name: '', code: '', description: '' }
 const EMPTY_ITEM = { label: '', value: '', sort: 0 }
 const th = 'px-4 py-2.5 font-medium'
@@ -109,40 +67,38 @@ export default function DictPage() {
   const [itemForm, setItemForm] = React.useState(EMPTY_ITEM)
   const [search, setSearch] = React.useState('')
 
-  const { data: list = MOCK_DICTS, isLoading } = useQuery({
+  const { data: list, isLoading } = useQuery({
     queryKey: ['admin', 'dict'],
     queryFn: async () => {
       const r = await fetchApi<{
         list: { dictId: number; dictName: string; dictType: string; remark?: string | null }[]
       }>('/api/admin/dict/type/list')
-      if (r.success && r.data?.list) {
-        const result: DictType[] = await Promise.all(
-          r.data.list.map(async (t) => {
-            const dr = await fetchApi<{
-              list: { dictCode: number; dictLabel: string; dictValue: string; dictSort?: number }[]
-            }>(`/api/admin/dict/data/type/${t.dictType}`)
-            const items: DictItem[] =
-              dr.success && dr.data?.list
-                ? dr.data.list.map((d) => ({
-                    id: String(d.dictCode),
-                    label: d.dictLabel,
-                    value: d.dictValue,
-                    sort: d.dictSort ?? 0,
-                  }))
-                : []
-            return {
-              id: String(t.dictId),
-              name: t.dictName,
-              code: t.dictType,
-              description: t.remark ?? '',
-              itemCount: items.length,
-              items,
-            }
-          }),
-        )
-        return result
-      }
-      return MOCK_DICTS
+      if (!r.success) throw new Error(r.error)
+      const result: DictType[] = await Promise.all(
+        (r.data?.list ?? []).map(async (t) => {
+          const dr = await fetchApi<{
+            list: { dictCode: number; dictLabel: string; dictValue: string; dictSort?: number }[]
+          }>(`/api/admin/dict/data/type/${t.dictType}`)
+          const items: DictItem[] =
+            dr.success && dr.data?.list
+              ? dr.data.list.map((d) => ({
+                  id: String(d.dictCode),
+                  label: d.dictLabel,
+                  value: d.dictValue,
+                  sort: d.dictSort ?? 0,
+                }))
+              : []
+          return {
+            id: String(t.dictId),
+            name: t.dictName,
+            code: t.dictType,
+            description: t.remark ?? '',
+            itemCount: items.length,
+            items,
+          }
+        }),
+      )
+      return result
     },
   })
 
@@ -299,13 +255,14 @@ export default function DictPage() {
     )
   }
 
+  const listData = list ?? []
   const filteredList = search.trim()
-    ? list.filter(
+    ? listData.filter(
         (d) =>
           d.name.toLowerCase().includes(search.toLowerCase()) ||
           d.code.toLowerCase().includes(search.toLowerCase()),
       )
-    : list
+    : listData
 
   return (
     <div className="space-y-6">
