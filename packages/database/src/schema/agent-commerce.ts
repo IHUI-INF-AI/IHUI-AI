@@ -62,3 +62,30 @@ export type ZhsAgentBuy = typeof zhsAgentBuy.$inferSelect
 export type NewZhsAgentBuy = typeof zhsAgentBuy.$inferInsert
 export type ZhsAgentWithdrawalDetail = typeof zhsAgentWithdrawalDetail.$inferSelect
 export type NewZhsAgentWithdrawalDetail = typeof zhsAgentWithdrawalDetail.$inferInsert
+
+/**
+ * 智能体购买定时任务表 - 定时检查购买过期并更新状态。
+ */
+export const agentBuyScheduledTasks = pgTable(
+  'agent_buy_scheduled_tasks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    buyId: uuid('buy_id')
+      .references(() => zhsAgentBuy.id, { onDelete: 'cascade' })
+      .notNull(),
+    taskType: varchar('task_type', { length: 32 }).default('expiry_check').notNull(),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+    executedAt: timestamp('executed_at', { withTimezone: true }),
+    status: varchar('status', { length: 32 }).default('pending').notNull(),
+    result: text('result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    buyIdx: index('agent_buy_scheduled_buy_idx').on(t.buyId),
+    statusIdx: index('agent_buy_scheduled_status_idx').on(t.status),
+  }),
+)
+
+export type AgentBuyScheduledTask = typeof agentBuyScheduledTasks.$inferSelect
+export type NewAgentBuyScheduledTask = typeof agentBuyScheduledTasks.$inferInsert

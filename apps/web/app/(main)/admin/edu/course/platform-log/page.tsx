@@ -13,7 +13,7 @@ import { Button } from '@ihui/ui'
 import { PlatformLogFilter } from './PlatformLogFilter'
 import { PlatformLogTable } from './PlatformLogTable'
 import { PlatformLogDialog } from './PlatformLogDialog'
-import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLUMNS, platformLogToForm } from './helpers'
+import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLS, platformLogToForm } from './helpers'
 import type { PlatformLog, CForm, Search } from './types'
 
 export default function EduCoursePlatformLogPage() {
@@ -99,7 +99,8 @@ export default function EduCoursePlatformLogPage() {
     exportFromApi(
       `/api/admin/course-platform-log${buildQs({ ...q, pageSize: 10000 })}`,
       `coursePlatformLog_${Date.now()}`,
-      EXPORT_COLUMNS,
+      EXPORT_COLS,
+      t,
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
 

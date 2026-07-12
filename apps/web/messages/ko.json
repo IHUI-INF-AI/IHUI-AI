@@ -2575,7 +2575,15 @@
           "fieldAnalysis": "해설",
           "analysisPlaceholder": "해설(선택)",
           "cancel": "취소",
-          "save": "저장"
+          "save": "저장",
+          "typeLabel": {
+            "single_choice": "객관식(단일)",
+            "multi_choice": "객관식(다수)",
+            "judgment": "O/X 문제",
+            "fill_blank": "빈칸 채우기",
+            "subjective": "주관식",
+            "programming": "프로그래밍"
+          }
         },
         "records": {
           "title": "시험 기록",
@@ -2637,7 +2645,15 @@
           "save": "저장",
           "selectPaper": "시험지 선택",
           "selectPaperPlaceholder": "시험지를 선택하세요",
-          "unpublished": " (미발행)"
+          "unpublished": " (미발행)",
+          "typeLabel": {
+            "single": "객관식(단일)",
+            "multi": "객관식(다수)",
+            "judgment": "O/X 문제",
+            "fill": "빈칸 채우기",
+            "subjective": "주관식",
+            "programming": "프로그래밍"
+          }
         }
       },
       "learn": {
@@ -2899,7 +2915,19 @@
           "labelFree": "무료",
           "labelPublish": "게시",
           "cancel": "취소",
-          "save": "저장"
+          "save": "저장",
+          "subLink": {
+            "live": "라이브 학습",
+            "recorded": "녹화 학습",
+            "materials": "자료 학습",
+            "homework": "과제 학습",
+            "records": "학습 기록",
+            "progress": "학습 진도",
+            "plan": "학습 계획",
+            "remind": "학습 알림",
+            "community": "학습 커뮤니티",
+            "ranking": "학습 순위"
+          }
         },
         "records": {
           "title": "학습 기록",
@@ -3010,7 +3038,11 @@
             "hot": "인기도",
             "collect": "즐겨찾기",
             "sort": "정렬",
-            "creator": "작성자"
+            "creator": "작성자",
+            "attachmentUrl": "첨부 URL",
+            "popularity": "인기도",
+            "favorites": "즐겨찾기",
+            "teacher": "강사"
           },
           "fieldPay": "결제",
           "fieldStatus": "상태",
@@ -3167,7 +3199,18 @@
           "amountLabel": "금액",
           "realAmountLabel": "실결제 금액",
           "cancel": "취소",
-          "save": "저장"
+          "save": "저장",
+          "col": {
+            "userUuid": "사용자 UUID",
+            "courseId": "코스ID",
+            "videoId": "동영상 ID",
+            "billDate": "청구 날짜",
+            "payMethod": "결제 방식",
+            "amount": "금액",
+            "paidAmount": "실결제 금액",
+            "type": "유형",
+            "createdAt": "생성 시간"
+          }
         },
         "statistics": {
           "title": "재무 통계",
@@ -3265,6 +3308,14 @@
           "payCrowd": {
             "0": "전체",
             "1": "회원"
+          },
+          "col": {
+            "courseId": "코스ID",
+            "courseName": "코스명",
+            "payType": "유료 유형",
+            "payCrowd": "유료 대상",
+            "amount": "금액",
+            "creator": "생성자"
           }
         },
         "platformLog": {
@@ -3299,7 +3350,16 @@
           "creator": "작성자",
           "sysCreator": "시스템 작성자",
           "createdAt": "작성 시간",
-          "actions": "작업"
+          "actions": "작업",
+          "col": {
+            "platformId": "플랫폼 ID",
+            "courseId": "코스 ID",
+            "videoId": "동영상 ID",
+            "type": "유형",
+            "creator": "작성자",
+            "systemCreator": "시스템 작성자",
+            "createdAt": "작성 시간"
+          }
         },
         "trash": {
           "title": "코스 휴지통",
@@ -3394,6 +3454,21 @@
             "2": "수정 필요",
             "3": "반려",
             "4": "승인됨"
+          },
+          "auditStatus": {
+            "0": "심사 대기",
+            "1": "심사 중",
+            "2": "수정 대기",
+            "3": "반려",
+            "4": "승인됨"
+          },
+          "col": {
+            "title": "제목",
+            "subtitle": "부제",
+            "stage": "단계",
+            "label": "라벨",
+            "auditStatus": "심사 상태",
+            "creator": "생성자"
           }
         },
         "audit": {
@@ -3450,6 +3525,36 @@
             "close": "닫기",
             "rectify": "수정 제출",
             "approve": "승인"
+          },
+          "col": {
+            "type": "유형",
+            "action": "작업",
+            "sourceId": "소스ID",
+            "targetId": "대상ID",
+            "status": "상태",
+            "creator": "생성자",
+            "createdAt": "생성 시간",
+            "updater": "수정자"
+          },
+          "field": {
+            "title": "제목",
+            "subtitle": "부제",
+            "content": "내용",
+            "remark": "비고",
+            "remarkFile": "비고 파일",
+            "binding": "바인딩",
+            "stage": "단계",
+            "isHidden": "숨김 여부",
+            "sort": "정렬",
+            "createdAt": "생성 시간",
+            "updatedAt": "수정 시간",
+            "courseId": "코스ID",
+            "videoPath": "동영상 경로",
+            "duration": "길이",
+            "attachment": "첨부",
+            "isPaid": "유료 여부",
+            "amount": "금액",
+            "status": "상태"
           }
         },
         "categories": {
@@ -3509,6 +3614,14 @@
             "buttonImage": "버튼 이미지",
             "cancel": "취소",
             "save": "저장"
+          },
+          "col": {
+            "code": "코드",
+            "name": "이름",
+            "parentId": "상위 ID",
+            "typeId": "유형 ID",
+            "sort": "정렬",
+            "creator": "생성자"
           }
         }
       },
@@ -3653,7 +3766,17 @@
         "extField1": "확장 필드 1",
         "extField2": "확장 필드 2",
         "cancel": "취소",
-        "save": "저장"
+        "save": "저장",
+        "col": {
+          "code": "코드",
+          "name": "이름",
+          "domain": "도메인",
+          "type": "유형",
+          "status": "상태",
+          "sort": "정렬",
+          "creator": "생성자",
+          "createdAt": "생성 시간"
+        }
       },
       "organization": {
         "title": "플랫폼 조직",
@@ -3692,7 +3815,15 @@
         "totalItems": "총 {count}건",
         "prevPage": "이전",
         "nextPage": "다음",
-        "pageInfo": "{page} / {totalPages} 페이지"
+        "pageInfo": "{page} / {totalPages} 페이지",
+        "col": {
+          "platformId": "플랫폼 ID",
+          "name": "이름",
+          "remark": "비고",
+          "filePath": "파일 경로",
+          "creator": "작성자",
+          "createdAt": "작성 시간"
+        }
       }
     },
     "eduSettings": {
@@ -4952,7 +5083,16 @@
       "fieldRemark": "비고",
       "fieldImage": "이미지",
       "cancel": "취소",
-      "save": "저장"
+      "save": "저장",
+      "col": {
+        "name": "이름",
+        "platformId": "플랫폼 ID",
+        "orgId": "조직 ID",
+        "parentId": "상위 ID",
+        "crossOrg": "크로스 조직",
+        "creator": "작성자",
+        "createdAt": "작성 시간"
+      }
     },
     "eduClassSchedule": {
       "title": "클래스 일정",
@@ -5756,6 +5896,40 @@
       "google": "Google 로그인",
       "meta": "Meta",
       "local": "로컬 데이터"
+    },
+    "model": {
+      "stepfun-3-7-flash": {
+        "description": "StepFun 최신 모델, 플랜 구독 포함"
+      },
+      "stepfun-3-5-flash": {
+        "description": "StepFun 3.5 빠른 버전"
+      },
+      "stepfun-router-v1": {
+        "description": "StepFun 스마트 라우팅, 최적 모델 자동 선택"
+      },
+      "agnes-gpt-4o": {
+        "description": "Agnes AI가 프록시하는 GPT-4o"
+      },
+      "groq-llama-3-3-70b": {
+        "name": "Llama 3.3 70B (Groq 무료)",
+        "description": "무료 30 RPM, 초고속, Groq API 키만 필요"
+      },
+      "gemini-1-5-flash": {
+        "name": "Gemini 1.5 Flash (무료)",
+        "description": "무료 15 RPM, 100만 토큰 컨텍스트"
+      },
+      "gpt-4o": {
+        "description": "균형 잡힌 멀티모달 플래그십 모델"
+      },
+      "gpt-4o-mini": {
+        "description": "빠르고 경제적인 경량 모델"
+      },
+      "claude-3-5-sonnet": {
+        "description": "강력한 추론과 장문 작성"
+      },
+      "gemini-2-flash": {
+        "description": "초장문 컨텍스트 멀티모달"
+      }
     }
   },
   "dashboard": {

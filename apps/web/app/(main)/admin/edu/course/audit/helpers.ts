@@ -14,7 +14,7 @@ export const fmt = (s?: string | null) =>
     : '-'
 
 export const statusText = (n: number) =>
-  n === 0 ? '待审核' : n === 1 ? '待整改' : n === 3 ? '已通过' : String(n)
+  n === 0 ? 'status.0' : n === 1 ? 'status.1' : n === 3 ? 'status.3' : String(n)
 
 export const statusClass = (n: number) =>
   n === 3
@@ -24,47 +24,47 @@ export const statusClass = (n: number) =>
       : 'bg-muted text-muted-foreground'
 
 export const COURSE_FIELDS: [string, string][] = [
-  ['title', '标题'],
-  ['subtitle', '副标题'],
-  ['content', '内容'],
-  ['remark', '备注'],
-  ['remarkFile', '备注文件'],
-  ['binding', '绑定'],
-  ['stage', '阶段'],
-  ['isHidden', '是否隐藏'],
-  ['sort', '排序'],
-  ['createdAt', '创建时间'],
-  ['updatedAt', '更新时间'],
+  ['title', 'field.title'],
+  ['subtitle', 'field.subtitle'],
+  ['content', 'field.content'],
+  ['remark', 'field.remark'],
+  ['remarkFile', 'field.remarkFile'],
+  ['binding', 'field.binding'],
+  ['stage', 'field.stage'],
+  ['isHidden', 'field.isHidden'],
+  ['sort', 'field.sort'],
+  ['createdAt', 'field.createdAt'],
+  ['updatedAt', 'field.updatedAt'],
 ]
 
 export const VIDEO_FIELDS: [string, string][] = [
-  ['courseId', '课程ID'],
-  ['binding', '绑定'],
-  ['videoPath', '视频路径'],
-  ['title', '标题'],
-  ['subtitle', '副标题'],
-  ['content', '内容'],
-  ['remark', '备注'],
-  ['duration', '时长'],
-  ['adjunctUrl', '附件'],
-  ['isPay', '是否付费'],
-  ['amount', '金额'],
-  ['status', '状态'],
-  ['sort', '排序'],
-  ['createdAt', '创建时间'],
-  ['updatedAt', '更新时间'],
+  ['courseId', 'field.courseId'],
+  ['binding', 'field.binding'],
+  ['videoPath', 'field.videoPath'],
+  ['title', 'field.title'],
+  ['subtitle', 'field.subtitle'],
+  ['content', 'field.content'],
+  ['remark', 'field.remark'],
+  ['duration', 'field.duration'],
+  ['adjunctUrl', 'field.attachment'],
+  ['isPay', 'field.isPaid'],
+  ['amount', 'field.amount'],
+  ['status', 'field.status'],
+  ['sort', 'field.sort'],
+  ['createdAt', 'field.createdAt'],
+  ['updatedAt', 'field.updatedAt'],
 ]
 
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
-  { key: 'type', title: '类型' },
-  { key: 'operate', title: '操作' },
-  { key: 'sourceId', title: '源ID' },
-  { key: 'targetId', title: '目标ID' },
-  { key: 'status', title: '状态', formatter: (v) => statusText(Number(v)) },
-  { key: 'creator', title: '创建人' },
-  { key: 'createdAt', title: '创建时间' },
-  { key: 'updator', title: '更新人' },
+  { key: 'type', title: 'col.type' },
+  { key: 'operate', title: 'col.action' },
+  { key: 'sourceId', title: 'col.sourceId' },
+  { key: 'targetId', title: 'col.targetId' },
+  { key: 'status', title: 'col.status', formatter: (v) => statusText(Number(v)) },
+  { key: 'creator', title: 'col.creator' },
+  { key: 'createdAt', title: 'col.createdAt' },
+  { key: 'updator', title: 'col.updater' },
 ]
 
 export const EMPTY_SEARCH: CourseAuditSearch = { operate: '', sourceId: '', creator: '' }

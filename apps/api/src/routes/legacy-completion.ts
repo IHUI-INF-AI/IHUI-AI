@@ -12,6 +12,7 @@ import {
   asks,
   askAnswers,
   learnTopic,
+  circles,
 } from '@ihui/database'
 import { deleteFile } from '../services/storage-service.js'
 
@@ -375,5 +376,56 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
     const { id } = idParam.parse(request.params)
     await db.delete(examWrongQuestion).where(eq(examWrongQuestion.id, id))
     return { deleted: true }
+  })
+
+  // ========== D17: 圈子热门列表 (历史 /public-api/circle/hot/list) ==========
+  fastify.get('/circles/hot', async (request) => {
+    const { limit } = z
+      .object({ limit: z.coerce.number().optional().default(10) })
+      .parse(request.query)
+    const list = await db
+      .select({
+        id: sql`${circles.id}`,
+        name: sql`${circles.name}`,
+        slug: sql`${circles.slug}`,
+        coverImage: sql`${circles.coverImage}`,
+        memberCount: sql`${circles.memberCount}`,
+        postCount: sql`${circles.postCount}`,
+      })
+      .from(circles)
+      .where(eq(circles.isPublished, true))
+      .orderBy(desc(circles.memberCount))
+      .limit(Number(limit))
+    return { list }
+  })
+
+  // ========== D18: 圈子成员计数 (历史 /public-api/member/count) ==========
+  fastify.get('/circles/member-count', async (request) => {
+    const { circleId } = z.object({ circleId: z.string().uuid() }).parse(request.query)
+    const [row] = await db
+      .select({ count: circles.memberCount })
+      .from(circles)
+      .where(eq(circles.id, circleId))
+    return { circleId, memberCount: row?.count ?? 0 }
+  })
+
+  // ========== D19: 企业微信 token (历史 /work-we-chat/token) ==========
+  fastify.get('/work-wechat/token', async (request) => {
+    const { corpId, agentId, secret } = z
+      .object({
+        corpId: z.string(),
+        agentId: z.string().optional(),
+        secret: z.string(),
+      })
+      .parse(request.query)
+    const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(corpId)}&corpsecret=${encodeURIComponent(secret)}`
+    const res = await fetch(url)
+    const data = (await res.json()) as { access_token?: string; errcode?: number; errmsg?: string }
+    return {
+      accessToken: data.access_token ?? null,
+      agentId,
+      errcode: data.errcode ?? 0,
+      errmsg: data.errmsg ?? null,
+    }
   })
 }
