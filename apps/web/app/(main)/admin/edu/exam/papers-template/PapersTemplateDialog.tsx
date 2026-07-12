@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -37,6 +38,7 @@ export function PapersTemplateDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.exam.papersTemplate')
   return (
     <Dialog
       open={open}
@@ -47,7 +49,7 @@ export function PapersTemplateDialog({
       <DialogContent className="max-w-xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑模板' : '新建模板'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -55,7 +57,7 @@ export function PapersTemplateDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="t-name">名称</Label>
+            <Label htmlFor="t-name">{t('nameLabel')}</Label>
             <Input
               id="t-name"
               value={form.name}
@@ -63,7 +65,7 @@ export function PapersTemplateDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="t-desc">描述</Label>
+            <Label htmlFor="t-desc">{t('descriptionLabel')}</Label>
             <Input
               id="t-desc"
               value={form.description}
@@ -71,7 +73,7 @@ export function PapersTemplateDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="t-config">配置 (JSON)</Label>
+            <Label htmlFor="t-config">{t('configLabel')}</Label>
             <textarea
               id="t-config"
               value={form.config}
@@ -82,10 +84,11 @@ export function PapersTemplateDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

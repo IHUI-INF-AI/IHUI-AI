@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
@@ -14,6 +15,7 @@ import { PAGE_SIZE, EMPTY, remindToForm } from './helpers'
 import type { Remind, RForm } from './types'
 
 export default function EduLearnRemindPage() {
+  const t = useTranslations('admin.edu.learn.remind')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
@@ -46,7 +48,7 @@ export default function EduLearnRemindPage() {
       return eduApi(`/api/admin/learn/reminds`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'learn', 'remind'] })
       closeDialog()
     },
@@ -55,7 +57,7 @@ export default function EduLearnRemindPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/learn/reminds/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'learn', 'remind'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -82,11 +84,11 @@ export default function EduLearnRemindPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.title.trim()) return setErr('标题不能为空')
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     saveMut.mutate()
   }
   function handleDelete(id: string) {
-    if (window.confirm('确定删除？')) deleteMut.mutate(id)
+    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(id)
   }
 
   const total = data?.total ?? 0
@@ -108,7 +110,7 @@ export default function EduLearnRemindPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -117,18 +119,16 @@ export default function EduLearnRemindPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
-          </span>
+          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
