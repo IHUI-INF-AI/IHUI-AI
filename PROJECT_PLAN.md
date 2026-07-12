@@ -1870,3 +1870,91 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 
 - `pnpm --filter @ihui/web typecheck` — ✅ exit code 0（零错误）
 - `cd apps/web; npx vitest run` — ✅ 21 test files / 192 tests 全部通过（0 failures）
+
+---
+
+## R83 全项目 warnings 清零（2026-07-12）✅
+
+> 修复全项目（web + api + cli + miniapp-taro）所有 ESLint warnings 和 typecheck 错误，实现 `pnpm turbo typecheck lint build test` 全绿。
+
+### 修复清单
+
+#### Web 前端（8 处）
+
+| 文件                                            | 问题                             | 修复                                    |
+| ----------------------------------------------- | -------------------------------- | --------------------------------------- |
+| `admin/edu/course/CourseTable.tsx`              | `<img>` warning                  | `next/image` 组件替换                   |
+| `admin/edu/course/categories/CategoryTable.tsx` | 2 处 `<img>` warning             | `next/image` 组件替换                   |
+| `admin/edu/learn/recorded/RecordedTable.tsx`    | `<img>` warning                  | `next/image` 组件替换                   |
+| `admin/shop/products/ProductTable.tsx`          | `<img>` warning + `onError` 类型 | `next/image` + `e.currentTarget`        |
+| `admin/ai-gc/page.tsx`                          | TS6133 未使用 import             | 删除 `useTranslations` import           |
+| `admin/edu/page.tsx`                            | TS6133 未使用 import             | 删除 `useTranslations` import           |
+| `admin/edu/learn/community/page.tsx`            | TS2339 联合类型属性不存在        | `labelKey` 统一为 `label`，值用翻译 key |
+
+#### API 后端（28 处）
+
+| 文件/范围                              | 问题                  | 修复                                                            |
+| -------------------------------------- | --------------------- | --------------------------------------------------------------- |
+| `routes/agents.ts`                     | 4 处 `any`            | `AgentCategory[]` 精确类型                                      |
+| `services/tour/tour-event-bus.ts`      | `no-console`          | `console.log` → `console.info`                                  |
+| `services/tour/tour-multi-platform.ts` | `no-console`          | `console.log` → `console.info`                                  |
+| `utils/audit-archive.ts`               | `no-console`          | `console.log` → `console.info`                                  |
+| `utils/logger.ts`                      | `no-console` 动态访问 | 条件判断 `error/warn/info`                                      |
+| 9 个测试文件                           | 18 处 `any`           | 精确类型签名 `{ then: ...; [m: string]: unknown }` + `as never` |
+
+#### CLI（87 处）
+
+| 文件                           | 问题               | 修复                           |
+| ------------------------------ | ------------------ | ------------------------------ |
+| `src/commands/agent.ts`        | 11 处 `no-console` | `console.log` → `console.info` |
+| `src/commands/capabilities.ts` | 13 处 `no-console` | `console.log` → `console.info` |
+| `src/commands/repl.ts`         | 35 处 `no-console` | `console.log` → `console.info` |
+| `src/index.ts`                 | 28 处 `no-console` | `console.log` → `console.info` |
+
+#### Miniapp-Taro（133 处）
+
+| 范围                                | 问题                                         | 修复                                                              |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| `src/api/index.ts`                  | 54 处 `data: any`                            | `data: unknown` + `Record<string, unknown>`                       |
+| 28 个页面文件                       | `useState<any[]>` / `as any` / `(item: any)` | `Record<string, unknown>[]` + JSX `as string`/`as number` 断言    |
+| `pages/exam/answer.tsx`             | `react-hooks/exhaustive-deps`                | `useRef<() => void>` ref 回调模式                                 |
+| `pages/developer/income.tsx`        | 3 处 JSX `unknown` 类型                      | `(info?.total as number) ?? 0`                                    |
+| `pages/distribution/plan/index.tsx` | 6 处类型断言 + 联合类型                      | `as unknown as Record<string, unknown>` + `as string`/`as number` |
+| `pages/token/balance.tsx`           | 1 处 JSX `unknown` 类型                      | `(balance?.amount as number) ?? ...`                              |
+
+### 最终验证结果
+
+- `pnpm turbo typecheck` — ✅ 12 包全部通过（零错误）
+- `pnpm turbo lint` — ✅ 12 包全部通过（零错误零警告）
+- `pnpm turbo build` — ✅ 14 任务全部成功
+- `pnpm turbo test` — ✅ 全部通过
+
+**全项目零错误零警告达成。**
+
+---
+
+## R84 i18n 批次16 — admin/edu 第1批迁移（2026-07-12）✅
+
+> admin/edu 系列 11 个页面迁移至 `useTranslations`，新增 `admin.edu.*` 命名空间约 300+ 键 × 5 语言。
+
+### 迁移文件清单
+
+| 文件                                   | 命名空间                      | 说明                                        |
+| -------------------------------------- | ----------------------------- | ------------------------------------------- |
+| `admin/edu/page.tsx`                   | `admin.edu.index`             | 教育后台首页 9 个模块卡片                   |
+| `admin/edu/certificate/page.tsx`       | `admin.edu.certificate`       | 证书管理（SOURCE_MAP 值改为 key）           |
+| `admin/edu/student/page.tsx`           | `admin.edu.student`           | 学员管理（LEVEL_MAP 值改为 key）            |
+| `admin/edu/teacher/page.tsx`           | `admin.edu.teacher`           | 讲师管理（参数 `t` 重命名为 `tc` 避免遮蔽） |
+| `admin/edu/exam/arrangements/page.tsx` | `admin.edu.exam.arrangements` | 考试安排（41 处迁移）                       |
+| `admin/edu/exam/grades/page.tsx`       | `admin.edu.exam.grades`       | 成绩批阅（24 处迁移）                       |
+| `admin/edu/learn/plan/page.tsx`        | `admin.edu.learn.plan`        | 学习计划                                    |
+| `admin/edu/learn/homework/page.tsx`    | `admin.edu.learn.homework`    | 作业学习                                    |
+| `admin/edu/learn/community/page.tsx`   | `admin.edu.learn.community`   | 学习社区（STATUS_MAP label 改为翻译 key）   |
+| `admin/edu/learn/materials/page.tsx`   | `admin.edu.learn.materials`   | 资料学习                                    |
+| `admin/edu/learn/live/page.tsx`        | `admin.edu.learn.live`        | 直播学习                                    |
+
+### 验证结果
+
+- `npx tsc --noEmit` — ✅ 零错误
+- `npx vitest run` — ✅ 21 test files / 192 tests 全部通过
+- i18n 键完整性 — ✅ pre-commit zh/en parity 检查通过
