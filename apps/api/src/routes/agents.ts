@@ -126,20 +126,29 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (!(await requireAuth(request, reply))) return
   })
 
+  const agentIdParam = z.object({ agentId: z.string() })
+  const categoryIdParam = z.object({ categoryId: z.string() })
+  const recordIdParam = z.object({ recordId: z.string() })
+  const clientIdParam = z.object({ clientId: z.string() })
+  const idParam = z.object({ id: z.string() })
+  const needTaskIdParam = z.object({ id: z.coerce.number() })
+
   // -------------------------------------------------------------------------
   // agents CRUD
   // -------------------------------------------------------------------------
 
   // GET /agents/list - 代理列表
   server.get('/agents/list', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      status?: string
-      categoryId?: string
-      userId?: string
-      keyword?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        status: z.string().optional(),
+        categoryId: z.string().optional(),
+        userId: z.string().optional(),
+        keyword: z.string().optional(),
+      })
+      .parse(request.query)
     const result = await listAgents({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
@@ -153,7 +162,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string }
+    const { agentId } = agentIdParam.parse(request.params)
     const detail = await getAgentDetail(agentId)
     if (!detail) return reply.status(404).send(error(404, '智能体不存在'))
     return reply.send(success(detail.agent))
@@ -161,19 +170,21 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /agents/create - 创建代理
   server.post('/agents/create', async (request, reply) => {
-    const body = request.body as {
-      name?: string
-      description?: string | null
-      avatar?: string | null
-      cover?: string | null
-      categoryId?: string | null
-      workspaceId?: string | null
-      status?: string
-      price?: number
-      isFree?: boolean
-      sort?: number
-      remark?: string | null
-    }
+    const body = z
+      .object({
+        name: z.string().optional(),
+        description: z.string().nullable().optional(),
+        avatar: z.string().nullable().optional(),
+        cover: z.string().nullable().optional(),
+        categoryId: z.string().nullable().optional(),
+        workspaceId: z.string().nullable().optional(),
+        status: z.string().optional(),
+        price: z.number().optional(),
+        isFree: z.boolean().optional(),
+        sort: z.number().optional(),
+        remark: z.string().nullable().optional(),
+      })
+      .parse(request.body)
     if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'))
     const agent = await createAgent({
       name: body.name,
@@ -194,7 +205,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /agents/:agentId - 更新代理
   server.put('/agents/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string }
+    const { agentId } = agentIdParam.parse(request.params)
     const body = request.body as UpdateAgentInput
     const agent = await updateAgent(agentId, body)
     if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
@@ -203,7 +214,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /agents/:agentId - 删除代理
   server.delete('/agents/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string }
+    const { agentId } = agentIdParam.parse(request.params)
     const agent = await deleteAgent(agentId)
     if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
     return reply.send(success({ deleted: true }))
@@ -215,13 +226,15 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/list - 分类列表
   server.get('/categories/list', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      status?: string
-      isPaid?: string
-      keyword?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        status: z.string().optional(),
+        isPaid: z.string().optional(),
+        keyword: z.string().optional(),
+      })
+      .parse(request.query)
     const result = await findCategoryList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
@@ -234,14 +247,16 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /categories/create - 创建分类
   server.post('/categories/create', async (request, reply) => {
-    const body = request.body as {
-      name?: string
-      description?: string | null
-      icon?: string | null
-      sort?: number
-      status?: string
-      isPaid?: boolean
-    }
+    const body = z
+      .object({
+        name: z.string().optional(),
+        description: z.string().nullable().optional(),
+        icon: z.string().nullable().optional(),
+        sort: z.number().optional(),
+        status: z.string().optional(),
+        isPaid: z.boolean().optional(),
+      })
+      .parse(request.body)
     if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'))
     const category = await createCategory({
       name: body.name,
@@ -256,7 +271,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /categories/batch-query - 批量查询
   server.post('/categories/batch-query', async (request, reply) => {
-    const body = request.body as { ids?: string[] }
+    const body = z.object({ ids: z.array(z.string()).optional() }).parse(request.body)
     const ids = body?.ids ?? []
     const list = await findCategoriesByIds(ids)
     return reply.send(success({ list, total: list.length }))
@@ -264,7 +279,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/ids/:idList - 按 ID 列表查询
   server.get('/categories/ids/:idList', async (request, reply) => {
-    const { idList } = request.params as { idList: string }
+    const { idList } = z.object({ idList: z.string() }).parse(request.params)
     const ids = idList
       .split(',')
       .map((s) => s.trim())
@@ -286,7 +301,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/agent/:agentId - 按智能体 ID 查分类
   server.get('/categories/agent/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string }
+    const { agentId } = agentIdParam.parse(request.params)
     const category = await findCategoryByAgentId(agentId)
     const list = category ? [category] : []
     return reply.send(success({ list, total: list.length }))
@@ -294,7 +309,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/:categoryId - 分类详情
   server.get('/categories/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParam.parse(request.params)
     const category = await findCategoryById(categoryId)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success(category))
@@ -302,7 +317,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /categories/:categoryId - 更新分类
   server.put('/categories/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParam.parse(request.params)
     const body = request.body as UpdateCategoryInput
     const category = await updateCategory(categoryId, body)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
@@ -311,7 +326,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /categories/:categoryId - 删除分类
   server.delete('/categories/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParam.parse(request.params)
     const category = await deleteCategory(categoryId)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success({ deleted: true }))
@@ -319,7 +334,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /categories/:categoryId/enable - 启用付费
   server.post('/categories/:categoryId/enable', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParam.parse(request.params)
     const category = await updateCategory(categoryId, { isPaid: true })
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success(category))
@@ -327,7 +342,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /categories/:categoryId/disable - 禁用付费
   server.post('/categories/:categoryId/disable', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParam.parse(request.params)
     const category = await updateCategory(categoryId, { isPaid: false })
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success(category))
@@ -414,7 +429,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/cache/agent/:agentId - Agent 分类(缓存优先)
   server.get('/categories/cache/agent/:agentId', async (request, reply) => {
-    const { agentId } = request.params as { agentId: string }
+    const { agentId } = agentIdParam.parse(request.params)
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const key = `${CACHE_PREFIX}agent:${agentId}`
@@ -435,7 +450,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/cache/category/:categoryId - 分类详情(缓存优先)
   server.get('/categories/cache/category/:categoryId', async (request, reply) => {
-    const { categoryId } = request.params as { categoryId: string }
+    const { categoryId } = categoryIdParam.parse(request.params)
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const key = `${CACHE_PREFIX}category:${categoryId}`
@@ -484,7 +499,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /categories/cache/search - 搜索分类(keyword 模糊匹配)
   server.get('/categories/cache/search', async (request, reply) => {
-    const q = request.query as { keyword?: string }
+    const q = z.object({ keyword: z.string().optional() }).parse(request.query)
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const keyword = (q.keyword ?? '').trim().toLowerCase()
@@ -518,13 +533,15 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /settlement/list - 结算列表
   server.get('/settlement/list', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      agentId?: string
-      status?: string
-      orderNo?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        agentId: z.string().optional(),
+        status: z.string().optional(),
+        orderNo: z.string().optional(),
+      })
+      .parse(request.query)
     const result = await findSettlementList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
@@ -543,7 +560,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/settle - 触发结算
   server.post('/settlement/settle', async (request, reply) => {
-    const body = request.body as { id?: string }
+    const body = z.object({ id: z.string().optional() }).parse(request.body)
     if (!body?.id) return reply.status(400).send(error(400, 'id 为必填项'))
     const record = await settleSettlement(body.id)
     if (!record) return reply.status(404).send(error(404, '结算记录不存在'))
@@ -552,11 +569,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /settlement/unsettled - 未结算记录
   server.get('/settlement/unsettled', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      agentId?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        agentId: z.string().optional(),
+      })
+      .parse(request.query)
     const result = await findSettlementList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
@@ -637,7 +656,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/sync-single/:buyRecordId - 同步单条购买记录到结算表
   server.post('/settlement/sync-single/:buyRecordId', async (request, reply) => {
-    const { buyRecordId } = request.params as { buyRecordId: string }
+    const { buyRecordId } = z.object({ buyRecordId: z.string() }).parse(request.params)
 
     const already = await dbRead
       .select({ id: agentSettlements.id })
@@ -668,7 +687,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/batch-delete - 批量删除
   server.post('/settlement/batch-delete', async (request, reply) => {
-    const body = request.body as { ids?: string[] }
+    const body = z.object({ ids: z.array(z.string()).optional() }).parse(request.body)
     const ids = body?.ids ?? []
     const deleted = await deleteSettlements(ids)
     return reply.send(success({ deleted }))
@@ -676,7 +695,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /settlement/order/:orderNo/summary - 订单结算汇总
   server.get('/settlement/order/:orderNo/summary', async (request, reply) => {
-    const { orderNo } = request.params as { orderNo: string }
+    const { orderNo } = z.object({ orderNo: z.string() }).parse(request.params)
     const summary = await findSettlementByOrder(orderNo)
     return reply.send(success(summary))
   })
@@ -693,13 +712,15 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /examine/list - 审核列表
   server.get('/examine/list', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      agentId?: string
-      userId?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        agentId: z.string().optional(),
+        userId: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const result = await findExamineList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
@@ -718,11 +739,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /examine/submit - 提交审核
   server.post('/examine/submit', async (request, reply) => {
-    const body = request.body as {
-      agentId?: string
-      reason?: string | null
-      status?: string
-    }
+    const body = z
+      .object({
+        agentId: z.string().optional(),
+        reason: z.string().nullable().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.body)
     if (!body?.agentId) return reply.status(400).send(error(400, 'agentId 为必填项'))
     const record = await createExamine({
       agentId: body.agentId,
@@ -735,7 +758,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /examine/:recordId - 审核详情
   server.get('/examine/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
+    const { recordId } = recordIdParam.parse(request.params)
     const record = await findExamineById(recordId)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
@@ -743,7 +766,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /examine/:recordId - 更新审核记录
   server.put('/examine/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
+    const { recordId } = recordIdParam.parse(request.params)
     const body = request.body as UpdateExamineInput
     const record = await updateExamine(recordId, body)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
@@ -752,7 +775,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /examine/:recordId - 删除审核记录
   server.delete('/examine/:recordId', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
+    const { recordId } = recordIdParam.parse(request.params)
     const record = await deleteExamine(recordId)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success({ deleted: true }))
@@ -760,7 +783,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /examine/:recordId/approve - 批准
   server.put('/examine/:recordId/approve', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
+    const { recordId } = recordIdParam.parse(request.params)
     const record = await approveExamine(recordId, request.userId!)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
@@ -768,8 +791,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /examine/:recordId/reject - 拒绝
   server.put('/examine/:recordId/reject', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
-    const body = request.body as { reason?: string }
+    const { recordId } = recordIdParam.parse(request.params)
+    const body = z.object({ reason: z.string().optional() }).parse(request.body)
     if (!body?.reason) return reply.status(400).send(error(400, 'reason 为必填项'))
     const record = await rejectExamine(recordId, request.userId!, body.reason)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
@@ -778,8 +801,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /examine/:recordId/return - 退回审核(状态改为 pending,记录退回原因)
   server.post('/examine/:recordId/return', async (request, reply) => {
-    const { recordId } = request.params as { recordId: string }
-    const body = request.body as { reason?: string }
+    const { recordId } = recordIdParam.parse(request.params)
+    const body = z.object({ reason: z.string().optional() }).parse(request.body)
     const rows = await db
       .update(agentExamines)
       .set({
@@ -796,7 +819,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /examine/batch-approve - 批量批准
   server.post('/examine/batch-approve', async (request, reply) => {
-    const body = request.body as { recordIds?: string[] }
+    const body = z.object({ recordIds: z.array(z.string()).optional() }).parse(request.body)
     const recordIds = body?.recordIds ?? []
     if (recordIds.length === 0) {
       return reply.status(400).send(error(400, 'recordIds 为必填项'))
@@ -816,7 +839,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /examine/batch-reject - 批量拒绝
   server.post('/examine/batch-reject', async (request, reply) => {
-    const body = request.body as { recordIds?: string[]; reason?: string }
+    const body = z
+      .object({ recordIds: z.array(z.string()).optional(), reason: z.string().optional() })
+      .parse(request.body)
     const recordIds = body?.recordIds ?? []
     if (recordIds.length === 0) {
       return reply.status(400).send(error(400, 'recordIds 为必填项'))
@@ -844,7 +869,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /oauth-apps/list - OAuth 应用列表
   server.get('/oauth-apps/list', async (request, reply) => {
-    const q = request.query as { page?: string; limit?: string }
+    const q = z
+      .object({ page: z.string().optional(), limit: z.string().optional() })
+      .parse(request.query)
     const page = toInt(q.page) ?? 1
     const limit = toInt(q.limit) ?? 20
     const result = await listOAuthApps(request.userId!, page, limit)
@@ -884,13 +911,15 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /oauth-apps/audit-logs - 审计日志查询
   server.get('/oauth-apps/audit-logs', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      limit?: string
-      clientId?: string
-      event?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        limit: z.string().optional(),
+        clientId: z.string().optional(),
+        event: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const { items, total } = await findAuditLogList({
       page: toInt(q.page) ?? 1,
       limit: toInt(q.limit) ?? 20,
@@ -913,7 +942,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /oauth-apps/:clientId - OAuth 应用详情
   server.get('/oauth-apps/:clientId', async (request, reply) => {
-    const { clientId } = request.params as { clientId: string }
+    const { clientId } = clientIdParam.parse(request.params)
     const app = await findOAuthAppByClientId(clientId)
     if (!app) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (app.ownerUuid !== request.userId) {
@@ -946,7 +975,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /oauth-apps/:clientId - 更新 OAuth 应用
   server.put('/oauth-apps/:clientId', async (request, reply) => {
-    const { clientId } = request.params as { clientId: string }
+    const { clientId } = clientIdParam.parse(request.params)
     const parsed = updateOAuthAppSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -963,7 +992,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /oauth-apps/:clientId - 删除 OAuth 应用
   server.delete('/oauth-apps/:clientId', async (request, reply) => {
-    const { clientId } = request.params as { clientId: string }
+    const { clientId } = clientIdParam.parse(request.params)
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
@@ -976,7 +1005,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /oauth-apps/:clientId/regenerate-secret - 重新生成密钥
   server.post('/oauth-apps/:clientId/regenerate-secret', async (request, reply) => {
-    const { clientId } = request.params as { clientId: string }
+    const { clientId } = clientIdParam.parse(request.params)
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
@@ -994,7 +1023,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /settlement/:id - 结算详情
   server.get('/settlement/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const rows = await dbRead
       .select()
       .from(agentSettlements)
@@ -1006,7 +1035,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /settlement/:id - 更新结算记录
   server.put('/settlement/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = idParam.parse(request.params)
     const parsed = updateSettlementSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1026,12 +1055,14 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /agents/need-tasks - 需求任务列表
   server.get('/agents/need-tasks', async (request, reply) => {
-    const q = request.query as {
-      page?: string
-      pageSize?: string
-      agentId?: string
-      status?: string
-    }
+    const q = z
+      .object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        agentId: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .parse(request.query)
     const page = toInt(q.page) ?? 1
     const pageSize = toInt(q.pageSize) ?? 20
     const conds = []
@@ -1059,11 +1090,11 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /agents/need-tasks/:id - 需求任务详情
   server.get('/agents/need-tasks/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = needTaskIdParam.parse(request.params)
     const rows = await dbRead
       .select()
       .from(zhsAgentNeedTask)
-      .where(eq(zhsAgentNeedTask.id, parseInt(id, 10)))
+      .where(eq(zhsAgentNeedTask.id, id))
       .limit(1)
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
     return reply.send(success(rows[0]))
@@ -1091,7 +1122,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /agents/need-tasks/:id - 更新需求任务
   server.put('/agents/need-tasks/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
+    const { id } = needTaskIdParam.parse(request.params)
     const parsed = updateNeedTaskSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1108,7 +1139,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .update(zhsAgentNeedTask)
       .set(updateData)
-      .where(eq(zhsAgentNeedTask.id, parseInt(id, 10)))
+      .where(eq(zhsAgentNeedTask.id, id))
       .returning()
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
     return reply.send(success(rows[0]))
@@ -1116,11 +1147,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /agents/need-tasks/:id - 删除需求任务
   server.delete('/agents/need-tasks/:id', async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const rows = await db
-      .delete(zhsAgentNeedTask)
-      .where(eq(zhsAgentNeedTask.id, parseInt(id, 10)))
-      .returning()
+    const { id } = needTaskIdParam.parse(request.params)
+    const rows = await db.delete(zhsAgentNeedTask).where(eq(zhsAgentNeedTask.id, id)).returning()
     if (!rows[0]) return reply.status(404).send(error(404, '需求任务不存在'))
     return reply.send(success({ id, deleted: true }))
   })
