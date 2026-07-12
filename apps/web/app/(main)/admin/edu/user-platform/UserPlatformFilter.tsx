@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import {
   Input,
   Button,
@@ -20,23 +21,24 @@ interface Props {
 }
 
 export function UserPlatformFilter({ q, set, onReset }: Props) {
+  const t = useTranslations('admin.eduUserPlatform')
   const inputCls = 'h-9 w-40'
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Input
-        placeholder="用户UUID"
+        placeholder={t('placeholderUserUuid')}
         value={q.userUuid}
         onChange={(e) => set('userUuid', e.target.value)}
         className={inputCls}
       />
       <Input
-        placeholder="平台ID"
+        placeholder={t('placeholderPlatformId')}
         value={q.platformId}
         onChange={(e) => set('platformId', e.target.value)}
         className={inputCls}
       />
       <Input
-        placeholder="身份ID"
+        placeholder={t('placeholderIdentityId')}
         value={q.identityId}
         onChange={(e) => set('identityId', e.target.value)}
         className={inputCls}
@@ -46,13 +48,13 @@ export function UserPlatformFilter({ q, set, onReset }: Props) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">全部状态</SelectItem>
-          <SelectItem value="0">正常</SelectItem>
-          <SelectItem value="1">禁用</SelectItem>
+          <SelectItem value="all">{t('allStatus')}</SelectItem>
+          <SelectItem value="0">{t('statusNormal')}</SelectItem>
+          <SelectItem value="1">{t('statusDisabled')}</SelectItem>
         </SelectContent>
       </Select>
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
     </div>
   )

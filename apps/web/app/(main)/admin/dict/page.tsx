@@ -166,7 +166,7 @@ export default function DictPage() {
     saveItemMut.mutate()
   }
   function handleExport() {
-    exportToExcel('字典数据', EXPORT_COLUMNS, buildDictExportRows(filteredList))
+    exportToExcel(t('dict.exportName'), EXPORT_COLUMNS, buildDictExportRows(filteredList))
   }
 
   const filteredList = filterDictList(list ?? [], search)
