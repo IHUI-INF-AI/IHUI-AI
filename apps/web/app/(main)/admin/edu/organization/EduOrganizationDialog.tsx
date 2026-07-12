@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -37,6 +38,7 @@ export function EduOrganizationDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.organization')
   return (
     <Dialog
       open={open}
@@ -47,7 +49,7 @@ export function EduOrganizationDialog({
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑组织' : '新建组织'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -60,7 +62,7 @@ export function EduOrganizationDialog({
               <Input value={form.uuid} onChange={(e) => onFormChange({ uuid: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>平台ID</Label>
+              <Label>{t('platformId')}</Label>
               <Input
                 value={form.platformId}
                 onChange={(e) => onFormChange({ platformId: e.target.value })}
@@ -68,11 +70,11 @@ export function EduOrganizationDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>名称</Label>
+            <Label>{t('name')}</Label>
             <Input value={form.name} onChange={(e) => onFormChange({ name: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>备注</Label>
+            <Label>{t('remark')}</Label>
             <textarea
               className={textareaCls}
               value={form.remark}
@@ -80,15 +82,15 @@ export function EduOrganizationDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>文件路径</Label>
+            <Label>{t('filePath')}</Label>
             <Input
               value={form.filePath}
               onChange={(e) => onFormChange({ filePath: e.target.value })}
-              placeholder="文件URL"
+              placeholder={t('fileUrlPlaceholder')}
             />
           </div>
           <div className="space-y-2">
-            <Label>图片</Label>
+            <Label>{t('image')}</Label>
             <ImageUpload
               value={form.binding}
               onChange={(v) => onFormChange({ binding: v as string })}
@@ -96,10 +98,11 @@ export function EduOrganizationDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

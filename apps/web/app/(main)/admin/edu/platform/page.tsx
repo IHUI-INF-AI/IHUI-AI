@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
@@ -15,6 +16,7 @@ import { PlatformTable } from './PlatformTable'
 import { PlatformDialog } from './PlatformDialog'
 
 export default function EduPlatformPage() {
+  const t = useTranslations('admin.edu.platform')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [q, setQ] = React.useState({ code: '', name: '' })
@@ -48,7 +50,7 @@ export default function EduPlatformPage() {
         : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'platform'] })
       closeDialog()
     },
@@ -57,7 +59,7 @@ export default function EduPlatformPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'platform'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -96,8 +98,8 @@ export default function EduPlatformPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.code.trim()) return setErr('编码不能为空')
-    if (!form.name.trim()) return setErr('名称不能为空')
+    if (!form.code.trim()) return setErr(t('codeRequired'))
+    if (!form.name.trim()) return setErr(t('nameRequired'))
     saveMut.mutate()
   }
   function handleExport() {
@@ -105,10 +107,10 @@ export default function EduPlatformPage() {
       `${API}${buildQs({ ...q, pageSize: 10000 })}`,
       `educationPlatform_${Date.now()}`,
       EXPORT_COLS,
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function handleDelete(r: EduPlatform) {
-    if (window.confirm('确定删除？')) deleteMut.mutate(r.id)
+    if (window.confirm(t('confirmDelete'))) deleteMut.mutate(r.id)
   }
 
   const total = data?.total ?? 0
@@ -118,8 +120,8 @@ export default function EduPlatformPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">平台发布管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">教育平台发布与绑定管理</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <PlatformFilter
         q={q}
@@ -143,7 +145,7 @@ export default function EduPlatformPage() {
         deletePending={deleteMut.isPending}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -152,10 +154,10 @@ export default function EduPlatformPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -163,7 +165,7 @@ export default function EduPlatformPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
