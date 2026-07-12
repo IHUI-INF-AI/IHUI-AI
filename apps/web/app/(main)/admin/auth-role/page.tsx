@@ -3,47 +3,17 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, Plus, Download, Search, Shield } from 'lucide-react'
+import { Plus, Download, Shield } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
-import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { DatePicker } from '@/components/form/DatePicker'
-import {
-  Button,
-  Input,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@ihui/ui'
+import { Button } from '@ihui/ui'
 
-interface AuthRole {
-  id: string
-  userId: string
-  roleId: string
-  createdAt?: string
-}
-
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const RESOURCE = '/api/admin/auth-role'
-const PERM = 'auth:auth_role'
-const EMPTY = { userId: '', roleId: '', createdAt: '' }
-const th = 'px-4 py-2.5 font-medium'
-const EXPORT_COLS: ExportColumn[] = [
-  { key: 'id', title: 'ID' },
-  { key: 'userId', title: '用户ID' },
-  { key: 'roleId', title: '角色ID' },
-  { key: 'createdAt', title: '创建时间' },
-]
+import { AuthRoleFilter } from './AuthRoleFilter'
+import { AuthRoleTable } from './AuthRoleTable'
+import { AuthRoleDialog, AuthRoleDeleteDialog } from './AuthRoleDialog'
+import { RESOURCE, PERM, EMPTY, EXPORT_COLS, api } from './helpers'
+import type { AuthRole, AuthRoleForm, ListData } from './types'
 
 export default function AuthRolePage() {
   const qc = useQueryClient()
@@ -52,7 +22,7 @@ export default function AuthRolePage() {
   const [pageSize] = React.useState(10)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AuthRole | null>(null)
-  const [form, setForm] = React.useState(EMPTY)
+  const [form, setForm] = React.useState<AuthRoleForm>(EMPTY)
   const [delId, setDelId] = React.useState<string | null>(null)
 
   const params = React.useMemo(() => {
@@ -63,8 +33,7 @@ export default function AuthRolePage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'auth-role', params],
-    queryFn: () =>
-      api<{ list: AuthRole[]; total: number }>(`${RESOURCE}?${new URLSearchParams(params)}`),
+    queryFn: () => api<ListData>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
@@ -155,82 +124,20 @@ export default function AuthRolePage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        <div className="space-y-1">
-          <Label className="text-xs">用户ID</Label>
-          <Input
-            className="h-9 w-48"
-            value={search.userId}
-            onChange={(e) => setSearch({ userId: e.target.value })}
-            placeholder="搜索用户ID"
-          />
-        </div>
-        <Button size="sm" onClick={() => setPage(1)}>
-          <Search className="h-4 w-4" />
-          搜索
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleReset}>
-          重置
-        </Button>
-      </div>
+      <AuthRoleFilter
+        userId={search.userId}
+        onUserIdChange={(v) => setSearch({ userId: v })}
+        onSearch={() => setPage(1)}
+        onReset={handleReset}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className={th}>ID</th>
-              <th className={th}>用户ID</th>
-              <th className={th}>角色ID</th>
-              <th className={th}>创建时间</th>
-              <th className={th}>操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中…
-                </td>
-              </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  <Shield className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无数据
-                </td>
-              </tr>
-            ) : (
-              list.map((item) => (
-                <tr key={item.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-2.5">{item.id}</td>
-                  <td className="px-4 py-2.5 font-medium">{item.userId}</td>
-                  <td className="px-4 py-2.5">{item.roleId}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{item.createdAt ?? '-'}</td>
-                  <td className="px-4 py-2.5 space-x-2">
-                    <HasPermi code={`${PERM}:edit`}>
-                      <button
-                        className="text-primary hover:underline"
-                        onClick={() => openEdit(item)}
-                      >
-                        编辑
-                      </button>
-                    </HasPermi>
-                    <HasPermi code={`${PERM}:remove`}>
-                      <button
-                        className="text-destructive hover:underline"
-                        onClick={() => setDelId(item.id)}
-                      >
-                        删除
-                      </button>
-                    </HasPermi>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <AuthRoleTable
+        list={list}
+        isLoading={isLoading}
+        perm={PERM}
+        onEdit={openEdit}
+        onDelete={(id) => setDelId(id)}
+      />
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
@@ -258,79 +165,22 @@ export default function AuthRolePage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑用户角色关联' : '新增用户角色关联'}</DialogTitle>
-              <DialogDescription>
-                {editing ? '修改用户角色关联信息' : '添加新的用户角色关联'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>用户ID *</Label>
-                <Input
-                  value={form.userId}
-                  onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>角色ID *</Label>
-                <Input
-                  value={form.roleId}
-                  onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-                />
-              </div>
-              <DatePicker
-                label="创建时间"
-                value={form.createdAt}
-                onChange={(v) => setForm({ ...form, createdAt: v })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AuthRoleDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={close}
+      />
 
-      <Dialog
-        open={delId !== null}
-        onOpenChange={(o) => {
-          if (!o) setDelId(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>确定要删除该用户角色关联记录吗？此操作不可撤销。</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDelId(null)}
-              disabled={delMut.isPending}
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={delMut.isPending}
-              onClick={() => delId && delMut.mutate(delId)}
-            >
-              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AuthRoleDeleteDialog
+        delId={delId}
+        pending={delMut.isPending}
+        onCancel={() => setDelId(null)}
+        onConfirm={() => delId && delMut.mutate(delId)}
+      />
     </div>
   )
 }

@@ -19,6 +19,7 @@
 
 import IORedis, { type Redis } from 'ioredis'
 import { config } from '../config/index.js'
+import { logger } from './logger.js'
 
 /** 每个房间保留的最大消息条数。 */
 const MAX_PER_ROOM = 500
@@ -49,7 +50,7 @@ function getRedis(): Redis {
       lazyConnect: false,
     })
     redisClient.on('error', (err) => {
-      console.error('[ws-replay-buffer] redis error:', err)
+      logger.error('[ws-replay-buffer] redis error', { error: err })
     })
     const quit = (): void => {
       redisClient?.quit().catch(() => {
