@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
@@ -463,7 +463,9 @@ export const adminLiveRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /live/tencent/streams - 创建腾讯云直播流
   server.post('/live/tencent/streams', { schema: { response: R } }, async (request, reply) => {
-    const body = request.body as { streamName?: string; app?: string }
+    const body = z
+      .object({ streamName: z.string().optional(), app: z.string().optional() })
+      .parse(request.body)
     if (!body.streamName) {
       return reply.status(400).send(error(400, 'streamName 不能为空'))
     }

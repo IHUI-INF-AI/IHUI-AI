@@ -1,4 +1,5 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import {
   calculateCost,
   listPricing,
@@ -26,16 +27,18 @@ export const pricingRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
 
-    const body = request.body as {
-      modelId: string
-      inputTokenPrice: number
-      outputTokenPrice: number
-      regionPricing?: Record<string, number>
-      discount?: unknown
-      currency?: string
-      effectiveAt?: string
-      expiresAt?: string | null
-    }
+    const body = z
+      .object({
+        modelId: z.string(),
+        inputTokenPrice: z.number(),
+        outputTokenPrice: z.number(),
+        regionPricing: z.record(z.number()).optional(),
+        discount: z.unknown().optional(),
+        currency: z.string().optional(),
+        effectiveAt: z.string().optional(),
+        expiresAt: z.string().nullable().optional(),
+      })
+      .parse(request.body)
 
     if (
       !body.modelId ||
@@ -62,13 +65,15 @@ export const pricingRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /pricing/calculate — 计算指定参数下的成本
   server.get('/pricing/calculate', async (request, reply) => {
-    const query = request.query as {
-      modelId?: string
-      inputTokens?: string
-      outputTokens?: string
-      region?: string
-      discountCode?: string
-    }
+    const query = z
+      .object({
+        modelId: z.string().optional(),
+        inputTokens: z.string().optional(),
+        outputTokens: z.string().optional(),
+        region: z.string().optional(),
+        discountCode: z.string().optional(),
+      })
+      .parse(request.query)
 
     if (!query.modelId) {
       return reply.status(400).send(error(400, 'modelId 必填'))

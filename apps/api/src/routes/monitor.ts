@@ -77,7 +77,7 @@ const monitorRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /canary-audit — 金丝雀审计（调用 canary-service 获取审计日志）
   server.get('/canary-audit', async (request, reply) => {
-    const { configName } = request.query as { configName?: string }
+    const { configName } = z.object({ configName: z.string().optional() }).parse(request.query)
     const list = await getAuditLog(configName)
     return reply.send(success({ list }))
   })
