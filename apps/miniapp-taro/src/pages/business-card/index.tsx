@@ -6,13 +6,13 @@ import { getBusinessCard, updateBusinessCard } from '@/api'
 import './index.css'
 
 export default function BusinessCardIndex() {
-  const [card, setCard] = useState<any>(null)
+  const [card, setCard] = useState<Record<string, unknown> | null>(null)
   const [editing, setEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const res: any = await getBusinessCard()
+      const res = (await getBusinessCard()) as Record<string, unknown>
       setCard(res)
     } catch {
       // ignore
@@ -36,7 +36,7 @@ export default function BusinessCardIndex() {
   }, [card])
 
   const update = (key: string, value: string) =>
-    setCard((prev: any) => (prev ? { ...prev, [key]: value } : prev))
+    setCard((prev: Record<string, unknown> | null) => (prev ? { ...prev, [key]: value } : prev))
 
   return (
     <View className="card-page">
