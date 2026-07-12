@@ -1,6 +1,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Input, Label } from '@ihui/ui'
 import type { AuthVeriCodeSearch } from './types'
 
@@ -12,41 +13,42 @@ interface Props {
 }
 
 export function AuthVeriCodeFilter({ search, onSearchChange, onQuery, onReset }: Props) {
+  const t = useTranslations('adminAuthVeriCode')
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
       <div className="space-y-1">
-        <Label className="text-xs">用户ID</Label>
+        <Label className="text-xs">{t('labelUserId')}</Label>
         <Input
           className="h-9 w-40"
           value={search.userId}
           onChange={(e) => onSearchChange({ userId: e.target.value })}
-          placeholder="搜索用户ID"
+          placeholder={t('phUserId')}
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">手机号</Label>
+        <Label className="text-xs">{t('labelPhone')}</Label>
         <Input
           className="h-9 w-40"
           value={search.phone}
           onChange={(e) => onSearchChange({ phone: e.target.value })}
-          placeholder="搜索手机号"
+          placeholder={t('phPhone')}
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">平台</Label>
+        <Label className="text-xs">{t('labelPlatform')}</Label>
         <Input
           className="h-9 w-40"
           value={search.platform}
           onChange={(e) => onSearchChange({ platform: e.target.value })}
-          placeholder="搜索平台"
+          placeholder={t('phPlatform')}
         />
       </div>
       <Button size="sm" onClick={onQuery}>
         <Search className="h-4 w-4" />
-        搜索
+        {t('search')}
       </Button>
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
     </div>
   )

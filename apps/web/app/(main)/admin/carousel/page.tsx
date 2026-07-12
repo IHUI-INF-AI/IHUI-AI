@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
@@ -16,6 +17,7 @@ import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, carouselToForm } from './he
 import type { Carousel, CarouselForm, ListData } from './types'
 
 export default function CarouselPage() {
+  const t = useTranslations('admin.carousel')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -56,7 +58,7 @@ export default function CarouselPage() {
         : api('/api/admin/carousel', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '新增成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'carousel'] })
       closeDialog()
     },
@@ -66,7 +68,7 @@ export default function CarouselPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/carousel/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'carousel'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -94,18 +96,18 @@ export default function CarouselPage() {
     e.preventDefault()
     setErr(null)
     if (!form.title.trim()) {
-      setErr('请输入标题')
+      setErr(t('titleRequired'))
       return
     }
     saveMut.mutate()
   }
   function handleDelete(item: Carousel) {
-    if (!window.confirm(`确认删除 "${item.title}" ?`)) return
+    if (!window.confirm(t('deleteConfirm', { title: item.title }))) return
     deleteMut.mutate(item.id)
   }
   function handleExport() {
     exportToExcel(
-      '轮播图管理',
+      t('title'),
       EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
@@ -118,16 +120,16 @@ export default function CarouselPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">轮播图管理</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('exportBtn')}
           </Button>
           <HasPermi code="ai:carousel:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('create')}
             </Button>
           </HasPermi>
         </div>
@@ -138,7 +140,7 @@ export default function CarouselPage() {
       <CarouselTable list={list} isLoading={isLoading} onEdit={openEdit} onDelete={handleDelete} />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -147,7 +149,7 @@ export default function CarouselPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -158,7 +160,7 @@ export default function CarouselPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

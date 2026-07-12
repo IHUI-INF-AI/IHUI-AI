@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
@@ -16,6 +17,8 @@ import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, identityProportionToForm } 
 import type { IdentityProportion, IdentityProportionForm, ListData } from './types'
 
 export default function IdentityProportionPage() {
+  const t = useTranslations('admin.identityProportion')
+  const tc = useTranslations('common')
   const qc = useQueryClient()
   const [searchBegin, setSearchBegin] = React.useState('')
   const [searchEnd, setSearchEnd] = React.useState('')
@@ -55,7 +58,7 @@ export default function IdentityProportionPage() {
         : api('/api/admin/identity-proportion', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '新增成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'identity-proportion'] })
       closeDialog()
     },
@@ -65,7 +68,7 @@ export default function IdentityProportionPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/identity-proportion/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'identity-proportion'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -93,18 +96,18 @@ export default function IdentityProportionPage() {
     e.preventDefault()
     setErr(null)
     if (!form.identityType.trim()) {
-      setErr('请输入身份类型')
+      setErr(t('identityTypeRequired'))
       return
     }
     saveMut.mutate()
   }
   function handleDelete(item: IdentityProportion) {
-    if (!window.confirm(`确认删除 "${item.identityType}" ?`)) return
+    if (!window.confirm(t('deleteConfirm', { name: item.identityType }))) return
     deleteMut.mutate(item.id)
   }
   function handleExport() {
     exportToExcel(
-      '身份比例',
+      t('exportFileName'),
       EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
@@ -117,16 +120,16 @@ export default function IdentityProportionPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">身份比例管理</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {tc('export')}
           </Button>
           <HasPermi code="ai:identity_proportion:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {tc('add')}
             </Button>
           </HasPermi>
         </div>
@@ -153,7 +156,7 @@ export default function IdentityProportionPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -162,7 +165,7 @@ export default function IdentityProportionPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -173,7 +176,7 @@ export default function IdentityProportionPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

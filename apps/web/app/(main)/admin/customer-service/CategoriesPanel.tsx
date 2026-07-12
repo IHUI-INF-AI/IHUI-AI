@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Tag } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Input,
@@ -17,6 +18,7 @@ import {
 import { type Category, api } from './types'
 
 export function CategoriesPanel() {
+  const t = useTranslations('admin.customerService')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [form, setForm] = React.useState({ name: '', slug: '', description: '', sortOrder: 0 })
@@ -52,7 +54,7 @@ export function CategoriesPanel() {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}>+ 添加分类</Button>
+        <Button onClick={() => setOpen(true)}>+ {t('addCategory')}</Button>
       </div>
 
       {err && (
@@ -63,10 +65,10 @@ export function CategoriesPanel() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-2.5 font-medium">名称</th>
-              <th className="px-4 py-2.5 font-medium">标识</th>
-              <th className="px-4 py-2.5 font-medium">描述</th>
-              <th className="px-4 py-2.5 font-medium">排序</th>
+              <th className="px-4 py-2.5 font-medium">{t('colName')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('colSlug')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('colDescription')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('colSort')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -74,7 +76,7 @@ export function CategoriesPanel() {
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </td>
               </tr>
             ) : error ? (
@@ -87,7 +89,7 @@ export function CategoriesPanel() {
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                   <Tag className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无分类
+                  {t('noCategories')}
                 </td>
               </tr>
             ) : (
@@ -115,8 +117,8 @@ export function CategoriesPanel() {
             className="space-y-4"
           >
             <DialogHeader>
-              <DialogTitle>添加分类</DialogTitle>
-              <DialogDescription>创建工单分类</DialogDescription>
+              <DialogTitle>{t('addCategoryTitle')}</DialogTitle>
+              <DialogDescription>{t('addCategoryDesc')}</DialogDescription>
             </DialogHeader>
             {err && (
               <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -124,7 +126,7 @@ export function CategoriesPanel() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="cat-name">分类名称</Label>
+              <Label htmlFor="cat-name">{t('fieldCatName')}</Label>
               <Input
                 id="cat-name"
                 value={form.name}
@@ -133,17 +135,17 @@ export function CategoriesPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cat-slug">标识 (slug)</Label>
+              <Label htmlFor="cat-slug">{t('fieldSlug')}</Label>
               <Input
                 id="cat-slug"
                 value={form.slug}
                 onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase() })}
-                placeholder="如：billing"
+                placeholder={t('slugPlaceholder')}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cat-desc">描述</Label>
+              <Label htmlFor="cat-desc">{t('fieldDescription')}</Label>
               <Input
                 id="cat-desc"
                 value={form.description}
@@ -151,7 +153,7 @@ export function CategoriesPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cat-sort">排序</Label>
+              <Label htmlFor="cat-sort">{t('fieldSort')}</Label>
               <Input
                 id="cat-sort"
                 type="number"
@@ -166,11 +168,11 @@ export function CategoriesPanel() {
                 onClick={() => setOpen(false)}
                 disabled={createMut.isPending}
               >
-                取消
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={createMut.isPending}>
                 {createMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                创建
+                {t('create')}
               </Button>
             </DialogFooter>
           </form>
