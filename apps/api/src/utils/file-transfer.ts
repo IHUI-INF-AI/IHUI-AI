@@ -13,6 +13,7 @@
 import { Readable } from 'node:stream'
 import { extname } from 'node:path'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
+import { logger } from './logger.js'
 
 // =============================================================================
 // 常量
@@ -122,7 +123,7 @@ export function guessContentType(filename: string): string {
  */
 export async function downloadFileFromUrl(url: string): Promise<DownloadResult | null> {
   try {
-    console.info(`[file-transfer] downloading: ${url}`)
+    logger.info(`[file-transfer] downloading: ${url}`)
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS)
@@ -139,7 +140,7 @@ export async function downloadFileFromUrl(url: string): Promise<DownloadResult |
     clearTimeout(timeout)
 
     if (!resp.ok) {
-      console.error(`[file-transfer] download HTTP error: ${resp.status} - ${url}`)
+      logger.error(`[file-transfer] download HTTP error: ${resp.status} - ${url}`)
       return null
     }
 
@@ -148,14 +149,14 @@ export async function downloadFileFromUrl(url: string): Promise<DownloadResult |
     if (contentLength) {
       const size = parseInt(contentLength, 10)
       if (size > MAX_FILE_SIZE) {
-        console.error(`[file-transfer] file too large: ${size} bytes > ${MAX_FILE_SIZE} - ${url}`)
+        logger.error(`[file-transfer] file too large: ${size} bytes > ${MAX_FILE_SIZE} - ${url}`)
         return null
       }
     }
 
     // 流式读取到 Buffer（带大小检查）
     if (!resp.body) {
-      console.error(`[file-transfer] empty response body - ${url}`)
+      logger.error(`[file-transfer] empty response body - ${url}`)
       return null
     }
 
@@ -170,7 +171,7 @@ export async function downloadFileFromUrl(url: string): Promise<DownloadResult |
         if (value) {
           totalSize += value.byteLength
           if (totalSize > MAX_FILE_SIZE) {
-            console.error(`[file-transfer] stream exceeded max size ${MAX_FILE_SIZE} - ${url}`)
+            logger.error(`[file-transfer] stream exceeded max size ${MAX_FILE_SIZE} - ${url}`)
             await reader.cancel()
             return null
           }
@@ -184,13 +185,13 @@ export async function downloadFileFromUrl(url: string): Promise<DownloadResult |
     const content = Buffer.concat(chunks)
     const contentType = resp.headers.get('content-type') ?? 'application/octet-stream'
 
-    console.info(`[file-transfer] download OK: ${totalSize} bytes - ${url}`)
+    logger.info(`[file-transfer] download OK: ${totalSize} bytes - ${url}`)
     return { content, size: totalSize, contentType }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      console.error(`[file-transfer] download timeout - ${url}`)
+      logger.error(`[file-transfer] download timeout - ${url}`)
     } else {
-      console.error(`[file-transfer] download failed: ${String(err)} - ${url}`)
+      logger.error(`[file-transfer] download failed: ${String(err)} - ${url}`)
     }
     return null
   }
@@ -220,7 +221,7 @@ export async function downloadFileAsStream(
     clearTimeout(timeout)
 
     if (!resp.ok || !resp.body) {
-      console.error(`[file-transfer] stream download failed: ${resp.status} - ${url}`)
+      logger.error(`[file-transfer] stream download failed: ${resp.status} - ${url}`)
       return null
     }
 
@@ -229,9 +230,9 @@ export async function downloadFileAsStream(
     return { stream, contentType }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      console.error(`[file-transfer] stream download timeout - ${url}`)
+      logger.error(`[file-transfer] stream download timeout - ${url}`)
     } else {
-      console.error(`[file-transfer] stream download failed: ${String(err)} - ${url}`)
+      logger.error(`[file-transfer] stream download failed: ${String(err)} - ${url}`)
     }
     return null
   }
@@ -263,7 +264,7 @@ export async function uploadFileToServer(
   if (fileContentOrUrl instanceof Buffer || fileContentOrUrl instanceof Uint8Array) {
     return uploadFromFileContent(fileContentOrUrl, filename)
   }
-  console.error('[file-transfer] invalid upload input type')
+  logger.error('[file-transfer] invalid upload input type')
   return null
 }
 
@@ -276,12 +277,12 @@ export async function uploadFileToServer(
 async function uploadFromNetworkUrl(url: string): Promise<string | null> {
   const { networkUploadUrl } = getFileTransferConfig()
   if (!networkUploadUrl) {
-    console.error('[file-transfer] FILE_UPLOAD_NETWORK_URL not configured')
+    logger.error('[file-transfer] FILE_UPLOAD_NETWORK_URL not configured')
     return null
   }
 
   try {
-    console.info(`[file-transfer] network transfer: ${url}`)
+    logger.info(`[file-transfer] network transfer: ${url}`)
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), NETWORK_TRANSFER_TIMEOUT_MS)
@@ -296,7 +297,7 @@ async function uploadFromNetworkUrl(url: string): Promise<string | null> {
     clearTimeout(timeout)
 
     if (!resp.ok) {
-      console.error(`[file-transfer] network upload failed: ${resp.status}`)
+      logger.error(`[file-transfer] network upload failed: ${resp.status}`)
       return null
     }
 
@@ -306,18 +307,18 @@ async function uploadFromNetworkUrl(url: string): Promise<string | null> {
       const fileUrl =
         typeof data === 'string' ? data : ((data as Record<string, unknown>).url ?? '')
       if (typeof fileUrl === 'string' && fileUrl) {
-        console.info(`[file-transfer] network transfer OK: ${url} -> ${fileUrl}`)
+        logger.info(`[file-transfer] network transfer OK: ${url} -> ${fileUrl}`)
         return fileUrl
       }
     }
 
-    console.error('[file-transfer] network upload: unexpected response')
+    logger.error('[file-transfer] network upload: unexpected response')
     return null
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      console.error(`[file-transfer] network upload timeout - ${url}`)
+      logger.error(`[file-transfer] network upload timeout - ${url}`)
     } else {
-      console.error(`[file-transfer] network upload error: ${String(err)}`)
+      logger.error(`[file-transfer] network upload error: ${String(err)}`)
     }
     return null
   }
@@ -339,19 +340,19 @@ async function uploadFromFileContent(
 ): Promise<string | null> {
   const { uploadUrl } = getFileTransferConfig()
   if (!uploadUrl) {
-    console.error('[file-transfer] FILE_UPLOAD_URL not configured')
+    logger.error('[file-transfer] FILE_UPLOAD_URL not configured')
     return null
   }
 
   // 大小检查
   const size = fileContent.byteLength
   if (size > MAX_FILE_SIZE) {
-    console.error(`[file-transfer] file too large: ${size} > ${MAX_FILE_SIZE} - ${filename}`)
+    logger.error(`[file-transfer] file too large: ${size} > ${MAX_FILE_SIZE} - ${filename}`)
     return null
   }
 
   try {
-    console.info(`[file-transfer] uploading: ${filename} (${size} bytes)`)
+    logger.info(`[file-transfer] uploading: ${filename} (${size} bytes)`)
 
     const contentType = guessContentType(filename)
     const formData = new FormData()
@@ -371,7 +372,7 @@ async function uploadFromFileContent(
     clearTimeout(timeout)
 
     if (!resp.ok) {
-      console.error(`[file-transfer] upload failed: ${resp.status}`)
+      logger.error(`[file-transfer] upload failed: ${resp.status}`)
       return null
     }
 
@@ -381,18 +382,18 @@ async function uploadFromFileContent(
       const fileUrl =
         typeof data === 'string' ? data : ((data as Record<string, unknown>).url ?? '')
       if (typeof fileUrl === 'string' && fileUrl) {
-        console.info(`[file-transfer] upload OK: ${filename} -> ${fileUrl}`)
+        logger.info(`[file-transfer] upload OK: ${filename} -> ${fileUrl}`)
         return fileUrl
       }
     }
 
-    console.error('[file-transfer] upload: unexpected response')
+    logger.error('[file-transfer] upload: unexpected response')
     return null
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      console.error(`[file-transfer] upload timeout - ${filename}`)
+      logger.error(`[file-transfer] upload timeout - ${filename}`)
     } else {
-      console.error(`[file-transfer] upload error: ${String(err)}`)
+      logger.error(`[file-transfer] upload error: ${String(err)}`)
     }
     return null
   }

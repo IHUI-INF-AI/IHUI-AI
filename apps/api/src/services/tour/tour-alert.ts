@@ -12,6 +12,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { monitorAlerts, tourContent, tourRecommendations } from '@ihui/database'
+import { logger } from '../../utils/logger.js'
 
 export type AlertSeverity = 'info' | 'warning' | 'critical'
 
@@ -49,7 +50,7 @@ export async function fireAlert(params: {
     labels: params.labels ?? {},
     annotations: {},
   })
-  console.warn(`[tour-alert] ${params.severity} ${params.name}: ${params.message}`)
+  logger.warn(`[tour-alert] ${params.severity} ${params.name}: ${params.message}`)
 }
 
 /** 执行所有已注册规则，命中则写告警。返回触发的告警数。 */
@@ -69,7 +70,7 @@ export async function runAlertChecks(): Promise<number> {
         fired++
       }
     } catch (err) {
-      console.error(`[tour-alert] rule "${rule.name}" failed:`, (err as Error).message)
+      logger.error(`[tour-alert] rule "${rule.name}" failed`, { error: (err as Error).message })
     }
   }
   return fired

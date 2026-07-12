@@ -11,12 +11,26 @@ import { getProfile, updateProfile } from '../user-api'
 describe('user-api', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('getProfile调用fetchApi GET /auth/profile', async () => {
-    const profile = { id: 'u1', username: 'test', nickname: 'Test', avatar: null, email: null, phone: null, bio: null, gender: null, birthday: null, createdAt: '', updatedAt: '' }
-    vi.mocked(fetchApi).mockResolvedValue({ success: true, data: profile } as ApiResult<typeof profile>)
+  it('getProfile调用fetchApi GET /api/auth/me', async () => {
+    const profile = {
+      id: 'u1',
+      username: 'test',
+      nickname: 'Test',
+      avatar: null,
+      email: null,
+      phone: null,
+      bio: null,
+      gender: null,
+      birthday: null,
+      createdAt: '',
+      updatedAt: '',
+    }
+    vi.mocked(fetchApi).mockResolvedValue({ success: true, data: profile } as ApiResult<
+      typeof profile
+    >)
 
     const r = await getProfile()
-    expect(fetchApi).toHaveBeenCalledWith('/auth/profile')
+    expect(fetchApi).toHaveBeenCalledWith('/api/auth/me')
     expect(r.success).toBe(true)
     if (r.success) expect(r.data).toEqual(profile)
   })
@@ -30,8 +44,22 @@ describe('user-api', () => {
   })
 
   it('updateProfile调用fetchApi PUT /auth/profile 携带body', async () => {
-    const profile = { id: 'u1', username: 'test', nickname: 'New', avatar: null, email: null, phone: null, bio: 'hi', gender: 1, birthday: '2000-01-01', createdAt: '', updatedAt: '' }
-    vi.mocked(fetchApi).mockResolvedValue({ success: true, data: profile } as ApiResult<typeof profile>)
+    const profile = {
+      id: 'u1',
+      username: 'test',
+      nickname: 'New',
+      avatar: null,
+      email: null,
+      phone: null,
+      bio: 'hi',
+      gender: 1,
+      birthday: '2000-01-01',
+      createdAt: '',
+      updatedAt: '',
+    }
+    vi.mocked(fetchApi).mockResolvedValue({ success: true, data: profile } as ApiResult<
+      typeof profile
+    >)
 
     const input = { nickname: 'New', bio: 'hi', gender: 1, birthday: '2000-01-01' }
     const r = await updateProfile(input)

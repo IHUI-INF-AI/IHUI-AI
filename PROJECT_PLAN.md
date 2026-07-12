@@ -550,6 +550,24 @@
 
 **task-developer 已补齐，AdminNav 已集成全部新页面入口，i18n 5 语言已同步。前端管理端迁移工作完整收尾。**
 
+### 后端统一 logger 封装（2026-07-12）✅
+
+> 创建统一 logger 工具模块，分批替换 67 处 console.* 调用为 logger.*，接入 Fastify pino 实例。
+
+#### 完成内容
+
+1. ✅ **新建 `apps/api/src/utils/logger.ts`**：统一日志工具，优先使用 Fastify pino 实例（通过 `setFastify` 注入），未注入时回退到 console（测试环境兼容）
+2. ✅ **`server.ts` 注入**：在 `buildServer()` 返回前调用 `setFastify(server)`，使 service/util 层可通过 fastify pino 输出结构化日志
+3. ✅ **批次1 services/（30 处）**：canary-service(9) / context-manager-service(4) / expiration-monitor-service(7) / ab-test-automation(1) / audit-service(1) / distributed-transaction(1) / markdown-converter-service(1) / stock-service(3) / tour-alert(2) / tour-gray-release(1) / tour-multi-platform(1)
+4. ✅ **批次2 utils/（32 处）**：file-transfer(27) / pool-leak-detector(1) / ttft-monitor(1) / ws-dedup(1) / ws-rate-limit(1) / ws-replay-buffer(1)
+5. ✅ **批次3 config/plugins/（5 处）**：config/index(1) / plugins/ai-cost(1) / plugins/api-logger(1) / services/ai/ai-capability-documentation(1)
+6. ✅ **保留占位实现**：audit-archive(ConsoleArchiveWriter) / tour-event-bus(consoleDispatcher) / tour-multi-platform(consoleAdapter) / email-service([email-stub]) / sms([DEV SMS]) / pdf-service(stub)
+
+#### 验证结果
+
+- `pnpm --filter @ihui/api typecheck` — ✅ 零错误通过
+- `pnpm --filter @ihui/api test` — ✅ 860/860 测试通过
+
 ---
 
 ## 9 项架构决策性不迁移分析
@@ -1690,3 +1708,52 @@ R68 最终收尾轮次记录的 P3 待办"requireAdmin 实现统一（1 天 / 39
 - `pnpm --filter @ihui/web typecheck` — ✅ 拆分文件零错误（仅 1 个无关的预存错误：`admin/refund/[id]/page.tsx:113` EduOrder 类型不匹配，非本次拆分引入）
 - 所有拆出文件均 < 250 行（最大 TaskDeveloperTable.tsx 130 行 / ZhsActivityDialog.tsx 126 行）
 - 主 page.tsx 均 < 250 行（zhs-activity 186 行 / task-developer 216 行）
+
+---
+
+## R79 拆分 2 个超标 admin 页面（2026-07-12）✅
+
+> AGENTS.md 第 4 节硬性约束"每个页面 < 250 行"。拆分 `admin/configs/page.tsx`（363 行）和 `admin/oauth/tokens/page.tsx`（362 行）至 < 250 行。
+
+### 拆分内容
+
+**1. `admin/configs/page.tsx`（363 → 121 行）** ✅
+
+拆出 5 个文件：
+
+| 文件               | 行数 | 说明                                                                         |
+| ------------------ | ---- | ---------------------------------------------------------------------------- |
+| `types.ts`         | 22   | Category/CfgType/Config/ConfigForm 类型定义                                  |
+| `helpers.ts`       | 41   | CATEGORIES/TYPES/EMPTY_FORM/selectClass/th/tabBase/api/normList/configToForm |
+| `ConfigFilter.tsx` | 31   | 分类标签 tabs（useTranslations 取标签）                                      |
+| `ConfigTable.tsx`  | 124  | 列表表格 + 类型徽章 + 公共/私有状态 + 行内编辑/删除                          |
+| `ConfigDialog.tsx` | 134  | 新增/编辑 Dialog（key/value/type Radio/category Select/desc/Switch）         |
+| `page.tsx`         | 121  | 页面骨架（state + 2 mutations + handlers + 组合）                            |
+
+**2. `admin/oauth/tokens/page.tsx`（362 → 188 行）** ✅
+
+拆出 5 个文件：
+
+| 文件                   | 行数 | 说明                                                                                  |
+| ---------------------- | ---- | ------------------------------------------------------------------------------------- |
+| `types.ts`             | 5    | Item/FormState 类型定义                                                               |
+| `helpers.ts`           | 42   | RESOURCE/PERM/FIELDS/SEARCH_FIELDS/DATE_FIELDS/EXPORT_COLS/api/itemToForm/emptySearch |
+| `OauthTokenFilter.tsx` | 36   | 搜索表单 + 搜索/重置按钮                                                              |
+| `OauthTokenTable.tsx`  | 73   | 列表表格 + 动态列 + 行内编辑/删除（权限 auth:auth_tokens:*）                          |
+| `OauthTokenDialog.tsx` | 111  | 新增/编辑 Dialog + 删除确认 Dialog（FIELDS + DatePicker 驱动）                        |
+| `page.tsx`             | 188  | 页面骨架（state + 2 mutations + params + handlers + 分页 + 组合）                     |
+
+### 拆分原则
+
+- 遵循已建立拆分模式：`types.ts + helpers.ts + <Name>Filter + <Name>Table + <Name>Dialog + page.tsx 骨架`
+- 子组件通过 props 传递数据（无全局状态）
+- configs 子组件各自调用 `useTranslations('admin.configs')` 保持 i18n 接入方式不变
+- 复用 `@ihui/ui`（Button/Input/Label/Dialog/Select 系列）+ `@/components/form`（Radio/Switch/Textarea/DatePicker）
+- 不修改 API 调用、不修改 i18n 键、不改变功能行为
+- 共享常量（selectClass/th/tabBase/CATEGORIES/TYPES/FIELDS 等）提取到 helpers.ts
+
+### 验证结果
+
+- `pnpm --filter @ihui/web typecheck` — ✅ 拆分文件零错误（仅预存的 `src/test/` vitest 全局变量配置错误，非本次拆分引入）
+- 所有拆出文件均 < 250 行（最大 ConfigDialog.tsx 134 行 / OauthTokenDialog.tsx 111 行）
+- 主 page.tsx 均 < 250 行（configs 121 行 / oauth/tokens 188 行）

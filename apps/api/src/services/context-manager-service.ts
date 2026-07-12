@@ -14,6 +14,7 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { zhsUserAgentContext } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // 类型定义
@@ -256,14 +257,14 @@ export async function saveConversation(input: SaveConversationInput): Promise<bo
     // costInfo 仅用于日志（迁移自 Python 的 logger.info）
     if (input.costInfo) {
       const ci = input.costInfo
-      console.info(
+      logger.info(
         `[context-manager] billing: input=${ci.inputLength} output=${ci.outputLength} cost=${ci.price}`,
       )
     }
 
     return true
   } catch (err) {
-    console.error('[context-manager] saveConversation failed:', err)
+    logger.error('[context-manager] saveConversation failed', { error: err })
     return false
   }
 }
@@ -324,7 +325,7 @@ export async function getConversationHistory(input: GetHistoryInput): Promise<Ch
     // 反转为时间升序（数据库按倒序取，需反转）
     return messages.reverse()
   } catch (err) {
-    console.error('[context-manager] getConversationHistory failed:', err)
+    logger.error('[context-manager] getConversationHistory failed', { error: err })
     return []
   }
 }
@@ -410,7 +411,7 @@ export async function getUserHistory(
       pageSize,
     }
   } catch (err) {
-    console.error('[context-manager] getUserHistory failed:', err)
+    logger.error('[context-manager] getUserHistory failed', { error: err })
     return { data: [], total: 0, page, pageSize }
   }
 }

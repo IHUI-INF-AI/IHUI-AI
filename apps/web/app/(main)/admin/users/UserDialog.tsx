@@ -1,0 +1,111 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
+import { Avatar } from '@/components/data/Avatar'
+import { Modal, Drawer, ConfirmDialog } from '@/components/feedback'
+import type { AdminUser } from './types'
+
+interface Props {
+  quickUser: AdminUser | null
+  onCloseQuick: () => void
+  detailUser: AdminUser | null
+  onCloseDetail: () => void
+  confirmUser: AdminUser | null
+  onConfirmStatus: () => void
+  onCancelStatus: () => void
+  patchPending: boolean
+  dateFmt: Intl.DateTimeFormat
+}
+
+export function UserDialog({
+  quickUser,
+  onCloseQuick,
+  detailUser,
+  onCloseDetail,
+  confirmUser,
+  onConfirmStatus,
+  onCancelStatus,
+  patchPending,
+  dateFmt,
+}: Props) {
+  const t = useTranslations('admin.users')
+  return (
+    <>
+      <Modal open={!!quickUser} onClose={onCloseQuick} title={t('userDetail')} size="sm">
+        {quickUser && (
+          <div className="flex items-center gap-3">
+            <Avatar
+              src={quickUser.avatar ?? undefined}
+              name={quickUser.nickname || 'U'}
+              size="lg"
+            />
+            <div className="min-w-0">
+              <p className="font-medium">{quickUser.nickname || '-'}</p>
+              <p className="text-sm text-muted-foreground">{quickUser.phone || '-'}</p>
+              <p className="text-xs text-muted-foreground/80">{quickUser.email || '-'}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Drawer
+        open={!!detailUser}
+        onClose={onCloseDetail}
+        title={t('userDetail')}
+        side="right"
+        width="28rem"
+      >
+        {detailUser && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Avatar
+                src={detailUser.avatar ?? undefined}
+                name={detailUser.nickname || 'U'}
+                size="lg"
+              />
+              <div>
+                <p className="font-medium">{detailUser.nickname || '-'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {detailUser.phone || detailUser.email || '-'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">{t('phone')}</span>
+                <p>{detailUser.phone || '-'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('email')}</span>
+                <p>{detailUser.email || '-'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('role')}</span>
+                <p>{(detailUser.roleId ?? 0) >= 1 ? t('roleAdmin') : t('roleUser')}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('status')}</span>
+                <p>{(detailUser.status ?? 0) >= 1 ? t('statusActive') : t('statusDisabled')}</p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-muted-foreground">{t('createdAt')}</span>
+                <p>{detailUser.createdAt ? dateFmt.format(new Date(detailUser.createdAt)) : '-'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      <ConfirmDialog
+        open={!!confirmUser}
+        variant="danger"
+        title={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
+        content={t('confirmStatusChange')}
+        confirmText={confirmUser && (confirmUser.status ?? 0) >= 1 ? t('disable') : t('enable')}
+        onConfirm={onConfirmStatus}
+        onCancel={onCancelStatus}
+        loading={patchPending}
+      />
+    </>
+  )
+}

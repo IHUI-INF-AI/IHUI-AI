@@ -21,6 +21,8 @@
  *   const leaks = poolLeakDetector.scanLeaks();
  */
 
+import { logger } from './logger.js'
+
 // =============================================================================
 // 类型定义
 // =============================================================================
@@ -173,7 +175,7 @@ export class PoolLeakDetector {
         this.leakWarnings.push(rec)
         this.totalLeaked++
 
-        console.warn(
+        logger.warn(
           `[pool-leak] conn_id=${rec.connId} pool=${rec.pool} ` +
             `age=${Math.round((now - rec.checkedOutAt) / 1000)}s > ${this.leakTimeoutSec}s ` +
             `context=${rec.context.slice(0, 80)}`,
