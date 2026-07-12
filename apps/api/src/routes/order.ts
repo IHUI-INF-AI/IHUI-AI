@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -480,7 +480,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const titleType = (request.query as { titleType?: string }).titleType
+      const { titleType } = z.object({ titleType: z.string().optional() }).parse(request.query)
       const list = await findInvoiceTitles(request.userId!, titleType)
       return reply.send(success({ list }))
     },

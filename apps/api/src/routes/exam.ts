@@ -254,6 +254,11 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
 // =============================================================================
 
 export const examRoutes: FastifyPluginAsync = async (server) => {
+  const eidParam = z.object({ eid: z.string() })
+  const sidParam = z.object({ sid: z.string() })
+  const widParam = z.object({ wid: z.string() })
+  const ridParam = z.object({ rid: z.string() })
+
   // ===========================================================================
   // 公共端点（需登录）
   // ===========================================================================
@@ -455,7 +460,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/:eid - 作文考试详情
   server.get('/exam/composition/:eid', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { eid } = request.params as { eid: string }
+    const { eid } = eidParam.parse(request.params)
     const result = await db
       .select()
       .from(examExam)
@@ -523,7 +528,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/signup/:sid - 报名详情
   server.get('/exam/composition/signup/:sid', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { sid } = request.params as { sid: string }
+    const { sid } = sidParam.parse(request.params)
     const result = await db
       .select()
       .from(examSignUp)
@@ -557,7 +562,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // PUT /exam/composition/signup/:sid - 修改报名
   server.put('/exam/composition/signup/:sid', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { sid } = request.params as { sid: string }
+    const { sid } = sidParam.parse(request.params)
     const body = z
       .object({
         status: z.string().max(50).optional(),
@@ -580,7 +585,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /exam/composition/signup/:sid - 删除报名
   server.delete('/exam/composition/signup/:sid', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { sid } = request.params as { sid: string }
+    const { sid } = sidParam.parse(request.params)
     await db.delete(examSignUp).where(eq(examSignUp.id, Number(sid)))
     return reply.send(success({ ok: true }))
   })
@@ -588,7 +593,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // POST /exam/composition/signup/:sid/submit - 提交答卷
   server.post('/exam/composition/signup/:sid/submit', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { sid } = request.params as { sid: string }
+    const { sid } = sidParam.parse(request.params)
     const [updated] = await db
       .update(examSignUp)
       .set({
@@ -646,7 +651,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // PUT /exam/wrong/:wid/master - 标记错题为已掌握
   server.put('/exam/wrong/:wid/master', async (request, reply) => {
     if (!(await requireAuth(request, reply))) return
-    const { wid } = request.params as { wid: string }
+    const { wid } = widParam.parse(request.params)
     const userId = request.userId!
     const [updated] = await db
       .update(examWrongQuestion)
@@ -1164,7 +1169,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
     // PUT /admin/exam/composition/:eid - 修改考试
     child.put('/admin/exam/composition/:eid', async (request, reply) => {
-      const { eid } = request.params as { eid: string }
+      const { eid } = eidParam.parse(request.params)
       const body = z
         .object({
           name: z.string().min(1).max(100).optional(),
@@ -1198,7 +1203,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
     // DELETE /admin/exam/composition/:eid - 删除考试
     child.delete('/admin/exam/composition/:eid', async (request, reply) => {
-      const { eid } = request.params as { eid: string }
+      const { eid } = eidParam.parse(request.params)
       await db.delete(examExam).where(eq(examExam.id, Number(eid)))
       return reply.send(success({ ok: true }))
     })
@@ -1223,7 +1228,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
     // PUT /admin/exam/composition/rule/:rid - 修改抽题规则
     child.put('/admin/exam/composition/rule/:rid', async (request, reply) => {
-      const { rid } = request.params as { rid: string }
+      const { rid } = ridParam.parse(request.params)
       const body = z
         .object({
           paperId: z.number().int().optional(),
@@ -1245,7 +1250,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
     // DELETE /admin/exam/composition/rule/:rid - 删除抽题规则
     child.delete('/admin/exam/composition/rule/:rid', async (request, reply) => {
-      const { rid } = request.params as { rid: string }
+      const { rid } = ridParam.parse(request.params)
       await db.delete(examPaperQuestionRule).where(eq(examPaperQuestionRule.id, Number(rid)))
       return reply.send(success({ ok: true }))
     })

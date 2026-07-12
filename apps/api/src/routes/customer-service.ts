@@ -402,7 +402,7 @@ export const customerServiceRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const status = (request.query as { status?: string }).status
+      const { status } = z.object({ status: z.string().optional() }).parse(request.query)
       const list = await findAgents(status)
       return reply.send(success({ list }))
     },
@@ -578,7 +578,7 @@ export const adminCustomerServiceRoutes: FastifyPluginAsync = async (server) => 
       },
     },
     async (request, reply) => {
-      const status = (request.query as { status?: string }).status
+      const { status } = z.object({ status: z.string().optional() }).parse(request.query)
       const list = await findAgents(status)
       return reply.send(success({ list }))
     },
