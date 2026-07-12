@@ -58,7 +58,7 @@ export default function AccountCancel() {
           <Text>加载中...</Text>
         ) : info ? (
           <View>
-            <Text>当前账号：{info.nickname || info.phone || '-'}</Text>
+            <Text>当前账号：{(info.nickname as string) || (info.phone as string) || '-'}</Text>
             <View className={`btn${submitting ? ' disabled' : ''}`} onClick={onConfirm}>
               <Text>确认注销</Text>
             </View>

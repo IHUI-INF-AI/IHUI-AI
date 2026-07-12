@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function PlazaCover() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getModelPlazaList()) as any
-      setList(res?.list || [])
+      const res = (await api.getModelPlazaList()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
       console.error('加载模型广场失败:', e)
     } finally {
@@ -38,8 +38,12 @@ export default function PlazaCover() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item" onClick={() => onItemClick(item.id)}>
-              <Text>{item.name || item.title || '模型'}</Text>
+            <View
+              key={item.id as string}
+              className="list-item"
+              onClick={() => onItemClick(item.id as string)}
+            >
+              <Text>{(item.name as string) || (item.title as string) || '模型'}</Text>
             </View>
           ))
         ) : (
