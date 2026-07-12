@@ -168,7 +168,7 @@ export interface InvoiceParams {
 export async function checkPaymentStatus(
   orderNo: string,
 ): Promise<ApiResult<{ status?: string; paid?: boolean }>> {
-  return fetchApi<{ status?: string; paid?: boolean }>(`/api/payment/order/${orderNo}/status`)
+  return fetchApi<{ status?: string; paid?: boolean }>(`/api/payments/wechat/status/${orderNo}`)
 }
 
 /** 关闭/取消支付订单 */
@@ -199,7 +199,7 @@ export async function verifyPaymentCallback(
 export async function getPaymentOrders(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<PaymentOrder>>> {
-  return fetchApi<PageData<PaymentOrder>>(`/api/payment/orders${buildQs(query)}`)
+  return fetchApi<PageData<PaymentOrder>>(`/api/payments/me${buildQs(query)}`)
 }
 
 /** 获取支付订单详情 */
@@ -227,7 +227,7 @@ export async function createAliPay2(data: AliPayCreateParams): Promise<ApiResult
 
 /** 支付宝异步通知 */
 export async function aliPayNotify(data: AlipayNotifyParams): Promise<ApiResult<void>> {
-  return fetchApi<void>('/api/fund/ali/pay/alipay/notify', {
+  return fetchApi<void>('/api/payments/alipay/notify', {
     method: 'POST',
     body: JSON.stringify(data),
   })
@@ -235,14 +235,12 @@ export async function aliPayNotify(data: AlipayNotifyParams): Promise<ApiResult<
 
 /** 查询支付宝支付成功状态 */
 export async function getAliPaySuccess(orderNo?: string): Promise<ApiResult<AlipayPayResponse>> {
-  return fetchApi<AlipayPayResponse>(
-    `/api/fund/ali/pay/success${buildQs(orderNo ? { orderNo } : {})}`,
-  )
+  return fetchApi<AlipayPayResponse>(`/api/payments/success${buildQs(orderNo ? { orderNo } : {})}`)
 }
 
 /** 查询支付宝支付失败状态 */
 export async function getAliPayFail(orderNo?: string): Promise<ApiResult<AlipayPayResponse>> {
-  return fetchApi<AlipayPayResponse>(`/api/fund/ali/pay/fail${buildQs(orderNo ? { orderNo } : {})}`)
+  return fetchApi<AlipayPayResponse>(`/api/payments/fail${buildQs(orderNo ? { orderNo } : {})}`)
 }
 
 /** 支付宝同步返回 */
@@ -256,7 +254,7 @@ export async function aliPayReturn(orderNo?: string): Promise<ApiResult<AlipayPa
 
 /** 申请退款 */
 export async function applyRefund(data: RefundRequest): Promise<ApiResult<RefundResponse>> {
-  return fetchApi<RefundResponse>('/api/payment/refund/apply', {
+  return fetchApi<RefundResponse>('/api/refunds/apply', {
     method: 'POST',
     body: JSON.stringify({
       order_no: data.orderNo,
@@ -277,7 +275,7 @@ export async function getRefundList(
     endDate?: string
   } = {},
 ): Promise<ApiResult<PageData<RefundRecord>>> {
-  return fetchApi<PageData<RefundRecord>>(`/api/payment/refund/list${buildQs(query)}`)
+  return fetchApi<PageData<RefundRecord>>(`/api/refunds/me${buildQs(query)}`)
 }
 
 /** 获取退款记录详情 */
@@ -322,7 +320,7 @@ export async function createTopUpOrder(input: {
   amount: number
   paymentMethod: PaymentMethod
 }): Promise<ApiResult<TopUpOrder>> {
-  return fetchApi<TopUpOrder>('/api/top-up/create', {
+  return fetchApi<TopUpOrder>('/api/wallet/recharge', {
     method: 'POST',
     body: JSON.stringify({
       amount: input.amount,
@@ -340,7 +338,7 @@ export async function getTopUpStatus(orderId: string): Promise<ApiResult<TopUpSt
 export async function getTopUpRecords(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<TopUpOrder>>> {
-  return fetchApi<PageData<TopUpOrder>>(`/api/top-up/records${buildQs(query)}`)
+  return fetchApi<PageData<TopUpOrder>>(`/api/wallet/recharge/records${buildQs(query)}`)
 }
 
 // ===================== withdrawal（提现） =====================
@@ -356,7 +354,7 @@ export async function requestWithdrawal(input: {
   bankAccount?: string
   remark?: string
 }): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>('/api/zhsWithdrawal/withdrawal', {
+  return fetchApi<WithdrawalRecord>('/api/finance/withdrawal/withdrawal', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -367,7 +365,7 @@ export async function getWithdrawalStatus(
   nickname: string,
   openId: string,
 ): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>('/api/zhsWithdrawal/getWithdrawal', {
+  return fetchApi<WithdrawalRecord>('/api/finance/withdrawal/getWithdrawal', {
     method: 'POST',
     body: JSON.stringify({ nickname, openId }),
   })
@@ -377,19 +375,19 @@ export async function getWithdrawalStatus(
 export async function getMyWithdrawalRecords(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<WithdrawalRecord>>> {
-  return fetchApi<PageData<WithdrawalRecord>>(`/api/zhsWithdrawal/my-records${buildQs(query)}`)
+  return fetchApi<PageData<WithdrawalRecord>>(`/api/finance/withdrawal/my-records${buildQs(query)}`)
 }
 
 /** 获取提现列表（管理员） */
 export async function getWithdrawals(
   query: PageQuery & { status?: string } = {},
 ): Promise<ApiResult<PageData<WithdrawalRecord>>> {
-  return fetchApi<PageData<WithdrawalRecord>>(`/api/zhs-withdrawal-flow/list${buildQs(query)}`)
+  return fetchApi<PageData<WithdrawalRecord>>(`/api/finance/withdrawal/flows/list${buildQs(query)}`)
 }
 
 /** 获取提现详情（管理员） */
 export async function getWithdrawalDetail(id: string): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>(`/api/zhs-withdrawal-flow/${id}`)
+  return fetchApi<WithdrawalRecord>(`/api/finance/withdrawal/flows/${id}`)
 }
 
 /** 审批提现（管理员） */
@@ -397,7 +395,7 @@ export async function approveWithdrawal(
   id: string,
   params?: Record<string, unknown>,
 ): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>(`/api/zhs-withdrawal-flow/${id}/approve`, {
+  return fetchApi<WithdrawalRecord>(`/api/finance/withdrawal/flows/${id}/approve`, {
     method: 'POST',
     body: JSON.stringify(params || {}),
   })
@@ -408,7 +406,7 @@ export async function rejectWithdrawal(
   id: string,
   reason?: string,
 ): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>(`/api/zhs-withdrawal-flow/${id}/reject`, {
+  return fetchApi<WithdrawalRecord>(`/api/finance/withdrawal/flows/${id}/reject`, {
     method: 'POST',
     body: JSON.stringify({ reason: reason || '审核未通过' }),
   })
@@ -421,13 +419,13 @@ export async function generateInvoice(
   orderId: string,
   invoiceData: InvoiceParams,
 ): Promise<ApiResult<InvoiceInfo>> {
-  return fetchApi<InvoiceInfo>(`/api/orders/${orderId}/invoice`, {
+  return fetchApi<InvoiceInfo>(`/api/invoices/applications`, {
     method: 'POST',
-    body: JSON.stringify(invoiceData),
+    body: JSON.stringify({ ...invoiceData, orderId }),
   })
 }
 
 /** 获取发票信息 */
 export async function getInvoice(orderId: string): Promise<ApiResult<InvoiceInfo>> {
-  return fetchApi<InvoiceInfo>(`/api/orders/${orderId}/invoice`)
+  return fetchApi<InvoiceInfo>(`/api/invoices/applications${buildQs({ orderId })}`)
 }

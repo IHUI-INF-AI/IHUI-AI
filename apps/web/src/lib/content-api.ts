@@ -351,7 +351,7 @@ export async function submitFeedback(input: {
   contact?: string
   images?: string[]
 }): Promise<ApiResult<Feedback>> {
-  return fetchApi<Feedback>('/api/feedbacks/submit', {
+  return fetchApi<Feedback>('/api/feedbacks', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -361,7 +361,7 @@ export async function submitFeedback(input: {
 export async function getFeedbacks(
   query: PageQuery & { type?: FeedbackType; status?: FeedbackStatus } = {},
 ): Promise<ApiResult<PageData<Feedback>>> {
-  return fetchApi<PageData<Feedback>>(`/api/feedbacks/list${buildQs(query)}`)
+  return fetchApi<PageData<Feedback>>(`/api/feedbacks${buildQs(query)}`)
 }
 
 /** 获取反馈详情 */
@@ -409,7 +409,7 @@ export async function getSearchSuggestions(
 
 /** 获取热搜词 */
 export async function getHotSearchKeywords(limit = 10): Promise<ApiResult<string[]>> {
-  return fetchApi<string[]>(`/api/search/hot${buildQs({ limit })}`)
+  return fetchApi<string[]>(`/api/search/hot-words${buildQs({ limit })}`)
 }
 
 /** 获取搜索历史 */
