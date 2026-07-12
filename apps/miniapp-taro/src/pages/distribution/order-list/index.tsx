@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function DistributionOrderList() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getFlowOrderList({ page: 1, pageSize: 20 })) as any
-      setList(res?.list || [])
+      const res = (await api.getFlowOrderList({ page: 1, pageSize: 20 })) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
       console.error('加载分销订单失败:', e)
     } finally {
@@ -38,8 +38,12 @@ export default function DistributionOrderList() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item" onClick={() => onItemClick(item.id)}>
-              <Text>{item.title || item.orderNo || '分销订单'}</Text>
+            <View
+              key={item.id as string}
+              className="list-item"
+              onClick={() => onItemClick(item.id as string)}
+            >
+              <Text>{(item.title as string) || (item.orderNo as string) || '分销订单'}</Text>
             </View>
           ))
         ) : (
