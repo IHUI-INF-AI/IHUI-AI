@@ -1,6 +1,7 @@
 'use client'
 
 import { Plus, Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Input,
@@ -30,6 +31,7 @@ export function LearnFilter({
   categories,
   onCreate,
 }: Props) {
+  const t = useTranslations('admin.edu.learn.index')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">
@@ -37,17 +39,17 @@ export function LearnFilter({
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="搜索课程..."
+          placeholder={t('searchPlaceholder')}
           className="h-9 pl-8"
         />
       </div>
       <div className="w-full max-w-[200px]">
         <Select value={categoryId} onValueChange={onCategoryChange}>
-          <SelectTrigger className={selectClass} aria-label="分类">
+          <SelectTrigger className={selectClass} aria-label={t('category')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部分类</SelectItem>
+            <SelectItem value="all">{t('allCategories')}</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
@@ -58,7 +60,7 @@ export function LearnFilter({
       </div>
       <Button onClick={onCreate} size="sm" className="ml-auto">
         <Plus className="h-4 w-4" />
-        新建课程
+        {t('create')}
       </Button>
     </div>
   )

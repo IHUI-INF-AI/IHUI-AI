@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, BookOpen, ListOrdered } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
@@ -18,17 +19,18 @@ interface Props {
 }
 
 export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePending }: Props) {
+  const t = useTranslations('admin.edu.learn.index')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">标题</TableHead>
-            <TableHead className="px-4 py-2.5">分类</TableHead>
-            <TableHead className="px-4 py-2.5">讲师</TableHead>
-            <TableHead className="px-4 py-2.5">报名</TableHead>
-            <TableHead className="px-4 py-2.5">状态</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCategory')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colLecturer')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colSignup')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -36,7 +38,7 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -49,7 +51,7 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无课程
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -84,7 +86,7 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                           l.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
                         )}
                       />
-                      {l.isPublished ? '已上架' : '未上架'}
+                      {l.isPublished ? t('published') : t('unpublished')}
                     </span>
                     <span
                       className={cn(
@@ -94,25 +96,25 @@ export function LearnTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                           : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
                       )}
                     >
-                      {l.isFree ? '免费' : '付费'}
+                      {l.isFree ? t('free') : t('paid')}
                     </span>
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button asChild variant="ghost" size="sm" title="章节">
+                    <Button asChild variant="ghost" size="sm" title={t('chapters')}>
                       <Link href={`/admin/learn/chapters?lessonId=${l.id}`}>
                         <ListOrdered className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(l)} title="编辑">
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(l)} title={t('edit')}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDelete(l)}
-                      title="删除"
+                      title={t('delete')}
                       className="text-destructive hover:text-destructive"
                       disabled={deletePending}
                     >

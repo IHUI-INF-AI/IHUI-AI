@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, Loader2 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { TYPE_LABEL, TYPE_API, EMPTY, questionToForm, buildBody } from './helper
 import type { Paper, Question, QForm } from './types'
 
 function TypeQuestionsContent() {
+  const t = useTranslations('admin.edu.exam.questionsType')
   const params = useParams<{ type: string }>()
   const router = useRouter()
   const sp = useSearchParams()
@@ -52,7 +54,7 @@ function TypeQuestionsContent() {
         body: JSON.stringify(buildBody(apiType, form)),
       }),
     onSuccess: () => {
-      toast.success('创建成功')
+      toast.success(t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
       closeDialog()
     },
@@ -65,7 +67,7 @@ function TypeQuestionsContent() {
         body: JSON.stringify(buildBody(apiType, form)),
       }),
     onSuccess: () => {
-      toast.success('更新成功')
+      toast.success(t('updateSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
       closeDialog()
     },
@@ -74,7 +76,7 @@ function TypeQuestionsContent() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/exam/questions/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'questions', paperId] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -101,17 +103,17 @@ function TypeQuestionsContent() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!paperId) return setErr('请先选择试卷')
-    if (!form.title.trim()) return setErr('题干不能为空')
+    if (!paperId) return setErr(t('paperRequired'))
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     try {
       if (form.options.trim()) JSON.parse(form.options)
     } catch (e) {
-      return setErr(`选项JSON错误：${(e as Error).message}`)
+      return setErr(t('optionsJsonError', { message: (e as Error).message }))
     }
     try {
       if (form.answer.trim()) JSON.parse(form.answer)
     } catch (e) {
-      return setErr(`答案JSON错误：${(e as Error).message}`)
+      return setErr(t('answerJsonError', { message: (e as Error).message }))
     }
     if (editing) updateMut.mutate()
     else createMut.mutate()
@@ -124,7 +126,7 @@ function TypeQuestionsContent() {
     router.replace(`/admin/edu/exam/questions/${typeKey}?${p.toString()}`)
   }
   function handleDelete(q: Question) {
-    if (!window.confirm('确定删除？')) return
+    if (!window.confirm(t('confirmDelete'))) return
     deleteMut.mutate(q.id)
   }
 
@@ -134,20 +136,22 @@ function TypeQuestionsContent() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{label}管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理试卷中的{label}</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('titleWithType', { type: label })}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('subtitleWithType', { type: label })}
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/exam/questions">
             <ChevronLeft className="h-4 w-4" />
-            返回题库
+            {t('backToQuestions')}
           </Link>
         </Button>
         <QuestionFilter paperId={paperId} onPaperChange={onPaperChange} papers={papers} />
         <Button onClick={openCreate} size="sm" className="ml-auto" disabled={!paperId}>
           <Plus className="h-4 w-4" />
-          新建{label}
+          {t('createWithType', { type: label })}
         </Button>
       </div>
       <QuestionTable
@@ -176,12 +180,13 @@ function TypeQuestionsContent() {
 }
 
 export default function EduExamTypeQuestionsPage() {
+  const t = useTranslations('admin.edu.exam.questionsType')
   return (
     <React.Suspense
       fallback={
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       }
     >

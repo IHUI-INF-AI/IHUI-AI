@@ -1,5 +1,6 @@
 'use client'
 import { Edit, Trash2, Loader2, Wallet } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Table,
@@ -41,6 +42,7 @@ export function PayLogTable({
   onDelete,
   deletePending,
 }: Props) {
+  const t = useTranslations('admin.edu.finance.index')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -50,15 +52,15 @@ export function PayLogTable({
               <Checkbox checked={allChecked} onCheckedChange={onToggleAll} />
             </TableHead>
             <TableHead className="px-4 py-2.5">ID</TableHead>
-            <TableHead className="px-4 py-2.5">用户UUID</TableHead>
-            <TableHead className="px-4 py-2.5">课程ID</TableHead>
-            <TableHead className="px-4 py-2.5">视频ID</TableHead>
-            <TableHead className="px-4 py-2.5">账单日期</TableHead>
-            <TableHead className="px-4 py-2.5">支付方式</TableHead>
-            <TableHead className="px-4 py-2.5">金额</TableHead>
-            <TableHead className="px-4 py-2.5">实付</TableHead>
-            <TableHead className="px-4 py-2.5">创建时间</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colUserUuid')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCourseId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colVideoId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colOutBillOn')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colPayWay')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colAmount')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colRealAmount')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCreatedAt')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colAction')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -66,7 +68,7 @@ export function PayLogTable({
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -79,7 +81,7 @@ export function PayLogTable({
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
                 <Wallet className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无支付记录
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -107,7 +109,7 @@ export function PayLogTable({
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title={t('edit')}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -116,7 +118,7 @@ export function PayLogTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(r)}
-                        title="删除"
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
                       >

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, BookOpen, FolderTree, GraduationCap } from 'lucide-react'
@@ -15,6 +16,7 @@ import { PAGE_SIZE, EMPTY, SUB_LINKS, lessonToForm } from './helpers'
 import type { Category, Lesson, LForm } from './types'
 
 export default function EduLearnPage() {
+  const t = useTranslations('admin.edu.learn.index')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -71,7 +73,7 @@ export default function EduLearnPage() {
       return eduApi(`/api/admin/learn/lessons`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'learn', 'lessons'] })
       closeDialog()
     },
@@ -80,7 +82,7 @@ export default function EduLearnPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/learn/lessons/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'learn', 'lessons'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -107,11 +109,11 @@ export default function EduLearnPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.title.trim()) return setErr('课程标题不能为空')
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     saveMut.mutate()
   }
   function handleDelete(l: Lesson) {
-    if (window.confirm('确定删除？')) deleteMut.mutate(l.id)
+    if (window.confirm(t('confirmDelete'))) deleteMut.mutate(l.id)
   }
 
   const total = data?.total ?? 0
@@ -121,10 +123,8 @@ export default function EduLearnPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">学习管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          课程学习、直播录播、资料作业、记录进度、计划提醒、社区排行
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -150,7 +150,7 @@ export default function EduLearnPage() {
               <BookOpen className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">课程总数</div>
+              <div className="text-sm text-muted-foreground">{t('totalCourses')}</div>
               <div className="mt-1 text-2xl font-semibold">{total}</div>
             </div>
           </CardContent>
@@ -161,7 +161,7 @@ export default function EduLearnPage() {
               <FolderTree className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">分类数</div>
+              <div className="text-sm text-muted-foreground">{t('totalCategories')}</div>
               <div className="mt-1 text-2xl font-semibold">{categories.length}</div>
             </div>
           </CardContent>
@@ -172,7 +172,7 @@ export default function EduLearnPage() {
               <GraduationCap className="h-7 w-7" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">报名总数</div>
+              <div className="text-sm text-muted-foreground">{t('totalSignups')}</div>
               <div className="mt-1 text-2xl font-semibold">
                 {lessons.reduce((a, l) => a + l.signupCount, 0)}
               </div>
@@ -200,7 +200,7 @@ export default function EduLearnPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 门课程</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -209,10 +209,10 @@ export default function EduLearnPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -220,7 +220,7 @@ export default function EduLearnPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

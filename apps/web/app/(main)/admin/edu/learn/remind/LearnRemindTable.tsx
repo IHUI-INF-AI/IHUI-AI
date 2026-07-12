@@ -1,9 +1,9 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Bell } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
-import { TYPE_MAP } from './helpers'
 import type { Remind } from './types'
 
 interface Props {
@@ -23,16 +23,17 @@ export function LearnRemindTable({
   onDelete,
   deletePending,
 }: Props) {
+  const t = useTranslations('admin.edu.learn.remind')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-4 py-2.5">标题</TableHead>
-            <TableHead className="px-4 py-2.5">类型</TableHead>
-            <TableHead className="px-4 py-2.5">提醒时间</TableHead>
-            <TableHead className="px-4 py-2.5">已读</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colRemindAt')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colRead')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -40,21 +41,21 @@ export function LearnRemindTable({
             <TableRow>
               <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : noEndpoint ? (
             <TableRow>
               <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <Bell className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                提醒端点未配置
+                {t('noEndpoint')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                 <Bell className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无提醒
+                {t('noData')}
               </TableCell>
             </TableRow>
           ) : (
@@ -74,7 +75,7 @@ export function LearnRemindTable({
                       'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                     )}
                   >
-                    {TYPE_MAP[r.type] ?? r.type}
+                    {t(`type.${r.type}`)}
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
@@ -82,23 +83,23 @@ export function LearnRemindTable({
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   {r.isRead ? (
-                    <span className="text-xs text-muted-foreground">已读</span>
+                    <span className="text-xs text-muted-foreground">{t('read')}</span>
                   ) : (
                     <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
-                      未读
+                      {t('unread')}
                     </span>
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title={t('edit')}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDelete(r.id)}
-                      title="删除"
+                      title={t('delete')}
                       className="text-destructive hover:text-destructive"
                       disabled={deletePending}
                     >
