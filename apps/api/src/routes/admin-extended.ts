@@ -1,31 +1,9 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-
-const ADMIN_ROLE_ID = 1
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    if (
-      (request as unknown as { roleId?: number }).roleId !== undefined &&
-      (request as unknown as { roleId: number }).roleId < ADMIN_ROLE_ID
-    ) {
-      reply.status(403).send(error(403, '需要管理员权限'))
-      return false
-    }
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
 
 const menuSchema = z.object({
   name: z.string().min(1, '菜单名称不能为空').max(64),
@@ -42,9 +20,7 @@ const demandAuditSchema = z.object({
 })
 
 export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAdmin(request, reply))) return
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // ===========================================================================
   // 菜单管理 — /admin/menu
