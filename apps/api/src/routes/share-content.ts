@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { dbRead } from '../db/index.js'
@@ -10,7 +11,7 @@ import { aiGcContent } from '@ihui/database'
  */
 export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/content/:code', async (request, reply) => {
-    const { code } = request.params as { code: string }
+    const { code } = z.object({ code: z.string() }).parse(request.params)
 
     const invalidCodes = ['', 'dist', 'index.html', 'index', 'share', 'error']
     if (!code || invalidCodes.includes(code)) {

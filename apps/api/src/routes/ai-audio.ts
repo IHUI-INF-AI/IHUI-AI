@@ -11,6 +11,7 @@
  *   server.register(aiAudioRoutes, { prefix: '/api/ai' })
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
@@ -151,6 +152,44 @@ const DS_SPEAKER_URL = `${DASHSCOPE_BASE}/services/audio/asr/speaker-recognition
 // ============================================================================
 
 export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
+  const ttsBody = z.object({
+    text: z.string(),
+    voice_id: z.string().optional(),
+    response_format: z.string().optional(),
+    rate: z.string().optional(),
+    volume: z.string().optional(),
+    pitch: z.string().optional(),
+  })
+  const asrBody = z.object({
+    audio_url: z.string().optional(),
+    audio_base64: z.string().optional(),
+    model: z.string().optional(),
+    language: z.string().optional(),
+    sample_rate: z.number().optional(),
+  })
+  const chatBody = z.object({
+    text: z.string().optional(),
+    audio_base64: z.string().optional(),
+    audio_url: z.string().optional(),
+    voice_id: z.string().optional(),
+    model: z.string().optional(),
+    language: z.string().optional(),
+    system_prompt: z.string().optional(),
+  })
+  const taskIdQuery = z.object({ task_id: z.string().optional() })
+  const modelLanguageQuery = z.object({
+    model: z.string().optional(),
+    language: z.string().optional(),
+  })
+  const cloneBody = z.object({
+    voice_id: z.string().optional(),
+    audio_url: z.string().optional(),
+    audio_base64: z.string().optional(),
+    sample_rate: z.number().optional(),
+  })
+  const voiceIdParam = z.object({ voiceId: z.string() })
+  const tokenQuery = z.object({ token: z.string().optional() })
+
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // WebSocket 路由在 handler 内部通过 query token 鉴权
     if (request.headers.upgrade === 'websocket') return
@@ -169,18 +208,12 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.post('/audio/speech', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const body = request.body as {
-      text: string
-      voice_id?: string
-      response_format?: string
-      rate?: string
-      volume?: string
-      pitch?: string
-    }
-    if (!body?.text) {
+    const parsed = ttsBody.safeParse(request.body)
+    if (!parsed.success || !parsed.data.text) {
       reply.status(400).send(error(400, '请提供 text'))
       return
     }
+    const body = parsed.data
     const fmt = (body.response_format ?? 'mp3').toLowerCase()
     const parameters: Record<string, unknown> = { text_type: 'PlainText' }
     if (body.rate) parameters.rate = body.rate
@@ -235,17 +268,12 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.post('/audio/recognize', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const body = request.body as {
-      audio_url?: string
-      audio_base64?: string
-      model?: string
-      language?: string
-      sample_rate?: number
-    }
-    if (!body?.audio_url && !body?.audio_base64) {
+    const parsed = asrBody.safeParse(request.body)
+    if (!parsed.success || (!parsed.data.audio_url && !parsed.data.audio_base64)) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
       return
     }
+    const body = parsed.data
     const model = body.model ?? 'paraformer-v2'
     const audioRef = body.audio_url ?? `data:audio/wav;base64,${body.audio_base64}`
 
@@ -413,15 +441,8 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.post('/audio/chat', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const body = request.body as {
-      text?: string
-      audio_base64?: string
-      audio_url?: string
-      voice_id?: string
-      model?: string
-      language?: string
-      system_prompt?: string
-    }
+    const parsed = chatBody.safeParse(request.body)
+    const body = parsed.success ? parsed.data : {}
     let userText = body?.text
 
     // 1) 音频输入先做 ASR
@@ -518,7 +539,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.get('/audio/download', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const { task_id } = request.query as { task_id?: string }
+    const { task_id } = taskIdQuery.parse(request.query)
     if (!task_id) {
       reply.status(400).send(error(400, '请提供 task_id'))
       return
@@ -586,8 +607,8 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
     }
     const buf = await file.toBuffer()
     const audioBase64 = buf.toString('base64')
-    const model = (request.query as { model?: string }).model ?? 'paraformer-v2'
-    const language = (request.query as { language?: string }).language
+    const { model: qsModel, language } = modelLanguageQuery.parse(request.query)
+    const model = qsModel ?? 'paraformer-v2'
 
     const audioRef = `data:audio/wav;base64,${audioBase64}`
     const parameters: Record<string, unknown> = { sample_rate: 16000 }
@@ -639,16 +660,12 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 7. POST /speaker/register — 注册声纹
   server.post('/speaker/register', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const body = request.body as {
-      voice_id?: string
-      audio_url?: string
-      audio_base64?: string
-      sample_rate?: number
-    }
-    if (!body?.voice_id) {
+    const parsed = cloneBody.safeParse(request.body)
+    if (!parsed.success || !parsed.data.voice_id) {
       reply.status(400).send(error(400, '请提供 voice_id'))
       return
     }
+    const body = parsed.data
     if (!body.audio_url && !body.audio_base64) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
       return
@@ -691,16 +708,12 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 8. POST /speaker/compare — 声纹比对
   server.post('/speaker/compare', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const body = request.body as {
-      voice_id?: string
-      audio_url?: string
-      audio_base64?: string
-      sample_rate?: number
-    }
-    if (!body?.voice_id) {
+    const parsed = cloneBody.safeParse(request.body)
+    if (!parsed.success || !parsed.data.voice_id) {
       reply.status(400).send(error(400, '请提供 voice_id'))
       return
     }
+    const body = parsed.data
     if (!body.audio_url && !body.audio_base64) {
       reply.status(400).send(error(400, '请提供 audio_url 或 audio_base64'))
       return
@@ -769,7 +782,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 10. DELETE /speaker/:voiceId — 删除声纹
   server.delete('/speaker/:voiceId', async (request, reply) => {
     if (!requireDsKey(reply)) return
-    const { voiceId } = request.params as { voiceId: string }
+    const { voiceId } = voiceIdParam.parse(request.params)
     if (!voiceId) {
       reply.status(400).send(error(400, '请提供 voiceId'))
       return
@@ -797,7 +810,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   // 13. WS /audio/realtime — 实时语音识别 WebSocket（引导至 /ws/realtime/pcm）
   // ==========================================================================
   server.get('/audio/realtime', { websocket: true }, (socket, request) => {
-    const token = (request.query as { token?: string }).token
+    const { token } = tokenQuery.parse(request.query)
     if (!token) {
       socket.close(4001, '缺少 token')
       return
