@@ -6,6 +6,8 @@ import { zhsUserAgentImage } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 
+const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
+
 // =============================================================================
 // 通用工具
 // =============================================================================
@@ -308,7 +310,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const resp = await fetchWithTimeout(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/generation',
+        `${DASHSCOPE_BASE}/services/aigc/image-generation/generation`,
         {
           method: 'POST',
           headers: {
@@ -386,7 +388,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const resp = await fetchWithTimeout(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+        `${DASHSCOPE_BASE}/services/aigc/text2image/image-synthesis`,
         {
           method: 'POST',
           headers: {
@@ -465,7 +467,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const resp = await fetchWithTimeout(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/generation',
+        `${DASHSCOPE_BASE}/services/aigc/image-generation/generation`,
         {
           method: 'POST',
           headers: {
@@ -719,7 +721,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const resp = await fetchWithTimeout(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/style-transfer',
+        `${DASHSCOPE_BASE}/services/aigc/image-generation/style-transfer`,
         {
           method: 'POST',
           headers: {
@@ -789,7 +791,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const resp = await fetchWithTimeout(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/background-generation',
+        `${DASHSCOPE_BASE}/services/aigc/image-generation/background-generation`,
         {
           method: 'POST',
           headers: {
@@ -863,7 +865,7 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       if (bottomGarmentUrl) inputData.bottom_garment_url = bottomGarmentUrl
 
       const resp = await fetchWithTimeout(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/image-generation/virtual-try-on',
+        `${DASHSCOPE_BASE}/services/aigc/image-generation/virtual-try-on`,
         {
           method: 'POST',
           headers: {

@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProtocol } from '@/api'
 
@@ -10,10 +10,15 @@ export default function ProtocolPage() {
     try {
       const res = await getProtocol()
       setContent(res.content)
-    } catch {}
+    } catch (e) {
+      console.error('[about/protocol] 获取协议内容 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
-  useDidShow(() => { load() })
+  useDidShow(() => {
+    load()
+  })
 
   return (
     <View className="min-h-screen bg-white p-[16px]">

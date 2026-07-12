@@ -9,7 +9,9 @@ const gradient = 'linear-gradient(135deg, #f8d486, #f2b04a)'
 
 export default function VipIndexPage() {
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
-  const [privileges, setPrivileges] = useState<Array<{ id: string; title: string; desc: string }>>([])
+  const [privileges, setPrivileges] = useState<Array<{ id: string; title: string; desc: string }>>(
+    [],
+  )
   const [selected, setSelected] = useState(3)
 
   const load = useCallback(async () => {
@@ -17,7 +19,10 @@ export default function VipIndexPage() {
       const [i, p] = await Promise.all([getVipInfo(), getVipPrivilege()])
       setInfo(i)
       setPrivileges(p.list || [])
-    } catch {}
+    } catch (e) {
+      console.error('[vip/index] 获取VIP信息 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [])
 
   const goPrivilege = useCallback(() => {
@@ -28,7 +33,10 @@ export default function VipIndexPage() {
     try {
       const res = await upgradeVip(selected)
       Taro.navigateTo({ url: `/pages/pay/index?orderNo=${res.orderNo}` })
-    } catch {}
+    } catch (e) {
+      console.error('[vip/index] 开通VIP failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [selected])
 
   useDidShow(load)
@@ -47,7 +55,7 @@ export default function VipIndexPage() {
       <View className="card">
         <View className="card-title">VIP特权</View>
         <View className="grid">
-          {privileges.map(p => (
+          {privileges.map((p) => (
             <View key={p.id} className="grid-item" onClick={goPrivilege}>
               <View className="gicon">★</View>
               <Text className="gtext">{p.title}</Text>
@@ -59,7 +67,7 @@ export default function VipIndexPage() {
       <View className="card">
         <View className="card-title">开通套餐</View>
         <View className="plans">
-          {[1, 2, 3].map(lv => (
+          {[1, 2, 3].map((lv) => (
             <View
               key={lv}
               className={`plan${selected === lv ? ' active' : ''}`}
@@ -70,7 +78,9 @@ export default function VipIndexPage() {
             </View>
           ))}
         </View>
-        <Button className="btn" onClick={onUpgrade}>立即开通</Button>
+        <Button className="btn" onClick={onUpgrade}>
+          立即开通
+        </Button>
       </View>
     </View>
   )

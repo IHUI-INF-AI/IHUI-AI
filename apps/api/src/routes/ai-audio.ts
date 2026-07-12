@@ -49,7 +49,7 @@ async function fetchWithTimeout(
   }
 }
 
-const DASHSCOPE_BASE = 'https://dashscope.aliyuncs.com/api/v1'
+const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
 
 function dsHeaders(asyncMode = false): Record<string, string> {
   const key = process.env.DASHSCOPE_API_KEY

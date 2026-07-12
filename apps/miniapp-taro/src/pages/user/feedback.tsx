@@ -18,7 +18,10 @@ export default function Feedback() {
       await submitFeedback({ content: content.trim(), contact: contact.trim() || undefined })
       Taro.showToast({ title: '提交成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
-    } catch {}
+    } catch (e) {
+      console.error('[user/feedback] 提交反馈 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }
 
   return (
@@ -26,7 +29,7 @@ export default function Feedback() {
       <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-white rounded-[8px]">
         <Text className="block text-[14px] text-[#333] mb-[12px]">反馈类型</Text>
         <View className="flex flex-wrap gap-[8px]">
-          {types.map(t => (
+          {types.map((t) => (
             <View
               key={t}
               className={`px-[16px] py-[6px] rounded-[16px] text-[13px] ${
@@ -45,7 +48,7 @@ export default function Feedback() {
           className="w-full text-[14px] min-h-[120px]"
           placeholder="请输入反馈内容"
           value={content}
-          onInput={e => setContent(e.detail.value)}
+          onInput={(e) => setContent(e.detail.value)}
           maxlength={500}
         />
       </View>
@@ -56,7 +59,7 @@ export default function Feedback() {
           type="text"
           placeholder="请输入手机号或邮箱"
           value={contact}
-          onInput={e => setContact(e.detail.value)}
+          onInput={(e) => setContact(e.detail.value)}
         />
       </View>
       <Button

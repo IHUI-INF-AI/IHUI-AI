@@ -19,7 +19,12 @@ export default function AskDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return
-    try { setData(await getAskDetail(id)) } catch {}
+    try {
+      setData(await getAskDetail(id))
+    } catch (e) {
+      console.error('[ask/detail] 获取问题详情 failed:', e)
+      Taro.showToast({ title: '操作失败', icon: 'none' })
+    }
   }, [id])
 
   useDidShow(() => {
@@ -37,7 +42,7 @@ export default function AskDetailPage() {
 
   const onAnswer = useCallback(() => {
     if (!answer) return
-    setAnswers(prev => [...prev, { author: '我', time: '刚刚', content: answer }])
+    setAnswers((prev) => [...prev, { author: '我', time: '刚刚', content: answer }])
     setAnswer('')
     Taro.showToast({ title: '回答成功', icon: 'success' })
   }, [answer])
@@ -48,7 +53,11 @@ export default function AskDetailPage() {
         <View className="head">
           <Text className="title">{data.title}</Text>
           <View className="meta">
-            <Image className="avatar" src={data.avatar || '/static/default-avatar.png'} mode="aspectFill" />
+            <Image
+              className="avatar"
+              src={data.avatar || '/static/default-avatar.png'}
+              mode="aspectFill"
+            />
             <Text className="author">{data.author}</Text>
             <Text className="time">{data.createTime}</Text>
           </View>
@@ -62,7 +71,11 @@ export default function AskDetailPage() {
           {answers.map((a, i) => (
             <View key={i} className="answer">
               <View className="a-head">
-                <Image className="avatar" src={a.avatar || '/static/default-avatar.png'} mode="aspectFill" />
+                <Image
+                  className="avatar"
+                  src={a.avatar || '/static/default-avatar.png'}
+                  mode="aspectFill"
+                />
                 <Text className="a-author">{a.author}</Text>
                 <Text className="a-time">{a.time}</Text>
               </View>
@@ -77,9 +90,11 @@ export default function AskDetailPage() {
           className="input"
           value={answer}
           placeholder="写下你的回答"
-          onInput={e => setAnswer(e.detail.value)}
+          onInput={(e) => setAnswer(e.detail.value)}
         />
-        <Button className="btn" size="mini" onClick={onAnswer} disabled={!answer}>回答</Button>
+        <Button className="btn" size="mini" onClick={onAnswer} disabled={!answer}>
+          回答
+        </Button>
       </View>
     </View>
   )
