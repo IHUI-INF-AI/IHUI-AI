@@ -3,72 +3,31 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, Plus, Download, Search, ShieldCheck } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
-import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
+import { Plus, Download, ShieldCheck } from 'lucide-react'
+import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { DatePicker } from '@/components/form/DatePicker'
+import { Button } from '@ihui/ui'
+
+import { RealnameAuditFilter } from './RealnameAuditFilter'
+import { RealnameAuditTable } from './RealnameAuditTable'
+import { RealnameAuditDialog, RealnameAuditDeleteDialog } from './RealnameAuditDialog'
 import {
-  Button,
-  Input,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@ihui/ui'
-
-interface Item {
-  id: string
-  [k: string]: unknown
-}
-async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
-const RESOURCE = '/api/admin/auth-info'
-const PERM = 'auth:auth_info'
-const PAGE_SIZE = 10
-type FormState = Record<string, string>
-const FIELDS: { key: string; label: string; required?: boolean }[] = [
-  { key: 'userUuid', label: '用户UUID', required: true },
-  { key: 'username', label: '用户名' },
-  { key: 'phone', label: '手机号' },
-  { key: 'certificate', label: '证件号', required: true },
-  { key: 'email', label: '邮箱' },
-  { key: 'country', label: '国家' },
-  { key: 'province', label: '省份' },
-  { key: 'city', label: '城市' },
-]
-const SEARCH_FIELDS: { key: string; label: string }[] = [
-  { key: 'username', label: '用户名' },
-  { key: 'phone', label: '手机号' },
-  { key: 'certificate', label: '证件号' },
-]
-const DATE_FIELDS: { key: string; label: string; required?: boolean }[] = [
-  { key: 'createdAt', label: '创建时间' },
-]
-const ALL_KEYS = [...FIELDS.map((f) => f.key), ...DATE_FIELDS.map((d) => d.key)]
-const LABELS: Record<string, string> = Object.fromEntries(
-  [...FIELDS, ...DATE_FIELDS].map((f) => [f.key, f.label]),
-)
-const EMPTY: FormState = Object.fromEntries(ALL_KEYS.map((k) => [k, '']))
-const EXPORT_COLS: ExportColumn[] = [
-  { key: 'id', title: 'ID' },
-  ...ALL_KEYS.map((k) => ({ key: k, title: LABELS[k] ?? '' })),
-]
-const th = 'px-4 py-2.5 font-medium'
-const colCount = 1 + ALL_KEYS.length + 1
+  RESOURCE,
+  PERM,
+  PAGE_SIZE,
+  api,
+  FIELDS,
+  SEARCH_FIELDS,
+  EMPTY,
+  EXPORT_COLS,
+  itemToForm,
+  emptySearch,
+} from './helpers'
+import type { FormState, Item, ListData } from './types'
 
 export default function AuthInfoPage() {
   const qc = useQueryClient()
-  const [search, setSearch] = React.useState<FormState>(
-    Object.fromEntries(SEARCH_FIELDS.map((f) => [f.key, ''])),
-  )
+  const [search, setSearch] = React.useState<FormState>(emptySearch())
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Item | null>(null)
@@ -86,8 +45,7 @@ export default function AuthInfoPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', PERM, params],
-    queryFn: () =>
-      api<{ list: Item[]; total: number }>(`${RESOURCE}?${new URLSearchParams(params)}`),
+    queryFn: () => api<ListData>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
@@ -122,9 +80,7 @@ export default function AuthInfoPage() {
   }
   function openEdit(item: Item) {
     setEditing(item)
-    const next: FormState = { ...EMPTY }
-    for (const k of ALL_KEYS) next[k] = String(item[k] ?? '')
-    setForm(next)
+    setForm(itemToForm(item))
     setOpen(true)
   }
   function close() {
@@ -142,7 +98,7 @@ export default function AuthInfoPage() {
     saveMut.mutate()
   }
   function handleReset() {
-    setSearch(Object.fromEntries(SEARCH_FIELDS.map((f) => [f.key, ''])))
+    setSearch(emptySearch())
     setPage(1)
   }
   async function handleExport() {
@@ -177,88 +133,19 @@ export default function AuthInfoPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-        {SEARCH_FIELDS.map((f) => (
-          <div key={f.key} className="space-y-1">
-            <Label className="text-xs">{f.label}</Label>
-            <Input
-              className="h-9 w-48"
-              value={search[f.key] ?? ''}
-              onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
-              placeholder={`搜索${f.label}`}
-            />
-          </div>
-        ))}
-        <Button size="sm" onClick={() => setPage(1)}>
-          <Search className="h-4 w-4" />
-          搜索
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleReset}>
-          重置
-        </Button>
-      </div>
+      <RealnameAuditFilter
+        search={search}
+        setSearch={setSearch}
+        onSearch={() => setPage(1)}
+        onReset={handleReset}
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className={th}>ID</th>
-              {ALL_KEYS.map((k) => (
-                <th key={k} className={th}>
-                  {LABELS[k]}
-                </th>
-              ))}
-              <th className={th}>操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr>
-                <td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中…
-                </td>
-              </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">
-                  <ShieldCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无数据
-                </td>
-              </tr>
-            ) : (
-              list.map((item) => (
-                <tr key={String(item.id)} className="hover:bg-muted/30">
-                  <td className="px-4 py-2.5">{String(item.id)}</td>
-                  {ALL_KEYS.map((k) => (
-                    <td key={k} className="px-4 py-2.5">
-                      {String(item[k] ?? '-')}
-                    </td>
-                  ))}
-                  <td className="px-4 py-2.5 space-x-2">
-                    <HasPermi code={`${PERM}:edit`}>
-                      <button
-                        className="text-primary hover:underline"
-                        onClick={() => openEdit(item)}
-                      >
-                        编辑
-                      </button>
-                    </HasPermi>
-                    <HasPermi code={`${PERM}:remove`}>
-                      <button
-                        className="text-destructive hover:underline"
-                        onClick={() => setDelId(String(item.id))}
-                      >
-                        删除
-                      </button>
-                    </HasPermi>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <RealnameAuditTable
+        list={list}
+        isLoading={isLoading}
+        onEdit={openEdit}
+        onDelete={(id) => setDelId(id)}
+      />
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
@@ -286,78 +173,22 @@ export default function AuthInfoPage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑实名信息' : '新增实名信息'}</DialogTitle>
-              <DialogDescription>{editing ? '修改实名信息' : '添加新的实名信息'}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              {FIELDS.map((f) => (
-                <div key={f.key} className="space-y-1.5">
-                  <Label>
-                    {f.label}
-                    {f.required ? ' *' : ''}
-                  </Label>
-                  <Input
-                    value={form[f.key]}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  />
-                </div>
-              ))}
-              {DATE_FIELDS.map((d) => (
-                <DatePicker
-                  key={d.key}
-                  label={d.label}
-                  value={form[d.key]}
-                  onChange={(v) => setForm({ ...form, [d.key]: v })}
-                />
-              ))}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={close} disabled={saveMut.isPending}>
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <RealnameAuditDialog
+        open={open}
+        editing={editing}
+        form={form}
+        setForm={setForm}
+        savePending={saveMut.isPending}
+        onSubmit={submit}
+        onClose={close}
+      />
 
-      <Dialog
-        open={delId !== null}
-        onOpenChange={(o) => {
-          if (!o) setDelId(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>确定要删除该记录吗？此操作不可撤销。</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDelId(null)}
-              disabled={delMut.isPending}
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={delMut.isPending}
-              onClick={() => delId && delMut.mutate(delId)}
-            >
-              {delMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RealnameAuditDeleteDialog
+        delId={delId}
+        onCancel={() => setDelId(null)}
+        onConfirm={(id) => delMut.mutate(id)}
+        deletePending={delMut.isPending}
+      />
     </div>
   )
 }

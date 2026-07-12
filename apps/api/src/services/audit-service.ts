@@ -5,35 +5,36 @@
  *   plugins/audit.ts 仅在 onResponse 钩子中自动落库写操作。
  */
 
-import { eq, and, desc, sql, gte, lte, lt } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import { auditLogs, type AuditLog } from '@ihui/database';
+import { eq, and, desc, sql, gte, lte, lt } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { auditLogs, type AuditLog } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 
 export interface AuditLogInput {
-  userId?: string;
-  action: string;
-  resourceType?: string;
-  resourceId?: string;
-  details?: unknown;
-  ip?: string;
-  userAgent?: string;
+  userId?: string
+  action: string
+  resourceType?: string
+  resourceId?: string
+  details?: unknown
+  ip?: string
+  userAgent?: string
 }
 
 export interface AuditLogQuery {
-  userId?: string;
-  action?: string;
-  resourceType?: string;
-  resourceId?: string;
-  startDate?: Date;
-  endDate?: Date;
-  page?: number;
-  pageSize?: number;
+  userId?: string
+  action?: string
+  resourceType?: string
+  resourceId?: string
+  startDate?: Date
+  endDate?: Date
+  page?: number
+  pageSize?: number
 }
 
 export interface AuditLogStats {
-  total: number;
-  byAction: Record<string, number>;
-  byResourceType: Record<string, number>;
+  total: number
+  byAction: Record<string, number>
+  byResourceType: Record<string, number>
 }
 
 /**
@@ -50,9 +51,9 @@ export async function logAction(input: AuditLogInput): Promise<void> {
       details: input.details,
       ip: input.ip,
       userAgent: input.userAgent,
-    });
+    })
   } catch (e) {
-    console.error('[audit-service] logAction failed:', (e as Error).message);
+    logger.error('[audit-service] logAction failed', { error: (e as Error).message })
   }
 }
 
@@ -62,16 +63,16 @@ export async function logAction(input: AuditLogInput): Promise<void> {
 export async function getLogs(
   query: AuditLogQuery,
 ): Promise<{ list: AuditLog[]; total: number; page: number; pageSize: number }> {
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 20;
-  const conds = [];
-  if (query.userId) conds.push(eq(auditLogs.userId, query.userId));
-  if (query.action) conds.push(eq(auditLogs.action, query.action));
-  if (query.resourceType) conds.push(eq(auditLogs.resourceType, query.resourceType));
-  if (query.resourceId) conds.push(eq(auditLogs.resourceId, query.resourceId));
-  if (query.startDate) conds.push(gte(auditLogs.createdAt, query.startDate));
-  if (query.endDate) conds.push(lte(auditLogs.createdAt, query.endDate));
-  const where = conds.length ? and(...conds) : undefined;
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 20
+  const conds = []
+  if (query.userId) conds.push(eq(auditLogs.userId, query.userId))
+  if (query.action) conds.push(eq(auditLogs.action, query.action))
+  if (query.resourceType) conds.push(eq(auditLogs.resourceType, query.resourceType))
+  if (query.resourceId) conds.push(eq(auditLogs.resourceId, query.resourceId))
+  if (query.startDate) conds.push(gte(auditLogs.createdAt, query.startDate))
+  if (query.endDate) conds.push(lte(auditLogs.createdAt, query.endDate))
+  const where = conds.length ? and(...conds) : undefined
 
   const [list, totalRows] = await Promise.all([
     db
@@ -81,48 +82,48 @@ export async function getLogs(
       .orderBy(desc(auditLogs.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(auditLogs).where(where),
-  ]);
-  return { list, total: totalRows[0]?.count ?? 0, page, pageSize };
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(auditLogs)
+      .where(where),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
 }
 
 /**
  * 审计日志统计：总数、按操作类型分组、按资源类型分组。
  */
-export async function getLogStats(
-  startDate?: Date,
-  endDate?: Date,
-): Promise<AuditLogStats> {
-  const conds = [];
-  if (startDate) conds.push(gte(auditLogs.createdAt, startDate));
-  if (endDate) conds.push(lte(auditLogs.createdAt, endDate));
-  const where = conds.length ? and(...conds) : undefined;
+export async function getLogStats(startDate?: Date, endDate?: Date): Promise<AuditLogStats> {
+  const conds = []
+  if (startDate) conds.push(gte(auditLogs.createdAt, startDate))
+  if (endDate) conds.push(lte(auditLogs.createdAt, endDate))
+  const where = conds.length ? and(...conds) : undefined
 
   const totalRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(auditLogs)
-    .where(where);
-  const total = totalRows[0]?.count ?? 0;
+    .where(where)
+  const total = totalRows[0]?.count ?? 0
 
   const byActionRows = await db
     .select({ action: auditLogs.action, count: sql<number>`count(*)::int` })
     .from(auditLogs)
     .where(where)
-    .groupBy(auditLogs.action);
-  const byAction: Record<string, number> = {};
-  for (const r of byActionRows) byAction[r.action] = r.count;
+    .groupBy(auditLogs.action)
+  const byAction: Record<string, number> = {}
+  for (const r of byActionRows) byAction[r.action] = r.count
 
   const byTypeRows = await db
     .select({ type: auditLogs.resourceType, count: sql<number>`count(*)::int` })
     .from(auditLogs)
     .where(where)
-    .groupBy(auditLogs.resourceType);
-  const byResourceType: Record<string, number> = {};
+    .groupBy(auditLogs.resourceType)
+  const byResourceType: Record<string, number> = {}
   for (const r of byTypeRows) {
-    if (r.type) byResourceType[r.type] = r.count;
+    if (r.type) byResourceType[r.type] = r.count
   }
 
-  return { total, byAction, byResourceType };
+  return { total, byAction, byResourceType }
 }
 
 /**
@@ -130,10 +131,10 @@ export async function getLogStats(
  * @returns 删除的记录数
  */
 export async function deleteOldLogs(days = 90): Promise<number> {
-  const cutoff = new Date(Date.now() - days * 86400_000);
+  const cutoff = new Date(Date.now() - days * 86400_000)
   const rows = await db
     .delete(auditLogs)
     .where(lt(auditLogs.createdAt, cutoff))
-    .returning({ id: auditLogs.id });
-  return rows.length;
+    .returning({ id: auditLogs.id })
+  return rows.length
 }

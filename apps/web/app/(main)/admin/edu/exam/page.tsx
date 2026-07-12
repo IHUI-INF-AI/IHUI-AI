@@ -1,83 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  ListChecks,
-  Settings2,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, ListChecks, Settings2 } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-  Card,
-  CardContent,
-} from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui'
 
-interface Paper {
-  id: string
-  title: string
-  description: string | null
-  totalScore: string
-  passScore: string
-  duration: number
-  isPublished: boolean
-  isRandom: boolean
-  questionCount: number
-}
-
-interface PaperForm {
-  title: string
-  description: string
-  totalScore: string
-  passScore: string
-  duration: string
-  isPublished: boolean
-  isRandom: boolean
-}
-
-const EMPTY: PaperForm = {
-  title: '',
-  description: '',
-  totalScore: '100',
-  passScore: '60',
-  duration: '60',
-  isPublished: false,
-  isRandom: false,
-}
-
-const selectClass =
-  'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-
-const PAGE_SIZE = 10
+import { EMPTY, PAGE_SIZE, API } from './helpers'
+import type { Paper, PaperForm } from './types'
+import { ExamFilter } from './ExamFilter'
+import { ExamTable } from './ExamTable'
+import { ExamDialog } from './ExamDialog'
 
 function StatCard({
   icon: Icon,
@@ -131,9 +66,7 @@ export default function EduExamPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', 'papers', debounced, page],
     queryFn: () =>
-      eduApi<PageData<Paper>>(
-        `/api/admin/exam/papers${buildQs({ page, pageSize: PAGE_SIZE, search: debounced })}`,
-      ),
+      eduApi<PageData<Paper>>(`${API}${buildQs({ page, pageSize: PAGE_SIZE, search: debounced })}`),
   })
 
   const saveMut = useMutation({
@@ -147,12 +80,9 @@ export default function EduExamPage() {
         isPublished: form.isPublished,
         isRandom: form.isRandom,
       }
-      if (editing)
-        return eduApi(`/api/admin/exam/papers/${editing.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(body),
-        })
-      return eduApi(`/api/admin/exam/papers`, { method: 'POST', body: JSON.stringify(body) })
+      return editing
+        ? eduApi(`${API}/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+        : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? '更新成功' : '创建成功')
@@ -163,7 +93,7 @@ export default function EduExamPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => eduApi(`/api/admin/exam/papers/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['edu', 'exam', 'papers'] })
@@ -246,123 +176,16 @@ export default function EduExamPage() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索试卷标题..."
-            className="h-9 pl-8"
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admin/edu/exam/questions">题库管理</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admin/edu/exam/grades">成绩批阅</Link>
-          </Button>
-          <Button onClick={openCreate} size="sm">
-            <Plus className="h-4 w-4" />
-            新建试卷
-          </Button>
-        </div>
-      </div>
+      <ExamFilter search={search} onSearchChange={setSearch} onCreate={openCreate} />
 
-      <div className="overflow-x-auto rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="px-4 py-2.5">标题</TableHead>
-              <TableHead className="px-4 py-2.5">总分</TableHead>
-              <TableHead className="px-4 py-2.5">及格分</TableHead>
-              <TableHead className="px-4 py-2.5">时长</TableHead>
-              <TableHead className="px-4 py-2.5">状态</TableHead>
-              <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y">
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
-                </TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-destructive">
-                  {(error as Error).message}
-                </TableCell>
-              </TableRow>
-            ) : papers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                  <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无试卷
-                </TableCell>
-              </TableRow>
-            ) : (
-              papers.map((p) => (
-                <TableRow key={p.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5">
-                    <div className="font-medium">{p.title}</div>
-                    {p.description ? (
-                      <div className="max-w-xs break-words text-xs text-muted-foreground">
-                        {p.description}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5">{Number(p.totalScore)}</TableCell>
-                  <TableCell className="px-4 py-2.5">{Number(p.passScore)}</TableCell>
-                  <TableCell className="px-4 py-2.5">{p.duration}分钟</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                        p.isPublished
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                          : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full',
-                          p.isPublished ? 'bg-emerald-500' : 'bg-muted-foreground',
-                        )}
-                      />
-                      {p.isPublished ? '已发布' : '未发布'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button asChild variant="ghost" size="sm" title="题目">
-                        <Link href={`/admin/edu/exam/questions?paperId=${p.id}`}>
-                          <ListChecks className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(p)} title="编辑">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(p)}
-                        title="删除"
-                        className="text-destructive hover:text-destructive"
-                        disabled={deleteMut.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ExamTable
+        rows={papers}
+        isLoading={isLoading}
+        error={error as Error | null}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+        deletePending={deleteMut.isPending}
+      />
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 份试卷</span>
@@ -391,117 +214,16 @@ export default function EduExamPage() {
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent>
-          <form onSubmit={submit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle>{editing ? '编辑试卷' : '新建试卷'}</DialogTitle>
-            </DialogHeader>
-            {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {err}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="p-title">标题</Label>
-              <Input
-                id="p-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="请输入试卷标题"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="p-desc">描述</Label>
-              <Input
-                id="p-desc"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="试卷描述(选填)"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="p-total">总分</Label>
-                <Input
-                  id="p-total"
-                  type="number"
-                  min="0"
-                  value={form.totalScore}
-                  onChange={(e) => setForm({ ...form, totalScore: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="p-pass">及格分</Label>
-                <Input
-                  id="p-pass"
-                  type="number"
-                  min="0"
-                  value={form.passScore}
-                  onChange={(e) => setForm({ ...form, passScore: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="p-dur">时长(分钟)</Label>
-                <Input
-                  id="p-dur"
-                  type="number"
-                  min="1"
-                  max="600"
-                  value={form.duration}
-                  onChange={(e) => setForm({ ...form, duration: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="p-pub">发布状态</Label>
-                <Select
-                  value={form.isPublished ? 'true' : 'false'}
-                  onValueChange={(v) => setForm({ ...form, isPublished: v === 'true' })}
-                >
-                  <SelectTrigger className={selectClass} id="p-pub">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="false">未发布</SelectItem>
-                    <SelectItem value="true">已发布</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="p-rand">随机组卷</Label>
-                <Select
-                  value={form.isRandom ? 'true' : 'false'}
-                  onValueChange={(v) => setForm({ ...form, isRandom: v === 'true' })}
-                >
-                  <SelectTrigger className={selectClass} id="p-rand">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="false">否</SelectItem>
-                    <SelectItem value="true">是</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeDialog}
-                disabled={saveMut.isPending}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ExamDialog
+        open={open}
+        editing={editing}
+        form={form}
+        onFormChange={(patch) => setForm({ ...form, ...patch })}
+        onClose={closeDialog}
+        onSubmit={submit}
+        pending={saveMut.isPending}
+        err={err}
+      />
     </div>
   )
 }

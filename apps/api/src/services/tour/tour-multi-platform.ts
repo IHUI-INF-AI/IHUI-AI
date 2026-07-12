@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { tourContent } from '@ihui/database'
 import { processEvents, type TourEvent, type TourEventDispatcher } from './tour-event-bus.js'
+import { logger } from '../../utils/logger.js'
 
 export type Platform = 'wechat_oa' | 'xiaohongshu' | 'douyin' | 'weibo' | 'web' | 'miniapp'
 
@@ -53,7 +54,7 @@ export const multiPlatformDispatcher: TourEventDispatcher = {
       .from(tourContent)
       .where(eq(tourContent.id, payload.contentId))
     if (!content) {
-      console.warn(`[tour-multi-platform] content ${payload.contentId} not found`)
+      logger.warn(`[tour-multi-platform] content ${payload.contentId} not found`)
       return
     }
 

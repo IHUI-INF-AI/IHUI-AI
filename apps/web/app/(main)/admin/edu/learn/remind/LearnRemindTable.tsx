@@ -1,0 +1,116 @@
+'use client'
+
+import { Loader2, Edit, Trash2, Bell } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { TYPE_MAP } from './helpers'
+import type { Remind } from './types'
+
+interface Props {
+  list: Remind[]
+  isLoading: boolean
+  noEndpoint: boolean
+  onEdit: (r: Remind) => void
+  onDelete: (id: string) => void
+  deletePending: boolean
+}
+
+export function LearnRemindTable({
+  list,
+  isLoading,
+  noEndpoint,
+  onEdit,
+  onDelete,
+  deletePending,
+}: Props) {
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <Table>
+        <TableHeader className="bg-muted/50">
+          <TableRow>
+            <TableHead className="px-4 py-2.5">标题</TableHead>
+            <TableHead className="px-4 py-2.5">类型</TableHead>
+            <TableHead className="px-4 py-2.5">提醒时间</TableHead>
+            <TableHead className="px-4 py-2.5">已读</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className="divide-y">
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                加载中...
+              </TableCell>
+            </TableRow>
+          ) : noEndpoint ? (
+            <TableRow>
+              <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                <Bell className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                提醒端点未配置
+              </TableCell>
+            </TableRow>
+          ) : list.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                <Bell className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                暂无提醒
+              </TableCell>
+            </TableRow>
+          ) : (
+            list.map((r) => (
+              <TableRow key={r.id} className="hover:bg-muted/30">
+                <TableCell className="px-4 py-2.5">
+                  <div className="font-medium">{r.title}</div>
+                  {r.content && (
+                    <div className="max-w-xs break-words text-xs text-muted-foreground">
+                      {r.content}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="px-4 py-2.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
+                    )}
+                  >
+                    {TYPE_MAP[r.type] ?? r.type}
+                  </span>
+                </TableCell>
+                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  {r.remindAt}
+                </TableCell>
+                <TableCell className="px-4 py-2.5">
+                  {r.isRead ? (
+                    <span className="text-xs text-muted-foreground">已读</span>
+                  ) : (
+                    <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                      未读
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="px-4 py-2.5 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDelete(r.id)}
+                      title="删除"
+                      className="text-destructive hover:text-destructive"
+                      disabled={deletePending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
