@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus, Download, Building2 } from 'lucide-react'
 
@@ -16,6 +17,7 @@ import { RESOURCE, PERM, EMPTY, EXPORT_COLS, api } from './helpers'
 import type { AuthDept, AuthDeptForm, ListData } from './types'
 
 export default function AuthDeptPage() {
+  const t = useTranslations('adminAuthDept')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState({ userId: '' })
   const [page, setPage] = React.useState(1)
@@ -46,7 +48,7 @@ export default function AuthDeptPage() {
         : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'auth-dept'] })
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       close()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -55,7 +57,7 @@ export default function AuthDeptPage() {
     mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'auth-dept'] })
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       setDelId(null)
     },
     onError: (e: Error) => toast.error(e.message),
@@ -83,7 +85,7 @@ export default function AuthDeptPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.userId.trim() || !form.deptId.trim()) {
-      toast.error('用户ID 和 部门ID 为必填项')
+      toast.error(t('validateRequired'))
       return
     }
     saveMut.mutate()
@@ -95,10 +97,10 @@ export default function AuthDeptPage() {
   async function handleExport() {
     const ok = await exportFromApi(
       `${RESOURCE}?${new URLSearchParams(params)}`,
-      '用户部门关联',
+      t('exportName'),
       EXPORT_COLS,
     )
-    if (!ok) toast.error('导出失败')
+    if (!ok) toast.error(t('exportFailed'))
   }
 
   return (
@@ -106,19 +108,19 @@ export default function AuthDeptPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Building2 className="h-6 w-6 text-primary" />
-          用户部门关联
+          {t('title')}
         </h1>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}:export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}:add`}>
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('add')}
             </Button>
           </HasPermi>
         </div>
@@ -141,9 +143,7 @@ export default function AuthDeptPage() {
 
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
-          </span>
+          <span className="text-muted-foreground">{t('total', { total, page, totalPages })}</span>
           <div className="flex gap-1">
             <Button
               size="sm"
@@ -151,7 +151,7 @@ export default function AuthDeptPage() {
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              上一页
+              {t('prev')}
             </Button>
             <Button
               size="sm"
@@ -159,7 +159,7 @@ export default function AuthDeptPage() {
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
             >
-              下一页
+              {t('next')}
             </Button>
           </div>
         </div>

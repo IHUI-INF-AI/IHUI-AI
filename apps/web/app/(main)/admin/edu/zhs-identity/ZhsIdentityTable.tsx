@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, BadgeCheck } from 'lucide-react'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -23,6 +24,7 @@ export function ZhsIdentityTable({
   onDelete,
   deletePending,
 }: Props) {
+  const t = useTranslations('admin.eduZhsIdentity')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -30,14 +32,14 @@ export function ZhsIdentityTable({
           <TableRow>
             <TableHead className="px-4 py-2.5">ID</TableHead>
             <TableHead className="px-4 py-2.5">UUID</TableHead>
-            <TableHead className="px-4 py-2.5">名称</TableHead>
-            <TableHead className="px-4 py-2.5">平台ID</TableHead>
-            <TableHead className="px-4 py-2.5">组织ID</TableHead>
-            <TableHead className="px-4 py-2.5">图片</TableHead>
-            <TableHead className="px-4 py-2.5">跨组织</TableHead>
-            <TableHead className="px-4 py-2.5">创建人</TableHead>
-            <TableHead className="px-4 py-2.5">创建时间</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colPlatformId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colOrganizationId')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colImage')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCross')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCreator')}</TableHead>
+            <TableHead className="px-4 py-2.5">{t('colCreatedAt')}</TableHead>
+            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -45,7 +47,7 @@ export function ZhsIdentityTable({
             <TableRow>
               <TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中...
+                {t('loading')}
               </TableCell>
             </TableRow>
           ) : error ? (
@@ -58,7 +60,7 @@ export function ZhsIdentityTable({
             <TableRow>
               <TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
                 <BadgeCheck className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                暂无数据
+                {t('empty')}
               </TableCell>
             </TableRow>
           ) : (
@@ -77,13 +79,15 @@ export function ZhsIdentityTable({
                     '-'
                   )}
                 </TableCell>
-                <TableCell className="px-4 py-2.5">{r.isCross === 1 ? '是' : '否'}</TableCell>
+                <TableCell className="px-4 py-2.5">
+                  {r.isCross === 1 ? t('yes') : t('no')}
+                </TableCell>
                 <TableCell className="px-4 py-2.5">{r.creator ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{fmt(r.createdAt)}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title="编辑">
+                      <Button variant="ghost" size="sm" onClick={() => onEdit(r)} title={t('edit')}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </HasPermi>
@@ -92,7 +96,7 @@ export function ZhsIdentityTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => onDelete(r)}
-                        title="删除"
+                        title={t('delete')}
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
                       >

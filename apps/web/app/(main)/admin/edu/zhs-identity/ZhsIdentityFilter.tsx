@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Input, Button } from '@ihui/ui'
 import type { Search } from './types'
 
@@ -12,6 +13,7 @@ interface Props {
 const inputCls = 'h-9 w-36'
 
 export function ZhsIdentityFilter({ q, onChange, onReset }: Props) {
+  const t = useTranslations('admin.eduZhsIdentity')
   return (
     <>
       <Input
@@ -21,25 +23,25 @@ export function ZhsIdentityFilter({ q, onChange, onReset }: Props) {
         className={inputCls}
       />
       <Input
-        placeholder="名称"
+        placeholder={t('placeholderName')}
         value={q.name}
         onChange={(e) => onChange('name', e.target.value)}
         className={inputCls}
       />
       <Input
-        placeholder="平台ID"
+        placeholder={t('placeholderPlatformId')}
         value={q.platformId}
         onChange={(e) => onChange('platformId', e.target.value)}
         className={inputCls}
       />
       <Input
-        placeholder="组织ID"
+        placeholder={t('placeholderOrganizationId')}
         value={q.organizationId}
         onChange={(e) => onChange('organizationId', e.target.value)}
         className={inputCls}
       />
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
     </>
   )

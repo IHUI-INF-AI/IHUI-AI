@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -35,6 +36,7 @@ export function LoginLogDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.loginLogs')
   return (
     <Dialog
       open={open}
@@ -45,21 +47,19 @@ export function LoginLogDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑登录日志' : '新增登录日志'}</DialogTitle>
-            <DialogDescription>
-              {editing ? '修改登录日志信息' : '添加新的登录日志'}
-            </DialogDescription>
+            <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
+            <DialogDescription>{editing ? t('descEdit') : t('descCreate')}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>用户UUID *</Label>
+              <Label>{t('fieldUserUuid')}</Label>
               <Input
                 value={form.userUuid}
                 onChange={(e) => setForm({ ...form, userUuid: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>登录类型 *</Label>
+              <Label>{t('fieldLoginType')}</Label>
               <Input
                 value={form.loginType}
                 onChange={(e) => setForm({ ...form, loginType: e.target.value })}
@@ -67,7 +67,7 @@ export function LoginLogDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>平台</Label>
+              <Label>{t('fieldPlatform')}</Label>
               <Input
                 value={form.platform}
                 onChange={(e) => setForm({ ...form, platform: e.target.value })}
@@ -78,14 +78,14 @@ export function LoginLogDialog({
               <Input value={form.ip} onChange={(e) => setForm({ ...form, ip: e.target.value })} />
             </div>
             <div className="space-y-1.5">
-              <Label>位置</Label>
+              <Label>{t('fieldLocation')}</Label>
               <Input
                 value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
               />
             </div>
             <DatePicker
-              label="登录时间"
+              label={t('fieldLoginTime')}
               value={form.loginTime}
               onChange={(v) => setForm({ ...form, loginTime: v })}
             />
@@ -97,7 +97,7 @@ export function LoginLogDialog({
               />
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label>消息</Label>
+              <Label>{t('fieldMessage')}</Label>
               <Input
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -106,10 +106,11 @@ export function LoginLogDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

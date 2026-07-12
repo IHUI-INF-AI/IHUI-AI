@@ -65,7 +65,7 @@ export default function AdminFeedbacksPage() {
       })
     },
     onSuccess: () => {
-      toast.success('更新成功')
+      toast.success(t('updateSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'feedbacks'] })
       close()
     },
@@ -85,7 +85,7 @@ export default function AdminFeedbacksPage() {
       return fetchApi('/api/admin/feedbacks', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success('新增成功')
+      toast.success(t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'feedbacks'] })
       closeCreate()
     },
@@ -95,7 +95,7 @@ export default function AdminFeedbacksPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => fetchApi(`/api/admin/feedbacks/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'feedbacks'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -131,11 +131,11 @@ export default function AdminFeedbacksPage() {
   function submitCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreateErr(null)
-    if (!createForm.title.trim()) return setCreateErr('请输入标题')
+    if (!createForm.title.trim()) return setCreateErr(t('titleRequired'))
     createMut.mutate()
   }
   function handleDelete(fb: AdminFeedbackItem) {
-    if (!confirm(`确认删除反馈 "${fb.title}"?`)) return
+    if (!confirm(t('deleteConfirm', { title: fb.title }))) return
     deleteMut.mutate(fb.id)
   }
   function handleReset() {
@@ -200,7 +200,7 @@ export default function AdminFeedbacksPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            共 {total} 条 · 第 {page}/{totalPages} 页
+            {t('total', { total })} · {t('pageInfo', { page, totalPages })}
           </span>
           <div className="flex gap-2">
             <Button
@@ -210,7 +210,7 @@ export default function AdminFeedbacksPage() {
               disabled={page <= 1}
             >
               <ChevronLeft className="h-4 w-4" />
-              上一页
+              {t('prev')}
             </Button>
             <Button
               variant="outline"
@@ -218,7 +218,7 @@ export default function AdminFeedbacksPage() {
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
             >
-              下一页
+              {t('next')}
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

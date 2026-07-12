@@ -78,16 +78,16 @@ export function FeedbackFilter({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">创建人</Label>
+          <Label className="text-xs">{t('creator')}</Label>
           <Input
             className={inputSm}
             value={search.creator}
             onChange={(e) => onSearchChange({ ...search, creator: e.target.value })}
-            placeholder="创建人"
+            placeholder={t('creator')}
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">创建时间</Label>
+          <Label className="text-xs">{t('createdAt')}</Label>
           <Input
             type="date"
             className={inputSm}

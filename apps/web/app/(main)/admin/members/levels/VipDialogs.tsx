@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { DatePicker } from '@/components/form/DatePicker'
@@ -49,6 +50,7 @@ export function VipFormDialog({
   onClose,
   onSubmit,
 }: VipFormDialogProps) {
+  const t = useTranslations('admin.membersLevels')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
@@ -81,10 +83,11 @@ export function VipFormDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}保存
+              {isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
@@ -101,19 +104,21 @@ interface VipDeleteDialogProps {
 }
 
 export function VipDeleteDialog({ open, isPending, onClose, onConfirm }: VipDeleteDialogProps) {
+  const t = useTranslations('admin.membersLevels')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>确认删除</DialogTitle>
-          <DialogDescription>确定要删除该记录吗？此操作不可撤销。</DialogDescription>
+          <DialogTitle>{t('deleteTitle')}</DialogTitle>
+          <DialogDescription>{t('deleteDesc')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
-            取消
+            {t('cancel')}
           </Button>
           <Button type="button" variant="destructive" disabled={isPending} onClick={onConfirm}>
-            {isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}删除
+            {isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {t('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

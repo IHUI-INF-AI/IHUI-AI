@@ -41,7 +41,7 @@ function log(level: LogLevel, msg: string, meta?: object): void {
   } else {
     // 回退到 console（测试环境/未初始化）
     const prefix = `[${level.toUpperCase()}]`
-    const fn = level === 'debug' ? console.log : console[level]
+    const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.info
     if (meta) {
       fn(`${prefix} ${msg}`, meta)
     } else {

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Input,
@@ -35,13 +36,14 @@ export function ApiAppCreateDialog({
   onSubmit,
   onClose,
 }: CreateProps) {
+  const t = useTranslations('adminApiApps')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>新建 API 应用</DialogTitle>
-            <DialogDescription>创建后将生成 AppID 与 AppSecret</DialogDescription>
+            <DialogTitle>{t('createTitle')}</DialogTitle>
+            <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -49,30 +51,30 @@ export function ApiAppCreateDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="ap-name">应用名称</Label>
+            <Label htmlFor="ap-name">{t('labelName')}</Label>
             <Input
               id="ap-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="输入应用名称"
+              placeholder={t('phName')}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ap-perms">权限（逗号分隔）</Label>
+            <Label htmlFor="ap-perms">{t('labelPermissions')}</Label>
             <Input
               id="ap-perms"
               value={form.permissions}
               onChange={(e) => setForm({ ...form, permissions: e.target.value })}
-              placeholder="例如：read:users,write:orders"
+              placeholder={t('phPermissions')}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={createPending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={createPending}>
               {createPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              创建
+              {t('create')}
             </Button>
           </DialogFooter>
         </form>
@@ -87,23 +89,24 @@ interface CreatedProps {
 }
 
 export function ApiAppCreatedDialog({ created, onClose }: CreatedProps) {
+  const t = useTranslations('adminApiApps')
   return (
     <Dialog open={!!created} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>创建成功</DialogTitle>
-          <DialogDescription>请妥善保管 AppSecret，仅展示一次</DialogDescription>
+          <DialogTitle>{t('createdTitle')}</DialogTitle>
+          <DialogDescription>{t('createdDesc')}</DialogDescription>
         </DialogHeader>
         {created && (
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>AppID</Label>
+              <Label>{t('labelAppId')}</Label>
               <code className="block rounded-md bg-muted/50 px-3 py-2 text-xs">
                 {created.appId}
               </code>
             </div>
             <div className="space-y-1">
-              <Label>AppSecret</Label>
+              <Label>{t('labelAppSecret')}</Label>
               <code className={cn('block rounded-md bg-amber-500/10 px-3 py-2 text-xs')}>
                 {created.appSecret}
               </code>
@@ -112,7 +115,7 @@ export function ApiAppCreatedDialog({ created, onClose }: CreatedProps) {
         )}
         <DialogFooter>
           <Button type="button" onClick={onClose}>
-            确认
+            {t('confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -135,12 +138,13 @@ export function ApiAppDeleteDialog({
   onConfirm,
   onCancel,
 }: DeleteProps) {
+  const t = useTranslations('adminApiApps')
   return (
     <Dialog open={!!delTarget} onOpenChange={(o) => (o ? null : onCancel())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>删除应用</DialogTitle>
-          <DialogDescription>该操作不可恢复</DialogDescription>
+          <DialogTitle>{t('deleteTitle')}</DialogTitle>
+          <DialogDescription>{t('deleteDesc')}</DialogDescription>
         </DialogHeader>
         {err && (
           <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -152,11 +156,11 @@ export function ApiAppDeleteDialog({
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel} disabled={delPending}>
-            取消
+            {t('cancel')}
           </Button>
           <Button type="button" variant="destructive" disabled={delPending} onClick={onConfirm}>
             {delPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            删除
+            {t('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>

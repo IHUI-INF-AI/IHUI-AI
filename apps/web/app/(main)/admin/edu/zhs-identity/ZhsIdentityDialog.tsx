@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -37,12 +38,13 @@ export function ZhsIdentityDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.eduZhsIdentity')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑平台身份' : '新建平台身份'}</DialogTitle>
+            <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -58,35 +60,35 @@ export function ZhsIdentityDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>名称</Label>
+              <Label>{t('fieldName')}</Label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>平台ID</Label>
+              <Label>{t('fieldPlatformId')}</Label>
               <Input
                 value={form.platformId}
                 onChange={(e) => setForm({ ...form, platformId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>组织ID</Label>
+              <Label>{t('fieldOrganizationId')}</Label>
               <Input
                 value={form.organizationId}
                 onChange={(e) => setForm({ ...form, organizationId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>父级ID</Label>
+              <Label>{t('fieldParentId')}</Label>
               <Input
                 value={form.parentId}
                 onChange={(e) => setForm({ ...form, parentId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>是否跨组织</Label>
+              <Label>{t('fieldIsCross')}</Label>
               <Input
                 type="number"
                 value={form.isCross}
@@ -95,7 +97,7 @@ export function ZhsIdentityDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>备注</Label>
+            <Label>{t('fieldRemark')}</Label>
             <textarea
               className={textareaCls}
               value={form.remark}
@@ -103,7 +105,7 @@ export function ZhsIdentityDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>图片</Label>
+            <Label>{t('fieldImage')}</Label>
             <ImageUpload
               value={form.binding}
               onChange={(v) => setForm({ ...form, binding: v as string })}
@@ -111,10 +113,11 @@ export function ZhsIdentityDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

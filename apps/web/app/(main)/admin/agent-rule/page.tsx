@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -17,6 +18,7 @@ import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, agentRuleToForm } from './h
 import type { AgentRule, AgentRuleForm, ListData } from './types'
 
 export default function AgentRulePage() {
+  const t = useTranslations('admin.agentRule')
   const router = useRouter()
   const qc = useQueryClient()
   const [searchAgentId, setSearchAgentId] = React.useState('')
@@ -53,7 +55,7 @@ export default function AgentRulePage() {
         : api('/api/admin/agent-rule', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '新增成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'agent-rule'] })
       closeDialog()
     },
@@ -63,7 +65,7 @@ export default function AgentRulePage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/agent-rule/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'agent-rule'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -91,18 +93,18 @@ export default function AgentRulePage() {
     e.preventDefault()
     setErr(null)
     if (!form.ruleName.trim()) {
-      setErr('请输入规则名称')
+      setErr(t('ruleNameRequired'))
       return
     }
     saveMut.mutate()
   }
   function handleDelete(item: AgentRule) {
-    if (!window.confirm(`确认删除 "${item.ruleName}" ?`)) return
+    if (!window.confirm(t('confirmDelete', { name: item.ruleName }))) return
     deleteMut.mutate(item.id)
   }
   function handleExport() {
     exportToExcel(
-      'Agent规则',
+      t('exportName'),
       EXPORT_COLUMNS,
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
@@ -115,16 +117,16 @@ export default function AgentRulePage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Agent 规则管理</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('export')}
           </Button>
           <HasPermi code="ai:agentrule:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新增
+              {t('add')}
             </Button>
           </HasPermi>
         </div>
@@ -152,7 +154,7 @@ export default function AgentRulePage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -161,7 +163,7 @@ export default function AgentRulePage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -172,7 +174,7 @@ export default function AgentRulePage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
