@@ -9,7 +9,7 @@ import { Wallet, Plus, ArrowDownToLine, Loader2, ChevronLeft, ChevronRight } fro
 import { fetchApi } from '@/lib/api'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import { StatCard } from '@/components/data'
+import { AnimatedNumber } from '@/components/common'
 
 interface BalanceData {
   balance: number
@@ -90,13 +90,21 @@ export default function WalletPage() {
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <StatCard
-            title={t('balance')}
-            value={balanceQ.data?.balance ?? 0}
-            icon={Wallet}
-            loading={balanceQ.isLoading}
-            className="min-w-[200px] flex-1"
-          />
+          <div className="min-w-[200px] flex-1 rounded-xl border bg-card p-4 text-card-foreground shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{t('balance')}</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Wallet className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-bold tracking-tight">
+              {balanceQ.isLoading ? (
+                <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
+              ) : (
+                <AnimatedNumber value={balanceQ.data?.balance ?? 0} />
+              )}
+            </div>
+          </div>
           <div className="flex gap-2">
             <Link href="/wallet/recharge">
               <Button>
@@ -156,12 +164,26 @@ export default function WalletPage() {
                       <TableCell className="px-4 py-2.5 font-medium">
                         {t(OP_TYPE_KEY[it.opType] ?? 'flowRecharge')}
                       </TableCell>
-                      <TableCell className={cn('px-4 py-2.5 text-right font-medium', positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
-                        {positive ? '+' : ''}{it.quantity}
+                      <TableCell
+                        className={cn(
+                          'px-4 py-2.5 text-right font-medium',
+                          positive
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-red-600 dark:text-red-400',
+                        )}
+                      >
+                        {positive ? '+' : ''}
+                        {it.quantity}
                       </TableCell>
-                      <TableCell className="px-4 py-2.5 text-right text-muted-foreground">{it.balanceAfter}</TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">{fmtDate(it.createdAt)}</TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">{it.remark ?? '-'}</TableCell>
+                      <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
+                        {it.balanceAfter}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {fmtDate(it.createdAt)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {it.remark ?? '-'}
+                      </TableCell>
                     </TableRow>
                   )
                 })
@@ -172,13 +194,27 @@ export default function WalletPage() {
 
         {total > PAGE_SIZE && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{total} / {totalPages}</span>
+            <span className="text-sm text-muted-foreground">
+              {total} / {totalPages}
+            </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

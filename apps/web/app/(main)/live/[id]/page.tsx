@@ -9,6 +9,7 @@ import { PlayCircle, Eye, Loader2, ArrowLeft, Radio, Calendar } from 'lucide-rea
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui'
+import { VideoPlayer } from '@/components/media'
 
 interface ChannelDetail {
   id: string
@@ -136,24 +137,37 @@ export default function LiveDetailPage() {
       {backLink}
 
       <Card className="overflow-hidden">
-        <div className="relative flex h-56 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-          {channel.coverImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={channel.coverImage}
-              alt={channel.title}
-              className="absolute inset-0 h-full w-full object-cover"
+        {channel.playUrl ? (
+          <div className="relative aspect-video bg-black">
+            <VideoPlayer
+              src={channel.playUrl}
+              poster={channel.coverImage ?? undefined}
+              autoPlay={channel.isLive}
+              muted={channel.isLive}
+              className="h-full w-full"
             />
-          ) : null}
-          {channel.coverImage ? <div className="absolute inset-0 bg-black/25" /> : null}
-          <PlayCircle
-            className={cn(
-              'relative h-14 w-14 drop-shadow',
-              channel.coverImage ? 'text-white/90' : 'text-primary/40',
-            )}
-          />
-          <div className="absolute left-3 top-3">{renderBadge()}</div>
-        </div>
+            <div className="absolute left-3 top-3 z-10">{renderBadge()}</div>
+          </div>
+        ) : (
+          <div className="relative flex h-56 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+            {channel.coverImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={channel.coverImage}
+                alt={channel.title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : null}
+            {channel.coverImage ? <div className="absolute inset-0 bg-black/25" /> : null}
+            <PlayCircle
+              className={cn(
+                'relative h-14 w-14 drop-shadow',
+                channel.coverImage ? 'text-white/90' : 'text-primary/40',
+              )}
+            />
+            <div className="absolute left-3 top-3">{renderBadge()}</div>
+          </div>
+        )}
         <CardContent className="space-y-4 p-6">
           <h1 className="text-2xl font-bold tracking-tight">{channel.title}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">

@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
+import { Tag as TagChip } from '@/components/data/Tag'
 
 interface TagItem {
   id: string
@@ -205,7 +206,9 @@ export default function AdminTagsPage() {
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                           <Tag className="h-3.5 w-3.5" />
                         </span>
-                        <span className="font-medium">{tag.name}</span>
+                        <TagChip size="md" color={tag.color ?? undefined}>
+                          {tag.name}
+                        </TagChip>
                       </div>
                     </td>
                     <td className="px-4 py-2.5">

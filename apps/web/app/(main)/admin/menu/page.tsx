@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@ihui/ui'
 import { DataTable, type Column } from '@/components/data'
+import { Select } from '@/components/form'
 import { cn } from '@/lib/utils'
 
 interface MenuItem {
@@ -54,9 +55,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   if (!r.success) throw new Error(r.error)
   return r.data
 }
-
-const selectClass =
-  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export default function MenuPage() {
   const qc = useQueryClient()
@@ -313,21 +311,16 @@ export default function MenuPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="m-parent">父菜单</Label>
-              <select
-                id="m-parent"
+              <Select
+                options={[
+                  { label: '顶级菜单', value: '' },
+                  ...list
+                    .filter((m) => m.id !== editing?.id)
+                    .map((m) => ({ label: m.name, value: m.id })),
+                ]}
                 value={form.parentId ?? ''}
-                onChange={(e) => setForm({ ...form, parentId: e.target.value || null })}
-                className={selectClass}
-              >
-                <option value="">顶级菜单</option>
-                {list
-                  .filter((m) => m.id !== editing?.id)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-              </select>
+                onChange={(v) => setForm({ ...form, parentId: (v as string) || null })}
+              />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
