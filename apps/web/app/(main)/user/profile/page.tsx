@@ -15,6 +15,13 @@ import { Button, Input, Label } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
+import { RoutinesPanel } from '@/components/ai/routines-panel'
+import { VoiceRecord } from '@/components/ai/voice-record'
+
+const MOCK_ROUTINES = [
+  { id: 'r1', name: '每日早报摘要', schedule: '每天 08:00', enabled: true, lastRun: '今日 08:00' },
+  { id: 'r2', name: '周报自动生成', schedule: '每周一 09:00', enabled: false },
+]
 
 const profileSchema = z.object({
   nickname: z.string().min(2).max(20),
@@ -231,6 +238,18 @@ export default function ProfilePage() {
           totalTokens={aiStats.totalTokens}
           model={aiStats.latestModel}
         />
+      </div>
+
+      {/* 例行程序 */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold">例行程序</h2>
+        <RoutinesPanel routines={MOCK_ROUTINES} />
+      </div>
+
+      {/* 语音录制 */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold">语音录制</h2>
+        <VoiceRecord />
       </div>
 
       {/* 表单 */}
