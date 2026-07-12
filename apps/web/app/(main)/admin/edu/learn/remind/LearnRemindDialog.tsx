@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { selectClass, textareaClass } from '@/lib/edu'
 import {
   Dialog,
@@ -43,6 +44,7 @@ export function LearnRemindDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.learn.remind')
   return (
     <Dialog
       open={open}
@@ -53,7 +55,7 @@ export function LearnRemindDialog({
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑提醒' : '新建提醒'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -61,7 +63,7 @@ export function LearnRemindDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="rm-title">标题</Label>
+            <Label htmlFor="rm-title">{t('fieldTitle')}</Label>
             <Input
               id="rm-title"
               value={form.title}
@@ -69,7 +71,7 @@ export function LearnRemindDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="rm-content">内容</Label>
+            <Label htmlFor="rm-content">{t('fieldContent')}</Label>
             <textarea
               id="rm-content"
               className={textareaClass}
@@ -80,22 +82,22 @@ export function LearnRemindDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="rm-type">类型</Label>
+              <Label htmlFor="rm-type">{t('fieldType')}</Label>
               <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
                 <SelectTrigger className={selectClass} id="rm-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(TYPE_MAP).map(([k, v]) => (
+                  {Object.entries(TYPE_MAP).map(([k]) => (
                     <SelectItem key={k} value={k}>
-                      {v}
+                      {t(`type.${k}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rm-at">提醒时间</Label>
+              <Label htmlFor="rm-at">{t('fieldRemindAt')}</Label>
               <Input
                 id="rm-at"
                 type="datetime-local"
@@ -110,14 +112,15 @@ export function LearnRemindDialog({
               checked={form.isRead}
               onCheckedChange={(v) => setForm({ ...form, isRead: v })}
             />
-            <Label htmlFor="rm-read">已读</Label>
+            <Label htmlFor="rm-read">{t('fieldRead')}</Label>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

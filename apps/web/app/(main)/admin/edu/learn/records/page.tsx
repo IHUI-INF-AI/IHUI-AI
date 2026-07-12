@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, ChevronLeft, ChevronRight, ListOrdered, Search } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
@@ -32,16 +33,11 @@ interface LearnRecord {
   occurredAt: string
   hours: number
 }
-const TYPE_MAP: Record<string, string> = {
-  study: '学习',
-  exam: '考试',
-  live: '直播',
-  offline: '线下',
-  other: '其他',
-}
+const TYPES = ['study', 'exam', 'live', 'offline', 'other']
 const PAGE_SIZE = 10
 
 export default function EduLearnRecordsPage() {
+  const t = useTranslations('admin.edu.learn.records')
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
@@ -73,14 +69,14 @@ export default function EduLearnRecordsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">学习记录</h1>
-        <p className="mt-1 text-sm text-muted-foreground">学员学习与线下活动记录</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/learn">
             <ChevronLeft className="h-4 w-4" />
-            返回学习管理
+            {t('backToLearn')}
           </Link>
         </Button>
         <div className="relative w-full max-w-xs">
@@ -88,20 +84,20 @@ export default function EduLearnRecordsPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索记录..."
+            placeholder={t('searchPlaceholder')}
             className="h-9 pl-8"
           />
         </div>
         <div className="w-full max-w-[160px]">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className={selectClass} aria-label="类型">
+            <SelectTrigger className={selectClass} aria-label={t('type')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              {Object.entries(TYPE_MAP).map(([k, v]) => (
+              <SelectItem value="all">{t('allTypes')}</SelectItem>
+              {TYPES.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {v}
+                  {t(`type.${k}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -112,11 +108,11 @@ export default function EduLearnRecordsPage() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="px-4 py-2.5">学员</TableHead>
-              <TableHead className="px-4 py-2.5">类型</TableHead>
-              <TableHead className="px-4 py-2.5">标题</TableHead>
-              <TableHead className="px-4 py-2.5">时长</TableHead>
-              <TableHead className="px-4 py-2.5">时间</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colStudent')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colType')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colTitle')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colDuration')}</TableHead>
+              <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y">
@@ -124,7 +120,7 @@ export default function EduLearnRecordsPage() {
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </TableCell>
               </TableRow>
             ) : error ? (
@@ -137,7 +133,7 @@ export default function EduLearnRecordsPage() {
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
                   <ListOrdered className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  暂无记录
+                  {t('empty')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -152,7 +148,7 @@ export default function EduLearnRecordsPage() {
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/10 text-sky-600 dark:text-sky-400',
                       )}
                     >
-                      {TYPE_MAP[r.type] ?? r.type}
+                      {TYPES.includes(r.type) ? t(`type.${r.type}`) : r.type}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
@@ -163,7 +159,7 @@ export default function EduLearnRecordsPage() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5">{r.hours} 小时</TableCell>
+                  <TableCell className="px-4 py-2.5">{t('hours', { count: r.hours })}</TableCell>
                   <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
                     {r.occurredAt}
                   </TableCell>
@@ -174,7 +170,7 @@ export default function EduLearnRecordsPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -183,10 +179,10 @@ export default function EduLearnRecordsPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -194,7 +190,7 @@ export default function EduLearnRecordsPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import {
   Button,
@@ -44,12 +45,13 @@ export function LearnDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.learn.index')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent className="max-w-xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑课程' : '新建课程'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -57,7 +59,7 @@ export function LearnDialog({
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="l-title">标题</Label>
+            <Label htmlFor="l-title">{t('labelTitle')}</Label>
             <Input
               id="l-title"
               value={form.title}
@@ -66,7 +68,7 @@ export function LearnDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="l-cat">分类</Label>
+              <Label htmlFor="l-cat">{t('labelCategory')}</Label>
               <Select
                 value={form.categoryId || 'none'}
                 onValueChange={(v) => setForm({ ...form, categoryId: v === 'none' ? '' : v })}
@@ -75,7 +77,7 @@ export function LearnDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">无分类</SelectItem>
+                  <SelectItem value="none">{t('noCategory')}</SelectItem>
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -85,7 +87,7 @@ export function LearnDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="l-lec">讲师</Label>
+              <Label htmlFor="l-lec">{t('labelLecturer')}</Label>
               <Input
                 id="l-lec"
                 value={form.lecturerName}
@@ -94,7 +96,7 @@ export function LearnDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="l-intro">简介</Label>
+            <Label htmlFor="l-intro">{t('labelIntro')}</Label>
             <Input
               id="l-intro"
               value={form.intro}
@@ -103,7 +105,7 @@ export function LearnDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="l-price">价格</Label>
+              <Label htmlFor="l-price">{t('labelPrice')}</Label>
               <Input
                 id="l-price"
                 type="number"
@@ -114,7 +116,7 @@ export function LearnDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="l-sort">排序</Label>
+              <Label htmlFor="l-sort">{t('labelSort')}</Label>
               <Input
                 id="l-sort"
                 type="number"
@@ -131,7 +133,7 @@ export function LearnDialog({
                 checked={form.isFree}
                 onCheckedChange={(v) => setForm({ ...form, isFree: v })}
               />
-              <Label htmlFor="l-free">免费</Label>
+              <Label htmlFor="l-free">{t('labelFree')}</Label>
             </div>
             <div className="flex items-center gap-2">
               <Switch
@@ -139,15 +141,16 @@ export function LearnDialog({
                 checked={form.isPublished}
                 onCheckedChange={(v) => setForm({ ...form, isPublished: v })}
               />
-              <Label htmlFor="l-pub">上架</Label>
+              <Label htmlFor="l-pub">{t('labelPublish')}</Label>
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

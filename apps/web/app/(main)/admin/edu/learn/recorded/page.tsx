@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -12,10 +13,11 @@ import { Button } from '@ihui/ui'
 import { RecordedFilter } from './RecordedFilter'
 import { RecordedTable } from './RecordedTable'
 import { RecordedDialog } from './RecordedDialog'
-import { PAGE_SIZE, API, LEVEL_TEXT, AUDIT_TEXT, EMPTY_FORM, videoToForm } from './helpers'
+import { PAGE_SIZE, API, EMPTY_FORM, videoToForm } from './helpers'
 import type { Video, CForm, RecordedSearch } from './types'
 
 export default function EduLearnRecordedPage() {
+  const t = useTranslations('admin.edu.learn.recorded')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [urlCourseId] = React.useState(() =>
@@ -64,7 +66,7 @@ export default function EduLearnRecordedPage() {
         : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-video'] })
       closeDialog()
     },
@@ -73,7 +75,7 @@ export default function EduLearnRecordedPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course-video'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -81,7 +83,7 @@ export default function EduLearnRecordedPage() {
   const batchDeleteMut = useMutation({
     mutationFn: (ids: string[]) => eduApi(`${API}/${ids.join(',')}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('批量删除成功')
+      toast.success(t('batchDeleteSuccess'))
       setIds([])
       qc.invalidateQueries({ queryKey: ['edu', 'course-video'] })
     },
@@ -109,7 +111,7 @@ export default function EduLearnRecordedPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.title.trim()) return setErr('标题不能为空')
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     saveMut.mutate()
   }
   function handleSearchChange(newQ: RecordedSearch) {
@@ -125,26 +127,30 @@ export default function EduLearnRecordedPage() {
       `${API}${buildQs({ ...q, courseId: urlCourseId, pageSize: 10000 })}`,
       `courseVideo_${Date.now()}`,
       [
-        { key: 'id', title: 'ID' },
-        { key: 'courseId', title: '课程ID' },
-        { key: 'title', title: '标题' },
-        { key: 'lecturer', title: '讲师' },
-        { key: 'duration', title: '时长' },
-        { key: 'isPay', title: '付费', formatter: (v) => (Number(v) === 1 ? '付费' : '免费') },
-        { key: 'amount', title: '金额' },
-        { key: 'label', title: '标签' },
-        { key: 'hot', title: '热度' },
-        { key: 'status', title: '难度', formatter: (v) => LEVEL_TEXT[Number(v)] ?? String(v) },
-        { key: 'auditStatus', title: '审核', formatter: (v) => AUDIT_TEXT[Number(v)] ?? String(v) },
-        { key: 'creator', title: '创建人' },
+        { key: 'id', title: t('colId') },
+        { key: 'courseId', title: t('colCourseId') },
+        { key: 'title', title: t('colTitle') },
+        { key: 'lecturer', title: t('colLecturer') },
+        { key: 'duration', title: t('colDuration') },
+        {
+          key: 'isPay',
+          title: t('colPay'),
+          formatter: (v) => (Number(v) === 1 ? t('payPaid') : t('payFree')),
+        },
+        { key: 'amount', title: t('colAmount') },
+        { key: 'label', title: t('colLabel') },
+        { key: 'hot', title: t('colHot') },
+        { key: 'status', title: t('colLevel'), formatter: (v) => t(`level.${Number(v)}`) },
+        { key: 'auditStatus', title: t('colAudit'), formatter: (v) => t(`audit.${Number(v)}`) },
+        { key: 'creator', title: t('colCreator') },
       ],
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function handleBatchDelete() {
-    if (window.confirm(`确定删除选中的 ${ids.length} 项？`)) batchDeleteMut.mutate(ids)
+    if (window.confirm(t('batchDeleteConfirm', { count: ids.length }))) batchDeleteMut.mutate(ids)
   }
   function handleDelete(r: Video) {
-    if (window.confirm('确定删除？')) deleteMut.mutate(r.id)
+    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(r.id)
   }
 
   const total = data?.total ?? 0
@@ -161,8 +167,8 @@ export default function EduLearnRecordedPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">课程视频</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理课程视频、审核与付费信息</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <RecordedFilter
         q={q}
@@ -186,7 +192,7 @@ export default function EduLearnRecordedPage() {
         deletePending={deleteMut.isPending}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -195,18 +201,16 @@ export default function EduLearnRecordedPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
-          </span>
+          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
