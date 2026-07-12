@@ -19,6 +19,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui'
+import { useTranslations } from 'next-intl'
 import type { Course, CForm } from './types'
 
 interface Props {
@@ -42,6 +43,7 @@ export function CourseDialog({
   pending,
   err,
 }: Props) {
+  const t = useTranslations('admin.edu.course.index')
   return (
     <Dialog
       open={open}
@@ -52,7 +54,7 @@ export function CourseDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑课程' : '新建课程'}</DialogTitle>
+            <DialogTitle>{editing ? t('dialogEditTitle') : t('dialogCreateTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -61,7 +63,7 @@ export function CourseDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="c-title">标题 *</Label>
+              <Label htmlFor="c-title">{t('fieldTitle')}</Label>
               <Input
                 id="c-title"
                 value={form.title}
@@ -69,7 +71,7 @@ export function CourseDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-subtitle">副标题</Label>
+              <Label htmlFor="c-subtitle">{t('fieldSubtitle')}</Label>
               <Input
                 id="c-subtitle"
                 value={form.subtitle}
@@ -77,20 +79,20 @@ export function CourseDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-stage">阶段</Label>
+              <Label htmlFor="c-stage">{t('fieldStage')}</Label>
               <Select value={form.stage} onValueChange={(v) => onFormChange({ stage: v })}>
                 <SelectTrigger className={selectClass} id="c-stage">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">初级</SelectItem>
-                  <SelectItem value="1">中级</SelectItem>
-                  <SelectItem value="2">高级</SelectItem>
+                  <SelectItem value="0">{t('stage.0')}</SelectItem>
+                  <SelectItem value="1">{t('stage.1')}</SelectItem>
+                  <SelectItem value="2">{t('stage.2')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-label">标签</Label>
+              <Label htmlFor="c-label">{t('fieldLabel')}</Label>
               <Input
                 id="c-label"
                 value={form.label}
@@ -98,7 +100,7 @@ export function CourseDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-remarkFile">备注文件</Label>
+              <Label htmlFor="c-remarkFile">{t('fieldRemarkFile')}</Label>
               <Input
                 id="c-remarkFile"
                 value={form.remarkFile}
@@ -106,7 +108,7 @@ export function CourseDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="c-creator">创建人</Label>
+              <Label htmlFor="c-creator">{t('fieldCreator')}</Label>
               <Input
                 id="c-creator"
                 value={form.creator}
@@ -115,7 +117,7 @@ export function CourseDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="c-remark">备注</Label>
+            <Label htmlFor="c-remark">{t('fieldRemark')}</Label>
             <textarea
               id="c-remark"
               value={form.remark}
@@ -124,26 +126,27 @@ export function CourseDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>封面图</Label>
+            <Label>{t('fieldCover')}</Label>
             <ImageUpload
               value={form.binding}
               onChange={(v) => onFormChange({ binding: v as string })}
             />
           </div>
           <div className="space-y-2">
-            <Label>内容</Label>
+            <Label>{t('fieldContent')}</Label>
             <RichTextEditor
               value={form.content}
               onChange={(html) => onFormChange({ content: html })}
-              placeholder="请输入课程内容"
+              placeholder={t('contentPlaceholder')}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>

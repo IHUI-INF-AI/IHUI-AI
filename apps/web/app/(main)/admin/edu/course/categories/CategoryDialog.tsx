@@ -1,6 +1,7 @@
 'use client'
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { selectClass } from '@/lib/edu'
 import {
@@ -41,6 +42,7 @@ export function CategoryDialog({
   pending,
   err,
 }: Props) {
+  const t = useTranslations('admin.edu.course.categories')
   return (
     <Dialog
       open={open}
@@ -51,7 +53,7 @@ export function CategoryDialog({
       <DialogContent className="max-w-xl">
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑分类字典' : '新建分类字典'}</DialogTitle>
+            <DialogTitle>{editing ? t('dialog.editTitle') : t('dialog.createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -60,7 +62,7 @@ export function CategoryDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="cd-code">编码 *</Label>
+              <Label htmlFor="cd-code">{t('dialog.codeRequired')}</Label>
               <Input
                 id="cd-code"
                 value={form.code}
@@ -68,7 +70,7 @@ export function CategoryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cd-name">名称</Label>
+              <Label htmlFor="cd-name">{t('dialog.name')}</Label>
               <Input
                 id="cd-name"
                 value={form.name}
@@ -76,7 +78,7 @@ export function CategoryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cd-prentId">父ID</Label>
+              <Label htmlFor="cd-prentId">{t('dialog.prentId')}</Label>
               <Input
                 id="cd-prentId"
                 value={form.prentId}
@@ -84,7 +86,7 @@ export function CategoryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cd-typeId">类型ID *</Label>
+              <Label htmlFor="cd-typeId">{t('dialog.typeIdRequired')}</Label>
               <Input
                 id="cd-typeId"
                 value={form.typeId}
@@ -92,7 +94,7 @@ export function CategoryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cd-sort">排序</Label>
+              <Label htmlFor="cd-sort">{t('dialog.sort')}</Label>
               <Input
                 id="cd-sort"
                 type="number"
@@ -102,24 +104,24 @@ export function CategoryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cd-isInvalid">是否失效</Label>
+              <Label htmlFor="cd-isInvalid">{t('dialog.isInvalid')}</Label>
               <Select value={form.isInvalid} onValueChange={(v) => onFormChange({ isInvalid: v })}>
                 <SelectTrigger className={selectClass} id="cd-isInvalid">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">有效</SelectItem>
-                  <SelectItem value="1">失效</SelectItem>
+                  <SelectItem value="0">{t('dialog.valid')}</SelectItem>
+                  <SelectItem value="1">{t('dialog.invalid')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="space-y-2">
-            <Label>图片</Label>
+            <Label>{t('dialog.image')}</Label>
             <ImageUpload value={form.img} onChange={(v) => onFormChange({ img: v as string })} />
           </div>
           <div className="space-y-2">
-            <Label>按钮图</Label>
+            <Label>{t('dialog.buttonImage')}</Label>
             <ImageUpload
               value={form.butImg}
               onChange={(v) => onFormChange({ butImg: v as string })}
@@ -127,10 +129,11 @@ export function CategoryDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-              取消
+              {t('dialog.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('dialog.save')}
             </Button>
           </DialogFooter>
         </form>

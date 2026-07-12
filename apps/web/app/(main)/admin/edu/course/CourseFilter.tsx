@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@ihui/ui'
 import { PERM } from './helpers'
+import { useTranslations } from 'next-intl'
 
 interface CourseQuery {
   title: string
@@ -40,17 +41,18 @@ export function CourseFilter({
   onExport,
   hasSelection,
 }: Props) {
+  const t = useTranslations('admin.edu.course.index')
   const inputCls = 'h-9 w-32'
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button asChild variant="ghost" size="sm">
         <Link href="/admin/edu">
           <ChevronLeft className="h-4 w-4" />
-          返回教育后台
+          {t('backToEdu')}
         </Link>
       </Button>
       <Input
-        placeholder="标题"
+        placeholder={t('filterTitle')}
         value={q.title}
         onChange={(e) => onQChange({ title: e.target.value })}
         className={inputCls}
@@ -61,48 +63,48 @@ export function CourseFilter({
           onValueChange={(v) => onQChange({ stage: v === 'all' ? '' : v })}
         >
           <SelectTrigger className={selectClass}>
-            <SelectValue placeholder="阶段" />
+            <SelectValue placeholder={t('filterStage')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部阶段</SelectItem>
-            <SelectItem value="0">初级</SelectItem>
-            <SelectItem value="1">中级</SelectItem>
-            <SelectItem value="2">高级</SelectItem>
+            <SelectItem value="all">{t('allStages')}</SelectItem>
+            <SelectItem value="0">{t('stage.0')}</SelectItem>
+            <SelectItem value="1">{t('stage.1')}</SelectItem>
+            <SelectItem value="2">{t('stage.2')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <Input
-        placeholder="标签"
+        placeholder={t('filterLabel')}
         value={q.label}
         onChange={(e) => onQChange({ label: e.target.value })}
         className={inputCls}
       />
       <Input
-        placeholder="创建人"
+        placeholder={t('filterCreator')}
         value={q.creator}
         onChange={(e) => onQChange({ creator: e.target.value })}
         className={inputCls}
       />
       <Button variant="outline" size="sm" onClick={onReset}>
-        重置
+        {t('reset')}
       </Button>
       <div className="ml-auto flex gap-2">
         <HasPermi code={`${PERM}add`}>
           <Button onClick={onCreate} size="sm">
             <Plus className="h-4 w-4" />
-            新建
+            {t('create')}
           </Button>
         </HasPermi>
         <HasPermi code={`${PERM}remove`}>
           <Button variant="outline" size="sm" disabled={!hasSelection} onClick={onBatchDelete}>
             <Trash2 className="h-4 w-4" />
-            批量删除
+            {t('batchDelete')}
           </Button>
         </HasPermi>
         <HasPermi code={`${PERM}export`}>
           <Button variant="outline" size="sm" onClick={onExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('export')}
           </Button>
         </HasPermi>
       </div>
