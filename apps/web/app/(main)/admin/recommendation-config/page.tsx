@@ -28,49 +28,6 @@ interface RecommendSlot {
   isEnabled: boolean
 }
 
-const MOCK_SLOTS: RecommendSlot[] = [
-  {
-    id: '1',
-    position: 'home_banner',
-    name: '首页顶部 Banner',
-    contentType: 'agent',
-    sort: 1,
-    isEnabled: true,
-  },
-  {
-    id: '2',
-    position: 'home_hot',
-    name: '首页热门推荐',
-    contentType: 'agent',
-    sort: 2,
-    isEnabled: true,
-  },
-  {
-    id: '3',
-    position: 'plaza_sidebar',
-    name: '广场侧边栏',
-    contentType: 'article',
-    sort: 3,
-    isEnabled: true,
-  },
-  {
-    id: '4',
-    position: 'learn_recommend',
-    name: '学习推荐位',
-    contentType: 'course',
-    sort: 4,
-    isEnabled: false,
-  },
-  {
-    id: '5',
-    position: 'live_upcoming',
-    name: '直播预告位',
-    contentType: 'live',
-    sort: 5,
-    isEnabled: true,
-  },
-]
-
 const CONTENT_TYPE_LABEL: Record<RecommendSlot['contentType'], string> = {
   agent: 'Agent',
   article: 'Article',
@@ -104,12 +61,12 @@ export default function RecommendationConfigPage() {
   const [editing, setEditing] = React.useState<RecommendSlot | null>(null)
   const [form, setForm] = React.useState(EMPTY)
 
-  const { data: list = MOCK_SLOTS, isLoading } = useQuery({
+  const { data: list, isLoading } = useQuery({
     queryKey: ['admin', 'recommendation-config'],
     queryFn: async () => {
       const r = await fetchApi<RecommendSlot[]>('/api/admin/recommendation-config')
-      if (r.success && r.data) return r.data
-      return MOCK_SLOTS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
@@ -189,7 +146,7 @@ export default function RecommendationConfigPage() {
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {tc('search')}
         </div>
-      ) : list.length === 0 ? (
+      ) : !list?.length ? (
         <div className="rounded-lg border border-dashed py-16 text-center text-muted-foreground">
           {t('rec.noData')}
         </div>

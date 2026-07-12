@@ -1,23 +1,19 @@
 /**
- * API 配置 — 迁移自旧架构 client/src/config/api-config.ts
- * 旧版为 @aizhs/shared-api 的 re-export 层；新架构改为自包含单一数据源，
- * 定义 API 基础地址、超时、重试策略与白名单
+ * API 配置 — 新架构统一使用 /api 前缀
+ * fetchApi 会自动规范化 URL，此处仅保留超时/重试/白名单配置
  */
 
 /** 运行环境 */
 export type ApiEnv = 'development' | 'staging' | 'production'
 
-/** Coze 旧业务接口前缀（nginx 代理到 Python 后端） */
-export const COZE_API_PREFIX = '/cozeZhsApi'
-
-/** 开发环境代理前缀（vite/next dev server 转发） */
-export const COZE_DEV_PROXY_PREFIX = '/cozeZhsApi'
+/** API 基础前缀（fetchApi 已内置处理，此常量仅供特殊场景引用） */
+export const API_PREFIX = '/api'
 
 /** 各环境 API 基础地址 */
 export const API_BASE_URLS: Record<ApiEnv, string> = {
-  development: '/cozeZhsApi',
-  staging: '/cozeZhsApi',
-  production: '/cozeZhsApi',
+  development: '/api',
+  staging: '/api',
+  production: '/api',
 }
 
 /** 默认请求超时（毫秒） */
@@ -28,15 +24,10 @@ export const UPLOAD_TIMEOUT = 120_000
 
 /** 重试策略 */
 export interface RetryPolicy {
-  /** 最大重试次数（不含首次请求） */
   maxRetries: number
-  /** 初始退避延迟（毫秒） */
   baseDelayMs: number
-  /** 退避乘数 */
   backoffFactor: number
-  /** 最大退避延迟上限（毫秒） */
   maxDelayMs: number
-  /** 触发重试的 HTTP 状态码 */
   retryOnStatus: number[]
 }
 
@@ -49,19 +40,14 @@ export const API_RETRY_POLICY: RetryPolicy = {
   retryOnStatus: [429, 500, 502, 503, 504],
 }
 
-/**
- * 免鉴权白名单 — 命中下列前缀的请求跳过 token 注入与 401 拦截。
- * 与旧架构 API_WHITE_LIST 保持一致
- */
+/** 免鉴权白名单 */
 export const API_WHITE_LIST: string[] = [
-  '/api/v1/auth/login',
-  '/api/v1/auth/register',
-  '/api/v1/auth/refresh',
-  '/api/v1/auth/captcha',
-  '/api/v1/auth/sms',
-  '/api/v1/customer_service/faqs',
-  '/cozeZhsApi/login',
-  '/cozeZhsApi/user/refresh-token',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/captcha',
+  '/api/auth/sms',
+  '/api/customer-service/faqs',
 ]
 
 /** 获取指定环境的 API 基础地址 */

@@ -289,7 +289,7 @@ export async function completeSchedule(id: string): Promise<ApiResult<{ success:
 
 /** 获取当前用户会员信息 */
 export async function getMyMemberInfo(): Promise<ApiResult<Member>> {
-  return fetchApi<Member>('/api/member/me')
+  return fetchApi<Member>('/api/members/me')
 }
 
 /** 获取会员列表 */
@@ -301,12 +301,12 @@ export async function getMembers(
 
 /** 获取会员详情 */
 export async function getMemberDetail(id: string): Promise<ApiResult<Member>> {
-  return fetchApi<Member>(`/api/member/${id}`)
+  return fetchApi<Member>(`/api/members/${id}`)
 }
 
 /** 更新会员信息 */
 export async function updateMember(id: string, input: Partial<Member>): Promise<ApiResult<Member>> {
-  return fetchApi<Member>(`/api/member/${id}`, {
+  return fetchApi<Member>(`/api/members/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -314,19 +314,19 @@ export async function updateMember(id: string, input: Partial<Member>): Promise<
 
 /** 获取会员等级列表 */
 export async function getMemberLevels(): Promise<ApiResult<MemberLevel[]>> {
-  return fetchApi<MemberLevel[]>('/api/member/levels')
+  return fetchApi<MemberLevel[]>('/api/members/levels')
 }
 
 /** 获取会员等级详情 */
 export async function getMemberLevelDetail(id: string): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>(`/api/member/levels/${id}`)
+  return fetchApi<MemberLevel>(`/api/members/levels/${id}`)
 }
 
 /** 创建会员等级 */
 export async function createMemberLevel(
   input: Partial<MemberLevel>,
 ): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>('/api/member/levels', {
+  return fetchApi<MemberLevel>('/api/members/levels', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -337,7 +337,7 @@ export async function updateMemberLevel(
   id: string,
   input: Partial<MemberLevel>,
 ): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>(`/api/member/levels/${id}`, {
+  return fetchApi<MemberLevel>(`/api/members/levels/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -345,5 +345,5 @@ export async function updateMemberLevel(
 
 /** 删除会员等级 */
 export async function deleteMemberLevel(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/member/levels/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/members/levels/${id}`, { method: 'DELETE' })
 }

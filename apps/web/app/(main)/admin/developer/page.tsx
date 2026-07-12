@@ -103,90 +103,12 @@ interface CozeForm {
   status: string
 }
 
-const MOCK_KEYS: ApiKey[] = [
-  {
-    id: '1',
-    name: '生产环境',
-    key: 'sk-prod-xxxxxxxxxxxxxxxxxxxx',
-    createdAt: '2026-05-01',
-    lastUsedAt: '2026-07-10 09:00',
-  },
-  {
-    id: '2',
-    name: '测试环境',
-    key: 'sk-test-yyyyyyyyyyyyyyyyyyyy',
-    createdAt: '2026-06-15',
-    lastUsedAt: '2026-07-09 18:24',
-  },
-]
-const MOCK_WEBHOOKS: WebhookConfig[] = [
-  {
-    id: '1',
-    url: 'https://example.com/hooks/order',
-    events: ['order.created', 'order.paid'],
-    isEnabled: true,
-  },
-  { id: '2', url: 'https://example.com/hooks/user', events: ['user.registered'], isEnabled: false },
-]
-const MOCK_SDKS: SdkItem[] = [
-  {
-    id: '1',
-    name: 'IHUI SDK for Node.js',
-    language: 'JavaScript',
-    version: 'v2.4.1',
-    url: '#download-node-sdk',
-  },
-  {
-    id: '2',
-    name: 'IHUI SDK for Python',
-    language: 'Python',
-    version: 'v1.8.0',
-    url: '#download-python-sdk',
-  },
-  {
-    id: '3',
-    name: 'IHUI SDK for Java',
-    language: 'Java',
-    version: 'v3.0.2',
-    url: '#download-java-sdk',
-  },
-  { id: '4', name: 'IHUI SDK for Go', language: 'Go', version: 'v1.2.0', url: '#download-go-sdk' },
-]
-
 const COZE_STATUS: Record<number, string> = { 0: '未使用', 1: '使用中', 2: '已过期' }
 const COZE_STATUS_CLASS: Record<number, string> = {
   0: 'bg-muted text-muted-foreground',
   1: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   2: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
 }
-const MOCK_COZE: CozeAccount[] = [
-  {
-    id: '1',
-    cozeId: 'cz-001',
-    signAccount: 'dev@example.com',
-    signPassword: '******',
-    signNickname: '主账号',
-    platform: 'coze',
-    address: 'https://api.coze.cn',
-    status: 1,
-    isDel: 0,
-    creator: 'admin',
-    createdAt: '2026-06-01',
-  },
-  {
-    id: '2',
-    cozeId: 'cz-002',
-    signAccount: 'test@example.com',
-    signPassword: '******',
-    signNickname: '测试号',
-    platform: 'coze',
-    address: 'https://api.coze.cn',
-    status: 0,
-    isDel: 0,
-    creator: 'admin',
-    createdAt: '2026-07-05',
-  },
-]
 const EMPTY_COZE: CozeForm = {
   cozeId: '',
   signAccount: '',
@@ -226,28 +148,28 @@ export default function DeveloperPage() {
     return () => clearTimeout(tm)
   }, [cozeSearch])
 
-  const { data: keys = MOCK_KEYS, isLoading } = useQuery({
+  const { data: keys, isLoading } = useQuery({
     queryKey: ['admin', 'developer', 'keys'],
     queryFn: async () => {
       const r = await fetchApi<ApiKey[]>('/api/admin/developer/keys')
-      if (r.success && r.data) return r.data
-      return MOCK_KEYS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: webhooks = MOCK_WEBHOOKS } = useQuery({
+  const { data: webhooks } = useQuery({
     queryKey: ['admin', 'developer', 'webhooks'],
     queryFn: async () => {
       const r = await fetchApi<WebhookConfig[]>('/api/admin/developer/webhooks')
-      if (r.success && r.data) return r.data
-      return MOCK_WEBHOOKS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: sdks = MOCK_SDKS } = useQuery({
+  const { data: sdks } = useQuery({
     queryKey: ['admin', 'developer', 'sdks'],
     queryFn: async () => {
       const r = await fetchApi<SdkItem[]>('/api/admin/developer/sdks')
-      if (r.success && r.data) return r.data
-      return MOCK_SDKS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const { data: cozeData, isLoading: cozeLoading } = useQuery({
@@ -259,8 +181,8 @@ export default function DeveloperPage() {
       })
       if (cozeDebounced) qs.set('keyword', cozeDebounced)
       const r = await fetchApi<CozeListData>(`/api/admin/developer/coze?${qs.toString()}`)
-      if (r.success && r.data) return r.data
-      return { list: MOCK_COZE, total: MOCK_COZE.length }
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
@@ -421,6 +343,9 @@ export default function DeveloperPage() {
   const cozeList = cozeData?.list ?? []
   const cozeTotal = cozeData?.total ?? 0
   const cozeTotalPages = Math.max(1, Math.ceil(cozeTotal / COZE_PAGE_SIZE))
+  const keysList = keys ?? []
+  const webhooksList = webhooks ?? []
+  const sdksList = sdks ?? []
 
   return (
     <div className="space-y-6">
@@ -462,13 +387,13 @@ export default function DeveloperPage() {
               </HasPermi>
             </CardHeader>
             <CardContent>
-              {keys.length === 0 ? (
+              {keysList.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   {t('developer.noData')}
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {keys.map((k) => (
+                  {keysList.map((k) => (
                     <div key={k.id} className="rounded-md border p-3">
                       <div className="flex items-start justify-between">
                         <div>
@@ -522,13 +447,13 @@ export default function DeveloperPage() {
               </HasPermi>
             </CardHeader>
             <CardContent>
-              {webhooks.length === 0 ? (
+              {webhooksList.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   {t('developer.noData')}
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {webhooks.map((w) => (
+                  {webhooksList.map((w) => (
                     <div key={w.id} className="rounded-md border p-3">
                       <div className="flex items-center justify-between">
                         <code className="break-all font-mono text-xs">{w.url}</code>
@@ -574,13 +499,13 @@ export default function DeveloperPage() {
           <Package className="h-5 w-5" />
           {t('developer.sdkDownloads')}
         </h2>
-        {sdks.length === 0 ? (
+        {sdksList.length === 0 ? (
           <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
             {t('developer.noData')}
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {sdks.map((s) => (
+            {sdksList.map((s) => (
               <Card key={s.id}>
                 <CardContent className="pt-4">
                   <div className="flex items-start justify-between">
