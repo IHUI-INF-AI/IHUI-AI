@@ -29,15 +29,25 @@ interface Template {
   id: string
   name: string
   description: string | null
+  backgroundImage: string | null
+  templateConfig: Record<string, unknown> | null
   status: number
   createdAt: string
 }
 interface TForm {
   name: string
   description: string
+  backgroundImage: string
+  templateConfig: string
   status: boolean
 }
-const EMPTY: TForm = { name: '', description: '', status: true }
+const EMPTY: TForm = {
+  name: '',
+  description: '',
+  backgroundImage: '',
+  templateConfig: '',
+  status: true,
+}
 const PAGE_SIZE = 10
 
 export default function EduCertificateTemplatesPage() {
@@ -58,9 +68,20 @@ export default function EduCertificateTemplatesPage() {
 
   const saveMut = useMutation({
     mutationFn: () => {
+      let templateConfig: Record<string, unknown> | undefined
+      const raw = form.templateConfig.trim()
+      if (raw) {
+        try {
+          templateConfig = JSON.parse(raw)
+        } catch {
+          throw new Error('模板配置JSON格式错误')
+        }
+      }
       const body = {
         name: form.name.trim(),
         description: form.description.trim() || null,
+        backgroundImage: form.backgroundImage.trim() || undefined,
+        templateConfig,
         status: form.status ? 1 : 0,
       }
       if (editing)
@@ -98,7 +119,13 @@ export default function EduCertificateTemplatesPage() {
   }
   function openEdit(t: Template) {
     setEditing(t)
-    setForm({ name: t.name, description: t.description ?? '', status: t.status === 1 })
+    setForm({
+      name: t.name,
+      description: t.description ?? '',
+      backgroundImage: t.backgroundImage ?? '',
+      templateConfig: t.templateConfig ? JSON.stringify(t.templateConfig, null, 2) : '',
+      status: t.status === 1,
+    })
     setErr(null)
     setOpen(true)
   }
@@ -280,6 +307,26 @@ export default function EduCertificateTemplatesPage() {
                 rows={3}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-bg">背景图片</Label>
+              <Input
+                id="tpl-bg"
+                value={form.backgroundImage}
+                onChange={(e) => setForm({ ...form, backgroundImage: e.target.value })}
+                placeholder="背景图片URL（选填）"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tpl-config">模板配置 (JSON)</Label>
+              <textarea
+                id="tpl-config"
+                className={cn(textareaClass, 'font-mono')}
+                rows={4}
+                value={form.templateConfig}
+                onChange={(e) => setForm({ ...form, templateConfig: e.target.value })}
+                placeholder='{"fields":["name","title"]}'
               />
             </div>
             <div className="flex items-center gap-2">

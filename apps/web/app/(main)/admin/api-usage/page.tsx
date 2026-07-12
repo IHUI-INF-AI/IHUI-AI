@@ -29,29 +29,6 @@ interface TopEndpoint {
   errorRate: number
 }
 
-const MOCK_STATS: UsageStats = {
-  totalCalls: 1280420,
-  todayCalls: 32104,
-  errorRate: 0.42,
-  avgLatency: 86,
-}
-const MOCK_DAY_USAGE: DayUsage[] = [
-  { date: '2026-07-04', calls: 28410 },
-  { date: '2026-07-05', calls: 31200 },
-  { date: '2026-07-06', calls: 26450 },
-  { date: '2026-07-07', calls: 33890 },
-  { date: '2026-07-08', calls: 35120 },
-  { date: '2026-07-09', calls: 30180 },
-  { date: '2026-07-10', calls: 32104 },
-]
-const MOCK_TOP: TopEndpoint[] = [
-  { id: '1', endpoint: '/api/chat/messages', method: 'POST', calls: 128420, errorRate: 0.4 },
-  { id: '2', endpoint: '/api/agents', method: 'GET', calls: 98210, errorRate: 0.1 },
-  { id: '3', endpoint: '/api/health', method: 'GET', calls: 86400, errorRate: 0.0 },
-  { id: '4', endpoint: '/api/admin/users', method: 'GET', calls: 54120, errorRate: 0.0 },
-  { id: '5', endpoint: '/api/orders', method: 'POST', calls: 32100, errorRate: 1.2 },
-]
-
 const METHOD_COLOR: Record<string, string> = {
   GET: 'bg-primary/10 text-primary',
   POST: 'bg-emerald-500/10 text-emerald-600',
@@ -63,59 +40,64 @@ export default function ApiUsagePage() {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
 
-  const { data: stats = MOCK_STATS, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'api-usage', 'stats'],
     queryFn: async () => {
       const r = await fetchApi<UsageStats>('/api/admin/api-usage/stats')
-      if (r.success && r.data) return r.data
-      return MOCK_STATS
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: dayUsage = MOCK_DAY_USAGE } = useQuery({
+  const { data: dayUsage } = useQuery({
     queryKey: ['admin', 'api-usage', 'day'],
     queryFn: async () => {
       const r = await fetchApi<DayUsage[]>('/api/admin/api-usage/day')
-      if (r.success && r.data) return r.data
-      return MOCK_DAY_USAGE
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
-  const { data: top = MOCK_TOP } = useQuery({
+  const { data: top } = useQuery({
     queryKey: ['admin', 'api-usage', 'top'],
     queryFn: async () => {
       const r = await fetchApi<TopEndpoint[]>('/api/admin/api-usage/top')
-      if (r.success && r.data) return r.data
-      return MOCK_TOP
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
-  const cards = [
-    {
-      label: t('apiUsage.totalCalls'),
-      value: stats.totalCalls.toLocaleString(),
-      icon: BarChart3,
-      color: 'text-primary',
-    },
-    {
-      label: t('apiUsage.todayCalls'),
-      value: stats.todayCalls.toLocaleString(),
-      icon: Activity,
-      color: 'text-primary',
-    },
-    {
-      label: t('apiUsage.errorRate'),
-      value: `${stats.errorRate}%`,
-      icon: AlertTriangle,
-      color: 'text-amber-600',
-    },
-    {
-      label: t('apiUsage.avgLatency'),
-      value: `${stats.avgLatency}ms`,
-      icon: Timer,
-      color: 'text-purple-600',
-    },
-  ]
+  const dayUsageList = dayUsage ?? []
+  const topList = top ?? []
 
-  const maxCalls = Math.max(...dayUsage.map((d) => d.calls))
+  const cards = stats
+    ? [
+        {
+          label: t('apiUsage.totalCalls'),
+          value: stats.totalCalls.toLocaleString(),
+          icon: BarChart3,
+          color: 'text-primary',
+        },
+        {
+          label: t('apiUsage.todayCalls'),
+          value: stats.todayCalls.toLocaleString(),
+          icon: Activity,
+          color: 'text-primary',
+        },
+        {
+          label: t('apiUsage.errorRate'),
+          value: `${stats.errorRate}%`,
+          icon: AlertTriangle,
+          color: 'text-amber-600',
+        },
+        {
+          label: t('apiUsage.avgLatency'),
+          value: `${stats.avgLatency}ms`,
+          icon: Timer,
+          color: 'text-purple-600',
+        },
+      ]
+    : []
+
+  const maxCalls = dayUsageList.length > 0 ? Math.max(...dayUsageList.map((d) => d.calls)) : 0
 
   return (
     <div className="space-y-6">
@@ -133,6 +115,10 @@ export default function ApiUsagePage() {
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             {tc('search')}
+          </div>
+        ) : !stats ? (
+          <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+            {t('apiUsage.noData')}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -161,7 +147,7 @@ export default function ApiUsagePage() {
         </h2>
         <Card>
           <CardContent className="pt-4">
-            {dayUsage.length === 0 ? (
+            {dayUsageList.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {t('apiUsage.noData')}
               </p>
@@ -176,7 +162,7 @@ export default function ApiUsagePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {dayUsage.map((d) => (
+                    {dayUsageList.map((d) => (
                       <tr key={d.date} className="border-t">
                         <td className="px-3 py-2 text-muted-foreground">{d.date}</td>
                         <td className="px-3 py-2 font-medium">{d.calls.toLocaleString()}</td>
@@ -201,7 +187,7 @@ export default function ApiUsagePage() {
       {/* Top 端点 */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t('apiUsage.topEndpoints')}</h2>
-        {top.length === 0 ? (
+        {topList.length === 0 ? (
           <div className="rounded-lg border border-dashed py-12 text-center text-muted-foreground">
             {t('apiUsage.noData')}
           </div>
@@ -218,7 +204,7 @@ export default function ApiUsagePage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {top.map((e, i) => (
+                {topList.map((e, i) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-2.5 font-mono text-xs">{e.endpoint}</td>
