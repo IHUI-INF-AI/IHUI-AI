@@ -17,7 +17,6 @@ import { ProfileStatsCards } from './ProfileStatsCards'
 import { ProfileAccountInfo } from './ProfileAccountInfo'
 import { ProfileEditForm } from './ProfileEditForm'
 import {
-  MOCK_ROUTINES,
   profileSchema,
   type ProfileForm,
   type ProfileResponse,
@@ -148,7 +147,7 @@ export default function ProfilePage() {
 
       <div className="space-y-2">
         <h2 className="text-sm font-semibold">例行程序</h2>
-        <RoutinesPanel routines={MOCK_ROUTINES} />
+        <RoutinesPanel routines={[]} />
       </div>
 
       <div className="space-y-2">

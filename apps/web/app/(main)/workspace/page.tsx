@@ -22,44 +22,6 @@ import { WorkspaceFolderSelector } from '@/components/ai/workspace-folder-select
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 
-const MOCK_FOLDERS = [
-  {
-    id: 'f1',
-    name: 'src',
-    path: '/src',
-    children: [
-      { id: 'f1-1', name: 'components', path: '/src/components' },
-      { id: 'f1-2', name: 'lib', path: '/src/lib' },
-    ],
-  },
-  { id: 'f2', name: 'public', path: '/public' },
-]
-
-const MOCK_CHECKPOINTS = [
-  { id: 'c1', label: '初始化项目', timestamp: '10:00', diff: '+ import React' },
-  { id: 'c2', label: '添加认证模块', timestamp: '11:30', diff: '+ export function auth()' },
-]
-
-const MOCK_FILES = [
-  { id: 'file1', name: 'auth.ts', path: 'src/lib/auth.ts' },
-  { id: 'file2', name: 'api.ts', path: 'src/lib/api.ts' },
-]
-
-const MOCK_OLD = `function auth(token) {
-  return token
-}`
-
-const MOCK_NEW = `function auth(token: string): User {
-  if (!token) throw new Error('empty')
-  return decode(token)
-}`
-
-const MOCK_DIFF = `- function auth(token) {
--   return token
-+ function auth(token: string): User {
-+   if (!token) throw new Error('empty')
-+   return decode(token)`
-
 interface ProjectItem {
   id: string
   name: string
@@ -228,30 +190,25 @@ export default function WorkspacePage() {
         <h2 className="text-base font-semibold">开发者工具</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <WorkspaceFolderSelector
-            folders={MOCK_FOLDERS}
+            folders={[]}
             selected={selectedFolder}
             onSelect={setSelectedFolder}
           />
-          <CheckpointHistoryPanel checkpoints={MOCK_CHECKPOINTS} />
+          <CheckpointHistoryPanel checkpoints={[]} />
         </div>
         <div className="relative">
           <Button variant="outline" size="sm" onClick={() => setMentionOpen((v) => !v)}>
             提及文件
           </Button>
           <FileMentionPopover
-            files={MOCK_FILES}
+            files={[]}
             open={mentionOpen}
             onSelect={() => setMentionOpen(false)}
             onClose={() => setMentionOpen(false)}
           />
         </div>
-        <DiffPreview
-          oldContent={MOCK_OLD}
-          newContent={MOCK_NEW}
-          language="typescript"
-          filename="auth.ts"
-        />
-        <InlineDiffViewer content={MOCK_DIFF} filename="auth.ts" />
+        <DiffPreview oldContent="" newContent="" language="typescript" filename="auth.ts" />
+        <InlineDiffViewer content="" filename="auth.ts" />
       </section>
     </div>
   )
