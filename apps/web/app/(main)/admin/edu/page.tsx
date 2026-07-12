@@ -14,6 +14,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent } from '@ihui/ui'
 
 interface Module {
@@ -27,77 +28,76 @@ interface Module {
 const MODULES: Module[] = [
   {
     href: '/admin/edu/exam',
-    title: '考试管理',
-    desc: '题库、试卷、组卷、批阅、排名',
+    title: 'examTitle',
+    desc: 'examDesc',
     icon: GraduationCap,
     gradient: 'from-indigo-500 to-purple-600',
   },
   {
     href: '/admin/edu/answer',
-    title: '答题管理',
-    desc: '在线答题、编程判题、答题卡',
+    title: 'answerTitle',
+    desc: 'answerDesc',
     icon: ClipboardCheck,
     gradient: 'from-rose-500 to-pink-600',
   },
   {
     href: '/admin/edu/learn',
-    title: '学习管理',
-    desc: '课程、直播录播、资料作业、进度排行',
+    title: 'learnTitle',
+    desc: 'learnDesc',
     icon: BookOpen,
     gradient: 'from-emerald-500 to-green-600',
   },
   {
     href: '/admin/edu/student',
-    title: '学员管理',
-    desc: '学员信息、详情、等级',
+    title: 'studentTitle',
+    desc: 'studentDesc',
     icon: Users,
     gradient: 'from-sky-500 to-blue-600',
   },
   {
     href: '/admin/edu/teacher',
-    title: '讲师管理',
-    desc: '讲师信息、详情、审核',
+    title: 'teacherTitle',
+    desc: 'teacherDesc',
     icon: UserCog,
     gradient: 'from-amber-500 to-orange-600',
   },
   {
     href: '/admin/edu/course',
-    title: '课程管理',
-    desc: '课程CRUD、分类、章节',
+    title: 'courseTitle',
+    desc: 'courseDesc',
     icon: BookMarked,
     gradient: 'from-violet-500 to-fuchsia-600',
   },
   {
     href: '/admin/edu/class',
-    title: '班级管理',
-    desc: '班级、成员、排课',
+    title: 'classTitle',
+    desc: 'classDesc',
     icon: FolderTree,
     gradient: 'from-teal-500 to-cyan-600',
   },
   {
     href: '/admin/edu/certificate',
-    title: '证书管理',
-    desc: '颁发、模板、已发证书',
+    title: 'certificateTitle',
+    desc: 'certificateDesc',
     icon: Award,
     gradient: 'from-yellow-500 to-amber-600',
   },
   {
     href: '/admin/edu/finance',
-    title: '财务管理',
-    desc: '订单、发票、统计',
+    title: 'financeTitle',
+    desc: 'financeDesc',
     icon: Wallet,
     gradient: 'from-red-500 to-rose-600',
   },
 ]
 
 export default function EduHubPage() {
+  const t = useTranslations('admin.edu.index')
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">教育后台</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          考试、答题、学习、学员、讲师、课程、班级、证书、财务管理
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {MODULES.map((m) => {
@@ -115,8 +115,8 @@ export default function EduHubPage() {
                     <Icon className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-semibold">{m.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{m.desc}</p>
+                    <h3 className="font-semibold">{t(m.title)}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{t(m.desc)}</p>
                   </div>
                 </CardContent>
               </Card>
