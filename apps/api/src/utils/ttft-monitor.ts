@@ -23,6 +23,8 @@
  *   }
  */
 
+import { logger } from './logger.js'
+
 // =============================================================================
 // 类型定义
 // =============================================================================
@@ -189,7 +191,7 @@ export class TtftMonitor {
       const p95 = percentile(recent, 0.95)
       if (p95 > this.alertP95) {
         this.alertCount++
-        console.warn(
+        logger.warn(
           `[ttft] alert: p95=${p95.toFixed(3)}s > ${this.alertP95}s ` +
             `model=${model} endpoint=${endpoint}`,
         )

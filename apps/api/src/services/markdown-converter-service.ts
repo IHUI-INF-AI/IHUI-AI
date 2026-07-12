@@ -18,6 +18,7 @@ import { extname } from 'node:path'
 import { inflateRawSync } from 'node:zlib'
 import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
+import { logger } from '../utils/logger.js'
 
 // ============================================================================
 // .docx — mammoth
@@ -283,7 +284,7 @@ export async function convertToMarkdown(filePath: string): Promise<string> {
         return ''
     }
   } catch (e) {
-    console.error('[markdown-converter] convert failed:', (e as Error).message)
+    logger.error('[markdown-converter] convert failed', { error: (e as Error).message })
     return ''
   }
 }

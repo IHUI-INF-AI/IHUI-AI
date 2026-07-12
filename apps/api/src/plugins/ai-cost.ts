@@ -7,6 +7,7 @@ import { aiCostRecords, aiBudgets, type AiCostRecord } from '@ihui/database'
 import { authenticate } from './auth.js'
 import { success, error } from '../utils/response.js'
 import { calculateCost } from '../services/pricing-service.js'
+import { logger } from '../utils/logger.js'
 
 // =============================================================================
 // Prompt 缓存 (LRU, 内存)
@@ -131,7 +132,7 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
     })
     if (result.totalCost === 0) {
       // 模型无定价配置: 回退 0 成本并记录 warning
-      console.warn(`[ai-cost] 模型无定价配置,回退 0 成本: model=${input.model}`)
+      logger.warn(`[ai-cost] 模型无定价配置,回退 0 成本: model=${input.model}`)
     }
     cost = result.totalCost
   }
