@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -17,6 +18,7 @@ import { PAGE_SIZE, PERM, EMPTY_FORM, EMPTY_SEARCH, userPlatformToForm } from '.
 import type { UserPlatform, CForm, SearchQ } from './types'
 
 export default function EduUserPlatformPage() {
+  const t = useTranslations('admin.eduUserPlatform')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [q, setQ] = React.useState<SearchQ>(EMPTY_SEARCH)
@@ -48,7 +50,7 @@ export default function EduUserPlatformPage() {
         : eduApi(`/api/admin/user-platform`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'user-platform'] })
       closeDialog()
     },
@@ -57,7 +59,7 @@ export default function EduUserPlatformPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`/api/admin/user-platform/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'user-platform'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -84,8 +86,8 @@ export default function EduUserPlatformPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.userUuid.trim()) return setErr('用户UUID不能为空')
-    if (!form.platformId.trim()) return setErr('平台ID不能为空')
+    if (!form.userUuid.trim()) return setErr(t('userUuidRequired'))
+    if (!form.platformId.trim()) return setErr(t('platformIdRequired'))
     saveMut.mutate()
   }
   function handleExport() {
@@ -93,19 +95,19 @@ export default function EduUserPlatformPage() {
       `/api/admin/user-platform${buildQs({ ...q, pageSize: 10000 })}`,
       `userPlatform_${Date.now()}`,
       [
-        { key: 'id', title: 'ID' },
-        { key: 'userUuid', title: '用户UUID' },
-        { key: 'platformId', title: '平台ID' },
-        { key: 'identityId', title: '身份ID' },
-        { key: 'status', title: '状态' },
-        { key: 'isDel', title: '是否删除' },
-        { key: 'createdAt', title: '注册时间' },
-        { key: 'updator', title: '更新人' },
+        { key: 'id', title: t('colId') },
+        { key: 'userUuid', title: t('colUserUuid') },
+        { key: 'platformId', title: t('colPlatformId') },
+        { key: 'identityId', title: t('colIdentityId') },
+        { key: 'status', title: t('colStatus') },
+        { key: 'isDel', title: t('labelIsDel') },
+        { key: 'createdAt', title: t('colCreatedAt') },
+        { key: 'updator', title: t('colUpdator') },
       ],
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function handleDelete(r: UserPlatform) {
-    if (!window.confirm('确定删除？')) return
+    if (!window.confirm(t('deleteConfirm'))) return
     deleteMut.mutate(r.id)
   }
 
@@ -121,20 +123,20 @@ export default function EduUserPlatformPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">用户平台关系</h1>
-          <p className="mt-1 text-sm text-muted-foreground">用户与教育平台的绑定关系</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <HasPermi code={`${PERM}add`}>
             <Button onClick={openCreate} size="sm">
               <Plus className="h-4 w-4" />
-              新建
+              {t('create')}
             </Button>
           </HasPermi>
           <HasPermi code={`${PERM}export`}>
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              导出
+              {t('export')}
             </Button>
           </HasPermi>
         </div>
@@ -159,7 +161,7 @@ export default function EduUserPlatformPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -168,18 +170,16 @@ export default function EduUserPlatformPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
-          </span>
+          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

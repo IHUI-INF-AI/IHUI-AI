@@ -115,7 +115,7 @@ export default function AboutPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('icp')}</span>
-                <span>京ICP备00000000号</span>
+                <span>{t('icpPlaceholder')}</span>
               </div>
             </CardContent>
           </Card>

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 
 import { Input } from '@ihui/ui'
@@ -11,6 +12,7 @@ interface DictFilterProps {
 }
 
 export function DictFilter({ search, onSearchChange }: DictFilterProps) {
+  const t = useTranslations('adminTools')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">
@@ -18,7 +20,7 @@ export function DictFilter({ search, onSearchChange }: DictFilterProps) {
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="搜索字典名称 / 编码..."
+          placeholder={t('dict.searchPlaceholder')}
           className="h-9 pl-8"
         />
       </div>

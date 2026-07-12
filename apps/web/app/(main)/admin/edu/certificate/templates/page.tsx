@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -14,6 +15,7 @@ import { PAGE_SIZE, EMPTY, templateToForm } from './helpers'
 import type { Template, TForm } from './types'
 
 export default function EduCertificateTemplatesPage() {
+  const t = useTranslations('admin.eduCertTemplate')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
@@ -37,7 +39,7 @@ export default function EduCertificateTemplatesPage() {
         try {
           templateConfig = JSON.parse(raw)
         } catch {
-          throw new Error('模板配置JSON格式错误')
+          throw new Error(t('configJsonError'))
         }
       }
       const body = {
@@ -58,7 +60,7 @@ export default function EduCertificateTemplatesPage() {
       })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'cert', 'templates'] })
       closeDialog()
     },
@@ -68,7 +70,7 @@ export default function EduCertificateTemplatesPage() {
     mutationFn: (id: string) =>
       eduApi(`/api/admin/certificates/templates/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'cert', 'templates'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -95,11 +97,11 @@ export default function EduCertificateTemplatesPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.name.trim()) return setErr('名称不能为空')
+    if (!form.name.trim()) return setErr(t('nameRequired'))
     saveMut.mutate()
   }
   function handleDelete(id: string) {
-    if (window.confirm('确定删除？')) deleteMut.mutate(id)
+    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(id)
   }
 
   const total = data?.total ?? 0
@@ -109,8 +111,8 @@ export default function EduCertificateTemplatesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">证书模板</h1>
-        <p className="mt-1 text-sm text-muted-foreground">管理证书模板样式</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <CertTemplateFilter onCreate={openCreate} />
@@ -125,7 +127,7 @@ export default function EduCertificateTemplatesPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -134,18 +136,16 @@ export default function EduCertificateTemplatesPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
-          </span>
+          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
