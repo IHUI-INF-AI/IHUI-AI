@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
@@ -15,6 +16,7 @@ import { CourseTable } from './CourseTable'
 import { CourseDialog } from './CourseDialog'
 
 export default function EduCoursePage() {
+  const t = useTranslations('admin.edu.course.index')
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [q, setQ] = React.useState({ title: '', stage: '', label: '', creator: '' })
@@ -47,7 +49,7 @@ export default function EduCoursePage() {
         : eduApi(API, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '创建成功')
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course'] })
       closeDialog()
     },
@@ -56,7 +58,7 @@ export default function EduCoursePage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => eduApi(`${API}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['edu', 'course'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -64,7 +66,7 @@ export default function EduCoursePage() {
   const batchDeleteMut = useMutation({
     mutationFn: (ids: string[]) => eduApi(`${API}/${ids.join(',')}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('批量删除成功')
+      toast.success(t('batchDeleteSuccess'))
       setIds([])
       qc.invalidateQueries({ queryKey: ['edu', 'course'] })
     },
@@ -102,7 +104,7 @@ export default function EduCoursePage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.title.trim()) return setErr('标题不能为空')
+    if (!form.title.trim()) return setErr(t('titleRequired'))
     saveMut.mutate()
   }
   function handleExport() {
@@ -110,7 +112,7 @@ export default function EduCoursePage() {
       `${API}${buildQs({ ...q, pageSize: 10000 })}`,
       `course_${Date.now()}`,
       EXPORT_COLS,
-    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? '导出成功' : '导出失败'))
+    ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
 
   const total = data?.total ?? 0
@@ -127,8 +129,8 @@ export default function EduCoursePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">课程管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">课程 CRUD、视频与价格管理</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <CourseFilter
         q={q}
@@ -142,7 +144,8 @@ export default function EduCoursePage() {
         }}
         onCreate={openCreate}
         onBatchDelete={() => {
-          if (window.confirm(`确定删除选中的 ${ids.length} 项？`)) batchDeleteMut.mutate(ids)
+          if (window.confirm(t('confirmBatchDelete', { count: ids.length })))
+            batchDeleteMut.mutate(ids)
         }}
         onExport={handleExport}
         hasSelection={ids.length > 0}
@@ -157,12 +160,12 @@ export default function EduCoursePage() {
         onToggleOne={toggleOne}
         onEdit={openEdit}
         onDelete={(r) => {
-          if (window.confirm('确定删除？')) deleteMut.mutate(r.id)
+          if (window.confirm(t('confirmDelete'))) deleteMut.mutate(r.id)
         }}
         deletePending={deleteMut.isPending}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -171,10 +174,10 @@ export default function EduCoursePage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('prevPage')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 页
+            {t('pageInfo', { page, totalPages })}
           </span>
           <Button
             variant="outline"
@@ -182,7 +185,7 @@ export default function EduCoursePage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('nextPage')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

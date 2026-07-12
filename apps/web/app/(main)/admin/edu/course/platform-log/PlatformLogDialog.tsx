@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Dialog,
   DialogContent,
@@ -36,12 +37,13 @@ export function PlatformLogDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const t = useTranslations('admin.edu.course.platformLog')
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{editing ? '编辑平台记录' : '新建平台记录'}</DialogTitle>
+            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -50,28 +52,28 @@ export function PlatformLogDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>平台ID</Label>
+              <Label>{t('platformId')}</Label>
               <Input
                 value={form.platformId}
                 onChange={(e) => setForm({ ...form, platformId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>课程ID</Label>
+              <Label>{t('courseId')}</Label>
               <Input
                 value={form.courseId}
                 onChange={(e) => setForm({ ...form, courseId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>视频ID</Label>
+              <Label>{t('videoId')}</Label>
               <Input
                 value={form.videoId}
                 onChange={(e) => setForm({ ...form, videoId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>类型</Label>
+              <Label>{t('typeLabel')}</Label>
               <Input
                 type="number"
                 value={form.type}
@@ -79,14 +81,14 @@ export function PlatformLogDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>创建人</Label>
+              <Label>{t('creator')}</Label>
               <Input
                 value={form.creator}
                 onChange={(e) => setForm({ ...form, creator: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label>系统创建人</Label>
+              <Label>{t('sysCreator')}</Label>
               <Input
                 value={form.sysCreator}
                 onChange={(e) => setForm({ ...form, sysCreator: e.target.value })}
@@ -94,7 +96,7 @@ export function PlatformLogDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>创建时间</Label>
+            <Label>{t('createdAt')}</Label>
             <DatePicker
               value={form.createdAt}
               onChange={(v) => setForm({ ...form, createdAt: v })}
@@ -102,10 +104,11 @@ export function PlatformLogDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('save')}
             </Button>
           </DialogFooter>
         </form>
