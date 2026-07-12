@@ -30,8 +30,10 @@ export async function ModelsGrid({ list }: Props) {
               </div>
               <span className="text-xs text-muted-foreground">{t(`providers.${m.provider}`)}</span>
             </div>
-            <CardTitle className="text-base">{m.name}</CardTitle>
-            <CardDescription>{m.description}</CardDescription>
+            <CardTitle className="text-base">
+              {m.name.startsWith('model.') ? t(m.name) : m.name}
+            </CardTitle>
+            <CardDescription>{m.description ? t(m.description) : ''}</CardDescription>
           </CardHeader>
           <CardContent className="mt-auto space-y-3 text-sm">
             <div className="flex items-center justify-between text-muted-foreground">

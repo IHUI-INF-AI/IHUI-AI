@@ -116,6 +116,11 @@ export default defineAppConfig({
     'pages/about/api-settings/index',
     'pages/recruitment/index/index',
     'pages/vip-trader/index/index',
+    'pages/share/index',
+    'pages/category-detail/index',
+    'pages/distribution/company/index',
+    'pages/study/video-detail/index',
+    'pages/carte/index',
   ],
   window: {
     backgroundTextStyle: 'light',

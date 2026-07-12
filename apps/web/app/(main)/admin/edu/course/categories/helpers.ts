@@ -18,10 +18,10 @@ export const API = '/api/admin/category-dictionary'
 
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
-  { key: 'code', title: '编码' },
-  { key: 'name', title: '名称' },
-  { key: 'prentId', title: '父ID' },
-  { key: 'typeId', title: '类型ID' },
-  { key: 'sort', title: '排序' },
-  { key: 'creator', title: '创建人' },
+  { key: 'code', title: 'col.code' },
+  { key: 'name', title: 'col.name' },
+  { key: 'prentId', title: 'col.parentId' },
+  { key: 'typeId', title: 'col.typeId' },
+  { key: 'sort', title: 'col.sort' },
+  { key: 'creator', title: 'col.creator' },
 ]

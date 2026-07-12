@@ -33,12 +33,12 @@ export const textareaCls =
 
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
-  { key: 'code', title: '编码' },
-  { key: 'name', title: '名称' },
-  { key: 'domain', title: '域名' },
-  { key: 'type', title: '类型' },
-  { key: 'status', title: '状态' },
-  { key: 'sort', title: '排序' },
-  { key: 'creator', title: '创建人' },
-  { key: 'createdAt', title: '创建时间' },
+  { key: 'code', title: 'col.code' },
+  { key: 'name', title: 'col.name' },
+  { key: 'domain', title: 'col.domain' },
+  { key: 'type', title: 'col.type' },
+  { key: 'status', title: 'col.status' },
+  { key: 'sort', title: 'col.sort' },
+  { key: 'creator', title: 'col.creator' },
+  { key: 'createdAt', title: 'col.createdAt' },
 ]

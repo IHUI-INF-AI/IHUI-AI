@@ -107,6 +107,23 @@ export type ResourceTag = typeof resourceTags.$inferSelect
 export type NewResourceTag = typeof resourceTags.$inferInsert
 
 /**
+ * 资源-标签关联表 - 资源与标签的多对多关联。
+ */
+export const resourceTagRelations = pgTable('resource_tag_relations', {
+  id: serial('id').primaryKey(),
+  resourceId: uuid('resource_id')
+    .references(() => resources.id, { onDelete: 'cascade' })
+    .notNull(),
+  tagId: uuid('tag_id')
+    .references(() => resourceTags.id, { onDelete: 'cascade' })
+    .notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type ResourceTagRelation = typeof resourceTagRelations.$inferSelect
+export type NewResourceTagRelation = typeof resourceTagRelations.$inferInsert
+
+/**
  * 资源下载记录表 - 记录用户下载资源的行为。
  * - resourceId: 关联 resources（逻辑关联，未做物理外键）。
  * - userId: 关联 users（逻辑关联）。
