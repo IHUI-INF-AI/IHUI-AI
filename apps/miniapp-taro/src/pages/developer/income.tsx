@@ -21,6 +21,8 @@ export default function DeveloperIncome() {
 
   useDidShow(load)
 
+  const list = (info?.list as Record<string, unknown>[]) || []
+
   return (
     <View className="income-page">
       <View className="page-header">
@@ -29,27 +31,31 @@ export default function DeveloperIncome() {
       <View className="summary-card">
         <View className="summary-item">
           <Text className="summary-label">总收入</Text>
-          <Text className="summary-value">¥{loading ? '--' : (info?.total ?? 0)}</Text>
+          <Text className="summary-value">¥{loading ? '--' : ((info?.total as number) ?? 0)}</Text>
         </View>
         <View className="summary-item">
           <Text className="summary-label">可提现</Text>
-          <Text className="summary-value">¥{loading ? '--' : (info?.available ?? 0)}</Text>
+          <Text className="summary-value">
+            ¥{loading ? '--' : ((info?.available as number) ?? 0)}
+          </Text>
         </View>
         <View className="summary-item">
           <Text className="summary-label">已提现</Text>
-          <Text className="summary-value">¥{loading ? '--' : (info?.withdrawn ?? 0)}</Text>
+          <Text className="summary-value">
+            ¥{loading ? '--' : ((info?.withdrawn as number) ?? 0)}
+          </Text>
         </View>
       </View>
-      {info?.list?.length ? (
+      {list.length ? (
         <View className="record-section">
           <Text className="section-title">收入明细</Text>
-          {info.list.map((r: Record<string, unknown>) => (
-            <View key={r.id} className="record-item">
+          {list.map((r) => (
+            <View key={r.id as string} className="record-item">
               <View className="record-info">
-                <Text className="record-title">{r.title || '收入'}</Text>
-                <Text className="record-time">{r.time || ''}</Text>
+                <Text className="record-title">{(r.title as string) || '收入'}</Text>
+                <Text className="record-time">{(r.time as string) || ''}</Text>
               </View>
-              <Text className="record-amount">+¥{r.amount}</Text>
+              <Text className="record-amount">+¥{r.amount as number}</Text>
             </View>
           ))}
         </View>

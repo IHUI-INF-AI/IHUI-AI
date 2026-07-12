@@ -5,14 +5,14 @@ import * as api from '@/api'
 import './index.css'
 
 export default function MemberDetail() {
-  const [list, setList] = useState<any[]>([])
+  const [list, setList] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = (await api.getSubordinates()) as any
-      setList(res?.list || [])
+      const res = (await api.getSubordinates()) as Record<string, unknown>
+      setList((res?.list as Record<string, unknown>[]) || [])
     } catch (e) {
       console.error('加载团队成员失败:', e)
     } finally {
@@ -34,8 +34,8 @@ export default function MemberDetail() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item">
-              <Text>{item.nickname || '成员'}</Text>
+            <View key={item.id as string} className="list-item">
+              <Text>{(item.nickname as string) || '成员'}</Text>
             </View>
           ))
         ) : (

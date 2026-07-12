@@ -38,8 +38,12 @@ export default function AiAssistantN8n() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item" onClick={() => onItemClick(item.id)}>
-              <Text>{item.name || item.title || 'N8N助手'}</Text>
+            <View
+              key={item.id as string}
+              className="list-item"
+              onClick={() => onItemClick(item.id as string)}
+            >
+              <Text>{(item.name as string) || (item.title as string) || 'N8N助手'}</Text>
             </View>
           ))
         ) : (

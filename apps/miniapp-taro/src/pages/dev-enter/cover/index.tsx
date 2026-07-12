@@ -38,8 +38,12 @@ export default function DevEnterCover() {
           <Text>加载中...</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="list-item" onClick={() => onItemClick(item.id)}>
-              <Text>{item.name || item.title || '智能体'}</Text>
+            <View
+              key={item.id as string}
+              className="list-item"
+              onClick={() => onItemClick(item.id as string)}
+            >
+              <Text>{(item.name as string) || (item.title as string) || '智能体'}</Text>
             </View>
           ))
         ) : (

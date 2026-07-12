@@ -31,13 +31,13 @@ export default function AigcList() {
           <Text className="loading-text">加载中...</Text>
         ) : list.length ? (
           list.map((item: Record<string, unknown>) => (
-            <View key={item.id} className="aigc-card">
+            <View key={item.id as string} className="aigc-card">
               {item.coverUrl ? (
-                <Image className="aigc-cover" src={item.coverUrl} mode="aspectFill" />
+                <Image className="aigc-cover" src={item.coverUrl as string} mode="aspectFill" />
               ) : null}
               <View className="aigc-info">
-                <Text className="aigc-title">{item.title || '未命名作品'}</Text>
-                <Text className="aigc-author">{item.author || '匿名'}</Text>
+                <Text className="aigc-title">{(item.title as string) || '未命名作品'}</Text>
+                <Text className="aigc-author">{(item.author as string) || '匿名'}</Text>
               </View>
             </View>
           ))

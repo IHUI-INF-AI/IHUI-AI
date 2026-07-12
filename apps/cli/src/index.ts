@@ -63,19 +63,19 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   if (opts.continue) {
     const session = getMostRecentSession();
     if (session) {
-      console.log(chalk.dim(`恢复最近会话: ${session.id} (${session.history.length} 条历史)`));
+      console.info(chalk.dim(`恢复最近会话: ${session.id} (${session.history.length} 条历史)`));
       return { sessionId: session.id, history: session.history };
     }
-    console.log(chalk.yellow('未找到历史会话, 将创建新会话'));
+    console.info(chalk.yellow('未找到历史会话, 将创建新会话'));
     return {};
   }
   if (opts.resume) {
     const session = loadSession(opts.resume as string);
     if (session) {
-      console.log(chalk.dim(`恢复会话: ${session.id} (${session.history.length} 条历史)`));
+      console.info(chalk.dim(`恢复会话: ${session.id} (${session.history.length} 条历史)`));
       return { sessionId: session.id, history: session.history };
     }
-    console.log(chalk.red(`未找到会话: ${opts.resume}`));
+    console.info(chalk.red(`未找到会话: ${opts.resume}`));
     process.exit(1);
   }
   return {};
@@ -151,11 +151,11 @@ program
   .action(async (options: { force?: boolean }) => {
     const workspace = process.cwd();
     if (agentsMdExists(workspace) && !options.force) {
-      console.log(chalk.yellow('AGENTS.md 已存在。使用 --force 覆盖。'));
+      console.info(chalk.yellow('AGENTS.md 已存在。使用 --force 覆盖。'));
       process.exit(1);
     }
     writeAgentsMd(workspace);
-    console.log(chalk.green(`已创建: ${join(workspace, 'AGENTS.md')}`));
+    console.info(chalk.green(`已创建: ${join(workspace, 'AGENTS.md')}`));
   });
 
 // sessions 子命令
@@ -165,16 +165,16 @@ program
   .action(() => {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      console.log(chalk.dim('暂无历史会话'));
+      console.info(chalk.dim('暂无历史会话'));
       return;
     }
-    console.log(chalk.cyan('\n历史会话:'));
+    console.info(chalk.cyan('\n历史会话:'));
     for (const s of sessions) {
       const time = new Date(s.updatedAt).toLocaleString();
-      console.log(`  ${chalk.bold(s.id)}  ${chalk.dim(time)}`);
-      console.log(`    工作区: ${s.workspacePath}  模型: ${s.modelId}  历史: ${s.history.length} 条`);
+      console.info(`  ${chalk.bold(s.id)}  ${chalk.dim(time)}`);
+      console.info(`    工作区: ${s.workspacePath}  模型: ${s.modelId}  历史: ${s.history.length} 条`);
     }
-    console.log('');
+    console.info('');
   });
 
 // mcp 子命令组
@@ -186,20 +186,20 @@ mcpCmd
   .action(() => {
     const config = loadMcpConfig();
     if (config.servers.length > 0) {
-      console.log(chalk.cyan('\n本地 MCP 服务器配置:'));
-      console.log(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
+      console.info(chalk.cyan('\n本地 MCP 服务器配置:'));
+      console.info(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
       for (const s of config.servers) {
         const transport = s.transport ?? 'stdio';
         if (transport === 'stdio') {
           const argStr = s.args && s.args.length > 0 ? ' ' + s.args.join(' ') : '';
-          console.log(`  ${chalk.bold(s.name)} [${transport}]: ${s.command ?? ''}${argStr}`);
+          console.info(`  ${chalk.bold(s.name)} [${transport}]: ${s.command ?? ''}${argStr}`);
         } else {
-          console.log(`  ${chalk.bold(s.name)} [${transport}]: ${s.url ?? ''}`);
+          console.info(`  ${chalk.bold(s.name)} [${transport}]: ${s.url ?? ''}`);
         }
       }
     } else {
-      console.log(chalk.dim('\n本地无 MCP 服务器配置'));
-      console.log(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
+      console.info(chalk.dim('\n本地无 MCP 服务器配置'));
+      console.info(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
     }
   });
 
@@ -217,7 +217,7 @@ mcpCmd
       options: { args?: string[]; transport?: 'stdio' | 'http' | 'sse'; url?: string; token?: string },
     ) => {
       if (!name) {
-        console.log(chalk.red('用法: ihui mcp add <name> [command] [-t stdio|http|sse] [-u url]'));
+        console.info(chalk.red('用法: ihui mcp add <name> [command] [-t stdio|http|sse] [-u url]'));
         process.exit(1);
       }
       const auth =
@@ -227,14 +227,14 @@ mcpCmd
         url: options.url,
         auth,
       });
-      console.log(chalk.green(`已添加 MCP 服务器: ${server.name}`));
-      console.log(`  传输: ${server.transport}`);
+      console.info(chalk.green(`已添加 MCP 服务器: ${server.name}`));
+      console.info(`  传输: ${server.transport}`);
       if (server.transport === 'stdio') {
-        console.log(`  命令: ${server.command ?? ''}`);
+        console.info(`  命令: ${server.command ?? ''}`);
       } else {
-        console.log(`  URL: ${server.url ?? ''}`);
+        console.info(`  URL: ${server.url ?? ''}`);
       }
-      console.log(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
+      console.info(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
     },
   );
 
@@ -243,9 +243,9 @@ mcpCmd
   .description('移除 MCP 服务器配置')
   .action((name: string) => {
     if (removeMcpServer(name)) {
-      console.log(chalk.green(`已移除 MCP 服务器: ${name}`));
+      console.info(chalk.green(`已移除 MCP 服务器: ${name}`));
     } else {
-      console.log(chalk.red(`未找到 MCP 服务器: ${name}`));
+      console.info(chalk.red(`未找到 MCP 服务器: ${name}`));
       process.exit(1);
     }
   });

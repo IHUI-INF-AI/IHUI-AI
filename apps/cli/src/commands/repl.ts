@@ -46,8 +46,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     lastDiff: null,
   };
 
-  console.log(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
-  console.log(chalk.dim('输入消息开始对话, /help 查看命令, /exit 退出\n'));
+  console.info(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
+  console.info(chalk.dim('输入消息开始对话, /help 查看命令, /exit 退出\n'));
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -73,7 +73,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   });
 
   rl.on('close', () => {
-    console.log(chalk.dim('\n再见 👋\n'));
+    console.info(chalk.dim('\n再见 👋\n'));
     process.exit(0);
   });
 }
@@ -82,17 +82,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
   const [cmd, ...args] = input.slice(1).split(/\s+/);
   switch (cmd) {
     case 'help':
-      console.log(chalk.cyan('\n可用命令:'));
-      console.log('  /help              显示帮助');
-      console.log('  /exit              退出');
-      console.log('  /clear             清除对话历史');
-      console.log('  /model [id]        切换模型');
-      console.log('  /workspace         显示当前工作区');
-      console.log('  /tools             列出可用工具');
-      console.log('  /init              创建 AGENTS.md 模板');
-      console.log('  /mcp               列出已配置的 MCP 服务器');
-      console.log('  /diff              显示最近的文件修改');
-      console.log('');
+      console.info(chalk.cyan('\n可用命令:'));
+      console.info('  /help              显示帮助');
+      console.info('  /exit              退出');
+      console.info('  /clear             清除对话历史');
+      console.info('  /model [id]        切换模型');
+      console.info('  /workspace         显示当前工作区');
+      console.info('  /tools             列出可用工具');
+      console.info('  /init              创建 AGENTS.md 模板');
+      console.info('  /mcp               列出已配置的 MCP 服务器');
+      console.info('  /diff              显示最近的文件修改');
+      console.info('');
       break;
 
     case 'exit':
@@ -108,7 +108,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         state.session.history = [];
         saveSession(state.session);
       }
-      console.log(chalk.green('对话历史已清除'));
+      console.info(chalk.green('对话历史已清除'));
       break;
 
     case 'model':
@@ -118,21 +118,21 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           state.session.modelId = args[0]!;
           saveSession(state.session);
         }
-        console.log(chalk.green(`模型已切换为: ${args[0]}`));
+        console.info(chalk.green(`模型已切换为: ${args[0]}`));
       } else {
         await interactiveModelSelect(state);
       }
       break;
 
     case 'workspace':
-      console.log(`工作区: ${state.opts.workspacePath}`);
+      console.info(`工作区: ${state.opts.workspacePath}`);
       break;
 
     case 'tools':
-      console.log(chalk.cyan('\n可用工具:'));
-      console.log('  read_file  write_file  edit_file  delete_file  list_dir');
-      console.log('  glob  grep  run_command  web_fetch  web_search  todo_write');
-      console.log('');
+      console.info(chalk.cyan('\n可用工具:'));
+      console.info('  read_file  write_file  edit_file  delete_file  list_dir');
+      console.info('  glob  grep  run_command  web_fetch  web_search  todo_write');
+      console.info('');
       break;
 
     case 'init':
@@ -148,7 +148,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
 
     default:
-      console.log(chalk.yellow(`未知命令: /${cmd}, /help 查看可用命令`));
+      console.info(chalk.yellow(`未知命令: /${cmd}, /help 查看可用命令`));
   }
 }
 
@@ -167,46 +167,46 @@ async function interactiveModelSelect(state: ReplState): Promise<void> {
       state.session.modelId = answers.model;
       saveSession(state.session);
     }
-    console.log(chalk.green(`模型已切换为: ${answers.model}`));
+    console.info(chalk.green(`模型已切换为: ${answers.model}`));
   } catch {
-    console.log(chalk.dim('请使用 /model <id> 指定模型'));
+    console.info(chalk.dim('请使用 /model <id> 指定模型'));
   }
 }
 
 async function handleInit(state: ReplState): Promise<void> {
   const wsPath = state.opts.workspacePath;
   if (agentsMdExists(wsPath)) {
-    console.log(chalk.yellow('AGENTS.md 已存在'));
+    console.info(chalk.yellow('AGENTS.md 已存在'));
     return;
   }
   writeAgentsMd(wsPath);
-  console.log(chalk.green(`已创建: ${path.join(wsPath, 'AGENTS.md')}`));
+  console.info(chalk.green(`已创建: ${path.join(wsPath, 'AGENTS.md')}`));
 }
 
 function handleMcpList(): void {
   const config = loadMcpConfig();
   if (config.servers.length > 0) {
-    console.log(chalk.cyan('\n本地 MCP 服务器配置 (~/.ihui/mcp.json):'));
+    console.info(chalk.cyan('\n本地 MCP 服务器配置 (~/.ihui/mcp.json):'));
     for (const s of config.servers) {
       const argStr = s.args && s.args.length > 0 ? ' ' + s.args.join(' ') : '';
-      console.log(`  ${chalk.bold(s.name)}: ${s.command ?? ''}${argStr}`);
+      console.info(`  ${chalk.bold(s.name)}: ${s.command ?? ''}${argStr}`);
     }
   } else {
-    console.log(chalk.dim('\n本地无 MCP 服务器配置'));
+    console.info(chalk.dim('\n本地无 MCP 服务器配置'));
   }
 }
 
 function handleDiff(state: ReplState): void {
   if (!state.lastDiff) {
-    console.log(chalk.dim('尚无文件修改记录'));
+    console.info(chalk.dim('尚无文件修改记录'));
     return;
   }
   const diff = state.lastDiff;
-  console.log(chalk.cyan(`\n最近修改的文件: ${diff.file}`));
-  console.log(chalk.dim(`操作: ${diff.action}`));
+  console.info(chalk.cyan(`\n最近修改的文件: ${diff.file}`));
+  console.info(chalk.dim(`操作: ${diff.action}`));
   if (diff.content) {
-    console.log(chalk.dim('\n内容:'));
-    console.log(diff.content);
+    console.info(chalk.dim('\n内容:'));
+    console.info(diff.content);
   }
 }
 
@@ -284,15 +284,15 @@ function handleEvent(event: Record<string, unknown>, spinner: ReturnType<typeof 
       break;
 
     case 'agent.tool.call':
-      console.log('');
-      console.log(chalk.cyan(`  🔧 ${event.name}`));
+      console.info('');
+      console.info(chalk.cyan(`  🔧 ${event.name}`));
       spinner.start(`  执行 ${event.name}...`);
       break;
 
     case 'agent.tool.result':
       spinner.stop();
       if (!event.success) {
-        console.log(chalk.red(`  ❌ ${event.error}`));
+        console.info(chalk.red(`  ❌ ${event.error}`));
       }
       break;
 
@@ -302,7 +302,7 @@ function handleEvent(event: Record<string, unknown>, spinner: ReturnType<typeof 
       break;
 
     case 'agent.done':
-      console.log(chalk.green(`\n\n✨ 完成 (${event.iterations} 次迭代)\n`));
+      console.info(chalk.green(`\n\n✨ 完成 (${event.iterations} 次迭代)\n`));
       break;
   }
 }
