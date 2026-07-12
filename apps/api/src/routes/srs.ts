@@ -22,6 +22,7 @@ import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { srsStreams, srsServers } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   createStream,
@@ -30,8 +31,6 @@ import {
   kickStream,
   healthCheckServer,
 } from '../services/srs-service.js'
-
-const ADMIN_ROLE_ID = 1
 
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
@@ -44,16 +43,6 @@ async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promis
       .send(error(statusCode, (e as Error).message || 'Authentication required'))
     return false
   }
-}
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  if (!(await requireAuth(request, reply))) return false
-  const roleId = (request as unknown as { roleId?: number }).roleId
-  if (roleId === undefined || roleId < ADMIN_ROLE_ID) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
 }
 
 const createStreamSchema = z.object({
@@ -124,7 +113,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/streams/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const parsed = updateStreamSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -140,14 +130,16 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/streams/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     await db.delete(srsStreams).where(eq(srsStreams.id, id))
     return reply.send(success({ deleted: true }))
   })
 
   server.post('/streams/:key/kick', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { key } = request.params as { key: string }
     const srv = await getActiveServer()
     if (!srv) return reply.status(503).send(error(503, '无可用 SRS 服务器'))
@@ -179,7 +171,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/servers', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createServerSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -189,7 +182,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/servers/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     const parsed = updateServerSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -205,7 +199,8 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/servers/:id', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = request.params as { id: string }
     await db.delete(srsServers).where(eq(srsServers.id, id))
     return reply.send(success({ deleted: true }))
