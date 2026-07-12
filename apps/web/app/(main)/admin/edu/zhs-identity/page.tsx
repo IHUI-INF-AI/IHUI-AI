@@ -69,7 +69,7 @@ const EMPTY: CForm = {
   isCross: '0',
 }
 const PAGE_SIZE = 10
-const PERM = 'course:zhsIdentity:'
+const PERM = 'course:zhsidentity:'
 const fmt = (s?: string | null) =>
   s
     ? new Intl.DateTimeFormat('zh-CN', {
